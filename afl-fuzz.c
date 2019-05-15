@@ -304,6 +304,9 @@ static u32 a_extras_cnt;              /* Total number of tokens available */
 
 static u8* (*post_handler)(u8* buf, u32* len);
 
+/* A hook for the custom mutator function */
+extern size_t AFLCustomMutator(uint8_t *data, size_t size, size_t max_size, unsigned int seed) __attribute__((weak));
+
 /* Interesting values, as per config.h */
 
 static s8  interesting_8[]  = { INTERESTING_8 };
@@ -330,7 +333,8 @@ enum {
   /* 14 */ STAGE_EXTRAS_AO,
   /* 15 */ STAGE_HAVOC,
   /* 16 */ STAGE_SPLICE,
-  /* 17 */ STAGE_PYTHON
+  /* 17 */ STAGE_PYTHON,
+  /* 18 */ STAGE_CUSTOM_MUTATOR
 };
 
 /* Stage value types */
@@ -1480,7 +1484,7 @@ static u64 next_p2(u64 val) {
   while (val > ret) ret <<= 1;
   return ret;
 
-} 
+}
 
 
 /* When we bump into a new path, we call this to see if the path appears
@@ -4127,7 +4131,7 @@ static void maybe_delete_out_dir(void) {
   fn = alloc_printf("%s/plot_data", out_dir);
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
-  
+
   fn = alloc_printf("%s/cmdline", out_dir);
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
@@ -4185,7 +4189,7 @@ static void show_stats(void) {
   /* Calculate smoothed exec speed stats. */
 
   if (!last_execs) {
-  
+
     avg_exec = ((double)total_execs) * 1000 / (cur_ms - start_time);
 
   } else {
@@ -4217,7 +4221,7 @@ static void show_stats(void) {
   t_bytes = count_non_255_bytes(virgin_bits);
   t_byte_ratio = ((double)t_bytes * 100) / MAP_SIZE;
 
-  if (t_bytes) 
+  if (t_bytes)
     stab_ratio = 100 - ((double)var_byte_count) * 100 / t_bytes;
   else
     stab_ratio = 100;
@@ -4239,7 +4243,7 @@ static void show_stats(void) {
 
     last_plot_ms = cur_ms;
     maybe_update_plot_file(t_byte_ratio, avg_exec);
- 
+
   }
 
   /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
@@ -4286,7 +4290,7 @@ static void show_stats(void) {
   memset(tmp, ' ', banner_pad);
 
   sprintf(tmp + banner_pad, "%s " cLCY VERSION cLGN
-          " (%s) " cPIN "[%s]",  crash_mode ? cPIN "peruvian were-rabbit" : 
+          " (%s) " cPIN "[%s]",  crash_mode ? cPIN "peruvian were-rabbit" :
           cYEL "american fuzzy lop", use_banner, power_name);
 
   SAYF("\n%s\n", tmp);
@@ -4348,7 +4352,7 @@ static void show_stats(void) {
 
     if (dumb_mode)
 
-      SAYF(bV bSTOP "   last new path : " cPIN "n/a" cRST 
+      SAYF(bV bSTOP "   last new path : " cPIN "n/a" cRST
            " (non-instrumented mode)       ");
 
      else
@@ -4375,7 +4379,7 @@ static void show_stats(void) {
   sprintf(tmp, "%s%s", DI(unique_hangs),
          (unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
-  SAYF(bV bSTOP "  last uniq hang : " cRST "%-33s " bSTG bV bSTOP 
+  SAYF(bV bSTOP "  last uniq hang : " cRST "%-33s " bSTG bV bSTOP
        "   uniq hangs : " cRST "%-6s" bSTG bV "\n",
        DTD(cur_ms, last_hang_time), tmp);
 
@@ -4392,10 +4396,10 @@ static void show_stats(void) {
 
   SAYF(bV bSTOP "  now processing : " cRST "%-16s " bSTG bV bSTOP, tmp);
 
-  sprintf(tmp, "%0.02f%% / %0.02f%%", ((double)queue_cur->bitmap_size) * 
+  sprintf(tmp, "%0.02f%% / %0.02f%%", ((double)queue_cur->bitmap_size) *
           100 / MAP_SIZE, t_byte_ratio);
 
-  SAYF("    map density : %s%-21s" bSTG bV "\n", t_byte_ratio > 70 ? cLRD : 
+  SAYF("    map density : %s%-21s" bSTG bV "\n", t_byte_ratio > 70 ? cLRD :
        ((t_bytes < 200 && !dumb_mode) ? cPIN : cRST), tmp);
 
   sprintf(tmp, "%s (%0.02f%%)", DI(cur_skipped_paths),
@@ -4416,7 +4420,7 @@ static void show_stats(void) {
 
   /* Yeah... it's still going on... halp? */
 
-  SAYF(bV bSTOP "  now trying : " cRST "%-20s " bSTG bV bSTOP 
+  SAYF(bV bSTOP "  now trying : " cRST "%-20s " bSTG bV bSTOP
        " favored paths : " cRST "%-22s" bSTG bV "\n", stage_name, tmp);
 
   if (!stage_max) {
@@ -4543,7 +4547,7 @@ static void show_stats(void) {
   if (t_bytes) sprintf(tmp, "%0.02f%%", stab_ratio);
     else strcpy(tmp, "n/a");
 
-  SAYF(" stability : %s%-10s" bSTG bV "\n", (stab_ratio < 85 && var_byte_count > 40) 
+  SAYF(" stability : %s%-10s" bSTG bV "\n", (stab_ratio < 85 && var_byte_count > 40)
        ? cLRD : ((queued_variable && (!persistent_mode || var_byte_count > 20))
        ? cMGN : cRST), tmp);
 
@@ -4577,9 +4581,14 @@ static void show_stats(void) {
     strcat(tmp, tmp2);
 
   }
-
-  SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n"
+  if (AFLCustomMutator) {
+    sprintf(tmp, "%s/%s", DI(stage_finds[STAGE_CUSTOM_MUTATOR]), DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
+    SAYF(bV bSTOP " custom mut. : " cRST "%-37s " bSTG bVR bH20 bH2 bH2 bRB "\n"
+             bLB bH30 bH20 bH2 bH bRB bSTOP cRST RESET_G1, tmp);
+  } else {
+    SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n"
        bLB bH30 bH20 bH2 bRB bSTOP cRST RESET_G1, tmp);
+  }
 
   /* Provide some CPU utilization stats. */
 
@@ -5140,7 +5149,7 @@ static u32 calculate_score(struct queue_entry* q) {
 
   switch (schedule) {
 
-    case EXPLORE: 
+    case EXPLORE:
       break;
 
     case EXPLOIT:
@@ -5151,7 +5160,7 @@ static u32 calculate_score(struct queue_entry* q) {
       fuzz_total = 0;
       n_paths = 0;
 
-      struct queue_entry *queue_it = queue;    
+      struct queue_entry *queue_it = queue;
       while (queue_it) {
         fuzz_total += queue_it->n_fuzz;
         n_paths ++;
@@ -5162,22 +5171,22 @@ static u32 calculate_score(struct queue_entry* q) {
       if (fuzz <= fuzz_mu) {
         if (q->fuzz_level < 16)
           factor = ((u32) (1 << q->fuzz_level));
-        else 
+        else
           factor = MAX_FACTOR;
       } else {
         factor = 0;
       }
       break;
-    
+
     case FAST:
       if (q->fuzz_level < 16) {
-         factor = ((u32) (1 << q->fuzz_level)) / (fuzz == 0 ? 1 : fuzz); 
+         factor = ((u32) (1 << q->fuzz_level)) / (fuzz == 0 ? 1 : fuzz);
       } else
         factor = MAX_FACTOR / (fuzz == 0 ? 1 : next_p2 (fuzz));
       break;
 
     case LIN:
-      factor = q->fuzz_level / (fuzz == 0 ? 1 : fuzz); 
+      factor = q->fuzz_level / (fuzz == 0 ? 1 : fuzz);
       break;
 
     case QUAD:
@@ -5187,7 +5196,7 @@ static u32 calculate_score(struct queue_entry* q) {
     default:
       PFATAL ("Unknown Power Schedule");
   }
-  if (factor > MAX_FACTOR) 
+  if (factor > MAX_FACTOR)
     factor = MAX_FACTOR;
 
   perf_score *= factor / POWER_BETA;
@@ -5500,7 +5509,7 @@ static u8 fuzz_one(char** argv) {
    * TRIMMING *
    ************/
 
-  if (!dumb_mode && !queue_cur->trim_done) {
+  if (!dumb_mode && !queue_cur->trim_done && !AFLCustomMutator) {
 
     u8 res = trim_case(argv, queue_cur, in_buf);
 
@@ -5530,16 +5539,39 @@ static u8 fuzz_one(char** argv) {
 
   if (perf_score == 0) goto abandon_entry;
 
+  if (AFLCustomMutator) {
+    stage_short = "custom";
+    stage_name = "custom mutator";
+    stage_max = 1 << 16;
+    stage_val_type = STAGE_VAL_NONE;
+
+    orig_hit_cnt = queued_paths + unique_crashes;
+
+    for (stage_cur = 0 ; stage_cur < stage_max ; stage_cur++) {
+      size_t orig_size = (size_t) len;
+      size_t mutated_size = AFLCustomMutator(out_buf, orig_size, orig_size + 10000, UR(UINT32_MAX));
+      if (common_fuzz_stuff(argv, out_buf, (u32)mutated_size)) {
+        goto abandon_entry;
+      }
+    }
+    new_hit_cnt = queued_paths + unique_crashes;
+
+    stage_finds[STAGE_CUSTOM_MUTATOR]  += new_hit_cnt - orig_hit_cnt;
+    stage_cycles[STAGE_CUSTOM_MUTATOR] += stage_max;
+    goto abandon_entry;
+  }
+
+
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
 
-  if (skip_deterministic 
-     || ((!queue_cur->passed_det) 
+  if (skip_deterministic
+     || ((!queue_cur->passed_det)
         && perf_score < (
               queue_cur->depth * 30 <= HAVOC_MAX_MULT * 100
-              ? queue_cur->depth * 30 
+              ? queue_cur->depth * 30
               : HAVOC_MAX_MULT * 100))
      || queue_cur->passed_det)
 #ifdef USE_PYTHON
