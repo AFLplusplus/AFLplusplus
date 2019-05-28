@@ -4,7 +4,7 @@ american fuzzy lop plus plus
 
   Written by Michal Zalewski <lcamtuf@google.com>
 
-  Repository: https://github.com/vanhauser-thc/afl++
+  Repository: https://github.com/vanhauser-thc/AFLplusplus
 
   afl++ is maintained by Marc Heuse <mh@mh-sec.de> as there have been
   no updates to afl since November 2017.
