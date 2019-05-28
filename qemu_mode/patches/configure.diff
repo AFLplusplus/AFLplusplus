@@ -1,0 +1,11 @@
+--- a/configure
++++ b/configure
+@@ -3855,7 +3855,7 @@ fi
+ # check if memfd is supported
+ memfd=no
+ cat > $TMPC << EOF
+-#include <sys/memfd.h>
++#include <sys/mman.h>
+ 
+ int main(void)
+ {

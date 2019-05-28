@@ -1,0 +1,20 @@
+Usage
+=====
+
+By default the passes will not run when you compile programs using 
+afl-clang-fast. Hence, you can use AFL as usual.
+To enable the passes you must set environment variables before you
+compile the target project.
+
+The following options exist:
+
+export LAF_SPLIT_SWITCHES=1     Enables the split-switches pass.
+
+export LAF_TRANSFORM_COMPARES=1 Enables the transform-compares pass
+                             (strcmp, memcmp, strncmp, strcasecmp, strncasecmp).
+
+export LAF_SPLIT_COMPARES=1     Enables the split-compares pass.
+      By default it will split all compares with a bit width <= 64 bits.
+      You can change this behaviour by setting 
+          export LAF_SPLIT_COMPARES_BITW=<bit_width>.
+
