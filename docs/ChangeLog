@@ -12,9 +12,18 @@ Staying informed
 Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
-Not sure if you should upgrade? The lowest currently recommended version
-is 2.41b. If you're stuck on an earlier release, it's strongly advisable
-to get on with the times.
+
+-----------------------------
+Version ++2.52c (2019-05-28):
+-----------------------------
+
+  - Applied community patches. See docs/PATCHES for the full list.
+    LLVM and Qemu modes are now faster.
+    Important changes:
+      afl-fuzz: -e EXTENSION  commandline option
+      llvm_mode: LAF-intel performance (needs activation, see llvm/README.laf-intel)
+      a few new environment variables for afl-fuzz, llvm and qemu, see docs/env_variables.txt
+
 
 ---------------------------
 Version 2.52b (2017-11-04):
