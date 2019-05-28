@@ -1,24 +1,16 @@
 /*
-  Copyright 2015 Google Inc. All rights reserved.
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at:
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
-*/
-
-/*
    american fuzzy lop - free CPU gizmo
    -----------------------------------
 
    Written and maintained by Michal Zalewski <lcamtuf@google.com>
+
+   Copyright 2015, 2016 Google Inc. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at:
+
+     http://www.apache.org/licenses/LICENSE-2.0
 
    This tool provides a fairly accurate measurement of CPU preemption rate.
    It is meant to complement the quick-and-dirty load average widget shown
@@ -30,7 +22,8 @@
    CPU-bound.
 
    The idea for the getrusage()-based approach comes from Jakub Wilk.
-*/
+
+ */
 
 #define AFL_MAIN
 #define _GNU_SOURCE
@@ -130,7 +123,7 @@ int main(int argc, char** argv) {
   u32 cpu_cnt = sysconf(_SC_NPROCESSORS_ONLN),
       idle_cpus = 0, maybe_cpus = 0, i;
 
-  SAYF(cCYA "afl-gotcpu " cBRI VERSION cRST " by <lcamtuf@google.com>\n");
+  SAYF(cCYA "afl-gotcpu" VERSION cRST " by <lcamtuf@google.com>\n");
 
   ACTF("Measuring per-core preemption rate (this will take %0.02f sec)...",
        ((double)CTEST_CORE_TRG_MS) / 1000);
@@ -222,7 +215,7 @@ int main(int argc, char** argv) {
 
   u32 util_perc;
 
-  SAYF(cCYA "afl-gotcpu " cBRI VERSION cRST " by <lcamtuf@google.com>\n");
+  SAYF(cCYA "afl-gotcpu" VERSION cRST " by <lcamtuf@google.com>\n");
 
   /* Run a busy loop for CTEST_TARGET_MS. */
 

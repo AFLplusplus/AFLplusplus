@@ -1,20 +1,4 @@
 /*
-  Copyright 2015 Google Inc. All rights reserved.
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at:
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
-*/
-
-/*
    american fuzzy lop - LLVM-mode instrumentation pass
    ---------------------------------------------------
 
@@ -24,10 +8,19 @@
    LLVM integration design comes from Laszlo Szekeres. C bits copied-and-pasted
    from afl-as.c are Michal's fault.
 
+   Copyright 2015, 2016 Google Inc. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at:
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
    This library is plugged into LLVM when invoking clang through afl-clang-fast.
    It tells the compiler to add code roughly equivalent to the bits discussed
    in ../afl-as.h.
-*/
+
+ */
 
 #define AFL_LLVM_PASS
 
@@ -38,12 +31,22 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/CFG.h"
+#include <algorithm>
 
 using namespace llvm;
 
@@ -76,6 +79,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   IntegerType *Int8Ty  = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
+  unsigned int cur_loc = 0;
 
   /* Show a banner */
 
@@ -125,7 +129,32 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       /* Make up cur_loc */
 
-      unsigned int cur_loc = AFL_R(MAP_SIZE);
+       //cur_loc++;
+      cur_loc = AFL_R(MAP_SIZE);
+
+      // only instrument if this basic block is the destination of a previous
+      // basic block that has multiple successors
+      // this gets rid of ~5-10% of instrumentations that are unnecessary
+      // result: a little more speed and less map pollution
+      int more_than_one = -1;
+      //fprintf(stderr, "BB %u: ", cur_loc);
+      for (BasicBlock *Pred : predecessors(&BB)) {
+        int count = 0;
+        if (more_than_one == -1)
+          more_than_one = 0;
+        //fprintf(stderr, " %p=>", Pred);
+        for (BasicBlock *Succ : successors(Pred)) {
+          //if (count > 0)
+          //  fprintf(stderr, "|");
+          if (Succ != NULL) count++;
+          //fprintf(stderr, "%p", Succ);
+        }
+        if (count > 1)
+          more_than_one = 1;
+      }
+      //fprintf(stderr, " == %d\n", more_than_one);
+      if (more_than_one != 1)
+        continue;
 
       ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 

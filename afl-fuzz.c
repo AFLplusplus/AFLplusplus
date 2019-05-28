@@ -1,20 +1,4 @@
 /*
-  Copyright 2013 Google Inc. All rights reserved.
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at:
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
-*/
-
-/*
    american fuzzy lop - fuzzer code
    --------------------------------
 
@@ -22,18 +6,24 @@
 
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
 
+   Copyright 2013, 2014, 2015, 2016, 2017 Google Inc. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at:
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
    how they affect the execution path.
 
-*/
+ */
 
 #define AFL_MAIN
 #define MESSAGES_TO_STDOUT
 
-#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
-#endif
 #define _FILE_OFFSET_BITS 64
 
 #include "config.h"
@@ -93,12 +83,14 @@
 EXP_ST u8 *in_dir,                    /* Input directory with test cases  */
           *out_file,                  /* File to fuzz, if any             */
           *out_dir,                   /* Working & output directory       */
+          *tmp_dir       ,            /* Temporary directory for input    */
           *sync_dir,                  /* Synchronization directory        */
           *sync_id,                   /* Fuzzer ID                        */
           *use_banner,                /* Display banner                   */
           *in_bitmap,                 /* Input bitmap                     */
           *doc_path,                  /* Path to documentation dir        */
           *target_path,               /* Path to target binary            */
+          *file_extension,            /* File extension                   */
           *orig_cmdline;              /* Original command line            */
 
 EXP_ST u32 exec_tmout = EXEC_TIMEOUT; /* Configurable exec timeout (ms)   */
@@ -3831,7 +3823,13 @@ static void maybe_delete_out_dir(void) {
 
   /* And now, for some finishing touches. */
 
-  fn = alloc_printf("%s/.cur_input", out_dir);
+  //fn = alloc_printf("%s/.cur_input", tmp_dir);
+  if (file_extension) {
+    fn = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
+  } else {
+    fn = alloc_printf("%s/.cur_input", out_dir);
+  }
+
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
@@ -3990,7 +3988,7 @@ static void show_stats(void) {
   if (term_too_small) {
 
     SAYF(cBRI "Your terminal is too small to display the UI.\n"
-         "Please resize terminal window to at least 80x25.\n" cRST);
+         "Please resize terminal window to at least 79x24.\n" cRST);
 
     return;
 
@@ -3999,14 +3997,14 @@ static void show_stats(void) {
   /* Let's start by drawing a centered banner. */
 
   banner_len = (crash_mode ? 24 : 22) + strlen(VERSION) + strlen(use_banner);
-  banner_pad = (80 - banner_len) / 2;
+  banner_pad = (79 - banner_len) / 2;
   memset(tmp, ' ', banner_pad);
 
   sprintf(tmp + banner_pad, "%s " cLCY VERSION cLGN
           " (%s)",  crash_mode ? cPIN "peruvian were-rabbit" : 
           cYEL "american fuzzy lop", use_banner);
 
-  SAYF("\n%s\n\n", tmp);
+  SAYF("\n%s\n", tmp);
 
   /* "Handy" shortcuts for drawing boxes... */
 
@@ -4023,7 +4021,7 @@ static void show_stats(void) {
   /* Lord, forgive me this. */
 
   SAYF(SET_G1 bSTG bLT bH bSTOP cCYA " process timing " bSTG bH30 bH5 bH2 bHB
-       bH bSTOP cCYA " overall results " bSTG bH5 bRT "\n");
+       bH bSTOP cCYA " overall results " bSTG bH2 bH2 bRT "\n");
 
   if (dumb_mode) {
 
@@ -4049,7 +4047,7 @@ static void show_stats(void) {
   }
 
   SAYF(bV bSTOP "        run time : " cRST "%-34s " bSTG bV bSTOP
-       "  cycles done : %s%-5s  " bSTG bV "\n",
+       "  cycles done : %s%-5s " bSTG bV "\n",
        DTD(cur_ms, start_time), tmp, DI(queue_cycle - 1));
 
   /* We want to warn people about not seeing new paths after a full cycle,
@@ -4075,7 +4073,7 @@ static void show_stats(void) {
 
   }
 
-  SAYF(bSTG bV bSTOP "  total paths : " cRST "%-5s  " bSTG bV "\n",
+  SAYF(bSTG bV bSTOP "  total paths : " cRST "%-5s " bSTG bV "\n",
        DI(queued_paths));
 
   /* Highlight crashes in red if found, denote going over the KEEP_UNIQUE_CRASH
@@ -4085,7 +4083,7 @@ static void show_stats(void) {
           (unique_crashes >= KEEP_UNIQUE_CRASH) ? "+" : "");
 
   SAYF(bV bSTOP " last uniq crash : " cRST "%-34s " bSTG bV bSTOP
-       " uniq crashes : %s%-6s " bSTG bV "\n",
+       " uniq crashes : %s%-6s" bSTG bV "\n",
        DTD(cur_ms, last_crash_time), unique_crashes ? cLRD : cRST,
        tmp);
 
@@ -4093,11 +4091,11 @@ static void show_stats(void) {
          (unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   SAYF(bV bSTOP "  last uniq hang : " cRST "%-34s " bSTG bV bSTOP 
-       "   uniq hangs : " cRST "%-6s " bSTG bV "\n",
+       "   uniq hangs : " cRST "%-6s" bSTG bV "\n",
        DTD(cur_ms, last_hang_time), tmp);
 
   SAYF(bVR bH bSTOP cCYA " cycle progress " bSTG bH20 bHB bH bSTOP cCYA
-       " map coverage " bSTG bH bHT bH20 bH2 bH bVL "\n");
+       " map coverage " bSTG bH bHT bH20 bH2 bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
      together, but then cram them into a fixed-width field - so we need to
@@ -4112,7 +4110,7 @@ static void show_stats(void) {
   sprintf(tmp, "%0.02f%% / %0.02f%%", ((double)queue_cur->bitmap_size) * 
           100 / MAP_SIZE, t_byte_ratio);
 
-  SAYF("    map density : %s%-21s " bSTG bV "\n", t_byte_ratio > 70 ? cLRD : 
+  SAYF("    map density : %s%-21s" bSTG bV "\n", t_byte_ratio > 70 ? cLRD : 
        ((t_bytes < 200 && !dumb_mode) ? cPIN : cRST), tmp);
 
   sprintf(tmp, "%s (%0.02f%%)", DI(cur_skipped_paths),
@@ -4123,10 +4121,10 @@ static void show_stats(void) {
   sprintf(tmp, "%0.02f bits/tuple",
           t_bytes ? (((double)t_bits) / t_bytes) : 0);
 
-  SAYF(bSTOP " count coverage : " cRST "%-21s " bSTG bV "\n", tmp);
+  SAYF(bSTOP " count coverage : " cRST "%-21s" bSTG bV "\n", tmp);
 
   SAYF(bVR bH bSTOP cCYA " stage progress " bSTG bH20 bX bH bSTOP cCYA
-       " findings in depth " bSTG bH20 bVL "\n");
+       " findings in depth " bSTG bH10 bH5 bH2 bH2 bVL "\n");
 
   sprintf(tmp, "%s (%0.02f%%)", DI(queued_favored),
           ((double)queued_favored) * 100 / queued_paths);
@@ -4134,7 +4132,7 @@ static void show_stats(void) {
   /* Yeah... it's still going on... halp? */
 
   SAYF(bV bSTOP "  now trying : " cRST "%-21s " bSTG bV bSTOP 
-       " favored paths : " cRST "%-22s " bSTG bV "\n", stage_name, tmp);
+       " favored paths : " cRST "%-22s" bSTG bV "\n", stage_name, tmp);
 
   if (!stage_max) {
 
@@ -4152,7 +4150,7 @@ static void show_stats(void) {
   sprintf(tmp, "%s (%0.02f%%)", DI(queued_with_cov),
           ((double)queued_with_cov) * 100 / queued_paths);
 
-  SAYF("  new edges on : " cRST "%-22s " bSTG bV "\n", tmp);
+  SAYF("  new edges on : " cRST "%-22s" bSTG bV "\n", tmp);
 
   sprintf(tmp, "%s (%s%s unique)", DI(total_crashes), DI(unique_crashes),
           (unique_crashes >= KEEP_UNIQUE_CRASH) ? "+" : "");
@@ -4160,13 +4158,13 @@ static void show_stats(void) {
   if (crash_mode) {
 
     SAYF(bV bSTOP " total execs : " cRST "%-21s " bSTG bV bSTOP
-         "   new crashes : %s%-22s " bSTG bV "\n", DI(total_execs),
+         "   new crashes : %s%-22s" bSTG bV "\n", DI(total_execs),
          unique_crashes ? cLRD : cRST, tmp);
 
   } else {
 
     SAYF(bV bSTOP " total execs : " cRST "%-21s " bSTG bV bSTOP
-         " total crashes : %s%-22s " bSTG bV "\n", DI(total_execs),
+         " total crashes : %s%-22s" bSTG bV "\n", DI(total_execs),
          unique_crashes ? cLRD : cRST, tmp);
 
   }
@@ -4190,12 +4188,12 @@ static void show_stats(void) {
   sprintf(tmp, "%s (%s%s unique)", DI(total_tmouts), DI(unique_tmouts),
           (unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
-  SAYF (bSTG bV bSTOP "  total tmouts : " cRST "%-22s " bSTG bV "\n", tmp);
+  SAYF (bSTG bV bSTOP "  total tmouts : " cRST "%-22s" bSTG bV "\n", tmp);
 
   /* Aaaalmost there... hold on! */
 
   SAYF(bVR bH cCYA bSTOP " fuzzing strategy yields " bSTG bH10 bH bHT bH10
-       bH5 bHB bH bSTOP cCYA " path geometry " bSTG bH5 bH2 bH bVL "\n");
+       bH5 bHB bH bSTOP cCYA " path geometry " bSTG bH5 bH2 bVL "\n");
 
   if (skip_deterministic) {
 
@@ -4211,7 +4209,7 @@ static void show_stats(void) {
   }
 
   SAYF(bV bSTOP "   bit flips : " cRST "%-37s " bSTG bV bSTOP "    levels : "
-       cRST "%-10s " bSTG bV "\n", tmp, DI(max_depth));
+       cRST "%-10s" bSTG bV "\n", tmp, DI(max_depth));
 
   if (!skip_deterministic)
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
@@ -4220,7 +4218,7 @@ static void show_stats(void) {
             DI(stage_finds[STAGE_FLIP32]), DI(stage_cycles[STAGE_FLIP32]));
 
   SAYF(bV bSTOP "  byte flips : " cRST "%-37s " bSTG bV bSTOP "   pending : "
-       cRST "%-10s " bSTG bV "\n", tmp, DI(pending_not_fuzzed));
+       cRST "%-10s" bSTG bV "\n", tmp, DI(pending_not_fuzzed));
 
   if (!skip_deterministic)
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
@@ -4229,7 +4227,7 @@ static void show_stats(void) {
             DI(stage_finds[STAGE_ARITH32]), DI(stage_cycles[STAGE_ARITH32]));
 
   SAYF(bV bSTOP " arithmetics : " cRST "%-37s " bSTG bV bSTOP "  pend fav : "
-       cRST "%-10s " bSTG bV "\n", tmp, DI(pending_favored));
+       cRST "%-10s" bSTG bV "\n", tmp, DI(pending_favored));
 
   if (!skip_deterministic)
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
@@ -4238,7 +4236,7 @@ static void show_stats(void) {
             DI(stage_finds[STAGE_INTEREST32]), DI(stage_cycles[STAGE_INTEREST32]));
 
   SAYF(bV bSTOP "  known ints : " cRST "%-37s " bSTG bV bSTOP " own finds : "
-       cRST "%-10s " bSTG bV "\n", tmp, DI(queued_discovered));
+       cRST "%-10s" bSTG bV "\n", tmp, DI(queued_discovered));
 
   if (!skip_deterministic)
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
@@ -4247,7 +4245,7 @@ static void show_stats(void) {
             DI(stage_finds[STAGE_EXTRAS_AO]), DI(stage_cycles[STAGE_EXTRAS_AO]));
 
   SAYF(bV bSTOP "  dictionary : " cRST "%-37s " bSTG bV bSTOP
-       "  imported : " cRST "%-10s " bSTG bV "\n", tmp,
+       "  imported : " cRST "%-10s" bSTG bV "\n", tmp,
        sync_id ? DI(queued_imported) : (u8*)"n/a");
 
   sprintf(tmp, "%s/%s, %s/%s",
@@ -4259,7 +4257,7 @@ static void show_stats(void) {
   if (t_bytes) sprintf(tmp, "%0.02f%%", stab_ratio);
     else strcpy(tmp, "n/a");
 
-  SAYF(" stability : %s%-10s " bSTG bV "\n", (stab_ratio < 85 && var_byte_count > 40) 
+  SAYF(" stability : %s%-10s" bSTG bV "\n", (stab_ratio < 85 && var_byte_count > 40) 
        ? cLRD : ((queued_variable && (!persistent_mode || var_byte_count > 20))
        ? cMGN : cRST), tmp);
 
@@ -4294,7 +4292,7 @@ static void show_stats(void) {
 
   }
 
-  SAYF(bV bSTOP "        trim : " cRST "%-37s " bSTG bVR bH20 bH2 bH2 bRB "\n"
+  SAYF(bV bSTOP "        trim : " cRST "%-37s " bSTG bVR bH20 bH2 bH bRB "\n"
        bLB bH30 bH20 bH2 bH bRB bSTOP cRST RESET_G1, tmp);
 
   /* Provide some CPU utilization stats. */
@@ -7042,7 +7040,7 @@ static void check_term_size(void) {
 
   if (ioctl(1, TIOCGWINSZ, &ws)) return;
 
-  if (ws.ws_row < 25 || ws.ws_col < 80) term_too_small = 1;
+  if (ws.ws_row < 24 || ws.ws_col < 79) term_too_small = 1;
 
 }
 
@@ -7077,6 +7075,7 @@ static void usage(u8* argv0) {
        "  -T text       - text banner to show on the screen\n"
        "  -M / -S id    - distributed mode (see parallel_fuzzing.txt)\n"
        "  -C            - crash exploration mode (the peruvian rabbit thing)\n\n"
+       "  -e ext        - File extension for the temporarily generated test case\n\n"
 
        "For additional tips, please consult %s/README.\n\n",
 
@@ -7214,7 +7213,13 @@ EXP_ST void setup_dirs_fds(void) {
 
 EXP_ST void setup_stdio_file(void) {
 
-  u8* fn = alloc_printf("%s/.cur_input", out_dir);
+  //u8* fn = alloc_printf("%s/.cur_input", tmp_dir);
+  u8* fn;
+  if (file_extension) {
+    fn = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
+  } else {
+    fn = alloc_printf("%s/.cur_input", out_dir);
+  }
 
   unlink(fn); /* Ignore errors */
 
@@ -7535,8 +7540,13 @@ EXP_ST void detect_file_args(char** argv) {
 
       /* If we don't have a file name chosen yet, use a safe default. */
 
-      if (!out_file)
-        out_file = alloc_printf("%s/.cur_input", out_dir);
+      if (!out_file) {
+        if (file_extension) {
+            out_file = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
+        } else {
+            out_file = alloc_printf("%s/.cur_input", out_dir);
+        }
+      }
 
       /* Be sure that we're always using fully-qualified paths. */
 
@@ -7565,7 +7575,7 @@ EXP_ST void detect_file_args(char** argv) {
 
 /* Set up signal handlers. More complicated that needs to be, because libc on
    Solaris doesn't resume interrupted reads(), sets SA_RESETHAND when you call
-   siginterrupt(), and does other unnecessary things. */
+   siginterrupt(), and does other stupid things. */
 
 EXP_ST void setup_signal_handlers(void) {
 
@@ -7614,10 +7624,6 @@ static char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 4));
   u8 *tmp, *cp, *rsl, *own_copy;
-
-  /* Workaround for a QEMU stability glitch. */
-
-  setenv("QEMU_LOG", "nochain", 1);
 
   memcpy(new_argv + 3, argv + 1, sizeof(char*) * argc);
 
@@ -7726,16 +7732,24 @@ int main(int argc, char** argv) {
   struct timeval tv;
   struct timezone tz;
 
-  SAYF(cCYA "afl-fuzz " cBRI VERSION cRST " by <lcamtuf@google.com>\n");
+  SAYF(cCYA "afl-fuzz" VERSION cRST " by <lcamtuf@google.com>\n");
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
   gettimeofday(&tv, &tz);
   srandom(tv.tv_sec ^ tv.tv_usec ^ getpid());
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Q")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Qe:")) > 0)
 
     switch (opt) {
+
+      case 'e':
+
+        if (file_extension) FATAL("Multiple -e options not supported");
+
+        file_extension = optarg;
+
+        break;
 
       case 'i': /* input dir */
 
@@ -7916,6 +7930,14 @@ int main(int argc, char** argv) {
 
   if (!strcmp(in_dir, out_dir))
     FATAL("Input and output directories can't be the same");
+
+  if ((tmp_dir = getenv("AFL_TMPDIR")) != NULL) {
+    char tmpfile[strlen(tmp_dir + 16)];
+    sprintf(tmpfile, "%s/%s", tmp_dir, ".cur_input");
+    if (access(tmpfile, F_OK) != -1) // there is still a race condition here, but well ...
+      FATAL("TMP_DIR already has an existing temporary input file: %s", tmpfile);
+  } else
+    tmp_dir = out_dir;
 
   if (dumb_mode) {
 

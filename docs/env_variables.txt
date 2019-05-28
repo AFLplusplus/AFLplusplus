@@ -130,6 +130,11 @@ checks or alter some of the more exotic semantics of the tool:
     by some users for unorthodox parallelized fuzzing setups, but not
     advisable otherwise.
 
+  - AFL_TMPDIR is used to write the .cur_input file to if exists, and in
+    the normal output directory otherwise. You would use this to point to
+    a ramdisk/tmpfs. This increases the speed by a very minimal value but
+    also reduces the stress on SSDs.
+
   - When developing custom instrumentation on top of afl-fuzz, you can use
     AFL_SKIP_BIN_CHECK to inhibit the checks for non-instrumented binaries
     and shell scripts; and AFL_DUMB_FORKSRV in conjunction with the -n
@@ -184,6 +189,14 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - The underlying QEMU binary will recognize any standard "user space
     emulation" variables (e.g., QEMU_STACK_SIZE), but there should be no
     reason to touch them.
+
+  - AFL_DEBUG will print the found entrypoint for the binary to stderr.
+    Use this if you are unsure if the entrypoint might be wrong - but
+    use it directly, e.g. afl-qemu-trace ./program 
+
+  - If you want to specify a specific entrypoint into the binary (this can
+    be very good for the performance!), use AFL_ENTRYPOINT for this.
+    The entrypoint is specified as hex address, e.g. 0x4004110
 
 5) Settings for afl-cmin
 ------------------------

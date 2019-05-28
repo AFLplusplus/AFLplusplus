@@ -352,7 +352,7 @@ echo
 echo "[*] Sorting trace sets (this may take a while)..."
 
 ls "$IN_DIR" | sed "s#^#$TRACE_DIR/#" | tr '\n' '\0' | xargs -0 -n 1 cat | \
-  sort | uniq -c | sort -n >"$TRACE_DIR/.all_uniq"
+  sort | uniq -c | sort -k 1,1 -n >"$TRACE_DIR/.all_uniq"
 
 TUPLE_COUNT=$((`grep -c . "$TRACE_DIR/.all_uniq"`))
 

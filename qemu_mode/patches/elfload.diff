@@ -1,5 +1,5 @@
---- qemu-2.10.0-rc3-clean/linux-user/elfload.c	2017-08-15 11:39:41.000000000 -0700
-+++ qemu-2.10.0-rc3/linux-user/elfload.c	2017-08-22 14:33:57.397127516 -0700
+--- qemu-2.10.0.orig/linux-user/elfload.c	2017-08-30 18:50:41.000000000 +0200
++++ qemu-2.10.0/linux-user/elfload.c	2018-10-23 12:48:16.421879765 +0200
 @@ -20,6 +20,8 @@
  
  #define ELF_OSABI   ELFOSABI_SYSV
@@ -30,3 +30,26 @@
                  }
              }
              if (elf_prot & PROT_WRITE) {
+@@ -2443,6 +2449,22 @@
+                                 info, (elf_interpreter ? &interp_info : NULL));
+     info->start_stack = bprm->p;
+ 
++#if defined(TARGET_PPC64) && !defined(TARGET_ABI32)
++    // On PowerPC64 the entry point is the _function descriptor_
++    // of the entry function. For AFL to properly initialize,
++    // afl_entry_point needs to be set to the actual first instruction
++    // as opposed executed by the target program. This as opposed to 
++    // where the function's descriptor sits in memory.
++    
++    // Shameless copy of PPC init_thread
++    info_report("Adjusting afl_entry_point");
++    if (afl_entry_point && (get_ppc64_abi(info) < 2)) {
++        uint64_t val;
++        get_user_u64(val, afl_entry_point);
++        afl_entry_point = val + info->load_bias;
++    }
++#endif
++
+     /* If we have an interpreter, set that as the program's entry point.
+        Copy the load_bias as well, to help PPC64 interpret the entry
+        point as a function descriptor.  Do this after creating elf tables

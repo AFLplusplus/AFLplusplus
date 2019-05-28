@@ -1,20 +1,4 @@
 /*
-  Copyright 2015 Google Inc. All rights reserved.
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at:
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
-*/
-
-/*
    american fuzzy lop - LLVM instrumentation bootstrap
    ---------------------------------------------------
 
@@ -23,7 +7,16 @@
 
    LLVM integration design comes from Laszlo Szekeres.
 
+   Copyright 2015, 2016 Google Inc. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at:
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
    This code is the rewrite of afl-as.h's main_payload.
+
 */
 
 #include "../config.h"
@@ -105,6 +98,8 @@ static void __afl_start_forkserver(void) {
   s32 child_pid;
 
   u8  child_stopped = 0;
+  
+  void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
@@ -139,6 +134,7 @@ static void __afl_start_forkserver(void) {
       /* In child process: close fds, resume execution. */
 
       if (!child_pid) {
+        signal(SIGCHLD, old_sigchld_handler);
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);

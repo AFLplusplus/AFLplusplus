@@ -1,24 +1,16 @@
 /*
-  Copyright 2013 Google Inc. All rights reserved.
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at:
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
-*/
-
-/*
    american fuzzy lop - wrapper for GNU as
    ---------------------------------------
 
    Written and maintained by Michal Zalewski <lcamtuf@google.com>
+
+   Copyright 2013, 2014, 2015 Google Inc. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at:
+
+     http://www.apache.org/licenses/LICENSE-2.0
 
    The sole purpose of this wrapper is to preprocess assembly files generated
    by GCC / clang and inject the instrumentation bits included from afl-as.h. It
@@ -34,7 +26,7 @@
    allow clang users to make things work even with hand-crafted assembly. Just
    note that there is no equivalent for GCC.
 
-*/
+ */
 
 #define AFL_MAIN
 
@@ -488,7 +480,7 @@ int main(int argc, char** argv) {
 
   if (isatty(2) && !getenv("AFL_QUIET")) {
 
-    SAYF(cCYA "afl-as " cBRI VERSION cRST " by <lcamtuf@google.com>\n");
+    SAYF(cCYA "afl-as" VERSION cRST " by <lcamtuf@google.com>\n");
  
   } else be_quiet = 1;
 
@@ -533,7 +525,8 @@ int main(int argc, char** argv) {
 
   if (getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN")) {
     sanitizer = 1;
-    inst_ratio /= 3;
+    if (!getenv("AFL_INST_RATIO"))
+      inst_ratio /= 3;
   }
 
   if (!just_version) add_instrumentation();
