@@ -10,7 +10,7 @@ american fuzzy lop plus plus
   no updates to afl since November 2017.
 
   This version has several bug fixes, new features and speed enhancements
-  based on patches from https://github.com/vanhauser-thc/afl-patches
+  based on community patches from https://github.com/vanhauser-thc/afl-patches
   To see the list of which patches have been applied, see the PATCHES file.
 
   Copyright 2013, 2014, 2015, 2016 Google Inc. All rights reserved.
