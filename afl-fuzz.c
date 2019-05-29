@@ -7074,7 +7074,7 @@ static void usage(u8* argv0) {
 
        "  -T text       - text banner to show on the screen\n"
        "  -M / -S id    - distributed mode (see parallel_fuzzing.txt)\n"
-       "  -C            - crash exploration mode (the peruvian rabbit thing)\n\n"
+       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
        "  -e ext        - File extension for the temporarily generated test case\n\n"
 
        "For additional tips, please consult %s/README.\n\n",
