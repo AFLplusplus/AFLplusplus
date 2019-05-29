@@ -88,6 +88,10 @@
 
 #define HAVOC_MIN           16
 
+/* Power Schedule Divisor */
+#define POWER_BETA          1
+#define MAX_FACTOR          (POWER_BETA * 32)
+
 /* Maximum stacking for havoc-stage tweaks. The actual value is calculated
    like this: 
 
