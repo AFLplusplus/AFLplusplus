@@ -1,6 +1,7 @@
 The following patches from https://github.com/vanhauser-thc/afl-patches
 have been installed or not installed:
 
+
 INSTALLED
 =========
 afl-llvm-fix.diff			by kcwu(at)csie(dot)org
@@ -15,6 +16,9 @@ afl-qemu-ppc64.diff			by william(dot)barsse(at)airbus(dot)com
 afl-qemu-optimize-entrypoint.diff	by mh(at)mh-sec(dot)de
 afl-qemu-speed.diff			by abiondo on github
 afl-qemu-optimize-map.diff		by mh(at)mh-sec(dot)de
+
+additionally AFLfast additions (github.com/mboehme/aflfast) were incorporated.
+
 
 NOT INSTALLED
 =============
