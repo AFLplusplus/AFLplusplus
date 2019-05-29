@@ -25,7 +25,7 @@ MISC_PATH   = $(PREFIX)/share/afl
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
 PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
-SH_PROGS    = afl-plot afl-cmin afl-whatsup
+SH_PROGS    = afl-plot afl-cmin afl-whatsup alf-system-config
 
 CFLAGS     ?= -O3 -funroll-loops
 CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \

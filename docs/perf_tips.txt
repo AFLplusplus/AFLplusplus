@@ -188,6 +188,8 @@ There are several OS-level factors that may affect fuzzing speed:
     SCHED_RR - can usually speed things up, too, but needs to be done with
     care.
 
+  - Use the afl-system-config script to set all proc/sys settings above
+
   - Disable all the spectre, meltdown etc. security countermeasures in the
     kernel if your machine is properly seperated:
     "ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off
