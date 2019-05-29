@@ -188,6 +188,15 @@ There are several OS-level factors that may affect fuzzing speed:
     SCHED_RR - can usually speed things up, too, but needs to be done with
     care.
 
+  - Disable all the spectre, meltdown etc. security countermeasures in the
+    kernel if your machine is properly seperated:
+    "ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off
+     no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable
+     nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off
+     spectre_v2=off stf_barrier=off"
+    In most Linux distributions you can put this into a /etc/default/grub
+    variable.
+
 9) If all other options fail, use -d
 ------------------------------------
 
