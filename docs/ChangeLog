@@ -23,6 +23,7 @@ Version ++2.52c (2019-05-28):
       afl-fuzz: -e EXTENSION  commandline option
       llvm_mode: LAF-intel performance (needs activation, see llvm/README.laf-intel)
       a few new environment variables for afl-fuzz, llvm and qemu, see docs/env_variables.txt
+  - added afl-system-config.sh script to set all system performance options for fuzzing
 
 
 ---------------------------
