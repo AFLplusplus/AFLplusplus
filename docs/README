@@ -13,6 +13,12 @@ american fuzzy lop plus plus
   based on community patches from https://github.com/vanhauser-thc/afl-patches
   To see the list of which patches have been applied, see the PATCHES file.
 
+  Additionally AFLfast's power schedules by Marcel Boehme from
+  github.com/mboehme/aflfast have been incorporated.
+
+  So all in all this is the best-of AFL that is currently out there :-)
+
+
   Copyright 2013, 2014, 2015, 2016 Google Inc. All rights reserved.
   Released under terms and conditions of Apache License, Version 2.0.
 
