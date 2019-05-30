@@ -4092,7 +4092,7 @@ static void show_stats(void) {
 
   }
 
-  SAYF(bV bSTOP "        run time : " cRST "%-34s " bSTG bV bSTOP
+  SAYF(bV bSTOP "        run time : " cRST "%-33s " bSTG bV bSTOP
        "  cycles done : %s%-5s " bSTG bV "\n",
        DTD(cur_ms, start_time), tmp, DI(queue_cycle - 1));
 
@@ -4102,7 +4102,7 @@ static void show_stats(void) {
   if (!dumb_mode && (last_path_time || resuming_fuzz || queue_cycle == 1 ||
       in_bitmap || crash_mode)) {
 
-    SAYF(bV bSTOP "   last new path : " cRST "%-34s ",
+    SAYF(bV bSTOP "   last new path : " cRST "%-33s ",
          DTD(cur_ms, last_path_time));
 
   } else {
@@ -4110,12 +4110,12 @@ static void show_stats(void) {
     if (dumb_mode)
 
       SAYF(bV bSTOP "   last new path : " cPIN "n/a" cRST 
-           " (non-instrumented mode)        ");
+           " (non-instrumented mode)       ");
 
      else
 
       SAYF(bV bSTOP "   last new path : " cRST "none yet " cLRD
-           "(odd, check syntax!)      ");
+           "(odd, check syntax!)     ");
 
   }
 
@@ -4128,7 +4128,7 @@ static void show_stats(void) {
   sprintf(tmp, "%s%s", DI(unique_crashes),
           (unique_crashes >= KEEP_UNIQUE_CRASH) ? "+" : "");
 
-  SAYF(bV bSTOP " last uniq crash : " cRST "%-34s " bSTG bV bSTOP
+  SAYF(bV bSTOP " last uniq crash : " cRST "%-33s " bSTG bV bSTOP
        " uniq crashes : %s%-6s" bSTG bV "\n",
        DTD(cur_ms, last_crash_time), unique_crashes ? cLRD : cRST,
        tmp);
@@ -4136,11 +4136,11 @@ static void show_stats(void) {
   sprintf(tmp, "%s%s", DI(unique_hangs),
          (unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
-  SAYF(bV bSTOP "  last uniq hang : " cRST "%-34s " bSTG bV bSTOP 
+  SAYF(bV bSTOP "  last uniq hang : " cRST "%-33s " bSTG bV bSTOP 
        "   uniq hangs : " cRST "%-6s" bSTG bV "\n",
        DTD(cur_ms, last_hang_time), tmp);
 
-  SAYF(bVR bH bSTOP cCYA " cycle progress " bSTG bH20 bHB bH bSTOP cCYA
+  SAYF(bVR bH bSTOP cCYA " cycle progress " bSTG bH10 bH5 bH2 bH2 bHB bH bSTOP cCYA
        " map coverage " bSTG bH bHT bH20 bH2 bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
@@ -4151,7 +4151,7 @@ static void show_stats(void) {
           queue_cur->favored ? "." : "*", queue_cur->fuzz_level,
           ((double)current_entry * 100) / queued_paths);
 
-  SAYF(bV bSTOP "  now processing : " cRST "%-17s " bSTG bV bSTOP, tmp);
+  SAYF(bV bSTOP "  now processing : " cRST "%-16s " bSTG bV bSTOP, tmp);
 
   sprintf(tmp, "%0.02f%% / %0.02f%%", ((double)queue_cur->bitmap_size) * 
           100 / MAP_SIZE, t_byte_ratio);
@@ -4162,14 +4162,14 @@ static void show_stats(void) {
   sprintf(tmp, "%s (%0.02f%%)", DI(cur_skipped_paths),
           ((double)cur_skipped_paths * 100) / queued_paths);
 
-  SAYF(bV bSTOP " paths timed out : " cRST "%-17s " bSTG bV, tmp);
+  SAYF(bV bSTOP " paths timed out : " cRST "%-16s " bSTG bV, tmp);
 
   sprintf(tmp, "%0.02f bits/tuple",
           t_bytes ? (((double)t_bits) / t_bytes) : 0);
 
   SAYF(bSTOP " count coverage : " cRST "%-21s" bSTG bV "\n", tmp);
 
-  SAYF(bVR bH bSTOP cCYA " stage progress " bSTG bH20 bX bH bSTOP cCYA
+  SAYF(bVR bH bSTOP cCYA " stage progress " bSTG bH10 bH5 bH2 bH2 bX bH bSTOP cCYA
        " findings in depth " bSTG bH10 bH5 bH2 bH2 bVL "\n");
 
   sprintf(tmp, "%s (%0.02f%%)", DI(queued_favored),
@@ -4177,7 +4177,7 @@ static void show_stats(void) {
 
   /* Yeah... it's still going on... halp? */
 
-  SAYF(bV bSTOP "  now trying : " cRST "%-21s " bSTG bV bSTOP 
+  SAYF(bV bSTOP "  now trying : " cRST "%-20s " bSTG bV bSTOP 
        " favored paths : " cRST "%-22s" bSTG bV "\n", stage_name, tmp);
 
   if (!stage_max) {
@@ -4191,7 +4191,7 @@ static void show_stats(void) {
 
   }
 
-  SAYF(bV bSTOP " stage execs : " cRST "%-21s " bSTG bV bSTOP, tmp);
+  SAYF(bV bSTOP " stage execs : " cRST "%-20s " bSTG bV bSTOP, tmp);
 
   sprintf(tmp, "%s (%0.02f%%)", DI(queued_with_cov),
           ((double)queued_with_cov) * 100 / queued_paths);
@@ -4203,13 +4203,13 @@ static void show_stats(void) {
 
   if (crash_mode) {
 
-    SAYF(bV bSTOP " total execs : " cRST "%-21s " bSTG bV bSTOP
+    SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
          "   new crashes : %s%-22s" bSTG bV "\n", DI(total_execs),
          unique_crashes ? cLRD : cRST, tmp);
 
   } else {
 
-    SAYF(bV bSTOP " total execs : " cRST "%-21s " bSTG bV bSTOP
+    SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
          " total crashes : %s%-22s" bSTG bV "\n", DI(total_execs),
          unique_crashes ? cLRD : cRST, tmp);
 
@@ -4222,12 +4222,12 @@ static void show_stats(void) {
     sprintf(tmp, "%s/sec (%s)", DF(avg_exec), avg_exec < 20 ?
             "zzzz..." : "slow!");
 
-    SAYF(bV bSTOP "  exec speed : " cLRD "%-21s ", tmp);
+    SAYF(bV bSTOP "  exec speed : " cLRD "%-20s ", tmp);
 
   } else {
 
     sprintf(tmp, "%s/sec", DF(avg_exec));
-    SAYF(bV bSTOP "  exec speed : " cRST "%-21s ", tmp);
+    SAYF(bV bSTOP "  exec speed : " cRST "%-20s ", tmp);
 
   }
 
@@ -4238,7 +4238,7 @@ static void show_stats(void) {
 
   /* Aaaalmost there... hold on! */
 
-  SAYF(bVR bH cCYA bSTOP " fuzzing strategy yields " bSTG bH10 bH bHT bH10
+  SAYF(bVR bH cCYA bSTOP " fuzzing strategy yields " bSTG bH10 bHT bH10
        bH5 bHB bH bSTOP cCYA " path geometry " bSTG bH5 bH2 bVL "\n");
 
   if (skip_deterministic) {
@@ -4254,7 +4254,7 @@ static void show_stats(void) {
 
   }
 
-  SAYF(bV bSTOP "   bit flips : " cRST "%-37s " bSTG bV bSTOP "    levels : "
+  SAYF(bV bSTOP "   bit flips : " cRST "%-36s " bSTG bV bSTOP "    levels : "
        cRST "%-10s" bSTG bV "\n", tmp, DI(max_depth));
 
   if (!skip_deterministic)
@@ -4263,7 +4263,7 @@ static void show_stats(void) {
             DI(stage_finds[STAGE_FLIP16]), DI(stage_cycles[STAGE_FLIP16]),
             DI(stage_finds[STAGE_FLIP32]), DI(stage_cycles[STAGE_FLIP32]));
 
-  SAYF(bV bSTOP "  byte flips : " cRST "%-37s " bSTG bV bSTOP "   pending : "
+  SAYF(bV bSTOP "  byte flips : " cRST "%-36s " bSTG bV bSTOP "   pending : "
        cRST "%-10s" bSTG bV "\n", tmp, DI(pending_not_fuzzed));
 
   if (!skip_deterministic)
@@ -4272,7 +4272,7 @@ static void show_stats(void) {
             DI(stage_finds[STAGE_ARITH16]), DI(stage_cycles[STAGE_ARITH16]),
             DI(stage_finds[STAGE_ARITH32]), DI(stage_cycles[STAGE_ARITH32]));
 
-  SAYF(bV bSTOP " arithmetics : " cRST "%-37s " bSTG bV bSTOP "  pend fav : "
+  SAYF(bV bSTOP " arithmetics : " cRST "%-36s " bSTG bV bSTOP "  pend fav : "
        cRST "%-10s" bSTG bV "\n", tmp, DI(pending_favored));
 
   if (!skip_deterministic)
@@ -4281,7 +4281,7 @@ static void show_stats(void) {
             DI(stage_finds[STAGE_INTEREST16]), DI(stage_cycles[STAGE_INTEREST16]),
             DI(stage_finds[STAGE_INTEREST32]), DI(stage_cycles[STAGE_INTEREST32]));
 
-  SAYF(bV bSTOP "  known ints : " cRST "%-37s " bSTG bV bSTOP " own finds : "
+  SAYF(bV bSTOP "  known ints : " cRST "%-36s " bSTG bV bSTOP " own finds : "
        cRST "%-10s" bSTG bV "\n", tmp, DI(queued_discovered));
 
   if (!skip_deterministic)
@@ -4290,7 +4290,7 @@ static void show_stats(void) {
             DI(stage_finds[STAGE_EXTRAS_UI]), DI(stage_cycles[STAGE_EXTRAS_UI]),
             DI(stage_finds[STAGE_EXTRAS_AO]), DI(stage_cycles[STAGE_EXTRAS_AO]));
 
-  SAYF(bV bSTOP "  dictionary : " cRST "%-37s " bSTG bV bSTOP
+  SAYF(bV bSTOP "  dictionary : " cRST "%-36s " bSTG bV bSTOP
        "  imported : " cRST "%-10s" bSTG bV "\n", tmp,
        sync_id ? DI(queued_imported) : (u8*)"n/a");
 
@@ -4298,7 +4298,7 @@ static void show_stats(void) {
           DI(stage_finds[STAGE_HAVOC]), DI(stage_cycles[STAGE_HAVOC]),
           DI(stage_finds[STAGE_SPLICE]), DI(stage_cycles[STAGE_SPLICE]));
 
-  SAYF(bV bSTOP "       havoc : " cRST "%-37s " bSTG bV bSTOP, tmp);
+  SAYF(bV bSTOP "       havoc : " cRST "%-36s " bSTG bV bSTOP, tmp);
 
   if (t_bytes) sprintf(tmp, "%0.02f%%", stab_ratio);
     else strcpy(tmp, "n/a");
@@ -4338,8 +4338,8 @@ static void show_stats(void) {
 
   }
 
-  SAYF(bV bSTOP "        trim : " cRST "%-37s " bSTG bVR bH20 bH2 bH bRB "\n"
-       bLB bH30 bH20 bH2 bH bRB bSTOP cRST RESET_G1, tmp);
+  SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n"
+       bLB bH30 bH20 bH2 bRB bSTOP cRST RESET_G1, tmp);
 
   /* Provide some CPU utilization stats. */
 
