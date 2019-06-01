@@ -218,7 +218,11 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
     BranchInst::Create(end_bb, next_bb);
     PHINode *PN = PHINode::Create(Int32Ty, constLen + 1, "cmp_phi");
 
+#if __clang_major__ < 8
     TerminatorInst *term = bb->getTerminator();
+#else
+    Instruction *term = bb->getTerminator();
+#endif
     BranchInst::Create(next_bb, bb);
     term->eraseFromParent();
 
@@ -255,7 +259,11 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
         next_bb =  BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
         BranchInst::Create(end_bb, next_bb);
 
+#if __clang_major__ < 8
         TerminatorInst *term = cur_bb->getTerminator();
+#else
+        Instruction *term = cur_bb->getTerminator();
+#endif
         Value *icmp = IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
         IRB.CreateCondBr(icmp, next_bb, end_bb);
         term->eraseFromParent();
