@@ -51,6 +51,7 @@ endif
 
 ifeq "$(origin CC)" "default"
   CC         = clang
+  # if you use llvm 3.9 or 4.0 switch this to clang++ below
   CXX        = g++
 endif
 
