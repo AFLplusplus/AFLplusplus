@@ -27,7 +27,7 @@ Version ++2.52c (2019-05-28):
     to the AFL schedule, not to the FAST schedule. So nothing changes unless
     you use the new -p option :-) - see docs/power_schedules.txt
   - added afl-system-config script to set all system performance options for fuzzing
-  - llvm_mode support for LLVM 8.0 (thanks to Heiko Eissfeldt for the patch)
+  - llvm_mode support currently LLVM 8, 4.0 and 3.9 (thanks to Heiko Eissfeldt for the patch)
 
 
 ---------------------------
