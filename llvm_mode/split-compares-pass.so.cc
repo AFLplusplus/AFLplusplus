@@ -36,7 +36,11 @@ namespace {
 #if __clang_major__ >= 4
       StringRef getPassName() const override {
 #else
+ #ifndef __GNUG__
       const char * getPassName() const override {
+ #else
+      StringRef getPassName() const override {
+ #endif
 #endif
         return "simplifies and splits ICMP instructions";
       }

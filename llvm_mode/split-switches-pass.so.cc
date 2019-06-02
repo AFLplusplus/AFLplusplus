@@ -48,7 +48,11 @@ namespace {
 #if __clang_major__ >= 4
       StringRef getPassName() const override {
 #else
+ #ifndef __GNUG__
       const char * getPassName() const override {
+ #else
+      StringRef getPassName() const override {
+ #endif
 #endif
         return "splits switch constructs";
       }
@@ -254,8 +258,12 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
     /* Prepare cases vector. */
     CaseVector Cases;
     for (SwitchInst::CaseIt i = SI->case_begin(), e = SI->case_end(); i != e; ++i)
-#if __clang_major__ < 7
+#if __clang_major__ < 5
+ #ifndef __GNUG__
       Cases.push_back(CaseExpr(i.getCaseValue(), i.getCaseSuccessor()));
+ #else
+      Cases.push_back(CaseExpr(i->getCaseValue(), i->getCaseSuccessor()));
+ #endif
 #else
       Cases.push_back(CaseExpr(i->getCaseValue(), i->getCaseSuccessor()));
 #endif
