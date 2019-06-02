@@ -296,6 +296,8 @@ static void edit_params(u32 argc, char** argv) {
 
   if (maybe_linking) {
 
+    cc_params[cc_par_cnt++] = "-Wl,-znodelete";
+
     if (x_set) {
       cc_params[cc_par_cnt++] = "-x";
       cc_params[cc_par_cnt++] = "none";
@@ -371,6 +373,14 @@ int main(int argc, char** argv) {
   find_obj(argv[0]);
 
   edit_params(argc, argv);
+
+/*
+  int i = 0;
+  printf("EXEC:");
+  while (cc_params[i] != NULL)
+    printf(" %s", cc_params[i++]);
+  printf("\n");
+*/
 
   execvp(cc_params[0], (char**)cc_params);
 

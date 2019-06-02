@@ -45,8 +45,12 @@ namespace {
 
       bool runOnModule(Module &M) override;
 
-#if __clang_major__ < 4
+#if (__clang_major__ < 4)
+ #ifndef __GNUG__
       const char * getPassName() const override {
+ #else
+      StringRef getPassName() const override {
+ #endif
 #else
       StringRef getPassName() const override {
 #endif
