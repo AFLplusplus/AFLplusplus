@@ -7,7 +7,8 @@ Fast LLVM-based instrumentation for afl-fuzz
 1) Introduction
 ---------------
 
-!!! This works with LLVM up to version 6 !!!
+!!! This currently only works with LLVM version 3.9, 4.0 and 8 !!!
+  ! Fixes for the versions in between are in the works !
 
 The code in this directory allows you to instrument programs for AFL using
 true compiler-level instrumentation, instead of the more crude
