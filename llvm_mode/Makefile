@@ -51,7 +51,7 @@ endif
 
 ifeq "$(origin CC)" "default"
   CC         = clang
-  CXX        = clang++
+  CXX        = g++
 endif
 
 ifndef AFL_TRACE_PC
