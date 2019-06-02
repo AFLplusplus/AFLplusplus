@@ -7,8 +7,9 @@ Fast LLVM-based instrumentation for afl-fuzz
 1) Introduction
 ---------------
 
-!!! This currently only works with LLVM version 3.9, 4.0 and 8 !!!
-  ! Fixes for the versions in between are in the works !
+! llvm_mode is currently configured to compile with llvm 5.0 and 6.0 via g++ !
+! To compile with llvm 3.9 and 4.0 edit the Makefile and change CXX to clang++ !
+! Fixes for llvm 3.7, 7 and 8 are in the work !
 
 The code in this directory allows you to instrument programs for AFL using
 true compiler-level instrumentation, instead of the more crude
