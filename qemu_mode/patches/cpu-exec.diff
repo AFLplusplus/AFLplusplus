@@ -1,5 +1,7 @@
---- qemu-2.10.0-clean/accel/tcg/cpu-exec.c	2017-08-30 18:50:40.000000000 +0200
-+++ qemu-2.10.0/accel/tcg/cpu-exec.c	2018-09-22 13:21:23.612068407 +0200
+diff --git a/accel/tcg/cpu-exec.c b/accel/tcg/cpu-exec.c
+index 870027d4..841ba557 100644
+--- a/accel/tcg/cpu-exec.c
++++ b/accel/tcg/cpu-exec.c
 @@ -36,6 +36,8 @@
  #include "sysemu/cpus.h"
  #include "sysemu/replay.h"
@@ -9,46 +11,37 @@
  /* -icount align implementation. */
  
  typedef struct SyncClocks {
-@@ -144,6 +146,8 @@
+@@ -144,6 +146,8 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, TranslationBlock *itb)
      int tb_exit;
-     uint8_t *tb_ptr = itb->tc_ptr;
+     uint8_t *tb_ptr = itb->tc.ptr;
  
 +    AFL_QEMU_CPU_SNIPPET2;
 +
      qemu_log_mask_and_addr(CPU_LOG_EXEC, itb->pc,
-                            "Trace %p [%d: " TARGET_FMT_lx "] %s\n",
-                            itb->tc_ptr, cpu->cpu_index, itb->pc,
-@@ -337,7 +341,7 @@
+                            "Trace %d: %p ["
+                            TARGET_FMT_lx "/" TARGET_FMT_lx "/%#x] %s\n",
+@@ -397,11 +401,13 @@ static inline TranslationBlock *tb_find(CPUState *cpu,
      TranslationBlock *tb;
      target_ulong cs_base, pc;
      uint32_t flags;
--    bool have_tb_lock = false;
-+    bool have_tb_lock = false, was_translated = false, was_chained = false;
++    bool was_translated = false, was_chained = false;
  
-     /* we record a subset of the CPU state. It will
-        always be the same before a given translated block
-@@ -365,6 +369,7 @@
-             if (!tb) {
-                 /* if no translated code available, then translate it now */
-                 tb = tb_gen_code(cpu, pc, cs_base, flags, 0);
-+                was_translated = true;
-             }
- 
-             mmap_unlock();
-@@ -390,11 +395,16 @@
-         }
-         if (!tb->invalid) {
-             tb_add_jump(last_tb, tb_exit, tb);
-+            was_chained = true;
-         }
-     }
-     if (have_tb_lock) {
-         tb_unlock();
-     }
-+    if (was_translated || was_chained) {
-+        afl_request_tsl(pc, cs_base, flags, was_chained ? last_tb : NULL,
-+                        tb_exit);
+     tb = tb_lookup__cpu_state(cpu, &pc, &cs_base, &flags, cf_mask);
+     if (tb == NULL) {
+         mmap_lock();
+         tb = tb_gen_code(cpu, pc, cs_base, flags, cf_mask);
++        was_translated = true;
+         mmap_unlock();
+         /* We add the TB in the virtual pc hash table for the fast lookup */
+         atomic_set(&cpu->tb_jmp_cache[tb_jmp_cache_hash_func(pc)], tb);
+@@ -418,6 +424,10 @@ static inline TranslationBlock *tb_find(CPUState *cpu,
+     /* See if we can patch the calling TB. */
+     if (last_tb) {
+         tb_add_jump(last_tb, tb_exit, tb);
++        was_chained = true;
 +    }
++    if (was_translated || was_chained) {
++        afl_request_tsl(pc, cs_base, flags, cf_mask, was_chained ? last_tb : NULL, tb_exit);
+     }
      return tb;
  }
- 
