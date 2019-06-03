@@ -45,12 +45,8 @@ namespace {
 
       bool runOnModule(Module &M) override;
 
-#if (__clang_major__ < 4)
- #ifndef __GNUG__
+#if LLVM_VERSION_MAJOR < 4
       const char * getPassName() const override {
- #else
-      StringRef getPassName() const override {
- #endif
 #else
       StringRef getPassName() const override {
 #endif
@@ -76,7 +72,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
   Constant* c = M.getOrInsertFunction("tolower",
                                          Int32Ty,
                                          Int32Ty
-#if __clang_major__ < 7
+#if LLVM_VERSION_MAJOR < 5
 					 , nullptr
 #endif
 					 );
@@ -222,7 +218,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
     BranchInst::Create(end_bb, next_bb);
     PHINode *PN = PHINode::Create(Int32Ty, constLen + 1, "cmp_phi");
 
-#if __clang_major__ < 8
+#if LLVM_VERSION_MAJOR < 8
     TerminatorInst *term = bb->getTerminator();
 #else
     Instruction *term = bb->getTerminator();
@@ -263,7 +259,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
         next_bb =  BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
         BranchInst::Create(end_bb, next_bb);
 
-#if __clang_major__ < 8
+#if LLVM_VERSION_MAJOR < 8
         TerminatorInst *term = cur_bb->getTerminator();
 #else
         Instruction *term = cur_bb->getTerminator();

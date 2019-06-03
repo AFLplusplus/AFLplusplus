@@ -7,8 +7,7 @@ Fast LLVM-based instrumentation for afl-fuzz
 1) Introduction
 ---------------
 
-! llvm_mode works with verison 3.0 up to 6.0.1 !
-! llvm version 7, 8 and 9 do not work !
+!!! This works with LLVM from version 3.8.1 up to version 8 !!!
 
 The code in this directory allows you to instrument programs for AFL using
 true compiler-level instrumentation, instead of the more crude

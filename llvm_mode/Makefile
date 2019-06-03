@@ -23,11 +23,11 @@ BIN_PATH     = $(PREFIX)/bin
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
 LLVM_CONFIG ?= llvm-config
-LLVM_OK = $(shell $(LLVM_CONFIG) --version | egrep -q '^[5-6]' && echo 0 || echo 1 )
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^[7-9]' && echo 1 || echo 0 )
+#LLVM_OK = $(shell $(LLVM_CONFIG) --version | egrep -q '^[5-6]' && echo 0 || echo 1 )
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^[3].0' && echo 1 || echo 0 )
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
-  $(error llvm_mode only supports versions 3.9 up to 6.0.1 )
+  $(error llvm_mode only supports llvm versions 3.8.0 and higher )
 endif
 
 CFLAGS      ?= -O3 -funroll-loops
@@ -42,7 +42,7 @@ CXXFLAGS    ?= -O3 -funroll-loops
 CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
                -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
-CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fpic $(CXXFLAGS)
+CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
 # User teor2345 reports that this is required to make things work on MacOS X.
@@ -57,11 +57,7 @@ endif
 
 ifeq "$(origin CC)" "default"
   CC         = clang
-  ifeq "$(LLVM_OK)" "1"
-    CXX        = clang++
-  else
-    CXX        = g++
-  endif
+  CXX        = clang++
 endif
 
 ifndef AFL_TRACE_PC
