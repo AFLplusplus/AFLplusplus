@@ -6,8 +6,9 @@ american fuzzy lop plus plus
 
   Repository: https://github.com/vanhauser-thc/AFLplusplus
 
-  afl++ is maintained by Marc Heuse <mh@mh-sec.de> as there have been
-  no updates to afl since November 2017.
+  afl++ is maintained by Marc Heuse <mh@mh-sec.de> and Heiko Eissfeldt
+  <heiko.eissfeldt@hexco.de> as there have been no updates to afl since
+  November 2017.
 
   This version has several bug fixes, new features and speed enhancements
   based on community patches from https://github.com/vanhauser-thc/afl-patches
