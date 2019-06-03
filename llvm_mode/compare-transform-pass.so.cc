@@ -69,7 +69,13 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
-  Constant* c = M.getOrInsertFunction("tolower",
+
+#if LLVM_VERSION_MAJOR < 9
+  Constant* 
+#else
+  FunctionCallee
+#endif
+               c = M.getOrInsertFunction("tolower",
                                          Int32Ty,
                                          Int32Ty
 #if LLVM_VERSION_MAJOR < 5

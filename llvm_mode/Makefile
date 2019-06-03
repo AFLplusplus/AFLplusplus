@@ -24,16 +24,16 @@ VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
 LLVM_CONFIG ?= llvm-config
 #LLVM_OK = $(shell $(LLVM_CONFIG) --version | egrep -q '^[5-6]' && echo 0 || echo 1 )
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^[3].0' && echo 1 || echo 0 )
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^9|3.0' && echo 1 || echo 0 )
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
-  $(error llvm_mode only supports llvm versions 3.8.0 and higher )
+  $(warn llvm_mode only supports versions 3.8.0 up to 8.x )
 endif
 
 CFLAGS      ?= -O3 -funroll-loops
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
-               -DVERSION=\"$(VERSION)\" 
+               -DVERSION=\"$(VERSION)\"  
 ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
 endif
