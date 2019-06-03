@@ -23,9 +23,9 @@
 #
 
 
-VERSION="2.10.0"
+VERSION="3.1.0"
 QEMU_URL="http://download.qemu-project.org/qemu-${VERSION}.tar.xz"
-QEMU_SHA384="68216c935487bc8c0596ac309e1e3ee75c2c4ce898aab796faa321db5740609ced365fedda025678d072d09ac8928105"
+QEMU_SHA384="0318f2b5a36eafbf17bca0f914567dfa5e8a3cd6ff83bb46fe49a0079cd71ddd3ec4267c6c62a03f9e26e05cc80e6d4b"
 
 echo "================================================="
 echo "AFL binary-only instrumentation QEMU build script"
@@ -131,9 +131,8 @@ echo "[*] Applying patches..."
 patch -p1 <../patches/elfload.diff || exit 1
 patch -p1 <../patches/cpu-exec.diff || exit 1
 patch -p1 <../patches/syscall.diff || exit 1
-patch -p1 <../patches/configure.diff || exit 1
-patch -p1 <../patches/memfd.diff || exit 1
 patch -p1 <../patches/translate-all.diff || exit 1
+patch -p1 <../patches/tcg.diff || exit 1
 patch -p1 <../patches/elfload2.diff || exit 1
 
 echo "[+] Patching done."
@@ -149,7 +148,7 @@ echo "[+] Configuration complete."
 
 echo "[*] Attempting to build QEMU (fingers crossed!)..."
 
-make || exit 1
+make -j `nproc` || exit 1
 
 echo "[+] Build process successful!"
 

@@ -54,8 +54,8 @@
 
 /* This is equivalent to afl-as.h: */
 
-static unsigned char dummy[65536];
-unsigned char *afl_area_ptr = dummy;
+static unsigned char dummy[65536]; /* costs 64kb but saves a few instructions */
+unsigned char *afl_area_ptr = dummy; /* Exported for afl_gen_trace */
 
 /* Exported variables populated by the code patched into elfload.c: */
 
@@ -65,6 +65,7 @@ abi_ulong afl_entry_point, /* ELF entry point (_start) */
 
 /* Set in the child process in forkserver mode: */
 
+static int forkserver_installed = 0;
 static unsigned char afl_fork_child;
 unsigned int afl_forksrv_pid;
 
@@ -78,7 +79,7 @@ static void afl_setup(void);
 static void afl_forkserver(CPUState*);
 
 static void afl_wait_tsl(CPUState*, int);
-static void afl_request_tsl(target_ulong, target_ulong, uint32_t, TranslationBlock*, int);
+static void afl_request_tsl(target_ulong, target_ulong, uint32_t, uint32_t, TranslationBlock*, int);
 
 /* Data structures passed around by the translate handlers: */
 
@@ -86,6 +87,7 @@ struct afl_tb {
   target_ulong pc;
   target_ulong cs_base;
   uint32_t flags;
+  uint32_t cf_mask;
 };
 
 struct afl_tsl {
@@ -95,13 +97,15 @@ struct afl_tsl {
 
 struct afl_chain {
   struct afl_tb last_tb;
+  uint32_t cf_mask;
   int tb_exit;
 };
 
 /* Some forward decls: */
 
-TranslationBlock *tb_htable_lookup(CPUState*, target_ulong, target_ulong, uint32_t);
-static inline TranslationBlock *tb_find(CPUState*, TranslationBlock*, int);
+TranslationBlock *tb_htable_lookup(CPUState*, target_ulong, target_ulong, uint32_t, uint32_t);
+static inline TranslationBlock *tb_find(CPUState*, TranslationBlock*, int, uint32_t);
+static inline void tb_add_jump(TranslationBlock *tb, int n, TranslationBlock *tb_next);
 
 /*************************
  * ACTUAL IMPLEMENTATION *
@@ -161,14 +165,15 @@ static void afl_setup(void) {
 
 
 /* Fork server logic, invoked once we hit _start. */
-static int forkserver_installed = 0;
+
 static void afl_forkserver(CPUState *cpu) {
+
+  static unsigned char tmp[4];
+
   if (forkserver_installed == 1)
     return;
   forkserver_installed = 1;
-
-  static unsigned char tmp[4];
-  //if (!afl_area_ptr) return;
+  //if (!afl_area_ptr) return; // not necessary because of fixed dummy buffer
 
   /* Tell the parent that we're alive. If the parent doesn't want
      to talk, assume that we're not running in forkserver mode. */
@@ -229,84 +234,40 @@ static void afl_forkserver(CPUState *cpu) {
 }
 
 
-#if 0
-/* The equivalent of the tuple logging routine from afl-as.h. */
-
-static inline void afl_maybe_log(abi_ulong cur_loc) {
-
-  static __thread abi_ulong prev_loc;
-
-  /* Optimize for cur_loc > afl_end_code, which is the most likely case on
-     Linux systems. */
-
-  if (cur_loc > afl_end_code || cur_loc < afl_start_code /*|| !afl_area_ptr*/)
-    return;
-
-  /* Looks like QEMU always maps to fixed locations, so ASAN is not a
-     concern. Phew. But instruction addresses may be aligned. Let's mangle
-     the value to get something quasi-uniform. */
-
-  cur_loc  = (cur_loc >> 4) ^ (cur_loc << 8);
-  cur_loc &= MAP_SIZE - 1;
-
-  /* Implement probabilistic instrumentation by looking at scrambled block
-     address. This keeps the instrumented locations stable across runs. */
-
-  if (cur_loc >= afl_inst_rms) return;
-
-  afl_area_ptr[cur_loc ^ prev_loc]++;
-  prev_loc = cur_loc >> 1;
-
-}
-#endif
-
 /* This code is invoked whenever QEMU decides that it doesn't have a
-   translation of a particular block and needs to compute it. When this happens,
-   we tell the parent to mirror the operation, so that the next fork() has a
-   cached copy. */
+   translation of a particular block and needs to compute it, or when it
+   decides to chain two TBs together. When this happens, we tell the parent to
+   mirror the operation, so that the next fork() has a cached copy. */
 
-#if 0
-static void afl_request_tsl(target_ulong pc, target_ulong cb, uint64_t flags) {
-
-  struct afl_tsl t;
-
-  if (!afl_fork_child) return;
-
-  t.pc      = pc;
-  t.cs_base = cb;
-  t.flags   = flags;
-
-  if (write(TSL_FD, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl))
-    return;
-
-}
-#else
-static void afl_request_tsl(target_ulong pc, target_ulong cb, uint32_t flags,
+static void afl_request_tsl(target_ulong pc, target_ulong cb, uint32_t flags, uint32_t cf_mask,
                             TranslationBlock *last_tb, int tb_exit) {
+
   struct afl_tsl t;
   struct afl_chain c;
- 
+
   if (!afl_fork_child) return;
- 
+
   t.tb.pc      = pc;
   t.tb.cs_base = cb;
   t.tb.flags   = flags;
+  t.tb.cf_mask = cf_mask;
   t.is_chain   = (last_tb != NULL);
- 
+
   if (write(TSL_FD, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl))
     return;
- 
+
   if (t.is_chain) {
     c.last_tb.pc      = last_tb->pc;
     c.last_tb.cs_base = last_tb->cs_base;
     c.last_tb.flags   = last_tb->flags;
+    c.cf_mask         = cf_mask;
     c.tb_exit         = tb_exit;
 
     if (write(TSL_FD, &c, sizeof(struct afl_chain)) != sizeof(struct afl_chain))
       return;
   }
- }
-#endif
+
+}
 
 /* This is the other side of the same channel. Since timeouts are handled by
    afl-fuzz simply killing the child, we can just wait until the pipe breaks. */
@@ -324,14 +285,12 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
     if (read(fd, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl))
       break;
 
-    tb = tb_htable_lookup(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags);
+    tb = tb_htable_lookup(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, t.tb.cf_mask);
 
     if(!tb) {
       mmap_lock();
-      tb_lock();
       tb = tb_gen_code(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, 0);
       mmap_unlock();
-      tb_unlock();
     }
 
     if (t.is_chain) {
@@ -339,13 +298,9 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
         break;
 
       last_tb = tb_htable_lookup(cpu, c.last_tb.pc, c.last_tb.cs_base,
-                                 c.last_tb.flags);
+                                 c.last_tb.flags, c.cf_mask);
       if (last_tb) {
-        tb_lock();
-        if (!tb->invalid) {
-          tb_add_jump(last_tb, c.tb_exit, tb);
-        }
-        tb_unlock();
+        tb_add_jump(last_tb, c.tb_exit, tb);
       }
     }
 
