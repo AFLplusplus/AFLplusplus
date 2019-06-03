@@ -119,7 +119,7 @@ The clang wrappers (afl-clang and afl-clang++) can be used in the same way;
 clang users may also opt to leverage a higher-performance instrumentation mode,
 as described in llvm_mode/README.llvm.
 Clang/LLVM has a much better performance, but only works with LLVM up to and
-including 6.0.
+including 6.0.1.
 Using the LAF Intel performance enhancements are also recommended, see 
 docs/README.laf-intel
 

@@ -23,6 +23,12 @@ BIN_PATH     = $(PREFIX)/bin
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
 LLVM_CONFIG ?= llvm-config
+LLVM_OK = $(shell $(LLVM_CONFIG) --version | egrep -q '^[5-6]' && echo 0 || echo 1 )
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^[7-9]' && echo 1 || echo 0 )
+
+ifeq "$(LLVM_UNSUPPORTED)" "1"
+  $(error llvm_mode only supports versions 3.9 up to 6.0.1 )
+endif
 
 CFLAGS      ?= -O3 -funroll-loops
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
@@ -51,8 +57,11 @@ endif
 
 ifeq "$(origin CC)" "default"
   CC         = clang
-  # if you use llvm 3.9 or 4.0 switch this to clang++ below
-  CXX        = g++
+  ifeq "$(LLVM_OK)" "1"
+    CXX        = clang++
+  else
+    CXX        = g++
+  endif
 endif
 
 ifndef AFL_TRACE_PC
