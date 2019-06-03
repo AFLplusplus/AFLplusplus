@@ -16,6 +16,10 @@ american fuzzy lop plus plus
   Additionally AFLfast's power schedules by Marcel Boehme from
   github.com/mboehme/aflfast have been incorporated.
 
+  Plus it was upgraded to qemu 3.1 from 2.1 with the work of 
+  https://github.com/andreafioraldi/afl and got the community patches applied
+  to it.
+
   So all in all this is the best-of AFL that is currently out there :-)
 
 
