@@ -296,8 +296,6 @@ static void edit_params(u32 argc, char** argv) {
 
   if (maybe_linking) {
 
-    cc_params[cc_par_cnt++] = "-Wl,-znodelete";
-
     if (x_set) {
       cc_params[cc_par_cnt++] = "-x";
       cc_params[cc_par_cnt++] = "none";
