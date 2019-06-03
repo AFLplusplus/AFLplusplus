@@ -27,7 +27,7 @@ Version ++2.52c (2019-05-28):
     to the AFL schedule, not to the FAST schedule. So nothing changes unless
     you use the new -p option :-) - see docs/power_schedules.txt
   - added afl-system-config script to set all system performance options for fuzzing
-  - llvm_mode works with llvm 3.9 up to including 6.0.1
+  - llvm_mode works with llvm 3.9 up to including 8 !
   - qemu_mode got upgraded from 2.1 to 3.1 - incorporated from 
     https://github.com/andreafioraldi/afl and with community patches added
 
