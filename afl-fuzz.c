@@ -4066,7 +4066,7 @@ static void show_stats(void) {
 
   /* Lord, forgive me this. */
 
-  SAYF(SET_G1 bSTG bLT bH bSTOP cCYA " process timing " bSTG bH30 bH5 bH2 bHB
+  SAYF(SET_G1 bSTG bLT bH bSTOP cCYA " process timing " bSTG bH30 bH5 bH bHB
        bH bSTOP cCYA " overall results " bSTG bH2 bH2 bRT "\n");
 
   if (dumb_mode) {
