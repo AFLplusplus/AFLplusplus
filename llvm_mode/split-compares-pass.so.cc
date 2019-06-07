@@ -259,7 +259,7 @@ bool SplitComparesTransform::simplifySignedness(Module &M) {
     Instruction *icmp_inv_sig_cmp;
     BasicBlock* sign_bb = BasicBlock::Create(C, "sign", end_bb->getParent(), end_bb);
     if (pred == CmpInst::ICMP_SGT) {
-      /* if we check for > and the op0 positiv and op1 negative then the final
+      /* if we check for > and the op0 positive and op1 negative then the final
        * result is true. if op0 negative and op1 pos, the cmp must result
        * in false
        */
@@ -369,7 +369,7 @@ bool SplitComparesTransform::splitCompares(Module &M, unsigned bitw) {
 
     BasicBlock* end_bb = bb->splitBasicBlock(BasicBlock::iterator(IcmpInst));
 
-    /* create the comparison of the top halfs of the original operands */
+    /* create the comparison of the top halves of the original operands */
     Instruction *s_op0, *op0_high, *s_op1, *op1_high, *icmp_high;
 
     s_op0 = BinaryOperator::Create(Instruction::LShr, op0, ConstantInt::get(OldIntType, bitw / 2));
@@ -403,7 +403,7 @@ bool SplitComparesTransform::splitCompares(Module &M, unsigned bitw) {
       cmp_low_bb->getInstList().push_back(icmp_low);
       BranchInst::Create(end_bb, cmp_low_bb);
 
-      /* dependant on the cmp of the high parts go to the end or go on with
+      /* dependent on the cmp of the high parts go to the end or go on with
        * the comparison */
       auto term = bb->getTerminator();
       if (pred == CmpInst::ICMP_EQ) {
@@ -448,7 +448,7 @@ bool SplitComparesTransform::splitCompares(Module &M, unsigned bitw) {
       term->eraseFromParent();
       BranchInst::Create(end_bb, inv_cmp_bb, icmp_high, bb);
 
-      /* create a bb which handles the cmp of the lower halfs */
+      /* create a bb which handles the cmp of the lower halves */
       BasicBlock* cmp_low_bb = BasicBlock::Create(C, "injected", end_bb->getParent(), end_bb);
       op0_low = new TruncInst(op0, NewIntType);
       cmp_low_bb->getInstList().push_back(op0_low);

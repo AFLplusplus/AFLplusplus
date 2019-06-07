@@ -377,7 +377,7 @@ static void add_instrumentation(void) {
     }
 
     /* Label of some sort. This may be a branch destination, but we need to
-       tread carefully and account for several different formatting
+       read carefully and account for several different formatting
        conventions. */
 
 #ifdef __APPLE__
