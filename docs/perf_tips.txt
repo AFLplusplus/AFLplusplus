@@ -191,7 +191,7 @@ There are several OS-level factors that may affect fuzzing speed:
   - Use the afl-system-config script to set all proc/sys settings above
 
   - Disable all the spectre, meltdown etc. security countermeasures in the
-    kernel if your machine is properly seperated:
+    kernel if your machine is properly separated:
     "ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off
      no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable
      nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off
