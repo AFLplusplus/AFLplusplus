@@ -4833,7 +4833,7 @@ static u32 calculate_score(struct queue_entry* q) {
       break;
 
     default:
-      PFATAL ("Unkown Power Schedule");
+      PFATAL ("Unknown Power Schedule");
   }
   if (factor > MAX_FACTOR) 
     factor = MAX_FACTOR;
@@ -8085,7 +8085,7 @@ int main(int argc, char** argv) {
     case LIN:     OKF ("Using linear power schedule (LIN)"); break;
     case QUAD:    OKF ("Using quadratic power schedule (QUAD)"); break;
     case EXPLORE: OKF ("Using exploration-based constant power schedule (EXPLORE)"); break;
-    default : FATAL ("Unkown power schedule"); break;
+    default : FATAL ("Unknown power schedule"); break;
   }
 
   if (getenv("AFL_NO_FORKSRV"))    no_forkserver    = 1;
