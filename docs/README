@@ -28,7 +28,7 @@ american fuzzy lop plus plus
   Released under terms and conditions of Apache License, Version 2.0.
 
   For new versions and additional information, check out:
-  http://lcamtuf.coredump.cx/afl/
+  https://github.com/vanhauser-thc/AFLplusplus
 
   To compare notes with other users or get notified about major new features,
   send a mail to <afl-users+subscribe@googlegroups.com>.
@@ -513,21 +513,11 @@ Thank you!
 15) Contact
 -----------
 
-Questions? Concerns? Bug reports? The author can be usually reached at
-<lcamtuf@google.com>.
+Questions? Concerns? Bug reports? The contributors can be reached via
+https://github.com/vanhauser-thc/AFLplusplus
 
-There is also a mailing list for the project; to join, send a mail to
+There is also a mailing list for the afl project; to join, send a mail to
 <afl-users+subscribe@googlegroups.com>. Or, if you prefer to browse
 archives first, try:
 
   https://groups.google.com/group/afl-users
-
-PS. If you wish to submit raw code to be incorporated into the project, please
-be aware that the copyright on most of AFL is claimed by Google. While you do
-retain copyright on your contributions, they do ask people to agree to a simple
-CLA first:
-
-  https://cla.developers.google.com/clas
-
-Sorry about the hassle. Of course, no CLA is required for feature requests or
-bug reports.
