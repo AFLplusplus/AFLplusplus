@@ -9,6 +9,8 @@
 
    TCG instrumentation and block chaining support by Andrea Biondo
                                       <andrea.biondo965@gmail.com>
+   QEMU 3.1.0 port and thread-safety by Andrea Fioraldi
+                                      <andreafioraldi@gmail.com>
 
    Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
 
@@ -19,7 +21,7 @@
      http://www.apache.org/licenses/LICENSE-2.0
 
    This code is a shim patched into the separately-distributed source
-   code of QEMU 2.10.0. It leverages the built-in QEMU tracing functionality
+   code of QEMU 3.1.0. It leverages the built-in QEMU tracing functionality
    to implement AFL-style instrumentation and to take care of the remaining
    parts of the AFL fork server logic.
 
