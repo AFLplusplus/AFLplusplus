@@ -144,7 +144,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
           if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp && !isStrncasecmp)
             continue;
 
-          /* is a str{n,}{case,}cmp/memcmp, check is we have
+          /* is a str{n,}{case,}cmp/memcmp, check if we have
            * str{case,}cmp(x, "const") or str{case,}cmp("const", x)
            * strn{case,}cmp(x, "const", ..) or strn{case,}cmp("const", x, ..)
            * memcmp(x, "const", ..) or memcmp("const", x, ..) */
@@ -211,6 +211,13 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
       VarStr = Str1P;
       constLen = isMemcmp ? sizedLen : GetStringLength(Str2P);
     }
+
+    /* bugfix thanks to pbst */
+    /* ignore terminating '\0' in string for strcmp */
+    if (!isSizedcmp && constLen > 0) {
+      constLen--;
+    }
+
     if (isSizedcmp && constLen > sizedLen) {
       constLen = sizedLen;
     }

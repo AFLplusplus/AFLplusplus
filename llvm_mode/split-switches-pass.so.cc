@@ -259,7 +259,9 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 #else
       Cases.push_back(CaseExpr(i->getCaseValue(), i->getCaseSuccessor()));
 #endif
-    std::vector<bool> bytesChecked(Cases[0].Val->getBitWidth() / 8, false);
+    /* bugfix thanks to pbst
+     * round up bytesChecked (in case getBitWidth() % 8 != 0) */
+    std::vector<bool> bytesChecked((7 + Cases[0].Val->getBitWidth()) / 8, false);
     BasicBlock* SwitchBlock = switchConvert(Cases, bytesChecked, OrigBlock, NewDefault, Val, 0);
 
     /* Branch to our shiny new if-then stuff... */
