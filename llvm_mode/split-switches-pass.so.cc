@@ -152,7 +152,7 @@ BasicBlock* SplitSwitchesTransform::switchConvert(CaseVector Cases, std::vector<
         }
         PHINode *PN = cast<PHINode>(I);
 
-        /* Only update the first occurence. */
+        /* Only update the first occurrence. */
         unsigned Idx = 0, E = PN->getNumIncomingValues();
         for (; Idx != E; ++Idx) {
           if (PN->getIncomingBlock(Idx) == OrigBlock) {
@@ -278,7 +278,7 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
      }
      PHINode *PN = cast<PHINode>(I);
 
-     /* Only update the first occurence. */
+     /* Only update the first occurrence. */
      unsigned Idx = 0, E = PN->getNumIncomingValues();
      for (; Idx != E; ++Idx) {
        if (PN->getIncomingBlock(Idx) == OrigBlock) {

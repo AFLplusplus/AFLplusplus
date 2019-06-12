@@ -133,7 +133,6 @@ patch -p1 <../patches/cpu-exec.diff || exit 1
 patch -p1 <../patches/syscall.diff || exit 1
 patch -p1 <../patches/translate-all.diff || exit 1
 patch -p1 <../patches/tcg.diff || exit 1
-patch -p1 <../patches/elfload2.diff || exit 1
 
 echo "[+] Patching done."
 
