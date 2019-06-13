@@ -184,6 +184,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
 
     Value *Str1P = callInst->getArgOperand(0), *Str2P = callInst->getArgOperand(1);
     StringRef Str1, Str2, ConstStr;
+    std::string TmpConstStr;
     Value *VarStr;
     bool HasStr1 = getConstantStringInfo(Str1P, Str1);
     getConstantStringInfo(Str2P, Str2);
@@ -202,21 +203,20 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
     }
 
     if (HasStr1) {
-      ConstStr = Str1;
+      TmpConstStr = Str1.str();
       VarStr = Str2P;
       constLen = isMemcmp ? sizedLen : GetStringLength(Str1P);
     }
     else {
-      ConstStr = Str2;
+      TmpConstStr = Str2.str();
       VarStr = Str1P;
       constLen = isMemcmp ? sizedLen : GetStringLength(Str2P);
     }
 
-    /* bugfix thanks to pbst */
-    /* ignore terminating '\0' in string for strcmp */
-    if (!isSizedcmp && constLen > 0) {
-      constLen--;
-    }
+    /* properly handle zero terminated C strings by adding the terminating 0 to
+     * the StringRef (in comparison to std::string a StringRef has built-in
+     * runtime bounds checking, which makes debugging easier) */
+    TmpConstStr.append("\0", 1); ConstStr = StringRef(TmpConstStr);
 
     if (isSizedcmp && constLen > sizedLen) {
       constLen = sizedLen;
