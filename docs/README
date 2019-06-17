@@ -439,7 +439,7 @@ Here are some of the most important caveats for AFL:
     To work around this, you can comment out the relevant checks (see
     experimental/libpng_no_checksum/ for inspiration); if this is not possible,
     you can also write a postprocessor, as explained in
-    experimental/post_library/.
+    experimental/post_library/ (with AFL_POST_LIBRARY)
 
   - There are some unfortunate trade-offs with ASAN and 64-bit binaries. This
     isn't due to any specific fault of afl-fuzz; see notes_for_asan.txt for
