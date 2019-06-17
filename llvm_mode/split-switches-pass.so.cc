@@ -87,6 +87,7 @@ BasicBlock* SplitSwitchesTransform::switchConvert(CaseVector Cases, std::vector<
   std::vector<uint8_t> setSizes;
   std::vector<std::set<uint8_t>> byteSets(BytesInValue, std::set<uint8_t>());
 
+  assert(ValTypeBitWidth >= 8 && ValTypeBitWidth <= 64);
 
   /* for each of the possible cases we iterate over all bytes of the values
    * build a set of possible values at each byte position in byteSets */
@@ -98,6 +99,8 @@ BasicBlock* SplitSwitchesTransform::switchConvert(CaseVector Cases, std::vector<
     }
   }
 
+  /* find the index of the first byte position that was not yet checked. then
+   * save the number of possible values at that byte position */
   unsigned smallestIndex = 0;
   unsigned smallestSize = 257;
   for(unsigned i = 0; i < byteSets.size(); i++) {
@@ -235,9 +238,13 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
     /* this is the value we are switching on */
     Value *Val = SI->getCondition();
     BasicBlock* Default = SI->getDefaultDest();
+    unsigned bitw = Val->getType()->getIntegerBitWidth();
 
-    /* If there is only the default destination, don't bother with the code below. */
-    if (!SI->getNumCases()) {
+    errs() << "switch: " << SI->getNumCases() << " cases " << bitw << " bit\n";
+
+    /* If there is only the default destination or the condition checks 8 bit or less, don't bother with the code below. */
+    if (!SI->getNumCases() || bitw <= 8) {
+      errs() << "skip trivial switch..\n";
       continue;
     }
 
