@@ -68,6 +68,15 @@ tools make fairly broad use of environmental variables:
   - Setting AFL_QUIET will prevent afl-cc and afl-as banners from being
     displayed during compilation, in case you find them distracting.
 
+  - Setting AFL_CAL_FAST will speed up the initial calibration, if the
+    application is very slow
+
+  - Setting AFL_DEBUG_CHILD_OUTPUT will not suppress the child output.
+    Not pretty but good for debugging purposes.
+
+  - For AFL_PYTHON_MODULE and AFL_PYTHON_ONLY - they require to be compiled
+    with -DUSE_PYTHON. Please see docs/python_mutators.txt
+
 2) Settings for afl-clang-fast
 ------------------------------
 
