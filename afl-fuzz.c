@@ -98,6 +98,11 @@ static u32 hang_tmout = EXEC_TIMEOUT; /* Timeout used for hang det (ms)   */
 
 EXP_ST u64 mem_limit  = MEM_LIMIT;    /* Memory cap for child (MB)        */
 
+EXP_ST u8  cal_cycles = CAL_CYCLES;   /* Calibration cycles defaults      */
+EXP_ST u8  cal_cycles_long = CAL_CYCLES_LONG;
+EXP_ST u8  debug,                     /* Debug mode                       */
+           python_only;               /* Python-only mode                 */
+
 static u32 stats_update_freq = 1;     /* Stats update frequency (execs)   */
 
 enum {
@@ -313,7 +318,8 @@ enum {
   /* 13 */ STAGE_EXTRAS_UI,
   /* 14 */ STAGE_EXTRAS_AO,
   /* 15 */ STAGE_HAVOC,
-  /* 16 */ STAGE_SPLICE
+  /* 16 */ STAGE_SPLICE,
+  /* 17 */ STAGE_PYTHON
 };
 
 /* Stage value types */
@@ -334,6 +340,222 @@ enum {
   /* 04 */ FAULT_NOINST,
   /* 05 */ FAULT_NOBITS
 };
+
+
+static inline u32 UR(u32 limit);
+
+/* Python stuff */
+#ifdef USE_PYTHON
+#include <Python.h>
+
+static PyObject *py_module;
+
+enum {
+  /* 00 */ PY_FUNC_INIT,
+  /* 01 */ PY_FUNC_FUZZ,
+  /* 02 */ PY_FUNC_INIT_TRIM,
+  /* 03 */ PY_FUNC_POST_TRIM,
+  /* 04 */ PY_FUNC_TRIM,
+  PY_FUNC_COUNT
+};
+
+static PyObject *py_functions[PY_FUNC_COUNT];
+
+static int init_py() {
+  Py_Initialize();
+  u8* module_name = getenv("AFL_PYTHON_MODULE");
+  u8 py_notrim = 0;
+
+  if (module_name) {
+    PyObject* py_name = PyString_FromString(module_name);
+
+    py_module = PyImport_Import(py_name);
+    Py_DECREF(py_name);
+
+    if (py_module != NULL) {
+      py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
+      py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
+      py_functions[PY_FUNC_INIT_TRIM] = PyObject_GetAttrString(py_module, "init_trim");
+      py_functions[PY_FUNC_POST_TRIM] = PyObject_GetAttrString(py_module, "post_trim");
+      py_functions[PY_FUNC_TRIM] = PyObject_GetAttrString(py_module, "trim");
+
+      for (u8 py_idx = 0; py_idx < PY_FUNC_COUNT; ++py_idx) {
+        if (!py_functions[py_idx] || !PyCallable_Check(py_functions[py_idx])) {
+          if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
+            // Implementing the trim API is optional for now
+            if (PyErr_Occurred())
+              PyErr_Print();
+            py_notrim = 1;
+          } else {
+            if (PyErr_Occurred())
+              PyErr_Print();
+            fprintf(stderr, "Cannot find/call function with index %d in external Python module.\n", py_idx);
+            return 1;
+          }
+        }
+
+      }
+
+      if (py_notrim) {
+        py_functions[PY_FUNC_INIT_TRIM] = NULL;
+        py_functions[PY_FUNC_POST_TRIM] = NULL;
+        py_functions[PY_FUNC_TRIM] = NULL;
+        WARNF("Python module does not implement trim API, standard trimming will be used.");
+      }
+
+      PyObject *py_args, *py_value;
+
+      /* Provide the init function a seed for the Python RNG */
+      py_args = PyTuple_New(1);
+      py_value = PyInt_FromLong(UR(0xFFFFFFFF));
+      if (!py_value) {
+        Py_DECREF(py_args);
+        fprintf(stderr, "Cannot convert argument\n");
+        return 1;
+      }
+
+      PyTuple_SetItem(py_args, 0, py_value);
+
+      py_value = PyObject_CallObject(py_functions[PY_FUNC_INIT], py_args);
+
+      Py_DECREF(py_args);
+
+      if (py_value == NULL) {
+        PyErr_Print();
+        fprintf(stderr,"Call failed\n");
+        return 1;
+      }
+    } else {
+      PyErr_Print();
+      fprintf(stderr, "Failed to load \"%s\"\n", module_name);
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+static void finalize_py() {
+  if (py_module != NULL) {
+    u32 i;
+    for (i = 0; i < PY_FUNC_COUNT; ++i)
+      Py_XDECREF(py_functions[i]);
+
+    Py_DECREF(py_module);
+  }
+
+  Py_Finalize();
+}
+
+static void fuzz_py(char* buf, size_t buflen, char* add_buf, size_t add_buflen, char** ret, size_t* retlen) {
+  PyObject *py_args, *py_value;
+
+  if (py_module != NULL) {
+    py_args = PyTuple_New(2);
+    py_value = PyByteArray_FromStringAndSize(buf, buflen);
+    if (!py_value) {
+      Py_DECREF(py_args);
+      fprintf(stderr, "Cannot convert argument\n");
+      return;
+    }
+
+    PyTuple_SetItem(py_args, 0, py_value);
+
+    py_value = PyByteArray_FromStringAndSize(add_buf, add_buflen);
+    if (!py_value) {
+      Py_DECREF(py_args);
+      fprintf(stderr, "Cannot convert argument\n");
+      return;
+    }
+
+    PyTuple_SetItem(py_args, 1, py_value);
+
+    py_value = PyObject_CallObject(py_functions[PY_FUNC_FUZZ], py_args);
+
+    Py_DECREF(py_args);
+
+    if (py_value != NULL) {
+      *retlen = PyByteArray_Size(py_value);
+      *ret = malloc(*retlen);
+      memcpy(*ret, PyByteArray_AsString(py_value), *retlen);
+      Py_DECREF(py_value);
+    } else {
+      PyErr_Print();
+      fprintf(stderr,"Call failed\n");
+      return;
+    }
+  }
+}
+static u32 init_trim_py(char* buf, size_t buflen) {
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(1);
+  py_value = PyByteArray_FromStringAndSize(buf, buflen);
+  if (!py_value) {
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+  }
+
+  PyTuple_SetItem(py_args, 0, py_value);
+
+  py_value = PyObject_CallObject(py_functions[PY_FUNC_INIT_TRIM], py_args);
+  Py_DECREF(py_args);
+
+  if (py_value != NULL) {
+    u32 retcnt = PyInt_AsLong(py_value);
+    Py_DECREF(py_value);
+    return retcnt;
+  } else {
+    PyErr_Print();
+    FATAL("Call failed");
+  }
+}
+static u32 post_trim_py(char success) {
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(1);
+
+  py_value = PyBool_FromLong(success);
+  if (!py_value) {
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+  }
+
+  PyTuple_SetItem(py_args, 0, py_value);
+
+  py_value = PyObject_CallObject(py_functions[PY_FUNC_POST_TRIM], py_args);
+  Py_DECREF(py_args);
+
+  if (py_value != NULL) {
+    u32 retcnt = PyInt_AsLong(py_value);
+    Py_DECREF(py_value);
+    return retcnt;
+  } else {
+    PyErr_Print();
+    FATAL("Call failed");
+  }
+}
+
+static void trim_py(char** ret, size_t* retlen) {
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(0);
+  py_value = PyObject_CallObject(py_functions[PY_FUNC_TRIM], py_args);
+  Py_DECREF(py_args);
+
+  if (py_value != NULL) {
+    *retlen = PyByteArray_Size(py_value);
+    *ret = malloc(*retlen);
+    memcpy(*ret, PyByteArray_AsString(py_value), *retlen);
+    Py_DECREF(py_value);
+  } else {
+    PyErr_Print();
+    FATAL("Call failed");
+  }
+}
+
+#endif /* USE_PYTHON */
+
 
 
 /* Get unix time in milliseconds */
@@ -2071,8 +2293,10 @@ EXP_ST void init_forkserver(char** argv) {
 
     setsid();
 
-    dup2(dev_null_fd, 1);
-    dup2(dev_null_fd, 2);
+    if (!getenv("AFL_DEBUG_CHILD_OUTPUT")) {
+      dup2(dev_null_fd, 1);
+      dup2(dev_null_fd, 2);
+    }
 
     if (out_file) {
 
@@ -3892,6 +4116,10 @@ static void maybe_delete_out_dir(void) {
   fn = alloc_printf("%s/plot_data", out_dir);
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
+  
+  fn = alloc_printf("%s/cmdline", out_dir);
+  if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
+  ck_free(fn);
 
   OKF("Output dir cleanup successful.");
 
@@ -4294,9 +4522,10 @@ static void show_stats(void) {
        "  imported : " cRST "%-10s" bSTG bV "\n", tmp,
        sync_id ? DI(queued_imported) : (u8*)"n/a");
 
-  sprintf(tmp, "%s/%s, %s/%s",
+  sprintf(tmp, "%s/%s, %s/%s, %s/%s",
           DI(stage_finds[STAGE_HAVOC]), DI(stage_cycles[STAGE_HAVOC]),
-          DI(stage_finds[STAGE_SPLICE]), DI(stage_cycles[STAGE_SPLICE]));
+          DI(stage_finds[STAGE_SPLICE]), DI(stage_cycles[STAGE_SPLICE]),
+          DI(stage_finds[STAGE_PYTHON]), DI(stage_cycles[STAGE_PYTHON]));
 
   SAYF(bV bSTOP "       havoc : " cRST "%-36s " bSTG bV bSTOP, tmp);
 
@@ -4497,12 +4726,124 @@ static void show_init_stats(void) {
 
 }
 
+#ifdef USE_PYTHON
+static u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
+
+  static u8 tmp[64];
+  static u8 clean_trace[MAP_SIZE];
+
+  u8  needs_write = 0, fault = 0;
+  u32 trim_exec = 0;
+  u32 orig_len = q->len;
+
+  stage_name = tmp;
+  bytes_trim_in += q->len;
+
+  /* Initialize trimming in the Python module */
+  stage_cur = 0;
+  stage_max = init_trim_py(in_buf, q->len);
+
+  if (not_on_tty && debug)
+    SAYF("[Python Trimming] START: Max %d iterations, %d bytes", stage_max, q->len);
+
+  while(stage_cur < stage_max) {
+    sprintf(tmp, "ptrim %s", DI(trim_exec));
+
+    u32 cksum;
+
+    char* retbuf = NULL;
+    size_t retlen = 0;
+
+    trim_py(&retbuf, &retlen);
+
+    if (retlen > orig_len)
+      FATAL("Trimmed data returned by Python module is larger than original data");
+
+    write_to_testcase(retbuf, retlen);
+
+    fault = run_target(argv, exec_tmout);
+    trim_execs++;
+
+    if (stop_soon || fault == FAULT_ERROR) goto abort_trimming;
+
+    cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
+
+    if (cksum == q->exec_cksum) {
+
+      q->len = retlen;
+      memcpy(in_buf, retbuf, retlen);
+
+      /* Let's save a clean trace, which will be needed by
+         update_bitmap_score once we're done with the trimming stuff. */
+
+      if (!needs_write) {
+
+        needs_write = 1;
+        memcpy(clean_trace, trace_bits, MAP_SIZE);
+
+      }
+
+      /* Tell the Python module that the trimming was successful */
+      stage_cur = post_trim_py(1);
+
+      if (not_on_tty && debug)
+        SAYF("[Python Trimming] SUCCESS: %d/%d iterations (now at %d bytes)", stage_cur, stage_max, q->len);
+    } else {
+      /* Tell the Python module that the trimming was unsuccessful */
+      stage_cur = post_trim_py(0);
+      if (not_on_tty && debug)
+        SAYF("[Python Trimming] FAILURE: %d/%d iterations", stage_cur, stage_max);
+    }
+
+      /* Since this can be slow, update the screen every now and then. */
+
+      if (!(trim_exec++ % stats_update_freq)) show_stats();
+  }
+
+  if (not_on_tty && debug)
+    SAYF("[Python Trimming] DONE: %d bytes -> %d bytes", orig_len, q->len);
+
+  /* If we have made changes to in_buf, we also need to update the on-disk
+     version of the test case. */
+
+  if (needs_write) {
+
+    s32 fd;
+
+    unlink(q->fname); /* ignore errors */
+
+    fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+
+    if (fd < 0) PFATAL("Unable to create '%s'", q->fname);
+
+    ck_write(fd, in_buf, q->len, q->fname);
+    close(fd);
+
+    memcpy(trace_bits, clean_trace, MAP_SIZE);
+    update_bitmap_score(q);
+
+  }
+
+
+
+abort_trimming:
+
+  bytes_trim_out += q->len;
+  return fault;
+
+}
+#endif
 
 /* Trim all new test cases to save cycles when doing deterministic checks. The
    trimmer uses power-of-two increments somewhere between 1/16 and 1/1024 of
    file size, to keep the stage short and sweet. */
 
 static u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
+
+#ifdef USE_PYTHON
+  if (py_functions[PY_FUNC_TRIM])
+    return trim_case_python(argv, q, in_buf);
+#endif
 
   static u8 tmp[64];
   static u8 clean_trace[MAP_SIZE];
@@ -5044,7 +5385,7 @@ static u8 fuzz_one(char** argv) {
 
   s32 len, fd, temp_len, i, j;
   u8  *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
-  u64 havoc_queued,  orig_hit_cnt, new_hit_cnt;
+  u64 havoc_queued = 0,  orig_hit_cnt, new_hit_cnt;
   u32 splice_cycle = 0, perf_score = 100, orig_perf, prev_cksum, eff_cnt = 1;
 
   u8  ret_val = 1, doing_det = 0;
@@ -5106,7 +5447,7 @@ static u8 fuzz_one(char** argv) {
 
   orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 
-  if (orig_in == MAP_FAILED) PFATAL("Unable to mmap '%s'", queue_cur->fname);
+  if (orig_in == MAP_FAILED) PFATAL("Unable to mmap '%s' with len %u", queue_cur->fname, len);
 
   close(fd);
 
@@ -5190,13 +5531,21 @@ static u8 fuzz_one(char** argv) {
               ? queue_cur->depth * 30 
               : HAVOC_MAX_MULT * 100))
      || queue_cur->passed_det)
+#ifdef USE_PYTHON
+    goto python_stage;
+#else
     goto havoc_stage;
+#endif
 
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
      for this master instance. */
 
   if (master_max && (queue_cur->exec_cksum % master_max) != master_id - 1)
+#ifdef USE_PYTHON
+    goto python_stage;
+#else
     goto havoc_stage;
+#endif
 
   doing_det = 1;
 
@@ -6155,6 +6504,99 @@ skip_extras:
 
   if (!queue_cur->passed_det) mark_as_det_done(queue_cur);
 
+#ifdef USE_PYTHON
+python_stage:
+  /**********************************
+   * EXTERNAL MUTATORS (Python API) *
+   **********************************/
+
+  if (!py_module) goto havoc_stage;
+
+  stage_name  = "python";
+  stage_short = "python";
+  stage_max   = HAVOC_CYCLES * perf_score / havoc_div / 100;
+
+  if (stage_max < HAVOC_MIN) stage_max = HAVOC_MIN;
+
+  orig_hit_cnt = queued_paths + unique_crashes;
+
+  char* retbuf = NULL;
+  size_t retlen = 0;
+
+  for (stage_cur = 0; stage_cur < stage_max; stage_cur++) {
+    struct queue_entry* target;
+    u32 tid;
+    u8* new_buf;
+
+retry_external_pick:
+    /* Pick a random other queue entry for passing to external API */
+    do { tid = UR(queued_paths); } while (tid == current_entry && queued_paths > 1);
+
+    target = queue;
+
+    while (tid >= 100) { target = target->next_100; tid -= 100; }
+    while (tid--) target = target->next;
+
+    /* Make sure that the target has a reasonable length. */
+
+    while (target && (target->len < 2 || target == queue_cur) && queued_paths > 1) {
+      target = target->next;
+      splicing_with++;
+    }
+
+    if (!target) goto retry_external_pick;
+
+    /* Read the additional testcase into a new buffer. */
+    fd = open(target->fname, O_RDONLY);
+    if (fd < 0) PFATAL("Unable to open '%s'", target->fname);
+    new_buf = ck_alloc_nozero(target->len);
+    ck_read(fd, new_buf, target->len, target->fname);
+    close(fd);
+
+    fuzz_py(out_buf, len, new_buf, target->len, &retbuf, &retlen);
+
+    ck_free(new_buf);
+
+    if (retbuf) {
+      if (!retlen)
+        goto abandon_entry;
+
+      if (common_fuzz_stuff(argv, retbuf, retlen)) {
+        free(retbuf);
+        goto abandon_entry;
+      }
+
+      /* Reset retbuf/retlen */
+      free(retbuf);
+      retbuf = NULL;
+      retlen = 0;
+
+      /* If we're finding new stuff, let's run for a bit longer, limits
+         permitting. */
+
+      if (queued_paths != havoc_queued) {
+        if (perf_score <= HAVOC_MAX_MULT * 100) {
+          stage_max  *= 2;
+          perf_score *= 2;
+        }
+
+        havoc_queued = queued_paths;
+      }
+    }
+  }
+
+  new_hit_cnt = queued_paths + unique_crashes;
+
+  stage_finds[STAGE_PYTHON]  += new_hit_cnt - orig_hit_cnt;
+  stage_cycles[STAGE_PYTHON] += stage_max;
+
+  if (python_only) {
+    /* Skip other stages */
+    ret_val = 0;
+    goto abandon_entry;
+  }
+#endif
+
   /****************
    * RANDOM HAVOC *
    ****************/
@@ -6699,7 +7141,11 @@ retry_splicing:
     out_buf = ck_alloc_nozero(len);
     memcpy(out_buf, in_buf, len);
 
+#ifdef USE_PYTHON
+    goto python_stage;
+#else
     goto havoc_stage;
+#endif
 
   }
 
@@ -7180,6 +7626,9 @@ static void usage(u8* argv0) {
        "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
        "  -e ext        - File extension for the temporarily generated test case\n\n"
 
+#ifdef USE_PYTHON
+       "Compiled with Python 2.7 module support, see docs/python_mutators.txt\n"
+#endif
        "For additional tips, please consult %s/README.\n\n",
 
        argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
@@ -7309,6 +7758,30 @@ EXP_ST void setup_dirs_fds(void) {
                      "unique_hangs, max_depth, execs_per_sec\n");
                      /* ignore errors */
 
+}
+
+static void setup_cmdline_file(char** argv) {
+  u8* tmp;
+  s32 fd;
+  u32 i = 0;
+
+  FILE* cmdline_file = NULL;
+
+  /* Store the command line to reproduce our findings */
+  tmp = alloc_printf("%s/cmdline", out_dir);
+  fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
+  if (fd < 0) PFATAL("Unable to create '%s'", tmp);
+  ck_free(tmp);
+
+  cmdline_file = fdopen(fd, "w");
+  if (!cmdline_file) PFATAL("fdopen() failed");
+
+  while (argv[i]) {
+    fprintf(cmdline_file, "%s\n", argv[i]);
+    i++;
+  }
+
+  fclose(cmdline_file);
 }
 
 
@@ -7557,8 +8030,8 @@ static void fix_up_sync(void) {
 
     if (force_deterministic)
       FATAL("use -S instead of -M -d");
-    else
-      FATAL("-S already implies -d");
+    //else
+    //  FATAL("-S already implies -d");
 
   }
 
@@ -8116,6 +8589,23 @@ int main(int argc, char** argv) {
 
   check_if_tty();
 
+  if (getenv("AFL_CAL_FAST")) {
+    /* Use less calibration cycles, for slow applications */
+    cal_cycles = 3;
+    cal_cycles_long = 5;
+  }
+
+  if (getenv("AFL_DEBUG"))
+    debug = 1;
+
+  if (getenv("AFL_PYTHON_ONLY")) {
+    /* This ensures we don't proceed to havoc/splice */
+    python_only = 1;
+
+    /* Ensure we also skip all deterministic steps */
+    skip_deterministic = 1;
+  }
+
   get_core_count();
 
 #ifdef HAVE_AFFINITY
@@ -8130,6 +8620,19 @@ int main(int argc, char** argv) {
   init_count_class16();
 
   setup_dirs_fds();
+
+  u8 with_python_support = 0;
+#ifdef USE_PYTHON
+  if (init_py())
+    FATAL("Failed to initialize Python module");
+  with_python_support = 1;
+#endif
+
+  if (getenv("AFL_PYTHON_MODULE") && !with_python_support)
+     FATAL("Your AFL binary was built without Python support");
+
+  setup_cmdline_file(argv + optind);
+
   read_testcases();
   load_auto();
 
@@ -8261,6 +8764,10 @@ stop_fuzzing:
   ck_free(sync_id);
 
   alloc_report();
+
+#ifdef USE_PYTHON
+  finalize_py();
+#endif
 
   OKF("We're done here. Have a nice day!\n");
 
