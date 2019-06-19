@@ -32,6 +32,8 @@ CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
 	      -DAFL_PATH=\"$(HELPER_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\" \
 	      -DBIN_PATH=\"$(BIN_PATH)\"
 
+PYTHON_INCLUDE	?= /usr/include/python2.7
+
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
   LDFLAGS  += -ldl
 endif
@@ -44,7 +46,15 @@ endif
 
 COMM_HDR    = alloc-inl.h config.h debug.h types.h
 
-all: test_x86 $(PROGS) afl-as test_build all_done
+ifeq "$(shell echo '\#include <Python.h>XXXvoid main() {}' | sed 's/XXX/\n/g' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) -lpython2.7 && echo 1 || echo 0 )" "1"
+	PYTHON_OK=1
+	PYFLAGS=-DUSE_PYTHON -I$(PYTHON_INCLUDE) -lpython2.7
+else
+	PYTHON_OK=0
+	PYFLAGS=
+endif
+
+all:	test_x86 test_python27 $(PROGS) afl-as test_build all_done
 
 ifndef AFL_NO_X86
 
@@ -61,6 +71,19 @@ test_x86:
 
 endif
 
+ifeq "$(PYTHON_OK)" "1"
+
+test_python27:
+	@rm -f .test 2> /dev/null
+	@echo "[+] Python 2.7 support seems to be working."
+
+else
+
+test_python27:
+	@echo "[-] You seem to need to install the package python2.7-dev, but it is optional so we continue"
+
+endif
+
 afl-gcc: afl-gcc.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
 	set -e; for i in afl-g++ afl-clang afl-clang++; do ln -sf afl-gcc $$i; done
@@ -70,7 +93,7 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 	ln -sf afl-as as
 
 afl-fuzz: afl-fuzz.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS) $(PYFLAGS)
 
 afl-showmap: afl-showmap.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
@@ -142,16 +165,16 @@ endif
 	cp -r dictionaries/ $${DESTDIR}$(MISC_PATH)
 
 publish: clean
-	test "`basename $$PWD`" = "afl" || exit 1
-	test -f ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz; if [ "$$?" = "0" ]; then echo; echo "Change program version in config.h, mmkay?"; echo; exit 1; fi
-	cd ..; rm -rf $(PROGNAME)-$(VERSION); cp -pr $(PROGNAME) $(PROGNAME)-$(VERSION); \
-	  tar -cvz -f ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz $(PROGNAME)-$(VERSION)
-	chmod 644 ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz
-	( cd ~/www/afl/releases/; ln -s -f $(PROGNAME)-$(VERSION).tgz $(PROGNAME)-latest.tgz )
-	cat docs/README >~/www/afl/README.txt
-	cat docs/status_screen.txt >~/www/afl/status_screen.txt
-	cat docs/historical_notes.txt >~/www/afl/historical_notes.txt
-	cat docs/technical_details.txt >~/www/afl/technical_details.txt
-	cat docs/ChangeLog >~/www/afl/ChangeLog.txt
-	cat docs/QuickStartGuide.txt >~/www/afl/QuickStartGuide.txt
-	echo -n "$(VERSION)" >~/www/afl/version.txt
+#	test "`basename $$PWD`" = "afl" || exit 1
+#	test -f ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz; if [ "$$?" = "0" ]; then echo; echo "Change program version in config.h, mmkay?"; echo; exit 1; fi
+#	cd ..; rm -rf $(PROGNAME)-$(VERSION); cp -pr $(PROGNAME) $(PROGNAME)-$(VERSION); \
+#	  tar -cvz -f ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz $(PROGNAME)-$(VERSION)
+#	chmod 644 ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz
+#	( cd ~/www/afl/releases/; ln -s -f $(PROGNAME)-$(VERSION).tgz $(PROGNAME)-latest.tgz )
+#	cat docs/README >~/www/afl/README.txt
+#	cat docs/status_screen.txt >~/www/afl/status_screen.txt
+#	cat docs/historical_notes.txt >~/www/afl/historical_notes.txt
+#	cat docs/technical_details.txt >~/www/afl/technical_details.txt
+#	cat docs/ChangeLog >~/www/afl/ChangeLog.txt
+#	cat docs/QuickStartGuide.txt >~/www/afl/QuickStartGuide.txt
+#	echo -n "$(VERSION)" >~/www/afl/version.txt
