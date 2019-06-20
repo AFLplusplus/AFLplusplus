@@ -12,6 +12,8 @@ Adding custom mutators to AFL using Python modules
   NOTE: This is for Python 2.7 !
   Anyone who wants to add Python 3.7 support is happily welcome :)
 
+  For an example and a template see ../python_mutators/
+
 
 1) Description and purpose
 --------------------------
@@ -49,6 +51,7 @@ is requested.
 
 There is also optional support for a trimming API, see the section below for
 further information about this feature.
+
 
 3) How to compile AFLFuzz with Python support
 ---------------------------------------------
@@ -91,6 +94,7 @@ AFL_DEBUG       - When combined with AFL_NO_UI, this causes the C trimming code
                   to emit additional messages about the performance and actions
                   of your custom Python trimmer. Use this to see if it works :)
 
+
 5) Order and statistics
 -----------------------
 
@@ -98,6 +102,7 @@ The Python stage is set to be the first non-deterministic stage (right before
 the havoc stage). In the statistics however, it shows up as the third number
 under "havoc". That's because I'm lazy and I didn't want to mess with the UI
 too much ;)
+
 
 6) Trimming support
 -------------------

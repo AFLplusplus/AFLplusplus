@@ -1,0 +1,11 @@
+These are example and helper files for the AFL_PYTHON_MODULE feature.
+See docs/python_mutators.txt for more information
+
+
+example.py	- this is the template you can use, the functions are there
+		  but they are empty
+
+simple-chunk-replace.py - this is a simple example where chunks are replaced
+
+common.py 	- this can be used for common functions and helpers.
+		  the examples do not use this though. But you can :)

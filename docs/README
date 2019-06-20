@@ -21,6 +21,9 @@ american fuzzy lop plus plus
   https://github.com/andreafioraldi/afl and got the community patches applied
   to it.
 
+  C. Hoellers Python mutator module support was added too
+  (https://github.com/choeller/afl)
+
   So all in all this is the best-of AFL that is currently out there :-)
 
 
