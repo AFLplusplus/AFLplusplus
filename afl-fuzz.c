@@ -140,6 +140,7 @@ EXP_ST u8  skip_deterministic,        /* Skip deterministic stages?       */
            run_over10m,               /* Run time over 10 minutes?        */
            persistent_mode,           /* Running in persistent mode?      */
            deferred_mode,             /* Deferred forkserver mode?        */
+           fixed_seed,                /* do not reseed                    */
            fast_cal;                  /* Try to calibrate faster?         */
 
 static s32 out_fd,                    /* Persistent fd for out_file       */
@@ -591,7 +592,7 @@ static u64 get_cur_time_us(void) {
 
 static inline u32 UR(u32 limit) {
 
-  if (unlikely(!rand_cnt--)) {
+  if (!fixed_seed && unlikely(!rand_cnt--)) {
 
     u32 seed[2];
 
@@ -7624,6 +7625,7 @@ static void usage(u8* argv0) {
        "  -T text       - text banner to show on the screen\n"
        "  -M / -S id    - distributed mode (see parallel_fuzzing.txt)\n"
        "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
+       "  -s seed       - use a fixed seed for the rng - important to testing\n"
        "  -e ext        - File extension for the temporarily generated test case\n\n"
 
 #ifdef USE_PYTHON
@@ -8312,6 +8314,7 @@ int main(int argc, char** argv) {
   u8  mem_limit_given = 0;
   u8  exit_1 = !!getenv("AFL_BENCH_JUST_ONE");
   char** use_argv;
+  s64 init_seed;
 
   struct timeval tv;
   struct timezone tz;
@@ -8321,11 +8324,17 @@ int main(int argc, char** argv) {
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
   gettimeofday(&tv, &tz);
-  srandom(tv.tv_sec ^ tv.tv_usec ^ getpid());
+  init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Qe:p:")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Qe:p:s:")) > 0)
 
     switch (opt) {
+
+      case 's': {
+        init_seed = strtoul(optarg, 0L, 10);
+        fixed_seed = 1;
+        break;
+      }
 
       case 'p': /* Power schedule */
 
@@ -8528,6 +8537,9 @@ int main(int argc, char** argv) {
 
   if (optind == argc || !in_dir || !out_dir) usage(argv[0]);
 
+  if (fixed_seed)
+    OKF("Running with fixed seed: %u", (u32)init_seed);
+  srandom((u32)init_seed);
   setup_signal_handlers();
   check_asan_opts();
 
