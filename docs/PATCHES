@@ -17,7 +17,9 @@ afl-qemu-optimize-entrypoint.diff	by mh(at)mh-sec(dot)de
 afl-qemu-speed.diff			by abiondo on github
 afl-qemu-optimize-map.diff		by mh(at)mh-sec(dot)de
 
-additionally AFLfast additions (github.com/mboehme/aflfast) were incorporated.
++ AFLfast additions (github.com/mboehme/aflfast) were incorporated.
++ Qemu 3.1 upgrade with enhancement patches (github.com/andreafioraldi/afl)
++ Python mutator modules support (github.com/choeller/afl)
 
 
 NOT INSTALLED
