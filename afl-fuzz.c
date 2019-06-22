@@ -8348,7 +8348,7 @@ int main(int argc, char** argv) {
           schedule = LIN;
         } else if (!stricmp(optarg, "quad")) {
           schedule = QUAD;
-        } else if (!stricmp(optarg, "explore")) {
+        } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "default") || !stricmp(optarg, "normal") || !stricmp(optarg, "afl")) {
           schedule = EXPLORE;
         } else {
           FATAL("Unknown -p power schedule");
