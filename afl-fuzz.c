@@ -7611,6 +7611,7 @@ static void usage(u8* argv0) {
        "Execution control settings:\n"
        "  -p schedule   - power schedules recompute a seed's performance score.\n"
        "                  <explore (default), fast, coe, lin, quad, or exploit>\n"
+       "                  see docs/power_schedules.txt\n"
        "  -f file       - location read by the fuzzed program (stdin)\n"
        "  -t msec       - timeout for each run (auto-scaled, 50-%u ms)\n"
        "  -m megs       - memory limit for child process (%u MB)\n"

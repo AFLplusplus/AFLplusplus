@@ -38,6 +38,7 @@ american fuzzy lop plus plus
 
   ** See QuickStartGuide.txt if you don't have time to read this file. **
 
+
 1) Challenges of guided fuzzing
 -------------------------------
 
@@ -64,6 +65,7 @@ flow analysis ("concolic execution"), symbolic execution, or static analysis.
 All these methods are extremely promising in experimental settings, but tend
 to suffer from reliability and performance problems in practical uses - and
 currently do not offer a viable alternative to "dumb" fuzzing techniques.
+
 
 2) The afl-fuzz approach
 ------------------------
@@ -103,6 +105,7 @@ closed-source tools.
 
 The fuzzer is thoroughly tested to deliver out-of-the-box performance far
 superior to blind fuzzing or coverage-only tools.
+
 
 3) Instrumenting programs for use with AFL
 ------------------------------------------
@@ -148,6 +151,7 @@ libdislocator/README.dislocator) can help uncover heap corruption issues, too.
 PS. ASAN users are advised to review notes_for_asan.txt file for important
 caveats.
 
+
 4) Instrumenting binary-only apps
 ---------------------------------
 
@@ -166,7 +170,43 @@ For additional instructions and caveats, see qemu_mode/README.qemu.
 The mode is approximately 2-5x slower than compile-time instrumentation, is
 less conductive to parallelization, and may have some other quirks.
 
-5) Choosing initial test cases
+If [afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst) works for
+your binary, then you can use afl-fuzz normally and it will have twice
+the speed compared to qemu_mode.
+
+
+5) Power schedules
+------------------
+
+The power schedules were copied from Marcel Böhme's excellent AFLfast
+implementation and expands on the ability to discover new paths and
+therefore the coverage.
+
+| AFL flag | Power Schedule             | 
+| ------------- | -------------------------- |
+| `-p explore` (default)| ![EXPLORE](http://latex.codecogs.com/gif.latex?p%28i%29%3D%5Cfrac%7B%5Calpha%28i%29%7D%7B%5Cbeta%7D) |
+| `-p fast` | ![FAST](http://latex.codecogs.com/gif.latex?p(i)=\\min\\left(\\frac{\\alpha(i)}{\\beta}\\cdot\\frac{2^{s(i)}}{f(i)},M\\right))  |
+| `-p coe` | ![COE](http://latex.codecogs.com/gif.latex?p%28i%29%3D%5Cbegin%7Bcases%7D%200%20%26%20%5Ctext%7B%20if%20%7D%20f%28i%29%20%3E%20%5Cmu%5C%5C%20%5Cmin%5Cleft%28%5Cfrac%7B%5Calpha%28i%29%7D%7B%5Cbeta%7D%5Ccdot%202%5E%7Bs%28i%29%7D%2C%20M%5Cright%29%20%26%20%5Ctext%7B%20otherwise.%7D%20%5Cend%7Bcases%7D) |
+| `-p quad` | ![QUAD](http://latex.codecogs.com/gif.latex?p%28i%29%20%3D%20%5Cmin%5Cleft%28%5Cfrac%7B%5Calpha%28i%29%7D%7B%5Cbeta%7D%5Ccdot%5Cfrac%7Bs%28i%29%5E2%7D%7Bf%28i%29%7D%2CM%5Cright%29) |
+| `-p lin` | ![LIN](http://latex.codecogs.com/gif.latex?p%28i%29%20%3D%20%5Cmin%5Cleft%28%5Cfrac%7B%5Calpha%28i%29%7D%7B%5Cbeta%7D%5Ccdot%5Cfrac%7Bs%28i%29%7D%7Bf%28i%29%7D%2CM%5Cright%29) |
+| `-p exploit` (AFL) | ![LIN](http://latex.codecogs.com/gif.latex?p%28i%29%20%3D%20%5Calpha%28i%29) |
+where *α(i)* is the performance score that AFL uses to compute for the seed input *i*, *β(i)>1* is a constant, *s(i)* is the number of times that seed *i* has been chosen from the queue, *f(i)* is the number of generated inputs that exercise the same path as seed *i*, and *μ* is the average number of generated inputs exercising a path.
+
+In parallel mode (-M/-S, several instances with shared queue), we suggest to
+run the master using the exploit schedule (-p exploit) and the slaves with a
+combination of cut-off-exponential (-p coe), exponential (-p fast; default),
+and explore (-p explore) schedules.
+
+In single mode, using -p fast is usually more beneficial than the default
+explore mode.
+(We don't want to change the default behaviour of afl, so "fast" has not been
+made the default mode)
+
+More details can be found in the paper:
+[23rd ACM Conference on Computer and Communications Security (CCS'16)](https://www.sigsac.org/ccs/CCS2016/accepted-papers/).
+
+
+6) Choosing initial test cases
 ------------------------------
 
 To operate correctly, the fuzzer requires one or more starting file that
@@ -187,7 +227,8 @@ PS. If a large corpus of data is available for screening, you may want to use
 the afl-cmin utility to identify a subset of functionally distinct files that
 exercise different code paths in the target binary.
 
-6) Fuzzing binaries
+
+7) Fuzzing binaries
 -------------------
 
 The fuzzing process itself is carried out by the afl-fuzz utility. This program
@@ -221,7 +262,8 @@ steps, which can take several days, but tend to produce neat test cases. If you
 want quick & dirty results right away - akin to zzuf and other traditional
 fuzzers - add the -d option to the command line.
 
-7) Interpreting output
+
+8) Interpreting output
 ----------------------
 
 See the status_screen.txt file for information on how to interpret the
@@ -278,7 +320,8 @@ If you have gnuplot installed, you can also generate some pretty graphs for any
 active fuzzing task using afl-plot. For an example of how this looks like,
 see http://lcamtuf.coredump.cx/afl/plot/.
 
-8) Parallelized fuzzing
+
+9) Parallelized fuzzing
 -----------------------
 
 Every instance of afl-fuzz takes up roughly one core. This means that on
@@ -290,7 +333,8 @@ The parallel fuzzing mode also offers a simple way for interfacing AFL to other
 fuzzers, to symbolic or concolic execution engines, and so forth; again, see the
 last section of parallel_fuzzing.txt for tips.
 
-9) Fuzzer dictionaries
+
+10) Fuzzer dictionaries
 ----------------------
 
 By default, afl-fuzz mutation engine is optimized for compact data formats -
@@ -326,7 +370,8 @@ If a dictionary is really hard to come by, another option is to let AFL run
 for a while, and then use the token capture library that comes as a companion
 utility with AFL. For that, see libtokencap/README.tokencap.
 
-10) Crash triage
+
+11) Crash triage
 ----------------
 
 The coverage-based grouping of crashes usually produces a small data set that
@@ -372,7 +417,8 @@ be critical, and which are not; while not bulletproof, it can often offer quick
 insights into complex file formats. More info about its operation can be found
 near the end of technical_details.txt.
 
-11) Going beyond crashes
+
+12) Going beyond crashes
 ------------------------
 
 Fuzzing is a wonderful and underutilized technique for discovering non-crashing
@@ -396,7 +442,8 @@ if you are the maintainer of a particular package, you can make this code
 conditional with #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION (a flag also
 shared with libfuzzer) or #ifdef __AFL_COMPILER (this one is just for AFL).
 
-12) Common-sense risks
+
+13) Common-sense risks
 ----------------------
 
 Please keep in mind that, similarly to many other computationally-intensive
@@ -424,7 +471,8 @@ tasks, fuzzing may put strain on your hardware and on the OS. In particular:
 
     $ iostat -d 3 -x -k [...optional disk ID...]
 
-13) Known limitations & areas for improvement
+
+14) Known limitations & areas for improvement
 ---------------------------------------------
 
 Here are some of the most important caveats for AFL:
@@ -465,7 +513,8 @@ Here are some of the most important caveats for AFL:
 
 Beyond this, see INSTALL for platform-specific tips.
 
-14) Special thanks
+
+15) Special thanks
 ------------------
 
 Many of the improvements to afl-fuzz wouldn't be possible without feedback,
@@ -513,7 +562,8 @@ bug reports, or patches from:
 
 Thank you!
 
-15) Contact
+
+16) Contact
 -----------
 
 Questions? Concerns? Bug reports? The contributors can be reached via
