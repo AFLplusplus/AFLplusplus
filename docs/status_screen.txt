@@ -33,6 +33,16 @@ other side effects - sorry about that.
 
 With that out of the way, let's talk about what's actually on the screen...
 
+0) The status bar
+
+The top line shows you which mode afl-fuzz is running in
+(normal: "american fuzy lop", crash exploration mode: "peruvian rabbit mode")
+and the version of afl++.
+Next to the version is the banner, which, if not set with -T by hand, will
+either show the binary name being fuzzed, or the -M/-S master/slave name for
+parallel fuzzing.
+Finally, the last item is the power schedule mode being run (default: explore).
+
 1) Process timing
 -----------------
 
