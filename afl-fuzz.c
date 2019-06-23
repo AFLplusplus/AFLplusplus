@@ -86,6 +86,7 @@ EXP_ST u8 *in_dir,                    /* Input directory with test cases  */
           *tmp_dir       ,            /* Temporary directory for input    */
           *sync_dir,                  /* Synchronization directory        */
           *sync_id,                   /* Fuzzer ID                        */
+          *power_name,                /* Power schedule name              */
           *use_banner,                /* Display banner                   */
           *in_bitmap,                 /* Input bitmap                     */
           *doc_path,                  /* Path to documentation dir        */
@@ -112,6 +113,15 @@ enum {
   /* 03 */ LIN,                       /* Linear schedule                  */
   /* 04 */ QUAD,                      /* Quadratic schedule               */
   /* 05 */ EXPLOIT                    /* AFL's exploitation-based const.  */
+};
+
+char *power_names[] = {
+  "explore",
+  "fast",
+  "coe",
+  "lin",
+  "quad",
+  "exploit"
 };
 
 static u8 schedule = EXPLORE;         /* Power schedule (default: EXPLORE)*/
@@ -4271,13 +4281,13 @@ static void show_stats(void) {
 
   /* Let's start by drawing a centered banner. */
 
-  banner_len = (crash_mode ? 24 : 22) + strlen(VERSION) + strlen(use_banner);
+  banner_len = (crash_mode ? 24 : 22) + strlen(VERSION) + strlen(use_banner) + strlen(power_name) + 3;
   banner_pad = (79 - banner_len) / 2;
   memset(tmp, ' ', banner_pad);
 
   sprintf(tmp + banner_pad, "%s " cLCY VERSION cLGN
-          " (%s)",  crash_mode ? cPIN "peruvian were-rabbit" : 
-          cYEL "american fuzzy lop", use_banner);
+          " (%s) " cPIN "[%s]",  crash_mode ? cPIN "peruvian were-rabbit" : 
+          cYEL "american fuzzy lop", use_banner, power_name);
 
   SAYF("\n%s\n", tmp);
 
@@ -7546,10 +7556,10 @@ static void fix_up_banner(u8* name) {
 
   }
 
-  if (strlen(use_banner) > 40) {
+  if (strlen(use_banner) > 32) {
 
-    u8* tmp = ck_alloc(44);
-    sprintf(tmp, "%.40s...", use_banner);
+    u8* tmp = ck_alloc(36);
+    sprintf(tmp, "%.32s...", use_banner);
     use_banner = tmp;
 
   }
@@ -8354,9 +8364,7 @@ int main(int argc, char** argv) {
         } else {
           FATAL("Unknown -p power schedule");
         }
-
         break;
-
 
       case 'e':
 
@@ -8543,6 +8551,8 @@ int main(int argc, char** argv) {
   srandom((u32)init_seed);
   setup_signal_handlers();
   check_asan_opts();
+
+  power_name = power_names[schedule];
 
   if (sync_id) fix_up_sync();
 
