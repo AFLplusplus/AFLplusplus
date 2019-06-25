@@ -17,6 +17,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.52d (tbd):
 -----------------------------
 
+  - added whitelist support for llvm_mode via AFL_LLVM_WHITELIST to allow
+    only to instrument what is actually interesting. Gives more speed and less
+    map pollution (originally by choller@mozilla)
   - added Python Module mutator support, python2.7-dev is autodetected.
     see docs/python_mutators.txt (originally by choller@mozilla)
   - added AFL_CAL_FAST for slow applications and AFL_DEBUG_CHILD_OUTPUT for debugging
