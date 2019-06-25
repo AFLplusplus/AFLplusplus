@@ -64,6 +64,14 @@ that can offer huge benefits for programs with high startup overhead. Both
 modes require you to edit the source code of the fuzzed program, but the
 changes often amount to just strategically placing a single line or two.
 
+If there are important data comparisons performed (e.g. strcmp(ptr, MAGIC_HDR)
+then using laf-intel (see llvm_mode/README.laf-intel) will help afl-fuzz a lot
+to get to the important parts in the code.
+
+If you are only intested in specific parts of the code being fuzzed, you can
+whitelist the files that are actually relevant. This improves the speed and
+accuracy of afl. See llvm_mode/README.whitelist
+
 4) Profile and optimize the binary
 ----------------------------------
 

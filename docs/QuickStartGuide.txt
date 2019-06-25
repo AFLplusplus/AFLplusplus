@@ -42,6 +42,9 @@ how to hit the ground running:
 6) Investigate anything shown in red in the fuzzer UI by promptly consulting
    docs/status_screen.txt.
 
+7) compile and use llvm_mode (afl-clang-fast/afl-clang-fast++) as it is way
+   faster and has a few cool features
+
 That's it. Sit back, relax, and - time permitting - try to skim through the
 following files:
 

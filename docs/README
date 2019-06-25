@@ -110,6 +110,11 @@ superior to blind fuzzing or coverage-only tools.
 3) Instrumenting programs for use with AFL
 ------------------------------------------
 
+PLEASE NOTE: llvm_mode compilation with afl-clang-fast/afl-clang-fast++
+instead of afl-gcc/afl-g++ is much faster and has a few cool features.
+See llvm_mode/ - however few code does not compile with llvm.
+We support llvm versions 4.0 to 8.
+
 When source code is available, instrumentation can be injected by a companion
 tool that works as a drop-in replacement for gcc or clang in any standard build
 process for third-party code.
@@ -129,10 +134,11 @@ For C++ programs, you'd would also want to set CXX=/path/to/afl/afl-g++.
 The clang wrappers (afl-clang and afl-clang++) can be used in the same way;
 clang users may also opt to leverage a higher-performance instrumentation mode,
 as described in llvm_mode/README.llvm.
-Clang/LLVM has a much better performance, but only works with LLVM up to and
-including 6.0.1.
+Clang/LLVM has a much better performance and works from LLVM version 4.0 to 8.
 Using the LAF Intel performance enhancements are also recommended, see 
-docs/README.laf-intel
+llvm_mode/README.laf-intel
+Using partial instrumentation is also recommended, see
+llvm_mode/README.whitelist
 
 When testing libraries, you need to find or write a simple program that reads
 data from stdin or from a file and passes it to the tested library. In such a
@@ -148,8 +154,8 @@ automatically enable code hardening options that make it easier to detect
 simple memory bugs. Libdislocator, a helper library included with AFL (see
 libdislocator/README.dislocator) can help uncover heap corruption issues, too.
 
-PS. ASAN users are advised to review notes_for_asan.txt file for important
-caveats.
+PS. ASAN users are advised to docs/review notes_for_asan.txt file for
+important caveats.
 
 
 4) Instrumenting binary-only apps
