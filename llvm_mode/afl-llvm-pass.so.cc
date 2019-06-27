@@ -119,7 +119,6 @@ bool AFLCoverage::runOnModule(Module &M) {
   }
 
   char* neverZero_counters_str = getenv("AFL_NZERO_COUNTS");
-  bool enable_neverZero_counters = neverZero_counters_str && '1' == *neverZero_counters_str;
 
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
@@ -230,16 +229,16 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
       MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *MapPtrIdx =
-          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
+      Value *MapPtrIdx = IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
       /* Update bitmap */
 
       LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
       Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-      Value *Incr;
-      if (enable_neverZero_counters) {
+      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
+
+      if (neverZero_counters_str != NULL) {
           /* hexcoder: Realize a counter that skips zero during overflow.
            * Once this counter reaches its maximum value, it next increments to 1
            *
@@ -249,27 +248,43 @@ bool AFLCoverage::runOnModule(Module &M) {
            * Counter + 1 -> {Counter, OverflowFlag}
            * Counter + OverflowFlag -> Counter
            */
-          CallInst *AddOv = IRB.CreateBinaryIntrinsic(Intrinsic::uadd_with_overflow,
-                             Counter, ConstantInt::get(Int8Ty, 1));
+           
+          // Solution #1 - creates
+          //mov    dl,BYTE PTR [rsi+rdi*1]
+          //mov    ecx,edx
+          //add    cl,0x1
+          //adc    dl,0x1
+          /*
+          CallInst *AddOv = IRB.CreateBinaryIntrinsic(Intrinsic::uadd_with_overflow, Counter, ConstantInt::get(Int8Ty, 1));
           AddOv->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
           Value *SumWithOverflowBit = AddOv;
-          Incr = IRB.CreateAdd(
-                           IRB.CreateExtractValue(SumWithOverflowBit, 0),  /* sum */
-                           IRB.CreateZExt( /* convert from one bit type to 8 bits type */
-                              IRB.CreateExtractValue(SumWithOverflowBit, 1) /* overflow */
-                              , Int8Ty));
-      } else {
-          /* standard AFL behavior: wrapping counters */
-          Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
+          Incr = IRB.CreateAdd(IRB.CreateExtractValue(SumWithOverflowBit, 0),  // sum 
+                               IRB.CreateZExt( // convert from one bit type to 8 bits type 
+                                              IRB.CreateExtractValue(SumWithOverflowBit, 1), // overflow
+                                              Int8Ty));
+          */
+          // Solution #2 - creates the same code as #1
+          ///*
+          auto cf = IRB.CreateICmpULT(Incr, ConstantInt::get(Int8Ty, 1));
+          Incr = IRB.CreateAdd(Incr, cf);
+          //*/
+           
+          // Solution #3 - creates
+          //mov    cl,BYTE PTR [rsi+rdx*1]
+          //add    cl,0x1
+          //cmp    cl,0x1
+          //adc    cl,0x0
+          /*
+          auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
+          Incr = IRB.CreateAdd(Incr, cf);
+          */
       }
 
-      IRB.CreateStore(Incr, MapPtrIdx)
-          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      IRB.CreateStore(Incr, MapPtrIdx)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
       /* Set prev_loc to cur_loc >> 1 */
 
-      StoreInst *Store =
-          IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
+      StoreInst *Store = IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
       Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
       inst_blocks++;
