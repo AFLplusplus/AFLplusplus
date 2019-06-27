@@ -44,7 +44,11 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-static s32 child_pid;                 /* PID of the tested program         */
+static s32 forksrv_pid,               /* PID of the fork server           */
+           child_pid;                 /* PID of the tested program        */
+
+static s32 fsrv_ctl_fd,               /* Fork server control pipe (write) */
+           fsrv_st_fd;                /* Fork server status pipe (read)   */
 
 static u8 *trace_bits,                /* SHM with instrumentation bitmap   */
           *mask_bitmap;               /* Mask for trace bits (-B)          */
@@ -54,6 +58,8 @@ static u8 *in_file,                   /* Minimizer input test case         */
           *prog_in,                   /* Targeted program input file       */
           *target_path,               /* Path to target binary             */
           *doc_path;                  /* Path to docs                      */
+
+static s32 prog_in_fd;                /* Persistent fd for prog_in         */
 
 static u8* in_data;                   /* Input data for trimming           */
 
@@ -236,38 +242,70 @@ static s32 write_to_file(u8* path, u8* mem, u32 len) {
 
 }
 
+/* Write modified data to file for testing. If use_stdin is clear, the old file
+   is unlinked and a new one is created. Otherwise, prog_in_fd is rewound and
+   truncated. */
+
+static void write_to_testcase(void* mem, u32 len) {
+
+  s32 fd = prog_in_fd;
+
+  if (!use_stdin) {
+
+    unlink(prog_in); /* Ignore errors. */
+
+    fd = open(prog_in, O_WRONLY | O_CREAT | O_EXCL, 0600);
+
+    if (fd < 0) PFATAL("Unable to create '%s'", prog_in);
+
+  } else lseek(fd, 0, SEEK_SET);
+
+  ck_write(fd, mem, len, prog_in);
+
+  if (use_stdin) {
+
+    if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
+    lseek(fd, 0, SEEK_SET);
+
+  } else close(fd);
+
+}
+
+
 
 /* Handle timeout signal. */
 
 static void handle_timeout(int sig) {
 
+  if (child_pid > 0) {
+
   child_timed_out = 1;
-  if (child_pid > 0) kill(child_pid, SIGKILL);
+    kill(child_pid, SIGKILL);
+
+  } else if (child_pid == -1 && forksrv_pid > 0) {
+
+    child_timed_out = 1;
+    kill(forksrv_pid, SIGKILL);
+
+  }
 
 }
 
-
-/* Execute target application. Returns 0 if the changes are a dud, or
-   1 if they should be kept. */
-
-static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
-
+/* start the app and it's forkserver */
+static void init_forkserver(char **argv) {
   static struct itimerval it;
+  int st_pipe[2], ctl_pipe[2];
   int status = 0;
+  s32 rlen;
 
-  s32 prog_in_fd;
-  u32 cksum;
+  ACTF("Spinning up the fork server...");
+  if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
 
-  memset(trace_bits, 0, MAP_SIZE);
-  MEM_BARRIER();
+  forksrv_pid = fork();
 
-  prog_in_fd = write_to_file(prog_in, mem, len);
+  if (forksrv_pid < 0) PFATAL("fork() failed");
 
-  child_pid = fork();
-
-  if (child_pid < 0) PFATAL("fork() failed");
-
-  if (!child_pid) {
+  if (!forksrv_pid) {
 
     struct rlimit r;
 
@@ -304,6 +342,16 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
     r.rlim_max = r.rlim_cur = 0;
     setrlimit(RLIMIT_CORE, &r); /* Ignore errors */
 
+    /* Set up control and status pipes, close the unneeded original fds. */
+
+    if (dup2(ctl_pipe[0], FORKSRV_FD) < 0) PFATAL("dup2() failed");
+    if (dup2(st_pipe[1], FORKSRV_FD + 1) < 0) PFATAL("dup2() failed");
+
+    close(ctl_pipe[0]);
+    close(ctl_pipe[1]);
+    close(st_pipe[0]);
+    close(st_pipe[1]);
+
     execv(target_path, argv);
 
     *(u32*)trace_bits = EXEC_FAIL_SIG;
@@ -311,17 +359,113 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   }
 
-  close(prog_in_fd);
+  /* Close the unneeded endpoints. */
+
+  close(ctl_pipe[0]);
+  close(st_pipe[1]);
+
+  fsrv_ctl_fd = ctl_pipe[1];
+  fsrv_st_fd  = st_pipe[0];
 
   /* Configure timeout, wait for child, cancel timeout. */
+
+  if (exec_tmout) {
+
+    child_timed_out = 0;
+    it.it_value.tv_sec = (exec_tmout * FORK_WAIT_MULT / 1000);
+    it.it_value.tv_usec = ((exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+
+  }
+
+  setitimer(ITIMER_REAL, &it, NULL);
+
+  rlen = read(fsrv_st_fd, &status, 4);
+
+  it.it_value.tv_sec = 0;
+  it.it_value.tv_usec = 0;
+  setitimer(ITIMER_REAL, &it, NULL);
+
+  /* If we have a four-byte "hello" message from the server, we're all set.
+     Otherwise, try to figure out what went wrong. */
+
+  if (rlen == 4) {
+    ACTF("All right - fork server is up.");
+    return;
+  }
+
+  if (waitpid(forksrv_pid, &status, 0) <= 0)
+    PFATAL("waitpid() failed");
+
+  u8 child_crashed;
+
+  if (WIFSIGNALED(status))
+    child_crashed = 1;
+
+  if (child_timed_out)
+    SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
+  else if (stop_soon)
+    SAYF(cLRD "\n+++ Program aborted by user +++\n" cRST);
+  else if (child_crashed)
+    SAYF(cLRD "\n+++ Program killed by signal %u +++\n" cRST, WTERMSIG(status));
+
+}
+
+
+/* Execute target application. Returns 0 if the changes are a dud, or
+   1 if they should be kept. */
+
+static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
+
+  static struct itimerval it;
+  static u32 prev_timed_out = 0;
+  int status = 0;
+
+  u32 cksum;
+
+  memset(trace_bits, 0, MAP_SIZE);
+  MEM_BARRIER();
+
+  write_to_testcase(mem, len);
+
+  s32 res;
+
+  /* we have the fork server up and running, so simply
+     tell it to have at it, and then read back PID. */
+
+  if ((res = write(fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+
+    if (stop_soon) return 0;
+    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+
+  }
+
+  if ((res = read(fsrv_st_fd, &child_pid, 4)) != 4) {
+
+    if (stop_soon) return 0;
+    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+
+  }
+
+  if (child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
+
+  /* Configure timeout, wait for child, cancel timeout. */
+
+  if (exec_tmout) {
 
   child_timed_out = 0;
   it.it_value.tv_sec = (exec_tmout / 1000);
   it.it_value.tv_usec = (exec_tmout % 1000) * 1000;
 
+  }
+
   setitimer(ITIMER_REAL, &it, NULL);
 
-  if (waitpid(child_pid, &status, 0) <= 0) FATAL("waitpid() failed");
+  if ((res = read(fsrv_st_fd, &status, 4)) != 4) {
+
+    if (stop_soon) return 0;
+    RPFATAL(res, "Unable to communicate with fork server (OOM?)");
+
+  }
 
   child_pid = 0;
   it.it_value.tv_sec = 0;
@@ -686,6 +830,13 @@ static void set_up_environment(void) {
     prog_in = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
 
   }
+
+  unlink(prog_in);
+
+  prog_in_fd = open(prog_in, O_RDWR | O_CREAT | O_EXCL, 0600);
+
+  if (prog_in_fd < 0) PFATAL("Unable to create '%s'", prog_in);
+
 
   /* Set sane defaults... */
 
@@ -1112,6 +1263,8 @@ int main(int argc, char** argv) {
   SAYF("\n");
 
   read_initial_file();
+
+  init_forkserver(use_argv);
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");
