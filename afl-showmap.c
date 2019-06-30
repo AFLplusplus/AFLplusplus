@@ -28,6 +28,7 @@
 #include "debug.h"
 #include "alloc-inl.h"
 #include "hash.h"
+#include "sharedmem.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -48,7 +49,7 @@
 
 static s32 child_pid;                 /* PID of the tested program         */
 
-static u8* trace_bits;                /* SHM with instrumentation bitmap   */
+       u8* trace_bits;                /* SHM with instrumentation bitmap   */
 
 static u8 *out_file,                  /* Trace output file                 */
           *doc_path,                  /* Path to docs                      */
@@ -58,8 +59,6 @@ static u8 *out_file,                  /* Trace output file                 */
 static u32 exec_tmout;                /* Exec timeout (ms)                 */
 
 static u64 mem_limit = MEM_LIMIT;     /* Memory limit (MB)                 */
-
-static s32 shm_id;                    /* ID of the SHM region              */
 
 static u8  quiet_mode,                /* Hide non-essential messages?      */
            edges_only,                /* Ignore hit counts?                */
@@ -71,6 +70,7 @@ static volatile u8
            stop_soon,                 /* Ctrl-C pressed?                   */
            child_timed_out,           /* Child timed out?                  */
            child_crashed;             /* Child crashed?                    */
+
 
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
@@ -125,39 +125,6 @@ static void classify_counts(u8* mem, const u8* map) {
 
 }
 
-
-/* Get rid of shared memory (atexit handler). */
-
-static void remove_shm(void) {
-
-  shmctl(shm_id, IPC_RMID, NULL);
-
-}
-
-
-/* Configure shared memory. */
-
-static void setup_shm(void) {
-
-  u8* shm_str;
-
-  shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
-
-  if (shm_id < 0) PFATAL("shmget() failed");
-
-  atexit(remove_shm);
-
-  shm_str = alloc_printf("%d", shm_id);
-
-  setenv(SHM_ENV_VAR, shm_str, 1);
-
-  ck_free(shm_str);
-
-  trace_bits = shmat(shm_id, NULL, 0);
-  
-  if (!trace_bits) PFATAL("shmat() failed");
-
-}
 
 /* Write results. */
 
@@ -741,7 +708,7 @@ int main(int argc, char** argv) {
 
   if (optind == argc || !out_file) usage(argv[0]);
 
-  setup_shm();
+  setup_shm(0);
   setup_signal_handlers();
 
   set_up_environment();
