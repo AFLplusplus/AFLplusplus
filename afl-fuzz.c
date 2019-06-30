@@ -31,6 +31,7 @@
 #include "debug.h"
 #include "alloc-inl.h"
 #include "hash.h"
+#include "sharedmem.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -163,15 +164,13 @@ static s32 forksrv_pid,               /* PID of the fork server           */
            child_pid = -1,            /* PID of the fuzzed program        */
            out_dir_fd = -1;           /* FD of the lock file              */
 
-EXP_ST u8* trace_bits;                /* SHM with instrumentation bitmap  */
+       u8* trace_bits;                /* SHM with instrumentation bitmap  */
 
 EXP_ST u8  virgin_bits[MAP_SIZE],     /* Regions yet untouched by fuzzing */
            virgin_tmout[MAP_SIZE],    /* Bits we haven't seen in tmouts   */
            virgin_crash[MAP_SIZE];    /* Bits we haven't seen in crashes  */
 
 static u8  var_bytes[MAP_SIZE];       /* Bytes that appear to be variable */
-
-static s32 shm_id;                    /* ID of the SHM region             */
 
 static volatile u8 stop_soon,         /* Ctrl-C pressed?                  */
                    clear_screen = 1,  /* Window resized?                  */
@@ -1444,15 +1443,6 @@ static inline void classify_counts(u32* mem) {
 #endif /* ^__x86_64__ */
 
 
-/* Get rid of shared memory (atexit handler). */
-
-static void remove_shm(void) {
-
-  shmctl(shm_id, IPC_RMID, NULL);
-
-}
-
-
 /* Compact trace bytes into a smaller bitmap. We effectively just drop the
    count information here. This is called only sporadically, for some
    new paths. */
@@ -1605,40 +1595,6 @@ static void cull_queue(void) {
 
 }
 
-
-/* Configure shared memory and virgin_bits. This is called at startup. */
-
-EXP_ST void setup_shm(void) {
-
-  u8* shm_str;
-
-  if (!in_bitmap) memset(virgin_bits, 255, MAP_SIZE);
-
-  memset(virgin_tmout, 255, MAP_SIZE);
-  memset(virgin_crash, 255, MAP_SIZE);
-
-  shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
-
-  if (shm_id < 0) PFATAL("shmget() failed");
-
-  atexit(remove_shm);
-
-  shm_str = alloc_printf("%d", shm_id);
-
-  /* If somebody is asking us to fuzz instrumented binaries in dumb mode,
-     we don't want them to detect instrumentation, since we won't be sending
-     fork server commands. This should be replaced with better auto-detection
-     later on, perhaps? */
-
-  if (!dumb_mode) setenv(SHM_ENV_VAR, shm_str, 1);
-
-  ck_free(shm_str);
-
-  trace_bits = shmat(shm_id, NULL, 0);
-  
-  if (!trace_bits) PFATAL("shmat() failed");
-
-}
 
 
 /* Load postprocessor, if available. */
@@ -7466,8 +7422,10 @@ EXP_ST void check_binary(u8* fname) {
 
 #else
 
+#if !defined(__arm__) && !defined(__arm64__)
   if (f_data[0] != 0xCF || f_data[1] != 0xFA || f_data[2] != 0xED)
     FATAL("Program '%s' is not a 64-bit Mach-O binary", target_path);
+#endif
 
 #endif /* ^!__APPLE__ */
 
@@ -8639,7 +8597,12 @@ int main(int argc, char** argv) {
   check_cpu_governor();
 
   setup_post();
-  setup_shm();
+  setup_shm(dumb_mode);
+
+  if (!in_bitmap) memset(virgin_bits, 255, MAP_SIZE);
+  memset(virgin_tmout, 255, MAP_SIZE);
+  memset(virgin_crash, 255, MAP_SIZE);
+
   init_count_class16();
 
   setup_dirs_fds();

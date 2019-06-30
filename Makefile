@@ -30,12 +30,12 @@ SH_PROGS    = afl-plot afl-cmin afl-whatsup afl-system-config
 CFLAGS     ?= -O3 -funroll-loops
 CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
 	      -DAFL_PATH=\"$(HELPER_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\" \
-	      -DBIN_PATH=\"$(BIN_PATH)\"
+	      -DBIN_PATH=\"$(BIN_PATH)\" -DUSEMMAP=1
 
 PYTHON_INCLUDE	?= /usr/include/python2.7
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
-  LDFLAGS  += -ldl
+  LDFLAGS  += -ldl -lrt
 endif
 
 ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
@@ -92,17 +92,20 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
 
-afl-fuzz: afl-fuzz.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS) $(PYFLAGS)
+sharedmem.o : sharedmem.c
+	$(CC) $(CFLAGS) -c sharedmem.c
 
-afl-showmap: afl-showmap.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
+afl-fuzz: afl-fuzz.c sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $@.c sharedmem.o -o $@ $(LDFLAGS) $(PYFLAGS)
 
-afl-tmin: afl-tmin.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
+afl-showmap: afl-showmap.c sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $@.c sharedmem.o -o $@ $(LDFLAGS)
 
-afl-analyze: afl-analyze.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
+afl-tmin: afl-tmin.c sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $@.c sharedmem.o -o $@ $(LDFLAGS)
+
+afl-analyze: afl-analyze.c sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $@.c sharedmem.o -o $@ $(LDFLAGS)
 
 afl-gotcpu: afl-gotcpu.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
