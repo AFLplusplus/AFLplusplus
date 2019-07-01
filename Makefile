@@ -159,7 +159,7 @@ endif
 all_done: test_build
 	@if [ ! "`which clang 2>/dev/null`" = "" ]; then echo "[+] LLVM users: see llvm_mode/README.llvm for a faster alternative to afl-gcc."; fi
 	@echo "[+] All done! Be sure to review the README - it's pretty short and useful."
-ifeq "$(SHM_OK)" "1"
+ifeq "$(SHM_OK)" "0"
 	@echo "[!] shmem isn't working on your platform - compile every target with -lrt:"
 	@echo "[!]  CFLAGS=-lrt LDFLAGS=-lrt CC=afl-gcc CXX=afl-g++ ./configure"
 endif
