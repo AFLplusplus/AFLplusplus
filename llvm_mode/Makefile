@@ -16,6 +16,9 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
+# For Heiko:
+#TEST_MMAP=1
+
 PREFIX      ?= /usr/local
 HELPER_PATH  = $(PREFIX)/lib/afl
 BIN_PATH     = $(PREFIX)/bin
@@ -33,7 +36,7 @@ endif
 CFLAGS      ?= -O3 -funroll-loops
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
-               -DVERSION=\"$(VERSION)\" -DUSEMMAP=1 -lrt
+               -DVERSION=\"$(VERSION)\"
 ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
 endif
@@ -45,11 +48,25 @@ CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS) 
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
-# User teor2345 reports that this is required to make things work on MacOS X.
 
+# User teor2345 reports that this is required to make things work on MacOS X.
 ifeq "$(shell uname)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
 endif
+
+
+ifeq "$(shell echo '\#include <stdio.h>XXX\#include <sys/ipc.h>XXX\#include <sys/shm.h>XXXvoid main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, NULL);}' | sed 's/XXX/\n/g' | $(CC) -x c - -o .test2 && echo 1 || echo 0 )" "1"
+        SHMAT_OK=1
+else
+        SHMAT_OK=0
+        CFLAGS+=-DUSEMMAP=1
+endif
+
+ifeq "$(TEST_MMAP)" "1"
+        SHMAT_OK=0
+        CFLAGS+=-DUSEMMAP=1
+endif
+
 
 # We were using llvm-config --bindir to get the location of clang, but
 # this seems to be busted on some distros, so using the one in $PATH is
@@ -70,7 +87,22 @@ else
   PROGS      = ../afl-clang-fast ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 endif
 
-all: test_deps $(PROGS) test_build all_done
+all: test_deps test_shm $(PROGS) test_build all_done
+
+
+ifeq "$(SHMAT_OK)" "1"
+
+test_shm:
+	@echo "[+] shmat seems to be working."
+	@rm -f .test2
+
+else
+
+test_shm:
+	@echo "[-] shmat seems not to be working, switchig to mmap implementation"
+
+endif
+
 
 test_deps:
 ifndef AFL_TRACE_PC
@@ -123,9 +155,13 @@ test_build: $(PROGS)
 
 all_done: test_build
 	@echo "[+] All done! You can now use '../afl-clang-fast' to compile programs."
+ifeq "$(SHMAT_OK)" "0"
+	@echo "[!] shmat isn't working on your platform - compile every target with -lrt:"
+	@echo "[!]  CFLAGS=-lrt LDFLAGS=-lrt CC=afl-clang-fast CXX=afl-clang-fast++ ./configure"
+endif
 
 .NOTPARALLEL: clean
 
 clean:
-	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 
+	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 
 	rm -f $(PROGS) ../afl-clang-fast++
