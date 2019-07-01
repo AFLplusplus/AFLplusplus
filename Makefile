@@ -30,7 +30,7 @@ SH_PROGS    = afl-plot afl-cmin afl-whatsup afl-system-config
 CFLAGS     ?= -O3 -funroll-loops
 CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
 	      -DAFL_PATH=\"$(HELPER_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\" \
-	      -DBIN_PATH=\"$(BIN_PATH)\" -DUSEMMAP=1
+	      -DBIN_PATH=\"$(BIN_PATH)\"
 
 PYTHON_INCLUDE	?= /usr/include/python2.7
 
@@ -54,15 +54,24 @@ else
 	PYFLAGS=
 endif
 
-all:	test_x86 test_python27 $(PROGS) afl-as test_build all_done
+ifeq "$(shell echo '\#include <stdio.h>XXX\#include <sys/ipc.h>XXX\#include <sys/shm.h>XXXvoid main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, NULL);}' | sed 's/XXX/\n/g' | $(CC) -x c - -o .test2 && echo 1 || echo 0 )" "1"
+	SHM_OK=1
+else
+	SHM_OK=0
+	CFLAGS+=-DUSEMMAP=1
+	LDFLAGS+=-Wno-deprecated-declarations
+endif
+
+
+all:	test_x86 test_shm test_python27 ready $(PROGS) afl-as test_build all_done
+
 
 ifndef AFL_NO_X86
 
 test_x86:
 	@echo "[*] Checking for the ability to compile x86 code..."
-	@echo 'main() { __asm__("xorb %al, %al"); }' | $(CC) -w -x c - -o .test || ( echo; echo "Oops, looks like your compiler can't generate x86 code."; echo; echo "Don't panic! You can use the LLVM or QEMU mode, but see docs/INSTALL first."; echo "(To ignore this error, set AFL_NO_X86=1 and try again.)"; echo; exit 1 )
-	@rm -f .test
-	@echo "[+] Everything seems to be working, ready to compile."
+	@echo 'main() { __asm__("xorb %al, %al"); }' | $(CC) -w -x c - -o .test1 || ( echo; echo "Oops, looks like your compiler can't generate x86 code."; echo; echo "Don't panic! You can use the LLVM or QEMU mode, but see docs/INSTALL first."; echo "(To ignore this error, set AFL_NO_X86=1 and try again.)"; echo; exit 1 )
+	@rm -f .test1
 
 else
 
@@ -70,6 +79,21 @@ test_x86:
 	@echo "[!] Note: skipping x86 compilation checks (AFL_NO_X86 set)."
 
 endif
+
+
+ifeq "$(SHM_OK)" "1"
+
+test_shm:
+	@rm -f .test2 2> /dev/null
+	@echo "[+] shmem seems to be working."
+
+else
+
+test_shm:
+	@echo "[-] shmem seems not to be working, switchig to mmap implementation"
+
+endif
+
 
 ifeq "$(PYTHON_OK)" "1"
 
@@ -83,6 +107,10 @@ test_python27:
 	@echo "[-] You seem to need to install the package python2.7-dev, but it is optional so we continue"
 
 endif
+
+
+ready:
+	@echo "[+] Everything seems to be working, ready to compile."
 
 afl-gcc: afl-gcc.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
@@ -130,14 +158,18 @@ endif
 
 all_done: test_build
 	@if [ ! "`which clang 2>/dev/null`" = "" ]; then echo "[+] LLVM users: see llvm_mode/README.llvm for a faster alternative to afl-gcc."; fi
-	@echo "[+] All done! Be sure to review README - it's pretty short and useful."
+	@echo "[+] All done! Be sure to review the README - it's pretty short and useful."
+ifeq "$(SHM_OK)" "1"
+	@echo "[!] shmem isn't working on your platform - compile every target with -lrt:"
+	@echo "[!]  CFLAGS=-lrt LDFLAGS=-lrt CC=afl-gcc CXX=afl-g++ ./configure"
+endif
 	@if [ "`uname`" = "Darwin" ]; then printf "\nWARNING: Fuzzing on MacOS X is slow because of the unusually high overhead of\nfork() on this OS. Consider using Linux or *BSD. You can also use VirtualBox\n(virtualbox.org) to put AFL inside a Linux or *BSD VM.\n\n"; fi
 	@! tty <&1 >/dev/null || printf "\033[0;30mNOTE: If you can read this, your terminal probably uses white background.\nThis will make the UI hard to read. See docs/status_screen.txt for advice.\033[0m\n" 2>/dev/null
 
 .NOTPARALLEL: clean
 
 clean:
-	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o *~ a.out core core.[1-9][0-9]* *.stackdump test .test test-instr .test-instr0 .test-instr1 qemu_mode/qemu-2.10.0.tar.bz2 afl-qemu-trace
+	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o *~ a.out core core.[1-9][0-9]* *.stackdump test .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-2.10.0.tar.bz2 afl-qemu-trace
 	rm -rf out_dir qemu_mode/qemu-2.10.0
 	$(MAKE) -C llvm_mode clean
 	$(MAKE) -C libdislocator clean

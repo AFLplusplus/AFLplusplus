@@ -23,13 +23,16 @@
 
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+ #include <sys/mman.h>
+ #include <fcntl.h>
 
-#include <sys/mman.h>
-#include <fcntl.h>
+#ifndef USEMMAP
+ #include <sys/ipc.h>
+ #include <sys/shm.h>
+#endif
 
 extern unsigned char*trace_bits;
 
@@ -67,14 +70,10 @@ void remove_shm(void) {
 void setup_shm(unsigned char dumb_mode) {
 #ifdef USEMMAP
   /* generate random file name for multi instance */
-  memset(g_shm_file_path, 0x0, L_tmpnam);
 
-  char *result = tmpnam(g_shm_file_path);
-  if (result == 0)
-    PFATAL("cannot generate filename for shared memory");
-
-  /* get rid of second slash  in /tmp/blabla */
-  g_shm_file_path[4] = '_';
+  /* thanks to f*cking glibc we can not use tmpnam securely, it generates a security warning that cannot be suppressed */
+  /* so we do this worse workaround */
+  snprintf(g_shm_file_path, L_tmpnam, "/afl_%d_%ld", getpid(), random());
 
   /* create the shared memory segment as if it was a file */
   g_shm_fd = shm_open(g_shm_file_path, O_CREAT | O_RDWR | O_EXCL, 0600);
