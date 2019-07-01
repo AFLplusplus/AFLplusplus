@@ -56,10 +56,10 @@ endif
 
 ifeq "$(shell echo '\#include <stdio.h>XXX\#include <sys/ipc.h>XXX\#include <sys/shm.h>XXXvoid main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, NULL);}' | sed 's/XXX/\n/g' | $(CC) -x c - -o .test2 && echo 1 || echo 0 )" "1"
 	SHM_OK=1
-else
-	SHM_OK=0
 	CFLAGS+=-DUSEMMAP=1
 	LDFLAGS+=-Wno-deprecated-declarations
+else
+	SHM_OK=0
 endif
 
 
