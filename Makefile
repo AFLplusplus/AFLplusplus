@@ -22,6 +22,8 @@ HELPER_PATH = $(PREFIX)/lib/afl
 DOC_PATH    = $(PREFIX)/share/doc/afl
 MISC_PATH   = $(PREFIX)/share/afl
 
+CLANG_COMPILER_RT = "/home/user/code/compiler-rt/cmake-build-debug/lib/linux"
+
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
 PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
@@ -94,6 +96,15 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 
 afl-fuzz: afl-fuzz.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS) $(PYFLAGS)
+
+smart-rabbit: afl-fuzz.c $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) afl-fuzz.c -o $@ $(LDFLAGS) -lstdc++ -lpthread -lm \
+	 -Wl,--whole-archive -Wl,$(CLANG_COMPILER_RT)/libclang_rt.ubsan_standalone-x86_64.a -Wl,--no-whole-archive \
+	 -Wl,--dynamic-list=$(CLANG_COMPILER_RT)/libclang_rt.ubsan_standalone-x86_64.a.syms \
+	 -Wl,--whole-archive -Wl,$(CLANG_COMPILER_RT)/libclang_rt.ubsan_standalone_cxx-x86_64.a -Wl,--no-whole-archive \
+	 -Wl,--dynamic-list=$(CLANG_COMPILER_RT)/libclang_rt.ubsan_standalone_cxx-x86_64.a.syms \
+	 -Wl,--whole-archive -Wl,$(CLANG_COMPILER_RT)/libclang_rt.fuzzer_no_main-x86_64.a -Wl,--no-whole-archive \
+	 -Wl,--dynamic-list=libclang_rt.fuzzer_no_main-x86_64.a.syms
 
 afl-showmap: afl-showmap.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
