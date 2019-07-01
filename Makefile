@@ -13,6 +13,9 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
+# For Heiko:
+#TEST_MMAP=1
+
 PROGNAME    = afl
 VERSION     = $(shell grep '^\#define VERSION ' config.h | cut -d '"' -f2)
 
@@ -46,6 +49,7 @@ endif
 
 COMM_HDR    = alloc-inl.h config.h debug.h types.h
 
+
 ifeq "$(shell echo '\#include <Python.h>XXXvoid main() {}' | sed 's/XXX/\n/g' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) -lpython2.7 && echo 1 || echo 0 )" "1"
 	PYTHON_OK=1
 	PYFLAGS=-DUSE_PYTHON -I$(PYTHON_INCLUDE) -lpython2.7
@@ -54,12 +58,19 @@ else
 	PYFLAGS=
 endif
 
+
 ifeq "$(shell echo '\#include <stdio.h>XXX\#include <sys/ipc.h>XXX\#include <sys/shm.h>XXXvoid main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, NULL);}' | sed 's/XXX/\n/g' | $(CC) -x c - -o .test2 && echo 1 || echo 0 )" "1"
-	SHM_OK=1
+	SHMAT_OK=1
+else
+	SHMAT_OK=0
 	CFLAGS+=-DUSEMMAP=1
 	LDFLAGS+=-Wno-deprecated-declarations
-else
-	SHM_OK=0
+endif
+
+ifeq "$(TEST_MMAP)" "1"
+	SHMAT_OK=0
+	CFLAGS+=-DUSEMMAP=1
+	LDFLAGS+=-Wno-deprecated-declarations
 endif
 
 
@@ -81,16 +92,16 @@ test_x86:
 endif
 
 
-ifeq "$(SHM_OK)" "1"
+ifeq "$(SHMAT_OK)" "1"
 
 test_shm:
-	@rm -f .test2 2> /dev/null
-	@echo "[+] shmem seems to be working."
+	@echo "[+] shmat seems to be working."
+	@rm -f .test2
 
 else
 
 test_shm:
-	@echo "[-] shmem seems not to be working, switchig to mmap implementation"
+	@echo "[-] shmat seems not to be working, switchig to mmap implementation"
 
 endif
 
@@ -138,6 +149,7 @@ afl-analyze: afl-analyze.c sharedmem.o $(COMM_HDR) | test_x86
 afl-gotcpu: afl-gotcpu.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
 
+
 ifndef AFL_NO_X86
 
 test_build: afl-gcc afl-as afl-showmap
@@ -156,11 +168,12 @@ test_build: afl-gcc afl-as afl-showmap
 
 endif
 
+
 all_done: test_build
 	@if [ ! "`which clang 2>/dev/null`" = "" ]; then echo "[+] LLVM users: see llvm_mode/README.llvm for a faster alternative to afl-gcc."; fi
 	@echo "[+] All done! Be sure to review the README - it's pretty short and useful."
-ifeq "$(SHM_OK)" "0"
-	@echo "[!] shmem isn't working on your platform - compile every target with -lrt:"
+ifeq "$(SHMAT_OK)" "0"
+	@echo "[!] shmat isn't working on your platform - compile every target with -lrt:"
 	@echo "[!]  CFLAGS=-lrt LDFLAGS=-lrt CC=afl-gcc CXX=afl-g++ ./configure"
 endif
 	@if [ "`uname`" = "Darwin" ]; then printf "\nWARNING: Fuzzing on MacOS X is slow because of the unusually high overhead of\nfork() on this OS. Consider using Linux or *BSD. You can also use VirtualBox\n(virtualbox.org) to put AFL inside a Linux or *BSD VM.\n\n"; fi
