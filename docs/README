@@ -21,7 +21,7 @@ american fuzzy lop plus plus
   https://github.com/andreafioraldi/afl and got the community patches applied
   to it.
 
-  C. Hoellers afl-fuzz Python mutator module and llvm_mode whitelist support
+  C. Hollers afl-fuzz Python mutator module and llvm_mode whitelist support
   was added too (https://github.com/choller/afl)
 
   So all in all this is the best-of AFL that is currently out there :-)
