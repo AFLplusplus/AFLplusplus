@@ -54,6 +54,9 @@ ifeq "$(shell uname)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
 endif
 
+ifeq "$(shell uname)" "NetBSD"
+  LDFLAGS += -lrt
+endif
 
 ifeq "$(shell echo '\#include <stdio.h>XXX\#include <sys/ipc.h>XXX\#include <sys/shm.h>XXXvoid main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, NULL);}' | sed 's/XXX/\n/g' | $(CC) -x c - -o .test2 && echo 1 || echo 0 )" "1"
         SHMAT_OK=1
