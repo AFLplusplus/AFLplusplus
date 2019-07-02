@@ -26,8 +26,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
- #include <sys/mman.h>
- #include <fcntl.h>
+#include <sys/mman.h>
 
 #ifndef USEMMAP
  #include <sys/ipc.h>
