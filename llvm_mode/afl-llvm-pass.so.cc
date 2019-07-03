@@ -236,7 +236,9 @@ bool AFLCoverage::runOnModule(Module &M) {
       LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
       Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
+      Value *Incr;
+      if (neverZero_counters_str == NULL || neverZero_counters_str[0] != '4')
+        Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
 
       if (neverZero_counters_str != NULL) {
           /* hexcoder: Realize a counter that skips zero during overflow.
@@ -250,34 +252,46 @@ bool AFLCoverage::runOnModule(Module &M) {
            */
            
           // Solution #1 - creates
-          //mov    dl,BYTE PTR [rsi+rdi*1]
           //mov    ecx,edx
           //add    cl,0x1
           //adc    dl,0x1
-          /*
-          CallInst *AddOv = IRB.CreateBinaryIntrinsic(Intrinsic::uadd_with_overflow, Counter, ConstantInt::get(Int8Ty, 1));
-          AddOv->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-          Value *SumWithOverflowBit = AddOv;
-          Incr = IRB.CreateAdd(IRB.CreateExtractValue(SumWithOverflowBit, 0),  // sum 
-                               IRB.CreateZExt( // convert from one bit type to 8 bits type 
-                                              IRB.CreateExtractValue(SumWithOverflowBit, 1), // overflow
-                                              Int8Ty));
-          */
+          if (neverZero_counters_str[0] == '1') {
+            CallInst *AddOv = IRB.CreateBinaryIntrinsic(Intrinsic::uadd_with_overflow, Counter, ConstantInt::get(Int8Ty, 1));
+            AddOv->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+            Value *SumWithOverflowBit = AddOv;
+            Incr = IRB.CreateAdd(IRB.CreateExtractValue(SumWithOverflowBit, 0),  // sum 
+                                 IRB.CreateZExt( // convert from one bit type to 8 bits type 
+                                                IRB.CreateExtractValue(SumWithOverflowBit, 1), // overflow
+                                                Int8Ty));
+
           // Solution #2 - creates the same code as #1
-          ///*
-          auto cf = IRB.CreateICmpULT(Incr, ConstantInt::get(Int8Ty, 1));
-          Incr = IRB.CreateAdd(Incr, cf);
-          //*/
+          } else if (neverZero_counters_str[0] == '2') {
+            auto cf = IRB.CreateICmpULT(Incr, ConstantInt::get(Int8Ty, 1));
+            Incr = IRB.CreateAdd(Incr, cf);
            
           // Solution #3 - creates
-          //mov    cl,BYTE PTR [rsi+rdx*1]
           //add    cl,0x1
           //cmp    cl,0x1
           //adc    cl,0x0
-          /*
-          auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
-          Incr = IRB.CreateAdd(Incr, cf);
-          */
+          } else if (neverZero_counters_str[0] == '3') {
+            auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
+            Incr = IRB.CreateAdd(Incr, cf);
+
+          // Solution #4 - creates
+          // cmp    dl, $0xff
+          // sete   cl
+          // add    dl,cl
+          // add    dl,0x01
+          } else if (neverZero_counters_str[0] == '4') {
+             auto cf = IRB.CreateICmpEQ(Counter, ConstantInt::get(Int8Ty, 255));
+             Value *HowMuch = IRB.CreateAdd(ConstantInt::get(Int8Ty, 1), cf);
+             Incr = IRB.CreateAdd(Counter, HowMuch);
+
+          // no other implementations yet
+          } else {
+            fprintf(stderr, "Error: unknown value for AFL_NZERO_COUNTS: %s (valid is 1-4)\n", neverZero_counters_str);
+            exit(-1);
+          }
       }
 
       IRB.CreateStore(Incr, MapPtrIdx)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
