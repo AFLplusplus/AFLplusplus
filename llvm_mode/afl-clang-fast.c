@@ -120,21 +120,21 @@ static void edit_params(u32 argc, char** argv) {
      http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards */
 
   // laf
-  if (getenv("LAF_SPLIT_SWITCHES")) {
+  if (getenv("LAF_SPLIT_SWITCHES")||getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = alloc_printf("%s/split-switches-pass.so", obj_path);
   }
 
-  if (getenv("LAF_TRANSFORM_COMPARES")) {
+  if (getenv("LAF_TRANSFORM_COMPARES")||getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = alloc_printf("%s/compare-transform-pass.so", obj_path);
   }
 
-  if (getenv("LAF_SPLIT_COMPARES")) {
+  if (getenv("LAF_SPLIT_COMPARES")||getenv("AFL_LLVM_LAF_SPLIT_COMPARES")) {
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";

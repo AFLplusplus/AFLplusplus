@@ -30,6 +30,8 @@ Version ++2.52d (tbd):
   - added a  -s seed  switch to allow afl run with a fixed initial
     seed that is not updated. this is good for performance and path discovery
     tests as the random numbers are deterministic then
+  - llvm_mode LAF_... env variables can now be specified as AFL_LLVM_LAF_...
+    that is longer but in line with other llvm specific env vars
   - ... your idea or patch?
 
 
