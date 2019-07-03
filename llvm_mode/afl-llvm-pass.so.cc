@@ -287,6 +287,16 @@ bool AFLCoverage::runOnModule(Module &M) {
              Value *HowMuch = IRB.CreateAdd(ConstantInt::get(Int8Ty, 1), cf);
              Incr = IRB.CreateAdd(Counter, HowMuch);
 
+          } else if (neverZero_counters_str[0] == '5') {
+            auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
+            auto carry = IRB.CreateZExt(cf, Int8Ty);
+            Incr = IRB.CreateAdd(Incr, carry);
+
+          } else if (neverZero_counters_str[0] == '6') {
+            auto cf = IRB.CreateICmpULT(Incr, ConstantInt::get(Int8Ty, 1));
+            auto carry = IRB.CreateZExt(cf, Int8Ty);
+            Incr = IRB.CreateAdd(Incr, carry);
+           
           // no other implementations yet
           } else {
             fprintf(stderr, "Error: unknown value for AFL_NZERO_COUNTS: %s (valid is 1-4)\n", neverZero_counters_str);
