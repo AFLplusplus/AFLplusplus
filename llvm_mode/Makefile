@@ -154,10 +154,10 @@ test_build: $(PROGS)
 
 all_done: test_build
 	@echo "[+] All done! You can now use '../afl-clang-fast' to compile programs."
-ifeq "$(SHMAT_OK)" "0"
-	@echo "[!] shmat isn't working on your platform - compile every target with -lrt:"
-	@echo "[!]  CFLAGS=-lrt LDFLAGS=-lrt CC=afl-clang-fast CXX=afl-clang-fast++ ./configure"
-endif
+#ifeq "$(SHMAT_OK)" "0"
+#	@echo "[!] shmat isn't working on your platform - compile every target with -lrt:"
+#	@echo "[!]  CFLAGS=-lrt LDFLAGS=-lrt CC=afl-clang-fast CXX=afl-clang-fast++ ./configure"
+#endif
 
 .NOTPARALLEL: clean
 

@@ -246,6 +246,10 @@ static void edit_params(u32 argc, char** argv) {
 
   }
 
+#ifdef USEMMAP
+  cc_params[cc_par_cnt++] = "-lrt";
+#endif
+
   cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
   cc_params[cc_par_cnt++] = "-D__AFL_COMPILER=1";
   cc_params[cc_par_cnt++] = "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1";
