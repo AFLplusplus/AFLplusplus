@@ -237,7 +237,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
       Value *Incr;
-      if (neverZero_counters_str == NULL || neverZero_counters_str[0] != '4')
+ //     if (neverZero_counters_str == NULL || neverZero_counters_str[0] != '4')
         Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
 
       if (neverZero_counters_str != NULL) {
@@ -255,6 +255,7 @@ bool AFLCoverage::runOnModule(Module &M) {
           //mov    ecx,edx
           //add    cl,0x1
           //adc    dl,0x1
+/*
           if (neverZero_counters_str[0] == '1') {
             CallInst *AddOv = IRB.CreateBinaryIntrinsic(Intrinsic::uadd_with_overflow, Counter, ConstantInt::get(Int8Ty, 1));
             AddOv->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
@@ -276,7 +277,6 @@ bool AFLCoverage::runOnModule(Module &M) {
           } else if (neverZero_counters_str[0] == '3') {
             auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
             Incr = IRB.CreateAdd(Incr, cf);
-
           // Solution #4 - creates
           // cmp    dl, $0xff
           // sete   cl
@@ -288,10 +288,11 @@ bool AFLCoverage::runOnModule(Module &M) {
              Incr = IRB.CreateAdd(Counter, HowMuch);
 
           } else if (neverZero_counters_str[0] == '5') {
+*/
             auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
             auto carry = IRB.CreateZExt(cf, Int8Ty);
             Incr = IRB.CreateAdd(Incr, carry);
-
+/*
           } else if (neverZero_counters_str[0] == '6') {
             auto cf = IRB.CreateICmpULT(Incr, ConstantInt::get(Int8Ty, 1));
             auto carry = IRB.CreateZExt(cf, Int8Ty);
@@ -302,6 +303,7 @@ bool AFLCoverage::runOnModule(Module &M) {
             fprintf(stderr, "Error: unknown value for AFL_NZERO_COUNTS: %s (valid is 1-4)\n", neverZero_counters_str);
             exit(-1);
           }
+*/
       }
 
       IRB.CreateStore(Incr, MapPtrIdx)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
