@@ -98,7 +98,7 @@ afl-fuzz: afl-fuzz.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS) $(PYFLAGS)
 
 smart-rabbit: afl-fuzz.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) afl-fuzz.c -o $@ $(LDFLAGS) -lstdc++ -lpthread -lm \
+	$(CC) $(CFLAGS) afl-fuzz.c -o $@ $(LDFLAGS) -lstdc++ -lpthread -lm -lrt \
 	 -Wl,--whole-archive -Wl,$(CLANG_COMPILER_RT)/libclang_rt.ubsan_standalone-x86_64.a -Wl,--no-whole-archive \
 	 -Wl,--dynamic-list=$(CLANG_COMPILER_RT)/libclang_rt.ubsan_standalone-x86_64.a.syms \
 	 -Wl,--whole-archive -Wl,$(CLANG_COMPILER_RT)/libclang_rt.ubsan_standalone_cxx-x86_64.a -Wl,--no-whole-archive \
@@ -145,7 +145,7 @@ all_done: test_build
 .NOTPARALLEL: clean
 
 clean:
-	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o *~ a.out core core.[1-9][0-9]* *.stackdump test .test test-instr .test-instr0 .test-instr1 qemu_mode/qemu-2.10.0.tar.bz2 afl-qemu-trace
+	rm -f $(PROGS) smart-rabbit afl-as as afl-g++ afl-clang afl-clang++ *.o *~ a.out core core.[1-9][0-9]* *.stackdump test .test test-instr .test-instr0 .test-instr1 qemu_mode/qemu-2.10.0.tar.bz2 afl-qemu-trace
 	rm -rf out_dir qemu_mode/qemu-2.10.0
 	$(MAKE) -C llvm_mode clean
 	$(MAKE) -C libdislocator clean
