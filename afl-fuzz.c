@@ -304,8 +304,10 @@ static u32 a_extras_cnt;              /* Total number of tokens available */
 
 static u8* (*post_handler)(u8* buf, u32* len);
 
-/* A hook for the custom mutator function */
-extern size_t AFLCustomMutator(uint8_t *data, size_t size, size_t max_size, unsigned int seed) __attribute__((weak));
+/* hooks for the custom mutator function */
+static size_t (*custom_mutator)(u8 *data, size_t size, size_t max_size, unsigned int seed);
+static size_t (*pre_save_handler)(u8 *data, size_t size, u8 **new_data);
+
 
 /* Interesting values, as per config.h */
 
@@ -1671,6 +1673,26 @@ static void setup_post(void) {
 
 }
 
+static void setup_custom_mutator(void) {
+  void* dh;
+  u8* fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+
+  if (!fn) return;
+
+  ACTF("Loading custom mutator library from '%s'...", fn);
+
+  dh = dlopen(fn, RTLD_NOW);
+  if (!dh) FATAL("%s", dlerror());
+
+  custom_mutator = dlsym(dh, "afl_custom_mutator");
+  if (!custom_mutator) FATAL("Symbol 'afl_custom_mutator' not found.");
+
+  pre_save_handler = dlsym(dh, "afl_pre_save_handler");
+//  if (!pre_save_handler) WARNF("Symbol 'afl_pre_save_handler' not found.");
+
+  OKF("Custom mutator installed successfully.");
+}
+
 
 /* Read all testcases from the input directory, then queue them for testing.
    Called at startup. */
@@ -2754,7 +2776,13 @@ static void write_to_testcase(void* mem, u32 len) {
 
   } else lseek(fd, 0, SEEK_SET);
 
-  ck_write(fd, mem, len, out_file);
+  if (pre_save_handler) {
+    u8* new_data;
+    size_t new_size = pre_save_handler(mem, len, &new_data);
+    ck_write(fd, new_data, new_size, out_file);
+  } else {
+    ck_write(fd, mem, len, out_file);
+  }
 
   if (!out_file) {
 
@@ -4581,7 +4609,7 @@ static void show_stats(void) {
     strcat(tmp, tmp2);
 
   }
-  if (AFLCustomMutator) {
+  if (custom_mutator) {
     sprintf(tmp, "%s/%s", DI(stage_finds[STAGE_CUSTOM_MUTATOR]), DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
     SAYF(bV bSTOP " custom mut. : " cRST "%-37s " bSTG bVR bH20 bH2 bH2 bRB "\n"
              bLB bH30 bH20 bH2 bH bRB bSTOP cRST RESET_G1, tmp);
@@ -5509,7 +5537,7 @@ static u8 fuzz_one(char** argv) {
    * TRIMMING *
    ************/
 
-  if (!dumb_mode && !queue_cur->trim_done && !AFLCustomMutator) {
+  if (!dumb_mode && !queue_cur->trim_done && !custom_mutator) {
 
     u8 res = trim_case(argv, queue_cur, in_buf);
 
@@ -5539,7 +5567,7 @@ static u8 fuzz_one(char** argv) {
 
   if (perf_score == 0) goto abandon_entry;
 
-  if (AFLCustomMutator) {
+  if (custom_mutator) {
     stage_short = "custom";
     stage_name = "custom mutator";
     stage_max = 1 << 16;
@@ -5549,7 +5577,7 @@ static u8 fuzz_one(char** argv) {
 
     for (stage_cur = 0 ; stage_cur < stage_max ; stage_cur++) {
       size_t orig_size = (size_t) len;
-      size_t mutated_size = AFLCustomMutator(out_buf, orig_size, orig_size + 10000, UR(UINT32_MAX));
+      size_t mutated_size = custom_mutator(out_buf, orig_size, orig_size, UR(UINT32_MAX));
       if (common_fuzz_stuff(argv, out_buf, (u32)mutated_size)) {
         goto abandon_entry;
       }
@@ -8671,6 +8699,7 @@ int main(int argc, char** argv) {
   check_cpu_governor();
 
   setup_post();
+  setup_custom_mutator();
   setup_shm();
   init_count_class16();
 
