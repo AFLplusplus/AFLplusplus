@@ -25,9 +25,15 @@ VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 LLVM_CONFIG ?= llvm-config
 #LLVM_OK = $(shell $(LLVM_CONFIG) --version | egrep -q '^[5-6]' && echo 0 || echo 1 )
 LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^9|3.0' && echo 1 || echo 0 )
+LLVM_MAJOR = ($shell $(LLVM_CONFIG) --version | sed 's/\..*//')
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
   $(warn llvm_mode only supports versions 3.8.0 up to 8.x )
+endif
+
+# this is not visible yet:
+ifeq "$(LLVM_MAJOR)" "9"
+  $(info llvm_mode deteted llvm 9, enabling neverZero implementation)
 endif
 
 CFLAGS      ?= -O3 -funroll-loops
