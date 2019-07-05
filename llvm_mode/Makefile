@@ -26,8 +26,9 @@ BIN_PATH     = $(PREFIX)/bin
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
 LLVM_CONFIG ?= llvm-config
+LLVMVER  = $(shell $(LLVM_CONFIG) --version)
 #LLVM_OK = $(shell $(LLVM_CONFIG) --version | egrep -q '^[5-6]' && echo 0 || echo 1 )
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^9' && echo 1 || echo 0 )
+LLVM_UNSUPPORTED = $(shell echo $(LLVMVER) | egrep -q '^9|3.0' && echo 1 || echo 1 )
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
   $(warn llvm_mode only supports versions 3.9 up to 8 )
@@ -54,40 +55,44 @@ ifeq "$(shell uname)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
 endif
 
-ifeq "$(shell uname)" "NetBSD"
-  LDFLAGS += -lrt
-endif
-
-ifeq "$(shell echo '\#include <stdio.h>XXX\#include <sys/ipc.h>XXX\#include <sys/shm.h>XXXvoid main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, NULL);}' | sed 's/XXX/\n/g' | $(CC) -x c - -o .test2 && echo 1 || echo 0 )" "1"
-        SHMAT_OK=1
-else
-        SHMAT_OK=0
-        CFLAGS+=-DUSEMMAP=1
-endif
-
-ifeq "$(TEST_MMAP)" "1"
-        SHMAT_OK=0
-        CFLAGS+=-DUSEMMAP=1
-endif
-
-
 # We were using llvm-config --bindir to get the location of clang, but
 # this seems to be busted on some distros, so using the one in $PATH is
 # probably better.
 
 ifeq "$(origin CC)" "default"
   CC         = clang
-#  ifeq "$(LLVM_OK)" "1"
-    CXX        = clang++
-#  else
-#    CXX        = g++
-#  endif
+  CXX        = clang++
 endif
+
+# sanity check.
+# Are versions of clang --version and llvm-config --version equal?
+CLANGVER = $(shell $(CC) --version | sed -E -ne '/^.*([0-9]\.[0-9]\.[0-9]).*/s//\1/p')
+
+
+ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 )" "1"
+        SHMAT_OK=1
+else
+        SHMAT_OK=0
+        CFLAGS+=-DUSEMMAP=1
+        LDFLAGS += -lrt
+endif
+
+ifeq "$(TEST_MMAP)" "1"
+        SHMAT_OK=0
+        CFLAGS+=-DUSEMMAP=1
+        LDFLAGS += -lrt
+endif
+
 
 ifndef AFL_TRACE_PC
   PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 else
   PROGS      = ../afl-clang-fast ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
+endif
+
+ifneq "$(CLANGVER)" "$(LLVMVER)"
+  CC = $(shell llvm-config --bindir)/clang
+  CXX = $(shell llvm-config --bindir)/clang++
 endif
 
 all: test_deps test_shm $(PROGS) test_build all_done
@@ -102,7 +107,7 @@ test_shm:
 else
 
 test_shm:
-	@echo "[-] shmat seems not to be working, switchig to mmap implementation"
+	@echo "[-] shmat seems not to be working, switching to mmap implementation"
 
 endif
 
@@ -116,6 +121,13 @@ else
 endif
 	@echo "[*] Checking for working '$(CC)'..."
 	@which $(CC) >/dev/null 2>&1 || ( echo "[-] Oops, can't find '$(CC)'. Make sure that it's in your \$$PATH (or set \$$CC and \$$CXX)."; exit 1 )
+	@echo "[*] Checking for matching versions of '$(CC)' and '$(LLVM_CONFIG)'"
+ifneq "$(CLANGVER)" "$(LLVMVER)"
+	@echo "WARNING: we have llvm-config version $(LLVMVER) and a clang version $(CLANGVER)"
+	@echo "Retrying with the clang compiler from llvm: CC=`llvm-config --bindir`/clang"
+else
+	@echo "we have llvm-config version $(LLVMVER) with a clang version $(CLANGVER), good."
+endif
 	@echo "[*] Checking for '../afl-showmap'..."
 	@test -f ../afl-showmap || ( echo "[-] Oops, can't find '../afl-showmap'. Be sure to compile AFL first."; exit 1 )
 	@echo "[+] All set and ready to build."
@@ -158,10 +170,6 @@ test_build: $(PROGS)
 
 all_done: test_build
 	@echo "[+] All done! You can now use '../afl-clang-fast' to compile programs."
-#ifeq "$(SHMAT_OK)" "0"
-#	@echo "[!] shmat isn't working on your platform - compile every target with -lrt:"
-#	@echo "[!]  CFLAGS=-lrt LDFLAGS=-lrt CC=afl-clang-fast CXX=afl-clang-fast++ ./configure"
-#endif
 
 .NOTPARALLEL: clean
 
