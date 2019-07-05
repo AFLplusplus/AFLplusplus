@@ -17,6 +17,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.52d (tbd):
 -----------------------------
 
+  - added never zero counters for afl-gcc and optional (because of an
+    optimization issue in llvm < 9) for llvm_mode (AFL_LLVM_NEVER_ZERO=1)
   - more cpu power for afl-system-config
   - added forkserver patch to afl-tmin, makes it much faster (originally from
     github.com/nccgroup/TriforceAFL)
