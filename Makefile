@@ -38,11 +38,7 @@ CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
 PYTHON_INCLUDE	?= /usr/include/python2.7
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
-  LDFLAGS  += -ldl -lrt
-endif
-
-ifeq "$(shell uname)" "NetBSD"
-  LDFLAGS  += -lrt
+  LDFLAGS  += -ldl
 endif
 
 ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
@@ -54,7 +50,7 @@ endif
 COMM_HDR    = alloc-inl.h config.h debug.h types.h
 
 
-ifeq "$(shell echo '\#include <Python.h>XXXvoid main() {}' | sed 's/XXX/\n/g' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) -lpython2.7 && echo 1 || echo 0 )" "1"
+ifeq "$(shell echo '\#include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) -lpython2.7 2>/dev/null && echo 1 || echo 0 )" "1"
 	PYTHON_OK=1
 	PYFLAGS=-DUSE_PYTHON -I$(PYTHON_INCLUDE) -lpython2.7
 else
@@ -63,18 +59,18 @@ else
 endif
 
 
-ifeq "$(shell echo '\#include <stdio.h>XXX\#include <sys/ipc.h>XXX\#include <sys/shm.h>XXXvoid main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, NULL);}' | sed 's/XXX/\n/g' | $(CC) -x c - -o .test2 && echo 1 || echo 0 )" "1"
+ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 )" "1"
 	SHMAT_OK=1
 else
 	SHMAT_OK=0
 	CFLAGS+=-DUSEMMAP=1
-	LDFLAGS+=-Wno-deprecated-declarations
+	LDFLAGS+=-Wno-deprecated-declarations -lrt
 endif
 
 ifeq "$(TEST_MMAP)" "1"
 	SHMAT_OK=0
 	CFLAGS+=-DUSEMMAP=1
-	LDFLAGS+=-Wno-deprecated-declarations
+	LDFLAGS+=-Wno-deprecated-declarations -lrt
 endif
 
 
@@ -105,7 +101,7 @@ test_shm:
 else
 
 test_shm:
-	@echo "[-] shmat seems not to be working, switchig to mmap implementation"
+	@echo "[-] shmat seems not to be working, switching to mmap implementation"
 
 endif
 
@@ -176,10 +172,10 @@ endif
 all_done: test_build
 	@if [ ! "`which clang 2>/dev/null`" = "" ]; then echo "[+] LLVM users: see llvm_mode/README.llvm for a faster alternative to afl-gcc."; fi
 	@echo "[+] All done! Be sure to review the README - it's pretty short and useful."
-#ifeq "$(SHMAT_OK)" "0"
-#	@echo "[!] shmat isn't working on your platform - compile every target with -lrt:"
-#	@echo "[!]  CFLAGS=-lrt LDFLAGS=-lrt CC=afl-gcc CXX=afl-g++ ./configure"
-#endif
+ifeq "$(SHMAT_OK)" "0"
+	@echo "[!] shmat isn't working on your platform - compile every target with -lrt:"
+	@echo "[!]  CFLAGS=-lrt LDFLAGS=-lrt CC=afl-gcc CXX=afl-g++ ./configure"
+endif
 	@if [ "`uname`" = "Darwin" ]; then printf "\nWARNING: Fuzzing on MacOS X is slow because of the unusually high overhead of\nfork() on this OS. Consider using Linux or *BSD. You can also use VirtualBox\n(virtualbox.org) to put AFL inside a Linux or *BSD VM.\n\n"; fi
 	@! tty <&1 >/dev/null || printf "\033[0;30mNOTE: If you can read this, your terminal probably uses white background.\nThis will make the UI hard to read. See docs/status_screen.txt for advice.\033[0m\n" 2>/dev/null
 
