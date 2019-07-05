@@ -55,6 +55,10 @@ ifeq "$(shell uname)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
 endif
 
+ifeq "$(shell uname)" "OpenBSD"
+  CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so.0.0
+endif
+
 # We were using llvm-config --bindir to get the location of clang, but
 # this seems to be busted on some distros, so using the one in $PATH is
 # probably better.
