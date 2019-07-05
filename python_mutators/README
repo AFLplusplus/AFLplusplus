@@ -9,3 +9,7 @@ simple-chunk-replace.py - this is a simple example where chunks are replaced
 
 common.py 	- this can be used for common functions and helpers.
 		  the examples do not use this though. But you can :)
+
+wrapper_afl_min.py - mutation of XML documents, loads XmlMutatorMin.py
+
+XmlMutatorMin.py - module for XML mutation
