@@ -305,7 +305,7 @@ static u32 a_extras_cnt;              /* Total number of tokens available */
 static u8* (*post_handler)(u8* buf, u32* len);
 
 /* hooks for the custom mutator function */
-static size_t (*custom_mutator)(u8 *data, size_t size, size_t max_size, unsigned int seed);
+static size_t (*custom_mutator)(u8 *data, size_t size, u8* mutated_out, size_t max_size, unsigned int seed);
 static size_t (*pre_save_handler)(u8 *data, size_t size, u8 **new_data);
 
 
@@ -4611,7 +4611,7 @@ static void show_stats(void) {
   }
   if (custom_mutator) {
     sprintf(tmp, "%s/%s", DI(stage_finds[STAGE_CUSTOM_MUTATOR]), DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
-    SAYF(bV bSTOP " custom mut. : " cRST "%-37s " bSTG bVR bH20 bH2 bH2 bRB "\n"
+    SAYF(bV bSTOP " custom mut. : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n"
              bLB bH30 bH20 bH2 bH bRB bSTOP cRST RESET_G1, tmp);
   } else {
     SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n"
@@ -5570,18 +5570,25 @@ static u8 fuzz_one(char** argv) {
   if (custom_mutator) {
     stage_short = "custom";
     stage_name = "custom mutator";
-    stage_max = 1 << 16;
+    stage_max = len << 3;
     stage_val_type = STAGE_VAL_NONE;
+
+    const u32 max_seed_size = 4096*4096;
+    u8* mutated_buf = ck_alloc(max_seed_size);
 
     orig_hit_cnt = queued_paths + unique_crashes;
 
     for (stage_cur = 0 ; stage_cur < stage_max ; stage_cur++) {
       size_t orig_size = (size_t) len;
-      size_t mutated_size = custom_mutator(out_buf, orig_size, orig_size, UR(UINT32_MAX));
+      size_t mutated_size = custom_mutator(out_buf, orig_size, mutated_buf, max_seed_size, UR(UINT32_MAX));
+      out_buf = ck_realloc(out_buf, mutated_size);
+      memcpy(out_buf, mutated_buf, mutated_size);
       if (common_fuzz_stuff(argv, out_buf, (u32)mutated_size)) {
         goto abandon_entry;
       }
     }
+
+    ck_free(mutated_buf);
     new_hit_cnt = queued_paths + unique_crashes;
 
     stage_finds[STAGE_CUSTOM_MUTATOR]  += new_hit_cnt - orig_hit_cnt;
