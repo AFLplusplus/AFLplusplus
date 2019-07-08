@@ -635,20 +635,17 @@ int select_algorithm(void) {
   if (!fixed_seed) {
     ck_read(dev_urandom_fd, &seed, sizeof(seed), "/dev/urandom");
     srandom(seed[0]);
-  )
+  }
 
   double sele = ((double)(random()%10000)*0.0001);
   //SAYF("select : %f\n",sele);
   j_puppet = 0;
-  for (i_puppet = 0; i_puppet < operator_num; i_puppet++)
-  {
-      if (unlikely(i_puppet == 0))
-      {
+  for (i_puppet = 0; i_puppet < operator_num; i_puppet++) {
+      if (unlikely(i_puppet == 0)) {
           if (sele < probability_now[swarm_now][i_puppet])
             break;
       } else {
-          if (sele < probability_now[swarm_now][i_puppet])
-          {
+          if (sele < probability_now[swarm_now][i_puppet]) {
               j_puppet =1;
               break;
           }
@@ -658,10 +655,6 @@ int select_algorithm(void) {
     FATAL("error select_algorithm");
   return i_puppet;
 }
-
-
-
-
 
 
 /* Get unix time in milliseconds */
