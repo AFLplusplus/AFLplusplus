@@ -83,6 +83,7 @@
    of 32-bit int overflows): */
 
 #define HAVOC_MAX_MULT      16
+#define HAVOC_MAX_MULT_MOPT 32
 
 /* Absolute minimum number of havoc cycles (after all adjustments): */
 

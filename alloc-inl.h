@@ -83,10 +83,22 @@
           ABORT("Use after free."); \
         else ABORT("Corrupted head alloc canary."); \
       } \
+   } \
+  } while (0)
+
+/*
+#define CHECK_PTR(_p) do { \
+    if (_p) { \
+      if (ALLOC_C1(_p) ^ ALLOC_MAGIC_C1) {\
+        if (ALLOC_C1(_p) == ALLOC_MAGIC_F) \
+          ABORT("Use after free."); \
+        else ABORT("Corrupted head alloc canary."); \
+      } \
       if (ALLOC_C2(_p) ^ ALLOC_MAGIC_C2) \
         ABORT("Corrupted tail alloc canary."); \
     } \
   } while (0)
+*/
 
 #define CHECK_PTR_EXPR(_p) ({ \
     typeof (_p) _tmp = (_p); \
