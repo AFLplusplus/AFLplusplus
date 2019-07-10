@@ -2430,7 +2430,7 @@ EXP_ST void init_forkserver(char** argv) {
 #endif /* __APPLE__ */
 
            "    - Less likely, there is a horrible bug in the fuzzer. If other options\n"
-           "      fail, poke <lcamtuf@coredump.cx> for troubleshooting tips.\n");
+           "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
     } else {
 
@@ -2464,7 +2464,7 @@ EXP_ST void init_forkserver(char** argv) {
 #endif /* __APPLE__ */
 
            "    - Less likely, there is a horrible bug in the fuzzer. If other options\n"
-           "      fail, poke <lcamtuf@coredump.cx> for troubleshooting tips.\n",
+           "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n",
            DMS(mem_limit << 20), mem_limit - 1);
 
     }
@@ -2489,7 +2489,7 @@ EXP_ST void init_forkserver(char** argv) {
     SAYF("\n" cLRD "[-] " cRST
          "Hmm, looks like the target binary terminated before we could complete a\n"
          "    handshake with the injected code. Perhaps there is a horrible bug in the\n"
-         "    fuzzer. Poke <lcamtuf@coredump.cx> for troubleshooting tips.\n");
+         "    fuzzer. Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
   } else {
 
@@ -2512,7 +2512,7 @@ EXP_ST void init_forkserver(char** argv) {
          "      estimate the required amount of virtual memory for the binary.\n\n"
 
          "    - Less likely, there is a horrible bug in the fuzzer. If other options\n"
-         "      fail, poke <lcamtuf@coredump.cx> for troubleshooting tips.\n",
+         "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n",
          getenv(DEFER_ENV_VAR) ? "three" : "two",
          getenv(DEFER_ENV_VAR) ?
          "    - You are using deferred forkserver, but __AFL_INIT() is never\n"
@@ -3094,7 +3094,7 @@ static void perform_dry_run(char** argv) {
 #endif /* __APPLE__ */
 
                "    - Least likely, there is a horrible bug in the fuzzer. If other options\n"
-               "      fail, poke <lcamtuf@coredump.cx> for troubleshooting tips.\n",
+               "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n",
                DMS(mem_limit << 20), mem_limit - 1, doc_path);
 
         } else {
@@ -3116,7 +3116,7 @@ static void perform_dry_run(char** argv) {
 #endif /* __APPLE__ */
 
                "    - Least likely, there is a horrible bug in the fuzzer. If other options\n"
-               "      fail, poke <lcamtuf@coredump.cx> for troubleshooting tips.\n");
+               "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
         }
 
@@ -3367,12 +3367,9 @@ static void write_crash_readme(void) {
              "them to a vendor? Check out the afl-tmin that comes with the fuzzer!\n\n"
 
              "Found any cool bugs in open-source tools using afl-fuzz? If yes, please drop\n"
-             "me a mail at <lcamtuf@coredump.cx> once the issues are fixed - I'd love to\n"
-             "add your finds to the gallery at:\n\n"
+             "an mail at <afl-users@googlegroups.com> once the issues are fixed\n\n"
 
-             "  http://lcamtuf.coredump.cx/afl/\n\n"
-
-             "Thanks :-)\n",
+             "  https://github.com/vanhauser-thc/AFLplusplus\n\n",
 
              orig_cmdline, DMS(mem_limit << 20)); /* ignore errors */
 
@@ -8330,7 +8327,7 @@ int main(int argc, char** argv) {
   struct timeval tv;
   struct timezone tz;
 
-  SAYF(cCYA "afl-fuzz" VERSION cRST " by <lcamtuf@google.com>, schedules by <marcel.boehme@acm.org>\n");
+  SAYF(cCYA "afl-fuzz" VERSION cRST " based on afl by <lcamtuf@google.com> and a big online community\n");
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -8573,6 +8570,14 @@ int main(int argc, char** argv) {
     if (qemu_mode)  FATAL("-Q and -n are mutually exclusive");
 
   }
+
+  OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" Eissfeldt and Andrea Fioraldi");
+  OKF("afl++ is open source, get it at https://github.com/vanhauser-thc/AFLplusplus");
+  OKF("Power schedules from github.com/mboehme/aflfast");
+  OKF("Python Mutator and llvm_mode whitelisting from github.com/choller/afl");
+  OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
+  OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
+  ACTF("Getting to work...");
 
   switch (schedule) {
     case FAST:    OKF ("Using exponential power schedule (FAST)"); break;
