@@ -43,7 +43,8 @@ insert instructions, which changes addresses in the process space and that
 everything still works afterwards. Hence more often than not binaries
 crash when they are run.
 
-The speed decrease is about 25-35%
+The speed decrease is about 15-35%, depending on the optimization options
+used with afl-dyninst.
 
 So if dyninst works, its the best option available. Otherwise it just doesn't
 work well.
@@ -55,10 +56,9 @@ INTEL-PT
 --------
 The big issue with Intel's PT is the small buffer size and the complex
 encoding of the debug information collected through PT.
-This makes the decoding very CPU intensive, hence slow and using up twice
-the CPU resources. So to fairly compare Intel PT based afl fuzzers with
-native afl or afl qemu we need to calculate in the higher CPU resources used.
-As a result, the overall speed decrease is about 85-90%
+This makes the decoding very CPU intensive and hence slow.
+As a result, the overall speed decrease is about 70-90% (depending on
+the implementation and other factors)
 
 there are two afl intel-pt implementations:
 
@@ -67,7 +67,7 @@ there are two afl intel-pt implementations:
 
 2. https://github.com/hunter-ht-2018/ptfuzzer
  => this needs a 4.14 or 4.15 kernel. the "nopti" kernel boot option must
-    be used
+    be used. This one is faster than the other.
 
 
 CORESIGHT
