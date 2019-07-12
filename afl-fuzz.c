@@ -87,7 +87,7 @@ u64 total_pacemaker_time = 0;
 u64 total_puppet_find = 0;
 u64 temp_puppet_find = 0;
 u64 most_time_key = 0;
-u64 most_time_puppet = 0;
+u64 most_time = 0;
 u64 most_execs_key = 0;
 u64 most_execs = 0;
 u64 old_hit_count = 0;
@@ -12258,7 +12258,7 @@ int main(int argc, char** argv) {
 
       case 'V': {
            most_time_key = 1;
-           if (sscanf(optarg, "%llu", &most_time_puppet) < 1 || optarg[0] == '-')
+           if (sscanf(optarg, "%llu", &most_time) < 1 || optarg[0] == '-')
              FATAL("Bad syntax used for -V");
         }
         break;
@@ -12592,12 +12592,16 @@ int main(int argc, char** argv) {
 
     if (most_time_key == 1) {
       u64 cur_ms_lv = get_cur_time();
-      if (most_time_puppet * 1000 < cur_ms_lv  - start_time)
+      if (most_time * 1000 < cur_ms_lv  - start_time) {
+        most_time_key = 2;
         break;
+      }
     }
     if (most_execs_key == 1) {
-      if (most_execs >= total_execs)
+      if (most_execs <= total_execs) {
+        most_execs_key = 2;
         break;
+      }
     }
   }
 
@@ -12612,6 +12616,11 @@ stop_fuzzing:
   SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
        stop_soon == 2 ? "programmatically" : "by user");
 
+  if (most_time_key == 2)
+    SAYF(cYEL "[!] " cRST "Time limit was reached\n");
+  if (most_execs_key == 2)
+    SAYF(cYEL "[!] " cRST "Execution limit was reached\n");
+  
   /* Running for more than 30 minutes but still doing first cycle? */
 
   if (queue_cycle == 1 && get_cur_time() - start_time > 30 * 60 * 1000) {
