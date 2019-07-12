@@ -90,6 +90,8 @@ u64 total_puppet_find = 0;
 u64 temp_puppet_find = 0;
 u64 most_time_key = 0;
 u64 most_time_puppet = 0;
+u64 most_execs_key = 0;
+u64 most_execs = 0;
 u64 old_hit_count = 0;
 int SPLICE_CYCLES_puppet;
 int limit_time_sig = 0;
@@ -11301,18 +11303,21 @@ static void usage(u8* argv0) {
        "  -n            - fuzz without instrumentation (dumb mode)\n"
        "  -x dir        - optional fuzzer dictionary (see README)\n\n"
 
+       "Testing settings:\n"
+       "  -s seed       - use a fixed seed for the RNG\n"
+       "  -V seconds    - fuzz for a maximum total time of seconds then terminate\n"
+       "  -E execs      - fuzz for a maximum number of total executions then terminate\n\n"
+
        "Other stuff:\n"
        "  -T text       - text banner to show on the screen\n"
        "  -M / -S id    - distributed mode (see parallel_fuzzing.txt)\n"
        "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
-       "  -V seconds    - fuzz for a maximum total time of seconds then terminate\n"
-       "  -s seed       - use a fixed seed for the rng - important to testing\n"
        "  -e ext        - File extension for the temporarily generated test case\n\n"
 
 #ifdef USE_PYTHON
        "Compiled with Python 2.7 module support, see docs/python_mutators.txt\n"
 #endif
-       "For additional tips, please consult %s/README.\n\n",
+       "For additional tips, please consult %s/README\n\n",
 
        argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
@@ -11955,7 +11960,7 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, &tz);
   init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Qe:p:s:V:L:")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Qe:p:s:V:E:L:")) > 0)
 
     switch (opt) {
 
@@ -12156,10 +12161,17 @@ int main(int argc, char** argv) {
 
         break;
 
-        case 'V': {
+      case 'V': {
            most_time_key = 1;
            if (sscanf(optarg, "%llu", &most_time_puppet) < 1 || optarg[0] == '-')
              FATAL("Bad syntax used for -V");
+        }
+        break;
+
+      case 'E': {
+           most_execs_key = 1;
+           if (sscanf(optarg, "%llu", &most_execs) < 1 || optarg[0] == '-')
+             FATAL("Bad syntax used for -E");
         }
         break;
 
@@ -12512,6 +12524,10 @@ int main(int argc, char** argv) {
     if (most_time_key == 1) {
       u64 cur_ms_lv = get_cur_time();
       if (most_time_puppet * 1000 < cur_ms_lv  - start_time)
+        break;
+    }
+    if (most_execs_key == 1) {
+      if (most_execs >= total_execs)
         break;
     }
   }
