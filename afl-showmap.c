@@ -29,6 +29,7 @@
 #include "alloc-inl.h"
 #include "hash.h"
 #include "sharedmem.h"
+#include "afl-common.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -380,50 +381,6 @@ static void setup_signal_handlers(void) {
 }
 
 
-/* Detect @@ in args. */
-
-static void detect_file_args(char** argv) {
-
-  u32 i = 0;
-  u8* cwd = getcwd(NULL, 0);
-
-  if (!cwd) PFATAL("getcwd() failed");
-
-  while (argv[i]) {
-
-    u8* aa_loc = strstr(argv[i], "@@");
-
-    if (aa_loc) {
-
-      u8 *aa_subst, *n_arg;
-
-      if (!at_file) FATAL("@@ syntax is not supported by this tool.");
-
-      /* Be sure that we're always using fully-qualified paths. */
-
-      if (at_file[0] == '/') aa_subst = at_file;
-      else aa_subst = alloc_printf("%s/%s", cwd, at_file);
-
-      /* Construct a replacement argv value. */
-
-      *aa_loc = 0;
-      n_arg = alloc_printf("%s%s%s", argv[i], aa_subst, aa_loc + 2);
-      argv[i] = n_arg;
-      *aa_loc = '@';
-
-      if (at_file[0] != '/') ck_free(aa_subst);
-
-    }
-
-    i++;
-
-  }
-
-  free(cwd); /* not tracked */
-
-}
-
-
 /* Show banner. */
 
 static void show_banner(void) {
@@ -720,7 +677,7 @@ int main(int argc, char** argv) {
     ACTF("Executing '%s'...\n", target_path);
   }
 
-  detect_file_args(argv + optind);
+  detect_file_args(argv + optind, at_file);
 
   if (qemu_mode)
     use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
