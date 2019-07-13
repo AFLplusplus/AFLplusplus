@@ -137,16 +137,16 @@ afl-common.o : afl-common.c
 sharedmem.o : sharedmem.c
 	$(CC) $(CFLAGS) -c sharedmem.c
 
-afl-fuzz: afl-fuzz.c sharedmem.o $(COMM_HDR) | test_x86
+afl-fuzz: afl-fuzz.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS) $(PYFLAGS)
 
-afl-showmap: afl-showmap.c sharedmem.o $(COMM_HDR) | test_x86
+afl-showmap: afl-showmap.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS)
 
-afl-tmin: afl-tmin.c sharedmem.o $(COMM_HDR) | test_x86
+afl-tmin: afl-tmin.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS)
 
-afl-analyze: afl-analyze.c sharedmem.o $(COMM_HDR) | test_x86
+afl-analyze: afl-analyze.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS)
 
 afl-gotcpu: afl-gotcpu.c $(COMM_HDR) | test_x86
