@@ -18,7 +18,7 @@
 void detect_file_args(char** argv, u8* prog_in) {
 
   u32 i = 0;
-#ifdef __glibc__
+#ifdef __GLIBC__
   u8* cwd = getcwd(NULL, 0); /* non portable glibc extension */
 #else
   u8* cwd;
