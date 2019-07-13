@@ -40,7 +40,12 @@ namespace {
       AU.addRequired<DominatorTreeWrapperPass>();
     }
 
-    StringRef getPassName() const override {
+#if LLVM_VERSION_MAJOR < 4
+    const char *
+#else
+    StringRef
+#endif
+              getPassName() const override {
       return "InstTrim Instrumentation";
     }
 
