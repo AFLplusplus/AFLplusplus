@@ -118,7 +118,7 @@ namespace {
               auto PredBB = I->first;
               auto SuccBB = I->second;
               auto NewBB = SplitBlockPredecessors(SuccBB, {PredBB}, ".split",
-                                                  DT, nullptr, false);
+                                                  DT);
               MS.insert(NewBB);
             }
           }
