@@ -56,7 +56,7 @@ void buildCFG(Function *F) {
     Preds[ i ].clear();
   }
 
-  uint32_t FakeID = 0;
+  //uint32_t FakeID = 0;
   for (auto S = F->begin(), E = F->end(); S != E; ++S) {
     BasicBlock *BB = &*S;
     uint32_t MyID = LMap[BB];
