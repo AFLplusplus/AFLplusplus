@@ -26,6 +26,8 @@
 #include "debug.h"
 #include "alloc-inl.h"
 #include "hash.h"
+#include "sharedmem.h"
+#include "afl-common.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -50,8 +52,8 @@ static s32 forksrv_pid,               /* PID of the fork server           */
 static s32 fsrv_ctl_fd,               /* Fork server control pipe (write) */
            fsrv_st_fd;                /* Fork server status pipe (read)   */
 
-static u8 *trace_bits,                /* SHM with instrumentation bitmap   */
-          *mask_bitmap;               /* Mask for trace bits (-B)          */
+       u8 *trace_bits;                /* SHM with instrumentation bitmap   */
+static u8 *mask_bitmap;               /* Mask for trace bits (-B)          */
 
 static u8 *in_file,                   /* Minimizer input test case         */
           *out_file,                  /* Minimizer output file             */
@@ -73,8 +75,7 @@ static u32 in_len,                    /* Input data length                 */
 
 static u64 mem_limit = MEM_LIMIT;     /* Memory limit (MB)                 */
 
-static s32 shm_id,                    /* ID of the SHM region              */
-           dev_null_fd = -1;          /* FD to /dev/null                   */
+static s32 dev_null_fd = -1;          /* FD to /dev/null                   */
 
 static u8  crash_mode,                /* Crash-centric mode?               */
            exit_crash,                /* Treat non-zero exit as crash?     */
@@ -159,41 +160,11 @@ static inline u8 anything_set(void) {
 }
 
 
+/* Get rid of temp files (atexit handler). */
 
-/* Get rid of shared memory and temp files (atexit handler). */
-
-static void remove_shm(void) {
-
+static void at_exit_handler(void) {
   if (prog_in) unlink(prog_in); /* Ignore errors */
-  shmctl(shm_id, IPC_RMID, NULL);
-
 }
-
-
-/* Configure shared memory. */
-
-static void setup_shm(void) {
-
-  u8* shm_str;
-
-  shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
-
-  if (shm_id < 0) PFATAL("shmget() failed");
-
-  atexit(remove_shm);
-
-  shm_str = alloc_printf("%d", shm_id);
-
-  setenv(SHM_ENV_VAR, shm_str, 1);
-
-  ck_free(shm_str);
-
-  trace_bits = shmat(shm_id, NULL, 0);
-  
-  if (!trace_bits) PFATAL("shmat() failed");
-
-}
-
 
 /* Read initial file. */
 
@@ -911,48 +882,6 @@ static void setup_signal_handlers(void) {
 }
 
 
-/* Detect @@ in args. */
-
-static void detect_file_args(char** argv) {
-
-  u32 i = 0;
-  u8* cwd = getcwd(NULL, 0);
-
-  if (!cwd) PFATAL("getcwd() failed");
-
-  while (argv[i]) {
-
-    u8* aa_loc = strstr(argv[i], "@@");
-
-    if (aa_loc) {
-
-      u8 *aa_subst, *n_arg;
-
-      /* Be sure that we're always using fully-qualified paths. */
-
-      if (prog_in[0] == '/') aa_subst = prog_in;
-      else aa_subst = alloc_printf("%s/%s", cwd, prog_in);
-
-      /* Construct a replacement argv value. */
-
-      *aa_loc = 0;
-      n_arg = alloc_printf("%s%s%s", argv[i], aa_subst, aa_loc + 2);
-      argv[i] = n_arg;
-      *aa_loc = '@';
-
-      if (prog_in[0] != '/') ck_free(aa_subst);
-
-    }
-
-    i++;
-
-  }
-
-  free(cwd); /* not tracked */
-
-}
-
-
 /* Display usage hints. */
 
 static void usage(u8* argv0) {
@@ -1245,13 +1174,14 @@ int main(int argc, char** argv) {
 
   if (optind == argc || !in_file || !out_file) usage(argv[0]);
 
-  setup_shm();
+  setup_shm(0);
+  atexit(at_exit_handler);
   setup_signal_handlers();
 
   set_up_environment();
 
   find_binary(argv[optind]);
-  detect_file_args(argv + optind);
+  detect_file_args(argv + optind, prog_in);
 
   if (qemu_mode)
     use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);

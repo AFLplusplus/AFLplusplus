@@ -252,6 +252,10 @@ static void edit_params(u32 argc, char** argv) {
 
   }
 
+#ifdef USEMMAP
+    cc_params[cc_par_cnt++] = "-lrt";
+#endif
+
   if (!getenv("AFL_DONT_OPTIMIZE")) {
 
 #if defined(__FreeBSD__) && defined(__x86_64__)
