@@ -98,10 +98,10 @@ namespace {
     
       if (getenv("LOOPHEAD")) {
         LoopHeadOpt = true;
-        MarkSetOpt = true;
-      } else if (getenv("MARKSET")) {
-        MarkSetOpt = true;
       }
+
+      // this is our default
+      MarkSetOpt = true;
       
 /*    // I dont think this makes sense to port into LLVMInsTrim
       char* inst_ratio_str = getenv("AFL_INST_RATIO");

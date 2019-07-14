@@ -78,13 +78,32 @@ Note: if you want the LLVM helper to be installed on your system for all
 users, you need to build it before issuing 'make install' in the parent
 directory.
 
-3) Gotchas, feedback, bugs
+3) Options
+
+Several options are present to make llvm_mode faster or help it rearrange
+the code to make afl-fuzz path discovery easier.
+
+If you need just to instrument specific parts of the code, you can whitelist
+which C/C++ files to actually intrument. See README.whitelist
+
+For splitting memcmp, strncmp, etc. please see README.laf-intel
+
+As the original afl llvm_mode implementation has been replaced with
+then much more effective instrim (https://github.com/csienslab/instrim/) 
+there is an option for optimizing loops. This optimization shows which
+part of the loop has been selected, but not how many time a loop has been
+called in a row (unless its a complex loop and a block inside was
+instrumented). If you want to enable this set the environment variable
+LOOPHEAD=1
+
+
+4) Gotchas, feedback, bugs
 --------------------------
 
 This is an early-stage mechanism, so field reports are welcome. You can send bug
 reports to <afl-users@googlegroups.com>.
 
-4) Bonus feature #1: deferred instrumentation
+5) Bonus feature #1: deferred instrumentation
 ---------------------------------------------
 
 AFL tries to optimize performance by executing the targeted binary just once,
@@ -131,7 +150,7 @@ will keep working normally when compiled with a tool other than afl-clang-fast.
 Finally, recompile the program with afl-clang-fast (afl-gcc or afl-clang will
 *not* generate a deferred-initialization binary) - and you should be all set!
 
-5) Bonus feature #2: persistent mode
+6) Bonus feature #2: persistent mode
 ------------------------------------
 
 Some libraries provide APIs that are stateless, or whose state can be reset in
@@ -171,7 +190,7 @@ PS. Because there are task switches still involved, the mode isn't as fast as
 faster than the normal fork() model, and compared to in-process fuzzing,
 should be a lot more robust.
 
-6) Bonus feature #3: new 'trace-pc-guard' mode
+8) Bonus feature #3: new 'trace-pc-guard' mode
 ----------------------------------------------
 
 Recent versions of LLVM are shipping with a built-in execution tracing feature
