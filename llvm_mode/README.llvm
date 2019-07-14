@@ -38,8 +38,8 @@ co-exists with the original code.
 
 The idea and much of the implementation comes from Laszlo Szekeres.
 
-2) How to use
--------------
+2) How to use this
+------------------
 
 In order to leverage this mechanism, you need to have clang installed on your
 system. You should also make sure that the llvm-config tool is in your path
@@ -69,8 +69,10 @@ operating mode of AFL, e.g.:
 Be sure to also include CXX set to afl-clang-fast++ for C++ code.
 
 The tool honors roughly the same environmental variables as afl-gcc (see
-../docs/env_variables.txt). This includes AFL_INST_RATIO, AFL_USE_ASAN,
-AFL_HARDEN, and AFL_DONT_OPTIMIZE.
+../docs/env_variables.txt). This includes AFL_USE_ASAN,
+AFL_HARDEN, and AFL_DONT_OPTIMIZE. However AFL_INST_RATIO is not honored
+as it does not serve a good purpose with the more effective instrim CFG
+analysis.
 
 Note: if you want the LLVM helper to be installed on your system for all
 users, you need to build it before issuing 'make install' in the parent

@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
 #include <unistd.h>
 
 #include "llvm/ADT/DenseMap.h"
@@ -131,11 +134,15 @@ namespace {
 
         if (!myWhitelist.empty()) {
           bool instrumentBlock = false;
-          BasicBlock &BB = F.getEntryBlock();
-          BasicBlock::iterator IP = BB.getFirstInsertionPt();
-          IRBuilder<> IRB(&(*IP));
-          DebugLoc Loc = IP->getDebugLoc();
+          DebugLoc Loc;
           StringRef instFilename;
+
+          for (auto &BB : F) {
+            BasicBlock::iterator IP = BB.getFirstInsertionPt();
+            IRBuilder<> IRB(&(*IP));
+            if (!Loc)
+              Loc = IP->getDebugLoc();
+          }
 
           if ( Loc ) {
               DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
@@ -169,7 +176,9 @@ namespace {
            * not whitelisted, so we skip instrumentation. */
           if (!instrumentBlock) {
             if (!instFilename.str().empty())
-              SAYF( "Not in whitelist, skipping %s ...\n", instFilename.str().c_str());
+              SAYF(cYEL "[!] " cBRI "Not in whitelist, skipping %s ...\n", instFilename.str().c_str());
+            else
+              SAYF(cYEL "[!] " cBRI "No filename information found, skipping it");
             continue;
           }
         }
