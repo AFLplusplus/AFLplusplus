@@ -19,8 +19,12 @@ american fuzzy lop plus plus
   C. Hollers afl-fuzz Python mutator module and llvm_mode whitelist support
   was added too (https://github.com/choller/afl)
 
-  The newest additions is the excellent MOpt mutator from
+  New is the excellent MOpt mutator from
   https://github.com/puppet-meteor/MOpt-AFL  
+
+  Also newly integrated is instrim, a very effective CFG llvm_mode
+  instrumentation implementation which replaced the original afl one and is
+  from https://github.com/csienslab/instrim
 
   A more thorough list is available in the PATCHES file.
 

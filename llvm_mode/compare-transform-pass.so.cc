@@ -304,7 +304,8 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
 
 bool CompareTransform::runOnModule(Module &M) {
 
-  llvm::errs() << "Running compare-transform-pass by laf.intel@gmail.com, extended by heiko@hexco.de\n";
+  if (getenv("AFL_QUIET") == NULL)
+    llvm::errs() << "Running compare-transform-pass by laf.intel@gmail.com, extended by heiko@hexco.de\n";
   transformCmps(M, true, true, true, true, true);
   verifyModule(M);
 
