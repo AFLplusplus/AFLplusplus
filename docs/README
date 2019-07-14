@@ -2,27 +2,31 @@
 american fuzzy lop plus plus
 ============================
 
-  Written by Michal Zalewski <lcamtuf@google.com>
+  Originally written by Michal Zalewski <lcamtuf@google.com>
 
   Repository: https://github.com/vanhauser-thc/AFLplusplus
 
-  afl++ is maintained by Marc Heuse <mh@mh-sec.de> and Heiko Eissfeldt
-  <heiko.eissfeldt@hexco.de> as there have been no updates to afl since
-  November 2017.
+  afl++ is maintained by Marc Heuse <mh@mh-sec.de>, Heiko Eissfeldt
+  <heiko.eissfeldt@hexco.de> and Andrea Fioraldi as there have been no
+  updates to afl since November 2017.
 
-  This version has several bug fixes, new features and speed enhancements
-  based on community patches from https://github.com/vanhauser-thc/afl-patches
-  To see the list of which patches have been applied, see the PATCHES file.
+  Many improvements were made, e.g. more performant llvm_mode, supporting
+  llvm up to version 8, Qemu 3.1, more speed for Qemu, etc.
 
   Additionally AFLfast's power schedules by Marcel Boehme from
-  github.com/mboehme/aflfast have been incorporated.
+  https://github.com/mboehme/aflfast have been incorporated.
 
-  Plus it was upgraded to qemu 3.1 from 2.1 with the work of 
-  https://github.com/andreafioraldi/afl and got the community patches applied
-  to it.
+  C. Hollers afl-fuzz Python mutator module and llvm_mode whitelist support
+  was added too (https://github.com/choller/afl)
 
-  C. Hoellers afl-fuzz Python mutator module and llvm_mode whitelist support
-  was added too (https://github.com/choeller/afl)
+  New is the excellent MOpt mutator from
+  https://github.com/puppet-meteor/MOpt-AFL  
+
+  Also newly integrated is instrim, a very effective CFG llvm_mode
+  instrumentation implementation which replaced the original afl one and is
+  from https://github.com/csienslab/instrim
+
+  A more thorough list is available in the PATCHES file.
 
   So all in all this is the best-of AFL that is currently out there :-)
 

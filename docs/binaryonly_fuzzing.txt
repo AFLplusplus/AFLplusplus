@@ -1,0 +1,115 @@
+
+Fuzzing binary-only programs with afl++
+=======================================
+
+afl++, libfuzzer and others are great if you have the source code, and
+it allows for very fast and coverage guided fuzzing.
+
+However, if there is only the binary program and not source code available,
+then standard afl++ (dumb mode) is not effective.
+
+The following is a description of how these can be fuzzed with afl++
+
+!!!!!
+DTLR: try DYNINST with afl-dyninst. If it produces too many crashes then
+      use afl -Q qemu_mode.
+!!!!!
+
+
+QEMU
+----
+Qemu is the "native" solution to the program.
+It is available in the ./qemu_mode/ directory and once compiled it can
+be accessed by the afl-fuzz -Q command line option.
+The speed decrease is at about 50%
+It the easiest to use alternative and even works for cross-platform binaries.
+
+As it is included in afl++ this needs no URL.
+
+
+DYNINST
+-------
+Dyninst is a binary instrumentation framework similar to Pintool and Dynamorio
+(see far below). Howver whereas Pintool and Dynamorio work at runtime, dyninst
+instruments the target at load time, and then let it run.
+This is great for some things, e.g. fuzzing, and not so effective for others,
+e.g. malware analysis.
+
+So what we can do with dyninst is taking every basic block, and put afl's
+instrumention code in there - and then save the binary.
+Afterwards we can just fuzz the newly saved target binary with afl-fuzz.
+Sounds great? It is. The issue though - this is a non-trivial problem to
+insert instructions, which changes addresses in the process space and that
+everything still works afterwards. Hence more often than not binaries
+crash when they are run.
+
+The speed decrease is about 15-35%, depending on the optimization options
+used with afl-dyninst.
+
+So if dyninst works, its the best option available. Otherwise it just doesn't
+work well.
+
+https://github.com/vanhauser-thc/afl-dyninst
+
+
+INTEL-PT
+--------
+The big issue with Intel's PT is the small buffer size and the complex
+encoding of the debug information collected through PT.
+This makes the decoding very CPU intensive and hence slow.
+As a result, the overall speed decrease is about 70-90% (depending on
+the implementation and other factors)
+
+there are two afl intel-pt implementations:
+
+1. https://github.com/junxzm1990/afl-pt
+ => this needs Ubuntu 14.04.05 without any updates and the 4.4 kernel.
+
+2. https://github.com/hunter-ht-2018/ptfuzzer
+ => this needs a 4.14 or 4.15 kernel. the "nopti" kernel boot option must
+    be used. This one is faster than the other.
+
+
+CORESIGHT
+---------
+
+Coresight is the ARM answer to Intel's PT.
+There is no implementation so far which handle coresight and getting
+it working on an ARM Linux is very difficult due custom kernel building
+on embedded systems is difficult. And finding one that has coresight in
+the ARM chip is difficult too.
+My guess is that it is slower than Qemu, but faster than Intel PT.
+If anyone finds any coresight implemention for afl please ping me:
+vh@thc.org
+
+
+PIN & DYNAMORIO
+---------------
+
+Pintool and Dynamorio are dynamic instrumentation engines, and they can be
+used for getting basic block information at runtime.
+Pintool is only available for Intel x32/x64 on Linux, Mac OS and Windows
+whereas Dynamorio is additionally available for ARM and AARCH64.
+Dynamorio is also 10x faster than Pintool.
+
+The big issue with Dynamorio (and therefore Pintool too) is speed.
+Dynamorio has a speed decrease of 98-99%
+Pintool has a speed decrease of 99.5%
+
+Hence Dynamorio is the option to go for if everything fails, and Pintool
+only if Dynamorio fails too.
+
+Dynamorio solutions:
+  https://github.com/vanhauser-thc/afl-dynamorio
+  https://github.com/mxmssh/drAFL
+  https://github.com/googleprojectzero/winafl/ <= very good but windows only
+
+Pintool solutions:
+  https://github.com/vanhauser-thc/afl-pin
+  https://github.com/mothran/aflpin
+  https://github.com/spinpx/afl_pin_mode  <= only old Pintool version supported
+
+
+That's it!
+News, corrections, updates?
+Email vh@thc.org

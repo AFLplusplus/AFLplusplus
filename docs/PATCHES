@@ -17,10 +17,12 @@ afl-qemu-optimize-entrypoint.diff	by mh(at)mh-sec(dot)de
 afl-qemu-speed.diff			by abiondo on github
 afl-qemu-optimize-map.diff		by mh(at)mh-sec(dot)de
 
++ instrim (https://github.com/csienslab/instrim) was integrated
++ MOpt (github.com/puppet-meteor/MOpt-AFL) was imported
 + AFLfast additions (github.com/mboehme/aflfast) were incorporated.
 + Qemu 3.1 upgrade with enhancement patches (github.com/andreafioraldi/afl)
-+ Python mutator modules support (github.com/choeller/afl)
-+ Whitelisting in LLVM mode (github.com/choeller/afl)
++ Python mutator modules support (github.com/choller/afl)
++ Whitelisting in LLVM mode (github.com/choller/afl)
 + forkserver patch for afl-tmin (github.com/nccgroup/TriforceAFL)
 
 
