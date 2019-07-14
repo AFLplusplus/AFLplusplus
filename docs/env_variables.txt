@@ -82,6 +82,9 @@ discussed in section #1, with the exception of:
   - TMPDIR and AFL_KEEP_ASSEMBLY, since no temporary assembly files are
     created.
 
+  - AFL_INST_RATIO, as we switched for instrim instrumentation which
+    is more effective but makes not much sense together with this option.
+
 Then there are a few specific features that are only available in llvm_mode:
 
   LAF-INTEL
@@ -108,15 +111,15 @@ Then there are a few specific features that are only available in llvm_mode:
 
   OTHER
   =====
-    - Setting export AFL_LLVM_NOT_ZERO=1 during compilation will use counters
+    - Setting LOOPHEAD=1 optimized loops. afl-fuzz will only be able to
+      see the path the loop took, but not how many times it was called
+      (unless its a complex loop).
+
+    - Setting AFL_LLVM_NOT_ZERO=1 during compilation will use counters
       that skip zero on overflow. This is the default for llvm >= 9,
       however for llvm versions below that this will increase an unnecessary
       slowdown due a performance issue that is only fixed in llvm 9+.
       This feature increases path discovery by a little bit.
-
-Note that AFL_INST_RATIO will behave a bit differently than for afl-gcc,
-because functions are *not* instrumented unconditionally - so low values
-will have a more striking effect. For this tool, 0 is not a valid choice.
 
 3) Settings for afl-fuzz
 ------------------------
