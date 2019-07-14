@@ -31,6 +31,8 @@
 #include "debug.h"
 #include "alloc-inl.h"
 #include "hash.h"
+#include "sharedmem.h"
+#include "afl-common.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -223,15 +225,13 @@ static s32 forksrv_pid,               /* PID of the fork server           */
            child_pid = -1,            /* PID of the fuzzed program        */
            out_dir_fd = -1;           /* FD of the lock file              */
 
-EXP_ST u8* trace_bits;                /* SHM with instrumentation bitmap  */
+       u8* trace_bits;                /* SHM with instrumentation bitmap  */
 
 EXP_ST u8  virgin_bits[MAP_SIZE],     /* Regions yet untouched by fuzzing */
            virgin_tmout[MAP_SIZE],    /* Bits we haven't seen in tmouts   */
            virgin_crash[MAP_SIZE];    /* Bits we haven't seen in crashes  */
 
 static u8  var_bytes[MAP_SIZE];       /* Bytes that appear to be variable */
-
-static s32 shm_id;                    /* ID of the SHM region             */
 
 static volatile u8 stop_soon,         /* Ctrl-C pressed?                  */
                    clear_screen = 1,  /* Window resized?                  */
@@ -1530,15 +1530,6 @@ static inline void classify_counts(u32* mem) {
 #endif /* ^__x86_64__ */
 
 
-/* Get rid of shared memory (atexit handler). */
-
-static void remove_shm(void) {
-
-  shmctl(shm_id, IPC_RMID, NULL);
-
-}
-
-
 /* Compact trace bytes into a smaller bitmap. We effectively just drop the
    count information here. This is called only sporadically, for some
    new paths. */
@@ -1691,40 +1682,6 @@ static void cull_queue(void) {
 
 }
 
-
-/* Configure shared memory and virgin_bits. This is called at startup. */
-
-EXP_ST void setup_shm(void) {
-
-  u8* shm_str;
-
-  if (!in_bitmap) memset(virgin_bits, 255, MAP_SIZE);
-
-  memset(virgin_tmout, 255, MAP_SIZE);
-  memset(virgin_crash, 255, MAP_SIZE);
-
-  shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
-
-  if (shm_id < 0) PFATAL("shmget() failed");
-
-  atexit(remove_shm);
-
-  shm_str = alloc_printf("%d", shm_id);
-
-  /* If somebody is asking us to fuzz instrumented binaries in dumb mode,
-     we don't want them to detect instrumentation, since we won't be sending
-     fork server commands. This should be replaced with better auto-detection
-     later on, perhaps? */
-
-  if (!dumb_mode) setenv(SHM_ENV_VAR, shm_str, 1);
-
-  ck_free(shm_str);
-
-  trace_bits = shmat(shm_id, NULL, 0);
-  
-  if (!trace_bits) PFATAL("shmat() failed");
-
-}
 
 
 /* Load postprocessor, if available. */
@@ -7549,20 +7506,16 @@ static u8 pilot_fuzzing(char** argv) {
 		stage_finds[STAGE_FLIP1] += new_hit_cnt - orig_hit_cnt;
 		stage_cycles[STAGE_FLIP1] += stage_max;
 
-
-
-
 		/* Two walking bits. */
 
 		stage_name = "bitflip 2/1";
 		stage_short = "flip2";
 		stage_max = (len << 3) - 1;
 
-
-
-
-
-
+#if !defined(__arm__) && !defined(__arm64__)
+  if (f_data[0] != 0xCF || f_data[1] != 0xFA || f_data[2] != 0xED)
+    FATAL("Program '%s' is not a 64-bit Mach-O binary", target_path);
+#endif
 
 		orig_hit_cnt = new_hit_cnt;
 
@@ -11828,58 +11781,6 @@ static void check_asan_opts(void) {
 } 
 
 
-/* Detect @@ in args. */
-
-EXP_ST void detect_file_args(char** argv) {
-
-  u32 i = 0;
-  u8* cwd = getcwd(NULL, 0);
-
-  if (!cwd) PFATAL("getcwd() failed");
-
-  while (argv[i]) {
-
-    u8* aa_loc = strstr(argv[i], "@@");
-
-    if (aa_loc) {
-
-      u8 *aa_subst, *n_arg;
-
-      /* If we don't have a file name chosen yet, use a safe default. */
-
-      if (!out_file) {
-        if (file_extension) {
-            out_file = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
-        } else {
-            out_file = alloc_printf("%s/.cur_input", out_dir);
-        }
-      }
-
-      /* Be sure that we're always using fully-qualified paths. */
-
-      if (out_file[0] == '/') aa_subst = out_file;
-      else aa_subst = alloc_printf("%s/%s", cwd, out_file);
-
-      /* Construct a replacement argv value. */
-
-      *aa_loc = 0;
-      n_arg = alloc_printf("%s%s%s", argv[i], aa_subst, aa_loc + 2);
-      argv[i] = n_arg;
-      *aa_loc = '@';
-
-      if (out_file[0] != '/') ck_free(aa_subst);
-
-    }
-
-    i++;
-
-  }
-
-  free(cwd); /* not tracked */
-
-}
-
-
 /* Set up signal handlers. More complicated that needs to be, because libc on
    Solaris doesn't resume interrupted reads(), sets SA_RESETHAND when you call
    siginterrupt(), and does other stupid things. */
@@ -12469,7 +12370,12 @@ int main(int argc, char** argv) {
   check_cpu_governor();
 
   setup_post();
-  setup_shm();
+  setup_shm(dumb_mode);
+
+  if (!in_bitmap) memset(virgin_bits, 255, MAP_SIZE);
+  memset(virgin_tmout, 255, MAP_SIZE);
+  memset(virgin_crash, 255, MAP_SIZE);
+
   init_count_class16();
 
   setup_dirs_fds();
@@ -12495,7 +12401,28 @@ int main(int argc, char** argv) {
 
   if (!timeout_given) find_timeout();
 
-  detect_file_args(argv + optind + 1);
+  /* If we don't have a file name chosen yet, use a safe default. */
+
+  if (!out_file) {
+    u32 i = optind + 1;
+    while (argv[i]) {
+
+      u8* aa_loc = strstr(argv[i], "@@");
+
+      if (aa_loc && !out_file) {
+        if (file_extension) {
+          out_file = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
+        } else {
+          out_file = alloc_printf("%s/.cur_input", out_dir);
+        }
+        detect_file_args(argv + optind + 1, out_file);
+	break;
+      }
+
+      i++;
+
+    }
+  }
 
   if (!out_file) setup_stdio_file();
 
