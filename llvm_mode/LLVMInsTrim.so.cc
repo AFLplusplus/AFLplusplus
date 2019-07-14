@@ -1,3 +1,5 @@
+#include <unistd.h>
+
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/CFG.h"
@@ -10,8 +12,17 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CFG.h"
 #include <unordered_set>
 #include <random>
+#include <list>
+#include <string>
+#include <fstream>
+
+#include "../config.h"
+#include "../debug.h"
 
 #include "MarkNodes.h"
 
@@ -24,6 +35,10 @@ static cl::opt<bool> LoopHeadOpt("loophead", cl::desc("LoopHead"),
 
 namespace {
   struct InsTrim : public ModulePass {
+
+  protected:
+    std::list<std::string> myWhitelist;
+
   private:
     std::mt19937 generator;
     int total_instr = 0;
@@ -34,7 +49,23 @@ namespace {
 
   public:
     static char ID;
-    InsTrim() : ModulePass(ID), generator(0) {}
+    InsTrim() : ModulePass(ID), generator(0) {//}
+    
+//    AFLCoverage() : ModulePass(ID) {
+      char* instWhiteListFilename = getenv("AFL_LLVM_WHITELIST");
+      if (instWhiteListFilename) {
+        std::string line;
+        std::ifstream fileStream;
+        fileStream.open(instWhiteListFilename);
+        if (!fileStream)
+          report_fatal_error("Unable to open AFL_LLVM_WHITELIST");
+        getline(fileStream, line);
+        while (fileStream) {
+          myWhitelist.push_back(line);
+          getline(fileStream, line);
+        }
+      }
+    }
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<DominatorTreeWrapperPass>();
@@ -50,12 +81,33 @@ namespace {
     }
 
     bool runOnModule(Module &M) override {
+      char be_quiet = 0;
+      
+      if (isatty(2) && !getenv("AFL_QUIET")) {
+        SAYF(cCYA "LLVMInsTrim" VERSION cRST " by csienslab\n");
+      } else be_quiet = 1;
+    
+#if LLVM_VERSION_MAJOR < 9
+      char* neverZero_counters_str;
+      if ((neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO")) != NULL)
+        OKF("LLVM neverZero activated (by hexcoder)\n");
+#endif
+    
       if (getenv("LOOPHEAD")) {
         LoopHeadOpt = true;
         MarkSetOpt = true;
       } else if (getenv("MARKSET")) {
         MarkSetOpt = true;
       }
+      
+/*    // I dont think this makes sense to port into LLVMInsTrim
+      char* inst_ratio_str = getenv("AFL_INST_RATIO");
+      unsigned int inst_ratio = 100;
+      if (inst_ratio_str) {
+       if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio || inst_ratio > 100)
+         FATAL("Bad value of AFL_INST_RATIO (must be between 1 and 100)");
+      }
+*/
 
       LLVMContext &C = M.getContext();
       IntegerType *Int8Ty  = IntegerType::getInt8Ty(C);
@@ -69,12 +121,57 @@ namespace {
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc",
         0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
 
-      unsigned total_rs = 0;
-      unsigned total_hs = 0;
+      u64 total_rs = 0;
+      u64 total_hs = 0;
 
       for (Function &F : M) {
         if (!F.size()) {
           continue;
+        }
+
+        if (!myWhitelist.empty()) {
+          bool instrumentBlock = false;
+          BasicBlock &BB = F.getEntryBlock();
+          BasicBlock::iterator IP = BB.getFirstInsertionPt();
+          IRBuilder<> IRB(&(*IP));
+          DebugLoc Loc = IP->getDebugLoc();
+          StringRef instFilename;
+
+          if ( Loc ) {
+              DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
+
+              unsigned int instLine = cDILoc->getLine();
+              instFilename = cDILoc->getFilename();
+
+              if (instFilename.str().empty()) {
+                  /* If the original location is empty, try using the inlined location */
+                  DILocation *oDILoc = cDILoc->getInlinedAt();
+                  if (oDILoc) {
+                      instFilename = oDILoc->getFilename();
+                      instLine = oDILoc->getLine();
+                  }
+              }
+
+              /* Continue only if we know where we actually are */
+              if (!instFilename.str().empty()) {
+                  for (std::list<std::string>::iterator it = myWhitelist.begin(); it != myWhitelist.end(); ++it) {
+                      if (instFilename.str().length() >= it->length()) {
+                          if (instFilename.str().compare(instFilename.str().length() - it->length(), it->length(), *it) == 0) {
+                              instrumentBlock = true;
+                              break;
+                          }
+                      }
+                  }
+              }
+          }
+
+          /* Either we couldn't figure out our location or the location is
+           * not whitelisted, so we skip instrumentation. */
+          if (!instrumentBlock) {
+            if (!instFilename.str().empty())
+              SAYF( "Not in whitelist, skipping %s ...\n", instFilename.str().c_str());
+            continue;
+          }
         }
 
         std::unordered_set<BasicBlock *> MS;
@@ -94,8 +191,7 @@ namespace {
             total_rs += MS.size();
           } else {
             DenseSet<std::pair<BasicBlock *, BasicBlock *>> EdgeSet;
-            DominatorTreeWrapperPass *DTWP =
-              &getAnalysis<DominatorTreeWrapperPass>(F);
+            DominatorTreeWrapperPass *DTWP = &getAnalysis<DominatorTreeWrapperPass>(F);
             auto DT = &DTWP->getDomTree();
 
             total_rs += RS.size();
@@ -123,7 +219,11 @@ namespace {
               auto PredBB = I->first;
               auto SuccBB = I->second;
               auto NewBB = SplitBlockPredecessors(SuccBB, {PredBB}, ".split",
-                                                  DT);
+                                                  DT, nullptr,
+#if LLVM_VERSION_MAJOR >= 8
+                                                  nullptr,
+#endif
+                                                  false);
               MS.insert(NewBB);
             }
           }
@@ -168,21 +268,60 @@ namespace {
             L = PN;
           }
 
+          /* Load prev_loc */
           LoadInst *PrevLoc = IRB.CreateLoad(OldPrev);
+          PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
           Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
+          /* Load SHM pointer */
           LoadInst *MapPtr = IRB.CreateLoad(CovMapPtr);
-          Value *MapPtrIdx = IRB.CreateGEP(MapPtr,
-                                           IRB.CreateXor(PrevLocCasted, L));
+          MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+          Value *MapPtrIdx = IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, L));
 
+          /* Update bitmap */
           LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+          Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+          
           Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
-          IRB.CreateStore(Incr, MapPtrIdx);
+
+#if LLVM_VERSION_MAJOR < 9
+          if (neverZero_counters_str != NULL) { // with llvm 9 we make this the default as the bug in llvm is then fixed
+#else
+  #warning "neverZero implementation needs to be reviewed!"
+#endif
+          /* hexcoder: Realize a counter that skips zero during overflow.
+           * Once this counter reaches its maximum value, it next increments to 1
+           *
+           * Instead of
+           * Counter + 1 -> Counter
+           * we inject now this
+           * Counter + 1 -> {Counter, OverflowFlag}
+           * Counter + OverflowFlag -> Counter
+           */
+            auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
+            auto carry = IRB.CreateZExt(cf, Int8Ty);
+            Incr = IRB.CreateAdd(Incr, carry);
+#if LLVM_VERSION_MAJOR < 9
+          }
+#endif
+   
+          IRB.CreateStore(Incr, MapPtrIdx)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+   
+          /* Set prev_loc to cur_loc >> 1 */
+          /*
+          StoreInst *Store = IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
+          Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+          */
+
           total_instr++;
         }
       }
 
-      errs() << total_instr << " locations instrumented ("<< total_rs << "," << total_hs << ")\n";
+      OKF("Instrumented %u locations (%llu, %llu) (%s mode)\n"/*", ratio %u%%)."*/,
+          total_instr, total_rs, total_hs,
+          getenv("AFL_HARDEN") ? "hardened" :
+          ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN")) ?
+          "ASAN/MSAN" : "non-hardened")/*, inst_ratio*/);
       return false;
     }
   }; // end of struct InsTrim
