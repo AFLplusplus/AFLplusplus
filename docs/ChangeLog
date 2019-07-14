@@ -17,7 +17,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.52d (tbd):
 -----------------------------
 
+  - added instrim a much better llvm_mode instrumentation
+    (https://github.com/csienslab/instrim)
   - added MOpt (github.com/puppet-meteor/MOpt-AFL) mode
+  - added code to make it more portable to other platforms than Intel Linux
   - added never zero counters for afl-gcc and optional (because of an
     optimization issue in llvm < 9) for llvm_mode (AFL_LLVM_NEVER_ZERO=1)
   - added a new doc about binary only fuzzing: docs/binaryonly_fuzzing.txt
