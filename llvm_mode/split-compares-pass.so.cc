@@ -487,7 +487,8 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
   simplifySignedness(M);
 
-  errs() << "Split-compare-pass by laf.intel@gmail.com\n"; 
+  if (getenv("AFL_QUIET") == NULL)
+    errs() << "Split-compare-pass by laf.intel@gmail.com\n"; 
 
   switch (bitw) {
     case 64:
