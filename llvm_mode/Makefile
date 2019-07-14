@@ -147,7 +147,7 @@ endif
 	ln -sf afl-clang-fast ../afl-clang-fast++
 
 ../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc | test_deps
-	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=gnu++11 -shared $< -o $@ $(CLANG_LFL)
+	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=gnu++11 -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
 
 # laf
 ../split-switches-pass.so:	split-switches-pass.so.cc | test_deps
