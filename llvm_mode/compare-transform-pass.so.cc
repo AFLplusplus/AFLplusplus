@@ -257,6 +257,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
         std::vector<Value *> args;
         args.push_back(load);
         load = IRB.CreateCall(tolowerFn, args, "tmp");
+        load = IRB.CreateTrunc(load, Int8Ty);
       }
       Value *isub;
       if (HasStr1)
@@ -272,14 +273,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
         next_bb =  BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
         BranchInst::Create(end_bb, next_bb);
 
-#if LLVM_VERSION_MAJOR < 8
-        TerminatorInst *term = cur_bb->getTerminator();
-#else
-        Instruction *term = cur_bb->getTerminator();
-#endif
         Value *icmp = IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
         IRB.CreateCondBr(icmp, next_bb, end_bb);
-        term->eraseFromParent();
+        cur_bb->getTerminator()->eraseFromParent();
       } else {
         //IRB.CreateBr(end_bb);
       }
