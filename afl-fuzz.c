@@ -7515,12 +7515,6 @@ static u8 pilot_fuzzing(char** argv) {
 		stage_short = "flip2";
 		stage_max = (len << 3) - 1;
 
-
-
-
-
-
-
 		orig_hit_cnt = new_hit_cnt;
 
 		for (stage_cur = 0; stage_cur < stage_max; stage_cur++) {
@@ -11110,6 +11104,11 @@ EXP_ST void check_binary(u8* fname) {
   if (f_data == MAP_FAILED) PFATAL("Unable to mmap file '%s'", target_path);
 
   close(fd);
+
+#if !defined(__arm__) && !defined(__arm64__)
+  if (f_data[0] != 0xCF || f_data[1] != 0xFA || f_data[2] != 0xED)
+    FATAL("Program '%s' is not a 64-bit Mach-O binary", target_path);
+#endif
 
   if (f_data[0] == '#' && f_data[1] == '!') {
 
