@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 static u8*  obj_path;               /* Path to runtime libraries         */
 static u8** cc_params;              /* Parameters passed to the real CC  */
@@ -87,7 +88,7 @@ static void find_obj(u8* argv0) {
     return;
   }
 
-  FATAL("Unable to find 'afl-llvm-rt.o' or 'afl-llvm-pass.so'. Please set AFL_PATH");
+  FATAL("Unable to find 'afl-llvm-rt.o' or 'libLLVMInsTrim.so'. Please set AFL_PATH");
  
 }
 
@@ -113,28 +114,28 @@ static void edit_params(u32 argc, char** argv) {
   }
 
   /* There are two ways to compile afl-clang-fast. In the traditional mode, we
-     use afl-llvm-pass.so to inject instrumentation. In the experimental
+     use libLLVMInsTrim.so to inject instrumentation. In the experimental
      'trace-pc-guard' mode, we use native LLVM instrumentation callbacks
      instead. The latter is a very recent addition - see:
 
      http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards */
 
   // laf
-  if (getenv("LAF_SPLIT_SWITCHES")) {
+  if (getenv("LAF_SPLIT_SWITCHES")||getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = alloc_printf("%s/split-switches-pass.so", obj_path);
   }
 
-  if (getenv("LAF_TRANSFORM_COMPARES")) {
+  if (getenv("LAF_TRANSFORM_COMPARES")||getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = alloc_printf("%s/compare-transform-pass.so", obj_path);
   }
 
-  if (getenv("LAF_SPLIT_COMPARES")) {
+  if (getenv("LAF_SPLIT_COMPARES")||getenv("AFL_LLVM_LAF_SPLIT_COMPARES")) {
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
@@ -150,7 +151,8 @@ static void edit_params(u32 argc, char** argv) {
   cc_params[cc_par_cnt++] = "-Xclang";
   cc_params[cc_par_cnt++] = "-load";
   cc_params[cc_par_cnt++] = "-Xclang";
-  cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+  cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
+//  cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
 #endif /* ^USE_TRACE_PC */
 
   cc_params[cc_par_cnt++] = "-Qunused-arguments";

@@ -189,6 +189,7 @@ static const u8* main_payload_32 =
   "  orb  $1, (%edx, %edi, 1)\n"
 #else
   "  incb (%edx, %edi, 1)\n"
+  "  adcb $0, (%edx, %edi, 1)\n" // never zero counter implementation. slightly better path discovery and little performance impact
 #endif /* ^SKIP_COUNTS */
   "\n"
   "__afl_return:\n"
@@ -441,6 +442,7 @@ static const u8* main_payload_64 =
   "  orb  $1, (%rdx, %rcx, 1)\n"
 #else
   "  incb (%rdx, %rcx, 1)\n"
+  "  adcb $0, (%rdx, %rcx, 1)\n" // never zero counter implementation. slightly better path discovery and little performance impact
 #endif /* ^SKIP_COUNTS */
   "\n"
   "__afl_return:\n"
