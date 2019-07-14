@@ -244,7 +244,8 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
     /* If there is only the default destination or the condition checks 8 bit or less, don't bother with the code below. */
     if (!SI->getNumCases() || bitw <= 8) {
-      errs() << "skip trivial switch..\n";
+      if (getenv("AFL_QUIET") == NULL)
+        errs() << "skip trivial switch..\n";
       continue;
     }
 
@@ -302,7 +303,8 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
 bool SplitSwitchesTransform::runOnModule(Module &M) {
 
-  llvm::errs() << "Running split-switches-pass by laf.intel@gmail.com\n"; 
+  if (getenv("AFL_QUIET") == NULL)
+    llvm::errs() << "Running split-switches-pass by laf.intel@gmail.com\n"; 
   splitSwitches(M);
   verifyModule(M);
 
