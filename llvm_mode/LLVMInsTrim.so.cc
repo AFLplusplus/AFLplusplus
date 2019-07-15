@@ -96,7 +96,7 @@ namespace {
         OKF("LLVM neverZero activated (by hexcoder)\n");
 #endif
     
-      if (getenv("LOOPHEAD")) {
+      if (getenv("AFL_LLVM_INSTRIM_LOOPHEAD") != NULL || getenv("LOOPHEAD") != NULL) {
         LoopHeadOpt = true;
       }
 

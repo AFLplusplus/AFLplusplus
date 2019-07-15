@@ -23,8 +23,7 @@ american fuzzy lop plus plus
   https://github.com/puppet-meteor/MOpt-AFL  
 
   Also newly integrated is instrim, a very effective CFG llvm_mode
-  instrumentation implementation which replaced the original afl one and is
-  from https://github.com/csienslab/instrim
+  instrumentation implementation from https://github.com/csienslab/instrim
 
   A more thorough list is available in the PATCHES file.
 

@@ -109,17 +109,29 @@ Then there are a few specific features that are only available in llvm_mode:
 
     See llvm_mode/README.whitelist for more information.
 
-  OTHER
-  =====
-    - Setting LOOPHEAD=1 optimized loops. afl-fuzz will only be able to
-      see the path the loop took, but not how many times it was called
-      (unless its a complex loop).
+  INSTRIM
+  =======
+    This feature increases the speed by whopping 20% but at the cost of a
+    lower path discovery and thefore coverage.
+
+    - Setting AFL_LLVM_INSTRIM activates this mode
+
+    - Setting AFL_LLVM_INSTRIM LOOPHEAD=1 expands on INSTRIM to optimize loops.
+      afl-fuzz will only be able to see the path the loop took, but not how
+      many times it was called (unless its a complex loop).
+
+    See llvm_mode/README.instrim
+
+  NOT_ZERO
+  ========
 
     - Setting AFL_LLVM_NOT_ZERO=1 during compilation will use counters
       that skip zero on overflow. This is the default for llvm >= 9,
       however for llvm versions below that this will increase an unnecessary
       slowdown due a performance issue that is only fixed in llvm 9+.
       This feature increases path discovery by a little bit.
+
+    See llvm_mode/README.neverzero
 
 3) Settings for afl-fuzz
 ------------------------

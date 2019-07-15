@@ -94,7 +94,7 @@ endif
 
 
 ifndef AFL_TRACE_PC
-  PROGS      = ../afl-clang-fast ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
+  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 else
   PROGS      = ../afl-clang-fast ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 endif
@@ -104,7 +104,7 @@ ifneq "$(CLANGVER)" "$(LLVMVER)"
   CXX = $(shell llvm-config --bindir)/clang++
 endif
 
-all: test_deps test_shm $(PROGS) test_build all_done
+all: test_shm test_deps $(PROGS) test_build all_done
 
 
 ifeq "$(SHMAT_OK)" "1"
@@ -132,10 +132,10 @@ endif
 	@which $(CC) >/dev/null 2>&1 || ( echo "[-] Oops, can't find '$(CC)'. Make sure that it's in your \$$PATH (or set \$$CC and \$$CXX)."; exit 1 )
 	@echo "[*] Checking for matching versions of '$(CC)' and '$(LLVM_CONFIG)'"
 ifneq "$(CLANGVER)" "$(LLVMVER)"
-	@echo "WARNING: we have llvm-config version $(LLVMVER) and a clang version $(CLANGVER)"
-	@echo "Retrying with the clang compiler from llvm: CC=`llvm-config --bindir`/clang"
+	@echo "[!] WARNING: we have llvm-config version $(LLVMVER) and a clang version $(CLANGVER)"
+	@echo "[!] Retrying with the clang compiler from llvm: CC=`llvm-config --bindir`/clang"
 else
-	@echo "we have llvm-config version $(LLVMVER) with a clang version $(CLANGVER), good."
+	@echo "[*] We have llvm-config version $(LLVMVER) with a clang version $(CLANGVER), good."
 endif
 	@echo "[*] Checking for '../afl-showmap'..."
 	@test -f ../afl-showmap || ( echo "[-] Oops, can't find '../afl-showmap'. Be sure to compile AFL first."; exit 1 )
@@ -147,6 +147,9 @@ endif
 
 ../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc | test_deps
 	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=gnu++11 -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
+
+../afl-llvm-pass.so: afl-llvm-pass.so.cc | test_deps
+	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=gnu++11 -shared $< -o $@ $(CLANG_LFL)
 
 # laf
 ../split-switches-pass.so:	split-switches-pass.so.cc | test_deps
