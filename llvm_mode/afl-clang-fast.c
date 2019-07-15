@@ -88,7 +88,7 @@ static void find_obj(u8* argv0) {
     return;
   }
 
-  FATAL("Unable to find 'afl-llvm-rt.o' or 'libLLVMInsTrim.so'. Please set AFL_PATH");
+  FATAL("Unable to find 'afl-llvm-rt.o' or 'afl-llvm-pass.so.cc'. Please set AFL_PATH");
  
 }
 
@@ -113,11 +113,11 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[0] = alt_cc ? alt_cc : (u8*)"clang";
   }
 
-  /* There are two ways to compile afl-clang-fast. In the traditional mode, we
-     use libLLVMInsTrim.so to inject instrumentation. In the experimental
+  /* There are three ways to compile with afl-clang-fast. In the traditional
+     mode, we use afl-llvm-pass.so, then there is libLLVMInsTrim.so which is
+     much faster but has less coverage. Finally tere is the experimental
      'trace-pc-guard' mode, we use native LLVM instrumentation callbacks
-     instead. The latter is a very recent addition - see:
-
+     instead. For trace-pc-guard see:
      http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards */
 
   // laf
@@ -151,8 +151,10 @@ static void edit_params(u32 argc, char** argv) {
   cc_params[cc_par_cnt++] = "-Xclang";
   cc_params[cc_par_cnt++] = "-load";
   cc_params[cc_par_cnt++] = "-Xclang";
-  cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
-//  cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+  if (getenv("AFL_LLVM_INSTRIM") != NULL || getenv("INSTRIM_LIB") != NULL)
+    cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
+  else
+    cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
 #endif /* ^USE_TRACE_PC */
 
   cc_params[cc_par_cnt++] = "-Qunused-arguments";
