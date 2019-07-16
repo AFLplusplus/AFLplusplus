@@ -1,5 +1,4 @@
 .gitignore
-TODO
 afl-analyze
 afl-as
 afl-clang
@@ -9,6 +8,8 @@ afl-clang-fast++
 afl-fuzz
 afl-g++
 afl-gcc
+afl-gcc-fast
+afl-g++-fast
 afl-gotcpu
 afl-qemu-trace
 afl-showmap
