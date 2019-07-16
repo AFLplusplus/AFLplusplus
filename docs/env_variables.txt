@@ -116,7 +116,7 @@ Then there are a few specific features that are only available in llvm_mode:
 
     - Setting AFL_LLVM_INSTRIM activates this mode
 
-    - Setting AFL_LLVM_INSTRIM LOOPHEAD=1 expands on INSTRIM to optimize loops.
+    - Setting AFL_LLVM_INSTRIM_LOOPHEAD=1 expands on INSTRIM to optimize loops.
       afl-fuzz will only be able to see the path the loop took, but not how
       many times it was called (unless its a complex loop).
 
