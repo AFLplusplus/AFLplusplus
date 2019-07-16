@@ -25,6 +25,9 @@ american fuzzy lop plus plus
   Also newly integrated is instrim, a very effective CFG llvm_mode
   instrumentation implementation from https://github.com/csienslab/instrim
 
+  Similar to llvm_mode a gcc_plugin that supports versions 5 to 8 is
+  now available (from https://github.com/T12z/afl)
+
   A more thorough list is available in the PATCHES file.
 
   So all in all this is the best-of AFL that is currently out there :-)
