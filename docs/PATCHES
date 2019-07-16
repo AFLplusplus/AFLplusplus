@@ -17,6 +17,7 @@ afl-qemu-optimize-entrypoint.diff	by mh(at)mh-sec(dot)de
 afl-qemu-speed.diff			by abiondo on github
 afl-qemu-optimize-map.diff		by mh(at)mh-sec(dot)de
 
++ gcc_plugin (https://github.com/T12z/afl)
 + instrim (https://github.com/csienslab/instrim) was integrated
 + MOpt (github.com/puppet-meteor/MOpt-AFL) was imported
 + AFLfast additions (github.com/mboehme/aflfast) were incorporated.

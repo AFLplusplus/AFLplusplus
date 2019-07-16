@@ -5234,6 +5234,7 @@ static u32 calculate_score(struct queue_entry* q) {
 
   // MOpt mode
   if (limit_time_sig != 0 && max_depth - q->depth < 3) perf_score *= 2;
+  else if (perf_score < 1) perf_score = 1; // Add a lower bound to AFLFast's energy assignment strategies
 
   /* Make sure that we don't go over limit. */
 
@@ -10224,8 +10225,7 @@ static u8 core_fuzzing(char** argv) {
 			stage_max = (doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) *
 				perf_score / havoc_div / 100;
 
-		}
-		else {
+		} else {
 
 			static u8 tmp[32];
 
@@ -10243,20 +10243,13 @@ static u8 core_fuzzing(char** argv) {
 
 		//for (; swarm_now < swarm_num; swarm_now++)
 		{
-
-
-			if (key_puppet == 1)
-			{
-				if (unlikely(orig_hit_cnt_puppet == 0))
-				{
+			if (key_puppet == 1) {
+				if (unlikely(orig_hit_cnt_puppet == 0)) {
 					orig_hit_cnt_puppet = queued_paths + unique_crashes;
 					last_limit_time_start = get_cur_time();
-					
 					SPLICE_CYCLES_puppet = (UR(SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) + SPLICE_CYCLES_puppet_low);
 				}
 			}
-
-
 			{
 			havoc_stage_puppet:
 
@@ -10266,14 +10259,11 @@ static u8 core_fuzzing(char** argv) {
 				   splice_cycle variable is set, generate different descriptions and such. */
 
 				if (!splice_cycle) {
-
 					stage_name = "MOpt core avoc";
 					stage_short = "MOpt core havoc";
 					stage_max = (doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) *
 						perf_score / havoc_div / 100;
-
-				}
-				else {
+				} else {
 					static u8 tmp[32];
 					perf_score = orig_perf;
 					sprintf(tmp, "MOpt core splice %u", splice_cycle);
@@ -10282,30 +10272,19 @@ static u8 core_fuzzing(char** argv) {
 					stage_max = SPLICE_HAVOC * perf_score / havoc_div / 100;
 				}
 
-
-
 				if (stage_max < HAVOC_MIN) stage_max = HAVOC_MIN;
-
 				temp_len = len;
-
 				orig_hit_cnt = queued_paths + unique_crashes;
-
 				havoc_queued = queued_paths;
-
-
 
 				for (stage_cur = 0; stage_cur < stage_max; stage_cur++) {
 
 					u32 use_stacking = 1 << (1 + UR(HAVOC_STACK_POW2));
-
 					stage_cur_val = use_stacking;
 
-
-					for (i = 0; i < operator_num; i++)
-					{
+					for (i = 0; i < operator_num; i++) {
 						core_operator_cycles_puppet_v3[i] = core_operator_cycles_puppet_v2[i];
 					}
-
 
 					for (i = 0; i < use_stacking; i++) {
 
@@ -10366,8 +10345,7 @@ static u8 core_fuzzing(char** argv) {
 							if (UR(2)) {
 								u32 pos = UR(temp_len - 1);
 								*(u16*)(out_buf + pos) -= 1 + UR(ARITH_MAX);
-							}
-							else {
+							} else {
 								u32 pos = UR(temp_len - 1);
 								u16 num = 1 + UR(ARITH_MAX);
 								*(u16*)(out_buf + pos) =
@@ -10377,8 +10355,7 @@ static u8 core_fuzzing(char** argv) {
 							if (UR(2)) {
 								u32 pos = UR(temp_len - 1);
 								*(u16*)(out_buf + pos) += 1 + UR(ARITH_MAX);
-							}
-							else {
+							} else {
 								u32 pos = UR(temp_len - 1);
 								u16 num = 1 + UR(ARITH_MAX);
 								*(u16*)(out_buf + pos) =
@@ -10394,8 +10371,7 @@ static u8 core_fuzzing(char** argv) {
 							if (UR(2)) {
 								u32 pos = UR(temp_len - 3);
 								*(u32*)(out_buf + pos) -= 1 + UR(ARITH_MAX);
-							}
-							else {
+							} else {
 								u32 pos = UR(temp_len - 3);
 								u32 num = 1 + UR(ARITH_MAX);
 								*(u32*)(out_buf + pos) =
@@ -10405,8 +10381,7 @@ static u8 core_fuzzing(char** argv) {
 							if (UR(2)) {
 								u32 pos = UR(temp_len - 3);
 								*(u32*)(out_buf + pos) += 1 + UR(ARITH_MAX);
-							}
-							else {
+							} else {
 								u32 pos = UR(temp_len - 3);
 								u32 num = 1 + UR(ARITH_MAX);
 								*(u32*)(out_buf + pos) =
@@ -10429,8 +10404,7 @@ static u8 core_fuzzing(char** argv) {
 							if (UR(2)) {
 								*(u16*)(out_buf + UR(temp_len - 1)) =
 									interesting_16[UR(sizeof(interesting_16) >> 1)];
-							}
-							else {
+							} else {
 								*(u16*)(out_buf + UR(temp_len - 1)) = SWAP16(
 									interesting_16[UR(sizeof(interesting_16) >> 1)]);
 							}
@@ -10446,8 +10420,7 @@ static u8 core_fuzzing(char** argv) {
 							if (UR(2)) {
 								*(u32*)(out_buf + UR(temp_len - 3)) =
 									interesting_32[UR(sizeof(interesting_32) >> 2)];
-							}
-							else {
+							} else {
 								*(u32*)(out_buf + UR(temp_len - 3)) = SWAP32(
 									interesting_32[UR(sizeof(interesting_32) >> 2)]);
 							}
@@ -10464,7 +10437,6 @@ static u8 core_fuzzing(char** argv) {
 							out_buf[UR(temp_len)] ^= 1 + UR(255);
 							core_operator_cycles_puppet_v2[STAGE_RANDOMBYTE] += 1;
 							break;
-
 
 
 						case 13: {
@@ -10507,8 +10479,7 @@ static u8 core_fuzzing(char** argv) {
 									clone_len = choose_block_len(temp_len);
 									clone_from = UR(temp_len - clone_len + 1);
 
-								}
-								else {
+								} else {
 
 									clone_len = choose_block_len(HAVOC_BLK_XL);
 									clone_from = 0;
@@ -10575,16 +10546,9 @@ static u8 core_fuzzing(char** argv) {
 
 					}
 
-
 					tmp_core_time += 1;
 
-
-
-
 					u64 temp_total_found = queued_paths + unique_crashes;
-
-
-
 
 					if (common_fuzz_stuff(argv, out_buf, temp_len))
 						goto abandon_entry_puppet;
