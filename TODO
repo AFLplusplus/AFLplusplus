@@ -1,0 +1,23 @@
+Roadmap 2.53d:
+==============
+ - better defaults:
+   * laf-intel activated, needs deactiatation
+   * fast mode schedule
+   * MOpt with -L 30
+   * ... ?
+
+afl-fuzz:
+ - put mutator, scheduler and forkserver in individual files
+ - reuse forkserver for showmap, afl-cmin, etc.
+
+gcc_plugin:
+ (see TODOs)
+ - whitelist support
+ - skip over uninteresting blocks
+ - laf-intel
+
+Roadmap 2.54d:
+==============
+ - expand MAP size to 256k (current L2 cache size on processors)
+   -> 18 bit size map
+ - llvm_mode: dynamic map size and collission free basic block IDs
