@@ -7,8 +7,8 @@ Environmental variables
   users or for some types of custom fuzzing setups. See README for the general
   instruction manual.
 
-1) Settings for afl-gcc, afl-clang, and afl-as
-----------------------------------------------
+1) Settings for afl-gcc, afl-clang, and afl-as - and gcc_plugin afl-gcc-fast
+----------------------------------------------------------------------------
 
 Because they can't directly accept command-line options, the compile-time
 tools make fairly broad use of environmental variables:
