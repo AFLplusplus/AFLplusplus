@@ -17,10 +17,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.52d (tbd):
 -----------------------------
 
+  - Using the old ineffective afl-gcc will now show a deprecation warning
   - if llvm_mode was compiled, afl-clang/afl-clang++ will point to these
     instead of afl-gcc
   - added gcc_plugin which is like llvm_mode but for gcc. This version
-    supports gcc version 5 to 8. See gcc_plugin/README (https://github.com/T12z/afl)
+    supports gcc version 5 to 8. See gcc_plugin/README.gcc
+    (https://github.com/T12z/afl)
   - added instrim, a much faster llvm_mode instrumentation at the cost of
     path discovery. See llvm_mode/README.instrim (https://github.com/csienslab/instrim)
   - added MOpt (github.com/puppet-meteor/MOpt-AFL) mode, see docs/README.MOpt

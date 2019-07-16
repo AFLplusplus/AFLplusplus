@@ -3,6 +3,7 @@ Fast LLVM-based instrumentation for afl-fuzz
 ============================================
 
   (See ../docs/README for the general instruction manual.)
+  (See ../gcc_plugin/README.gcc for the GCC-based instrumentation.)
 
 1) Introduction
 ---------------
@@ -30,7 +31,7 @@ several interesting properties:
   - The instrumentation can cope a bit better with multi-threaded targets.
 
   - Because the feature relies on the internals of LLVM, it is clang-specific
-    and will *not* work with GCC.
+    and will *not* work with GCC (see ../gcc_plugin/ for an alternative).
 
 Once this implementation is shown to be sufficiently robust and portable, it
 will probably replace afl-clang. For now, it can be built separately and
