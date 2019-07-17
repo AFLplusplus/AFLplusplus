@@ -3350,6 +3350,8 @@ static u8* describe_op(u8 hnb) {
 
     sprintf(ret, "src:%06u", current_entry);
 
+    sprintf(ret + strlen(ret), ",time:%llu", get_cur_time() - start_time);
+
     if (splicing_with >= 0)
       sprintf(ret + strlen(ret), "+%06u", splicing_with);
 

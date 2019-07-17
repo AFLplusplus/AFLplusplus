@@ -7,7 +7,7 @@ distribution of operators with respect to fuzzing effectiveness.
 More details can be found in the technical report.
 
 ### 2. Cite Information
-Chenyang Lv, Shouling Ji, Chao Zhang, Yuwei Li, Wei-Han Lee, Yu Song and
+Chenyang Lyu, Shouling Ji, Chao Zhang, Yuwei Li, Wei-Han Lee, Yu Song and
 Raheem Beyah, MOPT: Optimized Mutation Scheduling for Fuzzers,
 USENIX Security 2019. 
 
