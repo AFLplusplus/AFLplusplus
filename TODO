@@ -1,5 +1,7 @@
 Roadmap 2.53d:
 ==============
+ - indent all the code
+
  - better defaults:
    * laf-intel activated, needs deactiatation
    * fast mode schedule
@@ -7,7 +9,7 @@ Roadmap 2.53d:
    * ... ?
 
 afl-fuzz:
- - put mutator, scheduler and forkserver in individual files
+ - put mutator, scheduler, forkserver and input channels in individual files
  - reuse forkserver for showmap, afl-cmin, etc.
 
 gcc_plugin:
@@ -15,6 +17,10 @@ gcc_plugin:
  - whitelist support
  - skip over uninteresting blocks
  - laf-intel
+ - neverZero
+
+unit testing / large testcase campaign
+
 
 Roadmap 2.54d:
 ==============
