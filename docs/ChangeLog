@@ -18,6 +18,7 @@ Version ++2.52d (tbd):
 -----------------------------
 
   - Using the old ineffective afl-gcc will now show a deprecation warning
+  - all queue, hang and crash files now have their discovery time in their name
   - if llvm_mode was compiled, afl-clang/afl-clang++ will point to these
     instead of afl-gcc
   - added gcc_plugin which is like llvm_mode but for gcc. This version
