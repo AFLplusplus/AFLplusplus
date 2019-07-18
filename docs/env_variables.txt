@@ -243,6 +243,10 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
 
   - Setting AFL_INST_LIBS causes the translator to also instrument the code
     inside any dynamically linked libraries (notably including glibc).
+  
+  - Setting AFL_QEMU_COMPCOV enables the CompareCoverage tracing of all
+    cmp and sub in x86 and x86_64. Support for other architectures and
+    comparison functions (mem/strcmp et al.) is planned.
 
   - The underlying QEMU binary will recognize any standard "user space
     emulation" variables (e.g., QEMU_STACK_SIZE), but there should be no
