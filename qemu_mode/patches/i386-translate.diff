@@ -1,0 +1,33 @@
+diff --git a/target/i386/translate.c b/target/i386/translate.c
+index 0dd5fbe4..b95d341e 100644
+--- a/target/i386/translate.c
++++ b/target/i386/translate.c
+@@ -32,6 +32,8 @@
+ #include "trace-tcg.h"
+ #include "exec/log.h"
+ 
++#include "../patches/afl-qemu-cpu-translate-inl.h"
++
+ #define PREFIX_REPZ   0x01
+ #define PREFIX_REPNZ  0x02
+ #define PREFIX_LOCK   0x04
+@@ -1343,9 +1345,11 @@ static void gen_op(DisasContext *s1, int op, TCGMemOp ot, int d)
+             tcg_gen_atomic_fetch_add_tl(s1->cc_srcT, s1->A0, s1->T0,
+                                         s1->mem_index, ot | MO_LE);
+             tcg_gen_sub_tl(s1->T0, s1->cc_srcT, s1->T1);
++            afl_gen_compcov(s1->pc, s1->cc_srcT, s1->T1, ot);
+         } else {
+             tcg_gen_mov_tl(s1->cc_srcT, s1->T0);
+             tcg_gen_sub_tl(s1->T0, s1->T0, s1->T1);
++            afl_gen_compcov(s1->pc, s1->T0, s1->T1, ot);
+             gen_op_st_rm_T0_A0(s1, ot, d);
+         }
+         gen_op_update2_cc(s1);
+@@ -1389,6 +1393,7 @@ static void gen_op(DisasContext *s1, int op, TCGMemOp ot, int d)
+         tcg_gen_mov_tl(cpu_cc_src, s1->T1);
+         tcg_gen_mov_tl(s1->cc_srcT, s1->T0);
+         tcg_gen_sub_tl(cpu_cc_dst, s1->T0, s1->T1);
++        afl_gen_compcov(s1->pc, s1->T0, s1->T1, ot);
+         set_cc_op(s1, CC_OP_SUBB + ot);
+         break;
+     }
