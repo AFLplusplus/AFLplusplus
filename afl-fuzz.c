@@ -11531,8 +11531,22 @@ static void check_cpu_governor(void) {
 
   if (getenv("AFL_SKIP_CPUFREQ")) return;
 
+  if (cpu_aff > 0)
+    snprintf(tmp, sizeof(tmp), "%s%d%s", "/sys/devices/system/cpu/cpu", cpu_aff, "/cpufreq/scaling_governor");
+  else
+    snprintf(tmp, sizeof(tmp), "%s", "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor");
   f = fopen("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", "r");
-  if (!f) return;
+  if (!f) {
+    if (cpu_aff > 0)
+      snprintf(tmp, sizeof(tmp), "%s%d%s", "/sys/devices/system/cpu/cpufreq/policy", cpu_aff, "/scaling_governor");
+    else
+      snprintf(tmp, sizeof(tmp), "%s", "/sys/devices/system/cpu/cpufreq/policy0/scaling_governor");
+    f = fopen(tmp, "r");
+  }
+  if (!f) {
+    WARNF("Could not check CPU scaling governor");
+    return;
+  }
 
   ACTF("Checking CPU scaling governor...");
 
@@ -12158,15 +12172,13 @@ int main(int argc, char** argv) {
 			int tmp_swarm = 0;
 
 			if (g_now > g_max) g_now = 0;
-				w_now = (w_init - w_end)*(g_max - g_now) / (g_max)+w_end;
+			w_now = (w_init - w_end)*(g_max - g_now) / (g_max)+w_end;
 
-			for (tmp_swarm = 0; tmp_swarm < swarm_num; tmp_swarm++)
-			{
+			for (tmp_swarm = 0; tmp_swarm < swarm_num; tmp_swarm++) {
 				double total_puppet_temp = 0.0;
 				swarm_fitness[tmp_swarm] = 0.0;
 
-				for (i = 0; i < operator_num; i++)
-				{
+				for (i = 0; i < operator_num; i++) {
 					stage_finds_puppet[tmp_swarm][i] = 0;
 					probability_now[tmp_swarm][i] = 0.0;
 					x_now[tmp_swarm][i] = ((double)(random() % 7000)*0.0001 + 0.1);
@@ -12186,8 +12198,7 @@ int main(int argc, char** argv) {
 
 				double x_temp = 0.0;
 
-				for (i = 0; i < operator_num; i++)
-				{
+				for (i = 0; i < operator_num; i++) {
 					probability_now[tmp_swarm][i] = 0.0;
 					v_now[tmp_swarm][i] = w_now * v_now[tmp_swarm][i] + RAND_C * (L_best[tmp_swarm][i] - x_now[tmp_swarm][i]) + RAND_C * (G_best[i] - x_now[tmp_swarm][i]);
 
@@ -12201,8 +12212,7 @@ int main(int argc, char** argv) {
 					x_temp += x_now[tmp_swarm][i];
 				}
 
-				for (i = 0; i < operator_num; i++)
-				{
+				for (i = 0; i < operator_num; i++) {
 					x_now[tmp_swarm][i] = x_now[tmp_swarm][i] / x_temp;
 					if (likely(i != 0))
 						probability_now[tmp_swarm][i] = probability_now[tmp_swarm][i - 1] + x_now[tmp_swarm][i];
