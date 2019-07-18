@@ -1,6 +1,8 @@
 Roadmap 2.53d:
 ==============
- - indent all the code
+ - indent all the code: clang-format -style=Google
+
+ - README.md
 
  - better defaults:
    * laf-intel activated, needs deactiatation
@@ -19,7 +21,7 @@ gcc_plugin:
  - laf-intel
  - neverZero
 
-unit testing / large testcase campaign
+unit testing / or large testcase campaign
 
 
 Roadmap 2.54d:

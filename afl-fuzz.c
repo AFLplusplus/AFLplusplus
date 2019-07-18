@@ -640,7 +640,6 @@ int select_algorithm(void) {
   }
 
   double sele = ((double)(random()%10000)*0.0001);
-  //SAYF("select : %f\n",sele);
   j_puppet = 0;
   for (i_puppet = 0; i_puppet < operator_num; i_puppet++) {
       if (unlikely(i_puppet == 0)) {
@@ -4146,7 +4145,6 @@ static void maybe_delete_out_dir(void) {
 
   /* And now, for some finishing touches. */
 
-  //fn = alloc_printf("%s/.cur_input", tmp_dir);
   if (file_extension) {
     fn = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
   } else {
@@ -11270,6 +11268,7 @@ static void usage(u8* argv0) {
        "Other stuff:\n"
        "  -T text       - text banner to show on the screen\n"
        "  -M / -S id    - distributed mode (see parallel_fuzzing.txt)\n"
+       "  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap file\n"
        "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
        "  -e ext        - File extension for the temporarily generated test case\n\n"
 
@@ -11436,7 +11435,6 @@ static void setup_cmdline_file(char** argv) {
 
 EXP_ST void setup_stdio_file(void) {
 
-  //u8* fn = alloc_printf("%s/.cur_input", tmp_dir);
   u8* fn;
   if (file_extension) {
     fn = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
