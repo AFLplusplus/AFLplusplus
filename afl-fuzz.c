@@ -8848,6 +8848,14 @@ static u8 pilot_fuzzing(char** argv) {
 
 				}
 				new_hit_cnt = queued_paths + unique_crashes;
+				
+				if (!splice_cycle) {
+          stage_finds[STAGE_HAVOC]  += new_hit_cnt - orig_hit_cnt;
+          stage_cycles[STAGE_HAVOC] += stage_max;
+        } else {
+          stage_finds[STAGE_SPLICE]  += new_hit_cnt - orig_hit_cnt;
+          stage_cycles[STAGE_SPLICE] += stage_max;
+        }
 
 #ifndef IGNORE_FINDS
 
