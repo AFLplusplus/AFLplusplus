@@ -109,8 +109,8 @@ See README.neverzero
 This is an early-stage mechanism, so field reports are welcome. You can send bug
 reports to <afl-users@googlegroups.com>.
 
-5) Bonus feature #1: deferred instrumentation
----------------------------------------------
+5) Bonus feature #1: deferred initialization
+--------------------------------------------
 
 AFL tries to optimize performance by executing the targeted binary just once,
 stopping it just before main(), and then cloning this "master" process to get

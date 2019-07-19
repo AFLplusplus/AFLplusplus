@@ -30,7 +30,7 @@ Version ++2.52d (tbd):
     path discovery. See llvm_mode/README.instrim (https://github.com/csienslab/instrim)
   - added MOpt (github.com/puppet-meteor/MOpt-AFL) mode, see docs/README.MOpt
   - added code to make it more portable to other platforms than Intel Linux
-  - added never zero counters for afl-gcc and optional (because of an
+  - added never zero counters for afl-gcc and optionally (because of an
     optimization issue in llvm < 9) for llvm_mode (AFL_LLVM_NEVER_ZERO=1)
   - added a new doc about binary only fuzzing: docs/binaryonly_fuzzing.txt
   - more cpu power for afl-system-config
@@ -45,8 +45,8 @@ Version ++2.52d (tbd):
     debugging
   - added -V time and -E execs option to better comparison runs, runs afl-fuzz
     for a specific time/executions.
-  - added a  -s seed  switch to allow afl run with a fixed initial
-    seed that is not updated. this is good for performance and path discovery
+  - added a -s seed switch to allow afl run with a fixed initial
+    seed that is not updated. This is good for performance and path discovery
     tests as the random numbers are deterministic then
   - llvm_mode LAF_... env variables can now be specified as AFL_LLVM_LAF_...
     that is longer but in line with other llvm specific env vars
@@ -59,7 +59,7 @@ Version ++2.52c (2019-06-05):
   - Applied community patches. See docs/PATCHES for the full list.
     LLVM and Qemu modes are now faster.
     Important changes:
-      afl-fuzz: -e EXTENSION  commandline option
+      afl-fuzz: -e EXTENSION commandline option
       llvm_mode: LAF-intel performance (needs activation, see llvm/README.laf-intel)
       a few new environment variables for afl-fuzz, llvm and qemu, see docs/env_variables.txt
   - Added the power schedules of AFLfast by Marcel Boehme, but set the default
