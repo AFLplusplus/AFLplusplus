@@ -108,24 +108,24 @@ int g_max = 5000;
 u64 tmp_core_time = 0;
 int swarm_now = 0 ;
 double x_now[swarm_num][operator_num],
-	   L_best[swarm_num][operator_num],
-	   eff_best[swarm_num][operator_num],
-	   G_best[operator_num],
-	   v_now[swarm_num][operator_num],
+       L_best[swarm_num][operator_num],
+       eff_best[swarm_num][operator_num],
+       G_best[operator_num],
+       v_now[swarm_num][operator_num],
        probability_now[swarm_num][operator_num],
-	   swarm_fitness[swarm_num];
+       swarm_fitness[swarm_num];
 
  static u64 stage_finds_puppet[swarm_num][operator_num],           /* Patterns found per fuzz stage    */
             stage_finds_puppet_v2[swarm_num][operator_num],
             stage_cycles_puppet_v2[swarm_num][operator_num],
             stage_cycles_puppet_v3[swarm_num][operator_num],
             stage_cycles_puppet[swarm_num][operator_num],
-			operator_finds_puppet[operator_num],
-			core_operator_finds_puppet[operator_num],
-			core_operator_finds_puppet_v2[operator_num],
-			core_operator_cycles_puppet[operator_num],
-			core_operator_cycles_puppet_v2[operator_num], 
-			core_operator_cycles_puppet_v3[operator_num];          /* Execs per fuzz stage             */
+            operator_finds_puppet[operator_num],
+            core_operator_finds_puppet[operator_num],
+            core_operator_finds_puppet_v2[operator_num],
+            core_operator_cycles_puppet[operator_num],
+            core_operator_cycles_puppet_v2[operator_num], 
+            core_operator_cycles_puppet_v3[operator_num];          /* Execs per fuzz stage             */
 
 #define RAND_C (rand()%1000*0.001)
 #define v_max 1
@@ -3428,6 +3428,8 @@ static void write_crash_readme(void) {
 
 static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
+  if (len == 0) return 0;
+
   u8  *fn = "";
   u8  hnb;
   s32 fd;
@@ -4321,13 +4323,13 @@ static void show_stats(void) {
 
   /* Let's start by drawing a centered banner. */
 
-  banner_len = (crash_mode ? 24 : 22) + strlen(VERSION) + strlen(use_banner) + strlen(power_name) + 3;
+  banner_len = (crash_mode ? 24 : 22) + strlen(VERSION) + strlen(use_banner) + strlen(power_name) + 3 + 5;
   banner_pad = (79 - banner_len) / 2;
   memset(tmp, ' ', banner_pad);
 
   sprintf(tmp + banner_pad, "%s " cLCY VERSION cLGN
-          " (%s) " cPIN "[%s]",  crash_mode ? cPIN "peruvian were-rabbit" : 
-          cYEL "american fuzzy lop", use_banner, power_name);
+          " (%s) " cPIN "[%s]" cBLU " {%d}",  crash_mode ? cPIN "peruvian were-rabbit" : 
+          cYEL "american fuzzy lop", use_banner, power_name, cpu_aff);
 
   SAYF("\n%s\n", tmp);
 
@@ -8462,7 +8464,6 @@ static u8 pilot_fuzzing(char** argv) {
 		s32 temp_len_puppet;
 		cur_ms_lv = get_cur_time();
 
-
 		{
 			
 
@@ -8958,10 +8959,8 @@ static u8 pilot_fuzzing(char** argv) {
 				ck_free(eff_map);
 
 
-				if (key_puppet == 1)
-				{
-					if (unlikely(queued_paths + unique_crashes > ((queued_paths + unique_crashes)*limit_time_bound + orig_hit_cnt_puppet)))
-					{
+				if (key_puppet == 1) {
+					if (unlikely(queued_paths + unique_crashes > ((queued_paths + unique_crashes)*limit_time_bound + orig_hit_cnt_puppet)))	{
 						key_puppet = 0;
 						cur_ms_lv = get_cur_time();
 						new_hit_cnt = queued_paths + unique_crashes;
@@ -8971,8 +8970,7 @@ static u8 pilot_fuzzing(char** argv) {
 				}
 				
 
-				if (unlikely(tmp_pilot_time > period_pilot))
-				{
+				if (unlikely(tmp_pilot_time > period_pilot)) {
 					total_pacemaker_time += tmp_pilot_time;
 					new_hit_cnt = queued_paths + unique_crashes;
 					swarm_fitness[swarm_now] = (double)(total_puppet_find - temp_puppet_find) / ((double)(tmp_pilot_time)/ period_pilot_tmp);
@@ -8980,16 +8978,14 @@ static u8 pilot_fuzzing(char** argv) {
 					temp_puppet_find = total_puppet_find;
 
 					u64 temp_stage_finds_puppet = 0;
-					for (i = 0; i < operator_num; i++)
-					{
+					for (i = 0; i < operator_num; i++) {
 						double temp_eff = 0.0;
 
 						if (stage_cycles_puppet_v2[swarm_now][i] > stage_cycles_puppet[swarm_now][i])
 							temp_eff = (double)(stage_finds_puppet_v2[swarm_now][i] - stage_finds_puppet[swarm_now][i]) /
 							(double)(stage_cycles_puppet_v2[swarm_now][i] - stage_cycles_puppet[swarm_now][i]);
 
-						if (eff_best[swarm_now][i] < temp_eff)
-						{
+						if (eff_best[swarm_now][i] < temp_eff) {
 							eff_best[swarm_now][i] = temp_eff;
 							L_best[swarm_now][i] = x_now[swarm_now][i];
 						}
@@ -9000,11 +8996,9 @@ static u8 pilot_fuzzing(char** argv) {
 					}
 
 					swarm_now = swarm_now + 1;
-						if (swarm_now == swarm_num)
-						{
+						if (swarm_now == swarm_num) {
 							key_module = 1;
-							for (i = 0; i < operator_num; i++)
-							{
+							for (i = 0; i < operator_num; i++) {
 								core_operator_cycles_puppet_v2[i] = core_operator_cycles_puppet[i];
 								core_operator_cycles_puppet_v3[i] = core_operator_cycles_puppet[i];
 								core_operator_finds_puppet_v2[i] = core_operator_finds_puppet[i];
@@ -9012,10 +9006,8 @@ static u8 pilot_fuzzing(char** argv) {
 
 							double swarm_eff = 0.0;
 							swarm_now = 0;
-							for (i = 0; i < swarm_num; i++)
-							{
-								if (swarm_fitness[i] > swarm_eff)
-								{
+							for (i = 0; i < swarm_num; i++)	{
+								if (swarm_fitness[i] > swarm_eff) {
 									swarm_eff = swarm_fitness[i];
 									swarm_now = i;
 								}
@@ -9024,8 +9016,6 @@ static u8 pilot_fuzzing(char** argv) {
 								PFATAL("swarm_now error number  %d", swarm_now);
 
 						}
-						
-
 				}
 				return ret_val;
 			}
@@ -9037,12 +9027,10 @@ static u8 pilot_fuzzing(char** argv) {
 }
 
 
-
 static u8 core_fuzzing(char** argv) {
 	int i;
 
-	if (swarm_num == 1)
-	{
+	if (swarm_num == 1) {
 		key_module = 2;
 		return 0;
 	}
@@ -9076,8 +9064,7 @@ static u8 core_fuzzing(char** argv) {
 			if ((queue_cur->was_fuzzed || !queue_cur->favored) &&
 				UR(100) < SKIP_TO_NEW_PROB) return 1;
 
-		}
-		else if (!dumb_mode && !queue_cur->favored && queued_paths > 10) {
+		} else if (!dumb_mode && !queue_cur->favored && queued_paths > 10) {
 
 			/* Otherwise, still possibly skip non-favored cases, albeit less often.
 			   The odds of skipping stuff are higher for already-fuzzed inputs and
@@ -9087,8 +9074,7 @@ static u8 core_fuzzing(char** argv) {
 
 				if (UR(100) < SKIP_NFAV_NEW_PROB) return 1;
 
-			}
-			else {
+			} else {
 
 				if (UR(100) < SKIP_NFAV_OLD_PROB) return 1;
 
@@ -12525,7 +12511,7 @@ stop_fuzzing:
 
     SAYF("\n" cYEL "[!] " cRST
            "Stopped during the first cycle, results may be incomplete.\n"
-           "    (For info on resuming, see %s/README.)\n", doc_path);
+           "    (For info on resuming, see %s/README)\n", doc_path);
 
   }
 
