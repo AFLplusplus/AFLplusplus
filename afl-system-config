@@ -1,5 +1,9 @@
 #!/bin/sh
 echo This reconfigures the system to have a better fuzzing performance
+if [[ $EUID -ne 0 ]] || ! [ `id -u` = 0 ]; then
+	echo if you are root \(which you are currently not\)
+	exit 1
+fi
 sysctl -w kernel.core_pattern=core
 sysctl -w kernel.randomize_va_space=0
 sysctl -w kernel.sched_child_runs_first=1
