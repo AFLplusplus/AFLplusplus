@@ -90,7 +90,8 @@ Then there are a few specific features that are only available in llvm_mode:
   LAF-INTEL
   =========
     This great feature will split compares to series of single byte comparisons
-    to allow afl-fuzz to find otherwise rather impossible paths.
+    to allow afl-fuzz to find otherwise rather impossible paths. It is not
+    restricted to Intel CPUs ;-)
 
     - Setting AFL_LLVM_LAF_SPLIT_SWITCHES will split switch()es
 
@@ -105,20 +106,20 @@ Then there are a few specific features that are only available in llvm_mode:
     This feature allows selectively instrumentation of the source
 
     - Setting AFL_LLVM_WHITELIST with a filename will only instrument those
-      files that match these names.
+      files that match the names listed in this file.
 
     See llvm_mode/README.whitelist for more information.
 
   INSTRIM
   =======
     This feature increases the speed by whopping 20% but at the cost of a
-    lower path discovery and thefore coverage.
+    lower path discovery and therefore coverage.
 
     - Setting AFL_LLVM_INSTRIM activates this mode
 
     - Setting AFL_LLVM_INSTRIM_LOOPHEAD=1 expands on INSTRIM to optimize loops.
       afl-fuzz will only be able to see the path the loop took, but not how
-      many times it was called (unless its a complex loop).
+      many times it was called (unless it is a complex loop).
 
     See llvm_mode/README.instrim
 
