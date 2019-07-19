@@ -78,11 +78,11 @@ static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
         afl_area_ptr[cur_loc +2]++;
         if ((arg1 & 0xffffffff) == (arg2 & 0xffffffff)) {
           afl_area_ptr[cur_loc +3]++;
-          if ((arg1 & 0xffffffff) == (arg2 & 0xffffffffff)) {
+          if ((arg1 & 0xffffffffff) == (arg2 & 0xffffffffff)) {
             afl_area_ptr[cur_loc +4]++;
-            if ((arg1 & 0xffffffff) == (arg2 & 0xffffffffffff)) {
+            if ((arg1 & 0xffffffffffff) == (arg2 & 0xffffffffffff)) {
               afl_area_ptr[cur_loc +5]++;
-              if ((arg1 & 0xffffffff) == (arg2 & 0xffffffffffffff)) {
+              if ((arg1 & 0xffffffffffffff) == (arg2 & 0xffffffffffffff)) {
                 afl_area_ptr[cur_loc +6]++;
               }
             }
