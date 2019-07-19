@@ -17,6 +17,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.52d (tbd):
 -----------------------------
 
+  - afl-fuzz now displays the selected core in the status screen (blue {#})
   - updated afl-fuzz and afl-system-config for new scaling governor location
     in modern kernels
   - using the old ineffective afl-gcc will now show a deprecation warning
