@@ -1,4 +1,5 @@
 *.o
+*.so
 .gitignore
 afl-analyze
 afl-as
