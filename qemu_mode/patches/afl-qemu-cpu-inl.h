@@ -150,7 +150,6 @@ static void afl_setup(void) {
 
     if (inst_r) afl_area_ptr[0] = 1;
 
-
   }
 
   if (getenv("AFL_INST_LIBS")) {
@@ -162,7 +161,6 @@ static void afl_setup(void) {
   
   if (getenv("AFL_QEMU_COMPCOV")) {
 
-fprintf(stderr, "EEe\n");  
     afl_enable_compcov = 1;
   }
 
