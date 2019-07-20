@@ -23,6 +23,9 @@ gcc_plugin:
  - laf-intel
  - neverZero
 
+qemu_mode:
+ - Instrument only cmparison with immediate values by default when using compcov
+
 unit testing / or large testcase campaign
 
 
