@@ -9,7 +9,8 @@
 
    TCG instrumentation and block chaining support by Andrea Biondo
                                       <andrea.biondo965@gmail.com>
-   QEMU 3.1.0 port and thread-safety by Andrea Fioraldi
+
+   QEMU 3.1.0 port, TCG thread-safety and CompareCoverage by Andrea Fioraldi
                                       <andreafioraldi@gmail.com>
 
    Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
@@ -64,6 +65,8 @@ unsigned char *afl_area_ptr = dummy; /* Exported for afl_gen_trace */
 abi_ulong afl_entry_point, /* ELF entry point (_start) */
           afl_start_code,  /* .text start pointer      */
           afl_end_code;    /* .text end pointer        */
+
+u8 afl_enable_compcov;
 
 /* Set in the child process in forkserver mode: */
 
@@ -147,7 +150,6 @@ static void afl_setup(void) {
 
     if (inst_r) afl_area_ptr[0] = 1;
 
-
   }
 
   if (getenv("AFL_INST_LIBS")) {
@@ -155,6 +157,11 @@ static void afl_setup(void) {
     afl_start_code = 0;
     afl_end_code   = (abi_ulong)-1;
 
+  }
+  
+  if (getenv("AFL_QEMU_COMPCOV")) {
+
+    afl_enable_compcov = 1;
   }
 
   /* pthread_atfork() seems somewhat broken in util/rcu.c, and I'm
