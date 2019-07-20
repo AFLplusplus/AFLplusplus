@@ -21,7 +21,7 @@ VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 CFLAGS      ?= -O3 -funroll-loops
 CFLAGS      += -Wall -Wno-unused-result -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign
 
-all: libcompcov.so
+all: libcompcov.so compcovtest
 
 libcompcov.so: libcompcov.so.c ../../config.h
 	$(CC) $(CFLAGS) -shared -fPIC $< -o $@ $(LDFLAGS)
@@ -30,7 +30,10 @@ libcompcov.so: libcompcov.so.c ../../config.h
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]*
-	rm -f libcompcov.so
+	rm -f libcompcov.so compcovtest
+
+compcovtest:	compcovtest.cc
+	$(CXX) $< -o $@ 
 
 install: all
 	install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH)

@@ -45,6 +45,8 @@ static void *__compcov_code_start,
 
 static u8 *__compcov_afl_map;
 
+static int debug_fd = -1;
+
 
 static size_t __strlen2(const char *s1, const char *s2, size_t max_length) {
   // from https://github.com/googleprojectzero/CompareCoverage
@@ -107,6 +109,12 @@ static void __compcov_load(void) {
 static void __compcov_trace(u64 cur_loc, const u8* v0, const u8* v1, size_t n) {
 
   size_t i;
+  
+  if (debug_fd != 1) {
+    char debugbuf[4096];
+    snprintf(debugbuf, sizeof(debugbuf), "0x%llx %s %s %lu\n", cur_loc, v0 == NULL ? "(null)" : (char*)v0, v1 == NULL ? "(null)" : (char*)v1, n);
+    write(debug_fd, debugbuf, strlen(debugbuf));
+  }
   
   for (i = 0; i < n && v0[i] == v1[i]; ++i) {
   
@@ -300,6 +308,9 @@ int memcmp(const void* mem1, const void* mem2, size_t len) {
 /* Init code to open init the library. */
 
 __attribute__((constructor)) void __compcov_init(void) {
+
+  if (getenv("AFL_QEMU_COMPCOV_DEBUG") != NULL)
+    debug_fd = open("compcov.debug", O_WRONLY | O_CREAT | O_TRUNC | O_SYNC, 0644);
 
   __compcov_load();
 }
