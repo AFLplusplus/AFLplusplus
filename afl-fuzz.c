@@ -11250,7 +11250,7 @@ static void usage(u8* argv0) {
        "  -Q            - use binary-only instrumentation (QEMU mode)\n"
        "  -L minutes    - use MOpt(imize) mode and set the limit time for entering the\n"
        "                  pacemaker mode (minutes of no new paths, 0 = immediately).\n"
-       "                  see docs/README.MOpt\n\n"
+       "                  a recommended value is 10-60. see docs/README.MOpt\n\n"
  
        "Fuzzing behavior settings:\n"
        "  -d            - quick & dirty mode (skips deterministic steps)\n"
