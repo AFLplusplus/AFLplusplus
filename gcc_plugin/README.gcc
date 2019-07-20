@@ -5,6 +5,12 @@ Fast GCC-based instrumentation for afl-fuzz
   (See ../docs/README for the general instruction manual.)
   (See ../llvm_mode/README.llvm for the LLVM-based instrumentation.)
 
+
+!!!
+!!! gcc_plugin is not stable yet and can crash when compiling
+!!!
+
+
 1) Introduction
 ---------------
 

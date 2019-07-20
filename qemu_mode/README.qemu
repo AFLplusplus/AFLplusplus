@@ -117,7 +117,7 @@ program control flow without actually executing each and every code path.
 If you want to experiment with this mode of operation, there is a module
 contributed by Aleksandar Nikolich:
 
-  https://github.com/vrtadmin/moflow/tree/master/afl-dyninst
+  https://github.com/vanhauser-thc/afl-dyninst
   https://groups.google.com/forum/#!topic/afl-users/HlSQdbOTlpg
 
 At this point, the author reports the possibility of hiccups with stripped
