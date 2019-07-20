@@ -20,6 +20,7 @@ VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
 CFLAGS      ?= -O3 -funroll-loops
 CFLAGS      += -Wall -Wno-unused-result -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign
+LDFLAGS     += -ldl
 
 all: libcompcov.so
 
