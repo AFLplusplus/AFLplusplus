@@ -19,6 +19,8 @@
 
  */
 
+#define _GNU_SOURCE
+#include <dlfcn.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -38,12 +40,16 @@
 
 #define MAX_CMP_LENGTH 32
 
-static u8 __compcov_loaded;
-
 static void *__compcov_code_start,
             *__compcov_code_end;
 
 static u8 *__compcov_afl_map;
+
+static int (*__libc_strcmp)(const char*, const char*);
+static int (*__libc_strncmp)(const char*, const char*, size_t);
+static int (*__libc_strcasecmp)(const char*, const char*);
+static int (*__libc_strncasecmp)(const char*, const char*, size_t);
+static int (*__libc_memcmp)(const void*, const void*, size_t);
 
 
 static size_t __strlen2(const char *s1, const char *s2, size_t max_length) {
@@ -57,8 +63,12 @@ static size_t __strlen2(const char *s1, const char *s2, size_t max_length) {
 /* Identify the binary boundaries in the memory mapping */
 
 static void __compcov_load(void) {
-
-  __compcov_loaded = 1;
+  
+  __libc_strcmp = dlsym(RTLD_NEXT, "strcmp");
+  __libc_strncmp = dlsym(RTLD_NEXT, "strncmp");
+  __libc_strcasecmp = dlsym(RTLD_NEXT, "strcasecmp");
+  __libc_strncasecmp = dlsym(RTLD_NEXT, "strncasecmp");
+  __libc_memcmp = dlsym(RTLD_NEXT, "memcmp");
   
   char *id_str = getenv(SHM_ENV_VAR);
   int shm_id;
@@ -145,16 +155,7 @@ int strcmp(const char* str1, const char* str2) {
     }
   }
 
-  while (1) {
-
-    unsigned char c1 = *str1, c2 = *str2;
-
-    if (c1 != c2) return (c1 > c2) ? 1 : -1;
-    if (!c1) return 0;
-    str1++; str2++;
-
-  }
-
+  return __libc_strcmp(str1, str2);
 }
 
 
@@ -179,18 +180,7 @@ int strncmp(const char* str1, const char* str2, size_t len) {
     }
   }
   
-  while (len--) {
-
-    unsigned char c1 = *str1, c2 = *str2;
-
-    if (!c1) return 0;
-    if (c1 != c2) return (c1 > c2) ? 1 : -1;
-    str1++; str2++;
-
-  }
-
-  return 0;
-
+  return __libc_strncmp(str1, str2, len);
 }
 
 
@@ -215,16 +205,7 @@ int strcasecmp(const char* str1, const char* str2) {
     }
   }
 
-  while (1) {
-
-    unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
-
-    if (c1 != c2) return (c1 > c2) ? 1 : -1;
-    if (!c1) return 0;
-    str1++; str2++;
-
-  }
-
+  return __libc_strcasecmp(str1, str2);
 }
 
 
@@ -250,18 +231,7 @@ int strncasecmp(const char* str1, const char* str2, size_t len) {
     }
   }
 
-  while (len--) {
-
-    unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
-
-    if (!c1) return 0;
-    if (c1 != c2) return (c1 > c2) ? 1 : -1;
-    str1++; str2++;
-
-  }
-
-  return 0;
-
+  return __libc_strncasecmp(str1, str2, len);
 }
 
 
@@ -285,16 +255,7 @@ int memcmp(const void* mem1, const void* mem2, size_t len) {
     }
   }
 
-  while (len--) {
-
-    unsigned char c1 = *(const char*)mem1, c2 = *(const char*)mem2;
-    if (c1 != c2) return (c1 > c2) ? 1 : -1;
-    mem1++; mem2++;
-
-  }
-
-  return 0;
-
+  return __libc_memcmp(mem1, mem2, len);
 }
 
 /* Init code to open init the library. */
