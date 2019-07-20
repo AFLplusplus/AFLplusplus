@@ -4,6 +4,8 @@ Roadmap 2.53d:
 
  - README.md
 
+ - update docs/sister_projects.txt
+
  - better defaults:
    * laf-intel activated, needs deactiatation
    * fast mode schedule
@@ -15,7 +17,7 @@ afl-fuzz:
  - reuse forkserver for showmap, afl-cmin, etc.
 
 gcc_plugin:
- (see TODOs)
+ - fix crashes when compiling :(
  - whitelist support
  - skip over uninteresting blocks
  - laf-intel

@@ -1,7 +1,9 @@
 //
-// There are two TODOs in this file:
+// There are some TODOs in this file:
 //   - dont instrument blocks that are uninterested
 //   - implement whitelist feature
+//   - implement notZero
+//   - fix crash
 //
 
 /*
@@ -102,7 +104,7 @@ static unsigned int ext_call_instrument(function *fun) {
 
 		if (!fcnt_blocks++) continue; /* skip block 0 */
 		
-		// TODO: if the predecessor does not have to destinations
+		// TODO: if the predecessor does not have ast least two destinations
 		// then skip this block :TODO
 
 		/* Bail on this block if we trip the specified ratio */
@@ -222,6 +224,9 @@ static unsigned int inline_instrument(function *fun) {
 		tree tmp3 = create_tmp_var(unsigned_char_type_node, "tmp3");
 		g = gimple_build_assign(tmp3, PLUS_EXPR, tmp2, one);
 		gimple_seq_add_stmt(&seq, g); // tmp3 = tmp2 + 1
+
+		// TODO: neverZero: here we have to check if tmp3 == 0
+		//                  and add 1 if so
 
 //		tree tmp4 = create_tmp_var(map_type, "tmp4");
 //		g = gimple_build_assign(tmp4, PLUS_EXPR, map_ptr_g, area_off);
