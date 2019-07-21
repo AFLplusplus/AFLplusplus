@@ -12,7 +12,7 @@ The following is a description of how these can be fuzzed with afl++
 
 !!!!!
 TL;DR: try DYNINST with afl-dyninst. If it produces too many crashes then
-      use afl -Q qemu_mode.
+      use afl -Q qemu_mode, or better: use both in parallel
 !!!!!
 
 
@@ -111,6 +111,21 @@ Pintool solutions:
   https://github.com/spinpx/afl_pin_mode  <= only old Pintool version supported
 
 
+Non-AFL solutions
+-----------------
+
+There are many binary-only fuzzing frameworks. Some are great for CTFs but don't
+work with large binaries, other are very slow but have good path discovery,
+some are very hard to set-up ...
+
+QSYM: https://github.com/sslab-gatech/qsym
+Manticore: https://github.com/trailofbits/manticore
+S2E: https://github.com/S2E
+<please send me any missing that are good>
+
+
+
 That's it!
 News, corrections, updates?
 Email vh@thc.org
+
