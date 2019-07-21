@@ -308,7 +308,7 @@ int main(int argc, char** argv) {
   if (isatty(2) && !getenv("AFL_QUIET")) {
 
     SAYF(cCYA "afl-cc" VERSION cRST " by <lcamtuf@google.com>\n");
-    SAYF(cYEL "[!] " cBRI "WARNING: " cRST "afl-gcc is deprecated, gcc_plugin is faster, llvm_mode even faster\n");
+    SAYF(cYEL "[!] " cBRI "NOTE: " cRST "afl-gcc is deprecated, llvm_mode is much faster and has more options\n");
 
   } else be_quiet = 1;
 
