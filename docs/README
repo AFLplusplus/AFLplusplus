@@ -12,7 +12,8 @@ american fuzzy lop plus plus
 
 
   Many improvements were made, e.g. more performant llvm_mode, supporting
-  llvm up to version 8, Qemu 3.1, more speed for Qemu, etc.
+  llvm up to version 8, Qemu 3.1, more speed and crashfixes for Qemu,
+  laf-intel feature for Qemu (with libcompcov)  etc.
 
   Additionally AFLfast's power schedules by Marcel Boehme from
   https://github.com/mboehme/aflfast have been incorporated.
