@@ -24,7 +24,7 @@ gcc_plugin:
  - neverZero
 
 qemu_mode:
- - Instrument only cmparison with immediate values by default when using compcov
+ - deferred mode with AFL_DEFERRED_QEMU=0xaddress
 
 unit testing / or large testcase campaign
 
@@ -34,3 +34,8 @@ Roadmap 2.54d:
  - expand MAP size to 256k (current L2 cache size on processors)
    -> 18 bit size map
  - llvm_mode: dynamic map size and collission free basic block IDs
+
+qemu_mode:
+ - persistent mode patching the return address (WinAFL style)
+ - instrument only comparison with immediate values by default when using compcov
+
