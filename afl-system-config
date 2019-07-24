@@ -1,7 +1,7 @@
 #!/bin/sh
 echo This reconfigures the system to have a better fuzzing performance
-if [[ $EUID -ne 0 ]] || ! [ `id -u` = 0 ]; then
-	echo if you are root \(which you are currently not\)
+if [ '!' "$EUID" = 0 ] && [ '!' `id -u` = 0 ] ; then
+	echo Error you need to be root to run this
 	exit 1
 fi
 sysctl -w kernel.core_pattern=core
