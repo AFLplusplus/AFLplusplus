@@ -15,7 +15,7 @@ For the full readme please see docs/unicorn_mode.txt
 For an in-depth description of what this is, how to install it, and how to use
 it check out this [blog post](https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf).
 
-For general help with AFL, please refer to the documents in the /doc/ directory.
+For general help with AFL, please refer to the documents in the ./docs/ directory.
 
 Created by Nathan Voss, originally funded by
 [Battelle](https://www.battelle.org/cyber).

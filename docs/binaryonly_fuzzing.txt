@@ -125,7 +125,7 @@ Non-AFL solutions
 -----------------
 
 There are many binary-only fuzzing frameworks. Some are great for CTFs but don't
-work with large binaries, other are very slow but have good path discovery,
+work with large binaries, others are very slow but have good path discovery,
 some are very hard to set-up ...
 
 QSYM: https://github.com/sslab-gatech/qsym
