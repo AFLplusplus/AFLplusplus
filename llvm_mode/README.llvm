@@ -97,7 +97,7 @@ to read the fuzzed input and parse it; in some cases, this can offer a 10x+
 performance gain. You can implement delayed initialization in LLVM mode in a
 fairly simple way.
 
-First, find a suitable location in the code where the delayed cloning can 
+First, find a suitable location in the code where the delayed cloning can
 take place. This needs to be done with *extreme* care to avoid breaking the
 binary. In particular, the program will probably malfunction if you select
 a location after:
@@ -175,10 +175,8 @@ post-process the assembly or install any compiler plugins. See:
 
   http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards
 
-As of this writing, the feature is only available on SVN trunk, and is yet to
-make it to an official release of LLVM. Nevertheless, if you have a
-sufficiently recent compiler and want to give it a try, build afl-clang-fast
-this way:
+If you have a sufficiently recent compiler and want to give it a try, build
+afl-clang-fast this way:
 
   AFL_TRACE_PC=1 make clean all
 
