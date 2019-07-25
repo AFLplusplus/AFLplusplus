@@ -18,6 +18,7 @@ Version ++2.52d (dev):
 -----------------------------
 
   - unicorn_mode got added - thanks to domenukk for the patch!
+  - fix llvm_mode AFL_TRACE_PC with modern llvm
   - fix a crash in qemu_mode which also exists in stock afl
   - added libcompcov, a laf-intel implementation for qemu! :)
     see qemu_mode/libcompcov/README.libcompcov
