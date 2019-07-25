@@ -208,6 +208,7 @@ EXP_ST u8  skip_deterministic,        /* Skip deterministic stages?       */
            shuffle_queue,             /* Shuffle input queue?             */
            bitmap_changed = 1,        /* Time to update bitmap?           */
            qemu_mode,                 /* Running in QEMU mode?            */
+           unicorn_mode,              /* Running in Unicorn mode?         */
            skip_requested,            /* Skip request, via SIGUSR1        */
            run_over10m,               /* Run time over 10 minutes?        */
            persistent_mode,           /* Running in persistent mode?      */
@@ -1547,6 +1548,7 @@ static void minimize_bits(u8* dst, u8* src) {
 }
 
 
+
 /* Find first power of two greater or equal to val (assuming val under
    2^63). */
 
@@ -1569,6 +1571,7 @@ static u64 next_p2(u64 val) {
    for every byte in the bitmap. We win that slot if there is no previous
    contender, or if the contender has a more favorable speed x size factor. */
 
+
 static void update_bitmap_score(struct queue_entry* q) {
 
   u32 i;
@@ -1584,6 +1587,7 @@ static void update_bitmap_score(struct queue_entry* q) {
 
        if (top_rated[i]) {
 
+         /* Faster-executing or smaller test cases are favored. */
          u64 top_rated_fuzz_p2    = next_p2 (top_rated[i]->n_fuzz);
          u64 top_rated_fav_factor = top_rated[i]->exec_us * top_rated[i]->len;
 
@@ -1680,7 +1684,6 @@ static void cull_queue(void) {
   }
 
 }
-
 
 
 /* Load postprocessor, if available. */
@@ -2301,6 +2304,8 @@ EXP_ST void init_forkserver(char** argv) {
 
   if (!forksrv_pid) {
 
+    /* CHILD PROCESS */
+
     struct rlimit r;
 
     /* Umpf. On OpenBSD, the default fd limit for root users is set to
@@ -2407,6 +2412,8 @@ EXP_ST void init_forkserver(char** argv) {
     exit(0);
 
   }
+
+  /* PARENT PROCESS */
 
   /* Close the unneeded endpoints. */
 
@@ -3755,7 +3762,7 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
              "exec_timeout      : %u\n"
              "afl_banner        : %s\n"
              "afl_version       : " VERSION "\n"
-             "target_mode       : %s%s%s%s%s%s%s\n"
+             "target_mode       : %s%s%s%s%s%s%s%s\n"
              "command_line      : %s\n",
              start_time / 1000, get_cur_time() / 1000, getpid(),
              queue_cycle ? (queue_cycle - 1) : 0, total_execs, eps,
@@ -3765,10 +3772,10 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
              unique_hangs, last_path_time / 1000, last_crash_time / 1000,
              last_hang_time / 1000, total_execs - last_crash_execs,
              exec_tmout, use_banner,
-             qemu_mode ? "qemu " : "", dumb_mode ? " dumb " : "",
+             unicorn_mode ? "unicorn" : "", qemu_mode ? "qemu " : "", dumb_mode ? " dumb " : "",
              no_forkserver ? "no_forksrv " : "", crash_mode ? "crash " : "",
              persistent_mode ? "persistent " : "", deferred_mode ? "deferred " : "",
-             (qemu_mode || dumb_mode || no_forkserver || crash_mode ||
+             (unicorn_mode || qemu_mode || dumb_mode || no_forkserver || crash_mode ||
               persistent_mode || deferred_mode) ? "" : "default",
              orig_cmdline);
              /* ignore errors */
@@ -4702,7 +4709,7 @@ static void show_init_stats(void) {
 
   SAYF("\n");
 
-  if (avg_us > (qemu_mode ? 50000 : 10000)) 
+  if (avg_us > ((qemu_mode || unicorn_mode) ? 50000 : 10000)) 
     WARNF(cLRD "The target binary is pretty slow! See %s/perf_tips.txt.",
           doc_path);
 
@@ -4778,6 +4785,7 @@ static void show_init_stats(void) {
   OKF("All set and ready to roll!");
 
 }
+
 
 #ifdef USE_PYTHON
 static u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
@@ -11090,7 +11098,7 @@ EXP_ST void check_binary(u8* fname) {
 
 #endif /* ^!__APPLE__ */
 
-  if (!qemu_mode && !dumb_mode &&
+  if (!qemu_mode && !unicorn_mode && !dumb_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -11110,15 +11118,15 @@ EXP_ST void check_binary(u8* fname) {
 
   }
 
-  if (qemu_mode &&
+  if ((qemu_mode || unicorn_mode) &&
       memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
          "This program appears to be instrumented with afl-gcc, but is being run in\n"
-         "    QEMU mode (-Q). This is probably not what you want - this setup will be\n"
-         "    slow and offer no practical benefits.\n");
+         "    QEMU or Unicorn mode (-Q or -U). This is probably not what you want -\n"
+         "    this setup will be slow and offer no practical benefits.\n");
 
-    FATAL("Instrumentation found in -Q mode");
+    FATAL("Instrumentation found in -Q or -U mode");
 
   }
 
@@ -11245,6 +11253,7 @@ static void usage(u8* argv0) {
        "  -t msec       - timeout for each run (auto-scaled, 50-%u ms)\n"
        "  -m megs       - memory limit for child process (%u MB)\n"
        "  -Q            - use binary-only instrumentation (QEMU mode)\n"
+       "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n\n"
        "  -L minutes    - use MOpt(imize) mode and set the limit time for entering the\n"
        "                  pacemaker mode (minutes of no new paths, 0 = immediately).\n"
        "                  a recommended value is 10-60. see docs/README.MOpt\n\n"
@@ -11863,7 +11872,6 @@ static char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
 }
 
-
 /* Make a copy of the current command line. */
 
 static void save_cmdline(u32 argc, char** argv) {
@@ -11925,7 +11933,7 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, &tz);
   init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Qe:p:s:V:E:L:")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QUe:p:s:V:E:L:")) > 0)
 
     switch (opt) {
 
@@ -12126,6 +12134,15 @@ int main(int argc, char** argv) {
 
         break;
 
+      case 'U': /* Unicorn mode */
+
+        if (unicorn_mode) FATAL("Multiple -U options not supported");
+        unicorn_mode = 1;
+
+        if (!mem_limit_given) mem_limit = MEM_LIMIT_UNICORN;
+
+        break;
+
       case 'V': {
            most_time_key = 1;
            if (sscanf(optarg, "%llu", &most_time) < 1 || optarg[0] == '-')
@@ -12259,6 +12276,7 @@ int main(int argc, char** argv) {
 
     if (crash_mode) FATAL("-C and -n are mutually exclusive");
     if (qemu_mode)  FATAL("-Q and -n are mutually exclusive");
+    if (unicorn_mode) FATAL("-U and -n are mutually exclusive");
 
   }
   
