@@ -77,7 +77,6 @@ static volatile u8
            child_timed_out;           /* Child timed out?                  */
 
 
-
 /* Constants used for describing byte behavior. */
 
 #define RESP_NONE       0x00          /* Changing byte is a no-op.         */
@@ -741,7 +740,8 @@ static void usage(u8* argv0) {
        "  -f file       - input file read by the tested program (stdin)\n"
        "  -t msec       - timeout for each run (%u ms)\n"
        "  -m megs       - memory limit for child process (%u MB)\n"
-       "  -Q            - use binary-only instrumentation (QEMU mode)\n\n"
+       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
+       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n\n"
 
        "Analysis settings:\n\n"
 
@@ -867,20 +867,19 @@ static char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
 }
 
-
 /* Main entry point */
 
 int main(int argc, char** argv) {
 
   s32 opt;
-  u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0;
+  u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0, unicorn_mode = 0;
   char** use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
   SAYF(cCYA "afl-analyze" VERSION cRST " by <lcamtuf@google.com>\n");
 
-  while ((opt = getopt(argc,argv,"+i:f:m:t:eQ")) > 0)
+  while ((opt = getopt(argc,argv,"+i:f:m:t:eQU")) > 0)
 
     switch (opt) {
 
@@ -958,6 +957,14 @@ int main(int argc, char** argv) {
         if (!mem_limit_given) mem_limit = MEM_LIMIT_QEMU;
 
         qemu_mode = 1;
+        break;
+
+      case 'U':
+
+        if (unicorn_mode) FATAL("Multiple -U options not supported");
+        if (!mem_limit_given) mem_limit = MEM_LIMIT_UNICORN;
+
+        unicorn_mode = 1;
         break;
 
       default:

@@ -12,7 +12,7 @@ The following is a description of how these can be fuzzed with afl++
 
 !!!!!
 TL;DR: try DYNINST with afl-dyninst. If it produces too many crashes then
-      use afl -Q qemu_mode, or better: use both in parallel
+      use afl -Q qemu_mode.
 !!!!!
 
 
@@ -25,6 +25,16 @@ The speed decrease is at about 50%
 It is the easiest to use alternative and even works for cross-platform binaries.
 
 As it is included in afl++ this needs no URL.
+
+
+UNICORN
+-------
+Unicorn is a fork of QEMU. The instrumentation is, therefore, very similar.
+In contrast to QEMU, Unicorn does not offer a full system or even userland emulation.
+Runtime environment and/or loaders have to be written from scratch, if needed.
+On top, block chaining has been removed. This means the speed boost introduced in 
+to the patched QEMU Mode of afl++ cannot simply be ported over to Unicorn.
+For further information, check out ./unicorn_mode.txt.
 
 
 DYNINST
@@ -111,21 +121,6 @@ Pintool solutions:
   https://github.com/spinpx/afl_pin_mode  <= only old Pintool version supported
 
 
-Non-AFL solutions
------------------
-
-There are many binary-only fuzzing frameworks. Some are great for CTFs but don't
-work with large binaries, other are very slow but have good path discovery,
-some are very hard to set-up ...
-
-QSYM: https://github.com/sslab-gatech/qsym
-Manticore: https://github.com/trailofbits/manticore
-S2E: https://github.com/S2E
-<please send me any missing that are good>
-
-
-
 That's it!
 News, corrections, updates?
 Email vh@thc.org
-
