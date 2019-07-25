@@ -7,10 +7,15 @@
                                                       
 ```
 
-afl-unicorn lets you fuzz any piece of binary that can be emulated by [Unicorn Engine](http://www.unicorn-engine.org/). 
+afl-unicorn lets you fuzz any piece of binary that can be emulated by
+[Unicorn Engine](http://www.unicorn-engine.org/). 
 
-For an in-depth description of what this is, how to install it, and how to use it check out this [blog post](https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf).
+For the full readme please see docs/unicorn_mode.txt
 
-For general help with AFL, please refer to both the official [AFL website](http://lcamtuf.coredump.cx/afl/) and the documents in the /doc/ directory.
+For an in-depth description of what this is, how to install it, and how to use
+it check out this [blog post](https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf).
 
-Created by Nathan Voss, originally funded by [Battelle](https://www.battelle.org/cyber).
+For general help with AFL, please refer to the documents in the /doc/ directory.
+
+Created by Nathan Voss, originally funded by
+[Battelle](https://www.battelle.org/cyber).
