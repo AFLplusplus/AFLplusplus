@@ -1,6 +1,6 @@
 # american fuzzy lop
 
-[![Build Status](https://travis-ci.org/google/AFL.svg?branch=master)](https://travis-ci.org//google/AFL)
+[![Build Status](https://travis-ci.org/google/AFL.svg?branch=master)](https://travis-ci.org/google/AFL)
 
 Originally developed by Michal Zalewski <lcamtuf@google.com>.
 
