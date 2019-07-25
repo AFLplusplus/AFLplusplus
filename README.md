@@ -481,4 +481,4 @@ Questions? Concerns? Bug reports? Please use GitHub.
 
 There is also a mailing list for the project; to join, send a mail to
 <afl-users+subscribe@googlegroups.com>. Or, if you prefer to browse
-archives first, try: [https://groups.google.com/group/afl-users].
+archives first, try: [https://groups.google.com/group/afl-users](https://groups.google.com/group/afl-users).
