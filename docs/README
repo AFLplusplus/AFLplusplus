@@ -27,6 +27,10 @@ american fuzzy lop plus plus
   Also newly integrated is instrim, a very effective CFG llvm_mode
   instrumentation implementation from https://github.com/csienslab/instrim
 
+  And finally the newest addition is the unicorn_mode which allows fuzzing
+  of binaries from completely different platforms - provided by domenukk!
+  The unicorn afl mode is not the stock version but like afl++ contains
+  various patches from forks that make it better :)
 
   A more thorough list is available in the PATCHES file.
 
