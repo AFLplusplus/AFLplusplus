@@ -72,7 +72,6 @@ static volatile u8
            child_timed_out,           /* Child timed out?                  */
            child_crashed;             /* Child crashed?                    */
 
-
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
 
@@ -405,7 +404,9 @@ static void usage(u8* argv0) {
 
        "  -t msec       - timeout for each run (none)\n"
        "  -m megs       - memory limit for child process (%u MB)\n"
-       "  -Q            - use binary-only instrumentation (QEMU mode)\n\n"
+       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
+       "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n"
+       "                  (Not necessary, here for consistency with other afl-* tools)\n\n"  
 
        "Other settings:\n\n"
 
@@ -534,19 +535,18 @@ static char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
 }
 
-
 /* Main entry point */
 
 int main(int argc, char** argv) {
 
   s32 opt;
-  u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0;
+  u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0, unicorn_mode = 0;
   u32 tcnt;
   char** use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  while ((opt = getopt(argc,argv,"+o:m:t:A:eqZQbc")) > 0)
+  while ((opt = getopt(argc,argv,"+o:m:t:A:eqZQUbc")) > 0)
 
     switch (opt) {
 
@@ -641,6 +641,14 @@ int main(int argc, char** argv) {
         if (!mem_limit_given) mem_limit = MEM_LIMIT_QEMU;
 
         qemu_mode = 1;
+        break;
+
+      case 'U':
+
+        if (unicorn_mode) FATAL("Multiple -U options not supported");
+        if (!mem_limit_given) mem_limit = MEM_LIMIT_UNICORN;
+
+        unicorn_mode = 1;
         break;
 
       case 'b':

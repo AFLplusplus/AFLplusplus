@@ -59,6 +59,10 @@
 
 #define MEM_LIMIT_QEMU      200
 
+/* Default memory limit when running in Unicorn mode (MB): */
+
+#define MEM_LIMIT_UNICORN   200
+
 /* Number of calibration cycles per every new test case (and for test
    cases that show variable behavior): */
 
