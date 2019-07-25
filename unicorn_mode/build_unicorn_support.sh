@@ -75,8 +75,13 @@ done
 
 if ! which easy_install > /dev/null; then
 
-  echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
-  exit 1
+  # work around for unusual installs
+  if [ '!' -e /usr/lib/python2.7/dist-packages/easy_install.py ]; then
+
+    echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
+    exit 1
+
+  fi
 
 fi
 
