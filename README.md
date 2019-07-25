@@ -2,7 +2,7 @@
 
 Originally developed by Michal Zalewski <lcamtuf@google.com>.
 
-See [QuickStartGuide.txt](QuickStartGuide.txt) if you don't have time to read
+See [QuickStartGuide.txt](docs/QuickStartGuide.txt) if you don't have time to read
 this file.
 
 ## 1) Challenges of guided fuzzing
