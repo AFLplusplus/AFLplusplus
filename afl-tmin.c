@@ -898,7 +898,9 @@ static void usage(u8* argv0) {
        "  -f file       - input file read by the tested program (stdin)\n"
        "  -t msec       - timeout for each run (%u ms)\n"
        "  -m megs       - memory limit for child process (%u MB)\n"
-       "  -Q            - use binary-only instrumentation (QEMU mode)\n\n"
+       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
+       "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n\n"
+       "                  (Not necessary, here for consistency with other afl-* tools)\n\n"
 
        "Minimization settings:\n\n"
 
@@ -1025,7 +1027,6 @@ static char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
 }
 
-
 /* Read mask bitmap from file. This is for the -B option. */
 
 static void read_bitmap(u8* fname) {
@@ -1047,14 +1048,14 @@ static void read_bitmap(u8* fname) {
 int main(int argc, char** argv) {
 
   s32 opt;
-  u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0;
+  u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0, unicorn_mode = 0;
   char** use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by <lcamtuf@google.com>\n");
 
-  while ((opt = getopt(argc,argv,"+i:o:f:m:t:B:xeQ")) > 0)
+  while ((opt = getopt(argc,argv,"+i:o:f:m:t:B:xeQU")) > 0)
 
     switch (opt) {
 
@@ -1144,6 +1145,14 @@ int main(int argc, char** argv) {
         if (!mem_limit_given) mem_limit = MEM_LIMIT_QEMU;
 
         qemu_mode = 1;
+        break;
+
+      case 'U':
+
+        if (unicorn_mode) FATAL("Multiple -Q options not supported");
+        if (!mem_limit_given) mem_limit = MEM_LIMIT_UNICORN;
+
+        unicorn_mode = 1;
         break;
 
       case 'B': /* load bitmap */

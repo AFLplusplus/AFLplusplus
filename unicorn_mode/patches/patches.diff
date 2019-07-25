@@ -1,0 +1,107 @@
+diff --git a/Makefile b/Makefile
+index 7d73782..fb3ccfd 100644
+--- a/Makefile
++++ b/Makefile
+@@ -88,6 +88,10 @@ AR = llvm-ar
+ LDFLAGS := -fsanitize=address ${LDFLAGS}
+ endif
+ 
++ifeq ($(UNICORN_AFL),yes)
++UNICORN_CFLAGS += -DUNICORN_AFL
++endif
++
+ ifeq ($(CROSS),)
+ CC ?= cc
+ AR ?= ar
+diff --git a/config.mk b/config.mk
+index c3621fb..c7b4f7e 100644
+--- a/config.mk
++++ b/config.mk
+@@ -8,7 +8,7 @@
+ # Compile with debug info when you want to debug code.
+ # Change this to 'no' for release edition.
+ 
+-UNICORN_DEBUG ?= yes
++UNICORN_DEBUG ?= no
+ 
+ ################################################################################
+ # Specify which archs you want to compile in. By default, we build all archs.
+@@ -28,3 +28,9 @@ UNICORN_STATIC ?= yes
+ # a shared library.
+ 
+ UNICORN_SHARED ?= yes
++
++
++################################################################################
++# Changing 'UNICORN_AFLL = yes' to 'UNICORN_AFL = no' disables AFL instrumentation
++
++UNICORN_AFL ?= yes
+diff --git a/qemu/cpu-exec.c b/qemu/cpu-exec.c
+index 7755adf..8114b70 100644
+--- a/qemu/cpu-exec.c
++++ b/qemu/cpu-exec.c
+@@ -24,6 +24,11 @@
+ 
+ #include "uc_priv.h"
+ 
++#if defined(UNICORN_AFL)
++#include "../afl-unicorn-cpu-inl.h"
++static int afl_first_instr = 0;
++#endif 
++
+ static tcg_target_ulong cpu_tb_exec(CPUState *cpu, uint8_t *tb_ptr);
+ static TranslationBlock *tb_find_slow(CPUArchState *env, target_ulong pc,
+         target_ulong cs_base, uint64_t flags);
+@@ -231,6 +236,10 @@ int cpu_exec(struct uc_struct *uc, CPUArchState *env)   // qq
+                             next_tb & TB_EXIT_MASK, tb);
+                 }
+ 
++#if defined(UNICORN_AFL)
++                AFL_UNICORN_CPU_SNIPPET2;
++#endif
++
+                 /* cpu_interrupt might be called while translating the
+                    TB, but before it is linked into a potentially
+                    infinite loop and becomes env->current_tb. Avoid
+@@ -369,6 +378,11 @@ static TranslationBlock *tb_find_slow(CPUArchState *env, target_ulong pc,
+ not_found:
+     /* if no translated code available, then translate it now */
+     tb = tb_gen_code(cpu, pc, cs_base, (int)flags, 0);   // qq
++    
++#if defined(UNICORN_AFL)
++    /* There seems to be no chaining in unicorn ever? :( */
++    AFL_UNICORN_CPU_SNIPPET1;
++#endif
+ 
+ found:
+     /* Move the last found TB to the head of the list */
+diff --git a/qemu/translate-all.c b/qemu/translate-all.c
+index 1a96c34..7ef4878 100644
+--- a/qemu/translate-all.c
++++ b/qemu/translate-all.c
+@@ -403,11 +403,25 @@ static PageDesc *page_find_alloc(struct uc_struct *uc, tb_page_addr_t index, int
+ 
+ #if defined(CONFIG_USER_ONLY)
+     /* We can't use g_malloc because it may recurse into a locked mutex. */
++#if defined(UNICORN_AFL)
++    /* This was added by unicorn-afl to bail out semi-gracefully if out of memory. */
++# define ALLOC(P, SIZE)                                 \
++    do {                                                \
++        void* _tmp = mmap(NULL, SIZE, PROT_READ | PROT_WRITE,    \
++                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);   \
++        if (_tmp == (void*)-1) { \
++            qemu_log(">>> Out of memory for stack, bailing out. <<<\n"); \
++            exit(1); \
++        } \
++        (P) = _tmp; \
++    } while (0)
++#else /* !UNICORN_AFL */
+ # define ALLOC(P, SIZE)                                 \
+     do {                                                \
+         P = mmap(NULL, SIZE, PROT_READ | PROT_WRITE,    \
+                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);   \
+     } while (0)
++#endif /* UNICORN_AFL */
+ #else
+ # define ALLOC(P, SIZE) \
+     do { P = g_malloc0(SIZE); } while (0)
