@@ -17,6 +17,13 @@ is 2.41b. If you're stuck on an earlier release, it's strongly advisable
 to get on with the times.
 
 ---------------------------
+Version 2.53b (2019-07-25):
+---------------------------
+
+  - No functional changes. Updated some comments and license headers to comply
+    with the open sourcing guidelines and publish the source code on GitHub.
+
+---------------------------
 Version 2.52b (2017-11-04):
 ---------------------------
 
