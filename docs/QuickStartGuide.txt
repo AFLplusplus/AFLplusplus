@@ -2,7 +2,7 @@
 AFL quick start guide
 =====================
 
-You should read docs/README. It's pretty short. If you really can't, here's
+You should read docs/README.md - it's pretty short. If you really can't, here's
 how to hit the ground running:
 
 1) Compile AFL with 'make'. If build fails, see docs/INSTALL for tips.
@@ -17,7 +17,7 @@ how to hit the ground running:
 
    The program must crash properly when a fault is encountered. Watch out for
    custom SIGSEGV or SIGABRT handlers and background processes. For tips on
-   detecting non-crashing flaws, see section 11 in docs/README.
+   detecting non-crashing flaws, see section 11 in docs/README.md .
 
 3) Compile the program / library to be fuzzed using afl-gcc. A common way to
    do this would be:
@@ -48,7 +48,7 @@ how to hit the ground running:
 That's it. Sit back, relax, and - time permitting - try to skim through the
 following files:
 
-  - docs/README               - A general introduction to AFL,
+  - docs/README.md            - A general introduction to AFL,
   - docs/perf_tips.txt        - Simple tips on how to fuzz more quickly,
   - docs/status_screen.txt    - An explanation of the tidbits shown in the UI,
   - docs/parallel_fuzzing.txt - Advice on running AFL on multiple cores.
