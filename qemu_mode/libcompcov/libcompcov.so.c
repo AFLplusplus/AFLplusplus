@@ -45,6 +45,12 @@ static void *__compcov_code_start,
 
 static u8 *__compcov_afl_map;
 
+static int (*__libc_strcmp)(const char*, const char*);
+static int (*__libc_strncmp)(const char*, const char*, size_t);
+static int (*__libc_strcasecmp)(const char*, const char*);
+static int (*__libc_strncasecmp)(const char*, const char*, size_t);
+static int (*__libc_memcmp)(const void*, const void*, size_t);
+
 static int debug_fd = -1;
 
 

@@ -7519,9 +7519,6 @@ static u8 pilot_fuzzing(char** argv) {
 		stage_finds[STAGE_FLIP1] += new_hit_cnt - orig_hit_cnt;
 		stage_cycles[STAGE_FLIP1] += stage_max;
 
-
-
-
 		/* Two walking bits. */
 
 		stage_name = "bitflip 2/1";

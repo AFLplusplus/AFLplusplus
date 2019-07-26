@@ -70,7 +70,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
 
-#if __clang_major__ < 9
+#if LLVM_VERSION_MAJOR < 9
   Constant* 
 #else
   FunctionCallee
