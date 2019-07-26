@@ -13,10 +13,12 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
------------------------------
-Version ++2.52d (dev):
------------------------------
+--------------------------
+Version ++2.53c (release):
+--------------------------
 
+  - README is now README.md
+  - imported the few minor changes from the 2.53b release
   - unicorn_mode got added - thanks to domenukk for the patch!
   - fix llvm_mode AFL_TRACE_PC with modern llvm
   - fix a crash in qemu_mode which also exists in stock afl

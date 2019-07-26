@@ -354,11 +354,11 @@ see [http://lcamtuf.coredump.cx/afl/plot/](http://lcamtuf.coredump.cx/afl/plot/)
 Every instance of afl-fuzz takes up roughly one core. This means that on
 multi-core systems, parallelization is necessary to fully utilize the hardware.
 For tips on how to fuzz a common target on multiple cores or multiple networked
-machines, please refer to [parallel_fuzzing.txt](docs/parallel_fuzzing.txt).
+machines, please refer to [docs/parallel_fuzzing.txt](docs/parallel_fuzzing.txt).
 
 The parallel fuzzing mode also offers a simple way for interfacing AFL to other
 fuzzers, to symbolic or concolic execution engines, and so forth; again, see the
-last section of [parallel_fuzzing.txt](docs/parallel_fuzzing.txt) for tips.
+last section of [docs/parallel_fuzzing.txt](docs/parallel_fuzzing.txt) for tips.
 
 
 ## 10) Fuzzer dictionaries
@@ -591,6 +591,7 @@ feedback, bug reports, or patches from:
   Rene Freingruber                      Sergey Davidoff
   Sami Liedes                           Craig Young
   Andrzej Jackowski                     Daniel Hodson
+  Nathan Voss				Dominik Maier
 ```
 
 Thank you!

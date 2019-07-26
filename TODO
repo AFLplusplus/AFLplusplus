@@ -2,21 +2,14 @@ Roadmap 2.53d:
 ==============
  - indent all the code: clang-format -style=Google
 
- - README.md
-
  - update docs/sister_projects.txt
-
- - better defaults:
-   * laf-intel activated, needs deactiatation
-   * fast mode schedule
-   * MOpt with -L 30
-   * ... ?
 
 afl-fuzz:
  - put mutator, scheduler, forkserver and input channels in individual files
  - reuse forkserver for showmap, afl-cmin, etc.
 
 gcc_plugin:
+ - needs to be rewritten
  - fix crashes when compiling :(
  - whitelist support
  - skip over uninteresting blocks
@@ -32,7 +25,7 @@ unit testing / or large testcase campaign
 Roadmap 2.54d:
 ==============
  - expand MAP size to 256k (current L2 cache size on processors)
-   -> 18 bit size map
+   -> 18 bit map
  - llvm_mode: dynamic map size and collission free basic block IDs
 
 qemu_mode:
