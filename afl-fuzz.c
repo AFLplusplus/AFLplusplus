@@ -5581,10 +5581,12 @@ static u8 fuzz_one(char** argv) {
     for (stage_cur = 0 ; stage_cur < stage_max ; stage_cur++) {
       size_t orig_size = (size_t) len;
       size_t mutated_size = custom_mutator(out_buf, orig_size, mutated_buf, max_seed_size, UR(UINT32_MAX));
-      out_buf = ck_realloc(out_buf, mutated_size);
-      memcpy(out_buf, mutated_buf, mutated_size);
-      if (common_fuzz_stuff(argv, out_buf, (u32)mutated_size)) {
-        goto abandon_entry;
+      if (mutated_size > 0) {
+        out_buf = ck_realloc(out_buf, mutated_size);
+        memcpy(out_buf, mutated_buf, mutated_size);
+        if (common_fuzz_stuff(argv, out_buf, (u32) mutated_size)) {
+          goto abandon_entry;
+        }
       }
     }
 
