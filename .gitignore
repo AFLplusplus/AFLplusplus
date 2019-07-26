@@ -1,6 +1,7 @@
 *.o
 *.so
 .gitignore
+# Binaries produced by "make".
 afl-analyze
 afl-as
 afl-clang

@@ -1,16 +1,24 @@
 /*
+  Copyright 2015 Google Inc. All rights reserved.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+*/
+
+/*
    american fuzzy lop - persistent mode example
    --------------------------------------------
 
    Written and maintained by Michal Zalewski <lcamtuf@google.com>
-
-   Copyright 2015 Google Inc. All rights reserved.
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at:
-
-     http://www.apache.org/licenses/LICENSE-2.0
 
    This file demonstrates the high-performance "persistent mode" that may be
    suitable for fuzzing certain fast and well-behaved libraries, provided that
@@ -19,8 +27,7 @@
 
    To make this work, the library and this shim need to be compiled in LLVM
    mode using afl-clang-fast (other compiler wrappers will *not* work).
-
- */
+*/
 
 #include <stdio.h>
 #include <stdlib.h>

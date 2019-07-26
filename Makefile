@@ -152,7 +152,6 @@ afl-analyze: afl-analyze.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
 afl-gotcpu: afl-gotcpu.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
 
-
 ifndef AFL_NO_X86
 
 test_build: afl-gcc afl-as afl-showmap
