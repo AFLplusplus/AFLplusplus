@@ -78,7 +78,7 @@ typedef int64_t  s64;
 #define STRINGIFY(x) STRINGIFY_INTERNAL(x)
 
 #define MEM_BARRIER() \
-  asm volatile("" ::: "memory")
+  __asm__ volatile("" ::: "memory")
 
 #if __GNUC__ < 6
  #define likely(_x)   (_x)
