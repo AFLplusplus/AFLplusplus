@@ -4336,9 +4336,15 @@ static void show_stats(void) {
   banner_pad = (79 - banner_len) / 2;
   memset(tmp, ' ', banner_pad);
 
+#ifdef HAVE_AFFINITY
   sprintf(tmp + banner_pad, "%s " cLCY VERSION cLGN
           " (%s) " cPIN "[%s]" cBLU " {%d}",  crash_mode ? cPIN "peruvian were-rabbit" : 
           cYEL "american fuzzy lop", use_banner, power_name, cpu_aff);
+#else
+  sprintf(tmp + banner_pad, "%s " cLCY VERSION cLGN
+          " (%s) " cPIN "[%s]",  crash_mode ? cPIN "peruvian were-rabbit" : 
+          cYEL "american fuzzy lop", use_banner, power_name);
+#endif /* HAVE_AFFINITY */
 
   SAYF("\n%s\n", tmp);
 
@@ -11527,7 +11533,7 @@ static void check_crash_handling(void) {
 /* Check CPU governor. */
 
 static void check_cpu_governor(void) {
-
+#ifdef __linux__
   FILE* f;
   u8 tmp[128];
   u64 min = 0, max = 0;
@@ -11590,7 +11596,7 @@ static void check_cpu_governor(void) {
        min / 1024, max / 1024);
 
   FATAL("Suboptimal CPU scaling governor");
-
+#endif
 }
 
 
