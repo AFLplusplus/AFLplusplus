@@ -1,0 +1,11 @@
+language: c
+
+env:
+  - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1
+
+script:
+  - make
+  - ./afl-gcc ./test-instr.c -o test-instr
+  - mkdir seeds; mkdir out
+  - echo "" > seeds/nil_seed
+  - timeout --preserve-status 5s ./afl-fuzz -i seeds -o out/ -- ./test-instr
