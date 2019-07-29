@@ -15,11 +15,11 @@ index 0dd5fbe4..b95d341e 100644
              tcg_gen_atomic_fetch_add_tl(s1->cc_srcT, s1->A0, s1->T0,
                                          s1->mem_index, ot | MO_LE);
              tcg_gen_sub_tl(s1->T0, s1->cc_srcT, s1->T1);
-+            afl_gen_compcov(s1->pc, s1->cc_srcT, s1->T1, ot);
++            afl_gen_compcov(s1->pc, s1->cc_srcT, s1->T1, ot, d == OR_EAX);
          } else {
              tcg_gen_mov_tl(s1->cc_srcT, s1->T0);
              tcg_gen_sub_tl(s1->T0, s1->T0, s1->T1);
-+            afl_gen_compcov(s1->pc, s1->T0, s1->T1, ot);
++            afl_gen_compcov(s1->pc, s1->T0, s1->T1, ot, d == OR_EAX);
              gen_op_st_rm_T0_A0(s1, ot, d);
          }
          gen_op_update2_cc(s1);
@@ -27,7 +27,7 @@ index 0dd5fbe4..b95d341e 100644
          tcg_gen_mov_tl(cpu_cc_src, s1->T1);
          tcg_gen_mov_tl(s1->cc_srcT, s1->T0);
          tcg_gen_sub_tl(cpu_cc_dst, s1->T0, s1->T1);
-+        afl_gen_compcov(s1->pc, s1->T0, s1->T1, ot);
++        afl_gen_compcov(s1->pc, s1->T0, s1->T1, ot, d == OR_EAX);
          set_cc_op(s1, CC_OP_SUBB + ot);
          break;
      }
