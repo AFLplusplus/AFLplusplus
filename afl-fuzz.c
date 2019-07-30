@@ -62,6 +62,7 @@
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined (__OpenBSD__)
 #  include <sys/sysctl.h>
+#  define HAVE_ARC4RANDOM 1
 #endif /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 /* For systems that have sched_setaffinity; right now just Linux, but one
@@ -219,7 +220,9 @@ EXP_ST u8  skip_deterministic,        /* Skip deterministic stages?       */
            fast_cal;                  /* Try to calibrate faster?         */
 
 static s32 out_fd,                    /* Persistent fd for out_file       */
+#ifndef HAVE_ARC4RANDOM
            dev_urandom_fd = -1,       /* Persistent fd for /dev/urandom   */
+#endif
            dev_null_fd = -1,          /* Persistent fd for /dev/null      */
            fsrv_ctl_fd,               /* Fork server control pipe (write) */
            fsrv_st_fd;                /* Fork server status pipe (read)   */
@@ -297,7 +300,9 @@ static u8  stage_val_type;            /* Value type (STAGE_VAL_*)         */
 static u64 stage_finds[32],           /* Patterns found per fuzz stage    */
            stage_cycles[32];          /* Execs per fuzz stage             */
 
+#ifndef HAVE_ARC4RANDOM
 static u32 rand_cnt;                  /* Random number counter            */
+#endif
 
 static u64 total_cal_us,              /* Total calibration time (us)      */
            total_cal_cycles;          /* Total calibration cycles         */
@@ -641,14 +646,8 @@ static void trim_py(char** ret, size_t* retlen) {
 int select_algorithm(void) {
 
   int i_puppet, j_puppet;
-  u32 seed[2];
 
-  if (!fixed_seed) {
-    ck_read(dev_urandom_fd, &seed, sizeof(seed), "/dev/urandom");
-    srandom(seed[0]);
-  }
-
-  double sele = ((double)(random()%10000)*0.0001);
+  double sele = ((double)(UR(10000))*0.0001);
   j_puppet = 0;
   for (i_puppet = 0; i_puppet < operator_num; i_puppet++) {
       if (unlikely(i_puppet == 0)) {
@@ -699,7 +698,15 @@ static u64 get_cur_time_us(void) {
    have slight bias. */
 
 static inline u32 UR(u32 limit) {
+#ifdef HAVE_ARC4RANDOM
+  if (fixed_seed) {
+    return random() % limit;
+  }
 
+  /* The boundary not being necessarily a power of 2,
+     we need to ensure the result uniformity. */
+  return arc4random_uniform(limit);
+#else
   if (!fixed_seed && unlikely(!rand_cnt--)) {
     u32 seed[2];
 
@@ -709,6 +716,7 @@ static inline u32 UR(u32 limit) {
   }
 
   return random() % limit;
+#endif
 }
 
 
@@ -2407,7 +2415,9 @@ EXP_ST void init_forkserver(char** argv) {
 
     close(out_dir_fd);
     close(dev_null_fd);
+#ifndef HAVE_ARC4RANDOM
     close(dev_urandom_fd);
+#endif
     close(fileno(plot_file));
 
     /* This should improve performance a bit, since it stops the linker from
@@ -2681,7 +2691,9 @@ static u8 run_target(char** argv, u32 timeout) {
 
       close(dev_null_fd);
       close(out_dir_fd);
+#ifndef HAVE_ARC4RANDOM
       close(dev_urandom_fd);
+#endif
       close(fileno(plot_file));
 
       /* Set sane defaults for ASAN if nothing else specified. */
@@ -11466,8 +11478,10 @@ EXP_ST void setup_dirs_fds(void) {
   dev_null_fd = open("/dev/null", O_RDWR);
   if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
+#ifndef HAVE_ARC4RANDOM
   dev_urandom_fd = open("/dev/urandom", O_RDONLY);
   if (dev_urandom_fd < 0) PFATAL("Unable to open /dev/urandom");
+#endif
 
   /* Gnuplot output file. */
 
