@@ -4,7 +4,7 @@
 
   Repository: [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
 
-  afl++ is maintained by Marc Heuse <mh@mh-sec.de>, Heiko Eissfeldt
+  afl++ is maintained by Marc Heuse <mh@mh-sec.de>, Heiko Eißfeldt
   <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>.
 
 ## The enhancements compared to the original stock afl
@@ -18,7 +18,7 @@
 
   Additionally the following patches have been integrated:
 
-  * AFLfast's power schedules by Marcel Boehme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
+  * AFLfast's power schedules by Marcel Böhme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
 
   * C. Hollers afl-fuzz Python mutator module and llvm_mode whitelist support: [https://github.com/choller/afl](https://github.com/choller/afl)
 
