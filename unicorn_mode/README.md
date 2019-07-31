@@ -10,6 +10,8 @@
 afl-unicorn lets you fuzz any piece of binary that can be emulated by
 [Unicorn Engine](http://www.unicorn-engine.org/). 
 
+Requirements: Python2
+
 For the full readme please see docs/unicorn_mode.txt
 
 For an in-depth description of what this is, how to install it, and how to use

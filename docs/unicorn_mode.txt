@@ -20,6 +20,8 @@ The idea and much of the implementation comes from Nathan Voss <njvoss299@gmail.
 2) How to use
 -------------
 
+Requirements: you need an installed python2 environment.
+
 *** Building AFL's Unicorn Mode ***
 
 First, make afl as usual.
