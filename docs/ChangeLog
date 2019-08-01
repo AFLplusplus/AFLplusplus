@@ -17,7 +17,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.53d (dev):
 ----------------------
 
-  - afl-showmap -o output now shows the real values in the buckets (stock afl never did)
+  - afl-showmap -o output now shows the real values in the buckets (stock afl
+    never did), plus shows tuple content summary information now
   - fix building on *BSD (thanks to tobias.kortkamp for the patch)
   - small docu updates
   - ... your patch? :)

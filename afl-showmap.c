@@ -59,6 +59,8 @@ static u8 *out_file,                  /* Trace output file                 */
 
 static u32 exec_tmout;                /* Exec timeout (ms)                 */
 
+static u32 total, highest;            /* tuple content information         */
+
 static u64 mem_limit = MEM_LIMIT;     /* Memory limit (MB)                 */
 
 static u8  quiet_mode,                /* Hide non-essential messages?      */
@@ -155,7 +157,6 @@ static u32 write_results(void) {
 
   }
 
-
   if (binary_mode) {
 
     for (i = 0; i < MAP_SIZE; i++)
@@ -174,6 +175,10 @@ static u32 write_results(void) {
 
       if (!trace_bits[i]) continue;
       ret++;
+      
+      total += trace_bits[i];
+      if (highest < trace_bits[i])
+        highest = trace_bits[i];
 
       if (cmin_mode) {
 
@@ -543,7 +548,7 @@ int main(int argc, char** argv) {
 
   s32 opt;
   u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0, unicorn_mode = 0;
-  u32 tcnt;
+  u32 tcnt = 0;
   char** use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
@@ -701,7 +706,7 @@ int main(int argc, char** argv) {
   if (!quiet_mode) {
 
     if (!tcnt) FATAL("No instrumentation detected" cRST);
-    OKF("Captured %u tuples in '%s'." cRST, tcnt, out_file);
+    OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST, tcnt, highest, total, out_file);
 
   }
 
