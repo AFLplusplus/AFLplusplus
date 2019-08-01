@@ -65,6 +65,7 @@ static u64 mem_limit = MEM_LIMIT;     /* Memory limit (MB)                 */
 
 static u8  quiet_mode,                /* Hide non-essential messages?      */
            edges_only,                /* Ignore hit counts?                */
+           raw_instr_output,          /* Do not apply AFL filters          */
            cmin_mode,                 /* Generate output in afl-cmin mode? */
            binary_mode,               /* Write output as a binary map      */
            keep_cores;                /* Allow coredumps?                  */
@@ -116,15 +117,14 @@ static void classify_counts(u8* mem, const u8* map) {
       mem++;
     }
 
-  }
-  /* else {
+  } else if (!raw_instr_output) {
 
     while (i--) {
       *mem = map[*mem];
       mem++;
     }
 
-  }*/ // why this? its nowhere documented. and gives a false impression
+  }
 
 }
 
@@ -418,6 +418,7 @@ static void usage(u8* argv0) {
 
        "  -q            - sink program's output and don't show messages\n"
        "  -e            - show edge coverage only, ignore hit counts\n"
+       "  -r            - show raw coverage without AFL filters\n"
        "  -c            - allow core dumps\n\n"
 
        "This tool displays raw tuple data captured by AFL instrumentation.\n"
@@ -553,7 +554,7 @@ int main(int argc, char** argv) {
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  while ((opt = getopt(argc,argv,"+o:m:t:A:eqZQUbc")) > 0)
+  while ((opt = getopt(argc,argv,"+o:m:t:A:eqZQUbcr")) > 0)
 
     switch (opt) {
 
@@ -618,6 +619,7 @@ int main(int argc, char** argv) {
       case 'e':
 
         if (edges_only) FATAL("Multiple -e options not supported");
+        if (raw_instr_output) FATAL("-e and -r are mutually exclusive");
         edges_only = 1;
         break;
 
@@ -670,6 +672,13 @@ int main(int argc, char** argv) {
 
         if (keep_cores) FATAL("Multiple -c options not supported");
         keep_cores = 1;
+        break;
+      
+      case 'r':
+
+        if (raw_instr_output) FATAL("Multiple -r options not supported");
+        if (edges_only) FATAL("-e and -r are mutually exclusive");
+        raw_instr_output = 1;
         break;
 
       default:
