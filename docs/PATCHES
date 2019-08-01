@@ -17,6 +17,9 @@ afl-qemu-optimize-entrypoint.diff	by mh(at)mh-sec(dot)de
 afl-qemu-speed.diff			by abiondo on github
 afl-qemu-optimize-map.diff		by mh(at)mh-sec(dot)de
 
++ unicorn_mode (modernized and updated by domenukk)
++ instrim (https://github.com/csienslab/instrim) was integrated
++ MOpt (github.com/puppet-meteor/MOpt-AFL) was imported
 + AFLfast additions (github.com/mboehme/aflfast) were incorporated.
 + Qemu 3.1 upgrade with enhancement patches (github.com/andreafioraldi/afl)
 + Python mutator modules support (github.com/choller/afl)

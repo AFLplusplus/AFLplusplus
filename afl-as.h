@@ -189,6 +189,7 @@ static const u8* main_payload_32 =
   "  orb  $1, (%edx, %edi, 1)\n"
 #else
   "  incb (%edx, %edi, 1)\n"
+  "  adcb $0, (%edx, %edi, 1)\n" // never zero counter implementation. slightly better path discovery and little performance impact
 #endif /* ^SKIP_COUNTS */
   "\n"
   "__afl_return:\n"
@@ -220,6 +221,29 @@ static const u8* main_payload_32 =
   "  testl %eax, %eax\n"
   "  je    __afl_setup_abort\n"
   "\n"
+#ifdef USEMMAP
+  "  pushl $384        /* shm_open mode 0600 */\n"
+  "  pushl $2          /* flags O_RDWR   */\n"
+  "  pushl %eax        /* SHM file path  */\n"
+  "  call  shm_open\n"
+  "  addl  $12, %esp\n"
+  "\n"
+  "  cmpl $-1, %eax\n"
+  "  je   __afl_setup_abort\n"
+  "\n"
+  "  pushl $0          /* mmap off       */\n"
+  "  pushl %eax        /* shm fd         */\n"
+  "  pushl $1          /* mmap flags     */\n"
+  "  pushl $3          /* mmap prot      */\n"
+  "  pushl $"STRINGIFY(MAP_SIZE)"          /* mmap len       */\n"
+  "  pushl $0          /* mmap addr      */\n"
+  "  call  mmap\n"
+  "  addl  $12, %esp\n"
+  "\n"
+  "  cmpl $-1, %eax\n"
+  "  je   __afl_setup_abort\n"
+  "\n"
+#else
   "  pushl %eax\n"
   "  call  atoi\n"
   "  addl  $4, %esp\n"
@@ -233,6 +257,7 @@ static const u8* main_payload_32 =
   "  cmpl $-1, %eax\n"
   "  je   __afl_setup_abort\n"
   "\n"
+#endif
   "  /* Store the address of the SHM region. */\n"
   "\n"
   "  movl %eax, __afl_area_ptr\n"
@@ -417,6 +442,7 @@ static const u8* main_payload_64 =
   "  orb  $1, (%rdx, %rcx, 1)\n"
 #else
   "  incb (%rdx, %rcx, 1)\n"
+  "  adcb $0, (%rdx, %rcx, 1)\n" // never zero counter implementation. slightly better path discovery and little performance impact
 #endif /* ^SKIP_COUNTS */
   "\n"
   "__afl_return:\n"
@@ -501,6 +527,27 @@ static const u8* main_payload_64 =
   "  testq %rax, %rax\n"
   "  je    __afl_setup_abort\n"
   "\n"
+#ifdef USEMMAP
+  "  movl $384, %edx   /* shm_open mode 0600 */\n"
+  "  movl $2,   %esi   /* flags O_RDWR   */\n"
+  "  movq %rax, %rdi   /* SHM file path  */\n"
+  CALL_L64("shm_open")
+  "\n"
+  "  cmpq $-1, %rax\n"
+  "  je   __afl_setup_abort\n"
+  "\n"
+  "  movl    $0, %r9d\n"
+  "  movl    %eax, %r8d\n"
+  "  movl    $1, %ecx\n"
+  "  movl    $3, %edx\n"
+  "  movl    $"STRINGIFY(MAP_SIZE)", %esi\n"
+  "  movl    $0, %edi\n"
+  CALL_L64("mmap")
+  "\n"
+  "  cmpq $-1, %rax\n"
+  "  je   __afl_setup_abort\n"
+  "\n"
+#else
   "  movq  %rax, %rdi\n"
   CALL_L64("atoi")
   "\n"
@@ -512,6 +559,7 @@ static const u8* main_payload_64 =
   "  cmpq $-1, %rax\n"
   "  je   __afl_setup_abort\n"
   "\n"
+#endif
   "  /* Store the address of the SHM region. */\n"
   "\n"
   "  movq %rax, %rdx\n"

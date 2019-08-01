@@ -21,7 +21,7 @@
 
 /* Version string: */
 
-#define VERSION             "++2.52d"
+#define VERSION             "++2.53d"  // c = release, d = volatile github dev
 
 /******************************************************
  *                                                    *
@@ -59,6 +59,10 @@
 
 #define MEM_LIMIT_QEMU      200
 
+/* Default memory limit when running in Unicorn mode (MB): */
+
+#define MEM_LIMIT_UNICORN   200
+
 /* Number of calibration cycles per every new test case (and for test
    cases that show variable behavior): */
 
@@ -83,6 +87,7 @@
    of 32-bit int overflows): */
 
 #define HAVOC_MAX_MULT      16
+#define HAVOC_MAX_MULT_MOPT 32
 
 /* Absolute minimum number of havoc cycles (after all adjustments): */
 

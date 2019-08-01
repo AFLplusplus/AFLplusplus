@@ -252,6 +252,10 @@ static void edit_params(u32 argc, char** argv) {
 
   }
 
+#ifdef USEMMAP
+    cc_params[cc_par_cnt++] = "-lrt";
+#endif
+
   if (!getenv("AFL_DONT_OPTIMIZE")) {
 
 #if defined(__FreeBSD__) && defined(__x86_64__)
@@ -304,6 +308,7 @@ int main(int argc, char** argv) {
   if (isatty(2) && !getenv("AFL_QUIET")) {
 
     SAYF(cCYA "afl-cc" VERSION cRST " by <lcamtuf@google.com>\n");
+    SAYF(cYEL "[!] " cBRI "NOTE: " cRST "afl-gcc is deprecated, llvm_mode is much faster and has more options\n");
 
   } else be_quiet = 1;
 

@@ -6,6 +6,10 @@ Sister projects
   designed for, or meant to integrate with AFL. See README for the general
   instruction manual.
 
+!!!
+!!! This list is outdated and needs an update, missing: e.g. Angora, FairFuzz
+!!!
+
 -------------------------------------------
 Support for other languages / environments:
 -------------------------------------------
@@ -263,7 +267,7 @@ Static binary-only instrumentation (Aleksandar Nikolich)
   reports better performance compared to QEMU, but occasional translation
   errors with stripped binaries.
 
-  https://github.com/vrtadmin/moflow/tree/master/afl-dyninst
+  https://github.com/vanhauser-thc/afl-dyninst
 
 AFL PIN (Parker Thompson)
 -------------------------

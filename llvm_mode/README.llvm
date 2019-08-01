@@ -3,6 +3,7 @@ Fast LLVM-based instrumentation for afl-fuzz
 ============================================
 
   (See ../docs/README for the general instruction manual.)
+  (See ../gcc_plugin/README.gcc for the GCC-based instrumentation.)
 
 1) Introduction
 ---------------
@@ -30,7 +31,7 @@ several interesting properties:
   - The instrumentation can cope a bit better with multi-threaded targets.
 
   - Because the feature relies on the internals of LLVM, it is clang-specific
-    and will *not* work with GCC.
+    and will *not* work with GCC (see ../gcc_plugin/ for an alternative).
 
 Once this implementation is shown to be sufficiently robust and portable, it
 will probably replace afl-clang. For now, it can be built separately and
@@ -38,8 +39,8 @@ co-exists with the original code.
 
 The idea and much of the implementation comes from Laszlo Szekeres.
 
-2) How to use
--------------
+2) How to use this
+------------------
 
 In order to leverage this mechanism, you need to have clang installed on your
 system. You should also make sure that the llvm-config tool is in your path
@@ -69,21 +70,47 @@ operating mode of AFL, e.g.:
 Be sure to also include CXX set to afl-clang-fast++ for C++ code.
 
 The tool honors roughly the same environmental variables as afl-gcc (see
-../docs/env_variables.txt). This includes AFL_INST_RATIO, AFL_USE_ASAN,
-AFL_HARDEN, and AFL_DONT_OPTIMIZE.
+../docs/env_variables.txt). This includes AFL_USE_ASAN,
+AFL_HARDEN, and AFL_DONT_OPTIMIZE. However AFL_INST_RATIO is not honored
+as it does not serve a good purpose with the more effective instrim CFG
+analysis.
 
 Note: if you want the LLVM helper to be installed on your system for all
 users, you need to build it before issuing 'make install' in the parent
 directory.
 
-3) Gotchas, feedback, bugs
+3) Options
+
+Several options are present to make llvm_mode faster or help it rearrange
+the code to make afl-fuzz path discovery easier.
+
+If you need just to instrument specific parts of the code, you can whitelist
+which C/C++ files to actually intrument. See README.whitelist
+
+For splitting memcmp, strncmp, etc. please see README.laf-intel
+
+Then there is an optimized instrumentation strategy that uses CFGs and
+markers to just instrument what is needed. This increases speed by 20-25%
+however has a lower path discovery.
+If you want to use this, set AFL_LLVM_INSTRIM=1
+See README.instrim
+
+Finally if your llvm version is 8 or lower, you can activate a mode that
+prevents that a counter overflow result in a 0 value. This is good for
+path discovery, but the llvm implementation for intel for this functionality
+is not optimal and was only fixed in llvm 9.
+You can set this with AFL_LLVM_NOT_ZERO=1
+See README.neverzero
+
+
+4) Gotchas, feedback, bugs
 --------------------------
 
 This is an early-stage mechanism, so field reports are welcome. You can send bug
 reports to <afl-users@googlegroups.com>.
 
-4) Bonus feature #1: deferred instrumentation
----------------------------------------------
+5) Bonus feature #1: deferred initialization
+--------------------------------------------
 
 AFL tries to optimize performance by executing the targeted binary just once,
 stopping it just before main(), and then cloning this "master" process to get
@@ -129,7 +156,7 @@ will keep working normally when compiled with a tool other than afl-clang-fast.
 Finally, recompile the program with afl-clang-fast (afl-gcc or afl-clang will
 *not* generate a deferred-initialization binary) - and you should be all set!
 
-5) Bonus feature #2: persistent mode
+6) Bonus feature #2: persistent mode
 ------------------------------------
 
 Some libraries provide APIs that are stateless, or whose state can be reset in
@@ -169,7 +196,7 @@ PS. Because there are task switches still involved, the mode isn't as fast as
 faster than the normal fork() model, and compared to in-process fuzzing,
 should be a lot more robust.
 
-6) Bonus feature #3: new 'trace-pc-guard' mode
+8) Bonus feature #3: new 'trace-pc-guard' mode
 ----------------------------------------------
 
 Recent versions of LLVM are shipping with a built-in execution tracing feature
@@ -178,10 +205,8 @@ post-process the assembly or install any compiler plugins. See:
 
   http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards
 
-As of this writing, the feature is only available on SVN trunk, and is yet to
-make it to an official release of LLVM. Nevertheless, if you have a
-sufficiently recent compiler and want to give it a try, build afl-clang-fast
-this way:
+If you have a sufficiently recent compiler and want to give it a try, build
+afl-clang-fast this way:
 
   AFL_TRACE_PC=1 make clean all
 
