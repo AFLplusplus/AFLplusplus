@@ -418,11 +418,10 @@ static void usage(u8* argv0) {
 
        "  -q            - sink program's output and don't show messages\n"
        "  -e            - show edge coverage only, ignore hit counts\n"
-       "  -r            - show raw coverage without AFL filters\n"
+       "  -r            - show real tuple values instead of AFL filter values\n"
        "  -c            - allow core dumps\n\n"
 
        "This tool displays raw tuple data captured by AFL instrumentation.\n"
-       "(Note that *real* tuple data is shown, not interpreted data as in stock afl)\n"
        "For additional help, consult %s/README.\n\n" cRST,
 
        argv0, MEM_LIMIT, doc_path);
