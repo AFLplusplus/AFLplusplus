@@ -9,7 +9,8 @@
 
    TCG instrumentation and block chaining support by Andrea Biondo
                                       <andrea.biondo965@gmail.com>
-   QEMU 3.1.0 port and thread-safety by Andrea Fioraldi
+
+   QEMU 3.1.0 port, TCG thread-safety and CompareCoverage by Andrea Fioraldi
                                       <andreafioraldi@gmail.com>
 
    Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
@@ -64,6 +65,8 @@ unsigned char *afl_area_ptr = dummy; /* Exported for afl_gen_trace */
 abi_ulong afl_entry_point, /* ELF entry point (_start) */
           afl_start_code,  /* .text start pointer      */
           afl_end_code;    /* .text end pointer        */
+
+u8 afl_enable_compcov;
 
 /* Set in the child process in forkserver mode: */
 
@@ -147,7 +150,6 @@ static void afl_setup(void) {
 
     if (inst_r) afl_area_ptr[0] = 1;
 
-
   }
 
   if (getenv("AFL_INST_LIBS")) {
@@ -155,6 +157,11 @@ static void afl_setup(void) {
     afl_start_code = 0;
     afl_end_code   = (abi_ulong)-1;
 
+  }
+  
+  if (getenv("AFL_QEMU_COMPCOV")) {
+
+    afl_enable_compcov = 1;
   }
 
   /* pthread_atfork() seems somewhat broken in util/rcu.c, and I'm
@@ -271,6 +278,25 @@ static void afl_request_tsl(target_ulong pc, target_ulong cb, uint32_t flags, ui
 
 }
 
+
+/* Check if an address is valid in the current mapping */
+
+static inline int is_valid_addr(target_ulong addr) {
+
+    int l, flags;
+    target_ulong page;
+    void * p;
+    
+    page = addr & TARGET_PAGE_MASK;
+    l = (page + TARGET_PAGE_SIZE) - addr;
+    
+    flags = page_get_flags(page);
+    if (!(flags & PAGE_VALID) || !(flags & PAGE_READ))
+        return 0;
+    
+    return 1;
+}
+
 /* This is the other side of the same channel. Since timeouts are handled by
    afl-fuzz simply killing the child, we can just wait until the pipe breaks. */
 
@@ -282,6 +308,8 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
 
   while (1) {
 
+    u8 invalid_pc = 0;
+
     /* Broken pipe means it's time to return to the fork server routine. */
 
     if (read(fd, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl))
@@ -290,19 +318,34 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
     tb = tb_htable_lookup(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, t.tb.cf_mask);
 
     if(!tb) {
-      mmap_lock();
-      tb = tb_gen_code(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, 0);
-      mmap_unlock();
+      
+      /* The child may request to transate a block of memory that is not
+         mapped in the parent (e.g. jitted code or dlopened code).
+         This causes a SIGSEV in gen_intermediate_code() and associated
+         subroutines. We simply avoid caching of such blocks. */
+
+      if (is_valid_addr(t.tb.pc)) {
+    
+        mmap_lock();
+        tb = tb_gen_code(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, 0);
+        mmap_unlock();
+      } else {
+      
+        invalid_pc = 1; 
+      }
     }
 
     if (t.is_chain) {
       if (read(fd, &c, sizeof(struct afl_chain)) != sizeof(struct afl_chain))
         break;
 
-      last_tb = tb_htable_lookup(cpu, c.last_tb.pc, c.last_tb.cs_base,
-                                 c.last_tb.flags, c.cf_mask);
-      if (last_tb) {
-        tb_add_jump(last_tb, c.tb_exit, tb);
+      if (!invalid_pc) {
+
+        last_tb = tb_htable_lookup(cpu, c.last_tb.pc, c.last_tb.cs_base,
+                                   c.last_tb.flags, c.cf_mask);
+        if (last_tb) {
+          tb_add_jump(last_tb, c.tb_exit, tb);
+        }
       }
     }
 

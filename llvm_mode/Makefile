@@ -16,6 +16,9 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
+# For Heiko:
+#TEST_MMAP=1
+
 PREFIX      ?= /usr/local
 HELPER_PATH  = $(PREFIX)/lib/afl
 BIN_PATH     = $(PREFIX)/bin
@@ -23,17 +26,23 @@ BIN_PATH     = $(PREFIX)/bin
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
 LLVM_CONFIG ?= llvm-config
-#LLVM_OK = $(shell $(LLVM_CONFIG) --version | egrep -q '^[5-6]' && echo 0 || echo 1 )
+LLVMVER  = $(shell $(LLVM_CONFIG) --version)
 LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^9|3.0' && echo 1 || echo 0 )
+LLVM_MAJOR = ($shell $(LLVM_CONFIG) --version | sed 's/\..*//')
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
   $(warn llvm_mode only supports versions 3.8.0 up to 8.x )
 endif
 
+# this is not visible yet:
+ifeq "$(LLVM_MAJOR)" "9"
+  $(info llvm_mode deteted llvm 9, enabling neverZero implementation)
+endif
+
 CFLAGS      ?= -O3 -funroll-loops
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
-               -DVERSION=\"$(VERSION)\"  
+               -DVERSION=\"$(VERSION)\"
 ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
 endif
@@ -45,10 +54,14 @@ CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
-# User teor2345 reports that this is required to make things work on MacOS X.
 
+# User teor2345 reports that this is required to make things work on MacOS X.
 ifeq "$(shell uname)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
+endif
+
+ifeq "$(shell uname)" "OpenBSD"
+  CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so.0.0
 endif
 
 # We were using llvm-config --bindir to get the location of clang, but
@@ -60,13 +73,53 @@ ifeq "$(origin CC)" "default"
   CXX        = clang++
 endif
 
+# sanity check.
+# Are versions of clang --version and llvm-config --version equal?
+CLANGVER = $(shell $(CC) --version | sed -E -ne '/^.*([0-9]\.[0-9]\.[0-9]).*/s//\1/p')
+
+
+ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 )" "1"
+        SHMAT_OK=1
+else
+        SHMAT_OK=0
+        CFLAGS+=-DUSEMMAP=1
+        LDFLAGS += -lrt
+endif
+
+ifeq "$(TEST_MMAP)" "1"
+        SHMAT_OK=0
+        CFLAGS+=-DUSEMMAP=1
+        LDFLAGS += -lrt
+endif
+
+
 ifndef AFL_TRACE_PC
-  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
+  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 else
   PROGS      = ../afl-clang-fast ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 endif
 
-all: test_deps $(PROGS) test_build all_done
+ifneq "$(CLANGVER)" "$(LLVMVER)"
+  CC = $(shell llvm-config --bindir)/clang
+  CXX = $(shell llvm-config --bindir)/clang++
+endif
+
+all: test_shm test_deps $(PROGS) test_build all_done
+
+
+ifeq "$(SHMAT_OK)" "1"
+
+test_shm:
+	@echo "[+] shmat seems to be working."
+	@rm -f .test2
+
+else
+
+test_shm:
+	@echo "[-] shmat seems not to be working, switching to mmap implementation"
+
+endif
+
 
 test_deps:
 ifndef AFL_TRACE_PC
@@ -77,6 +130,13 @@ else
 endif
 	@echo "[*] Checking for working '$(CC)'..."
 	@which $(CC) >/dev/null 2>&1 || ( echo "[-] Oops, can't find '$(CC)'. Make sure that it's in your \$$PATH (or set \$$CC and \$$CXX)."; exit 1 )
+	@echo "[*] Checking for matching versions of '$(CC)' and '$(LLVM_CONFIG)'"
+ifneq "$(CLANGVER)" "$(LLVMVER)"
+	@echo "[!] WARNING: we have llvm-config version $(LLVMVER) and a clang version $(CLANGVER)"
+	@echo "[!] Retrying with the clang compiler from llvm: CC=`llvm-config --bindir`/clang"
+else
+	@echo "[*] We have llvm-config version $(LLVMVER) with a clang version $(CLANGVER), good."
+endif
 	@echo "[*] Checking for '../afl-showmap'..."
 	@test -f ../afl-showmap || ( echo "[-] Oops, can't find '../afl-showmap'. Be sure to compile AFL first."; exit 1 )
 	@echo "[+] All set and ready to build."
@@ -85,8 +145,11 @@ endif
 	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 	ln -sf afl-clang-fast ../afl-clang-fast++
 
+../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc | test_deps
+	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=gnu++11 -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
+
 ../afl-llvm-pass.so: afl-llvm-pass.so.cc | test_deps
-	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL)
+	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=gnu++11 -shared $< -o $@ $(CLANG_LFL)
 
 # laf
 ../split-switches-pass.so:	split-switches-pass.so.cc | test_deps
@@ -110,7 +173,7 @@ endif
 
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
-	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1 AFL_PATH=. AFL_CC=$(CC) LAF_SPLIT_SWITCHES=1 LAF_TRANSFORM_COMPARES=1 LAF_SPLIT_COMPARES=1 ../afl-clang-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
+	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1 AFL_PATH=. AFL_CC=$(CC) AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
 	echo 0 | ../afl-showmap -m none -q -o .test-instr0 ./test-instr
 	echo 1 | ../afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
@@ -123,5 +186,5 @@ all_done: test_build
 .NOTPARALLEL: clean
 
 clean:
-	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 
+	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 
 	rm -f $(PROGS) ../afl-clang-fast++

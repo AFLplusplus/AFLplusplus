@@ -477,6 +477,8 @@ bool SplitComparesTransform::runOnModule(Module &M) {
   int bitw = 64;
 
   char* bitw_env = getenv("LAF_SPLIT_COMPARES_BITW");
+  if (!bitw_env)
+    bitw_env = getenv("AFL_LLVM_LAF_SPLIT_COMPARES_BITW");
   if (bitw_env) {
     bitw = atoi(bitw_env);
   }
@@ -485,7 +487,8 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
   simplifySignedness(M);
 
-  errs() << "Split-compare-pass by laf.intel@gmail.com\n"; 
+  if (getenv("AFL_QUIET") == NULL)
+    errs() << "Split-compare-pass by laf.intel@gmail.com\n"; 
 
   switch (bitw) {
     case 64:

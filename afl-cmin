@@ -49,9 +49,9 @@ MEM_LIMIT=100
 TIMEOUT=none
 
 unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
-  AFL_CMIN_CRASHES_ONLY AFL_CMIN_ALLOW_ANY QEMU_MODE
+  AFL_CMIN_CRASHES_ONLY AFL_CMIN_ALLOW_ANY QEMU_MODE UNICORN_MODE
 
-while getopts "+i:o:f:m:t:eQC" opt; do
+while getopts "+i:o:f:m:t:eQUC" opt; do
 
   case "$opt" in 
 
@@ -83,6 +83,11 @@ while getopts "+i:o:f:m:t:eQC" opt; do
          test "$MEM_LIMIT_GIVEN" = "" && MEM_LIMIT=250
          QEMU_MODE=1
          ;;
+    "U")
+         EXTRA_PAR="$EXTRA_PAR -U"
+         test "$MEM_LIMIT_GIVEN" = "" && MEM_LIMIT=250
+         UNICORN_MODE=1
+         ;;    
     "?")
          exit 1
          ;;
@@ -111,7 +116,8 @@ Execution control settings:
   -m megs       - memory limit for child process ($MEM_LIMIT MB)
   -t msec       - run time limit for child process (none)
   -Q            - use binary-only instrumentation (QEMU mode)
-
+  -U            - use unicorn-based instrumentation (Unicorn mode)
+  
 Minimization settings:
 
   -C            - keep crashing inputs, reject everything else
@@ -196,7 +202,7 @@ if [ ! -f "$TARGET_BIN" -o ! -x "$TARGET_BIN" ]; then
 
 fi
 
-if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" ]; then
+if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$UNICORN_MODE" = "" ]; then
 
   if ! grep -qF "__AFL_SHM_ID" "$TARGET_BIN"; then
     echo "[-] Error: binary '$TARGET_BIN' doesn't appear to be instrumented." 1>&2

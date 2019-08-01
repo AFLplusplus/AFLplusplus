@@ -1,0 +1,34 @@
+Roadmap 2.53d:
+==============
+ - indent all the code: clang-format -style=Google
+
+ - update docs/sister_projects.txt
+
+afl-fuzz:
+ - put mutator, scheduler, forkserver and input channels in individual files
+ - reuse forkserver for showmap, afl-cmin, etc.
+
+gcc_plugin:
+ - needs to be rewritten
+ - fix crashes when compiling :(
+ - whitelist support
+ - skip over uninteresting blocks
+ - laf-intel
+ - neverZero
+
+qemu_mode:
+ - deferred mode with AFL_DEFERRED_QEMU=0xaddress
+
+unit testing / or large testcase campaign
+
+
+Roadmap 2.54d:
+==============
+ - expand MAP size to 256k (current L2 cache size on processors)
+   -> 18 bit map
+ - llvm_mode: dynamic map size and collission free basic block IDs
+
+qemu_mode:
+ - persistent mode patching the return address (WinAFL style)
+ - instrument only comparison with immediate values by default when using compcov
+

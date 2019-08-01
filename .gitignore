@@ -1,5 +1,6 @@
+*.o
+*.so
 .gitignore
-TODO
 afl-analyze
 afl-as
 afl-clang
@@ -9,6 +10,8 @@ afl-clang-fast++
 afl-fuzz
 afl-g++
 afl-gcc
+afl-gcc-fast
+afl-g++-fast
 afl-gotcpu
 afl-qemu-trace
 afl-showmap
@@ -16,3 +19,5 @@ afl-tmin
 as
 qemu_mode/qemu-3.1.0
 qemu_mode/qemu-3.1.0.tar.xz
+unicorn_mode/unicorn
+unicorn_mode/unicorn-*
