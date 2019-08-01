@@ -46,15 +46,13 @@ namespace {
     std::mt19937 generator;
     int total_instr = 0;
 
-    unsigned genLabel() {
-      return generator() % 65536;
+    unsigned int genLabel() {
+      return generator() &= MAP_SIZE - 1;
     }
 
   public:
     static char ID;
-    InsTrim() : ModulePass(ID), generator(0) {//}
-    
-//    AFLCoverage() : ModulePass(ID) {
+    InsTrim() : ModulePass(ID), generator(0) {
       char* instWhiteListFilename = getenv("AFL_LLVM_WHITELIST");
       if (instWhiteListFilename) {
         std::string line;
