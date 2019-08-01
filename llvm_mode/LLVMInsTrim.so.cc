@@ -47,7 +47,7 @@ namespace {
     int total_instr = 0;
 
     unsigned int genLabel() {
-      return generator() &= MAP_SIZE - 1;
+      return generator() & (MAP_SIZE - 1);
     }
 
   public:
