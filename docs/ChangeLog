@@ -18,6 +18,7 @@ Version ++2.53d (dev):
 ----------------------
 
   - custom mutator by a loaded library is now supported (thanks to kyakdan!)
+  - fix for a few features to support different map sized than 2^16
   - afl-showmap: new option -r now shows the real values in the buckets (stock
     afl never did), plus shows tuple content summary information now
   - fix building on *BSD (thanks to tobias.kortkamp for the patch)
