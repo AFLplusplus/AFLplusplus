@@ -17,6 +17,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.53d (dev):
 ----------------------
 
+  - custom mutator by a loaded library is now supported (thanks to kyakdan!)
   - afl-showmap: new option -r now shows the real values in the buckets (stock
     afl never did), plus shows tuple content summary information now
   - fix building on *BSD (thanks to tobias.kortkamp for the patch)

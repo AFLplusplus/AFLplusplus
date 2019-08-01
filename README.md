@@ -32,6 +32,8 @@
 
   * unicorn_mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
 
+  * Custom mutator by a library (instead of Python) by kyakdan
+
   A more thorough list is available in the PATCHES file.
 
   So all in all this is the best-of AFL that is currently out there :-)
