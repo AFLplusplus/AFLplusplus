@@ -114,14 +114,15 @@ static void classify_counts(u8* mem, const u8* map) {
       mem++;
     }
 
-  } else {
+  }
+  /* else {
 
     while (i--) {
       *mem = map[*mem];
       mem++;
     }
 
-  }
+  }*/ // why this? its nowhere documented. and gives a false impression
 
 }
 
@@ -415,6 +416,7 @@ static void usage(u8* argv0) {
        "  -c            - allow core dumps\n\n"
 
        "This tool displays raw tuple data captured by AFL instrumentation.\n"
+       "(Note that *real* tuple data is shown, not interpreted data as in stock afl)\n"
        "For additional help, consult %s/README.\n\n" cRST,
 
        argv0, MEM_LIMIT, doc_path);
