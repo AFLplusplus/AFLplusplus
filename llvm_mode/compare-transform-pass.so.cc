@@ -82,7 +82,11 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp, const 
 					 , nullptr
 #endif
 					 );
+#if LLVM_VERSION_MAJOR < 9
   Function* tolowerFn = cast<Function>(c);
+#else
+  FunctionCallee tolowerFn = c;
+#endif
 
   /* iterate over all functions, bbs and instruction and add suitable calls to strcmp/memcmp/strncmp/strcasecmp/strncasecmp */
   for (auto &F : M) {
