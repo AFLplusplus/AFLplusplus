@@ -134,16 +134,14 @@ static const u8* trampoline_fmt_64 =
   "\n"
   ".align 4\n"
   "\n"
-  "leaq -(128+24)(%%rsp), %%rsp\n"
+  "leaq -(128+16)(%%rsp), %%rsp\n"
   "movq %%rdx,  0(%%rsp)\n"
-  "movq %%rcx,  8(%%rsp)\n"
-  "movq %%rax, 16(%%rsp)\n"
-  "movq $0x%08x, %%rcx\n"
+  "movq %%rax, 8(%%rsp)\n"
+  "leaq (%rip), %rdx\n"
   "call __afl_maybe_log\n"
-  "movq 16(%%rsp), %%rax\n"
-  "movq  8(%%rsp), %%rcx\n"
+  "movq 8(%%rsp), %%rax\n"
   "movq  0(%%rsp), %%rdx\n"
-  "leaq (128+24)(%%rsp), %%rsp\n"
+  "leaq (128+16)(%%rsp), %%rsp\n"
   "\n"
   "/* --- END --- */\n"
   "\n";
@@ -421,32 +419,25 @@ static const u8* main_payload_64 =
   "  lahf\n"
 #endif /* ^__OpenBSD__, etc */
   "  seto  %al\n"
+  "  pushq %rax\n"
   "\n"
   "  /* Check if SHM region is already mapped. */\n"
   "\n"
-  "  movq  __afl_area_ptr(%rip), %rdx\n"
-  "  testq %rdx, %rdx\n"
+  "  movq  __afl_area_ptr(%rip), %rax\n"
+  "  testq %rax, %rax\n"
   "  je    __afl_setup\n"
   "\n"
   "__afl_store:\n"
   "\n"
-  "  /* Calculate and store hit for the code location specified in rcx. */\n"
-  "\n"
-#ifndef COVERAGE_ONLY
-  "  xorq __afl_prev_loc(%rip), %rcx\n"
-  "  xorq %rcx, __afl_prev_loc(%rip)\n"
-  "  shrq $1, __afl_prev_loc(%rip)\n"
-#endif /* ^!COVERAGE_ONLY */
-  "\n"
-#ifdef SKIP_COUNTS
-  "  orb  $1, (%rdx, %rcx, 1)\n"
-#else
-  "  incb (%rdx, %rcx, 1)\n"
-  "  adcb $0, (%rdx, %rcx, 1)\n" // never zero counter implementation. slightly better path discovery and little performance impact
-#endif /* ^SKIP_COUNTS */
+  "  pushq %rdi\n"
+  "  movq 0(%rax), %rdi\n"
+  "  movq %rdx, (%rax, %rdi, 8)\n"
+  "  incq 0(%rax)\n"
+  "  popq %rdi\n"
   "\n"
   "__afl_return:\n"
   "\n"
+  "  popq %rax\n"
   "  addb $127, %al\n"
 #if defined(__OpenBSD__)  || (defined(__FreeBSD__) && (__FreeBSD__ < 9))
   "  .byte 0x9e /* sahf */\n"
@@ -467,16 +458,17 @@ static const u8* main_payload_64 =
   "  /* Check out if we have a global pointer on file. */\n"
   "\n"
 #ifndef __APPLE__
-  "  movq  __afl_global_area_ptr@GOTPCREL(%rip), %rdx\n"
-  "  movq  (%rdx), %rdx\n"
+  "  movq  __afl_global_area_ptr@GOTPCREL(%rip), %rax\n"
+  "  movq  (%rax), %rax\n"
 #else
-  "  movq  __afl_global_area_ptr(%rip), %rdx\n"
+  "  movq  __afl_global_area_ptr(%rip), %rax\n"
 #endif /* !^__APPLE__ */
-  "  testq %rdx, %rdx\n"
+  "  testq %rax, %rax\n"
   "  je    __afl_setup_first\n"
   "\n"
-  "  movq %rdx, __afl_area_ptr(%rip)\n"
-  "  jmp  __afl_store\n" 
+  "  movq %rax, __afl_area_ptr(%rip)\n"
+  "  movq $1, (%rax)\n"
+  "  jmp  __afl_return\n" /* was __afl_store */
   "\n"
   "__afl_setup_first:\n"
   "\n"
@@ -562,7 +554,7 @@ static const u8* main_payload_64 =
 #endif
   "  /* Store the address of the SHM region. */\n"
   "\n"
-  "  movq %rax, %rdx\n"
+  //"  movq %rax, %rdx\n"
   "  movq %rax, __afl_area_ptr(%rip)\n"
   "\n"
 #ifdef __APPLE__
@@ -571,7 +563,7 @@ static const u8* main_payload_64 =
   "  movq __afl_global_area_ptr@GOTPCREL(%rip), %rdx\n"
   "  movq %rax, (%rdx)\n"
 #endif /* ^__APPLE__ */
-  "  movq %rax, %rdx\n"
+  //"  movq %rax, %rdx\n"
   "\n"
   "__afl_forkserver:\n"
   "\n"
@@ -650,6 +642,13 @@ static const u8* main_payload_64 =
   "  movq $" STRINGIFY((FORKSRV_FD + 1)) ", %rdi\n"
   CALL_L64("close")
   "\n"
+#ifndef __APPLE__
+  "  movq  __afl_global_area_ptr@GOTPCREL(%rip), %rdi\n"
+  "  movq  (%rdi), %rdi\n"
+#else
+  "  movq  __afl_global_area_ptr(%rip), %rdi\n"
+#endif /* !^__APPLE__ */
+  "  movq $1, (%rdi)\n"
   "  popq %rdx\n"
   "  popq %rdx\n"
   "\n"
@@ -684,7 +683,7 @@ static const u8* main_payload_64 =
   "\n"
   "  leaq 352(%rsp), %rsp\n"
   "\n"
-  "  jmp  __afl_store\n"
+  "  jmp  __afl_return\n"
   "\n"
   "__afl_die:\n"
   "\n"
@@ -729,7 +728,7 @@ static const u8* main_payload_64 =
   "\n"
   "  leaq 352(%rsp), %rsp\n"
   "\n"
-  "  jmp __afl_return\n"
+  "  jmp __afl_return\n" /* was: __afl_store */
   "\n"
   ".AFL_VARS:\n"
   "\n"

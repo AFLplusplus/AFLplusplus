@@ -59,9 +59,8 @@ static u8 *out_file,                  /* Trace output file                 */
 
 static u32 exec_tmout;                /* Exec timeout (ms)                 */
 
-static u32 total, highest;            /* tuple content information         */
-
-static u64 mem_limit = MEM_LIMIT;     /* Memory limit (MB)                 */
+static u64 mem_limit = MEM_LIMIT,     /* Memory limit (MB)                 */
+           cnt;                       /* Entries in the map (count)        */
 
 static u8  quiet_mode,                /* Hide non-essential messages?      */
            edges_only,                /* Ignore hit counts?                */
@@ -75,66 +74,12 @@ static volatile u8
            child_timed_out,           /* Child timed out?                  */
            child_crashed;             /* Child crashed?                    */
 
-/* Classify tuple counts. Instead of mapping to individual bits, as in
-   afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
-
-static const u8 count_class_human[256] = {
-
-  [0]           = 0,
-  [1]           = 1,
-  [2]           = 2,
-  [3]           = 3,
-  [4 ... 7]     = 4,
-  [8 ... 15]    = 5,
-  [16 ... 31]   = 6,
-  [32 ... 127]  = 7,
-  [128 ... 255] = 8
-
-};
-
-static const u8 count_class_binary[256] = {
-
-  [0]           = 0,
-  [1]           = 1,
-  [2]           = 2,
-  [3]           = 4,
-  [4 ... 7]     = 8,
-  [8 ... 15]    = 16,
-  [16 ... 31]   = 32,
-  [32 ... 127]  = 64,
-  [128 ... 255] = 128
-
-};
-
-static void classify_counts(u8* mem, const u8* map) {
-
-  u32 i = MAP_SIZE;
-
-  if (edges_only) {
-
-    while (i--) {
-      if (*mem) *mem = 1;
-      mem++;
-    }
-
-  } else if (!raw_instr_output) {
-
-    while (i--) {
-      *mem = map[*mem];
-      mem++;
-    }
-
-  }
-
-}
-
-
 /* Write results. */
 
-static u32 write_results(void) {
+void write_results(void) {
 
   s32 fd;
-  u32 i, ret = 0;
+  u32 i;
 
   u8  cco = !!getenv("AFL_CMIN_CRASHES_ONLY"),
       caa = !!getenv("AFL_CMIN_ALLOW_ANY");
@@ -157,12 +102,16 @@ static u32 write_results(void) {
 
   }
 
+  u64 *ptr = (u64*)trace_bits;
+  cnt = *ptr;
+  cnt--;
+
+  if ((cnt << 3) > MAP_SIZE)
+    cnt = MAP_SIZE / 8;
+
   if (binary_mode) {
 
-    for (i = 0; i < MAP_SIZE; i++)
-      if (trace_bits[i]) ret++;
-    
-    ck_write(fd, trace_bits, MAP_SIZE, out_file);
+    ck_write(fd, trace_bits, (cnt << 3), out_file);
     close(fd);
 
   } else {
@@ -171,23 +120,16 @@ static u32 write_results(void) {
 
     if (!f) PFATAL("fdopen() failed");
 
-    for (i = 0; i < MAP_SIZE; i++) {
+    fprintf(f, "%s%llu\n", cmin_mode ? "" : "Entries: ", cnt);
 
-      if (!trace_bits[i]) continue;
-      ret++;
-      
-      total += trace_bits[i];
-      if (highest < trace_bits[i])
-        highest = trace_bits[i];
+    for (i = 1; i <= cnt; i++) {
 
       if (cmin_mode) {
 
         if (child_timed_out) break;
         if (!caa && child_crashed != cco) break;
 
-        fprintf(f, "%u%u\n", trace_bits[i], i);
-
-      } else fprintf(f, "%06u:%u\n", i, trace_bits[i]);
+      } else fprintf(f, "%06u:%016llx\n", i, ptr[i]);
 
     }
   
@@ -195,7 +137,7 @@ static u32 write_results(void) {
 
   }
 
-  return ret;
+  return;
 
 }
 
@@ -298,12 +240,10 @@ static void run_target(char** argv) {
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32*)trace_bits == EXEC_FAIL_SIG)
+  u64 *ptr = (u64*)trace_bits;
+  if (*ptr == 0)
     FATAL("Unable to execute '%s'", argv[0]);
-
-  classify_counts(trace_bits, binary_mode ?
-                  count_class_binary : count_class_human);
-
+    
   if (!quiet_mode)
     SAYF(cRST "-- Program output ends --\n");
 
@@ -548,7 +488,6 @@ int main(int argc, char** argv) {
 
   s32 opt;
   u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0, unicorn_mode = 0;
-  u32 tcnt = 0;
   char** use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
@@ -709,12 +648,11 @@ int main(int argc, char** argv) {
 
   run_target(use_argv);
 
-  tcnt = write_results();
+  write_results();
 
   if (!quiet_mode) {
 
-    if (!tcnt) FATAL("No instrumentation detected" cRST);
-    OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST, tcnt, highest, total, out_file);
+    OKF("Captured %llu entries." cRST, cnt);
 
   }
 
