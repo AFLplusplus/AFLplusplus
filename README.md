@@ -1,9 +1,24 @@
 # american fuzzy lop plus plus (afl++)
 
-  Release Version: 2.53c 
+  Test branch to try a different approach to perform coverage.
 
-  Github Version: 2.53d
+  we will use a larger map which we document all instruction pointers of
+  each basic block traversed - every time.
 
+  in afl-fuzz we then perform a hash and then know if the path is unique
+  or not. this way more reliable at a slightly lower speed.
+
+  further implementations will then also allow to schedule based on path
+  data, e.g. basic blocks never seen before etc. - which makes these
+  instances much, much slower, but then being able to do what FairFuzz
+  and aflgo do as well.
+
+  Currently working: afl-gcc, afl-showmap
+
+  Todo: afl-fuzz, llvm_mode
+
+
+## original readme follows ...
 
   Originally developed by Michal "lcamtuf" Zalewski.
 
