@@ -48,7 +48,7 @@ ifdef AFL_TRACE_PC
 endif
 
 CXXFLAGS    ?= -O3 -funroll-loops
-CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
+CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g \
                -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
