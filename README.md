@@ -13,9 +13,11 @@
   instances much, much slower, but then being able to do what FairFuzz
   and aflgo do as well.
 
-  Currently working: afl-gcc, llvm_mode (faster!), afl-showmap
+  Currently working: afl-gcc, llvm_mode (faster!), afl-showmap, afl-fuzz (basic)
 
-  Todo: afl-fuzz (and: afl-tmin, afl-analyze)
+  Todo: intelligent analysis, scheduling etc in afl-fuzz (and: afl-tmin, afl-analyze)
+        implement MAX_ENTRIES check in llvm_mode
+        also remove instrim (does not work with this)
 
 
 ## original readme follows ...
