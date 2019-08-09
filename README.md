@@ -13,9 +13,9 @@
   instances much, much slower, but then being able to do what FairFuzz
   and aflgo do as well.
 
-  Currently working: afl-gcc, afl-showmap
+  Currently working: afl-gcc, llvm_mode (faster!), afl-showmap
 
-  Todo: afl-fuzz, llvm_mode
+  Todo: afl-fuzz (and: afl-tmin, afl-analyze)
 
 
 ## original readme follows ...

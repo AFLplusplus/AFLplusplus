@@ -92,8 +92,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   LLVMContext &C = M.getContext();
 
   IntegerType *Int8Ty  = IntegerType::getInt8Ty(C);
-  //IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
-  unsigned int cur_loc = 0;
+  IntegerType *Int64Ty  = IntegerType::getInt64Ty(C);
 
   /* Show a banner */
 
@@ -184,19 +183,12 @@ bool AFLCoverage::runOnModule(Module &M) {
       }
 
 
-      if (AFL_R(100) >= inst_ratio) continue;
-
-      /* Make up cur_loc */
-
-       //cur_loc++;
-      cur_loc = AFL_R(MAP_SIZE);
-
       // only instrument if this basic block is the destination of a previous
       // basic block that has multiple successors
       // this gets rid of ~5-10% of instrumentations that are unnecessary
       // result: a little more speed and less map pollution
       int more_than_one = -1;
-      //fprintf(stderr, "BB %u: ", cur_loc);
+
       for (BasicBlock *Pred : predecessors(&BB)) {
         int count = 0;
         if (more_than_one == -1)
@@ -215,7 +207,9 @@ bool AFLCoverage::runOnModule(Module &M) {
       if (more_than_one != 1)
         continue;
 
-      
+      if (!BlockAddress::get(&F, &BB))
+        continue;
+
 /************
   CODE:
 
@@ -233,23 +227,20 @@ bool AFLCoverage::runOnModule(Module &M) {
 
 ***********/
 
-      /* get instruction pointer: Rip = ... */
-      
-      Value *Rip = ConstantInt::get(Int8Ty, 0);
-
       /* idx = map[0] */
       LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
       MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *MapPtrPtr = IRB.CreateGEP(MapPtr, ConstantInt::get(Int8Ty, 0));
-      LoadInst *Counter = IRB.CreateLoad(MapPtrPtr);
+      Value *MapPtrPtr = IRB.CreateGEP(MapPtr, ConstantInt::get(Int64Ty, 0));
+      LoadInst *Counter = IRB.CreateLoad(Int64Ty, MapPtrPtr);
       Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
       /* map[idx] = rip */
-      Value *MapPtrIdx = IRB.CreateGEP(MapPtr, Counter);
-      IRB.CreateStore(Rip, MapPtrIdx)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      Value *Shifted = IRB.CreateShl(Counter, ConstantInt::get(Int8Ty, 3));
+      Value *MapPtrIdx = IRB.CreateGEP(MapPtr, Shifted);
+      IRB.CreateStore(BlockAddress::get(&F, &BB), MapPtrIdx)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
       /* idx++ */
-      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
+      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int64Ty, 1));
 
       /* map[0] = idx */
       IRB.CreateStore(Incr, MapPtrPtr)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));

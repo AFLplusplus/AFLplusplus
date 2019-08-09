@@ -121,6 +121,7 @@ void write_results(void) {
     if (!f) PFATAL("fdopen() failed");
 
     fprintf(f, "%s%llu\n", cmin_mode ? "" : "Entries: ", cnt);
+    fprintf(f, "ENTRY:%016llx\n", ptr[0]);
 
     for (i = 1; i <= cnt; i++) {
 
@@ -129,7 +130,7 @@ void write_results(void) {
         if (child_timed_out) break;
         if (!caa && child_crashed != cco) break;
 
-      } else fprintf(f, "%06u:%016llx\n", i, ptr[i]);
+      } else fprintf(f, "%05u:%016llx\n", i, ptr[i]);
 
     }
   
