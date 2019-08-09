@@ -3034,7 +3034,7 @@ static u8* describe_op(u8 hnb) {
 
     } else sprintf(ret + strlen(ret), ",rep:%u", stage_cur_val);
 
-    sprintf(ret + strlen(ret), ",%016llx", last_cksum);
+    sprintf(ret + strlen(ret), ",%016llx,%llu", last_cksum, total_len);
 
   }
 
