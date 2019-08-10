@@ -42,6 +42,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h" /* splitBlockAndInsertIfThen */
 #include "llvm/IR/CFG.h"
 
 using namespace llvm;
@@ -91,7 +92,6 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   LLVMContext &C = M.getContext();
 
-  IntegerType *Int8Ty  = IntegerType::getInt8Ty(C);
   IntegerType *Int64Ty  = IntegerType::getInt64Ty(C);
 
   /* Show a banner */
@@ -104,24 +104,11 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   } else be_quiet = 1;
 
-  /* Decide instrumentation ratio */
-
-  char* inst_ratio_str = getenv("AFL_INST_RATIO");
-  unsigned int inst_ratio = 100;
-
-  if (inst_ratio_str) {
-
-    if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
-        inst_ratio > 100)
-      FATAL("Bad value of AFL_INST_RATIO (must be between 1 and 100)");
-
-  }
-
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
 
   GlobalVariable *AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+      new GlobalVariable(M, PointerType::get(Int64Ty, 0), false,
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
 
 //  GlobalVariable *AFLPrevLoc = new GlobalVariable(
@@ -132,12 +119,12 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   int inst_blocks = 0;
 
-  for (auto &F : M)
-    for (auto &BB : F) {
-
+  for (auto &F : M) {
+    for (auto b = F.begin(), be = F.end(); b != be; ++b) {
+      auto &BB = *b;
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
       IRBuilder<> IRB(&(*IP));
-      
+
       if (!myWhitelist.empty()) {
           bool instrumentBlock = false;
 
@@ -211,19 +198,25 @@ bool AFLCoverage::runOnModule(Module &M) {
         continue;
 
 /************
-  CODE:
+  PSEUDOCODE:
 
-    // so far we dont care if the map overflows which would result in a crash
+    // use map[0] entry as the counter for used entries
+    // use other indices for recorded instruction pointers
+    // once the map is filled stop recording addresses
+    // rip = instruction pointer
 
     short:
-      map[map[0]++] = &rip;
+      if (map[0] < MAP_SIZE /sizeof(uint64_t))
+        map[map[0]++] = &rip;
       
     long:
-      uint64_t rip_addr = "leaq (%rip), %rdx\n";
       idx = map[0];
-      map[idx] = rip_addr;
-      idx++;
-      map[0] = idx;
+      if (idx < MAP_SIZE / sizeof(uint64_t)) {
+        uint64_t rip_addr = "leaq (%rip), %rdx\n";
+        map[idx] = rip_addr;
+        idx++;
+        map[0] = idx;
+      }
 
 ***********/
 
@@ -234,30 +227,57 @@ bool AFLCoverage::runOnModule(Module &M) {
       LoadInst *Counter = IRB.CreateLoad(Int64Ty, MapPtrPtr);
       Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-      /* map[idx] = rip */
-      Value *Shifted = IRB.CreateShl(Counter, ConstantInt::get(Int8Ty, 3));
-      Value *MapPtrIdx = IRB.CreateGEP(MapPtr, Shifted);
-      IRB.CreateStore(BlockAddress::get(&F, &BB), MapPtrIdx)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      /* if (idx < MAX_SIZE /sizeof(uint64_t)) */
+      Instruction *Pos = Counter->getNextNode();
+      while (isa<PHINode>(Pos))
+	      Pos = Pos->getNextNode();
+      IRB.SetInsertPoint(Pos);
 
-      /* idx++ */
-      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int64Ty, 1));
+      Value *CmpVal = IRB.CreateICmpULT(Counter, ConstantInt::get(Int64Ty, MAP_SIZE/sizeof(uint64_t)));
 
-      /* map[0] = idx */
-      IRB.CreateStore(Incr, MapPtrPtr)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      BranchInst *BI = cast<BranchInst>(SplitBlockAndInsertIfThen(CmpVal, Pos, /*unreachable*/false));
+      /* skip this new block */
+      ++b;
 
+      IRB.SetInsertPoint(BI);
+
+        /* map[idx] = rip */
+        Value *Shifted = IRB.CreateShl(Counter, ConstantInt::get(Int64Ty, 3));
+        Value *MapPtrIdx = IRB.CreateGEP(MapPtr, Shifted);
+        IRB.CreateStore(BlockAddress::get(&F, &BB), MapPtrIdx)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+        /* idx++ */
+        Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int64Ty, 1));
+
+        /* map[0] = idx */
+        IRB.CreateStore(Incr, MapPtrPtr)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+#if 0
+      /* if variables are set in the 'then'-block
+       * which are used afterwards, then it is necessary
+       * to include a PHI node for each variable at the 
+       * beginning of the tail block! */
+      BasicBlock *Tail = BI->getSuccessor(0);
+      IRB.SetInsertPoint(&Tail->front());
+      PHINode *PH = IRB.CreatePHI(Int64Ty, 2, "idx");
+      PH->addIncoming(Counter, &BB);
+      PH->addIncoming(Incr, BI->getParent());
+#endif
+
+      /* skip this new block */
+      ++b;
       inst_blocks++;
-
     }
-
+  }
   /* Say something nice. */
 
   if (!be_quiet) {
 
     if (!inst_blocks) WARNF("No instrumentation targets found.");
-    else OKF("Instrumented %u locations (%s mode, ratio %u%%).",
+    else OKF("Instrumented %u locations (%s mode).",
              inst_blocks, getenv("AFL_HARDEN") ? "hardened" :
              ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN")) ?
-              "ASAN/MSAN" : "non-hardened"), inst_ratio);
+              "ASAN/MSAN" : "non-hardened"));
 
   }
 
