@@ -75,7 +75,7 @@ endif
 
 # sanity check.
 # Are versions of clang --version and llvm-config --version equal?
-CLANGVER = $(shell $(CC) --version | sed -ne "1,2p" | sed -E -ne '/^.*([0-9]\.[0-9]\.[0-9]).*/s//\1/p')
+CLANGVER = $(shell $(CC) --version | sed -E -ne '1{/^.*([0-9]\.[0-9]\.[0-9]).*/s//\1/p}')
 
 
 ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 )" "1"
