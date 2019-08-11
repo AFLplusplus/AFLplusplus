@@ -1898,7 +1898,7 @@ static void load_extras_file(u8* fname, u32* min_len, u32* max_len,
 
     /* All other lines must end with '"', which we can consume. */
 
-    rptr--;
+    --rptr;
 
     if (rptr < lptr || *rptr != '"')
       FATAL("Malformed name=\"value\" pair in line %u.", cur_line);
@@ -5209,7 +5209,7 @@ static u32 calculate_score(struct queue_entry* q) {
   } else if (q->handicap) {
 
     perf_score *= 2;
-    q->handicap--;
+    --q->handicap;
 
   }
 
@@ -5962,7 +5962,7 @@ static u8 fuzz_one_original(char** argv) {
     /* Let's consult the effector map... */
 
     if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)]) {
-      stage_max--;
+      --stage_max;
       continue;
     }
 
@@ -5999,7 +5999,7 @@ static u8 fuzz_one_original(char** argv) {
     /* Let's consult the effector map... */
     if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)] &&
         !eff_map[EFF_APOS(i + 2)] && !eff_map[EFF_APOS(i + 3)]) {
-      stage_max--;
+      --stage_max;
       continue;
     }
 
@@ -6066,7 +6066,7 @@ skip_bitflip:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
       r =  orig ^ (orig - j);
 
@@ -6078,7 +6078,7 @@ skip_bitflip:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
       out_buf[i] = orig;
 
@@ -6147,7 +6147,7 @@ skip_bitflip:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
       /* Big endian comes next. Same deal. */
 
@@ -6162,7 +6162,7 @@ skip_bitflip:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
       if ((orig >> 8) < j && !could_be_bitflip(r4)) {
 
@@ -6172,7 +6172,7 @@ skip_bitflip:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
       *(u16*)(out_buf + i) = orig;
 
@@ -6230,7 +6230,7 @@ skip_bitflip:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
       if ((orig & 0xffff) < j && !could_be_bitflip(r2)) {
 
@@ -6240,7 +6240,7 @@ skip_bitflip:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
       /* Big endian next. */
 
@@ -6254,7 +6254,7 @@ skip_bitflip:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
       if ((SWAP32(orig) & 0xffff) < j && !could_be_bitflip(r4)) {
 
@@ -6264,7 +6264,7 @@ skip_bitflip:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
       *(u32*)(out_buf + i) = orig;
 
@@ -6313,7 +6313,7 @@ skip_arith:
 
       if (could_be_bitflip(orig ^ (u8)interesting_8[j]) ||
           could_be_arith(orig, (u8)interesting_8[j], 1)) {
-        stage_max--;
+        --stage_max;
         continue;
       }
 
@@ -6376,7 +6376,7 @@ skip_arith:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
       if ((u16)interesting_16[j] != SWAP16(interesting_16[j]) &&
           !could_be_bitflip(orig ^ SWAP16(interesting_16[j])) &&
@@ -6389,7 +6389,7 @@ skip_arith:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
     }
 
@@ -6445,7 +6445,7 @@ skip_arith:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
       if ((u32)interesting_32[j] != SWAP32(interesting_32[j]) &&
           !could_be_bitflip(orig ^ SWAP32(interesting_32[j])) &&
@@ -6458,7 +6458,7 @@ skip_arith:
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
         ++stage_cur;
 
-      } else stage_max--;
+      } else --stage_max;
 
     }
 
@@ -6513,7 +6513,7 @@ skip_interest:
           !memcmp(extras[j].data, out_buf + i, extras[j].len) ||
           !memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, extras[j].len))) {
 
-        stage_max--;
+        --stage_max;
         continue;
 
       }
@@ -6555,7 +6555,7 @@ skip_interest:
     for (j = 0; j < extras_cnt; ++j) {
 
       if (len + extras[j].len > MAX_FILE) {
-        stage_max--; 
+        --stage_max; 
         continue;
       }
 
@@ -6613,7 +6613,7 @@ skip_user_extras:
           !memcmp(a_extras[j].data, out_buf + i, a_extras[j].len) ||
           !memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, a_extras[j].len))) {
 
-        stage_max--;
+        --stage_max;
         continue;
 
       }
@@ -7302,9 +7302,9 @@ abandon_entry:
      cycle and have not seen this entry before. */
 
   if (!stop_soon && !queue_cur->cal_failed && (queue_cur->was_fuzzed == 0 || queue_cur->fuzz_level == 0)) {
-    pending_not_fuzzed--;
+    --pending_not_fuzzed;
     queue_cur->was_fuzzed = 1;
-    if (queue_cur->favored) pending_favored--;
+    if (queue_cur->favored) --pending_favored;
   }
 
   ++queue_cur->fuzz_level;
@@ -7778,7 +7778,7 @@ static u8 pilot_fuzzing(char** argv) {
 			/* Let's consult the effector map... */
 
 			if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)]) {
-				stage_max--;
+				--stage_max;
 				continue;
 			}
 
@@ -7820,7 +7820,7 @@ static u8 pilot_fuzzing(char** argv) {
 			/* Let's consult the effector map... */
 			if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)] &&
 				!eff_map[EFF_APOS(i + 2)] && !eff_map[EFF_APOS(i + 3)]) {
-				stage_max--;
+				--stage_max;
 				continue;
 			}
 
@@ -7895,7 +7895,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				r = orig ^ (orig - j);
 
@@ -7907,7 +7907,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				out_buf[i] = orig;
 
@@ -7973,7 +7973,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((orig & 0xff) < j && !could_be_bitflip(r2)) {
 
@@ -7983,7 +7983,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				/* Big endian comes next. Same deal. */
 
@@ -7998,7 +7998,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((orig >> 8) < j && !could_be_bitflip(r4)) {
 
@@ -8008,7 +8008,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				*(u16*)(out_buf + i) = orig;
 
@@ -8071,7 +8071,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((orig & 0xffff) < j && !could_be_bitflip(r2)) {
 
@@ -8081,7 +8081,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					stage_cur++;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				/* Big endian next. */
 
@@ -8095,7 +8095,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((SWAP32(orig) & 0xffff) < j && !could_be_bitflip(r4)) {
 
@@ -8105,7 +8105,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				*(u32*)(out_buf + i) = orig;
 
@@ -8159,7 +8159,7 @@ static u8 pilot_fuzzing(char** argv) {
 
 				if (could_be_bitflip(orig ^ (u8)interesting_8[j]) ||
 					could_be_arith(orig, (u8)interesting_8[j], 1)) {
-					stage_max--;
+					--stage_max;
 					continue;
 				}
 
@@ -8227,7 +8227,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((u16)interesting_16[j] != SWAP16(interesting_16[j]) &&
 					!could_be_bitflip(orig ^ SWAP16(interesting_16[j])) &&
@@ -8240,7 +8240,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 			}
 
@@ -8301,7 +8301,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((u32)interesting_32[j] != SWAP32(interesting_32[j]) &&
 					!could_be_bitflip(orig ^ SWAP32(interesting_32[j])) &&
@@ -8314,7 +8314,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 			}
 
@@ -8376,7 +8376,7 @@ static u8 pilot_fuzzing(char** argv) {
 					!memcmp(extras[j].data, out_buf + i, extras[j].len) ||
 					!memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, extras[j].len))) {
 
-					stage_max--;
+					--stage_max;
 					continue;
 
 				}
@@ -8421,7 +8421,7 @@ static u8 pilot_fuzzing(char** argv) {
 			for (j = 0; j < extras_cnt; ++j) {
 
 				if (len + extras[j].len > MAX_FILE) {
-					stage_max--;
+					--stage_max;
 					continue;
 				}
 
@@ -8480,7 +8480,7 @@ static u8 pilot_fuzzing(char** argv) {
 					!memcmp(a_extras[j].data, out_buf + i, a_extras[j].len) ||
 					!memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, a_extras[j].len))) {
 
-					stage_max--;
+					--stage_max;
 					continue;
 
 				}
@@ -9041,8 +9041,8 @@ static u8 pilot_fuzzing(char** argv) {
 
 				   // if (!stop_soon && !queue_cur->cal_failed && !queue_cur->was_fuzzed) {
 				   //   queue_cur->was_fuzzed = 1;
-				   //   pending_not_fuzzed--;
-				   //   if (queue_cur->favored) pending_favored--;
+				   //   --pending_not_fuzzed;
+				   //   if (queue_cur->favored) --pending_favored;
 				   // }
 
 				munmap(orig_in, queue_cur->len);
@@ -9570,7 +9570,7 @@ static u8 core_fuzzing(char** argv) {
 			/* Let's consult the effector map... */
 
 			if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)]) {
-				stage_max--;
+				--stage_max;
 				continue;
 			}
 
@@ -9610,7 +9610,7 @@ static u8 core_fuzzing(char** argv) {
 			/* Let's consult the effector map... */
 			if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)] &&
 				!eff_map[EFF_APOS(i + 2)] && !eff_map[EFF_APOS(i + 3)]) {
-				stage_max--;
+				--stage_max;
 				continue;
 			}
 
@@ -9681,7 +9681,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				r = orig ^ (orig - j);
 
@@ -9693,7 +9693,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				out_buf[i] = orig;
 
@@ -9756,7 +9756,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((orig & 0xff) < j && !could_be_bitflip(r2)) {
 
@@ -9766,7 +9766,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				/* Big endian comes next. Same deal. */
 
@@ -9781,7 +9781,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((orig >> 8) < j && !could_be_bitflip(r4)) {
 
@@ -9791,7 +9791,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				*(u16*)(out_buf + i) = orig;
 
@@ -9851,7 +9851,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((orig & 0xffff) < j && !could_be_bitflip(r2)) {
 
@@ -9861,7 +9861,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				/* Big endian next. */
 
@@ -9875,7 +9875,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((SWAP32(orig) & 0xffff) < j && !could_be_bitflip(r4)) {
 
@@ -9885,7 +9885,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				*(u32*)(out_buf + i) = orig;
 
@@ -9938,7 +9938,7 @@ static u8 core_fuzzing(char** argv) {
 
 				if (could_be_bitflip(orig ^ (u8)interesting_8[j]) ||
 					could_be_arith(orig, (u8)interesting_8[j], 1)) {
-					stage_max--;
+					--stage_max;
 					continue;
 				}
 
@@ -10004,7 +10004,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((u16)interesting_16[j] != SWAP16(interesting_16[j]) &&
 					!could_be_bitflip(orig ^ SWAP16(interesting_16[j])) &&
@@ -10017,7 +10017,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 			}
 
@@ -10077,7 +10077,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 				if ((u32)interesting_32[j] != SWAP32(interesting_32[j]) &&
 					!could_be_bitflip(orig ^ SWAP32(interesting_32[j])) &&
@@ -10090,7 +10090,7 @@ static u8 core_fuzzing(char** argv) {
 					if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 					++stage_cur;
 
-				} else stage_max--;
+				} else --stage_max;
 
 			}
 
@@ -10148,7 +10148,7 @@ static u8 core_fuzzing(char** argv) {
 					!memcmp(extras[j].data, out_buf + i, extras[j].len) ||
 					!memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, extras[j].len))) {
 
-					stage_max--;
+					--stage_max;
 					continue;
 
 				}
@@ -10193,7 +10193,7 @@ static u8 core_fuzzing(char** argv) {
 			for (j = 0; j < extras_cnt; ++j) {
 
 				if (len + extras[j].len > MAX_FILE) {
-					stage_max--;
+					--stage_max;
 					continue;
 				}
 
@@ -10252,7 +10252,7 @@ static u8 core_fuzzing(char** argv) {
 					!memcmp(a_extras[j].data, out_buf + i, a_extras[j].len) ||
 					!memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, a_extras[j].len))) {
 
-					stage_max--;
+					--stage_max;
 					continue;
 
 				}
@@ -12537,7 +12537,7 @@ int main(int argc, char** argv) {
 
       while (seek_to) {
         ++current_entry;
-        seek_to--;
+        --seek_to;
         queue_cur = queue_cur->next;
       }
 
