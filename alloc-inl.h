@@ -112,7 +112,7 @@
 
 static inline void* DFL_ck_alloc_nozero(u32 size) {
 
-  void* ret;
+  u8* ret;
 
   if (!size) return NULL;
 
@@ -126,7 +126,7 @@ static inline void* DFL_ck_alloc_nozero(u32 size) {
   ALLOC_S(ret)  = size;
   ALLOC_C2(ret) = ALLOC_MAGIC_C2;
 
-  return ret;
+  return (void *)ret;
 
 }
 
@@ -163,7 +163,8 @@ static inline void DFL_ck_free(void* mem) {
 
   ALLOC_C1(mem) = ALLOC_MAGIC_F;
 
-  free(mem - ALLOC_OFF_HEAD);
+  u8 *realStart = mem;
+  free(realStart - ALLOC_OFF_HEAD);
 
 }
 
@@ -174,7 +175,7 @@ static inline void DFL_ck_free(void* mem) {
 
 static inline void* DFL_ck_realloc(void* orig, u32 size) {
 
-  void* ret;
+  u8*   ret;
   u32   old_size = 0;
 
   if (!size) {
@@ -193,7 +194,9 @@ static inline void* DFL_ck_realloc(void* orig, u32 size) {
 #endif /* !DEBUG_BUILD */
 
     old_size  = ALLOC_S(orig);
-    orig     -= ALLOC_OFF_HEAD;
+    u8 *origu8 = orig;
+    origu8   -= ALLOC_OFF_HEAD;
+    orig = origu8;
 
     ALLOC_CHECK_SIZE(old_size);
 
@@ -216,10 +219,11 @@ static inline void* DFL_ck_realloc(void* orig, u32 size) {
 
   if (orig) {
 
-    memcpy(ret + ALLOC_OFF_HEAD, orig + ALLOC_OFF_HEAD, MIN(size, old_size));
-    memset(orig + ALLOC_OFF_HEAD, 0xFF, old_size);
+    u8 *origu8 = orig;
+    memcpy(ret + ALLOC_OFF_HEAD, origu8 + ALLOC_OFF_HEAD, MIN(size, old_size));
+    memset(origu8 + ALLOC_OFF_HEAD, 0xFF, old_size);
 
-    ALLOC_C1(orig + ALLOC_OFF_HEAD) = ALLOC_MAGIC_F;
+    ALLOC_C1(origu8 + ALLOC_OFF_HEAD) = ALLOC_MAGIC_F;
 
     free(orig);
 
@@ -236,7 +240,7 @@ static inline void* DFL_ck_realloc(void* orig, u32 size) {
   if (size > old_size)
     memset(ret + old_size, 0, size - old_size);
 
-  return ret;
+  return (void *)ret;
 
 }
 
@@ -269,7 +273,7 @@ static inline void* DFL_ck_realloc_block(void* orig, u32 size) {
 
 static inline u8* DFL_ck_strdup(u8* str) {
 
-  void* ret;
+  u8*   ret;
   u32   size;
 
   if (!str) return NULL;
@@ -296,7 +300,7 @@ static inline u8* DFL_ck_strdup(u8* str) {
 
 static inline void* DFL_ck_memdup(void* mem, u32 size) {
 
-  void* ret;
+  u8*   ret;
 
   if (!mem || !size) return NULL;
 

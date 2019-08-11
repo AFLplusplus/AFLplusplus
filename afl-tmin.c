@@ -551,7 +551,6 @@ static void minimize(char** argv) {
 
   while (set_pos < in_len) {
 
-    u8  res;
     u32 use_len = MIN(set_len, in_len - set_pos);
 
     for (i = 0; i < use_len; i++)
@@ -562,12 +561,13 @@ static void minimize(char** argv) {
       memcpy(tmp_buf, in_data, in_len);
       memset(tmp_buf + set_pos, '0', use_len);
   
+      u8  res;
       res = run_target(argv, tmp_buf, in_len, 0);
 
       if (res) {
 
         memset(in_data + set_pos, '0', use_len);
-        changed_any = 1;
+/*        changed_any = 1; value is not used */
         alpha_del0 += use_len;
 
       }

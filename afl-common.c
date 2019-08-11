@@ -28,6 +28,7 @@ void detect_file_args(char** argv, u8* prog_in) {
     cwd = getcwd(buf, (size_t)size); /* portable version */
   } else {
     PFATAL("getcwd() failed");
+    cwd = 0; /* for dumb compilers */
   }
 #endif
 
