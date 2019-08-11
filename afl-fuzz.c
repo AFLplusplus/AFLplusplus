@@ -445,7 +445,6 @@ static PyObject *py_functions[PY_FUNC_COUNT];
 static int init_py() {
   Py_Initialize();
   u8* module_name = getenv("AFL_PYTHON_MODULE");
-  u8 py_notrim = 0;
 
   if (module_name) {
     PyObject* py_name = PyString_FromString(module_name);
@@ -454,6 +453,7 @@ static int init_py() {
     Py_DECREF(py_name);
 
     if (py_module != NULL) {
+      u8 py_notrim = 0;
       py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
       py_functions[PY_FUNC_INIT_TRIM] = PyObject_GetAttrString(py_module, "init_trim");
@@ -529,9 +529,9 @@ static void finalize_py() {
 }
 
 static void fuzz_py(char* buf, size_t buflen, char* add_buf, size_t add_buflen, char** ret, size_t* retlen) {
-  PyObject *py_args, *py_value;
 
   if (py_module != NULL) {
+    PyObject *py_args, *py_value;
     py_args = PyTuple_New(2);
     py_value = PyByteArray_FromStringAndSize(buf, buflen);
     if (!py_value) {
@@ -1026,7 +1026,7 @@ static u8* DTD(u64 cur_ms, u64 event_ms) {
   t_m = (delta / 1000 / 60) % 60;
   t_s = (delta / 1000) % 60;
 
-  sprintf(tmp, "%s days, %u hrs, %u min, %u sec", DI(t_d), t_h, t_m, t_s);
+  sprintf(tmp, "%s days, %d hrs, %d min, %d sec", DI(t_d), t_h, t_m, t_s);
   return tmp;
 
 }
@@ -1086,7 +1086,6 @@ static void mark_as_variable(struct queue_entry* q) {
 static void mark_as_redundant(struct queue_entry* q, u8 state) {
 
   u8* fn;
-  s32 fd;
 
   if (state == q->fs_redundant) return;
 
@@ -1096,6 +1095,8 @@ static void mark_as_redundant(struct queue_entry* q, u8 state) {
   fn = alloc_printf("%s/queue/.state/redundant_edges/%s", out_dir, fn + 1);
 
   if (state) {
+
+    s32 fd;
 
     fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
     if (fd < 0) PFATAL("Unable to create '%s'", fn);
@@ -1749,12 +1750,12 @@ static void read_testcases(void) {
   struct dirent **nl;
   s32 nl_cnt;
   u32 i;
-  u8* fn;
+  u8* fn1;
 
   /* Auto-detect non-in-place resumption attempts. */
 
-  fn = alloc_printf("%s/queue", in_dir);
-  if (!access(fn, F_OK)) in_dir = fn; else ck_free(fn);
+  fn1 = alloc_printf("%s/queue", in_dir);
+  if (!access(fn1, F_OK)) in_dir = fn1; else ck_free(fn1);
 
   ACTF("Scanning '%s'...", in_dir);
 
@@ -1789,28 +1790,28 @@ static void read_testcases(void) {
 
     struct stat st;
 
-    u8* fn = alloc_printf("%s/%s", in_dir, nl[i]->d_name);
+    u8* fn2 = alloc_printf("%s/%s", in_dir, nl[i]->d_name);
     u8* dfn = alloc_printf("%s/.state/deterministic_done/%s", in_dir, nl[i]->d_name);
 
     u8  passed_det = 0;
 
     free(nl[i]); /* not tracked */
  
-    if (lstat(fn, &st) || access(fn, R_OK))
-      PFATAL("Unable to access '%s'", fn);
+    if (lstat(fn2, &st) || access(fn2, R_OK))
+      PFATAL("Unable to access '%s'", fn2);
 
     /* This also takes care of . and .. */
 
-    if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn, "/README.txt")) {
+    if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
 
-      ck_free(fn);
+      ck_free(fn2);
       ck_free(dfn);
       continue;
 
     }
 
     if (st.st_size > MAX_FILE) 
-      FATAL("Test case '%s' is too big (%s, limit is %s)", fn,
+      FATAL("Test case '%s' is too big (%s, limit is %s)", fn2,
             DMS(st.st_size), DMS(MAX_FILE));
 
     /* Check for metadata that indicates that deterministic fuzzing
@@ -1821,7 +1822,7 @@ static void read_testcases(void) {
     if (!access(dfn, F_OK)) passed_det = 1;
     ck_free(dfn);
 
-    add_to_queue(fn, st.st_size, passed_det);
+    add_to_queue(fn2, st.st_size, passed_det);
 
   }
 
@@ -2093,7 +2094,7 @@ check_and_sort:
           DMS(max_len));
 
   if (extras_cnt > MAX_DET_EXTRAS)
-    WARNF("More than %u tokens - will use them probabilistically.",
+    WARNF("More than %d tokens - will use them probabilistically.",
           MAX_DET_EXTRAS);
 
 }
@@ -2491,6 +2492,15 @@ EXP_ST void init_forkserver(char** argv) {
 
     } else if (!mem_limit) {
 
+#ifdef __APPLE__
+#define MSG_FORK_ON_APPLE \
+           "    - On MacOS X, the semantics of fork() syscalls are non-standard and may\n" \
+           "      break afl-fuzz performance optimizations when running platform-specific\n" \
+           "      targets. To fix this, set AFL_NO_FORKSRV=1 in the environment.\n\n"
+#else
+#define MSG_FORK_ON_APPLE ""
+#endif
+
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, before receiving any input\n"
            "    from the fuzzer! There are several probable explanations:\n\n"
@@ -2498,18 +2508,20 @@ EXP_ST void init_forkserver(char** argv) {
            "    - The binary is just buggy and explodes entirely on its own. If so, you\n"
            "      need to fix the underlying problem or find a better replacement.\n\n"
 
-#ifdef __APPLE__
-
-           "    - On MacOS X, the semantics of fork() syscalls are non-standard and may\n"
-           "      break afl-fuzz performance optimizations when running platform-specific\n"
-           "      targets. To fix this, set AFL_NO_FORKSRV=1 in the environment.\n\n"
-
-#endif /* __APPLE__ */
+           MSG_FORK_ON_APPLE
 
            "    - Less likely, there is a horrible bug in the fuzzer. If other options\n"
            "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
     } else {
+
+#ifdef RLIMIT_AS
+#define MSG_ULIMIT_USAGE \
+           "      ( ulimit -Sv $[%llu << 10];"
+#else
+#define MSG_ULIMIT_USAGE \
+           "      ( ulimit -Sd $[%llu << 10];"
+#endif /* ^RLIMIT_AS */
 
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, before receiving any input\n"
@@ -2520,11 +2532,7 @@ EXP_ST void init_forkserver(char** argv) {
            "      the limit with the -m setting in the command line. A simple way confirm\n"
            "      this diagnosis would be:\n\n"
 
-#ifdef RLIMIT_AS
-           "      ( ulimit -Sv $[%llu << 10]; /path/to/fuzzed_app )\n\n"
-#else
-           "      ( ulimit -Sd $[%llu << 10]; /path/to/fuzzed_app )\n\n"
-#endif /* ^RLIMIT_AS */
+           MSG_ULIMIT_USAGE " /path/to/fuzzed_app )\n\n"
 
            "      Tip: you can use http://jwilk.net/software/recidivm to quickly\n"
            "      estimate the required amount of virtual memory for the binary.\n\n"
@@ -2532,19 +2540,14 @@ EXP_ST void init_forkserver(char** argv) {
            "    - The binary is just buggy and explodes entirely on its own. If so, you\n"
            "      need to fix the underlying problem or find a better replacement.\n\n"
 
-#ifdef __APPLE__
-
-           "    - On MacOS X, the semantics of fork() syscalls are non-standard and may\n"
-           "      break afl-fuzz performance optimizations when running platform-specific\n"
-           "      targets. To fix this, set AFL_NO_FORKSRV=1 in the environment.\n\n"
-
-#endif /* __APPLE__ */
+           MSG_FORK_ON_APPLE
 
            "    - Less likely, there is a horrible bug in the fuzzer. If other options\n"
            "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n",
            DMS(mem_limit << 20), mem_limit - 1);
 
     }
+
 
     FATAL("Fork server crashed with signal %d", WTERMSIG(status));
 
@@ -2579,11 +2582,7 @@ EXP_ST void init_forkserver(char** argv) {
          "      fault in the dynamic linker. This can be fixed with the -m option. A\n"
          "      simple way to confirm the diagnosis may be:\n\n"
 
-#ifdef RLIMIT_AS
-         "      ( ulimit -Sv $[%llu << 10]; /path/to/fuzzed_app )\n\n"
-#else
-         "      ( ulimit -Sd $[%llu << 10]; /path/to/fuzzed_app )\n\n"
-#endif /* ^RLIMIT_AS */
+         MSG_ULIMIT_USAGE " /path/to/fuzzed_app )\n\n"
 
          "      Tip: you can use http://jwilk.net/software/recidivm to quickly\n"
          "      estimate the required amount of virtual memory for the binary.\n\n"
@@ -2864,7 +2863,8 @@ static void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) {
 
   if (skip_at) ck_write(fd, mem, skip_at, out_file);
 
-  if (tail_len) ck_write(fd, mem + skip_at + skip_len, tail_len, out_file);
+  u8 *memu8 = mem;
+  if (tail_len) ck_write(fd, memu8 + skip_at + skip_len, tail_len, out_file);
 
   if (!out_file) {
 
@@ -3158,23 +3158,13 @@ static void perform_dry_run(char** argv) {
                "      bumping it up with the -m setting in the command line. If in doubt,\n"
                "      try something along the lines of:\n\n"
 
-#ifdef RLIMIT_AS
-               "      ( ulimit -Sv $[%llu << 10]; /path/to/binary [...] <testcase )\n\n"
-#else
-               "      ( ulimit -Sd $[%llu << 10]; /path/to/binary [...] <testcase )\n\n"
-#endif /* ^RLIMIT_AS */
+               MSG_ULIMIT_USAGE " /path/to/binary [...] <testcase )\n\n"
 
                "      Tip: you can use http://jwilk.net/software/recidivm to quickly\n"
                "      estimate the required amount of virtual memory for the binary. Also,\n"
                "      if you are using ASAN, see %s/notes_for_asan.txt.\n\n"
 
-#ifdef __APPLE__
-  
-               "    - On MacOS X, the semantics of fork() syscalls are non-standard and may\n"
-               "      break afl-fuzz performance optimizations when running platform-specific\n"
-               "      binaries. To fix this, set AFL_NO_FORKSRV=1 in the environment.\n\n"
-
-#endif /* __APPLE__ */
+               MSG_FORK_ON_APPLE
 
                "    - Least likely, there is a horrible bug in the fuzzer. If other options\n"
                "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n",
@@ -3190,18 +3180,14 @@ static void perform_dry_run(char** argv) {
                "      so, please remove it. The fuzzer should be seeded with interesting\n"
                "      inputs - but not ones that cause an outright crash.\n\n"
 
-#ifdef __APPLE__
-  
-               "    - On MacOS X, the semantics of fork() syscalls are non-standard and may\n"
-               "      break afl-fuzz performance optimizations when running platform-specific\n"
-               "      binaries. To fix this, set AFL_NO_FORKSRV=1 in the environment.\n\n"
-
-#endif /* __APPLE__ */
+               MSG_FORK_ON_APPLE
 
                "    - Least likely, there is a horrible bug in the fuzzer. If other options\n"
                "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
         }
+#undef MSG_ULIMIT_USAGE
+#undef MSG_FORK_ON_APPLE
 
         FATAL("Test case '%s' results in a crash", fn);
 
@@ -3393,20 +3379,20 @@ static u8* describe_op(u8 hnb) {
     sprintf(ret + strlen(ret), ",time:%llu", get_cur_time() - start_time);
 
     if (splicing_with >= 0)
-      sprintf(ret + strlen(ret), "+%06u", splicing_with);
+      sprintf(ret + strlen(ret), "+%06d", splicing_with);
 
     sprintf(ret + strlen(ret), ",op:%s", stage_short);
 
     if (stage_cur_byte >= 0) {
 
-      sprintf(ret + strlen(ret), ",pos:%u", stage_cur_byte);
+      sprintf(ret + strlen(ret), ",pos:%d", stage_cur_byte);
 
       if (stage_val_type != STAGE_VAL_NONE)
         sprintf(ret + strlen(ret), ",val:%s%+d", 
                 (stage_val_type == STAGE_VAL_BE) ? "be:" : "",
                 stage_cur_val);
 
-    } else sprintf(ret + strlen(ret), ",rep:%u", stage_cur_val);
+    } else sprintf(ret + strlen(ret), ",rep:%d", stage_cur_val);
 
   }
 
@@ -4017,21 +4003,21 @@ static void maybe_delete_out_dir(void) {
 
   if (f) {
 
-    u64 start_time, last_update;
+    u64 start_time2, last_update;
 
     if (fscanf(f, "start_time     : %llu\n"
-                  "last_update    : %llu\n", &start_time, &last_update) != 2)
+                  "last_update    : %llu\n", &start_time2, &last_update) != 2)
       FATAL("Malformed data in '%s'", fn);
 
     fclose(f);
 
     /* Let's see how much work is at stake. */
 
-    if (!in_place_resume && last_update - start_time > OUTPUT_GRACE * 60) {
+    if (!in_place_resume && last_update - start_time2 > OUTPUT_GRACE * 60) {
 
       SAYF("\n" cLRD "[-] " cRST
            "The job output directory already exists and contains the results of more\n"
-           "    than %u minutes worth of fuzzing. To avoid data loss, afl-fuzz will *NOT*\n"
+           "    than %d minutes worth of fuzzing. To avoid data loss, afl-fuzz will *NOT*\n"
            "    automatically delete this data for you.\n\n"
 
            "    If you wish to start a new session, remove or rename the directory manually,\n"
@@ -4475,7 +4461,7 @@ static void show_stats(void) {
      together, but then cram them into a fixed-width field - so we need to
      put them in a temporary buffer first. */
 
-  sprintf(tmp, "%s%s%d (%0.02f%%)", DI(current_entry),
+  sprintf(tmp, "%s%s%u (%0.02f%%)", DI(current_entry),
           queue_cur->favored ? "." : "*", queue_cur->fuzz_level,
           ((double)current_entry * 100) / queued_paths);
 
@@ -4850,7 +4836,7 @@ static u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
   stage_max = init_trim_py(in_buf, q->len);
 
   if (not_on_tty && debug)
-    SAYF("[Python Trimming] START: Max %d iterations, %d bytes", stage_max, q->len);
+    SAYF("[Python Trimming] START: Max %d iterations, %u bytes", stage_max, q->len);
 
   while(stage_cur < stage_max) {
     sprintf(tmp, "ptrim %s", DI(trim_exec));
@@ -4893,7 +4879,7 @@ static u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
       stage_cur = post_trim_py(1);
 
       if (not_on_tty && debug)
-        SAYF("[Python Trimming] SUCCESS: %d/%d iterations (now at %d bytes)", stage_cur, stage_max, q->len);
+        SAYF("[Python Trimming] SUCCESS: %d/%d iterations (now at %u bytes)", stage_cur, stage_max, q->len);
     } else {
       /* Tell the Python module that the trimming was unsuccessful */
       stage_cur = post_trim_py(0);
@@ -4907,7 +4893,7 @@ static u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
   }
 
   if (not_on_tty && debug)
-    SAYF("[Python Trimming] DONE: %d bytes -> %d bytes", orig_len, q->len);
+    SAYF("[Python Trimming] DONE: %u bytes -> %u bytes", orig_len, q->len);
 
   /* If we have made changes to in_buf, we also need to update the on-disk
      version of the test case. */
@@ -5556,7 +5542,7 @@ static u8 fuzz_one_original(char** argv) {
 
   orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 
-  if (orig_in == MAP_FAILED) PFATAL("Unable to mmap '%s' with len %u", queue_cur->fname, len);
+  if (orig_in == MAP_FAILED) PFATAL("Unable to mmap '%s' with len %d", queue_cur->fname, len);
 
   close(fd);
 
@@ -5614,7 +5600,7 @@ static u8 fuzz_one_original(char** argv) {
 
     queue_cur->trim_done = 1;
 
-    if (len != queue_cur->len) len = queue_cur->len;
+    len = queue_cur->len;
 
   }
 
@@ -7448,7 +7434,7 @@ static u8 pilot_fuzzing(char** argv) {
 
 		queue_cur->trim_done = 1;
 
-		if (len != queue_cur->len) len = queue_cur->len;
+		len = queue_cur->len;
 
 	}
 
@@ -8564,7 +8550,9 @@ static u8 pilot_fuzzing(char** argv) {
 
 
 			{
+#ifndef IGNORE_FINDS
 			havoc_stage_puppet:
+#endif
 
 				stage_cur_byte = -1;
 
@@ -9251,7 +9239,7 @@ static u8 core_fuzzing(char** argv) {
 
 			queue_cur->trim_done = 1;
 
-			if (len != queue_cur->len) len = queue_cur->len;
+			len = queue_cur->len;
 
 		}
 
@@ -10330,7 +10318,9 @@ static u8 core_fuzzing(char** argv) {
 				}
 			}
 			{
+#ifndef IGNORE_FINDS
 			havoc_stage_puppet:
+#endif
 
 				stage_cur_byte = -1;
 
@@ -11316,6 +11306,13 @@ static void check_term_size(void) {
 
 static void usage(u8* argv0) {
 
+#ifdef USE_PYTHON
+#define PHYTON_SUPPORT \
+       "Compiled with Python 2.7 module support, see docs/python_mutators.txt\n"
+#else
+#define PHYTON_SUPPORT ""
+#endif
+
   SAYF("\n%s [ options ] -- /path/to/fuzzed_app [ ... ]\n\n"
 
        "Required parameters:\n"
@@ -11327,8 +11324,8 @@ static void usage(u8* argv0) {
        "                  <explore (default), fast, coe, lin, quad, or exploit>\n"
        "                  see docs/power_schedules.txt\n"
        "  -f file       - location read by the fuzzed program (stdin)\n"
-       "  -t msec       - timeout for each run (auto-scaled, 50-%u ms)\n"
-       "  -m megs       - memory limit for child process (%u MB)\n"
+       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
+       "  -m megs       - memory limit for child process (%d MB)\n"
        "  -Q            - use binary-only instrumentation (QEMU mode)\n"
        "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n\n"
        "  -L minutes    - use MOpt(imize) mode and set the limit time for entering the\n"
@@ -11352,14 +11349,14 @@ static void usage(u8* argv0) {
        "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
        "  -e ext        - File extension for the temporarily generated test case\n\n"
 
-#ifdef USE_PYTHON
-       "Compiled with Python 2.7 module support, see docs/python_mutators.txt\n"
-#endif
+       PHYTON_SUPPORT
+
        "For additional tips, please consult %s/README\n\n",
 
        argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
+#undef PHYTON_SUPPORT
 
 }
 
@@ -11673,8 +11670,6 @@ static void check_cpu_governor(void) {
 
 static void get_core_count(void) {
 
-  u32 cur_runnable = 0;
-
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined (__OpenBSD__)
 
   size_t s = sizeof(cpu_core_count);
@@ -11718,6 +11713,8 @@ static void get_core_count(void) {
 
   if (cpu_core_count > 0) {
 
+    u32 cur_runnable = 0;
+
     cur_runnable = (u32)get_runnable_processes();
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined (__OpenBSD__)
@@ -11728,7 +11725,7 @@ static void get_core_count(void) {
 
 #endif /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
-    OKF("You have %u CPU core%s and %u runnable tasks (utilization: %0.0f%%).",
+    OKF("You have %d CPU core%s and %u runnable tasks (utilization: %0.0f%%).",
         cpu_core_count, cpu_core_count > 1 ? "s" : "",
         cur_runnable, cur_runnable * 100.0 / cpu_core_count);
 
@@ -11977,8 +11974,8 @@ static void save_cmdline(u32 argc, char** argv) {
 }
 
 int stricmp(char const *a, char const *b) {
-  int d;
   for (;; ++a, ++b) {
+    int d;
     d = tolower(*a) - tolower(*b);
     if (d != 0 || !*a)
       return d;
@@ -12443,15 +12440,15 @@ int main(int argc, char** argv) {
 
   setup_dirs_fds();
 
-  u8 with_python_support = 0;
 #ifdef USE_PYTHON
   if (init_py())
     FATAL("Failed to initialize Python module");
-  with_python_support = 1;
-#endif
+  u8 with_python_support = 1;
+#else
 
-  if (getenv("AFL_PYTHON_MODULE") && !with_python_support)
+  if (getenv("AFL_PYTHON_MODULE"))
      FATAL("Your AFL binary was built without Python support");
+#endif
 
   setup_cmdline_file(argv + optind);
 
