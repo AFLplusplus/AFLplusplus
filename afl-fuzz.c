@@ -822,7 +822,7 @@ static void bind_to_free_cpu(void) {
   if (i == cpu_core_count) {
 
     SAYF("\n" cLRD "[-] " cRST
-         "Uh-oh, looks like all %u CPU cores on your system are allocated to\n"
+         "Uh-oh, looks like all %d CPU cores on your system are allocated to\n"
          "    other instances of afl-fuzz (or similar CPU-locked tasks). Starting\n"
          "    another fuzzer on this machine is probably a bad plan, but if you are\n"
          "    absolutely sure, you can set AFL_NO_AFFINITY and try again.\n",
@@ -3758,7 +3758,7 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
 
   fprintf(f, "start_time        : %llu\n"
              "last_update       : %llu\n"
-             "fuzzer_pid        : %u\n"
+             "fuzzer_pid        : %d\n"
              "cycles_done       : %llu\n"
              "execs_done        : %llu\n"
              "execs_per_sec     : %0.02f\n"
@@ -4121,13 +4121,13 @@ static void maybe_delete_out_dir(void) {
 
 #ifndef SIMPLE_FILES
 
-    u8* nfn = alloc_printf("%s.%04u-%02u-%02u-%02u:%02u:%02u", fn,
+    u8* nfn = alloc_printf("%s.%04d-%02d-%02d-%02d:%02d:%02d", fn,
                            t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
                            t->tm_hour, t->tm_min, t->tm_sec);
 
 #else
 
-    u8* nfn = alloc_printf("%s_%04u%02u%02u%02u%02u%02u", fn,
+    u8* nfn = alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn,
                            t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
                            t->tm_hour, t->tm_min, t->tm_sec);
 
@@ -4152,13 +4152,13 @@ static void maybe_delete_out_dir(void) {
 
 #ifndef SIMPLE_FILES
 
-    u8* nfn = alloc_printf("%s.%04u-%02u-%02u-%02u:%02u:%02u", fn,
+    u8* nfn = alloc_printf("%s.%04d-%02d-%02d-%02d:%02d:%02d", fn,
                            t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
                            t->tm_hour, t->tm_min, t->tm_sec);
 
 #else
 
-    u8* nfn = alloc_printf("%s_%04u%02u%02u%02u%02u%02u", fn,
+    u8* nfn = alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn,
                            t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
                            t->tm_hour, t->tm_min, t->tm_sec);
 

@@ -409,7 +409,7 @@ static void usage(u8* argv0) {
        "Execution control settings:\n\n"
 
        "  -t msec       - timeout for each run (none)\n"
-       "  -m megs       - memory limit for child process (%u MB)\n"
+       "  -m megs       - memory limit for child process (%d MB)\n"
        "  -Q            - use binary-only instrumentation (QEMU mode)\n"
        "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n"
        "                  (Not necessary, here for consistency with other afl-* tools)\n\n"  
