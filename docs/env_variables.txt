@@ -257,13 +257,9 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     Use this if you are unsure if the entrypoint might be wrong - but
     use it directly, e.g. afl-qemu-trace ./program 
 
-  - AFL_ENTRYPOINT allows you to specify a specific entrypoint into the
-    binary (this can be very good for the performance!).
+  - If you want to specify a specific entrypoint into the binary (this can
+    be very good for the performance!), use AFL_ENTRYPOINT for this.
     The entrypoint is specified as hex address, e.g. 0x4004110
-
-  - AFL_QEMU_COMPCOV is for a sub-project in qemu_mode called ./libcompcov
-    which implements laf-intel for qemu. It also needs AFL_PRELOAD and
-    you can find more information in qemu_mode/libcompcov/README.compcov
 
 5) Settings for afl-cmin
 ------------------------

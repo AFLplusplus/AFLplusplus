@@ -46,19 +46,7 @@ Note: if you want the QEMU helper to be installed on your system for all
 users, you need to build it before issuing 'make install' in the parent
 directory.
 
-3) Options
-----------
-
-There is ./libcompcov/ which implements laf-intel (splitting memcmp,
-strncmp, etc. to make these conditions easier solvable by afl-fuzz).
-Highly recommended.
-
-Another option is the environment variable AFL_ENTRYPOINT which allows
-move the forkserver to a different part, e.g. just before the file is
-opened (e.g. way after command line parsing and config file loading, etc)
-which can be a huge speed improvement.
-
-4) Notes on linking
+3) Notes on linking
 -------------------
 
 The feature is supported only on Linux. Supporting BSD may amount to porting
@@ -80,7 +68,7 @@ practice, this means two things:
 Setting AFL_INST_LIBS=1 can be used to circumvent the .text detection logic
 and instrument every basic block encountered.
 
-5) Benchmarking
+4) Benchmarking
 ---------------
 
 If you want to compare the performance of the QEMU instrumentation with that of
@@ -96,7 +84,7 @@ Comparative measurements of execution speed or instrumentation coverage will be
 fairly meaningless if the optimization levels or instrumentation scopes don't
 match.
 
-6) Gotchas, feedback, bugs
+5) Gotchas, feedback, bugs
 --------------------------
 
 If you need to fix up checksums or do other cleanup on mutated test cases, see
@@ -118,7 +106,7 @@ with -march=core2, can help.
 Beyond that, this is an early-stage mechanism, so fields reports are welcome.
 You can send them to <afl-users@googlegroups.com>.
 
-7) Alternatives: static rewriting
+6) Alternatives: static rewriting
 ---------------------------------
 
 Statically rewriting binaries just once, instead of attempting to translate
@@ -126,11 +114,12 @@ them at run time, can be a faster alternative. That said, static rewriting is
 fraught with peril, because it depends on being able to properly and fully model
 program control flow without actually executing each and every code path.
 
-The best implementation is this one:
+If you want to experiment with this mode of operation, there is a module
+contributed by Aleksandar Nikolich:
 
   https://github.com/vanhauser-thc/afl-dyninst
+  https://groups.google.com/forum/#!topic/afl-users/HlSQdbOTlpg
 
-The issue however is Dyninst which is not rewriting the binaries so that
-they run stable. a lot of crashes happen, especially in C++ programs that
-use throw/catch. Try it first, and if it works for you be happy as it is
-2-3x as fast as qemu_mode.
+At this point, the author reports the possibility of hiccups with stripped
+binaries. That said, if we can get it to be comparably reliable to QEMU, we may
+decide to switch to this mode, but I had no time to play with it yet.

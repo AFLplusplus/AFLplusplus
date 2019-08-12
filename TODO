@@ -1,6 +1,6 @@
 Roadmap 2.53d:
 ==============
- - indent all the code: .clang-format
+ - indent all the code: clang-format -style=Google
 
  - update docs/sister_projects.txt
 
@@ -18,41 +18,16 @@ gcc_plugin:
 
 qemu_mode:
  - deferred mode with AFL_DEFERRED_QEMU=0xaddress
-   @andrea - dont we have that already with AFL_ENTRYPOINT?
 
 unit testing / or large testcase campaign
 
 
 Roadmap 2.54d:
 ==============
-Problem: Average targets (tiff, jpeg, unrar) go through 1500 edges.
-         At afl's default map that means ~16 collisions and ~3 wrappings.
-  Solution #1: increase map size.
-    every +1 decreases fuzzing speed by ~10% and halfs the collisions
-    birthday paradox predicts at collisions at this # of edges:
-	2^16 = 302
-	2^17 = 427
-	2^18 = 603
-	2^19 = 853
-	2^20 = 1207
-	2^21 = 1706
-	2^22 = 2412
-	2^23 = 3411
-	2^24 = 4823
-    Its an easy solution but also not a good one.
-  Solution #2: use dynamic map size and collision free basic block IDs
-    This only works in llvm_mode and llvm >= 9 though
-    A potential good future solution
-  Solution #3: write instruction pointers to a big shared map
-    512kb/1MB shared map and the instrumented code writes the instruction
-    pointer into the map. Map must be big enough but could be command line
-    controlled.
-    Good: complete coverage information, nothing is lost. choice of analysis
-          impacts speed, but this can be decided by user options
-    Neutral: a little bit slower but no loss of coverage
-    Bad: completely changes how afl uses the map and the scheduling.
-    Overall another very good solution
-    
+ - expand MAP size to 256k (current L2 cache size on processors)
+   -> 18 bit map
+ - llvm_mode: dynamic map size and collission free basic block IDs
+
 qemu_mode:
  - persistent mode patching the return address (WinAFL style)
  - instrument only comparison with immediate values by default when using compcov

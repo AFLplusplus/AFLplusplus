@@ -20,12 +20,9 @@
 
 int main(int argc, char** argv) {
 
-  char buff[8];
-  char *buf = buff;
+  char buf[8];
 
-  if (argc > 1)
-    buf = argv[1];
-  else if (read(0, buf, sizeof(buf)) < 1) {
+  if (read(0, buf, sizeof(buf)) < 1) {
     printf("Hum?\n");
     exit(1);
   }

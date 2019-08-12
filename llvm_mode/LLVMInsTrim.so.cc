@@ -46,13 +46,15 @@ namespace {
     std::mt19937 generator;
     int total_instr = 0;
 
-    unsigned int genLabel() {
-      return generator() & (MAP_SIZE - 1);
+    unsigned genLabel() {
+      return generator() % 65536;
     }
 
   public:
     static char ID;
-    InsTrim() : ModulePass(ID), generator(0) {
+    InsTrim() : ModulePass(ID), generator(0) {//}
+    
+//    AFLCoverage() : ModulePass(ID) {
       char* instWhiteListFilename = getenv("AFL_LLVM_WHITELIST");
       if (instWhiteListFilename) {
         std::string line;
@@ -292,11 +294,10 @@ namespace {
           Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
 
 #if LLVM_VERSION_MAJOR < 9
-          if (neverZero_counters_str != NULL) // with llvm 9 we make this the default as the bug in llvm is then fixed
+          if (neverZero_counters_str != NULL) { // with llvm 9 we make this the default as the bug in llvm is then fixed
 #else
-          if (1) // with llvm 9 we make this the default as the bug in llvm is then fixed
+  #warning "neverZero implementation needs to be reviewed!"
 #endif
-          {
           /* hexcoder: Realize a counter that skips zero during overflow.
            * Once this counter reaches its maximum value, it next increments to 1
            *
@@ -309,13 +310,15 @@ namespace {
             auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
             auto carry = IRB.CreateZExt(cf, Int8Ty);
             Incr = IRB.CreateAdd(Incr, carry);
+#if LLVM_VERSION_MAJOR < 9
           }
+#endif
    
           IRB.CreateStore(Incr, MapPtrIdx)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
    
           /* Set prev_loc to cur_loc >> 1 */
           /*
-          StoreInst *Store = IRB.CreateStore(ConstantInt::get(Int32Ty, L >> 1), OldPrev);
+          StoreInst *Store = IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
           Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
           */
 

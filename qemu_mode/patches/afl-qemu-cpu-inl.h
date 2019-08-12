@@ -57,7 +57,7 @@
 
 /* This is equivalent to afl-as.h: */
 
-static unsigned char dummy[MAP_SIZE]; /* costs MAP_SIZE but saves a few instructions */
+static unsigned char dummy[65536]; /* costs 64kb but saves a few instructions */
 unsigned char *afl_area_ptr = dummy; /* Exported for afl_gen_trace */
 
 /* Exported variables populated by the code patched into elfload.c: */

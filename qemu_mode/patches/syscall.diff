@@ -2,10 +2,9 @@ diff --git a/linux-user/syscall.c b/linux-user/syscall.c
 index 280137da..8c0e749f 100644
 --- a/linux-user/syscall.c
 +++ b/linux-user/syscall.c
-@@ -112,6 +112,9 @@
+@@ -112,6 +112,8 @@
  #include "qemu.h"
  #include "fd-trans.h"
-+#include <linux/sockios.h>
  
 +extern unsigned int afl_forksrv_pid;
 +

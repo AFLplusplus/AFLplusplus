@@ -27,11 +27,11 @@ VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
 LLVM_CONFIG ?= llvm-config
 LLVMVER  = $(shell $(LLVM_CONFIG) --version)
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^[12]|^3\.0|^1[0-9]' && echo 1 || echo 0 )
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^9|3.0' && echo 1 || echo 0 )
 LLVM_MAJOR = ($shell $(LLVM_CONFIG) --version | sed 's/\..*//')
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
-  $(warn llvm_mode only supports versions 3.8.0 up to 9 )
+  $(warn llvm_mode only supports versions 3.8.0 up to 8.x )
 endif
 
 # this is not visible yet:
@@ -48,7 +48,7 @@ ifdef AFL_TRACE_PC
 endif
 
 CXXFLAGS    ?= -O3 -funroll-loops
-CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g \
+CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
                -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
@@ -75,7 +75,7 @@ endif
 
 # sanity check.
 # Are versions of clang --version and llvm-config --version equal?
-CLANGVER = $(shell $(CC) --version | sed -E -ne '1{/^.*([0-9]\.[0-9]\.[0-9]).*/s//\1/p}')
+CLANGVER = $(shell $(CC) --version | sed -E -ne '/^.*([0-9]\.[0-9]\.[0-9]).*/s//\1/p')
 
 
 ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 )" "1"
@@ -174,10 +174,10 @@ endif
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
 	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1 AFL_PATH=. AFL_CC=$(CC) AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
-	../afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
+	echo 0 | ../afl-showmap -m none -q -o .test-instr0 ./test-instr
 	echo 1 | ../afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
-	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/vanhauser-thc/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
+	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please ping <lcamtuf@google.com> to troubleshoot the issue."; echo; exit 1; fi
 	@echo "[+] All right, the instrumentation seems to be working!"
 
 all_done: test_build

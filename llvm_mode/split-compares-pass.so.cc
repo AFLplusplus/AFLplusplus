@@ -495,12 +495,14 @@ bool SplitComparesTransform::runOnModule(Module &M) {
       errs() << "Running split-compare-pass " << 64 << "\n"; 
       splitCompares(M, 64);
 
-      [[clang::fallthrough]]; /*FALLTHRU*/ /* FALLTHROUGH */
+      [[clang::fallthrough]];
+      /* fallthrough */
     case 32:
       errs() << "Running split-compare-pass " << 32 << "\n"; 
       splitCompares(M, 32);
 
-      [[clang::fallthrough]]; /*FALLTHRU*/ /* FALLTHROUGH */
+      [[clang::fallthrough]];
+      /* fallthrough */
     case 16:
       errs() << "Running split-compare-pass " << 16 << "\n"; 
       splitCompares(M, 16);
