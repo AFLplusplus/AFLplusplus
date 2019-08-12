@@ -59,10 +59,13 @@ static u8 *out_file,                  /* Trace output file                 */
 
 static u32 exec_tmout;                /* Exec timeout (ms)                 */
 
+static u32 total, highest;            /* tuple content information         */
+
 static u64 mem_limit = MEM_LIMIT;     /* Memory limit (MB)                 */
 
 static u8  quiet_mode,                /* Hide non-essential messages?      */
            edges_only,                /* Ignore hit counts?                */
+           raw_instr_output,          /* Do not apply AFL filters          */
            cmin_mode,                 /* Generate output in afl-cmin mode? */
            binary_mode,               /* Write output as a binary map      */
            keep_cores;                /* Allow coredumps?                  */
@@ -114,7 +117,7 @@ static void classify_counts(u8* mem, const u8* map) {
       mem++;
     }
 
-  } else {
+  } else if (!raw_instr_output) {
 
     while (i--) {
       *mem = map[*mem];
@@ -154,7 +157,6 @@ static u32 write_results(void) {
 
   }
 
-
   if (binary_mode) {
 
     for (i = 0; i < MAP_SIZE; i++)
@@ -173,6 +175,10 @@ static u32 write_results(void) {
 
       if (!trace_bits[i]) continue;
       ret++;
+      
+      total += trace_bits[i];
+      if (highest < trace_bits[i])
+        highest = trace_bits[i];
 
       if (cmin_mode) {
 
@@ -412,6 +418,7 @@ static void usage(u8* argv0) {
 
        "  -q            - sink program's output and don't show messages\n"
        "  -e            - show edge coverage only, ignore hit counts\n"
+       "  -r            - show real tuple values instead of AFL filter values\n"
        "  -c            - allow core dumps\n\n"
 
        "This tool displays raw tuple data captured by AFL instrumentation.\n"
@@ -541,12 +548,12 @@ int main(int argc, char** argv) {
 
   s32 opt;
   u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0, unicorn_mode = 0;
-  u32 tcnt;
+  u32 tcnt = 0;
   char** use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  while ((opt = getopt(argc,argv,"+o:m:t:A:eqZQUbc")) > 0)
+  while ((opt = getopt(argc,argv,"+o:m:t:A:eqZQUbcr")) > 0)
 
     switch (opt) {
 
@@ -611,6 +618,7 @@ int main(int argc, char** argv) {
       case 'e':
 
         if (edges_only) FATAL("Multiple -e options not supported");
+        if (raw_instr_output) FATAL("-e and -r are mutually exclusive");
         edges_only = 1;
         break;
 
@@ -664,6 +672,13 @@ int main(int argc, char** argv) {
         if (keep_cores) FATAL("Multiple -c options not supported");
         keep_cores = 1;
         break;
+      
+      case 'r':
+
+        if (raw_instr_output) FATAL("Multiple -r options not supported");
+        if (edges_only) FATAL("-e and -r are mutually exclusive");
+        raw_instr_output = 1;
+        break;
 
       default:
 
@@ -699,7 +714,7 @@ int main(int argc, char** argv) {
   if (!quiet_mode) {
 
     if (!tcnt) FATAL("No instrumentation detected" cRST);
-    OKF("Captured %u tuples in '%s'." cRST, tcnt, out_file);
+    OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST, tcnt, highest, total, out_file);
 
   }
 

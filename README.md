@@ -1,10 +1,15 @@
 # american fuzzy lop plus plus (afl++)
 
+  Release Version: 2.53c 
+
+  Github Version: 2.53d
+
+
   Originally developed by Michal "lcamtuf" Zalewski.
 
   Repository: [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
 
-  afl++ is maintained by Marc Heuse <mh@mh-sec.de>, Heiko Eissfeldt
+  afl++ is maintained by Marc Heuse <mh@mh-sec.de>, Heiko Eißfeldt
   <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>.
 
 ## The enhancements compared to the original stock afl
@@ -13,12 +18,12 @@
   get any improvements since November 2017.
 
   Among others afl++ has, e.g. more performant llvm_mode, supporting
-  llvm up to version 8, Qemu 3.1, more speed and crashfixes for Qemu,
+  llvm up to version 9, Qemu 3.1, more speed and crashfixes for Qemu,
   laf-intel feature for Qemu (with libcompcov) and more.
 
   Additionally the following patches have been integrated:
 
-  * AFLfast's power schedules by Marcel Boehme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
+  * AFLfast's power schedules by Marcel Böhme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
 
   * C. Hollers afl-fuzz Python mutator module and llvm_mode whitelist support: [https://github.com/choller/afl](https://github.com/choller/afl)
 
@@ -27,6 +32,8 @@
   * instrim, a very effective CFG llvm_mode instrumentation implementation for large targets: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
 
   * unicorn_mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
+
+  * Custom mutator by a library (instead of Python) by kyakdan
 
   A more thorough list is available in the PATCHES file.
 
@@ -114,7 +121,7 @@ superior to blind fuzzing or coverage-only tools.
 PLEASE NOTE: llvm_mode compilation with afl-clang-fast/afl-clang-fast++
 instead of afl-gcc/afl-g++ is much faster and has a few cool features.
 See llvm_mode/ - however few code does not compile with llvm.
-We support llvm versions 4.0 to 8.
+We support llvm versions 3.8.0 to 9.
 
 When source code is available, instrumentation can be injected by a companion
 tool that works as a drop-in replacement for gcc or clang in any standard build
@@ -137,7 +144,7 @@ For C++ programs, you'd would also want to set `CXX=/path/to/afl/afl-g++`.
 The clang wrappers (afl-clang and afl-clang++) can be used in the same way;
 clang users may also opt to leverage a higher-performance instrumentation mode,
 as described in [llvm_mode/README.llvm](llvm_mode/README.llvm).
-Clang/LLVM has a much better performance and works with LLVM version 4.0 to 8.
+Clang/LLVM has a much better performance and works with LLVM version 3.8.0 to 9.
 
 Using the LAF Intel performance enhancements are also recommended, see 
 [llvm_mode/README.laf-intel](llvm_mode/README.laf-intel)

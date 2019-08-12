@@ -193,7 +193,7 @@ namespace DominatorTree{
         idom[now] = idom[idom[now]];
     }
   }
-}; // End of DominatorTree
+} // End of DominatorTree
 
 std::vector<uint32_t> Visited, InStack;
 std::vector<uint32_t> TopoOrder, InDeg;
