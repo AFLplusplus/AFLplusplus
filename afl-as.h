@@ -137,7 +137,7 @@ static const u8* trampoline_fmt_64 =
   "leaq -(128+16)(%%rsp), %%rsp\n"
   "movq %%rdx,  0(%%rsp)\n"
   "movq %%rax, 8(%%rsp)\n"
-  "leaq (%rip), %rdx\n"
+  "leaq (%%rip), %%rdx\n"
   "call __afl_maybe_log\n"
   "movq 8(%%rsp), %%rax\n"
   "movq  0(%%rsp), %%rdx\n"
