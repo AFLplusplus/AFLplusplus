@@ -206,12 +206,12 @@ bool AFLCoverage::runOnModule(Module &M) {
     // rip = instruction pointer
 
     short:
-      if (map[0] < MAP_SIZE /sizeof(uint64_t))
+      if (map[0] < MAP_SIZE/sizeof(uint64_t))
         map[map[0]++] = &rip;
       
     long:
       idx = map[0];
-      if (idx < MAP_SIZE / sizeof(uint64_t)) {
+      if (idx < (MAP_SIZE / sizeof(uint64_t))) {
         uint64_t rip_addr = "leaq (%rip), %rdx\n";
         map[idx] = rip_addr;
         idx++;
@@ -242,8 +242,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       IRB.SetInsertPoint(BI);
 
         /* map[idx] = rip */
-        Value *Shifted = IRB.CreateShl(Counter, ConstantInt::get(Int64Ty, 3));
-        Value *MapPtrIdx = IRB.CreateGEP(MapPtr, Shifted);
+        //Value *Shifted = IRB.CreateShl(Counter, ConstantInt::get(Int64Ty, 3));
+        Value *MapPtrIdx = IRB.CreateGEP(MapPtr, Counter);
         IRB.CreateStore(BlockAddress::get(&F, &BB), MapPtrIdx)->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
         /* idx++ */
