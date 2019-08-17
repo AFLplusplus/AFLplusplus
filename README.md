@@ -12,6 +12,10 @@
   afl++ is maintained by Marc Heuse <mh@mh-sec.de>, Heiko Eißfeldt
   <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>.
 
+  Note that although afl now has a Google afl repository [https://github.com/Google/afl](https://github.com/Google/afl),
+  it is unlikely to receive any noteable enhancements: [https://twitter.com/Dor3s/status/1154737061787660288](https://twitter.com/Dor3s/status/1154737061787660288)
+
+
 ## The enhancements compared to the original stock afl
 
   Many improvements were made over the official afl release - which did not

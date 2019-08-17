@@ -10,7 +10,6 @@ afl-fuzz:
 
 gcc_plugin:
  - needs to be rewritten
- - fix crashes when compiling :(
  - whitelist support
  - skip over uninteresting blocks
  - laf-intel
@@ -29,7 +28,8 @@ Problem: Average targets (tiff, jpeg, unrar) go through 1500 edges.
          At afl's default map that means ~16 collisions and ~3 wrappings.
   Solution #1: increase map size.
     every +1 decreases fuzzing speed by ~10% and halfs the collisions
-    birthday paradox predicts at collisions at this # of edges:
+    birthday paradox predicts collisions at this # of edges:
+     mapsize => collisions
 	2^16 = 302
 	2^17 = 427
 	2^18 = 603
@@ -39,10 +39,10 @@ Problem: Average targets (tiff, jpeg, unrar) go through 1500 edges.
 	2^22 = 2412
 	2^23 = 3411
 	2^24 = 4823
-    Its an easy solution but also not a good one.
+    Increasing the map is an easy solution but also not a good one.
   Solution #2: use dynamic map size and collision free basic block IDs
     This only works in llvm_mode and llvm >= 9 though
-    A potential good future solution
+    A potential good future solution. Heiko/hexcoder follows this up
   Solution #3: write instruction pointers to a big shared map
     512kb/1MB shared map and the instrumented code writes the instruction
     pointer into the map. Map must be big enough but could be command line
@@ -51,7 +51,7 @@ Problem: Average targets (tiff, jpeg, unrar) go through 1500 edges.
           impacts speed, but this can be decided by user options
     Neutral: a little bit slower but no loss of coverage
     Bad: completely changes how afl uses the map and the scheduling.
-    Overall another very good solution
+    Overall another very good solution, Marc Heuse/vanHauser follows this up
     
 qemu_mode:
  - persistent mode patching the return address (WinAFL style)
