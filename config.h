@@ -324,7 +324,7 @@
 
 #define MAP_SIZE_POW2       20
 #define MAP_SIZE            (1 << MAP_SIZE_POW2)
-#define MAX_ENTRIES         (MAP_SIZE - 1)
+#define MAX_ENTRIES         ((MAP_SIZE / sizeof(uint64_t)) - 1)
 
 /* Maximum allocator request size (keep well under INT_MAX): */
 
@@ -356,5 +356,10 @@
    measuring coverage that could be attained by a "dumb" fuzzing algorithm: */
 
 // #define IGNORE_FINDS
+
+/* MAX int values */
+
+#define MAX_UINT_64 0xffffffffffffffff
+#define MAX_UINT_32 0xffffffff
 
 #endif /* ! _HAVE_CONFIG_H */

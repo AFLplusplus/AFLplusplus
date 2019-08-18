@@ -170,10 +170,15 @@ EXP_ST u8  debug,                     /* Debug mode                       */
 
 static u32 stats_update_freq = 1;     /* Stats update frequency (execs)   */
 
-static u64 total_len;
-static u64 max_total_len;
-static u64 last_cksum;
-static u64 overflows;
+static u64  total_blocks;
+static u64  max_total_blocks;
+static u64  min_total_blocks;
+static u64  full_hash;
+static u64  overflows;
+static u64  lowest_ip = MAX_UINT_64, highest_ip;
+static s8   analyze_unique, analyze_rarity;
+static u64  rare_entries;
+static u32 *rare_list;
 
 enum {
   /* 00 */ EXPLORE,                   /* AFL default, Exploration-based constant schedule */
@@ -199,7 +204,7 @@ static u8 havoc_max_mult = HAVOC_MAX_MULT;
 EXP_ST u8  skip_deterministic,        /* Skip deterministic stages?       */
            force_deterministic,       /* Force deterministic stages?      */
            use_splicing,              /* Recombine input files?           */
-           dumb_mode,                 /* Run in non-instrumented mode?    */
+           dumb_mode,                 /* Run in non-instrumented mode?    */           
            score_changed,             /* Scoring for favorites changed?   */
            kill_signal,               /* Signal that killed the child     */
            resuming_fuzz,             /* Resuming an older fuzzing job?   */
@@ -336,8 +341,11 @@ struct queue_entry {
       n_fuzz,                         /* Number of fuzz, does not overflow */
       depth;                          /* Path depth                       */
 
-  u64 exec_cksum;                     /* Checksum of the execution trace  */
-  u64 total_len;                      /* number of entries in the received map */
+  u64 full_hash;                      /* Checksum of the execution trace  */
+  u64 unique_hash;                    /* Checksum of the unique IPs       */
+  u64 total_blocks;                   /* number of entries in the received map */
+  u64 unique_blocks;                  /* number of unique entries in the map */
+  u32 *unique_ips;                     /* list of sorted, unique IPs       */
 
   u32 tc_ref;                         /* Trace bytes ref count            */
 
@@ -488,7 +496,7 @@ static int init_py() {
 
       /* Provide the init function a seed for the Python RNG */
       py_args = PyTuple_New(1);
-      py_value = PyInt_FromLong(UR(0xFFFFFFFF));
+      py_value = PyInt_FromLong(UR(MAX_UINT_32));
       if (!py_value) {
         Py_DECREF(py_args);
         fprintf(stderr, "Cannot convert argument\n");
@@ -1138,7 +1146,7 @@ static void add_to_queue(u8* fname, u32 len, u8 passed_det) {
 
   cycles_wo_finds = 0;
 
-/*printf("added %u %llx %llu\n", queued_paths, last_cksum, total_len);*/
+/*printf("added %u %llx %llu\n", queued_paths, full_hash, total_blocks);*/
 
   if (!(queued_paths % 100)) {
 
@@ -1162,6 +1170,8 @@ EXP_ST void destroy_queue(void) {
 
     n = q->next;
     ck_free(q->fname);
+    if (q->unique_ips != NULL)
+      ck_free(q->unique_ips);
     ck_free(q);
     q = n;
 
@@ -1218,21 +1228,6 @@ EXP_ST void read_bitmap(u8* fname) {
 }
 
 
-/* Check if the current execution path brings anything new to the table.
-   Update virgin bits to reflect the finds. Returns 1 if the only change is
-   the hit-count for a particular tuple; 2 if there are new tuples seen. 
-   Updates the map, so subsequent calls will always return 0.
-
-   This function is called after every exec() on a fairly large buffer, so
-   it needs to be fast. We do this in 32-bit and 64-bit flavors. */
-
-static inline u8 has_new_entries(u8* virgin_map) {
-
-  // in the future we can analyze for new map entries here
-
-  return 0;
-}
-
 #define FF(_b)  (0xff << ((_b) << 3))
 
 /* Find first power of two greater or equal to val (assuming val under
@@ -1258,48 +1253,206 @@ static u64 next_p2(u64 val) {
    contender, or if the contender has a more favorable speed x size factor. */
 
 
-static void update_bitmap_score(struct queue_entry* q) {
+static void calculate_map_score(struct queue_entry* q) {
+  u64 *map = (u64*) trace_bits;
+  u64 min, max, cnt = 0, i, j, cur;
+  u32 *newmap;
 
-  u32 i;
-  u64 fav_factor = q->exec_us * q->len;
-  u64 fuzz_p2    = next_p2 (q->n_fuzz);
+debug = 1;
 
-  // TODO FIXME ... here we can do stuff 
-  return;
+  /*
+   * default minimum
+   */
+  if (total_blocks > max_total_blocks)
+    max_total_blocks = total_blocks;
+  else if (total_blocks < min_total_blocks)
+    min_total_blocks = total_blocks;
+
+  // here we try to put a weighting to the map depending on the total_blocks
+  
+  // XXX TODO
 
 
-  /* For every byte set in trace_bits[], see if there is a previous winner,
-     and how it compares to us. */
+  if (analyze_unique != 1)
+    return;
 
-  for (i = 0; i < MAP_SIZE; i++)
 
-    if (trace_bits[i]) {
+  /*
+   * calculate unique entries option
+   */
 
-       if (top_rated[i]) {
+  // if this is the first call ever, we check if we actually can do this
+  if (lowest_ip == MAX_UINT_64) {
+    for (i = 1; i < total_blocks; i++) {
+      if (lowest_ip > map[i])
+        lowest_ip = map[i];
+      else if (highest_ip < map[i])
+        highest_ip = map[i];
+    }
+  if (debug) fprintf(stderr, "lowest %016llx => %016llx => %08x, highest %016llx => %08x\n", lowest_ip, lowest_ip & 0xfffffffffff00000, lowest_ip - (lowest_ip & 0xfffffffffff00000), highest_ip, highest_ip - (lowest_ip & 0xfffffffffff00000));
+    lowest_ip = lowest_ip & 0xfffffffffff00000;
+    // check if the map wont be too big so we can move to 32 bit
+    if ((highest_ip - lowest_ip) >> 5 >= MAX_UINT_32) {
+      if (analyze_rarity)
+        analyze_rarity = -1;
+      analyze_unique = -1; // we can not :(
+      return;
+    }
+  }
 
-         /* Faster-executing or smaller test cases are favored. */
-         u64 top_rated_fuzz_p2    = next_p2 (top_rated[i]->n_fuzz);
-         u64 top_rated_fav_factor = top_rated[i]->exec_us * top_rated[i]->len;
+  if ((newmap = (u32*)malloc(total_blocks << 2)) == NULL)
+    return;
 
-         if (fuzz_p2 > top_rated_fuzz_p2) {
-           continue;
-         } else if (fuzz_p2 == top_rated_fuzz_p2) {
-           if (fav_factor > top_rated_fav_factor)
-             continue;
-         }
+fprintf(stderr, "Unique map: %p size %u, %u entries\n", newmap, total_blocks << 2, total_blocks);
 
-         if (fav_factor > top_rated[i]->exec_us * top_rated[i]->len) continue;
+  min = 1;
+  max = total_blocks;
 
-       }
+  //if (debug) { fprintf(stderr, "BEFORE:\n"); for (i = min; i <= max; i++) fprintf(stderr, "%016llx\n",map[i]); fprintf(stderr, "\n"); }
+  u64 prev_lowest = 0;
+  if (max == min) {
+fprintf(stderr, "WRITE: %p map[%p + %u] 1!\n", newmap + cnt, newmap, cnt);
+    newmap[cnt++] = ((map[1] - lowest_ip) >> 5) & MAX_UINT_32;
+  } else while (min <= max) {
+    cur = map[min];
+    for (i = min + 1; i <= max; i++)
+      if (cur > map[i] && prev_lowest < map[i])
+        cur = map[i];
+    if (cnt == 0) // check if we have a problem!
+      if (cur < lowest_ip) {
+        cnt = 0; // abort
+        break;
+      }
+    if (cur != prev_lowest) {
+fprintf(stderr, "WRITE: %p map[%p + %u]\n", newmap + cnt, newmap, cnt);
+      newmap[cnt++] = ((cur - lowest_ip) >> 5) & MAX_UINT_32; // we reduce to 32 bit to save memory, we can shift 5 bits because the instrumentation we insert costs > 32 bytes
+      if (min == max)
+        max = min - 1;
+      else {
+        while (map[min] <= cur && min < max)
+          min++;
+        while (map[max] <= cur && max > min)
+          max--;
+      }
+      prev_lowest = cur;
+    } else
+      max = min - 1;
+  }
+  if (cnt > 1 && (cur - lowest_ip) >> 5 > MAX_UINT_32) {
+fprintf(stderr, "damn, highst - lowest >> 5 doesnt fit\n");
+    free(newmap);
+    return; // :-(
+  }
 
-       /* Insert ourselves as the new winner. */
+  // now we realloc
+  if (cnt == 0 || (q->unique_ips = (u32*) realloc(newmap, cnt << 2)) == NULL) {
+    free(newmap); // memory problem
+    return;
+  }
+fprintf(stderr, "cnt %u, realloc: %p size %u\n", cnt, q->unique_ips, cnt << 2);
 
-       top_rated[i] = q;
-       q->tc_ref++;
+  q->unique_hash = XXH64((char*)q->unique_ips, (cnt << 2), 0);  
+  q->unique_blocks = cnt;
+  //if (debug) { fprintf(stderr, "AFTER:\n"); for (i = 0; i < cnt; i++) fprintf(stderr, "%08x\n",q->unique_ips[i]); fprintf(stderr, "\n"); }
+  if (debug) { fprintf(stderr, "RES: unique_blocks %llu, hash %016x\n", q->unique_blocks, q->unique_hash); }
 
-       score_changed = 1;
+//return;
 
-     }
+  // now double check that the unique_blocks map is unique in the queue
+  struct queue_entry *qu = queue;
+//  u8 remove = 0;
+  while (qu) {
+fprintf(stderr, "%p->%p vs %p->%p\n", qu, qu->next, q, q->next);
+    if (qu != q && qu->unique_hash == q->unique_hash) { // it is a double so we remove this current entry
+      queue = q->next;
+      unlink(q->fname);
+      ck_free(q->fname);
+      ck_free(q->unique_ips);
+      ck_free(q);
+  //    remove = 1;
+      break;
+    }
+//    if (remove && qu->next == q) // and we remove the pointer to this entry
+//      qu->next = NULL;
+    qu = qu->next;
+  }
+
+
+  // here we try to put a weighting to the map depending on the uniqueness
+
+  // XXX TODO
+
+  if (analyze_rarity != 1)
+    return;
+
+  /*
+   * calculate rarity option
+   */
+
+  u64 newcnt = 0;
+  u32 *newlist;
+
+  if ((newlist = (u32*) malloc((rare_entries + cnt) << 2)) == NULL)
+    return; 
+
+fprintf(stderr, "newlist %p size %u, maxcnt %u\n", newlist, (rare_entries + cnt) << 2, rare_entries + cnt);
+    
+  if (rare_entries == 0) { // first run
+
+    memcpy((char*)newlist, (char*)q->unique_ips, cnt << 2);
+  fprintf(stderr, "Unique: (%u + %u) ", rare_entries, cnt); for (i=0; i < cnt; i++) fprintf(stderr, "%08x ", newlist[i]); fprintf(stderr, "\n");
+  fprintf(stderr, "Unique has %u entries the first time\n", cnt);
+    rare_list = newlist;
+    rare_entries = cnt;
+
+  } else { // merge existing and new
+    
+    i = j = 0;
+    do {
+      if (i >= rare_entries) { // rare_list is done
+        while (j < cnt) {
+fprintf(stderr, "WRITE NEW_ %p %p[%u] = %p %p[%u]\n", newlist + (newcnt << 2), newlist, newcnt, q->unique_ips + (j << 2), q->unique_ips, j);
+          newlist[newcnt++] = q->unique_ips[j++];
+        }
+      } else if (j >= cnt) { // new unique list is done
+        while (i < rare_entries) {
+fprintf(stderr, "WRITE OLD_ %p %p[%u] = %p %p[%u]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
+          newlist[newcnt++] = rare_list[i++];
+        }
+      } else { // still merging both lists
+        if (rare_list[i] < q->unique_ips[j]) {
+fprintf(stderr, "WRITE OLD  %p %p[%u] = %p %p[%u]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
+          newlist[newcnt++] = rare_list[i++];
+        } else if (rare_list[i] > q->unique_ips[j]) {
+fprintf(stderr, "WRITE NEW  %p %p[%u] = %p %p[%u]\n", newlist + (newcnt << 2), newlist, newcnt, q->unique_ips + (j << 2), q->unique_ips, j);
+          newlist[newcnt++] = q->unique_ips[j++];
+        } else { // equal
+fprintf(stderr, "WRITE BOTH %p %p[%u] = %p %p[%u]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
+          newlist[newcnt++] = rare_list[i++];
+          j++;
+        }
+      }
+    } while (i + j < rare_entries + cnt);
+    
+    if (newcnt > rare_entries) {
+  fprintf(stderr, "Unique [%u]: (%u/%u + %u/%u) ", newcnt, i, rare_entries, j, cnt); for (i=0; i < newcnt; i++) fprintf(stderr, "%08x ", newlist[i]); fprintf(stderr, "\n");
+      rare_entries = newcnt;
+      ck_free(rare_list);
+      if ((rare_list = realloc(newlist, newcnt << 2)) == NULL)
+        rare_list = newlist; // if realloc fails we dont want to loose this!!
+fprintf(stderr, "REALLOC rare %p size %u, entries %u\n", rare_list, newcnt << 2, newcnt);
+    } else // nothing new
+      free(newlist);
+  }
+
+  // here we try to put a weighting to the map depending on the rarity
+
+/*  2. Update queue rarity values*/
+/*=> values: count == lowest -> rarity+= MAX; highest -> rarity += MIN*/
+
+debug = 0;
+
+  return; // for optical reasons
 
 }
 
@@ -2433,18 +2586,17 @@ static u8 run_target(char** argv, u32 timeout) {
 
   prev_timed_out = child_timed_out;
 
-  total_len = *(u64*)trace_bits - 1;
-  if (total_len == MAX_ENTRIES)
+  total_blocks = *(u64*)trace_bits - 1;
+  if (total_blocks >= MAX_ENTRIES) {
     overflows++;
+    total_blocks = MAX_ENTRIES;
+  }
 
   if (*(u64*)trace_bits > 0) {
-/*    XXH64_reset(state, 0);*/
-/*    XXH64_update(state, trace_bits, (total_len << 3));*/
-/*    last_cksum = XXH64_digest(state);*/
-    last_cksum = XXH64(trace_bits, (total_len << 3), 0);
+    full_hash = XXH64(trace_bits, (total_blocks << 3), 0);
   } else
-    last_cksum = 0;
-//printf("chksum: %016llx, len: %llx\n", last_cksum, total_len);
+    full_hash = 0;
+//printf("chksum: %016llx, len: %llx\n", full_hash, total_blocks);
 
   /* Report outcome to caller. */
 
@@ -2466,7 +2618,7 @@ static u8 run_target(char** argv, u32 timeout) {
     return FAULT_CRASH;
   }
 
-  if ((dumb_mode == 1 || no_forkserver) && (total_len == 0 || total_len == 0xffffffffffffffff))
+  if ((dumb_mode == 1 || no_forkserver) && (total_blocks == 0 || total_blocks == MAX_UINT_64))
     return FAULT_ERROR;
 
   return FAULT_NONE;
@@ -2551,7 +2703,7 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
                          u32 handicap, u8 from_queue) {
 
   u8  fault = 0, new_bits = 0, var_detected = 0,
-      first_run = (q->exec_cksum == 0);
+      first_run = (q->full_hash == 0);
 
   u64 start_us, stop_us;
 
@@ -2598,19 +2750,18 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
       goto abort_calibration;
     }
     
-
-    if (q->exec_cksum != last_cksum) {
+    if (q->full_hash != full_hash) {
 
       //u8 hnb = has_new_entries(trace_bits); // currently a dummy, returns 0 // TODO
 
-      if (q->exec_cksum) {
+      if (q->full_hash) {
 
         stage_max    = CAL_CYCLES_LONG;  // TODO ???
         var_detected = 1;
 
       } else {
 
-        q->exec_cksum = last_cksum;
+        q->full_hash = full_hash;
 
       }
 
@@ -2627,14 +2778,14 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
      This is used for fuzzing air time calculations in calculate_score(). */
 
   q->exec_us     = (stop_us - start_us) / stage_max;
-  q->total_len = total_len;
+  q->total_blocks = total_blocks;
   q->handicap    = handicap;
   q->cal_failed  = 0;
 
-  total_bitmap_size += q->total_len;
+  total_bitmap_size += q->total_blocks;
   total_bitmap_entries++;
 
-  update_bitmap_score(q);
+  calculate_map_score(q);
 
   /* If this case didn't result in new output from the instrumentation, tell
      parent. This is a non-critical problem, but something to warn the user
@@ -2709,7 +2860,7 @@ static void perform_dry_run(char** argv) {
 
     if (res == crash_mode || res == FAULT_NOBITS)
       SAYF(cGRA "    len = %u, call depth = %llu, exec speed = %llu us\n" cRST, 
-           q->len, q->total_len, q->exec_us);
+           q->len, q->total_blocks, q->exec_us);
 
     switch (res) {
 
@@ -3010,7 +3161,7 @@ static u8* describe_op(u8 hnb) {
 
   if (syncing_party) {
 
-    sprintf(ret, "sync:%s,src:%06u", syncing_party, syncing_case);
+    snprintf(ret, sizeof(ret), "sync:%s,src:%06u", syncing_party, syncing_case);
 
   } else {
 
@@ -3034,7 +3185,10 @@ static u8* describe_op(u8 hnb) {
 
     } else sprintf(ret + strlen(ret), ",rep:%u", stage_cur_val);
 
-    sprintf(ret + strlen(ret), ",%016llx,%llu", last_cksum, total_len);
+    sprintf(ret + strlen(ret), ",%016llx,%llu", full_hash, total_blocks);
+
+    if (strlen(ret) >= sizeof(ret))
+      FATAL("OVERFLOW in describe_op");
 
   }
 
@@ -3098,7 +3252,7 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
   if (len == 0) return 0;
 
   u8  *fn = "";
-  u8  hnb = total_len;
+  u8  hnb = total_blocks;
   s32 fd;
   u8  keeping = 0, res, exists = 0;
 
@@ -3106,7 +3260,7 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
   struct queue_entry* q = queue;
   while (q && exists == 0) {
-    if (q->exec_cksum == last_cksum) {
+    if (q->full_hash == full_hash) {
       q->n_fuzz = q->n_fuzz + 1;
       exists = 1;
     }
@@ -3139,15 +3293,14 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
     add_to_queue(fn, len, 0);
 
-    if (total_len >= max_total_len) {
+    if (total_blocks >= max_total_blocks) {
       queue_top->has_new_cov = 1;
       queued_with_cov++;
-      max_total_len = total_len;
     }
 
-    queue_top->exec_cksum = last_cksum;
+    queue_top->full_hash = full_hash;
 
-    /* Try to calibrate inline; this also calls update_bitmap_score() when
+    /* Try to calibrate inline; this also calls calculate_map_score() when
        successful. */
 
     res = calibrate_case(argv, queue_top, mem, queue_cycle - 1, 0);
@@ -3236,9 +3389,7 @@ keep_as_crash:
       if (unique_crashes >= KEEP_UNIQUE_CRASH) return keeping;
 
       if (!dumb_mode) {
-
         if (exists) return keeping;
-
       }
 
       if (!unique_crashes) write_crash_readme();
@@ -3915,8 +4066,8 @@ static void show_stats(void) {
 
   /* Do some bitmap stats. */
 
-  t_bytes = total_len;
-  t_byte_ratio = ((double)total_len * 100) / max_total_len;
+  t_bytes = total_blocks;
+  t_byte_ratio = ((double)total_blocks * 100) / max_total_blocks;
 
   if (t_bytes)
     stab_ratio = 100 - ((double)var_byte_count) * 100 / t_bytes;
@@ -3956,7 +4107,7 @@ static void show_stats(void) {
 
   /* Compute some mildly useful bitmap stats. */
 
-  t_bits = total_len;
+  t_bits = total_blocks;
 
   /* Now, for the visuals... */
 
@@ -4099,7 +4250,7 @@ static void show_stats(void) {
 
   SAYF(bV bSTOP "  now processing : " cRST "%-16s " bSTG bV bSTOP, tmp);
 
-  sprintf(tmp, "%0.02f%% / %0.02f%%", ((double)queue_cur->total_len) *
+  sprintf(tmp, "%0.02f%% / %0.02f%%", ((double)queue_cur->total_blocks) *
           100 / MAP_SIZE, t_byte_ratio);
 
   SAYF("    map density : %s%-21s" bSTG bV "\n", t_byte_ratio > 70 ? cLRD :
@@ -4361,8 +4512,8 @@ static void show_init_stats(void) {
     if (!min_us || q->exec_us < min_us) min_us = q->exec_us;
     if (q->exec_us > max_us) max_us = q->exec_us;
 
-    if (!min_bits || q->total_len < min_bits) min_bits = q->total_len;
-    if (q->total_len > max_bits) max_bits = q->total_len;
+    if (!min_bits || q->total_blocks < min_bits) min_bits = q->total_blocks;
+    if (q->total_blocks > max_bits) max_bits = q->total_blocks;
 
     if (q->len > max_len) max_len = q->len;
 
@@ -4492,13 +4643,13 @@ static u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
 
     
 
-    if (last_cksum == q->exec_cksum) {
+    if (full_hash == q->full_hash) {
 
       q->len = retlen;
       memcpy(in_buf, retbuf, retlen);
 
       /* Let's save a clean trace, which will be needed by
-         update_bitmap_score once we're done with the trimming stuff. */
+         calculate_map_score once we're done with the trimming stuff. */
 
       if (!needs_write) {
 
@@ -4544,10 +4695,9 @@ static u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
     close(fd);
 
     memcpy(trace_bits, clean_trace, MAP_SIZE);
-    update_bitmap_score(q);
+    calculate_map_score(q);
 
   }
-
 
 
 abort_trimming:
@@ -4625,7 +4775,7 @@ static u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
          best-effort pass, so it's not a big deal if we end up with false
          negatives every now and then. */
 
-      if (last_cksum == q->exec_cksum) {
+      if (full_hash == q->full_hash) {
 
         u32 move_tail = q->len - remove_pos - trim_avail;
 
@@ -4636,7 +4786,7 @@ static u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
                 move_tail);
 
         /* Let's save a clean trace, which will be needed by
-           update_bitmap_score once we're done with the trimming stuff. */
+           calculate_map_score once we're done with the trimming stuff. */
 
         if (!needs_write) {
 
@@ -4675,7 +4825,7 @@ static u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
     close(fd);
 
     memcpy(trace_bits, clean_trace, MAP_SIZE);
-    update_bitmap_score(q);
+    calculate_map_score(q);
 
   }
 
@@ -4810,12 +4960,12 @@ static u32 calculate_score(struct queue_entry* q) {
   /* Adjust score based on bitmap size. The working theory is that better
      coverage translates to better targets. Multiplier from 0.25x to 3x. */
 
-  if (q->total_len * 0.3 > avg_bitmap_size) perf_score *= 3;
-  else if (q->total_len * 0.5 > avg_bitmap_size) perf_score *= 2;
-  else if (q->total_len * 0.75 > avg_bitmap_size) perf_score *= 1.5;
-  else if (q->total_len * 3 < avg_bitmap_size) perf_score *= 0.25;
-  else if (q->total_len * 2 < avg_bitmap_size) perf_score *= 0.5;
-  else if (q->total_len * 1.5 < avg_bitmap_size) perf_score *= 0.75;
+  if (q->total_blocks * 0.3 > avg_bitmap_size) perf_score *= 3;
+  else if (q->total_blocks * 0.5 > avg_bitmap_size) perf_score *= 2;
+  else if (q->total_blocks * 0.75 > avg_bitmap_size) perf_score *= 1.5;
+  else if (q->total_blocks * 3 < avg_bitmap_size) perf_score *= 0.25;
+  else if (q->total_blocks * 2 < avg_bitmap_size) perf_score *= 0.5;
+  else if (q->total_blocks * 1.5 < avg_bitmap_size) perf_score *= 0.75;
 
   /* Adjust score based on handicap. Handicap is proportional to how late
      in the game we learned about this path. Latecomers are allowed to run
@@ -4946,7 +5096,7 @@ static u8 could_be_bitflip(u32 xor_val) {
 
   if (sh & 7) return 0;
 
-  if (xor_val == 0xff || xor_val == 0xffff || xor_val == 0xffffffff)
+  if (xor_val == 0xff || xor_val == 0xffff || xor_val == MAX_UINT_32)
     return 1;
 
   return 0;
@@ -5301,7 +5451,7 @@ static u8 fuzz_one_original(char** argv) {
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
      for this master instance. */
 
-  if (master_max && (queue_cur->exec_cksum % master_max) != master_id - 1)
+  if (master_max && (queue_cur->full_hash % master_max) != master_id - 1)
 #ifdef USE_PYTHON
     goto python_stage;
 #else
@@ -5330,7 +5480,7 @@ static u8 fuzz_one_original(char** argv) {
 
   orig_hit_cnt = queued_paths + unique_crashes;
 
-  prev_cksum = queue_cur->exec_cksum;
+  prev_cksum = queue_cur->full_hash;
 
   for (stage_cur = 0; stage_cur < stage_max; stage_cur++) {
 
@@ -5371,7 +5521,7 @@ static u8 fuzz_one_original(char** argv) {
 
     if (!dumb_mode && (stage_cur & 7) == 7) {
 
-      if (stage_cur == stage_max - 1 && last_cksum == prev_cksum) {
+      if (stage_cur == stage_max - 1 && full_hash == prev_cksum) {
 
         /* If at end of file and we are still collecting a string, grab the
            final character and force output. */
@@ -5382,7 +5532,7 @@ static u8 fuzz_one_original(char** argv) {
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
           maybe_add_auto(a_collect, a_len);
 
-      } else if (last_cksum != prev_cksum) {
+      } else if (full_hash != prev_cksum) {
 
         /* Otherwise, if the checksum has changed, see if we have something
            worthwhile queued up, and collect that if the answer is yes. */
@@ -5391,14 +5541,14 @@ static u8 fuzz_one_original(char** argv) {
           maybe_add_auto(a_collect, a_len);
 
         a_len = 0;
-        prev_cksum = last_cksum;
+        prev_cksum = full_hash;
 
       }
 
       /* Continue collecting string, but only if the bit flip actually made
          any difference - we don't want no-op tokens. */
 
-      if (last_cksum != queue_cur->exec_cksum) {
+      if (full_hash != queue_cur->full_hash) {
 
         if (a_len < MAX_AUTO_EXTRA) a_collect[a_len] = out_buf[stage_cur >> 3];        
         a_len++;
@@ -5525,9 +5675,9 @@ static u8 fuzz_one_original(char** argv) {
          without wasting time on checksums. */
 
       if (dumb_mode || len < EFF_MIN_LEN)
-        last_cksum = ~queue_cur->exec_cksum;
+        full_hash = ~queue_cur->full_hash;
 
-      if (last_cksum != queue_cur->exec_cksum) {
+      if (full_hash != queue_cur->full_hash) {
         eff_map[EFF_APOS(stage_cur)] = 1;
         eff_cnt++;
       }
@@ -5621,12 +5771,12 @@ static u8 fuzz_one_original(char** argv) {
 
     stage_cur_byte = i;
 
-    *(u32*)(out_buf + i) ^= 0xFFFFFFFF;
+    *(u32*)(out_buf + i) ^= MAX_UINT_32;
 
     if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
     stage_cur++;
 
-    *(u32*)(out_buf + i) ^= 0xFFFFFFFF;
+    *(u32*)(out_buf + i) ^= MAX_UINT_32;
 
   }
 
@@ -7086,7 +7236,7 @@ static u8 pilot_fuzzing(char** argv) {
 	/* Skip deterministic fuzzing if exec path checksum puts this out of scope
 	   for this master instance. */
 
-	if (master_max && (queue_cur->exec_cksum % master_max) != master_id - 1)
+	if (master_max && (queue_cur->full_hash % master_max) != master_id - 1)
 		goto havoc_stage;
 
 
@@ -7123,7 +7273,7 @@ static u8 pilot_fuzzing(char** argv) {
 
 		orig_hit_cnt = queued_paths + unique_crashes;
 
-		prev_cksum = queue_cur->exec_cksum;
+		prev_cksum = queue_cur->full_hash;
 
 		for (stage_cur = 0; stage_cur < stage_max; stage_cur++) {
 
@@ -7164,7 +7314,7 @@ static u8 pilot_fuzzing(char** argv) {
 
 			if (!dumb_mode && (stage_cur & 7) == 7) {
 
-				if (stage_cur == stage_max - 1 && last_cksum == prev_cksum) {
+				if (stage_cur == stage_max - 1 && full_hash == prev_cksum) {
 
 					/* If at end of file and we are still collecting a string, grab
 					   the final character and force output. */
@@ -7175,7 +7325,7 @@ static u8 pilot_fuzzing(char** argv) {
 					if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
 						maybe_add_auto(a_collect, a_len);
 
-				} else if (last_cksum != prev_cksum) {
+				} else if (full_hash != prev_cksum) {
 
 					/* Otherwise, if the checksum has changed, see if we have something
 					   worthwhile queued up, and collect that if the answer is yes. */
@@ -7184,14 +7334,14 @@ static u8 pilot_fuzzing(char** argv) {
 						maybe_add_auto(a_collect, a_len);
 
 					a_len = 0;
-					prev_cksum = last_cksum;
+					prev_cksum = full_hash;
 
 				}
 
 				/* Continue collecting string, but only if the bit flip actually made
 				   any difference - we don't want no-op tokens. */
 
-				if (last_cksum != queue_cur->exec_cksum) {
+				if (full_hash != queue_cur->full_hash) {
 
 					if (a_len < MAX_AUTO_EXTRA) a_collect[a_len] = out_buf[stage_cur >> 3];
 					a_len++;
@@ -7329,9 +7479,9 @@ static u8 pilot_fuzzing(char** argv) {
 				   without wasting time on checksums. */
 
 				if (dumb_mode || len < EFF_MIN_LEN)
-					last_cksum = ~queue_cur->exec_cksum;
+					full_hash = ~queue_cur->full_hash;
 
-				if (last_cksum != queue_cur->exec_cksum) {
+				if (full_hash != queue_cur->full_hash) {
 					eff_map[EFF_APOS(stage_cur)] = 1;
 					eff_cnt++;
 				}
@@ -7437,12 +7587,12 @@ static u8 pilot_fuzzing(char** argv) {
 
 			stage_cur_byte = i;
 
-			*(u32*)(out_buf + i) ^= 0xFFFFFFFF;
+			*(u32*)(out_buf + i) ^= MAX_UINT_32;
 
 			if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 			stage_cur++;
 
-			*(u32*)(out_buf + i) ^= 0xFFFFFFFF;
+			*(u32*)(out_buf + i) ^= MAX_UINT_32;
 
 		}
 
@@ -8267,7 +8417,7 @@ static u8 pilot_fuzzing(char** argv) {
 
 						case 5:
 							if (temp_len < 8) break;
-							*(u32*)(out_buf + UR(temp_len - 3)) ^= 0xFFFFFFFF;
+							*(u32*)(out_buf + UR(temp_len - 3)) ^= MAX_UINT_32;
 							stage_cycles_puppet_v2[swarm_now][STAGE_FLIP32] += 1;
 							break;
 
@@ -8884,7 +9034,7 @@ static u8 core_fuzzing(char** argv) {
 		/* Skip deterministic fuzzing if exec path checksum puts this out of scope
 		   for this master instance. */
 
-		if (master_max && (queue_cur->exec_cksum % master_max) != master_id - 1)
+		if (master_max && (queue_cur->full_hash % master_max) != master_id - 1)
 			goto havoc_stage;
 
 
@@ -8918,7 +9068,7 @@ static u8 core_fuzzing(char** argv) {
 
 		orig_hit_cnt = queued_paths + unique_crashes;
 
-		prev_cksum = queue_cur->exec_cksum;
+		prev_cksum = queue_cur->full_hash;
 
 		for (stage_cur = 0; stage_cur < stage_max; stage_cur++) {
 
@@ -8959,7 +9109,7 @@ static u8 core_fuzzing(char** argv) {
 
 			if (!dumb_mode && (stage_cur & 7) == 7) {
 
-				if (stage_cur == stage_max - 1 && last_cksum == prev_cksum) {
+				if (stage_cur == stage_max - 1 && full_hash == prev_cksum) {
 
 					/* If at end of file and we are still collecting a string, grab the
 					   final character and force output. */
@@ -8971,7 +9121,7 @@ static u8 core_fuzzing(char** argv) {
 						maybe_add_auto(a_collect, a_len);
 
 				}
-				else if (last_cksum != prev_cksum) {
+				else if (full_hash != prev_cksum) {
 
 					/* Otherwise, if the checksum has changed, see if we have something
 					   worthwhile queued up, and collect that if the answer is yes. */
@@ -8980,14 +9130,14 @@ static u8 core_fuzzing(char** argv) {
 						maybe_add_auto(a_collect, a_len);
 
 					a_len = 0;
-					prev_cksum = last_cksum;
+					prev_cksum = full_hash;
 
 				}
 
 				/* Continue collecting string, but only if the bit flip actually made
 				   any difference - we don't want no-op tokens. */
 
-				if (last_cksum != queue_cur->exec_cksum) {
+				if (full_hash != queue_cur->full_hash) {
 
 					if (a_len < MAX_AUTO_EXTRA) a_collect[a_len] = out_buf[stage_cur >> 3];
 					a_len++;
@@ -9120,9 +9270,9 @@ static u8 core_fuzzing(char** argv) {
 				   without wasting time on checksums. */
 
 				if (dumb_mode || len < EFF_MIN_LEN)
-					last_cksum = ~queue_cur->exec_cksum;
+					full_hash = ~queue_cur->full_hash;
 
-				if (last_cksum != queue_cur->exec_cksum) {
+				if (full_hash != queue_cur->full_hash) {
 					eff_map[EFF_APOS(stage_cur)] = 1;
 					eff_cnt++;
 				}
@@ -9223,12 +9373,12 @@ static u8 core_fuzzing(char** argv) {
 
 			stage_cur_byte = i;
 
-			*(u32*)(out_buf + i) ^= 0xFFFFFFFF;
+			*(u32*)(out_buf + i) ^= MAX_UINT_32;
 
 			if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
 			stage_cur++;
 
-			*(u32*)(out_buf + i) ^= 0xFFFFFFFF;
+			*(u32*)(out_buf + i) ^= MAX_UINT_32;
 
 		}
 
@@ -10015,7 +10165,7 @@ static u8 core_fuzzing(char** argv) {
 
 						case 5:
 							if (temp_len < 8) break;
-							*(u32*)(out_buf + UR(temp_len - 3)) ^= 0xFFFFFFFF;
+							*(u32*)(out_buf + UR(temp_len - 3)) ^= MAX_UINT_32;
 							core_operator_cycles_puppet_v2[STAGE_FLIP32] += 1;
 							break;
 
@@ -10930,14 +11080,16 @@ static void usage(u8* argv0) {
        "  -o dir        - output directory for fuzzer findings\n\n"
 
        "Execution control settings:\n"
+       "  -X            - check uniqueness of blocks visited\n"
+       "  -Y            - check rarity of blocks visited (includes -X)\n"
        "  -p schedule   - power schedules recompute a seed's performance score.\n"
        "                  <explore (default), fast, coe, lin, quad, or exploit>\n"
        "                  see docs/power_schedules.txt\n"
        "  -f file       - location read by the fuzzed program (stdin)\n"
        "  -t msec       - timeout for each run (auto-scaled, 50-%u ms)\n"
        "  -m megs       - memory limit for child process (%u MB)\n"
-       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
-       "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n\n"
+//       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
+//       "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n\n"
        "  -L minutes    - use MOpt(imize) mode and set the limit time for entering the\n"
        "                  pacemaker mode (minutes of no new paths, 0 = immediately).\n"
        "                  a recommended value is 10-60. see docs/README.MOpt\n\n"
@@ -10955,7 +11107,7 @@ static void usage(u8* argv0) {
        "Other stuff:\n"
        "  -T text       - text banner to show on the screen\n"
        "  -M / -S id    - distributed mode (see parallel_fuzzing.txt)\n"
-       "  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap file\n"
+//       "  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap file\n"
        "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
        "  -e ext        - File extension for the temporarily generated test case\n\n"
 
@@ -11617,9 +11769,17 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, &tz);
   init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QUe:p:s:V:E:L:")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QUe:p:s:V:E:L:XY")) > 0)
 
     switch (opt) {
+    
+      case 'Y':
+        analyze_rarity = 1;
+        // fall through
+      
+      case 'X':
+        analyze_unique = 1;
+        break;
 
       case 's': {
         init_seed = strtoul(optarg, 0L, 10);
