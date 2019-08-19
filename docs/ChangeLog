@@ -20,12 +20,13 @@ Version ++2.53d (dev):
   - llvm 9 is now supported (still needs testing)
   - fix building qemu on some Ubuntus (thanks to floyd!)
   - custom mutator by a loaded library is now supported (thanks to kyakdan!)
+  - more support for *BSD (thanks to devnexen!)
+  - fix building on *BSD (thanks to tobias.kortkamp for the patch)
   - fix for a few features to support different map sized than 2^16
   - afl-showmap: new option -r now shows the real values in the buckets (stock
     afl never did), plus shows tuple content summary information now
-  - fix building on *BSD (thanks to tobias.kortkamp for the patch)
+  - the forkserver is now in its own C file to be easily integratable
   - small docu updates
-  - ... your patch? :)
 
 
 --------------------------

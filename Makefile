@@ -134,20 +134,23 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 afl-common.o : afl-common.c
 	$(CC) $(CFLAGS) -c afl-common.c
 
-sharedmem.o : sharedmem.c
-	$(CC) $(CFLAGS) -c sharedmem.c
+afl-forkserver.o : afl-forkserver.c
+	$(CC) $(CFLAGS) -c afl-forkserver.c
 
-afl-fuzz: afl-fuzz.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS) $(PYFLAGS)
+afl-sharedmem.o : afl-sharedmem.c
+	$(CC) $(CFLAGS) -c afl-sharedmem.c
 
-afl-showmap: afl-showmap.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS)
+afl-fuzz: afl-fuzz.c afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $@.c afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS) $(PYFLAGS)
 
-afl-tmin: afl-tmin.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS)
+afl-showmap: afl-showmap.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $@.c afl-common.o afl-sharedmem.o -o $@ $(LDFLAGS)
 
-afl-analyze: afl-analyze.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS)
+afl-tmin: afl-tmin.c afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $@.c afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS)
+
+afl-analyze: afl-analyze.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $@.c afl-common.o afl-sharedmem.o -o $@ $(LDFLAGS)
 
 afl-gotcpu: afl-gotcpu.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)

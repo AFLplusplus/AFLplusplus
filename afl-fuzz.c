@@ -33,7 +33,8 @@
 #include "debug.h"
 #include "alloc-inl.h"
 #include "hash.h"
-#include "sharedmem.h"
+#include "afl-sharedmem.h"
+#include "afl-forkserver.h"
 #include "afl-common.h"
 
 #include <stdio.h>
@@ -144,7 +145,6 @@ double period_pilot_tmp = 5000.0;
 int key_lv = 0;
 
 EXP_ST u8 *in_dir,                    /* Input directory with test cases  */
-          *out_file,                  /* File to fuzz, if any             */
           *out_dir,                   /* Working & output directory       */
           *tmp_dir       ,            /* Temporary directory for input    */
           *sync_dir,                  /* Synchronization directory        */
@@ -152,15 +152,16 @@ EXP_ST u8 *in_dir,                    /* Input directory with test cases  */
           *power_name,                /* Power schedule name              */
           *use_banner,                /* Display banner                   */
           *in_bitmap,                 /* Input bitmap                     */
-          *doc_path,                  /* Path to documentation dir        */
-          *target_path,               /* Path to target binary            */
           *file_extension,            /* File extension                   */
           *orig_cmdline;              /* Original command line            */
+       u8 *doc_path,                  /* Path to documentation dir        */
+          *target_path,               /* Path to target binary            */
+          *out_file;                  /* File to fuzz, if any             */
 
-EXP_ST u32 exec_tmout = EXEC_TIMEOUT; /* Configurable exec timeout (ms)   */
+       u32 exec_tmout = EXEC_TIMEOUT; /* Configurable exec timeout (ms)   */
 static u32 hang_tmout = EXEC_TIMEOUT; /* Timeout used for hang det (ms)   */
 
-EXP_ST u64 mem_limit  = MEM_LIMIT;    /* Memory cap for child (MB)        */
+       u64 mem_limit  = MEM_LIMIT;    /* Memory cap for child (MB)        */
 
 EXP_ST u8  cal_cycles = CAL_CYCLES;   /* Calibration cycles defaults      */
 EXP_ST u8  cal_cycles_long = CAL_CYCLES_LONG;
@@ -200,7 +201,6 @@ EXP_ST u8  skip_deterministic,        /* Skip deterministic stages?       */
            timeout_given,             /* Specific timeout given?          */
            not_on_tty,                /* stdout is not a tty              */
            term_too_small,            /* terminal dimensions too small    */
-           uses_asan,                 /* Target uses ASAN?                */
            no_forkserver,             /* Disable forkserver?              */
            crash_mode,                /* Crash mode! Yeah!                */
            in_place_resume,           /* Attempt in-place resume?         */
@@ -217,14 +217,15 @@ EXP_ST u8  skip_deterministic,        /* Skip deterministic stages?       */
            deferred_mode,             /* Deferred forkserver mode?        */
            fixed_seed,                /* do not reseed                    */
            fast_cal;                  /* Try to calibrate faster?         */
+       u8  uses_asan;                 /* Target uses ASAN?                */
 
-static s32 out_fd,                    /* Persistent fd for out_file       */
+       s32 out_fd,                    /* Persistent fd for out_file       */
            dev_urandom_fd = -1,       /* Persistent fd for /dev/urandom   */
            dev_null_fd = -1,          /* Persistent fd for /dev/null      */
            fsrv_ctl_fd,               /* Fork server control pipe (write) */
            fsrv_st_fd;                /* Fork server status pipe (read)   */
 
-static s32 forksrv_pid,               /* PID of the fork server           */
+       s32 forksrv_pid,               /* PID of the fork server           */
            child_pid = -1,            /* PID of the fuzzed program        */
            out_dir_fd = -1;           /* FD of the lock file              */
 
@@ -313,7 +314,7 @@ static s32 cpu_aff = -1;       	      /* Selected CPU core                */
 
 #endif /* HAVE_AFFINITY */
 
-static FILE* plot_file;               /* Gnuplot output file              */
+FILE* plot_file;               /* Gnuplot output file              */
 
 struct queue_entry {
 
@@ -2307,299 +2308,6 @@ static void destroy_extras(void) {
 
 }
 
-
-/* Spin up fork server (instrumented mode only). The idea is explained here:
-
-   http://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
-
-   In essence, the instrumentation allows us to skip execve(), and just keep
-   cloning a stopped child. So, we just execute once, and then send commands
-   through a pipe. The other part of this logic is in afl-as.h. */
-
-EXP_ST void init_forkserver(char** argv) {
-
-  static struct itimerval it;
-  int st_pipe[2], ctl_pipe[2];
-  int status;
-  s32 rlen;
-
-  ACTF("Spinning up the fork server...");
-
-  if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
-
-  forksrv_pid = fork();
-
-  if (forksrv_pid < 0) PFATAL("fork() failed");
-
-  if (!forksrv_pid) {
-
-    /* CHILD PROCESS */
-
-    struct rlimit r;
-
-    /* Umpf. On OpenBSD, the default fd limit for root users is set to
-       soft 128. Let's try to fix that... */
-
-    if (!getrlimit(RLIMIT_NOFILE, &r) && r.rlim_cur < FORKSRV_FD + 2) {
-
-      r.rlim_cur = FORKSRV_FD + 2;
-      setrlimit(RLIMIT_NOFILE, &r); /* Ignore errors */
-
-    }
-
-    if (mem_limit) {
-
-      r.rlim_max = r.rlim_cur = ((rlim_t)mem_limit) << 20;
-
-#ifdef RLIMIT_AS
-
-      setrlimit(RLIMIT_AS, &r); /* Ignore errors */
-
-#else
-
-      /* This takes care of OpenBSD, which doesn't have RLIMIT_AS, but
-         according to reliable sources, RLIMIT_DATA covers anonymous
-         maps - so we should be getting good protection against OOM bugs. */
-
-      setrlimit(RLIMIT_DATA, &r); /* Ignore errors */
-
-#endif /* ^RLIMIT_AS */
-
-
-    }
-
-    /* Dumping cores is slow and can lead to anomalies if SIGKILL is delivered
-       before the dump is complete. */
-
-    r.rlim_max = r.rlim_cur = 0;
-
-    setrlimit(RLIMIT_CORE, &r); /* Ignore errors */
-
-    /* Isolate the process and configure standard descriptors. If out_file is
-       specified, stdin is /dev/null; otherwise, out_fd is cloned instead. */
-
-    setsid();
-
-    if (!getenv("AFL_DEBUG_CHILD_OUTPUT")) {
-      dup2(dev_null_fd, 1);
-      dup2(dev_null_fd, 2);
-    }
-
-    if (out_file) {
-
-      dup2(dev_null_fd, 0);
-
-    } else {
-
-      dup2(out_fd, 0);
-      close(out_fd);
-
-    }
-
-    /* Set up control and status pipes, close the unneeded original fds. */
-
-    if (dup2(ctl_pipe[0], FORKSRV_FD) < 0) PFATAL("dup2() failed");
-    if (dup2(st_pipe[1], FORKSRV_FD + 1) < 0) PFATAL("dup2() failed");
-
-    close(ctl_pipe[0]);
-    close(ctl_pipe[1]);
-    close(st_pipe[0]);
-    close(st_pipe[1]);
-
-    close(out_dir_fd);
-    close(dev_null_fd);
-    close(dev_urandom_fd);
-    close(fileno(plot_file));
-
-    /* This should improve performance a bit, since it stops the linker from
-       doing extra work post-fork(). */
-
-    if (!getenv("LD_BIND_LAZY")) setenv("LD_BIND_NOW", "1", 0);
-
-    /* Set sane defaults for ASAN if nothing else specified. */
-
-    setenv("ASAN_OPTIONS", "abort_on_error=1:"
-                           "detect_leaks=0:"
-                           "symbolize=0:"
-                           "allocator_may_return_null=1", 0);
-
-    /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
-       point. So, we do this in a very hacky way. */
-
-    setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
-                           "symbolize=0:"
-                           "abort_on_error=1:"
-                           "allocator_may_return_null=1:"
-                           "msan_track_origins=0", 0);
-
-    execv(target_path, argv);
-
-    /* Use a distinctive bitmap signature to tell the parent about execv()
-       falling through. */
-
-    *(u32*)trace_bits = EXEC_FAIL_SIG;
-    exit(0);
-
-  }
-
-  /* PARENT PROCESS */
-
-  /* Close the unneeded endpoints. */
-
-  close(ctl_pipe[0]);
-  close(st_pipe[1]);
-
-  fsrv_ctl_fd = ctl_pipe[1];
-  fsrv_st_fd  = st_pipe[0];
-
-  /* Wait for the fork server to come up, but don't wait too long. */
-
-  it.it_value.tv_sec = ((exec_tmout * FORK_WAIT_MULT) / 1000);
-  it.it_value.tv_usec = ((exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
-
-  setitimer(ITIMER_REAL, &it, NULL);
-
-  rlen = read(fsrv_st_fd, &status, 4);
-
-  it.it_value.tv_sec = 0;
-  it.it_value.tv_usec = 0;
-
-  setitimer(ITIMER_REAL, &it, NULL);
-
-  /* If we have a four-byte "hello" message from the server, we're all set.
-     Otherwise, try to figure out what went wrong. */
-
-  if (rlen == 4) {
-    OKF("All right - fork server is up.");
-    return;
-  }
-
-  if (child_timed_out)
-    FATAL("Timeout while initializing fork server (adjusting -t may help)");
-
-  if (waitpid(forksrv_pid, &status, 0) <= 0)
-    PFATAL("waitpid() failed");
-
-  if (WIFSIGNALED(status)) {
-
-    if (mem_limit && mem_limit < 500 && uses_asan) {
-
-      SAYF("\n" cLRD "[-] " cRST
-           "Whoops, the target binary crashed suddenly, before receiving any input\n"
-           "    from the fuzzer! Since it seems to be built with ASAN and you have a\n"
-           "    restrictive memory limit configured, this is expected; please read\n"
-           "    %s/notes_for_asan.txt for help.\n", doc_path);
-
-    } else if (!mem_limit) {
-
-#ifdef __APPLE__
-#define MSG_FORK_ON_APPLE \
-           "    - On MacOS X, the semantics of fork() syscalls are non-standard and may\n" \
-           "      break afl-fuzz performance optimizations when running platform-specific\n" \
-           "      targets. To fix this, set AFL_NO_FORKSRV=1 in the environment.\n\n"
-#else
-#define MSG_FORK_ON_APPLE ""
-#endif
-
-      SAYF("\n" cLRD "[-] " cRST
-           "Whoops, the target binary crashed suddenly, before receiving any input\n"
-           "    from the fuzzer! There are several probable explanations:\n\n"
-
-           "    - The binary is just buggy and explodes entirely on its own. If so, you\n"
-           "      need to fix the underlying problem or find a better replacement.\n\n"
-
-           MSG_FORK_ON_APPLE
-
-           "    - Less likely, there is a horrible bug in the fuzzer. If other options\n"
-           "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
-
-    } else {
-
-#ifdef RLIMIT_AS
-#define MSG_ULIMIT_USAGE \
-           "      ( ulimit -Sv $[%llu << 10];"
-#else
-#define MSG_ULIMIT_USAGE \
-           "      ( ulimit -Sd $[%llu << 10];"
-#endif /* ^RLIMIT_AS */
-
-      SAYF("\n" cLRD "[-] " cRST
-           "Whoops, the target binary crashed suddenly, before receiving any input\n"
-           "    from the fuzzer! There are several probable explanations:\n\n"
-
-           "    - The current memory limit (%s) is too restrictive, causing the\n"
-           "      target to hit an OOM condition in the dynamic linker. Try bumping up\n"
-           "      the limit with the -m setting in the command line. A simple way confirm\n"
-           "      this diagnosis would be:\n\n"
-
-           MSG_ULIMIT_USAGE " /path/to/fuzzed_app )\n\n"
-
-           "      Tip: you can use http://jwilk.net/software/recidivm to quickly\n"
-           "      estimate the required amount of virtual memory for the binary.\n\n"
-
-           "    - The binary is just buggy and explodes entirely on its own. If so, you\n"
-           "      need to fix the underlying problem or find a better replacement.\n\n"
-
-           MSG_FORK_ON_APPLE
-
-           "    - Less likely, there is a horrible bug in the fuzzer. If other options\n"
-           "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n",
-           DMS(mem_limit << 20), mem_limit - 1);
-
-    }
-
-
-    FATAL("Fork server crashed with signal %d", WTERMSIG(status));
-
-  }
-
-  if (*(u32*)trace_bits == EXEC_FAIL_SIG)
-    FATAL("Unable to execute target application ('%s')", argv[0]);
-
-  if (mem_limit && mem_limit < 500 && uses_asan) {
-
-    SAYF("\n" cLRD "[-] " cRST
-           "Hmm, looks like the target binary terminated before we could complete a\n"
-           "    handshake with the injected code. Since it seems to be built with ASAN and\n"
-           "    you have a restrictive memory limit configured, this is expected; please\n"
-           "    read %s/notes_for_asan.txt for help.\n", doc_path);
-
-  } else if (!mem_limit) {
-
-    SAYF("\n" cLRD "[-] " cRST
-         "Hmm, looks like the target binary terminated before we could complete a\n"
-         "    handshake with the injected code. Perhaps there is a horrible bug in the\n"
-         "    fuzzer. Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
-
-  } else {
-
-    SAYF("\n" cLRD "[-] " cRST
-         "Hmm, looks like the target binary terminated before we could complete a\n"
-         "    handshake with the injected code. There are %s probable explanations:\n\n"
-
-         "%s"
-         "    - The current memory limit (%s) is too restrictive, causing an OOM\n"
-         "      fault in the dynamic linker. This can be fixed with the -m option. A\n"
-         "      simple way to confirm the diagnosis may be:\n\n"
-
-         MSG_ULIMIT_USAGE " /path/to/fuzzed_app )\n\n"
-
-         "      Tip: you can use http://jwilk.net/software/recidivm to quickly\n"
-         "      estimate the required amount of virtual memory for the binary.\n\n"
-
-         "    - Less likely, there is a horrible bug in the fuzzer. If other options\n"
-         "      fail, poke <afl-users@googlegroups.com> for troubleshooting tips.\n",
-         getenv(DEFER_ENV_VAR) ? "three" : "two",
-         getenv(DEFER_ENV_VAR) ?
-         "    - You are using deferred forkserver, but __AFL_INIT() is never\n"
-         "      reached before the program terminates.\n\n" : "",
-         DMS(mem_limit << 20), mem_limit - 1);
-
-  }
-
-  FATAL("Fork server handshake failed");
-
-}
 
 
 /* Execute target application, monitoring for timeouts. Return status
@@ -5165,6 +4873,12 @@ static u32 calculate_score(struct queue_entry* q) {
      global average. Multiplier ranges from 0.1x to 3x. Fast inputs are
      less expensive to fuzz, so we're giving them more air time. */
 
+  // TODO BUG FIXME: is this really a good idea?
+  // This sounds like looking for lost keys under a street light just because
+  // the light is better there.
+  // Longer execution time means longer work on the input, the deeper in
+  // coverage, the better the fuzzing, right? -mh
+
   if (q->exec_us * 0.1 > avg_exec_us) perf_score = 10;
   else if (q->exec_us * 0.25 > avg_exec_us) perf_score = 25;
   else if (q->exec_us * 0.5 > avg_exec_us) perf_score = 50;
@@ -5188,15 +4902,11 @@ static u32 calculate_score(struct queue_entry* q) {
      for a bit longer until they catch up with the rest. */
 
   if (q->handicap >= 4) {
-
     perf_score *= 4;
     q->handicap -= 4;
-
   } else if (q->handicap) {
-
     perf_score *= 2;
     --q->handicap;
-
   }
 
   /* Final adjustment based on input depth, under the assumption that fuzzing
@@ -11041,24 +10751,6 @@ static void handle_skipreq(int sig) {
 
 }
 
-/* Handle timeout (SIGALRM). */
-
-static void handle_timeout(int sig) {
-
-  if (child_pid > 0) {
-
-    child_timed_out = 1; 
-    kill(child_pid, SIGKILL);
-
-  } else if (child_pid == -1 && forksrv_pid > 0) {
-
-    child_timed_out = 1; 
-    kill(forksrv_pid, SIGKILL);
-
-  }
-
-}
-
 
 /* Do a PATH search and find target binary to see that it exists and
    isn't a shell script - a common and painful mistake. We also check for
@@ -12443,9 +12135,7 @@ int main(int argc, char** argv) {
 #ifdef USE_PYTHON
   if (init_py())
     FATAL("Failed to initialize Python module");
-  u8 with_python_support = 1;
 #else
-
   if (getenv("AFL_PYTHON_MODULE"))
      FATAL("Your AFL binary was built without Python support");
 #endif
