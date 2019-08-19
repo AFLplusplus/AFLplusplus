@@ -21,12 +21,14 @@
 
 #define AFL_MAIN
 
+
 #include "config.h"
 #include "types.h"
 #include "debug.h"
 #include "alloc-inl.h"
 #include "hash.h"
-#include "sharedmem.h"
+#include "afl-forkserver.h"
+#include "afl-sharedmem.h"
 #include "afl-common.h"
 
 #include <stdio.h>
@@ -46,22 +48,22 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-static s32 forksrv_pid,               /* PID of the fork server           */
-           child_pid;                 /* PID of the tested program        */
+s32 forksrv_pid,                      /* PID of the fork server           */
+    child_pid;                        /* PID of the tested program        */
 
-static s32 fsrv_ctl_fd,               /* Fork server control pipe (write) */
-           fsrv_st_fd;                /* Fork server status pipe (read)   */
+s32 fsrv_ctl_fd,                      /* Fork server control pipe (write) */
+    fsrv_st_fd;                       /* Fork server status pipe (read)   */
 
        u8 *trace_bits;                /* SHM with instrumentation bitmap   */
 static u8 *mask_bitmap;               /* Mask for trace bits (-B)          */
 
-static u8 *in_file,                   /* Minimizer input test case         */
-          *out_file,                  /* Minimizer output file             */
-          *prog_in,                   /* Targeted program input file       */
+       u8 *in_file,                   /* Minimizer input test case         */
+          *output_file,               /* Minimizer output file             */
+          *out_file,                  /* Targeted program input file       */
           *target_path,               /* Path to target binary             */
           *doc_path;                  /* Path to docs                      */
 
-static s32 prog_in_fd;                /* Persistent fd for prog_in         */
+       s32 out_fd;                    /* Persistent fd for out_file         */
 
 static u8* in_data;                   /* Input data for trimming           */
 
@@ -70,12 +72,12 @@ static u32 in_len,                    /* Input data length                 */
            total_execs,               /* Total number of execs             */
            missed_hangs,              /* Misses due to hangs               */
            missed_crashes,            /* Misses due to crashes             */
-           missed_paths,              /* Misses due to exec path diffs     */
-           exec_tmout = EXEC_TIMEOUT; /* Exec timeout (ms)                 */
+           missed_paths;              /* Misses due to exec path diffs     */
+       u32 exec_tmout = EXEC_TIMEOUT; /* Exec timeout (ms)                 */
 
-static u64 mem_limit = MEM_LIMIT;     /* Memory limit (MB)                 */
+       u64 mem_limit = MEM_LIMIT;     /* Memory limit (MB)                 */
 
-static s32 dev_null_fd = -1;          /* FD to /dev/null                   */
+       s32 dev_null_fd = -1;          /* FD to /dev/null                   */
 
 static u8  crash_mode,                /* Crash-centric mode?               */
            exit_crash,                /* Treat non-zero exit as crash?     */
@@ -84,8 +86,19 @@ static u8  crash_mode,                /* Crash-centric mode?               */
            use_stdin = 1;             /* Use stdin for program input?      */
 
 static volatile u8
-           stop_soon,                 /* Ctrl-C pressed?                   */
-           child_timed_out;           /* Child timed out?                  */
+           stop_soon;                 /* Ctrl-C pressed?                   */
+
+/*
+ * forkserver section
+ */
+
+/* we only need this to use afl-forkserver */
+FILE *plot_file;
+u8 uses_asan;
+s32 out_fd = -1, out_dir_fd = -1, dev_urandom_fd = -1;
+
+/* we import this as we need this information */
+extern u8 child_timed_out;
 
 
 /* Classify tuple counts. This is a slow & naive version, but good enough here. */
@@ -163,7 +176,7 @@ static inline u8 anything_set(void) {
 /* Get rid of temp files (atexit handler). */
 
 static void at_exit_handler(void) {
-  if (prog_in) unlink(prog_in); /* Ignore errors */
+  if (out_file) unlink(out_file); /* Ignore errors */
 }
 
 /* Read initial file. */
@@ -214,24 +227,24 @@ static s32 write_to_file(u8* path, u8* mem, u32 len) {
 }
 
 /* Write modified data to file for testing. If use_stdin is clear, the old file
-   is unlinked and a new one is created. Otherwise, prog_in_fd is rewound and
+   is unlinked and a new one is created. Otherwise, out_fd is rewound and
    truncated. */
 
 static void write_to_testcase(void* mem, u32 len) {
 
-  s32 fd = prog_in_fd;
+  s32 fd = out_fd;
 
   if (!use_stdin) {
 
-    unlink(prog_in); /* Ignore errors. */
+    unlink(out_file); /* Ignore errors. */
 
-    fd = open(prog_in, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
-    if (fd < 0) PFATAL("Unable to create '%s'", prog_in);
+    if (fd < 0) PFATAL("Unable to create '%s'", out_file);
 
   } else lseek(fd, 0, SEEK_SET);
 
-  ck_write(fd, mem, len, prog_in);
+  ck_write(fd, mem, len, out_file);
 
   if (use_stdin) {
 
@@ -245,7 +258,7 @@ static void write_to_testcase(void* mem, u32 len) {
 
 
 /* Handle timeout signal. */
-
+/*
 static void handle_timeout(int sig) {
 
   if (child_pid > 0) {
@@ -261,8 +274,10 @@ static void handle_timeout(int sig) {
   }
 
 }
+*/
 
 /* start the app and it's forkserver */
+/*
 static void init_forkserver(char **argv) {
   static struct itimerval it;
   int st_pipe[2], ctl_pipe[2];
@@ -280,7 +295,7 @@ static void init_forkserver(char **argv) {
 
     struct rlimit r;
 
-    if (dup2(use_stdin ? prog_in_fd : dev_null_fd, 0) < 0 ||
+    if (dup2(use_stdin ? out_fd : dev_null_fd, 0) < 0 ||
         dup2(dev_null_fd, 1) < 0 ||
         dup2(dev_null_fd, 2) < 0) {
 
@@ -290,7 +305,7 @@ static void init_forkserver(char **argv) {
     }
 
     close(dev_null_fd);
-    close(prog_in_fd);
+    close(out_fd);
 
     setsid();
 
@@ -300,20 +315,20 @@ static void init_forkserver(char **argv) {
 
 #ifdef RLIMIT_AS
 
-      setrlimit(RLIMIT_AS, &r); /* Ignore errors */
+      setrlimit(RLIMIT_AS, &r); // Ignore errors
 
 #else
 
-      setrlimit(RLIMIT_DATA, &r); /* Ignore errors */
+      setrlimit(RLIMIT_DATA, &r); // Ignore errors
 
-#endif /* ^RLIMIT_AS */
+#endif // ^RLIMIT_AS
 
     }
 
     r.rlim_max = r.rlim_cur = 0;
-    setrlimit(RLIMIT_CORE, &r); /* Ignore errors */
+    setrlimit(RLIMIT_CORE, &r); // Ignore errors
 
-    /* Set up control and status pipes, close the unneeded original fds. */
+    // Set up control and status pipes, close the unneeded original fds.
 
     if (dup2(ctl_pipe[0], FORKSRV_FD) < 0) PFATAL("dup2() failed");
     if (dup2(st_pipe[1], FORKSRV_FD + 1) < 0) PFATAL("dup2() failed");
@@ -330,7 +345,7 @@ static void init_forkserver(char **argv) {
 
   }
 
-  /* Close the unneeded endpoints. */
+  // Close the unneeded endpoints. 
 
   close(ctl_pipe[0]);
   close(st_pipe[1]);
@@ -338,7 +353,7 @@ static void init_forkserver(char **argv) {
   fsrv_ctl_fd = ctl_pipe[1];
   fsrv_st_fd  = st_pipe[0];
 
-  /* Configure timeout, wait for child, cancel timeout. */
+  // Configure timeout, wait for child, cancel timeout.
 
   if (exec_tmout) {
 
@@ -356,8 +371,8 @@ static void init_forkserver(char **argv) {
   it.it_value.tv_usec = 0;
   setitimer(ITIMER_REAL, &it, NULL);
 
-  /* If we have a four-byte "hello" message from the server, we're all set.
-     Otherwise, try to figure out what went wrong. */
+  // If we have a four-byte "hello" message from the server, we're all set.
+  // Otherwise, try to figure out what went wrong.
 
   if (rlen == 4) {
     ACTF("All right - fork server is up.");
@@ -380,7 +395,7 @@ static void init_forkserver(char **argv) {
     SAYF(cLRD "\n+++ Program killed by signal %u +++\n" cRST, WTERMSIG(status));
 
 }
-
+*/
 
 /* Execute target application. Returns 0 if the changes are a dud, or
    1 if they should be kept. */
@@ -422,11 +437,8 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
   /* Configure timeout, wait for child, cancel timeout. */
 
   if (exec_tmout) {
-
-  child_timed_out = 0;
-  it.it_value.tv_sec = (exec_tmout / 1000);
-  it.it_value.tv_usec = (exec_tmout % 1000) * 1000;
-
+    it.it_value.tv_sec = (exec_tmout / 1000);
+    it.it_value.tv_usec = (exec_tmout % 1000) * 1000;
   }
 
   setitimer(ITIMER_REAL, &it, NULL);
@@ -458,7 +470,7 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
   if (stop_soon) {
 
     SAYF(cRST cLRD "\n+++ Minimization aborted by user +++\n" cRST);
-    close(write_to_file(out_file, in_data, in_len));
+    close(write_to_file(output_file, in_data, in_len));
     exit(1);
 
   }
@@ -787,7 +799,7 @@ static void set_up_environment(void) {
   dev_null_fd = open("/dev/null", O_RDWR);
   if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
-  if (!prog_in) {
+  if (!out_file) {
 
     u8* use_dir = ".";
 
@@ -798,15 +810,15 @@ static void set_up_environment(void) {
 
     }
 
-    prog_in = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
+    out_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
 
   }
 
-  unlink(prog_in);
+  unlink(out_file);
 
-  prog_in_fd = open(prog_in, O_RDWR | O_CREAT | O_EXCL, 0600);
+  out_fd = open(out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (prog_in_fd < 0) PFATAL("Unable to create '%s'", prog_in);
+  if (out_fd < 0) PFATAL("Unable to create '%s'", out_file);
 
 
   /* Set sane defaults... */
@@ -1067,15 +1079,15 @@ int main(int argc, char** argv) {
 
       case 'o':
 
-        if (out_file) FATAL("Multiple -o options not supported");
-        out_file = optarg;
+        if (output_file) FATAL("Multiple -o options not supported");
+        output_file = optarg;
         break;
 
       case 'f':
 
-        if (prog_in) FATAL("Multiple -f options not supported");
+        if (out_file) FATAL("Multiple -f options not supported");
         use_stdin = 0;
-        prog_in   = optarg;
+        out_file   = optarg;
         break;
 
       case 'e':
@@ -1181,7 +1193,7 @@ int main(int argc, char** argv) {
 
     }
 
-  if (optind == argc || !in_file || !out_file) usage(argv[0]);
+  if (optind == argc || !in_file || !output_file) usage(argv[0]);
 
   setup_shm(0);
   atexit(at_exit_handler);
@@ -1190,7 +1202,7 @@ int main(int argc, char** argv) {
   set_up_environment();
 
   find_binary(argv[optind]);
-  detect_file_args(argv + optind, prog_in);
+  detect_file_args(argv + optind, out_file);
 
   if (qemu_mode)
     use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
@@ -1229,12 +1241,12 @@ int main(int argc, char** argv) {
 
   minimize(use_argv);
 
-  ACTF("Writing output to '%s'...", out_file);
+  ACTF("Writing output to '%s'...", output_file);
 
-  unlink(prog_in);
-  prog_in = NULL;
+  unlink(out_file);
+  out_file = NULL;
 
-  close(write_to_file(out_file, in_data, in_len));
+  close(write_to_file(output_file, in_data, in_len));
 
   OKF("We're done here. Have a nice day!\n");
 
