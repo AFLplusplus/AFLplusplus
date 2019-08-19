@@ -4942,20 +4942,20 @@ static u32 choose_block_len(u32 limit) {
 static u32 calculate_score(struct queue_entry* q) {
 
   u32 avg_exec_us = total_cal_us / total_cal_cycles;
-  u32 avg_bitmap_size = total_bitmap_size / total_bitmap_entries;
+  u32 avg_bitmap_size = (min_total_blocks + max_total_blocks) / 2;
   u32 perf_score = 100;
 
   /* Adjust score based on execution speed of this path, compared to the
-     global average. Multiplier ranges from 0.1x to 3x. Fast inputs are
-     less expensive to fuzz, so we're giving them more air time. */
+     global average. Multiplier ranges from 0.1x to 3x.
+     the longer it takes, the more we are interested in them */
 
-  if (q->exec_us * 0.1 > avg_exec_us) perf_score = 10;
-  else if (q->exec_us * 0.25 > avg_exec_us) perf_score = 25;
-  else if (q->exec_us * 0.5 > avg_exec_us) perf_score = 50;
+  if (q->exec_us * 0.1 > avg_exec_us) perf_score = 300;
+  else if (q->exec_us * 0.25 > avg_exec_us) perf_score = 200;
+  else if (q->exec_us * 0.5 > avg_exec_us) perf_score = 150;
   else if (q->exec_us * 0.75 > avg_exec_us) perf_score = 75;
-  else if (q->exec_us * 4 < avg_exec_us) perf_score = 300;
-  else if (q->exec_us * 3 < avg_exec_us) perf_score = 200;
-  else if (q->exec_us * 2 < avg_exec_us) perf_score = 150;
+  else if (q->exec_us * 4 < avg_exec_us) perf_score = 10;
+  else if (q->exec_us * 3 < avg_exec_us) perf_score = 25;
+  else if (q->exec_us * 2 < avg_exec_us) perf_score = 50;
 
   /* Adjust score based on bitmap size. The working theory is that better
      coverage translates to better targets. Multiplier from 0.25x to 3x. */
@@ -4972,15 +4972,11 @@ static u32 calculate_score(struct queue_entry* q) {
      for a bit longer until they catch up with the rest. */
 
   if (q->handicap >= 4) {
-
     perf_score *= 4;
     q->handicap -= 4;
-
   } else if (q->handicap) {
-
     perf_score *= 2;
     q->handicap--;
-
   }
 
   /* Final adjustment based on input depth, under the assumption that fuzzing
