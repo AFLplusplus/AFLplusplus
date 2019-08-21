@@ -66,7 +66,7 @@ abi_ulong afl_entry_point, /* ELF entry point (_start) */
           afl_start_code,  /* .text start pointer      */
           afl_end_code;    /* .text end pointer        */
 
-u8 afl_enable_compcov;
+u8 afl_compcov_level;
 
 /* Set in the child process in forkserver mode: */
 
@@ -159,9 +159,14 @@ static void afl_setup(void) {
 
   }
   
+  /* Maintain for compatibility */
   if (getenv("AFL_QEMU_COMPCOV")) {
 
-    afl_enable_compcov = 1;
+    afl_compcov_level = 1;
+  }
+  if (getenv("AFL_COMPCOV_LEVEL")) {
+
+    afl_compcov_level = atoi(getenv("AFL_COMPCOV_LEVEL"));
   }
 
   /* pthread_atfork() seems somewhat broken in util/rcu.c, and I'm
