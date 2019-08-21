@@ -40,7 +40,7 @@
 extern unsigned char *afl_area_ptr;
 extern unsigned int afl_inst_rms;
 extern abi_ulong afl_start_code, afl_end_code;
-extern u8 afl_enable_compcov;
+extern u8 afl_compcov_level;
 
 void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
                                   TCGv_i64 arg1, TCGv_i64 arg2);
@@ -95,11 +95,14 @@ static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
 
 
 static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
-                            TCGMemOp ot) {
+                            TCGMemOp ot, int is_imm) {
 
   void *func;
   
-  if (!afl_enable_compcov || cur_loc > afl_end_code || cur_loc < afl_start_code)
+  if (!afl_compcov_level || cur_loc > afl_end_code || cur_loc < afl_start_code)
+    return;
+  
+  if (!is_imm && afl_compcov_level < 2)
     return;
 
   switch (ot) {
