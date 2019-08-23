@@ -28,6 +28,9 @@
 #endif
 #define _FILE_OFFSET_BITS 64
 
+#ifdef __ANDROID__
+  #include "android-ashmem.h"
+#endif
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -11318,6 +11321,7 @@ static void check_term_size(void) {
 
   if (ioctl(1, TIOCGWINSZ, &ws)) return;
 
+  if (ws.ws_row == 0 || ws.ws_col == 0) return;
   if (ws.ws_row < 24 || ws.ws_col < 79) term_too_small = 1;
 
 }
@@ -12370,8 +12374,8 @@ int main(int argc, char** argv) {
     if (unicorn_mode) FATAL("-U and -n are mutually exclusive");
 
   }
-
-  if (index(argv[optind], '/') == NULL) WARNF(cLRD "Target binary called without a prefixed path, make sure you are fuzzing the right binary: " cRST "%s", argv[optind]);
+  
+  if (strchr(argv[optind], '/') == NULL) WARNF(cLRD "Target binary called without a prefixed path, make sure you are fuzzing the right binary: " cRST "%s", argv[optind]);
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" Eissfeldt and Andrea Fioraldi");
   OKF("afl++ is open source, get it at https://github.com/vanhauser-thc/AFLplusplus");
