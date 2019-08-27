@@ -1,7 +1,7 @@
 #include "config.h"
 #include "types.h"
 #include "debug.h"
-#include "afl-forkserver.h"
+#include "forkserver.h"
 
 #include <stdio.h>
 #include <unistd.h>

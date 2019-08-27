@@ -27,9 +27,9 @@
 #include "debug.h"
 #include "alloc-inl.h"
 #include "hash.h"
-#include "afl-forkserver.h"
-#include "afl-sharedmem.h"
-#include "afl-common.h"
+#include "forkserver.h"
+#include "sharedmem.h"
+#include "common.h"
 
 #include <stdio.h>
 #include <unistd.h>
