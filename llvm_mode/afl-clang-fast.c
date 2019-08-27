@@ -26,7 +26,7 @@
 #include "../config.h"
 #include "../types.h"
 #include "../debug.h"
-#include "../alloc-inl.h"
+#include "../include/alloc-inl.h"
 
 #include <stdio.h>
 #include <unistd.h>
