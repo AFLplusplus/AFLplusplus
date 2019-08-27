@@ -42,11 +42,25 @@ extern abi_ulong afl_start_code, afl_end_code;
 
 void tcg_gen_afl_maybe_log_call(target_ulong cur_loc);
 
-void afl_maybe_log(target_ulong cur_loc) { 
+void afl_maybe_log(target_ulong cur_loc) {
 
   static __thread abi_ulong prev_loc;
 
-  afl_area_ptr[cur_loc ^ prev_loc]++;
+  register target_ulong afl_idx = cur_loc ^ prev_loc;
+
+#if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
+  asm volatile (
+    "incb (%0, %1, 1)\n"
+    "seto %%al\n"
+    "addb %%al, (%0, %1, 1)\n"
+    : /* no out */
+    : "r" (afl_area_ptr), "r" (afl_idx)
+    : "memory", "eax"
+  );
+#else
+  afl_area_ptr[afl_idx]++;
+#endif
+
   prev_loc = cur_loc >> 1;
 
 }
