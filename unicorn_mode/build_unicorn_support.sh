@@ -144,7 +144,7 @@ echo "[+] Configuration complete."
 
 echo "[*] Attempting to build Unicorn (fingers crossed!)..."
 
-UNICORN_QEMU_FLAGS='--python=python2' make || exit 1
+UNICORN_QEMU_FLAGS='--python=python2' make -j `nproc` || exit 1
 
 echo "[+] Build process successful!"
 

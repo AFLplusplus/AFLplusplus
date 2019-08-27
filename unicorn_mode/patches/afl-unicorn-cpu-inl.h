@@ -241,7 +241,21 @@ static inline void afl_maybe_log(unsigned long cur_loc) {
   // DEBUG
   //printf("cur_loc = 0x%lx\n", cur_loc);  
 
-  afl_area_ptr[cur_loc ^ prev_loc]++;
+  register uintptr_t afl_idx = cur_loc ^ prev_loc;
+
+#if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
+  asm volatile (
+    "incb (%0, %1, 1)\n"
+    "seto %%al\n"
+    "addb %%al, (%0, %1, 1)\n"
+    : /* no out */
+    : "r" (afl_area_ptr), "r" (afl_idx)
+    : "memory", "eax"
+  );
+#else
+  afl_area_ptr[afl_idx]++;
+#endif
+
   prev_loc = cur_loc >> 1;
 
 }
