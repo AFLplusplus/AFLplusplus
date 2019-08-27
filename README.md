@@ -54,7 +54,6 @@
 
 
 ## 1) Challenges of guided fuzzing
--------------------------------
 
 Fuzzing is one of the most powerful and proven strategies for identifying
 security issues in real-world software; it is responsible for the vast
@@ -177,7 +176,6 @@ file for important caveats.
 
 
 ## 4) Instrumenting binary-only apps
----------------------------------
 
 When source code is *NOT* available, the fuzzer offers experimental support for
 fast, on-the-fly instrumentation of black-box binaries. This is accomplished
@@ -205,7 +203,6 @@ A more comprehensive description of these and other options can be found in
 
 
 ## 5) Power schedules
-------------------
 
 The power schedules were copied from Marcel Böhme's excellent AFLfast
 implementation and expands on the ability to discover new paths and
@@ -237,7 +234,6 @@ Computer and Communications Security (CCS'16):
 
 
 ## 6) Choosing initial test cases
-------------------------------
 
 To operate correctly, the fuzzer requires one or more starting file that
 contains a good example of the input data normally expected by the targeted
@@ -259,7 +255,6 @@ exercise different code paths in the target binary.
 
 
 ## 7) Fuzzing binaries
--------------------
 
 The fuzzing process itself is carried out by the afl-fuzz utility. This program
 requires a read-only directory with initial test cases, a separate place to
@@ -298,7 +293,6 @@ fuzzers - add the -d option to the command line.
 
 
 ## 8) Interpreting output
-----------------------
 
 See the [docs/status_screen.txt](docs/status_screen.txt) file for information on
 how to interpret the displayed stats and monitor the health of the process. Be
@@ -360,7 +354,6 @@ see [http://lcamtuf.coredump.cx/afl/plot/](http://lcamtuf.coredump.cx/afl/plot/)
 
 
 ## 9) Parallelized fuzzing
------------------------
 
 Every instance of afl-fuzz takes up roughly one core. This means that on
 multi-core systems, parallelization is necessary to fully utilize the hardware.
@@ -373,7 +366,6 @@ last section of [docs/parallel_fuzzing.txt](docs/parallel_fuzzing.txt) for tips.
 
 
 ## 10) Fuzzer dictionaries
-----------------------
 
 By default, afl-fuzz mutation engine is optimized for compact data formats -
 say, images, multimedia, compressed data, regular expression syntax, or shell
@@ -410,7 +402,6 @@ utility with AFL. For that, see [libtokencap/README.tokencap](libtokencap/README
 
 
 ## 11) Crash triage
-----------------
 
 The coverage-based grouping of crashes usually produces a small data set that
 can be quickly triaged manually or with a very simple GDB or Valgrind script.
@@ -459,7 +450,6 @@ near the end of [docs/technical_details.txt](docs/technical_details.txt).
 
 
 ## 12) Going beyond crashes
-------------------------
 
 Fuzzing is a wonderful and underutilized technique for discovering non-crashing
 design and implementation errors, too. Quite a few interesting bugs have been
@@ -484,7 +474,6 @@ shared with libfuzzer) or `#ifdef __AFL_COMPILER` (this one is just for AFL).
 
 
 ## 13) Common-sense risks
-----------------------
 
 Please keep in mind that, similarly to many other computationally-intensive
 tasks, fuzzing may put strain on your hardware and on the OS. In particular:
@@ -515,7 +504,6 @@ tasks, fuzzing may put strain on your hardware and on the OS. In particular:
 
 
 ## 14) Known limitations & areas for improvement
----------------------------------------------
 
 Here are some of the most important caveats for AFL:
 
@@ -557,7 +545,6 @@ Beyond this, see INSTALL for platform-specific tips.
 
 
 ## 15) Special thanks
-------------------
 
 Many of the improvements to the original afl and afl++ wouldn't be possible
 without feedback, bug reports, or patches from:
@@ -611,7 +598,6 @@ Thank you!
 
 
 ## 16) Contact
------------
 
 Questions? Concerns? Bug reports? The contributors can be reached via
 [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
