@@ -559,8 +559,8 @@ Beyond this, see INSTALL for platform-specific tips.
 ## 15) Special thanks
 ------------------
 
-Many of the improvements to the original afl wouldn't be possible without
-feedback, bug reports, or patches from:
+Many of the improvements to the original afl and afl++ wouldn't be possible
+without feedback, bug reports, or patches from:
 
 ```
   Jann Horn                             Hanno Boeck
@@ -602,7 +602,9 @@ feedback, bug reports, or patches from:
   Rene Freingruber                      Sergey Davidoff
   Sami Liedes                           Craig Young
   Andrzej Jackowski                     Daniel Hodson
-  Nathan Voss				Dominik Maier
+  Nathan Voss                           Dominik Maier
+  Andrea Biondo                         Vincent Le Garrec
+  Khaled Yakdan                         Kuang-che Wu
 ```
 
 Thank you!

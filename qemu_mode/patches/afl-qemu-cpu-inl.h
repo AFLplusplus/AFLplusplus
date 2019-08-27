@@ -332,7 +332,7 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
       if (is_valid_addr(t.tb.pc)) {
     
         mmap_lock();
-        tb = tb_gen_code(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, 0);
+        tb = tb_gen_code(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, t.tb.cf_mask);
         mmap_unlock();
       } else {
       
