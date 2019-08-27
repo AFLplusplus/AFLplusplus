@@ -40,7 +40,7 @@ ifeq "$(LLVM_MAJOR)" "9"
 endif
 
 CFLAGS      ?= -O3 -funroll-loops
-CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
+CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DVERSION=\"$(VERSION)\"
 ifdef AFL_TRACE_PC
@@ -48,7 +48,7 @@ ifdef AFL_TRACE_PC
 endif
 
 CXXFLAGS    ?= -O3 -funroll-loops
-CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g \
+CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -I ../include/ \
                -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
