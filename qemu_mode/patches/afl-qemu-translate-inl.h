@@ -46,7 +46,7 @@ void afl_maybe_log(target_ulong cur_loc) {
 
   static __thread abi_ulong prev_loc;
 
-  register target_ulong afl_idx = cur_loc ^ prev_loc;
+  register uintptr_t afl_idx = cur_loc ^ prev_loc;
 
 #if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
   asm volatile (
