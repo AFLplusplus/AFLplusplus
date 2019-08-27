@@ -24,8 +24,8 @@
 #include <string>
 #include <fstream>
 
-#include "../config.h"
-#include "../debug.h"
+#include "config.h"
+#include "debug.h"
 
 #include "MarkNodes.h"
 

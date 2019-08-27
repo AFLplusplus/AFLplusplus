@@ -25,8 +25,8 @@
 #include <limits.h>
 #include <sys/mman.h>
 
-#include "../config.h"
-#include "../types.h"
+#include "config.h"
+#include "types.h"
 
 #ifndef PAGE_SIZE
 #  define PAGE_SIZE 4096

@@ -27,8 +27,8 @@
 #include <sys/types.h>
 #include <sys/shm.h>
 
-#include "../../types.h"
-#include "../../config.h"
+#include "types.h"
+#include "config.h"
 
 #include "pmparser.h"
 
