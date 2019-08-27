@@ -35,7 +35,7 @@
 #include "debug.h"
 #include "alloc-inl.h"
 
-#include "as.h"
+#include "afl-as.h"
 
 #include <stdio.h>
 #include <unistd.h>
