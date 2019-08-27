@@ -7,6 +7,8 @@ Roadmap 2.53d:
 afl-fuzz:
  - put mutator, scheduler, forkserver and input channels in individual files
  - reuse forkserver for showmap, afl-cmin, etc.
+ - custom mutator lib: example and readme
+ - env var to exclusively run the custom lib/py mutator
 
 gcc_plugin:
  - needs to be rewritten

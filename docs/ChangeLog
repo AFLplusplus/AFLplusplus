@@ -18,6 +18,7 @@ Version ++2.53d (dev):
 ----------------------
 
   - llvm 9 is now supported (still needs testing)
+  - Android is now supported (thank to JoeyJiao!) - still need to modify the Makefile though
   - fix building qemu on some Ubuntus (thanks to floyd!)
   - custom mutator by a loaded library is now supported (thanks to kyakdan!)
   - fix for a few features to support different map sized than 2^16

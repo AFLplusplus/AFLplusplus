@@ -23,7 +23,8 @@
 
   Among others afl++ has, e.g. more performant llvm_mode, supporting
   llvm up to version 9, Qemu 3.1, more speed and crashfixes for Qemu,
-  laf-intel feature for Qemu (with libcompcov) and more.
+  laf-intel feature for Qemu (with libcompcov), better *BSD and Android
+  support and more.
 
   Additionally the following patches have been integrated:
 
