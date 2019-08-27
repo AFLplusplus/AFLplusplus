@@ -9,7 +9,7 @@
 #include "debug.h"
 #include "alloc-inl.h"
 #include "hash.h"
-#include "afl-sharedmem.h"
+#include "sharedmem.h"
 
 #include <stdio.h>
 #include <unistd.h>

@@ -68,5 +68,5 @@ Problem: Average targets (tiff, jpeg, unrar) go through 1500 edges.
     
 qemu_mode:
  - persistent mode patching the return address (WinAFL style)
- - instrument only comparison with immediate values by default when using compcov
+ - instrument only comparison with immediate values by default when using compcov (done)
 

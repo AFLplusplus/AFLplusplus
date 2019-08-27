@@ -17,7 +17,7 @@
 #TEST_MMAP=1
 
 PROGNAME    = afl
-VERSION     = $(shell grep '^\#define VERSION ' config.h | cut -d '"' -f2)
+VERSION     = $(shell grep '^\#define VERSION ' include/config.h | cut -d '"' -f2)
 
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
@@ -31,7 +31,7 @@ PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
 SH_PROGS    = afl-plot afl-cmin afl-whatsup afl-system-config
 
 CFLAGS     ?= -O3 -funroll-loops
-CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
+CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ \
 	      -DAFL_PATH=\"$(HELPER_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\" \
 	      -DBIN_PATH=\"$(BIN_PATH)\"
 
@@ -47,7 +47,7 @@ else
   TEST_CC   = afl-clang
 endif
 
-COMM_HDR    = alloc-inl.h config.h debug.h types.h
+COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
 
 
 ifeq "$(shell echo '\#include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) -lpython2.7 2>/dev/null && echo 1 || echo 0 )" "1"
@@ -123,37 +123,37 @@ endif
 ready:
 	@echo "[+] Everything seems to be working, ready to compile."
 
-afl-gcc: afl-gcc.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
+afl-gcc: src/afl-gcc.c $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 	set -e; for i in afl-g++ afl-clang afl-clang++; do ln -sf afl-gcc $$i; done
 
-afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
+afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
 
-afl-common.o : afl-common.c
-	$(CC) $(CFLAGS) -c afl-common.c
+afl-common.o : src/afl-common.c include/common.h
+	$(CC) $(CFLAGS) -c src/afl-common.c
 
-afl-forkserver.o : afl-forkserver.c
-	$(CC) $(CFLAGS) -c afl-forkserver.c
+afl-forkserver.o : src/afl-forkserver.c include/forkserver.h
+	$(CC) $(CFLAGS) -c src/afl-forkserver.c
 
-afl-sharedmem.o : afl-sharedmem.c
-	$(CC) $(CFLAGS) -c afl-sharedmem.c
+afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
+	$(CC) $(CFLAGS) -c src/afl-sharedmem.c
 
-afl-fuzz: afl-fuzz.c afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS) $(PYFLAGS)
+afl-fuzz: src/afl-fuzz.c afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS) $(PYFLAGS)
 
-afl-showmap: afl-showmap.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o afl-sharedmem.o -o $@ $(LDFLAGS)
+afl-showmap: src/afl-showmap.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o -o $@ $(LDFLAGS)
 
-afl-tmin: afl-tmin.c afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS)
+afl-tmin: src/afl-tmin.c afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS)
 
-afl-analyze: afl-analyze.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o afl-sharedmem.o -o $@ $(LDFLAGS)
+afl-analyze: src/afl-analyze.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o -o $@ $(LDFLAGS)
 
-afl-gotcpu: afl-gotcpu.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
+afl-gotcpu: src/afl-gotcpu.c $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 
 
 ifndef AFL_NO_X86
