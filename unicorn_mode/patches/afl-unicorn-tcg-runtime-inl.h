@@ -32,13 +32,27 @@
 
 #include "uc_priv.h"
 
+#if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
+#  define INC_AFL_AREA(loc) \
+    asm volatile ( \
+      "incb (%0, %1, 1)\n" \
+      "adc $0, (%0, %1, 1)\n" \
+      : /* no out */ \
+      : "r" (uc->afl_area_ptr), "r" (loc) \
+      : "memory", "eax" \
+    )
+#else
+#  define INC_AFL_AREA(loc) \
+  uc->afl_area_ptr[loc]++
+#endif
+
 void HELPER(afl_compcov_log_16)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
                                 uint64_t arg2) {
 
   struct uc_struct* uc = uc_ptr;
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
-    uc->afl_area_ptr[cur_loc]++;
+    INC_AFL_AREA(cur_loc);
   }
 }
 
@@ -48,11 +62,11 @@ void HELPER(afl_compcov_log_32)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
   struct uc_struct* uc = uc_ptr;
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
-    uc->afl_area_ptr[cur_loc]++;
+    INC_AFL_AREA(cur_loc);
     if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
-      uc->afl_area_ptr[cur_loc +1]++;
+      INC_AFL_AREA(cur_loc +1);
       if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) {
-        uc->afl_area_ptr[cur_loc +2]++;
+        INC_AFL_AREA(cur_loc +2);
       }
     }
   }
@@ -64,19 +78,19 @@ void HELPER(afl_compcov_log_64)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
   struct uc_struct* uc = uc_ptr;
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
-    uc->afl_area_ptr[cur_loc]++;
+    INC_AFL_AREA(cur_loc);
     if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
-      uc->afl_area_ptr[cur_loc +1]++;
+      INC_AFL_AREA(cur_loc +1);
       if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) {
-        uc->afl_area_ptr[cur_loc +2]++;
+        INC_AFL_AREA(cur_loc +2);
         if ((arg1 & 0xffffffff) == (arg2 & 0xffffffff)) {
-          uc->afl_area_ptr[cur_loc +3]++;
+          INC_AFL_AREA(cur_loc +3);
           if ((arg1 & 0xffffffffff) == (arg2 & 0xffffffffff)) {
-            uc->afl_area_ptr[cur_loc +4]++;
+            INC_AFL_AREA(cur_loc +4);
             if ((arg1 & 0xffffffffffff) == (arg2 & 0xffffffffffff)) {
-              uc->afl_area_ptr[cur_loc +5]++;
+              INC_AFL_AREA(cur_loc +5);
               if ((arg1 & 0xffffffffffffff) == (arg2 & 0xffffffffffffff)) {
-                uc->afl_area_ptr[cur_loc +6]++;
+                INC_AFL_AREA(cur_loc +6);
               }
             }
           }
