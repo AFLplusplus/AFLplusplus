@@ -45,11 +45,25 @@ extern u8 afl_compcov_level;
 void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
                                   TCGv_i64 arg1, TCGv_i64 arg2);
 
+#if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
+#  define INC_AFL_AREA(loc) \
+    asm volatile ( \
+      "incb (%0, %1, 1)\n" \
+      "adc $0, (%0, %1, 1)\n" \
+      : /* no out */ \
+      : "r" (afl_area_ptr), "r" (loc) \
+      : "memory", "eax" \
+    )
+#else
+#  define INC_AFL_AREA(loc) \
+  afl_area_ptr[loc]++
+#endif
+
 static void afl_compcov_log_16(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
-    afl_area_ptr[cur_loc]++;
+    INC_AFL_AREA(cur_loc);
   }
 }
 
@@ -57,11 +71,11 @@ static void afl_compcov_log_32(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
-    afl_area_ptr[cur_loc]++;
+    INC_AFL_AREA(cur_loc);
     if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
-      afl_area_ptr[cur_loc +1]++;
+      INC_AFL_AREA(cur_loc +1);
       if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) {
-        afl_area_ptr[cur_loc +2]++;
+        INC_AFL_AREA(cur_loc +2);
       }
     }
   }
@@ -71,19 +85,19 @@ static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
-    afl_area_ptr[cur_loc]++;
+    INC_AFL_AREA(cur_loc);
     if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
-      afl_area_ptr[cur_loc +1]++;
+      INC_AFL_AREA(cur_loc +1);
       if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) {
-        afl_area_ptr[cur_loc +2]++;
+        INC_AFL_AREA(cur_loc +2);
         if ((arg1 & 0xffffffff) == (arg2 & 0xffffffff)) {
-          afl_area_ptr[cur_loc +3]++;
+          INC_AFL_AREA(cur_loc +3);
           if ((arg1 & 0xffffffffff) == (arg2 & 0xffffffffff)) {
-            afl_area_ptr[cur_loc +4]++;
+            INC_AFL_AREA(cur_loc +4);
             if ((arg1 & 0xffffffffffff) == (arg2 & 0xffffffffffff)) {
-              afl_area_ptr[cur_loc +5]++;
+              INC_AFL_AREA(cur_loc +5);
               if ((arg1 & 0xffffffffffffff) == (arg2 & 0xffffffffffffff)) {
-                afl_area_ptr[cur_loc +6]++;
+                INC_AFL_AREA(cur_loc +6);
               }
             }
           }
