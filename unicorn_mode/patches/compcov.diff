@@ -1,0 +1,113 @@
+diff --git a/include/uc_priv.h b/include/uc_priv.h
+index 22f494e..1aa7b3a 100644
+--- a/include/uc_priv.h
++++ b/include/uc_priv.h
+@@ -245,6 +245,12 @@ struct uc_struct {
+     uint32_t target_page_align;
+     uint64_t next_pc;   // save next PC for some special cases
+     bool hook_insert;	// insert new hook at begin of the hook list (append by default)
++    
++#ifdef UNICORN_AFL
++    unsigned char *afl_area_ptr;
++    int afl_compcov_level;
++    unsigned int afl_inst_rms;
++#endif
+ };
+ 
+ // Metadata stub for the variable-size cpu context used with uc_context_*()
+diff --git a/qemu/target-i386/translate.c b/qemu/target-i386/translate.c
+index 36fae09..196d346 100644
+--- a/qemu/target-i386/translate.c
++++ b/qemu/target-i386/translate.c
+@@ -33,6 +33,12 @@
+ 
+ #include "uc_priv.h"
+ 
++#if defined(UNICORN_AFL)
++#include "../../afl-unicorn-cpu-translate-inl.h"
++#else
++#define afl_gen_compcov(a,b,c,d,e,f) do {} while (0)
++#endif
++
+ #define PREFIX_REPZ   0x01
+ #define PREFIX_REPNZ  0x02
+ #define PREFIX_LOCK   0x04
+@@ -1555,6 +1561,7 @@ static void gen_op(DisasContext *s, int op, TCGMemOp ot, int d)
+     case OP_SUBL:
+         tcg_gen_mov_tl(tcg_ctx, cpu_cc_srcT, *cpu_T[0]);
+         tcg_gen_sub_tl(tcg_ctx, *cpu_T[0], *cpu_T[0], *cpu_T[1]);
++        afl_gen_compcov(tcg_ctx, s->pc, *cpu_T[0], *cpu_T[1], ot, d == OR_EAX);
+         gen_op_st_rm_T0_A0(s, ot, d);
+         gen_op_update2_cc(tcg_ctx);
+         set_cc_op(s, CC_OP_SUBB + ot);
+@@ -1582,6 +1589,7 @@ static void gen_op(DisasContext *s, int op, TCGMemOp ot, int d)
+         tcg_gen_mov_tl(tcg_ctx, cpu_cc_src, *cpu_T[1]);
+         tcg_gen_mov_tl(tcg_ctx, cpu_cc_srcT, *cpu_T[0]);
+         tcg_gen_sub_tl(tcg_ctx, cpu_cc_dst, *cpu_T[0], *cpu_T[1]);
++        afl_gen_compcov(tcg_ctx, s->pc, *cpu_T[0], *cpu_T[1], ot, d == OR_EAX);
+         set_cc_op(s, CC_OP_SUBB + ot);
+         break;
+     }
+diff --git a/qemu/tcg-runtime.c b/qemu/tcg-runtime.c
+index 21b022a..14d7891 100644
+--- a/qemu/tcg-runtime.c
++++ b/qemu/tcg-runtime.c
+@@ -31,9 +31,14 @@
+ 
+ #define DEF_HELPER_FLAGS_2(name, flags, ret, t1, t2) \
+   dh_ctype(ret) HELPER(name) (dh_ctype(t1), dh_ctype(t2));
++#define DEF_HELPER_FLAGS_4(name, flags, ret, t1, t2, t3, t4) \
++  dh_ctype(ret) HELPER(name) (dh_ctype(t1), dh_ctype(t2), dh_ctype(t3), dh_ctype(t4));
+ 
+ #include "tcg-runtime.h"
+ 
++#ifdef UNICORN_AFL
++#include "../afl-unicorn-tcg-runtime-inl.h"
++#endif
+ 
+ /* 32-bit helpers */
+ 
+diff --git a/qemu/tcg/tcg-op.h b/qemu/tcg/tcg-op.h
+index 38b7dd9..c5a9af9 100644
+--- a/qemu/tcg/tcg-op.h
++++ b/qemu/tcg/tcg-op.h
+@@ -27,6 +27,10 @@
+ 
+ int gen_new_label(TCGContext *);
+ 
++#ifdef UNICORN_AFL
++#include "../../afl-unicorn-tcg-op-inl.h"
++#endif
++
+ static inline void gen_uc_tracecode(TCGContext *tcg_ctx, int32_t size, int32_t type, void *uc, uint64_t pc)
+ {
+     TCGv_i32 tsize = tcg_const_i32(tcg_ctx, size);
+diff --git a/qemu/tcg/tcg-runtime.h b/qemu/tcg/tcg-runtime.h
+index 23a0c37..90b993c 100644
+--- a/qemu/tcg/tcg-runtime.h
++++ b/qemu/tcg/tcg-runtime.h
+@@ -14,3 +14,9 @@ DEF_HELPER_FLAGS_2(sar_i64, TCG_CALL_NO_RWG_SE, s64, s64, s64)
+ 
+ DEF_HELPER_FLAGS_2(mulsh_i64, TCG_CALL_NO_RWG_SE, s64, s64, s64)
+ DEF_HELPER_FLAGS_2(muluh_i64, TCG_CALL_NO_RWG_SE, i64, i64, i64)
++
++#ifdef UNICORN_AFL
++DEF_HELPER_FLAGS_4(afl_compcov_log_16, 0, void, ptr, i64, i64, i64)
++DEF_HELPER_FLAGS_4(afl_compcov_log_32, 0, void, ptr, i64, i64, i64)
++DEF_HELPER_FLAGS_4(afl_compcov_log_64, 0, void, ptr, i64, i64, i64)
++#endif
+diff --git a/qemu/unicorn_common.h b/qemu/unicorn_common.h
+index 8dcbb3e..11e18b4 100644
+--- a/qemu/unicorn_common.h
++++ b/qemu/unicorn_common.h
+@@ -84,6 +84,10 @@ static inline void uc_common_init(struct uc_struct* uc)
+ 
+     if (!uc->release)
+         uc->release = release_common;
++
++#ifdef UNICORN_AFL
++    uc->afl_area_ptr = 0;
++#endif
+ }
+ 
+ #endif
