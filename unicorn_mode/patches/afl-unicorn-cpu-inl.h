@@ -54,11 +54,11 @@
 
 #define AFL_UNICORN_CPU_SNIPPET2 do { \
     if(unlikely(afl_first_instr == 0)) { \
-      afl_setup(); \
+      afl_setup(env->uc); \
       afl_forkserver(env); \
       afl_first_instr = 1; \
     } \
-    afl_maybe_log(tb->pc); \
+    afl_maybe_log(env->uc, tb->pc); \
   } while (0)
 
 /* We use one additional file descriptor to relay "needs translation"
@@ -66,24 +66,16 @@
 
 #define TSL_FD (FORKSRV_FD - 1)
 
-/* This is equivalent to afl-as.h: */
-
-static unsigned char *afl_area_ptr;
-
 /* Set in the child process in forkserver mode: */
 
 static unsigned char afl_fork_child;
 static unsigned int afl_forksrv_pid;
 
-/* Instrumentation ratio: */
-
-static unsigned int afl_inst_rms = MAP_SIZE;
-
 /* Function declarations. */
 
-static void afl_setup(void);
+static void afl_setup(struct uc_struct* uc);
 static void afl_forkserver(CPUArchState*);
-static inline void afl_maybe_log(unsigned long);
+static inline void afl_maybe_log(struct uc_struct* uc, unsigned long);
 
 static void afl_wait_tsl(CPUArchState*, int);
 static void afl_request_tsl(target_ulong, target_ulong, uint64_t);
@@ -105,7 +97,7 @@ struct afl_tsl {
 
 /* Set up SHM region and initialize other stuff. */
 
-static void afl_setup(void) {
+static void afl_setup(struct uc_struct* uc) {
 
   char *id_str = getenv(SHM_ENV_VAR),
        *inst_r = getenv("AFL_INST_RATIO");
@@ -121,21 +113,35 @@ static void afl_setup(void) {
     if (r > 100) r = 100;
     if (!r) r = 1;
 
-    afl_inst_rms = MAP_SIZE * r / 100;
+    uc->afl_inst_rms = MAP_SIZE * r / 100;
 
+  } else {
+  
+    uc->afl_inst_rms = MAP_SIZE;
+    
   }
 
   if (id_str) {
 
     shm_id = atoi(id_str);
-    afl_area_ptr = shmat(shm_id, NULL, 0);
+    uc->afl_area_ptr = shmat(shm_id, NULL, 0);
 
-    if (afl_area_ptr == (void*)-1) exit(1);
+    if (uc->afl_area_ptr == (void*)-1) exit(1);
 
     /* With AFL_INST_RATIO set to a low value, we want to touch the bitmap
        so that the parent doesn't give up on us. */
 
-    if (inst_r) afl_area_ptr[0] = 1;
+    if (inst_r) uc->afl_area_ptr[0] = 1;
+  }
+  
+  /* Maintain for compatibility */
+  if (getenv("AFL_QEMU_COMPCOV")) {
+
+    uc->afl_compcov_level = 1;
+  }
+  if (getenv("AFL_COMPCOV_LEVEL")) {
+
+    uc->afl_compcov_level = atoi(getenv("AFL_COMPCOV_LEVEL"));
   }
 }
 
@@ -145,7 +151,7 @@ static void afl_forkserver(CPUArchState *env) {
 
   static unsigned char tmp[4];
 
-  if (!afl_area_ptr) return;
+  if (!env->uc->afl_area_ptr) return;
 
   /* Tell the parent that we're alive. If the parent doesn't want
      to talk, assume that we're not running in forkserver mode. */
@@ -208,7 +214,7 @@ static void afl_forkserver(CPUArchState *env) {
 
 /* The equivalent of the tuple logging routine from afl-as.h. */
 
-static inline void afl_maybe_log(unsigned long cur_loc) {
+static inline void afl_maybe_log(struct uc_struct* uc, unsigned long cur_loc) {
 
   static __thread unsigned long prev_loc;
 
@@ -217,7 +223,7 @@ static inline void afl_maybe_log(unsigned long cur_loc) {
 
   // MODIFIED FOR UNICORN MODE -> We want to log all addresses,
   // so the checks for 'start < addr < end' are removed
-  if(!afl_area_ptr)
+  if(!uc->afl_area_ptr)
     return;
 
   // DEBUG
@@ -236,7 +242,7 @@ static inline void afl_maybe_log(unsigned long cur_loc) {
   // DEBUG
   //printf("afl_inst_rms = 0x%lx\n", afl_inst_rms);
 
-  if (cur_loc >= afl_inst_rms) return;
+  if (cur_loc >= uc->afl_inst_rms) return;
 
   // DEBUG
   //printf("cur_loc = 0x%lx\n", cur_loc);  
@@ -249,11 +255,11 @@ static inline void afl_maybe_log(unsigned long cur_loc) {
     "seto %%al\n"
     "addb %%al, (%0, %1, 1)\n"
     : /* no out */
-    : "r" (afl_area_ptr), "r" (afl_idx)
+    : "r" (uc->afl_area_ptr), "r" (afl_idx)
     : "memory", "eax"
   );
 #else
-  afl_area_ptr[afl_idx]++;
+  uc->afl_area_ptr[afl_idx]++;
 #endif
 
   prev_loc = cur_loc >> 1;
