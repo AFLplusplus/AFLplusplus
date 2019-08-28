@@ -134,7 +134,7 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
   }
   
   cur_loc  = (cur_loc >> 4) ^ (cur_loc << 8);
-  cur_loc &= MAP_SIZE - 1;
+  cur_loc &= MAP_SIZE - 7;
   
   if (cur_loc >= afl_inst_rms) return;
   
