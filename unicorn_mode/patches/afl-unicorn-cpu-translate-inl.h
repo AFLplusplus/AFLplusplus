@@ -42,7 +42,7 @@ static void afl_gen_compcov(TCGContext *s, uint64_t cur_loc, TCGv_i64 arg1,
     return;
 
   cur_loc  = (cur_loc >> 4) ^ (cur_loc << 8);
-  cur_loc &= MAP_SIZE - 1;
+  cur_loc &= MAP_SIZE - 7;
   
   if (cur_loc >= s->uc->afl_inst_rms) return;
 
