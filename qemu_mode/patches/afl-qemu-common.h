@@ -32,49 +32,21 @@
 
  */
 
-#include "afl-qemu-common.h"
-#include "tcg-op.h"
+#include "../../config.h"
 
-/* Declared in afl-qemu-cpu-inl.h */
-extern unsigned char *afl_area_ptr;
-extern unsigned int afl_inst_rms;
-extern abi_ulong afl_start_code, afl_end_code;
+/* NeverZero */ 
 
-void tcg_gen_afl_maybe_log_call(target_ulong cur_loc);
+#if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
+#  define INC_AFL_AREA(loc) \
+    asm volatile ( \
+      "incb (%0, %1, 1)\n" \
+      "adcb $0, (%0, %1, 1)\n" \
+      : /* no out */ \
+      : "r" (afl_area_ptr), "r" (loc) \
+      : "memory", "eax" \
+    )
+#else
+#  define INC_AFL_AREA(loc) \
+  afl_area_ptr[loc]++
+#endif
 
-void afl_maybe_log(target_ulong cur_loc) {
-
-  static __thread abi_ulong prev_loc;
-
-  register uintptr_t afl_idx = cur_loc ^ prev_loc;
-
-  INC_AFL_AREA(afl_idx);
-
-  prev_loc = cur_loc >> 1;
-
-}
-
-/* Generates TCG code for AFL's tracing instrumentation. */
-static void afl_gen_trace(target_ulong cur_loc) {
-
-  /* Optimize for cur_loc > afl_end_code, which is the most likely case on
-     Linux systems. */
-
-  if (cur_loc > afl_end_code || cur_loc < afl_start_code /*|| !afl_area_ptr*/) // not needed because of static dummy buffer
-    return;
-
-  /* Looks like QEMU always maps to fixed locations, so ASLR is not a
-     concern. Phew. But instruction addresses may be aligned. Let's mangle
-     the value to get something quasi-uniform. */
-
-  cur_loc  = (cur_loc >> 4) ^ (cur_loc << 8);
-  cur_loc &= MAP_SIZE - 1;
-
-  /* Implement probabilistic instrumentation by looking at scrambled block
-     address. This keeps the instrumented locations stable across runs. */
-
-  if (cur_loc >= afl_inst_rms) return;
-
-  tcg_gen_afl_maybe_log_call(cur_loc);
-  
-}

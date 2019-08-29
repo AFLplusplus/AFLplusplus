@@ -32,7 +32,7 @@
 
  */
 
-#include "../../config.h"
+#include "afl-qemu-common.h"
 #include "tcg.h"
 #include "tcg-op.h"
 
@@ -44,20 +44,6 @@ extern u8 afl_compcov_level;
 
 void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
                                   TCGv_i64 arg1, TCGv_i64 arg2);
-
-#if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
-#  define INC_AFL_AREA(loc) \
-    asm volatile ( \
-      "incb (%0, %1, 1)\n" \
-      "adcb $0, (%0, %1, 1)\n" \
-      : /* no out */ \
-      : "r" (afl_area_ptr), "r" (loc) \
-      : "memory", "eax" \
-    )
-#else
-#  define INC_AFL_AREA(loc) \
-  afl_area_ptr[loc]++
-#endif
 
 static void afl_compcov_log_16(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
