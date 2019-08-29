@@ -5,15 +5,13 @@
    Written by Andrew Griffiths <agriffiths@google.com> and
               Michal Zalewski <lcamtuf@google.com>
 
-   Idea & design very much by Andrew Griffiths.
-
    TCG instrumentation and block chaining support by Andrea Biondo
                                       <andrea.biondo965@gmail.com>
-   
-   QEMU 3.1.0 port, TCG thread-safety and CompareCoverage by Andrea Fioraldi
-                                      <andreafioraldi@gmail.com>
+   Adapted for afl-unicorn by Dominik Maier <mail@dmnk.co>
 
-   Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
+   Idea & design very much by Andrew Griffiths.
+
+   Copyright 2015, 2016 Google Inc. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -22,7 +20,7 @@
      http://www.apache.org/licenses/LICENSE-2.0
 
    This code is a shim patched into the separately-distributed source
-   code of QEMU 3.1.0. It leverages the built-in QEMU tracing functionality
+   code of Unicorn 1.0.1. It leverages the built-in QEMU tracing functionality
    to implement AFL-style instrumentation and to take care of the remaining
    parts of the AFL fork server logic.
 
@@ -32,29 +30,23 @@
 
  */
 
-#include "afl-qemu-common.h"
-#include "tcg.h"
-#include "tcg-op.h"
+#include "uc_priv.h"
+#include "afl-unicorn-common.h"
 
-/* Declared in afl-qemu-cpu-inl.h */
-extern unsigned char *afl_area_ptr;
-extern unsigned int afl_inst_rms;
-extern abi_ulong afl_start_code, afl_end_code;
-extern u8 afl_compcov_level;
+void HELPER(afl_compcov_log_16)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
+                                uint64_t arg2) {
 
-void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
-                                  TCGv_i64 arg1, TCGv_i64 arg2);
-
-static void afl_compcov_log_16(target_ulong cur_loc, target_ulong arg1,
-                               target_ulong arg2) {
+  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
     INC_AFL_AREA(cur_loc);
   }
 }
 
-static void afl_compcov_log_32(target_ulong cur_loc, target_ulong arg1,
-                               target_ulong arg2) {
+void HELPER(afl_compcov_log_32)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
+                                uint64_t arg2) {
+
+  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
     INC_AFL_AREA(cur_loc);
@@ -67,8 +59,10 @@ static void afl_compcov_log_32(target_ulong cur_loc, target_ulong arg1,
   }
 }
 
-static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
-                               target_ulong arg2) {
+void HELPER(afl_compcov_log_64)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
+                                uint64_t arg2) {
+
+  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
     INC_AFL_AREA(cur_loc);
@@ -93,36 +87,3 @@ static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
   }
 }
 
-
-static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
-                            TCGMemOp ot, int is_imm) {
-
-  void *func;
-  
-  if (!afl_compcov_level || cur_loc > afl_end_code || cur_loc < afl_start_code)
-    return;
-  
-  if (!is_imm && afl_compcov_level < 2)
-    return;
-
-  switch (ot) {
-    case MO_64:
-      func = &afl_compcov_log_64;
-      break;
-    case MO_32: 
-      func = &afl_compcov_log_32;
-      break;
-    case MO_16:
-      func = &afl_compcov_log_16;
-      break;
-    default:
-      return;
-  }
-  
-  cur_loc  = (cur_loc >> 4) ^ (cur_loc << 8);
-  cur_loc &= MAP_SIZE - 7;
-  
-  if (cur_loc >= afl_inst_rms) return;
-  
-  tcg_gen_afl_compcov_log_call(func, cur_loc, arg1, arg2);
-}
