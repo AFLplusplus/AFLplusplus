@@ -31,25 +31,12 @@
  */
 
 #include "uc_priv.h"
-
-#if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
-#  define INC_AFL_AREA(loc) \
-    asm volatile ( \
-      "incb (%0, %1, 1)\n" \
-      "adcb $0, (%0, %1, 1)\n" \
-      : /* no out */ \
-      : "r" (uc->afl_area_ptr), "r" (loc) \
-      : "memory", "eax" \
-    )
-#else
-#  define INC_AFL_AREA(loc) \
-  uc->afl_area_ptr[loc]++
-#endif
+#include "afl-unicorn-common.h"
 
 void HELPER(afl_compcov_log_16)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
                                 uint64_t arg2) {
 
-  struct uc_struct* uc = uc_ptr;
+  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
     INC_AFL_AREA(cur_loc);
@@ -59,7 +46,7 @@ void HELPER(afl_compcov_log_16)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
 void HELPER(afl_compcov_log_32)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
                                 uint64_t arg2) {
 
-  struct uc_struct* uc = uc_ptr;
+  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
     INC_AFL_AREA(cur_loc);
@@ -75,7 +62,7 @@ void HELPER(afl_compcov_log_32)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
 void HELPER(afl_compcov_log_64)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
                                 uint64_t arg2) {
 
-  struct uc_struct* uc = uc_ptr;
+  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
     INC_AFL_AREA(cur_loc);

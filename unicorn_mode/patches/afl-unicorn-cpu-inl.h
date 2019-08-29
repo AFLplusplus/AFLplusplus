@@ -33,7 +33,7 @@
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "../../config.h"
+#include "afl-unicorn-common.h"
 
 /***************************
  * VARIOUS AUXILIARY STUFF *
@@ -218,16 +218,10 @@ static inline void afl_maybe_log(struct uc_struct* uc, unsigned long cur_loc) {
 
   static __thread unsigned long prev_loc;
 
-  // DEBUG
-  //printf("IN AFL_MAYBE_LOG 0x%lx\n", cur_loc);
+  u8* afl_area_ptr = uc->afl_area_ptr;
 
-  // MODIFIED FOR UNICORN MODE -> We want to log all addresses,
-  // so the checks for 'start < addr < end' are removed
-  if(!uc->afl_area_ptr)
+  if(!afl_area_ptr)
     return;
-
-  // DEBUG
-  //printf("afl_area_ptr = %p\n", afl_area_ptr);
 
   /* Looks like QEMU always maps to fixed locations, so ASAN is not a
      concern. Phew. But instruction addresses may be aligned. Let's mangle
@@ -239,27 +233,11 @@ static inline void afl_maybe_log(struct uc_struct* uc, unsigned long cur_loc) {
   /* Implement probabilistic instrumentation by looking at scrambled block
      address. This keeps the instrumented locations stable across runs. */
 
-  // DEBUG
-  //printf("afl_inst_rms = 0x%lx\n", afl_inst_rms);
-
   if (cur_loc >= uc->afl_inst_rms) return;
-
-  // DEBUG
-  //printf("cur_loc = 0x%lx\n", cur_loc);  
 
   register uintptr_t afl_idx = cur_loc ^ prev_loc;
 
-#if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
-  asm volatile (
-    "incb (%0, %1, 1)\n"
-    "adcb $0, (%0, %1, 1)\n"
-    : /* no out */
-    : "r" (uc->afl_area_ptr), "r" (afl_idx)
-    : "memory", "eax"
-  );
-#else
-  uc->afl_area_ptr[afl_idx]++;
-#endif
+  INC_AFL_AREA(afl_idx);
 
   prev_loc = cur_loc >> 1;
 
