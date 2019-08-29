@@ -36,7 +36,7 @@
 #  define INC_AFL_AREA(loc) \
     asm volatile ( \
       "incb (%0, %1, 1)\n" \
-      "adc $0, (%0, %1, 1)\n" \
+      "adcb $0, (%0, %1, 1)\n" \
       : /* no out */ \
       : "r" (uc->afl_area_ptr), "r" (loc) \
       : "memory", "eax" \

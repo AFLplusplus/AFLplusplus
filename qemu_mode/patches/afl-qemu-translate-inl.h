@@ -51,7 +51,7 @@ void afl_maybe_log(target_ulong cur_loc) {
 #if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
   asm volatile (
     "incb (%0, %1, 1)\n"
-    "adc $0, (%0, %1, 1)\n"
+    "adcb $0, (%0, %1, 1)\n"
     : /* no out */
     : "r" (afl_area_ptr), "r" (afl_idx)
     : "memory", "eax"
