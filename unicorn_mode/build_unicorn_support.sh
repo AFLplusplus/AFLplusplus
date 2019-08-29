@@ -127,12 +127,13 @@ tar xzf "$ARCHIVE" -C ./unicorn --strip-components=1 || exit 1
 
 echo "[+] Unpacking successful."
 
-rm -rf "$ARCHIVE" || exit 1
+#rm -rf "$ARCHIVE" || exit 1
 
 echo "[*] Applying patches..."
 
-cp patches/afl-unicorn-cpu-inl.h unicorn || exit 1
-patch -p1 --directory unicorn <patches/patches.diff || exit 1
+cp patches/*.h unicorn || exit 1
+patch -p1 --directory unicorn < patches/patches.diff || exit 1
+patch -p1 --directory unicorn < patches/compcov.diff || exit 1
 
 echo "[+] Patching done."
 
@@ -144,7 +145,7 @@ echo "[+] Configuration complete."
 
 echo "[*] Attempting to build Unicorn (fingers crossed!)..."
 
-UNICORN_QEMU_FLAGS='--python=python2' make || exit 1
+UNICORN_QEMU_FLAGS='--python=python2' make -j `nproc` || exit 1
 
 echo "[+] Build process successful!"
 
