@@ -26,7 +26,9 @@
  */
 
 #define AFL_MAIN
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+#  define _GNU_SOURCE
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
