@@ -20,633 +20,7 @@
 
  */
 
-#define AFL_MAIN
-#define MESSAGES_TO_STDOUT
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-#define _FILE_OFFSET_BITS 64
-
-#ifdef __ANDROID__
-  #include "android-ashmem.h"
-#endif
-
-#include "config.h"
-#include "types.h"
-#include "debug.h"
-#include "alloc-inl.h"
-#include "hash.h"
-#include "sharedmem.h"
-#include "forkserver.h"
-#include "common.h"
-
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <errno.h>
-#include <signal.h>
-#include <dirent.h>
-#include <ctype.h>
-#include <fcntl.h>
-#include <termios.h>
-#include <dlfcn.h>
-#include <sched.h>
-
-#include <sys/wait.h>
-#include <sys/time.h>
-#include <sys/shm.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/resource.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
-#include <sys/file.h>
-
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined (__OpenBSD__)
-#  include <sys/sysctl.h>
-#  define HAVE_ARC4RANDOM 1
-#endif /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
-
-/* For systems that have sched_setaffinity; right now just Linux, but one
-   can hope... */
-
-#ifdef __linux__
-#  define HAVE_AFFINITY 1
-#endif /* __linux__ */
-
-/* A toggle to export some variables when building as a library. Not very
-   useful for the general public. */
-
-#ifdef AFL_LIB
-#  define EXP_ST
-#else
-#  define EXP_ST static
-#endif /* ^AFL_LIB */
-
-/* MOpt:
-   Lots of globals, but mostly for the status UI and other things where it
-   really makes no sense to haul them around as function parameters. */
-EXP_ST u64 limit_time_puppet = 0;
-u64 orig_hit_cnt_puppet = 0;
-u64 last_limit_time_start = 0;
-u64 tmp_pilot_time = 0;
-u64 total_pacemaker_time = 0;
-u64 total_puppet_find = 0;
-u64 temp_puppet_find = 0;
-u64 most_time_key = 0;
-u64 most_time = 0;
-u64 most_execs_key = 0;
-u64 most_execs = 0;
-u64 old_hit_count = 0;
-int SPLICE_CYCLES_puppet;
-int limit_time_sig = 0;
-int key_puppet = 0;
-int key_module = 0;
-double w_init = 0.9;
-double w_end = 0.3;
-double w_now;
-int g_now = 0;
-int g_max = 5000;
-#define operator_num 16
-#define swarm_num 5
-#define period_core  500000
-u64 tmp_core_time = 0;
-int swarm_now = 0 ;
-double x_now[swarm_num][operator_num],
-       L_best[swarm_num][operator_num],
-       eff_best[swarm_num][operator_num],
-       G_best[operator_num],
-       v_now[swarm_num][operator_num],
-       probability_now[swarm_num][operator_num],
-       swarm_fitness[swarm_num];
-
- static u64 stage_finds_puppet[swarm_num][operator_num],           /* Patterns found per fuzz stage    */
-            stage_finds_puppet_v2[swarm_num][operator_num],
-            stage_cycles_puppet_v2[swarm_num][operator_num],
-            stage_cycles_puppet_v3[swarm_num][operator_num],
-            stage_cycles_puppet[swarm_num][operator_num],
-            operator_finds_puppet[operator_num],
-            core_operator_finds_puppet[operator_num],
-            core_operator_finds_puppet_v2[operator_num],
-            core_operator_cycles_puppet[operator_num],
-            core_operator_cycles_puppet_v2[operator_num],
-            core_operator_cycles_puppet_v3[operator_num];          /* Execs per fuzz stage             */
-
-#define RAND_C (rand()%1000*0.001)
-#define v_max 1
-#define v_min 0.05
-#define limit_time_bound 1.1
-#define SPLICE_CYCLES_puppet_up 25
-#define SPLICE_CYCLES_puppet_low 5
-#define STAGE_RANDOMBYTE 12
-#define STAGE_DELETEBYTE 13
-#define STAGE_Clone75 14
-#define STAGE_OverWrite75 15
-#define period_pilot 50000
-double period_pilot_tmp = 5000.0;
-int key_lv = 0;
-
-EXP_ST u8 *in_dir,                    /* Input directory with test cases  */
-          *out_dir,                   /* Working & output directory       */
-          *tmp_dir       ,            /* Temporary directory for input    */
-          *sync_dir,                  /* Synchronization directory        */
-          *sync_id,                   /* Fuzzer ID                        */
-          *power_name,                /* Power schedule name              */
-          *use_banner,                /* Display banner                   */
-          *in_bitmap,                 /* Input bitmap                     */
-          *file_extension,            /* File extension                   */
-          *orig_cmdline;              /* Original command line            */
-       u8 *doc_path,                  /* Path to documentation dir        */
-          *target_path,               /* Path to target binary            */
-          *out_file;                  /* File to fuzz, if any             */
-
-       u32 exec_tmout = EXEC_TIMEOUT; /* Configurable exec timeout (ms)   */
-static u32 hang_tmout = EXEC_TIMEOUT; /* Timeout used for hang det (ms)   */
-
-       u64 mem_limit  = MEM_LIMIT;    /* Memory cap for child (MB)        */
-
-EXP_ST u8  cal_cycles = CAL_CYCLES;   /* Calibration cycles defaults      */
-EXP_ST u8  cal_cycles_long = CAL_CYCLES_LONG;
-EXP_ST u8  debug,                     /* Debug mode                       */
-           python_only;               /* Python-only mode                 */
-
-static u32 stats_update_freq = 1;     /* Stats update frequency (execs)   */
-
-enum {
-  /* 00 */ EXPLORE,                   /* AFL default, Exploration-based constant schedule */
-  /* 01 */ FAST,                      /* Exponential schedule             */
-  /* 02 */ COE,                       /* Cut-Off Exponential schedule     */
-  /* 03 */ LIN,                       /* Linear schedule                  */
-  /* 04 */ QUAD,                      /* Quadratic schedule               */
-  /* 05 */ EXPLOIT                    /* AFL's exploitation-based const.  */
-};
-
-char *power_names[] = {
-  "explore",
-  "fast",
-  "coe",
-  "lin",
-  "quad",
-  "exploit"
-};
-
-static u8 schedule = EXPLORE;         /* Power schedule (default: EXPLORE)*/
-static u8 havoc_max_mult = HAVOC_MAX_MULT;
-
-EXP_ST u8  skip_deterministic,        /* Skip deterministic stages?       */
-           force_deterministic,       /* Force deterministic stages?      */
-           use_splicing,              /* Recombine input files?           */
-           dumb_mode,                 /* Run in non-instrumented mode?    */
-           score_changed,             /* Scoring for favorites changed?   */
-           kill_signal,               /* Signal that killed the child     */
-           resuming_fuzz,             /* Resuming an older fuzzing job?   */
-           timeout_given,             /* Specific timeout given?          */
-           not_on_tty,                /* stdout is not a tty              */
-           term_too_small,            /* terminal dimensions too small    */
-           no_forkserver,             /* Disable forkserver?              */
-           crash_mode,                /* Crash mode! Yeah!                */
-           in_place_resume,           /* Attempt in-place resume?         */
-           auto_changed,              /* Auto-generated tokens changed?   */
-           no_cpu_meter_red,          /* Feng shui on the status screen   */
-           no_arith,                  /* Skip most arithmetic ops         */
-           shuffle_queue,             /* Shuffle input queue?             */
-           bitmap_changed = 1,        /* Time to update bitmap?           */
-           qemu_mode,                 /* Running in QEMU mode?            */
-           unicorn_mode,              /* Running in Unicorn mode?         */
-           skip_requested,            /* Skip request, via SIGUSR1        */
-           run_over10m,               /* Run time over 10 minutes?        */
-           persistent_mode,           /* Running in persistent mode?      */
-           deferred_mode,             /* Deferred forkserver mode?        */
-           fixed_seed,                /* do not reseed                    */
-           fast_cal;                  /* Try to calibrate faster?         */
-       u8  uses_asan;                 /* Target uses ASAN?                */
-
-s32 out_fd,                    /* Persistent fd for out_file       */
-#ifndef HAVE_ARC4RANDOM
-           dev_urandom_fd = -1,       /* Persistent fd for /dev/urandom   */
-#endif
-           dev_null_fd = -1,          /* Persistent fd for /dev/null      */
-           fsrv_ctl_fd,               /* Fork server control pipe (write) */
-           fsrv_st_fd;                /* Fork server status pipe (read)   */
-
-       s32 forksrv_pid,               /* PID of the fork server           */
-           child_pid = -1,            /* PID of the fuzzed program        */
-           out_dir_fd = -1;           /* FD of the lock file              */
-
-       u8* trace_bits;                /* SHM with instrumentation bitmap  */
-
-EXP_ST u8  virgin_bits[MAP_SIZE],     /* Regions yet untouched by fuzzing */
-           virgin_tmout[MAP_SIZE],    /* Bits we haven't seen in tmouts   */
-           virgin_crash[MAP_SIZE];    /* Bits we haven't seen in crashes  */
-
-static u8  var_bytes[MAP_SIZE];       /* Bytes that appear to be variable */
-
-static volatile u8 stop_soon,         /* Ctrl-C pressed?                  */
-                   clear_screen = 1,  /* Window resized?                  */
-                   child_timed_out;   /* Traced process timed out?        */
-
-EXP_ST u32 queued_paths,              /* Total number of queued testcases */
-           queued_variable,           /* Testcases with variable behavior */
-           queued_at_start,           /* Total number of initial inputs   */
-           queued_discovered,         /* Items discovered during this run */
-           queued_imported,           /* Items imported via -S            */
-           queued_favored,            /* Paths deemed favorable           */
-           queued_with_cov,           /* Paths with new coverage bytes    */
-           pending_not_fuzzed,        /* Queued but not done yet          */
-           pending_favored,           /* Pending favored paths            */
-           cur_skipped_paths,         /* Abandoned inputs in cur cycle    */
-           cur_depth,                 /* Current path depth               */
-           max_depth,                 /* Max path depth                   */
-           useless_at_start,          /* Number of useless starting paths */
-           var_byte_count,            /* Bitmap bytes with var behavior   */
-           current_entry,             /* Current queue entry ID           */
-           havoc_div = 1;             /* Cycle count divisor for havoc    */
-
-EXP_ST u64 total_crashes,             /* Total number of crashes          */
-           unique_crashes,            /* Crashes with unique signatures   */
-           total_tmouts,              /* Total number of timeouts         */
-           unique_tmouts,             /* Timeouts with unique signatures  */
-           unique_hangs,              /* Hangs with unique signatures     */
-           total_execs,               /* Total execve() calls             */
-           start_time,                /* Unix start time (ms)             */
-           last_path_time,            /* Time for most recent path (ms)   */
-           last_crash_time,           /* Time for most recent crash (ms)  */
-           last_hang_time,            /* Time for most recent hang (ms)   */
-           last_crash_execs,          /* Exec counter at last crash       */
-           queue_cycle,               /* Queue round counter              */
-           cycles_wo_finds,           /* Cycles without any new paths     */
-           trim_execs,                /* Execs done to trim input files   */
-           bytes_trim_in,             /* Bytes coming into the trimmer    */
-           bytes_trim_out,            /* Bytes coming outa the trimmer    */
-           blocks_eff_total,          /* Blocks subject to effector maps  */
-           blocks_eff_select;         /* Blocks selected as fuzzable      */
-
-static u32 subseq_tmouts;             /* Number of timeouts in a row      */
-
-static u8 *stage_name = "init",       /* Name of the current fuzz stage   */
-          *stage_short,               /* Short stage name                 */
-          *syncing_party;             /* Currently syncing with...        */
-
-static s32 stage_cur, stage_max;      /* Stage progression                */
-static s32 splicing_with = -1;        /* Splicing with which test case?   */
-
-static u32 master_id, master_max;     /* Master instance job splitting    */
-
-static u32 syncing_case;              /* Syncing with case #...           */
-
-static s32 stage_cur_byte,            /* Byte offset of current stage op  */
-           stage_cur_val;             /* Value used for stage op          */
-
-static u8  stage_val_type;            /* Value type (STAGE_VAL_*)         */
-
-static u64 stage_finds[32],           /* Patterns found per fuzz stage    */
-           stage_cycles[32];          /* Execs per fuzz stage             */
-
-#ifndef HAVE_ARC4RANDOM
-static u32 rand_cnt;                  /* Random number counter            */
-#endif
-
-static u64 total_cal_us,              /* Total calibration time (us)      */
-           total_cal_cycles;          /* Total calibration cycles         */
-
-static u64 total_bitmap_size,         /* Total bit count for all bitmaps  */
-           total_bitmap_entries;      /* Number of bitmaps counted        */
-
-static s32 cpu_core_count;            /* CPU core count                   */
-
-#ifdef HAVE_AFFINITY
-
-static s32 cpu_aff = -1;       	      /* Selected CPU core                */
-
-#endif /* HAVE_AFFINITY */
-
-FILE* plot_file;               /* Gnuplot output file              */
-
-struct queue_entry {
-
-  u8* fname;                          /* File name for the test case      */
-  u32 len;                            /* Input length                     */
-
-  u8  cal_failed,                     /* Calibration failed?              */
-      trim_done,                      /* Trimmed?                         */
-      was_fuzzed,                     /* historical, but needed for MOpt  */
-      passed_det,                     /* Deterministic stages passed?     */
-      has_new_cov,                    /* Triggers new coverage?           */
-      var_behavior,                   /* Variable behavior?               */
-      favored,                        /* Currently favored?               */
-      fs_redundant;                   /* Marked as redundant in the fs?   */
-
-  u32 bitmap_size,                    /* Number of bits set in bitmap     */
-      fuzz_level,                     /* Number of fuzzing iterations     */
-      exec_cksum;                     /* Checksum of the execution trace  */
-
-  u64 exec_us,                        /* Execution time (us)              */
-      handicap,                       /* Number of queue cycles behind    */
-      n_fuzz,                         /* Number of fuzz, does not overflow */
-      depth;                          /* Path depth                       */
-
-  u8* trace_mini;                     /* Trace bytes, if kept             */
-  u32 tc_ref;                         /* Trace bytes ref count            */
-
-  struct queue_entry *next,           /* Next element, if any             */
-                     *next_100;       /* 100 elements ahead               */
-
-};
-
-static struct queue_entry *queue,     /* Fuzzing queue (linked list)      */
-                          *queue_cur, /* Current offset within the queue  */
-                          *queue_top, /* Top of the list                  */
-                          *q_prev100; /* Previous 100 marker              */
-
-static struct queue_entry*
-  top_rated[MAP_SIZE];                /* Top entries for bitmap bytes     */
-
-struct extra_data {
-  u8* data;                           /* Dictionary token data            */
-  u32 len;                            /* Dictionary token length          */
-  u32 hit_cnt;                        /* Use count in the corpus          */
-};
-
-static struct extra_data* extras;     /* Extra tokens to fuzz with        */
-static u32 extras_cnt;                /* Total number of tokens read      */
-
-static struct extra_data* a_extras;   /* Automatically selected extras    */
-static u32 a_extras_cnt;              /* Total number of tokens available */
-
-static u8* (*post_handler)(u8* buf, u32* len);
-
-/* hooks for the custom mutator function */
-static size_t (*custom_mutator)(u8 *data, size_t size, u8* mutated_out, size_t max_size, unsigned int seed);
-static size_t (*pre_save_handler)(u8 *data, size_t size, u8 **new_data);
-
-
-/* Interesting values, as per config.h */
-
-static s8  interesting_8[]  = { INTERESTING_8 };
-static s16 interesting_16[] = { INTERESTING_8, INTERESTING_16 };
-static s32 interesting_32[] = { INTERESTING_8, INTERESTING_16, INTERESTING_32 };
-
-/* Fuzzing stages */
-
-enum {
-  /* 00 */ STAGE_FLIP1,
-  /* 01 */ STAGE_FLIP2,
-  /* 02 */ STAGE_FLIP4,
-  /* 03 */ STAGE_FLIP8,
-  /* 04 */ STAGE_FLIP16,
-  /* 05 */ STAGE_FLIP32,
-  /* 06 */ STAGE_ARITH8,
-  /* 07 */ STAGE_ARITH16,
-  /* 08 */ STAGE_ARITH32,
-  /* 09 */ STAGE_INTEREST8,
-  /* 10 */ STAGE_INTEREST16,
-  /* 11 */ STAGE_INTEREST32,
-  /* 12 */ STAGE_EXTRAS_UO,
-  /* 13 */ STAGE_EXTRAS_UI,
-  /* 14 */ STAGE_EXTRAS_AO,
-  /* 15 */ STAGE_HAVOC,
-  /* 16 */ STAGE_SPLICE,
-  /* 17 */ STAGE_PYTHON,
-  /* 18 */ STAGE_CUSTOM_MUTATOR
-};
-
-/* Stage value types */
-
-enum {
-  /* 00 */ STAGE_VAL_NONE,
-  /* 01 */ STAGE_VAL_LE,
-  /* 02 */ STAGE_VAL_BE
-};
-
-/* Execution status fault codes */
-
-enum {
-  /* 00 */ FAULT_NONE,
-  /* 01 */ FAULT_TMOUT,
-  /* 02 */ FAULT_CRASH,
-  /* 03 */ FAULT_ERROR,
-  /* 04 */ FAULT_NOINST,
-  /* 05 */ FAULT_NOBITS
-};
-
-
-static inline u32 UR(u32 limit);
-
-/* Python stuff */
-#ifdef USE_PYTHON
-#include <Python.h>
-
-static PyObject *py_module;
-
-enum {
-  /* 00 */ PY_FUNC_INIT,
-  /* 01 */ PY_FUNC_FUZZ,
-  /* 02 */ PY_FUNC_INIT_TRIM,
-  /* 03 */ PY_FUNC_POST_TRIM,
-  /* 04 */ PY_FUNC_TRIM,
-  PY_FUNC_COUNT
-};
-
-static PyObject *py_functions[PY_FUNC_COUNT];
-
-static int init_py() {
-  Py_Initialize();
-  u8* module_name = getenv("AFL_PYTHON_MODULE");
-
-  if (module_name) {
-    PyObject* py_name = PyString_FromString(module_name);
-
-    py_module = PyImport_Import(py_name);
-    Py_DECREF(py_name);
-
-    if (py_module != NULL) {
-      u8 py_notrim = 0;
-      py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
-      py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
-      py_functions[PY_FUNC_INIT_TRIM] = PyObject_GetAttrString(py_module, "init_trim");
-      py_functions[PY_FUNC_POST_TRIM] = PyObject_GetAttrString(py_module, "post_trim");
-      py_functions[PY_FUNC_TRIM] = PyObject_GetAttrString(py_module, "trim");
-
-      for (u8 py_idx = 0; py_idx < PY_FUNC_COUNT; ++py_idx) {
-        if (!py_functions[py_idx] || !PyCallable_Check(py_functions[py_idx])) {
-          if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
-            // Implementing the trim API is optional for now
-            if (PyErr_Occurred())
-              PyErr_Print();
-            py_notrim = 1;
-          } else {
-            if (PyErr_Occurred())
-              PyErr_Print();
-            fprintf(stderr, "Cannot find/call function with index %d in external Python module.\n", py_idx);
-            return 1;
-          }
-        }
-
-      }
-
-      if (py_notrim) {
-        py_functions[PY_FUNC_INIT_TRIM] = NULL;
-        py_functions[PY_FUNC_POST_TRIM] = NULL;
-        py_functions[PY_FUNC_TRIM] = NULL;
-        WARNF("Python module does not implement trim API, standard trimming will be used.");
-      }
-
-      PyObject *py_args, *py_value;
-
-      /* Provide the init function a seed for the Python RNG */
-      py_args = PyTuple_New(1);
-      py_value = PyInt_FromLong(UR(0xFFFFFFFF));
-      if (!py_value) {
-        Py_DECREF(py_args);
-        fprintf(stderr, "Cannot convert argument\n");
-        return 1;
-      }
-
-      PyTuple_SetItem(py_args, 0, py_value);
-
-      py_value = PyObject_CallObject(py_functions[PY_FUNC_INIT], py_args);
-
-      Py_DECREF(py_args);
-
-      if (py_value == NULL) {
-        PyErr_Print();
-        fprintf(stderr,"Call failed\n");
-        return 1;
-      }
-    } else {
-      PyErr_Print();
-      fprintf(stderr, "Failed to load \"%s\"\n", module_name);
-      return 1;
-    }
-  }
-
-  return 0;
-}
-
-static void finalize_py() {
-  if (py_module != NULL) {
-    u32 i;
-    for (i = 0; i < PY_FUNC_COUNT; ++i)
-      Py_XDECREF(py_functions[i]);
-
-    Py_DECREF(py_module);
-  }
-
-  Py_Finalize();
-}
-
-static void fuzz_py(char* buf, size_t buflen, char* add_buf, size_t add_buflen, char** ret, size_t* retlen) {
-
-  if (py_module != NULL) {
-    PyObject *py_args, *py_value;
-    py_args = PyTuple_New(2);
-    py_value = PyByteArray_FromStringAndSize(buf, buflen);
-    if (!py_value) {
-      Py_DECREF(py_args);
-      fprintf(stderr, "Cannot convert argument\n");
-      return;
-    }
-
-    PyTuple_SetItem(py_args, 0, py_value);
-
-    py_value = PyByteArray_FromStringAndSize(add_buf, add_buflen);
-    if (!py_value) {
-      Py_DECREF(py_args);
-      fprintf(stderr, "Cannot convert argument\n");
-      return;
-    }
-
-    PyTuple_SetItem(py_args, 1, py_value);
-
-    py_value = PyObject_CallObject(py_functions[PY_FUNC_FUZZ], py_args);
-
-    Py_DECREF(py_args);
-
-    if (py_value != NULL) {
-      *retlen = PyByteArray_Size(py_value);
-      *ret = malloc(*retlen);
-      memcpy(*ret, PyByteArray_AsString(py_value), *retlen);
-      Py_DECREF(py_value);
-    } else {
-      PyErr_Print();
-      fprintf(stderr,"Call failed\n");
-      return;
-    }
-  }
-}
-static u32 init_trim_py(char* buf, size_t buflen) {
-  PyObject *py_args, *py_value;
-
-  py_args = PyTuple_New(1);
-  py_value = PyByteArray_FromStringAndSize(buf, buflen);
-  if (!py_value) {
-    Py_DECREF(py_args);
-    FATAL("Failed to convert arguments");
-  }
-
-  PyTuple_SetItem(py_args, 0, py_value);
-
-  py_value = PyObject_CallObject(py_functions[PY_FUNC_INIT_TRIM], py_args);
-  Py_DECREF(py_args);
-
-  if (py_value != NULL) {
-    u32 retcnt = PyInt_AsLong(py_value);
-    Py_DECREF(py_value);
-    return retcnt;
-  } else {
-    PyErr_Print();
-    FATAL("Call failed");
-  }
-}
-static u32 post_trim_py(char success) {
-  PyObject *py_args, *py_value;
-
-  py_args = PyTuple_New(1);
-
-  py_value = PyBool_FromLong(success);
-  if (!py_value) {
-    Py_DECREF(py_args);
-    FATAL("Failed to convert arguments");
-  }
-
-  PyTuple_SetItem(py_args, 0, py_value);
-
-  py_value = PyObject_CallObject(py_functions[PY_FUNC_POST_TRIM], py_args);
-  Py_DECREF(py_args);
-
-  if (py_value != NULL) {
-    u32 retcnt = PyInt_AsLong(py_value);
-    Py_DECREF(py_value);
-    return retcnt;
-  } else {
-    PyErr_Print();
-    FATAL("Call failed");
-  }
-}
-
-static void trim_py(char** ret, size_t* retlen) {
-  PyObject *py_args, *py_value;
-
-  py_args = PyTuple_New(0);
-  py_value = PyObject_CallObject(py_functions[PY_FUNC_TRIM], py_args);
-  Py_DECREF(py_args);
-
-  if (py_value != NULL) {
-    *retlen = PyByteArray_Size(py_value);
-    *ret = malloc(*retlen);
-    memcpy(*ret, PyByteArray_AsString(py_value), *retlen);
-    Py_DECREF(py_value);
-  } else {
-    PyErr_Print();
-    FATAL("Call failed");
-  }
-}
-
-#endif /* USE_PYTHON */
-
+#include "afl-fuzz.h"
 
 int select_algorithm(void) {
 
@@ -696,32 +70,6 @@ static u64 get_cur_time_us(void) {
 
   return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
 
-}
-
-
-/* Generate a random number (from 0 to limit - 1). This may
-   have slight bias. */
-
-static inline u32 UR(u32 limit) {
-#ifdef HAVE_ARC4RANDOM
-  if (fixed_seed) {
-    return random() % limit;
-  }
-
-  /* The boundary not being necessarily a power of 2,
-     we need to ensure the result uniformity. */
-  return arc4random_uniform(limit);
-#else
-  if (!fixed_seed && unlikely(!rand_cnt--)) {
-    u32 seed[2];
-
-    ck_read(dev_urandom_fd, &seed, sizeof(seed), "/dev/urandom");
-    srandom(seed[0]);
-    rand_cnt = (RESEED_RNG / 2) + (seed[1] % RESEED_RNG);
-  }
-
-  return random() % limit;
-#endif
 }
 
 
@@ -1166,7 +514,7 @@ static void add_to_queue(u8* fname, u32 len, u8 passed_det) {
 
 /* Destroy the entire queue. */
 
-EXP_ST void destroy_queue(void) {
+void destroy_queue(void) {
 
   struct queue_entry *q = queue, *n;
 
@@ -1187,7 +535,7 @@ EXP_ST void destroy_queue(void) {
    -B option, to focus a separate fuzzing session on a particular
    interesting input without rediscovering all the others. */
 
-EXP_ST void write_bitmap(void) {
+void write_bitmap(void) {
 
   u8* fname;
   s32 fd;
@@ -1210,7 +558,7 @@ EXP_ST void write_bitmap(void) {
 
 /* Read bitmap from file. This is for the -B option again. */
 
-EXP_ST void read_bitmap(u8* fname) {
+void read_bitmap(u8* fname) {
 
   s32 fd = open(fname, O_RDONLY);
 
@@ -1484,7 +832,7 @@ static const u8 count_class_lookup8[256] = {
 static u16 count_class_lookup16[65536];
 
 
-EXP_ST void init_count_class16(void) {
+void init_count_class16(void) {
 
   u32 b1, b2;
 
@@ -4780,7 +4128,7 @@ abort_trimming:
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
 
-EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
+u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
   u8 fault;
 
@@ -10769,7 +10117,7 @@ static void handle_skipreq(int sig) {
    isn't a shell script - a common and painful mistake. We also check for
    a valid ELF header and for evidence of AFL instrumentation. */
 
-EXP_ST void check_binary(u8* fname) {
+void check_binary(u8* fname) {
 
   u8* env_path = 0;
   struct stat st;
@@ -11069,7 +10417,7 @@ static void usage(u8* argv0) {
 
 /* Prepare output directories and fds. */
 
-EXP_ST void setup_dirs_fds(void) {
+void setup_dirs_fds(void) {
 
   u8* tmp;
   s32 fd;
@@ -11218,7 +10566,7 @@ static void setup_cmdline_file(char** argv) {
 
 /* Setup the output file for fuzzed data, if not using -f. */
 
-EXP_ST void setup_stdio_file(void) {
+void setup_stdio_file(void) {
 
   u8* fn;
   if (file_extension) {
@@ -11545,7 +10893,7 @@ static void check_asan_opts(void) {
    Solaris doesn't resume interrupted reads(), sets SA_RESETHAND when you call
    siginterrupt(), and does other stupid things. */
 
-EXP_ST void setup_signal_handlers(void) {
+void setup_signal_handlers(void) {
 
   struct sigaction sa;
 
