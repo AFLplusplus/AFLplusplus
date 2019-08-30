@@ -224,7 +224,7 @@ EXP_ST u8  skip_deterministic,        /* Skip deterministic stages?       */
            fast_cal;                  /* Try to calibrate faster?         */
        u8  uses_asan;                 /* Target uses ASAN?                */
 
-static s32 out_fd,                    /* Persistent fd for out_file       */
+s32 out_fd,                    /* Persistent fd for out_file       */
 #ifndef HAVE_ARC4RANDOM
            dev_urandom_fd = -1,       /* Persistent fd for /dev/urandom   */
 #endif
