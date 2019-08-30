@@ -3,6 +3,9 @@
 import subprocess
 import sys
 import os
+import re
+
+# string_re = re.compile('(\\"(\\\\.|[^"\\\\])*\\")') # future use
 
 with open(".clang-format") as f:
     fmt = f.read()
@@ -36,14 +39,17 @@ for line in fmt.split("\n"):
     if line[0].strip() == "ColumnLimit":
         COLUMN_LIMIT = int(line[1].strip())
 
+
 def custom_format(filename):
     p = subprocess.Popen([CLANG_FORMAT_BIN, filename], stdout=subprocess.PIPE)
     src, _ = p.communicate()
     src = str(src, "utf-8")
 
     macro_indent = 0
-
+    in_define = False
+    last_line = None
     out = ""
+    
     for line in src.split("\n"):
         if line.startswith("#"):
             i = macro_indent
@@ -54,6 +60,8 @@ def custom_format(filename):
                 i -= 1
             elif line.startswith("#if") and not (line.startswith("#ifndef") and (line.endswith("_H") or line.endswith("H_"))):
                 macro_indent += 1
+            elif line.startswith("#define"):
+                in_define = True
             r = "#" + (i * "  ") + line[1:]
             if i != 0 and line.endswith("\\"):
                 r = r[:-1]
@@ -67,7 +75,23 @@ def custom_format(filename):
             cmt_start = line.rfind("/*")
             line = line[:cmt_start] + " " * (COLUMN_LIMIT-2 - len(line)) + line[cmt_start:]
 
+        define_padding = 0
+        if last_line is not None and in_define and last_line.endswith("\\"):
+            last_line = last_line[:-1]
+            define_padding = max(0, len(last_line[last_line.rfind("\n")+1:]))
+
+        if last_line is not None and last_line.strip().endswith("{") and line.strip() != "":
+            line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
+        elif last_line is not None and last_line.strip().startswith("}") and line.strip() != "":
+            line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
+        elif line.strip().startswith("}") and last_line is not None and last_line.strip() != "":
+            line = (" " * define_padding + "\\" if in_define else "") + "\n" + line
+
+        if not line.endswith("\\"):
+            in_define = False
+
         out += line + "\n"
+        last_line = line
 
     return (out)
 
