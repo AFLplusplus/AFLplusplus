@@ -5,7 +5,7 @@
 
    Written and maintained by Andrea Fioraldi <andreafioraldi@gmail.com>
 
-   Copyright 2019 Andrea Fioraldi. All rights reserved.
+   Copyright 2019 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,6 +45,8 @@ static void *__compcov_code_start,
 
 static u8 *__compcov_afl_map;
 
+static u32 __compcov_level;
+
 static int (*__libc_strcmp)(const char*, const char*);
 static int (*__libc_strncmp)(const char*, const char*, size_t);
 static int (*__libc_strcasecmp)(const char*, const char*);
@@ -52,6 +54,28 @@ static int (*__libc_strncasecmp)(const char*, const char*, size_t);
 static int (*__libc_memcmp)(const void*, const void*, size_t);
 
 static int debug_fd = -1;
+
+
+#define MAX_MAPPINGS 1024
+
+static struct mapping {
+  void *st, *en;
+} __compcov_ro[MAX_MAPPINGS];
+
+static u32   __compcov_ro_cnt;
+
+
+/* Check an address against the list of read-only mappings. */
+
+static u8 __compcov_is_ro(const void* ptr) {
+
+  u32 i;
+
+  for (i = 0; i < __compcov_ro_cnt; i++) 
+    if (ptr >= __compcov_ro[i].st && ptr <= __compcov_ro[i].en) return 1;
+
+  return 0;
+}
 
 
 static size_t __strlen2(const char *s1, const char *s2, size_t max_length) {
@@ -71,6 +95,15 @@ static void __compcov_load(void) {
   __libc_strcasecmp = dlsym(RTLD_NEXT, "strcasecmp");
   __libc_strncasecmp = dlsym(RTLD_NEXT, "strncasecmp");
   __libc_memcmp = dlsym(RTLD_NEXT, "memcmp");
+
+  if (getenv("AFL_QEMU_COMPCOV")) {
+
+    __compcov_level = 1;
+  }
+  if (getenv("AFL_COMPCOV_LEVEL")) {
+
+    __compcov_level = atoi(getenv("AFL_COMPCOV_LEVEL"));
+  }
   
   char *id_str = getenv(SHM_ENV_VAR);
   int shm_id;
@@ -110,6 +143,12 @@ static void __compcov_load(void) {
             __compcov_code_end = maps_tmp->addr_end;
       }
     }
+    
+    if ((maps_tmp->is_w && !maps_tmp->is_r) || __compcov_ro_cnt == MAX_MAPPINGS)
+      continue;
+    
+    __compcov_ro[__compcov_ro_cnt].st = maps_tmp->addr_start;
+    __compcov_ro[__compcov_ro_cnt].en = maps_tmp->addr_end;
   }
 
   pmparser_free(maps);
@@ -149,7 +188,8 @@ int strcmp(const char* str1, const char* str2) {
 
   void* retaddr = __builtin_return_address(0);
   
-  if (__compcov_is_in_bound(retaddr)) {
+  if (__compcov_is_in_bound(retaddr) && !(__compcov_level < 2 &&
+      !__compcov_is_ro(str1) && !__compcov_is_ro(str2))) {
 
     size_t n = __strlen2(str1, str2, MAX_CMP_LENGTH +1);
     
@@ -173,7 +213,8 @@ int strncmp(const char* str1, const char* str2, size_t len) {
 
   void* retaddr = __builtin_return_address(0);
   
-  if (__compcov_is_in_bound(retaddr)) {
+  if (__compcov_is_in_bound(retaddr) && !(__compcov_level < 2 &&
+      !__compcov_is_ro(str1) && !__compcov_is_ro(str2))) {
 
     size_t n = __strlen2(str1, str2, MAX_CMP_LENGTH +1);
     n = MIN(n, len);
@@ -198,7 +239,8 @@ int strcasecmp(const char* str1, const char* str2) {
 
   void* retaddr = __builtin_return_address(0);
   
-  if (__compcov_is_in_bound(retaddr)) {
+  if (__compcov_is_in_bound(retaddr) && !(__compcov_level < 2 &&
+      !__compcov_is_ro(str1) && !__compcov_is_ro(str2))) {
     /* Fallback to strcmp, maybe improve in future */
 
     size_t n = __strlen2(str1, str2, MAX_CMP_LENGTH +1);
@@ -223,7 +265,8 @@ int strncasecmp(const char* str1, const char* str2, size_t len) {
 
   void* retaddr = __builtin_return_address(0);
   
-  if (__compcov_is_in_bound(retaddr)) {
+  if (__compcov_is_in_bound(retaddr) && !(__compcov_level < 2 &&
+      !__compcov_is_ro(str1) && !__compcov_is_ro(str2))) {
     /* Fallback to strncmp, maybe improve in future */
 
     size_t n = __strlen2(str1, str2, MAX_CMP_LENGTH +1);
@@ -249,7 +292,8 @@ int memcmp(const void* mem1, const void* mem2, size_t len) {
 
   void* retaddr = __builtin_return_address(0);
   
-  if (__compcov_is_in_bound(retaddr)) {
+  if (__compcov_is_in_bound(retaddr) && !(__compcov_level < 2 &&
+      !__compcov_is_ro(mem1) && !__compcov_is_ro(mem2))) {
 
     size_t n = len;
     

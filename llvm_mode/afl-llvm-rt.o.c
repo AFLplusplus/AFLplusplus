@@ -19,6 +19,9 @@
 
 */
 
+#ifdef __ANDROID__
+  #include "android-ashmem.h"
+#endif
 #include "config.h"
 #include "types.h"
 
@@ -55,7 +58,11 @@
 u8  __afl_area_initial[MAP_SIZE];
 u8* __afl_area_ptr = __afl_area_initial;
 
+#ifdef __ANDROID__
+u32 __afl_prev_loc;
+#else
 __thread u32 __afl_prev_loc;
+#endif
 
 
 /* Running in persistent mode? */

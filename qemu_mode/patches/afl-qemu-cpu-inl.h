@@ -1,19 +1,18 @@
 /*
-   american fuzzy lop - high-performance binary-only instrumentation
-   -----------------------------------------------------------------
+   american fuzzy lop++ - high-performance binary-only instrumentation
+   -------------------------------------------------------------------
 
-   Written by Andrew Griffiths <agriffiths@google.com> and
-              Michal Zalewski <lcamtuf@google.com>
-
-   Idea & design very much by Andrew Griffiths.
+   Originally written by Andrew Griffiths <agriffiths@google.com> and
+                         Michal Zalewski <lcamtuf@google.com>
 
    TCG instrumentation and block chaining support by Andrea Biondo
                                       <andrea.biondo965@gmail.com>
 
-   QEMU 3.1.0 port, TCG thread-safety and CompareCoverage by Andrea Fioraldi
-                                      <andreafioraldi@gmail.com>
+   QEMU 3.1.0 port, TCG thread-safety, CompareCoverage and NeverZero
+   counters by Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
+   Copyright 2019 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -66,7 +65,7 @@ abi_ulong afl_entry_point, /* ELF entry point (_start) */
           afl_start_code,  /* .text start pointer      */
           afl_end_code;    /* .text end pointer        */
 
-u8 afl_enable_compcov;
+u8 afl_compcov_level;
 
 /* Set in the child process in forkserver mode: */
 
@@ -159,9 +158,14 @@ static void afl_setup(void) {
 
   }
   
+  /* Maintain for compatibility */
   if (getenv("AFL_QEMU_COMPCOV")) {
 
-    afl_enable_compcov = 1;
+    afl_compcov_level = 1;
+  }
+  if (getenv("AFL_COMPCOV_LEVEL")) {
+
+    afl_compcov_level = atoi(getenv("AFL_COMPCOV_LEVEL"));
   }
 
   /* pthread_atfork() seems somewhat broken in util/rcu.c, and I'm
@@ -327,7 +331,7 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
       if (is_valid_addr(t.tb.pc)) {
     
         mmap_lock();
-        tb = tb_gen_code(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, 0);
+        tb = tb_gen_code(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, t.tb.cf_mask);
         mmap_unlock();
       } else {
       
