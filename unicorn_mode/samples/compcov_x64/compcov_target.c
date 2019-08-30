@@ -7,7 +7,7 @@
  * (0x00300000), so make sure that your Unicorn emulation of this 
  * puts user data there.
  *
- * Written by Nathan Voss <njvoss99@gmail.com>
+ * Written by Andrea Fioraldi
  */
 
 // Magic address where mutated data will be placed

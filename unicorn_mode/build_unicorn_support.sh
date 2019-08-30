@@ -1,16 +1,20 @@
 #!/bin/sh
 #
-# american fuzzy lop - Unicorn-Mode build script
-# --------------------------------------
+# american fuzzy lop++ - unicorn mode build script
+# ------------------------------------------------
 #
-# Written by Nathan Voss <njvoss99@gmail.com>
+# Originally written by Nathan Voss <njvoss99@gmail.com>
 # 
 # Adapted from code by Andrew Griffiths <agriffiths@google.com> and
 #                      Michal Zalewski <lcamtuf@google.com>
 #
-# Adapted for Afl++ by Dominik Maier <mail@dmnk.co>
+# Adapted for AFLplusplus by Dominik Maier <mail@dmnk.co>
+#
+# CompareCoverage and NeverZero counters by Andrea Fioraldi
+#                                <andreafioraldi@gmail.com>
 #
 # Copyright 2017 Battelle Memorial Institute. All rights reserved.
+# Copyright 2019 AFLplusplus Project. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
