@@ -28,6 +28,10 @@
 #endif
 #define _FILE_OFFSET_BITS 64
 
+#ifdef __ANDROID__
+  #include "android-ashmem.h"
+#endif
+
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -63,6 +67,7 @@
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined (__OpenBSD__)
 #  include <sys/sysctl.h>
+#  define HAVE_ARC4RANDOM 1
 #endif /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 /* For systems that have sched_setaffinity; right now just Linux, but one
@@ -219,8 +224,10 @@ EXP_ST u8  skip_deterministic,        /* Skip deterministic stages?       */
            fast_cal;                  /* Try to calibrate faster?         */
        u8  uses_asan;                 /* Target uses ASAN?                */
 
-       s32 out_fd,                    /* Persistent fd for out_file       */
+static s32 out_fd,                    /* Persistent fd for out_file       */
+#ifndef HAVE_ARC4RANDOM
            dev_urandom_fd = -1,       /* Persistent fd for /dev/urandom   */
+#endif
            dev_null_fd = -1,          /* Persistent fd for /dev/null      */
            fsrv_ctl_fd,               /* Fork server control pipe (write) */
            fsrv_st_fd;                /* Fork server status pipe (read)   */
@@ -298,7 +305,9 @@ static u8  stage_val_type;            /* Value type (STAGE_VAL_*)         */
 static u64 stage_finds[32],           /* Patterns found per fuzz stage    */
            stage_cycles[32];          /* Execs per fuzz stage             */
 
+#ifndef HAVE_ARC4RANDOM
 static u32 rand_cnt;                  /* Random number counter            */
+#endif
 
 static u64 total_cal_us,              /* Total calibration time (us)      */
            total_cal_cycles;          /* Total calibration cycles         */
@@ -642,14 +651,8 @@ static void trim_py(char** ret, size_t* retlen) {
 int select_algorithm(void) {
 
   int i_puppet, j_puppet;
-  u32 seed[2];
 
-  if (!fixed_seed) {
-    ck_read(dev_urandom_fd, &seed, sizeof(seed), "/dev/urandom");
-    srandom(seed[0]);
-  }
-
-  double sele = ((double)(random()%10000)*0.0001);
+  double sele = ((double)(UR(10000))*0.0001);
   j_puppet = 0;
   for (i_puppet = 0; i_puppet < operator_num; ++i_puppet) {
       if (unlikely(i_puppet == 0)) {
@@ -700,7 +703,15 @@ static u64 get_cur_time_us(void) {
    have slight bias. */
 
 static inline u32 UR(u32 limit) {
+#ifdef HAVE_ARC4RANDOM
+  if (fixed_seed) {
+    return random() % limit;
+  }
 
+  /* The boundary not being necessarily a power of 2,
+     we need to ensure the result uniformity. */
+  return arc4random_uniform(limit);
+#else
   if (!fixed_seed && unlikely(!rand_cnt--)) {
     u32 seed[2];
 
@@ -710,6 +721,7 @@ static inline u32 UR(u32 limit) {
   }
 
   return random() % limit;
+#endif
 }
 
 
@@ -2309,7 +2321,6 @@ static void destroy_extras(void) {
 }
 
 
-
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update trace_bits[]. */
 
@@ -2388,7 +2399,9 @@ static u8 run_target(char** argv, u32 timeout) {
 
       close(dev_null_fd);
       close(out_dir_fd);
+#ifndef HAVE_ARC4RANDOM
       close(dev_urandom_fd);
+#endif
       close(fileno(plot_file));
 
       /* Set sane defaults for ASAN if nothing else specified. */
@@ -10988,6 +11001,7 @@ static void check_term_size(void) {
 
   if (ioctl(1, TIOCGWINSZ, &ws)) return;
 
+  if (ws.ws_row == 0 || ws.ws_col == 0) return;
   if (ws.ws_row < 24 || ws.ws_col < 79) term_too_small = 1;
 
 }
@@ -11155,8 +11169,10 @@ EXP_ST void setup_dirs_fds(void) {
   dev_null_fd = open("/dev/null", O_RDWR);
   if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
+#ifndef HAVE_ARC4RANDOM
   dev_urandom_fd = open("/dev/urandom", O_RDONLY);
   if (dev_urandom_fd < 0) PFATAL("Unable to open /dev/urandom");
+#endif
 
   /* Gnuplot output file. */
 
@@ -12045,8 +12061,8 @@ int main(int argc, char** argv) {
     if (unicorn_mode) FATAL("-U and -n are mutually exclusive");
 
   }
-
-  if (index(argv[optind], '/') == NULL) WARNF(cLRD "Target binary called without a prefixed path, make sure you are fuzzing the right binary: " cRST "%s", argv[optind]);
+  
+  if (strchr(argv[optind], '/') == NULL) WARNF(cLRD "Target binary called without a prefixed path, make sure you are fuzzing the right binary: " cRST "%s", argv[optind]);
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" Eissfeldt and Andrea Fioraldi");
   OKF("afl++ is open source, get it at https://github.com/vanhauser-thc/AFLplusplus");

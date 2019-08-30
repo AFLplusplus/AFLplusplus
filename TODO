@@ -6,23 +6,13 @@ all:
    (vh: tried, the variable definion look very ugly then, what to do?)
 
 afl-fuzz:
- - modularize: forkserver is in a module
-   others:
-     mutator - is deeply integrated and would loose performance if split
-     scheduler - is within this and as the values it operates on are afl
-                 specific it does not make sense to seperate this
-     input - if we get different input vectors then this would make sense,
-             e.g. network (which we have seen is super non-performant and using
-             desock is much faster)
-   so for the moment we are done? (vh)
-
-docs/:
- - update docs/sister_projects.txt
- - doc + example for AFL_CUSTOM_MUTATOR_LIBRARY
+ - put mutator, scheduler, forkserver and input channels in individual files
+ - reuse forkserver for showmap, afl-cmin, etc.
+ - custom mutator lib: example and readme
+ - env var to exclusively run the custom lib/py mutator
 
 gcc_plugin:
  - needs to be rewritten
- - fix crashes when compiling :(
  - whitelist support
  - skip over uninteresting blocks
  - laf-intel
@@ -42,7 +32,8 @@ Problem: Average targets (tiff, jpeg, unrar) go through 1500 edges.
          At afl's default map that means ~16 collisions and ~3 wrappings.
   Solution #1: increase map size.
     every +1 decreases fuzzing speed by ~10% and halfs the collisions
-    birthday paradox predicts at collisions at this # of edges:
+    birthday paradox predicts collisions at this # of edges:
+     mapsize => collisions
 	2^16 = 302
 	2^17 = 427
 	2^18 = 603
@@ -52,10 +43,10 @@ Problem: Average targets (tiff, jpeg, unrar) go through 1500 edges.
 	2^22 = 2412
 	2^23 = 3411
 	2^24 = 4823
-    Its an easy solution but also not a good one.
+    Increasing the map is an easy solution but also not a good one.
   Solution #2: use dynamic map size and collision free basic block IDs
     This only works in llvm_mode and llvm >= 9 though
-    A potential good future solution
+    A potential good future solution. Heiko/hexcoder follows this up
   Solution #3: write instruction pointers to a big shared map
     512kb/1MB shared map and the instrumented code writes the instruction
     pointer into the map. Map must be big enough but could be command line
@@ -64,9 +55,7 @@ Problem: Average targets (tiff, jpeg, unrar) go through 1500 edges.
           impacts speed, but this can be decided by user options
     Neutral: a little bit slower but no loss of coverage
     Bad: completely changes how afl uses the map and the scheduling.
-    Overall another very good solution
+    Overall another very good solution, Marc Heuse/vanHauser follows this up
     
 qemu_mode:
  - persistent mode patching the return address (WinAFL style)
- - instrument only comparison with immediate values by default when using compcov (done)
-
