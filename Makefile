@@ -35,6 +35,8 @@ CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ \
 	      -DAFL_PATH=\"$(HELPER_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\" \
 	      -DBIN_PATH=\"$(BIN_PATH)\"
 
+AFL_FUZZ_FILES = $(wildcard src/afl-fuzz/*.c)
+
 PYTHON_INCLUDE	?= /usr/include/python2.7
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
@@ -140,8 +142,8 @@ afl-forkserver.o : src/afl-forkserver.c include/forkserver.h
 afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) -c src/afl-sharedmem.c
 
-afl-fuzz: src/afl-fuzz.c afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS) $(PYFLAGS)
+afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS) $(PYFLAGS)
 
 afl-showmap: src/afl-showmap.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o -o $@ $(LDFLAGS)
