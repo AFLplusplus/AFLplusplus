@@ -26,6 +26,10 @@ Version ++2.53d (dev):
     afl never did), plus shows tuple content summary information now
   - fix building on *BSD (thanks to tobias.kortkamp for the patch)
   - small docu updates
+  - NeverZero counters for QEMU
+  - NeverZero counters for Unicorn
+  - CompareCoverage Unicorn
+  - Immediates-only instrumentation for CompareCoverage
   - ... your patch? :)
 
 
