@@ -156,6 +156,23 @@ afl-gotcpu: src/afl-gotcpu.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 
 
+code-format:
+	./.custom-format.py -i src/*
+	./.custom-format.py -i include/*
+	./.custom-format.py -i libdislocator/*.c 
+	./.custom-format.py -i libtokencap/*.c 
+	./.custom-format.py -i llvm_mode/*.c
+	./.custom-format.py -i llvm_mode/*.h
+	./.custom-format.py -i llvm_mode/*.cc
+	./.custom-format.py -i qemu_mode/patches/*.h
+	./.custom-format.py -i qemu_mode/libcompcov/*.c
+	./.custom-format.py -i qemu_mode/libcompcov/*.cc
+	./.custom-format.py -i qemu_mode/libcompcov/*.h
+	./.custom-format.py -i unicorn_mode/patches/*.h
+	./.custom-format.py -i *.h
+	./.custom-format.py -i *.c
+
+
 ifndef AFL_NO_X86
 
 test_build: afl-gcc afl-as afl-showmap
