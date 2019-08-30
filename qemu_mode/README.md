@@ -1,11 +1,8 @@
-=========================================================
-High-performance binary-only instrumentation for afl-fuzz
-=========================================================
+# High-performance binary-only instrumentation for afl-fuzz
 
   (See ../docs/README for the general instruction manual.)
 
-1) Introduction
----------------
+## 1) Introduction
 
 The code in this directory allows you to build a standalone feature that
 leverages the QEMU "user emulation" mode and allows callers to obtain
@@ -20,8 +17,7 @@ The idea and much of the initial implementation comes from Andrew Griffiths.
 The actual implementation on QEMU 3 (shipped with afl++) is from
 Andrea Fioraldi. Special thanks to abiondo that re-enabled TCG chaining.
 
-2) How to use
--------------
+## 2) How to use
 
 The feature is implemented with a patch to QEMU 3.1.0. The simplest way
 to build it is to run ./build_qemu_support.sh. The script will download,
@@ -48,16 +44,15 @@ Note: if you want the QEMU helper to be installed on your system for all
 users, you need to build it before issuing 'make install' in the parent
 directory.
 
-3) Options
-----------
+## 3) Options
 
 There is ./libcompcov/ which implements laf-intel (splitting memcmp,
 strncmp, etc. to make these conditions easier solvable by afl-fuzz).
 Highly recommended.
 
-The option that enables QEMU CompareCoverage is QEMU_COMPCOV_LEVEL.
-QEMU_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
-values / read-only memory. QEMU_COMPCOV_LEVEL=2 instruments all
+The option that enables QEMU CompareCoverage is AFL_COMPCOV_LEVEL.
+AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
+values / read-only memory. AFL_COMPCOV_LEVEL=2 instruments all
 comparison instructions and memory comparison functions when libcompcov
 is preloaded. Comparison instructions are currently instrumented only
 on the x86 and x86_64 targets.
@@ -68,8 +63,7 @@ opened (e.g. way after command line parsing and config file loading, etc)
 which can be a huge speed improvement. Note that the specified address
 must be an address of a basic block.
 
-4) Notes on linking
--------------------
+## 4) Notes on linking
 
 The feature is supported only on Linux. Supporting BSD may amount to porting
 the changes made to linux-user/elfload.c and applying them to
@@ -90,8 +84,7 @@ practice, this means two things:
 Setting AFL_INST_LIBS=1 can be used to circumvent the .text detection logic
 and instrument every basic block encountered.
 
-5) Benchmarking
----------------
+## 5) Benchmarking
 
 If you want to compare the performance of the QEMU instrumentation with that of
 afl-gcc compiled code against the same target, you need to build the
@@ -106,8 +99,7 @@ Comparative measurements of execution speed or instrumentation coverage will be
 fairly meaningless if the optimization levels or instrumentation scopes don't
 match.
 
-6) Gotchas, feedback, bugs
---------------------------
+## 6) Gotchas, feedback, bugs
 
 If you need to fix up checksums or do other cleanup on mutated test cases, see
 experimental/post_library/ for a viable solution.
@@ -128,8 +120,7 @@ with -march=core2, can help.
 Beyond that, this is an early-stage mechanism, so fields reports are welcome.
 You can send them to <afl-users@googlegroups.com>.
 
-7) Alternatives: static rewriting
----------------------------------
+## 7) Alternatives: static rewriting
 
 Statically rewriting binaries just once, instead of attempting to translate
 them at run time, can be a faster alternative. That said, static rewriting is

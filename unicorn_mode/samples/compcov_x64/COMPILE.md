@@ -1,5 +1,4 @@
-Compiling compcov_target.c
-==========================
+# Compiling compcov_target.c
 
 compcov_target.c was compiled without optimization, position-independent,
 and without standard libraries using the following command line:
