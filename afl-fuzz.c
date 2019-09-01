@@ -565,7 +565,7 @@ static void fuzz_py(char* buf, size_t buflen, char* add_buf, size_t add_buflen, 
 
     if (py_value != NULL) {
       *retlen = PyByteArray_Size(py_value);
-      *ret = malloc(*retlen);
+      *ret = ck_malloc(*retlen);
       memcpy(*ret, PyByteArray_AsString(py_value), *retlen);
       Py_DECREF(py_value);
     } else {
@@ -634,7 +634,7 @@ static void trim_py(char** ret, size_t* retlen) {
 
   if (py_value != NULL) {
     *retlen = PyByteArray_Size(py_value);
-    *ret = malloc(*retlen);
+    *ret = ck_malloc(*retlen);
     memcpy(*ret, PyByteArray_AsString(py_value), *retlen);
     Py_DECREF(py_value);
   } else {
@@ -1289,7 +1289,7 @@ debug = 1;
       else if (highest_ip < map[i])
         highest_ip = map[i];
     }
-  if (debug) fprintf(stderr, "lowest %016llx => %016llx => %08x, highest %016llx => %08x\n", lowest_ip, lowest_ip & 0xfffffffffff00000, lowest_ip - (lowest_ip & 0xfffffffffff00000), highest_ip, highest_ip - (lowest_ip & 0xfffffffffff00000));
+  if (debug) fprintf(stderr, "lowest %016llx => %016llx => %08llx, highest %016llx => %08llx\n", lowest_ip, lowest_ip & 0xfffffffffff00000, lowest_ip - (lowest_ip & 0xfffffffffff00000), highest_ip, highest_ip - (lowest_ip & 0xfffffffffff00000));
     lowest_ip = lowest_ip & 0xfffffffffff00000;
     // check if the map wont be too big so we can move to 32 bit
     if ((highest_ip - lowest_ip) >> 5 >= MAX_UINT_32) {
@@ -1300,10 +1300,10 @@ debug = 1;
     }
   }
 
-  if ((newmap = (u32*)malloc(total_blocks << 2)) == NULL)
+  if ((newmap = (u32*)ck_alloc(total_blocks << 2)) == NULL)
     return;
 
-fprintf(stderr, "Unique map: %p size %u, %u entries\n", newmap, total_blocks << 2, total_blocks);
+fprintf(stderr, "Unique map: %p size %llu, %llu entries\n", newmap, total_blocks << 2, total_blocks);
 
   min = 1;
   max = total_blocks;
@@ -1311,7 +1311,7 @@ fprintf(stderr, "Unique map: %p size %u, %u entries\n", newmap, total_blocks << 
   //if (debug) { fprintf(stderr, "BEFORE:\n"); for (i = min; i <= max; i++) fprintf(stderr, "%016llx\n",map[i]); fprintf(stderr, "\n"); }
   u64 prev_lowest = 0;
   if (max == min) {
-fprintf(stderr, "WRITE: %p map[%p + %u] 1!\n", newmap + cnt, newmap, cnt);
+fprintf(stderr, "WRITE: %p map[%p + %llu] 1!\n", newmap + cnt, newmap, cnt);
     newmap[cnt++] = ((map[1] - lowest_ip) >> 5) & MAX_UINT_32;
   } else while (min <= max) {
     cur = map[min];
@@ -1324,7 +1324,7 @@ fprintf(stderr, "WRITE: %p map[%p + %u] 1!\n", newmap + cnt, newmap, cnt);
         break;
       }
     if (cur != prev_lowest) {
-fprintf(stderr, "WRITE: %p map[%p + %u]\n", newmap + cnt, newmap, cnt);
+fprintf(stderr, "WRITE: %p map[%p + %llu]\n", newmap + cnt, newmap, cnt);
       newmap[cnt++] = ((cur - lowest_ip) >> 5) & MAX_UINT_32; // we reduce to 32 bit to save memory, we can shift 5 bits because the instrumentation we insert costs > 32 bytes
       if (min == max)
         max = min - 1;
@@ -1340,21 +1340,21 @@ fprintf(stderr, "WRITE: %p map[%p + %u]\n", newmap + cnt, newmap, cnt);
   }
   if (cnt > 1 && (cur - lowest_ip) >> 5 > MAX_UINT_32) {
 fprintf(stderr, "damn, highst - lowest >> 5 doesnt fit\n");
-    free(newmap);
+    ck_free(newmap);
     return; // :-(
   }
 
   // now we realloc
-  if (cnt == 0 || (q->unique_ips = (u32*) realloc(newmap, cnt << 2)) == NULL) {
-    free(newmap); // memory problem
+  if (cnt == 0 || (q->unique_ips = (u32*) ck_realloc(newmap, cnt << 2)) == NULL) {
+    ck_free(newmap); // memory problem
     return;
   }
-fprintf(stderr, "cnt %u, realloc: %p size %u\n", cnt, q->unique_ips, cnt << 2);
+fprintf(stderr, "cnt %llu, realloc: %p size %llu\n", cnt, q->unique_ips, cnt << 2);
 
   q->unique_hash = XXH64((char*)q->unique_ips, (cnt << 2), 0);  
   q->unique_blocks = cnt;
   //if (debug) { fprintf(stderr, "AFTER:\n"); for (i = 0; i < cnt; i++) fprintf(stderr, "%08x\n",q->unique_ips[i]); fprintf(stderr, "\n"); }
-  if (debug) { fprintf(stderr, "RES: unique_blocks %llu, hash %016x\n", q->unique_blocks, q->unique_hash); }
+  if (debug) { fprintf(stderr, "RES: unique_blocks %llu, hash %016llx\n", q->unique_blocks, q->unique_hash); }
 
 //return;
 
@@ -1392,16 +1392,16 @@ fprintf(stderr, "%p->%p vs %p->%p\n", qu, qu->next, q, q->next);
   u64 newcnt = 0;
   u32 *newlist;
 
-  if ((newlist = (u32*) malloc((rare_entries + cnt) << 2)) == NULL)
+  if ((newlist = (u32*) ck_alloc((rare_entries + cnt) << 2)) == NULL)
     return; 
 
-fprintf(stderr, "newlist %p size %u, maxcnt %u\n", newlist, (rare_entries + cnt) << 2, rare_entries + cnt);
+fprintf(stderr, "newlist %p size %llu, maxcnt %llu\n", newlist, (rare_entries + cnt) << 2, rare_entries + cnt);
     
   if (rare_entries == 0) { // first run
 
     memcpy((char*)newlist, (char*)q->unique_ips, cnt << 2);
-  fprintf(stderr, "Unique: (%u + %u) ", rare_entries, cnt); for (i=0; i < cnt; i++) fprintf(stderr, "%08x ", newlist[i]); fprintf(stderr, "\n");
-  fprintf(stderr, "Unique has %u entries the first time\n", cnt);
+  fprintf(stderr, "Unique: (%llu + %llu) ", rare_entries, cnt); for (i=0; i < cnt; i++) fprintf(stderr, "%08x ", newlist[i]); fprintf(stderr, "\n");
+  fprintf(stderr, "Unique has %llu entries the first time\n", cnt);
     rare_list = newlist;
     rare_entries = cnt;
 
@@ -1411,23 +1411,23 @@ fprintf(stderr, "newlist %p size %u, maxcnt %u\n", newlist, (rare_entries + cnt)
     do {
       if (i >= rare_entries) { // rare_list is done
         while (j < cnt) {
-fprintf(stderr, "WRITE NEW_ %p %p[%u] = %p %p[%u]\n", newlist + (newcnt << 2), newlist, newcnt, q->unique_ips + (j << 2), q->unique_ips, j);
+fprintf(stderr, "WRITE NEW_ %p %p[%llu] = %p %p[%llu]\n", newlist + (newcnt << 2), newlist, newcnt, q->unique_ips + (j << 2), q->unique_ips, j);
           newlist[newcnt++] = q->unique_ips[j++];
         }
       } else if (j >= cnt) { // new unique list is done
         while (i < rare_entries) {
-fprintf(stderr, "WRITE OLD_ %p %p[%u] = %p %p[%u]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
+fprintf(stderr, "WRITE OLD_ %p %p[%llu] = %p %p[%llu]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
           newlist[newcnt++] = rare_list[i++];
         }
       } else { // still merging both lists
         if (rare_list[i] < q->unique_ips[j]) {
-fprintf(stderr, "WRITE OLD  %p %p[%u] = %p %p[%u]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
+fprintf(stderr, "WRITE OLD  %p %p[%llu] = %p %p[%llu]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
           newlist[newcnt++] = rare_list[i++];
         } else if (rare_list[i] > q->unique_ips[j]) {
-fprintf(stderr, "WRITE NEW  %p %p[%u] = %p %p[%u]\n", newlist + (newcnt << 2), newlist, newcnt, q->unique_ips + (j << 2), q->unique_ips, j);
+fprintf(stderr, "WRITE NEW  %p %p[%llu] = %p %p[%llu]\n", newlist + (newcnt << 2), newlist, newcnt, q->unique_ips + (j << 2), q->unique_ips, j);
           newlist[newcnt++] = q->unique_ips[j++];
         } else { // equal
-fprintf(stderr, "WRITE BOTH %p %p[%u] = %p %p[%u]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
+fprintf(stderr, "WRITE BOTH %p %p[%llu] = %p %p[%llu]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
           newlist[newcnt++] = rare_list[i++];
           j++;
         }
@@ -1435,14 +1435,14 @@ fprintf(stderr, "WRITE BOTH %p %p[%u] = %p %p[%u]\n", newlist + (newcnt << 2), n
     } while (i + j < rare_entries + cnt);
     
     if (newcnt > rare_entries) {
-  fprintf(stderr, "Unique [%u]: (%u/%u + %u/%u) ", newcnt, i, rare_entries, j, cnt); for (i=0; i < newcnt; i++) fprintf(stderr, "%08x ", newlist[i]); fprintf(stderr, "\n");
+  fprintf(stderr, "Unique [%llu]: (%llu/%llu + %llu/%llu) ", newcnt, i, rare_entries, j, cnt); for (i=0; i < newcnt; i++) fprintf(stderr, "%08x ", newlist[i]); fprintf(stderr, "\n");
       rare_entries = newcnt;
       ck_free(rare_list);
-      if ((rare_list = realloc(newlist, newcnt << 2)) == NULL)
+      if ((rare_list = ck_realloc(newlist, newcnt << 2)) == NULL)
         rare_list = newlist; // if realloc fails we dont want to loose this!!
-fprintf(stderr, "REALLOC rare %p size %u, entries %u\n", rare_list, newcnt << 2, newcnt);
+fprintf(stderr, "REALLOC rare %p size %llu, entries %llu\n", rare_list, newcnt << 2, newcnt);
     } else // nothing new
-      free(newlist);
+      ck_free(newlist);
   }
 
   // here we try to put a weighting to the map depending on the rarity
@@ -6465,12 +6465,12 @@ retry_external_pick:
         goto abandon_entry;
 
       if (common_fuzz_stuff(argv, retbuf, retlen)) {
-        free(retbuf);
+        ck_free(retbuf);
         goto abandon_entry;
       }
 
       /* Reset retbuf/retlen */
-      free(retbuf);
+      ck_free(retbuf);
       retbuf = NULL;
       retlen = 0;
 
