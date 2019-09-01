@@ -33,7 +33,7 @@ SH_PROGS    = afl-plot afl-cmin afl-whatsup afl-system-config
 CFLAGS     ?= -O3 -funroll-loops
 CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ \
 	      -DAFL_PATH=\"$(HELPER_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\" \
-	      -DBIN_PATH=\"$(BIN_PATH)\"
+	      -DBIN_PATH=\"$(BIN_PATH)\" -Wno-unused-function
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz-src/*.c)
 

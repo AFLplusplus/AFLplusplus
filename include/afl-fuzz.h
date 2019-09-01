@@ -466,6 +466,34 @@ void trim_py(char**, size_t*);
 
 #endif
 
+/* Queue */
+
+void mark_as_det_done(struct queue_entry* q);
+void mark_as_variable(struct queue_entry* q);
+void mark_as_redundant(struct queue_entry* q, u8 state);
+void add_to_queue(u8* fname, u32 len, u8 passed_det);
+void destroy_queue(void);
+void update_bitmap_score(struct queue_entry* q);
+void cull_queue(void);
+
+/* Bitmap */
+
+void write_bitmap(void);
+void read_bitmap(u8* fname);
+u8 has_new_bits(u8* virgin_map);
+u32 count_bits(u8* mem);
+u32 count_bytes(u8* mem);
+u32 count_non_255_bytes(u8* mem);
+#ifdef __x86_64__
+void simplify_trace(u64* mem);
+void classify_counts(u64* mem);
+#else
+void simplify_trace(u32* mem);
+void classify_counts(u32* mem);
+#endif
+void init_count_class16(void);
+void minimize_bits(u8* dst, u8* src);
+
 /**** Inline routines ****/
 
 /* Generate a random number (from 0 to limit - 1). This may
@@ -491,6 +519,44 @@ static inline u32 UR(u32 limit) {
 
   return random() % limit;
 #endif
+}
+
+/* Find first power of two greater or equal to val (assuming val under
+   2^63). */
+
+static u64 next_p2(u64 val) {
+
+  u64 ret = 1;
+  while (val > ret) ret <<= 1;
+  return ret;
+
+}
+
+/* Get unix time in milliseconds */
+
+static u64 get_cur_time(void) {
+
+  struct timeval tv;
+  struct timezone tz;
+
+  gettimeofday(&tv, &tz);
+
+  return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
+
+}
+
+
+/* Get unix time in microseconds */
+
+static u64 get_cur_time_us(void) {
+
+  struct timeval tv;
+  struct timezone tz;
+
+  gettimeofday(&tv, &tz);
+
+  return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
+
 }
 
 #endif
