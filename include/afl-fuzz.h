@@ -468,31 +468,47 @@ void trim_py(char**, size_t*);
 
 /* Queue */
 
-void mark_as_det_done(struct queue_entry* q);
-void mark_as_variable(struct queue_entry* q);
-void mark_as_redundant(struct queue_entry* q, u8 state);
-void add_to_queue(u8* fname, u32 len, u8 passed_det);
+void mark_as_det_done(struct queue_entry*);
+void mark_as_variable(struct queue_entry*);
+void mark_as_redundant(struct queue_entry*, u8);
+void add_to_queue(u8*, u32, u8);
 void destroy_queue(void);
-void update_bitmap_score(struct queue_entry* q);
+void update_bitmap_score(struct queue_entry*);
 void cull_queue(void);
 
 /* Bitmap */
 
 void write_bitmap(void);
-void read_bitmap(u8* fname);
-u8 has_new_bits(u8* virgin_map);
-u32 count_bits(u8* mem);
-u32 count_bytes(u8* mem);
-u32 count_non_255_bytes(u8* mem);
+void read_bitmap(u8*);
+u8 has_new_bits(u8*);
+u32 count_bits(u8*);
+u32 count_bytes(u8*);
+u32 count_non_255_bytes(u8*);
 #ifdef __x86_64__
-void simplify_trace(u64* mem);
-void classify_counts(u64* mem);
+void simplify_trace(u64*);
+void classify_counts(u64*);
 #else
-void simplify_trace(u32* mem);
-void classify_counts(u32* mem);
+void simplify_trace(u32*);
+void classify_counts(u32*);
 #endif
 void init_count_class16(void);
-void minimize_bits(u8* dst, u8* src);
+void minimize_bits(u8*, u8*);
+
+/* Misc */
+
+u8* DI(u64);
+u8* DF(double);
+u8* DMS(u64);
+u8* DTD(u64, u64);
+
+/* Extras */
+
+void load_extras_file(u8*, u32*, u32*, u32);
+void load_extras(u8*);
+void maybe_add_auto(u8*, u32);
+void save_auto(void);
+void load_auto(void);
+void destroy_extras(void);
 
 /**** Inline routines ****/
 
