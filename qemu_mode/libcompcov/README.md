@@ -1,10 +1,8 @@
-================================================================
-strcmp() / memcmp() CompareCoverage library for AFLplusplus-QEMU
-================================================================
+# strcmp() / memcmp() CompareCoverage library for afl++ QEMU
 
   Written by Andrea Fioraldi <andreafioraldi@gmail.com>
 
-This Linux-only companion library allows you to instrument strcmp(), memcmp(),
+This Linux-only companion library allows you to instrument `strcmp()`, `memcmp()`,
 and related functions to log the CompareCoverage of these libcalls.
 
 Use this with caution. While this can speedup a lot the bypass of hard
@@ -22,10 +20,12 @@ library and QEMU but build it with afl-clang-fast and the laf-intel options.
 
 To use this library make sure to preload it with AFL_PRELOAD.
 
+```
   export AFL_PRELOAD=/path/to/libcompcov.so
   export AFL_COMPCOV_LEVEL=1
   
   afl-fuzz -Q -i input -o output <your options> -- <target args>
+```
 
 The AFL_COMPCOV_LEVEL tells to QEMU and libcompcov how to log comaprisons.
 Level 1 logs just comparison with immediates / read-only memory and level 2

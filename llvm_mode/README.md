@@ -1,12 +1,9 @@
-============================================
-Fast LLVM-based instrumentation for afl-fuzz
-============================================
+# Fast LLVM-based instrumentation for afl-fuzz
 
   (See ../docs/README for the general instruction manual.)
   (See ../gcc_plugin/README.gcc for the GCC-based instrumentation.)
 
-1) Introduction
----------------
+## 1) Introduction
 
 ! llvm_mode works with llvm versions 3.8.0 up to 9 !
 
@@ -38,8 +35,7 @@ co-exists with the original code.
 
 The idea and much of the implementation comes from Laszlo Szekeres.
 
-2) How to use this
-------------------
+## 2) How to use this
 
 In order to leverage this mechanism, you need to have clang installed on your
 system. You should also make sure that the llvm-config tool is in your path
@@ -63,8 +59,10 @@ called afl-clang-fast and afl-clang-fast++ in the parent directory. Once this
 is done, you can instrument third-party code in a way similar to the standard
 operating mode of AFL, e.g.:
 
+```
   CC=/path/to/afl/afl-clang-fast ./configure [...options...]
   make
+```
 
 Be sure to also include CXX set to afl-clang-fast++ for C++ code.
 
@@ -78,7 +76,7 @@ Note: if you want the LLVM helper to be installed on your system for all
 users, you need to build it before issuing 'make install' in the parent
 directory.
 
-3) Options
+## 3) Options
 
 Several options are present to make llvm_mode faster or help it rearrange
 the code to make afl-fuzz path discovery easier.
@@ -101,15 +99,12 @@ is not optimal and was only fixed in llvm 9.
 You can set this with AFL_LLVM_NOT_ZERO=1
 See README.neverzero
 
-
-4) Gotchas, feedback, bugs
---------------------------
+## 4) Gotchas, feedback, bugs
 
 This is an early-stage mechanism, so field reports are welcome. You can send bug
 reports to <afl-users@googlegroups.com>.
 
-5) Bonus feature #1: deferred initialization
---------------------------------------------
+## 5) Bonus feature #1: deferred initialization
 
 AFL tries to optimize performance by executing the targeted binary just once,
 stopping it just before main(), and then cloning this "master" process to get
@@ -145,9 +140,11 @@ a location after:
 
 With the location selected, add this code in the appropriate spot:
 
+```c
 #ifdef __AFL_HAVE_MANUAL_CONTROL
   __AFL_INIT();
 #endif
+```
 
 You don't need the #ifdef guards, but including them ensures that the program
 will keep working normally when compiled with a tool other than afl-clang-fast.
@@ -155,8 +152,7 @@ will keep working normally when compiled with a tool other than afl-clang-fast.
 Finally, recompile the program with afl-clang-fast (afl-gcc or afl-clang will
 *not* generate a deferred-initialization binary) - and you should be all set!
 
-6) Bonus feature #2: persistent mode
-------------------------------------
+## 6) Bonus feature #2: persistent mode
 
 Some libraries provide APIs that are stateless, or whose state can be reset in
 between processing different input files. When such a reset is performed, a
@@ -165,6 +161,7 @@ eliminating the need for repeated fork() calls and the associated OS overhead.
 
 The basic structure of the program that does this would be:
 
+```c
   while (__AFL_LOOP(1000)) {
 
     /* Read input data. */
@@ -174,6 +171,7 @@ The basic structure of the program that does this would be:
   }
 
   /* Exit normally */
+```
 
 The numerical value specified within the loop controls the maximum number
 of iterations before AFL will restart the process from scratch. This minimizes
@@ -182,8 +180,8 @@ and going much higher increases the likelihood of hiccups without giving you
 any real performance benefits.
 
 A more detailed template is shown in ../experimental/persistent_demo/.
-Similarly to the previous mode, the feature works only with afl-clang-fast;
-#ifdef guards can be used to suppress it when using other compilers.
+Similarly to the previous mode, the feature works only with afl-clang-fast; #ifdef
+guards can be used to suppress it when using other compilers.
 
 Note that as with the previous mode, the feature is easy to misuse; if you
 do not fully reset the critical state, you may end up with false positives or
@@ -195,8 +193,7 @@ PS. Because there are task switches still involved, the mode isn't as fast as
 faster than the normal fork() model, and compared to in-process fuzzing,
 should be a lot more robust.
 
-8) Bonus feature #3: new 'trace-pc-guard' mode
-----------------------------------------------
+## 8) Bonus feature #3: new 'trace-pc-guard' mode
 
 Recent versions of LLVM are shipping with a built-in execution tracing feature
 that provides AFL with the necessary tracing data without the need to
@@ -207,7 +204,9 @@ post-process the assembly or install any compiler plugins. See:
 If you have a sufficiently recent compiler and want to give it a try, build
 afl-clang-fast this way:
 
+```
   AFL_TRACE_PC=1 make clean all
+```
 
 Note that this mode is currently about 20% slower than "vanilla" afl-clang-fast,
 and about 5-10% slower than afl-clang. This is likely because the

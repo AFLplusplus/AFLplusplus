@@ -1,5 +1,6 @@
-Usage
-=====
+# NeverZero counters for LLVM instrumentation
+
+## Usage
 
 In larger, complex or reiterative programs the map that collects the edge pairs
 can easily fill up and wrap.
@@ -18,5 +19,6 @@ in version 9 and onwards.
 
 If you want to enable this for llvm < 9 then set
 
+```
 export AFL_LLVM_NOT_ZERO=1
-
+```
