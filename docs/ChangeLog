@@ -29,18 +29,17 @@ Version ++2.53d (dev):
   - Android is now supported (thank to JoeyJiao!) - still need to modify the Makefile though
   - fix building qemu on some Ubuntus (thanks to floyd!)
   - custom mutator by a loaded library is now supported (thanks to kyakdan!)
+  - added PR that includes peak_rss_mb and slowest_exec_ms in the fuzzer_stats report
   - more support for *BSD (thanks to devnexen!)
   - fix building on *BSD (thanks to tobias.kortkamp for the patch)
   - fix for a few features to support different map sized than 2^16
   - afl-showmap: new option -r now shows the real values in the buckets (stock
     afl never did), plus shows tuple content summary information now
-  - the forkserver is now in its own C file to be easily integratable
   - small docu updates
   - NeverZero counters for QEMU
   - NeverZero counters for Unicorn
   - CompareCoverage Unicorn
   - Immediates-only instrumentation for CompareCoverage
-  - ... your patch? :)
 
 
 --------------------------

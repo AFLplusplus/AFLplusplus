@@ -350,6 +350,7 @@ extern u64 total_crashes,             /* Total number of crashes          */
     unique_tmouts,             /* Timeouts with unique signatures  */
     unique_hangs,              /* Hangs with unique signatures     */
     total_execs,               /* Total execve() calls             */
+    slowest_exec_ms,           /* Slowest testcase non hang in ms  */
     start_time,                /* Unix start time (ms)             */
     last_path_time,            /* Time for most recent path (ms)   */
     last_crash_time,           /* Time for most recent crash (ms)  */
