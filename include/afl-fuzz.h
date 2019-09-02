@@ -80,6 +80,11 @@
 #  define HAVE_AFFINITY 1
 #endif /* __linux__ */
 
+#ifndef SIMPLE_FILES
+#  define CASE_PREFIX "id:"
+#else
+#  define CASE_PREFIX "id_"
+#endif /* ^!SIMPLE_FILES */
 
 struct queue_entry {
 
@@ -455,16 +460,15 @@ extern PyObject *py_functions[PY_FUNC_COUNT];
 
 /**** Prototypes ****/
 
-/* Python stuff */
+/* Python */
 #ifdef USE_PYTHON
-
 int init_py();
 void finalize_py();
 void fuzz_py(char*, size_t, char*, size_t, char**, size_t*);
 u32 init_trim_py(char*, size_t);
 u32 post_trim_py(char);
 void trim_py(char**, size_t*);
-
+u8 trim_case_python(char**, struct queue_entry*, u8*);
 #endif
 
 /* Queue */
@@ -476,6 +480,7 @@ void add_to_queue(u8*, u32, u8);
 void destroy_queue(void);
 void update_bitmap_score(struct queue_entry*);
 void cull_queue(void);
+u32 calculate_score(struct queue_entry*);
 
 /* Bitmap */
 
@@ -494,6 +499,10 @@ void classify_counts(u32*);
 #endif
 void init_count_class16(void);
 void minimize_bits(u8*, u8*);
+#ifndef SIMPLE_FILES
+u8* describe_op(u8);
+#endif
+u8 save_if_interesting(char**, void*, u32, u8);
 
 /* Misc */
 
@@ -510,6 +519,61 @@ void maybe_add_auto(u8*, u32);
 void save_auto(void);
 void load_auto(void);
 void destroy_extras(void);
+
+/* Stats */
+
+void write_stats_file(double, double, double);
+void maybe_update_plot_file(double, double);
+void show_stats(void);
+void show_init_stats(void);
+
+/* Run */
+
+u8 run_target(char**, u32);
+void write_to_testcase(void*, u32);
+void write_with_gap(void*, u32, u32, u32);
+u8 calibrate_case(char**, struct queue_entry*, u8*, u32, u8);
+void sync_fuzzers(char**);
+u8 trim_case(char**, struct queue_entry*, u8*);
+u8 common_fuzz_stuff(char**, u8*, u32);
+
+/* Fuzz one */
+
+u8 fuzz_one_original(char**);
+static u8 pilot_fuzzing(char**);
+u8 core_fuzzing(char**);
+void pso_updating(void);
+u8 fuzz_one(char**);
+
+/* Init */
+
+#ifdef HAVE_AFFINITY
+void bind_to_free_cpu(void);
+#endif
+void setup_post(void);
+void setup_custom_mutator(void);
+void read_testcases(void);
+void perform_dry_run(char**);
+void pivot_inputs(void);
+u32 find_start_position(void);
+void find_timeout(void);
+double get_runnable_processes(void);
+void nuke_resume_dir(void);
+void maybe_delete_out_dir(void);
+void setup_dirs_fds(void);
+void setup_cmdline_file(char**);
+void setup_stdio_file(void);
+void check_crash_handling(void);
+void check_cpu_governor(void);
+void get_core_count(void);
+void fix_up_sync(void);
+void check_asan_opts(void);
+void check_binary(u8*);
+void fix_up_banner(u8*);
+void check_if_tty(void);
+void setup_signal_handlers(void);
+char** get_qemu_argv(u8*, char**, int);
+void save_cmdline(u32, char**);
 
 /**** Inline routines ****/
 
