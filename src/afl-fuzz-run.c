@@ -28,8 +28,8 @@
 u8 run_target(char** argv, u32 timeout) {
 
   static struct itimerval it;
-  static u32 prev_timed_out = 0;
-  static u64 exec_ms = 0;
+  static u32              prev_timed_out = 0;
+  static u64              exec_ms = 0;
 
   int status = 0;
   u32 tb4;
@@ -45,7 +45,7 @@ u8 run_target(char** argv, u32 timeout) {
 
   /* If we're running in "dumb" mode, we can't rely on the fork server
      logic compiled into the target program, so we will just keep calling
-     execve(). There is a bit of code duplication between here and 
+     execve(). There is a bit of code duplication between here and
      init_forkserver(), but c'est la vie. */
 
   if (dumb_mode == 1 || no_forkserver) {
@@ -64,11 +64,11 @@ u8 run_target(char** argv, u32 timeout) {
 
 #ifdef RLIMIT_AS
 
-        setrlimit(RLIMIT_AS, &r); /* Ignore errors */
+        setrlimit(RLIMIT_AS, &r);                          /* Ignore errors */
 
 #else
 
-        setrlimit(RLIMIT_DATA, &r); /* Ignore errors */
+        setrlimit(RLIMIT_DATA, &r);                        /* Ignore errors */
 
 #endif /* ^RLIMIT_AS */
 
@@ -76,7 +76,7 @@ u8 run_target(char** argv, u32 timeout) {
 
       r.rlim_max = r.rlim_cur = 0;
 
-      setrlimit(RLIMIT_CORE, &r); /* Ignore errors */
+      setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
 
       /* Isolate the process and configure standard descriptors. If out_file is
          specified, stdin is /dev/null; otherwise, out_fd is cloned instead. */
@@ -108,10 +108,12 @@ u8 run_target(char** argv, u32 timeout) {
 
       /* Set sane defaults for ASAN if nothing else specified. */
 
-      setenv("ASAN_OPTIONS", "abort_on_error=1:"
-                             "detect_leaks=0:"
-                             "symbolize=0:"
-                             "allocator_may_return_null=1", 0);
+      setenv("ASAN_OPTIONS",
+             "abort_on_error=1:"
+             "detect_leaks=0:"
+             "symbolize=0:"
+             "allocator_may_return_null=1",
+             0);
 
       setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
                              "symbolize=0:"
@@ -152,7 +154,8 @@ u8 run_target(char** argv, u32 timeout) {
 
   }
 
-  /* Configure timeout, as requested by user, then wait for child to terminate. */
+  /* Configure timeout, as requested by user, then wait for child to terminate.
+   */
 
   it.it_value.tv_sec = (timeout / 1000);
   it.it_value.tv_usec = (timeout % 1000) * 1000;
@@ -179,9 +182,10 @@ u8 run_target(char** argv, u32 timeout) {
   }
 
   if (!WIFSTOPPED(status)) child_pid = 0;
-  
+
   getitimer(ITIMER_REAL, &it);
-  exec_ms = (u64) timeout - (it.it_value.tv_sec * 1000 + it.it_value.tv_usec / 1000);
+  exec_ms =
+      (u64)timeout - (it.it_value.tv_sec * 1000 + it.it_value.tv_usec / 1000);
   if (slowest_exec_ms < exec_ms) slowest_exec_ms = exec_ms;
 
   it.it_value.tv_sec = 0;
@@ -223,8 +227,10 @@ u8 run_target(char** argv, u32 timeout) {
      must use a special exit code. */
 
   if (uses_asan && WEXITSTATUS(status) == MSAN_ERROR) {
+
     kill_signal = 0;
     return FAULT_CRASH;
+
   }
 
   if ((dumb_mode == 1 || no_forkserver) && tb4 == EXEC_FAIL_SIG)
@@ -233,7 +239,6 @@ u8 run_target(char** argv, u32 timeout) {
   return FAULT_NONE;
 
 }
-
 
 /* Write modified data to file for testing. If out_file is set, the old file
    is unlinked and a new one is created. Otherwise, out_fd is rewound and
@@ -245,20 +250,26 @@ void write_to_testcase(void* mem, u32 len) {
 
   if (out_file) {
 
-    unlink(out_file); /* Ignore errors. */
+    unlink(out_file);                                     /* Ignore errors. */
 
     fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
     if (fd < 0) PFATAL("Unable to create '%s'", out_file);
 
-  } else lseek(fd, 0, SEEK_SET);
+  } else
+
+    lseek(fd, 0, SEEK_SET);
 
   if (pre_save_handler) {
-    u8* new_data;
+
+    u8*    new_data;
     size_t new_size = pre_save_handler(mem, len, &new_data);
     ck_write(fd, new_data, new_size, out_file);
+
   } else {
+
     ck_write(fd, mem, len, out_file);
+
   }
 
   if (!out_file) {
@@ -266,10 +277,11 @@ void write_to_testcase(void* mem, u32 len) {
     if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
     lseek(fd, 0, SEEK_SET);
 
-  } else close(fd);
+  } else
+
+    close(fd);
 
 }
-
 
 /* The same, but with an adjustable gap. Used for trimming. */
 
@@ -280,17 +292,19 @@ void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) {
 
   if (out_file) {
 
-    unlink(out_file); /* Ignore errors. */
+    unlink(out_file);                                     /* Ignore errors. */
 
     fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
     if (fd < 0) PFATAL("Unable to create '%s'", out_file);
 
-  } else lseek(fd, 0, SEEK_SET);
+  } else
+
+    lseek(fd, 0, SEEK_SET);
 
   if (skip_at) ck_write(fd, mem, skip_at, out_file);
 
-  u8 *memu8 = mem;
+  u8* memu8 = mem;
   if (tail_len) ck_write(fd, memu8 + skip_at + skip_len, tail_len, out_file);
 
   if (!out_file) {
@@ -298,22 +312,23 @@ void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) {
     if (ftruncate(fd, len - skip_len)) PFATAL("ftruncate() failed");
     lseek(fd, 0, SEEK_SET);
 
-  } else close(fd);
+  } else
+
+    close(fd);
 
 }
-
 
 /* Calibrate a new test case. This is done when processing the input directory
    to warn about flaky or otherwise problematic test cases early on; and when
    new paths are discovered to detect variable behavior and so on. */
 
-u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
-                         u32 handicap, u8 from_queue) {
+u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 handicap,
+                  u8 from_queue) {
 
   static u8 first_trace[MAP_SIZE];
 
-  u8  fault = 0, new_bits = 0, var_detected = 0,
-      first_run = (q->exec_cksum == 0);
+  u8 fault = 0, new_bits = 0, var_detected = 0,
+     first_run = (q->exec_cksum == 0);
 
   u64 start_us, stop_us;
 
@@ -326,19 +341,18 @@ u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
      to intermittent latency. */
 
   if (!from_queue || resuming_fuzz)
-    use_tmout = MAX(exec_tmout + CAL_TMOUT_ADD,
-                    exec_tmout * CAL_TMOUT_PERC / 100);
+    use_tmout =
+        MAX(exec_tmout + CAL_TMOUT_ADD, exec_tmout * CAL_TMOUT_PERC / 100);
 
   ++q->cal_failed;
 
   stage_name = "calibration";
-  stage_max  = fast_cal ? 3 : CAL_CYCLES;
+  stage_max = fast_cal ? 3 : CAL_CYCLES;
 
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
 
-  if (dumb_mode != 1 && !no_forkserver && !forksrv_pid)
-    init_forkserver(argv);
+  if (dumb_mode != 1 && !no_forkserver && !forksrv_pid) init_forkserver(argv);
 
   if (q->exec_cksum) memcpy(first_trace, trace_bits, MAP_SIZE);
 
@@ -360,8 +374,10 @@ u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
     if (stop_soon || fault != crash_mode) goto abort_calibration;
 
     if (!dumb_mode && !stage_cur && !count_bytes(trace_bits)) {
+
       fault = FAULT_NOINST;
       goto abort_calibration;
+
     }
 
     cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
@@ -380,7 +396,7 @@ u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
           if (!var_bytes[i] && first_trace[i] != trace_bits[i]) {
 
             var_bytes[i] = 1;
-            stage_max    = CAL_CYCLES_LONG;
+            stage_max = CAL_CYCLES_LONG;
 
           }
 
@@ -401,16 +417,16 @@ u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
 
   stop_us = get_cur_time_us();
 
-  total_cal_us     += stop_us - start_us;
+  total_cal_us += stop_us - start_us;
   total_cal_cycles += stage_max;
 
   /* OK, let's collect some stats about the performance of this test case.
      This is used for fuzzing air time calculations in calculate_score(). */
 
-  q->exec_us     = (stop_us - start_us) / stage_max;
+  q->exec_us = (stop_us - start_us) / stage_max;
   q->bitmap_size = count_bytes(trace_bits);
-  q->handicap    = handicap;
-  q->cal_failed  = 0;
+  q->handicap = handicap;
+  q->cal_failed = 0;
 
   total_bitmap_size += q->bitmap_size;
   ++total_bitmap_entries;
@@ -426,8 +442,10 @@ u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
 abort_calibration:
 
   if (new_bits == 2 && !q->has_new_cov) {
+
     q->has_new_cov = 1;
     ++queued_with_cov;
+
   }
 
   /* Mark variable paths. */
@@ -437,15 +455,17 @@ abort_calibration:
     var_byte_count = count_bytes(var_bytes);
 
     if (!q->var_behavior) {
+
       mark_as_variable(q);
       ++queued_variable;
+
     }
 
   }
 
   stage_name = old_sn;
-  stage_cur  = old_sc;
-  stage_max  = old_sm;
+  stage_cur = old_sc;
+  stage_max = old_sm;
 
   if (!first_run) show_stats();
 
@@ -453,14 +473,13 @@ abort_calibration:
 
 }
 
-
 /* Grab interesting test cases from other fuzzers. */
 
 void sync_fuzzers(char** argv) {
 
-  DIR* sd;
+  DIR*           sd;
   struct dirent* sd_ent;
-  u32 sync_cnt = 0;
+  u32            sync_cnt = 0;
 
   sd = opendir(sync_dir);
   if (!sd) PFATAL("Unable to open '%s'", sync_dir);
@@ -468,16 +487,17 @@ void sync_fuzzers(char** argv) {
   stage_max = stage_cur = 0;
   cur_depth = 0;
 
-  /* Look at the entries created for every other fuzzer in the sync directory. */
+  /* Look at the entries created for every other fuzzer in the sync directory.
+   */
 
   while ((sd_ent = readdir(sd))) {
 
     static u8 stage_tmp[128];
 
-    DIR* qd;
+    DIR*           qd;
     struct dirent* qd_ent;
-    u8 *qd_path, *qd_synced_path;
-    u32 min_accept = 0, next_min_accept;
+    u8 *           qd_path, *qd_synced_path;
+    u32            min_accept = 0, next_min_accept;
 
     s32 id_fd;
 
@@ -490,8 +510,10 @@ void sync_fuzzers(char** argv) {
     qd_path = alloc_printf("%s/%s/queue", sync_dir, sd_ent->d_name);
 
     if (!(qd = opendir(qd_path))) {
+
       ck_free(qd_path);
       continue;
+
     }
 
     /* Retrieve the ID of the last seen test case. */
@@ -502,35 +524,34 @@ void sync_fuzzers(char** argv) {
 
     if (id_fd < 0) PFATAL("Unable to create '%s'", qd_synced_path);
 
-    if (read(id_fd, &min_accept, sizeof(u32)) > 0) 
-      lseek(id_fd, 0, SEEK_SET);
+    if (read(id_fd, &min_accept, sizeof(u32)) > 0) lseek(id_fd, 0, SEEK_SET);
 
     next_min_accept = min_accept;
 
-    /* Show stats */    
+    /* Show stats */
 
     sprintf(stage_tmp, "sync %u", ++sync_cnt);
     stage_name = stage_tmp;
-    stage_cur  = 0;
-    stage_max  = 0;
+    stage_cur = 0;
+    stage_max = 0;
 
-    /* For every file queued by this fuzzer, parse ID and see if we have looked at
-       it before; exec a test case if not. */
+    /* For every file queued by this fuzzer, parse ID and see if we have looked
+       at it before; exec a test case if not. */
 
     while ((qd_ent = readdir(qd))) {
 
-      u8* path;
-      s32 fd;
+      u8*         path;
+      s32         fd;
       struct stat st;
 
       if (qd_ent->d_name[0] == '.' ||
-          sscanf(qd_ent->d_name, CASE_PREFIX "%06u", &syncing_case) != 1 || 
-          syncing_case < min_accept) continue;
+          sscanf(qd_ent->d_name, CASE_PREFIX "%06u", &syncing_case) != 1 ||
+          syncing_case < min_accept)
+        continue;
 
       /* OK, sounds like a new one. Let's give it a try. */
 
-      if (syncing_case >= next_min_accept)
-        next_min_accept = syncing_case + 1;
+      if (syncing_case >= next_min_accept) next_min_accept = syncing_case + 1;
 
       path = alloc_printf("%s/%s", qd_path, qd_ent->d_name);
 
@@ -539,8 +560,10 @@ void sync_fuzzers(char** argv) {
       fd = open(path, O_RDONLY);
 
       if (fd < 0) {
-         ck_free(path);
-         continue;
+
+        ck_free(path);
+        continue;
+
       }
 
       if (fstat(fd, &st)) PFATAL("fstat() failed");
@@ -584,13 +607,12 @@ void sync_fuzzers(char** argv) {
     closedir(qd);
     ck_free(qd_path);
     ck_free(qd_synced_path);
-    
-  }  
+
+  }
 
   closedir(sd);
 
 }
-
 
 /* Trim all new test cases to save cycles when doing deterministic checks. The
    trimmer uses power-of-two increments somewhere between 1/16 and 1/1024 of
@@ -599,8 +621,7 @@ void sync_fuzzers(char** argv) {
 u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
 
 #ifdef USE_PYTHON
-  if (py_functions[PY_FUNC_TRIM])
-    return trim_case_python(argv, q, in_buf);
+  if (py_functions[PY_FUNC_TRIM]) return trim_case_python(argv, q, in_buf);
 #endif
 
   static u8 tmp[64];
@@ -664,9 +685,9 @@ u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
         u32 move_tail = q->len - remove_pos - trim_avail;
 
         q->len -= trim_avail;
-        len_p2  = next_p2(q->len);
+        len_p2 = next_p2(q->len);
 
-        memmove(in_buf + remove_pos, in_buf + remove_pos + trim_avail, 
+        memmove(in_buf + remove_pos, in_buf + remove_pos + trim_avail,
                 move_tail);
 
         /* Let's save a clean trace, which will be needed by
@@ -679,7 +700,9 @@ u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
 
         }
 
-      } else remove_pos += remove_len;
+      } else
+
+        remove_pos += remove_len;
 
       /* Since this can be slow, update the screen every now and then. */
 
@@ -699,7 +722,7 @@ u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
 
     s32 fd;
 
-    unlink(q->fname); /* ignore errors */
+    unlink(q->fname);                                      /* ignore errors */
 
     fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
@@ -719,7 +742,6 @@ abort_trimming:
   return fault;
 
 }
-
 
 /* Write a modified test case, run program, process results. Handle
    error conditions, returning 1 if it's time to bail out. This is
@@ -745,20 +767,24 @@ u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   if (fault == FAULT_TMOUT) {
 
     if (subseq_tmouts++ > TMOUT_LIMIT) {
+
       ++cur_skipped_paths;
       return 1;
+
     }
 
-  } else subseq_tmouts = 0;
+  } else
+
+    subseq_tmouts = 0;
 
   /* Users can hit us with SIGUSR1 to request the current input
      to be abandoned. */
 
   if (skip_requested) {
 
-     skip_requested = 0;
-     ++cur_skipped_paths;
-     return 1;
+    skip_requested = 0;
+    ++cur_skipped_paths;
+    return 1;
 
   }
 

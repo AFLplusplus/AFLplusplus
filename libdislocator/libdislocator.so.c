@@ -38,23 +38,35 @@
 
 /* Error / message handling: */
 
-#define DEBUGF(_x...) do { \
-    if (alloc_verbose) { \
-      if (++call_depth == 1) { \
+#define DEBUGF(_x...)                 \
+  do {                                \
+                                      \
+    if (alloc_verbose) {              \
+                                      \
+      if (++call_depth == 1) {        \
+                                      \
         fprintf(stderr, "[AFL] " _x); \
-        fprintf(stderr, "\n"); \
-      } \
-      call_depth--; \
-    } \
+        fprintf(stderr, "\n");        \
+                                      \
+      }                               \
+      call_depth--;                   \
+                                      \
+    }                                 \
+                                      \
   } while (0)
 
-#define FATAL(_x...) do { \
-    if (++call_depth == 1) { \
+#define FATAL(_x...)                    \
+  do {                                  \
+                                        \
+    if (++call_depth == 1) {            \
+                                        \
       fprintf(stderr, "*** [AFL] " _x); \
-      fprintf(stderr, " ***\n"); \
-      abort(); \
-    } \
-    call_depth--; \
+      fprintf(stderr, " ***\n");        \
+      abort();                          \
+                                        \
+    }                                   \
+    call_depth--;                       \
+                                        \
   } while (0)
 
 /* Macro to count the number of pages needed to store a buffer: */
@@ -63,7 +75,7 @@
 
 /* Canary & clobber bytes: */
 
-#define ALLOC_CANARY  0xAACCAACC
+#define ALLOC_CANARY 0xAACCAACC
 #define ALLOC_CLOBBER 0xCC
 
 #define PTR_C(_p) (((u32*)(_p))[-1])
@@ -73,13 +85,12 @@
 
 static u32 max_mem = MAX_ALLOC;         /* Max heap usage to permit         */
 static u8  alloc_verbose,               /* Additional debug messages        */
-           hard_fail,                   /* abort() when max_mem exceeded?   */
-           no_calloc_over;              /* abort() on calloc() overflows?   */
+    hard_fail,                          /* abort() when max_mem exceeded?   */
+    no_calloc_over;                     /* abort() on calloc() overflows?   */
 
 static __thread size_t total_mem;       /* Currently allocated mem          */
 
 static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
-
 
 /* This is the main alloc function. It allocates one page more than necessary,
    sets that tailing page to PROT_NONE, and then increments the return address
@@ -90,14 +101,11 @@ static void* __dislocator_alloc(size_t len) {
 
   void* ret;
 
-
   if (total_mem + len > max_mem || total_mem + len < total_mem) {
 
-    if (hard_fail)
-      FATAL("total allocs exceed %u MB", max_mem / 1024 / 1024);
+    if (hard_fail) FATAL("total allocs exceed %u MB", max_mem / 1024 / 1024);
 
-    DEBUGF("total allocs exceed %u MB, returning NULL",
-           max_mem / 1024 / 1024);
+    DEBUGF("total allocs exceed %u MB, returning NULL", max_mem / 1024 / 1024);
 
     return NULL;
 
@@ -142,7 +150,6 @@ static void* __dislocator_alloc(size_t len) {
 
 }
 
-
 /* The "user-facing" wrapper for calloc(). This just checks for overflows and
    displays debug messages if requested. */
 
@@ -157,8 +164,11 @@ void* calloc(size_t elem_len, size_t elem_cnt) {
   if (elem_cnt && len / elem_cnt != elem_len) {
 
     if (no_calloc_over) {
-      DEBUGF("calloc(%zu, %zu) would overflow, returning NULL", elem_len, elem_cnt);
+
+      DEBUGF("calloc(%zu, %zu) would overflow, returning NULL", elem_len,
+             elem_cnt);
       return NULL;
+
     }
 
     FATAL("calloc(%zu, %zu) would overflow", elem_len, elem_cnt);
@@ -173,7 +183,6 @@ void* calloc(size_t elem_len, size_t elem_cnt) {
   return ret;
 
 }
-
 
 /* The wrapper for malloc(). Roughly the same, also clobbers the returned
    memory (unlike calloc(), malloc() is not guaranteed to return zeroed
@@ -192,7 +201,6 @@ void* malloc(size_t len) {
   return ret;
 
 }
-
 
 /* The wrapper for free(). This simply marks the entire region as PROT_NONE.
    If the region is already freed, the code will segfault during the attempt to
@@ -224,7 +232,6 @@ void free(void* ptr) {
 
 }
 
-
 /* Realloc is pretty straightforward, too. We forcibly reallocate the buffer,
    move data, and then free (aka mprotect()) the original one. */
 
@@ -249,7 +256,6 @@ void* realloc(void* ptr, size_t len) {
 
 }
 
-
 __attribute__((constructor)) void __dislocator_init(void) {
 
   u8* tmp = getenv("AFL_LD_LIMIT_MB");
@@ -266,3 +272,4 @@ __attribute__((constructor)) void __dislocator_init(void) {
   no_calloc_over = !!getenv("AFL_LD_NO_CALLOC_OVER");
 
 }
+

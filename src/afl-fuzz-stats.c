@@ -26,11 +26,11 @@
 
 void write_stats_file(double bitmap_cvg, double stability, double eps) {
 
-  static double last_bcvg, last_stab, last_eps;
+  static double        last_bcvg, last_stab, last_eps;
   static struct rusage usage;
 
-  u8* fn = alloc_printf("%s/fuzzer_stats", out_dir);
-  s32 fd;
+  u8*   fn = alloc_printf("%s/fuzzer_stats", out_dir);
+  s32   fd;
   FILE* f;
 
   fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
@@ -47,65 +47,73 @@ void write_stats_file(double bitmap_cvg, double stability, double eps) {
      where exec/sec stats and such are not readily available. */
 
   if (!bitmap_cvg && !stability && !eps) {
+
     bitmap_cvg = last_bcvg;
-    stability  = last_stab;
-    eps        = last_eps;
+    stability = last_stab;
+    eps = last_eps;
+
   } else {
+
     last_bcvg = bitmap_cvg;
     last_stab = stability;
-    last_eps  = eps;
+    last_eps = eps;
+
   }
 
-  fprintf(f, "start_time        : %llu\n"
-             "last_update       : %llu\n"
-             "fuzzer_pid        : %d\n"
-             "cycles_done       : %llu\n"
-             "execs_done        : %llu\n"
-             "execs_per_sec     : %0.02f\n"
-             "paths_total       : %u\n"
-             "paths_favored     : %u\n"
-             "paths_found       : %u\n"
-             "paths_imported    : %u\n"
-             "max_depth         : %u\n"
-             "cur_path          : %u\n" /* Must match find_start_position() */
-             "pending_favs      : %u\n"
-             "pending_total     : %u\n"
-             "variable_paths    : %u\n"
-             "stability         : %0.02f%%\n"
-             "bitmap_cvg        : %0.02f%%\n"
-             "unique_crashes    : %llu\n"
-             "unique_hangs      : %llu\n"
-             "last_path         : %llu\n"
-             "last_crash        : %llu\n"
-             "last_hang         : %llu\n"
-             "execs_since_crash : %llu\n"
-             "exec_timeout      : %u\n"
-             "slowest_exec_ms   : %llu\n"
-             "peak_rss_mb       : %lu\n"
-             "afl_banner        : %s\n"
-             "afl_version       : " VERSION "\n"
-             "target_mode       : %s%s%s%s%s%s%s%s\n"
-             "command_line      : %s\n",
-             start_time / 1000, get_cur_time() / 1000, getpid(),
-             queue_cycle ? (queue_cycle - 1) : 0, total_execs, eps,
-             queued_paths, queued_favored, queued_discovered, queued_imported,
-             max_depth, current_entry, pending_favored, pending_not_fuzzed,
-             queued_variable, stability, bitmap_cvg, unique_crashes,
-             unique_hangs, last_path_time / 1000, last_crash_time / 1000,
-             last_hang_time / 1000, total_execs - last_crash_execs,
-             exec_tmout, slowest_exec_ms, (unsigned long int)usage.ru_maxrss, use_banner,
-             unicorn_mode ? "unicorn" : "", qemu_mode ? "qemu " : "", dumb_mode ? " dumb " : "",
-             no_forkserver ? "no_forksrv " : "", crash_mode ? "crash " : "",
-             persistent_mode ? "persistent " : "", deferred_mode ? "deferred " : "",
-             (unicorn_mode || qemu_mode || dumb_mode || no_forkserver || crash_mode ||
-              persistent_mode || deferred_mode) ? "" : "default",
-             orig_cmdline);
-             /* ignore errors */
+  fprintf(f,
+          "start_time        : %llu\n"
+          "last_update       : %llu\n"
+          "fuzzer_pid        : %d\n"
+          "cycles_done       : %llu\n"
+          "execs_done        : %llu\n"
+          "execs_per_sec     : %0.02f\n"
+          "paths_total       : %u\n"
+          "paths_favored     : %u\n"
+          "paths_found       : %u\n"
+          "paths_imported    : %u\n"
+          "max_depth         : %u\n"
+          "cur_path          : %u\n"    /* Must match find_start_position() */
+          "pending_favs      : %u\n"
+          "pending_total     : %u\n"
+          "variable_paths    : %u\n"
+          "stability         : %0.02f%%\n"
+          "bitmap_cvg        : %0.02f%%\n"
+          "unique_crashes    : %llu\n"
+          "unique_hangs      : %llu\n"
+          "last_path         : %llu\n"
+          "last_crash        : %llu\n"
+          "last_hang         : %llu\n"
+          "execs_since_crash : %llu\n"
+          "exec_timeout      : %u\n"
+          "slowest_exec_ms   : %llu\n"
+          "peak_rss_mb       : %lu\n"
+          "afl_banner        : %s\n"
+          "afl_version       : " VERSION
+          "\n"
+          "target_mode       : %s%s%s%s%s%s%s%s\n"
+          "command_line      : %s\n",
+          start_time / 1000, get_cur_time() / 1000, getpid(),
+          queue_cycle ? (queue_cycle - 1) : 0, total_execs, eps, queued_paths,
+          queued_favored, queued_discovered, queued_imported, max_depth,
+          current_entry, pending_favored, pending_not_fuzzed, queued_variable,
+          stability, bitmap_cvg, unique_crashes, unique_hangs,
+          last_path_time / 1000, last_crash_time / 1000, last_hang_time / 1000,
+          total_execs - last_crash_execs, exec_tmout, slowest_exec_ms,
+          (unsigned long int)usage.ru_maxrss, use_banner,
+          unicorn_mode ? "unicorn" : "", qemu_mode ? "qemu " : "",
+          dumb_mode ? " dumb " : "", no_forkserver ? "no_forksrv " : "",
+          crash_mode ? "crash " : "", persistent_mode ? "persistent " : "",
+          deferred_mode ? "deferred " : "",
+          (unicorn_mode || qemu_mode || dumb_mode || no_forkserver ||
+           crash_mode || persistent_mode || deferred_mode)
+              ? ""
+              : "default",
+          orig_cmdline);
+  /* ignore errors */
 
   fclose(f);
 
 }
-
 
 /* Update the plot file if there is a reason to. */
 
@@ -114,19 +122,20 @@ void maybe_update_plot_file(double bitmap_cvg, double eps) {
   static u32 prev_qp, prev_pf, prev_pnf, prev_ce, prev_md;
   static u64 prev_qc, prev_uc, prev_uh;
 
-  if (prev_qp == queued_paths && prev_pf == pending_favored && 
+  if (prev_qp == queued_paths && prev_pf == pending_favored &&
       prev_pnf == pending_not_fuzzed && prev_ce == current_entry &&
       prev_qc == queue_cycle && prev_uc == unique_crashes &&
-      prev_uh == unique_hangs && prev_md == max_depth) return;
+      prev_uh == unique_hangs && prev_md == max_depth)
+    return;
 
-  prev_qp  = queued_paths;
-  prev_pf  = pending_favored;
+  prev_qp = queued_paths;
+  prev_pf = pending_favored;
   prev_pnf = pending_not_fuzzed;
-  prev_ce  = current_entry;
-  prev_qc  = queue_cycle;
-  prev_uc  = unique_crashes;
-  prev_uh  = unique_hangs;
-  prev_md  = max_depth;
+  prev_ce = current_entry;
+  prev_qc = queue_cycle;
+  prev_uc = unique_crashes;
+  prev_uh = unique_hangs;
+  prev_md = max_depth;
 
   /* Fields in the file:
 
@@ -134,16 +143,15 @@ void maybe_update_plot_file(double bitmap_cvg, double eps) {
      favored_not_fuzzed, unique_crashes, unique_hangs, max_depth,
      execs_per_sec */
 
-  fprintf(plot_file, 
+  fprintf(plot_file,
           "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f\n",
           get_cur_time() / 1000, queue_cycle - 1, current_entry, queued_paths,
           pending_not_fuzzed, pending_favored, bitmap_cvg, unique_crashes,
-          unique_hangs, max_depth, eps); /* ignore errors */
+          unique_hangs, max_depth, eps);                   /* ignore errors */
 
   fflush(plot_file);
 
 }
-
 
 /* Check terminal dimensions after resize. */
 
@@ -160,15 +168,14 @@ static void check_term_size(void) {
 
 }
 
-
 /* A spiffy retro stats screen! This is called every stats_update_freq
    execve() calls, plus in several other circumstances. */
 
 void show_stats(void) {
 
-  static u64 last_stats_ms, last_plot_ms, last_ms, last_execs;
+  static u64    last_stats_ms, last_plot_ms, last_ms, last_execs;
   static double avg_exec;
-  double t_byte_ratio, stab_ratio;
+  double        t_byte_ratio, stab_ratio;
 
   u64 cur_ms;
   u32 t_bytes, t_bits;
@@ -194,14 +201,13 @@ void show_stats(void) {
 
   } else {
 
-    double cur_avg = ((double)(total_execs - last_execs)) * 1000 /
-                     (cur_ms - last_ms);
+    double cur_avg =
+        ((double)(total_execs - last_execs)) * 1000 / (cur_ms - last_ms);
 
     /* If there is a dramatic (5x+) jump in speed, reset the indicator
        more quickly. */
 
-    if (cur_avg * 5 < avg_exec || cur_avg / 5 > avg_exec)
-      avg_exec = cur_avg;
+    if (cur_avg * 5 < avg_exec || cur_avg / 5 > avg_exec) avg_exec = cur_avg;
 
     avg_exec = avg_exec * (1.0 - 1.0 / AVG_SMOOTHING) +
                cur_avg * (1.0 / AVG_SMOOTHING);
@@ -249,7 +255,8 @@ void show_stats(void) {
   /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
 
   if (!dumb_mode && cycles_wo_finds > 100 && !pending_not_fuzzed &&
-      getenv("AFL_EXIT_WHEN_DONE")) stop_soon = 2;
+      getenv("AFL_EXIT_WHEN_DONE"))
+    stop_soon = 2;
 
   if (total_crashes && getenv("AFL_BENCH_UNTIL_CRASH")) stop_soon = 2;
 
@@ -276,7 +283,8 @@ void show_stats(void) {
 
   if (term_too_small) {
 
-    SAYF(cBRI "Your terminal is too small to display the UI.\n"
+    SAYF(cBRI
+         "Your terminal is too small to display the UI.\n"
          "Please resize terminal window to at least 79x24.\n" cRST);
 
     return;
@@ -285,38 +293,41 @@ void show_stats(void) {
 
   /* Let's start by drawing a centered banner. */
 
-  banner_len = (crash_mode ? 24 : 22) + strlen(VERSION) + strlen(use_banner) + strlen(power_name) + 3 + 5;
+  banner_len = (crash_mode ? 24 : 22) + strlen(VERSION) + strlen(use_banner) +
+               strlen(power_name) + 3 + 5;
   banner_pad = (79 - banner_len) / 2;
   memset(tmp, ' ', banner_pad);
 
 #ifdef HAVE_AFFINITY
-  sprintf(tmp + banner_pad, "%s " cLCY VERSION cLGN
-          " (%s) " cPIN "[%s]" cBLU " {%d}",  crash_mode ? cPIN "peruvian were-rabbit" :
-          cYEL "american fuzzy lop", use_banner, power_name, cpu_aff);
+  sprintf(tmp + banner_pad,
+          "%s " cLCY VERSION cLGN " (%s) " cPIN "[%s]" cBLU " {%d}",
+          crash_mode ? cPIN "peruvian were-rabbit" : cYEL "american fuzzy lop",
+          use_banner, power_name, cpu_aff);
 #else
-  sprintf(tmp + banner_pad, "%s " cLCY VERSION cLGN
-          " (%s) " cPIN "[%s]",  crash_mode ? cPIN "peruvian were-rabbit" :
-          cYEL "american fuzzy lop", use_banner, power_name);
+  sprintf(tmp + banner_pad, "%s " cLCY VERSION cLGN " (%s) " cPIN "[%s]",
+          crash_mode ? cPIN "peruvian were-rabbit" : cYEL "american fuzzy lop",
+          use_banner, power_name);
 #endif /* HAVE_AFFINITY */
 
   SAYF("\n%s\n", tmp);
 
   /* "Handy" shortcuts for drawing boxes... */
 
-#define bSTG    bSTART cGRA
-#define bH2     bH bH
-#define bH5     bH2 bH2 bH
-#define bH10    bH5 bH5
-#define bH20    bH10 bH10
-#define bH30    bH20 bH10
-#define SP5     "     "
-#define SP10    SP5 SP5
-#define SP20    SP10 SP10
+#define bSTG bSTART cGRA
+#define bH2 bH bH
+#define bH5 bH2 bH2 bH
+#define bH10 bH5 bH5
+#define bH20 bH10 bH10
+#define bH30 bH20 bH10
+#define SP5 "     "
+#define SP10 SP5 SP5
+#define SP20 SP10 SP10
 
   /* Lord, forgive me this. */
 
-  SAYF(SET_G1 bSTG bLT bH bSTOP cCYA " process timing " bSTG bH30 bH5 bH bHB
-       bH bSTOP cCYA " overall results " bSTG bH2 bH2 bRT "\n");
+  SAYF(SET_G1 bSTG bLT bH bSTOP cCYA
+       " process timing " bSTG bH30 bH5 bH bHB bH bSTOP cCYA
+       " overall results " bSTG bH2 bH2 bRT "\n");
 
   if (dumb_mode) {
 
@@ -327,29 +338,34 @@ void show_stats(void) {
     u64 min_wo_finds = (cur_ms - last_path_time) / 1000 / 60;
 
     /* First queue cycle: don't stop now! */
-    if (queue_cycle == 1 || min_wo_finds < 15) strcpy(tmp, cMGN); else
+    if (queue_cycle == 1 || min_wo_finds < 15)
+      strcpy(tmp, cMGN);
+    else
 
-    /* Subsequent cycles, but we're still making finds. */
-    if (cycles_wo_finds < 25 || min_wo_finds < 30) strcpy(tmp, cYEL); else
+        /* Subsequent cycles, but we're still making finds. */
+        if (cycles_wo_finds < 25 || min_wo_finds < 30)
+      strcpy(tmp, cYEL);
+    else
 
-    /* No finds for a long time and no test cases to try. */
-    if (cycles_wo_finds > 100 && !pending_not_fuzzed && min_wo_finds > 120)
+        /* No finds for a long time and no test cases to try. */
+        if (cycles_wo_finds > 100 && !pending_not_fuzzed && min_wo_finds > 120)
       strcpy(tmp, cLGN);
 
     /* Default: cautiously OK to stop? */
-    else strcpy(tmp, cLBL);
+    else
+      strcpy(tmp, cLBL);
 
   }
 
   SAYF(bV bSTOP "        run time : " cRST "%-33s " bSTG bV bSTOP
-       "  cycles done : %s%-5s " bSTG bV "\n",
+                "  cycles done : %s%-5s " bSTG              bV "\n",
        DTD(cur_ms, start_time), tmp, DI(queue_cycle - 1));
 
   /* We want to warn people about not seeing new paths after a full cycle,
      except when resuming fuzzing or running in non-instrumented mode. */
 
   if (!dumb_mode && (last_path_time || resuming_fuzz || queue_cycle == 1 ||
-      in_bitmap || crash_mode)) {
+                     in_bitmap || crash_mode)) {
 
     SAYF(bV bSTOP "   last new path : " cRST "%-33s ",
          DTD(cur_ms, last_path_time));
@@ -359,12 +375,12 @@ void show_stats(void) {
     if (dumb_mode)
 
       SAYF(bV bSTOP "   last new path : " cPIN "n/a" cRST
-           " (non-instrumented mode)       ");
+                    " (non-instrumented mode)       ");
 
-     else
+    else
 
       SAYF(bV bSTOP "   last new path : " cRST "none yet " cLRD
-           "(odd, check syntax!)     ");
+                    "(odd, check syntax!)     ");
 
   }
 
@@ -378,18 +394,18 @@ void show_stats(void) {
           (unique_crashes >= KEEP_UNIQUE_CRASH) ? "+" : "");
 
   SAYF(bV bSTOP " last uniq crash : " cRST "%-33s " bSTG bV bSTOP
-       " uniq crashes : %s%-6s" bSTG bV "\n",
-       DTD(cur_ms, last_crash_time), unique_crashes ? cLRD : cRST,
-       tmp);
+                " uniq crashes : %s%-6s" bSTG               bV "\n",
+       DTD(cur_ms, last_crash_time), unique_crashes ? cLRD : cRST, tmp);
 
   sprintf(tmp, "%s%s", DI(unique_hangs),
-         (unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
+          (unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   SAYF(bV bSTOP "  last uniq hang : " cRST "%-33s " bSTG bV bSTOP
-       "   uniq hangs : " cRST "%-6s" bSTG bV "\n",
+                "   uniq hangs : " cRST "%-6s" bSTG         bV "\n",
        DTD(cur_ms, last_hang_time), tmp);
 
-  SAYF(bVR bH bSTOP cCYA " cycle progress " bSTG bH10 bH5 bH2 bH2 bHB bH bSTOP cCYA
+  SAYF(bVR bH bSTOP            cCYA
+       " cycle progress " bSTG bH10 bH5 bH2 bH2 bHB bH bSTOP cCYA
        " map coverage " bSTG bH bHT bH20 bH2 bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
@@ -402,23 +418,24 @@ void show_stats(void) {
 
   SAYF(bV bSTOP "  now processing : " cRST "%-16s " bSTG bV bSTOP, tmp);
 
-  sprintf(tmp, "%0.02f%% / %0.02f%%", ((double)queue_cur->bitmap_size) *
-          100 / MAP_SIZE, t_byte_ratio);
+  sprintf(tmp, "%0.02f%% / %0.02f%%",
+          ((double)queue_cur->bitmap_size) * 100 / MAP_SIZE, t_byte_ratio);
 
-  SAYF("    map density : %s%-21s" bSTG bV "\n", t_byte_ratio > 70 ? cLRD :
-       ((t_bytes < 200 && !dumb_mode) ? cPIN : cRST), tmp);
+  SAYF("    map density : %s%-21s" bSTG bV "\n",
+       t_byte_ratio > 70 ? cLRD : ((t_bytes < 200 && !dumb_mode) ? cPIN : cRST),
+       tmp);
 
   sprintf(tmp, "%s (%0.02f%%)", DI(cur_skipped_paths),
           ((double)cur_skipped_paths * 100) / queued_paths);
 
   SAYF(bV bSTOP " paths timed out : " cRST "%-16s " bSTG bV, tmp);
 
-  sprintf(tmp, "%0.02f bits/tuple",
-          t_bytes ? (((double)t_bits) / t_bytes) : 0);
+  sprintf(tmp, "%0.02f bits/tuple", t_bytes ? (((double)t_bits) / t_bytes) : 0);
 
   SAYF(bSTOP " count coverage : " cRST "%-21s" bSTG bV "\n", tmp);
 
-  SAYF(bVR bH bSTOP cCYA " stage progress " bSTG bH10 bH5 bH2 bH2 bX bH bSTOP cCYA
+  SAYF(bVR bH bSTOP            cCYA
+       " stage progress " bSTG bH10 bH5 bH2 bH2 bX bH bSTOP cCYA
        " findings in depth " bSTG bH10 bH5 bH2 bH2 bVL "\n");
 
   sprintf(tmp, "%s (%0.02f%%)", DI(queued_favored),
@@ -427,7 +444,8 @@ void show_stats(void) {
   /* Yeah... it's still going on... halp? */
 
   SAYF(bV bSTOP "  now trying : " cRST "%-20s " bSTG bV bSTOP
-       " favored paths : " cRST "%-22s" bSTG bV "\n", stage_name, tmp);
+                " favored paths : " cRST "%-22s" bSTG   bV "\n",
+       stage_name, tmp);
 
   if (!stage_max) {
 
@@ -453,14 +471,14 @@ void show_stats(void) {
   if (crash_mode) {
 
     SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
-         "   new crashes : %s%-22s" bSTG bV "\n", DI(total_execs),
-         unique_crashes ? cLRD : cRST, tmp);
+                  "   new crashes : %s%-22s" bSTG         bV "\n",
+         DI(total_execs), unique_crashes ? cLRD : cRST, tmp);
 
   } else {
 
     SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
-         " total crashes : %s%-22s" bSTG bV "\n", DI(total_execs),
-         unique_crashes ? cLRD : cRST, tmp);
+                  " total crashes : %s%-22s" bSTG         bV "\n",
+         DI(total_execs), unique_crashes ? cLRD : cRST, tmp);
 
   }
 
@@ -468,8 +486,8 @@ void show_stats(void) {
 
   if (avg_exec < 100) {
 
-    sprintf(tmp, "%s/sec (%s)", DF(avg_exec), avg_exec < 20 ?
-            "zzzz..." : "slow!");
+    sprintf(tmp, "%s/sec (%s)", DF(avg_exec),
+            avg_exec < 20 ? "zzzz..." : "slow!");
 
     SAYF(bV bSTOP "  exec speed : " cLRD "%-20s ", tmp);
 
@@ -483,12 +501,13 @@ void show_stats(void) {
   sprintf(tmp, "%s (%s%s unique)", DI(total_tmouts), DI(unique_tmouts),
           (unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
-  SAYF (bSTG bV bSTOP "  total tmouts : " cRST "%-22s" bSTG bV "\n", tmp);
+  SAYF(bSTG bV bSTOP "  total tmouts : " cRST "%-22s" bSTG bV "\n", tmp);
 
   /* Aaaalmost there... hold on! */
 
-  SAYF(bVR bH cCYA bSTOP " fuzzing strategy yields " bSTG bH10 bHT bH10
-       bH5 bHB bH bSTOP cCYA " path geometry " bSTG bH5 bH2 bVL "\n");
+  SAYF(bVR bH cCYA                      bSTOP
+       " fuzzing strategy yields " bSTG bH10 bHT bH10 bH5 bHB bH bSTOP cCYA
+       " path geometry " bSTG bH5 bH2 bVL "\n");
 
   if (skip_deterministic) {
 
@@ -496,66 +515,77 @@ void show_stats(void) {
 
   } else {
 
-    sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-            DI(stage_finds[STAGE_FLIP1]), DI(stage_cycles[STAGE_FLIP1]),
-            DI(stage_finds[STAGE_FLIP2]), DI(stage_cycles[STAGE_FLIP2]),
-            DI(stage_finds[STAGE_FLIP4]), DI(stage_cycles[STAGE_FLIP4]));
+    sprintf(tmp, "%s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_FLIP1]),
+            DI(stage_cycles[STAGE_FLIP1]), DI(stage_finds[STAGE_FLIP2]),
+            DI(stage_cycles[STAGE_FLIP2]), DI(stage_finds[STAGE_FLIP4]),
+            DI(stage_cycles[STAGE_FLIP4]));
 
   }
 
-  SAYF(bV bSTOP "   bit flips : " cRST "%-36s " bSTG bV bSTOP "    levels : "
-       cRST "%-10s" bSTG bV "\n", tmp, DI(max_depth));
+  SAYF(bV bSTOP "   bit flips : " cRST "%-36s " bSTG bV bSTOP
+                "    levels : " cRST "%-10s" bSTG       bV "\n",
+       tmp, DI(max_depth));
 
   if (!skip_deterministic)
-    sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-            DI(stage_finds[STAGE_FLIP8]), DI(stage_cycles[STAGE_FLIP8]),
-            DI(stage_finds[STAGE_FLIP16]), DI(stage_cycles[STAGE_FLIP16]),
-            DI(stage_finds[STAGE_FLIP32]), DI(stage_cycles[STAGE_FLIP32]));
+    sprintf(tmp, "%s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_FLIP8]),
+            DI(stage_cycles[STAGE_FLIP8]), DI(stage_finds[STAGE_FLIP16]),
+            DI(stage_cycles[STAGE_FLIP16]), DI(stage_finds[STAGE_FLIP32]),
+            DI(stage_cycles[STAGE_FLIP32]));
 
-  SAYF(bV bSTOP "  byte flips : " cRST "%-36s " bSTG bV bSTOP "   pending : "
-       cRST "%-10s" bSTG bV "\n", tmp, DI(pending_not_fuzzed));
-
-  if (!skip_deterministic)
-    sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-            DI(stage_finds[STAGE_ARITH8]), DI(stage_cycles[STAGE_ARITH8]),
-            DI(stage_finds[STAGE_ARITH16]), DI(stage_cycles[STAGE_ARITH16]),
-            DI(stage_finds[STAGE_ARITH32]), DI(stage_cycles[STAGE_ARITH32]));
-
-  SAYF(bV bSTOP " arithmetics : " cRST "%-36s " bSTG bV bSTOP "  pend fav : "
-       cRST "%-10s" bSTG bV "\n", tmp, DI(pending_favored));
+  SAYF(bV bSTOP "  byte flips : " cRST "%-36s " bSTG bV bSTOP
+                "   pending : " cRST "%-10s" bSTG       bV "\n",
+       tmp, DI(pending_not_fuzzed));
 
   if (!skip_deterministic)
-    sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-            DI(stage_finds[STAGE_INTEREST8]), DI(stage_cycles[STAGE_INTEREST8]),
-            DI(stage_finds[STAGE_INTEREST16]), DI(stage_cycles[STAGE_INTEREST16]),
-            DI(stage_finds[STAGE_INTEREST32]), DI(stage_cycles[STAGE_INTEREST32]));
+    sprintf(tmp, "%s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_ARITH8]),
+            DI(stage_cycles[STAGE_ARITH8]), DI(stage_finds[STAGE_ARITH16]),
+            DI(stage_cycles[STAGE_ARITH16]), DI(stage_finds[STAGE_ARITH32]),
+            DI(stage_cycles[STAGE_ARITH32]));
 
-  SAYF(bV bSTOP "  known ints : " cRST "%-36s " bSTG bV bSTOP " own finds : "
-       cRST "%-10s" bSTG bV "\n", tmp, DI(queued_discovered));
+  SAYF(bV bSTOP " arithmetics : " cRST "%-36s " bSTG bV bSTOP
+                "  pend fav : " cRST "%-10s" bSTG       bV "\n",
+       tmp, DI(pending_favored));
 
   if (!skip_deterministic)
-    sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-            DI(stage_finds[STAGE_EXTRAS_UO]), DI(stage_cycles[STAGE_EXTRAS_UO]),
-            DI(stage_finds[STAGE_EXTRAS_UI]), DI(stage_cycles[STAGE_EXTRAS_UI]),
-            DI(stage_finds[STAGE_EXTRAS_AO]), DI(stage_cycles[STAGE_EXTRAS_AO]));
+    sprintf(
+        tmp, "%s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_INTEREST8]),
+        DI(stage_cycles[STAGE_INTEREST8]), DI(stage_finds[STAGE_INTEREST16]),
+        DI(stage_cycles[STAGE_INTEREST16]), DI(stage_finds[STAGE_INTEREST32]),
+        DI(stage_cycles[STAGE_INTEREST32]));
+
+  SAYF(bV bSTOP "  known ints : " cRST "%-36s " bSTG bV bSTOP
+                " own finds : " cRST "%-10s" bSTG       bV "\n",
+       tmp, DI(queued_discovered));
+
+  if (!skip_deterministic)
+    sprintf(tmp, "%s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_EXTRAS_UO]),
+            DI(stage_cycles[STAGE_EXTRAS_UO]), DI(stage_finds[STAGE_EXTRAS_UI]),
+            DI(stage_cycles[STAGE_EXTRAS_UI]), DI(stage_finds[STAGE_EXTRAS_AO]),
+            DI(stage_cycles[STAGE_EXTRAS_AO]));
 
   SAYF(bV bSTOP "  dictionary : " cRST "%-36s " bSTG bV bSTOP
-       "  imported : " cRST "%-10s" bSTG bV "\n", tmp,
-       sync_id ? DI(queued_imported) : (u8*)"n/a");
+                "  imported : " cRST "%-10s" bSTG       bV "\n",
+       tmp, sync_id ? DI(queued_imported) : (u8*)"n/a");
 
-  sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-          DI(stage_finds[STAGE_HAVOC]), DI(stage_cycles[STAGE_HAVOC]),
-          DI(stage_finds[STAGE_SPLICE]), DI(stage_cycles[STAGE_SPLICE]),
-          DI(stage_finds[STAGE_PYTHON]), DI(stage_cycles[STAGE_PYTHON]));
+  sprintf(tmp, "%s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_HAVOC]),
+          DI(stage_cycles[STAGE_HAVOC]), DI(stage_finds[STAGE_SPLICE]),
+          DI(stage_cycles[STAGE_SPLICE]), DI(stage_finds[STAGE_PYTHON]),
+          DI(stage_cycles[STAGE_PYTHON]));
 
   SAYF(bV bSTOP "       havoc : " cRST "%-36s " bSTG bV bSTOP, tmp);
 
-  if (t_bytes) sprintf(tmp, "%0.02f%%", stab_ratio);
-    else strcpy(tmp, "n/a");
+  if (t_bytes)
+    sprintf(tmp, "%0.02f%%", stab_ratio);
+  else
+    strcpy(tmp, "n/a");
 
-  SAYF(" stability : %s%-10s" bSTG bV "\n", (stab_ratio < 85 && var_byte_count > 40)
-       ? cLRD : ((queued_variable && (!persistent_mode || var_byte_count > 20))
-       ? cMGN : cRST), tmp);
+  SAYF(" stability : %s%-10s" bSTG bV "\n",
+       (stab_ratio < 85 && var_byte_count > 40)
+           ? cLRD
+           : ((queued_variable && (!persistent_mode || var_byte_count > 20))
+                  ? cMGN
+                  : cRST),
+       tmp);
 
   if (!bytes_trim_out) {
 
@@ -582,18 +612,26 @@ void show_stats(void) {
 
     sprintf(tmp2, "%0.02f%%",
             ((double)(blocks_eff_total - blocks_eff_select)) * 100 /
-            blocks_eff_total);
+                blocks_eff_total);
 
     strcat(tmp, tmp2);
 
   }
+
   if (custom_mutator) {
-    sprintf(tmp, "%s/%s", DI(stage_finds[STAGE_CUSTOM_MUTATOR]), DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
-    SAYF(bV bSTOP " custom mut. : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n"
-             bLB bH30 bH20 bH2 bH bRB bSTOP cRST RESET_G1, tmp);
+
+    sprintf(tmp, "%s/%s", DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
+            DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
+    SAYF(bV bSTOP " custom mut. : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB
+                  "\n" bLB bH30 bH20 bH2 bH bRB bSTOP cRST RESET_G1,
+         tmp);
+
   } else {
-    SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n"
-       bLB bH30 bH20 bH2 bRB bSTOP cRST RESET_G1, tmp);
+
+    SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB
+                  "\n" bLB bH30 bH20 bH2 bRB bSTOP cRST RESET_G1,
+         tmp);
+
   }
 
   /* Provide some CPU utilization stats. */
@@ -601,7 +639,7 @@ void show_stats(void) {
   if (cpu_core_count) {
 
     double cur_runnable = get_runnable_processes();
-    u32 cur_utilization = cur_runnable * 100 / cpu_core_count;
+    u32    cur_utilization = cur_runnable * 100 / cpu_core_count;
 
     u8* cpu_color = cCYA;
 
@@ -618,32 +656,32 @@ void show_stats(void) {
 
     if (cpu_aff >= 0) {
 
-      SAYF(SP10 cGRA "[cpu%03u:%s%3u%%" cGRA "]\r" cRST, 
-           MIN(cpu_aff, 999), cpu_color,
-           MIN(cur_utilization, 999));
+      SAYF(SP10 cGRA "[cpu%03u:%s%3u%%" cGRA "]\r" cRST, MIN(cpu_aff, 999),
+           cpu_color, MIN(cur_utilization, 999));
 
     } else {
 
-      SAYF(SP10 cGRA "   [cpu:%s%3u%%" cGRA "]\r" cRST,
-           cpu_color, MIN(cur_utilization, 999));
- 
-   }
+      SAYF(SP10 cGRA "   [cpu:%s%3u%%" cGRA "]\r" cRST, cpu_color,
+           MIN(cur_utilization, 999));
+
+    }
 
 #else
 
-    SAYF(SP10 cGRA "   [cpu:%s%3u%%" cGRA "]\r" cRST,
-         cpu_color, MIN(cur_utilization, 999));
+    SAYF(SP10 cGRA "   [cpu:%s%3u%%" cGRA "]\r" cRST, cpu_color,
+         MIN(cur_utilization, 999));
 
 #endif /* ^HAVE_AFFINITY */
 
-  } else SAYF("\r");
+  } else
+
+    SAYF("\r");
 
   /* Hallelujah! */
 
   fflush(0);
 
 }
-
 
 /* Display quick statistics at the end of processing the input directory,
    plus a bunch of warnings. Some calibration stuff also ended up here,
@@ -652,10 +690,10 @@ void show_stats(void) {
 void show_init_stats(void) {
 
   struct queue_entry* q = queue;
-  u32 min_bits = 0, max_bits = 0;
-  u64 min_us = 0, max_us = 0;
-  u64 avg_us = 0;
-  u32 max_len = 0;
+  u32                 min_bits = 0, max_bits = 0;
+  u64                 min_us = 0, max_us = 0;
+  u64                 avg_us = 0;
+  u32                 max_len = 0;
 
   if (total_cal_cycles) avg_us = total_cal_us / total_cal_cycles;
 
@@ -681,9 +719,12 @@ void show_init_stats(void) {
 
   /* Let's keep things moving with slow binaries. */
 
-  if (avg_us > 50000) havoc_div = 10;     /* 0-19 execs/sec   */
-  else if (avg_us > 20000) havoc_div = 5; /* 20-49 execs/sec  */
-  else if (avg_us > 10000) havoc_div = 2; /* 50-100 execs/sec */
+  if (avg_us > 50000)
+    havoc_div = 10;                                     /* 0-19 execs/sec   */
+  else if (avg_us > 20000)
+    havoc_div = 5;                                      /* 20-49 execs/sec  */
+  else if (avg_us > 10000)
+    havoc_div = 2;                                      /* 50-100 execs/sec */
 
   if (!resuming_fuzz) {
 
@@ -698,7 +739,9 @@ void show_init_stats(void) {
       WARNF(cLRD "Some test cases look useless. Consider using a smaller set.");
 
     if (queued_paths > 100)
-      WARNF(cLRD "You probably have far too many input files! Consider trimming down.");
+      WARNF(cLRD
+            "You probably have far too many input files! Consider trimming "
+            "down.");
     else if (queued_paths > 20)
       WARNF("You have lots of input files; try starting small.");
 
@@ -706,11 +749,13 @@ void show_init_stats(void) {
 
   OKF("Here are some useful stats:\n\n"
 
-      cGRA "    Test case count : " cRST "%u favored, %u variable, %u total\n"
-      cGRA "       Bitmap range : " cRST "%u to %u bits (average: %0.02f bits)\n"
-      cGRA "        Exec timing : " cRST "%s to %s us (average: %s us)\n",
-      queued_favored, queued_variable, queued_paths, min_bits, max_bits, 
-      ((double)total_bitmap_size) / (total_bitmap_entries ? total_bitmap_entries : 1),
+      cGRA "    Test case count : " cRST
+      "%u favored, %u variable, %u total\n" cGRA "       Bitmap range : " cRST
+      "%u to %u bits (average: %0.02f bits)\n" cGRA
+      "        Exec timing : " cRST "%s to %s us (average: %s us)\n",
+      queued_favored, queued_variable, queued_paths, min_bits, max_bits,
+      ((double)total_bitmap_size) /
+          (total_bitmap_entries ? total_bitmap_entries : 1),
       DI(min_us), DI(max_us), DI(avg_us));
 
   if (!timeout_given) {
@@ -722,16 +767,19 @@ void show_init_stats(void) {
        random scheduler jitter is less likely to have any impact, and because
        our patience is wearing thin =) */
 
-    if (avg_us > 50000) exec_tmout = avg_us * 2 / 1000;
-    else if (avg_us > 10000) exec_tmout = avg_us * 3 / 1000;
-    else exec_tmout = avg_us * 5 / 1000;
+    if (avg_us > 50000)
+      exec_tmout = avg_us * 2 / 1000;
+    else if (avg_us > 10000)
+      exec_tmout = avg_us * 3 / 1000;
+    else
+      exec_tmout = avg_us * 5 / 1000;
 
     exec_tmout = MAX(exec_tmout, max_us / 1000);
     exec_tmout = (exec_tmout + EXEC_TM_ROUND) / EXEC_TM_ROUND * EXEC_TM_ROUND;
 
     if (exec_tmout > EXEC_TIMEOUT) exec_tmout = EXEC_TIMEOUT;
 
-    ACTF("No -t option specified, so I'll use exec timeout of %u ms.", 
+    ACTF("No -t option specified, so I'll use exec timeout of %u ms.",
          exec_tmout);
 
     timeout_given = 1;

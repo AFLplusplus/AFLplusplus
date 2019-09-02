@@ -22,32 +22,32 @@
 
 #include "afl-fuzz.h"
 
-
 /* Helper function for load_extras. */
 
 static int compare_extras_len(const void* p1, const void* p2) {
-  struct extra_data *e1 = (struct extra_data*)p1,
-                    *e2 = (struct extra_data*)p2;
+
+  struct extra_data *e1 = (struct extra_data*)p1, *e2 = (struct extra_data*)p2;
 
   return e1->len - e2->len;
+
 }
 
 static int compare_extras_use_d(const void* p1, const void* p2) {
-  struct extra_data *e1 = (struct extra_data*)p1,
-                    *e2 = (struct extra_data*)p2;
+
+  struct extra_data *e1 = (struct extra_data*)p1, *e2 = (struct extra_data*)p2;
 
   return e2->hit_cnt - e1->hit_cnt;
-}
 
+}
 
 /* Read extras from a file, sort by size. */
 
 void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
 
   FILE* f;
-  u8  buf[MAX_LINE];
-  u8  *lptr;
-  u32 cur_line = 0;
+  u8    buf[MAX_LINE];
+  u8*   lptr;
+  u32   cur_line = 0;
 
   f = fopen(fname, "r");
 
@@ -62,10 +62,12 @@ void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
 
     /* Trim on left and right. */
 
-    while (isspace(*lptr)) ++lptr;
+    while (isspace(*lptr))
+      ++lptr;
 
     rptr = lptr + strlen(lptr) - 1;
-    while (rptr >= lptr && isspace(*rptr)) --rptr;
+    while (rptr >= lptr && isspace(*rptr))
+      --rptr;
     ++rptr;
     *rptr = 0;
 
@@ -84,7 +86,8 @@ void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
 
     /* Skip alphanumerics and dashes (label). */
 
-    while (isalnum(*lptr) || *lptr == '_') ++lptr;
+    while (isalnum(*lptr) || *lptr == '_')
+      ++lptr;
 
     /* If @number follows, parse that. */
 
@@ -92,13 +95,15 @@ void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
 
       ++lptr;
       if (atoi(lptr) > dict_level) continue;
-      while (isdigit(*lptr)) ++lptr;
+      while (isdigit(*lptr))
+        ++lptr;
 
     }
 
     /* Skip whitespace and = signs. */
 
-    while (isspace(*lptr) || *lptr == '=') ++lptr;
+    while (isspace(*lptr) || *lptr == '=')
+      ++lptr;
 
     /* Consume opening '"'. */
 
@@ -112,8 +117,8 @@ void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
     /* Okay, let's allocate memory and copy data between "...", handling
        \xNN escaping, \\, and \". */
 
-    extras = ck_realloc_block(extras, (extras_cnt + 1) *
-               sizeof(struct extra_data));
+    extras =
+        ck_realloc_block(extras, (extras_cnt + 1) * sizeof(struct extra_data));
 
     wptr = extras[extras_cnt].data = ck_alloc(rptr - lptr);
 
@@ -132,27 +137,25 @@ void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
           ++lptr;
 
           if (*lptr == '\\' || *lptr == '"') {
+
             *(wptr++) = *(lptr++);
             klen++;
             break;
+
           }
 
           if (*lptr != 'x' || !isxdigit(lptr[1]) || !isxdigit(lptr[2]))
             FATAL("Invalid escaping (not \\xNN) in line %u.", cur_line);
 
-          *(wptr++) =
-            ((strchr(hexdigits, tolower(lptr[1])) - hexdigits) << 4) |
-            (strchr(hexdigits, tolower(lptr[2])) - hexdigits);
+          *(wptr++) = ((strchr(hexdigits, tolower(lptr[1])) - hexdigits) << 4) |
+                      (strchr(hexdigits, tolower(lptr[2])) - hexdigits);
 
           lptr += 3;
           ++klen;
 
           break;
 
-        default:
-
-          *(wptr++) = *(lptr++);
-          ++klen;
+        default: *(wptr++) = *(lptr++); ++klen;
 
       }
 
@@ -161,8 +164,8 @@ void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
     extras[extras_cnt].len = klen;
 
     if (extras[extras_cnt].len > MAX_DICT_FILE)
-      FATAL("Keyword too big in line %u (%s, limit is %s)", cur_line,
-            DMS(klen), DMS(MAX_DICT_FILE));
+      FATAL("Keyword too big in line %u (%s, limit is %s)", cur_line, DMS(klen),
+            DMS(MAX_DICT_FILE));
 
     if (*min_len > klen) *min_len = klen;
     if (*max_len < klen) *max_len = klen;
@@ -175,15 +178,14 @@ void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
 
 }
 
-
 /* Read extras from the extras directory and sort them by size. */
 
 void load_extras(u8* dir) {
 
-  DIR* d;
+  DIR*           d;
   struct dirent* de;
-  u32 min_len = MAX_DICT_FILE, max_len = 0, dict_level = 0;
-  u8* x;
+  u32            min_len = MAX_DICT_FILE, max_len = 0, dict_level = 0;
+  u8*            x;
 
   /* If the name ends with @, extract level and continue. */
 
@@ -201,8 +203,10 @@ void load_extras(u8* dir) {
   if (!d) {
 
     if (errno == ENOTDIR) {
+
       load_extras_file(dir, &min_len, &max_len, dict_level);
       goto check_and_sort;
+
     }
 
     PFATAL("Unable to open '%s'", dir);
@@ -214,11 +218,10 @@ void load_extras(u8* dir) {
   while ((de = readdir(d))) {
 
     struct stat st;
-    u8* fn = alloc_printf("%s/%s", dir, de->d_name);
-    s32 fd;
+    u8*         fn = alloc_printf("%s/%s", dir, de->d_name);
+    s32         fd;
 
-    if (lstat(fn, &st) || access(fn, R_OK))
-      PFATAL("Unable to access '%s'", fn);
+    if (lstat(fn, &st) || access(fn, R_OK)) PFATAL("Unable to access '%s'", fn);
 
     /* This also takes care of . and .. */
     if (!S_ISREG(st.st_mode) || !st.st_size) {
@@ -229,17 +232,17 @@ void load_extras(u8* dir) {
     }
 
     if (st.st_size > MAX_DICT_FILE)
-      FATAL("Extra '%s' is too big (%s, limit is %s)", fn,
-            DMS(st.st_size), DMS(MAX_DICT_FILE));
+      FATAL("Extra '%s' is too big (%s, limit is %s)", fn, DMS(st.st_size),
+            DMS(MAX_DICT_FILE));
 
     if (min_len > st.st_size) min_len = st.st_size;
     if (max_len < st.st_size) max_len = st.st_size;
 
-    extras = ck_realloc_block(extras, (extras_cnt + 1) *
-               sizeof(struct extra_data));
+    extras =
+        ck_realloc_block(extras, (extras_cnt + 1) * sizeof(struct extra_data));
 
     extras[extras_cnt].data = ck_alloc(st.st_size);
-    extras[extras_cnt].len  = st.st_size;
+    extras[extras_cnt].len = st.st_size;
 
     fd = open(fn, O_RDONLY);
 
@@ -262,8 +265,8 @@ check_and_sort:
 
   qsort(extras, extras_cnt, sizeof(struct extra_data), compare_extras_len);
 
-  OKF("Loaded %u extra tokens, size range %s to %s.", extras_cnt,
-      DMS(min_len), DMS(max_len));
+  OKF("Loaded %u extra tokens, size range %s to %s.", extras_cnt, DMS(min_len),
+      DMS(max_len));
 
   if (max_len > 32)
     WARNF("Some tokens are relatively large (%s) - consider trimming.",
@@ -275,17 +278,15 @@ check_and_sort:
 
 }
 
-
-
 /* Helper function for maybe_add_auto() */
 
 static inline u8 memcmp_nocase(u8* m1, u8* m2, u32 len) {
 
-  while (len--) if (tolower(*(m1++)) ^ tolower(*(m2++))) return 1;
+  while (len--)
+    if (tolower(*(m1++)) ^ tolower(*(m2++))) return 1;
   return 0;
 
 }
-
 
 /* Maybe add automatic extra. */
 
@@ -310,9 +311,10 @@ void maybe_add_auto(u8* mem, u32 len) {
 
     i = sizeof(interesting_16) >> 1;
 
-    while (i--) 
+    while (i--)
       if (*((u16*)mem) == interesting_16[i] ||
-          *((u16*)mem) == SWAP16(interesting_16[i])) return;
+          *((u16*)mem) == SWAP16(interesting_16[i]))
+        return;
 
   }
 
@@ -320,9 +322,10 @@ void maybe_add_auto(u8* mem, u32 len) {
 
     i = sizeof(interesting_32) >> 2;
 
-    while (i--) 
+    while (i--)
       if (*((u32*)mem) == interesting_32[i] ||
-          *((u32*)mem) == SWAP32(interesting_32[i])) return;
+          *((u32*)mem) == SWAP32(interesting_32[i]))
+        return;
 
   }
 
@@ -358,22 +361,21 @@ void maybe_add_auto(u8* mem, u32 len) {
 
   if (a_extras_cnt < MAX_AUTO_EXTRAS) {
 
-    a_extras = ck_realloc_block(a_extras, (a_extras_cnt + 1) *
-                                sizeof(struct extra_data));
+    a_extras = ck_realloc_block(a_extras,
+                                (a_extras_cnt + 1) * sizeof(struct extra_data));
 
     a_extras[a_extras_cnt].data = ck_memdup(mem, len);
-    a_extras[a_extras_cnt].len  = len;
+    a_extras[a_extras_cnt].len = len;
     ++a_extras_cnt;
 
   } else {
 
-    i = MAX_AUTO_EXTRAS / 2 +
-        UR((MAX_AUTO_EXTRAS + 1) / 2);
+    i = MAX_AUTO_EXTRAS / 2 + UR((MAX_AUTO_EXTRAS + 1) / 2);
 
     ck_free(a_extras[i].data);
 
-    a_extras[i].data    = ck_memdup(mem, len);
-    a_extras[i].len     = len;
+    a_extras[i].data = ck_memdup(mem, len);
+    a_extras[i].len = len;
     a_extras[i].hit_cnt = 0;
 
   }
@@ -387,11 +389,10 @@ sort_a_extras:
 
   /* Then, sort the top USE_AUTO_EXTRAS entries by size. */
 
-  qsort(a_extras, MIN(USE_AUTO_EXTRAS, a_extras_cnt),
-        sizeof(struct extra_data), compare_extras_len);
+  qsort(a_extras, MIN(USE_AUTO_EXTRAS, a_extras_cnt), sizeof(struct extra_data),
+        compare_extras_len);
 
 }
-
 
 /* Save automatically generated extras. */
 
@@ -419,7 +420,6 @@ void save_auto(void) {
   }
 
 }
-
 
 /* Load automatically generated extras. */
 
@@ -458,11 +458,12 @@ void load_auto(void) {
 
   }
 
-  if (i) OKF("Loaded %u auto-discovered dictionary tokens.", i);
-  else OKF("No auto-generated dictionary tokens to reuse.");
+  if (i)
+    OKF("Loaded %u auto-discovered dictionary tokens.", i);
+  else
+    OKF("No auto-generated dictionary tokens to reuse.");
 
 }
-
 
 /* Destroy extras. */
 
@@ -470,12 +471,12 @@ void destroy_extras(void) {
 
   u32 i;
 
-  for (i = 0; i < extras_cnt; ++i) 
+  for (i = 0; i < extras_cnt; ++i)
     ck_free(extras[i].data);
 
   ck_free(extras);
 
-  for (i = 0; i < a_extras_cnt; ++i) 
+  for (i = 0; i < a_extras_cnt; ++i)
     ck_free(a_extras[i].data);
 
   ck_free(a_extras);

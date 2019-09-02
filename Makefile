@@ -159,8 +159,8 @@ afl-gotcpu: src/afl-gotcpu.c $(COMM_HDR) | test_x86
 
 
 code-format:
-	./.custom-format.py -i src/*
-	./.custom-format.py -i include/*
+	./.custom-format.py -i src/*.c
+	./.custom-format.py -i include/*.h
 	./.custom-format.py -i libdislocator/*.c 
 	./.custom-format.py -i libtokencap/*.c 
 	./.custom-format.py -i llvm_mode/*.c
