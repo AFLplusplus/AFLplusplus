@@ -370,6 +370,7 @@ static u8 run_target(char** argv, u32 timeout) {
 
   static struct itimerval it;
   static u32 prev_timed_out = 0;
+  static u64 exec_ms = 0;
 
   int status = 0;
   u32 tb4;
@@ -519,6 +520,10 @@ static u8 run_target(char** argv, u32 timeout) {
   }
 
   if (!WIFSTOPPED(status)) child_pid = 0;
+  
+  getitimer(ITIMER_REAL, &it);
+  exec_ms = (u64) timeout - (it.it_value.tv_sec * 1000 + it.it_value.tv_usec / 1000);
+  if (slowest_exec_ms < exec_ms) slowest_exec_ms = exec_ms;
 
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
@@ -1491,6 +1496,7 @@ static void find_timeout(void) {
 static void write_stats_file(double bitmap_cvg, double stability, double eps) {
 
   static double last_bcvg, last_stab, last_eps;
+  static struct rusage usage;
 
   u8* fn = alloc_printf("%s/fuzzer_stats", out_dir);
   s32 fd;
@@ -1543,6 +1549,8 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
              "last_hang         : %llu\n"
              "execs_since_crash : %llu\n"
              "exec_timeout      : %u\n"
+             "slowest_exec_ms   : %llu\n"
+             "peak_rss_mb       : %lu\n"
              "afl_banner        : %s\n"
              "afl_version       : " VERSION "\n"
              "target_mode       : %s%s%s%s%s%s%s%s\n"
@@ -1554,7 +1562,7 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
              queued_variable, stability, bitmap_cvg, unique_crashes,
              unique_hangs, last_path_time / 1000, last_crash_time / 1000,
              last_hang_time / 1000, total_execs - last_crash_execs,
-             exec_tmout, use_banner,
+             exec_tmout, slowest_exec_ms, (unsigned long int)usage.ru_maxrss, use_banner,
              unicorn_mode ? "unicorn" : "", qemu_mode ? "qemu " : "", dumb_mode ? " dumb " : "",
              no_forkserver ? "no_forksrv " : "", crash_mode ? "crash " : "",
              persistent_mode ? "persistent " : "", deferred_mode ? "deferred " : "",
@@ -10346,6 +10354,25 @@ int main(int argc, char** argv) {
   }
 
   if (queue_cur) show_stats();
+
+  /*
+   * ATTENTION - the following 10 lines were copied from a PR to Google's afl
+   * repository - and slightly fixed.
+   * These lines have nothing to do with the purpose of original PR though.
+   * Looks like when an exit condition was completed (AFL_BENCH_JUST_ONE, 
+   * AFL_EXIT_WHEN_DONE or AFL_BENCH_UNTIL_CRASH) the child and forkserver
+   * where not killed?
+   */
+  /* if we stopped programmatically, we kill the forkserver and the current runner. 
+     if we stopped manually, this is done by the signal handler */
+  if (stop_soon == 2){
+    if (child_pid > 0) kill(child_pid, SIGKILL);
+    if (forksrv_pid > 0) kill(forksrv_pid, SIGKILL);
+    /* Now that we've killed the forkserver, we wait for it to be able to get rusage stats. */
+    if (waitpid(forksrv_pid, NULL, 0) <= 0) {
+      WARNF("error waitpid\n");
+    }
+  }
 
   write_bitmap();
   write_stats_file(0, 0, 0);
