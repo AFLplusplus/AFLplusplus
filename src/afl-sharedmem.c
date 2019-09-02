@@ -5,7 +5,7 @@
 #define AFL_MAIN
 
 #ifdef __ANDROID__
-  #include "android-ashmem.h"
+#  include "android-ashmem.h"
 #endif
 #include "config.h"
 #include "types.h"
@@ -32,68 +32,79 @@
 #include <sys/mman.h>
 
 #ifndef USEMMAP
- #include <sys/ipc.h>
- #include <sys/shm.h>
+#  include <sys/ipc.h>
+#  include <sys/shm.h>
 #endif
 
-extern unsigned char*trace_bits;
+extern unsigned char *trace_bits;
 
 #ifdef USEMMAP
 /* ================ Proteas ================ */
-int g_shm_fd = -1;
+int            g_shm_fd = -1;
 unsigned char *g_shm_base = NULL;
-char g_shm_file_path[L_tmpnam];
+char           g_shm_file_path[L_tmpnam];
 /* ========================================= */
 #else
-static s32 shm_id;                    /* ID of the SHM region              */
+static s32 shm_id;                     /* ID of the SHM region              */
 #endif
 
 /* Get rid of shared memory (atexit handler). */
 
 void remove_shm(void) {
+
 #ifdef USEMMAP
   if (g_shm_base != NULL) {
+
     munmap(g_shm_base, MAP_SIZE);
     g_shm_base = NULL;
+
   }
 
   if (g_shm_fd != -1) {
+
     close(g_shm_fd);
     g_shm_fd = -1;
+
   }
+
 #else
   shmctl(shm_id, IPC_RMID, NULL);
 #endif
-}
 
+}
 
 /* Configure shared memory. */
 
 void setup_shm(unsigned char dumb_mode) {
+
 #ifdef USEMMAP
   /* generate random file name for multi instance */
 
-  /* thanks to f*cking glibc we can not use tmpnam securely, it generates a security warning that cannot be suppressed */
+  /* thanks to f*cking glibc we can not use tmpnam securely, it generates a
+   * security warning that cannot be suppressed */
   /* so we do this worse workaround */
   snprintf(g_shm_file_path, L_tmpnam, "/afl_%d_%ld", getpid(), random());
 
   /* create the shared memory segment as if it was a file */
   g_shm_fd = shm_open(g_shm_file_path, O_CREAT | O_RDWR | O_EXCL, 0600);
-  if (g_shm_fd == -1) {
-    PFATAL("shm_open() failed");
-  }
+  if (g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
   /* configure the size of the shared memory segment */
   if (ftruncate(g_shm_fd, MAP_SIZE)) {
+
     PFATAL("setup_shm(): ftruncate() failed");
+
   }
 
   /* map the shared memory segment to the address space of the process */
-  g_shm_base = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, g_shm_fd, 0);
+  g_shm_base =
+      mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, g_shm_fd, 0);
   if (g_shm_base == MAP_FAILED) {
+
     close(g_shm_fd);
     g_shm_fd = -1;
     PFATAL("mmap() failed");
+
   }
 
   atexit(remove_shm);
@@ -108,7 +119,7 @@ void setup_shm(unsigned char dumb_mode) {
   trace_bits = g_shm_base;
 
   if (!trace_bits) PFATAL("mmap() failed");
-  
+
 #else
   u8* shm_str;
 
@@ -132,9 +143,10 @@ void setup_shm(unsigned char dumb_mode) {
   ck_free(shm_str);
 
   trace_bits = shmat(shm_id, NULL, 0);
-  
+
   if (!trace_bits) PFATAL("shmat() failed");
 
 #endif
+
 }
 

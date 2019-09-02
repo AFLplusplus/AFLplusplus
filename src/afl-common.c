@@ -13,25 +13,29 @@
 
 /* Detect @@ in args. */
 #ifndef __glibc__
-#include <unistd.h>
+#  include <unistd.h>
 #endif
-
 
 void detect_file_args(char** argv, u8* prog_in) {
 
   u32 i = 0;
 #ifdef __GLIBC__
-  u8* cwd = getcwd(NULL, 0); /* non portable glibc extension */
+  u8* cwd = getcwd(NULL, 0);                /* non portable glibc extension */
 #else
-  u8* cwd;
-  char *buf;
-  long size = pathconf(".", _PC_PATH_MAX);
-  if ((buf = (char *)malloc((size_t)size)) != NULL) {
-    cwd = getcwd(buf, (size_t)size); /* portable version */
+  u8*   cwd;
+  char* buf;
+  long  size = pathconf(".", _PC_PATH_MAX);
+  if ((buf = (char*)malloc((size_t)size)) != NULL) {
+
+    cwd = getcwd(buf, (size_t)size);                    /* portable version */
+
   } else {
+
     PFATAL("getcwd() failed");
-    cwd = 0; /* for dumb compilers */
+    cwd = 0;                                          /* for dumb compilers */
+
   }
+
 #endif
 
   if (!cwd) PFATAL("getcwd() failed");
@@ -48,8 +52,10 @@ void detect_file_args(char** argv, u8* prog_in) {
 
       /* Be sure that we're always using fully-qualified paths. */
 
-      if (prog_in[0] == '/') aa_subst = prog_in;
-      else aa_subst = alloc_printf("%s/%s", cwd, prog_in);
+      if (prog_in[0] == '/')
+        aa_subst = prog_in;
+      else
+        aa_subst = alloc_printf("%s/%s", cwd, prog_in);
 
       /* Construct a replacement argv value. */
 
@@ -66,7 +72,7 @@ void detect_file_args(char** argv, u8* prog_in) {
 
   }
 
-  free(cwd); /* not tracked */
+  free(cwd);                                                 /* not tracked */
 
 }
 

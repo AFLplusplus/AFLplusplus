@@ -46,7 +46,6 @@ void write_bitmap(void) {
 
 }
 
-
 /* Read bitmap from file. This is for the -B option again. */
 
 void read_bitmap(u8* fname) {
@@ -61,10 +60,9 @@ void read_bitmap(u8* fname) {
 
 }
 
-
 /* Check if the current execution path brings anything new to the table.
    Update virgin bits to reflect the finds. Returns 1 if the only change is
-   the hit-count for a particular tuple; 2 if there are new tuples seen. 
+   the hit-count for a particular tuple; 2 if there are new tuples seen.
    Updates the map, so subsequent calls will always return 0.
 
    This function is called after every exec() on a fairly large buffer, so
@@ -75,20 +73,20 @@ u8 has_new_bits(u8* virgin_map) {
 #ifdef __x86_64__
 
   u64* current = (u64*)trace_bits;
-  u64* virgin  = (u64*)virgin_map;
+  u64* virgin = (u64*)virgin_map;
 
-  u32  i = (MAP_SIZE >> 3);
+  u32 i = (MAP_SIZE >> 3);
 
 #else
 
   u32* current = (u32*)trace_bits;
-  u32* virgin  = (u32*)virgin_map;
+  u32* virgin = (u32*)virgin_map;
 
-  u32  i = (MAP_SIZE >> 2);
+  u32 i = (MAP_SIZE >> 2);
 
 #endif /* ^__x86_64__ */
 
-  u8   ret = 0;
+  u8 ret = 0;
 
   while (i--) {
 
@@ -111,14 +109,18 @@ u8 has_new_bits(u8* virgin_map) {
         if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
             (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff) ||
             (cur[4] && vir[4] == 0xff) || (cur[5] && vir[5] == 0xff) ||
-            (cur[6] && vir[6] == 0xff) || (cur[7] && vir[7] == 0xff)) ret = 2;
-        else ret = 1;
+            (cur[6] && vir[6] == 0xff) || (cur[7] && vir[7] == 0xff))
+          ret = 2;
+        else
+          ret = 1;
 
 #else
 
         if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff)) ret = 2;
-        else ret = 1;
+            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff))
+          ret = 2;
+        else
+          ret = 1;
 
 #endif /* ^__x86_64__ */
 
@@ -139,14 +141,13 @@ u8 has_new_bits(u8* virgin_map) {
 
 }
 
-
 /* Count the number of bits set in the provided bitmap. Used for the status
    screen several times every second, does not have to be fast. */
 
 u32 count_bits(u8* mem) {
 
   u32* ptr = (u32*)mem;
-  u32  i   = (MAP_SIZE >> 2);
+  u32  i = (MAP_SIZE >> 2);
   u32  ret = 0;
 
   while (i--) {
@@ -157,8 +158,10 @@ u32 count_bits(u8* mem) {
        data. */
 
     if (v == 0xffffffff) {
+
       ret += 32;
       continue;
+
     }
 
     v -= ((v >> 1) & 0x55555555);
@@ -171,8 +174,7 @@ u32 count_bits(u8* mem) {
 
 }
 
-
-#define FF(_b)  (0xff << ((_b) << 3))
+#define FF(_b) (0xff << ((_b) << 3))
 
 /* Count the number of bytes set in the bitmap. Called fairly sporadically,
    mostly to update the status screen or calibrate and examine confirmed
@@ -181,7 +183,7 @@ u32 count_bits(u8* mem) {
 u32 count_bytes(u8* mem) {
 
   u32* ptr = (u32*)mem;
-  u32  i   = (MAP_SIZE >> 2);
+  u32  i = (MAP_SIZE >> 2);
   u32  ret = 0;
 
   while (i--) {
@@ -200,14 +202,13 @@ u32 count_bytes(u8* mem) {
 
 }
 
-
 /* Count the number of non-255 bytes set in the bitmap. Used strictly for the
    status screen, several calls per second or so. */
 
 u32 count_non_255_bytes(u8* mem) {
 
   u32* ptr = (u32*)mem;
-  u32  i   = (MAP_SIZE >> 2);
+  u32  i = (MAP_SIZE >> 2);
   u32  ret = 0;
 
   while (i--) {
@@ -229,16 +230,14 @@ u32 count_non_255_bytes(u8* mem) {
 
 }
 
-
 /* Destructively simplify trace by eliminating hit count information
    and replacing it with 0x80 or 0x01 depending on whether the tuple
    is hit or not. Called on every new crash or timeout, should be
    reasonably fast. */
 
-const u8 simplify_lookup[256] = { 
+const u8 simplify_lookup[256] = {
 
-  [0]         = 1,
-  [1 ... 255] = 128
+    [0] = 1, [1 ... 255] = 128
 
 };
 
@@ -265,7 +264,9 @@ void simplify_trace(u64* mem) {
       mem8[6] = simplify_lookup[mem8[6]];
       mem8[7] = simplify_lookup[mem8[7]];
 
-    } else *mem = 0x0101010101010101ULL;
+    } else
+
+      *mem = 0x0101010101010101ULL;
 
     ++mem;
 
@@ -292,15 +293,17 @@ void simplify_trace(u32* mem) {
       mem8[2] = simplify_lookup[mem8[2]];
       mem8[3] = simplify_lookup[mem8[3]];
 
-    } else *mem = 0x01010101;
+    } else
+
+      *mem = 0x01010101;
 
     ++mem;
+
   }
 
 }
 
 #endif /* ^__x86_64__ */
-
 
 /* Destructively classify execution counts in a trace. This is used as a
    preprocessing step for any newly acquired traces. Called on every exec,
@@ -308,33 +311,30 @@ void simplify_trace(u32* mem) {
 
 static const u8 count_class_lookup8[256] = {
 
-  [0]           = 0,
-  [1]           = 1,
-  [2]           = 2,
-  [3]           = 4,
-  [4 ... 7]     = 8,
-  [8 ... 15]    = 16,
-  [16 ... 31]   = 32,
-  [32 ... 127]  = 64,
-  [128 ... 255] = 128
+    [0] = 0,
+    [1] = 1,
+    [2] = 2,
+    [3] = 4,
+    [4 ... 7] = 8,
+    [8 ... 15] = 16,
+    [16 ... 31] = 32,
+    [32 ... 127] = 64,
+    [128 ... 255] = 128
 
 };
 
 static u16 count_class_lookup16[65536];
 
-
 void init_count_class16(void) {
 
   u32 b1, b2;
 
-  for (b1 = 0; b1 < 256; b1++) 
+  for (b1 = 0; b1 < 256; b1++)
     for (b2 = 0; b2 < 256; b2++)
-      count_class_lookup16[(b1 << 8) + b2] = 
-        (count_class_lookup8[b1] << 8) |
-        count_class_lookup8[b2];
+      count_class_lookup16[(b1 << 8) + b2] =
+          (count_class_lookup8[b1] << 8) | count_class_lookup8[b2];
 
 }
-
 
 #ifdef __x86_64__
 
@@ -390,7 +390,6 @@ void classify_counts(u32* mem) {
 
 #endif /* ^__x86_64__ */
 
-
 /* Compact trace bytes into a smaller bitmap. We effectively just drop the
    count information here. This is called only sporadically, for some
    new paths. */
@@ -407,7 +406,6 @@ void minimize_bits(u8* dst, u8* src) {
   }
 
 }
-
 
 #ifndef SIMPLE_FILES
 
@@ -428,8 +426,7 @@ u8* describe_op(u8 hnb) {
 
     sprintf(ret + strlen(ret), ",time:%llu", get_cur_time() - start_time);
 
-    if (splicing_with >= 0)
-      sprintf(ret + strlen(ret), "+%06d", splicing_with);
+    if (splicing_with >= 0) sprintf(ret + strlen(ret), "+%06d", splicing_with);
 
     sprintf(ret + strlen(ret), ",op:%s", stage_short);
 
@@ -438,11 +435,12 @@ u8* describe_op(u8 hnb) {
       sprintf(ret + strlen(ret), ",pos:%d", stage_cur_byte);
 
       if (stage_val_type != STAGE_VAL_NONE)
-        sprintf(ret + strlen(ret), ",val:%s%+d", 
-                (stage_val_type == STAGE_VAL_BE) ? "be:" : "",
-                stage_cur_val);
+        sprintf(ret + strlen(ret), ",val:%s%+d",
+                (stage_val_type == STAGE_VAL_BE) ? "be:" : "", stage_cur_val);
 
-    } else sprintf(ret + strlen(ret), ",rep:%d", stage_cur_val);
+    } else
+
+      sprintf(ret + strlen(ret), ",rep:%d", stage_cur_val);
 
   }
 
@@ -454,13 +452,12 @@ u8* describe_op(u8 hnb) {
 
 #endif /* !SIMPLE_FILES */
 
-
 /* Write a message accompanying the crash directory :-) */
 
 static void write_crash_readme(void) {
 
-  u8* fn = alloc_printf("%s/crashes/README.txt", out_dir);
-  s32 fd;
+  u8*   fn = alloc_printf("%s/crashes/README.txt", out_dir);
+  s32   fd;
   FILE* f;
 
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
@@ -473,31 +470,37 @@ static void write_crash_readme(void) {
   f = fdopen(fd, "w");
 
   if (!f) {
+
     close(fd);
     return;
+
   }
 
-  fprintf(f, "Command line used to find this crash:\n\n"
+  fprintf(
+      f,
+      "Command line used to find this crash:\n\n"
 
-             "%s\n\n"
+      "%s\n\n"
 
-             "If you can't reproduce a bug outside of afl-fuzz, be sure to set the same\n"
-             "memory limit. The limit used for this fuzzing session was %s.\n\n"
+      "If you can't reproduce a bug outside of afl-fuzz, be sure to set the "
+      "same\n"
+      "memory limit. The limit used for this fuzzing session was %s.\n\n"
 
-             "Need a tool to minimize test cases before investigating the crashes or sending\n"
-             "them to a vendor? Check out the afl-tmin that comes with the fuzzer!\n\n"
+      "Need a tool to minimize test cases before investigating the crashes or "
+      "sending\n"
+      "them to a vendor? Check out the afl-tmin that comes with the fuzzer!\n\n"
 
-             "Found any cool bugs in open-source tools using afl-fuzz? If yes, please drop\n"
-             "an mail at <afl-users@googlegroups.com> once the issues are fixed\n\n"
+      "Found any cool bugs in open-source tools using afl-fuzz? If yes, please "
+      "drop\n"
+      "an mail at <afl-users@googlegroups.com> once the issues are fixed\n\n"
 
-             "  https://github.com/vanhauser-thc/AFLplusplus\n\n",
+      "  https://github.com/vanhauser-thc/AFLplusplus\n\n",
 
-             orig_cmdline, DMS(mem_limit << 20)); /* ignore errors */
+      orig_cmdline, DMS(mem_limit << 20));                 /* ignore errors */
 
   fclose(f);
 
 }
-
 
 /* Check if the result of an execve() during routine fuzzing is interesting,
    save or queue the input test case for further analysis if so. Returns 1 if
@@ -507,7 +510,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
   if (len == 0) return 0;
 
-  u8  *fn = "";
+  u8* fn = "";
   u8  hnb;
   s32 fd;
   u8  keeping = 0, res;
@@ -517,8 +520,8 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
   struct queue_entry* q = queue;
   while (q) {
-    if (q->exec_cksum == cksum)
-      q->n_fuzz = q->n_fuzz + 1;
+
+    if (q->exec_cksum == cksum) q->n_fuzz = q->n_fuzz + 1;
 
     q = q->next;
 
@@ -530,9 +533,11 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
        future fuzzing, etc. */
 
     if (!(hnb = has_new_bits(virgin_bits))) {
+
       if (crash_mode) ++total_crashes;
       return 0;
-    }    
+
+    }
 
 #ifndef SIMPLE_FILES
 
@@ -548,8 +553,10 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
     add_to_queue(fn, len, 0);
 
     if (hnb == 2) {
+
       queue_top->has_new_cov = 1;
       ++queued_with_cov;
+
     }
 
     queue_top->exec_cksum = cksum;
@@ -559,8 +566,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
     res = calibrate_case(argv, queue_top, mem, queue_cycle - 1, 0);
 
-    if (res == FAULT_ERROR)
-      FATAL("Unable to execute target application");
+    if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
     fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
     if (fd < 0) PFATAL("Unable to create '%s'", fn);
@@ -620,13 +626,12 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
 #ifndef SIMPLE_FILES
 
-      fn = alloc_printf("%s/hangs/id:%06llu,%s", out_dir,
-                        unique_hangs, describe_op(0));
+      fn = alloc_printf("%s/hangs/id:%06llu,%s", out_dir, unique_hangs,
+                        describe_op(0));
 
 #else
 
-      fn = alloc_printf("%s/hangs/id_%06llu", out_dir,
-                        unique_hangs);
+      fn = alloc_printf("%s/hangs/id_%06llu", out_dir, unique_hangs);
 
 #endif /* ^!SIMPLE_FILES */
 
@@ -638,7 +643,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
     case FAULT_CRASH:
 
-keep_as_crash:
+    keep_as_crash:
 
       /* This is handled in a manner roughly similar to timeouts,
          except for slightly different limits and no need to re-run test

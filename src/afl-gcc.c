@@ -43,19 +43,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-static u8*  as_path;                /* Path to the AFL 'as' wrapper      */
-static u8** cc_params;              /* Parameters passed to the real CC  */
-static u32  cc_par_cnt = 1;         /* Param count, including argv0      */
-static u8   be_quiet,               /* Quiet mode                        */
-            clang_mode;             /* Invoked as afl-clang*?            */
-
+static u8*  as_path;                   /* Path to the AFL 'as' wrapper      */
+static u8** cc_params;                 /* Parameters passed to the real CC  */
+static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
+static u8   be_quiet,                  /* Quiet mode                        */
+    clang_mode;                        /* Invoked as afl-clang*?            */
 
 /* Try to find our "fake" GNU assembler in AFL_PATH or at the location derived
    from argv[0]. If that fails, abort. */
 
 static void find_as(u8* argv0) {
 
-  u8 *afl_path = getenv("AFL_PATH");
+  u8* afl_path = getenv("AFL_PATH");
   u8 *slash, *tmp;
 
   if (afl_path) {
@@ -63,9 +62,11 @@ static void find_as(u8* argv0) {
     tmp = alloc_printf("%s/as", afl_path);
 
     if (!access(tmp, X_OK)) {
+
       as_path = afl_path;
       ck_free(tmp);
       return;
+
     }
 
     ck_free(tmp);
@@ -76,7 +77,7 @@ static void find_as(u8* argv0) {
 
   if (slash) {
 
-    u8 *dir;
+    u8* dir;
 
     *slash = 0;
     dir = ck_strdup(argv0);
@@ -85,9 +86,11 @@ static void find_as(u8* argv0) {
     tmp = alloc_printf("%s/afl-as", dir);
 
     if (!access(tmp, X_OK)) {
+
       as_path = dir;
       ck_free(tmp);
       return;
+
     }
 
     ck_free(tmp);
@@ -96,21 +99,22 @@ static void find_as(u8* argv0) {
   }
 
   if (!access(AFL_PATH "/as", X_OK)) {
+
     as_path = AFL_PATH;
     return;
+
   }
 
   FATAL("Unable to find AFL wrapper binary for 'as'. Please set AFL_PATH");
- 
-}
 
+}
 
 /* Copy argv to cc_params, making the necessary edits. */
 
 static void edit_params(u32 argc, char** argv) {
 
-  u8 fortify_set = 0, asan_set = 0;
-  u8 *name;
+  u8  fortify_set = 0, asan_set = 0;
+  u8* name;
 
 #if defined(__FreeBSD__) && defined(__x86_64__)
   u8 m32_set = 0;
@@ -119,7 +123,10 @@ static void edit_params(u32 argc, char** argv) {
   cc_params = ck_alloc((argc + 128) * sizeof(u8*));
 
   name = strrchr(argv[0], '/');
-  if (!name) name = argv[0]; else name++;
+  if (!name)
+    name = argv[0];
+  else
+    name++;
 
   if (!strncmp(name, "afl-clang", 9)) {
 
@@ -128,11 +135,15 @@ static void edit_params(u32 argc, char** argv) {
     setenv(CLANG_ENV_VAR, "1", 1);
 
     if (!strcmp(name, "afl-clang++")) {
+
       u8* alt_cxx = getenv("AFL_CXX");
       cc_params[0] = alt_cxx ? alt_cxx : (u8*)"clang++";
+
     } else {
+
       u8* alt_cc = getenv("AFL_CC");
       cc_params[0] = alt_cc ? alt_cc : (u8*)"clang";
+
     }
 
   } else {
@@ -145,16 +156,22 @@ static void edit_params(u32 argc, char** argv) {
 
 #ifdef __APPLE__
 
-    if (!strcmp(name, "afl-g++")) cc_params[0] = getenv("AFL_CXX");
-    else if (!strcmp(name, "afl-gcj")) cc_params[0] = getenv("AFL_GCJ");
-    else cc_params[0] = getenv("AFL_CC");
+    if (!strcmp(name, "afl-g++"))
+      cc_params[0] = getenv("AFL_CXX");
+    else if (!strcmp(name, "afl-gcj"))
+      cc_params[0] = getenv("AFL_GCJ");
+    else
+      cc_params[0] = getenv("AFL_CC");
 
     if (!cc_params[0]) {
 
       SAYF("\n" cLRD "[-] " cRST
-           "On Apple systems, 'gcc' is usually just a wrapper for clang. Please use the\n"
-           "    'afl-clang' utility instead of 'afl-gcc'. If you really have GCC installed,\n"
-           "    set AFL_CC or AFL_CXX to specify the correct path to that compiler.\n");
+           "On Apple systems, 'gcc' is usually just a wrapper for clang. "
+           "Please use the\n"
+           "    'afl-clang' utility instead of 'afl-gcc'. If you really have "
+           "GCC installed,\n"
+           "    set AFL_CC or AFL_CXX to specify the correct path to that "
+           "compiler.\n");
 
       FATAL("AFL_CC or AFL_CXX required on MacOS X");
 
@@ -163,14 +180,20 @@ static void edit_params(u32 argc, char** argv) {
 #else
 
     if (!strcmp(name, "afl-g++")) {
+
       u8* alt_cxx = getenv("AFL_CXX");
       cc_params[0] = alt_cxx ? alt_cxx : (u8*)"g++";
+
     } else if (!strcmp(name, "afl-gcj")) {
+
       u8* alt_cc = getenv("AFL_GCJ");
       cc_params[0] = alt_cc ? alt_cc : (u8*)"gcj";
+
     } else {
+
       u8* alt_cc = getenv("AFL_CC");
       cc_params[0] = alt_cc ? alt_cc : (u8*)"gcc";
+
     }
 
 #endif /* __APPLE__ */
@@ -178,13 +201,20 @@ static void edit_params(u32 argc, char** argv) {
   }
 
   while (--argc) {
+
     u8* cur = *(++argv);
 
     if (!strncmp(cur, "-B", 2)) {
 
       if (!be_quiet) WARNF("-B is already set, overriding");
 
-      if (!cur[2] && argc > 1) { argc--; argv++; }
+      if (!cur[2] && argc > 1) {
+
+        argc--;
+        argv++;
+
+      }
+
       continue;
 
     }
@@ -197,8 +227,8 @@ static void edit_params(u32 argc, char** argv) {
     if (!strcmp(cur, "-m32")) m32_set = 1;
 #endif
 
-    if (!strcmp(cur, "-fsanitize=address") ||
-        !strcmp(cur, "-fsanitize=memory")) asan_set = 1;
+    if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
+      asan_set = 1;
 
     if (strstr(cur, "FORTIFY_SOURCE")) fortify_set = 1;
 
@@ -209,15 +239,13 @@ static void edit_params(u32 argc, char** argv) {
   cc_params[cc_par_cnt++] = "-B";
   cc_params[cc_par_cnt++] = as_path;
 
-  if (clang_mode)
-    cc_params[cc_par_cnt++] = "-no-integrated-as";
+  if (clang_mode) cc_params[cc_par_cnt++] = "-no-integrated-as";
 
   if (getenv("AFL_HARDEN")) {
 
     cc_params[cc_par_cnt++] = "-fstack-protector-all";
 
-    if (!fortify_set)
-      cc_params[cc_par_cnt++] = "-D_FORTIFY_SOURCE=2";
+    if (!fortify_set) cc_params[cc_par_cnt++] = "-D_FORTIFY_SOURCE=2";
 
   }
 
@@ -229,8 +257,7 @@ static void edit_params(u32 argc, char** argv) {
 
   } else if (getenv("AFL_USE_ASAN")) {
 
-    if (getenv("AFL_USE_MSAN"))
-      FATAL("ASAN and MSAN are mutually exclusive");
+    if (getenv("AFL_USE_MSAN")) FATAL("ASAN and MSAN are mutually exclusive");
 
     if (getenv("AFL_HARDEN"))
       FATAL("ASAN and AFL_HARDEN are mutually exclusive");
@@ -240,8 +267,7 @@ static void edit_params(u32 argc, char** argv) {
 
   } else if (getenv("AFL_USE_MSAN")) {
 
-    if (getenv("AFL_USE_ASAN"))
-      FATAL("ASAN and MSAN are mutually exclusive");
+    if (getenv("AFL_USE_ASAN")) FATAL("ASAN and MSAN are mutually exclusive");
 
     if (getenv("AFL_HARDEN"))
       FATAL("MSAN and AFL_HARDEN are mutually exclusive");
@@ -249,11 +275,10 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = "-U_FORTIFY_SOURCE";
     cc_params[cc_par_cnt++] = "-fsanitize=memory";
 
-
   }
 
 #ifdef USEMMAP
-    cc_params[cc_par_cnt++] = "-lrt";
+  cc_params[cc_par_cnt++] = "-lrt";
 #endif
 
   if (!getenv("AFL_DONT_OPTIMIZE")) {
@@ -264,12 +289,11 @@ static void edit_params(u32 argc, char** argv) {
        works OK. This has nothing to do with us, but let's avoid triggering
        that bug. */
 
-    if (!clang_mode || !m32_set)
-      cc_params[cc_par_cnt++] = "-g";
+    if (!clang_mode || !m32_set) cc_params[cc_par_cnt++] = "-g";
 
 #else
 
-      cc_params[cc_par_cnt++] = "-g";
+    cc_params[cc_par_cnt++] = "-g";
 
 #endif
 
@@ -300,7 +324,6 @@ static void edit_params(u32 argc, char** argv) {
 
 }
 
-
 /* Main entry point */
 
 int main(int argc, char** argv) {
@@ -308,23 +331,33 @@ int main(int argc, char** argv) {
   if (isatty(2) && !getenv("AFL_QUIET")) {
 
     SAYF(cCYA "afl-cc" VERSION cRST " by <lcamtuf@google.com>\n");
-    SAYF(cYEL "[!] " cBRI "NOTE: " cRST "afl-gcc is deprecated, llvm_mode is much faster and has more options\n");
+    SAYF(cYEL "[!] " cBRI "NOTE: " cRST
+              "afl-gcc is deprecated, llvm_mode is much faster and has more "
+              "options\n");
 
-  } else be_quiet = 1;
+  } else
+
+    be_quiet = 1;
 
   if (argc < 2) {
 
-    SAYF("\n"
-         "This is a helper application for afl-fuzz. It serves as a drop-in replacement\n"
-         "for gcc or clang, letting you recompile third-party code with the required\n"
-         "runtime instrumentation. A common use pattern would be one of the following:\n\n"
+    SAYF(
+        "\n"
+        "This is a helper application for afl-fuzz. It serves as a drop-in "
+        "replacement\n"
+        "for gcc or clang, letting you recompile third-party code with the "
+        "required\n"
+        "runtime instrumentation. A common use pattern would be one of the "
+        "following:\n\n"
 
-         "  CC=%s/afl-gcc ./configure\n"
-         "  CXX=%s/afl-g++ ./configure\n\n"
+        "  CC=%s/afl-gcc ./configure\n"
+        "  CXX=%s/afl-g++ ./configure\n\n"
 
-         "You can specify custom next-stage toolchain via AFL_CC, AFL_CXX, and AFL_AS.\n"
-         "Setting AFL_HARDEN enables hardening optimizations in the compiled code.\n\n",
-         BIN_PATH, BIN_PATH);
+        "You can specify custom next-stage toolchain via AFL_CC, AFL_CXX, and "
+        "AFL_AS.\n"
+        "Setting AFL_HARDEN enables hardening optimizations in the compiled "
+        "code.\n\n",
+        BIN_PATH, BIN_PATH);
 
     exit(1);
 
@@ -341,3 +374,4 @@ int main(int argc, char** argv) {
   return 0;
 
 }
+
