@@ -10104,6 +10104,9 @@ int main(int argc, char** argv) {
 
   }
   
+  if (getenv("AFL_NO_UI") && getenv("AFL_FORCE_UI"))
+    FATAL("AFL_NO_UI and AFL_FORCE_UI are mutually exclusive");
+  
   if (strchr(argv[optind], '/') == NULL) WARNF(cLRD "Target binary called without a prefixed path, make sure you are fuzzing the right binary: " cRST "%s", argv[optind]);
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" Eissfeldt and Andrea Fioraldi");
@@ -10151,6 +10154,8 @@ int main(int argc, char** argv) {
   fix_up_banner(argv[optind]);
 
   check_if_tty();
+  if (getenv("AFL_FORCE_UI"))
+    not_on_tty = 0;
 
   if (getenv("AFL_CAL_FAST")) {
     /* Use less calibration cycles, for slow applications */
