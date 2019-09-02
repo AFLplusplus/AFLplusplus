@@ -1,10 +1,8 @@
-=========================================
-strcmp() / memcmp() token capture library
-=========================================
+# strcmp() / memcmp() token capture library
 
   (See ../docs/README for the general instruction manual.)
 
-This Linux-only companion library allows you to instrument strcmp(), memcmp(),
+This Linux-only companion library allows you to instrument `strcmp()`, `memcmp()`,
 and related functions to automatically extract syntax tokens passed to any of
 these libcalls. The resulting list of tokens may be then given as a starting
 dictionary to afl-fuzz (the -x option) to improve coverage on subsequent
@@ -31,15 +29,18 @@ with -fno-builtin and is linked dynamically. If you wish to automate the first
 part without mucking with CFLAGS in Makefiles, you can set AFL_NO_BUILTIN=1
 when using afl-gcc. This setting specifically adds the following flags:
 
+```
   -fno-builtin-strcmp -fno-builtin-strncmp -fno-builtin-strcasecmp
   -fno-builtin-strcasencmp -fno-builtin-memcmp -fno-builtin-strstr
   -fno-builtin-strcasestr
+```
 
 The next step is simply loading this library via LD_PRELOAD. The optimal usage
 pattern is to allow afl-fuzz to fuzz normally for a while and build up a corpus,
 and then fire off the target binary, with libtokencap.so loaded, on every file
 found by AFL in that earlier run. This demonstrates the basic principle:
 
+```
   export AFL_TOKEN_FILE=$PWD/temp_output.txt
 
   for i in <out_dir>/queue/id*; do
@@ -48,6 +49,7 @@ found by AFL in that earlier run. This demonstrates the basic principle:
   done
 
   sort -u temp_output.txt >afl_dictionary.txt
+```
 
 If you don't get any results, the target library is probably not using strcmp()
 and memcmp() to parse input; or you haven't compiled it with -fno-builtin; or
@@ -55,7 +57,7 @@ the whole thing isn't dynamically linked, and LD_PRELOAD is having no effect.
 
 PS. The library is Linux-only because there is probably no particularly portable
 and non-invasive way to distinguish between read-only and read-write memory
-mappings. The __tokencap_load_mappings() function is the only thing that would
+mappings. The `__tokencap_load_mappings()` function is the only thing that would
 need to be changed for other OSes. Porting to platforms with /proc/<pid>/maps
 (e.g., FreeBSD) should be trivial.
 

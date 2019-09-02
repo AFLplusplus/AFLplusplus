@@ -1,6 +1,4 @@
-========================================
-Using afl++ with partial instrumentation
-========================================
+# Using afl++ with partial instrumentation
 
   This file describes how you can selectively instrument only the source files
   that are interesting to you using the LLVM instrumentation provided by
@@ -8,9 +6,7 @@ Using afl++ with partial instrumentation
 
   Originally developed by Christian Holler (:decoder) <choller@mozilla.com>.
 
-
-1) Description and purpose
---------------------------
+## 1) Description and purpose
 
 When building and testing complex programs where only a part of the program is
 the fuzzing target, it often helps to only instrument the necessary parts of
@@ -23,15 +19,13 @@ mode of AFLFuzz that allows you to specify on a source file level which files
 should be compiled with or without instrumentation.
 
 
-2) Building the LLVM module
----------------------------
+## 2) Building the LLVM module
 
 The new code is part of the existing afl++ LLVM module in the llvm_mode/
 subdirectory. There is nothing specifically to do :)
 
 
-3) How to use the partial instrumentation mode
-----------------------------------------------
+## 3) How to use the partial instrumentation mode
 
 In order to build with partial instrumentation, you need to build with
 afl-clang-fast and afl-clang-fast++ respectively. The only required change is
@@ -45,21 +39,27 @@ matching when absolute paths are used during compilation).
 
 For example if your source tree looks like this:
 
+```
 project/
 project/feature_a/a1.cpp
 project/feature_a/a2.cpp
 project/feature_b/b1.cpp
 project/feature_b/b2.cpp
+```
 
 And you only want to test feature_a, then create a whitelist file containing:
 
+```
 feature_a/a1.cpp
 feature_a/a2.cpp
+```
 
 However if the whitelist file contains this, it works as well:
 
+```
 a1.cpp
 a2.cpp
+```
 
 but it might lead to files being unwantedly instrumented if the same filename
 exists somewhere else in the project.

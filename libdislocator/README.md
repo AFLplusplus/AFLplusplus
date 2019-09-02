@@ -1,6 +1,4 @@
-===================================
-libdislocator, an abusive allocator
-===================================
+# libdislocator, an abusive allocator
 
   (See ../docs/README for the general instruction manual.)
 
@@ -45,7 +43,9 @@ when fuzzing small, self-contained binaries.
 
 To use this library, run AFL like so:
 
+```
 AFL_PRELOAD=/path/to/libdislocator.so ./afl-fuzz [...other params...]
+```
 
 You *have* to specify path, even if it's just ./libdislocator.so or
 $PWD/libdislocator.so.
