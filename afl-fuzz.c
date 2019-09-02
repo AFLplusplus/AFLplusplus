@@ -172,7 +172,7 @@ static u32 stats_update_freq = 1;     /* Stats update frequency (execs)   */
 
 static u64  total_blocks;
 static u64  max_total_blocks;
-static u64  min_total_blocks;
+static u64  min_total_blocks = MAX_UINT_64;
 static u64  full_hash;
 static u64  overflows;
 static u64  lowest_ip = MAX_UINT_64, highest_ip;
@@ -1253,12 +1253,10 @@ static u64 next_p2(u64 val) {
    contender, or if the contender has a more favorable speed x size factor. */
 
 
-static void calculate_map_score(struct queue_entry* q) {
+static char calculate_map_score(struct queue_entry* q) {
   u64 *map = (u64*) trace_bits;
   u64 min, max, cnt = 0, i, j, cur;
   u32 *newmap;
-
-debug = 1;
 
   /*
    * default minimum
@@ -1268,13 +1266,33 @@ debug = 1;
   else if (total_blocks < min_total_blocks)
     min_total_blocks = total_blocks;
 
+  if (debug) fprintf(stderr, "overall total blocks - min: %llu, max %llu\n", min_total_blocks, max_total_blocks);
+  if (debug) fprintf(stderr, "total blocks: %llu\n", total_blocks);
   // here we try to put a weighting to the map depending on the total_blocks
   
+
+  struct queue_entry *qu = queue;
+  while (qu) {
+    if (qu != q && qu->full_hash == q->full_hash) { // it is a double so we remove this current entry
+      queue = q->next;
+      unlink(q->fname);
+      ck_free(q->fname);
+      ck_free(q->unique_ips);
+      ck_free(q);
+      return 1; // beware that the caller is not longer working on q then!
+      break;
+    }
+//    if (remove && qu->next == q) // and we remove the pointer to this entry
+//      qu->next = NULL;
+    qu = qu->next;
+  }
+
+
   // XXX TODO
 
 
   if (analyze_unique != 1)
-    return;
+    return 0;
 
 
   /*
@@ -1296,14 +1314,14 @@ debug = 1;
       if (analyze_rarity)
         analyze_rarity = -1;
       analyze_unique = -1; // we can not :(
-      return;
+      return -1;
     }
   }
 
   if ((newmap = (u32*)ck_alloc(total_blocks << 2)) == NULL)
-    return;
+    return -1;
 
-fprintf(stderr, "Unique map: %p size %llu, %llu entries\n", newmap, total_blocks << 2, total_blocks);
+if (debug) fprintf(stderr, "Unique map: %p size %llu, %llu entries\n", newmap, total_blocks << 2, total_blocks);
 
   min = 1;
   max = total_blocks;
@@ -1311,7 +1329,6 @@ fprintf(stderr, "Unique map: %p size %llu, %llu entries\n", newmap, total_blocks
   //if (debug) { fprintf(stderr, "BEFORE:\n"); for (i = min; i <= max; i++) fprintf(stderr, "%016llx\n",map[i]); fprintf(stderr, "\n"); }
   u64 prev_lowest = 0;
   if (max == min) {
-fprintf(stderr, "WRITE: %p map[%p + %llu] 1!\n", newmap + cnt, newmap, cnt);
     newmap[cnt++] = ((map[1] - lowest_ip) >> 5) & MAX_UINT_32;
   } else while (min <= max) {
     cur = map[min];
@@ -1324,7 +1341,6 @@ fprintf(stderr, "WRITE: %p map[%p + %llu] 1!\n", newmap + cnt, newmap, cnt);
         break;
       }
     if (cur != prev_lowest) {
-fprintf(stderr, "WRITE: %p map[%p + %llu]\n", newmap + cnt, newmap, cnt);
       newmap[cnt++] = ((cur - lowest_ip) >> 5) & MAX_UINT_32; // we reduce to 32 bit to save memory, we can shift 5 bits because the instrumentation we insert costs > 32 bytes
       if (min == max)
         max = min - 1;
@@ -1339,17 +1355,16 @@ fprintf(stderr, "WRITE: %p map[%p + %llu]\n", newmap + cnt, newmap, cnt);
       max = min - 1;
   }
   if (cnt > 1 && (cur - lowest_ip) >> 5 > MAX_UINT_32) {
-fprintf(stderr, "damn, highst - lowest >> 5 doesnt fit\n");
+if (debug) fprintf(stderr, "damn, highst - lowest >> 5 doesnt fit\n");
     ck_free(newmap);
-    return; // :-(
+    return -1; // :-(
   }
 
   // now we realloc
   if (cnt == 0 || (q->unique_ips = (u32*) ck_realloc(newmap, cnt << 2)) == NULL) {
     ck_free(newmap); // memory problem
-    return;
+    return -1;
   }
-fprintf(stderr, "cnt %llu, realloc: %p size %llu\n", cnt, q->unique_ips, cnt << 2);
 
   q->unique_hash = XXH64((char*)q->unique_ips, (cnt << 2), 0);  
   q->unique_blocks = cnt;
@@ -1359,17 +1374,15 @@ fprintf(stderr, "cnt %llu, realloc: %p size %llu\n", cnt, q->unique_ips, cnt << 
 //return;
 
   // now double check that the unique_blocks map is unique in the queue
-  struct queue_entry *qu = queue;
-//  u8 remove = 0;
+  qu = queue;
   while (qu) {
-fprintf(stderr, "%p->%p vs %p->%p\n", qu, qu->next, q, q->next);
     if (qu != q && qu->unique_hash == q->unique_hash) { // it is a double so we remove this current entry
       queue = q->next;
       unlink(q->fname);
       ck_free(q->fname);
       ck_free(q->unique_ips);
       ck_free(q);
-  //    remove = 1;
+      return 1; // beware that the caller is not longer working on q then!
       break;
     }
 //    if (remove && qu->next == q) // and we remove the pointer to this entry
@@ -1383,7 +1396,7 @@ fprintf(stderr, "%p->%p vs %p->%p\n", qu, qu->next, q, q->next);
   // XXX TODO
 
   if (analyze_rarity != 1)
-    return;
+    return 0;
 
   /*
    * calculate rarity option
@@ -1393,15 +1406,15 @@ fprintf(stderr, "%p->%p vs %p->%p\n", qu, qu->next, q, q->next);
   u32 *newlist;
 
   if ((newlist = (u32*) ck_alloc((rare_entries + cnt) << 2)) == NULL)
-    return; 
+    return -1; 
 
-fprintf(stderr, "newlist %p size %llu, maxcnt %llu\n", newlist, (rare_entries + cnt) << 2, rare_entries + cnt);
+if (debug) fprintf(stderr, "newlist %p size %llu, maxcnt %llu\n", newlist, (rare_entries + cnt) << 2, rare_entries + cnt);
     
   if (rare_entries == 0) { // first run
 
     memcpy((char*)newlist, (char*)q->unique_ips, cnt << 2);
-  fprintf(stderr, "Unique: (%llu + %llu) ", rare_entries, cnt); for (i=0; i < cnt; i++) fprintf(stderr, "%08x ", newlist[i]); fprintf(stderr, "\n");
-  fprintf(stderr, "Unique has %llu entries the first time\n", cnt);
+if (debug) {  fprintf(stderr, "Unique: (%llu + %llu) ", rare_entries, cnt); for (i=0; i < cnt; i++) fprintf(stderr, "%08x ", newlist[i]); fprintf(stderr, "\n"); }
+if (debug)   fprintf(stderr, "Unique has %llu entries the first time\n", cnt);
     rare_list = newlist;
     rare_entries = cnt;
 
@@ -1411,23 +1424,18 @@ fprintf(stderr, "newlist %p size %llu, maxcnt %llu\n", newlist, (rare_entries + 
     do {
       if (i >= rare_entries) { // rare_list is done
         while (j < cnt) {
-fprintf(stderr, "WRITE NEW_ %p %p[%llu] = %p %p[%llu]\n", newlist + (newcnt << 2), newlist, newcnt, q->unique_ips + (j << 2), q->unique_ips, j);
           newlist[newcnt++] = q->unique_ips[j++];
         }
       } else if (j >= cnt) { // new unique list is done
         while (i < rare_entries) {
-fprintf(stderr, "WRITE OLD_ %p %p[%llu] = %p %p[%llu]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
           newlist[newcnt++] = rare_list[i++];
         }
       } else { // still merging both lists
         if (rare_list[i] < q->unique_ips[j]) {
-fprintf(stderr, "WRITE OLD  %p %p[%llu] = %p %p[%llu]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
           newlist[newcnt++] = rare_list[i++];
         } else if (rare_list[i] > q->unique_ips[j]) {
-fprintf(stderr, "WRITE NEW  %p %p[%llu] = %p %p[%llu]\n", newlist + (newcnt << 2), newlist, newcnt, q->unique_ips + (j << 2), q->unique_ips, j);
           newlist[newcnt++] = q->unique_ips[j++];
         } else { // equal
-fprintf(stderr, "WRITE BOTH %p %p[%llu] = %p %p[%llu]\n", newlist + (newcnt << 2), newlist, newcnt, rare_list + (i << 2), rare_list, i);
           newlist[newcnt++] = rare_list[i++];
           j++;
         }
@@ -1435,12 +1443,11 @@ fprintf(stderr, "WRITE BOTH %p %p[%llu] = %p %p[%llu]\n", newlist + (newcnt << 2
     } while (i + j < rare_entries + cnt);
     
     if (newcnt > rare_entries) {
-  fprintf(stderr, "Unique [%llu]: (%llu/%llu + %llu/%llu) ", newcnt, i, rare_entries, j, cnt); for (i=0; i < newcnt; i++) fprintf(stderr, "%08x ", newlist[i]); fprintf(stderr, "\n");
+if (debug) {  fprintf(stderr, "Unique [%llu]: (%llu/%llu + %llu/%llu) ", newcnt, i, rare_entries, j, cnt); for (i=0; i < newcnt; i++) fprintf(stderr, "%08x ", newlist[i]); fprintf(stderr, "\n");}
       rare_entries = newcnt;
       ck_free(rare_list);
       if ((rare_list = ck_realloc(newlist, newcnt << 2)) == NULL)
         rare_list = newlist; // if realloc fails we dont want to loose this!!
-fprintf(stderr, "REALLOC rare %p size %llu, entries %llu\n", rare_list, newcnt << 2, newcnt);
     } else // nothing new
       ck_free(newlist);
   }
@@ -1450,9 +1457,7 @@ fprintf(stderr, "REALLOC rare %p size %llu, entries %llu\n", rare_list, newcnt <
 /*  2. Update queue rarity values*/
 /*=> values: count == lowest -> rarity+= MAX; highest -> rarity += MIN*/
 
-debug = 0;
-
-  return; // for optical reasons
+  return 0; // for optical reasons
 
 }
 
@@ -2586,7 +2591,10 @@ static u8 run_target(char** argv, u32 timeout) {
 
   prev_timed_out = child_timed_out;
 
-  total_blocks = *(u64*)trace_bits - 1;
+  if (*(u64*)trace_bits > 0)
+    total_blocks = *(u64*)trace_bits - 1;
+  else
+    total_blocks = 0;
   if (total_blocks >= MAX_ENTRIES) {
     overflows++;
     total_blocks = MAX_ENTRIES;
@@ -2702,14 +2710,13 @@ static void show_stats(void);
 static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
                          u32 handicap, u8 from_queue) {
 
-  u8  fault = 0, new_bits = 0, var_detected = 0,
+  u8  fault = 0, new_bits = 1, var_detected = 0,
       first_run = (q->full_hash == 0);
-
   u64 start_us, stop_us;
-
   s32 old_sc = stage_cur, old_sm = stage_max;
   u32 use_tmout = exec_tmout;
   u8* old_sn = stage_name;
+  char res;
 
   /* Be a bit more generous about timeouts when resuming sessions, or when
      trying to calibrate already-added finds. This helps avoid trouble due
@@ -2785,17 +2792,31 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
   total_bitmap_size += q->total_blocks;
   total_bitmap_entries++;
 
-  calculate_map_score(q);
+  res = calculate_map_score(q);
 
   /* If this case didn't result in new output from the instrumentation, tell
      parent. This is a non-critical problem, but something to warn the user
      about. */
 
+  if (res == 1) { // because q does not exist anymore
+    if (debug) fprintf(stderr, "calculate_map reported double after unique\n");
+    return FAULT_NOBITS;
+  }
+
+  struct queue_entry *qu = queue;  
+  while (qu && new_bits == 1) {
+    if (q->full_hash == qu->full_hash && qu != q) {
+      new_bits = 0;
+      if (debug) fprintf(stderr, "This is a double %p %p\n", q, qu);
+    }
+    qu = qu->next;
+  }
+
   if (!dumb_mode && first_run && !fault && !new_bits) fault = FAULT_NOBITS;
 
 abort_calibration:
 
-  if (new_bits == 2 && !q->has_new_cov) {
+  if (new_bits == 1 && !q->has_new_cov) {
     q->has_new_cov = 1;
     queued_with_cov++;
   }
@@ -2855,6 +2876,9 @@ static void perform_dry_run(char** argv) {
 
     res = calibrate_case(argv, q, use_mem, 0, 1);
     ck_free(use_mem);
+
+    if (total_blocks < min_total_blocks)
+      min_total_blocks = total_blocks;
 
     if (stop_soon) return;
 
@@ -3254,12 +3278,13 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
   u8  *fn = "";
   u8  hnb = total_blocks;
   s32 fd;
-  u8  keeping = 0, res, exists = 0;
+  u8  keeping = 0, res;
 
   /* Update path frequency. */
 
   struct queue_entry* q = queue;
-  while (q && exists == 0) {
+  u8 exists = 0;
+  while (q) {
     if (q->full_hash == full_hash) {
       q->n_fuzz = q->n_fuzz + 1;
       exists = 1;
@@ -3267,8 +3292,6 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
     q = q->next;
   }
 
-  if (exists)
-    return 0;
 
   if (fault == crash_mode) {
 
@@ -3307,6 +3330,8 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
     if (res == FAULT_ERROR)
       FATAL("Unable to execute target application");
+    if (res == FAULT_NOBITS) // was double
+      return 0;
 
     fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
     if (fd < 0) PFATAL("Unable to create '%s'", fn);
@@ -3316,6 +3341,9 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
     keeping = 1;
 
   }
+
+  if (exists)
+    return 0;
 
   switch (fault) {
 
@@ -4019,7 +4047,6 @@ static void show_stats(void) {
   double t_byte_ratio, stab_ratio;
 
   u64 cur_ms;
-  u32 t_bytes, t_bits;
 
   u32 banner_len, banner_pad;
   u8  tmp[256];
@@ -4066,13 +4093,9 @@ static void show_stats(void) {
 
   /* Do some bitmap stats. */
 
-  t_bytes = total_blocks;
   t_byte_ratio = ((double)total_blocks * 100) / max_total_blocks;
 
-  if (t_bytes)
-    stab_ratio = 100 - ((double)var_byte_count) * 100 / t_bytes;
-  else
-    stab_ratio = 100;
+  stab_ratio = 100 - ((double)var_byte_count) * 100 / max_total_blocks;
 
   /* Roughly every minute, update fuzzer stats and save auto tokens. */
 
@@ -4106,8 +4129,6 @@ static void show_stats(void) {
   if (not_on_tty) return;
 
   /* Compute some mildly useful bitmap stats. */
-
-  t_bits = total_blocks;
 
   /* Now, for the visuals... */
 
@@ -4250,21 +4271,35 @@ static void show_stats(void) {
 
   SAYF(bV bSTOP "  now processing : " cRST "%-16s " bSTG bV bSTOP, tmp);
 
+/*
   sprintf(tmp, "%0.02f%% / %0.02f%%", ((double)queue_cur->total_blocks) *
           100 / MAP_SIZE, t_byte_ratio);
-
   SAYF("    map density : %s%-21s" bSTG bV "\n", t_byte_ratio > 70 ? cLRD :
        ((t_bytes < 200 && !dumb_mode) ? cPIN : cRST), tmp);
+*/
+  sprintf(tmp, "%llu - %llu", min_total_blocks, max_total_blocks);
+  SAYF(" map depth : " cRST "%-26s" bSTG bV "\n", tmp);
 
   sprintf(tmp, "%s (%0.02f%%)", DI(cur_skipped_paths),
           ((double)cur_skipped_paths * 100) / queued_paths);
 
   SAYF(bV bSTOP " paths timed out : " cRST "%-16s " bSTG bV, tmp);
 
+/*
   sprintf(tmp, "%0.02f bits/tuple",
           t_bytes ? (((double)t_bits) / t_bytes) : 0);
-
   SAYF(bSTOP " count coverage : " cRST "%-21s" bSTG bV "\n", tmp);
+*/
+  if (rare_entries > 0)
+    sprintf(tmp, "%llu", rare_entries);
+  else
+    sprintf(tmp, "unmeasured");
+  SAYF(bSTOP " unique : " cRST "%-10s", tmp);
+  sprintf(tmp, "%s%llu", overflows == 0 ? cRST : cLRD, overflows);
+  SAYF(cGRA "  overflows : %-9s" bSTG bV "\n", tmp);
+//  SAYF(bSTOP " total blocks: " cRST "%.8llu"  "  overflows : " cRST "%.ll8u" bSTG bV "\n", rare_entries, overflows);
+
+
 
   SAYF(bVR bH bSTOP cCYA " stage progress " bSTG bH10 bH5 bH2 bH2 bX bH bSTOP cCYA
        " findings in depth " bSTG bH10 bH5 bH2 bH2 bVL "\n");
@@ -4398,8 +4433,7 @@ static void show_stats(void) {
 
   SAYF(bV bSTOP "       havoc : " cRST "%-36s " bSTG bV bSTOP, tmp);
 
-  if (t_bytes) sprintf(tmp, "%0.02f%%", stab_ratio);
-    else strcpy(tmp, "n/a");
+  sprintf(tmp, "%0.02f%%", stab_ratio);
 
   SAYF(" stability : %s%-10s" bSTG bV "\n", (stab_ratio < 85 && var_byte_count > 40)
        ? cLRD : ((queued_variable && (!persistent_mode || var_byte_count > 20))
@@ -4606,7 +4640,7 @@ static u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
 
   static u8 tmp[64];
   static u8 clean_trace[MAP_SIZE];
-
+  char res = 0;
   u8  needs_write = 0, fault = 0;
   u32 trim_exec = 0;
   u32 orig_len = q->len;
@@ -4695,14 +4729,14 @@ static u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
     close(fd);
 
     memcpy(trace_bits, clean_trace, MAP_SIZE);
-    calculate_map_score(q);
+    res = calculate_map_score(q);
 
   }
 
 
 abort_trimming:
-
-  bytes_trim_out += q->len;
+  if (res != 1)
+    bytes_trim_out += q->len;
   return fault;
 
 }
@@ -4721,7 +4755,7 @@ static u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
 
   static u8 tmp[64];
   static u8 clean_trace[MAP_SIZE];
-
+  char res = 0;
   u8  needs_write = 0, fault = 0;
   u32 trim_exec = 0;
   u32 remove_len;
@@ -4825,13 +4859,14 @@ static u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
     close(fd);
 
     memcpy(trace_bits, clean_trace, MAP_SIZE);
-    calculate_map_score(q);
+    res = calculate_map_score(q);
 
   }
 
 abort_trimming:
 
-  bytes_trim_out += q->len;
+  if (res != 1)
+    bytes_trim_out += q->len;
   return fault;
 
 }
@@ -5350,7 +5385,8 @@ static u8 fuzz_one_original(char** argv) {
 
       if (res == FAULT_ERROR)
         FATAL("Unable to execute target application");
-
+      if (res == FAULT_NOBITS)
+        return 1;
     }
 
     if (stop_soon || res != crash_mode) {
@@ -7180,7 +7216,8 @@ static u8 pilot_fuzzing(char** argv) {
 
 			if (res == FAULT_ERROR)
 				FATAL("Unable to execute target application");
-
+                        if (res == FAULT_NOBITS)
+                          return 1;
 		}
 
 		if (stop_soon || res != crash_mode) {
@@ -8978,6 +9015,8 @@ static u8 core_fuzzing(char** argv) {
 
 				if (res == FAULT_ERROR)
 					FATAL("Unable to execute target application");
+                                if (res == FAULT_NOBITS)
+                                  return 1;
 
 			}
 
@@ -12176,6 +12215,7 @@ int main(int argc, char** argv) {
 
   if (getenv("AFL_DEBUG"))
     debug = 1;
+debug = 1;
 
   if (getenv("AFL_PYTHON_ONLY")) {
     /* This ensures we don't proceed to havoc/splice */
@@ -12275,6 +12315,9 @@ int main(int argc, char** argv) {
     start_time += 4000;
     if (stop_soon) goto stop_fuzzing;
   }
+
+   if (!getenv("AFL_DEBUG"))
+     debug = 0;
 
   // real start time, we reset, so this works correctly with -V
   start_time = get_cur_time();
