@@ -220,4 +220,110 @@ void trim_py(char** ret, size_t* retlen) {
   }
 }
 
+u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
+
+  static u8 tmp[64];
+  static u8 clean_trace[MAP_SIZE];
+
+  u8  needs_write = 0, fault = 0;
+  u32 trim_exec = 0;
+  u32 orig_len = q->len;
+
+  stage_name = tmp;
+  bytes_trim_in += q->len;
+
+  /* Initialize trimming in the Python module */
+  stage_cur = 0;
+  stage_max = init_trim_py(in_buf, q->len);
+
+  if (not_on_tty && debug)
+    SAYF("[Python Trimming] START: Max %d iterations, %u bytes", stage_max, q->len);
+
+  while(stage_cur < stage_max) {
+    sprintf(tmp, "ptrim %s", DI(trim_exec));
+
+    u32 cksum;
+
+    char* retbuf = NULL;
+    size_t retlen = 0;
+
+    trim_py(&retbuf, &retlen);
+
+    if (retlen > orig_len)
+      FATAL("Trimmed data returned by Python module is larger than original data");
+
+    write_to_testcase(retbuf, retlen);
+
+    fault = run_target(argv, exec_tmout);
+    ++trim_execs;
+
+    if (stop_soon || fault == FAULT_ERROR) goto abort_trimming;
+
+    cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
+
+    if (cksum == q->exec_cksum) {
+
+      q->len = retlen;
+      memcpy(in_buf, retbuf, retlen);
+
+      /* Let's save a clean trace, which will be needed by
+         update_bitmap_score once we're done with the trimming stuff. */
+
+      if (!needs_write) {
+
+        needs_write = 1;
+        memcpy(clean_trace, trace_bits, MAP_SIZE);
+
+      }
+
+      /* Tell the Python module that the trimming was successful */
+      stage_cur = post_trim_py(1);
+
+      if (not_on_tty && debug)
+        SAYF("[Python Trimming] SUCCESS: %d/%d iterations (now at %u bytes)", stage_cur, stage_max, q->len);
+    } else {
+      /* Tell the Python module that the trimming was unsuccessful */
+      stage_cur = post_trim_py(0);
+      if (not_on_tty && debug)
+        SAYF("[Python Trimming] FAILURE: %d/%d iterations", stage_cur, stage_max);
+    }
+
+      /* Since this can be slow, update the screen every now and then. */
+
+      if (!(trim_exec++ % stats_update_freq)) show_stats();
+  }
+
+  if (not_on_tty && debug)
+    SAYF("[Python Trimming] DONE: %u bytes -> %u bytes", orig_len, q->len);
+
+  /* If we have made changes to in_buf, we also need to update the on-disk
+     version of the test case. */
+
+  if (needs_write) {
+
+    s32 fd;
+
+    unlink(q->fname); /* ignore errors */
+
+    fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+
+    if (fd < 0) PFATAL("Unable to create '%s'", q->fname);
+
+    ck_write(fd, in_buf, q->len, q->fname);
+    close(fd);
+
+    memcpy(trace_bits, clean_trace, MAP_SIZE);
+    update_bitmap_score(q);
+
+  }
+
+
+
+abort_trimming:
+
+  bytes_trim_out += q->len;
+  return fault;
+
+}
+
 #endif /* USE_PYTHON */

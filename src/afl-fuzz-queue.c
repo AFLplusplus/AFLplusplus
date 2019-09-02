@@ -284,3 +284,139 @@ void cull_queue(void) {
 
 }
 
+
+/* Calculate case desirability score to adjust the length of havoc fuzzing.
+   A helper function for fuzz_one(). Maybe some of these constants should
+   go into config.h. */
+
+u32 calculate_score(struct queue_entry* q) {
+
+  u32 avg_exec_us = total_cal_us / total_cal_cycles;
+  u32 avg_bitmap_size = total_bitmap_size / total_bitmap_entries;
+  u32 perf_score = 100;
+
+  /* Adjust score based on execution speed of this path, compared to the
+     global average. Multiplier ranges from 0.1x to 3x. Fast inputs are
+     less expensive to fuzz, so we're giving them more air time. */
+
+  // TODO BUG FIXME: is this really a good idea?
+  // This sounds like looking for lost keys under a street light just because
+  // the light is better there.
+  // Longer execution time means longer work on the input, the deeper in
+  // coverage, the better the fuzzing, right? -mh
+
+  if (q->exec_us * 0.1 > avg_exec_us) perf_score = 10;
+  else if (q->exec_us * 0.25 > avg_exec_us) perf_score = 25;
+  else if (q->exec_us * 0.5 > avg_exec_us) perf_score = 50;
+  else if (q->exec_us * 0.75 > avg_exec_us) perf_score = 75;
+  else if (q->exec_us * 4 < avg_exec_us) perf_score = 300;
+  else if (q->exec_us * 3 < avg_exec_us) perf_score = 200;
+  else if (q->exec_us * 2 < avg_exec_us) perf_score = 150;
+
+  /* Adjust score based on bitmap size. The working theory is that better
+     coverage translates to better targets. Multiplier from 0.25x to 3x. */
+
+  if (q->bitmap_size * 0.3 > avg_bitmap_size) perf_score *= 3;
+  else if (q->bitmap_size * 0.5 > avg_bitmap_size) perf_score *= 2;
+  else if (q->bitmap_size * 0.75 > avg_bitmap_size) perf_score *= 1.5;
+  else if (q->bitmap_size * 3 < avg_bitmap_size) perf_score *= 0.25;
+  else if (q->bitmap_size * 2 < avg_bitmap_size) perf_score *= 0.5;
+  else if (q->bitmap_size * 1.5 < avg_bitmap_size) perf_score *= 0.75;
+
+  /* Adjust score based on handicap. Handicap is proportional to how late
+     in the game we learned about this path. Latecomers are allowed to run
+     for a bit longer until they catch up with the rest. */
+
+  if (q->handicap >= 4) {
+    perf_score *= 4;
+    q->handicap -= 4;
+  } else if (q->handicap) {
+    perf_score *= 2;
+    --q->handicap;
+  }
+
+  /* Final adjustment based on input depth, under the assumption that fuzzing
+     deeper test cases is more likely to reveal stuff that can't be
+     discovered with traditional fuzzers. */
+
+  switch (q->depth) {
+
+    case 0 ... 3:   break;
+    case 4 ... 7:   perf_score *= 2; break;
+    case 8 ... 13:  perf_score *= 3; break;
+    case 14 ... 25: perf_score *= 4; break;
+    default:        perf_score *= 5;
+
+  }
+
+  u64 fuzz = q->n_fuzz;
+  u64 fuzz_total;
+
+  u32 n_paths, fuzz_mu;
+  u32 factor = 1;
+
+  switch (schedule) {
+
+    case EXPLORE:
+      break;
+
+    case EXPLOIT:
+      factor = MAX_FACTOR;
+      break;
+
+    case COE:
+      fuzz_total = 0;
+      n_paths = 0;
+
+      struct queue_entry *queue_it = queue;
+      while (queue_it) {
+        fuzz_total += queue_it->n_fuzz;
+        n_paths ++;
+        queue_it = queue_it->next;
+      }
+
+      fuzz_mu = fuzz_total / n_paths;
+      if (fuzz <= fuzz_mu) {
+        if (q->fuzz_level < 16)
+          factor = ((u32) (1 << q->fuzz_level));
+        else
+          factor = MAX_FACTOR;
+      } else {
+        factor = 0;
+      }
+      break;
+
+    case FAST:
+      if (q->fuzz_level < 16) {
+         factor = ((u32) (1 << q->fuzz_level)) / (fuzz == 0 ? 1 : fuzz);
+      } else
+        factor = MAX_FACTOR / (fuzz == 0 ? 1 : next_p2 (fuzz));
+      break;
+
+    case LIN:
+      factor = q->fuzz_level / (fuzz == 0 ? 1 : fuzz);
+      break;
+
+    case QUAD:
+      factor = q->fuzz_level * q->fuzz_level / (fuzz == 0 ? 1 : fuzz);
+      break;
+
+    default:
+      PFATAL ("Unknown Power Schedule");
+  }
+  if (factor > MAX_FACTOR)
+    factor = MAX_FACTOR;
+
+  perf_score *= factor / POWER_BETA;
+
+  // MOpt mode
+  if (limit_time_sig != 0 && max_depth - q->depth < 3) perf_score *= 2;
+  else if (perf_score < 1) perf_score = 1; // Add a lower bound to AFLFast's energy assignment strategies
+
+  /* Make sure that we don't go over limit. */
+
+  if (perf_score > havoc_max_mult * 100) perf_score = havoc_max_mult * 100;
+
+  return perf_score;
+
+}
