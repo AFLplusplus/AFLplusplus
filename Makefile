@@ -35,7 +35,7 @@ CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ \
 	      -DAFL_PATH=\"$(HELPER_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\" \
 	      -DBIN_PATH=\"$(BIN_PATH)\" -Wno-unused-function
 
-AFL_FUZZ_FILES = $(wildcard src/afl-fuzz-src/*.c)
+AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
 PYTHON_INCLUDE	?= /usr/include/python2.7
 
