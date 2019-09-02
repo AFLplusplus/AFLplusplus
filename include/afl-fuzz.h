@@ -237,8 +237,8 @@ extern u8 *in_dir,                      /* Input directory with test cases  */
     *use_banner,                        /* Display banner                   */
     *in_bitmap,                         /* Input bitmap                     */
     *file_extension,                    /* File extension                   */
-    *orig_cmdline;                      /* Original command line            */
-extern u8 *doc_path,                    /* Path to documentation dir        */
+    *orig_cmdline,                      /* Original command line            */
+    *doc_path,                          /* Path to documentation dir        */
     *target_path,                       /* Path to target binary            */
     *out_file;                          /* File to fuzz, if any             */
 
@@ -532,11 +532,11 @@ u8   common_fuzz_stuff(char**, u8*, u32);
 
 /* Fuzz one */
 
-u8        fuzz_one_original(char**);
-static u8 pilot_fuzzing(char**);
-u8        core_fuzzing(char**);
-void      pso_updating(void);
-u8        fuzz_one(char**);
+u8   fuzz_one_original(char**);
+u8   pilot_fuzzing(char**);
+u8   core_fuzzing(char**);
+void pso_updating(void);
+u8   fuzz_one(char**);
 
 /* Init */
 
