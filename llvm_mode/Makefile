@@ -25,13 +25,22 @@ BIN_PATH     = $(PREFIX)/bin
 
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
-LLVM_CONFIG ?= llvm-config
+ifeq "$(shell uname)" "OpenBSD"
+  LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
+  HAS_OPT = $(shell test -x $(BIN_PATH)/opt && echo 0 || echo 1)
+  ifeq "$(HAS_OPT)" "1"
+    $(error llvm_mode needs a complete llvm installation (versions 3.8.0 up to 9) -> e.g. "pkg_add llvm-7.0.1p9")
+  endif
+else
+  LLVM_CONFIG ?= llvm-config
+endif
+
 LLVMVER  = $(shell $(LLVM_CONFIG) --version)
 LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^[12]|^3\.0|^1[0-9]' && echo 1 || echo 0 )
 LLVM_MAJOR = ($shell $(LLVM_CONFIG) --version | sed 's/\..*//')
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
-  $(warn llvm_mode only supports versions 3.8.0 up to 9 )
+  $(error llvm_mode only supports versions 3.8.0 up to 9)
 endif
 
 # this is not visible yet:
@@ -61,7 +70,7 @@ ifeq "$(shell uname)" "Darwin"
 endif
 
 ifeq "$(shell uname)" "OpenBSD"
-  CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so.0.0
+  CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so
 endif
 
 # We were using llvm-config --bindir to get the location of clang, but
@@ -69,8 +78,13 @@ endif
 # probably better.
 
 ifeq "$(origin CC)" "default"
-  CC         = clang
-  CXX        = clang++
+  ifeq "$(shell uname)" "OpenBSD"
+    CC         = $(BIN_PATH)/clang
+    CXX        = $(BIN_PATH)/clang++
+  else
+    CC         = clang
+    CXX        = clang++
+  endif
 endif
 
 # sanity check.
