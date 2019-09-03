@@ -39,7 +39,7 @@ Version ++2.53d (dev):
   - NeverZero counters for QEMU
   - NeverZero counters for Unicorn
   - CompareCoverage Unicorn
-  - Immediates-only instrumentation for CompareCoverage
+  - immediates-only instrumentation for CompareCoverage
 
 
 --------------------------
