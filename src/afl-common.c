@@ -13,7 +13,7 @@
 
 /* Detect @@ in args. */
 #ifndef __glibc__
-#  include <unistd.h>
+#include <unistd.h>
 #endif
 
 void detect_file_args(char** argv, u8* prog_in) {

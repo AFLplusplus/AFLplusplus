@@ -28,77 +28,77 @@
 
 #ifdef USE_COLOR
 
-#  define cBLK "\x1b[0;30m"
-#  define cRED "\x1b[0;31m"
-#  define cGRN "\x1b[0;32m"
-#  define cBRN "\x1b[0;33m"
-#  define cBLU "\x1b[0;34m"
-#  define cMGN "\x1b[0;35m"
-#  define cCYA "\x1b[0;36m"
-#  define cLGR "\x1b[0;37m"
-#  define cGRA "\x1b[1;90m"
-#  define cLRD "\x1b[1;91m"
-#  define cLGN "\x1b[1;92m"
-#  define cYEL "\x1b[1;93m"
-#  define cLBL "\x1b[1;94m"
-#  define cPIN "\x1b[1;95m"
-#  define cLCY "\x1b[1;96m"
-#  define cBRI "\x1b[1;97m"
-#  define cRST "\x1b[0m"
+#define cBLK "\x1b[0;30m"
+#define cRED "\x1b[0;31m"
+#define cGRN "\x1b[0;32m"
+#define cBRN "\x1b[0;33m"
+#define cBLU "\x1b[0;34m"
+#define cMGN "\x1b[0;35m"
+#define cCYA "\x1b[0;36m"
+#define cLGR "\x1b[0;37m"
+#define cGRA "\x1b[1;90m"
+#define cLRD "\x1b[1;91m"
+#define cLGN "\x1b[1;92m"
+#define cYEL "\x1b[1;93m"
+#define cLBL "\x1b[1;94m"
+#define cPIN "\x1b[1;95m"
+#define cLCY "\x1b[1;96m"
+#define cBRI "\x1b[1;97m"
+#define cRST "\x1b[0m"
 
-#  define bgBLK "\x1b[40m"
-#  define bgRED "\x1b[41m"
-#  define bgGRN "\x1b[42m"
-#  define bgBRN "\x1b[43m"
-#  define bgBLU "\x1b[44m"
-#  define bgMGN "\x1b[45m"
-#  define bgCYA "\x1b[46m"
-#  define bgLGR "\x1b[47m"
-#  define bgGRA "\x1b[100m"
-#  define bgLRD "\x1b[101m"
-#  define bgLGN "\x1b[102m"
-#  define bgYEL "\x1b[103m"
-#  define bgLBL "\x1b[104m"
-#  define bgPIN "\x1b[105m"
-#  define bgLCY "\x1b[106m"
-#  define bgBRI "\x1b[107m"
+#define bgBLK "\x1b[40m"
+#define bgRED "\x1b[41m"
+#define bgGRN "\x1b[42m"
+#define bgBRN "\x1b[43m"
+#define bgBLU "\x1b[44m"
+#define bgMGN "\x1b[45m"
+#define bgCYA "\x1b[46m"
+#define bgLGR "\x1b[47m"
+#define bgGRA "\x1b[100m"
+#define bgLRD "\x1b[101m"
+#define bgLGN "\x1b[102m"
+#define bgYEL "\x1b[103m"
+#define bgLBL "\x1b[104m"
+#define bgPIN "\x1b[105m"
+#define bgLCY "\x1b[106m"
+#define bgBRI "\x1b[107m"
 
 #else
 
-#  define cBLK ""
-#  define cRED ""
-#  define cGRN ""
-#  define cBRN ""
-#  define cBLU ""
-#  define cMGN ""
-#  define cCYA ""
-#  define cLGR ""
-#  define cGRA ""
-#  define cLRD ""
-#  define cLGN ""
-#  define cYEL ""
-#  define cLBL ""
-#  define cPIN ""
-#  define cLCY ""
-#  define cBRI ""
-#  define cRST ""
+#define cBLK ""
+#define cRED ""
+#define cGRN ""
+#define cBRN ""
+#define cBLU ""
+#define cMGN ""
+#define cCYA ""
+#define cLGR ""
+#define cGRA ""
+#define cLRD ""
+#define cLGN ""
+#define cYEL ""
+#define cLBL ""
+#define cPIN ""
+#define cLCY ""
+#define cBRI ""
+#define cRST ""
 
-#  define bgBLK ""
-#  define bgRED ""
-#  define bgGRN ""
-#  define bgBRN ""
-#  define bgBLU ""
-#  define bgMGN ""
-#  define bgCYA ""
-#  define bgLGR ""
-#  define bgGRA ""
-#  define bgLRD ""
-#  define bgLGN ""
-#  define bgYEL ""
-#  define bgLBL ""
-#  define bgPIN ""
-#  define bgLCY ""
-#  define bgBRI ""
+#define bgBLK ""
+#define bgRED ""
+#define bgGRN ""
+#define bgBRN ""
+#define bgBLU ""
+#define bgMGN ""
+#define bgCYA ""
+#define bgLGR ""
+#define bgGRA ""
+#define bgLRD ""
+#define bgLGN ""
+#define bgYEL ""
+#define bgLBL ""
+#define bgPIN ""
+#define bgLCY ""
+#define bgBRI ""
 
 #endif /* ^USE_COLOR */
 
@@ -108,39 +108,39 @@
 
 #ifdef FANCY_BOXES
 
-#  define SET_G1 "\x1b)0"   /* Set G1 for box drawing    */
-#  define RESET_G1 "\x1b)B" /* Reset G1 to ASCII         */
-#  define bSTART "\x0e"     /* Enter G1 drawing mode     */
-#  define bSTOP "\x0f"      /* Leave G1 drawing mode     */
-#  define bH "q"            /* Horizontal line           */
-#  define bV "x"            /* Vertical line             */
-#  define bLT "l"           /* Left top corner           */
-#  define bRT "k"           /* Right top corner          */
-#  define bLB "m"           /* Left bottom corner        */
-#  define bRB "j"           /* Right bottom corner       */
-#  define bX "n"            /* Cross                     */
-#  define bVR "t"           /* Vertical, branch right    */
-#  define bVL "u"           /* Vertical, branch left     */
-#  define bHT "v"           /* Horizontal, branch top    */
-#  define bHB "w"           /* Horizontal, branch bottom */
+#define SET_G1 "\x1b)0"   /* Set G1 for box drawing    */
+#define RESET_G1 "\x1b)B" /* Reset G1 to ASCII         */
+#define bSTART "\x0e"     /* Enter G1 drawing mode     */
+#define bSTOP "\x0f"      /* Leave G1 drawing mode     */
+#define bH "q"            /* Horizontal line           */
+#define bV "x"            /* Vertical line             */
+#define bLT "l"           /* Left top corner           */
+#define bRT "k"           /* Right top corner          */
+#define bLB "m"           /* Left bottom corner        */
+#define bRB "j"           /* Right bottom corner       */
+#define bX "n"            /* Cross                     */
+#define bVR "t"           /* Vertical, branch right    */
+#define bVL "u"           /* Vertical, branch left     */
+#define bHT "v"           /* Horizontal, branch top    */
+#define bHB "w"           /* Horizontal, branch bottom */
 
 #else
 
-#  define SET_G1 ""
-#  define RESET_G1 ""
-#  define bSTART ""
-#  define bSTOP ""
-#  define bH "-"
-#  define bV "|"
-#  define bLT "+"
-#  define bRT "+"
-#  define bLB "+"
-#  define bRB "+"
-#  define bX "+"
-#  define bVR "+"
-#  define bVL "+"
-#  define bHT "+"
-#  define bHB "+"
+#define SET_G1 ""
+#define RESET_G1 ""
+#define bSTART ""
+#define bSTOP ""
+#define bH "-"
+#define bV "|"
+#define bLT "+"
+#define bRT "+"
+#define bLB "+"
+#define bRB "+"
+#define bX "+"
+#define bVR "+"
+#define bVL "+"
+#define bHT "+"
+#define bHB "+"
 
 #endif /* ^FANCY_BOXES */
 
@@ -161,9 +161,9 @@
 /* Just print stuff to the appropriate stream. */
 
 #ifdef MESSAGES_TO_STDOUT
-#  define SAYF(x...) printf(x)
+#define SAYF(x...) printf(x)
 #else
-#  define SAYF(x...) fprintf(stderr, x)
+#define SAYF(x...) fprintf(stderr, x)
 #endif /* ^MESSAGES_TO_STDOUT */
 
 /* Show a prefixed warning. */

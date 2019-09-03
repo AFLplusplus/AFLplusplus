@@ -33,7 +33,7 @@
 #include "pmparser.h"
 
 #ifndef __linux__
-#  error "Sorry, this library is Linux-specific for now!"
+#error "Sorry, this library is Linux-specific for now!"
 #endif /* !__linux__ */
 
 /* Change this value to tune the compare coverage */

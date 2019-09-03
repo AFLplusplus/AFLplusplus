@@ -20,7 +20,7 @@
 */
 
 #ifdef __ANDROID__
-#  include "android-ashmem.h"
+#include "android-ashmem.h"
 #endif
 #include "config.h"
 #include "types.h"
@@ -42,9 +42,9 @@
    the LLVM-generated runtime initialization pass, not before. */
 
 #ifdef USE_TRACE_PC
-#  define CONST_PRIO 5
+#define CONST_PRIO 5
 #else
-#  define CONST_PRIO 0
+#define CONST_PRIO 0
 #endif /* ^USE_TRACE_PC */
 
 #include <sys/mman.h>

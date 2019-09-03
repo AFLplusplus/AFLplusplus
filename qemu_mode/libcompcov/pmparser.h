@@ -13,19 +13,19 @@ implied warranty.
  */
 
 #ifndef H_PMPARSER
-#  define H_PMPARSER
-#  include <stdio.h>
-#  include <stdlib.h>
-#  include <unistd.h>
-#  include <string.h>
-#  include <sys/types.h>
-#  include <sys/stat.h>
-#  include <fcntl.h>
-#  include <errno.h>
-#  include <linux/limits.h>
+#define H_PMPARSER
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <linux/limits.h>
 
 // maximum line length in a procmaps file
-#  define PROCMAPS_LINE_MAX_LENGTH (PATH_MAX + 100)
+#define PROCMAPS_LINE_MAX_LENGTH (PATH_MAX + 100)
 /**
  * procmaps_struct
  * @desc hold all the information about an area in the process's  VM

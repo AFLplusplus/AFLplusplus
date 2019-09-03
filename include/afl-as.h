@@ -398,9 +398,9 @@ static const u8* main_payload_32 =
    recognize .string. */
 
 #ifdef __APPLE__
-#  define CALL_L64(str) "call _" str "\n"
+#define CALL_L64(str) "call _" str "\n"
 #else
-#  define CALL_L64(str) "call " str "@PLT\n"
+#define CALL_L64(str) "call " str "@PLT\n"
 #endif /* ^__APPLE__ */
 
 static const u8* main_payload_64 = 
@@ -737,9 +737,9 @@ static const u8* main_payload_64 =
 #ifdef __APPLE__
 
   "  .comm   __afl_area_ptr, 8\n"
-#  ifndef COVERAGE_ONLY
+#ifndef COVERAGE_ONLY
   "  .comm   __afl_prev_loc, 8\n"
-#  endif /* !COVERAGE_ONLY */
+#endif /* !COVERAGE_ONLY */
   "  .comm   __afl_fork_pid, 4\n"
   "  .comm   __afl_temp, 4\n"
   "  .comm   __afl_setup_failure, 1\n"
@@ -747,9 +747,9 @@ static const u8* main_payload_64 =
 #else
 
   "  .lcomm   __afl_area_ptr, 8\n"
-#  ifndef COVERAGE_ONLY
+#ifndef COVERAGE_ONLY
   "  .lcomm   __afl_prev_loc, 8\n"
-#  endif /* !COVERAGE_ONLY */
+#endif /* !COVERAGE_ONLY */
   "  .lcomm   __afl_fork_pid, 4\n"
   "  .lcomm   __afl_temp, 4\n"
   "  .lcomm   __afl_setup_failure, 1\n"

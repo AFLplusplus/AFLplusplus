@@ -1491,25 +1491,25 @@ void get_core_count(void) {
 
   /* On *BSD systems, we can just use a sysctl to get the number of CPUs. */
 
-#  ifdef __APPLE__
+#ifdef __APPLE__
 
   if (sysctlbyname("hw.logicalcpu", &cpu_core_count, &s, NULL, 0) < 0) return;
 
-#  else
+#else
 
   int s_name[2] = {CTL_HW, HW_NCPU};
 
   if (sysctl(s_name, 2, &cpu_core_count, &s, NULL, 0) < 0) return;
 
-#  endif /* ^__APPLE__ */
+#endif /* ^__APPLE__ */
 
 #else
 
-#  ifdef HAVE_AFFINITY
+#ifdef HAVE_AFFINITY
 
   cpu_core_count = sysconf(_SC_NPROCESSORS_ONLN);
 
-#  else
+#else
 
   FILE* f = fopen("/proc/stat", "r");
   u8    tmp[1024];
@@ -1521,7 +1521,7 @@ void get_core_count(void) {
 
   fclose(f);
 
-#  endif /* ^HAVE_AFFINITY */
+#endif /* ^HAVE_AFFINITY */
 
 #endif /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__) */
 
@@ -1772,10 +1772,10 @@ void check_binary(u8* fname) {
 
 #else
 
-#  if !defined(__arm__) && !defined(__arm64__)
+#if !defined(__arm__) && !defined(__arm64__)
   if (f_data[0] != 0xCF || f_data[1] != 0xFA || f_data[2] != 0xED)
     FATAL("Program '%s' is not a 64-bit Mach-O binary", target_path);
-#  endif
+#endif
 
 #endif /* ^!__APPLE__ */
 

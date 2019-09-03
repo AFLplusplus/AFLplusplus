@@ -2242,11 +2242,11 @@ retry_splicing:
     out_buf = ck_alloc_nozero(len);
     memcpy(out_buf, in_buf, len);
 
-#  ifdef USE_PYTHON
+#ifdef USE_PYTHON
     goto python_stage;
-#  else
+#else
     goto havoc_stage;
-#  endif
+#endif
 
   }
 
