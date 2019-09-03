@@ -8,10 +8,10 @@
 #include <sys/mman.h>
 
 #if __ANDROID_API__ >= 26
-#  define shmat bionic_shmat
-#  define shmctl bionic_shmctl
-#  define shmdt bionic_shmdt
-#  define shmget bionic_shmget
+#define shmat bionic_shmat
+#define shmctl bionic_shmctl
+#define shmdt bionic_shmdt
+#define shmget bionic_shmget
 #endif
 #include <sys/shm.h>
 #undef shmat

@@ -27,12 +27,12 @@
 #define MESSAGES_TO_STDOUT
 
 #ifndef _GNU_SOURCE
-#  define _GNU_SOURCE
+#define _GNU_SOURCE
 #endif
 #define _FILE_OFFSET_BITS 64
 
 #ifdef __ANDROID__
-#  include "android-ashmem.h"
+#include "android-ashmem.h"
 #endif
 
 #include "config.h"
@@ -69,21 +69,21 @@
 #include <sys/file.h>
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-#  include <sys/sysctl.h>
-#  define HAVE_ARC4RANDOM 1
+#include <sys/sysctl.h>
+#define HAVE_ARC4RANDOM 1
 #endif /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 /* For systems that have sched_setaffinity; right now just Linux, but one
    can hope... */
 
 #ifdef __linux__
-#  define HAVE_AFFINITY 1
+#define HAVE_AFFINITY 1
 #endif /* __linux__ */
 
 #ifndef SIMPLE_FILES
-#  define CASE_PREFIX "id:"
+#define CASE_PREFIX "id:"
 #else
-#  define CASE_PREFIX "id_"
+#define CASE_PREFIX "id_"
 #endif /* ^!SIMPLE_FILES */
 
 struct queue_entry {
@@ -432,7 +432,7 @@ extern s32
 /* Python stuff */
 #ifdef USE_PYTHON
 
-#  include <Python.h>
+#include <Python.h>
 
 extern PyObject* py_module;
 

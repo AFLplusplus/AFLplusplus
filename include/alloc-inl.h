@@ -105,10 +105,13 @@
 #define CHECK_PTR(_p) do { \
                            \
                            \
+                           \
     if (_p) { \
               \
               \
+              \
       if (ALLOC_C1(_p) ^ ALLOC_MAGIC_C1) {\
+                                          \
                                           \
                                           \
         if (ALLOC_C1(_p) == ALLOC_MAGIC_F) \
@@ -117,6 +120,7 @@
                                                     \
       } \
         \
+        \
       if (ALLOC_C2(_p) ^ ALLOC_MAGIC_C2) \
         ABORT("Corrupted tail alloc canary."); \
                                                \
@@ -124,7 +128,9 @@
       \
       \
       \
+      \
   } while (0)
+
 */
 
 #define CHECK_PTR_EXPR(_p)  \
@@ -371,16 +377,16 @@ static inline u8* DFL_ck_memdup_str(u8* mem, u32 size) {
 /* In non-debug mode, we just do straightforward aliasing of the above functions
    to user-visible names such as ck_alloc(). */
 
-#  define ck_alloc DFL_ck_alloc
-#  define ck_alloc_nozero DFL_ck_alloc_nozero
-#  define ck_realloc DFL_ck_realloc
-#  define ck_realloc_block DFL_ck_realloc_block
-#  define ck_strdup DFL_ck_strdup
-#  define ck_memdup DFL_ck_memdup
-#  define ck_memdup_str DFL_ck_memdup_str
-#  define ck_free DFL_ck_free
+#define ck_alloc DFL_ck_alloc
+#define ck_alloc_nozero DFL_ck_alloc_nozero
+#define ck_realloc DFL_ck_realloc
+#define ck_realloc_block DFL_ck_realloc_block
+#define ck_strdup DFL_ck_strdup
+#define ck_memdup DFL_ck_memdup
+#define ck_memdup_str DFL_ck_memdup_str
+#define ck_free DFL_ck_free
 
-#  define alloc_report()
+#define alloc_report()
 
 #else
 
@@ -389,7 +395,7 @@ static inline u8* DFL_ck_memdup_str(u8* mem, u32 size) {
 
 /* Alloc tracking data structures: */
 
-#  define ALLOC_BUCKETS 4096
+#define ALLOC_BUCKETS 4096
 
 struct TRK_obj {
 
@@ -399,25 +405,25 @@ struct TRK_obj {
 
 };
 
-#  ifdef AFL_MAIN
+#ifdef AFL_MAIN
 
 struct TRK_obj* TRK[ALLOC_BUCKETS];
 u32 TRK_cnt[ALLOC_BUCKETS];
 
-#    define alloc_report() TRK_report()
+#define alloc_report() TRK_report()
 
-#  else
+#else
 
 extern struct TRK_obj* TRK[ALLOC_BUCKETS];
 extern u32             TRK_cnt[ALLOC_BUCKETS];
 
-#    define alloc_report()
+#define alloc_report()
 
-#  endif /* ^AFL_MAIN */
+#endif /* ^AFL_MAIN */
 
 /* Bucket-assigning function for a given pointer: */
 
-#  define TRKH(_ptr) (((((u32)(_ptr)) >> 16) ^ ((u32)(_ptr))) % ALLOC_BUCKETS)
+#define TRKH(_ptr) (((((u32)(_ptr)) >> 16) ^ ((u32)(_ptr))) % ALLOC_BUCKETS)
 
 /* Add a new entry to the list of allocated objects. */
 
@@ -569,25 +575,25 @@ static inline void TRK_ck_free(void* ptr, const char* file, const char* func,
 
 /* Aliasing user-facing names to tracking functions: */
 
-#  define ck_alloc(_p1) TRK_ck_alloc(_p1, __FILE__, __FUNCTION__, __LINE__)
+#define ck_alloc(_p1) TRK_ck_alloc(_p1, __FILE__, __FUNCTION__, __LINE__)
 
 #define ck_alloc_nozero(_p1) TRK_ck_alloc(_p1, __FILE__, __FUNCTION__, __LINE__)
 
-#  define ck_realloc(_p1, _p2)\
+#define ck_realloc(_p1, _p2) \
   TRK_ck_realloc(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
-#  define ck_realloc_block(_p1, _p2)\
+#define ck_realloc_block(_p1, _p2) \
   TRK_ck_realloc_block(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
-#  define ck_strdup(_p1) TRK_ck_strdup(_p1, __FILE__, __FUNCTION__, __LINE__)
+#define ck_strdup(_p1) TRK_ck_strdup(_p1, __FILE__, __FUNCTION__, __LINE__)
 
-#  define ck_memdup(_p1, _p2)\
+#define ck_memdup(_p1, _p2) \
   TRK_ck_memdup(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
-#  define ck_memdup_str(_p1, _p2)\
+#define ck_memdup_str(_p1, _p2) \
   TRK_ck_memdup_str(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
-#  define ck_free(_p1) TRK_ck_free(_p1, __FILE__, __FUNCTION__, __LINE__)
+#define ck_free(_p1) TRK_ck_free(_p1, __FILE__, __FUNCTION__, __LINE__)
 
 #endif /* ^!DEBUG_BUILD */
 

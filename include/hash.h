@@ -31,7 +31,7 @@
 
 #ifdef __x86_64__
 
-#  define ROL64(_x, _r) ((((u64)(_x)) << (_r)) | (((u64)(_x)) >> (64 - (_r))))
+#define ROL64(_x, _r) ((((u64)(_x)) << (_r)) | (((u64)(_x)) >> (64 - (_r))))
 
 static inline u32 hash32(const void* key, u32 len, u32 seed) {
 
@@ -66,7 +66,7 @@ static inline u32 hash32(const void* key, u32 len, u32 seed) {
 
 #else
 
-#  define ROL32(_x, _r) ((((u32)(_x)) << (_r)) | (((u32)(_x)) >> (32 - (_r))))
+#define ROL32(_x, _r) ((((u32)(_x)) << (_r)) | (((u32)(_x)) >> (32 - (_r))))
 
 static inline u32 hash32(const void* key, u32 len, u32 seed) {
 

@@ -27,10 +27,10 @@
 static void usage(u8* argv0) {
 
 #ifdef USE_PYTHON
-#  define PHYTON_SUPPORT\
+#define PHYTON_SUPPORT \
   "Compiled with Python 2.7 module support, see docs/python_mutators.txt\n"
 #else
-#  define PHYTON_SUPPORT ""
+#define PHYTON_SUPPORT ""
 #endif
 
   SAYF(
@@ -616,9 +616,9 @@ int main(int argc, char** argv) {
 
   get_core_count();
 
-#  ifdef HAVE_AFFINITY
+#ifdef HAVE_AFFINITY
   bind_to_free_cpu();
-#  endif /* HAVE_AFFINITY */
+#endif /* HAVE_AFFINITY */
 
   check_crash_handling();
   check_cpu_governor();
@@ -635,12 +635,12 @@ int main(int argc, char** argv) {
 
   setup_dirs_fds();
 
-#  ifdef USE_PYTHON
+#ifdef USE_PYTHON
   if (init_py()) FATAL("Failed to initialize Python module");
-#  else
+#else
   if (getenv("AFL_PYTHON_MODULE"))
     FATAL("Your AFL binary was built without Python support");
-#  endif
+#endif
 
   setup_cmdline_file(argv + optind);
 
@@ -867,9 +867,9 @@ stop_fuzzing:
 
   alloc_report();
 
-#  ifdef USE_PYTHON
+#ifdef USE_PYTHON
   finalize_py();
-#  endif
+#endif
 
   OKF("We're done here. Have a nice day!\n");
 

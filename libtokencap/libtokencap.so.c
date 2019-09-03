@@ -27,7 +27,7 @@
 #include "../config.h"
 
 #ifndef __linux__
-#  error "Sorry, this library is Linux-specific for now!"
+#error "Sorry, this library is Linux-specific for now!"
 #endif /* !__linux__ */
 
 /* Mapping data and such */

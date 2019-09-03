@@ -27,11 +27,11 @@
 
 #define AFL_MAIN
 #ifndef _GNU_SOURCE
-#  define _GNU_SOURCE
+#define _GNU_SOURCE
 #endif
 
 #ifdef __ANDROID__
-#  include "android-ashmem.h"
+#include "android-ashmem.h"
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,7 +48,7 @@
 #include "debug.h"
 
 #ifdef __linux__
-#  define HAVE_AFFINITY 1
+#define HAVE_AFFINITY 1
 #endif /* __linux__ */
 
 /* Get unix time in microseconds. */

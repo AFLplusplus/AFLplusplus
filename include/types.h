@@ -52,8 +52,8 @@ typedef int32_t s32;
 typedef int64_t s64;
 
 #ifndef MIN
-#  define MIN(_a, _b) ((_a) > (_b) ? (_b) : (_a))
-#  define MAX(_a, _b) ((_a) > (_b) ? (_a) : (_b))
+#define MIN(_a, _b) ((_a) > (_b) ? (_b) : (_a))
+#define MAX(_a, _b) ((_a) > (_b) ? (_a) : (_b))
 #endif /* !MIN */
 
 #define SWAP16(_x)                    \
@@ -74,9 +74,9 @@ typedef int64_t s64;
   })
 
 #ifdef AFL_LLVM_PASS
-#  define AFL_R(x) (random() % (x))
+#define AFL_R(x) (random() % (x))
 #else
-#  define R(x) (random() % (x))
+#define R(x) (random() % (x))
 #endif /* ^AFL_LLVM_PASS */
 
 #define STRINGIFY_INTERNAL(x) #x
@@ -85,11 +85,11 @@ typedef int64_t s64;
 #define MEM_BARRIER() __asm__ volatile("" ::: "memory")
 
 #if __GNUC__ < 6
-#  define likely(_x) (_x)
-#  define unlikely(_x) (_x)
+#define likely(_x) (_x)
+#define unlikely(_x) (_x)
 #else
-#  define likely(_x) __builtin_expect(!!(_x), 1)
-#  define unlikely(_x) __builtin_expect(!!(_x), 0)
+#define likely(_x) __builtin_expect(!!(_x), 1)
+#define unlikely(_x) __builtin_expect(!!(_x), 0)
 #endif
 
 #endif /* ! _HAVE_TYPES_H */

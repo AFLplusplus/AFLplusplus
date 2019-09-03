@@ -45,31 +45,14 @@ def custom_format(filename):
     src, _ = p.communicate()
     src = str(src, "utf-8")
 
-    macro_indent = 0
     in_define = False
     last_line = None
     out = ""
     
     for line in src.split("\n"):
         if line.startswith("#"):
-            i = macro_indent
-            if line.startswith("#end") and macro_indent > 0:
-                macro_indent -= 1
-                i -= 1
-            elif line.startswith("#el") and macro_indent > 0:
-                i -= 1
-            elif line.startswith("#if") and not (line.startswith("#ifndef") and (line.endswith("_H") or line.endswith("H_"))):
-                macro_indent += 1
-            elif line.startswith("#define"):
+            if line.startswith("#define"):
                 in_define = True
-            r = "#" + (i * "  ") + line[1:]
-            if i != 0 and line.endswith("\\"):
-                r = r[:-1]
-                while r[-1].isspace() and len(r) != (len(line)-1):
-                    r = r[:-1]
-                r += "\\"
-            if len(r) <= COLUMN_LIMIT:
-                line = r
         
         elif "/*" in line and not line.strip().startswith("/*") and line.endswith("*/") and len(line) < (COLUMN_LIMIT-2):
             cmt_start = line.rfind("/*")
