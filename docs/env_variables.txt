@@ -223,6 +223,9 @@ checks or alter some of the more exotic semantics of the tool:
     some basic stats. This behavior is also automatically triggered when the
     output from afl-fuzz is redirected to a file or to a pipe.
 
+  - Setting AFL_FORCE_UI will force painting the UI on the screen even if
+    no valid terminal was detected (for virtual consoles)
+
   - If you are Jakub, you may need AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES.
     Others need not apply.
 

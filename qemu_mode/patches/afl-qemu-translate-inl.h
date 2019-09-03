@@ -36,8 +36,8 @@
 
 /* Declared in afl-qemu-cpu-inl.h */
 extern unsigned char *afl_area_ptr;
-extern unsigned int afl_inst_rms;
-extern abi_ulong afl_start_code, afl_end_code;
+extern unsigned int   afl_inst_rms;
+extern abi_ulong      afl_start_code, afl_end_code;
 
 void tcg_gen_afl_maybe_log_call(target_ulong cur_loc);
 
@@ -59,14 +59,16 @@ static void afl_gen_trace(target_ulong cur_loc) {
   /* Optimize for cur_loc > afl_end_code, which is the most likely case on
      Linux systems. */
 
-  if (cur_loc > afl_end_code || cur_loc < afl_start_code /*|| !afl_area_ptr*/) // not needed because of static dummy buffer
+  if (cur_loc > afl_end_code ||
+      cur_loc < afl_start_code /*|| !afl_area_ptr*/)  // not needed because of
+                                                      // static dummy buffer
     return;
 
   /* Looks like QEMU always maps to fixed locations, so ASLR is not a
      concern. Phew. But instruction addresses may be aligned. Let's mangle
      the value to get something quasi-uniform. */
 
-  cur_loc  = (cur_loc >> 4) ^ (cur_loc << 8);
+  cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
   cur_loc &= MAP_SIZE - 1;
 
   /* Implement probabilistic instrumentation by looking at scrambled block
@@ -75,5 +77,6 @@ static void afl_gen_trace(target_ulong cur_loc) {
   if (cur_loc >= afl_inst_rms) return;
 
   tcg_gen_afl_maybe_log_call(cur_loc);
-  
+
 }
+

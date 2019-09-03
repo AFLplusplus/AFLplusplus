@@ -31,26 +31,29 @@
  */
 
 static inline void gen_afl_compcov_log_16(TCGContext *tcg_ctx, uint64_t cur_loc,
-                                          TCGv_i64 arg1, TCGv_i64 arg2)
-{
-    TCGv_ptr tuc = tcg_const_ptr(tcg_ctx, tcg_ctx->uc);
-    TCGv_i64 tcur_loc = tcg_const_i64(tcg_ctx, cur_loc);
-    gen_helper_afl_compcov_log_16(tcg_ctx, tuc, tcur_loc, arg1, arg2);
+                                          TCGv_i64 arg1, TCGv_i64 arg2) {
+
+  TCGv_ptr tuc = tcg_const_ptr(tcg_ctx, tcg_ctx->uc);
+  TCGv_i64 tcur_loc = tcg_const_i64(tcg_ctx, cur_loc);
+  gen_helper_afl_compcov_log_16(tcg_ctx, tuc, tcur_loc, arg1, arg2);
+
 }
 
 static inline void gen_afl_compcov_log_32(TCGContext *tcg_ctx, uint64_t cur_loc,
-                                          TCGv_i64 arg1, TCGv_i64 arg2)
-{
-    TCGv_ptr tuc = tcg_const_ptr(tcg_ctx, tcg_ctx->uc);
-    TCGv_i64 tcur_loc = tcg_const_i64(tcg_ctx, cur_loc);
-    gen_helper_afl_compcov_log_32(tcg_ctx, tuc, tcur_loc, arg1, arg2);
+                                          TCGv_i64 arg1, TCGv_i64 arg2) {
+
+  TCGv_ptr tuc = tcg_const_ptr(tcg_ctx, tcg_ctx->uc);
+  TCGv_i64 tcur_loc = tcg_const_i64(tcg_ctx, cur_loc);
+  gen_helper_afl_compcov_log_32(tcg_ctx, tuc, tcur_loc, arg1, arg2);
+
 }
 
 static inline void gen_afl_compcov_log_64(TCGContext *tcg_ctx, uint64_t cur_loc,
-                                          TCGv_i64 arg1, TCGv_i64 arg2)
-{
-    TCGv_ptr tuc = tcg_const_ptr(tcg_ctx, tcg_ctx->uc);
-    TCGv_i64 tcur_loc = tcg_const_i64(tcg_ctx, cur_loc);
-    gen_helper_afl_compcov_log_64(tcg_ctx, tuc, tcur_loc, arg1, arg2);
+                                          TCGv_i64 arg1, TCGv_i64 arg2) {
+
+  TCGv_ptr tuc = tcg_const_ptr(tcg_ctx, tcg_ctx->uc);
+  TCGv_i64 tcur_loc = tcg_const_i64(tcg_ctx, cur_loc);
+  gen_helper_afl_compcov_log_64(tcg_ctx, tuc, tcur_loc, arg1, arg2);
+
 }
 

@@ -26,10 +26,12 @@
  */
 
 #define AFL_MAIN
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+#  define _GNU_SOURCE
+#endif
 
 #ifdef __ANDROID__
-  #include "android-ashmem.h"
+#  include "android-ashmem.h"
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,12 +51,11 @@
 #  define HAVE_AFFINITY 1
 #endif /* __linux__ */
 
-
 /* Get unix time in microseconds. */
 
 static u64 get_cur_time_us(void) {
 
-  struct timeval tv;
+  struct timeval  tv;
   struct timezone tz;
 
   gettimeofday(&tv, &tz);
@@ -62,7 +63,6 @@ static u64 get_cur_time_us(void) {
   return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
 
 }
-
 
 /* Get CPU usage in microseconds. */
 
@@ -76,7 +76,6 @@ static u64 get_cpu_usage_us(void) {
          (u.ru_stime.tv_sec * 1000000ULL) + u.ru_stime.tv_usec;
 
 }
-
 
 /* Measure preemption rate. */
 
@@ -94,14 +93,17 @@ repeat_loop:
 
   v1 = CTEST_BUSY_CYCLES;
 
-  while (v1--) v2++;
+  while (v1--)
+    v2++;
   sched_yield();
 
   en_t = get_cur_time_us();
 
   if (en_t - st_t < target_ms * 1000) {
+
     loop_repeats++;
     goto repeat_loop;
+
   }
 
   /* Let's see what percentage of this time we actually had a chance to
@@ -109,13 +111,12 @@ repeat_loop:
 
   en_c = get_cpu_usage_us();
 
-  real_delta  = (en_t - st_t) / 1000;
+  real_delta = (en_t - st_t) / 1000;
   slice_delta = (en_c - st_c) / 1000;
 
   return real_delta * 100 / slice_delta;
 
 }
-
 
 /* Do the benchmark thing. */
 
@@ -123,8 +124,7 @@ int main(int argc, char** argv) {
 
 #ifdef HAVE_AFFINITY
 
-  u32 cpu_cnt = sysconf(_SC_NPROCESSORS_ONLN),
-      idle_cpus = 0, maybe_cpus = 0, i;
+  u32 cpu_cnt = sysconf(_SC_NPROCESSORS_ONLN), idle_cpus = 0, maybe_cpus = 0, i;
 
   SAYF(cCYA "afl-gotcpu" VERSION cRST " by <lcamtuf@google.com>\n");
 
@@ -140,7 +140,7 @@ int main(int argc, char** argv) {
     if (!fr) {
 
       cpu_set_t c;
-      u32 util_perc;
+      u32       util_perc;
 
       CPU_ZERO(&c);
       CPU_SET(i, &c);
@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
 
       } else if (util_perc < 250) {
 
-        SAYF("    Core #%u: " cYEL "CAUTION " cRST "(%u%%)\n", i, util_perc); 
+        SAYF("    Core #%u: " cYEL "CAUTION " cRST "(%u%%)\n", i, util_perc);
         exit(1);
 
       }
@@ -253,3 +253,4 @@ int main(int argc, char** argv) {
 #endif /* ^HAVE_AFFINITY */
 
 }
+

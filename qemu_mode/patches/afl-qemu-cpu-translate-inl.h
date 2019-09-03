@@ -37,9 +37,9 @@
 
 /* Declared in afl-qemu-cpu-inl.h */
 extern unsigned char *afl_area_ptr;
-extern unsigned int afl_inst_rms;
-extern abi_ulong afl_start_code, afl_end_code;
-extern u8 afl_compcov_level;
+extern unsigned int   afl_inst_rms;
+extern abi_ulong      afl_start_code, afl_end_code;
+extern u8             afl_compcov_level;
 
 void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
                                   TCGv_i64 arg1, TCGv_i64 arg2);
@@ -47,81 +47,93 @@ void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
 static void afl_compcov_log_16(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
-  if ((arg1 & 0xff) == (arg2 & 0xff)) {
-    INC_AFL_AREA(cur_loc);
-  }
+  if ((arg1 & 0xff) == (arg2 & 0xff)) { INC_AFL_AREA(cur_loc); }
+
 }
 
 static void afl_compcov_log_32(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
+
     INC_AFL_AREA(cur_loc);
     if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
-      INC_AFL_AREA(cur_loc +1);
-      if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) {
-        INC_AFL_AREA(cur_loc +2);
-      }
+
+      INC_AFL_AREA(cur_loc + 1);
+      if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) { INC_AFL_AREA(cur_loc + 2); }
+
     }
+
   }
+
 }
 
 static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
+
     INC_AFL_AREA(cur_loc);
     if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
-      INC_AFL_AREA(cur_loc +1);
-      if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) {
-        INC_AFL_AREA(cur_loc +2);
-        if ((arg1 & 0xffffffff) == (arg2 & 0xffffffff)) {
-          INC_AFL_AREA(cur_loc +3);
-          if ((arg1 & 0xffffffffff) == (arg2 & 0xffffffffff)) {
-            INC_AFL_AREA(cur_loc +4);
-            if ((arg1 & 0xffffffffffff) == (arg2 & 0xffffffffffff)) {
-              INC_AFL_AREA(cur_loc +5);
-              if ((arg1 & 0xffffffffffffff) == (arg2 & 0xffffffffffffff)) {
-                INC_AFL_AREA(cur_loc +6);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
 
+      INC_AFL_AREA(cur_loc + 1);
+      if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) {
+
+        INC_AFL_AREA(cur_loc + 2);
+        if ((arg1 & 0xffffffff) == (arg2 & 0xffffffff)) {
+
+          INC_AFL_AREA(cur_loc + 3);
+          if ((arg1 & 0xffffffffff) == (arg2 & 0xffffffffff)) {
+
+            INC_AFL_AREA(cur_loc + 4);
+            if ((arg1 & 0xffffffffffff) == (arg2 & 0xffffffffffff)) {
+
+              INC_AFL_AREA(cur_loc + 5);
+              if ((arg1 & 0xffffffffffffff) == (arg2 & 0xffffffffffffff)) {
+
+                INC_AFL_AREA(cur_loc + 6);
+
+              }
+
+            }
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+}
 
 static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
                             TCGMemOp ot, int is_imm) {
 
   void *func;
-  
+
   if (!afl_compcov_level || cur_loc > afl_end_code || cur_loc < afl_start_code)
     return;
-  
-  if (!is_imm && afl_compcov_level < 2)
-    return;
+
+  if (!is_imm && afl_compcov_level < 2) return;
 
   switch (ot) {
-    case MO_64:
-      func = &afl_compcov_log_64;
-      break;
-    case MO_32: 
-      func = &afl_compcov_log_32;
-      break;
-    case MO_16:
-      func = &afl_compcov_log_16;
-      break;
-    default:
-      return;
+
+    case MO_64: func = &afl_compcov_log_64; break;
+    case MO_32: func = &afl_compcov_log_32; break;
+    case MO_16: func = &afl_compcov_log_16; break;
+    default: return;
+
   }
-  
-  cur_loc  = (cur_loc >> 4) ^ (cur_loc << 8);
+
+  cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
   cur_loc &= MAP_SIZE - 7;
-  
+
   if (cur_loc >= afl_inst_rms) return;
-  
+
   tcg_gen_afl_compcov_log_call(func, cur_loc, arg1, arg2);
+
 }
+
