@@ -40,7 +40,7 @@ LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^[12]|^3\.0|^1[0
 LLVM_MAJOR = ($shell $(LLVM_CONFIG) --version | sed 's/\..*//')
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
-  $(error llvm_mode only supports versions 3.8.0 up to 9)
+  $(warn llvm_mode only supports versions 3.8.0 up to 9)
 endif
 
 # this is not visible yet:
