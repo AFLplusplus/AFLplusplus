@@ -1,8 +1,9 @@
 Roadmap 2.53d:
 ==============
- - indent all the code: .clang-format
 
- - update docs/sister_projects.txt
+all:
+ - indent all the code: .clang-format?
+   (vh: tried, the variable definion look very ugly then, what to do?)
 
 afl-fuzz:
  - put mutator, scheduler, forkserver and input channels in individual files
@@ -18,8 +19,9 @@ gcc_plugin:
  - neverZero
 
 qemu_mode:
+ - update to 4.x
  - deferred mode with AFL_DEFERRED_QEMU=0xaddress
-   @andrea - dont we have that already with AFL_ENTRYPOINT?
+   (vh: @andrea - dont we have that already with AFL_ENTRYPOINT?)
 
 unit testing / or large testcase campaign
 

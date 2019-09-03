@@ -17,20 +17,29 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.53d (dev):
 ----------------------
 
+  - big code refactoring:
+    * all includes are now in include/
+    * all afl sources are now in src/ - see src/README
+    * afl-fuzz was splitted up in various individual files for including
+      functionality in other programs (e.g. forkserver, memory map, etc.)
+      or better readability.
+    * new code indention everywhere
+  - added AFL_FORCE_UI to show the UI even if the terminal is not detected
   - llvm 9 is now supported (still needs testing)
   - Android is now supported (thank to JoeyJiao!) - still need to modify the Makefile though
   - fix building qemu on some Ubuntus (thanks to floyd!)
   - custom mutator by a loaded library is now supported (thanks to kyakdan!)
+  - added PR that includes peak_rss_mb and slowest_exec_ms in the fuzzer_stats report
+  - more support for *BSD (thanks to devnexen!)
+  - fix building on *BSD (thanks to tobias.kortkamp for the patch)
   - fix for a few features to support different map sized than 2^16
   - afl-showmap: new option -r now shows the real values in the buckets (stock
     afl never did), plus shows tuple content summary information now
-  - fix building on *BSD (thanks to tobias.kortkamp for the patch)
   - small docu updates
   - NeverZero counters for QEMU
   - NeverZero counters for Unicorn
   - CompareCoverage Unicorn
   - Immediates-only instrumentation for CompareCoverage
-  - ... your patch? :)
 
 
 --------------------------

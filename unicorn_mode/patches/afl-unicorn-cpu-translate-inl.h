@@ -35,28 +35,23 @@
 static void afl_gen_compcov(TCGContext *s, uint64_t cur_loc, TCGv_i64 arg1,
                             TCGv_i64 arg2, TCGMemOp ot, int is_imm) {
 
-  if (!s->uc->afl_compcov_level || !s->uc->afl_area_ptr)
-    return;
-  
-  if (!is_imm && s->uc->afl_compcov_level < 2)
-    return;
+  if (!s->uc->afl_compcov_level || !s->uc->afl_area_ptr) return;
 
-  cur_loc  = (cur_loc >> 4) ^ (cur_loc << 8);
+  if (!is_imm && s->uc->afl_compcov_level < 2) return;
+
+  cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
   cur_loc &= MAP_SIZE - 7;
-  
+
   if (cur_loc >= s->uc->afl_inst_rms) return;
 
   switch (ot) {
-    case MO_64:
-      gen_afl_compcov_log_64(s, cur_loc, arg1, arg2);
-      break;
-    case MO_32: 
-      gen_afl_compcov_log_32(s, cur_loc, arg1, arg2);
-      break;
-    case MO_16:
-      gen_afl_compcov_log_16(s, cur_loc, arg1, arg2);
-      break;
-    default:
-      return;
+
+    case MO_64: gen_afl_compcov_log_64(s, cur_loc, arg1, arg2); break;
+    case MO_32: gen_afl_compcov_log_32(s, cur_loc, arg1, arg2); break;
+    case MO_16: gen_afl_compcov_log_16(s, cur_loc, arg1, arg2); break;
+    default: return;
+
   }
+
 }
+

@@ -30,19 +30,15 @@
 #  error "Sorry, this library is Linux-specific for now!"
 #endif /* !__linux__ */
 
-
 /* Mapping data and such */
 
 #define MAX_MAPPINGS 1024
 
-static struct mapping {
-  void *st, *en;
-} __tokencap_ro[MAX_MAPPINGS];
+static struct mapping { void *st, *en; } __tokencap_ro[MAX_MAPPINGS];
 
 static u32   __tokencap_ro_cnt;
 static u8    __tokencap_ro_loaded;
 static FILE* __tokencap_out_file;
-
 
 /* Identify read-only regions in memory. Only parameters that fall into these
    ranges are worth dumping when passed to strcmp() and so on. Read-write
@@ -50,7 +46,7 @@ static FILE* __tokencap_out_file;
 
 static void __tokencap_load_mappings(void) {
 
-  u8 buf[MAX_LINE];
+  u8    buf[MAX_LINE];
   FILE* f = fopen("/proc/self/maps", "r");
 
   __tokencap_ro_loaded = 1;
@@ -59,8 +55,8 @@ static void __tokencap_load_mappings(void) {
 
   while (fgets(buf, MAX_LINE, f)) {
 
-    u8 rf, wf;
-    void* st, *en;
+    u8    rf, wf;
+    void *st, *en;
 
     if (sscanf(buf, "%p-%p %c%c", &st, &en, &rf, &wf) != 4) continue;
     if (wf == 'w' || rf != 'r') continue;
@@ -76,7 +72,6 @@ static void __tokencap_load_mappings(void) {
 
 }
 
-
 /* Check an address against the list of read-only mappings. */
 
 static u8 __tokencap_is_ro(const void* ptr) {
@@ -85,20 +80,19 @@ static u8 __tokencap_is_ro(const void* ptr) {
 
   if (!__tokencap_ro_loaded) __tokencap_load_mappings();
 
-  for (i = 0; i < __tokencap_ro_cnt; i++) 
+  for (i = 0; i < __tokencap_ro_cnt; i++)
     if (ptr >= __tokencap_ro[i].st && ptr <= __tokencap_ro[i].en) return 1;
 
   return 0;
 
 }
 
-
 /* Dump an interesting token to output file, quoting and escaping it
    properly. */
 
 static void __tokencap_dump(const u8* ptr, size_t len, u8 is_text) {
 
-  u8 buf[MAX_AUTO_EXTRA * 4 + 1];
+  u8  buf[MAX_AUTO_EXTRA * 4 + 1];
   u32 i;
   u32 pos = 0;
 
@@ -120,9 +114,7 @@ static void __tokencap_dump(const u8* ptr, size_t len, u8 is_text) {
         pos += 4;
         break;
 
-      default:
-
-        buf[pos++] = ptr[i];
+      default: buf[pos++] = ptr[i];
 
     }
 
@@ -130,10 +122,9 @@ static void __tokencap_dump(const u8* ptr, size_t len, u8 is_text) {
 
   buf[pos] = 0;
 
-  fprintf(__tokencap_out_file, "\"%s\"\n", buf);    
+  fprintf(__tokencap_out_file, "\"%s\"\n", buf);
 
 }
-
 
 /* Replacements for strcmp(), memcmp(), and so on. Note that these will be used
    only if the target is compiled with -fno-builtins and linked dynamically. */
@@ -151,12 +142,12 @@ int strcmp(const char* str1, const char* str2) {
 
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
     if (!c1) return 0;
-    str1++; str2++;
+    str1++;
+    str2++;
 
   }
 
 }
-
 
 #undef strncmp
 
@@ -171,14 +162,14 @@ int strncmp(const char* str1, const char* str2, size_t len) {
 
     if (!c1) return 0;
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
-    str1++; str2++;
+    str1++;
+    str2++;
 
   }
 
   return 0;
 
 }
-
 
 #undef strcasecmp
 
@@ -193,12 +184,12 @@ int strcasecmp(const char* str1, const char* str2) {
 
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
     if (!c1) return 0;
-    str1++; str2++;
+    str1++;
+    str2++;
 
   }
 
 }
-
 
 #undef strncasecmp
 
@@ -213,14 +204,14 @@ int strncasecmp(const char* str1, const char* str2, size_t len) {
 
     if (!c1) return 0;
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
-    str1++; str2++;
+    str1++;
+    str2++;
 
   }
 
   return 0;
 
 }
-
 
 #undef memcmp
 
@@ -233,14 +224,14 @@ int memcmp(const void* mem1, const void* mem2, size_t len) {
 
     unsigned char c1 = *(const char*)mem1, c2 = *(const char*)mem2;
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
-    mem1++; mem2++;
+    mem1++;
+    mem2++;
 
   }
 
   return 0;
 
 }
-
 
 #undef strstr
 
@@ -249,23 +240,23 @@ char* strstr(const char* haystack, const char* needle) {
   if (__tokencap_is_ro(haystack))
     __tokencap_dump(haystack, strlen(haystack), 1);
 
-  if (__tokencap_is_ro(needle))
-    __tokencap_dump(needle, strlen(needle), 1);
+  if (__tokencap_is_ro(needle)) __tokencap_dump(needle, strlen(needle), 1);
 
   do {
+
     const char* n = needle;
     const char* h = haystack;
 
-    while(*n && *h && *n == *h) n++, h++;
+    while (*n && *h && *n == *h)
+      n++, h++;
 
-    if(!*n) return (char*)haystack;
+    if (!*n) return (char*)haystack;
 
   } while (*(haystack++));
 
   return 0;
 
 }
-
 
 #undef strcasestr
 
@@ -274,24 +265,23 @@ char* strcasestr(const char* haystack, const char* needle) {
   if (__tokencap_is_ro(haystack))
     __tokencap_dump(haystack, strlen(haystack), 1);
 
-  if (__tokencap_is_ro(needle))
-    __tokencap_dump(needle, strlen(needle), 1);
+  if (__tokencap_is_ro(needle)) __tokencap_dump(needle, strlen(needle), 1);
 
   do {
 
     const char* n = needle;
     const char* h = haystack;
 
-    while(*n && *h && tolower(*n) == tolower(*h)) n++, h++;
+    while (*n && *h && tolower(*n) == tolower(*h))
+      n++, h++;
 
-    if(!*n) return (char*)haystack;
+    if (!*n) return (char*)haystack;
 
-  } while(*(haystack++));
+  } while (*(haystack++));
 
   return 0;
 
 }
-
 
 /* Init code to open the output file (or default to stderr). */
 

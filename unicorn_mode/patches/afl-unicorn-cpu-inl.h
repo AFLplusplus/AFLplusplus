@@ -44,21 +44,29 @@
    it to translate within its own context, too (this avoids translation
    overhead in the next forked-off copy). */
 
-#define AFL_UNICORN_CPU_SNIPPET1 do { \
+#define AFL_UNICORN_CPU_SNIPPET1         \
+  do {                                   \
+                                         \
     afl_request_tsl(pc, cs_base, flags); \
+                                         \
   } while (0)
 
 /* This snippet kicks in when the instruction pointer is positioned at
    _start and does the usual forkserver stuff, not very different from
    regular instrumentation injected via afl-as.h. */
 
-#define AFL_UNICORN_CPU_SNIPPET2 do { \
-    if(unlikely(afl_first_instr == 0)) { \
-      afl_setup(env->uc); \
-      afl_forkserver(env); \
-      afl_first_instr = 1; \
-    } \
-    afl_maybe_log(env->uc, tb->pc); \
+#define AFL_UNICORN_CPU_SNIPPET2          \
+  do {                                    \
+                                          \
+    if (unlikely(afl_first_instr == 0)) { \
+                                          \
+      afl_setup(env->uc);                 \
+      afl_forkserver(env);                \
+      afl_first_instr = 1;                \
+                                          \
+    }                                     \
+    afl_maybe_log(env->uc, tb->pc);       \
+                                          \
   } while (0)
 
 /* We use one additional file descriptor to relay "needs translation"
@@ -69,26 +77,28 @@
 /* Set in the child process in forkserver mode: */
 
 static unsigned char afl_fork_child;
-static unsigned int afl_forksrv_pid;
+static unsigned int  afl_forksrv_pid;
 
 /* Function declarations. */
 
-static void afl_setup(struct uc_struct* uc);
-static void afl_forkserver(CPUArchState*);
+static void        afl_setup(struct uc_struct* uc);
+static void        afl_forkserver(CPUArchState*);
 static inline void afl_maybe_log(struct uc_struct* uc, unsigned long);
 
 static void afl_wait_tsl(CPUArchState*, int);
 static void afl_request_tsl(target_ulong, target_ulong, uint64_t);
 
-static TranslationBlock *tb_find_slow(CPUArchState*, target_ulong,
-                                      target_ulong, uint64_t);
+static TranslationBlock* tb_find_slow(CPUArchState*, target_ulong, target_ulong,
+                                      uint64_t);
 
 /* Data structure passed around by the translate handlers: */
 
 struct afl_tsl {
+
   target_ulong pc;
   target_ulong cs_base;
-  uint64_t flags;
+  uint64_t     flags;
+
 };
 
 /*************************
@@ -99,8 +109,7 @@ struct afl_tsl {
 
 static void afl_setup(struct uc_struct* uc) {
 
-  char *id_str = getenv(SHM_ENV_VAR),
-       *inst_r = getenv("AFL_INST_RATIO");
+  char *id_str = getenv(SHM_ENV_VAR), *inst_r = getenv("AFL_INST_RATIO");
 
   int shm_id;
 
@@ -116,9 +125,9 @@ static void afl_setup(struct uc_struct* uc) {
     uc->afl_inst_rms = MAP_SIZE * r / 100;
 
   } else {
-  
+
     uc->afl_inst_rms = MAP_SIZE;
-    
+
   }
 
   if (id_str) {
@@ -132,22 +141,22 @@ static void afl_setup(struct uc_struct* uc) {
        so that the parent doesn't give up on us. */
 
     if (inst_r) uc->afl_area_ptr[0] = 1;
-  }
-  
-  /* Maintain for compatibility */
-  if (getenv("AFL_QEMU_COMPCOV")) {
 
-    uc->afl_compcov_level = 1;
   }
+
+  /* Maintain for compatibility */
+  if (getenv("AFL_QEMU_COMPCOV")) { uc->afl_compcov_level = 1; }
   if (getenv("AFL_COMPCOV_LEVEL")) {
 
     uc->afl_compcov_level = atoi(getenv("AFL_COMPCOV_LEVEL"));
+
   }
+
 }
 
 /* Fork server logic, invoked once we hit first emulated instruction. */
 
-static void afl_forkserver(CPUArchState *env) {
+static void afl_forkserver(CPUArchState* env) {
 
   static unsigned char tmp[4];
 
@@ -165,13 +174,13 @@ static void afl_forkserver(CPUArchState *env) {
   while (1) {
 
     pid_t child_pid;
-    int status, t_fd[2];
+    int   status, t_fd[2];
 
     /* Whoops, parent dead? */
 
     if (read(FORKSRV_FD, tmp, 4) != 4) exit(2);
 
-    /* Establish a channel with child to grab translation commands. We'll 
+    /* Establish a channel with child to grab translation commands. We'll
        read from t_fd[0], child will write to TSL_FD. */
 
     if (pipe(t_fd) || dup2(t_fd[1], TSL_FD) < 0) exit(3);
@@ -211,7 +220,6 @@ static void afl_forkserver(CPUArchState *env) {
 
 }
 
-
 /* The equivalent of the tuple logging routine from afl-as.h. */
 
 static inline void afl_maybe_log(struct uc_struct* uc, unsigned long cur_loc) {
@@ -220,14 +228,13 @@ static inline void afl_maybe_log(struct uc_struct* uc, unsigned long cur_loc) {
 
   u8* afl_area_ptr = uc->afl_area_ptr;
 
-  if(!afl_area_ptr)
-    return;
+  if (!afl_area_ptr) return;
 
   /* Looks like QEMU always maps to fixed locations, so ASAN is not a
      concern. Phew. But instruction addresses may be aligned. Let's mangle
      the value to get something quasi-uniform. */
 
-  cur_loc  = (cur_loc >> 4) ^ (cur_loc << 8);
+  cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
   cur_loc &= MAP_SIZE - 1;
 
   /* Implement probabilistic instrumentation by looking at scrambled block
@@ -243,7 +250,6 @@ static inline void afl_maybe_log(struct uc_struct* uc, unsigned long cur_loc) {
 
 }
 
-
 /* This code is invoked whenever QEMU decides that it doesn't have a
    translation of a particular block and needs to compute it. When this happens,
    we tell the parent to mirror the operation, so that the next fork() has a
@@ -255,20 +261,19 @@ static void afl_request_tsl(target_ulong pc, target_ulong cb, uint64_t flags) {
 
   if (!afl_fork_child) return;
 
-  t.pc      = pc;
+  t.pc = pc;
   t.cs_base = cb;
-  t.flags   = flags;
+  t.flags = flags;
 
   if (write(TSL_FD, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl))
     return;
 
 }
 
-
 /* This is the other side of the same channel. Since timeouts are handled by
    afl-fuzz simply killing the child, we can just wait until the pipe breaks. */
 
-static void afl_wait_tsl(CPUArchState *env, int fd) {
+static void afl_wait_tsl(CPUArchState* env, int fd) {
 
   struct afl_tsl t;
 
@@ -276,12 +281,13 @@ static void afl_wait_tsl(CPUArchState *env, int fd) {
 
     /* Broken pipe means it's time to return to the fork server routine. */
 
-    if (read(fd, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl))
-      break;
+    if (read(fd, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl)) break;
 
     tb_find_slow(env, t.pc, t.cs_base, t.flags);
+
   }
 
   close(fd);
+
 }
 

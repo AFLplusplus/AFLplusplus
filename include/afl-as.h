@@ -37,7 +37,7 @@
 #include "config.h"
 #include "types.h"
 
-/* 
+/*
    ------------------
    Performances notes
    ------------------
@@ -106,47 +106,47 @@
 
 static const u8* trampoline_fmt_32 =
 
-  "\n"
-  "/* --- AFL TRAMPOLINE (32-BIT) --- */\n"
-  "\n"
-  ".align 4\n"
-  "\n"
-  "leal -16(%%esp), %%esp\n"
-  "movl %%edi,  0(%%esp)\n"
-  "movl %%edx,  4(%%esp)\n"
-  "movl %%ecx,  8(%%esp)\n"
-  "movl %%eax, 12(%%esp)\n"
-  "movl $0x%08x, %%ecx\n"
-  "call __afl_maybe_log\n"
-  "movl 12(%%esp), %%eax\n"
-  "movl  8(%%esp), %%ecx\n"
-  "movl  4(%%esp), %%edx\n"
-  "movl  0(%%esp), %%edi\n"
-  "leal 16(%%esp), %%esp\n"
-  "\n"
-  "/* --- END --- */\n"
-  "\n";
+    "\n"
+    "/* --- AFL TRAMPOLINE (32-BIT) --- */\n"
+    "\n"
+    ".align 4\n"
+    "\n"
+    "leal -16(%%esp), %%esp\n"
+    "movl %%edi,  0(%%esp)\n"
+    "movl %%edx,  4(%%esp)\n"
+    "movl %%ecx,  8(%%esp)\n"
+    "movl %%eax, 12(%%esp)\n"
+    "movl $0x%08x, %%ecx\n"
+    "call __afl_maybe_log\n"
+    "movl 12(%%esp), %%eax\n"
+    "movl  8(%%esp), %%ecx\n"
+    "movl  4(%%esp), %%edx\n"
+    "movl  0(%%esp), %%edi\n"
+    "leal 16(%%esp), %%esp\n"
+    "\n"
+    "/* --- END --- */\n"
+    "\n";
 
 static const u8* trampoline_fmt_64 =
 
-  "\n"
-  "/* --- AFL TRAMPOLINE (64-BIT) --- */\n"
-  "\n"
-  ".align 4\n"
-  "\n"
-  "leaq -(128+24)(%%rsp), %%rsp\n"
-  "movq %%rdx,  0(%%rsp)\n"
-  "movq %%rcx,  8(%%rsp)\n"
-  "movq %%rax, 16(%%rsp)\n"
-  "movq $0x%08x, %%rcx\n"
-  "call __afl_maybe_log\n"
-  "movq 16(%%rsp), %%rax\n"
-  "movq  8(%%rsp), %%rcx\n"
-  "movq  0(%%rsp), %%rdx\n"
-  "leaq (128+24)(%%rsp), %%rsp\n"
-  "\n"
-  "/* --- END --- */\n"
-  "\n";
+    "\n"
+    "/* --- AFL TRAMPOLINE (64-BIT) --- */\n"
+    "\n"
+    ".align 4\n"
+    "\n"
+    "leaq -(128+24)(%%rsp), %%rsp\n"
+    "movq %%rdx,  0(%%rsp)\n"
+    "movq %%rcx,  8(%%rsp)\n"
+    "movq %%rax, 16(%%rsp)\n"
+    "movq $0x%08x, %%rcx\n"
+    "call __afl_maybe_log\n"
+    "movq 16(%%rsp), %%rax\n"
+    "movq  8(%%rsp), %%rcx\n"
+    "movq  0(%%rsp), %%rdx\n"
+    "leaq (128+24)(%%rsp), %%rsp\n"
+    "\n"
+    "/* --- END --- */\n"
+    "\n";
 
 static const u8* main_payload_32 = 
 
@@ -398,9 +398,9 @@ static const u8* main_payload_32 =
    recognize .string. */
 
 #ifdef __APPLE__
-#  define CALL_L64(str)		"call _" str "\n"
+#  define CALL_L64(str) "call _" str "\n"
 #else
-#  define CALL_L64(str)		"call " str "@PLT\n"
+#  define CALL_L64(str) "call " str "@PLT\n"
 #endif /* ^__APPLE__ */
 
 static const u8* main_payload_64 = 
@@ -415,7 +415,7 @@ static const u8* main_payload_64 =
   "\n"
   "__afl_maybe_log:\n"
   "\n"
-#if defined(__OpenBSD__)  || (defined(__FreeBSD__) && (__FreeBSD__ < 9))
+#if defined(__OpenBSD__) || (defined(__FreeBSD__) && (__FreeBSD__ < 9))
   "  .byte 0x9f /* lahf */\n"
 #else
   "  lahf\n"
@@ -448,7 +448,7 @@ static const u8* main_payload_64 =
   "__afl_return:\n"
   "\n"
   "  addb $127, %al\n"
-#if defined(__OpenBSD__)  || (defined(__FreeBSD__) && (__FreeBSD__ < 9))
+#if defined(__OpenBSD__) || (defined(__FreeBSD__) && (__FreeBSD__ < 9))
   "  .byte 0x9e /* sahf */\n"
 #else
   "  sahf\n"
@@ -737,9 +737,9 @@ static const u8* main_payload_64 =
 #ifdef __APPLE__
 
   "  .comm   __afl_area_ptr, 8\n"
-#ifndef COVERAGE_ONLY
+#  ifndef COVERAGE_ONLY
   "  .comm   __afl_prev_loc, 8\n"
-#endif /* !COVERAGE_ONLY */
+#  endif /* !COVERAGE_ONLY */
   "  .comm   __afl_fork_pid, 4\n"
   "  .comm   __afl_temp, 4\n"
   "  .comm   __afl_setup_failure, 1\n"
@@ -747,9 +747,9 @@ static const u8* main_payload_64 =
 #else
 
   "  .lcomm   __afl_area_ptr, 8\n"
-#ifndef COVERAGE_ONLY
+#  ifndef COVERAGE_ONLY
   "  .lcomm   __afl_prev_loc, 8\n"
-#endif /* !COVERAGE_ONLY */
+#  endif /* !COVERAGE_ONLY */
   "  .lcomm   __afl_fork_pid, 4\n"
   "  .lcomm   __afl_temp, 4\n"
   "  .lcomm   __afl_setup_failure, 1\n"
@@ -765,3 +765,4 @@ static const u8* main_payload_64 =
   "\n";
 
 #endif /* !_HAVE_AFL_AS_H */
+
