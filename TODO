@@ -3,7 +3,6 @@ Roadmap 2.53d:
 
 afl-fuzz:
  - custom mutator lib: example and readme
- - env var to exclusively run the custom lib/py mutator
 
 
 Roadmap 2.54d:
