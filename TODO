@@ -5,6 +5,10 @@ afl-fuzz:
  - custom mutator lib: example and readme
  - env var to exclusively run the custom lib/py mutator
 
+
+Roadmap 2.54d:
+==============
+
 gcc_plugin:
  - needs to be rewritten
  - whitelist support
@@ -17,8 +21,6 @@ qemu_mode:
 
 unit testing / or large testcase campaign
 
-Roadmap 2.54d:
-==============
 Problem: Average targets (tiff, jpeg, unrar) go through 1500 edges.
          At afl's default map that means ~16 collisions and ~3 wrappings.
   Solution #1: increase map size.
