@@ -19,11 +19,12 @@ Version ++2.53d (dev):
 
   - big code refactoring:
     * all includes are now in include/
-    * all afl sources are now in src/ - see src/README
+    * all afl sources are now in src/ - see src/README.src
     * afl-fuzz was splitted up in various individual files for including
       functionality in other programs (e.g. forkserver, memory map, etc.)
-      or better readability.
+      for better readability.
     * new code indention everywhere
+  - auto-generating man pages for all (main) tools
   - added AFL_FORCE_UI to show the UI even if the terminal is not detected
   - llvm 9 is now supported (still needs testing)
   - Android is now supported (thank to JoeyJiao!) - still need to modify the Makefile though

@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, &tz);
   init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QUe:p:s:V:E:L:")) >
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QUe:p:s:V:E:L:h")) >
          0)
 
     switch (opt) {
@@ -489,6 +489,11 @@ int main(int argc, char** argv) {
         }
 
       } break;
+
+      case 'h':
+        usage(argv[0]);
+        return -1;
+        break; // not needed
 
       default: usage(argv[0]);
 
