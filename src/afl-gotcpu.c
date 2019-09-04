@@ -3,7 +3,7 @@
    -----------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -54,7 +54,7 @@
 
 #ifdef __linux__
 #define HAVE_AFFINITY 1
-#endif /* __linux__ */
+#endif                                                         /* __linux__ */
 
 /* Get unix time in microseconds. */
 
@@ -255,7 +255,7 @@ int main(int argc, char** argv) {
 
   return (util_perc > 105) + (util_perc > 130);
 
-#endif /* ^HAVE_AFFINITY */
+#endif                                                    /* ^HAVE_AFFINITY */
 
 }
 

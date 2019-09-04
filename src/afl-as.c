@@ -3,7 +3,7 @@
    -----------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -81,9 +81,9 @@ static u8 use_64bit = 0;
 
 #ifdef __APPLE__
 #error "Sorry, 32-bit Apple platforms are not supported."
-#endif /* __APPLE__ */
+#endif                                                         /* __APPLE__ */
 
-#endif /* ^__x86_64__ */
+#endif                                                       /* ^__x86_64__ */
 
 /* Examine and modify parameters to pass to 'as'. Note that the file name
    is always the last parameter passed by GCC, so we exploit this property
@@ -120,7 +120,7 @@ static void edit_params(int argc, char** argv) {
 
   }
 
-#endif /* __APPLE__ */
+#endif                                                         /* __APPLE__ */
 
   /* Although this is not documented, GCC also uses TEMP and TMP when TMPDIR
      is not set. We need to check these non-standard variables to properly
@@ -162,7 +162,7 @@ static void edit_params(int argc, char** argv) {
     if (clang_mode && (!strcmp(argv[i], "-q") || !strcmp(argv[i], "-Q")))
       continue;
 
-#endif /* __APPLE__ */
+#endif                                                         /* __APPLE__ */
 
     as_params[as_par_cnt++] = argv[i];
 
@@ -181,7 +181,7 @@ static void edit_params(int argc, char** argv) {
 
   }
 
-#endif /* __APPLE__ */
+#endif                                                         /* __APPLE__ */
 
   input_file = argv[argc - 1];
 
@@ -242,7 +242,7 @@ static void add_instrumentation(void) {
 
   u8* colon_pos;
 
-#endif /* __APPLE__ */
+#endif                                                         /* __APPLE__ */
 
   if (input_file) {
 
@@ -413,7 +413,7 @@ static void add_instrumentation(void) {
 
       if (line[0] == '.') {
 
-#endif /* __APPLE__ */
+#endif                                                         /* __APPLE__ */
 
         /* .L0: or LBB0_0: style jump destination */
 
@@ -432,7 +432,7 @@ static void add_instrumentation(void) {
              (clang_mode && !strncmp(line + 1, "LBB", 3))) &&
             R(100) < inst_ratio) {
 
-#endif /* __APPLE__ */
+#endif                                                         /* __APPLE__ */
 
           /* An optimization is possible here by adding the code only if the
              label is mentioned in the code in contexts other than call / jmp.

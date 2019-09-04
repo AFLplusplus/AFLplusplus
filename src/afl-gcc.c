@@ -3,7 +3,7 @@
    ------------------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -201,7 +201,7 @@ static void edit_params(u32 argc, char** argv) {
 
     }
 
-#endif /* __APPLE__ */
+#endif                                                         /* __APPLE__ */
 
   }
 

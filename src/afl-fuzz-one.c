@@ -3,7 +3,7 @@
    ---------------------------------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -328,7 +328,7 @@ static void locate_diffs(u8* ptr1, u8* ptr2, u32 len, s32* first, s32* last) {
 
 }
 
-#endif /* !IGNORE_FINDS */
+#endif                                                     /* !IGNORE_FINDS */
 
 /* Take the current entry from the queue, fuzz it for a while. This
    function is a tad too long... returns 0 if fuzzed successfully, 1 if
@@ -385,7 +385,7 @@ u8 fuzz_one_original(char** argv) {
 
   }
 
-#endif /* ^IGNORE_FINDS */
+#endif                                                     /* ^IGNORE_FINDS */
 
   if (not_on_tty) {
 
@@ -2253,7 +2253,7 @@ retry_splicing:
 
   }
 
-#endif /* !IGNORE_FINDS */
+#endif                                                     /* !IGNORE_FINDS */
 
   ret_val = 0;
 
@@ -2337,7 +2337,7 @@ u8 pilot_fuzzing(char** argv) {
 
   }
 
-#endif /* ^IGNORE_FINDS */
+#endif                                                     /* ^IGNORE_FINDS */
 
   if (not_on_tty) {
 
@@ -4015,7 +4015,7 @@ pacemaker_fuzzing:
 
       }
 
-#endif /* !IGNORE_FINDS */
+#endif                                                     /* !IGNORE_FINDS */
 
       ret_val = 0;
 
@@ -4198,7 +4198,7 @@ u8 core_fuzzing(char** argv) {
 
   }
 
-#endif /* ^IGNORE_FINDS */
+#endif                                                     /* ^IGNORE_FINDS */
 
   if (not_on_tty) {
 
@@ -5860,7 +5860,7 @@ pacemaker_fuzzing:
 
       }
 
-#endif /* !IGNORE_FINDS */
+#endif                                                     /* !IGNORE_FINDS */
 
       ret_val = 0;
     abandon_entry:

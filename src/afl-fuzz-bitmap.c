@@ -3,7 +3,7 @@
    ----------------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -87,7 +87,7 @@ u8 has_new_bits(u8* virgin_map) {
 
   u32 i = (MAP_SIZE >> 2);
 
-#endif /* ^__x86_64__ */
+#endif                                                       /* ^__x86_64__ */
 
   u8 ret = 0;
 
@@ -125,7 +125,7 @@ u8 has_new_bits(u8* virgin_map) {
         else
           ret = 1;
 
-#endif /* ^__x86_64__ */
+#endif                                                       /* ^__x86_64__ */
 
       }
 
@@ -306,7 +306,7 @@ void simplify_trace(u32* mem) {
 
 }
 
-#endif /* ^__x86_64__ */
+#endif                                                       /* ^__x86_64__ */
 
 /* Destructively classify execution counts in a trace. This is used as a
    preprocessing step for any newly acquired traces. Called on every exec,
@@ -391,7 +391,7 @@ void classify_counts(u32* mem) {
 
 }
 
-#endif /* ^__x86_64__ */
+#endif                                                       /* ^__x86_64__ */
 
 /* Compact trace bytes into a smaller bitmap. We effectively just drop the
    count information here. This is called only sporadically, for some
@@ -453,7 +453,7 @@ u8* describe_op(u8 hnb) {
 
 }
 
-#endif /* !SIMPLE_FILES */
+#endif                                                     /* !SIMPLE_FILES */
 
 /* Write a message accompanying the crash directory :-) */
 
@@ -551,7 +551,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
     fn = alloc_printf("%s/queue/id_%06u", out_dir, queued_paths);
 
-#endif /* ^!SIMPLE_FILES */
+#endif                                                    /* ^!SIMPLE_FILES */
 
     add_to_queue(fn, len, 0);
 
@@ -599,7 +599,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
         simplify_trace((u64*)trace_bits);
 #else
         simplify_trace((u32*)trace_bits);
-#endif /* ^__x86_64__ */
+#endif                                                       /* ^__x86_64__ */
 
         if (!has_new_bits(virgin_tmout)) return keeping;
 
@@ -636,7 +636,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
       fn = alloc_printf("%s/hangs/id_%06llu", out_dir, unique_hangs);
 
-#endif /* ^!SIMPLE_FILES */
+#endif                                                    /* ^!SIMPLE_FILES */
 
       ++unique_hangs;
 
@@ -662,7 +662,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
         simplify_trace((u64*)trace_bits);
 #else
         simplify_trace((u32*)trace_bits);
-#endif /* ^__x86_64__ */
+#endif                                                       /* ^__x86_64__ */
 
         if (!has_new_bits(virgin_crash)) return keeping;
 
@@ -680,7 +680,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
       fn = alloc_printf("%s/crashes/id_%06llu_%02u", out_dir, unique_crashes,
                         kill_signal);
 
-#endif /* ^!SIMPLE_FILES */
+#endif                                                    /* ^!SIMPLE_FILES */
 
       ++unique_crashes;
 

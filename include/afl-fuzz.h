@@ -3,7 +3,7 @@
    ------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -74,20 +74,20 @@
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 #include <sys/sysctl.h>
 #define HAVE_ARC4RANDOM 1
-#endif /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
+#endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 /* For systems that have sched_setaffinity; right now just Linux, but one
    can hope... */
 
 #ifdef __linux__
 #define HAVE_AFFINITY 1
-#endif /* __linux__ */
+#endif                                                         /* __linux__ */
 
 #ifndef SIMPLE_FILES
 #define CASE_PREFIX "id:"
 #else
 #define CASE_PREFIX "id_"
-#endif /* ^!SIMPLE_FILES */
+#endif                                                    /* ^!SIMPLE_FILES */
 
 struct queue_entry {
 
@@ -400,7 +400,7 @@ extern s32 cpu_core_count;              /* CPU core count                   */
 
 extern s32 cpu_aff;                     /* Selected CPU core                */
 
-#endif /* HAVE_AFFINITY */
+#endif                                                     /* HAVE_AFFINITY */
 
 extern FILE* plot_file;                 /* Gnuplot output file              */
 

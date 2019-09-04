@@ -3,7 +3,7 @@
    ------------------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -58,7 +58,7 @@
 #define MEM_LIMIT 25
 #else
 #define MEM_LIMIT 50
-#endif /* ^!__x86_64__ */
+#endif                                                      /* ^!__x86_64__ */
 
 /* Default memory limit when running in QEMU mode (MB): */
 
@@ -128,9 +128,9 @@
 /* Probabilities of skipping non-favored entries in the queue, expressed as
    percentages: */
 
-#define SKIP_TO_NEW_PROB 99   /* ...when there are new, pending favorites */
-#define SKIP_NFAV_OLD_PROB 95 /* ...no new favs, cur entry already fuzzed */
-#define SKIP_NFAV_NEW_PROB 75 /* ...no new favs, cur entry not fuzzed yet */
+#define SKIP_TO_NEW_PROB 99     /* ...when there are new, pending favorites */
+#define SKIP_NFAV_OLD_PROB 95   /* ...no new favs, cur entry already fuzzed */
+#define SKIP_NFAV_NEW_PROB 75   /* ...no new favs, cur entry not fuzzed yet */
 
 /* Splicing cycle count: */
 
@@ -371,5 +371,5 @@
 
 // #define IGNORE_FINDS
 
-#endif /* ! _HAVE_CONFIG_H */
+#endif                                                  /* ! _HAVE_CONFIG_H */
 

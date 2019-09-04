@@ -3,7 +3,7 @@
    -------------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -220,7 +220,7 @@ s32 cpu_core_count;                     /* CPU core count                   */
 
 s32 cpu_aff = -1;                       /* Selected CPU core                */
 
-#endif /* HAVE_AFFINITY */
+#endif                                                     /* HAVE_AFFINITY */
 
 FILE *plot_file;                        /* Gnuplot output file              */
 

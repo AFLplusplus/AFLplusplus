@@ -103,7 +103,7 @@ void tcg_gen_afl_maybe_log_call(target_ulong cur_loc) {
 
   }
 
-#endif /* TCG_TARGET_EXTEND_ARGS */
+#endif                                            /* TCG_TARGET_EXTEND_ARGS */
 
   op = tcg_emit_op(INDEX_op_call);
 
@@ -187,7 +187,7 @@ void tcg_gen_afl_maybe_log_call(target_ulong cur_loc) {
 #elif defined(TCG_TARGET_EXTEND_ARGS) && TCG_TARGET_REG_BITS == 64
   int is_64bit = sizemask & (1 << 2);
   if (!is_64bit) { tcg_temp_free_internal(arg); }
-#endif /* TCG_TARGET_EXTEND_ARGS */
+#endif                                            /* TCG_TARGET_EXTEND_ARGS */
 
 }
 
@@ -270,7 +270,7 @@ void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
 
   }
 
-#endif /* TCG_TARGET_EXTEND_ARGS */
+#endif                                            /* TCG_TARGET_EXTEND_ARGS */
 
   op = tcg_emit_op(INDEX_op_call);
 
@@ -367,7 +367,7 @@ void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
 
   }
 
-#endif /* TCG_TARGET_EXTEND_ARGS */
+#endif                                            /* TCG_TARGET_EXTEND_ARGS */
 
 }
 

@@ -3,7 +3,7 @@
    -------------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -85,14 +85,14 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 
 /* Constants used for describing byte behavior. */
 
-#define RESP_NONE 0x00     /* Changing byte is a no-op.         */
-#define RESP_MINOR 0x01    /* Some changes have no effect.      */
-#define RESP_VARIABLE 0x02 /* Changes produce variable paths.   */
-#define RESP_FIXED 0x03    /* Changes produce fixed patterns.   */
+#define RESP_NONE 0x00                 /* Changing byte is a no-op.         */
+#define RESP_MINOR 0x01                /* Some changes have no effect.      */
+#define RESP_VARIABLE 0x02             /* Changes produce variable paths.   */
+#define RESP_FIXED 0x03                /* Changes produce fixed patterns.   */
 
-#define RESP_LEN 0x04     /* Potential length field            */
-#define RESP_CKSUM 0x05   /* Potential checksum                */
-#define RESP_SUSPECT 0x06 /* Potential "suspect" blob          */
+#define RESP_LEN 0x04                  /* Potential length field            */
+#define RESP_CKSUM 0x05                /* Potential checksum                */
+#define RESP_SUSPECT 0x06              /* Potential "suspect" blob          */
 
 /* Classify tuple counts. This is a slow & naive version, but good enough here.
  */
@@ -260,7 +260,7 @@ static u32 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
       setrlimit(RLIMIT_DATA, &r);                          /* Ignore errors */
 
-#endif /* ^RLIMIT_AS */
+#endif                                                        /* ^RLIMIT_AS */
 
     }
 
@@ -371,7 +371,7 @@ static void show_legend(void) {
 
 }
 
-#endif /* USE_COLOR */
+#endif                                                         /* USE_COLOR */
 
 /* Interpret and report a pattern in the input file. */
 
@@ -385,7 +385,7 @@ static void dump_hex(u8* buf, u32 len, u8* b_data) {
     u32 rlen = 1, off;
 #else
     u32 rlen = 1;
-#endif /* ^USE_COLOR */
+#endif                                                        /* ^USE_COLOR */
 
     u8 rtype = b_data[i] & 0x0f;
 
@@ -527,7 +527,7 @@ static void dump_hex(u8* buf, u32 len, u8* b_data) {
 
     }
 
-#endif /* ^USE_COLOR */
+#endif                                                        /* ^USE_COLOR */
 
     i += rlen - 1;
 
@@ -535,7 +535,7 @@ static void dump_hex(u8* buf, u32 len, u8* b_data) {
 
 #ifdef USE_COLOR
   SAYF(cRST "\n");
-#endif /* USE_COLOR */
+#endif                                                         /* USE_COLOR */
 
 }
 
@@ -555,7 +555,7 @@ static void analyze(char** argv) {
 
 #ifdef USE_COLOR
   show_legend();
-#endif /* USE_COLOR */
+#endif                                                         /* USE_COLOR */
 
   for (i = 0; i < in_len; i++) {
 

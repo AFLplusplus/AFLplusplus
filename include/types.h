@@ -3,7 +3,7 @@
    --------------------------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -49,7 +49,7 @@ typedef uint32_t u32;
 typedef unsigned long long u64;
 #else
 typedef uint64_t u64;
-#endif /* ^__x86_64__ */
+#endif                                                       /* ^__x86_64__ */
 
 typedef int8_t  s8;
 typedef int16_t s16;
@@ -59,7 +59,7 @@ typedef int64_t s64;
 #ifndef MIN
 #define MIN(_a, _b) ((_a) > (_b) ? (_b) : (_a))
 #define MAX(_a, _b) ((_a) > (_b) ? (_a) : (_b))
-#endif /* !MIN */
+#endif                                                              /* !MIN */
 
 #define SWAP16(_x)                    \
   ({                                  \
@@ -82,7 +82,7 @@ typedef int64_t s64;
 #define AFL_R(x) (random() % (x))
 #else
 #define R(x) (random() % (x))
-#endif /* ^AFL_LLVM_PASS */
+#endif                                                    /* ^AFL_LLVM_PASS */
 
 #define STRINGIFY_INTERNAL(x) #x
 #define STRINGIFY(x) STRINGIFY_INTERNAL(x)
@@ -97,5 +97,5 @@ typedef int64_t s64;
 #define unlikely(_x) __builtin_expect(!!(_x), 0)
 #endif
 
-#endif /* ! _HAVE_TYPES_H */
+#endif                                                   /* ! _HAVE_TYPES_H */
 

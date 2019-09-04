@@ -183,7 +183,7 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
   else
     cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
-#endif /* ^USE_TRACE_PC */
+#endif                                                     /* ^USE_TRACE_PC */
 
   cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
@@ -256,7 +256,7 @@ static void edit_params(u32 argc, char** argv) {
   if (getenv("AFL_INST_RATIO"))
     FATAL("AFL_INST_RATIO not available at compile time with 'trace-pc'.");
 
-#endif /* USE_TRACE_PC */
+#endif                                                      /* USE_TRACE_PC */
 
   if (!getenv("AFL_DONT_OPTIMIZE")) {
 
@@ -315,7 +315,7 @@ static void edit_params(u32 argc, char** argv) {
 #else
       "__attribute__((visibility(\"default\"))) "
       "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
-#endif /* ^__APPLE__ */
+#endif                                                        /* ^__APPLE__ */
       "_L(_A); })";
 
   cc_params[cc_par_cnt++] =
@@ -329,7 +329,7 @@ static void edit_params(u32 argc, char** argv) {
 #else
       "__attribute__((visibility(\"default\"))) "
       "void _I(void) __asm__(\"__afl_manual_init\"); "
-#endif /* ^__APPLE__ */
+#endif                                                        /* ^__APPLE__ */
       "_I(); } while (0)";
 
   if (maybe_linking) {
@@ -382,7 +382,7 @@ int main(int argc, char** argv) {
               " [tpcg] by <lszekeres@google.com>\n");
 #else
     SAYF(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
-#endif /* ^USE_TRACE_PC */
+#endif                                                     /* ^USE_TRACE_PC */
 
   }
 

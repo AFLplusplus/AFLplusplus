@@ -45,7 +45,7 @@
 #define CONST_PRIO 5
 #else
 #define CONST_PRIO 0
-#endif /* ^USE_TRACE_PC */
+#endif                                                     /* ^USE_TRACE_PC */
 
 #include <sys/mman.h>
 #include <fcntl.h>

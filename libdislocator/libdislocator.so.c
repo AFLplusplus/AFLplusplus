@@ -30,11 +30,11 @@
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
-#endif /* !PAGE_SIZE */
+#endif                                                        /* !PAGE_SIZE */
 
 #ifndef MAP_ANONYMOUS
 #define MAP_ANONYMOUS MAP_ANON
-#endif /* !MAP_ANONYMOUS */
+#endif                                                    /* !MAP_ANONYMOUS */
 
 /* Error / message handling: */
 
