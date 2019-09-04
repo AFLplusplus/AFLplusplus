@@ -1,9 +1,24 @@
 #!/bin/sh
+test "$1" = "-h" && {
+  echo afl-system-config by Marc Heuse
+  echo
+  echo $0
+  echo
+  echo afl-system-config has no command line options
+  echo
+  echo afl-system reconfigures the system to a high performance fuzzing state
+  echo WARNING: this reduces the security of the system
+  echo
+  exit 1
+}
+
+PLATFORM=`uname -s`
 echo This reconfigures the system to have a better fuzzing performance
 if [ '!' "$EUID" = 0 ] && [ '!' `id -u` = 0 ] ; then
 	echo Error you need to be root to run this
 	exit 1
 fi
+if [ "$PLATFORM" = "Linux" ] ; then
 sysctl -w kernel.core_pattern=core
 sysctl -w kernel.randomize_va_space=0
 sysctl -w kernel.sched_child_runs_first=1
@@ -19,5 +34,19 @@ test -e /sys/devices/system/cpu/cpufreq/boost && echo 1 > /sys/devices/system/cp
 echo
 echo It is recommended to boot the kernel with lots of security off - if you are running a machine that is in a secured network - so set this:
 echo '/etc/default/grub:GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"'
+fi
+if [ "$PLATFORM" = "FreeBSD" ] ; then
+sysctl kern.elf32.aslr.enable=0
+sysctl kern.elf64.aslr.enable=0
+echo
+echo It is recommended to boot the kernel with lots of security off - if you are running a machine that is in a secured network - so set this:
+echo 'sysctl hw.ibrs_disable=1'
+echo
+echo 'Setting kern.pmap.pg_ps_enabled=0 into /boot/loader.conf might be helpful too.'
+fi
+if [ "$PLATFORM" = "OpenBSD" ] ; then
+echo
+echo 'System security features cannot be disabled on OpenBSD.'
+fi
 echo
 echo Also use AFL_TMPDIR to use a tmpfs for the input file

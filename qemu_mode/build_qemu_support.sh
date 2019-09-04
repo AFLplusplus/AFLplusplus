@@ -3,10 +3,17 @@
 # american fuzzy lop - QEMU build script
 # --------------------------------------
 #
-# Written by Andrew Griffiths <agriffiths@google.com> and
-#            Michal Zalewski <lcamtuf@google.com>
+# Originally written by Andrew Griffiths <agriffiths@google.com> and
+#                       Michal Zalewski <lcamtuf@google.com>
+#
+# TCG instrumentation and block chaining support by Andrea Biondo
+#                                    <andrea.biondo965@gmail.com>
+#
+# QEMU 3.1.0 port, TCG thread-safety, CompareCoverage and NeverZero
+# counters by Andrea Fioraldi <andreafioraldi@gmail.com>
 #
 # Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
+# Copyright 2019 AFLplusplus Project. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,7 +112,8 @@ if [ "$CKSUM" = "$QEMU_SHA384" ]; then
 
 else
 
-  echo "[-] Error: signature mismatch on $ARCHIVE (perhaps download error?)."
+  echo "[-] Error: signature mismatch on $ARCHIVE (perhaps download error?), removing archive ..."
+  rm -f "$ARCHIVE"
   exit 1
 
 fi
@@ -193,11 +201,18 @@ if [ "$ORIG_CPU_TARGET" = "" ]; then
   echo "[+] Instrumentation tests passed. "
   echo "[+] All set, you can now use the -Q mode in afl-fuzz!"
 
+  cd qemu_mode || exit 1
+
 else
 
   echo "[!] Note: can't test instrumentation when CPU_TARGET set."
   echo "[+] All set, you can now (hopefully) use the -Q mode in afl-fuzz!"
 
 fi
+
+echo "[+] Building libcompcov ..."
+make -C libcompcov
+echo "[+] libcompcov ready"
+echo "[+] All done for qemu_mode, enjoy!"
 
 exit 0

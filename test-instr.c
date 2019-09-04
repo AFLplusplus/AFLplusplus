@@ -20,11 +20,16 @@
 
 int main(int argc, char** argv) {
 
-  char buf[8];
+  char  buff[8];
+  char* buf = buff;
 
-  if (read(0, buf, sizeof(buf)) < 1) {
+  if (argc > 1)
+    buf = argv[1];
+  else if (read(0, buf, sizeof(buf)) < 1) {
+
     printf("Hum?\n");
     exit(1);
+
   }
 
   if (buf[0] == '0')
@@ -37,3 +42,4 @@ int main(int argc, char** argv) {
   exit(0);
 
 }
+

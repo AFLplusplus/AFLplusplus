@@ -17,23 +17,27 @@
 #TEST_MMAP=1
 
 PROGNAME    = afl
-VERSION     = $(shell grep '^\#define VERSION ' config.h | cut -d '"' -f2)
+VERSION     = $(shell grep '^\#define VERSION ' include/config.h | cut -d '"' -f2)
 
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
 DOC_PATH    = $(PREFIX)/share/doc/afl
 MISC_PATH   = $(PREFIX)/share/afl
+MAN_PATH    = $(PREFIX)/man/man8
 
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
 PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
 SH_PROGS    = afl-plot afl-cmin afl-whatsup afl-system-config
+MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8)
 
 CFLAGS     ?= -O3 -funroll-loops
-CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
+CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ \
 	      -DAFL_PATH=\"$(HELPER_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\" \
-	      -DBIN_PATH=\"$(BIN_PATH)\"
+	      -DBIN_PATH=\"$(BIN_PATH)\" -Wno-unused-function
+
+AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
 PYTHON_INCLUDE	?= /usr/include/python2.7
 
@@ -47,7 +51,7 @@ else
   TEST_CC   = afl-clang
 endif
 
-COMM_HDR    = alloc-inl.h config.h debug.h types.h
+COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
 
 
 ifeq "$(shell echo '\#include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) -lpython2.7 2>/dev/null && echo 1 || echo 0 )" "1"
@@ -123,45 +127,65 @@ endif
 ready:
 	@echo "[+] Everything seems to be working, ready to compile."
 
-afl-gcc: afl-gcc.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
+afl-gcc: src/afl-gcc.c $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 	set -e; for i in afl-g++ afl-clang afl-clang++; do ln -sf afl-gcc $$i; done
 
-afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
+afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
 
-afl-common.o : afl-common.c
-	$(CC) $(CFLAGS) -c afl-common.c
+afl-common.o : src/afl-common.c include/common.h
+	$(CC) $(CFLAGS) -c src/afl-common.c
 
-sharedmem.o : sharedmem.c
-	$(CC) $(CFLAGS) -c sharedmem.c
+afl-forkserver.o : src/afl-forkserver.c include/forkserver.h
+	$(CC) $(CFLAGS) -c src/afl-forkserver.c
 
-afl-fuzz: afl-fuzz.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS) $(PYFLAGS)
+afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
+	$(CC) $(CFLAGS) -c src/afl-sharedmem.c
 
-afl-showmap: afl-showmap.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS)
+afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS) $(PYFLAGS)
 
-afl-tmin: afl-tmin.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS)
+afl-showmap: src/afl-showmap.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o -o $@ $(LDFLAGS)
 
-afl-analyze: afl-analyze.c afl-common.o sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c afl-common.o sharedmem.o -o $@ $(LDFLAGS)
+afl-tmin: src/afl-tmin.c afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS)
 
-afl-gotcpu: afl-gotcpu.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
+afl-analyze: src/afl-analyze.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o -o $@ $(LDFLAGS)
+
+afl-gotcpu: src/afl-gotcpu.c $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
+
+
+code-format:
+	./.custom-format.py -i src/*.c
+	./.custom-format.py -i include/*.h
+	./.custom-format.py -i libdislocator/*.c 
+	./.custom-format.py -i libtokencap/*.c 
+	./.custom-format.py -i llvm_mode/*.c
+	./.custom-format.py -i llvm_mode/*.h
+	./.custom-format.py -i llvm_mode/*.cc
+	./.custom-format.py -i qemu_mode/patches/*.h
+	./.custom-format.py -i qemu_mode/libcompcov/*.c
+	./.custom-format.py -i qemu_mode/libcompcov/*.cc
+	./.custom-format.py -i qemu_mode/libcompcov/*.h
+	./.custom-format.py -i unicorn_mode/patches/*.h
+	./.custom-format.py -i *.h
+	./.custom-format.py -i *.c
 
 
 ifndef AFL_NO_X86
 
 test_build: afl-gcc afl-as afl-showmap
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
-	unset AFL_USE_ASAN AFL_USE_MSAN; AFL_QUIET=1 AFL_INST_RATIO=100 AFL_PATH=. ./$(TEST_CC) $(CFLAGS) test-instr.c -o test-instr $(LDFLAGS)
-	echo 0 | ./afl-showmap -m none -q -o .test-instr0 ./test-instr
+	unset AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_QUIET=1 AFL_INST_RATIO=100 AFL_PATH=. ./$(TEST_CC) $(CFLAGS) test-instr.c -o test-instr $(LDFLAGS)
+	./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
 	echo 1 | ./afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
-	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please ping <lcamtuf@google.com> to troubleshoot the issue."; echo; exit 1; fi
+	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/vanhauser-thc/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
 	@echo "[+] All right, the instrumentation seems to be working!"
 
 else
@@ -181,13 +205,33 @@ all_done: test_build
 .NOTPARALLEL: clean
 
 clean:
-	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o *~ a.out core core.[1-9][0-9]* *.stackdump test .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.0.tar.xz afl-qemu-trace afl-gcc-fast  afl-gcc-pass.so  afl-gcc-rt.o  afl-g++-fast
-	rm -rf out_dir qemu_mode/qemu-3.1.0
+	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o *~ a.out core core.[1-9][0-9]* *.stackdump test .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.0.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so unicorn_mode/24f55a7973278f20f0de21b904851d99d4716263.tar.gz *.8
+	rm -rf out_dir qemu_mode/qemu-3.1.0 unicorn_mode/unicorn
 	$(MAKE) -C llvm_mode clean
 	$(MAKE) -C libdislocator clean
 	$(MAKE) -C libtokencap clean
+	$(MAKE) -C qemu_mode/libcompcov clean
 
-install: all
+%.8:	%
+	@echo .TH $* 8 `date --iso-8601` "afl++" > $@
+	@echo .SH NAME >> $@
+	@echo .B $* >> $@
+	@echo >> $@
+	@echo .SH SYNOPSIS >> $@
+	@./$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> $@
+	@echo >> $@
+	@echo .SH OPTIONS >> $@
+	@echo .nf >> $@
+	@./$* -h 2>&1 | tail -n +4 >> $@
+	@echo >> $@
+	@echo .SH AUTHOR >> $@
+	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexc0der\" Eissfeldt <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>" >> $@
+	@echo  The homepage of afl++ is: https://github.com/vanhauser-thc/AFLplusplus >> $@
+	@echo >> $@
+	@echo .SH LICENSE >> $@
+	@echo Apache License Version 2.0, January 2004 >> $@
+
+install: all $(MANPAGES)
 	mkdir -p -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
 	rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
@@ -204,9 +248,13 @@ endif
 	if [ -f compare-transform-pass.so ]; then set -e; install -m 755 compare-transform-pass.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f split-compares-pass.so ]; then set -e; install -m 755 split-compares-pass.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f split-switches-pass.so ]; then set -e; install -m 755 split-switches-pass.so $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
 
 	set -e; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-g++
 	set -e; if [ -f afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
+
+	mkdir -m 0755 -p $(MAN_PATH)
+	install -m0644 -D *.8 $(MAN_PATH)
 
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
 	ln -sf afl-as $${DESTDIR}$(HELPER_PATH)/as
