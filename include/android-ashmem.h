@@ -1,3 +1,27 @@
+/*
+   american fuzzy lop++ - android shared memory compatibility layer
+   ----------------------------------------------------------------
+
+   Originally written by Michal Zalewski <lcamtuf@google.com>
+   
+   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+                        Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
+                        Andrea Fioraldi <andreafioraldi@gmail.com>
+
+   Copyright 2016, 2017 Google Inc. All rights reserved.
+   Copyright 2019 AFLplusplus Project. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at:
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   This header re-defines the shared memory routines used by AFL++
+   using the Andoid API.
+
+ */
+
 #ifndef _ANDROID_ASHMEM_H
 #define _ANDROID_ASHMEM_H
 

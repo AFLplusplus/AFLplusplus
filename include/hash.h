@@ -1,6 +1,6 @@
 /*
-   american fuzzy lop - hashing function
-   -------------------------------------
+   american fuzzy lop++ - hashing function
+   ---------------------------------------
 
    The hash32() function is a variant of MurmurHash3, a good
    non-cryptosafe hashing function developed by Austin Appleby.
