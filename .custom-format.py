@@ -54,7 +54,7 @@ def custom_format(filename):
             if line.startswith("#define"):
                 in_define = True
         
-        elif "/*" in line and not line.strip().startswith("/*") and line.endswith("*/") and len(line) < (COLUMN_LIMIT-2):
+        if "/*" in line and not line.strip().startswith("/*") and line.endswith("*/") and len(line) < (COLUMN_LIMIT-2):
             cmt_start = line.rfind("/*")
             line = line[:cmt_start] + " " * (COLUMN_LIMIT-2 - len(line)) + line[cmt_start:]
 
