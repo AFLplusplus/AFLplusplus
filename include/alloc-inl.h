@@ -3,7 +3,7 @@
    --------------------------------------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -69,9 +69,9 @@
 
 /* Magic tokens used to mark used / freed chunks. */
 
-#define ALLOC_MAGIC_C1 0xFF00FF00 /* Used head (dword)  */
-#define ALLOC_MAGIC_F 0xFE00FE00  /* Freed head (dword) */
-#define ALLOC_MAGIC_C2 0xF0       /* Used tail (byte)   */
+#define ALLOC_MAGIC_C1 0xFF00FF00                     /* Used head (dword)  */
+#define ALLOC_MAGIC_F 0xFE00FE00                      /* Freed head (dword) */
+#define ALLOC_MAGIC_C2 0xF0                           /* Used tail (byte)   */
 
 /* Positions of guard tokens in relation to the user-visible pointer. */
 
@@ -111,11 +111,14 @@
                            \
                            \
                            \
+                           \
     if (_p) { \
               \
               \
               \
+              \
       if (ALLOC_C1(_p) ^ ALLOC_MAGIC_C1) {\
+                                          \
                                           \
                                           \
                                           \
@@ -126,10 +129,12 @@
       } \
         \
         \
+        \
       if (ALLOC_C2(_p) ^ ALLOC_MAGIC_C2) \
         ABORT("Corrupted tail alloc canary."); \
                                                \
     } \
+      \
       \
       \
       \
@@ -197,7 +202,7 @@ static inline void DFL_ck_free(void* mem) {
   /* Catch pointer issues sooner. */
   memset(mem, 0xFF, ALLOC_S(mem));
 
-#endif /* DEBUG_BUILD */
+#endif                                                       /* DEBUG_BUILD */
 
   ALLOC_C1(mem) = ALLOC_MAGIC_F;
 
@@ -228,7 +233,7 @@ static inline void* DFL_ck_realloc(void* orig, u32 size) {
 
 #ifndef DEBUG_BUILD
     ALLOC_C1(orig) = ALLOC_MAGIC_F;
-#endif /* !DEBUG_BUILD */
+#endif                                                      /* !DEBUG_BUILD */
 
     old_size = ALLOC_S(orig);
     u8* origu8 = orig;
@@ -266,7 +271,7 @@ static inline void* DFL_ck_realloc(void* orig, u32 size) {
 
   }
 
-#endif /* ^!DEBUG_BUILD */
+#endif                                                     /* ^!DEBUG_BUILD */
 
   ret += ALLOC_OFF_HEAD;
 
@@ -297,7 +302,7 @@ static inline void* DFL_ck_realloc_block(void* orig, u32 size) {
 
   }
 
-#endif /* !DEBUG_BUILD */
+#endif                                                      /* !DEBUG_BUILD */
 
   return DFL_ck_realloc(orig, size);
 
@@ -424,7 +429,7 @@ extern u32             TRK_cnt[ALLOC_BUCKETS];
 
 #define alloc_report()
 
-#endif /* ^AFL_MAIN */
+#endif                                                         /* ^AFL_MAIN */
 
 /* Bucket-assigning function for a given pointer: */
 
@@ -600,7 +605,7 @@ static inline void TRK_ck_free(void* ptr, const char* file, const char* func,
 
 #define ck_free(_p1) TRK_ck_free(_p1, __FILE__, __FUNCTION__, __LINE__)
 
-#endif /* ^!DEBUG_BUILD */
+#endif                                                     /* ^!DEBUG_BUILD */
 
-#endif /* ! _HAVE_ALLOC_INL_H */
+#endif                                               /* ! _HAVE_ALLOC_INL_H */
 

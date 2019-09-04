@@ -3,7 +3,7 @@
    --------------------------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -73,7 +73,7 @@ u8 run_target(char** argv, u32 timeout) {
 
         setrlimit(RLIMIT_DATA, &r);                        /* Ignore errors */
 
-#endif /* ^RLIMIT_AS */
+#endif                                                        /* ^RLIMIT_AS */
 
       }
 
@@ -210,7 +210,7 @@ u8 run_target(char** argv, u32 timeout) {
   classify_counts((u64*)trace_bits);
 #else
   classify_counts((u32*)trace_bits);
-#endif /* ^__x86_64__ */
+#endif                                                       /* ^__x86_64__ */
 
   prev_timed_out = child_timed_out;
 

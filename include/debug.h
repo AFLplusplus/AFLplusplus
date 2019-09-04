@@ -3,7 +3,7 @@
    ----------------------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -105,7 +105,7 @@
 #define bgLCY ""
 #define bgBRI ""
 
-#endif /* ^USE_COLOR */
+#endif                                                        /* ^USE_COLOR */
 
 /*************************
  * Box drawing sequences *
@@ -113,21 +113,21 @@
 
 #ifdef FANCY_BOXES
 
-#define SET_G1 "\x1b)0"   /* Set G1 for box drawing    */
-#define RESET_G1 "\x1b)B" /* Reset G1 to ASCII         */
-#define bSTART "\x0e"     /* Enter G1 drawing mode     */
-#define bSTOP "\x0f"      /* Leave G1 drawing mode     */
-#define bH "q"            /* Horizontal line           */
-#define bV "x"            /* Vertical line             */
-#define bLT "l"           /* Left top corner           */
-#define bRT "k"           /* Right top corner          */
-#define bLB "m"           /* Left bottom corner        */
-#define bRB "j"           /* Right bottom corner       */
-#define bX "n"            /* Cross                     */
-#define bVR "t"           /* Vertical, branch right    */
-#define bVL "u"           /* Vertical, branch left     */
-#define bHT "v"           /* Horizontal, branch top    */
-#define bHB "w"           /* Horizontal, branch bottom */
+#define SET_G1 "\x1b)0"                        /* Set G1 for box drawing    */
+#define RESET_G1 "\x1b)B"                      /* Reset G1 to ASCII         */
+#define bSTART "\x0e"                          /* Enter G1 drawing mode     */
+#define bSTOP "\x0f"                           /* Leave G1 drawing mode     */
+#define bH "q"                                 /* Horizontal line           */
+#define bV "x"                                 /* Vertical line             */
+#define bLT "l"                                /* Left top corner           */
+#define bRT "k"                                /* Right top corner          */
+#define bLB "m"                                /* Left bottom corner        */
+#define bRB "j"                                /* Right bottom corner       */
+#define bX "n"                                 /* Cross                     */
+#define bVR "t"                                /* Vertical, branch right    */
+#define bVL "u"                                /* Vertical, branch left     */
+#define bHT "v"                                /* Horizontal, branch top    */
+#define bHB "w"                                /* Horizontal, branch bottom */
 
 #else
 
@@ -147,7 +147,7 @@
 #define bHT "+"
 #define bHB "+"
 
-#endif /* ^FANCY_BOXES */
+#endif                                                      /* ^FANCY_BOXES */
 
 /***********************
  * Misc terminal codes *
@@ -169,7 +169,7 @@
 #define SAYF(x...) printf(x)
 #else
 #define SAYF(x...) fprintf(stderr, x)
-#endif /* ^MESSAGES_TO_STDOUT */
+#endif                                               /* ^MESSAGES_TO_STDOUT */
 
 /* Show a prefixed warning. */
 
@@ -286,5 +286,5 @@
                                                                \
   } while (0)
 
-#endif /* ! _HAVE_DEBUG_H */
+#endif                                                   /* ! _HAVE_DEBUG_H */
 

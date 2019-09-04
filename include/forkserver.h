@@ -3,9 +3,9 @@
    ----------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -45,7 +45,7 @@ void init_forkserver(char **argv);
 #define MSG_ULIMIT_USAGE "      ( ulimit -Sv $[%llu << 10];"
 #else
 #define MSG_ULIMIT_USAGE "      ( ulimit -Sd $[%llu << 10];"
-#endif /* ^RLIMIT_AS */
+#endif                                                        /* ^RLIMIT_AS */
 
 #endif
 

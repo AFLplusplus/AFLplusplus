@@ -3,7 +3,7 @@
    ------------------------------------------------------
 
    Originally written by Michal Zalewski <lcamtuf@google.com>
-   
+
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -142,7 +142,7 @@ void bind_to_free_cpu(void) {
 
 }
 
-#endif /* HAVE_AFFINITY */
+#endif                                                     /* HAVE_AFFINITY */
 
 /* Load postprocessor, if available. */
 
@@ -651,7 +651,7 @@ void pivot_inputs(void) {
 
       nfn = alloc_printf("%s/queue/id_%06u", out_dir, id);
 
-#endif /* ^!SIMPLE_FILES */
+#endif                                                    /* ^!SIMPLE_FILES */
 
     }
 
@@ -827,7 +827,7 @@ double get_runnable_processes(void) {
 
   }
 
-#endif /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__) */
+#endif                        /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__) */
 
   return res;
 
@@ -901,7 +901,7 @@ void maybe_delete_out_dir(void) {
 
   }
 
-#endif /* !__sun */
+#endif                                                            /* !__sun */
 
   f = fopen(fn, "r");
 
@@ -1043,7 +1043,7 @@ void maybe_delete_out_dir(void) {
                            t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min,
                            t->tm_sec);
 
-#endif /* ^!SIMPLE_FILES */
+#endif                                                    /* ^!SIMPLE_FILES */
 
     rename(fn, nfn);                                      /* Ignore errors. */
     ck_free(nfn);
@@ -1074,7 +1074,7 @@ void maybe_delete_out_dir(void) {
                            t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min,
                            t->tm_sec);
 
-#endif /* ^!SIMPLE_FILES */
+#endif                                                    /* ^!SIMPLE_FILES */
 
     rename(fn, nfn);                                      /* Ignore errors. */
     ck_free(nfn);
@@ -1174,7 +1174,7 @@ void setup_dirs_fds(void) {
     if (out_dir_fd < 0 || flock(out_dir_fd, LOCK_EX | LOCK_NB))
       PFATAL("Unable to flock() output directory.");
 
-#endif /* !__sun */
+#endif                                                            /* !__sun */
 
   }
 
@@ -1390,7 +1390,7 @@ void check_crash_handling(void) {
 
   close(fd);
 
-#endif /* ^__APPLE__ */
+#endif                                                        /* ^__APPLE__ */
 
 }
 
@@ -1504,7 +1504,7 @@ void get_core_count(void) {
 
   if (sysctl(s_name, 2, &cpu_core_count, &s, NULL, 0) < 0) return;
 
-#endif /* ^__APPLE__ */
+#endif                                                        /* ^__APPLE__ */
 
 #else
 
@@ -1524,9 +1524,9 @@ void get_core_count(void) {
 
   fclose(f);
 
-#endif /* ^HAVE_AFFINITY */
+#endif                                                    /* ^HAVE_AFFINITY */
 
-#endif /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__) */
+#endif                        /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__) */
 
   if (cpu_core_count > 0) {
 
@@ -1540,7 +1540,7 @@ void get_core_count(void) {
 
     ++cur_runnable;
 
-#endif /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
+#endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
     OKF("You have %d CPU core%s and %u runnable tasks (utilization: %0.0f%%).",
         cpu_core_count, cpu_core_count > 1 ? "s" : "", cur_runnable,
@@ -1780,7 +1780,7 @@ void check_binary(u8* fname) {
     FATAL("Program '%s' is not a 64-bit Mach-O binary", target_path);
 #endif
 
-#endif /* ^!__APPLE__ */
+#endif                                                       /* ^!__APPLE__ */
 
   if (!qemu_mode && !unicorn_mode && !dumb_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
