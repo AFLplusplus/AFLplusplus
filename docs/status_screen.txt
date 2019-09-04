@@ -407,6 +407,9 @@ directory. This includes:
   - variable_paths - number of test cases showing variable behavior
   - unique_crashes - number of unique crashes recorded
   - unique_hangs   - number of unique hangs encountered
+  - command_line   - full command line used for the fuzzing session
+  - slowest_exec_ms- real time of the slowest execution in seconds
+  - peak_rss_mb    - max rss usage reached during fuzzing in MB
 
 Most of these map directly to the UI elements discussed earlier on.
 
