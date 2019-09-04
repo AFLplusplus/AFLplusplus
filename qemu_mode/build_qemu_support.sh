@@ -112,7 +112,8 @@ if [ "$CKSUM" = "$QEMU_SHA384" ]; then
 
 else
 
-  echo "[-] Error: signature mismatch on $ARCHIVE (perhaps download error?)."
+  echo "[-] Error: signature mismatch on $ARCHIVE (perhaps download error?), removing archive ..."
+  rm -f "$ARCHIVE"
   exit 1
 
 fi
@@ -200,11 +201,18 @@ if [ "$ORIG_CPU_TARGET" = "" ]; then
   echo "[+] Instrumentation tests passed. "
   echo "[+] All set, you can now use the -Q mode in afl-fuzz!"
 
+  cd qemu_mode || exit 1
+
 else
 
   echo "[!] Note: can't test instrumentation when CPU_TARGET set."
   echo "[+] All set, you can now (hopefully) use the -Q mode in afl-fuzz!"
 
 fi
+
+echo "[+] Building libcompcov ..."
+make -C libcompcov
+echo "[+] libcompcov ready"
+echo "[+] All done for qemu_mode, enjoy!"
 
 exit 0

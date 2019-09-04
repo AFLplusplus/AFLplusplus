@@ -1091,7 +1091,7 @@ int main(int argc, char** argv) {
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by <lcamtuf@google.com>\n");
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeQU")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeQUh")) > 0)
 
     switch (opt) {
 
@@ -1210,6 +1210,11 @@ int main(int argc, char** argv) {
         if (mask_bitmap) FATAL("Multiple -B options not supported");
         mask_bitmap = ck_alloc(MAP_SIZE);
         read_bitmap(optarg);
+        break;
+      
+      case 'h':
+        usage(argv[0]);
+        return -1;
         break;
 
       default: usage(argv[0]);

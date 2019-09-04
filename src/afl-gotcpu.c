@@ -127,6 +127,14 @@ repeat_loop:
 
 int main(int argc, char** argv) {
 
+  if (argc > 1) {
+    printf("afl-gotcpu" VERSION " by <lcamtuf@google.com>\n");
+    printf("\n%s \n\n", argv[0]);
+    printf("afl-gotcpu does not have command line options\n");
+    printf("afl-gotcpu prints out which CPUs are available\n");
+    return -1;
+  }
+
 #ifdef HAVE_AFFINITY
 
   u32 cpu_cnt = sysconf(_SC_NPROCESSORS_ONLN), idle_cpus = 0, maybe_cpus = 0, i;

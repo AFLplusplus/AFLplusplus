@@ -21,9 +21,9 @@ echo
 if [ ! "$#" = "2" ]; then
 
   cat 1>&2 <<_EOF_
-This program generates gnuplot images from afl-fuzz output data. Usage:
-
 $0 afl_state_dir graph_output_dir
+
+This program generates gnuplot images from afl-fuzz output data. Usage:
 
 The afl_state_dir parameter should point to an existing state directory for any
 active or stopped instance of afl-fuzz; while graph_output_dir should point to

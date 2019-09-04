@@ -1,4 +1,17 @@
 #!/bin/sh
+test "$1" = "-h" && {
+  echo afl-system-config by Marc Heuse
+  echo
+  echo $0
+  echo
+  echo afl-system-config has no command line options
+  echo
+  echo afl-system reconfigures the system to a high performance fuzzing state
+  echo WARNING: this reduces the security of the system
+  echo
+  exit 1
+}
+
 PLATFORM=`uname -s`
 echo This reconfigures the system to have a better fuzzing performance
 if [ '!' "$EUID" = 0 ] && [ '!' `id -u` = 0 ] ; then

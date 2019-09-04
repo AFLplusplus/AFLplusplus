@@ -4,6 +4,9 @@ Roadmap 2.53d:
 afl-fuzz:
  - custom mutator lib: example and readme
 
+man:
+ - man page for afl-clang-fast
+
 
 Roadmap 2.54d:
 ==============

@@ -563,7 +563,7 @@ int main(int argc, char** argv) {
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  while ((opt = getopt(argc, argv, "+o:m:t:A:eqZQUbcr")) > 0)
+  while ((opt = getopt(argc, argv, "+o:m:t:A:eqZQUbcrh")) > 0)
 
     switch (opt) {
 
@@ -690,6 +690,11 @@ int main(int argc, char** argv) {
         if (raw_instr_output) FATAL("Multiple -r options not supported");
         if (edges_only) FATAL("-e and -r are mutually exclusive");
         raw_instr_output = 1;
+        break;
+    
+      case 'h':
+        usage(argv[0]);
+        return -1;
         break;
 
       default: usage(argv[0]);
