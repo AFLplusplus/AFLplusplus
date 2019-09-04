@@ -9,8 +9,9 @@
 
   Repository: [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
 
-  afl++ is maintained by Marc Heuse <mh@mh-sec.de>, Heiko Eißfeldt
-  <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>.
+  afl++ is maintained by Marc "van Hauser" Heuse <mh@mh-sec.de>,
+  Heiko "hexc0der" Eißfeldt <heiko.eissfeldt@hexco.de> and
+  Andrea Fioraldi <andreafioraldi@gmail.com>.
 
   Note that although afl now has a Google afl repository [https://github.com/Google/afl](https://github.com/Google/afl),
   it is unlikely to receive any noteable enhancements: [https://twitter.com/Dor3s/status/1154737061787660288](https://twitter.com/Dor3s/status/1154737061787660288)
@@ -21,24 +22,27 @@
   Many improvements were made over the official afl release - which did not
   get any improvements since November 2017.
 
-  Among others afl++ has, e.g. more performant llvm_mode, supporting
+  Among others afl++ has a more performant llvm_mode, supporting
   llvm up to version 9, Qemu 3.1, more speed and crashfixes for Qemu,
-  laf-intel feature for Qemu (with libcompcov), better *BSD and Android
-  support and more.
+  better *BSD and Android support and much, much more.
 
   Additionally the following patches have been integrated:
 
   * AFLfast's power schedules by Marcel Böhme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
 
-  * C. Hollers afl-fuzz Python mutator module and llvm_mode whitelist support: [https://github.com/choller/afl](https://github.com/choller/afl)
-
   * the new excellent MOpt mutator: [https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)
 
   * instrim, a very effective CFG llvm_mode instrumentation implementation for large targets: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
 
-  * unicorn_mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
+  * C. Holler's afl-fuzz Python mutator module and llvm_mode whitelist support: [https://github.com/choller/afl](https://github.com/choller/afl)
 
   * Custom mutator by a library (instead of Python) by kyakdan
+
+  * unicorn_mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
+
+  * laf-intel (compcov) support for llvm_mode, qemu_mode and unicorn_mode
+
+  * neverZero patch for afl-gcc, llvm_mode, qemu_mode and unicorn_mode which prevents a wrapping map value to zero, increases coverage (by Andrea Fioraldi)
 
   A more thorough list is available in the PATCHES file.
 
