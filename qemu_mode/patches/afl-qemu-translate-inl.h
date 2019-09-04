@@ -1,19 +1,18 @@
 /*
-   american fuzzy lop - high-performance binary-only instrumentation
-   -----------------------------------------------------------------
+   american fuzzy lop++ - high-performance binary-only instrumentation
+   -------------------------------------------------------------------
 
-   Written by Andrew Griffiths <agriffiths@google.com> and
-              Michal Zalewski <lcamtuf@google.com>
-
-   Idea & design very much by Andrew Griffiths.
+   Originally written by Andrew Griffiths <agriffiths@google.com> and
+                         Michal Zalewski <lcamtuf@google.com>
 
    TCG instrumentation and block chaining support by Andrea Biondo
                                       <andrea.biondo965@gmail.com>
 
-   QEMU 3.1.0 port, TCG thread-safety and CompareCoverage by Andrea Fioraldi
-                                      <andreafioraldi@gmail.com>
+   QEMU 3.1.0 port, TCG thread-safety, CompareCoverage and NeverZero
+   counters by Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
+   Copyright 2019 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,21 +31,24 @@
 
  */
 
-#include "../../config.h"
+#include "afl-qemu-common.h"
 #include "tcg-op.h"
 
 /* Declared in afl-qemu-cpu-inl.h */
 extern unsigned char *afl_area_ptr;
-extern unsigned int afl_inst_rms;
-extern abi_ulong afl_start_code, afl_end_code;
+extern unsigned int   afl_inst_rms;
+extern abi_ulong      afl_start_code, afl_end_code;
 
 void tcg_gen_afl_maybe_log_call(target_ulong cur_loc);
 
-void afl_maybe_log(target_ulong cur_loc) { 
+void afl_maybe_log(target_ulong cur_loc) {
 
   static __thread abi_ulong prev_loc;
 
-  afl_area_ptr[cur_loc ^ prev_loc]++;
+  register uintptr_t afl_idx = cur_loc ^ prev_loc;
+
+  INC_AFL_AREA(afl_idx);
+
   prev_loc = cur_loc >> 1;
 
 }
@@ -57,14 +59,16 @@ static void afl_gen_trace(target_ulong cur_loc) {
   /* Optimize for cur_loc > afl_end_code, which is the most likely case on
      Linux systems. */
 
-  if (cur_loc > afl_end_code || cur_loc < afl_start_code /*|| !afl_area_ptr*/) // not needed because of static dummy buffer
+  if (cur_loc > afl_end_code ||
+      cur_loc < afl_start_code /*|| !afl_area_ptr*/)  // not needed because of
+                                                      // static dummy buffer
     return;
 
   /* Looks like QEMU always maps to fixed locations, so ASLR is not a
      concern. Phew. But instruction addresses may be aligned. Let's mangle
      the value to get something quasi-uniform. */
 
-  cur_loc  = (cur_loc >> 4) ^ (cur_loc << 8);
+  cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
   cur_loc &= MAP_SIZE - 1;
 
   /* Implement probabilistic instrumentation by looking at scrambled block
@@ -73,5 +77,6 @@ static void afl_gen_trace(target_ulong cur_loc) {
   if (cur_loc >= afl_inst_rms) return;
 
   tcg_gen_afl_maybe_log_call(cur_loc);
-  
+
 }
+

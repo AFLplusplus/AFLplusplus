@@ -3,9 +3,10 @@
 
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
-#include<vector>
+#include <vector>
 
-std::pair<std::vector<llvm::BasicBlock *>,
-          std::vector<llvm::BasicBlock *>> markNodes(llvm::Function *F);
+std::pair<std::vector<llvm::BasicBlock *>, std::vector<llvm::BasicBlock *>>
+markNodes(llvm::Function *F);
 
 #endif
+

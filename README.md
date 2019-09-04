@@ -1,6 +1,7 @@
 # american fuzzy lop plus plus (afl++)
 
   Release Version: 2.53c 
+
   Github Version: 2.53d
 
 
@@ -8,31 +9,40 @@
 
   Repository: [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
 
-  afl++ is maintained by Marc Heuse <mh@mh-sec.de>, Heiko Eißfeldt
-  <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>.
+  afl++ is maintained by Marc "van Hauser" Heuse <mh@mh-sec.de>,
+  Heiko "hexc0der" Eißfeldt <heiko.eissfeldt@hexco.de> and
+  Andrea Fioraldi <andreafioraldi@gmail.com>.
+
+  Note that although afl now has a Google afl repository [https://github.com/Google/afl](https://github.com/Google/afl),
+  it is unlikely to receive any noteable enhancements: [https://twitter.com/Dor3s/status/1154737061787660288](https://twitter.com/Dor3s/status/1154737061787660288)
+
 
 ## The enhancements compared to the original stock afl
 
   Many improvements were made over the official afl release - which did not
   get any improvements since November 2017.
 
-  Among others afl++ has, e.g. more performant llvm_mode, supporting
-  llvm up to version 8, Qemu 3.1, more speed and crashfixes for Qemu,
-  laf-intel feature for Qemu (with libcompcov) and more.
+  Among others afl++ has a more performant llvm_mode, supporting
+  llvm up to version 9, Qemu 3.1, more speed and crashfixes for Qemu,
+  better *BSD and Android support and much, much more.
 
   Additionally the following patches have been integrated:
 
   * AFLfast's power schedules by Marcel Böhme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
 
-  * C. Hollers afl-fuzz Python mutator module and llvm_mode whitelist support: [https://github.com/choller/afl](https://github.com/choller/afl)
-
   * the new excellent MOpt mutator: [https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)
 
   * instrim, a very effective CFG llvm_mode instrumentation implementation for large targets: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
 
-  * unicorn_mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
+  * C. Holler's afl-fuzz Python mutator module and llvm_mode whitelist support: [https://github.com/choller/afl](https://github.com/choller/afl)
 
   * Custom mutator by a library (instead of Python) by kyakdan
+
+  * unicorn_mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
+
+  * laf-intel (compcov) support for llvm_mode, qemu_mode and unicorn_mode
+
+  * neverZero patch for afl-gcc, llvm_mode, qemu_mode and unicorn_mode which prevents a wrapping map value to zero, increases coverage (by Andrea Fioraldi)
 
   A more thorough list is available in the PATCHES file.
 
@@ -49,7 +59,6 @@
 
 
 ## 1) Challenges of guided fuzzing
--------------------------------
 
 Fuzzing is one of the most powerful and proven strategies for identifying
 security issues in real-world software; it is responsible for the vast
@@ -120,7 +129,7 @@ superior to blind fuzzing or coverage-only tools.
 PLEASE NOTE: llvm_mode compilation with afl-clang-fast/afl-clang-fast++
 instead of afl-gcc/afl-g++ is much faster and has a few cool features.
 See llvm_mode/ - however few code does not compile with llvm.
-We support llvm versions 4.0 to 8.
+We support llvm versions 3.8.0 to 9.
 
 When source code is available, instrumentation can be injected by a companion
 tool that works as a drop-in replacement for gcc or clang in any standard build
@@ -143,7 +152,7 @@ For C++ programs, you'd would also want to set `CXX=/path/to/afl/afl-g++`.
 The clang wrappers (afl-clang and afl-clang++) can be used in the same way;
 clang users may also opt to leverage a higher-performance instrumentation mode,
 as described in [llvm_mode/README.llvm](llvm_mode/README.llvm).
-Clang/LLVM has a much better performance and works with LLVM version 4.0 to 8.
+Clang/LLVM has a much better performance and works with LLVM version 3.8.0 to 9.
 
 Using the LAF Intel performance enhancements are also recommended, see 
 [llvm_mode/README.laf-intel](llvm_mode/README.laf-intel)
@@ -172,7 +181,6 @@ file for important caveats.
 
 
 ## 4) Instrumenting binary-only apps
----------------------------------
 
 When source code is *NOT* available, the fuzzer offers experimental support for
 fast, on-the-fly instrumentation of black-box binaries. This is accomplished
@@ -200,7 +208,6 @@ A more comprehensive description of these and other options can be found in
 
 
 ## 5) Power schedules
-------------------
 
 The power schedules were copied from Marcel Böhme's excellent AFLfast
 implementation and expands on the ability to discover new paths and
@@ -232,7 +239,6 @@ Computer and Communications Security (CCS'16):
 
 
 ## 6) Choosing initial test cases
-------------------------------
 
 To operate correctly, the fuzzer requires one or more starting file that
 contains a good example of the input data normally expected by the targeted
@@ -254,7 +260,6 @@ exercise different code paths in the target binary.
 
 
 ## 7) Fuzzing binaries
--------------------
 
 The fuzzing process itself is carried out by the afl-fuzz utility. This program
 requires a read-only directory with initial test cases, a separate place to
@@ -293,7 +298,6 @@ fuzzers - add the -d option to the command line.
 
 
 ## 8) Interpreting output
-----------------------
 
 See the [docs/status_screen.txt](docs/status_screen.txt) file for information on
 how to interpret the displayed stats and monitor the health of the process. Be
@@ -355,7 +359,6 @@ see [http://lcamtuf.coredump.cx/afl/plot/](http://lcamtuf.coredump.cx/afl/plot/)
 
 
 ## 9) Parallelized fuzzing
------------------------
 
 Every instance of afl-fuzz takes up roughly one core. This means that on
 multi-core systems, parallelization is necessary to fully utilize the hardware.
@@ -368,7 +371,6 @@ last section of [docs/parallel_fuzzing.txt](docs/parallel_fuzzing.txt) for tips.
 
 
 ## 10) Fuzzer dictionaries
-----------------------
 
 By default, afl-fuzz mutation engine is optimized for compact data formats -
 say, images, multimedia, compressed data, regular expression syntax, or shell
@@ -405,7 +407,6 @@ utility with AFL. For that, see [libtokencap/README.tokencap](libtokencap/README
 
 
 ## 11) Crash triage
-----------------
 
 The coverage-based grouping of crashes usually produces a small data set that
 can be quickly triaged manually or with a very simple GDB or Valgrind script.
@@ -454,7 +455,6 @@ near the end of [docs/technical_details.txt](docs/technical_details.txt).
 
 
 ## 12) Going beyond crashes
-------------------------
 
 Fuzzing is a wonderful and underutilized technique for discovering non-crashing
 design and implementation errors, too. Quite a few interesting bugs have been
@@ -479,7 +479,6 @@ shared with libfuzzer) or `#ifdef __AFL_COMPILER` (this one is just for AFL).
 
 
 ## 13) Common-sense risks
-----------------------
 
 Please keep in mind that, similarly to many other computationally-intensive
 tasks, fuzzing may put strain on your hardware and on the OS. In particular:
@@ -510,7 +509,6 @@ tasks, fuzzing may put strain on your hardware and on the OS. In particular:
 
 
 ## 14) Known limitations & areas for improvement
----------------------------------------------
 
 Here are some of the most important caveats for AFL:
 
@@ -552,10 +550,9 @@ Beyond this, see INSTALL for platform-specific tips.
 
 
 ## 15) Special thanks
-------------------
 
-Many of the improvements to the original afl wouldn't be possible without
-feedback, bug reports, or patches from:
+Many of the improvements to the original afl and afl++ wouldn't be possible
+without feedback, bug reports, or patches from:
 
 ```
   Jann Horn                             Hanno Boeck
@@ -597,14 +594,15 @@ feedback, bug reports, or patches from:
   Rene Freingruber                      Sergey Davidoff
   Sami Liedes                           Craig Young
   Andrzej Jackowski                     Daniel Hodson
-  Nathan Voss				Dominik Maier
+  Nathan Voss                           Dominik Maier
+  Andrea Biondo                         Vincent Le Garrec
+  Khaled Yakdan                         Kuang-che Wu
 ```
 
 Thank you!
 
 
 ## 16) Contact
------------
 
 Questions? Concerns? Bug reports? The contributors can be reached via
 [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)

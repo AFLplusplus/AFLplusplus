@@ -1,19 +1,18 @@
 /*
-   american fuzzy lop - high-performance binary-only instrumentation
-   -----------------------------------------------------------------
+   american fuzzy lop++ - high-performance binary-only instrumentation
+   -------------------------------------------------------------------
 
-   Written by Andrew Griffiths <agriffiths@google.com> and
-              Michal Zalewski <lcamtuf@google.com>
-
-   Idea & design very much by Andrew Griffiths.
+   Originally written by Andrew Griffiths <agriffiths@google.com> and
+                         Michal Zalewski <lcamtuf@google.com>
 
    TCG instrumentation and block chaining support by Andrea Biondo
                                       <andrea.biondo965@gmail.com>
 
-   QEMU 3.1.0 port, TCG thread-safety and CompareCoverage by Andrea Fioraldi
-                                      <andreafioraldi@gmail.com>
+   QEMU 3.1.0 port, TCG thread-safety, CompareCoverage and NeverZero
+   counters by Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
+   Copyright 2019 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,11 +42,16 @@
    _start and does the usual forkserver stuff, not very different from
    regular instrumentation injected via afl-as.h. */
 
-#define AFL_QEMU_CPU_SNIPPET2 do { \
-    if(itb->pc == afl_entry_point) { \
-      afl_setup(); \
-      afl_forkserver(cpu); \
-    } \
+#define AFL_QEMU_CPU_SNIPPET2         \
+  do {                                \
+                                      \
+    if (itb->pc == afl_entry_point) { \
+                                      \
+      afl_setup();                    \
+      afl_forkserver(cpu);            \
+                                      \
+    }                                 \
+                                      \
   } while (0)
 
 /* We use one additional file descriptor to relay "needs translation"
@@ -57,60 +61,71 @@
 
 /* This is equivalent to afl-as.h: */
 
-static unsigned char dummy[MAP_SIZE]; /* costs MAP_SIZE but saves a few instructions */
-unsigned char *afl_area_ptr = dummy; /* Exported for afl_gen_trace */
+static unsigned char
+               dummy[MAP_SIZE]; /* costs MAP_SIZE but saves a few instructions */
+unsigned char *afl_area_ptr = dummy;          /* Exported for afl_gen_trace */
 
 /* Exported variables populated by the code patched into elfload.c: */
 
-abi_ulong afl_entry_point, /* ELF entry point (_start) */
-          afl_start_code,  /* .text start pointer      */
-          afl_end_code;    /* .text end pointer        */
+abi_ulong afl_entry_point,                      /* ELF entry point (_start) */
+    afl_start_code,                             /* .text start pointer      */
+    afl_end_code;                               /* .text end pointer        */
 
-u8 afl_enable_compcov;
+u8 afl_compcov_level;
 
 /* Set in the child process in forkserver mode: */
 
-static int forkserver_installed = 0;
+static int           forkserver_installed = 0;
 static unsigned char afl_fork_child;
-unsigned int afl_forksrv_pid;
+unsigned int         afl_forksrv_pid;
 
 /* Instrumentation ratio: */
 
-unsigned int afl_inst_rms = MAP_SIZE; /* Exported for afl_gen_trace */
+unsigned int afl_inst_rms = MAP_SIZE;         /* Exported for afl_gen_trace */
 
 /* Function declarations. */
 
 static void afl_setup(void);
-static void afl_forkserver(CPUState*);
+static void afl_forkserver(CPUState *);
 
-static void afl_wait_tsl(CPUState*, int);
-static void afl_request_tsl(target_ulong, target_ulong, uint32_t, uint32_t, TranslationBlock*, int);
+static void afl_wait_tsl(CPUState *, int);
+static void afl_request_tsl(target_ulong, target_ulong, uint32_t, uint32_t,
+                            TranslationBlock *, int);
 
 /* Data structures passed around by the translate handlers: */
 
 struct afl_tb {
+
   target_ulong pc;
   target_ulong cs_base;
-  uint32_t flags;
-  uint32_t cf_mask;
+  uint32_t     flags;
+  uint32_t     cf_mask;
+
 };
 
 struct afl_tsl {
+
   struct afl_tb tb;
-  char is_chain;
+  char          is_chain;
+
 };
 
 struct afl_chain {
+
   struct afl_tb last_tb;
-  uint32_t cf_mask;
-  int tb_exit;
+  uint32_t      cf_mask;
+  int           tb_exit;
+
 };
 
 /* Some forward decls: */
 
-TranslationBlock *tb_htable_lookup(CPUState*, target_ulong, target_ulong, uint32_t, uint32_t);
-static inline TranslationBlock *tb_find(CPUState*, TranslationBlock*, int, uint32_t);
-static inline void tb_add_jump(TranslationBlock *tb, int n, TranslationBlock *tb_next);
+TranslationBlock *tb_htable_lookup(CPUState *, target_ulong, target_ulong,
+                                   uint32_t, uint32_t);
+static inline TranslationBlock *tb_find(CPUState *, TranslationBlock *, int,
+                                        uint32_t);
+static inline void              tb_add_jump(TranslationBlock *tb, int n,
+                                            TranslationBlock *tb_next);
 
 /*************************
  * ACTUAL IMPLEMENTATION *
@@ -120,8 +135,7 @@ static inline void tb_add_jump(TranslationBlock *tb, int n, TranslationBlock *tb
 
 static void afl_setup(void) {
 
-  char *id_str = getenv(SHM_ENV_VAR),
-       *inst_r = getenv("AFL_INST_RATIO");
+  char *id_str = getenv(SHM_ENV_VAR), *inst_r = getenv("AFL_INST_RATIO");
 
   int shm_id;
 
@@ -143,7 +157,7 @@ static void afl_setup(void) {
     shm_id = atoi(id_str);
     afl_area_ptr = shmat(shm_id, NULL, 0);
 
-    if (afl_area_ptr == (void*)-1) exit(1);
+    if (afl_area_ptr == (void *)-1) exit(1);
 
     /* With AFL_INST_RATIO set to a low value, we want to touch the bitmap
        so that the parent doesn't give up on us. */
@@ -155,13 +169,16 @@ static void afl_setup(void) {
   if (getenv("AFL_INST_LIBS")) {
 
     afl_start_code = 0;
-    afl_end_code   = (abi_ulong)-1;
+    afl_end_code = (abi_ulong)-1;
 
   }
-  
-  if (getenv("AFL_QEMU_COMPCOV")) {
 
-    afl_enable_compcov = 1;
+  /* Maintain for compatibility */
+  if (getenv("AFL_QEMU_COMPCOV")) { afl_compcov_level = 1; }
+  if (getenv("AFL_COMPCOV_LEVEL")) {
+
+    afl_compcov_level = atoi(getenv("AFL_COMPCOV_LEVEL"));
+
   }
 
   /* pthread_atfork() seems somewhat broken in util/rcu.c, and I'm
@@ -172,17 +189,15 @@ static void afl_setup(void) {
 
 }
 
-
 /* Fork server logic, invoked once we hit _start. */
 
 static void afl_forkserver(CPUState *cpu) {
 
   static unsigned char tmp[4];
 
-  if (forkserver_installed == 1)
-    return;
+  if (forkserver_installed == 1) return;
   forkserver_installed = 1;
-  //if (!afl_area_ptr) return; // not necessary because of fixed dummy buffer
+  // if (!afl_area_ptr) return; // not necessary because of fixed dummy buffer
 
   /* Tell the parent that we're alive. If the parent doesn't want
      to talk, assume that we're not running in forkserver mode. */
@@ -196,7 +211,7 @@ static void afl_forkserver(CPUState *cpu) {
   while (1) {
 
     pid_t child_pid;
-    int status, t_fd[2];
+    int   status, t_fd[2];
 
     /* Whoops, parent dead? */
 
@@ -242,59 +257,60 @@ static void afl_forkserver(CPUState *cpu) {
 
 }
 
-
 /* This code is invoked whenever QEMU decides that it doesn't have a
    translation of a particular block and needs to compute it, or when it
    decides to chain two TBs together. When this happens, we tell the parent to
    mirror the operation, so that the next fork() has a cached copy. */
 
-static void afl_request_tsl(target_ulong pc, target_ulong cb, uint32_t flags, uint32_t cf_mask,
-                            TranslationBlock *last_tb, int tb_exit) {
+static void afl_request_tsl(target_ulong pc, target_ulong cb, uint32_t flags,
+                            uint32_t cf_mask, TranslationBlock *last_tb,
+                            int tb_exit) {
 
-  struct afl_tsl t;
+  struct afl_tsl   t;
   struct afl_chain c;
 
   if (!afl_fork_child) return;
 
-  t.tb.pc      = pc;
+  t.tb.pc = pc;
   t.tb.cs_base = cb;
-  t.tb.flags   = flags;
+  t.tb.flags = flags;
   t.tb.cf_mask = cf_mask;
-  t.is_chain   = (last_tb != NULL);
+  t.is_chain = (last_tb != NULL);
 
   if (write(TSL_FD, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl))
     return;
 
   if (t.is_chain) {
-    c.last_tb.pc      = last_tb->pc;
+
+    c.last_tb.pc = last_tb->pc;
     c.last_tb.cs_base = last_tb->cs_base;
-    c.last_tb.flags   = last_tb->flags;
-    c.cf_mask         = cf_mask;
-    c.tb_exit         = tb_exit;
+    c.last_tb.flags = last_tb->flags;
+    c.cf_mask = cf_mask;
+    c.tb_exit = tb_exit;
 
     if (write(TSL_FD, &c, sizeof(struct afl_chain)) != sizeof(struct afl_chain))
       return;
+
   }
 
 }
-
 
 /* Check if an address is valid in the current mapping */
 
 static inline int is_valid_addr(target_ulong addr) {
 
-    int l, flags;
-    target_ulong page;
-    void * p;
-    
-    page = addr & TARGET_PAGE_MASK;
-    l = (page + TARGET_PAGE_SIZE) - addr;
-    
-    flags = page_get_flags(page);
-    if (!(flags & PAGE_VALID) || !(flags & PAGE_READ))
-        return 0;
-    
-    return 1;
+  int          l, flags;
+  target_ulong page;
+  void *       p;
+
+  page = addr & TARGET_PAGE_MASK;
+  l = (page + TARGET_PAGE_SIZE) - addr;
+
+  flags = page_get_flags(page);
+  if (!(flags & PAGE_VALID) || !(flags & PAGE_READ)) return 0;
+
+  return 1;
+
 }
 
 /* This is the other side of the same channel. Since timeouts are handled by
@@ -302,8 +318,8 @@ static inline int is_valid_addr(target_ulong addr) {
 
 static void afl_wait_tsl(CPUState *cpu, int fd) {
 
-  struct afl_tsl t;
-  struct afl_chain c;
+  struct afl_tsl    t;
+  struct afl_chain  c;
   TranslationBlock *tb, *last_tb;
 
   while (1) {
@@ -312,30 +328,33 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
 
     /* Broken pipe means it's time to return to the fork server routine. */
 
-    if (read(fd, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl))
-      break;
+    if (read(fd, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl)) break;
 
     tb = tb_htable_lookup(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, t.tb.cf_mask);
 
-    if(!tb) {
-      
+    if (!tb) {
+
       /* The child may request to transate a block of memory that is not
          mapped in the parent (e.g. jitted code or dlopened code).
          This causes a SIGSEV in gen_intermediate_code() and associated
          subroutines. We simply avoid caching of such blocks. */
 
       if (is_valid_addr(t.tb.pc)) {
-    
+
         mmap_lock();
-        tb = tb_gen_code(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, 0);
+        tb = tb_gen_code(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, t.tb.cf_mask);
         mmap_unlock();
+
       } else {
-      
-        invalid_pc = 1; 
+
+        invalid_pc = 1;
+
       }
+
     }
 
     if (t.is_chain) {
+
       if (read(fd, &c, sizeof(struct afl_chain)) != sizeof(struct afl_chain))
         break;
 
@@ -343,10 +362,10 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
 
         last_tb = tb_htable_lookup(cpu, c.last_tb.pc, c.last_tb.cs_base,
                                    c.last_tb.flags, c.cf_mask);
-        if (last_tb) {
-          tb_add_jump(last_tb, c.tb_exit, tb);
-        }
+        if (last_tb) { tb_add_jump(last_tb, c.tb_exit, tb); }
+
       }
+
     }
 
   }
@@ -354,3 +373,4 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
   close(fd);
 
 }
+

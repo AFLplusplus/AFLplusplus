@@ -19,6 +19,13 @@
 
 echo "status check tool for afl-fuzz by <lcamtuf@google.com>"
 echo
+test "$1" = "-h" && {
+  echo $0
+  echo
+  echo afl-whatsup has no command line options
+  echo
+  exit 1
+}
 
 if [ "$1" = "-s" ]; then
 
@@ -54,7 +61,7 @@ fi
 
 CUR_TIME=`date +%s`
 
-TMP=`mktemp -t .afl-whatsup-XXXXXXXX` || exit 1
+TMP=`mktemp -t .afl-whatsup-XXXXXXXX` || TMP=`mktemp -p /data/local/tmp .afl-whatsup-XXXXXXXX` || exit 1
 
 ALIVE_CNT=0
 DEAD_CNT=0

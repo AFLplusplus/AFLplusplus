@@ -223,6 +223,9 @@ checks or alter some of the more exotic semantics of the tool:
     some basic stats. This behavior is also automatically triggered when the
     output from afl-fuzz is redirected to a file or to a pipe.
 
+  - Setting AFL_FORCE_UI will force painting the UI on the screen even if
+    no valid terminal was detected (for virtual consoles)
+
   - If you are Jakub, you may need AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES.
     Others need not apply.
 
@@ -245,9 +248,19 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - Setting AFL_INST_LIBS causes the translator to also instrument the code
     inside any dynamically linked libraries (notably including glibc).
   
+  - Setting AFL_COMPCOV_LEVEL enables the CompareCoverage tracing of all cmp
+    and sub in x86 and x86_64 and memory comparions functions (e.g. strcmp,
+    memcmp, ...) when libcompcov is preloaded using AFL_PRELOAD.
+    More info at qemu_mode/libcompcov/README.compcov.
+    There are two levels at the moment, AFL_COMPCOV_LEVEL=1 that instruments
+    only comparisons with immediate values / read-only memory and
+    AFL_COMPCOV_LEVEL=2 that instruments all the comparions. Level 2 is more
+    accurate but may need a larger shared memory.
+  
   - Setting AFL_QEMU_COMPCOV enables the CompareCoverage tracing of all
-    cmp and sub in x86 and x86_64. Support for other architectures and
-    comparison functions (mem/strcmp et al.) is planned.
+    cmp and sub in x86 and x86_64.
+    This is an alias of AFL_COMPCOV_LEVEL=1 when AFL_COMPCOV_LEVEL is
+    not specified.
 
   - The underlying QEMU binary will recognize any standard "user space
     emulation" variables (e.g., QEMU_STACK_SIZE), but there should be no
@@ -257,9 +270,10 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     Use this if you are unsure if the entrypoint might be wrong - but
     use it directly, e.g. afl-qemu-trace ./program 
 
-  - If you want to specify a specific entrypoint into the binary (this can
-    be very good for the performance!), use AFL_ENTRYPOINT for this.
+  - AFL_ENTRYPOINT allows you to specify a specific entrypoint into the
+    binary (this can be very good for the performance!).
     The entrypoint is specified as hex address, e.g. 0x4004110
+    Note that the address must be the address of a basic block.
 
 5) Settings for afl-cmin
 ------------------------
