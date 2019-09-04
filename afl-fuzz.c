@@ -369,7 +369,24 @@ static u32 a_extras_cnt;              /* Total number of tokens available */
 static u8* (*post_handler)(u8* buf, u32* len);
 
 /* hooks for the custom mutator function */
+/**
+ * Perform custom mutations on a given input
+ * @param data Input data to be mutated
+ * @param size Size of input data
+ * @param mutated_out Buffer to store the mutated input
+ * @param max_size Maximum size of the mutated output. The mutation must not produce data larger than max_size.
+ * @param seed Seed used for the mutation. The mutation should produce the same output given the same seed.
+ * @return Size of the mutated output.
+ */
 static size_t (*custom_mutator)(u8 *data, size_t size, u8* mutated_out, size_t max_size, unsigned int seed);
+/**
+ * A post-processing function to use right before AFL writes the test case to disk in order to execute the target.
+ * If this functionality is not needed, Simply don't define this function.
+ * @param data Buffer containing the test case to be executed.
+ * @param size Size of the test case.
+ * @param new_data Buffer to store the test case after processing
+ * @return Size of data after processing.
+ */
 static size_t (*pre_save_handler)(u8 *data, size_t size, u8 **new_data);
 
 
