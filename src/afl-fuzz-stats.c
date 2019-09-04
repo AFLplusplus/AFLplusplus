@@ -30,7 +30,7 @@
 void write_stats_file(double bitmap_cvg, double stability, double eps) {
 
   static double        last_bcvg, last_stab, last_eps;
-  static struct rusage usage;
+  static struct rusage rus;
 
   u8*   fn = alloc_printf("%s/fuzzer_stats", out_dir);
   s32   fd;
@@ -62,6 +62,8 @@ void write_stats_file(double bitmap_cvg, double stability, double eps) {
     last_eps = eps;
 
   }
+
+  if (getrusage(RUSAGE_CHILDREN, &rus)) rus.ru_maxrss = 0;
 
   fprintf(f,
           "start_time        : %llu\n"
@@ -102,8 +104,12 @@ void write_stats_file(double bitmap_cvg, double stability, double eps) {
           stability, bitmap_cvg, unique_crashes, unique_hangs,
           last_path_time / 1000, last_crash_time / 1000, last_hang_time / 1000,
           total_execs - last_crash_execs, exec_tmout, slowest_exec_ms,
-          (unsigned long int)usage.ru_maxrss, use_banner,
-          unicorn_mode ? "unicorn" : "", qemu_mode ? "qemu " : "",
+#ifdef __APPLE__
+          (unsigned long int)(rus.ru_maxrss >> 20),
+#else
+          (unsigned long int)(rus.ru_maxrss >> 10),
+#endif
+          use_banner, unicorn_mode ? "unicorn" : "", qemu_mode ? "qemu " : "",
           dumb_mode ? " dumb " : "", no_forkserver ? "no_forksrv " : "",
           crash_mode ? "crash " : "", persistent_mode ? "persistent " : "",
           deferred_mode ? "deferred " : "",
