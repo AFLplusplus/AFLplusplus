@@ -213,7 +213,7 @@ clean:
 	$(MAKE) -C qemu_mode/libcompcov clean
 
 %.8:	%
-	@echo .TH $* 8 `date --iso-8601` "afl++" > $@
+	@echo .TH $* 8 `date -I` "afl++" > $@
 	@echo .SH NAME >> $@
 	@echo .B $* >> $@
 	@echo >> $@
