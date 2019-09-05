@@ -213,7 +213,7 @@ clean:
 	$(MAKE) -C qemu_mode/libcompcov clean
 
 %.8:	%
-	@echo .TH $* 8 `date --iso-8601` "afl++" > $@
+	@echo .TH $* 8 `date -I` "afl++" > $@
 	@echo .SH NAME >> $@
 	@echo .B $* >> $@
 	@echo >> $@
@@ -253,8 +253,8 @@ endif
 	set -e; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-g++
 	set -e; if [ -f afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
 
-	mkdir -m 0755 -p $(MAN_PATH)
-	install -m0644 -D *.8 $(MAN_PATH)
+	mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
+	install -m0644 -D *.8 ${DESTDIR}$(MAN_PATH)
 
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
 	ln -sf afl-as $${DESTDIR}$(HELPER_PATH)/as
