@@ -1,8 +1,8 @@
 # american fuzzy lop plus plus (afl++)
 
-  Release Version: 2.53c 
+  Release Version: 2.54c 
 
-  Github Version: 2.53d
+  Github Version: 2.54d
 
 
   Originally developed by Michal "lcamtuf" Zalewski.
