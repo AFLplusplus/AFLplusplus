@@ -73,7 +73,6 @@
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 #include <sys/sysctl.h>
-#define HAVE_ARC4RANDOM 1
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 /* For systems that have sched_setaffinity; right now just Linux, but one
