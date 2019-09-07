@@ -144,7 +144,7 @@ afl-forkserver.o : src/afl-forkserver.c include/forkserver.h
 afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) -c src/afl-sharedmem.c
 
-afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
+afl-fuzz: include/afl-fuzz.h src/afl-pilot-core.cinc $(AFL_FUZZ_FILES) afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS) $(PYFLAGS)
 
 afl-showmap: src/afl-showmap.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
