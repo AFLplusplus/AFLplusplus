@@ -3030,7 +3030,7 @@ skip_bitflip:
         *(u32*)(out_buf + i) = orig - j;
 
         if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
-        stage_cur++;
+        ++stage_cur;
 
       } else
 
