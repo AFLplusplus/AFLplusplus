@@ -17,7 +17,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.54d (dev):
 ----------------------
 
-  - ... your patch? :)
+  - no more unlinking the input file, this way the input file can also be a
+    FIFO or disk partition
+  - reducing duplicate code in afl-fuzz
 
 
 --------------------------
