@@ -112,12 +112,15 @@
                            \
                            \
                            \
+                           \
     if (_p) { \
               \
               \
               \
               \
+              \
       if (ALLOC_C1(_p) ^ ALLOC_MAGIC_C1) {\
+                                          \
                                           \
                                           \
                                           \
@@ -130,10 +133,12 @@
         \
         \
         \
+        \
       if (ALLOC_C2(_p) ^ ALLOC_MAGIC_C2) \
         ABORT("Corrupted tail alloc canary."); \
                                                \
     } \
+      \
       \
       \
       \

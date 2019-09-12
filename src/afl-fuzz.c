@@ -493,7 +493,7 @@ int main(int argc, char** argv) {
       case 'h':
         usage(argv[0]);
         return -1;
-        break; // not needed
+        break;  // not needed
 
       default: usage(argv[0]);
 

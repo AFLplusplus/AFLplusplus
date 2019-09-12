@@ -691,7 +691,7 @@ int main(int argc, char** argv) {
         if (edges_only) FATAL("-e and -r are mutually exclusive");
         raw_instr_output = 1;
         break;
-    
+
       case 'h':
         usage(argv[0]);
         return -1;
