@@ -86,6 +86,7 @@ static int    forkserver_installed = 0;
 unsigned char afl_fork_child;
 unsigned int  afl_forksrv_pid;
 unsigned char is_persistent;
+target_long   persistent_stack_offset;
 
 /* Instrumentation ratio: */
 
@@ -200,9 +201,10 @@ static void afl_setup(void) {
   if (is_persistent) {
 
     afl_persistent_addr = strtoll(getenv("AFL_QEMU_PERSISTENT_ADDR"), NULL, 16);
-    if (getenv("AFL_QEMU_PERSISTENT_RET") == NULL) exit(1);
-    afl_persistent_ret_addr =
-        strtoll(getenv("AFL_QEMU_PERSISTENT_RET"), NULL, 16);
+    if (getenv("AFL_QEMU_PERSISTENT_RET"))
+      afl_persistent_ret_addr =
+          strtoll(getenv("AFL_QEMU_PERSISTENT_RET"), NULL, 16);
+    /* If AFL_QEMU_PERSISTENT_RET is not specified patch the return addr */
 
   }
 
@@ -345,6 +347,7 @@ void afl_persistent_loop() {
 
     cycle_cnt = afl_persistent_cnt;
     first_pass = 0;
+    persistent_stack_offset = TARGET_LONG_BITS / 8;
 
     return;
 
