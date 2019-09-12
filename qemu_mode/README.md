@@ -65,8 +65,9 @@ must be an address of a basic block.
 
 QEMU mode support also persistent mode for x86 and x86_64 targets.
 The environment variable to enable it is AFL_QEMU_PERSISTENT_ADDR=`start addr`.
-In this variable you must specify the address of the function that must be
-the body of the persistent loop.
+In this variable you must specify the address of the function that
+have to be the body of the persistent loop.
+The code in this function must be stateless like in the LLVM persistent mode.
 The return address on stack is patched like in WinAFL in order to repeat the
 execution of such function.
 Another modality to execute the persistent loop is to specify also the
@@ -76,6 +77,10 @@ specified instruction is transformed to a jump towards `start addr`.
 Note that the format of the addresses in such variables is hex.
 
 Note that the base address of PIE binaries in QEMU user is 0x4000000000.
+
+Warning: in x86_64 parameters are passed via registers and so if the target
+function of persistent mode cannot make use of arguments. An option to restore
+the state of each GPR each iteration of the loop is planned.
 
 ## 4) Notes on linking
 
