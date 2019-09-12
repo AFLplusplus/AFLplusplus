@@ -78,7 +78,7 @@ Note that the format of the addresses in such variables is hex.
 
 Note that the base address of PIE binaries in QEMU user is 0x4000000000.
 
-Warning: in x86_64 parameters are passed via registers and so if the target
+Warning: in x86_64 parameters are passed via registers and so the target
 function of persistent mode cannot make use of arguments. An option to restore
 the state of each GPR each iteration of the loop is planned.
 
