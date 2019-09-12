@@ -34,6 +34,8 @@
 #include <sys/shm.h>
 #include "../../config.h"
 
+#define PERSISTENT_DEFAULT_MAX_CNT 1000
+
 /***************************
  * VARIOUS AUXILIARY STUFF *
  ***************************/
@@ -71,13 +73,19 @@ abi_ulong afl_entry_point,                      /* ELF entry point (_start) */
     afl_start_code,                             /* .text start pointer      */
     afl_end_code;                               /* .text end pointer        */
 
+abi_ulong    afl_persistent_addr, afl_persistent_ret_addr;
+unsigned int afl_persistent_cnt;
+
 u8 afl_compcov_level;
+
+__thread abi_ulong afl_prev_loc;
 
 /* Set in the child process in forkserver mode: */
 
-static int           forkserver_installed = 0;
-static unsigned char afl_fork_child;
-unsigned int         afl_forksrv_pid;
+static int    forkserver_installed = 0;
+unsigned char afl_fork_child;
+unsigned int  afl_forksrv_pid;
+unsigned char is_persistent;
 
 /* Instrumentation ratio: */
 
@@ -187,6 +195,22 @@ static void afl_setup(void) {
 
   rcu_disable_atfork();
 
+  is_persistent = getenv("AFL_QEMU_PERSISTENT_ADDR") != NULL;
+
+  if (is_persistent) {
+
+    afl_persistent_addr = strtoll(getenv("AFL_QEMU_PERSISTENT_ADDR"), NULL, 16);
+    if (getenv("AFL_QEMU_PERSISTENT_RET") == NULL) exit(1);
+    afl_persistent_ret_addr =
+        strtoll(getenv("AFL_QEMU_PERSISTENT_RET"), NULL, 16);
+
+  }
+
+  if (getenv("AFL_QEMU_PERSISTENT_CNT"))
+    afl_persistent_cnt = strtoll(getenv("AFL_QEMU_PERSISTENT_CNT"), NULL, 16);
+  else
+    afl_persistent_cnt = PERSISTENT_DEFAULT_MAX_CNT;
+
 }
 
 /* Fork server logic, invoked once we hit _start. */
@@ -197,7 +221,12 @@ static void afl_forkserver(CPUState *cpu) {
 
   if (forkserver_installed == 1) return;
   forkserver_installed = 1;
+
   // if (!afl_area_ptr) return; // not necessary because of fixed dummy buffer
+
+  pid_t child_pid;
+  int   t_fd[2];
+  u8    child_stopped = 0;
 
   /* Tell the parent that we're alive. If the parent doesn't want
      to talk, assume that we're not running in forkserver mode. */
@@ -210,37 +239,62 @@ static void afl_forkserver(CPUState *cpu) {
 
   while (1) {
 
-    pid_t child_pid;
-    int   status, t_fd[2];
+    int status;
+    u32 was_killed;
 
     /* Whoops, parent dead? */
 
-    if (read(FORKSRV_FD, tmp, 4) != 4) exit(2);
+    if (read(FORKSRV_FD, &was_killed, 4) != 4) exit(2);
 
-    /* Establish a channel with child to grab translation commands. We'll
+    /* If we stopped the child in persistent mode, but there was a race
+       condition and afl-fuzz already issued SIGKILL, write off the old
+       process. */
+
+    if (child_stopped && was_killed) {
+
+      child_stopped = 0;
+      if (waitpid(child_pid, &status, 0) < 0) exit(8);
+
+    }
+
+    if (!child_stopped) {
+
+      /* Establish a channel with child to grab translation commands. We'll
        read from t_fd[0], child will write to TSL_FD. */
 
-    if (pipe(t_fd) || dup2(t_fd[1], TSL_FD) < 0) exit(3);
-    close(t_fd[1]);
+      if (pipe(t_fd) || dup2(t_fd[1], TSL_FD) < 0) exit(3);
+      close(t_fd[1]);
 
-    child_pid = fork();
-    if (child_pid < 0) exit(4);
+      child_pid = fork();
+      if (child_pid < 0) exit(4);
 
-    if (!child_pid) {
+      if (!child_pid) {
 
-      /* Child process. Close descriptors and run free. */
+        /* Child process. Close descriptors and run free. */
 
-      afl_fork_child = 1;
-      close(FORKSRV_FD);
-      close(FORKSRV_FD + 1);
-      close(t_fd[0]);
-      return;
+        afl_fork_child = 1;
+        close(FORKSRV_FD);
+        close(FORKSRV_FD + 1);
+        close(t_fd[0]);
+        return;
+
+      }
+
+      /* Parent. */
+
+      close(TSL_FD);
+
+    } else {
+
+      /* Special handling for persistent mode: if the child is alive but
+         currently stopped, simply restart it with SIGCONT. */
+
+      kill(child_pid, SIGCONT);
+      child_stopped = 0;
 
     }
 
     /* Parent. */
-
-    close(TSL_FD);
 
     if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) exit(5);
 
@@ -250,8 +304,74 @@ static void afl_forkserver(CPUState *cpu) {
 
     /* Get and relay exit status to parent. */
 
-    if (waitpid(child_pid, &status, 0) < 0) exit(6);
+    if (waitpid(child_pid, &status, is_persistent ? WUNTRACED : 0) < 0) exit(6);
+
+    /* In persistent mode, the child stops itself with SIGSTOP to indicate
+       a successful run. In this case, we want to wake it up without forking
+       again. */
+
+    if (WIFSTOPPED(status)) child_stopped = 1;
+
     if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(7);
+
+  }
+
+}
+
+/* A simplified persistent mode handler, used as explained in README.llvm. */
+
+void afl_persistent_loop() {
+
+  static u8             first_pass = 1;
+  static u32            cycle_cnt;
+  static struct afl_tsl exit_cmd_tsl = {{-1, 0, 0, 0}, NULL};
+
+  if (!afl_fork_child) return;
+
+  if (first_pass) {
+
+    /* Make sure that every iteration of __AFL_LOOP() starts with a clean slate.
+       On subsequent calls, the parent will take care of that, but on the first
+       iteration, it's our job to erase any trace of whatever happened
+       before the loop. */
+
+    if (is_persistent) {
+
+      memset(afl_area_ptr, 0, MAP_SIZE);
+      afl_area_ptr[0] = 1;
+      afl_prev_loc = 0;
+
+    }
+
+    cycle_cnt = afl_persistent_cnt;
+    first_pass = 0;
+
+    return;
+
+  }
+
+  if (is_persistent) {
+
+    if (--cycle_cnt) {
+
+      if (write(TSL_FD, &exit_cmd_tsl, sizeof(struct afl_tsl)) !=
+          sizeof(struct afl_tsl)) {
+
+        /* Exit the persistent loop on pipe error */
+        exit(0);
+
+      }
+
+      raise(SIGSTOP);
+
+      afl_area_ptr[0] = 1;
+      afl_prev_loc = 0;
+
+    } else {
+
+      exit(0);
+
+    }
 
   }
 
@@ -329,6 +449,10 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
     /* Broken pipe means it's time to return to the fork server routine. */
 
     if (read(fd, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl)) break;
+
+    /* Exit command for persistent */
+
+    if (t.tb.pc == (target_ulong)(-1)) return;
 
     tb = tb_htable_lookup(cpu, t.tb.pc, t.tb.cs_base, t.tb.flags, t.tb.cf_mask);
 

@@ -2288,13 +2288,14 @@ abandon_entry:
 }
 
 struct {
- u64 *finds; 
- u64 *finds_v2; 
- u64 *cycles; 
- u64 *cycles_v2; 
- u64 *cycles_v3; 
-} MOpt_globals;
 
+  u64* finds;
+  u64* finds_v2;
+  u64* cycles;
+  u64* cycles_v2;
+  u64* cycles_v3;
+
+} MOpt_globals;
 
 #define AFL_PILOT_FUZZ
 #define common_fuzzing pilot_fuzzing

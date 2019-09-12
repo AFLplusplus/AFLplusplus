@@ -35,15 +35,6 @@
 #include "tcg.h"
 #include "tcg-op.h"
 
-/* Declared in afl-qemu-cpu-inl.h */
-extern unsigned char *afl_area_ptr;
-extern unsigned int   afl_inst_rms;
-extern abi_ulong      afl_start_code, afl_end_code;
-extern u8             afl_compcov_level;
-
-void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
-                                  TCGv_i64 arg1, TCGv_i64 arg2);
-
 static void afl_compcov_log_16(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
@@ -136,4 +127,22 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
   tcg_gen_afl_compcov_log_call(func, cur_loc, arg1, arg2);
 
 }
+
+#define AFL_QEMU_TARGET_i386_SNIPPET                       \
+  if (is_persistent) {                                     \
+                                                           \
+    if (s->pc == afl_persistent_addr) {                    \
+                                                           \
+      fprintf(stderr, " IN TRANSLATING %p!\n", s->pc);     \
+      tcg_gen_afl_call0(&afl_persistent_loop);             \
+                                                           \
+    } else if (s->pc == afl_persistent_ret_addr) {         \
+                                                           \
+      fprintf(stderr, " IN TRANSLATING RET %p!\n", s->pc); \
+      gen_jmp_im(s, afl_persistent_addr);                  \
+      gen_eob(s);                                          \
+                                                           \
+    }                                                      \
+                                                           \
+  }
 

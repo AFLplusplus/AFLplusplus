@@ -44,7 +44,7 @@
 extern u8  uses_asan;
 extern u8 *trace_bits;
 extern s32 forksrv_pid, child_pid, fsrv_ctl_fd, fsrv_st_fd;
-extern s32 out_fd, out_dir_fd,  dev_null_fd; /* initialize these with -1 */
+extern s32 out_fd, out_dir_fd, dev_null_fd;     /* initialize these with -1 */
 #ifndef HAVE_ARC4RANDOM
 extern s32 dev_urandom_fd;
 #endif

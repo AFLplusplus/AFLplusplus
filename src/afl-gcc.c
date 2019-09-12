@@ -334,11 +334,15 @@ static void edit_params(u32 argc, char** argv) {
 int main(int argc, char** argv) {
 
   if (argc == 2 && strcmp(argv[1], "-h") == 0) {
-    printf("afl-cc" VERSION" by <lcamtuf@google.com>\n\n");
+
+    printf("afl-cc" VERSION " by <lcamtuf@google.com>\n\n");
     printf("%s \n\n", argv[0]);
     printf("afl-gcc has no command line options\n");
-    printf("NOTE: afl-gcc is deprecated, llvm_mode is much faster and has more options\n");
+    printf(
+        "NOTE: afl-gcc is deprecated, llvm_mode is much faster and has more "
+        "options\n");
     return -1;
+
   }
 
   if (isatty(2) && !getenv("AFL_QUIET")) {
