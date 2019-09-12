@@ -133,12 +133,10 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
                                                            \
     if (s->pc == afl_persistent_addr) {                    \
                                                            \
-      fprintf(stderr, " IN TRANSLATING %p!\n", s->pc);     \
       tcg_gen_afl_call0(&afl_persistent_loop);             \
                                                            \
     } else if (s->pc == afl_persistent_ret_addr) {         \
                                                            \
-      fprintf(stderr, " IN TRANSLATING RET %p!\n", s->pc); \
       gen_jmp_im(s, afl_persistent_addr);                  \
       gen_eob(s);                                          \
                                                            \
