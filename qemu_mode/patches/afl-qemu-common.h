@@ -57,6 +57,7 @@ extern abi_ulong      afl_persistent_ret_addr;
 extern u8             afl_compcov_level;
 extern unsigned char  afl_fork_child;
 extern unsigned char  is_persistent;
+extern target_long    persistent_stack_offset;
 
 extern __thread abi_ulong afl_prev_loc;
 
