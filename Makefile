@@ -219,6 +219,17 @@ distrib: all
 	cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && sh ./build_unicorn_support.sh
 
+binary-only: all
+	$(MAKE) -C libdislocator
+	$(MAKE) -C libtokencap
+	cd qemu_mode && sh ./build_qemu_support.sh
+	cd unicorn_mode && sh ./build_unicorn_support.sh
+
+source-only: all
+	$(MAKE) -C llvm_mode
+	$(MAKE) -C libdislocator
+	$(MAKE) -C libtokencap
+
 %.8:	%
 	@echo .TH $* 8 `date -I` "afl++" > $@
 	@echo .SH NAME >> $@
