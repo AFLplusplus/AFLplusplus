@@ -1,5 +1,5 @@
 diff --git a/target/i386/translate.c b/target/i386/translate.c
-index 0dd5fbe4..b95d341e 100644
+index 0dd5fbe4..a23da128 100644
 --- a/target/i386/translate.c
 +++ b/target/i386/translate.c
 @@ -32,6 +32,8 @@
@@ -31,3 +31,12 @@ index 0dd5fbe4..b95d341e 100644
          set_cc_op(s1, CC_OP_SUBB + ot);
          break;
      }
+@@ -4508,6 +4513,8 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
+     rex_w = -1;
+     rex_r = 0;
+ 
++    AFL_QEMU_TARGET_i386_SNIPPET
++
+  next_byte:
+     b = x86_ldub_code(env, s);
+     /* Collect prefixes.  */

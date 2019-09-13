@@ -373,9 +373,9 @@
 
 /* for *BSD: use ARC4RANDOM and save a file descriptor */
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
- #ifndef HAVE_ARC4RANDOM
-  #define HAVE_ARC4RANDOM 1
- #endif
+#ifndef HAVE_ARC4RANDOM
+#define HAVE_ARC4RANDOM 1
+#endif
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 #endif                                                  /* ! _HAVE_CONFIG_H */

@@ -128,11 +128,13 @@ repeat_loop:
 int main(int argc, char** argv) {
 
   if (argc > 1) {
+
     printf("afl-gotcpu" VERSION " by <lcamtuf@google.com>\n");
     printf("\n%s \n\n", argv[0]);
     printf("afl-gotcpu does not have command line options\n");
     printf("afl-gotcpu prints out which CPUs are available\n");
     return -1;
+
   }
 
 #ifdef HAVE_AFFINITY

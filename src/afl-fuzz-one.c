@@ -2288,6 +2288,7 @@ abandon_entry:
 }
 
 struct MOpt_globals_t {
+
  u64 *finds; 
  u64 *finds_v2; 
  u64 *cycles; 
@@ -2300,6 +2301,7 @@ struct MOpt_globals_t {
  char *splice_stageformat;
  char *havoc_stagenameshort;
  char *splice_stagenameshort;
+
 } MOpt_globals_pilot = {
 	stage_finds_puppet[0],
 	stage_finds_puppet_v2[0],

@@ -35,15 +35,6 @@
 #include "tcg.h"
 #include "tcg-op.h"
 
-/* Declared in afl-qemu-cpu-inl.h */
-extern unsigned char *afl_area_ptr;
-extern unsigned int   afl_inst_rms;
-extern abi_ulong      afl_start_code, afl_end_code;
-extern u8             afl_compcov_level;
-
-void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
-                                  TCGv_i64 arg1, TCGv_i64 arg2);
-
 static void afl_compcov_log_16(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
@@ -136,4 +127,31 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
   tcg_gen_afl_compcov_log_call(func, cur_loc, arg1, arg2);
 
 }
+
+#define AFL_QEMU_TARGET_i386_SNIPPET                                          \
+  if (is_persistent) {                                                        \
+                                                                              \
+    if (s->pc == afl_persistent_addr) {                                       \
+                                                                              \
+      if (afl_persistent_ret_addr == 0) {                                     \
+                                                                              \
+        TCGv_ptr stack_off_ptr = tcg_const_ptr(&persistent_stack_offset);     \
+        TCGv     stack_off = tcg_temp_new();                                  \
+        tcg_gen_ld_tl(stack_off, stack_off_ptr, 0);                           \
+        tcg_gen_sub_tl(cpu_regs[R_ESP], cpu_regs[R_ESP], stack_off);          \
+        tcg_temp_free(stack_off);                                             \
+                                                                              \
+      }                                                                       \
+      TCGv_ptr paddr = tcg_const_ptr(afl_persistent_addr);                    \
+      tcg_gen_st_tl(paddr, cpu_regs[R_ESP], 0);                               \
+      tcg_gen_afl_call0(&afl_persistent_loop);                                \
+                                                                              \
+    } else if (afl_persistent_ret_addr && s->pc == afl_persistent_ret_addr) { \
+                                                                              \
+      gen_jmp_im(s, afl_persistent_addr);                                     \
+      gen_eob(s);                                                             \
+                                                                              \
+    }                                                                         \
+                                                                              \
+  }
 
