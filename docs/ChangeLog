@@ -21,6 +21,7 @@ Version ++2.54d (dev):
     FIFO or disk partition
   - reducing duplicate code in afl-fuzz
   - persistent mode for QEMU
+  - updated documentation
 
 
 --------------------------
