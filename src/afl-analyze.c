@@ -988,7 +988,7 @@ int main(int argc, char** argv) {
 
         unicorn_mode = 1;
         break;
-        
+
       case 'h':
         usage(argv[0]);
         return -1;
