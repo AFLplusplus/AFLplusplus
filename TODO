@@ -1,14 +1,17 @@
-Roadmap 2.53d:
+Roadmap 2.54d:
 ==============
 
 afl-fuzz:
- - custom mutator lib: example and readme
+ - enable python mutator for MOpt
+ - enable custom mutator for MOpt
+ - make custom mutator to call other mutators as well unless
+   AFL_CUSTOM_MUTATOR_ONLY=1 is set
 
 man:
  - man page for afl-clang-fast
 
 
-Roadmap 2.54d:
+Roadmap 2.55d:
 ==============
 
 gcc_plugin:
@@ -20,16 +23,15 @@ gcc_plugin:
 
 qemu_mode:
  - update to 4.x (probably this will be skipped :( )
- - deferred mode with AFL_DEFERRED_QEMU=0xaddress
-   (AFL_ENTRYPOINT let you to specify only a basic block address as starting
-   point. This will be implemented togheter with the logic for persistent
-   mode.)
  - instrim for QEMU mode via static analysis (with r2pipe? or angr?)
    Idea: The static analyzer outputs a map in which each edge that must be
    skipped is marked with 1. QEMU loads it at startup in the parent process.
 
-
 unit testing / or large testcase campaign
+
+
+The far away future:
+====================
 
 Problem: Average targets (tiff, jpeg, unrar) go through 1500 edges.
          At afl's default map that means ~16 collisions and ~3 wrappings.
