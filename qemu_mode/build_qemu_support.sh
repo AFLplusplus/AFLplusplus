@@ -9,7 +9,7 @@
 # TCG instrumentation and block chaining support by Andrea Biondo
 #                                    <andrea.biondo965@gmail.com>
 #
-# QEMU 3.1.0 port, TCG thread-safety, CompareCoverage and NeverZero
+# QEMU 3.1.1 port, TCG thread-safety, CompareCoverage and NeverZero
 # counters by Andrea Fioraldi <andreafioraldi@gmail.com>
 #
 # Copyright 2015, 2016, 2017 Google Inc. All rights reserved.
@@ -30,9 +30,9 @@
 #
 
 
-VERSION="3.1.0"
+VERSION="3.1.1"
 QEMU_URL="http://download.qemu-project.org/qemu-${VERSION}.tar.xz"
-QEMU_SHA384="0318f2b5a36eafbf17bca0f914567dfa5e8a3cd6ff83bb46fe49a0079cd71ddd3ec4267c6c62a03f9e26e05cc80e6d4b"
+QEMU_SHA384="28ff22ec4b8c957309460aa55d0b3188e971be1ea7dfebfb2ecc7903cd20cfebc2a7c97eedfcc7595f708357f1623f8b"
 
 echo "================================================="
 echo "AFL binary-only instrumentation QEMU build script"
