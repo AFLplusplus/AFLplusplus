@@ -6,6 +6,9 @@ afl-fuzz:
  - enable custom mutator for MOpt
  - make custom mutator to call other mutators as well unless
    AFL_CUSTOM_MUTATOR_ONLY=1 is set
+ - add superion?
+
+remote feature
 
 man:
  - man page for afl-clang-fast
