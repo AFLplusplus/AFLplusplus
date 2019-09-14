@@ -38,20 +38,24 @@
 static void afl_compcov_log_16(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
-  if ((arg1 & 0xff) == (arg2 & 0xff)) { INC_AFL_AREA(cur_loc); }
+  register uintptr_t idx = cur_loc;
+
+  if ((arg1 & 0xff) == (arg2 & 0xff)) { INC_AFL_AREA(idx); }
 
 }
 
 static void afl_compcov_log_32(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
+  register uintptr_t idx = cur_loc;
+
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
 
-    INC_AFL_AREA(cur_loc);
+    INC_AFL_AREA(idx);
     if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
 
-      INC_AFL_AREA(cur_loc + 1);
-      if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) { INC_AFL_AREA(cur_loc + 2); }
+      INC_AFL_AREA(idx + 1);
+      if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) { INC_AFL_AREA(idx + 2); }
 
     }
 
@@ -61,28 +65,30 @@ static void afl_compcov_log_32(target_ulong cur_loc, target_ulong arg1,
 
 static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
+  
+  register uintptr_t idx = cur_loc;
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
 
-    INC_AFL_AREA(cur_loc);
+    INC_AFL_AREA(idx);
     if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
 
-      INC_AFL_AREA(cur_loc + 1);
+      INC_AFL_AREA(idx + 1);
       if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) {
 
-        INC_AFL_AREA(cur_loc + 2);
+        INC_AFL_AREA(idx + 2);
         if ((arg1 & 0xffffffff) == (arg2 & 0xffffffff)) {
 
-          INC_AFL_AREA(cur_loc + 3);
+          INC_AFL_AREA(idx + 3);
           if ((arg1 & 0xffffffffff) == (arg2 & 0xffffffffff)) {
 
-            INC_AFL_AREA(cur_loc + 4);
+            INC_AFL_AREA(idx + 4);
             if ((arg1 & 0xffffffffffff) == (arg2 & 0xffffffffffff)) {
 
-              INC_AFL_AREA(cur_loc + 5);
+              INC_AFL_AREA(idx + 5);
               if ((arg1 & 0xffffffffffffff) == (arg2 & 0xffffffffffffff)) {
 
-                INC_AFL_AREA(cur_loc + 6);
+                INC_AFL_AREA(idx + 6);
 
               }
 
