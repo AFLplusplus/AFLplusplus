@@ -68,6 +68,30 @@
   read this file.
 
 
+## 0) Building and installing afl++
+
+afl++ has many build options.
+The easiest is to build and install everything:
+
+```shell
+$ make distrib
+$ sudo make install
+```
+
+Note that "make distrib" also builds llvm_mode, qemu_mode, unicorn_mode and
+more. If you just want plain afl then do "make all", however compiling and
+using at least llvm_mode is highly recommended for much better results!
+
+These build options exist:
+
+* all: just afl
+* binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap
+* source-only: everything for source code fuzzing: llvm_mode, libdislocator, libtokencap
+* distrib: everything (for both binary-only and source code fuzzing)
+* install: installs everything you have compiled with the build option above
+* clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well
+
+
 ## 1) Challenges of guided fuzzing
 
 Fuzzing is one of the most powerful and proven strategies for identifying
