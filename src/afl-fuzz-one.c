@@ -516,7 +516,14 @@ u8 fuzz_one_original(char** argv) {
 
     stage_finds[STAGE_CUSTOM_MUTATOR] += new_hit_cnt - orig_hit_cnt;
     stage_cycles[STAGE_CUSTOM_MUTATOR] += stage_max;
-    goto abandon_entry;
+
+    if (custom_only) {
+
+      /* Skip other stages */
+      ret_val = 0;
+      goto abandon_entry;
+
+    }
 
   }
 

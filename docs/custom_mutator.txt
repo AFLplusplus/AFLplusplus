@@ -18,8 +18,13 @@ environment variable. The library must export the afl_custom_mutator() function 
 must be compiled as a shared object. For example:
      $CC -shared -Wall -O3 <lib-name>.c -o <lib-name>.so
 
-AFL will call the afl_custom_mutator() function every time it needs to mutate
-a test case. For some cases, the format of the mutated data returned from
+Note: unless AFL_CUSTOM_MUTATOR_ONLY is set, its state mutator like any others,
+so it will be used for some test cases, and other mutators for others.
+
+Only if AFL_CUSTOM_MUTATOR_ONLY is set the afl_custom_mutator() function will
+be called every time it needs to mutate test case!
+
+For some cases, the format of the mutated data returned from
 the custom mutator is not suitable to directly execute the target with this input.
 For example, when using libprotobuf-mutator, the data returned is in a protobuf
 format which corresponds to a given grammar. In order to execute the target,

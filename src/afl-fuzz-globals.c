@@ -84,6 +84,7 @@ u64 mem_limit = MEM_LIMIT;              /* Memory cap for child (MB)        */
 
 u8 cal_cycles = CAL_CYCLES,             /* Calibration cycles defaults      */
     cal_cycles_long = CAL_CYCLES_LONG, debug,                 /* Debug mode */
+    custom_only,                        /* Custom mutator only mode         */
     python_only;                        /* Python-only mode                 */
 
 u32 stats_update_freq = 1;              /* Stats update frequency (execs)   */
