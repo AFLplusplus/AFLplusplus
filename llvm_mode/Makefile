@@ -106,7 +106,6 @@ ifeq "$(TEST_MMAP)" "1"
         LDFLAGS += -lrt
 endif
 
-
 ifndef AFL_TRACE_PC
   PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 else
@@ -118,7 +117,7 @@ ifneq "$(CLANGVER)" "$(LLVMVER)"
   CXX = $(shell llvm-config --bindir)/clang++
 endif
 
-all: test_shm test_deps $(PROGS) test_build all_done
+all: test_shm test_deps $(PROGS) afl-clang-fast.8 test_build all_done
 
 
 ifeq "$(SHMAT_OK)" "1"
@@ -199,6 +198,26 @@ all_done: test_build
 
 .NOTPARALLEL: clean
 
+%.8:	%
+	@echo .TH $* 8 `date -I` "afl++" > ../$@
+	@echo .SH NAME >> ../$@
+	@echo .B $* >> ../$@
+	@echo >> ../$@
+	@echo .SH SYNOPSIS >> ../$@
+	@./$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> ../$@
+	@echo >> ../$@
+	@echo .SH OPTIONS >> ../$@
+	@echo .nf >> ../$@
+	@./$* -h 2>&1 | tail -n +4 >> ../$@
+	@echo >> ../$@
+	@echo .SH AUTHOR >> ../$@
+	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexc0der\" Eissfeldt <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>" >> ../$@
+	@echo  The homepage of afl++ is: https://github.com/vanhauser-thc/AFLplusplus >> ../$@
+	@echo >> ../$@
+	@echo .SH LICENSE >> ../$@
+	@echo Apache License Version 2.0, January 2004 >> ../$@
+	ln -sf afl-clang-fast.8 ../afl-clang-fast++.8
+
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 
-	rm -f $(PROGS) ../afl-clang-fast++
+	rm -f $(PROGS) ../afl-clang-fast++ ../afl-clang-fast*.8
