@@ -622,6 +622,16 @@ int main(int argc, char** argv) {
 
   }
 
+  if (getenv("AFL_CUSTOM_MUTATOR_ONLY")) {
+
+    /* This ensures we don't proceed to havoc/splice */
+    custom_only = 1;
+
+    /* Ensure we also skip all deterministic steps */
+    skip_deterministic = 1;
+
+  }
+
   get_core_count();
 
 #ifdef HAVE_AFFINITY

@@ -18,6 +18,8 @@ Version ++2.54d (dev):
 ----------------------
 
   - persistent mode for QEMU (see qemu_mode/README.md)
+  - custom mutator library is now a standard mutator, to exclusivly use it
+    add AFL_CUSTOM_MUTATOR_ONLY (that will trigger the previous behaviour)
   - no more unlinking the input file, this way the input file can also be a
     FIFO or disk partition
   - reducing duplicate code in afl-fuzz

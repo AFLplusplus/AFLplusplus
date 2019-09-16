@@ -4,8 +4,6 @@ Roadmap 2.54d:
 afl-fuzz:
  - enable python mutator for MOpt
  - enable custom mutator for MOpt
- - make custom mutator to call other mutators as well unless
-   AFL_CUSTOM_MUTATOR_ONLY=1 is set
  - add superion?
 
 remote feature

@@ -251,6 +251,7 @@ extern u64 mem_limit;                   /* Memory cap for child (MB)        */
 
 extern u8 cal_cycles,                   /* Calibration cycles defaults      */
     cal_cycles_long, debug,             /* Debug mode                       */
+    custom_only,                        /* Custom mutator only mode         */
     python_only;                        /* Python-only mode                 */
 
 extern u32 stats_update_freq;           /* Stats update frequency (execs)   */

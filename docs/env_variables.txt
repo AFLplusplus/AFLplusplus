@@ -202,8 +202,9 @@ checks or alter some of the more exotic semantics of the tool:
     for more.
 
   - Setting AFL_CUSTOM_MUTATOR_LIBRARY to a shared library with
-    afl_custom_mutator() export will run all mutations solely to this function.
-    see docs/custom_mutator.txt
+    afl_custom_mutator() export run additional mutations though this library.
+    If AFL_CUSTOM_MUTATOR_ONLY is also set, all mutations will solely be
+    performed with/from the libary. see docs/custom_mutator.txt
 
   - For AFL_PYTHON_MODULE and AFL_PYTHON_ONLY - they require to be compiled
     with -DUSE_PYTHON. Please see docs/python_mutators.txt
