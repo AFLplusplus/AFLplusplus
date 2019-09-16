@@ -198,7 +198,8 @@ all_done: test_build
 
 .NOTPARALLEL: clean
 
-%.8:	%
+vpath  % ..
+%.8: %
 	@echo .TH $* 8 `date -I` "afl++" > ../$@
 	@echo .SH NAME >> ../$@
 	@echo .B $* >> ../$@
