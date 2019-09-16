@@ -10,8 +10,6 @@ afl-fuzz:
 
 remote feature
 
-man:
- - man page for afl-clang-fast
 
 
 Roadmap 2.55d:

@@ -375,20 +375,16 @@ static void edit_params(u32 argc, char** argv) {
 
 int main(int argc, char** argv) {
 
-  if (isatty(2) && !getenv("AFL_QUIET")) {
+  if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
 #ifdef USE_TRACE_PC
-    SAYF(cCYA "afl-clang-fast" VERSION cRST
-              " [tpcg] by <lszekeres@google.com>\n");
+    printf(cCYA "afl-clang-fast" VERSION cRST
+                " [tpcg] by <lszekeres@google.com>\n"
 #else
-    SAYF(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
+    printf(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n"
 #endif                                                     /* ^USE_TRACE_PC */
-
-  }
-
-  if (argc < 2) {
-
-    SAYF(
+        "\n"
+        "afl-clang-fast[++] [options]\n"
         "\n"
         "This is a helper application for afl-fuzz. It serves as a drop-in "
         "replacement\n"
@@ -411,6 +407,15 @@ int main(int argc, char** argv) {
         BIN_PATH, BIN_PATH);
 
     exit(1);
+
+  } else if (isatty(2) && !getenv("AFL_QUIET")) {
+
+#ifdef USE_TRACE_PC
+    SAYF(cCYA "afl-clang-fast" VERSION cRST
+              " [tpcg] by <lszekeres@google.com>\n");
+#else
+    SAYF(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
+#endif                                                     /* ^USE_TRACE_PC */
 
   }
 
