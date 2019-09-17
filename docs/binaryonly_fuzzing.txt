@@ -26,6 +26,10 @@ It is the easiest to use alternative and even works for cross-platform binaries.
 
 As it is included in afl++ this needs no URL.
 
+WINE+QEMU
+---------
+Wine mode can run Win32 PE with the QEMU instrumentation.
+It needs Wine, python3 and the pefile python package installed.
 
 UNICORN
 -------
