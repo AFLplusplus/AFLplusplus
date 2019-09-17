@@ -182,9 +182,9 @@ static void afl_setup(void) {
 
   }
   
-  if (getemv("AFL_CODE_START"))
+  if (getenv("AFL_CODE_START"))
     afl_start_code = strtoll(getenv("AFL_CODE_START"), NULL, 16);
-  if (getemv("AFL_CODE_END"))
+  if (getenv("AFL_CODE_END"))
     afl_end_code = strtoll(getenv("AFL_CODE_END"), NULL, 16);
 
   /* Maintain for compatibility */
