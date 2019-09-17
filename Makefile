@@ -81,6 +81,20 @@ endif
 all:	test_x86 test_shm test_python27 ready $(PROGS) afl-as test_build all_done
 
 
+help:
+	@echo "HELP --- the following make targets exist:"
+	@echo "=========================================="
+	@echo "all: just the main afl++ binaries"
+	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap"
+	@echo "source-only: everything for source code fuzzing: llvm_mode, libdislocator, libtokencap"
+	@echo "distrib: everything (for both binary-only and source code fuzzing)"
+	@echo "install: installs everything you have compiled with the build option above"
+	@echo "clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well"
+	@echo "help: shows these build options :-)"
+	@echo "=========================================="
+	@echo "Recommended: \"distrib\" or \"source-only\", then \"install\""
+
+
 ifndef AFL_NO_X86
 
 test_x86:

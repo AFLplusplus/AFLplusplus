@@ -80,16 +80,23 @@ $ sudo make install
 
 Note that "make distrib" also builds llvm_mode, qemu_mode, unicorn_mode and
 more. If you just want plain afl then do "make all", however compiling and
-using at least llvm_mode is highly recommended for much better results!
+using at least llvm_mode is highly recommended for much better results -
+hence in this case 
+
+```shell
+$ make source-only
+```
+is what you should choose.
 
 These build options exist:
 
-* all: just afl
+* all: just the main afl++ binaries
 * binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap
 * source-only: everything for source code fuzzing: llvm_mode, libdislocator, libtokencap
 * distrib: everything (for both binary-only and source code fuzzing)
-* install: installs everything you have compiled with the build option above
+* install: installs everything you have compiled with the build options above
 * clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well
+* help: shows these build options
 
 
 ## 1) Challenges of guided fuzzing
