@@ -241,7 +241,6 @@ extern u8 *in_dir,                      /* Input directory with test cases  */
     *file_extension,                    /* File extension                   */
     *orig_cmdline,                      /* Original command line            */
     *doc_path,                          /* Path to documentation dir        */
-    *target_path,                       /* Path to target binary            */
     *out_file;                          /* File to fuzz, if any             */
 
 extern u32 exec_tmout;                  /* Configurable exec timeout (ms)   */
@@ -294,6 +293,7 @@ extern u8 skip_deterministic,           /* Skip deterministic stages?       */
     bitmap_changed,                     /* Time to update bitmap?           */
     qemu_mode,                          /* Running in QEMU mode?            */
     unicorn_mode,                       /* Running in Unicorn mode?         */
+    use_wine,                           /* Use WINE with QEMU mode          */
     skip_requested,                     /* Skip request, via SIGUSR1        */
     run_over10m,                        /* Run time over 10 minutes?        */
     persistent_mode,                    /* Running in persistent mode?      */
@@ -612,6 +612,7 @@ void   fix_up_banner(u8*);
 void   check_if_tty(void);
 void   setup_signal_handlers(void);
 char** get_qemu_argv(u8*, char**, int);
+char** get_wine_argv(u8*, char**, int);
 void   save_cmdline(u32, char**);
 
 /**** Inline routines ****/
