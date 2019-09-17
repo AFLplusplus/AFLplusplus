@@ -27,6 +27,7 @@ Version ++2.54d (dev):
   - removed compile warnings from python internal stuff
   - added man page for afl-clang-fast[++]
   - updated documentation
+  - Wine mode to run Win32 binaries with the QEMU instrumentation (-W)
 
 
 --------------------------
