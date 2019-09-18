@@ -23,6 +23,7 @@ Version ++2.54d (dev):
   - no more unlinking the input file, this way the input file can also be a
     FIFO or disk partition
   - reducing duplicate code in afl-fuzz
+  - added "make help"
   - removed compile warnings from python internal stuff
   - added man page for afl-clang-fast[++]
   - updated documentation
