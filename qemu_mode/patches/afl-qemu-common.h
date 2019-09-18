@@ -58,8 +58,13 @@ extern u8             afl_compcov_level;
 extern unsigned char  afl_fork_child;
 extern unsigned char  is_persistent;
 extern target_long    persistent_stack_offset;
+extern unsigned char  persistent_first_pass;
+extern unsigned char  persistent_save_gpr;
+extern target_ulong   persistent_saved_gpr[CPU_NB_REGS];
 
 extern __thread abi_ulong afl_prev_loc;
+
+void afl_debug_dump_saved_regs();
 
 void afl_persistent_loop();
 

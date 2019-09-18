@@ -378,10 +378,15 @@ int main(int argc, char** argv) {
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
 #ifdef USE_TRACE_PC
-    printf(cCYA "afl-clang-fast" VERSION cRST
-                " [tpcg] by <lszekeres@google.com>\n"
+    printf(
+        cCYA
+        "afl-clang-fast" VERSION cRST
+        " [tpcg] by <lszekeres@google.com>\n"
 #else
-    printf(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n"
+    printf(
+        cCYA
+        "afl-clang-fast" VERSION cRST
+        " by <lszekeres@google.com>\n"
 #endif                                                     /* ^USE_TRACE_PC */
         "\n"
         "afl-clang-fast[++] [options]\n"

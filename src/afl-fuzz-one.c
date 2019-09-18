@@ -2296,57 +2296,57 @@ abandon_entry:
 
 struct MOpt_globals_t {
 
- u64 *finds; 
- u64 *finds_v2; 
- u64 *cycles; 
- u64 *cycles_v2; 
- u64 *cycles_v3; 
- u32 is_pilot_mode;
- u64 *pTime;
- const u64 period;
- char *havoc_stagename;
- char *splice_stageformat;
- char *havoc_stagenameshort;
- char *splice_stagenameshort;
+  u64*      finds;
+  u64*      finds_v2;
+  u64*      cycles;
+  u64*      cycles_v2;
+  u64*      cycles_v3;
+  u32       is_pilot_mode;
+  u64*      pTime;
+  const u64 period;
+  char*     havoc_stagename;
+  char*     splice_stageformat;
+  char*     havoc_stagenameshort;
+  char*     splice_stagenameshort;
 
-} MOpt_globals_pilot = {
-	stage_finds_puppet[0],
-	stage_finds_puppet_v2[0],
-	stage_cycles_puppet[0],
-	stage_cycles_puppet_v2[0],
-	stage_cycles_puppet_v3[0],
-	1,
-	&tmp_pilot_time,
-	period_pilot,
-        "MOpt-havoc",
-        "MOpt-splice %u",
-        "MOpt_havoc",
-        "MOpt_splice"
-}, MOpt_globals_core = {
-	core_operator_finds_puppet,
-	core_operator_finds_puppet_v2,
-	core_operator_cycles_puppet,
-	core_operator_cycles_puppet_v2,
-	core_operator_cycles_puppet_v3,
-	0,
-	&tmp_core_time,
-	period_core,
-        "MOpt-core-havoc",
-        "MOpt-core-splice %u",
-        "MOpt_core_havoc",
-        "MOpt_core_splice"
-};
+} MOpt_globals_pilot = {stage_finds_puppet[0],
 
+                        stage_finds_puppet_v2[0],
+                        stage_cycles_puppet[0],
+                        stage_cycles_puppet_v2[0],
+                        stage_cycles_puppet_v3[0],
+                        1,
+                        &tmp_pilot_time,
+                        period_pilot,
+                        "MOpt-havoc",
+                        "MOpt-splice %u",
+                        "MOpt_havoc",
+                        "MOpt_splice"},
+  MOpt_globals_core = {core_operator_finds_puppet,
+                       core_operator_finds_puppet_v2,
+                       core_operator_cycles_puppet,
+                       core_operator_cycles_puppet_v2,
+                       core_operator_cycles_puppet_v3,
+                       0,
+                       &tmp_core_time,
+                       period_core,
+                       "MOpt-core-havoc",
+                       "MOpt-core-splice %u",
+                       "MOpt_core_havoc",
+                       "MOpt_core_splice"};
 
 /* MOpt mode */
 u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
   if (!MOpt_globals.is_pilot_mode) {
+
     if (swarm_num == 1) {
 
       key_module = 2;
       return 0;
+
     }
+
   }
 
   s32 len, fd, temp_len, i, j;
@@ -2614,9 +2614,9 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
       }
 
-    } /* if (stage_cur & 7) == 7 */
+    }                                            /* if (stage_cur & 7) == 7 */
 
-  } /* for stage_cur */
+  }                                                        /* for stage_cur */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -2643,7 +2643,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
     FLIP_BIT(out_buf, stage_cur);
     FLIP_BIT(out_buf, stage_cur + 1);
 
-  } /* for stage_cur */
+  }                                                        /* for stage_cur */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -2674,7 +2674,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
     FLIP_BIT(out_buf, stage_cur + 2);
     FLIP_BIT(out_buf, stage_cur + 3);
 
-  } /* for stage_cur */
+  }                                                        /* for stage_cur */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -2751,7 +2751,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
     out_buf[stage_cur] ^= 0xFF;
 
-  } /* for stage_cur */
+  }                                                        /* for stage_cur */
 
   /* If the effector map is more than EFF_MAX_PERC dense, just flag the
      whole thing as worth fuzzing, since we wouldn't be saving much time
@@ -2808,7 +2808,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
     *(u16*)(out_buf + i) ^= 0xFFFF;
 
-  } /* for i = 0; i < len */
+  }                                                   /* for i = 0; i < len */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -2846,7 +2846,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
     *(u32*)(out_buf + i) ^= 0xFFFFFFFF;
 
-  } /* for i = 0; i < len - 3 */
+  }                                               /* for i = 0; i < len - 3 */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -2924,7 +2924,7 @@ skip_bitflip:
 
     }
 
-  } /* for i = 0; i < len */
+  }                                                   /* for i = 0; i < len */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -3026,7 +3026,7 @@ skip_bitflip:
 
     }
 
-  } /* for i = 0; i < len - 1 */
+  }                                               /* for i = 0; i < len - 1 */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -3127,7 +3127,7 @@ skip_bitflip:
 
     }
 
-  } /* for i = 0; i < len - 3 */
+  }                                               /* for i = 0; i < len - 3 */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -3188,7 +3188,7 @@ skip_arith:
 
     }
 
-  } /* for i = 0; i < len */
+  }                                                   /* for i = 0; i < len */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -3262,7 +3262,7 @@ skip_arith:
 
     *(u16*)(out_buf + i) = orig;
 
-  } /* for i = 0; i < len - 1 */
+  }                                               /* for i = 0; i < len - 1 */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -3337,7 +3337,7 @@ skip_arith:
 
     *(u32*)(out_buf + i) = orig;
 
-  } /* for i = 0; i < len - 3 */
+  }                                               /* for i = 0; i < len - 3 */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -3403,7 +3403,7 @@ skip_interest:
     /* Restore all the clobbered memory. */
     memcpy(out_buf + i, in_buf + i, last_len);
 
-  } /* for i = 0; i < len */
+  }                                                   /* for i = 0; i < len */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -3454,7 +3454,7 @@ skip_interest:
     /* Copy head */
     ex_tmp[i] = out_buf[i];
 
-  } /* for i = 0; i <= len */
+  }                                                  /* for i = 0; i <= len */
 
   ck_free(ex_tmp);
 
@@ -3508,7 +3508,7 @@ skip_user_extras:
     /* Restore all the clobbered memory. */
     memcpy(out_buf + i, in_buf + i, last_len);
 
-  } /* for i = 0; i < len */
+  }                                                   /* for i = 0; i < len */
 
   new_hit_cnt = queued_paths + unique_crashes;
 
@@ -3573,7 +3573,7 @@ pacemaker_fuzzing:
 
       }
 
-    } /* if key_puppet == 1 */
+    }                                                 /* if key_puppet == 1 */
 
     {
 
@@ -3906,11 +3906,11 @@ pacemaker_fuzzing:
               MOpt_globals.cycles_v2[STAGE_OverWrite75] += 1;
               break;
 
-            } /* case 15 */
+            }                                                    /* case 15 */
 
-          } /* switch select_algorithm() */
+          }                                    /* switch select_algorithm() */
 
-        } /* for i=0; i < use_stacking */
+        }                                      /* for i=0; i < use_stacking */
 
         *MOpt_globals.pTime += 1;
 
@@ -3954,13 +3954,14 @@ pacemaker_fuzzing:
 
           }
 
-        } /* if */
+        }                                                             /* if */
 
-      } /* for (stage_cur = 0; stage_cur < stage_max; ++stage_cur) { */
+      }        /* for (stage_cur = 0; stage_cur < stage_max; ++stage_cur) { */
 
       new_hit_cnt = queued_paths + unique_crashes;
 
       if (MOpt_globals.is_pilot_mode) {
+
         if (!splice_cycle) {
 
           stage_finds[STAGE_HAVOC] += new_hit_cnt - orig_hit_cnt;
@@ -3970,7 +3971,9 @@ pacemaker_fuzzing:
 
           stage_finds[STAGE_SPLICE] += new_hit_cnt - orig_hit_cnt;
           stage_cycles[STAGE_SPLICE] += stage_max;
+
         }
+
       }
 
 #ifndef IGNORE_FINDS
@@ -4073,7 +4076,7 @@ pacemaker_fuzzing:
 
         goto havoc_stage_puppet;
 
-      } /* if splice_cycle */
+      }                                                  /* if splice_cycle */
 
 #endif                                                     /* !IGNORE_FINDS */
 
@@ -4129,23 +4132,24 @@ pacemaker_fuzzing:
         new_hit_cnt = queued_paths + unique_crashes;
 
         if (MOpt_globals.is_pilot_mode) {
+
           swarm_fitness[swarm_now] =
               (double)(total_puppet_find - temp_puppet_find) /
               ((double)(tmp_pilot_time) / period_pilot_tmp);
+
         }
 
         u64 temp_stage_finds_puppet = 0;
         for (i = 0; i < operator_num; ++i) {
 
           if (MOpt_globals.is_pilot_mode) {
+
             double temp_eff = 0.0;
 
-            if (MOpt_globals.cycles_v2[i] >
-                MOpt_globals.cycles[i])
-              temp_eff = (double)(MOpt_globals.finds_v2[i] -
-                                  MOpt_globals.finds[i]) /
-                         (double)(MOpt_globals.cycles_v2[i] -
-                                  MOpt_globals.cycles[i]);
+            if (MOpt_globals.cycles_v2[i] > MOpt_globals.cycles[i])
+              temp_eff =
+                  (double)(MOpt_globals.finds_v2[i] - MOpt_globals.finds[i]) /
+                  (double)(MOpt_globals.cycles_v2[i] - MOpt_globals.cycles[i]);
 
             if (eff_best[swarm_now][i] < temp_eff) {
 
@@ -4153,23 +4157,27 @@ pacemaker_fuzzing:
               L_best[swarm_now][i] = x_now[swarm_now][i];
 
             }
+
           }
 
-          MOpt_globals.finds[i]  = MOpt_globals.finds_v2[i];
+          MOpt_globals.finds[i] = MOpt_globals.finds_v2[i];
           MOpt_globals.cycles[i] = MOpt_globals.cycles_v2[i];
           temp_stage_finds_puppet += MOpt_globals.finds[i];
 
-        } /* for i = 0; i < operator_num */
+        }                                    /* for i = 0; i < operator_num */
 
         if (MOpt_globals.is_pilot_mode) {
+
           swarm_now = swarm_now + 1;
           if (swarm_now == swarm_num) {
 
             key_module = 1;
             for (i = 0; i < operator_num; ++i) {
 
-              core_operator_cycles_puppet_v2[i] = core_operator_cycles_puppet[i];
-              core_operator_cycles_puppet_v3[i] = core_operator_cycles_puppet[i];
+              core_operator_cycles_puppet_v2[i] =
+                  core_operator_cycles_puppet[i];
+              core_operator_cycles_puppet_v3[i] =
+                  core_operator_cycles_puppet[i];
               core_operator_finds_puppet_v2[i] = core_operator_finds_puppet[i];
 
             }
@@ -4190,12 +4198,12 @@ pacemaker_fuzzing:
             if (swarm_now < 0 || swarm_now > swarm_num - 1)
               PFATAL("swarm_now error number  %d", swarm_now);
 
-          } /* if swarm_now == swarm_num */
+          }                                    /* if swarm_now == swarm_num */
 
-	  /* adjust pointers dependent on 'swarm_now' */
-          MOpt_globals_pilot.finds     = stage_finds_puppet[swarm_now];
-          MOpt_globals_pilot.finds_v2  = stage_finds_puppet_v2[swarm_now];
-          MOpt_globals_pilot.cycles    = stage_cycles_puppet[swarm_now];
+          /* adjust pointers dependent on 'swarm_now' */
+          MOpt_globals_pilot.finds = stage_finds_puppet[swarm_now];
+          MOpt_globals_pilot.finds_v2 = stage_finds_puppet_v2[swarm_now];
+          MOpt_globals_pilot.cycles = stage_cycles_puppet[swarm_now];
           MOpt_globals_pilot.cycles_v2 = stage_cycles_puppet_v2[swarm_now];
           MOpt_globals_pilot.cycles_v3 = stage_cycles_puppet_v3[swarm_now];
 
@@ -4205,13 +4213,13 @@ pacemaker_fuzzing:
 
           old_hit_count = new_hit_cnt;
 
-        } /* if pilot_mode */
+        }                                                  /* if pilot_mode */
 
-      } /* if (unlikely(*MOpt_globals.pTime > MOpt_globals.period)) */
+      }         /* if (unlikely(*MOpt_globals.pTime > MOpt_globals.period)) */
 
-    } /* block */
+    }                                                              /* block */
 
-  } /* block */
+  }                                                                /* block */
 
   return ret_val;
 
@@ -4219,9 +4227,9 @@ pacemaker_fuzzing:
 
 #undef FLIP_BIT
 
-#define pilot_fuzzing(a) common_fuzzing((a), MOpt_globals_pilot) 
+#define pilot_fuzzing(a) common_fuzzing((a), MOpt_globals_pilot)
 
-#define core_fuzzing(a) common_fuzzing((a), MOpt_globals_core) 
+#define core_fuzzing(a) common_fuzzing((a), MOpt_globals_core)
 
 void pso_updating(void) {
 
