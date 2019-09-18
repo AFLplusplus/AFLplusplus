@@ -65,7 +65,7 @@ static void afl_compcov_log_32(target_ulong cur_loc, target_ulong arg1,
 
 static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
-  
+
   register uintptr_t idx = cur_loc;
 
   if ((arg1 & 0xff) == (arg2 & 0xff)) {
@@ -134,22 +134,71 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
 
 }
 
+#define I386_RESTORE_STATE_FOR_PERSISTENT                               \
+  do {                                                                  \
+                                                                        \
+    if (persistent_save_gpr) {                                          \
+                                                                        \
+      int      i;                                                       \
+      TCGv_ptr gpr_sv;                                                  \
+                                                                        \
+      TCGv_ptr first_pass_ptr = tcg_const_ptr(&persistent_first_pass);  \
+      TCGv     first_pass = tcg_temp_local_new();                       \
+      TCGv     one = tcg_const_tl(1);                                   \
+      tcg_gen_ld8u_tl(first_pass, first_pass_ptr, 0);                   \
+                                                                        \
+      TCGLabel *lbl_save_gpr = gen_new_label();                         \
+      TCGLabel *lbl_finish_restore_gpr = gen_new_label();               \
+      tcg_gen_brcond_tl(TCG_COND_EQ, first_pass, one, lbl_save_gpr);    \
+                                                                        \
+      for (i = 0; i < CPU_NB_REGS; ++i) {                               \
+                                                                        \
+        gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);               \
+        tcg_gen_ld_tl(gpr_sv, cpu_regs[i], 0);                          \
+                                                                        \
+      }                                                                 \
+                                                                        \
+      tcg_gen_br(lbl_finish_restore_gpr);                               \
+                                                                        \
+      gen_set_label(lbl_save_gpr);                                      \
+                                                                        \
+      for (i = 0; i < CPU_NB_REGS; ++i) {                               \
+                                                                        \
+        gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);               \
+        tcg_gen_st_tl(cpu_regs[i], gpr_sv, 0);                          \
+                                                                        \
+      }                                                                 \
+                                                                        \
+      gen_set_label(lbl_finish_restore_gpr);                            \
+      tcg_temp_free(first_pass);                                        \
+                                                                        \
+    }                                                                   \
+    if (afl_persistent_ret_addr == 0) {                                 \
+                                                                        \
+      TCGv_ptr stack_off_ptr = tcg_const_ptr(&persistent_stack_offset); \
+      TCGv     stack_off = tcg_temp_new();                              \
+      tcg_gen_ld_tl(stack_off, stack_off_ptr, 0);                       \
+      tcg_gen_sub_tl(cpu_regs[R_ESP], cpu_regs[R_ESP], stack_off);      \
+      tcg_temp_free(stack_off);                                         \
+                                                                        \
+    }                                                                   \
+                                                                        \
+  } while (0)
+
 #define AFL_QEMU_TARGET_i386_SNIPPET                                          \
   if (is_persistent) {                                                        \
                                                                               \
     if (s->pc == afl_persistent_addr) {                                       \
                                                                               \
+      I386_RESTORE_STATE_FOR_PERSISTENT;                                      \
+      tcg_gen_afl_call0(afl_debug_dump_saved_regs);                           \
+                                                                              \
       if (afl_persistent_ret_addr == 0) {                                     \
                                                                               \
-        TCGv_ptr stack_off_ptr = tcg_const_ptr(&persistent_stack_offset);     \
-        TCGv     stack_off = tcg_temp_new();                                  \
-        tcg_gen_ld_tl(stack_off, stack_off_ptr, 0);                           \
-        tcg_gen_sub_tl(cpu_regs[R_ESP], cpu_regs[R_ESP], stack_off);          \
-        tcg_temp_free(stack_off);                                             \
+        TCGv_ptr paddr = tcg_const_ptr(afl_persistent_addr);                  \
+        tcg_gen_st_tl(paddr, cpu_regs[R_ESP], 0);                             \
                                                                               \
       }                                                                       \
-      TCGv_ptr paddr = tcg_const_ptr(afl_persistent_addr);                    \
-      tcg_gen_st_tl(paddr, cpu_regs[R_ESP], 0);                               \
       tcg_gen_afl_call0(&afl_persistent_loop);                                \
                                                                               \
     } else if (afl_persistent_ret_addr && s->pc == afl_persistent_ret_addr) { \

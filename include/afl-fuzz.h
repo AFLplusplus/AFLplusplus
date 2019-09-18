@@ -457,27 +457,27 @@ extern s32
 
 // because Python sets stuff it should not ...
 #ifdef _POSIX_C_SOURCE
-  #define _SAVE_POSIX_C_SOURCE _POSIX_C_SOURCE
-  #undef _POSIX_C_SOURCE
+#define _SAVE_POSIX_C_SOURCE _POSIX_C_SOURCE
+#undef _POSIX_C_SOURCE
 #endif
 #ifdef _XOPEN_SOURCE
-  #define _SAVE_XOPEN_SOURCE _XOPEN_SOURCE
-  #undef _XOPEN_SOURCE
+#define _SAVE_XOPEN_SOURCE _XOPEN_SOURCE
+#undef _XOPEN_SOURCE
 #endif
 
 #include <Python.h>
 
 #ifdef _SAVE_POSIX_C_SOURCE
- #ifdef _POSIX_C_SOURCE
-  #undef _POSIX_C_SOURCE
- #endif
- #define _POSIX_C_SOURCE _SAVE_POSIX_C_SOURCE
+#ifdef _POSIX_C_SOURCE
+#undef _POSIX_C_SOURCE
+#endif
+#define _POSIX_C_SOURCE _SAVE_POSIX_C_SOURCE
 #endif
 #ifdef _SAVE_XOPEN_SOURCE
- #ifdef _XOPEN_SOURCE
-  #undef _XOPEN_SOURCE
- #endif
- #define _XOPEN_SOURCE _SAVE_XOPEN_SOURCE
+#ifdef _XOPEN_SOURCE
+#undef _XOPEN_SOURCE
+#endif
+#define _XOPEN_SOURCE _SAVE_XOPEN_SOURCE
 #endif
 
 extern PyObject* py_module;
