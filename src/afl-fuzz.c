@@ -53,7 +53,8 @@ static void usage(u8* argv0) {
       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
       "  -m megs       - memory limit for child process (%d MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
-      "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n\n"
+      "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
+      "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
       "  -L minutes    - use MOpt(imize) mode and set the limit time for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths, 0 = "
@@ -131,7 +132,7 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, &tz);
   init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QUe:p:s:V:E:L:h")) >
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QUWe:p:s:V:E:L:h")) >
          0)
 
     switch (opt) {
@@ -367,6 +368,16 @@ int main(int argc, char** argv) {
         unicorn_mode = 1;
 
         if (!mem_limit_given) mem_limit = MEM_LIMIT_UNICORN;
+
+        break;
+      
+      case 'W':                                             /* Wine+QEMU mode */
+
+        if (use_wine) FATAL("Multiple -W options not supported");
+        qemu_mode = 1;
+        use_wine = 1;
+
+        if (!mem_limit_given) mem_limit = 0;
 
         break;
 
@@ -709,9 +720,14 @@ int main(int argc, char** argv) {
 
   start_time = get_cur_time();
 
-  if (qemu_mode)
-    use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
-  else
+  if (qemu_mode) {
+  
+    if (use_wine)
+      use_argv = get_wine_argv(argv[0], argv + optind, argc - optind);
+    else
+      use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
+  
+  } else
     use_argv = argv + optind;
 
   perform_dry_run(use_argv);
