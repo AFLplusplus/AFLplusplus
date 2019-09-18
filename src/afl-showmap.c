@@ -498,8 +498,9 @@ static void find_binary(u8* fname) {
 int main(int argc, char** argv) {
 
   s32 opt;
-  u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0, unicorn_mode = 0, use_wine = 0;
-  u32 tcnt = 0;
+  u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0, unicorn_mode = 0,
+     use_wine = 0;
+  u32    tcnt = 0;
   char** use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
@@ -612,7 +613,7 @@ int main(int argc, char** argv) {
         unicorn_mode = 1;
         break;
 
-      case 'W':                                             /* Wine+QEMU mode */
+      case 'W':                                           /* Wine+QEMU mode */
 
         if (use_wine) FATAL("Multiple -W options not supported");
         qemu_mode = 1;
@@ -671,13 +672,14 @@ int main(int argc, char** argv) {
   detect_file_args(argv + optind, at_file);
 
   if (qemu_mode) {
-  
+
     if (use_wine)
       use_argv = get_wine_argv(argv[0], argv + optind, argc - optind);
     else
       use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
-  
+
   } else
+
     use_argv = argv + optind;
 
   run_target(use_argv);

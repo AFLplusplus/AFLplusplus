@@ -132,8 +132,8 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, &tz);
   init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QUWe:p:s:V:E:L:h")) >
-         0)
+  while ((opt = getopt(argc, argv,
+                       "+i:o:f:m:t:T:dnCB:S:M:x:QUWe:p:s:V:E:L:h")) > 0)
 
     switch (opt) {
 
@@ -370,8 +370,8 @@ int main(int argc, char** argv) {
         if (!mem_limit_given) mem_limit = MEM_LIMIT_UNICORN;
 
         break;
-      
-      case 'W':                                             /* Wine+QEMU mode */
+
+      case 'W':                                           /* Wine+QEMU mode */
 
         if (use_wine) FATAL("Multiple -W options not supported");
         qemu_mode = 1;
@@ -721,13 +721,14 @@ int main(int argc, char** argv) {
   start_time = get_cur_time();
 
   if (qemu_mode) {
-  
+
     if (use_wine)
       use_argv = get_wine_argv(argv[0], argv + optind, argc - optind);
     else
       use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
-  
+
   } else
+
     use_argv = argv + optind;
 
   perform_dry_run(use_argv);
