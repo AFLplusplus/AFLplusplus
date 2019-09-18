@@ -35,7 +35,7 @@
 #include <unistd.h>
 #endif
 
-u8  *target_path;                       /* Path to target binary            */
+u8* target_path;                        /* Path to target binary            */
 
 void detect_file_args(char** argv, u8* prog_in) {
 
@@ -96,7 +96,6 @@ void detect_file_args(char** argv, u8* prog_in) {
   free(cwd);                                                 /* not tracked */
 
 }
-
 
 /* Rewrite argv for QEMU. */
 
@@ -193,9 +192,9 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
     cp = alloc_printf("%s/afl-qemu-trace", tmp);
 
     if (access(cp, X_OK)) FATAL("Unable to find '%s'", tmp);
-    
+
     ck_free(cp);
-    
+
     cp = alloc_printf("%s/afl-wine-trace", tmp);
 
     if (access(cp, X_OK)) FATAL("Unable to find '%s'", tmp);
@@ -218,14 +217,14 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
     if (!access(cp, X_OK)) {
 
       ck_free(cp);
-      
+
       cp = alloc_printf("%s/afl-wine-trace", own_copy);
-      
+
       if (!access(cp, X_OK)) {
 
         target_path = new_argv[0] = cp;
         return new_argv;
-        
+
       }
 
     }
@@ -234,17 +233,17 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
 
     ck_free(own_copy);
 
-  u8 *ncp = BIN_PATH "/afl-qemu-trace";
+  u8* ncp = BIN_PATH "/afl-qemu-trace";
 
   if (!access(ncp, X_OK)) {
-  
+
     ncp = BIN_PATH "/afl-wine-trace";
-    
+
     if (!access(ncp, X_OK)) {
 
       target_path = new_argv[0] = ck_strdup(ncp);
       return new_argv;
-      
+
     }
 
   }
@@ -263,10 +262,10 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
        "    instrumented at compile time with afl-gcc. It is also possible to "
        "use it as a\n"
        "    traditional \"dumb\" fuzzer by specifying '-n' in the command "
-       "line.\n", ncp);
+       "line.\n",
+       ncp);
 
   FATAL("Failed to locate '%s'.", ncp);
 
 }
-
 

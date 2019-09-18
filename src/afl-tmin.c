@@ -934,7 +934,8 @@ static void usage(u8* argv0) {
       "  -m megs       - memory limit for child process (%d MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
-      "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n\n"
+      "  -W            - use qemu-based instrumentation with Wine (Wine "
+      "mode)\n\n"
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
 
@@ -1025,7 +1026,8 @@ static void read_bitmap(u8* fname) {
 int main(int argc, char** argv) {
 
   s32 opt;
-  u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0, unicorn_mode = 0, use_wine = 0;
+  u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0, unicorn_mode = 0,
+     use_wine = 0;
   char** use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
@@ -1133,7 +1135,7 @@ int main(int argc, char** argv) {
         unicorn_mode = 1;
         break;
 
-      case 'W':                                             /* Wine+QEMU mode */
+      case 'W':                                           /* Wine+QEMU mode */
 
         if (use_wine) FATAL("Multiple -W options not supported");
         qemu_mode = 1;
@@ -1184,13 +1186,14 @@ int main(int argc, char** argv) {
   detect_file_args(argv + optind, out_file);
 
   if (qemu_mode) {
-  
+
     if (use_wine)
       use_argv = get_wine_argv(argv[0], argv + optind, argc - optind);
     else
       use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
-  
+
   } else
+
     use_argv = argv + optind;
 
   exact_mode = !!getenv("AFL_TMIN_EXACT");
