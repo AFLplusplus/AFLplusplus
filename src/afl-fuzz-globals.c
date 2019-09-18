@@ -74,7 +74,6 @@ u8 *in_dir,                             /* Input directory with test cases  */
     *file_extension,                    /* File extension                   */
     *orig_cmdline;                      /* Original command line            */
 u8 *doc_path,                           /* Path to documentation dir        */
-    *target_path,                       /* Path to target binary            */
     *out_file;                          /* File to fuzz, if any             */
 
 u32 exec_tmout = EXEC_TIMEOUT;          /* Configurable exec timeout (ms)   */
@@ -115,6 +114,7 @@ u8 skip_deterministic,                  /* Skip deterministic stages?       */
     bitmap_changed = 1,                 /* Time to update bitmap?           */
     qemu_mode,                          /* Running in QEMU mode?            */
     unicorn_mode,                       /* Running in Unicorn mode?         */
+    use_wine,                           /* Use WINE with QEMU mode          */
     skip_requested,                     /* Skip request, via SIGUSR1        */
     run_over10m,                        /* Run time over 10 minutes?        */
     persistent_mode,                    /* Running in persistent mode?      */
