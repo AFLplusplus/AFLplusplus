@@ -191,7 +191,6 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
     if (s->pc == afl_persistent_addr) {                                       \
                                                                               \
       I386_RESTORE_STATE_FOR_PERSISTENT;                                      \
-      tcg_gen_afl_call0(afl_debug_dump_saved_regs);                           \
                                                                               \
       if (afl_persistent_ret_addr == 0) {                                     \
                                                                               \
