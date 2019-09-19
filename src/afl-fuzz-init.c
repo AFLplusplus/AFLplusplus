@@ -1479,9 +1479,39 @@ void check_cpu_governor(void) {
        "drop.\n",
        min / 1024, max / 1024);
 
-  FATAL("Suboptimal CPU scaling governor");
-#endif
+#else
+  u64   min = 0, max = 0;
+  size_t mlen = sizeof(min);
+  if (getenv("AFL_SKIP_CPUFREQ")) return;
 
+  ACTF("Checking CPU scaling governor...");
+
+  if (sysctlbyname("hw.cpufrequency_min", &min, &mlen, NULL, 0) == -1) {
+
+    WARNF("Could not check CPU min frequency");
+    return;
+
+  }
+
+  if (sysctlbyname("hw.cpufrequency_max", &max, &mlen, NULL, 0) == -1) {
+
+    WARNF("Could not check CPU max frequency");
+    return;
+
+  }
+
+  if (min == max) return;
+
+  SAYF("\n" cLRD "[-] " cRST
+       "Whoops, your system uses on-demand CPU frequency scaling, adjusted\n"
+       "    between %llu and %llu MHz.\n"
+       "    If you don't want to check those settings, set "
+       "AFL_SKIP_CPUFREQ\n"
+       "    to make afl-fuzz skip this check - but expect some performance "
+       "drop.\n",
+       min / 1024, max / 1024);
+#endif
+  FATAL("Suboptimal CPU scaling governor");
 }
 
 /* Count the number of logical CPU cores. */
