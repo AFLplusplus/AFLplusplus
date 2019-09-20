@@ -24,15 +24,15 @@ CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign
 all: libdislocator.so
 
 libdislocator.so: libdislocator.so.c ../config.h
-	$(CC) $(CFLAGS) -shared -fPIC $< -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) -shared -fPIC $< -o ../$@ $(LDFLAGS)
 
 .NOTPARALLEL: clean
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]*
-	rm -f libdislocator.so
+	rm -f ../libdislocator.so
 
 install: all
-	install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH)
+	install -m 755 ../libdislocator.so $${DESTDIR}$(HELPER_PATH)
 	install -m 644 README.dislocator $${DESTDIR}$(HELPER_PATH)
 
