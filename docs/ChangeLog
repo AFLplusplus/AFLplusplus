@@ -22,6 +22,8 @@ Version ++2.54d (dev):
     add AFL_CUSTOM_MUTATOR_ONLY (that will trigger the previous behaviour)
   - no more unlinking the input file, this way the input file can also be a
     FIFO or disk partition
+  - setting LLVM_CONFIG for llvm_mode will now again switch to the selected
+    llvm version. If you setup is correct.
   - reducing duplicate code in afl-fuzz
   - added "make help"
   - removed compile warnings from python internal stuff

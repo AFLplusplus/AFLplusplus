@@ -41,6 +41,10 @@ In order to leverage this mechanism, you need to have clang installed on your
 system. You should also make sure that the llvm-config tool is in your path
 (or pointed to via LLVM_CONFIG in the environment).
 
+Note that if you have several LLVM versions installed, pointing LLVM_CONFIG
+to the version you want to use will switch compiling to this specific
+version - if you installation is set up correctly :-)
+
 Unfortunately, some systems that do have clang come without llvm-config or the
 LLVM development headers; one example of this is FreeBSD. FreeBSD users will
 also run into problems with clang being built statically and not being able to
