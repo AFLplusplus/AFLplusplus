@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - LLVM instrumentation bootstrap
+   green fuzzy mushroom - LLVM instrumentation bootstrap
    ---------------------------------------------------
 
    Written by Laszlo Szekeres <lszekeres@google.com> and

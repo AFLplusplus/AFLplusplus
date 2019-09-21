@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - wrapper for GNU as
+   green fuzzy mushroom - wrapper for GNU as
    ---------------------------------------
 
    Written and maintained by Michal Zalewski <lcamtuf@google.com>

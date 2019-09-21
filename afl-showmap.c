@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - map display utility
+   green fuzzy mushroom - map display utility
    ----------------------------------------
 
    Written and maintained by Michal Zalewski <lcamtuf@google.com>
@@ -103,8 +103,12 @@ void write_results(void) {
   }
 
   u64 *ptr = (u64*)trace_bits;
+  
   cnt = *ptr;
   cnt--;
+
+  if (*ptr == 0 || cnt == 0)
+    PFATAL("no data in shared map");
 
   if ((cnt << 3) > MAP_SIZE)
     cnt = MAP_SIZE / 8;
@@ -178,7 +182,7 @@ static void run_target(char** argv) {
       s32 fd = open("/dev/null", O_RDWR);
 
       if (fd < 0 || dup2(fd, 1) < 0 || dup2(fd, 2) < 0) {
-        *(u32*)trace_bits = EXEC_FAIL_SIG;
+        *(u32*)trace_bits = 0;
         PFATAL("Descriptor initialization failed");
       }
 
@@ -213,7 +217,7 @@ static void run_target(char** argv) {
 
     execv(target_path, argv);
 
-    *(u32*)trace_bits = EXEC_FAIL_SIG;
+    *(u32*)trace_bits = 0;
     exit(0);
 
   }

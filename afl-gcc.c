@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - wrapper for GCC and clang
+   green fuzzy mushroom - wrapper for GCC and clang
    ----------------------------------------------
 
    Written and maintained by Michal Zalewski <lcamtuf@google.com>

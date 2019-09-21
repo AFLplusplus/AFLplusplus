@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - LLVM-mode wrapper for clang
+   green fuzzy mushroom - LLVM-mode wrapper for clang
    ------------------------------------------------
 
    Written by Laszlo Szekeres <lszekeres@google.com> and

@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - LLVM-mode instrumentation pass
+   green fuzzy mushroom - LLVM-mode instrumentation pass
    ---------------------------------------------------
 
    Written by Laszlo Szekeres <lszekeres@google.com> and

@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - fuzzer code
+   green fuzzy mushroom - fuzzer code
    --------------------------------
 
    Written and maintained by Michal Zalewski <lcamtuf@google.com>
@@ -1266,15 +1266,20 @@ static char calculate_map_score(struct queue_entry* q) {
   else if (total_blocks < min_total_blocks)
     min_total_blocks = total_blocks;
 
-  if (debug) fprintf(stderr, "overall total blocks - min: %llu, max %llu\n", min_total_blocks, max_total_blocks);
   if (debug) fprintf(stderr, "total blocks: %llu\n", total_blocks);
+  if (debug) fprintf(stderr, "overall total blocks - min: %llu, max %llu (%llu overflows)\n", min_total_blocks, max_total_blocks, overflows);
   // here we try to put a weighting to the map depending on the total_blocks
   
 
-  struct queue_entry *qu = queue;
+int rounds = 0;
+  struct queue_entry *qu = queue, *prev = queue;
   while (qu) {
     if (qu != q && qu->full_hash == q->full_hash) { // it is a double so we remove this current entry
-      queue = q->next;
+if (debug) { printf("XYZ1 rounds: %d, queue: %p, next: %p | qu: %p, next: %p | q: %p, next: %p\n", rounds, queue, queue->next, qu, qu->next, q, q->next); }
+      if (q->next == NULL)
+        prev->next = NULL;
+      else
+        queue = q->next;
       unlink(q->fname);
       ck_free(q->fname);
       ck_free(q->unique_ips);
@@ -1284,6 +1289,7 @@ static char calculate_map_score(struct queue_entry* q) {
     }
 //    if (remove && qu->next == q) // and we remove the pointer to this entry
 //      qu->next = NULL;
+    prev = qu;
     qu = qu->next;
   }
 
@@ -1368,16 +1374,21 @@ if (debug) fprintf(stderr, "damn, highst - lowest >> 5 doesnt fit\n");
 
   q->unique_hash = XXH64((char*)q->unique_ips, (cnt << 2), 0);  
   q->unique_blocks = cnt;
-  //if (debug) { fprintf(stderr, "AFTER:\n"); for (i = 0; i < cnt; i++) fprintf(stderr, "%08x\n",q->unique_ips[i]); fprintf(stderr, "\n"); }
   if (debug) { fprintf(stderr, "RES: unique_blocks %llu, hash %016llx\n", q->unique_blocks, q->unique_hash); }
 
 //return;
 
   // now double check that the unique_blocks map is unique in the queue
-  qu = queue;
+  prev = qu = queue;
+rounds=0;
   while (qu) {
+rounds++;
     if (qu != q && qu->unique_hash == q->unique_hash) { // it is a double so we remove this current entry
-      queue = q->next;
+if (debug) { printf("XYZ2 rounds: %d, queue: %p, next: %p | qu: %p, next: %p | q: %p, next: %p\n", rounds, queue, queue->next, qu, qu->next, q, q->next); }
+      if (q->next == NULL)
+        prev->next = NULL;
+      else
+        queue = q->next;
       unlink(q->fname);
       ck_free(q->fname);
       ck_free(q->unique_ips);
@@ -1387,8 +1398,12 @@ if (debug) fprintf(stderr, "damn, highst - lowest >> 5 doesnt fit\n");
     }
 //    if (remove && qu->next == q) // and we remove the pointer to this entry
 //      qu->next = NULL;
+    prev = qu;
     qu = qu->next;
   }
+
+if (debug || rounds == 0) { fprintf(stderr, "AFTER (%d):", rounds); for (i = 0; i < cnt; i++) fprintf(stderr, " %08x",q->unique_ips[i]); fprintf(stderr, "\n"); }
+if (rounds == 0) exit(-1);
 
 
   // here we try to put a weighting to the map depending on the uniqueness
@@ -2600,7 +2615,7 @@ static u8 run_target(char** argv, u32 timeout) {
     total_blocks = MAX_ENTRIES;
   }
 
-  if (*(u64*)trace_bits > 0) {
+  if (total_blocks > 0) {
     full_hash = XXH64(trace_bits, (total_blocks << 3), 0);
   } else
     full_hash = 0;
@@ -4161,11 +4176,11 @@ static void show_stats(void) {
 #ifdef HAVE_AFFINITY
   sprintf(tmp + banner_pad, "%s " cLCY VERSION cLGN
           " (%s) " cPIN "[%s]" cBLU " {%d}",  crash_mode ? cPIN "peruvian were-rabbit" :
-          cYEL "american fuzzy lop", use_banner, power_name, cpu_aff);
+          cYEL "green fuzzy mushroom", use_banner, power_name, cpu_aff);
 #else
   sprintf(tmp + banner_pad, "%s " cLCY VERSION cLGN
           " (%s) " cPIN "[%s]",  crash_mode ? cPIN "peruvian were-rabbit" :
-          cYEL "american fuzzy lop", use_banner, power_name);
+          cYEL "green fuzzy mushroom", use_banner, power_name);
 #endif /* HAVE_AFFINITY */
 
   SAYF("\n%s\n", tmp);
@@ -4277,6 +4292,7 @@ static void show_stats(void) {
   SAYF("    map density : %s%-21s" bSTG bV "\n", t_byte_ratio > 70 ? cLRD :
        ((t_bytes < 200 && !dumb_mode) ? cPIN : cRST), tmp);
 */
+  
   sprintf(tmp, "%llu - %llu", min_total_blocks, max_total_blocks);
   SAYF(" map depth : " cRST "%-26s" bSTG bV "\n", tmp);
 
@@ -4295,8 +4311,8 @@ static void show_stats(void) {
   else
     sprintf(tmp, "unmeasured");
   SAYF(bSTOP " unique : " cRST "%-10s", tmp);
-  sprintf(tmp, "%s%llu", overflows == 0 ? cRST : cLRD, overflows);
-  SAYF(cGRA "  overflows : %-9s" bSTG bV "\n", tmp);
+  sprintf(tmp, "%llu", overflows);
+  SAYF(cGRA "  overflows : %s%-5s" bSTG bV "\n", overflows == 0 ? cRST : cLRD, tmp);
 //  SAYF(bSTOP " total blocks: " cRST "%.8llu"  "  overflows : " cRST "%.ll8u" bSTG bV "\n", rare_entries, overflows);
 
 
@@ -12215,7 +12231,6 @@ int main(int argc, char** argv) {
 
   if (getenv("AFL_DEBUG"))
     debug = 1;
-debug = 1;
 
   if (getenv("AFL_PYTHON_ONLY")) {
     /* This ensures we don't proceed to havoc/splice */
