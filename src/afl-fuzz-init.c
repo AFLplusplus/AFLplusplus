@@ -1480,7 +1480,7 @@ void check_cpu_governor(void) {
        min / 1024, max / 1024);
   FATAL("Suboptimal CPU scaling governor");
 
-#elsif defined __APPLE__
+#elif defined __APPLE__
   u64   min = 0, max = 0;
   size_t mlen = sizeof(min);
   if (getenv("AFL_SKIP_CPUFREQ")) return;
