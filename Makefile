@@ -80,6 +80,8 @@ endif
 
 all:	test_x86 test_shm test_python27 ready $(PROGS) afl-as test_build all_done
 
+tests:
+	@cd test ; ./test.sh
 
 help:
 	@echo "HELP --- the following make targets exist:"
@@ -296,7 +298,7 @@ endif
 	cp -r testcases/ $${DESTDIR}$(MISC_PATH)
 	cp -r dictionaries/ $${DESTDIR}$(MISC_PATH)
 
-publish: clean
+#publish: clean
 #	test "`basename $$PWD`" = "afl" || exit 1
 #	test -f ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz; if [ "$$?" = "0" ]; then echo; echo "Change program version in config.h, mmkay?"; echo; exit 1; fi
 #	cd ..; rm -rf $(PROGNAME)-$(VERSION); cp -pr $(PROGNAME) $(PROGNAME)-$(VERSION); \
