@@ -228,11 +228,12 @@ all_done: test_build
 .NOTPARALLEL: clean
 
 clean:
-	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump test .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so unicorn_mode/24f55a7973278f20f0de21b904851d99d4716263.tar.gz *.8
+	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so unicorn_mode/24f55a7973278f20f0de21b904851d99d4716263.tar.gz *.8
 	rm -rf out_dir qemu_mode/qemu-3.1.1 unicorn_mode/unicorn
 	$(MAKE) -C llvm_mode clean
 	$(MAKE) -C libdislocator clean
 	$(MAKE) -C libtokencap clean
+	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 
 distrib: all
