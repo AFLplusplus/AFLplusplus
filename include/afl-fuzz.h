@@ -682,5 +682,10 @@ static u64 get_cur_time_us(void) {
 
 }
 
+#ifdef _AFL_DOCUMENT_MUTATIONS
+  extern u8 do_document;
+  extern u32 document_counter;
+#endif
+
 #endif
 
