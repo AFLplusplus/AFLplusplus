@@ -33,6 +33,7 @@
 
 int main(int argc, char** argv) {
 
+  ssize_t len;   /* how much input did we read? */
   char buf[100]; /* Example-only buffer, you'd replace it with other global or
                     local variables appropriate for your use case. */
 
@@ -57,10 +58,14 @@ int main(int argc, char** argv) {
                Beware of reading from buffered FILE* objects such as stdin. Use
                raw file descriptors or call fopen() / fdopen() in every pass. */
 
-    read(0, buf, 100);
+    len = read(0, buf, 100);
 
     /* STEP 3: This is where we'd call the tested library on the read data.
                We just have some trivial inline code that faults on 'foo!'. */
+
+    /* do we have enough data? */
+    if (len < 4)
+      return 0;
 
     if (buf[0] == 'f') {
       printf("one\n");

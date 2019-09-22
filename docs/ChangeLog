@@ -22,6 +22,15 @@ Version ++2.54d (dev):
     add AFL_CUSTOM_MUTATOR_ONLY (that will trigger the previous behaviour)
   - no more unlinking the input file, this way the input file can also be a
     FIFO or disk partition
+  - setting LLVM_CONFIG for llvm_mode will now again switch to the selected
+    llvm version. If you setup is correct.
+  - fuzzing strategy yields for custom mutator were missing from the UI, added them :)
+  - added "make tests" which will perform checks to see that all functionality
+    is working as expected. this is currently the starting point, its not complete :)
+  - added mutation documentation feature ("make document"), creates afl-fuzz-document
+    and saves all mutations of the first run on the first file into out/queue/mutations
+  - libtokencap and libdislocator now compile to the afl_root directory and are
+    installed to the .../lib/afl directory when present during make install
   - reducing duplicate code in afl-fuzz
   - added "make help"
   - removed compile warnings from python internal stuff

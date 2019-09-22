@@ -1,14 +1,3 @@
-Roadmap 2.54d:
-==============
-
-afl-fuzz:
- - enable python mutator for MOpt
- - enable custom mutator for MOpt
- - add superion?
-
-remote feature
-
-
 
 Roadmap 2.55d:
 ==============
@@ -25,6 +14,9 @@ qemu_mode:
  - instrim for QEMU mode via static analysis (with r2pipe? or angr?)
    Idea: The static analyzer outputs a map in which each edge that must be
    skipped is marked with 1. QEMU loads it at startup in the parent process.
+
+custom_mutators:
+ - rip what Superion is doing into custom mutators for js, php, etc.
 
 unit testing / or large testcase campaign
 

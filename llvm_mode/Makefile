@@ -37,7 +37,8 @@ endif
 
 LLVMVER  = $(shell $(LLVM_CONFIG) --version)
 LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^[12]|^3\.0|^1[0-9]' && echo 1 || echo 0 )
-LLVM_MAJOR = ($shell $(LLVM_CONFIG) --version | sed 's/\..*//')
+LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version | sed 's/\..*//')
+LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir)
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
   $(warn llvm_mode only supports versions 3.8.0 up to 9)
@@ -77,11 +78,18 @@ endif
 # this seems to be busted on some distros, so using the one in $PATH is
 # probably better.
 
-ifeq "$(origin CC)" "default"
-  ifeq "$(shell uname)" "OpenBSD"
-    CC         = $(BIN_PATH)/clang
-    CXX        = $(BIN_PATH)/clang++
+CC         = $(LLVM_BINDIR)/clang
+CXX        = $(LLVM_BINDIR)/clang++
+
+ifeq "$(shell test -e $(CC) || echo 1 )" "1"
+  # llvm-config --bindir is not providing a valid path, so ...
+  ifeq "$(shell test -e "$(BIN_DIR)/clang" && echo 1)" "1"
+    # we found one in the local install directory, lets use these
+    CC         = $(BIN_DIR)/clang
+    CXX        = $(BIN_DIR)/clang++
   else
+    # hope for the best
+    $(warn we have trouble finding clang/clang++ - llvm-config is not helping us)
     CC         = clang
     CXX        = clang++
   endif

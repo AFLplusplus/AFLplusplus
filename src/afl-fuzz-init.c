@@ -1478,8 +1478,9 @@ void check_cpu_governor(void) {
        "    to make afl-fuzz skip this check - but expect some performance "
        "drop.\n",
        min / 1024, max / 1024);
+  FATAL("Suboptimal CPU scaling governor");
 
-#else
+#elif defined __APPLE__
   u64   min = 0, max = 0;
   size_t mlen = sizeof(min);
   if (getenv("AFL_SKIP_CPUFREQ")) return;
@@ -1510,8 +1511,8 @@ void check_cpu_governor(void) {
        "    to make afl-fuzz skip this check - but expect some performance "
        "drop.\n",
        min / 1024, max / 1024);
-#endif
   FATAL("Suboptimal CPU scaling governor");
+#endif
 }
 
 /* Count the number of logical CPU cores. */
