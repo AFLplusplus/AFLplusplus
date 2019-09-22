@@ -153,34 +153,34 @@ afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
 
-afl-common.o : src/afl-common.c include/common.h
-	$(CC) $(CFLAGS) -c src/afl-common.c
+src/afl-common.o : src/afl-common.c include/common.h
+	$(CC) $(CFLAGS) -c src/afl-common.c -o src/afl-common.o
 
-afl-forkserver.o : src/afl-forkserver.c include/forkserver.h
-	$(CC) $(CFLAGS) -c src/afl-forkserver.c
+src/afl-forkserver.o : src/afl-forkserver.c include/forkserver.h
+	$(CC) $(CFLAGS) -c src/afl-forkserver.c -o src/afl-forkserver.o
 
-afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
-	$(CC) $(CFLAGS) -c src/afl-sharedmem.c
+src/afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
+	$(CC) $(CFLAGS) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
-afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS) $(PYFLAGS)
+afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS) $(PYFLAGS)
 
-afl-showmap: src/afl-showmap.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o -o $@ $(LDFLAGS)
+afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
 
-afl-tmin: src/afl-tmin.c afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o afl-forkserver.o -o $@ $(LDFLAGS)
+afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
 
-afl-analyze: src/afl-analyze.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) src/$@.c afl-common.o afl-sharedmem.o -o $@ $(LDFLAGS)
+afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
 
 afl-gotcpu: src/afl-gotcpu.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 
 
 # document all mutations and only do one run (use with only one input file!)
-document: include/afl-fuzz.h $(AFL_FUZZ_FILES) afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) -D_AFL_DOCUMENT_MUTATIONS afl-common.o afl-sharedmem.o afl-forkserver.o -o afl-fuzz-document $(LDFLAGS) $(PYFLAGS)
+document: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) -D_AFL_DOCUMENT_MUTATIONS src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o afl-fuzz-document $(LDFLAGS) $(PYFLAGS)
 
 
 code-format:
@@ -228,7 +228,7 @@ all_done: test_build
 .NOTPARALLEL: clean
 
 clean:
-	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o *~ a.out core core.[1-9][0-9]* *.stackdump test .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so unicorn_mode/24f55a7973278f20f0de21b904851d99d4716263.tar.gz *.8
+	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump test .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so unicorn_mode/24f55a7973278f20f0de21b904851d99d4716263.tar.gz *.8
 	rm -rf out_dir qemu_mode/qemu-3.1.1 unicorn_mode/unicorn
 	$(MAKE) -C llvm_mode clean
 	$(MAKE) -C libdislocator clean
