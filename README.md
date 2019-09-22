@@ -45,6 +45,8 @@
   * NeverZero patch for afl-gcc, llvm_mode, qemu_mode and unicorn_mode which prevents a wrapping map value to zero, increases coverage
   
   * Persistent mode and deferred forkserver for qemu_mode
+  
+  * Win32 PE binary-only fuzzing with QEMU and Wine
 
   A more thorough list is available in the PATCHES file.
 

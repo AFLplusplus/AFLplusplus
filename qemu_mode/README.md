@@ -44,24 +44,18 @@ Note: if you want the QEMU helper to be installed on your system for all
 users, you need to build it before issuing 'make install' in the parent
 directory.
 
-## 3) Options
+## 3) Bonus feature #1: deferred initialization
 
-There is ./libcompcov/ which implements laf-intel (splitting memcmp,
-strncmp, etc. to make these conditions easier solvable by afl-fuzz).
-Highly recommended.
+As for LLVM mode (referes to its README for mode details) QEMU mode support
+the deferred initialization.
 
-The option that enables QEMU CompareCoverage is AFL_COMPCOV_LEVEL.
-AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
-values / read-only memory. AFL_COMPCOV_LEVEL=2 instruments all
-comparison instructions and memory comparison functions when libcompcov
-is preloaded. Comparison instructions are currently instrumented only
-on the x86 and x86_64 targets.
-
-Another option is the environment variable AFL_ENTRYPOINT which allows
-move the forkserver to a different part, e.g. just before the file is
+This can be enabled setting the environment variable AFL_ENTRYPOINT which allows
+to move the forkserver to a different part, e.g. just before the file is
 opened (e.g. way after command line parsing and config file loading, etc)
 which can be a huge speed improvement. Note that the specified address
 must be an address of a basic block.
+
+## 4) Bonus feature #2: persistent mode
 
 QEMU mode support also persistent mode for x86 and x86_64 targets.
 The environment variable to enable it is AFL_QEMU_PERSISTENT_ADDR=`start addr`.
@@ -78,11 +72,40 @@ Note that the format of the addresses in such variables is hex.
 
 Note that the base address of PIE binaries in QEMU user is 0x4000000000.
 
-Warning: in x86_64 parameters are passed via registers and so the target
-function of persistent mode cannot make use of arguments. An option to restore
-the state of each GPR each iteration of the loop is planned.
+With the env variable AFL_QEMU_PERSISTENT_GPR you can tell QEMU to save the original
+value of general purpose registers and restore them ech cycle.
+This allow to use as persistent loop functions that make use of arguments on 
+x86_64.
 
-## 4) Notes on linking
+With AFL_QEMU_PERSISTENT_RETADDR_OFFSET you can specify the offset from the stack pointer in which
+QEME can find the return address when `start addr` is hitted.
+
+Use this mode with caution, problably will not work at first shot.
+
+## 5) Bonus feature #3: CompareCoverage
+
+CompareCoverage is a sub-instrumentation with effects similar to laf-intel.
+
+The option that enables QEMU CompareCoverage is AFL_COMPCOV_LEVEL.
+There is also ./libcompcov/ which implements CompareCoverage for *cmp functions
+(splitting memcmp, strncmp, etc. to make these conditions easier solvable by afl-fuzz).
+AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
+values / read-only memory. AFL_COMPCOV_LEVEL=2 instruments all
+comparison instructions and memory comparison functions when libcompcov
+is preloaded. Comparison instructions are currently instrumented only
+on the x86 and x86_64 targets.
+
+Highly recommended.
+
+## 6) Bonus feature #3: Wine mode
+
+AFL++ QEMU can use Wine to fuzz WIn32 PE binaries. Use the -W flag of afl-fuzz.
+
+Note that some binaries require user interaction with GUI and must be patched.
+
+For examples look [here](https://github.com/andreafioraldi/WineAFLplusplusDEMO).
+
+## 7) Notes on linking
 
 The feature is supported only on Linux. Supporting BSD may amount to porting
 the changes made to linux-user/elfload.c and applying them to
@@ -103,7 +126,7 @@ practice, this means two things:
 Setting AFL_INST_LIBS=1 can be used to circumvent the .text detection logic
 and instrument every basic block encountered.
 
-## 5) Benchmarking
+## 8) Benchmarking
 
 If you want to compare the performance of the QEMU instrumentation with that of
 afl-gcc compiled code against the same target, you need to build the
@@ -118,7 +141,7 @@ Comparative measurements of execution speed or instrumentation coverage will be
 fairly meaningless if the optimization levels or instrumentation scopes don't
 match.
 
-## 6) Gotchas, feedback, bugs
+## 9) Gotchas, feedback, bugs
 
 If you need to fix up checksums or do other cleanup on mutated test cases, see
 experimental/post_library/ for a viable solution.
@@ -139,7 +162,7 @@ with -march=core2, can help.
 Beyond that, this is an early-stage mechanism, so fields reports are welcome.
 You can send them to <afl-users@googlegroups.com>.
 
-## 7) Alternatives: static rewriting
+## 10) Alternatives: static rewriting
 
 Statically rewriting binaries just once, instead of attempting to translate
 them at run time, can be a faster alternative. That said, static rewriting is
