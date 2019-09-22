@@ -80,7 +80,7 @@ endif
 
 all:	test_x86 test_shm test_python27 ready $(PROGS) afl-as test_build all_done
 
-tests:
+tests:	source-only
 	@cd test ; ./test.sh
 
 help:
