@@ -97,7 +97,8 @@ Then there are a few specific features that are only available in llvm_mode:
 
     - Setting AFL_LLVM_LAF_TRANSFORM_COMPARES will split string compare functions
 
-    - Setting AFL_LLVM_LAF_SPLIT_COMPARES will split > 8 bit CMP instructions
+    - Setting AFL_LLVM_LAF_SPLIT_COMPARES will split all floating point and
+      64, 32 and 16 bit integer CMP instructions
 
     See llvm_mode/README.laf-intel for more information. 
 
