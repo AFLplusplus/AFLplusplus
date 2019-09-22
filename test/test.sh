@@ -132,7 +132,7 @@ test -e ../afl-clang-fast && {
       $ECHO "$GREEN[+] llvm_mode whitelist feature works correctly"
     } || $ECHO "$RED[!] llvm_mode whitelist feature failed"
   } || $ECHO "$RED[!] llvm_mode whitelist feature compilation failed"
-  rm -f test-compcov test.out
+  rm -f test-compcov test.out whitelist.txt
 
 } || $ECHO "$YELLOW[-] llvm_mode not compiled, cannot test"
 
