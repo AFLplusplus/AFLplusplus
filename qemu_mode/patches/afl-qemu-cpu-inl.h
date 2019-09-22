@@ -90,6 +90,7 @@ target_long   persistent_stack_offset;
 unsigned char persistent_first_pass;
 unsigned char persistent_save_gpr;
 target_ulong  persistent_saved_gpr[CPU_NB_REGS];
+int           persisent_retaddr_offset;
 
 /* Instrumentation ratio: */
 
@@ -218,6 +219,9 @@ static void afl_setup(void) {
   
   if (getenv("AFL_QEMU_PERSISTENT_GPR"))
     persistent_save_gpr = 1;
+  
+  if (getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"))
+    persisent_retaddr_offset = strtoll(getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"), NULL, 16);
 
   if (getenv("AFL_QEMU_PERSISTENT_CNT"))
     afl_persistent_cnt = strtoll(getenv("AFL_QEMU_PERSISTENT_CNT"), NULL, 16);

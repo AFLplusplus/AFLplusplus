@@ -61,6 +61,7 @@ extern target_long    persistent_stack_offset;
 extern unsigned char  persistent_first_pass;
 extern unsigned char  persistent_save_gpr;
 extern target_ulong   persistent_saved_gpr[CPU_NB_REGS];
+extern int            persisent_retaddr_offset;
 
 extern __thread abi_ulong afl_prev_loc;
 
