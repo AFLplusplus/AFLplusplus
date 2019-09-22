@@ -19,7 +19,7 @@ Andrea Fioraldi. Special thanks to abiondo that re-enabled TCG chaining.
 
 ## 2) How to use
 
-The feature is implemented with a patch to QEMU 3.1.0. The simplest way
+The feature is implemented with a patch to QEMU 3.1.1. The simplest way
 to build it is to run ./build_qemu_support.sh. The script will download,
 configure, and compile the QEMU binary for you.
 
@@ -72,13 +72,14 @@ Note that the format of the addresses in such variables is hex.
 
 Note that the base address of PIE binaries in QEMU user is 0x4000000000.
 
-With the env variable AFL_QEMU_PERSISTENT_GPR you can tell QEMU to save the original
-value of general purpose registers and restore them ech cycle.
+With the env variable AFL_QEMU_PERSISTENT_GPR you can tell QEMU to save the
+original value of general purpose registers and restore them ech cycle.
 This allow to use as persistent loop functions that make use of arguments on 
 x86_64.
 
-With AFL_QEMU_PERSISTENT_RETADDR_OFFSET you can specify the offset from the stack pointer in which
-QEME can find the return address when `start addr` is hitted.
+With AFL_QEMU_PERSISTENT_RETADDR_OFFSET you can specify the offset from the
+stack pointer in which QEME can find the return address when `start addr` is
+hitted.
 
 Use this mode with caution, problably will not work at first shot.
 
@@ -88,7 +89,8 @@ CompareCoverage is a sub-instrumentation with effects similar to laf-intel.
 
 The option that enables QEMU CompareCoverage is AFL_COMPCOV_LEVEL.
 There is also ./libcompcov/ which implements CompareCoverage for *cmp functions
-(splitting memcmp, strncmp, etc. to make these conditions easier solvable by afl-fuzz).
+(splitting memcmp, strncmp, etc. to make these conditions easier solvable by
+afl-fuzz).
 AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
 values / read-only memory. AFL_COMPCOV_LEVEL=2 instruments all
 comparison instructions and memory comparison functions when libcompcov
