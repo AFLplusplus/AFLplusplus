@@ -25,6 +25,8 @@ Version ++2.54d (dev):
   - setting LLVM_CONFIG for llvm_mode will now again switch to the selected
     llvm version. If you setup is correct.
   - fuzzing strategy yields for custom mutator were missing from the UI, added them :)
+  - added "make tests" which will perform checks to see that all functionality
+    is working as expected. this is currently the starting point, its not complete :)
   - libtokencap and libdislocator now compile to the afl_root directory and are
     installed to the .../lib/afl directory when present during make install
   - reducing duplicate code in afl-fuzz
