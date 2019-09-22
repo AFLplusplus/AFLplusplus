@@ -92,6 +92,8 @@ help:
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "install: installs everything you have compiled with the build option above"
 	@echo "clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well"
+	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
+	@echo "document: creates afl-fuzz-document which will only do one run and save all manipulated inputs into out/queue/mutations"
 	@echo "help: shows these build options :-)"
 	@echo "=========================================="
 	@echo "Recommended: \"distrib\" or \"source-only\", then \"install\""
@@ -174,6 +176,11 @@ afl-analyze: src/afl-analyze.c afl-common.o afl-sharedmem.o $(COMM_HDR) | test_x
 
 afl-gotcpu: src/afl-gotcpu.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
+
+
+# document all mutations and only do one run (use with only one input file!)
+document: include/afl-fuzz.h $(AFL_FUZZ_FILES) afl-common.o afl-sharedmem.o afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) -D_AFL_DOCUMENT_MUTATIONS afl-common.o afl-sharedmem.o afl-forkserver.o -o afl-fuzz-document $(LDFLAGS) $(PYFLAGS)
 
 
 code-format:

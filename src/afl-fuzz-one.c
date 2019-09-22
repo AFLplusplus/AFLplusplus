@@ -4231,6 +4231,7 @@ pacemaker_fuzzing:
 
 #define core_fuzzing(a) common_fuzzing((a), MOpt_globals_core)
 
+
 void pso_updating(void) {
 
   g_now += 1;
@@ -4310,6 +4311,22 @@ void pso_updating(void) {
 u8 fuzz_one(char** argv) {
 
   int key_val_lv = 0;
+
+#ifdef _AFL_DOCUMENT_MUTATIONS
+  if (do_document == 0) {
+    char *fn = alloc_printf("%s/mutations", out_dir);
+    if (fn) {
+      do_document = mkdir(fn, 0700); // if it exists we do not care
+      do_document = 1;
+      ck_free(fn);
+    } else
+      PFATAL("malloc()");
+  } else {
+    do_document = 2;
+    stop_soon = 2;
+  }
+#endif
+
   if (limit_time_sig == 0) {
 
     key_val_lv = fuzz_one_original(argv);

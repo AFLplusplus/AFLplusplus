@@ -259,3 +259,7 @@ PyObject *py_functions[PY_FUNC_COUNT];
 
 #endif
 
+#ifdef _AFL_DOCUMENT_MUTATIONS
+  u8 do_document;
+  u32 document_counter;
+#endif

@@ -27,10 +27,18 @@ test -z "$ECHO" && { echo Error: echo command does not support -e option ; exit 
 
 export AFL_EXIT_WHEN_DONE=1
 export AFL_SKIP_CPUFREQ=1
+unset AFL_QUIET
 unset AFL_DEBUG
 unset AFL_HARDEN
+unset AFL_USE_ASAN
+unset AFL_USE_MSAN
+unset AFL_CC
+unset AFL_PRELOAD
 unset AFL_LLVM_WHITELIST
 unset AFL_LLVM_INSTRIM
+unset AFL_LLVM_LAF_SPLIT_SWITCHES
+unset AFL_LLVM_LAF_TRANSFORM_COMPARES
+unset AFL_LLVM_LAF_SPLIT_COMPARES
 
 GREY="\\x1b[1;90m"
 BLUE="\\x1b[1;94m"
