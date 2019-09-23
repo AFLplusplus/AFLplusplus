@@ -83,7 +83,7 @@ CXX        = $(LLVM_BINDIR)/clang++
 
 ifeq "$(shell test -e $(CC) || echo 1 )" "1"
   # llvm-config --bindir is not providing a valid path, so ...
-  ifeq "$(shell test -e "$(BIN_DIR)/clang" && echo 1)" "1"
+  ifeq "$(shell test -e '$(BIN_DIR)/clang' && echo 1)" "1"
     # we found one in the local install directory, lets use these
     CC         = $(BIN_DIR)/clang
     CXX        = $(BIN_DIR)/clang++

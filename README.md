@@ -45,16 +45,21 @@
   * NeverZero patch for afl-gcc, llvm_mode, qemu_mode and unicorn_mode which prevents a wrapping map value to zero, increases coverage
   
   * Persistent mode and deferred forkserver for qemu_mode
+  
+  * Win32 PE binary-only fuzzing with QEMU and Wine
 
   A more thorough list is available in the PATCHES file.
 
   | Feature/Instrumentation | LLVM | GCC | QEMU | Unicorn |
   | ----------------------- |:----:|:---:|:----:| -------:|
   | laf-intel / CompCov     |  x   |     |  x   |    x    |
-  | NeverZero               |  x   |  x  |  x   |    x    |
+  | NeverZero               |  x(1)|  x  |  x   |    x    |
   | Persistent mode         |  x   |     |  x   |         |
   | Whitelist               |  x   |     |      |         |
   | InsTrim                 |  x   |     |      |         |
+
+  (1) only in LLVM >= 9.0 due to a bug in llvm in previous versions
+
 
   So all in all this is the best-of AFL that is currently out there :-)
 

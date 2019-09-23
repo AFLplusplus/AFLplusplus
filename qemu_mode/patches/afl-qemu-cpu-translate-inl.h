@@ -195,7 +195,7 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
       if (afl_persistent_ret_addr == 0) {                                     \
                                                                               \
         TCGv_ptr paddr = tcg_const_ptr(afl_persistent_addr);                  \
-        tcg_gen_st_tl(paddr, cpu_regs[R_ESP], 0);                             \
+        tcg_gen_st_tl(paddr, cpu_regs[R_ESP], persisent_retaddr_offset);      \
                                                                               \
       }                                                                       \
       tcg_gen_afl_call0(&afl_persistent_loop);                                \

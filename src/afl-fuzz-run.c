@@ -251,6 +251,18 @@ void write_to_testcase(void* mem, u32 len) {
 
   s32 fd = out_fd;
 
+#ifdef _AFL_DOCUMENT_MUTATIONS
+  s32 doc_fd;
+  char *fn = alloc_printf("%s/mutations/%09u:%s", out_dir, document_counter++, describe_op(0));
+  if (fn != NULL) {
+    if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600)) >= 0) {
+      if (write(doc_fd, mem, len) != len) PFATAL("write to mutation file failed: %s", fn);
+      close(doc_fd);
+    }
+    ck_free(fn);
+  }
+#endif
+
   if (out_file) {
 
     // unlink(out_file);                                     /* Ignore errors.
