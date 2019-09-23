@@ -212,6 +212,8 @@ fi
 
 echo "[+] Building libcompcov ..."
 make -C libcompcov
+echo "[+] Building unsigaction ..."
+make -C unsigaction
 echo "[+] libcompcov ready"
 echo "[+] All done for qemu_mode, enjoy!"
 
