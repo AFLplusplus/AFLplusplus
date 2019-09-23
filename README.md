@@ -53,10 +53,11 @@
   | Feature/Instrumentation | LLVM | GCC | QEMU | Unicorn |
   | ----------------------- |:----:|:---:|:----:| -------:|
   | laf-intel / CompCov     |  x   |     |  x   |    x    |
-  | NeverZero               |  x   |  x  |  x   |    x    |
+  | NeverZero               |  x(1)|  x  |  x   |    x    |
   | Persistent mode         |  x   |     |  x   |         |
   | Whitelist               |  x   |     |      |         |
   | InsTrim                 |  x   |     |      |         |
+  (1) only in LLVM >= 9.0 due to a bug in llvm in previous versions
 
   So all in all this is the best-of AFL that is currently out there :-)
 
