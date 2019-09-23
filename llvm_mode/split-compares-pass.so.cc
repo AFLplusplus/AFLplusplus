@@ -22,7 +22,6 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/Module.h"
-#include "llvm/ADT/APFloat.h"
 
 #include "llvm/IR/IRBuilder.h"
 
@@ -497,9 +496,12 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
       continue;
     }
 
-    const unsigned int precision  = llvm::APFloatBase::semanticsPrecision(op0->getType()->getFltSemantics());
-    const unsigned int sizeInBits = llvm::APFloatBase::semanticsSizeInBits(op0->getType()->getFltSemantics());
-
+    const unsigned int sizeInBits = op0->getType()->getPrimitiveSizeInBits();
+    const unsigned int precision = sizeInBits == 32 ? 24 :
+                                   sizeInBits == 64 ? 53 :
+                                   sizeInBits == 128 ? 113 :
+                                   sizeInBits == 16 ? 11 :
+                                   65;
 
     const unsigned shiftR_exponent = precision - 1;
     const unsigned long long mask_fraction = ((1 << (precision - 2))) | ((1 << (precision - 2)) - 1);
@@ -573,20 +575,17 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), s_e0);
     signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), s_e1);
 
-    if (sizeInBits - precision < exTySizeBytes * 8) {
-      m_e0 = BinaryOperator::Create(Instruction::And, s_e0, ConstantInt::get(s_e0->getType(), mask_exponent));
-      m_e1 = BinaryOperator::Create(Instruction::And, s_e1, ConstantInt::get(s_e1->getType(), mask_exponent));
-      signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), m_e0);
-      signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), m_e1);
-
-      t_e0 = new TruncInst(m_e0, IntExponentTy);
-      t_e1 = new TruncInst(m_e1, IntExponentTy);
-    } else {
-      t_e0 = new TruncInst(s_e0, IntExponentTy);
-      t_e1 = new TruncInst(s_e1, IntExponentTy);
-    }
+    t_e0 = new TruncInst(s_e0, IntExponentTy);
+    t_e1 = new TruncInst(s_e1, IntExponentTy);
     signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), t_e0);
     signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), t_e1);
+
+    if (sizeInBits - precision < exTySizeBytes * 8) {
+      m_e0 = BinaryOperator::Create(Instruction::And, t_e0, ConstantInt::get(t_e0->getType(), mask_exponent));
+      m_e1 = BinaryOperator::Create(Instruction::And, t_e1, ConstantInt::get(t_e1->getType(), mask_exponent));
+      signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), m_e0);
+      signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), m_e1);
+    }
     /* compare the exponents of the operands */
     Instruction *icmp_exponent_result;
     switch (FcmpInst->getPredicate()) {
