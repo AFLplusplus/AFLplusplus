@@ -20,6 +20,7 @@ Version ++2.54d (dev):
   - persistent mode for QEMU (see qemu_mode/README.md)
   - custom mutator library is now a standard mutator, to exclusivly use it
     add AFL_CUSTOM_MUTATOR_ONLY (that will trigger the previous behaviour)
+  - new library qemu_mode/unsigaction which filters sigaction events
   - no more unlinking the input file, this way the input file can also be a
     FIFO or disk partition
   - setting LLVM_CONFIG for llvm_mode will now again switch to the selected
