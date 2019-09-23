@@ -585,29 +585,32 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
       m_e1 = BinaryOperator::Create(Instruction::And, t_e1, ConstantInt::get(t_e1->getType(), mask_exponent));
       signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), m_e0);
       signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), m_e1);
+    } else {
+      m_e0 = t_e0;
+      m_e1 = t_e1;
     }
     /* compare the exponents of the operands */
     Instruction *icmp_exponent_result;
     switch (FcmpInst->getPredicate()) {
       case CmpInst::FCMP_OEQ:
         icmp_exponent_result =
-            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, t_e0, t_e1);
+            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, m_e0, m_e1);
       break;
       case CmpInst::FCMP_ONE:
       case CmpInst::FCMP_UNE:
         icmp_exponent_result =
-            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_NE, t_e0, t_e1);
+            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_NE, m_e0, m_e1);
       break;
       case CmpInst::FCMP_OGT:
         Instruction *icmp_exponent;
         icmp_exponent =
-            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, t_e0, t_e1);
+            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, m_e0, m_e1);
         signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), icmp_exponent);
         icmp_exponent_result = BinaryOperator::Create(Instruction::Xor, icmp_exponent, t_s0);
       break;
       case CmpInst::FCMP_OLT:
         icmp_exponent =
-            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT, t_e0, t_e1);
+            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT, m_e0, m_e1);
         signequal_bb->getInstList().insert(signequal_bb->getTerminator()->getIterator(), icmp_exponent);
         icmp_exponent_result = BinaryOperator::Create(Instruction::Xor, icmp_exponent, t_s0);
       break;
