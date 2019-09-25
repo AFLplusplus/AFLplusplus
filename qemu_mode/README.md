@@ -99,7 +99,7 @@ on the x86 and x86_64 targets.
 
 Highly recommended.
 
-## 6) Bonus feature #3: Wine mode
+## 6) Bonus feature #4: Wine mode
 
 AFL++ QEMU can use Wine to fuzz WIn32 PE binaries. Use the -W flag of afl-fuzz.
 
