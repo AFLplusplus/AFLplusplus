@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 #
 # Ensure we have: test, type, diff -q, echo -e, grep -aqE, timeout
@@ -15,15 +15,15 @@ diff -q test.1 test.2 >/dev/null 2>&1 || OK=
 rm -f test.1 test.2
 test -z "$OK" && { echo Error: diff -q is not working ; exit 1 ; }
 
-ECHO="echo -e"
-$ECHO '\x41' 2>&1 | grep -qE '^A' || {
+ECHO="printf %b\\n"
+$ECHO \\101 2>&1 | grep -qE '^A' || {
   ECHO=
-  test -e /bin/echo && {
-    ECHO="/bin/echo -e"
-    $ECHO '\x41' 2>&1 | grep -qE '^A' || ECHO=
+  test -e /bin/printf && {
+    ECHO="/bin/printf %b\\n"
+    $ECHO '\\101' 2>&1 | grep -qE '^A' || ECHO=
   }
 }
-test -z "$ECHO" && { echo Error: echo command does not support -e option ; exit 1 ; }
+test -z "$ECHO" && { printf Error: printf command does not support octal character codes ; exit 1 ; }
 
 export AFL_EXIT_WHEN_DONE=1
 export AFL_SKIP_CPUFREQ=1
@@ -40,12 +40,12 @@ unset AFL_LLVM_LAF_SPLIT_SWITCHES
 unset AFL_LLVM_LAF_TRANSFORM_COMPARES
 unset AFL_LLVM_LAF_SPLIT_COMPARES
 
-GREY="\\x1b[1;90m"
-BLUE="\\x1b[1;94m"
-GREEN="\\x1b[0;32m"
-RED="\\x1b[0;31m"
-YELLOW="\\x1b[1;93m"
-RESET="\\x1b[0m"
+GREY="\\033[1;90m"
+BLUE="\\033[1;94m"
+GREEN="\\033[0;32m"
+RED="\\033[0;31m"
+YELLOW="\\033[1;93m"
+RESET="\\033[0m"
 
 $ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
 
