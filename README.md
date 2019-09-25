@@ -199,14 +199,14 @@ For C++ programs, you'd would also want to set `CXX=/path/to/afl/afl-g++`.
 
 The clang wrappers (afl-clang and afl-clang++) can be used in the same way;
 clang users may also opt to leverage a higher-performance instrumentation mode,
-as described in [llvm_mode/README.llvm](llvm_mode/README.llvm).
+as described in [llvm_mode/README.md](llvm_mode/README.md).
 Clang/LLVM has a much better performance and works with LLVM version 3.8.0 to 9.
 
 Using the LAF Intel performance enhancements are also recommended, see 
-[llvm_mode/README.laf-intel](llvm_mode/README.laf-intel)
+[llvm_mode/README.laf-intel.md](llvm_mode/README.laf-intel.md)
 
 Using partial instrumentation is also recommended, see
-[llvm_mode/README.whitelist](llvm_mode/README.whitelist)
+[llvm_mode/README.whitelist.md](llvm_mode/README.whitelist.md)
 
 When testing libraries, you need to find or write a simple program that reads
 data from stdin or from a file and passes it to the tested library. In such a
@@ -222,7 +222,7 @@ $ CC=/path/to/afl/afl-gcc ./configure --disable-shared
 Setting `AFL_HARDEN=1` when calling 'make' will cause the CC wrapper to
 automatically enable code hardening options that make it easier to detect
 simple memory bugs. Libdislocator, a helper library included with AFL (see
-[libdislocator/README.dislocator](libdislocator/README.dislocator)) can help uncover heap corruption issues, too.
+[libdislocator/README.md](libdislocator/README.md)) can help uncover heap corruption issues, too.
 
 PS. ASAN users are advised to review [docs/notes_for_asan.txt](docs/notes_for_asan.txt)
 file for important caveats.
@@ -242,7 +242,7 @@ $ cd qemu_mode
 $ ./build_qemu_support.sh
 ```
 
-For additional instructions and caveats, see [qemu_mode/README.qemu](qemu_mode/README.qemu).
+For additional instructions and caveats, see [qemu_mode/README.md](qemu_mode/README.md).
 
 The mode is approximately 2-5x slower than compile-time instrumentation, is
 less conductive to parallelization, and may have some other quirks.
@@ -433,7 +433,7 @@ magic headers, or other special tokens associated with the targeted data type
   [http://lcamtuf.blogspot.com/2015/01/afl-fuzz-making-up-grammar-with.html](http://lcamtuf.blogspot.com/2015/01/afl-fuzz-making-up-grammar-with.html)
 
 To use this feature, you first need to create a dictionary in one of the two
-formats discussed in [dictionaries/README.dictionaries](ictionaries/README.dictionaries);
+formats discussed in [dictionaries/README.md](ictionaries/README.md);
 and then point the fuzzer to it via the -x option in the command line.
 
 (Several common dictionaries are already provided in that subdirectory, too.)
