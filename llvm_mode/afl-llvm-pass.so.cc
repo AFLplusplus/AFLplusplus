@@ -221,6 +221,11 @@ bool AFLCoverage::runOnModule(Module &M) {
       // cur_loc++;
       cur_loc = AFL_R(MAP_SIZE);
 
+/* There is a problem with Ubuntu 18.04 and llvm 6.0 (see issue #63).
+   The inline function successors() is not inlined and also not found at runtime :-(
+   As I am unable to detect Ubuntu18.04 heree, the next best thing is to disable
+   this optional optimization for LLVM 6.0.0 and Linux */
+#if !(LLVM_VERSION_MAJOR == 6 && LLVM_VERSION_MINOR == 0) || !defined __linux__
       // only instrument if this basic block is the destination of a previous
       // basic block that has multiple successors
       // this gets rid of ~5-10% of instrumentations that are unnecessary
@@ -232,6 +237,7 @@ bool AFLCoverage::runOnModule(Module &M) {
         int count = 0;
         if (more_than_one == -1) more_than_one = 0;
         // fprintf(stderr, " %p=>", Pred);
+
         for (BasicBlock *Succ : successors(Pred)) {
 
           // if (count > 0)
@@ -247,7 +253,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       // fprintf(stderr, " == %d\n", more_than_one);
       if (more_than_one != 1) continue;
-
+#endif
       ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 
       /* Load prev_loc */
