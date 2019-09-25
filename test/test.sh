@@ -177,7 +177,7 @@ rm -f test-compcov
 
 $ECHO "$BLUE[*] Testing: qemu_mode"
 test -e ../afl-qemu-trace && {
-  gcc -o test-instr ../test-instr.c
+  gcc -no-pie -o test-instr ../test-instr.c
   gcc -o test-compcov test-compcov.c
   test -e test-instr -a -e test-compcov && {
     test -n "$TIMEOUT" && {
@@ -207,6 +207,16 @@ test -e ../afl-qemu-trace && {
   } || $ECHO "$RED[-] gcc compilation of test targets failed - what is going on??"
   
   $ECHO "$YELLOW[?] we need a test case for qemu_mode persistent mode"
+  # This works but there are already problems with persistent (e.g. stability)
+  #$ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
+  #{
+  #  export AFL_QEMU_PERSISTENT_ADDR=0x$(nm test-instr | grep "T main" | awk '{ print $1 }')
+  #  export AFL_QEMU_PERSISTENT_GPR=1
+  #  timeout -s KILL 10 ../afl-fuzz -Q -i in -o out -- ./test-instr > /dev/null 2>&1
+  #} > /dev/null 2>&1
+  #test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+  #  $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
+  #} || $ECHO "$RED[!] afl-fuzz is not working correctly with persistent qemu_mode"
 
   rm -f test-instr test-compcov
 } || $ECHO "$YELLOW[-] qemu_mode is not compiled, cannot test"
