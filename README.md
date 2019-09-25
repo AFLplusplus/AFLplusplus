@@ -433,7 +433,7 @@ magic headers, or other special tokens associated with the targeted data type
   [http://lcamtuf.blogspot.com/2015/01/afl-fuzz-making-up-grammar-with.html](http://lcamtuf.blogspot.com/2015/01/afl-fuzz-making-up-grammar-with.html)
 
 To use this feature, you first need to create a dictionary in one of the two
-formats discussed in [dictionaries/README.md](ictionaries/README.md);
+formats discussed in [dictionaries/README.md](dictionaries/README.md);
 and then point the fuzzer to it via the -x option in the command line.
 
 (Several common dictionaries are already provided in that subdirectory, too.)
@@ -451,7 +451,7 @@ parsers and grammars, but isn't nearly as good as the -x mode.
 
 If a dictionary is really hard to come by, another option is to let AFL run
 for a while, and then use the token capture library that comes as a companion
-utility with AFL. For that, see [libtokencap/README.tokencap](libtokencap/README.tokencap).
+utility with AFL. For that, see [libtokencap/README.md](libtokencap/README.md).
 
 
 ## 11) Crash triage
