@@ -281,11 +281,7 @@ explore mode.
 made the default mode).
 
 More details can be found in the paper published at the 23rd ACM Conference on
-Computer and Communications Security (CCS'16):
- 
- (https://www.sigsac.org/ccs/CCS2016/accepted-papers/)[https://www.sigsac.org/ccs/CCS2016/accepted-papers/]
-
-
+Computer and Communications Security [CCS'16](https://www.sigsac.org/ccs/CCS2016/accepted-papers/)
 ## 6) Choosing initial test cases
 
 To operate correctly, the fuzzer requires one or more starting file that
