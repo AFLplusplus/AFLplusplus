@@ -211,6 +211,33 @@ test -e ../afl-qemu-trace && {
   rm -f test-instr test-compcov
 } || $ECHO "$YELLOW[-] qemu_mode is not compiled, cannot test"
 
+$ECHO "$BLUE[*] Testing: unicorn_mode"
+test -d ../unicorn_mode/unicorn && {
+  test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
+    test -n "$TIMEOUT" && {
+      mkdir -p in
+      echo 0 > in/in
+      $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 15 seconds"
+      {
+        timeout -s KILL 15 ../afl-fuzz -U -i in -o out -d -- python ../unicorn_mode/samples/simple/simple_test_harness.py @@ > /dev/null 2>&1
+      } > /dev/null 2>&1
+      test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
+      } || $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode"
+
+      $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 15 seconds"
+      {
+        export AFL_COMPCOV_LEVEL=2
+        timeout -s KILL 15 ../afl-fuzz -U -i in -o out -d -- python ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ > /dev/null 2>&1
+      } > /dev/null 2>&1
+      test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
+      } || $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode compcov"
+      rm -rf in out
+    } || $ECHO "$YELLOW[-] we cannot test afl-fuzz because we are missing the timeout command"
+  } || $ECHO "$RED[-] missing sample binaries in unicorn_mode/samples/ - what is going on??"
+  
+} || $ECHO "$YELLOW[-] qemu_mode is not compiled, cannot test"
+
 $ECHO "$GREY[*] all test cases completed.$RESET"
 
-# unicorn_mode ?
