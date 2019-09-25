@@ -10,7 +10,8 @@ path discovery.
 
 ## Usage
 
-Set the environment variable `AFL_LLVM_INSTRIM=1`.
+Set the environment variable `AFL_LLVM_INSTRIM=1` during compilation of
+the target.
 
 There is also an advanced mode which instruments loops in a way so that
 afl-fuzz can see which loop path has been selected but not being able to

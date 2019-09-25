@@ -34,8 +34,8 @@ the compiler.
 
 The environment variable must point to a file containing all the filenames
 that should be instrumented. For matching, the filename that is being compiled
-must end in the filename contained in this whitelist (to avoid breaking the
-matching when absolute paths are used during compilation).
+must end in the filename entry contained in this whitelist (to avoid breaking
+the matching when absolute paths are used during compilation).
 
 For example if your source tree looks like this:
 
@@ -47,14 +47,14 @@ project/feature_b/b1.cpp
 project/feature_b/b2.cpp
 ```
 
-And you only want to test feature_a, then create a whitelist file containing:
+and you only want to test feature_a, then create a whitelist file containing:
 
 ```
 feature_a/a1.cpp
 feature_a/a2.cpp
 ```
 
-However if the whitelist file contains this, it works as well:
+However if the whitelist file contains only this, it works as well:
 
 ```
 a1.cpp
@@ -62,7 +62,7 @@ a2.cpp
 ```
 
 but it might lead to files being unwantedly instrumented if the same filename
-exists somewhere else in the project.
+exists somewhere else in the project directories.
 
 The created whitelist file is then set to AFL_INST_WHITELIST when you compile
 your program. For each file that didn't match the whitelist, the compiler will
@@ -72,4 +72,4 @@ didn't intend to instrument that file, then you can safely ignore that warning.
 For old LLVM versions this feature might require to be compiled with debug
 information (-g), however at least from llvm version 6.0 onwards this is not
 required anymore (and might hurt performance and crash detection, so better not
-use -g)
+use -g).

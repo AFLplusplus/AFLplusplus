@@ -12,7 +12,7 @@
   Repository: [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
 
   afl++ is maintained by Marc "van Hauser" Heuse <mh@mh-sec.de>,
-  Heiko "hexc0der" Eißfeldt <heiko.eissfeldt@hexco.de> and
+  Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de> and
   Andrea Fioraldi <andreafioraldi@gmail.com>.
 
   Note that although afl now has a Google afl repository [https://github.com/Google/afl](https://github.com/Google/afl),
@@ -24,8 +24,8 @@
   Many improvements were made over the official afl release - which did not
   get any improvements since November 2017.
 
-  Among others afl++ has a more performant llvm_mode, supporting
-  llvm up to version 9, Qemu 3.1, more speed and crashfixes for Qemu,
+  Among other changes afl++ has a more performant llvm_mode, supports
+  llvm up to version 9, QEMU 3.1, more speed and crashfixes for QEMU,
   better *BSD and Android support and much, much more.
 
   Additionally the following patches have been integrated:
@@ -258,8 +258,8 @@ A more comprehensive description of these and other options can be found in
 ## 5) Power schedules
 
 The power schedules were copied from Marcel Böhme's excellent AFLfast
-implementation and expands on the ability to discover new paths and
-therefore the coverage.
+implementation and expand on the ability to discover new paths and
+therefore may increase the code coverage.
 
 The available schedules are:
  

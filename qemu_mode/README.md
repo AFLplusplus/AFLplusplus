@@ -46,21 +46,21 @@ directory.
 
 ## 3) Bonus feature #1: deferred initialization
 
-As for LLVM mode (referes to its README for mode details) QEMU mode support
+As for LLVM mode (refer to its README for mode details) QEMU mode supports
 the deferred initialization.
 
 This can be enabled setting the environment variable AFL_ENTRYPOINT which allows
 to move the forkserver to a different part, e.g. just before the file is
-opened (e.g. way after command line parsing and config file loading, etc)
+opened (e.g. way after command line parsing and config file loading, etc.)
 which can be a huge speed improvement. Note that the specified address
 must be an address of a basic block.
 
 ## 4) Bonus feature #2: persistent mode
 
-QEMU mode support also persistent mode for x86 and x86_64 targets.
+QEMU mode supports also persistent mode for x86 and x86_64 targets.
 The environment variable to enable it is AFL_QEMU_PERSISTENT_ADDR=`start addr`.
 In this variable you must specify the address of the function that
-have to be the body of the persistent loop.
+has to be the body of the persistent loop.
 The code in this function must be stateless like in the LLVM persistent mode.
 The return address on stack is patched like in WinAFL in order to repeat the
 execution of such function.
@@ -70,18 +70,18 @@ With this variable assigned, instead of patching the return address, the
 specified instruction is transformed to a jump towards `start addr`.
 Note that the format of the addresses in such variables is hex.
 
-Note that the base address of PIE binaries in QEMU user is 0x4000000000.
+Note that the base address of PIE binaries in QEMU user mode is 0x4000000000.
 
 With the env variable AFL_QEMU_PERSISTENT_GPR you can tell QEMU to save the
-original value of general purpose registers and restore them ech cycle.
-This allow to use as persistent loop functions that make use of arguments on 
+original value of general purpose registers and restore them in each cycle.
+This allows to use as persistent loop functions that make use of arguments on 
 x86_64.
 
 With AFL_QEMU_PERSISTENT_RETADDR_OFFSET you can specify the offset from the
-stack pointer in which QEME can find the return address when `start addr` is
+stack pointer in which QEMU can find the return address when `start addr` is
 hitted.
 
-Use this mode with caution, problably will not work at first shot.
+Use this mode with caution, probably it will not work at the first shot.
 
 ## 5) Bonus feature #3: CompareCoverage
 
@@ -103,7 +103,7 @@ Highly recommended.
 
 AFL++ QEMU can use Wine to fuzz WIn32 PE binaries. Use the -W flag of afl-fuzz.
 
-Note that some binaries require user interaction with GUI and must be patched.
+Note that some binaries require user interaction with the GUI and must be patched.
 
 For examples look [here](https://github.com/andreafioraldi/WineAFLplusplusDEMO).
 
@@ -176,6 +176,6 @@ The best implementation is this one:
   https://github.com/vanhauser-thc/afl-dyninst
 
 The issue however is Dyninst which is not rewriting the binaries so that
-they run stable. a lot of crashes happen, especially in C++ programs that
+they run stable. A lot of crashes happen, especially in C++ programs that
 use throw/catch. Try it first, and if it works for you be happy as it is
 2-3x as fast as qemu_mode.
