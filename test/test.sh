@@ -1,11 +1,10 @@
 #!/bin/sh
 
 #
-# Ensure we have: test, type, diff -q, echo -e, grep -aqE, timeout
+# Ensure we have: test, type, diff -q, grep -aqE
 #
 test -z "" 2> /dev/null || { echo Error: test command not found ; exit 1 ; }
 GREP=`type grep > /dev/null 2>&1 && echo OK`
-TIMEOUT=`type timeout > /dev/null 2>&1 && echo OK`
 test "$GREP" = OK || { echo Error: grep command not found ; exit 1 ; }
 echo foobar | grep -aqE 'asd|oob' 2> /dev/null || { echo Error: grep command does not support -q, -a and/or -E option ; exit 1 ; }
 echo 1 > test.1
@@ -73,18 +72,18 @@ test -e ../afl-gcc -a -e ../afl-showmap -a -e ../afl-fuzz && {
     rm -f test-instr.harden
   } || $ECHO "$RED[!] afl-gcc hardened mode compilation failed"
   # now we want to be sure that afl-fuzz is working  
-  test -n "$TIMEOUT" && {
+  {
     mkdir -p in
     echo 0 > in/in
     $ECHO "$GREY[*] running afl-fuzz for afl-gcc, this will take approx 10 seconds"
     {
-      timeout -s SIGKILL 10 ../afl-fuzz -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain > /dev/null 2>&1
+      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain > /dev/null 2>&1
     } > /dev/null 2>&1
     test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with afl-gcc"
     } || $ECHO "$RED[!] afl-fuzz is not working correctly with afl-gcc"
     rm -rf in out
-  } || $ECHO "$YELLOW[-] we cannot test afl-fuzz because we are missing the timeout command"
+  }
   rm -f test-instr.plain
 } || $ECHO "$YELLOW[-] afl is not compiled, cannot test"
 
@@ -110,18 +109,18 @@ test -e ../afl-clang-fast && {
     rm -f test-compcov.harden
   } || $ECHO "$RED[!] llvm_mode hardened mode compilation failed"
   # now we want to be sure that afl-fuzz is working  
-  test -n "$TIMEOUT" && {
+  {
     mkdir -p in
     echo 0 > in/in
     $ECHO "$GREY[*] running afl-fuzz for llvm_mode, this will take approx 10 seconds"
     {
-      timeout -s SIGKILL 10 ../afl-fuzz -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain > /dev/null 2>&1
+      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain > /dev/null 2>&1
     } > /dev/null 2>&1
     test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode"
     } || $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode"
     rm -rf in out
-  } || $ECHO "$YELLOW[-] we cannot test afl-fuzz because we are missing the timeout command"
+  }
   rm -f test-instr.plain
 
   # now for the special llvm_mode things
@@ -182,12 +181,12 @@ test -e ../afl-qemu-trace && {
   gcc -no-pie -o test-instr ../test-instr.c
   gcc -o test-compcov test-compcov.c
   test -e test-instr -a -e test-compcov && {
-    test -n "$TIMEOUT" && {
+    {
       mkdir -p in
       echo 0 > in/in
       $ECHO "$GREY[*] running afl-fuzz for qemu_mode, this will take approx 10 seconds"
       {
-        timeout -s SIGKILL 10 ../afl-fuzz -Q -i in -o out -- ./test-instr > /dev/null 2>&1
+        ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr > /dev/null 2>&1
       } > /dev/null 2>&1
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode"
@@ -198,14 +197,14 @@ test -e ../afl-qemu-trace && {
         {
           export AFL_PRELOAD=../libcompcov.so 
           export AFL_COMPCOV_LEVEL=2
-          timeout -s SIGKILL 10 ../afl-fuzz -Q -i in -o out -- ./test-compcov > /dev/null 2>&1
+          ../afl-fuzz -V10 -Q -i in -o out -- ./test-compcov > /dev/null 2>&1
         } > /dev/null 2>&1
         test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode libcompcov"
         } || $ECHO "$RED[!] afl-fuzz is not working correctly with qemu_mode libcompcov"
       } || $ECHO "$YELLOW[-] we cannot test qemu_mode libcompcov because it is not present"
       rm -rf in out
-    } || $ECHO "$YELLOW[-] we cannot test afl-fuzz because we are missing the timeout command"
+    }
   } || $ECHO "$RED[-] gcc compilation of test targets failed - what is going on??"
   
   $ECHO "$YELLOW[?] we need a test case for qemu_mode persistent mode"
@@ -214,7 +213,7 @@ test -e ../afl-qemu-trace && {
   #{
   #  export AFL_QEMU_PERSISTENT_ADDR=0x$(nm test-instr | grep "T main" | awk '{ print $1 }')
   #  export AFL_QEMU_PERSISTENT_GPR=1
-  #  timeout -s SIGKILL 10 ../afl-fuzz -Q -i in -o out -- ./test-instr > /dev/null 2>&1
+  #  ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr > /dev/null 2>&1
   #} > /dev/null 2>&1
   #test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
   #  $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
@@ -226,12 +225,12 @@ test -e ../afl-qemu-trace && {
 $ECHO "$BLUE[*] Testing: unicorn_mode"
 test -d ../unicorn_mode/unicorn && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
-    test -n "$TIMEOUT" && {
+    {
       mkdir -p in
       echo 0 > in/in
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 15 seconds"
       {
-        timeout -s SIGKILL 15 ../afl-fuzz -U -i in -o out -d -- python ../unicorn_mode/samples/simple/simple_test_harness.py @@ > /dev/null 2>&1
+        ../afl-fuzz -V15 -U -i in -o out -d -- python ../unicorn_mode/samples/simple/simple_test_harness.py @@ > /dev/null 2>&1
       } > /dev/null 2>&1
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
@@ -240,13 +239,13 @@ test -d ../unicorn_mode/unicorn && {
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 15 seconds"
       {
         export AFL_COMPCOV_LEVEL=2
-        timeout -s SIGKILL 15 ../afl-fuzz -U -i in -o out -d -- python ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ > /dev/null 2>&1
+        ../afl-fuzz -V15 -U -i in -o out -d -- python ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ > /dev/null 2>&1
       } > /dev/null 2>&1
       test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
       } || $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode compcov"
       rm -rf in out
-    } || $ECHO "$YELLOW[-] we cannot test afl-fuzz because we are missing the timeout command"
+    }
   } || $ECHO "$RED[-] missing sample binaries in unicorn_mode/samples/ - what is going on??"
   
 } || $ECHO "$YELLOW[-] qemu_mode is not compiled, cannot test"
