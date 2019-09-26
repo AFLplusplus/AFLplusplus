@@ -187,7 +187,7 @@ test -e ../afl-qemu-trace && {
       echo 0 > in/in
       $ECHO "$GREY[*] running afl-fuzz for qemu_mode, this will take approx 10 seconds"
       {
-        timeout -s KILL 10 ../afl-fuzz -Q -i in -o out -- ./test-instr > /dev/null 2>&1
+        timeout -s SIGKILL 10 ../afl-fuzz -Q -i in -o out -- ./test-instr > /dev/null 2>&1
       } > /dev/null 2>&1
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode"
@@ -198,7 +198,7 @@ test -e ../afl-qemu-trace && {
         {
           export AFL_PRELOAD=../libcompcov.so 
           export AFL_COMPCOV_LEVEL=2
-          timeout -s KILL 10 ../afl-fuzz -Q -i in -o out -- ./test-compcov > /dev/null 2>&1
+          timeout -s SIGKILL 10 ../afl-fuzz -Q -i in -o out -- ./test-compcov > /dev/null 2>&1
         } > /dev/null 2>&1
         test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode libcompcov"
@@ -214,7 +214,7 @@ test -e ../afl-qemu-trace && {
   #{
   #  export AFL_QEMU_PERSISTENT_ADDR=0x$(nm test-instr | grep "T main" | awk '{ print $1 }')
   #  export AFL_QEMU_PERSISTENT_GPR=1
-  #  timeout -s KILL 10 ../afl-fuzz -Q -i in -o out -- ./test-instr > /dev/null 2>&1
+  #  timeout -s SIGKILL 10 ../afl-fuzz -Q -i in -o out -- ./test-instr > /dev/null 2>&1
   #} > /dev/null 2>&1
   #test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
   #  $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
@@ -231,7 +231,7 @@ test -d ../unicorn_mode/unicorn && {
       echo 0 > in/in
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 15 seconds"
       {
-        timeout -s KILL 15 ../afl-fuzz -U -i in -o out -d -- python ../unicorn_mode/samples/simple/simple_test_harness.py @@ > /dev/null 2>&1
+        timeout -s SIGKILL 15 ../afl-fuzz -U -i in -o out -d -- python ../unicorn_mode/samples/simple/simple_test_harness.py @@ > /dev/null 2>&1
       } > /dev/null 2>&1
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
@@ -240,7 +240,7 @@ test -d ../unicorn_mode/unicorn && {
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 15 seconds"
       {
         export AFL_COMPCOV_LEVEL=2
-        timeout -s KILL 15 ../afl-fuzz -U -i in -o out -d -- python ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ > /dev/null 2>&1
+        timeout -s SIGKILL 15 ../afl-fuzz -U -i in -o out -d -- python ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ > /dev/null 2>&1
       } > /dev/null 2>&1
       test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
