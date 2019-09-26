@@ -47,6 +47,8 @@ RED="\\033[0;31m"
 YELLOW="\\033[1;93m"
 RESET="\\033[0m"
 
+MEM_LIMIT=150
+
 $ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
 
 $ECHO "$BLUE[*] Testing: afl-gcc, afl-showmap and afl-fuzz"
@@ -55,8 +57,8 @@ test -e ../afl-gcc -a -e ../afl-showmap -a -e ../afl-fuzz && {
   AFL_HARDEN=1 ../afl-gcc -o test-instr.harden ../test-instr.c > /dev/null 2>&1
   test -e test-instr.plain && {
     $ECHO "$GREEN[+] afl-gcc compilation succeeded"
-    echo 0 | ../afl-showmap -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
-    ../afl-showmap -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
+    echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
+    ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
       diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] afl-gcc instrumentation should be different on different input but is not"
@@ -76,7 +78,7 @@ test -e ../afl-gcc -a -e ../afl-showmap -a -e ../afl-fuzz && {
     echo 0 > in/in
     $ECHO "$GREY[*] running afl-fuzz for afl-gcc, this will take approx 10 seconds"
     {
-      timeout -s KILL 10 ../afl-fuzz -i in -o out -- ./test-instr.plain > /dev/null 2>&1
+      timeout -s SIGKILL 10 ../afl-fuzz -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain > /dev/null 2>&1
     } > /dev/null 2>&1
     test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with afl-gcc"
@@ -92,8 +94,8 @@ test -e ../afl-clang-fast && {
   AFL_HARDEN=1 ../afl-clang-fast -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
     $ECHO "$GREEN[+] llvm_mode compilation succeeded"
-    echo 0 | ../afl-showmap -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
-    ../afl-showmap -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
+    echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
+    ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
       diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] llvm_mode instrumentation should be different on different input but is not"
@@ -113,7 +115,7 @@ test -e ../afl-clang-fast && {
     echo 0 > in/in
     $ECHO "$GREY[*] running afl-fuzz for llvm_mode, this will take approx 10 seconds"
     {
-      timeout -s KILL 10 ../afl-fuzz -i in -o out -- ./test-instr.plain > /dev/null 2>&1
+      timeout -s SIGKILL 10 ../afl-fuzz -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain > /dev/null 2>&1
     } > /dev/null 2>&1
     test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode"
