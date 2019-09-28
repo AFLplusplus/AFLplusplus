@@ -79,7 +79,16 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
     rm -f test-instr.harden
   } || $ECHO "$RED[!] ${AFL_GCC} hardened mode compilation failed"
   # now we want to be sure that afl-fuzz is working  
-  {
+  # make sure core_pattern is set to core on linux
+  (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
+    $ECHO "$RED[!] we cannot run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    true
+  }) ||
+  # make sure crash reporter is disabled on Mac OS X
+  (test "$(uname -s)" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
+    $ECHO "$RED[!] we cannot run afl-fuzz with enabled crash reporter. Run 'sudo sh afl-system-config'.$RESET"
+    true
+  }) || {
     mkdir -p in
     echo 0 > in/in
     $ECHO "$GREY[*] running afl-fuzz for ${AFL_GCC}, this will take approx 10 seconds"
@@ -116,7 +125,15 @@ test -e ../afl-clang-fast && {
     rm -f test-compcov.harden
   } || $ECHO "$RED[!] llvm_mode hardened mode compilation failed"
   # now we want to be sure that afl-fuzz is working  
-  {
+  (test "$(uname -s)" = "Linux" -a "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
+    $ECHO "$RED[!] we cannot run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    true
+  }) ||
+  # make sure crash reporter is disabled on Mac OS X
+  (test "$(uname -s)" = "Darwin" -a $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
+    $ECHO "$RED[!] we cannot run afl-fuzz with enabled crash reporter. Run 'sudo sh afl-system-config'.$RESET"
+    true
+  }) || {
     mkdir -p in
     echo 0 > in/in
     $ECHO "$GREY[*] running afl-fuzz for llvm_mode, this will take approx 10 seconds"
