@@ -278,7 +278,7 @@ test -d ../unicorn_mode/unicorn && {
     }
   } || $ECHO "$RED[-] missing sample binaries in unicorn_mode/samples/ - what is going on??"
   
-} || $ECHO "$YELLOW[-] qemu_mode is not compiled, cannot test"
+} || $ECHO "$YELLOW[-] unicorn_mode is not compiled, cannot test"
 
 $ECHO "$GREY[*] all test cases completed.$RESET"
 
