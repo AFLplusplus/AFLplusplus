@@ -39,6 +39,11 @@ unset AFL_LLVM_LAF_SPLIT_SWITCHES
 unset AFL_LLVM_LAF_TRANSFORM_COMPARES
 unset AFL_LLVM_LAF_SPLIT_COMPARES
 
+# on MacOS X we prefer afl-clang over afl-gcc, because
+# afl-gcc does not work there
+test `uname -s` = 'Darwin' && {
+AFL_GCC=afl-clang
+}
 GREY="\\033[1;90m"
 BLUE="\\033[1;94m"
 GREEN="\\033[0;32m"
@@ -50,38 +55,38 @@ MEM_LIMIT=150
 
 $ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
 
-$ECHO "$BLUE[*] Testing: afl-gcc, afl-showmap and afl-fuzz"
-test -e ../afl-gcc -a -e ../afl-showmap -a -e ../afl-fuzz && {
-  ../afl-gcc -o test-instr.plain ../test-instr.c > /dev/null 2>&1
-  AFL_HARDEN=1 ../afl-gcc -o test-instr.harden ../test-instr.c > /dev/null 2>&1
+$ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap and afl-fuzz"
+test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
+  ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+  AFL_HARDEN=1 ../${AFL_GCC} -o test-instr.harden ../test-instr.c > /dev/null 2>&1
   test -e test-instr.plain && {
-    $ECHO "$GREEN[+] afl-gcc compilation succeeded"
+    $ECHO "$GREEN[+] ${AFL_GCC} compilation succeeded"
     echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
     ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
       diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
-        $ECHO "$RED[!] afl-gcc instrumentation should be different on different input but is not"
-      } || $ECHO "$GREEN[+] afl-gcc instrumentation present and working correctly"
-    } || $ECHO "$RED[!] afl-gcc instrumentation failed"
+        $ECHO "$RED[!] ${AFL_GCC} instrumentation should be different on different input but is not"
+      } || $ECHO "$GREEN[+] ${AFL_GCC} instrumentation present and working correctly"
+    } || $ECHO "$RED[!] ${AFL_GCC} instrumentation failed"
     rm -f test-instr.plain.0 test-instr.plain.1
-  } || $ECHO "$RED[!] afl-gcc failed"
+  } || $ECHO "$RED[!] ${AFL_GCC} failed"
   test -e test-instr.harden && {
     grep -qa fstack-protector-all test-instr.harden > /dev/null 2>&1 && {
-      $ECHO "$GREEN[+] afl-gcc hardened mode succeeded and is working"
-    } || $ECHO "$RED[!] afl-gcc hardened mode is not hardened"
+      $ECHO "$GREEN[+] ${AFL_GCC} hardened mode succeeded and is working"
+    } || $ECHO "$RED[!] ${AFL_GCC} hardened mode is not hardened"
     rm -f test-instr.harden
-  } || $ECHO "$RED[!] afl-gcc hardened mode compilation failed"
+  } || $ECHO "$RED[!] ${AFL_GCC} hardened mode compilation failed"
   # now we want to be sure that afl-fuzz is working  
   {
     mkdir -p in
     echo 0 > in/in
-    $ECHO "$GREY[*] running afl-fuzz for afl-gcc, this will take approx 10 seconds"
+    $ECHO "$GREY[*] running afl-fuzz for ${AFL_GCC}, this will take approx 10 seconds"
     {
       ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain > /dev/null 2>&1
     } > /dev/null 2>&1
     test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
-      $ECHO "$GREEN[+] afl-fuzz is working correctly with afl-gcc"
-    } || $ECHO "$RED[!] afl-fuzz is not working correctly with afl-gcc"
+      $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
+    } || $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_GCC}"
     rm -rf in out
   }
   rm -f test-instr.plain
