@@ -250,7 +250,7 @@ binary-only: all
 	cd unicorn_mode && sh ./build_unicorn_support.sh
 
 source-only: all
-	$(MAKE) -C llvm_mode
+	-$(MAKE) -C llvm_mode
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
 

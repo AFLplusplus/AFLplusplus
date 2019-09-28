@@ -46,7 +46,7 @@ endif
 
 # this is not visible yet:
 ifeq "$(LLVM_MAJOR)" "9"
-  $(info llvm_mode deteted llvm 9, enabling neverZero implementation)
+  $(info llvm_mode detected llvm 9, enabling neverZero implementation)
 endif
 
 CFLAGS      ?= -O3 -funroll-loops

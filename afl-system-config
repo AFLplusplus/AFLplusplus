@@ -48,5 +48,13 @@ if [ "$PLATFORM" = "OpenBSD" ] ; then
 echo
 echo 'System security features cannot be disabled on OpenBSD.'
 fi
+if [ "$PLATFORM" = "Darwin" ] ; then
+  if [ $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') ] ; then
+echo We unload the default crash reporter here
+SL=/System/Library; PL=com.apple.ReportCrash
+launchctl unload -w ${SL}/LaunchAgents/${PL}.plist
+sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist
+  fi
+fi
 echo
 echo Also use AFL_TMPDIR to use a tmpfs for the input file
