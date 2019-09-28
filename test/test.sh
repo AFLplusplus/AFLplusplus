@@ -41,7 +41,7 @@ unset AFL_LLVM_LAF_SPLIT_COMPARES
 
 # on MacOS X we prefer afl-clang over afl-gcc, because
 # afl-gcc does not work there
-test `uname -s` = 'Darwin' && {
+test `uname -s` = 'Darwin' -o `uname -s` = 'FreeBSD' && {
 AFL_GCC=afl-clang
 } || {
 AFL_GCC=afl-gcc
@@ -105,6 +105,8 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
 
 $ECHO "$BLUE[*] Testing: llvm_mode"
 test -e ../afl-clang-fast && {
+  # on FreeBSD need to set AFL_CC
+  export AFL_CC=`llvm-config --bindir`/clang
   ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-clang-fast -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
