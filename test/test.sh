@@ -43,6 +43,8 @@ unset AFL_LLVM_LAF_SPLIT_COMPARES
 # afl-gcc does not work there
 test `uname -s` = 'Darwin' && {
 AFL_GCC=afl-clang
+} || {
+AFL_GCC=afl-gcc
 }
 GREY="\\033[1;90m"
 BLUE="\\033[1;94m"
