@@ -39,6 +39,10 @@ unset AFL_LLVM_LAF_SPLIT_SWITCHES
 unset AFL_LLVM_LAF_TRANSFORM_COMPARES
 unset AFL_LLVM_LAF_SPLIT_COMPARES
 
+# on OpenBSD we need to work with llvm from /usr/local/bin
+test -e /usr/local/bin/opt && {
+  export PATH=/usr/local/bin:${PATH}
+} 
 # on MacOS X we prefer afl-clang over afl-gcc, because
 # afl-gcc does not work there
 test `uname -s` = 'Darwin' -o `uname -s` = 'FreeBSD' && {
