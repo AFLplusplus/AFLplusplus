@@ -208,16 +208,16 @@ all_done: test_build
 
 vpath  % ..
 %.8: %
-	@echo .TH $* 8 `date -I` "afl++" > ../$@
+	@echo .TH $* 8 `date "+%Y-%m-%d"` "afl++" > ../$@
 	@echo .SH NAME >> ../$@
 	@echo .B $* >> ../$@
 	@echo >> ../$@
 	@echo .SH SYNOPSIS >> ../$@
-	@./$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> ../$@
+	@../$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> ../$@
 	@echo >> ../$@
 	@echo .SH OPTIONS >> ../$@
 	@echo .nf >> ../$@
-	@./$* -h 2>&1 | tail -n +4 >> ../$@
+	@../$* -h 2>&1 | tail -n +4 >> ../$@
 	@echo >> ../$@
 	@echo .SH AUTHOR >> ../$@
 	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexc0der\" Eissfeldt <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>" >> ../$@
