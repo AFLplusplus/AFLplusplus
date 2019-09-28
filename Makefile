@@ -45,6 +45,10 @@ ifneq "$(filter Linux GNU%,$(shell uname))" ""
   LDFLAGS  += -ldl
 endif
 
+ifneq "$(findstring FreeBSD, $(shell uname))" ""
+  CFLAGS += -pthread
+endif
+
 ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
   TEST_CC   = afl-gcc
 else
