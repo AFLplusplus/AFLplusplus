@@ -80,6 +80,9 @@ endif
 
 all:	test_x86 test_shm test_python27 ready $(PROGS) afl-as test_build all_done
 
+man:    $(MANPAGES) 
+	-$(MAKE) -C llvm_mode
+
 tests:	source-only
 	@cd test ; ./test.sh
 
@@ -90,6 +93,7 @@ help:
 	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap"
 	@echo "source-only: everything for source code fuzzing: llvm_mode, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
+	@echo "man: creates simple man pages from the help option of the programs"
 	@echo "install: installs everything you have compiled with the build option above"
 	@echo "clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well"
 	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
@@ -230,14 +234,14 @@ all_done: test_build
 clean:
 	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so unicorn_mode/24f55a7973278f20f0de21b904851d99d4716263.tar.gz *.8
 	rm -rf out_dir qemu_mode/qemu-3.1.1 unicorn_mode/unicorn
-	$(MAKE) -C llvm_mode clean
+	-$(MAKE) -C llvm_mode clean
 	$(MAKE) -C libdislocator clean
 	$(MAKE) -C libtokencap clean
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 
 distrib: all
-	$(MAKE) -C llvm_mode
+	-$(MAKE) -C llvm_mode
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
 	cd qemu_mode && sh ./build_qemu_support.sh
