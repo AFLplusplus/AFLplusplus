@@ -48,6 +48,12 @@ if [ "$PLATFORM" = "OpenBSD" ] ; then
 echo
 echo 'System security features cannot be disabled on OpenBSD.'
 fi
+if [ "$PLATFORM" = "FreeBSD" ] ; then
+echo
+echo It is recommended to enable unprivileged users to set cpu affinity
+to be able to use afl-gotcpu meaningfully.
+/sbin/sysctl -w security.models.extensions.user_set_cpu_affinity=1
+fi
 if [ "$PLATFORM" = "Darwin" ] ; then
   if [ $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') ] ; then
 echo We unload the default crash reporter here

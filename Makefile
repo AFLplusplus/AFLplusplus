@@ -49,6 +49,10 @@ ifneq "$(findstring FreeBSD, $(shell uname))" ""
   CFLAGS += -pthread
 endif
 
+ifneq "$(findstring NetBSD, $(shell uname))" ""
+  CFLAGS += -pthread
+endif
+
 ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
   TEST_CC   = afl-gcc
 else
