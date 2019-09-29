@@ -786,7 +786,7 @@ double get_runnable_processes(void) {
 
   static double res;
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
 
   /* I don't see any portable sysctl or so that would quickly give us the
      number of runnable processes; the 1-minute load average can be a
@@ -827,7 +827,7 @@ double get_runnable_processes(void) {
 
   }
 
-#endif                        /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__) */
+#endif                        /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__) */
 
   return res;
 
