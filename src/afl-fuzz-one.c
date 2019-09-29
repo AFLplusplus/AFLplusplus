@@ -495,7 +495,7 @@ u8 fuzz_one_original(char** argv) {
     for (stage_cur = 0; stage_cur < stage_max; ++stage_cur) {
 
       size_t orig_size = (size_t)len;
-      size_t mutated_size = custom_mutator(out_buf, orig_size, mutated_buf,
+      size_t mutated_size = custom_mutator(in_buf, orig_size, mutated_buf,
                                            max_seed_size, UR(UINT32_MAX));
       if (mutated_size > 0) {
 
