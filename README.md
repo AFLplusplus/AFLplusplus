@@ -4,7 +4,7 @@
 
   Github Version: 2.54d
 
-  includes all necessary/interesting changes from Google's afl 2.55b
+  includes all necessary/interesting changes from Google's afl 2.56b
 
 
   Originally developed by Michal "lcamtuf" Zalewski.
