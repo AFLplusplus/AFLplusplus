@@ -178,7 +178,16 @@ u8 run_target(char** argv, u32 timeout) {
     if ((res = read(fsrv_st_fd, &status, 4)) != 4) {
 
       if (stop_soon) return 0;
-      RPFATAL(res, "Unable to communicate with fork server (OOM?)");
+      SAYF("\n" cLRD "[-] " cRST
+           "Unable to communicate with fork server. Some possible reasons:\n\n" 
+           "    - You've run out of memory. Use -m to increase the the memory limit\n"
+           "      to something higher than %lld.\n"
+           "    - The binary or one of the libraries it uses manages to create\n"
+           "      threads before the forkserver initializes.\n"
+           "    - The binary, at least in some circumstances, exits in a way that\n"
+           "      also kills the parent process - raise() could be the culprit.\n\n"
+	   "If all else fails you can disable the fork server via AFL_NO_FORKSRV=1.\n", mem_limit);
+      RPFATAL(res, "Unable to communicate with fork server");
 
     }
 
