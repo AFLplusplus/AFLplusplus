@@ -70,6 +70,15 @@ else
 	PYFLAGS=
 endif
 
+ifdef STATIC
+  $(info Compiling static version of binaries)
+  # Disable python for static compilation to simplify things
+  PYTHON_OK=0
+  PYFLAGS=
+
+  CFLAGS += -static
+  LDFLAGS += -lm -lrt -lpthread -lz -lutil
+endif
 
 ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 )" "1"
 	SHMAT_OK=1
@@ -175,7 +184,7 @@ src/afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
 afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS) $(PYFLAGS)
+	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
