@@ -105,6 +105,12 @@ These build options exist:
 * clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well
 * help: shows these build options
 
+You can also build statically linked versions of the afl++ binaries by passing the STATIC=1 argument to make:
+
+```shell
+$ make all STATIC=1
+```
+
 
 ## 1) Challenges of guided fuzzing
 

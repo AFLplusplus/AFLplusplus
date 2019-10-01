@@ -38,7 +38,13 @@ to 200 MB when specifying -Q to afl-fuzz; be careful when overriding this.
 In principle, if you set CPU_TARGET before calling ./build_qemu_support.sh,
 you should get a build capable of running non-native binaries (say, you
 can try CPU_TARGET=arm). This is also necessary for running 32-bit binaries
-on a 64-bit system (CPU_TARGET=i386).
+on a 64-bit system (CPU_TARGET=i386). If you're trying to run QEMU on a
+different architecture you can also set HOST to the cross-compiler prefix
+to use (for example HOST=arm-linux-gnueabi to use arm-linux-gnueabi-gcc).
+
+You can also compile statically-linked binaries by setting STATIC=1. This
+can be useful when compiling QEMU on a different system than the one you're
+planning to run the fuzzer on and is most often used with the HOST variable.
 
 Note: if you want the QEMU helper to be installed on your system for all
 users, you need to build it before issuing 'make install' in the parent
