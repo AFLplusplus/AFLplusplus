@@ -152,7 +152,7 @@ patch -p1 <../patches/i386-translate.diff || exit 1
 
 echo "[+] Patching done."
 
-if [ "$STATIC" -eq "1" ]; then
+if [ "$STATIC" = "1" ]; then
 
   CFLAGS="-O3 -ggdb" ./configure --disable-bsd-user --disable-guest-agent --disable-strip --disable-werror \
 	  --disable-gcrypt --disable-debug-info --disable-debug-tcg --enable-docs --disable-tcg-interpreter \
