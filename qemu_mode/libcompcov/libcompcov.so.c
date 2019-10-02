@@ -148,6 +148,7 @@ static void __compcov_load(void) {
 
     __compcov_ro[__compcov_ro_cnt].st = maps_tmp->addr_start;
     __compcov_ro[__compcov_ro_cnt].en = maps_tmp->addr_end;
+    ++__compcov_ro_cnt;
 
   }
 
