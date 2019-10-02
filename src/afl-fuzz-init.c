@@ -738,10 +738,10 @@ void find_timeout(void) {
   (void)i;                                                 /* Ignore errors */
   close(fd);
 
-  off = strstr(tmp, "exec_timeout   : ");
+  off = strstr(tmp, "exec_timeout      : ");
   if (!off) return;
 
-  ret = atoi(off + 17);
+  ret = atoi(off + 20);
   if (ret <= 4) return;
 
   exec_tmout = ret;
