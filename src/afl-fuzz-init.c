@@ -32,8 +32,6 @@
 
 void bind_to_free_cpu(void) {
 
-  DIR*           d;
-  struct dirent* de;
   cpu_set_t      c;
 
   u8  cpu_used[4096] = {0};
@@ -48,6 +46,9 @@ void bind_to_free_cpu(void) {
 
   }
 
+#if defined(__linux__)
+  DIR*           d;
+  struct dirent* de;
   d = opendir("/proc");
 
   if (!d) {
@@ -112,6 +113,30 @@ void bind_to_free_cpu(void) {
   }
 
   closedir(d);
+#elif defined(__FreeBSD__)
+  struct kinfo_proc *procs;
+  size_t nprocs;
+  size_t proccount;
+  int s_name[] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
+  size_t s_name_l = sizeof(s_name)/sizeof(s_name[0]);
+
+  if (sysctl(s_name, s_name_l, NULL, &nprocs, NULL, 0) != 0) return;
+  proccount = nprocs / sizeof(*procs);
+  nprocs = nprocs * 4/3;
+
+  procs = ck_alloc(nprocs);
+  if (sysctl(s_name, s_name_l, procs, &nprocs, NULL, 0) != 0) {
+    ck_free(procs);
+    return;
+  }
+
+  for (i = 0; i < proccount; i ++) {
+     if (procs[i].ki_oncpu < sizeof(cpu_used))
+       cpu_used[procs[i].ki_oncpu] = 1;
+  }
+
+  ck_free(procs);
+#endif
 
   for (i = 0; i < cpu_core_count; ++i)
     if (!cpu_used[i]) break;
@@ -138,7 +163,11 @@ void bind_to_free_cpu(void) {
   CPU_ZERO(&c);
   CPU_SET(i, &c);
 
+#if defined(__linux__)
   if (sched_setaffinity(0, sizeof(c), &c)) PFATAL("sched_setaffinity failed");
+#elif defined(__FreeBSD__)
+  if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c)) PFATAL("pthread_setaffinity failed");
+#endif
 
 }
 
