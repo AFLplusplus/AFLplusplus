@@ -78,7 +78,7 @@
 /* For systems that have sched_setaffinity; right now just Linux, but one
    can hope... */
 
-#if defined (__linux__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__)
 #define HAVE_AFFINITY 1
 #if defined(__FreeBSD__)
 #include <sys/cpuset.h>
@@ -690,8 +690,8 @@ static u64 get_cur_time_us(void) {
 }
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
-  extern u8 do_document;
-  extern u32 document_counter;
+extern u8  do_document;
+extern u32 document_counter;
 #endif
 
 #endif

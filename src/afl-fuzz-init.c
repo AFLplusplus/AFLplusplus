@@ -32,7 +32,7 @@
 
 void bind_to_free_cpu(void) {
 
-  cpu_set_t      c;
+  cpu_set_t c;
 
   u8  cpu_used[4096] = {0};
   u32 i;
@@ -114,28 +114,34 @@ void bind_to_free_cpu(void) {
 
   closedir(d);
 #elif defined(__FreeBSD__)
-  struct kinfo_proc *procs;
-  size_t nprocs;
-  size_t proccount;
-  int s_name[] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
-  size_t s_name_l = sizeof(s_name)/sizeof(s_name[0]);
+  struct kinfo_proc* procs;
+  size_t             nprocs;
+  size_t             proccount;
+  int                s_name[] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
+  size_t             s_name_l = sizeof(s_name) / sizeof(s_name[0]);
 
   if (sysctl(s_name, s_name_l, NULL, &nprocs, NULL, 0) != 0) return;
   proccount = nprocs / sizeof(*procs);
-  nprocs = nprocs * 4/3;
+  nprocs = nprocs * 4 / 3;
 
   procs = ck_alloc(nprocs);
   if (sysctl(s_name, s_name_l, procs, &nprocs, NULL, 0) != 0) {
+
     ck_free(procs);
     return;
+
   }
 
-  for (i = 0; i < proccount; i ++) {
-     if (procs[i].ki_oncpu < sizeof(cpu_used))
-       cpu_used[procs[i].ki_oncpu] = 1;
+  for (i = 0; i < proccount; i++) {
+
+    if (procs[i].ki_oncpu < sizeof(cpu_used)) cpu_used[procs[i].ki_oncpu] = 1;
+
   }
 
   ck_free(procs);
+#else
+#warning \
+    "For this platform we do not have free CPU binding code yet. If poxxible, please supply a PR to https://github.com/vanhauser-thc/AFLplusplus"
 #endif
 
   for (i = 0; i < cpu_core_count; ++i)
@@ -166,7 +172,10 @@ void bind_to_free_cpu(void) {
 #if defined(__linux__)
   if (sched_setaffinity(0, sizeof(c), &c)) PFATAL("sched_setaffinity failed");
 #elif defined(__FreeBSD__)
-  if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c)) PFATAL("pthread_setaffinity failed");
+  if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c))
+    PFATAL("pthread_setaffinity failed");
+#else
+  // this will need something for other platforms
 #endif
 
 }
@@ -815,7 +824,8 @@ double get_runnable_processes(void) {
 
   static double res;
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+    defined(__NetBSD__)
 
   /* I don't see any portable sysctl or so that would quickly give us the
      number of runnable processes; the 1-minute load average can be a
@@ -856,7 +866,7 @@ double get_runnable_processes(void) {
 
   }
 
-#endif                        /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__) */
+#endif          /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__) */
 
   return res;
 
@@ -1510,7 +1520,7 @@ void check_cpu_governor(void) {
   FATAL("Suboptimal CPU scaling governor");
 
 #elif defined __APPLE__
-  u64   min = 0, max = 0;
+  u64 min = 0, max = 0;
   size_t mlen = sizeof(min);
   if (getenv("AFL_SKIP_CPUFREQ")) return;
 
@@ -1542,6 +1552,7 @@ void check_cpu_governor(void) {
        min / 1024, max / 1024);
   FATAL("Suboptimal CPU scaling governor");
 #endif
+
 }
 
 /* Count the number of logical CPU cores. */

@@ -185,7 +185,7 @@ static void afl_setup(void) {
     afl_end_code = (abi_ulong)-1;
 
   }
-  
+
   if (getenv("AFL_CODE_START"))
     afl_start_code = strtoll(getenv("AFL_CODE_START"), NULL, 16);
   if (getenv("AFL_CODE_END"))
@@ -216,12 +216,12 @@ static void afl_setup(void) {
     /* If AFL_QEMU_PERSISTENT_RET is not specified patch the return addr */
 
   }
-  
-  if (getenv("AFL_QEMU_PERSISTENT_GPR"))
-    persistent_save_gpr = 1;
-  
+
+  if (getenv("AFL_QEMU_PERSISTENT_GPR")) persistent_save_gpr = 1;
+
   if (getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"))
-    persisent_retaddr_offset = strtoll(getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"), NULL, 16);
+    persisent_retaddr_offset =
+        strtoll(getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"), NULL, 16);
 
   if (getenv("AFL_QEMU_PERSISTENT_CNT"))
     afl_persistent_cnt = strtoll(getenv("AFL_QEMU_PERSISTENT_CNT"), NULL, 16);

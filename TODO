@@ -2,6 +2,9 @@
 Roadmap 2.55d:
 ==============
 
+afl-fuzz:
+ - radamsa mutator
+
 gcc_plugin:
  - needs to be rewritten
  - whitelist support
@@ -18,7 +21,8 @@ qemu_mode:
 custom_mutators:
  - rip what Superion is doing into custom mutators for js, php, etc.
 
-unit testing / or large testcase campaign
+enhance test/test.sh script for checking if compcov features are working
+correctly (especially float splitting)
 
 
 The far away future:
