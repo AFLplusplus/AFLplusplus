@@ -1,0 +1,134 @@
+diff --git a/target/arm/translate.c b/target/arm/translate.c
+index 7c4675ff..0f0928b6 100644
+--- a/target/arm/translate.c
++++ b/target/arm/translate.c
+@@ -59,6 +59,8 @@
+ #define IS_USER(s) (s->user)
+ #endif
+ 
++#include "../patches/afl-qemu-cpu-translate-inl.h"
++
+ /* We reuse the same 64-bit temporaries for efficiency.  */
+ static TCGv_i64 cpu_V0, cpu_V1, cpu_M0;
+ static TCGv_i32 cpu_R[16];
+@@ -9541,6 +9543,7 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
+             } else {
+                 if (set_cc) {
+                     gen_sub_CC(tmp, tmp, tmp2);
++                    afl_gen_compcov(s->pc, tmp, tmp2, MO_32, insn & (1 << 25));
+                 } else {
+                     tcg_gen_sub_i32(tmp, tmp, tmp2);
+                 }
+@@ -9550,6 +9553,7 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
+         case 0x03:
+             if (set_cc) {
+                 gen_sub_CC(tmp, tmp2, tmp);
++                afl_gen_compcov(s->pc, tmp, tmp2, MO_32, insn & (1 << 25));
+             } else {
+                 tcg_gen_sub_i32(tmp, tmp2, tmp);
+             }
+@@ -9604,6 +9608,7 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
+         case 0x0a:
+             if (set_cc) {
+                 gen_sub_CC(tmp, tmp, tmp2);
++                afl_gen_compcov(s->pc, tmp, tmp2, MO_32, insn & (1 << 25));
+             }
+             tcg_temp_free_i32(tmp);
+             break;
+@@ -10565,7 +10570,7 @@ thumb2_logic_op(int op)
+ 
+ static int
+ gen_thumb2_data_op(DisasContext *s, int op, int conds, uint32_t shifter_out,
+-                   TCGv_i32 t0, TCGv_i32 t1)
++                   TCGv_i32 t0, TCGv_i32 t1, int has_imm)
+ {
+     int logic_cc;
+ 
+@@ -10611,15 +10616,17 @@ gen_thumb2_data_op(DisasContext *s, int op, int conds, uint32_t shifter_out,
+         }
+         break;
+     case 13: /* sub */
+-        if (conds)
++        if (conds) {
+             gen_sub_CC(t0, t0, t1);
+-        else
++            afl_gen_compcov(s->pc, t0, t1, MO_32, has_imm);
++        } else
+             tcg_gen_sub_i32(t0, t0, t1);
+         break;
+     case 14: /* rsb */
+-        if (conds)
++        if (conds) {
+             gen_sub_CC(t0, t1, t0);
+-        else
++            afl_gen_compcov(s->pc, t0, t1, MO_32, has_imm);
++        } else
+             tcg_gen_sub_i32(t0, t1, t0);
+         break;
+     default: /* 5, 6, 7, 9, 12, 15. */
+@@ -11085,7 +11092,7 @@ static void disas_thumb2_insn(DisasContext *s, uint32_t insn)
+             conds = (insn & (1 << 20)) != 0;
+             logic_cc = (conds && thumb2_logic_op(op));
+             gen_arm_shift_im(tmp2, shiftop, shift, logic_cc);
+-            if (gen_thumb2_data_op(s, op, conds, 0, tmp, tmp2))
++            if (gen_thumb2_data_op(s, op, conds, 0, tmp, tmp2, insn & (1 << 10)))
+                 goto illegal_op;
+             tcg_temp_free_i32(tmp2);
+             if (rd == 13 &&
+@@ -11955,7 +11962,7 @@ static void disas_thumb2_insn(DisasContext *s, uint32_t insn)
+                 }
+                 op = (insn >> 21) & 0xf;
+                 if (gen_thumb2_data_op(s, op, (insn & (1 << 20)) != 0,
+-                                       shifter_out, tmp, tmp2))
++                                       shifter_out, tmp, tmp2, insn & (1 << 10)))
+                     goto illegal_op;
+                 tcg_temp_free_i32(tmp2);
+                 rd = (insn >> 8) & 0xf;
+@@ -12206,8 +12213,10 @@ static void disas_thumb_insn(DisasContext *s, uint32_t insn)
+             if (insn & (1 << 9)) {
+                 if (s->condexec_mask)
+                     tcg_gen_sub_i32(tmp, tmp, tmp2);
+-                else
++                else {
+                     gen_sub_CC(tmp, tmp, tmp2);
++                    afl_gen_compcov(s->pc, tmp, tmp2, MO_32, insn & (1 << 10));
++                }
+             } else {
+                 if (s->condexec_mask)
+                     tcg_gen_add_i32(tmp, tmp, tmp2);
+@@ -12247,6 +12256,7 @@ static void disas_thumb_insn(DisasContext *s, uint32_t insn)
+             switch (op) {
+             case 1: /* cmp */
+                 gen_sub_CC(tmp, tmp, tmp2);
++                afl_gen_compcov(s->pc, tmp, tmp2, MO_32, 1);
+                 tcg_temp_free_i32(tmp);
+                 tcg_temp_free_i32(tmp2);
+                 break;
+@@ -12261,8 +12271,10 @@ static void disas_thumb_insn(DisasContext *s, uint32_t insn)
+             case 3: /* sub */
+                 if (s->condexec_mask)
+                     tcg_gen_sub_i32(tmp, tmp, tmp2);
+-                else
++                else {
+                     gen_sub_CC(tmp, tmp, tmp2);
++                    afl_gen_compcov(s->pc, tmp, tmp2, MO_32, 1);
++                }
+                 tcg_temp_free_i32(tmp2);
+                 store_reg(s, rd, tmp);
+                 break;
+@@ -12308,6 +12320,7 @@ static void disas_thumb_insn(DisasContext *s, uint32_t insn)
+                 tmp = load_reg(s, rd);
+                 tmp2 = load_reg(s, rm);
+                 gen_sub_CC(tmp, tmp, tmp2);
++                afl_gen_compcov(s->pc, tmp, tmp2, MO_32, 0);
+                 tcg_temp_free_i32(tmp2);
+                 tcg_temp_free_i32(tmp);
+                 break;
+@@ -12466,6 +12479,7 @@ static void disas_thumb_insn(DisasContext *s, uint32_t insn)
+             break;
+         case 0xa: /* cmp */
+             gen_sub_CC(tmp, tmp, tmp2);
++            afl_gen_compcov(s->pc, tmp, tmp2, MO_32, 0);
+             rd = 16;
+             break;
+         case 0xb: /* cmn */

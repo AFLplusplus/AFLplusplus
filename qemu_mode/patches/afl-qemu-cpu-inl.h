@@ -33,6 +33,7 @@
 
 #include <sys/shm.h>
 #include "../../config.h"
+#include "afl-qemu-common.h"
 
 #define PERSISTENT_DEFAULT_MAX_CNT 1000
 
@@ -89,7 +90,7 @@ unsigned char is_persistent;
 target_long   persistent_stack_offset;
 unsigned char persistent_first_pass;
 unsigned char persistent_save_gpr;
-target_ulong  persistent_saved_gpr[CPU_NB_REGS];
+target_ulong  persistent_saved_gpr[AFL_REGS_NUM];
 int           persisent_retaddr_offset;
 
 /* Instrumentation ratio: */

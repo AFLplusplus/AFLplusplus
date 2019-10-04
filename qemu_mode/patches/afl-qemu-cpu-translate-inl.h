@@ -40,7 +40,7 @@ static void afl_compcov_log_16(target_ulong cur_loc, target_ulong arg1,
 
   register uintptr_t idx = cur_loc;
 
-  if ((arg1 & 0xff) == (arg2 & 0xff)) { INC_AFL_AREA(idx); }
+  if ((arg1 & 0xff00) == (arg2 & 0xff00)) { INC_AFL_AREA(idx); }
 
 }
 
@@ -49,13 +49,13 @@ static void afl_compcov_log_32(target_ulong cur_loc, target_ulong arg1,
 
   register uintptr_t idx = cur_loc;
 
-  if ((arg1 & 0xff) == (arg2 & 0xff)) {
+  if ((arg1 & 0xff000000) == (arg2 & 0xff000000)) {
 
-    INC_AFL_AREA(idx);
-    if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
+    INC_AFL_AREA(idx +2);
+    if ((arg1 & 0xff0000) == (arg2 & 0xff0000)) {
 
       INC_AFL_AREA(idx + 1);
-      if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) { INC_AFL_AREA(idx + 2); }
+      if ((arg1 & 0xff00) == (arg2 & 0xff00)) { INC_AFL_AREA(idx); }
 
     }
 
@@ -68,27 +68,27 @@ static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
 
   register uintptr_t idx = cur_loc;
 
-  if ((arg1 & 0xff) == (arg2 & 0xff)) {
+  if ((arg1 & 0xff00000000000000) == (arg2 & 0xff00000000000000)) {
 
-    INC_AFL_AREA(idx);
-    if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
+    INC_AFL_AREA(idx +6);
+    if ((arg1 & 0xff000000000000) == (arg2 & 0xff000000000000)) {
 
-      INC_AFL_AREA(idx + 1);
-      if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) {
+      INC_AFL_AREA(idx + 5);
+      if ((arg1 & 0xff0000000000) == (arg2 & 0xff0000000000)) {
 
-        INC_AFL_AREA(idx + 2);
-        if ((arg1 & 0xffffffff) == (arg2 & 0xffffffff)) {
+        INC_AFL_AREA(idx + 4);
+        if ((arg1 & 0xff00000000) == (arg2 & 0xff00000000)) {
 
           INC_AFL_AREA(idx + 3);
-          if ((arg1 & 0xffffffffff) == (arg2 & 0xffffffffff)) {
+          if ((arg1 & 0xff000000) == (arg2 & 0xff000000)) {
 
-            INC_AFL_AREA(idx + 4);
-            if ((arg1 & 0xffffffffffff) == (arg2 & 0xffffffffffff)) {
+            INC_AFL_AREA(idx + 2);
+            if ((arg1 & 0xff0000) == (arg2 & 0xff0000)) {
 
-              INC_AFL_AREA(idx + 5);
-              if ((arg1 & 0xffffffffffffff) == (arg2 & 0xffffffffffffff)) {
+              INC_AFL_AREA(idx + 1);
+              if ((arg1 & 0xff00) == (arg2 & 0xff00)) {
 
-                INC_AFL_AREA(idx + 6);
+                INC_AFL_AREA(idx);
 
               }
 
