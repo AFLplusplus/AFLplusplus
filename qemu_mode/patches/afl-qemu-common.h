@@ -33,6 +33,12 @@
 
 #include "../../config.h"
 
+#ifndef CPU_NB_REGS
+#define AFL_REGS_NUM 1000
+#else
+#define AFL_REGS_NUM CPU_NB_REGS
+#endif
+
 /* NeverZero */
 
 #if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
@@ -60,7 +66,7 @@ extern unsigned char  is_persistent;
 extern target_long    persistent_stack_offset;
 extern unsigned char  persistent_first_pass;
 extern unsigned char  persistent_save_gpr;
-extern target_ulong   persistent_saved_gpr[CPU_NB_REGS];
+extern target_ulong   persistent_saved_gpr[AFL_REGS_NUM];
 extern int            persisent_retaddr_offset;
 
 extern __thread abi_ulong afl_prev_loc;
