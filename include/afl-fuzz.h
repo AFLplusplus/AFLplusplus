@@ -78,8 +78,15 @@
 /* For systems that have sched_setaffinity; right now just Linux, but one
    can hope... */
 
-#ifdef __linux__
+#if defined (__linux__) || defined(__FreeBSD__)
 #define HAVE_AFFINITY 1
+#if defined(__FreeBSD__)
+#include <sys/cpuset.h>
+#include <sys/user.h>
+#include <pthread.h>
+#include <pthread_np.h>
+#define cpu_set_t cpuset_t
+#endif
 #endif                                                         /* __linux__ */
 
 #ifndef SIMPLE_FILES
