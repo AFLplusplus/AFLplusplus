@@ -32,6 +32,7 @@ Version ++2.54d (dev):
     and saves all mutations of the first run on the first file into out/queue/mutations
   - libtokencap and libdislocator now compile to the afl_root directory and are
     installed to the .../lib/afl directory when present during make install
+  - more BSD support, e.g. free CPU binding code for FreeBSD (thanks to devnexen)
   - reducing duplicate code in afl-fuzz
   - added "make help"
   - removed compile warnings from python internal stuff

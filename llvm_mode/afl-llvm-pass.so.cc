@@ -105,7 +105,9 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     SAYF(cCYA "afl-llvm-pass" VERSION cRST " by <lszekeres@google.com>\n");
 
-  } else if (getenv("AFL_QUIET")) be_quiet = 1;
+  } else if (getenv("AFL_QUIET"))
+
+    be_quiet = 1;
 
   /* Decide instrumentation ratio */
 
@@ -222,9 +224,9 @@ bool AFLCoverage::runOnModule(Module &M) {
       cur_loc = AFL_R(MAP_SIZE);
 
 /* There is a problem with Ubuntu 18.04 and llvm 6.0 (see issue #63).
-   The inline function successors() is not inlined and also not found at runtime :-(
-   As I am unable to detect Ubuntu18.04 heree, the next best thing is to disable
-   this optional optimization for LLVM 6.0.0 and Linux */
+   The inline function successors() is not inlined and also not found at runtime
+   :-( As I am unable to detect Ubuntu18.04 heree, the next best thing is to
+   disable this optional optimization for LLVM 6.0.0 and Linux */
 #if !(LLVM_VERSION_MAJOR == 6 && LLVM_VERSION_MINOR == 0) || !defined __linux__
       // only instrument if this basic block is the destination of a previous
       // basic block that has multiple successors

@@ -178,15 +178,21 @@ u8 run_target(char** argv, u32 timeout) {
     if ((res = read(fsrv_st_fd, &status, 4)) != 4) {
 
       if (stop_soon) return 0;
-      SAYF("\n" cLRD "[-] " cRST
-           "Unable to communicate with fork server. Some possible reasons:\n\n" 
-           "    - You've run out of memory. Use -m to increase the the memory limit\n"
-           "      to something higher than %lld.\n"
-           "    - The binary or one of the libraries it uses manages to create\n"
-           "      threads before the forkserver initializes.\n"
-           "    - The binary, at least in some circumstances, exits in a way that\n"
-           "      also kills the parent process - raise() could be the culprit.\n\n"
-	   "If all else fails you can disable the fork server via AFL_NO_FORKSRV=1.\n", mem_limit);
+      SAYF(
+          "\n" cLRD "[-] " cRST
+          "Unable to communicate with fork server. Some possible reasons:\n\n"
+          "    - You've run out of memory. Use -m to increase the the memory "
+          "limit\n"
+          "      to something higher than %lld.\n"
+          "    - The binary or one of the libraries it uses manages to create\n"
+          "      threads before the forkserver initializes.\n"
+          "    - The binary, at least in some circumstances, exits in a way "
+          "that\n"
+          "      also kills the parent process - raise() could be the "
+          "culprit.\n\n"
+          "If all else fails you can disable the fork server via "
+          "AFL_NO_FORKSRV=1.\n",
+          mem_limit);
       RPFATAL(res, "Unable to communicate with fork server");
 
     }
@@ -261,15 +267,23 @@ void write_to_testcase(void* mem, u32 len) {
   s32 fd = out_fd;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
-  s32 doc_fd;
-  char *fn = alloc_printf("%s/mutations/%09u:%s", out_dir, document_counter++, describe_op(0));
+  s32   doc_fd;
+  char* fn = alloc_printf("%s/mutations/%09u:%s", out_dir, document_counter++,
+                          describe_op(0));
   if (fn != NULL) {
+
     if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600)) >= 0) {
-      if (write(doc_fd, mem, len) != len) PFATAL("write to mutation file failed: %s", fn);
+
+      if (write(doc_fd, mem, len) != len)
+        PFATAL("write to mutation file failed: %s", fn);
       close(doc_fd);
+
     }
+
     ck_free(fn);
+
   }
+
 #endif
 
   if (out_file) {

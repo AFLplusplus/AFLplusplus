@@ -179,7 +179,7 @@ test -e ../afl-clang-fast && {
   ../afl-clang-fast -o test-persistent ../experimental/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | ../afl-showmap -o /dev/null -q -r ./test-persistent && {
-      $ECHO "$GREEN[+] lvm_mode persistent mode feature works correctly"
+      $ECHO "$GREEN[+] llvm_mode persistent mode feature works correctly"
     } || $ECHO "$RED[!] llvm_mode persistent mode feature failed to work"
   } || $ECHO "$RED[!] llvm_mode persistent mode feature compilation failed"
   rm -f test-persistent
