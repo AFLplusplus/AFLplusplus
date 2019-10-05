@@ -35,10 +35,10 @@ else
   LLVM_CONFIG ?= llvm-config
 endif
 
-LLVMVER  = $(shell $(LLVM_CONFIG) --version)
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version | egrep -q '^[12]|^3\.0|^1[0-9]' && echo 1 || echo 0 )
-LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version | sed 's/\..*//')
-LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir)
+LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null)
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^[12]|^3\.0|^1[0-9]' && echo 1 || echo 0 )
+LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//')
+LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
   $(warn llvm_mode only supports versions 3.8.0 up to 9)
