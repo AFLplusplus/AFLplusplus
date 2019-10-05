@@ -71,14 +71,14 @@
 #include <sys/ioctl.h>
 #include <sys/file.h>
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
 #include <sys/sysctl.h>
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 /* For systems that have sched_setaffinity; right now just Linux, but one
    can hope... */
 
-#if defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__)
 #define HAVE_AFFINITY 1
 #if defined(__FreeBSD__)
 #include <sys/cpuset.h>
@@ -86,6 +86,8 @@
 #include <pthread.h>
 #include <pthread_np.h>
 #define cpu_set_t cpuset_t
+#elif defined(__NetBSD__)
+#include <pthread.h>
 #endif
 #endif                                                         /* __linux__ */
 
