@@ -499,11 +499,10 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     auto op0 = FcmpInst->getOperand(0);
     auto op1 = FcmpInst->getOperand(1);
 
-    unsigned op0_size, op1_size;
-    op0_size = op0->getType()->getPrimitiveSizeInBits();
-    op1_size = op1->getType()->getPrimitiveSizeInBits();
+    unsigned op_size;
+    op_size = op0->getType()->getPrimitiveSizeInBits();
 
-    if (op0_size != op1_size) { continue; }
+    if (op_size != op1->getType()->getPrimitiveSizeInBits()) { continue; }
 
     const unsigned int sizeInBits = op0->getType()->getPrimitiveSizeInBits();
     const unsigned int precision =
@@ -511,7 +510,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
             ? 24
             : sizeInBits == 64
                   ? 53
-                  : sizeInBits == 128 ? 113 : sizeInBits == 16 ? 11 : 65;
+                  : sizeInBits == 128 ? 113 : sizeInBits == 16 ? 11 
+		      /* sizeInBits == 80 */ : 65;
 
     const unsigned           shiftR_exponent = precision - 1;
     const unsigned long long mask_fraction =
@@ -522,7 +522,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     // round up sizes to the next power of two
     // this should help with integer compare splitting
     size_t exTySizeBytes = ((sizeInBits - precision + 7) >> 3);
-    size_t frTySizeBytes = ((precision - 1 + 7) >> 3);
+    size_t frTySizeBytes = ((precision - 1          + 7) >> 3);
 
     IntegerType *IntExponentTy =
         IntegerType::get(C, nextPowerOfTwo(exTySizeBytes) << 3);
@@ -534,11 +534,11 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     /* create the integers from floats directly */
     Instruction *b_op0, *b_op1;
     b_op0 = CastInst::Create(Instruction::BitCast, op0,
-                             IntegerType::get(C, op0_size));
+                             IntegerType::get(C, op_size));
     bb->getInstList().insert(bb->getTerminator()->getIterator(), b_op0);
 
     b_op1 = CastInst::Create(Instruction::BitCast, op1,
-                             IntegerType::get(C, op1_size));
+                             IntegerType::get(C, op_size));
     bb->getInstList().insert(bb->getTerminator()->getIterator(), b_op1);
 
     /* isolate signs of value of floating point type */
@@ -549,14 +549,14 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
     s_s0 = BinaryOperator::Create(
         Instruction::LShr, b_op0,
-        ConstantInt::get(b_op0->getType(), op0_size - 1));
+        ConstantInt::get(b_op0->getType(), op_size - 1));
     bb->getInstList().insert(bb->getTerminator()->getIterator(), s_s0);
     t_s0 = new TruncInst(s_s0, Int1Ty);
     bb->getInstList().insert(bb->getTerminator()->getIterator(), t_s0);
 
     s_s1 = BinaryOperator::Create(
         Instruction::LShr, b_op1,
-        ConstantInt::get(b_op1->getType(), op1_size - 1));
+        ConstantInt::get(b_op1->getType(), op_size - 1));
     bb->getInstList().insert(bb->getTerminator()->getIterator(), s_s1);
     t_s1 = new TruncInst(s_s1, Int1Ty);
     bb->getInstList().insert(bb->getTerminator()->getIterator(), t_s1);
@@ -675,9 +675,9 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
     /* isolate the mantissa aka fraction */
     Instruction *t_f0, *t_f1;
-    bool         needTrunc = IntFractionTy->getPrimitiveSizeInBits() < op0_size;
+    bool         needTrunc = IntFractionTy->getPrimitiveSizeInBits() < op_size;
     // errs() << "Fractions: IntFractionTy size " <<
-    // IntFractionTy->getPrimitiveSizeInBits() << ", op0_size " << op0_size << ",
+    // IntFractionTy->getPrimitiveSizeInBits() << ", op_size " << op_size << ",
     // needTrunc " << needTrunc << "\n";
     if (precision - 1 < frTySizeBytes * 8) {
 
