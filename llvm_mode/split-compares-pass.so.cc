@@ -515,19 +515,24 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
     const unsigned           shiftR_exponent = precision - 1;
     const unsigned long long mask_fraction =
-        ((1 << (precision - 2))) | ((1 << (precision - 2)) - 1);
+        (1ULL << (shiftR_exponent - 1)) | ((1ULL << (shiftR_exponent - 1)) - 1);
     const unsigned long long mask_exponent =
-        (1 << (sizeInBits - precision)) - 1;
+        (1ULL << (sizeInBits - precision)) - 1;
 
     // round up sizes to the next power of two
     // this should help with integer compare splitting
     size_t exTySizeBytes = ((sizeInBits - precision + 7) >> 3);
-    size_t frTySizeBytes = ((precision - 1          + 7) >> 3);
+    size_t frTySizeBytes = ((precision - 1ULL       + 7) >> 3);
 
     IntegerType *IntExponentTy =
         IntegerType::get(C, nextPowerOfTwo(exTySizeBytes) << 3);
     IntegerType *IntFractionTy =
         IntegerType::get(C, nextPowerOfTwo(frTySizeBytes) << 3);
+
+//    errs() << "Fractions: IntFractionTy size " <<
+//     IntFractionTy->getPrimitiveSizeInBits() << ", op_size " << op_size <<
+//     ", mask " << mask_fraction <<
+//     ", precision " << precision << "\n";
 
     BasicBlock *end_bb = bb->splitBasicBlock(BasicBlock::iterator(FcmpInst));
 
@@ -676,9 +681,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     /* isolate the mantissa aka fraction */
     Instruction *t_f0, *t_f1;
     bool         needTrunc = IntFractionTy->getPrimitiveSizeInBits() < op_size;
-    // errs() << "Fractions: IntFractionTy size " <<
-    // IntFractionTy->getPrimitiveSizeInBits() << ", op_size " << op_size << ",
-    // needTrunc " << needTrunc << "\n";
+
     if (precision - 1 < frTySizeBytes * 8) {
 
       Instruction *m_f0, *m_f1;
