@@ -32,7 +32,11 @@
 
 void bind_to_free_cpu(void) {
 
+#if defined(__linux__) || defined(__FreeBSD__)
   cpu_set_t c;
+#elif defined(__NetBSD__)
+  cpuset_t *c;
+#endif
 
   u8  cpu_used[4096] = {0};
   u32 i;
@@ -139,9 +143,35 @@ void bind_to_free_cpu(void) {
   }
 
   ck_free(procs);
+#elif defined(__NetBSD__)
+  struct kinfo_proc2* procs;
+  size_t              nprocs;
+  size_t              proccount;
+  int                 s_name[] = {CTL_KERN, KERN_PROC2, KERN_PROC_ALL, 0, sizeof(struct kinfo_proc2), 0};
+  size_t              s_name_l = sizeof(s_name) / sizeof(s_name[0]);
+
+  if (sysctl(s_name, s_name_l, NULL, &nprocs, NULL, 0) != 0) return;
+  proccount = nprocs / sizeof(struct kinfo_proc2);
+  procs = ck_alloc(nprocs * sizeof(struct kinfo_proc2));
+  s_name[5] = proccount;
+
+  if (sysctl(s_name, s_name_l, procs, &nprocs, NULL, 0) != 0) {
+
+    ck_free(procs);
+    return;
+
+  }
+
+  for (i = 0; i < proccount; i++) {
+
+    if (procs[i].p_cpuid < sizeof(cpu_used)) cpu_used[procs[i].p_cpuid] = 1;
+
+  }
+
+  ck_free(procs);
 #else
 #warning \
-    "For this platform we do not have free CPU binding code yet. If poxxible, please supply a PR to https://github.com/vanhauser-thc/AFLplusplus"
+    "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/vanhauser-thc/AFLplusplus"
 #endif
 
   for (i = 0; i < cpu_core_count; ++i)
@@ -166,14 +196,26 @@ void bind_to_free_cpu(void) {
 
   cpu_aff = i;
 
+#if defined(__linux__) || defined(__FreeBSD__)
   CPU_ZERO(&c);
   CPU_SET(i, &c);
+#elif defined(__NetBSD__)
+  c = cpuset_create();
+  if (c == NULL) PFATAL("cpuset_create failed");
+
+  cpuset_set(i, c);
+#endif
 
 #if defined(__linux__)
   if (sched_setaffinity(0, sizeof(c), &c)) PFATAL("sched_setaffinity failed");
 #elif defined(__FreeBSD__)
   if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c))
     PFATAL("pthread_setaffinity failed");
+#elif defined(__NetBSD__)
+  if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c))
+    PFATAL("pthread_setaffinity failed");
+
+  cpuset_destroy(c);
 #else
   // this will need something for other platforms
 #endif
