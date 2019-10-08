@@ -21,10 +21,11 @@ Version ++2.54d (dev):
   - custom mutator library is now a standard mutator, to exclusivly use it
     add AFL_CUSTOM_MUTATOR_ONLY (that will trigger the previous behaviour)
   - new library qemu_mode/unsigaction which filters sigaction events
+  - afl-fuzz: new command line option -I to execute a command on a new crash
   - no more unlinking the input file, this way the input file can also be a
     FIFO or disk partition
   - setting LLVM_CONFIG for llvm_mode will now again switch to the selected
-    llvm version. If you setup is correct.
+    llvm version. If your setup is correct.
   - fuzzing strategy yields for custom mutator were missing from the UI, added them :)
   - added "make tests" which will perform checks to see that all functionality
     is working as expected. this is currently the starting point, its not complete :)
