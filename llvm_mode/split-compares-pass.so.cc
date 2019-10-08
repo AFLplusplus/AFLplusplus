@@ -510,8 +510,10 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
             ? 24
             : sizeInBits == 64
                   ? 53
-                  : sizeInBits == 128 ? 113 : sizeInBits == 16 ? 11 
-		      /* sizeInBits == 80 */ : 65;
+                  : sizeInBits == 128 ? 113
+                                      : sizeInBits == 16 ? 11
+                                                         /* sizeInBits == 80 */
+                                                         : 65;
 
     const unsigned           shiftR_exponent = precision - 1;
     const unsigned long long mask_fraction =
@@ -522,17 +524,17 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     // round up sizes to the next power of two
     // this should help with integer compare splitting
     size_t exTySizeBytes = ((sizeInBits - precision + 7) >> 3);
-    size_t frTySizeBytes = ((precision - 1ULL       + 7) >> 3);
+    size_t frTySizeBytes = ((precision - 1ULL + 7) >> 3);
 
     IntegerType *IntExponentTy =
         IntegerType::get(C, nextPowerOfTwo(exTySizeBytes) << 3);
     IntegerType *IntFractionTy =
         IntegerType::get(C, nextPowerOfTwo(frTySizeBytes) << 3);
 
-//    errs() << "Fractions: IntFractionTy size " <<
-//     IntFractionTy->getPrimitiveSizeInBits() << ", op_size " << op_size <<
-//     ", mask " << mask_fraction <<
-//     ", precision " << precision << "\n";
+    //    errs() << "Fractions: IntFractionTy size " <<
+    //     IntFractionTy->getPrimitiveSizeInBits() << ", op_size " << op_size <<
+    //     ", mask " << mask_fraction <<
+    //     ", precision " << precision << "\n";
 
     BasicBlock *end_bb = bb->splitBasicBlock(BasicBlock::iterator(FcmpInst));
 
@@ -552,16 +554,16 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
      * the original operands so only the first bit remains.*/
     Instruction *s_s0, *t_s0, *s_s1, *t_s1, *icmp_sign_bit;
 
-    s_s0 = BinaryOperator::Create(
-        Instruction::LShr, b_op0,
-        ConstantInt::get(b_op0->getType(), op_size - 1));
+    s_s0 =
+        BinaryOperator::Create(Instruction::LShr, b_op0,
+                               ConstantInt::get(b_op0->getType(), op_size - 1));
     bb->getInstList().insert(bb->getTerminator()->getIterator(), s_s0);
     t_s0 = new TruncInst(s_s0, Int1Ty);
     bb->getInstList().insert(bb->getTerminator()->getIterator(), t_s0);
 
-    s_s1 = BinaryOperator::Create(
-        Instruction::LShr, b_op1,
-        ConstantInt::get(b_op1->getType(), op_size - 1));
+    s_s1 =
+        BinaryOperator::Create(Instruction::LShr, b_op1,
+                               ConstantInt::get(b_op1->getType(), op_size - 1));
     bb->getInstList().insert(bb->getTerminator()->getIterator(), s_s1);
     t_s1 = new TruncInst(s_s1, Int1Ty);
     bb->getInstList().insert(bb->getTerminator()->getIterator(), t_s1);
