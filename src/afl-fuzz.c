@@ -76,6 +76,7 @@ static void usage(u8* argv0) {
       "Other stuff:\n"
       "  -T text       - text banner to show on the screen\n"
       "  -M / -S id    - distributed mode (see parallel_fuzzing.txt)\n"
+      "  -I command    - execute this command/script when a new crash is found\n"
       "  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap "
       "file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
@@ -133,9 +134,14 @@ int main(int argc, char** argv) {
   init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
   while ((opt = getopt(argc, argv,
-                       "+i:o:f:m:t:T:dnCB:S:M:x:QUWe:p:s:V:E:L:h")) > 0)
+                       "+i:I:o:f:m:t:T:dnCB:S:M:x:QUWe:p:s:V:E:L:h")) > 0)
 
     switch (opt) {
+
+      case 'I':
+
+        infoexec = optarg;
+        break;
 
       case 's': {
 
