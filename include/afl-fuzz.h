@@ -71,7 +71,8 @@
 #include <sys/ioctl.h>
 #include <sys/file.h>
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+    defined(__NetBSD__)
 #include <sys/sysctl.h>
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 

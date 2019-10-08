@@ -88,7 +88,7 @@ unsigned char afl_fork_child;
 unsigned int  afl_forksrv_pid;
 unsigned char is_persistent;
 target_long   persistent_stack_offset;
-unsigned char persistent_first_pass;
+unsigned char persistent_first_pass = 1;
 unsigned char persistent_save_gpr;
 target_ulong  persistent_saved_gpr[AFL_REGS_NUM];
 int           persisent_retaddr_offset;
@@ -210,10 +210,10 @@ static void afl_setup(void) {
 
   if (is_persistent) {
 
-    afl_persistent_addr = strtoll(getenv("AFL_QEMU_PERSISTENT_ADDR"), NULL, 16);
+    afl_persistent_addr = strtoll(getenv("AFL_QEMU_PERSISTENT_ADDR"), NULL, 0);
     if (getenv("AFL_QEMU_PERSISTENT_RET"))
       afl_persistent_ret_addr =
-          strtoll(getenv("AFL_QEMU_PERSISTENT_RET"), NULL, 16);
+          strtoll(getenv("AFL_QEMU_PERSISTENT_RET"), NULL, 0);
     /* If AFL_QEMU_PERSISTENT_RET is not specified patch the return addr */
 
   }
@@ -222,20 +222,19 @@ static void afl_setup(void) {
 
   if (getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"))
     persisent_retaddr_offset =
-        strtoll(getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"), NULL, 16);
+        strtoll(getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"), NULL, 0);
 
   if (getenv("AFL_QEMU_PERSISTENT_CNT"))
-    afl_persistent_cnt = strtoll(getenv("AFL_QEMU_PERSISTENT_CNT"), NULL, 16);
+    afl_persistent_cnt = strtoll(getenv("AFL_QEMU_PERSISTENT_CNT"), NULL, 0);
   else
     afl_persistent_cnt = PERSISTENT_DEFAULT_MAX_CNT;
 
 }
 
-
 static void print_mappings(void) {
 
   u8    buf[MAX_LINE];
-  FILE* f = fopen("/proc/self/maps", "r");
+  FILE *f = fopen("/proc/self/maps", "r");
 
   if (!f) return;
 
@@ -254,9 +253,8 @@ static void afl_forkserver(CPUState *cpu) {
 
   if (forkserver_installed == 1) return;
   forkserver_installed = 1;
-  
-  if (getenv("AFL_QEMU_DEBUG_MAPS"))
-    print_mappings();
+
+  if (getenv("AFL_QEMU_DEBUG_MAPS")) print_mappings();
 
   // if (!afl_area_ptr) return; // not necessary because of fixed dummy buffer
 
@@ -394,6 +392,7 @@ void afl_persistent_loop() {
           sizeof(struct afl_tsl)) {
 
         /* Exit the persistent loop on pipe error */
+        afl_area_ptr = dummy;
         exit(0);
 
       }
@@ -405,6 +404,7 @@ void afl_persistent_loop() {
 
     } else {
 
+      afl_area_ptr = dummy;
       exit(0);
 
     }

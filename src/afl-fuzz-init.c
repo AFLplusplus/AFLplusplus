@@ -35,7 +35,7 @@ void bind_to_free_cpu(void) {
 #if defined(__linux__) || defined(__FreeBSD__)
   cpu_set_t c;
 #elif defined(__NetBSD__)
-  cpuset_t *c;
+  cpuset_t*          c;
 #endif
 
   u8  cpu_used[4096] = {0};
@@ -147,8 +147,10 @@ void bind_to_free_cpu(void) {
   struct kinfo_proc2* procs;
   size_t              nprocs;
   size_t              proccount;
-  int                 s_name[] = {CTL_KERN, KERN_PROC2, KERN_PROC_ALL, 0, sizeof(struct kinfo_proc2), 0};
-  size_t              s_name_l = sizeof(s_name) / sizeof(s_name[0]);
+  int                 s_name[] = {
+
+      CTL_KERN, KERN_PROC2, KERN_PROC_ALL, 0, sizeof(struct kinfo_proc2), 0};
+  size_t s_name_l = sizeof(s_name) / sizeof(s_name[0]);
 
   if (sysctl(s_name, s_name_l, NULL, &nprocs, NULL, 0) != 0) return;
   proccount = nprocs / sizeof(struct kinfo_proc2);

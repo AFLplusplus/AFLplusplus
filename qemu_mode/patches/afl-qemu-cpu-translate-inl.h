@@ -51,7 +51,7 @@ static void afl_compcov_log_32(target_ulong cur_loc, target_ulong arg1,
 
   if ((arg1 & 0xff000000) == (arg2 & 0xff000000)) {
 
-    INC_AFL_AREA(idx +2);
+    INC_AFL_AREA(idx + 2);
     if ((arg1 & 0xff0000) == (arg2 & 0xff0000)) {
 
       INC_AFL_AREA(idx + 1);
@@ -70,7 +70,7 @@ static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
 
   if ((arg1 & 0xff00000000000000) == (arg2 & 0xff00000000000000)) {
 
-    INC_AFL_AREA(idx +6);
+    INC_AFL_AREA(idx + 6);
     if ((arg1 & 0xff000000000000) == (arg2 & 0xff000000000000)) {
 
       INC_AFL_AREA(idx + 5);
@@ -86,11 +86,7 @@ static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
             if ((arg1 & 0xff0000) == (arg2 & 0xff0000)) {
 
               INC_AFL_AREA(idx + 1);
-              if ((arg1 & 0xff00) == (arg2 & 0xff00)) {
-
-                INC_AFL_AREA(idx);
-
-              }
+              if ((arg1 & 0xff00) == (arg2 & 0xff00)) { INC_AFL_AREA(idx); }
 
             }
 
@@ -134,6 +130,58 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
 
 }
 
+/* Routines for debug */
+/*
+static void log_x86_saved_gpr(void) {
+
+  static const char reg_names[CPU_NB_REGS][4] = {
+
+#ifdef TARGET_X86_64
+        [R_EAX] = "rax",
+        [R_EBX] = "rbx",
+        [R_ECX] = "rcx",
+        [R_EDX] = "rdx",
+        [R_ESI] = "rsi",
+        [R_EDI] = "rdi",
+        [R_EBP] = "rbp",
+        [R_ESP] = "rsp",
+        [8]  = "r8",
+        [9]  = "r9",
+        [10] = "r10",
+        [11] = "r11",
+        [12] = "r12",
+        [13] = "r13",
+        [14] = "r14",
+        [15] = "r15",
+#else
+        [R_EAX] = "eax",
+        [R_EBX] = "ebx",
+        [R_ECX] = "ecx",
+        [R_EDX] = "edx",
+        [R_ESI] = "esi",
+        [R_EDI] = "edi",
+        [R_EBP] = "ebp",
+        [R_ESP] = "esp",
+#endif
+
+    };
+
+  int i;
+  for (i = 0; i < CPU_NB_REGS; ++i) {
+
+    fprintf(stderr, "%s = %lx\n", reg_names[i], persistent_saved_gpr[i]);
+
+  }
+
+}
+
+static void log_x86_sp_content(void) {
+
+  fprintf(stderr, ">> SP = %lx -> %lx\n", persistent_saved_gpr[R_ESP],
+*(unsigned long*)persistent_saved_gpr[R_ESP]);
+
+}*/
+
 #define I386_RESTORE_STATE_FOR_PERSISTENT                               \
   do {                                                                  \
                                                                         \
@@ -154,7 +202,7 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
       for (i = 0; i < CPU_NB_REGS; ++i) {                               \
                                                                         \
         gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);               \
-        tcg_gen_ld_tl(gpr_sv, cpu_regs[i], 0);                          \
+        tcg_gen_ld_tl(cpu_regs[i], gpr_sv, 0);                          \
                                                                         \
       }                                                                 \
                                                                         \
@@ -172,8 +220,7 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
       gen_set_label(lbl_finish_restore_gpr);                            \
       tcg_temp_free(first_pass);                                        \
                                                                         \
-    }                                                                   \
-    if (afl_persistent_ret_addr == 0) {                                 \
+    } else if (afl_persistent_ret_addr == 0) {                          \
                                                                         \
       TCGv_ptr stack_off_ptr = tcg_const_ptr(&persistent_stack_offset); \
       TCGv     stack_off = tcg_temp_new();                              \
@@ -191,6 +238,8 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
     if (s->pc == afl_persistent_addr) {                                       \
                                                                               \
       I386_RESTORE_STATE_FOR_PERSISTENT;                                      \
+      /*tcg_gen_afl_call0(log_x86_saved_gpr);                                 \
+      tcg_gen_afl_call0(log_x86_sp_content);*/                                \
                                                                               \
       if (afl_persistent_ret_addr == 0) {                                     \
                                                                               \
@@ -199,6 +248,7 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
                                                                               \
       }                                                                       \
       tcg_gen_afl_call0(&afl_persistent_loop);                                \
+      /*tcg_gen_afl_call0(log_x86_sp_content);*/                              \
                                                                               \
     } else if (afl_persistent_ret_addr && s->pc == afl_persistent_ret_addr) { \
                                                                               \
