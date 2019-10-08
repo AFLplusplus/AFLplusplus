@@ -238,6 +238,7 @@ test -e ../afl-qemu-trace && {
   } || $ECHO "$RED[-] gcc compilation of test targets failed - what is going on??"
   
   $ECHO "$YELLOW[?] we need a test case for qemu_mode persistent mode"
+  $ECHO "$YELLOW[?] we need a test case for qemu_mode unsigaction library"
   # This works but there are already problems with persistent (e.g. stability)
   #$ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
   #{

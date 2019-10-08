@@ -250,6 +250,7 @@ extern u8 *in_dir,                      /* Input directory with test cases  */
     *file_extension,                    /* File extension                   */
     *orig_cmdline,                      /* Original command line            */
     *doc_path,                          /* Path to documentation dir        */
+    *infoexec,                          /* Command to execute on a new crash */
     *out_file;                          /* File to fuzz, if any             */
 
 extern u32 exec_tmout;                  /* Configurable exec timeout (ms)   */
