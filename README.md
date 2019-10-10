@@ -620,7 +620,7 @@ without feedback, bug reports, or patches from:
   Jonathan Gray                         Filipe Cabecinhas
   Nico Weber                            Jodie Cunningham
   Andrew Griffiths                      Parker Thompson
-  Jonathan Neuschfer                    Tyler Nighswander
+  Jonathan Neuschaefer                  Tyler Nighswander
   Ben Nagy                              Samir Aguiar
   Aidan Thornton                        Aleksandar Nikolich
   Sam Hakim                             Laszlo Szekeres
@@ -639,7 +639,7 @@ without feedback, bug reports, or patches from:
   Austin Seipp                          Daniel Komaromy
   Daniel Binderman                      Jonathan Metzman
   Vegard Nossum                         Jan Kneschke
-  Kurt Roeckx                           Marcel Bohme
+  Kurt Roeckx                           Marcel Boehme
   Van-Thuan Pham                        Abhik Roychoudhury
   Joshua J. Drake                       Toby Hutton
   Rene Freingruber                      Sergey Davidoff
