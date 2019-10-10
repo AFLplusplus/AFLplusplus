@@ -95,6 +95,8 @@ char *power_names[POWER_SCHEDULES_NUM] = {"explore", "fast", "coe",
 u8 schedule = EXPLORE;                  /* Power schedule (default: EXPLORE)*/
 u8 havoc_max_mult = HAVOC_MAX_MULT;
 
+u8 use_radamsa;
+
 u8 skip_deterministic,                  /* Skip deterministic stages?       */
     force_deterministic,                /* Force deterministic stages?      */
     use_splicing,                       /* Recombine input files?           */
@@ -209,6 +211,9 @@ u64 stage_finds[32],                    /* Patterns found per fuzz stage    */
 #ifndef HAVE_ARC4RANDOM
 u32 rand_cnt;                           /* Random number counter            */
 #endif
+
+u32 rand_seed[2];
+s64    init_seed;
 
 u64 total_cal_us,                       /* Total calibration time (us)      */
     total_cal_cycles;                   /* Total calibration cycles         */
