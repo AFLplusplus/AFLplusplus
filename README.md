@@ -105,7 +105,9 @@ These build options exist:
 * clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well
 * help: shows these build options
 
-You can also build statically linked versions of the afl++ binaries by passing the STATIC=1 argument to make:
+[https://developer.apple.com/library/archive/qa/qa1118/_index.html](Unless
+you are on Mac OS X) you can also build statically linked versions of the 
+afl++ binaries by passing the STATIC=1 argument to make:
 
 ```shell
 $ make all STATIC=1
