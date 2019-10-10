@@ -24,6 +24,7 @@
  */
 
 #include "afl-fuzz.h"
+#include "radamsa.h"
 
 /* Display usage hints. */
 
@@ -119,7 +120,6 @@ int main(int argc, char** argv) {
   u8     mem_limit_given = 0;
   u8     exit_1 = !!getenv("AFL_BENCH_JUST_ONE");
   char** use_argv;
-  s64    init_seed;
 
   struct timeval  tv;
   struct timezone tz;
@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
   init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
   while ((opt = getopt(argc, argv,
-                       "+i:I:o:f:m:t:T:dnCB:S:M:x:QUWe:p:s:V:E:L:h")) > 0)
+                       "+i:I:o:f:m:t:T:dnCB:S:M:x:QUWe:p:s:V:E:L:hR")) > 0)
 
     switch (opt) {
 
@@ -511,6 +511,13 @@ int main(int argc, char** argv) {
         usage(argv[0]);
         return -1;
         break;  // not needed
+     
+      case 'R':
+      
+        if (use_radamsa) FATAL("Multiple -R options not supported");
+        use_radamsa = 1;
+
+        break;
 
       default: usage(argv[0]);
 
@@ -518,8 +525,27 @@ int main(int argc, char** argv) {
 
   if (optind == argc || !in_dir || !out_dir) usage(argv[0]);
 
+  OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
+      "Eissfeldt and Andrea Fioraldi");
+  OKF("afl++ is open source, get it at "
+      "https://github.com/vanhauser-thc/AFLplusplus");
+  OKF("Power schedules from github.com/mboehme/aflfast");
+  OKF("Python Mutator and llvm_mode whitelisting from github.com/choller/afl");
+  OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
+  OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
+
   if (fixed_seed) OKF("Running with fixed seed: %u", (u32)init_seed);
   srandom((u32)init_seed);
+  
+  if (use_radamsa) {
+  
+    OKF("Using Radamsa add-on");
+    /* randamsa_init installs some signal hadlers, call it firstly so that
+     AFL++ can then replace those signal handlers */
+    radamsa_init();
+
+  }
+  
   setup_signal_handlers();
   check_asan_opts();
 
@@ -560,14 +586,6 @@ int main(int argc, char** argv) {
           "fuzzing the right binary: " cRST "%s",
           argv[optind]);
 
-  OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
-      "Eissfeldt and Andrea Fioraldi");
-  OKF("afl++ is open source, get it at "
-      "https://github.com/vanhauser-thc/AFLplusplus");
-  OKF("Power schedules from github.com/mboehme/aflfast");
-  OKF("Python Mutator and llvm_mode whitelisting from github.com/choller/afl");
-  OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
-  OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
   ACTF("Getting to work...");
 
   switch (schedule) {

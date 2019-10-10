@@ -24,6 +24,9 @@
  */
 
 #include "afl-fuzz.h"
+#include "radamsa.h"
+
+#define RADAMSA_CHANCE 24
 
 /* MOpt */
 
@@ -1728,11 +1731,61 @@ havoc_stage:
 
   for (stage_cur = 0; stage_cur < stage_max; ++stage_cur) {
 
+    if (use_radamsa && UR(RADAMSA_CHANCE) == 0) {
+  
+      u32 max_len = temp_len + choose_block_len(HAVOC_BLK_XL);
+      u8* new_buf = ck_alloc_nozero(max_len);
+      
+      u32 new_len = radamsa_mutate(out_buf, temp_len, new_buf, max_len, get_rand_seed());
+      
+      if (new_len) {
+      
+        temp_len = new_len;
+        ck_free(out_buf);
+        out_buf = new_buf;
+      
+      } else {
+      
+        ck_free(new_buf);
+      
+      }
+  
+      goto havoc_run_point;
+    
+    }
+
     u32 use_stacking = 1 << (1 + UR(HAVOC_STACK_POW2));
 
     stage_cur_val = use_stacking;
 
     for (i = 0; i < use_stacking; ++i) {
+    
+      /*if (use_radamsa && UR(RADAMSA_CHANCE) == 0) {
+      
+        // Ramdsa stage stacked with the AFL havoc mutations.
+        // This is very slow, I maintain the commendted code for future or
+        // particular uses.
+      
+        u32 max_len = temp_len + choose_block_len(HAVOC_BLK_XL);
+        u8* new_buf = ck_alloc_nozero(max_len);
+        
+        u32 new_len = radamsa_mutate(out_buf, temp_len, new_buf, max_len, get_rand_seed());
+        
+        if (new_len) {
+        
+          temp_len = new_len;
+          ck_free(out_buf);
+          out_buf = new_buf;
+        
+        } else {
+        
+          ck_free(new_buf);
+        
+        }
+          
+        continue;
+      
+      }*/
 
       switch (UR(15 + ((extras_cnt + a_extras_cnt) ? 2 : 0))) {
 
@@ -2107,6 +2160,8 @@ havoc_stage:
       }
 
     }
+
+havoc_run_point:
 
     if (common_fuzz_stuff(argv, out_buf, temp_len)) goto abandon_entry;
 

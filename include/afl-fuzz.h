@@ -284,6 +284,8 @@ extern char* power_names[POWER_SCHEDULES_NUM];
 extern u8 schedule;                     /* Power schedule (default: EXPLORE)*/
 extern u8 havoc_max_mult;
 
+extern u8 use_radamsa;
+
 extern u8 skip_deterministic,           /* Skip deterministic stages?       */
     force_deterministic,                /* Force deterministic stages?      */
     use_splicing,                       /* Recombine input files?           */
@@ -398,6 +400,9 @@ extern u64 stage_finds[32],             /* Patterns found per fuzz stage    */
 #ifndef HAVE_ARC4RANDOM
 extern u32 rand_cnt;                    /* Random number counter            */
 #endif
+
+extern u32 rand_seed[2];
+extern s64    init_seed;
 
 extern u64 total_cal_us,                /* Total calibration time (us)      */
     total_cal_cycles;                   /* Total calibration cycles         */
@@ -642,16 +647,21 @@ static inline u32 UR(u32 limit) {
 #else
   if (!fixed_seed && unlikely(!rand_cnt--)) {
 
-    u32 seed[2];
-
-    ck_read(dev_urandom_fd, &seed, sizeof(seed), "/dev/urandom");
-    srandom(seed[0]);
-    rand_cnt = (RESEED_RNG / 2) + (seed[1] % RESEED_RNG);
+    ck_read(dev_urandom_fd, &rand_seed, sizeof(rand_seed), "/dev/urandom");
+    srandom(rand_seed[0]);
+    rand_cnt = (RESEED_RNG / 2) + (rand_seed[1] % RESEED_RNG);
 
   }
 
   return random() % limit;
 #endif
+
+}
+
+static inline u32 get_rand_seed() {
+
+  if (fixed_seed) return (u32)init_seed;
+  return rand_seed[0];
 
 }
 
