@@ -166,7 +166,7 @@ void bind_to_free_cpu(void) {
 
   for (i = 0; i < proccount; i++) {
 
-    if (procs[i].p_cpuid < sizeof(cpu_used)) cpu_used[procs[i].p_cpuid] = 1;
+    if (procs[i].p_cpuid < sizeof(cpu_used) && procs[i].p_pctcpu > 0) cpu_used[procs[i].p_cpuid] = 1;
 
   }
 
