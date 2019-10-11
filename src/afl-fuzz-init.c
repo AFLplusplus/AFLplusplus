@@ -138,7 +138,7 @@ void bind_to_free_cpu(void) {
 
   for (i = 0; i < proccount; i++) {
 
-    if (procs[i].ki_oncpu < sizeof(cpu_used)) cpu_used[procs[i].ki_oncpu] = 1;
+    if (procs[i].ki_oncpu < sizeof(cpu_used) && procs[i].ki_pctcpu > 0) cpu_used[procs[i].ki_oncpu] = 1;
 
   }
 
