@@ -82,6 +82,7 @@
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__)
 #define HAVE_AFFINITY 1
 #if defined(__FreeBSD__)
+#include <sys/param.h>
 #include <sys/cpuset.h>
 #include <sys/user.h>
 #include <pthread.h>
