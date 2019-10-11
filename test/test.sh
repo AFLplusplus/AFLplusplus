@@ -64,7 +64,7 @@ $ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
 $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap and afl-fuzz"
 test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
   ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
-  AFL_HARDEN=1 ../${AFL_GCC} -o test-instr.harden ../test-instr.c > /dev/null 2>&1
+  AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
     $ECHO "$GREEN[+] ${AFL_GCC} compilation succeeded"
     echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
@@ -76,11 +76,11 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
     } || $ECHO "$RED[!] ${AFL_GCC} instrumentation failed"
     rm -f test-instr.plain.0 test-instr.plain.1
   } || $ECHO "$RED[!] ${AFL_GCC} failed"
-  test -e test-instr.harden && {
-    grep -qa fstack-protector-all test-instr.harden > /dev/null 2>&1 && {
+  test -e test-compcov.harden && {
+    grep -Eqa 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] ${AFL_GCC} hardened mode succeeded and is working"
     } || $ECHO "$RED[!] ${AFL_GCC} hardened mode is not hardened"
-    rm -f test-instr.harden
+    rm -f test-compcov.harden
   } || $ECHO "$RED[!] ${AFL_GCC} hardened mode compilation failed"
   # now we want to be sure that afl-fuzz is working  
   # make sure core_pattern is set to core on linux
