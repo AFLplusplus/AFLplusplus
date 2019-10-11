@@ -97,12 +97,15 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
     echo 0 > in/in
     $ECHO "$GREY[*] running afl-fuzz for ${AFL_GCC}, this will take approx 10 seconds"
     {
-      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain > /dev/null 2>&1
-    } > /dev/null 2>&1
+      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
+    } >>errors 2>&1
     test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
-    } || $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_GCC}"
-    rm -rf in out
+    } || {
+      cat errors
+      $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_GCC}"
+    }
+    rm -rf in out errors
   }
   rm -f test-instr.plain
 } || $ECHO "$YELLOW[-] afl is not compiled, cannot test"
@@ -144,12 +147,15 @@ test -e ../afl-clang-fast && {
     echo 0 > in/in
     $ECHO "$GREY[*] running afl-fuzz for llvm_mode, this will take approx 10 seconds"
     {
-      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain > /dev/null 2>&1
-    } > /dev/null 2>&1
+      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
+    } >>errors 2>&1
     test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode"
-    } || $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode"
-    rm -rf in out
+    } || {
+      cat errors
+      $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode"
+    }
+    rm -rf in out errors
   }
   rm -f test-instr.plain
 
