@@ -48,7 +48,7 @@ if [ "$PLATFORM" = "OpenBSD" ] ; then
 echo
 echo 'System security features cannot be disabled on OpenBSD.'
 fi
-if [ "$PLATFORM" = "FreeBSD" ] ; then
+if [ "$PLATFORM" = "NetBSD" ] ; then
 echo
 echo It is recommended to enable unprivileged users to set cpu affinity
 to be able to use afl-gotcpu meaningfully.
