@@ -101,7 +101,7 @@ AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
 values / read-only memory. AFL_COMPCOV_LEVEL=2 instruments all
 comparison instructions and memory comparison functions when libcompcov
 is preloaded. Comparison instructions are currently instrumented only
-on the x86 and x86_64 targets.
+on the x86, x86_64 and ARM targets.
 
 Highly recommended.
 
