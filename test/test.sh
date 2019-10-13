@@ -113,7 +113,11 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
 $ECHO "$BLUE[*] Testing: llvm_mode"
 test -e ../afl-clang-fast && {
   # on FreeBSD need to set AFL_CC
-  export AFL_CC=`llvm-config --bindir`/clang
+  if which clang >/dev/null; then
+      export AFL_CC=`which clang`
+  else
+      export AFL_CC=`llvm-config --bindir`/clang
+  fi
   ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-clang-fast -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
@@ -244,25 +248,28 @@ test -e ../afl-qemu-trace && {
         } || {
           cat errors
           $ECHO "$RED[!] afl-fuzz is not working correctly with qemu_mode libcompcov"
-	}
+        }
       } || $ECHO "$YELLOW[-] we cannot test qemu_mode libcompcov because it is not present"
+      rm -f errors
+
+      $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
+      {
+        export AFL_QEMU_PERSISTENT_ADDR=0x$(nm test-instr | grep "T main" | awk '{ print $1 }')
+        export AFL_QEMU_PERSISTENT_GPR=1
+        ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr > /dev/null 2>&1
+      } >>errors 2>&1
+      test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
+      } || {
+        cat errors
+        $ECHO "$RED[!] afl-fuzz is not working correctly with persistent qemu_mode"
+        exit 1
+      }
+      $ECHO "$YELLOW[?] we need a test case for qemu_mode unsigaction library"
       rm -rf in out errors
     }
   } || $ECHO "$RED[-] gcc compilation of test targets failed - what is going on??"
   
-  $ECHO "$YELLOW[?] we need a test case for qemu_mode persistent mode"
-  $ECHO "$YELLOW[?] we need a test case for qemu_mode unsigaction library"
-  # This works but there are already problems with persistent (e.g. stability)
-  #$ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
-  #{
-  #  export AFL_QEMU_PERSISTENT_ADDR=0x$(nm test-instr | grep "T main" | awk '{ print $1 }')
-  #  export AFL_QEMU_PERSISTENT_GPR=1
-  #  ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr > /dev/null 2>&1
-  #} > /dev/null 2>&1
-  #test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
-  #  $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
-  #} || $ECHO "$RED[!] afl-fuzz is not working correctly with persistent qemu_mode"
-
   rm -f test-instr test-compcov
 } || $ECHO "$YELLOW[-] qemu_mode is not compiled, cannot test"
 
