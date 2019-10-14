@@ -4,6 +4,7 @@ Roadmap 2.55d:
 
 afl-fuzz:
  - radamsa mutator
+ - test the libmutator actually works and does not run infinite (need an example though)
 
 gcc_plugin:
  - needs to be rewritten

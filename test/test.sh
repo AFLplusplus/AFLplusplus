@@ -102,7 +102,9 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
     test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
     } || {
-      cat errors
+        echo CUT------------------------------------------------------------------CUT
+        cat errors
+        echo CUT------------------------------------------------------------------CUT
       $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_GCC}"
     }
     rm -rf in out errors
@@ -156,7 +158,9 @@ test -e ../afl-clang-fast && {
     test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode"
     } || {
+      echo CUT------------------------------------------------------------------CUT
       cat errors
+      echo CUT------------------------------------------------------------------CUT
       $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode"
     }
     rm -rf in out errors
@@ -231,7 +235,9 @@ test -e ../afl-qemu-trace && {
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode"
       } || {
+        echo CUT------------------------------------------------------------------CUT
         cat errors
+        echo CUT------------------------------------------------------------------CUT
         $ECHO "$RED[!] afl-fuzz is not working correctly with qemu_mode"
       }
       rm -f errors
@@ -246,7 +252,9 @@ test -e ../afl-qemu-trace && {
         test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode libcompcov"
         } || {
+          echo CUT------------------------------------------------------------------CUT
           cat errors
+          echo CUT------------------------------------------------------------------CUT
           $ECHO "$RED[!] afl-fuzz is not working correctly with qemu_mode libcompcov"
         }
       } || $ECHO "$YELLOW[-] we cannot test qemu_mode libcompcov because it is not present"
@@ -261,7 +269,9 @@ test -e ../afl-qemu-trace && {
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
       } || {
+        echo CUT------------------------------------------------------------------CUT
         cat errors
+        echo CUT------------------------------------------------------------------CUT
         $ECHO "$RED[!] afl-fuzz is not working correctly with persistent qemu_mode"
         exit 1
       }
@@ -286,20 +296,24 @@ test -d ../unicorn_mode/unicorn && {
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
       } || {
+        echo CUT------------------------------------------------------------------CUT
         cat errors
+        echo CUT------------------------------------------------------------------CUT
         $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode"
       }
       rm -f errors
 
-      $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 15 seconds"
+      $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 25 seconds"
       {
         export AFL_COMPCOV_LEVEL=2
-        ../afl-fuzz -V15 -U -i in -o out -d -- python ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
+        ../afl-fuzz -V25 -U -i in -o out -d -- python ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
       } || {
+        echo CUT------------------------------------------------------------------CUT
         cat errors
+        echo CUT------------------------------------------------------------------CUT
         $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode compcov"
       }
       rm -rf in out errors
