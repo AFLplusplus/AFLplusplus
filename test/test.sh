@@ -234,6 +234,7 @@ test -e ../afl-qemu-trace && {
       } >>errors 2>&1
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode"
+        RUNTIME=`grep execs_done out/fuzzer_stats | awk '{print$3}'`
       } || {
         echo CUT------------------------------------------------------------------CUT
         cat errors
@@ -268,6 +269,18 @@ test -e ../afl-qemu-trace && {
       } >>errors 2>&1
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
+        RUNTIMEP=`grep execs_done out/fuzzer_stats | awk '{print$3}'`
+        test -n "$RUNTIME" -a -n "$RUNTIMEP" && {
+          SLOW=`expr $RUNTIME '*' 103` # persistent mode should be at least 3% faster - minimum!
+          FAST=`expr $RUNTIMEP '*' 100`
+          test "$SLOW" -lt "$FAST" && {
+            $ECHO "$GREEN[+] persistent qemu_mode was noticeable faster than standard qemu_mode"
+          } || {
+            $ECHO "$YELLOW[?] persistent qemu_mode was not noticeable faster than standard qemu_mode"
+          }
+        } || {
+          $ECHO "$YELLOW[?] we got no data on executions performed? weird!"
+        }
       } || {
         echo CUT------------------------------------------------------------------CUT
         cat errors
