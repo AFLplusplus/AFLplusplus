@@ -1,8 +1,8 @@
 # american fuzzy lop plus plus (afl++)
 
-  Release Version: 2.54c 
+  Release Version: 2.57c 
 
-  Github Version: 2.54d
+  Github Version: 2.57d
 
   includes all necessary/interesting changes from Google's afl 2.56b
 
@@ -22,7 +22,7 @@
 ## The enhancements compared to the original stock afl
 
   Many improvements were made over the official afl release - which did not
-  get any improvements since November 2017.
+  get any feature improvements since November 2017.
 
   Among other changes afl++ has a more performant llvm_mode, supports
   llvm up to version 9, QEMU 3.1, more speed and crashfixes for QEMU,
@@ -103,6 +103,7 @@ These build options exist:
 * distrib: everything (for both binary-only and source code fuzzing)
 * install: installs everything you have compiled with the build options above
 * clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well
+* tests: runs test cases to ensure that all features are still working as they should
 * help: shows these build options
 
 [Unless you are on Mac OS X](https://developer.apple.com/library/archive/qa/qa1118/_index.html) you can also build statically linked versions of the 

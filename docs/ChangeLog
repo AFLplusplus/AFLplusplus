@@ -13,12 +13,13 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-----------------------
-Version ++2.54d (dev):
-----------------------
+--------------------------------
+Version ++2.54d-2.57c (release):
+--------------------------------
 
+  - we jump to 2.57 instead of 2.55 to catch up with Google's versioning
   - persistent mode for QEMU (see qemu_mode/README.md)
-  - custom mutator library is now a standard mutator, to exclusivly use it
+  - custom mutator library is now an additional mutator, to exclusivly use it
     add AFL_CUSTOM_MUTATOR_ONLY (that will trigger the previous behaviour)
   - new library qemu_mode/unsigaction which filters sigaction events
   - afl-fuzz: new command line option -I to execute a command on a new crash
