@@ -42,6 +42,7 @@ Version ++2.54d-2.57c (release):
   - updated documentation
   - Wine mode to run Win32 binaries with the QEMU instrumentation (-W)
   - CompareCoverage for ARM target in QEMU/Unicorn
+  - laf-intel in llvm_mode now also handles floating point comparisons
 
 
 --------------------------
