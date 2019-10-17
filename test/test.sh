@@ -302,9 +302,9 @@ test -d ../unicorn_mode/unicorn && {
     {
       mkdir -p in
       echo 0 > in/in
-      $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 15 seconds"
+      $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 20 seconds"
       {
-        ../afl-fuzz -V15 -U -i in -o out -d -- python ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
+        ../afl-fuzz -V20 -U -i in -o out -d -- python ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
