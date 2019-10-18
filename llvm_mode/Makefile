@@ -220,7 +220,7 @@ vpath  % ..
 	@../$* -h 2>&1 | tail -n +4 >> ../$@
 	@echo >> ../$@
 	@echo .SH AUTHOR >> ../$@
-	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexc0der\" Eissfeldt <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>" >> ../$@
+	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>" >> ../$@
 	@echo  The homepage of afl++ is: https://github.com/vanhauser-thc/AFLplusplus >> ../$@
 	@echo >> ../$@
 	@echo .SH LICENSE >> ../$@
