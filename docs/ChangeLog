@@ -17,7 +17,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.57d (dev):
 ----------------------
 
-  - revertedd patch to not unlink and recreate the input file, it resulted in performance loss
+  - reverted patch to not unlink and recreate the input file, it resulted in performance loss
+  - added test/test-performance.sh script
 
 
 --------------------------------
