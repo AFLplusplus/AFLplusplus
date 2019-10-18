@@ -71,11 +71,11 @@ tools make fairly broad use of environmental variables:
   - Setting AFL_CAL_FAST will speed up the initial calibration, if the
     application is very slow
 
-2) Settings for afl-clang-fast / afl-clang-fast++
--------------------------------------------------
+2) Settings for afl-clang-fast / afl-clang-fast++ / afl-gcc-fast / afl-g++-fast
+---------------------------------------------------------------------------------
 
-The native LLVM instrumentation helper accepts a subset of the settings
-discussed in section #1, with the exception of:
+The native instrumentation helpers (llvm_mode and gcc_plugin) accept a subset
+of the settings discussed in section #1, with the exception of:
 
   - AFL_AS, since this toolchain does not directly invoke GNU as.
 
@@ -100,7 +100,7 @@ Then there are a few specific features that are only available in llvm_mode:
     - Setting AFL_LLVM_LAF_SPLIT_COMPARES will split all floating point and
       64, 32 and 16 bit integer CMP instructions
 
-    See llvm_mode/README.laf-intel for more information. 
+    See llvm_mode/README.laf-intel.md for more information. 
 
   WHITELIST
   =========
@@ -109,7 +109,7 @@ Then there are a few specific features that are only available in llvm_mode:
     - Setting AFL_LLVM_WHITELIST with a filename will only instrument those
       files that match the names listed in this file.
 
-    See llvm_mode/README.whitelist for more information.
+    See llvm_mode/README.whitelist.md for more information.
 
   INSTRIM
   =======
@@ -122,7 +122,7 @@ Then there are a few specific features that are only available in llvm_mode:
       afl-fuzz will only be able to see the path the loop took, but not how
       many times it was called (unless it is a complex loop).
 
-    See llvm_mode/README.instrim
+    See llvm_mode/README.instrim.md
 
   NOT_ZERO
   ========
@@ -133,7 +133,18 @@ Then there are a few specific features that are only available in llvm_mode:
       slowdown due a performance issue that is only fixed in llvm 9+.
       This feature increases path discovery by a little bit.
 
-    See llvm_mode/README.neverzero
+    See llvm_mode/README.neverzero.md
+
+Then there are a few specific features that are only available in the gcc_plugin:
+
+  WHITELIST
+  =========
+    This feature allows selective instrumentation of the source
+
+    - Setting AFL_GCC_WHITELIST with a filename will only instrument those
+      files that match the names listed in this file (one filename per line).
+
+    See gcc_plugin/README.whitelist.md for more information.
 
 3) Settings for afl-fuzz
 ------------------------
@@ -257,7 +268,7 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - Setting AFL_COMPCOV_LEVEL enables the CompareCoverage tracing of all cmp
     and sub in x86 and x86_64 and memory comparions functions (e.g. strcmp,
     memcmp, ...) when libcompcov is preloaded using AFL_PRELOAD.
-    More info at qemu_mode/libcompcov/README.compcov.
+    More info at qemu_mode/libcompcov/README.md.
     There are two levels at the moment, AFL_COMPCOV_LEVEL=1 that instruments
     only comparisons with immediate values / read-only memory and
     AFL_COMPCOV_LEVEL=2 that instruments all the comparions. Level 2 is more
@@ -318,7 +329,7 @@ of decimal.
 8) Settings for libdislocator.so
 --------------------------------
 
-The library honors three environmental variables:
+The library honors these environmental variables:
 
   - AFL_LD_LIMIT_MB caps the size of the maximum heap usage permitted by the
     library, in megabytes. The default value is 1 GB. Once this is exceeded,

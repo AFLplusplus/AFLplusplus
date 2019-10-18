@@ -23,6 +23,8 @@ afl-clang-fast.8
 afl-cmin.8
 afl-fuzz.8
 afl-gcc.8
+afl-gcc-fast.8
+afl-g++-fast.8
 afl-gotcpu.8
 afl-plot.8
 afl-showmap.8
