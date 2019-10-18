@@ -13,6 +13,13 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+----------------------
+Version ++2.57d (dev):
+----------------------
+
+  - revertedd patch to not unlink and recreate the input file, it resulted in performance loss
+
+
 --------------------------------
 Version ++2.54d-2.57c (release):
 --------------------------------
