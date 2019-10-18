@@ -131,7 +131,7 @@ static void edit_params(u32 argc, char** argv) {
   if (!name)
     name = argv[0];
   else
-    name++;
+    ++name;
 
   if (!strncmp(name, "afl-clang", 9)) {
 

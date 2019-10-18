@@ -200,6 +200,75 @@ test -e ../afl-clang-fast && {
   rm -f test-persistent
 } || $ECHO "$YELLOW[-] llvm_mode not compiled, cannot test"
 
+$ECHO "$BLUE[*] Testing: gcc_plugin"
+export AFL_CC=`which gcc`
+test -e ../afl-gcc-fast && {
+  ../afl-gcc-fast -o test-instr.plain.gccpi ../test-instr.c > /dev/null 2>&1
+  AFL_HARDEN=1 ../afl-gcc-fast -o test-compcov.harden.gccpi test-compcov.c > /dev/null 2>&1
+  test -e test-instr.plain.gccpi && {
+    $ECHO "$GREEN[+] gcc_plugin compilation succeeded"
+    echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain.gccpi > /dev/null 2>&1
+    ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain.gccpi < /dev/null > /dev/null 2>&1
+    test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
+      diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
+        $ECHO "$RED[!] gcc_plugin instrumentation should be different on different input but is not"
+      } || $ECHO "$GREEN[+] gcc_plugin instrumentation present and working correctly"
+    } || $ECHO "$RED[!] gcc_plugin instrumentation failed"
+    rm -f test-instr.plain.0 test-instr.plain.1
+  } || $ECHO "$RED[!] gcc_plugin failed"
+
+  test -e test-compcov.harden.gccpi && {
+    grep -Eqa 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden.gccpi > /dev/null 2>&1 && {
+      $ECHO "$GREEN[+] gcc_plugin hardened mode succeeded and is working"
+    } || $ECHO "$RED[!] gcc_plugin hardened mode is not hardened"
+    rm -f test-compcov.harden.gccpi
+  } || $ECHO "$RED[!] gcc_plugin hardened mode compilation failed"
+  # now we want to be sure that afl-fuzz is working  
+  (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
+    $ECHO "$RED[!] we cannot run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    true
+  }) ||
+  # make sure crash reporter is disabled on Mac OS X
+  (test "$(uname -s)" = "Darwin" && test $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') && {
+    $ECHO "$RED[!] we cannot run afl-fuzz with enabled crash reporter. Run 'sudo sh afl-system-config'.$RESET"
+    true
+  }) || {
+    mkdir -p in
+    echo 0 > in/in
+    $ECHO "$GREY[*] running afl-fuzz for gcc_plugin, this will take approx 10 seconds"
+    {
+      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain.gccpi >>errors 2>&1
+    } >>errors 2>&1
+    test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+      $ECHO "$GREEN[+] afl-fuzz is working correctly with gcc_plugin"
+    } || {
+      echo CUT------------------------------------------------------------------CUT
+      cat errors
+      echo CUT------------------------------------------------------------------CUT
+      $ECHO "$RED[!] afl-fuzz is not working correctly with gcc_plugin"
+    }
+    rm -rf in out errors
+  }
+  rm -f test-instr.plain.gccpi
+
+  # now for the special gcc_plugin things
+  echo foobar.c > whitelist.txt
+  AFL_GCC_WHITELIST=whitelist.txt ../afl-gcc-fast -o test-compcov test-compcov.c > /dev/null 2>&1
+  test -e test-compcov && {
+    echo 1 | ../afl-showmap -m ${MEM_LIMIT} -o - -r -- ./test-compcov 2>&1 | grep -q "Captured 1 tuples" && {
+      $ECHO "$GREEN[+] gcc_plugin whitelist feature works correctly"
+    } || $ECHO "$RED[!] gcc_plugin whitelist feature failed"
+  } || $ECHO "$RED[!] gcc_plugin whitelist feature compilation failed"
+  rm -f test-compcov test.out whitelist.txt
+  ../afl-gcc-fast -o test-persistent ../experimental/persistent_demo/persistent_demo.c > /dev/null 2>&1
+  test -e test-persistent && {
+    echo foo | ../afl-showmap -o /dev/null -q -r ./test-persistent && {
+      $ECHO "$GREEN[+] gcc_plugin persistent mode feature works correctly"
+    } || $ECHO "$RED[!] gcc_plugin persistent mode feature failed to work"
+  } || $ECHO "$RED[!] gcc_plugin persistent mode feature compilation failed"
+  rm -f test-persistent
+} || $ECHO "$YELLOW[-] gcc_plugin not compiled, cannot test"
+
 $ECHO "$BLUE[*] Testing: shared library extensions"
 gcc -o test-compcov test-compcov.c > /dev/null 2>&1
 test -e ../libtokencap.so && {

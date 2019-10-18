@@ -416,7 +416,7 @@ public:
 
 			/* Either we couldn't figure out our location or the location is
 			 * not whitelisted, so we skip instrumentation. */
-			if (!instrumentBlock) return 0;;
+			if (!instrumentBlock) return 0;
 		}
 
 		return do_ext_call ? ext_call_instrument(fun) : inline_instrument(fun);
@@ -464,7 +464,7 @@ int plugin_init(struct plugin_name_args *plugin_info,
 
 	/* Show a banner */
 	if (isatty(2) && !getenv("AFL_QUIET")) {
-		SAYF(G_(cCYA "afl-gcc-pass " cBRI VERSION cRST " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n"));
+		SAYF(G_(cCYA "afl-gcc-pass" VERSION cRST " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n"));
 	} else
 		be_quiet = 1;
 
