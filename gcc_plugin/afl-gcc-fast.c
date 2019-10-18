@@ -104,7 +104,7 @@ static void edit_params(u32 argc, char** argv) {
   cc_params = ck_alloc((argc + 64) * sizeof(u8*));
 
   name = strrchr(argv[0], '/');
-  if (!name) name = argv[0]; else name++;
+  if (!name) name = argv[0]; else ++name;
 
   if (!strcmp(name, "afl-g++-fast")) {
     u8* alt_cxx = getenv("AFL_CXX");
@@ -114,8 +114,14 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[0] = alt_cc ? alt_cc : (u8*)"gcc";
   }
 
+
+
   char* fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
   cc_params[cc_par_cnt++] = fplugin_arg;
+
+  /* Detect stray -v calls from ./configure scripts. */
+
+  if (argc == 1 && !strcmp(argv[1], "-v")) maybe_linking = 0;
 
   while (--argc) {
     u8* cur = *(++argv);
@@ -134,6 +140,8 @@ static void edit_params(u32 argc, char** argv) {
 
     if (strstr(cur, "FORTIFY_SOURCE")) fortify_set = 1;
 
+    if (!strcmp(cur, "-shared")) maybe_linking = 0;
+
     cc_params[cc_par_cnt++] = cur;
 
   }
@@ -151,17 +159,23 @@ static void edit_params(u32 argc, char** argv) {
 
     if (getenv("AFL_USE_ASAN")) {
 
-      cc_params[cc_par_cnt++] = "-fsanitize=address";
+      if (getenv("AFL_USE_MSAN")) FATAL("ASAN and MSAN are mutually exclusive");
 
-      if (getenv("AFL_USE_MSAN"))
-        FATAL("ASAN and MSAN are mutually exclusive");
+      if (getenv("AFL_HARDEN"))
+        FATAL("ASAN and AFL_HARDEN are mutually exclusive");
+
+      cc_params[cc_par_cnt++] = "-U_FORTIFY_SOURCE";
+      cc_params[cc_par_cnt++] = "-fsanitize=address";
 
     } else if (getenv("AFL_USE_MSAN")) {
 
-      cc_params[cc_par_cnt++] = "-fsanitize=memory";
+      if (getenv("AFL_USE_ASAN")) FATAL("ASAN and MSAN are mutually exclusive");
 
-      if (getenv("AFL_USE_ASAN"))
-        FATAL("ASAN and MSAN are mutually exclusive");
+      if (getenv("AFL_HARDEN"))
+        FATAL("MSAN and AFL_HARDEN are mutually exclusive");
+
+      cc_params[cc_par_cnt++] = "-U_FORTIFY_SOURCE";
+      cc_params[cc_par_cnt++] = "-fsanitize=memory";
 
     }
 
@@ -175,7 +189,13 @@ static void edit_params(u32 argc, char** argv) {
 
   }
 
+#ifdef USEMMAP
+  cc_params[cc_par_cnt++] = "-lrt";
+#endif
+
   cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
+  cc_params[cc_par_cnt++] = "-D__AFL_COMPILER=1";
+  cc_params[cc_par_cnt++] = "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1";
 
   /* When the user tries to use persistent or deferred forkserver modes by
      appending a single line to the program, we want to reliably inject a
@@ -237,15 +257,10 @@ static void edit_params(u32 argc, char** argv) {
 
 int main(int argc, char** argv) {
 
-  if (isatty(2) && !getenv("AFL_QUIET")) {
+  if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
-    SAYF(cCYA "afl-gcc-fast " cBRI VERSION cRST " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n");
-
-  }
-
-  if (argc < 2) {
-
-    SAYF("\n"
+    printf(cCYA "afl-gcc-fast" VERSION cRST " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n"
+         "\n"
          "This is a helper application for afl-fuzz. It serves as a drop-in replacement\n"
          "for gcc, letting you recompile third-party code with the required runtime\n"
          "instrumentation. A common use pattern would be one of the following:\n\n"
@@ -263,8 +278,11 @@ int main(int argc, char** argv) {
 
     exit(1);
 
-  }
+  } else if (isatty(2) && !getenv("AFL_QUIET")) {
 
+    SAYF(cCYA "afl-gcc-fast" VERSION cRST " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n");
+
+  }
 
   find_obj(argv[0]);
 

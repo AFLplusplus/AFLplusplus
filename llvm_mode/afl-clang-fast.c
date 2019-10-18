@@ -112,7 +112,7 @@ static void edit_params(u32 argc, char** argv) {
   if (!name)
     name = argv[0];
   else
-    name++;
+    ++name;
 
   if (!strcmp(name, "afl-clang-fast++")) {
 
@@ -128,7 +128,7 @@ static void edit_params(u32 argc, char** argv) {
 
   /* There are three ways to compile with afl-clang-fast. In the traditional
      mode, we use afl-llvm-pass.so, then there is libLLVMInsTrim.so which is
-     much faster but has less coverage. Finally tere is the experimental
+     much faster but has less coverage. Finally there is the experimental
      'trace-pc-guard' mode, we use native LLVM instrumentation callbacks
      instead. For trace-pc-guard see:
      http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards
