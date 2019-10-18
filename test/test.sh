@@ -46,10 +46,11 @@ test -e /usr/local/bin/opt && {
 # on MacOS X we prefer afl-clang over afl-gcc, because
 # afl-gcc does not work there
 test `uname -s` = 'Darwin' -o `uname -s` = 'FreeBSD' && {
-AFL_GCC=afl-clang
+  AFL_GCC=afl-clang
 } || {
-AFL_GCC=afl-gcc
+  AFL_GCC=afl-gcc
 }
+
 GREY="\\033[1;90m"
 BLUE="\\033[1;94m"
 GREEN="\\033[0;32m"
@@ -102,9 +103,9 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
     test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
     } || {
-        echo CUT------------------------------------------------------------------CUT
-        cat errors
-        echo CUT------------------------------------------------------------------CUT
+      echo CUT------------------------------------------------------------------CUT
+      cat errors
+      echo CUT------------------------------------------------------------------CUT
       $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_GCC}"
     }
     rm -rf in out errors
@@ -116,9 +117,9 @@ $ECHO "$BLUE[*] Testing: llvm_mode"
 test -e ../afl-clang-fast && {
   # on FreeBSD need to set AFL_CC
   if which clang >/dev/null; then
-      export AFL_CC=`which clang`
+    export AFL_CC=`which clang`
   else
-      export AFL_CC=`llvm-config --bindir`/clang
+    export AFL_CC=`llvm-config --bindir`/clang
   fi
   ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-clang-fast -o test-compcov.harden test-compcov.c > /dev/null 2>&1
