@@ -3,7 +3,7 @@
    ---------------------------------------------------
 
    Written by Laszlo Szekeres <lszekeres@google.com> and
-              Michal Zalewski <lcamtuf@google.com>
+              Michal Zalewski
 
    LLVM integration design comes from Laszlo Szekeres. C bits copied-and-pasted
    from afl-as.c are Michal's fault.

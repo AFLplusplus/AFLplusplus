@@ -3,7 +3,7 @@
 # american fuzzy lop - Advanced Persistent Graphing
 # -------------------------------------------------
 #
-# Written and maintained by Michal Zalewski <lcamtuf@google.com>
+# Written by Michal Zalewski
 # Based on a design & prototype by Michael Rash.
 #
 # Copyright 2014, 2015 Google Inc. All rights reserved.
@@ -15,7 +15,7 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
-echo "progress plotting utility for afl-fuzz by <lcamtuf@google.com>"
+echo "progress plotting utility for afl-fuzz by Michal Zalewski"
 echo
 
 if [ ! "$#" = "2" ]; then

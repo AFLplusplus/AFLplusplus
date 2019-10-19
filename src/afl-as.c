@@ -2,7 +2,7 @@
    american fuzzy lop++ - wrapper for GNU as
    -----------------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
@@ -501,7 +501,7 @@ int main(int argc, char** argv) {
 
   if (isatty(2) && !getenv("AFL_QUIET")) {
 
-    SAYF(cCYA "afl-as" VERSION cRST " by <lcamtuf@google.com>\n");
+    SAYF(cCYA "afl-as" VERSION cRST " by Michal Zalewski\n");
 
   } else
 

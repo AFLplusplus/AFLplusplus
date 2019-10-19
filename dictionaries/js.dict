@@ -4,7 +4,7 @@
 #
 # Contains basic reserved keywords and syntax building blocks.
 #
-# Created by Michal Zalewski <lcamtuf@google.com>
+# Created by Michal Zalewski
 #
 
 keyword_arguments="arguments"

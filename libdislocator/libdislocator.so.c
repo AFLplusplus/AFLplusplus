@@ -3,7 +3,7 @@
    american fuzzy lop - dislocator, an abusive allocator
    -----------------------------------------------------
 
-   Written and maintained by Michal Zalewski <lcamtuf@google.com>
+   Written by Michal Zalewski
 
    Copyright 2016 Google Inc. All rights reserved.
 

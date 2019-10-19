@@ -2,7 +2,7 @@
 # AFL dictionary for GIF images
 # -----------------------------
 #
-# Created by Michal Zalewski <lcamtuf@google.com>
+# Created by Michal Zalewski
 #
 
 header_87a="87a"

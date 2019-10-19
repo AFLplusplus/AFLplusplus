@@ -2,7 +2,7 @@
    american fuzzy lop - free CPU gizmo
    -----------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
 
   if (argc > 1) {
 
-    printf("afl-gotcpu" VERSION " by <lcamtuf@google.com>\n");
+    printf("afl-gotcpu" VERSION " by Michal Zalewski\n");
     printf("\n%s \n\n", argv[0]);
     printf("afl-gotcpu does not have command line options\n");
     printf("afl-gotcpu prints out which CPUs are available\n");
@@ -154,7 +154,7 @@ int main(int argc, char** argv) {
 
   u32 cpu_cnt = sysconf(_SC_NPROCESSORS_ONLN), idle_cpus = 0, maybe_cpus = 0, i;
 
-  SAYF(cCYA "afl-gotcpu" VERSION cRST " by <lcamtuf@google.com>\n");
+  SAYF(cCYA "afl-gotcpu" VERSION cRST " by Michal Zalewski\n");
 
   ACTF("Measuring per-core preemption rate (this will take %0.02f sec)...",
        ((double)CTEST_CORE_TRG_MS) / 1000);
@@ -275,7 +275,7 @@ int main(int argc, char** argv) {
 
   u32 util_perc;
 
-  SAYF(cCYA "afl-gotcpu" VERSION cRST " by <lcamtuf@google.com>\n");
+  SAYF(cCYA "afl-gotcpu" VERSION cRST " by Michal Zalewski\n");
 
   /* Run a busy loop for CTEST_TARGET_MS. */
 

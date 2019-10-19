@@ -3,7 +3,7 @@
    ----------------------------------------------
 
    Originally written by Andrew Griffiths <agriffiths@google.com> and
-                         Michal Zalewski <lcamtuf@google.com>
+                         Michal Zalewski
 
    Adapted for afl-unicorn by Dominik Maier <mail@dmnk.co>
 

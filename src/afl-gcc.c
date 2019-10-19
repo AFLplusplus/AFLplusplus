@@ -2,7 +2,7 @@
    american fuzzy lop++ - wrapper for GCC and clang
    ------------------------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
@@ -335,7 +335,7 @@ int main(int argc, char** argv) {
 
   if (argc == 2 && strcmp(argv[1], "-h") == 0) {
 
-    printf("afl-cc" VERSION " by <lcamtuf@google.com>\n\n");
+    printf("afl-cc" VERSION " by Michal Zalewski\n\n");
     printf("%s \n\n", argv[0]);
     printf("afl-gcc has no command line options\n");
     printf(
@@ -347,7 +347,7 @@ int main(int argc, char** argv) {
 
   if (isatty(2) && !getenv("AFL_QUIET")) {
 
-    SAYF(cCYA "afl-cc" VERSION cRST " by <lcamtuf@google.com>\n");
+    SAYF(cCYA "afl-cc" VERSION cRST " by Michal Zalewski\n");
     SAYF(cYEL "[!] " cBRI "NOTE: " cRST
               "afl-gcc is deprecated, llvm_mode is much faster and has more "
               "options\n");

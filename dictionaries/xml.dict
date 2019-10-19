@@ -4,7 +4,7 @@
 #
 # Several basic syntax elements and attributes, modeled on libxml2.
 #
-# Created by Michal Zalewski <lcamtuf@google.com>
+# Created by Michal Zalewski
 #
 
 attr_encoding=" encoding=\"1\""
