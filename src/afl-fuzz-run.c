@@ -288,8 +288,7 @@ void write_to_testcase(void* mem, u32 len) {
 
   if (out_file) {
 
-    unlink(out_file);                                     /* Ignore errors.
-    // */
+    unlink(out_file);                                     /* Ignore errors. */
 
     fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
@@ -331,8 +330,7 @@ void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) {
 
   if (out_file) {
 
-    unlink(out_file);                                     /* Ignore errors.
-    // */
+    unlink(out_file);                                     /* Ignore errors. */
 
     fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 

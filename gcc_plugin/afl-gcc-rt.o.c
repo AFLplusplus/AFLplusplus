@@ -34,15 +34,13 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
-
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
-   is used for instrumentation output before __afl_map_shm() has a chance to run.
-   It will end up as .comm, so it shouldn't be too wasteful. */
+   is used for instrumentation output before __afl_map_shm() has a chance to
+   run. It will end up as .comm, so it shouldn't be too wasteful. */
 
 u8  __afl_area_initial[MAP_SIZE];
-u8* __afl_area_ptr = __afl_area_initial;
+u8 *__afl_area_ptr = __afl_area_initial;
 u32 __afl_prev_loc;
-
 
 /* Running in persistent mode? */
 
@@ -50,11 +48,13 @@ static u8 is_persistent;
 
 /* Trace a basic block with some ID */
 void __afl_trace(u32 x) {
+
   u32 l = __afl_prev_loc;
   u32 n = l ^ x;
-  *(__afl_area_ptr+n) += 1;
+  *(__afl_area_ptr + n) += 1;
   __afl_prev_loc = (x >> 1);
   return;
+
 }
 
 /* SHM setup. */
@@ -86,15 +86,14 @@ static void __afl_map_shm(void) {
 
 }
 
-
 /* Fork server logic. */
 
 static void __afl_start_forkserver(void) {
 
   static u8 tmp[4];
-  s32 child_pid;
+  s32       child_pid;
 
-  u8  child_stopped = 0;
+  u8 child_stopped = 0;
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
@@ -115,8 +114,10 @@ static void __afl_start_forkserver(void) {
        process. */
 
     if (child_stopped && was_killed) {
+
       child_stopped = 0;
       if (waitpid(child_pid, &status, 0) < 0) exit(1);
+
     }
 
     if (!child_stopped) {
@@ -150,8 +151,7 @@ static void __afl_start_forkserver(void) {
 
     if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) exit(1);
 
-    if (waitpid(child_pid, &status, is_persistent ? WUNTRACED : 0) < 0)
-      exit(1);
+    if (waitpid(child_pid, &status, is_persistent ? WUNTRACED : 0) < 0) exit(1);
 
     /* In persistent mode, the child stops itself with SIGSTOP to indicate
        a successful run. In this case, we want to wake it up without forking
@@ -167,7 +167,6 @@ static void __afl_start_forkserver(void) {
 
 }
 
-
 /* A simplified persistent mode handler, used as explained in README.llvm. */
 
 int __afl_persistent_loop(unsigned int max_cnt) {
@@ -177,7 +176,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
   if (first_pass) {
 
-    cycle_cnt  = max_cnt;
+    cycle_cnt = max_cnt;
     first_pass = 0;
     return 1;
 
@@ -188,10 +187,11 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     raise(SIGSTOP);
     return 1;
 
-  } else return 0;
+  } else
+
+    return 0;
 
 }
-
 
 /* This one can be called from user code when deferred forkserver mode
     is enabled. */
@@ -210,7 +210,6 @@ void __afl_manual_init(void) {
 
 }
 
-
 /* Proper initialization routine. */
 
 __attribute__((constructor(101))) void __afl_auto_init(void) {
@@ -222,3 +221,4 @@ __attribute__((constructor(101))) void __afl_auto_init(void) {
   __afl_manual_init();
 
 }
+

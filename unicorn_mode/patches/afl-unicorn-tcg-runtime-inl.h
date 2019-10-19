@@ -49,7 +49,7 @@ void HELPER(afl_compcov_log_32)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
 
   if ((arg1 & 0xff000000) == (arg2 & 0xff000000)) {
 
-    INC_AFL_AREA(cur_loc +2);
+    INC_AFL_AREA(cur_loc + 2);
     if ((arg1 & 0xff0000) == (arg2 & 0xff0000)) {
 
       INC_AFL_AREA(cur_loc + 1);
@@ -68,7 +68,7 @@ void HELPER(afl_compcov_log_64)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
 
   if ((arg1 & 0xff00000000000000) == (arg2 & 0xff00000000000000)) {
 
-    INC_AFL_AREA(cur_loc +6);
+    INC_AFL_AREA(cur_loc + 6);
     if ((arg1 & 0xff000000000000) == (arg2 & 0xff000000000000)) {
 
       INC_AFL_AREA(cur_loc + 5);
@@ -84,11 +84,7 @@ void HELPER(afl_compcov_log_64)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
             if ((arg1 & 0xff0000) == (arg2 & 0xff0000)) {
 
               INC_AFL_AREA(cur_loc + 1);
-              if ((arg1 & 0xff00) == (arg2 & 0xff00)) {
-
-                INC_AFL_AREA(cur_loc);
-
-              }
+              if ((arg1 & 0xff00) == (arg2 & 0xff00)) { INC_AFL_AREA(cur_loc); }
 
             }
 

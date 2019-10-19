@@ -213,6 +213,9 @@ code-format:
 	./.custom-format.py -i llvm_mode/*.c
 	./.custom-format.py -i llvm_mode/*.h
 	./.custom-format.py -i llvm_mode/*.cc
+	./.custom-format.py -i gcc_plugin/*.c
+	./.custom-format.py -i gcc_plugin/*.h
+	./.custom-format.py -i gcc_plugin/*.cc
 	./.custom-format.py -i qemu_mode/patches/*.h
 	./.custom-format.py -i qemu_mode/libcompcov/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.cc
