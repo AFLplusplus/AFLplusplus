@@ -683,10 +683,12 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 #endif                                                    /* ^!SIMPLE_FILES */
 
       ++unique_crashes;
-      
-      if (infoexec) // if the user wants to be informed on new crashes - do that
+
+      if (infoexec)  // if the user wants to be informed on new crashes - do
+                     // that
         if (system(infoexec) == -1)
-          hnb += 0; // we dont care if system errors, but we dont want a compiler warning either
+          hnb += 0;  // we dont care if system errors, but we dont want a
+                     // compiler warning either
 
       last_crash_time = get_cur_time();
       last_crash_execs = total_execs;

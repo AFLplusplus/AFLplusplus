@@ -35,7 +35,8 @@ int main(int argc, char** argv) {
 
   }
 
-  // we support three input cases (plus a 4th if stdin is used but there is no input)
+  // we support three input cases (plus a 4th if stdin is used but there is no
+  // input)
   if (buf[0] == '0')
     printf("Looks like a zero to me!\n");
   else if (buf[0] == '1')
@@ -46,3 +47,4 @@ int main(int argc, char** argv) {
   return 0;
 
 }
+

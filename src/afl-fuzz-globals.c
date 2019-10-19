@@ -74,8 +74,8 @@ u8 *in_dir,                             /* Input directory with test cases  */
     *file_extension,                    /* File extension                   */
     *orig_cmdline;                      /* Original command line            */
 u8 *doc_path,                           /* Path to documentation dir        */
-   *infoexec,				/* Command to execute on a new crash */
-   *out_file;                           /* File to fuzz, if any             */
+    *infoexec,                         /* Command to execute on a new crash */
+    *out_file;                          /* File to fuzz, if any             */
 
 u32 exec_tmout = EXEC_TIMEOUT;          /* Configurable exec timeout (ms)   */
 u32 hang_tmout = EXEC_TIMEOUT;          /* Timeout used for hang det (ms)   */
