@@ -6,7 +6,7 @@
 # Originally written by Nathan Voss <njvoss99@gmail.com>
 # 
 # Adapted from code by Andrew Griffiths <agriffiths@google.com> and
-#                      Michal Zalewski <lcamtuf@google.com>
+#                      Michal Zalewski
 #
 # Adapted for AFLplusplus by Dominik Maier <mail@dmnk.co>
 #

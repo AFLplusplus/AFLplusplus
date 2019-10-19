@@ -2,7 +2,7 @@
 # american fuzzy lop - makefile
 # -----------------------------
 #
-# Written and maintained by Michal Zalewski <lcamtuf@google.com>
+# Written by Michal Zalewski
 # 
 # Copyright 2013, 2014, 2015, 2016, 2017 Google Inc. All rights reserved.
 # 

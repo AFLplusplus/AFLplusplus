@@ -5,7 +5,7 @@
 # Just the basic, standard-originating sections; does not include vendor
 # extensions.
 #
-# Created by Michal Zalewski <lcamtuf@google.com>
+# Created by Michal Zalewski
 #
 
 header_ii="II*\x00"

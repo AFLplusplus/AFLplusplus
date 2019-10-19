@@ -2,7 +2,7 @@
    american fuzzy lop++ - test case minimizer
    ------------------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
 
@@ -1032,7 +1032,7 @@ int main(int argc, char** argv) {
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  SAYF(cCYA "afl-tmin" VERSION cRST " by <lcamtuf@google.com>\n");
+  SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
   while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeQUWh")) > 0)
 

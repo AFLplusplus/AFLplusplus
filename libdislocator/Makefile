@@ -2,7 +2,7 @@
 # american fuzzy lop - libdislocator
 # ----------------------------------
 #
-# Written by Michal Zalewski <lcamtuf@google.com>
+# Written by Michal Zalewski
 #
 # Copyright 2016 Google Inc. All rights reserved.
 #

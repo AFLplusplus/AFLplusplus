@@ -12,7 +12,7 @@
 
    Austin's original code is public domain.
 
-   Other code written and maintained by Michal Zalewski <lcamtuf@google.com>
+   Other code written by Michal Zalewski
 
    Copyright 2016 Google Inc. All rights reserved.
 

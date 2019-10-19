@@ -2,7 +2,7 @@
    american fuzzy lop++ - forkserver code
    --------------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
 

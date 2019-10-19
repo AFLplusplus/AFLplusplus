@@ -4,7 +4,7 @@
 #
 # Written by Austin Seipp <aseipp@pobox.com> and
 #            Laszlo Szekeres <lszekeres@google.com> and
-#            Michal Zalewski <lcamtuf@google.com> and
+#            Michal Zalewski and
 #            Heiko Eißfeldt  <heiko@hexco.de>
 #
 # GCC integration design is based on the LLVM design, which comes

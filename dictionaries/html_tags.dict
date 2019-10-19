@@ -5,7 +5,7 @@
 # A basic collection of HTML tags likely to matter to HTML parsers. Does *not*
 # include any attributes or attribute values.
 #
-# Created by Michal Zalewski <lcamtuf@google.com>
+# Created by Michal Zalewski
 #
 
 tag_a="<a>"

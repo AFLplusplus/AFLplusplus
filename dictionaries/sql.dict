@@ -11,7 +11,7 @@
 # standpoint, because they are usually not allowed in non-privileged
 # contexts).
 #
-# Created by Michal Zalewski <lcamtuf@google.com>
+# Created by Michal Zalewski
 #
 
 function_abs=" abs(1)"

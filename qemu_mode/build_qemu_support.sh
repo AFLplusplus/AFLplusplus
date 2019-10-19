@@ -4,7 +4,7 @@
 # --------------------------------------
 #
 # Originally written by Andrew Griffiths <agriffiths@google.com> and
-#                       Michal Zalewski <lcamtuf@google.com>
+#                       Michal Zalewski
 #
 # TCG instrumentation and block chaining support by Andrea Biondo
 #                                    <andrea.biondo965@gmail.com>
