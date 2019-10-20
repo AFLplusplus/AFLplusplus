@@ -88,6 +88,10 @@ static u8  alloc_verbose,               /* Additional debug messages        */
     hard_fail,                          /* abort() when max_mem exceeded?   */
     no_calloc_over;                     /* abort() on calloc() overflows?   */
 
+#ifdef	__OpenBSD__
+#define __thread
+#warning no thread support available
+#endif
 static __thread size_t total_mem;       /* Currently allocated mem          */
 
 static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
