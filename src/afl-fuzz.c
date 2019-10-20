@@ -554,7 +554,7 @@ int main(int argc, char** argv) {
   if (getenv("AFL_NO_UI") && getenv("AFL_FORCE_UI"))
     FATAL("AFL_NO_UI and AFL_FORCE_UI are mutually exclusive");
 
-  if (strchr(argv[optind], '/') == NULL)
+  if (strchr(argv[optind], '/') == NULL && !unicorn_mode)
     WARNF(cLRD
           "Target binary called without a prefixed path, make sure you are "
           "fuzzing the right binary: " cRST "%s",
