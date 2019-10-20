@@ -281,7 +281,8 @@ test -e ../libtokencap.so && {
 test -e ../libdislocator.so && {
   {
     ulimit -c 1
-    LD_PRELOAD=../libdislocator.so ./test-compcov BUFFEROVERFLOW > test.out 2> /dev/null
+    # DYLD_INSERT_LIBRARIES is used on Darwin/MacOSX
+    LD_PRELOAD=../libdislocator.so DYLD_INSERT_LIBRARIES=../libdislocator.so ./test-compcov BUFFEROVERFLOW > test.out 2> /dev/null
   } > /dev/null 2>&1
   grep -q BUFFEROVERFLOW test.out > /dev/null 2>&1 && {
     $ECHO "$RED[!] libdislocator did not detect the memory corruption"
