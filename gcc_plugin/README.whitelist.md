@@ -6,8 +6,7 @@ Using afl++ with partial instrumentation
   that are interesting to you using the gcc instrumentation provided by
   afl++.
 
-  Originally developed by Christian Holler (:decoder) <choller@mozilla.com>, 
-  adapted to gcc plugin by hexcoder-.
+  Plugin by hexcoder-.
 
 
 ## 1) Description and purpose

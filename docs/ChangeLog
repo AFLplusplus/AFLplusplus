@@ -13,14 +13,16 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-----------------------
-Version ++2.57d (dev):
-----------------------
+--------------------------
+Version ++2.58c (release):
+--------------------------
 
-  - reverted patch to not unlink and recreate the input file, it resulted in performance loss
+  - reverted patch to not unlink and recreate the input file, it resulted in
+    performance loss of ~10%
   - added test/test-performance.sh script
-  - (re)added gcc_plugin, fast inline instrumentation is not yet finished
-  - added gcc_plugin tests
+  - (re)added gcc_plugin, fast inline instrumentation is not yet finished,
+    however it includes the whitelisting and persistance feature! by hexcoder-
+  - gcc_plugin tests added to testing framework
 
 
 --------------------------------

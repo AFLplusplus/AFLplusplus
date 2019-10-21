@@ -104,6 +104,13 @@ man:    $(MANPAGES)
 tests:	source-only
 	@cd test ; ./test.sh
 
+performance-tests:	performance-test
+test-performance:	performance-test
+
+performance-test:	source-only
+	@cd test ; ./test-performance.sh
+
+
 help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
@@ -307,7 +314,7 @@ install: all $(MANPAGES)
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
 	rm -f $${DESTDIR}$(BIN_PATH)/afl-as
 	if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
-	#if [ -f afl-gcc-fast ]; then set e; install -m 755 afl-gcc-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast; install -m 755 afl-gcc-pass.so afl-gcc-rt.o $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f afl-gcc-fast ]; then set e; install -m 755 afl-gcc-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast; install -m 755 afl-gcc-pass.so afl-gcc-rt.o $${DESTDIR}$(HELPER_PATH); fi
 ifndef AFL_TRACE_PC
 	if [ -f afl-clang-fast -a -f libLLVMInsTrim.so -a -f afl-llvm-rt.o ]; then set -e; install -m 755 afl-clang-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-fast++; install -m 755 libLLVMInsTrim.so afl-llvm-pass.so afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH); fi
 else

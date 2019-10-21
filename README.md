@@ -1,8 +1,8 @@
 # american fuzzy lop plus plus (afl++)
 
-  Release Version: 2.57c 
+  Release Version: 2.58c 
 
-  Github Version: 2.57d
+  Github Version: 2.58d
 
   includes all necessary/interesting changes from Google's afl 2.56b
 
@@ -52,13 +52,13 @@
 
   A more thorough list is available in the PATCHES file.
 
-  | Feature/Instrumentation | LLVM | GCC | QEMU | Unicorn |
-  | ----------------------- |:----:|:---:|:----:| -------:|
-  | laf-intel / CompCov     |  x   |     |  x   |    x    |
-  | NeverZero               |  x(1)|  x  |  x   |    x    |
-  | Persistent mode         |  x   |     |  x   |         |
-  | Whitelist               |  x   |     |      |         |
-  | InsTrim                 |  x   |     |      |         |
+  | Feature/Instrumentation | AFL-GCC | LLVM_MODE | GCC_PLUGIN | QEMU_MODE | Unicorn |
+  | ----------------------- |:-------:|:---------:|:----------:|:---------:|:-------:|
+  | laf-intel / CompCov     |         |     x     |            |     x     |    x    |
+  | NeverZero               |    X    |     x(1)  |            |     x     |    x    |
+  | Persistent mode         |         |     x     |     X      |     x     |         |
+  | Whitelist               |         |     x     |     X      |           |         |
+  | InsTrim                 |         |     x     |            |           |         |
 
   (1) only in LLVM >= 9.0 due to a bug in llvm in previous versions
 
