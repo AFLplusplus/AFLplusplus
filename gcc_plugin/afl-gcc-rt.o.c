@@ -50,8 +50,10 @@ static u8 is_persistent;
 void __afl_trace(u32 x) {
 
   u32 l = __afl_prev_loc;
-  u32 n = l ^ x;
-  *(__afl_area_ptr + n) += 1;
+  const u32 n = l ^ x;
+  u8 *const bitmap_ptr = __afl_area_ptr + n;
+  *bitmap_ptr += 1 + (*bitmap_ptr == (u8)~0); /* neverZero */
+
   __afl_prev_loc = (x >> 1);
   return;
 
