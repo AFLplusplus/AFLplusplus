@@ -7,11 +7,8 @@ afl-fuzz:
  - test the libmutator actually works and does not run infinite (need an example though)
 
 gcc_plugin:
- - needs to be rewritten
- - whitelist support
- - skip over uninteresting blocks
- - laf-intel
  - neverZero
+ - laf-intel
 
 qemu_mode:
  - update to 4.x (probably this will be skipped :( )

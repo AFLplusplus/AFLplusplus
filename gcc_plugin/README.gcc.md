@@ -156,7 +156,3 @@ depending on whether the input loop is being entered for the first time or
 executed again. To avoid spurious warnings, the feature implies
 AFL_NO_VAR_CHECK and hides the "variable path" warnings in the UI.
 
-PS. Because there are task switches still involved, the mode isn't as fast as
-"pure" in-process fuzzing offered, say, by LLVM's LibFuzzer; but it is a lot
-faster than the normal fork() model, and compared to in-process fuzzing,
-should be a lot more robust.
