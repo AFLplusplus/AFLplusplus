@@ -16,15 +16,15 @@
 # For Heiko:
 #TEST_MMAP=1
 
-PROGNAME    = afl
-VERSION     = $(shell grep '^\#define VERSION ' include/config.h | cut -d '"' -f2)
-
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
 DOC_PATH    = $(PREFIX)/share/doc/afl
 MISC_PATH   = $(PREFIX)/share/afl
 MAN_PATH    = $(PREFIX)/man/man8
+
+PROGNAME    = afl
+VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
@@ -34,8 +34,12 @@ MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8)
 
 CFLAGS     ?= -O3 -funroll-loops
 CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ \
-	      -DAFL_PATH=\"$(HELPER_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\" \
-	      -DBIN_PATH=\"$(BIN_PATH)\" -Wno-unused-function
+	      -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
+              -DVERSION=\"$(VERSION)\" -Wno-unused-function
+
+CXXFLAGS    ?= -O3 -funroll-loops
+CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -I ../include/ \
+               -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
