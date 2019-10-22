@@ -72,8 +72,8 @@ static void usage(u8* argv0) {
       "terminate\n"
       "  -E execs      - fuzz for a maximum number of total executions then "
       "terminate\n"
-      "Note: -V/-E are not precise, they are checked after a queue entry is "
-      "done which\n can be many minutes/execs later\n\n"
+      "  Note: -V/-E are not precise, they are checked after a queue entry "
+      "is done\n  which can be many minutes/execs later\n\n"
 
       "Other stuff:\n"
       "  -T text       - text banner to show on the screen\n"
