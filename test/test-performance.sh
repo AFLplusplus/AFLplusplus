@@ -1,6 +1,10 @@
 #!/bin/bash
 
-FILE=~/.afl_performance
+# if you want a specific performance file (e.g. to compare features to another)
+# you can set the AFL_PERFORMANCE_FILE environment variable:
+FILE=$AFL_PERFORMANCE_FILE
+# otherwise we use ~/.afl_performance
+test -z "$FILE" && FILE=~/.afl_performance
 
 test -e $FILE || {
   echo Warning: This script measure the performance of afl++ and saves the result for future comparisons into $FILE
@@ -17,6 +21,7 @@ unset AFL_USE_ASAN
 unset AFL_USE_MSAN
 unset AFL_CC
 unset AFL_PRELOAD
+unset AFL_GCC_WHITELIST
 unset AFL_LLVM_WHITELIST
 unset AFL_LLVM_INSTRIM
 unset AFL_LLVM_LAF_SPLIT_SWITCHES
