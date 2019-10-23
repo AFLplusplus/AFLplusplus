@@ -24,6 +24,9 @@ CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign
 ifeq "$(shell uname)" "Linux"
   TARGETS = libtokencap.so
 endif
+ifeq "$(shell uname)" "Darwin"
+  TARGETS = libtokencap.so
+endif
 all: $(TARGETS)
 
 libtokencap.so: libtokencap.so.c ../config.h
