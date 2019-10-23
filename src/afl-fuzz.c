@@ -71,7 +71,9 @@ static void usage(u8* argv0) {
       "  -V seconds    - fuzz for a maximum total time of seconds then "
       "terminate\n"
       "  -E execs      - fuzz for a maximum number of total executions then "
-      "terminate\n\n"
+      "terminate\n"
+      "  Note: -V/-E are not precise, they are checked after a queue entry "
+      "is done\n  which can be many minutes/execs later\n\n"
 
       "Other stuff:\n"
       "  -T text       - text banner to show on the screen\n"

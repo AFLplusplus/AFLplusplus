@@ -3,6 +3,7 @@ Roadmap 2.60:
 =============
 
 afl-fuzz:
+ - change -T to use alarm() instead
  - radamsa mutator
  - test the libmutator actually works and does not run infinite (need an example though)
 

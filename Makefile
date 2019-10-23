@@ -16,15 +16,15 @@
 # For Heiko:
 #TEST_MMAP=1
 
-PROGNAME    = afl
-VERSION     = $(shell grep '^\#define VERSION ' include/config.h | cut -d '"' -f2)
-
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
 DOC_PATH    = $(PREFIX)/share/doc/afl
 MISC_PATH   = $(PREFIX)/share/afl
 MAN_PATH    = $(PREFIX)/man/man8
+
+PROGNAME    = afl
+VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
@@ -34,8 +34,8 @@ MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8)
 
 CFLAGS     ?= -O3 -funroll-loops
 CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ \
-	      -DAFL_PATH=\"$(HELPER_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\" \
-	      -DBIN_PATH=\"$(BIN_PATH)\" -Wno-unused-function
+	      -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
+              -DDOC_PATH=\"$(DOC_PATH)\" -Wno-unused-function
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
@@ -116,7 +116,7 @@ help:
 	@echo "=========================================="
 	@echo "all: just the main afl++ binaries"
 	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap"
-	@echo "source-only: everything for source code fuzzing: llvm_mode, libdislocator, libtokencap"
+	@echo "source-only: everything for source code fuzzing: llvm_mode, gcc_plugin, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"
 	@echo "install: installs everything you have compiled with the build option above"
