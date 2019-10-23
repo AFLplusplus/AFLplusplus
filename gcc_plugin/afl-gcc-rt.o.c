@@ -58,11 +58,14 @@ __thread u32 __afl_prev_loc;
 void __afl_trace(u32 x) {
 
   u32 l = __afl_prev_loc;
-  __afl_area_ptr[l ^ x]++;
-  /* // neverZero is disable as gcc creates non-performant code. shame on you gcc
-  if (__afl_area_ptr[l ^ x] == 0)
-    __afl_area_ptr[l ^ x]++;
-  */
+
+#if 0 /* enable for neverZero feature. By default disabled since too inefficient :-( */
+  /* @Marc: avoid conditional jumps here */
+  __afl_area_ptr[l ^ x] += 1 + (__afl_area_ptr[l ^ x] == (u8)~0);
+#else
+  ++__afl_area_ptr[l ^ x];
+#endif
+
   __afl_prev_loc = (x >> 1);
   return;
 
