@@ -27,15 +27,13 @@ CFLAGS      ?= -O3 -g -funroll-loops
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -Wno-pointer-sign \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
 
-CXXFLAGS	?= -O3 -g -funroll-loops
+CXXFLAGS    ?= -O3 -g -funroll-loops
 CXXEFLAGS   := $(CXXFLAGS) -Wall -D_FORTIFY_SOURCE=2
 
 CC          ?= gcc
 CXX         ?= g++
 
 PLUGIN_FLAGS = -fPIC -fno-rtti -I"$(shell $(CC) -print-file-name=plugin)/include"
-
-PROGS        = ../afl-gcc-fast ../afl-gcc-pass.so ../afl-gcc-rt.o
 
 ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 )" "1"
 	SHMAT_OK=1
@@ -50,6 +48,8 @@ ifeq "$(TEST_MMAP)" "1"
 	CFLAGS+=-DUSEMMAP=1
 	LDFLAGS += -lrt
 endif
+
+PROGS        = ../afl-gcc-fast ../afl-gcc-pass.so ../afl-gcc-rt.o
 
 
 all: test_shm test_deps $(PROGS) afl-gcc-fast.8 test_build all_done

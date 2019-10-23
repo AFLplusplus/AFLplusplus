@@ -88,7 +88,7 @@ static u8  alloc_verbose,               /* Additional debug messages        */
     hard_fail,                          /* abort() when max_mem exceeded?   */
     no_calloc_over;                     /* abort() on calloc() overflows?   */
 
-#ifdef	__OpenBSD__
+#if	defined	__OpenBSD__ || defined __APPLE__
 #define __thread
 #warning no thread support available
 #endif
@@ -121,7 +121,7 @@ static void* __dislocator_alloc(size_t len) {
   ret = mmap(NULL, (1 + PG_COUNT(len + 8)) * PAGE_SIZE, PROT_READ | PROT_WRITE,
              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
-  if (ret == (void*)-1) {
+  if (ret == MAP_FAILED) {
 
     if (hard_fail) FATAL("mmap() failed on alloc (OOM?)");
 

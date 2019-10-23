@@ -282,6 +282,8 @@ int main(int argc, char** argv) {
         "afl-gcc-fast" VERSION cRST
         " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n"
         "\n"
+        "afl-gcc-fast [options]\n"
+        "\n"
         "This is a helper application for afl-fuzz. It serves as a drop-in "
         "replacement\n"
         "for gcc, letting you recompile third-party code with the required "

@@ -50,6 +50,9 @@ Even if you don't have a lightweight harness for a particular target, remember
 that you can always use another, related library to generate a corpus that will
 be then manually fed to a more resource-hungry program later on.
 
+Also note that reading the fuzzing input via stdin is faster than reading from
+a file.
+
 3) Use LLVM instrumentation
 ---------------------------
 
@@ -160,6 +163,11 @@ and not waste CPU time.
 -------------------------
 
 There are several OS-level factors that may affect fuzzing speed:
+
+  - If you have no risk of power loss then run your fuzzing on a tmpfs
+    partition. This increases the performance noticably.
+    Alternatively you can use AFL_TMPDIR to point to a tmpfs location to
+    just write the input file to a tmpfs.
 
   - High system load. Use idle machines where possible. Kill any non-essential
     CPU hogs (idle browser windows, media players, complex screensavers, etc).

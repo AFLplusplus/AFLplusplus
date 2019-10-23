@@ -21,12 +21,16 @@
 
 */
 
+#ifdef __ANDROID__
+#include "android-ashmem.h"
+#endif
 #include "../config.h"
 #include "../types.h"
 
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
+#include <string.h>
 #include <assert.h>
 
 #include <sys/mman.h>
@@ -34,28 +38,42 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
+#include <sys/mman.h>
+#include <fcntl.h>
+
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
    is used for instrumentation output before __afl_map_shm() has a chance to
    run. It will end up as .comm, so it shouldn't be too wasteful. */
 
 u8  __afl_area_initial[MAP_SIZE];
 u8 *__afl_area_ptr = __afl_area_initial;
+
+#ifdef __ANDROID__
 u32 __afl_prev_loc;
-
-/* Running in persistent mode? */
-
-static u8 is_persistent;
+#else
+__thread u32 __afl_prev_loc;
+#endif
 
 /* Trace a basic block with some ID */
 void __afl_trace(u32 x) {
 
   u32 l = __afl_prev_loc;
-  u32 n = l ^ x;
-  *(__afl_area_ptr + n) += 1;
+
+#if 0 /* enable for neverZero feature. By default disabled since too inefficient :-( */
+  /* @Marc: avoid conditional jumps here */
+  __afl_area_ptr[l ^ x] += 1 + (__afl_area_ptr[l ^ x] == (u8)~0);
+#else
+  ++__afl_area_ptr[l ^ x];
+#endif
+
   __afl_prev_loc = (x >> 1);
   return;
 
 }
+
+/* Running in persistent mode? */
+
+static u8 is_persistent;
 
 /* SHM setup. */
 
@@ -69,9 +87,38 @@ static void __afl_map_shm(void) {
 
   if (id_str) {
 
+#ifdef USEMMAP
+    const char*    shm_file_path = id_str;
+    int            shm_fd = -1;
+    unsigned char* shm_base = NULL;
+
+    /* create the shared memory segment as if it was a file */
+    shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
+    if (shm_fd == -1) {
+
+      printf("shm_open() failed\n");
+      exit(1);
+
+    }
+
+    /* map the shared memory segment to the address space of the process */
+    shm_base = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shm_base == MAP_FAILED) {
+
+      close(shm_fd);
+      shm_fd = -1;
+
+      printf("mmap() failed\n");
+      exit(2);
+
+    }
+
+    __afl_area_ptr = shm_base;
+#else
     u32 shm_id = atoi(id_str);
 
     __afl_area_ptr = shmat(shm_id, NULL, 0);
+#endif
 
     /* Whooooops. */
 
@@ -94,6 +141,8 @@ static void __afl_start_forkserver(void) {
   s32       child_pid;
 
   u8 child_stopped = 0;
+
+  void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
@@ -130,6 +179,8 @@ static void __afl_start_forkserver(void) {
       /* In child process: close fds, resume execution. */
 
       if (!child_pid) {
+
+        signal(SIGCHLD, old_sigchld_handler);
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
@@ -176,18 +227,47 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
   if (first_pass) {
 
+    /* Make sure that every iteration of __AFL_LOOP() starts with a clean slate.
+       On subsequent calls, the parent will take care of that, but on the first
+       iteration, it's our job to erase any trace of whatever happened
+       before the loop. */
+
+    if (is_persistent) {
+
+      memset(__afl_area_ptr, 0, MAP_SIZE);
+      __afl_area_ptr[0] = 1;
+      __afl_prev_loc = 0;
+
+    }
+
     cycle_cnt = max_cnt;
     first_pass = 0;
     return 1;
 
   }
 
-  if (is_persistent && --cycle_cnt) {
+  if (is_persistent) {
 
-    raise(SIGSTOP);
-    return 1;
+    if (--cycle_cnt) {
 
-  } else
+      raise(SIGSTOP);
+
+      __afl_area_ptr[0] = 1;
+      __afl_prev_loc = 0;
+
+      return 1;
+
+    } else {
+
+      /* When exiting __AFL_LOOP(), make sure that the subsequent code that
+         follows the loop is not traced. We do that by pivoting back to the
+         dummy output region. */
+
+      __afl_area_ptr = __afl_area_initial;
+
+    }
+
+  }
 
     return 0;
 
