@@ -26,9 +26,14 @@
 #include "../types.h"
 #include "../config.h"
 
-#ifndef __linux__
-#error "Sorry, this library is Linux-specific for now!"
+#if !defined(__linux__) && !defined(__APPLE__)
+#error "Sorry, this library is unsupported in this platform for now!"
 #endif                                                        /* !__linux__ */
+
+#if defined(__APPLE__)
+#include <mach/vm_map.h>
+#include <mach/mach_init.h>
+#endif
 
 /* Mapping data and such */
 
@@ -46,6 +51,7 @@ static FILE* __tokencap_out_file;
 
 static void __tokencap_load_mappings(void) {
 
+#if defined(__linux__)
   u8    buf[MAX_LINE];
   FILE* f = fopen("/proc/self/maps", "r");
 
@@ -69,7 +75,34 @@ static void __tokencap_load_mappings(void) {
   }
 
   fclose(f);
+#elif defined(__APPLE__)
+  struct vm_region_submap_info_64 region;
+  mach_msg_type_number_t cnt = VM_REGION_SUBMAP_INFO_COUNT_64;
+  vm_address_t base = 0;
+  vm_size_t size = 0;
+  natural_t depth = 0;
 
+  __tokencap_ro_loaded = 1;
+
+  while (1) {
+
+    if (vm_region_recurse_64(mach_task_self(), &base, &size, &depth,
+       (vm_region_info_64_t)&region, &cnt) != KERN_SUCCESS) break;
+
+    if (region.is_submap) {
+       depth++;
+    } else {
+       /* We only care of main map addresses and the read only kinds */
+       if ((region.protection & VM_PROT_READ) && !(region.protection & VM_PROT_WRITE)) {
+          __tokencap_ro[__tokencap_ro_cnt].st = (void *)base;
+          __tokencap_ro[__tokencap_ro_cnt].en = (void *)(base + size);
+
+	  if (++__tokencap_ro_cnt == MAX_MAPPINGS) break;
+       }
+    }
+  }
+
+#endif
 }
 
 /* Check an address against the list of read-only mappings. */
