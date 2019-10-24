@@ -483,6 +483,9 @@ u8 fuzz_one_original(char** argv) {
 
   if (perf_score == 0) goto abandon_entry;
 
+  if (use_radamsa > 1)
+    goto radamsa_stage;
+
   if (custom_mutator) {
 
     stage_short = "custom";
@@ -540,22 +543,30 @@ u8 fuzz_one_original(char** argv) {
        perf_score < (queue_cur->depth * 30 <= havoc_max_mult * 100
                          ? queue_cur->depth * 30
                          : havoc_max_mult * 100)) ||
-      queue_cur->passed_det)
+      queue_cur->passed_det) {
+    if (use_radamsa > 1)
+      goto radamsa_stage;
+    else
 #ifdef USE_PYTHON
-    goto python_stage;
+      goto python_stage;
 #else
-    goto havoc_stage;
+      goto havoc_stage;
 #endif
+  }
 
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
      for this master instance. */
 
-  if (master_max && (queue_cur->exec_cksum % master_max) != master_id - 1)
+  if (master_max && (queue_cur->exec_cksum % master_max) != master_id - 1) {
+    if (use_radamsa > 1)
+      goto radamsa_stage;
+    else
 #ifdef USE_PYTHON
-    goto python_stage;
+      goto python_stage;
 #else
-    goto havoc_stage;
+      goto havoc_stage;
 #endif
+  }
 
   doing_det = 1;
 
@@ -1731,61 +1742,11 @@ havoc_stage:
 
   for (stage_cur = 0; stage_cur < stage_max; ++stage_cur) {
 
-    if (use_radamsa && UR(RADAMSA_CHANCE) == 0) {
-  
-      u32 max_len = temp_len + choose_block_len(HAVOC_BLK_XL);
-      u8* new_buf = ck_alloc_nozero(max_len);
-      
-      u32 new_len = radamsa_mutate(out_buf, temp_len, new_buf, max_len, get_rand_seed());
-      
-      if (new_len) {
-      
-        temp_len = new_len;
-        ck_free(out_buf);
-        out_buf = new_buf;
-      
-      } else {
-      
-        ck_free(new_buf);
-      
-      }
-  
-      goto havoc_run_point;
-    
-    }
-
     u32 use_stacking = 1 << (1 + UR(HAVOC_STACK_POW2));
 
     stage_cur_val = use_stacking;
 
     for (i = 0; i < use_stacking; ++i) {
-    
-      /*if (use_radamsa && UR(RADAMSA_CHANCE) == 0) {
-      
-        // Ramdsa stage stacked with the AFL havoc mutations.
-        // This is very slow, I maintain the commendted code for future or
-        // particular uses.
-      
-        u32 max_len = temp_len + choose_block_len(HAVOC_BLK_XL);
-        u8* new_buf = ck_alloc_nozero(max_len);
-        
-        u32 new_len = radamsa_mutate(out_buf, temp_len, new_buf, max_len, get_rand_seed());
-        
-        if (new_len) {
-        
-          temp_len = new_len;
-          ck_free(out_buf);
-          out_buf = new_buf;
-        
-        } else {
-        
-          ck_free(new_buf);
-        
-        }
-          
-        continue;
-      
-      }*/
 
       switch (UR(15 + ((extras_cnt + a_extras_cnt) ? 2 : 0))) {
 
@@ -2161,8 +2122,6 @@ havoc_stage:
 
     }
 
-havoc_run_point:
-
     if (common_fuzz_stuff(argv, out_buf, temp_len)) goto abandon_entry;
 
     /* out_buf might have been mangled a bit, so let's restore it to its
@@ -2307,10 +2266,13 @@ retry_splicing:
     out_buf = ck_alloc_nozero(len);
     memcpy(out_buf, in_buf, len);
 
+    if (use_radamsa > 1)
+      goto radamsa_stage;
+    else
 #ifdef USE_PYTHON
-    goto python_stage;
+      goto python_stage;
 #else
-    goto havoc_stage;
+      goto havoc_stage;
 #endif
 
   }
@@ -2318,7 +2280,67 @@ retry_splicing:
 #endif                                                     /* !IGNORE_FINDS */
 
   ret_val = 0;
+  goto radamsa_stage;
 
+
+radamsa_stage:
+
+  if (!use_radamsa)
+    goto abandon_entry;
+  
+  stage_name = "radamsa";
+  stage_short = "radamsa";
+  stage_max = (HAVOC_CYCLES * perf_score / havoc_div / 100) << use_radamsa;
+  
+  if (stage_max < HAVOC_MIN) stage_max = HAVOC_MIN;
+  
+  orig_hit_cnt = queued_paths + unique_crashes;
+  
+  /* Read the additional testcase into a new buffer. */
+  u8 *save_buf = ck_alloc_nozero(len);
+  memcpy(save_buf, out_buf, len);
+ 
+  u32 max_len = len + choose_block_len(HAVOC_BLK_XL);
+  u8* new_buf = ck_alloc_nozero(max_len);
+  u8 *tmp_buf;
+
+  for (stage_cur = 0; stage_cur < stage_max; ++stage_cur) {
+  u32 new_len = radamsa_mutate(save_buf, len, new_buf, max_len, get_rand_seed());
+
+    if (new_len) {
+     
+      temp_len = new_len;
+      tmp_buf = new_buf;
+
+    } else {
+
+      tmp_buf = save_buf; // nope but I dont care
+      temp_len = len;
+
+    }
+
+    if (common_fuzz_stuff(argv, tmp_buf, temp_len)) {
+
+      ck_free(save_buf);
+      ck_free(new_buf);
+      goto abandon_entry;
+
+    }
+  
+  }
+
+  ck_free(save_buf);
+  ck_free(new_buf);
+  
+  new_hit_cnt = queued_paths + unique_crashes;
+ 
+  stage_finds[STAGE_RADAMSA] += new_hit_cnt - orig_hit_cnt;
+  stage_cycles[STAGE_RADAMSA] += stage_max;
+
+  ret_val = 0;
+  goto abandon_entry;
+
+/* we are through with this queue entry - for this iteration */
 abandon_entry:
 
   splicing_with = -1;

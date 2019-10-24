@@ -55,7 +55,10 @@ static void usage(u8* argv0) {
       "  -m megs       - memory limit for child process (%d MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
-      "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
+      "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n\n"
+
+      "Mutator settings:\n"
+      "  -R[R]         - add Radamsa as mutator, add another -R to exclusivly run it\n"
       "  -L minutes    - use MOpt(imize) mode and set the limit time for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths, 0 = "
@@ -514,8 +517,10 @@ int main(int argc, char** argv) {
      
       case 'R':
       
-        if (use_radamsa) FATAL("Multiple -R options not supported");
-        use_radamsa = 1;
+        if (use_radamsa)
+          use_radamsa = 2;
+        else
+          use_radamsa = 1;
 
         break;
 
