@@ -27,18 +27,18 @@
 #include "../types.h"
 #include "../config.h"
 
-#if !defined(__linux__) && !defined(__APPLE__) && !defined(__FreeBSD__)
-#error "Sorry, this library is unsupported in this platform for now!"
-#endif                                                        /* !__linux__ */
+#if !defined __linux__  && !defined __APPLE__  && !defined __FreeBSD__
+# error "Sorry, this library is unsupported in this platform for now!"
+#endif                         /* !__linux__ && !__APPLE__ && ! __FreeBSD__ */
 
-#if defined(__APPLE__)
-#include <mach/vm_map.h>
-#include <mach/mach_init.h>
-#elif defined(__FreeBSD__)
-#include <sys/types.h>
-#include <sys/sysctl.h>
-#include <sys/user.h>
-#include <sys/mman.h>
+#if defined __APPLE__
+# include <mach/vm_map.h>
+# include <mach/mach_init.h>
+#elif defined __FreeBSD__
+# include <sys/types.h>
+# include <sys/sysctl.h>
+# include <sys/user.h>
+# include <sys/mman.h>
 #endif
 
 /* Mapping data and such */
@@ -57,7 +57,8 @@ static FILE* __tokencap_out_file;
 
 static void __tokencap_load_mappings(void) {
 
-#if defined(__linux__)
+#if defined __linux__
+
   u8    buf[MAX_LINE];
   FILE* f = fopen("/proc/self/maps", "r");
 
@@ -81,7 +82,9 @@ static void __tokencap_load_mappings(void) {
   }
 
   fclose(f);
-#elif defined(__APPLE__)
+
+#elif defined __APPLE__
+
   struct vm_region_submap_info_64 region;
   mach_msg_type_number_t cnt = VM_REGION_SUBMAP_INFO_COUNT_64;
   vm_address_t base = 0;
@@ -108,7 +111,8 @@ static void __tokencap_load_mappings(void) {
     }
   }
 
-#elif defined(__FreeBSD__)
+#elif defined __FreeBSD__
+
   int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
   char *buf, *low, *high;
   size_t miblen = sizeof(mib)/sizeof(mib[0]);
