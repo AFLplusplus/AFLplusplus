@@ -159,7 +159,8 @@ enum {
   /* 15 */ STAGE_HAVOC,
   /* 16 */ STAGE_SPLICE,
   /* 17 */ STAGE_PYTHON,
-  /* 18 */ STAGE_CUSTOM_MUTATOR
+  /* 18 */ STAGE_RADAMSA,
+  /* 19 */ STAGE_CUSTOM_MUTATOR
 
 };
 

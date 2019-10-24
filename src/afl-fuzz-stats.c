@@ -576,10 +576,11 @@ void show_stats(void) {
                 "  imported : " cRST "%-10s" bSTG       bV "\n",
        tmp, sync_id ? DI(queued_imported) : (u8*)"n/a");
 
-  sprintf(tmp, "%s/%s, %s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_HAVOC]),
+  sprintf(tmp, "%s/%s, %s/%s, %s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_HAVOC]),
           DI(stage_cycles[STAGE_HAVOC]), DI(stage_finds[STAGE_SPLICE]),
           DI(stage_cycles[STAGE_SPLICE]), DI(stage_finds[STAGE_PYTHON]),
-          DI(stage_cycles[STAGE_PYTHON]), DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
+          DI(stage_cycles[STAGE_PYTHON]), DI(stage_finds[STAGE_RADAMSA]),
+          DI(stage_cycles[STAGE_RADAMSA]), DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
           DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
 
   SAYF(bV bSTOP "havoc/custom : " cRST "%-36s " bSTG bV bSTOP, tmp);
