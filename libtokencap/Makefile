@@ -27,6 +27,9 @@ endif
 ifeq "$(shell uname)" "Darwin"
   TARGETS = libtokencap.so
 endif
+ifeq "$(shell uname)" "FreeBSD"
+  TARGETS = libtokencap.so
+endif
 all: $(TARGETS)
 
 libtokencap.so: libtokencap.so.c ../config.h
