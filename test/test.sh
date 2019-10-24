@@ -273,7 +273,7 @@ test -e ../afl-gcc-fast && {
 $ECHO "$BLUE[*] Testing: shared library extensions"
 gcc -o test-compcov test-compcov.c > /dev/null 2>&1
 test -e ../libtokencap.so && {
-  AFL_TOKEN_FILE=token.out LD_PRELOAD=../libtokencap.so ./test-compcov foobar > /dev/null 2>&1
+  AFL_TOKEN_FILE=token.out LD_PRELOAD=../libtokencap.so DYLD_INSERT_LIBRARIES=../libtokencap.so DYLD_FORCE_FLAT_NAMESPACE=1 ./test-compcov foobar > /dev/null 2>&1
   grep -q BUGMENOT token.out > /dev/null 2>&1 && {
     $ECHO "$GREEN[+] libtokencap did successfully capture tokens"
   } || $ECHO "$RED[!] libtokencap did not capture tokens"
