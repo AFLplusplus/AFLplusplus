@@ -30,6 +30,9 @@ endif
 ifeq "$(shell uname)" "FreeBSD"
   TARGETS = libtokencap.so
 endif
+ifeq "$(shell uname)" "OpenBSD"
+  TARGETS = libtokencap.so
+endif
 all: $(TARGETS)
 
 libtokencap.so: libtokencap.so.c ../config.h
