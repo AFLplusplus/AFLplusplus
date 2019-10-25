@@ -35,7 +35,7 @@
 #include "afl-qemu-common.h"
 
 union afl_float32 {
-  float64 f;
+  float32 f;
   struct {
     u64 sign :  1;
     u64 exp  :  7;
