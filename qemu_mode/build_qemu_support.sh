@@ -150,6 +150,9 @@ patch -p1 <../patches/translate-all.diff || exit 1
 patch -p1 <../patches/tcg.diff || exit 1
 patch -p1 <../patches/i386-translate.diff || exit 1
 patch -p1 <../patches/arm-translate.diff || exit 1
+patch -p1 <../patches/i386-ops_sse.diff || exit 1
+patch -p1 <../patches/i386-fpu_helper.diff || exit 1
+patch -p1 <../patches/softfloat.diff || exit 1
 
 echo "[+] Patching done."
 

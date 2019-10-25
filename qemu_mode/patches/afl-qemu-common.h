@@ -31,6 +31,9 @@
 
  */
 
+#ifndef __AFL_QEMU_COMMON
+#define __AFL_QEMU_COMMON
+
 #include "../../config.h"
 
 #ifndef CPU_NB_REGS
@@ -81,6 +84,12 @@ void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
 
 void tcg_gen_afl_maybe_log_call(target_ulong cur_loc);
 
+void afl_float_compcov_log_32(target_ulong cur_loc, float32 arg1, float32 arg2,
+                              void *status);
+void afl_float_compcov_log_64(target_ulong cur_loc, float64 arg1, float64 arg2,
+                              void *status);
+void afl_float_compcov_log_80(target_ulong cur_loc, floatx80 arg1,
+                              floatx80 arg2);
 
 /* Check if an address is valid in the current mapping */
 
@@ -99,3 +108,6 @@ static inline int is_valid_addr(target_ulong addr) {
   return 1;
 
 }
+
+#endif
+

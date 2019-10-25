@@ -1,0 +1,10 @@
+diff --git a/fpu/softfloat.c b/fpu/softfloat.c
+index e1eef954..2f8d0d62 100644
+--- a/fpu/softfloat.c
++++ b/fpu/softfloat.c
+@@ -7205,3 +7205,5 @@ float128 float128_scalbn(float128 a, int n, float_status *status)
+                                          , status);
+ 
+ }
++
++#include "../../patches/afl-qemu-floats.h"
