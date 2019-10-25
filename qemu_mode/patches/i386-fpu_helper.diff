@@ -1,0 +1,54 @@
+diff --git a/target/i386/fpu_helper.c b/target/i386/fpu_helper.c
+index ea5a0c48..89901315 100644
+--- a/target/i386/fpu_helper.c
++++ b/target/i386/fpu_helper.c
+@@ -384,10 +384,16 @@ void helper_fxchg_ST0_STN(CPUX86State *env, int st_index)
+ 
+ static const int fcom_ccval[4] = {0x0100, 0x4000, 0x0000, 0x4500};
+ 
++#include "../patches/afl-qemu-common.h"
++
+ void helper_fcom_ST0_FT0(CPUX86State *env)
+ {
+     int ret;
+ 
++    if (afl_compcov_level > 2 && env->eip < afl_end_code &&
++        env->eip >= afl_start_code)
++      afl_float_compcov_log_80(env->eip, ST0, FT0);
++
+     ret = floatx80_compare(ST0, FT0, &env->fp_status);
+     env->fpus = (env->fpus & ~0x4500) | fcom_ccval[ret + 1];
+ }
+@@ -396,6 +402,10 @@ void helper_fucom_ST0_FT0(CPUX86State *env)
+ {
+     int ret;
+ 
++    if (afl_compcov_level > 2 && env->eip < afl_end_code &&
++        env->eip >= afl_start_code)
++      afl_float_compcov_log_80(env->eip, ST0, FT0);
++
+     ret = floatx80_compare_quiet(ST0, FT0, &env->fp_status);
+     env->fpus = (env->fpus & ~0x4500) | fcom_ccval[ret + 1];
+ }
+@@ -407,6 +417,10 @@ void helper_fcomi_ST0_FT0(CPUX86State *env)
+     int eflags;
+     int ret;
+ 
++    if (afl_compcov_level > 2 && env->eip < afl_end_code &&
++        env->eip >= afl_start_code)
++      afl_float_compcov_log_80(env->eip, ST0, FT0);
++
+     ret = floatx80_compare(ST0, FT0, &env->fp_status);
+     eflags = cpu_cc_compute_all(env, CC_OP);
+     eflags = (eflags & ~(CC_Z | CC_P | CC_C)) | fcomi_ccval[ret + 1];
+@@ -418,6 +432,10 @@ void helper_fucomi_ST0_FT0(CPUX86State *env)
+     int eflags;
+     int ret;
+ 
++    if (afl_compcov_level > 2 && env->eip < afl_end_code &&
++        env->eip >= afl_start_code)
++      afl_float_compcov_log_80(env->eip, ST0, FT0);
++
+     ret = floatx80_compare_quiet(ST0, FT0, &env->fp_status);
+     eflags = cpu_cc_compute_all(env, CC_OP);
+     eflags = (eflags & ~(CC_Z | CC_P | CC_C)) | fcomi_ccval[ret + 1];
