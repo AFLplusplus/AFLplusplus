@@ -22,13 +22,24 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
 
 #include "../types.h"
 #include "../config.h"
 
-#ifndef __linux__
-#error "Sorry, this library is Linux-specific for now!"
-#endif                                                        /* !__linux__ */
+#if !defined __linux__  && !defined __APPLE__  && !defined __FreeBSD__
+# error "Sorry, this library is unsupported in this platform for now!"
+#endif                         /* !__linux__ && !__APPLE__ && ! __FreeBSD__ */
+
+#if defined __APPLE__
+# include <mach/vm_map.h>
+# include <mach/mach_init.h>
+#elif defined __FreeBSD__
+# include <sys/types.h>
+# include <sys/sysctl.h>
+# include <sys/user.h>
+# include <sys/mman.h>
+#endif
 
 /* Mapping data and such */
 
@@ -45,6 +56,8 @@ static FILE* __tokencap_out_file;
    regions are far more likely to contain user input instead. */
 
 static void __tokencap_load_mappings(void) {
+
+#if defined __linux__
 
   u8    buf[MAX_LINE];
   FILE* f = fopen("/proc/self/maps", "r");
@@ -70,6 +83,78 @@ static void __tokencap_load_mappings(void) {
 
   fclose(f);
 
+#elif defined __APPLE__
+
+  struct vm_region_submap_info_64 region;
+  mach_msg_type_number_t cnt = VM_REGION_SUBMAP_INFO_COUNT_64;
+  vm_address_t base = 0;
+  vm_size_t size = 0;
+  natural_t depth = 0;
+
+  __tokencap_ro_loaded = 1;
+
+  while (1) {
+
+    if (vm_region_recurse_64(mach_task_self(), &base, &size, &depth,
+       (vm_region_info_64_t)&region, &cnt) != KERN_SUCCESS) break;
+
+    if (region.is_submap) {
+       depth++;
+    } else {
+       /* We only care of main map addresses and the read only kinds */
+       if ((region.protection & VM_PROT_READ) && !(region.protection & VM_PROT_WRITE)) {
+          __tokencap_ro[__tokencap_ro_cnt].st = (void *)base;
+          __tokencap_ro[__tokencap_ro_cnt].en = (void *)(base + size);
+
+	  if (++__tokencap_ro_cnt == MAX_MAPPINGS) break;
+       }
+    }
+  }
+
+#elif defined __FreeBSD__
+
+  int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
+  char *buf, *low, *high;
+  size_t miblen = sizeof(mib)/sizeof(mib[0]);
+  size_t len;
+
+  if (sysctl(mib, miblen, NULL, &len, NULL, 0) == -1) return;
+
+  len = len * 4 / 3;
+  buf = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+
+  if (sysctl(mib, miblen, buf, &len, NULL, 0) == -1) {
+
+     munmap(buf, len);
+     return;
+
+  }
+
+  low = buf;
+  high = low + len;
+
+  __tokencap_ro_loaded = 1;
+
+  while (low < high) {
+     struct kinfo_vmentry *region = (struct kinfo_vmentry *)low;
+     size_t size = region->kve_structsize;
+
+     if (size == 0) break;
+
+     /* We go through the whole mapping of the process and track read-only addresses */
+     if ((region->kve_protection & KVME_PROT_READ) &&
+	 !(region->kve_protection & KVME_PROT_WRITE)) {
+          __tokencap_ro[__tokencap_ro_cnt].st = (void *)region->kve_start;
+          __tokencap_ro[__tokencap_ro_cnt].en = (void *)region->kve_end;
+
+	  if (++__tokencap_ro_cnt == MAX_MAPPINGS) break;
+     }
+
+     low += size;
+  }
+
+  munmap(buf, len);
+#endif
 }
 
 /* Check an address against the list of read-only mappings. */
