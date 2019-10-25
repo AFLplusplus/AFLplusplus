@@ -319,11 +319,13 @@ Fuzzer shell for SQLite (Richard Hipp)
 Support for Python mutation modules (Christian Holler)
 ------------------------------------------------------
 
+now integrated in AFL++, originally from here
   https://github.com/choller/afl/blob/master/docs/mozilla/python_modules.txt
 
 Support for selective instrumentation (Christian Holler)
 --------------------------------------------------------
 
+now integrated in AFL++, originally from here
   https://github.com/choller/afl/blob/master/docs/mozilla/partial_instrumentation.txt
 
 Kernel fuzzing (Dmitry Vyukov)
