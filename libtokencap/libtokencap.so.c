@@ -27,14 +27,14 @@
 #include "../types.h"
 #include "../config.h"
 
-#if !defined __linux__  && !defined __APPLE__  && !defined __FreeBSD__
+#if !defined __linux__  && !defined __APPLE__  && !defined __FreeBSD__ && !defined __OpenBSD__
 # error "Sorry, this library is unsupported in this platform for now!"
 #endif                         /* !__linux__ && !__APPLE__ && ! __FreeBSD__ */
 
 #if defined __APPLE__
 # include <mach/vm_map.h>
 # include <mach/mach_init.h>
-#elif defined __FreeBSD__
+#elif defined __FreeBSD__ || defined __OpenBSD__
 # include <sys/types.h>
 # include <sys/sysctl.h>
 # include <sys/user.h>
@@ -111,17 +111,29 @@ static void __tokencap_load_mappings(void) {
     }
   }
 
-#elif defined __FreeBSD__
+#elif defined __FreeBSD__ || defined __OpenBSD__
 
+#if defined __FreeBSD__
   int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
+#elif defined __OpenBSD__
+  int mib[] = {CTL_KERN, KERN_PROC_VMMAP, getpid()};
+#endif
   char *buf, *low, *high;
   size_t miblen = sizeof(mib)/sizeof(mib[0]);
   size_t len;
 
   if (sysctl(mib, miblen, NULL, &len, NULL, 0) == -1) return;
 
+#if defined __FreeBSD__
   len = len * 4 / 3;
+#elif defined __OpenBSD__
+  len -= len % sizeof(struct kinfo_vmentry);
+#endif
+
   buf = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+  if (!buf) {
+     return;
+  }
 
   if (sysctl(mib, miblen, buf, &len, NULL, 0) == -1) {
 
@@ -137,6 +149,9 @@ static void __tokencap_load_mappings(void) {
 
   while (low < high) {
      struct kinfo_vmentry *region = (struct kinfo_vmentry *)low;
+
+#if defined __FreeBSD__
+
      size_t size = region->kve_structsize;
 
      if (size == 0) break;
@@ -144,6 +159,15 @@ static void __tokencap_load_mappings(void) {
      /* We go through the whole mapping of the process and track read-only addresses */
      if ((region->kve_protection & KVME_PROT_READ) &&
 	 !(region->kve_protection & KVME_PROT_WRITE)) {
+
+#elif defined __OpenBSD__
+
+     size_t size = sizeof (*region);
+
+     /* We go through the whole mapping of the process and track read-only addresses */
+     if ((region->kve_protection & KVE_PROT_READ) &&
+	 !(region->kve_protection & KVE_PROT_WRITE)) {
+#endif
           __tokencap_ro[__tokencap_ro_cnt].st = (void *)region->kve_start;
           __tokencap_ro[__tokencap_ro_cnt].en = (void *)region->kve_end;
 
