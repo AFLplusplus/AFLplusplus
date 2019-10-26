@@ -729,7 +729,7 @@ void pivot_inputs(void) {
         use_name += 6;
       else
         use_name = rsl;
-      nfn = alloc_printf("%s/queue/id:%06u,orig:%s", out_dir, id, use_name);
+      nfn = alloc_printf("%s/queue/id:%06u,time:0,orig:%s", out_dir, id, use_name);
 
 #else
 
