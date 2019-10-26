@@ -32,7 +32,7 @@
 
 void bind_to_free_cpu(void) {
 
-#if defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   cpu_set_t c;
 #elif defined(__NetBSD__)
   cpuset_t*          c;
@@ -117,7 +117,7 @@ void bind_to_free_cpu(void) {
   }
 
   closedir(d);
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
   struct kinfo_proc* procs;
   size_t             nprocs;
   size_t             proccount;
@@ -138,8 +138,13 @@ void bind_to_free_cpu(void) {
 
   for (i = 0; i < proccount; i++) {
 
+#if defined(__FreeBSD__)
     if (procs[i].ki_oncpu < sizeof(cpu_used) && procs[i].ki_pctcpu > 2)
       cpu_used[procs[i].ki_oncpu] = 1;
+#elif defined(__DragonFly__)
+    if (procs[i].kp_lwp.kl_cpuid < sizeof(cpu_used) && procs[i].kp_lwp.kl_pctcpu > 2)
+      cpu_used[procs[i].kp_lwp.kl_cpuid] = 1;
+#endif
 
   }
 
@@ -200,7 +205,7 @@ void bind_to_free_cpu(void) {
 
   cpu_aff = i;
 
-#if defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   CPU_ZERO(&c);
   CPU_SET(i, &c);
 #elif defined(__NetBSD__)
@@ -212,7 +217,7 @@ void bind_to_free_cpu(void) {
 
 #if defined(__linux__)
   if (sched_setaffinity(0, sizeof(c), &c)) PFATAL("sched_setaffinity failed");
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
   if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c))
     PFATAL("pthread_setaffinity failed");
 #elif defined(__NetBSD__)
@@ -871,7 +876,7 @@ double get_runnable_processes(void) {
   static double res;
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
-    defined(__NetBSD__)
+    defined(__NetBSD__) || defined(__DragonFly__)
 
   /* I don't see any portable sysctl or so that would quickly give us the
      number of runnable processes; the 1-minute load average can be a
@@ -1605,7 +1610,7 @@ void check_cpu_governor(void) {
 
 void get_core_count(void) {
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
 
   size_t s = sizeof(cpu_core_count);
 
@@ -1651,7 +1656,7 @@ void get_core_count(void) {
 
     cur_runnable = (u32)get_runnable_processes();
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
 
     /* Add ourselves, since the 1-minute average doesn't include that yet. */
 

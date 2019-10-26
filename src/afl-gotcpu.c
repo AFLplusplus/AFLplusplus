@@ -52,12 +52,14 @@
 #include "types.h"
 #include "debug.h"
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__) || defined(__DragonFly__)
 #define HAVE_AFFINITY 1
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 #include <pthread.h>
 #include <pthread_np.h>
+#if defined(__FreeBSD__)
 #include <sys/cpuset.h>
+#endif
 #define cpu_set_t cpuset_t
 #elif defined(__NetBSD__)
 #include <pthread.h>
@@ -168,7 +170,7 @@ int main(int argc, char** argv) {
     if (!fr) {
 
       u32 util_perc;
-#if defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
       cpu_set_t c;
 
       CPU_ZERO(&c);
@@ -188,7 +190,7 @@ int main(int argc, char** argv) {
 	PFATAL("thread_policy_set failed");
 #endif
 
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
       if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c))
         PFATAL("pthread_setaffinity_np failed");
 #endif
