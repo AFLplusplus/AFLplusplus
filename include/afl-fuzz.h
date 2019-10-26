@@ -72,18 +72,21 @@
 #include <sys/file.h>
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
-    defined(__NetBSD__)
+    defined(__NetBSD__) || defined(__DragonFly__)
 #include <sys/sysctl.h>
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 /* For systems that have sched_setaffinity; right now just Linux, but one
    can hope... */
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
+    defined(__DragonFly__)
 #define HAVE_AFFINITY 1
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 #include <sys/param.h>
+#if defined(__FreeBSD__)
 #include <sys/cpuset.h>
+#endif
 #include <sys/user.h>
 #include <pthread.h>
 #include <pthread_np.h>
