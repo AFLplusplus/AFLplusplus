@@ -55,9 +55,9 @@
   | Feature/Instrumentation | AFL-GCC | LLVM_MODE | GCC_PLUGIN | QEMU_MODE | Unicorn |
   | ----------------------- |:-------:|:---------:|:----------:|:---------:|:-------:|
   | laf-intel / CompCov     |         |     x     |            |     x     |    x    |
-  | NeverZero               |    X    |     x(1)  |      (2)   |     x     |    x    |
-  | Persistent mode         |         |     x     |     X      |     x     |         |
-  | Whitelist               |         |     x     |     X      |           |         |
+  | NeverZero               |    x    |     x(1)  |      (2)   |     x     |    x    |
+  | Persistent mode         |         |     x     |     x      |     x     |         |
+  | Whitelist               |         |     x     |     x      |           |         |
   | InsTrim                 |         |     x     |            |           |         |
 
   neverZero:
