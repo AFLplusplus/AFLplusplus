@@ -27,14 +27,14 @@
 #include "../types.h"
 #include "../config.h"
 
-#if !defined __linux__  && !defined __APPLE__  && !defined __FreeBSD__ && !defined __OpenBSD__
+#if !defined __linux__  && !defined __APPLE__  && !defined __FreeBSD__ && !defined __OpenBSD__ && !defined __NetBSD__
 # error "Sorry, this library is unsupported in this platform for now!"
-#endif                         /* !__linux__ && !__APPLE__ && ! __FreeBSD__ */
+#endif /* !__linux__ && !__APPLE__ && ! __FreeBSD__ && ! __OpenBSD__ && !__NetBSD__*/
 
 #if defined __APPLE__
 # include <mach/vm_map.h>
 # include <mach/mach_init.h>
-#elif defined __FreeBSD__ || defined __OpenBSD__
+#elif defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
 # include <sys/types.h>
 # include <sys/sysctl.h>
 # include <sys/user.h>
@@ -111,12 +111,14 @@ static void __tokencap_load_mappings(void) {
     }
   }
 
-#elif defined __FreeBSD__ || defined __OpenBSD__
+#elif defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
 
 #if defined __FreeBSD__
   int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
 #elif defined __OpenBSD__
   int mib[] = {CTL_KERN, KERN_PROC_VMMAP, getpid()};
+#elif defined __NetBSD__
+  int mib[] = {CTL_VM, VM_PROC, VM_PROC_MAP, getpid(), sizeof(struct kinfo_vmentry)};
 #endif
   char *buf, *low, *high;
   size_t miblen = sizeof(mib)/sizeof(mib[0]);
@@ -124,7 +126,7 @@ static void __tokencap_load_mappings(void) {
 
   if (sysctl(mib, miblen, NULL, &len, NULL, 0) == -1) return;
 
-#if defined __FreeBSD__
+#if defined __FreeBSD__ || defined __NetBSD__
   len = len * 4 / 3;
 #elif defined __OpenBSD__
   len -= len % sizeof(struct kinfo_vmentry);
@@ -150,11 +152,15 @@ static void __tokencap_load_mappings(void) {
   while (low < high) {
      struct kinfo_vmentry *region = (struct kinfo_vmentry *)low;
 
-#if defined __FreeBSD__
+#if defined __FreeBSD__ || defined __NetBSD__
 
+#if defined __FreeBSD__
      size_t size = region->kve_structsize;
 
      if (size == 0) break;
+#elif defined __NetBSD__
+     size_t size = sizeof (*region);
+#endif
 
      /* We go through the whole mapping of the process and track read-only addresses */
      if ((region->kve_protection & KVME_PROT_READ) &&
