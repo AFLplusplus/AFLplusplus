@@ -56,9 +56,9 @@ a file.
 3) Use LLVM instrumentation
 ---------------------------
 
-When fuzzing slow targets, you can gain 2x performance improvement by using
-the LLVM-based instrumentation mode described in llvm_mode/README.llvm. Note
-that this mode requires the use of clang and will not work with GCC.
+When fuzzing slow targets, you can gain 20-100% performance improvement by
+using the LLVM-based instrumentation mode described in llvm_mode/README.llvm.
+Note that this mode requires the use of clang and will not work with GCC.
 
 The LLVM mode also offers a "persistent", in-process fuzzing mode that can
 work well for certain types of self-contained libraries, and for fast targets,
@@ -74,6 +74,9 @@ to get to the important parts in the code.
 If you are only intested in specific parts of the code being fuzzed, you can
 whitelist the files that are actually relevant. This improves the speed and
 accuracy of afl. See llvm_mode/README.whitelist
+
+Also use the InsTrim mode on larger binaries, this improves performance and
+coverage a lot.
 
 4) Profile and optimize the binary
 ----------------------------------
