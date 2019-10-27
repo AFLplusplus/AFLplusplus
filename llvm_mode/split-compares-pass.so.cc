@@ -479,6 +479,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
             if (TyOp0 != TyOp1) { continue; }
 
+            if (TyOp0->isArrayTy() || TyOp0->isVectorTy()) { continue; }
+
             fcomps.push_back(selectcmpInst);
 
           }
