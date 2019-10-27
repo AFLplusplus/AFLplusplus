@@ -188,6 +188,10 @@ void* calloc(size_t elem_len, size_t elem_cnt) {
 
 }
 
+/* TODO: add a wrapper for posix_memalign, otherwise apps who use it,
+   will fail when freeing the memory.
+*/
+
 /* The wrapper for malloc(). Roughly the same, also clobbers the returned
    memory (unlike calloc(), malloc() is not guaranteed to return zeroed
    memory). */
