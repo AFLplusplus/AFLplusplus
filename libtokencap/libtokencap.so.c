@@ -238,9 +238,9 @@ static void __tokencap_dump(const u8* ptr, size_t len, u8 is_text) {
 
   buf[pos] = 0;
 
-  write(__tokencap_out_file, "\"", 1);
-  write(__tokencap_out_file, buf, pos);
-  write(__tokencap_out_file, "\"\n", 2);
+  int wrt_ok = (  1 == write(__tokencap_out_file, "\"", 1));
+  wrt_ok    &= (pos == write(__tokencap_out_file, buf, pos));
+  wrt_ok    &= (2   == write(__tokencap_out_file, "\"\n", 2));
 
 }
 
