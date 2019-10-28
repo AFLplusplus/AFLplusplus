@@ -264,6 +264,36 @@ void* realloc(void* ptr, size_t len) {
 
 }
 
+/* posix_memalign we mainly check the proper alignment argument
+   if the requested size fits within the alignment we do
+   a normal request */
+
+int posix_memalign(void** ptr, size_t align, size_t len) {
+   if (!ptr) FATAL("null pointer on posix_memalign()");
+   if ((align % 2) || (align % sizeof(void *))) FATAL("bad alignment on posix_memalign()");
+   if (align >= 4 * sizeof(size_t)) {
+
+     len += align -1;
+
+   }
+
+   *ptr = malloc(len);
+
+   DEBUGF("posix_memalign(%p %zu, %zu)", ptr, len, align);
+
+   return 0;
+}
+
+/* just the non-posix fashion */
+
+void *memalign(size_t align, size_t len) {
+   void* ret;
+
+   posix_memalign(&ret, align, len);
+
+   return ret;
+}
+
 __attribute__((constructor)) void __dislocator_init(void) {
 
   u8* tmp = getenv("AFL_LD_LIMIT_MB");
