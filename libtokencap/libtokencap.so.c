@@ -23,6 +23,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "../types.h"
 #include "../config.h"
@@ -49,7 +50,7 @@ static struct mapping { void *st, *en; } __tokencap_ro[MAX_MAPPINGS];
 
 static u32   __tokencap_ro_cnt;
 static u8    __tokencap_ro_loaded;
-static FILE* __tokencap_out_file;
+static int __tokencap_out_file = -1;
 
 /* Identify read-only regions in memory. Only parameters that fall into these
    ranges are worth dumping when passed to strcmp() and so on. Read-write
@@ -211,7 +212,7 @@ static void __tokencap_dump(const u8* ptr, size_t len, u8 is_text) {
   u32 i;
   u32 pos = 0;
 
-  if (len < MIN_AUTO_EXTRA || len > MAX_AUTO_EXTRA || !__tokencap_out_file)
+  if (len < MIN_AUTO_EXTRA || len > MAX_AUTO_EXTRA || __tokencap_out_file == -1)
     return;
 
   for (i = 0; i < len; i++) {
@@ -237,7 +238,9 @@ static void __tokencap_dump(const u8* ptr, size_t len, u8 is_text) {
 
   buf[pos] = 0;
 
-  fprintf(__tokencap_out_file, "\"%s\"\n", buf);
+  write(__tokencap_out_file, "\"", 1);
+  write(__tokencap_out_file, buf, pos);
+  write(__tokencap_out_file, "\"\n", 2);
 
 }
 
@@ -403,8 +406,13 @@ char* strcasestr(const char* haystack, const char* needle) {
 __attribute__((constructor)) void __tokencap_init(void) {
 
   u8* fn = getenv("AFL_TOKEN_FILE");
-  if (fn) __tokencap_out_file = fopen(fn, "a");
-  if (!__tokencap_out_file) __tokencap_out_file = stderr;
+  if (fn) __tokencap_out_file = open(fn, O_RDWR | O_CREAT | O_APPEND, 0655);
+  if (__tokencap_out_file == -1) __tokencap_out_file = STDERR_FILENO;
 
+}
+
+/* closing as best as we can the tokens file */
+__attribute__((destructor)) void __tokencap_shutdown(void) {
+  if (__tokencap_out_file != STDERR_FILENO) close(__tokencap_out_file);
 }
 
