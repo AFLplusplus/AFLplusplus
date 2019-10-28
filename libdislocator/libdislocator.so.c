@@ -279,7 +279,7 @@ int posix_memalign(void** ptr, size_t align, size_t len) {
 
    *ptr = malloc(len);
 
-   DEBUGF("posix_memalign(%p %zu, %zu)", ptr, len, align);
+   DEBUGF("posix_memalign(%p %zu, %zu)", ptr, align, len);
 
    return 0;
 }
@@ -287,9 +287,11 @@ int posix_memalign(void** ptr, size_t align, size_t len) {
 /* just the non-posix fashion */
 
 void *memalign(size_t align, size_t len) {
-   void* ret;
+   void* ret = NULL;
 
-   posix_memalign(&ret, align, len);
+   if (posix_memalign(&ret, align, len)) {
+     DEBUGF("memalign(%zu, %zu) failed", align, len);
+   }
 
    return ret;
 }
