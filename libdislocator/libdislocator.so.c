@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <errno.h>
 #include <sys/mman.h>
 
 #include "config.h"
@@ -272,7 +273,11 @@ int posix_memalign(void** ptr, size_t align, size_t len) {
    if ((char*)ptr == NULL || *ptr == NULL) 
      return -1; // why would we do: FATAL("null pointer on posix_memalign()");
    if ((align % 2) || (align % sizeof(void *)))
-     return -1; // why would we do: FATAL("bad alignment on posix_memalign()");
+     return EINVAL; // why would we do: FATAL("bad alignment on posix_memalign()");
+   if (len == 0) {
+     *ptr = NULL;
+     return 0;
+   }
    if (align >= 4 * sizeof(size_t)) len += align -1;
 
    *ptr = malloc(len);
@@ -289,6 +294,20 @@ void *memalign(size_t align, size_t len) {
 
    if (posix_memalign(&ret, align, len)) {
      DEBUGF("memalign(%zu, %zu) failed", align, len);
+   }
+
+   return ret;
+}
+
+/* sort of C11 alias of memalign only more severe, alignment-wise */
+
+void *aligned_alloc(size_t align, size_t len) {
+   void *ret = NULL;
+
+   if ((len % align)) return NULL;
+
+   if (posix_memalign(&ret, align, len)) {
+     DEBUGF("aligned_alloc(%zu, %zu) failed", align, len);
    }
 
    return ret;
