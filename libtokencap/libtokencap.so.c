@@ -256,7 +256,7 @@ int strcmp(const char* str1, const char* str2) {
 
   while (1) {
 
-    unsigned char c1 = *str1, c2 = *str2;
+    const unsigned char c1 = *str1, c2 = *str2;
 
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
     if (!c1) return 0;
@@ -298,7 +298,7 @@ int strcasecmp(const char* str1, const char* str2) {
 
   while (1) {
 
-    unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
+    const unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
 
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
     if (!c1) return 0;
@@ -318,7 +318,7 @@ int strncasecmp(const char* str1, const char* str2, size_t len) {
 
   while (len--) {
 
-    unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
+    const unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
 
     if (!c1) return 0;
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
@@ -338,12 +338,15 @@ int memcmp(const void* mem1, const void* mem2, size_t len) {
   if (__tokencap_is_ro(mem1)) __tokencap_dump(mem1, len, 0);
   if (__tokencap_is_ro(mem2)) __tokencap_dump(mem2, len, 0);
 
+  const char *strmem1 = (const char *)mem1;
+  const char *strmem2 = (const char *)mem2;
+
   while (len--) {
 
-    unsigned char c1 = *(const char*)mem1, c2 = *(const char*)mem2;
+    const unsigned char c1 = *strmem1, c2 = *strmem2;
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
-    mem1++;
-    mem2++;
+    strmem1++;
+    strmem2++;
 
   }
 
