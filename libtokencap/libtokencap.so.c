@@ -115,7 +115,7 @@ static void __tokencap_load_mappings(void) {
 #elif defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
 
 #if defined __FreeBSD__
-  int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
+  int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, -1};
 #elif defined __OpenBSD__
   int mib[] = {CTL_KERN, KERN_PROC_VMMAP, getpid()};
 #elif defined __NetBSD__
@@ -134,9 +134,7 @@ static void __tokencap_load_mappings(void) {
 #endif
 
   buf = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-  if (!buf) {
-     return;
-  }
+  if (buf == MAP_FAILED) return;
 
   if (sysctl(mib, miblen, buf, &len, NULL, 0) == -1) {
 
@@ -352,6 +350,28 @@ int memcmp(const void* mem1, const void* mem2, size_t len) {
 
   return 0;
 
+}
+
+#undef bcmp
+
+int bcmp(const void* mem1, const void* mem2, size_t len) {
+
+  if (__tokencap_is_ro(mem1)) __tokencap_dump(mem1, len, 0);
+  if (__tokencap_is_ro(mem2)) __tokencap_dump(mem2, len, 0);
+
+  const char *strmem1 = (const char *)mem1;
+  const char *strmem2 = (const char *)mem2;
+
+  while (len--) {
+
+    int diff = *strmem1 ^ *strmem2;
+    if (diff != 0) return 1;
+    strmem1++;
+    strmem2++;
+
+  }
+
+  return 0;
 }
 
 #undef strstr
