@@ -108,7 +108,7 @@ static void edit_params(u32 argc, char** argv) {
   u8  fortify_set = 0, asan_set = 0, x_set = 0, maybe_linking = 1;
   u8* name;
 
-  cc_params = ck_alloc((argc + 64) * sizeof(u8*));
+  cc_params = ck_alloc((argc + 128) * sizeof(u8*));
 
   name = strrchr(argv[0], '/');
   if (!name)
@@ -199,6 +199,19 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = "-g";
     cc_params[cc_par_cnt++] = "-O3";
     cc_params[cc_par_cnt++] = "-funroll-loops";
+
+  }
+
+  if (getenv("AFL_NO_BUILTIN")) {
+
+    cc_params[cc_par_cnt++] = "-fno-builtin-strcmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strncmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strcasecmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strncasecmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-memcmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-bcmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strstr";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strcasestr";
 
   }
 
