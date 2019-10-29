@@ -270,10 +270,10 @@ void* realloc(void* ptr, size_t len) {
    a normal request */
 
 int posix_memalign(void** ptr, size_t align, size_t len) {
-   if ((char*)ptr == NULL || *ptr == NULL) 
-     return -1; // why would we do: FATAL("null pointer on posix_memalign()");
+   if (*ptr == NULL) 
+     return EINVAL;
    if ((align % 2) || (align % sizeof(void *)))
-     return EINVAL; // why would we do: FATAL("bad alignment on posix_memalign()");
+     return EINVAL;
    if (len == 0) {
      *ptr = NULL;
      return 0;
