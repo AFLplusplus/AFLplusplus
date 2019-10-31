@@ -26,6 +26,7 @@ test -z "$ECHO" && { printf Error: printf command does not support octal charact
 
 export AFL_EXIT_WHEN_DONE=1
 export AFL_SKIP_CPUFREQ=1
+export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 unset AFL_QUIET
 unset AFL_DEBUG
 unset AFL_HARDEN
@@ -87,7 +88,7 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
   # now we want to be sure that afl-fuzz is working  
   # make sure core_pattern is set to core on linux
   (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
-    $ECHO "$RED[!] we cannot run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
   # make sure crash reporter is disabled on Mac OS X
@@ -143,7 +144,7 @@ test -e ../afl-clang-fast && {
   } || $ECHO "$RED[!] llvm_mode hardened mode compilation failed"
   # now we want to be sure that afl-fuzz is working  
   (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
-    $ECHO "$RED[!] we cannot run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
   # make sure crash reporter is disabled on Mac OS X
@@ -226,7 +227,7 @@ test -e ../afl-gcc-fast && {
   } || $ECHO "$RED[!] gcc_plugin hardened mode compilation failed"
   # now we want to be sure that afl-fuzz is working  
   (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
-    $ECHO "$RED[!] we cannot run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
   # make sure crash reporter is disabled on Mac OS X
