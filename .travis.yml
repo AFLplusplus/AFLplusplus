@@ -12,6 +12,15 @@ before_install:
   - sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-8 gcc-8-plugin-dev
 
 script:
+  - echo DEBUG
+  - uname -a
+  - which python
+  - ls -l /bin/python* /usr/bin/python*
+  - file /bin/python* /usr/bin/python*
+  - dpkg -l | grep -i python
+  - pwd
+  - id
+  - echo END DEBUG
   - make distrib
   - make tests
   - make clean
