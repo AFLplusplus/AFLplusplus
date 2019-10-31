@@ -158,6 +158,7 @@ struct InsTrim : public ModulePass {
         bool      instrumentBlock = false;
         DebugLoc  Loc;
         StringRef instFilename;
+        unsigned int instLine = 0;
 
         for (auto &BB : F) {
 
@@ -171,7 +172,7 @@ struct InsTrim : public ModulePass {
 
           DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
 
-          unsigned int instLine = cDILoc->getLine();
+          instLine = cDILoc->getLine();
           instFilename = cDILoc->getFilename();
 
           if (instFilename.str().empty()) {
@@ -217,11 +218,13 @@ struct InsTrim : public ModulePass {
          * not whitelisted, so we skip instrumentation. */
         if (!instrumentBlock) {
 
-          if (!instFilename.str().empty())
-            SAYF(cYEL "[!] " cBRI "Not in whitelist, skipping %s ...\n",
-                 instFilename.str().c_str());
-          else
-            SAYF(cYEL "[!] " cBRI "No filename information found, skipping it");
+          if (!be_quiet) {
+             if (!instFilename.str().empty())
+               SAYF(cYEL "[!] " cBRI "Not in whitelist, skipping %s line %u...\n",
+                    instFilename.str().c_str(), instLine);
+             else
+               SAYF(cYEL "[!] " cBRI "No filename information found, skipping it");
+          }
           continue;
 
         }
