@@ -34,5 +34,5 @@ clean:
 
 install: all
 	install -m 755 ../libdislocator.so $${DESTDIR}$(HELPER_PATH)
-	install -m 644 README.dislocator $${DESTDIR}$(HELPER_PATH)
+	install -m 644 README.dislocator.md $${DESTDIR}$(HELPER_PATH)
 
