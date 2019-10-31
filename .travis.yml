@@ -11,11 +11,7 @@ before_install:
   - sudo apt update
   - sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-8 gcc-8-plugin-dev
 
-# TODO: Look into splitting off some builds using a build matrix.
-# TODO: Move this all into a bash script so we don't need to write bash in yaml.
 script:
   - make distrib
-  - ./afl-system-config
-  - sudo echo core > /proc/sys/kernel/core_pattern
   - make tests
   - make clean
