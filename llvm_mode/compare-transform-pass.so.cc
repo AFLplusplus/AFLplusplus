@@ -234,6 +234,10 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
       sizedLen = ilen->getZExtValue();
 
+    } else {
+
+      sizedLen = 0;
+
     }
 
     if (HasStr1) {

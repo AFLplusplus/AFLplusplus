@@ -26,6 +26,7 @@ test -z "$ECHO" && { printf Error: printf command does not support octal charact
 
 export AFL_EXIT_WHEN_DONE=1
 export AFL_SKIP_CPUFREQ=1
+export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 unset AFL_QUIET
 unset AFL_DEBUG
 unset AFL_HARDEN
@@ -87,7 +88,7 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
   # now we want to be sure that afl-fuzz is working  
   # make sure core_pattern is set to core on linux
   (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
-    $ECHO "$RED[!] we cannot run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
   # make sure crash reporter is disabled on Mac OS X
@@ -143,7 +144,7 @@ test -e ../afl-clang-fast && {
   } || $ECHO "$RED[!] llvm_mode hardened mode compilation failed"
   # now we want to be sure that afl-fuzz is working  
   (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
-    $ECHO "$RED[!] we cannot run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
   # make sure crash reporter is disabled on Mac OS X
@@ -226,7 +227,7 @@ test -e ../afl-gcc-fast && {
   } || $ECHO "$RED[!] gcc_plugin hardened mode compilation failed"
   # now we want to be sure that afl-fuzz is working  
   (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
-    $ECHO "$RED[!] we cannot run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
   # make sure crash reporter is disabled on Mac OS X
@@ -372,11 +373,15 @@ $ECHO "$BLUE[*] Testing: unicorn_mode"
 test -d ../unicorn_mode/unicorn && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
+      # travis workaround
+      PY=`which python2.7`
+      test "$PY" = "/opt/pyenv/shims/python2.7" -a -x /usr/bin/python2.7 && PY=/usr/bin/python2.7
       mkdir -p in
       echo 0 > in/in
+      $ECHO "$GREY[*] Using python binary $PY"
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 20 seconds"
       {
-        ../afl-fuzz -V20 -U -i in -o out -d -- python ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
+        ../afl-fuzz -V20 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
@@ -391,7 +396,7 @@ test -d ../unicorn_mode/unicorn && {
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 25 seconds"
       {
         export AFL_COMPCOV_LEVEL=2
-        ../afl-fuzz -V25 -U -i in -o out -d -- python ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
+        ../afl-fuzz -V25 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"

@@ -320,6 +320,7 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = "-fno-builtin-strcasecmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-strncasecmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-memcmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-bcmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-strstr";
     cc_params[cc_par_cnt++] = "-fno-builtin-strcasestr";
 

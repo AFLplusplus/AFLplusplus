@@ -13,6 +13,19 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+----------------------
+Version ++2.58d (dev):
+----------------------
+
+  - afl-analyze: added AFL_SKIP_BIN_CHECK support
+  - better random numbers for gcc_plugin and llvm_mode (thanks to devnexen)
+  - afl-fuzz: CPU affinity support for DragonFly
+  - llvm_mode: float splitting is now configured via AFL_LLVM_LAF_SPLIT_FLOATS
+  - libtokencap: support for *BSD/OSX added
+  - libcompcov floating point splitting support for qemu and unicorn
+  - removed unnecessary warnings
+
+
 --------------------------
 Version ++2.58c (release):
 --------------------------
