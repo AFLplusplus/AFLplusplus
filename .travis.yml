@@ -1,11 +1,60 @@
 language: c
 
 env:
-  - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1
+  - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_STOP_MANUALLY=1
+  - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_EXIT_WHEN_DONE=1
+ # TODO: test AFL_BENCH_UNTIL_CRASH once we have a target that crashes
+  - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_BENCH_JUST_ONE=1
 
+before_install:
+  - sudo apt update
+  - sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang
+
+# TODO: Look into splitting off some builds using a build matrix.
+# TODO: Move this all into a bash script so we don't need to write bash in yaml.
 script:
-  - make
-  - ./afl-gcc ./test-instr.c -o test-instr
-  - mkdir seeds; mkdir out
+  - make distrib
+  - ./afl-gcc ./test-instr.c -o test-instr-gcc
+  - mkdir seeds
   - echo "" > seeds/nil_seed
-  - timeout --preserve-status 5s ./afl-fuzz -i seeds -o out/ -- ./test-instr
+  - if [ -z "$AFL_STOP_MANUALLY" ];
+    then ./afl-fuzz -i seeds -o out/ -- ./test-instr-gcc;
+    else timeout --preserve-status 5s ./afl-fuzz -i seeds -o out/ -- ./test-instr-gcc;
+    fi
+  #- .travis/check_fuzzer_stats.sh -o out -k peak_rss_mb -v 1 -p 3
+  - rm -r out/*
+  #- ./afl-clang ./test-instr.c -o test-instr-clang
+  #- if [ -z "$AFL_STOP_MANUALLY" ];
+  #  then ./afl-fuzz -i seeds -o out/ -- ./test-instr-clang;
+  #  else timeout --preserve-status 5s ./afl-fuzz -i seeds -o out/ -- ./test-instr-clang;
+  #  fi
+  #- .travis/check_fuzzer_stats.sh -o out -k peak_rss_mb -v 1 -p 2
+  #- CC=clang CXX=clang++ make
+  #- cd llvm_mode
+  # TODO: Build with different versions of clang/LLVM since LLVM passes don't
+  # have a stable API.
+  #- CC=clang CXX=clang++ LLVM_CONFIG=llvm-config make
+  #- cd ..
+  #- rm -r out/*
+  - ./afl-clang-fast ./test-instr.c -o test-instr-clang-fast
+  - if [ -z "$AFL_STOP_MANUALLY" ];
+    then ./afl-fuzz -i seeds -o out/ -- ./test-instr-clang-fast;
+    else timeout --preserve-status 5s ./afl-fuzz -i seeds -o out/ -- ./test-instr-clang-fast;
+    fi
+  #- .travis/check_fuzzer_stats.sh -o out -k peak_rss_mb -v 1 -p 3
+  # Test fuzzing libFuzzer targets and trace-pc-guard instrumentation.
+  #- clang -g -fsanitize-coverage=trace-pc-guard ./test-libfuzzer-target.c -c
+  #- clang -c -w llvm_mode/afl-llvm-rt.o.c
+  #- wget https://raw.githubusercontent.com/llvm/llvm-project/master/compiler-rt/lib/fuzzer/afl/afl_driver.cpp
+  #- clang++ afl_driver.cpp afl-llvm-rt.o.o test-libfuzzer-target.o -o test-libfuzzer-target
+  #- timeout --preserve-status 5s ./afl-fuzz -i seeds -o out/ -- ./test-libfuzzer-target
+  #- cd qemu_mode
+  #- ./build_qemu_support.sh
+  #- cd ..
+  #- gcc ./test-instr.c -o test-no-instr
+  #- if [ -z "$AFL_STOP_MANUALLY" ];
+  #  then ./afl-fuzz -Q -i seeds -o out/ -- ./test-no-instr;
+  #  else timeout --preserve-status 5s ./afl-fuzz -Q -i seeds -o out/ -- ./test-no-instr;
+  #  fi
+  #- .travis/check_fuzzer_stats.sh -o out -k peak_rss_mb -v 12 -p 9
+  - make clean
