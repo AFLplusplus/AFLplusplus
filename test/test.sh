@@ -373,11 +373,15 @@ $ECHO "$BLUE[*] Testing: unicorn_mode"
 test -d ../unicorn_mode/unicorn && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
+      # travis workaround
+      PY=`which python2.7`
+      test "$PY" = "/opt/pyenv/shims/python2.7" -a -x /usr/bin/python2.7 && PY=/usr/bin/python2.7
       mkdir -p in
       echo 0 > in/in
+      $ECHO "$GREY[*] Using python binary $PY"
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 20 seconds"
       {
-        ../afl-fuzz -V20 -U -i in -o out -d -- python2.7 ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
+        ../afl-fuzz -V20 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
@@ -392,7 +396,7 @@ test -d ../unicorn_mode/unicorn && {
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 25 seconds"
       {
         export AFL_COMPCOV_LEVEL=2
-        ../afl-fuzz -V25 -U -i in -o out -d -- python2.7 ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
+        ../afl-fuzz -V25 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
