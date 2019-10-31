@@ -8,7 +8,7 @@ env:
 
 before_install:
   - sudo apt update
-  - sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-9 gcc-9-plugin-dev
+  - sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-5 gcc-5-plugin-dev
 
 # TODO: Look into splitting off some builds using a build matrix.
 # TODO: Move this all into a bash script so we don't need to write bash in yaml.
