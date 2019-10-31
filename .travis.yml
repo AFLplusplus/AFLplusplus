@@ -57,5 +57,6 @@ script:
   #  else timeout --preserve-status 5s ./afl-fuzz -Q -i seeds -o out/ -- ./test-no-instr;
   #  fi
   #- .travis/check_fuzzer_stats.sh -o out -k peak_rss_mb -v 12 -p 9
+  - ./afl-system-config
   - make tests
   - make clean
