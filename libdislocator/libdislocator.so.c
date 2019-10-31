@@ -14,7 +14,7 @@
      http://www.apache.org/licenses/LICENSE-2.0
 
    This is a companion library that can be used as a drop-in replacement
-   for the libc allocator in the fuzzed binaries. See README.dislocator for
+   for the libc allocator in the fuzzed binaries. See README.dislocator.md for
    more info.
 
  */

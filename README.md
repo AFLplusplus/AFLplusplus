@@ -457,7 +457,7 @@ parsers and grammars, but isn't nearly as good as the -x mode.
 
 If a dictionary is really hard to come by, another option is to let AFL run
 for a while, and then use the token capture library that comes as a companion
-utility with AFL. For that, see [libtokencap/README.md](libtokencap/README.md).
+utility with AFL. For that, see [libtokencap/README.md](libtokencap/README.tokencap.md).
 
 
 ## 11) Crash triage
