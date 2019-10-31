@@ -190,6 +190,8 @@ bool AFLCoverage::runOnModule(Module &M) {
 
           }
 
+          (void)instLine;
+
           /* Continue only if we know where we actually are */
           if (!instFilename.str().empty()) {
 
