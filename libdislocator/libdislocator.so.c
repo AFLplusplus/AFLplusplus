@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <errno.h>
 #include <sys/mman.h>
 
 #include "config.h"
@@ -262,6 +263,54 @@ void* realloc(void* ptr, size_t len) {
 
   return ret;
 
+}
+
+/* posix_memalign we mainly check the proper alignment argument
+   if the requested size fits within the alignment we do
+   a normal request */
+
+int posix_memalign(void** ptr, size_t align, size_t len) {
+   if (*ptr == NULL) 
+     return EINVAL;
+   if ((align % 2) || (align % sizeof(void *)))
+     return EINVAL;
+   if (len == 0) {
+     *ptr = NULL;
+     return 0;
+   }
+   if (align >= 4 * sizeof(size_t)) len += align -1;
+
+   *ptr = malloc(len);
+
+   DEBUGF("posix_memalign(%p %zu, %zu)", ptr, align, len);
+
+   return 0;
+}
+
+/* just the non-posix fashion */
+
+void *memalign(size_t align, size_t len) {
+   void* ret = NULL;
+
+   if (posix_memalign(&ret, align, len)) {
+     DEBUGF("memalign(%zu, %zu) failed", align, len);
+   }
+
+   return ret;
+}
+
+/* sort of C11 alias of memalign only more severe, alignment-wise */
+
+void *aligned_alloc(size_t align, size_t len) {
+   void *ret = NULL;
+
+   if ((len % align)) return NULL;
+
+   if (posix_memalign(&ret, align, len)) {
+     DEBUGF("aligned_alloc(%zu, %zu) failed", align, len);
+   }
+
+   return ret;
 }
 
 __attribute__((constructor)) void __dislocator_init(void) {
