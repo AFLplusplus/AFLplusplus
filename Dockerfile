@@ -1,21 +1,25 @@
-FROM gcc:8.3.0
-
+FROM ubuntu:eoan
 RUN apt-get update && apt-get install -y --no-install-recommends \
     automake \
     bison \
+    build-essential \
     clang \
+    clang-9 \
     flex \
-    gcc-8-plugin-dev \
-    libc++-7-dev \
+    gcc-9 \
+    gcc-9-plugin-dev \
+    libc++-9-dev \
     libtool \
     libtool-bin \
-    llvm-7-tools \
+    libglib2.0-dev \
+    llvm-9-tools \
     python-setuptools \
+    wget \
     && rm -fr /var/lib/apt/lists/*
 RUN mkdir /app
 WORKDIR ["/app"]
 COPY . .
-ENV CC=gcc-8
-ENV CXX=g++-8
-ENV LLVM_CONFIG=llvm-config-7
+ENV CC=gcc-9
+ENV CXX=g++-9
+ENV LLVM_CONFIG=llvm-config-9
 RUN make clean && make distrib && make tests
