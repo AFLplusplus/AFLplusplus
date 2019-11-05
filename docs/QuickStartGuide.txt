@@ -45,6 +45,8 @@ how to hit the ground running:
 7) compile and use llvm_mode (afl-clang-fast/afl-clang-fast++) as it is way
    faster and has a few cool features
 
+8) There is a basic docker build with 'docker build -t aflplusplus .'
+
 That's it. Sit back, relax, and - time permitting - try to skim through the
 following files:
 
