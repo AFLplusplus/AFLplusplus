@@ -39,11 +39,13 @@ echo "AFL binary-only instrumentation QEMU build script"
 echo "================================================="
 echo
 
+PLT=`uname -s`
+
 echo "[*] Performing basic sanity checks..."
 
-if [ ! "`uname -s`" = "Linux" ]; then
+if [ ! "$PLT" = "Linux" ] && [ ! "$PLT" = "Darwin" ] && [ ! "$PLT" = "FreeBSD" ] && [ ! "$PLT" = "NetBSD" ] && [ ! "$PLT" = "OpenBSD" ]; then
 
-  echo "[-] Error: QEMU instrumentation is supported only on Linux."
+  echo "[-] Error: QEMU instrumentation is not supported on $PLT."
   exit 1
 
 fi
@@ -62,19 +64,116 @@ if [ ! -f "../afl-showmap" ]; then
 
 fi
 
+ORIG_CPU_TARGET="$CPU_TARGET"
 
-for i in libtool wget python automake autoconf sha384sum bison iconv; do
+test "$CPU_TARGET" = "" && CPU_TARGET="`uname -m`"
+test "$CPU_TARGET" = "amd64" && CPU_TARGET="x86_64"
+test "$CPU_TARGET" = "i686" && CPU_TARGET="i386"
 
-  T=`which "$i" 2>/dev/null`
+if [ "$PLT" = "Linux" ]; then
+	CKSUMCMD="sha384sum --"
+	TARCMD='tar'
+	TARGET="$CPU_TARGET-linux-user"
+	OSCFGFLAGS='--enable-linux-user --disable-bsd-user'
+	MAKCMD="make -j `nproc`"
 
-  if [ "$T" = "" ]; then
+	for i in libtool wget python automake autoconf sha384sum bison iconv; do
 
-    echo "[-] Error: '$i' not found, please install first."
-    exit 1
+  	T=`which "$i" 2>/dev/null`
 
-  fi
+  	if [ "$T" = "" ]; then
 
-done
+    	echo "[-] Error: '$i' not found, please install first."
+    	exit 1
+
+  	fi
+
+	done
+fi
+
+if [ "$PLT" = "Darwin" ]; then
+	CKSUMCMD="cksum -a 384"
+	TARCMD='gtar'
+	TARGET="$CPU_TARGET-bsd-user"
+	OSCFGFLAGS='--disable-linux-user --enable-bsd-user'
+	MAKECMD='gmake -j2'
+
+	for i in libtool wget python2.7 automake autoconf gmake gtar bison iconv; do
+
+  	T=`which "$i" 2>/dev/null`
+
+  	if [ "$T" = "" ]; then
+
+    	echo "[-] Error: '$i' not found, please install first."
+    	exit 1
+
+  	fi
+
+	done
+fi
+
+if [ "$PLT" = "FreeBSD" ]; then
+	CKSUMCMD="shasum -a 384"
+	TARCMD='gtar'
+	TARGET="$CPU_TARGET-bsd-user"
+	OSCFGFLAGS='--disable-linux-user --enable-bsd-user'
+	MAKECMD='gmake -j2'
+
+	for i in libtool wget python2.7 automake autoconf gmake gtar bison iconv; do
+
+  	T=`which "$i" 2>/dev/null`
+
+  	if [ "$T" = "" ]; then
+
+    	echo "[-] Error: '$i' not found, please install first."
+    	exit 1
+
+  	fi
+
+	done
+fi
+
+if [ "$PLT" = "NetBSD" ]; then
+	CKSUMCMD="cksum -a 384 -q"
+	TARCMD='gtar'
+	TARGET="$CPU_TARGET-bsd-user"
+	OSCFGFLAGS='--disable-linux-user --enable-bsd-user'
+	MAKECMD='gmake -j2'
+
+	for i in libtool wget python2.7 automake autoconf gmake gtar bison iconv; do
+
+  	T=`which "$i" 2>/dev/null`
+
+  	if [ "$T" = "" ]; then
+
+    	echo "[-] Error: '$i' not found, please install first."
+    	exit 1
+
+  	fi
+
+	done
+fi
+
+if [ "$PLT" = "OpenBSD" ]; then
+	CKSUMCMD="cksum -a 384 -q"
+	TARCMD='gtar'
+	TARGET="$CPU_TARGET-bsd-user"
+	OSCFGFLAGS='--disable-linux-user --enable-bsd-user'
+	MAKECMD='gmake -j2'
+
+	for i in libtool wget python2.7 automake autoconf gmake gtar bison iconv; do
+
+  	T=`which "$i" 2>/dev/null`
+
+  	if [ "$T" = "" ]; then
+
+    	echo "[-] Error: '$i' not found, please install first."
+    	exit 1
+
+  	fi
+
+	done
+fi
 
 if [ ! -d "/usr/include/glib-2.0/" -a ! -d "/usr/local/include/glib-2.0/" ]; then
 
@@ -94,15 +193,15 @@ echo "[+] All checks passed!"
 
 ARCHIVE="`basename -- "$QEMU_URL"`"
 
-CKSUM=`sha384sum -- "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
+CKSUM=`$CKSUMCMD -- "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
 
 if [ ! "$CKSUM" = "$QEMU_SHA384" ]; then
 
   echo "[*] Downloading QEMU ${VERSION} from the web..."
   rm -f "$ARCHIVE"
-  wget -O "$ARCHIVE" -- "$QEMU_URL" || exit 1
+  wget --no-check-certificate -O "$ARCHIVE" -- "$QEMU_URL" || exit 1
 
-  CKSUM=`sha384sum -- "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
+  CKSUM=`$CKSUMCMD -- "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
 
 fi
 
@@ -121,7 +220,7 @@ fi
 echo "[*] Uncompressing archive (this will take a while)..."
 
 rm -rf "qemu-${VERSION}" || exit 1
-tar xf "$ARCHIVE" || exit 1
+$TARCMD xf "$ARCHIVE" || exit 1
 
 echo "[+] Unpacking successful."
 
@@ -133,11 +232,6 @@ else
 fi
 
 echo "[*] Configuring QEMU for $CPU_TARGET..."
-
-ORIG_CPU_TARGET="$CPU_TARGET"
-
-test "$CPU_TARGET" = "" && CPU_TARGET="`uname -m`"
-test "$CPU_TARGET" = "i686" && CPU_TARGET="i386"
 
 cd qemu-$VERSION || exit 1
 
@@ -158,7 +252,7 @@ echo "[+] Patching done."
 
 if [ "$STATIC" = "1" ]; then
 
-  CFLAGS="-O3 -ggdb" ./configure --disable-bsd-user --disable-guest-agent --disable-strip --disable-werror \
+  CFLAGS="-O3 -ggdb" ./configure --disable-guest-agent --disable-strip --disable-werror \
 	  --disable-gcrypt --disable-debug-info --disable-debug-tcg --enable-docs --disable-tcg-interpreter \
 	  --enable-attr --disable-brlapi --disable-linux-aio --disable-bzip2 --disable-bluez --disable-cap-ng \
 	  --disable-curl --disable-fdt --disable-glusterfs --disable-gnutls --disable-nettle --disable-gtk \
@@ -167,8 +261,8 @@ if [ "$STATIC" = "1" ]; then
 	  --disable-sdl --disable-seccomp --disable-smartcard --disable-snappy --disable-spice --disable-libssh2 \
 	  --disable-libusb --disable-usb-redir --disable-vde --disable-vhost-net --disable-virglrenderer \
 	  --disable-virtfs --disable-vnc --disable-vte --disable-xen --disable-xen-pci-passthrough --disable-xfsctl \
-	  --enable-linux-user --disable-system --disable-blobs --disable-tools \
-	  --target-list="${CPU_TARGET}-linux-user" --static --disable-pie --cross-prefix=$CROSS_PREFIX || exit 1
+	  $OSCFGFLAGS --disable-system --disable-blobs --disable-tools \
+	  --target-list="${TARGET}" --static --disable-pie --cross-prefix=$CROSS_PREFIX || exit 1
 
 else
 
@@ -176,8 +270,8 @@ else
   # improvement, much to my surprise. Not sure how universal this is..
   
   CFLAGS="-O3 -ggdb" ./configure --disable-system \
-    --enable-linux-user --disable-gtk --disable-sdl --disable-vnc \
-    --target-list="${CPU_TARGET}-linux-user" --enable-pie --enable-kvm $CROSS_PREFIX || exit 1
+    $OSCFGFLAGS --disable-gtk --disable-sdl --disable-vnc \
+    --target-list="${TARGET}" --enable-pie --enable-kvm $CROSS_PREFIX || exit 1
 
 fi
 
@@ -185,13 +279,13 @@ echo "[+] Configuration complete."
 
 echo "[*] Attempting to build QEMU (fingers crossed!)..."
 
-make -j `nproc` || exit 1
+$MAKECMD || exit 1
 
 echo "[+] Build process successful!"
 
 echo "[*] Copying binary..."
 
-cp -f "${CPU_TARGET}-linux-user/qemu-${CPU_TARGET}" "../../afl-qemu-trace" || exit 1
+cp -f "${TARGET}/qemu-${CPU_TARGET}" "../../afl-qemu-trace" || exit 1
 
 cd ..
 ls -l ../afl-qemu-trace || exit 1
@@ -204,9 +298,9 @@ if [ "$ORIG_CPU_TARGET" = "" ]; then
 
   cd ..
 
-  make >/dev/null || exit 1
+  $MAKECMD >/dev/null || exit 1
 
-  gcc test-instr.c -o test-instr || exit 1
+  cc test-instr.c -o test-instr || exit 1
 
   unset AFL_INST_RATIO
 
@@ -240,9 +334,9 @@ else
 fi
 
 echo "[+] Building libcompcov ..."
-make -C libcompcov
+$MAKECMD -C libcompcov
 echo "[+] Building unsigaction ..."
-make -C unsigaction
+$MAKECMD -C unsigaction
 echo "[+] libcompcov ready"
 echo "[+] All done for qemu_mode, enjoy!"
 
