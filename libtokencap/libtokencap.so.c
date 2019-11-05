@@ -51,6 +51,7 @@ static struct mapping { void *st, *en; } __tokencap_ro[MAX_MAPPINGS];
 static u32   __tokencap_ro_cnt;
 static u8    __tokencap_ro_loaded;
 static int __tokencap_out_file = -1;
+static pid_t __tokencap_pid = -1;
 
 /* Identify read-only regions in memory. Only parameters that fall into these
    ranges are worth dumping when passed to strcmp() and so on. Read-write
@@ -115,11 +116,11 @@ static void __tokencap_load_mappings(void) {
 #elif defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
 
 #if defined __FreeBSD__
-  int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, -1};
+  int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, __tokencap_pid};
 #elif defined __OpenBSD__
-  int mib[] = {CTL_KERN, KERN_PROC_VMMAP, getpid()};
+  int mib[] = {CTL_KERN, KERN_PROC_VMMAP, __tokencap_pid};
 #elif defined __NetBSD__
-  int mib[] = {CTL_VM, VM_PROC, VM_PROC_MAP, getpid(), sizeof(struct kinfo_vmentry)};
+  int mib[] = {CTL_VM, VM_PROC, VM_PROC_MAP, __tokencap_pid, sizeof(struct kinfo_vmentry)};
 #endif
   char *buf, *low, *high;
   size_t miblen = sizeof(mib)/sizeof(mib[0]);
@@ -431,6 +432,7 @@ __attribute__((constructor)) void __tokencap_init(void) {
   u8* fn = getenv("AFL_TOKEN_FILE");
   if (fn) __tokencap_out_file = open(fn, O_RDWR | O_CREAT | O_APPEND, 0655);
   if (__tokencap_out_file == -1) __tokencap_out_file = STDERR_FILENO;
+  __tokencap_pid = getpid();
 
 }
 
