@@ -551,6 +551,9 @@ int main(int argc, char** argv) {
 
   }
 
+  if (getenv("AFL_DISABLE_TRIM"))
+    disable_trim = 1;
+
   if (getenv("AFL_NO_UI") && getenv("AFL_FORCE_UI"))
     FATAL("AFL_NO_UI and AFL_FORCE_UI are mutually exclusive");
 
