@@ -16,11 +16,9 @@
 int main(void) {
   unsigned int *data_buf = (unsigned int *) DATA_ADDRESS;
 
-  if (data_buf[0] == 0xabadcafe) {
-    // Cause an 'invalid read' crash if data[0..3] == '\x01\x02\x03\x04'
+  if (((unsigned short*)data_buf)[0] == 0xaabb) {
     unsigned char invalid_read = *(unsigned char *) 0x00000000;
   } else if (data_buf[1] == data_buf[2] + 0x4141) {
-    // Cause an 'invalid read' crash if (0x10 < data[0] < 0x20) and data[1] > data[2]
     unsigned char invalid_read = *(unsigned char *) 0x00000000;
   }
 

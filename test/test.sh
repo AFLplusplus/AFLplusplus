@@ -485,6 +485,7 @@ test -d ../unicorn_mode/unicorn && {
       }
       rm -f errors
 
+      echo -e '\xbf' > in/in
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 35 seconds"
       {
         export AFL_COMPCOV_LEVEL=2
