@@ -23,6 +23,7 @@ Version ++2.58d (dev):
   - llvm_mode: float splitting is now configured via AFL_LLVM_LAF_SPLIT_FLOATS
   - libtokencap: support for *BSD/OSX added
   - libcompcov floating point splitting support for qemu and unicorn
+  - Dockerfile by courtesy of devnexen
   - ripped regex.dictionary from Google afl PR
   - removed unnecessary warnings
 

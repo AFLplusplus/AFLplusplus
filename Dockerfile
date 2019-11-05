@@ -1,4 +1,6 @@
 FROM ubuntu:eoan
+MAINTAINER David Carlier <devnexen@gmail.com>
+LABEL "about"="AFLplusplus docker image"
 RUN apt-get update && apt-get install -y --no-install-recommends \
     automake \
     bison \
@@ -22,4 +24,4 @@ COPY . .
 ENV CC=gcc-9
 ENV CXX=g++-9
 ENV LLVM_CONFIG=llvm-config-9
-RUN make clean && make distrib && make tests
+RUN make clean && make distrib && make install
