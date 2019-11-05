@@ -485,13 +485,13 @@ test -d ../unicorn_mode/unicorn && {
       }
       rm -f errors
 
-      echo -e '\xbf' > in/in
+      printf '\xbf' > in/in
       # This seed is close to the first byte of the comparison.
       # If CompCov works, a new tuple will appear in the map => new input in queue
-      $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 30 seconds"
+      $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 35 seconds"
       {
         export AFL_COMPCOV_LEVEL=2
-        ../afl-fuzz -V30 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
+        ../afl-fuzz -V35 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
