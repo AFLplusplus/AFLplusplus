@@ -43,7 +43,7 @@ PLT=`uname -s`
 
 echo "[*] Performing basic sanity checks..."
 
-if [ ! "$PLT" = "Linux" ] && [ ! "$PLT" = "Darwin" ] && [ ! "$PLT" = "FreeBSD" ] && [ ! "$PLT" = "NetBSD" ] && [ ! "$PLT" = "OpenBSD" ]; then
+if [ ! "$PLT" = "Linux" ] && [ ! "$PLT" = "FreeBSD" ] && [ ! "$PLT" = "NetBSD" ] && [ ! "$PLT" = "OpenBSD" ]; then
 
   echo "[-] Error: QEMU instrumentation is not supported on $PLT."
   exit 1
@@ -70,35 +70,17 @@ test "$CPU_TARGET" = "" && CPU_TARGET="`uname -m`"
 test "$CPU_TARGET" = "amd64" && CPU_TARGET="x86_64"
 test "$CPU_TARGET" = "i686" && CPU_TARGET="i386"
 
+WGETCMD='wget'
+
 if [ "$PLT" = "Linux" ]; then
 	CKSUMCMD="sha384sum --"
 	TARCMD='tar'
 	TARGET="$CPU_TARGET-linux-user"
 	OSCFGFLAGS='--enable-linux-user --disable-bsd-user'
-	MAKCMD="make -j `nproc`"
+	PYTHONBIN=python
+	MAKECMD="make -j `nproc`"
 
 	for i in libtool wget python automake autoconf sha384sum bison iconv; do
-
-  	T=`which "$i" 2>/dev/null`
-
-  	if [ "$T" = "" ]; then
-
-    	echo "[-] Error: '$i' not found, please install first."
-    	exit 1
-
-  	fi
-
-	done
-fi
-
-if [ "$PLT" = "Darwin" ]; then
-	CKSUMCMD="cksum -a 384"
-	TARCMD='gtar'
-	TARGET="$CPU_TARGET-bsd-user"
-	OSCFGFLAGS='--disable-linux-user --enable-bsd-user'
-	MAKECMD='gmake -j2'
-
-	for i in libtool wget python2.7 automake autoconf gmake gtar bison iconv; do
 
   	T=`which "$i" 2>/dev/null`
 
@@ -117,6 +99,7 @@ if [ "$PLT" = "FreeBSD" ]; then
 	TARCMD='gtar'
 	TARGET="$CPU_TARGET-bsd-user"
 	OSCFGFLAGS='--disable-linux-user --enable-bsd-user'
+	PYTHONBIN=python2.7
 	MAKECMD='gmake -j2'
 
 	for i in libtool wget python2.7 automake autoconf gmake gtar bison iconv; do
@@ -133,32 +116,12 @@ if [ "$PLT" = "FreeBSD" ]; then
 	done
 fi
 
-if [ "$PLT" = "NetBSD" ]; then
-	CKSUMCMD="cksum -a 384 -q"
+if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
+	CKSUMCMD="cksum -a sha384 -q"
 	TARCMD='gtar'
 	TARGET="$CPU_TARGET-bsd-user"
 	OSCFGFLAGS='--disable-linux-user --enable-bsd-user'
-	MAKECMD='gmake -j2'
-
-	for i in libtool wget python2.7 automake autoconf gmake gtar bison iconv; do
-
-  	T=`which "$i" 2>/dev/null`
-
-  	if [ "$T" = "" ]; then
-
-    	echo "[-] Error: '$i' not found, please install first."
-    	exit 1
-
-  	fi
-
-	done
-fi
-
-if [ "$PLT" = "OpenBSD" ]; then
-	CKSUMCMD="cksum -a 384 -q"
-	TARCMD='gtar'
-	TARGET="$CPU_TARGET-bsd-user"
-	OSCFGFLAGS='--disable-linux-user --enable-bsd-user'
+	PYTHONBIN=python2.7
 	MAKECMD='gmake -j2'
 
 	for i in libtool wget python2.7 automake autoconf gmake gtar bison iconv; do
@@ -199,7 +162,7 @@ if [ ! "$CKSUM" = "$QEMU_SHA384" ]; then
 
   echo "[*] Downloading QEMU ${VERSION} from the web..."
   rm -f "$ARCHIVE"
-  wget --no-check-certificate -O "$ARCHIVE" -- "$QEMU_URL" || exit 1
+  $WGETCMD -O "$ARCHIVE" -- "$QEMU_URL" || exit 1
 
   CKSUM=`$CKSUMCMD -- "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
 
@@ -262,16 +225,16 @@ if [ "$STATIC" = "1" ]; then
 	  --disable-libusb --disable-usb-redir --disable-vde --disable-vhost-net --disable-virglrenderer \
 	  --disable-virtfs --disable-vnc --disable-vte --disable-xen --disable-xen-pci-passthrough --disable-xfsctl \
 	  $OSCFGFLAGS --disable-system --disable-blobs --disable-tools \
-	  --target-list="${TARGET}" --static --disable-pie --cross-prefix=$CROSS_PREFIX || exit 1
+	  --target-list="${TARGET}" --static --disable-pie --cross-prefix=$CROSS_PREFIX --python=$PYTHONBIN || exit 1
 
 else
 
   # --enable-pie seems to give a couple of exec's a second performance
   # improvement, much to my surprise. Not sure how universal this is..
-  
+
   CFLAGS="-O3 -ggdb" ./configure --disable-system \
     $OSCFGFLAGS --disable-gtk --disable-sdl --disable-vnc \
-    --target-list="${TARGET}" --enable-pie --enable-kvm $CROSS_PREFIX || exit 1
+    --target-list="${TARGET}" --enable-pie --enable-kvm $CROSS_PREFIX --python=$PYTHONBIN || exit 1
 
 fi
 
@@ -333,8 +296,11 @@ else
 
 fi
 
-echo "[+] Building libcompcov ..."
-$MAKECMD -C libcompcov
+if [ "$PLT" = "Linux" ]; then
+	echo "[+] Building libcompcov ..."
+	$MAKECMD -C libcompcov
+fi
+
 echo "[+] Building unsigaction ..."
 $MAKECMD -C unsigaction
 echo "[+] libcompcov ready"
