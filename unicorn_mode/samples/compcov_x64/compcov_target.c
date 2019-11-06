@@ -16,9 +16,9 @@
 int main(void) {
   unsigned int *data_buf = (unsigned int *) DATA_ADDRESS;
 
-  if (((unsigned short*)data_buf)[0] == 0xaabb) {
+  if (((unsigned short*)data_buf)[0] == 0x0100) {
     unsigned char invalid_read = *(unsigned char *) 0x00000000;
-  } else if (data_buf[1] == data_buf[2] + 0x4141) {
+  } else if (data_buf[1] == data_buf[2] + 0xfffe) {
     unsigned char invalid_read = *(unsigned char *) 0x00000000;
   }
 
