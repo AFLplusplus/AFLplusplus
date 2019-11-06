@@ -16,4 +16,3 @@ script:
   - clang -v
   - make distrib
   - make tests
-  - make clean
