@@ -485,7 +485,7 @@ test -d ../unicorn_mode/unicorn && {
       }
       rm -f errors
 
-      printf '\xbf' > in/in
+      printf '\x01\x01' > in/in
       # This seed is close to the first byte of the comparison.
       # If CompCov works, a new tuple will appear in the map => new input in queue
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 35 seconds"
