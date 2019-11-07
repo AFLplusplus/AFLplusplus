@@ -106,7 +106,10 @@ if [ ! "$CKSUM" = "$UNICORN_SHA384" ]; then
 
   echo "[*] Downloading Unicorn v1.0.1 from the web..."
   rm -f "$ARCHIVE"
-  wget -O "$ARCHIVE" -- "$UNICORN_URL" || exit 1
+  OK=
+  while [ -z "$OK" ]; do
+    wget -c -O "$ARCHIVE" -- "$UNICORN_URL" && OK=1
+  done
 
   CKSUM=`sha384sum -- "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
 
