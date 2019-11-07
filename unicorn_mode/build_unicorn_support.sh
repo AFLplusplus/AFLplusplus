@@ -70,14 +70,16 @@ if [ "$PLT" = "Linux" ]; then
   CKSUMCMD='sha384sum --'
   PYTHONBIN=python2
   MAKECMD=make
+  CORES=`nproc`
   TARCMD=tar
   EASY_INSTALL=easy_install
 fi
 
 if [ "$PLT" = "Darwin" ]; then
-  CKSUMCMD="shasum -a 384 --tag"
+  CKSUMCMD="shasum -a 384"
   PYTHONBIN=python2.7
   MAKECMD=make
+  CORES=`sysctl hw.ncpu | cut -d' ' -f2`
   TARCMD=tar
   EASY_INSTALL=easy_install-2.7
 fi
@@ -86,6 +88,7 @@ if [ "$PLT" = "FreeBSD" ]; then
   CKSUMCMD="sha384 -q"
   PYTHONBIN=python2.7
   MAKECMD=gmake
+  CORES=`sysctl hw.ncpu | cut -d' ' -f2`
   TARCMD=gtar
   EASY_INSTALL=easy_install-2.7
 fi
@@ -94,6 +97,7 @@ if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
   CKSUMCMD="cksum -a sha384 -q"
   PYTHONBIN=python2.7
   MAKECMD=gmake
+  CORES=`sysctl hw.ncpu | cut -d' ' -f2`
   TARCMD=gtar
   EASY_INSTALL=easy_install-2.7
 fi
@@ -141,9 +145,9 @@ if [ ! "$CKSUM" = "$UNICORN_SHA384" ]; then
   echo "[*] Downloading Unicorn v1.0.1 from the web..."
   rm -f "$ARCHIVE"
   # NetBSD does not support SSL in the userland, we gotta trust github url
-  wget --no-check-certificate -O "$ARCHIVE" -- "$UNICORN_URL" || exit 1
+  wget -O "$ARCHIVE" -- "$UNICORN_URL" || exit 1
 
-  CKSUM=`CHKSUMCMD "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
+  CKSUM=`CKSUMCMD "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
 
 fi
 
@@ -184,7 +188,7 @@ echo "[+] Configuration complete."
 
 echo "[*] Attempting to build Unicorn (fingers crossed!)..."
 
-UNICORN_QEMU_FLAGS="--python=$PYTHONBIN" $MAKECMD -j4 || exit 1
+UNICORN_QEMU_FLAGS="--python=$PYTHONBIN" $MAKECMD -j$CORES || exit 1
 
 echo "[+] Build process successful!"
 
