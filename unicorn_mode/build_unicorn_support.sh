@@ -149,7 +149,7 @@ if [ ! "$CKSUM" = "$UNICORN_SHA384" ]; then
     wget -c -O "$ARCHIVE" -- "$UNICORN_URL" && OK=1
   done
 
-  CKSUM=`CKSUMCMD "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
+  CKSUM=`$CKSUMCMD "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
 
 fi
 
