@@ -43,9 +43,11 @@ echo
 
 echo "[*] Performing basic sanity checks..."
 
-if [ ! "`uname -s`" = "Linux" ]; then
+PLT=`uname -s`
 
-  echo "[-] Error: Unicorn instrumentation is supported only on Linux."
+if [ ! "$PLT" = "Linux" ] && [ ! "$PLT" = "Darwin" ] && [ ! "$PLT" = "FreeBSD" ] && [ ! "$PLT" = "NetBSD" ] && [ ! "$PLT" = "OpenBSD" ]; then
+
+  echo "[-] Error: Unicorn instrumentation is unsupported on $PLT."
   exit 1
   
 fi
@@ -64,7 +66,43 @@ if [ ! -f "../afl-showmap" ]; then
 
 fi
 
-for i in wget python automake autoconf sha384sum; do
+if [ "$PLT" = "Linux" ]; then
+  CKSUMCMD='sha384sum --'
+  PYTHONBIN=python2
+  MAKECMD=make
+  CORES=`nproc`
+  TARCMD=tar
+  EASY_INSTALL=easy_install
+fi
+
+if [ "$PLT" = "Darwin" ]; then
+  CKSUMCMD="shasum -a 384"
+  PYTHONBIN=python2.7
+  MAKECMD=make
+  CORES=`sysctl hw.ncpu | cut -d' ' -f2`
+  TARCMD=tar
+  EASY_INSTALL=easy_install-2.7
+fi
+
+if [ "$PLT" = "FreeBSD" ]; then
+  CKSUMCMD="sha384 -q"
+  PYTHONBIN=python2.7
+  MAKECMD=gmake
+  CORES=`sysctl hw.ncpu | cut -d' ' -f2`
+  TARCMD=gtar
+  EASY_INSTALL=easy_install-2.7
+fi
+
+if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
+  CKSUMCMD="cksum -a sha384 -q"
+  PYTHONBIN=python2.7
+  MAKECMD=gmake
+  CORES=`sysctl hw.ncpu | cut -d' ' -f2`
+  TARCMD=gtar
+  EASY_INSTALL=easy_install-2.7
+fi
+
+for i in wget $PYTHONBIN automake autoconf $MAKECMD $TARCMD; do
 
   T=`which "$i" 2>/dev/null`
 
@@ -77,10 +115,10 @@ for i in wget python automake autoconf sha384sum; do
 
 done
 
-if ! which easy_install > /dev/null; then
+if ! which $EASY_INSTALL > /dev/null; then
 
   # work around for unusual installs
-  if [ '!' -e /usr/lib/python2.7/dist-packages/easy_install.py ]; then
+  if [ '!' -e /usr/lib/python2.7/dist-packages/easy_install.py ] && [ '!' -e /usr/local/lib/python2.7/dist-packages/easy_install.py ] && [ '!' -e /usr/pkg/lib/python2.7/dist-packages/easy_install.py ]; then
 
     echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
     exit 1
@@ -100,7 +138,7 @@ echo "[+] All checks passed!"
 
 ARCHIVE="`basename -- "$UNICORN_URL"`"
 
-CKSUM=`sha384sum -- "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
+CKSUM=`$CKSUMCMD "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
 
 if [ ! "$CKSUM" = "$UNICORN_SHA384" ]; then
 
@@ -111,7 +149,7 @@ if [ ! "$CKSUM" = "$UNICORN_SHA384" ]; then
     wget -c -O "$ARCHIVE" -- "$UNICORN_URL" && OK=1
   done
 
-  CKSUM=`sha384sum -- "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
+  CKSUM=`$CKSUMCMD "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
 
 fi
 
@@ -130,7 +168,7 @@ echo "[*] Uncompressing archive (this will take a while)..."
 
 rm -rf "unicorn" || exit 1
 mkdir "unicorn" || exit 1
-tar xzf "$ARCHIVE" -C ./unicorn --strip-components=1 || exit 1
+$TARCMD xzf "$ARCHIVE" -C ./unicorn --strip-components=1 || exit 1
 
 echo "[+] Unpacking successful."
 
@@ -152,7 +190,7 @@ echo "[+] Configuration complete."
 
 echo "[*] Attempting to build Unicorn (fingers crossed!)..."
 
-UNICORN_QEMU_FLAGS='--python=python2' make -j `nproc` || exit 1
+UNICORN_QEMU_FLAGS="--python=$PYTHONBIN" $MAKECMD -j$CORES || exit 1
 
 echo "[+] Build process successful!"
 
@@ -160,10 +198,10 @@ echo "[*] Installing Unicorn python bindings..."
 cd bindings/python || exit 1
 if [ -z "$VIRTUAL_ENV" ]; then
   echo "[*] Info: Installing python unicorn using --user"
-  python setup.py install --user || exit 1
+  $PYTHONBIN setup.py install --user || exit 1
 else
   echo "[*] Info: Installing python unicorn to virtualenv: $VIRTUAL_ENV"
-  python setup.py install || exit 1
+  $PYTHONBIN setup.py install || exit 1
 fi
 export LIBUNICORN_PATH='$(pwd)' # in theory, this allows to switch between afl-unicorn and unicorn so files.
 
@@ -178,7 +216,7 @@ cd ../samples/simple || exit 1
 
 # Run afl-showmap on the sample application. If anything comes out then it must have worked!
 unset AFL_INST_RATIO
-echo 0 | ../../../afl-showmap -U -m none -q -o .test-instr0 -- python simple_test_harness.py ./sample_inputs/sample1.bin || exit 1
+echo 0 | ../../../afl-showmap -U -m none -q -o .test-instr0 -- $PYTHONBIN simple_test_harness.py ./sample_inputs/sample1.bin || exit 1
 
 if [ -s .test-instr0 ]
 then
