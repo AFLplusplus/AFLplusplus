@@ -111,6 +111,7 @@ static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
 static void* __dislocator_alloc(size_t len) {
 
   void* ret;
+  size_t tlen;
   int flags, fd, sp;
 
   if (total_mem + len > max_mem || total_mem + len < total_mem) {
@@ -123,6 +124,7 @@ static void* __dislocator_alloc(size_t len) {
 
   }
 
+  tlen = (1 + PG_COUNT(len + 8)) * PAGE_SIZE;
   flags = MAP_PRIVATE | MAP_ANONYMOUS;
   fd = -1;
 #if defined(USEHUGEPAGE)
@@ -142,8 +144,22 @@ static void* __dislocator_alloc(size_t len) {
   /* We will also store buffer length and a canary below the actual buffer, so
      let's add 8 bytes for that. */
 
-  ret = mmap(NULL, (1 + PG_COUNT(len + 8)) * PAGE_SIZE, PROT_READ | PROT_WRITE,
+  ret = mmap(NULL, tlen, PROT_READ | PROT_WRITE,
              flags, fd, 0);
+#if defined(USEHUGEPAGE)
+  /* We try one more time with regular call */
+  if (ret == MAP_FAILED) {
+#if defined(__APPLE__)
+  fd = -1;
+#elif defined(__linux__)
+  flags &= -MAP_HUGETLB;
+#elif defined(__FreeBSD__)
+  flags &= -MAP_ALIGNED_SUPER;
+#endif
+     ret = mmap(NULL, tlen, PROT_READ | PROT_WRITE,
+                flags, fd, 0);
+  }
+#endif
 
   if (ret == MAP_FAILED) {
 
