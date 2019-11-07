@@ -449,7 +449,7 @@ u8 fuzz_one_original(char** argv) {
    * TRIMMING *
    ************/
 
-  if (!dumb_mode && !queue_cur->trim_done && !custom_mutator) {
+  if (!dumb_mode && !queue_cur->trim_done && !custom_mutator && !disable_trim) {
 
     u8 res = trim_case(argv, queue_cur, in_buf);
 

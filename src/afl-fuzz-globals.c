@@ -122,7 +122,8 @@ u8 skip_deterministic,                  /* Skip deterministic stages?       */
     deferred_mode,                      /* Deferred forkserver mode?        */
     fixed_seed,                         /* do not reseed                    */
     fast_cal,                           /* Try to calibrate faster?         */
-    uses_asan;                          /* Target uses ASAN?                */
+    uses_asan,                          /* Target uses ASAN?                */
+    disable_trim;                       /* Never trim in fuzz_one           */
 
 s32 out_fd,                             /* Persistent fd for out_file       */
 #ifndef HAVE_ARC4RANDOM
