@@ -21,6 +21,10 @@ VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 CFLAGS      ?= -O3 -funroll-loops -I ../include/
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign
 
+ifdef USEHUGEPAGE
+	CFLAGS += -DUSEHUGEPAGE
+endif
+
 all: libdislocator.so
 
 libdislocator.so: libdislocator.so.c ../config.h

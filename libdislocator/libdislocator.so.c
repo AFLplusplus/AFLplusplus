@@ -26,6 +26,10 @@
 #include <errno.h>
 #include <sys/mman.h>
 
+#ifdef __APPLE__
+#include <mach/vm_statistics.h>
+#endif
+
 #include "config.h"
 #include "types.h"
 
@@ -36,6 +40,8 @@
 #ifndef MAP_ANONYMOUS
 #define MAP_ANONYMOUS MAP_ANON
 #endif                                                    /* !MAP_ANONYMOUS */
+
+#define SUPER_PAGE_SIZE 1<<21
 
 /* Error / message handling: */
 
@@ -105,6 +111,8 @@ static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
 static void* __dislocator_alloc(size_t len) {
 
   void* ret;
+  size_t tlen;
+  int flags, fd, sp;
 
   if (total_mem + len > max_mem || total_mem + len < total_mem) {
 
@@ -116,11 +124,42 @@ static void* __dislocator_alloc(size_t len) {
 
   }
 
+  tlen = (1 + PG_COUNT(len + 8)) * PAGE_SIZE;
+  flags = MAP_PRIVATE | MAP_ANONYMOUS;
+  fd = -1;
+#if defined(USEHUGEPAGE)
+  sp = (len >= SUPER_PAGE_SIZE && !(len % SUPER_PAGE_SIZE));
+
+#if defined(__APPLE__)
+  if (sp) fd = VM_FLAGS_SUPERPAGE_SIZE_2MB;
+#elif defined(__linux__)
+  if (sp) flags |= MAP_HUGETLB;
+#elif defined(__FreeBSD__)
+  if (sp) flags |= MAP_ALIGNED_SUPER;
+#endif
+#else
+  (void)sp;
+#endif
+
   /* We will also store buffer length and a canary below the actual buffer, so
      let's add 8 bytes for that. */
 
-  ret = mmap(NULL, (1 + PG_COUNT(len + 8)) * PAGE_SIZE, PROT_READ | PROT_WRITE,
-             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  ret = mmap(NULL, tlen, PROT_READ | PROT_WRITE,
+             flags, fd, 0);
+#if defined(USEHUGEPAGE)
+  /* We try one more time with regular call */
+  if (ret == MAP_FAILED) {
+#if defined(__APPLE__)
+  fd = -1;
+#elif defined(__linux__)
+  flags &= -MAP_HUGETLB;
+#elif defined(__FreeBSD__)
+  flags &= -MAP_ALIGNED_SUPER;
+#endif
+     ret = mmap(NULL, tlen, PROT_READ | PROT_WRITE,
+                flags, fd, 0);
+  }
+#endif
 
   if (ret == MAP_FAILED) {
 
@@ -315,11 +354,11 @@ void *aligned_alloc(size_t align, size_t len) {
 
 __attribute__((constructor)) void __dislocator_init(void) {
 
-  u8* tmp = getenv("AFL_LD_LIMIT_MB");
+  u8* tmp = (u8 *)getenv("AFL_LD_LIMIT_MB");
 
   if (tmp) {
 
-    max_mem = atoi(tmp) * 1024 * 1024;
+    max_mem = atoi((char *)tmp) * 1024 * 1024;
     if (!max_mem) FATAL("Bad value for AFL_LD_LIMIT_MB");
 
   }
