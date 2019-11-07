@@ -144,8 +144,10 @@ if [ ! "$CKSUM" = "$UNICORN_SHA384" ]; then
 
   echo "[*] Downloading Unicorn v1.0.1 from the web..."
   rm -f "$ARCHIVE"
-  # NetBSD does not support SSL in the userland, we gotta trust github url
-  wget -O "$ARCHIVE" -- "$UNICORN_URL" || exit 1
+  OK=
+  while [ -z "$OK" ]; do
+    wget -c -O "$ARCHIVE" -- "$UNICORN_URL" && OK=1
+  done
 
   CKSUM=`CKSUMCMD "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
 

@@ -3,18 +3,16 @@ language: c
 
 env:
   - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_STOP_MANUALLY=1
-  - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_EXIT_WHEN_DONE=1
+ # - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_EXIT_WHEN_DONE=1
  # TODO: test AFL_BENCH_UNTIL_CRASH once we have a target that crashes
-  - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_BENCH_JUST_ONE=1
+ # - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_BENCH_JUST_ONE=1
 
 before_install:
   - sudo apt update
-  - sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-8 gcc-8-plugin-dev libc++-8-dev
-# libc++-7-dev
+  - sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-7 gcc-7-plugin-dev libc++-7-dev
 
 script:
   - gcc -v
   - clang -v
   - make distrib
   - make tests
-  - make clean

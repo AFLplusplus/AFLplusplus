@@ -4,9 +4,10 @@ import os
 import sys
 import pefile
 import shutil
+import subprocess
 
 if len(sys.argv) < 2:
-    print("[afl-wine-trace] usage: wine-cov binary [args...]\n")
+    print("[afl-wine-trace] usage: ./afl-wine-trace binary [args...]\n")
     exit(1)
 
 if os.getenv("AFL_PATH"):
@@ -42,14 +43,20 @@ else:
     elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
         qemu_path += "i386"
     else:
-        print ("[wine-cov] unsuppoted architecture\n")
+        print ("[afl-wine-trace] unsuppoted architecture\n")
         exit(1)
     qemu_path = shutil.which(qemu_path)
 
-if os.getenv("WINECOV_WINE_PATH"):
-    wine_path = os.getenv("WINECOV_WINE_PATH")
+wine_path = None
+if os.getenv("AFL_WINE_PATH"):
+    wine_path = os.getenv("AFL_WINE_PATH")
 else:
-    wine_path = "/usr/lib/wine/wine"
+    if not wine_path and shutil.which("wine"):
+        wine_path = shutil.which("wine")
+    if not wine_path and os.path.exists("/usr/bin/wine"):
+        wine_path = "/usr/bin/wine"
+    if not wine_path and os.path.exists("/usr/lib/wine/wine"):
+        wine_path = "/usr/lib/wine/wine"
     if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"] or pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_IA64"]:
         wine_path += "64"
     elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
@@ -58,4 +65,11 @@ else:
         print ("[afl-wine-trace] unsopported architecture\n")
         exit(1)
 
-os.execve(qemu_path, [qemu_path, wine_path] + sys.argv[1:], os.environ)
+argv = sys.argv[1:]
+for i in range(len(argv)):
+    if ".cur_input" in argv[i]:
+        argv[i] = subprocess.run([os.path.join(os.path.dirname(wine_path), "winepath"), "--windows", argv[i]], universal_newlines=True, stdout=subprocess.PIPE).stdout
+        break
+
+print("[afl-wine-trace] exec:", " ".join([qemu_path, wine_path] + argv))
+os.execve(qemu_path, [qemu_path, wine_path] + argv, os.environ)
