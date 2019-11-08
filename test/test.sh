@@ -99,7 +99,7 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
   }
   # now we want to be sure that afl-fuzz is working  
   # make sure core_pattern is set to core on linux
-  (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
+  (test "$(uname -s)" = "Linux" && test "$(/sbin/sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
     $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
@@ -169,7 +169,7 @@ test -e ../afl-clang-fast && {
     CODE=1
   }
   # now we want to be sure that afl-fuzz is working  
-  (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
+  (test "$(uname -s)" = "Linux" && test "$(/sbin/sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
     $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
