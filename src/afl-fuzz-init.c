@@ -139,10 +139,10 @@ void bind_to_free_cpu(void) {
   for (i = 0; i < proccount; i++) {
 
 #if defined(__FreeBSD__)
-    if (procs[i].ki_oncpu < sizeof(cpu_used) && procs[i].ki_pctcpu > 2)
+    if (procs[i].ki_oncpu < sizeof(cpu_used) && procs[i].ki_pctcpu > 10)
       cpu_used[procs[i].ki_oncpu] = 1;
 #elif defined(__DragonFly__)
-    if (procs[i].kp_lwp.kl_cpuid < sizeof(cpu_used) && procs[i].kp_lwp.kl_pctcpu > 2)
+    if (procs[i].kp_lwp.kl_cpuid < sizeof(cpu_used) && procs[i].kp_lwp.kl_pctcpu > 10)
       cpu_used[procs[i].kp_lwp.kl_cpuid] = 1;
 #endif
 
