@@ -171,7 +171,7 @@ test -e ../afl-clang-fast && {
     CODE=1
   }
   # now we want to be sure that afl-fuzz is working  
-  (test "$(uname -s)" = "Linux" && test "$(/sbin/sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
+  (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
     $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
