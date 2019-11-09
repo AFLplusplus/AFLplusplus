@@ -14,7 +14,8 @@ int target_func(char* buf, int size){
     case 1:
         puts("222");
         if(buf[1]=='\x44'){
-            puts("xxxiiii");
+            puts("aaaaaaaaaaaaaaaaaaaaa");
+            *(char*)(0) = 1;
         }
         break;
     case '\xfe':
@@ -26,10 +27,9 @@ int target_func(char* buf, int size){
     case 0xff:
         if(buf[2]=='\xff'){
             if(buf[1]=='\x44'){
-                puts("xxxiiii");
-                assert(0);
+                *(char*)(0xdeadbeef) = 1;
             }else{
-                puts("xxxiiii");
+                puts("kkkkkk");
             }
         }
         puts("xxxx");
