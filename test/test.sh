@@ -64,6 +64,8 @@ RESET="\\033[0m"
 
 MEM_LIMIT=150
 
+export PATH=$PATH:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+
 $ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
 
 $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap and afl-fuzz"
@@ -99,7 +101,7 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
   }
   # now we want to be sure that afl-fuzz is working  
   # make sure core_pattern is set to core on linux
-  (test "$(uname -s)" = "Linux" && test "$(/sbin/sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
+  (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
     $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
