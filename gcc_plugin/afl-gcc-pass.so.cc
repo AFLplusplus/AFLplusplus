@@ -401,11 +401,13 @@ class afl_pass : public gimple_opt_pass {
 
   }
 
-  virtual unsigned int execute(function *fun) {
+  unsigned int execute(function *fun) override {
 
     if (!myWhitelist.empty()) {
 
       bool instrumentBlock = false;
+      std::string instFilename;
+      unsigned int instLine = 0;
 
       /* EXPR_FILENAME
       This macro returns the name of the file in which the entity was declared,
@@ -417,7 +419,8 @@ class afl_pass : public gimple_opt_pass {
       if (0 != strncmp("<internal>", fname, 10) &&
           0 != strncmp("<built-in>", fname, 10)) {
 
-        std::string instFilename(fname);
+        instFilename = fname;
+        instLine = DECL_SOURCE_LINE(fun->decl);
 
         /* Continue only if we know where we actually are */
         if (!instFilename.empty()) {
@@ -449,7 +452,17 @@ class afl_pass : public gimple_opt_pass {
 
       /* Either we couldn't figure out our location or the location is
        * not whitelisted, so we skip instrumentation. */
-      if (!instrumentBlock) return 0;
+      if (!instrumentBlock) {
+
+        if (!be_quiet) {
+             if (!instFilename.empty())
+               SAYF(cYEL "[!] " cBRI "Not in whitelist, skipping %s line %u...\n",
+                    instFilename.c_str(), instLine);
+             else
+               SAYF(cYEL "[!] " cBRI "No filename information found, skipping it");
+        }
+        return 0;
+      }
 
     }
 
