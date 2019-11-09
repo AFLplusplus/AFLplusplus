@@ -10,9 +10,16 @@
 #include <fcntl.h>
 #include <dlfcn.h>
 
+#ifdef __ANDROID__
+#include "../include/android-ashmem.h"
+#endif
 
+#include <sys/ipc.h>
 #include <sys/shm.h>
 #include "../config.h"
+
+
+
 
 #include <QBDI.h>
 
@@ -49,7 +56,6 @@ int afl_setup(void) {
 
 
 /* Fork server logic, invoked once we hit _start. */
-
 static void afl_forkserver()
 {
 
@@ -141,8 +147,14 @@ QBDI_NOINLINE int fuzz_func()
 static QBDI::VMAction bbcallback(QBDI::VMInstanceRef vm, const QBDI::VMState *state, QBDI::GPRState *gprState, QBDI::FPRState *fprState, void *data) {
     // errno = SAVED_ERRNO;
 
+#ifdef __x86_64__
     unsigned long pc = gprState->rip;
-    // printf("%p\n", pc);
+#elif defined(i386)
+    unsigned long pc = gprState->eip;
+#elif defined(__arm__)
+    unsigned long pc = gprState->pc;
+#endif
+
     if(pc >= module_base && pc <= module_end){
         unsigned long offset =  pc - module_base;
         printf("\toffset:%p\n", offset);
