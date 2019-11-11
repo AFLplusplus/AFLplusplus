@@ -286,6 +286,7 @@ extern u8 schedule;                     /* Power schedule (default: EXPLORE)*/
 extern u8 havoc_max_mult;
 
 extern u8 use_radamsa;
+extern size_t (*radamsa_mutate_ptr)(u8*, size_t, u8*, size_t, u32);
 
 extern u8 skip_deterministic,           /* Skip deterministic stages?       */
     force_deterministic,                /* Force deterministic stages?      */
