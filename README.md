@@ -28,7 +28,7 @@
   llvm up to version 9, QEMU 3.1, more speed and crashfixes for QEMU,
   better *BSD and Android support and much, much more.
 
-  Additionally the following patches have been integrated:
+  Additionally the following features and patches have been integrated:
 
   * AFLfast's power schedules by Marcel Böhme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
 
@@ -50,7 +50,8 @@
   
   * Win32 PE binary-only fuzzing with QEMU and Wine
 
-  * Radamsa stage (enable with `-R[R]`).
+  * Radamsa mutator (enable with `-R` to add or `-RR` to run it exclusivly).
+
 
   A more thorough list is available in the PATCHES file.
 
