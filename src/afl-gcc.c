@@ -121,7 +121,7 @@ static void edit_params(u32 argc, char** argv) {
   u8  fortify_set = 0, asan_set = 0;
   u8* name;
 
-#if defined(__FreeBSD__) && defined(__x86_64__)
+#if defined(__FreeBSD__) && defined(WORD_SIZE_64)
   u8 m32_set = 0;
 #endif
 
@@ -228,7 +228,7 @@ static void edit_params(u32 argc, char** argv) {
 
     if (!strcmp(cur, "-pipe")) continue;
 
-#if defined(__FreeBSD__) && defined(__x86_64__)
+#if defined(__FreeBSD__) && defined(WORD_SIZE_64)
     if (!strcmp(cur, "-m32")) m32_set = 1;
 #endif
 
@@ -288,7 +288,7 @@ static void edit_params(u32 argc, char** argv) {
 
   if (!getenv("AFL_DONT_OPTIMIZE")) {
 
-#if defined(__FreeBSD__) && defined(__x86_64__)
+#if defined(__FreeBSD__) && defined(WORD_SIZE_64)
 
     /* On 64-bit FreeBSD systems, clang -g -m32 is broken, but -m32 itself
        works OK. This has nothing to do with us, but let's avoid triggering

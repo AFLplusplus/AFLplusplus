@@ -52,13 +52,18 @@
 
 #define EXEC_TM_ROUND 20
 
+/* 64bit arch MACRO */
+#if (defined (__x86_64__) || defined (__arm64__) || defined (__aarch64__))
+#define WORD_SIZE_64 1
+#endif
+
 /* Default memory limit for child process (MB): */
 
-#ifndef __x86_64__
+#ifndef WORD_SIZE_64
 #define MEM_LIMIT 25
 #else
 #define MEM_LIMIT 50
-#endif                                                      /* ^!__x86_64__ */
+#endif                                                      /* ^!WORD_SIZE_64 */
 
 /* Default memory limit when running in QEMU mode (MB): */
 

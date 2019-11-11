@@ -221,11 +221,11 @@ u8 run_target(char** argv, u32 timeout) {
 
   tb4 = *(u32*)trace_bits;
 
-#ifdef __x86_64__
+#ifdef WORD_SIZE_64
   classify_counts((u64*)trace_bits);
 #else
   classify_counts((u32*)trace_bits);
-#endif                                                       /* ^__x86_64__ */
+#endif                                                       /* ^WORD_SIZE_64 */
 
   prev_timed_out = child_timed_out;
 
