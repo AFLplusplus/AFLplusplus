@@ -24,7 +24,58 @@
  */
 
 #include "afl-fuzz.h"
-#include "radamsa.h"
+
+static u8* get_libradamsa_path(u8* own_loc) {
+
+  u8 *tmp, *cp, *rsl, *own_copy;
+  
+  tmp = getenv("AFL_PATH");
+
+  if (tmp) {
+
+    cp = alloc_printf("%s/libradamsa.so", tmp);
+
+    if (access(cp, X_OK)) FATAL("Unable to find '%s'", cp);
+
+    return cp;
+
+  }
+
+  own_copy = ck_strdup(own_loc);
+  rsl = strrchr(own_copy, '/');
+
+  if (rsl) {
+
+    *rsl = 0;
+
+    cp = alloc_printf("%s/libradamsa.so", own_copy);
+    ck_free(own_copy);
+
+    if (!access(cp, X_OK))
+      return cp;
+
+  } else
+
+    ck_free(own_copy);
+
+  if (!access(BIN_PATH "/libradamsa.so", X_OK)) {
+
+    return ck_strdup(BIN_PATH "/libradamsa.so");
+
+  }
+
+  SAYF("\n" cLRD "[-] " cRST
+       "Oops, unable to find the 'libradamsa.so' binary. The binary must be "
+       "built\n"
+       "    separately using 'make radamsa'."
+       "If you\n"
+       "    already have the binary installed, you may need to specify "
+       "AFL_PATH in the\n"
+       "    environment.\n");
+
+  FATAL("Failed to locate 'libradamsa.so'.");
+
+}
 
 /* Display usage hints. */
 
@@ -545,9 +596,21 @@ int main(int argc, char** argv) {
   if (use_radamsa) {
   
     OKF("Using Radamsa add-on");
-    /* randamsa_init installs some signal hadlers, call it firstly so that
-     AFL++ can then replace those signal handlers */
-    radamsa_init();
+    
+    u8* libradamsa_path = get_libradamsa_path(argv[0]);
+    void* handle = dlopen(libradamsa_path, RTLD_NOW);
+    ck_free(libradamsa_path);
+    
+    if (!handle) FATAL("Failed to dlopen() libradamsa");
+
+    void (*radamsa_init_ptr)(void) = dlsym(handle, "radamsa_init");
+    radamsa_mutate_ptr = dlsym(handle, "radamsa_mutate");
+
+    if (!radamsa_init_ptr || !radamsa_mutate_ptr) FATAL("Failed to dlsym() libradamsa");
+
+    /* randamsa_init installs some signal hadlers, call it before setup_signal_handlers
+       so that AFL++ can then replace those signal handlers */
+    radamsa_init_ptr();
 
   }
   

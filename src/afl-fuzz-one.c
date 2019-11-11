@@ -24,9 +24,6 @@
  */
 
 #include "afl-fuzz.h"
-#include "radamsa.h"
-
-#define RADAMSA_CHANCE 24
 
 /* MOpt */
 
@@ -2285,7 +2282,7 @@ retry_splicing:
 
 radamsa_stage:
 
-  if (!use_radamsa)
+  if (!use_radamsa || !radamsa_mutate_ptr)
     goto abandon_entry;
   
   stage_name = "radamsa";
@@ -2305,7 +2302,7 @@ radamsa_stage:
   u8 *tmp_buf;
 
   for (stage_cur = 0; stage_cur < stage_max; ++stage_cur) {
-  u32 new_len = radamsa_mutate(save_buf, len, new_buf, max_len, get_rand_seed());
+  u32 new_len = radamsa_mutate_ptr(save_buf, len, new_buf, max_len, get_rand_seed());
 
     if (new_len) {
      

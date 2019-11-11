@@ -34,7 +34,7 @@ MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8)
 
 CFLAGS     ?= -O3 -funroll-loops
 CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
-	      -I include/ -I src/third_party/libradamsa/ \
+	      -I include/ \
 	      -DAFL_PATH=\"$(HELPER_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\" \
 	      -DBIN_PATH=\"$(BIN_PATH)\" -Wno-unused-function
 
@@ -184,11 +184,14 @@ src/afl-forkserver.o : src/afl-forkserver.c include/forkserver.h
 src/afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
-src/third_party/libradamsa/libradamsa.a : src/third_party/libradamsa/libradamsa.c src/third_party/libradamsa/radamsa.h
+radamsa: src/third_party/libradamsa/libradamsa.so
+	cp src/third_party/libradamsa/libradamsa.so .
+
+src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.c src/third_party/libradamsa/radamsa.h
 	$(MAKE) -C src/third_party/libradamsa/
 
-afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/third_party/libradamsa/libradamsa.a src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) src/third_party/libradamsa/libradamsa.a src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
+afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
@@ -204,8 +207,8 @@ afl-gotcpu: src/afl-gotcpu.c $(COMM_HDR) | test_x86
 
 
 # document all mutations and only do one run (use with only one input file!)
-document: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/third_party/libradamsa/libradamsa.a src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) -D_AFL_DOCUMENT_MUTATIONS src/third_party/libradamsa/libradamsa.a src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o afl-fuzz-document $(LDFLAGS) $(PYFLAGS)
+document: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) -D_AFL_DOCUMENT_MUTATIONS src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o afl-fuzz-document $(LDFLAGS) $(PYFLAGS)
 
 
 code-format:
@@ -253,7 +256,7 @@ all_done: test_build
 .NOTPARALLEL: clean
 
 clean:
-	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so unicorn_mode/24f55a7973278f20f0de21b904851d99d4716263.tar.gz *.8
+	rm -f $(PROGS) libradamsa.so afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so unicorn_mode/24f55a7973278f20f0de21b904851d99d4716263.tar.gz *.8
 	rm -rf out_dir qemu_mode/qemu-3.1.1 unicorn_mode/unicorn *.dSYM */*.dSYM
 	-$(MAKE) -C llvm_mode clean
 	$(MAKE) -C libdislocator clean

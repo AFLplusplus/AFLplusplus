@@ -1,6 +1,9 @@
 CUR_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-all: libradamsa.a
+all: libradamsa.so
+
+libradamsa.so: libradamsa.a
+	$(CC) -shared libradamsa.a -o libradamsa.so
 
 libradamsa.a: libradamsa.c radamsa.h
 	@echo " ***************************************************************"
@@ -14,4 +17,4 @@ test: libradamsa.a libradamsa-test.c
 	rm /tmp/libradamsa-*.fuzz
 
 clean:
-	rm -f libradamsa.a libradamsa-test
+	rm -f libradamsa.a libradamsa.so libradamsa-test

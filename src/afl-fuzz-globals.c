@@ -96,6 +96,7 @@ u8 schedule = EXPLORE;                  /* Power schedule (default: EXPLORE)*/
 u8 havoc_max_mult = HAVOC_MAX_MULT;
 
 u8 use_radamsa;
+size_t (*radamsa_mutate_ptr)(u8*, size_t, u8*, size_t, u32);
 
 u8 skip_deterministic,                  /* Skip deterministic stages?       */
     force_deterministic,                /* Force deterministic stages?      */
