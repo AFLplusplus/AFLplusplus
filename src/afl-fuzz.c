@@ -67,11 +67,8 @@ static u8* get_libradamsa_path(u8* own_loc) {
   SAYF("\n" cLRD "[-] " cRST
        "Oops, unable to find the 'libradamsa.so' binary. The binary must be "
        "built\n"
-       "    separately using 'make radamsa'."
-       "If you\n"
-       "    already have the binary installed, you may need to specify "
-       "AFL_PATH in the\n"
-       "    environment.\n");
+       "    separately using 'make radamsa'. If you already have the binary "
+       "installed,\n    you may need to specify AFL_PATH in the environment.\n");
 
   FATAL("Failed to locate 'libradamsa.so'.");
 
