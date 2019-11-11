@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
 
 #if defined(__linux__)
       if (sched_setaffinity(0, sizeof(c), &c))
-        PFATAL("sched_setaffinity failed");
+        PFATAL("sched_setaffinity failed for cpu %d", i);
 #endif
 
       util_perc = measure_preemption(CTEST_CORE_TRG_MS);

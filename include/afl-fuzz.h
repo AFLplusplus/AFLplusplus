@@ -552,7 +552,7 @@ u8   has_new_bits(u8*);
 u32  count_bits(u8*);
 u32  count_bytes(u8*);
 u32  count_non_255_bytes(u8*);
-#ifdef __x86_64__
+#ifdef WORD_SIZE_64
 void simplify_trace(u64*);
 void classify_counts(u64*);
 #else
