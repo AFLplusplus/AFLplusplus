@@ -115,8 +115,8 @@ help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
 	@echo "all: just the main afl++ binaries"
-	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap"
-	@echo "source-only: everything for source code fuzzing: llvm_mode, gcc_plugin, libdislocator, libtokencap"
+	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap, radamsa"
+	@echo "source-only: everything for source code fuzzing: llvm_mode, gcc_plugin, libdislocator, libtokencap, radamsa"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"
 	@echo "install: installs everything you have compiled with the build option above"
@@ -193,6 +193,12 @@ src/afl-forkserver.o : src/afl-forkserver.c include/forkserver.h
 src/afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
+radamsa: src/third_party/libradamsa/libradamsa.so
+	cp src/third_party/libradamsa/libradamsa.so .
+
+src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.c src/third_party/libradamsa/radamsa.h
+	$(MAKE) -C src/third_party/libradamsa/
+
 afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
@@ -262,7 +268,7 @@ all_done: test_build
 .NOTPARALLEL: clean
 
 clean:
-	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so unicorn_mode/24f55a7973278f20f0de21b904851d99d4716263.tar.gz *.8
+	rm -f $(PROGS) libradamsa.so afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so unicorn_mode/24f55a7973278f20f0de21b904851d99d4716263.tar.gz *.8
 	rm -rf out_dir qemu_mode/qemu-3.1.1 unicorn_mode/unicorn *.dSYM */*.dSYM
 	-$(MAKE) -C llvm_mode clean
 	-$(MAKE) -C gcc_plugin clean
@@ -270,8 +276,9 @@ clean:
 	$(MAKE) -C libtokencap clean
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
+	$(MAKE) -C src/third_party/libradamsa/ clean
 
-distrib: all
+distrib: all radamsa
 	-$(MAKE) -C llvm_mode
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
@@ -279,13 +286,13 @@ distrib: all
 	cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && sh ./build_unicorn_support.sh
 
-binary-only: all
+binary-only: all radamsa
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
 	cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && sh ./build_unicorn_support.sh
 
-source-only: all
+source-only: all radamsa
 	-$(MAKE) -C llvm_mode
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
@@ -330,6 +337,7 @@ endif
 	if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f libradamsa.so ]; then set -e; install -m 755 libradamsa.so $${DESTDIR}$(HELPER_PATH); fi
 
 	set -e; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-g++
 	set -e; if [ -f afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi

@@ -50,6 +50,8 @@
   
   * Win32 PE binary-only fuzzing with QEMU and Wine
 
+  * Radamsa stage (enable with `-R[R]`).
+
   A more thorough list is available in the PATCHES file.
 
   | Feature/Instrumentation | AFL-GCC | LLVM_MODE | GCC_PLUGIN | QEMU_MODE | Unicorn |
@@ -100,8 +102,9 @@ is what you should choose.
 These build options exist:
 
 * all: just the main afl++ binaries
-* binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap
-* source-only: everything for source code fuzzing: llvm_mode, libdislocator, libtokencap
+* radamsa: build libradamsa
+* binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap, radamsa
+* source-only: everything for source code fuzzing: llvm_mode, libdislocator, libtokencap, radamsa
 * distrib: everything (for both binary-only and source code fuzzing)
 * install: installs everything you have compiled with the build options above
 * clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well
