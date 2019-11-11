@@ -3,7 +3,7 @@
 # -----------------------------------------
 #
 # Written by Laszlo Szekeres <lszekeres@google.com> and
-#            Michal Zalewski <lcamtuf@google.com>
+#            Michal Zalewski
 #
 # LLVM integration design comes from Laszlo Szekeres.
 #
@@ -52,7 +52,7 @@ endif
 CFLAGS      ?= -O3 -funroll-loops
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
-               -DVERSION=\"$(VERSION)\"
+               -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\"
 ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
 endif
@@ -220,7 +220,7 @@ vpath  % ..
 	@../$* -h 2>&1 | tail -n +4 >> ../$@
 	@echo >> ../$@
 	@echo .SH AUTHOR >> ../$@
-	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexc0der\" Eissfeldt <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>" >> ../$@
+	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>" >> ../$@
 	@echo  The homepage of afl++ is: https://github.com/vanhauser-thc/AFLplusplus >> ../$@
 	@echo >> ../$@
 	@echo .SH LICENSE >> ../$@

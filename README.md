@@ -1,8 +1,8 @@
 # american fuzzy lop plus plus (afl++)
 
-  Release Version: 2.54c 
+  Release Version: 2.58c 
 
-  Github Version: 2.54d
+  Github Version: 2.58d
 
   includes all necessary/interesting changes from Google's afl 2.56b
 
@@ -22,7 +22,7 @@
 ## The enhancements compared to the original stock afl
 
   Many improvements were made over the official afl release - which did not
-  get any improvements since November 2017.
+  get any feature improvements since November 2017.
 
   Among other changes afl++ has a more performant llvm_mode, supports
   llvm up to version 9, QEMU 3.1, more speed and crashfixes for QEMU,
@@ -52,15 +52,17 @@
 
   A more thorough list is available in the PATCHES file.
 
-  | Feature/Instrumentation | LLVM | GCC | QEMU | Unicorn |
-  | ----------------------- |:----:|:---:|:----:| -------:|
-  | laf-intel / CompCov     |  x   |     |  x   |    x    |
-  | NeverZero               |  x(1)|  x  |  x   |    x    |
-  | Persistent mode         |  x   |     |  x   |         |
-  | Whitelist               |  x   |     |      |         |
-  | InsTrim                 |  x   |     |      |         |
+  | Feature/Instrumentation | AFL-GCC | LLVM_MODE | GCC_PLUGIN | QEMU_MODE | Unicorn |
+  | ----------------------- |:-------:|:---------:|:----------:|:---------:|:-------:|
+  | laf-intel / CompCov     |         |     x     |            |     x     |    x    |
+  | NeverZero               |    x    |     x(1)  |      (2)   |     x     |    x    |
+  | Persistent mode         |         |     x     |     x      |     x     |         |
+  | Whitelist               |         |     x     |     x      |           |         |
+  | InsTrim                 |         |     x     |            |           |         |
 
+  neverZero:
   (1) only in LLVM >= 9.0 due to a bug in llvm in previous versions
+  (2) gcc create non-performant code, hence it is disabled in gcc_plugin
 
 
   So all in all this is the best-of AFL that is currently out there :-)
@@ -103,12 +105,22 @@ These build options exist:
 * distrib: everything (for both binary-only and source code fuzzing)
 * install: installs everything you have compiled with the build options above
 * clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well
+* tests: runs test cases to ensure that all features are still working as they should
 * help: shows these build options
 
-You can also build statically linked versions of the afl++ binaries by passing the STATIC=1 argument to make:
+[Unless you are on Mac OS X](https://developer.apple.com/library/archive/qa/qa1118/_index.html) you can also build statically linked versions of the 
+afl++ binaries by passing the STATIC=1 argument to make:
 
 ```shell
 $ make all STATIC=1
+```
+
+Note that afl++ is faster and better the newer the compilers used.
+Hence gcc-9 and especially llvm-9 should be the compilers of choice.
+If your distribution does not have them, you can use the Dockerfile:
+
+```shell
+$ docker build -t aflplusplus
 ```
 
 
@@ -453,7 +465,7 @@ parsers and grammars, but isn't nearly as good as the -x mode.
 
 If a dictionary is really hard to come by, another option is to let AFL run
 for a while, and then use the token capture library that comes as a companion
-utility with AFL. For that, see [libtokencap/README.md](libtokencap/README.md).
+utility with AFL. For that, see [libtokencap/README.md](libtokencap/README.tokencap.md).
 
 
 ## 11) Crash triage
@@ -619,7 +631,7 @@ without feedback, bug reports, or patches from:
   Jonathan Gray                         Filipe Cabecinhas
   Nico Weber                            Jodie Cunningham
   Andrew Griffiths                      Parker Thompson
-  Jonathan Neuschfer                    Tyler Nighswander
+  Jonathan Neuschaefer                  Tyler Nighswander
   Ben Nagy                              Samir Aguiar
   Aidan Thornton                        Aleksandar Nikolich
   Sam Hakim                             Laszlo Szekeres
@@ -638,7 +650,7 @@ without feedback, bug reports, or patches from:
   Austin Seipp                          Daniel Komaromy
   Daniel Binderman                      Jonathan Metzman
   Vegard Nossum                         Jan Kneschke
-  Kurt Roeckx                           Marcel Bohme
+  Kurt Roeckx                           Marcel Boehme
   Van-Thuan Pham                        Abhik Roychoudhury
   Joshua J. Drake                       Toby Hutton
   Rene Freingruber                      Sergey Davidoff

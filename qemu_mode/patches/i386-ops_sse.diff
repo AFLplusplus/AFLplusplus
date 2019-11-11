@@ -1,0 +1,61 @@
+diff --git a/target/i386/ops_sse.h b/target/i386/ops_sse.h
+index ed059897..a5296caa 100644
+--- a/target/i386/ops_sse.h
++++ b/target/i386/ops_sse.h
+@@ -997,6 +997,8 @@ SSE_HELPER_CMP(cmpord, FPU_CMPORD)
+ 
+ static const int comis_eflags[4] = {CC_C, CC_Z, 0, CC_Z | CC_P | CC_C};
+ 
++#include "../patches/afl-qemu-common.h"
++
+ void helper_ucomiss(CPUX86State *env, Reg *d, Reg *s)
+ {
+     int ret;
+@@ -1004,6 +1006,11 @@ void helper_ucomiss(CPUX86State *env, Reg *d, Reg *s)
+ 
+     s0 = d->ZMM_S(0);
+     s1 = s->ZMM_S(0);
++
++   if (afl_compcov_level > 2 && env->eip < afl_end_code &&
++        env->eip >= afl_start_code)
++      afl_float_compcov_log_32(env->eip, s0, s1, &env->sse_status);
++
+     ret = float32_compare_quiet(s0, s1, &env->sse_status);
+     CC_SRC = comis_eflags[ret + 1];
+ }
+@@ -1015,6 +1022,11 @@ void helper_comiss(CPUX86State *env, Reg *d, Reg *s)
+ 
+     s0 = d->ZMM_S(0);
+     s1 = s->ZMM_S(0);
++
++   if (afl_compcov_level > 2 && env->eip < afl_end_code &&
++        env->eip >= afl_start_code)
++      afl_float_compcov_log_32(env->eip, s0, s1, &env->sse_status);
++
+     ret = float32_compare(s0, s1, &env->sse_status);
+     CC_SRC = comis_eflags[ret + 1];
+ }
+@@ -1026,6 +1038,11 @@ void helper_ucomisd(CPUX86State *env, Reg *d, Reg *s)
+ 
+     d0 = d->ZMM_D(0);
+     d1 = s->ZMM_D(0);
++
++   if (afl_compcov_level > 2 && env->eip < afl_end_code &&
++        env->eip >= afl_start_code)
++      afl_float_compcov_log_64(env->eip, d0, d1, &env->sse_status);
++
+     ret = float64_compare_quiet(d0, d1, &env->sse_status);
+     CC_SRC = comis_eflags[ret + 1];
+ }
+@@ -1037,6 +1054,11 @@ void helper_comisd(CPUX86State *env, Reg *d, Reg *s)
+ 
+     d0 = d->ZMM_D(0);
+     d1 = s->ZMM_D(0);
++
++   if (afl_compcov_level > 2 && env->eip < afl_end_code &&
++        env->eip >= afl_start_code)
++      afl_float_compcov_log_64(env->eip, d0, d1, &env->sse_status);
++
+     ret = float64_compare(d0, d1, &env->sse_status);
+     CC_SRC = comis_eflags[ret + 1];
+ }

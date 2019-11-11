@@ -2,7 +2,7 @@
    american fuzzy lop++ - target execution related routines
    --------------------------------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
@@ -288,10 +288,9 @@ void write_to_testcase(void* mem, u32 len) {
 
   if (out_file) {
 
-    // unlink(out_file);                                     /* Ignore errors.
-    // */
+    unlink(out_file);                                     /* Ignore errors. */
 
-    fd = open(out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
     if (fd < 0) PFATAL("Unable to create '%s'", out_file);
 
@@ -331,10 +330,9 @@ void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) {
 
   if (out_file) {
 
-    // unlink(out_file);                                     /* Ignore errors.
-    // */
+    unlink(out_file);                                     /* Ignore errors. */
 
-    fd = open(out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
     if (fd < 0) PFATAL("Unable to create '%s'", out_file);
 

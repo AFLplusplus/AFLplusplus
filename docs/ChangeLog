@@ -14,11 +14,41 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ----------------------
-Version ++2.54d (dev):
+Version ++2.58d (dev):
 ----------------------
 
+  - afl-analyze: added AFL_SKIP_BIN_CHECK support
+  - better random numbers for gcc_plugin and llvm_mode (thanks to devnexen)
+  - afl-fuzz: CPU affinity support for DragonFly
+  - llvm_mode: float splitting is now configured via AFL_LLVM_LAF_SPLIT_FLOATS
+  - libtokencap: support for *BSD/OSX added
+  - libcompcov floating point splitting support for qemu and unicorn
+  - Dockerfile by courtesy of devnexen
+  - ripped regex.dictionary from Google afl PR
+  - qemu and unicorn download scripts now try to download until the full
+    download succeeded. f*ckin travis fails downloading 40% of the time!
+  - removed unnecessary warnings
+
+
+--------------------------
+Version ++2.58c (release):
+--------------------------
+
+  - reverted patch to not unlink and recreate the input file, it resulted in
+    performance loss of ~10%
+  - added test/test-performance.sh script
+  - (re)added gcc_plugin, fast inline instrumentation is not yet finished,
+    however it includes the whitelisting and persistance feature! by hexcoder-
+  - gcc_plugin tests added to testing framework
+
+
+--------------------------------
+Version ++2.54d-2.57c (release):
+--------------------------------
+
+  - we jump to 2.57 instead of 2.55 to catch up with Google's versioning
   - persistent mode for QEMU (see qemu_mode/README.md)
-  - custom mutator library is now a standard mutator, to exclusivly use it
+  - custom mutator library is now an additional mutator, to exclusivly use it
     add AFL_CUSTOM_MUTATOR_ONLY (that will trigger the previous behaviour)
   - new library qemu_mode/unsigaction which filters sigaction events
   - afl-fuzz: new command line option -I to execute a command on a new crash
@@ -41,6 +71,7 @@ Version ++2.54d (dev):
   - updated documentation
   - Wine mode to run Win32 binaries with the QEMU instrumentation (-W)
   - CompareCoverage for ARM target in QEMU/Unicorn
+  - laf-intel in llvm_mode now also handles floating point comparisons
 
 
 --------------------------

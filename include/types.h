@@ -2,7 +2,7 @@
    american fuzzy lop++ - type definitions and minor macros
    --------------------------------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
@@ -79,9 +79,21 @@ typedef int64_t s64;
   })
 
 #ifdef AFL_LLVM_PASS
+#if defined(__linux__)
+#define AFL_SR(s) (srandom(s))
 #define AFL_R(x) (random() % (x))
 #else
+#define AFL_SR(s)
+#define AFL_R(x) (arc4random_uniform(x))
+#endif
+#else
+#if defined(__linux__)
+#define SR(s) (srandom(s))
 #define R(x) (random() % (x))
+#else
+#define SR(s)
+#define R(x) (arc4random_uniform(x))
+#endif
 #endif                                                    /* ^AFL_LLVM_PASS */
 
 #define STRINGIFY_INTERNAL(x) #x

@@ -2,7 +2,7 @@
    american fuzzy lop - fuzzer code
    --------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
@@ -126,12 +126,15 @@ static void usage(u8* argv0) {
       "  -V seconds    - fuzz for a maximum total time of seconds then "
       "terminate\n"
       "  -E execs      - fuzz for a maximum number of total executions then "
-      "terminate\n\n"
+      "terminate\n"
+      "  Note: -V/-E are not precise, they are checked after a queue entry "
+      "is done\n  which can be many minutes/execs later\n\n"
 
       "Other stuff:\n"
       "  -T text       - text banner to show on the screen\n"
       "  -M / -S id    - distributed mode (see parallel_fuzzing.txt)\n"
-      "  -I command    - execute this command/script when a new crash is found\n"
+      "  -I command    - execute this command/script when a new crash is "
+      "found\n"
       "  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap "
       "file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
@@ -180,7 +183,7 @@ int main(int argc, char** argv) {
 
   SAYF(cCYA
        "afl-fuzz" VERSION cRST
-       " based on afl by <lcamtuf@google.com> and a big online community\n");
+       " based on afl by Michal Zalewski and a big online community\n");
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -192,10 +195,7 @@ int main(int argc, char** argv) {
 
     switch (opt) {
 
-      case 'I':
-
-        infoexec = optarg;
-        break;
+      case 'I': infoexec = optarg; break;
 
       case 's': {
 
@@ -645,10 +645,13 @@ int main(int argc, char** argv) {
 
   }
 
+  if (getenv("AFL_DISABLE_TRIM"))
+    disable_trim = 1;
+
   if (getenv("AFL_NO_UI") && getenv("AFL_FORCE_UI"))
     FATAL("AFL_NO_UI and AFL_FORCE_UI are mutually exclusive");
 
-  if (strchr(argv[optind], '/') == NULL)
+  if (strchr(argv[optind], '/') == NULL && !unicorn_mode)
     WARNF(cLRD
           "Target binary called without a prefixed path, make sure you are "
           "fuzzing the right binary: " cRST "%s",

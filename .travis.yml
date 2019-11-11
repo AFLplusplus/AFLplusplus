@@ -1,11 +1,18 @@
+dist: bionic
 language: c
 
 env:
-  - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1
+  - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_STOP_MANUALLY=1
+ # - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_EXIT_WHEN_DONE=1
+ # TODO: test AFL_BENCH_UNTIL_CRASH once we have a target that crashes
+ # - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_BENCH_JUST_ONE=1
+
+before_install:
+  - sudo apt update
+  - sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-7 gcc-7-plugin-dev libc++-7-dev
 
 script:
-  - make
-  - ./afl-gcc ./test-instr.c -o test-instr
-  - mkdir seeds; mkdir out
-  - echo "" > seeds/nil_seed
-  - timeout --preserve-status 5s ./afl-fuzz -i seeds -o out/ -- ./test-instr
+  - gcc -v
+  - clang -v
+  - make distrib
+  - make tests

@@ -25,6 +25,8 @@ heap-related security bugs in several ways:
   - It checks for calloc() overflows and can cause soft or hard failures
     of alloc requests past a configurable memory limit (AFL_LD_LIMIT_MB,
     AFL_LD_HARD_FAIL).
+  - Optionally, in platforms supporting it, huge pages can be used by passing
+    USEHUGEPAGE=1 to make.
 
 Basically, it is inspired by some of the non-default options available for the
 OpenBSD allocator - see malloc.conf(5) on that platform for reference. It is

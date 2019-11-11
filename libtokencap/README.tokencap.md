@@ -2,7 +2,7 @@
 
   (See ../docs/README for the general instruction manual.)
 
-This Linux-only companion library allows you to instrument `strcmp()`, `memcmp()`,
+This companion library allows you to instrument `strcmp()`, `memcmp()`,
 and related functions to automatically extract syntax tokens passed to any of
 these libcalls. The resulting list of tokens may be then given as a starting
 dictionary to afl-fuzz (the -x option) to improve coverage on subsequent
@@ -55,9 +55,10 @@ If you don't get any results, the target library is probably not using strcmp()
 and memcmp() to parse input; or you haven't compiled it with -fno-builtin; or
 the whole thing isn't dynamically linked, and LD_PRELOAD is having no effect.
 
-PS. The library is Linux-only because there is probably no particularly portable
-and non-invasive way to distinguish between read-only and read-write memory
-mappings. The `__tokencap_load_mappings()` function is the only thing that would
-need to be changed for other OSes. Porting to platforms with /proc/<pid>/maps
-(e.g., FreeBSD) should be trivial.
+Portability hints: There is probably no particularly portable and non-invasive
+way to distinguish between read-only and read-write memory mappings.
+The `__tokencap_load_mappings()` function is the only thing that would
+need to be changed for other OSes.
+
+Current supported OSes are: Linux, Darwin, FreeBSD (thanks to @devnexen)
 

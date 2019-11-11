@@ -99,7 +99,7 @@ The options that enables Unicorn CompareCoverage are the same used for QEMU.
 AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
 values. QEMU_COMPCOV_LEVEL=2 instruments all
 comparison instructions. Comparison instructions are currently instrumented only
-on the x86 and x86_64 targets.
+for the x86, x86_64 and ARM targets.
 
 ## 4) Gotchas, feedback, bugs
 

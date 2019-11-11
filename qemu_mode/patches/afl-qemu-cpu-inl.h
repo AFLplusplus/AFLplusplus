@@ -3,7 +3,7 @@
    -------------------------------------------------------------------
 
    Originally written by Andrew Griffiths <agriffiths@google.com> and
-                         Michal Zalewski <lcamtuf@google.com>
+                         Michal Zalewski
 
    TCG instrumentation and block chaining support by Andrea Biondo
                                       <andrea.biondo965@gmail.com>
@@ -448,24 +448,6 @@ static void afl_request_tsl(target_ulong pc, target_ulong cb, uint32_t flags,
       return;
 
   }
-
-}
-
-/* Check if an address is valid in the current mapping */
-
-static inline int is_valid_addr(target_ulong addr) {
-
-  int          l, flags;
-  target_ulong page;
-  void *       p;
-
-  page = addr & TARGET_PAGE_MASK;
-  l = (page + TARGET_PAGE_SIZE) - addr;
-
-  flags = page_get_flags(page);
-  if (!(flags & PAGE_VALID) || !(flags & PAGE_READ)) return 0;
-
-  return 1;
 
 }
 

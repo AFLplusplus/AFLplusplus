@@ -2,7 +2,7 @@
    american fuzzy lop - postprocessor for PNG
    ------------------------------------------
 
-   Written and maintained by Michal Zalewski <lcamtuf@google.com>
+   Written by Michal Zalewski
 
    Copyright 2015 Google Inc. All rights reserved.
 

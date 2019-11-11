@@ -50,6 +50,8 @@ class SplitComparesTransform : public ModulePass {
   }
 
  private:
+  int enableFPSplit;
+
   size_t splitIntCompares(Module &M, unsigned bitw);
   size_t splitFPCompares(Module &M);
   bool   simplifyCompares(Module &M);
@@ -101,10 +103,11 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
 
           }
 
-          if (selectcmpInst->getPredicate() == CmpInst::FCMP_OGE ||
+          if (enableFPSplit && (
+              selectcmpInst->getPredicate() == CmpInst::FCMP_OGE ||
               selectcmpInst->getPredicate() == CmpInst::FCMP_UGE ||
               selectcmpInst->getPredicate() == CmpInst::FCMP_OLE ||
-              selectcmpInst->getPredicate() == CmpInst::FCMP_ULE) {
+              selectcmpInst->getPredicate() == CmpInst::FCMP_ULE)) {
 
             auto op0 = selectcmpInst->getOperand(0);
             auto op1 = selectcmpInst->getOperand(1);
@@ -114,6 +117,8 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
 
             /* this is probably not needed but we do it anyway */
             if (TyOp0 != TyOp1) { continue; }
+
+            if (TyOp0->isArrayTy() || TyOp0->isVectorTy()) { continue; }
 
             fcomps.push_back(selectcmpInst);
 
@@ -475,6 +480,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
             Type *TyOp1 = op1->getType();
 
             if (TyOp0 != TyOp1) { continue; }
+
+            if (TyOp0->isArrayTy() || TyOp0->isVectorTy()) { continue; }
 
             fcomps.push_back(selectcmpInst);
 
@@ -1039,6 +1046,8 @@ bool SplitComparesTransform::runOnModule(Module &M) {
   char *bitw_env = getenv("LAF_SPLIT_COMPARES_BITW");
   if (!bitw_env) bitw_env = getenv("AFL_LLVM_LAF_SPLIT_COMPARES_BITW");
   if (bitw_env) { bitw = atoi(bitw_env); }
+  
+  enableFPSplit = getenv("AFL_LLVM_LAF_SPLIT_FLOATS") != NULL;
 
   simplifyCompares(M);
 
@@ -1048,8 +1057,9 @@ bool SplitComparesTransform::runOnModule(Module &M) {
     errs() << "Split-compare-pass by laf.intel@gmail.com, extended by "
               "heiko@hexco.de\n";
 
-  errs() << "Split-floatingpoint-compare-pass: " << splitFPCompares(M)
-         << " FP comparisons splitted\n";
+  if (enableFPSplit)
+    errs() << "Split-floatingpoint-compare-pass: " << splitFPCompares(M)
+           << " FP comparisons splitted\n";
 
   switch (bitw) {
 
