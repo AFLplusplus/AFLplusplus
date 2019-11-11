@@ -3,7 +3,7 @@ CUR_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 all: libradamsa.so
 
 libradamsa.so: libradamsa.a
-	$(CC) -shared libradamsa.a -o libradamsa.so
+	$(CC) -O3 -shared libradamsa.a -o libradamsa.so
 
 libradamsa.a: libradamsa.c radamsa.h
 	@echo " ***************************************************************"
