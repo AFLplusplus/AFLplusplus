@@ -22,12 +22,13 @@ Version ++2.58d (dev):
   - afl-fuzz: CPU affinity support for DragonFly
   - llvm_mode: float splitting is now configured via AFL_LLVM_LAF_SPLIT_FLOATS
   - libtokencap: support for *BSD/OSX added
-  - libcompcov floating point splitting support for qemu and unicorn
+  - compcov: floating point splitting support for QEMU on x86 targets
   - Dockerfile by courtesy of devnexen
   - ripped regex.dictionary from Google afl PR
   - qemu and unicorn download scripts now try to download until the full
     download succeeded. f*ckin travis fails downloading 40% of the time!
   - removed unnecessary warnings
+  - added the radamsa stage
 
 
 --------------------------
