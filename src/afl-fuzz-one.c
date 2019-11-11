@@ -2,7 +2,7 @@
    american fuzzy lop++ - fuzze_one routines in different flavours
    ---------------------------------------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
@@ -449,7 +449,7 @@ u8 fuzz_one_original(char** argv) {
    * TRIMMING *
    ************/
 
-  if (!dumb_mode && !queue_cur->trim_done && !custom_mutator) {
+  if (!dumb_mode && !queue_cur->trim_done && !custom_mutator && !disable_trim) {
 
     u8 res = trim_case(argv, queue_cur, in_buf);
 

@@ -3,7 +3,7 @@
 # american fuzzy lop - clang assembly normalizer
 # ----------------------------------------------
 #
-# Written and maintained by Michal Zalewski <lcamtuf@google.com>
+# Written by Michal Zalewski
 # The idea for this wrapper comes from Ryan Govostes.
 #
 # Copyright 2013, 2014 Google Inc. All rights reserved.

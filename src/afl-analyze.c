@@ -2,7 +2,7 @@
    american fuzzy lop++ - file format analyzer
    -------------------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
@@ -841,7 +841,7 @@ int main(int argc, char** argv) {
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  SAYF(cCYA "afl-analyze" VERSION cRST " by <lcamtuf@google.com>\n");
+  SAYF(cCYA "afl-analyze" VERSION cRST " by Michal Zalewski\n");
 
   while ((opt = getopt(argc, argv, "+i:f:m:t:eQUWh")) > 0)
 
@@ -987,7 +987,7 @@ int main(int argc, char** argv) {
   if (child_timed_out)
     FATAL("Target binary times out (adjusting -t may help).");
 
-  if (!anything_set()) FATAL("No instrumentation detected.");
+  if (getenv("AFL_SKIP_BIN_CHECK") == NULL && !anything_set()) FATAL("No instrumentation detected.");
 
   analyze(use_argv);
 

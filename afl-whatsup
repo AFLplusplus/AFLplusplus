@@ -3,7 +3,7 @@
 # american fuzzy lop - status check tool
 # --------------------------------------
 #
-# Written and maintained by Michal Zalewski <lcamtuf@google.com>
+# Written by Michal Zalewski
 #
 # Copyright 2015 Google Inc. All rights reserved.
 #
@@ -17,7 +17,7 @@
 # instances of afl-fuzz.
 #
 
-echo "status check tool for afl-fuzz by <lcamtuf@google.com>"
+echo "status check tool for afl-fuzz by Michal Zalewski"
 echo
 test "$1" = "-h" && {
   echo $0

@@ -64,7 +64,7 @@ a2.cpp
 but it might lead to files being unwantedly instrumented if the same filename
 exists somewhere else in the project directories.
 
-The created whitelist file is then set to AFL_INST_WHITELIST when you compile
+The created whitelist file is then set to AFL_LLVM_WHITELIST when you compile
 your program. For each file that didn't match the whitelist, the compiler will
 issue a warning at the end stating that no blocks were instrumented. If you
 didn't intend to instrument that file, then you can safely ignore that warning.

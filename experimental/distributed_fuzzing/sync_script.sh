@@ -3,7 +3,7 @@
 # american fuzzy lop - fuzzer synchronization tool
 # ------------------------------------------------
 #
-# Written and maintained by Michal Zalewski <lcamtuf@google.com>
+# Written by Michal Zalewski
 #
 # Copyright 2014 Google Inc. All rights reserved.
 #

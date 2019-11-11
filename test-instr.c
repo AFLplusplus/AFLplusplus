@@ -2,7 +2,7 @@
    american fuzzy lop - a trivial program to test the build
    --------------------------------------------------------
 
-   Written and maintained by Michal Zalewski <lcamtuf@google.com>
+   Written by Michal Zalewski
 
    Copyright 2014 Google Inc. All rights reserved.
 
@@ -23,15 +23,20 @@ int main(int argc, char** argv) {
   char  buff[8];
   char* buf = buff;
 
-  if (argc > 1)
+  // we support command line parameter and stdin
+  if (argc > 1) {
+
     buf = argv[1];
-  else if (read(0, buf, sizeof(buf)) < 1) {
+
+  } else if (read(0, buf, sizeof(buf)) < 1) {
 
     printf("Hum?\n");
-    exit(1);
+    return 1;
 
   }
 
+  // we support three input cases (plus a 4th if stdin is used but there is no
+  // input)
   if (buf[0] == '0')
     printf("Looks like a zero to me!\n");
   else if (buf[0] == '1')
@@ -39,7 +44,7 @@ int main(int argc, char** argv) {
   else
     printf("Neither one or zero? How quaint!\n");
 
-  exit(0);
+  return 0;
 
 }
 

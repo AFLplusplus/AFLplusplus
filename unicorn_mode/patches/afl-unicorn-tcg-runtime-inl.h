@@ -3,7 +3,7 @@
    ----------------------------------------------
 
    Originally written by Andrew Griffiths <agriffiths@google.com> and
-                         Michal Zalewski <lcamtuf@google.com>
+                         Michal Zalewski
 
    Adapted for afl-unicorn by Dominik Maier <mail@dmnk.co>
 
@@ -104,3 +104,71 @@ void HELPER(afl_compcov_log_64)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
 
 }
 
+/* // Little endian CompCov
+void HELPER(afl_compcov_log_16)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
+                                uint64_t arg2) {
+
+  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
+
+  if ((arg1 & 0xff00) == (arg2 & 0xff00)) { INC_AFL_AREA(cur_loc); }
+
+}
+
+void HELPER(afl_compcov_log_32)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
+                                uint64_t arg2) {
+
+  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
+
+  if ((arg1 & 0xff000000) == (arg2 & 0xff000000)) {
+
+    INC_AFL_AREA(cur_loc + 2);
+    if ((arg1 & 0xff0000) == (arg2 & 0xff0000)) {
+
+      INC_AFL_AREA(cur_loc + 1);
+      if ((arg1 & 0xff00) == (arg2 & 0xff00)) { INC_AFL_AREA(cur_loc); }
+
+    }
+
+  }
+
+}
+
+void HELPER(afl_compcov_log_64)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
+                                uint64_t arg2) {
+
+  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
+
+  if ((arg1 & 0xff00000000000000) == (arg2 & 0xff00000000000000)) {
+
+    INC_AFL_AREA(cur_loc + 6);
+    if ((arg1 & 0xff000000000000) == (arg2 & 0xff000000000000)) {
+
+      INC_AFL_AREA(cur_loc + 5);
+      if ((arg1 & 0xff0000000000) == (arg2 & 0xff0000000000)) {
+
+        INC_AFL_AREA(cur_loc + 4);
+        if ((arg1 & 0xff00000000) == (arg2 & 0xff00000000)) {
+
+          INC_AFL_AREA(cur_loc + 3);
+          if ((arg1 & 0xff000000) == (arg2 & 0xff000000)) {
+
+            INC_AFL_AREA(cur_loc + 2);
+            if ((arg1 & 0xff0000) == (arg2 & 0xff0000)) {
+
+              INC_AFL_AREA(cur_loc + 1);
+              if ((arg1 & 0xff00) == (arg2 & 0xff00)) { INC_AFL_AREA(cur_loc); }
+
+            }
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+}
+*/

@@ -7,7 +7,7 @@
 #            David A. Wheeler <dwheeler@ida.org>
 #
 # Edits to bring the script in line with afl-cmin and other companion scripts
-# by Michal Zalewski <lcamtuf@google.com>. All bugs are my fault.
+# by Michal Zalewski. All bugs are my fault.
 #
 # Copyright 2015 Institute for Defense Analyses.
 #

@@ -2,7 +2,7 @@
    american fuzzy lop++ - shared memory related code
    -------------------------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
 
@@ -152,8 +152,6 @@ void setup_shm(unsigned char dumb_mode) {
   atexit(remove_shm);
 
   shm_str = alloc_printf("%d", shm_id);
-
-  setenv(SHM_ENV_VAR, shm_str, 1);
 
   /* If somebody is asking us to fuzz instrumented binaries in dumb mode,
      we don't want them to detect instrumentation, since we won't be sending

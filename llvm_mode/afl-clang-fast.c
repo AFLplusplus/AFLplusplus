@@ -3,7 +3,7 @@
    ------------------------------------------------
 
    Written by Laszlo Szekeres <lszekeres@google.com> and
-              Michal Zalewski <lcamtuf@google.com>
+              Michal Zalewski
 
    LLVM integration design comes from Laszlo Szekeres.
 
@@ -32,11 +32,13 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <assert.h>
 
 static u8*  obj_path;                  /* Path to runtime libraries         */
 static u8** cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
+static u8   llvm_fullpath[PATH_MAX];
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
@@ -104,6 +106,7 @@ static void find_obj(u8* argv0) {
 static void edit_params(u32 argc, char** argv) {
 
   u8  fortify_set = 0, asan_set = 0, x_set = 0, maybe_linking = 1, bit_mode = 0;
+  u8  has_llvm_config = 0;
   u8* name;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8*));
@@ -112,23 +115,29 @@ static void edit_params(u32 argc, char** argv) {
   if (!name)
     name = argv[0];
   else
-    name++;
+    ++name;
+
+  has_llvm_config = (strlen(LLVM_BINDIR) > 0);
 
   if (!strcmp(name, "afl-clang-fast++")) {
 
     u8* alt_cxx = getenv("AFL_CXX");
-    cc_params[0] = alt_cxx ? alt_cxx : (u8*)"clang++";
+    if (has_llvm_config)  snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang++", LLVM_BINDIR);
+    else sprintf(llvm_fullpath, "clang++");
+    cc_params[0] = alt_cxx ? alt_cxx : (u8*)llvm_fullpath;
 
   } else {
 
     u8* alt_cc = getenv("AFL_CC");
-    cc_params[0] = alt_cc ? alt_cc : (u8*)"clang";
+    if (has_llvm_config)  snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang", LLVM_BINDIR);
+    else sprintf(llvm_fullpath, "clang");
+    cc_params[0] = alt_cc ? alt_cc : (u8*)llvm_fullpath;
 
   }
 
   /* There are three ways to compile with afl-clang-fast. In the traditional
      mode, we use afl-llvm-pass.so, then there is libLLVMInsTrim.so which is
-     much faster but has less coverage. Finally tere is the experimental
+     much faster but has less coverage. Finally there is the experimental
      'trace-pc-guard' mode, we use native LLVM instrumentation callbacks
      instead. For trace-pc-guard see:
      http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards
@@ -273,6 +282,9 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = "-fno-builtin-strcasecmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-strncasecmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-memcmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-bcmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strstr";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strcasestr";
 
   }
 

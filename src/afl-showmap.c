@@ -2,7 +2,7 @@
    american fuzzy lop++ - map display utility
    ------------------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
 
@@ -395,7 +395,7 @@ static void setup_signal_handlers(void) {
 
 static void show_banner(void) {
 
-  SAYF(cCYA "afl-showmap" VERSION cRST " by <lcamtuf@google.com>\n");
+  SAYF(cCYA "afl-showmap" VERSION cRST " by Michal Zalewski\n");
 
 }
 

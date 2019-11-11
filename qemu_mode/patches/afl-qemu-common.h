@@ -3,7 +3,7 @@
    -------------------------------------------------------------------
 
    Originally written by Andrew Griffiths <agriffiths@google.com> and
-                         Michal Zalewski <lcamtuf@google.com>
+                         Michal Zalewski
 
    TCG instrumentation and block chaining support by Andrea Biondo
                                       <andrea.biondo965@gmail.com>
@@ -30,6 +30,9 @@
    have a look at afl-showmap.c.
 
  */
+
+#ifndef __AFL_QEMU_COMMON
+#define __AFL_QEMU_COMMON
 
 #include "../../config.h"
 
@@ -80,4 +83,31 @@ void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
                                   TCGv_i64 arg1, TCGv_i64 arg2);
 
 void tcg_gen_afl_maybe_log_call(target_ulong cur_loc);
+
+void afl_float_compcov_log_32(target_ulong cur_loc, float32 arg1, float32 arg2,
+                              void *status);
+void afl_float_compcov_log_64(target_ulong cur_loc, float64 arg1, float64 arg2,
+                              void *status);
+void afl_float_compcov_log_80(target_ulong cur_loc, floatx80 arg1,
+                              floatx80 arg2);
+
+/* Check if an address is valid in the current mapping */
+
+static inline int is_valid_addr(target_ulong addr) {
+
+  int          l, flags;
+  target_ulong page;
+  void *       p;
+
+  page = addr & TARGET_PAGE_MASK;
+  l = (page + TARGET_PAGE_SIZE) - addr;
+
+  flags = page_get_flags(page);
+  if (!(flags & PAGE_VALID) || !(flags & PAGE_READ)) return 0;
+
+  return 1;
+
+}
+
+#endif
 

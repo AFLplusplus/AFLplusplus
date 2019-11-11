@@ -2,7 +2,7 @@
    american fuzzy lop++ - globals declarations
    -------------------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
@@ -74,8 +74,8 @@ u8 *in_dir,                             /* Input directory with test cases  */
     *file_extension,                    /* File extension                   */
     *orig_cmdline;                      /* Original command line            */
 u8 *doc_path,                           /* Path to documentation dir        */
-   *infoexec,				/* Command to execute on a new crash */
-   *out_file;                           /* File to fuzz, if any             */
+    *infoexec,                         /* Command to execute on a new crash */
+    *out_file;                          /* File to fuzz, if any             */
 
 u32 exec_tmout = EXEC_TIMEOUT;          /* Configurable exec timeout (ms)   */
 u32 hang_tmout = EXEC_TIMEOUT;          /* Timeout used for hang det (ms)   */
@@ -125,7 +125,8 @@ u8 skip_deterministic,                  /* Skip deterministic stages?       */
     deferred_mode,                      /* Deferred forkserver mode?        */
     fixed_seed,                         /* do not reseed                    */
     fast_cal,                           /* Try to calibrate faster?         */
-    uses_asan;                          /* Target uses ASAN?                */
+    uses_asan,                          /* Target uses ASAN?                */
+    disable_trim;                       /* Never trim in fuzz_one           */
 
 s32 out_fd,                             /* Persistent fd for out_file       */
 #ifndef HAVE_ARC4RANDOM

@@ -2,7 +2,7 @@
    american fuzzy lop - free CPU gizmo
    -----------------------------------
 
-   Originally written by Michal Zalewski <lcamtuf@google.com>
+   Originally written by Michal Zalewski
 
    Now maintained by by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
@@ -52,18 +52,24 @@
 #include "types.h"
 #include "debug.h"
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__) || defined(__DragonFly__)
 #define HAVE_AFFINITY 1
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 #include <pthread.h>
 #include <pthread_np.h>
+#if defined(__FreeBSD__)
 #include <sys/cpuset.h>
+#endif
 #define cpu_set_t cpuset_t
 #elif defined(__NetBSD__)
 #include <pthread.h>
 #include <sched.h>
+#elif defined(__APPLE__)
+#include <pthread.h>
+#include <mach/thread_act.h>
+#include <mach/thread_policy.h>
 #endif
-#endif                            /* __linux__ || __FreeBSD__ || __NetBSD__ */
+#endif                            /* __linux__ || __FreeBSD__ || __NetBSD__ || __APPLE__ */
 
 /* Get unix time in microseconds. */
 
@@ -138,7 +144,7 @@ int main(int argc, char** argv) {
 
   if (argc > 1) {
 
-    printf("afl-gotcpu" VERSION " by <lcamtuf@google.com>\n");
+    printf("afl-gotcpu" VERSION " by Michal Zalewski\n");
     printf("\n%s \n\n", argv[0]);
     printf("afl-gotcpu does not have command line options\n");
     printf("afl-gotcpu prints out which CPUs are available\n");
@@ -150,7 +156,7 @@ int main(int argc, char** argv) {
 
   u32 cpu_cnt = sysconf(_SC_NPROCESSORS_ONLN), idle_cpus = 0, maybe_cpus = 0, i;
 
-  SAYF(cCYA "afl-gotcpu" VERSION cRST " by <lcamtuf@google.com>\n");
+  SAYF(cCYA "afl-gotcpu" VERSION cRST " by Michal Zalewski\n");
 
   ACTF("Measuring per-core preemption rate (this will take %0.02f sec)...",
        ((double)CTEST_CORE_TRG_MS) / 1000);
@@ -164,7 +170,7 @@ int main(int argc, char** argv) {
     if (!fr) {
 
       u32 util_perc;
-#if defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
       cpu_set_t c;
 
       CPU_ZERO(&c);
@@ -176,9 +182,15 @@ int main(int argc, char** argv) {
       if (c == NULL) PFATAL("cpuset_create failed");
 
       cpuset_set(i, c);
+#elif defined(__APPLE__)
+      thread_affinity_policy_data_t c = { i };
+      thread_port_t native_thread = pthread_mach_thread_np(pthread_self());
+      if (thread_policy_set(native_thread, THREAD_AFFINITY_POLICY,
+	 (thread_policy_t)&c, 1) != KERN_SUCCESS)
+	PFATAL("thread_policy_set failed");
 #endif
 
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
       if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c))
         PFATAL("pthread_setaffinity_np failed");
 #endif
@@ -265,7 +277,7 @@ int main(int argc, char** argv) {
 
   u32 util_perc;
 
-  SAYF(cCYA "afl-gotcpu" VERSION cRST " by <lcamtuf@google.com>\n");
+  SAYF(cCYA "afl-gotcpu" VERSION cRST " by Michal Zalewski\n");
 
   /* Run a busy loop for CTEST_TARGET_MS. */
 

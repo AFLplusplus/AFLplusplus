@@ -2,7 +2,7 @@
    american fuzzy lop - sample argv fuzzing wrapper
    ------------------------------------------------
 
-   Written by Michal Zalewski <lcamtuf@google.com>
+   Written by Michal Zalewski
 
    Copyright 2015 Google Inc. All rights reserved.
 

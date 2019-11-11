@@ -4,7 +4,7 @@
 # --------------------------------------
 #
 # Originally written by Andrew Griffiths <agriffiths@google.com> and
-#                       Michal Zalewski <lcamtuf@google.com>
+#                       Michal Zalewski
 #
 # TCG instrumentation and block chaining support by Andrea Biondo
 #                                    <andrea.biondo965@gmail.com>
@@ -100,7 +100,10 @@ if [ ! "$CKSUM" = "$QEMU_SHA384" ]; then
 
   echo "[*] Downloading QEMU ${VERSION} from the web..."
   rm -f "$ARCHIVE"
-  wget -O "$ARCHIVE" -- "$QEMU_URL" || exit 1
+  OK=
+  while [ -z "$OK" ]; do
+    wget -c -O "$ARCHIVE" -- "$QEMU_URL" && OK=1
+  done
 
   CKSUM=`sha384sum -- "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
 
@@ -150,6 +153,9 @@ patch -p1 <../patches/translate-all.diff || exit 1
 patch -p1 <../patches/tcg.diff || exit 1
 patch -p1 <../patches/i386-translate.diff || exit 1
 patch -p1 <../patches/arm-translate.diff || exit 1
+patch -p1 <../patches/i386-ops_sse.diff || exit 1
+patch -p1 <../patches/i386-fpu_helper.diff || exit 1
+patch -p1 <../patches/softfloat.diff || exit 1
 
 echo "[+] Patching done."
 

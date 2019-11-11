@@ -2,7 +2,7 @@
 # american fuzzy lop - libtokencap
 # --------------------------------
 #
-# Written by Michal Zalewski <lcamtuf@google.com>
+# Written by Michal Zalewski
 #
 # Copyright 2016 Google Inc. All rights reserved.
 #
@@ -24,6 +24,18 @@ CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign
 ifeq "$(shell uname)" "Linux"
   TARGETS = libtokencap.so
 endif
+ifeq "$(shell uname)" "Darwin"
+  TARGETS = libtokencap.so
+endif
+ifeq "$(shell uname)" "FreeBSD"
+  TARGETS = libtokencap.so
+endif
+ifeq "$(shell uname)" "OpenBSD"
+  TARGETS = libtokencap.so
+endif
+ifeq "$(shell uname)" "NetBSD"
+  TARGETS = libtokencap.so
+endif
 all: $(TARGETS)
 
 libtokencap.so: libtokencap.so.c ../config.h
@@ -37,5 +49,5 @@ clean:
 
 install: all
 	install -m 755 ../libtokencap.so $${DESTDIR}$(HELPER_PATH)
-	install -m 644 README.tokencap $${DESTDIR}$(HELPER_PATH)
+	install -m 644 README.tokencap.md $${DESTDIR}$(HELPER_PATH)
 

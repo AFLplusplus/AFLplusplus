@@ -3,7 +3,7 @@
 # american fuzzy lop - crash triage utility
 # -----------------------------------------
 #
-# Written and maintained by Michal Zalewski <lcamtuf@google.com>
+# Written by Michal Zalewski
 #
 # Copyright 2013, 2014, 2017 Google Inc. All rights reserved.
 #
@@ -22,7 +22,7 @@
 # necessary.
 #
 
-echo "crash triage utility for afl-fuzz by <lcamtuf@google.com>"
+echo "crash triage utility for afl-fuzz by Michal Zalewski"
 echo
 
 ulimit -v 100000 2>/dev/null
