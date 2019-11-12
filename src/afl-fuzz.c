@@ -601,7 +601,7 @@ int main(int argc, char** argv) {
     if (!handle) FATAL("Failed to dlopen() libradamsa");
 
     void (*radamsa_init_ptr)(void) = dlsym(handle, "radamsa_init");
-    radamsa_mutate_ptr = dlsym(handle, "radamsa_mutate");
+    radamsa_mutate_ptr = dlsym(handle, "radamsa");
 
     if (!radamsa_init_ptr || !radamsa_mutate_ptr) FATAL("Failed to dlsym() libradamsa");
 
