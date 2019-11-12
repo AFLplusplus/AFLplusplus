@@ -9,8 +9,6 @@
    GCC integration design is based on the LLVM design, which comes
    from Laszlo Szekeres.
 
-   Copyright 2015 Google Inc. All rights reserved.
-
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
@@ -55,15 +53,13 @@ __thread u32 __afl_prev_loc;
 #endif
 
 /* Trace a basic block with some ID */
-void __afl_trace(u32 x) {
+void __afl_trace(const u32 x) {
 
-  u32 l = __afl_prev_loc;
-
-#if 0 /* enable for neverZero feature. By default disabled since too inefficient :-( */
-  /* @Marc: avoid conditional jumps here */
-  __afl_area_ptr[l ^ x] += 1 + (__afl_area_ptr[l ^ x] == (u8)~0);
+#if 1 /* enable for neverZero feature. */
+  __afl_area_ptr[__afl_prev_loc ^ x] += 1 
+                               + ((u8)(1 + __afl_area_ptr[__afl_prev_loc ^ x]) == 0);
 #else
-  ++__afl_area_ptr[l ^ x];
+  ++__afl_area_ptr[__afl_prev_loc ^ x];
 #endif
 
   __afl_prev_loc = (x >> 1);
