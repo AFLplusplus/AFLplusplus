@@ -58,9 +58,9 @@ static u8* get_libradamsa_path(u8* own_loc) {
 
     ck_free(own_copy);
 
-  if (!access(HELPER_PATH "/libradamsa.so", X_OK)) {
+  if (!access(AFL_PATH "/libradamsa.so", X_OK)) {
 
-    return ck_strdup(HELPER_PATH "/libradamsa.so");
+    return ck_strdup(AFL_PATH "/libradamsa.so");
 
   }
 
