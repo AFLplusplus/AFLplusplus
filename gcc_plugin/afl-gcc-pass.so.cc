@@ -222,6 +222,7 @@ static unsigned int inline_instrument(function *fun) {
   DECL_EXTERNAL(prev_loc_g) = 1;                        /* External linkage */
   DECL_PRESERVE_P(prev_loc_g) = 1;
   DECL_ARTIFICIAL(prev_loc_g) = 1;                  /* Injected by compiler */
+  set_decl_tls_model(prev_loc_g, TLS_MODEL_REAL);          /* TLS attribute */
   rest_of_decl_compilation(prev_loc_g, 1, 0);
 
   FOR_EACH_BB_FN(bb, fun) {
@@ -293,6 +294,7 @@ static unsigned int inline_instrument(function *fun) {
     gimple_seq_add_stmt(&seq, g);  // map_ptr = __afl_area_ptr
     update_stmt(g);
 
+#if 1
 #if 0
 		tree addr = build2(ADDR_EXPR, map_type, map_ptr, area_off);
 		g = gimple_build_assign(map_ptr2, MODIFY_EXPR, addr);
@@ -303,12 +305,21 @@ static unsigned int inline_instrument(function *fun) {
     gimple_seq_add_stmt(&seq, g);  // map_ptr2 = map_ptr + area_off
     update_stmt(g);
 #endif
+
     // gimple_assign <mem_ref, _3, *p_6, NULL, NULL>
     tree tmp1 = create_tmp_var_raw(unsigned_char_type_node, "tmp1");
     g = gimple_build_assign(tmp1, MEM_REF, map_ptr2);
     gimple_seq_add_stmt(&seq, g);  // tmp1 = *map_ptr2
     update_stmt(g);
-
+#else
+    tree atIndex = build2(PLUS_EXPR, uint32_type_node, map_ptr, area_off);
+    tree array_address = build1(ADDR_EXPR, map_type, atIndex);
+    tree array_access = build1(INDIRECT_REF, map_type, array_address);
+    tree tmp1 = create_tmp_var(unsigned_char_type_node, "tmp1");
+    g = gimple_build_assign(tmp1, array_access);
+    gimple_seq_add_stmt(&seq, g);  // tmp1 = *(map_ptr + area_off)
+    update_stmt(g);
+#endif
     // gimple_assign <plus_expr, _4, _3, 1, NULL>
     tree tmp2 = create_tmp_var_raw(unsigned_char_type_node, "tmp2");
     g = gimple_build_assign(tmp2, PLUS_EXPR, tmp1, one);
@@ -320,8 +331,8 @@ static unsigned int inline_instrument(function *fun) {
 
     // gimple_assign <ssa_name, *p_6, _4, NULL, NULL>
     //		tree map_ptr3 = create_tmp_var_raw(map_type, "map_ptr3");
-    g = gimple_build_assign(map_ptr_g, INDIRECT_REF, tmp2);
-    gimple_seq_add_stmt(&seq, g);  // *map_ptr3 = tmp2
+    g = gimple_build_assign(map_ptr2, INDIRECT_REF, tmp2);
+    gimple_seq_add_stmt(&seq, g);  // *map_ptr2 = tmp2
     update_stmt(g);
 
     /* Set prev_loc to cur_loc >> 1 */
