@@ -1880,8 +1880,8 @@ static const unsigned char heap[] = {2,3,4,105,111,116,97,2,3,7,112,97,116,116,1
 #ifndef O_RSYNC
 #define O_RSYNC 0
 #endif
-#ifndef O_OSYNC
-#define O_OSYNC 0
+#ifndef O_DSYNC
+#define O_DSYNC 0
 #endif
 #ifndef O_SEARCH
 #define O_SEARCH 0
