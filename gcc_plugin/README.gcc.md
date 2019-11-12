@@ -46,9 +46,11 @@ should be all you need. On Debian machines, these headers can be acquired by
 installing the `gcc-<VERSION>-plugin-dev` packages.
 
 To build the instrumentation itself, type 'make'. This will generate binaries
-called afl-gcc-fast and afl-g++-fast in the parent directory. Once this
-is done, you can instrument third-party code in a way similar to the standard
-operating mode of AFL, e.g.:
+called afl-gcc-fast and afl-g++-fast in the parent directory. 
+If the CC/CXX have been overridden, those compilers will be used from
+those wrappers without using AFL_CXX/AFL_CC settings.
+Once this is done, you can instrument third-party code in a way similar to the
+standard operating mode of AFL, e.g.:
 
   CC=/path/to/afl/afl-gcc-fast ./configure [...options...]
   make
