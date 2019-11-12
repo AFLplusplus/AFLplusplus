@@ -80,7 +80,7 @@ test_deps:
 	@echo "[+] All set and ready to build."
 
 ../afl-gcc-fast: afl-gcc-fast.c | test_deps
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
+	$(CC) -DAFL_GCC_CC=\"$(CC)\" -DAFL_GCC_CXX=\"$(CXX)\" $(CFLAGS) $< -o $@ $(LDFLAGS)
 	ln -sf afl-gcc-fast ../afl-g++-fast
 
 ../afl-gcc-pass.so: afl-gcc-pass.so.cc | test_deps
