@@ -80,13 +80,25 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
       diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] ${AFL_GCC} instrumentation should be different on different input but is not"
         CODE=1
-      } || $ECHO "$GREEN[+] ${AFL_GCC} instrumentation present and working correctly"
+      } || {
+        $ECHO "$GREEN[+] ${AFL_GCC} instrumentation present and working correctly"
+      }
     } || {
       $ECHO "$RED[!] ${AFL_GCC} instrumentation failed"
       CODE=1
     }
     rm -f test-instr.plain.0 test-instr.plain.1
-  } || $ECHO "$RED[!] ${AFL_GCC} failed"
+    TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
+    test "$TUPLES" -gt 3 -a "$TUPLES" -lt 6 && {
+      $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
+    } || {
+      $ECHO "$RED[!] ${AFL_GCC} produces weird instrumentation numbers: $TUPLES"
+      CODE=1
+    }
+  } || {
+    $ECHO "$RED[!] ${AFL_GCC} failed"
+    CODE=1
+  }
   test -e test-compcov.harden && {
     grep -Eqa 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] ${AFL_GCC} hardened mode succeeded and is working"
@@ -128,7 +140,9 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
     rm -rf in out errors
   }
   rm -f test-instr.plain
-} || $ECHO "$YELLOW[-] afl is not compiled, cannot test"
+} || { 
+  $ECHO "$YELLOW[-] afl is not compiled, cannot test"
+}
 
 $ECHO "$BLUE[*] Testing: llvm_mode"
 test -e ../afl-clang-fast && {
@@ -148,7 +162,16 @@ test -e ../afl-clang-fast && {
       diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] llvm_mode instrumentation should be different on different input but is not"
         CODE=1
-      } || $ECHO "$GREEN[+] llvm_mode instrumentation present and working correctly"
+      } || {
+        $ECHO "$GREEN[+] llvm_mode instrumentation present and working correctly"
+        TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
+        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 6 && {
+          $ECHO "$GREEN[+] llvm_mode run reported $TUPLES instrumented locations which is fine"
+        } || {
+          $ECHO "$RED[!] llvm_mode instrumentation produces weird numbers: $TUPLES"
+          CODE=1
+        }
+      }
     } || { 
       $ECHO "$RED[!] llvm_mode instrumentation failed"
       CODE=1
@@ -254,7 +277,9 @@ test -e ../afl-clang-fast && {
     CODE=1
   }
   rm -f test-persistent
-} || $ECHO "$YELLOW[-] llvm_mode not compiled, cannot test"
+} || {
+  $ECHO "$YELLOW[-] llvm_mode not compiled, cannot test"
+}
 
 $ECHO "$BLUE[*] Testing: gcc_plugin"
 export AFL_CC=`which gcc`
@@ -271,6 +296,13 @@ test -e ../afl-gcc-fast && {
         CODE=1
       } || { 
         $ECHO "$GREEN[+] gcc_plugin instrumentation present and working correctly"
+        TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain.gccpi 2>&1 | grep Captur | awk '{print$3}'`
+        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 6 && {
+          $ECHO "$GREEN[+] gcc_plugin run reported $TUPLES instrumented locations which is fine"
+        } || {
+          $ECHO "$RED[!] gcc_plugin instrumentation produces weird numbers: $TUPLES"
+          CODE=1
+        }
       }
     } || {
       $ECHO "$RED[!] gcc_plugin instrumentation failed"
@@ -352,7 +384,9 @@ test -e ../afl-gcc-fast && {
     CODE=1
   }
   rm -f test-persistent
-} || $ECHO "$YELLOW[-] gcc_plugin not compiled, cannot test"
+} || {
+  $ECHO "$YELLOW[-] gcc_plugin not compiled, cannot test"
+}
 
 $ECHO "$BLUE[*] Testing: shared library extensions"
 cc -o test-compcov test-compcov.c > /dev/null 2>&1
@@ -365,7 +399,9 @@ test -e ../libtokencap.so && {
     CODE=1
   }
   rm -f token.out
-} || $ECHO "$YELLOW[-] libtokencap is not compiled, cannot test"
+} || {
+  $ECHO "$YELLOW[-] libtokencap is not compiled, cannot test"
+}
 test -e ../libdislocator.so && {
   {
     ulimit -c 1
@@ -375,9 +411,13 @@ test -e ../libdislocator.so && {
   grep -q BUFFEROVERFLOW test.out > /dev/null 2>&1 && {
     $ECHO "$RED[!] libdislocator did not detect the memory corruption"
     CODE=1
-  } || $ECHO "$GREEN[+] libdislocator did successfully detect the memory corruption" 
+  } || {
+    $ECHO "$GREEN[+] libdislocator did successfully detect the memory corruption" 
+  }
   rm -f test.out core test-compcov.core core.test-compcov
-} || $ECHO "$YELLOW[-] libdislocator is not compiled, cannot test"
+} || {
+  $ECHO "$YELLOW[-] libdislocator is not compiled, cannot test"
+}
 rm -f test-compcov
 test -e ../libradamsa.so && {
   test -e test-instr.plain || ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
@@ -403,7 +443,9 @@ test -e ../libradamsa.so && {
   } || {
     $ECHO "$YELLOW[-] compilation of test target failed, cannot test libradamsa"
   }
-} || $ECHO "$YELLOW[-] libradamsa is not compiled, cannot test"
+} || {
+  $ECHO "$YELLOW[-] libradamsa is not compiled, cannot test"
+}
 
 $ECHO "$BLUE[*] Testing: qemu_mode"
 test -e ../afl-qemu-trace && {
@@ -445,7 +487,9 @@ test -e ../afl-qemu-trace && {
           $ECHO "$RED[!] afl-fuzz is not working correctly with qemu_mode libcompcov"
           CODE=1
         }
-      } || $ECHO "$YELLOW[-] we cannot test qemu_mode libcompcov because it is not present"
+      } || {
+        $ECHO "$YELLOW[-] we cannot test qemu_mode libcompcov because it is not present"
+      }
       rm -f errors
 
       $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
@@ -485,7 +529,9 @@ test -e ../afl-qemu-trace && {
   }
   
   rm -f test-instr test-compcov
-} || $ECHO "$YELLOW[-] qemu_mode is not compiled, cannot test"
+} || {
+  $ECHO "$YELLOW[-] qemu_mode is not compiled, cannot test"
+}
 
 $ECHO "$BLUE[*] Testing: unicorn_mode"
 test -d ../unicorn_mode/unicorn && {
@@ -536,7 +582,9 @@ test -d ../unicorn_mode/unicorn && {
     CODE=1
   }
   
-} || $ECHO "$YELLOW[-] unicorn_mode is not compiled, cannot test"
+} || {
+  $ECHO "$YELLOW[-] unicorn_mode is not compiled, cannot test"
+}
 
 $ECHO "$GREY[*] all test cases completed.$RESET"
 test "$CODE" = "0" && $ECHO "$GREEN[+] all tests were successful :-)$RESET"
