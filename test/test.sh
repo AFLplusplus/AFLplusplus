@@ -89,7 +89,7 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
     }
     rm -f test-instr.plain.0 test-instr.plain.1
     TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 3 -a "$TUPLES" -lt 6 && {
+    test "$TUPLES" -gt 3 -a "$TUPLES" -lt 7 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} produces weird instrumentation numbers: $TUPLES"
@@ -297,7 +297,7 @@ test -e ../afl-gcc-fast && {
       } || { 
         $ECHO "$GREEN[+] gcc_plugin instrumentation present and working correctly"
         TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain.gccpi 2>&1 | grep Captur | awk '{print$3}'`
-        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 6 && {
+        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 7 && {
           $ECHO "$GREEN[+] gcc_plugin run reported $TUPLES instrumented locations which is fine"
         } || {
           $ECHO "$RED[!] gcc_plugin instrumentation produces weird numbers: $TUPLES"
