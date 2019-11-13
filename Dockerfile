@@ -29,3 +29,4 @@ ARG LLVM_CONFIG=llvm-config-9
 COPY . /app
 RUN cd /app && make clean && make distrib && \
     make install && cd .. && rm -rf /app
+WORKDIR /work
