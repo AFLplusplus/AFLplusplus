@@ -22,11 +22,10 @@ RUN apt-get update && apt-get install -y \
     wget \
     ca-certificates \
     libpixman-1-dev \
-    && rm -fr /var/lib/apt/lists/*
-RUN mkdir /app
-WORKDIR /app
-COPY . .
+    && rm -rf /var/lib/apt/lists/*
 ARG CC=gcc-9
 ARG CXX=g++-9
 ARG LLVM_CONFIG=llvm-config-9
-RUN make clean && make distrib && make install
+COPY . /app
+RUN cd /app && make clean && make distrib && \
+    make install && cd .. && rm -rf /app
