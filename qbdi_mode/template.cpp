@@ -18,9 +18,6 @@
 #include <sys/shm.h>
 #include "../config.h"
 
-
-
-
 #include <QBDI.h>
 
 using namespace QBDI;
@@ -33,27 +30,27 @@ target_func p_target_func = NULL;
 rword module_base = 0;
 rword module_end = 0;
 static unsigned char
-               dummy[MAP_SIZE]; /* costs MAP_SIZE but saves a few instructions */
-unsigned char *afl_area_ptr = NULL;          /* Exported for afl_gen_trace */
+    dummy[MAP_SIZE];                /* costs MAP_SIZE but saves a few instructions */
+unsigned char *afl_area_ptr = NULL; /* Exported for afl_gen_trace */
 
 unsigned long afl_prev_loc = 0;
 
-
 /* Set up SHM region and initialize other stuff. */
 
-int afl_setup(void) {
+int afl_setup(void)
+{
     char *id_str = getenv(SHM_ENV_VAR);
     int shm_id;
-    if (id_str) {
+    if (id_str)
+    {
         shm_id = atoi(id_str);
-        afl_area_ptr = (unsigned char*)shmat(shm_id, NULL, 0);
+        afl_area_ptr = (unsigned char *)shmat(shm_id, NULL, 0);
         if (afl_area_ptr == (void *)-1)
             return 0;
         memset(afl_area_ptr, 0, MAP_SIZE);
     }
     return 1;
 }
-
 
 /* Fork server logic, invoked once we hit _start. */
 static void afl_forkserver()
@@ -73,7 +70,6 @@ static void afl_forkserver()
         // wait for afl-fuzz
         if (read(FORKSRV_FD, &was_killed, 4) != 4)
             exit(2);
-
 
         child_pid = fork();
         if (child_pid < 0)
@@ -101,25 +97,28 @@ static void afl_forkserver()
     }
 }
 
-void afl_maybe_log(unsigned long cur_loc) {
-  if(afl_area_ptr == NULL){
-      return;
-  }
-  unsigned long afl_idx = cur_loc ^ afl_prev_loc;
-  afl_area_ptr[afl_idx % MAP_SIZE]++;
-  afl_prev_loc = cur_loc >> 1;
+void afl_maybe_log(unsigned long cur_loc)
+{
+    if (afl_area_ptr == NULL)
+    {
+        return;
+    }
+    unsigned long afl_idx = cur_loc ^ afl_prev_loc;
+    afl_area_ptr[afl_idx % MAP_SIZE]++;
+    afl_prev_loc = cur_loc >> 1;
 }
-char* read_file(char* path, unsigned long* length) {
-	FILE *pFile = fopen(path, "rb"); 
-	char *pBuf;  
-	fseek(pFile, 0, SEEK_END);
-	unsigned long len = ftell(pFile);
-	pBuf = (char*)malloc(len);
-	rewind(pFile);
-	fread(pBuf, 1, len, pFile);
-	fclose(pFile); 
-	*length = len;
-	return pBuf;
+char *read_file(char *path, unsigned long *length)
+{
+    FILE *pFile = fopen(path, "rb");
+    char *pBuf;
+    fseek(pFile, 0, SEEK_END);
+    unsigned long len = ftell(pFile);
+    pBuf = (char *)malloc(len);
+    rewind(pFile);
+    fread(pBuf, 1, len, pFile);
+    fclose(pFile);
+    *length = len;
+    return pBuf;
 }
 
 char FPATH[200];
@@ -127,24 +126,21 @@ char FPATH[200];
 QBDI_NOINLINE int fuzz_func()
 {
 
-    if(afl_setup()){
+    if (afl_setup())
+    {
         afl_forkserver();
     }
 
     unsigned long len = 0;
-    char* data = read_file(FPATH, &len);
+    char *data = read_file(FPATH, &len);
 
     printf("In fuzz_func\n");
     p_target_func(data, len);
     return 1;
 }
 
-
-
-
-
-
-static QBDI::VMAction bbcallback(QBDI::VMInstanceRef vm, const QBDI::VMState *state, QBDI::GPRState *gprState, QBDI::FPRState *fprState, void *data) {
+static QBDI::VMAction bbcallback(QBDI::VMInstanceRef vm, const QBDI::VMState *state, QBDI::GPRState *gprState, QBDI::FPRState *fprState, void *data)
+{
     // errno = SAVED_ERRNO;
 
 #ifdef __x86_64__
@@ -154,9 +150,11 @@ static QBDI::VMAction bbcallback(QBDI::VMInstanceRef vm, const QBDI::VMState *st
 #elif defined(__arm__)
     unsigned long pc = gprState->pc;
 #endif
-
-    if(pc >= module_base && pc <= module_end){
-        unsigned long offset =  pc - module_base;
+    
+    // just log the module path
+    if (pc >= module_base && pc <= module_end)
+    {
+        unsigned long offset = pc - module_base;
         printf("\toffset:%p\n", offset);
         afl_maybe_log(offset);
     }
@@ -165,6 +163,12 @@ static QBDI::VMAction bbcallback(QBDI::VMInstanceRef vm, const QBDI::VMState *st
 
 int main(int argc, char **argv)
 {
+
+    if (argc < 3)
+    {
+        puts("usage: ./loader library_path input_file_path");
+        exit(0);
+    }
 
     const char *lib_path;
     lib_path = argv[1];
@@ -183,9 +187,9 @@ int main(int argc, char **argv)
         lib_name = strrchr(lib_name, '/') + 1;
 
     // printf("library name:%s\n", lib_name);
-
+    // load library module address for log path
     for (MemoryMap &map : getCurrentProcessMaps())
-    {   
+    {
         // printf("module:%s\n", map.name.c_str());
         if ((map.permission & PF_EXEC) && strstr(map.name.c_str(), lib_name) != NULL)
         {
@@ -212,9 +216,7 @@ int main(int argc, char **argv)
     vm.addInstrumentedModuleFromAddr(module_base);
     vm.addInstrumentedModuleFromAddr((rword)&main);
 
-
     vm.addVMEventCB(BASIC_BLOCK_ENTRY, bbcallback, nullptr);
-
 
     // QBDI::simulateCall(state, FAKE_RET_ADDR);
     // vm.run((rword)&fuzz_func, (rword)FAKE_RET_ADDR);
