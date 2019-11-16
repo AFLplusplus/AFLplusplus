@@ -129,40 +129,39 @@ printf("NEW FUNC %s\n", function_name(fun));
     int           more_than_one = -1;
     edge          ep;
     edge_iterator eip;
-int foo = 0;
-        if (ep->flags & EDGE_FALLTHRU)
-printf("pred %d fallthough\n", foo);
+    int foo = 0;
     FOR_EACH_EDGE(ep, eip, bb->preds) {
 
-int item = 0;
-foo++;
-printf("pred %d\n", foo);
-        if (ep->flags & EDGE_FALLTHRU)
-printf("pred %d fallthough\n", foo);
+       if (ep->flags & EDGE_FALLTHRU) printf("pred %d fallthough\n", foo);
+       int item = 0;
+       foo++;
+       printf("pred %d\n", foo);
+       if (ep->flags & EDGE_FALLTHRU) printf("pred %d fallthough\n", foo);
 
-      int count = 0;
-if (ep->flags & EDGE_FALLTHRU)
-      if (more_than_one == -1) more_than_one = 0;
+       int count = 0;
+       if (ep->flags & EDGE_FALLTHRU) {
+          if (more_than_one == -1) more_than_one = 0;
+       }
 
-      basic_block   Pred = ep->src;
-      edge          es;
-      edge_iterator eis;
-      FOR_EACH_EDGE(es, eis, Pred->succs) {
-item++;
+       basic_block   Pred = ep->src;
+       edge          es;
+       edge_iterator eis;
+       FOR_EACH_EDGE(es, eis, Pred->succs) {
 
-        if (es->flags & EDGE_FALLTHRU)
-printf("item %d fallthough\n", item);
+          item++;
+
+          if (es->flags & EDGE_FALLTHRU) printf("item %d fallthough\n", item);
           
-        basic_block Succ = es->dest;
-        if (Succ != NULL) count++;
+          basic_block Succ = es->dest;
+          if (Succ != NULL) count++;
 
-      }
-printf("total items: %d\n", item);
+       }
+       printf("total items: %d\n", item);
 
-      if (count > 1) more_than_one = 1;
+       if (count > 1) more_than_one = 1;
 
     }
-printf("result: %d\n", more_than_one);
+    printf("result: %d\n", more_than_one);
 
     if (more_than_one != 1) continue;
 
