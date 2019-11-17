@@ -97,7 +97,7 @@ if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
   CKSUMCMD="cksum -a sha384 -q"
   PYTHONBIN=python2.7
   MAKECMD=gmake
-  CORES=`sysctl hw.ncpu | cut -d' ' -f2`
+  CORES=`sysctl hw.ncpu | cut -d'=' -f2`
   TARCMD=gtar
   EASY_INSTALL=easy_install-2.7
 fi
