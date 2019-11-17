@@ -113,7 +113,6 @@ static unsigned int ext_call_instrument(function *fun) {
   DECL_EXTERNAL(fndecl) = 1;                            /* External linkage */
   DECL_ARTIFICIAL(fndecl) = 1;                      /* Injected by compiler */
 
-printf("NEW FUNC %s\n", function_name(fun));
   FOR_EACH_BB_FN(bb, fun) {
 
     gimple_seq           fcall;
@@ -129,40 +128,25 @@ printf("NEW FUNC %s\n", function_name(fun));
     int           more_than_one = -1;
     edge          ep;
     edge_iterator eip;
-int foo = 0;
-        if (ep->flags & EDGE_FALLTHRU)
-printf("pred %d fallthough\n", foo);
+
     FOR_EACH_EDGE(ep, eip, bb->preds) {
 
-int item = 0;
-foo++;
-printf("pred %d\n", foo);
-        if (ep->flags & EDGE_FALLTHRU)
-printf("pred %d fallthough\n", foo);
-
       int count = 0;
-if (ep->flags & EDGE_FALLTHRU)
       if (more_than_one == -1) more_than_one = 0;
 
       basic_block   Pred = ep->src;
       edge          es;
       edge_iterator eis;
       FOR_EACH_EDGE(es, eis, Pred->succs) {
-item++;
 
-        if (es->flags & EDGE_FALLTHRU)
-printf("item %d fallthough\n", item);
-          
         basic_block Succ = es->dest;
         if (Succ != NULL) count++;
 
       }
-printf("total items: %d\n", item);
 
       if (count > 1) more_than_one = 1;
 
     }
-printf("result: %d\n", more_than_one);
 
     if (more_than_one != 1) continue;
 
