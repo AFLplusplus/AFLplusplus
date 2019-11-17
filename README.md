@@ -52,6 +52,8 @@
 
   * Radamsa mutator (enable with `-R` to add or `-RR` to run it exclusivly).
 
+  * qbdi_mode: fuzz android native libraries via QBDI framework
+
 
   A more thorough list is available in the PATCHES file.
 
