@@ -41,7 +41,9 @@
 
 /* Comment out to disable fancy ANSI boxes and use poor man's 7-bit UI: */
 
+#ifndef ANDROID_DISABLE_FANCY // Fancy boxes are ugly from adb
 #define FANCY_BOXES
+#endif
 
 /* Default timeout for fuzzed code (milliseconds). This is the upper bound,
    also used for detecting hangs; the actual value is auto-scaled: */
