@@ -85,7 +85,7 @@ this could build the afl-fuzz and also the qbdi template for android x86_64
 
 The demo-so.c is an vulnerable library, it has a function for test
 
-```
+```c
 int target_func(char *buf, int size) {
 
   printf("buffer:%p, size:%p\n", buf, size);
@@ -126,7 +126,7 @@ int target_func(char *buf, int size) {
 This could be build to `libdemo.so`.
 
 Then we should load the library in template.cpp and find the `target` function address.
-```
+```c
     void *handle = dlopen(lib_path, RTLD_LAZY);
 	..........................................
 	..........................................
@@ -136,7 +136,7 @@ Then we should load the library in template.cpp and find the `target` function a
 
 then we read the data from file and call the function in `fuzz_func`
 
-```
+```c
 QBDI_NOINLINE int fuzz_func() {
 
   if (afl_setup()) { afl_forkserver(); }
