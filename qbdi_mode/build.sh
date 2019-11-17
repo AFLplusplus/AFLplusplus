@@ -1,3 +1,4 @@
+
 if [ -z ${STANDALONE_TOOLCHAIN_PATH} ]; then
     echo "please set the android-standalone-toolchain path in STANDALONE_TOOLCHAIN_PATH environmental variable" 
     echo "for example: "
@@ -16,10 +17,22 @@ fi
 
 if [ "$1" = "x86" ]; then
   echo "build x86 qbdi"
-  compiler_prefix="${STANDALONE_TOOLCHAIN_PATH}/bin/i686-linux-android-"
+  compiler_prefix="${STANDALONE_TOOLCHAIN_PATH}/bin/"
+  if [ -z ${CC} ]; then
+      export CC=i686-linux-android-gcc
+  fi
+  if [ -z ${CXX} ]; then
+      export CXX=i686-linux-android-g++
+  fi
 elif [ "$1" = "x86_64" ]; then
     echo "build x86_64 qbdi"
-    compiler_prefix="${STANDALONE_TOOLCHAIN_PATH}/bin/x86_64-linux-android-"
+    compiler_prefix="${STANDALONE_TOOLCHAIN_PATH}/bin/"
+    if [ -z ${CC} ]; then
+        export CC=x86_64-linux-android-gcc
+    fi
+    if [ -z ${CXX} ]; then
+        export CXX=x86_64-linux-android-g++
+    fi
 else
     echo "usage: ./build.sh arch[x86, x86_64]"
     exit
@@ -28,12 +41,17 @@ fi
 
 CFLAGS="-I${QBDI_SDK_PATH}/usr/local/include/ -L${QBDI_SDK_PATH}/usr/local/lib/"
 
+echo "[+] Building the QBDI template"
 # build the qbdi template 
-${compiler_prefix}g++ -o loader template.cpp -lQBDI -ldl -w  -g ${CFLAGS}
+${compiler_prefix}${CXX} -o loader template.cpp -lQBDI -ldl -w  -g ${CFLAGS}
 
+echo "[+] Building the demo library"
 # build the demo share library
-${compiler_prefix}gcc -shared -o libdemo.so demo-so.c -w -g
+${compiler_prefix}${CC} -shared -o libdemo.so demo-so.c -w -g
 
+echo "[+] Building afl-fuzz for Android"
 # build afl-fuzz
 cd ..
-${compiler_prefix}gcc -O3 -funroll-loops -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ -DAFL_PATH=\"/usr/local/lib/afl\" -DBIN_PATH=\"/usr/local/bin\" -DDOC_PATH=\"/usr/local/share/doc/afl\" -Wno-unused-function src/afl-fuzz-misc.c src/afl-fuzz-extras.c src/afl-fuzz-queue.c src/afl-fuzz-one.c src/afl-fuzz-python.c src/afl-fuzz-stats.c src/afl-fuzz-init.c src/afl-fuzz.c src/afl-fuzz-bitmap.c src/afl-fuzz-run.c src/afl-fuzz-globals.c src/afl-common.c src/afl-sharedmem.c src/afl-forkserver.c -o qbdi_mode/afl-fuzz  -ldl -w
+${compiler_prefix}${CC} -DANDROID_DISABLE_FANCY=1 -O3 -funroll-loops -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ -DAFL_PATH=\"/usr/local/lib/afl\" -DBIN_PATH=\"/usr/local/bin\" -DDOC_PATH=\"/usr/local/share/doc/afl\" -Wno-unused-function src/afl-fuzz-misc.c src/afl-fuzz-extras.c src/afl-fuzz-queue.c src/afl-fuzz-one.c src/afl-fuzz-python.c src/afl-fuzz-stats.c src/afl-fuzz-init.c src/afl-fuzz.c src/afl-fuzz-bitmap.c src/afl-fuzz-run.c src/afl-fuzz-globals.c src/afl-common.c src/afl-sharedmem.c src/afl-forkserver.c -o qbdi_mode/afl-fuzz  -ldl -w
+
+echo "[+] All done. Enjoy!"
