@@ -30,6 +30,16 @@ For x86 standalone-toolchain
 ./build/tools/make_standalone_toolchain.py --arch x86 --api 21 --install-dir ../android-standalone-toolchain-x86
 ```
 
+In alternative you can also use the prebuilt toolchain, in that case make sure to set the proper CC and CXX env variables because there are many different compilers for each API version in the prebuilt toolchain.
+
+For example:
+
+```
+export STANDALONE_TOOLCHAIN_PATH=~/Android/Sdk/ndk/20.1.5948944/toolchains/llvm/prebuilt/linux-x86_64/
+export CC=x86_64-linux-android21-clang
+export CXX=x86_64-linux-android21-clang++
+```
+
 Then download the QBDI SDK from website
 
 ```
@@ -76,35 +86,40 @@ this could build the afl-fuzz and also the qbdi template for android x86_64
 The demo-so.c is an vulnerable library, it has a function for test
 
 ```
-int target_func(char *buf, int size)
-{
-    printf("buffer:%p, size:%p\n", buf, size);
-    switch (buf[0])
-    {
-    case 1:
-        puts("222");
-        if (buf[1] == '\x44')
-        {
-            puts("null ptr deference");
-            *(char *)(0) = 1;
-        }
-        break;
-    case 0xff:
-        if (buf[2] == '\xff')
-        {
-            if (buf[1] == '\x44')
-            {
-                puts("crash....");
-                *(char *)(0xdeadbeef) = 1;
-            }
-        }
-        break;
-    default:
-        puts("default action");
-        break;
-    }
+int target_func(char *buf, int size) {
 
-    return 1;
+  printf("buffer:%p, size:%p\n", buf, size);
+  switch (buf[0]) {
+
+    case 1:
+      puts("222");
+      if (buf[1] == '\x44') {
+
+        puts("null ptr deference");
+        *(char *)(0) = 1;
+
+      }
+
+      break;
+    case 0xff:
+      if (buf[2] == '\xff') {
+
+        if (buf[1] == '\x44') {
+
+          puts("crash....");
+          *(char *)(0xdeadbeef) = 1;
+
+        }
+
+      }
+
+      break;
+    default: puts("default action"); break;
+
+  }
+
+  return 1;
+
 }
 ```
 
@@ -122,24 +137,18 @@ Then we should load the library in template.cpp and find the `target` function a
 then we read the data from file and call the function in `fuzz_func`
 
 ```
-QBDI_NOINLINE int fuzz_func()
-{
-	// afl forkserver stuff
-    if (afl_setup())
-    {
-        afl_forkserver();
-    }
+QBDI_NOINLINE int fuzz_func() {
 
-	// read the data from file(argv[2])
-    unsigned long len = 0;
-    char *data = read_file(FPATH, &len);
+  if (afl_setup()) { afl_forkserver(); }
 
+  /* Read the input from file */
+  unsigned long len = 0;
+  char *        data = read_file(input_pathname, &len);
 
-    printf("In fuzz_func\n");
+  /* Call the target function with the input data */
+  p_target_func(data, len);
+  return 1;
 
-	// call the target function with input data.
-    p_target_func(data, len);
-    return 1;
 }
 ```
 
@@ -159,39 +168,32 @@ adb push ../../android-standalone-toolchain-x86_64/sysroot/usr/lib/x86_64-linux-
 /data/local/tmp
 ```
 
-In android adb shell, we could try to run the loader
+In android adb shell, run the loader to test if it runs
 ```
+cd /data/local/tmp
 export LD_LIBRARY_PATH=/data/local/tmp
-./loader /data/local/tmp/libdemo.so init
-```
-the normal output like
-
-```
-# ./loader /data/local/tmp/libdemo.so init                                        p_target_func:0x7b41ac26e600
-In fuzz_func
-        offset:0x600
-        offset:0x580
-buffer:0x7b41abe2b050, size:0x4
-        offset:0x628
-        offset:0x646
-        offset:0x64b
-        offset:0x65c
-        offset:0x6df
-        offset:0x590
-default action
-        offset:0x6eb
-```
-
-now run `afl-fuzz` to fuzz the library
-
-```
 mkdir in
-echo xxxx > in/1
+echo 0000 > in/1
+./loader libdemo.so in/1
+p_target_func:0x716d96a98600
+	offset:0x600
+	offset:0x580
+buffer:0x716d96609050, size:0x5
+	offset:0x628
+	offset:0x646
+	offset:0x64b
+	offset:0x65c
+	offset:0x6df
+	offset:0x590
+default action
+	offset:0x6eb
+```
+
+Now run `afl-fuzz` to fuzz the demo library
+
+```
 ./afl-fuzz -i in -o out -- ./loader /data/local/tmp/libdemo.so @@
 ```
 
-the snapshot
+![screen1](assets/screen1.png)
 
-![image-20191114222336674](assets/image-20191114222336674.png)
-
-good job.

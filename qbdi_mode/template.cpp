@@ -20,6 +20,20 @@
 
 #include <QBDI.h>
 
+/* NeverZero */
+
+#if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
+#define INC_AFL_AREA(loc)           \
+  asm volatile(                     \
+      "incb (%0, %1, 1)\n"          \
+      "adcb $0, (%0, %1, 1)\n"      \
+      : /* no out */                \
+      : "r"(afl_area_ptr), "r"(loc) \
+      : "memory", "eax")
+#else
+#define INC_AFL_AREA(loc) afl_area_ptr[loc]++
+#endif
+
 using namespace QBDI;
 
 typedef int (*target_func)(char *buf, int size);
@@ -34,6 +48,8 @@ static unsigned char
 unsigned char *afl_area_ptr = NULL;           /* Exported for afl_gen_trace */
 
 unsigned long afl_prev_loc = 0;
+
+char input_pathname[PATH_MAX];
 
 /* Set up SHM region and initialize other stuff. */
 
@@ -98,36 +114,37 @@ void afl_maybe_log(unsigned long cur_loc) {
 
   if (afl_area_ptr == NULL) { return; }
   unsigned long afl_idx = cur_loc ^ afl_prev_loc;
-  afl_area_ptr[afl_idx % MAP_SIZE]++;
+  afl_idx &= MAP_SIZE -1;
+  INC_AFL_AREA(afl_idx);
   afl_prev_loc = cur_loc >> 1;
 
 }
 
 char *read_file(char *path, unsigned long *length) {
 
-  FILE *pFile = fopen(path, "rb");
-  char *pBuf;
-  fseek(pFile, 0, SEEK_END);
-  unsigned long len = ftell(pFile);
-  pBuf = (char *)malloc(len);
-  rewind(pFile);
-  fread(pBuf, 1, len, pFile);
-  fclose(pFile);
+  unsigned long len;
+  char * buf;
+
+  FILE *fp = fopen(path, "rb");
+  fseek(fp, 0, SEEK_END);
+  len = ftell(fp);
+  buf = (char *)malloc(len);
+  rewind(fp);
+  fread(buf, 1, len, fp);
+  fclose(fp);
   *length = len;
-  return pBuf;
+  return buf;
 
 }
-
-char FPATH[200];
 
 QBDI_NOINLINE int fuzz_func() {
 
   if (afl_setup()) { afl_forkserver(); }
 
   unsigned long len = 0;
-  char *        data = read_file(FPATH, &len);
+  char *        data = read_file(input_pathname, &len);
 
-  printf("In fuzz_func\n");
+  // printf("In fuzz_func\n");
   p_target_func(data, len);
   return 1;
 
@@ -172,8 +189,7 @@ int main(int argc, char **argv) {
 
   const char *lib_path;
   lib_path = argv[1];
-  // FPATH = argv[2];
-  strcpy(FPATH, argv[2]);
+  strcpy(input_pathname, argv[2]);
   void *handle = dlopen(lib_path, RTLD_LAZY);
 
   if (handle == nullptr) {
