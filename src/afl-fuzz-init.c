@@ -1562,11 +1562,10 @@ void check_cpu_governor(void) {
        "    echo performance | tee cpu*/cpufreq/scaling_governor\n\n"
 
        "    You can later go back to the original state by replacing "
-       "'performance' with\n"
-       "    'ondemand'. If you don't want to change the settings, set "
-       "AFL_SKIP_CPUFREQ\n"
-       "    to make afl-fuzz skip this check - but expect some performance "
-       "drop.\n",
+       "'performance'\n"
+       "    with 'ondemand' or 'powersave'. If you don't want to change the settings,\n"
+       "    set AFL_SKIP_CPUFREQ to make afl-fuzz skip this check - but expect some\n"
+       "    performance drop.\n",
        min / 1024, max / 1024);
   FATAL("Suboptimal CPU scaling governor");
 
