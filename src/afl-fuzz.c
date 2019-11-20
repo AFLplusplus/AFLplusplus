@@ -838,6 +838,7 @@ int main(int argc, char** argv) {
   seek_to = find_start_position();
 
   write_stats_file(0, 0, 0);
+  maybe_update_plot_file(0, 0);
   save_auto();
 
   if (stop_soon) goto stop_fuzzing;
@@ -970,6 +971,7 @@ int main(int argc, char** argv) {
 
   write_bitmap();
   write_stats_file(0, 0, 0);
+  maybe_update_plot_file(0, 0);
   save_auto();
 
 stop_fuzzing:
