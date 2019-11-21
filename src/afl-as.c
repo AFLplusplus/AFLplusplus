@@ -71,7 +71,7 @@ static u32 inst_ratio = 100,        /* Instrumentation probability (%)      */
    instrumentation for whichever mode we were compiled with. This is not
    perfect, but should do the trick for almost all use cases. */
 
-#ifdef __x86_64__
+#ifdef WORD_SIZE_64
 
 static u8 use_64bit = 1;
 
@@ -83,7 +83,7 @@ static u8 use_64bit = 0;
 #error "Sorry, 32-bit Apple platforms are not supported."
 #endif                                                         /* __APPLE__ */
 
-#endif                                                       /* ^__x86_64__ */
+#endif                                                       /* ^WORD_SIZE_64 */
 
 /* Examine and modify parameters to pass to 'as'. Note that the file name
    is always the last parameter passed by GCC, so we exploit this property
@@ -499,7 +499,7 @@ int main(int argc, char** argv) {
 
   clang_mode = !!getenv(CLANG_ENV_VAR);
 
-  if (isatty(2) && !getenv("AFL_QUIET")) {
+  if (!getenv("AFL_QUIET")) {
 
     SAYF(cCYA "afl-as" VERSION cRST " by Michal Zalewski\n");
 

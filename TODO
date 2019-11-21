@@ -3,15 +3,13 @@ Roadmap 2.60:
 =============
 
 afl-fuzz:
- - radamsa mutator
- - test the libmutator actually works and does not run infinite (need an example though)
+ - radamsa mutator (via dlopen())
 
 gcc_plugin:
- - needs to be rewritten
- - whitelist support
- - skip over uninteresting blocks
  - laf-intel
- - neverZero
+
+libdislocator:
+ - add a wrapper for posix_memalign
 
 qemu_mode:
  - update to 4.x (probably this will be skipped :( )

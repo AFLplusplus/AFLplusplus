@@ -26,7 +26,7 @@
 
 /* Version string: */
 
-#define VERSION "++2.57d"  // c = release, d = volatile github dev
+#define VERSION "++2.58d"  // c = release, d = volatile github dev
 
 /******************************************************
  *                                                    *
@@ -41,7 +41,9 @@
 
 /* Comment out to disable fancy ANSI boxes and use poor man's 7-bit UI: */
 
+#ifndef ANDROID_DISABLE_FANCY // Fancy boxes are ugly from adb
 #define FANCY_BOXES
+#endif
 
 /* Default timeout for fuzzed code (milliseconds). This is the upper bound,
    also used for detecting hangs; the actual value is auto-scaled: */
@@ -52,13 +54,18 @@
 
 #define EXEC_TM_ROUND 20
 
+/* 64bit arch MACRO */
+#if (defined (__x86_64__) || defined (__arm64__) || defined (__aarch64__))
+#define WORD_SIZE_64 1
+#endif
+
 /* Default memory limit for child process (MB): */
 
-#ifndef __x86_64__
+#ifndef WORD_SIZE_64
 #define MEM_LIMIT 25
 #else
 #define MEM_LIMIT 50
-#endif                                                      /* ^!__x86_64__ */
+#endif                                                      /* ^!WORD_SIZE_64 */
 
 /* Default memory limit when running in QEMU mode (MB): */
 

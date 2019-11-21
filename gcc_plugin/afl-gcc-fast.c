@@ -108,7 +108,7 @@ static void edit_params(u32 argc, char** argv) {
   u8  fortify_set = 0, asan_set = 0, x_set = 0, maybe_linking = 1;
   u8* name;
 
-  cc_params = ck_alloc((argc + 64) * sizeof(u8*));
+  cc_params = ck_alloc((argc + 128) * sizeof(u8*));
 
   name = strrchr(argv[0], '/');
   if (!name)
@@ -119,12 +119,12 @@ static void edit_params(u32 argc, char** argv) {
   if (!strcmp(name, "afl-g++-fast")) {
 
     u8* alt_cxx = getenv("AFL_CXX");
-    cc_params[0] = alt_cxx ? alt_cxx : (u8*)"g++";
+    cc_params[0] = alt_cxx ? alt_cxx : (u8*)AFL_GCC_CXX;
 
   } else {
 
     u8* alt_cc = getenv("AFL_CC");
-    cc_params[0] = alt_cc ? alt_cc : (u8*)"gcc";
+    cc_params[0] = alt_cc ? alt_cc : (u8*)AFL_GCC_CC;
 
   }
 
@@ -199,6 +199,19 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = "-g";
     cc_params[cc_par_cnt++] = "-O3";
     cc_params[cc_par_cnt++] = "-funroll-loops";
+
+  }
+
+  if (getenv("AFL_NO_BUILTIN")) {
+
+    cc_params[cc_par_cnt++] = "-fno-builtin-strcmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strncmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strcasecmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strncasecmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-memcmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-bcmp";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strstr";
+    cc_params[cc_par_cnt++] = "-fno-builtin-strcasestr";
 
   }
 
@@ -281,6 +294,8 @@ int main(int argc, char** argv) {
         cCYA
         "afl-gcc-fast" VERSION cRST
         " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n"
+        "\n"
+        "afl-gcc-fast [options]\n"
         "\n"
         "This is a helper application for afl-fuzz. It serves as a drop-in "
         "replacement\n"

@@ -27,15 +27,13 @@ CFLAGS      ?= -O3 -g -funroll-loops
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -Wno-pointer-sign \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
 
-CXXFLAGS	?= -O3 -g -funroll-loops
+CXXFLAGS    ?= -O3 -g -funroll-loops
 CXXEFLAGS   := $(CXXFLAGS) -Wall -D_FORTIFY_SOURCE=2
 
 CC          ?= gcc
 CXX         ?= g++
 
 PLUGIN_FLAGS = -fPIC -fno-rtti -I"$(shell $(CC) -print-file-name=plugin)/include"
-
-PROGS        = ../afl-gcc-fast ../afl-gcc-pass.so ../afl-gcc-rt.o
 
 ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 )" "1"
 	SHMAT_OK=1
@@ -50,6 +48,8 @@ ifeq "$(TEST_MMAP)" "1"
 	CFLAGS+=-DUSEMMAP=1
 	LDFLAGS += -lrt
 endif
+
+PROGS        = ../afl-gcc-fast ../afl-gcc-pass.so ../afl-gcc-rt.o
 
 
 all: test_shm test_deps $(PROGS) afl-gcc-fast.8 test_build all_done
@@ -71,8 +71,8 @@ endif
 test_deps:
 	@echo "[*] Checking for working '$(CC)'..."
 	@which $(CC) >/dev/null 2>&1 || ( echo "[-] Oops, can't find '$(CC)'. Make sure that it's in your \$$PATH (or set \$$CC and \$$CXX)."; exit 1 )
-	@echo "[*] Checking for gcc for plugin support..."
-	@$(CC) -v 2>&1 | grep -q -- --enable-plugin || ( echo "[-] Oops, this gcc has not been configured with plugin support."; exit 1 )
+#	@echo "[*] Checking for gcc for plugin support..."
+#	@$(CC) -v 2>&1 | grep -q -- --enable-plugin || ( echo "[-] Oops, this gcc has not been configured with plugin support."; exit 1 )
 	@echo "[*] Checking for gcc plugin development header files..."
 	@test -d `$(CC) -print-file-name=plugin`/include || ( echo "[-] Oops, can't find gcc header files. Be sure to install 'gcc-X-plugin-dev'."; exit 1 )
 	@echo "[*] Checking for '../afl-showmap'..."
@@ -80,7 +80,7 @@ test_deps:
 	@echo "[+] All set and ready to build."
 
 ../afl-gcc-fast: afl-gcc-fast.c | test_deps
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
+	$(CC) -DAFL_GCC_CC=\"$(CC)\" -DAFL_GCC_CXX=\"$(CXX)\" $(CFLAGS) $< -o $@ $(LDFLAGS)
 	ln -sf afl-gcc-fast ../afl-g++-fast
 
 ../afl-gcc-pass.so: afl-gcc-pass.so.cc | test_deps

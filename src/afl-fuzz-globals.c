@@ -95,6 +95,9 @@ char *power_names[POWER_SCHEDULES_NUM] = {"explore", "fast", "coe",
 u8 schedule = EXPLORE;                  /* Power schedule (default: EXPLORE)*/
 u8 havoc_max_mult = HAVOC_MAX_MULT;
 
+u8 use_radamsa;
+size_t (*radamsa_mutate_ptr)(u8*, size_t, u8*, size_t, u32);
+
 u8 skip_deterministic,                  /* Skip deterministic stages?       */
     force_deterministic,                /* Force deterministic stages?      */
     use_splicing,                       /* Recombine input files?           */
@@ -122,7 +125,8 @@ u8 skip_deterministic,                  /* Skip deterministic stages?       */
     deferred_mode,                      /* Deferred forkserver mode?        */
     fixed_seed,                         /* do not reseed                    */
     fast_cal,                           /* Try to calibrate faster?         */
-    uses_asan;                          /* Target uses ASAN?                */
+    uses_asan,                          /* Target uses ASAN?                */
+    disable_trim;                       /* Never trim in fuzz_one           */
 
 s32 out_fd,                             /* Persistent fd for out_file       */
 #ifndef HAVE_ARC4RANDOM
@@ -209,6 +213,9 @@ u64 stage_finds[32],                    /* Patterns found per fuzz stage    */
 #ifndef HAVE_ARC4RANDOM
 u32 rand_cnt;                           /* Random number counter            */
 #endif
+
+u32 rand_seed[2];
+s64    init_seed;
 
 u64 total_cal_us,                       /* Total calibration time (us)      */
     total_cal_cycles;                   /* Total calibration cycles         */

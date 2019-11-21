@@ -25,6 +25,61 @@
 
 #include "afl-fuzz.h"
 
+static u8* get_libradamsa_path(u8* own_loc) {
+
+  u8 *tmp, *cp, *rsl, *own_copy;
+  
+  tmp = getenv("AFL_PATH");
+
+  if (tmp) {
+
+    cp = alloc_printf("%s/libradamsa.so", tmp);
+
+    if (access(cp, X_OK)) FATAL("Unable to find '%s'", cp);
+
+    return cp;
+
+  }
+
+  own_copy = ck_strdup(own_loc);
+  rsl = strrchr(own_copy, '/');
+
+  if (rsl) {
+
+    *rsl = 0;
+
+    cp = alloc_printf("%s/libradamsa.so", own_copy);
+    ck_free(own_copy);
+
+    if (!access(cp, X_OK))
+      return cp;
+
+  } else
+
+    ck_free(own_copy);
+
+  if (!access(AFL_PATH "/libradamsa.so", X_OK)) {
+
+    return ck_strdup(AFL_PATH "/libradamsa.so");
+
+  }
+
+  if (!access(BIN_PATH "/libradamsa.so", X_OK)) {
+
+    return ck_strdup(BIN_PATH "/libradamsa.so");
+
+  }
+
+  SAYF("\n" cLRD "[-] " cRST
+       "Oops, unable to find the 'libradamsa.so' binary. The binary must be "
+       "built\n"
+       "    separately using 'make radamsa'. If you already have the binary "
+       "installed,\n    you may need to specify AFL_PATH in the environment.\n");
+
+  FATAL("Failed to locate 'libradamsa.so'.");
+
+}
+
 /* Display usage hints. */
 
 static void usage(u8* argv0) {
@@ -54,7 +109,10 @@ static void usage(u8* argv0) {
       "  -m megs       - memory limit for child process (%d MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
-      "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
+      "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n\n"
+
+      "Mutator settings:\n"
+      "  -R[R]         - add Radamsa as mutator, add another -R to exclusivly run it\n"
       "  -L minutes    - use MOpt(imize) mode and set the limit time for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths, 0 = "
@@ -71,7 +129,9 @@ static void usage(u8* argv0) {
       "  -V seconds    - fuzz for a maximum total time of seconds then "
       "terminate\n"
       "  -E execs      - fuzz for a maximum number of total executions then "
-      "terminate\n\n"
+      "terminate\n"
+      "  Note: -V/-E are not precise, they are checked after a queue entry "
+      "is done\n  which can be many minutes/execs later\n\n"
 
       "Other stuff:\n"
       "  -T text       - text banner to show on the screen\n"
@@ -120,7 +180,6 @@ int main(int argc, char** argv) {
   u8     mem_limit_given = 0;
   u8     exit_1 = !!getenv("AFL_BENCH_JUST_ONE");
   char** use_argv;
-  s64    init_seed;
 
   struct timeval  tv;
   struct timezone tz;
@@ -135,7 +194,7 @@ int main(int argc, char** argv) {
   init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
   while ((opt = getopt(argc, argv,
-                       "+i:I:o:f:m:t:T:dnCB:S:M:x:QUWe:p:s:V:E:L:h")) > 0)
+                       "+i:I:o:f:m:t:T:dnCB:S:M:x:QUWe:p:s:V:E:L:hR")) > 0)
 
     switch (opt) {
 
@@ -509,6 +568,15 @@ int main(int argc, char** argv) {
         usage(argv[0]);
         return -1;
         break;  // not needed
+     
+      case 'R':
+      
+        if (use_radamsa)
+          use_radamsa = 2;
+        else
+          use_radamsa = 1;
+
+        break;
 
       default: usage(argv[0]);
 
@@ -516,8 +584,39 @@ int main(int argc, char** argv) {
 
   if (optind == argc || !in_dir || !out_dir) usage(argv[0]);
 
+  OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
+      "Eissfeldt and Andrea Fioraldi");
+  OKF("afl++ is open source, get it at "
+      "https://github.com/vanhauser-thc/AFLplusplus");
+  OKF("Power schedules from github.com/mboehme/aflfast");
+  OKF("Python Mutator and llvm_mode whitelisting from github.com/choller/afl");
+  OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
+  OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
+
   if (fixed_seed) OKF("Running with fixed seed: %u", (u32)init_seed);
   srandom((u32)init_seed);
+  
+  if (use_radamsa) {
+  
+    OKF("Using Radamsa add-on");
+    
+    u8* libradamsa_path = get_libradamsa_path(argv[0]);
+    void* handle = dlopen(libradamsa_path, RTLD_NOW);
+    ck_free(libradamsa_path);
+    
+    if (!handle) FATAL("Failed to dlopen() libradamsa");
+
+    void (*radamsa_init_ptr)(void) = dlsym(handle, "radamsa_init");
+    radamsa_mutate_ptr = dlsym(handle, "radamsa");
+
+    if (!radamsa_init_ptr || !radamsa_mutate_ptr) FATAL("Failed to dlsym() libradamsa");
+
+    /* randamsa_init installs some signal hadlers, call it before setup_signal_handlers
+       so that AFL++ can then replace those signal handlers */
+    radamsa_init_ptr();
+
+  }
+  
   setup_signal_handlers();
   check_asan_opts();
 
@@ -549,6 +648,9 @@ int main(int argc, char** argv) {
 
   }
 
+  if (getenv("AFL_DISABLE_TRIM"))
+    disable_trim = 1;
+
   if (getenv("AFL_NO_UI") && getenv("AFL_FORCE_UI"))
     FATAL("AFL_NO_UI and AFL_FORCE_UI are mutually exclusive");
 
@@ -558,14 +660,6 @@ int main(int argc, char** argv) {
           "fuzzing the right binary: " cRST "%s",
           argv[optind]);
 
-  OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
-      "Eissfeldt and Andrea Fioraldi");
-  OKF("afl++ is open source, get it at "
-      "https://github.com/vanhauser-thc/AFLplusplus");
-  OKF("Power schedules from github.com/mboehme/aflfast");
-  OKF("Python Mutator and llvm_mode whitelisting from github.com/choller/afl");
-  OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
-  OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
   ACTF("Getting to work...");
 
   switch (schedule) {
@@ -744,6 +838,7 @@ int main(int argc, char** argv) {
   seek_to = find_start_position();
 
   write_stats_file(0, 0, 0);
+  maybe_update_plot_file(0, 0);
   save_auto();
 
   if (stop_soon) goto stop_fuzzing;
@@ -876,6 +971,7 @@ int main(int argc, char** argv) {
 
   write_bitmap();
   write_stats_file(0, 0, 0);
+  maybe_update_plot_file(0, 0);
   save_auto();
 
 stop_fuzzing:

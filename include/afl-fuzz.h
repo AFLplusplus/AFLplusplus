@@ -72,18 +72,21 @@
 #include <sys/file.h>
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
-    defined(__NetBSD__)
+    defined(__NetBSD__) || defined(__DragonFly__)
 #include <sys/sysctl.h>
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 /* For systems that have sched_setaffinity; right now just Linux, but one
    can hope... */
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
+    defined(__DragonFly__)
 #define HAVE_AFFINITY 1
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 #include <sys/param.h>
+#if defined(__FreeBSD__)
 #include <sys/cpuset.h>
+#endif
 #include <sys/user.h>
 #include <pthread.h>
 #include <pthread_np.h>
@@ -160,7 +163,8 @@ enum {
   /* 15 */ STAGE_HAVOC,
   /* 16 */ STAGE_SPLICE,
   /* 17 */ STAGE_PYTHON,
-  /* 18 */ STAGE_CUSTOM_MUTATOR
+  /* 18 */ STAGE_RADAMSA,
+  /* 19 */ STAGE_CUSTOM_MUTATOR
 
 };
 
@@ -285,6 +289,9 @@ extern char* power_names[POWER_SCHEDULES_NUM];
 extern u8 schedule;                     /* Power schedule (default: EXPLORE)*/
 extern u8 havoc_max_mult;
 
+extern u8 use_radamsa;
+extern size_t (*radamsa_mutate_ptr)(u8*, size_t, u8*, size_t, u32);
+
 extern u8 skip_deterministic,           /* Skip deterministic stages?       */
     force_deterministic,                /* Force deterministic stages?      */
     use_splicing,                       /* Recombine input files?           */
@@ -312,7 +319,8 @@ extern u8 skip_deterministic,           /* Skip deterministic stages?       */
     deferred_mode,                      /* Deferred forkserver mode?        */
     fixed_seed,                         /* do not reseed                    */
     fast_cal,                           /* Try to calibrate faster?         */
-    uses_asan;                          /* Target uses ASAN?                */
+    uses_asan,                          /* Target uses ASAN?                */
+    disable_trim;                       /* Never trim in fuzz_one           */
 
 extern s32 out_fd,                      /* Persistent fd for out_file       */
 #ifndef HAVE_ARC4RANDOM
@@ -399,6 +407,9 @@ extern u64 stage_finds[32],             /* Patterns found per fuzz stage    */
 #ifndef HAVE_ARC4RANDOM
 extern u32 rand_cnt;                    /* Random number counter            */
 #endif
+
+extern u32 rand_seed[2];
+extern s64    init_seed;
 
 extern u64 total_cal_us,                /* Total calibration time (us)      */
     total_cal_cycles;                   /* Total calibration cycles         */
@@ -541,7 +552,7 @@ u8   has_new_bits(u8*);
 u32  count_bits(u8*);
 u32  count_bytes(u8*);
 u32  count_non_255_bytes(u8*);
-#ifdef __x86_64__
+#ifdef WORD_SIZE_64
 void simplify_trace(u64*);
 void classify_counts(u64*);
 #else
@@ -643,16 +654,21 @@ static inline u32 UR(u32 limit) {
 #else
   if (!fixed_seed && unlikely(!rand_cnt--)) {
 
-    u32 seed[2];
-
-    ck_read(dev_urandom_fd, &seed, sizeof(seed), "/dev/urandom");
-    srandom(seed[0]);
-    rand_cnt = (RESEED_RNG / 2) + (seed[1] % RESEED_RNG);
+    ck_read(dev_urandom_fd, &rand_seed, sizeof(rand_seed), "/dev/urandom");
+    srandom(rand_seed[0]);
+    rand_cnt = (RESEED_RNG / 2) + (rand_seed[1] % RESEED_RNG);
 
   }
 
   return random() % limit;
 #endif
+
+}
+
+static inline u32 get_rand_seed() {
+
+  if (fixed_seed) return (u32)init_seed;
+  return rand_seed[0];
 
 }
 

@@ -34,6 +34,7 @@
 #include <list>
 #include <string>
 #include <fstream>
+#include <sys/time.h>
 
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/BasicBlock.h"
@@ -95,7 +96,15 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
+  struct timeval            tv;
+  struct timezone           tz;
+  u32                       rand_seed;
   unsigned int cur_loc = 0;
+
+  /* Setup random() so we get Actually Random(TM) outputs from AFL_R() */
+  gettimeofday(&tv, &tz);
+  rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
+  AFL_SR(rand_seed);
 
   /* Show a banner */
 
@@ -180,6 +189,8 @@ bool AFLCoverage::runOnModule(Module &M) {
             }
 
           }
+
+          (void)instLine;
 
           /* Continue only if we know where we actually are */
           if (!instFilename.str().empty()) {

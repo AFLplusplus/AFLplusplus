@@ -128,6 +128,7 @@ static unsigned int ext_call_instrument(function *fun) {
     int           more_than_one = -1;
     edge          ep;
     edge_iterator eip;
+
     FOR_EACH_EDGE(ep, eip, bb->preds) {
 
       int count = 0;
@@ -222,6 +223,7 @@ static unsigned int inline_instrument(function *fun) {
   DECL_EXTERNAL(prev_loc_g) = 1;                        /* External linkage */
   DECL_PRESERVE_P(prev_loc_g) = 1;
   DECL_ARTIFICIAL(prev_loc_g) = 1;                  /* Injected by compiler */
+  set_decl_tls_model(prev_loc_g, TLS_MODEL_REAL);          /* TLS attribute */
   rest_of_decl_compilation(prev_loc_g, 1, 0);
 
   FOR_EACH_BB_FN(bb, fun) {
@@ -293,6 +295,7 @@ static unsigned int inline_instrument(function *fun) {
     gimple_seq_add_stmt(&seq, g);  // map_ptr = __afl_area_ptr
     update_stmt(g);
 
+#if 1
 #if 0
 		tree addr = build2(ADDR_EXPR, map_type, map_ptr, area_off);
 		g = gimple_build_assign(map_ptr2, MODIFY_EXPR, addr);
@@ -303,12 +306,21 @@ static unsigned int inline_instrument(function *fun) {
     gimple_seq_add_stmt(&seq, g);  // map_ptr2 = map_ptr + area_off
     update_stmt(g);
 #endif
+
     // gimple_assign <mem_ref, _3, *p_6, NULL, NULL>
     tree tmp1 = create_tmp_var_raw(unsigned_char_type_node, "tmp1");
     g = gimple_build_assign(tmp1, MEM_REF, map_ptr2);
     gimple_seq_add_stmt(&seq, g);  // tmp1 = *map_ptr2
     update_stmt(g);
-
+#else
+    tree atIndex = build2(PLUS_EXPR, uint32_type_node, map_ptr, area_off);
+    tree array_address = build1(ADDR_EXPR, map_type, atIndex);
+    tree array_access = build1(INDIRECT_REF, map_type, array_address);
+    tree tmp1 = create_tmp_var(unsigned_char_type_node, "tmp1");
+    g = gimple_build_assign(tmp1, array_access);
+    gimple_seq_add_stmt(&seq, g);  // tmp1 = *(map_ptr + area_off)
+    update_stmt(g);
+#endif
     // gimple_assign <plus_expr, _4, _3, 1, NULL>
     tree tmp2 = create_tmp_var_raw(unsigned_char_type_node, "tmp2");
     g = gimple_build_assign(tmp2, PLUS_EXPR, tmp1, one);
@@ -320,8 +332,8 @@ static unsigned int inline_instrument(function *fun) {
 
     // gimple_assign <ssa_name, *p_6, _4, NULL, NULL>
     //		tree map_ptr3 = create_tmp_var_raw(map_type, "map_ptr3");
-    g = gimple_build_assign(map_ptr_g, INDIRECT_REF, tmp2);
-    gimple_seq_add_stmt(&seq, g);  // *map_ptr3 = tmp2
+    g = gimple_build_assign(map_ptr2, INDIRECT_REF, tmp2);
+    gimple_seq_add_stmt(&seq, g);  // *map_ptr2 = tmp2
     update_stmt(g);
 
     /* Set prev_loc to cur_loc >> 1 */
@@ -401,11 +413,13 @@ class afl_pass : public gimple_opt_pass {
 
   }
 
-  virtual unsigned int execute(function *fun) {
+  unsigned int execute(function *fun) override {
 
     if (!myWhitelist.empty()) {
 
       bool instrumentBlock = false;
+      std::string instFilename;
+      unsigned int instLine = 0;
 
       /* EXPR_FILENAME
       This macro returns the name of the file in which the entity was declared,
@@ -417,7 +431,8 @@ class afl_pass : public gimple_opt_pass {
       if (0 != strncmp("<internal>", fname, 10) &&
           0 != strncmp("<built-in>", fname, 10)) {
 
-        std::string instFilename(fname);
+        instFilename = fname;
+        instLine = DECL_SOURCE_LINE(fun->decl);
 
         /* Continue only if we know where we actually are */
         if (!instFilename.empty()) {
@@ -449,7 +464,17 @@ class afl_pass : public gimple_opt_pass {
 
       /* Either we couldn't figure out our location or the location is
        * not whitelisted, so we skip instrumentation. */
-      if (!instrumentBlock) return 0;
+      if (!instrumentBlock) {
+
+        if (!be_quiet) {
+             if (!instFilename.empty())
+               SAYF(cYEL "[!] " cBRI "Not in whitelist, skipping %s line %u...\n",
+                    instFilename.c_str(), instLine);
+             else
+               SAYF(cYEL "[!] " cBRI "No filename information found, skipping it");
+        }
+        return 0;
+      }
 
     }
 
@@ -490,7 +515,7 @@ int plugin_init(struct plugin_name_args *  plugin_info,
   /* Setup random() so we get Actually Random(TM) outputs from R() */
   gettimeofday(&tv, &tz);
   rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
-  srandom(rand_seed);
+  SR(rand_seed);
 
   /* Pass information */
   afl_pass_info.pass = make_afl_pass(inst_ext, g);

@@ -14,7 +14,7 @@
      http://www.apache.org/licenses/LICENSE-2.0
 
    This is a companion library that can be used as a drop-in replacement
-   for the libc allocator in the fuzzed binaries. See README.dislocator for
+   for the libc allocator in the fuzzed binaries. See README.dislocator.md for
    more info.
 
  */
@@ -23,7 +23,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <errno.h>
 #include <sys/mman.h>
+
+#ifdef __APPLE__
+#include <mach/vm_statistics.h>
+#endif
 
 #include "config.h"
 #include "types.h"
@@ -35,6 +40,8 @@
 #ifndef MAP_ANONYMOUS
 #define MAP_ANONYMOUS MAP_ANON
 #endif                                                    /* !MAP_ANONYMOUS */
+
+#define SUPER_PAGE_SIZE 1<<21
 
 /* Error / message handling: */
 
@@ -88,7 +95,7 @@ static u8  alloc_verbose,               /* Additional debug messages        */
     hard_fail,                          /* abort() when max_mem exceeded?   */
     no_calloc_over;                     /* abort() on calloc() overflows?   */
 
-#ifdef	__OpenBSD__
+#if	defined	__OpenBSD__ || defined __APPLE__
 #define __thread
 #warning no thread support available
 #endif
@@ -104,6 +111,8 @@ static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
 static void* __dislocator_alloc(size_t len) {
 
   void* ret;
+  size_t tlen;
+  int flags, fd, sp;
 
   if (total_mem + len > max_mem || total_mem + len < total_mem) {
 
@@ -115,13 +124,44 @@ static void* __dislocator_alloc(size_t len) {
 
   }
 
+  tlen = (1 + PG_COUNT(len + 8)) * PAGE_SIZE;
+  flags = MAP_PRIVATE | MAP_ANONYMOUS;
+  fd = -1;
+#if defined(USEHUGEPAGE)
+  sp = (len >= SUPER_PAGE_SIZE && !(len % SUPER_PAGE_SIZE));
+
+#if defined(__APPLE__)
+  if (sp) fd = VM_FLAGS_SUPERPAGE_SIZE_2MB;
+#elif defined(__linux__)
+  if (sp) flags |= MAP_HUGETLB;
+#elif defined(__FreeBSD__)
+  if (sp) flags |= MAP_ALIGNED_SUPER;
+#endif
+#else
+  (void)sp;
+#endif
+
   /* We will also store buffer length and a canary below the actual buffer, so
      let's add 8 bytes for that. */
 
-  ret = mmap(NULL, (1 + PG_COUNT(len + 8)) * PAGE_SIZE, PROT_READ | PROT_WRITE,
-             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  ret = mmap(NULL, tlen, PROT_READ | PROT_WRITE,
+             flags, fd, 0);
+#if defined(USEHUGEPAGE)
+  /* We try one more time with regular call */
+  if (ret == MAP_FAILED) {
+#if defined(__APPLE__)
+  fd = -1;
+#elif defined(__linux__)
+  flags &= -MAP_HUGETLB;
+#elif defined(__FreeBSD__)
+  flags &= -MAP_ALIGNED_SUPER;
+#endif
+     ret = mmap(NULL, tlen, PROT_READ | PROT_WRITE,
+                flags, fd, 0);
+  }
+#endif
 
-  if (ret == (void*)-1) {
+  if (ret == MAP_FAILED) {
 
     if (hard_fail) FATAL("mmap() failed on alloc (OOM?)");
 
@@ -187,6 +227,10 @@ void* calloc(size_t elem_len, size_t elem_cnt) {
   return ret;
 
 }
+
+/* TODO: add a wrapper for posix_memalign, otherwise apps who use it,
+   will fail when freeing the memory.
+*/
 
 /* The wrapper for malloc(). Roughly the same, also clobbers the returned
    memory (unlike calloc(), malloc() is not guaranteed to return zeroed
@@ -260,13 +304,61 @@ void* realloc(void* ptr, size_t len) {
 
 }
 
+/* posix_memalign we mainly check the proper alignment argument
+   if the requested size fits within the alignment we do
+   a normal request */
+
+int posix_memalign(void** ptr, size_t align, size_t len) {
+   if (*ptr == NULL) 
+     return EINVAL;
+   if ((align % 2) || (align % sizeof(void *)))
+     return EINVAL;
+   if (len == 0) {
+     *ptr = NULL;
+     return 0;
+   }
+   if (align >= 4 * sizeof(size_t)) len += align -1;
+
+   *ptr = malloc(len);
+
+   DEBUGF("posix_memalign(%p %zu, %zu)", ptr, align, len);
+
+   return 0;
+}
+
+/* just the non-posix fashion */
+
+void *memalign(size_t align, size_t len) {
+   void* ret = NULL;
+
+   if (posix_memalign(&ret, align, len)) {
+     DEBUGF("memalign(%zu, %zu) failed", align, len);
+   }
+
+   return ret;
+}
+
+/* sort of C11 alias of memalign only more severe, alignment-wise */
+
+void *aligned_alloc(size_t align, size_t len) {
+   void *ret = NULL;
+
+   if ((len % align)) return NULL;
+
+   if (posix_memalign(&ret, align, len)) {
+     DEBUGF("aligned_alloc(%zu, %zu) failed", align, len);
+   }
+
+   return ret;
+}
+
 __attribute__((constructor)) void __dislocator_init(void) {
 
-  u8* tmp = getenv("AFL_LD_LIMIT_MB");
+  u8* tmp = (u8 *)getenv("AFL_LD_LIMIT_MB");
 
   if (tmp) {
 
-    max_mem = atoi(tmp) * 1024 * 1024;
+    max_mem = atoi((char *)tmp) * 1024 * 1024;
     if (!max_mem) FATAL("Bad value for AFL_LD_LIMIT_MB");
 
   }

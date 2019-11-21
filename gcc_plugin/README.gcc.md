@@ -46,9 +46,11 @@ should be all you need. On Debian machines, these headers can be acquired by
 installing the `gcc-<VERSION>-plugin-dev` packages.
 
 To build the instrumentation itself, type 'make'. This will generate binaries
-called afl-gcc-fast and afl-g++-fast in the parent directory. Once this
-is done, you can instrument third-party code in a way similar to the standard
-operating mode of AFL, e.g.:
+called afl-gcc-fast and afl-g++-fast in the parent directory. 
+If the CC/CXX have been overridden, those compilers will be used from
+those wrappers without using AFL_CXX/AFL_CC settings.
+Once this is done, you can instrument third-party code in a way similar to the
+standard operating mode of AFL, e.g.:
 
   CC=/path/to/afl/afl-gcc-fast ./configure [...options...]
   make
@@ -156,7 +158,3 @@ depending on whether the input loop is being entered for the first time or
 executed again. To avoid spurious warnings, the feature implies
 AFL_NO_VAR_CHECK and hides the "variable path" warnings in the UI.
 
-PS. Because there are task switches still involved, the mode isn't as fast as
-"pure" in-process fuzzing offered, say, by LLVM's LibFuzzer; but it is a lot
-faster than the normal fork() model, and compared to in-process fuzzing,
-should be a lot more robust.
