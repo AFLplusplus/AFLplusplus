@@ -146,6 +146,9 @@ struct InsTrim : public ModulePass {
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
         GlobalVariable::GeneralDynamicTLSModel, 0, false);
 
+    ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
+    ConstantInt *One = ConstantInt::get(Int8Ty, 1);
+
     u64 total_rs = 0;
     u64 total_hs = 0;
 
@@ -368,7 +371,7 @@ struct InsTrim : public ModulePass {
         LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
         Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-        Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
+        Value *Incr = IRB.CreateAdd(Counter, One);
 
 #if LLVM_VERSION_MAJOR < 9
         if (neverZero_counters_str !=
@@ -390,7 +393,7 @@ struct InsTrim : public ModulePass {
            * Counter + 1 -> {Counter, OverflowFlag}
            * Counter + OverflowFlag -> Counter
            */
-          auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
+          auto cf = IRB.CreateICmpEQ(Incr, Zero);
           auto carry = IRB.CreateZExt(cf, Int8Ty);
           Incr = IRB.CreateAdd(Incr, carry);
 

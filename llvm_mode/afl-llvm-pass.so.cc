@@ -150,6 +150,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
       GlobalVariable::GeneralDynamicTLSModel, 0, false);
 #endif
+  ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
+  ConstantInt *One = ConstantInt::get(Int8Ty, 1);
 
   /* Instrument all the things! */
 
@@ -287,7 +289,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
       Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
+      Value *Incr = IRB.CreateAdd(Counter, One);
 
 #if LLVM_VERSION_MAJOR < 9
       if (neverZero_counters_str !=
@@ -331,7 +333,7 @@ bool AFLCoverage::runOnModule(Module &M) {
         */
         // this is the solution we choose because llvm9 should do the right
         // thing here
-        auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
+        auto cf = IRB.CreateICmpEQ(Incr, Zero);
         auto carry = IRB.CreateZExt(cf, Int8Ty);
         Incr = IRB.CreateAdd(Incr, carry);
 /*
