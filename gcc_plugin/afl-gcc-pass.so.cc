@@ -202,6 +202,9 @@ static unsigned int inline_instrument(function *fun) {
   basic_block bb;
   unsigned    finst_blocks = 0;
   unsigned    fcnt_blocks = 0;
+  tree one = build_int_cst(unsigned_char_type_node, 1);
+  // tree zero = build_int_cst(unsigned_char_type_node, 0);
+
 
   /* Set up global type declarations */
   tree map_type = build_pointer_type(unsigned_char_type_node);
@@ -283,9 +286,6 @@ static unsigned int inline_instrument(function *fun) {
     update_stmt(g);
 
     /* Update bitmap */
-
-    tree one = build_int_cst(unsigned_char_type_node, 1);
-    //		tree zero = build_int_cst(unsigned_char_type_node, 0);
 
     // gimple_assign <addr_expr, p_6, &map[_2], NULL, NULL>
     tree map_ptr = create_tmp_var(map_type, "map_ptr");
