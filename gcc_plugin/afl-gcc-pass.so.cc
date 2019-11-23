@@ -88,6 +88,7 @@
 #include <stringpool.h>
 #include <cgraph.h>
 #include <cfgloop.h>
+#include <attribs.h>
 
 /* -------------------------------------------------------------------------- */
 /* -- AFL instrumentation pass ---------------------------------------------- */
@@ -104,10 +105,12 @@ static unsigned int ext_call_instrument(function *fun) {
   unsigned    finst_blocks = 0;
   unsigned    fcnt_blocks = 0;
 
+  tree sprct_attr = tree_cons(get_identifier("stack_protect"), NULL, NULL);
   tree fntype = build_function_type_list(void_type_node,          /* return */
                                          uint32_type_node,          /* args */
                                          NULL_TREE);                /* done */
   tree fndecl = build_fn_decl("__afl_trace", fntype);
+  if (getenv("AFL_HARDEN")) decl_attributes(&fndecl, sprct_attr, 0);
   TREE_STATIC(fndecl) = 1;                             /* Defined elsewhere */
   TREE_PUBLIC(fndecl) = 1;                                        /* Public */
   DECL_EXTERNAL(fndecl) = 1;                            /* External linkage */
