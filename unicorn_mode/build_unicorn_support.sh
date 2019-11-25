@@ -198,7 +198,7 @@ echo "[*] Installing Unicorn python bindings..."
 cd bindings/python || exit 1
 if [ -z "$VIRTUAL_ENV" ]; then
   echo "[*] Info: Installing python unicorn using --user"
-  $PYTHONBIN setup.py install --user || exit 1
+  $PYTHONBIN setup.py install --user  --prefix=|| exit 1
 else
   echo "[*] Info: Installing python unicorn to virtualenv: $VIRTUAL_ENV"
   $PYTHONBIN setup.py install || exit 1
