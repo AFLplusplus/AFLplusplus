@@ -1,7 +1,42 @@
+diff --git a/.gitignore b/.gitignore
+index 9a5b1c7b..2d8d8e6f 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -68,6 +68,9 @@ bindings/python/src/
+ bindings/python/unicorn.egg-info/
+ bindings/python/unicorn/lib/
+ bindings/python/unicorn/include/
++bindings/python/unicornafl.egg-info/
++bindings/python/unicornafl/lib/
++bindings/python/unicornafl/include/
+ bindings/python/MANIFEST
+ config.log
+ 
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 5fa5fc9a..70db7a27 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -771,6 +771,7 @@ set(UNICORN_SRCS_COMMON
+     qemu/util/qemu-timer-common.c
+     qemu/vl.c
+     uc.c
++    afl.c
+ )
+ 
+ if (MSVC)
 diff --git a/Makefile b/Makefile
-index 7d73782..fb3ccfd 100644
+index 680701e4..b40a36ae 100644
 --- a/Makefile
 +++ b/Makefile
+@@ -7,7 +7,7 @@
+ include config.mk
+ include pkgconfig.mk	# package version
+ 
+-LIBNAME = unicorn
++LIBNAME = unicornafl
+ UNAME_S := $(shell uname -s)
+ # SMP_MFLAGS is used for controlling the amount of parallelism used
+ # in external 'make' invocations. If the user doesn't override it, it
 @@ -88,6 +88,10 @@ AR = llvm-ar
  LDFLAGS := -fsanitize=address ${LDFLAGS}
  endif
@@ -13,19 +48,908 @@ index 7d73782..fb3ccfd 100644
  ifeq ($(CROSS),)
  CC ?= cc
  AR ?= ar
+@@ -237,10 +241,10 @@ $(LIBRARY): qemu/config-host.h-timestamp
+ ifeq ($(UNICORN_SHARED),yes)
+ ifeq ($(V),0)
+ 	$(call log,GEN,$(LIBRARY))
+-	@$(CC) $(CFLAGS) -shared $(UC_TARGET_OBJ) uc.o list.o -o $(LIBRARY) $($(LIBNAME)_LDFLAGS)
++	@$(CC) $(CFLAGS) -shared $(UC_TARGET_OBJ) uc.o afl.o list.o -o $(LIBRARY) $($(LIBNAME)_LDFLAGS)
+ 	@-ln -sf $(LIBRARY) $(LIBRARY_SYMLINK)
+ else
+-	$(CC) $(CFLAGS) -shared $(UC_TARGET_OBJ) uc.o list.o -o $(LIBRARY) $($(LIBNAME)_LDFLAGS)
++	$(CC) $(CFLAGS) -shared $(UC_TARGET_OBJ) uc.o afl.o list.o -o $(LIBRARY) $($(LIBNAME)_LDFLAGS)
+ 	-ln -sf $(LIBRARY) $(LIBRARY_SYMLINK)
+ endif
+ ifeq ($(DO_WINDOWS_EXPORT),1)
+@@ -256,10 +260,10 @@ $(ARCHIVE): qemu/config-host.h-timestamp
+ ifeq ($(UNICORN_STATIC),yes)
+ ifeq ($(V),0)
+ 	$(call log,GEN,$(ARCHIVE))
+-	@$(AR) q $(ARCHIVE) $(UC_TARGET_OBJ) uc.o list.o
++	@$(AR) q $(ARCHIVE) $(UC_TARGET_OBJ) uc.o afl.o list.o
+ 	@$(RANLIB) $(ARCHIVE)
+ else
+-	$(AR) q $(ARCHIVE) $(UC_TARGET_OBJ) uc.o list.o
++	$(AR) q $(ARCHIVE) $(UC_TARGET_OBJ) uc.o afl.o list.o
+ 	$(RANLIB) $(ARCHIVE)
+ endif
+ endif
+@@ -347,8 +351,8 @@ define generate-pkgcfg
+ 	echo 'Version: $(PKG_VERSION)' >> $(PKGCFGF)
+ 	echo 'libdir=$(LIBDIR)' >> $(PKGCFGF)
+ 	echo 'includedir=$(INCDIR)' >> $(PKGCFGF)
+-	echo 'archive=$${libdir}/libunicorn.a' >> $(PKGCFGF)
+-	echo 'Libs: -L$${libdir} -lunicorn' >> $(PKGCFGF)
++	echo 'archive=$${libdir}/lib$(LIBNAME).a' >> $(PKGCFGF)
++	echo 'Libs: -L$${libdir} -l$(LIBNAME)' >> $(PKGCFGF)
+ 	echo 'Cflags: -I$${includedir}' >> $(PKGCFGF)
+ endef
+ 
+diff --git a/bindings/const_generator.py b/bindings/const_generator.py
+index 2d11505a..7d220db8 100644
+--- a/bindings/const_generator.py
++++ b/bindings/const_generator.py
+@@ -1,3 +1,4 @@
++#!/usr/bin/env python3
+ # Unicorn Engine
+ # By Dang Hoang Vu, 2013
+ from __future__ import print_function
+@@ -12,7 +13,7 @@ template = {
+             'header': "# For Unicorn Engine. AUTO-GENERATED FILE, DO NOT EDIT [%s_const.py]\n",
+             'footer': "",
+             'line_format': 'UC_%s = %s\n',
+-            'out_file': './python/unicorn/%s_const.py',
++            'out_file': './python/unicornafl/%s_const.py',
+             # prefixes for constant filenames of all archs - case sensitive
+             'arm.h': 'arm',
+             'arm64.h': 'arm64',
+@@ -118,7 +119,8 @@ def gen(lang):
+         outfile.write((templ['header'] % (prefix)).encode("utf-8"))
+         if target == 'unicorn.h':
+             prefix = ''
+-        lines = open(os.path.join(INCL_DIR, target)).readlines()
++        with open(os.path.join(INCL_DIR, target)) as f:
++            lines = f.readlines()
+ 
+         previous = {}
+         count = 0
+@@ -185,12 +187,18 @@ def gen(lang):
+ 
+ def main():
+     lang = sys.argv[1]
+-    if not lang in template:
+-        raise RuntimeError("Unsupported binding %s" % lang)
+-    gen(sys.argv[1])
++    if lang == "all":
++        for lang in template.keys():
++            print("Generating constants for {}".format(lang))
++            gen(lang)
++    else:
++        if not lang in template:
++            raise RuntimeError("Unsupported binding %s" % lang)
++        gen(lang)
+ 
+ if __name__ == "__main__":
+     if len(sys.argv) < 2:
+         print("Usage:", sys.argv[0], " <python>")
++        print("Supported: {}".format(["all"] + [x for x in template.keys()]))
+         sys.exit(1)
+     main()
+diff --git a/bindings/dotnet/UnicornManaged/Const/Arm.fs b/bindings/dotnet/UnicornManaged/Const/Arm.fs
+index 1751fc85..997382a1 100644
+--- a/bindings/dotnet/UnicornManaged/Const/Arm.fs
++++ b/bindings/dotnet/UnicornManaged/Const/Arm.fs
+@@ -127,7 +127,8 @@ module Arm =
+     let UC_ARM_REG_MSP = 115
+     let UC_ARM_REG_PSP = 116
+     let UC_ARM_REG_CONTROL = 117
+-    let UC_ARM_REG_ENDING = 118
++    let UC_ARM_REG_XPSR = 118
++    let UC_ARM_REG_ENDING = 119
+ 
+     // alias registers
+     let UC_ARM_REG_R13 = 12
+diff --git a/bindings/dotnet/UnicornManaged/Const/Common.fs b/bindings/dotnet/UnicornManaged/Const/Common.fs
+index e7476686..83d1b79a 100644
+--- a/bindings/dotnet/UnicornManaged/Const/Common.fs
++++ b/bindings/dotnet/UnicornManaged/Const/Common.fs
+@@ -71,6 +71,11 @@ module Common =
+     let UC_ERR_HOOK_EXIST = 19
+     let UC_ERR_RESOURCE = 20
+     let UC_ERR_EXCEPTION = 21
++
++    let UC_AFL_RET_ERROR = 0
++    let UC_AFL_RET_CHILD = 1
++    let UC_AFL_RET_NO_AFL = 2
++    let UC_AFL_RET_FINISHED = 3
+     let UC_MEM_READ = 16
+     let UC_MEM_WRITE = 17
+     let UC_MEM_FETCH = 18
+diff --git a/bindings/dotnet/UnicornManaged/Const/X86.fs b/bindings/dotnet/UnicornManaged/Const/X86.fs
+index 5112ae2d..ad16a84f 100644
+--- a/bindings/dotnet/UnicornManaged/Const/X86.fs
++++ b/bindings/dotnet/UnicornManaged/Const/X86.fs
+@@ -259,7 +259,9 @@ module X86 =
+     let UC_X86_REG_FPTAG = 247
+     let UC_X86_REG_MSR = 248
+     let UC_X86_REG_MXCSR = 249
+-    let UC_X86_REG_ENDING = 250
++    let UC_X86_REG_FS_BASE = 250
++    let UC_X86_REG_GS_BASE = 251
++    let UC_X86_REG_ENDING = 252
+ 
+     // X86 instructions
+ 
+diff --git a/bindings/go/unicorn/arm_const.go b/bindings/go/unicorn/arm_const.go
+index d4321c94..0b379920 100644
+--- a/bindings/go/unicorn/arm_const.go
++++ b/bindings/go/unicorn/arm_const.go
+@@ -122,7 +122,8 @@ const (
+ 	ARM_REG_MSP = 115
+ 	ARM_REG_PSP = 116
+ 	ARM_REG_CONTROL = 117
+-	ARM_REG_ENDING = 118
++	ARM_REG_XPSR = 118
++	ARM_REG_ENDING = 119
+ 
+ // alias registers
+ 	ARM_REG_R13 = 12
+diff --git a/bindings/go/unicorn/unicorn_const.go b/bindings/go/unicorn/unicorn_const.go
+index 6bceded0..27990e68 100644
+--- a/bindings/go/unicorn/unicorn_const.go
++++ b/bindings/go/unicorn/unicorn_const.go
+@@ -66,6 +66,11 @@ const (
+ 	ERR_HOOK_EXIST = 19
+ 	ERR_RESOURCE = 20
+ 	ERR_EXCEPTION = 21
++
++	AFL_RET_ERROR = 0
++	AFL_RET_CHILD = 1
++	AFL_RET_NO_AFL = 2
++	AFL_RET_FINISHED = 3
+ 	MEM_READ = 16
+ 	MEM_WRITE = 17
+ 	MEM_FETCH = 18
+diff --git a/bindings/go/unicorn/x86_const.go b/bindings/go/unicorn/x86_const.go
+index 847efe2c..33899a61 100644
+--- a/bindings/go/unicorn/x86_const.go
++++ b/bindings/go/unicorn/x86_const.go
+@@ -254,7 +254,9 @@ const (
+ 	X86_REG_FPTAG = 247
+ 	X86_REG_MSR = 248
+ 	X86_REG_MXCSR = 249
+-	X86_REG_ENDING = 250
++	X86_REG_FS_BASE = 250
++	X86_REG_GS_BASE = 251
++	X86_REG_ENDING = 252
+ 
+ // X86 instructions
+ 
+diff --git a/bindings/java/unicorn/ArmConst.java b/bindings/java/unicorn/ArmConst.java
+index 0bab07a3..c3b3dd67 100644
+--- a/bindings/java/unicorn/ArmConst.java
++++ b/bindings/java/unicorn/ArmConst.java
+@@ -124,7 +124,8 @@ public interface ArmConst {
+    public static final int UC_ARM_REG_MSP = 115;
+    public static final int UC_ARM_REG_PSP = 116;
+    public static final int UC_ARM_REG_CONTROL = 117;
+-   public static final int UC_ARM_REG_ENDING = 118;
++   public static final int UC_ARM_REG_XPSR = 118;
++   public static final int UC_ARM_REG_ENDING = 119;
+ 
+ // alias registers
+    public static final int UC_ARM_REG_R13 = 12;
+diff --git a/bindings/java/unicorn/UnicornConst.java b/bindings/java/unicorn/UnicornConst.java
+index 9e7c5989..840bdd65 100644
+--- a/bindings/java/unicorn/UnicornConst.java
++++ b/bindings/java/unicorn/UnicornConst.java
+@@ -68,6 +68,11 @@ public interface UnicornConst {
+    public static final int UC_ERR_HOOK_EXIST = 19;
+    public static final int UC_ERR_RESOURCE = 20;
+    public static final int UC_ERR_EXCEPTION = 21;
++
++   public static final int UC_AFL_RET_ERROR = 0;
++   public static final int UC_AFL_RET_CHILD = 1;
++   public static final int UC_AFL_RET_NO_AFL = 2;
++   public static final int UC_AFL_RET_FINISHED = 3;
+    public static final int UC_MEM_READ = 16;
+    public static final int UC_MEM_WRITE = 17;
+    public static final int UC_MEM_FETCH = 18;
+diff --git a/bindings/java/unicorn/X86Const.java b/bindings/java/unicorn/X86Const.java
+index 2f1f2930..d7a358bf 100644
+--- a/bindings/java/unicorn/X86Const.java
++++ b/bindings/java/unicorn/X86Const.java
+@@ -256,7 +256,9 @@ public interface X86Const {
+    public static final int UC_X86_REG_FPTAG = 247;
+    public static final int UC_X86_REG_MSR = 248;
+    public static final int UC_X86_REG_MXCSR = 249;
+-   public static final int UC_X86_REG_ENDING = 250;
++   public static final int UC_X86_REG_FS_BASE = 250;
++   public static final int UC_X86_REG_GS_BASE = 251;
++   public static final int UC_X86_REG_ENDING = 252;
+ 
+ // X86 instructions
+ 
+diff --git a/bindings/pascal/unicorn/ArmConst.pas b/bindings/pascal/unicorn/ArmConst.pas
+index eb9fc463..74427fb4 100644
+--- a/bindings/pascal/unicorn/ArmConst.pas
++++ b/bindings/pascal/unicorn/ArmConst.pas
+@@ -125,7 +125,8 @@ const
+   UC_ARM_REG_MSP = 115;
+   UC_ARM_REG_PSP = 116;
+   UC_ARM_REG_CONTROL = 117;
+-  UC_ARM_REG_ENDING = 118;
++  UC_ARM_REG_XPSR = 118;
++  UC_ARM_REG_ENDING = 119;
+ 
+ // alias registers
+   UC_ARM_REG_R13 = 12;
+diff --git a/bindings/pascal/unicorn/UnicornConst.pas b/bindings/pascal/unicorn/UnicornConst.pas
+index 6b67fe21..9bc63e54 100644
+--- a/bindings/pascal/unicorn/UnicornConst.pas
++++ b/bindings/pascal/unicorn/UnicornConst.pas
+@@ -69,6 +69,11 @@ const  UC_API_MAJOR = 1;
+   UC_ERR_HOOK_EXIST = 19;
+   UC_ERR_RESOURCE = 20;
+   UC_ERR_EXCEPTION = 21;
++
++  UC_AFL_RET_ERROR = 0;
++  UC_AFL_RET_CHILD = 1;
++  UC_AFL_RET_NO_AFL = 2;
++  UC_AFL_RET_FINISHED = 3;
+   UC_MEM_READ = 16;
+   UC_MEM_WRITE = 17;
+   UC_MEM_FETCH = 18;
+diff --git a/bindings/pascal/unicorn/X86Const.pas b/bindings/pascal/unicorn/X86Const.pas
+index e52b499c..27994b6c 100644
+--- a/bindings/pascal/unicorn/X86Const.pas
++++ b/bindings/pascal/unicorn/X86Const.pas
+@@ -257,7 +257,9 @@ const
+   UC_X86_REG_FPTAG = 247;
+   UC_X86_REG_MSR = 248;
+   UC_X86_REG_MXCSR = 249;
+-  UC_X86_REG_ENDING = 250;
++  UC_X86_REG_FS_BASE = 250;
++  UC_X86_REG_GS_BASE = 251;
++  UC_X86_REG_ENDING = 252;
+ 
+ // X86 instructions
+ 
+diff --git a/bindings/python/Makefile b/bindings/python/Makefile
+index ea831fd9..ce497699 100644
+--- a/bindings/python/Makefile
++++ b/bindings/python/Makefile
+@@ -7,8 +7,8 @@ gen_const:
+ 
+ install:
+ 	rm -rf src/ dist/
+-	rm -rf prebuilt/win64/unicorn.dll
+-	rm -rf prebuilt/win32/unicorn.dll
++	rm -rf prebuilt/win64/unicornafl.dll
++	rm -rf prebuilt/win32/unicornafl.dll
+ 	if test -n "${DESTDIR}"; then \
+ 		python setup.py install --root="${DESTDIR}"; \
+ 	else \
+@@ -17,8 +17,8 @@ install:
+ 
+ install3:
+ 	rm -rf src/ dist/
+-	rm -rf prebuilt/win64/unicorn.dll
+-	rm -rf prebuilt/win32/unicorn.dll
++	rm -rf prebuilt/win64/unicornafl.dll
++	rm -rf prebuilt/win32/unicornafl.dll
+ 	if test -n "${DESTDIR}"; then \
+ 		python3 setup.py install --root="${DESTDIR}"; \
+ 	else \
+@@ -28,29 +28,29 @@ install3:
+ # build & upload PyPi package with source code of the core
+ sdist:
+ 	rm -rf src/ dist/
+-	rm -rf prebuilt/win64/unicorn.dll
+-	rm -rf prebuilt/win32/unicorn.dll
++	rm -rf prebuilt/win64/unicornafl.dll
++	rm -rf prebuilt/win32/unicornafl.dll
+ 	python setup.py sdist register upload
+ 
+ # build & upload PyPi package with source code of the core
+ sdist3:
+ 	rm -rf src/ dist/
+-	rm -rf prebuilt/win64/unicorn.dll
+-	rm -rf prebuilt/win32/unicorn.dll
++	rm -rf prebuilt/win64/unicornafl.dll
++	rm -rf prebuilt/win32/unicornafl.dll
+ 	python3 setup.py sdist register upload
+ 
+ # build & upload PyPi package with precompiled core
+ bdist:
+ 	rm -rf src/ dist/
+-	rm -rf prebuilt/win64/unicorn.dll
+-	rm -rf prebuilt/win32/unicorn.dll
++	rm -rf prebuilt/win64/unicornafl.dll
++	rm -rf prebuilt/win32/unicornafl.dll
+ 	python setup.py bdist_wheel register upload
+ 
+ # build & upload PyPi package with precompiled core
+ bdist3:
+ 	rm -rf src/ dist/
+-	rm -rf prebuilt/win64/unicorn.dll
+-	rm -rf prebuilt/win32/unicorn.dll
++	rm -rf prebuilt/win64/unicornafl.dll
++	rm -rf prebuilt/win32/unicornafl.dll
+ 	python3 setup.py bdist_wheel register upload
+ 
+ # build & upload PyPi package with prebuilt core
+@@ -67,11 +67,11 @@ sdist3_win:
+ 
+ clean:
+ 	rm -rf src/ dist/ build/ MANIFEST
+-	rm -rf prebuilt/win64/unicorn.dll
+-	rm -rf prebuilt/win32/unicorn.dll
+-	rm -rf unicorn/lib unicorn/include
+-	rm -rf unicorn/*.pyc
+-	rm -rf unicorn.egg-info
++	rm -rf prebuilt/win64/unicornafl.dll
++	rm -rf prebuilt/win32/unicornafl.dll
++	rm -rf unicornafl/lib unicornafl/include
++	rm -rf unicornafl/*.pyc
++	rm -rf unicornafl.egg-info
+ 
+ 
+ SAMPLES = sample_arm.py sample_arm64.py sample_mips.py
+diff --git a/bindings/python/setup.py b/bindings/python/setup.py
+index aa01fe12..b97a99ba 100755
+--- a/bindings/python/setup.py
++++ b/bindings/python/setup.py
+@@ -23,8 +23,8 @@ IS_64BITS = platform.architecture()[0] == '64bit'
+ 
+ # are we building from the repository or from a source distribution?
+ ROOT_DIR = os.path.dirname(os.path.realpath(__file__))
+-LIBS_DIR = os.path.join(ROOT_DIR, 'unicorn', 'lib')
+-HEADERS_DIR = os.path.join(ROOT_DIR, 'unicorn', 'include')
++LIBS_DIR = os.path.join(ROOT_DIR, 'unicornafl', 'lib')
++HEADERS_DIR = os.path.join(ROOT_DIR, 'unicornafl', 'include')
+ SRC_DIR = os.path.join(ROOT_DIR, 'src')
+ BUILD_DIR = SRC_DIR if os.path.exists(SRC_DIR) else os.path.join(ROOT_DIR, '../..')
+ 
+@@ -59,13 +59,13 @@ else:
+     VERSION = '{PKG_MAJOR}.{PKG_MINOR}.{PKG_EXTRA}'.format(**VERSION_DATA)
+ 
+ if SYSTEM == 'darwin':
+-    LIBRARY_FILE = "libunicorn.dylib"
++    LIBRARY_FILE = "libunicornafl.dylib"
+     STATIC_LIBRARY_FILE = None
+ elif SYSTEM in ('win32', 'cygwin'):
+-    LIBRARY_FILE = "unicorn.dll"
+-    STATIC_LIBRARY_FILE = "unicorn.lib"
++    LIBRARY_FILE = "unicornafl.dll"
++    STATIC_LIBRARY_FILE = "unicornafl.lib"
+ else:
+-    LIBRARY_FILE = "libunicorn.so"
++    LIBRARY_FILE = "libunicornafl.so"
+     STATIC_LIBRARY_FILE = None
+ 
+ def clean_bins():
+@@ -125,7 +125,7 @@ def build_libraries():
+     os.mkdir(LIBS_DIR)
+ 
+     # copy public headers
+-    shutil.copytree(os.path.join(BUILD_DIR, 'include', 'unicorn'), os.path.join(HEADERS_DIR, 'unicorn'))
++    shutil.copytree(os.path.join(BUILD_DIR, 'include', 'unicorn'), os.path.join(HEADERS_DIR, 'unicornafl'))
+ 
+     # check if a prebuilt library exists
+     # if so, use it instead of building
+@@ -247,9 +247,9 @@ def join_all(src, files):
+     return tuple(os.path.join(src, f) for f in files)
+ 
+ setup(
+-    provides=['unicorn'],
+-    packages=['unicorn'],
+-    name='unicorn',
++    provides=['unicornafl'],
++    packages=['unicornafl'],
++    name='unicornafl',
+     version=VERSION,
+     author='Nguyen Anh Quynh',
+     author_email='aquynh@gmail.com',
+@@ -266,6 +266,6 @@ setup(
+     include_package_data=True,
+     is_pure=True,
+     package_data={
+-        'unicorn': ['lib/*', 'include/unicorn/*']
++        'unicornafl': ['lib/*', 'include/unicornafl/*']
+     }
+ )
+diff --git a/bindings/python/unicorn/__init__.py b/bindings/python/unicornafl/__init__.py
+similarity index 53%
+rename from bindings/python/unicorn/__init__.py
+rename to bindings/python/unicornafl/__init__.py
+index 9d2b717c..5323a1e2 100644
+--- a/bindings/python/unicorn/__init__.py
++++ b/bindings/python/unicornafl/__init__.py
+@@ -1,4 +1,6 @@
+ # Unicorn Python bindings, by Nguyen Anh Quynnh <aquynh@gmail.com>
+ from . import arm_const, arm64_const, mips_const, sparc_const, m68k_const, x86_const
+ from .unicorn_const import *
+-from .unicorn import Uc, uc_version, uc_arch_supported, version_bind, debug, UcError, __version__
++from .unicorn import (Uc, uc_version, uc_arch_supported, version_bind, debug, UcError, __version__,
++    monkeypatch, UcAflError, # Unicorn AFL additions.
++)
+diff --git a/bindings/python/unicorn/arm64_const.py b/bindings/python/unicornafl/arm64_const.py
+similarity index 100%
+rename from bindings/python/unicorn/arm64_const.py
+rename to bindings/python/unicornafl/arm64_const.py
+diff --git a/bindings/python/unicorn/arm_const.py b/bindings/python/unicornafl/arm_const.py
+similarity index 98%
+rename from bindings/python/unicorn/arm_const.py
+rename to bindings/python/unicornafl/arm_const.py
+index 088eaa46..abb15ffe 100644
+--- a/bindings/python/unicorn/arm_const.py
++++ b/bindings/python/unicornafl/arm_const.py
+@@ -120,7 +120,8 @@ UC_ARM_REG_IPSR = 114
+ UC_ARM_REG_MSP = 115
+ UC_ARM_REG_PSP = 116
+ UC_ARM_REG_CONTROL = 117
+-UC_ARM_REG_ENDING = 118
++UC_ARM_REG_XPSR = 118
++UC_ARM_REG_ENDING = 119
+ 
+ # alias registers
+ UC_ARM_REG_R13 = 12
+diff --git a/bindings/python/unicorn/m68k_const.py b/bindings/python/unicornafl/m68k_const.py
+similarity index 100%
+rename from bindings/python/unicorn/m68k_const.py
+rename to bindings/python/unicornafl/m68k_const.py
+diff --git a/bindings/python/unicorn/mips_const.py b/bindings/python/unicornafl/mips_const.py
+similarity index 100%
+rename from bindings/python/unicorn/mips_const.py
+rename to bindings/python/unicornafl/mips_const.py
+diff --git a/bindings/python/unicorn/sparc_const.py b/bindings/python/unicornafl/sparc_const.py
+similarity index 100%
+rename from bindings/python/unicorn/sparc_const.py
+rename to bindings/python/unicornafl/sparc_const.py
+diff --git a/bindings/python/unicorn/unicorn.py b/bindings/python/unicornafl/unicorn.py
+similarity index 67%
+rename from bindings/python/unicorn/unicorn.py
+rename to bindings/python/unicornafl/unicorn.py
+index 40fccce0..8658dd47 100644
+--- a/bindings/python/unicorn/unicorn.py
++++ b/bindings/python/unicornafl/unicorn.py
+@@ -3,14 +3,27 @@
+ import ctypes
+ import ctypes.util
+ import distutils.sysconfig
++from typing import Optional, List, Callable, Any
++
+ import pkg_resources
+ import inspect
+ import os.path
+ import sys
+ import weakref
++import gc
+ 
+ from . import x86_const, arm64_const, unicorn_const as uc
+ 
++def monkeypatch():
++    # type: () -> None
++    """
++    If you call monkeypatch() before importing any other unicorn-based lib, it'll "just work".
++    Any normal `import unicorn` will from now on return unicornafl.
++    Good for 3rd Party libs using unicorn.
++    They won't even notice the difference - but they can now use the AFL forkserver.
++    """
++    sys.modules["unicorn"] = sys.modules["unicornafl"]
++
+ if not hasattr(sys.modules[__name__], "__file__"):
+     __file__ = inspect.getfile(inspect.currentframe())
+ 
+@@ -18,11 +31,11 @@ _python2 = sys.version_info[0] < 3
+ if _python2:
+     range = xrange
+ 
+-_lib = { 'darwin': 'libunicorn.dylib',
+-         'win32': 'unicorn.dll',
+-         'cygwin': 'cygunicorn.dll',
+-         'linux': 'libunicorn.so',
+-         'linux2': 'libunicorn.so' }
++_lib = { 'darwin': 'libunicornafl.dylib',
++         'win32': 'unicornafl.dll',
++         'cygwin': 'cygunicornafl.dll',
++         'linux': 'libunicornafl.so',
++         'linux2': 'libunicornafl.so' }
+ 
+ 
+ # Windows DLL in dependency order
+@@ -59,7 +72,7 @@ def _load_lib(path):
+         if sys.platform in ('win32', 'cygwin'):
+             _load_win_support(path)
+ 
+-        lib_file = os.path.join(path, _lib.get(sys.platform, 'libunicorn.so'))
++        lib_file = os.path.join(path, _lib.get(sys.platform, 'libunicornafl.so'))
+         #print('Trying to load shared library', lib_file)
+         dll = ctypes.cdll.LoadLibrary(lib_file)
+         #print('SUCCESS')
+@@ -97,6 +110,7 @@ else:
+     raise ImportError("ERROR: fail to load the dynamic library.")
+ 
+ __version__ = "%u.%u.%u" % (uc.UC_VERSION_MAJOR, uc.UC_VERSION_MINOR, uc.UC_VERSION_EXTRA)
++__hasafl__ = True
+ 
+ # setup all the function prototype
+ def _setup_prototype(lib, fname, restype, *argtypes):
+@@ -104,6 +118,7 @@ def _setup_prototype(lib, fname, restype, *argtypes):
+     getattr(lib, fname).argtypes = argtypes
+ 
+ ucerr = ctypes.c_int
++ucaflret = ctypes.c_int
+ uc_engine = ctypes.c_void_p
+ uc_context = ctypes.c_void_p
+ uc_hook_h = ctypes.c_size_t
+@@ -115,6 +130,27 @@ class _uc_mem_region(ctypes.Structure):
+         ("perms", ctypes.c_uint32),
+     ]
+ 
++#typedef bool (*uc_afl_cb_place_input_t)(uc_engine *uc, char *input, 
++#                                       size_t input_len, uint32_t persistent_round, void *data);
++AFL_PLACE_INPUT_CB = ctypes.CFUNCTYPE(ctypes.c_bool, uc_engine, ctypes.POINTER(ctypes.c_char),
++                                        ctypes.c_size_t, ctypes.c_uint32, ctypes.c_void_p)
++        
++#typedef bool (*uc_afl_cb_validate_crash_t)(uc_engine *uc, uc_err unicorn_result, char *input, 
++#                                       int input_len, int persistent_round, void *data);
++AFL_VALIDATE_CRASH_CB = ctypes.CFUNCTYPE(ctypes.c_bool, uc_engine, ucerr, ctypes.POINTER(ctypes.c_char),
++                                        ctypes.c_size_t, ctypes.c_uint32, ctypes.c_void_p)
++
++def from_param(cls, obj):
++    """
++    Allow NULL pointer for crash cb
++    See https://sourceforge.net/p/ctypes/mailman/message/9636230/
++    """
++    if obj is None:
++        return None # return a NULL pointer
++    return ctypes._CFuncPtr.from_param(obj)
++
++AFL_VALIDATE_CRASH_CB.from_param = classmethod(from_param)
++        
+ 
+ _setup_prototype(_uc, "uc_version", ctypes.c_uint, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
+ _setup_prototype(_uc, "uc_arch_supported", ctypes.c_bool, ctypes.c_int)
+@@ -140,6 +176,17 @@ _setup_prototype(_uc, "uc_context_save", ucerr, uc_engine, uc_context)
+ _setup_prototype(_uc, "uc_context_restore", ucerr, uc_engine, uc_context)
+ _setup_prototype(_uc, "uc_context_size", ctypes.c_size_t, uc_engine)
+ _setup_prototype(_uc, "uc_mem_regions", ucerr, uc_engine, ctypes.POINTER(ctypes.POINTER(_uc_mem_region)), ctypes.POINTER(ctypes.c_uint32))
++_setup_prototype(_uc, "uc_afl_forkserver_start", ucaflret, uc_engine, ctypes.POINTER(ctypes.c_uint64), ctypes.c_size_t)
++_setup_prototype(_uc, "uc_afl_fuzz", ucaflret, 
++        uc_engine, # unicorn engine
++        ctypes.c_char_p, # input file
++        AFL_PLACE_INPUT_CB, # place input cb
++        ctypes.POINTER(ctypes.c_uint64), # exits
++        ctypes.c_size_t, # exit_count
++        AFL_VALIDATE_CRASH_CB, # validate crash cb
++        ctypes.c_bool, # always_validate,
++        ctypes.c_uint32, # persistent_iters
++        ctypes.c_void_p) # data
+ 
+ # uc_hook_add is special due to variable number of arguments
+ _uc.uc_hook_add = _uc.uc_hook_add
+@@ -167,7 +214,6 @@ UC_HOOK_INSN_OUT_CB = ctypes.CFUNCTYPE(
+ )
+ UC_HOOK_INSN_SYSCALL_CB = ctypes.CFUNCTYPE(None, uc_engine, ctypes.c_void_p)
+ 
+-
+ # access to error code via @errno of UcError
+ class UcError(Exception):
+     def __init__(self, errno):
+@@ -177,6 +223,28 @@ class UcError(Exception):
+         return _uc.uc_strerror(self.errno).decode('ascii')
+ 
+ 
++# AFL Errors
++class UcAflError(UcError):
++    """
++    Unicode Afl Error class
++    """
++    def __init__(self, afl_ret=uc.UC_AFL_RET_ERROR, message=None):
++        # type: (UcAflError, int, Optional[str]) -> None
++        self.errno = afl_ret # type: int
++        self.message = message # type: str
++
++    def __str__(self):
++        # type: (UcAflError) -> str
++        if self.message:
++            return self.message
++        return {
++            uc.UC_AFL_RET_CHILD: "Fork worked. we are a child (no Error)",
++            uc.UC_AFL_RET_NO_AFL: "No AFL, no need to fork (but no real Error)",
++            uc.UC_AFL_RET_FINISHED: "We forked before but now AFL is gone (time to quit)",
++            uc.UC_AFL_RET_ERROR: "Something went horribly wrong in the parent!"
++        }[self.errno]
++
++
+ # return the core's version
+ def uc_version():
+     major = ctypes.c_int()
+@@ -300,6 +368,8 @@ class Uc(object):
+         self._callback_count = 0
+         self._cleanup.register(self)
+ 
++        self.afl_is_forkserver_child = False
++
+     @staticmethod
+     def release_handle(uch):
+         if uch:
+@@ -312,6 +382,10 @@ class Uc(object):
+ 
+     # emulate from @begin, and stop when reaching address @until
+     def emu_start(self, begin, until, timeout=0, count=0):
++        """
++        emulate from @begin, and stop when reaching address @until
++        Unless forkserver is started, in which case only the exit points set in afl_start_forksever will work!
++        """
+         status = _uc.uc_emu_start(self._uch, begin, until, timeout, count)
+         if status != uc.UC_ERR_OK:
+             raise UcError(status)
+@@ -322,6 +396,176 @@ class Uc(object):
+         if status != uc.UC_ERR_OK:
+             raise UcError(status)
+ 
++    def afl_fuzz(
++            self,                   # type: Uc
++            input_file,             # type: str
++            place_input_callback,   # type: Callable[[Uc, bytes, int, Any], Optional[bool]]
++            exits,                  # type: List[int]
++            validate_crash_callback=None,  # type: Optional[Callable[[Uc, UcError, bytes, int, Any], Optional[bool]]]
++            always_validate=False,  # type: bool
++            persistent_iters=1000,  # type: int
++            data=None               # type: Any
++    ):
++        # type: (...) -> bool
++        """
++        The main fuzzer.
++        Starts the forkserver, then beginns a persistent loop.
++        Reads input, calls the place_input callback, emulates, repeats.
++        If unicorn errors out, will call the validate_crash_callback, if set.
++        Will only return in the parent after the whole fuzz thing has been finished and afl died.
++        The child processes never return from here.
++
++        :param input_file: filename/path to the (AFL) inputfile. Usually supplied on the commandline.
++        :param place_input_callback: Callback function that will be called before each test runs.
++                This function needs to write the input from afl to the correct position on the unicorn object.
++                This function is mandatory.
++                It's purpose is to place the input at the right place in unicorn.
++
++                    @uc: (Uc) Unicorn instance
++                    @input: (bytes) The current input we're workin on. Place this somewhere in unicorn's memory now.
++                    @persistent_round: (int) which round we are currently crashing in, if using persistent mode.
++                    @data: (Any) Data pointer passed to uc_afl_fuzz(...).
++
++                    @return: (bool)
++                        If you return is True (or None) all is well. Fuzzing starts.
++                        If you return False, something has gone wrong. the execution loop will exit. 
++                            There should be no reason to do this in a usual usecase.
++        :param exits: address list of exits where fuzzing should stop
++        :param persistent_iters:
++                The amount of loop iterations in persistent mode before restarteing with a new forked child.
++                If your target cannot be fuzzed using persistent mode (global state changes a lot), 
++                set persistent_iters = 1 for the normal fork-server experience.
++                Else, the default is usually around 1000.
++                If your target is super stable (and unicorn is, too - not sure about that one),
++                you may pass persistent_iter = 0 for that an infinite fuzz loop.
++        :param validate_crash_callback: Optional callback (if not needed, pass NULL), that determines 
++                if a non-OK uc_err is an actual error. If false is returned, the test-case will not crash.
++                Callback function called after a non-UC_ERR_OK returncode was returned by Unicorn. 
++                This function is not mandatory.
++                    @uc: Unicorn instance
++                    @unicorn_result: The error state returned by the current testcase
++                    @input: The current input we're workin with.
++                    @persistent_round: which round we are currently crashing in, if using persistent mode.
++                    @data: Data pointer passed to uc_afl_fuzz(...).
++
++                    @Return:
++                    If you return false, the crash is considered invalid and not reported to AFL.
++                        -> Next loop iteration begins.
++                    If return is true, the crash is reported // the program crashes.
++                        -> The child will die and the forkserver will spawn a new child.
++        :param always_validate: If false, validate_crash_callback will only be called for crashes.
++        :param data: Your very own data pointer. This will passed into every callback.
++
++        :return:
++                True, if we fuzzed.
++                False, if AFL was not available but we ran once.
++                raises UcAflException if nothing worked.
++        """
++        self._pre_afl(exits)
++        exit_count = len(exits)
++
++        def place_input_wrapper(c_uc, input, input_len, persistent_round, c_data):
++            # print("Calling back home. :)", c_uc, input, input_len, persistent_round, c_data)
++            ret = place_input_callback(
++                self,
++                input[:input_len],
++                persistent_round,
++                data
++            )
++            if ret is False:
++                return False
++            return True
++
++        def validate_crash_wrapper(c_uc, uc_err, input, input_len, persistent_round, c_data):
++            # print("Calling after crash!", c_uc, input, input_len, persistent_round, c_data)
++            ret = validate_crash_callback(
++                self,
++                UcError(uc_err.value),
++                input[:input_len],
++                persistent_round,
++                data
++            )
++            if ret is False or uc_err.value == uc.UC_ERR_OK:
++                return False
++            return True
++
++        # This only returns in the parent, child processes all die or loop or other things.
++        status = _uc.uc_afl_fuzz(
++                self._uch, 
++                input_file.encode('utf-8'),
++                AFL_PLACE_INPUT_CB(place_input_wrapper),
++                (ctypes.c_uint64 * exit_count)(*exits),
++                exit_count,  # bad languages, like c, need more params.
++                AFL_VALIDATE_CRASH_CB(validate_crash_wrapper) if validate_crash_callback else None,
++                always_validate,
++                persistent_iters,
++                None  # no need to pass the user data through C as the callback keeps it as closure.
++        )
++        if status == uc.UC_AFL_RET_FINISHED:
++            return True
++        elif status == uc.UC_AFL_RET_NO_AFL:
++            return False
++        # Something went wrong.
++        raise UcAflError(status)
++
++    def _pre_afl(self, exits):
++        # type: (Uc, List[int]) -> None
++        """
++        Internal func making sure exits are set and flushing buffers/gc
++        :param exits: exits
++        """
++        try:
++            exits = [int(exit) for exit in exits]
++        except Exception as ex:
++            raise UcAflError(message="Exit addresses need to be a list of addresses where the fuzzer should stop - {} "
++                                         "provided instead ({})".format(ex, exits))
++        if self.afl_is_forkserver_child:
++            raise UcAflError(message="Already in a forkserver child. Nesting not possible.")
++        sys.stdout.flush()  # otherwise children will inherit the unflushed buffer
++        gc.collect()  # Collect all unneeded memory, No need to clone it on fork.
++
++    def afl_forkserver_start(self, exits):
++        # type: (Uc, List[int]) -> int
++        """
++        This will start the forkserver.
++        Call this to kick off afl forkserver mode (when running as child of AFL)
++        If you just want to fuzz, use uc.afl_fuzz instead.
++        It forks internally, leaving the parent running in an endless loop.
++        The child notifies the parent about any new block encountered.
++        The parent then also translates this block for the next AFL iteration.
++        Since the parent won't know about any exits set after this point, there is no use in using
++        emu_start params like until or count.
++        Instead, the exit list of int addresses is passed directly to the parent.
++        Everything beyond this func is done for every. single. child. Make sure to do the important stuff before.
++        Will raise UcAflError if something went wrong or AFL died (in which case we want to exit)
++        :param exits: A list of exits at which the Uc execution will stop.
++        :return: UC_AFL_RET_CHILD: 
++                   You're now in the child. Over and over again.
++                 UC_AFL_RET_NO_AFL:
++                   No AFL to communicate with. Running on as sole process. :)
++                   It's porbably best to just continue to emulate from here on.
++                 UC_AFL_RET_FINISHED:
++                   Successful fuzz run ended. Probably not much else to do.
++        -> Prints to sterr and raises UcAflError on error.
++        (See stderr of your child in AFL with `AFL_DEBUG_CHILD_OUTPUT=1` env)
++        """
++        self._pre_afl(exits)
++        exit_count = len(exits)
++        self.afl_is_forkserver_child = True # Set this before we fork for speed :)
++        # everything beyond this point is done for every. single. child. Make sure to do the important stuff before. 
++        status = _uc.uc_afl_forkserver_start(self._uch, (ctypes.c_uint64 * exit_count)(*exits), exit_count)
++        if status == uc.UC_AFL_RET_CHILD:
++            # We're in the child. Let's go fuzz.
++            return uc.UC_AFL_RET_CHILD
++        
++        # No AFL or we finished fuzzing. Either way we're in the parent.
++        self.afl_is_forkserver_child = False
++        if status == uc.UC_AFL_RET_NO_AFL or status == uc.UC_AFL_RET_FINISHED:
++            return status
++        else:
++            # Error creating forkserver :(
++            raise UcAflError(status)
++
+     # return the value of a register
+     def reg_read(self, reg_id, opt=None):
+         if self._arch == uc.UC_ARCH_X86:
+diff --git a/bindings/python/unicorn/unicorn_const.py b/bindings/python/unicornafl/unicorn_const.py
+similarity index 96%
+rename from bindings/python/unicorn/unicorn_const.py
+rename to bindings/python/unicornafl/unicorn_const.py
+index a9f1719b..aec248e0 100644
+--- a/bindings/python/unicorn/unicorn_const.py
++++ b/bindings/python/unicornafl/unicorn_const.py
+@@ -64,6 +64,11 @@ UC_ERR_FETCH_UNALIGNED = 18
+ UC_ERR_HOOK_EXIST = 19
+ UC_ERR_RESOURCE = 20
+ UC_ERR_EXCEPTION = 21
++
++UC_AFL_RET_ERROR = 0
++UC_AFL_RET_CHILD = 1
++UC_AFL_RET_NO_AFL = 2
++UC_AFL_RET_FINISHED = 3
+ UC_MEM_READ = 16
+ UC_MEM_WRITE = 17
+ UC_MEM_FETCH = 18
+diff --git a/bindings/python/unicorn/x86_const.py b/bindings/python/unicornafl/x86_const.py
+similarity index 99%
+rename from bindings/python/unicorn/x86_const.py
+rename to bindings/python/unicornafl/x86_const.py
+index 154f70a5..9c0fbadf 100644
+--- a/bindings/python/unicorn/x86_const.py
++++ b/bindings/python/unicornafl/x86_const.py
+@@ -252,7 +252,9 @@ UC_X86_REG_FPCW = 246
+ UC_X86_REG_FPTAG = 247
+ UC_X86_REG_MSR = 248
+ UC_X86_REG_MXCSR = 249
+-UC_X86_REG_ENDING = 250
++UC_X86_REG_FS_BASE = 250
++UC_X86_REG_GS_BASE = 251
++UC_X86_REG_ENDING = 252
+ 
+ # X86 instructions
+ 
+diff --git a/bindings/ruby/unicorn_gem/lib/unicorn_engine/arm_const.rb b/bindings/ruby/unicorn_gem/lib/unicorn_engine/arm_const.rb
+index 15df353a..d72c6ddb 100644
+--- a/bindings/ruby/unicorn_gem/lib/unicorn_engine/arm_const.rb
++++ b/bindings/ruby/unicorn_gem/lib/unicorn_engine/arm_const.rb
+@@ -122,7 +122,8 @@ module UnicornEngine
+ 	UC_ARM_REG_MSP = 115
+ 	UC_ARM_REG_PSP = 116
+ 	UC_ARM_REG_CONTROL = 117
+-	UC_ARM_REG_ENDING = 118
++	UC_ARM_REG_XPSR = 118
++	UC_ARM_REG_ENDING = 119
+ 
+ # alias registers
+ 	UC_ARM_REG_R13 = 12
+diff --git a/bindings/ruby/unicorn_gem/lib/unicorn_engine/unicorn_const.rb b/bindings/ruby/unicorn_gem/lib/unicorn_engine/unicorn_const.rb
+index f2d0d549..9c1a6719 100644
+--- a/bindings/ruby/unicorn_gem/lib/unicorn_engine/unicorn_const.rb
++++ b/bindings/ruby/unicorn_gem/lib/unicorn_engine/unicorn_const.rb
+@@ -66,6 +66,11 @@ module UnicornEngine
+ 	UC_ERR_HOOK_EXIST = 19
+ 	UC_ERR_RESOURCE = 20
+ 	UC_ERR_EXCEPTION = 21
++
++	UC_AFL_RET_ERROR = 0
++	UC_AFL_RET_CHILD = 1
++	UC_AFL_RET_NO_AFL = 2
++	UC_AFL_RET_FINISHED = 3
+ 	UC_MEM_READ = 16
+ 	UC_MEM_WRITE = 17
+ 	UC_MEM_FETCH = 18
+diff --git a/bindings/ruby/unicorn_gem/lib/unicorn_engine/x86_const.rb b/bindings/ruby/unicorn_gem/lib/unicorn_engine/x86_const.rb
+index e156236f..8063eec5 100644
+--- a/bindings/ruby/unicorn_gem/lib/unicorn_engine/x86_const.rb
++++ b/bindings/ruby/unicorn_gem/lib/unicorn_engine/x86_const.rb
+@@ -254,7 +254,9 @@ module UnicornEngine
+ 	UC_X86_REG_FPTAG = 247
+ 	UC_X86_REG_MSR = 248
+ 	UC_X86_REG_MXCSR = 249
+-	UC_X86_REG_ENDING = 250
++	UC_X86_REG_FS_BASE = 250
++	UC_X86_REG_GS_BASE = 251
++	UC_X86_REG_ENDING = 252
+ 
+ # X86 instructions
+ 
 diff --git a/config.mk b/config.mk
-index c3621fb..c7b4f7e 100644
+index c3621fb9..865c9278 100644
 --- a/config.mk
 +++ b/config.mk
-@@ -8,7 +8,7 @@
- # Compile with debug info when you want to debug code.
- # Change this to 'no' for release edition.
- 
--UNICORN_DEBUG ?= yes
-+UNICORN_DEBUG ?= no
- 
- ################################################################################
- # Specify which archs you want to compile in. By default, we build all archs.
 @@ -28,3 +28,9 @@ UNICORN_STATIC ?= yes
  # a shared library.
  
@@ -36,50 +960,1229 @@ index c3621fb..c7b4f7e 100644
 +# Changing 'UNICORN_AFLL = yes' to 'UNICORN_AFL = no' disables AFL instrumentation
 +
 +UNICORN_AFL ?= yes
+diff --git a/include/uc_priv.h b/include/uc_priv.h
+index 56973157..f980fc00 100644
+--- a/include/uc_priv.h
++++ b/include/uc_priv.h
+@@ -21,6 +21,7 @@
+ #define UC_MODE_SPARC_MASK  (UC_MODE_SPARC32|UC_MODE_SPARC64|UC_MODE_BIG_ENDIAN)
+ #define UC_MODE_M68K_MASK   (UC_MODE_BIG_ENDIAN)
+ 
++
+ #define ARR_SIZE(a) (sizeof(a)/sizeof(a[0]))
+ 
+ #define READ_QWORD(x) ((uint64)x)
+@@ -82,6 +83,9 @@ typedef uint64_t (*uc_mem_redirect_t)(uint64_t address);
+ // validate if Unicorn supports hooking a given instruction
+ typedef bool(*uc_insn_hook_validate)(uint32_t insn_enum);
+ 
++// we use this as shortcut deep inside uc_afl for uc_afl_next()
++typedef uc_afl_ret(*uc_afl_ret_void_t)(void);
++
+ struct hook {
+     int type;            // UC_HOOK_*
+     int insn;            // instruction for HOOK_INSN
+@@ -247,6 +251,16 @@ struct uc_struct {
+     uint32_t target_page_align;
+     uint64_t next_pc;   // save next PC for some special cases
+     bool hook_insert;	// insert new hook at begin of the hook list (append by default)
++    
++#ifdef UNICORN_AFL
++    uc_args_int_uc_t afl_forkserver_start; // function to start afl forkserver
++    uc_afl_ret_void_t afl_child_request_next; // function from child to ask for new testcase (if in child)
++    unsigned char *afl_area_ptr; // map, shared with afl, to report coverage feedback etc. during runs
++    int afl_compcov_level; // how much compcove we want
++    unsigned int afl_inst_rms; 
++    size_t exit_count; // number of exits set in afl_fuzz or afl_forkserver
++    uint64_t *exits; // pointer to the actual exits
++#endif
+ };
+ 
+ // Metadata stub for the variable-size cpu context used with uc_context_*()
+diff --git a/include/unicorn/arm.h b/include/unicorn/arm.h
+index a0fd83e3..0c8a6bed 100644
+--- a/include/unicorn/arm.h
++++ b/include/unicorn/arm.h
+@@ -137,6 +137,8 @@ typedef enum uc_arm_reg {
+     UC_ARM_REG_MSP,
+     UC_ARM_REG_PSP,
+     UC_ARM_REG_CONTROL,
++    // XPSR patch, see https://github.com/ucsb-seclab/hal-fuzz/blob/master/unicorn_mode/patches/halfuzz-expose-XPSR.diff
++    UC_ARM_REG_XPSR,
+     UC_ARM_REG_ENDING,		// <-- mark the end of the list or registers
+ 
+     //> alias registers
+diff --git a/include/unicorn/unicorn.h b/include/unicorn/unicorn.h
+index 9c08eea3..cb431282 100644
+--- a/include/unicorn/unicorn.h
++++ b/include/unicorn/unicorn.h
+@@ -73,7 +73,6 @@ typedef size_t uc_hook;
+ #define UC_VERSION_MINOR UC_API_MINOR
+ #define UC_VERSION_EXTRA 2
+ 
+-
+ /*
+   Macro to create combined version which can be compared to
+   result of uc_version() API.
+@@ -166,6 +165,15 @@ typedef enum uc_err {
+     UC_ERR_EXCEPTION // Unhandled CPU exception
+ } uc_err;
+ 
++#ifdef UNICORN_AFL
++/* start_forkserver results */
++typedef enum uc_afl_ret {
++  UC_AFL_RET_ERROR = 0, // Something went horribly wrong in the parent
++  UC_AFL_RET_CHILD, // Fork worked. we are a child
++  UC_AFL_RET_NO_AFL, // No AFL, no need to fork.
++  UC_AFL_RET_FINISHED, // We forked before but now AFL is gone (parent)
++} uc_afl_ret;
++#endif
+ 
+ /*
+   Callback function for tracing code (UC_HOOK_CODE & UC_HOOK_BLOCK)
+@@ -536,6 +544,142 @@ uc_err uc_mem_read(uc_engine *uc, uint64_t address, void *bytes, size_t size);
+ UNICORN_EXPORT
+ uc_err uc_emu_start(uc_engine *uc, uint64_t begin, uint64_t until, uint64_t timeout, size_t count);
+ 
++#if defined(UNICORN_AFL)
++
++/* Callback function called for each input from AFL.
++ This function is mandatory.
++ It's purpose is to place the input at the right place in unicorn.
++
++ @uc: Unicorn instance
++ @input: The current input we're workin on. Place this somewhere in unicorn's memory now.
++ @input_len: length of the input
++ @persistent_round: which round we are currently crashing in, if using persistent mode.
++ @data: Data pointer passed to uc_afl_fuzz(...).
++
++ @return:
++  If you return is true, all is well. Fuzzing starts.
++  If you return false, something has gone wrong. the execution loop will exit. 
++    There should be no reason to do this in a usual usecase.
++*/
++typedef bool (*uc_afl_cb_place_input_t)(uc_engine *uc, char *input, size_t input_len, uint32_t persistent_round, void *data);
++
++/* Callback function called after a non-UC_ERR_OK returncode was returned by Unicorn. 
++ This function is not mandatory (pass NULL).
++ @uc: Unicorn instance
++ @unicorn_result: The error state returned by the current testcase
++ @input: The current input we're workin with.
++ @input_len: length of the input
++ @persistent_round: which round we are currently crashing in, if using persistent mode.
++ @data: Data pointer passed to uc_afl_fuzz(...).
++
++@Return:
++  If you return false, the crash is considered invalid and not reported to AFL.
++  If return is true, the crash is reported. 
++  -> The child will die and the forkserver will spawn a new child.
++*/
++typedef bool (*uc_afl_cb_validate_crash_t)(uc_engine *uc, uc_err unicorn_result, char *input, int input_len, int persistent_round, void *data);
++
++
++/*
++ The main fuzzer.
++ Starts uc_afl_forkserver(), then beginns a persistent loop.
++ Reads input, calls the place_input callback, emulates, uc_afl_next(), repeats.
++ If unicorn errors out, will call the validate_crash_callback, if set.
++ Will only retrun in the parent after the whole fuzz thing has been finished and afl died.
++ The child processes never return from here.
++
++ @uc: handle returned by uc_open()
++ @input_file: filename/path to the (AFL) inputfile. Usualy suplied on the commandline.
++ @place_input_callback: Callback function that will be called before each test runs.
++         This function needs to write the input from afl to the correct position on the unicorn object.
++ @exits: address list of exits where fuzzing should stop (len == exit_count)
++ @exit_count: number of exits where fuzzing should stop
++ @validate_crash_callback: Optional callback (if not needed, pass NULL), that determines 
++         if a non-OK uc_err is an actual error. If false is returned, the test-case will not crash.
++ @always_validate: If false, validate_crash_callback will only be called for crashes.
++ @persistent_iters:
++  The amount of loop iterations in persistent mode before restarteing with a new forked child.
++  If your target cannot be fuzzed using persistent mode (global state changes a lot), 
++   set persistent_iters = 1 for the normal fork-server experience.
++  Else, the default is usually around 1000.
++  If your target is super stable (and unicorn is, too - not sure about that one),
++   you may pass persistent_iter = 0 for that an infinite fuzz loop.
++ @data: Your very own data pointer. This will passed into every callback.
++
++ @return uc_afl_ret:
++        >UC_AFL_RET_ERROR = 0, // Something went horribly wrong in the parent
++        >UC_AFL_RET_CHILD, // Can never happen, the child will loop happily or exit.
++        >UC_AFL_RET_NO_AFL, // No AFL, we ran the testacse once and are done.
++        >UC_AFL_RET_FINISHED, // We forked before but now AFL is gone (parent)
++          >> We're retuning after having fuzzed. We may now pack our bags and exit.
++
++*/
++UNICORN_EXPORT
++uc_afl_ret uc_afl_fuzz(
++    uc_engine *uc, 
++    char* input_file, 
++    uc_afl_cb_place_input_t place_input_callback, 
++    uint64_t *exits, 
++    size_t exit_count, 
++    uc_afl_cb_validate_crash_t validate_crash_callback, 
++    bool always_validate,
++    uint32_t persistent_iters,
++    void *data
++);
++
++/*
++ Start the AFL forkserver.
++ The parent will wait for messages by the child process.
++ If the child process encounters a new basic block to translate,
++ the parent will get notice and translate the same block (if not cached)
++ Once the child exits, the forkserver will spawn a new child.
++ For persistent mode, the child can chose to instead just inform the parent.
++ For this, call uc_afl_next(...) after each loop iter.
++ If you just want to fuzz, consider uc_afl_fuzz(...) instead.
++
++ @uc: handle returned by uc_open()
++ @exit_count: number of exits where fuzzing should stop
++ @exits: address list of exits where fuzzing should stop (len == exit_count)
++
++ @return uc_afl_ret:
++        >UC_AFL_RET_ERROR = 0, // Something went horribly wrong in the parent
++          >> Exit as fast as possible.
++        >UC_AFL_RET_CHILD, // Fork worked. we are a child
++          >> All well. Call uc_afl_next if you need a new testcase for persistent.
++        >UC_AFL_RET_NO_AFL, // No AFL, no need to fork (no fork was made).
++          >> We never forked as we don't run in AFL
++        >UC_AFL_RET_FINISHED, // We forked before but now AFL is gone (parent)
++          >> We're retuning after having fuzzed. We may now pack our bags and exit.
++*/
++UNICORN_EXPORT
++uc_afl_ret uc_afl_forkserver_start(uc_engine *uc, uint64_t *exits, size_t exit_count);
++
++/*
++  A emu_start with "less features" for our afl use-case
++  this is largely copied from uc_emu_start, just without setting the entry point, counter and timeout (since most infos were passed to uc_afl_forkserver_start earlier).
++  As start addr, this will just use whatever is in the PC register at this point.
++  For fuzzing, make sure to call uc_afl_forkserver first or use uc_afl_fuzz directly.
++
++  @uc: handle returned by uc_open()
++
++  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
++   for detailed error).
++*/
++UNICORN_EXPORT
++int uc_afl_emu_start(uc_engine *uc); 
++
++/*
++  If in child using persistent mode, signal you want a new testcase from AFL.
++  (similar to what __afl_persistent loop // __LOOP does)
++  uc_afl_fuzz() already makes use of this function under the hood.
++
++  @return UC_AFL_RET_ERROR on error (if uc_afl_forkserver(...) was not called or parent died), else UC_AFL_RET_CHILD.
++*/
++UNICORN_EXPORT
++uc_afl_ret uc_afl_next(uc_engine *uc);
++
++#endif
++
+ /*
+  Stop emulation (which was started by uc_emu_start() API.
+  This is typically called from callback functions registered via tracing APIs.
+diff --git a/include/unicorn/x86.h b/include/unicorn/x86.h
+index 235dac6a..cd2c66db 100644
+--- a/include/unicorn/x86.h
++++ b/include/unicorn/x86.h
+@@ -89,6 +89,8 @@ typedef enum uc_x86_reg {
+ 	UC_X86_REG_FPTAG,
+     UC_X86_REG_MSR, // Model-Specific Register
+     UC_X86_REG_MXCSR,
++    UC_X86_REG_FS_BASE, // Base regs for x86_64
++    UC_X86_REG_GS_BASE,
+     UC_X86_REG_ENDING		// <-- mark the end of the list of registers
+ } uc_x86_reg;
+ 
+diff --git a/make.sh b/make.sh
+index 3b876de0..fbb0b5f7 100755
+--- a/make.sh
++++ b/make.sh
+@@ -56,8 +56,8 @@ install() {
+   # Mac OSX needs to find the right directory for pkgconfig
+   if [ "$UNAME" = Darwin ]; then
+     # we are going to install into /usr/local, so remove old installs under /usr
+-    rm -rf /usr/lib/libunicorn*
+-    rm -rf /usr/include/unicorn
++    rm -rf /usr/lib/libunicornafl*
++    rm -rf /usr/include/unicornafl
+     # install into /usr/local
+     PREFIX=${PREFIX:-/usr/local}
+     ${MAKE} install
+diff --git a/msvc/unicorn/unicorn/unicorn.vcxproj b/msvc/unicorn/unicorn/unicorn.vcxproj
+index 27f7762b..768e1bb6 100644
+--- a/msvc/unicorn/unicorn/unicorn.vcxproj
++++ b/msvc/unicorn/unicorn/unicorn.vcxproj
+@@ -232,6 +232,7 @@ copy "$(SolutionDir)..\include\unicorn\*.h" "$(SolutionDir)distro\include\unicor
+     <ClCompile Include="..\..\..\qemu\util\qemu-timer-common.c" />
+     <ClCompile Include="..\..\..\qemu\vl.c" />
+     <ClCompile Include="..\..\..\uc.c" />
++    <ClCompile Include="..\..\..\afl.c" />
+     <ClCompile Include="..\qapi-types.c" />
+     <ClCompile Include="..\qapi-visit.c" />
+     <ClCompile Include="dllmain.cpp">
+diff --git a/msvc/unicorn/unicorn_static/unicorn_static.vcxproj b/msvc/unicorn/unicorn_static/unicorn_static.vcxproj
+index 08d8cd02..45efe99e 100644
+--- a/msvc/unicorn/unicorn_static/unicorn_static.vcxproj
++++ b/msvc/unicorn/unicorn_static/unicorn_static.vcxproj
+@@ -58,6 +58,7 @@
+     <ClCompile Include="..\..\..\qemu\util\qemu-timer-common.c" />
+     <ClCompile Include="..\..\..\qemu\vl.c" />
+     <ClCompile Include="..\..\..\uc.c" />
++    <ClCompile Include="..\..\..\afl.c" />
+     <ClCompile Include="..\qapi-types.c" />
+     <ClCompile Include="..\qapi-visit.c" />
+   </ItemGroup>
+diff --git a/msvc/unicorn/unicorn_static/unicorn_static.vcxproj.filters b/msvc/unicorn/unicorn_static/unicorn_static.vcxproj.filters
+index 8dd77e0a..2a15c52c 100644
+--- a/msvc/unicorn/unicorn_static/unicorn_static.vcxproj.filters
++++ b/msvc/unicorn/unicorn_static/unicorn_static.vcxproj.filters
+@@ -187,6 +187,7 @@
+       <Filter>qemu\util</Filter>
+     </ClCompile>
+     <ClCompile Include="..\..\..\uc.c" />
++    <ClCompile Include="..\..\..\afl.c" />
+     <ClCompile Include="..\qapi-visit.c">
+       <Filter>qemu</Filter>
+     </ClCompile>
+diff --git a/qemu/Makefile.objs b/qemu/Makefile.objs
+index e8d4dfa5..732db4d5 100644
+--- a/qemu/Makefile.objs
++++ b/qemu/Makefile.objs
+@@ -6,7 +6,7 @@ util-obj-y = util/ qobject/ qapi/ qapi-types.o qapi-visit.o
+ # block-obj-y is code used by both qemu system emulation and qemu-img
+ 
+ block-obj-y =
+-block-obj-y += ../uc.o ../list.o glib_compat.o
++block-obj-y += ../uc.o ../afl.o ../list.o glib_compat.o
+ 
+ #######################################################################
+ # Target independent part of system emulation. The long term path is to
+diff --git a/qemu/aarch64.h b/qemu/aarch64.h
+index 470a62d4..8e47dbc2 100644
+--- a/qemu/aarch64.h
++++ b/qemu/aarch64.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_AARCH64_H
+ #define UNICORN_AUTOGEN_AARCH64_H
++#define afl_forkserver_start afl_forkserver_start_aarch64
+ #define arm_release arm_release_aarch64
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_aarch64
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_aarch64
+diff --git a/qemu/aarch64eb.h b/qemu/aarch64eb.h
+index fbdb37a7..319832f1 100644
+--- a/qemu/aarch64eb.h
++++ b/qemu/aarch64eb.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_AARCH64EB_H
+ #define UNICORN_AUTOGEN_AARCH64EB_H
++#define afl_forkserver_start afl_forkserver_start_aarch64eb
+ #define arm_release arm_release_aarch64eb
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_aarch64eb
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_aarch64eb
+diff --git a/qemu/arm.h b/qemu/arm.h
+index 87d02032..cfe96d78 100644
+--- a/qemu/arm.h
++++ b/qemu/arm.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_ARM_H
+ #define UNICORN_AUTOGEN_ARM_H
++#define afl_forkserver_start afl_forkserver_start_arm
+ #define arm_release arm_release_arm
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_arm
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_arm
+diff --git a/qemu/armeb.h b/qemu/armeb.h
+index 30b771b5..1b27637f 100644
+--- a/qemu/armeb.h
++++ b/qemu/armeb.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_ARMEB_H
+ #define UNICORN_AUTOGEN_ARMEB_H
++#define afl_forkserver_start afl_forkserver_start_armeb
+ #define arm_release arm_release_armeb
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_armeb
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_armeb
 diff --git a/qemu/cpu-exec.c b/qemu/cpu-exec.c
-index 7755adf..8114b70 100644
+index c9198aa0..2fd05c1a 100644
 --- a/qemu/cpu-exec.c
 +++ b/qemu/cpu-exec.c
-@@ -24,6 +24,11 @@
+@@ -24,6 +24,10 @@
  
  #include "uc_priv.h"
  
 +#if defined(UNICORN_AFL)
 +#include "../afl-unicorn-cpu-inl.h"
-+static int afl_first_instr = 0;
 +#endif 
 +
  static tcg_target_ulong cpu_tb_exec(CPUState *cpu, uint8_t *tb_ptr);
  static TranslationBlock *tb_find_slow(CPUArchState *env, target_ulong pc,
          target_ulong cs_base, uint64_t flags);
-@@ -231,6 +236,10 @@ int cpu_exec(struct uc_struct *uc, CPUArchState *env)   // qq
+@@ -50,6 +54,44 @@ void cpu_resume_from_signal(CPUState *cpu, void *puc)
+     siglongjmp(cpu->jmp_env, 1);
+ }
+ 
++/* Init the unicorn-afl forkserver (returns uc_afl_ret) */
++
++#if defined(UNICORN_AFL)
++
++int afl_forkserver_start(struct uc_struct *uc) 
++{
++    // Not sure if we need all of this setup foo.
++    CPUState *cpu = uc->cpu;
++    if (!cpu->created) {
++        cpu->created = true;
++        cpu->halted = 0;
++        if (qemu_init_vcpu(cpu)) {
++            fprintf(stderr,"[!] Really bad error initializing vcpu in unicorn :/");
++            return UC_AFL_RET_ERROR;
++        }
++    }
++    cpu_resume(cpu);
++    
++    if (uc->count_hook != 0) { 
++        uc_hook_del(uc, uc->count_hook);
++        uc->count_hook = 0;
++    }
++
++    uc->quit_request = false;
++    uc->current_cpu = cpu;
++    smp_mb(); 
++    CPUArchState *env = cpu->env_ptr;
++    // Would love to not have the extra step in cpus.c, but it doesn't work otherwise(?)
++    afl_setup(uc);
++    return afl_forkserver(env);
++}
++#else
++int afl_forkserver_start(struct uc_struct *uc) {
++    fprintf(ferror, "[!] Unicorn built without AFL support. Try rebuilding with UNICORN_AFL=1.\n");
++    return -1;
++}
++#endif 
++
+ /* main execution loop */
+ 
+ int cpu_exec(struct uc_struct *uc, CPUArchState *env)   // qq
+@@ -247,6 +289,10 @@ int cpu_exec(struct uc_struct *uc, CPUArchState *env)   // qq
                              next_tb & TB_EXIT_MASK, tb);
                  }
  
 +#if defined(UNICORN_AFL)
-+                AFL_UNICORN_CPU_SNIPPET2;
++                afl_maybe_log(env->uc, tb->pc); 
 +#endif
 +
                  /* cpu_interrupt might be called while translating the
                     TB, but before it is linked into a potentially
                     infinite loop and becomes env->current_tb. Avoid
-@@ -369,6 +378,11 @@ static TranslationBlock *tb_find_slow(CPUArchState *env, target_ulong pc,
+@@ -296,7 +342,13 @@ int cpu_exec(struct uc_struct *uc, CPUArchState *env)   // qq
+     // Unicorn: flush JIT cache to because emulation might stop in
+     // the middle of translation, thus generate incomplete code.
+     // TODO: optimize this for better performance
+-    tb_flush(env);
++#if defined (UNICORN_AFL)
++    if (uc->afl_area_ptr) {
++        //printf("[d] Found area ptr, not flushing\n");
++    }
++    else
++#endif
++        tb_flush(env);
+ 
+     /* fail safe : never use current_cpu outside cpu_exec() */
+     uc->current_cpu = NULL;
+@@ -385,10 +437,18 @@ static TranslationBlock *tb_find_slow(CPUArchState *env, target_ulong pc,
+         ptb1 = &tb->phys_hash_next;
+     }
  not_found:
++    //printf("[d] translating 0x%llx...", pc);
      /* if no translated code available, then translate it now */
      tb = tb_gen_code(cpu, pc, cs_base, (int)flags, 0);   // qq
 +    
 +#if defined(UNICORN_AFL)
 +    /* There seems to be no chaining in unicorn ever? :( */
-+    AFL_UNICORN_CPU_SNIPPET1;
++    afl_request_tsl(env->uc, pc, cs_base, flags);
++    //printf(" finished 0x%llx.", pc);
 +#endif
  
  found:
++    //printf("[d] got translated block 0x%llx\n", pc);
      /* Move the last found TB to the head of the list */
+     if (likely(*ptb1)) {
+         *ptb1 = tb->phys_hash_next;
+diff --git a/qemu/cpus.c b/qemu/cpus.c
+index 0035e222..4c7564be 100644
+--- a/qemu/cpus.c
++++ b/qemu/cpus.c
+@@ -59,6 +59,8 @@ void run_on_cpu(CPUState *cpu, void (*func)(void *data), void *data)
+     func(data);
+ }
+ 
++
++
+ int resume_all_vcpus(struct uc_struct *uc)
+ {
+     CPUState *cpu = uc->cpu;
+diff --git a/qemu/header_gen.py b/qemu/header_gen.py
+index 253bd3e4..e9473e21 100644
+--- a/qemu/header_gen.py
++++ b/qemu/header_gen.py
+@@ -7,6 +7,9 @@
+ import sys
+ 
+ symbols = (
++
++    'afl_forkserver_start',
++
+     'arm_release',
+     'aarch64_tb_set_jmp_target',
+     'ppc_tb_set_jmp_target',
+diff --git a/qemu/include/sysemu/sysemu.h b/qemu/include/sysemu/sysemu.h
+index e5c93292..39bca922 100644
+--- a/qemu/include/sysemu/sysemu.h
++++ b/qemu/include/sysemu/sysemu.h
+@@ -17,6 +17,8 @@ typedef struct vm_change_state_entry VMChangeStateEntry;
+ 
+ int vm_start(struct uc_struct*);
+ 
++int afl_forkserver_start(struct uc_struct*);
++
+ void qemu_system_reset_request(struct uc_struct*);
+ void qemu_system_shutdown_request(void);
+ void qemu_system_powerdown_request(void);
+diff --git a/qemu/m68k.h b/qemu/m68k.h
+index dffdf7e7..32d5d8b7 100644
+--- a/qemu/m68k.h
++++ b/qemu/m68k.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_M68K_H
+ #define UNICORN_AUTOGEN_M68K_H
++#define afl_forkserver_start afl_forkserver_start_m68k
+ #define arm_release arm_release_m68k
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_m68k
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_m68k
+diff --git a/qemu/mips.h b/qemu/mips.h
+index 36ad9a4d..f075f0c2 100644
+--- a/qemu/mips.h
++++ b/qemu/mips.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_MIPS_H
+ #define UNICORN_AUTOGEN_MIPS_H
++#define afl_forkserver_start afl_forkserver_start_mips
+ #define arm_release arm_release_mips
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_mips
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_mips
+diff --git a/qemu/mips64.h b/qemu/mips64.h
+index e464d4b3..70a9d319 100644
+--- a/qemu/mips64.h
++++ b/qemu/mips64.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_MIPS64_H
+ #define UNICORN_AUTOGEN_MIPS64_H
++#define afl_forkserver_start afl_forkserver_start_mips64
+ #define arm_release arm_release_mips64
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_mips64
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_mips64
+diff --git a/qemu/mips64el.h b/qemu/mips64el.h
+index afe0d47f..ac56611c 100644
+--- a/qemu/mips64el.h
++++ b/qemu/mips64el.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_MIPS64EL_H
+ #define UNICORN_AUTOGEN_MIPS64EL_H
++#define afl_forkserver_start afl_forkserver_start_mips64el
+ #define arm_release arm_release_mips64el
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_mips64el
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_mips64el
+diff --git a/qemu/mipsel.h b/qemu/mipsel.h
+index a04123e7..4bb5e60e 100644
+--- a/qemu/mipsel.h
++++ b/qemu/mipsel.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_MIPSEL_H
+ #define UNICORN_AUTOGEN_MIPSEL_H
++#define afl_forkserver_start afl_forkserver_start_mipsel
+ #define arm_release arm_release_mipsel
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_mipsel
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_mipsel
+diff --git a/qemu/powerpc.h b/qemu/powerpc.h
+index 998f1f3b..32d57a55 100644
+--- a/qemu/powerpc.h
++++ b/qemu/powerpc.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_POWERPC_H
+ #define UNICORN_AUTOGEN_POWERPC_H
++#define afl_forkserver_start afl_forkserver_start_powerpc
+ #define arm_release arm_release_powerpc
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_powerpc
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_powerpc
+diff --git a/qemu/sparc.h b/qemu/sparc.h
+index 4fbf55e7..45394c36 100644
+--- a/qemu/sparc.h
++++ b/qemu/sparc.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_SPARC_H
+ #define UNICORN_AUTOGEN_SPARC_H
++#define afl_forkserver_start afl_forkserver_start_sparc
+ #define arm_release arm_release_sparc
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_sparc
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_sparc
+diff --git a/qemu/sparc64.h b/qemu/sparc64.h
+index f3895222..53d2deac 100644
+--- a/qemu/sparc64.h
++++ b/qemu/sparc64.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_SPARC64_H
+ #define UNICORN_AUTOGEN_SPARC64_H
++#define afl_forkserver_start afl_forkserver_start_sparc64
+ #define arm_release arm_release_sparc64
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_sparc64
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_sparc64
+diff --git a/qemu/target-arm/translate-a64.c b/qemu/target-arm/translate-a64.c
+index 364ab889..8be9ecbf 100644
+--- a/qemu/target-arm/translate-a64.c
++++ b/qemu/target-arm/translate-a64.c
+@@ -10975,6 +10975,19 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
+     uint32_t insn;
+     TCGContext *tcg_ctx = env->uc->tcg_ctx;
+ 
++#ifdef UNICORN_AFL 
++    // UNICORN-AFL supports (and needs) multiple exits.
++    uint64_t *exits = s->uc->exits;
++    size_t exit_count = s->uc->exit_count;
++    if (exit_count) {
++        for (size_t i = 0; i < exit_count; i++) {
++            if (s->pc == exits[i]) {
++                s->is_jmp = DISAS_WFI;
++                return;
++            }
++        }
++    }
++#endif
+     // Unicorn: end address tells us to stop emulation
+     if (s->pc == s->uc->addr_end) {
+         // imitate WFI instruction to halt emulation
+@@ -11108,6 +11121,18 @@ void gen_intermediate_code_internal_a64(ARMCPU *cpu,
+ 
+     tcg_clear_temp_count();
+ 
++#ifdef UNICORN_AFL 
++    uint64_t *exits = env->uc->exits;
++    size_t exit_count = env->uc->exit_count;
++    if (exit_count) {
++        for (size_t i = 0; i < exit_count; i++) {
++            if (tb->pc == exits[i]) {
++                dc->is_jmp = DISAS_WFI;
++                goto tb_end;
++            }
++        }
++    }
++#endif
+     // Unicorn: early check to see if the address of this block is the until address
+     if (tb->pc == env->uc->addr_end) {
+         // imitate WFI instruction to halt emulation
+diff --git a/qemu/target-arm/translate.c b/qemu/target-arm/translate.c
+index 4995edac..dcf2ffc7 100644
+--- a/qemu/target-arm/translate.c
++++ b/qemu/target-arm/translate.c
+@@ -63,6 +63,12 @@ static TCGv_i64 cpu_exclusive_test;
+ static TCGv_i32 cpu_exclusive_info;
+ #endif
+ 
++#if defined(UNICORN_AFL)
++#include "../../afl-unicorn-cpu-translate-inl.h"
++#else
++#define afl_gen_compcov(a,b,c,d,e,f) do {} while (0)
++#endif
++
+ 
+ static const char *regnames[] =
+     { "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
+@@ -8214,6 +8220,7 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)  // qq
+             } else {
+                 if (set_cc) {
+                     gen_sub_CC(s, tmp, tmp, tmp2);
++                    afl_gen_compcov(tcg_ctx, s->pc, tmp, tmp2, MO_32, insn & (1 << 25));
+                 } else {
+                     tcg_gen_sub_i32(tcg_ctx, tmp, tmp, tmp2);
+                 }
+@@ -8223,6 +8230,7 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)  // qq
+         case 0x03:
+             if (set_cc) {
+                 gen_sub_CC(s, tmp, tmp2, tmp);
++                afl_gen_compcov(tcg_ctx, s->pc, tmp, tmp2, MO_32, insn & (1 << 25));
+             } else {
+                 tcg_gen_sub_i32(tcg_ctx, tmp, tmp2, tmp);
+             }
+@@ -8277,6 +8285,7 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)  // qq
+         case 0x0a:
+             if (set_cc) {
+                 gen_sub_CC(s, tmp, tmp, tmp2);
++                afl_gen_compcov(tcg_ctx, s->pc, tmp, tmp2, MO_32, insn & (1 << 25));
+             }
+             tcg_temp_free_i32(tcg_ctx, tmp);
+             break;
+@@ -9148,7 +9157,7 @@ thumb2_logic_op(int op)
+ 
+ static int
+ gen_thumb2_data_op(DisasContext *s, int op, int conds, uint32_t shifter_out,
+-                   TCGv_i32 t0, TCGv_i32 t1)
++                   TCGv_i32 t0, TCGv_i32 t1, int has_imm)
+ {
+     TCGContext *tcg_ctx = s->uc->tcg_ctx;
+     int logic_cc;
+@@ -9195,15 +9204,17 @@ gen_thumb2_data_op(DisasContext *s, int op, int conds, uint32_t shifter_out,
+         }
+         break;
+     case 13: /* sub */
+-        if (conds)
++        if (conds) {
+             gen_sub_CC(s, t0, t0, t1);
+-        else
++            afl_gen_compcov(tcg_ctx, s->pc, t0, t1, MO_32, has_imm);
++        } else
+             tcg_gen_sub_i32(tcg_ctx, t0, t0, t1);
+         break;
+     case 14: /* rsb */
+-        if (conds)
++        if (conds) {
+             gen_sub_CC(s, t0, t1, t0);
+-        else
++            afl_gen_compcov(tcg_ctx, s->pc, t0, t1, MO_32, has_imm);
++        } else
+             tcg_gen_sub_i32(tcg_ctx, t0, t1, t0);
+         break;
+     default: /* 5, 6, 7, 9, 12, 15. */
+@@ -9572,7 +9583,7 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
+             conds = (insn & (1 << 20)) != 0;
+             logic_cc = (conds && thumb2_logic_op(op));
+             gen_arm_shift_im(s, tmp2, shiftop, shift, logic_cc);
+-            if (gen_thumb2_data_op(s, op, conds, 0, tmp, tmp2))
++            if (gen_thumb2_data_op(s, op, conds, 0, tmp, tmp2, insn & (1 << 10)))
+                 goto illegal_op;
+             tcg_temp_free_i32(tcg_ctx, tmp2);
+             if (rd != 15) {
+@@ -10215,7 +10226,7 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
+                 }
+                 op = (insn >> 21) & 0xf;
+                 if (gen_thumb2_data_op(s, op, (insn & (1 << 20)) != 0,
+-                                       shifter_out, tmp, tmp2))
++                                       shifter_out, tmp, tmp2, insn & (1 << 10)))
+                     goto illegal_op;
+                 tcg_temp_free_i32(tcg_ctx, tmp2);
+                 rd = (insn >> 8) & 0xf;
+@@ -10411,6 +10422,19 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s) // qq
+     TCGv_i32 tmp2;
+     TCGv_i32 addr;
+ 
++#ifdef UNICORN_AFL 
++    // UNICORN-AFL supports (and needs) multiple exits.
++    uint64_t *exits = s->uc->exits;
++    size_t exit_count = s->uc->exit_count;
++    if (exit_count) {
++        for (size_t i = 0; i < exit_count; i++) {
++            if (s->pc == exits[i]) {
++                s->is_jmp = DISAS_WFI;
++                return;
++            }
++        }
++    }
++#endif
+     // Unicorn: end address tells us to stop emulation
+     if (s->pc == s->uc->addr_end) {
+         // imitate WFI instruction to halt emulation
+@@ -10471,8 +10495,10 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s) // qq
+             if (insn & (1 << 9)) {
+                 if (s->condexec_mask)
+                     tcg_gen_sub_i32(tcg_ctx, tmp, tmp, tmp2);
+-                else
++                else {
+                     gen_sub_CC(s, tmp, tmp, tmp2);
++                    afl_gen_compcov(tcg_ctx, s->pc, tmp, tmp2, MO_32, insn & (1 << 10));
++                }
+             } else {
+                 if (s->condexec_mask)
+                     tcg_gen_add_i32(tcg_ctx, tmp, tmp, tmp2);
+@@ -10509,6 +10535,7 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s) // qq
+             switch (op) {
+             case 1: /* cmp */
+                 gen_sub_CC(s, tmp, tmp, tmp2);
++                afl_gen_compcov(tcg_ctx, s->pc, tmp, tmp2, MO_32, 1);
+                 tcg_temp_free_i32(tcg_ctx, tmp);
+                 tcg_temp_free_i32(tcg_ctx, tmp2);
+                 break;
+@@ -10523,8 +10550,10 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s) // qq
+             case 3: /* sub */
+                 if (s->condexec_mask)
+                     tcg_gen_sub_i32(tcg_ctx, tmp, tmp, tmp2);
+-                else
++                else {
+                     gen_sub_CC(s, tmp, tmp, tmp2);
++                    afl_gen_compcov(tcg_ctx, s->pc, tmp, tmp2, MO_32, 1);
++                }
+                 tcg_temp_free_i32(tcg_ctx, tmp2);
+                 store_reg(s, rd, tmp);
+                 break;
+@@ -10562,6 +10591,7 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s) // qq
+                 tmp = load_reg(s, rd);
+                 tmp2 = load_reg(s, rm);
+                 gen_sub_CC(s, tmp, tmp, tmp2);
++                afl_gen_compcov(tcg_ctx, s->pc, tmp, tmp2, MO_32, 0);
+                 tcg_temp_free_i32(tcg_ctx, tmp2);
+                 tcg_temp_free_i32(tcg_ctx, tmp);
+                 break;
+@@ -10680,6 +10710,7 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s) // qq
+             break;
+         case 0xa: /* cmp */
+             gen_sub_CC(s, tmp, tmp, tmp2);
++            afl_gen_compcov(tcg_ctx, s->pc, tmp, tmp2, MO_32, 0);
+             rd = 16;
+             break;
+         case 0xb: /* cmn */
+@@ -11254,6 +11285,21 @@ static inline void gen_intermediate_code_internal(ARMCPU *cpu,
+ 
+     tcg_clear_temp_count();
+ 
++
++#ifdef UNICORN_AFL 
++    // UNICORN-AFL supports (and needs) multiple exits.
++    uint64_t *exits = env->uc->exits;
++    size_t exit_count = env->uc->exit_count;
++    if (exit_count) {
++        for (size_t i = 0; i < exit_count; i++) {
++            if (tb->pc == exits[i]) {
++                gen_tb_start(tcg_ctx);
++                dc->is_jmp = DISAS_WFI;
++                goto tb_end;
++            }
++        }
++    }
++#endif
+     // Unicorn: early check to see if the address of this block is the until address
+     if (tb->pc == env->uc->addr_end) {
+         // imitate WFI instruction to halt emulation
+@@ -11396,6 +11442,18 @@ static inline void gen_intermediate_code_internal(ARMCPU *cpu,
+         } else {
+             unsigned int insn;
+ 
++#ifdef UNICORN_AFL 
++            // UNICORN-AFL supports (and needs) multiple exits.
++            uint64_t *exits = dc->uc->exits;
++            size_t exit_count = dc->uc->exit_count;
++            if (exit_count) {
++                for (size_t i = 0; i < exit_count; i++) {
++                    if (dc->pc == exits[i]) {
++                        dc->is_jmp = DISAS_WFI;
++                    }
++                }
++            }
++#endif
+             // end address tells us to stop emulation
+             if (dc->pc == dc->uc->addr_end) {
+                 // imitate WFI instruction to halt emulation
+diff --git a/qemu/target-arm/unicorn_arm.c b/qemu/target-arm/unicorn_arm.c
+index 8e1fa115..a9c44786 100644
+--- a/qemu/target-arm/unicorn_arm.c
++++ b/qemu/target-arm/unicorn_arm.c
+@@ -68,6 +68,9 @@ int arm_reg_read(struct uc_struct *uc, unsigned int *regs, void **vals, int coun
+             *(float64 *)value = ARM_CPU(uc, mycpu)->env.vfp.regs[regid - UC_ARM_REG_D0];
+         else {
+             switch(regid) {
++                case UC_ARM_REG_XPSR:
++                    *(int32_t *)value = xpsr_read(&ARM_CPU(uc, mycpu)->env);
++                    break;
+                 case UC_ARM_REG_APSR:
+                     *(int32_t *)value = cpsr_read(&ARM_CPU(uc, mycpu)->env) & CPSR_NZCV;
+                     break;
+@@ -128,6 +131,9 @@ int arm_reg_write(struct uc_struct *uc, unsigned int *regs, void* const* vals, i
+             ARM_CPU(uc, mycpu)->env.vfp.regs[regid - UC_ARM_REG_D0] = *(float64 *)value;
+         else {
+             switch(regid) {
++                case UC_ARM_REG_XPSR:
++                    xpsr_write(&ARM_CPU(uc, mycpu)->env, *(uint32_t *)value, 0xffffffffu);
++                    break;
+                 case UC_ARM_REG_APSR:
+                     cpsr_write(&ARM_CPU(uc, mycpu)->env, *(uint32_t *)value, CPSR_NZCV);
+                     break;
+diff --git a/qemu/target-i386/translate.c b/qemu/target-i386/translate.c
+index a630c1bb..88f9aa1f 100644
+--- a/qemu/target-i386/translate.c
++++ b/qemu/target-i386/translate.c
+@@ -33,6 +33,12 @@
+ 
+ #include "uc_priv.h"
+ 
++#if defined(UNICORN_AFL)
++#include "../../afl-unicorn-cpu-translate-inl.h"
++#else
++#define afl_gen_compcov(a,b,c,d,e,f) do {} while (0)
++#endif
++
+ #define PREFIX_REPZ   0x01
+ #define PREFIX_REPNZ  0x02
+ #define PREFIX_LOCK   0x04
+@@ -1555,6 +1561,7 @@ static void gen_op(DisasContext *s, int op, TCGMemOp ot, int d)
+     case OP_SUBL:
+         tcg_gen_mov_tl(tcg_ctx, cpu_cc_srcT, *cpu_T[0]);
+         tcg_gen_sub_tl(tcg_ctx, *cpu_T[0], *cpu_T[0], *cpu_T[1]);
++        afl_gen_compcov(tcg_ctx, s->pc, *cpu_T[0], *cpu_T[1], ot, d == OR_EAX);
+         gen_op_st_rm_T0_A0(s, ot, d);
+         gen_op_update2_cc(tcg_ctx);
+         set_cc_op(s, CC_OP_SUBB + ot);
+@@ -1582,6 +1589,7 @@ static void gen_op(DisasContext *s, int op, TCGMemOp ot, int d)
+         tcg_gen_mov_tl(tcg_ctx, cpu_cc_src, *cpu_T[1]);
+         tcg_gen_mov_tl(tcg_ctx, cpu_cc_srcT, *cpu_T[0]);
+         tcg_gen_sub_tl(tcg_ctx, cpu_cc_dst, *cpu_T[0], *cpu_T[1]);
++        afl_gen_compcov(tcg_ctx, s->pc, *cpu_T[0], *cpu_T[1], ot, d == OR_EAX);
+         set_cc_op(s, CC_OP_SUBB + ot);
+         break;
+     }
+@@ -5010,6 +5018,23 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
+     s->pc = pc_start;
+     s->prefix = 0;
+ 
++#ifdef UNICORN_AFL 
++    // UNICORN-AFL supports (and needs) multiple exits.
++    uint64_t *exits = s->uc->exits;
++    size_t exit_count = s->uc->exit_count;
++    if (exit_count) {
++        for (size_t i = 0; i < exit_count; i++) {
++            if (s->pc == exits[i]) {
++                // imitate the HLT instruction
++                gen_update_cc_op(s);
++                gen_jmp_im(s, pc_start - s->cs_base);
++                gen_helper_hlt(tcg_ctx, cpu_env, tcg_const_i32(tcg_ctx, s->pc - pc_start));
++                s->is_jmp = DISAS_TB_JUMP;
++                return s->pc;
++            }
++        }
++    } 
++#endif
+     // end address tells us to stop emulation
+     if (s->pc == s->uc->addr_end) {
+         // imitate the HLT instruction
+@@ -8686,6 +8711,23 @@ static inline void gen_intermediate_code_internal(uint8_t *gen_opc_cc_op,
+ 
+     pc_ptr = pc_start;
+ 
++#ifdef UNICORN_AFL 
++    // UNICORN-AFL supports (and needs) multiple exits.
++    uint64_t *exits = env->uc->exits;
++    size_t exit_count = env->uc->exit_count;
++    if (exit_count) {
++        for (size_t i = 0; i < exit_count; i++) {
++            if (tb->pc == exits[i]) {
++                // imitate the HLT instruction
++                gen_tb_start(tcg_ctx);
++                gen_jmp_im(dc, tb->pc - tb->cs_base);
++                gen_helper_hlt(tcg_ctx, tcg_ctx->cpu_env, tcg_const_i32(tcg_ctx, 0));
++                dc->is_jmp = DISAS_TB_JUMP;
++                goto done_generating;
++            }
++        }
++    }
++#endif
+     // early check to see if the address of this block is the until address
+     if (tb->pc == env->uc->addr_end) {
+         // imitate the HLT instruction
+diff --git a/qemu/target-i386/unicorn.c b/qemu/target-i386/unicorn.c
+index a72af6fb..8e9d7a4d 100644
+--- a/qemu/target-i386/unicorn.c
++++ b/qemu/target-i386/unicorn.c
+@@ -336,6 +336,9 @@ int x86_reg_read(struct uc_struct *uc, unsigned int *regs, void **vals, int coun
+                     case UC_X86_REG_GS:
+                         *(int16_t *)value = X86_CPU(uc, mycpu)->env.segs[R_GS].selector;
+                         continue;
++                    case UC_X86_REG_FS_BASE:
++                        *(uint32_t *)value = (uint32_t)X86_CPU(uc, mycpu)->env.segs[R_FS].base;
++                        continue;
+                 }
+                 // fall-thru
+             case UC_MODE_32:
+@@ -484,6 +487,9 @@ int x86_reg_read(struct uc_struct *uc, unsigned int *regs, void **vals, int coun
+                     case UC_X86_REG_MXCSR:
+                         *(uint32_t *)value = X86_CPU(uc, mycpu)->env.mxcsr;
+                         break;
++                    case UC_X86_REG_FS_BASE:
++                        *(uint32_t *)value = (uint32_t)X86_CPU(uc, mycpu)->env.segs[R_FS].base;
++                        break;
+                 }
+                 break;
+ 
+@@ -784,6 +790,12 @@ int x86_reg_read(struct uc_struct *uc, unsigned int *regs, void **vals, int coun
+                             dst[1] = reg->_d[1];
+                             break;
+                         }
++                    case UC_X86_REG_FS_BASE:
++                        *(uint64_t *)value = (uint64_t)X86_CPU(uc, mycpu)->env.segs[R_FS].base;
++                        break;
++                    case UC_X86_REG_GS_BASE:
++                        *(uint64_t *)value = (uint64_t)X86_CPU(uc, mycpu)->env.segs[R_GS].base;
++                        break;
+                 }
+                 break;
+ #endif
+@@ -1085,6 +1097,15 @@ int x86_reg_write(struct uc_struct *uc, unsigned int *regs, void *const *vals, i
+                     case UC_X86_REG_MXCSR:
+                         cpu_set_mxcsr(&X86_CPU(uc, mycpu)->env, *(uint32_t *)value);
+                         break;
++                        /*
++                    // Don't think base registers are a "thing" on x86
++                    case UC_X86_REG_FS_BASE: 
++                        X86_CPU(uc, mycpu)->env.segs[R_FS].base = *(uint32_t *)value;
++                        continue;
++                    case UC_X86_REG_GS_BASE:
++                        X86_CPU(uc, mycpu)->env.segs[R_GS].base = *(uint32_t *)value;
++                        continue;
++                        */
+                 }
+                 break;
+ 
+@@ -1403,6 +1424,12 @@ int x86_reg_write(struct uc_struct *uc, unsigned int *regs, void *const *vals, i
+                             reg->_d[1] = src[1];
+                             break;
+                         }
++                    case UC_X86_REG_FS_BASE:
++                        X86_CPU(uc, mycpu)->env.segs[R_FS].base = *(uint64_t *)value;
++                        continue;
++                    case UC_X86_REG_GS_BASE:
++                        X86_CPU(uc, mycpu)->env.segs[R_GS].base = *(uint64_t *)value;
++                        continue;
+                 }
+                 break;
+ #endif
+diff --git a/qemu/target-m68k/translate.c b/qemu/target-m68k/translate.c
+index 2f4ad1da..f55ff7b8 100644
+--- a/qemu/target-m68k/translate.c
++++ b/qemu/target-m68k/translate.c
+@@ -3037,6 +3037,19 @@ static void disas_m68k_insn(CPUM68KState * env, DisasContext *s)
+         tcg_gen_debug_insn_start(tcg_ctx, s->pc);
+     }
+ 
++#ifdef UNICORN_AFL 
++    // UNICORN-AFL supports (and needs) multiple exits.
++    uint64_t *exits = s->uc->exits;
++    size_t exit_count = s->uc->exit_count;
++    if (exit_count) {
++        for (size_t i = 0; i < exit_count; i++) {
++            if (s->pc == exits[i]) {
++                gen_exception(s, s->pc, EXCP_HLT);
++                return;
++            }
++        }
++    }
++#endif
+     // Unicorn: end address tells us to stop emulation
+     if (s->pc == s->uc->addr_end) {
+         gen_exception(s, s->pc, EXCP_HLT);
+@@ -3097,6 +3110,20 @@ gen_intermediate_code_internal(M68kCPU *cpu, TranslationBlock *tb,
+     if (max_insns == 0)
+         max_insns = CF_COUNT_MASK;
+ 
++#ifdef UNICORN_AFL 
++    // UNICORN-AFL supports (and needs) multiple exits.
++    uint64_t *exits = env->uc->exits;
++    size_t exit_count = env->uc->exit_count;
++    if (exit_count) {
++        for (size_t i = 0; i < exit_count; i++) {
++            if (tb->pc == exits[i]) {
++                gen_tb_start(tcg_ctx);
++                gen_exception(dc, dc->pc, EXCP_HLT);
++                goto done_generating;
++            }
++        }
++    }
++#endif
+     // Unicorn: early check to see if the address of this block is the until address
+     if (tb->pc == env->uc->addr_end) {
+         gen_tb_start(tcg_ctx);
+diff --git a/qemu/target-mips/translate.c b/qemu/target-mips/translate.c
+index c521bfa8..0076dd29 100644
+--- a/qemu/target-mips/translate.c
++++ b/qemu/target-mips/translate.c
+@@ -19205,6 +19205,21 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
+         max_insns = CF_COUNT_MASK;
+     LOG_DISAS("\ntb %p idx %d hflags %04x\n", tb, ctx.mem_idx, ctx.hflags);
+ 
++#ifdef UNICORN_AFL 
++    // UNICORN-AFL supports (and needs) multiple exits.
++    uint64_t *exits = env->uc->exits;
++    size_t exit_count = env->uc->exit_count;
++    if (exit_count) {
++        for (size_t i = 0; i < exit_count; i++) {
++            if (tb->pc == exits[i]) {
++                gen_tb_start(tcg_ctx);
++                gen_helper_wait(tcg_ctx, tcg_ctx->cpu_env);
++                ctx.bstate = BS_EXCP;
++                goto done_generating;
++            }
++        }
++    }
++#endif
+     // Unicorn: early check to see if the address of this block is the until address
+     if (tb->pc == env->uc->addr_end) {
+         gen_tb_start(tcg_ctx);
+@@ -19258,6 +19273,23 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
+         //if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO))
+         //    gen_io_start();
+ 
++#ifdef UNICORN_AFL 
++        // UNICORN-AFL supports (and needs) multiple exits.
++        uint64_t *exits = ctx.uc->exits;
++        size_t exit_count = ctx.uc->exit_count;
++        if (exit_count) {
++            int stop_emu = 0;
++            for (size_t i = 0; i < exit_count; i++) {
++                if (ctx.pc == exits[i]) {
++                    gen_helper_wait(tcg_ctx, tcg_ctx->cpu_env);
++                    ctx.bstate = BS_EXCP;
++                    stop_emu = 1;
++                    break;
++                }
++            }
++            if (stop_emu) break;
++        }
++#endif
+         // Unicorn: end address tells us to stop emulation
+         if (ctx.pc == ctx.uc->addr_end) {
+             gen_helper_wait(tcg_ctx, tcg_ctx->cpu_env);
+diff --git a/qemu/target-sparc/translate.c b/qemu/target-sparc/translate.c
+index f2301757..af668177 100644
+--- a/qemu/target-sparc/translate.c
++++ b/qemu/target-sparc/translate.c
+@@ -5394,7 +5394,20 @@ static inline void gen_intermediate_code_internal(SPARCCPU *cpu,
+     dc->singlestep = (cs->singlestep_enabled); // || singlestep);
+     gen_opc_end = tcg_ctx->gen_opc_buf + OPC_MAX_SIZE;
+ 
+-
++#ifdef UNICORN_AFL 
++    // UNICORN-AFL supports (and needs) multiple exits.
++    uint64_t *exits = env->uc->exits;
++    size_t exit_count = env->uc->exit_count;
++    if (exit_count) {
++        for (size_t i = 0; i < exit_count; i++) {
++            if (pc_start == exits[i]) {
++                gen_tb_start(tcg_ctx);
++                gen_helper_power_down(tcg_ctx, tcg_ctx->cpu_env);
++                goto done_generating;
++            }
++        }
++    }
++#endif
+     // early check to see if the address of this block is the until address
+     if (pc_start == env->uc->addr_end) {
+         gen_tb_start(tcg_ctx);
+@@ -5406,6 +5419,21 @@ static inline void gen_intermediate_code_internal(SPARCCPU *cpu,
+     if (max_insns == 0)
+         max_insns = CF_COUNT_MASK;
+ 
++#ifdef UNICORN_AFL 
++    // UNICORN-AFL supports (and needs) multiple exits.
++    exits = env->uc->exits;
++    exit_count = env->uc->exit_count;
++    if (exit_count) {
++        for (size_t i = 0; i < exit_count; i++) {
++            if (tb->pc == exits[i]) {
++                gen_tb_start(tcg_ctx);
++                save_state(dc);
++                gen_helper_power_down(tcg_ctx, tcg_ctx->cpu_env);
++                goto done_generating;
++            }
++        }
++    }
++#endif
+     // Unicorn: early check to see if the address of this block is the until address
+     if (tb->pc == env->uc->addr_end) {
+         gen_tb_start(tcg_ctx);
+@@ -5453,6 +5481,24 @@ static inline void gen_intermediate_code_internal(SPARCCPU *cpu,
+         }
+         //if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO))
+         //    gen_io_start();
++
++#ifdef UNICORN_AFL 
++        // UNICORN-AFL supports (and needs) multiple exits.
++        uint64_t *exits = dc->uc->exits;
++        size_t exit_count = dc->uc->exit_count;
++        if (exit_count) {
++            for (size_t i = 0; i < exit_count; i++) {
++                int stop_emu = 0;
++                if (dc->pc == exits[i]) {
++                    save_state(dc);
++                    gen_helper_power_down(tcg_ctx, tcg_ctx->cpu_env);
++                    stop_emu = 1;
++                    break;
++                }
++                if (stop_emu) break;
++            }
++        }
++#endif
+         // Unicorn: end address tells us to stop emulation
+         if (dc->pc == dc->uc->addr_end) {
+             save_state(dc);
+diff --git a/qemu/tcg-runtime.c b/qemu/tcg-runtime.c
+index 21b022a5..14d78917 100644
+--- a/qemu/tcg-runtime.c
++++ b/qemu/tcg-runtime.c
+@@ -31,9 +31,14 @@
+ 
+ #define DEF_HELPER_FLAGS_2(name, flags, ret, t1, t2) \
+   dh_ctype(ret) HELPER(name) (dh_ctype(t1), dh_ctype(t2));
++#define DEF_HELPER_FLAGS_4(name, flags, ret, t1, t2, t3, t4) \
++  dh_ctype(ret) HELPER(name) (dh_ctype(t1), dh_ctype(t2), dh_ctype(t3), dh_ctype(t4));
+ 
+ #include "tcg-runtime.h"
+ 
++#ifdef UNICORN_AFL
++#include "../afl-unicorn-tcg-runtime-inl.h"
++#endif
+ 
+ /* 32-bit helpers */
+ 
+diff --git a/qemu/tcg/tcg-op.h b/qemu/tcg/tcg-op.h
+index 38b7dd9d..c5a9af9c 100644
+--- a/qemu/tcg/tcg-op.h
++++ b/qemu/tcg/tcg-op.h
+@@ -27,6 +27,10 @@
+ 
+ int gen_new_label(TCGContext *);
+ 
++#ifdef UNICORN_AFL
++#include "../../afl-unicorn-tcg-op-inl.h"
++#endif
++
+ static inline void gen_uc_tracecode(TCGContext *tcg_ctx, int32_t size, int32_t type, void *uc, uint64_t pc)
+ {
+     TCGv_i32 tsize = tcg_const_i32(tcg_ctx, size);
+diff --git a/qemu/tcg/tcg-runtime.h b/qemu/tcg/tcg-runtime.h
+index 23a0c377..90b993c9 100644
+--- a/qemu/tcg/tcg-runtime.h
++++ b/qemu/tcg/tcg-runtime.h
+@@ -14,3 +14,9 @@ DEF_HELPER_FLAGS_2(sar_i64, TCG_CALL_NO_RWG_SE, s64, s64, s64)
+ 
+ DEF_HELPER_FLAGS_2(mulsh_i64, TCG_CALL_NO_RWG_SE, s64, s64, s64)
+ DEF_HELPER_FLAGS_2(muluh_i64, TCG_CALL_NO_RWG_SE, i64, i64, i64)
++
++#ifdef UNICORN_AFL
++DEF_HELPER_FLAGS_4(afl_compcov_log_16, 0, void, ptr, i64, i64, i64)
++DEF_HELPER_FLAGS_4(afl_compcov_log_32, 0, void, ptr, i64, i64, i64)
++DEF_HELPER_FLAGS_4(afl_compcov_log_64, 0, void, ptr, i64, i64, i64)
++#endif
 diff --git a/qemu/translate-all.c b/qemu/translate-all.c
-index 1a96c34..7ef4878 100644
+index af16d7dc..148987c7 100644
 --- a/qemu/translate-all.c
 +++ b/qemu/translate-all.c
-@@ -403,11 +403,25 @@ static PageDesc *page_find_alloc(struct uc_struct *uc, tb_page_addr_t index, int
+@@ -436,11 +436,25 @@ static PageDesc *page_find_alloc(struct uc_struct *uc, tb_page_addr_t index, int
  
  #if defined(CONFIG_USER_ONLY)
      /* We can't use g_malloc because it may recurse into a locked mutex. */
@@ -105,3 +2208,86 @@ index 1a96c34..7ef4878 100644
  #else
  # define ALLOC(P, SIZE) \
      do { P = g_malloc0(SIZE); } while (0)
+diff --git a/qemu/unicorn_common.h b/qemu/unicorn_common.h
+index 8dcbb3e5..b14ece04 100644
+--- a/qemu/unicorn_common.h
++++ b/qemu/unicorn_common.h
+@@ -84,6 +84,14 @@ static inline void uc_common_init(struct uc_struct* uc)
+ 
+     if (!uc->release)
+         uc->release = release_common;
++
++#ifdef UNICORN_AFL
++    uc->afl_area_ptr = 0;
++    uc->exit_count = 0;
++    uc->exits = NULL;
++    uc->afl_forkserver_start = afl_forkserver_start;
++    uc->afl_child_request_next = NULL;  // This callback is only set if inside child.
++#endif
+ }
+ 
+ #endif
+diff --git a/qemu/x86_64.h b/qemu/x86_64.h
+index 9b05becf..7ff40718 100644
+--- a/qemu/x86_64.h
++++ b/qemu/x86_64.h
+@@ -1,6 +1,7 @@
+ /* Autogen header for Unicorn Engine - DONOT MODIFY */
+ #ifndef UNICORN_AUTOGEN_X86_64_H
+ #define UNICORN_AUTOGEN_X86_64_H
++#define afl_forkserver_start afl_forkserver_start_x86_64
+ #define arm_release arm_release_x86_64
+ #define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_x86_64
+ #define ppc_tb_set_jmp_target ppc_tb_set_jmp_target_x86_64
+diff --git a/uc.c b/uc.c
+index ba6f49e6..3151fa52 100644
+--- a/uc.c
++++ b/uc.c
+@@ -7,6 +7,7 @@
+ #include <stddef.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <stdint.h>
+ #endif
+ 
+ #include <time.h>   // nanosleep
+@@ -348,6 +349,13 @@ uc_err uc_close(uc_engine *uc)
+ 
+     free(uc->mapped_blocks);
+ 
++#if defined(UNICORN_AFL)
++    if (uc->exits) {
++        free(uc->exits);
++        uc->exits = NULL;
++    }
++#endif
++
+     // finally, free uc itself.
+     memset(uc, 0, sizeof(*uc));
+     free(uc);
+@@ -635,7 +643,6 @@ uc_err uc_emu_start(uc_engine* uc, uint64_t begin, uint64_t until, uint64_t time
+     return uc->invalid_error;
+ }
+ 
+-
+ UNICORN_EXPORT
+ uc_err uc_emu_stop(uc_engine *uc)
+ {
+@@ -1029,6 +1036,17 @@ uc_err uc_mem_unmap(struct uc_struct *uc, uint64_t address, size_t size)
+     return UC_ERR_OK;
+ }
+ 
++
++// // Clone the important uc parts instead of a real fork
++// bool uc_afl_softfork(struct uc_struct* uc, /* out */ struct afl_softfork_state **state) {
++
++// }
++
++// bool uc_afl_softfork_reset(struct uc_struct* uc) {
++
++// }
++
++
+ // find the memory region of this address
+ MemoryRegion *memory_mapping(struct uc_struct* uc, uint64_t address)
+ {

@@ -38,78 +38,6 @@ void HELPER(afl_compcov_log_16)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
 
   u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
 
-  if ((arg1 & 0xff) == (arg2 & 0xff)) { INC_AFL_AREA(cur_loc); }
-
-}
-
-void HELPER(afl_compcov_log_32)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
-                                uint64_t arg2) {
-
-  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
-
-  if ((arg1 & 0xff) == (arg2 & 0xff)) {
-
-    INC_AFL_AREA(cur_loc);
-    if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
-
-      INC_AFL_AREA(cur_loc + 1);
-      if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) { INC_AFL_AREA(cur_loc + 2); }
-
-    }
-
-  }
-
-}
-
-void HELPER(afl_compcov_log_64)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
-                                uint64_t arg2) {
-
-  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
-
-  if ((arg1 & 0xff) == (arg2 & 0xff)) {
-
-    INC_AFL_AREA(cur_loc);
-    if ((arg1 & 0xffff) == (arg2 & 0xffff)) {
-
-      INC_AFL_AREA(cur_loc + 1);
-      if ((arg1 & 0xffffff) == (arg2 & 0xffffff)) {
-
-        INC_AFL_AREA(cur_loc + 2);
-        if ((arg1 & 0xffffffff) == (arg2 & 0xffffffff)) {
-
-          INC_AFL_AREA(cur_loc + 3);
-          if ((arg1 & 0xffffffffff) == (arg2 & 0xffffffffff)) {
-
-            INC_AFL_AREA(cur_loc + 4);
-            if ((arg1 & 0xffffffffffff) == (arg2 & 0xffffffffffff)) {
-
-              INC_AFL_AREA(cur_loc + 5);
-              if ((arg1 & 0xffffffffffffff) == (arg2 & 0xffffffffffffff)) {
-
-                INC_AFL_AREA(cur_loc + 6);
-
-              }
-
-            }
-
-          }
-
-        }
-
-      }
-
-    }
-
-  }
-
-}
-
-/* // Little endian CompCov
-void HELPER(afl_compcov_log_16)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
-                                uint64_t arg2) {
-
-  u8* afl_area_ptr = ((struct uc_struct*)uc_ptr)->afl_area_ptr;
-
   if ((arg1 & 0xff00) == (arg2 & 0xff00)) { INC_AFL_AREA(cur_loc); }
 
 }
@@ -171,4 +99,4 @@ void HELPER(afl_compcov_log_64)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
   }
 
 }
-*/
+

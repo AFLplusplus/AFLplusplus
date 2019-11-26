@@ -33,8 +33,8 @@
 # You must make sure that Unicorn Engine is not already installed before
 # running this script. If it is, please uninstall it first.
 
-UNICORN_URL="https://github.com/unicorn-engine/unicorn/archive/24f55a7973278f20f0de21b904851d99d4716263.tar.gz"
-UNICORN_SHA384="7180d47ca52c99b4c073a343a2ead91da1a829fdc3809f3ceada5d872e162962eab98873a8bc7971449d5f34f41fdb93"
+UNICORN_URL="https://github.com/unicorn-engine/unicorn/archive/3cea38bff7bf0986337ef0fbf979f2afda42b9fc.tar.gz"
+UNICORN_SHA384="67d47272472595e8443f7262980b21c3889fbd007a983a55663efe7aa7a72a1c794073bd3ac29ae09aa265b398ac8c56"
 
 echo "================================================="
 echo "Unicorn-AFL build script"
@@ -177,8 +177,8 @@ echo "[+] Unpacking successful."
 echo "[*] Applying patches..."
 
 cp patches/*.h unicorn || exit 1
+cp patches/afl.c unicorn || exit 1
 patch -p1 --directory unicorn < patches/patches.diff || exit 1
-patch -p1 --directory unicorn < patches/compcov.diff || exit 1
 
 echo "[+] Patching done."
 

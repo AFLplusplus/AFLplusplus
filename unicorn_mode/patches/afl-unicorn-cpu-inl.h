@@ -33,63 +33,27 @@
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <unicorn.h>
 #include "afl-unicorn-common.h"
 
-/***************************
- * VARIOUS AUXILIARY STUFF *
- ***************************/
-
-/* A snippet patched into tb_find_slow to inform the parent process that
-   we have hit a new block that hasn't been translated yet, and to tell
-   it to translate within its own context, too (this avoids translation
-   overhead in the next forked-off copy). */
-
-#define AFL_UNICORN_CPU_SNIPPET1         \
-  do {                                   \
-                                         \
-    afl_request_tsl(pc, cs_base, flags); \
-                                         \
-  } while (0)
-
-/* This snippet kicks in when the instruction pointer is positioned at
-   _start and does the usual forkserver stuff, not very different from
-   regular instrumentation injected via afl-as.h. */
-
-#define AFL_UNICORN_CPU_SNIPPET2          \
-  do {                                    \
-                                          \
-    if (unlikely(afl_first_instr == 0)) { \
-                                          \
-      afl_setup(env->uc);                 \
-      afl_forkserver(env);                \
-      afl_first_instr = 1;                \
-                                          \
-    }                                     \
-    afl_maybe_log(env->uc, tb->pc);       \
-                                          \
-  } while (0)
-
 /* We use one additional file descriptor to relay "needs translation"
-   messages between the child and the fork server. */
+   or "child done" messages between the child and the fork server. */
 
 #define TSL_FD (FORKSRV_FD - 1)
 
-/* Set in the child process in forkserver mode: */
-
-static unsigned char afl_fork_child;
-static unsigned int  afl_forksrv_pid;
+#define FF16 (0xFFFFFFFFFFFFFFFF)
 
 /* Function declarations. */
 
-static void        afl_setup(struct uc_struct* uc);
-static void        afl_forkserver(CPUArchState*);
-static inline void afl_maybe_log(struct uc_struct* uc, unsigned long);
+static void        afl_setup(struct uc_struct*);
+static inline uc_afl_ret afl_forkserver(CPUArchState*);
+static inline void afl_maybe_log(struct uc_struct*, unsigned long);
 
-static void afl_wait_tsl(CPUArchState*, int);
-static void afl_request_tsl(target_ulong, target_ulong, uint64_t);
+static bool afl_wait_tsl(CPUArchState*, int);
+static void afl_request_tsl(struct uc_struct* uc, target_ulong, target_ulong, uint64_t);
+static uc_afl_ret afl_request_next(void);
 
-static TranslationBlock* tb_find_slow(CPUArchState*, target_ulong, target_ulong,
-                                      uint64_t);
+static TranslationBlock* tb_find_slow(CPUArchState*, target_ulong, target_ulong, uint64_t);
 
 /* Data structure passed around by the translate handlers: */
 
@@ -99,6 +63,15 @@ struct afl_tsl {
   target_ulong cs_base;
   uint64_t     flags;
 
+};
+
+/* Instead of adding a field, reuse this special one.
+  this should have less overhead. */
+
+static const struct afl_tsl AFL_NEXT_TESTCASE_REQUEST = {
+  .pc = (target_ulong) FF16,
+  .cs_base = (target_ulong) FF16,
+  .flags = FF16,
 };
 
 /*************************
@@ -136,6 +109,14 @@ static void afl_setup(struct uc_struct* uc) {
     uc->afl_area_ptr = shmat(shm_id, NULL, 0);
 
     if (uc->afl_area_ptr == (void*)-1) exit(1);
+    
+    /* Not sure if this does anything.
+      Also, for persistent mode, we want the map to be emtpy on every fork.
+      As far as I can see, afl clears the map it after each testcase.
+      So there is no reason why it shouldn't be empty on new forked children.
+      In contrast to "normal" instrumentation, we never count branches before forking.
+      */
+    memset(uc->afl_area_ptr, 0, MAP_SIZE); 
 
     /* With AFL_INST_RATIO set to a low value, we want to touch the bitmap
        so that the parent doesn't give up on us. */
@@ -154,71 +135,141 @@ static void afl_setup(struct uc_struct* uc) {
 
 }
 
-/* Fork server logic, invoked once we hit first emulated instruction. */
 
-static void afl_forkserver(CPUArchState* env) {
+/* Fork server logic, invoked by calling uc_afl_forkserver_start.
+   Roughly follows https://github.com/vanhauser-thc/AFLplusplus/blob/c83e8e1e6255374b085292ba8673efdca7388d76/llvm_mode/afl-llvm-rt.o.c#L130 
+   */
+
+static inline uc_afl_ret afl_forkserver(CPUArchState* env) {
 
   static unsigned char tmp[4];
+  pid_t   child_pid;
+  int     t_fd[2];  // Channel between child and parent for tcg translation cache
+  bool child_alive = false;
 
-  if (!env->uc->afl_area_ptr) return;
+  if (!env->uc->afl_area_ptr) return UC_AFL_RET_NO_AFL;
 
-  /* Tell the parent that we're alive. If the parent doesn't want
-     to talk, assume that we're not running in forkserver mode. */
+  /* Phone home and tell the parent that we're OK. If parent isn't there,
+     assume we're not running in forkserver mode and just execute program. */
 
-  if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
+  if (write(FORKSRV_FD + 1, tmp, 4) != 4) return UC_AFL_RET_NO_AFL;
 
-  afl_forksrv_pid = getpid();
-
-  /* All right, let's await orders... */
+  void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
 
   while (1) {
 
-    pid_t child_pid;
-    int   status, t_fd[2];
+    uint32_t was_killed;
+    int      status;
 
-    /* Whoops, parent dead? */
+    /* Wait for parent by reading from the pipe. Abort if read fails. */
 
-    if (read(FORKSRV_FD, tmp, 4) != 4) exit(2);
+    if (read(FORKSRV_FD, &was_killed, 4) != 4) return UC_AFL_RET_FINISHED;
 
-    /* Establish a channel with child to grab translation commands. We'll
-       read from t_fd[0], child will write to TSL_FD. */
+    /* If we stopped the child in persistent mode, but there was a race
+    condition and afl-fuzz already issued SIGKILL, write off the old
+    process. */
 
-    if (pipe(t_fd) || dup2(t_fd[1], TSL_FD) < 0) exit(3);
-    close(t_fd[1]);
+    if (child_alive && was_killed) {
 
-    child_pid = fork();
-    if (child_pid < 0) exit(4);
-
-    if (!child_pid) {
-
-      /* Child process. Close descriptors and run free. */
-
-      afl_fork_child = 1;
-      close(FORKSRV_FD);
-      close(FORKSRV_FD + 1);
-      close(t_fd[0]);
-      return;
+      child_alive = false;
+      if (waitpid(child_pid, &status, 0) < 0) {
+        perror("[!] Error waiting for child! ");
+        return UC_AFL_RET_ERROR;
+      }
 
     }
 
-    /* Parent. */
+    if (!child_alive) {
 
-    close(TSL_FD);
+      /* Child dead. Establish new a channel with child to grab translation commands.
+        We'll read from t_fd[0], child will write to TSL_FD. */
 
-    if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) exit(5);
+      if (pipe(t_fd) || dup2(t_fd[1], TSL_FD) < 0) {
+        perror("[!] Error creating pipe to child. ");
+        return UC_AFL_RET_ERROR;
+      }
+      close(t_fd[1]);
 
-    /* Collect translation requests until child dies and closes the pipe. */
+      /* Create a clone of our process. */
 
-    afl_wait_tsl(env, t_fd[0]);
+      child_pid = fork();
+      if (child_pid < 0) {
+        perror("[!] Could not fork! ");
+        return UC_AFL_RET_ERROR;
+      }
 
-    /* Get and relay exit status to parent. */
+      /* In child process: close fds, resume execution. */
 
-    if (waitpid(child_pid, &status, 0) < 0) exit(6);
-    if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(7);
+      if (!child_pid) {
+
+        signal(SIGCHLD, old_sigchld_handler);
+
+        close(FORKSRV_FD);
+        close(FORKSRV_FD + 1);
+        close(t_fd[0]);
+        env->uc->afl_child_request_next = afl_request_next;
+        return UC_AFL_RET_CHILD;
+
+      } else {
+
+        /* If we don't close this in parent, we don't get notified on t_fd once child is gone. */
+
+        close(TSL_FD);
+
+      }
+
+    } else {
+
+      /* Special handling for persistent mode: if the child is alive but
+         currently stopped, simply restart it with SIGCONT. */
+
+      if (kill(child_pid, SIGCONT) < 0) {
+
+        perror("[!] Child didn't continue. ");
+        return UC_AFL_RET_ERROR;
+
+      }
+      child_alive = false;
+
+    }
+
+    /* In parent process: write PID to AFL. */
+
+    if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) {
+      return UC_AFL_RET_FINISHED;
+    }
+
+    /* Collect translation requests until child is finished (true) 
+       or 0xdead (false) */
+
+    child_alive = afl_wait_tsl(env, t_fd[0]);
+
+    /* Get and relay exit status to parent. 
+       No need to wait for WUNTRACED if child is not alive. */
+
+    if (waitpid(child_pid, &status, child_alive ? WUNTRACED: 0) < 0) {
+
+      // Zombie Child could not be collected. Scary!
+      perror("[!] The child's exit code could not be determined. ");
+      return UC_AFL_RET_ERROR;
+
+    }
+
+
+    /* In persistent mode, the child stops itself with SIGSTOP to indicate
+       a successful run. In this case, we want to wake it up without forking
+       again. */
+
+    child_alive = child_alive && WIFSTOPPED(status);
+
+    /* Relay wait status to AFL pipe, then loop back. */
+
+    if (write(FORKSRV_FD + 1, &status, 4) != 4) return UC_AFL_RET_FINISHED;
 
   }
 
 }
+
 
 /* The equivalent of the tuple logging routine from afl-as.h. */
 
@@ -255,11 +306,13 @@ static inline void afl_maybe_log(struct uc_struct* uc, unsigned long cur_loc) {
    we tell the parent to mirror the operation, so that the next fork() has a
    cached copy. */
 
-static void afl_request_tsl(target_ulong pc, target_ulong cb, uint64_t flags) {
+static inline void afl_request_tsl(struct uc_struct* uc, target_ulong pc, target_ulong cb, uint64_t flags) {
 
-  struct afl_tsl t;
+  /* Dual use: if this func is NULL, we're not a child process */
 
-  if (!afl_fork_child) return;
+  if (!uc->afl_child_request_next) return;
+
+  struct afl_tsl t = {0};
 
   t.pc = pc;
   t.cs_base = cb;
@@ -270,10 +323,22 @@ static void afl_request_tsl(target_ulong pc, target_ulong cb, uint64_t flags) {
 
 }
 
-/* This is the other side of the same channel. Since timeouts are handled by
-   afl-fuzz simply killing the child, we can just wait until the pipe breaks. */
+/* This code is invoked whenever the child decides that it is done with one fuzz-case. */
 
-static void afl_wait_tsl(CPUArchState* env, int fd) {
+static uc_afl_ret afl_request_next(void) {
+
+  if (write(TSL_FD, &AFL_NEXT_TESTCASE_REQUEST, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl)) return UC_AFL_RET_ERROR;
+
+  return UC_AFL_RET_CHILD;
+
+}
+
+
+/* This is the other side of the same channel. Since timeouts are handled by
+   afl-fuzz simply killing the child, we can just wait until the pipe breaks.
+   For returns true if child is still alive, else false */
+
+static bool afl_wait_tsl(CPUArchState* env, int fd) {
 
   struct afl_tsl t;
 
@@ -281,7 +346,12 @@ static void afl_wait_tsl(CPUArchState* env, int fd) {
 
     /* Broken pipe means it's time to return to the fork server routine. */
 
-    if (read(fd, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl)) break;
+    if (read(fd, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl)) return false; // child is dead.
+
+    /* We chose FF16 (MAX_INT64) for each member of our afl_next_testcase_request struct. */
+
+    if (t.pc == AFL_NEXT_TESTCASE_REQUEST.pc && t.cs_base == AFL_NEXT_TESTCASE_REQUEST.cs_base 
+        && t.flags == AFL_NEXT_TESTCASE_REQUEST.flags) return true; // child is still alive!
 
     tb_find_slow(env, t.pc, t.cs_base, t.flags);
 

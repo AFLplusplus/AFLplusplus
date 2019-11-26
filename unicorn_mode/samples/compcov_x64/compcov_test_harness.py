@@ -17,8 +17,8 @@ import argparse
 import os
 import signal
 
-from unicorn import *
-from unicorn.x86_const import *
+from unicornafl import *
+from unicornafl.x86_const import *
 
 # Path to the file containing the binary to emulate
 BINARY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'compcov_target.bin')
@@ -121,17 +121,15 @@ def main():
     uc.reg_write(UC_X86_REG_RSP, STACK_ADDRESS + STACK_SIZE)
 
     #-----------------------------------------------------
-    # Emulate 1 instruction to kick off AFL's fork server
+    # Kick off AFL's fork server
     #   THIS MUST BE DONE BEFORE LOADING USER DATA! 
     #   If this isn't done every single run, the AFL fork server 
     #   will not be started appropriately and you'll get erratic results!
-    #   It doesn't matter what this returns with, it just has to execute at
-    #   least one instruction in order to get the fork server started.
+    #   You _have_ to provide all exits at this point.
 
-    # Execute 1 instruction just to startup the forkserver
-    print("Starting the AFL forkserver by executing 1 instruction")
+    print("Starting the AFL forkserver")
     try:
-        uc.emu_start(uc.reg_read(UC_X86_REG_RIP), 0, 0, count=1)
+        uc.afl_forkserver_start(exits=[end_address])
     except UcError as e:
         print("ERROR: Failed to execute a single instruction (error: {})!".format(e))
         return
