@@ -30,6 +30,13 @@
 #include <mach/vm_statistics.h>
 #endif
 
+#ifdef __linux__
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/syscall.h>
+#define arc4random_buf(p, l) do { ssize_t rd = syscall(__NR_getrandom, p, l, 0); if (rd != l) DEBUGF("getrandom failed"); } while(0)
+#endif
+
 #include "config.h"
 #include "types.h"
 
@@ -102,6 +109,7 @@ static u8  alloc_verbose,               /* Additional debug messages        */
 static __thread size_t total_mem;       /* Currently allocated mem          */
 
 static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
+static __thread u32 alloc_canary;
 
 /* This is the main alloc function. It allocates one page more than necessary,
    sets that tailing page to PROT_NONE, and then increments the return address
@@ -186,7 +194,7 @@ static void* __dislocator_alloc(size_t len) {
   ret += 8;
 
   PTR_L(ret) = len;
-  PTR_C(ret) = ALLOC_CANARY;
+  PTR_C(ret) = alloc_canary;
 
   total_mem += len;
 
@@ -262,7 +270,7 @@ void free(void* ptr) {
 
   if (!ptr) return;
 
-  if (PTR_C(ptr) != ALLOC_CANARY) FATAL("bad allocator canary on free()");
+  if (PTR_C(ptr) != alloc_canary) FATAL("bad allocator canary on free()");
 
   len = PTR_L(ptr);
 
@@ -358,10 +366,17 @@ __attribute__((constructor)) void __dislocator_init(void) {
 
   if (tmp) {
 
-    max_mem = atoi((char *)tmp) * 1024 * 1024;
-    if (!max_mem) FATAL("Bad value for AFL_LD_LIMIT_MB");
+    u8 *tok;
+    s32 mmem = (s32)strtol((char *)tmp, (char **)&tok, 10);
+    if (*tok != '\0' || errno == ERANGE) FATAL("Bad value for AFL_LD_LIMIT_MB");
+    max_mem = mmem * 1024 * 1024;
 
   }
+
+  alloc_canary = ALLOC_CANARY;
+  tmp = (u8 *)getenv("AFL_RANDOM_ALLOC_CANARY");
+
+  if (tmp) arc4random_buf(&alloc_canary, sizeof(alloc_canary));
 
   alloc_verbose = !!getenv("AFL_LD_VERBOSE");
   hard_fail = !!getenv("AFL_LD_HARD_FAIL");
