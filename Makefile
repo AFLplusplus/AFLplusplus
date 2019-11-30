@@ -41,6 +41,13 @@ AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
 PYTHON_INCLUDE	?= /usr/include/python2.7
 
+
+ifdef SOURCE_DATE_EPOCH
+    BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" -I 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" -I 2>/dev/null || date -u -I)
+else
+    BUILD_DATE ?= $(shell date -I)
+endif
+
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
   LDFLAGS  += -ldl
 endif
@@ -299,7 +306,7 @@ source-only: all radamsa
 	$(MAKE) -C libtokencap
 
 %.8:	%
-	@echo .TH $* 8 `date -I` "afl++" > $@
+	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
 	@echo .SH NAME >> $@
 	@echo .B $* >> $@
 	@echo >> $@
