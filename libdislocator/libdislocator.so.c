@@ -31,10 +31,15 @@
 #endif
 
 #ifdef __linux__
+#if __GLIBC__ >= 2 || __GLIBC_MINOR >= 25
 #define _GNU_SOURCE
 #include <unistd.h>
 #include <sys/syscall.h>
 #define arc4random_buf(p, l) do { ssize_t rd = syscall(__NR_getrandom, p, l, 0); if (rd != l) DEBUGF("getrandom failed"); } while(0)
+#else
+#include <time.h>
+#define arc4random_buf(p, l) do { srand(time(NULL)); u32 i; u8 *ptr = (u8 *)p; for(i = 0; i < l; i++) ptr[i] = rand() % INT_MAX; } while(0)
+#endif
 #endif
 
 #include "config.h"
