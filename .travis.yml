@@ -18,7 +18,7 @@ matrix:
   - os: linux
     dist: xenial
     arch: arm64
-    env: NAME="xenial-arm64" MODERN="no" GCC="5" EXTRA="libtool-bin" AFL_NO_X86="1" CPU_TARGET="aarch64-softmmu"
+    env: NAME="xenial-arm64" MODERN="no" GCC="5" EXTRA="libtool-bin" AFL_NO_X86="1" CPU_TARGET="aarch64"
   - os: osx
     osx_image: xcode11.2
     env: NAME="osx" HOMEBREW_NO_ANALYTICS="1" LINK="http://releases.llvm.org/9.0.0/" NAME="clang+llvm-9.0.0-x86_64-darwin-apple"
@@ -36,7 +36,7 @@ env:
 before_install:
   # export LLVM_DIR=${TRAVIS_BUILD_DIR}/${LLVM_PACKAGE}
   - echo Testing on $NAME
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update ; brew install wget ; brew install gcc ; wget "$LINK""$NAME".tar.xz ; pushd /usr/local ; sudo tar xjf "$NAME".tar.xz ; popd ; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then wget "$LINK""$NAME".tar.xz ; DIR=`pwd` ; pushd /usr/local ; sudo tar xJf "$DIR"/"$NAME".tar.xz ; popd ; fi
   - if [ "$MODERN" = "yes" ]; then sudo apt update ; sudo apt upgrade ; sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-7 gcc-7-plugin-dev libc++-7-dev ; fi
   - if [ "$MODERN" = "no" ]; then sudo apt update ; sudo apt install -y libtool $EXTRA automake bison libglib2.0 build-essential clang gcc gcc-"$GCC"-plugin-dev libc++-dev ; fi
 
