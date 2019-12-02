@@ -36,7 +36,7 @@ env:
 before_install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update ; brew upgrade ; brew install --with-toolchain gcc ; brew install --with-toolchain llvm ; fi
   - if [ "$MODERN" = "yes" ]; then sudo apt update ; sudo apt upgrade ; sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-7 gcc-7-plugin-dev libc++-7-dev ; fi
-  - if [ "$MODERN" = "no" ]; then sudo apt update ; sudo apt upgrade ; sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc gcc-plugin-dev libc++-dev ; fi
+  - if [ "$MODERN" = "no" ]; then sudo apt update ; apt-cache search plugin-dev|grep gcc ; sudo apt upgrade ; sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc gcc-plugin-dev libc++-dev ; fi
 
 script:
   - gcc -v
