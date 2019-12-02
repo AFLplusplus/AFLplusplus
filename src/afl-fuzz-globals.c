@@ -83,7 +83,9 @@ u32 hang_tmout = EXEC_TIMEOUT;          /* Timeout used for hang det (ms)   */
 u64 mem_limit = MEM_LIMIT;              /* Memory cap for child (MB)        */
 
 u8 cal_cycles = CAL_CYCLES,             /* Calibration cycles defaults      */
-    cal_cycles_long = CAL_CYCLES_LONG, debug,                 /* Debug mode */
+    cal_cycles_long = CAL_CYCLES_LONG,  /* Calibration cycles defaults      */
+    debug,                              /* Debug mode                       */
+    no_unlink,                          /* do not unlink cur_input          */
     custom_only,                        /* Custom mutator only mode         */
     python_only;                        /* Python-only mode                 */
 

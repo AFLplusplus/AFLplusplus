@@ -20,7 +20,10 @@ Version ++2.58d (dev):
   - qbdi_mode: fuzz android native libraries via QBDI framework
   - afl-analyze: added AFL_SKIP_BIN_CHECK support
   - better random numbers for gcc_plugin and llvm_mode (thanks to devnexen)
-  - afl-fuzz: CPU affinity support for DragonFly
+  - afl-fuzz:
+     - added Radamsa and an optional radamsa stage (-R)
+     - CPU affinity support for DragonFly
+     - added -u command line option to not unlink the fuzz input file
   - llvm_mode: float splitting is now configured via AFL_LLVM_LAF_SPLIT_FLOATS
   - libtokencap: support for *BSD/OSX added
   - compcov: floating point splitting support for QEMU on x86 targets
@@ -30,7 +33,6 @@ Version ++2.58d (dev):
     download succeeded. f*ckin travis fails downloading 40% of the time!
   - added the few Android stuff we didnt have already from Google afl repository
   - removed unnecessary warnings
-  - added the radamsa stage
 
 
 --------------------------

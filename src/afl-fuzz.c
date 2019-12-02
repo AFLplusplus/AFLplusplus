@@ -122,9 +122,11 @@ static void usage(u8* argv0) {
       "                  a recommended value is 10-60. see docs/README.MOpt\n\n"
 
       "Fuzzing behavior settings:\n"
+      "  -N            - do not unlink the fuzzing input file\n"
       "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (dumb mode)\n"
-      "  -x dir        - optional fuzzer dictionary (see README)\n\n"
+      "  -x dir        - optional fuzzer dictionary (see README, its really "
+      "good!)\n\n"
 
       "Testing settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
@@ -195,7 +197,7 @@ int main(int argc, char** argv) {
   init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
   while ((opt = getopt(argc, argv,
-                       "+i:I:o:f:m:t:T:dnCB:S:M:x:QUWe:p:s:V:E:L:hR")) > 0)
+                       "+i:I:o:f:m:t:T:dnCB:S:M:x:QNUWe:p:s:V:E:L:hR")) > 0)
 
     switch (opt) {
 
@@ -423,6 +425,13 @@ int main(int argc, char** argv) {
         qemu_mode = 1;
 
         if (!mem_limit_given) mem_limit = MEM_LIMIT_QEMU;
+
+        break;
+
+      case 'N':                                             /* Unicorn mode */
+
+        if (no_unlink) FATAL("Multiple -N options not supported");
+        no_unlink = 1;
 
         break;
 
