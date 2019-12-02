@@ -450,7 +450,7 @@ test -e ../libradamsa.so && {
 
 $ECHO "$BLUE[*] Testing: qemu_mode"
 test -e ../afl-qemu-trace && {
-  gcc -no-pie -o test-instr ../test-instr.c
+  gcc -o test-instr ../test-instr.c
   gcc -o test-compcov test-compcov.c
   test -e test-instr -a -e test-compcov && {
     {
