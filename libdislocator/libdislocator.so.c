@@ -31,7 +31,7 @@
 #endif
 
 #ifdef __linux__
-#if __GLIBC__ >= 2 || __GLIBC_MINOR >= 25
+#ifdef __NR_getrandom
 #define _GNU_SOURCE
 #include <unistd.h>
 #include <sys/syscall.h>
