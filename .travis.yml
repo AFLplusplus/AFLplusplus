@@ -36,7 +36,7 @@ env:
 before_install:
   # export LLVM_DIR=${TRAVIS_BUILD_DIR}/${LLVM_PACKAGE}
   - echo Testing on $NAME
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then wget "$LINK""$NAME".tar.xz ; export LLVM_CONFIG=`pwd`/"$NAME" ; tar xJf "$DIR"/"$NAME".tar.xz ; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then wget "$LINK""$NAME".tar.xz ; export LLVM_CONFIG=`pwd`/"$NAME" ; tar xJf "$NAME".tar.xz ; fi
   - if [ "$MODERN" = "yes" ]; then sudo apt update ; sudo apt upgrade ; sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-7 gcc-7-plugin-dev libc++-7-dev ; fi
   - if [ "$MODERN" = "no" ]; then sudo apt update ; sudo apt install -y libtool $EXTRA automake bison libglib2.0 build-essential clang gcc gcc-"$GCC"-plugin-dev libc++-dev ; fi
 
