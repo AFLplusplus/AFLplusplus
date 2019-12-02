@@ -425,6 +425,36 @@ char* strcasestr(const char* haystack, const char* needle) {
 
 }
 
+#undef memmem
+
+void* memmem(const void *haystack, size_t haystack_len, const void *needle, size_t needle_len)
+{
+  if (__tokencap_is_ro(haystack))
+    __tokencap_dump(haystack, haystack_len, 1);
+
+  if (__tokencap_is_ro(needle)) __tokencap_dump(needle, needle_len, 1);
+
+  const char *n = (const char *)needle;
+  const char *h = (const char *)haystack;
+  if (haystack_len < needle_len) return 0;
+  if (needle_len == 0) return (void *)haystack;
+  if (needle_len == 1) return memchr(haystack, *n, haystack_len);
+
+  const char *end = h + (haystack_len - needle_len);
+
+  do {
+
+    if (*h == *n) {
+
+	    if (memcmp(h, n, needle_len) == 0) return (void *)h;
+    }
+
+  } while (h++ <= end);
+
+  return 0;
+
+}
+
 /* Init code to open the output file (or default to stderr). */
 
 __attribute__((constructor)) void __tokencap_init(void) {
