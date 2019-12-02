@@ -31,10 +31,9 @@
 #endif
 
 #ifdef __linux__
-#ifdef __NR_getrandom
-#define _GNU_SOURCE
 #include <unistd.h>
 #include <sys/syscall.h>
+#ifdef __NR_getrandom
 #define arc4random_buf(p, l) do { ssize_t rd = syscall(__NR_getrandom, p, l, 0); if (rd != l) DEBUGF("getrandom failed"); } while(0)
 #else
 #include <time.h>
