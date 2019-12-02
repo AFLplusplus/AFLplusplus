@@ -987,7 +987,8 @@ int main(int argc, char** argv) {
   if (child_timed_out)
     FATAL("Target binary times out (adjusting -t may help).");
 
-  if (getenv("AFL_SKIP_BIN_CHECK") == NULL && !anything_set()) FATAL("No instrumentation detected.");
+  if (getenv("AFL_SKIP_BIN_CHECK") == NULL && !anything_set())
+    FATAL("No instrumentation detected.");
 
   analyze(use_argv);
 

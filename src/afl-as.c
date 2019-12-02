@@ -83,7 +83,7 @@ static u8 use_64bit = 0;
 #error "Sorry, 32-bit Apple platforms are not supported."
 #endif                                                         /* __APPLE__ */
 
-#endif                                                       /* ^WORD_SIZE_64 */
+#endif                                                     /* ^WORD_SIZE_64 */
 
 /* Examine and modify parameters to pass to 'as'. Note that the file name
    is always the last parameter passed by GCC, so we exploit this property

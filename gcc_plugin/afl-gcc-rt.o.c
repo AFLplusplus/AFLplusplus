@@ -55,9 +55,9 @@ __thread u32 __afl_prev_loc;
 /* Trace a basic block with some ID */
 void __afl_trace(const u32 x) {
 
-#if 1 /* enable for neverZero feature. */
-  __afl_area_ptr[__afl_prev_loc ^ x] += 1 
-                               + ((u8)(1 + __afl_area_ptr[__afl_prev_loc ^ x]) == 0);
+#if 1                                      /* enable for neverZero feature. */
+  __afl_area_ptr[__afl_prev_loc ^ x] +=
+      1 + ((u8)(1 + __afl_area_ptr[__afl_prev_loc ^ x]) == 0);
 #else
   ++__afl_area_ptr[__afl_prev_loc ^ x];
 #endif
@@ -84,9 +84,9 @@ static void __afl_map_shm(void) {
   if (id_str) {
 
 #ifdef USEMMAP
-    const char*    shm_file_path = id_str;
+    const char *   shm_file_path = id_str;
     int            shm_fd = -1;
-    unsigned char* shm_base = NULL;
+    unsigned char *shm_base = NULL;
 
     /* create the shared memory segment as if it was a file */
     shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
@@ -265,7 +265,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
   }
 
-    return 0;
+  return 0;
 
 }
 

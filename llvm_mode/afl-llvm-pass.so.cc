@@ -94,12 +94,12 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   LLVMContext &C = M.getContext();
 
-  IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
-  IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
-  struct timeval            tv;
-  struct timezone           tz;
-  u32                       rand_seed;
-  unsigned int cur_loc = 0;
+  IntegerType *   Int8Ty = IntegerType::getInt8Ty(C);
+  IntegerType *   Int32Ty = IntegerType::getInt32Ty(C);
+  struct timeval  tv;
+  struct timezone tz;
+  u32             rand_seed;
+  unsigned int    cur_loc = 0;
 
   /* Setup random() so we get Actually Random(TM) outputs from AFL_R() */
   gettimeofday(&tv, &tz);

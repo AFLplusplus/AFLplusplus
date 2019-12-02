@@ -28,7 +28,7 @@
 static u8* get_libradamsa_path(u8* own_loc) {
 
   u8 *tmp, *cp, *rsl, *own_copy;
-  
+
   tmp = getenv("AFL_PATH");
 
   if (tmp) {
@@ -51,8 +51,7 @@ static u8* get_libradamsa_path(u8* own_loc) {
     cp = alloc_printf("%s/libradamsa.so", own_copy);
     ck_free(own_copy);
 
-    if (!access(cp, X_OK))
-      return cp;
+    if (!access(cp, X_OK)) return cp;
 
   } else
 
@@ -70,11 +69,12 @@ static u8* get_libradamsa_path(u8* own_loc) {
 
   }
 
-  SAYF("\n" cLRD "[-] " cRST
-       "Oops, unable to find the 'libradamsa.so' binary. The binary must be "
-       "built\n"
-       "    separately using 'make radamsa'. If you already have the binary "
-       "installed,\n    you may need to specify AFL_PATH in the environment.\n");
+  SAYF(
+      "\n" cLRD "[-] " cRST
+      "Oops, unable to find the 'libradamsa.so' binary. The binary must be "
+      "built\n"
+      "    separately using 'make radamsa'. If you already have the binary "
+      "installed,\n    you may need to specify AFL_PATH in the environment.\n");
 
   FATAL("Failed to locate 'libradamsa.so'.");
 
@@ -109,10 +109,12 @@ static void usage(u8* argv0) {
       "  -m megs       - memory limit for child process (%d MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
-      "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n\n"
+      "  -W            - use qemu-based instrumentation with Wine (Wine "
+      "mode)\n\n"
 
       "Mutator settings:\n"
-      "  -R[R]         - add Radamsa as mutator, add another -R to exclusivly run it\n"
+      "  -R[R]         - add Radamsa as mutator, add another -R to exclusivly "
+      "run it\n"
       "  -L minutes    - use MOpt(imize) mode and set the limit time for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths, 0 = "
@@ -184,9 +186,8 @@ int main(int argc, char** argv) {
   struct timeval  tv;
   struct timezone tz;
 
-  SAYF(cCYA
-       "afl-fuzz" VERSION cRST
-       " based on afl by Michal Zalewski and a big online community\n");
+  SAYF(cCYA "afl-fuzz" VERSION cRST
+            " based on afl by Michal Zalewski and a big online community\n");
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -568,9 +569,9 @@ int main(int argc, char** argv) {
         usage(argv[0]);
         return -1;
         break;  // not needed
-     
+
       case 'R':
-      
+
         if (use_radamsa)
           use_radamsa = 2;
         else
@@ -595,28 +596,30 @@ int main(int argc, char** argv) {
 
   if (fixed_seed) OKF("Running with fixed seed: %u", (u32)init_seed);
   srandom((u32)init_seed);
-  
+
   if (use_radamsa) {
-  
+
     OKF("Using Radamsa add-on");
-    
-    u8* libradamsa_path = get_libradamsa_path(argv[0]);
+
+    u8*   libradamsa_path = get_libradamsa_path(argv[0]);
     void* handle = dlopen(libradamsa_path, RTLD_NOW);
     ck_free(libradamsa_path);
-    
+
     if (!handle) FATAL("Failed to dlopen() libradamsa");
 
     void (*radamsa_init_ptr)(void) = dlsym(handle, "radamsa_init");
     radamsa_mutate_ptr = dlsym(handle, "radamsa");
 
-    if (!radamsa_init_ptr || !radamsa_mutate_ptr) FATAL("Failed to dlsym() libradamsa");
+    if (!radamsa_init_ptr || !radamsa_mutate_ptr)
+      FATAL("Failed to dlsym() libradamsa");
 
-    /* randamsa_init installs some signal hadlers, call it before setup_signal_handlers
-       so that AFL++ can then replace those signal handlers */
+    /* randamsa_init installs some signal hadlers, call it before
+       setup_signal_handlers so that AFL++ can then replace those signal
+       handlers */
     radamsa_init_ptr();
 
   }
-  
+
   setup_signal_handlers();
   check_asan_opts();
 
@@ -648,8 +651,7 @@ int main(int argc, char** argv) {
 
   }
 
-  if (getenv("AFL_DISABLE_TRIM"))
-    disable_trim = 1;
+  if (getenv("AFL_DISABLE_TRIM")) disable_trim = 1;
 
   if (getenv("AFL_NO_UI") && getenv("AFL_FORCE_UI"))
     FATAL("AFL_NO_UI and AFL_FORCE_UI are mutually exclusive");
