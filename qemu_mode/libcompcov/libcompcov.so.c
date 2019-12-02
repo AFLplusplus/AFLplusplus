@@ -340,7 +340,6 @@ int memcmp(const void* mem1, const void* mem2, size_t len) {
 
 // TODO bcmp
 
-
 /* Common libraries wrappers (from honggfuzz) */
 
 /*

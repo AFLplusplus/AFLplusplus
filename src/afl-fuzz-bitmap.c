@@ -87,7 +87,7 @@ u8 has_new_bits(u8* virgin_map) {
 
   u32 i = (MAP_SIZE >> 2);
 
-#endif                                                       /* ^WORD_SIZE_64 */
+#endif                                                     /* ^WORD_SIZE_64 */
 
   u8 ret = 0;
 
@@ -125,7 +125,7 @@ u8 has_new_bits(u8* virgin_map) {
         else
           ret = 1;
 
-#endif                                                       /* ^WORD_SIZE_64 */
+#endif                                                     /* ^WORD_SIZE_64 */
 
       }
 
@@ -306,7 +306,7 @@ void simplify_trace(u32* mem) {
 
 }
 
-#endif                                                       /* ^WORD_SIZE_64 */
+#endif                                                     /* ^WORD_SIZE_64 */
 
 /* Destructively classify execution counts in a trace. This is used as a
    preprocessing step for any newly acquired traces. Called on every exec,
@@ -391,7 +391,7 @@ void classify_counts(u32* mem) {
 
 }
 
-#endif                                                       /* ^WORD_SIZE_64 */
+#endif                                                     /* ^WORD_SIZE_64 */
 
 /* Compact trace bytes into a smaller bitmap. We effectively just drop the
    count information here. This is called only sporadically, for some
@@ -599,7 +599,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
         simplify_trace((u64*)trace_bits);
 #else
         simplify_trace((u32*)trace_bits);
-#endif                                                       /* ^WORD_SIZE_64 */
+#endif                                                     /* ^WORD_SIZE_64 */
 
         if (!has_new_bits(virgin_tmout)) return keeping;
 
@@ -662,7 +662,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
         simplify_trace((u64*)trace_bits);
 #else
         simplify_trace((u32*)trace_bits);
-#endif                                                       /* ^WORD_SIZE_64 */
+#endif                                                     /* ^WORD_SIZE_64 */
 
         if (!has_new_bits(virgin_crash)) return keeping;
 

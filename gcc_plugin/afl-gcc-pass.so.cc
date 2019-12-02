@@ -166,7 +166,7 @@ static unsigned int ext_call_instrument(function *fun) {
     fcall = gimple_build_call(
         fndecl, 1,
         cur_loc); /* generate the function _call_ to above built reference, with
-                     *1* parameter -> the random const for the location */
+                   *1* parameter -> the random const for the location */
     gimple_seq_add_stmt(&seq, fcall);         /* and insert into a sequence */
 
     /* Done - grab the entry to the block and insert sequence */
@@ -202,9 +202,8 @@ static unsigned int inline_instrument(function *fun) {
   basic_block bb;
   unsigned    finst_blocks = 0;
   unsigned    fcnt_blocks = 0;
-  tree one = build_int_cst(unsigned_char_type_node, 1);
+  tree        one = build_int_cst(unsigned_char_type_node, 1);
   // tree zero = build_int_cst(unsigned_char_type_node, 0);
-
 
   /* Set up global type declarations */
   tree map_type = build_pointer_type(unsigned_char_type_node);
@@ -417,8 +416,8 @@ class afl_pass : public gimple_opt_pass {
 
     if (!myWhitelist.empty()) {
 
-      bool instrumentBlock = false;
-      std::string instFilename;
+      bool         instrumentBlock = false;
+      std::string  instFilename;
       unsigned int instLine = 0;
 
       /* EXPR_FILENAME
@@ -467,13 +466,17 @@ class afl_pass : public gimple_opt_pass {
       if (!instrumentBlock) {
 
         if (!be_quiet) {
-             if (!instFilename.empty())
-               SAYF(cYEL "[!] " cBRI "Not in whitelist, skipping %s line %u...\n",
-                    instFilename.c_str(), instLine);
-             else
-               SAYF(cYEL "[!] " cBRI "No filename information found, skipping it");
+
+          if (!instFilename.empty())
+            SAYF(cYEL "[!] " cBRI "Not in whitelist, skipping %s line %u...\n",
+                 instFilename.c_str(), instLine);
+          else
+            SAYF(cYEL "[!] " cBRI "No filename information found, skipping it");
+
         }
+
         return 0;
+
       }
 
     }

@@ -122,15 +122,19 @@ static void edit_params(u32 argc, char** argv) {
   if (!strcmp(name, "afl-clang-fast++")) {
 
     u8* alt_cxx = getenv("AFL_CXX");
-    if (has_llvm_config)  snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang++", LLVM_BINDIR);
-    else sprintf(llvm_fullpath, "clang++");
+    if (has_llvm_config)
+      snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang++", LLVM_BINDIR);
+    else
+      sprintf(llvm_fullpath, "clang++");
     cc_params[0] = alt_cxx ? alt_cxx : (u8*)llvm_fullpath;
 
   } else {
 
     u8* alt_cc = getenv("AFL_CC");
-    if (has_llvm_config)  snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang", LLVM_BINDIR);
-    else sprintf(llvm_fullpath, "clang");
+    if (has_llvm_config)
+      snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang", LLVM_BINDIR);
+    else
+      sprintf(llvm_fullpath, "clang");
     cc_params[0] = alt_cc ? alt_cc : (u8*)llvm_fullpath;
 
   }

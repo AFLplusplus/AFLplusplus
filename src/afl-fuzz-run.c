@@ -225,7 +225,7 @@ u8 run_target(char** argv, u32 timeout) {
   classify_counts((u64*)trace_bits);
 #else
   classify_counts((u32*)trace_bits);
-#endif                                                       /* ^WORD_SIZE_64 */
+#endif                                                     /* ^WORD_SIZE_64 */
 
   prev_timed_out = child_timed_out;
 

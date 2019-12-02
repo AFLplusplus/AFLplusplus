@@ -409,7 +409,7 @@ extern u32 rand_cnt;                    /* Random number counter            */
 #endif
 
 extern u32 rand_seed[2];
-extern s64    init_seed;
+extern s64 init_seed;
 
 extern u64 total_cal_us,                /* Total calibration time (us)      */
     total_cal_cycles;                   /* Total calibration cycles         */
