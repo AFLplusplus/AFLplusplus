@@ -43,7 +43,7 @@ before_install:
 script:
   - gcc -v
   - clang -v
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then make source-only ; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then find / -name "llvm-config*" -o -name clang++ 2> /dev/null ; make source-only ; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" -a "$TRAVIS_CPU_ARCH" = "amd64" ]; then make distrib ; fi
   - if [ "$TRAVIS_CPU_ARCH" = "arm64" ] ; then make ; cd qemu_mode && sh ./build_qemu_support.sh ; fi
   - make tests
