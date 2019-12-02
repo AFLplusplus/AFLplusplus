@@ -33,7 +33,7 @@
 #include "../config.h"
 
 #if !defined __linux__ && !defined __APPLE__ && !defined __FreeBSD__ && \
-    !defined __OpenBSD__ && !defined __NetBSD__
+    !defined __OpenBSD__ && !defined __NetBSD__ && !defined __DragonFly__
 #error "Sorry, this library is unsupported in this platform for now!"
 #endif /* !__linux__ && !__APPLE__ && ! __FreeBSD__ && ! __OpenBSD__ && \
           !__NetBSD__*/
