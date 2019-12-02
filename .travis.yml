@@ -1,5 +1,31 @@
-dist: bionic
 language: c
+
+branches:
+  only:
+    - master
+
+matrix:
+  include:
+  - os: linux
+    dist: bionic
+    env: CPU="intel" ARCH="linux"
+  - os: linux
+    dist: xenial
+    env: CPU="intel" ARCH="linux"
+  - os: linux
+    dist: trusty
+    env: CPU="intel" ARCH="linux"
+  - os: linux
+    dist: xenial
+    arch: arm64
+    env: CPU="arm64" ARCH="linux" CPU_TARGET="aarch64-softmmu"
+  - os: osx
+    osx_image: xcode11.2
+    env: CPU="intel" ARCH="osx"
+
+jobs:
+  allow_failures:
+    - os: osx
 
 env:
   - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_STOP_MANUALLY=1
@@ -8,11 +34,13 @@ env:
  # - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_BENCH_JUST_ONE=1
 
 before_install:
-  - sudo apt update
-  - sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-7 gcc-7-plugin-dev libc++-7-dev
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update ; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt update ; sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-7 gcc-7-plugin-dev libc++-7-dev ; fi
 
 script:
   - gcc -v
   - clang -v
-  - make distrib
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then make source-only ; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" -a "$CPU" = "intel" ]; then make distrib ; fi
+  - if [ "$CPU" = "arm64" ] ; then make ; cd qemu_mode && sh ./build_qemu_support.sh ; fi
   - make tests
