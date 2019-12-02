@@ -288,9 +288,16 @@ void write_to_testcase(void* mem, u32 len) {
 
   if (out_file) {
 
-    unlink(out_file);                                     /* Ignore errors. */
+    if (no_unlink) {
 
-    fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+      fd = open(out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+    } else {
+
+      unlink(out_file);                                   /* Ignore errors. */
+      fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+
+    }
 
     if (fd < 0) PFATAL("Unable to create '%s'", out_file);
 
@@ -330,9 +337,16 @@ void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) {
 
   if (out_file) {
 
-    unlink(out_file);                                     /* Ignore errors. */
+    if (no_unlink) {
 
-    fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+      fd = open(out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+    } else {
+
+      unlink(out_file);                                   /* Ignore errors. */
+      fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+
+    }
 
     if (fd < 0) PFATAL("Unable to create '%s'", out_file);
 
@@ -760,9 +774,16 @@ u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
 
     s32 fd;
 
-    unlink(q->fname);                                      /* ignore errors */
+    if (no_unlink) {
 
-    fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+      fd = open(q->fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+    } else {
+
+      unlink(q->fname);                                    /* ignore errors */
+      fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+
+    }
 
     if (fd < 0) PFATAL("Unable to create '%s'", q->fname);
 
