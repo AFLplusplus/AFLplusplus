@@ -47,13 +47,17 @@ ifeq "$(LLVM_UNSUPPORTED)" "1"
   $(warn llvm_mode only supports versions 3.8.0 up to 9)
 endif
 
-# this is not visible yet:
 ifeq "$(LLVM_MAJOR)" "9"
   $(info llvm_mode detected llvm 9, enabling neverZero implementation)
 endif
 
 ifeq "$(LLVM_NEW_API)" "1"
+  $(info llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
   LLVM_STDCXX = c++14
+endif
+
+ifeq "$(LLVM_APPLE)" "1"
+  $(warn llvm_mode will not compile with Xcode clang...)
 endif
 
 CFLAGS      ?= -O3 -funroll-loops

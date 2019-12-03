@@ -326,9 +326,12 @@ int main(int argc, char** argv) {
               " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n");
 
     if (getenv("AFL_GCC_WHITELIST") == NULL) {
-    
-      SAYF(cYEL "Warning:" cRST " using afl-gcc-fast without using AFL_GCC_WHITELIST currently produces worse results than afl-gcc. Even better, use llvm_mode for now.\n");
-    
+
+      SAYF(cYEL "Warning:" cRST
+                " using afl-gcc-fast without using AFL_GCC_WHITELIST currently "
+                "produces worse results than afl-gcc. Even better, use "
+                "llvm_mode for now.\n");
+
     }
 
   }

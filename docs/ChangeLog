@@ -24,8 +24,10 @@ Version ++2.58d (dev):
      - added Radamsa and an optional radamsa stage (-R)
      - CPU affinity support for DragonFly
      - added -u command line option to not unlink the fuzz input file
-  - llvm_mode: float splitting is now configured via AFL_LLVM_LAF_SPLIT_FLOATS
-  - libtokencap: support for *BSD/OSX added
+  - llvm_mode:
+     - float splitting is now configured via AFL_LLVM_LAF_SPLIT_FLOATS
+     - support for llvm 10 included now (thanks to devnexen)
+  - libtokencap: support for *BSD/OSX/Dragonfly added
   - compcov: floating point splitting support for QEMU on x86 targets
   - Dockerfile by courtesy of devnexen
   - ripped regex.dictionary from Google afl PR

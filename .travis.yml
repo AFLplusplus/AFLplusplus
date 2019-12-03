@@ -19,9 +19,9 @@ matrix:
     dist: xenial
     arch: arm64
     env: NAME="xenial-arm64" MODERN="no" GCC="5" EXTRA="libtool-bin" AFL_NO_X86="1" CPU_TARGET="aarch64"
-  - os: osx
-    osx_image: xcode11.2
-    env: NAME="osx" HOMEBREW_NO_ANALYTICS="1" LINK="http://releases.llvm.org/9.0.0/" NAME="clang+llvm-9.0.0-x86_64-darwin-apple"
+#  - os: osx
+#    osx_image: xcode11.2
+#    env: NAME="osx" HOMEBREW_NO_ANALYTICS="1" LINK="http://releases.llvm.org/9.0.0/" NAME="clang+llvm-9.0.0-x86_64-darwin-apple"
 
 jobs:
   allow_failures:
