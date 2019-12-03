@@ -321,7 +321,7 @@ void* realloc(void* ptr, size_t len) {
 
   if (ret && ptr) {
 
-    if (PTR_C(ptr) != ALLOC_CANARY) FATAL("bad allocator canary on realloc()");
+    if (PTR_C(ptr) != alloc_canary) FATAL("bad allocator canary on realloc()");
 
     memcpy(ret, ptr, MIN(len, PTR_L(ptr)));
     free(ptr);
