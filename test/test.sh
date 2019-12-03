@@ -427,9 +427,9 @@ test -e ../libradamsa.so && {
   test -e test-instr.plain && {
     mkdir -p in
     echo 0 > in/in
-    $ECHO "$GREY[*] running afl-fuzz with radamsa, this will take approx 30 seconds"
+    $ECHO "$GREY[*] running afl-fuzz with radamsa, this will take approx 36 seconds"
     {
-      ../afl-fuzz -RR -V30 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
+      ../afl-fuzz -RR -V36 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
     } >>errors 2>&1
     test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
       $ECHO "$GREEN[+] libradamsa performs good - and very slow - mutations"
