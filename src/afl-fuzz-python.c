@@ -226,7 +226,7 @@ u32 init_trim_py(char* buf, size_t buflen) {
   if (py_value != NULL) {
 
 #if PY_MAJOR_VERSION >= 3
-    u32 retcnt = (u32) PyLong_AsLong(py_value);
+    u32 retcnt = (u32)PyLong_AsLong(py_value);
 #else
     u32 retcnt = PyInt_AsLong(py_value);
 #endif
@@ -264,7 +264,7 @@ u32 post_trim_py(char success) {
   if (py_value != NULL) {
 
 #if PY_MAJOR_VERSION >= 3
-    u32 retcnt = (u32) PyLong_AsLong(py_value);
+    u32 retcnt = (u32)PyLong_AsLong(py_value);
 #else
     u32 retcnt = PyInt_AsLong(py_value);
 #endif
