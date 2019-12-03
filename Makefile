@@ -128,6 +128,7 @@ help:
 	@echo "man: creates simple man pages from the help option of the programs"
 	@echo "install: installs everything you have compiled with the build option above"
 	@echo "clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well"
+	@echo "code-format: format the code, do this before you commit and send a PR please!"
 	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
 	@echo "document: creates afl-fuzz-document which will only do one run and save all manipulated inputs into out/queue/mutations"
 	@echo "help: shows these build options :-)"
@@ -236,7 +237,7 @@ code-format:
 	./.custom-format.py -i llvm_mode/*.h
 	./.custom-format.py -i llvm_mode/*.cc
 	./.custom-format.py -i gcc_plugin/*.c
-	./.custom-format.py -i gcc_plugin/*.h
+	#./.custom-format.py -i gcc_plugin/*.h
 	./.custom-format.py -i gcc_plugin/*.cc
 	./.custom-format.py -i qemu_mode/patches/*.h
 	./.custom-format.py -i qemu_mode/libcompcov/*.c

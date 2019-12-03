@@ -159,9 +159,9 @@ struct InsTrim : public ModulePass {
 
       if (!myWhitelist.empty()) {
 
-        bool      instrumentBlock = false;
-        DebugLoc  Loc;
-        StringRef instFilename;
+        bool         instrumentBlock = false;
+        DebugLoc     Loc;
+        StringRef    instFilename;
         unsigned int instLine = 0;
 
         for (auto &BB : F) {
@@ -223,12 +223,17 @@ struct InsTrim : public ModulePass {
         if (!instrumentBlock) {
 
           if (!be_quiet) {
-             if (!instFilename.str().empty())
-               SAYF(cYEL "[!] " cBRI "Not in whitelist, skipping %s line %u...\n",
-                    instFilename.str().c_str(), instLine);
-             else
-               SAYF(cYEL "[!] " cBRI "No filename information found, skipping it");
+
+            if (!instFilename.str().empty())
+              SAYF(cYEL "[!] " cBRI
+                        "Not in whitelist, skipping %s line %u...\n",
+                   instFilename.str().c_str(), instLine);
+            else
+              SAYF(cYEL "[!] " cBRI
+                        "No filename information found, skipping it");
+
           }
+
           continue;
 
         }

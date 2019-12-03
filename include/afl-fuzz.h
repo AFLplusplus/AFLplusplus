@@ -265,7 +265,9 @@ extern u32 hang_tmout;                  /* Timeout used for hang det (ms)   */
 extern u64 mem_limit;                   /* Memory cap for child (MB)        */
 
 extern u8 cal_cycles,                   /* Calibration cycles defaults      */
-    cal_cycles_long, debug,             /* Debug mode                       */
+    cal_cycles_long,                    /* Calibration cycles defaults      */
+    no_unlink,                          /* do not unlink cur_input          */
+    debug,                              /* Debug mode                       */
     custom_only,                        /* Custom mutator only mode         */
     python_only;                        /* Python-only mode                 */
 
@@ -409,7 +411,7 @@ extern u32 rand_cnt;                    /* Random number counter            */
 #endif
 
 extern u32 rand_seed[2];
-extern s64    init_seed;
+extern s64 init_seed;
 
 extern u64 total_cal_us,                /* Total calibration time (us)      */
     total_cal_cycles;                   /* Total calibration cycles         */

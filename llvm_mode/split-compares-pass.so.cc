@@ -103,11 +103,11 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
 
           }
 
-          if (enableFPSplit && (
-              selectcmpInst->getPredicate() == CmpInst::FCMP_OGE ||
-              selectcmpInst->getPredicate() == CmpInst::FCMP_UGE ||
-              selectcmpInst->getPredicate() == CmpInst::FCMP_OLE ||
-              selectcmpInst->getPredicate() == CmpInst::FCMP_ULE)) {
+          if (enableFPSplit &&
+              (selectcmpInst->getPredicate() == CmpInst::FCMP_OGE ||
+               selectcmpInst->getPredicate() == CmpInst::FCMP_UGE ||
+               selectcmpInst->getPredicate() == CmpInst::FCMP_OLE ||
+               selectcmpInst->getPredicate() == CmpInst::FCMP_ULE)) {
 
             auto op0 = selectcmpInst->getOperand(0);
             auto op1 = selectcmpInst->getOperand(1);
@@ -1046,7 +1046,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
   char *bitw_env = getenv("LAF_SPLIT_COMPARES_BITW");
   if (!bitw_env) bitw_env = getenv("AFL_LLVM_LAF_SPLIT_COMPARES_BITW");
   if (bitw_env) { bitw = atoi(bitw_env); }
-  
+
   enableFPSplit = getenv("AFL_LLVM_LAF_SPLIT_FLOATS") != NULL;
 
   simplifyCompares(M);

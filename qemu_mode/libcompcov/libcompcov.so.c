@@ -19,13 +19,16 @@
 
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <dlfcn.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/shm.h>
+#include <stdbool.h>
 
 #include "types.h"
 #include "config.h"
@@ -332,6 +335,146 @@ int memcmp(const void* mem1, const void* mem2, size_t len) {
   }
 
   return __libc_memcmp(mem1, mem2, len);
+
+}
+
+// TODO bcmp
+
+/* Common libraries wrappers (from honggfuzz) */
+
+/*
+ * Apache's httpd wrappers
+ */
+int ap_cstr_casecmp(const char* s1, const char* s2) {
+
+  return strcasecmp(s1, s2);
+
+}
+
+int ap_cstr_casecmpn(const char* s1, const char* s2, size_t n) {
+
+  return strncasecmp(s1, s2, n);
+
+}
+
+int apr_cstr_casecmp(const char* s1, const char* s2) {
+
+  return strcasecmp(s1, s2);
+
+}
+
+int apr_cstr_casecmpn(const char* s1, const char* s2, size_t n) {
+
+  return strncasecmp(s1, s2, n);
+
+}
+
+/*
+ * *SSL wrappers
+ */
+int CRYPTO_memcmp(const void* m1, const void* m2, size_t len) {
+
+  return memcmp(m1, m2, len);
+
+}
+
+int OPENSSL_memcmp(const void* m1, const void* m2, size_t len) {
+
+  return memcmp(m1, m2, len);
+
+}
+
+int OPENSSL_strcasecmp(const char* s1, const char* s2) {
+
+  return strcasecmp(s1, s2);
+
+}
+
+int OPENSSL_strncasecmp(const char* s1, const char* s2, size_t len) {
+
+  return strncasecmp(s1, s2, len);
+
+}
+
+int32_t memcmpct(const void* s1, const void* s2, size_t len) {
+
+  return memcmp(s1, s2, len);
+
+}
+
+/*
+ * libXML wrappers
+ */
+int xmlStrncmp(const char* s1, const char* s2, int len) {
+
+  if (len <= 0) { return 0; }
+  if (s1 == s2) { return 0; }
+  if (s1 == NULL) { return -1; }
+  if (s2 == NULL) { return 1; }
+  return strncmp(s1, s2, (size_t)len);
+
+}
+
+int xmlStrcmp(const char* s1, const char* s2) {
+
+  if (s1 == s2) { return 0; }
+  if (s1 == NULL) { return -1; }
+  if (s2 == NULL) { return 1; }
+  return strcmp(s1, s2);
+
+}
+
+int xmlStrEqual(const char* s1, const char* s2) {
+
+  if (s1 == s2) { return 1; }
+  if (s1 == NULL) { return 0; }
+  if (s2 == NULL) { return 0; }
+  if (strcmp(s1, s2) == 0) { return 1; }
+  return 0;
+
+}
+
+int xmlStrcasecmp(const char* s1, const char* s2) {
+
+  if (s1 == s2) { return 0; }
+  if (s1 == NULL) { return -1; }
+  if (s2 == NULL) { return 1; }
+  return strcasecmp(s1, s2);
+
+}
+
+int xmlStrncasecmp(const char* s1, const char* s2, int len) {
+
+  if (len <= 0) { return 0; }
+  if (s1 == s2) { return 0; }
+  if (s1 == NULL) { return -1; }
+  if (s2 == NULL) { return 1; }
+  return strncasecmp(s1, s2, (size_t)len);
+
+}
+
+const char* xmlStrcasestr(const char* haystack, const char* needle) {
+
+  if (haystack == NULL) { return NULL; }
+  if (needle == NULL) { return NULL; }
+  return strcasestr(haystack, needle);
+
+}
+
+/*
+ * Samba wrappers
+ */
+int memcmp_const_time(const void* s1, const void* s2, size_t n) {
+
+  return memcmp(s1, s2, n);
+
+}
+
+bool strcsequal(const void* s1, const void* s2) {
+
+  if (s1 == s2) { return true; }
+  if (!s1 || !s2) { return false; }
+  return (strcmp(s1, s2) == 0);
 
 }
 

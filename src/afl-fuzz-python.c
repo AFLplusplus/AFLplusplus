@@ -42,7 +42,7 @@ int init_py() {
 
     if (py_module != NULL) {
 
-      u8 py_notrim = 0;
+      u8 py_notrim = 0, py_idx;
       py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
       py_functions[PY_FUNC_INIT_TRIM] =
@@ -51,7 +51,7 @@ int init_py() {
           PyObject_GetAttrString(py_module, "post_trim");
       py_functions[PY_FUNC_TRIM] = PyObject_GetAttrString(py_module, "trim");
 
-      for (u8 py_idx = 0; py_idx < PY_FUNC_COUNT; ++py_idx) {
+      for (py_idx = 0; py_idx < PY_FUNC_COUNT; ++py_idx) {
 
         if (!py_functions[py_idx] || !PyCallable_Check(py_functions[py_idx])) {
 
