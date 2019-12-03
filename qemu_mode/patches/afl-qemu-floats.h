@@ -35,24 +35,30 @@
 #include "afl-qemu-common.h"
 
 union afl_float32 {
+
   float32 f;
   struct {
-    u64 sign :  1;
-    u64 exp  :  7;
-    u64 frac : 24;
-  };
-};
 
+    u64 sign : 1;
+    u64 exp : 7;
+    u64 frac : 24;
+
+  };
+
+};
 
 union afl_float64 {
+
   float64 f;
   struct {
-    u64 sign :  1;
-    u64 exp  : 11;
-    u64 frac : 52;
-  };
-};
 
+    u64 sign : 1;
+    u64 exp : 11;
+    u64 frac : 52;
+
+  };
+
+};
 
 // TODO 16 and 128 bits floats
 // TODO figure out why float*_unpack_canonical does not work
@@ -65,11 +71,11 @@ void afl_float_compcov_log_32(target_ulong cur_loc, float32 arg1, float32 arg2,
 
   if (cur_loc >= afl_inst_rms) return;
 
-  //float_status* s = (float_status*)status;
-  //FloatParts    a = float32_unpack_canonical(arg1, s);
-  //FloatParts    b = float32_unpack_canonical(arg2, s);
-  union afl_float32 a = { .f = arg1 };
-  union afl_float32 b = { .f = arg2 };
+  // float_status* s = (float_status*)status;
+  // FloatParts    a = float32_unpack_canonical(arg1, s);
+  // FloatParts    b = float32_unpack_canonical(arg2, s);
+  union afl_float32 a = {.f = arg1};
+  union afl_float32 b = {.f = arg2};
 
   // if (is_nan(a.cls) || is_nan(b.cls)) return;
 
@@ -97,11 +103,11 @@ void afl_float_compcov_log_64(target_ulong cur_loc, float64 arg1, float64 arg2,
 
   if (cur_loc >= afl_inst_rms) return;
 
-  //float_status* s = (float_status*)status;
-  //FloatParts    a = float64_unpack_canonical(arg1, s);
-  //FloatParts    b = float64_unpack_canonical(arg2, s);
-  union afl_float64 a = { .f = arg1 };
-  union afl_float64 b = { .f = arg2 };
+  // float_status* s = (float_status*)status;
+  // FloatParts    a = float64_unpack_canonical(arg1, s);
+  // FloatParts    b = float64_unpack_canonical(arg2, s);
+  union afl_float64 a = {.f = arg1};
+  union afl_float64 b = {.f = arg2};
 
   // if (is_nan(a.cls) || is_nan(b.cls)) return;
 
@@ -196,7 +202,7 @@ void afl_float_compcov_log_80(target_ulong cur_loc, floatx80 arg1,
               if ((arg1.low & 0xff00) == (arg2.low & 0xff00)) {
 
                 INC_AFL_AREA(idx + 9);
-                //if ((arg1.low & 0xff) == (arg2.low & 0xff))
+                // if ((arg1.low & 0xff) == (arg2.low & 0xff))
                 //  INC_AFL_AREA(idx + 10);
 
               }

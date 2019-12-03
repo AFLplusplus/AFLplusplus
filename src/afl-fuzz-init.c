@@ -142,7 +142,8 @@ void bind_to_free_cpu(void) {
     if (procs[i].ki_oncpu < sizeof(cpu_used) && procs[i].ki_pctcpu > 10)
       cpu_used[procs[i].ki_oncpu] = 1;
 #elif defined(__DragonFly__)
-    if (procs[i].kp_lwp.kl_cpuid < sizeof(cpu_used) && procs[i].kp_lwp.kl_pctcpu > 10)
+    if (procs[i].kp_lwp.kl_cpuid < sizeof(cpu_used) &&
+        procs[i].kp_lwp.kl_pctcpu > 10)
       cpu_used[procs[i].kp_lwp.kl_cpuid] = 1;
 #endif
 
@@ -734,7 +735,8 @@ void pivot_inputs(void) {
         use_name += 6;
       else
         use_name = rsl;
-      nfn = alloc_printf("%s/queue/id:%06u,time:0,orig:%s", out_dir, id, use_name);
+      nfn = alloc_printf("%s/queue/id:%06u,time:0,orig:%s", out_dir, id,
+                         use_name);
 
 #else
 
@@ -1563,8 +1565,10 @@ void check_cpu_governor(void) {
 
        "    You can later go back to the original state by replacing "
        "'performance'\n"
-       "    with 'ondemand' or 'powersave'. If you don't want to change the settings,\n"
-       "    set AFL_SKIP_CPUFREQ to make afl-fuzz skip this check - but expect some\n"
+       "    with 'ondemand' or 'powersave'. If you don't want to change the "
+       "settings,\n"
+       "    set AFL_SKIP_CPUFREQ to make afl-fuzz skip this check - but expect "
+       "some\n"
        "    performance drop.\n",
        min / 1024, max / 1024);
   FATAL("Suboptimal CPU scaling governor");
@@ -1609,7 +1613,8 @@ void check_cpu_governor(void) {
 
 void get_core_count(void) {
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+    defined(__DragonFly__)
 
   size_t s = sizeof(cpu_core_count);
 
@@ -1655,7 +1660,8 @@ void get_core_count(void) {
 
     cur_runnable = (u32)get_runnable_processes();
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+    defined(__DragonFly__)
 
     /* Add ourselves, since the 1-minute average doesn't include that yet. */
 

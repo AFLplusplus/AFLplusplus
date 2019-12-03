@@ -83,8 +83,8 @@ __thread abi_ulong afl_prev_loc;
 
 /* Set in the child process in forkserver mode: */
 
-static int    forkserver_installed = 0;
-static int    disable_caching = 0;
+static int forkserver_installed = 0;
+static int disable_caching = 0;
 
 unsigned char afl_fork_child;
 unsigned int  afl_forksrv_pid;
@@ -207,7 +207,7 @@ static void afl_setup(void) {
      behaviour, and seems to work alright? */
 
   rcu_disable_atfork();
-  
+
   disable_caching = getenv("AFL_QEMU_DISABLE_CACHE") != NULL;
 
   is_persistent = getenv("AFL_QEMU_PERSISTENT_ADDR") != NULL;

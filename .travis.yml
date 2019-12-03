@@ -1,5 +1,31 @@
-dist: bionic
 language: c
+
+branches:
+  only:
+    - master
+
+matrix:
+  include:
+  - os: linux
+    dist: bionic
+    env: NAME="bionic-amd64" MODERN="yes" GCC="7"
+  - os: linux
+    dist: xenial
+    env: NAME="xenial-amd64" MODERN="no" GCC="5" EXTRA="libtool-bin"
+  - os: linux
+    dist: trusty
+    env: NAME="trusty-amd64" MODERN="no" GCC="4.8"
+  - os: linux
+    dist: xenial
+    arch: arm64
+    env: NAME="xenial-arm64" MODERN="no" GCC="5" EXTRA="libtool-bin" AFL_NO_X86="1" CPU_TARGET="aarch64"
+  - os: osx
+    osx_image: xcode11.2
+    env: NAME="osx" HOMEBREW_NO_ANALYTICS="1" LINK="http://releases.llvm.org/9.0.0/" NAME="clang+llvm-9.0.0-x86_64-darwin-apple"
+
+jobs:
+  allow_failures:
+    - os: osx
 
 env:
   - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_STOP_MANUALLY=1
@@ -8,11 +34,16 @@ env:
  # - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_UI=1 AFL_BENCH_JUST_ONE=1
 
 before_install:
-  - sudo apt update
-  - sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-7 gcc-7-plugin-dev libc++-7-dev
+  # export LLVM_DIR=${TRAVIS_BUILD_DIR}/${LLVM_PACKAGE}
+  - echo Testing on $NAME
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then wget "$LINK""$NAME".tar.xz ; export LLVM_CONFIG=`pwd`/"$NAME" ; tar xJf "$NAME".tar.xz ; fi
+  - if [ "$MODERN" = "yes" ]; then sudo apt update ; sudo apt upgrade ; sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-7 gcc-7-plugin-dev libc++-7-dev ; fi
+  - if [ "$MODERN" = "no" ]; then sudo apt update ; sudo apt install -y libtool $EXTRA automake bison libglib2.0 build-essential clang gcc gcc-"$GCC"-plugin-dev libc++-dev ; fi
 
 script:
   - gcc -v
   - clang -v
-  - make distrib
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then export LLVM_CONFIG=`pwd`/"$NAME" ; make source-only ; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" -a "$TRAVIS_CPU_ARCH" = "amd64" ]; then make distrib ; fi
+  - if [ "$TRAVIS_CPU_ARCH" = "arm64" ] ; then make ; cd qemu_mode && sh ./build_qemu_support.sh ; cd .. ; fi
   - make tests

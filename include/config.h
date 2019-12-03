@@ -41,7 +41,7 @@
 
 /* Comment out to disable fancy ANSI boxes and use poor man's 7-bit UI: */
 
-#ifndef ANDROID_DISABLE_FANCY // Fancy boxes are ugly from adb
+#ifndef ANDROID_DISABLE_FANCY  // Fancy boxes are ugly from adb
 #define FANCY_BOXES
 #endif
 
@@ -55,7 +55,7 @@
 #define EXEC_TM_ROUND 20
 
 /* 64bit arch MACRO */
-#if (defined (__x86_64__) || defined (__arm64__) || defined (__aarch64__))
+#if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__))
 #define WORD_SIZE_64 1
 #endif
 
@@ -65,7 +65,7 @@
 #define MEM_LIMIT 25
 #else
 #define MEM_LIMIT 50
-#endif                                                      /* ^!WORD_SIZE_64 */
+#endif                                                    /* ^!WORD_SIZE_64 */
 
 /* Default memory limit when running in QEMU mode (MB): */
 

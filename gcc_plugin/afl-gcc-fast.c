@@ -325,6 +325,12 @@ int main(int argc, char** argv) {
     SAYF(cCYA "afl-gcc-fast" VERSION cRST
               " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n");
 
+    if (getenv("AFL_GCC_WHITELIST") == NULL) {
+    
+      SAYF(cYEL "Warning:" cRST " using afl-gcc-fast without using AFL_GCC_WHITELIST currently produces worse results than afl-gcc. Even better, use llvm_mode for now.\n");
+    
+    }
+
   }
 
   find_obj(argv[0]);

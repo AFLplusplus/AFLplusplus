@@ -171,4 +171,6 @@ void HELPER(afl_compcov_log_64)(void* uc_ptr, uint64_t cur_loc, uint64_t arg1,
   }
 
 }
+
 */
+
