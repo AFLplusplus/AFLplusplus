@@ -39,24 +39,40 @@ CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ \
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
+ifneq "($filter %3.7m, $(shell python3.7m-config --includes)" ""
+  PYTHON_INCLUDE  ?= $(shell python3.7m-config --includes)
+  PYTHON_LIB      ?= $(shell python3.7m-config --ldflags)
+  PYTHON_VERSION   = 3.7m
+else
+  ifneq "($filter %3.7, $(shell python3.7-config --includes)" ""
+    PYTHON_INCLUDE  ?= $(shell python3.7-config --includes)
+    PYTHON_LIB      ?= $(shell python3.7-config --ldflags)
+    PYTHON_VERSION   = 3.7
+  else
+    ifneq "($filter %2.7, $(shell python2.7-config --includes)" ""
+      PYTHON_INCLUDE  ?= $(shell python2.7-config --includes)
+      PYTHON_LIB      ?= $(shell python2.7-config --ldflags)
+      PYTHON_VERSION   = 2.7
+    endif
+  endif
+endif
+
 PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7m && echo /usr/include/python3.7m)
 PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7 && echo /usr/include/python3.7)
 PYTHON_INCLUDE	?= $(shell test -e /usr/include/python2.7 && echo /usr/include/python2.7)
 
 ifneq "($filter %3.7m, $(PYTHON_INCLUDE))" ""
-    PYTHON_VERSION=3.7m
-    PYTHON_LIB=-lpython3.7m
+    PYTHON_VERSION ?= 3.7m
+    PYTHON_LIB  ?= -lpython3.7m
 else
     ifneq "($filter %3.7, $(PYTHON_INCLUDE))" ""
-        PYTHON_VERSION=3.7
-        PYTHON_LIB=
+        PYTHON_VERSION ?= 3.7
     else
         ifneq "($filter %2.7, $(PYTHON_INCLUDE))" ""
-            PYTHON_VERSION=2.7
-            PYTHON_LIB=-lpython2.7
+            PYTHON_VERSION ?= 2.7
+            PYTHON_LIB     ?= -lpython2.7
         else
-            PYTHON_VERSION=none
-            PYTHON_LIB=
+            PYTHON_VERSION ?= none
         endif
     endif
 endif
