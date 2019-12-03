@@ -165,7 +165,7 @@ of new tuples, and the remainder is associated with changes in hit counts.
 
 The following table compares the relative ability to discover file syntax and
 explore program states when using several different approaches to guided
-fuzzing. The instrumented target was GNU patch 2.7.3 compiled with -O3 and
+fuzzing. The instrumented target was GNU patch 2.7k.3 compiled with -O3 and
 seeded with a dummy text file; the session consisted of a single pass over the
 input queue with afl-fuzz:
 

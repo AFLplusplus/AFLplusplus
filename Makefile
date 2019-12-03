@@ -39,8 +39,27 @@ CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ \
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
-PYTHON_INCLUDE	?= /usr/include/python2.7
+PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7m && echo /usr/include/python3.7m)
+PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7 && echo /usr/include/python3.7)
+PYTHON_INCLUDE	?= $(shell test -e /usr/include/python2.7 && echo /usr/include/python2.7)
 
+ifneq "($filter %3.7m, $(PYTHON_INCLUDE))" ""
+    PYTHON_VERSION=3.7m
+    PYTHON_LIB=-lpython3.7m
+else
+    ifneq "($filter %3.7, $(PYTHON_INCLUDE))" ""
+        PYTHON_VERSION=3.7
+        PYTHON_LIB=
+    else
+        ifneq "($filter %2.7, $(PYTHON_INCLUDE))" ""
+            PYTHON_VERSION=2.7
+            PYTHON_LIB=-lpython2.7
+        else
+            PYTHON_VERSION=none
+            PYTHON_LIB=
+        endif
+    endif
+endif
 
 ifdef SOURCE_DATE_EPOCH
     BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" -I 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" -I 2>/dev/null || date -u -I)
@@ -69,9 +88,9 @@ endif
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
 
 
-ifeq "$(shell echo '\#include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) $(LDFLAGS) -lpython2.7 2>/dev/null && echo 1 || echo 0 )" "1"
+ifeq "$(shell echo '\#include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) 2>/dev/null && echo 1 || echo 0 )" "1"
 	PYTHON_OK=1
-	PYFLAGS=-DUSE_PYTHON -I$(PYTHON_INCLUDE) $(LDFLAGS) -lpython2.7
+	PYFLAGS=-DUSE_PYTHON -I$(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB)
 else
 	PYTHON_OK=0
 	PYFLAGS=
@@ -171,12 +190,12 @@ ifeq "$(PYTHON_OK)" "1"
 
 test_python27:
 	@rm -f .test 2> /dev/null
-	@echo "[+] Python 2.7 support seems to be working."
+	@echo "[+] Python $(PYTHON_VERSION) support seems to be working."
 
 else
 
 test_python27:
-	@echo "[-] You seem to need to install the package python2.7-dev, but it is optional so we continue"
+	@echo "[-] You seem to need to install the package python3.7-dev or python2.7-dev, but it is optional so we continue"
 
 endif
 
