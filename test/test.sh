@@ -145,7 +145,7 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
 }
 
 $ECHO "$BLUE[*] Testing: llvm_mode"
-test -e ../afl-clang-fast && {
+test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   # on FreeBSD need to set AFL_CC
   if which clang >/dev/null; then
     export AFL_CC=`which clang`
@@ -302,7 +302,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
         } || {
           $ECHO "$RED[!] gcc_plugin instrumentation produces a weird number of instrumented locations: $TUPLES"
           $ECHO "$YELLOW[!] the gcc_plugin instrumentation issue is not flagged as an error because travis builds would all fail otherwise :-("
-          CODE=0
+          #CODE=1
         }
       }
     } || {
