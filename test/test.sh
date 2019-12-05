@@ -97,6 +97,10 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
     }
   } || {
     $ECHO "$RED[!] ${AFL_GCC} failed"
+    echo CUT------------------------------------------------------------------CUT
+    uname -a
+    ../${AFL_GCC} -o test-instr.plain ../test-instr.c
+    echo CUT------------------------------------------------------------------CUT
     CODE=1
   }
   test -e test-compcov.harden && {
