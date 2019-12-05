@@ -36,7 +36,10 @@ Version ++2.58d (dev):
     download succeeded. f*ckin travis fails downloading 40% of the time!
   - added the few Android stuff we didnt have already from Google afl repository
   - removed unnecessary warnings
-
+  - libtokencap: hook common *cmp functions from widely used libraries
+  - libcompcov: hook common *cmp functions from widely used libraries
+  - AFL_DISABLE_TRIM env var to disable the trim stage
+  - AFL_QEMU_DISABLE_CACHE to disable QEMU TranslationBlocks caching
 
 --------------------------
 Version ++2.58c (release):
