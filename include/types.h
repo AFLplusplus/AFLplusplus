@@ -83,7 +83,7 @@ typedef int64_t s64;
 #define AFL_SR(s) (srandom(s))
 #define AFL_R(x) (random() % (x))
 #else
-#define AFL_SR(s)
+#define AFL_SR(s) ((void)s)
 #define AFL_R(x) (arc4random_uniform(x))
 #endif
 #else
@@ -91,7 +91,7 @@ typedef int64_t s64;
 #define SR(s) (srandom(s))
 #define R(x) (random() % (x))
 #else
-#define SR(s)
+#define SR(s) ((void)s)
 #define R(x) (arc4random_uniform(x))
 #endif
 #endif                                                    /* ^AFL_LLVM_PASS */
