@@ -54,6 +54,7 @@ test `uname -s` = 'Darwin' -o `uname -s` = 'FreeBSD' && {
 } || {
   AFL_GCC=afl-gcc
 }
+SYS=`uname -m`
 
 GREY="\\033[1;90m"
 BLUE="\\033[1;94m"
@@ -68,8 +69,11 @@ export PATH=$PATH:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
 
 $ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
 
+test -z "$SYS" && $ECHO "$YELLOW[!] uname -m did not succeed"
+
 $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap and afl-fuzz"
-test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
+test "$SYS" = "i686" -o "$SYS" = "x86_64" && {
+ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
   ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
@@ -144,9 +148,12 @@ test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
     rm -rf in out errors
   }
   rm -f test-instr.plain
-} || { 
+ } || { 
   $ECHO "$YELLOW[-] afl is not compiled, cannot test"
-}
+ }
+} || { 
+ $ECHO "$YELLOW[-] not an intel platform, cannot test afl-gcc"
+} 
 
 $ECHO "$BLUE[*] Testing: llvm_mode"
 test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
