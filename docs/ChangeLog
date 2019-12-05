@@ -18,28 +18,31 @@ Version ++2.58d (dev):
 ----------------------
 
   - qbdi_mode: fuzz android native libraries via QBDI framework
-  - afl-analyze: added AFL_SKIP_BIN_CHECK support
-  - better random numbers for gcc_plugin and llvm_mode (thanks to devnexen)
   - afl-fuzz:
-     - added Radamsa and an optional radamsa stage (-R)
+     - added Radamsa and an optional radamsa stage (-R[R])
      - CPU affinity support for DragonFly
      - added -u command line option to not unlink the fuzz input file
-     - Python3 support
+     - Python3 support (autodetect)
+     - AFL_DISABLE_TRIM env var to disable the trim stage
   - llvm_mode:
      - float splitting is now configured via AFL_LLVM_LAF_SPLIT_FLOATS
      - support for llvm 10 included now (thanks to devnexen)
-  - libtokencap: support for *BSD/OSX/Dragonfly added
-  - compcov: floating point splitting support for QEMU on x86 targets
+  - libtokencap:
+     - support for *BSD/OSX/Dragonfly added
+     - hook common *cmp functions from widely used libraries
+  - compcov:
+     - hook common *cmp functions from widely used libraries
+     - floating point splitting support for QEMU on x86 targets
+  - qemu_mode: AFL_QEMU_DISABLE_CACHE env to disable QEMU TranslationBlocks caching
+  - afl-analyze: added AFL_SKIP_BIN_CHECK support
+  - better random numbers for gcc_plugin and llvm_mode (thanks to devnexen)
   - Dockerfile by courtesy of devnexen
   - ripped regex.dictionary from Google afl PR
   - qemu and unicorn download scripts now try to download until the full
     download succeeded. f*ckin travis fails downloading 40% of the time!
   - added the few Android stuff we didnt have already from Google afl repository
   - removed unnecessary warnings
-  - libtokencap: hook common *cmp functions from widely used libraries
-  - libcompcov: hook common *cmp functions from widely used libraries
-  - AFL_DISABLE_TRIM env var to disable the trim stage
-  - AFL_QEMU_DISABLE_CACHE to disable QEMU TranslationBlocks caching
+
 
 --------------------------
 Version ++2.58c (release):
