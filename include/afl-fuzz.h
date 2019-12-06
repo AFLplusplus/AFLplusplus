@@ -96,6 +96,10 @@
 #endif
 #endif                                                         /* __linux__ */
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
 #ifndef SIMPLE_FILES
 #define CASE_PREFIX "id:"
 #else
