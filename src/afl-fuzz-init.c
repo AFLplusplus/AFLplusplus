@@ -1903,8 +1903,9 @@ void check_binary(u8* fname) {
 #else
 
 #if !defined(__arm__) && !defined(__arm64__)
-  if (f_data[0] != 0xCF || f_data[1] != 0xFA || f_data[2] != 0xED)
-    FATAL("Program '%s' is not a 64-bit Mach-O binary", target_path);
+  if ((f_data[0] != 0xCF || f_data[1] != 0xFA || f_data[2] != 0xED) 
+          && (f_data[0] != 0xCA || f_data[1] != 0xFE || f_data[2] != 0xBA))
+    FATAL("Program '%s' is not a 64-bit or universal Mach-O binary", target_path);
 #endif
 
 #endif                                                       /* ^!__APPLE__ */
