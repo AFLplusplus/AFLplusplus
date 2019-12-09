@@ -5,7 +5,7 @@
 
 ## 1) Introduction
 
-! llvm_mode works with llvm versions 3.8.0 up to 9 !
+! llvm_mode works with llvm versions 3.8.0 up to 10 !
 
 The code in this directory allows you to instrument programs for AFL using
 true compiler-level instrumentation, instead of the more crude

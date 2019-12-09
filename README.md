@@ -27,7 +27,7 @@
   get any feature improvements since November 2017.
 
   Among other changes afl++ has a more performant llvm_mode, supports
-  llvm up to version 9, QEMU 3.1, more speed and crashfixes for QEMU,
+  llvm up to version 10, QEMU 3.1, more speed and crashfixes for QEMU,
   better *BSD and Android support and much, much more.
 
   Additionally the following features and patches have been integrated:
@@ -203,7 +203,7 @@ superior to blind fuzzing or coverage-only tools.
 PLEASE NOTE: llvm_mode compilation with afl-clang-fast/afl-clang-fast++
 instead of afl-gcc/afl-g++ is much faster and has a few cool features.
 See llvm_mode/ - however few code does not compile with llvm.
-We support llvm versions 3.8.0 to 9.
+We support llvm versions 3.8.0 to 10.
 
 When source code is available, instrumentation can be injected by a companion
 tool that works as a drop-in replacement for gcc or clang in any standard build
@@ -226,7 +226,7 @@ For C++ programs, you'd would also want to set `CXX=/path/to/afl/afl-g++`.
 The clang wrappers (afl-clang and afl-clang++) can be used in the same way;
 clang users may also opt to leverage a higher-performance instrumentation mode,
 as described in [llvm_mode/README.md](llvm_mode/README.md).
-Clang/LLVM has a much better performance and works with LLVM version 3.8.0 to 9.
+Clang/LLVM has a much better performance and works with LLVM version 3.8.0 to 10.
 
 Using the LAF Intel performance enhancements are also recommended, see 
 [llvm_mode/README.laf-intel.md](llvm_mode/README.laf-intel.md)
