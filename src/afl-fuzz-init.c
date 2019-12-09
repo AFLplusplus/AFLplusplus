@@ -1426,6 +1426,7 @@ void check_crash_handling(void) {
      until I get a box to test the code. So, for now, we check for crash
      reporting the awful way. */
 
+#if !TARGET_OS_IPHONE
   if (system("launchctl list 2>/dev/null | grep -q '\\.ReportCrash$'")) return;
 
   SAYF(
@@ -1443,6 +1444,7 @@ void check_crash_handling(void) {
       "    launchctl unload -w ${SL}/LaunchAgents/${PL}.plist\n"
       "    sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist\n");
 
+#endif
   if (!getenv("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES"))
     FATAL("Crash reporter detected");
 
