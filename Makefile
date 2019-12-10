@@ -317,8 +317,8 @@ clean:
 	-$(MAKE) -C gcc_plugin clean
 	$(MAKE) -C libdislocator clean
 	$(MAKE) -C libtokencap clean
-	-$(MAKE) -C qemu_mode/unsigaction clean
-	-$(MAKE) -C qemu_mode/libcompcov clean
+	$(MAKE) -C qemu_mode/unsigaction clean
+	$(MAKE) -C qemu_mode/libcompcov clean
 	$(MAKE) -C src/third_party/libradamsa/ clean
 
 distrib: all radamsa
@@ -326,14 +326,14 @@ distrib: all radamsa
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
-	-cd qemu_mode && sh ./build_qemu_support.sh
-	-cd unicorn_mode && sh ./build_unicorn_support.sh
+	cd qemu_mode && sh ./build_qemu_support.sh
+	cd unicorn_mode && sh ./build_unicorn_support.sh
 
 binary-only: all radamsa
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
-	-cd qemu_mode && sh ./build_qemu_support.sh
-	-cd unicorn_mode && sh ./build_unicorn_support.sh
+	cd qemu_mode && sh ./build_qemu_support.sh
+	cd unicorn_mode && sh ./build_unicorn_support.sh
 
 source-only: all radamsa
 	-$(MAKE) -C llvm_mode
