@@ -20,28 +20,33 @@ VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
 CFLAGS      ?= -O3 -funroll-loops -I ../include/
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign
-LDFLAGS     += -ldl
 
 ifeq "$(shell uname)" "Linux"
   TARGETS = libtokencap.so
+  LDFLAGS     += -ldl
 endif
 ifeq "$(shell uname)" "Darwin"
   TARGETS = libtokencap.so
+  LDFLAGS     += -ldl
 endif
 ifeq "$(shell uname)" "FreeBSD"
   TARGETS = libtokencap.so
+  LDFLAGS     += -ldl
 endif
 ifeq "$(shell uname)" "OpenBSD"
   TARGETS = libtokencap.so
+  LDFLAGS     += -ldl
 endif
 ifeq "$(shell uname)" "NetBSD"
   TARGETS = libtokencap.so
 endif
 ifeq "$(shell uname)" "DragonFly"
   TARGETS = libtokencap.so
+  LDFLAGS     += -ldl
 endif
 all: $(TARGETS)
 
+VPATH = ..
 libtokencap.so: libtokencap.so.c ../config.h
 	$(CC) $(CFLAGS) -shared -fPIC $< -o ../$@ $(LDFLAGS)
 
