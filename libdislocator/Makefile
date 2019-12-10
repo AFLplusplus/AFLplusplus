@@ -27,6 +27,7 @@ endif
 
 all: libdislocator.so
 
+VPATH = ..
 libdislocator.so: libdislocator.so.c ../config.h
 	$(CC) $(CFLAGS) -shared -fPIC $< -o ../$@ $(LDFLAGS)
 
