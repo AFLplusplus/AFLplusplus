@@ -44,11 +44,11 @@ LLVM_STDCXX = gnu++11
 LLVM_APPLE = $(shell clang -v 2>&1 | grep -iq apple && echo 1 || echo 0)
 
 ifeq "$(LLVMVER)" ""
-  $(error llvm_mode needs llvm-config, which was not found)
+  $(warning llvm_mode needs llvm-config, which was not found)
 endif
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
-  $(warn llvm_mode only supports llvm versions 3.8.0 up to 10)
+  $(warning llvm_mode only supports llvm versions 3.8.0 up to 10)
 endif
 
 ifeq "$(LLVM_MAJOR)" "9"
@@ -61,7 +61,7 @@ ifeq "$(LLVM_NEW_API)" "1"
 endif
 
 ifeq "$(LLVM_APPLE)" "1"
-  $(warn llvm_mode will not compile with Xcode clang...)
+  $(warning llvm_mode will not compile with Xcode clang...)
 endif
 
 CFLAGS      ?= -O3 -funroll-loops
@@ -104,7 +104,7 @@ ifeq "$(shell test -e $(CC) || echo 1 )" "1"
     CXX        = $(BIN_DIR)/clang++
   else
     # hope for the best
-    $(warn we have trouble finding clang/clang++ - llvm-config is not helping us)
+    $(warning we have trouble finding clang/clang++ - llvm-config is not helping us)
     CC         = clang
     CXX        = clang++
   endif
@@ -140,8 +140,22 @@ ifneq "$(CLANGVER)" "$(LLVMVER)"
   CXX = $(shell llvm-config --bindir)/clang++
 endif
 
-all: test_shm test_deps $(PROGS) afl-clang-fast.8 test_build all_done
+# If prerequisites are not given, warn, do not build anything, and exit with code 0
+ifeq "$(LLVMVER)" ""
+  NO_BUILD = 1
+endif
 
+ifneq "$(LLVM_UNSUPPORTED)$(LLVM_APPLE)" "00"
+  NO_BUILD = 1
+endif
+
+ifeq "$(NO_BUILD)" "1"
+  TARGETS = no_build
+else
+  TARGETS = test_shm test_deps $(PROGS) afl-clang-fast.8 test_build all_done
+endif
+
+all: $(TARGETS)
 
 ifeq "$(SHMAT_OK)" "1"
 
@@ -156,6 +170,8 @@ test_shm:
 
 endif
 
+no_build:
+	@printf "%b\\n" "\\033[0;31mPrerequisites are not met, skipping build\\033[0m"
 
 test_deps:
 ifndef AFL_TRACE_PC
