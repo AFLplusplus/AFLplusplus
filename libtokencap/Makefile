@@ -31,7 +31,6 @@ ifeq "$(shell uname)" "Darwin"
 endif
 ifeq "$(shell uname)" "FreeBSD"
   TARGETS = libtokencap.so
-  LDFLAGS     += -ldl
 endif
 ifeq "$(shell uname)" "OpenBSD"
   TARGETS = libtokencap.so
