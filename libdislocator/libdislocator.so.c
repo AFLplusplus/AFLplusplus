@@ -340,7 +340,7 @@ void* realloc(void* ptr, size_t len) {
 
 int posix_memalign(void** ptr, size_t align, size_t len) {
 
-  if (*ptr == NULL) return EINVAL;
+  // if (*ptr == NULL) return EINVAL; // (andrea) Why? I comment it out for now
   if ((align % 2) || (align % sizeof(void*))) return EINVAL;
   if (len == 0) {
 
@@ -348,12 +348,15 @@ int posix_memalign(void** ptr, size_t align, size_t len) {
     return 0;
 
   }
+  
+  size_t rem = len % align;
+  if (rem) len += align - rem;
+  
+  *ptr = __dislocator_alloc(len);
 
-  if (align >= 4 * sizeof(size_t)) len += align - 1;
+  if (*ptr && len) memset(*ptr, ALLOC_CLOBBER, len);
 
-  *ptr = malloc(len);
-
-  DEBUGF("posix_memalign(%p %zu, %zu)", ptr, align, len);
+  DEBUGF("posix_memalign(%p %zu, %zu) [*ptr = %p]", ptr, align, len, *ptr);
 
   return 0;
 

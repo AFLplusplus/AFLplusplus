@@ -259,11 +259,11 @@ void init_forkserver(char **argv) {
 
     setenv("MSAN_OPTIONS",
            "exit_code=" STRINGIFY(MSAN_ERROR) ":"
-                                              "symbolize=0:"
-                                              "abort_on_error=1:"
-                                              "malloc_context_size=0:"
-                                              "allocator_may_return_null=1:"
-                                              "msan_track_origins=0",
+           "symbolize=0:"
+           "abort_on_error=1:"
+           "malloc_context_size=0:"
+           "allocator_may_return_null=1:"
+           "msan_track_origins=0",
            0);
 
     execv(target_path, argv);
