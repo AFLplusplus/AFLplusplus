@@ -249,6 +249,7 @@ void init_forkserver(char **argv) {
     setenv("ASAN_OPTIONS",
            "abort_on_error=1:"
            "detect_leaks=0:"
+           "malloc_context_size=0:"
            "symbolize=0:"
            "allocator_may_return_null=1",
            0);
@@ -260,6 +261,7 @@ void init_forkserver(char **argv) {
            "exit_code=" STRINGIFY(MSAN_ERROR) ":"
                                               "symbolize=0:"
                                               "abort_on_error=1:"
+                                              "malloc_context_size=0:"
                                               "allocator_may_return_null=1:"
                                               "msan_track_origins=0",
            0);
