@@ -55,6 +55,9 @@ Note: if you want the QEMU helper to be installed on your system for all
 users, you need to build it before issuing 'make install' in the parent
 directory.
 
+If you want to specify a different path for libraries (e.g. to run an arm64
+binary on x86_64) use QEMU_LD_PREFIX.
+
 ## 3) Bonus feature #1: deferred initialization
 
 As for LLVM mode (refer to its README for mode details) QEMU mode supports
