@@ -555,6 +555,12 @@ test -d ../unicorn_mode/unicorn && {
       mkdir -p in
       echo 0 > in/in
       $ECHO "$GREY[*] Using python binary $PY"
+      $ECHO "$GREY[*] emulating one input in unicornafl"
+      $PY ../unicorn_mode/samples/simple/simple_test_harness.py ../unicorn_mode/samples/simple/sample_inputs/sample1.bin
+      $ECHO "$GREY[*] emulating a single fuzz test in unicorn_mode"
+      AFL_NO_UI=1 AFL_BENCH_UNTIL_CRASH=1 AFL_BENCH_JUST_ONE=1 AFL_DEBUG_CHILD_OUTPUT=1 ../afl-fuzz -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/simple/simple_test_harness.py @@
+      $ECHO "$GREEN[*] if you saw UC returned Error: above, everything worked fine - afl unicorn found the crash. :)"
+
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 25 seconds"
       {
         ../afl-fuzz -V25 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
