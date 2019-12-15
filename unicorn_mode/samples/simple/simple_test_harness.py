@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """ 
    Simple test harness for AFL's Unicorn Mode.
 
@@ -17,8 +18,8 @@ import argparse
 import os
 import signal
 
-from unicorn import *
-from unicorn.mips_const import *
+from unicornafl import *
+from unicornafl.mips_const import *
 
 # Path to the file containing the binary to emulate
 BINARY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'simple_target.bin')
@@ -120,51 +121,29 @@ def main():
     uc.mem_map(STACK_ADDRESS, STACK_SIZE)
     uc.reg_write(UC_MIPS_REG_SP, STACK_ADDRESS + STACK_SIZE)
 
-    #-----------------------------------------------------
-    # Emulate 1 instruction to kick off AFL's fork server
-    #   THIS MUST BE DONE BEFORE LOADING USER DATA! 
-    #   If this isn't done every single run, the AFL fork server 
-    #   will not be started appropriately and you'll get erratic results!
-    #   It doesn't matter what this returns with, it just has to execute at
-    #   least one instruction in order to get the fork server started.
-
-    # Execute 1 instruction just to startup the forkserver
-    print("Starting the AFL forkserver by executing 1 instruction")
-    try:
-        uc.emu_start(uc.reg_read(UC_MIPS_REG_PC), 0, 0, count=1)
-    except UcError as e:
-        print("ERROR: Failed to execute a single instruction (error: {})!".format(e))
-        return
-
-    #-----------------------------------------------
-    # Load the mutated input and map it into memory
-
-    # Load the mutated input from disk
-    print("Loading data input from {}".format(args.input_file))
-    input_file = open(args.input_file, 'rb')
-    input = input_file.read()
-    input_file.close()
-
-    # Apply constraints to the mutated input
-    if len(input) > DATA_SIZE_MAX:
-        print("Test input is too long (> {} bytes)".format(DATA_SIZE_MAX))
-        return
-
-    # Write the mutated command into the data buffer
+    # reserve some space for data
     uc.mem_map(DATA_ADDRESS, DATA_SIZE_MAX)
-    uc.mem_write(DATA_ADDRESS, input)
 
-    #------------------------------------------------------------
-    # Emulate the code, allowing it to process the mutated input
+    #-----------------------------------------------------
+    # Set up a callback to place input data (do little work here, it's called for every single iteration)
+    # We did not pass in any data and don't use persistent mode, so we can ignore these params.
+    # Be sure to check out the docstrings for the uc.afl_* functions.
+    def place_input_callback(uc, input, persistent_round, data):
+        # Load the mutated input from disk
+        input_file = open(args.input_file, 'rb')
+        input = input_file.read()
+        input_file.close()
 
-    print("Executing until a crash or execution reaches 0x{0:016x}".format(end_address))
-    try:
-        result = uc.emu_start(uc.reg_read(UC_MIPS_REG_PC), end_address, timeout=0, count=0)
-    except UcError as e:
-        print("Execution failed with error: {}".format(e))
-        force_crash(e)
+        # Apply constraints to the mutated input
+        if len(input) > DATA_SIZE_MAX:
+            #print("Test input is too long (> {} bytes)")
+            return False
 
-    print("Done.")
+        # Write the mutated command into the data buffer
+        uc.mem_write(DATA_ADDRESS, input)
+
+    # Start the fuzzer.
+    uc.afl_fuzz(args.input_file, place_input_callback, [end_address])
 
 if __name__ == "__main__":
     main()

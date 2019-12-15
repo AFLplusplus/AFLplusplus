@@ -34,6 +34,3 @@ afl-whatsup.8
 qemu_mode/libcompcov/compcovtest
 as
 qemu_mode/qemu-*
-unicorn_mode/unicorn
-unicorn_mode/unicorn-*
-unicorn_mode/*.tar.gz
