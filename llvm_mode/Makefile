@@ -36,7 +36,7 @@ else
 endif
 
 LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null )
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^3\.0|^1[1-9]' && echo 1 || echo 0 )
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^3\.[0-7]|^1[1-9]' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[0-9]' && echo 1 || echo 0 )
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//')
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
@@ -171,7 +171,7 @@ test_shm:
 endif
 
 no_build:
-	@printf "%b\\n" "\\033[0;31mPrerequisites are not met, skipping build\\033[0m"
+	@printf "%b\\n" "\\033[0;31mPrerequisites are not met, skipping build llvm_mode\\033[0m"
 
 test_deps:
 ifndef AFL_TRACE_PC
