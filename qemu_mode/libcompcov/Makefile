@@ -22,7 +22,7 @@ CFLAGS      ?= -O3 -funroll-loops -I ../../include/
 CFLAGS      += -Wall -Wno-unused-result -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign
 LDFLAGS     += -ldl
 
-all: libcompcov.so compcovtest
+all: libcompcov.so
 
 libcompcov.so: libcompcov.so.c ../../config.h
 	$(CC) $(CFLAGS) -shared -fPIC $< -o ../../$@ $(LDFLAGS)
@@ -34,7 +34,7 @@ clean:
 	rm -f ../../libcompcov.so compcovtest
 
 compcovtest:	compcovtest.cc
-	$(CXX) $< -o $@ 
+	$(CXX) -std=c++11 $< -o $@ 
 
 install: all
 	install -m 755 ../../libcompcov.so $${DESTDIR}$(HELPER_PATH)
