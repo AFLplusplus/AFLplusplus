@@ -42,10 +42,15 @@ void tcg_gen_afl_maybe_log_call(target_ulong cur_loc) {
   unsigned sizemask, flags;
   TCGOp *  op;
 
+#if TARGET_LONG_BITS == 64
   TCGTemp *arg = tcgv_i64_temp(tcg_const_tl(cur_loc));
+  sizemask = dh_sizemask(void, 0) | dh_sizemask(i64, 1);
+#else
+  TCGTemp *arg = tcgv_i32_temp(tcg_const_tl(cur_loc));
+  sizemask = dh_sizemask(void, 0) | dh_sizemask(i32, 1);
+#endif
 
   flags = 0;
-  sizemask = dh_sizemask(void, 0) | dh_sizemask(i64, 1);
 
 #if defined(__sparc__) && !defined(__arch64__) && \
     !defined(CONFIG_TCG_INTERPRETER)
@@ -372,19 +377,26 @@ void tcg_gen_afl_call0(void *func) {
 }
 
 void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
-                                  TCGv_i64 arg1, TCGv_i64 arg2) {
+                                  TCGv arg1, TCGv arg2) {
 
   int      i, real_args, nb_rets, pi;
   unsigned sizemask, flags;
   TCGOp *  op;
 
   const int nargs = 3;
+#if TARGET_LONG_BITS == 64
   TCGTemp *args[3] = {tcgv_i64_temp(tcg_const_tl(cur_loc)), tcgv_i64_temp(arg1),
                       tcgv_i64_temp(arg2)};
-
-  flags = 0;
   sizemask = dh_sizemask(void, 0) | dh_sizemask(i64, 1) | dh_sizemask(i64, 2) |
              dh_sizemask(i64, 3);
+#else
+  TCGTemp *args[3] = {tcgv_i32_temp(tcg_const_tl(cur_loc)), tcgv_i32_temp(arg1),
+                      tcgv_i32_temp(arg2)};
+  sizemask = dh_sizemask(void, 0) | dh_sizemask(i32, 1) | dh_sizemask(i32, 2) |
+             dh_sizemask(i32, 3);
+#endif
+
+  flags = 0;
 
 #if defined(__sparc__) && !defined(__arch64__) && \
     !defined(CONFIG_TCG_INTERPRETER)

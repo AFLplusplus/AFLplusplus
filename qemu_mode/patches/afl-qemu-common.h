@@ -80,7 +80,7 @@ void afl_persistent_loop();
 
 void tcg_gen_afl_call0(void *func);
 void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc,
-                                  TCGv_i64 arg1, TCGv_i64 arg2);
+                                  TCGv arg1, TCGv arg2);
 
 void tcg_gen_afl_maybe_log_call(target_ulong cur_loc);
 
