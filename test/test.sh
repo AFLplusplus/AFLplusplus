@@ -550,8 +550,8 @@ test -d ../unicorn_mode/unicorn && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
       # travis workaround
-      PY=`which python2.7`
-      test "$PY" = "/opt/pyenv/shims/python2.7" -a -x /usr/bin/python2.7 && PY=/usr/bin/python2.7
+      PY=`which python`
+      test "$PY" = "/opt/pyenv/shims/python" -a -x /usr/bin/python && PY=/usr/bin/python
       mkdir -p in
       echo 0 > in/in
       $ECHO "$GREY[*] Using python binary $PY"
