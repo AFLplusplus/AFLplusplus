@@ -130,7 +130,7 @@ static u8  alloc_verbose,               /* Additional debug messages        */
 static __thread size_t total_mem;       /* Currently allocated mem          */
 
 static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
-static __thread u32 alloc_canary;
+static u32 alloc_canary;
 
 /* This is the main alloc function. It allocates one page more than necessary,
    sets that tailing page to PROT_NONE, and then increments the return address
