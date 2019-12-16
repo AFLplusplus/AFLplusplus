@@ -59,18 +59,17 @@
 
   A more thorough list is available in the PATCHES file.
 
-  | Feature/Instrumentation | AFL-GCC | LLVM_MODE | GCC_PLUGIN | QEMU_MODE | Unicorn |
-  | ----------------------- |:-------:|:---------:|:----------:|:---------:|:-------:|
-  | laf-intel / CompCov     |         |     x     |            |     x     |    x    |
-  | NeverZero               |    x    |     x(1)  |      (2)   |     x     |    x    |
-  | Persistent mode         |         |     x     |     x      |     x     |         |
-  | Whitelist               |         |     x     |     x      |           |         |
-  | InsTrim                 |         |     x     |            |           |         |
+  | Feature/Instrumentation | afl-gcc | llvm_mode | gcc_plugin | qemu_mode | unicorn_mode |
+  | ----------------------- |:-------:|:---------:|:----------:|:---------:|:------------:|
+  | laf-intel / CompCov     |         |     x     |            |  x86/arm  |   x86/arm    |
+  | NeverZero               |    x    |     x(1)  |      (2)   |     x     |      x       |
+  | Persistent mode         |         |     x     |     x      |    x86    |      x       |
+  | Whitelist               |         |     x     |     x      |           |              |
+  | InsTrim                 |         |     x     |            |           |              |
 
   neverZero:
   (1) only in LLVM >= 9.0 due to a bug in llvm in previous versions
   (2) gcc create non-performant code, hence it is disabled in gcc_plugin
-
 
   So all in all this is the best-of AFL that is currently out there :-)
 
