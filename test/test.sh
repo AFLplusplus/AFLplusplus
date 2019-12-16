@@ -550,44 +550,50 @@ test -d ../unicorn_mode/unicorn && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
       # travis workaround
-      PY=`which python2.7`
-      test "$PY" = "/opt/pyenv/shims/python2.7" -a -x /usr/bin/python2.7 && PY=/usr/bin/python2.7
+      PY=`which python`
+      test "$PY" = "/opt/pyenv/shims/python" -a -x /usr/bin/python && PY=/usr/bin/python
       mkdir -p in
       echo 0 > in/in
       $ECHO "$GREY[*] Using python binary $PY"
-      $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 25 seconds"
+      if ! $PY -c 'import unicornafl' 2> /dev/null ; then
+        $ECHO "$YELLOW[-] we cannot test unicorn_mode because it is not present"
+      else
       {
-        ../afl-fuzz -V25 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
-      } >>errors 2>&1
-      test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
-        $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
-      } || {
-        echo CUT------------------------------------------------------------------CUT
-        cat errors
-        echo CUT------------------------------------------------------------------CUT
-        $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode"
-        CODE=1
-      }
-      rm -f errors
+        $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 25 seconds"
+        {
+          ../afl-fuzz -V25 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
+        } >>errors 2>&1
+        test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+          $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
+        } || {
+          echo CUT------------------------------------------------------------------CUT
+          cat errors
+          echo CUT------------------------------------------------------------------CUT
+          $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode"
+          CODE=1
+        }
+        rm -f errors
 
-      printf '\x01\x01' > in/in
-      # This seed is close to the first byte of the comparison.
-      # If CompCov works, a new tuple will appear in the map => new input in queue
-      $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 35 seconds"
-      {
-        export AFL_COMPCOV_LEVEL=2
-        ../afl-fuzz -V35 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
-      } >>errors 2>&1
-      test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
-        $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
-      } || {
-        echo CUT------------------------------------------------------------------CUT
-        cat errors
-        echo CUT------------------------------------------------------------------CUT
-        $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode compcov"
-        CODE=1
+        printf '\x01\x01' > in/in
+        # This seed is close to the first byte of the comparison.
+        # If CompCov works, a new tuple will appear in the map => new input in queue
+        $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 35 seconds"
+        {
+          export AFL_COMPCOV_LEVEL=2
+          ../afl-fuzz -V35 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
+        } >>errors 2>&1
+        test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
+          $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
+        } || {
+          echo CUT------------------------------------------------------------------CUT
+          cat errors
+          echo CUT------------------------------------------------------------------CUT
+          $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode compcov"
+          CODE=1
+        }
+        rm -rf in out errors
       }
-      rm -rf in out errors
+      fi
     }
   } || {
     $ECHO "$RED[-] missing sample binaries in unicorn_mode/samples/ - what is going on??"
