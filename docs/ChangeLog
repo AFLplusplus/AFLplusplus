@@ -18,6 +18,8 @@ Version ++2.58d (dev):
 ----------------------
 
   - qbdi_mode: fuzz android native libraries via QBDI framework
+  - unicorn_mode: switched with the new unicornafl, thanks domenukk
+                  (see https://github.com/vanhauser-thc/unicorn)
   - afl-fuzz:
      - added Radamsa and an optional radamsa stage (-R[R])
      - CPU affinity support for DragonFly
