@@ -61,8 +61,9 @@ You must install the python 3.7 or 2.7 development package of your Linux
 distribution before this will work. On Debian/Ubuntu/Kali this can be done
 with either:
   apt install python3.7-dev
-pr
+or
   apt install python2.7-dev
+Note that for some distributions you might also need the package python[23]-apt
 
 A prerequisite for using this mode is to compile AFLFuzz with Python support.
 

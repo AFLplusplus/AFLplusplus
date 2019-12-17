@@ -211,7 +211,7 @@ test_python27:
 else
 
 test_python27:
-	@echo "[-] You seem to need to install the package python3.7-dev or python2.7-dev, but it is optional so we continue"
+	@echo "[-] You seem to need to install the package python3.7-dev or python2.7-dev (and perhaps python[23]-apt), but it is optional so we continue"
 
 endif
 
