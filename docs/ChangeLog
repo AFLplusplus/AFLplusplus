@@ -18,14 +18,14 @@ Version ++2.58d (dev):
 ----------------------
 
   - qbdi_mode: fuzz android native libraries via QBDI framework
-  - unicorn_mode: switched with the new unicornafl, thanks domenukk
+  - unicorn_mode: switched to the new unicornafl, thanks domenukk
                   (see https://github.com/vanhauser-thc/unicorn)
   - afl-fuzz:
-     - added Radamsa and an optional radamsa stage (-R[R])
-     - CPU affinity support for DragonFly
+     - added radamsa as (an optional) mutator stage (-R[R])
      - added -u command line option to not unlink the fuzz input file
      - Python3 support (autodetect)
      - AFL_DISABLE_TRIM env var to disable the trim stage
+     - CPU affinity support for DragonFly
   - llvm_mode:
      - float splitting is now configured via AFL_LLVM_LAF_SPLIT_FLOATS
      - support for llvm 10 included now (thanks to devnexen)
@@ -39,7 +39,7 @@ Version ++2.58d (dev):
   - afl-analyze: added AFL_SKIP_BIN_CHECK support
   - better random numbers for gcc_plugin and llvm_mode (thanks to devnexen)
   - Dockerfile by courtesy of devnexen
-  - ripped regex.dictionary from Google afl PR
+  - added regex.dictionary
   - qemu and unicorn download scripts now try to download until the full
     download succeeded. f*ckin travis fails downloading 40% of the time!
   - added the few Android stuff we didnt have already from Google afl repository
