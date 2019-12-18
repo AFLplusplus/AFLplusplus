@@ -102,8 +102,6 @@ def main():
 
     uc.mem_map(STACK_ADDRESS, STACK_SIZE)
     uc.reg_write(UC_MIPS_REG_SP, STACK_ADDRESS + STACK_SIZE)
-    
-    print(STACK_ADDRESS + STACK_SIZE)
 
     # reserve some space for data
     uc.mem_map(DATA_ADDRESS, DATA_SIZE_MAX)
