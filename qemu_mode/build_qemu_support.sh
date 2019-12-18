@@ -243,10 +243,9 @@ else
 fi
 
 echo "[+] Building libcompcov ..."
-make -C libcompcov
+make -C libcompcov && echo "[+] libcompcov ready"
 echo "[+] Building unsigaction ..."
-make -C unsigaction
-echo "[+] libcompcov ready"
+make -C unsigaction && echo "[+] unsigaction ready"
 echo "[+] All done for qemu_mode, enjoy!"
 
 exit 0

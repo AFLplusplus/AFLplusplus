@@ -310,7 +310,7 @@ all_done: test_build
 .NOTPARALLEL: clean
 
 clean:
-	rm -f $(PROGS) libradamsa.so afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so *.8
+	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast *.so *.8
 	rm -rf out_dir qemu_mode/qemu-3.1.1 *.dSYM */*.dSYM
 	-$(MAKE) -C llvm_mode clean
 	-$(MAKE) -C gcc_plugin clean

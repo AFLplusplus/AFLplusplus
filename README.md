@@ -2,9 +2,9 @@
 
   ![Travis State](https://api.travis-ci.com/vanhauser-thc/AFLplusplus.svg?branch=master)
 
-  Release Version: 2.58c 
+  Release Version: 2.59c 
 
-  Github Version: 2.58d
+  Github Version: 2.59d
 
   includes all necessary/interesting changes from Google's afl 2.56b
 
