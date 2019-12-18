@@ -18,7 +18,7 @@ ifndef AFL_NO_X86
 all: lib_i386 lib_amd64
 
 lib_i386:
-	$(CC) -m32 -fPIC -shared unsigaction.c -o unsigaction32.so || echo "Cannot build unsigation32"
+	@$(CC) -m32 -fPIC -shared unsigaction.c -o unsigaction32.so 2>/dev/null ; if [ "$$?" = "0" ]; then echo "unsigaction32 build success"; else echo "unsigaction32 build failure (that's fine)"; fi
 
 lib_amd64:
 	$(CC) -fPIC -shared unsigaction.c -o unsigaction64.so
