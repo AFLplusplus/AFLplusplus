@@ -1,0 +1,140 @@
+cc_defaults {
+  name: "afl-defaults",
+
+  cflags: [
+    "-funroll-loops",
+    "-Wno-pointer-sign",
+    "-Wno-pointer-arith",
+    "-Wno-sign-compare",
+    "-Wno-unused-parameter",
+    "-Wno-unused-function",
+    "-Wno-format",
+    "-Wno-user-defined-warnings",
+    "-DUSE_TRACE_PC=1",
+    "-DBIN_PATH=\"out/host/linux-x86/bin\"",
+    "-DDOC_PATH=\"out/host/linux-x86/shared/doc/afl\"",
+    "-D__USE_GNU",
+  ],
+}
+
+cc_binary {
+  name: "afl-fuzz",
+  static_executable: true,
+  host_supported: true,
+
+  defaults: [
+    "afl-defaults",
+  ],
+
+  srcs: [
+    "afl-fuzz.c",
+  ],
+}
+
+cc_binary {
+  name: "afl-showmap",
+  static_executable: true,
+  host_supported: true,
+
+  defaults: [
+    "afl-defaults",
+  ],
+
+  srcs: [
+    "afl-showmap.c",
+  ],
+}
+
+cc_binary {
+  name: "afl-tmin",
+  static_executable: true,
+  host_supported: true,
+
+  defaults: [
+    "afl-defaults",
+  ],
+
+  srcs: [
+    "afl-tmin.c",
+  ],
+}
+
+cc_binary {
+  name: "afl-analyze",
+  static_executable: true,
+  host_supported: true,
+
+  defaults: [
+    "afl-defaults",
+  ],
+
+  srcs: [
+    "afl-analyze.c",
+  ],
+}
+
+cc_binary {
+  name: "afl-gotcpu",
+  static_executable: true,
+  host_supported: true,
+
+  defaults: [
+    "afl-defaults",
+  ],
+
+  srcs: [
+    "afl-gotcpu.c",
+  ],
+}
+
+cc_binary_host {
+  name: "afl-clang-fast",
+  static_executable: true,
+
+  defaults: [
+    "afl-defaults",
+  ],
+
+  cflags: [
+    "-D__ANDROID__",
+    "-DAFL_PATH=\"out/host/linux-x86/lib64\"",
+  ],
+
+  srcs: [
+    "llvm_mode/afl-clang-fast.c",
+  ],
+}
+
+cc_binary_host {
+  name: "afl-clang-fast++",
+  static_executable: true,
+
+  defaults: [
+    "afl-defaults",
+  ],
+
+  cflags: [
+    "-D__ANDROID__",
+    "-DAFL_PATH=\"out/host/linux-x86/lib64\"",
+  ],
+
+  srcs: [
+    "llvm_mode/afl-clang-fast.c",
+  ],
+}
+
+cc_library_static {
+  name: "afl-llvm-rt",
+  compile_multilib: "both",
+  vendor_available: true,
+  host_supported: true,
+  recovery_available: true,
+
+  defaults: [
+    "afl-defaults",
+  ],
+
+  srcs: [
+    "llvm_mode/afl-llvm-rt.o.c",
+  ],
+}
