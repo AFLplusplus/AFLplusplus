@@ -1,3 +1,0 @@
-[submodule "unicorn_mode/unicorn"]
-	path = unicorn_mode/unicorn
-	url = https://github.com/vanhauser-thc/unicorn.git
