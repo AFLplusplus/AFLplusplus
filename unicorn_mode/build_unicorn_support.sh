@@ -89,7 +89,7 @@ if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
   TARCMD=gtar
 fi
 
-for i in wget $PYTHONBIN automake autoconf $MAKECMD $TARCMD; do
+for i in wget $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 
   T=`which "$i" 2>/dev/null`
 
@@ -124,7 +124,8 @@ fi
 echo "[+] All checks passed!"
 
 echo "[*] Making sure unicornafl is checked out"
-test -d unicorn && { cd unicorn && { git stash ; git pull ; cd .. ; } }
+rm -rf unicorn # workaround for travis ... sadly ...
+#test -d unicorn && { cd unicorn && { git stash ; git pull ; cd .. ; } }
 test -d unicorn || git clone https://github.com/vanhauser-thc/unicorn
 test -d unicorn || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got unicornafl."
