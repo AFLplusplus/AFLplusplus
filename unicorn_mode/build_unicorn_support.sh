@@ -124,8 +124,9 @@ fi
 echo "[+] All checks passed!"
 
 echo "[*] Making sure unicornafl is checked out"
-git submodule init || exit 1
-git submodule update || exit 1
+test -d unicorn && { cd unicorn && { git stash ; git pull ; cd .. ; } }
+test -d unicorn || git clone https://github.com/vanhauser-thc/unicorn
+test -d unicorn || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got unicornafl."
 
 echo "[*] making sure config.h matches"
