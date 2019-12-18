@@ -212,7 +212,7 @@ int main(int argc, char** argv) {
 
       if (util_perc < 110) {
 
-        SAYF("    Core #%u: " cLGN "AVAILABLE\n" cRST, i);
+        SAYF("    Core #%u: " cLGN "AVAILABLE" cRST "(%u%%)\n", i, util_perc);
         exit(0);
 
       } else if (util_perc < 250) {
