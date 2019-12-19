@@ -358,7 +358,7 @@ static void edit_params(u32 argc, char** argv) {
 
     }
 
-//#ifndef __ANDROID__ // not sure, we might need these ifdefs for Android
+    //#ifndef __ANDROID__ // not sure, we might need these ifdefs for Android
     switch (bit_mode) {
 
       case 0:
@@ -382,7 +382,8 @@ static void edit_params(u32 argc, char** argv) {
         break;
 
     }
-//#endif
+
+    //#endif
 
   }
 
@@ -443,9 +444,9 @@ int main(int argc, char** argv) {
 
   }
 
-//#ifndef __ANDROID__ // not sure this is needed for Android, so at the moment we rather keep this out
+#ifndef __ANDROID__ 
   find_obj(argv[0]);
-//#endif
+#endif
 
   edit_params(argc, argv);
 

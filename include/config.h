@@ -26,7 +26,7 @@
 
 /* Version string: */
 
-#define VERSION "++2.58d"  // c = release, d = volatile github dev
+#define VERSION "++2.59d"  // c = release, d = volatile github dev
 
 /******************************************************
  *                                                    *

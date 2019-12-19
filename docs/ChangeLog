@@ -13,9 +13,17 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-----------------------
-Version ++2.58d (dev):
-----------------------
+--------------------------
+Version ++2.59d (develop):
+--------------------------
+
+  - your patch? :-)
+
+
+
+--------------------------
+Version ++2.59c (release):
+--------------------------
 
   - qbdi_mode: fuzz android native libraries via QBDI framework
   - unicorn_mode: switched to the new unicornafl, thanks domenukk
