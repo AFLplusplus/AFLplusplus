@@ -59,35 +59,17 @@ def unicorn_debug_mem_invalid_access(uc, access, address, size, value, user_data
     else:
         print("        >>> INVALID Read: addr=0x{0:016x} size={1}".format(address, size))   
 
-def force_crash(uc_error):
-    # This function should be called to indicate to AFL that a crash occurred during emulation.
-    # Pass in the exception received from Uc.emu_start()
-    mem_errors = [
-        UC_ERR_READ_UNMAPPED, UC_ERR_READ_PROT, UC_ERR_READ_UNALIGNED,
-        UC_ERR_WRITE_UNMAPPED, UC_ERR_WRITE_PROT, UC_ERR_WRITE_UNALIGNED,
-        UC_ERR_FETCH_UNMAPPED, UC_ERR_FETCH_PROT, UC_ERR_FETCH_UNALIGNED,
-    ]
-    if uc_error.errno in mem_errors:
-        # Memory error - throw SIGSEGV
-        os.kill(os.getpid(), signal.SIGSEGV)
-    elif uc_error.errno == UC_ERR_INSN_INVALID:
-        # Invalid instruction - throw SIGILL
-        os.kill(os.getpid(), signal.SIGILL)
-    else:
-        # Not sure what happened - throw SIGABRT
-        os.kill(os.getpid(), signal.SIGABRT)
-
 def main():
 
     parser = argparse.ArgumentParser(description="Test harness for compcov_target.bin")
     parser.add_argument('input_file', type=str, help="Path to the file containing the mutated input to load")
-    parser.add_argument('-d', '--debug', default=False, action="store_true", help="Enables debug tracing")
+    parser.add_argument('-t', '--trace', default=False, action="store_true", help="Enables debug tracing")
     args = parser.parse_args()
 
     # Instantiate a MIPS32 big endian Unicorn Engine instance
     uc = Uc(UC_ARCH_X86, UC_MODE_64)
 
-    if args.debug:
+    if args.trace:
         uc.hook_add(UC_HOOK_BLOCK, unicorn_debug_block)
         uc.hook_add(UC_HOOK_CODE, unicorn_debug_instruction)
         uc.hook_add(UC_HOOK_MEM_WRITE | UC_HOOK_MEM_READ, unicorn_debug_mem_access)
@@ -132,11 +114,6 @@ def main():
         """
         Callback that loads the mutated input into memory.
         """
-        # Load the mutated input from disk
-        input_file = open(args.input_file, 'rb')
-        input = input_file.read()
-        input_file.close()
-
         # Apply constraints to the mutated input
         if len(input) > DATA_SIZE_MAX:
             return
