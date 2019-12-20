@@ -73,19 +73,19 @@ if [ "$PLT" = "Linux" ]; then
 fi
 
 if [ "$PLT" = "Darwin" ]; then
-  CORES=`sysctl hw.ncpu | cut -d' ' -f2`
+  CORES=`sysctl -n hw.ncpu`
   TARCMD=tar
 fi
 
 if [ "$PLT" = "FreeBSD" ]; then
   MAKECMD=gmake
-  CORES=`sysctl hw.ncpu | cut -d' ' -f2`
+  CORES=`sysctl -n hw.ncpu`
   TARCMD=gtar
 fi
 
 if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
   MAKECMD=gmake
-  CORES=`sysctl hw.ncpu | cut -d'=' -f2`
+  CORES=`sysctl -n hw.ncpu`
   TARCMD=gtar
 fi
 
