@@ -44,7 +44,7 @@ echo "[*] Performing basic sanity checks..."
 if [ ! "`uname -s`" = "Linux" ]; then
 
   echo "[-] Error: QEMU instrumentation is supported only on Linux."
-  exit 1
+  exit 0
 
 fi
 
