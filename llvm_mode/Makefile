@@ -136,8 +136,8 @@ else
 endif
 
 ifneq "$(CLANGVER)" "$(LLVMVER)"
-  CC = $(shell llvm-config --bindir)/clang
-  CXX = $(shell llvm-config --bindir)/clang++
+  CC = $(shell $(LLVM_CONFIG) --bindir)/clang
+  CXX = $(shell $(LLVM_CONFIG) --bindir)/clang++
 endif
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
