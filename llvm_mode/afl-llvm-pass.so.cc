@@ -36,14 +36,7 @@
 #include <fstream>
 #include <sys/time.h>
 
-#include <llvm/Config/llvm-config.h>
-
-#if (LLVM_VERSION_MAJOR <= 3) && (LLVM_VERSION_MINOR < 7)
-#include <llvm/DebugInfo.h>
-#else
-#include <llvm/IR/DebugInfo.h>
-#endif
-
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
