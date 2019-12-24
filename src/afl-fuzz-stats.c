@@ -576,10 +576,10 @@ void show_stats(void) {
                 "  imported : " cRST "%-10s" bSTG       bV "\n",
        tmp, sync_id ? DI(queued_imported) : (u8*)"n/a");
 
-  sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-          DI(stage_finds[STAGE_HAVOC]), DI(stage_cycles[STAGE_HAVOC]),
-          DI(stage_finds[STAGE_SPLICE]), DI(stage_cycles[STAGE_SPLICE]),
-          DI(stage_finds[STAGE_RADAMSA]), DI(stage_cycles[STAGE_RADAMSA]));
+  sprintf(tmp, "%s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_HAVOC]),
+          DI(stage_cycles[STAGE_HAVOC]), DI(stage_finds[STAGE_SPLICE]),
+          DI(stage_cycles[STAGE_SPLICE]), DI(stage_finds[STAGE_RADAMSA]),
+          DI(stage_cycles[STAGE_RADAMSA]));
 
   SAYF(bV bSTOP "   havoc/rad : " cRST "%-36s " bSTG bV bSTOP, tmp);
 
@@ -596,13 +596,12 @@ void show_stats(void) {
                   : cRST),
        tmp);
 
-  sprintf(tmp, "%s/%s, %s/%s",
-          DI(stage_finds[STAGE_PYTHON]), DI(stage_cycles[STAGE_PYTHON]),
-          DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
+  sprintf(tmp, "%s/%s, %s/%s", DI(stage_finds[STAGE_PYTHON]),
+          DI(stage_cycles[STAGE_PYTHON]), DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
           DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
 
-  SAYF(bV bSTOP "   py/custom : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB
-                  "\n", tmp);
+  SAYF(bV bSTOP "   py/custom : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
+       tmp);
 
   if (!bytes_trim_out) {
 
@@ -639,13 +638,11 @@ void show_stats(void) {
 
     sprintf(tmp, "%s/%s", DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
             DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
-    SAYF(bV bSTOP " custom mut. : " cRST "%-36s " bSTG bV RESET_G1,
-         tmp);
+    SAYF(bV bSTOP " custom mut. : " cRST "%-36s " bSTG bV RESET_G1, tmp);
 
   } else {
 
-    SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bV RESET_G1,
-         tmp);
+    SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bV RESET_G1, tmp);
 
   }
 
@@ -691,7 +688,7 @@ void show_stats(void) {
   } else
 
     SAYF("\r");
-  
+
   /* Last line */
   SAYF(SET_G1 "\n" bSTG bLB bH30 bH20 bH2 bRB bSTOP cRST RESET_G1);
 

@@ -17,7 +17,7 @@
 
    #include "/path/to/argv-fuzz-inl.h"
 
-   ...to the file containing main(), ideally placing it after all the 
+   ...to the file containing main(), ideally placing it after all the
    standard includes. Next, put AFL_INIT_ARGV(); near the very beginning of
    main().
 
@@ -36,12 +36,20 @@
 
 #include <unistd.h>
 
-#define AFL_INIT_ARGV() do { argv = afl_init_argv(&argc); } while (0)
-
-#define AFL_INIT_SET0(_p) do { \
+#define AFL_INIT_ARGV()          \
+  do {                           \
+                                 \
     argv = afl_init_argv(&argc); \
-    argv[0] = (_p); \
-    if (!argc) argc = 1; \
+                                 \
+  } while (0)
+
+#define AFL_INIT_SET0(_p)        \
+  do {                           \
+                                 \
+    argv = afl_init_argv(&argc); \
+    argv[0] = (_p);              \
+    if (!argc) argc = 1;         \
+                                 \
   } while (0)
 
 #define MAX_CMDLINE_LEN 100000
@@ -53,9 +61,9 @@ static char** afl_init_argv(int* argc) {
   static char* ret[MAX_CMDLINE_PAR];
 
   char* ptr = in_buf;
-  int   rc  = 0;
+  int   rc = 0;
 
-  if (read(0, in_buf, MAX_CMDLINE_LEN - 2) < 0);
+  if (read(0, in_buf, MAX_CMDLINE_LEN - 2) < 0) {}
 
   while (*ptr) {
 
@@ -63,7 +71,8 @@ static char** afl_init_argv(int* argc) {
     if (ret[rc][0] == 0x02 && !ret[rc][1]) ret[rc]++;
     rc++;
 
-    while (*ptr) ptr++;
+    while (*ptr)
+      ptr++;
     ptr++;
 
   }
@@ -77,4 +86,5 @@ static char** afl_init_argv(int* argc) {
 #undef MAX_CMDLINE_LEN
 #undef MAX_CMDLINE_PAR
 
-#endif /* !_HAVE_ARGV_FUZZ_INL */
+#endif                                              /* !_HAVE_ARGV_FUZZ_INL */
+

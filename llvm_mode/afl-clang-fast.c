@@ -444,7 +444,7 @@ int main(int argc, char** argv) {
 
   }
 
-#ifndef __ANDROID__ 
+#ifndef __ANDROID__
   find_obj(argv[0]);
 #endif
 

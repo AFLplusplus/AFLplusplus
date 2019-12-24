@@ -36,13 +36,13 @@
 #define UP4K(_i) ((((_i) >> 12) + 1) << 12)
 
 const unsigned char* afl_postprocess(const unsigned char* in_buf,
-                                     unsigned int* len) {
+                                     unsigned int*        len) {
 
   static unsigned char* saved_buf;
   static unsigned int   saved_len;
 
   unsigned char* new_buf = (unsigned char*)in_buf;
-  unsigned int pos = 8;
+  unsigned int   pos = 8;
 
   /* Don't do anything if there's not enough room for the PNG header
      (8 bytes). */
@@ -111,3 +111,4 @@ const unsigned char* afl_postprocess(const unsigned char* in_buf,
   return new_buf;
 
 }
+

@@ -17,8 +17,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.59d (develop):
 --------------------------
 
-  - your patch? :-)
-
+  - added ./experimental/argv_fuzzing ld_preload library by Kjell Braden
+  - added preeny's desock_dup ld_preload library as
+    ./experimental/socket_fuzzing for network fuzzing
+  - we now set QEMU_SET_ENV from AFL_PRELOAD when qemu_mode is used
 
 
 --------------------------

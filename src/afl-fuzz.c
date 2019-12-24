@@ -705,10 +705,37 @@ int main(int argc, char** argv) {
   if (dumb_mode == 2 && no_forkserver)
     FATAL("AFL_DUMB_FORKSRV and AFL_NO_FORKSRV are mutually exclusive");
 
+  if (getenv("LD_PRELOAD"))
+    WARNF(
+        "LD_PRELOAD is set, are you sure that is want to you want to do "
+        "instead of using AFL_PRELOAD?");
+
   if (getenv("AFL_PRELOAD")) {
 
-    setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
-    setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
+    if (qemu_mode) {
+
+      char* qemu_preload = getenv("QEMU_SET_ENV");
+      char  buf[4096];
+
+      if (qemu_preload) {
+
+        snprintf(buf, sizeof(buf), "%s,LD_PRELOAD=%s", qemu_preload,
+                 getenv("AFL_PRELOAD"));
+
+      } else {
+
+        snprintf(buf, sizeof(buf), "LD_PRELOAD=%s", getenv("AFL_PRELOAD"));
+
+      }
+
+      setenv("QEMU_SET_ENV", buf, 1);
+
+    } else {
+
+      setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
+      setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
+
+    }
 
   }
 

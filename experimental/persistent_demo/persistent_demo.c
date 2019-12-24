@@ -28,12 +28,11 @@
 #include <signal.h>
 #include <string.h>
 
-
 /* Main entry point. */
 
 int main(int argc, char** argv) {
 
-  ssize_t len;   /* how much input did we read? */
+  ssize_t len;                               /* how much input did we read? */
   char buf[100]; /* Example-only buffer, you'd replace it with other global or
                     local variables appropriate for your use case. */
 
@@ -64,21 +63,28 @@ int main(int argc, char** argv) {
                We just have some trivial inline code that faults on 'foo!'. */
 
     /* do we have enough data? */
-    if (len < 4)
-      return 0;
+    if (len < 4) return 0;
 
     if (buf[0] == 'f') {
+
       printf("one\n");
       if (buf[1] == 'o') {
+
         printf("two\n");
         if (buf[2] == 'o') {
+
           printf("three\n");
           if (buf[3] == '!') {
+
             printf("four\n");
             abort();
+
           }
+
         }
+
       }
+
     }
 
     /*** END PLACEHOLDER CODE ***/
@@ -92,3 +98,4 @@ int main(int argc, char** argv) {
   return 0;
 
 }
+
