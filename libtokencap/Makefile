@@ -55,6 +55,7 @@ clean:
 	rm -f ../libtokencap.so
 
 install: all
+	install -m 755 -d $${DESTDIR}$(HELPER_PATH)
 	install -m 755 ../libtokencap.so $${DESTDIR}$(HELPER_PATH)
 	install -m 644 README.tokencap.md $${DESTDIR}$(HELPER_PATH)
 
