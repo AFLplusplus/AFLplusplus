@@ -13,7 +13,6 @@
 
 .PHONY: all install clean
 
-ifndef AFL_NO_X86
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
@@ -35,14 +34,3 @@ install: argvfuzz32.so argvfuzz64.so
 
 clean:
 	rm -f argvfuzz32.so argvfuzz64.so
-
-else
-
-all:
-	@echo "[!] Note: skipping compilation of argvfuzz (AFL_NO_X86 set)."
-
-install:
-
-clean:
-
-endif
