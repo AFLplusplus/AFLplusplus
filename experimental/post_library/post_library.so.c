@@ -21,9 +21,9 @@
       in the targeted binary (as shown in ../libpng_no_checksum/). One possible
       exception is the process of fuzzing binary-only software in QEMU mode.
 
-   2) The use of postprocessors for anything other than checksums is questionable
-      and may cause more harm than good. AFL is normally pretty good about
-      dealing with length fields, magic values, etc.
+   2) The use of postprocessors for anything other than checksums is
+   questionable and may cause more harm than good. AFL is normally pretty good
+   about dealing with length fields, magic values, etc.
 
    3) Postprocessors that do anything non-trivial must be extremely robust to
       gracefully handle malformed data and other error conditions - otherwise,
@@ -77,10 +77,10 @@
 /* The actual postprocessor routine called by afl-fuzz: */
 
 const unsigned char* afl_postprocess(const unsigned char* in_buf,
-                                     unsigned int* len) {
+                                     unsigned int*        len) {
 
   static unsigned char* saved_buf;
-  unsigned char* new_buf;
+  unsigned char*        new_buf;
 
   /* Skip execution altogether for buffers shorter than 6 bytes (just to
      show how it's done). We can trust *len to be sane. */
@@ -117,3 +117,4 @@ const unsigned char* afl_postprocess(const unsigned char* in_buf,
   return new_buf;
 
 }
+

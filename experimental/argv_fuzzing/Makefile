@@ -23,12 +23,13 @@ LDFLAGS = -shared -ldl
 all: argvfuzz32.so argvfuzz64.so
 
 argvfuzz32.so: argvfuzz.c
-	$(CC) -m32 $(CFLAGS) $^ $(LDFLAGS) -o $@ || echo "argvfuzz32 build failure (that's fine)"
+	-$(CC) -m32 $(CFLAGS) $^ $(LDFLAGS) -o $@ || echo "argvfuzz32 build failure (that's fine)"
 
 argvfuzz64.so: argvfuzz.c
-	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+	-$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 install: argvfuzz32.so argvfuzz64.so
+	install -d -m 755 $(DESTDIR)$(HELPER_PATH)/
 	if [ -f argvfuzz32.so ]; then set -e; install -m 755 argvfuzz32.so $(DESTDIR)$(HELPER_PATH)/; fi
 	install -m 755 argvfuzz64.so $(DESTDIR)$(HELPER_PATH)/
 
