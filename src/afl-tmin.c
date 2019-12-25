@@ -96,6 +96,8 @@ static u8 crash_mode,                  /* Crash-centric mode?               */
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
+static u8 qemu_mode;
+
 /*
  * forkserver section
  */
@@ -882,8 +884,33 @@ static void set_up_environment(void) {
 
   if (getenv("AFL_PRELOAD")) {
 
-    setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
-    setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
+    if (qemu_mode) {
+
+      u8* qemu_preload = getenv("QEMU_SET_ENV");
+      u8* afl_preload = getenv("AFL_PRELOAD");
+      u8* buf;
+      
+      s32 i, afl_preload_size = strlen(afl_preload);
+      for (i = 0; i < afl_preload_size; ++i) {
+        if (afl_preload[i] == ',')
+          PFATAL("Comma (',') is not allowed in AFL_PRELOAD when -Q is specified!");
+      }
+
+      if (qemu_preload)
+        buf = alloc_printf("%s,LD_PRELOAD=%s", qemu_preload, afl_preload);
+      else
+        buf = alloc_printf("LD_PRELOAD=%s", afl_preload);
+
+      setenv("QEMU_SET_ENV", buf, 1);
+      
+      ck_free(buf);
+
+    } else {
+
+      setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
+      setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
+
+    }
 
   }
 
@@ -1026,7 +1053,7 @@ static void read_bitmap(u8* fname) {
 int main(int argc, char** argv) {
 
   s32 opt;
-  u8  mem_limit_given = 0, timeout_given = 0, qemu_mode = 0, unicorn_mode = 0,
+  u8  mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0,
      use_wine = 0;
   char** use_argv;
 
