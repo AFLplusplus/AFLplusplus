@@ -716,11 +716,15 @@ static void set_up_environment(void) {
       u8* qemu_preload = getenv("QEMU_SET_ENV");
       u8* afl_preload = getenv("AFL_PRELOAD");
       u8* buf;
-      
+
       s32 i, afl_preload_size = strlen(afl_preload);
       for (i = 0; i < afl_preload_size; ++i) {
+
         if (afl_preload[i] == ',')
-          PFATAL("Comma (',') is not allowed in AFL_PRELOAD when -Q is specified!");
+          PFATAL(
+              "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
+              "specified!");
+
       }
 
       if (qemu_preload)
@@ -729,7 +733,7 @@ static void set_up_environment(void) {
         buf = alloc_printf("LD_PRELOAD=%s", afl_preload);
 
       setenv("QEMU_SET_ENV", buf, 1);
-      
+
       ck_free(buf);
 
     } else {
@@ -861,9 +865,8 @@ static void find_binary(u8* fname) {
 
 int main(int argc, char** argv) {
 
-  s32 opt;
-  u8  mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0,
-     use_wine = 0;
+  s32    opt;
+  u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   char** use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
