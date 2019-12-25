@@ -717,11 +717,15 @@ int main(int argc, char** argv) {
       u8* qemu_preload = getenv("QEMU_SET_ENV");
       u8* afl_preload = getenv("AFL_PRELOAD");
       u8* buf;
-      
+
       s32 i, afl_preload_size = strlen(afl_preload);
       for (i = 0; i < afl_preload_size; ++i) {
+
         if (afl_preload[i] == ',')
-          PFATAL("Comma (',') is not allowed in AFL_PRELOAD when -Q is specified!");
+          PFATAL(
+              "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
+              "specified!");
+
       }
 
       if (qemu_preload)
@@ -730,7 +734,7 @@ int main(int argc, char** argv) {
         buf = alloc_printf("LD_PRELOAD=%s", afl_preload);
 
       setenv("QEMU_SET_ENV", buf, 1);
-      
+
       ck_free(buf);
 
     } else {
