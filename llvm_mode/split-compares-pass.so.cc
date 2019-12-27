@@ -470,7 +470,9 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
           if (selectcmpInst->getPredicate() == CmpInst::FCMP_OEQ ||
               selectcmpInst->getPredicate() == CmpInst::FCMP_ONE ||
               selectcmpInst->getPredicate() == CmpInst::FCMP_UNE ||
+              selectcmpInst->getPredicate() == CmpInst::FCMP_UGT ||
               selectcmpInst->getPredicate() == CmpInst::FCMP_OGT ||
+              selectcmpInst->getPredicate() == CmpInst::FCMP_ULT ||
               selectcmpInst->getPredicate() == CmpInst::FCMP_OLT) {
 
             auto op0 = selectcmpInst->getOperand(0);
@@ -655,6 +657,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_NE, m_e0, m_e1);
         break;
       case CmpInst::FCMP_OGT:
+      case CmpInst::FCMP_UGT:
         Instruction *icmp_exponent;
         icmp_exponent =
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, m_e0, m_e1);
@@ -664,6 +667,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
             BinaryOperator::Create(Instruction::Xor, icmp_exponent, t_s0);
         break;
       case CmpInst::FCMP_OLT:
+      case CmpInst::FCMP_ULT:
         icmp_exponent =
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT, m_e0, m_e1);
         signequal_bb->getInstList().insert(
@@ -755,6 +759,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_NE, t_f0, t_f1);
         break;
       case CmpInst::FCMP_OGT:
+      case CmpInst::FCMP_UGT:
         Instruction *icmp_fraction;
         icmp_fraction =
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, t_f0, t_f1);
@@ -764,6 +769,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
             BinaryOperator::Create(Instruction::Xor, icmp_fraction, t_s0);
         break;
       case CmpInst::FCMP_OLT:
+      case CmpInst::FCMP_ULT:
         icmp_fraction =
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT, t_f0, t_f1);
         middle_bb->getInstList().insert(
@@ -802,6 +808,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
         PN->addIncoming(icmp_fraction_result, middle_bb);
         break;
       case CmpInst::FCMP_OGT:
+      case CmpInst::FCMP_UGT:
         /* if op1 is negative goto true branch,
            else go on comparing */
         PN->addIncoming(t_s1, bb);
@@ -809,6 +816,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
         PN->addIncoming(icmp_fraction_result, middle_bb);
         break;
       case CmpInst::FCMP_OLT:
+      case CmpInst::FCMP_ULT:
         /* if op0 is negative goto true branch,
            else go on comparing */
         PN->addIncoming(t_s0, bb);
