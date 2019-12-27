@@ -345,7 +345,10 @@ u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
     fault = run_target(argv, exec_tmout);
     ++trim_execs;
 
-    if (stop_soon || fault == FAULT_ERROR) goto abort_trimming;
+    if (stop_soon || fault == FAULT_ERROR) {
+        free(retbuf);
+        goto abort_trimming;
+    }
 
     cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
 
@@ -380,6 +383,8 @@ u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
              stage_max);
 
     }
+
+    free(retbuf);
 
     /* Since this can be slow, update the screen every now and then. */
 
