@@ -346,8 +346,10 @@ u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
     ++trim_execs;
 
     if (stop_soon || fault == FAULT_ERROR) {
-        free(retbuf);
-        goto abort_trimming;
+
+      free(retbuf);
+      goto abort_trimming;
+
     }
 
     cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
