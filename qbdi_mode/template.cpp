@@ -114,7 +114,7 @@ void afl_maybe_log(unsigned long cur_loc) {
 
   if (afl_area_ptr == NULL) { return; }
   unsigned long afl_idx = cur_loc ^ afl_prev_loc;
-  afl_idx &= MAP_SIZE -1;
+  afl_idx &= MAP_SIZE - 1;
   INC_AFL_AREA(afl_idx);
   afl_prev_loc = cur_loc >> 1;
 
@@ -123,7 +123,7 @@ void afl_maybe_log(unsigned long cur_loc) {
 char *read_file(char *path, unsigned long *length) {
 
   unsigned long len;
-  char * buf;
+  char *        buf;
 
   FILE *fp = fopen(path, "rb");
   fseek(fp, 0, SEEK_END);

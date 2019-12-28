@@ -2,9 +2,9 @@
 
 The idea and much of the original implementation comes from Nathan Voss <njvoss299@gmail.com>.
 
-The port to afl++ if by Dominik Maier <mail@dmnk.co>.
+The port to afl++ is by Dominik Maier <mail@dmnk.co>.
 
-The CompareCoverage and NeverZero counters features by Andrea Fioraldi <andreafioraldi@gmail.com>.
+The CompareCoverage and NeverZero counters features are by Andrea Fioraldi <andreafioraldi@gmail.com>.
 
 ## 1) Introduction
 
@@ -16,13 +16,13 @@ with afl-gcc or used in QEMU mode, or with other extensions such as
 TriforceAFL.
 
 There is a significant performance penalty compared to native AFL,
-but at least we're able to use AFL on these binaries, right?
+but at least we're able to use AFL++ on these binaries, right?
 
 ## 2) How to use
 
 Requirements: you need an installed python environment.
 
-### Building AFL's Unicorn Mode
+### Building AFL++'s Unicorn Mode
 
 First, make afl++ as usual.
 Once that completes successfully you need to build and add in the Unicorn Mode 
@@ -35,7 +35,7 @@ NOTE: This script checks out a Unicorn Engine fork as submodule that has been te
 and is stable-ish, based on the unicorn engine master. 
 
 Building Unicorn will take a little bit (~5-10 minutes). Once it completes 
-it automatically compiles a sample application and verify that it works.
+it automatically compiles a sample application and verifies that it works.
 
 ### Fuzzing with Unicorn Mode
 
@@ -83,7 +83,7 @@ The 'helper_scripts' directory also contains several helper scripts that allow y
 to dump context from a running process, load it, and hook heap allocations. For details
 on how to use this check out the follow-up blog post to the one linked above.
 
-A example use of AFL-Unicorn mode is discussed in the Paper Unicorefuzz:
+A example use of AFL-Unicorn mode is discussed in the paper Unicorefuzz:
 https://www.usenix.org/conference/woot19/presentation/maier
 
 ## 3) Options
@@ -91,7 +91,7 @@ https://www.usenix.org/conference/woot19/presentation/maier
 As for the QEMU-based instrumentation, the afl-unicorn twist of afl++
 comes with a sub-instruction based instrumentation similar in purpose to laf-intel.
 
-The options that enables Unicorn CompareCoverage are the same used for QEMU.
+The options that enable Unicorn CompareCoverage are the same used for QEMU.
 AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
 values. QEMU_COMPCOV_LEVEL=2 instruments all
 comparison instructions. Comparison instructions are currently instrumented only
