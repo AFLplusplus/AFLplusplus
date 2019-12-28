@@ -96,7 +96,8 @@ int listen(int sockfd, int backlog) {
 
 }
 
-int setsockopt(int sockfd, int level, int optid, const void *optdata, socklen_t optdatalen) {
+int setsockopt(int sockfd, int level, int optid, const void *optdata,
+               socklen_t optdatalen) {
 
   (void)sockfd;
   (void)level;
@@ -104,4 +105,6 @@ int setsockopt(int sockfd, int level, int optid, const void *optdata, socklen_t 
   (void)optdata;
   (void)optdatalen;
   return 0;
+
 }
+
