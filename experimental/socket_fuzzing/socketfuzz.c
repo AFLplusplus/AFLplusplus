@@ -69,6 +69,9 @@ int dup2(int old, int new) {
 
 int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
 
+  (void)sockfd;
+  (void)addr;
+  (void)addrlen;
   fprintf(stderr, "Info: Emulating accept on %d\n", sockfd);
   return 0;
 
@@ -76,6 +79,9 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
 
 int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 
+  (void)sockfd;
+  (void)addr;
+  (void)addrlen;
   fprintf(stderr, "Info: Emulating bind on port %d\n",
           ntohs(((struct sockaddr_in *)addr)->sin_port));
   return 0;
@@ -84,6 +90,20 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 
 int listen(int sockfd, int backlog) {
 
+  (void)sockfd;
+  (void)backlog;
+  return 0;
+
+}
+
+int setsockopt(int sockfd, int level, int optid, const void *optdata,
+               socklen_t optdatalen) {
+
+  (void)sockfd;
+  (void)level;
+  (void)optid;
+  (void)optdata;
+  (void)optdatalen;
   return 0;
 
 }
