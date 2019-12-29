@@ -208,8 +208,11 @@ static void edit_params(int argc, char** argv) {
        NSS. */
 
     if (strncmp(input_file, tmp_dir, strlen(tmp_dir)) &&
-        strncmp(input_file, "/var/tmp/", 9) && strncmp(input_file, "/tmp/", 5))
+        strncmp(input_file, "/var/tmp/", 9) && strncmp(input_file, "/tmp/", 5)
+        && getenv("AFL_AS_FORCE_INSTRUMENT") == NULL)
       pass_thru = 1;
+    else if (getenv("AFL_AS_FORCE_INSTRUMENT"))
+      unsetenv("AFL_AS_FORCE_INSTRUMENT");
 
   }
 
