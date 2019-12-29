@@ -65,6 +65,10 @@ tools make fairly broad use of environmental variables:
     mkdir assembly_here
     TMPDIR=$PWD/assembly_here AFL_KEEP_ASSEMBLY=1 make clean all
 
+  - If you are a weird person that wants to compile and instrument asm
+    text files then use the AFL_AS_FORCE_INSTRUMENT variable:
+      AFL_AS_FORCE_INSTRUMENT=1 afl-gcc foo.s -o foo
+
   - Setting AFL_QUIET will prevent afl-cc and afl-as banners from being
     displayed during compilation, in case you find them distracting.
 
