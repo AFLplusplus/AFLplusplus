@@ -126,5 +126,5 @@ vpath  % ..
 	ln -sf afl-gcc-fast.8 ../afl-g++-fast.8
 
 clean:
-	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1
+	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 .test2
 	rm -f $(PROGS) ../afl-g++-fast ../afl-g*-fast.8
