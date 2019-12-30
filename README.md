@@ -124,7 +124,7 @@ afl++ binaries by passing the STATIC=1 argument to make:
 $ make all STATIC=1
 ```
 
-Note that afl++ is faster and better the newer the compilers used.
+Note that afl++ is faster and better the newer the compilers used are.
 Hence gcc-9 and especially llvm-9 should be the compilers of choice.
 If your distribution does not have them, you can use the Dockerfile:
 
