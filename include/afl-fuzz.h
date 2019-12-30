@@ -271,6 +271,7 @@ extern u64 mem_limit;                   /* Memory cap for child (MB)        */
 extern u8 cal_cycles,                   /* Calibration cycles defaults      */
     cal_cycles_long,                    /* Calibration cycles defaults      */
     no_unlink,                          /* do not unlink cur_input          */
+    use_stdin,                          /* use stdin for sending data       */
     debug,                              /* Debug mode                       */
     custom_only,                        /* Custom mutator only mode         */
     python_only;                        /* Python-only mode                 */

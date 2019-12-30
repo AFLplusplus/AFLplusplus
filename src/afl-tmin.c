@@ -88,7 +88,7 @@ u64 mem_limit = MEM_LIMIT;             /* Memory limit (MB)                 */
 
 s32 dev_null_fd = -1;                  /* FD to /dev/null                   */
 
-static u8 crash_mode,                  /* Crash-centric mode?               */
+u8 crash_mode,                         /* Crash-centric mode?               */
     exit_crash,                        /* Treat non-zero exit as crash?     */
     edges_only,                        /* Ignore hit counts?                */
     exact_mode,                        /* Require path match for crashes?   */
