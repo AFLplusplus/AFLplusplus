@@ -145,6 +145,7 @@ man:    $(MANPAGES)
 
 tests:	source-only
 	@cd test ; ./test.sh
+	@rm -f test/errors
 
 performance-tests:	performance-test
 test-performance:	performance-test
