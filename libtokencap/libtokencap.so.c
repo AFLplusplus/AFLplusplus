@@ -687,6 +687,20 @@ bool strcsequal(const void* s1, const void* s2) {
 
 }
 
+/* bcmp/memcmp BSD flavors, similar to CRYPTO_memcmp */
+
+int timingsafe_bcmp(const void* mem1, const void* mem2, size_t len) {
+
+  return bcmp(mem1, mem2, len);
+
+}
+
+int timingsafe_memcmp(const void* mem1, const void* mem2, size_t len) {
+
+  return memcmp(mem1, mem2, len);
+
+}
+
 /* Init code to open the output file (or default to stderr). */
 
 __attribute__((constructor)) void __tokencap_init(void) {
