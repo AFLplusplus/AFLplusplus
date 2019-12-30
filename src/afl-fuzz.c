@@ -304,6 +304,7 @@ int main(int argc, char** argv) {
 
         if (out_file) FATAL("Multiple -f options not supported");
         out_file = optarg;
+        use_stdin = 0;
         break;
 
       case 'x':                                               /* dictionary */
@@ -835,6 +836,8 @@ int main(int argc, char** argv) {
       u8* aa_loc = strstr(argv[i], "@@");
 
       if (aa_loc && !out_file) {
+
+        use_stdin = 0;
 
         if (file_extension) {
 

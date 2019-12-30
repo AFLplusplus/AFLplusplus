@@ -17,6 +17,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.59d (develop):
 --------------------------
 
+  - fixed a critical bug in afl-tmin that was introduced during ++2.53d
   - added ./experimental/argv_fuzzing ld_preload library by Kjell Braden
   - added preeny's desock_dup ld_preload library as
     ./experimental/socket_fuzzing for network fuzzing

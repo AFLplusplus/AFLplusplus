@@ -72,11 +72,12 @@ static u32 total, highest;             /* tuple content information         */
 
 static u64 mem_limit = MEM_LIMIT;      /* Memory limit (MB)                 */
 
-static u8 quiet_mode,                  /* Hide non-essential messages?      */
+u8 quiet_mode,                         /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
     raw_instr_output,                  /* Do not apply AFL filters          */
     cmin_mode,                         /* Generate output in afl-cmin mode? */
     binary_mode,                       /* Write output as a binary map      */
+    use_stdin = 1,                     /* use stdin - unused here           */
     keep_cores;                        /* Allow coredumps?                  */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
@@ -535,7 +536,7 @@ int main(int argc, char** argv) {
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  while ((opt = getopt(argc, argv, "+o:m:t:A:eqZQUWbcrh")) > 0)
+  while ((opt = getopt(argc, argv, "+o:f:m:t:A:eqZQUWbcrh")) > 0)
 
     switch (opt) {
 
@@ -582,6 +583,13 @@ int main(int argc, char** argv) {
       }
 
       break;
+
+      case 'f':  // only in here to avoid a compiler warning for use_stdin
+
+        use_stdin = 0;
+        FATAL("Option -f is not supported in afl-showmap");
+
+        break;
 
       case 't':
 

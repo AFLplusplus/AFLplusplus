@@ -75,7 +75,7 @@ static u64 mem_limit = MEM_LIMIT;      /* Memory limit (MB)                 */
 
 static s32 dev_null_fd = -1;           /* FD to /dev/null                   */
 
-static u8 edges_only,                  /* Ignore hit counts?                */
+u8 edges_only,                         /* Ignore hit counts?                */
     use_hex_offsets,                   /* Show hex offsets?                 */
     use_stdin = 1;                     /* Use stdin for program input?      */
 

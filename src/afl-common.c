@@ -35,7 +35,8 @@
 #include <unistd.h>
 #endif
 
-u8* target_path;                        /* Path to target binary            */
+u8*       target_path;                  /* Path to target binary            */
+extern u8 use_stdin;
 
 void detect_file_args(char** argv, u8* prog_in) {
 
@@ -77,6 +78,8 @@ void detect_file_args(char** argv, u8* prog_in) {
         aa_subst = prog_in;
       else
         aa_subst = alloc_printf("%s/%s", cwd, prog_in);
+
+      use_stdin = 0;
 
       /* Construct a replacement argv value. */
 

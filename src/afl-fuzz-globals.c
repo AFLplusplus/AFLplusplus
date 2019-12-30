@@ -86,6 +86,7 @@ u8 cal_cycles = CAL_CYCLES,             /* Calibration cycles defaults      */
     cal_cycles_long = CAL_CYCLES_LONG,  /* Calibration cycles defaults      */
     debug,                              /* Debug mode                       */
     no_unlink,                          /* do not unlink cur_input          */
+    use_stdin = 1,                      /* use stdin for sending data       */
     custom_only,                        /* Custom mutator only mode         */
     python_only;                        /* Python-only mode                 */
 
