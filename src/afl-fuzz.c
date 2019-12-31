@@ -84,13 +84,6 @@ static u8* get_libradamsa_path(u8* own_loc) {
 
 static void usage(u8* argv0) {
 
-#ifdef USE_PYTHON
-#define PHYTON_SUPPORT \
-  "Compiled with Python 2.7 module support, see docs/python_mutators.txt\n"
-#else
-#define PHYTON_SUPPORT ""
-#endif
-
   SAYF(
       "\n%s [ options ] -- /path/to/fuzzed_app [ ... ]\n\n"
 
@@ -146,13 +139,15 @@ static void usage(u8* argv0) {
       "file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
       "  -e ext        - File extension for the temporarily generated test "
-      "case\n\n"
+      "case\n\n",
 
-      PHYTON_SUPPORT
+      argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
-      "For additional tips, please consult %s/README\n\n",
+#ifdef USE_PYTHON
+  SAYF("Compiled with Python %s module support, see docs/python_mutators.txt\n", (char*)PYTHON_VERSION);
+#endif
 
-      argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
+  SAYF("For additional information please consult %s/README.md\n\n", doc_path);
 
   exit(1);
 #undef PHYTON_SUPPORT
