@@ -147,7 +147,7 @@ static void usage(u8* argv0) {
   SAYF("Compiled with Python %s module support, see docs/python_mutators.txt\n", (char*)PYTHON_VERSION);
 #endif
 
-  SAYF("For additional information please consult %s/README.md\n\n", doc_path);
+  SAYF("For additional help please consult %s/README.md\n\n", doc_path);
 
   exit(1);
 #undef PHYTON_SUPPORT
