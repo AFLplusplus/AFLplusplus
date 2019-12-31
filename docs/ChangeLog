@@ -14,7 +14,15 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 --------------------------
-Version ++2.59d (develop):
+Version ++2.60d (develop):
+--------------------------
+
+  - exciting new stuff is coming up :-)
+  - all the best for the new year!
+
+
+--------------------------
+Version ++2.60c (release):
 --------------------------
 
   - fixed a critical bug in afl-tmin that was introduced during ++2.53d
