@@ -142,6 +142,9 @@ static void __tokencap_load_mappings(void) {
 
       }
 
+      base += size;
+      size = 0;
+
     }
 
   }
