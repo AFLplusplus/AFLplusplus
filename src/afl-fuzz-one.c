@@ -482,6 +482,9 @@ u8 fuzz_one_original(char** argv) {
 
   if (use_radamsa > 1) goto radamsa_stage;
 
+
+//custom_stage:	// not used - yet
+
   if (custom_mutator) {
 
     stage_short = "custom";
@@ -541,9 +544,6 @@ u8 fuzz_one_original(char** argv) {
                          : havoc_max_mult * 100)) ||
       queue_cur->passed_det) {
 
-    if (use_radamsa > 1)
-      goto radamsa_stage;
-    else
 #ifdef USE_PYTHON
       goto python_stage;
 #else
@@ -557,9 +557,6 @@ u8 fuzz_one_original(char** argv) {
 
   if (master_max && (queue_cur->exec_cksum % master_max) != master_id - 1) {
 
-    if (use_radamsa > 1)
-      goto radamsa_stage;
-    else
 #ifdef USE_PYTHON
       goto python_stage;
 #else
@@ -2266,9 +2263,6 @@ retry_splicing:
     out_buf = ck_alloc_nozero(len);
     memcpy(out_buf, in_buf, len);
 
-    if (use_radamsa > 1)
-      goto radamsa_stage;
-    else
 #ifdef USE_PYTHON
       goto python_stage;
 #else
