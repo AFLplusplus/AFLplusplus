@@ -61,8 +61,10 @@ int (*__libc_memcmp)(const void* mem1, const void* mem2, size_t len);
 int (*__libc_bcmp)(const void* mem1, const void* mem2, size_t len);
 char* (*__libc_strstr)(const char* haystack, const char* needle);
 char* (*__libc_strcasestr)(const char* haystack, const char* needle);
+char* (*__libc_strchr)(const char* haystack, int needle);
 void* (*__libc_memmem)(const void* haystack, size_t haystack_len,
                        const void* needle, size_t needle_len);
+void* (*__libc_memchr)(const void* haystack, int needle, size_t haystack_len);
 #endif
 
 /* Mapping data and such */
@@ -502,6 +504,29 @@ char* strcasestr(const char* haystack, const char* needle) {
 
 }
 
+#undef strchr
+
+char* strchr(const char* haystack, int needle) {
+  if (__tokencap_is_ro(haystack))
+    __tokencap_dump(haystack, strlen(haystack), 1);
+
+#ifdef RTLD_NEXT
+  if (__libc_strchr) return __libc_strchr(haystack, needle);
+#endif
+
+  char* h = (char*)haystack;
+
+  while (h) {
+
+    if (*h == needle) return h;
+    if (!*h) return NULL;
+    ++h;
+
+  }
+
+  return NULL;
+}
+
 #undef memmem
 
 void* memmem(const void* haystack, size_t haystack_len, const void* needle,
@@ -535,6 +560,31 @@ void* memmem(const void* haystack, size_t haystack_len, const void* needle,
   } while (h++ <= end);
 
   return 0;
+
+}
+
+#undef memchr
+
+void* memchr(const void* haystack, int needle, size_t haystack_len) {
+  if (__tokencap_is_ro(haystack)) __tokencap_dump(haystack, haystack_len, 1);
+
+#ifdef RTLD_NEXT
+  if (__libc_memchr) return __libc_memchr(haystack, needle, haystack_len);
+#endif
+
+  if (haystack_len == 0) return NULL;
+  unsigned char c = (unsigned char)needle;
+  const unsigned char* p = (const unsigned char*)haystack;
+  int n = haystack_len;
+
+  do {
+
+    if (*p == c) return (void*)p;
+    p++;
+
+  } while (--n >= 0);
+
+  return NULL;
 
 }
 
@@ -718,11 +768,13 @@ __attribute__((constructor)) void __tokencap_init(void) {
   __libc_strncmp = dlsym(RTLD_NEXT, "strncmp");
   __libc_strcasecmp = dlsym(RTLD_NEXT, "strcasecmp");
   __libc_strncasecmp = dlsym(RTLD_NEXT, "strncasecmp");
+  __libc_strchr = dlsym(RTLD_NEXT, "strchr");
   __libc_memcmp = dlsym(RTLD_NEXT, "memcmp");
   __libc_bcmp = dlsym(RTLD_NEXT, "bcmp");
   __libc_strstr = dlsym(RTLD_NEXT, "strstr");
   __libc_strcasestr = dlsym(RTLD_NEXT, "strcasestr");
   __libc_memmem = dlsym(RTLD_NEXT, "memmem");
+  __libc_memchr = dlsym(RTLD_NEXT, "memchr");
 #endif
 
 }
