@@ -13,6 +13,8 @@ OK=OK
 diff -q test.1 test.2 >/dev/null 2>&1 || OK=
 rm -f test.1 test.2
 test -z "$OK" && { echo Error: diff -q is not working ; exit 1 ; }
+test -z "$LLVM_CONFIG" && LLVM_CONFIG=llvm-config
+
 
 ECHO="printf %b\\n"
 $ECHO \\101 2>&1 | grep -qE '^A' || {
@@ -179,7 +181,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   if which clang >/dev/null; then
     export AFL_CC=`which clang`
   else
-    export AFL_CC=`llvm-config --bindir`/clang
+    export AFL_CC=`$LLVM_CONFIG --bindir`/clang
   fi
   ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-clang-fast -o test-compcov.harden test-compcov.c > /dev/null 2>&1
