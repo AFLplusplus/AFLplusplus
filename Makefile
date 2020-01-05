@@ -400,10 +400,11 @@ endif
 	set -e; if [ -f afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
 
 	mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
-	install -m0644 -D *.8 ${DESTDIR}$(MAN_PATH)
 
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
 	ln -sf afl-as $${DESTDIR}$(HELPER_PATH)/as
+	set -e; if [ -f afl-clang-fast.8 ]; then install -m 644 afl-clang-fast.8 ${DESTDIR}${MAN_PATH}; install -m 644 afl-clang-fast++.8 ${DESTDIR}${MAN_PATH}; fi
+	set -e; if [ -f afl-gcc-fast.8 ]; then install -m 644 afl-gcc-fast.8 ${DESTDIR}${MAN_PATH}; install -m 644 afl-g++-fast.8 ${DESTDIR}${MAN_PATH}; fi
 	install -m 644 docs/README.md docs/ChangeLog docs/*.txt $${DESTDIR}$(DOC_PATH)
 	cp -r testcases/ $${DESTDIR}$(MISC_PATH)
 	cp -r dictionaries/ $${DESTDIR}$(MISC_PATH)
