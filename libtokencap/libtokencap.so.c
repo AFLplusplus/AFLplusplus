@@ -3,7 +3,7 @@
    american fuzzy lop++ - extract tokens passed to strcmp / memcmp
    -------------------------------------------------------------
 
-   Written by Michal Zalewski
+   Originally written by Michal Zalewski
 
    Copyright 2016 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.

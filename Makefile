@@ -2,7 +2,7 @@
 # american fuzzy lop++ - makefile
 # -----------------------------
 #
-# Written by Michal Zalewski
+# Originally written by Michal Zalewski
 # 
 # Copyright 2013, 2014, 2015, 2016, 2017 Google Inc. All rights reserved.
 # 
