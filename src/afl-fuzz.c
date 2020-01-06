@@ -144,7 +144,8 @@ static void usage(u8* argv0) {
       argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
 #ifdef USE_PYTHON
-  SAYF("Compiled with Python %s module support, see docs/python_mutators.txt\n", (char*)PYTHON_VERSION);
+  SAYF("Compiled with Python %s module support, see docs/python_mutators.txt\n",
+       (char*)PYTHON_VERSION);
 #endif
 
   SAYF("For additional help please consult %s/README.md\n\n", doc_path);

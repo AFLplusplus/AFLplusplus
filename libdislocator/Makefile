@@ -2,7 +2,7 @@
 # american fuzzy lop++ - libdislocator
 # ----------------------------------
 #
-# Written by Michal Zalewski
+# Originally written by Michal Zalewski
 #
 # Copyright 2016 Google Inc. All rights reserved.
 #
