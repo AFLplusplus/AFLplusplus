@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# american fuzzy lop - fuzzer synchronization tool
+# american fuzzy lop++ - fuzzer synchronization tool
 # ------------------------------------------------
 #
 # Written by Michal Zalewski

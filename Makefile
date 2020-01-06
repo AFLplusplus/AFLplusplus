@@ -1,5 +1,5 @@
 #
-# american fuzzy lop - makefile
+# american fuzzy lop++ - makefile
 # -----------------------------
 #
 # Written by Michal Zalewski

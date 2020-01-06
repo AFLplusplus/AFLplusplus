@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - a trivial program to test the build
+   american fuzzy lop++ - a trivial program to test the build
    --------------------------------------------------------
 
    Written by Michal Zalewski

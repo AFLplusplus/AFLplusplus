@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - persistent mode example
+   american fuzzy lop++ - persistent mode example
    --------------------------------------------
 
    Written by Michal Zalewski

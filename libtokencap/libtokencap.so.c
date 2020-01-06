@@ -1,6 +1,6 @@
 /*
 
-   american fuzzy lop - extract tokens passed to strcmp / memcmp
+   american fuzzy lop++ - extract tokens passed to strcmp / memcmp
    -------------------------------------------------------------
 
    Written by Michal Zalewski

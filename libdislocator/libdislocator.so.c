@@ -1,6 +1,6 @@
 /*
 
-   american fuzzy lop - dislocator, an abusive allocator
+   american fuzzy lop++ - dislocator, an abusive allocator
    -----------------------------------------------------
 
    Written by Michal Zalewski

@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - sample argv fuzzing wrapper
+   american fuzzy lop++ - sample argv fuzzing wrapper
    ------------------------------------------------
 
    Written by Michal Zalewski

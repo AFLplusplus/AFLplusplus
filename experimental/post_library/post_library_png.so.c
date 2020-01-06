@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - postprocessor for PNG
+   american fuzzy lop++ - postprocessor for PNG
    ------------------------------------------
 
    Written by Michal Zalewski

@@ -8,7 +8,7 @@
 //
 
 /*
-   american fuzzy lop - GCC instrumentation pass
+   american fuzzy lop++ - GCC instrumentation pass
    ---------------------------------------------
 
    Written by Austin Seipp <aseipp@pobox.com> with bits from

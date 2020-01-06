@@ -1,5 +1,5 @@
 #
-# american fuzzy lop - libtokencap
+# american fuzzy lop++ - libtokencap
 # --------------------------------
 #
 # Written by Michal Zalewski
