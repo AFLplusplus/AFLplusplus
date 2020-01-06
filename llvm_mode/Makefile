@@ -1,5 +1,5 @@
 #
-# american fuzzy lop - LLVM instrumentation
+# american fuzzy lop++ - LLVM instrumentation
 # -----------------------------------------
 #
 # Written by Laszlo Szekeres <lszekeres@google.com> and

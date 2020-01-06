@@ -1,5 +1,5 @@
 #
-# american fuzzy lop - unsigaction
+# american fuzzy lop++ - unsigaction
 # --------------------------------
 #
 # Written by Andrea Fioraldi <andreafioraldi@gmail.com>

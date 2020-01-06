@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# american fuzzy lop - clang assembly normalizer
+# american fuzzy lop++ - clang assembly normalizer
 # ----------------------------------------------
 #
 # Written by Michal Zalewski

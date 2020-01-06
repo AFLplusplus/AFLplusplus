@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - postprocessor library example
+   american fuzzy lop++ - postprocessor library example
    --------------------------------------------------
 
    Written by Michal Zalewski

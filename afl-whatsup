@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# american fuzzy lop - status check tool
+# american fuzzy lop++ - status check tool
 # --------------------------------------
 #
 # Written by Michal Zalewski

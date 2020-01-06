@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - fuzzer code
+   american fuzzy lop++ - fuzzer code
    --------------------------------
 
    Originally written by Michal Zalewski

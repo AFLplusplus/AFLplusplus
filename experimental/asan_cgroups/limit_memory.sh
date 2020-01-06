@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# american fuzzy lop - limit memory using cgroups
+# american fuzzy lop++ - limit memory using cgroups
 # -----------------------------------------------
 #
 # Written by Samir Khakimov <samir.hakim@nyu.edu> and

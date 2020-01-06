@@ -1,5 +1,5 @@
 #
-# american fuzzy lop - libdislocator
+# american fuzzy lop++ - libdislocator
 # ----------------------------------
 #
 # Written by Michal Zalewski

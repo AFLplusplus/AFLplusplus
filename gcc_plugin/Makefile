@@ -1,5 +1,5 @@
 #
-# american fuzzy lop - GCC plugin instrumentation
+# american fuzzy lop++ - GCC plugin instrumentation
 # -----------------------------------------------
 #
 # Written by Austin Seipp <aseipp@pobox.com> and

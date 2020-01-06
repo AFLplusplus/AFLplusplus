@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - GCC plugin instrumentation bootstrap
+   american fuzzy lop++ - GCC plugin instrumentation bootstrap
    ---------------------------------------------------------
 
    Written by Austin Seipp <aseipp@pobox.com> and

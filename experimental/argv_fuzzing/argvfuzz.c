@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - LD_PRELOAD for fuzzing argv in binaries
+   american fuzzy lop++ - LD_PRELOAD for fuzzing argv in binaries
    ------------------------------------------------------------
 
    Copyright 2019 Kjell Braden <afflux@pentabarf.de>
