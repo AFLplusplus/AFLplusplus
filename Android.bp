@@ -129,6 +129,7 @@ cc_library_static {
   vendor_available: true,
   host_supported: true,
   recovery_available: true,
+  sdk_version: "9",
 
   defaults: [
     "afl-defaults",

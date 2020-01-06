@@ -11,7 +11,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ u64 mem_limit = MEM_LIMIT;             /* Memory limit (MB)                 */
 
 s32 dev_null_fd = -1;                  /* FD to /dev/null                   */
 
-static u8 crash_mode,                  /* Crash-centric mode?               */
+u8 crash_mode,                         /* Crash-centric mode?               */
     exit_crash,                        /* Treat non-zero exit as crash?     */
     edges_only,                        /* Ignore hit counts?                */
     exact_mode,                        /* Require path match for crashes?   */

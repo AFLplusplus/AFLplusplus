@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -271,6 +271,7 @@ extern u64 mem_limit;                   /* Memory cap for child (MB)        */
 extern u8 cal_cycles,                   /* Calibration cycles defaults      */
     cal_cycles_long,                    /* Calibration cycles defaults      */
     no_unlink,                          /* do not unlink cur_input          */
+    use_stdin,                          /* use stdin for sending data       */
     debug,                              /* Debug mode                       */
     custom_only,                        /* Custom mutator only mode         */
     python_only;                        /* Python-only mode                 */

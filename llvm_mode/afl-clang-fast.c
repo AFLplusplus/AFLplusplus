@@ -50,7 +50,11 @@ static void find_obj(u8* argv0) {
 
   if (afl_path) {
 
+#ifdef __ANDROID__
+    tmp = alloc_printf("%s/afl-llvm-rt.so", afl_path);
+#else
     tmp = alloc_printf("%s/afl-llvm-rt.o", afl_path);
+#endif
 
     if (!access(tmp, R_OK)) {
 
@@ -74,7 +78,11 @@ static void find_obj(u8* argv0) {
     dir = ck_strdup(argv0);
     *slash = '/';
 
+#ifdef __ANDROID__
+    tmp = alloc_printf("%s/afl-llvm-rt.so", afl_path);
+#else
     tmp = alloc_printf("%s/afl-llvm-rt.o", dir);
+#endif
 
     if (!access(tmp, R_OK)) {
 
@@ -89,7 +97,13 @@ static void find_obj(u8* argv0) {
 
   }
 
+#ifdef __ANDROID__
+  if (!access(AFL_PATH "/afl-llvm-rt.so", R_OK)) {
+
+#else
   if (!access(AFL_PATH "/afl-llvm-rt.o", R_OK)) {
+
+#endif
 
     obj_path = AFL_PATH;
     return;
@@ -359,7 +373,7 @@ static void edit_params(u32 argc, char** argv) {
 
     }
 
-    //#ifndef __ANDROID__ // not sure, we might need these ifdefs for Android
+#ifndef __ANDROID__
     switch (bit_mode) {
 
       case 0:
@@ -384,7 +398,7 @@ static void edit_params(u32 argc, char** argv) {
 
     }
 
-    //#endif
+#endif
 
   }
 

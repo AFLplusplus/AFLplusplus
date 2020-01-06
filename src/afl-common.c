@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@
 #include <unistd.h>
 #endif
 
-u8* target_path;                        /* Path to target binary            */
+u8*       target_path;                  /* Path to target binary            */
+extern u8 use_stdin;
 
 void detect_file_args(char** argv, u8* prog_in) {
 
@@ -77,6 +78,8 @@ void detect_file_args(char** argv, u8* prog_in) {
         aa_subst = prog_in;
       else
         aa_subst = alloc_printf("%s/%s", cwd, prog_in);
+
+      use_stdin = 0;
 
       /* Construct a replacement argv value. */
 

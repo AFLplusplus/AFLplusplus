@@ -142,6 +142,9 @@ static void __tokencap_load_mappings(void) {
 
       }
 
+      base += size;
+      size = 0;
+
     }
 
   }
@@ -684,6 +687,20 @@ bool strcsequal(const void* s1, const void* s2) {
   if (s1 == s2) { return true; }
   if (!s1 || !s2) { return false; }
   return (strcmp(s1, s2) == 0);
+
+}
+
+/* bcmp/memcmp BSD flavors, similar to CRYPTO_memcmp */
+
+int timingsafe_bcmp(const void* mem1, const void* mem2, size_t len) {
+
+  return bcmp(mem1, mem2, len);
+
+}
+
+int timingsafe_memcmp(const void* mem1, const void* mem2, size_t len) {
+
+  return memcmp(mem1, mem2, len);
 
 }
 

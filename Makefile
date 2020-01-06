@@ -104,9 +104,9 @@ endif
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
 
 
-ifeq "$(shell echo '\#include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) 2>/dev/null && echo 1 || echo 0 )" "1"
+ifeq "$(shell echo '\#include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	PYTHON_OK=1
-	PYFLAGS=-DUSE_PYTHON -I$(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB)
+	PYFLAGS=-DUSE_PYTHON -I$(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) -DPYTHON_VERSION=\"$(PYTHON_VERSION)\"
 else
 	PYTHON_OK=0
 	PYFLAGS=
@@ -122,7 +122,7 @@ ifdef STATIC
   LDFLAGS += -lm -lrt -lpthread -lz -lutil
 endif
 
-ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 )" "1"
+ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
 	SHMAT_OK=1
 else
 	SHMAT_OK=0
@@ -145,6 +145,7 @@ man:    $(MANPAGES)
 
 tests:	source-only
 	@cd test ; ./test.sh
+	@rm -f test/errors
 
 performance-tests:	performance-test
 test-performance:	performance-test
@@ -325,7 +326,7 @@ clean:
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 	$(MAKE) -C src/third_party/libradamsa/ clean
-	-$(MAKE) -C unicorn_mode/unicorn clean
+	-rm -rf unicorn_mode/unicorn
 
 distrib: all radamsa
 	-$(MAKE) -C llvm_mode
@@ -399,7 +400,7 @@ endif
 	set -e; if [ -f afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
 
 	mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
-	install -m0644 -D *.8 ${DESTDIR}$(MAN_PATH)
+	install -m0644 *.8 ${DESTDIR}$(MAN_PATH)
 
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
 	ln -sf afl-as $${DESTDIR}$(HELPER_PATH)/as
