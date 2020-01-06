@@ -27,6 +27,7 @@ int main(int argc, char** argv) {
   if (argc > 1) {
 
     buf = argv[1];
+    printf("Input %s - ", buf);
 
   } else if (read(0, buf, sizeof(buf)) < 1) {
 

@@ -13,6 +13,8 @@ OK=OK
 diff -q test.1 test.2 >/dev/null 2>&1 || OK=
 rm -f test.1 test.2
 test -z "$OK" && { echo Error: diff -q is not working ; exit 1 ; }
+test -z "$LLVM_CONFIG" && LLVM_CONFIG=llvm-config
+
 
 ECHO="printf %b\\n"
 $ECHO \\101 2>&1 | grep -qE '^A' || {
@@ -25,6 +27,7 @@ $ECHO \\101 2>&1 | grep -qE '^A' || {
 test -z "$ECHO" && { printf Error: printf command does not support octal character codes ; exit 1 ; }
 
 CODE=0
+INCOMPLETE=0
 
 export AFL_EXIT_WHEN_DONE=1
 export AFL_SKIP_CPUFREQ=1
@@ -69,9 +72,9 @@ export PATH=$PATH:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
 
 $ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
 
-test -z "$SYS" && $ECHO "$YELLOW[!] uname -m did not succeed"
+test -z "$SYS" && $ECHO "$YELLOW[-] uname -m did not succeed"
 
-$ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap and afl-fuzz"
+$ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
  test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
   ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
@@ -122,7 +125,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
   # now we want to be sure that afl-fuzz is working  
   # make sure core_pattern is set to core on linux
   (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
-    $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    $ECHO "$YELLOW[-] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
   # make sure crash reporter is disabled on Mac OS X
@@ -145,11 +148,28 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
       $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_GCC}"
       CODE=1
     }
-    rm -rf in out errors
+    echo 000000000000000000000000 > in/in2
+    mkdir -p in2
+    ../afl-cmin -i in -o in2 -- ./test-instr.plain > /dev/null 2>&1
+    CNT=`ls in2/ | wc -l`
+    test "$CNT" = 1 && $ECHO "$GREEN[+] afl-cmin correctly minimized testcase numbers"
+    test "$CNT" = 1 || {
+       $ECHO "$RED[!] afl-cmin did not correctly minimize testcase numbers"
+       CODE=1
+    }
+    ../afl-tmin -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
+    SIZE=`ls -l in2/in2 2> /dev/null | awk '{print$5}'`
+    test "$SIZE" = 1 && $ECHO "$GREEN[+] afl-tmin correctly minimized the testcase"
+    test "$SIZE" = 1 || {
+       $ECHO "$RED[!] afl-tmin did incorrectly minimize the testcase to $SIZE"
+       CODE=1
+    }
+    rm -rf in out errors in2
   }
   rm -f test-instr.plain
  } || { 
   $ECHO "$YELLOW[-] afl is not compiled, cannot test"
+  INCOMPLETE=1
  }
 } || { 
  $ECHO "$YELLOW[-] not an intel platform, cannot test afl-gcc"
@@ -161,7 +181,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   if which clang >/dev/null; then
     export AFL_CC=`which clang`
   else
-    export AFL_CC=`llvm-config --bindir`/clang
+    export AFL_CC=`$LLVM_CONFIG --bindir`/clang
   fi
   ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-clang-fast -o test-compcov.harden test-compcov.c > /dev/null 2>&1
@@ -206,7 +226,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   # now we want to be sure that afl-fuzz is working  
   (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
-    $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    $ECHO "$YELLOW[-] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
   # make sure crash reporter is disabled on Mac OS X
@@ -290,6 +310,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   rm -f test-persistent
 } || {
   $ECHO "$YELLOW[-] llvm_mode not compiled, cannot test"
+  INCOMPLETE=1
 }
 
 $ECHO "$BLUE[*] Testing: gcc_plugin"
@@ -312,7 +333,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
           $ECHO "$GREEN[+] gcc_plugin run reported $TUPLES instrumented locations which is fine"
         } || {
           $ECHO "$RED[!] gcc_plugin instrumentation produces a weird number of instrumented locations: $TUPLES"
-          $ECHO "$YELLOW[!] the gcc_plugin instrumentation issue is not flagged as an error because travis builds would all fail otherwise :-("
+          $ECHO "$YELLOW[-] the gcc_plugin instrumentation issue is not flagged as an error because travis builds would all fail otherwise :-("
           #CODE=1
         }
       }
@@ -340,7 +361,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   }
   # now we want to be sure that afl-fuzz is working  
   (test "$(uname -s)" = "Linux" && test "$(sysctl kernel.core_pattern)" != "kernel.core_pattern = core" && {
-    $ECHO "$YELLOW[!] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
+    $ECHO "$YELLOW[-] we should not run afl-fuzz with enabled core dumps. Run 'sudo sh afl-system-config'.$RESET"
     true
   }) ||
   # make sure crash reporter is disabled on Mac OS X
@@ -398,6 +419,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   rm -f test-persistent
 } || {
   $ECHO "$YELLOW[-] gcc_plugin not compiled, cannot test"
+  INCOMPLETE=1
 }
 
 $ECHO "$BLUE[*] Testing: shared library extensions"
@@ -413,6 +435,7 @@ test -e ../libtokencap.so && {
   rm -f token.out
 } || {
   $ECHO "$YELLOW[-] libtokencap is not compiled, cannot test"
+  INCOMPLETE=1
 }
 test -e ../libdislocator.so && {
   {
@@ -429,6 +452,7 @@ test -e ../libdislocator.so && {
   rm -f test.out core test-compcov.core core.test-compcov
 } || {
   $ECHO "$YELLOW[-] libdislocator is not compiled, cannot test"
+  INCOMPLETE=1
 }
 rm -f test-compcov
 test -e ../libradamsa.so && {
@@ -454,9 +478,11 @@ test -e ../libradamsa.so && {
     rm -rf in out errors test-instr.plain
   } || {
     $ECHO "$YELLOW[-] compilation of test target failed, cannot test libradamsa"
+    INCOMPLETE=1
   }
 } || {
   $ECHO "$YELLOW[-] libradamsa is not compiled, cannot test"
+  INCOMPLETE=1
 }
 
 $ECHO "$BLUE[*] Testing: qemu_mode"
@@ -501,6 +527,7 @@ test -e ../afl-qemu-trace && {
         }
       } || {
         $ECHO "$YELLOW[-] we cannot test qemu_mode libcompcov because it is not present"
+        INCOMPLETE=1
       }
       rm -f errors
 
@@ -519,10 +546,10 @@ test -e ../afl-qemu-trace && {
           test "$SLOW" -lt "$FAST" && {
             $ECHO "$GREEN[+] persistent qemu_mode was noticeable faster than standard qemu_mode"
           } || {
-            $ECHO "$YELLOW[?] persistent qemu_mode was not noticeable faster than standard qemu_mode"
+            $ECHO "$YELLOW[-] persistent qemu_mode was not noticeable faster than standard qemu_mode"
           }
         } || {
-          $ECHO "$YELLOW[?] we got no data on executions performed? weird!"
+          $ECHO "$YELLOW[-] we got no data on executions performed? weird!"
         }
       } || {
         echo CUT------------------------------------------------------------------CUT
@@ -532,17 +559,18 @@ test -e ../afl-qemu-trace && {
         CODE=1
         exit 1
       }
-      $ECHO "$YELLOW[?] we need a test case for qemu_mode unsigaction library"
+      $ECHO "$YELLOW[-] we need a test case for qemu_mode unsigaction library"
       rm -rf in out errors
     }
   } || {
-    $ECHO "$RED[-] gcc compilation of test targets failed - what is going on??"
+    $ECHO "$RED[!] gcc compilation of test targets failed - what is going on??"
     CODE=1
   }
   
   rm -f test-instr test-compcov
 } || {
   $ECHO "$YELLOW[-] qemu_mode is not compiled, cannot test"
+  INCOMPLETE=1
 }
 
 $ECHO "$BLUE[*] Testing: unicorn_mode"
@@ -557,6 +585,7 @@ test -d ../unicorn_mode/unicorn && {
       $ECHO "$GREY[*] Using python binary $PY"
       if ! $PY -c 'import unicornafl' 2> /dev/null ; then
         $ECHO "$YELLOW[-] we cannot test unicorn_mode because it is not present"
+        INCOMPLETE=1
       else
       {
         $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 25 seconds"
@@ -596,15 +625,18 @@ test -d ../unicorn_mode/unicorn && {
       fi
     }
   } || {
-    $ECHO "$RED[-] missing sample binaries in unicorn_mode/samples/ - what is going on??"
+    $ECHO "$RED[!] missing sample binaries in unicorn_mode/samples/ - what is going on??"
     CODE=1
   }
   
 } || {
   $ECHO "$YELLOW[-] unicorn_mode is not compiled, cannot test"
+  INCOMPLETE=1
 }
 
 $ECHO "$GREY[*] all test cases completed.$RESET"
+test "$INCOMPLETE" = "0" && $ECHO "$GREEN[+] all test cases executed"
+test "$INCOMPLETE" = "1" && $ECHO "$YELLOW[-] not all test cases were executed"
 test "$CODE" = "0" && $ECHO "$GREEN[+] all tests were successful :-)$RESET"
-test "$CODE" = "0" || $ECHO "$RED[-] failure in tests :-($RESET"
+test "$CODE" = "0" || $ECHO "$RED[!] failure in tests :-($RESET"
 exit $CODE

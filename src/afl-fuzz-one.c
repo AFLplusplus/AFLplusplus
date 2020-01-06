@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -482,6 +482,9 @@ u8 fuzz_one_original(char** argv) {
 
   if (use_radamsa > 1) goto radamsa_stage;
 
+
+//custom_stage:	// not used - yet
+
   if (custom_mutator) {
 
     stage_short = "custom";
@@ -541,9 +544,6 @@ u8 fuzz_one_original(char** argv) {
                          : havoc_max_mult * 100)) ||
       queue_cur->passed_det) {
 
-    if (use_radamsa > 1)
-      goto radamsa_stage;
-    else
 #ifdef USE_PYTHON
       goto python_stage;
 #else
@@ -557,9 +557,6 @@ u8 fuzz_one_original(char** argv) {
 
   if (master_max && (queue_cur->exec_cksum % master_max) != master_id - 1) {
 
-    if (use_radamsa > 1)
-      goto radamsa_stage;
-    else
 #ifdef USE_PYTHON
       goto python_stage;
 #else
@@ -2266,9 +2263,6 @@ retry_splicing:
     out_buf = ck_alloc_nozero(len);
     memcpy(out_buf, in_buf, len);
 
-    if (use_radamsa > 1)
-      goto radamsa_stage;
-    else
 #ifdef USE_PYTHON
       goto python_stage;
 #else

@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -84,13 +84,6 @@ static u8* get_libradamsa_path(u8* own_loc) {
 
 static void usage(u8* argv0) {
 
-#ifdef USE_PYTHON
-#define PHYTON_SUPPORT \
-  "Compiled with Python 2.7 module support, see docs/python_mutators.txt\n"
-#else
-#define PHYTON_SUPPORT ""
-#endif
-
   SAYF(
       "\n%s [ options ] -- /path/to/fuzzed_app [ ... ]\n\n"
 
@@ -146,13 +139,15 @@ static void usage(u8* argv0) {
       "file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
       "  -e ext        - File extension for the temporarily generated test "
-      "case\n\n"
+      "case\n\n",
 
-      PHYTON_SUPPORT
+      argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
-      "For additional tips, please consult %s/README\n\n",
+#ifdef USE_PYTHON
+  SAYF("Compiled with Python %s module support, see docs/python_mutators.txt\n", (char*)PYTHON_VERSION);
+#endif
 
-      argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
+  SAYF("For additional help please consult %s/README.md\n\n", doc_path);
 
   exit(1);
 #undef PHYTON_SUPPORT
@@ -304,6 +299,7 @@ int main(int argc, char** argv) {
 
         if (out_file) FATAL("Multiple -f options not supported");
         out_file = optarg;
+        use_stdin = 0;
         break;
 
       case 'x':                                               /* dictionary */
@@ -595,7 +591,7 @@ int main(int argc, char** argv) {
   if (optind == argc || !in_dir || !out_dir) usage(argv[0]);
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
-      "Eissfeldt and Andrea Fioraldi");
+      "Eißfeldt and Andrea Fioraldi");
   OKF("afl++ is open source, get it at "
       "https://github.com/vanhauser-thc/AFLplusplus");
   OKF("Power schedules from github.com/mboehme/aflfast");
@@ -835,6 +831,8 @@ int main(int argc, char** argv) {
       u8* aa_loc = strstr(argv[i], "@@");
 
       if (aa_loc && !out_file) {
+
+        use_stdin = 0;
 
         if (file_extension) {
 

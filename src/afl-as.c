@@ -9,7 +9,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -208,8 +208,12 @@ static void edit_params(int argc, char** argv) {
        NSS. */
 
     if (strncmp(input_file, tmp_dir, strlen(tmp_dir)) &&
-        strncmp(input_file, "/var/tmp/", 9) && strncmp(input_file, "/tmp/", 5))
+        strncmp(input_file, "/var/tmp/", 9) &&
+        strncmp(input_file, "/tmp/", 5) &&
+        getenv("AFL_AS_FORCE_INSTRUMENT") == NULL)
       pass_thru = 1;
+    else if (getenv("AFL_AS_FORCE_INSTRUMENT"))
+      unsetenv("AFL_AS_FORCE_INSTRUMENT");
 
   }
 
