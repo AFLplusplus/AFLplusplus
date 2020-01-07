@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 #
 # american fuzzy lop - corpus minimization tool
 # ---------------------------------------------
