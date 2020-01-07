@@ -1,5 +1,5 @@
 #
-# american fuzzy lop - LLVM instrumentation
+# american fuzzy lop++ - LLVM instrumentation
 # -----------------------------------------
 #
 # Written by Laszlo Szekeres <lszekeres@google.com> and
@@ -261,5 +261,5 @@ vpath  % ..
 	ln -sf afl-clang-fast.8 ../afl-clang-fast++.8
 
 clean:
-	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 
+	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 afl-llvm-pass.dwo
 	rm -f $(PROGS) ../afl-clang-fast++ ../afl-clang-fast*.8

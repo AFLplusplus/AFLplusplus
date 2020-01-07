@@ -1,11 +1,12 @@
 #!/bin/sh
 #
-# american fuzzy lop - status check tool
-# --------------------------------------
+# american fuzzy lop++ - status check tool
+# ----------------------------------------
 #
-# Written by Michal Zalewski
+# Originally written by Michal Zalewski
 #
 # Copyright 2015 Google Inc. All rights reserved.
+# Copyright 2019-2020 AFLplusplus Project. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

@@ -1,8 +1,8 @@
 #
-# american fuzzy lop - libdislocator
+# american fuzzy lop++ - libdislocator
 # ----------------------------------
 #
-# Written by Michal Zalewski
+# Originally written by Michal Zalewski
 #
 # Copyright 2016 Google Inc. All rights reserved.
 #
@@ -18,8 +18,8 @@ HELPER_PATH  = $(PREFIX)/lib/afl
 
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
-CFLAGS      ?= -O3 -funroll-loops -I ../include/
-CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign
+CFLAGS      ?= -O3 -funroll-loops
+CFLAGS      += -I ../include/ -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign
 
 ifdef USEHUGEPAGE
 	CFLAGS += -DUSEHUGEPAGE

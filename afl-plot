@@ -1,9 +1,9 @@
 #!/bin/sh
 #
-# american fuzzy lop - Advanced Persistent Graphing
+# american fuzzy lop++ - Advanced Persistent Graphing
 # -------------------------------------------------
 #
-# Written by Michal Zalewski
+# Originally written by Michal Zalewski
 # Based on a design & prototype by Michael Rash.
 #
 # Copyright 2014, 2015 Google Inc. All rights reserved.

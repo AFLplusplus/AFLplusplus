@@ -1,8 +1,8 @@
 /*
-   american fuzzy lop - persistent mode example
+   american fuzzy lop++ - persistent mode example
    --------------------------------------------
 
-   Written by Michal Zalewski
+   Originally written by Michal Zalewski
 
    Copyright 2015 Google Inc. All rights reserved.
 

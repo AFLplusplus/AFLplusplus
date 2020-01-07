@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# american fuzzy lop - QEMU build script
+# american fuzzy lop++ - QEMU build script
 # --------------------------------------
 #
 # Originally written by Andrew Griffiths <agriffiths@google.com> and

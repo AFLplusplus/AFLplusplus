@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 #
-# american fuzzy lop - corpus minimization tool
+# american fuzzy lop++ - corpus minimization tool
 # ---------------------------------------------
 #
-# Written by Michal Zalewski
+# Originally written by Michal Zalewski
 #
 # Copyright 2014, 2015 Google Inc. All rights reserved.
 #

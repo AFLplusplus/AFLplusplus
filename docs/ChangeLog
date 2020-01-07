@@ -17,8 +17,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.60d (develop):
 --------------------------
 
-  - exciting new stuff is coming up :-)
-  - all the best for the new year!
+  - afl-fuzz:
+     - now prints the real python version support compiled in
+  - added fix from Debian project to compile libdislocator and libtokencap
 
 
 --------------------------

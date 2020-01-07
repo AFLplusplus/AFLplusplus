@@ -1,9 +1,9 @@
 #!/bin/sh
 #
-# american fuzzy lop - crash triage utility
+# american fuzzy lop++ - crash triage utility
 # -----------------------------------------
 #
-# Written by Michal Zalewski
+# Originally written by Michal Zalewski
 #
 # Copyright 2013, 2014, 2017 Google Inc. All rights reserved.
 #
