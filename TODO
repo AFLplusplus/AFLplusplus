@@ -1,15 +1,13 @@
 
-Roadmap 2.60:
-=============
+Roadmap 2.61+:
+==============
 
-afl-fuzz:
- - radamsa mutator (via dlopen())
+llvm_mode:
+ - hard-code the clang/clang++ with -D from the Makefile via llvm-config values
 
 gcc_plugin:
  - laf-intel
-
-libdislocator:
- - add a wrapper for posix_memalign
+ - better instrumentation
 
 qemu_mode:
  - update to 4.x (probably this will be skipped :( )
@@ -20,8 +18,6 @@ qemu_mode:
 custom_mutators:
  - rip what Superion is doing into custom mutators for js, php, etc.
 
-enhance test/test.sh script for checking if compcov features are working
-correctly (especially float splitting)
 
 
 The far away future:
