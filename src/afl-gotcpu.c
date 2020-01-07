@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - free CPU gizmo
+   american fuzzy lop++ - free CPU gizmo
    -----------------------------------
 
    Originally written by Michal Zalewski

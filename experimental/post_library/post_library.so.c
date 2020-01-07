@@ -1,8 +1,8 @@
 /*
-   american fuzzy lop - postprocessor library example
+   american fuzzy lop++ - postprocessor library example
    --------------------------------------------------
 
-   Written by Michal Zalewski
+   Originally written by Michal Zalewski
 
    Copyright 2015 Google Inc. All rights reserved.
 

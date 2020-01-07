@@ -1,5 +1,5 @@
 #
-# american fuzzy lop - libcompcov
+# american fuzzy lop++ - libcompcov
 # --------------------------------
 #
 # Written by Andrea Fioraldi <andreafioraldi@gmail.com>

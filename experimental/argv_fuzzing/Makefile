@@ -1,5 +1,5 @@
 #
-# american fuzzy lop - argvfuzz
+# american fuzzy lop++ - argvfuzz
 # --------------------------------
 #
 # Copyright 2019-2020 Kjell Braden <afflux@pentabarf.de>

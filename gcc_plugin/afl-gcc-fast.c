@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - GCC wrapper for GCC plugin
+   american fuzzy lop++ - GCC wrapper for GCC plugin
    ------------------------------------------------
 
    Written by Austin Seipp <aseipp@pobox.com> and

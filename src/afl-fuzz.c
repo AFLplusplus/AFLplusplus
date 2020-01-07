@@ -1,5 +1,5 @@
 /*
-   american fuzzy lop - fuzzer code
+   american fuzzy lop++ - fuzzer code
    --------------------------------
 
    Originally written by Michal Zalewski
@@ -144,7 +144,8 @@ static void usage(u8* argv0) {
       argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
 #ifdef USE_PYTHON
-  SAYF("Compiled with Python %s module support, see docs/python_mutators.txt\n", (char*)PYTHON_VERSION);
+  SAYF("Compiled with Python %s module support, see docs/python_mutators.txt\n",
+       (char*)PYTHON_VERSION);
 #endif
 
   SAYF("For additional help please consult %s/README.md\n\n", doc_path);
@@ -591,7 +592,7 @@ int main(int argc, char** argv) {
   if (optind == argc || !in_dir || !out_dir) usage(argv[0]);
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
-      "Eissfeldt and Andrea Fioraldi");
+      "Eißfeldt and Andrea Fioraldi");
   OKF("afl++ is open source, get it at "
       "https://github.com/vanhauser-thc/AFLplusplus");
   OKF("Power schedules from github.com/mboehme/aflfast");
