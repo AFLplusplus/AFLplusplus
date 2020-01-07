@@ -443,8 +443,9 @@ int main(int argc, char** argv) {
 
         "You can specify custom next-stage toolchain via AFL_CC and AFL_CXX. "
         "Setting\n"
-        "AFL_HARDEN enables hardening optimizations in the compiled code.\n\n",
-        BIN_PATH, BIN_PATH);
+        "AFL_HARDEN enables hardening optimizations in the compiled code.\n\n"
+        "afl-clang-fast was built for llvm %s with the llvm binary path of \"%s\".\n\n",
+        BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
 
     exit(1);
 

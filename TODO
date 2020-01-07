@@ -2,9 +2,6 @@
 Roadmap 2.61+:
 ==============
 
-llvm_mode:
- - hard-code the clang/clang++ with -D from the Makefile via llvm-config values
-
 gcc_plugin:
  - laf-intel
  - better instrumentation
