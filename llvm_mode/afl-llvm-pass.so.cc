@@ -156,9 +156,14 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   /* Instrument all the things! */
 
+  const char *IntrinsicPrefix = "llvm.";
   int inst_blocks = 0;
 
-  for (auto &F : M)
+  for (auto &F : M) {
+
+    auto Fname = F.getName();
+    if (Fname.startswith(IntrinsicPrefix)) continue;
+
     for (auto &BB : F) {
 
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
@@ -372,6 +377,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       inst_blocks++;
 
     }
+  }
 
   /* Say something nice. */
 
