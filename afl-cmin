@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 #
 # american fuzzy lop++ - corpus minimization tool
 # ---------------------------------------------
@@ -45,7 +45,7 @@ echo
 
 # Process command-line options...
 
-MEM_LIMIT=100
+MEM_LIMIT=200
 TIMEOUT=none
 
 unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
@@ -320,18 +320,18 @@ echo "[*] Obtaining traces for input files in '$IN_DIR'..."
 
   if [ "$STDIN_FILE" = "" ]; then
 
-    while read -r fn; do
+    ls "$IN_DIR" | while read -r fn; do
 
       CUR=$((CUR+1))
       printf "\\r    Processing file $CUR/$IN_COUNT... "
 
       "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -- "$@" <"$IN_DIR/$fn"
 
-    done < <(ls "$IN_DIR")
+    done
 
   else
 
-    while read -r fn; do
+    ls "$IN_DIR" | while read -r fn; do
 
       CUR=$((CUR+1))
       printf "\\r    Processing file $CUR/$IN_COUNT... "
@@ -340,7 +340,7 @@ echo "[*] Obtaining traces for input files in '$IN_DIR'..."
 
       "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -A "$STDIN_FILE" -- "$@" </dev/null
 
-    done < <(ls "$IN_DIR")
+    done
 
 
   fi
@@ -381,14 +381,14 @@ echo "[*] Finding best candidates for each tuple..."
 
 CUR=0
 
-while read -r fn; do
+ls -rS "$IN_DIR" | while read -r fn; do
 
   CUR=$((CUR+1))
   printf "\\r    Processing file $CUR/$IN_COUNT... "
 
   sed "s#\$# $fn#" "$TRACE_DIR/$fn" >>"$TRACE_DIR/.candidate_list"
 
-done < <(ls -rS "$IN_DIR")
+done
 
 echo
 
