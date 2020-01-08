@@ -93,7 +93,7 @@ comes with a sub-instruction based instrumentation similar in purpose to laf-int
 
 The options that enable Unicorn CompareCoverage are the same used for QEMU.
 AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
-values. QEMU_COMPCOV_LEVEL=2 instruments all
+values. AFL_COMPCOV_LEVEL=2 instruments all
 comparison instructions. Comparison instructions are currently instrumented only
 for the x86, x86_64 and ARM targets.
 
