@@ -16,7 +16,11 @@ BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
 
 CFLAGS = -fPIC -Wall -Wextra
-LDFLAGS = -shared -ldl
+LDFLAGS = -shared
+
+ifneq "$(filter Linux GNU%,$(shell uname))" ""
+  LDFLAGS  += -ldl
+endif
 
 all: socketfuzz32.so socketfuzz64.so
 
