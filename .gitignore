@@ -34,4 +34,7 @@ afl-whatsup.8
 qemu_mode/libcompcov/compcovtest
 as
 qemu_mode/qemu-*
+unicorn_mode/unicornafl/
+unicorn_mode/samples/*/\.test-*
+unicorn_mode/samples/*/output/
 core\.*
