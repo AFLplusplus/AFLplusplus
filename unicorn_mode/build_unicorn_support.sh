@@ -34,7 +34,7 @@
 # running this script. If it is, please uninstall it first.
 
 echo "================================================="
-echo "Unicorn-AFL build script"
+echo "UnicornAFL build script"
 echo "================================================="
 echo
 
@@ -124,18 +124,18 @@ fi
 echo "[+] All checks passed!"
 
 echo "[*] Making sure unicornafl is checked out"
-rm -rf unicorn # workaround for travis ... sadly ...
+rm -rf unicornafl # workaround for travis ... sadly ...
 #test -d unicorn && { cd unicorn && { git stash ; git pull ; cd .. ; } }
-test -d unicorn || git clone https://github.com/vanhauser-thc/unicorn
-test -d unicorn || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
+test -d unicornafl || git clone https://github.com/vanhauser-thc/unicornafl
+test -d unicornafl || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got unicornafl."
 
 echo "[*] making sure config.h matches"
-cp "../config.h" "./unicorn/" || exit 1
+cp "../config.h" "./unicornafl/" || exit 1
 
 echo "[*] Configuring Unicorn build..."
 
-cd "unicorn" || exit 1
+cd "unicornafl" || exit 1
 
 echo "[+] Configuration complete."
 
@@ -155,8 +155,7 @@ else
   echo "[*] Info: Installing python unicornafl to virtualenv: $VIRTUAL_ENV"
   $PYTHONBIN setup.py install --force || exit 1
 fi
-# export LIBUNICORN_PATH='$(pwd)' # in theory, this allows to switch between afl-unicorn and unicorn so files.
-echo '[*] If needed, you can (re)install the bindigns from `./unicorn/bindings/python` using `python setup.py install`'
+echo '[*] If needed, you can (re)install the bindigns from `./unicornafl/bindings/python` using `python setup.py install`'
 
 cd ../../ || exit 1
 
