@@ -2,6 +2,9 @@
 Roadmap 2.61+:
 ==============
 
+afl-fuzz:
+ - sync_fuzzers(): only masters sync from all, slaves only sync from master
+
 gcc_plugin:
  - laf-intel
  - better instrumentation
