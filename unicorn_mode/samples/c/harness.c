@@ -1,11 +1,10 @@
 /*
    Simple test harness for AFL++'s unicornafl c mode.
 
-   This loads the simple_target.bin binary (precompiled as MIPS code) into
+   This loads the simple_target_x86_64 binary into
    Unicorn's memory map for emulation, places the specified input into
-   simple_target's buffer (hardcoded to be at 0x300000), and executes 'main()'.
-   If any crashes occur during emulation, this script throws a matching signal
-   to tell AFL that a crash occurred.
+   argv[1], sets up argv, and argc and executes 'main()'.
+   If run inside AFL, afl_fuzz automatically does the "right thing"
 
    Run under AFL as follows:
 
