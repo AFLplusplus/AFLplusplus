@@ -48,7 +48,7 @@ else
  endif
 endif
 
-CFLAGS     ?= -funroll-loops -Ofast $(CFLAGS_PERFORMANCE)
+CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_PERFORMANCE)
 CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
               -DDOC_PATH=\"$(DOC_PATH)\" -Wno-unused-function
