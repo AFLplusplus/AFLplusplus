@@ -20,7 +20,8 @@ Version ++2.60d (develop):
   - afl-fuzz:
      - now prints the real python version support compiled in
   - afl-clang-fast now shows in the help output for which llvm version it
-    was compiled for.
+    was compiled for
+  - added blacklisted function check in llvm_mode
   - added fix from Debian project to compile libdislocator and libtokencap
 
 

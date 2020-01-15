@@ -94,6 +94,28 @@ struct InsTrim : public ModulePass {
 
   }
 
+  // ripped from aflgo
+  static bool isBlacklisted(const Function *F) {
+
+    static const SmallVector<std::string, 4> Blacklist = {
+
+        "asan.",
+        "llvm.",
+        "sancov.",
+        "__ubsan_handle_",
+
+    };
+
+    for (auto const &BlacklistFunc : Blacklist) {
+
+      if (F->getName().startswith(BlacklistFunc)) { return true; }
+
+    }
+
+    return false;
+
+  }
+
   bool runOnModule(Module &M) override {
 
     char be_quiet = 0;
@@ -239,6 +261,8 @@ struct InsTrim : public ModulePass {
         }
 
       }
+
+      if (isBlacklisted(&F)) continue;
 
       std::unordered_set<BasicBlock *> MS;
       if (!MarkSetOpt) {

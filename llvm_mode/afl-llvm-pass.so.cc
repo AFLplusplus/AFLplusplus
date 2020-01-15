@@ -75,6 +75,28 @@ class AFLCoverage : public ModulePass {
 
   }
 
+  // ripped from aflgo
+  static bool isBlacklisted(const Function *F) {
+
+    static const SmallVector<std::string, 4> Blacklist = {
+
+        "asan.",
+        "llvm.",
+        "sancov.",
+        "__ubsan_handle_",
+
+    };
+
+    for (auto const &BlacklistFunc : Blacklist) {
+
+      if (F->getName().startswith(BlacklistFunc)) { return true; }
+
+    }
+
+    return false;
+
+  }
+
   bool runOnModule(Module &M) override;
 
   // StringRef getPassName() const override {
@@ -156,13 +178,11 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   /* Instrument all the things! */
 
-  const char *IntrinsicPrefix = "llvm.";
   int inst_blocks = 0;
 
   for (auto &F : M) {
 
-    auto Fname = F.getName();
-    if (Fname.startswith(IntrinsicPrefix)) continue;
+    if (isBlacklisted(&F)) continue;
 
     for (auto &BB : F) {
 
@@ -377,6 +397,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       inst_blocks++;
 
     }
+
   }
 
   /* Say something nice. */
