@@ -19,6 +19,7 @@ Version ++2.60d (develop):
 
   - afl-fuzz:
      - now prints the real python version support compiled in
+     - set stronger performance compile options and little tweaks
   - afl-clang-fast now shows in the help output for which llvm version it
     was compiled for
   - added blacklisted function check in llvm_mode
