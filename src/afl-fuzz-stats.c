@@ -334,9 +334,9 @@ void show_stats(void) {
 
   /* Lord, forgive me this. */
 
-  SAYF(SET_G1 bSTG bLT bH bSTOP cCYA
+  SAYF(SET_G1 bSTG bLT bH bSTOP                         cCYA
        " process timing " bSTG bH30 bH5 bH bHB bH bSTOP cCYA
-       " overall results " bSTG bH2 bH2 bRT "\n");
+       " overall results " bSTG bH2 bH2                 bRT "\n");
 
   if (dumb_mode) {
 
@@ -413,9 +413,9 @@ void show_stats(void) {
                 "   uniq hangs : " cRST "%-6s" bSTG         bV "\n",
        DTD(cur_ms, last_hang_time), tmp);
 
-  SAYF(bVR bH bSTOP            cCYA
+  SAYF(bVR bH bSTOP                                          cCYA
        " cycle progress " bSTG bH10 bH5 bH2 bH2 bHB bH bSTOP cCYA
-       " map coverage " bSTG bH bHT bH20 bH2 bVL "\n");
+       " map coverage " bSTG bH bHT bH20 bH2                 bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
      together, but then cram them into a fixed-width field - so we need to
@@ -443,9 +443,9 @@ void show_stats(void) {
 
   SAYF(bSTOP " count coverage : " cRST "%-21s" bSTG bV "\n", tmp);
 
-  SAYF(bVR bH bSTOP            cCYA
+  SAYF(bVR bH bSTOP                                         cCYA
        " stage progress " bSTG bH10 bH5 bH2 bH2 bX bH bSTOP cCYA
-       " findings in depth " bSTG bH10 bH5 bH2 bH2 bVL "\n");
+       " findings in depth " bSTG bH10 bH5 bH2 bH2          bVL "\n");
 
   sprintf(tmp, "%s (%0.02f%%)", DI(queued_favored),
           ((double)queued_favored) * 100 / queued_paths);
@@ -514,7 +514,7 @@ void show_stats(void) {
 
   /* Aaaalmost there... hold on! */
 
-  SAYF(bVR bH cCYA                      bSTOP
+  SAYF(bVR bH cCYA                                                     bSTOP
        " fuzzing strategy yields " bSTG bH10 bHT bH10 bH5 bHB bH bSTOP cCYA
        " path geometry " bSTG bH5 bH2 bVL "\n");
 
