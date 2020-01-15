@@ -1940,17 +1940,17 @@ void check_binary(u8* fname) {
 
   }
 
-  if ((qemu_mode || unicorn_mode) &&
+  if ((qemu_mode) &&
       memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
          "This program appears to be instrumented with afl-gcc, but is being "
          "run in\n"
-         "    QEMU or Unicorn mode (-Q or -U). This is probably not what you "
+         "    QEMU mode (-Q). This is probably not what you "
          "want -\n"
          "    this setup will be slow and offer no practical benefits.\n");
 
-    FATAL("Instrumentation found in -Q or -U mode");
+    FATAL("Instrumentation found in -Q mode");
 
   }
 
