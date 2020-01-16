@@ -64,11 +64,24 @@ ifeq "$(LLVM_APPLE)" "1"
   $(warning llvm_mode will not compile with Xcode clang...)
 endif
 
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto=full
+else
+ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto=thin
+ else
+  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto
+  endif
+ endif
+endif
+
+
 CFLAGS      ?= -O3 -funroll-loops
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
-               -DLLVM_VERSION=\"$(LLVMVER)\"
+               -DLLVM_VERSION=\"$(LLVMVER)\" -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\"
 ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
 endif
@@ -199,6 +212,10 @@ endif
 ../afl-clang-fast: afl-clang-fast.c | test_deps
 	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 	ln -sf afl-clang-fast ../afl-clang-fast++
+ifneq "$(AFL_CLANG_FLTO)" ""
+	ln -sf afl-clang-fast ../afl-clang-lto
+	ln -sf afl-clang-fast ../afl-clang-lto++
+endif
 
 ../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc | test_deps
 	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
@@ -260,6 +277,10 @@ vpath  % ..
 	@echo .SH LICENSE >> ../$@
 	@echo Apache License Version 2.0, January 2004 >> ../$@
 	ln -sf afl-clang-fast.8 ../afl-clang-fast++.8
+ifneq "$(AFL_CLANG_FLTO)" ""
+	ln -sf afl-clang-fast.8 ../afl-clang-lto.8
+	ln -sf afl-clang-fast.8 ../afl-clang-lto++.8
+endif
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 afl-llvm-pass.dwo

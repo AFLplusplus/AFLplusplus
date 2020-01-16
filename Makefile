@@ -149,7 +149,7 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 
-all:	test_x86 test_shm test_python27 ready $(PROGS) afl-as test_build all_done
+all:	test_x86 test_shm test_python27 ready $(PROGS) afl-as afl-ld test_build all_done
 
 man:    $(MANPAGES) 
 	-$(MAKE) -C llvm_mode
@@ -239,6 +239,12 @@ afl-gcc: src/afl-gcc.c $(COMM_HDR) | test_x86
 afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
+
+afl-ld: src/afl-ld.c
+ifneq "$(CFLAGS_FLTO)" ""
+	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
+	ln -sf afl-ld ld
+endif
 
 src/afl-common.o : src/afl-common.c include/common.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-common.c -o src/afl-common.o
@@ -394,6 +400,7 @@ ifndef AFL_TRACE_PC
 	if [ -f afl-clang-fast -a -f libLLVMInsTrim.so -a -f afl-llvm-rt.o ]; then set -e; install -m 755 afl-clang-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-fast++; install -m 755 libLLVMInsTrim.so afl-llvm-pass.so afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH); fi
 else
 	if [ -f afl-clang-fast -a -f afl-llvm-rt.o ]; then set -e; install -m 755 afl-clang-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-fast++; install -m 755 afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f afl-clang-lto -a -f afl-ld ]; then set -e; install -m 755 afl-clang-lto $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 afl-ld $${DESTDIR}$(BIN_PATH); ln -sf afl-ld $${DESTDIR}$(BIN_PATH)/ld; install -m 755 afl-llvm-lto-whitelist.so $${DESTDIR}$(HELPER_PATH); fi
 endif
 	if [ -f afl-llvm-rt-32.o ]; then set -e; install -m 755 afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f afl-llvm-rt-64.o ]; then set -e; install -m 755 afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH); fi

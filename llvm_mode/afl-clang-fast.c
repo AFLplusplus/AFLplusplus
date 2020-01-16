@@ -40,6 +40,8 @@ static u8*  obj_path;                  /* Path to runtime libraries         */
 static u8** cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
+static u8   lto_mode;
+static u8*  lto_flag = AFL_CLANG_FLTO;
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
@@ -134,7 +136,22 @@ static void edit_params(u32 argc, char** argv) {
 
   has_llvm_config = (strlen(LLVM_BINDIR) > 0);
 
-  if (!strcmp(name, "afl-clang-fast++")) {
+  if (!strncmp(name, "afl-clang-lto", strlen("afl-clang-lto"))) {
+
+#ifdef USE_TRACE_PC
+     FATAL("afl-clang-lto does not work with TRACE_PC mode");
+#endif
+     if (lto_flag[0] != '-')
+       FATAL("afl-clang-lto not possible because Makefile magic did not identify the correct -flto flag");
+     if (getenv("AFL_LLVM_INSTRIM") != NULL)
+       FATAL("afl-clang-lto does not work with InsTrim mode");
+     lto_mode = 1;
+
+    printf(cCYA "afl-clang-lto" VERSION cRST "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+     
+  }
+
+  if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
 
     u8* alt_cxx = getenv("AFL_CXX");
     if (has_llvm_config)
@@ -196,6 +213,7 @@ static void edit_params(u32 argc, char** argv) {
 
   // /laf
 
+  unsetenv("AFL_LD");
 #ifdef USE_TRACE_PC
   cc_params[cc_par_cnt++] =
       "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
@@ -204,13 +222,34 @@ static void edit_params(u32 argc, char** argv) {
   // "-fsanitize-coverage=trace-cmp,trace-div,trace-gep";
   // cc_params[cc_par_cnt++] = "-sanitizer-coverage-block-threshold=0";
 #else
-  cc_params[cc_par_cnt++] = "-Xclang";
-  cc_params[cc_par_cnt++] = "-load";
-  cc_params[cc_par_cnt++] = "-Xclang";
-  if (getenv("AFL_LLVM_INSTRIM") != NULL || getenv("INSTRIM_LIB") != NULL)
-    cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
-  else
-    cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+  if (lto_mode) {
+    char *old_path = getenv("PATH");
+    char *new_path = alloc_printf("%s:%s:%s", BIN_PATH, AFL_PATH, old_path);
+
+    setenv("PATH", new_path, 1);
+    setenv("AFL_LD", "1", 1);
+
+    if (getenv("AFL_LLVM_WHITELIST") != NULL) {
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-lto-whitelist.so", obj_path);
+    }
+
+    cc_params[cc_par_cnt++] = "-B";
+    cc_params[cc_par_cnt++] = BIN_PATH;
+
+    cc_params[cc_par_cnt++] = lto_flag;
+
+  } else {
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] = "-load";
+    cc_params[cc_par_cnt++] = "-Xclang";
+    if (getenv("AFL_LLVM_INSTRIM") != NULL || getenv("INSTRIM_LIB") != NULL)
+      cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
+    else
+      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+  }
 #endif                                                     /* ^USE_TRACE_PC */
 
   cc_params[cc_par_cnt++] = "-Qunused-arguments";
