@@ -42,6 +42,7 @@ static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
 static u8   lto_mode;
 static u8*  lto_flag = AFL_CLANG_FLTO;
+static u8   debug;
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
@@ -460,6 +461,11 @@ static void edit_params(u32 argc, char** argv) {
 
 int main(int argc, char** argv) {
 
+  int i;
+
+  if (getenv("AFL_DEBUG"))
+    debug = 1;
+
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
 #ifdef USE_TRACE_PC
@@ -511,19 +517,25 @@ int main(int argc, char** argv) {
 
   }
 
+  if (debug) {
+    OKF(" Debug:" );
+    for (i = 0; i < argc; i++)
+      printf(" %s", argv[i]);
+    printf("\n");
+  }
+
 #ifndef __ANDROID__
   find_obj(argv[0]);
 #endif
 
   edit_params(argc, argv);
 
-  /*
-    int i = 0;
-    printf("EXEC:");
-    while (cc_params[i] != NULL)
-      printf(" %s", cc_params[i++]);
+  if (debug) {
+    OKF(" Debug:" );
+    for (i = 0; i < cc_par_cnt; i++)
+      printf(" %s", cc_params[i]);
     printf("\n");
-  */
+  }
 
   execvp(cc_params[0], (char**)cc_params);
 

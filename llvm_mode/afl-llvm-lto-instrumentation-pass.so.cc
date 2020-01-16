@@ -148,7 +148,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
   if (getenv("AFL_DEBUG") || (isatty(2) && !getenv("AFL_QUIET"))) {
 
     SAYF(cCYA "afl-llvm-lto-instrumentation-pass" VERSION cRST
-              " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>>\n");
+              " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
 
   } else if (getenv("AFL_QUIET"))
 

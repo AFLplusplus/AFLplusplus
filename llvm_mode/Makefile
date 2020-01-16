@@ -76,6 +76,9 @@ else
  endif
 endif
 
+ifneq "$(AFL_CLANG_FLTO)" ""
+AFL_REAL_LD ?= $(shell readlink /bin/ld 2>/dev/null)
+endif
 
 CFLAGS      ?= -O3 -funroll-loops
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
@@ -219,7 +222,7 @@ endif
 
 ../afl-ld: afl-ld.c
 ifneq "$(AFL_CLANG_FLTO)" ""
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -DAFL_REAL_LD=\"$(AFL_REAL_LD)\"
 	ln -sf afl-ld ../ld
 endif
 

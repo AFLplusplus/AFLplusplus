@@ -45,9 +45,10 @@ static u8 **ld_params,              /* Parameters passed to the real 'ld'   */
     **opt_params;                             /* Parameters passed to 'opt' */
 
 static u8* input_file;              /* Originally specified input file      */
-static u8 *modified_file,
-    *linked_file;                   /* Instrumented file for the real 'ld'  */
+static u8 *modified_file,/* Instrumented file for the real 'ld'  */
+    *linked_file;        /* file where we link all files  */           
 static u8* afl_path = AFL_PATH;
+static u8* real_ld = AFL_REAL_LD;
 
 static u8 be_quiet,                 /* Quiet mode (no stderr output)        */
     just_version;                   /* Just show version?                   */
@@ -85,11 +86,13 @@ int is_llvm_file(char* file) {
 
 static void edit_params(int argc, char** argv) {
 
-  u8* tmp_dir = "/tmp";
+  u8* tmp_dir = getenv("TMPDIR");
   u32 i;
 
-  if (getenv("TMP_PATH") != NULL) tmp_dir = getenv("TMP_PATH");
-
+  if (!tmp_dir) tmp_dir = getenv("TEMP");
+  if (!tmp_dir) tmp_dir = getenv("TMP");
+  if (!tmp_dir) tmp_dir = "/tmp";
+  
   modified_file =
       alloc_printf("%s/.afl-%u-%u.bc", tmp_dir, getpid(), (u32)time(NULL));
   linked_file =
@@ -99,7 +102,7 @@ static void edit_params(int argc, char** argv) {
   link_params = ck_alloc((argc + 32) * sizeof(u8*));
   opt_params = ck_alloc(8 * sizeof(u8*));
 
-  ld_params[0] = (u8*)"ld";
+  ld_params[0] = (u8*)real_ld;
   ld_params[argc] = 0;
 
   link_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "llvm-link");
@@ -108,7 +111,7 @@ static void edit_params(int argc, char** argv) {
 
   opt_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "opt");
   opt_params[opt_par_cnt++] =
-      alloc_printf("--load=%s/afl-llvm-lto-instrument-pass.so", afl_path);
+      alloc_printf("--load=%s/afl-llvm-lto-instrumentation-pass.so", afl_path);
   opt_params[opt_par_cnt++] = "--afl-lto";
   opt_params[opt_par_cnt++] = linked_file;
   opt_params[opt_par_cnt++] = "-o";
@@ -125,15 +128,17 @@ static void edit_params(int argc, char** argv) {
       return;
 
     }
-
-    if (argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
-      ld_params[ld_par_cnt++] = argv[i];
-    else
-      link_params[link_par_cnt++] = argv[i];
-
+    
+    if (strcmp(argv[i], "--afl") != 0) {
+      if (argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
+        ld_params[ld_par_cnt++] = argv[i];
+      else
+       link_params[link_par_cnt++] = argv[i];
+   }
+ 
   }
 
-  ld_params[ld_par_cnt++] = "-flto";
+  ld_params[ld_par_cnt++] = AFL_CLANG_FLTO;
   ld_params[ld_par_cnt++] = modified_file;
   ld_params[ld_par_cnt] = NULL;
 
@@ -145,19 +150,37 @@ int main(int argc, char** argv) {
 
   s32 pid;
   int status;
-  u8 *ptr, val[2] = " ";
+  u8 *ptr, exe[4096], exe2[4096], proc[32], val[2] = " ";
   int have_afl_ld_caller = 0;
 
   if (getenv("AFL_PATH") != NULL) afl_path = getenv("AFL_PATH");
 
+  if (getenv("AFL_REAL_LD") != NULL) real_ld = getenv("AFL_REAL_LD");
+  if (real_ld == NULL || strlen(real_ld) < 2)
+    real_ld = "/bin/ld";
+  if (real_ld != NULL && real_ld[0] != '/')
+    real_ld = alloc_printf("/bin/%s", real_ld);
+
+  sprintf(proc, "/proc/%d/exe", getpid());
+  if (readlink(proc, exe, sizeof(exe) - 1) > 0) {
+    if (readlink(real_ld, exe2, sizeof(exe2) - 1) < 1)
+      exe2[0] = 0;
+    exe[sizeof(exe) - 1] = 0;
+    exe[sizeof(exe2) - 1] = 0;
+    if (strcmp(exe, real_ld) == 0 || strcmp(exe, exe2) == 0)
+      PFATAL(cLRD"[!] " cRST "Error: real 'ld' path points to afl-ld, set AFL_REAL_LD to the real 'ld' program!");
+  }
+
   if ((ptr = getenv("AFL_LD_CALLER")) != NULL) have_afl_ld_caller = atoi(ptr);
-  val[0] = 31 + have_afl_ld_caller;
+  val[0] = 0x31 + have_afl_ld_caller;
   setenv("AFL_LD_CALLER", val, 1);
+  if (have_afl_ld_caller > 1)
+    PFATAL(cLRD"[!] " cRST "Error: afl-ld calls itself in a loop, , set AFL_REAL_LD to the real 'ld' program!");
 
   if (!getenv("AFL_QUIET")) {
 
     SAYF(cCYA "afl-ld" VERSION cRST
-              " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+              " by Marc \"vanHauser\" Heuse <mh@mh-sec.de> (level %d)\n", have_afl_ld_caller);
 
   } else
 
@@ -170,15 +193,10 @@ int main(int argc, char** argv) {
         "This is a helper application for afl-fuzz. It is a wrapper around GNU "
         "'ld',\n"
         "executed by the toolchain whenever using "
-        "afl-clang-lto/afl-clang-lto++. You "
-        "probably\n"
-        "don't want to run this program directly.\n\n"
+        "afl-clang-lto/afl-clang-lto++.\n"
+        "You probably don't want to run this program directly.\n\n"
 
-        "Rarely, when dealing with extremely complex projects, it may be "
-        "advisable to\n"
-        "set AFL_INST_RATIO to a value less than 100 in order to reduce the "
-        "odds of\n"
-        "instrumenting every discovered branch.\n\n");
+        "afl-ld is set with the fixed real 'ld' path of %s and the clang tool path of %s\n\n", real_ld, LLVM_BINDIR);
 
     exit(1);
 
@@ -187,6 +205,11 @@ int main(int argc, char** argv) {
   if (getenv("AFL_LD") == NULL) {
 
     char *newpath = NULL, *path = getenv("PATH");
+
+    if (real_ld != NULL && strlen(real_ld) > 1)
+      execvp(real_ld, argv);
+
+    // some fallbacks
 
     if (have_afl_ld_caller == 0)
       execvp("ld", argv);  // unlikely this works, but lets try
@@ -206,7 +229,10 @@ int main(int argc, char** argv) {
 
     if (have_afl_ld_caller == 1) execvp("ld", argv);  // lets try again
     execvp("/bin/ld", argv);                          // fallback
-    FATAL("Oops, failed to execute 'ld' - check your PATH");
+    PFATAL("Oops, failed to execute 'ld' - check your PATH");
+    
+    if (have_afl_ld_caller > 1)
+      PFATAL("Oops, failed to execute 'ld' - check your PATH");
 
   }
 
@@ -221,6 +247,7 @@ int main(int argc, char** argv) {
     } else {
 
       /* first we link all files */
+      OKF("Running bitcode linker, creating %s", linked_file);
       if (!(pid = fork())) {
 
         execvp(link_params[0], (char**)link_params);
@@ -233,6 +260,7 @@ int main(int argc, char** argv) {
       if (WEXITSTATUS(status) != 0) exit(WEXITSTATUS(status));
 
       /* then we run the instrumentation through the optimizer */
+      OKF("Running bitcode optimizer, creating %s", modified_file);
       if (!(pid = fork())) {
 
         execvp(opt_params[0], (char**)opt_params);
@@ -250,11 +278,17 @@ int main(int argc, char** argv) {
 
   }
 
+  OKF("Running real linker %s", real_ld);
   if (!(pid = fork())) {
 
     char *newpath = NULL, *path = getenv("PATH");
 
     unsetenv("AFL_LD");
+
+    if (strlen(real_ld) > 1)
+      execvp(real_ld, (char**)ld_params);
+
+    /* fallback */
 
     if (strlen(afl_path) > 1)
       newpath = strstr(path, afl_path);
@@ -269,8 +303,7 @@ int main(int argc, char** argv) {
 
     }
 
-    execvp("ld", (char**)ld_params);
-    execvp("/bin/ld", (char**)ld_params);  // fallback
+    execvp("ld", (char**)ld_params); // fallback
     FATAL("Oops, failed to execute 'ld' - check your PATH");
 
   }
@@ -281,11 +314,13 @@ int main(int argc, char** argv) {
 
   if (!just_version) {
 
-    if (!getenv("AFL_KEEP_ASSEMBLY"))
+    if (!getenv("AFL_KEEP_ASSEMBLY")) {
+      unlink(linked_file);
       unlink(modified_file);
-    else
-      SAYF("afl-ld: keeping bitcode file %s", modified_file);
+    } else
+      SAYF("[!] afl-ld: keeping link file %s and bitcode file %s", linked_file, modified_file);
 
+    OKF("Linker was successful");
   }
 
   exit(WEXITSTATUS(status));
