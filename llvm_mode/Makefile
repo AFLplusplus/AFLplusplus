@@ -144,7 +144,7 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 ifndef AFL_TRACE_PC
-  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-lto-instrumentation-pass.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
+  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-lto-whitelist-pass.so ../afl-llvm-lto-instrumentation-pass.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 else
   PROGS      = ../afl-clang-fast ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 endif
@@ -223,7 +223,10 @@ endif
 ../afl-llvm-pass.so: afl-llvm-pass.so.cc | test_deps
 	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
 
-../afl-llvm-lto-instrumentation-pass.so: afl-llvm-lto-instrumentation-pass.so.cc | test_deps
+../afl-llvm-lto-whitelist-pass.so: afl-llvm-lto-whitelist-pass.so.cc
+	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
+
+../afl-llvm-lto-instrumentation-pass.so: afl-llvm-lto-instrumentation-pass.so.cc
 	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
 
 # laf

@@ -44,6 +44,24 @@ class SplitSwitchesTransform : public ModulePass {
 
   }
 
+  static bool isBlacklisted(const Function *F) {
+
+    static const SmallVector<std::string, 5> Blacklist = {
+
+        "asan.", "llvm.", "sancov.", "__ubsan_handle_", "ign."
+
+    };
+
+    for (auto const &BlacklistFunc : Blacklist) {
+
+      if (F->getName().startswith(BlacklistFunc)) { return true; }
+
+    }
+
+    return false;
+
+  }
+
   bool runOnModule(Module &M) override;
 
 #if LLVM_VERSION_MAJOR >= 4
@@ -267,6 +285,8 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
   /* iterate over all functions, bbs and instruction and add
    * all switches to switches vector for later processing */
   for (auto &F : M) {
+
+    if (isBlacklisted(&F)) continue;
 
     for (auto &BB : F) {
 

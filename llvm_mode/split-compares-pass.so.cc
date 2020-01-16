@@ -37,6 +37,24 @@ class SplitComparesTransform : public ModulePass {
 
   }
 
+  static bool isBlacklisted(const Function *F) {
+
+    static const SmallVector<std::string, 5> Blacklist = {
+
+        "asan.", "llvm.", "sancov.", "__ubsan_handle_", "ign."
+
+    };
+
+    for (auto const &BlacklistFunc : Blacklist) {
+
+      if (F->getName().startswith(BlacklistFunc)) { return true; }
+
+    }
+
+    return false;
+
+  }
+
   bool runOnModule(Module &M) override;
 #if LLVM_VERSION_MAJOR >= 4
   StringRef getPassName() const override {
@@ -76,6 +94,8 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
   /* iterate over all functions, bbs and instruction and add
    * all integer comparisons with >= and <= predicates to the icomps vector */
   for (auto &F : M) {
+
+    if (isBlacklisted(&F)) continue;
 
     for (auto &BB : F) {
 
