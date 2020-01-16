@@ -220,8 +220,6 @@ static void add_instrumentation(void) {
 
   // TODO
 
-
-
 }
 
 /* Main entry point */
@@ -240,7 +238,8 @@ int main(int argc, char** argv) {
 
   if (!getenv("AFL_QUIET")) {
 
-    SAYF(cCYA "afl-ld" VERSION cRST " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+    SAYF(cCYA "afl-ld" VERSION cRST
+              " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
 
   } else
 
@@ -267,10 +266,11 @@ int main(int argc, char** argv) {
   }
 
   if (getenv("AFL_LD") == NULL) {
-    execvp("/bin/ld", argv); // <= TODO 
-    FATAL("Oops, failed to execute '%s' - check your PATH", "/bin/ld");
-  }
 
+    execvp("/bin/ld", argv);  // <= TODO
+    FATAL("Oops, failed to execute '%s' - check your PATH", "/bin/ld");
+
+  }
 
   gettimeofday(&tv, &tz);
 

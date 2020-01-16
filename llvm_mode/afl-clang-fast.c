@@ -139,16 +139,19 @@ static void edit_params(u32 argc, char** argv) {
   if (!strncmp(name, "afl-clang-lto", strlen("afl-clang-lto"))) {
 
 #ifdef USE_TRACE_PC
-     FATAL("afl-clang-lto does not work with TRACE_PC mode");
+    FATAL("afl-clang-lto does not work with TRACE_PC mode");
 #endif
-     if (lto_flag[0] != '-')
-       FATAL("afl-clang-lto not possible because Makefile magic did not identify the correct -flto flag");
-     if (getenv("AFL_LLVM_INSTRIM") != NULL)
-       FATAL("afl-clang-lto does not work with InsTrim mode");
-     lto_mode = 1;
+    if (lto_flag[0] != '-')
+      FATAL(
+          "afl-clang-lto not possible because Makefile magic did not identify "
+          "the correct -flto flag");
+    if (getenv("AFL_LLVM_INSTRIM") != NULL)
+      FATAL("afl-clang-lto does not work with InsTrim mode");
+    lto_mode = 1;
 
-    printf(cCYA "afl-clang-lto" VERSION cRST "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
-     
+    printf(cCYA "afl-clang-lto" VERSION cRST
+                "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+
   }
 
   if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
@@ -223,17 +226,21 @@ static void edit_params(u32 argc, char** argv) {
   // cc_params[cc_par_cnt++] = "-sanitizer-coverage-block-threshold=0";
 #else
   if (lto_mode) {
-    char *old_path = getenv("PATH");
-    char *new_path = alloc_printf("%s:%s:%s", BIN_PATH, AFL_PATH, old_path);
+
+    char* old_path = getenv("PATH");
+    char* new_path = alloc_printf("%s:%s:%s", BIN_PATH, AFL_PATH, old_path);
 
     setenv("PATH", new_path, 1);
     setenv("AFL_LD", "1", 1);
 
     if (getenv("AFL_LLVM_WHITELIST") != NULL) {
+
       cc_params[cc_par_cnt++] = "-Xclang";
       cc_params[cc_par_cnt++] = "-load";
       cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-lto-whitelist.so", obj_path);
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-llvm-lto-whitelist.so", obj_path);
+
     }
 
     cc_params[cc_par_cnt++] = "-B";
@@ -242,6 +249,7 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = lto_flag;
 
   } else {
+
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
@@ -249,7 +257,9 @@ static void edit_params(u32 argc, char** argv) {
       cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
     else
       cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+
   }
+
 #endif                                                     /* ^USE_TRACE_PC */
 
   cc_params[cc_par_cnt++] = "-Qunused-arguments";
