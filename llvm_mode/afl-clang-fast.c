@@ -217,6 +217,7 @@ static void edit_params(u32 argc, char** argv) {
   // /laf
 
   unsetenv("AFL_LD");
+  unsetenv("AFL_LD_CALLER");
 #ifdef USE_TRACE_PC
   cc_params[cc_par_cnt++] =
       "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default

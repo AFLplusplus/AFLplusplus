@@ -149,7 +149,7 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 
-all:	test_x86 test_shm test_python27 ready $(PROGS) afl-as afl-ld test_build all_done
+all:	test_x86 test_shm test_python27 ready $(PROGS) afl-as test_build all_done
 
 man:    $(MANPAGES) 
 	-$(MAKE) -C llvm_mode
@@ -239,12 +239,6 @@ afl-gcc: src/afl-gcc.c $(COMM_HDR) | test_x86
 afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
-
-afl-ld: src/afl-ld.c
-ifneq "$(CFLAGS_FLTO)" ""
-	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
-	ln -sf afl-ld ld
-endif
 
 src/afl-common.o : src/afl-common.c include/common.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-common.c -o src/afl-common.o

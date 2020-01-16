@@ -144,7 +144,7 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 ifndef AFL_TRACE_PC
-  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-lto-whitelist-pass.so ../afl-llvm-lto-instrumentation-pass.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
+  PROGS      = ../afl-clang-fast ../afl-ld ../afl-llvm-pass.so ../afl-llvm-lto-whitelist-pass.so ../afl-llvm-lto-instrumentation-pass.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 else
   PROGS      = ../afl-clang-fast ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 endif
@@ -215,6 +215,12 @@ endif
 ifneq "$(AFL_CLANG_FLTO)" ""
 	ln -sf afl-clang-fast ../afl-clang-lto
 	ln -sf afl-clang-fast ../afl-clang-lto++
+endif
+
+../afl-ld: afl-ld.c
+ifneq "$(AFL_CLANG_FLTO)" ""
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
+	ln -sf afl-ld ../ld
 endif
 
 ../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc | test_deps
