@@ -42,6 +42,7 @@ static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
 static u8   lto_mode;
 static u8*  lto_flag = AFL_CLANG_FLTO;
+static u8*  march_opt = CFLAGS_OPT;
 static u8   debug;
 static u8   cwd[4096];
 
@@ -352,7 +353,8 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = "-g";
     cc_params[cc_par_cnt++] = "-O3";
     cc_params[cc_par_cnt++] = "-funroll-loops";
-    cc_params[cc_par_cnt++] = "-march=native";
+    if (strlen(march_opt) > 1 && march_opt[0] == '-')
+      cc_params[cc_par_cnt++] = march_opt;
 
   }
 

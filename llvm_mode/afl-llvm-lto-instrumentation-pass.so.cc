@@ -124,6 +124,8 @@ class AFLLTOPass : public ModulePass {
 
  protected:
   int debug = 0;
+  unsigned int collisions = 0;
+  unsigned long long int edges = 0;
 
 };
 
@@ -169,7 +171,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   unsigned char *map = NULL, *ids = NULL;
   int            id_cnt;
-  unsigned int   collisions = 0, edges = 0;
   unsigned int   id_list[256];
   bb_id *        bb_list = NULL, *bb_cur;
 
@@ -591,7 +592,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
       WARNF("No instrumentation targets found.");
     else {
 
-      OKF("Instrumented %u locations with %u edges and resulting in %u collision(s) (%s mode, ratio "
+      OKF("Instrumented %u locations with %llu edges and resulting in %u collision(s) (%s mode, ratio "
           "%u%%).",
           inst_blocks, edges, collisions,
           getenv("AFL_HARDEN")
