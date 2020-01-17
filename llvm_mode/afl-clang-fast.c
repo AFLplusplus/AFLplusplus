@@ -463,8 +463,7 @@ int main(int argc, char** argv) {
 
   int i;
 
-  if (getenv("AFL_DEBUG"))
-    debug = 1;
+  if (getenv("AFL_DEBUG")) debug = 1;
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -518,10 +517,12 @@ int main(int argc, char** argv) {
   }
 
   if (debug) {
-    OKF(" Debug:" );
+
+    OKF(" Debug:");
     for (i = 0; i < argc; i++)
       printf(" %s", argv[i]);
     printf("\n");
+
   }
 
 #ifndef __ANDROID__
@@ -531,10 +532,12 @@ int main(int argc, char** argv) {
   edit_params(argc, argv);
 
   if (debug) {
-    OKF(" Debug:" );
+
+    OKF(" Debug:");
     for (i = 0; i < cc_par_cnt; i++)
       printf(" %s", cc_params[i]);
     printf("\n");
+
   }
 
   execvp(cc_params[0], (char**)cc_params);
