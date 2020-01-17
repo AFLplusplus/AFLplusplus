@@ -17,6 +17,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 Version ++2.60d (develop):
 --------------------------
 
+  - use -march=native if available
   - afl-fuzz:
      - now prints the real python version support compiled in
      - set stronger performance compile options and little tweaks
