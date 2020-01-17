@@ -197,8 +197,10 @@ static void edit_params(u32 argc, char** argv) {
   // /laf
 
 #ifdef USE_TRACE_PC
-  cc_params[cc_par_cnt++] =
-      "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
+  if (getenv("AFL_CMPLOG"))
+    cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard,trace-cmp";
+  else
+    cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard"; // edge coverage by default
   // cc_params[cc_par_cnt++] = "-mllvm";
   // cc_params[cc_par_cnt++] =
   // "-fsanitize-coverage=trace-cmp,trace-div,trace-gep";

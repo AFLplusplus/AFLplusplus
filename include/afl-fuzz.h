@@ -168,7 +168,9 @@ enum {
   /* 16 */ STAGE_SPLICE,
   /* 17 */ STAGE_PYTHON,
   /* 18 */ STAGE_RADAMSA,
-  /* 19 */ STAGE_CUSTOM_MUTATOR
+  /* 19 */ STAGE_CUSTOM_MUTATOR,
+  /* 20 */ STAGE_COLORIZATION,
+  /* 21 */ STAGE_ITS,
 
 };
 
@@ -644,6 +646,14 @@ void   setup_signal_handlers(void);
 char** get_qemu_argv(u8*, char**, int);
 char** get_wine_argv(u8*, char**, int);
 void   save_cmdline(u32, char**);
+
+/* RedQueen */
+
+extern u8* cmplog_binary;
+extern s32 cmplog_forksrv_pid;
+
+void init_cmplog_forkserver(char **argv);
+u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len, u32 exec_cksum);
 
 /**** Inline routines ****/
 

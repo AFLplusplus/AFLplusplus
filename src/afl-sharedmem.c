@@ -35,6 +35,7 @@
 #include "alloc-inl.h"
 #include "hash.h"
 #include "sharedmem.h"
+#include "cmplog.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -68,7 +69,11 @@ char           g_shm_file_path[L_tmpnam];
 /* ========================================= */
 #else
 static s32 shm_id;                     /* ID of the SHM region              */
+static s32 cmplog_shm_id;
 #endif
+
+int cmplog_mode;
+struct cmp_map* cmp_map;
 
 /* Get rid of shared memory (atexit handler). */
 
@@ -91,6 +96,8 @@ void remove_shm(void) {
 
 #else
   shmctl(shm_id, IPC_RMID, NULL);
+  if (cmplog_mode)
+    shmctl(cmplog_shm_id, IPC_RMID, NULL);
 #endif
 
 }
@@ -148,7 +155,15 @@ void setup_shm(unsigned char dumb_mode) {
   shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
 
   if (shm_id < 0) PFATAL("shmget() failed");
+  
+  if (cmplog_mode) {
+  
+    cmplog_shm_id = shmget(IPC_PRIVATE, sizeof(struct cmp_map), IPC_CREAT | IPC_EXCL | 0600);
+    
+    if (cmplog_shm_id < 0) PFATAL("shmget() failed");
 
+  }
+  
   atexit(remove_shm);
 
   shm_str = alloc_printf("%d", shm_id);
@@ -161,8 +176,21 @@ void setup_shm(unsigned char dumb_mode) {
   if (!dumb_mode) setenv(SHM_ENV_VAR, shm_str, 1);
 
   ck_free(shm_str);
+  
+  if (cmplog_mode) {
+  
+    shm_str = alloc_printf("%d", cmplog_shm_id);
+
+    if (!dumb_mode) setenv(CMPLOG_SHM_ENV_VAR, shm_str, 1);
+
+    ck_free(shm_str);
+    
+  }
 
   trace_bits = shmat(shm_id, NULL, 0);
+  
+  if (cmplog_mode)
+    cmp_map = shmat(cmplog_shm_id, NULL, 0);
 
   if (!trace_bits) PFATAL("shmat() failed");
 
