@@ -67,7 +67,7 @@ __thread u32 __afl_prev_loc;
 #endif
 
 struct cmp_map* __afl_cmp_map;
-__thread u32 __afl_cmp_counter;
+__thread u32    __afl_cmp_counter;
 
 /* Running in persistent mode? */
 
@@ -128,26 +128,26 @@ static void __afl_map_shm(void) {
     __afl_area_ptr[0] = 1;
 
   }
-  
+
   if (getenv("__AFL_CMPLOG_MODE__")) {
-  
+
     id_str = getenv(CMPLOG_SHM_ENV_VAR);
-    
+
     if (id_str) {
-    
+
       u32 shm_id = atoi(id_str);
-      
+
       __afl_cmp_map = shmat(shm_id, NULL, 0);
-      
+
       if (__afl_cmp_map == (void*)-1) _exit(1);
-      
+
     }
-  
+
   } else if (getenv("AFL_CMPLOG")) {
-    
+
     // during compilation, do this to avoid segfault
     __afl_cmp_map = calloc(sizeof(struct cmp_map), 1);
-  
+
   }
 
 }
@@ -161,7 +161,7 @@ static void __afl_start_forkserver(void) {
 
   u8 child_stopped = 0;
 
-  void (*old_sigchld_handler)(int)=0;// = signal(SIGCHLD, SIG_DFL);
+  void (*old_sigchld_handler)(int) = 0;  // = signal(SIGCHLD, SIG_DFL);
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
@@ -325,61 +325,63 @@ __attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
 ///// CmpLog instrumentation
 
 void __sanitizer_cov_trace_cmp1(uint8_t Arg1, uint8_t Arg2) {
-  return;  
+
+  return;
+
 }
 
 void __sanitizer_cov_trace_cmp2(uint16_t Arg1, uint16_t Arg2) {
-  
+
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
-  
+
   u32 hits = __afl_cmp_map->headers[k].hits;
-  __afl_cmp_map->headers[k].hits = hits+1;
+  __afl_cmp_map->headers[k].hits = hits + 1;
   // if (!__afl_cmp_map->headers[k].cnt)
   //  __afl_cmp_map->headers[k].cnt = __afl_cmp_counter++;
-  
+
   __afl_cmp_map->headers[k].shape = 1;
   //__afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-  
-  hits &= CMP_MAP_H -1;
+
+  hits &= CMP_MAP_H - 1;
   __afl_cmp_map->log[k][hits].v0 = Arg1;
   __afl_cmp_map->log[k][hits].v1 = Arg2;
-  
+
 }
 
 void __sanitizer_cov_trace_cmp4(uint32_t Arg1, uint32_t Arg2) {
-  
+
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
-  
+
   u32 hits = __afl_cmp_map->headers[k].hits;
-  __afl_cmp_map->headers[k].hits = hits+1;
-  
+  __afl_cmp_map->headers[k].hits = hits + 1;
+
   __afl_cmp_map->headers[k].shape = 3;
-  
-  hits &= CMP_MAP_H -1;
+
+  hits &= CMP_MAP_H - 1;
   __afl_cmp_map->log[k][hits].v0 = Arg1;
   __afl_cmp_map->log[k][hits].v1 = Arg2;
-  
+
 }
 
 void __sanitizer_cov_trace_cmp8(uint64_t Arg1, uint64_t Arg2) {
-  
+
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
-  
+
   u32 hits = __afl_cmp_map->headers[k].hits;
-  __afl_cmp_map->headers[k].hits = hits+1;
-  
+  __afl_cmp_map->headers[k].hits = hits + 1;
+
   __afl_cmp_map->headers[k].shape = 7;
-  
-  hits &= CMP_MAP_H -1;
+
+  hits &= CMP_MAP_H - 1;
   __afl_cmp_map->log[k][hits].v0 = Arg1;
   __afl_cmp_map->log[k][hits].v1 = Arg2;
-  
+
 }
 
 #if defined(__APPLE__)
@@ -396,29 +398,28 @@ void __sanitizer_cov_trace_const_cmp4(uint32_t Arg1, uint32_t Arg2)
     __attribute__((alias("__sanitizer_cov_trace_cmp4")));
 void __sanitizer_cov_trace_const_cmp8(uint64_t Arg1, uint64_t Arg2)
     __attribute__((alias("__sanitizer_cov_trace_cmp8")));
-#endif /* defined(__APPLE__) */
+#endif                                                /* defined(__APPLE__) */
 
 void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t* Cases) {
 
   for (uint64_t i = 0; i < Cases[0]; i++) {
-      
-    uintptr_t k = (uintptr_t)__builtin_return_address(0) +i;
+
+    uintptr_t k = (uintptr_t)__builtin_return_address(0) + i;
     k = (k >> 4) ^ (k << 8);
     k &= CMP_MAP_W - 1;
-    
+
     u32 hits = __afl_cmp_map->headers[k].hits;
-    __afl_cmp_map->headers[k].hits = hits+1;
-    
+    __afl_cmp_map->headers[k].hits = hits + 1;
+
     __afl_cmp_map->headers[k].shape = 7;
-    
-    hits &= CMP_MAP_H -1;
+
+    hits &= CMP_MAP_H - 1;
     __afl_cmp_map->log[k][hits].v0 = Val;
     __afl_cmp_map->log[k][hits].v1 = Cases[i + 2];
-      
+
   }
 
 }
-
 
 /* The following stuff deals with supporting -fsanitize-coverage=trace-pc-guard.
    It remains non-operational in the traditional, plugin-backed LLVM mode.

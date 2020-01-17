@@ -652,8 +652,9 @@ void   save_cmdline(u32, char**);
 extern u8* cmplog_binary;
 extern s32 cmplog_forksrv_pid;
 
-void init_cmplog_forkserver(char **argv);
-u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len, u32 exec_cksum);
+void init_cmplog_forkserver(char** argv);
+u8   input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
+                          u32 exec_cksum);
 
 /**** Inline routines ****/
 
