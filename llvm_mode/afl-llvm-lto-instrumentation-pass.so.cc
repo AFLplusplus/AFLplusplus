@@ -168,7 +168,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
   }
 
   unsigned char *map = NULL, *ids = NULL;
-  int            collisions = 0, id_cnt;
+  int            id_cnt;
+  unsigned int   collisions = 0, edges = 0;
   unsigned int   id_list[256];
   bb_id *        bb_list = NULL, *bb_cur;
 
@@ -379,6 +380,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
         int max_collisions = 0, cnt_coll = 0, ids_coll = 0, found = 0;
 
         if (debug) fprintf(stderr, "DEBUG: we found %d IDs\n", id_cnt);
+        edges += id_cnt;
 
         /*          unsigned int loop_det = 0;*/
         if (cur_loc == 0)
@@ -589,9 +591,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
       WARNF("No instrumentation targets found.");
     else {
 
-      OKF("Instrumented %u locations with %d collision(s) (%s mode, ratio "
+      OKF("Instrumented %u locations with %u edges and resulting in %u collision(s) (%s mode, ratio "
           "%u%%).",
-          inst_blocks, collisions,
+          inst_blocks, edges, collisions,
           getenv("AFL_HARDEN")
               ? "hardened"
               : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
