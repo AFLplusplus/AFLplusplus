@@ -13,9 +13,8 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
-# For Heiko:
-#TEST_MMAP=1
-
+# Recommendation: 
+#   Better do not install afl++ into the same target directory as gcc/clang
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
@@ -44,7 +43,7 @@ else
  endif
 endif
 
-ifneq "$(shell uname -m)" "x86_x64"
+ifneq "$(shell uname -m)" "x86_64"
  ifneq "$(shell uname -m)" "i386"
 	AFL_NO_X86=1
  endif

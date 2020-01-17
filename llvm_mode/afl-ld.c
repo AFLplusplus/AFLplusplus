@@ -211,8 +211,8 @@ int main(int argc, char** argv) {
 
   if (have_afl_ld_caller > 1)
     PFATAL(cLRD "[!] " cRST
-                "Error: afl-ld calls itself in a loop, , set AFL_REAL_LD to "
-                "the real 'ld' program!");
+                "Error: afl-ld calls itself in a loop, set AFL_REAL_LD to the "
+                "real 'ld' program!");
 
   if (!getenv("AFL_QUIET")) {
 
@@ -245,34 +245,132 @@ int main(int argc, char** argv) {
 
   if (getenv("AFL_LD") == NULL) {
 
-    char *newpath = NULL, *path = getenv("PATH");
+    /* if someone install clang/ld into the same directory as afl++ then
+       they are out of luck ... */
 
-    if (real_ld != NULL && strlen(real_ld) > 1) execvp(real_ld, argv);
+    if (have_afl_ld_caller == 1) {
 
-    // some fallbacks
+      char *tmp, *newpath = NULL, *path = getenv("PATH");
+      u8    done = 0, colons = 0;
 
-    if (have_afl_ld_caller == 0)
-      execvp("ld", argv);  // unlikely this works, but lets try
+      if (debug)
+        SAYF(cMGN "[D]" cRST " old PATH=%s, AFL_PATH=%s, BIN_PATH=%s\n", path,
+             AFL_PATH, BIN_PATH);
 
-    if (strlen(afl_path) > 1)
-      newpath = strstr(path, afl_path);
-    else if (strlen(BIN_PATH) > 1)
-      newpath = strstr(path, BIN_PATH);
+      // wipe AFL paths from PATH that we set
+      // we added two paths so we remove the two paths
+      while (!done) {
 
-    if (newpath != NULL) {
+        if (*path == 0)
+          done = 1;
+        else {
 
-      while (*newpath == ':')
-        newpath++;
-      setenv("PATH", newpath, 1);
+          if (*path++ == ':') colons++;
+          if (colons == 2) done = 1;
+
+        }
+
+      }
+
+      while (*path == ':')
+        path++;
+
+      if (debug) SAYF(cMGN "[D]" cRST " tmp PATH=%s next %s\n", path, AFL_PATH);
+
+      // but now there could be paths in there that are the same as AFL_PATH
+      // so we have to remove them too to not call our 'ld'
+      newpath = malloc(strlen(path) + 1);
+      if (strcmp(AFL_PATH, "/bin") != 0 && strcmp(AFL_PATH, "/usr/bin") != 0 &&
+          strlen(AFL_PATH) > 1 &&
+          (tmp = strstr(path, AFL_PATH)) != NULL &&  // it exists
+          (tmp == path ||
+           (tmp > path &&
+            tmp[-1] == ':')) &&  // either starts with it or has a colon before
+          (tmp + strlen(AFL_PATH) == path + strlen(path) ||
+           (tmp + strlen(AFL_PATH) <
+            path + (strlen(path) &&
+                    tmp[strlen(AFL_PATH)] ==
+                        ':'))  // end with it or has a colon at the end
+           )) {
+
+        int one_colon = 1;
+
+        if (tmp > path) {
+
+          memcpy(newpath, path, tmp - path);
+          newpath[tmp - path - 1] = 0;  // remove ':'
+          one_colon = 0;
+
+        }
+
+        if (tmp + strlen(AFL_PATH) < path + strlen(path))
+          tmp += strlen(AFL_PATH) + one_colon;
+        strcat(newpath, tmp);
+
+      } else
+
+        newpath[0] = 0;
+
+      if (newpath[0] != 0) strcpy(path, newpath);
+
+      if (strcmp(BIN_PATH, "/bin") != 0 && strcmp(BIN_PATH, "/usr/bin") != 0 &&
+          strlen(BIN_PATH) > 1 &&
+          (tmp = strstr(path, BIN_PATH)) != NULL &&  // it exists
+          (tmp == path ||
+           (tmp > path &&
+            tmp[-1] == ':')) &&  // either starts with it or has a colon before
+          (tmp + strlen(BIN_PATH) == path + strlen(path) ||
+           (tmp + strlen(BIN_PATH) < path + strlen(path) &&
+            tmp[strlen(BIN_PATH)] ==
+                ':'))  // end with it or has a colon at the end
+      ) {
+
+        int one_colon = 1;
+        printf("y\n");
+
+        if (tmp > path) {
+
+          printf("z\n");
+
+          memcpy(newpath, path, tmp - path);
+          newpath[tmp - path - 1] = 0;  // remove ':'
+          one_colon = 0;
+
+        }
+
+        if (tmp + strlen(BIN_PATH) < path + strlen(path)) {
+
+          printf("foo\n");
+          tmp += strlen(BIN_PATH) + one_colon;
+
+        }
+
+        strcat(newpath, tmp);
+
+      }
+
+      if (strlen(newpath) > 1)
+        setenv("PATH", newpath, 1);
+      else
+        setenv("PATH", path, 1);
+
+      if (debug) SAYF(cMGN "[D]" cRST " new PATH=%s\n", newpath);
 
     }
 
-    if (have_afl_ld_caller == 1) execvp("ld", argv);  // lets try again
-    execvp("/bin/ld", argv);                          // fallback
-    PFATAL("Oops, failed to execute 'ld' - check your PATH");
+    // some fallbacks
 
-    if (have_afl_ld_caller > 1)
-      PFATAL("Oops, failed to execute 'ld' - check your PATH");
+    if (have_afl_ld_caller == 0) {
+
+      if (real_ld != NULL && strlen(real_ld) > 1) execvp(real_ld, argv);
+      execvp("ld", argv);  // unlikely this works, but lets try
+
+    }
+
+    if (real_ld != NULL && strlen(real_ld) > 1 && have_afl_ld_caller == 1)
+      execvp("ld", argv);
+    execvp("/bin/ld", argv);  // fallback
+    PFATAL("Oops, failed to execute 'ld' - check your PATH");
 
   }
 

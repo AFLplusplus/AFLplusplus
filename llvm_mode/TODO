@@ -1,0 +1,18 @@
+TODO for alf-llvm-lto-instrumentation:
+* at first bb of a function get the callsites and their loc_id
+* bb names can be duplicates so I have to add the function name :-(
+* better algo for putting stuff in the map?
+* that with the analysis in main or _init if present, keep track which
+  functions have been done
+* be more intelligent which bb to instrument (more work to find predecessors
+  with loc_id though)
+
+TODO for Makefile
+* test if /bin/ld is hardcoded into clang and warn users if so (ld --afl test)
+
+TODO for test.sh
+* add test cases
+
+??? Issues
+* What to do with hardcoded /bin/ld
+* What to do with ld to libraries (added to .a etc.)
