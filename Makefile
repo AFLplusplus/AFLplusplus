@@ -44,6 +44,12 @@ else
  endif
 endif
 
+ifneq "$(shell uname -m)" "x86_x64"
+ ifneq "$(shell uname -m)" "i386"
+	AFL_NO_X86=1
+ endif
+endif
+
 CFLAGS     ?= -O3 -funroll-loops -march=native
 CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
