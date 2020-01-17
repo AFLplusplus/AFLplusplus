@@ -6,7 +6,7 @@
 #define CMP_MAP_W 65536
 #define CMP_MAP_H 256
 
-#define SHAPE_BYTES(x) (x+1)
+#define SHAPE_BYTES(x) (x + 1)
 
 #define CMP_TYPE_INS 0
 #define CMP_TYPE_RTN 1
@@ -18,9 +18,9 @@ struct cmp_header {
   unsigned cnt : 20;
   unsigned id : 16;
 
-  unsigned shape : 5; // from 0 to 31
+  unsigned shape : 5;  // from 0 to 31
   unsigned type : 1;
-  
+
 } __attribute__((packed));
 
 struct cmp_operands {
@@ -41,9 +41,10 @@ typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
 
 struct cmp_map {
 
-  struct cmp_header headers[CMP_MAP_W];
+  struct cmp_header   headers[CMP_MAP_W];
   struct cmp_operands log[CMP_MAP_W][CMP_MAP_H];
 
 };
 
 #endif
+

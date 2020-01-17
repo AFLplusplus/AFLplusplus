@@ -62,13 +62,13 @@
 /* Default memory limit for child process (MB): */
 
 #ifndef __NetBSD__
-# ifndef WORD_SIZE_64
-#  define MEM_LIMIT 25
-# else
-#  define MEM_LIMIT 50
-# endif                                                    /* ^!WORD_SIZE_64 */
+#ifndef WORD_SIZE_64
+#define MEM_LIMIT 25
 #else
-# define MEM_LIMIT 200
+#define MEM_LIMIT 50
+#endif                                                    /* ^!WORD_SIZE_64 */
+#else
+#define MEM_LIMIT 200
 #endif
 /* Default memory limit when running in QEMU mode (MB): */
 
