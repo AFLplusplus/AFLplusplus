@@ -44,7 +44,11 @@ else
  endif
 endif
 
-CFLAGS     ?= -O3 -funroll-loops -march=native
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+	CFLAGS_OPT = -march=native
+endif
+
+CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
 CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
               -DDOC_PATH=\"$(DOC_PATH)\" -Wno-unused-function
@@ -253,7 +257,7 @@ radamsa: src/third_party/libradamsa/libradamsa.so
 	cp src/third_party/libradamsa/libradamsa.so .
 
 src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.c src/third_party/libradamsa/radamsa.h
-	$(MAKE) -C src/third_party/libradamsa/
+	$(MAKE) -C src/third_party/libradamsa/ CFLAGS="$(CFLAGS)"
 
 afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
