@@ -44,14 +44,14 @@ else
  endif
 endif
 
-CFLAGS     ?= -O3 -funroll-loops
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+	CFLAGS_OPT = -march=native
+endif
+
+CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
 CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
               -DDOC_PATH=\"$(DOC_PATH)\" -Wno-unused-function
-
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-	CFLAGS     += -march=native
-endif
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
