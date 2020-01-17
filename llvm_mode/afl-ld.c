@@ -49,6 +49,7 @@ static u8 *modified_file,           /* Instrumented file for the real 'ld'  */
     *linked_file;                   /* file where we link all files         */
 static u8* afl_path = AFL_PATH;
 static u8* real_ld = AFL_REAL_LD;
+static u8  cwd[4096];
 
 static u8 be_quiet,                 /* Quiet mode (no stderr output)        */
     debug,                          /* AFL_DEBUG                            */
@@ -82,6 +83,14 @@ int is_llvm_file(char* file) {
 
 }
 
+u8* getthecwd() {
+
+  static u8 fail[] = "";
+  if (getcwd(cwd, sizeof(cwd)) == NULL) return fail;
+  return cwd;
+
+}
+
 /* Examine and modify parameters to pass to 'ld'. Note that the file name
    is always the last parameter passed by GCC, so we exploit this property
    to keep the code simple. */
@@ -89,7 +98,7 @@ int is_llvm_file(char* file) {
 static void edit_params(int argc, char** argv) {
 
   u8* tmp_dir = getenv("TMPDIR");
-  u32 i;
+  u32 i, have_lto = 0;
 
   if (!tmp_dir) tmp_dir = getenv("TEMP");
   if (!tmp_dir) tmp_dir = getenv("TMP");
@@ -123,6 +132,8 @@ static void edit_params(int argc, char** argv) {
 
   for (i = 1; i < argc; i++) {
 
+    if (strncmp(argv[i], "-flto", 5) == 0) have_lto = 1;
+
     if (!strcmp(argv[i], "-version")) {
 
       just_version = 1;
@@ -144,7 +155,7 @@ static void edit_params(int argc, char** argv) {
 
   }
 
-  ld_params[ld_par_cnt++] = AFL_CLANG_FLTO;
+  if (have_lto == 0) ld_params[ld_par_cnt++] = AFL_CLANG_FLTO;
   ld_params[ld_par_cnt++] = modified_file;
   ld_params[ld_par_cnt] = NULL;
 
@@ -174,12 +185,13 @@ int main(int argc, char** argv) {
 
   if (debug) {
 
-    OKF(" Debug: AFL_LD=%s, set AFL_LD_CALLER=%s, have_afl_ld_caller=%d, "
-        "real_ld=%s",
-        getenv("AFL_LD"), val, have_afl_ld_caller, real_ld);
-    OKF(" Debug:");
+    SAYF(cMGN "[D] " cRST
+              "AFL_LD=%s, set AFL_LD_CALLER=%s, have_afl_ld_caller=%d, "
+              "real_ld=%s\n",
+         getenv("AFL_LD"), val, have_afl_ld_caller, real_ld);
+    SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
     for (i = 0; i < argc; i++)
-      printf(" %s", argv[i]);
+      printf(" \"%s\"", argv[i]);
     printf("\n");
 
   }
@@ -279,9 +291,9 @@ int main(int argc, char** argv) {
 
       if (debug) {
 
-        OKF(" Debug:");
+        SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
         for (i = 0; i < link_par_cnt; i++)
-          printf(" %s", link_params[i]);
+          printf(" \"%s\"", link_params[i]);
         printf("\n");
 
       }
@@ -301,9 +313,9 @@ int main(int argc, char** argv) {
       OKF("Running bitcode optimizer, creating %s", modified_file);
       if (debug) {
 
-        OKF(" Debug:");
+        SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
         for (i = 0; i < opt_par_cnt; i++)
-          printf(" %s", opt_params[i]);
+          printf(" \"%s\"", opt_params[i]);
         printf("\n");
 
       }
@@ -328,9 +340,9 @@ int main(int argc, char** argv) {
   OKF("Running real linker %s", real_ld);
   if (debug) {
 
-    OKF(" Debug:");
+    SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
     for (i = 0; i < ld_par_cnt; i++)
-      printf(" %s", ld_params[i]);
+      printf(" \"%s\"", ld_params[i]);
     printf("\n");
 
   }
@@ -366,6 +378,7 @@ int main(int argc, char** argv) {
   if (pid < 0) PFATAL("fork() failed");
 
   if (waitpid(pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+  if (debug) SAYF(cMGN "[D] " cRST "linker result: %d\n", status);
 
   if (!just_version) {
 
@@ -376,10 +389,16 @@ int main(int argc, char** argv) {
 
     } else
 
-      SAYF("[!] afl-ld: keeping link file %s and bitcode file %s", linked_file,
-           modified_file);
+      SAYF("[!] afl-ld: keeping link file %s and bitcode file %s\n",
+           linked_file, modified_file);
 
-    OKF("Linker was successful");
+    if (status == 0)
+      OKF("Linker was successful");
+    else
+      SAYF(cLRD "[-] " cRST
+                "Linker failed, please investigate and send a bug report. Most "
+                "likely an 'ld' option is incompatible with -flto. Try "
+                "AFL_KEEP_ASSEMBLY=1 and AFL_DEBUG=1 for replaying.\n");
 
   }
 

@@ -43,6 +43,15 @@ static u8   llvm_fullpath[PATH_MAX];
 static u8   lto_mode;
 static u8*  lto_flag = AFL_CLANG_FLTO;
 static u8   debug;
+static u8   cwd[4096];
+
+u8* getthecwd() {
+
+  static u8 fail[] = "";
+  if (getcwd(cwd, sizeof(cwd)) == NULL) return fail;
+  return cwd;
+
+}
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
@@ -343,6 +352,7 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = "-g";
     cc_params[cc_par_cnt++] = "-O3";
     cc_params[cc_par_cnt++] = "-funroll-loops";
+    cc_params[cc_par_cnt++] = "-march=native";
 
   }
 
@@ -518,9 +528,9 @@ int main(int argc, char** argv) {
 
   if (debug) {
 
-    OKF(" Debug:");
+    SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
     for (i = 0; i < argc; i++)
-      printf(" %s", argv[i]);
+      printf(" \"%s\"", argv[i]);
     printf("\n");
 
   }
@@ -533,9 +543,9 @@ int main(int argc, char** argv) {
 
   if (debug) {
 
-    OKF(" Debug:");
+    SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
     for (i = 0; i < cc_par_cnt; i++)
-      printf(" %s", cc_params[i]);
+      printf(" \"%s\"", cc_params[i]);
     printf("\n");
 
   }
