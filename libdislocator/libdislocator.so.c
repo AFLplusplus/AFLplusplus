@@ -397,6 +397,28 @@ void* aligned_alloc(size_t align, size_t len) {
 
 }
 
+/* specific BSD api mainly checking possible overflow for the size */
+
+void* reallocarray(void* ptr, size_t elem_len, size_t elem_cnt) {
+
+  const size_t elem_lim = 1UL << (sizeof(size_t) * 4);
+  const size_t elem_tot = elem_len * elem_cnt;
+  void*        ret = NULL;
+
+  if ((elem_len >= elem_lim || elem_cnt >= elem_lim) && elem_len > 0 &&
+      elem_cnt > (SIZE_MAX / elem_len)) {
+
+    DEBUGF("reallocarray size overflow (%zu)", elem_tot);
+
+  } else {
+
+    ret = realloc(ptr, elem_tot);
+
+  }
+
+  return ret;
+}
+
 __attribute__((constructor)) void __dislocator_init(void) {
 
   u8* tmp = (u8*)getenv("AFL_LD_LIMIT_MB");
