@@ -253,7 +253,7 @@ static void edit_params(u32 argc, char** argv) {
     }
 
     cc_params[cc_par_cnt++] = "-B";
-    cc_params[cc_par_cnt++] = HELPER_PATH;
+    cc_params[cc_par_cnt++] = AFL_PATH;
 
     cc_params[cc_par_cnt++] = lto_flag;
 
