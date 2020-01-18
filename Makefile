@@ -60,12 +60,12 @@ ifneq "$(filter %3.7m, $(shell python3.7m-config --includes 2>/dev/null))" ""
   PYTHON_LIB      ?= $(shell python3.7m-config --ldflags)
   PYTHON_VERSION   = 3.7m
 else
-  ifneq "$(filter %3.7, $(shell python3.7-config --includes) 2> /dev/null)" ""
+  ifneq "$(filter %3.7, $(shell python3.7-config --includes 2>/dev/null))" ""
     PYTHON_INCLUDE  ?= $(shell python3.7-config --includes)
     PYTHON_LIB      ?= $(shell python3.7-config --ldflags)
     PYTHON_VERSION   = 3.7
   else
-    ifneq "$(filter %2.7, $(shell python2.7-config --includes) 2> /dev/null)" ""
+    ifneq "$(filter %2.7, $(shell python2.7-config --includes 2>/dev/null))" ""
       PYTHON_INCLUDE  ?= $(shell python2.7-config --includes)
       PYTHON_LIB      ?= $(shell python2.7-config --ldflags)
       PYTHON_VERSION   = 2.7
