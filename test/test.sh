@@ -463,7 +463,7 @@ test -e ../libradamsa.so && {
   else
     export AFL_CC=`$LLVM_CONFIG --bindir`/clang
   fi
-  test -e test-instr.plain || ../afl-clang-fast -o test-instr.plain ../test-instr.c
+  test -e test-instr.plain || ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   test -e test-instr.plain || ../afl-gcc-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   test -e test-instr.plain || ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   test -e test-instr.plain && {
