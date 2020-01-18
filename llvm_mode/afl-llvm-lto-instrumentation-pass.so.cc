@@ -34,36 +34,36 @@
 #include "config.h"
 #include "debug.h"
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <sys/types.h>
+#include <unistd.h>
 
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
 #include <list>
 #include <string>
-#include <fstream>
-#include <cstdlib>
-#include <iostream>
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/IR/CFG.h"
 
 struct bb_id {
 
+  std::string * function;
   std::string * bb;
   uint32_t      id;
   struct bb_id *next;
@@ -97,7 +97,7 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  static bool isBlacklisted(const Function *F) {
+  bool isBlacklisted(const Function *F) {
 
     static const SmallVector<std::string, 5> Blacklist = {
 
@@ -107,7 +107,15 @@ class AFLLTOPass : public ModulePass {
 
     for (auto const &BlacklistFunc : Blacklist) {
 
-      if (F->getName().startswith(BlacklistFunc)) { return true; }
+      if (F->getName().startswith(BlacklistFunc)) {
+
+        if (debug)
+          SAYF(cMGN "[D] " cRST "ignoring blacklisted function %s\n",
+               F->getName().str().c_str());
+
+        return true;
+
+      }
 
     }
 
@@ -144,8 +152,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
   /* Show a banner */
 
   char be_quiet = 0;
-
-  if (debug) fprintf(stderr, "DEBUG: NEW FILE\n");
 
   if (getenv("AFL_DEBUG") || (isatty(2) && !getenv("AFL_QUIET"))) {
 
@@ -202,12 +208,17 @@ bool AFLLTOPass::runOnModule(Module &M) {
   int inst_blocks = 0;
 
   for (auto &F : M)
+
     for (auto &BB : F) {
 
       if (isBlacklisted(&F)) continue;
 
+      std::string *        fname = new std::string(F.getName().str());
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
       IRBuilder<>          IRB(&(*IP));
+
+      if (debug)
+        SAYF(cMGN "[D] " cRST "Working on function %s\n", fname->c_str());
 
       if (AFL_R(100) >= inst_ratio) continue;
 
@@ -249,7 +260,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       std::string bb_name = getSimpleNodeLabel(&BB, &F);
 
-      if (debug) std::cerr << "DEBUG: BB name is " << bb_name << std::endl;
+      if (debug) SAYF(cMGN "[D] " cRST "BB name is %s\n", bb_name.c_str());
 
       if (bb_list == NULL) {  // very first basic block
 
@@ -257,6 +268,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
           PFATAL("malloc");
         bb_list->bb =
             new std::string(bb_name);  // strdup(LLVMGetBasicBlockName(&BB));
+        bb_list->function = fname;
         bb_list->id = cur_loc = AFL_R(MAP_SIZE);  // = 1
         bb_list->next = NULL;
         ids[cur_loc]++;
@@ -277,17 +289,18 @@ bool AFLLTOPass::runOnModule(Module &M) {
           bb_cur = bb_list;
           std::string pred_name = getSimpleNodeLabel(Pred, &F);
 
-          if (debug)
-            std::cerr << "DEBUG: predecessor " << pred_name << std::endl;
+          // if (debug) std::cerr << "DEBUG: predecessor " << pred_name <<
+          // std::endl;
 
-          while (bb_cur != NULL && pred_name.compare(*bb_cur->bb) != 0)
+          while (bb_cur != NULL && (pred_name.compare(*bb_cur->bb) != 0 ||
+                                    fname->compare(*bb_cur->function) != 0))
             bb_cur = bb_cur->next;
 
           if (bb_cur != NULL) {  // predecessor has a cur_loc
 
             if (debug)
-              std::cerr << "DEBUG: predecessor " << pred_name << " has id "
-                        << bb_cur->id << std::endl;
+              SAYF(cMGN "[D] " cRST "predecessor %s of %s has id %u\n",
+                   pred_name.c_str(), bb_cur->function->c_str(), bb_cur->id);
             id_list[id_cnt++] = bb_cur->id;
 
           } else {
@@ -327,8 +340,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
             if ((bb_cur = (struct bb_id *)malloc(sizeof(struct bb_id))) == NULL)
               PFATAL("malloc");
-            bb_cur->bb = new std::string(
-                pred_name);  // strdup(BB.LLVMGetBasicBlockName());
+            bb_cur->bb = new std::string(pred_name);
+            bb_cur->function = fname;
             bb_cur->id = tmp_loc;
             bb_cur->next = bb_list;
             bb_list = bb_cur;
@@ -357,9 +370,11 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           bb_cur = bb_list;
           int found_tmp = 0;
+
           while (bb_cur != NULL && found_tmp == 0) {
 
-            if (bb_name.compare(*bb_cur->bb) == 0)
+            if (bb_name.compare(*bb_cur->bb) == 0 &&
+                fname->compare(*bb_cur->function) == 0)
               found_tmp = 1;
             else
               bb_cur = bb_cur->next;
@@ -380,7 +395,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         int max_collisions = 0, cnt_coll = 0, ids_coll = 0, found = 0;
 
-        if (debug) fprintf(stderr, "DEBUG: we found %d IDs\n", id_cnt);
+        if (debug) SAYF(cMGN "[D] " cRST "found %d predecessor IDs\n", id_cnt);
         edges += id_cnt;
 
         /*          unsigned int loop_det = 0;*/
@@ -435,9 +450,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
           }                                                      /* while() */
 
         if (debug)
-          fprintf(stderr,
-                  "DEBUG: found cur_loc %u with cnt_coll %d and ids_coll %d\n",
-                  cur_loc, cnt_coll, ids_coll);
+          SAYF(cMGN "[D] " cRST
+                    "found cur_loc %u with cnt_coll %d and ids_coll %d\n",
+               cur_loc, cnt_coll, ids_coll);
 
         if (already_exists == 0) {
 
@@ -446,6 +461,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
             PFATAL("malloc");
           bb_cur->bb =
               new std::string(bb_name);  // strdup(BB.LLVMGetBasicBlockName());
+          bb_cur->function = fname;
           bb_cur->id = cur_loc;
           bb_cur->next = bb_list;
           bb_list = bb_cur;
@@ -453,15 +469,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           // if the map size is not big enough we might still get collisions,
           // count them
-          if (cnt_coll > 0) {
-
-            if (debug)
-              fprintf(stderr,
-                      "DEBUG: %d collision(s) in the map for this :-(\n",
-                      cnt_coll);
-            collisions++;
-
-          }
+          if (cnt_coll > 0) collisions++;
 
         }
 
@@ -470,14 +478,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           map[cur_loc ^ (id_list[i] >> 1)]++;
           if (debug)
-            fprintf(stderr, "DEBUG: map[%u ^ (%u >> 1)] = %u\n", cur_loc,
-                    id_list[i], map[cur_loc ^ (id_list[i] >> 1)]);
+            SAYF(cMGN "[D] " cRST "setting map[%u ^ (%u >> 1)] = %u\n", cur_loc,
+                 id_list[i], map[cur_loc ^ (id_list[i] >> 1)]);
 
         }
 
       }                                           /* end of bb_list != NULL */
 
-      if (debug) fprintf(stderr, "DEBUG: selected cur_loc = %u\n", cur_loc);
+      // if (debug) fprintf(stderr, "DEBUG: selected cur_loc = %u\n", cur_loc);
 
       //}
 

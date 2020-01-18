@@ -1,6 +1,5 @@
 TODO for alf-llvm-lto-instrumentation:
 * at first bb of a function get the callsites and their loc_id
-* bb names can be duplicates so I have to add the function name :-(
 * better algo for putting stuff in the map?
 * that with the analysis in main or _init if present, keep track which
   functions have been done
