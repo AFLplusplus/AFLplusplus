@@ -145,13 +145,14 @@ static void edit_params(int argc, char** argv) {
     }
 
     if (strcmp(argv[i], "--afl") != 0) {
-
-      if (argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
-        ld_params[ld_par_cnt++] = argv[i];
-      else
-        link_params[link_par_cnt++] = argv[i];
-
+      if (!be_quiet) OKF("afl++ test command line flag detected, exiting.");
+      exit(0);
     }
+
+    if (argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
+      ld_params[ld_par_cnt++] = argv[i];
+    else
+      link_params[link_par_cnt++] = argv[i];
 
   }
 
@@ -334,7 +335,7 @@ int main(int argc, char** argv) {
     } else {
 
       /* first we link all files */
-      OKF("Running bitcode linker, creating %s", linked_file);
+      if (!be_quiet) OKF("Running bitcode linker, creating %s", linked_file);
 
       if (debug) {
 
@@ -357,7 +358,7 @@ int main(int argc, char** argv) {
       if (WEXITSTATUS(status) != 0) exit(WEXITSTATUS(status));
 
       /* then we run the instrumentation through the optimizer */
-      OKF("Performing instrumentation via opt, creating %s", modified_file);
+      if (!be_quiet) OKF("Performing instrumentation via opt, creating %s", modified_file);
       if (debug) {
 
         SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
@@ -384,7 +385,7 @@ int main(int argc, char** argv) {
 
   }
 
-  OKF("Running real linker %s", real_ld);
+  if (!be_quiet) OKF("Running real linker %s", real_ld);
   if (debug) {
 
     SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
@@ -418,18 +419,25 @@ int main(int argc, char** argv) {
       unlink(linked_file);
       unlink(modified_file);
 
-    } else
+    } else {
 
       SAYF("[!] afl-ld: keeping link file %s and bitcode file %s\n",
            linked_file, modified_file);
 
-    if (status == 0)
-      OKF("Linker was successful");
-    else
+    }
+
+    if (status == 0) {
+
+      if (!be_quiet) OKF("Linker was successful");
+    
+    } else {
+
       SAYF(cLRD "[-] " cRST
                 "Linker failed, please investigate and send a bug report. Most "
                 "likely an 'ld' option is incompatible with %s. Try "
                 "AFL_KEEP_ASSEMBLY=1 and AFL_DEBUG=1 for replaying.\n", AFL_CLANG_FLTO);
+    
+    }
 
   }
 

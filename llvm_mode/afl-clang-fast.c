@@ -160,9 +160,6 @@ static void edit_params(u32 argc, char** argv) {
       FATAL("afl-clang-lto does not work with InsTrim mode");
     lto_mode = 1;
 
-    printf(cCYA "afl-clang-lto" VERSION cRST
-                "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
-
   }
 
   if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
@@ -256,7 +253,7 @@ static void edit_params(u32 argc, char** argv) {
     }
 
     cc_params[cc_par_cnt++] = "-B";
-    cc_params[cc_par_cnt++] = BIN_PATH;
+    cc_params[cc_par_cnt++] = HELPER_PATH;
 
     cc_params[cc_par_cnt++] = lto_flag;
 
@@ -474,6 +471,7 @@ static void edit_params(u32 argc, char** argv) {
 int main(int argc, char** argv) {
 
   int i;
+  char *name = "afl-clang-fast";
 
   if (getenv("AFL_DEBUG")) debug = 1;
 
@@ -483,15 +481,25 @@ int main(int argc, char** argv) {
     printf(
         cCYA
         "afl-clang-fast" VERSION cRST
-        " [tpcg] by <lszekeres@google.com>\n"
+        " [tpcg] by <lszekeres@google.com>\n")
 #else
-    printf(
+    if (!strncmp(name, "afl-clang-lto", strlen("afl-clang-lto")))
+
+      printf(
         cCYA
         "afl-clang-fast" VERSION cRST
-        " by <lszekeres@google.com>\n"
+        " by <lszekeres@google.com>\n");
+
+    else {
+
+      SAYF(cCYA "afl-clang-lto" VERSION cRST "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+      name = "afl-clang-lto";
+
+    }
+
 #endif                                                     /* ^USE_TRACE_PC */
-        "\n"
-        "afl-clang-fast[++] [options]\n"
+    SAYF("\n"
+        "%s[++] [options]\n"
         "\n"
         "This is a helper application for afl-fuzz. It serves as a drop-in "
         "replacement\n"
@@ -500,8 +508,8 @@ int main(int argc, char** argv) {
         "instrumentation. A common use pattern would be one of the "
         "following:\n\n"
 
-        "  CC=%s/afl-clang-fast ./configure\n"
-        "  CXX=%s/afl-clang-fast++ ./configure\n\n"
+        "  CC=%s/%s ./configure\n"
+        "  CXX=%s/%s++ ./configure\n\n"
 
         "In contrast to the traditional afl-clang tool, this version is "
         "implemented as\n"
@@ -511,9 +519,9 @@ int main(int argc, char** argv) {
         "You can specify custom next-stage toolchain via AFL_CC and AFL_CXX. "
         "Setting\n"
         "AFL_HARDEN enables hardening optimizations in the compiled code.\n\n"
-        "afl-clang-fast was built for llvm %s with the llvm binary path of "
+        "%s was built for llvm %s with the llvm binary path of "
         "\"%s\".\n\n",
-        BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
+        name, BIN_PATH, name, BIN_PATH, name, name, LLVM_VERSION, LLVM_BINDIR);
 
     exit(1);
 
@@ -523,7 +531,14 @@ int main(int argc, char** argv) {
     SAYF(cCYA "afl-clang-fast" VERSION cRST
               " [tpcg] by <lszekeres@google.com>\n");
 #else
-    SAYF(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
+    if (!strncmp(name, "afl-clang-lto", strlen("afl-clang-lto")))
+
+      SAYF(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
+   
+   else
+      
+      SAYF(cCYA "afl-clang-lto" VERSION cRST  "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+
 #endif                                                     /* ^USE_TRACE_PC */
 
   }
