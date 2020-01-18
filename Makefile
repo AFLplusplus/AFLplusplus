@@ -48,6 +48,14 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .te
 	CFLAGS_OPT = -march=native
 endif
 
+ifneq "$(shell uname -m)" "x86_64"
+ ifneq "$(shell uname -m)" "i386"
+  ifneq "$(shell uname -m)" "amd64"
+	AFL_NO_X86=1
+  endif
+ endif
+endif
+
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
 CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
