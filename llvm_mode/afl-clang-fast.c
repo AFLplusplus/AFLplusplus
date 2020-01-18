@@ -240,7 +240,7 @@ static void edit_params(u32 argc, char** argv) {
   if (lto_mode) {
 
     char* old_path = getenv("PATH");
-    char* new_path = alloc_printf("%s:%s:%s", BIN_PATH, AFL_PATH, old_path);
+    char* new_path = alloc_printf("%s:%s", AFL_PATH, old_path);
 
     setenv("PATH", new_path, 1);
     setenv("AFL_LD", "1", 1);

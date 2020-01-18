@@ -397,7 +397,7 @@ install: all $(MANPAGES)
 	if [ -f afl-gcc-fast ]; then set e; install -m 755 afl-gcc-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast; install -m 755 afl-gcc-pass.so afl-gcc-rt.o $${DESTDIR}$(HELPER_PATH); fi
 ifndef AFL_TRACE_PC
 	if [ -f afl-clang-fast -a -f libLLVMInsTrim.so -a -f afl-llvm-rt.o ]; then set -e; install -m 755 afl-clang-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-fast++; install -m 755 libLLVMInsTrim.so afl-llvm-pass.so afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f afl-clang-lto -a -f afl-ld ]; then set -e; install -m 755 afl-clang-lto $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 afl-ld $${DESTDIR}$(BIN_PATH); ln -sf afl-ld $${DESTDIR}$(BIN_PATH)/ld; install -m 755 afl-llvm-lto-instrumentation-pass.so $${DESTDIR}$(HELPER_PATH); install -m 755 afl-llvm-lto-whitelist-pass.so $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f afl-clang-lto -a -f afl-ld ]; then set -e; install -m 755 afl-clang-lto $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 afl-ld $${DESTDIR}$(HELPER_PATH); ln -sf afl-ld $${DESTDIR}$(HELPER_PATH)/ld; install -m 755 afl-llvm-lto-instrumentation-pass.so $${DESTDIR}$(HELPER_PATH); install -m 755 afl-llvm-lto-whitelist-pass.so $${DESTDIR}$(HELPER_PATH); fi
 else
 	if [ -f afl-clang-fast -a -f afl-llvm-rt.o ]; then set -e; install -m 755 afl-clang-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-fast++; install -m 755 afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH); fi
 endif

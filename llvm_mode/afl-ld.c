@@ -155,9 +155,72 @@ static void edit_params(int argc, char** argv) {
 
   }
 
-  if (have_lto == 0) ld_params[ld_par_cnt++] = AFL_CLANG_FLTO;
+  //if (have_lto == 0) ld_params[ld_par_cnt++] = AFL_CLANG_FLTO; // maybe we should not ...
   ld_params[ld_par_cnt++] = modified_file;
   ld_params[ld_par_cnt] = NULL;
+
+}
+
+/* clean AFL_PATH from PATH */
+
+void clean_path() {
+
+      char *tmp, *newpath = NULL, *path = getenv("PATH");
+      u8    done = 0;
+      
+      if (debug)
+        SAYF(cMGN "[D]" cRST " old PATH=%s, AFL_PATH=%s\n", path, AFL_PATH);
+
+      // wipe AFL paths from PATH that we set
+      // we added two paths so we remove the two paths
+      while (!done) {
+
+        if (*path == 0) done = 1;
+        else if (*path++ == ':') done = 1;
+
+      }
+
+      while (*path == ':')
+        path++;
+
+      if (debug) SAYF(cMGN "[D]" cRST " tmp PATH=%s next %s\n", path, AFL_PATH);
+
+      // AFL_PATH could be additionally in PATH so check and remove to not call our 'ld'
+      newpath = malloc(strlen(path) + 1);
+      if (strcmp(AFL_PATH, "/bin") != 0 && strcmp(AFL_PATH, "/usr/bin") != 0 &&
+          strlen(AFL_PATH) > 1 &&
+          (tmp = strstr(path, AFL_PATH)) != NULL &&  // it exists
+          (tmp == path ||
+           (tmp > path &&
+            tmp[-1] == ':')) &&  // either starts with it or has a colon before
+          (tmp + strlen(AFL_PATH) == path + strlen(path) ||
+           (tmp + strlen(AFL_PATH) <
+            path + (strlen(path) &&
+                    tmp[strlen(AFL_PATH)] ==
+                        ':'))  // end with it or has a colon at the end
+           )) {
+
+        int one_colon = 1;
+
+        if (tmp > path) {
+
+          memcpy(newpath, path, tmp - path);
+          newpath[tmp - path - 1] = 0;  // remove ':'
+          one_colon = 0;
+
+        }
+
+        if (tmp + strlen(AFL_PATH) < path + strlen(path))
+          tmp += strlen(AFL_PATH) + one_colon;
+
+        setenv("PATH", newpath, 1);
+
+      } else
+
+        setenv("PATH", path, 1);
+
+      if (debug) SAYF(cMGN "[D]" cRST " new PATH=%s\n", getenv("PATH"));
+      free(newpath);
 
 }
 
@@ -235,8 +298,8 @@ int main(int argc, char** argv) {
         "afl-clang-lto/afl-clang-lto++.\n"
         "You probably don't want to run this program directly.\n\n"
 
-        "afl-ld is set with the fixed real 'ld' path of %s and the clang tool "
-        "path of %s\n\n",
+        "afl-ld was compiled with the fixed real 'ld' path of %s and the clang "
+        "bin path of %s\n\n",
         real_ld, LLVM_BINDIR);
 
     exit(1);
@@ -250,126 +313,12 @@ int main(int argc, char** argv) {
 
     if (have_afl_ld_caller == 1) {
 
-      char *tmp, *newpath = NULL, *path = getenv("PATH");
-      u8    done = 0, colons = 0;
-
-      if (debug)
-        SAYF(cMGN "[D]" cRST " old PATH=%s, AFL_PATH=%s, BIN_PATH=%s\n", path,
-             AFL_PATH, BIN_PATH);
-
-      // wipe AFL paths from PATH that we set
-      // we added two paths so we remove the two paths
-      while (!done) {
-
-        if (*path == 0)
-          done = 1;
-        else {
-
-          if (*path++ == ':') colons++;
-          if (colons == 2) done = 1;
-
-        }
-
-      }
-
-      while (*path == ':')
-        path++;
-
-      if (debug) SAYF(cMGN "[D]" cRST " tmp PATH=%s next %s\n", path, AFL_PATH);
-
-      // but now there could be paths in there that are the same as AFL_PATH
-      // so we have to remove them too to not call our 'ld'
-      newpath = malloc(strlen(path) + 1);
-      if (strcmp(AFL_PATH, "/bin") != 0 && strcmp(AFL_PATH, "/usr/bin") != 0 &&
-          strlen(AFL_PATH) > 1 &&
-          (tmp = strstr(path, AFL_PATH)) != NULL &&  // it exists
-          (tmp == path ||
-           (tmp > path &&
-            tmp[-1] == ':')) &&  // either starts with it or has a colon before
-          (tmp + strlen(AFL_PATH) == path + strlen(path) ||
-           (tmp + strlen(AFL_PATH) <
-            path + (strlen(path) &&
-                    tmp[strlen(AFL_PATH)] ==
-                        ':'))  // end with it or has a colon at the end
-           )) {
-
-        int one_colon = 1;
-
-        if (tmp > path) {
-
-          memcpy(newpath, path, tmp - path);
-          newpath[tmp - path - 1] = 0;  // remove ':'
-          one_colon = 0;
-
-        }
-
-        if (tmp + strlen(AFL_PATH) < path + strlen(path))
-          tmp += strlen(AFL_PATH) + one_colon;
-        strcat(newpath, tmp);
-
-      } else
-
-        newpath[0] = 0;
-
-      if (newpath[0] != 0) strcpy(path, newpath);
-
-      if (strcmp(BIN_PATH, "/bin") != 0 && strcmp(BIN_PATH, "/usr/bin") != 0 &&
-          strlen(BIN_PATH) > 1 &&
-          (tmp = strstr(path, BIN_PATH)) != NULL &&  // it exists
-          (tmp == path ||
-           (tmp > path &&
-            tmp[-1] == ':')) &&  // either starts with it or has a colon before
-          (tmp + strlen(BIN_PATH) == path + strlen(path) ||
-           (tmp + strlen(BIN_PATH) < path + strlen(path) &&
-            tmp[strlen(BIN_PATH)] ==
-                ':'))  // end with it or has a colon at the end
-      ) {
-
-        int one_colon = 1;
-        printf("y\n");
-
-        if (tmp > path) {
-
-          printf("z\n");
-
-          memcpy(newpath, path, tmp - path);
-          newpath[tmp - path - 1] = 0;  // remove ':'
-          one_colon = 0;
-
-        }
-
-        if (tmp + strlen(BIN_PATH) < path + strlen(path)) {
-
-          printf("foo\n");
-          tmp += strlen(BIN_PATH) + one_colon;
-
-        }
-
-        strcat(newpath, tmp);
-
-      }
-
-      if (strlen(newpath) > 1)
-        setenv("PATH", newpath, 1);
-      else
-        setenv("PATH", path, 1);
-
-      if (debug) SAYF(cMGN "[D]" cRST " new PATH=%s\n", newpath);
+      clean_path();
 
     }
 
-    // some fallbacks
-
-    if (have_afl_ld_caller == 0) {
-
-      if (real_ld != NULL && strlen(real_ld) > 1) execvp(real_ld, argv);
-      execvp("ld", argv);  // unlikely this works, but lets try
-
-    }
-
-    if (real_ld != NULL && strlen(real_ld) > 1 && have_afl_ld_caller == 1)
-      execvp("ld", argv);
-    execvp("/bin/ld", argv);  // fallback
+    if (real_ld != NULL && strlen(real_ld) > 1) execvp(real_ld, argv);
+    execvp("ld", argv); // fallback
     PFATAL("Oops, failed to execute 'ld' - check your PATH");
 
   }
@@ -408,7 +357,7 @@ int main(int argc, char** argv) {
       if (WEXITSTATUS(status) != 0) exit(WEXITSTATUS(status));
 
       /* then we run the instrumentation through the optimizer */
-      OKF("Running bitcode optimizer, creating %s", modified_file);
+      OKF("Performing instrumentation via opt, creating %s", modified_file);
       if (debug) {
 
         SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
@@ -447,27 +396,11 @@ int main(int argc, char** argv) {
 
   if (!(pid = fork())) {
 
-    char *newpath = NULL, *path = getenv("PATH");
+    clean_path();
 
     unsetenv("AFL_LD");
 
     if (strlen(real_ld) > 1) execvp(real_ld, (char**)ld_params);
-
-    /* fallback */
-
-    if (strlen(afl_path) > 1)
-      newpath = strstr(path, afl_path);
-    else if (strlen(BIN_PATH) > 1)
-      newpath = strstr(path, BIN_PATH);
-
-    if (newpath != NULL) {
-
-      while (*newpath == ':')
-        newpath++;
-      setenv("PATH", newpath, 1);
-
-    }
-
     execvp("ld", (char**)ld_params);  // fallback
     FATAL("Oops, failed to execute 'ld' - check your PATH");
 
@@ -495,8 +428,8 @@ int main(int argc, char** argv) {
     else
       SAYF(cLRD "[-] " cRST
                 "Linker failed, please investigate and send a bug report. Most "
-                "likely an 'ld' option is incompatible with -flto. Try "
-                "AFL_KEEP_ASSEMBLY=1 and AFL_DEBUG=1 for replaying.\n");
+                "likely an 'ld' option is incompatible with %s. Try "
+                "AFL_KEEP_ASSEMBLY=1 and AFL_DEBUG=1 for replaying.\n", AFL_CLANG_FLTO);
 
   }
 
