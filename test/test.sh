@@ -458,11 +458,14 @@ test -e ../libdislocator.so && {
 rm -f test-compcov
 test -e ../libradamsa.so && {
   # on FreeBSD need to set AFL_CC
-  if which clang >/dev/null; then
-    export AFL_CC=`which clang`
-  else
-    export AFL_CC=`$LLVM_CONFIG --bindir`/clang
-  fi
+
+  test `uname -s` = 'FreeBSD' && {
+    if which clang >/dev/null; then
+      export AFL_CC=`which clang`
+    else
+      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
+    fi
+  }
   test -e test-instr.plain || ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   test -e test-instr.plain || ../afl-gcc-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   test -e test-instr.plain || ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
