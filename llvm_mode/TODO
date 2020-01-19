@@ -1,4 +1,4 @@
-TODO for alf-llvm-lto-instrumentation:
+TODO for afl-llvm-lto-instrumentation:
 * at the first bb of a function get the callsites and their loc_id
 * start with the analysis in main or _init if present, keep track which
   functions have been done
@@ -6,9 +6,8 @@ TODO for alf-llvm-lto-instrumentation:
   predecessors with loc_id though)
 * better algo for putting stuff in the map?
 
-TODO for Makefile
-* test if /bin/ld is hardcoded into clang and warn users if so (ld --afl test)
+TODO for afl-llvm-lto-whitelist
+* different solution then renaming?
 
-??? Issues
-* What to do with hardcoded /bin/ld
+Issues
 * What to do with ld to libraries (added to .a etc.)

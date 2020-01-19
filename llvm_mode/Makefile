@@ -229,8 +229,7 @@ ifneq "$(AFL_CLANG_FLTO)" ""
 	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -DAFL_REAL_LD=\"$(AFL_REAL_LD)\"
 	ln -sf afl-ld ../ld
 	@rm -f .test-instr
-	@- export AFL_QUIET=1 AFL_PATH=.. PATH="..:$(PATH)" ; ../afl-clang-lto -Wl,--afl -o .test-instr ../test-instr.c > /dev/null 2>&1 || echo [!] WARNING: clang seems to have an hardcoded "'/bin/ld'" - check README.lto
-	@-test -e .test-instr && echo "[+] afl-clang-lto and afl-ld seem to work properly" || echo "[!] afl-clang-lto and afl-ld failed"
+	@-export AFL_QUIET=1 AFL_PATH=.. PATH="..:$(PATH)" ; ../afl-clang-lto -Wl,--afl -o .test-instr ../test-instr.c && echo "[+] afl-clang-lto and afl-ld seem to work fine :)" || echo "[!] WARNING: clang seems to have a hardcoded "'/bin/ld'" - check README.lto"
 	@rm -f .test-instr
 endif
 

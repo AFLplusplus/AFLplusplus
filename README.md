@@ -4,6 +4,8 @@
 
 Typing "make" in llvm_mode/ will create a new binary: afl-clang-lto/afl-clang-lto++
 
+Detailed [README.lto](llvm_mode/README.lto)
+
 Using afl-clang-lto will perform instrumentation at link time and it is
 performing the instrumentation in a way to prevent collisions as good as
 possible, hence this is very beneficial for fuzzing.

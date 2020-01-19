@@ -1,0 +1,110 @@
+# afl-clang-lto - collision free instrumentation at link time
+
+
+## Introduction and problem description
+
+A big issue with how afl/afl++ works is that the basic block IDs that are
+set during compilation are random, and hence natually the larger the number
+of instrumented locations, the higher the number of edge collisions in the
+map. This can result in not discovering new paths and therefore hit the
+efficiency of the fuzzing.
+
+Theoretically, when compiling a single C/CPP file this could be prevented
+by collecting all IDs in a map and selecting those IDs that done result
+in a collision for every "prev_id << 1 ^ cur_id".
+This approach becomes difficult if several C/CPP files are compiled and
+then linked together.
+It is still possible, but then requires that only one C/CPP file is compiled
+as parallal compiling would not work.
+There is an afl++ branch that does this already: non_colliding_edge_cov
+
+The disadvantage is however that you need a wrapper script for the whole
+build process - and you can't parallelize compilation (e.g. make -j).
+
+Compiling at link time tries to solve this.
+
+Everything is compiled as usual - but in LTO mode - and at link time
+all LTO compiled parts are merged into one file and then the instrumentation
+is applied over the whole functions and then its linked to a binary.
+
+In LTO mode files are in LLVM IR syntax - either in text mode
+(usually .ll files) or in binary mode (usually .bc files).
+
+For this to work we have to inject our own linker that does that magic and
+then calls the real linker.
+
+And this is was afl-clang-lto and afl-ld do.
+
+
+## How to use afl-clang-lto
+
+Just use afl-clang-lto like you did afl-clang-fast or afl-gcc.
+
+Also whitelisting (AFL_LLVM_WHITELIST -> README.whitelist.md) and
+laf-intel/compcov (AFL_LLVM_LAF_* -> README.laf-intel.md) work.
+Only instrim does not - yet.
+
+Example:
+
+```
+CC=afl-clang-lto CXX=afl-clang-lto++ ./configure
+make
+```
+
+
+## Issues
+
+### clang is hardcoded to /bin/ld
+
+Some clang packages have 'ld' hardcoded to /bin/ld. This is an issue as this
+prevents "our" afl-ld being called.
+As a Workaround:
+
+```
+  mv /bin/ld /bin/ld.orig
+  cp afl-ld /bin/ld
+```
+
+This can result in two problems though:
+
+ !1! When compiling afl-ld, the build process looks at where the /bin/ld link
+ !1! is going to. So when the workaround was applied and a recompiling afl-ld
+ !1! is performed then the link is gone and the new afl-ld clueless where
+ !1! the real ld is.
+ !1! In this case set AFL_REAL_LD=/bin/ld.orig
+
+ !2! When you install an updated gcc/clang/... package, your OS might restore
+ !2! the ld link.
+
+
+### compiling libraries fails
+
+Libraries pose two problems:
+
+1. they compile the C/CPP files one after another and put them into the .a archive
+Hence the map information between the compilation is lost.
+In the future there will be a wrapper script to handle this.
+
+2. because we compile to LTO format, these can not be put into archives, which
+results in error messages like this:
+```
+/bin/ld: libfoo.a: error adding symbols: archive has no index; run ranlib to add one
+```
+Unsure how to deal this at the moment - ideas welcome!
+
+
+### "collision free" is not really
+
+Starting at 10.000 edges you will have collisions in the standard 64k map
+simply because of previous block IDs and the free locations in the map will
+at some point not work out anymore.
+
+
+## Upcoming Work
+
+1. The instrumentation is currently OK but not as effective as it could be.
+This will be enhanced in the future
+
+2. Currently the LTO whitelist feature does not allow to not instrument main, start and init functions
+
+details: see the TODO file
