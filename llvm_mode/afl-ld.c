@@ -144,7 +144,7 @@ static void edit_params(int argc, char** argv) {
 
     }
 
-    if (strcmp(argv[i], "--afl") != 0) {
+    if (strcmp(argv[i], "--afl") == 0) {
       if (!be_quiet) OKF("afl++ test command line flag detected, exiting.");
       exit(0);
     }

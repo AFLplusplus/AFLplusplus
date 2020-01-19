@@ -205,7 +205,13 @@ bool AFLwhitelist::runOnModule(Module &M) {
 
         }
 
+      } else {
+      
+        PFATAL("Whitelist is empty");
+        
       }
+      
+      continue;
 
     }
 
