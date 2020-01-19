@@ -79,18 +79,16 @@ This can result in two problems though:
 
 ### compiling libraries fails
 
-Libraries pose two problems:
-
-1. they compile the C/CPP files one after another and put them into the .a archive
-Hence the map information between the compilation is lost.
-In the future there will be a wrapper script to handle this.
-
-2. because we compile to LTO format, these can not be put into archives, which
-results in error messages like this:
+If you see this message:
 ```
 /bin/ld: libfoo.a: error adding symbols: archive has no index; run ranlib to add one
 ```
-Unsure how to deal this at the moment - ideas welcome!
+This is because usually gnu gcc ranlib is being called which cannot deal with clang LTO files.
+The solution is simple: when you ./configure you have also set RANLIB=llvm-ranlib :)
+Solution:
+```
+RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto++ ./configure --disable-shared
+```
 
 
 ### "collision free" is not really

@@ -4,7 +4,9 @@
 
 Typing "make" in llvm_mode/ will create a new binary: afl-clang-lto/afl-clang-lto++
 
+
 Detailed [README.lto](llvm_mode/README.lto)
+
 
 Using afl-clang-lto will perform instrumentation at link time and it is
 performing the instrumentation in a way to prevent collisions as good as
@@ -14,11 +16,19 @@ How-to: simply use afl-clang-lto where you used afl-clang-fast or afl-gcc before
 
 All llvm_mode extensions work with the exception of InsTrim.
 
+If you see this error message when compiling:
+```
+/bin/ld: libfoo.a: error adding symbols: archive has no index; run ranlib to add one
+```
+you have to set the target to use llvm-ranlib, e.g.:
+```
+RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto ./configure --disable-shared
+```
 
 Known issues:
 
- * There is an issue with libraries, so this does not work (yet?)
  * Instrumentation is OK, but can be much better/efficient, its on the TODO list
+ * you can not skip instrumentation of main/start/init via whitelisting.
 
 
 Please test and give feedback!

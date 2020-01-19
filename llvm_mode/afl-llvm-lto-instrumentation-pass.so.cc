@@ -345,10 +345,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
             bb_cur->id = tmp_loc;
             bb_cur->next = bb_list;
             bb_list = bb_cur;
-            if (debug)
-              std::cerr << "Warning: basic block " << pred_name
-                        << " does not have an ID yet, assigning " << tmp_loc
-                        << std::endl;
+            if (debug) SAYF(cMGN "[D] " cRST "basic block %s does not have an ID yet, assigning %u\n", pred_name.c_str(), tmp_loc);
             ids[tmp_loc]++;
             id_list[id_cnt++] = bb_cur->id;
 
