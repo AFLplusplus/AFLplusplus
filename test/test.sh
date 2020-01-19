@@ -314,6 +314,79 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   INCOMPLETE=1
 }
 
+$ECHO "$BLUE[*] Testing: LTO llvm_mode"
+test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation-pass.so && {
+  # on FreeBSD need to set AFL_CC
+  test `uname -s` = 'FreeBSD' && {
+    if which clang >/dev/null; then
+      export AFL_CC=`which clang`
+    else
+      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
+    fi
+  }
+
+  ../afl-clang-lto -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+  test -e test-instr.plain && {
+    $ECHO "$GREEN[+] llvm_mode LTO compilation succeeded"
+    echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
+    ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
+    test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
+      diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
+        $ECHO "$RED[!] llvm_mode LTO instrumentation should be different on different input but is not"
+        CODE=1
+      } || {
+        $ECHO "$GREEN[+] llvm_mode LTO instrumentation present and working correctly"
+        TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
+        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 6 && {
+          $ECHO "$GREEN[+] llvm_mode LTO run reported $TUPLES instrumented locations which is fine"
+        } || {
+          $ECHO "$RED[!] llvm_mode LTO instrumentation produces weird numbers: $TUPLES"
+          CODE=1
+        }
+      }
+    } || { 
+      $ECHO "$RED[!] llvm_mode LTO instrumentation failed"
+      CODE=1
+    }
+    rm -f test-instr.plain.0 test-instr.plain.1
+  } || {
+    $ECHO "$RED[!] LTO llvm_mode failed"
+    CODE=1
+  }
+  rm -f test-instr.plain
+
+  echo foobar.c > whitelist.txt
+  AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-lto -o test-compcov test-compcov.c > test.out 2>&1
+  test -e test-compcov && {
+    grep -q "No instrumentation targets found" test.out && {
+      $ECHO "$GREEN[+] llvm_mode LTO whitelist feature works correctly"
+    } || {
+      $ECHO "$RED[!] llvm_mode LTO whitelist feature failed"
+      CODE=1
+    }
+  } || { 
+    $ECHO "$RED[!] llvm_mode LTO whitelist feature compilation failed"
+    CODE=1
+  }
+  rm -f test-compcov test.out whitelist.txt
+  ../afl-clang-lto -o test-persistent ../experimental/persistent_demo/persistent_demo.c > /dev/null 2>&1
+  test -e test-persistent && {
+    echo foo | ../afl-showmap -o /dev/null -q -r ./test-persistent && {
+      $ECHO "$GREEN[+] llvm_mode LTO persistent mode feature works correctly"
+    } || {
+      $ECHO "$RED[!] llvm_mode LTO persistent mode feature failed to work"
+      CODE=1
+    }
+  } || {
+    $ECHO "$RED[!] llvm_mode LTO persistent mode feature compilation failed"
+    CODE=1
+  }
+  rm -f test-persistent
+} || {
+  $ECHO "$YELLOW[-] LTOllvm_mode not compiled, cannot test"
+  INCOMPLETE=1
+}
+
 $ECHO "$BLUE[*] Testing: gcc_plugin"
 export AFL_CC=`which gcc`
 test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
