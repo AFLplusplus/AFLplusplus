@@ -19,6 +19,8 @@
 # For Heiko:
 #TEST_MMAP=1
 
+AFL_TRACE_PC=1
+
 PREFIX      ?= /usr/local
 HELPER_PATH  = $(PREFIX)/lib/afl
 BIN_PATH     = $(PREFIX)/bin
