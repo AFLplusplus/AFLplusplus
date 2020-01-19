@@ -16,7 +16,6 @@ All llvm_mode extensions work with the exception of InsTrim.
 Known issues:
 
  * There is an issue with libraries, so this does not work (yet?)
- * Whitelisting should work - but doesnt. investigating this
  * Instrumentation is OK, but can be much better/efficient, its on the TODO list
 
 

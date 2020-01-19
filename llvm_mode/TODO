@@ -9,9 +9,6 @@ TODO for alf-llvm-lto-instrumentation:
 TODO for Makefile
 * test if /bin/ld is hardcoded into clang and warn users if so (ld --afl test)
 
-TODO for test.sh
-* add test cases
-
 ??? Issues
 * What to do with hardcoded /bin/ld
 * What to do with ld to libraries (added to .a etc.)

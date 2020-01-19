@@ -56,6 +56,10 @@ class AFLwhitelist : public ModulePass {
   static char ID;
   AFLwhitelist() : ModulePass(ID) {
 
+    int entries = 0;
+
+    if (getenv("AFL_DEBUG")) debug = 1;
+
     char *instWhiteListFilename = getenv("AFL_LLVM_WHITELIST");
     if (instWhiteListFilename) {
 
@@ -68,10 +72,15 @@ class AFLwhitelist : public ModulePass {
 
         myWhitelist.push_back(line);
         getline(fileStream, line);
+        entries++;
 
       }
 
-    }
+    } else
+    
+      PFATAL("afl-llvm-lto-whitelist-pass.so loaded without AFL_LLVM_WHITELIST?!");
+
+    if (debug) SAYF(cMGN "[D] " cRST "loaded whitelist %s with %d entries\n", instWhiteListFilename, entries);
 
   }
 
@@ -103,6 +112,7 @@ class AFLwhitelist : public ModulePass {
 
  protected:
   std::list<std::string> myWhitelist;
+  int debug = 0;
 
 };
 
@@ -199,11 +209,22 @@ bool AFLwhitelist::runOnModule(Module &M) {
          * We do this by renaming the function. */
         if (!instrumentBlock) {
 
+          if (F.getName().compare("main") == 0 || F.getName().compare("start") == 0 ||  F.getName().compare("_start") == 0 ||
+            F.getName().compare("init") == 0 || F.getName().compare("_init") == 0) {
+            
+            WARNF("Cannot ignore functions main/init/start");
+            
+          } else {
+
           // StringRef newName = StringRef("ign.") + F.getName();
+          if (debug) SAYF(cMGN "[D] " cRST "renamed %s to ign.%s\n", F.getName().str().c_str(), F.getName().str().c_str());
           Function *_F(&F);
           _F->setName("ign." + F.getName());
 
-        }
+          }
+
+        } else
+          if (debug) SAYF(cMGN "[D] " cRST "function %s is in whitelist\n", F.getName().str().c_str());
 
       } else {
       
@@ -211,7 +232,7 @@ bool AFLwhitelist::runOnModule(Module &M) {
         
       }
       
-      continue;
+      break;
 
     }
 

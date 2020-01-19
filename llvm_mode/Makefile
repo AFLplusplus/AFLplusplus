@@ -230,7 +230,7 @@ ifneq "$(AFL_CLANG_FLTO)" ""
 	ln -sf afl-ld ../ld
 	@rm -f .test-instr
 	@- export AFL_QUIET=1 AFL_PATH=.. PATH="..:$(PATH)" ; ../afl-clang-lto -Wl,--afl -o .test-instr ../test-instr.c > /dev/null 2>&1 || echo [!] WARNING: clang seems to have an hardcoded "'/bin/ld'" - check README.lto
-	@-test -e .test-instr && echo "[+] afl-clang-lto and afl-ld seem to work properly"
+	@-test -e .test-instr && echo "[+] afl-clang-lto and afl-ld seem to work properly" || echo "[!] afl-clang-lto and afl-ld failed"
 	@rm -f .test-instr
 endif
 
