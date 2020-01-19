@@ -248,7 +248,7 @@ static void edit_params(u32 argc, char** argv) {
       cc_params[cc_par_cnt++] = "-load";
       cc_params[cc_par_cnt++] = "-Xclang";
       cc_params[cc_par_cnt++] =
-          alloc_printf("%s/afl-llvm-lto-whitelist-pass.so", obj_path);
+          alloc_printf("%s/afl-llvm-lto-whitelist.so", obj_path);
 
     }
 
@@ -470,58 +470,59 @@ static void edit_params(u32 argc, char** argv) {
 
 int main(int argc, char** argv) {
 
-  int i;
-  char *name = "afl-clang-fast";
+  int   i;
+  char* name = "afl-clang-fast";
 
   if (getenv("AFL_DEBUG")) debug = 1;
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
 #ifdef USE_TRACE_PC
-    printf(
-        cCYA
-        "afl-clang-fast" VERSION cRST
-        " [tpcg] by <lszekeres@google.com>\n")
+    printf(cCYA "afl-clang-fast" VERSION cRST
+                " [tpcg] by <lszekeres@google.com>\n")
 #else
     if (!strncmp(name, "afl-clang-lto", strlen("afl-clang-lto")))
 
-      printf(
-        cCYA
-        "afl-clang-fast" VERSION cRST
-        " by <lszekeres@google.com>\n");
+      printf(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
 
     else {
 
-      SAYF(cCYA "afl-clang-lto" VERSION cRST "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+      SAYF(cCYA "afl-clang-lto" VERSION cRST
+                "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
       name = "afl-clang-lto";
 
     }
 
 #endif                                                     /* ^USE_TRACE_PC */
-    SAYF("\n"
-        "%s[++] [options]\n"
-        "\n"
-        "This is a helper application for afl-fuzz. It serves as a drop-in "
-        "replacement\n"
-        "for clang, letting you recompile third-party code with the required "
-        "runtime\n"
-        "instrumentation. A common use pattern would be one of the "
-        "following:\n\n"
+        SAYF(
+            "\n"
+            "%s[++] [options]\n"
+            "\n"
+            "This is a helper application for afl-fuzz. It serves as a drop-in "
+            "replacement\n"
+            "for clang, letting you recompile third-party code with the "
+            "required "
+            "runtime\n"
+            "instrumentation. A common use pattern would be one of the "
+            "following:\n\n"
 
-        "  CC=%s/%s ./configure\n"
-        "  CXX=%s/%s++ ./configure\n\n"
+            "  CC=%s/%s ./configure\n"
+            "  CXX=%s/%s++ ./configure\n\n"
 
-        "In contrast to the traditional afl-clang tool, this version is "
-        "implemented as\n"
-        "an LLVM pass and tends to offer improved performance with slow "
-        "programs.\n\n"
+            "In contrast to the traditional afl-clang tool, this version is "
+            "implemented as\n"
+            "an LLVM pass and tends to offer improved performance with slow "
+            "programs.\n\n"
 
-        "You can specify custom next-stage toolchain via AFL_CC and AFL_CXX. "
-        "Setting\n"
-        "AFL_HARDEN enables hardening optimizations in the compiled code.\n\n"
-        "%s was built for llvm %s with the llvm binary path of "
-        "\"%s\".\n\n",
-        name, BIN_PATH, name, BIN_PATH, name, name, LLVM_VERSION, LLVM_BINDIR);
+            "You can specify custom next-stage toolchain via AFL_CC and "
+            "AFL_CXX. "
+            "Setting\n"
+            "AFL_HARDEN enables hardening optimizations in the compiled "
+            "code.\n\n"
+            "%s was built for llvm %s with the llvm binary path of "
+            "\"%s\".\n\n",
+            name, BIN_PATH, name, BIN_PATH, name, name, LLVM_VERSION,
+            LLVM_BINDIR);
 
     exit(1);
 
@@ -534,10 +535,11 @@ int main(int argc, char** argv) {
     if (!strncmp(name, "afl-clang-lto", strlen("afl-clang-lto")))
 
       SAYF(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
-   
-   else
-      
-      SAYF(cCYA "afl-clang-lto" VERSION cRST  "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+
+    else
+
+      SAYF(cCYA "afl-clang-lto" VERSION cRST
+                "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
 
 #endif                                                     /* ^USE_TRACE_PC */
 
