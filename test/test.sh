@@ -569,8 +569,64 @@ test -e ../afl-qemu-trace && {
         CODE=1
         exit 1
       }
-      $ECHO "$YELLOW[-] we need a test case for qemu_mode unsigaction library"
       rm -rf in out errors
+      test -e ../qemu_mode/unsigaction/unsigaction32.so && {
+        ${AFL_CC} -o test-unsigaction32 -m32 test-unsigaction.c >> errors 2>&1 && {
+	  ./test-unsigaction32
+          RETVAL_NORMAL32=$?
+	  LD_PRELOAD=../qemu_mode/unsigaction/unsigaction32.so ./test-unsigaction32
+          RETVAL_LIBUNSIGACTION32=$?
+	  test $RETVAL_NORMAL32 = "2" -a $RETVAL_LIBUNSIGACTION32 = "0" && {
+            $ECHO "$GREEN[+] qemu_mode unsigaction library (32 bit) ignores signals"
+	  } || {
+	    test $RETVAL_NORMAL32 != "2" && {
+	      $ECHO "$RED[!] cannot trigger signal in test program (32 bit)"
+	    }
+	    test $RETVAL_LIBUNSIGACTION32 != "0" && {
+	      $ECHO "$RED[!] signal in test program (32 bit) is not ignored with unsigaction"
+	    }
+            CODE=1
+          }
+        } || {
+          echo CUT------------------------------------------------------------------CUT
+          cat errors
+          echo CUT------------------------------------------------------------------CUT
+	  $ECHO "$RED[!] cannot compile test program (32 bit) for unsigaction library"
+          CODE=1
+        }
+      } || {
+        $ECHO "$YELLOW[-] we cannot test qemu_mode unsigaction library (32 bit) because it is not present"
+        INCOMPLETE=1
+      }
+      test -e ../qemu_mode/unsigaction/unsigaction64.so && {
+        ${AFL_CC} -o test-unsigaction64 -m64 test-unsigaction.c >> errors 2>&1 && {
+	  ./test-unsigaction64
+          RETVAL_NORMAL64=$?
+	  LD_PRELOAD=../qemu_mode/unsigaction/unsigaction64.so ./test-unsigaction64
+          RETVAL_LIBUNSIGACTION64=$?
+	  test $RETVAL_NORMAL64 = "2" -a $RETVAL_LIBUNSIGACTION64 = "0" && {
+            $ECHO "$GREEN[+] qemu_mode unsigaction library (64 bit) ignores signals"
+	  } || {
+	    test $RETVAL_NORMAL64 != "2" && {
+	      $ECHO "$RED[!] cannot trigger signal in test program (64 bit)"
+	    }
+	    test $RETVAL_LIBUNSIGACTION64 != "0" && {
+	      $ECHO "$RED[!] signal in test program (64 bit) is not ignored with unsigaction"
+	    }
+            CODE=1
+          }
+        } || {
+          echo CUT------------------------------------------------------------------CUT
+          cat errors
+          echo CUT------------------------------------------------------------------CUT
+	  $ECHO "$RED[!] cannot compile test program (64 bit) for unsigaction library"
+          CODE=1
+        }
+      } || {
+        $ECHO "$YELLOW[-] we cannot test qemu_mode unsigaction library (64 bit) because it is not present"
+        INCOMPLETE=1
+      }
+      rm -rf errors test-unsigaction32 test-unsigaction64
     }
   } || {
     $ECHO "$RED[!] gcc compilation of test targets failed - what is going on??"
