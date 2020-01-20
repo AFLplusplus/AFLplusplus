@@ -27,7 +27,6 @@ RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto ./configure --disable-shar
 
 Known issues:
 
- * Instrumentation is OK, but can be much better/efficient, its on the TODO list
  * you can not skip instrumentation of main/start/init via whitelisting.
 
 

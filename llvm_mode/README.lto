@@ -42,7 +42,7 @@ Just use afl-clang-lto like you did afl-clang-fast or afl-gcc.
 
 Also whitelisting (AFL_LLVM_WHITELIST -> README.whitelist.md) and
 laf-intel/compcov (AFL_LLVM_LAF_* -> README.laf-intel.md) work.
-Only instrim does not - yet.
+Only InsTrim does not - yet.
 
 Example:
 
@@ -52,7 +52,7 @@ make
 ```
 
 
-## Issues
+## Potential issues
 
 ### clang is hardcoded to /bin/ld
 
@@ -93,16 +93,13 @@ RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto++ ./configure --disable-sh
 
 ### "collision free" is not really
 
-Starting at 10.000 edges you will have collisions in the standard 64k map
+Starting at 5.000 edges you will have collisions in the standard 64k map
 simply because of previous block IDs and the free locations in the map will
 at some point not work out anymore.
 
 
 ## Upcoming Work
 
-1. The instrumentation is currently OK but not as effective as it could be.
-This will be enhanced in the future
-
-2. Currently the LTO whitelist feature does not allow to not instrument main, start and init functions
+1. Currently the LTO whitelist feature does not allow to not instrument main, start and init functions
 
 details: see the TODO file

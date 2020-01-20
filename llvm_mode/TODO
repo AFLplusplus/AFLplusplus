@@ -1,13 +1,8 @@
 TODO for afl-llvm-lto-instrumentation:
-* at the first bb of a function get the callsites and their loc_id
 * start with the analysis in main or _init if present, keep track which
   functions have been done
-* be more intelligent with which bb to instrument (more work to find
-  predecessors with loc_id though)
 * better algo for putting stuff in the map?
 
 TODO for afl-llvm-lto-whitelist
 * different solution then renaming?
 
-Issues
-* What to do with ld to libraries (added to .a etc.)

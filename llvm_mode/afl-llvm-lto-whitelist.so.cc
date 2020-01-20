@@ -78,8 +78,7 @@ class AFLwhitelist : public ModulePass {
 
     } else
 
-      PFATAL(
-          "afl-llvm-lto-whitelist.so loaded without AFL_LLVM_WHITELIST?!");
+      PFATAL("afl-llvm-lto-whitelist.so loaded without AFL_LLVM_WHITELIST?!");
 
     if (debug)
       SAYF(cMGN "[D] " cRST "loaded whitelist %s with %d entries\n",
