@@ -200,9 +200,10 @@ class AFLLTOPass : public ModulePass {
 
         if (shouldBeInstrumented(*Pred) == false) {
 
-          SAYF(cMGN "[D] " cRST
-                    "predecessor %s is not instrumented, digging deeper\n",
-               pred_name.c_str());
+          if (debug)
+            SAYF(cMGN "[D] " cRST
+                      "predecessor %s is not instrumented, digging deeper\n",
+                 pred_name.c_str());
           addPredLocIDs(F, fname, *Pred);
           continue;
 

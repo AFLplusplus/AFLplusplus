@@ -261,8 +261,8 @@ int main(int argc, char** argv) {
          getenv("AFL_LD"), val, have_afl_ld_caller, real_ld);
     SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
     for (i = 0; i < argc; i++)
-      printf(" \"%s\"", argv[i]);
-    printf("\n");
+      SAYF(" \"%s\"", argv[i]);
+    SAYF("\n");
 
   }
 
@@ -343,8 +343,8 @@ int main(int argc, char** argv) {
 
         SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
         for (i = 0; i < link_par_cnt; i++)
-          printf(" \"%s\"", link_params[i]);
-        printf("\n");
+          SAYF(" \"%s\"", link_params[i]);
+        SAYF("\n");
 
       }
 
@@ -366,8 +366,8 @@ int main(int argc, char** argv) {
 
         SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
         for (i = 0; i < opt_par_cnt; i++)
-          printf(" \"%s\"", opt_params[i]);
-        printf("\n");
+          SAYF(" \"%s\"", opt_params[i]);
+        SAYF("\n");
 
       }
 
@@ -393,8 +393,8 @@ int main(int argc, char** argv) {
 
     SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
     for (i = 0; i < ld_par_cnt; i++)
-      printf(" \"%s\"", ld_params[i]);
-    printf("\n");
+      SAYF(" \"%s\"", ld_params[i]);
+    SAYF("\n");
 
   }
 
