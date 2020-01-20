@@ -151,6 +151,11 @@ static void edit_params(int argc, char** argv) {
 
     }
 
+    if (argv[i][0] != '-' && strlen(argv[i]) > 2 &&
+        argv[i][strlen(argv[i]) - 1] == 'a' &&
+        argv[i][strlen(argv[i]) - 2] == '.')
+      WARNF("object archive %s is not handled yet", argv[i]);
+
     if (argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
       ld_params[ld_par_cnt++] = argv[i];
     else

@@ -54,6 +54,12 @@ make
 
 ## Potential issues
 
+### it takes forever to perform the instrumentation
+
+Especially with libraries and functions that are called from many, many
+locations, the instrumentation can take easily 1-5 hours.
+Bascially the larger and the more complex the target, the longer it takes.
+
 ### clang is hardcoded to /bin/ld
 
 Some clang packages have 'ld' hardcoded to /bin/ld. This is an issue as this
@@ -90,7 +96,6 @@ Solution:
 RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto++ ./configure --disable-shared
 ```
 
-
 ### "collision free" is not really
 
 Starting at 5.000 edges you will have collisions in the standard 64k map
@@ -102,8 +107,10 @@ Especially in libraries you will encounter that one function is called by
 And the number of edges from calls are usually way more than within a function.
 This is a overlooked issue in most analysis.
 
+
 ## Upcoming Work
 
 1. Currently the LTO whitelist feature does not allow to not instrument main, start and init functions
+2. Handle object archives, e.g. libfoo.a
 
 details: see the TODO file

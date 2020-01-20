@@ -28,7 +28,8 @@ RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto ./configure --disable-shar
 Known issues:
 
  * you can not skip instrumentation of main/start/init via whitelisting.
-
+ * the instrumentation can seem to take forever, the larger the library the longer it takes
+ 
 
 Please test and give feedback!
 

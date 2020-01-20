@@ -86,20 +86,6 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  // Get the internal llvm name of a basic block
-  static std::string getSimpleNodeLabel(const BasicBlock *BB,
-                                        const Function *) {
-
-    if (!BB->getName().empty()) return BB->getName().str();
-
-    std::string        Str;
-    raw_string_ostream OS(Str);
-
-    BB->printAsOperand(OS, false);
-    return OS.str();
-
-  }
-
   // Calculate the number of average collisions that would occur if all
   // location IDs would be assigned randomly (like normal afl/afl++).
   // This uses the "balls in bins" algorithm.
@@ -115,6 +101,20 @@ class AFLLTOPass : public ModulePass {
     unsigned long long int collisions = edges - (MAP_SIZE - empty);
     return collisions;
     
+  }
+
+  // Get the internal llvm name of a basic block
+  static std::string getSimpleNodeLabel(const BasicBlock *BB,
+                                        const Function *) {
+
+    if (!BB->getName().empty()) return BB->getName().str();
+
+    std::string        Str;
+    raw_string_ostream OS(Str);
+
+    BB->printAsOperand(OS, false);
+    return OS.str();
+
   }
 
   // Should this basic block be instrumented?
@@ -619,6 +619,34 @@ bool AFLLTOPass::runOnModule(Module &M) {
 #if LLVM_VERSION_MAJOR < 9
   neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
 #endif
+
+//  if (debug) {
+    unsigned long long int cnt_functions = 0, cnt_callsites = 0, cnt_bbs = 0, total;
+    for (auto &F : M) {
+      cnt_functions++;
+      for (auto *U : F.users()) {
+        CallSite CS(U);
+        if (CS.getInstruction() != NULL)
+          cnt_callsites++;
+      }
+      for (auto &BB : F) {
+        if (!BB.getName().empty()) // we just dont want a warning
+          cnt_bbs++;
+        else
+          cnt_bbs++;
+      }
+    }
+    OKF("Module has %llu functions, %llu callsites and %llu total basic blocks.", cnt_functions, cnt_callsites, cnt_bbs);
+    total = (cnt_functions + cnt_callsites + cnt_bbs) >> 8;
+    if (total > 0) {
+      SAYF(cYEL "[!] " cRST "WARNING: this is complex, it will take a l");
+      while (total > 0) {
+        SAYF("o");
+        total = total >> 1;
+      }
+      SAYF("ng time to instrument!\n");
+    }
+//  }
 
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */

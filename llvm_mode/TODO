@@ -1,7 +1,9 @@
+TODO for afl-ld:
+* handle libfoo.a object archives
+
 TODO for afl-llvm-lto-instrumentation:
-* start with the analysis in main or _init if present, keep track which
-  functions have been done
 * better algo for putting stuff in the map?
+* try to predict how long the instrumentation process will take
 
 TODO for afl-llvm-lto-whitelist
 * different solution then renaming?
