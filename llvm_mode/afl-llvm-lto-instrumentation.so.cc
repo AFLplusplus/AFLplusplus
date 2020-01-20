@@ -61,6 +61,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
+#define MAX_ID_CNT 512
+
 struct bb_id {
 
   std::string * function;
@@ -132,6 +134,9 @@ class AFLLTOPass : public ModulePass {
 
     bb_id *bb_cur = bb_list;
     int    tmp_loc = 0;
+
+    if (id_cnt >= MAX_ID_CNT)
+      if (debug) SAYF(cMGN "[D] " cRST "prevID list full! (%s->%s)\n", fname->c_str(), bbname.c_str());
 
     while (bb_cur != NULL && (bbname.compare(*bb_cur->bb) != 0 ||
                               fname->compare(*bb_cur->function) != 0))
@@ -252,7 +257,7 @@ class AFLLTOPass : public ModulePass {
   IntegerType *          Int8Ty;
   IntegerType *          Int32Ty;
   unsigned char *        map, *ids;
-  unsigned int           id_list[256];
+  unsigned int           id_list[MAX_ID_CNT];
   bb_id *                bb_list;
   char *                 inst_ratio_str = NULL, *neverZero_counters_str = NULL;
   GlobalVariable *       AFLMapPtr, *AFLPrevLoc;
