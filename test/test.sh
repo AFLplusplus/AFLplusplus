@@ -179,11 +179,13 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
 $ECHO "$BLUE[*] Testing: llvm_mode"
 test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   # on FreeBSD need to set AFL_CC
-  if which clang >/dev/null; then
-    export AFL_CC=`which clang`
-  else
-    export AFL_CC=`$LLVM_CONFIG --bindir`/clang
-  fi
+  test `uname -s` = 'FreeBSD' && {
+    if which clang >/dev/null; then
+      export AFL_CC=`which clang`
+    else
+      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
+    fi
+  }
   ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-clang-fast -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
