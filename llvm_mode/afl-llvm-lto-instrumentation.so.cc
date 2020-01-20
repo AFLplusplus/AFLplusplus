@@ -86,23 +86,6 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  // Calculate the number of average collisions that would occur if all
-  // location IDs would be assigned randomly (like normal afl/afl++).
-  // This uses the "balls in bins" algorithm.
-  unsigned long long int calculateCollisions(unsigned long int edges) {
-    
-    double bins = MAP_SIZE;
-    double balls = edges;
-    double step1 = 1 - (1 / bins);
-    double step2 = pow(step1, balls);
-    double step3 = bins * step2;
-    double step4 = round(step3);
-    unsigned long long int empty = step4;
-    unsigned long long int collisions = edges - (MAP_SIZE - empty);
-    return collisions;
-    
-  }
-
   // Get the internal llvm name of a basic block
   static std::string getSimpleNodeLabel(const BasicBlock *BB,
                                         const Function *) {
@@ -308,7 +291,7 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
 
     if (is_first_bb) {
 
-      int found_callsites = 0, processed_callsites = 0;
+      unsigned int found_callsites = 0, processed_callsites = 0;
       is_first_bb = 0;
       if (debug)
         SAYF(cMGN "[D] " cRST "bb %s is the first in the function\n",
@@ -406,18 +389,14 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
 
       edges += id_cnt;  // we count the edges for statistics
 
-      for (int i = 0; i < id_cnt - 1; i++)
-        for (int j = i + 1; j < id_cnt; j++)
-          if (id_list[i] == id_list[j]) {
-
-            collisions++;
-            if (debug)
+      if (debug)
+        for (int i = 0; i < id_cnt - 1; i++)
+          for (int j = i + 1; j < id_cnt; j++)
+            if (id_list[i] == id_list[j])
               SAYF(cMGN
                    "[D] "
                    "!!! duplicate IDs ... :-( %d:%u == %d:%u\n",
                    i, id_list[i], j, id_list[j]);
-
-          }
 
     }
 
@@ -512,17 +491,19 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
 
     }                                                     /* else found_tmp */
 
-    collisions += cnt_coll;  // count collisions
-
     // document all new edges in the map
+    cnt_coll = 0;
     for (int i = 0; i < id_cnt; i++) {
 
-      map[cur_loc ^ (id_list[i] >> 1)]++;
+      if (map[cur_loc ^ (id_list[i] >> 1)]++)
+        cnt_coll++;
       if (debug)
         SAYF(cMGN "[D] " cRST "setting map[%u ^ (%u >> 1)] = %u\n", cur_loc,
              id_list[i], map[cur_loc ^ (id_list[i] >> 1)]);
 
     }
+
+    collisions += cnt_coll;  // count collisions
 
     /*
      * And *finally* we do the instrumentation!
@@ -637,7 +618,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
       }
     }
     OKF("Module has %llu functions, %llu callsites and %llu total basic blocks.", cnt_functions, cnt_callsites, cnt_bbs);
-    total = (cnt_functions + cnt_callsites + cnt_bbs) >> 8;
+    total = (cnt_functions + cnt_callsites + cnt_bbs) >> 10;
     if (total > 0) {
       SAYF(cYEL "[!] " cRST "WARNING: this is complex, it will take a l");
       while (total > 0) {
@@ -687,8 +668,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
     else {
 
       OKF("Instrumented %u locations with %llu edges and resulting in %llu "
-          "collision(s) wheras afl-clang-fast/afl-gcc would have had %llu collision(s) (%s mode, ratio %u%%).",
-          inst_blocks, edges, collisions, calculateCollisions(edges),
+          "collision(s) (%s mode, ratio %u%%).",
+          inst_blocks, edges, collisions,
           getenv("AFL_HARDEN")
               ? "hardened"
               : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
