@@ -97,6 +97,10 @@ Starting at 5.000 edges you will have collisions in the standard 64k map
 simply because of previous block IDs and the free locations in the map will
 at some point not work out anymore.
 
+Especially in libraries you will encounter that one function is called by
+200+ other functions and hence so many and too many edges will exist.
+And the number of edges from calls are usually way more than within a function.
+This is a overlooked issue in most analysis.
 
 ## Upcoming Work
 

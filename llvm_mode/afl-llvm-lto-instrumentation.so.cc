@@ -86,6 +86,7 @@ class AFLLTOPass : public ModulePass {
 
   }
 
+  // Get the internal llvm name of a basic block
   static std::string getSimpleNodeLabel(const BasicBlock *BB,
                                         const Function *) {
 
@@ -99,20 +100,26 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  bool isAlreadyHandled(std::string fname) {
-
-    // if (debug) SAYF(cMGN "[D] " cRST "ignoring function %s it was already
-    // handled\n", fname.c_str());
-    return false;
-
+  // Calculate the number of average collisions that would occur if all
+  // location IDs would be assigned randomly (like normal afl/afl++).
+  // This uses the "balls in bins" algorithm.
+  unsigned long long int calculateCollisions(unsigned long int edges) {
+    
+    double bins = MAP_SIZE;
+    double balls = edges;
+    double step1 = 1 - (1 / bins);
+    double step2 = pow(step1, balls);
+    double step3 = bins * step2;
+    double step4 = round(step3);
+    unsigned long long int empty = step4;
+    unsigned long long int collisions = edges - (MAP_SIZE - empty);
+    return collisions;
+    
   }
 
-  void addToHandled(std::string fname) {
-
-    return;
-
-  }
-
+  // Should this basic block be instrumented?
+  // Only if at least one previous block exists that has at least two or
+  // more successors.
   bool shouldBeInstrumented(BasicBlock &BB) {
 
     for (BasicBlock *Pred : predecessors(&BB)) {
@@ -130,6 +137,8 @@ class AFLLTOPass : public ModulePass {
 
   }
 
+  // check if the basic block already has a location ID assigned, if not
+  // generate one randomly. Put the location ID in the list for previous IDs.
   void getOrAddNew(std::string *fname, std::string bbname) {
 
     bb_id *bb_cur = bb_list;
@@ -196,6 +205,8 @@ class AFLLTOPass : public ModulePass {
 
   }
 
+  // Recurseivly walk previous basic blocks until every path has been
+  // followed and their location ID gathered.
   void addPredLocIDs(Function &F, std::string *fname, BasicBlock &BB) {
 
     for (BasicBlock *Pred : predecessors(&BB))
@@ -220,6 +231,7 @@ class AFLLTOPass : public ModulePass {
 
   }
 
+  // We skip over blacklisted functions. Obvously.
   bool isBlacklisted(const Function *F) {
 
     static const SmallVector<std::string, 5> Blacklist = {
@@ -252,8 +264,8 @@ class AFLLTOPass : public ModulePass {
 
  protected:
   int                    be_quiet = 0, inst_blocks = 0, id_cnt, debug = 0;
-  unsigned int           collisions = 0, cur_loc, inst_ratio = 100;
-  unsigned long long int edges = 0;
+  unsigned int           cur_loc, inst_ratio = 100;
+  unsigned long long int edges = 0, collisions = 0;
   IntegerType *          Int8Ty;
   IntegerType *          Int32Ty;
   unsigned char *        map, *ids;
@@ -271,8 +283,6 @@ char AFLLTOPass::ID = 0;
 void AFLLTOPass::handleFunction(Module &M, Function &F) {
 
   if (isBlacklisted(&F)) return;
-  if (isAlreadyHandled(F.getName().str())) return;
-  addToHandled(F.getName());
 
   if (debug)
     SAYF(cMGN "[D] " cRST "Working on function %s\n",
@@ -648,9 +658,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
       WARNF("No instrumentation targets found.");
     else {
 
-      OKF("Instrumented %u locations with %llu edges and resulting in %u "
-          "collision(s) (%s mode, ratio %u%%).",
-          inst_blocks, edges, collisions,
+      OKF("Instrumented %u locations with %llu edges and resulting in %llu "
+          "collision(s) wheras afl-clang-fast/afl-gcc would have had %llu collision(s) (%s mode, ratio %u%%).",
+          inst_blocks, edges, collisions, calculateCollisions(edges),
           getenv("AFL_HARDEN")
               ? "hardened"
               : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
