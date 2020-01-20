@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -524,7 +524,12 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
   struct queue_entry* q = queue;
   while (q) {
 
-    if (q->exec_cksum == cksum) { q->n_fuzz = q->n_fuzz + 1; break ; }
+    if (q->exec_cksum == cksum) {
+
+      q->n_fuzz = q->n_fuzz + 1;
+      break;
+
+    }
 
     q = q->next;
 

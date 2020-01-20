@@ -417,6 +417,7 @@ void* reallocarray(void* ptr, size_t elem_len, size_t elem_cnt) {
   }
 
   return ret;
+
 }
 
 __attribute__((constructor)) void __dislocator_init(void) {
