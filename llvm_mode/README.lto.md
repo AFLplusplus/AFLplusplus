@@ -142,3 +142,12 @@ afl-clang-lto sometimes underperforms in this area, so check the result analysis
 3. Better resolving of previous basic block with no ID assigned (esp. callsites)
 
 details: see the TODO file
+
+## Tested targets
+
+* bogofilter-1.2.5
+* libjpeg-turbo-1.3.1 (needs CFLAGS=-fPIC)
+* libpng-1.2.53
+* libxml2-2.9.2
+* tiff-4.0.4
+* unrar-nonfree-5.6.6
