@@ -198,24 +198,23 @@ PS. Because there are task switches still involved, the mode isn't as fast as
 faster than the normal fork() model, and compared to in-process fuzzing,
 should be a lot more robust.
 
-## 8) Bonus feature #3: new 'trace-pc-guard' mode
+## 8) Bonus feature #3: 'trace-pc-guard' mode
 
-Recent versions of LLVM are shipping with a built-in execution tracing feature
+LLVM is shipping with a built-in execution tracing feature
 that provides AFL with the necessary tracing data without the need to
 post-process the assembly or install any compiler plugins. See:
 
   http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards
 
-If you have a sufficiently recent compiler and want to give it a try, build
-afl-clang-fast this way:
+If you have not an outdated compiler and want to give it a try, build
+targets this way:
 
 ```
-  AFL_TRACE_PC=1 make clean all
+ libtarget-1.0 $ AFL_LLVM_USE_TRACE_PC=1  make
 ```
 
-Note that this mode is currently about 20% slower than "vanilla" afl-clang-fast,
+Note that this mode is about 20% slower than "vanilla" afl-clang-fast,
 and about 5-10% slower than afl-clang. This is likely because the
-instrumentation is not inlined, and instead involves a function call. On systems
-that support it, compiling your target with -flto should help.
-
-
+instrumentation is not inlined, and instead involves a function call.
+On systems that support it, compiling your target with -flto can help
+a bit.
