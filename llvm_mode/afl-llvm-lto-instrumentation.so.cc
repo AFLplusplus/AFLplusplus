@@ -61,7 +61,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
-#define MAX_ID_CNT 512
+#define MAX_ID_CNT 1024
 
 struct bb_id {
 
@@ -160,10 +160,12 @@ class AFLLTOPass : public ModulePass {
     bb_id *bb_cur = bb_list;
     int    tmp_loc = 0, i, tmp_found = 0;
 
-    if (id_cnt >= MAX_ID_CNT)
+    if (id_cnt >= MAX_ID_CNT) {
       if (debug)
         SAYF(cMGN "[D] " cRST "prevID list full! (%s->%s)\n", fname->c_str(),
              bbname.c_str());
+      return;
+    }
 
     while (bb_cur != NULL && (bbname.compare(*bb_cur->bb) != 0 ||
                               fname->compare(*bb_cur->function) != 0))
