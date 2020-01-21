@@ -226,6 +226,7 @@ static void edit_params(u32 argc, char** argv) {
 
   unsetenv("AFL_LD");
   unsetenv("AFL_LD_CALLER");
+
 #ifdef USE_TRACE_PC
   cc_params[cc_par_cnt++] =
       "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
@@ -234,6 +235,7 @@ static void edit_params(u32 argc, char** argv) {
   // "-fsanitize-coverage=trace-cmp,trace-div,trace-gep";
   // cc_params[cc_par_cnt++] = "-sanitizer-coverage-block-threshold=0";
 #else
+
   if (lto_mode) {
 
     char* old_path = getenv("PATH");
@@ -471,9 +473,12 @@ static void edit_params(u32 argc, char** argv) {
 int main(int argc, char** argv) {
 
   int   i;
-  char* name = "afl-clang-fast";
+  char* callname = "afl-clang-fast";
 
   if (getenv("AFL_DEBUG")) debug = 1;
+
+  if (strstr(argv[0], "afl-clang-lto") == NULL)
+    callname = "afl-clang-lto";
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -481,7 +486,7 @@ int main(int argc, char** argv) {
     printf(cCYA "afl-clang-fast" VERSION cRST
                 " [tpcg] by <lszekeres@google.com>\n")
 #else
-    if (!strncmp(name, "afl-clang-lto", strlen("afl-clang-lto")))
+    if (strstr(argv[0], "afl-clang-lto") == NULL)
 
       printf(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
 
@@ -489,7 +494,6 @@ int main(int argc, char** argv) {
 
       printf(cCYA "afl-clang-lto" VERSION cRST
                   "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
-      name = "afl-clang-lto";
 
     }
 
@@ -521,7 +525,7 @@ int main(int argc, char** argv) {
             "code.\n\n"
             "%s was built for llvm %s with the llvm binary path of "
             "\"%s\".\n\n",
-            name, BIN_PATH, name, BIN_PATH, name, name, LLVM_VERSION,
+            callname, BIN_PATH, callname, BIN_PATH, callname, callname, LLVM_VERSION,
             LLVM_BINDIR);
 
     exit(1);
@@ -532,14 +536,14 @@ int main(int argc, char** argv) {
     SAYF(cCYA "afl-clang-fast" VERSION cRST
               " [tpcg] by <lszekeres@google.com>\n");
 #else
-    if (!strncmp(name, "afl-clang-lto", strlen("afl-clang-lto")))
+    if (strstr(argv[0], "afl-clang-lto") == NULL)
 
       SAYF(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
 
     else
 
       SAYF(cCYA "afl-clang-lto" VERSION cRST
-                "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+                " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
 
 #endif                                                     /* ^USE_TRACE_PC */
 
