@@ -21,9 +21,11 @@ Version ++2.60d (develop):
   - afl-fuzz:
      - now prints the real python version support compiled in
      - set stronger performance compile options and little tweaks
-  - afl-clang-fast now shows in the help output for which llvm version it
-    was compiled for
-  - added blacklisted function check in llvm_mode
+  - afl-clang-fast:
+     - show in the help output for which llvm version it was compiled for
+     - now does not need to be recompiled between trace-pc and pass
+       instrumentation. compile normally and set AFL_LLVM_USE_TRACE_PC :)
+  - added blacklisted function check in all modules of llvm_mode
   - added fix from Debian project to compile libdislocator and libtokencap
 
 
