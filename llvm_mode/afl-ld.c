@@ -53,7 +53,8 @@ static u8  cwd[4096];
 
 static u8 be_quiet,                 /* Quiet mode (no stderr output)        */
     debug,                          /* AFL_DEBUG                            */
-    min_link_par,                   /* detect if we have something to link  */
+    passthrough,                    /* AFL_LD_PASSTHROUGH - no link+optimize*/
+    we_link,                        /* we have bc/ll -> link + optimize     */
     just_version;                   /* Just show version?                   */
 
 static u32 ld_par_cnt = 1,          /* Number of params to 'ld'             */
@@ -120,7 +121,6 @@ static void edit_params(int argc, char** argv) {
   link_params[link_par_cnt++] = "-S";  // we create the linked file as .ll
   link_params[link_par_cnt++] = "-o";
   link_params[link_par_cnt++] = linked_file;
-  min_link_par = link_par_cnt;
 
   opt_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "opt");
   opt_params[opt_par_cnt++] =
@@ -156,16 +156,22 @@ static void edit_params(int argc, char** argv) {
         argv[i][strlen(argv[i]) - 2] == '.')
       WARNF("object archive %s is not handled yet", argv[i]);
 
-    if (argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
+    if (passthrough || argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
       ld_params[ld_par_cnt++] = argv[i];
-    else
+    else {
+      if (we_link == 0) { // we have to honor order ...
+        ld_params[ld_par_cnt++] = modified_file;
+        we_link = 1;
+      }
       link_params[link_par_cnt++] = argv[i];
+    }
 
   }
 
   // if (have_lto == 0) ld_params[ld_par_cnt++] = AFL_CLANG_FLTO; // maybe we
   // should not ...
   ld_params[ld_par_cnt] = NULL;
+  link_params[link_par_cnt] = NULL;
 
 }
 
@@ -192,8 +198,6 @@ void clean_path() {
 
   while (*path == ':')
     path++;
-
-  if (debug) SAYF(cMGN "[D]" cRST " tmp PATH=%s next %s\n", path, AFL_PATH);
 
   // AFL_PATH could be additionally in PATH so check and remove to not call our
   // 'ld'
@@ -247,6 +251,8 @@ int main(int argc, char** argv) {
   if (getenv("AFL_DEBUG") != NULL) debug = 1;
 
   if (getenv("AFL_PATH") != NULL) afl_path = getenv("AFL_PATH");
+  
+  if (getenv("AFL_LD_PASSTHROUGH") != NULL) passthrough = 1;
 
   if (getenv("AFL_REAL_LD") != NULL) real_ld = getenv("AFL_REAL_LD");
   if (real_ld == NULL || strlen(real_ld) < 2) real_ld = "/bin/ld";
@@ -309,7 +315,11 @@ int main(int argc, char** argv) {
         "afl-clang-lto/afl-clang-lto++.\n"
         "You probably don't want to run this program directly.\n\n"
 
-        "afl-ld was compiled with the fixed real 'ld' path of %s and the clang "
+        "Environment variables:\n"
+        "  AFL_LD_PASSTHROUGH   do not link+optimize == no instrumentation\n"
+        "  AFL_REAL_LD          point to the real ld if necessary\n"
+
+        "\nafl-ld was compiled with the fixed real 'ld' path of %s and the clang "
         "bin path of %s\n\n",
         real_ld, LLVM_BINDIR);
 
@@ -334,15 +344,11 @@ int main(int argc, char** argv) {
 
   if (!just_version) {
 
-    if (link_par_cnt == min_link_par) {
+    if (we_link == 0) {
 
-      WARNF(cYEL "[!] " cRST "No LTO input file found, cannot instrument!");
+      WARNF("No LTO input file found, cannot instrument!");
 
     } else {
-
-      // we can only add the target file if we can run link + opt
-      ld_params[ld_par_cnt++] = modified_file;
-      ld_params[ld_par_cnt] = NULL;
 
       /* first we link all files */
       if (!be_quiet) OKF("Running bitcode linker, creating %s", linked_file);

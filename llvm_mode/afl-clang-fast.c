@@ -475,7 +475,10 @@ int main(int argc, char** argv) {
   int   i;
   char* callname = "afl-clang-fast";
 
-  if (getenv("AFL_DEBUG")) debug = 1;
+  if (getenv("AFL_DEBUG")) { 
+    debug = 1;
+    if (strcmp(getenv("AFL_DEBUG"), "0") == 0) unsetenv("AFL_DEBUG");
+  }
 
   if (strstr(argv[0], "afl-clang-lto") == NULL)
     callname = "afl-clang-lto";
