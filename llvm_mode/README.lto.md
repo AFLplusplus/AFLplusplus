@@ -95,11 +95,12 @@ If you see this message:
 /bin/ld: libfoo.a: error adding symbols: archive has no index; run ranlib to add one
 ```
 This is because usually gnu gcc ranlib is being called which cannot deal with clang LTO files.
-The solution is simple: when you ./configure you have also set RANLIB=llvm-ranlib :)
+The solution is simple: when you ./configure you have also set RANLIB=llvm-ranlib and AR=llvm-ar :)
 Solution:
 ```
-RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto++ ./configure --disable-shared
+AR=llvm-ar RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto++ ./configure --disable-shared
 ```
+and on some target you have to to AR=/RANLIB= even for make as they don't save it
 
 ### "collision free" is not really
 
