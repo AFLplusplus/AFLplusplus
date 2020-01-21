@@ -64,13 +64,18 @@ Bascially the larger and the more complex the target, the longer it takes.
 
 Some clang packages have 'ld' hardcoded to /bin/ld. This is an issue as this
 prevents "our" afl-ld being called.
-As a Workaround:
 
+As workaround attempt #1 try if this works:
+```
+LDFLAGS=-fuse-ld=</path/to/afl-ld
+```
+
+
+As workaround attempt #2 you will have to switch /bin/ld:
 ```
   mv /bin/ld /bin/ld.orig
   cp afl-ld /bin/ld
 ```
-
 This can result in two problems though:
 
  !1! When compiling afl-ld, the build process looks at where the /bin/ld link

@@ -72,6 +72,11 @@ struct bb_id {
 
 };
 
+struct id_id {
+  std::string * function;
+  std::string * bb;
+};
+
 using namespace llvm;
 
 namespace {
@@ -84,6 +89,14 @@ class AFLLTOPass : public ModulePass {
 
     if (getenv("AFL_DEBUG")) debug = 1;
 
+  }
+
+  unsigned int reverseBits(unsigned int num) {
+    int i, reverse_num = 0; 
+    for (i = 0; i < MAP_SIZE_POW2; i++)
+      if ((num & (1 << i))) 
+           reverse_num |= 1 << ((MAP_SIZE_POW2 - 1) - i);   
+    return reverse_num % MAP_SIZE; 
   }
 
   // Get the internal llvm name of a basic block
@@ -125,7 +138,7 @@ class AFLLTOPass : public ModulePass {
   void getOrAddNew(std::string *fname, std::string bbname) {
 
     bb_id *bb_cur = bb_list;
-    int    tmp_loc = 0;
+    int    tmp_loc = 0, i, tmp_found = 0;
 
     if (id_cnt >= MAX_ID_CNT)
       if (debug) SAYF(cMGN "[D] " cRST "prevID list full! (%s->%s)\n", fname->c_str(), bbname.c_str());
@@ -136,21 +149,29 @@ class AFLLTOPass : public ModulePass {
 
     if (bb_cur != NULL) {  // predecessor has a cur_loc
 
-      if (debug)
-        SAYF(cMGN "[D] " cRST "predecessor %s of %s has id %u\n",
-             bbname.c_str(), fname->c_str(), bb_cur->id);
-      id_list[id_cnt++] = bb_cur->id;
+      for (i = 0; i < id_cnt && tmp_found == 0; i++)
+        if (id_info[i].bb->compare(bbname) == 0 && id_info[i].function->compare(*fname) == 0)
+          tmp_found = 1;
+      if (tmp_found == 0) {
+        if (debug)
+          SAYF(cMGN "[D] " cRST "predecessor %s of %s has id %u\n",
+               bbname.c_str(), fname->c_str(), bb_cur->id);
+        id_info[id_cnt].bb = new std::string(bbname);
+        id_info[id_cnt].function = fname;
+        id_list[id_cnt++] = bb_cur->id;
+      }
 
     } else {  // this predecessor was not instrumented yet
 
-      int tmp_found = 0, i, tmp_coll = 0, loop_cnt = 0;
+      int tmp_coll = 0, loop_cnt = 0;
 
       while (tmp_found == 0) {
 
         // BUG: this is a potential source of collision.
         // we might randomly select the same ID here that is then found
         // in a different predecessor for the same target BB afterwards!
-        tmp_loc = AFL_R(MAP_SIZE);
+        tmp_loc = reverseBits(global_cur_loc_pre);// % MAP_SIZE);//AFL_R(MAP_SIZE);
+        global_cur_loc_pre += 3;
         loop_cnt++;
 
         for (i = 0; i < id_cnt; i++)  // may not be in the current list
@@ -182,6 +203,8 @@ class AFLLTOPass : public ModulePass {
                   "basic block %s does not have an ID yet, assigning %u\n",
              bbname.c_str(), tmp_loc);
       ids[tmp_loc]++;
+      id_info[id_cnt].bb = new std::string(bbname);
+      id_info[id_cnt].function = fname;
       id_list[id_cnt++] = bb_cur->id;
 
     }
@@ -246,13 +269,14 @@ class AFLLTOPass : public ModulePass {
   void handleFunction(Module &M, Function &F);
 
  protected:
-  int                    be_quiet = 0, inst_blocks = 0, id_cnt, debug = 0;
-  unsigned int           cur_loc, inst_ratio = 100;
+  int                    be_quiet = 0, inst_blocks = 0, id_cnt = 0, debug = 0;
+  unsigned int           cur_loc, inst_ratio = 100, global_cur_loc = 1, global_cur_loc_pre = 1;
   unsigned long long int edges = 0, collisions = 0;
   IntegerType *          Int8Ty;
   IntegerType *          Int32Ty;
   unsigned char *        map, *ids;
   unsigned int           id_list[MAX_ID_CNT];
+  id_id                  id_info[MAX_ID_CNT];
   bb_id *                bb_list;
   char *                 inst_ratio_str = NULL, *neverZero_counters_str = NULL;
   GlobalVariable *       AFLMapPtr, *AFLPrevLoc;
@@ -279,12 +303,15 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
     std::string *        fname = new std::string(F.getName().str());
     BasicBlock::iterator IP = BB.getFirstInsertionPt();
     IRBuilder<>          IRB(&(*IP));
-    int found_tmp = 0, max_collisions = 0, cnt_coll = 0, already_exists = 0;
+    int found_tmp = 0, max_collisions = 0, cnt_coll = 0, already_exists = 0, i;
     std::string bb_name = getSimpleNodeLabel(&BB, &F);
 
     if (debug) SAYF(cMGN "[D] " cRST "BB name is %s\n", bb_name.c_str());
 
     if (AFL_R(100) > inst_ratio) continue;
+
+    for (i = 0; i < id_cnt; i++) // clean up previous run
+      delete id_info[i].bb;
 
     cur_loc = 0, id_cnt = 0, cnt_coll = 0;
     memset((char *)id_list, 0, sizeof(id_list));
@@ -431,14 +458,15 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
 
       if (debug)
         SAYF(cMGN "[D] " cRST
-                  "BB got preassigned %u (%u collisions, %u prevID)\n",
-             cur_loc, cnt_coll, id_cnt);
+                  "BB %s got preassigned %u (%u collisions, %u prevID)\n",
+             bb_name.c_str(), cur_loc, cnt_coll, id_cnt);
 
     } else {  // nope we are free to choose
 
       if (id_cnt == 0) {  // uh nothing before ???
 
-        cur_loc = AFL_R(MAP_SIZE);  // BUG: potential COLLISION :-(
+        cur_loc = reverseBits(global_cur_loc);// % MAP_SIZE);//AFL_R(MAP_SIZE);  // BUG: potential COLLISION :-(
+        global_cur_loc += 3;
 
       } else {  // we have predecessors :)
 
@@ -451,7 +479,8 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
 
           while (found_tmp == 0 && loop_cnt < (MAP_SIZE << 2)) {
 
-            cur_loc = AFL_R(MAP_SIZE);
+            cur_loc = reverseBits(global_cur_loc++);// % MAP_SIZE);//AFL_R(MAP_SIZE);
+            global_cur_loc += 3;
             cnt_coll = 0;
             loop_cnt++;
 
@@ -486,8 +515,8 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
       bb_list = bb_cur;
       ids[cur_loc]++;
       if (debug)
-        SAYF(cMGN "[D] " cRST "BB got assigned %u (%u collisions, %u prevID)\n",
-             cur_loc, cnt_coll, id_cnt);
+        SAYF(cMGN "[D] " cRST "BB %s got assigned %u (%u collisions, %u prevID)\n",
+             bb_name.c_str(), cur_loc, cnt_coll, id_cnt);
 
     }                                                     /* else found_tmp */
 
@@ -498,8 +527,8 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
       if (map[cur_loc ^ (id_list[i] >> 1)]++)
         cnt_coll++;
       if (debug)
-        SAYF(cMGN "[D] " cRST "setting map[%u ^ (%u >> 1)] = %u\n", cur_loc,
-             id_list[i], map[cur_loc ^ (id_list[i] >> 1)]);
+        SAYF(cMGN "[D] " cRST "setting map[%u ^ (%u >> 1)] = map[%u] = %u\n", cur_loc,
+             id_list[i], cur_loc ^ (id_list[i] >> 1), map[cur_loc ^ (id_list[i] >> 1)]);
 
     }
 
@@ -597,6 +626,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
   if ((map = (unsigned char *)malloc(MAP_SIZE)) == NULL) PFATAL("memory");
   if ((ids = (unsigned char *)malloc(MAP_SIZE)) == NULL) PFATAL("memory");
 
+  global_cur_loc = AFL_R(MAP_SIZE);
+  global_cur_loc_pre = (0xffffffffffffffff ^ global_cur_loc) % MAP_SIZE;
+
 #if LLVM_VERSION_MAJOR < 9
   neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
 #endif
@@ -618,7 +650,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
       }
     }
     OKF("Module has %llu functions, %llu callsites and %llu total basic blocks.", cnt_functions, cnt_callsites, cnt_bbs);
-    total = (cnt_functions + cnt_callsites + cnt_bbs) >> 10;
+    total = (cnt_functions + cnt_callsites + cnt_bbs) >> 12;
     if (total > 0) {
       SAYF(cYEL "[!] " cRST "WARNING: this is complex, it will take a l");
       while (total > 0) {

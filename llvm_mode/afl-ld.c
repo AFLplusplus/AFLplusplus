@@ -165,7 +165,6 @@ static void edit_params(int argc, char** argv) {
 
   // if (have_lto == 0) ld_params[ld_par_cnt++] = AFL_CLANG_FLTO; // maybe we
   // should not ...
-  ld_params[ld_par_cnt++] = modified_file;
   ld_params[ld_par_cnt] = NULL;
 
 }
@@ -340,6 +339,10 @@ int main(int argc, char** argv) {
       WARNF(cYEL "[!] " cRST "No LTO input file found, cannot instrument!");
 
     } else {
+    
+      // we can only add the target file if we can run link + opt
+      ld_params[ld_par_cnt++] = modified_file;
+      ld_params[ld_par_cnt] = NULL;
 
       /* first we link all files */
       if (!be_quiet) OKF("Running bitcode linker, creating %s", linked_file);
