@@ -339,7 +339,7 @@ int main(int argc, char** argv) {
       WARNF(cYEL "[!] " cRST "No LTO input file found, cannot instrument!");
 
     } else {
-    
+
       // we can only add the target file if we can run link + opt
       ld_params[ld_par_cnt++] = modified_file;
       ld_params[ld_par_cnt] = NULL;

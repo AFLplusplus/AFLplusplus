@@ -487,8 +487,8 @@ int main(int argc, char** argv) {
 
     else {
 
-      SAYF(cCYA "afl-clang-lto" VERSION cRST
-                "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+      printf(cCYA "afl-clang-lto" VERSION cRST
+                  "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
       name = "afl-clang-lto";
 
     }
@@ -549,8 +549,8 @@ int main(int argc, char** argv) {
 
     SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
     for (i = 0; i < argc; i++)
-      printf(" \"%s\"", argv[i]);
-    printf("\n");
+      SAYF(" \"%s\"", argv[i]);
+    SAYF("\n");
 
   }
 
@@ -564,8 +564,8 @@ int main(int argc, char** argv) {
 
     SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
     for (i = 0; i < cc_par_cnt; i++)
-      printf(" \"%s\"", cc_params[i]);
-    printf("\n");
+      SAYF(" \"%s\"", cc_params[i]);
+    SAYF("\n");
 
   }
 

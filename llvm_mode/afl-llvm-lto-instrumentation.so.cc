@@ -73,8 +73,10 @@ struct bb_id {
 };
 
 struct id_id {
-  std::string * function;
-  std::string * bb;
+
+  std::string *function;
+  std::string *bb;
+
 };
 
 using namespace llvm;
@@ -92,11 +94,29 @@ class AFLLTOPass : public ModulePass {
   }
 
   unsigned int reverseBits(unsigned int num) {
-    int i, reverse_num = 0; 
+
+    int i, reverse_num = 0;
     for (i = 0; i < MAP_SIZE_POW2; i++)
-      if ((num & (1 << i))) 
-           reverse_num |= 1 << ((MAP_SIZE_POW2 - 1) - i);   
-    return reverse_num % MAP_SIZE; 
+      if ((num & (1 << i))) reverse_num |= 1 << ((MAP_SIZE_POW2 - 1) - i);
+    return reverse_num % MAP_SIZE;
+
+  }
+
+  // Calculate the number of average collisions that would occur if all
+  // location IDs would be assigned randomly (like normal afl/afl++).
+  // This uses the "balls in bins" algorithm.
+  unsigned long long int calculateCollisions(unsigned long int edges) {
+
+    double                 bins = MAP_SIZE;
+    double                 balls = edges;
+    double                 step1 = 1 - (1 / bins);
+    double                 step2 = pow(step1, balls);
+    double                 step3 = bins * step2;
+    double                 step4 = round(step3);
+    unsigned long long int empty = step4;
+    unsigned long long int collisions = edges - (MAP_SIZE - empty);
+    return collisions;
+
   }
 
   // Get the internal llvm name of a basic block
@@ -141,7 +161,9 @@ class AFLLTOPass : public ModulePass {
     int    tmp_loc = 0, i, tmp_found = 0;
 
     if (id_cnt >= MAX_ID_CNT)
-      if (debug) SAYF(cMGN "[D] " cRST "prevID list full! (%s->%s)\n", fname->c_str(), bbname.c_str());
+      if (debug)
+        SAYF(cMGN "[D] " cRST "prevID list full! (%s->%s)\n", fname->c_str(),
+             bbname.c_str());
 
     while (bb_cur != NULL && (bbname.compare(*bb_cur->bb) != 0 ||
                               fname->compare(*bb_cur->function) != 0))
@@ -150,46 +172,50 @@ class AFLLTOPass : public ModulePass {
     if (bb_cur != NULL) {  // predecessor has a cur_loc
 
       for (i = 0; i < id_cnt && tmp_found == 0; i++)
-        if (id_info[i].bb->compare(bbname) == 0 && id_info[i].function->compare(*fname) == 0)
+        if (id_info[i].bb->compare(bbname) == 0 &&
+            id_info[i].function->compare(*fname) == 0)
           tmp_found = 1;
       if (tmp_found == 0) {
+
         if (debug)
           SAYF(cMGN "[D] " cRST "predecessor %s of %s has id %u\n",
                bbname.c_str(), fname->c_str(), bb_cur->id);
         id_info[id_cnt].bb = new std::string(bbname);
         id_info[id_cnt].function = fname;
         id_list[id_cnt++] = bb_cur->id;
+
       }
 
     } else {  // this predecessor was not instrumented yet
 
-      int tmp_coll = 0, loop_cnt = 0;
+      tmp_loc = reverseBits(global_cur_loc++);
 
-      while (tmp_found == 0) {
+      /*
+            int tmp_coll = 0, loop_cnt = 0;
+            while (tmp_found == 0) {
 
-        // BUG: this is a potential source of collision.
-        // we might randomly select the same ID here that is then found
-        // in a different predecessor for the same target BB afterwards!
-        tmp_loc = reverseBits(global_cur_loc_pre);// % MAP_SIZE);//AFL_R(MAP_SIZE);
-        global_cur_loc_pre += 3;
-        loop_cnt++;
+              // BUG: this is a potential source of collision.
+              // we might randomly select the same ID here that is then found
+              // in a different predecessor for the same target BB afterwards!
+              tmp_loc = AFL_R(MAP_SIZE);
+              loop_cnt++;
+              for (i = 0; i < id_cnt; i++)  // may not be in the current list
+                if (id_list[i] == tmp_loc) continue;
+              // if avoidable it should not be assigned elsewhere
+              if (ids[tmp_loc] <= tmp_coll) {
 
-        for (i = 0; i < id_cnt; i++)  // may not be in the current list
-          if (id_list[i] == tmp_loc) continue;
+                tmp_found = 1;
 
-        // if avoidable it should not be assigned elsewhere
-        if (ids[tmp_loc] <= tmp_coll) {
+              } else if (loop_cnt >= (MAP_SIZE << 2)) {
 
-          tmp_found = 1;
+                loop_cnt = 0;
+                tmp_coll++;
 
-        } else if (loop_cnt >= (MAP_SIZE << 2)) {
+              }
 
-          loop_cnt = 0;
-          tmp_coll++;
+            }
 
-        }
-
-      }
+      */
 
       if ((bb_cur = (struct bb_id *)malloc(sizeof(struct bb_id))) == NULL)
         PFATAL("malloc");
@@ -199,10 +225,11 @@ class AFLLTOPass : public ModulePass {
       bb_cur->next = bb_list;
       bb_list = bb_cur;
       if (debug)
-        SAYF(cMGN "[D] " cRST
-                  "basic block %s does not have an ID yet, assigning %u\n",
-             bbname.c_str(), tmp_loc);
-      ids[tmp_loc]++;
+        SAYF(cMGN
+             "[D] " cRST
+             "predecessor %s of %s does not have an ID yet, assigning %u\n",
+             bbname.c_str(), fname->c_str(), tmp_loc);
+      // ids[tmp_loc]++;
       id_info[id_cnt].bb = new std::string(bbname);
       id_info[id_cnt].function = fname;
       id_list[id_cnt++] = bb_cur->id;
@@ -269,12 +296,13 @@ class AFLLTOPass : public ModulePass {
   void handleFunction(Module &M, Function &F);
 
  protected:
-  int                    be_quiet = 0, inst_blocks = 0, id_cnt = 0, debug = 0;
-  unsigned int           cur_loc, inst_ratio = 100, global_cur_loc = 1, global_cur_loc_pre = 1;
+  unsigned int be_quiet = 0, inst_blocks = 0, inst_funcs = 0, id_cnt = 0,
+               debug = 0;
+  unsigned int           cur_loc, inst_ratio = 100, global_cur_loc;
   unsigned long long int edges = 0, collisions = 0;
   IntegerType *          Int8Ty;
   IntegerType *          Int32Ty;
-  unsigned char *        map, *ids;
+  unsigned char          map[MAP_SIZE];
   unsigned int           id_list[MAX_ID_CNT];
   id_id                  id_info[MAX_ID_CNT];
   bb_id *                bb_list;
@@ -294,6 +322,7 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
   if (debug)
     SAYF(cMGN "[D] " cRST "Working on function %s\n",
          F.getName().str().c_str());
+  inst_funcs++;
 
   LLVMContext &C = M.getContext();
   char         is_first_bb = 1;
@@ -306,11 +335,11 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
     int found_tmp = 0, max_collisions = 0, cnt_coll = 0, already_exists = 0, i;
     std::string bb_name = getSimpleNodeLabel(&BB, &F);
 
-    if (debug) SAYF(cMGN "[D] " cRST "BB name is %s\n", bb_name.c_str());
+    if (debug) SAYF(cMGN "[D] " cRST "bb name is %s\n", bb_name.c_str());
 
     if (AFL_R(100) > inst_ratio) continue;
 
-    for (i = 0; i < id_cnt; i++) // clean up previous run
+    for (i = 0; i < id_cnt; i++)  // clean up previous run
       delete id_info[i].bb;
 
     cur_loc = 0, id_cnt = 0, cnt_coll = 0;
@@ -444,29 +473,25 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
 
     }
 
-    if (found_tmp) {  // BUG: yes one was already assigned (COLLISION!)
+    if (found_tmp) {  // BUG: ID was already assigned (potential COLLISION!)
 
       cur_loc = bb_cur->id;
       already_exists = 1;
       cnt_coll = 0;
 
       for (int i = 0; i < id_cnt && cnt_coll <= max_collisions; i++)
-        if ((cur_loc ^ (id_list[i] >> 1)) == 0)
-          cnt_coll += map[0] + 1;  // map[0] as last resort
-        else
-          cnt_coll += map[cur_loc ^ (id_list[i] >> 1)];
+        if (map[cur_loc ^ (id_list[i] >> 1)] > 0) cnt_coll++;
 
       if (debug)
         SAYF(cMGN "[D] " cRST
-                  "BB %s got preassigned %u (%u collisions, %u prevID)\n",
+                  "bb %s got preassigned %u (%u collisions, %u prevIDs)\n",
              bb_name.c_str(), cur_loc, cnt_coll, id_cnt);
 
     } else {  // nope we are free to choose
 
       if (id_cnt == 0) {  // uh nothing before ???
 
-        cur_loc = reverseBits(global_cur_loc);// % MAP_SIZE);//AFL_R(MAP_SIZE);  // BUG: potential COLLISION :-(
-        global_cur_loc += 3;
+        cur_loc = reverseBits(global_cur_loc++);
 
       } else {  // we have predecessors :)
 
@@ -475,20 +500,21 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
 
         while (found_tmp == 0) {
 
-          int loop_cnt = 0;
+          unsigned int loop_cnt = 0;
 
-          while (found_tmp == 0 && loop_cnt < (MAP_SIZE << 2)) {
+          while (found_tmp == 0 && loop_cnt < (MAP_SIZE << 2) + 1) {
 
-            cur_loc = reverseBits(global_cur_loc++);// % MAP_SIZE);//AFL_R(MAP_SIZE);
-            global_cur_loc += 3;
+            cur_loc = reverseBits(global_cur_loc++);
             cnt_coll = 0;
             loop_cnt++;
 
-            for (int i = 0; i < id_cnt && cnt_coll <= max_collisions; i++)
-              if ((cur_loc ^ (id_list[i] >> 1)) == 0)
-                cnt_coll += map[0] + 1;  // map[0] as last resort
-              else
-                cnt_coll += map[cur_loc ^ (id_list[i] >> 1)];
+            for (int i = 0; i < id_cnt && cnt_coll <= max_collisions; i++) {
+
+              if ((cur_loc ^ (id_list[i] >> 1)) == 0)  // map[0] as last resort
+                cnt_coll++;
+              if (map[cur_loc ^ (id_list[i] >> 1)] > 0) cnt_coll++;
+
+            }
 
             if (cnt_coll <= max_collisions) {
 
@@ -513,9 +539,10 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
       bb_cur->id = cur_loc;
       bb_cur->next = bb_list;
       bb_list = bb_cur;
-      ids[cur_loc]++;
+      // ids[cur_loc]++;
       if (debug)
-        SAYF(cMGN "[D] " cRST "BB %s got assigned %u (%u collisions, %u prevID)\n",
+        SAYF(cMGN "[D] " cRST
+                  "bb %s got assigned %u (%u collisions, %u prevID)\n",
              bb_name.c_str(), cur_loc, cnt_coll, id_cnt);
 
     }                                                     /* else found_tmp */
@@ -524,11 +551,11 @@ void AFLLTOPass::handleFunction(Module &M, Function &F) {
     cnt_coll = 0;
     for (int i = 0; i < id_cnt; i++) {
 
-      if (map[cur_loc ^ (id_list[i] >> 1)]++)
-        cnt_coll++;
+      if (map[cur_loc ^ (id_list[i] >> 1)]++) cnt_coll++;
       if (debug)
-        SAYF(cMGN "[D] " cRST "setting map[%u ^ (%u >> 1)] = map[%u] = %u\n", cur_loc,
-             id_list[i], cur_loc ^ (id_list[i] >> 1), map[cur_loc ^ (id_list[i] >> 1)]);
+        SAYF(cMGN "[D] " cRST "setting map[%u ^ (%u >> 1)] = map[%u] = %u\n",
+             cur_loc, id_list[i], cur_loc ^ (id_list[i] >> 1),
+             map[cur_loc ^ (id_list[i] >> 1)]);
 
     }
 
@@ -623,43 +650,58 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-  if ((map = (unsigned char *)malloc(MAP_SIZE)) == NULL) PFATAL("memory");
-  if ((ids = (unsigned char *)malloc(MAP_SIZE)) == NULL) PFATAL("memory");
-
+  memset(map, 0, MAP_SIZE);
+  AFL_SR(time(NULL) + getpid());
   global_cur_loc = AFL_R(MAP_SIZE);
-  global_cur_loc_pre = (0xffffffffffffffff ^ global_cur_loc) % MAP_SIZE;
+  if (debug) SAYF(cMGN "[D] " cRST "initial location is %u\n", global_cur_loc);
 
 #if LLVM_VERSION_MAJOR < 9
   neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
 #endif
 
-//  if (debug) {
-    unsigned long long int cnt_functions = 0, cnt_callsites = 0, cnt_bbs = 0, total;
-    for (auto &F : M) {
-      cnt_functions++;
-      for (auto *U : F.users()) {
-        CallSite CS(U);
-        if (CS.getInstruction() != NULL)
-          cnt_callsites++;
-      }
-      for (auto &BB : F) {
-        if (!BB.getName().empty()) // we just dont want a warning
-          cnt_bbs++;
-        else
-          cnt_bbs++;
-      }
+  //  if (debug) {
+
+  unsigned long long int cnt_functions = 0, cnt_callsites = 0, cnt_bbs = 0,
+                         total;
+  for (auto &F : M) {
+
+    cnt_functions++;
+    for (auto *U : F.users()) {
+
+      CallSite CS(U);
+      if (CS.getInstruction() != NULL) cnt_callsites++;
+
     }
-    OKF("Module has %llu functions, %llu callsites and %llu total basic blocks.", cnt_functions, cnt_callsites, cnt_bbs);
-    total = (cnt_functions + cnt_callsites + cnt_bbs) >> 12;
-    if (total > 0) {
-      SAYF(cYEL "[!] " cRST "WARNING: this is complex, it will take a l");
-      while (total > 0) {
-        SAYF("o");
-        total = total >> 1;
-      }
-      SAYF("ng time to instrument!\n");
+
+    for (auto &BB : F) {
+
+      if (!BB.getName().empty())  // we just dont want a warning
+        cnt_bbs++;
+      else
+        cnt_bbs++;
+
     }
-//  }
+
+  }
+
+  OKF("Module has %llu functions, %llu callsites and %llu total basic blocks.",
+      cnt_functions, cnt_callsites, cnt_bbs);
+  total = (cnt_functions + cnt_callsites + cnt_bbs) >> 13;
+  if (total > 0) {
+
+    SAYF(cYEL "[!] " cRST "WARNING: this is complex, it will take a l");
+    while (total > 0) {
+
+      SAYF("o");
+      total = total >> 1;
+
+    }
+
+    SAYF("ng time to instrument!\n");
+
+  }
+
+  //  }
 
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
@@ -699,9 +741,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
       WARNF("No instrumentation targets found.");
     else {
 
-      OKF("Instrumented %u locations with %llu edges and resulting in %llu "
-          "collision(s) (%s mode, ratio %u%%).",
-          inst_blocks, edges, collisions,
+      OKF("Instrumented %u locations in %u functions with %llu edges and "
+          "resulting in %llu potential "
+          "collision(s), whereas afl-clang-fast/afl-gcc would have produced "
+          "%llu collision(s) on average (%s mode, ratio %u%%).",
+          inst_blocks, inst_funcs, edges, collisions,
+          calculateCollisions(edges),
           getenv("AFL_HARDEN")
               ? "hardened"
               : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
