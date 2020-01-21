@@ -36,6 +36,22 @@ then calls the real linker.
 
 And this is was afl-clang-lto and afl-ld do.
 
+Example build output from a libtiff build:
+```
+libtool: link: afl-clang-lto -shared  -fPIC -DPIC  .libs/tif_aux.o .libs/tif_close.o .libs/tif_codec.o .libs/tif_color.o .libs/tif_compress.o .libs/tif_dir.o .libs/tif_dirinfo.o .libs/tif_dirread.o .libs/tif_dirwrite.o .libs/tif_dumpmode.o .libs/tif_error.o .libs/tif_extension.o .libs/tif_fax3.o .libs/tif_fax3sm.o .libs/tif_flush.o .libs/tif_getimage.o .libs/tif_jbig.o .libs/tif_jpeg.o .libs/tif_jpeg_12.o .libs/tif_luv.o .libs/tif_lzma.o .libs/tif_lzw.o .libs/tif_next.o .libs/tif_ojpeg.o .libs/tif_open.o .libs/tif_packbits.o .libs/tif_pixarlog.o .libs/tif_predict.o .libs/tif_print.o .libs/tif_read.o .libs/tif_strip.o .libs/tif_swab.o .libs/tif_thunder.o .libs/tif_tile.o .libs/tif_version.o .libs/tif_warning.o .libs/tif_write.o .libs/tif_zip.o .libs/tif_unix.o  -Wl,--whole-archive ../port/.libs/libport.a -Wl,--no-whole-archive  -llzma -ljbig -ljpeg -lz -lm  -g -O2   -Wl,-soname -Wl,libtiff.so.5 -o .libs/libtiff.so.5.2.2
+afl-clang-lto++2.60e  by Marc "vanHauser" Heuse <mh@mh-sec.de>
+afl-ld++2.60e by Marc "vanHauser" Heuse <mh@mh-sec.de> (level 0)
+[!] WARNING: object archive ../port/.libs/libport.a is not handled yet
+[+] Running bitcode linker, creating /tmp/.afl-1727354-1579619386.ll
+[+] Performing instrumentation via opt, creating /tmp/.afl-1727354-1579619386.bc
+afl-llvm-lto-instrumentation++2.60e by Marc "vanHauser" Heuse <mh@mh-sec.de>
+[+] Module has 637 functions, 25695 callsites and 11487 total basic blocks.
+[!] WARNING: this is complex, it will take a looong time to instrument!
+[+] Instrumented 11009 locations in 624 functions with 12062 edges and resulting in 156 potential collision(s), whereas afl-clang-fast/afl-gcc would have produced 1045 collision(s) on average (non-hardened mode, ratio 100%).
+[+] Running real linker /bin/x86_64-linux-gnu-ld
+[+] Linker was successful
+```
+
 
 ## How to use afl-clang-lto
 
@@ -117,10 +133,12 @@ Especially in libraries you will encounter that one function is called by
 And the number of edges from calls are usually way more than within a function.
 This is a overlooked issue in most analysis.
 
+afl-clang-lto sometimes underperforms in this area, so check the result analysis!
 
 ## Upcoming Work
 
 1. Currently the LTO whitelist feature does not allow to not instrument main, start and init functions
 2. Handle object archives, e.g. libfoo.a
+3. Better resolving of previous basic block with no ID assigned (esp. callsites)
 
 details: see the TODO file

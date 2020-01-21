@@ -5,7 +5,7 @@
 Typing "make" in llvm_mode/ will create a new binary: afl-clang-lto/afl-clang-lto++
 
 
-Detailed [README.lto](llvm_mode/README.lto)
+Detailed [README.lto.md](llvm_mode/README.lto.md)
 
 
 Using afl-clang-lto will perform instrumentation at link time and it is
@@ -28,7 +28,7 @@ RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto ./configure --disable-shar
 Known issues:
 
  * you can not skip instrumentation of main/start/init via whitelisting.
- * the instrumentation can seem to take forever, the larger the library the longer it takes
+ * the instrumentation can seem to take forever, the larger the library the longer the wait
  
 
 Please test and give feedback!
