@@ -110,7 +110,6 @@ function exists_and_is_executable(binarypath) {
 
 BEGIN {
   print "corpus minimization tool for afl-fuzz++ (awk version)\n"
-print "PATH="ENVIRON["PATH"]
 
   # defaults
   extra_par = ""
@@ -302,7 +301,13 @@ print "PATH="ENVIRON["PATH"]
   
   # get list of input filenames sorted by size
   i = 0
-  while ("find "in_dir" -type f -exec stat -f '%z %N' \{\} \; | sort -n | cut -d' ' -f2-" | getline) {
+  # yuck, gnu stat is incompatible to bsd stat
+  if ("stat --version 2>/dev/null" !~ /GNU coreutils/) {
+    stat_format = "-f '%z %N'"
+  } else {
+    stat_format = "-c '%s %n'"
+  }
+  while ("cd "in_dir" && find . -type f -exec stat "stat_format" \{\} \\; | sort -n | cut -d' ' -f2-" | getline) {
     infilesSmallToBig[i++] = $0
   }
   in_count = i
