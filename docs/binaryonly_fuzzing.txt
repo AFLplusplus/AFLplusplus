@@ -5,10 +5,10 @@ Fuzzing binary-only programs with afl++
 afl++, libfuzzer and others are great if you have the source code, and
 it allows for very fast and coverage guided fuzzing.
 
-However, if there is only the binary program and not source code available,
-then standard afl++ (dumb mode) is not effective.
+However, if there is only the binary program and no source code available,
+then standard `afl-fuzz -n` (dumb mode) is not effective.
 
-The following is a description of how these can be fuzzed with afl++
+The following is a description of how these binaries can be fuzzed with afl++
 
 !!!!!
 TL;DR: try DYNINST with afl-dyninst. If it produces too many crashes then
@@ -28,7 +28,7 @@ As it is included in afl++ this needs no URL.
 
 WINE+QEMU
 ---------
-Wine mode can run Win32 PE with the QEMU instrumentation.
+Wine mode can run Win32 PE binaries with the QEMU instrumentation.
 It needs Wine, python3 and the pefile python package installed.
 
 UNICORN
@@ -37,7 +37,7 @@ Unicorn is a fork of QEMU. The instrumentation is, therefore, very similar.
 In contrast to QEMU, Unicorn does not offer a full system or even userland emulation.
 Runtime environment and/or loaders have to be written from scratch, if needed.
 On top, block chaining has been removed. This means the speed boost introduced in 
-to the patched QEMU Mode of afl++ cannot simply be ported over to Unicorn.
+the patched QEMU Mode of afl++ cannot simply be ported over to Unicorn.
 For further information, check out ./unicorn_mode.txt.
 
 
