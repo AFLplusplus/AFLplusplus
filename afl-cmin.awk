@@ -109,7 +109,7 @@ function exists_and_is_executable(binarypath) {
 }
 
 BEGIN {
-  print "corpus minimization tool for afl-fuzz++ (awk version)\n"
+  print "corpus minimization tool for afl++ (awk version)\n"
 
   # defaults
   extra_par = ""
@@ -289,7 +289,7 @@ BEGIN {
     } else {
       "which afl-showmap 2>/dev/null" | getline path
     }
-    showmap = path
+    showmap = path "/afl-showmap"
   } else {
     showmap = ENVIRON["AFL_PATH"] "/afl-showmap"
   }
@@ -303,11 +303,12 @@ BEGIN {
   i = 0
   # yuck, gnu stat is incompatible to bsd stat
   if ("stat --version 2>/dev/null" !~ /GNU coreutils/) {
-    stat_format = "-f '%z %N'"
-  } else {
+   # I dont get it why this does not work, output is "stat (GNU coreutils) 8.30" and still it goes here ...
     stat_format = "-c '%s %n'"
+  } else {
+    stat_format = "-f '%z %N'"
   }
-  while ("cd "in_dir" && find . -type f -exec stat "stat_format" \{\} \\; | sort -n | cut -d' ' -f2-" | getline) {
+  while ("cd "in_dir" && find . -type f -exec stat "stat_format" \\{\\} \\; | sort -n | cut -d' ' -f2-" | getline) {
     infilesSmallToBig[i++] = $0
   }
   in_count = i
