@@ -254,6 +254,10 @@ static void edit_params(u32 argc, char** argv) {
 
     }
 
+#ifdef AFL_CLANG_FUSELD
+    cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s/afl-ld", AFL_PATH);
+#endif
+
     cc_params[cc_par_cnt++] = "-B";
     cc_params[cc_par_cnt++] = AFL_PATH;
 

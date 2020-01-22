@@ -16,18 +16,11 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
-# For Heiko:
-#TEST_MMAP=1
-
 PREFIX      ?= /usr/local
 HELPER_PATH  = $(PREFIX)/lib/afl
 BIN_PATH     = $(PREFIX)/bin
 
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
-
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-	CFLAGS_OPT = -march=native
-endif
 
 ifeq "$(shell uname)" "OpenBSD"
   LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
@@ -48,66 +41,24 @@ LLVM_STDCXX = gnu++11
 LLVM_APPLE = $(shell clang -v 2>&1 | grep -iq apple && echo 1 || echo 0)
 
 ifeq "$(LLVMVER)" ""
-  $(warning llvm_mode needs llvm-config, which was not found)
+  $(warning [!] llvm_mode needs llvm-config, which was not found)
 endif
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
-  $(warning llvm_mode only supports llvm versions 3.8.0 up to 10)
+  $(warning [!] llvm_mode only supports llvm versions 3.8.0 up to 10)
 endif
 
 ifeq "$(LLVM_MAJOR)" "9"
-  $(info llvm_mode detected llvm 9, enabling neverZero implementation)
+  $(info [+] llvm_mode detected llvm 9, enabling neverZero implementation)
 endif
 
 ifeq "$(LLVM_NEW_API)" "1"
-  $(info llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
+  $(info [+] llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
   LLVM_STDCXX = c++14
 endif
 
 ifeq "$(LLVM_APPLE)" "1"
-  $(warning llvm_mode will not compile with Xcode clang...)
-endif
-
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-        AFL_CLANG_FLTO ?= -flto=full
-else
- ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-        AFL_CLANG_FLTO ?= -flto=thin
- else
-  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-        AFL_CLANG_FLTO ?= -flto
-  endif
- endif
-endif
-
-ifneq "$(AFL_CLANG_FLTO)" ""
-AFL_REAL_LD ?= $(shell readlink /bin/ld 2>/dev/null)
-endif
-
-CFLAGS      ?= -O3 -funroll-loops
-CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
-               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
-               -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
-               -DLLVM_VERSION=\"$(LLVMVER)\" -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\"
-ifdef AFL_TRACE_PC
-  CFLAGS    += -DUSE_TRACE_PC=1
-endif
-
-CXXFLAGS    ?= -O3 -funroll-loops
-CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -I ../include/ \
-               -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
-
-CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
-CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
-
-
-# User teor2345 reports that this is required to make things work on MacOS X.
-ifeq "$(shell uname)" "Darwin"
-  CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
-endif
-
-ifeq "$(shell uname)" "OpenBSD"
-  CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so
+  $(warning [!] llvm_mode will not compile with Xcode clang...)
 endif
 
 # We were using llvm-config --bindir to get the location of clang, but
@@ -118,7 +69,7 @@ CC         = $(LLVM_BINDIR)/clang
 CXX        = $(LLVM_BINDIR)/clang++
 
 ifeq "$(shell test -e $(CC) || echo 1 )" "1"
-  # llvm-config --bindir is not providing a valid path, so ...
+  # llvm-config --bindir may not providing a valid path, so ...
   ifeq "$(shell test -e '$(BIN_DIR)/clang' && echo 1)" "1"
     # we found one in the local install directory, lets use these
     CC         = $(BIN_DIR)/clang
@@ -135,6 +86,65 @@ endif
 # Are versions of clang --version and llvm-config --version equal?
 CLANGVER = $(shell $(CC) --version | sed -E -ne '/^.*version\ ([0-9]\.[0-9]\.[0-9]).*/s//\1/p')
 
+ifneq "$(CLANGVER)" "$(LLVMVER)"
+  CC = $(shell $(LLVM_CONFIG) --bindir)/clang
+  CXX = $(shell $(LLVM_CONFIG) --bindir)/clang++
+endif
+
+# After we set CC/CXX we can start makefile magic tests
+
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+	CFLAGS_OPT = -march=native
+endif
+
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto=full
+else
+ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto=thin
+ else
+  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto
+  endif
+ endif
+endif
+
+ifneq "$(AFL_CLANG_FLTO)" ""
+  AFL_REAL_LD ?= $(shell readlink /bin/ld 2>/dev/null)
+endif
+
+ifdef AFL_CLANG_FUSELD
+  CFLAGS    += -DAFL_CLANG_FUSELD=1
+endif
+ifdef AFL_TRACE_PC
+  CFLAGS    += -DUSE_TRACE_PC=1
+endif
+
+CFLAGS      ?= -O3 -funroll-loops
+CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
+               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
+               -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
+               -DLLVM_VERSION=\"$(LLVMVER)\" -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\"
+
+CXXFLAGS    ?= -O3 -funroll-loops
+CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -I ../include/ \
+               -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
+
+CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
+CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
+
+# User teor2345 reports that this is required to make things work on MacOS X.
+ifeq "$(shell uname)" "Darwin"
+  CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
+endif
+
+ifeq "$(shell uname)" "OpenBSD"
+  CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so
+endif
+
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -fuse-ld=`which ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+  CFLAGS += -DAFL_CLANG_FUSELD=1
+endif
 
 ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
         SHMAT_OK=1
@@ -154,11 +164,6 @@ ifndef AFL_TRACE_PC
   PROGS      = ../afl-clang-fast ../afl-ld ../afl-llvm-pass.so ../afl-llvm-lto-whitelist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
 else
   PROGS      = ../afl-clang-fast ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so
-endif
-
-ifneq "$(CLANGVER)" "$(LLVMVER)"
-  CC = $(shell $(LLVM_CONFIG) --bindir)/clang
-  CXX = $(shell $(LLVM_CONFIG) --bindir)/clang++
 endif
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0

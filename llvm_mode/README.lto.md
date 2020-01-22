@@ -80,11 +80,11 @@ Bascially the larger and the more complex the target, the longer it takes.
 Some clang packages have 'ld' hardcoded to /bin/ld. This is an issue as this
 prevents "our" afl-ld being called.
 
-As workaround attempt #1 try if this works:
+-fuse-ld=/path/to/afl-ld should be set through makefile magic in llvm_mode - 
+if it is supported - however if this fails you can try:
 ```
 LDFLAGS=-fuse-ld=</path/to/afl-ld
 ```
-
 
 As workaround attempt #2 you will have to switch /bin/ld:
 ```
