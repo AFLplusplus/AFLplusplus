@@ -10,25 +10,30 @@
  * Written by Nathan Voss <njvoss99@gmail.com>
  * Adapted by Lukas Seidel <seidel.1@campus.tu-berlin.de>
  */
+#include <stdint.h>
+#include <string.h>
 
 
 int main(int argc, char** argv) {
-  if(argc < 2){
-     return -1;
-  }
+  if (argc < 2) return -1;
 
   char *data_buf = argv[1];
+  uint64_t data_len = strlen(data_buf);
+  if (data_len < 20) return -2;
 
-  if (data_buf[20] != 0) {
-    // Cause an 'invalid read' crash if data[0..3] == '\x01\x02\x03\x04'
-    unsigned char invalid_read = *(unsigned char *) 0x00000000;
-  } else if (data_buf[0] > 0x10 && data_buf[0] < 0x20 && data_buf[1] > data_buf[2]) {
+  for (; data_len --> 0 ;) {
+    if (data_len >= 18) continue;
+    if (data_len > 2 && data_len < 18) {
+      ((char *)data_len)[(uint64_t)data_buf] = data_buf[data_len + 1];
+    } else if (data_buf[9] == 0x90 && data_buf[10] != 0x00 && data_buf[11] == 0x90) {
+        // Cause a crash if data[10] is not zero, but [9] and [11] are zero
+        unsigned char invalid_read = *(unsigned char *) 0x00000000;
+    }
+  }
+  if (data_buf[0] > 0x10 && data_buf[0] < 0x20 && data_buf[1] > data_buf[2]) {
     // Cause an 'invalid read' crash if (0x10 < data[0] < 0x20) and data[1] > data[2]
     unsigned char invalid_read = *(unsigned char *) 0x00000000;
-  } else if (data_buf[9] == 0x00 && data_buf[10] != 0x00 && data_buf[11] == 0x00) {
-    // Cause a crash if data[10] is not zero, but [9] and [11] are zero
-    unsigned char invalid_read = *(unsigned char *) 0x00000000;
-  }
+  } 
 
   return 0;
 }

@@ -29,13 +29,13 @@
 #include <unicorn/unicorn.h>
 
 // Path to the file containing the binary to emulate
-#define BINARY_FILE ("simple_target_x86_64")
+#define BINARY_FILE ("persistent_target_x86_64")
 
 // Memory map for the code to be tested
 // Arbitrary address where code to test will be loaded
 static const int64_t BASE_ADDRESS = 0x100000;
-static const int64_t CODE_ADDRESS = 0x101119;
-static const int64_t END_ADDRESS = 0x1011d7;
+static const int64_t CODE_ADDRESS = 0x101139;
+static const int64_t END_ADDRESS = 0x10120d;
 // Address of the stack (Some random address again)
 static const int64_t STACK_ADDRESS = (((int64_t) 0x01) << 58);
 // Size of the stack (arbitrarily chosen, just make it big enough)
@@ -52,13 +52,31 @@ static const int64_t ALIGNMENT = 0x1000;
 // In our special case, we emulate main(), so argc is needed.
 static const uint64_t EMULATED_ARGC = 2;
 
+// The return from our fake strlen
+static size_t current_input_len = 0;
+
 static void hook_block(uc_engine *uc, uint64_t address, uint32_t size, void *user_data) {
     printf(">>> Tracing basic block at 0x%"PRIx64 ", block size = 0x%x\n", address, size);
 }
 
-static void hook_code(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
-{
+static void hook_code(uc_engine *uc, uint64_t address, uint32_t size, void *user_data) {
     printf(">>> Tracing instruction at 0x%"PRIx64 ", instruction size = 0x%x\n", address, size);
+}
+
+/*
+The sample uses strlen, since we don't have a loader or libc, we'll fake it.
+We know the strlen will return the lenght of argv[1] that we just planted.
+It will be a lot faster than an actual strlen for this specific purpose.
+*/
+static void hook_strlen(uc_engine *uc, uint64_t address, uint32_t size, void *user_data) {
+    //Hook
+    //116b:       e8 c0 fe ff ff          call   1030 <strlen@plt>
+    // We place the return at RAX
+    //printf("Strlen hook at addr 0x%lx (size: 0x%x), result: %ld\n", address, size, current_input_len);
+    uc_reg_write(uc, UC_X86_REG_RAX, &current_input_len);
+    // We skip the actual call by updating RIP
+    uint64_t next_addr = address + size; 
+    uc_reg_write(uc, UC_X86_REG_RIP, &next_addr);
 }
 
 /* Unicorn page needs to be 0x1000 aligned, apparently */
@@ -107,8 +125,6 @@ static bool place_input_callback(
         // Test input too short or too long, ignore this testcase
         return false;
     }
-    // We need a valid c string, make sure it never goes out of bounds.
-    input[input_len-1] = '\0';
 
     // For persistent mode, we have to set up stack and memory each time.
     uc_reg_write(uc, UC_X86_REG_RIP, &CODE_ADDRESS); // Set the instruction pointer back
@@ -116,10 +132,14 @@ static bool place_input_callback(
     uc_reg_write(uc, UC_X86_REG_RSI, &INPUT_LOCATION); // argv
     uc_reg_write(uc, UC_X86_REG_RDI, &EMULATED_ARGC);  // argc == 2
    
-    // Make sure the input is 0 terminated.
-    //input[input_len-1] = '\0';
+    // We need a valid c string, make sure it never goes out of bounds.
+    input[input_len-1] = '\0';
     // Write the testcase to unicorn.
     uc_mem_write(uc, INPUT_LOCATION + INPUT_OFFSET, input, input_len);
+
+    // store input_len for the faux strlen hook
+    current_input_len = input_len;
+
     return true;
 }
 
@@ -210,6 +230,11 @@ int main(int argc, char **argv, char **envp) {
         uc_hook_add(uc, &hooks[0], UC_HOOK_BLOCK, hook_block, NULL, 1, 0);
         uc_hook_add(uc, &hooks[1], UC_HOOK_CODE, hook_code, NULL, BASE_ADDRESS, BASE_ADDRESS + len - 1);
     }
+
+    // Add our strlen hook (for this specific testcase only)
+    int strlen_hook_pos = BASE_ADDRESS + 0x116b;
+    uc_hook strlen_hook;
+    uc_hook_add(uc, &strlen_hook, UC_HOOK_CODE, hook_strlen, NULL, strlen_hook_pos, strlen_hook_pos);
 
     printf("Starting to fuzz :)\n");
     fflush(stdout);
