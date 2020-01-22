@@ -1,5 +1,28 @@
 #!/usr/bin/awk -f
 
+# awk script to minimize a test corpus of input files
+#
+# based on afl-cmin bash script written by Michal Zalewski
+# rewritten by Heiko Eißfeldt (hexcoder-)
+#
+# uses getopt.awk package from Arnold Robbins
+#
+# external tools used by this script:
+# test
+# grep
+# rm
+# mkdir
+# ln
+# cp
+# pwd
+# which
+# cd
+# find
+# stat
+# sort
+# cut
+# and afl-showmap from this project :-)
+
 # getopt.awk --- Do C library getopt(3) function in awk
 
 # External variables:
@@ -285,11 +308,10 @@ BEGIN {
 
   if (!ENVIRON["AFL_PATH"]) {
     if (0 == system("test -f afl-cmin.awk")) {
-      path = "."
+      showmap = "./afl-showmap"
     } else {
-      "which afl-showmap 2>/dev/null" | getline path
+      "which afl-showmap 2>/dev/null" | getline showmap
     }
-    showmap = path "/afl-showmap"
   } else {
     showmap = ENVIRON["AFL_PATH"] "/afl-showmap"
   }
@@ -301,12 +323,14 @@ BEGIN {
   
   # get list of input filenames sorted by size
   i = 0
-  # yuck, gnu stat is incompatible to bsd stat
-  if ("stat --version 2>/dev/null" !~ /GNU coreutils/) {
-   # I dont get it why this does not work, output is "stat (GNU coreutils) 8.30" and still it goes here ...
-    stat_format = "-c '%s %n'"
+  # yuck, gnu stat is option incompatible to bsd stat
+  # we use a heuristic to differentiate between
+  # GNU stat and other stats
+  "stat --version 2>/dev/null" | getline statversion
+  if (statversion ~ /GNU coreutils/) {
+    stat_format = "-c '%s %n'" # GNU
   } else {
-    stat_format = "-f '%z %N'"
+    stat_format = "-f '%z %N'" # *BSD, MacOS
   }
   while ("cd "in_dir" && find . -type f -exec stat "stat_format" \\{\\} \\; | sort -n | cut -d' ' -f2-" | getline) {
     infilesSmallToBig[i++] = $0
