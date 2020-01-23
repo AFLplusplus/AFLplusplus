@@ -150,7 +150,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
     }
     echo 000000000000000000000000 > in/in2
     mkdir -p in2
-    ../afl-cmin -i in -o in2 -- ./test-instr.plain > /dev/null
+    ../afl-cmin -i in -o in2 -- ./test-instr.plain > /dev/null 2>&1
     CNT=`ls in2/ | wc -l`
     case "$CNT" in
 1| *1) $ECHO "$GREEN[+] afl-cmin correctly minimized testcase numbers" ;;
