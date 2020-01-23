@@ -29,7 +29,7 @@ Here's a quick overview of the stuff you can find in this directory:
 
   - post_library         - an example of how to build postprocessors for AFL.
   
-  - socketfuzz           - a LD_PRELOAD library 'redirects' a socket to stdin
+  - socket_fuzzing       - a LD_PRELOAD library 'redirects' a socket to stdin
                            for fuzzing access with afl++
 
 Note that the minimize_corpus.sh tool has graduated from the experimental/
