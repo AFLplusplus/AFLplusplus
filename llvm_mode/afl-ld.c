@@ -64,7 +64,7 @@ static u32 ld_par_cnt = 1,          /* Number of params to 'ld'             */
 /* This function checks if the parameter is a) an existing file and b)
    if it is a BC or LL file, if both are true it returns 1 and 0 otherwise */
 
-int is_llvm_file(char* file) {
+int is_llvm_file(const char* file) {
 
   int fd;
   u8  buf[5];
@@ -201,17 +201,19 @@ void clean_path() {
 
   // AFL_PATH could be additionally in PATH so check and remove to not call our
   // 'ld'
-  newpath = malloc(strlen(path) + 1);
+  const size_t pathlen = strlen(path);
+  const size_t afl_pathlen = strlen(AFL_PATH);
+  newpath = malloc(pathlen + 1);
   if (strcmp(AFL_PATH, "/bin") != 0 && strcmp(AFL_PATH, "/usr/bin") != 0 &&
-      strlen(AFL_PATH) > 1 &&
+      afl_pathlen > 1 &&
       (tmp = strstr(path, AFL_PATH)) != NULL &&  // it exists
       (tmp == path ||
        (tmp > path &&
         tmp[-1] == ':')) &&  // either starts with it or has a colon before
-      (tmp + strlen(AFL_PATH) == path + strlen(path) ||
-       (tmp + strlen(AFL_PATH) <
+      (tmp + afl_pathlen == path + pathlen ||
+       (tmp + afl_pathlen <
         path +
-            (strlen(path) && tmp[strlen(AFL_PATH)] ==
+            (pathlen && tmp[afl_pathlen] ==
                                  ':'))  // end with it or has a colon at the end
        )) {
 
@@ -225,8 +227,8 @@ void clean_path() {
 
     }
 
-    if (tmp + strlen(AFL_PATH) < path + strlen(path))
-      tmp += strlen(AFL_PATH) + one_colon;
+    if (tmp + afl_pathlen < path + pathlen)
+      tmp += afl_pathlen + one_colon;
 
     setenv("PATH", newpath, 1);
 
