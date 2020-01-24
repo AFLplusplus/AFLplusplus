@@ -153,8 +153,8 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
     ../afl-cmin -i in -o in2 -- ./test-instr.plain > /dev/null
     CNT=`ls in2/ | wc -l`
     case "$CNT" in
-1| *1) $ECHO "$GREEN[+] afl-cmin correctly minimized testcase numbers" ;;
-*) $ECHO "$RED[!] afl-cmin did not correctly minimize testcase numbers"
+1| *1) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+*) $ECHO "$RED[!] afl-cmin did not correctly minimizethe  number of testcases"
        CODE=1
        ;;
     esac
@@ -176,7 +176,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
  $ECHO "$YELLOW[-] not an intel platform, cannot test afl-gcc"
 } 
 
-$ECHO "$BLUE[*] Testing: llvm_mode"
+$ECHO "$BLUE[*] Testing: llvm_mode, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   # on FreeBSD need to set AFL_CC
   test `uname -s` = 'FreeBSD' && {
@@ -252,6 +252,26 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       echo CUT------------------------------------------------------------------CUT
       $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode"
       CODE=1
+    }
+    test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" || {
+      echo 000000000000000000000000 > in/in2
+      mkdir -p in2
+      ../afl-cmin -i in -o in2 -- ./test-instr.plain > /dev/null
+      CNT=`ls in2/ | wc -l`
+      case "$CNT" in
+1| *1) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+*) $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases"
+         CODE=1
+         ;;
+      esac
+      ../afl-tmin -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
+      SIZE=`ls -l in2/in2 2> /dev/null | awk '{print$5}'`
+      test "$SIZE" = 1 && $ECHO "$GREEN[+] afl-tmin correctly minimized the testcase"
+      test "$SIZE" = 1 || {
+         $ECHO "$RED[!] afl-tmin did incorrectly minimize the testcase to $SIZE"
+         CODE=1
+      }
+      rm -rf in2
     }
     rm -rf in out errors
   }
