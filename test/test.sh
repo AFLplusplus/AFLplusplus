@@ -315,7 +315,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
 }
 
 $ECHO "$BLUE[*] Testing: LTO llvm_mode"
-test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation-pass.so && {
+test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
   # on FreeBSD need to set AFL_CC
   test `uname -s` = 'FreeBSD' && {
     if which clang >/dev/null; then
@@ -383,7 +383,7 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation-pass.so && {
   }
   rm -f test-persistent
 } || {
-  $ECHO "$YELLOW[-] LTOllvm_mode not compiled, cannot test"
+  $ECHO "$YELLOW[-] LTO llvm_mode not compiled, cannot test"
   INCOMPLETE=1
 }
 

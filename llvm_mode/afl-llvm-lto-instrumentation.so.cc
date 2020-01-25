@@ -161,10 +161,12 @@ class AFLLTOPass : public ModulePass {
     int    tmp_loc = 0, i, tmp_found = 0;
 
     if (id_cnt >= MAX_ID_CNT) {
+
       if (debug)
         SAYF(cMGN "[D] " cRST "prevID list full! (%s->%s)\n", fname->c_str(),
              bbname.c_str());
       return;
+
     }
 
     while (bb_cur != NULL && (bbname.compare(*bb_cur->bb) != 0 ||

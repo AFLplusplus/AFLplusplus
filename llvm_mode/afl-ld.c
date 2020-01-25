@@ -159,11 +159,15 @@ static void edit_params(int argc, char** argv) {
     if (passthrough || argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
       ld_params[ld_par_cnt++] = argv[i];
     else {
-      if (we_link == 0) { // we have to honor order ...
+
+      if (we_link == 0) {  // we have to honor order ...
         ld_params[ld_par_cnt++] = modified_file;
         we_link = 1;
+
       }
+
       link_params[link_par_cnt++] = argv[i];
+
     }
 
   }
@@ -205,16 +209,14 @@ void clean_path() {
   const size_t afl_pathlen = strlen(AFL_PATH);
   newpath = malloc(pathlen + 1);
   if (strcmp(AFL_PATH, "/bin") != 0 && strcmp(AFL_PATH, "/usr/bin") != 0 &&
-      afl_pathlen > 1 &&
-      (tmp = strstr(path, AFL_PATH)) != NULL &&  // it exists
+      afl_pathlen > 1 && (tmp = strstr(path, AFL_PATH)) != NULL &&  // it exists
       (tmp == path ||
        (tmp > path &&
         tmp[-1] == ':')) &&  // either starts with it or has a colon before
       (tmp + afl_pathlen == path + pathlen ||
        (tmp + afl_pathlen <
-        path +
-            (pathlen && tmp[afl_pathlen] ==
-                                 ':'))  // end with it or has a colon at the end
+        path + (pathlen && tmp[afl_pathlen] ==
+                               ':'))  // end with it or has a colon at the end
        )) {
 
     int one_colon = 1;
@@ -227,8 +229,7 @@ void clean_path() {
 
     }
 
-    if (tmp + afl_pathlen < path + pathlen)
-      tmp += afl_pathlen + one_colon;
+    if (tmp + afl_pathlen < path + pathlen) tmp += afl_pathlen + one_colon;
 
     setenv("PATH", newpath, 1);
 
@@ -253,7 +254,7 @@ int main(int argc, char** argv) {
   if (getenv("AFL_DEBUG") != NULL) debug = 1;
 
   if (getenv("AFL_PATH") != NULL) afl_path = getenv("AFL_PATH");
-  
+
   if (getenv("AFL_LD_PASSTHROUGH") != NULL) passthrough = 1;
 
   if (getenv("AFL_REAL_LD") != NULL) real_ld = getenv("AFL_REAL_LD");
@@ -321,7 +322,8 @@ int main(int argc, char** argv) {
         "  AFL_LD_PASSTHROUGH   do not link+optimize == no instrumentation\n"
         "  AFL_REAL_LD          point to the real ld if necessary\n"
 
-        "\nafl-ld was compiled with the fixed real 'ld' path of %s and the clang "
+        "\nafl-ld was compiled with the fixed real 'ld' path of %s and the "
+        "clang "
         "bin path of %s\n\n",
         real_ld, LLVM_BINDIR);
 

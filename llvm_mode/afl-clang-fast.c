@@ -479,13 +479,14 @@ int main(int argc, char** argv) {
   int   i;
   char* callname = "afl-clang-fast";
 
-  if (getenv("AFL_DEBUG")) { 
+  if (getenv("AFL_DEBUG")) {
+
     debug = 1;
     if (strcmp(getenv("AFL_DEBUG"), "0") == 0) unsetenv("AFL_DEBUG");
+
   }
 
-  if (strstr(argv[0], "afl-clang-lto") == NULL)
-    callname = "afl-clang-lto";
+  if (strstr(argv[0], "afl-clang-lto") == NULL) callname = "afl-clang-lto";
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -532,8 +533,8 @@ int main(int argc, char** argv) {
             "code.\n\n"
             "%s was built for llvm %s with the llvm binary path of "
             "\"%s\".\n\n",
-            callname, BIN_PATH, callname, BIN_PATH, callname, callname, LLVM_VERSION,
-            LLVM_BINDIR);
+            callname, BIN_PATH, callname, BIN_PATH, callname, callname,
+            LLVM_VERSION, LLVM_BINDIR);
 
     exit(1);
 
