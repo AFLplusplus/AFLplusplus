@@ -319,6 +319,8 @@ char AFLLTOPass::ID = 0;
 
 void AFLLTOPass::handleFunction(Module &M, Function &F) {
 
+  if (!F.size()) return;
+
   if (isBlacklisted(&F)) return;
 
   if (debug)
