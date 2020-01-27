@@ -150,15 +150,15 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
     }
     echo 000000000000000000000000 > in/in2
     mkdir -p in2
-    ../afl-cmin -i in -o in2 -- ./test-instr.plain > /dev/null 2>&1
+    ../afl-cmin -i in -o in2 -- ./test-instr.plain > /dev/null
     CNT=`ls in2/ | wc -l`
     case "$CNT" in
-1| *1) $ECHO "$GREEN[+] afl-cmin correctly minimized testcase numbers" ;;
-*) $ECHO "$RED[!] afl-cmin did not correctly minimize testcase numbers"
-       CODE=1
-       ;;
+      *1) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+      *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases"
+          CODE=1
+          ;;
     esac
-    ../afl-tmin -m200 -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
+    ../afl-tmin -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
     SIZE=`ls -l in2/in2 2> /dev/null | awk '{print$5}'`
     test "$SIZE" = 1 && $ECHO "$GREEN[+] afl-tmin correctly minimized the testcase"
     test "$SIZE" = 1 || {
@@ -176,14 +176,16 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
  $ECHO "$YELLOW[-] not an intel platform, cannot test afl-gcc"
 } 
 
-$ECHO "$BLUE[*] Testing: llvm_mode"
+$ECHO "$BLUE[*] Testing: llvm_mode, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   # on FreeBSD need to set AFL_CC
-  if which clang >/dev/null; then
-    export AFL_CC=`which clang`
-  else
-    export AFL_CC=`$LLVM_CONFIG --bindir`/clang
-  fi
+  test `uname -s` = 'FreeBSD' && {
+    if which clang >/dev/null; then
+      export AFL_CC=`which clang`
+    else
+      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
+    fi
+  }
   ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-clang-fast -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
@@ -250,6 +252,26 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       echo CUT------------------------------------------------------------------CUT
       $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode"
       CODE=1
+    }
+    test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" || {
+      echo 000000000000000000000000 > in/in2
+      mkdir -p in2
+      ../afl-cmin -i in -o in2 -- ./test-instr.plain > /dev/null
+      CNT=`ls in2/ | wc -l`
+      case "$CNT" in
+        *1) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+        *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases"
+            CODE=1
+            ;;
+      esac
+      ../afl-tmin -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
+      SIZE=`ls -l in2/in2 2> /dev/null | awk '{print$5}'`
+      test "$SIZE" = 1 && $ECHO "$GREEN[+] afl-tmin correctly minimized the testcase"
+      test "$SIZE" = 1 || {
+         $ECHO "$RED[!] afl-tmin did incorrectly minimize the testcase to $SIZE"
+         CODE=1
+      }
+      rm -rf in2
     }
     rm -rf in out errors
   }
@@ -334,7 +356,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
           $ECHO "$GREEN[+] gcc_plugin run reported $TUPLES instrumented locations which is fine"
         } || {
           $ECHO "$RED[!] gcc_plugin instrumentation produces a weird number of instrumented locations: $TUPLES"
-          $ECHO "$YELLOW[-] the gcc_plugin instrumentation issue is not flagged as an error because travis builds would all fail otherwise :-("
+          $ECHO "$YELLOW[-] this is a known issue in gcc, not afl++. It is not flagged as an error because travis builds would all fail otherwise :-("
           #CODE=1
         }
       }
@@ -457,6 +479,15 @@ test -e ../libdislocator.so && {
 }
 rm -f test-compcov
 test -e ../libradamsa.so && {
+  # on FreeBSD need to set AFL_CC
+
+  test `uname -s` = 'FreeBSD' && {
+    if which clang >/dev/null; then
+      export AFL_CC=`which clang`
+    else
+      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
+    fi
+  }
   test -e test-instr.plain || ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   test -e test-instr.plain || ../afl-gcc-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   test -e test-instr.plain || ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
@@ -560,8 +591,64 @@ test -e ../afl-qemu-trace && {
         CODE=1
         exit 1
       }
-      $ECHO "$YELLOW[-] we need a test case for qemu_mode unsigaction library"
       rm -rf in out errors
+      test -e ../qemu_mode/unsigaction/unsigaction32.so && {
+        ${AFL_CC} -o test-unsigaction32 -m32 test-unsigaction.c >> errors 2>&1 && {
+	  ./test-unsigaction32
+          RETVAL_NORMAL32=$?
+	  LD_PRELOAD=../qemu_mode/unsigaction/unsigaction32.so ./test-unsigaction32
+          RETVAL_LIBUNSIGACTION32=$?
+	  test $RETVAL_NORMAL32 = "2" -a $RETVAL_LIBUNSIGACTION32 = "0" && {
+            $ECHO "$GREEN[+] qemu_mode unsigaction library (32 bit) ignores signals"
+	  } || {
+	    test $RETVAL_NORMAL32 != "2" && {
+	      $ECHO "$RED[!] cannot trigger signal in test program (32 bit)"
+	    }
+	    test $RETVAL_LIBUNSIGACTION32 != "0" && {
+	      $ECHO "$RED[!] signal in test program (32 bit) is not ignored with unsigaction"
+	    }
+            CODE=1
+          }
+        } || {
+          echo CUT------------------------------------------------------------------CUT
+          cat errors
+          echo CUT------------------------------------------------------------------CUT
+	  $ECHO "$RED[!] cannot compile test program (32 bit) for unsigaction library"
+          CODE=1
+        }
+      } || {
+        $ECHO "$YELLOW[-] we cannot test qemu_mode unsigaction library (32 bit) because it is not present"
+        INCOMPLETE=1
+      }
+      test -e ../qemu_mode/unsigaction/unsigaction64.so && {
+        ${AFL_CC} -o test-unsigaction64 -m64 test-unsigaction.c >> errors 2>&1 && {
+	  ./test-unsigaction64
+          RETVAL_NORMAL64=$?
+	  LD_PRELOAD=../qemu_mode/unsigaction/unsigaction64.so ./test-unsigaction64
+          RETVAL_LIBUNSIGACTION64=$?
+	  test $RETVAL_NORMAL64 = "2" -a $RETVAL_LIBUNSIGACTION64 = "0" && {
+            $ECHO "$GREEN[+] qemu_mode unsigaction library (64 bit) ignores signals"
+	  } || {
+	    test $RETVAL_NORMAL64 != "2" && {
+	      $ECHO "$RED[!] cannot trigger signal in test program (64 bit)"
+	    }
+	    test $RETVAL_LIBUNSIGACTION64 != "0" && {
+	      $ECHO "$RED[!] signal in test program (64 bit) is not ignored with unsigaction"
+	    }
+            CODE=1
+          }
+        } || {
+          echo CUT------------------------------------------------------------------CUT
+          cat errors
+          echo CUT------------------------------------------------------------------CUT
+	  $ECHO "$RED[!] cannot compile test program (64 bit) for unsigaction library"
+          CODE=1
+        }
+      } || {
+        $ECHO "$YELLOW[-] we cannot test qemu_mode unsigaction library (64 bit) because it is not present"
+        INCOMPLETE=1
+      }
+      rm -rf errors test-unsigaction32 test-unsigaction64
     }
   } || {
     $ECHO "$RED[!] gcc compilation of test targets failed - what is going on??"

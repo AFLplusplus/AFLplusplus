@@ -1,470 +1,464 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
+THISPATH=`dirname ${0}`
+export PATH=${THISPATH}:$PATH
+awk -f - -- ${@+"$@"} <<'EOF'
+#!/usr/bin/awk -f
+
+# awk script to minimize a test corpus of input files
 #
-# american fuzzy lop++ - corpus minimization tool
-# ---------------------------------------------
+# based on afl-cmin bash script written by Michal Zalewski
+# rewritten by Heiko Eißfeldt (hexcoder-)
+# tested with:
+#   gnu awk (x86 Linux)
+#   bsd awk (x86 *BSD)
+#   mawk (arm32 raspbian)
 #
-# Originally written by Michal Zalewski
+# uses getopt.awk package from Arnold Robbins
 #
-# Copyright 2014, 2015 Google Inc. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at:
-#
-#   http://www.apache.org/licenses/LICENSE-2.0
-#
-# This tool tries to find the smallest subset of files in the input directory
-# that still trigger the full range of instrumentation data points seen in
-# the starting corpus. This has two uses:
-#
-#   - Screening large corpora of input files before using them as a seed for
-#     afl-fuzz. The tool will remove functionally redundant files and likely
-#     leave you with a much smaller set.
-#
-#     (In this case, you probably also want to consider running afl-tmin on
-#     the individual files later on to reduce their size.)
-#
-#   - Minimizing the corpus generated organically by afl-fuzz, perhaps when
-#     planning to feed it to more resource-intensive tools. The tool achieves
-#     this by removing all entries that used to trigger unique behaviors in the
-#     past, but have been made obsolete by later finds.
-#
-# Note that the tool doesn't modify the files themselves. For that, you want
-# afl-tmin.
-#
-# This script must use bash because other shells may have hardcoded limits on
-# array sizes.
-#
+# external tools used by this script:
+# test
+# grep
+# rm
+# mkdir
+# ln
+# cp
+# pwd
+# which
+# cd
+# find
+# stat
+# sort
+# cut
+# and afl-showmap from this project :-)
 
-echo "corpus minimization tool for afl-fuzz by Michal Zalewski"
-echo
+# getopt.awk --- Do C library getopt(3) function in awk
 
-#########
-# SETUP #
-#########
+# External variables:
+#    Optind -- index in ARGV of first nonoption argument
+#    Optarg -- string value of argument to current option
+#    Opterr -- if nonzero, print our own diagnostic
+#    Optopt -- current option letter
 
-# Process command-line options...
+# Returns:
+#    -1     at end of options
+#    "?"    for unrecognized option
+#    <c>    a character representing the current option
 
-MEM_LIMIT=200
-TIMEOUT=none
+# Private Data:
+#    _opti  -- index in multiflag option, e.g., -abc
 
-unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
-  AFL_CMIN_CRASHES_ONLY AFL_CMIN_ALLOW_ANY QEMU_MODE UNICORN_MODE
+function getopt(argc, argv, options,    thisopt, i)
+{
+    if (length(options) == 0)    # no options given
+        return -1
 
-while getopts "+i:o:f:m:t:eQUCh" opt; do
+    if (argv[Optind] == "--") {  # all done
+        Optind++
+        _opti = 0
+        return -1
+    } else if (argv[Optind] !~ /^-[^:\t ]/) {
+        _opti = 0
+        return -1
+    }
+    if (_opti == 0)
+        _opti = 2
+    thisopt = substr(argv[Optind], _opti, 1)
+    Optopt = thisopt
+    i = index(options, thisopt)
+    if (i == 0) {
+        if (Opterr)
+            printf("%c -- invalid option\n", thisopt) > "/dev/stderr"
+        if (_opti >= length(argv[Optind])) {
+            Optind++
+            _opti = 0
+        } else
+            _opti++
+        return "?"
+    }
+    if (substr(options, i + 1, 1) == ":") {
+        # get option argument
+        if (length(substr(argv[Optind], _opti + 1)) > 0)
+            Optarg = substr(argv[Optind], _opti + 1)
+        else
+            Optarg = argv[++Optind]
+        _opti = 0
+    } else
+        Optarg = ""
+    if (_opti == 0 || _opti >= length(argv[Optind])) {
+        Optind++
+        _opti = 0
+    } else
+        _opti++
+    return thisopt
+}
 
-  case "$opt" in 
+function usage() {
+   print \
+"Usage: afl-cmin [ options ] -- /path/to/target_app [ ... ]\n" \
+"\n" \
+"Required parameters:\n" \
+"\n" \
+"  -i dir        - input directory with starting corpus\n" \
+"  -o dir        - output directory for minimized files\n" \
+"\n" \
+"Execution control settings:\n" \
+"\n" \
+"  -f file       - location read by the fuzzed program (stdin)\n" \
+"  -m megs       - memory limit for child process ("mem_limit" MB)\n" \
+"  -t msec       - run time limit for child process (none)\n" \
+"  -Q            - use binary-only instrumentation (QEMU mode)\n" \
+"  -U            - use unicorn-based instrumentation (unicorn mode)\n" \
+"\n" \
+"Minimization settings:\n" \
+"  -C            - keep crashing inputs, reject everything else\n" \
+"  -e            - solve for edge coverage only, ignore hit counts\n" \
+"\n" \
+"For additional tips, please consult docs/README.md\n" \
+"\n" \
+      > "/dev/stderr"
+   exit 1
+}
 
-    "h")
-	;;
+function exists_and_is_executable(binarypath) {
+  return 0 == system("test -f "binarypath" -a -x "binarypath)
+}
 
-    "i")
-         IN_DIR="$OPTARG"
-         ;;
+BEGIN {
+  print "corpus minimization tool for afl++ (awk version)\n"
 
-    "o")
-         OUT_DIR="$OPTARG"
-         ;;
-    "f")
-         STDIN_FILE="$OPTARG"
-         ;;
-    "m")
-         MEM_LIMIT="$OPTARG"
-         MEM_LIMIT_GIVEN=1
-         ;;
-    "t")
-         TIMEOUT="$OPTARG"
-         ;;
-    "e")
-         EXTRA_PAR="$EXTRA_PAR -e"
-         ;;
-    "C")
-         export AFL_CMIN_CRASHES_ONLY=1
-         ;;
-    "Q")
-         EXTRA_PAR="$EXTRA_PAR -Q"
-         test "$MEM_LIMIT_GIVEN" = "" && MEM_LIMIT=250
-         QEMU_MODE=1
-         ;;
-    "U")
-         EXTRA_PAR="$EXTRA_PAR -U"
-         test "$MEM_LIMIT_GIVEN" = "" && MEM_LIMIT=250
-         UNICORN_MODE=1
-         ;;    
-    "?")
-         exit 1
-         ;;
+  # defaults
+  extra_par = ""
+  # process options
+  Opterr = 1    # default is to diagnose
+  Optind = 1    # skip ARGV[0]
+  while ((_go_c = getopt(ARGC, ARGV, "hi:o:f:m:t:eCQU?")) != -1) {
+    if (_go_c == "i") {
+      if (!Optarg) usage()
+      if (in_dir) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
+      in_dir = Optarg
+      continue
+    } else 
+    if (_go_c == "o") {
+      if (!Optarg) usage()
+      if (out_dir) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
+      out_dir = Optarg
+      continue
+    } else 
+    if (_go_c == "f") {
+      if (!Optarg) usage()
+      if (stdin_file) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
+      stdin_file = Optarg
+      continue
+    } else 
+    if (_go_c == "m") {
+      if (!Optarg) usage()
+      if (mem_limit) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
+      mem_limit = Optarg
+      mem_limit_given = 1
+      continue
+    } else 
+    if (_go_c == "t") {
+      if (!Optarg) usage()
+      if (timeout) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
+      timeout = Optarg
+      continue
+    } else 
+    if (_go_c == "C") {
+      ENVIRON["AFL_CMIN_CRASHES_ONLY"] = 1
+      continue
+    } else 
+    if (_go_c == "e") {
+      extra_par = extra_par " -e"
+      continue
+    } else 
+    if (_go_c == "Q") {
+      if (qemu_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
+      extra_par = extra_par " -Q"
+      if ( !mem_limit_given ) mem_limit = "250"
+      qemu_mode = 1
+      continue
+    } else 
+    if (_go_c == "U") {
+      if (unicorn_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
+      extra_par = extra_par " -U"
+      if ( !mem_limit_given ) mem_limit = "250"
+      unicorn_mode = 1
+      continue
+    } else 
+    if (_go_c == "?") {
+      exit 1
+    } else 
+      usage()
+  } # while options
 
-   esac
+  if (!mem_limit) mem_limit = 200
+  if (!timeout) timeout = "none"
 
-done
+  # get program args
+  i = 0
+  prog_args_string = ""
+  for (; Optind < ARGC; Optind++) {
+    prog_args[i++] = ARGV[Optind]
+    if (i > 1)
+      prog_args_string = prog_args_string" "ARGV[Optind]
+  }
 
-shift $((OPTIND-1))
+  # sanity checks
+  if (!prog_args[0] || !in_dir || !out_dir) usage()
 
-TARGET_BIN="$1"
+  target_bin = prog_args[0] 
 
-if [ "$TARGET_BIN" = "" -o "$IN_DIR" = "" -o "$OUT_DIR" = "" ]; then
+  # Do a sanity check to discourage the use of /tmp, since we can't really
+  # handle this safely from an awk script.
 
-  cat 1>&2 <<_EOF_
-Usage: $0 [ options ] -- /path/to/target_app [ ... ]
+  if (!ENVIRON["AFL_ALLOW_TMP"]) {
+    dirlist[0] = in_dir
+    dirlist[1] = target_bin
+    dirlist[2] = out_dir
+    dirlist[3] = stdin_file
+    "pwd" | getline dirlist[4] # current directory
+    for (dirind in dirlist) {
+      dir = dirlist[dirind]
 
-Required parameters:
+      if (dir ~ /^(\/var)?\/tmp/) {
+        print "[-] Error: do not use this script in /tmp or /var/tmp." > "/dev/stderr"
+        exit 1
+      }
+    }
+    delete dirlist
+  }
 
-  -i dir        - input directory with the starting corpus
-  -o dir        - output directory for minimized files
+  # If @@ is specified, but there's no -f, let's come up with a temporary input
+  # file name.
 
-Execution control settings:
+  trace_dir = out_dir "/.traces"
 
-  -f file       - location read by the fuzzed program (stdin)
-  -m megs       - memory limit for child process ($MEM_LIMIT MB)
-  -t msec       - run time limit for child process (none)
-  -Q            - use binary-only instrumentation (QEMU mode)
-  -U            - use unicorn-based instrumentation (Unicorn mode)
+  if (!stdin_file) {
+    found_atat = 0
+    for (prog_args_ind in prog_args) {
+      if ("@@" == prog_args[prog_args_ind]) {
+        found_atat = 1
+        break
+      }
+    }
+    if (found_atat) {
+      stdin_file = trace_dir "/.cur_input"
+    }
+  }
+
+  # Check for obvious errors.
+
+  if (mem_limit && mem_limit != "none" && mem_limit < 5) {
+    print "[-] Error: dangerously low memory limit." > "/dev/stderr"
+    exit 1
+  }
+
+  if (timeout && timeout != "none" && timeout < 10) {
+    print "[-] Error: dangerously low timeout." > "/dev/stderr"
+    exit 1
+  }
+
+  if (target_bin && !exists_and_is_executable(target_bin)) {
+
+    "which "target_bin" 2>/dev/null" | getline tnew
+    if (!tnew || !exists_and_is_executable(tnew)) {
+      print "[-] Error: binary '"target_bin"' not found or not executable." > "/dev/stderr"
+      exit 1
+    }
+    target_bin = tnew
+  }
+
+  if (!ENVIRON["AFL_SKIP_BIN_CHECK"] && !qemu_mode && !unicorn_mode) {
+    if (0 != system( "grep -q __AFL_SHM_ID "target_bin )) {
+      print "[-] Error: binary '"target_bin"' doesn't appear to be instrumented." > "/dev/stderr"
+      exit 1
+    }
+  }
+
+  if (0 != system( "test -d "in_dir )) {
+    print "[-] Error: directory '"in_dir"' not found." > "/dev/stderr"
+    exit 1
+  }
+
+  if (0 == system( "test -d "in_dir"/queue" )) {
+    in_dir = in_dir "/queue"
+  }
+
+  system("rm -rf "trace_dir" 2>/dev/null");
+  system("rm "out_dir"/id[:_]* 2>/dev/null")
+
+  if (0 == system( "test -d "out_dir" -a -e "out_dir"/*" )) {
+    print "[-] Error: directory '"out_dir"' exists and is not empty - delete it first." > "/dev/stderr"
+    exit 1
+  }
+
+  # Check for the more efficient way to copy files...
+  if (0 != system("mkdir -p -m 0700 "trace_dir)) {
+    print "[-] Error: Cannot create directory "trace_dir > "/dev/stderr"
+    exit 1
+  }
+
+  if (stdin_file) {
+    # truncate input file
+    printf "" > stdin_file
+    close( stdin_file )
+  }
+
+  if (!ENVIRON["AFL_PATH"]) {
+    if (0 == system("test -f afl-cmin")) {
+      showmap = "./afl-showmap"
+    } else {
+      "which afl-showmap 2>/dev/null" | getline showmap
+    }
+  } else {
+    showmap = ENVIRON["AFL_PATH"] "/afl-showmap"
+  }
+
+  if (!showmap || 0 != system("test -x "showmap )) {
+    print "[-] Error: can't find 'afl-showmap' - please set AFL_PATH." > "/dev/stderr"
+    exit 1
+  }
   
-Minimization settings:
+  # get list of input filenames sorted by size
+  i = 0
+  # yuck, gnu stat is option incompatible to bsd stat
+  # we use a heuristic to differentiate between
+  # GNU stat and other stats
+  "stat --version 2>/dev/null" | getline statversion
+  if (statversion ~ /GNU coreutils/) {
+    stat_format = "-c '%s %n'" # GNU
+  } else {
+    stat_format = "-f '%z %N'" # *BSD, MacOS
+  }
+  cmdline = "cd "in_dir" && find . -maxdepth 1 -type f -exec stat "stat_format" \\{\\} \\; | sort -n | cut -d' ' -f2-"
+  while (cmdline | getline) {
+    infilesSmallToBig[i++] = $0
+  }
+  in_count = i
 
-  -C            - keep crashing inputs, reject everything else
-  -e            - solve for edge coverage only, ignore hit counts
+  first_file = infilesSmallToBig[0]
+  
+  # Make sure that we're not dealing with a directory.
 
-For additional tips, please consult docs/README.
-
-_EOF_
-  exit 1
-fi
-
-# Do a sanity check to discourage the use of /tmp, since we can't really
-# handle this safely from a shell script.
-
-if [ "$AFL_ALLOW_TMP" = "" ]; then
-
-  echo "$IN_DIR" | grep -qE '^(/var)?/tmp/'
-  T1="$?"
-
-  echo "$TARGET_BIN" | grep -qE '^(/var)?/tmp/'
-  T2="$?"
-
-  echo "$OUT_DIR" | grep -qE '^(/var)?/tmp/'
-  T3="$?"
-
-  echo "$STDIN_FILE" | grep -qE '^(/var)?/tmp/'
-  T4="$?"
-
-  echo "$PWD" | grep -qE '^(/var)?/tmp/'
-  T5="$?"
-
-  if [ "$T1" = "0" -o "$T2" = "0" -o "$T3" = "0" -o "$T4" = "0" -o "$T5" = "0" ]; then
-    echo "[-] Error: do not use this script in /tmp or /var/tmp." 1>&2
+  if (0 == system("test -d "in_dir"/"first_file)) {
+    print "[-] Error: The input directory contains subdirectories - please fix." > "/dev/stderr"
     exit 1
-  fi
+  }
 
-fi
+  if (0 == system("ln "in_dir"/"first_file" "trace_dir"/.link_test")) {
+    cp_tool = "ln"
+  } else {
+    cp_tool = "cp"
+  }
 
-# If @@ is specified, but there's no -f, let's come up with a temporary input
-# file name.
+  # Make sure that we can actually get anything out of afl-showmap before we
+  # waste too much time.
 
-TRACE_DIR="$OUT_DIR/.traces"
+  print "[*] Testing the target binary..."
 
-if [ "$STDIN_FILE" = "" ]; then
+  if (!stdin_file) {
+    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"first_file"\"")
+  } else {
+    system("cp "in_dir"/"first_file" "stdin_file)
+    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+  }
 
-  if echo "$*" | grep -qF '@@'; then
-    STDIN_FILE="$TRACE_DIR/.cur_input"
-  fi
+  first_count = 0
 
-fi
+  runtest = trace_dir"/.run_test"
+  while ((getline < runtest) > 0) {
+    ++first_count
+  }
 
-# Check for obvious errors.
-
-if [ ! "$MEM_LIMIT" = "none" ]; then
-
-  if [ "$MEM_LIMIT" -lt "5" ]; then
-    echo "[-] Error: dangerously low memory limit." 1>&2
+  if (first_count) {
+    print "[+] OK, "first_count" tuples recorded."
+  } else {
+    print "[-] Error: no instrumentation output detected (perhaps crash or timeout)." > "/dev/stderr"
+    if (!ENVIRON["AFL_KEEP_TRACES"]) {
+      system("rm -rf "trace_dir" 2>/dev/null")
+    }
     exit 1
-  fi
-
-fi
-
-if [ ! "$TIMEOUT" = "none" ]; then
-
-  if [ "$TIMEOUT" -lt "10" ]; then
-    echo "[-] Error: dangerously low timeout." 1>&2
-    exit 1
-  fi
-
-fi
-
-if [ ! -f "$TARGET_BIN" -o ! -x "$TARGET_BIN" ]; then
-
-  TNEW="`which "$TARGET_BIN" 2>/dev/null`"
-
-  if [ ! -f "$TNEW" -o ! -x "$TNEW" ]; then
-    echo "[-] Error: binary '$TARGET_BIN' not found or not executable." 1>&2
-    exit 1
-  fi
-
-  TARGET_BIN="$TNEW"
-
-fi
-
-if [ "$AFL_SKIP_BIN_CHECK" = "" -a "$QEMU_MODE" = "" -a "$UNICORN_MODE" = "" ]; then
-
-  if ! grep -qF "__AFL_SHM_ID" "$TARGET_BIN"; then
-    echo "[-] Error: binary '$TARGET_BIN' doesn't appear to be instrumented." 1>&2
-    exit 1
-  fi
-
-fi
-
-if [ ! -d "$IN_DIR" ]; then
-  echo "[-] Error: directory '$IN_DIR' not found." 1>&2
-  exit 1
-fi
-
-test -d "$IN_DIR/queue" && IN_DIR="$IN_DIR/queue"
-
-find "$OUT_DIR" -name 'id[:_]*' -maxdepth 1 -exec rm -- {} \; 2>/dev/null
-rm -rf "$TRACE_DIR" 2>/dev/null
-
-rmdir "$OUT_DIR" 2>/dev/null
-
-if [ -d "$OUT_DIR" ]; then
-  echo "[-] Error: directory '$OUT_DIR' exists and is not empty - delete it first." 1>&2
-  exit 1
-fi
-
-mkdir -m 700 -p "$TRACE_DIR" || exit 1
-
-if [ ! "$STDIN_FILE" = "" ]; then
-  rm -f "$STDIN_FILE" || exit 1
-  touch "$STDIN_FILE" || exit 1
-fi
-
-if [ "$AFL_PATH" = "" ]; then
-  SHOWMAP="${0%/afl-cmin}/afl-showmap"
-else
-  SHOWMAP="$AFL_PATH/afl-showmap"
-fi
-
-if [ ! -x "$SHOWMAP" ]; then
-  echo "[-] Error: can't find 'afl-showmap' - please set AFL_PATH." 1>&2
-  rm -rf "$TRACE_DIR"
-  exit 1
-fi
-
-IN_COUNT=$((`ls -- "$IN_DIR" 2>/dev/null | wc -l`))
-
-if [ "$IN_COUNT" = "0" ]; then
-  echo "[+] Hmm, no inputs in the target directory. Nothing to be done."
-  rm -rf "$TRACE_DIR"
-  exit 1
-fi
-
-FIRST_FILE=`ls "$IN_DIR" | head -1`
-
-# Make sure that we're not dealing with a directory.
-
-if [ -d "$IN_DIR/$FIRST_FILE" ]; then
-  echo "[-] Error: The target directory contains subdirectories - please fix." 1>&2
-  rm -rf "$TRACE_DIR"
-  exit 1
-fi
-
-# Check for the more efficient way to copy files...
-
-if ln "$IN_DIR/$FIRST_FILE" "$TRACE_DIR/.link_test" 2>/dev/null; then
-  CP_TOOL=ln
-else
-  CP_TOOL=cp
-fi
-
-# Make sure that we can actually get anything out of afl-showmap before we
-# waste too much time.
-
-echo "[*] Testing the target binary..."
-
-if [ "$STDIN_FILE" = "" ]; then
-
-  AFL_CMIN_ALLOW_ANY=1 "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/.run_test" -Z $EXTRA_PAR -- "$@" <"$IN_DIR/$FIRST_FILE"
-
-else
-
-  cp "$IN_DIR/$FIRST_FILE" "$STDIN_FILE"
-  AFL_CMIN_ALLOW_ANY=1 "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/.run_test" -Z $EXTRA_PAR -A "$STDIN_FILE" -- "$@" </dev/null
-
-fi
-
-FIRST_COUNT=$((`grep -c . "$TRACE_DIR/.run_test"`))
-
-if [ "$FIRST_COUNT" -gt "0" ]; then
-
-  echo "[+] OK, $FIRST_COUNT tuples recorded."
-
-else
-
-  echo "[-] Error: no instrumentation output detected (perhaps crash or timeout)." 1>&2
-  test "$AFL_KEEP_TRACES" = "" && rm -rf "$TRACE_DIR"
-  exit 1
-
-fi
-
-# Let's roll!
-
-#############################
-# STEP 1: COLLECTING TRACES #
-#############################
-
-echo "[*] Obtaining traces for input files in '$IN_DIR'..."
-
-(
-
-  CUR=0
-
-  if [ "$STDIN_FILE" = "" ]; then
-
-    ls "$IN_DIR" | while read -r fn; do
-
-      CUR=$((CUR+1))
-      printf "\\r    Processing file $CUR/$IN_COUNT... "
-
-      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -- "$@" <"$IN_DIR/$fn"
-
-    done
-
-  else
-
-    ls "$IN_DIR" | while read -r fn; do
-
-      CUR=$((CUR+1))
-      printf "\\r    Processing file $CUR/$IN_COUNT... "
-
-      cp "$IN_DIR/$fn" "$STDIN_FILE"
-
-      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -A "$STDIN_FILE" -- "$@" </dev/null
-
-    done
-
-
-  fi
-
-)
-
-echo
-
-##########################
-# STEP 2: SORTING TUPLES #
-##########################
-
-# With this out of the way, we sort all tuples by popularity across all
-# datasets. The reasoning here is that we won't be able to avoid the files
-# that trigger unique tuples anyway, so we will want to start with them and
-# see what's left.
-
-echo "[*] Sorting trace sets (this may take a while)..."
-
-ls "$IN_DIR" | sed "s#^#$TRACE_DIR/#" | tr '\n' '\0' | xargs -0 -n 1 cat | \
-  sort | uniq -c | sort -k 1,1 -n >"$TRACE_DIR/.all_uniq"
-
-TUPLE_COUNT=$((`grep -c . "$TRACE_DIR/.all_uniq"`))
-
-echo "[+] Found $TUPLE_COUNT unique tuples across $IN_COUNT files."
-
-#####################################
-# STEP 3: SELECTING CANDIDATE FILES #
-#####################################
-
-# The next step is to find the best candidate for each tuple. The "best"
-# part is understood simply as the smallest input that includes a particular
-# tuple in its trace. Empirical evidence suggests that this produces smaller
-# datasets than more involved algorithms that could be still pulled off in
-# a shell script.
-
-echo "[*] Finding best candidates for each tuple..."
-
-CUR=0
-
-ls -rS "$IN_DIR" | while read -r fn; do
-
-  CUR=$((CUR+1))
-  printf "\\r    Processing file $CUR/$IN_COUNT... "
-
-  sed "s#\$# $fn#" "$TRACE_DIR/$fn" >>"$TRACE_DIR/.candidate_list"
-
-done
-
-echo
-
-##############################
-# STEP 4: LOADING CANDIDATES #
-##############################
-
-# At this point, we have a file of tuple-file pairs, sorted by file size
-# in ascending order (as a consequence of ls -rS). By doing sort keyed
-# only by tuple (-k 1,1) and configured to output only the first line for
-# every key (-s -u), we end up with the smallest file for each tuple.
-
-echo "[*] Sorting candidate list (be patient)..."
-
-sort -k1,1 -s -u "$TRACE_DIR/.candidate_list" | \
-  sed 's/^/BEST_FILE[/;s/ /]="/;s/$/"/' >"$TRACE_DIR/.candidate_script"
-
-if [ ! -s "$TRACE_DIR/.candidate_script" ]; then
-  echo "[-] Error: no traces obtained from test cases, check syntax!" 1>&2
-  test "$AFL_KEEP_TRACES" = "" && rm -rf "$TRACE_DIR"
-  exit 1
-fi
-
-# The sed command converted the sorted list to a shell script that populates
-# BEST_FILE[tuple]="fname". Let's load that!
-
-. "$TRACE_DIR/.candidate_script"
-
-##########################
-# STEP 5: WRITING OUTPUT #
-##########################
-
-# The final trick is to grab the top pick for each tuple, unless said tuple is
-# already set due to the inclusion of an earlier candidate; and then put all
-# tuples associated with the newly-added file to the "already have" list. The
-# loop works from least popular tuples and toward the most common ones.
-
-echo "[*] Processing candidates and writing output files..."
-
-CUR=0
-
-touch "$TRACE_DIR/.already_have"
-
-while read -r cnt tuple; do
-
-  CUR=$((CUR+1))
-  printf "\\r    Processing tuple $CUR/$TUPLE_COUNT... "
-
-  # If we already have this tuple, skip it.
-
-  grep -q "^$tuple\$" "$TRACE_DIR/.already_have" && continue
-
-  FN=${BEST_FILE[tuple]}
-
-  $CP_TOOL "$IN_DIR/$FN" "$OUT_DIR/$FN"
-
-  if [ "$((CUR % 5))" = "0" ]; then
-    sort -u "$TRACE_DIR/$FN" "$TRACE_DIR/.already_have" >"$TRACE_DIR/.tmp"
-    mv -f "$TRACE_DIR/.tmp" "$TRACE_DIR/.already_have"
-  else
-    cat "$TRACE_DIR/$FN" >>"$TRACE_DIR/.already_have"
-  fi
-
-done <"$TRACE_DIR/.all_uniq"
-
-echo
-
-OUT_COUNT=`ls -- "$OUT_DIR" | wc -l`
-
-if [ "$OUT_COUNT" = "1" ]; then
-  echo "[!] WARNING: All test cases had the same traces, check syntax!"
-fi
-
-echo "[+] Narrowed down to $OUT_COUNT files, saved in '$OUT_DIR'."
-echo
-
-test "$AFL_KEEP_TRACES" = "" && rm -rf "$TRACE_DIR"
-
-exit 0
+  }
+
+  # Let's roll!
+
+  #############################
+  # STEP 1: Collecting traces #
+  #############################
+
+  print "[*] Obtaining traces for "in_count" input files in '"in_dir"'."
+
+  cur = 0;
+  if (!stdin_file) {
+    while (cur < in_count) {
+      fn = infilesSmallToBig[cur]
+      ++cur;
+      printf "\r    Processing file "cur"/"in_count
+      system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/"fn"\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"fn"\"")
+    }
+  } else {
+    while (cur < in_count) {
+      fn = infilesSmallToBig[cur]
+      ++cur
+      printf "\r    Processing file "cur"/"in_count
+      system("cp "in_dir"/"fn" "stdin_file)
+      system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/"fn"\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+    }
+  }
+
+  print ""
+
+
+  #######################################################
+  # STEP 2: register smallest input file for each tuple #
+  # STEP 3: copy that file (at most once)               #
+  #######################################################
+
+  print "[*] Processing traces for input files in '"in_dir"'."
+
+  cur = 0
+  out_count = 0
+  tuple_count = 0
+
+  while (cur < in_count) {
+    fn = infilesSmallToBig[cur]
+    ++cur
+    printf "\r    Processing file "cur"/"in_count
+    # create path for the trace file from afl-showmap
+    tracefile_path = trace_dir"/"fn
+    # gather all keys, and count them
+    while ((getline line < tracefile_path) > 0) {
+        key = line
+        if (!(key in key_count)) {
+          ++tuple_count
+        }
+        ++key_count[key]
+        if (! (key in best_file)) {
+            # this is the best file for this key
+            best_file[key] = fn
+            # copy file unless already done
+            if (! (fn in file_already_copied)) {
+                system(cp_tool" "in_dir"/"fn" "out_dir"/"fn)
+                file_already_copied[fn] = ""
+                ++out_count
+            }
+        }
+    }
+    close(tracefile_path)
+  }
+
+  print ""
+  print "[+] Found "tuple_count" unique tuples across "in_count" files."
+
+  if (out_count == 1) {
+    print "[!] WARNING: All test cases had the same traces, check syntax!"
+  }
+  print "[+] Narrowed down to "out_count" files, saved in '"out_dir"'."
+
+  if (!ENVIRON["AFL_KEEP_TRACES"]) {
+    system("rm -rf "trace_dir" 2>/dev/null")
+  }
+
+  exit 0
+}
+EOF

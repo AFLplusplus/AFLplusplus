@@ -94,6 +94,28 @@ struct InsTrim : public ModulePass {
 
   }
 
+  // ripped from aflgo
+  static bool isBlacklisted(const Function *F) {
+
+    static const SmallVector<std::string, 4> Blacklist = {
+
+        "asan.",
+        "llvm.",
+        "sancov.",
+        "__ubsan_handle_",
+
+    };
+
+    for (auto const &BlacklistFunc : Blacklist) {
+
+      if (F->getName().startswith(BlacklistFunc)) { return true; }
+
+    }
+
+    return false;
+
+  }
+
   bool runOnModule(Module &M) override {
 
     char be_quiet = 0;
@@ -121,19 +143,6 @@ struct InsTrim : public ModulePass {
 
     // this is our default
     MarkSetOpt = true;
-
-    /*    // I dont think this makes sense to port into LLVMInsTrim
-          char* inst_ratio_str = getenv("AFL_INST_RATIO");
-          unsigned int inst_ratio = 100;
-          if (inst_ratio_str) {
-
-           if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
-       inst_ratio > 100) FATAL("Bad value of AFL_INST_RATIO (must be between 1
-       and 100)");
-
-          }
-
-    */
 
     LLVMContext &C = M.getContext();
     IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
@@ -181,8 +190,7 @@ struct InsTrim : public ModulePass {
 
           if (instFilename.str().empty()) {
 
-            /* If the original location is empty, try using the inlined location
-             */
+            /* If the original location is empty, try using the inlined location */
             DILocation *oDILoc = cDILoc->getInlinedAt();
             if (oDILoc) {
 
@@ -239,6 +247,8 @@ struct InsTrim : public ModulePass {
         }
 
       }
+
+      if (isBlacklisted(&F)) continue;
 
       std::unordered_set<BasicBlock *> MS;
       if (!MarkSetOpt) {
@@ -408,28 +418,19 @@ struct InsTrim : public ModulePass {
         IRB.CreateStore(Incr, MapPtrIdx)
             ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-        /* Set prev_loc to cur_loc >> 1 */
-        /*
-        StoreInst *Store = IRB.CreateStore(ConstantInt::get(Int32Ty, L >> 1),
-        OldPrev); Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C,
-        None));
-        */
-
         total_instr++;
 
       }
 
     }
 
-    OKF("Instrumented %u locations (%llu, %llu) (%s mode)\n" /*", ratio
-                                                                %u%%)."*/
-        ,
+    OKF("Instrumented %u locations (%llu, %llu) (%s mode)\n",
         total_instr, total_rs, total_hs,
         getenv("AFL_HARDEN")
             ? "hardened"
             : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
                    ? "ASAN/MSAN"
-                   : "non-hardened") /*, inst_ratio*/);
+                   : "non-hardened"));
     return false;
 
   }

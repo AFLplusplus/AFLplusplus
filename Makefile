@@ -29,27 +29,51 @@ VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
 PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
-SH_PROGS    = afl-plot afl-cmin afl-whatsup afl-system-config
+SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8)
 
-CFLAGS     ?= -O3 -funroll-loops
-CFLAGS     += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I include/ \
-	      -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+	CFLAGS_FLTO ?= -flto=full
+else
+ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+	CFLAGS_FLTO ?= -flto=thin
+ else
+  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+	CFLAGS_FLTO ?= -flto
+  endif
+ endif
+endif
+
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+	CFLAGS_OPT = -march=native
+endif
+
+ifneq "$(shell uname -m)" "x86_64"
+ ifneq "$(shell uname -m)" "i386"
+  ifneq "$(shell uname -m)" "amd64"
+	AFL_NO_X86=1
+  endif
+ endif
+endif
+
+CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
+CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
+              -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
               -DDOC_PATH=\"$(DOC_PATH)\" -Wno-unused-function
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
-ifneq "($filter %3.7m, $(shell python3.7m-config --includes 2>/dev/null)" ""
+ifneq "$(filter %3.7m, $(shell python3.7m-config --includes 2>/dev/null))" ""
   PYTHON_INCLUDE  ?= $(shell python3.7m-config --includes)
   PYTHON_LIB      ?= $(shell python3.7m-config --ldflags)
   PYTHON_VERSION   = 3.7m
 else
-  ifneq "($filter %3.7, $(shell python3.7-config --includes) 2> /dev/null" ""
+  ifneq "$(filter %3.7, $(shell python3.7-config --includes 2>/dev/null))" ""
     PYTHON_INCLUDE  ?= $(shell python3.7-config --includes)
     PYTHON_LIB      ?= $(shell python3.7-config --ldflags)
     PYTHON_VERSION   = 3.7
   else
-    ifneq "($filter %2.7, $(shell python2.7-config --includes) 2> /dev/null" ""
+    ifneq "$(filter %2.7, $(shell python2.7-config --includes 2>/dev/null))" ""
       PYTHON_INCLUDE  ?= $(shell python2.7-config --includes)
       PYTHON_LIB      ?= $(shell python2.7-config --ldflags)
       PYTHON_VERSION   = 2.7
@@ -61,14 +85,14 @@ PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7m && echo /usr/include/p
 PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7 && echo /usr/include/python3.7)
 PYTHON_INCLUDE	?= $(shell test -e /usr/include/python2.7 && echo /usr/include/python2.7)
 
-ifneq "($filter %3.7m, $(PYTHON_INCLUDE))" ""
+ifneq "$(filter %3.7m, $(PYTHON_INCLUDE))" ""
     PYTHON_VERSION ?= 3.7m
     PYTHON_LIB  ?= -lpython3.7m
 else
-    ifneq "($filter %3.7, $(PYTHON_INCLUDE))" ""
+    ifneq "$(filter %3.7, $(PYTHON_INCLUDE))" ""
         PYTHON_VERSION ?= 3.7
     else
-        ifneq "($filter %2.7, $(PYTHON_INCLUDE))" ""
+        ifneq "$(filter %2.7, $(PYTHON_INCLUDE))" ""
             PYTHON_VERSION ?= 2.7
             PYTHON_LIB     ?= -lpython2.7
         else
@@ -229,31 +253,31 @@ afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
 	ln -sf afl-as as
 
 src/afl-common.o : src/afl-common.c include/common.h
-	$(CC) $(CFLAGS) -c src/afl-common.c -o src/afl-common.o
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-common.c -o src/afl-common.o
 
 src/afl-forkserver.o : src/afl-forkserver.c include/forkserver.h
-	$(CC) $(CFLAGS) -c src/afl-forkserver.c -o src/afl-forkserver.o
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-forkserver.c -o src/afl-forkserver.o
 
 src/afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
-	$(CC) $(CFLAGS) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
 radamsa: src/third_party/libradamsa/libradamsa.so
 	cp src/third_party/libradamsa/libradamsa.so .
 
 src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.c src/third_party/libradamsa/radamsa.h
-	$(MAKE) -C src/third_party/libradamsa/
+	$(MAKE) -C src/third_party/libradamsa/ CFLAGS="$(CFLAGS)"
 
 afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
 
 afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
 
 afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
 
 afl-gotcpu: src/afl-gotcpu.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
