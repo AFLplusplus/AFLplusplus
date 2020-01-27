@@ -360,7 +360,7 @@ BEGIN {
     system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"first_file"\"")
   } else {
     system("cp "in_dir"/"first_file" "stdin_file)
-    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" < /dev/null")
+    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
   }
 
   first_count = 0
@@ -402,7 +402,7 @@ BEGIN {
       ++cur
       printf "\r    Processing file "cur"/"in_count
       system("cp "in_dir"/"fn" "stdin_file)
-      system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/"fn"\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" < /dev/null")
+      system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/"fn"\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
     }
   }
 
