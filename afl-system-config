@@ -1,6 +1,6 @@
 #!/bin/sh
 test "$1" = "-h" && {
-  echo afl-system-config by Marc Heuse
+  echo 'afl-system-config by Marc Heuse <mh@mh-sec.de>'
   echo
   echo $0
   echo
@@ -12,55 +12,72 @@ test "$1" = "-h" && {
   exit 1
 }
 
+DONE=
 PLATFORM=`uname -s`
-echo This reconfigures the system to have a better fuzzing performance
+echo This reconfigures the system to have a better fuzzing performance.
 if [ '!' "$EUID" = 0 ] && [ '!' `id -u` = 0 ] ; then
-	echo Error you need to be root to run this
-	exit 1
+	echo "Warning: you need to be root to run this!"
+	# we do not exit as other mechanisms exist that allows to do this than
+	# being root. let the errors speak for themselves.
 fi
 if [ "$PLATFORM" = "Linux" ] ; then
-sysctl -w kernel.core_pattern=core
-sysctl -w kernel.randomize_va_space=0
-sysctl -w kernel.sched_child_runs_first=1
-sysctl -w kernel.sched_autogroup_enabled=1
-sysctl -w kernel.sched_migration_cost_ns=50000000
-sysctl -w kernel.sched_latency_ns=250000000
-echo never > /sys/kernel/mm/transparent_hugepage/enabled
-test -e /sys/devices/system/cpu/cpufreq/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpufreq/scaling_governor
-test -e /sys/devices/system/cpu/cpufreq/policy0/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpufreq/policy*/scaling_governor
-test -e /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
-test -e /sys/devices/system/cpu/intel_pstate/no_turbo && echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo
-test -e /sys/devices/system/cpu/cpufreq/boost && echo 1 > /sys/devices/system/cpu/cpufreq/boost
-echo
-echo It is recommended to boot the kernel with lots of security off - if you are running a machine that is in a secured network - so set this:
-echo '/etc/default/grub:GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"'
+{
+  sysctl -w kernel.core_pattern=core
+  sysctl -w kernel.randomize_va_space=0
+  sysctl -w kernel.sched_child_runs_first=1
+  sysctl -w kernel.sched_autogroup_enabled=1
+  sysctl -w kernel.sched_migration_cost_ns=50000000
+  sysctl -w kernel.sched_latency_ns=250000000
+  echo never > /sys/kernel/mm/transparent_hugepage/enabled
+  test -e /sys/devices/system/cpu/cpufreq/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpufreq/scaling_governor
+  test -e /sys/devices/system/cpu/cpufreq/policy0/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpufreq/policy*/scaling_governor
+  test -e /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+  test -e /sys/devices/system/cpu/intel_pstate/no_turbo && echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo
+  test -e /sys/devices/system/cpu/cpufreq/boost && echo 1 > /sys/devices/system/cpu/cpufreq/boost
+} > /dev/null
+  echo Settings applied.
+  dmesg | egrep -q 'nospectre_v2|spectre_v2=off' || {
+    echo It is recommended to boot the kernel with lots of security off - if you are running a machine that is in a secured network - so set this:
+    echo '  /etc/default/grub:GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"'
+  }
+  DONE=1
 fi
 if [ "$PLATFORM" = "FreeBSD" ] ; then
-sysctl kern.elf32.aslr.enable=0
-sysctl kern.elf64.aslr.enable=0
-echo
-echo It is recommended to boot the kernel with lots of security off - if you are running a machine that is in a secured network - so set this:
-echo 'sysctl hw.ibrs_disable=1'
-echo
-echo 'Setting kern.pmap.pg_ps_enabled=0 into /boot/loader.conf might be helpful too.'
+{
+  sysctl kern.elf32.aslr.enable=0
+  sysctl kern.elf64.aslr.enable=0
+} > /dev/null
+  echo Settings applied.
+  echo It is recommended to boot the kernel with lots of security off - if you are running a machine that is in a secured network - so set this:
+  echo '  sysctl hw.ibrs_disable=1'
+  echo 'Setting kern.pmap.pg_ps_enabled=0 into /boot/loader.conf might be helpful too.'
+  DONE=1
 fi
 if [ "$PLATFORM" = "OpenBSD" ] ; then
-echo
-echo 'System security features cannot be disabled on OpenBSD.'
+  echo
+  echo 'System security features cannot be disabled on OpenBSD.'
+  DONE=1
 fi
 if [ "$PLATFORM" = "NetBSD" ] ; then
-echo
-echo It is recommended to enable unprivileged users to set cpu affinity
-echo to be able to use afl-gotcpu meaningfully.
-/sbin/sysctl -w security.models.extensions.user_set_cpu_affinity=1
+{
+  #echo It is recommended to enable unprivileged users to set cpu affinity
+  #echo to be able to use afl-gotcpu meaningfully.
+  /sbin/sysctl -w security.models.extensions.user_set_cpu_affinity=1
+} > /dev/null
+  echo Settings applied.
+  DONE=1
 fi
 if [ "$PLATFORM" = "Darwin" ] ; then
   if [ $(launchctl list 2>/dev/null | grep -q '\.ReportCrash$') ] ; then
-echo We unload the default crash reporter here
-SL=/System/Library; PL=com.apple.ReportCrash
-launchctl unload -w ${SL}/LaunchAgents/${PL}.plist
-sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist
+    echo We unload the default crash reporter here
+    SL=/System/Library; PL=com.apple.ReportCrash
+    launchctl unload -w ${SL}/LaunchAgents/${PL}.plist
+    sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist
+    echo Settings applied.
+  else
+    echo Nothing to do.
   fi
+  DONE=1
 fi
-echo
-echo Also use AFL_TMPDIR to use a tmpfs for the input file
+test -z "$DONE" && echo Error: Unknown platform: $PLATFORM
+test -z "$AFL_TMPDIR" && echo Also use AFL_TMPDIR and point it to a tmpfs for the input file caching

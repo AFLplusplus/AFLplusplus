@@ -204,13 +204,24 @@ static void edit_params(u32 argc, char** argv) {
   // "-fsanitize-coverage=trace-cmp,trace-div,trace-gep";
   // cc_params[cc_par_cnt++] = "-sanitizer-coverage-block-threshold=0";
 #else
-  cc_params[cc_par_cnt++] = "-Xclang";
-  cc_params[cc_par_cnt++] = "-load";
-  cc_params[cc_par_cnt++] = "-Xclang";
-  if (getenv("AFL_LLVM_INSTRIM") != NULL || getenv("INSTRIM_LIB") != NULL)
-    cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
-  else
-    cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+  if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
+      getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
+
+    cc_params[cc_par_cnt++] =
+        "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
+
+  } else {
+
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] = "-load";
+    cc_params[cc_par_cnt++] = "-Xclang";
+    if (getenv("AFL_LLVM_INSTRIM") != NULL || getenv("INSTRIM_LIB") != NULL)
+      cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
+    else
+      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+
+  }
+
 #endif                                                     /* ^USE_TRACE_PC */
 
   cc_params[cc_par_cnt++] = "-Qunused-arguments";
@@ -282,8 +293,10 @@ static void edit_params(u32 argc, char** argv) {
 
 #ifdef USE_TRACE_PC
 
-  if (getenv("AFL_INST_RATIO"))
-    FATAL("AFL_INST_RATIO not available at compile time with 'trace-pc'.");
+  if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
+      getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC"))
+    if (getenv("AFL_INST_RATIO"))
+      FATAL("AFL_INST_RATIO not available at compile time with 'trace-pc'.");
 
 #endif                                                      /* USE_TRACE_PC */
 
@@ -444,7 +457,8 @@ int main(int argc, char** argv) {
         "You can specify custom next-stage toolchain via AFL_CC and AFL_CXX. "
         "Setting\n"
         "AFL_HARDEN enables hardening optimizations in the compiled code.\n\n"
-        "afl-clang-fast was built for llvm %s with the llvm binary path of \"%s\".\n\n",
+        "afl-clang-fast was built for llvm %s with the llvm binary path of "
+        "\"%s\".\n\n",
         BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
 
     exit(1);
@@ -454,6 +468,8 @@ int main(int argc, char** argv) {
 #ifdef USE_TRACE_PC
     SAYF(cCYA "afl-clang-fast" VERSION cRST
               " [tpcg] by <lszekeres@google.com>\n");
+#warning \
+    "You do not need to specifically compile with USE_TRACE_PC anymore, setting the environment variable AFL_LLVM_USE_TRACE_PC is enough."
 #else
     SAYF(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
 #endif                                                     /* ^USE_TRACE_PC */

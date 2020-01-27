@@ -65,16 +65,11 @@ void buildCFG(Function *F) {
 
   }
 
-  // uint32_t FakeID = 0;
   for (auto S = F->begin(), E = F->end(); S != E; ++S) {
 
     BasicBlock *BB = &*S;
     uint32_t    MyID = LMap[BB];
-    // if (succ_begin(BB) == succ_end(BB)) {
 
-    // Succs[MyID].push_back(FakeID);
-    // Marked.insert(MyID);
-    //}
     for (auto I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
 
       Succs[MyID].push_back(LMap[*I]);
@@ -113,7 +108,7 @@ void DFStree(size_t now_id) {
 
 }
 
-void turnCFGintoDAG(Function *F) {
+void turnCFGintoDAG() {
 
   tSuccs = Succs;
   tag.resize(Blocks.size());
@@ -176,7 +171,7 @@ void DFS(uint32_t now) {
 
 }
 
-void DominatorTree(Function *F) {
+void DominatorTree() {
 
   if (Blocks.empty()) return;
   uint32_t s = start_point;
@@ -390,7 +385,7 @@ void MarkSubGraph(uint32_t ss, uint32_t tt) {
 
 }
 
-void MarkVertice(Function *F) {
+void MarkVertice() {
 
   uint32_t s = start_point;
 
@@ -411,8 +406,6 @@ void MarkVertice(Function *F) {
 
   timeStamp = 0;
   uint32_t t = 0;
-  // MarkSubGraph(s, t);
-  // return;
 
   while (s != t) {
 
@@ -432,9 +425,9 @@ std::pair<std::vector<BasicBlock *>, std::vector<BasicBlock *> > markNodes(
   reset();
   labelEachBlock(F);
   buildCFG(F);
-  turnCFGintoDAG(F);
-  DominatorTree::DominatorTree(F);
-  MarkVertice(F);
+  turnCFGintoDAG();
+  DominatorTree::DominatorTree();
+  MarkVertice();
 
   std::vector<BasicBlock *> Result, ResultAbove;
   for (uint32_t x : Markabove) {

@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -61,12 +61,16 @@
 
 /* Default memory limit for child process (MB): */
 
+#ifndef __NetBSD__
 #ifndef WORD_SIZE_64
 #define MEM_LIMIT 25
 #else
 #define MEM_LIMIT 50
 #endif                                                    /* ^!WORD_SIZE_64 */
-
+#else  /* NetBSD's kernel needs more space for stack, see discussion for issue \
+          #165 */
+#define MEM_LIMIT 200
+#endif
 /* Default memory limit when running in QEMU mode (MB): */
 
 #define MEM_LIMIT_QEMU 200
