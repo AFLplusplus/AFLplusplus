@@ -297,18 +297,6 @@ BEGIN {
     print "[-] Error: Cannot create directory "trace_dir > "/dev/stderr"
     exit 1
   }
-  if (0 != system("mkdir -p -m 0700 "trace_dir"/.state/auto_extras")) {
-    print "[-] Error: Cannot create directory "trace_dir"/.state/auto_extras" > "/dev/stderr"
-    exit 1
-  }
-  if (0 != system("mkdir -p -m 0700 "trace_dir"/.state/redundant_edges")) {
-    print "[-] Error: Cannot create directory "trace_dir"/.state/redundant_edges" > "/dev/stderr"
-    exit 1
-  }
-  if (0 != system("mkdir -p -m 0700 "trace_dir"/.state/deterministic_done")) {
-    print "[-] Error: Cannot create directory "trace_dir"/.state/deterministic_done" > "/dev/stderr"
-    exit 1
-  }
 
   if (stdin_file) {
     # truncate input file
@@ -342,7 +330,7 @@ BEGIN {
   } else {
     stat_format = "-f '%z %N'" # *BSD, MacOS
   }
-  cmdline = "cd "in_dir" && find . -type f -exec stat "stat_format" \\{\\} \\; | sort -n | cut -d' ' -f2-"
+  cmdline = "cd "in_dir" && find . -maxdepth 1 -type f -exec stat "stat_format" \\{\\} \\; | sort -n | cut -d' ' -f2-"
   while (cmdline | getline) {
     infilesSmallToBig[i++] = $0
   }
