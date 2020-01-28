@@ -330,7 +330,7 @@ BEGIN {
   } else {
     stat_format = "-f '%z %N'" # *BSD, MacOS
   }
-  cmdline = "cd "in_dir" && find . -maxdepth 1 -type f -exec stat "stat_format" \\{\\} \\; | sort -n | cut -d' ' -f2-"
+  cmdline = "cd "in_dir" && find . \\( ! -name . -a -type d -prune \\) -o -type f -exec stat "stat_format" \\{\\} \\; | sort -n | cut -d' ' -f2-"
   while (cmdline | getline) {
     infilesSmallToBig[i++] = $0
   }
