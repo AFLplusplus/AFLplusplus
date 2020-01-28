@@ -190,7 +190,8 @@ struct InsTrim : public ModulePass {
 
           if (instFilename.str().empty()) {
 
-            /* If the original location is empty, try using the inlined location */
+            /* If the original location is empty, try using the inlined location
+             */
             DILocation *oDILoc = cDILoc->getInlinedAt();
             if (oDILoc) {
 
@@ -424,8 +425,8 @@ struct InsTrim : public ModulePass {
 
     }
 
-    OKF("Instrumented %u locations (%llu, %llu) (%s mode)\n",
-        total_instr, total_rs, total_hs,
+    OKF("Instrumented %u locations (%llu, %llu) (%s mode)\n", total_instr,
+        total_rs, total_hs,
         getenv("AFL_HARDEN")
             ? "hardened"
             : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
