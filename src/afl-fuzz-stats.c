@@ -603,7 +603,7 @@ void show_stats(void) {
           DI(stage_cycles[STAGE_COLORIZATION]), DI(stage_finds[STAGE_ITS]),
           DI(stage_cycles[STAGE_ITS]));
 
-  SAYF(bV bSTOP "   py/custom : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
+  SAYF(bV bSTOP "   custom/rq : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
        tmp);
 
   if (!bytes_trim_out) {
