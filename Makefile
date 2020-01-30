@@ -29,7 +29,7 @@ VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
 PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
-SH_PROGS    = afl-plot afl-cmin afl-whatsup afl-system-config
+SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8)
 
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
@@ -48,6 +48,14 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .te
 	CFLAGS_OPT = -march=native
 endif
 
+ifneq "$(shell uname -m)" "x86_64"
+ ifneq "$(shell uname -m)" "i386"
+  ifneq "$(shell uname -m)" "amd64"
+	AFL_NO_X86=1
+  endif
+ endif
+endif
+
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
 CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
@@ -55,17 +63,17 @@ CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
-ifneq "($filter %3.7m, $(shell python3.7m-config --includes 2>/dev/null)" ""
+ifneq "$(filter %3.7m, $(shell python3.7m-config --includes 2>/dev/null))" ""
   PYTHON_INCLUDE  ?= $(shell python3.7m-config --includes)
   PYTHON_LIB      ?= $(shell python3.7m-config --ldflags)
   PYTHON_VERSION   = 3.7m
 else
-  ifneq "($filter %3.7, $(shell python3.7-config --includes) 2> /dev/null" ""
+  ifneq "$(filter %3.7, $(shell python3.7-config --includes 2>/dev/null))" ""
     PYTHON_INCLUDE  ?= $(shell python3.7-config --includes)
     PYTHON_LIB      ?= $(shell python3.7-config --ldflags)
     PYTHON_VERSION   = 3.7
   else
-    ifneq "($filter %2.7, $(shell python2.7-config --includes) 2> /dev/null" ""
+    ifneq "$(filter %2.7, $(shell python2.7-config --includes 2>/dev/null))" ""
       PYTHON_INCLUDE  ?= $(shell python2.7-config --includes)
       PYTHON_LIB      ?= $(shell python2.7-config --ldflags)
       PYTHON_VERSION   = 2.7
@@ -77,14 +85,14 @@ PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7m && echo /usr/include/p
 PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7 && echo /usr/include/python3.7)
 PYTHON_INCLUDE	?= $(shell test -e /usr/include/python2.7 && echo /usr/include/python2.7)
 
-ifneq "($filter %3.7m, $(PYTHON_INCLUDE))" ""
+ifneq "$(filter %3.7m, $(PYTHON_INCLUDE))" ""
     PYTHON_VERSION ?= 3.7m
     PYTHON_LIB  ?= -lpython3.7m
 else
-    ifneq "($filter %3.7, $(PYTHON_INCLUDE))" ""
+    ifneq "$(filter %3.7, $(PYTHON_INCLUDE))" ""
         PYTHON_VERSION ?= 3.7
     else
-        ifneq "($filter %2.7, $(PYTHON_INCLUDE))" ""
+        ifneq "$(filter %2.7, $(PYTHON_INCLUDE))" ""
             PYTHON_VERSION ?= 2.7
             PYTHON_LIB     ?= -lpython2.7
         else
