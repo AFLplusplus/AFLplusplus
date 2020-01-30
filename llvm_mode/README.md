@@ -1,6 +1,6 @@
 # Fast LLVM-based instrumentation for afl-fuzz
 
-  (See [../docs/README](../docs/README.md) for the general instruction manual.)
+  (See [../README](../README.md) for the general instruction manual.)
 
   (See [../gcc_plugin/README.gcc](../gcc_plugin/README.gcc.md) for the GCC-based instrumentation.)
 
