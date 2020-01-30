@@ -596,15 +596,28 @@ void show_stats(void) {
                   : cRST),
        tmp);
 
-  sprintf(tmp, "%s/%s, %s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_PYTHON]),
-          DI(stage_cycles[STAGE_PYTHON]), DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
-          DI(stage_cycles[STAGE_CUSTOM_MUTATOR]),
-          DI(stage_finds[STAGE_COLORIZATION]),
-          DI(stage_cycles[STAGE_COLORIZATION]), DI(stage_finds[STAGE_ITS]),
-          DI(stage_cycles[STAGE_ITS]));
+  if (cmplog_mode) {
 
-  SAYF(bV bSTOP "   custom/rq : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
-       tmp);
+    sprintf(tmp, "%s/%s, %s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_PYTHON]),
+            DI(stage_cycles[STAGE_PYTHON]), DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
+            DI(stage_cycles[STAGE_CUSTOM_MUTATOR]),
+            DI(stage_finds[STAGE_COLORIZATION]),
+            DI(stage_cycles[STAGE_COLORIZATION]), DI(stage_finds[STAGE_ITS]),
+            DI(stage_cycles[STAGE_ITS]));
+
+    SAYF(bV bSTOP "   custom/rq : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
+         tmp);
+         
+  } else {
+
+    sprintf(tmp, "%s/%s, %s/%s", DI(stage_finds[STAGE_PYTHON]),
+            DI(stage_cycles[STAGE_PYTHON]), DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
+            DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
+
+    SAYF(bV bSTOP "   py/custom : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
+         tmp);
+
+  }
 
   if (!bytes_trim_out) {
 
