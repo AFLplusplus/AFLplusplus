@@ -452,6 +452,11 @@ extern u32                a_extras_cnt; /* Total number of tokens available */
 
 u8* (*post_handler)(u8* buf, u32* len);
 
+/* CmpLog */
+
+extern u8* cmplog_binary;
+extern s32 cmplog_forksrv_pid;
+
 /* hooks for the custom mutator function */
 /**
  * Perform custom mutations on a given input
@@ -647,12 +652,13 @@ char** get_qemu_argv(u8*, char**, int);
 char** get_wine_argv(u8*, char**, int);
 void   save_cmdline(u32, char**);
 
-/* RedQueen */
-
-extern u8* cmplog_binary;
-extern s32 cmplog_forksrv_pid;
+/* CmpLog */
 
 void init_cmplog_forkserver(char** argv);
+u8 common_fuzz_cmplog_stuff(char** argv, u8* out_buf, u32 len);
+
+/* RedQueen */
+
 u8   input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
                           u32 exec_cksum);
 
