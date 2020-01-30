@@ -3,10 +3,23 @@
 #include <stdarg.h>
 #include <unistd.h>
 
+#include "llvm/Config/llvm-config.h"
+#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
+typedef long double max_align_t;
+#endif
+
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
+#if LLVM_VERSION_MAJOR > 3 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/DebugInfo.h"
+#else
+#include "llvm/Support/CFG.h"
+#include "llvm/Analysis/Dominators.h"
+#include "llvm/DebugInfo.h"
+#endif
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -16,9 +29,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CFG.h"
 #include <unordered_set>
 #include <random>
 #include <list>
@@ -97,7 +108,7 @@ struct InsTrim : public ModulePass {
   // ripped from aflgo
   static bool isBlacklisted(const Function *F) {
 
-    static const SmallVector<std::string, 4> Blacklist = {
+    static const char *Blacklist[] = {
 
         "asan.",
         "llvm.",
@@ -173,6 +184,8 @@ struct InsTrim : public ModulePass {
         StringRef    instFilename;
         unsigned int instLine = 0;
 
+#if LLVM_VERSION_MAJOR >= 4 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
         for (auto &BB : F) {
 
           BasicBlock::iterator IP = BB.getFirstInsertionPt();
@@ -227,6 +240,48 @@ struct InsTrim : public ModulePass {
 
         }
 
+#else
+        for (auto &BB : F) {
+
+          BasicBlock::iterator IP = BB.getFirstInsertionPt();
+          IRBuilder<>          IRB(&(*IP));
+          if (Loc.isUnknown()) Loc = IP->getDebugLoc();
+
+        }
+
+        if (!Loc.isUnknown()) {
+
+          DILocation cDILoc(Loc.getAsMDNode(C));
+
+          instLine = cDILoc.getLineNumber();
+          instFilename = cDILoc.getFilename();
+
+          /* Continue only if we know where we actually are */
+          if (!instFilename.str().empty()) {
+
+            for (std::list<std::string>::iterator it = myWhitelist.begin();
+                 it != myWhitelist.end(); ++it) {
+
+              if (instFilename.str().length() >= it->length()) {
+
+                if (instFilename.str().compare(
+                        instFilename.str().length() - it->length(),
+                        it->length(), *it) == 0) {
+
+                  instrumentBlock = true;
+                  break;
+
+                }
+
+              }
+
+            }
+
+          }
+
+        }
+
+#endif
         /* Either we couldn't figure out our location or the location is
          * not whitelisted, so we skip instrumentation. */
         if (!instrumentBlock) {

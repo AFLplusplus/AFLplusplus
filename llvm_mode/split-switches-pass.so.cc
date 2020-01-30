@@ -23,8 +23,9 @@
 #include <fstream>
 #include <sys/time.h>
 
+#include "llvm/Config/llvm-config.h"
+
 #include "llvm/ADT/Statistic.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
@@ -32,9 +33,19 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/IR/Verifier.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
+
+#include "llvm/IR/IRBuilder.h"
+#if LLVM_VERSION_MAJOR > 3 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
+#include "llvm/IR/Verifier.h"
+#include "llvm/IR/DebugInfo.h"
+#else
+#include "llvm/Analysis/Verifier.h"
+#include "llvm/DebugInfo.h"
+#define nullptr 0
+#endif
 
 #include <set>
 
@@ -69,7 +80,7 @@ class SplitSwitchesTransform : public ModulePass {
 
   static bool isBlacklisted(const Function *F) {
 
-    static const SmallVector<std::string, 5> Blacklist = {
+    static const char *Blacklist[] = {
 
         "asan.", "llvm.", "sancov.", "__ubsan_handle_", "ign."
 
@@ -140,7 +151,7 @@ BasicBlock *SplitSwitchesTransform::switchConvert(
   IntegerType *        ByteType = IntegerType::get(OrigBlock->getContext(), 8);
   unsigned             BytesInValue = bytesChecked.size();
   std::vector<uint8_t> setSizes;
-  std::vector<std::set<uint8_t>> byteSets(BytesInValue, std::set<uint8_t>());
+  std::vector<std::set<uint8_t> > byteSets(BytesInValue, std::set<uint8_t>());
 
   assert(ValTypeBitWidth >= 8 && ValTypeBitWidth <= 64);
 
@@ -213,8 +224,25 @@ BasicBlock *SplitSwitchesTransform::switchConvert(
     NewNode->getInstList().push_back(Comp);
 
     bytesChecked[smallestIndex] = true;
-    if (std::all_of(bytesChecked.begin(), bytesChecked.end(),
-                    [](bool b) { return b; })) {
+    bool allBytesAreChecked = true;
+
+    for (std::vector<bool>::iterator BCI = bytesChecked.begin(),
+                                     E = bytesChecked.end();
+         BCI != E; ++BCI) {
+
+      if (!*BCI) {
+
+        allBytesAreChecked = false;
+        break;
+
+      }
+
+    }
+
+    //    if (std::all_of(bytesChecked.begin(), bytesChecked.end(),
+    //                    [](bool b) { return b; })) {
+
+    if (allBytesAreChecked) {
 
       assert(Cases.size() == 1);
       BranchInst::Create(Cases[0].BB, NewDefault, Comp, NewNode);
@@ -306,6 +334,10 @@ BasicBlock *SplitSwitchesTransform::switchConvert(
 
 bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
+#if (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 7)
+  LLVMContext &C = M.getContext();
+#endif
+
   std::vector<SwitchInst *> switches;
 
   /* iterate over all functions, bbs and instruction and add
@@ -327,6 +359,8 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
          * For now, just instrument the block if we are not able
          * to determine our location. */
         DebugLoc Loc = IP->getDebugLoc();
+#if LLVM_VERSION_MAJOR >= 4 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
         if (Loc) {
 
           DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
@@ -379,6 +413,47 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
         }
 
+#else
+        if (!Loc.isUnknown()) {
+
+          DILocation cDILoc(Loc.getAsMDNode(C));
+
+          unsigned int instLine = cDILoc.getLineNumber();
+          StringRef    instFilename = cDILoc.getFilename();
+
+          (void)instLine;
+
+          /* Continue only if we know where we actually are */
+          if (!instFilename.str().empty()) {
+
+            for (std::list<std::string>::iterator it = myWhitelist.begin();
+                 it != myWhitelist.end(); ++it) {
+
+              /* We don't check for filename equality here because
+               * filenames might actually be full paths. Instead we
+               * check that the actual filename ends in the filename
+               * specified in the list. */
+              if (instFilename.str().length() >= it->length()) {
+
+                if (instFilename.str().compare(
+                        instFilename.str().length() - it->length(),
+                        it->length(), *it) == 0) {
+
+                  instrumentBlock = true;
+                  break;
+
+                }
+
+              }
+
+            }
+
+          }
+
+        }
+
+#endif
+
         /* Either we couldn't figure out our location or the location is
          * not whitelisted, so we skip instrumentation. */
         if (!instrumentBlock) continue;
@@ -426,8 +501,7 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
      * if the default block is set as an unreachable we avoid creating one
      * because will never be a valid target.*/
     BasicBlock *NewDefault = nullptr;
-    NewDefault = BasicBlock::Create(SI->getContext(), "NewDefault");
-    NewDefault->insertInto(F, Default);
+    NewDefault = BasicBlock::Create(SI->getContext(), "NewDefault", F, Default);
     BranchInst::Create(Default, NewDefault);
 
     /* Prepare cases vector. */
