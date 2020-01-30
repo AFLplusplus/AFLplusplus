@@ -531,6 +531,13 @@ u8 fuzz_one_original(char** argv) {
 
   }
 
+  if (cmplog_mode) {
+
+    if (input_to_state_stage(argv, in_buf, out_buf, len, queue_cur->exec_cksum))
+      goto abandon_entry;
+
+  }
+
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs

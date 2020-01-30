@@ -30,5 +30,8 @@
 void setup_shm(unsigned char dumb_mode);
 void remove_shm(void);
 
+extern int cmplog_mode;
+extern struct cmp_map* cmp_map;
+
 #endif
 

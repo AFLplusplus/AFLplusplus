@@ -40,6 +40,7 @@ static u8*  obj_path;                  /* Path to runtime libraries         */
 static u8** cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
+static u8   cmplog_mode;
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
@@ -196,7 +197,14 @@ static void edit_params(u32 argc, char** argv) {
 
   // /laf
 
+  if (cmplog_mode) {
+
+    cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard,trace-cmp";
+
+  } else {
+
 #ifdef USE_TRACE_PC
+  
   cc_params[cc_par_cnt++] =
       "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
   // cc_params[cc_par_cnt++] = "-mllvm";
@@ -223,6 +231,8 @@ static void edit_params(u32 argc, char** argv) {
   }
 
 #endif                                                     /* ^USE_TRACE_PC */
+
+  }
 
   cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
@@ -390,11 +400,17 @@ static void edit_params(u32 argc, char** argv) {
     switch (bit_mode) {
 
       case 0:
-        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt.o", obj_path);
+        if (cmplog_mode)
+          cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-cmplog-rt.o", obj_path);
+        else
+          cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt.o", obj_path);
         break;
 
       case 32:
-        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-32.o", obj_path);
+        if (cmplog_mode)
+          cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-cmplog-rt-32.o", obj_path);
+        else
+          cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-32.o", obj_path);
 
         if (access(cc_params[cc_par_cnt - 1], R_OK))
           FATAL("-m32 is not supported by your compiler");
@@ -402,7 +418,10 @@ static void edit_params(u32 argc, char** argv) {
         break;
 
       case 64:
-        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-64.o", obj_path);
+        if (cmplog_mode)
+          cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-cmplog-rt-64.o", obj_path);
+        else
+          cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-64.o", obj_path);
 
         if (access(cc_params[cc_par_cnt - 1], R_OK))
           FATAL("-m64 is not supported by your compiler");
@@ -475,6 +494,10 @@ int main(int argc, char** argv) {
 #endif                                                     /* ^USE_TRACE_PC */
 
   }
+  
+  cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG");
+  if (cmplog_mode)
+    printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
 
 #ifndef __ANDROID__
   find_obj(argv[0]);
