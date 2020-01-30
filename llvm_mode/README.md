@@ -1,7 +1,7 @@
 # Fast LLVM-based instrumentation for afl-fuzz
 
-  (See ../docs/README for the general instruction manual.)
-  (See ../gcc_plugin/README.gcc for the GCC-based instrumentation.)
+  (See [../docs/README](../docs/README) for the general instruction manual.)
+  (See [../gcc_plugin/README.gcc](../gcc_plugin/README.gcc) for the GCC-based instrumentation.)
 
 ## 1) Introduction
 
@@ -87,22 +87,26 @@ Several options are present to make llvm_mode faster or help it rearrange
 the code to make afl-fuzz path discovery easier.
 
 If you need just to instrument specific parts of the code, you can whitelist
-which C/C++ files to actually instrument. See README.whitelist
+which C/C++ files to actually instrument. See [README.whitelist](README.whitelist)
 
-For splitting memcmp, strncmp, etc. please see README.laf-intel
+For splitting memcmp, strncmp, etc. please see [README.laf-intel](README.laf-intel)
 
 Then there is an optimized instrumentation strategy that uses CFGs and
 markers to just instrument what is needed. This increases speed by 20-25%
 however has a lower path discovery.
 If you want to use this, set AFL_LLVM_INSTRIM=1
-See README.instrim
+See [README.instrim](README.instrim)
+
+A new instrumentation called CmpLog is also available as an alternative to
+laf-intel that allow AFL++ to apply mutations similar to Redqueen.
+See [README.cmplog](README.cmplog)
 
 Finally if your llvm version is 8 or lower, you can activate a mode that
 prevents that a counter overflow result in a 0 value. This is good for
 path discovery, but the llvm implementation for x86 for this functionality
 is not optimal and was only fixed in llvm 9.
 You can set this with AFL_LLVM_NOT_ZERO=1
-See README.neverzero
+See [README.neverzero](README.neverzero)
 
 ## 4) Gotchas, feedback, bugs
 
