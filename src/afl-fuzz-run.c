@@ -405,6 +405,8 @@ u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 handicap,
      count its spin-up time toward binary calibration. */
 
   if (dumb_mode != 1 && !no_forkserver && !forksrv_pid) init_forkserver(argv);
+  if (dumb_mode != 1 && !no_forkserver && !cmplog_forksrv_pid && cmplog_mode)
+    init_cmplog_forkserver(argv);
 
   if (q->exec_cksum) memcpy(first_trace, trace_bits, MAP_SIZE);
 

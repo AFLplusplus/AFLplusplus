@@ -100,6 +100,7 @@ static void usage(u8* argv0) {
       "  -f file       - location read by the fuzzed program (stdin)\n"
       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
       "  -m megs       - memory limit for child process (%d MB)\n"
+      "  -c program    - enable CmpLog specifying a binary compiled for it\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -193,11 +194,19 @@ int main(int argc, char** argv) {
   init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
   while ((opt = getopt(argc, argv,
-                       "+i:I:o:f:m:t:T:dnCB:S:M:x:QNUWe:p:s:V:E:L:hR")) > 0)
+                       "+c:i:I:o:f:m:t:T:dnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) > 0)
 
     switch (opt) {
 
       case 'I': infoexec = optarg; break;
+
+      case 'c': {
+
+        cmplog_mode = 1;
+        cmplog_binary = ck_strdup(optarg);
+        break;
+
+      }
 
       case 's': {
 
@@ -858,6 +867,8 @@ int main(int argc, char** argv) {
 
   if (!out_file) setup_stdio_file();
 
+  if (cmplog_binary)
+    check_binary(cmplog_binary);
   check_binary(argv[optind]);
 
   start_time = get_cur_time();

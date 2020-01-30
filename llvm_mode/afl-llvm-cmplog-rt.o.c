@@ -57,14 +57,11 @@
    is used for instrumentation output before __afl_map_shm() has a chance to
    run. It will end up as .comm, so it shouldn't be too wasteful. */
 
-u8  __afl_area_initial[MAP_SIZE];
-u8* __afl_area_ptr = __afl_area_initial;
+// In CmpLog, the only usage of __afl_area_ptr is to report errors
+u8* __afl_area_ptr;
 
-#ifdef __ANDROID__
-u32 __afl_prev_loc;
-#else
-__thread u32 __afl_prev_loc;
-#endif
+struct cmp_map* __afl_cmp_map;
+__thread u32    __afl_cmp_counter;
 
 /* Running in persistent mode? */
 
@@ -123,6 +120,18 @@ static void __afl_map_shm(void) {
        our parent doesn't give up on us. */
 
     __afl_area_ptr[0] = 1;
+
+  }
+
+  id_str = getenv(CMPLOG_SHM_ENV_VAR);
+
+  if (id_str) {
+
+    u32 shm_id = atoi(id_str);
+
+    __afl_cmp_map = shmat(shm_id, NULL, 0);
+
+    if (__afl_cmp_map == (void*)-1) _exit(1);
 
   }
 
@@ -230,9 +239,8 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     if (is_persistent) {
 
-      memset(__afl_area_ptr, 0, MAP_SIZE);
+      // memset(__afl_area_ptr, 0, MAP_SIZE);
       __afl_area_ptr[0] = 1;
-      __afl_prev_loc = 0;
 
     }
 
@@ -249,7 +257,6 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       raise(SIGSTOP);
 
       __afl_area_ptr[0] = 1;
-      __afl_prev_loc = 0;
 
       return 1;
 
@@ -259,7 +266,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
          follows the loop is not traced. We do that by pivoting back to the
          dummy output region. */
 
-      __afl_area_ptr = __afl_area_initial;
+      // __afl_area_ptr = __afl_area_initial;
 
     }
 
@@ -298,54 +305,106 @@ __attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
 
 }
 
-/* The following stuff deals with supporting -fsanitize-coverage=trace-pc-guard.
-   It remains non-operational in the traditional, plugin-backed LLVM mode.
-   For more info about 'trace-pc-guard', see README.llvm.
+///// CmpLog instrumentation
 
-   The first function (__sanitizer_cov_trace_pc_guard) is called back on every
-   edge (as opposed to every basic block). */
+void __sanitizer_cov_trace_cmp1(uint8_t Arg1, uint8_t Arg2) {
 
-void __sanitizer_cov_trace_pc_guard(uint32_t* guard) {
-
-  __afl_area_ptr[*guard]++;
+  return;
 
 }
 
-/* Init callback. Populates instrumentation IDs. Note that we're using
-   ID of 0 as a special value to indicate non-instrumented bits. That may
-   still touch the bitmap, but in a fairly harmless way. */
+void __sanitizer_cov_trace_cmp2(uint16_t Arg1, uint16_t Arg2) {
 
-void __sanitizer_cov_trace_pc_guard_init(uint32_t* start, uint32_t* stop) {
+  if (!__afl_cmp_map) return;
 
-  u32 inst_ratio = 100;
-  u8* x;
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
 
-  if (start == stop || *start) return;
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+  // if (!__afl_cmp_map->headers[k].cnt)
+  //  __afl_cmp_map->headers[k].cnt = __afl_cmp_counter++;
 
-  x = getenv("AFL_INST_RATIO");
-  if (x) inst_ratio = atoi(x);
+  __afl_cmp_map->headers[k].shape = 1;
+  //__afl_cmp_map->headers[k].type = CMP_TYPE_INS;
 
-  if (!inst_ratio || inst_ratio > 100) {
+  hits &= CMP_MAP_H - 1;
+  __afl_cmp_map->log[k][hits].v0 = Arg1;
+  __afl_cmp_map->log[k][hits].v1 = Arg2;
 
-    fprintf(stderr, "[-] ERROR: Invalid AFL_INST_RATIO (must be 1-100).\n");
-    abort();
+}
 
-  }
+void __sanitizer_cov_trace_cmp4(uint32_t Arg1, uint32_t Arg2) {
 
-  /* Make sure that the first element in the range is always set - we use that
-     to avoid duplicate calls (which can happen as an artifact of the underlying
-     implementation in LLVM). */
+  if (!__afl_cmp_map) return;
 
-  *(start++) = R(MAP_SIZE - 1) + 1;
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
 
-  while (start < stop) {
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
 
-    if (R(100) < inst_ratio)
-      *start = R(MAP_SIZE - 1) + 1;
-    else
-      *start = 0;
+  __afl_cmp_map->headers[k].shape = 3;
 
-    start++;
+  hits &= CMP_MAP_H - 1;
+  __afl_cmp_map->log[k][hits].v0 = Arg1;
+  __afl_cmp_map->log[k][hits].v1 = Arg2;
+
+}
+
+void __sanitizer_cov_trace_cmp8(uint64_t Arg1, uint64_t Arg2) {
+
+  if (!__afl_cmp_map) return;
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+
+  __afl_cmp_map->headers[k].shape = 7;
+
+  hits &= CMP_MAP_H - 1;
+  __afl_cmp_map->log[k][hits].v0 = Arg1;
+  __afl_cmp_map->log[k][hits].v1 = Arg2;
+
+}
+
+#if defined(__APPLE__)
+#pragma weak __sanitizer_cov_trace_const_cmp1 = __sanitizer_cov_trace_cmp1
+#pragma weak __sanitizer_cov_trace_const_cmp2 = __sanitizer_cov_trace_cmp2
+#pragma weak __sanitizer_cov_trace_const_cmp4 = __sanitizer_cov_trace_cmp4
+#pragma weak __sanitizer_cov_trace_const_cmp8 = __sanitizer_cov_trace_cmp8
+#else
+void __sanitizer_cov_trace_const_cmp1(uint8_t Arg1, uint8_t Arg2)
+    __attribute__((alias("__sanitizer_cov_trace_cmp1")));
+void __sanitizer_cov_trace_const_cmp2(uint16_t Arg1, uint16_t Arg2)
+    __attribute__((alias("__sanitizer_cov_trace_cmp2")));
+void __sanitizer_cov_trace_const_cmp4(uint32_t Arg1, uint32_t Arg2)
+    __attribute__((alias("__sanitizer_cov_trace_cmp4")));
+void __sanitizer_cov_trace_const_cmp8(uint64_t Arg1, uint64_t Arg2)
+    __attribute__((alias("__sanitizer_cov_trace_cmp8")));
+#endif                                                /* defined(__APPLE__) */
+
+void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t* Cases) {
+
+  for (uint64_t i = 0; i < Cases[0]; i++) {
+
+    uintptr_t k = (uintptr_t)__builtin_return_address(0) + i;
+    k = (k >> 4) ^ (k << 8);
+    k &= CMP_MAP_W - 1;
+
+    u32 hits = __afl_cmp_map->headers[k].hits;
+    __afl_cmp_map->headers[k].hits = hits + 1;
+
+    __afl_cmp_map->headers[k].shape = 7;
+
+    hits &= CMP_MAP_H - 1;
+    __afl_cmp_map->log[k][hits].v0 = Val;
+    __afl_cmp_map->log[k][hits].v1 = Cases[i + 2];
 
   }
 

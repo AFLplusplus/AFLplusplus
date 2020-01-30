@@ -365,6 +365,10 @@
 
 #define AFL_QEMU_NOT_ZERO
 
+/* AFL RedQueen */
+
+#define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
+
 /* Uncomment this to use inferior block-coverage-based instrumentation. Note
    that you need to recompile the target binary for this to have any effect: */
 
