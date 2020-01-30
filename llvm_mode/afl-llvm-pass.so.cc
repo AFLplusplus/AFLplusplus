@@ -37,14 +37,26 @@
 #include <fstream>
 #include <sys/time.h>
 
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/BasicBlock.h"
+#include "llvm/Config/llvm-config.h"
+#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
+typedef long double max_align_t;
+#endif
+
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+
+#if LLVM_VERSION_MAJOR > 3 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/CFG.h"
+#else
+#include "llvm/DebugInfo.h"
+#include "llvm/Support/CFG.h"
+#endif
 
 using namespace llvm;
 
@@ -78,7 +90,7 @@ class AFLCoverage : public ModulePass {
   // ripped from aflgo
   static bool isBlacklisted(const Function *F) {
 
-    static const SmallVector<std::string, 4> Blacklist = {
+    static const char *Blacklist[] = {
 
         "asan.",
         "llvm.",
@@ -197,6 +209,8 @@ bool AFLCoverage::runOnModule(Module &M) {
          * For now, just instrument the block if we are not able
          * to determine our location. */
         DebugLoc Loc = IP->getDebugLoc();
+#if LLVM_VERSION_MAJOR >= 4 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
         if (Loc) {
 
           DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
@@ -249,6 +263,47 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         }
 
+#else
+        if (!Loc.isUnknown()) {
+
+          DILocation cDILoc(Loc.getAsMDNode(C));
+
+          unsigned int instLine = cDILoc.getLineNumber();
+          StringRef    instFilename = cDILoc.getFilename();
+
+          (void)instLine;
+
+          /* Continue only if we know where we actually are */
+          if (!instFilename.str().empty()) {
+
+            for (std::list<std::string>::iterator it = myWhitelist.begin();
+                 it != myWhitelist.end(); ++it) {
+
+              /* We don't check for filename equality here because
+               * filenames might actually be full paths. Instead we
+               * check that the actual filename ends in the filename
+               * specified in the list. */
+              if (instFilename.str().length() >= it->length()) {
+
+                if (instFilename.str().compare(
+                        instFilename.str().length() - it->length(),
+                        it->length(), *it) == 0) {
+
+                  instrumentBlock = true;
+                  break;
+
+                }
+
+              }
+
+            }
+
+          }
+
+        }
+
+#endif
+
         /* Either we couldn't figure out our location or the location is
          * not whitelisted, so we skip instrumentation. */
         if (!instrumentBlock) continue;
@@ -273,13 +328,19 @@ bool AFLCoverage::runOnModule(Module &M) {
       // result: a little more speed and less map pollution
       int more_than_one = -1;
       // fprintf(stderr, "BB %u: ", cur_loc);
-      for (BasicBlock *Pred : predecessors(&BB)) {
+      for (pred_iterator PI = pred_begin(&BB), E = pred_end(&BB); PI != E;
+           ++PI) {
+
+        BasicBlock *Pred = *PI;
 
         int count = 0;
         if (more_than_one == -1) more_than_one = 0;
         // fprintf(stderr, " %p=>", Pred);
 
-        for (BasicBlock *Succ : successors(Pred)) {
+        for (succ_iterator SI = succ_begin(Pred), E = succ_end(Pred); SI != E;
+             ++SI) {
+
+          BasicBlock *Succ = *SI;
 
           // if (count > 0)
           //  fprintf(stderr, "|");

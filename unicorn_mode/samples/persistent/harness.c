@@ -1,16 +1,20 @@
 /*
-   Simple test harness for AFL++'s unicornafl c mode.
+   Persistent test harness for AFL++'s unicornafl c mode.
 
-   This loads the simple_target_x86_64 binary into
+   This loads the persistent_target.bin binary (precompiled as X86_64 code) into
    Unicorn's memory map for emulation, places the specified input into
-   argv[1], sets up argv, and argc and executes 'main()'.
-   If run inside AFL, afl_fuzz automatically does the "right thing"
+   the argv buffer (handed in as first parameter), and executes 'main()'.
+   Any crashes during emulation will automatically be handled by the afl-fuzz() function.
 
    Run under AFL as follows:
 
-   $ cd <afl_path>/unicorn_mode/samples/simple/
+   $ cd <afl_path>/unicorn_mode/samples/persistent/
    $ make
    $ ../../../afl-fuzz -m none -i sample_inputs -o out -- ./harness @@
+
+   (Re)run a simgle input with block tracing using:
+
+   $ ./harness -t [inputfile]
 */
 
 // This is not your everyday Unicorn.
@@ -71,9 +75,9 @@ static void hook_strlen(uc_engine *uc, uint64_t address, uint32_t size, void *us
     //Hook
     //116b:       e8 c0 fe ff ff          call   1030 <strlen@plt>
     // We place the return at RAX
-    //printf("Strlen hook at addr 0x%lx (size: 0x%x), result: %ld\n", address, size, current_input_len);
     uc_reg_write(uc, UC_X86_REG_RAX, &current_input_len);
     // We skip the actual call by updating RIP
+    //printf("Strlen hook at addr 0x%lx (size: 0x%x), result: %ld\n", address, size, current_input_len);
     uint64_t next_addr = address + size; 
     uc_reg_write(uc, UC_X86_REG_RIP, &next_addr);
 }
@@ -247,7 +251,7 @@ int main(int argc, char **argv, char **envp) {
         1,  // Count of end addresses
         NULL, // Optional calback to run after each exec
         false, // true, if the optional callback should be run also for non-crashes
-        100, // For persistent mode: How many rounds to run
+        1000, // For persistent mode: How many rounds to run
         NULL // additional data pointer
     );
     switch(afl_ret) {

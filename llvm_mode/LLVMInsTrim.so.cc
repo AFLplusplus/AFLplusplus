@@ -3,10 +3,23 @@
 #include <stdarg.h>
 #include <unistd.h>
 
+#include "llvm/Config/llvm-config.h"
+#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
+typedef long double max_align_t;
+#endif
+
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
+#if LLVM_VERSION_MAJOR > 3 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/DebugInfo.h"
+#else
+#include "llvm/Support/CFG.h"
+#include "llvm/Analysis/Dominators.h"
+#include "llvm/DebugInfo.h"
+#endif
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -16,9 +29,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CFG.h"
 #include <unordered_set>
 #include <random>
 #include <list>
@@ -97,7 +108,7 @@ struct InsTrim : public ModulePass {
   // ripped from aflgo
   static bool isBlacklisted(const Function *F) {
 
-    static const SmallVector<std::string, 4> Blacklist = {
+    static const char *Blacklist[] = {
 
         "asan.",
         "llvm.",
@@ -144,19 +155,6 @@ struct InsTrim : public ModulePass {
     // this is our default
     MarkSetOpt = true;
 
-    /*    // I dont think this makes sense to port into LLVMInsTrim
-          char* inst_ratio_str = getenv("AFL_INST_RATIO");
-          unsigned int inst_ratio = 100;
-          if (inst_ratio_str) {
-
-           if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
-       inst_ratio > 100) FATAL("Bad value of AFL_INST_RATIO (must be between 1
-       and 100)");
-
-          }
-
-    */
-
     LLVMContext &C = M.getContext();
     IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
     IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
@@ -186,6 +184,8 @@ struct InsTrim : public ModulePass {
         StringRef    instFilename;
         unsigned int instLine = 0;
 
+#if LLVM_VERSION_MAJOR >= 4 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
         for (auto &BB : F) {
 
           BasicBlock::iterator IP = BB.getFirstInsertionPt();
@@ -240,6 +240,48 @@ struct InsTrim : public ModulePass {
 
         }
 
+#else
+        for (auto &BB : F) {
+
+          BasicBlock::iterator IP = BB.getFirstInsertionPt();
+          IRBuilder<>          IRB(&(*IP));
+          if (Loc.isUnknown()) Loc = IP->getDebugLoc();
+
+        }
+
+        if (!Loc.isUnknown()) {
+
+          DILocation cDILoc(Loc.getAsMDNode(C));
+
+          instLine = cDILoc.getLineNumber();
+          instFilename = cDILoc.getFilename();
+
+          /* Continue only if we know where we actually are */
+          if (!instFilename.str().empty()) {
+
+            for (std::list<std::string>::iterator it = myWhitelist.begin();
+                 it != myWhitelist.end(); ++it) {
+
+              if (instFilename.str().length() >= it->length()) {
+
+                if (instFilename.str().compare(
+                        instFilename.str().length() - it->length(),
+                        it->length(), *it) == 0) {
+
+                  instrumentBlock = true;
+                  break;
+
+                }
+
+              }
+
+            }
+
+          }
+
+        }
+
+#endif
         /* Either we couldn't figure out our location or the location is
          * not whitelisted, so we skip instrumentation. */
         if (!instrumentBlock) {
@@ -432,28 +474,19 @@ struct InsTrim : public ModulePass {
         IRB.CreateStore(Incr, MapPtrIdx)
             ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-        /* Set prev_loc to cur_loc >> 1 */
-        /*
-        StoreInst *Store = IRB.CreateStore(ConstantInt::get(Int32Ty, L >> 1),
-        OldPrev); Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C,
-        None));
-        */
-
         total_instr++;
 
       }
 
     }
 
-    OKF("Instrumented %u locations (%llu, %llu) (%s mode)\n" /*", ratio
-                                                                %u%%)."*/
-        ,
-        total_instr, total_rs, total_hs,
+    OKF("Instrumented %u locations (%llu, %llu) (%s mode)\n", total_instr,
+        total_rs, total_hs,
         getenv("AFL_HARDEN")
             ? "hardened"
             : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
                    ? "ASAN/MSAN"
-                   : "non-hardened") /*, inst_ratio*/);
+                   : "non-hardened"));
     return false;
 
   }
