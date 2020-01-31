@@ -237,15 +237,32 @@ void bind_to_free_cpu(void) {
   }
 
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
-  if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c))
-    PFATAL("pthread_setaffinity failed");
+  if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c)) {
+ 
+    if (cpu_start == cpu_core_count)
+      PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
+    WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
+    cpu_start++;
+    goto try
+      ;
+
+  }
 #elif defined(__NetBSD__)
-if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c))
-  PFATAL("pthread_setaffinity failed");
+if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
+ 
+  if (cpu_start == cpu_core_count)
+    PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
+  WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
+  cpu_start++;
+  goto try
+    ;
+
+}
 
 cpuset_destroy(c);
 #else
 // this will need something for other platforms
+// TODO: Solaris/Illumos has processor_bind ... might worth a try
 #endif
 
 }
