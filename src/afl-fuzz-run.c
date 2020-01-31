@@ -189,7 +189,11 @@ u8 run_target(char** argv, u32 timeout) {
           "    - The binary, at least in some circumstances, exits in a way "
           "that\n"
           "      also kills the parent process - raise() could be the "
-          "culprit.\n\n"
+          "culprit.\n"
+          "    - If using persistent mode with QEMU, AFL_QEMU_PERSISTENT_ADDR "
+          "is\n"
+          "      probably not valid (hint: add the base address in case of PIE)"
+          "\n\n"
           "If all else fails you can disable the fork server via "
           "AFL_NO_FORKSRV=1.\n",
           mem_limit);
