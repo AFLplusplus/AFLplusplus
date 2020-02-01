@@ -29,7 +29,7 @@ heap-related security bugs in several ways:
   - Optionally, in platforms supporting it, huge pages can be used by passing
     USEHUGEPAGE=1 to make.
   
-  - Size alignment to `sizeof(void*)` can be enforced with AFL_ALIGNED_ALLOC=1.
+  - Size alignment to `max_align_t` can be enforced with AFL_ALIGNED_ALLOC=1.
     In this case, a tail canary is inserted in the padding bytes at the end
     of the allocated zone. This reduce the ability of libdislocator to detect
     off-by-one bugs but also it make slibdislocator compliant to the C standard.
