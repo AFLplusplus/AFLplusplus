@@ -1,8 +1,6 @@
-=======================
-AFL starting test cases
-=======================
+# AFL starting test cases
 
-  (See ../docs/README for the general instruction manual.)
+  (See [../README.md](../README.md) for the general instruction manual.)
 
 The archives/, images/, multimedia/, and others/ subdirectories contain small,
 standalone files that can be used to seed afl-fuzz when testing parsers for a
@@ -16,4 +14,4 @@ For example, there is a PNG file with and without a color profile.
 Additional test cases are always welcome.
 
 In addition to well-chosen starting files, many fuzzing jobs benefit from a
-small and concise dictionary. See ../dictionaries/README.dictionaries for more.
+small and concise dictionary. See [../dictionaries/README.md](../dictionaries/README.md) for more.

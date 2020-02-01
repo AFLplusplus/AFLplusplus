@@ -34,7 +34,7 @@ Version ++2.60d (develop):
     the original script is still present as afl-cmin.bash
   - added blacklist and whitelisting function check in all modules of llvm_mode
   - added fix from Debian project to compile libdislocator and libtokencap
-  - libdislocator: AFL_ALIGNED_ALLOC to force size alignment to sizeof(void*)
+  - libdislocator: AFL_ALIGNED_ALLOC to force size alignment to max_align_t
 
 
 --------------------------
