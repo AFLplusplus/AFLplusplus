@@ -563,12 +563,14 @@ test -e ../afl-qemu-trace && {
       }
       rm -f errors
 
+$ECHO "debug: $SYS"
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
         {
           export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
           export AFL_QEMU_PERSISTENT_GPR=1
-          ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr > /dev/null 2>&1
+$ECHO "debug: AFL_QEMU_PERSISTENT_ADDR=$AFL_QEMU_PERSISTENT_ADDR
+          ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr
         } >>errors 2>&1
         test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
