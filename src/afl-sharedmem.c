@@ -149,7 +149,7 @@ void setup_shm(unsigned char dumb_mode) {
   if (!trace_bits) PFATAL("mmap() failed");
 
 #else
-  u8* shm_str;
+  u8 *shm_str;
 
   shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
 

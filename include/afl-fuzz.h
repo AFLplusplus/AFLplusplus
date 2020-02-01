@@ -655,12 +655,12 @@ void   save_cmdline(u32, char**);
 /* CmpLog */
 
 void init_cmplog_forkserver(char** argv);
-u8 common_fuzz_cmplog_stuff(char** argv, u8* out_buf, u32 len);
+u8   common_fuzz_cmplog_stuff(char** argv, u8* out_buf, u32 len);
 
 /* RedQueen */
 
-u8   input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
-                          u32 exec_cksum);
+u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
+                        u32 exec_cksum);
 
 /**** Inline routines ****/
 

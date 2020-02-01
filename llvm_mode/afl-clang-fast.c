@@ -204,31 +204,32 @@ static void edit_params(u32 argc, char** argv) {
   } else {
 
 #ifdef USE_TRACE_PC
-  
-  cc_params[cc_par_cnt++] =
-      "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
-  // cc_params[cc_par_cnt++] = "-mllvm";
-  // cc_params[cc_par_cnt++] =
-  // "-fsanitize-coverage=trace-cmp,trace-div,trace-gep";
-  // cc_params[cc_par_cnt++] = "-sanitizer-coverage-block-threshold=0";
-#else
-  if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
-      getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
 
     cc_params[cc_par_cnt++] =
         "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
+    // cc_params[cc_par_cnt++] = "-mllvm";
+    // cc_params[cc_par_cnt++] =
+    // "-fsanitize-coverage=trace-cmp,trace-div,trace-gep";
+    // cc_params[cc_par_cnt++] = "-sanitizer-coverage-block-threshold=0";
+#else
+    if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
+        getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
 
-  } else {
+      cc_params[cc_par_cnt++] =
+          "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
 
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] = "-load";
-    cc_params[cc_par_cnt++] = "-Xclang";
-    if (getenv("AFL_LLVM_INSTRIM") != NULL || getenv("INSTRIM_LIB") != NULL)
-      cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
-    else
-      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+    } else {
 
-  }
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      if (getenv("AFL_LLVM_INSTRIM") != NULL || getenv("INSTRIM_LIB") != NULL)
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/libLLVMInsTrim.so", obj_path);
+      else
+        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+
+    }
 
 #endif                                                     /* ^USE_TRACE_PC */
 
@@ -401,16 +402,19 @@ static void edit_params(u32 argc, char** argv) {
 
       case 0:
         if (cmplog_mode)
-          cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-cmplog-rt.o", obj_path);
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-cmplog-rt.o", obj_path);
         else
           cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt.o", obj_path);
         break;
 
       case 32:
         if (cmplog_mode)
-          cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-cmplog-rt-32.o", obj_path);
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-cmplog-rt-32.o", obj_path);
         else
-          cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-32.o", obj_path);
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-rt-32.o", obj_path);
 
         if (access(cc_params[cc_par_cnt - 1], R_OK))
           FATAL("-m32 is not supported by your compiler");
@@ -419,9 +423,11 @@ static void edit_params(u32 argc, char** argv) {
 
       case 64:
         if (cmplog_mode)
-          cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-cmplog-rt-64.o", obj_path);
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-cmplog-rt-64.o", obj_path);
         else
-          cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-64.o", obj_path);
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-rt-64.o", obj_path);
 
         if (access(cc_params[cc_par_cnt - 1], R_OK))
           FATAL("-m64 is not supported by your compiler");
@@ -494,10 +500,9 @@ int main(int argc, char** argv) {
 #endif                                                     /* ^USE_TRACE_PC */
 
   }
-  
+
   cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG");
-  if (cmplog_mode)
-    printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
+  if (cmplog_mode) printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
 
 #ifndef __ANDROID__
   find_obj(argv[0]);
