@@ -20,8 +20,10 @@
 
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
@@ -62,7 +64,12 @@
 #include "config.h"
 #include "types.h"
 
-#define ALLOC_ALIGN_SIZE (sizeof(void*))
+#if __STDC_VERSION__ < 201112L
+// use this hack if not C11
+typedef struct { long long __ll; long double __ld; } max_align_t;
+#endif
+
+#define ALLOC_ALIGN_SIZE (_Alignof(max_align_t))
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
