@@ -25,8 +25,14 @@ heap-related security bugs in several ways:
   - It checks for calloc() overflows and can cause soft or hard failures
     of alloc requests past a configurable memory limit (AFL_LD_LIMIT_MB,
     AFL_LD_HARD_FAIL).
+
   - Optionally, in platforms supporting it, huge pages can be used by passing
     USEHUGEPAGE=1 to make.
+  
+  - Size alignment to `sizeof(void*)` can be enforced with AFL_ALIGNED_ALLOC=1.
+    In this case, a tail canary is inserted in the padding bytes at the end
+    of the allocated zone. This reduce the ability of libdislocator to detect
+    off-by-one bugs but also it make slibdislocator compliant to the C standard.
 
 Basically, it is inspired by some of the non-default options available for the
 OpenBSD allocator - see malloc.conf(5) on that platform for reference. It is
