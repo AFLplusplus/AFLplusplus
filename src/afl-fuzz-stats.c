@@ -599,7 +599,8 @@ void show_stats(void) {
   if (cmplog_mode) {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_PYTHON]),
-            DI(stage_cycles[STAGE_PYTHON]), DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
+            DI(stage_cycles[STAGE_PYTHON]),
+            DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
             DI(stage_cycles[STAGE_CUSTOM_MUTATOR]),
             DI(stage_finds[STAGE_COLORIZATION]),
             DI(stage_cycles[STAGE_COLORIZATION]), DI(stage_finds[STAGE_ITS]),
@@ -607,11 +608,12 @@ void show_stats(void) {
 
     SAYF(bV bSTOP "   custom/rq : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
          tmp);
-         
+
   } else {
 
     sprintf(tmp, "%s/%s, %s/%s", DI(stage_finds[STAGE_PYTHON]),
-            DI(stage_cycles[STAGE_PYTHON]), DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
+            DI(stage_cycles[STAGE_PYTHON]),
+            DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
             DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
 
     SAYF(bV bSTOP "   py/custom : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",

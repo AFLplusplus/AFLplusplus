@@ -633,3 +633,4 @@ u8 common_fuzz_cmplog_stuff(char** argv, u8* out_buf, u32 len) {
   return 0;
 
 }
+

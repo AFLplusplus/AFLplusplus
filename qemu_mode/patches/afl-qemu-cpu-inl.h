@@ -272,7 +272,7 @@ static void afl_forkserver(CPUState *cpu) {
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
 
   afl_forksrv_pid = getpid();
-  
+
   int first_run = 1;
 
   /* All right, let's await orders... */
@@ -350,8 +350,10 @@ static void afl_forkserver(CPUState *cpu) {
        a successful run. In this case, we want to wake it up without forking
        again. */
 
-    if (WIFSTOPPED(status)) child_stopped = 1;
-    else if(unlikely(first_run && is_persistent)) exit(12); // Persistent is wrong
+    if (WIFSTOPPED(status))
+      child_stopped = 1;
+    else if (unlikely(first_run && is_persistent))
+      exit(12);  // Persistent is wrong
     first_run = 0;
 
     if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(7);
