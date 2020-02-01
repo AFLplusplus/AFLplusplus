@@ -563,34 +563,39 @@ test -e ../afl-qemu-trace && {
       }
       rm -f errors
 
-      $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
-      {
-        export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
-        export AFL_QEMU_PERSISTENT_GPR=1
-        ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr > /dev/null 2>&1
-      } >>errors 2>&1
-      test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
-        $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
-        RUNTIMEP=`grep execs_done out/fuzzer_stats | awk '{print$3}'`
-        test -n "$RUNTIME" -a -n "$RUNTIMEP" && {
-          DIFF=`expr $RUNTIMEP / $RUNTIME`
-          test "$DIFF" -gt 1 && { # must be at least twice as fast
-            $ECHO "$GREEN[+] persistent qemu_mode was noticeable faster than standard qemu_mode"
+      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
+        $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
+        {
+          export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
+          export AFL_QEMU_PERSISTENT_GPR=1
+          ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr > /dev/null 2>&1
+        } >>errors 2>&1
+        test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+          $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
+          RUNTIMEP=`grep execs_done out/fuzzer_stats | awk '{print$3}'`
+          test -n "$RUNTIME" -a -n "$RUNTIMEP" && {
+            DIFF=`expr $RUNTIMEP / $RUNTIME`
+            test "$DIFF" -gt 1 && { # must be at least twice as fast
+              $ECHO "$GREEN[+] persistent qemu_mode was noticeable faster than standard qemu_mode"
+            } || {
+              $ECHO "$YELLOW[-] persistent qemu_mode was not noticeable faster than standard qemu_mode"
+            }
           } || {
-            $ECHO "$YELLOW[-] persistent qemu_mode was not noticeable faster than standard qemu_mode"
+            $ECHO "$YELLOW[-] we got no data on executions performed? weird!"
           }
         } || {
-          $ECHO "$YELLOW[-] we got no data on executions performed? weird!"
+          echo CUT------------------------------------------------------------------CUT
+          cat errors
+          echo CUT------------------------------------------------------------------CUT
+          $ECHO "$RED[!] afl-fuzz is not working correctly with persistent qemu_mode"
+          CODE=1
+          exit 1
         }
-      } || {
-        echo CUT------------------------------------------------------------------CUT
-        cat errors
-        echo CUT------------------------------------------------------------------CUT
-        $ECHO "$RED[!] afl-fuzz is not working correctly with persistent qemu_mode"
-        CODE=1
-        exit 1
-      }
-      rm -rf in out errors
+        rm -rf in out errors
+      } || { 
+       $ECHO "$YELLOW[-] not an intel platform, cannot test persistent qemu_mode"
+      } 
+
       test -e ../qemu_mode/unsigaction/unsigaction32.so && {
         ${AFL_CC} -o test-unsigaction32 -m32 test-unsigaction.c >> errors 2>&1 && {
 	  ./test-unsigaction32
