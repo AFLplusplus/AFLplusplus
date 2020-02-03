@@ -32,6 +32,8 @@ Version ++2.60d (develop):
      - CmpLog mode (see llvm_mode/README.cmplog)
   - afl-cmin is now a sh script (invoking awk) instead of bash for portability
     the original script is still present as afl-cmin.bash
+  - afl-showmap: -i dir option now allows processing multiple inputs using the
+     forkserver. This is for enhanced speed in afl-cmin.
   - added blacklist and whitelisting function check in all modules of llvm_mode
   - added fix from Debian project to compile libdislocator and libtokencap
   - libdislocator: AFL_ALIGNED_ALLOC to force size alignment to max_align_t
