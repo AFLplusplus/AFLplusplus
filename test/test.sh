@@ -318,7 +318,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-compcov test.out whitelist.txt
-  ../afl-clang-fast -o test-persistent ../experimental/persistent_demo/persistent_demo.c > /dev/null 2>&1
+  ../afl-clang-fast -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | ../afl-showmap -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] llvm_mode persistent mode feature works correctly"
@@ -427,7 +427,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
     CODE=1
   }
   rm -f test-compcov test.out whitelist.txt
-  ../afl-gcc-fast -o test-persistent ../experimental/persistent_demo/persistent_demo.c > /dev/null 2>&1
+  ../afl-gcc-fast -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | ../afl-showmap -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] gcc_plugin persistent mode feature works correctly"

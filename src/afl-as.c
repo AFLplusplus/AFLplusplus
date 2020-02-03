@@ -27,7 +27,7 @@
    utility has right now is to be able to skip them gracefully and allow the
    compilation process to continue.
 
-   That said, see experimental/clang_asm_normalize/ for a solution that may
+   That said, see examples/clang_asm_normalize/ for a solution that may
    allow clang users to make things work even with hand-crafted assembly. Just
    note that there is no equivalent for GCC.
 

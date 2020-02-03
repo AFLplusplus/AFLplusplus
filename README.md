@@ -593,9 +593,9 @@ Here are some of the most important caveats for AFL:
     wholly wrap the actual data format to be tested.
 
     To work around this, you can comment out the relevant checks (see
-    experimental/libpng_no_checksum/ for inspiration); if this is not possible,
+    examples/libpng_no_checksum/ for inspiration); if this is not possible,
     you can also write a postprocessor, as explained in
-    experimental/post_library/ (with AFL_POST_LIBRARY)
+    examples/post_library/ (with AFL_POST_LIBRARY)
 
   - There are some unfortunate trade-offs with ASAN and 64-bit binaries. This
     isn't due to any specific fault of afl-fuzz; see [docs/notes_for_asan.md](docs/notes_for_asan.md)
