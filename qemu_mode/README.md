@@ -164,7 +164,7 @@ match.
 ## 9) Gotchas, feedback, bugs
 
 If you need to fix up checksums or do other cleanup on mutated test cases, see
-experimental/post_library/ for a viable solution.
+examples/post_library/ for a viable solution.
 
 Do not mix QEMU mode with ASAN, MSAN, or the likes; QEMU doesn't appreciate
 the "shadow VM" trick employed by the sanitizers and will probably just

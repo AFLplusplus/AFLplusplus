@@ -126,7 +126,7 @@ write a simple script that performs two actions:
     done
     ```
 
-There is an example of such a script in experimental/distributed_fuzzing/;
+There is an example of such a script in examples/distributed_fuzzing/;
 you can also find a more featured, experimental tool developed by
 Martijn Bogaard at:
 
