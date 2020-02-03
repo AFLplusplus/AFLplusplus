@@ -892,7 +892,12 @@ int main(int argc, char** argv) {
 
   }
 
-  if (in_dir) at_file = "@@";
+  if (in_dir)  {
+  
+    if (at_file) PFATAL("Options -A and -i are mutually exclusive");
+    at_file = "@@";
+  
+  }
 
   detect_file_args(argv + optind, at_file);
   
