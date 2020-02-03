@@ -133,7 +133,7 @@ static void usage(u8* argv0) {
 
       "Other stuff:\n"
       "  -T text       - text banner to show on the screen\n"
-      "  -M / -S id    - distributed mode (see parallel_fuzzing.txt)\n"
+      "  -M / -S id    - distributed mode (see parallel_fuzzing.md)\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
       "  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap "

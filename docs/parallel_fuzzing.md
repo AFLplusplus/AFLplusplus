@@ -1,12 +1,9 @@
-=========================
-Tips for parallel fuzzing
-=========================
+# Tips for parallel fuzzing
 
   This document talks about synchronizing afl-fuzz jobs on a single machine
   or across a fleet of systems. See README for the general instruction manual.
 
-1) Introduction
----------------
+## 1) Introduction
 
 Every copy of afl-fuzz will take up one CPU core. This means that on an
 n-core system, you can almost always run around n concurrent fuzzing jobs with
@@ -33,8 +30,7 @@ several instances in parallel. See docs/power_schedules.txt
 Alternatively running other AFL spinoffs in parallel can be of value,
 e.g. Angora (https://github.com/AngoraFuzzer/Angora/)
 
-2) Single-system parallelization
---------------------------------
+## 2) Single-system parallelization
 
 If you wish to parallelize a single job across multiple cores on a local
 system, simply create a new, empty output directory ("sync dir") that will be
@@ -43,12 +39,16 @@ for every instance - say, "fuzzer01", "fuzzer02", etc.
 
 Run the first one ("master", -M) like this:
 
+```
 $ ./afl-fuzz -i testcase_dir -o sync_dir -M fuzzer01 [...other stuff...]
+```
 
 ...and then, start up secondary (-S) instances like this:
 
+```
 $ ./afl-fuzz -i testcase_dir -o sync_dir -S fuzzer02 [...other stuff...]
 $ ./afl-fuzz -i testcase_dir -o sync_dir -S fuzzer03 [...other stuff...]
+```
 
 Each fuzzer will keep its state in a separate subdirectory, like so:
 
@@ -68,9 +68,11 @@ Note that running multiple -M instances is wasteful, although there is an
 experimental support for parallelizing the deterministic checks. To leverage
 that, you need to create -M instances like so:
 
+```
 $ ./afl-fuzz -i testcase_dir -o sync_dir -M masterA:1/3 [...]
 $ ./afl-fuzz -i testcase_dir -o sync_dir -M masterB:2/3 [...]
 $ ./afl-fuzz -i testcase_dir -o sync_dir -M masterC:3/3 [...]
+```
 
 ...where the first value after ':' is the sequential ID of a particular master
 instance (starting at 1), and the second value is the total number of fuzzers to
@@ -86,15 +88,16 @@ WARNING: Exercise caution when explicitly specifying the -f option. Each fuzzer
 must use a separate temporary file; otherwise, things will go south. One safe
 example may be:
 
+```
 $ ./afl-fuzz [...] -S fuzzer10 -f file10.txt ./fuzzed/binary @@
 $ ./afl-fuzz [...] -S fuzzer11 -f file11.txt ./fuzzed/binary @@
 $ ./afl-fuzz [...] -S fuzzer12 -f file12.txt ./fuzzed/binary @@
+```
 
 This is not a concern if you use @@ without -f and let afl-fuzz come up with the
 file name.
 
-3) Multi-system parallelization
--------------------------------
+## 3) Multi-system parallelization
 
 The basic operating principle for multi-system parallelization is similar to
 the mechanism explained in section 2. The key difference is that you need to
@@ -106,18 +109,22 @@ write a simple script that performs two actions:
     that includes host name in the fuzzer ID, so that you can do something
     like:
 
+    ```sh
     for s in {1..10}; do
       ssh user@host${s} "tar -czf - sync/host${s}_fuzzid*/[qf]*" >host${s}.tgz
     done
+    ```
 
   - Distributes and unpacks these files on all the remaining machines, e.g.:
 
+    ```sh
     for s in {1..10}; do
       for d in {1..10}; do
         test "$s" = "$d" && continue
         ssh user@host${d} 'tar -kxzf -' <host${s}.tgz
       done
     done
+    ```
 
 There is an example of such a script in experimental/distributed_fuzzing/;
 you can also find a more featured, experimental tool developed by
@@ -167,8 +174,7 @@ It is *not* advisable to skip the synchronization script and run the fuzzers
 directly on a network filesystem; unexpected latency and unkillable processes
 in I/O wait state can mess things up.
 
-4) Remote monitoring and data collection
-----------------------------------------
+## 4) Remote monitoring and data collection
 
 You can use screen, nohup, tmux, or something equivalent to run remote
 instances of afl-fuzz. If you redirect the program's output to a file, it will
@@ -192,8 +198,7 @@ Keep in mind that crashing inputs are *not* automatically propagated to the
 master instance, so you may still want to monitor for crashes fleet-wide
 from within your synchronization or health checking scripts (see afl-whatsup).
 
-5) Asymmetric setups
---------------------
+## 5) Asymmetric setups
 
 It is perhaps worth noting that all of the following is permitted:
 

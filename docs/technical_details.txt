@@ -485,7 +485,7 @@ This allows for extreme flexibility in fuzzer setup, including running synced
 instances against different parsers of a common data format, often with
 synergistic effects.
 
-For more information about this design, see parallel_fuzzing.txt.
+For more information about this design, see parallel_fuzzing.md.
 
 12) Binary-only instrumentation
 -------------------------------
