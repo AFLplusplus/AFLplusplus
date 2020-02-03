@@ -524,14 +524,16 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
     }
 
-  } else
+  } else {
 
-      /* Handle non-crashing inputs appropriately. */
+    /* Handle non-crashing inputs appropriately. */
 
-      if (crash_mode) {
+    if (crash_mode) {
 
-    missed_paths++;
-    return 0;
+      missed_paths++;
+      return 0;
+
+    }
 
   }
 

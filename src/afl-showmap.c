@@ -39,6 +39,7 @@
 #include "alloc-inl.h"
 #include "hash.h"
 #include "sharedmem.h"
+#include "forkserver.h"
 #include "common.h"
 
 #include <stdio.h>
@@ -58,19 +59,39 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-static s32 child_pid;                  /* PID of the tested program         */
+u8* trace_bits;                        /* SHM with instrumentation bitmap   */
+
+s32 forksrv_pid,                       /* PID of the fork server            */
+    child_pid;                         /* PID of the tested program         */
+
+s32 fsrv_ctl_fd,                       /* Fork server control pipe (write)  */
+    fsrv_st_fd;                        /* Fork server status pipe (read)    */
+
+s32 out_fd;                            /* Persistent fd for out_file        */
+s32 dev_null_fd = -1;                  /* FD to /dev/null                   */
+
+s32   out_fd = -1, out_dir_fd = -1, dev_urandom_fd = -1;
+FILE* plot_file;
+u8    uses_asan;
 
 u8* trace_bits;                        /* SHM with instrumentation bitmap   */
 
-static u8 *out_file,                   /* Trace output file                 */
+u8 *out_file,                          /* Trace output file                 */
+    *in_dir,                           /* input folder                      */
     *doc_path,                         /* Path to docs                      */
     *at_file;                          /* Substitution string for @@        */
 
-static u32 exec_tmout;                 /* Exec timeout (ms)                 */
+static u8* in_data;                    /* Input data                        */
+
+u32 exec_tmout;                        /* Exec timeout (ms)                 */
 
 static u32 total, highest;             /* tuple content information         */
 
-static u64 mem_limit = MEM_LIMIT;      /* Memory limit (MB)                 */
+static u32 in_len,                     /* Input data length                 */
+    arg_offset,
+    total_execs;                       /* Total number of execs             */
+
+u64 mem_limit = MEM_LIMIT;             /* Memory limit (MB)                 */
 
 u8 quiet_mode,                         /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
@@ -139,7 +160,7 @@ static void classify_counts(u8* mem, const u8* map) {
 
 /* Write results. */
 
-static u32 write_results(void) {
+static u32 write_results_to_file(u8 *out_file) {
 
   s32 fd;
   u32 i, ret = 0;
@@ -208,13 +229,170 @@ static u32 write_results(void) {
 
 }
 
-/* Handle timeout signal. */
+/* Write results. */
 
-static void handle_timeout(int sig) {
+static u32 write_results(void) {
 
-  child_timed_out = 1;
-  if (child_pid > 0) kill(child_pid, SIGKILL);
+  return write_results_to_file(out_file);
+  
+}
 
+/* Write output file. */
+
+static s32 write_to_file(u8* path, u8* mem, u32 len) {
+
+  s32 ret;
+
+  unlink(path);                                            /* Ignore errors */
+
+  ret = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
+
+  if (ret < 0) PFATAL("Unable to create '%s'", path);
+
+  ck_write(ret, mem, len, path);
+
+  lseek(ret, 0, SEEK_SET);
+
+  return ret;
+
+}
+
+/* Write modified data to file for testing. If use_stdin is clear, the old file
+   is unlinked and a new one is created. Otherwise, out_fd is rewound and
+   truncated. */
+
+static void write_to_testcase(void* mem, u32 len) {
+
+  if (use_stdin) {
+
+    lseek(0, 0, SEEK_SET);
+
+    ck_write(0, mem, len, out_file);
+
+    if (ftruncate(0, len)) PFATAL("ftruncate() failed");
+    lseek(0, 0, SEEK_SET);
+
+  }
+
+}
+
+/* Execute target application. Returns 0 if the changes are a dud, or
+   1 if they should be kept. */
+
+static u8 run_target_forkserver(char** argv, u8* mem, u32 len) {
+
+  static struct itimerval it;
+  static u32              prev_timed_out = 0;
+  int                     status = 0;
+
+  memset(trace_bits, 0, MAP_SIZE);
+  MEM_BARRIER();
+
+  write_to_testcase(mem, len);
+
+  s32 res;
+
+  /* we have the fork server up and running, so simply
+     tell it to have at it, and then read back PID. */
+
+  if ((res = write(fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+
+    if (stop_soon) return 0;
+    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+
+  }
+
+  if ((res = read(fsrv_st_fd, &child_pid, 4)) != 4) {
+
+    if (stop_soon) return 0;
+    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+
+  }
+
+  if (child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
+
+  /* Configure timeout, wait for child, cancel timeout. */
+
+  if (exec_tmout) {
+
+    it.it_value.tv_sec = (exec_tmout / 1000);
+    it.it_value.tv_usec = (exec_tmout % 1000) * 1000;
+
+  }
+
+  setitimer(ITIMER_REAL, &it, NULL);
+
+  if ((res = read(fsrv_st_fd, &status, 4)) != 4) {
+
+    if (stop_soon) return 0;
+    RPFATAL(res, "Unable to communicate with fork server (OOM?)");
+
+  }
+
+  child_pid = 0;
+  it.it_value.tv_sec = 0;
+  it.it_value.tv_usec = 0;
+
+  setitimer(ITIMER_REAL, &it, NULL);
+
+  MEM_BARRIER();
+
+  /* Clean up bitmap, analyze exit condition, etc. */
+
+  if (*(u32*)trace_bits == EXEC_FAIL_SIG)
+    FATAL("Unable to execute '%s'", argv[0]);
+
+  classify_counts(trace_bits,
+                  binary_mode ? count_class_binary : count_class_human);
+  total_execs++;
+
+  if (stop_soon) {
+
+    SAYF(cRST cLRD "\n+++ afl-showmap folder mode aborted by user +++\n" cRST);
+    close(write_to_file(out_file, in_data, in_len));
+    exit(1);
+
+  }
+
+  /* Always discard inputs that time out. */
+
+  if (child_timed_out) { return 0; }
+
+  /* Handle crashing inputs depending on current mode. */
+
+  if (WIFSIGNALED(status) ||
+      (WIFEXITED(status) && WEXITSTATUS(status) == MSAN_ERROR) ||
+      (WIFEXITED(status) && WEXITSTATUS(status))) {
+
+    return 0;
+
+  }
+
+  return 0;
+
+}
+
+/* Read initial file. */
+
+u32 read_file(u8 *in_file) {
+
+  struct stat st;
+  s32         fd = open(in_file, O_RDONLY);
+
+  if (fd < 0) WARNF("Unable to open '%s'", in_file);
+
+  if (fstat(fd, &st) || !st.st_size) WARNF("Zero-sized input file '%s'.", in_file);
+
+  in_len = st.st_size;
+  in_data = ck_alloc_nozero(in_len);
+
+  ck_read(fd, in_data, in_len, in_file);
+
+  close(fd);
+
+  //OKF("Read %u byte%s from '%s'.", in_len, in_len == 1 ? "" : "s", in_file);
+
+  return in_len;
 }
 
 /* Execute target application. */
@@ -456,6 +634,8 @@ static void usage(u8* argv0) {
 
       "Other settings:\n\n"
 
+      "  -i dir        - process all files in this directory, -o most be a directory\n"
+      "                  and each bitmap will be written there individually.\n"
       "  -q            - sink program's output and don't show messages\n"
       "  -e            - show edge coverage only, ignore hit counts\n"
       "  -r            - show real tuple values instead of AFL filter values\n"
@@ -536,9 +716,14 @@ int main(int argc, char** argv) {
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  while ((opt = getopt(argc, argv, "+o:f:m:t:A:eqZQUWbcrh")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqZQUWbcrh")) > 0)
 
     switch (opt) {
+
+      case 'i':
+        if (in_dir) FATAL("Multiple -i options not supported");
+        in_dir = optarg;
+        break;
 
       case 'o':
 
@@ -707,7 +892,13 @@ int main(int argc, char** argv) {
 
   }
 
+  if (in_dir) at_file = "@@";
+
   detect_file_args(argv + optind, at_file);
+  
+  for (int i = optind; i < argc; i++)
+    if (strcmp(argv[i], "@@") == 0)
+      arg_offset = i;
 
   if (qemu_mode) {
 
@@ -720,9 +911,48 @@ int main(int argc, char** argv) {
 
     use_argv = argv + optind;
 
-  run_target(use_argv);
+  if (in_dir) {
 
-  tcnt = write_results();
+    DIR *dir_in, *dir_out;
+    struct dirent* dir_ent;
+    int  done = 0;
+    u8 infile[4096], outfile[4096];
+
+    dev_null_fd = open("/dev/null", O_RDWR);
+    if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+
+    if (!(dir_in = opendir(in_dir))) PFATAL("cannot open directory %s", in_dir);
+
+    if (!(dir_out = opendir(out_file)))
+      if (mkdir(out_file, 0700))
+        PFATAL("cannot create output directory %s", out_file);
+
+    if (arg_offset) argv[arg_offset] = infile;
+
+    init_forkserver(use_argv);
+
+    while (done == 0 && (dir_ent = readdir(dir_in))) {
+
+      if (dir_ent->d_name[0] == '.') continue; // skip anything that starts with '.'
+      if (dir_ent->d_type != DT_REG) continue; // only regular files
+
+      snprintf(infile, sizeof(infile), "%s/%s", in_dir, dir_ent->d_name);
+      snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
+
+      if (read_file(infile)) {
+        run_target_forkserver(use_argv, in_data, in_len);
+        ck_free(in_data);
+        tcnt = write_results_to_file(outfile);
+      }
+
+    }
+
+  } else {
+
+    run_target(use_argv);
+    tcnt = write_results();
+
+  }
 
   if (!quiet_mode) {
 
@@ -735,4 +965,3 @@ int main(int argc, char** argv) {
   exit(child_crashed * 2 + child_timed_out);
 
 }
-
