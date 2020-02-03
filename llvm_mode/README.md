@@ -189,7 +189,7 @@ the impact of memory leaks and similar glitches; 1000 is a good starting point,
 and going much higher increases the likelihood of hiccups without giving you
 any real performance benefits.
 
-A more detailed template is shown in ../experimental/persistent_demo/.
+A more detailed template is shown in ../examples/persistent_demo/.
 Similarly to the previous mode, the feature works only with afl-clang-fast; #ifdef
 guards can be used to suppress it when using other compilers.
 

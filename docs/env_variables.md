@@ -34,7 +34,7 @@ tools make fairly broad use of environmental variables:
     in your $PATH.
 
   - AFL_PATH can be used to point afl-gcc to an alternate location of afl-as.
-    One possible use of this is experimental/clang_asm_normalize/, which lets
+    One possible use of this is examples/clang_asm_normalize/, which lets
     you instrument hand-written assembly when compiling clang code by plugging
     a normalizer into the chain. (There is no equivalent feature for GCC.)
 
@@ -215,7 +215,7 @@ checks or alter some of the more exotic semantics of the tool:
     Beyond counter aesthetics, not much else should change.
 
   - Setting AFL_POST_LIBRARY allows you to configure a postprocessor for
-    mutated files - say, to fix up checksums. See experimental/post_library/
+    mutated files - say, to fix up checksums. See examples/post_library/
     for more.
 
   - Setting AFL_CUSTOM_MUTATOR_LIBRARY to a shared library with

@@ -141,7 +141,7 @@ The numerical value specified within the loop controls the maximum number
 of iterations before AFL will restart the process from scratch. This minimizes
 the impact of memory leaks and similar glitches; 1000 is a good starting point.
 
-A more detailed template is shown in ../experimental/persistent_demo/.
+A more detailed template is shown in ../examples/persistent_demo/.
 Similarly to the previous mode, the feature works only with afl-gcc-fast or
 afl-clang-fast; #ifdef guards can be used to suppress it when using other
 compilers.
