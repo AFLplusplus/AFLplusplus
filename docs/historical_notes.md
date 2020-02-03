@@ -1,17 +1,14 @@
-================
-Historical notes
-================
+# Historical notes
 
   This doc talks about the rationale of some of the high-level design decisions
   for American Fuzzy Lop. It's adopted from a discussion with Rob Graham.
-  See README for the general instruction manual, and technical_details.txt for
+  See README.md for the general instruction manual, and technical_details.md for
   additional implementation-level insights.
 
-1) Influences
--------------
+## 1) Influences
 
-In short, afl-fuzz is inspired chiefly by the work done by Tavis Ormandy back
-in 2007. Tavis did some very persuasive experiments using gcov block coverage
+In short, `afl-fuzz` is inspired chiefly by the work done by Tavis Ormandy back
+in 2007. Tavis did some very persuasive experiments using `gcov` block coverage
 to select optimal test cases out of a large corpus of data, and then using
 them as a starting point for traditional fuzzing workflows.
 
@@ -22,7 +19,7 @@ In parallel to this, both Tavis and I were interested in evolutionary fuzzing.
 Tavis had his experiments, and I was working on a tool called bunny-the-fuzzer,
 released somewhere in 2007.
 
-Bunny used a generational algorithm not much different from afl-fuzz, but
+Bunny used a generational algorithm not much different from `afl-fuzz`, but
 also tried to reason about the relationship between various input bits and
 the internal state of the program, with hopes of deriving some additional value
 from that. The reasoning / correlation part was probably in part inspired by
@@ -75,8 +72,7 @@ But I digress; ultimately, attribution is hard, and glorying the fundamental
 concepts behind AFL is probably a waste of time. The devil is very much in the
 often-overlooked details, which brings us to...
 
-2) Design goals for afl-fuzz
-----------------------------
+## 2. Design goals for afl-fuzz
 
 In short, I believe that the current implementation of afl-fuzz takes care of
 several itches that seemed impossible to scratch with other tools:
@@ -86,7 +82,7 @@ several itches that seemed impossible to scratch with other tools:
    likely to find a bug, but runs 100x slower, your users are getting a bad
    deal.
 
-   To avoid starting with a handicap, afl-fuzz is meant to let you fuzz most of
+   To avoid starting with a handicap, `afl-fuzz` is meant to let you fuzz most of
    the intended targets at roughly their native speed - so even if it doesn't
    add value, you do not lose much.
 
@@ -107,7 +103,7 @@ several itches that seemed impossible to scratch with other tools:
    them strictly worse than "dumb" tools, and such degradation can be difficult
    for less experienced users to notice and correct.
 
-   In contrast, afl-fuzz is designed to be rock solid, chiefly by keeping it
+   In contrast, `afl-fuzz` is designed to be rock solid, chiefly by keeping it
    simple. In fact, at its core, it's designed to be just a very good
    traditional fuzzer with a wide range of interesting, well-researched
    strategies to go by. The fancy parts just help it focus the effort in
@@ -143,5 +139,5 @@ of small, complementary methods that were shown to reliably yields results
 better than chance. The use of instrumentation is a part of that toolkit, but is
 far from being the most important one.
 
-Ultimately, what matters is that afl-fuzz is designed to find cool bugs - and
+Ultimately, what matters is that `afl-fuzz` is designed to find cool bugs - and
 has a pretty robust track record of doing just that.
