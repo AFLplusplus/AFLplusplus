@@ -80,7 +80,7 @@
   To compare notes with other users or get notified about major new features,
   send a mail to <afl-users+subscribe@googlegroups.com>.
 
-  See [docs/QuickStartGuide.txt](docs/QuickStartGuide.txt) if you don't have time to
+  See [docs/QuickStartGuide.md](docs/QuickStartGuide.md) if you don't have time to
   read this file.
 
 
@@ -250,7 +250,7 @@ automatically enable code hardening options that make it easier to detect
 simple memory bugs. Libdislocator, a helper library included with AFL (see
 [libdislocator/README.md](libdislocator/README.md)) can help uncover heap corruption issues, too.
 
-PS. ASAN users are advised to review [docs/notes_for_asan.txt](docs/notes_for_asan.txt)
+PS. ASAN users are advised to review [docs/notes_for_asan.md](docs/notes_for_asan.md)
 file for important caveats.
 
 
@@ -278,7 +278,7 @@ your binary, then you can use afl-fuzz normally and it will have twice
 the speed compared to qemu_mode.
 
 A more comprehensive description of these and other options can be found in
-[docs/binaryonly_fuzzing.txt](docs/binaryonly_fuzzing.txt)
+[docs/binaryonly_fuzzing.md](docs/binaryonly_fuzzing.md)
 
 
 ## 5) Power schedules
@@ -598,7 +598,7 @@ Here are some of the most important caveats for AFL:
     experimental/post_library/ (with AFL_POST_LIBRARY)
 
   - There are some unfortunate trade-offs with ASAN and 64-bit binaries. This
-    isn't due to any specific fault of afl-fuzz; see [docs/notes_for_asan.txt](docs/notes_for_asan.txt)
+    isn't due to any specific fault of afl-fuzz; see [docs/notes_for_asan.md](docs/notes_for_asan.md)
     for tips.
 
   - There is no direct support for fuzzing network services, background
