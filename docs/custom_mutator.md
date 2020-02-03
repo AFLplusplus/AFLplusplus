@@ -33,4 +33,4 @@ is not needed.
 
 ## 2) Example
 
-A simple example is provided in ../custom_mutators/
+A simple example is provided in ../examples/custom_mutators/

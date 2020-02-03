@@ -1,6 +1,4 @@
-==================================================
-Adding custom mutators to AFL using Python modules
-==================================================
+# Adding custom mutators to AFL using Python modules
 
   This file describes how you can utilize the external Python API to write
   your own custom mutation routines.
@@ -14,11 +12,10 @@ Adding custom mutators to AFL using Python modules
   python2 or python3 syntax in your scripts!
   After a major version upgrade (e.g. 3.7 -> 3.8), a recompilation of afl-fuzz may be needed.
 
-  For an example and a template see ../python_mutators/
+  For an example and a template see ../examples/python_mutators/
 
 
-1) Description and purpose
---------------------------
+## 1) Description and purpose
 
 While AFLFuzz comes with a good selection of generic deterministic and
 non-deterministic mutation operations, it sometimes might make sense to extend
@@ -40,8 +37,7 @@ See the following information to get a better pictures:
   https://bugs.chromium.org/p/chromium/issues/detail?id=930663
 
 
-2) How the Python module looks like
------------------------------------
+## 2) How the Python module looks like
 
 You can find a simple example in pymodules/example.py including documentation
 explaining each function. In the same directory, you can find another simple
@@ -55,8 +51,7 @@ There is also optional support for a trimming API, see the section below for
 further information about this feature.
 
 
-3) How to compile AFLFuzz with Python support
----------------------------------------------
+## 3) How to compile AFLFuzz with Python support
 
 You must install the python 3 or 2 development package of your Linux
 distribution before this will work. On Debian/Ubuntu/Kali this can be done
@@ -75,8 +70,7 @@ In case your setup is different set the necessary variables like this:
 PYTHON_INCLUDE=/path/to/python/include LDFLAGS=-L/path/to/python/lib make
 
 
-4) How to run AFLFuzz with your custom module
----------------------------------------------
+## 4) How to run AFLFuzz with your custom module
 
 You must pass the module name inside the env variable AFL_PYTHON_MODULE.
 
@@ -99,8 +93,7 @@ AFL_DEBUG       - When combined with AFL_NO_UI, this causes the C trimming code
                   of your custom Python trimmer. Use this to see if it works :)
 
 
-5) Order and statistics
------------------------
+## 5) Order and statistics
 
 The Python stage is set to be the first non-deterministic stage (right before
 the havoc stage). In the statistics however, it shows up as the third number
@@ -108,8 +101,7 @@ under "havoc". That's because I'm lazy and I didn't want to mess with the UI
 too much ;)
 
 
-6) Trimming support
--------------------
+## 6) Trimming support
 
 The generic trimming routines implemented in AFLFuzz can easily destroy the
 structure of complex formats, possibly leading to a point where you have a lot
