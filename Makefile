@@ -66,7 +66,8 @@ AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 ifneq "$(shell which python3m)" ""
   ifneq "$(shell which python3m-config)" ""
     PYTHON_INCLUDE  ?= $(shell python3m-config --includes)
-    PYTHON_LIB      ?= $(shell python3m-config --ldflags)
+    # Sarting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
+    PYTHON_LIB      ?= $(shell python3m-config --libs --embed 2>/dev/null || python3m-config --ldflags)
     PYTHON_VERSION  ?= $(strip $(shell python3m --version 2>&1))
   endif
 endif
@@ -74,7 +75,7 @@ endif
 ifneq "$(shell which python3)" ""
   ifneq "$(shell which python3-config)" ""
     PYTHON_INCLUDE  ?= $(shell python3-config --includes)
-    PYTHON_LIB      ?= $(shell python3-config --ldflags)
+    PYTHON_LIB      ?= $(shell python3-config --libs --embed 2>/dev/null || python3-config --ldflags)
     PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
   endif
 endif
