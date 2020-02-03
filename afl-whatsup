@@ -45,7 +45,7 @@ if [ "$DIR" = "" ]; then
   echo "Usage: $0 [ -s ] afl_sync_dir" 1>&2
   echo 1>&2
   echo "The -s option causes the tool to skip all the per-fuzzer trivia and show" 1>&2
-  echo "just the summary results. See docs/parallel_fuzzing.txt for additional tips." 1>&2
+  echo "just the summary results. See docs/parallel_fuzzing.md for additional tips." 1>&2
   echo 1>&2
   exit 1
 

@@ -14,7 +14,7 @@ See dictionaries/README.dictionaries to learn how.
 %
 
 You can get the most out of your hardware by parallelizing AFL jobs.
-See docs/parallel_fuzzing.txt for step-by-step tips.
+See docs/parallel_fuzzing.md for step-by-step tips.
 
 %
 

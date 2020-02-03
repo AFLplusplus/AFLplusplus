@@ -51,4 +51,4 @@ following files:
   - README.md                 - A general introduction to AFL,
   - docs/perf_tips.txt        - Simple tips on how to fuzz more quickly,
   - docs/status_screen.txt    - An explanation of the tidbits shown in the UI,
-  - docs/parallel_fuzzing.txt - Advice on running AFL on multiple cores.
+  - docs/parallel_fuzzing.md - Advice on running AFL on multiple cores.

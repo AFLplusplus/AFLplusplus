@@ -1719,7 +1719,7 @@ void get_core_count(void) {
 
       } else if (cur_runnable + 1 <= cpu_core_count) {
 
-        OKF("Try parallel jobs - see %s/parallel_fuzzing.txt.", doc_path);
+        OKF("Try parallel jobs - see %s/parallel_fuzzing.md.", doc_path);
 
       }
 
