@@ -1,14 +1,11 @@
-=======================
-Environmental variables
-=======================
+# Environmental variables
 
-  This document discusses the environment variables used by American Fuzzy Lop
+  This document discusses the environment variables used by American Fuzzy Lop++
   to expose various exotic functions that may be (rarely) useful for power
   users or for some types of custom fuzzing setups. See README for the general
   instruction manual.
 
-1) Settings for afl-gcc, afl-clang, and afl-as - and gcc_plugin afl-gcc-fast
-----------------------------------------------------------------------------
+## 1) Settings for afl-gcc, afl-clang, and afl-as - and gcc_plugin afl-gcc-fast
 
 Because they can't directly accept command-line options, the compile-time
 tools make fairly broad use of environmental variables:
@@ -75,8 +72,7 @@ tools make fairly broad use of environmental variables:
   - Setting AFL_CAL_FAST will speed up the initial calibration, if the
     application is very slow
 
-2) Settings for afl-clang-fast / afl-clang-fast++ / afl-gcc-fast / afl-g++-fast
----------------------------------------------------------------------------------
+## 2) Settings for afl-clang-fast / afl-clang-fast++ / afl-gcc-fast / afl-g++-fast
 
 The native instrumentation helpers (llvm_mode and gcc_plugin) accept a subset
 of the settings discussed in section #1, with the exception of:
@@ -91,8 +87,8 @@ of the settings discussed in section #1, with the exception of:
 
 Then there are a few specific features that are only available in llvm_mode:
 
-  LAF-INTEL
-  =========
+### LAF-INTEL
+
     This great feature will split compares to series of single byte comparisons
     to allow afl-fuzz to find otherwise rather impossible paths. It is not
     restricted to Intel CPUs ;-)
@@ -106,8 +102,8 @@ Then there are a few specific features that are only available in llvm_mode:
 
     See llvm_mode/README.laf-intel.md for more information. 
 
-  WHITELIST
-  =========
+### WHITELIST
+
     This feature allows selectively instrumentation of the source
 
     - Setting AFL_LLVM_WHITELIST with a filename will only instrument those
@@ -115,8 +111,8 @@ Then there are a few specific features that are only available in llvm_mode:
 
     See llvm_mode/README.whitelist.md for more information.
 
-  INSTRIM
-  =======
+### INSTRIM
+
     This feature increases the speed by whopping 20% but at the cost of a
     lower path discovery and therefore coverage.
 
@@ -128,8 +124,7 @@ Then there are a few specific features that are only available in llvm_mode:
 
     See llvm_mode/README.instrim.md
 
-  NOT_ZERO
-  ========
+### NOT_ZERO
 
     - Setting AFL_LLVM_NOT_ZERO=1 during compilation will use counters
       that skip zero on overflow. This is the default for llvm >= 9,
@@ -139,10 +134,17 @@ Then there are a few specific features that are only available in llvm_mode:
 
     See llvm_mode/README.neverzero.md
 
+### CMPLOG
+
+    - Setting AFL_LLVM_CMPLOG=1 during compilation will tell afl-clang-fast to
+      produce a CmpLog binary. See llvm_mode/README.cmplog.md
+
+    See llvm_mode/README.neverzero.md
+
 Then there are a few specific features that are only available in the gcc_plugin:
 
-  WHITELIST
-  =========
+### WHITELIST
+
     This feature allows selective instrumentation of the source
 
     - Setting AFL_GCC_WHITELIST with a filename will only instrument those
@@ -150,8 +152,7 @@ Then there are a few specific features that are only available in the gcc_plugin
 
     See gcc_plugin/README.whitelist.md for more information.
 
-3) Settings for afl-fuzz
-------------------------
+## 3) Settings for afl-fuzz
 
 The main fuzzer binary accepts several options that disable a couple of sanity
 checks or alter some of the more exotic semantics of the tool:
@@ -257,8 +258,7 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting AFL_DEBUG_CHILD_OUTPUT will not suppress the child output.
     Not pretty but good for debugging purposes.
 
-4) Settings for afl-qemu-trace
-------------------------------
+## 4) Settings for afl-qemu-trace
 
 The QEMU wrapper used to instrument binary-only code supports several settings:
 
@@ -295,9 +295,24 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     binary (this can be very good for the performance!).
     The entrypoint is specified as hex address, e.g. 0x4004110
     Note that the address must be the address of a basic block.
+  
+  - When the target is i386/x86_64 you can specify the address of the function
+    that has to be the body of the persistent loop using
+    AFL_QEMU_PERSISTENT_ADDR=`start addr`.
+  
+  - Another modality to execute the persistent loop is to specify also the
+    AFL_QEMU_PERSISTENT_RET=`end addr` env variable.
+    With this variable assigned, instead of patching the return address, the
+    specified instruction is transformed to a jump towards `start addr`.
+    
+  - AFL_QEMU_PERSISTENT_GPR=1 QEMU will save the original value of general
+    purpose registers and restore them in each persistent cycle.
+  
+  - With AFL_QEMU_PERSISTENT_RETADDR_OFFSET you can specify the offset from the
+    stack pointer in which QEMU can find the return address when `start addr` is
+    hitted.
 
-5) Settings for afl-cmin
-------------------------
+## 5) Settings for afl-cmin
 
 The corpus minimization script offers very little customization:
 
@@ -312,8 +327,7 @@ The corpus minimization script offers very little customization:
     a modest security risk on multi-user systems with rogue users, but should
     be safe on dedicated fuzzing boxes.
 
-6) Settings for afl-tmin
-------------------------
+# #6) Settings for afl-tmin
 
 Virtually nothing to play with. Well, in QEMU mode (-Q), AFL_PATH will be
 searched for afl-qemu-trace. In addition to this, TMPDIR may be used if a
@@ -324,14 +338,12 @@ to match when minimizing crashes. This will make minimization less useful, but
 may prevent the tool from "jumping" from one crashing condition to another in
 very buggy software. You probably want to combine it with the -e flag.
 
-7) Settings for afl-analyze
----------------------------
+## 7) Settings for afl-analyze
 
 You can set AFL_ANALYZE_HEX to get file offsets printed as hexadecimal instead
 of decimal.
 
-8) Settings for libdislocator.so
---------------------------------
+## 8) Settings for libdislocator
 
 The library honors these environmental variables:
 
@@ -349,15 +361,16 @@ The library honors these environmental variables:
   - AFL_LD_NO_CALLOC_OVER inhibits abort() on calloc() overflows. Most
     of the common allocators check for that internally and return NULL, so
     it's a security risk only in more exotic setups.
+  
+  - AFL_ALIGNED_ALLOC=1 will force the alignment of the allocation size to
+    max_align_t to be compliant with the C standard.
 
-9) Settings for libtokencap.so
-------------------------------
+## 9) Settings for libtokencap
 
 This library accepts AFL_TOKEN_FILE to indicate the location to which the
 discovered tokens should be written.
 
-10) Third-party variables set by afl-fuzz & other tools
--------------------------------------------------------
+## 10) Third-party variables set by afl-fuzz & other tools
 
 Several variables are not directly interpreted by afl-fuzz, but are set to
 optimal values if not already present in the environment:
@@ -371,6 +384,7 @@ optimal values if not already present in the environment:
 
     abort_on_error=1
     detect_leaks=0
+    malloc_context_size=0
     symbolize=0
     allocator_may_return_null=1
 

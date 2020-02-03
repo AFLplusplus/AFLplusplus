@@ -1,13 +1,10 @@
-==================================================
-Adding custom mutators to AFL using
-==================================================
+# Adding custom mutators to AFL
+
 This file describes how you can implement custom mutations to be used in AFL.
 
 Implemented by Khaled Yakdan from Code Intelligence <yakdan@code-intelligence.de>
 
-
-1) Description
---------------
+## 1) Description
 
 Custom mutator libraries can be passed to afl-fuzz to perform custom mutations
 on test cases beyond those available in AFL - for example, to enable structure-aware
@@ -34,6 +31,6 @@ is then transforms the data into the format expected by the API before executing
 afl_pre_save_handler is optional and does not have to be implemented if its functionality
 is not needed.
 
-2) Example
-----------
+## 2) Example
+
 A simple example is provided in ../custom_mutators/
