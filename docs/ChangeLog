@@ -43,9 +43,9 @@ Version ++2.60c (release):
 
   - fixed a critical bug in afl-tmin that was introduced during ++2.53d
   - added test cases for afl-cmin and afl-tmin to test/test.sh
-  - added ./experimental/argv_fuzzing ld_preload library by Kjell Braden
+  - added ./examples/argv_fuzzing ld_preload library by Kjell Braden
   - added preeny's desock_dup ld_preload library as
-    ./experimental/socket_fuzzing for network fuzzing
+    ./examples/socket_fuzzing for network fuzzing
   - added AFL_AS_FORCE_INSTRUMENT environment variable for afl-as - this is
     for the retrorewrite project
   - we now set QEMU_SET_ENV from AFL_PRELOAD when qemu_mode is used
@@ -512,7 +512,7 @@ Version 2.27b:
 
   - Moved libdislocator to its own dir, added README.
 
-  - The demo in experimental/instrumented_cmp is no more.
+  - The demo in examples/instrumented_cmp is no more.
 
 --------------
 Version 2.26b:
@@ -666,7 +666,7 @@ Version 2.11b:
 
   - Made an improvement to afl-gotcpu when -Z not used.
 
-  - Fixed a typo in post_library_png.so.c in experimental/. Spotted by Kostya
+  - Fixed a typo in post_library_png.so.c in examples/. Spotted by Kostya
     Serebryany.
 
 --------------
@@ -1066,7 +1066,7 @@ Version 1.75b:
 Version 1.74b:
 --------------
 
-  - Added an example argv[] fuzzing wrapper in experimental/argv_fuzzing.
+  - Added an example argv[] fuzzing wrapper in examples/argv_fuzzing.
     Reworked the bash example to be faster, too.
 
   - Clarified llvm_mode prerequisites for FreeBSD.
@@ -1231,12 +1231,12 @@ Version 1.61b:
 Version 1.60b:
 --------------
 
-  - Allowed experimental/llvm_instrumentation/ to graduate to llvm_mode/.
+  - Allowed examples/llvm_instrumentation/ to graduate to llvm_mode/.
 
-  - Removed experimental/arm_support/, since it's completely broken and likely
+  - Removed examples/arm_support/, since it's completely broken and likely
     unnecessary with LLVM support in place.
 
-  - Added ASAN cgroups script to experimental/asan_cgroups/, updated existing
+  - Added ASAN cgroups script to examples/asan_cgroups/, updated existing
     docs. Courtesy Sam Hakim and David A. Wheeler.
 
   - Refactored afl-tmin to reduce the number of execs in common use cases.
@@ -1256,7 +1256,7 @@ Version 1.59b:
 --------------
 
   - Imported Laszlo Szekeres' experimental LLVM instrumentation into
-    experimental/llvm_instrumentation. I'll work on including it in the 
+    examples/llvm_instrumentation. I'll work on including it in the 
     "mainstream" version soon.
 
   - Fixed another typo, thanks to Jakub Wilk.
@@ -1305,7 +1305,7 @@ Version 1.54b:
 
   - Added another postprocessor example for PNG.
 
-  - Made a cosmetic fix to realloc() handling in experimental/post_library/,
+  - Made a cosmetic fix to realloc() handling in examples/post_library/,
     suggested by Jakub Wilk.
 
   - Improved -ldl handling. Suggested by Jakub Wilk.
@@ -1323,7 +1323,7 @@ Version 1.52b:
 
   - Added support for file format postprocessors. Requested by Ben Nagy. This
     feature is intentionally buried, since it's fairly easy to misuse and
-    useful only in some scenarios. See experimental/post_library/.
+    useful only in some scenarios. See examples/post_library/.
 
 --------------
 Version 1.51b:
@@ -1958,7 +1958,7 @@ Version 0.98b:
   - Fixed another cosmetic snafu with stage exec counts for -x.
 
   - Switched afl-plot to /bin/sh, since it seems bashism-free. Also tried
-    to remove any obvious bashisms from other experimental/ scripts,
+    to remove any obvious bashisms from other examples/ scripts,
     most notably including minimize_corpus.sh and triage_crashes.sh.
     Requested by Jonathan Gray.
 
@@ -2126,7 +2126,7 @@ Version 0.84b:
 Version 0.83b:
 --------------
 
-  - Added experimental/clang_asm_normalize/ and related notes in 
+  - Added examples/clang_asm_normalize/ and related notes in 
     env_variables.txt and afl-as.c. Thanks to Ryan Govostes for the idea.
 
   - Added advice on hardware utilization in README.
@@ -2350,7 +2350,7 @@ Version 0.62b:
 
   - Made minor improvements to the allocator, as suggested by Tobias Ospelt.
 
-  - Added example instrumented memcmp() in experimental/instrumented_cmp.
+  - Added example instrumented memcmp() in examples/instrumented_cmp.
 
   - Added a speculative fix for MacOS X (clang detection, again).
 
@@ -2475,7 +2475,7 @@ Version 0.53b:
 Version 0.52b:
 --------------
 
-  - Added a quick summary of the contents in experimental/.
+  - Added a quick summary of the contents in examples/.
 
   - Made a fix to the process of writing fuzzer_stats.
 
@@ -2637,7 +2637,7 @@ Version 0.43b:
 
   - Added status_screen.txt.
 
-  - Added experimental/canvas_harness.
+  - Added examples/canvas_harness.
 
   - Made a minor change to the Makefile GCC check. Suggested by Hanno Boeck.
 
@@ -2648,7 +2648,7 @@ Version 0.42b:
   - Fixed a bug with red zone handling for 64-bit (oops!). Problem reported by
     Felix Groebert.
 
-  - Implemented horribly experimental ARM support in experimental/arm_support.
+  - Implemented horribly experimental ARM support in examples/arm_support.
 
   - Made several improvements to error messages.
 
@@ -2687,7 +2687,7 @@ Version 0.40b:
   - Added support for parallelized fuzzing. Inspired by earlier patch
     from Sebastian Roschke.
 
-  - Added an example in experimental/distributed_fuzzing/.
+  - Added an example in examples/distributed_fuzzing/.
 
 --------------
 Version 0.39b:
@@ -2837,7 +2837,7 @@ Version 0.26b:
   - Added a built-in effort minimizer to get rid of potentially redundant
     inputs,
 
-  - Provided a testcase count minimization script in experimental/,
+  - Provided a testcase count minimization script in examples/,
 
   - Made miscellaneous improvements to directory and file handling.
 

@@ -113,12 +113,12 @@ Be sure to check out docs/sister_projects.txt before writing your own.
 %
 
 Need to fuzz the command-line arguments of a particular program?
-You can find a simple solution in experimental/argv_fuzzing.
+You can find a simple solution in examples/argv_fuzzing.
 
 %
 
 Attacking a format that uses checksums? Remove the checksum-checking code or
-use a postprocessor! See experimental/post_library/ for more.
+use a postprocessor! See examples/post_library/ for more.
 
 %
 
