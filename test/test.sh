@@ -519,7 +519,7 @@ test -e ../libradamsa.so && {
 
 $ECHO "$BLUE[*] Testing: qemu_mode"
 test -e ../afl-qemu-trace && {
-  gcc -o test-instr ../test-instr.c
+  gcc -pie -fPIE -o test-instr ../test-instr.c
   gcc -o test-compcov test-compcov.c
   test -e test-instr -a -e test-compcov && {
     {
@@ -568,7 +568,9 @@ test -e ../afl-qemu-trace && {
         {
           export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
           export AFL_QEMU_PERSISTENT_GPR=1
-          ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr > /dev/null 2>&1
+          $ECHO "Info: AFL_QEMU_PERSISTENT_ADDR=$AFL_QEMU_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
+          file test-instr
+          ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr
         } >>errors 2>&1
         test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
