@@ -1,4 +1,10 @@
+# AFL++ Examples
+
 Here's a quick overview of the stuff you can find in this directory:
+
+  - custom_mutstors      - An example custom mutator
+  
+  - python_mutators      - Python mutators examples
 
   - argv_fuzzing         - a simple wrapper to allow cmdline to be fuzzed
                            (e.g., to test setuid programs).
