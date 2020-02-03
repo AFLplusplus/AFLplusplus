@@ -24,6 +24,7 @@ Version ++2.60d (develop):
      - Android: prefer bigcores when selecting a CPU
      - CmpLog forkserver
      - Redqueen input-2-state mutator (cmp instructions only ATM)
+     - all python 2+3 versions supported now
   - afl-clang-fast:
      - show in the help output for which llvm version it was compiled for
      - now does not need to be recompiled between trace-pc and pass
