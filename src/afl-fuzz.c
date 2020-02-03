@@ -96,7 +96,7 @@ static void usage(u8* argv0) {
       "score.\n"
       "                  <explore (default), fast, coe, lin, quad, or "
       "exploit>\n"
-      "                  see docs/power_schedules.txt\n"
+      "                  see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (stdin)\n"
       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
       "  -m megs       - memory limit for child process (%d MB)\n"
@@ -145,7 +145,7 @@ static void usage(u8* argv0) {
       argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
 #ifdef USE_PYTHON
-  SAYF("Compiled with %s module support, see docs/python_mutators.txt\n",
+  SAYF("Compiled with %s module support, see docs/python_mutators.md\n",
        (char*)PYTHON_VERSION);
 #endif
 

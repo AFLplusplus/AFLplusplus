@@ -1,9 +1,9 @@
 # AFL quick start guide
 
-You should read docs/README.md - it's pretty short. If you really can't, here's
+You should read [README.md](README.md) - it's pretty short. If you really can't, here's
 how to hit the ground running:
 
-1) Compile AFL with 'make'. If build fails, see docs/INSTALL for tips.
+1) Compile AFL with 'make'. If build fails, see [INSTALL.md](INSTALL.md) for tips.
 
 2) Find or write a reasonably fast and simple program that takes data from
    a file or stdin, processes it in a test-worthy way, then exits cleanly.
@@ -15,7 +15,7 @@ how to hit the ground running:
 
    The program must crash properly when a fault is encountered. Watch out for
    custom SIGSEGV or SIGABRT handlers and background processes. For tips on
-   detecting non-crashing flaws, see section 11 in docs/README.md .
+   detecting non-crashing flaws, see section 11 in [README.md](README.md) .
 
 3) Compile the program / library to be fuzzed using afl-gcc. A common way to
    do this would be:
@@ -38,7 +38,7 @@ how to hit the ground running:
    command line; AFL will put an auto-generated file name in there for you.
 
 6) Investigate anything shown in red in the fuzzer UI by promptly consulting
-   docs/status_screen.txt.
+   [status_screen.md](status_screen.md).
 
 7) compile and use llvm_mode (afl-clang-fast/afl-clang-fast++) as it is way
    faster and has a few cool features
@@ -49,6 +49,6 @@ That's it. Sit back, relax, and - time permitting - try to skim through the
 following files:
 
   - README.md                 - A general introduction to AFL,
-  - docs/perf_tips.txt        - Simple tips on how to fuzz more quickly,
-  - docs/status_screen.txt    - An explanation of the tidbits shown in the UI,
-  - docs/parallel_fuzzing.md - Advice on running AFL on multiple cores.
+  - docs/perf_tips.md         - Simple tips on how to fuzz more quickly,
+  - docs/status_screen.md     - An explanation of the tidbits shown in the UI,
+  - docs/parallel_fuzzing.md  - Advice on running AFL on multiple cores.

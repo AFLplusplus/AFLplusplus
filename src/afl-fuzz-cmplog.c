@@ -217,7 +217,7 @@ void init_cmplog_forkserver(char** argv) {
            "have a\n"
            "    restrictive memory limit configured, this is expected; please "
            "read\n"
-           "    %s/notes_for_asan.txt for help.\n",
+           "    %s/notes_for_asan.md for help.\n",
            doc_path);
 
     } else if (!mem_limit) {
@@ -293,7 +293,7 @@ void init_cmplog_forkserver(char** argv) {
          "with ASAN and\n"
          "    you have a restrictive memory limit configured, this is "
          "expected; please\n"
-         "    read %s/notes_for_asan.txt for help.\n",
+         "    read %s/notes_for_asan.md for help.\n",
          doc_path);
 
   } else if (!mem_limit) {

@@ -43,7 +43,7 @@
   emulation. Runtime environment and/or loaders have to be written from scratch,
   if needed. On top, block chaining has been removed. This means the speed boost
   introduced in  the patched QEMU Mode of afl++ cannot simply be ported over to
-  Unicorn. For further information, check out ./unicorn_mode.txt.
+  Unicorn. For further information, check out [unicorn_mode/README.md](../unicorn_mode/README.md).
 
   As it is included in afl++ this needs no URL.
 

@@ -56,7 +56,7 @@ standard operating mode of AFL, e.g.:
 Be sure to also include CXX set to afl-g++-fast for C++ code.
 
 The tool honors roughly the same environmental variables as afl-gcc (see
-../docs/env_variables.txt). This includes AFL_INST_RATIO, AFL_USE_ASAN,
+[env_variables.md](../docs/env_variables.md). This includes AFL_INST_RATIO, AFL_USE_ASAN,
 AFL_HARDEN, and AFL_DONT_OPTIMIZE.
 
 Note: if you want the GCC plugin to be installed on your system for all

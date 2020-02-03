@@ -315,7 +315,7 @@ contains a good example of the input data normally expected by the targeted
 application. There are two basic rules:
 
   - Keep the files small. Under 1 kB is ideal, although not strictly necessary.
-    For a discussion of why size matters, see [perf_tips.txt](docs/perf_tips.txt).
+    For a discussion of why size matters, see [perf_tips.md](docs/perf_tips.md).
 
   - Use multiple test cases only if they are functionally different from
     each other. There is no point in using fifty different vacation photos
@@ -359,7 +359,7 @@ You can use -t and -m to override the default timeout and memory limit for the
 executed process; rare examples of targets that may need these settings touched
 include compilers and video decoders.
 
-Tips for optimizing fuzzing performance are discussed in [perf_tips.txt](docs/perf_tips.txt).
+Tips for optimizing fuzzing performance are discussed in [perf_tips.md](docs/perf_tips.md).
 
 Note that afl-fuzz starts by performing an array of deterministic fuzzing
 steps, which can take several days, but tend to produce neat test cases. If you
@@ -369,7 +369,7 @@ fuzzers - add the -d option to the command line.
 
 ## 8) Interpreting output
 
-See the [docs/status_screen.txt](docs/status_screen.txt) file for information on
+See the [docs/status_screen.md](docs/status_screen.md) file for information on
 how to interpret the displayed stats and monitor the health of the process. Be
 sure to consult this file especially if any UI elements are highlighted in red.
 
@@ -521,7 +521,7 @@ file, attempts to sequentially flip bytes, and observes the behavior of the
 tested program. It then color-codes the input based on which sections appear to
 be critical, and which are not; while not bulletproof, it can often offer quick
 insights into complex file formats. More info about its operation can be found
-near the end of [docs/technical_details.txt](docs/technical_details.txt).
+near the end of [docs/technical_details.md](docs/technical_details.md).
 
 
 ## 12) Going beyond crashes

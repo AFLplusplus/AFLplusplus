@@ -601,7 +601,7 @@ void perform_dry_run(char** argv) {
                "quickly\n"
                "      estimate the required amount of virtual memory for the "
                "binary. Also,\n"
-               "      if you are using ASAN, see %s/notes_for_asan.txt.\n\n"
+               "      if you are using ASAN, see %s/notes_for_asan.md.\n\n"
 
                MSG_FORK_ON_APPLE
 
