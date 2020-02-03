@@ -73,7 +73,7 @@ operating mode of AFL, e.g.:
 Be sure to also include CXX set to afl-clang-fast++ for C++ code.
 
 The tool honors roughly the same environmental variables as afl-gcc (see
-../docs/env_variables.txt). This includes AFL_USE_ASAN,
+[docs/env_variables.md](../docs/env_variables.md)). This includes AFL_USE_ASAN,
 AFL_HARDEN, and AFL_DONT_OPTIMIZE. However AFL_INST_RATIO is not honored
 as it does not serve a good purpose with the more effective instrim CFG
 analysis.

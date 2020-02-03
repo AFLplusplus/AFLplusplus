@@ -25,7 +25,7 @@ cases on the fly.
 
 Note that afl++ has AFLfast's power schedules implemented.
 It is therefore a good idea to use different power schedules if you run
-several instances in parallel. See docs/power_schedules.txt
+several instances in parallel. See [power_schedules.md](power_schedules.md)
 
 Alternatively running other AFL spinoffs in parallel can be of value,
 e.g. Angora (https://github.com/AngoraFuzzer/Angora/)

@@ -410,17 +410,3 @@ endif
 	cp -r testcases/ $${DESTDIR}$(MISC_PATH)
 	cp -r dictionaries/ $${DESTDIR}$(MISC_PATH)
 
-#publish: clean
-#	test "`basename $$PWD`" = "afl" || exit 1
-#	test -f ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz; if [ "$$?" = "0" ]; then echo; echo "Change program version in config.h, mmkay?"; echo; exit 1; fi
-#	cd ..; rm -rf $(PROGNAME)-$(VERSION); cp -pr $(PROGNAME) $(PROGNAME)-$(VERSION); \
-#	  tar -cvz -f ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz $(PROGNAME)-$(VERSION)
-#	chmod 644 ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz
-#	( cd ~/www/afl/releases/; ln -s -f $(PROGNAME)-$(VERSION).tgz $(PROGNAME)-latest.tgz )
-#	cat docs/README.md >~/www/afl/README.txt
-#	cat docs/status_screen.txt >~/www/afl/status_screen.txt
-#	cat docs/historical_notes.txt >~/www/afl/historical_notes.txt
-#	cat docs/technical_details.txt >~/www/afl/technical_details.txt
-#	cat docs/ChangeLog >~/www/afl/ChangeLog.txt
-#	cat docs/QuickStartGuide.txt >~/www/afl/QuickStartGuide.txt
-#	echo -n "$(VERSION)" >~/www/afl/version.txt

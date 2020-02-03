@@ -218,7 +218,7 @@ most of the time - and if it stays below 100, the job will probably take very
 long.
 
 The fuzzer will explicitly warn you about slow targets, too. If this happens,
-see the perf_tips.txt file included with the fuzzer for ideas on how to speed
+see the [perf_tips.md](perf_tips.md) file included with the fuzzer for ideas on how to speed
 things up.
 
 ### Findings in depth

@@ -20,7 +20,7 @@
 # This tool allows the amount of actual memory allocated to a program
 # to be limited on Linux systems using cgroups, instead of the traditional
 # setrlimit() API. This helps avoid the address space problems discussed in
-# docs/notes_for_asan.txt.
+# docs/notes_for_asan.md.
 #
 # Important: the limit covers *both* afl-fuzz and the fuzzed binary. In some
 # hopefully rare circumstances, afl-fuzz could be killed before the fuzzed

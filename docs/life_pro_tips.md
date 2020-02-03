@@ -5,15 +5,15 @@ to read or memorize every other piece of documentation for AFL.
 
 ## Get more bang for your buck by using fuzzing dictionaries.
 
-See dictionaries/README.md to learn how.
+See [dictionaries/README.md](../dictionaries/README.md) to learn how.
 
 ## You can get the most out of your hardware by parallelizing AFL jobs.
 
-See docs/parallel_fuzzing.md for step-by-step tips.
+See [parallel_fuzzing.md](parallel_fuzzing.md) for step-by-step tips.
 
 ## Improve the odds of spotting memory corruption bugs with libdislocator.so!
 
-It's easy. Consult libdislocator/README.md for usage tips.
+It's easy. Consult [libdislocator/README.md](../libdislocator/README.md) for usage tips.
 
 ## Want to understand how your target parses a particular input file?
 

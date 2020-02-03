@@ -40,7 +40,7 @@ coverage-driven fuzzer that relied on coverage as a fitness function.
 Jared's approach was by no means identical to what afl-fuzz does, but it was in
 the same ballpark. His fuzzer tried to explicitly solve for the maximum coverage
 with a single input file; in comparison, afl simply selects for cases that do
-something new (which yields better results - see technical_details.txt).
+something new (which yields better results - see [technical_details.md](technical_details.md)).
 
 A few years later, Gabriel Campana released fuzzgrind, a tool that relied purely
 on Valgrind and a constraint solver to maximize coverage without any brute-force
@@ -133,7 +133,7 @@ several itches that seemed impossible to scratch with other tools:
    corpora of interesting test cases that can be fed into a manual testing
    process or a UI harness later on.
 
-As mentioned in technical_details.txt, AFL does all this not by systematically
+As mentioned in [technical_details.md](technical_details.md), AFL does all this not by systematically
 applying a single overarching CS concept, but by experimenting with a variety
 of small, complementary methods that were shown to reliably yields results
 better than chance. The use of instrumentation is a part of that toolkit, but is

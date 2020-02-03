@@ -22,7 +22,7 @@ tools make fairly broad use of environmental variables:
 
   - Setting AFL_USE_ASAN automatically enables ASAN, provided that your
     compiler supports that. Note that fuzzing with ASAN is mildly challenging
-    - see notes_for_asan.txt.
+    - see [notes_for_asan.md](notes_for_asan.md).
 
     (You can also enable MSAN via AFL_USE_MSAN; ASAN and MSAN come with the
     same gotchas; the modes are mutually exclusive. UBSAN and other exotic
@@ -221,10 +221,10 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting AFL_CUSTOM_MUTATOR_LIBRARY to a shared library with
     afl_custom_mutator() export run additional mutations though this library.
     If AFL_CUSTOM_MUTATOR_ONLY is also set, all mutations will solely be
-    performed with/from the libary. see docs/custom_mutator.txt
+    performed with/from the libary. see [custom_mutator.md](custom_mutator.md)
 
   - For AFL_PYTHON_MODULE and AFL_PYTHON_ONLY - they require to be compiled
-    with -DUSE_PYTHON. Please see docs/python_mutators.txt
+    with -DUSE_PYTHON. Please see [python_mutators.md](python_mutators.md)
     This feature allows to configure custom mutators which can be very helpful
     in e.g. fuzzing XML or other highly flexible structured input.
 
