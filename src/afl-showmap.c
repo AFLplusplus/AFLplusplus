@@ -721,7 +721,6 @@ int main(int argc, char** argv) {
     switch (opt) {
 
       case 'i':
-        if (at_file) FATAL("-i and -A are mutually exclusive");
         if (in_dir) FATAL("Multiple -i options not supported");
         in_dir = optarg;
         break;
@@ -816,8 +815,6 @@ int main(int argc, char** argv) {
         break;
 
       case 'A':
-        if (in_dir) FATAL("-i and -A are mutually exclusive");
-
         /* Another afl-cmin specific feature. */
         at_file = optarg;
         break;
