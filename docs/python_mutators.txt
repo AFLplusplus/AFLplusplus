@@ -9,9 +9,10 @@ Adding custom mutators to AFL using Python modules
 
   Implemented by Christian Holler (:decoder) <choller@mozilla.com>.
 
-  NOTE: Python 3.7 and 2.7 are supported so far (3.8 upcomming).
-  Depending on with which version afl-fuzz was compiled, you must use
+  NOTE: Only cPython 2.7, 3.7 and above are supported, although others may work.
+  Depending on with which version afl-fuzz was compiled against, you must use
   python2 or python3 syntax in your scripts!
+  After a major version upgrade (e.g. 3.7 -> 3.8), a recompilation of afl-fuzz may be needed.
 
   For an example and a template see ../python_mutators/
 
@@ -57,23 +58,21 @@ further information about this feature.
 3) How to compile AFLFuzz with Python support
 ---------------------------------------------
 
-You must install the python 3.7 or 2.7 development package of your Linux
+You must install the python 3 or 2 development package of your Linux
 distribution before this will work. On Debian/Ubuntu/Kali this can be done
 with either:
-  apt install python3.7-dev
+  apt install python3-dev
 or
-  apt install python2.7-dev
+  apt install python-dev
 Note that for some distributions you might also need the package python[23]-apt
 
 A prerequisite for using this mode is to compile AFLFuzz with Python support.
 
-The afl Makefile performs some magic and detects Python 3.7 and 2.7 if it is
-in the default path and compiles afl-fuzz with the feature if available (which
-is /usr/include/python2.7 for the Python.h include and
-/usr/lib/x86_64-linux-gnu for the libpython2.7.a library)
+The AFL++ Makefile detects Python 3 and 2 through `python-config` if is is in the PATH
+and compiles afl-fuzz with the feature if available.
 
 In case your setup is different set the necessary variables like this:
-PYTHON_INCLUDE=/path/to/python2.7/include LDFLAGS=-L/path/to/python2.7/lib make
+PYTHON_INCLUDE=/path/to/python/include LDFLAGS=-L/path/to/python/lib make
 
 
 4) How to run AFLFuzz with your custom module
