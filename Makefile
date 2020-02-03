@@ -66,17 +66,26 @@ AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 ifneq "$(shell which python3m)" ""
   ifneq "$(shell which python3m-config)" ""
     PYTHON_INCLUDE  ?= $(shell python3m-config --includes)
-    # Sarting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
-    PYTHON_LIB      ?= $(shell python3m-config --libs --embed 2>/dev/null || python3m-config --ldflags)
     PYTHON_VERSION  ?= $(strip $(shell python3m --version 2>&1))
+    # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
+    ifeq "$(shell python3m-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
+      PYTHON_LIB      ?= $(shell python3m-config --libs --embed)
+    else
+      PYTHON_LIB      ?= $(shell python3m-config --ldflags)
+    endif
   endif
 endif
 
 ifneq "$(shell which python3)" ""
   ifneq "$(shell which python3-config)" ""
     PYTHON_INCLUDE  ?= $(shell python3-config --includes)
-    PYTHON_LIB      ?= $(shell python3-config --libs --embed 2>/dev/null || python3-config --ldflags)
     PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
+    # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
+    ifeq "$(shell python3-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
+      PYTHON_LIB      ?= $(shell python3-config --libs --embed)
+    else
+      PYTHON_LIB      ?= $(shell python3-config --ldflags)
+    endif
   endif
 endif
 
@@ -113,7 +122,6 @@ else
 endif
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
-
 
 ifeq "$(shell echo '\#include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test $(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	PYTHON_OK=1
