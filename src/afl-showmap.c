@@ -634,7 +634,7 @@ static void usage(u8* argv0) {
 
       "Other settings:\n\n"
 
-      "  -i dir        - process all files in this directory, -o most be a directory\n"
+      "  -i dir        - process all files in this directory, -o must be a directory\n"
       "                  and each bitmap will be written there individually.\n"
       "  -q            - sink program's output and don't show messages\n"
       "  -e            - show edge coverage only, ignore hit counts\n"
@@ -721,6 +721,7 @@ int main(int argc, char** argv) {
     switch (opt) {
 
       case 'i':
+        if (at_file) FATAL("-i and -A are mutually exclusive");
         if (in_dir) FATAL("Multiple -i options not supported");
         in_dir = optarg;
         break;
@@ -815,6 +816,7 @@ int main(int argc, char** argv) {
         break;
 
       case 'A':
+        if (in_dir) FATAL("-i and -A are mutually exclusive");
 
         /* Another afl-cmin specific feature. */
         at_file = optarg;
