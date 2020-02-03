@@ -709,7 +709,7 @@ static void find_binary(u8* fname) {
 
 int main(int argc, char** argv) {
 
-  s32    opt;
+  s32    opt, i;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   u32    tcnt = 0;
   char** use_argv;
@@ -896,7 +896,7 @@ int main(int argc, char** argv) {
 
   detect_file_args(argv + optind, at_file);
   
-  for (int i = optind; i < argc; i++)
+  for (i = optind; i < argc; i++)
     if (strcmp(argv[i], "@@") == 0)
       arg_offset = i;
 
