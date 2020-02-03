@@ -63,42 +63,20 @@ CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
-ifneq "$(filter %3.7m, $(shell python3.7m-config --includes 2>/dev/null))" ""
-  PYTHON_INCLUDE  ?= $(shell python3.7m-config --includes)
-  PYTHON_LIB      ?= $(shell python3.7m-config --ldflags)
-  PYTHON_VERSION   = 3.7m
-else
-  ifneq "$(filter %3.7, $(shell python3.7-config --includes 2>/dev/null))" ""
-    PYTHON_INCLUDE  ?= $(shell python3.7-config --includes)
-    PYTHON_LIB      ?= $(shell python3.7-config --ldflags)
-    PYTHON_VERSION   = 3.7
-  else
-    ifneq "$(filter %2.7, $(shell python2.7-config --includes 2>/dev/null))" ""
-      PYTHON_INCLUDE  ?= $(shell python2.7-config --includes)
-      PYTHON_LIB      ?= $(shell python2.7-config --ldflags)
-      PYTHON_VERSION   = 2.7
-    endif
+ifneq "$(shell which python3)" ""
+  ifneq "$(shell which python3-config)" ""
+    PYTHON_INCLUDE  ?= $(shell python3-config --includes)
+    PYTHON_LIB      ?= $(shell python3-config --ldflags)
+    PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
   endif
 endif
 
-PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7m && echo /usr/include/python3.7m)
-PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7 && echo /usr/include/python3.7)
-PYTHON_INCLUDE	?= $(shell test -e /usr/include/python2.7 && echo /usr/include/python2.7)
-
-ifneq "$(filter %3.7m, $(PYTHON_INCLUDE))" ""
-    PYTHON_VERSION ?= 3.7m
-    PYTHON_LIB  ?= -lpython3.7m
-else
-    ifneq "$(filter %3.7, $(PYTHON_INCLUDE))" ""
-        PYTHON_VERSION ?= 3.7
-    else
-        ifneq "$(filter %2.7, $(PYTHON_INCLUDE))" ""
-            PYTHON_VERSION ?= 2.7
-            PYTHON_LIB     ?= -lpython2.7
-        else
-            PYTHON_VERSION ?= none
-        endif
-    endif
+ifneq "$(shell which python)" ""
+  ifneq "$(shell which python-config)" ""
+    PYTHON_INCLUDE  ?= $(shell python-config --includes)
+    PYTHON_LIB      ?= $(shell python-config --ldflags)
+    PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+  endif
 endif
 
 ifdef SOURCE_DATE_EPOCH
@@ -128,9 +106,9 @@ endif
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
 
 
-ifeq "$(shell echo '\#include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ifeq "$(shell echo '\#include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test $(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	PYTHON_OK=1
-	PYFLAGS=-DUSE_PYTHON -I$(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) -DPYTHON_VERSION=\"$(PYTHON_VERSION)\"
+	PYFLAGS=-DUSE_PYTHON $(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) -DPYTHON_VERSION="\"$(PYTHON_VERSION)\""
 else
 	PYTHON_OK=0
 	PYFLAGS=
@@ -161,7 +139,7 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 
-all:	test_x86 test_shm test_python27 ready $(PROGS) afl-as test_build all_done
+all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 
 man:    $(MANPAGES) 
 	-$(MAKE) -C llvm_mode
@@ -229,14 +207,14 @@ endif
 
 ifeq "$(PYTHON_OK)" "1"
 
-test_python27:
+test_python:
 	@rm -f .test 2> /dev/null
-	@echo "[+] Python $(PYTHON_VERSION) support seems to be working."
+	@echo "[+] $(PYTHON_VERSION) support seems to be working."
 
 else
 
-test_python27:
-	@echo "[-] You seem to need to install the package python3.7-dev or python2.7-dev (and perhaps python[23]-apt), but it is optional so we continue"
+test_python:
+	@echo "[-] You seem to need to install the package python3-dev or python2-dev (and perhaps python[23]-apt), but it is optional so we continue"
 
 endif
 
