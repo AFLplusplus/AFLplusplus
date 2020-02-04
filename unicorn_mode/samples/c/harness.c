@@ -247,7 +247,7 @@ int main(int argc, char **argv, char **envp) {
         1,  // Count of end addresses
         NULL, // Optional calback to run after each exec
         false, // true, if the optional callback should be run also for non-crashes
-        100, // For persistent mode: How many rounds to run
+        1, // For persistent mode: How many rounds to run
         NULL // additional data pointer
     );
     switch(afl_ret) {
