@@ -2,12 +2,13 @@
 
   ![Travis State](https://api.travis-ci.com/vanhauser-thc/AFLplusplus.svg?branch=master)
 
+<img align="right" src="https://raw.githubusercontent.com/vanhauser-thc/AFLplusplus/aflpp.png?s=256" alt="AFL++ Logo">
+
   Release Version: 2.60c 
 
   Github Version: 2.60d
 
   includes all necessary/interesting changes from Google's afl 2.56b
-
 
   Originally developed by Michal "lcamtuf" Zalewski.
 
