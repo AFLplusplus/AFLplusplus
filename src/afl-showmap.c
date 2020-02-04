@@ -67,7 +67,7 @@ s32 forksrv_pid,                       /* PID of the fork server            */
 s32 fsrv_ctl_fd,                       /* Fork server control pipe (write)  */
     fsrv_st_fd;                        /* Fork server status pipe (read)    */
 
-s32 out_fd;                            /* Persistent fd for out_file        */
+s32 out_fd;                            /* Persistent fd for stdin_file      */
 s32 dev_null_fd = -1;                  /* FD to /dev/null                   */
 
 s32   out_fd = -1, out_dir_fd = -1, dev_urandom_fd = -1;
@@ -77,6 +77,7 @@ u8    uses_asan;
 u8* trace_bits;                        /* SHM with instrumentation bitmap   */
 
 u8 *out_file,                          /* Trace output file                 */
+   *stdin_file,                        /* stdin file                        */
     *in_dir,                           /* input folder                      */
     *doc_path,                         /* Path to docs                      */
     *at_file;                          /* Substitution string for @@        */
@@ -155,6 +156,14 @@ static void classify_counts(u8* mem, const u8* map) {
     }
 
   }
+
+}
+
+/* Get rid of temp files (atexit handler). */
+
+static void at_exit_handler(void) {
+
+  if (out_file) unlink(out_file);                          /* Ignore errors */
 
 }
 
@@ -265,12 +274,12 @@ static void write_to_testcase(void* mem, u32 len) {
 
   if (use_stdin) {
 
-    lseek(0, 0, SEEK_SET);
+    lseek(out_fd, 0, SEEK_SET);
 
-    ck_write(0, mem, len, out_file);
+    ck_write(out_fd, mem, len, out_file);
 
-    if (ftruncate(0, len)) PFATAL("ftruncate() failed");
-    lseek(0, 0, SEEK_SET);
+    if (ftruncate(out_fd, len)) PFATAL("ftruncate() failed");
+    lseek(out_fd, 0, SEEK_SET);
 
   }
 
@@ -887,7 +896,7 @@ int main(int argc, char** argv) {
   if (!quiet_mode) {
 
     show_banner();
-    ACTF("Executing '%s'...\n", target_path);
+    ACTF("Executing '%s'...", target_path);
 
   }
 
@@ -932,6 +941,24 @@ int main(int argc, char** argv) {
         PFATAL("cannot create output directory %s", out_file);
 
     if (arg_offset) argv[arg_offset] = infile;
+    else {
+    
+      u8* use_dir = ".";
+
+      if (access(use_dir, R_OK | W_OK | X_OK)) {
+
+        use_dir = getenv("TMPDIR");
+        if (!use_dir) use_dir = "/tmp";
+
+      }
+
+      stdin_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
+      unlink(stdin_file);
+      atexit(at_exit_handler);
+      out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+      if (out_fd < 0) PFATAL("Unable to create '%s'", out_file);
+    
+    }
 
     init_forkserver(use_argv);
 
@@ -950,6 +977,8 @@ int main(int argc, char** argv) {
       }
 
     }
+    
+    if (!quiet_mode) OKF("Processed %u input files.", total_execs);
 
   } else {
 
