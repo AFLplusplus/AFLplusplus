@@ -668,6 +668,7 @@ without feedback, bug reports, or patches from:
   Nathan Voss                           Dominik Maier
   Andrea Biondo                         Vincent Le Garrec
   Khaled Yakdan                         Kuang-che Wu
+  Josephine Calliotte
 ```
 
 Thank you!
