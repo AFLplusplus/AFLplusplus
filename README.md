@@ -2,7 +2,7 @@
 
   ![Travis State](https://api.travis-ci.com/vanhauser-thc/AFLplusplus.svg?branch=master)
 
-<img align="right" src="https://raw.githubusercontent.com/vanhauser-thc/AFLplusplus/aflpp.png?s=256" alt="AFL++ Logo">
+[<img align="right" src="aflpp.512.png" alt="AFL++ Logo">](aflpp.png)
 
   Release Version: 2.60c 
 
