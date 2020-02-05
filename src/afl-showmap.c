@@ -77,7 +77,7 @@ u8    uses_asan;
 u8* trace_bits;                        /* SHM with instrumentation bitmap   */
 
 u8 *out_file,                          /* Trace output file                 */
-   *stdin_file,                        /* stdin file                        */
+    *stdin_file,                       /* stdin file                        */
     *in_dir,                           /* input folder                      */
     *doc_path,                         /* Path to docs                      */
     *at_file;                          /* Substitution string for @@        */
@@ -89,8 +89,7 @@ u32 exec_tmout;                        /* Exec timeout (ms)                 */
 static u32 total, highest;             /* tuple content information         */
 
 static u32 in_len,                     /* Input data length                 */
-    arg_offset,
-    total_execs;                       /* Total number of execs             */
+    arg_offset, total_execs;           /* Total number of execs             */
 
 u64 mem_limit = MEM_LIMIT;             /* Memory limit (MB)                 */
 
@@ -169,7 +168,7 @@ static void at_exit_handler(void) {
 
 /* Write results. */
 
-static u32 write_results_to_file(u8 *out_file) {
+static u32 write_results_to_file(u8* out_file) {
 
   s32 fd;
   u32 i, ret = 0;
@@ -243,7 +242,7 @@ static u32 write_results_to_file(u8 *out_file) {
 static u32 write_results(void) {
 
   return write_results_to_file(out_file);
-  
+
 }
 
 /* Write output file. */
@@ -272,16 +271,10 @@ static s32 write_to_file(u8* path, u8* mem, u32 len) {
 
 static void write_to_testcase(void* mem, u32 len) {
 
-  if (use_stdin) {
-
-    lseek(out_fd, 0, SEEK_SET);
-
-    ck_write(out_fd, mem, len, out_file);
-
-    if (ftruncate(out_fd, len)) PFATAL("ftruncate() failed");
-    lseek(out_fd, 0, SEEK_SET);
-
-  }
+  lseek(out_fd, 0, SEEK_SET);
+  ck_write(out_fd, mem, len, out_file);
+  if (ftruncate(out_fd, len)) PFATAL("ftruncate() failed");
+  lseek(out_fd, 0, SEEK_SET);
 
 }
 
@@ -383,14 +376,15 @@ static u8 run_target_forkserver(char** argv, u8* mem, u32 len) {
 
 /* Read initial file. */
 
-u32 read_file(u8 *in_file) {
+u32 read_file(u8* in_file) {
 
   struct stat st;
   s32         fd = open(in_file, O_RDONLY);
 
   if (fd < 0) WARNF("Unable to open '%s'", in_file);
 
-  if (fstat(fd, &st) || !st.st_size) WARNF("Zero-sized input file '%s'.", in_file);
+  if (fstat(fd, &st) || !st.st_size)
+    WARNF("Zero-sized input file '%s'.", in_file);
 
   in_len = st.st_size;
   in_data = ck_alloc_nozero(in_len);
@@ -399,9 +393,10 @@ u32 read_file(u8 *in_file) {
 
   close(fd);
 
-  //OKF("Read %u byte%s from '%s'.", in_len, in_len == 1 ? "" : "s", in_file);
+  // OKF("Read %u byte%s from '%s'.", in_len, in_len == 1 ? "" : "s", in_file);
 
   return in_len;
+
 }
 
 /* Execute target application. */
@@ -643,7 +638,8 @@ static void usage(u8* argv0) {
 
       "Other settings:\n\n"
 
-      "  -i dir        - process all files in this directory, -o must be a directory\n"
+      "  -i dir        - process all files in this directory, -o must be a "
+      "directory\n"
       "                  and each bitmap will be written there individually.\n"
       "  -q            - sink program's output and don't show messages\n"
       "  -e            - show edge coverage only, ignore hit counts\n"
@@ -900,18 +896,17 @@ int main(int argc, char** argv) {
 
   }
 
-  if (in_dir)  {
-  
+  if (in_dir) {
+
     if (at_file) PFATAL("Options -A and -i are mutually exclusive");
     at_file = "@@";
-  
+
   }
 
-  detect_file_args(argv + optind, at_file);
-  
+  detect_file_args(argv + optind, "");
+
   for (i = optind; i < argc; i++)
-    if (strcmp(argv[i], "@@") == 0)
-      arg_offset = i;
+    if (strcmp(argv[i], "@@") == 0) arg_offset = i;
 
   if (qemu_mode) {
 
@@ -926,10 +921,10 @@ int main(int argc, char** argv) {
 
   if (in_dir) {
 
-    DIR *dir_in, *dir_out;
+    DIR *          dir_in, *dir_out;
     struct dirent* dir_ent;
-    int  done = 0;
-    u8 infile[4096], outfile[4096];
+    int            done = 0;
+    u8             infile[4096], outfile[4096];
 
     dev_null_fd = open("/dev/null", O_RDWR);
     if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
@@ -940,44 +935,56 @@ int main(int argc, char** argv) {
       if (mkdir(out_file, 0700))
         PFATAL("cannot create output directory %s", out_file);
 
-    if (arg_offset) argv[arg_offset] = infile;
-    else {
-    
-      u8* use_dir = ".";
+    u8* use_dir = ".";
 
-      if (access(use_dir, R_OK | W_OK | X_OK)) {
+    if (access(use_dir, R_OK | W_OK | X_OK)) {
 
-        use_dir = getenv("TMPDIR");
-        if (!use_dir) use_dir = "/tmp";
+      use_dir = getenv("TMPDIR");
+      if (!use_dir) use_dir = "/tmp";
 
-      }
+    }
 
-      stdin_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
-      unlink(stdin_file);
-      atexit(at_exit_handler);
-      out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
-      if (out_fd < 0) PFATAL("Unable to create '%s'", out_file);
-    
+    stdin_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
+    unlink(stdin_file);
+    atexit(at_exit_handler);
+    out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+    if (out_fd < 0) PFATAL("Unable to create '%s'", out_file);
+
+    if (arg_offset) argv[arg_offset] = stdin_file;
+
+    if (getenv("AFL_DEBUG")) {
+
+      int i = optind;
+      SAYF(cMGN "[D]" cRST " %s:", target_path);
+      while (argv[i] != NULL)
+        SAYF(" \"%s\"", argv[i++]);
+      SAYF("\n");
+      SAYF(cMGN "[D]" cRST " %d - %d = %d, %s\n", arg_offset, optind,
+           arg_offset - optind, infile);
+
     }
 
     init_forkserver(use_argv);
 
     while (done == 0 && (dir_ent = readdir(dir_in))) {
 
-      if (dir_ent->d_name[0] == '.') continue; // skip anything that starts with '.'
-      if (dir_ent->d_type != DT_REG) continue; // only regular files
+      if (dir_ent->d_name[0] == '.')
+        continue;  // skip anything that starts with '.'
+      if (dir_ent->d_type != DT_REG) continue;  // only regular files
 
       snprintf(infile, sizeof(infile), "%s/%s", in_dir, dir_ent->d_name);
       snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
 
       if (read_file(infile)) {
+
         run_target_forkserver(use_argv, in_data, in_len);
         ck_free(in_data);
         tcnt = write_results_to_file(outfile);
+
       }
 
     }
-    
+
     if (!quiet_mode) OKF("Processed %u input files.", total_execs);
 
   } else {
@@ -998,3 +1005,4 @@ int main(int argc, char** argv) {
   exit(child_crashed * 2 + child_timed_out);
 
 }
+
