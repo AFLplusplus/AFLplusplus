@@ -397,7 +397,7 @@ BEGIN {
       system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/"fn"\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"fn"\"")
     }
   } else {
-    printf "    Processing "in_count" files (forkserver mode)..."
+    printf "    Processing "in_count" files (forkserver mode)...\n"
     system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null")
   }
 

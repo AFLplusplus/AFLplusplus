@@ -66,7 +66,13 @@
 
 #if __STDC_VERSION__ < 201112L
 // use this hack if not C11
-typedef struct { long long __ll; long double __ld; } max_align_t;
+typedef struct {
+
+  long long   __ll;
+  long double __ld;
+
+} max_align_t;
+
 #endif
 
 #define ALLOC_ALIGN_SIZE (_Alignof(max_align_t))
