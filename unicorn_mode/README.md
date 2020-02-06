@@ -28,8 +28,10 @@ First, make afl++ as usual.
 Once that completes successfully you need to build and add in the Unicorn Mode 
 features:
 
-  $ cd unicorn_mode
-  $ ./build_unicorn_support.sh
+```
+$ cd unicorn_mode
+$ ./build_unicorn_support.sh
+```
 
 NOTE: This script checks out a Unicorn Engine fork as submodule that has been tested 
 and is stable-ish, based on the unicorn engine master. 
@@ -68,7 +70,9 @@ To really use unicorn-mode effectively you need to prepare the following:
 Once you have all those things ready to go you just need to run afl-fuzz in
 'unicorn-mode' by passing in the '-U' flag:
 
-	$ afl-fuzz -U -m none -i /path/to/inputs -o /path/to/results -- ./test_harness @@
+```
+$ afl-fuzz -U -m none -i /path/to/inputs -o /path/to/results -- ./test_harness @@
+```
 
 The normal afl-fuzz command line format applies to everything here. Refer to
 AFL's main documentation for more info about how to use afl-fuzz effectively.
@@ -77,14 +81,14 @@ For a much clearer vision of what all of this looks like, please refer to the
 sample provided in the 'unicorn_mode/samples' directory. There is also a blog
 post that goes over the basics at:
 
-https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf
+[https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf](https://medium.com/@njvoss299/afl-unicorn-fuzzing-arbitrary-binary-code-563ca28936bf)
 
 The 'helper_scripts' directory also contains several helper scripts that allow you 
 to dump context from a running process, load it, and hook heap allocations. For details
 on how to use this check out the follow-up blog post to the one linked above.
 
 A example use of AFL-Unicorn mode is discussed in the paper Unicorefuzz:
-https://www.usenix.org/conference/woot19/presentation/maier
+[https://www.usenix.org/conference/woot19/presentation/maier](https://www.usenix.org/conference/woot19/presentation/maier)
 
 ## 3) Options
 
@@ -92,10 +96,11 @@ As for the QEMU-based instrumentation, the afl-unicorn twist of afl++
 comes with a sub-instruction based instrumentation similar in purpose to laf-intel.
 
 The options that enable Unicorn CompareCoverage are the same used for QEMU.
-AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
-values. AFL_COMPCOV_LEVEL=2 instruments all
-comparison instructions. Comparison instructions are currently instrumented only
-for the x86, x86_64 and ARM targets.
+AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate values.
+
+AFL_COMPCOV_LEVEL=2 instruments all comparison instructions.
+
+Comparison instructions are currently instrumented only for the x86, x86_64 and ARM targets.
 
 ## 4) Gotchas, feedback, bugs
 
@@ -114,6 +119,6 @@ unicornafl.monkeypatch()
 
 This will replace all unicorn imports with unicornafl inputs.
 
-Refer to the unicorn_mode/samples/arm_example/arm_tester.c for an example
+Refer to the [samples/arm_example/arm_tester.c](samples/arm_example/arm_tester.c) for an example
 of how to do this properly! If you don't get this right, AFL will not 
 load any mutated inputs and your fuzzing will be useless!
