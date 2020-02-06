@@ -32,10 +32,7 @@
  */
 
 #include <sys/shm.h>
-#include "../../config.h"
 #include "afl-qemu-common.h"
-
-#define PERSISTENT_DEFAULT_MAX_CNT 1000
 
 /***************************
  * VARIOUS AUXILIARY STUFF *
@@ -80,6 +77,9 @@ unsigned int afl_persistent_cnt;
 u8 afl_compcov_level;
 
 __thread abi_ulong afl_prev_loc;
+
+struct cmp_map* __afl_cmp_map;
+__thread u32    __afl_cmp_counter;
 
 /* Set in the child process in forkserver mode: */
 
@@ -180,6 +180,22 @@ static void afl_setup(void) {
 
     if (inst_r) afl_area_ptr[0] = 1;
 
+  }
+  
+  if (getenv("___AFL_EINS_ZWEI_POLIZEI___")) { // CmpLog forkserver
+  
+    id_str = getenv(CMPLOG_SHM_ENV_VAR);
+
+    if (id_str) {
+
+      u32 shm_id = atoi(id_str);
+
+      __afl_cmp_map = shmat(shm_id, NULL, 0);
+
+      if (__afl_cmp_map == (void*)-1) _exit(1);
+
+    }
+    
   }
 
   if (getenv("AFL_INST_LIBS")) {

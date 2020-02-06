@@ -35,6 +35,9 @@
 #define __AFL_QEMU_COMMON
 
 #include "../../config.h"
+#include "../../include/cmplog.h"
+
+#define PERSISTENT_DEFAULT_MAX_CNT 1000
 
 #ifndef CPU_NB_REGS
 #define AFL_REGS_NUM 1000
@@ -73,6 +76,9 @@ extern target_ulong   persistent_saved_gpr[AFL_REGS_NUM];
 extern int            persisent_retaddr_offset;
 
 extern __thread abi_ulong afl_prev_loc;
+
+extern struct cmp_map* __afl_cmp_map;
+extern __thread u32    __afl_cmp_counter;
 
 void afl_debug_dump_saved_regs();
 
