@@ -102,31 +102,103 @@ static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
 
 }
 
+static void afl_cmplog_16(target_ulong cur_loc, target_ulong arg1,
+                          target_ulong arg2) {
+
+  register uintptr_t k = (uintptr_t)cur_loc;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+  // if (!__afl_cmp_map->headers[k].cnt)
+  //  __afl_cmp_map->headers[k].cnt = __afl_cmp_counter++;
+
+  __afl_cmp_map->headers[k].shape = 1;
+  //__afl_cmp_map->headers[k].type = CMP_TYPE_INS;
+
+  hits &= CMP_MAP_H - 1;
+  __afl_cmp_map->log[k][hits].v0 = arg1;
+  __afl_cmp_map->log[k][hits].v1 = arg2;
+
+}
+
+static void afl_cmplog_32(target_ulong cur_loc, target_ulong arg1,
+                          target_ulong arg2) {
+
+  register uintptr_t k = (uintptr_t)cur_loc;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+
+  __afl_cmp_map->headers[k].shape = 3;
+
+  hits &= CMP_MAP_H - 1;
+  __afl_cmp_map->log[k][hits].v0 = arg1;
+  __afl_cmp_map->log[k][hits].v1 = arg2;
+
+}
+
+static void afl_cmplog_64(target_ulong cur_loc, target_ulong arg1,
+                          target_ulong arg2) {
+
+  register uintptr_t k = (uintptr_t)cur_loc;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+
+  __afl_cmp_map->headers[k].shape = 7;
+
+  hits &= CMP_MAP_H - 1;
+  __afl_cmp_map->log[k][hits].v0 = arg1;
+  __afl_cmp_map->log[k][hits].v1 = arg2;
+
+}
+
+
 static void afl_gen_compcov(target_ulong cur_loc, TCGv_i64 arg1, TCGv_i64 arg2,
                             TCGMemOp ot, int is_imm) {
 
   void *func;
 
-  if (!afl_compcov_level || cur_loc > afl_end_code || cur_loc < afl_start_code)
+  if (cur_loc > afl_end_code || cur_loc < afl_start_code)
     return;
 
-  if (!is_imm && afl_compcov_level < 2) return;
+  if (__afl_cmp_map) {
+  
+    cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
+    cur_loc &= CMP_MAP_W - 1;
 
-  switch (ot) {
+    switch (ot) {
 
-    case MO_64: func = &afl_compcov_log_64; break;
-    case MO_32: func = &afl_compcov_log_32; break;
-    case MO_16: func = &afl_compcov_log_16; break;
-    default: return;
+      case MO_64: func = &afl_cmplog_64; break;
+      case MO_32: func = &afl_cmplog_32; break;
+      case MO_16: func = &afl_cmplog_16; break;
+      default: return;
 
+    }
+
+    tcg_gen_afl_compcov_log_call(func, cur_loc, arg1, arg2);
+  
+  } else if (afl_compcov_level) {
+  
+    if (!is_imm && afl_compcov_level < 2) return;
+
+    cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
+    cur_loc &= MAP_SIZE - 7;
+
+    if (cur_loc >= afl_inst_rms) return;
+    
+    switch (ot) {
+
+      case MO_64: func = &afl_compcov_log_64; break;
+      case MO_32: func = &afl_compcov_log_32; break;
+      case MO_16: func = &afl_compcov_log_16; break;
+      default: return;
+
+    }
+
+    tcg_gen_afl_compcov_log_call(func, cur_loc, arg1, arg2);
+  
   }
-
-  cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
-  cur_loc &= MAP_SIZE - 7;
-
-  if (cur_loc >= afl_inst_rms) return;
-
-  tcg_gen_afl_compcov_log_call(func, cur_loc, arg1, arg2);
 
 }
 

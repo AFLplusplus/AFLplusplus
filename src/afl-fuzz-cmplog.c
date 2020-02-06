@@ -150,8 +150,10 @@ void init_cmplog_forkserver(char** argv) {
            "msan_track_origins=0",
            0);
 
-    argv[0] = cmplog_binary;
-    execv(cmplog_binary, argv);
+    setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
+
+    if (!qemu_mode) argv[0] = cmplog_binary;
+    execv(argv[0], argv);
 
     /* Use a distinctive bitmap signature to tell the parent about execv()
        falling through. */
@@ -440,9 +442,11 @@ u8 run_cmplog_target(char** argv, u32 timeout) {
       setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
                              "symbolize=0:"
                              "msan_track_origins=0", 0);
+      
+      setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
-      argv[0] = cmplog_binary;
-      execv(cmplog_binary, argv);
+      if (!qemu_mode) argv[0] = cmplog_binary;
+      execv(argv[0], argv);
 
       /* Use a distinctive bitmap value to tell the parent about execv()
          falling through. */
