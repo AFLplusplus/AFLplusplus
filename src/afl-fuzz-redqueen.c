@@ -108,6 +108,8 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
   struct range* ranges = add_range(NULL, 0, len);
   u8*           backup = ck_alloc_nozero(len);
 
+  u8 needs_write = 0;
+
   u64 orig_hit_cnt, new_hit_cnt;
   orig_hit_cnt = queued_paths + unique_crashes;
 
@@ -132,7 +134,7 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
       ranges = add_range(ranges, rng->start + s / 2 + 1, rng->end);
       memcpy(buf + rng->start, backup, s);
 
-    }
+    } else needs_write = 1;
 
     ck_free(rng);
     --stage_cur;
@@ -149,6 +151,32 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
     ranges = ranges->next;
     ck_free(rng);
 
+  }
+  
+  // save the input with the high entropy
+  
+  if (needs_write) {
+
+    s32 fd;
+
+    if (no_unlink) {
+
+      fd = open(queue_cur->fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+    } else {
+
+      unlink(queue_cur->fname);                                    /* ignore errors */
+      fd = open(queue_cur->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+
+    }
+
+    if (fd < 0) PFATAL("Unable to create '%s'", queue_cur->fname);
+
+    ck_write(fd, buf, len, queue_cur->fname);
+    queue_cur->len = len; // no-op, just to be 100% safe
+    
+    close(fd);
+    
   }
 
   return 0;
@@ -362,7 +390,7 @@ u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
 
   }
 
-  memcpy(buf, orig_buf, len);
+  memcpy(orig_buf, buf, len);
 
   new_hit_cnt = queued_paths + unique_crashes;
   stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
