@@ -122,9 +122,8 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
   while ((rng = pop_biggest_range(&ranges)) != NULL && stage_cur) {
 
     u32 s = rng->end - rng->start;
-    if (s == 0)
-      goto empty_range;
-    
+    if (s == 0) goto empty_range;
+
     memcpy(backup, buf + rng->start, s);
     rand_replace(buf + rng->start, s);
 
@@ -137,9 +136,11 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
       ranges = add_range(ranges, rng->start + s / 2 + 1, rng->end);
       memcpy(buf + rng->start, backup, s);
 
-    } else needs_write = 1;
+    } else
 
-empty_range:
+      needs_write = 1;
+
+  empty_range:
     ck_free(rng);
     --stage_cur;
 
@@ -156,9 +157,9 @@ empty_range:
     ck_free(rng);
 
   }
-  
+
   // save the input with the high entropy
-  
+
   if (needs_write) {
 
     s32 fd;
@@ -169,7 +170,7 @@ empty_range:
 
     } else {
 
-      unlink(queue_cur->fname);                                    /* ignore errors */
+      unlink(queue_cur->fname);                            /* ignore errors */
       fd = open(queue_cur->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
     }
@@ -177,10 +178,10 @@ empty_range:
     if (fd < 0) PFATAL("Unable to create '%s'", queue_cur->fname);
 
     ck_write(fd, buf, len, queue_cur->fname);
-    queue_cur->len = len; // no-op, just to be 100% safe
-    
+    queue_cur->len = len;  // no-op, just to be 100% safe
+
     close(fd);
-    
+
   }
 
   return 0;
@@ -305,24 +306,27 @@ u8 cmp_extend_encoding(struct cmp_header* h, u64 pattern, u64 repl, u32 idx,
 void try_to_add_to_dict(u64 v, u8 shape) {
 
   u8* b = (u8*)&v;
-  
+
   u32 k;
-  u8 cons_ff = 0, cons_0 = 0;
+  u8  cons_ff = 0, cons_0 = 0;
   for (k = 0; k < shape; ++k) {
 
-    if (b[k] == 0) ++cons_0;
-    else if (b[k] == 0xff) ++cons_0;
-    else cons_0 = cons_ff = 0;
-    
-    if (cons_0 > 1 || cons_ff > 1)
-      return;
+    if (b[k] == 0)
+      ++cons_0;
+    else if (b[k] == 0xff)
+      ++cons_0;
+    else
+      cons_0 = cons_ff = 0;
+
+    if (cons_0 > 1 || cons_ff > 1) return;
 
   }
-  
+
   maybe_add_auto((u8*)&v, shape);
-  
+
   u64 rev;
   switch (shape) {
+
     case 1: break;
     case 2:
       rev = SWAP16((u16)v);
@@ -336,8 +340,9 @@ void try_to_add_to_dict(u64 v, u8 shape) {
       rev = SWAP64(v);
       maybe_add_auto((u8*)&rev, shape);
       break;
+
   }
-  
+
 }
 
 u8 cmp_fuzz(u32 key, u8* orig_buf, u8* buf, u32 len) {
@@ -380,13 +385,13 @@ u8 cmp_fuzz(u32 key, u8* orig_buf, u8* buf, u32 len) {
         break;
 
     }
-    
+
     // If failed, add to dictionary
     if (fails == 8) {
-    
+
       try_to_add_to_dict(o->v0, SHAPE_BYTES(h->shape));
       try_to_add_to_dict(o->v1, SHAPE_BYTES(h->shape));
-    
+
     }
 
   cmp_fuzz_next_iter:
