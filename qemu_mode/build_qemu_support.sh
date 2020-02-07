@@ -156,16 +156,18 @@ patch -p1 <../patches/arm-translate.diff || exit 1
 patch -p1 <../patches/i386-ops_sse.diff || exit 1
 patch -p1 <../patches/i386-fpu_helper.diff || exit 1
 patch -p1 <../patches/softfloat.diff || exit 1
+patch -p1 <../patches/configure.diff || exit 1
 
 echo "[+] Patching done."
 
 if [ "$STATIC" = "1" ]; then
 
-  CFLAGS="-O3 -ggdb" ./configure --disable-bsd-user --disable-guest-agent --disable-strip --disable-werror \
+  ./configure --extra-cflags="-O3 -ggdb -DAFL_QEMU_STATIC_BUILD=1" \
+     --disable-bsd-user --disable-guest-agent --disable-strip --disable-werror \
 	  --disable-gcrypt --disable-debug-info --disable-debug-tcg --disable-tcg-interpreter \
 	  --enable-attr --disable-brlapi --disable-linux-aio --disable-bzip2 --disable-bluez --disable-cap-ng \
 	  --disable-curl --disable-fdt --disable-glusterfs --disable-gnutls --disable-nettle --disable-gtk \
-	  --disable-rdma --disable-libiscsi --disable-vnc-jpeg --enable-kvm --disable-lzo --disable-curses \
+	  --disable-rdma --disable-libiscsi --disable-vnc-jpeg --disable-lzo --disable-curses \
 	  --disable-libnfs --disable-numa --disable-opengl --disable-vnc-png --disable-rbd --disable-vnc-sasl \
 	  --disable-sdl --disable-seccomp --disable-smartcard --disable-snappy --disable-spice --disable-libssh2 \
 	  --disable-libusb --disable-usb-redir --disable-vde --disable-vhost-net --disable-virglrenderer \
@@ -178,9 +180,9 @@ else
   # --enable-pie seems to give a couple of exec's a second performance
   # improvement, much to my surprise. Not sure how universal this is..
   
-  CFLAGS="-O3 -ggdb" ./configure --disable-system \
+  ./configure --disable-system \
     --enable-linux-user --disable-gtk --disable-sdl --disable-vnc \
-    --target-list="${CPU_TARGET}-linux-user" --enable-pie --enable-kvm $CROSS_PREFIX || exit 1
+    --target-list="${CPU_TARGET}-linux-user" --enable-pie $CROSS_PREFIX || exit 1
 
 fi
 

@@ -27,7 +27,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-static s32 cmplog_child_pid, cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
+static s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
 
 void init_cmplog_forkserver(char** argv) {
 
