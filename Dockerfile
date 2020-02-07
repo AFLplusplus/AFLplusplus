@@ -1,7 +1,7 @@
 FROM ubuntu:eoan
 MAINTAINER David Carlier <devnexen@gmail.com>
 LABEL "about"="AFLplusplus docker image"
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get -y install \
     --no-install-suggests --no-install-recommends \
     automake \
     bison \
