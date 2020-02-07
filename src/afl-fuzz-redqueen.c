@@ -298,6 +298,44 @@ u8 cmp_extend_encoding(struct cmp_header* h, u64 pattern, u64 repl, u32 idx,
 
 }
 
+void try_to_add_to_dict(u64 v, u8 shape) {
+
+  u8* b = (u8*)&v;
+  
+  u32 k;
+  u8 cons_ff = 0, cons_0 = 0;
+  for (k = 0; k < shape; ++k) {
+
+    if (b[k] == 0) ++cons_0;
+    else if (b[k] == 0xff) ++cons_0;
+    else cons_0 = cons_ff = 0;
+    
+    if (cons_0 > 1 || cons_ff > 1)
+      return;
+
+  }
+  
+  maybe_add_auto((u8*)&v, shape);
+  
+  u64 rev;
+  switch (shape) {
+    case 1: break;
+    case 2:
+      rev = SWAP16((u16)v);
+      maybe_add_auto((u8*)&rev, shape);
+      break;
+    case 4:
+      rev = SWAP32((u32)v);
+      maybe_add_auto((u8*)&rev, shape);
+      break;
+    case 8:
+      rev = SWAP64(v);
+      maybe_add_auto((u8*)&rev, shape);
+      break;
+  }
+  
+}
+
 u8 cmp_fuzz(u32 key, u8* orig_buf, u8* buf, u32 len) {
 
   struct cmp_header* h = &cmp_map->headers[key];
@@ -337,6 +375,14 @@ u8 cmp_fuzz(u32 key, u8* orig_buf, u8* buf, u32 len) {
       else if (status == 1)
         break;
 
+    }
+    
+    // If failed, add to dictionary
+    if (fails == 8) {
+    
+      try_to_add_to_dict(o->v0, SHAPE_BYTES(h->shape));
+      try_to_add_to_dict(o->v1, SHAPE_BYTES(h->shape));
+    
     }
 
   cmp_fuzz_next_iter:
