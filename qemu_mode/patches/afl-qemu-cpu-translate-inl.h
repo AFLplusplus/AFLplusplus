@@ -254,62 +254,71 @@ static void log_x86_sp_content(void) {
 
 }*/
 
-#define I386_RESTORE_STATE_FOR_PERSISTENT                               \
-  do {                                                                  \
-                                                                        \
-    if (persistent_save_gpr) {                                          \
-                                                                        \
-      int      i;                                                       \
-      TCGv_ptr gpr_sv;                                                  \
-                                                                        \
-      TCGv_ptr first_pass_ptr = tcg_const_ptr(&persistent_first_pass);  \
-      TCGv     first_pass = tcg_temp_local_new();                       \
-      TCGv     one = tcg_const_tl(1);                                   \
-      tcg_gen_ld8u_tl(first_pass, first_pass_ptr, 0);                   \
-                                                                        \
-      TCGLabel *lbl_save_gpr = gen_new_label();                         \
-      TCGLabel *lbl_finish_restore_gpr = gen_new_label();               \
-      tcg_gen_brcond_tl(TCG_COND_EQ, first_pass, one, lbl_save_gpr);    \
-                                                                        \
-      for (i = 0; i < CPU_NB_REGS; ++i) {                               \
-                                                                        \
-        gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);               \
-        tcg_gen_ld_tl(cpu_regs[i], gpr_sv, 0);                          \
-                                                                        \
-      }                                                                 \
-                                                                        \
-      tcg_gen_br(lbl_finish_restore_gpr);                               \
-                                                                        \
-      gen_set_label(lbl_save_gpr);                                      \
-                                                                        \
-      for (i = 0; i < CPU_NB_REGS; ++i) {                               \
-                                                                        \
-        gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);               \
-        tcg_gen_st_tl(cpu_regs[i], gpr_sv, 0);                          \
-                                                                        \
-      }                                                                 \
-                                                                        \
-      gen_set_label(lbl_finish_restore_gpr);                            \
-      tcg_temp_free(first_pass);                                        \
-                                                                        \
-    } else if (afl_persistent_ret_addr == 0) {                          \
-                                                                        \
-      TCGv_ptr stack_off_ptr = tcg_const_ptr(&persistent_stack_offset); \
-      TCGv     stack_off = tcg_temp_new();                              \
-      tcg_gen_ld_tl(stack_off, stack_off_ptr, 0);                       \
-      tcg_gen_sub_tl(cpu_regs[R_ESP], cpu_regs[R_ESP], stack_off);      \
-      tcg_temp_free(stack_off);                                         \
-                                                                        \
-    }                                                                   \
-                                                                        \
-  } while (0)
+
+static void callback_to_persistent_hook(void) {
+
+  afl_persistent_hook_ptr(persistent_saved_gpr, guest_base);
+  
+}
+
+static void i386_restore_state_for_persistent(TCGv* cpu_regs) {
+
+  if (persistent_save_gpr) {                                         
+                                                                       
+    int      i;                                                      
+    TCGv_ptr gpr_sv;                                                 
+                                                                     
+    TCGv_ptr first_pass_ptr = tcg_const_ptr(&persistent_first_pass); 
+    TCGv     first_pass = tcg_temp_local_new();                      
+    TCGv     one = tcg_const_tl(1);                                  
+    tcg_gen_ld8u_tl(first_pass, first_pass_ptr, 0);                  
+                                                                     
+    TCGLabel *lbl_restore_gpr = gen_new_label();                        
+    tcg_gen_brcond_tl(TCG_COND_NE, first_pass, one, lbl_restore_gpr);   
+              
+    // save GRP registers
+    for (i = 0; i < CPU_NB_REGS; ++i) {                              
+                                                                     
+      gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);              
+      tcg_gen_st_tl(cpu_regs[i], gpr_sv, 0);                         
+                                                                     
+    }
+
+    gen_set_label(lbl_restore_gpr);
+    
+    tcg_gen_afl_call0(&afl_persistent_loop);
+    
+    if (afl_persistent_hook_ptr)
+      tcg_gen_afl_call0(callback_to_persistent_hook);
+
+    // restore GRP registers                                                     
+    for (i = 0; i < CPU_NB_REGS; ++i) {                              
+                                                                     
+      gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);              
+      tcg_gen_ld_tl(cpu_regs[i], gpr_sv, 0);                         
+                                                                     
+    }
+                                                                     
+    tcg_temp_free(first_pass);                                       
+                                                                     
+  } else if (afl_persistent_ret_addr == 0) {
+                                                                     
+    TCGv_ptr stack_off_ptr = tcg_const_ptr(&persistent_stack_offset);
+    TCGv     stack_off = tcg_temp_new();                             
+    tcg_gen_ld_tl(stack_off, stack_off_ptr, 0);                      
+    tcg_gen_sub_tl(cpu_regs[R_ESP], cpu_regs[R_ESP], stack_off);     
+    tcg_temp_free(stack_off);                                        
+                                                                     
+  }                                                                  
+
+}
 
 #define AFL_QEMU_TARGET_i386_SNIPPET                                          \
   if (is_persistent) {                                                        \
                                                                               \
     if (s->pc == afl_persistent_addr) {                                       \
                                                                               \
-      I386_RESTORE_STATE_FOR_PERSISTENT;                                      \
+      i386_restore_state_for_persistent(cpu_regs);                            \
       /*tcg_gen_afl_call0(log_x86_saved_gpr);                                 \
       tcg_gen_afl_call0(log_x86_sp_content);*/                                \
                                                                               \
@@ -319,7 +328,8 @@ static void log_x86_sp_content(void) {
         tcg_gen_st_tl(paddr, cpu_regs[R_ESP], persisent_retaddr_offset);      \
                                                                               \
       }                                                                       \
-      tcg_gen_afl_call0(&afl_persistent_loop);                                \
+                                                                              \
+      if (!persistent_save_gpr) tcg_gen_afl_call0(&afl_persistent_loop);      \
       /*tcg_gen_afl_call0(log_x86_sp_content);*/                              \
                                                                               \
     } else if (afl_persistent_ret_addr && s->pc == afl_persistent_ret_addr) { \

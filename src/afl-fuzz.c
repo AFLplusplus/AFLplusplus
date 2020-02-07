@@ -1017,6 +1017,8 @@ int main(int argc, char** argv) {
 
     if (child_pid > 0) kill(child_pid, SIGKILL);
     if (forksrv_pid > 0) kill(forksrv_pid, SIGKILL);
+    if (cmplog_child_pid > 0) kill(cmplog_child_pid, SIGKILL);
+    if (cmplog_forksrv_pid > 0) kill(cmplog_forksrv_pid, SIGKILL);
     /* Now that we've killed the forkserver, we wait for it to be able to get
      * rusage stats. */
     if (waitpid(forksrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }

@@ -455,7 +455,7 @@ u8* (*post_handler)(u8* buf, u32* len);
 /* CmpLog */
 
 extern u8* cmplog_binary;
-extern s32 cmplog_forksrv_pid;
+extern s32 cmplog_child_pid, cmplog_forksrv_pid;
 
 /* hooks for the custom mutator function */
 /**
