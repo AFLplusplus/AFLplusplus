@@ -122,6 +122,9 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
   while ((rng = pop_biggest_range(&ranges)) != NULL && stage_cur) {
 
     u32 s = rng->end - rng->start;
+    if (s == 0)
+      goto empty_range;
+    
     memcpy(backup, buf + rng->start, s);
     rand_replace(buf + rng->start, s);
 
@@ -136,6 +139,7 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
 
     } else needs_write = 1;
 
+empty_range:
     ck_free(rng);
     --stage_cur;
 
