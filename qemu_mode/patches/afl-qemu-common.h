@@ -59,7 +59,7 @@
 #define INC_AFL_AREA(loc) afl_area_ptr[loc]++
 #endif
 
-typedef void (*afl_persistent_hook_fn)(uint64_t* regs, uint64_t guest_base);
+typedef void (*afl_persistent_hook_fn)(uint64_t *regs, uint64_t guest_base);
 
 /* Declared in afl-qemu-cpu-inl.h */
 
@@ -81,7 +81,7 @@ extern afl_persistent_hook_fn afl_persistent_hook_ptr;
 
 extern __thread abi_ulong afl_prev_loc;
 
-extern struct cmp_map* __afl_cmp_map;
+extern struct cmp_map *__afl_cmp_map;
 extern __thread u32    __afl_cmp_counter;
 
 void afl_debug_dump_saved_regs();

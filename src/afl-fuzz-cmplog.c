@@ -442,7 +442,7 @@ u8 run_cmplog_target(char** argv, u32 timeout) {
       setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
                              "symbolize=0:"
                              "msan_track_origins=0", 0);
-      
+
       setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
       if (!qemu_mode) argv[0] = cmplog_binary;

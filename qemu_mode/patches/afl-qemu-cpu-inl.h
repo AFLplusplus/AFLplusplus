@@ -82,7 +82,7 @@ u8 afl_compcov_level;
 
 __thread abi_ulong afl_prev_loc;
 
-struct cmp_map* __afl_cmp_map;
+struct cmp_map *__afl_cmp_map;
 __thread u32    __afl_cmp_counter;
 
 /* Set in the child process in forkserver mode: */
@@ -187,9 +187,9 @@ static void afl_setup(void) {
     if (inst_r) afl_area_ptr[0] = 1;
 
   }
-  
-  if (getenv("___AFL_EINS_ZWEI_POLIZEI___")) { // CmpLog forkserver
-  
+
+  if (getenv("___AFL_EINS_ZWEI_POLIZEI___")) {  // CmpLog forkserver
+
     id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
     if (id_str) {
@@ -198,10 +198,10 @@ static void afl_setup(void) {
 
       __afl_cmp_map = shmat(shm_id, NULL, 0);
 
-      if (__afl_cmp_map == (void*)-1) exit(1);
+      if (__afl_cmp_map == (void *)-1) exit(1);
 
     }
-    
+
   }
 
   if (getenv("AFL_INST_LIBS")) {
@@ -247,32 +247,42 @@ static void afl_setup(void) {
   if (getenv("AFL_QEMU_PERSISTENT_GPR")) persistent_save_gpr = 1;
 
   if (getenv("AFL_QEMU_PERSISTENT_HOOK")) {
-  
+
 #ifdef AFL_QEMU_STATIC_BUILD
 
-    fprintf(stderr, "[AFL] ERROR: you cannot use AFL_QEMU_PERSISTENT_HOOK when afl-qemu-trace is static\n");
+    fprintf(stderr,
+            "[AFL] ERROR: you cannot use AFL_QEMU_PERSISTENT_HOOK when "
+            "afl-qemu-trace is static\n");
     exit(1);
 
 #else
-  
+
     persistent_save_gpr = 1;
-  
-    void* plib = dlopen(getenv("AFL_QEMU_PERSISTENT_HOOK"), RTLD_NOW);
+
+    void *plib = dlopen(getenv("AFL_QEMU_PERSISTENT_HOOK"), RTLD_NOW);
     if (!plib) {
-      fprintf(stderr, "[AFL] ERROR: invalid AFL_QEMU_PERSISTENT_HOOK=%s\n", getenv("AFL_QEMU_PERSISTENT_HOOK"));
+
+      fprintf(stderr, "[AFL] ERROR: invalid AFL_QEMU_PERSISTENT_HOOK=%s\n",
+              getenv("AFL_QEMU_PERSISTENT_HOOK"));
       exit(1);
+
     }
-    
+
     afl_persistent_hook_ptr = dlsym(plib, "afl_persistent_hook");
     if (!afl_persistent_hook_ptr) {
-      fprintf(stderr, "[AFL] ERROR: failed to find the function \"afl_persistent_hook\" in %s\n", getenv("AFL_QEMU_PERSISTENT_HOOK"));
+
+      fprintf(stderr,
+              "[AFL] ERROR: failed to find the function "
+              "\"afl_persistent_hook\" in %s\n",
+              getenv("AFL_QEMU_PERSISTENT_HOOK"));
       exit(1);
+
     }
 
 #endif
 
   }
-  
+
   if (getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"))
     persisent_retaddr_offset =
         strtoll(getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"), NULL, 0);
@@ -402,9 +412,12 @@ static void afl_forkserver(CPUState *cpu) {
     if (WIFSTOPPED(status))
       child_stopped = 1;
     else if (unlikely(first_run && is_persistent)) {
+
       fprintf(stderr, "[AFL] ERROR: no persistent iteration executed\n");
       exit(12);  // Persistent is wrong
+
     }
+
     first_run = 0;
 
     if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(7);
