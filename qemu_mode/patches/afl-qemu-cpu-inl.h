@@ -368,8 +368,10 @@ static void afl_forkserver(CPUState *cpu) {
 
     if (WIFSTOPPED(status))
       child_stopped = 1;
-    else if (unlikely(first_run && is_persistent))
+    else if (unlikely(first_run && is_persistent)) {
+      fprintf(stderr, "[AFL] ERROR: no persistent iteration executed\n");
       exit(12);  // Persistent is wrong
+    }
     first_run = 0;
 
     if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(7);

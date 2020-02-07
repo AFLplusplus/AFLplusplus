@@ -57,7 +57,7 @@ ifneq "$(shell uname -m)" "x86_64"
 endif
 
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
-CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
+override CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
               -DDOC_PATH=\"$(DOC_PATH)\" -Wno-unused-function
 
