@@ -75,7 +75,7 @@ $ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
 test -z "$SYS" && $ECHO "$YELLOW[-] uname -m did not succeed"
 
 $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
-test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
+test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" && {
  test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
   ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
@@ -263,7 +263,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode"
       CODE=1
     }
-    test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" || {
+    test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" || {
       echo 000000000000000000000000 > in/in2
       echo 111 > in/in3
       mkdir -p in2
@@ -583,7 +583,7 @@ test -e ../afl-qemu-trace && {
       }
       rm -f errors
 
-      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
+      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
         {
           export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`

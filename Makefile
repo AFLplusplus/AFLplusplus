@@ -51,7 +51,9 @@ endif
 ifneq "$(shell uname -m)" "x86_64"
  ifneq "$(shell uname -m)" "i386"
   ifneq "$(shell uname -m)" "amd64"
+   ifneq "$(shell uname -m)" "i86pc"
 	AFL_NO_X86=1
+   endif
   endif
  endif
 endif
@@ -109,10 +111,12 @@ endif
 
 ifneq "$(findstring FreeBSD, $(shell uname))" ""
   CFLAGS += -pthread
+  LDFLAGS  += -lpthread
 endif
 
 ifneq "$(findstring NetBSD, $(shell uname))" ""
   CFLAGS += -pthread
+  LDFLAGS  += -lpthread
 endif
 
 ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
@@ -423,7 +427,7 @@ endif
 
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
 	ln -sf afl-as $${DESTDIR}$(HELPER_PATH)/as
-	install -m 644 docs/*.md docs/ChangeLog $${DESTDIR}$(DOC_PATH)
+	install -m 644 docs/*.md $${DESTDIR}$(DOC_PATH)
 	cp -r testcases/ $${DESTDIR}$(MISC_PATH)
 	cp -r dictionaries/ $${DESTDIR}$(MISC_PATH)
 
