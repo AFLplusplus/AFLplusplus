@@ -29,6 +29,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - CmpLog instrumentation for QEMU (-c afl-fuzz command line option)
      - AFL_PERSISTENT_HOOK callback module for persistent QEMU
        (see examples/qemu_persistent_hook)
+     - added qemu_mode/README.persistent.md documentation
   - afl-cmin is now a sh script (invoking awk) instead of bash for portability
     the original script is still present as afl-cmin.bash
   - afl-showmap: -i dir option now allows processing multiple inputs using the
