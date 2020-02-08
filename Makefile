@@ -109,6 +109,7 @@ endif
 
 ifneq "$(findstring FreeBSD, $(shell uname))" ""
   CFLAGS += -pthread
+  LDFLAGS  += -lpthread
 endif
 
 ifneq "$(findstring NetBSD, $(shell uname))" ""
