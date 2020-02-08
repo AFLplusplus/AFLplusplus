@@ -423,7 +423,7 @@ endif
 
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
 	ln -sf afl-as $${DESTDIR}$(HELPER_PATH)/as
-	install -m 644 docs/*.md docs/ChangeLog $${DESTDIR}$(DOC_PATH)
+	install -m 644 docs/*.md $${DESTDIR}$(DOC_PATH)
 	cp -r testcases/ $${DESTDIR}$(MISC_PATH)
 	cp -r dictionaries/ $${DESTDIR}$(MISC_PATH)
 
