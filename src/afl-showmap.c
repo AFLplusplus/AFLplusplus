@@ -925,6 +925,9 @@ int main(int argc, char** argv) {
     struct dirent* dir_ent;
     int            done = 0;
     u8             infile[4096], outfile[4096];
+#if !defined(DT_REG)
+    struct stat    statbuf;
+#endif
 
     dev_null_fd = open("/dev/null", O_RDWR);
     if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
@@ -970,9 +973,18 @@ int main(int argc, char** argv) {
 
       if (dir_ent->d_name[0] == '.')
         continue;  // skip anything that starts with '.'
+
+#if defined(DT_REG) /* Posix and Solaris do not know d_type and DT_REG */
       if (dir_ent->d_type != DT_REG) continue;  // only regular files
+#endif
 
       snprintf(infile, sizeof(infile), "%s/%s", in_dir, dir_ent->d_name);
+
+#if !defined(DT_REG) /* use stat() */
+      if (-1 == stat(infile, &statbuf)
+          || !S_ISREG(statbuf.st_mode)) continue;
+#endif
+
       snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
 
       if (read_file(infile)) {
