@@ -7,6 +7,7 @@ Makefile:
 
 afl-fuzz:
  - sync_fuzzers(): only masters sync from all, slaves only sync from master
+   (@andrea: be careful, often people run all slaves)
  - ascii_only mode
 
 gcc_plugin:
@@ -24,6 +25,7 @@ qemu_mode:
 
 custom_mutators:
  - rip what Superion is doing into custom mutators for js, php, etc.
+ - uniform python and custom mutators API
 
 
 

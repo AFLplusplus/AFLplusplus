@@ -24,13 +24,16 @@ Version ++2.60d (develop):
      - Android: prefer bigcores when selecting a CPU
      - CmpLog forkserver
      - Redqueen input-2-state mutator (cmp instructions only ATM)
-     - all python 2+3 versions supported now
+     - all Python 2+3 versions supported now
   - afl-clang-fast:
      - show in the help output for which llvm version it was compiled for
      - now does not need to be recompiled between trace-pc and pass
        instrumentation. compile normally and set AFL_LLVM_USE_TRACE_PC :)
-     - llvm 11 is supported
-     - CmpLog mode (see llvm_mode/README.cmplog)
+     - LLVM 11 is supported
+     - CmpLog instrumentation using SanCov (see llvm_mode/README.cmplog)
+  - CmpLog instrumentation for QEMU
+  - AFL_PERSISTENT_HOOK callback module for persistent QEMU
+    (see examples/qemu_persistent_hook)
   - afl-cmin is now a sh script (invoking awk) instead of bash for portability
     the original script is still present as afl-cmin.bash
   - afl-showmap: -i dir option now allows processing multiple inputs using the
