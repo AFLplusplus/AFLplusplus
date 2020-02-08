@@ -39,10 +39,14 @@
 
 #define PERSISTENT_DEFAULT_MAX_CNT 1000
 
-#ifndef CPU_NB_REGS
-#define AFL_REGS_NUM 1000
-#else
+#ifdef CPU_NB_REGS
 #define AFL_REGS_NUM CPU_NB_REGS
+#elif TARGET_ARM
+#define AFL_REGS_NUM 32
+#elif TARGET_AARCH64
+#define AFL_REGS_NUM 32
+#else
+#define AFL_REGS_NUM 100
 #endif
 
 /* NeverZero */
