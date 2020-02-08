@@ -33,6 +33,10 @@
 #include <mach/vm_statistics.h>
 #endif
 
+#ifdef __FreeBSD__
+#include <sys/param.h>
+#endif
+
 #ifdef __linux__
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -64,7 +68,7 @@
 #include "config.h"
 #include "types.h"
 
-#if __STDC_VERSION__ < 201112L || defined __FreeBSD__
+#if __STDC_VERSION__ < 201112L || (defined(__FreeBSD__) && __FreeBSD_version < 1200000)
 // use this hack if not C11
 typedef struct {
 
