@@ -67,7 +67,7 @@ static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
   register uintptr_t idx = cur_loc;
-
+  
   if ((arg1 & 0xff00000000000000) == (arg2 & 0xff00000000000000)) {
 
     INC_AFL_AREA(idx + 6);
@@ -258,63 +258,72 @@ static void callback_to_persistent_hook(void) {
 
 }
 
-static void i386_restore_state_for_persistent(TCGv *cpu_regs) {
+static void gpr_saving(TCGv *cpu_regs, int regs_num) {
+
+  int      i;
+  TCGv_ptr gpr_sv;
+
+  TCGv_ptr first_pass_ptr = tcg_const_ptr(&persistent_first_pass);
+  TCGv     first_pass = tcg_temp_local_new();
+  TCGv     one = tcg_const_tl(1);
+  tcg_gen_ld8u_tl(first_pass, first_pass_ptr, 0);
+
+  TCGLabel *lbl_restore_gpr = gen_new_label();
+  tcg_gen_brcond_tl(TCG_COND_NE, first_pass, one, lbl_restore_gpr);
+
+  // save GPR registers
+  for (i = 0; i < regs_num; ++i) {
+
+    gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);
+    tcg_gen_st_tl(cpu_regs[i], gpr_sv, 0);
+
+  }
+
+  gen_set_label(lbl_restore_gpr);
+
+  tcg_gen_afl_call0(&afl_persistent_loop);
+
+  if (afl_persistent_hook_ptr) tcg_gen_afl_call0(callback_to_persistent_hook);
+
+  // restore GPR registers
+  for (i = 0; i < regs_num; ++i) {
+
+    gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);
+    tcg_gen_ld_tl(cpu_regs[i], gpr_sv, 0);
+
+  }
+
+  tcg_temp_free_ptr(first_pass_ptr);
+  tcg_temp_free(first_pass);
+  tcg_temp_free(one);
+
+}
+
+
+static void restore_state_for_persistent(TCGv *cpu_regs, int regs_num, int sp) {
 
   if (persistent_save_gpr) {
 
-    int      i;
-    TCGv_ptr gpr_sv;
-
-    TCGv_ptr first_pass_ptr = tcg_const_ptr(&persistent_first_pass);
-    TCGv     first_pass = tcg_temp_local_new();
-    TCGv     one = tcg_const_tl(1);
-    tcg_gen_ld8u_tl(first_pass, first_pass_ptr, 0);
-
-    TCGLabel *lbl_restore_gpr = gen_new_label();
-    tcg_gen_brcond_tl(TCG_COND_NE, first_pass, one, lbl_restore_gpr);
-
-    // save GRP registers
-    for (i = 0; i < AFL_REGS_NUM; ++i) {
-
-      gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);
-      tcg_gen_st_tl(cpu_regs[i], gpr_sv, 0);
-
-    }
-
-    gen_set_label(lbl_restore_gpr);
-
-    tcg_gen_afl_call0(&afl_persistent_loop);
-
-    if (afl_persistent_hook_ptr) tcg_gen_afl_call0(callback_to_persistent_hook);
-
-    // restore GRP registers
-    for (i = 0; i < AFL_REGS_NUM; ++i) {
-
-      gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);
-      tcg_gen_ld_tl(cpu_regs[i], gpr_sv, 0);
-
-    }
-
-    tcg_temp_free(first_pass);
+    gpr_saving(cpu_regs, regs_num);
 
   } else if (afl_persistent_ret_addr == 0) {
 
     TCGv_ptr stack_off_ptr = tcg_const_ptr(&persistent_stack_offset);
     TCGv     stack_off = tcg_temp_new();
     tcg_gen_ld_tl(stack_off, stack_off_ptr, 0);
-    tcg_gen_sub_tl(cpu_regs[R_ESP], cpu_regs[R_ESP], stack_off);
+    tcg_gen_sub_tl(cpu_regs[sp], cpu_regs[sp], stack_off);
     tcg_temp_free(stack_off);
 
   }
 
 }
 
-#define AFL_QEMU_TARGET_i386_SNIPPET                                          \
+#define AFL_QEMU_TARGET_I386_SNIPPET                                          \
   if (is_persistent) {                                                        \
                                                                               \
     if (s->pc == afl_persistent_addr) {                                       \
                                                                               \
-      i386_restore_state_for_persistent(cpu_regs);                            \
+      restore_state_for_persistent(cpu_regs, AFL_REGS_NUM, R_ESP);            \
       /*tcg_gen_afl_call0(log_x86_saved_gpr);                                 \
       tcg_gen_afl_call0(log_x86_sp_content);*/                                \
                                                                               \
@@ -322,6 +331,7 @@ static void i386_restore_state_for_persistent(TCGv *cpu_regs) {
                                                                               \
         TCGv_ptr paddr = tcg_const_ptr(afl_persistent_addr);                  \
         tcg_gen_st_tl(paddr, cpu_regs[R_ESP], persisent_retaddr_offset);      \
+        tcg_temp_free_ptr(paddr);                                             \
                                                                               \
       }                                                                       \
                                                                               \
@@ -337,3 +347,56 @@ static void i386_restore_state_for_persistent(TCGv *cpu_regs) {
                                                                               \
   }
 
+// SP = 13, LINK = 14
+
+#define AFL_QEMU_TARGET_ARM_SNIPPET                                           \
+  if (is_persistent) {                                                        \
+                                                                              \
+    if (dc->pc == afl_persistent_addr) {                                      \
+                                                                              \
+      if (persistent_save_gpr) gpr_saving(cpu_R, AFL_REGS_NUM);               \
+                                                                              \
+      if (afl_persistent_ret_addr == 0) {                                     \
+                                                                              \
+        TCGv_ptr paddr = tcg_const_ptr(afl_persistent_addr);                  \
+        tcg_gen_mov_i32(cpu_R[14], paddr);                                    \
+        tcg_temp_free_ptr(paddr);                                             \
+                                                                              \
+      }                                                                       \
+                                                                              \
+      if (!persistent_save_gpr) tcg_gen_afl_call0(&afl_persistent_loop);      \
+                                                                              \
+    } else if (afl_persistent_ret_addr && dc->pc == afl_persistent_ret_addr) {\
+                                                                              \
+      gen_bx_im(dc, afl_persistent_addr);                                     \
+                                                                              \
+    }                                                                         \
+                                                                              \
+  }
+
+// SP = 31, LINK = 30
+
+#define AFL_QEMU_TARGET_ARM64_SNIPPET                                         \
+  if (is_persistent) {                                                        \
+                                                                              \
+    if (s->pc == afl_persistent_addr) {                                       \
+                                                                              \
+      if (persistent_save_gpr) gpr_saving(cpu_X, AFL_REGS_NUM);               \
+                                                                              \
+      if (afl_persistent_ret_addr == 0) {                                     \
+                                                                              \
+        TCGv_ptr paddr = tcg_const_ptr(afl_persistent_addr);                  \
+        tcg_gen_mov_i32(cpu_X[30], paddr);                                    \
+        tcg_temp_free_ptr(paddr);                                             \
+                                                                              \
+      }                                                                       \
+                                                                              \
+      if (!persistent_save_gpr) tcg_gen_afl_call0(&afl_persistent_loop);      \
+                                                                              \
+    } else if (afl_persistent_ret_addr && s->pc == afl_persistent_ret_addr) { \
+                                                                              \
+      gen_goto_tb(s, 0, afl_persistent_addr);                                 \
+                                                                              \
+    }                                                                         \
+                                                                              \
+  }
