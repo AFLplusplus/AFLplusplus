@@ -274,7 +274,7 @@ static void i386_restore_state_for_persistent(TCGv *cpu_regs) {
     tcg_gen_brcond_tl(TCG_COND_NE, first_pass, one, lbl_restore_gpr);
 
     // save GRP registers
-    for (i = 0; i < CPU_NB_REGS; ++i) {
+    for (i = 0; i < AFL_REGS_NUM; ++i) {
 
       gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);
       tcg_gen_st_tl(cpu_regs[i], gpr_sv, 0);
@@ -288,7 +288,7 @@ static void i386_restore_state_for_persistent(TCGv *cpu_regs) {
     if (afl_persistent_hook_ptr) tcg_gen_afl_call0(callback_to_persistent_hook);
 
     // restore GRP registers
-    for (i = 0; i < CPU_NB_REGS; ++i) {
+    for (i = 0; i < AFL_REGS_NUM; ++i) {
 
       gpr_sv = tcg_const_ptr(&persistent_saved_gpr[i]);
       tcg_gen_ld_tl(cpu_regs[i], gpr_sv, 0);
