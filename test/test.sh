@@ -1,18 +1,18 @@
 #!/bin/sh
 
 #
-# Ensure we have: test, type, diff -q, grep -aqE
+# Ensure we have: test, type, diff, grep -qE
 #
 test -z "" 2> /dev/null || { echo Error: test command not found ; exit 1 ; }
 GREP=`type grep > /dev/null 2>&1 && echo OK`
 test "$GREP" = OK || { echo Error: grep command not found ; exit 1 ; }
-echo foobar | grep -aqE 'asd|oob' 2> /dev/null || { echo Error: grep command does not support -q, -a and/or -E option ; exit 1 ; }
+echo foobar | grep -qE 'asd|oob' 2> /dev/null || { echo Error: grep command does not support -q and/or -E option ; exit 1 ; }
 echo 1 > test.1
 echo 1 > test.2
 OK=OK
-diff -q test.1 test.2 >/dev/null 2>&1 || OK=
+diff test.1 test.2 >/dev/null 2>&1 || OK=
 rm -f test.1 test.2
-test -z "$OK" && { echo Error: diff -q is not working ; exit 1 ; }
+test -z "$OK" && { echo Error: diff is not working ; exit 1 ; }
 test -z "$LLVM_CONFIG" && LLVM_CONFIG=llvm-config
 
 
@@ -21,7 +21,7 @@ $ECHO \\101 2>&1 | grep -qE '^A' || {
   ECHO=
   test -e /bin/printf && {
     ECHO="/bin/printf %b\\n"
-    $ECHO '\\101' 2>&1 | grep -qE '^A' || ECHO=
+    $ECHO "\\101" 2>&1 | grep -qE '^A' || ECHO=
   }
 }
 test -z "$ECHO" && { printf Error: printf command does not support octal character codes ; exit 1 ; }
@@ -84,7 +84,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
     ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
-      diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
+      diff test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] ${AFL_GCC} instrumentation should be different on different input but is not"
         CODE=1
       } || {
@@ -111,7 +111,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     CODE=1
   }
   test -e test-compcov.harden && {
-    grep -Eqa 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
+    grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] ${AFL_GCC} hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} hardened mode is not hardened"
@@ -203,7 +203,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
     ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
-      diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
+      diff test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] llvm_mode instrumentation should be different on different input but is not"
         CODE=1
       } || {
@@ -226,7 +226,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   test -e test-compcov.harden && {
-    grep -Eqa 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
+    grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] llvm_mode hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] llvm_mode hardened mode is not hardened"
@@ -366,7 +366,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
     echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain.gccpi > /dev/null 2>&1
     ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain.gccpi < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
-      diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
+      diff test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] gcc_plugin instrumentation should be different on different input but is not"
         CODE=1
       } || { 
@@ -391,7 +391,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   }
 
   test -e test-compcov.harden.gccpi && {
-    grep -Eqa 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden.gccpi > /dev/null 2>&1 && {
+    grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden.gccpi > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] gcc_plugin hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] gcc_plugin hardened mode is not hardened"
