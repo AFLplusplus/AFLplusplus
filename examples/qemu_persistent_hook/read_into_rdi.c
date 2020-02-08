@@ -37,8 +37,12 @@ enum {
 
 void afl_persistent_hook(uint64_t* regs, uint64_t guest_base) {
 
+  // In this example the register RDI is pointing to the memory location
+  // of the target buffer, and the length of the input is in RAX.
+
   printf("reading into %p\n", regs[R_EDI]);
   size_t r = read(0, g2h(regs[R_EDI]), 1024);
+  regs[R_EAX] = r;
   printf("readed %ld bytes\n", r);
 
 }

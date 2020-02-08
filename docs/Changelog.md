@@ -1,4 +1,4 @@
-# ChangeLog
+# Changelog
 
   This is the list of all noteworthy changes made in every public release of
   the tool. See README for the general instruction manual.
@@ -25,9 +25,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        instrumentation. compile normally and set AFL_LLVM_USE_TRACE_PC :)
      - LLVM 11 is supported
      - CmpLog instrumentation using SanCov (see llvm_mode/README.cmplog)
-  - CmpLog instrumentation for QEMU
-  - AFL_PERSISTENT_HOOK callback module for persistent QEMU
-    (see examples/qemu_persistent_hook)
+  - qemu_mode:
+     - CmpLog instrumentation for QEMU (-c afl-fuzz command line option)
+     - AFL_PERSISTENT_HOOK callback module for persistent QEMU
+       (see examples/qemu_persistent_hook)
+     - added qemu_mode/README.persistent.md documentation
   - afl-cmin is now a sh script (invoking awk) instead of bash for portability
     the original script is still present as afl-cmin.bash
   - afl-showmap: -i dir option now allows processing multiple inputs using the
