@@ -114,6 +114,7 @@ endif
 
 ifneq "$(findstring NetBSD, $(shell uname))" ""
   CFLAGS += -pthread
+  LDFLAGS  += -lpthread
 endif
 
 ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
