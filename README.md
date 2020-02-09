@@ -64,7 +64,7 @@
   | NeverZero               |    x    |     x(1)  |      (2)   |          x       |       x      |
   | Persistent mode         |         |     x     |     x      | x86[_64]/arm[64] |       x      |
   | laf-intel / CompCov     |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
-  | CmpLog                  |         |     x     |            |          x       |              |
+  | CmpLog                  |         |     x     |            | x86[_64]/arm[64] |              |
   | Whitelist               |         |     x     |     x      |                  |              |
   | InsTrim                 |         |     x     |            |                  |              |
 
