@@ -10,67 +10,86 @@ very, very valuable.
 The persistent mode is currently only available for x86/x86_64, arm
 and aarch64 targets.
 
-
 ## 2) How use the persistent mode
 
 ### 2.1) The START address
 
-The start of the persistent mode has to be set with AFL_QEMU_PERSISTENT_ADDR.
+The start of the persistent loop has to be set with AFL_QEMU_PERSISTENT_ADDR.
 
-This address must be at the start of a function or the starting address of
-basic block. This (as well as the RET address, see below) has to be defined
-in hexadecimal with the 0x prefix.
+This address can be the address of whatever instruction but the way in which
+you setup persistent mode change if it is the starting instruction of a
+function (suggested). This (as well as the RET address, see below) has to be
+defined in hexadecimal with the 0x prefix or as a decimal value.
 
 If the target is compiled with position independant code (PIE/PIC), you must
 add 0x4000000000 to that address, because qemu loads to this base address.
+On strange setups the base address set by QEMU for PIE executable may change,
+you can check it printing the process map using AFL_QEMU_DEBUG_MAPS=1.
 
 If this address is not valid, afl-fuzz will error during startup with the
 message that the forkserver was not found.
 
-
 ### 2.2) the RET address
 
-The RET address is optional, and only needed if the the return should not be
+The RET address is the last instruction of the persistent loop.
+The emulator will emit a jump to START when translating the instruction at RET.
+It is optional, and only needed if the the return should not be
 at the end of the function to which the START address points into, but earlier.
+
+It is not set, QEMU will assume that START points to a function and will patch
+the return address (on stack or in the link register) to return to START
+(like WinAFL).
 
 It is defined by setting AFL_QEMU_PERSISTENT_RET, and too 0x4000000000 has to
 be set if the target is position independant.
 
-
 ### 2.3) the OFFSET
 
+This option is for x86 only, arm doesn't save the return address on stack.
+
 If the START address is *not* the beginning of a function, and *no* RET has
-been set (so the end of the loop will be at the end of the function), the
-ESP pointer very likely has to be reset correctly.
+been set (so the end of the loop will be at the end of the function but START
+will not be at the beginning), we need an offset from the ESP pointer to locate
+the return address to patch.
 
 The value by which the ESP pointer has to be corrected has to set in the
 variable AFL_QEMU_PERSISTENT_RETADDR_OFFSET
 
 Now to get this value right here some help:
 1. use gdb on the target 
-2. set a breakpoint to your START address
-3. set a breakpoint to the end of the same function
+2. set a breakpoint to the function in which START is contained
+3. set a breakpoint to your START address
 4. "run" the target with a valid commandline
-5. at the first breakpoint print the ESP value with
-```
-print $esp
-```
+5. at the first breakpoint print the ESP value with `p $esp` and take not of it
 6. "continue" the target until the second breakpoint
 7. again print the ESP value
 8. calculate the difference between the two values - and this is the offset
 
-
 ### 2.4) resetting the register state
 
-It is very, very likely you need to reste the register state when starting
-a new loop. Because of this you 99% of the time should set
+It is very, very likely you need to restore the general purpose registers state
+when starting a new loop. Because of this you 99% of the time should set
 
 AFL_QEMU_PERSISTENT_GPR=1
 
+An example, is when you want to use main() as persistent START:
 
-## 3) optional parameters
+```c
+int main(int argc, char **argv) {
 
-### 3.1) loop counter value
+  if (argc < 2) return 1;
+  
+  // do stuffs
+
+}
+```
+
+If you don't save and restore the registers in x86_64, the paramteter argc
+will be lost at the second execution of the loop.
+
+## 3) Optional parameters
+
+### 3.1) Loop counter value
 
 The more stable your loop in the target, the longer you can run it, the more
 unstable it is the lower the loop count should be. A low value would be 100,
@@ -79,22 +98,28 @@ This value can be set with AFL_QEMU_PERSISTENT_CNT
 
 This is the same concept as in the llvm_mode persistent mode with __AFL_LOOP().
 
-
-### 3.2) a hook for in-memory fuzzing
+### 3.2) A hook for in-memory fuzzing
 
 You can increase the speed of the persistent mode even more by bypassing all
 the reading of the fuzzing input via a file by reading directly into the
 memory address space of the target process.
 
-All this needs is that the START address has a register pointing to the
-memory buffer, and another register holding the value of the read length
-(or pointing to the memory where that value is held).
+All this needs is that the START address has a register that can reach the
+memory buffer or that the memory buffer is at a know location. You probably need
+the value of the size of the buffer (maybe it is in a register when START is
+hitted).
 
-If the target reads from an input file you have to supply an input file
-that is of least of the size that your fuzzing input will be (and do not
-supply @@).
+The persistent hook will execute a function on every persistent iteration
+(at the start START) defined in a shared object specified with
+AFL_QEMU_PERSISTENT_HOOK=/path/to/hook.so.
+
+The signature is:
+
+```c
+void afl_persistent_hook(uint64_t* regs, uint64_t guest_base);
+```
+
+In this hook, you can inspect and change the saved GPR state at START.
 
 An example that you can use with little modification for your target can
 be found here: [examples/qemu_persistent_hook](../examples/qemu_persistent_hook)
-This shared library is specified via AFL_QEMU_PERSISTENT_HOOK
-
