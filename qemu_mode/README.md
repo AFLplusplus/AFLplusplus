@@ -71,7 +71,8 @@ must be an address of a basic block.
 
 ## 4) Bonus feature #2: persistent mode
 
-AFL++'s QEMU mode now supports also persistent mode for x86 and x86_64 targets.
+AFL++'s QEMU mode now supports also persistent mode for x86, x86_64, arm
+and aarch64 targets.
 This increases the speed by several factors, however it is a bit of work to set
 up - but worth the effort.
 
@@ -85,6 +86,7 @@ The option that enables QEMU CompareCoverage is AFL_COMPCOV_LEVEL.
 There is also ./libcompcov/ which implements CompareCoverage for *cmp functions
 (splitting memcmp, strncmp, etc. to make these conditions easier solvable by
 afl-fuzz).
+
 AFL_COMPCOV_LEVEL=1 is to instrument comparisons with only immediate
 values / read-only memory. AFL_COMPCOV_LEVEL=2 instruments all
 comparison instructions and memory comparison functions when libcompcov
@@ -93,11 +95,23 @@ AFL_COMPCOV_LEVEL=3 has the same effects of AFL_COMPCOV_LEVEL=2 but enables also
 the instrumentation of the floating-point comparisons on x86 and x86_64 (experimental).
 
 Integer comparison instructions are currently instrumented only
-on the x86, x86_64 and ARM targets.
+on the x86, x86_64, arm and aarch64 targets.
 
 Highly recommended.
 
-## 6) Bonus feature #4: Wine mode
+## 6) CMPLOG mode
+
+Another new feature is CMPLOG, which is based on the redqueen project.
+Here all immidiates in CMP instructions are learned and put into a dynamic
+dictionary and applied to all locations in the input that reached that
+CMP, trying to solve and pass it.
+This is a very effective feature and it is available for x86, x86_64, arm
+and aarch64.
+
+To enable it you must pass on the command line of afl-fuzz:
+  -c /path/to/your/target
+
+## 7) Bonus feature #4: Wine mode
 
 AFL++ QEMU can use Wine to fuzz WIn32 PE binaries. Use the -W flag of afl-fuzz.
 
@@ -105,7 +119,7 @@ Note that some binaries require user interaction with the GUI and must be patche
 
 For examples look [here](https://github.com/andreafioraldi/WineAFLplusplusDEMO).
 
-## 7) Notes on linking
+## 8) Notes on linking
 
 The feature is supported only on Linux. Supporting BSD may amount to porting
 the changes made to linux-user/elfload.c and applying them to
@@ -126,7 +140,7 @@ practice, this means two things:
 Setting AFL_INST_LIBS=1 can be used to circumvent the .text detection logic
 and instrument every basic block encountered.
 
-## 8) Benchmarking
+## 9) Benchmarking
 
 If you want to compare the performance of the QEMU instrumentation with that of
 afl-gcc compiled code against the same target, you need to build the
@@ -141,7 +155,7 @@ Comparative measurements of execution speed or instrumentation coverage will be
 fairly meaningless if the optimization levels or instrumentation scopes don't
 match.
 
-## 9) Gotchas, feedback, bugs
+## 10) Gotchas, feedback, bugs
 
 If you need to fix up checksums or do other cleanup on mutated test cases, see
 examples/post_library/ for a viable solution.
@@ -162,7 +176,7 @@ with -march=core2, can help.
 Beyond that, this is an early-stage mechanism, so fields reports are welcome.
 You can send them to <afl-users@googlegroups.com>.
 
-## 10) Alternatives: static rewriting
+## 11) Alternatives: static rewriting
 
 Statically rewriting binaries just once, instead of attempting to translate
 them at run time, can be a faster alternative. That said, static rewriting is
@@ -176,4 +190,5 @@ The best implementation is this one:
 The issue however is Dyninst which is not rewriting the binaries so that
 they run stable. A lot of crashes happen, especially in C++ programs that
 use throw/catch. Try it first, and if it works for you be happy as it is
-2-3x as fast as qemu_mode.
+2-3x as fast as qemu_mode, however usually not as fast as QEMU persistent mode.
+
