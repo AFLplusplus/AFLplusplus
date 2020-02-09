@@ -1,5 +1,5 @@
 diff --git a/target/arm/translate.c b/target/arm/translate.c
-index 7c4675ff..0f0928b6 100644
+index 7c4675f..e3d999a 100644
 --- a/target/arm/translate.c
 +++ b/target/arm/translate.c
 @@ -59,6 +59,8 @@
@@ -132,3 +132,21 @@ index 7c4675ff..0f0928b6 100644
              rd = 16;
              break;
          case 0xb: /* cmn */
+@@ -13233,6 +13247,8 @@ static void arm_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
+         return;
+     }
+ 
++    AFL_QEMU_TARGET_ARM_SNIPPET
++
+     insn = arm_ldl_code(env, dc->pc, dc->sctlr_b);
+     dc->insn = insn;
+     dc->pc += 4;
+@@ -13301,6 +13317,8 @@ static void thumb_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
+         return;
+     }
+ 
++    AFL_QEMU_TARGET_ARM_SNIPPET
++
+     insn = arm_lduw_code(env, dc->pc, dc->sctlr_b);
+     is_16bit = thumb_insn_is_16bit(dc, insn);
+     dc->pc += 2;

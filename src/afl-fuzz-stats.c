@@ -65,59 +65,62 @@ void write_stats_file(double bitmap_cvg, double stability, double eps) {
 
   if (getrusage(RUSAGE_CHILDREN, &rus)) rus.ru_maxrss = 0;
 
-  fprintf(f,
-          "start_time        : %llu\n"
-          "last_update       : %llu\n"
-          "fuzzer_pid        : %d\n"
-          "cycles_done       : %llu\n"
-          "execs_done        : %llu\n"
-          "execs_per_sec     : %0.02f\n"
-          "paths_total       : %u\n"
-          "paths_favored     : %u\n"
-          "paths_found       : %u\n"
-          "paths_imported    : %u\n"
-          "max_depth         : %u\n"
-          "cur_path          : %u\n"    /* Must match find_start_position() */
-          "pending_favs      : %u\n"
-          "pending_total     : %u\n"
-          "variable_paths    : %u\n"
-          "stability         : %0.02f%%\n"
-          "bitmap_cvg        : %0.02f%%\n"
-          "unique_crashes    : %llu\n"
-          "unique_hangs      : %llu\n"
-          "last_path         : %llu\n"
-          "last_crash        : %llu\n"
-          "last_hang         : %llu\n"
-          "execs_since_crash : %llu\n"
-          "exec_timeout      : %u\n"
-          "slowest_exec_ms   : %llu\n"
-          "peak_rss_mb       : %lu\n"
-          "afl_banner        : %s\n"
-          "afl_version       : " VERSION
-          "\n"
-          "target_mode       : %s%s%s%s%s%s%s%s\n"
-          "command_line      : %s\n",
-          start_time / 1000, get_cur_time() / 1000, getpid(),
-          queue_cycle ? (queue_cycle - 1) : 0, total_execs, eps, queued_paths,
-          queued_favored, queued_discovered, queued_imported, max_depth,
-          current_entry, pending_favored, pending_not_fuzzed, queued_variable,
-          stability, bitmap_cvg, unique_crashes, unique_hangs,
-          last_path_time / 1000, last_crash_time / 1000, last_hang_time / 1000,
-          total_execs - last_crash_execs, exec_tmout, slowest_exec_ms,
+  fprintf(
+      f,
+      "start_time        : %llu\n"
+      "last_update       : %llu\n"
+      "fuzzer_pid        : %d\n"
+      "cycles_done       : %llu\n"
+      "execs_done        : %llu\n"
+      "execs_per_sec     : %0.02f\n"
+      //          "real_execs_per_sec: %0.02f\n"  // damn the name is too long
+      "paths_total       : %u\n"
+      "paths_favored     : %u\n"
+      "paths_found       : %u\n"
+      "paths_imported    : %u\n"
+      "max_depth         : %u\n"
+      "cur_path          : %u\n"        /* Must match find_start_position() */
+      "pending_favs      : %u\n"
+      "pending_total     : %u\n"
+      "variable_paths    : %u\n"
+      "stability         : %0.02f%%\n"
+      "bitmap_cvg        : %0.02f%%\n"
+      "unique_crashes    : %llu\n"
+      "unique_hangs      : %llu\n"
+      "last_path         : %llu\n"
+      "last_crash        : %llu\n"
+      "last_hang         : %llu\n"
+      "execs_since_crash : %llu\n"
+      "exec_timeout      : %u\n"
+      "slowest_exec_ms   : %llu\n"
+      "peak_rss_mb       : %lu\n"
+      "afl_banner        : %s\n"
+      "afl_version       : " VERSION
+      "\n"
+      "target_mode       : %s%s%s%s%s%s%s%s\n"
+      "command_line      : %s\n",
+      start_time / 1000, get_cur_time() / 1000, getpid(),
+      queue_cycle ? (queue_cycle - 1) : 0, total_execs,
+      /*eps,*/ total_execs / ((double)(get_cur_time() - start_time) / 1000),
+      queued_paths, queued_favored, queued_discovered, queued_imported,
+      max_depth, current_entry, pending_favored, pending_not_fuzzed,
+      queued_variable, stability, bitmap_cvg, unique_crashes, unique_hangs,
+      last_path_time / 1000, last_crash_time / 1000, last_hang_time / 1000,
+      total_execs - last_crash_execs, exec_tmout, slowest_exec_ms,
 #ifdef __APPLE__
-          (unsigned long int)(rus.ru_maxrss >> 20),
+      (unsigned long int)(rus.ru_maxrss >> 20),
 #else
-          (unsigned long int)(rus.ru_maxrss >> 10),
+      (unsigned long int)(rus.ru_maxrss >> 10),
 #endif
-          use_banner, unicorn_mode ? "unicorn" : "", qemu_mode ? "qemu " : "",
-          dumb_mode ? " dumb " : "", no_forkserver ? "no_forksrv " : "",
-          crash_mode ? "crash " : "", persistent_mode ? "persistent " : "",
-          deferred_mode ? "deferred " : "",
-          (unicorn_mode || qemu_mode || dumb_mode || no_forkserver ||
-           crash_mode || persistent_mode || deferred_mode)
-              ? ""
-              : "default",
-          orig_cmdline);
+      use_banner, unicorn_mode ? "unicorn" : "", qemu_mode ? "qemu " : "",
+      dumb_mode ? " dumb " : "", no_forkserver ? "no_forksrv " : "",
+      crash_mode ? "crash " : "", persistent_mode ? "persistent " : "",
+      deferred_mode ? "deferred " : "",
+      (unicorn_mode || qemu_mode || dumb_mode || no_forkserver || crash_mode ||
+       persistent_mode || deferred_mode)
+          ? ""
+          : "default",
+      orig_cmdline);
   /* ignore errors */
 
   fclose(f);
@@ -765,8 +768,8 @@ void show_init_stats(void) {
       WARNF(cLRD "Some test cases are huge (%s) - see %s/perf_tips.md!",
             DMS(max_len), doc_path);
     else if (max_len > 10 * 1024)
-      WARNF("Some test cases are big (%s) - see %s/perf_tips.md.",
-            DMS(max_len), doc_path);
+      WARNF("Some test cases are big (%s) - see %s/perf_tips.md.", DMS(max_len),
+            doc_path);
 
     if (useless_at_start && !in_bitmap)
       WARNF(cLRD "Some test cases look useless. Consider using a smaller set.");

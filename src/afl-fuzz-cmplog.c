@@ -27,7 +27,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-static s32 cmplog_child_pid, cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
+static s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
 
 void init_cmplog_forkserver(char** argv) {
 
@@ -150,8 +150,10 @@ void init_cmplog_forkserver(char** argv) {
            "msan_track_origins=0",
            0);
 
-    argv[0] = cmplog_binary;
-    execv(cmplog_binary, argv);
+    setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
+
+    if (!qemu_mode) argv[0] = cmplog_binary;
+    execv(argv[0], argv);
 
     /* Use a distinctive bitmap signature to tell the parent about execv()
        falling through. */
@@ -441,8 +443,10 @@ u8 run_cmplog_target(char** argv, u32 timeout) {
                              "symbolize=0:"
                              "msan_track_origins=0", 0);
 
-      argv[0] = cmplog_binary;
-      execv(cmplog_binary, argv);
+      setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
+
+      if (!qemu_mode) argv[0] = cmplog_binary;
+      execv(argv[0], argv);
 
       /* Use a distinctive bitmap value to tell the parent about execv()
          falling through. */

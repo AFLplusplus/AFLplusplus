@@ -35,11 +35,18 @@
 #define __AFL_QEMU_COMMON
 
 #include "../../config.h"
+#include "../../include/cmplog.h"
 
-#ifndef CPU_NB_REGS
-#define AFL_REGS_NUM 1000
-#else
+#define PERSISTENT_DEFAULT_MAX_CNT 1000
+
+#ifdef CPU_NB_REGS
 #define AFL_REGS_NUM CPU_NB_REGS
+#elif TARGET_ARM
+#define AFL_REGS_NUM 32
+#elif TARGET_AARCH64
+#define AFL_REGS_NUM 32
+#else
+#define AFL_REGS_NUM 100
 #endif
 
 /* NeverZero */
@@ -56,6 +63,8 @@
 #define INC_AFL_AREA(loc) afl_area_ptr[loc]++
 #endif
 
+typedef void (*afl_persistent_hook_fn)(uint64_t *regs, uint64_t guest_base);
+
 /* Declared in afl-qemu-cpu-inl.h */
 
 extern unsigned char *afl_area_ptr;
@@ -69,10 +78,15 @@ extern unsigned char  is_persistent;
 extern target_long    persistent_stack_offset;
 extern unsigned char  persistent_first_pass;
 extern unsigned char  persistent_save_gpr;
-extern target_ulong   persistent_saved_gpr[AFL_REGS_NUM];
+extern uint64_t       persistent_saved_gpr[AFL_REGS_NUM];
 extern int            persisent_retaddr_offset;
 
+extern afl_persistent_hook_fn afl_persistent_hook_ptr;
+
 extern __thread abi_ulong afl_prev_loc;
+
+extern struct cmp_map *__afl_cmp_map;
+extern __thread u32    __afl_cmp_counter;
 
 void afl_debug_dump_saved_regs();
 

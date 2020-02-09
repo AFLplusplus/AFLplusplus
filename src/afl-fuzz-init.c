@@ -1822,6 +1822,8 @@ static void handle_stop_sig(int sig) {
 
   if (child_pid > 0) kill(child_pid, SIGKILL);
   if (forksrv_pid > 0) kill(forksrv_pid, SIGKILL);
+  if (cmplog_child_pid > 0) kill(cmplog_child_pid, SIGKILL);
+  if (cmplog_forksrv_pid > 0) kill(cmplog_forksrv_pid, SIGKILL);
 
 }
 

@@ -1,0 +1,26 @@
+diff --git a/configure b/configure
+index 1c9f609..3edc9a7 100755
+--- a/configure
++++ b/configure
+@@ -4603,6 +4603,21 @@ if test "$darwin" != "yes" -a "$mingw32" != "yes" -a "$solaris" != yes -a \
+     libs_softmmu="-lutil $libs_softmmu"
+ fi
+ 
++##########################################
++cat > $TMPC << EOF
++#include <dlfcn.h>
++#include <stdlib.h>
++int main(int argc, char **argv) { return dlopen("libc.so", RTLD_NOW) != NULL; }
++EOF
++if compile_prog "" "" ; then
++  :
++elif compile_prog "" "-ldl" ; then
++  LIBS="-ldl $LIBS"
++  libs_qga="-ldl $libs_qga"
++else
++  error_exit "libdl check failed"
++fi
++
+ ##########################################
+ # spice probe
+ if test "$spice" != "no" ; then

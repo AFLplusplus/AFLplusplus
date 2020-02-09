@@ -81,6 +81,7 @@ if [ "$PLT" = "FreeBSD" ]; then
   MAKECMD=gmake
   CORES=`sysctl -n hw.ncpu`
   TARCMD=gtar
+  PYTHONBIN=python3
 fi
 
 if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
@@ -126,7 +127,14 @@ echo "[+] All checks passed!"
 echo "[*] Making sure unicornafl is checked out"
 rm -rf unicornafl # workaround for travis ... sadly ...
 #test -d unicorn && { cd unicorn && { git stash ; git pull ; cd .. ; } }
-test -d unicornafl || git clone https://github.com/vanhauser-thc/unicornafl
+test -d unicornafl || {
+   CNT=1
+   while [ '!' -d unicornafl -a "$CNT" -lt 4 ]; do
+     echo "Trying to clone unicornafl (attempt $CNT/3)"
+     git clone https://github.com/vanhauser-thc/unicornafl
+     CNT=`expr "$CNT" + 1`
+   done
+}
 test -d unicornafl || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got unicornafl."
 

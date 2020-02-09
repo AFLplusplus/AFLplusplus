@@ -8,10 +8,11 @@
 
   The following is a description of how these binaries can be fuzzed with afl++
 
-  !!!!!
-  TL;DR: try DYNINST with afl-dyninst. If it produces too many crashes then
-         use afl -Q qemu_mode, or better: use both in parallel.
-  !!!!!
+## TL;DR:
+
+  qemu_mode in persistent mode is the fastest - if the stability is
+  high enough. Otherwise try retrowrite, afl-dyninst and if these
+  fail too then standard qemu_mode with AFL_ENTRYPOINT to where you need it.
 
 
 ## QEMU
@@ -19,11 +20,19 @@
   Qemu is the "native" solution to the program.
   It is available in the ./qemu_mode/ directory and once compiled it can
   be accessed by the afl-fuzz -Q command line option.
-  The speed decrease is at about 50%.
   It is the easiest to use alternative and even works for cross-platform binaries.
 
+  The speed decrease is at about 50%.
+  However various options exist to increase the speed:
+   - using AFL_ENTRYPOINT to move the forkserver to a later basic block in
+     the binary (+5-10% speed)
+   - using persistent mode [qemu_mode/README.persistent.md](../qemu_mode/README.persistent.md)
+     this will result in 150-300% overall speed - so 3-8x the original
+     qemu_mode speed!
+   - using AFL_CODE_START/AFL_CODE_END to only instrument specific parts
+
   Note that there is also honggfuzz: [https://github.com/google/honggfuzz](https://github.com/google/honggfuzz)
-  which now has a qemu_mode, but its performance is just 1.5%!
+  which now has a qemu_mode, but its performance is just 1.5% ...
 
   As it is included in afl++ this needs no URL.
 
@@ -74,6 +83,27 @@
   [https://github.com/vanhauser-thc/afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst)
 
 
+## RETROWRITE
+
+  If you have an x86/x86_64 binary that still has it's symbols, is compiled
+  with position independant code (PIC/PIE) and does not use most of the C++
+  features then the retrowrite solution might be for you.
+  It decompiles to ASM files which can then be instrumented with afl-gcc.
+
+  It is at about 80-85% performance.
+
+  [https://github.com/HexHive/retrowrite](https://github.com/HexHive/retrowrite)
+
+
+## MCSEMA
+
+  Theoretically you can also decompile to llvm IR with mcsema, and then
+  use llvm_mode to instrument the binary.
+  Good luck with that.
+
+  [https://github.com/lifting-bits/mcsema](https://github.com/lifting-bits/mcsema)
+
+
 ## INTEL-PT
 
   If you have a newer Intel CPU, you can make use of Intels processor trace.
@@ -116,6 +146,9 @@
   everywhere.
 
   There is a WIP fuzzer available at [https://github.com/andreafioraldi/frida-fuzzer](https://github.com/andreafioraldi/frida-fuzzer)
+
+  There is also an early implementation in an AFL++ test branch:
+  [https://github.com/vanhauser-thc/AFLplusplus/tree/frida](https://github.com/vanhauser-thc/AFLplusplus/tree/frida)
 
 
 ## PIN & DYNAMORIO
