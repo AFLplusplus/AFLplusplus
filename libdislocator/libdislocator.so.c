@@ -33,6 +33,10 @@
 #include <mach/vm_statistics.h>
 #endif
 
+#ifdef __FreeBSD__
+#include <sys/param.h>
+#endif
+
 #ifdef __linux__
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -64,9 +68,16 @@
 #include "config.h"
 #include "types.h"
 
-#if __STDC_VERSION__ < 201112L
+#if __STDC_VERSION__ < 201112L || \
+    (defined(__FreeBSD__) && __FreeBSD_version < 1200000)
 // use this hack if not C11
-typedef struct { long long __ll; long double __ld; } max_align_t;
+typedef struct {
+
+  long long   __ll;
+  long double __ld;
+
+} max_align_t;
+
 #endif
 
 #define ALLOC_ALIGN_SIZE (_Alignof(max_align_t))

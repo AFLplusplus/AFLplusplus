@@ -1,18 +1,18 @@
 #!/bin/sh
 
 #
-# Ensure we have: test, type, diff -q, grep -aqE
+# Ensure we have: test, type, diff, grep -qE
 #
 test -z "" 2> /dev/null || { echo Error: test command not found ; exit 1 ; }
 GREP=`type grep > /dev/null 2>&1 && echo OK`
 test "$GREP" = OK || { echo Error: grep command not found ; exit 1 ; }
-echo foobar | grep -aqE 'asd|oob' 2> /dev/null || { echo Error: grep command does not support -q, -a and/or -E option ; exit 1 ; }
+echo foobar | grep -qE 'asd|oob' 2> /dev/null || { echo Error: grep command does not support -q and/or -E option ; exit 1 ; }
 echo 1 > test.1
 echo 1 > test.2
 OK=OK
-diff -q test.1 test.2 >/dev/null 2>&1 || OK=
+diff test.1 test.2 >/dev/null 2>&1 || OK=
 rm -f test.1 test.2
-test -z "$OK" && { echo Error: diff -q is not working ; exit 1 ; }
+test -z "$OK" && { echo Error: diff is not working ; exit 1 ; }
 test -z "$LLVM_CONFIG" && LLVM_CONFIG=llvm-config
 
 
@@ -21,7 +21,7 @@ $ECHO \\101 2>&1 | grep -qE '^A' || {
   ECHO=
   test -e /bin/printf && {
     ECHO="/bin/printf %b\\n"
-    $ECHO '\\101' 2>&1 | grep -qE '^A' || ECHO=
+    $ECHO "\\101" 2>&1 | grep -qE '^A' || ECHO=
   }
 }
 test -z "$ECHO" && { printf Error: printf command does not support octal character codes ; exit 1 ; }
@@ -45,6 +45,17 @@ unset AFL_LLVM_INSTRIM
 unset AFL_LLVM_LAF_SPLIT_SWITCHES
 unset AFL_LLVM_LAF_TRANSFORM_COMPARES
 unset AFL_LLVM_LAF_SPLIT_COMPARES
+unset AFL_QEMU_PERSISTENT_ADDR
+unset AFL_QEMU_PERSISTENT_RETADDR_OFFSET
+unset AFL_QEMU_PERSISTENT_GPR
+unset AFL_QEMU_PERSISTENT_RET
+unset AFL_QEMU_PERSISTENT_HOOK
+unset AFL_QEMU_PERSISTENT_CNT
+unset AFL_POST_LIBRARY
+unset AFL_CUSTOM_MUTATOR_LIBRARY
+unset AFL_PYTHON_MODULE
+unset AFL_PRELOAD
+unset LD_PRELOAD
 
 # on OpenBSD we need to work with llvm from /usr/local/bin
 test -e /usr/local/bin/opt && {
@@ -75,7 +86,7 @@ $ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
 test -z "$SYS" && $ECHO "$YELLOW[-] uname -m did not succeed"
 
 $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
-test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
+test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" && {
  test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
   ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
@@ -84,7 +95,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
     echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
     ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
-      diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
+      diff test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] ${AFL_GCC} instrumentation should be different on different input but is not"
         CODE=1
       } || {
@@ -111,7 +122,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
     CODE=1
   }
   test -e test-compcov.harden && {
-    grep -Eqa 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
+    grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] ${AFL_GCC} hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} hardened mode is not hardened"
@@ -149,12 +160,22 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
       CODE=1
     }
     echo 000000000000000000000000 > in/in2
+    echo 111 > in/in3
     mkdir -p in2
-    ../afl-cmin -i in -o in2 -- ./test-instr.plain @@ >/dev/null
-    CNT=`ls in2/ | wc -l`
+    ../afl-cmin -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
+    CNT=`ls in2/* 2>/dev/null | wc -l`
     case "$CNT" in
-      *1) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
-      *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases"
+      *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+      *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+          CODE=1
+          ;;
+    esac
+    rm -f in2/in*
+    AFL_PATH=`pwd`/.. ../afl-cmin.bash -i in -o in2 -- ./test-instr.plain >/dev/null
+    CNT=`ls in2/* 2>/dev/null | wc -l`
+    case "$CNT" in
+      *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
+      *)  $ECHO "$RED[!] afl-cmin.bash did not correctly minimize the number of testcases ($CNT)"
           CODE=1
           ;;
     esac
@@ -193,7 +214,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
     ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
-      diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
+      diff test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] llvm_mode instrumentation should be different on different input but is not"
         CODE=1
       } || {
@@ -216,7 +237,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   test -e test-compcov.harden && {
-    grep -Eqa 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
+    grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] llvm_mode hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] llvm_mode hardened mode is not hardened"
@@ -253,14 +274,24 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode"
       CODE=1
     }
-    test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" || {
+    test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" || {
       echo 000000000000000000000000 > in/in2
+      echo 111 > in/in3
       mkdir -p in2
-      ../afl-cmin -i in -o in2 -- ./test-instr.plain @@ >/dev/null
-      CNT=`ls in2/ | wc -l`
+      ../afl-cmin -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
+      CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
-        *1) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
-        *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases"
+        *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+        *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+            CODE=1
+            ;;
+      esac
+      rm -f in2/in*
+      AFL_PATH=`pwd`/.. ../afl-cmin.bash -i in -o in2 -- ./test-instr.plain >/dev/null
+      CNT=`ls in2/* 2>/dev/null | wc -l`
+      case "$CNT" in
+        *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
+        *)  $ECHO "$RED[!] afl-cmin.bash did not correctly minimize the number of testcases ($CNT)"
             CODE=1
             ;;
       esac
@@ -346,7 +377,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
     echo 0 | ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain.gccpi > /dev/null 2>&1
     ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain.gccpi < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
-      diff -q test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
+      diff test-instr.plain.0 test-instr.plain.1 > /dev/null 2>&1 && {
         $ECHO "$RED[!] gcc_plugin instrumentation should be different on different input but is not"
         CODE=1
       } || { 
@@ -371,7 +402,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   }
 
   test -e test-compcov.harden.gccpi && {
-    grep -Eqa 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden.gccpi > /dev/null 2>&1 && {
+    grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden.gccpi > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] gcc_plugin hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] gcc_plugin hardened mode is not hardened"
@@ -563,7 +594,7 @@ test -e ../afl-qemu-trace && {
       }
       rm -f errors
 
-      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
+      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
         {
           export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`

@@ -35,7 +35,7 @@ index 0dd5fbe4..a23da128 100644
      rex_w = -1;
      rex_r = 0;
  
-+    AFL_QEMU_TARGET_i386_SNIPPET
++    AFL_QEMU_TARGET_I386_SNIPPET
 +
   next_byte:
      b = x86_ldub_code(env, s);
