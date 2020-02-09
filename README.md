@@ -61,9 +61,10 @@
 
   | Feature/Instrumentation | afl-gcc | llvm_mode | gcc_plugin | qemu_mode | unicorn_mode |
   | ----------------------- |:-------:|:---------:|:----------:|:---------:|:------------:|
-  | laf-intel / CompCov     |         |     x     |            |  x86/arm  |   x86/arm    |
   | NeverZero               |    x    |     x(1)  |      (2)   |     x     |      x       |
   | Persistent mode         |         |     x     |     x      |    x86    |      x       |
+  | laf-intel / CompCov     |         |     x     |            |  x86/arm  |   x86/arm    |
+  | CmpLog                  |         |     x     |            |     x     |              |
   | Whitelist               |         |     x     |     x      |           |              |
   | InsTrim                 |         |     x     |            |           |              |
 

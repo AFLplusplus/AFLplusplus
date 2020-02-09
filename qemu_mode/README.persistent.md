@@ -7,7 +7,8 @@ addresses - without forking for every fuzzing attempt.
 This increases the speed by a factor between x2 and x5, hence it is
 very, very valuable.
 
-The persistent mode is currently only available for x86/x86_64 targets.
+The persistent mode is currently only available for x86/x86_64, arm
+and aarch64 targets.
 
 
 ## 2) How use the persistent mode
