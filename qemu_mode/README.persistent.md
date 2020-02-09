@@ -2,7 +2,7 @@
 
 ## 1) Introduction
 
-Persistent mode let you fuzz your target persistently between to
+Persistent mode let you fuzz your target persistently between two
 addresses - without forking for every fuzzing attempt.
 This increases the speed by a factor between x2 and x5, hence it is
 very, very valuable.
@@ -16,10 +16,12 @@ and aarch64 targets.
 
 The start of the persistent loop has to be set with AFL_QEMU_PERSISTENT_ADDR.
 
-This address can be the address of whatever instruction but the way in which
-you setup persistent mode change if it is the starting instruction of a
-function (suggested). This (as well as the RET address, see below) has to be
-defined in hexadecimal with the 0x prefix or as a decimal value.
+This address can be the address of whatever instruction.
+Setting this address to the start of a function makes the usage simple.
+If the address is however within a function, either RET or OFFSET (see below
+in 2.2 and 2.3) have to be set.
+This address (as well as the RET address, see below) has to be defined in
+hexadecimal with the 0x prefix or as a decimal value.
 
 If the target is compiled with position independant code (PIE/PIC), you must
 add 0x4000000000 to that address, because qemu loads to this base address.
@@ -36,8 +38,8 @@ The emulator will emit a jump to START when translating the instruction at RET.
 It is optional, and only needed if the the return should not be
 at the end of the function to which the START address points into, but earlier.
 
-It is not set, QEMU will assume that START points to a function and will patch
-the return address (on stack or in the link register) to return to START
+If it is not set, QEMU will assume that START points to a function and will
+patch the return address (on stack or in the link register) to return to START
 (like WinAFL).
 
 It is defined by setting AFL_QEMU_PERSISTENT_RET, and too 0x4000000000 has to
@@ -45,25 +47,29 @@ be set if the target is position independant.
 
 ### 2.3) the OFFSET
 
-This option is for x86 only, arm doesn't save the return address on stack.
+This option is valid only for x86/x86_64 only, arm/aarch64 do not save the
+return address on stack.
 
 If the START address is *not* the beginning of a function, and *no* RET has
 been set (so the end of the loop will be at the end of the function but START
-will not be at the beginning), we need an offset from the ESP pointer to locate
-the return address to patch.
+will not be at the beginning of it), we need an offset from the ESP pointer
+to locate the return address to patch.
 
 The value by which the ESP pointer has to be corrected has to set in the
 variable AFL_QEMU_PERSISTENT_RETADDR_OFFSET
 
 Now to get this value right here some help:
 1. use gdb on the target 
-2. set a breakpoint to the function in which START is contained
-3. set a breakpoint to your START address
-4. "run" the target with a valid commandline
-5. at the first breakpoint print the ESP value with `p $esp` and take note of it
-6. "continue" the target until the second breakpoint
-7. again print the ESP value
-8. calculate the difference between the two values - and this is the offset
+2. set a breakpoint to "main" (this is required for PIE/PIC binaries so the
+   addresses are set up)
+3. "run" the target with a valid commandline
+4. set a breakpoint to the function in which START is contained
+5. set a breakpoint to your START address
+6. "continue" to the function start breakpoint
+6. print the ESP value with `print $esp` and take note of it
+7. "continue" the target until the second breakpoint
+8. again print the ESP value
+9. calculate the difference between the two values - and this is the offset
 
 ### 2.4) resetting the register state
 
