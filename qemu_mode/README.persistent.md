@@ -60,7 +60,7 @@ Now to get this value right here some help:
 2. set a breakpoint to the function in which START is contained
 3. set a breakpoint to your START address
 4. "run" the target with a valid commandline
-5. at the first breakpoint print the ESP value with `p $esp` and take not of it
+5. at the first breakpoint print the ESP value with `p $esp` and take note of it
 6. "continue" the target until the second breakpoint
 7. again print the ESP value
 8. calculate the difference between the two values - and this is the offset
