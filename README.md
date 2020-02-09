@@ -59,14 +59,14 @@
 
   A more thorough list is available in the PATCHES file.
 
-  | Feature/Instrumentation | afl-gcc | llvm_mode | gcc_plugin | qemu_mode | unicorn_mode |
-  | ----------------------- |:-------:|:---------:|:----------:|:---------:|:------------:|
-  | NeverZero               |    x    |     x(1)  |      (2)   |     x     |      x       |
-  | Persistent mode         |         |     x     |     x      |    x86    |      x       |
-  | laf-intel / CompCov     |         |     x     |            |  x86/arm  |   x86/arm    |
-  | CmpLog                  |         |     x     |            |     x     |              |
-  | Whitelist               |         |     x     |     x      |           |              |
-  | InsTrim                 |         |     x     |            |           |              |
+  | Feature/Instrumentation | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
+  | ----------------------- |:-------:|:---------:|:----------:|:----------------:|:------------:|
+  | NeverZero               |    x    |     x(1)  |      (2)   |          x       |       x      |
+  | Persistent mode         |         |     x     |     x      | x86[_64]/arm[64] |       x      |
+  | laf-intel / CompCov     |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
+  | CmpLog                  |         |     x     |            |          x       |              |
+  | Whitelist               |         |     x     |     x      |                  |              |
+  | InsTrim                 |         |     x     |            |                  |              |
 
   neverZero:
 
