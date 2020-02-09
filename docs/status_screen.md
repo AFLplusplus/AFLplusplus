@@ -377,7 +377,7 @@ directory. This includes:
   - `fuzzer_pid`     - PID of the fuzzer process
   - `cycles_done`    - queue cycles completed so far
   - `execs_done`     - number of execve() calls attempted
-  - `execs_per_sec`  - current number of execs per second
+  - `execs_per_sec`  - overall number of execs per second
   - `paths_total`    - total number of entries in the queue
   - `paths_found`    - number of entries discovered through local fuzzing
   - `paths_imported` - number of entries imported from other instances

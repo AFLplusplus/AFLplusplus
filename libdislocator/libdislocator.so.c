@@ -68,7 +68,8 @@
 #include "config.h"
 #include "types.h"
 
-#if __STDC_VERSION__ < 201112L || (defined(__FreeBSD__) && __FreeBSD_version < 1200000)
+#if __STDC_VERSION__ < 201112L || \
+    (defined(__FreeBSD__) && __FreeBSD_version < 1200000)
 // use this hack if not C11
 typedef struct {
 

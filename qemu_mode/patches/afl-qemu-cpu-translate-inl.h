@@ -67,7 +67,7 @@ static void afl_compcov_log_64(target_ulong cur_loc, target_ulong arg1,
                                target_ulong arg2) {
 
   register uintptr_t idx = cur_loc;
-  
+
   if ((arg1 & 0xff00000000000000) == (arg2 & 0xff00000000000000)) {
 
     INC_AFL_AREA(idx + 6);
@@ -299,7 +299,6 @@ static void gpr_saving(TCGv *cpu_regs, int regs_num) {
 
 }
 
-
 static void restore_state_for_persistent(TCGv *cpu_regs, int regs_num, int sp) {
 
   if (persistent_save_gpr) {
@@ -349,29 +348,29 @@ static void restore_state_for_persistent(TCGv *cpu_regs, int regs_num, int sp) {
 
 // SP = 13, LINK = 14
 
-#define AFL_QEMU_TARGET_ARM_SNIPPET                                           \
-  if (is_persistent) {                                                        \
-                                                                              \
-    if (dc->pc == afl_persistent_addr) {                                      \
-                                                                              \
-      if (persistent_save_gpr) gpr_saving(cpu_R, AFL_REGS_NUM);               \
-                                                                              \
-      if (afl_persistent_ret_addr == 0) {                                     \
-                                                                              \
-        TCGv_ptr paddr = tcg_const_ptr(afl_persistent_addr);                  \
-        tcg_gen_mov_i32(cpu_R[14], paddr);                                    \
-        tcg_temp_free_ptr(paddr);                                             \
-                                                                              \
-      }                                                                       \
-                                                                              \
-      if (!persistent_save_gpr) tcg_gen_afl_call0(&afl_persistent_loop);      \
-                                                                              \
-    } else if (afl_persistent_ret_addr && dc->pc == afl_persistent_ret_addr) {\
-                                                                              \
-      gen_bx_im(dc, afl_persistent_addr);                                     \
-                                                                              \
-    }                                                                         \
-                                                                              \
+#define AFL_QEMU_TARGET_ARM_SNIPPET                                            \
+  if (is_persistent) {                                                         \
+                                                                               \
+    if (dc->pc == afl_persistent_addr) {                                       \
+                                                                               \
+      if (persistent_save_gpr) gpr_saving(cpu_R, AFL_REGS_NUM);                \
+                                                                               \
+      if (afl_persistent_ret_addr == 0) {                                      \
+                                                                               \
+        TCGv_ptr paddr = tcg_const_ptr(afl_persistent_addr);                   \
+        tcg_gen_mov_i32(cpu_R[14], paddr);                                     \
+        tcg_temp_free_ptr(paddr);                                              \
+                                                                               \
+      }                                                                        \
+                                                                               \
+      if (!persistent_save_gpr) tcg_gen_afl_call0(&afl_persistent_loop);       \
+                                                                               \
+    } else if (afl_persistent_ret_addr && dc->pc == afl_persistent_ret_addr) { \
+                                                                               \
+      gen_bx_im(dc, afl_persistent_addr);                                      \
+                                                                               \
+    }                                                                          \
+                                                                               \
   }
 
 // SP = 31, LINK = 30
@@ -400,3 +399,4 @@ static void restore_state_for_persistent(TCGv *cpu_regs, int regs_num, int sp) {
     }                                                                         \
                                                                               \
   }
+
