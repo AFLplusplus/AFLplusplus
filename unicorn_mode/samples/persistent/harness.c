@@ -77,7 +77,7 @@ static void hook_strlen(uc_engine *uc, uint64_t address, uint32_t size, void *us
     // We place the return at RAX
     uc_reg_write(uc, UC_X86_REG_RAX, &current_input_len);
     // We skip the actual call by updating RIP
-    //printf("Strlen hook at addr 0x%lx (size: 0x%x), result: %ld\n", address, size, current_input_len);
+    //printf("Strlen hook at addr 0x%llx (size: 0x%x), result: %ld\n", address, size, current_input_len);
     uint64_t next_addr = address + size; 
     uc_reg_write(uc, UC_X86_REG_RIP, &next_addr);
 }
@@ -101,7 +101,7 @@ static off_t afl_mmap_file(char *filename, char **buf_ptr) {
     off_t in_len = st.st_size;
     if (in_len == -1) {
 	/* This can only ever happen on 32 bit if the file is exactly 4gb. */
-	fprintf(stderr, "Filesize of %s too large", filename);
+	fprintf(stderr, "Filesize of %s too large\n", filename);
 	goto exit;
     }
 
@@ -148,7 +148,7 @@ static bool place_input_callback(
 
 static void mem_map_checked(uc_engine *uc, uint64_t addr, size_t size, uint32_t mode) {
     size = pad(size);
-    //printf("SIZE %lx, align: %lx\n", size, ALIGNMENT);
+    //printf("SIZE %llx, align: %llx\n", size, ALIGNMENT);
     uc_err err = uc_mem_map(uc, addr, size, mode);
     if (err != UC_ERR_OK) {
         printf("Error mapping %ld bytes at 0x%lx: %s (mode: %d)\n", size, addr, uc_strerror(err), mode);
@@ -213,7 +213,7 @@ int main(int argc, char **argv, char **envp) {
     // Setup the Stack
     mem_map_checked(uc, STACK_ADDRESS - STACK_SIZE, STACK_SIZE, UC_PROT_READ | UC_PROT_WRITE);
     uint64_t stack_val = STACK_ADDRESS;
-    printf("%ld", stack_val);
+    printf("%lu", stack_val);
     uc_reg_write(uc, UC_X86_REG_RSP, &stack_val);
 
     // reserve some space for our input data
@@ -256,11 +256,11 @@ int main(int argc, char **argv, char **envp) {
     );
     switch(afl_ret) {
         case UC_AFL_RET_ERROR:
-            printf("Error starting to fuzz");
+            printf("Error starting to fuzz\n");
             return -3;
             break;
         case UC_AFL_RET_NO_AFL:
-            printf("No AFL attached - We are done with a single run.");
+            printf("No AFL attached - We are done with a single run.\n");
             break;
         default:
             break;
