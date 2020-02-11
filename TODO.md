@@ -18,7 +18,7 @@ qemu_mode:
  - instrim for QEMU mode via static analysis (with r2pipe? or angr?)
    Idea: The static analyzer outputs a map in which each edge that must be
    skipped is marked with 1. QEMU loads it at startup in the parent process.
- - rename qemu specific envs to AFL_QEMU (espec. AFL_ENTRYPOINT)
+ - rename qemu specific envs to AFL_QEMU (AFL_ENTRYPOINT, AFL_CODE_START/END, AFL_COMPCOV_LEVEL?)
  - add AFL_QEMU_EXITPOINT (maybe multiple?)
  - add/implement AFL_QEMU_INST_LIBLIST and AFL_QEMU_NOINST_PROGRAM
 

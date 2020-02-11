@@ -62,11 +62,11 @@
 
   | Feature/Instrumentation | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
   | ----------------------- |:-------:|:---------:|:----------:|:----------------:|:------------:|
-  | NeverZero               |    x    |     x(1)  |      (2)   |          x       |       x      |
+  | NeverZero               |    x    |     x(1)  |      (2)   |         x        |       x      |
   | Persistent mode         |         |     x     |     x      | x86[_64]/arm[64] |       x      |
   | laf-intel / CompCov     |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
   | CmpLog                  |         |     x     |            | x86[_64]/arm[64] |              |
-  | Whitelist               |         |     x     |     x      |                  |              |
+  | Whitelist               |         |     x     |     x      |        (x)(3)    |              |
   | InsTrim                 |         |     x     |            |                  |              |
 
   neverZero:
@@ -74,6 +74,8 @@
   (1) only in LLVM >= 9.0 due to a bug in llvm in previous versions
 
   (2) gcc creates non-performant code, hence it is disabled in gcc_plugin
+
+  (3) partially via AFL_CODE_START/AFL_CODE_END
 
   So all in all this is the best-of afl that is currently out there :-)
 

@@ -71,7 +71,7 @@ static void hook_strlen(uc_engine *uc, uint64_t address, uint32_t size, void *us
     //Hook
     //116b:       e8 c0 fe ff ff          call   1030 <strlen@plt>
     // We place the return at RAX
-    //printf("Strlen hook at addr 0x%lx (size: 0x%x), result: %ld\n", address, size, current_input_len);
+    //printf("Strlen hook at addr 0x%llx (size: 0x%x), result: %ld\n", address, size, current_input_len);
     uc_reg_write(uc, UC_X86_REG_RAX, &current_input_len);
     // We skip the actual call by updating RIP
     uint64_t next_addr = address + size; 
@@ -125,12 +125,6 @@ static bool place_input_callback(
         return false;
     }
 
-    // For persistent mode, we have to set up stack and memory each time.
-    uc_reg_write(uc, UC_X86_REG_RIP, &CODE_ADDRESS); // Set the instruction pointer back
-    // Set up the function parameters accordingly RSI, RDI (see calling convention/disassembly)
-    uc_reg_write(uc, UC_X86_REG_RSI, &INPUT_LOCATION); // argv
-    uc_reg_write(uc, UC_X86_REG_RDI, &EMULATED_ARGC);  // argc == 2
-   
     // We need a valid c string, make sure it never goes out of bounds.
     input[input_len-1] = '\0';
     // Write the testcase to unicorn.
@@ -144,7 +138,7 @@ static bool place_input_callback(
 
 static void mem_map_checked(uc_engine *uc, uint64_t addr, size_t size, uint32_t mode) {
     size = pad(size);
-    //printf("SIZE %lx, align: %lx\n", size, ALIGNMENT);
+    //printf("SIZE %llx, align: %llx\n", size, ALIGNMENT);
     uc_err err = uc_mem_map(uc, addr, size, mode);
     if (err != UC_ERR_OK) {
         printf("Error mapping %ld bytes at 0x%lx: %s (mode: %d)\n", size, addr, uc_strerror(err), mode);
@@ -209,7 +203,7 @@ int main(int argc, char **argv, char **envp) {
     // Setup the Stack
     mem_map_checked(uc, STACK_ADDRESS - STACK_SIZE, STACK_SIZE, UC_PROT_READ | UC_PROT_WRITE);
     uint64_t stack_val = STACK_ADDRESS;
-    printf("%ld", stack_val);
+    printf("%lu", stack_val);
     uc_reg_write(uc, UC_X86_REG_RSP, &stack_val);
 
     // reserve some space for our input data
@@ -235,6 +229,13 @@ int main(int argc, char **argv, char **envp) {
     uc_hook strlen_hook;
     uc_hook_add(uc, &strlen_hook, UC_HOOK_CODE, hook_strlen, NULL, strlen_hook_pos, strlen_hook_pos);
 
+    // For persistent-iters=1, we don't need to reset this as it's restarted/reforked for each run.
+    uc_reg_write(uc, UC_X86_REG_RIP, &CODE_ADDRESS); // Set the instruction pointer back
+    // Set up the function parameters accordingly RSI, RDI (see calling convention/disassembly)
+    uc_reg_write(uc, UC_X86_REG_RSI, &INPUT_LOCATION); // argv
+    uc_reg_write(uc, UC_X86_REG_RDI, &EMULATED_ARGC);  // argc == 2
+   
+
     printf("Starting to fuzz :)\n");
     fflush(stdout);
 
@@ -247,7 +248,7 @@ int main(int argc, char **argv, char **envp) {
         1,  // Count of end addresses
         NULL, // Optional calback to run after each exec
         false, // true, if the optional callback should be run also for non-crashes
-        100, // For persistent mode: How many rounds to run
+        1, // For persistent mode: How many rounds to run
         NULL // additional data pointer
     );
     switch(afl_ret) {

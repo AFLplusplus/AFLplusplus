@@ -15,6 +15,12 @@ rm -f test.1 test.2
 test -z "$OK" && { echo Error: diff is not working ; exit 1 ; }
 test -z "$LLVM_CONFIG" && LLVM_CONFIG=llvm-config
 
+# check for '-a' option of grep
+if grep -a test test.sh >/dev/null 2>&1; then
+  GREPAOPTION=' -a'
+else
+  GREPAOPTION=
+fi
 
 ECHO="printf %b\\n"
 $ECHO \\101 2>&1 | grep -qE '^A' || {
@@ -45,6 +51,17 @@ unset AFL_LLVM_INSTRIM
 unset AFL_LLVM_LAF_SPLIT_SWITCHES
 unset AFL_LLVM_LAF_TRANSFORM_COMPARES
 unset AFL_LLVM_LAF_SPLIT_COMPARES
+unset AFL_QEMU_PERSISTENT_ADDR
+unset AFL_QEMU_PERSISTENT_RETADDR_OFFSET
+unset AFL_QEMU_PERSISTENT_GPR
+unset AFL_QEMU_PERSISTENT_RET
+unset AFL_QEMU_PERSISTENT_HOOK
+unset AFL_QEMU_PERSISTENT_CNT
+unset AFL_POST_LIBRARY
+unset AFL_CUSTOM_MUTATOR_LIBRARY
+unset AFL_PYTHON_MODULE
+unset AFL_PRELOAD
+unset LD_PRELOAD
 
 # on OpenBSD we need to work with llvm from /usr/local/bin
 test -e /usr/local/bin/opt && {
@@ -111,7 +128,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     CODE=1
   }
   test -e test-compcov.harden && {
-    grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
+    grep -Eq$GREPAOPTION 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] ${AFL_GCC} hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} hardened mode is not hardened"
@@ -226,7 +243,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   test -e test-compcov.harden && {
-    grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
+    grep -Eq$GREPAOPTION 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] llvm_mode hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] llvm_mode hardened mode is not hardened"
@@ -391,7 +408,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   }
 
   test -e test-compcov.harden.gccpi && {
-    grep -Eq 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden.gccpi > /dev/null 2>&1 && {
+    grep -Eq$GREPAOPTION 'stack_chk_fail|fstack-protector-all|fortified' test-compcov.harden.gccpi > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] gcc_plugin hardened mode succeeded and is working"
     } || {
       $ECHO "$RED[!] gcc_plugin hardened mode is not hardened"
