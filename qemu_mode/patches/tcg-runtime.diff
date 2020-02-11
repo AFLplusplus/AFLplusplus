@@ -1,0 +1,24 @@
+diff --git a/accel/tcg/tcg-runtime.c b/accel/tcg/tcg-runtime.c
+index d0d44844..46154af1 100644
+--- a/accel/tcg/tcg-runtime.c
++++ b/accel/tcg/tcg-runtime.c
+@@ -31,6 +31,8 @@
+ #include "disas/disas.h"
+ #include "exec/log.h"
+ 
++#include "../../../patches/afl-qemu-common.h"
++
+ /* 32-bit helpers */
+ 
+ int32_t HELPER(div_i32)(int32_t arg1, int32_t arg2)
+@@ -167,3 +169,10 @@ void HELPER(exit_atomic)(CPUArchState *env)
+ {
+     cpu_loop_exit_atomic(ENV_GET_CPU(env), GETPC());
+ }
++
++
++void HELPER(afl_entry_routine)(CPUArchState *env) {
++  
++  afl_forkserver(ENV_GET_CPU(env));
++  
++}

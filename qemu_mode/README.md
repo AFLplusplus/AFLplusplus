@@ -66,8 +66,7 @@ the deferred initialization.
 This can be enabled setting the environment variable AFL_ENTRYPOINT which allows
 to move the forkserver to a different part, e.g. just before the file is
 opened (e.g. way after command line parsing and config file loading, etc.)
-which can be a huge speed improvement. Note that the specified address
-must be an address of a basic block.
+which can be a huge speed improvement.
 
 ## 4) Bonus feature #2: persistent mode
 

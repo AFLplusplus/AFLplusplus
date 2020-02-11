@@ -42,22 +42,6 @@
  * VARIOUS AUXILIARY STUFF *
  ***************************/
 
-/* This snippet kicks in when the instruction pointer is positioned at
-   _start and does the usual forkserver stuff, not very different from
-   regular instrumentation injected via afl-as.h. */
-
-#define AFL_QEMU_CPU_SNIPPET2         \
-  do {                                \
-                                      \
-    if (itb->pc == afl_entry_point) { \
-                                      \
-      afl_setup();                    \
-      afl_forkserver(cpu);            \
-                                      \
-    }                                 \
-                                      \
-  } while (0)
-
 /* We use one additional file descriptor to relay "needs translation"
    messages between the child and the fork server. */
 
@@ -107,9 +91,6 @@ unsigned int afl_inst_rms = MAP_SIZE;         /* Exported for afl_gen_trace */
 
 /* Function declarations. */
 
-static void afl_setup(void);
-static void afl_forkserver(CPUState *);
-
 static void afl_wait_tsl(CPUState *, int);
 static void afl_request_tsl(target_ulong, target_ulong, uint32_t, uint32_t,
                             TranslationBlock *, int);
@@ -155,7 +136,7 @@ static inline void              tb_add_jump(TranslationBlock *tb, int n,
 
 /* Set up SHM region and initialize other stuff. */
 
-static void afl_setup(void) {
+void afl_setup(void) {
 
   char *id_str = getenv(SHM_ENV_VAR), *inst_r = getenv("AFL_INST_RATIO");
 
@@ -310,7 +291,7 @@ static void print_mappings(void) {
 
 /* Fork server logic, invoked once we hit _start. */
 
-static void afl_forkserver(CPUState *cpu) {
+void afl_forkserver(CPUState *cpu) {
 
   static unsigned char tmp[4];
 
