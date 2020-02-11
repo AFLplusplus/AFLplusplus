@@ -21,6 +21,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - all Python 2+3 versions supported now
      - changed execs_per_sec in fuzzer_stats from "current" execs per second
        (which is pointless) to total execs per second
+     - bugfix for dictionary insert stage count (fix via Google repo PR)
   - afl-clang-fast:
      - show in the help output for which llvm version it was compiled for
      - now does not need to be recompiled between trace-pc and pass
