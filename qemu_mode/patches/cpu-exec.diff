@@ -1,5 +1,5 @@
 diff --git a/accel/tcg/cpu-exec.c b/accel/tcg/cpu-exec.c
-index 870027d4..841ba557 100644
+index 870027d4..0bc87dfc 100644
 --- a/accel/tcg/cpu-exec.c
 +++ b/accel/tcg/cpu-exec.c
 @@ -36,6 +36,8 @@
@@ -11,16 +11,7 @@ index 870027d4..841ba557 100644
  /* -icount align implementation. */
  
  typedef struct SyncClocks {
-@@ -144,6 +146,8 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, TranslationBlock *itb)
-     int tb_exit;
-     uint8_t *tb_ptr = itb->tc.ptr;
- 
-+    AFL_QEMU_CPU_SNIPPET2;
-+
-     qemu_log_mask_and_addr(CPU_LOG_EXEC, itb->pc,
-                            "Trace %d: %p ["
-                            TARGET_FMT_lx "/" TARGET_FMT_lx "/%#x] %s\n",
-@@ -397,11 +401,13 @@ static inline TranslationBlock *tb_find(CPUState *cpu,
+@@ -397,11 +399,13 @@ static inline TranslationBlock *tb_find(CPUState *cpu,
      TranslationBlock *tb;
      target_ulong cs_base, pc;
      uint32_t flags;
@@ -34,7 +25,7 @@ index 870027d4..841ba557 100644
          mmap_unlock();
          /* We add the TB in the virtual pc hash table for the fast lookup */
          atomic_set(&cpu->tb_jmp_cache[tb_jmp_cache_hash_func(pc)], tb);
-@@ -418,6 +424,10 @@ static inline TranslationBlock *tb_find(CPUState *cpu,
+@@ -418,6 +422,10 @@ static inline TranslationBlock *tb_find(CPUState *cpu,
      /* See if we can patch the calling TB. */
      if (last_tb) {
          tb_add_jump(last_tb, tb_exit, tb);

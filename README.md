@@ -56,6 +56,7 @@
 
   * qbdi_mode: fuzz android native libraries via QBDI framework
 
+  * The new CmpLog instrumentation for LLVM and QEMU inspired by [Redqueen](https://www.syssec.ruhr-uni-bochum.de/media/emma/veroeffentlichungen/2018/12/17/NDSS19-Redqueen.pdf)
 
   A more thorough list is available in the PATCHES file.
 
