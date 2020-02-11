@@ -247,8 +247,8 @@ endif
 ../afl-llvm-lto-whitelist.so: afl-llvm-lto-whitelist.so.cc
 	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
 
-../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc
-	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
+../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc MarkNodes.cc
+	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
 
 # laf
 ../split-switches-pass.so:	split-switches-pass.so.cc | test_deps
