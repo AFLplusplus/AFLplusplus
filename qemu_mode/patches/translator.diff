@@ -1,0 +1,25 @@
+diff --git a/accel/tcg/translator.c b/accel/tcg/translator.c
+index afd0a49e..773ea712 100644
+--- a/accel/tcg/translator.c
++++ b/accel/tcg/translator.c
+@@ -18,6 +18,8 @@
+ #include "exec/log.h"
+ #include "exec/translator.h"
+ 
++#include "../../../patches/afl-qemu-common.h"
++
+ /* Pairs with tcg_clear_temp_count.
+    To be called by #TranslatorOps.{translate_insn,tb_stop} if
+    (1) the target is sufficiently clean to support reporting,
+@@ -92,6 +94,11 @@ void translator_loop(const TranslatorOps *ops, DisasContextBase *db,
+                 break;
+             }
+         }
++        
++        if (db->pc_next == afl_entry_point) {
++          afl_setup();
++          gen_helper_afl_entry_routine(cpu_env);
++        }
+ 
+         /* Disassemble one instruction.  The translate_insn hook should
+            update db->pc_next and db->is_jmp to indicate what should be

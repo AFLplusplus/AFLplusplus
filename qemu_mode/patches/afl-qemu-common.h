@@ -69,7 +69,7 @@ typedef void (*afl_persistent_hook_fn)(uint64_t *regs, uint64_t guest_base);
 
 extern unsigned char *afl_area_ptr;
 extern unsigned int   afl_inst_rms;
-extern abi_ulong      afl_start_code, afl_end_code;
+extern abi_ulong      afl_entry_point, afl_start_code, afl_end_code;
 extern abi_ulong      afl_persistent_addr;
 extern abi_ulong      afl_persistent_ret_addr;
 extern u8             afl_compcov_level;
@@ -87,6 +87,9 @@ extern __thread abi_ulong afl_prev_loc;
 
 extern struct cmp_map *__afl_cmp_map;
 extern __thread u32    __afl_cmp_counter;
+
+void afl_setup(void);
+void afl_forkserver(CPUState *cpu);
 
 void afl_debug_dump_saved_regs();
 
