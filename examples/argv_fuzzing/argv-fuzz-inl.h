@@ -53,7 +53,7 @@
   } while (0)
 
 #define MAX_CMDLINE_LEN 100000
-#define MAX_CMDLINE_PAR 1000
+#define MAX_CMDLINE_PAR  50000
 
 static char** afl_init_argv(int* argc) {
 
@@ -65,7 +65,7 @@ static char** afl_init_argv(int* argc) {
 
   if (read(0, in_buf, MAX_CMDLINE_LEN - 2) < 0) {}
 
-  while (*ptr) {
+  while (*ptr && rc < MAX_CMDLINE_PAR) {
 
     ret[rc] = ptr;
     if (ret[rc][0] == 0x02 && !ret[rc][1]) ret[rc]++;
