@@ -330,8 +330,8 @@ int strncmp(const char* str1, const char* str2, size_t len) {
 
     unsigned char c1 = *str1, c2 = *str2;
 
-    if (!c1) return 0;
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
+    if (!c1) return 0;
     str1++;
     str2++;
 
@@ -380,8 +380,8 @@ int strncasecmp(const char* str1, const char* str2, size_t len) {
 
     const unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
 
-    if (!c1) return 0;
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
+    if (!c1) return 0;
     str1++;
     str2++;
 
