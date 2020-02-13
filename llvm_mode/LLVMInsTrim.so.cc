@@ -480,13 +480,25 @@ struct InsTrim : public ModulePass {
 
     }
 
+    char modeline[100];
+    snprintf(modeline, sizeof(modeline), "%s%s%s%s", 
+          getenv("AFL_HARDEN")
+              ? "hardened"
+              : "non-hardened",
+          getenv("AFL_USE_ASAN")
+              ? ", ASAN"
+              : "",
+          getenv("AFL_USE_MSAN")
+              ? ", MSAN"
+              : "",
+          getenv("AFL_USE_UBSAN")
+              ? ", UBSAN"
+              : ""
+    );
+
     OKF("Instrumented %u locations (%llu, %llu) (%s mode)\n", total_instr,
-        total_rs, total_hs,
-        getenv("AFL_HARDEN")
-            ? "hardened"
-            : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
-                   ? "ASAN/MSAN"
-                   : "non-hardened"));
+        total_rs, total_hs, modeline);
+
     return false;
 
   }
