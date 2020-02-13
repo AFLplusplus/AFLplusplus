@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 THISPATH=`dirname ${0}`
-export PATH=${THISPATH}:$PATH
+export PATH="${THISPATH}:$PATH"
 awk -f - -- ${@+"$@"} <<'EOF'
 #!/usr/bin/awk -f
 
