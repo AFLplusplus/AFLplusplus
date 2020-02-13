@@ -478,13 +478,28 @@ static void add_instrumentation(void) {
     if (!ins_lines)
       WARNF("No instrumentation targets found%s.",
             pass_thru ? " (pass-thru mode)" : "");
-    else
+    else {
+      char modeline[100];
+      snprintf(modeline, sizeof(modeline), "%s%s%s%s", 
+          getenv("AFL_HARDEN")
+              ? "hardened"
+              : "non-hardened",
+          getenv("AFL_USE_ASAN")
+              ? ", ASAN"
+              : "",
+          getenv("AFL_USE_MSAN")
+              ? ", MSAN"
+              : "",
+          getenv("AFL_USE_UBSAN")
+              ? ", UBSAN"
+              : ""
+         );
+
       OKF("Instrumented %u locations (%s-bit, %s mode, ratio %u%%).", ins_lines,
           use_64bit ? "64" : "32",
-          getenv("AFL_HARDEN") ? "hardened"
-                               : (sanitizer ? "ASAN/MSAN" : "non-hardened"),
+          modeline,
           inst_ratio);
-
+    }
   }
 
 }
