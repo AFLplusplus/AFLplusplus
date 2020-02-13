@@ -467,14 +467,33 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     if (!inst_blocks)
       WARNF("No instrumentation targets found.");
-    else
-      OKF("Instrumented %u locations (%s mode, ratio %u%%).", inst_blocks,
-          getenv("AFL_HARDEN")
-              ? "hardened"
-              : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
-                     ? "ASAN/MSAN"
-                     : "non-hardened"),
-          inst_ratio);
+    else {
+      char mode[64];
+      int not_hardened = 1;
+      if (getenv("AFL_HARDEN")) {
+        strcat(mode, "/hardened");
+        not_hardened = 0;
+      }      
+      if (getenv("AFL_USE_ASAN")) {
+        strcat(mode, "/ASAN");
+        not_hardened = 0;
+      }
+      if (getenv("AFL_USE_MSAN")) {
+        strcat(mode, "/MSAN");
+        not_hardened = 0;
+      }
+      if (getenv("AFL_USE_UBSAN")) {
+        strcat(mode, "/UNSAN");
+        not_hardened = 0;
+      }
+      
+      if (not_hardened)
+        OKF("Instrumented %u locations (non-hardened mode, ratio %u%%).",
+            inst_blocks, inst_ratio);
+      else
+        OKF("Instrumented %u locations (%s mode, ratio %u%%).", inst_blocks,
+            &mode[1], inst_ratio);
+    }
 
   }
 
