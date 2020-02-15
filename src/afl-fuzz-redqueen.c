@@ -128,7 +128,7 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
     rand_replace(buf + rng->start, s);
 
     u32 cksum;
-    if (unlikely(get_exec_checksum(buf, len, &cksum))) return 1;
+    if (unlikely(get_exec_checksum(buf, len, &cksum))) goto checksum_fail;
 
     if (cksum != exec_cksum) {
 
@@ -149,6 +149,7 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
   new_hit_cnt = queued_paths + unique_crashes;
   stage_finds[STAGE_COLORIZATION] += new_hit_cnt - orig_hit_cnt;
   stage_cycles[STAGE_COLORIZATION] += stage_max - stage_cur;
+  ck_free(backup);
 
   while (ranges) {
 
@@ -185,6 +186,19 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
   }
 
   return 0;
+
+checksum_fail:
+  ck_free(backup);
+
+  while (ranges) {
+
+    rng = ranges;
+    ranges = ranges->next;
+    ck_free(rng);
+
+  }
+
+  return 1;
 
 }
 
