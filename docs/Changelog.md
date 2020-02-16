@@ -23,6 +23,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - changed execs_per_sec in fuzzer_stats from "current" execs per second
        (which is pointless) to total execs per second
      - bugfix for dictionary insert stage count (fix via Google repo PR)
+     - added warning if -M is used together with custom mutators with _ONLY option
   - llvm_mode InsTrim: no pointless instrumentation of 1 block functions
   - afl-clang-fast:
      - show in the help output for which llvm version it was compiled for

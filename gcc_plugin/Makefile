@@ -132,4 +132,4 @@ vpath  % ..
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 .test2
-	rm -f $(PROGS) ../afl-g++-fast ../afl-g*-fast.8
+	rm -f $(PROGS) afl-common.o ../afl-g++-fast ../afl-g*-fast.8
