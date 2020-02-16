@@ -175,7 +175,8 @@ struct InsTrim : public ModulePass {
 
     for (Function &F : M) {
 
-      if (!F.size()) { continue; }
+      // if it is external or only contains one basic block: skip it
+      if (F.size() < 2) { continue; }
 
       if (!myWhitelist.empty()) {
 
