@@ -172,7 +172,7 @@ static int stricmp(char const* a, char const* b) {
 
 /* Main entry point */
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv, char** envp) {
 
   s32    opt;
   u64    prev_queued = 0;
@@ -608,6 +608,8 @@ int main(int argc, char** argv) {
   OKF("Python Mutator and llvm_mode whitelisting from github.com/choller/afl");
   OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
+
+  check_environment_vars(envp);
 
   if (fixed_seed) OKF("Running with fixed seed: %u", (u32)init_seed);
   srandom((u32)init_seed);

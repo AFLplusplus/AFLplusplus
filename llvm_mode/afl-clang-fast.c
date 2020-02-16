@@ -24,6 +24,7 @@
 
 #define AFL_MAIN
 
+#include "common.h"
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -41,6 +42,7 @@ static u8** cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
 static u8   cmplog_mode;
+u8          use_stdin = 0;                                         /* dummy */
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
@@ -454,7 +456,7 @@ static void edit_params(u32 argc, char** argv) {
 
 /* Main entry point */
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv, char** envp) {
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -508,6 +510,8 @@ int main(int argc, char** argv) {
 #endif                                                     /* ^USE_TRACE_PC */
 
   }
+
+  check_environment_vars(envp);
 
   cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG");
   if (cmplog_mode) printf("CmpLog mode by <andreafioraldi@gmail.com>\n");

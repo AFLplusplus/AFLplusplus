@@ -12,6 +12,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++2.60d (develop):
 
   - use -march=native if available
+  - most tools now check for mistyped environment variables
   - afl-fuzz:
      - now prints the real python version support compiled in
      - set stronger performance compile options and little tweaks

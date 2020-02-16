@@ -712,7 +712,7 @@ static void find_binary(u8* fname) {
 
 /* Main entry point */
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv, char** envp) {
 
   s32    opt, i;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
@@ -881,6 +881,8 @@ int main(int argc, char** argv) {
     }
 
   if (optind == argc || !out_file) usage(argv[0]);
+
+  check_environment_vars(envp);
 
   setup_shm(0);
   setup_signal_handlers();

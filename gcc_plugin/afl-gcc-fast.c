@@ -26,10 +26,11 @@
 
 #define AFL_MAIN
 
-#include "../config.h"
-#include "../types.h"
-#include "../include/debug.h"
-#include "../include/alloc-inl.h"
+#include "config.h"
+#include "types.h"
+#include "debug.h"
+#include "common.h"
+#include "alloc-inl.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -39,6 +40,7 @@
 static u8*  obj_path;                  /* Path to runtime libraries         */
 static u8** cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
+u8          use_stdin = 0;                                         /* dummy */
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
@@ -294,7 +296,7 @@ static void edit_params(u32 argc, char** argv) {
 
 /* Main entry point */
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv, char** envp) {
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -343,6 +345,8 @@ int main(int argc, char** argv) {
     }
 
   }
+
+  check_environment_vars(envp);
 
   find_obj(argv[0]);
 

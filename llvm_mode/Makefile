@@ -197,8 +197,11 @@ endif
 	@test -f ../afl-showmap || ( echo "[-] Oops, can't find '../afl-showmap'. Be sure to compile AFL first."; exit 1 )
 	@echo "[+] All set and ready to build."
 
-../afl-clang-fast: afl-clang-fast.c | test_deps
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
+afl-common.o: ../src/afl-common.c
+	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
+
+../afl-clang-fast: afl-clang-fast.c afl-common.o | test_deps
+	$(CC) $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS)
 	ln -sf afl-clang-fast ../afl-clang-fast++
 
 ../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc | test_deps
@@ -275,4 +278,4 @@ vpath  % ..
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 afl-llvm-pass.dwo
-	rm -f $(PROGS) ../afl-clang-fast++ ../afl-clang-fast*.8
+	rm -f $(PROGS) afl-common.o ../afl-clang-fast++ ../afl-clang-fast*.8

@@ -29,6 +29,7 @@
 
 #include "debug.h"
 #include "alloc-inl.h"
+#include "envs.h"
 
 /* Detect @@ in args. */
 #ifndef __glibc__
@@ -273,6 +274,42 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
        ncp);
 
   FATAL("Failed to locate '%s'.", ncp);
+
+}
+
+void check_environment_vars(char** envp) {
+
+  int   index = 0, found = 0;
+  char* env;
+  while ((env = envp[index++]) != NULL) {
+
+    if (strncmp(env, "ALF_", 4) == 0) {
+
+      WARNF("Potentially mistyped AFL environment variable: %s", env);
+      found++;
+
+    } else if (strncmp(env, "AFL_", 4) == 0) {
+
+      int i = 0, match = 0;
+      while (match == 0 && afl_environment_variables[i] != NULL)
+        if (strncmp(env, afl_environment_variables[i],
+                    strlen(afl_environment_variables[i])) == 0 &&
+            env[strlen(afl_environment_variables[i])] == '=')
+          match = 1;
+        else
+          i++;
+      if (match == 0) {
+
+        WARNF("Mistyped AFL environment variable: %s", env);
+        found++;
+
+      }
+
+    }
+
+  }
+
+  if (found) sleep(2);
 
 }
 
