@@ -91,15 +91,11 @@ extern __thread u32    __afl_cmp_counter;
 void afl_setup(void);
 void afl_forkserver(CPUState *cpu);
 
-void afl_debug_dump_saved_regs();
+// void afl_debug_dump_saved_regs(void);
 
-void afl_persistent_loop();
+void afl_persistent_loop(void);
 
-void tcg_gen_afl_call0(void *func);
-void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc, TCGv arg1,
-                                  TCGv arg2);
-
-void tcg_gen_afl_maybe_log_call(target_ulong cur_loc);
+void afl_gen_tcg_plain_call(void *func);
 
 void afl_float_compcov_log_32(target_ulong cur_loc, float32 arg1, float32 arg2,
                               void *status);
@@ -112,12 +108,10 @@ void afl_float_compcov_log_80(target_ulong cur_loc, floatx80 arg1,
 
 static inline int is_valid_addr(target_ulong addr) {
 
-  int          l, flags;
+  int          flags;
   target_ulong page;
-  void *       p;
 
   page = addr & TARGET_PAGE_MASK;
-  l = (page + TARGET_PAGE_SIZE) - addr;
 
   flags = page_get_flags(page);
   if (!(flags & PAGE_VALID) || !(flags & PAGE_READ)) return 0;
