@@ -28,6 +28,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        instrumentation. compile normally and set AFL_LLVM_USE_TRACE_PC :)
      - LLVM 11 is supported
      - CmpLog instrumentation using SanCov (see llvm_mode/README.cmplog)
+  - afl-gcc, afl-clang-fast, afl-gcc-fast:
+     - experimental support for undefined behaviour sanitizer UBSAN
+       (set AFL_USE_UBSAN=1)
+     - the instrumentation summary output now also lists activated sanitizers
   - qemu_mode:
      - persistent mode is now also available for arm and aarch64
      - CmpLog instrumentation for QEMU (-c afl-fuzz command line option)
