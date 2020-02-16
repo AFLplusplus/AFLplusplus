@@ -24,7 +24,7 @@ qemu_mode:
 custom_mutators:
  - rip what Superion is doing into custom mutators for js, php, etc.
  - uniform python and custom mutators API
-
+ - running with -M and custom_only mutators should warn that no deterministic stages are run.
 
 
 ## The far away future:
@@ -39,14 +39,14 @@ Problem: Average targets (tiff, jpeg, unrar) go through 1500 edges.
     | mapsize | collisions |
     | :-----: | :--------: |
     | 2^16    | 302        |
-	  | 2^17    | 427        |
-	  | 2^18    | 603        |
-	  | 2^19    | 853        |
-	  | 2^20    | 1207       |
-	  | 2^21    | 1706       |
-	  | 2^22    | 2412       |
-	  | 2^23    | 3411       |
-	  | 2^24    | 4823       |
+    | 2^17    | 427        |
+    | 2^18    | 603        |
+    | 2^19    | 853        |
+    | 2^20    | 1207       |
+    | 2^21    | 1706       |
+    | 2^22    | 2412       |
+    | 2^23    | 3411       |
+    | 2^24    | 4823       |
 
     Increasing the map is an easy solution but also not a good one.
 
