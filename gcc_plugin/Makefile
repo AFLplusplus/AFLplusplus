@@ -25,7 +25,7 @@ HELPER_PATH  = $(PREFIX)/lib/afl
 BIN_PATH     = $(PREFIX)/bin
 
 CFLAGS      ?= -O3 -g -funroll-loops
-CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -Wno-pointer-sign \
+CFLAGS      += -Wall -I../include -D_FORTIFY_SOURCE=2 -Wno-pointer-sign \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
 
 CXXFLAGS    ?= -O3 -g -funroll-loops
@@ -81,8 +81,11 @@ test_deps:
 	@test -f ../afl-showmap || ( echo "[-] Oops, can't find '../afl-showmap'. Be sure to compile AFL first."; exit 1 )
 	@echo "[+] All set and ready to build."
 
-../afl-gcc-fast: afl-gcc-fast.c | test_deps
-	$(CC) -DAFL_GCC_CC=\"$(CC)\" -DAFL_GCC_CXX=\"$(CXX)\" $(CFLAGS) $< -o $@ $(LDFLAGS)
+afl-common.o: ../src/afl-common.c
+	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
+
+../afl-gcc-fast: afl-gcc-fast.c afl-common.o | test_deps
+	$(CC) -DAFL_GCC_CC=\"$(CC)\" -DAFL_GCC_CXX=\"$(CXX)\" $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS)
 	ln -sf afl-gcc-fast ../afl-g++-fast
 
 ../afl-gcc-pass.so: afl-gcc-pass.so.cc | test_deps

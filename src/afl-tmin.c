@@ -1056,7 +1056,7 @@ static void read_bitmap(u8* fname) {
 
 /* Main entry point */
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv, char** envp) {
 
   s32    opt;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
@@ -1208,6 +1208,7 @@ int main(int argc, char** argv) {
 
   if (optind == argc || !in_file || !output_file) usage(argv[0]);
 
+  check_environment_vars(envp);
   setup_shm(0);
   atexit(at_exit_handler);
   setup_signal_handlers();
