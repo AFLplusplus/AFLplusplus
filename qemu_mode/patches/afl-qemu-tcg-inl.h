@@ -33,7 +33,7 @@
 
 void afl_gen_tcg_plain_call(void *func) {
 
-  TCGOp * op = tcg_emit_op(INDEX_op_call);
+  TCGOp *op = tcg_emit_op(INDEX_op_call);
 
   TCGOP_CALLO(op) = 0;
 
@@ -42,3 +42,4 @@ void afl_gen_tcg_plain_call(void *func) {
   TCGOP_CALLI(op) = 0;
 
 }
+

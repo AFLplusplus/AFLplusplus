@@ -53,7 +53,7 @@
   } while (0)
 
 #define MAX_CMDLINE_LEN 100000
-#define MAX_CMDLINE_PAR  50000
+#define MAX_CMDLINE_PAR 50000
 
 static char** afl_init_argv(int* argc) {
 

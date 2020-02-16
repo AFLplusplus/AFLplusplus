@@ -41,9 +41,8 @@
 #define _DEFAULT_MO MO_32
 #endif
 
-
 void HELPER(afl_compcov_16)(target_ulong cur_loc, target_ulong arg1,
-                               target_ulong arg2) {
+                            target_ulong arg2) {
 
   register uintptr_t idx = cur_loc;
 
@@ -52,7 +51,7 @@ void HELPER(afl_compcov_16)(target_ulong cur_loc, target_ulong arg1,
 }
 
 void HELPER(afl_compcov_32)(target_ulong cur_loc, target_ulong arg1,
-                               target_ulong arg2) {
+                            target_ulong arg2) {
 
   register uintptr_t idx = cur_loc;
 
@@ -71,7 +70,7 @@ void HELPER(afl_compcov_32)(target_ulong cur_loc, target_ulong arg1,
 }
 
 void HELPER(afl_compcov_64)(target_ulong cur_loc, target_ulong arg1,
-                               target_ulong arg2) {
+                            target_ulong arg2) {
 
   register uintptr_t idx = cur_loc;
 
@@ -110,7 +109,7 @@ void HELPER(afl_compcov_64)(target_ulong cur_loc, target_ulong arg1,
 }
 
 void HELPER(afl_cmplog_16)(target_ulong cur_loc, target_ulong arg1,
-                          target_ulong arg2) {
+                           target_ulong arg2) {
 
   register uintptr_t k = (uintptr_t)cur_loc;
 
@@ -129,7 +128,7 @@ void HELPER(afl_cmplog_16)(target_ulong cur_loc, target_ulong arg1,
 }
 
 void HELPER(afl_cmplog_32)(target_ulong cur_loc, target_ulong arg1,
-                          target_ulong arg2) {
+                           target_ulong arg2) {
 
   register uintptr_t k = (uintptr_t)cur_loc;
 
@@ -145,7 +144,7 @@ void HELPER(afl_cmplog_32)(target_ulong cur_loc, target_ulong arg1,
 }
 
 void HELPER(afl_cmplog_64)(target_ulong cur_loc, target_ulong arg1,
-                          target_ulong arg2) {
+                           target_ulong arg2) {
 
   register uintptr_t k = (uintptr_t)cur_loc;
 
@@ -169,7 +168,7 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv arg1, TCGv arg2,
 
     cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
     cur_loc &= CMP_MAP_W - 1;
-    
+
     TCGv cur_loc_v = tcg_const_tl(cur_loc);
 
     switch (ot) {
@@ -180,7 +179,7 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv arg1, TCGv arg2,
       default: break;
 
     }
-    
+
     tcg_temp_free(cur_loc_v);
 
   } else if (afl_compcov_level) {
@@ -189,7 +188,7 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv arg1, TCGv arg2,
 
     cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
     cur_loc &= MAP_SIZE - 7;
-    
+
     TCGv cur_loc_v = tcg_const_tl(cur_loc);
 
     if (cur_loc >= afl_inst_rms) return;
@@ -202,7 +201,7 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv arg1, TCGv arg2,
       default: break;
 
     }
-    
+
     tcg_temp_free(cur_loc_v);
 
   }
@@ -293,7 +292,8 @@ static void gpr_saving(TCGv *cpu_regs, int regs_num) {
 
   afl_gen_tcg_plain_call(&afl_persistent_loop);
 
-  if (afl_persistent_hook_ptr) afl_gen_tcg_plain_call(callback_to_persistent_hook);
+  if (afl_persistent_hook_ptr)
+    afl_gen_tcg_plain_call(callback_to_persistent_hook);
 
   // restore GPR registers
   for (i = 0; i < regs_num; ++i) {
@@ -334,19 +334,20 @@ static void restore_state_for_persistent(TCGv *cpu_regs, int regs_num, int sp) {
     if (s->pc == afl_persistent_addr) {                                       \
                                                                               \
       restore_state_for_persistent(cpu_regs, AFL_REGS_NUM, R_ESP);            \
-      /*afl_gen_tcg_plain_call(log_x86_saved_gpr);                                 \
-      afl_gen_tcg_plain_call(log_x86_sp_content);*/                                \
+      /*afl_gen_tcg_plain_call(log_x86_saved_gpr);                            \
+      afl_gen_tcg_plain_call(log_x86_sp_content);*/                           \
                                                                               \
       if (afl_persistent_ret_addr == 0) {                                     \
                                                                               \
-        TCGv paddr = tcg_const_tl(afl_persistent_addr);                  \
-        tcg_gen_qemu_st_tl(paddr, cpu_regs[R_ESP], persisent_retaddr_offset, _DEFAULT_MO);      \
-        tcg_temp_free(paddr);                                             \
+        TCGv paddr = tcg_const_tl(afl_persistent_addr);                       \
+        tcg_gen_qemu_st_tl(paddr, cpu_regs[R_ESP], persisent_retaddr_offset,  \
+                           _DEFAULT_MO);                                      \
+        tcg_temp_free(paddr);                                                 \
                                                                               \
       }                                                                       \
                                                                               \
-      if (!persistent_save_gpr) afl_gen_tcg_plain_call(&afl_persistent_loop);      \
-      /*afl_gen_tcg_plain_call(log_x86_sp_content);*/                              \
+      if (!persistent_save_gpr) afl_gen_tcg_plain_call(&afl_persistent_loop); \
+      /*afl_gen_tcg_plain_call(log_x86_sp_content);*/                         \
                                                                               \
     } else if (afl_persistent_ret_addr && s->pc == afl_persistent_ret_addr) { \
                                                                               \
@@ -368,11 +369,11 @@ static void restore_state_for_persistent(TCGv *cpu_regs, int regs_num, int sp) {
                                                                                \
       if (afl_persistent_ret_addr == 0) {                                      \
                                                                                \
-        tcg_gen_movi_tl(cpu_R[14], afl_persistent_addr);                                     \
+        tcg_gen_movi_tl(cpu_R[14], afl_persistent_addr);                       \
                                                                                \
       }                                                                        \
                                                                                \
-      if (!persistent_save_gpr) afl_gen_tcg_plain_call(&afl_persistent_loop);       \
+      if (!persistent_save_gpr) afl_gen_tcg_plain_call(&afl_persistent_loop);  \
                                                                                \
     } else if (afl_persistent_ret_addr && dc->pc == afl_persistent_ret_addr) { \
                                                                                \
@@ -393,11 +394,11 @@ static void restore_state_for_persistent(TCGv *cpu_regs, int regs_num, int sp) {
                                                                               \
       if (afl_persistent_ret_addr == 0) {                                     \
                                                                               \
-        tcg_gen_movi_tl(cpu_X[30], afl_persistent_addr);                                    \
+        tcg_gen_movi_tl(cpu_X[30], afl_persistent_addr);                      \
                                                                               \
       }                                                                       \
                                                                               \
-      if (!persistent_save_gpr) afl_gen_tcg_plain_call(&afl_persistent_loop);      \
+      if (!persistent_save_gpr) afl_gen_tcg_plain_call(&afl_persistent_loop); \
                                                                               \
     } else if (afl_persistent_ret_addr && s->pc == afl_persistent_ret_addr) { \
                                                                               \
