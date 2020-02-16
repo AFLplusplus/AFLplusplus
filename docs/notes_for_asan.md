@@ -136,7 +136,8 @@ istruction that will cause SIGILL (ud2 on x86) when an undefined behaviour
 is detected. This is the option that you want to use when combining AFL++
 and UBSan.
 
-AFL_USE_UBSAN=1 env var will add this compiler flag to afl-clang-fast for you.
+AFL_USE_UBSAN=1 env var will add this compiler flag to afl-clang-fast,
+afl-gcc-fast and afl-gcc for you.
 
 Old versions of UBSAN don't offer a consistent way
 to abort() on fault conditions or to terminate with a distinctive exit code
