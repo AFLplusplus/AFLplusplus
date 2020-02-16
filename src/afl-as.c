@@ -518,7 +518,7 @@ int main(int argc, char** argv) {
 
     be_quiet = 1;
 
-  if (argc < 2) {
+  if (argc < 2 || (argc == 2 && strcmp(argv[1], "-h") == 0)) {
 
     SAYF(
         "\n"
