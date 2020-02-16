@@ -282,15 +282,11 @@ static void edit_params(u32 argc, char** argv) {
 
   }
 
-  if (!asan_set) {
+  if (getenv("AFL_USE_UBSAN")) {
 
-    if (getenv("AFL_USE_UBSAN")) {
-
-      cc_params[cc_par_cnt++] = "-fsanitize=undefined";
-      cc_params[cc_par_cnt++] = "-fsanitize-undefined-trap-on-error";
-      cc_params[cc_par_cnt++] = "-fno-sanitize-recover=all";
-
-    }
+    cc_params[cc_par_cnt++] = "-fsanitize=undefined";
+    cc_params[cc_par_cnt++] = "-fsanitize-undefined-trap-on-error";
+    cc_params[cc_par_cnt++] = "-fno-sanitize-recover=all";
 
   }
 
