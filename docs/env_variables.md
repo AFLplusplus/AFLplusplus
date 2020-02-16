@@ -25,9 +25,8 @@ tools make fairly broad use of environmental variables:
     - see [notes_for_asan.md](notes_for_asan.md).
 
     (You can also enable MSAN via AFL_USE_MSAN; ASAN and MSAN come with the
-    same gotchas; the modes are mutually exclusive. UBSAN and other exotic
-    sanitizers are not officially supported yet, but are easy to get to work
-    by hand.)
+    same gotchas; the modes are mutually exclusive. UBSAN can be enabled
+    similarly by setting the environment variable AFL_USE_UBSAN=1)
 
   - Setting AFL_CC, AFL_CXX, and AFL_AS lets you use alternate downstream
     compilation tools, rather than the default 'clang', 'gcc', or 'as' binaries
