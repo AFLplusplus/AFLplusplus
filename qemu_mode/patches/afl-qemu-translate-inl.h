@@ -34,7 +34,7 @@
 #include "afl-qemu-common.h"
 #include "tcg-op.h"
 
-void afl_maybe_log(target_ulong cur_loc) {
+void HELPER(afl_maybe_log)(target_ulong cur_loc) {
 
   register uintptr_t afl_idx = cur_loc ^ afl_prev_loc;
 
@@ -67,7 +67,9 @@ static void afl_gen_trace(target_ulong cur_loc) {
 
   if (cur_loc >= afl_inst_rms) return;
 
-  tcg_gen_afl_maybe_log_call(cur_loc);
+  TCGv cur_loc_v = tcg_const_tl(cur_loc);
+  gen_helper_afl_maybe_log(cur_loc_v);
+  tcg_temp_free(cur_loc_v);
 
 }
 

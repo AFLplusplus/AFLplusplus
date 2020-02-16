@@ -409,7 +409,7 @@ void afl_forkserver(CPUState *cpu) {
 
 /* A simplified persistent mode handler, used as explained in README.llvm. */
 
-void afl_persistent_loop() {
+void afl_persistent_loop(void) {
 
   static u32            cycle_cnt;
   static struct afl_tsl exit_cmd_tsl = {{-1, 0, 0, 0}, NULL};
