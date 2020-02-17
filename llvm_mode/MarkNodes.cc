@@ -3,11 +3,22 @@
 #include <queue>
 #include <set>
 #include <vector>
+
+#include "llvm/Config/llvm-config.h"
+#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
+typedef long double max_align_t;
+#endif
+
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/BasicBlock.h"
+#if LLVM_VERSION_MAJOR > 3 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
 #include "llvm/IR/CFG.h"
+#else
+#include "llvm/Support/CFG.h"
+#endif
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -16,10 +27,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/CallSite.h"
-
-
-
 
 using namespace llvm;
 
@@ -38,114 +45,6 @@ void reset() {
 }
 
 uint32_t start_point;
-
-
-// jeder block kommt in Blocks[], LMap hat key := BB, und value offset in
-// Blocks[]
-void labelEachBlockGlobally(Module &M) {  // TODO -> muss ich selber machen
-
-  // Fake single endpoint;
-  LMap[NULL] = Blocks.size();
-  Blocks.push_back(NULL);
-
-  // Assign the unique LabelID to each block, in each function
-  for (Function &F : M) {
-
-    if (!F.size()) { continue; }
-
-    for (auto I = F.begin(), E = F.end(); I != E; ++I) {
-
-      BasicBlock *BB = &*I;
-      LMap[BB] = Blocks.size();
-      Blocks.push_back(BB);
-
-    }
-
-    if (start_point == 0) start_point = LMap[&F.getEntryBlock()];
-
-  }
-
-}
-
-// Ergebnis: zu Succs[offsetWoBBinBlocksist][...] = alle successors offset
-// Blocks IDs
-void buildCFGGlobally(Module &M) {  // TODO -> muss ich selber machen
-
-  Succs.resize(Blocks.size());
-  Preds.resize(Blocks.size());
-  for (size_t i = 0; i < Succs.size(); i++) {
-
-    Succs[i].clear();
-    Preds[i].clear();
-
-  }
-
-  // succs + preds == emtpy + itemnumber == blocks ; blocks == allblocks
-  // unsorted, lmap = key:=BB, value:=position_in_blocks
-
-  for (Function &F : M) {
-
-    for (auto S = F.begin(), E = F.end(); S != E; ++S) {
-
-      BasicBlock *BB = &*S;
-      uint32_t    MyID = LMap[BB];
-
-      if (S == F.begin()) {
-
-        for (auto *U : F.users()) {
-
-          CallSite CS(U);
-          // found_callsites++;
-          auto *I = CS.getInstruction();
-
-          if (I) {
-
-            Value *   called = CS.getCalledValue()->stripPointerCasts();
-            Function *f = dyn_cast<Function>(called);
-            if (f->getName().compare(F.getName()) == 0) {
-
-              BasicBlock *prev_bb = cast<CallInst>(I)->getParent();
-
-              Function *prev_function =
-                  cast<CallInst>(I)->getParent()->getParent();
-              std::string *prev_fname =
-                  new std::string(prev_function->getName().str());
-              fprintf(stderr, "[D] callsite %s->%s\n", prev_fname->c_str(),
-                      F.getName().str().c_str());
-              // std::string prev_bb_name =
-              //    getSimpleNodeLabel(prev_bb, prev_function);
-              // if (debug)
-              //  SAYF(cMGN "[D] " cRST "callsite #%d: %s -> %s\n",
-              //  found_callsites,
-              //       prev_fname->c_str(), prev_bb_name.c_str());
-
-              // if (isBlacklisted(prev_function)) continue;
-
-              // if (shouldBeInstrumented(*prev_bb) == false) { ... }
-
-              Succs[MyID].push_back(LMap[&*prev_bb]);
-
-            }
-
-          }
-
-        }
-
-      }
-
-      for (auto I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
-
-        Succs[MyID].push_back(LMap[*I]);
-
-      }
-
-    }
-
-  }
-
-}
-
-
 
 void labelEachBlock(Function *F) {
 
@@ -567,44 +466,4 @@ std::pair<std::vector<BasicBlock *>, std::vector<BasicBlock *> > markNodes(
   return {Result, ResultAbove};
 
 }
-
-
-// return {marked nodes} == ENTRY!
-std::pair<std::vector<BasicBlock *>, std::vector<BasicBlock *> > markNodesGlobally(
-    llvm::Module &M) {
-
-  reset();
-  labelEachBlockGlobally(M);  // setup Blocks[] und FMap[]
-  buildCFGGlobally(M);
-  turnCFGintoDAG();
-  DominatorTree::DominatorTree();
-  MarkVertice();
-
-  std::vector<BasicBlock *> Result, ResultAbove;
-  for (uint32_t x : Markabove) {
-
-    auto it = Marked.find(x);
-    if (it != Marked.end()) Marked.erase(it);
-    if (x) ResultAbove.push_back(Blocks[x]);
-
-  }
-
-  for (uint32_t x : Marked) {
-
-    if (x == 0) {
-
-      continue;
-
-    } else {
-
-      Result.push_back(Blocks[x]);
-
-    }
-
-  }
-
-  return {Result, ResultAbove};
-
-}
-
 
