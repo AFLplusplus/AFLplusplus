@@ -47,25 +47,6 @@
 #include <iostream>
 #include <list>
 #include <string>
-#include <random>
-
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CFG.h"
-#include <unordered_set>
 
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -79,8 +60,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-
-#include "MarkNodes.h"
 
 #define MAX_ID_CNT 1024
 
@@ -102,9 +81,6 @@ struct id_id {
 
 using namespace llvm;
 
-extern std::vector<BasicBlock *>  Blocks;
-
-
 namespace {
 
 class AFLLTOPass : public ModulePass {
@@ -117,23 +93,12 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  //  void getAnalysisUsage(AnalysisUsage &AU) const override {
-
-  //    AU.addRequired<DominatorTreeWrapperPass>();
-  //  }
-
   unsigned int reverseBits(unsigned int num) {
 
     int i, reverse_num = 0;
     for (i = 0; i < MAP_SIZE_POW2; i++)
       if ((num & (1 << i))) reverse_num |= 1 << ((MAP_SIZE_POW2 - 1) - i);
     return reverse_num % MAP_SIZE;
-
-  }
-
-  unsigned int genLabel() {
-
-    return generator() & (MAP_SIZE - 1);
 
   }
 
@@ -172,8 +137,6 @@ class AFLLTOPass : public ModulePass {
   // Only if at least one previous block exists that has at least two or
   // more successors.
   bool shouldBeInstrumented(BasicBlock &BB) {
-
-    if (use_instrim) return true;
 
     for (BasicBlock *Pred : predecessors(&BB)) {
 
@@ -338,7 +301,7 @@ class AFLLTOPass : public ModulePass {
 
  protected:
   unsigned int be_quiet = 0, inst_blocks = 0, inst_funcs = 0, id_cnt = 0,
-               debug = 0, use_instrim = 1;
+               debug = 0;
   unsigned int           cur_loc, inst_ratio = 100, global_cur_loc;
   unsigned long long int edges = 0, collisions = 0;
   IntegerType *          Int8Ty;
@@ -349,7 +312,6 @@ class AFLLTOPass : public ModulePass {
   bb_id *                bb_list;
   char *                 inst_ratio_str = NULL, *neverZero_counters_str = NULL;
   GlobalVariable *       AFLMapPtr, *AFLPrevLoc;
-  std::mt19937           generator;
 
 };
 
@@ -684,6 +646,16 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   /* Decide instrumentation ratio */
 
+  inst_ratio_str = getenv("AFL_INST_RATIO");
+
+  if (inst_ratio_str) {
+
+    if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
+        inst_ratio > 100)
+      FATAL("Bad value of AFL_INST_RATIO (must be between 1 and 100)");
+
+  }
+
   memset(map, 0, MAP_SIZE);
   AFL_SR(time(NULL) + getpid());
   global_cur_loc = AFL_R(MAP_SIZE);
@@ -693,45 +665,10 @@ bool AFLLTOPass::runOnModule(Module &M) {
   neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
 #endif
 
-  AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                         GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
-#ifdef __ANDROID__
-  AFLPrevLoc = new GlobalVariable(
-      M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
-#else
-  AFLPrevLoc = new GlobalVariable(
-      M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
-      GlobalVariable::GeneralDynamicTLSModel, 0, false);
-#endif
-  ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
-  ConstantInt *One = ConstantInt::get(Int8Ty, 1);
+  //  if (debug) {
 
   unsigned long long int cnt_functions = 0, cnt_callsites = 0, cnt_bbs = 0,
-                         total = 0;
-
-  /* instrim */
-  u64 total_rs = 0;
-
-  std::unordered_set<BasicBlock *> MS;
-
-  auto Result = markNodesGlobally(M);
-  auto RS = Result.first;
-  auto HS = Result.second;
-  MS.insert(RS.begin(), RS.end());
-  MS.insert(HS.begin(), HS.end());
-  total_rs += MS.size();
-
-  //  BasicBlock *RSbegin = RS.begin();
-  //  BasicBlock *RSend = RS.end();
-  //  BasicBlock *HSbegin = HS.begin();
-  //  BasicBlock *HSend = HS.end();
-  //  Function *func;
-  //  func = RSbegin->getParent();
-  //  fprintf(stderr, "RSbegin %s->%s\n", func->getName().str().c_str(),
-  //  getSimpleNodeLabel(RSbegin, func->getName()));
-
-  // get overall module statistics
+                         total;
   for (auto &F : M) {
 
     cnt_functions++;
@@ -742,11 +679,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     }
 
-    for (auto &BB : F)
-      if (BB.getName().empty())
+    for (auto &BB : F) {
+
+      if (!BB.getName().empty())  // we just dont want a warning
         cnt_bbs++;
       else
         cnt_bbs++;
+
+    }
 
   }
 
@@ -767,95 +707,51 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-  for (Function &F : M) {
+  //  }
 
-    if (!F.size()) { continue; }
+  /* Get globals for the SHM region and the previous location. Note that
+     __afl_prev_loc is thread-local. */
 
-    for (BasicBlock &BB : F) {
+  AFLMapPtr =
+      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+                         GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
 
-      if (MS.find(&BB) == MS.end()) { continue; }
+#ifdef __ANDROID__
+  AFLPrevLoc = new GlobalVariable(
+      M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
+#else
+  AFLPrevLoc = new GlobalVariable(
+      M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
+      GlobalVariable::GeneralDynamicTLSModel, 0, false);
+#endif
 
-      auto PI = pred_begin(&BB);
-      auto PE = pred_end(&BB);
+  /* Instrument all the things! */
 
-      IRBuilder<> IRB(&*BB.getFirstInsertionPt());
-      Value *     L = NULL;
-      if (PI == PE) {
+  // for easiness we set up a first empty entry in the list
+  if ((bb_list = (struct bb_id *)malloc(sizeof(struct bb_id))) == NULL)
+    PFATAL("malloc");
+  bb_list->bb = new std::string("");
+  bb_list->function = new std::string("");
+  bb_list->id = 0;
+  bb_list->next = NULL;
 
-        L = ConstantInt::get(Int32Ty, genLabel());
-
-      } else {
-
-        auto *PN = PHINode::Create(Int32Ty, 0, "", &*BB.begin());
-        DenseMap<BasicBlock *, unsigned> PredMap;
-        for (auto PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE; ++PI) {
-
-          BasicBlock *PBB = *PI;
-          auto        It = PredMap.insert({PBB, genLabel()});
-          unsigned    Label = It.first->second;
-          PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
-
-        }
-
-        L = PN;
-
-      }
-
-      /* Get globals for the SHM region and the previous location. Note that
-         __afl_prev_loc is thread-local. */
-
-      /* Instrument all the things! */
-
-      // for easiness we set up a first empty entry in the list
-      /*
-        if ((bb_list = (struct bb_id *)malloc(sizeof(struct bb_id))) == NULL)
-          PFATAL("malloc");
-        bb_list->bb = new std::string("");
-        bb_list->function = new std::string("");
-        bb_list->id = 0;
-        bb_list->next = NULL;
-      */
-
-      /* here the magic happens */
-      /* Load prev_loc */
-      LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
-      PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
-
-      /* Load SHM pointer */
-      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-      MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *MapPtrIdx = IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, L));
-
-      /* Update bitmap */
-      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-      Value *Incr = IRB.CreateAdd(Counter, One);
-      auto   cf = IRB.CreateICmpEQ(Incr, Zero);
-      auto   carry = IRB.CreateZExt(cf, Int8Ty);
-      Incr = IRB.CreateAdd(Incr, carry);
-      IRB.CreateStore(Incr, MapPtrIdx)
-          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-      inst_blocks++;
-
-    }
-
-  }
+  /* here the magic happens */
+  for (auto &F : M)
+    handleFunction(M, F);
 
   /* Say something nice. */
+
   if (!be_quiet) {
 
     if (!inst_blocks)
       WARNF("No instrumentation targets found.");
     else {
 
-      OKF("Instrumented %u/%llu locations in %u functions with %llu edges and "
+      OKF("Instrumented %u locations in %u functions with %llu edges and "
           "resulting in %llu potential "
           "collision(s), whereas afl-clang-fast/afl-gcc would have produced "
           "%llu collision(s) on average (%s mode, ratio %u%%).",
-          inst_blocks, total_rs, inst_funcs, edges, collisions,
+          inst_blocks, inst_funcs, edges, collisions,
           calculateCollisions(edges),
           getenv("AFL_HARDEN")
               ? "hardened"
