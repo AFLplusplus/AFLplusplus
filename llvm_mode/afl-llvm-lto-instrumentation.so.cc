@@ -31,9 +31,6 @@
 
 #define AFL_LLVM_PASS
 
-#include "config.h"
-#include "debug.h"
-
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,16 +39,45 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <unordered_set>
+#include <list>
+#include <string>
+#include <fstream>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <list>
 #include <string>
 
-#include "llvm/IR/BasicBlock.h"
+#include "llvm/Config/llvm-config.h"
+#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
+typedef long double max_align_t;
+#endif
+
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
+#if LLVM_VERSION_MAJOR > 3 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/CallSite.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/DebugInfo.h"
+#else
+#include "llvm/Support/CFG.h"
+#include "llvm/Analysis/Dominators.h"
+#include "llvm/DebugInfo.h"
+#endif
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -61,7 +87,26 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
+#include "config.h"
+#include "debug.h"
+
+#include "MarkNodes.h"
+
 #define MAX_ID_CNT 1024
+
+using namespace llvm;
+
+namespace {
+
+enum {
+
+  /* 00 */ STAGE_GETBB,
+  /* 01 */ STAGE_GETPRED,
+  /* 02 */ STAGE_CALC,
+  /* 03 */ STAGE_ASSIGN,
+  /* 04 */ STAGE_END
+
+};
 
 struct bb_id {
 
@@ -79,17 +124,27 @@ struct id_id {
 
 };
 
-using namespace llvm;
-
-namespace {
-
 class AFLLTOPass : public ModulePass {
 
  public:
-  static char ID;
+  static char  ID;
+  unsigned int cnt = 1;
+
   AFLLTOPass() : ModulePass(ID) {
 
     if (getenv("AFL_DEBUG")) debug = 1;
+
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+
+    AU.addRequired<DominatorTreeWrapperPass>();
+
+  }
+
+  unsigned int genLabel() {
+
+    return cnt++;  // BUG FIXME TODO
 
   }
 
@@ -295,14 +350,10 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  bool runOnModule(Module &M) override;
-
-  void handleFunction(Module &M, Function &F);
-
  protected:
   unsigned int be_quiet = 0, inst_blocks = 0, inst_funcs = 0, id_cnt = 0,
                debug = 0;
-  unsigned int           cur_loc, inst_ratio = 100, global_cur_loc;
+  unsigned int           cur_loc, inst_ratio = 100, global_cur_loc, total_instr;
   unsigned long long int edges = 0, collisions = 0;
   IntegerType *          Int8Ty;
   IntegerType *          Int32Ty;
@@ -313,460 +364,628 @@ class AFLLTOPass : public ModulePass {
   char *                 inst_ratio_str = NULL, *neverZero_counters_str = NULL;
   GlobalVariable *       AFLMapPtr, *AFLPrevLoc;
 
-};
+  void handleFunction(Module &M, Function &F) {
 
-}  // namespace
+    if (!F.size()) return;
 
-char AFLLTOPass::ID = 0;
+    if (isBlacklisted(&F)) return;
 
-void AFLLTOPass::handleFunction(Module &M, Function &F) {
+    if (debug)
+      SAYF(cMGN "[D] " cRST "Working on function %s\n",
+           F.getName().str().c_str());
+    inst_funcs++;
 
-  if (!F.size()) return;
+    LLVMContext &C = M.getContext();
+    char         is_first_bb = 1;
 
-  if (isBlacklisted(&F)) return;
+    for (auto &BB : F) {
 
-  if (debug)
-    SAYF(cMGN "[D] " cRST "Working on function %s\n",
-         F.getName().str().c_str());
-  inst_funcs++;
+      std::string *        fname = new std::string(F.getName().str());
+      BasicBlock::iterator IP = BB.getFirstInsertionPt();
+      IRBuilder<>          IRB(&(*IP));
+      int found_tmp = 0, max_collisions = 0, cnt_coll = 0, already_exists = 0,
+          i;
+      std::string bb_name = getSimpleNodeLabel(&BB, &F);
 
-  LLVMContext &C = M.getContext();
-  char         is_first_bb = 1;
+      if (debug) SAYF(cMGN "[D] " cRST "bb name is %s\n", bb_name.c_str());
 
-  for (auto &BB : F) {
+      if (AFL_R(100) > inst_ratio) continue;
 
-    std::string *        fname = new std::string(F.getName().str());
-    BasicBlock::iterator IP = BB.getFirstInsertionPt();
-    IRBuilder<>          IRB(&(*IP));
-    int found_tmp = 0, max_collisions = 0, cnt_coll = 0, already_exists = 0, i;
-    std::string bb_name = getSimpleNodeLabel(&BB, &F);
+      for (i = 0; i < id_cnt; i++)  // clean up previous run
+        delete id_info[i].bb;
 
-    if (debug) SAYF(cMGN "[D] " cRST "bb name is %s\n", bb_name.c_str());
+      cur_loc = 0, id_cnt = 0, cnt_coll = 0;
+      memset((char *)id_list, 0, sizeof(id_list));
 
-    if (AFL_R(100) > inst_ratio) continue;
+      if (is_first_bb) {
 
-    for (i = 0; i < id_cnt; i++)  // clean up previous run
-      delete id_info[i].bb;
+        unsigned int found_callsites = 0, processed_callsites = 0;
+        is_first_bb = 0;
+        if (debug)
+          SAYF(cMGN "[D] " cRST "bb %s is the first in the function\n",
+               bb_name.c_str());
 
-    cur_loc = 0, id_cnt = 0, cnt_coll = 0;
-    memset((char *)id_list, 0, sizeof(id_list));
+        // Lets try to get the call sites and setup initial the loc_id
+        // BUG: this can go wrong:
+        //  a) if this is not the entry bb for the function
+        //  b) if there are multiple entry bbs in this function
+        for (auto *U : F.users()) {
 
-    if (is_first_bb) {
+          CallSite CS(U);
+          found_callsites++;
+          auto *I = CS.getInstruction();
 
-      unsigned int found_callsites = 0, processed_callsites = 0;
-      is_first_bb = 0;
-      if (debug)
-        SAYF(cMGN "[D] " cRST "bb %s is the first in the function\n",
-             bb_name.c_str());
+          if (I) {
 
-      // Lets try to get the call sites and setup initial the loc_id
-      // BUG: this can go wrong:
-      //  a) if this is not the entry bb for the function
-      //  b) if there are multiple entry bbs in this function
-      for (auto *U : F.users()) {
+            Value *   called = CS.getCalledValue()->stripPointerCasts();
+            Function *f = dyn_cast<Function>(called);
 
-        CallSite CS(U);
-        found_callsites++;
-        auto *I = CS.getInstruction();
+            if (f->getName().compare(F.getName()) == 0) {
 
-        if (I) {
-
-          Value *   called = CS.getCalledValue()->stripPointerCasts();
-          Function *f = dyn_cast<Function>(called);
-
-          if (f->getName().compare(F.getName()) == 0) {
-
-            Function *prev_function =
-                cast<CallInst>(I)->getParent()->getParent();
-            BasicBlock *prev_bb = cast<CallInst>(I)->getParent();
-            std::string prev_bb_name =
-                getSimpleNodeLabel(prev_bb, prev_function);
-            std::string *prev_fname =
-                new std::string(prev_function->getName().str());
-
-            if (debug)
-              SAYF(cMGN "[D] " cRST "callsite #%d: %s -> %s\n", found_callsites,
-                   prev_fname->c_str(), prev_bb_name.c_str());
-
-            if (isBlacklisted(prev_function)) continue;
-
-            if (shouldBeInstrumented(*prev_bb) == false) {
+              Function *prev_function =
+                  cast<CallInst>(I)->getParent()->getParent();
+              BasicBlock *prev_bb = cast<CallInst>(I)->getParent();
+              std::string prev_bb_name =
+                  getSimpleNodeLabel(prev_bb, prev_function);
+              std::string *prev_fname =
+                  new std::string(prev_function->getName().str());
 
               if (debug)
-                SAYF(cMGN
-                     "[D] " cRST
-                     "callsite is not to be instrumented, digging deeper\n");
-              addPredLocIDs(*prev_function, prev_fname, *prev_bb);
+                SAYF(cMGN "[D] " cRST "callsite #%d: %s -> %s\n",
+                     found_callsites, prev_fname->c_str(),
+                     prev_bb_name.c_str());
 
-            } else {
+              if (isBlacklisted(prev_function)) continue;
 
-              if (debug) SAYF(cMGN "[D] " cRST "adding callsite\n");
-              getOrAddNew(prev_fname, prev_bb_name);
+              if (shouldBeInstrumented(*prev_bb) == false) {
+
+                if (debug)
+                  SAYF(cMGN
+                       "[D] " cRST
+                       "callsite is not to be instrumented, digging deeper\n");
+                addPredLocIDs(*prev_function, prev_fname, *prev_bb);
+
+              } else {
+
+                if (debug) SAYF(cMGN "[D] " cRST "adding callsite\n");
+                getOrAddNew(prev_fname, prev_bb_name);
+
+              }
+
+              processed_callsites++;
 
             }
-
-            processed_callsites++;
 
           }
 
         }
 
-      }
-
-      if (debug)
-        SAYF(cMGN "[D] " cRST "%d callsites found, %d processed\n",
-             found_callsites, processed_callsites);
-
-    } else {
-
-      // only instrument if this basic block is the destination of a previous
-      // basic block that has multiple successors
-      // this gets rid of ~5-10% of instrumentations that are unnecessary
-      // result: a little more speed and less map pollution
-
-      if (shouldBeInstrumented(BB) == false) {
-
         if (debug)
-          SAYF(cMGN "[D] " cRST "bb %s will NOT be instrumented\n",
-               bb_name.c_str());
-        continue;
+          SAYF(cMGN "[D] " cRST "%d callsites found, %d processed\n",
+               found_callsites, processed_callsites);
 
       } else {
 
-        if (debug)
-          SAYF(cMGN "[D] " cRST "bb %s will be instrumented\n",
-               bb_name.c_str());
+        // only instrument if this basic block is the destination of a previous
+        // basic block that has multiple successors
+        // this gets rid of ~5-10% of instrumentations that are unnecessary
+        // result: a little more speed and less map pollution
+
+        if (shouldBeInstrumented(BB) == false) {
+
+          if (debug)
+            SAYF(cMGN "[D] " cRST "bb %s will NOT be instrumented\n",
+                 bb_name.c_str());
+          continue;
+
+        } else {
+
+          if (debug)
+            SAYF(cMGN "[D] " cRST "bb %s will be instrumented\n",
+                 bb_name.c_str());
+
+        }
+
+        // so we want to instrument this basic block, so we have to find all
+        // previous basic blocks that have an ID, jumping over those
+        // that were ignored due the previous step. tedious but necessary.
+
+        addPredLocIDs(F, fname, BB);
 
       }
 
-      // so we want to instrument this basic block, so we have to find all
-      // previous basic blocks that have an ID, jumping over those
-      // that were ignored due the previous step. tedious but necessary.
+      if (id_cnt > 1) {  // Debugging test: check for duplicates
 
-      addPredLocIDs(F, fname, BB);
+        edges += id_cnt;  // we count the edges for statistics
 
-    }
+        if (debug)
+          for (int i = 0; i < id_cnt - 1; i++)
+            for (int j = i + 1; j < id_cnt; j++)
+              if (id_list[i] == id_list[j])
+                SAYF(cMGN
+                     "[D] "
+                     "!!! duplicate IDs ... :-( %d:%u == %d:%u\n",
+                     i, id_list[i], j, id_list[j]);
 
-    if (id_cnt > 1) {  // Debugging test: check for duplicates
+      }
 
-      edges += id_cnt;  // we count the edges for statistics
+      if (debug) SAYF(cMGN "[D] " cRST "found %d predecessor IDs\n", id_cnt);
 
-      if (debug)
-        for (int i = 0; i < id_cnt - 1; i++)
-          for (int j = i + 1; j < id_cnt; j++)
-            if (id_list[i] == id_list[j])
-              SAYF(cMGN
-                   "[D] "
-                   "!!! duplicate IDs ... :-( %d:%u == %d:%u\n",
-                   i, id_list[i], j, id_list[j]);
+      // now for the loc_id of this BB:
+      // maybe this BB already got an loc_id preassigned?
+      bb_id *bb_cur = bb_list;
+      found_tmp = 0;
 
-    }
+      while (bb_cur != NULL && found_tmp == 0) {
 
-    if (debug) SAYF(cMGN "[D] " cRST "found %d predecessor IDs\n", id_cnt);
+        if (bb_name.compare(*bb_cur->bb) == 0 &&
+            fname->compare(*bb_cur->function) == 0)
+          found_tmp = 1;
+        else
+          bb_cur = bb_cur->next;
 
-    // now for the loc_id of this BB:
-    // maybe this BB already got an loc_id preassigned?
-    bb_id *bb_cur = bb_list;
-    found_tmp = 0;
+      }
 
-    while (bb_cur != NULL && found_tmp == 0) {
+      if (found_tmp) {  // BUG: ID was already assigned (potential COLLISION!)
 
-      if (bb_name.compare(*bb_cur->bb) == 0 &&
-          fname->compare(*bb_cur->function) == 0)
-        found_tmp = 1;
-      else
-        bb_cur = bb_cur->next;
+        cur_loc = bb_cur->id;
+        already_exists = 1;
+        cnt_coll = 0;
 
-    }
+        for (int i = 0; i < id_cnt && cnt_coll <= max_collisions; i++)
+          if (map[cur_loc ^ (id_list[i] >> 1)] > 0) cnt_coll++;
 
-    if (found_tmp) {  // BUG: ID was already assigned (potential COLLISION!)
+        if (debug)
+          SAYF(cMGN "[D] " cRST
+                    "bb %s got preassigned %u (%u collisions, %u prevIDs)\n",
+               bb_name.c_str(), cur_loc, cnt_coll, id_cnt);
 
-      cur_loc = bb_cur->id;
-      already_exists = 1;
+      } else {  // nope we are free to choose
+
+        if (id_cnt == 0) {  // uh nothing before ???
+
+          cur_loc = reverseBits(global_cur_loc++);
+
+        } else {  // we have predecessors :)
+
+          found_tmp = 0;
+          max_collisions = 0;
+
+          while (found_tmp == 0) {
+
+            unsigned int loop_cnt = 0;
+
+            while (found_tmp == 0 && loop_cnt < (MAP_SIZE << 2) + 1) {
+
+              cur_loc = reverseBits(global_cur_loc++);
+              cnt_coll = 0;
+              loop_cnt++;
+
+              for (int i = 0; i < id_cnt && cnt_coll <= max_collisions; i++) {
+
+                if ((cur_loc ^ (id_list[i] >> 1)) ==
+                    0)  // map[0] as last resort
+                  cnt_coll++;
+                if (map[cur_loc ^ (id_list[i] >> 1)] > 0) cnt_coll++;
+
+              }
+
+              if (cnt_coll <= max_collisions) {
+
+                found_tmp = 1;
+                break;
+
+              }
+
+            }
+
+            if (found_tmp == 0) max_collisions++;
+
+          }                                                      /* while() */
+
+        }                                                    /* id_cnt != 0 */
+
+        // add the new cur_loc to the linked list
+        if ((bb_cur = (struct bb_id *)malloc(sizeof(struct bb_id))) == NULL)
+          PFATAL("malloc");
+        bb_cur->bb = new std::string(bb_name);
+        bb_cur->function = fname;
+        bb_cur->id = cur_loc;
+        bb_cur->next = bb_list;
+        bb_list = bb_cur;
+        // ids[cur_loc]++;
+        if (debug)
+          SAYF(cMGN "[D] " cRST
+                    "bb %s got assigned %u (%u collisions, %u prevID)\n",
+               bb_name.c_str(), cur_loc, cnt_coll, id_cnt);
+
+      }                                                   /* else found_tmp */
+
+      // document all new edges in the map
       cnt_coll = 0;
+      for (int i = 0; i < id_cnt; i++) {
 
-      for (int i = 0; i < id_cnt && cnt_coll <= max_collisions; i++)
-        if (map[cur_loc ^ (id_list[i] >> 1)] > 0) cnt_coll++;
+        if (map[cur_loc ^ (id_list[i] >> 1)]++) cnt_coll++;
+        if (debug)
+          SAYF(cMGN "[D] " cRST "setting map[%u ^ (%u >> 1)] = map[%u] = %u\n",
+               cur_loc, id_list[i], cur_loc ^ (id_list[i] >> 1),
+               map[cur_loc ^ (id_list[i] >> 1)]);
 
-      if (debug)
-        SAYF(cMGN "[D] " cRST
-                  "bb %s got preassigned %u (%u collisions, %u prevIDs)\n",
-             bb_name.c_str(), cur_loc, cnt_coll, id_cnt);
+      }
 
-    } else {  // nope we are free to choose
+      collisions += cnt_coll;  // count collisions
 
-      if (id_cnt == 0) {  // uh nothing before ???
+      /*
+       * And *finally* we do the instrumentation!
+       *
+       */
 
-        cur_loc = reverseBits(global_cur_loc++);
+      /* set cur_loc */
 
-      } else {  // we have predecessors :)
+      ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 
-        found_tmp = 0;
-        max_collisions = 0;
+      /* Load prev_loc */
 
-        while (found_tmp == 0) {
+      LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
+      PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
-          unsigned int loop_cnt = 0;
+      /* Load SHM pointer */
 
-          while (found_tmp == 0 && loop_cnt < (MAP_SIZE << 2) + 1) {
+      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+      MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      Value *MapPtrIdx =
+          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
-            cur_loc = reverseBits(global_cur_loc++);
-            cnt_coll = 0;
-            loop_cnt++;
+      /* Update bitmap */
 
-            for (int i = 0; i < id_cnt && cnt_coll <= max_collisions; i++) {
+      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-              if ((cur_loc ^ (id_list[i] >> 1)) == 0)  // map[0] as last resort
-                cnt_coll++;
-              if (map[cur_loc ^ (id_list[i] >> 1)] > 0) cnt_coll++;
+      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
 
-            }
+#if LLVM_VERSION_MAJOR < 9
+      // with llvm 9 we make this the default as the bug in llvm is then fixed
+      if (neverZero_counters_str != NULL) {
 
-            if (cnt_coll <= max_collisions) {
+#endif
+        // this is the solution we choose because llvm9 should do the right
+        // thing here
+        auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
+        auto carry = IRB.CreateZExt(cf, Int8Ty);
+        Incr = IRB.CreateAdd(Incr, carry);
+#if LLVM_VERSION_MAJOR < 9
 
-              found_tmp = 1;
-              break;
+      }
 
-            }
+#endif
+
+      IRB.CreateStore(Incr, MapPtrIdx)
+          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+      /* Set prev_loc to cur_loc >> 1 */
+
+      StoreInst *Store =
+          IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
+      Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+      inst_blocks++;
+
+    }
+
+  }
+
+  /*************************************************************************/
+
+  bool runOnModule(Module &M) override {
+
+    char be_quiet = 0;
+
+    if (getenv("AFL_QUIET")) be_quiet = 1;
+
+#if LLVM_VERSION_MAJOR < 9
+    char *neverZero_counters_str;
+    if ((neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO")) != NULL)
+      OKF("LLVM neverZero activated (by hexcoder)\n");
+#endif
+
+    LLVMContext &C = M.getContext();
+    IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
+    IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
+
+    GlobalVariable *CovMapPtr = new GlobalVariable(
+        M, PointerType::getUnqual(Int8Ty), false, GlobalValue::ExternalLinkage,
+        nullptr, "__afl_area_ptr");
+
+    GlobalVariable *OldPrev = new GlobalVariable(
+        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
+        GlobalVariable::GeneralDynamicTLSModel, 0, false);
+
+    ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
+    ConstantInt *One = ConstantInt::get(Int8Ty, 1);
+
+    u64 total_rs = 0;
+
+    for (Function &F : M) {
+
+      // if it is external or only contains one basic block: skip it
+      if (F.size() < 2) { continue; }
+
+      if (isBlacklisted(&F)) continue;
+
+      std::unordered_set<BasicBlock *> MS;
+
+      auto Result = markNodes(&F);
+      auto RS = Result.first;
+      auto HS = Result.second;
+
+      MS.insert(RS.begin(), RS.end());
+
+      MS.insert(HS.begin(), HS.end());
+      total_rs += MS.size();
+
+      auto *EBB = &F.getEntryBlock();
+      if (succ_begin(EBB) == succ_end(EBB)) {
+
+        MS.insert(EBB);
+        total_rs += 1;
+
+      }
+
+      for (BasicBlock &BB : F) {
+
+        if (MS.find(&BB) == MS.end()) { continue; }
+        IRBuilder<> IRB(&*BB.getFirstInsertionPt());
+        IRB.CreateStore(ConstantInt::get(Int32Ty, genLabel()), OldPrev);
+
+      }
+
+      for (BasicBlock &BB : F) {
+
+        auto PI = pred_begin(&BB);
+        auto PE = pred_end(&BB);
+        if (MS.find(&BB) == MS.end()) { continue; }
+
+        IRBuilder<> IRB(&*BB.getFirstInsertionPt());
+        Value *     L = NULL;
+        if (PI == PE) {
+
+          L = ConstantInt::get(Int32Ty, genLabel());
+
+        } else {
+
+          auto *PN = PHINode::Create(Int32Ty, 0, "", &*BB.begin());
+          DenseMap<BasicBlock *, unsigned> PredMap;
+          for (auto PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE; ++PI) {
+
+            BasicBlock *PBB = *PI;
+            auto        It = PredMap.insert({PBB, genLabel()});
+            unsigned    Label = It.first->second;
+            PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
 
           }
 
-          if (found_tmp == 0) max_collisions++;
+          L = PN;
 
-        }                                                        /* while() */
+        }
 
-      }                                                      /* id_cnt != 0 */
+        /* Load prev_loc */
+        LoadInst *PrevLoc = IRB.CreateLoad(OldPrev);
+        PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
-      // add the new cur_loc to the linked list
-      if ((bb_cur = (struct bb_id *)malloc(sizeof(struct bb_id))) == NULL)
-        PFATAL("malloc");
-      bb_cur->bb = new std::string(bb_name);
-      bb_cur->function = fname;
-      bb_cur->id = cur_loc;
-      bb_cur->next = bb_list;
-      bb_list = bb_cur;
-      // ids[cur_loc]++;
-      if (debug)
-        SAYF(cMGN "[D] " cRST
-                  "bb %s got assigned %u (%u collisions, %u prevID)\n",
-             bb_name.c_str(), cur_loc, cnt_coll, id_cnt);
+        /* Load SHM pointer */
+        LoadInst *MapPtr = IRB.CreateLoad(CovMapPtr);
+        MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        Value *MapPtrIdx =
+            IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, L));
 
-    }                                                     /* else found_tmp */
+        /* Update bitmap */
+        LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+        Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-    // document all new edges in the map
-    cnt_coll = 0;
-    for (int i = 0; i < id_cnt; i++) {
-
-      if (map[cur_loc ^ (id_list[i] >> 1)]++) cnt_coll++;
-      if (debug)
-        SAYF(cMGN "[D] " cRST "setting map[%u ^ (%u >> 1)] = map[%u] = %u\n",
-             cur_loc, id_list[i], cur_loc ^ (id_list[i] >> 1),
-             map[cur_loc ^ (id_list[i] >> 1)]);
-
-    }
-
-    collisions += cnt_coll;  // count collisions
-
-    /*
-     * And *finally* we do the instrumentation!
-     *
-     */
-
-    /* set cur_loc */
-
-    ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
-
-    /* Load prev_loc */
-
-    LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
-    PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-    Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
-
-    /* Load SHM pointer */
-
-    LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-    MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-    Value *MapPtrIdx =
-        IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
-
-    /* Update bitmap */
-
-    LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-    Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-    Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
+        Value *Incr = IRB.CreateAdd(Counter, One);
 
 #if LLVM_VERSION_MAJOR < 9
-    // with llvm 9 we make this the default as the bug in llvm is then fixed
-    if (neverZero_counters_str != NULL) {
-
+        if (neverZero_counters_str !=
+            NULL)  // with llvm 9 we make this the default as the bug in llvm is
+                   // then fixed
+#else
+        if (1)  // with llvm 9 we make this the default as the bug in llvm is
+                // then fixed
 #endif
-      // this is the solution we choose because llvm9 should do the right
-      // thing here
-      auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
-      auto carry = IRB.CreateZExt(cf, Int8Ty);
-      Incr = IRB.CreateAdd(Incr, carry);
+        {
+
+          /* hexcoder: Realize a counter that skips zero during overflow.
+           * Once this counter reaches its maximum value, it next increments to
+           * 1
+           *
+           * Instead of
+           * Counter + 1 -> Counter
+           * we inject now this
+           * Counter + 1 -> {Counter, OverflowFlag}
+           * Counter + OverflowFlag -> Counter
+           */
+          auto cf = IRB.CreateICmpEQ(Incr, Zero);
+          auto carry = IRB.CreateZExt(cf, Int8Ty);
+          Incr = IRB.CreateAdd(Incr, carry);
+
+        }
+
+        IRB.CreateStore(Incr, MapPtrIdx)
+            ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+        total_instr++;
+
+      }
+
+    }
+
+    char modeline[100];
+    snprintf(modeline, sizeof(modeline), "%s%s%s%s",
+             getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
+             getenv("AFL_USE_ASAN") ? ", ASAN" : "",
+             getenv("AFL_USE_MSAN") ? ", MSAN" : "",
+             getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
+
+    OKF("Instrumented %u locations (%llu) (%s mode)\n", total_instr, total_rs,
+        modeline);
+
+    return false;
+
+  }
+
+#ifdef NOOPT
+  bool runOnModule_ORIG(Module &M) override {
+
+    LLVMContext &C = M.getContext();
+    Int8Ty = IntegerType::getInt8Ty(C);
+    Int32Ty = IntegerType::getInt32Ty(C);
+
+    /* Show a banner */
+
+    if (getenv("AFL_DEBUG") || (isatty(2) && !getenv("AFL_QUIET"))) {
+
+      SAYF(cCYA "afl-llvm-lto-instrumentation" VERSION cRST
+                " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+
+    } else if (getenv("AFL_QUIET"))
+
+      be_quiet = 1;
+
+    /* Decide instrumentation ratio */
+
+    inst_ratio_str = getenv("AFL_INST_RATIO");
+
+    if (inst_ratio_str) {
+
+      if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
+          inst_ratio > 100)
+        FATAL("Bad value of AFL_INST_RATIO (must be between 1 and 100)");
+
+    }
+
+    memset(map, 0, MAP_SIZE);
+    AFL_SR(time(NULL) + getpid());
+    global_cur_loc = AFL_R(MAP_SIZE);
+    if (debug)
+      SAYF(cMGN "[D] " cRST "initial location is %u\n", global_cur_loc);
+
 #if LLVM_VERSION_MAJOR < 9
-
-    }
-
+    neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
 #endif
 
-    IRB.CreateStore(Incr, MapPtrIdx)
-        ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    //  if (debug) {
 
-    /* Set prev_loc to cur_loc >> 1 */
+    unsigned long long int cnt_functions = 0, cnt_callsites = 0, cnt_bbs = 0,
+                           total;
+    for (auto &F : M) {
 
-    StoreInst *Store =
-        IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
-    Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      cnt_functions++;
+      for (auto *U : F.users()) {
 
-    inst_blocks++;
+        CallSite CS(U);
+        if (CS.getInstruction() != NULL) cnt_callsites++;
 
-  }
+      }
 
-}
+      for (auto &BB : F) {
 
-bool AFLLTOPass::runOnModule(Module &M) {
+        if (!BB.getName().empty())  // we just dont want a warning
+          cnt_bbs++;
+        else
+          cnt_bbs++;
 
-  LLVMContext &C = M.getContext();
-  Int8Ty = IntegerType::getInt8Ty(C);
-  Int32Ty = IntegerType::getInt32Ty(C);
-
-  /* Show a banner */
-
-  if (getenv("AFL_DEBUG") || (isatty(2) && !getenv("AFL_QUIET"))) {
-
-    SAYF(cCYA "afl-llvm-lto-instrumentation" VERSION cRST
-              " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
-
-  } else if (getenv("AFL_QUIET"))
-
-    be_quiet = 1;
-
-  /* Decide instrumentation ratio */
-
-  inst_ratio_str = getenv("AFL_INST_RATIO");
-
-  if (inst_ratio_str) {
-
-    if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
-        inst_ratio > 100)
-      FATAL("Bad value of AFL_INST_RATIO (must be between 1 and 100)");
-
-  }
-
-  memset(map, 0, MAP_SIZE);
-  AFL_SR(time(NULL) + getpid());
-  global_cur_loc = AFL_R(MAP_SIZE);
-  if (debug) SAYF(cMGN "[D] " cRST "initial location is %u\n", global_cur_loc);
-
-#if LLVM_VERSION_MAJOR < 9
-  neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
-#endif
-
-  //  if (debug) {
-
-  unsigned long long int cnt_functions = 0, cnt_callsites = 0, cnt_bbs = 0,
-                         total;
-  for (auto &F : M) {
-
-    cnt_functions++;
-    for (auto *U : F.users()) {
-
-      CallSite CS(U);
-      if (CS.getInstruction() != NULL) cnt_callsites++;
+      }
 
     }
 
-    for (auto &BB : F) {
+    OKF("Module has %llu functions, %llu callsites and %llu total basic "
+        "blocks.",
+        cnt_functions, cnt_callsites, cnt_bbs);
+    total = (cnt_functions + cnt_callsites + cnt_bbs) >> 13;
+    if (total > 0) {
 
-      if (!BB.getName().empty())  // we just dont want a warning
-        cnt_bbs++;
-      else
-        cnt_bbs++;
+      SAYF(cYEL "[!] " cRST "WARNING: this is complex, it will take a l");
+      while (total > 0) {
 
-    }
+        SAYF("o");
+        total = total >> 1;
 
-  }
+      }
 
-  OKF("Module has %llu functions, %llu callsites and %llu total basic blocks.",
-      cnt_functions, cnt_callsites, cnt_bbs);
-  total = (cnt_functions + cnt_callsites + cnt_bbs) >> 13;
-  if (total > 0) {
-
-    SAYF(cYEL "[!] " cRST "WARNING: this is complex, it will take a l");
-    while (total > 0) {
-
-      SAYF("o");
-      total = total >> 1;
+      SAYF("ng time to instrument!\n");
 
     }
 
-    SAYF("ng time to instrument!\n");
+    //  }
 
-  }
+    /* Get globals for the SHM region and the previous location. Note that
+       __afl_prev_loc is thread-local. */
 
-  //  }
-
-  /* Get globals for the SHM region and the previous location. Note that
-     __afl_prev_loc is thread-local. */
-
-  AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                         GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+    AFLMapPtr =
+        new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+                           GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
 
 #ifdef __ANDROID__
-  AFLPrevLoc = new GlobalVariable(
-      M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
+    AFLPrevLoc = new GlobalVariable(
+        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
 #else
-  AFLPrevLoc = new GlobalVariable(
-      M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
-      GlobalVariable::GeneralDynamicTLSModel, 0, false);
+    AFLPrevLoc = new GlobalVariable(
+        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
+        GlobalVariable::GeneralDynamicTLSModel, 0, false);
 #endif
 
-  /* Instrument all the things! */
+    /* Instrument all the things! */
 
-  // for easiness we set up a first empty entry in the list
-  if ((bb_list = (struct bb_id *)malloc(sizeof(struct bb_id))) == NULL)
-    PFATAL("malloc");
-  bb_list->bb = new std::string("");
-  bb_list->function = new std::string("");
-  bb_list->id = 0;
-  bb_list->next = NULL;
+    // for easiness we set up a first empty entry in the list
+    if ((bb_list = (struct bb_id *)malloc(sizeof(struct bb_id))) == NULL)
+      PFATAL("malloc");
+    bb_list->bb = new std::string("");
+    bb_list->function = new std::string("");
+    bb_list->id = 0;
+    bb_list->next = NULL;
 
-  /* here the magic happens */
-  for (auto &F : M)
-    handleFunction(M, F);
+    /* here the magic happens */
+    for (auto &F : M)
+      handleFunction(M, F);
 
-  /* Say something nice. */
+    /* Say something nice. */
 
-  if (!be_quiet) {
+    if (!be_quiet) {
 
-    if (!inst_blocks)
-      WARNF("No instrumentation targets found.");
-    else {
+      if (!inst_blocks)
+        WARNF("No instrumentation targets found.");
+      else {
 
-      OKF("Instrumented %u locations in %u functions with %llu edges and "
-          "resulting in %llu potential "
-          "collision(s), whereas afl-clang-fast/afl-gcc would have produced "
-          "%llu collision(s) on average (%s mode, ratio %u%%).",
-          inst_blocks, inst_funcs, edges, collisions,
-          calculateCollisions(edges),
-          getenv("AFL_HARDEN")
-              ? "hardened"
-              : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
-                     ? "ASAN/MSAN"
-                     : "non-hardened"),
-          inst_ratio);
+        OKF("Instrumented %u locations in %u functions with %llu edges and "
+            "resulting in %llu potential "
+            "collision(s), whereas afl-clang-fast/afl-gcc would have produced "
+            "%llu collision(s) on average (%s mode, ratio %u%%).",
+            inst_blocks, inst_funcs, edges, collisions,
+            calculateCollisions(edges),
+            getenv("AFL_HARDEN")
+                ? "hardened"
+                : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
+                       ? "ASAN/MSAN"
+                       : "non-hardened"),
+            inst_ratio);
+
+      }
 
     }
 
+    return true;
+
   }
 
-  return true;
+#endif
 
-}
+};
+
+}  // namespace
+
+char AFLLTOPass::ID = 0;
 
 static void registerAFLLTOPass(const PassManagerBuilder &,
                                legacy::PassManagerBase &PM) {
