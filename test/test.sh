@@ -44,6 +44,7 @@ unset AFL_HARDEN
 unset AFL_USE_ASAN
 unset AFL_USE_MSAN
 unset AFL_USE_UBSAN
+unset AFL_TMPDIR
 unset AFL_CC
 unset AFL_PRELOAD
 unset AFL_GCC_WHITELIST
