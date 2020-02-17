@@ -545,8 +545,7 @@ int main(int argc, char** argv) {
         "AFL_KEEP_ASSEMBLY: leave instrumented assembly files\n"
         "AFL_AS_FORCE_INSTRUMENT: force instrumentation\n"
         "AFL_HARDEN, AFL_USE_ASAN, AFL_USE_MSAN, ALF_USE_UBSAN:\n"
-        "  used in the instrumentation summary message\n"
-    );
+        "  used in the instrumentation summary message\n");
 
     exit(1);
 
