@@ -609,8 +609,11 @@ int main(int argc, char** argv, char** envp) {
   OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
-  if (sync_id && force_deterministic && (getenv("AFL_CUSTOM_MUTATOR_ONLY") || getenv("AFL_PYTHON_ONLY")))
-    WARNF("Using -M master with the AFL_..._ONLY mutator options will result in no deterministic mutations being done!");
+  if (sync_id && force_deterministic &&
+      (getenv("AFL_CUSTOM_MUTATOR_ONLY") || getenv("AFL_PYTHON_ONLY")))
+    WARNF(
+        "Using -M master with the AFL_..._ONLY mutator options will result in "
+        "no deterministic mutations being done!");
 
   check_environment_vars(envp);
 

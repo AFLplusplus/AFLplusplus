@@ -37,9 +37,9 @@
 /* Disable speed hack in debug mode */
 
 #ifdef UNSAFE_MEMORY
- #ifdef DEBUG_BUILD
-  #undef UNSAFE_MEMORY
- #endif
+#ifdef DEBUG_BUILD
+#undef UNSAFE_MEMORY
+#endif
 #endif
 
 /* User-facing macro to sprintf() to a dynamically allocated buffer. */
@@ -94,11 +94,11 @@
 #endif
 
 #ifndef UNSAFE_MEMORY
- #define ALLOC_OFF_HEAD 8
- #define ALLOC_OFF_TOTAL (ALLOC_OFF_HEAD + 1)
+#define ALLOC_OFF_HEAD 8
+#define ALLOC_OFF_TOTAL (ALLOC_OFF_HEAD + 1)
 #else
- #define ALLOC_OFF_HEAD 0
- #define ALLOC_OFF_TOTAL 0
+#define ALLOC_OFF_HEAD 0
+#define ALLOC_OFF_TOTAL 0
 #endif
 
 /* Allocator increments for ck_realloc_block(). */
@@ -125,9 +125,11 @@
     }                                            \
                                                  \
   } while (0)
+
 #else
-#define CHECK_PTR(_p)                            \
-  do {                                           \
+#define CHECK_PTR(_p) \
+  do {                \
+                      \
   } while (0)
 #endif
 
