@@ -1,0 +1,43 @@
+diff --git a/bsd-user/elfload.c b/bsd-user/elfload.c
+index 7cccf3eb..195875af 100644
+--- a/bsd-user/elfload.c
++++ b/bsd-user/elfload.c
+@@ -15,6 +15,8 @@
+ #undef ELF_ARCH
+ #endif
+ 
++extern abi_ulong afl_entry_point, afl_start_code, afl_end_code;
++
+ /* from personality.h */
+ 
+ /*
+@@ -1522,6 +1524,8 @@ int load_elf_binary(struct linux_binprm * bprm, struct target_pt_regs * regs,
+     info->start_data = start_data;
+     info->end_data = end_data;
+     info->start_stack = bprm->p;
++    if (!afl_start_code) afl_start_code = vaddr;
++    if (!afl_end_code) afl_end_code = vaddr_ef;
+ 
+     /* Calling set_brk effectively mmaps the pages that we need for the bss and break
+        sections */
+@@ -1549,6 +1553,20 @@ int load_elf_binary(struct linux_binprm * bprm, struct target_pt_regs * regs,
+     }
+ 
+     info->entry = elf_entry;
++    if (!afl_entry_point) {
++      char *ptr;
++      if ((ptr = getenv("AFL_ENTRYPOINT")) != NULL) {
++        afl_entry_point = strtoul(ptr, NULL, 16);
++      } else {
++        afl_entry_point = info->entry;
++      }
++#ifdef TARGET_ARM
++      /* The least significant bit indicates Thumb mode. */
++      afl_entry_point = afl_entry_point & ~(target_ulong)1;
++#endif
++    }
++    if (getenv("AFL_DEBUG") != NULL)
++      fprintf(stderr, "AFL forkserver entrypoint: %p\n", (void*)afl_entry_point);
+ 
+     return 0;
+ }
