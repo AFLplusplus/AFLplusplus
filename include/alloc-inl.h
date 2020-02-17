@@ -34,6 +34,14 @@
 #include "types.h"
 #include "debug.h"
 
+/* Disable speed hack in debug mode */
+
+#ifdef UNSAFE_MEMORY
+ #ifdef DEBUG_BUILD
+  #undef UNSAFE_MEMORY
+ #endif
+#endif
+
 /* User-facing macro to sprintf() to a dynamically allocated buffer. */
 
 #define alloc_printf(_str...)                        \
@@ -75,12 +83,23 @@
 
 /* Positions of guard tokens in relation to the user-visible pointer. */
 
+#ifndef UNSAFE_MEMORY
 #define ALLOC_C1(_ptr) (((u32*)(_ptr))[-2])
 #define ALLOC_S(_ptr) (((u32*)(_ptr))[-1])
 #define ALLOC_C2(_ptr) (((u8*)(_ptr))[ALLOC_S(_ptr)])
+#else
+#define ALLOC_C1(_ptr) (((u32*)(_ptr))[0])
+#define ALLOC_S(_ptr) (((u32*)(_ptr))[0])
+#define ALLOC_C2(_ptr) (((u8*)(_ptr))[ALLOC_S(_ptr)])
+#endif
 
-#define ALLOC_OFF_HEAD 8
-#define ALLOC_OFF_TOTAL (ALLOC_OFF_HEAD + 1)
+#ifndef UNSAFE_MEMORY
+ #define ALLOC_OFF_HEAD 8
+ #define ALLOC_OFF_TOTAL (ALLOC_OFF_HEAD + 1)
+#else
+ #define ALLOC_OFF_HEAD 0
+ #define ALLOC_OFF_TOTAL 0
+#endif
 
 /* Allocator increments for ck_realloc_block(). */
 
@@ -88,6 +107,7 @@
 
 /* Sanity-checking macros for pointers. */
 
+#ifndef UNSAFE_MEMORY
 #define CHECK_PTR(_p)                            \
   do {                                           \
                                                  \
@@ -105,6 +125,11 @@
     }                                            \
                                                  \
   } while (0)
+#else
+#define CHECK_PTR(_p)                            \
+  do {                                           \
+  } while (0)
+#endif
 
 /* #define CHECK_PTR(_p) do { \
     if (_p) { \
@@ -146,11 +171,13 @@ static inline void* DFL_ck_alloc_nozero(u32 size) {
   ret = malloc(size + ALLOC_OFF_TOTAL);
   ALLOC_CHECK_RESULT(ret, size);
 
+#ifndef UNSAFE_MEMORY
   ret += ALLOC_OFF_HEAD;
 
   ALLOC_C1(ret) = ALLOC_MAGIC_C1;
   ALLOC_S(ret) = size;
   ALLOC_C2(ret) = ALLOC_MAGIC_C2;
+#endif
 
   return (void*)ret;
 
@@ -185,7 +212,9 @@ static inline void DFL_ck_free(void* mem) {
 
 #endif                                                       /* DEBUG_BUILD */
 
+#ifndef UNSAFE_MEMORY
   ALLOC_C1(mem) = ALLOC_MAGIC_F;
+#endif
 
   u8* realStart = mem;
   free(realStart - ALLOC_OFF_HEAD);
@@ -212,16 +241,20 @@ static inline void* DFL_ck_realloc(void* orig, u32 size) {
 
     CHECK_PTR(orig);
 
+#ifndef UNSAFE_MEMORY
 #ifndef DEBUG_BUILD
     ALLOC_C1(orig) = ALLOC_MAGIC_F;
 #endif                                                      /* !DEBUG_BUILD */
+#endif
 
+#ifndef UNSAFE_MEMORY
     old_size = ALLOC_S(orig);
     u8* origu8 = orig;
     origu8 -= ALLOC_OFF_HEAD;
     orig = origu8;
 
     ALLOC_CHECK_SIZE(old_size);
+#endif
 
   }
 
@@ -254,11 +287,13 @@ static inline void* DFL_ck_realloc(void* orig, u32 size) {
 
 #endif                                                     /* ^!DEBUG_BUILD */
 
+#ifdef UNSAFE_MEMORY
   ret += ALLOC_OFF_HEAD;
 
   ALLOC_C1(ret) = ALLOC_MAGIC_C1;
   ALLOC_S(ret) = size;
   ALLOC_C2(ret) = ALLOC_MAGIC_C2;
+#endif
 
   if (size > old_size) memset(ret + old_size, 0, size - old_size);
 
@@ -277,7 +312,9 @@ static inline void* DFL_ck_realloc_block(void* orig, u32 size) {
 
     CHECK_PTR(orig);
 
+#ifndef UNSAFE_MEMORY
     if (ALLOC_S(orig) >= size) return orig;
+#endif
 
     size += ALLOC_BLK_INC;
 
@@ -304,11 +341,13 @@ static inline u8* DFL_ck_strdup(u8* str) {
   ret = malloc(size + ALLOC_OFF_TOTAL);
   ALLOC_CHECK_RESULT(ret, size);
 
+#ifdef UNSAFE_MEMORY
   ret += ALLOC_OFF_HEAD;
 
   ALLOC_C1(ret) = ALLOC_MAGIC_C1;
   ALLOC_S(ret) = size;
   ALLOC_C2(ret) = ALLOC_MAGIC_C2;
+#endif
 
   return memcpy(ret, str, size);
 
@@ -327,11 +366,13 @@ static inline void* DFL_ck_memdup(void* mem, u32 size) {
   ret = malloc(size + ALLOC_OFF_TOTAL);
   ALLOC_CHECK_RESULT(ret, size);
 
+#ifdef UNSAFE_MEMORY
   ret += ALLOC_OFF_HEAD;
 
   ALLOC_C1(ret) = ALLOC_MAGIC_C1;
   ALLOC_S(ret) = size;
   ALLOC_C2(ret) = ALLOC_MAGIC_C2;
+#endif
 
   return memcpy(ret, mem, size);
 
@@ -350,11 +391,13 @@ static inline u8* DFL_ck_memdup_str(u8* mem, u32 size) {
   ret = malloc(size + ALLOC_OFF_TOTAL + 1);
   ALLOC_CHECK_RESULT(ret, size);
 
+#ifdef UNSAFE_MEMORY
   ret += ALLOC_OFF_HEAD;
 
   ALLOC_C1(ret) = ALLOC_MAGIC_C1;
   ALLOC_S(ret) = size;
   ALLOC_C2(ret) = ALLOC_MAGIC_C2;
+#endif
 
   memcpy(ret, mem, size);
   ret[size] = 0;
