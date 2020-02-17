@@ -24,7 +24,6 @@ const char *afl_environment_variables[] = {
     "AFL_DISABLE_TRIM",
     "AFL_DONT_OPTIMIZE",
     "AFL_DUMB_FORKSRV",
-    "___AFL_EINS_ZWEI_POLIZEI___",
     "AFL_ENTRYPOINT",
     "AFL_EXIT_WHEN_DONE",
     "AFL_FAST_CAL",
