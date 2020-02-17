@@ -147,6 +147,7 @@ cd qemu-$VERSION || exit 1
 echo "[*] Applying patches..."
 
 patch -p1 <../patches/elfload.diff || exit 1
+patch -p1 <../patches/bsd-elfload.diff || exit 1
 patch -p1 <../patches/cpu-exec.diff || exit 1
 patch -p1 <../patches/syscall.diff || exit 1
 patch -p1 <../patches/translate-all.diff || exit 1
