@@ -1224,11 +1224,11 @@ void maybe_delete_out_dir(void) {
 
   if (file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
+    fn = alloc_printf("%s/.cur_input.%s", tmp_dir, file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", out_dir);
+    fn = alloc_printf("%s/.cur_input", tmp_dir);
 
   }
 
@@ -1440,11 +1440,11 @@ void setup_stdio_file(void) {
   u8* fn;
   if (file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
+    fn = alloc_printf("%s/.cur_input.%s", tmp_dir, file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", out_dir);
+    fn = alloc_printf("%s/.cur_input", tmp_dir);
 
   }
 

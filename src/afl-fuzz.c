@@ -655,11 +655,17 @@ int main(int argc, char** argv, char** envp) {
 
   if ((tmp_dir = getenv("AFL_TMPDIR")) != NULL) {
 
-    char tmpfile[strlen(tmp_dir + 16)];
-    sprintf(tmpfile, "%s/%s", tmp_dir, ".cur_input");
+    char tmpfile[file_extension 
+         ? strlen(tmp_dir) + 1 + 10 + 1 + strlen(file_extension) + 1
+         : strlen(tmp_dir) + 1 + 10 + 1];
+    if (file_extension) {
+      sprintf(tmpfile, "%s/.cur_input.%s", tmp_dir, file_extension);
+    } else {
+      sprintf(tmpfile, "%s/.cur_input", tmp_dir);
+    }
     if (access(tmpfile, F_OK) !=
         -1)  // there is still a race condition here, but well ...
-      FATAL("TMP_DIR already has an existing temporary input file: %s",
+      FATAL("AFL_TMPDIR already has an existing temporary input file: %s",
             tmpfile);
 
   } else
@@ -854,11 +860,11 @@ int main(int argc, char** argv, char** envp) {
 
         if (file_extension) {
 
-          out_file = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
+          out_file = alloc_printf("%s/.cur_input.%s", tmp_dir, file_extension);
 
         } else {
 
-          out_file = alloc_printf("%s/.cur_input", out_dir);
+          out_file = alloc_printf("%s/.cur_input", tmp_dir);
 
         }
 
