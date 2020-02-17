@@ -603,6 +603,10 @@ void perform_dry_run(char** argv) {
                "binary. Also,\n"
                "      if you are using ASAN, see %s/notes_for_asan.md.\n\n"
 
+               "    - In QEMU persistent mode the selected address(es) for the loop are not\n"
+               "      properly cleaning up variables and memory. Try adding\n"
+               "      AFL_QEMU_PERSISTENT_GPR=1 or select better addresses in the binary.\n\n"
+
                MSG_FORK_ON_APPLE
 
                "    - Least likely, there is a horrible bug in the fuzzer. If "
@@ -623,6 +627,10 @@ void perform_dry_run(char** argv) {
                "      so, please remove it. The fuzzer should be seeded with "
                "interesting\n"
                "      inputs - but not ones that cause an outright crash.\n\n"
+
+               "    - In QEMU persistent mode the selected address(es) for the loop are not\n"
+               "      properly cleaning up variables and memory. Try adding\n"
+               "      AFL_QEMU_PERSISTENT_GPR=1 or select better addresses in the binary.\n\n"
 
                MSG_FORK_ON_APPLE
 
