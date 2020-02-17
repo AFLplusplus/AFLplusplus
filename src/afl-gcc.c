@@ -382,8 +382,32 @@ int main(int argc, char** argv) {
         "You can specify custom next-stage toolchain via AFL_CC, AFL_CXX, and "
         "AFL_AS.\n"
         "Setting AFL_HARDEN enables hardening optimizations in the compiled "
-        "code.\n\n",
-        BIN_PATH, BIN_PATH);
+        "code.\n\n"
+
+        "Environment variables used by afl-gcc:\n"
+        "AFL_CC: path to the C compiler to use\n"
+        "AFL_CXX: path to the C++ compiler to use\n"
+        "AFL_GCJ: path to the java compiler to use\n"
+        "AFL_PATH: path to the instrumenting assembler\n"
+        "AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
+        "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
+        "AFL_QUIET: suppress verbose output\n"
+        "AFL_CAL_FAST: speed up the initial calibration\n"
+        "AFL_HARDEN: adds code hardening to catch memory bugs\n"
+        "AFL_USE_ASAN: activate address sanitizer\n"
+        "AFL_USE_MSAN: activate memory sanitizer\n"
+        "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+
+        "\nEnvironment variables used by afl-as (called by afl-gcc):\n"
+        "AFL_AS: path to the assembler to use\n"
+        "TMPDIR: set the directory for temporary files of afl-as\n"
+        "TEMP: fall back path to directory for temporary files\n"
+        "TMP: fall back path to directory for temporary files\n"
+        "AFL_INST_RATIO: percentage of branches to instrument\n"
+        "AFL_QUIET: suppress verbose output\n"
+        "AFL_KEEP_ASSEMBLY: leave instrumented assembly files\n"
+        "AFL_AS_FORCE_INSTRUMENT: force instrumentation for asm sources\n"
+        , BIN_PATH, BIN_PATH);
 
     exit(1);
 

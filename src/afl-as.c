@@ -543,8 +543,8 @@ int main(int argc, char** argv) {
         "AFL_INST_RATIO: user specified instrumentation ratio\n"
         "AFL_QUIET: suppress verbose output\n"
         "AFL_KEEP_ASSEMBLY: leave instrumented assembly files\n"
-        "AFL_AS_FORCE_INSTRUMENT: force instrumentation\n"
-        "AFL_HARDEN, AFL_USE_ASAN, AFL_USE_MSAN, ALF_USE_UBSAN:\n"
+        "AFL_AS_FORCE_INSTRUMENT: force instrumentation for asm sources\n"
+        "AFL_HARDEN, AFL_USE_ASAN, AFL_USE_MSAN, AFL_USE_UBSAN:\n"
         "  used in the instrumentation summary message\n");
 
     exit(1);
