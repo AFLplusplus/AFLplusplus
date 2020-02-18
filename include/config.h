@@ -46,12 +46,6 @@
 #define FANCY_BOXES
 #endif
 
-/* Comment out to have safe memory checks (security in ck_ functions).
-   This will cost a little speed, so disable when developing on how
-   the queue works */
-
-#define UNSAFE_MEMORY
-
 /* Default timeout for fuzzed code (milliseconds). This is the upper bound,
    also used for detecting hangs; the actual value is auto-scaled: */
 
