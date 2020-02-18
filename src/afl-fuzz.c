@@ -100,7 +100,6 @@ static void usage(u8* argv0) {
       "  -f file       - location read by the fuzzed program (stdin)\n"
       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
       "  -m megs       - memory limit for child process (%d MB)\n"
-      "  -c program    - enable CmpLog by specifying a binary compiled for it\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -113,7 +112,9 @@ static void usage(u8* argv0) {
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths, 0 = "
       "immediately).\n"
-      "                  a recommended value is 10-60. see docs/README.MOpt\n\n"
+      "                  a recommended value is 10-60. see docs/README.MOpt\n"
+      "  -c program    - enable CmpLog by specifying a binary compiled for it.\n"
+      "                  if using QEMU, just use -c 0.\n\n"
 
       "Fuzzing behavior settings:\n"
       "  -N            - do not unlink the fuzzing input file\n"
@@ -881,7 +882,12 @@ int main(int argc, char** argv, char** envp) {
 
   if (!out_file) setup_stdio_file();
 
-  if (cmplog_binary) check_binary(cmplog_binary);
+  if (cmplog_binary) {
+    if (unicorn_mode)
+      FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");
+    if (!qemu_mode)
+      check_binary(cmplog_binary);
+  }
   check_binary(argv[optind]);
 
   start_time = get_cur_time();
