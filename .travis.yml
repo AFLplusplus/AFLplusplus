@@ -46,7 +46,7 @@ script:
   - gcc -v
   - clang -v
   - sudo -E ./afl-system-config
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then export LLVM_CONFIG=`pwd`/"$NAME" ; make source-only ; fi
-  - if [ "$TRAVIS_OS_NAME" = "linux" -a "$TRAVIS_CPU_ARCH" = "amd64" ]; then make distrib ; fi
-  - if [ "$TRAVIS_CPU_ARCH" = "arm64" ] ; then make ; cd qemu_mode && sh ./build_qemu_support.sh ; cd .. ; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then export LLVM_CONFIG=`pwd`/"$NAME" ; make source-only ASAN_BUILD=1 ; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" -a "$TRAVIS_CPU_ARCH" = "amd64" ]; then make distrib ASAN_BUILD=1 ; fi
+  - if [ "$TRAVIS_CPU_ARCH" = "arm64" ] ; then make ASAN_BUILD=1 ; cd qemu_mode && sh ./build_qemu_support.sh ; cd .. ; fi
   - make tests
