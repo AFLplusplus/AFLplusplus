@@ -162,7 +162,7 @@ static void classify_counts(u8* mem, const u8* map) {
 
 static void at_exit_handler(void) {
 
-  if (out_file) unlink(out_file);                          /* Ignore errors */
+  if (stdin_file) unlink(stdin_file);
 
 }
 
@@ -949,7 +949,7 @@ int main(int argc, char** argv, char** envp) {
 
     }
 
-    stdin_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
+    stdin_file = alloc_printf("%s/.afl-showmap-temp-%u", use_dir, getpid());
     unlink(stdin_file);
     atexit(at_exit_handler);
     out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
@@ -1013,6 +1013,13 @@ int main(int argc, char** argv, char** envp) {
     OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST,
         tcnt, highest, total, out_file);
 
+  }
+  
+  if (stdin_file) {
+  
+    unlink(stdin_file);
+    stdin_file = NULL;
+    
   }
 
   exit(child_crashed * 2 + child_timed_out);
