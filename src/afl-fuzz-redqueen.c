@@ -145,6 +145,9 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
     --stage_cur;
 
   }
+  
+  if (stage_cur)
+    queue_cur->fully_colorized = 1;
 
   new_hit_cnt = queued_paths + unique_crashes;
   stage_finds[STAGE_COLORIZATION] += new_hit_cnt - orig_hit_cnt;
@@ -417,6 +420,71 @@ u8 cmp_fuzz(u32 key, u8* orig_buf, u8* buf, u32 len) {
 
 }
 
+u8 rtn_extend_encoding(struct cmp_header* h, u8* pattern, u8* repl, u32 idx,
+                       u8* orig_buf, u8* buf, u32 len, u8* status) {
+
+  *status = 2;
+
+}
+
+u8 rtn_fuzz(u32 key, u8* orig_buf, u8* buf, u32 len) {
+
+  struct cmp_header* h = &cmp_map->headers[key];
+  u32                i, j, idx;
+
+  u32 loggeds = h->hits;
+  if (h->hits > CMP_MAP_RTN_H) loggeds = CMP_MAP_RTN_H;
+
+  u8 status;
+  // opt not in the paper
+  u32 fails = 0;
+
+  for (i = 0; i < loggeds; ++i) {
+
+    struct cmpfn_operands* o = &((struct cmpfn_operands*)cmp_map->log[key])[i];
+
+    // opt not in the paper
+    //for (j = 0; j < i; ++j)
+    //  if (cmp_map->log[key][j].v0 == o->v0 && cmp_map->log[key][i].v1 == o->v1)
+    //    goto cmp_fuzz_next_iter;
+
+    for (idx = 0; idx < len && fails < 8; ++idx) {
+
+      if (unlikely(rtn_extend_encoding(h, o->v0, o->v1, idx, orig_buf, buf, len,
+                                       &status)))
+        return 1;
+      if (status == 2)
+        ++fails;
+      else if (status == 1)
+        break;
+
+      if (unlikely(rtn_extend_encoding(h, o->v1, o->v0, idx, orig_buf, buf, len,
+                                       &status)))
+        return 1;
+      if (status == 2)
+        ++fails;
+      else if (status == 1)
+        break;
+
+    }
+
+    // If failed, add to dictionary
+    if (fails == 8) {
+
+      maybe_add_auto(o->v0, SHAPE_BYTES(h->shape));
+      maybe_add_auto(o->v1, SHAPE_BYTES(h->shape));
+
+    }
+
+  cmp_fuzz_next_iter:
+    stage_cur++;
+
+  }
+
+  return 0;
+
+}
+
 ///// Input to State stage
 
 // queue_cur->exec_cksum
@@ -455,7 +523,11 @@ u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
   for (k = 0; k < CMP_MAP_W; ++k) {
 
     if (!cmp_map->headers[k].hits) continue;
-    cmp_fuzz(k, orig_buf, buf, len);
+    
+    if (cmp_map->headers[k].type == CMP_TYPE_INS)
+      cmp_fuzz(k, orig_buf, buf, len);
+    else
+      rtn_fuzz(k, orig_buf, buf, len);
 
   }
 
