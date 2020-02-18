@@ -87,7 +87,7 @@ RED="\\033[0;31m"
 YELLOW="\\033[1;93m"
 RESET="\\033[0m"
 
-MEM_LIMIT=150
+MEM_LIMIT=none
 
 export PATH=$PATH:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
 
@@ -172,7 +172,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     echo 000000000000000000000000 > in/in2
     echo 111 > in/in3
     mkdir -p in2
-    ../afl-cmin -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
+    ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
     CNT=`ls in2/* 2>/dev/null | wc -l`
     case "$CNT" in
       *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
@@ -181,7 +181,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
           ;;
     esac
     rm -f in2/in*
-    AFL_PATH=`pwd`/.. ../afl-cmin.bash -i in -o in2 -- ./test-instr.plain >/dev/null
+    AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
     CNT=`ls in2/* 2>/dev/null | wc -l`
     case "$CNT" in
       *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
@@ -189,7 +189,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
           CODE=1
           ;;
     esac
-    ../afl-tmin -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
+    ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
     SIZE=`ls -l in2/in2 2> /dev/null | awk '{print$5}'`
     test "$SIZE" = 1 && $ECHO "$GREEN[+] afl-tmin correctly minimized the testcase"
     test "$SIZE" = 1 || {
@@ -230,7 +230,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       } || {
         $ECHO "$GREEN[+] llvm_mode instrumentation present and working correctly"
         TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 6 && {
+        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 7 && {
           $ECHO "$GREEN[+] llvm_mode run reported $TUPLES instrumented locations which is fine"
         } || {
           $ECHO "$RED[!] llvm_mode instrumentation produces weird numbers: $TUPLES"
@@ -288,7 +288,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       echo 000000000000000000000000 > in/in2
       echo 111 > in/in3
       mkdir -p in2
-      ../afl-cmin -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
+      ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
       CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
         *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
@@ -297,7 +297,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
             ;;
       esac
       rm -f in2/in*
-      AFL_PATH=`pwd`/.. ../afl-cmin.bash -i in -o in2 -- ./test-instr.plain >/dev/null
+      AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
       CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
         *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
@@ -305,7 +305,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
             CODE=1
             ;;
       esac
-      ../afl-tmin -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
+      ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
       SIZE=`ls -l in2/in2 2> /dev/null | awk '{print$5}'`
       test "$SIZE" = 1 && $ECHO "$GREEN[+] afl-tmin correctly minimized the testcase"
       test "$SIZE" = 1 || {
@@ -361,7 +361,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   rm -f test-compcov test.out whitelist.txt
   ../afl-clang-fast -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
-    echo foo | ../afl-showmap -o /dev/null -q -r ./test-persistent && {
+    echo foo | ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] llvm_mode persistent mode feature works correctly"
     } || {
       $ECHO "$RED[!] llvm_mode persistent mode feature failed to work"
@@ -470,7 +470,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   rm -f test-compcov test.out whitelist.txt
   ../afl-gcc-fast -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
-    echo foo | ../afl-showmap -o /dev/null -q -r ./test-persistent && {
+    echo foo | ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] gcc_plugin persistent mode feature works correctly"
     } || {
       $ECHO "$RED[!] gcc_plugin persistent mode feature failed to work"
@@ -568,7 +568,7 @@ test -e ../afl-qemu-trace && {
       echo 0 > in/in
       $ECHO "$GREY[*] running afl-fuzz for qemu_mode, this will take approx 10 seconds"
       {
-        ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr >>errors 2>&1
+        ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode"
@@ -587,7 +587,7 @@ test -e ../afl-qemu-trace && {
         {
           export AFL_PRELOAD=../libcompcov.so 
           export AFL_COMPCOV_LEVEL=2
-          ../afl-fuzz -V10 -Q -i in -o out -- ./test-compcov >>errors 2>&1
+          ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-compcov >>errors 2>&1
         } >>errors 2>&1
         test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode libcompcov"
@@ -611,7 +611,7 @@ test -e ../afl-qemu-trace && {
           export AFL_QEMU_PERSISTENT_GPR=1
           $ECHO "Info: AFL_QEMU_PERSISTENT_ADDR=$AFL_QEMU_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
           file test-instr
-          ../afl-fuzz -V10 -Q -i in -o out -- ./test-instr
+          ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr
         } >>errors 2>&1
         test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
@@ -725,7 +725,7 @@ test -d ../unicorn_mode/unicornafl && {
       {
         $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 25 seconds"
         {
-          ../afl-fuzz -V25 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
+          ../afl-fuzz -m ${MEM_LIMIT} -V25 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
         } >>errors 2>&1
         test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
@@ -744,7 +744,7 @@ test -d ../unicorn_mode/unicornafl && {
         $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 35 seconds"
         {
           export AFL_COMPCOV_LEVEL=2
-          ../afl-fuzz -V35 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
+          ../afl-fuzz -m ${MEM_LIMIT} -V35 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
         } >>errors 2>&1
         test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
