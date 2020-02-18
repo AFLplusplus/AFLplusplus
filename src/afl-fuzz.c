@@ -654,7 +654,7 @@ int main(int argc, char** argv, char** envp) {
   if (!strcmp(in_dir, out_dir))
     FATAL("Input and output directories can't be the same");
 
-  if ((tmp_dir = getenv("AFL_TMPDIR")) != NULL) {
+  if ((tmp_dir = getenv("AFL_TMPDIR")) != NULL && !in_place_resume) {
 
     char tmpfile[file_extension 
          ? strlen(tmp_dir) + 1 + 10 + 1 + strlen(file_extension) + 1
