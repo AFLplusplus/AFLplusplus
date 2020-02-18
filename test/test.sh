@@ -65,6 +65,8 @@ unset AFL_PYTHON_MODULE
 unset AFL_PRELOAD
 unset LD_PRELOAD
 
+export ASAN_OPTIONS=detect_leaks=0
+
 # on OpenBSD we need to work with llvm from /usr/local/bin
 test -e /usr/local/bin/opt && {
   export PATH=/usr/local/bin:${PATH}
