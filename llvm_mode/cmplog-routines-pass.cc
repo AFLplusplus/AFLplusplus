@@ -280,9 +280,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     Value *v1P = callInst->getArgOperand(0),
           *v2P = callInst->getArgOperand(1);
     
-    BasicBlock *bb = callInst->getParent();
-    BasicBlock::iterator IP = bb->getFirstInsertionPt();
-    IRBuilder<>          IRB(&*IP);
+    IRBuilder<> IRB(callInst->getParent());
+    IRB.SetInsertPoint(callInst);
     
     std::vector<Value*> args;
     args.push_back(v1P);
@@ -290,7 +289,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     
     IRB.CreateCall(cmplogHookFn, args, "tmp");
 
-    errs() << callInst->getCalledFunction()->getName() << "\n";
+    // errs() << callInst->getCalledFunction()->getName() << "\n";
 
   }
 
