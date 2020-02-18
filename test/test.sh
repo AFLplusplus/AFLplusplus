@@ -65,7 +65,7 @@ unset AFL_PYTHON_MODULE
 unset AFL_PRELOAD
 unset LD_PRELOAD
 
-export ASAN_OPTIONS=detect_leaks=0
+export ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:abort_on_error=1:symbolize=0
 
 # on OpenBSD we need to work with llvm from /usr/local/bin
 test -e /usr/local/bin/opt && {
