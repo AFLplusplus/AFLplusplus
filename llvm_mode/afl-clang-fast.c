@@ -202,6 +202,12 @@ static void edit_params(u32 argc, char** argv) {
   if (cmplog_mode) {
 
     cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard,trace-cmp";
+    
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] = "-load";
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] =
+        alloc_printf("%s/cmplog-routines-pass.so", obj_path);
 
   } else {
 

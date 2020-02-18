@@ -40,6 +40,8 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
+#include <errno.h>
+
 /* This is a somewhat ugly hack for the experimental 'trace-pc-guard' mode.
    Basically, we need to make sure that the forkserver is initialized after
    the LLVM-generated runtime initialization pass, not before. */
@@ -397,6 +399,8 @@ void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t* Cases) {
     k = (k >> 4) ^ (k << 8);
     k &= CMP_MAP_W - 1;
 
+    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
+
     u32 hits = __afl_cmp_map->headers[k].hits;
     __afl_cmp_map->headers[k].hits = hits + 1;
 
@@ -410,3 +414,39 @@ void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t* Cases) {
 
 }
 
+// POSIX shenanigan to see if an area is mapped.
+// If it is mapped as X-only, we have a problem, so maybe we should add a check
+// to avoid to call it on .text addresses
+static int area_is_mapped(void* ptr, size_t len) {
+
+  char * p = ptr;
+  char * page = (char*)((uintptr_t)p & ~(sysconf(_SC_PAGE_SIZE) -1));
+
+  int r = msync(page, (p - page) + len, MS_ASYNC);
+  if (r < 0)
+    return errno != ENOMEM;
+  return 1;
+
+}
+
+void __cmplog_rtn_hook(void* ptr1, void* ptr2) {
+
+  if (!area_is_mapped(ptr1, 32) || !area_is_mapped(ptr2, 32))
+    return;
+  
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
+
+  __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+
+  __afl_cmp_map->headers[k].shape = 31;
+
+  hits &= CMP_MAP_RTN_H - 1;
+  __builtin_memcpy(((struct cmpfn_operands*)__afl_cmp_map->log[k])[hits].v0, ptr1, 32);
+  __builtin_memcpy(((struct cmpfn_operands*)__afl_cmp_map->log[k])[hits].v1, ptr2, 32);
+
+}
