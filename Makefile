@@ -162,6 +162,10 @@ ifeq "$(TEST_MMAP)" "1"
 	LDFLAGS+=-Wno-deprecated-declarations -lrt
 endif
 
+ifdef ASAN_BUILD
+  CFLAGS+=-fsanitize=address
+	LDFLAGS+=-fsanitize=address
+endif
 
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 
@@ -254,13 +258,13 @@ afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
 
-src/afl-common.o : src/afl-common.c include/common.h
+src/afl-common.o : $(COMM_HDR) src/afl-common.c include/common.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-common.c -o src/afl-common.o
 
-src/afl-forkserver.o : src/afl-forkserver.c include/forkserver.h
+src/afl-forkserver.o : $(COMM_HDR) src/afl-forkserver.c include/forkserver.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-forkserver.c -o src/afl-forkserver.o
 
-src/afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
+src/afl-sharedmem.o : $(COMM_HDR) src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
 radamsa: src/third_party/libradamsa/libradamsa.so
@@ -269,7 +273,7 @@ radamsa: src/third_party/libradamsa/libradamsa.so
 src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.c src/third_party/libradamsa/radamsa.h
 	$(MAKE) -C src/third_party/libradamsa/ CFLAGS="$(CFLAGS)"
 
-afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
+afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o | test_x86
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
