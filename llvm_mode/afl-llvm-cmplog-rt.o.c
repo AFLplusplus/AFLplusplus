@@ -322,6 +322,8 @@ void __sanitizer_cov_trace_cmp2(uint16_t Arg1, uint16_t Arg2) {
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
+  
+  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
 
   u32 hits = __afl_cmp_map->headers[k].hits;
   __afl_cmp_map->headers[k].hits = hits + 1;
@@ -344,6 +346,8 @@ void __sanitizer_cov_trace_cmp4(uint32_t Arg1, uint32_t Arg2) {
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
+  
+  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
 
   u32 hits = __afl_cmp_map->headers[k].hits;
   __afl_cmp_map->headers[k].hits = hits + 1;
@@ -363,6 +367,8 @@ void __sanitizer_cov_trace_cmp8(uint64_t Arg1, uint64_t Arg2) {
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
+  
+  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
 
   u32 hits = __afl_cmp_map->headers[k].hits;
   __afl_cmp_map->headers[k].hits = hits + 1;
