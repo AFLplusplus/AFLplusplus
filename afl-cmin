@@ -287,7 +287,8 @@ BEGIN {
   system("rm -rf "trace_dir" 2>/dev/null");
   system("rm "out_dir"/id[:_]* 2>/dev/null")
 
-  if (0 == system( "test -d "out_dir" -a -e "out_dir"/*" )) {
+  "ls "out_dir"/* 2>/dev/null | wc -l" | getline noofentries
+  if (0 == system( "test -d "out_dir" -a "noofentries" -gt 0" )) {
     print "[-] Error: directory '"out_dir"' exists and is not empty - delete it first." > "/dev/stderr"
     exit 1
   }
@@ -318,7 +319,7 @@ BEGIN {
     print "[-] Error: can't find 'afl-showmap' - please set AFL_PATH." > "/dev/stderr"
     exit 1
   }
-  
+
   # get list of input filenames sorted by size
   i = 0
   # yuck, gnu stat is option incompatible to bsd stat
@@ -392,10 +393,10 @@ BEGIN {
 
   cur = 0;
   if (!stdin_file) {
-    printf "    Processing "in_count" files (forkserver mode)..."
+    print "    Processing "in_count" files (forkserver mode)..."
     system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
   } else {
-    printf "    Processing "in_count" files (forkserver mode)..."
+    print "    Processing "in_count" files (forkserver mode)..."
     system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null")
   }
 
