@@ -109,7 +109,7 @@ $ make source-only
 ```
 is what you should choose.
 
-These build options exist:
+These build targets exist:
 
 * all: just the main afl++ binaries
 * binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap, radamsa
@@ -127,6 +127,15 @@ afl++ binaries by passing the STATIC=1 argument to make:
 ```shell
 $ make all STATIC=1
 ```
+
+These build options exist:
+
+* STATIC - compile AFL++ static
+* ASAN_BUILD - compiles with memory sanitizer for debug purposes
+* AFL_NO_X86 - if compiling on non-intel/amd platforms
+
+e.g.: make ASAN_BUILD=1
+
 
 Note that afl++ is faster and better the newer the compilers used are.
 Hence gcc-9 and especially llvm-9 should be the compilers of choice.
