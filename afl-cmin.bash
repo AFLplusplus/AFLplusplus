@@ -435,7 +435,7 @@ touch "$TRACE_DIR/.already_have"
 while read -r cnt tuple; do
 
   CUR=$((CUR+1))
-  printf "\\r    Processing tuple $CUR/$TUPLE_COUNT... "
+  printf "\\r    Processing tuple $CUR/$TUPLE_COUNT with count $cnt... "
 
   # If we already have this tuple, skip it.
 
@@ -443,6 +443,7 @@ while read -r cnt tuple; do
 
   FN=${BEST_FILE[tuple]}
 
+#  echo "tuple nr $CUR ($tuple cnt=$cnt) -> $FN" >> "$TRACE_DIR/.log"
   $CP_TOOL "$IN_DIR/$FN" "$OUT_DIR/$FN"
 
   if [ "$((CUR % 5))" = "0" ]; then
