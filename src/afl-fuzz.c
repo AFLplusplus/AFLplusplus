@@ -113,7 +113,8 @@ static void usage(u8* argv0) {
       "                  pacemaker mode (minutes of no new paths, 0 = "
       "immediately).\n"
       "                  a recommended value is 10-60. see docs/README.MOpt\n"
-      "  -c program    - enable CmpLog by specifying a binary compiled for it.\n"
+      "  -c program    - enable CmpLog by specifying a binary compiled for "
+      "it.\n"
       "                  if using QEMU, just use -c 0.\n\n"
 
       "Fuzzing behavior settings:\n"
@@ -829,23 +830,29 @@ int main(int argc, char** argv, char** envp) {
 
   if ((tmp_dir = getenv("AFL_TMPDIR")) != NULL && !in_place_resume) {
 
-    char tmpfile[file_extension 
-         ? strlen(tmp_dir) + 1 + 10 + 1 + strlen(file_extension) + 1
-         : strlen(tmp_dir) + 1 + 10 + 1];
+    char tmpfile[file_extension
+                     ? strlen(tmp_dir) + 1 + 10 + 1 + strlen(file_extension) + 1
+                     : strlen(tmp_dir) + 1 + 10 + 1];
     if (file_extension) {
+
       sprintf(tmpfile, "%s/.cur_input.%s", tmp_dir, file_extension);
+
     } else {
+
       sprintf(tmpfile, "%s/.cur_input", tmp_dir);
+
     }
+
     if (access(tmpfile, F_OK) !=
         -1)  // there is still a race condition here, but well ...
-      FATAL("AFL_TMPDIR already has an existing temporary input file: %s - if this is not from another instance, then just remove the file.",
-            tmpfile);
+      FATAL(
+          "AFL_TMPDIR already has an existing temporary input file: %s - if "
+          "this is not from another instance, then just remove the file.",
+          tmpfile);
 
   } else
 
     tmp_dir = out_dir;
-
 
   /* If we don't have a file name chosen yet, use a safe default. */
 
@@ -884,11 +891,13 @@ int main(int argc, char** argv, char** envp) {
   if (!out_file) setup_stdio_file();
 
   if (cmplog_binary) {
+
     if (unicorn_mode)
       FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");
-    if (!qemu_mode)
-      check_binary(cmplog_binary);
+    if (!qemu_mode) check_binary(cmplog_binary);
+
   }
+
   check_binary(argv[optind]);
 
   start_time = get_cur_time();

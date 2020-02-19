@@ -1244,12 +1244,14 @@ bool SplitComparesTransform::runOnModule(Module &M) {
   simplifyIntSignedness(M);
 
   if (isatty(2) && getenv("AFL_QUIET") == NULL) {
+
     errs() << "Split-compare-pass by laf.intel@gmail.com, extended by "
               "heiko@hexco.de\n";
 
     if (enableFPSplit)
       errs() << "Split-floatingpoint-compare-pass: " << splitFPCompares(M)
-           << " FP comparisons splitted\n";
+             << " FP comparisons splitted\n";
+
   }
 
   switch (bitw) {
