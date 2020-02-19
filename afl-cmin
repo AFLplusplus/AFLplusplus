@@ -394,10 +394,10 @@ BEGIN {
   cur = 0;
   if (!stdin_file) {
     print "    Processing "in_count" files (forkserver mode)..."
-    system( "AFL_QUIET=1 AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
+    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
   } else {
     print "    Processing "in_count" files (forkserver mode)..."
-    system( "AFL_QUIET=1 AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null")
   }
 
   #######################################################
