@@ -31,6 +31,7 @@
 
 #define CMP_MAP_W 65536
 #define CMP_MAP_H 256
+#define CMP_MAP_RTN_H (CMP_MAP_H / 4)
 
 #define SHAPE_BYTES(x) (x + 1)
 

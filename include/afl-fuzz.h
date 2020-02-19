@@ -118,7 +118,8 @@ struct queue_entry {
       has_new_cov,                      /* Triggers new coverage?           */
       var_behavior,                     /* Variable behavior?               */
       favored,                          /* Currently favored?               */
-      fs_redundant;                     /* Marked as redundant in the fs?   */
+      fs_redundant,                     /* Marked as redundant in the fs?   */
+      fully_colorized;                  /* Do not run redqueen stage again  */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
       fuzz_level,                       /* Number of fuzzing iterations     */

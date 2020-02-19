@@ -531,7 +531,7 @@ u8 fuzz_one_original(char** argv) {
 
   }
 
-  if (cmplog_mode) {
+  if (cmplog_mode && !queue_cur->fully_colorized) {
 
     if (input_to_state_stage(argv, in_buf, out_buf, len, queue_cur->exec_cksum))
       goto abandon_entry;
