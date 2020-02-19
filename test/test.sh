@@ -584,6 +584,23 @@ test -e ../afl-qemu-trace && {
       }
       rm -f errors
 
+      $ECHO "$GREY[*] running afl-fuzz for qemu_mode AFL_ENTRYPOINT, this will take approx 6 seconds"
+      {
+        export AFL_ENTRYPOINT=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
+        ../afl-fuzz -m ${MEM_LIMIT} -V2 -Q -i in -o out -- ./test-instr >>errors 2>&1
+      } >>errors 2>&1
+      test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode AFL_ENTRYPOINT"
+        RUNTIME=`grep execs_done out/fuzzer_stats | awk '{print$3}'`
+      } || {
+        echo CUT------------------------------------------------------------------CUT
+        cat errors
+        echo CUT------------------------------------------------------------------CUT
+        $ECHO "$RED[!] afl-fuzz is not working correctly with qemu_mode AFL_ENTRYPOINT"
+        CODE=1
+      }
+      rm -f errors
+
       test -e ../libcompcov.so && {
         $ECHO "$GREY[*] running afl-fuzz for qemu_mode libcompcov, this will take approx 10 seconds"
         {
