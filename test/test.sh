@@ -586,10 +586,11 @@ test -e ../afl-qemu-trace && {
 
       $ECHO "$GREY[*] running afl-fuzz for qemu_mode AFL_ENTRYPOINT, this will take approx 6 seconds"
       {
-        export AFL_ENTRYPOINT=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
         {
-          echo AFL_ENTRYPOINT=$AFL_ENTRYPOINT - $(m test-instr | grep "T main") - $(file ./test-instr)
+          export AFL_ENTRYPOINT=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
+          $ECHO AFL_ENTRYPOINT=$AFL_ENTRYPOINT - $(m test-instr | grep "T main") - $(file ./test-instr)
           ../afl-fuzz -m ${MEM_LIMIT} -V2 -Q -i in -o out -- ./test-instr
+          unset AFL_ENTRYPOINT
         } >>errors 2>&1
       } >>errors 2>&1
       test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
@@ -610,6 +611,8 @@ test -e ../afl-qemu-trace && {
           export AFL_PRELOAD=../libcompcov.so 
           export AFL_COMPCOV_LEVEL=2
           ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-compcov >>errors 2>&1
+          unset AFL_PRELOAD
+          unset AFL_COMPCOV_LEVEL
         } >>errors 2>&1
         test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode libcompcov"
@@ -634,6 +637,7 @@ test -e ../afl-qemu-trace && {
           $ECHO "Info: AFL_QEMU_PERSISTENT_ADDR=$AFL_QEMU_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
           file test-instr
           ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr
+          unset AFL_QEMU_PERSISTENT_ADDR
         } >>errors 2>&1
         test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
@@ -706,6 +710,7 @@ test -e ../afl-qemu-trace && {
 	    }
             CODE=1
           }
+          unset LD_PRELOAD
         } || {
           echo CUT------------------------------------------------------------------CUT
           cat errors
@@ -767,6 +772,7 @@ test -d ../unicorn_mode/unicornafl && {
         {
           export AFL_COMPCOV_LEVEL=2
           ../afl-fuzz -m ${MEM_LIMIT} -V35 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
+          unset AFL_COMPCOV_LEVEL
         } >>errors 2>&1
         test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
