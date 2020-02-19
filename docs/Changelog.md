@@ -13,6 +13,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
   - use -march=native if available
   - most tools now check for mistyped environment variables
+  - gcc 10 is now supported
   - the memory safety checks are now disabled for a little more speed during
     fuzzing (only affects creating queue entries), can be toggled in config.h
   - afl-fuzz:
