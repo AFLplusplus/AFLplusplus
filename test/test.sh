@@ -65,6 +65,8 @@ unset AFL_PYTHON_MODULE
 unset AFL_PRELOAD
 unset LD_PRELOAD
 
+rm -rf in in2 out
+
 export ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:abort_on_error=1:symbolize=0
 
 # on OpenBSD we need to work with llvm from /usr/local/bin
@@ -332,7 +334,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-compcov.instrim test.out
-  AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > /dev/null 2> test.out
+  AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > /dev/null 2> test.out
   test -e test-compcov.compcov && {
     grep -Eq " [3-9][0-9] location" test.out && {
       $ECHO "$GREEN[+] llvm_mode laf-intel/compcov feature works correctly"
@@ -346,7 +348,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   rm -f test-compcov.compcov test.out
   echo foobar.c > whitelist.txt
-  AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-fast -o test-compcov test-compcov.c > test.out 2>&1
+  AFL_DEBUG=1 AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-fast -o test-compcov test-compcov.c > test.out 2>&1
   test -e test-compcov && {
     grep -q "No instrumentation targets found" test.out && {
       $ECHO "$GREEN[+] llvm_mode whitelist feature works correctly"

@@ -380,7 +380,7 @@ int main(int argc, char** argv) {
 
   }
 
-  if (isatty(2) && !getenv("AFL_QUIET")) {
+  if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
     SAYF(cCYA "afl-cc" VERSION cRST " by Michal Zalewski\n");
     SAYF(cYEL "[!] " cBRI "NOTE: " cRST
