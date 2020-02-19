@@ -1014,12 +1014,12 @@ int main(int argc, char** argv, char** envp) {
         tcnt, highest, total, out_file);
 
   }
-  
+
   if (stdin_file) {
-  
+
     unlink(stdin_file);
     stdin_file = NULL;
-    
+
   }
 
   exit(child_crashed * 2 + child_timed_out);

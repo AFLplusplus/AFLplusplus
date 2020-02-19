@@ -491,7 +491,8 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
      * less, don't bother with the code below. */
     if (!SI->getNumCases() || bitw <= 8) {
 
-      if (isatty(2) && getenv("AFL_QUIET") == NULL) errs() << "skip trivial switch..\n";
+      if (isatty(2) && getenv("AFL_QUIET") == NULL)
+        errs() << "skip trivial switch..\n";
       continue;
 
     }

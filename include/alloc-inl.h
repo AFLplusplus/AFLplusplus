@@ -141,8 +141,7 @@ static inline void* DFL_ck_realloc(void* orig, u32 size) {
 
 static inline void* DFL_ck_realloc_block(void* orig, u32 size) {
 
-  if (orig)
-    size += ALLOC_BLK_INC;
+  if (orig) size += ALLOC_BLK_INC;
 
   return DFL_ck_realloc(orig, size);
 
