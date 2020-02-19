@@ -34,6 +34,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include <sys/mman.h>
 #include <sys/shm.h>
@@ -65,6 +66,9 @@ u32 __afl_prev_loc;
 #else
 __thread u32 __afl_prev_loc;
 #endif
+
+struct cmp_map* __afl_cmp_map;
+__thread u32    __afl_cmp_counter;
 
 /* Running in persistent mode? */
 
@@ -351,3 +355,152 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t* start, uint32_t* stop) {
 
 }
 
+///// CmpLog instrumentation
+
+void __sanitizer_cov_trace_cmp1(uint8_t Arg1, uint8_t Arg2) {
+
+  return;
+
+}
+
+void __sanitizer_cov_trace_cmp2(uint16_t Arg1, uint16_t Arg2) {
+
+  if (!__afl_cmp_map) return;
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
+  
+  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+  // if (!__afl_cmp_map->headers[k].cnt)
+  //  __afl_cmp_map->headers[k].cnt = __afl_cmp_counter++;
+
+  __afl_cmp_map->headers[k].shape = 1;
+  //__afl_cmp_map->headers[k].type = CMP_TYPE_INS;
+
+  hits &= CMP_MAP_H - 1;
+  __afl_cmp_map->log[k][hits].v0 = Arg1;
+  __afl_cmp_map->log[k][hits].v1 = Arg2;
+
+}
+
+void __sanitizer_cov_trace_cmp4(uint32_t Arg1, uint32_t Arg2) {
+
+  if (!__afl_cmp_map) return;
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
+  
+  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+
+  __afl_cmp_map->headers[k].shape = 3;
+
+  hits &= CMP_MAP_H - 1;
+  __afl_cmp_map->log[k][hits].v0 = Arg1;
+  __afl_cmp_map->log[k][hits].v1 = Arg2;
+
+}
+
+void __sanitizer_cov_trace_cmp8(uint64_t Arg1, uint64_t Arg2) {
+
+  if (!__afl_cmp_map) return;
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
+  
+  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+
+  __afl_cmp_map->headers[k].shape = 7;
+
+  hits &= CMP_MAP_H - 1;
+  __afl_cmp_map->log[k][hits].v0 = Arg1;
+  __afl_cmp_map->log[k][hits].v1 = Arg2;
+
+}
+
+#if defined(__APPLE__)
+#pragma weak __sanitizer_cov_trace_const_cmp1 = __sanitizer_cov_trace_cmp1
+#pragma weak __sanitizer_cov_trace_const_cmp2 = __sanitizer_cov_trace_cmp2
+#pragma weak __sanitizer_cov_trace_const_cmp4 = __sanitizer_cov_trace_cmp4
+#pragma weak __sanitizer_cov_trace_const_cmp8 = __sanitizer_cov_trace_cmp8
+#else
+void __sanitizer_cov_trace_const_cmp1(uint8_t Arg1, uint8_t Arg2)
+    __attribute__((alias("__sanitizer_cov_trace_cmp1")));
+void __sanitizer_cov_trace_const_cmp2(uint16_t Arg1, uint16_t Arg2)
+    __attribute__((alias("__sanitizer_cov_trace_cmp2")));
+void __sanitizer_cov_trace_const_cmp4(uint32_t Arg1, uint32_t Arg2)
+    __attribute__((alias("__sanitizer_cov_trace_cmp4")));
+void __sanitizer_cov_trace_const_cmp8(uint64_t Arg1, uint64_t Arg2)
+    __attribute__((alias("__sanitizer_cov_trace_cmp8")));
+#endif                                                /* defined(__APPLE__) */
+
+void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t* Cases) {
+
+  for (uint64_t i = 0; i < Cases[0]; i++) {
+
+    uintptr_t k = (uintptr_t)__builtin_return_address(0) + i;
+    k = (k >> 4) ^ (k << 8);
+    k &= CMP_MAP_W - 1;
+
+    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
+
+    u32 hits = __afl_cmp_map->headers[k].hits;
+    __afl_cmp_map->headers[k].hits = hits + 1;
+
+    __afl_cmp_map->headers[k].shape = 7;
+
+    hits &= CMP_MAP_H - 1;
+    __afl_cmp_map->log[k][hits].v0 = Val;
+    __afl_cmp_map->log[k][hits].v1 = Cases[i + 2];
+
+  }
+
+}
+
+// POSIX shenanigan to see if an area is mapped.
+// If it is mapped as X-only, we have a problem, so maybe we should add a check
+// to avoid to call it on .text addresses
+static int area_is_mapped(void* ptr, size_t len) {
+
+  char * p = ptr;
+  char * page = (char*)((uintptr_t)p & ~(sysconf(_SC_PAGE_SIZE) -1));
+
+  int r = msync(page, (p - page) + len, MS_ASYNC);
+  if (r < 0)
+    return errno != ENOMEM;
+  return 1;
+
+}
+
+void __cmplog_rtn_hook(void* ptr1, void* ptr2) {
+
+  if (!area_is_mapped(ptr1, 32) || !area_is_mapped(ptr2, 32))
+    return;
+  
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
+
+  __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+
+  __afl_cmp_map->headers[k].shape = 31;
+
+  hits &= CMP_MAP_RTN_H - 1;
+  __builtin_memcpy(((struct cmpfn_operands*)__afl_cmp_map->log[k])[hits].v0, ptr1, 32);
+  __builtin_memcpy(((struct cmpfn_operands*)__afl_cmp_map->log[k])[hits].v1, ptr2, 32);
+
+}
