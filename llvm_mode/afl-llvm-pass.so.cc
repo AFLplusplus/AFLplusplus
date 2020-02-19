@@ -145,7 +145,9 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   char be_quiet = 0;
 
-  if (isatty(2) && !getenv("AFL_QUIET")) {
+printf("DEBUG? %s\n", getenv("AFL_DEBUG"));
+
+  if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
     SAYF(cCYA "afl-llvm-pass" VERSION cRST " by <lszekeres@google.com>\n");
 
@@ -481,6 +483,7 @@ bool AFLCoverage::runOnModule(Module &M) {
     }
 
   }
+printf ("BEQUIET!\n");
 
   return true;
 

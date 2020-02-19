@@ -510,7 +510,7 @@ int main(int argc, char** argv) {
 
   clang_mode = !!getenv(CLANG_ENV_VAR);
 
-  if (!getenv("AFL_QUIET")) {
+  if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
     SAYF(cCYA "afl-as" VERSION cRST " by Michal Zalewski\n");
 

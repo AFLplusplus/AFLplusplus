@@ -26,6 +26,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        (which is pointless) to total execs per second
      - bugfix for dictionary insert stage count (fix via Google repo PR)
      - added warning if -M is used together with custom mutators with _ONLY option
+     - AFL_TMPDIR checks are now later and better explained if they fail
   - llvm_mode InsTrim: no pointless instrumentation of 1 block functions
   - afl-clang-fast:
      - show in the help output for which llvm version it was compiled for
@@ -37,6 +38,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - experimental support for undefined behaviour sanitizer UBSAN
        (set AFL_USE_UBSAN=1)
      - the instrumentation summary output now also lists activated sanitizers
+     - afl-as: added isatty(2) check back in
+     - added AFL_DEBUG (for upcoming merge)
   - qemu_mode:
      - persistent mode is now also available for arm and aarch64
      - CmpLog instrumentation for QEMU (-c afl-fuzz command line option)

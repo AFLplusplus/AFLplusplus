@@ -498,7 +498,7 @@ int main(int argc, char** argv, char** envp) {
 
     exit(1);
 
-  } else if ((isatty(2) && !getenv("AFL_QUIET")) || !getenv("AFL_DEBUG")) {
+  } else if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
 #ifdef USE_TRACE_PC
     SAYF(cCYA "afl-clang-fast" VERSION cRST
