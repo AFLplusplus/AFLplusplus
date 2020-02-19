@@ -149,7 +149,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     SAYF(cCYA "afl-llvm-pass" VERSION cRST " by <lszekeres@google.com>\n");
 
-  } else if (getenv("AFL_QUIET"))
+  } else
 
     be_quiet = 1;
 
