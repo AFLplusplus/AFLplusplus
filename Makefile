@@ -200,7 +200,14 @@ help:
 	@echo "help: shows these build options :-)"
 	@echo "=========================================="
 	@echo "Recommended: \"distrib\" or \"source-only\", then \"install\""
-
+	@echo
+	@echo Known build environment options:
+	@echo "=========================================="
+	@echo STATIC - compile AFL++ static
+	@echo ASAN_BUILD - compiles with memory sanitizer for debug purposes
+	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
+	@echo "=========================================="
+	@echo e.g.: make ASAN_BUILD=1
 
 ifndef AFL_NO_X86
 
