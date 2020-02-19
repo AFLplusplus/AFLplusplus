@@ -602,11 +602,11 @@ test -e ../afl-qemu-trace && {
       rm -f errors
 
       test -e ../libcompcov.so && {
-        $ECHO "$GREY[*] running afl-fuzz for qemu_mode libcompcov, this will take approx 10 seconds"
+        $ECHO "$GREY[*] running afl-fuzz for qemu_mode libcompcov, this will take approx 15 seconds"
         {
           export AFL_PRELOAD=../libcompcov.so 
           export AFL_COMPCOV_LEVEL=2
-          ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-compcov >>errors 2>&1
+          ../afl-fuzz -m ${MEM_LIMIT} -V15 -Q -i in -o out -- ./test-compcov >>errors 2>&1
         } >>errors 2>&1
         test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode libcompcov"
