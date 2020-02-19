@@ -330,8 +330,10 @@ BEGIN {
   } else {
     stat_format = "-f '%z %N'" # *BSD, MacOS
   }
-  cmdline = "cd "in_dir" && find . \\( ! -name . -a -type d -prune \\) -o -type f -exec stat "stat_format" \\{\\} \\; | sort -n | cut -d' ' -f2-"
+  cmdline = "cd "in_dir" && find . \\( ! -name . -a -type d -prune \\) -o -type f -exec stat "stat_format" \\{\\} \\; | sort -k1n -k2r"
+  cmdline = "ls "in_dir" | (cd "in_dir" && xargs stat "stat_format") | sort -k1n -k2r"
   while (cmdline | getline) {
+    sub(/^[0-9]+ (\.\/)?/,"",$0)
     infilesSmallToBig[i++] = $0
   }
   in_count = i
@@ -410,6 +412,9 @@ BEGIN {
   out_count = 0
   tuple_count = 0
 
+  # from rare to frequent new tuples
+  # get the best (smallest) file for it
+  # and copy it
   while (cur < in_count) {
     fn = infilesSmallToBig[cur]
     ++cur
@@ -426,17 +431,54 @@ BEGIN {
         if (! (key in best_file)) {
             # this is the best file for this key
             best_file[key] = fn
-            # copy file unless already done
-            if (! (fn in file_already_copied)) {
-                system(cp_tool" "in_dir"/"fn" "out_dir"/"fn)
-                file_already_copied[fn] = ""
-                ++out_count
-            }
+#printf "BEST_FILE[%d]=\"%s\"\n",key,fn | "sort -t'[' -k2 > "trace_dir"/.candidate_script"
         }
+#printf "%d %s\n",key,fn > trace_dir"/.candidate_list"
     }
     close(tracefile_path)
   }
+  print ""
 
+  # sort keys
+  sortedKeys = trace_dir"/.all_uniq"
+  sortKeysCmd = "sort -k1n > "sortedKeys
+  for (key in key_count) {
+     printf "%7d %s\n",key_count[key],key | sortKeysCmd
+  }
+  close(sortKeysCmd)
+
+  # iterate over keys from rare to frequent and
+  # copy best file
+  while ((getline < sortedKeys) > 0) {
+
+    # split
+    nrFields = split($0, field, / +/)
+#print nrFields" Felder: '"field[0]"',  '"field[1]"',  '"field[2]"',  '"field[3]"'"
+    key = field[nrFields]
+
+    ++tcnt;
+    printf "\r    Processing tuple "tcnt"/"tuple_count" with count "key_count[key]"..."
+    if (key in keyAlreadyKnown) {
+      continue
+    }
+
+    fn = best_file[key]
+    # gather all tuples from the best file for this key
+    tracedfn = trace_dir"/"fn
+    while ((getline < tracedfn) > 0) {
+      keyAlreadyKnown[$0] = ""
+    }
+    close(tracedfn)
+
+    # copy file unless already done
+    if (! (fn in file_already_copied)) {
+      system(cp_tool" "in_dir"/"fn" "out_dir"/"fn)
+      file_already_copied[fn] = ""
+      ++out_count
+      #printf "tuple nr %d (%d cnt=%d) -> %s\n",tcnt,key,key_count[key],fn > trace_dir"/.log"
+    }
+  }
+  close(sortedKeys)
   print ""
   print "[+] Found "tuple_count" unique tuples across "in_count" files."
 
