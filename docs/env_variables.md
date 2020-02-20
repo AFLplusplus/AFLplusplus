@@ -10,6 +10,11 @@
 Because they can't directly accept command-line options, the compile-time
 tools make fairly broad use of environmental variables:
 
+  - Most afl tools do not print any ouput if stout/stderr are redirected.
+    If you want to have the output into a file then set the AFL_DEBUG
+    environment variable.
+    This is sadly necessary for various build processes which fail otherwise.
+
   - Setting AFL_HARDEN automatically adds code hardening options when invoking
     the downstream compiler. This currently includes -D_FORTIFY_SOURCE=2 and
     -fstack-protector-all. The setting is useful for catching non-crashing
