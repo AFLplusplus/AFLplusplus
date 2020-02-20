@@ -53,7 +53,20 @@ the current Unicorn instrumentation.
 
 ## Machine Learning
 
-something with machine learning, better than NEUZZ :-)
+Something with machine learning, better than NEUZZ :-)
+Either improve a single mutator thorugh learning of many different bugs (a bug class) or gather deep insights about a single target beforehand (CFG, DFG, VFG, ...?) and improve performance for a single target.
+
+## Reengineer `afl-fuzz` as Thread Safe, Embeddable Library
+
+Right now, afl-fuzz is single threaded, cannot safely be embedded in tools, and not multi-threaded. It makes use of a large number of globals, must always be the parent process and exec child processes. 
+Instead, afl-fuzz could be refactored to contain no global state and globals.
+This allows for different use cases that could be implemented during this project.
+
+## Collision-free Binary-Only Maps
+
+AFL++ supports collison-free maps using an LTO (link-time-optimization) pass.
+This should be possile to implement for QEMU and Unicorn instrumentations.
+As the forkserver parent caches just in time translated translation blocks, adding a simple counter between jumps should be doable.
 
 ## Your idea!
 
