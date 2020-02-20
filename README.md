@@ -89,6 +89,17 @@
   read this file.
 
 
+## Shameless plug to students and enthusiast developers
+
+We have several ideas we would like to see in AFL++ to make it even better.
+However we already work on so many things that we do not have the time for
+all the big ideas.
+
+This can be your way to support and contribute to AFL++ - extend it to
+something cool
+
+We have an idea list in [docs/ideas.md](docs/ideas.md)
+
 ## 0) Building and installing afl++
 
 afl++ has many build options.
