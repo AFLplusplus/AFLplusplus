@@ -128,6 +128,11 @@ Minimization settings:
 
 For additional tips, please consult docs/README.
 
+Environment variables used:
+AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
+AFL_PATH: path for the afl-showmap binary
+AFL_SKIP_BIN_CHECK: skip check for target binary
+AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp
 _EOF_
   exit 1
 fi

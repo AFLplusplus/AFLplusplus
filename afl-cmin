@@ -115,6 +115,11 @@ function usage() {
 "\n" \
 "For additional tips, please consult docs/README.md\n" \
 "\n" \
+"Environment variables used:\n" \
+"AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory\n" \
+"AFL_PATH: path for the afl-showmap binary\n" \
+"AFL_SKIP_BIN_CHECK: skip check for target binary\n" \
+"AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp\n" \
       > "/dev/stderr"
    exit 1
 }
