@@ -110,7 +110,9 @@ enum {
 
 DenseMap<BasicBlock *, uint32_t>    LinkMap;
 DenseMap<uint32_t, BasicBlock *>    ReverseMap;
+DenseMap<uint32_t, BasicBlock *>    Entrypoints;
 DenseMap<BasicBlock *, uint32_t>    MapIDs;
+DenseMap<BasicBlock *, uint32_t>    CurrIDs;
 std::vector<BasicBlock *>           InsBlocks;
 std::vector<BasicBlock *>           Successors;
 std::vector<std::vector<uint32_t> > Predecessors;
@@ -161,7 +163,7 @@ class AFLLTOPass : public ModulePass {
   // Calculate the number of average collisions that would occur if all
   // location IDs would be assigned randomly (like normal afl/afl++).
   // This uses the "balls in bins" algorithm.
-  unsigned long long int calculateCollisions(unsigned long int edges) {
+  unsigned long long int calculateCollisions(unsigned long long int edges) {
 
     double                 bins = MAP_SIZE;
     double                 balls = edges;
@@ -352,14 +354,15 @@ class AFLLTOPass : public ModulePass {
   }
 
  protected:
-  unsigned int be_quiet = 0, inst_blocks = 0, inst_funcs = 0, id_cnt = 0,
-               debug = 0;
-  unsigned int           cur_loc, inst_ratio = 100, global_cur_loc, total_instr;
+  uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, id_cnt = 0, debug = 0,
+           entrypoints = 0;
+  uint32_t cur_loc, inst_ratio = 100, global_cur_loc, total_instr, selected = 0;
   unsigned long long int edges = 0, collisions = 0;
+  bool                   strategy = true;
   IntegerType *          Int8Ty;
   IntegerType *          Int32Ty;
   unsigned char          map[MAP_SIZE];
-  unsigned int           id_list[MAX_ID_CNT];
+  uint32_t               id_list[MAX_ID_CNT];
   id_id                  id_info[MAX_ID_CNT];
   bb_id *                bb_list;
   char *                 inst_ratio_str = NULL, *neverZero_counters_str = NULL;
@@ -874,32 +877,11 @@ class AFLLTOPass : public ModulePass {
 
     OKF("Instrumented %u/%llu locations in %u functions with %llu edges and "
         "resulting in %llu potential "
-        "collision(s) (afl-clang-fast/afl-gcc would have produced "
+        "collision(s) with strategy %03x (afl-clang-fast/afl-gcc would have "
+        "produced "
         "%llu collision(s) on average) (%s mode).",
-        total_instr, total_rs, inst_funcs, edges, collisions,
+        total_instr, total_rs, inst_funcs, edges, collisions, selected,
         calculateCollisions(edges), modeline);
-
-  }
-
-  uint32_t runCalc() {
-
-    DenseMap<BasicBlock *, uint32_t> currentID, bestID;
-    uint32_t                         coll = 0;
-
-    /*
-    DenseMap<BasicBlock *, uint32_t>    LinkMap, MapIDs;
-    std::vector<BasicBlock *>           InsBlocks;
-    std::vector<std::vector<uint32_t> > Predecessors;
-    */
-
-    global_cur_loc = AFL_R(MAP_SIZE);
-    // if (debug)
-    SAYF(cMGN "[D] " cRST "initial location is %u\n", global_cur_loc);
-
-    for (uint32_t i = 0; i < InsBlocks.size(); i++)
-      MapIDs[ReverseMap[i]] = i;
-
-    return coll;
 
   }
 
@@ -1122,6 +1104,12 @@ class AFLLTOPass : public ModulePass {
 
         }
 
+        if (found_callsites == 0) {
+
+          Entrypoints[found_callsites++] = &*current;
+
+        }
+
       }
 
     }
@@ -1130,6 +1118,183 @@ class AFLLTOPass : public ModulePass {
     // if (debug)
     SAYF(" failure\n");
     return false;
+
+  }
+
+  uint32_t getId() {
+
+    if (strategy == true)
+      return (global_cur_loc++ % MAP_SIZE);
+    else
+      return AFL_R(MAP_SIZE);
+
+  }
+
+  uint32_t calcID(uint32_t index) {
+
+    uint32_t i, curr_id = CurrIDs[ReverseMap[index]], colls = 0, loc;
+    std::vector<uint32_t> val;
+
+    if (Predecessors[index].size() == 0)  // we set them later
+      return 0;
+
+    // for (i = 0; i < Predecessors[index].size(); i++)
+    for (uint32_t pre : Predecessors[index])
+      if (CurrIDs[ReverseMap[pre]] < MAP_SIZE)
+        val.push_back(CurrIDs[ReverseMap[pre]]);
+
+    if (val.size() == 0 && curr_id >= MAP_SIZE)
+      return 0;  // no data whatsoever yet, will be set later
+
+    if (curr_id < MAP_SIZE) {  // we already have our value
+
+      if (val.size() > 0)
+        for (i = 0; i < val.size(); i++) {
+
+          loc = curr_id ^ (val[i] >> 1);
+          if (map[loc]) colls++;
+          map[loc]++;
+
+        }
+
+      // we have unassigned locations
+      if (val.size() < Predecessors[index].size()) {
+
+        uint32_t ccol, bcol = val.size() + 1, cnt = 0, icnt, tmp, duplicate, j;
+        std::vector<uint32_t> best, curr;
+        curr.resize(Predecessors[index].size() - val.size());
+        best.resize(val.size());
+        do {
+
+          ccol = 0;
+
+          for (i = 0; i < curr.size(); i++) {
+
+            duplicate = icnt = 0;
+
+            do {
+
+              icnt++;
+              do {
+
+                tmp = reverseBits(
+                    getId());  // for predecessors its better to reverse
+                for (j = 0; j < val.size() && !duplicate; j++)
+                  if (val[j] == tmp) duplicate = 1;
+                if (i > 0)
+                  for (j = 0; j < i && !duplicate; j++)
+                    if (curr[i] == tmp) duplicate = 1;
+
+              } while (!duplicate);
+
+            } while (icnt < 16 && map[(tmp >> 1) ^ curr_id]);
+
+            curr[i] = tmp;
+            if (map[(tmp >> 1) ^ curr_id]) ccol++;
+
+          }
+
+          if (ccol < bcol) {
+
+            for (i = 0; i < curr.size(); i++)
+              best[i] = curr[i];
+            bcol = ccol;
+
+          }
+
+          cnt++;
+
+        } while (cnt < 16 && ccol > 0);
+
+        j = 0;
+        for (uint32_t pre : Predecessors[index])
+          if (CurrIDs[ReverseMap[pre]] >= MAP_SIZE)
+            CurrIDs[ReverseMap[pre]] = best[j++];
+
+      }
+
+    } else {  // we have no current IDs
+
+    }
+
+    return colls;
+
+  }
+
+  // Here we try different approaches to fit the locations into the map
+  // We do all approaches until we have 0 collisions, otherwise we choose
+  // the one with the lowest
+  uint32_t runCalc() {
+
+    int32_t curr_coll = 0, best_coll = -1;
+
+    /*
+DenseMap<BasicBlock *, uint32_t>    LinkMap;
+DenseMap<uint32_t, BasicBlock *>    Entrypoints;
+DenseMap<uint32_t, BasicBlock *>    ReverseMap;
+DenseMap<BasicBlock *, uint32_t>    MapIDs;
+std::vector<BasicBlock *>           InsBlocks;
+std::vector<BasicBlock *>           Successors;
+std::vector<std::vector<uint32_t> > Predecessors;
+    */
+
+    uint32_t iteration = 0, i;
+
+    while (1) {
+
+      memset(map, 0, MAP_SIZE);
+      map[0] = 1;  // we do not want map[0] as it also has other use
+      for (i = 0; i < InsBlocks.size(); i++)
+        CurrIDs[ReverseMap[i]] = MAP_SIZE + 1;  // MAP_SIZE > 31 => problem!
+      curr_coll = 0;
+      iteration++;
+
+      if (iteration == 1) {
+
+        for (i = 0; i < InsBlocks.size(); i++) {
+
+          curr_coll += calcID(i);
+
+        }
+
+      } else if (iteration == 2) {
+
+        // rev
+        // entrypoint
+        // entrypoint rev
+
+      } else {
+
+        if (strategy == true) {
+
+          strategy = false;  // redo with random assignments
+          iteration = 0;
+
+        } else
+
+          break;
+
+      }
+
+      if (curr_coll < best_coll || best_coll == -1) {
+
+        for (uint32_t i = 0; i < InsBlocks.size(); i++)
+          MapIDs[ReverseMap[i]] = CurrIDs[ReverseMap[i]];
+        best_coll = curr_coll;
+        selected = iteration;
+        if (strategy == false) selected += 0x100;
+
+      }
+
+      if (best_coll == 0) break;
+
+    }
+
+    // temporary
+    for (uint32_t i = 0; i < InsBlocks.size(); i++)
+      MapIDs[ReverseMap[i]] = i;
+
+    return (uint32_t)best_coll;
 
   }
 
