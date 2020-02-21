@@ -57,7 +57,7 @@ int main(int nargs, char **argv) {
    if (!input || !output) {
       fail("failed to allocate buffers\n");
    }
-   init();
+   radamsa_init();
    if (len != read(fd, input, len)) {
       fail("failed to read the entire sample at once");
    }
