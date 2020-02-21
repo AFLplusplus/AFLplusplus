@@ -22,7 +22,9 @@ int main(int argc, char** argv) {
     strcat(buf, input);
     printf("This will only crash with libdislocator: %s\n", buf);
     return 0;
-  } else
+  } else if (*(unsigned int*)input == 0xabadcafe)
+    printf("GG you eat cmp tokens for breakfast!\n");
+  else
     printf("I do not know your string\n");
 
   return 0;

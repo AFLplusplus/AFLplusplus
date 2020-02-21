@@ -233,9 +233,9 @@ u8 cmp_extend_encoding(struct cmp_header* h, u64 pattern, u64 repl, u32 idx,
   u32* buf_32 = (u32*)&buf[idx];
   u16* buf_16 = (u16*)&buf[idx];
   // u8*  buf_8  = &buf[idx];
-  u64* o_buf_64 = (u64*)&orig_buf[idx];
-  u32* o_buf_32 = (u32*)&orig_buf[idx];
-  u16* o_buf_16 = (u16*)&orig_buf[idx];
+  // u64* o_buf_64 = (u64*)&orig_buf[idx];
+  // u32* o_buf_32 = (u32*)&orig_buf[idx];
+  // u16* o_buf_16 = (u16*)&orig_buf[idx];
   // u8*  o_buf_8  = &orig_buf[idx];
 
   u32 its_len = len - idx;
@@ -243,7 +243,7 @@ u8 cmp_extend_encoding(struct cmp_header* h, u64 pattern, u64 repl, u32 idx,
 
   if (SHAPE_BYTES(h->shape) == 8) {
 
-    if (its_len >= 8 && *buf_64 == pattern && *o_buf_64 == pattern) {
+    if (its_len >= 8 && *buf_64 == pattern) {// && *o_buf_64 == pattern) {
 
       *buf_64 = repl;
       if (unlikely(its_fuzz(buf, len, status))) return 1;
@@ -261,7 +261,7 @@ u8 cmp_extend_encoding(struct cmp_header* h, u64 pattern, u64 repl, u32 idx,
 
   if (SHAPE_BYTES(h->shape) == 4 || *status == 2) {
 
-    if (its_len >= 4 && *buf_32 == (u32)pattern && *o_buf_32 == (u32)pattern) {
+    if (its_len >= 4 && *buf_32 == (u32)pattern) {// && *o_buf_32 == (u32)pattern) {
 
       *buf_32 = (u32)repl;
       if (unlikely(its_fuzz(buf, len, status))) return 1;
@@ -279,7 +279,7 @@ u8 cmp_extend_encoding(struct cmp_header* h, u64 pattern, u64 repl, u32 idx,
 
   if (SHAPE_BYTES(h->shape) == 2 || *status == 2) {
 
-    if (its_len >= 2 && *buf_16 == (u16)pattern && *o_buf_16 == (u16)pattern) {
+    if (its_len >= 2 && *buf_16 == (u16)pattern) {// && *o_buf_16 == (u16)pattern) {
 
       *buf_16 = (u16)repl;
       if (unlikely(its_fuzz(buf, len, status))) return 1;
@@ -297,7 +297,7 @@ u8 cmp_extend_encoding(struct cmp_header* h, u64 pattern, u64 repl, u32 idx,
 
   /*if (SHAPE_BYTES(h->shape) == 1 || *status == 2) {
 
-    if (its_len >= 2 && *buf_8 == (u8)pattern && *o_buf_8 == (u8)pattern) {
+    if (its_len >= 2 && *buf_8 == (u8)pattern) {// && *o_buf_8 == (u8)pattern) {
 
       *buf_8 = (u8)repl;
       if (unlikely(its_fuzz(buf, len, status)))
@@ -425,7 +425,7 @@ u8 rtn_extend_encoding(struct cmp_header* h, u8* pattern, u8* repl, u32 idx,
 
   for (i = 0; i < its_len; ++i) {
 
-    if (pattern[idx + i] != orig_buf[idx + i] || *status == 1) break;
+    if (pattern[idx + i] != buf[idx + i] || *status == 1) break;
 
     buf[idx + i] = repl[idx + i];
     if (unlikely(its_fuzz(buf, len, status))) return 1;
@@ -531,7 +531,7 @@ u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
       stage_max += MIN(cmp_map->headers[k].hits, CMP_MAP_RTN_H);
 
   }
-
+  
   for (k = 0; k < CMP_MAP_W; ++k) {
 
     if (!cmp_map->headers[k].hits) continue;
