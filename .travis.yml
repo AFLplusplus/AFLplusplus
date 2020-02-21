@@ -39,8 +39,8 @@ before_install:
   # export LLVM_DIR=${TRAVIS_BUILD_DIR}/${LLVM_PACKAGE}
   - echo Testing on $NAME
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then wget "$LINK""$NAME".tar.xz ; export LLVM_CONFIG=`pwd`/"$NAME" ; tar xJf "$NAME".tar.xz ; fi
-  - if [ "$MODERN" = "yes" ]; then sudo apt update ; sudo apt upgrade ; sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-"$GCC" gcc-"$GCC"-plugin-dev libc++-"$GCC"-dev ; fi
-  - if [ "$MODERN" = "no" ]; then sudo apt update ; sudo apt install -y libtool $EXTRA libpixman-1-dev automake bison libglib2.0 build-essential gcc-"$GCC" gcc-"$GCC"-plugin-dev libc++-dev ; fi
+  - if [ "$MODERN" = "yes" ]; then sudo apt update ; sudo apt upgrade ; sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-"$GCC" gcc-"$GCC"-plugin-dev libc++-"$GCC"-dev findutils ; fi
+  - if [ "$MODERN" = "no" ]; then sudo apt update ; sudo apt install -y libtool $EXTRA libpixman-1-dev automake bison libglib2.0 build-essential gcc-"$GCC" gcc-"$GCC"-plugin-dev libc++-dev findutils ; fi
 
 script:
   - gcc -v
@@ -48,5 +48,5 @@ script:
   - sudo -E ./afl-system-config
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then export LLVM_CONFIG=`pwd`/"$NAME" ; make source-only ASAN_BUILD=1 ; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" -a "$TRAVIS_CPU_ARCH" = "amd64" ]; then make distrib ASAN_BUILD=1 ; fi
-  - if [ "$TRAVIS_CPU_ARCH" = "arm64" ] ; then echo DEBUG: ; find / -name llvm-config.h ; apt-cache search clang|grep clang-; apt-cache search llvm|grep llvm-;dpkg -l|egrep 'clang|llvm';echo :DEBUG ; make ASAN_BUILD=1 ; cd qemu_mode && sh ./build_qemu_support.sh ; cd .. ; fi
+  - if [ "$TRAVIS_CPU_ARCH" = "arm64" ] ; then echo DEBUG ; find / -name llvm-config.h ; apt-cache search clang | grep clang- ; apt-cache search llvm | grep llvm- ; dpkg -l | egrep 'clang|llvm'; echo DEBUG ; make ASAN_BUILD=1 ; cd qemu_mode && sh ./build_qemu_support.sh ; cd .. ; fi
   - make tests
