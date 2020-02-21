@@ -100,13 +100,20 @@ namespace {
 
 enum {
 
-  /* 00 */ STAGE_GETBB,
-  /* 01 */ STAGE_GETPRED,
+  /* 00 */ STAGE_GETBB,  // STAGE_START
+  /* 01 */ STAGE_CFG,
   /* 02 */ STAGE_CALC,
-  /* 03 */ STAGE_ASSIGN,
+  /* 03 */ STAGE_SETID,
   /* 04 */ STAGE_END
 
 };
+
+DenseMap<BasicBlock *, uint32_t>    LinkMap;
+DenseMap<uint32_t, BasicBlock *>    ReverseMap;
+DenseMap<BasicBlock *, uint32_t>    MapIDs;
+std::vector<BasicBlock *>           InsBlocks;
+std::vector<BasicBlock *>           Successors;
+std::vector<std::vector<uint32_t> > Predecessors;
 
 struct bb_id {
 
@@ -139,12 +146,6 @@ class AFLLTOPass : public ModulePass {
   void getAnalysisUsage(AnalysisUsage &AU) const override {
 
     AU.addRequired<DominatorTreeWrapperPass>();
-
-  }
-
-  unsigned int genLabel() {
-
-    return cnt++;  // BUG FIXME TODO
 
   }
 
@@ -677,15 +678,14 @@ class AFLLTOPass : public ModulePass {
 
   /*************************************************************************/
 
-  bool runOnModule(Module &M) override {
+  void runInstrim(Module &M, int stage) {
 
-    char be_quiet = 0;
-
-    if (getenv("AFL_QUIET")) be_quiet = 1;
+    if (stage != STAGE_GETBB && stage != STAGE_SETID) return;
 
 #if LLVM_VERSION_MAJOR < 9
     char *neverZero_counters_str;
-    if ((neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO")) != NULL)
+    if (stage == STAGE_SETID &&
+        (neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO")) != NULL)
       OKF("LLVM neverZero activated (by hexcoder)\n");
 #endif
 
@@ -693,13 +693,19 @@ class AFLLTOPass : public ModulePass {
     IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
     IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
 
-    GlobalVariable *CovMapPtr = new GlobalVariable(
-        M, PointerType::getUnqual(Int8Ty), false, GlobalValue::ExternalLinkage,
-        nullptr, "__afl_area_ptr");
+    GlobalVariable *CovMapPtr, *OldPrev;
 
-    GlobalVariable *OldPrev = new GlobalVariable(
-        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
-        GlobalVariable::GeneralDynamicTLSModel, 0, false);
+    if (stage == STAGE_SETID) {
+
+      CovMapPtr = new GlobalVariable(M, PointerType::getUnqual(Int8Ty), false,
+                                     GlobalValue::ExternalLinkage, nullptr,
+                                     "__afl_area_ptr");
+
+      OldPrev = new GlobalVariable(
+          M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc",
+          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+
+    }
 
     ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
     ConstantInt *One = ConstantInt::get(Int8Ty, 1);
@@ -734,9 +740,22 @@ class AFLLTOPass : public ModulePass {
 
       for (BasicBlock &BB : F) {
 
+        // BUGFIX FOR INSTRIM TO BE PUT HERE ... TODO FIXME BUG
+
         if (MS.find(&BB) == MS.end()) { continue; }
-        IRBuilder<> IRB(&*BB.getFirstInsertionPt());
-        IRB.CreateStore(ConstantInt::get(Int32Ty, genLabel()), OldPrev);
+
+        if (stage == STAGE_GETBB) {
+
+          LinkMap[&BB] = InsBlocks.size();
+          ReverseMap[InsBlocks.size()] = &BB;
+          InsBlocks.push_back(&BB);
+
+        } else {  // STAGE_SETID
+
+          IRBuilder<> IRB(&*BB.getFirstInsertionPt());
+          IRB.CreateStore(ConstantInt::get(Int32Ty, MapIDs[&BB]), OldPrev);
+
+        }
 
       }
 
@@ -750,24 +769,51 @@ class AFLLTOPass : public ModulePass {
         Value *     L = NULL;
         if (PI == PE) {
 
-          L = ConstantInt::get(Int32Ty, genLabel());
+          if (stage == STAGE_GETBB) {
+
+            LinkMap[&BB] = InsBlocks.size();
+            ReverseMap[InsBlocks.size()] = &BB;
+            InsBlocks.push_back(&BB);
+
+          } else {  // STAGE_SETID
+
+            L = ConstantInt::get(Int32Ty, MapIDs[&BB]);
+
+          }
 
         } else {
 
-          auto *PN = PHINode::Create(Int32Ty, 0, "", &*BB.begin());
+          PHINode *PN;
+
+          if (stage == STAGE_SETID)
+            PN = PHINode::Create(Int32Ty, 0, "", &*BB.begin());
+
           DenseMap<BasicBlock *, unsigned> PredMap;
+
           for (auto PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE; ++PI) {
 
             BasicBlock *PBB = *PI;
-            auto        It = PredMap.insert({PBB, genLabel()});
-            unsigned    Label = It.first->second;
-            PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
+            if (stage == STAGE_GETBB) {
+
+              LinkMap[&*PBB] = InsBlocks.size();
+              ReverseMap[InsBlocks.size()] = &*PBB;
+              InsBlocks.push_back(&*PBB);
+
+            } else {  // STAGE_SETID
+
+              auto     It = PredMap.insert({PBB, MapIDs[&*PBB]});
+              unsigned Label = It.first->second;
+              PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
+
+            }
 
           }
 
           L = PN;
 
         }
+
+        if (stage != STAGE_SETID) continue;
 
         /* Load prev_loc */
         LoadInst *PrevLoc = IRB.CreateLoad(OldPrev);
@@ -787,25 +833,14 @@ class AFLLTOPass : public ModulePass {
         Value *Incr = IRB.CreateAdd(Counter, One);
 
 #if LLVM_VERSION_MAJOR < 9
-        if (neverZero_counters_str !=
-            NULL)  // with llvm 9 we make this the default as the bug in llvm is
-                   // then fixed
+        // llvm < 9:  we make do neverZero only by option due to a llvm bug
+        if (neverZero_counters_str != NULL)
 #else
-        if (1)  // with llvm 9 we make this the default as the bug in llvm is
-                // then fixed
+        if (1)  // llvm 9: neverZero default as the bug in llvm is then fixed
 #endif
         {
 
-          /* hexcoder: Realize a counter that skips zero during overflow.
-           * Once this counter reaches its maximum value, it next increments to
-           * 1
-           *
-           * Instead of
-           * Counter + 1 -> Counter
-           * we inject now this
-           * Counter + 1 -> {Counter, OverflowFlag}
-           * Counter + OverflowFlag -> Counter
-           */
+          /* neverZero implementation */
           auto cf = IRB.CreateICmpEQ(Incr, Zero);
           auto carry = IRB.CreateZExt(cf, Int8Ty);
           Incr = IRB.CreateAdd(Incr, carry);
@@ -821,6 +856,15 @@ class AFLLTOPass : public ModulePass {
 
     }
 
+    if (be_quiet) return;
+
+    if (stage == STAGE_GETBB) {
+
+      OKF("Stage 1 collected %zu locations to instrument", InsBlocks.size());
+      return;
+
+    }
+
     char modeline[100];
     snprintf(modeline, sizeof(modeline), "%s%s%s%s",
              getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
@@ -828,58 +872,398 @@ class AFLLTOPass : public ModulePass {
              getenv("AFL_USE_MSAN") ? ", MSAN" : "",
              getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
 
-    OKF("Instrumented %u locations (%llu) (%s mode)\n", total_instr, total_rs,
-        modeline);
+    OKF("Instrumented %u/%llu locations in %u functions with %llu edges and "
+        "resulting in %llu potential "
+        "collision(s) (afl-clang-fast/afl-gcc would have produced "
+        "%llu collision(s) on average) (%s mode).",
+        total_instr, total_rs, inst_funcs, edges, collisions,
+        calculateCollisions(edges), modeline);
 
+  }
+
+  uint32_t runCalc() {
+
+    DenseMap<BasicBlock *, uint32_t> currentID, bestID;
+    uint32_t                         coll = 0;
+
+    /*
+    DenseMap<BasicBlock *, uint32_t>    LinkMap, MapIDs;
+    std::vector<BasicBlock *>           InsBlocks;
+    std::vector<std::vector<uint32_t> > Predecessors;
+    */
+
+    global_cur_loc = AFL_R(MAP_SIZE);
+    // if (debug)
+    SAYF(cMGN "[D] " cRST "initial location is %u\n", global_cur_loc);
+
+    for (uint32_t i = 0; i < InsBlocks.size(); i++)
+      MapIDs[ReverseMap[i]] = i;
+
+    return coll;
+
+  }
+
+  // Find a successor that we know to instrument - if *current is not one
+  // Note that we descend into further calling functions
+  bool findSuccBB(BasicBlock *current) {
+
+    // if (debug) {
+
+    std::string fn = getSimpleNodeLabel(current, current->getParent());
+    SAYF(cMGN "[D] " cRST "Successor: %s->%s",
+         current->getParent()->getName().str().c_str(), fn.c_str());
+    //}
+
+    if (LinkMap[&*current] != 0) {  // yes we instrument "current"
+
+      Successors.push_back(&*current);
+      // if (debug)
+      SAYF(" success\n");
+      return true;
+
+    } else {
+
+      // first check if there are valid function calls
+      for (auto &IN : *current) {
+
+        CallInst *callInst = nullptr;
+        if ((callInst = dyn_cast<CallInst>(&IN))) {
+
+          Function *Callee = callInst->getCalledFunction();
+          if (!Callee || Callee->size() < 2) continue;
+
+          if (findSuccBB(&Callee->getEntryBlock()) == true) {
+
+            // if (debug)
+            SAYF(" success\n");
+            return true;  // we only need one!
+
+          }
+
+        }
+
+      }
+
+      // if there is no callsite with a function we instrument we go further
+      uint32_t count = 0, found = 0;
+      for (auto I = succ_begin(current), E = succ_end(current); I != E; ++I) {
+
+        count++;
+        if (findSuccBB(*I) == true) found++;
+
+      }
+
+      // if (debug)
+      SAYF(" (%u of %u)", found, count);
+      if (found > 0 && found == count) {
+
+        // if (debug)
+        SAYF(" success\n");
+        return true;
+
+      }
+
+    }
+
+    // if we get here we could not resolve one path
+    // if (debug)
+    SAYF(" failure\n");
     return false;
 
   }
 
-#ifdef NOOPT
-  bool runOnModule_ORIG(Module &M) override {
+  // Find a predecessor that we know to instrument - if *current is not one
+  // Note that we ascend up callees
+  bool findPrevBB(BasicBlock *origin, BasicBlock *current,
+                  std::string *target_func) {
 
-    LLVMContext &C = M.getContext();
-    Int8Ty = IntegerType::getInt8Ty(C);
-    Int32Ty = IntegerType::getInt32Ty(C);
+    // if (debug) {
 
-    /* Show a banner */
+    std::string fn1 = getSimpleNodeLabel(origin, origin->getParent());
+    std::string fn2 = getSimpleNodeLabel(current, current->getParent());
+    SAYF(cMGN "[D] " cRST "Predecessor: %s->%s is %s->%s pred (%s)?",
+         origin->getParent()->getName().str().c_str(), fn1.c_str(),
+         current->getParent()->getName().str().c_str(), fn2.c_str(),
+         target_func == nullptr ? "" : target_func->c_str());
+    //}
 
-    if (getenv("AFL_DEBUG") || (isatty(2) && !getenv("AFL_QUIET"))) {
+    if (target_func != nullptr && target_func->length() > 0) {
 
-      SAYF(cCYA "afl-llvm-lto-instrumentation" VERSION cRST
-                " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+      // Now to make it even more complicated:
+      // If the basic block looks like this:
+      //   call foo_func
+      //   call this_func
+      //   call bar_func
+      //   call this_func
+      //   call other_func
+      // then we need to first descend into bar_func if there is
+      // anything instrumented - and get *the*last*line*of*
+      // *instrumented*blocks*(!) or do that at the next caller
+      // in that function if that happens in the last block or if
+      // it is a 1 size block
+      // This is very complex. For now we just check if there is
+      // such a function and warn if so.
+      uint32_t  found = 0, problems = 0;
+      Value *   curr_called;
+      Function *curr_f;
 
-    } else if (getenv("AFL_QUIET"))
+      for (BasicBlock::reverse_iterator i = current->rbegin(),
+                                        e = current->rend();
+           i != e; ++i) {
 
-      be_quiet = 1;
+        if (isa<CallInst>(&(*i)) || isa<InvokeInst>(&(*i))) {
 
-    /* Decide instrumentation ratio */
+          CallInst *callInst = dyn_cast<CallInst>(&*i);
+          if (callInst) {
 
-    inst_ratio_str = getenv("AFL_INST_RATIO");
+            curr_called = callInst->getCalledValue()->stripPointerCasts();
+            if (curr_called) {
 
-    if (inst_ratio_str) {
+              curr_f = dyn_cast<Function>(curr_called);
+              if (curr_f) {
 
-      if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
-          inst_ratio > 100)
-        FATAL("Bad value of AFL_INST_RATIO (must be between 1 and 100)");
+                if (target_func->compare(curr_f->getName().str()))
+                  found = 1;
+                else if (found)
+                  if (curr_f->size() > 0) problems++;
+
+              }
+
+            }
+
+          }
+
+        }
+
+      }
+
+      if (problems > 1) {
+
+        // if (debug)
+        SAYF(" failure\n");
+        WARNF(
+            "This basic callee block %s->%s has %d functions that are likely "
+            "predecessors that we dont process yet!\n",
+            target_func->c_str(), fn2.c_str(), problems);
+        return false;
+
+      }
 
     }
 
-    memset(map, 0, MAP_SIZE);
+    if (LinkMap[&*current] != 0) {  // yes we instrument "current"
+
+      Predecessors[LinkMap[&*current]].push_back(LinkMap[&*current]);
+      // if (debug)
+      SAYF(" success\n");
+      return true;
+
+    } else {
+
+      uint32_t found = 0, count = 0;
+
+      // if there is no callsite with a function we instrument we go further
+      for (auto S = pred_begin(current), E = pred_end(current); S != E; ++S) {
+
+        count++;
+        if (findPrevBB(current, *S, nullptr) == true) found++;
+
+      }
+
+      // if (debug)
+      SAYF(" (%u of %u)", found, count);
+      if (found > 0 && found == count) {
+
+        // if (debug)
+        SAYF(" success\n");
+        return true;
+
+      } else if (count == 0) {
+
+        // we are at an entry point so we need to go up the callsites
+        uint32_t found_callsites = 0;
+        for (auto *U : current->getParent()->users()) {  // Function->users()
+
+          CallSite CS(U);
+          found_callsites++;
+          auto *I = CS.getInstruction();
+
+          if (I) {
+
+            Value *   called = CS.getCalledValue()->stripPointerCasts();
+            Function *f = dyn_cast<Function>(called);
+
+            if (f->getName().compare(current->getParent()->getName()) == 0) {
+
+              Function *prev_function =
+                  cast<CallInst>(I)->getParent()->getParent();
+              BasicBlock *prev_bb = cast<CallInst>(I)->getParent();
+              std::string prev_bb_name =
+                  getSimpleNodeLabel(prev_bb, prev_function);
+              std::string *prev_fname =
+                  new std::string(prev_function->getName().str());
+
+              if (isBlacklisted(prev_function)) continue;
+              if (prev_function->size() == 0) continue;
+
+              if (debug)
+                SAYF(cMGN "[D] " cRST "callsite #%d: %s -> %s\n",
+                     found_callsites++, prev_fname->c_str(),
+                     prev_bb_name.c_str());
+
+              if (findPrevBB(origin, prev_bb, prev_fname) == true /*&& debug*/)
+                SAYF(" success\n");
+              else                                              /*if (debug)*/
+                SAYF(" failure\n");
+
+            }
+
+          }
+
+        }
+
+      }
+
+    }
+
+    // if we get here we could not resolve one path
+    // if (debug)
+    SAYF(" failure\n");
+    return false;
+
+  }
+
+  // This is very simple and just gets the predecessors with locationIDs
+  // for a each locationID block
+  void generateCFG(Module &M) {
+
+    Predecessors.resize(InsBlocks.size());
+
+    for (auto &F : M) {
+
+      if (isBlacklisted(&F)) continue;
+      if (F.size() < 2) continue;
+
+      auto *EBB = &F.getEntryBlock();
+      int   found_callsites = 0;
+
+      // Only at the start of a function:
+      // This is a bit complicated to explain.
+      // For the first line of basic blocks in a function that are
+      // instrumented the predecessors are in the callee - or even deeper
+      // callees if the callee is a single block function
+      // For this we need to do 2 steps, first collect the first line of
+      // basic blocks in the function and second the predecessors in the
+      // callees
+
+      // 1: collect the first line of instrumented blocks in the function
+      Successors.clear();
+      if (findSuccBB(EBB) == false /*&& debug*/)
+        SAYF(cMGN "[D] " cRST
+                  "function %s->entry has incomplete successors (%zu found).\n",
+             F.getName().str().c_str(), Successors.size());
+      else                                                    /* if (debug) */
+        SAYF(cMGN "[D] " cRST "function %s->entry has %zu successors.\n",
+             F.getName().str().c_str(), Successors.size());
+
+      // 2: collect the predecessors to this function that are instrumented
+      if (Successors.size() > 0) {  // should never be 0 as F.size() < 2 break
+        for (auto *U : F.users()) {
+
+          CallSite CS(U);
+          auto     I = CS.getInstruction();
+
+          if (I != NULL) {
+
+            Value *   called = CS.getCalledValue()->stripPointerCasts();
+            Function *f = dyn_cast<Function>(called);
+
+            if (f->getName().compare(F.getName()) == 0) {
+
+              Function *prev_function =
+                  cast<CallInst>(I)->getParent()->getParent();
+              BasicBlock *prev_bb = cast<CallInst>(I)->getParent();
+              std::string prev_bb_name =
+                  getSimpleNodeLabel(prev_bb, prev_function);
+              std::string *prev_fname =
+                  new std::string(prev_function->getName().str());
+
+              // if (debug)
+              SAYF(cMGN "[D] " cRST "callsite #%d: %s -> %s\n",
+                   found_callsites++, prev_fname->c_str(),
+                   prev_bb_name.c_str());
+
+              if (isBlacklisted(prev_function)) continue;
+              if (f->size() == 0) continue;
+
+              // instrumented blocks in this function
+              std::string fn = F.getName().str();
+              for (uint32_t i = 0; i < Successors.size(); i++)
+                findPrevBB(Successors[i], &*prev_bb, &fn);
+
+            }
+
+          }
+
+        }
+
+      }
+
+      // for all other basic blocks it is simple:
+      // if we instrument a basic block we search for its predecessors.
+      uint32_t count = 0, found = 0;
+      for (auto &BB : F) {
+
+        for (uint32_t i = 0; i < Successors.size(); i++)
+          if (Successors[i] == &BB) continue;
+
+        if (BB.size() > 0 && LinkMap[&BB] > 0) {
+
+          for (BasicBlock *Pred : predecessors(&BB)) {
+
+            if (Pred->size() > 0) {
+
+              count++;
+              if (findPrevBB(&BB, &*Pred, nullptr) == true) found++;
+
+            }
+
+          }
+
+          // if (debug)
+          SAYF(cMGN "[D] " cRST "%d of %d predecessors found\n", found, count);
+
+        }
+
+      }
+
+    }
+
+  }
+
+  bool runOnModule(Module &M) override {
+
+    uint32_t lowest_collisions;
+
+    if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL)
+      SAYF(cCYA "afl-llvm-lto-instrumentation" VERSION cRST
+                " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+    else
+      be_quiet = 1;
+
+    // Initialisation
+    LinkMap.clear();
+    InsBlocks.clear();
+    Predecessors.clear();
+    MapIDs.clear();
     AFL_SR(time(NULL) + getpid());
-    global_cur_loc = AFL_R(MAP_SIZE);
-    if (debug)
-      SAYF(cMGN "[D] " cRST "initial location is %u\n", global_cur_loc);
 
-#if LLVM_VERSION_MAJOR < 9
-    neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
-#endif
-
-    //  if (debug) {
-
+    // Collect basic information
     unsigned long long int cnt_functions = 0, cnt_callsites = 0, cnt_bbs = 0,
                            total;
     for (auto &F : M) {
+
+      if (F.size() < 1) continue;
 
       cnt_functions++;
       for (auto *U : F.users()) {
@@ -900,88 +1284,50 @@ class AFLLTOPass : public ModulePass {
 
     }
 
-    OKF("Module has %llu functions, %llu callsites and %llu total basic "
-        "blocks.",
-        cnt_functions, cnt_callsites, cnt_bbs);
-    total = (cnt_functions + cnt_callsites + cnt_bbs) >> 13;
-    if (total > 0) {
-
-      SAYF(cYEL "[!] " cRST "WARNING: this is complex, it will take a l");
-      while (total > 0) {
-
-        SAYF("o");
-        total = total >> 1;
-
-      }
-
-      SAYF("ng time to instrument!\n");
-
-    }
-
-    //  }
-
-    /* Get globals for the SHM region and the previous location. Note that
-       __afl_prev_loc is thread-local. */
-
-    AFLMapPtr =
-        new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                           GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
-
-#ifdef __ANDROID__
-    AFLPrevLoc = new GlobalVariable(
-        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
-#else
-    AFLPrevLoc = new GlobalVariable(
-        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
-        GlobalVariable::GeneralDynamicTLSModel, 0, false);
-#endif
-
-    /* Instrument all the things! */
-
-    // for easiness we set up a first empty entry in the list
-    if ((bb_list = (struct bb_id *)malloc(sizeof(struct bb_id))) == NULL)
-      PFATAL("malloc");
-    bb_list->bb = new std::string("");
-    bb_list->function = new std::string("");
-    bb_list->id = 0;
-    bb_list->next = NULL;
-
-    /* here the magic happens */
-    for (auto &F : M)
-      handleFunction(M, F);
-
-    /* Say something nice. */
-
     if (!be_quiet) {
 
-      if (!inst_blocks)
-        WARNF("No instrumentation targets found.");
-      else {
+      OKF("Module has %llu function%s, %llu callsite%s and %llu total basic "
+          "block%s.",
+          cnt_functions, cnt_functions == 1 ? "" : "s", cnt_callsites,
+          cnt_callsites == 1 ? "" : "s", cnt_bbs, cnt_bbs == 1 ? "" : "s");
+      total = (cnt_functions + cnt_callsites + cnt_bbs) >> 13;
+      if (total > 0) {
 
-        OKF("Instrumented %u locations in %u functions with %llu edges and "
-            "resulting in %llu potential "
-            "collision(s), whereas afl-clang-fast/afl-gcc would have produced "
-            "%llu collision(s) on average (%s mode, ratio %u%%).",
-            inst_blocks, inst_funcs, edges, collisions,
-            calculateCollisions(edges),
-            getenv("AFL_HARDEN")
-                ? "hardened"
-                : ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN"))
-                       ? "ASAN/MSAN"
-                       : "non-hardened"),
-            inst_ratio);
+        SAYF(cYEL "[!] " cRST "WARNING: this is complex, it will take a l");
+        while (total > 0) {
+
+          SAYF("o");
+          total = total >> 1;
+
+        }
+
+        SAYF("ng time to instrument!\n");
 
       }
 
     }
 
-    return true;
+    // STAGE_START
+
+    // Collect all BBs to instrument
+    runInstrim(M, STAGE_GETBB);
+
+    // Get all predecessors for BBs
+    generateCFG(M);  // STAGE_CFG
+
+    // different calculations to find the solution with the lowest collisions
+    lowest_collisions = runCalc();  // STAGE_CALC
+
+    // put the found values to work: instrument the code
+    runInstrim(M, STAGE_SETID);
+
+    // STAGE_END
+
+    return false;
 
   }
 
-#endif
-
-};
+};  // AFLLTO
 
 }  // namespace
 
