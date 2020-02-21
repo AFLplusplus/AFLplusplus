@@ -605,31 +605,35 @@ test -e ../afl-qemu-trace && {
       }
       rm -f errors
 
-      test -e ../libcompcov.so && {
-        $ECHO "$GREY[*] running afl-fuzz for qemu_mode libcompcov, this will take approx 10 seconds"
-        {
-          export AFL_PRELOAD=../libcompcov.so 
-          export AFL_COMPCOV_LEVEL=2
-          ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-compcov >>errors 2>&1
-          unset AFL_PRELOAD
-          unset AFL_COMPCOV_LEVEL
-        } >>errors 2>&1
-        test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
-          $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode libcompcov"
+      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
+        test -e ../libcompcov.so && {
+          $ECHO "$GREY[*] running afl-fuzz for qemu_mode compcov, this will take approx 10 seconds"
+          {
+            export AFL_PRELOAD=../libcompcov.so 
+            export AFL_COMPCOV_LEVEL=2
+            ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-compcov >>errors 2>&1
+            unset AFL_PRELOAD
+            unset AFL_COMPCOV_LEVEL
+          } >>errors 2>&1
+          test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+            $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode compcov"
+          } || {
+            echo CUT------------------------------------------------------------------CUT
+            cat errors
+            echo CUT------------------------------------------------------------------CUT
+            $ECHO "$RED[!] afl-fuzz is not working correctly with qemu_mode compcov"
+            CODE=1
+          }
         } || {
-          echo CUT------------------------------------------------------------------CUT
-          cat errors
-          echo CUT------------------------------------------------------------------CUT
-          $ECHO "$RED[!] afl-fuzz is not working correctly with qemu_mode libcompcov"
-          CODE=1
+          $ECHO "$YELLOW[-] we cannot test qemu_mode compcov because it is not present"
+          INCOMPLETE=1
         }
-      } || {
-        $ECHO "$YELLOW[-] we cannot test qemu_mode libcompcov because it is not present"
-        INCOMPLETE=1
+        rm -f errors
+      } || { 
+       $ECHO "$YELLOW[-] not an intel or arm platform, cannot test qemu_mode compcov"
       }
-      rm -f errors
-
-      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" && {
+      
+      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
         {
           export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
@@ -662,7 +666,7 @@ test -e ../afl-qemu-trace && {
         }
         rm -rf in out errors
       } || { 
-       $ECHO "$YELLOW[-] not an intel platform, cannot test persistent qemu_mode"
+       $ECHO "$YELLOW[-] not an intel or arm platform, cannot test persistent qemu_mode"
       } 
 
       test -e ../qemu_mode/unsigaction/unsigaction32.so && {
