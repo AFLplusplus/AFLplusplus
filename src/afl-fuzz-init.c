@@ -303,6 +303,12 @@ void setup_custom_mutator(void) {
 
   if (!fn) return;
 
+  if (limit_time_sig)
+    FATAL(
+        "MOpt and custom mutator are mutually exclusive. We accept pull "
+        "requests that integrates MOpt with the optional mutators "
+        "(custom/radamsa/redquenn/...).");
+
   ACTF("Loading custom mutator library from '%s'...", fn);
 
   dh = dlopen(fn, RTLD_NOW);

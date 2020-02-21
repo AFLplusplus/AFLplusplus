@@ -154,8 +154,7 @@ void init_forkserver(char **argv) {
   int                     status;
   s32                     rlen;
 
-  if (!getenv("AFL_QUIET"))
-    ACTF("Spinning up the fork server...");
+  if (!getenv("AFL_QUIET")) ACTF("Spinning up the fork server...");
 
   if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
 
@@ -312,8 +311,7 @@ void init_forkserver(char **argv) {
 
   if (rlen == 4) {
 
-    if (!getenv("AFL_QUIET"))
-      OKF("All right - fork server is up.");
+    if (!getenv("AFL_QUIET")) OKF("All right - fork server is up.");
     return;
 
   }

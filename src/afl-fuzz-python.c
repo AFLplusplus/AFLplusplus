@@ -35,6 +35,12 @@ int init_py() {
 
   if (module_name) {
 
+    if (limit_time_sig)
+      FATAL(
+          "MOpt and Python mutator are mutually exclusive. We accept pull "
+          "requests that integrates MOpt with the optional mutators "
+          "(custom/radamsa/redquenn/...).");
+
 #if PY_MAJOR_VERSION >= 3
     PyObject* py_name = PyUnicode_FromString(module_name);
 #else

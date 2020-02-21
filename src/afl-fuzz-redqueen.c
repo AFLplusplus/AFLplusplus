@@ -145,9 +145,8 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
     --stage_cur;
 
   }
-  
-  if (stage_cur)
-    queue_cur->fully_colorized = 1;
+
+  if (stage_cur) queue_cur->fully_colorized = 1;
 
   new_hit_cnt = queued_paths + unique_crashes;
   stage_finds[STAGE_COLORIZATION] += new_hit_cnt - orig_hit_cnt;
@@ -418,22 +417,21 @@ u8 rtn_extend_encoding(struct cmp_header* h, u8* pattern, u8* repl, u32 idx,
 
   u32 i;
   u32 its_len = MIN(32, len - idx);
-  
+
   u8 save[32];
   memcpy(save, &buf[idx], its_len);
 
   *status = 0;
 
   for (i = 0; i < its_len; ++i) {
-  
-    if (pattern[idx + i] != orig_buf[idx + i] || *status == 1)
-      break;
-    
-    buf[idx +i] = repl[idx + i];
+
+    if (pattern[idx + i] != orig_buf[idx + i] || *status == 1) break;
+
+    buf[idx + i] = repl[idx + i];
     if (unlikely(its_fuzz(buf, len, status))) return 1;
-  
+
   }
-  
+
   memcpy(&buf[idx], save, i);
   return 0;
 
@@ -457,7 +455,8 @@ u8 rtn_fuzz(u32 key, u8* orig_buf, u8* buf, u32 len) {
 
     // opt not in the paper
     for (j = 0; j < i; ++j)
-      if (!memcmp(&((struct cmpfn_operands*)cmp_map->log[key])[j], o, sizeof(struct cmpfn_operands)))
+      if (!memcmp(&((struct cmpfn_operands*)cmp_map->log[key])[j], o,
+                  sizeof(struct cmpfn_operands)))
         goto rtn_fuzz_next_iter;
 
     for (idx = 0; idx < len && fails < 8; ++idx) {
@@ -532,17 +531,19 @@ u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
       stage_max += MIN(cmp_map->headers[k].hits, CMP_MAP_RTN_H);
 
   }
-  
+
   for (k = 0; k < CMP_MAP_W; ++k) {
 
     if (!cmp_map->headers[k].hits) continue;
-    
+
     if (cmp_map->headers[k].type == CMP_TYPE_INS) {
-      if (unlikely(cmp_fuzz(k, orig_buf, buf, len)))
-        goto exit_its;
+
+      if (unlikely(cmp_fuzz(k, orig_buf, buf, len))) goto exit_its;
+
     } else {
-      if (unlikely(rtn_fuzz(k, orig_buf, buf, len)))
-        goto exit_its;
+
+      if (unlikely(rtn_fuzz(k, orig_buf, buf, len))) goto exit_its;
+
     }
 
   }
@@ -551,7 +552,7 @@ u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
 
 exit_its:
   memcpy(orig_buf, buf, len);
-  
+
   new_hit_cnt = queued_paths + unique_crashes;
   stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
   stage_cycles[STAGE_ITS] += total_execs - orig_execs;
