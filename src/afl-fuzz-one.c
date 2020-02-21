@@ -3714,7 +3714,7 @@ pacemaker_fuzzing:
 
             case 1:
               if (temp_len < 2) break;
-              temp_len_puppet = UR(temp_len << 3);
+              temp_len_puppet = UR((temp_len << 3) -1);
               FLIP_BIT(out_buf, temp_len_puppet);
               FLIP_BIT(out_buf, temp_len_puppet + 1);
               MOpt_globals.cycles_v2[STAGE_FLIP2] += 1;
@@ -3722,7 +3722,7 @@ pacemaker_fuzzing:
 
             case 2:
               if (temp_len < 2) break;
-              temp_len_puppet = UR(temp_len << 3);
+              temp_len_puppet = UR((temp_len << 3) -3);
               FLIP_BIT(out_buf, temp_len_puppet);
               FLIP_BIT(out_buf, temp_len_puppet + 1);
               FLIP_BIT(out_buf, temp_len_puppet + 2);
