@@ -624,6 +624,12 @@ int main(int argc, char** argv, char** envp) {
 
   if (use_radamsa) {
 
+    if (limit_time_sig)
+      FATAL(
+          "MOpt and Radamsa are mutually exclusive. We accept pull requests "
+          "that integrates MOpt with the optional mutators "
+          "(custom/radamsa/redquenn/...).");
+
     OKF("Using Radamsa add-on");
 
     u8*   libradamsa_path = get_libradamsa_path(argv[0]);
@@ -891,6 +897,12 @@ int main(int argc, char** argv, char** envp) {
   if (!out_file) setup_stdio_file();
 
   if (cmplog_binary) {
+
+    if (limit_time_sig)
+      FATAL(
+          "MOpt and CmpLog are mutually exclusive. We accept pull requests "
+          "that integrates MOpt with the optional mutators "
+          "(custom/radamsa/redquenn/...).");
 
     if (unicorn_mode)
       FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");

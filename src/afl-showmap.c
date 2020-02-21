@@ -80,7 +80,7 @@ u8 *out_file,                          /* Trace output file                 */
     *stdin_file,                       /* stdin file                        */
     *in_dir,                           /* input folder                      */
     *doc_path,                         /* Path to docs                      */
-    *at_file = NULL;                          /* Substitution string for @@        */
+        *at_file = NULL;               /* Substitution string for @@        */
 
 static u8* in_data;                    /* Input data                        */
 

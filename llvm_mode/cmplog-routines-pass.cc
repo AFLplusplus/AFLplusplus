@@ -107,15 +107,16 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   std::vector<CallInst *> calls;
   LLVMContext &           C = M.getContext();
 
-  Type * VoidTy = Type::getVoidTy(C);
-  PointerType * VoidPtrTy = PointerType::get(VoidTy, 0);
+  Type *       VoidTy = Type::getVoidTy(C);
+  PointerType *VoidPtrTy = PointerType::get(VoidTy, 0);
 
 #if LLVM_VERSION_MAJOR < 9
   Constant *
 #else
   FunctionCallee
 #endif
-      c = M.getOrInsertFunction("__cmplog_rtn_hook", VoidTy, VoidPtrTy, VoidPtrTy
+      c = M.getOrInsertFunction("__cmplog_rtn_hook", VoidTy, VoidPtrTy,
+                                VoidPtrTy
 #if LLVM_VERSION_MAJOR < 5
                                 ,
                                 NULL
@@ -255,14 +256,13 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
           FunctionType *FT = Callee->getFunctionType();
 
-          bool isPtrRtn =
-              FT->getNumParams() >= 2 && !FT->getReturnType()->isVoidTy() &&
-              FT->getParamType(0) == FT->getParamType(1) &&
-              FT->getParamType(0)->isPointerTy();
-          
-          if (!isPtrRtn)
-            continue;
-          
+          bool isPtrRtn = FT->getNumParams() >= 2 &&
+                          !FT->getReturnType()->isVoidTy() &&
+                          FT->getParamType(0) == FT->getParamType(1) &&
+                          FT->getParamType(0)->isPointerTy();
+
+          if (!isPtrRtn) continue;
+
           calls.push_back(callInst);
 
         }
@@ -278,16 +278,15 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
   for (auto &callInst : calls) {
 
-    Value *v1P = callInst->getArgOperand(0),
-          *v2P = callInst->getArgOperand(1);
-    
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
+
     IRBuilder<> IRB(callInst->getParent());
     IRB.SetInsertPoint(callInst);
-    
-    std::vector<Value*> args;
+
+    std::vector<Value *> args;
     args.push_back(v1P);
     args.push_back(v2P);
-    
+
     IRB.CreateCall(cmplogHookFn, args, "tmp");
 
     // errs() << callInst->getCalledFunction()->getName() << "\n";
@@ -301,7 +300,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 bool CmpLogRoutines::runOnModule(Module &M) {
 
   if (getenv("AFL_QUIET") == NULL)
-    llvm::errs() << "Running cmplog-routines-pass by andreafioraldi@gmail.com\n";
+    llvm::errs()
+        << "Running cmplog-routines-pass by andreafioraldi@gmail.com\n";
   hookRtns(M);
   verifyModule(M);
 
@@ -310,7 +310,7 @@ bool CmpLogRoutines::runOnModule(Module &M) {
 }
 
 static void registerCmpLogRoutinesPass(const PassManagerBuilder &,
-                                  legacy::PassManagerBase &PM) {
+                                       legacy::PassManagerBase &PM) {
 
   auto p = new CmpLogRoutines();
   PM.add(p);
