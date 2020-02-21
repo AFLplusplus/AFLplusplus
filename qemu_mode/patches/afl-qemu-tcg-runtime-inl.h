@@ -35,9 +35,9 @@
 #include "tcg.h"
 
 void HELPER(afl_entry_routine)(CPUArchState *env) {
-  
+
   afl_forkserver(ENV_GET_CPU(env));
-  
+
 }
 
 void HELPER(afl_compcov_16)(target_ulong cur_loc, target_ulong arg1,

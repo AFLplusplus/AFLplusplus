@@ -303,6 +303,12 @@ void setup_custom_mutator(void) {
 
   if (!fn) return;
 
+  if (limit_time_sig)
+    FATAL(
+        "MOpt and custom mutator are mutually exclusive. We accept pull "
+        "requests that integrates MOpt with the optional mutators "
+        "(custom/radamsa/redquenn/...).");
+
   ACTF("Loading custom mutator library from '%s'...", fn);
 
   dh = dlopen(fn, RTLD_NOW);
@@ -603,9 +609,11 @@ void perform_dry_run(char** argv) {
                "binary. Also,\n"
                "      if you are using ASAN, see %s/notes_for_asan.md.\n\n"
 
-               "    - In QEMU persistent mode the selected address(es) for the loop are not\n"
+               "    - In QEMU persistent mode the selected address(es) for the "
+               "loop are not\n"
                "      properly cleaning up variables and memory. Try adding\n"
-               "      AFL_QEMU_PERSISTENT_GPR=1 or select better addresses in the binary.\n\n"
+               "      AFL_QEMU_PERSISTENT_GPR=1 or select better addresses in "
+               "the binary.\n\n"
 
                MSG_FORK_ON_APPLE
 
@@ -628,9 +636,11 @@ void perform_dry_run(char** argv) {
                "interesting\n"
                "      inputs - but not ones that cause an outright crash.\n\n"
 
-               "    - In QEMU persistent mode the selected address(es) for the loop are not\n"
+               "    - In QEMU persistent mode the selected address(es) for the "
+               "loop are not\n"
                "      properly cleaning up variables and memory. Try adding\n"
-               "      AFL_QEMU_PERSISTENT_GPR=1 or select better addresses in the binary.\n\n"
+               "      AFL_QEMU_PERSISTENT_GPR=1 or select better addresses in "
+               "the binary.\n\n"
 
                MSG_FORK_ON_APPLE
 
