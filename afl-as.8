@@ -1,0 +1,35 @@
+.TH afl-as 8 2020-02-22 afl++
+.SH NAME
+.B afl-as
+
+.SH SYNOPSIS
+executed by the toolchain whenever using afl-gcc or afl-clang. You probably
+
+.SH OPTIONS
+.nf
+don't want to run this program directly.
+
+Rarely, when dealing with extremely complex projects, it may be advisable to
+set AFL_INST_RATIO to a value less than 100 in order to reduce the odds of
+instrumenting every discovered branch.
+
+Environment variables used:
+AFL_AS: path to assembler to use for instrumented files
+AFL_CC: fall back path to assembler
+AFL_CXX: fall back path to assembler
+TMPDIR: directory to use for temporary files
+TEMP: fall back path to directory for temporary files
+TMP: fall back path to directory for temporary files
+AFL_INST_RATIO: user specified instrumentation ratio
+AFL_QUIET: suppress verbose output
+AFL_KEEP_ASSEMBLY: leave instrumented assembly files
+AFL_AS_FORCE_INSTRUMENT: force instrumentation for asm sources
+AFL_HARDEN, AFL_USE_ASAN, AFL_USE_MSAN, AFL_USE_UBSAN:
+  used in the instrumentation summary message
+
+.SH AUTHOR
+afl++ was written by Michal "lcamtuf" Zalewski and is maintained by Marc "van Hauser" Heuse <mh@mh-sec.de>, Heiko "hexcoder-" Eissfeldt <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>
+The homepage of afl++ is: https://github.com/vanhauser-thc/AFLplusplus
+
+.SH LICENSE
+Apache License Version 2.0, January 2004
