@@ -89,7 +89,9 @@
   read this file.
 
 
-## Shameless plug to students and enthusiast developers
+## Google Summer of Code 2020 (and any other students and enthusiast developers)
+
+We are happy to be part of [Google Summer of Code 2020](https://summerofcode.withgoogle.com/organizations/5100744400699392/)! :-)
 
 We have several ideas we would like to see in AFL++ to make it even better.
 However we already work on so many things that we do not have the time for
@@ -296,6 +298,8 @@ $ ./build_qemu_support.sh
 
 For additional instructions and caveats, see [qemu_mode/README.md](qemu_mode/README.md).
 
+If possible you should use the persistent mode, see [README.persistent.md](README.persistent.md).
+
 The mode is approximately 2-5x slower than compile-time instrumentation, is
 less conducive to parallelization, and may have some other quirks.
 
@@ -307,7 +311,17 @@ A more comprehensive description of these and other options can be found in
 [docs/binaryonly_fuzzing.md](docs/binaryonly_fuzzing.md)
 
 
-## 5) Power schedules
+## 5) Good examples and writeups
+
+Here are some good writeups to show how to effectibly use AFL++:
+
+ * [https://aflplus.plus/docs/tutorials/libxml2_tutorial/](https://aflplus.plus/docs/tutorials/libxml2_tutorial/)
+ * [https://bananamafia.dev/post/gb-fuzz/](https://bananamafia.dev/post/gb-fuzz/)
+ * [https://securitylab.github.com/research/fuzzing-challenges-solutions-1](https://securitylab.github.com/research/fuzzing-challenges-solutions-1)
+
+If you find other good ones, please send them to us :-)
+
+## 6) Power schedules
 
 The power schedules were copied from Marcel Böhme's excellent AFLfast
 implementation and expand on the ability to discover new paths and
@@ -334,7 +348,8 @@ made the default mode).
 
 More details can be found in the paper published at the 23rd ACM Conference on
 Computer and Communications Security [CCS'16](https://www.sigsac.org/ccs/CCS2016/accepted-papers/)
-## 6) Choosing initial test cases
+
+## 7) Choosing initial test cases
 
 To operate correctly, the fuzzer requires one or more starting file that
 contains a good example of the input data normally expected by the targeted
@@ -355,7 +370,7 @@ the afl-cmin utility to identify a subset of functionally distinct files that
 exercise different code paths in the target binary.
 
 
-## 7) Fuzzing binaries
+## 8) Fuzzing binaries
 
 The fuzzing process itself is carried out by the afl-fuzz utility. This program
 requires a read-only directory with initial test cases, a separate place to
@@ -392,8 +407,7 @@ steps, which can take several days, but tend to produce neat test cases. If you
 want quick & dirty results right away - akin to zzuf and other traditional
 fuzzers - add the -d option to the command line.
 
-
-## 8) Interpreting output
+## 9) Interpreting output
 
 See the [docs/status_screen.md](docs/status_screen.md) file for information on
 how to interpret the displayed stats and monitor the health of the process. Be
@@ -453,8 +467,7 @@ If you have gnuplot installed, you can also generate some pretty graphs for any
 active fuzzing task using afl-plot. For an example of how this looks like,
 see [http://lcamtuf.coredump.cx/afl/plot/](http://lcamtuf.coredump.cx/afl/plot/).
 
-
-## 9) Parallelized fuzzing
+## 10) Parallelized fuzzing
 
 Every instance of afl-fuzz takes up roughly one core. This means that on
 multi-core systems, parallelization is necessary to fully utilize the hardware.
@@ -465,8 +478,7 @@ The parallel fuzzing mode also offers a simple way for interfacing AFL to other
 fuzzers, to symbolic or concolic execution engines, and so forth; again, see the
 last section of [docs/parallel_fuzzing.md](docs/parallel_fuzzing.md) for tips.
 
-
-## 10) Fuzzer dictionaries
+## 12) Fuzzer dictionaries
 
 By default, afl-fuzz mutation engine is optimized for compact data formats -
 say, images, multimedia, compressed data, regular expression syntax, or shell
@@ -501,8 +513,7 @@ If a dictionary is really hard to come by, another option is to let AFL run
 for a while, and then use the token capture library that comes as a companion
 utility with AFL. For that, see [libtokencap/README.md](libtokencap/README.tokencap.md).
 
-
-## 11) Crash triage
+## 13) Crash triage
 
 The coverage-based grouping of crashes usually produces a small data set that
 can be quickly triaged manually or with a very simple GDB or Valgrind script.
@@ -550,7 +561,7 @@ insights into complex file formats. More info about its operation can be found
 near the end of [docs/technical_details.md](docs/technical_details.md).
 
 
-## 12) Going beyond crashes
+## 14) Going beyond crashes
 
 Fuzzing is a wonderful and underutilized technique for discovering non-crashing
 design and implementation errors, too. Quite a few interesting bugs have been
@@ -573,8 +584,7 @@ if you are the maintainer of a particular package, you can make this code
 conditional with `#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION` (a flag also
 shared with libfuzzer) or `#ifdef __AFL_COMPILER` (this one is just for AFL).
 
-
-## 13) Common-sense risks
+## 15) Common-sense risks
 
 Please keep in mind that, similarly to many other computationally-intensive
 tasks, fuzzing may put strain on your hardware and on the OS. In particular:
@@ -603,8 +613,7 @@ tasks, fuzzing may put strain on your hardware and on the OS. In particular:
     $ iostat -d 3 -x -k [...optional disk ID...]
 ```
 
-
-## 14) Known limitations & areas for improvement
+## 16) Known limitations & areas for improvement
 
 Here are some of the most important caveats for AFL:
 
@@ -644,8 +653,7 @@ Here are some of the most important caveats for AFL:
 
 Beyond this, see INSTALL for platform-specific tips.
 
-
-## 15) Special thanks
+## 17) Special thanks
 
 Many of the improvements to the original afl and afl++ wouldn't be possible
 without feedback, bug reports, or patches from:
@@ -697,9 +705,9 @@ without feedback, bug reports, or patches from:
 ```
 
 Thank you!
+(For people sending pull requests - please add yourself to this list :-)
 
-
-## 16) Contact
+## 18) Contact
 
 Questions? Concerns? Bug reports? The contributors can be reached via
 [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
