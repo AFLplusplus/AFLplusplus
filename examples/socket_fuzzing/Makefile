@@ -22,18 +22,27 @@ ifneq "$(filter Linux GNU%,$(shell uname))" ""
   LDFLAGS  += -ldl
 endif
 
+# on gcc for arm there is no -m32, but -mbe32
+M32FLAG = -m32
+M64FLAG = -m64
+ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
+ ifneq (,$(findstring arm, "$(shell $(CC) -v 2>&1 >/dev/null)"))
+  M32FLAG = -mbe32
+ endif
+endif
+
 all: socketfuzz32.so socketfuzz64.so
 
 socketfuzz32.so: socketfuzz.c
-	-$(CC) -m32 $(CFLAGS) $^ $(LDFLAGS) -o $@ || echo "socketfuzz32 build failure (that's fine)"
+	-$(CC) $(M32FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ || echo "socketfuzz32 build failure (that's fine)"
 
 socketfuzz64.so: socketfuzz.c
-	-$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+	-$(CC) $(M64FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ || echo "socketfuzz64 build failure (that's fine)"
 
 install: socketfuzz32.so socketfuzz64.so
 	install -d -m 755 $(DESTDIR)$(HELPER_PATH)/
 	if [ -f socketfuzz32.so ]; then set -e; install -m 755 socketfuzz32.so $(DESTDIR)$(HELPER_PATH)/; fi
-	install -m 755 socketfuzz64.so $(DESTDIR)$(HELPER_PATH)/
+	if [ -f socketfuzz64.so ]; then set -e; install -m 755 socketfuzz64.so $(DESTDIR)$(HELPER_PATH)/; fi
 
 clean:
 	rm -f socketfuzz32.so socketfuzz64.so
