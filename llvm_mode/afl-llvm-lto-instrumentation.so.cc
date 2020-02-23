@@ -29,7 +29,9 @@
  *
  */
 
-#define AFL_LLVM_PASS
+#define FIND_VALUE_ATTEMPTS 16
+
+#define AFL_LLVM_PASS // for types.h
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -88,6 +90,7 @@ typedef long double max_align_t;
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #include "config.h"
+#include "types.h"
 #include "debug.h"
 
 #include "MarkNodes.h"
@@ -1121,7 +1124,7 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  uint32_t getId() {
+  uint32_t getID() {
 
     if (strategy == true)
       return (global_cur_loc++ % MAP_SIZE);
@@ -1130,15 +1133,23 @@ class AFLLTOPass : public ModulePass {
 
   }
 
+  uint32_t calcID2(uint32_t index) {
+
+    // select IDs by empty MapIDs and calculate backwards
+
+    return 0; // temporary
+  }
+
+  // Assign IDs to the current location and/or previous locations
+  // as needed
   uint32_t calcID(uint32_t index) {
 
     uint32_t i, curr_id = CurrIDs[ReverseMap[index]], colls = 0, loc;
     std::vector<uint32_t> val;
 
-    if (Predecessors[index].size() == 0)  // we set them later
+    if (Predecessors[index].size() == 0)  // no predecessors? skip it for now
       return 0;
 
-    // for (i = 0; i < Predecessors[index].size(); i++)
     for (uint32_t pre : Predecessors[index])
       if (CurrIDs[ReverseMap[pre]] < MAP_SIZE)
         val.push_back(CurrIDs[ReverseMap[pre]]);
@@ -1146,74 +1157,113 @@ class AFLLTOPass : public ModulePass {
     if (val.size() == 0 && curr_id >= MAP_SIZE)
       return 0;  // no data whatsoever yet, will be set later
 
-    if (curr_id < MAP_SIZE) {  // we already have our value
+    if (curr_id >= MAP_SIZE) {  // we do not have a current location ID yet
+      // but we have prev location IDs
+      uint32_t curr, best, bcol = val.size() + 1, ccol, icnt = 0;
 
-      if (val.size() > 0)
-        for (i = 0; i < val.size(); i++) {
+      do {
 
-          loc = curr_id ^ (val[i] >> 1);
-          if (map[loc]) colls++;
-          map[loc]++;
+        ccol = 0;
+        curr = getID();
+
+        for (i = 0; i < val.size(); i++)
+          if (map[curr_id ^ (val[i] >> 1)]) ccol++;
+
+        if (ccol < bcol) {
+
+          bcol = ccol;
+          best = curr;
 
         }
 
-      // we have unassigned locations
-      if (val.size() < Predecessors[index].size()) {
+      } while (ccol > 0 && icnt < FIND_VALUE_ATTEMPTS);
 
-        uint32_t ccol, bcol = val.size() + 1, cnt = 0, icnt, tmp, duplicate, j;
-        std::vector<uint32_t> best, curr;
-        curr.resize(Predecessors[index].size() - val.size());
-        best.resize(val.size());
-        do {
+      curr_id = best;
 
-          ccol = 0;
+    }
 
-          for (i = 0; i < curr.size(); i++) {
+    // now count collisions with existing prev location IDs
+    if (val.size() > 0) {
+      int warn = 0;
+      for (i = 0; i < val.size(); i++) {
 
-            duplicate = icnt = 0;
+        loc = curr_id ^ (val[i] >> 1);
+        if (map[loc]) colls++;
+        map[loc]++;
 
-            do {
-
-              icnt++;
-              do {
-
-                tmp = reverseBits(
-                    getId());  // for predecessors its better to reverse
-                for (j = 0; j < val.size() && !duplicate; j++)
-                  if (val[j] == tmp) duplicate = 1;
-                if (i > 0)
-                  for (j = 0; j < i && !duplicate; j++)
-                    if (curr[i] == tmp) duplicate = 1;
-
-              } while (!duplicate);
-
-            } while (icnt < 16 && map[(tmp >> 1) ^ curr_id]);
-
-            curr[i] = tmp;
-            if (map[(tmp >> 1) ^ curr_id]) ccol++;
-
-          }
-
-          if (ccol < bcol) {
-
-            for (i = 0; i < curr.size(); i++)
-              best[i] = curr[i];
-            bcol = ccol;
-
-          }
-
-          cnt++;
-
-        } while (cnt < 16 && ccol > 0);
-
-        j = 0;
-        for (uint32_t pre : Predecessors[index])
-          if (CurrIDs[ReverseMap[pre]] >= MAP_SIZE)
-            CurrIDs[ReverseMap[pre]] = best[j++];
+        if (warn == 0 && i + 1 < val.size())
+          for (uint32_t j = i + 1; j < val.size() && warn == 0; j++)
+            if (val[i] == val[j]) {
+              warn = 1;
+              WARNF("damn, duplicate previous IDs :-(\n");
+            }
 
       }
+    }
 
-    } else {  // we have no current IDs
+    // if we have unassigned locations - assign them
+    if (val.size() < Predecessors[index].size()) {
+
+      uint32_t ccol, bcol = val.size() + 1, cnt = 0, icnt, tmp, duplicate, j;
+      std::vector<uint32_t> best, curr;
+      curr.resize(Predecessors[index].size() - val.size());
+      best.resize(val.size());
+      do {
+
+        ccol = 0;
+
+        for (i = 0; i < curr.size(); i++) {
+
+          duplicate = icnt = 0;
+
+          do {
+
+            icnt++;
+            do {
+
+              // for predecessors it is better to reverse
+              tmp = reverseBits(getID());
+              for (j = 0; j < val.size() && !duplicate; j++)
+                if (val[j] == tmp) duplicate = 1;
+              if (i > 0)
+                for (j = 0; j < i && !duplicate; j++)
+                  if (curr[i] == tmp) duplicate = 1;
+
+            } while (!duplicate);
+
+          } while (icnt < FIND_VALUE_ATTEMPTS && map[(tmp >> 1) ^ curr_id]);
+
+          curr[i] = tmp;
+          if (map[(tmp >> 1) ^ curr_id]) ccol++;
+
+        }
+
+        if (ccol < bcol) {
+
+          for (i = 0; i < curr.size(); i++)
+            best[i] = curr[i];
+          bcol = ccol;
+
+        }
+
+        cnt++;
+
+      } while (cnt < FIND_VALUE_ATTEMPTS && ccol > 0);
+
+      j = 0;
+      for (uint32_t pre : Predecessors[index])
+        if (CurrIDs[ReverseMap[pre]] >= MAP_SIZE) {
+
+          CurrIDs[ReverseMap[pre]] = best[j++];
+
+        }
+
+      for (j = 0; j < best.size(); j++) {
+
+        if (map[curr_id ^ (best[j] >> 1)]) colls++;
+        map[loc]++;
+
+      }
 
     }
 
@@ -1229,13 +1279,13 @@ class AFLLTOPass : public ModulePass {
     int32_t curr_coll = 0, best_coll = -1;
 
     /*
-DenseMap<BasicBlock *, uint32_t>    LinkMap;
-DenseMap<uint32_t, BasicBlock *>    Entrypoints;
-DenseMap<uint32_t, BasicBlock *>    ReverseMap;
-DenseMap<BasicBlock *, uint32_t>    MapIDs;
-std::vector<BasicBlock *>           InsBlocks;
-std::vector<BasicBlock *>           Successors;
-std::vector<std::vector<uint32_t> > Predecessors;
+  DenseMap<BasicBlock *, uint32_t>    LinkMap;
+  DenseMap<uint32_t, BasicBlock *>    Entrypoints;
+  DenseMap<uint32_t, BasicBlock *>    ReverseMap;
+  DenseMap<BasicBlock *, uint32_t>    MapIDs;
+  std::vector<BasicBlock *>           InsBlocks;
+  std::vector<BasicBlock *>           Successors;
+  std::vector<std::vector<uint32_t> > Predecessors;
     */
 
     uint32_t iteration = 0, i;
@@ -1262,6 +1312,12 @@ std::vector<std::vector<uint32_t> > Predecessors;
         // rev
         // entrypoint
         // entrypoint rev
+
+#ifdef _HAVE_Z3
+
+      } else if (iteration == 9) {
+
+#endif
 
       } else {
 
