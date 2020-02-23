@@ -112,7 +112,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 4));
   u8 *   tmp, *cp, *rsl, *own_copy;
 
-  memcpy(new_argv + 3, argv + 1, sizeof(char*) * argc);
+  memcpy(new_argv + 3, argv + 1, (int)(sizeof(char*)) * argc);
 
   new_argv[2] = target_path;
   new_argv[1] = "--";
@@ -187,7 +187,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 3));
   u8 *   tmp, *cp, *rsl, *own_copy;
 
-  memcpy(new_argv + 2, argv + 1, sizeof(char*) * argc);
+  memcpy(new_argv + 2, argv + 1, (int)(sizeof(char*)) * argc);
 
   new_argv[1] = target_path;
 
