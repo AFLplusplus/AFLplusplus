@@ -261,6 +261,7 @@ static const u8* main_payload_32 =
   "  je   __afl_setup_abort\n"
   "\n"
 #endif
+  "  movb $1, (%eax)\n"
   "  /* Store the address of the SHM region. */\n"
   "\n"
   "  movl %eax, __afl_area_ptr\n"
@@ -563,6 +564,7 @@ static const u8* main_payload_64 =
   "  je   __afl_setup_abort\n"
   "\n"
 #endif
+  "  movb $1, (%rax)\n"
   "  /* Store the address of the SHM region. */\n"
   "\n"
   "  movq %rax, %rdx\n"
