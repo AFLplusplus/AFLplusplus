@@ -129,7 +129,7 @@ static void __afl_map_shm(void) {
     __afl_area_ptr[0] = 1;
 
   }
-  
+
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
   if (id_str) {

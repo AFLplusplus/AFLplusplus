@@ -17,6 +17,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - the memory safety checks are now disabled for a little more speed during
     fuzzing (only affects creating queue entries), can be toggled in config.h
   - afl-fuzz:
+     - MOpt out of bounds writing crash fixed
      - now prints the real python version support compiled in
      - set stronger performance compile options and little tweaks
      - Android: prefer bigcores when selecting a CPU
@@ -28,7 +29,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - bugfix for dictionary insert stage count (fix via Google repo PR)
      - added warning if -M is used together with custom mutators with _ONLY option
      - AFL_TMPDIR checks are now later and better explained if they fail
-  - llvm_mode InsTrim: no pointless instrumentation of 1 block functions
+  - llvm_mode 
+     - InsTrim: three bug fixes:
+        1. (minor) no pointless instrumentation of 1 block functions
+        2. (medium) path bug that leads a few blocks not instrumented that
+           should be
+        3. (major) incorrect prev_loc was written, fixed!
   - afl-clang-fast:
      - show in the help output for which llvm version it was compiled for
      - now does not need to be recompiled between trace-pc and pass
