@@ -9,6 +9,11 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++2.61d (develop):
+
+  - ...
+
+
 ### Version ++2.61c (release):
 
   - use -march=native if available
