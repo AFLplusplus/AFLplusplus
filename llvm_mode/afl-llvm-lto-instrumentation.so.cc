@@ -1060,7 +1060,7 @@ class AFLLTOPass : public ModulePass {
       // it is a 1 size block
       // This is very complex. For now we just check if there is
       // such a function and warn if so.
-      uint32_t  found = 0, problems = 0;
+      uint32_t  found = 0, problems = 0, warn = 0;
       Value *   curr_called;
       Function *curr_f;
 
@@ -1096,12 +1096,13 @@ class AFLLTOPass : public ModulePass {
 
       }
 
-      if (problems > 1) {
+      if (warn == 0 && problems > 1) {
 
         if (debug) SAYF(" failure\n");
+        warn = 1;
         WARNF(
             "This basic callee block %s->%s has %d functions that are likely "
-            "predecessors that we dont process yet!\n",
+            "predecessors that we dont process yet!",
             target_func->c_str(), fn2.c_str(), problems);
         return false;
 
@@ -1308,7 +1309,7 @@ class AFLLTOPass : public ModulePass {
               if ((val[i] >> 1) == (val[j] >> 1)) {
 
                 warn = 1;
-                WARNF("damn, duplicate previous IDs :-(\n");
+                WARNF("damn, duplicate previous IDs :-(");
 
               }
 
@@ -1450,7 +1451,7 @@ class AFLLTOPass : public ModulePass {
             if ((val[i] >> 1) == (val[j] >> 1)) {
 
               warn = 1;
-              WARNF("damn, duplicate previous IDs :-(\n");
+              WARNF("damn, duplicate previous IDs :-(");
 
             }
 
