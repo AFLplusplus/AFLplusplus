@@ -169,6 +169,7 @@ struct InsTrim : public ModulePass {
 
     ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
     ConstantInt *One = ConstantInt::get(Int8Ty, 1);
+    ConstantInt *One32 = ConstantInt::get(Int32Ty, 1);
 
     u64 total_rs = 0;
     u64 total_hs = 0;
@@ -512,7 +513,7 @@ struct InsTrim : public ModulePass {
             ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
         // Bugfix #3: save the actually location ID to OldPrev
-        Value *Shr = IRB.CreateLShr(L, One);
+        Value *Shr = IRB.CreateLShr(L, One32);
         IRB.CreateStore(Shr, OldPrev)
             ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
