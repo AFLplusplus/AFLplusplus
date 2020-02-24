@@ -9,7 +9,7 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-### Version ++2.60d (develop):
+### Version ++2.61c (release):
 
   - use -march=native if available
   - most tools now check for mistyped environment variables
