@@ -530,7 +530,8 @@ int main(int argc, char** argv) {
 
         "Rarely, when dealing with extremely complex projects, it may be "
         "advisable\n"
-        "to set AFL_INST_RATIO to a value less than 100 in order to reduce the\n"
+        "to set AFL_INST_RATIO to a value less than 100 in order to reduce "
+        "the\n"
         "odds of instrumenting every discovered branch.\n\n"
         "Environment variables used:\n"
         "AFL_AS: path to assembler to use for instrumented files\n"
