@@ -31,7 +31,7 @@
 
 #define FIND_VALUE_ATTEMPTS 16
 
-#define AFL_LLVM_PASS // for types.h
+#define AFL_LLVM_PASS  // for types.h
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -360,16 +360,17 @@ class AFLLTOPass : public ModulePass {
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, id_cnt = 0, debug = 0,
            entrypoints = 0;
   uint32_t cur_loc, inst_ratio = 100, global_cur_loc, total_instr, selected = 0;
-  unsigned long long int edges = 0, collisions = 0;
-  bool                   strategy = true;
-  IntegerType *          Int8Ty;
-  IntegerType *          Int32Ty;
-  unsigned char          map[MAP_SIZE];
-  uint32_t               id_list[MAX_ID_CNT];
-  id_id                  id_info[MAX_ID_CNT];
-  bb_id *                bb_list;
-  char *                 inst_ratio_str = NULL, *neverZero_counters_str = NULL;
-  GlobalVariable *       AFLMapPtr, *AFLPrevLoc;
+  unsigned long long int edges = 0, collisions = 0, my_edges = 0,
+                         cnt_callsites = 0;
+  bool            id_strategy = true, assign_strategy = true;
+  IntegerType *   Int8Ty;
+  IntegerType *   Int32Ty;
+  unsigned char   map[MAP_SIZE];
+  uint32_t        id_list[MAX_ID_CNT];
+  id_id           id_info[MAX_ID_CNT];
+  bb_id *         bb_list;
+  char *          inst_ratio_str = NULL, *neverZero_counters_str = NULL;
+  GlobalVariable *AFLMapPtr, *AFLPrevLoc;
 
   void handleFunction(Module &M, Function &F) {
 
@@ -684,6 +685,15 @@ class AFLLTOPass : public ModulePass {
 
   /*************************************************************************/
 
+  void printDebugLocation(BasicBlock *BB, uint32_t loc) {
+
+    Function *  f = BB->getParent();
+    std::string bn = getSimpleNodeLabel(BB, f);
+    SAYF(cMGN "[D] " cRST "Setting %s->%s %u\n", f->getName().str().c_str(),
+         bn.c_str(), loc);
+
+  }
+
   void runInstrim(Module &M, int stage) {
 
     if (stage != STAGE_GETBB && stage != STAGE_SETID) return;
@@ -715,6 +725,7 @@ class AFLLTOPass : public ModulePass {
 
     ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
     ConstantInt *One = ConstantInt::get(Int8Ty, 1);
+    ConstantInt *One32 = ConstantInt::get(Int32Ty, 1);
 
     u64 total_rs = 0;
 
@@ -736,90 +747,100 @@ class AFLLTOPass : public ModulePass {
       MS.insert(HS.begin(), HS.end());
       total_rs += MS.size();
 
-      auto *EBB = &F.getEntryBlock();
-      if (succ_begin(EBB) == succ_end(EBB)) {
-
-        MS.insert(EBB);
-        total_rs += 1;
-
-      }
-
       for (BasicBlock &BB : F) {
 
-        // BUGFIX FOR INSTRIM TO BE PUT HERE ... TODO FIXME BUG
+        if (MS.find(&BB) == MS.end()) {
 
-        if (MS.find(&BB) == MS.end()) { continue; }
+          int more_than_one = -1;
 
-        if (stage == STAGE_GETBB) {
+          for (pred_iterator PI = pred_begin(&BB), E = pred_end(&BB); PI != E;
+               ++PI) {
 
-          LinkMap[&BB] = InsBlocks.size();
-          ReverseMap[InsBlocks.size()] = &BB;
-          InsBlocks.push_back(&BB);
+            BasicBlock *Pred = *PI;
+            int         count = 0;
 
-        } else {  // STAGE_SETID
+            if (more_than_one == -1) more_than_one = 0;
+            for (succ_iterator SI = succ_begin(Pred), E = succ_end(Pred);
+                 SI != E; ++SI) {
 
-          IRBuilder<> IRB(&*BB.getFirstInsertionPt());
-          IRB.CreateStore(ConstantInt::get(Int32Ty, MapIDs[&BB]), OldPrev);
+              BasicBlock *Succ = *SI;
+              if (Succ != NULL) count++;
 
-        }
+            }
 
-      }
-
-      for (BasicBlock &BB : F) {
-
-        auto PI = pred_begin(&BB);
-        auto PE = pred_end(&BB);
-        if (MS.find(&BB) == MS.end()) { continue; }
-
-        IRBuilder<> IRB(&*BB.getFirstInsertionPt());
-        Value *     L = NULL;
-        if (PI == PE) {
-
-          if (stage == STAGE_GETBB) {
-
-            LinkMap[&BB] = InsBlocks.size();
-            ReverseMap[InsBlocks.size()] = &BB;
-            InsBlocks.push_back(&BB);
-
-          } else {  // STAGE_SETID
-
-            L = ConstantInt::get(Int32Ty, MapIDs[&BB]);
+            if (count > 1) more_than_one = 1;
 
           }
 
-        } else {
+          if (more_than_one != 1) continue;
+          for (succ_iterator SI = succ_begin(&BB), E = succ_end(&BB); SI != E;
+               ++SI) {
 
-          PHINode *PN;
+            BasicBlock *Succ = *SI;
+            if (Succ != NULL && MS.find(Succ) == MS.end()) {
 
-          if (stage == STAGE_SETID)
-            PN = PHINode::Create(Int32Ty, 0, "", &*BB.begin());
+              int cnt = 0;
+              for (succ_iterator SI2 = succ_begin(Succ), E2 = succ_end(Succ);
+                   SI2 != E2; ++SI2) {
 
-          DenseMap<BasicBlock *, unsigned> PredMap;
+                BasicBlock *Succ2 = *SI2;
+                if (Succ2 != NULL) cnt++;
 
-          for (auto PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE; ++PI) {
+              }
 
-            BasicBlock *PBB = *PI;
-            if (stage == STAGE_GETBB) {
+              if (cnt == 0) {
 
-              LinkMap[&*PBB] = InsBlocks.size();
-              ReverseMap[InsBlocks.size()] = &*PBB;
-              InsBlocks.push_back(&*PBB);
+                MS.insert(Succ);
+                total_rs += 1;
 
-            } else {  // STAGE_SETID
-
-              auto     It = PredMap.insert({PBB, MapIDs[&*PBB]});
-              unsigned Label = It.first->second;
-              PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
+              }
 
             }
 
           }
 
-          L = PN;
+        }
+
+      }
+
+      for (BasicBlock &BB : F) {
+
+        if (MS.find(&BB) == MS.end()) { continue; }
+
+        Value *L = NULL;
+
+        PHINode *PN;
+
+        if (stage == STAGE_SETID)
+          PN = PHINode::Create(Int32Ty, 0, "", &*BB.begin());
+
+        DenseMap<BasicBlock *, unsigned> PredMap;
+
+        for (auto PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE; ++PI) {
+
+          BasicBlock *PBB = *PI;
+          if (stage == STAGE_GETBB) {
+
+            LinkMap[&*PBB] = InsBlocks.size();
+            ReverseMap[InsBlocks.size()] = &*PBB;
+            InsBlocks.push_back(&*PBB);
+
+          } else {  // STAGE_SETID
+
+            auto     It = PredMap.insert({PBB, MapIDs[&*PBB]});
+            unsigned Label = It.first->second;
+            PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
+            /*if (debug) */ printDebugLocation(PBB, MapIDs[&*PBB]);
+
+          }
 
         }
 
+        L = PN;
+
         if (stage != STAGE_SETID) continue;
+
+        IRBuilder<> IRB(&*BB.getFirstInsertionPt());
 
         /* Load prev_loc */
         LoadInst *PrevLoc = IRB.CreateLoad(OldPrev);
@@ -856,6 +877,11 @@ class AFLLTOPass : public ModulePass {
         IRB.CreateStore(Incr, MapPtrIdx)
             ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
+        // save the used location ID to OldPrev
+        Value *Shr = IRB.CreateLShr(L, One32);
+        IRB.CreateStore(Shr, OldPrev)
+            ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
         total_instr++;
 
       }
@@ -880,11 +906,11 @@ class AFLLTOPass : public ModulePass {
 
     OKF("Instrumented %u/%llu locations in %u functions with %llu edges and "
         "resulting in %llu potential "
-        "collision(s) with strategy %03x (afl-clang-fast/afl-gcc would have "
+        "collision(s) with strategy 0x%02x (afl-clang-fast/afl-gcc would have "
         "produced "
         "%llu collision(s) on average) (%s mode).",
         total_instr, total_rs, inst_funcs, edges, collisions, selected,
-        calculateCollisions(edges), modeline);
+        calculateCollisions(edges + cnt_callsites), modeline);
 
   }
 
@@ -1124,25 +1150,152 @@ class AFLLTOPass : public ModulePass {
 
   }
 
+  uint32_t getNextEmptyMap(uint32_t current) {
+
+    while (current < MAP_SIZE && map[current])
+      current++;
+    return current;
+
+  }
+
   uint32_t getID() {
 
-    if (strategy == true)
+    if (id_strategy == true)
       return (global_cur_loc++ % MAP_SIZE);
     else
       return AFL_R(MAP_SIZE);
 
   }
 
-  uint32_t calcID2(uint32_t index) {
+  uint32_t calcID_2(uint32_t index) {
 
     // select IDs by empty MapIDs and calculate backwards
+    uint32_t i, curr_id = CurrIDs[ReverseMap[index]], colls = 0, loc, ccol,
+                bcol = Predecessors[index].size() + 1, icnt = 0,
+                bcurr_id = CurrIDs[ReverseMap[index]];
+    std::vector<uint32_t> val;
+    unsigned char         tmap[MAP_SIZE];
+    std::vector<uint32_t> best, curr;
 
-    return 0; // temporary
+    if (Predecessors[index].size() == 0)  // no predecessors? skip it for now
+      return 0;
+
+    for (uint32_t pre : Predecessors[index])
+      if (CurrIDs[ReverseMap[pre]] < MAP_SIZE)
+        val.push_back(CurrIDs[ReverseMap[pre]]);
+
+    if (val.size() == 0 && curr_id >= MAP_SIZE)
+      return 0;  // no data whatsoever yet, will be set later
+
+    curr.resize(Predecessors[index].size() - val.size());
+    best.resize(curr.size());
+
+    do {
+
+      ccol = 0;
+      icnt++;
+      memcpy(tmap, map, MAP_SIZE);
+
+      if (curr_id >= MAP_SIZE) {  // we do not have a current location ID yet
+                                  // but we have prev location IDs
+        uint32_t curr, best, ccnt = 0;
+
+        do {
+
+          ccol = 0;
+          ccnt++;
+          curr = getID();
+
+          for (i = 0; i < val.size(); i++)
+            if (tmap[curr_id ^ (val[i] >> 1)]) ccol++;
+
+          if (ccol < bcol) {
+
+            bcol = ccol;
+            best = curr;
+
+          }
+
+        } while (ccol > 0 && ccnt < FIND_VALUE_ATTEMPTS);
+
+        curr_id = best;
+        ccol = bcol;
+
+      }
+
+      // now count collisions with existing prev location IDs
+      if (val.size() > 0) {
+
+        int warn = 0;
+        for (i = 0; i < val.size(); i++) {
+
+          loc = curr_id ^ (val[i] >> 1);
+          if (tmap[loc]++) ccol++;
+
+          if (warn == 0 && i + 1 < val.size())
+            for (uint32_t j = i + 1; j < val.size() && warn == 0; j++)
+              if (val[i] == val[j]) {
+
+                warn = 1;
+                WARNF("damn, duplicate previous IDs :-(\n");
+
+              }
+
+        }
+
+      }
+
+      uint32_t target = 0;
+
+      // if we have unassigned locations - assign them
+      if (curr.size() > 0) {
+
+        for (i = 0; i < curr.size(); i++) {
+
+          target = getNextEmptyMap(target);
+          if (target >= MAP_SIZE)
+            curr[i] = reverseBits(getID());
+          else
+            curr[i] = (target ^ curr_id) << 1;
+
+        }
+
+        if (tmap[(curr[i] >> 1) ^ curr_id]++) ccol++;
+
+      }
+
+      if (ccol < bcol) {
+
+        for (i = 0; i < curr.size(); i++)
+          best[i] = curr[i];
+        bcurr_id = curr_id;
+        bcol = ccol;
+
+      }
+
+    } while (ccol > 0 && icnt < FIND_VALUE_ATTEMPTS);
+
+    // now set map, curr_id, preds and colls
+    CurrIDs[ReverseMap[index]] = curr_id = bcurr_id;
+
+    for (i = 0; i < val.size(); i++)
+      if (map[curr_id ^ (val[i] >> 1)]++) colls++;
+
+    i = 0;
+    for (uint32_t pre : Predecessors[index])
+      if (CurrIDs[ReverseMap[pre]] >= MAP_SIZE)
+        CurrIDs[ReverseMap[pre]] = best[i++];
+
+    for (i = 0; i < best.size(); i++)
+      if (map[curr_id ^ (best[i] >> 1)]++) colls++;
+
+    return colls;
+
   }
 
   // Assign IDs to the current location and/or previous locations
   // as needed
-  uint32_t calcID(uint32_t index) {
+  uint32_t calcID_1(uint32_t index) {
 
     uint32_t i, curr_id = CurrIDs[ReverseMap[index]], colls = 0, loc;
     std::vector<uint32_t> val;
@@ -1164,6 +1317,7 @@ class AFLLTOPass : public ModulePass {
       do {
 
         ccol = 0;
+        icnt++;
         curr = getID();
 
         for (i = 0; i < val.size(); i++)
@@ -1178,27 +1332,30 @@ class AFLLTOPass : public ModulePass {
 
       } while (ccol > 0 && icnt < FIND_VALUE_ATTEMPTS);
 
-      curr_id = best;
+      CurrIDs[ReverseMap[index]] = curr_id = best;
 
     }
 
     // now count collisions with existing prev location IDs
     if (val.size() > 0) {
+
       int warn = 0;
       for (i = 0; i < val.size(); i++) {
 
         loc = curr_id ^ (val[i] >> 1);
-        if (map[loc]) colls++;
-        map[loc]++;
+        if (map[loc]++) colls++;
 
         if (warn == 0 && i + 1 < val.size())
           for (uint32_t j = i + 1; j < val.size() && warn == 0; j++)
             if (val[i] == val[j]) {
+
               warn = 1;
               WARNF("damn, duplicate previous IDs :-(\n");
+
             }
 
       }
+
     }
 
     // if we have unassigned locations - assign them
@@ -1207,7 +1364,7 @@ class AFLLTOPass : public ModulePass {
       uint32_t ccol, bcol = val.size() + 1, cnt = 0, icnt, tmp, duplicate, j;
       std::vector<uint32_t> best, curr;
       curr.resize(Predecessors[index].size() - val.size());
-      best.resize(val.size());
+      best.resize(curr.size());
       do {
 
         ccol = 0;
@@ -1258,16 +1415,21 @@ class AFLLTOPass : public ModulePass {
 
         }
 
-      for (j = 0; j < best.size(); j++) {
-
-        if (map[curr_id ^ (best[j] >> 1)]) colls++;
-        map[loc]++;
-
-      }
+      for (j = 0; j < best.size(); j++)
+        if (map[curr_id ^ (best[j] >> 1)]++) colls++;
 
     }
 
     return colls;
+
+  }
+
+  uint32_t calcID(uint32_t index) {
+
+    if (assign_strategy == true)
+      return calcID_2(index);
+    else
+      return calcID_1(index);
 
   }
 
@@ -1276,30 +1438,22 @@ class AFLLTOPass : public ModulePass {
   // the one with the lowest
   uint32_t runCalc() {
 
-    int32_t curr_coll = 0, best_coll = -1;
-
-    /*
-  DenseMap<BasicBlock *, uint32_t>    LinkMap;
-  DenseMap<uint32_t, BasicBlock *>    Entrypoints;
-  DenseMap<uint32_t, BasicBlock *>    ReverseMap;
-  DenseMap<BasicBlock *, uint32_t>    MapIDs;
-  std::vector<BasicBlock *>           InsBlocks;
-  std::vector<BasicBlock *>           Successors;
-  std::vector<std::vector<uint32_t> > Predecessors;
-    */
-
+    int32_t  curr_coll = 0, best_coll = -1;
     uint32_t iteration = 0, i;
 
     while (1) {
 
+      // initialize calculation run
+      uint32_t idx = 1;
       memset(map, 0, MAP_SIZE);
-      map[0] = 1;  // we do not want map[0] as it also has other use
+      map[0] = 1;  // we do not want map[0] as it also has another use
       for (i = 0; i < InsBlocks.size(); i++)
         CurrIDs[ReverseMap[i]] = MAP_SIZE + 1;  // MAP_SIZE > 31 => problem!
       curr_coll = 0;
       iteration++;
 
-      if (iteration == 1) {
+      // different calculations
+      if (iteration == idx++) {
 
         for (i = 0; i < InsBlocks.size(); i++) {
 
@@ -1307,23 +1461,45 @@ class AFLLTOPass : public ModulePass {
 
         }
 
-      } else if (iteration == 2) {
+      } else if (iteration == idx++) {
 
-        // rev
+        i = InsBlocks.size();
+        do
+          curr_coll += calcID(--i);
+        while (i > 0);
+
+#if 0
+
+      } else if (iteration == idx++) {
+
         // entrypoint
+
+      } else if (iteration == idx++) {
+
         // entrypoint rev
 
+#endif
 #ifdef _HAVE_Z3
 
-      } else if (iteration == 9) {
+      } else if (iteration == idx++) {
+
+        // z3
 
 #endif
 
       } else {
 
-        if (strategy == true) {
+        if (id_strategy == true) {
 
-          strategy = false;  // redo with random assignments
+          id_strategy = false;  // redo with random assignments
+          iteration = 0;
+
+        } else
+
+            if (assign_strategy == true) {
+
+          assign_strategy = false;
+          id_strategy = true;
           iteration = 0;
 
         } else
@@ -1332,13 +1508,21 @@ class AFLLTOPass : public ModulePass {
 
       }
 
+      /*if (debug)*/
+      SAYF(cMGN "[D] " cRST
+                "Strategy %u with id_strategy %s and assign_strategy %s = %u "
+                "collisions\n",
+           iteration, id_strategy == true ? "true" : "false",
+           assign_strategy == true ? "true" : "false", curr_coll);
+
       if (curr_coll < best_coll || best_coll == -1) {
 
         for (uint32_t i = 0; i < InsBlocks.size(); i++)
           MapIDs[ReverseMap[i]] = CurrIDs[ReverseMap[i]];
         best_coll = curr_coll;
         selected = iteration;
-        if (strategy == false) selected += 0x100;
+        if (id_strategy == false) selected += 0x10;
+        if (assign_strategy == false) selected += 0x100;
 
       }
 
@@ -1348,7 +1532,7 @@ class AFLLTOPass : public ModulePass {
 
     // temporary
     for (uint32_t i = 0; i < InsBlocks.size(); i++)
-      MapIDs[ReverseMap[i]] = i;
+      MapIDs[ReverseMap[i]] = i << 1;
 
     return (uint32_t)best_coll;
 
@@ -1460,6 +1644,11 @@ class AFLLTOPass : public ModulePass {
 
     }
 
+    for (uint32_t i = 0; i < InsBlocks.size(); i++)
+      my_edges += Predecessors[i].size();
+
+    if (!be_quiet) OKF("Stage 2 identified %llu predecessors/edges", my_edges);
+
   }
 
   bool runOnModule(Module &M) override {
@@ -1480,8 +1669,7 @@ class AFLLTOPass : public ModulePass {
     AFL_SR(time(NULL) + getpid());
 
     // Collect basic information
-    unsigned long long int cnt_functions = 0, cnt_callsites = 0, cnt_bbs = 0,
-                           total;
+    unsigned long long int cnt_functions = 0, cnt_bbs = 0, total;
     for (auto &F : M) {
 
       if (F.size() < 1) continue;
@@ -1496,6 +1684,8 @@ class AFLLTOPass : public ModulePass {
 
       for (auto &BB : F) {
 
+        if (shouldBeInstrumented(BB) == true) edges++;
+
         if (!BB.getName().empty())  // we just dont want a warning
           cnt_bbs++;
         else
@@ -1508,9 +1698,10 @@ class AFLLTOPass : public ModulePass {
     if (!be_quiet) {
 
       OKF("Module has %llu function%s, %llu callsite%s and %llu total basic "
-          "block%s.",
+          "block%s and %llu edge%s.",
           cnt_functions, cnt_functions == 1 ? "" : "s", cnt_callsites,
-          cnt_callsites == 1 ? "" : "s", cnt_bbs, cnt_bbs == 1 ? "" : "s");
+          cnt_callsites == 1 ? "" : "s", cnt_bbs, cnt_bbs == 1 ? "" : "s",
+          edges, edges == 1 ? "" : "s");
       total = (cnt_functions + cnt_callsites + cnt_bbs) >> 13;
       if (total > 0) {
 
@@ -1548,7 +1739,7 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-};  // AFLLTO
+};  // namespace
 
 }  // namespace
 
@@ -1562,10 +1753,8 @@ static void registerAFLLTOPass(const PassManagerBuilder &,
 }
 
 static RegisterPass<AFLLTOPass> X("afl-lto", "afl++ LTO instrumentation pass",
-                                  false /* Only looks at CFG */,
-                                  false /* Analysis Pass */);
+                                  false, false);
 
 static RegisterStandardPasses RegisterAFLLTOPass(
-    PassManagerBuilder::EP_OptimizerLast /*EP_FullLinkTimeOptimizationLast*/,
-    registerAFLLTOPass);
+    PassManagerBuilder::EP_OptimizerLast, registerAFLLTOPass);
 
