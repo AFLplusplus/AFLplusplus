@@ -977,9 +977,18 @@ static void usage(u8* argv0) {
       "  -e            - solve for edge coverage only, ignore hit counts\n"
       "  -x            - treat non-zero exit codes as crashes\n\n"
 
-      "For additional tips, please consult %s/README.\n\n",
+      "For additional tips, please consult %s/README.md.\n\n"
 
-      argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
+      "Environment variables used:\n"
+      "TMPDIR: directory to use for temporary input files\n"
+      "ASAN_OPTIONS: custom settings for ASAN\n"
+      "              (must contain abort_on_error=1 and symbolize=0)\n"
+      "MSAN_OPTIONS: custom settings for MSAN\n"
+      "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_PRELOAD: LD_PRELOAD settings for target\n"
+      "AFL_TMIN_EXACT: require execution paths to match for crashing inputs\n"
+
+      , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
 
