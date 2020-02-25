@@ -112,7 +112,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 4));
   u8 *   tmp, *cp, *rsl, *own_copy;
 
-  memcpy(new_argv + 3, argv + 1, sizeof(char*) * argc);
+  memcpy(new_argv + 3, argv + 1, (int)(sizeof(char*)) * argc);
 
   new_argv[2] = target_path;
   new_argv[1] = "--";
@@ -163,7 +163,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
   SAYF("\n" cLRD "[-] " cRST
        "Oops, unable to find the 'afl-qemu-trace' binary. The binary must be "
        "built\n"
-       "    separately by following the instructions in qemu_mode/README.qemu. "
+       "    separately by following the instructions in qemu_mode/README.md. "
        "If you\n"
        "    already have the binary installed, you may need to specify "
        "AFL_PATH in the\n"
@@ -187,7 +187,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 3));
   u8 *   tmp, *cp, *rsl, *own_copy;
 
-  memcpy(new_argv + 2, argv + 1, sizeof(char*) * argc);
+  memcpy(new_argv + 2, argv + 1, (int)(sizeof(char*)) * argc);
 
   new_argv[1] = target_path;
 
@@ -259,7 +259,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
   SAYF("\n" cLRD "[-] " cRST
        "Oops, unable to find the '%s' binary. The binary must be "
        "built\n"
-       "    separately by following the instructions in qemu_mode/README.qemu. "
+       "    separately by following the instructions in qemu_mode/README.md. "
        "If you\n"
        "    already have the binary installed, you may need to specify "
        "AFL_PATH in the\n"

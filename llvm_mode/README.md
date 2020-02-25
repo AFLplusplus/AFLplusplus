@@ -2,7 +2,7 @@
 
   (See [../README](../README.md) for the general instruction manual.)
 
-  (See [../gcc_plugin/README.gcc](../gcc_plugin/README.gcc.md) for the GCC-based instrumentation.)
+  (See [../gcc_plugin/README](../gcc_plugin/README.md) for the GCC-based instrumentation.)
 
 ## 1) Introduction
 

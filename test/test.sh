@@ -120,7 +120,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     rm -f test-instr.plain.0 test-instr.plain.1
     TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 3 -a "$TUPLES" -lt 7 && {
+    test "$TUPLES" -gt 3 -a "$TUPLES" -lt 8 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} produces weird instrumentation numbers: $TUPLES"

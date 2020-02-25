@@ -330,7 +330,7 @@ int main(int argc, char** argv, char** envp) {
 
     exit(1);
 
-  } else if (isatty(2) && !getenv("AFL_QUIET")) {
+  } else if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
     SAYF(cCYA "afl-gcc-fast" VERSION cRST
               " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n");

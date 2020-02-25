@@ -27,7 +27,7 @@
 /* Version string: */
 
 // c = release, d = volatile github dev, e = experimental branch
-#define VERSION "++2.60d"
+#define VERSION "++2.61d"
 
 /******************************************************
  *                                                    *

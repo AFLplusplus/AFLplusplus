@@ -169,6 +169,7 @@ struct InsTrim : public ModulePass {
 
     ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
     ConstantInt *One = ConstantInt::get(Int8Ty, 1);
+    ConstantInt *One32 = ConstantInt::get(Int32Ty, 1);
 
     u64 total_rs = 0;
     u64 total_hs = 0;
@@ -382,19 +383,64 @@ struct InsTrim : public ModulePass {
 
         }
 
-        auto *EBB = &F.getEntryBlock();
-        if (succ_begin(EBB) == succ_end(EBB)) {
-
-          MS.insert(EBB);
-          total_rs += 1;
-
-        }
+        // Bugfix #1: remove single block function instrumentation
 
         for (BasicBlock &BB : F) {
 
-          if (MS.find(&BB) == MS.end()) { continue; }
-          IRBuilder<> IRB(&*BB.getFirstInsertionPt());
-          IRB.CreateStore(ConstantInt::get(Int32Ty, genLabel()), OldPrev);
+          if (MarkSetOpt && MS.find(&BB) == MS.end()) {
+
+            // Bugfix #2: instrument blocks that should be but InsTrim
+            //            doesn't due to an algorithmic bug
+            int more_than_one = -1;
+
+            for (pred_iterator PI = pred_begin(&BB), E = pred_end(&BB); PI != E;
+                 ++PI) {
+
+              BasicBlock *Pred = *PI;
+              int         count = 0;
+
+              if (more_than_one == -1) more_than_one = 0;
+              for (succ_iterator SI = succ_begin(Pred), E = succ_end(Pred);
+                   SI != E; ++SI) {
+
+                BasicBlock *Succ = *SI;
+                if (Succ != NULL) count++;
+
+              }
+
+              if (count > 1) more_than_one = 1;
+
+            }
+
+            if (more_than_one != 1) continue;
+            for (succ_iterator SI = succ_begin(&BB), E = succ_end(&BB); SI != E;
+                 ++SI) {
+
+              BasicBlock *Succ = *SI;
+              if (Succ != NULL && MS.find(Succ) == MS.end()) {
+
+                int cnt = 0;
+                for (succ_iterator SI2 = succ_begin(Succ), E2 = succ_end(Succ);
+                     SI2 != E2; ++SI2) {
+
+                  BasicBlock *Succ2 = *SI2;
+                  if (Succ2 != NULL) cnt++;
+
+                }
+
+                if (cnt == 0) {
+
+                  // fprintf(stderr, "INSERT!\n");
+                  MS.insert(Succ);
+                  total_rs += 1;
+
+                }
+
+              }
+
+            }
+
+          }
 
         }
 
@@ -402,32 +448,23 @@ struct InsTrim : public ModulePass {
 
       for (BasicBlock &BB : F) {
 
-        auto PI = pred_begin(&BB);
-        auto PE = pred_end(&BB);
         if (MarkSetOpt && MS.find(&BB) == MS.end()) { continue; }
 
         IRBuilder<> IRB(&*BB.getFirstInsertionPt());
         Value *     L = NULL;
-        if (PI == PE) {
 
-          L = ConstantInt::get(Int32Ty, genLabel());
+        auto *PN = PHINode::Create(Int32Ty, 0, "", &*BB.begin());
+        DenseMap<BasicBlock *, unsigned> PredMap;
+        for (auto PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE; ++PI) {
 
-        } else {
-
-          auto *PN = PHINode::Create(Int32Ty, 0, "", &*BB.begin());
-          DenseMap<BasicBlock *, unsigned> PredMap;
-          for (auto PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE; ++PI) {
-
-            BasicBlock *PBB = *PI;
-            auto        It = PredMap.insert({PBB, genLabel()});
-            unsigned    Label = It.first->second;
-            PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
-
-          }
-
-          L = PN;
+          BasicBlock *PBB = *PI;
+          auto        It = PredMap.insert({PBB, genLabel()});
+          unsigned    Label = It.first->second;
+          PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
 
         }
+
+        L = PN;
 
         /* Load prev_loc */
         LoadInst *PrevLoc = IRB.CreateLoad(OldPrev);
@@ -473,6 +510,11 @@ struct InsTrim : public ModulePass {
         }
 
         IRB.CreateStore(Incr, MapPtrIdx)
+            ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+        // Bugfix #3: save the actually location ID to OldPrev
+        Value *Shr = IRB.CreateLShr(L, One32);
+        IRB.CreateStore(Shr, OldPrev)
             ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
         total_instr++;
