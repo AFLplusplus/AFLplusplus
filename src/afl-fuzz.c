@@ -112,7 +112,7 @@ static void usage(u8* argv0) {
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths, 0 = "
       "immediately).\n"
-      "                  a recommended value is 10-60. see docs/README.MOpt\n"
+      "                  a recommended value is 10-60. see docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU, just use -c 0.\n\n"
@@ -121,7 +121,7 @@ static void usage(u8* argv0) {
       "  -N            - do not unlink the fuzzing input file\n"
       "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (dumb mode)\n"
-      "  -x dir        - optional fuzzer dictionary (see README, its really "
+      "  -x dir        - optional fuzzer dictionary (see README.md, its really "
       "good!)\n\n"
 
       "Testing settings:\n"
@@ -1087,7 +1087,7 @@ stop_fuzzing:
 
     SAYF("\n" cYEL "[!] " cRST
          "Stopped during the first cycle, results may be incomplete.\n"
-         "    (For info on resuming, see %s/README)\n",
+         "    (For info on resuming, see %s/README.md)\n",
          doc_path);
 
   }

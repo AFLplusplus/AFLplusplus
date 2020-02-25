@@ -126,7 +126,7 @@ Minimization settings:
   -C            - keep crashing inputs, reject everything else
   -e            - solve for edge coverage only, ignore hit counts
 
-For additional tips, please consult docs/README.
+For additional tips, please consult docs/README.md.
 
 Environment variables used:
 AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory

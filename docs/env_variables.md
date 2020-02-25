@@ -2,7 +2,7 @@
 
   This document discusses the environment variables used by American Fuzzy Lop++
   to expose various exotic functions that may be (rarely) useful for power
-  users or for some types of custom fuzzing setups. See README for the general
+  users or for some types of custom fuzzing setups. See README.md for the general
   instruction manual.
 
 ## 1) Settings for afl-gcc, afl-clang, and afl-as - and gcc_plugin afl-gcc-fast
