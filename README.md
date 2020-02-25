@@ -156,7 +156,8 @@ Hence gcc-9 and especially llvm-9 should be the compilers of choice.
 If your distribution does not have them, you can use the Dockerfile:
 
 ```shell
-$ docker build -t aflplusplus
+$ cd AFLplusplus
+$ sudo docker build -t aflplusplus .
 ```
 
 
