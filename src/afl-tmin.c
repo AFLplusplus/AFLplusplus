@@ -955,12 +955,12 @@ static void usage(u8* argv0) {
   SAYF(
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
-      "Required parameters:\n\n"
+      "Required parameters:\n"
 
       "  -i file       - input test case to be shrunk by the tool\n"
       "  -o file       - final output location for the minimized data\n\n"
 
-      "Execution control settings:\n\n"
+      "Execution control settings:\n"
 
       "  -f file       - input file read by the tested program (stdin)\n"
       "  -t msec       - timeout for each run (%d ms)\n"
@@ -968,11 +968,11 @@ static void usage(u8* argv0) {
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
-      "mode)\n\n"
+      "mode)\n"
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
 
-      "Minimization settings:\n\n"
+      "Minimization settings:\n"
 
       "  -e            - solve for edge coverage only, ignore hit counts\n"
       "  -x            - treat non-zero exit codes as crashes\n\n"

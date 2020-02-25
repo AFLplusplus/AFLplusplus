@@ -18,12 +18,13 @@
 # instances of afl-fuzz.
 #
 
-echo "status check tool for afl-fuzz by Michal Zalewski"
+echo "$0 status check tool for afl-fuzz by Michal Zalewski"
 echo
 test "$1" = "-h" && {
-  echo $0
+  echo $0 [-s] output_directory
   echo
-  echo afl-whatsup has no command line options
+  echo Options:
+  echo   -s  -  skip details and output summary results only
   echo
   exit 1
 }

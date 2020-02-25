@@ -622,11 +622,11 @@ static void usage(u8* argv0) {
   SAYF(
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
-      "Required parameters:\n\n"
+      "Required parameters:\n"
 
       "  -o file       - file to write the trace data to\n\n"
 
-      "Execution control settings:\n\n"
+      "Execution control settings:\n"
 
       "  -t msec       - timeout for each run (none)\n"
       "  -m megs       - memory limit for child process (%d MB)\n"
@@ -636,7 +636,7 @@ static void usage(u8* argv0) {
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
 
-      "Other settings:\n\n"
+      "Other settings:\n"
 
       "  -i dir        - process all files in this directory, -o must be a "
       "directory\n"
@@ -647,9 +647,8 @@ static void usage(u8* argv0) {
       "  -c            - allow core dumps\n\n"
 
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
-      "For additional help, consult %s/README.md.\n\n" cRST,
-
-      argv0, MEM_LIMIT, doc_path);
+      "For additional help, consult %s/README.md.\n"
+      , argv0, MEM_LIMIT, doc_path);
 
   exit(1);
 
