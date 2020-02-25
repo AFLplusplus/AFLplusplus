@@ -94,15 +94,13 @@ function getopt(argc, argv, options,    thisopt, i)
 
 function usage() {
    print \
-"Usage: afl-cmin [ options ] -- /path/to/target_app [ ... ]\n" \
+"afl-cmin [ options ] -- /path/to/target_app [ ... ]\n" \
 "\n" \
 "Required parameters:\n" \
-"\n" \
 "  -i dir        - input directory with starting corpus\n" \
 "  -o dir        - output directory for minimized files\n" \
 "\n" \
 "Execution control settings:\n" \
-"\n" \
 "  -f file       - location read by the fuzzed program (stdin)\n" \
 "  -m megs       - memory limit for child process ("mem_limit" MB)\n" \
 "  -t msec       - run time limit for child process (none)\n" \
@@ -116,11 +114,10 @@ function usage() {
 "For additional tips, please consult docs/README.md\n" \
 "\n" \
 "Environment variables used:\n" \
-"AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory\n" \
+"AFL_KEEP_TRACES: leave the temporary <out_dir>/.traces directory\n" \
 "AFL_PATH: path for the afl-showmap binary\n" \
 "AFL_SKIP_BIN_CHECK: skip check for target binary\n" \
-"AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp\n" \
-      > "/dev/stderr"
+"AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp\n"
    exit 1
 }
 
