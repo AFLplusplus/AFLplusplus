@@ -407,7 +407,7 @@ void afl_forkserver(CPUState *cpu) {
 
 }
 
-/* A simplified persistent mode handler, used as explained in README.llvm. */
+/* A simplified persistent mode handler, used as explained in llvm_mode/README.md. */
 
 void afl_persistent_loop(void) {
 

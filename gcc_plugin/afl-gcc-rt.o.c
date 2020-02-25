@@ -214,7 +214,7 @@ static void __afl_start_forkserver(void) {
 
 }
 
-/* A simplified persistent mode handler, used as explained in README.llvm. */
+/* A simplified persistent mode handler, used as explained in README.md. */
 
 int __afl_persistent_loop(unsigned int max_cnt) {
 

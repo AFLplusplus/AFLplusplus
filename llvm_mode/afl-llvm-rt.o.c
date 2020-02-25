@@ -260,7 +260,7 @@ static void __afl_start_forkserver(void) {
 
 }
 
-/* A simplified persistent mode handler, used as explained in README.llvm. */
+/* A simplified persistent mode handler, used as explained in llvm_mode/README.md. */
 
 int __afl_persistent_loop(unsigned int max_cnt) {
 
@@ -346,7 +346,7 @@ __attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
 
 /* The following stuff deals with supporting -fsanitize-coverage=trace-pc-guard.
    It remains non-operational in the traditional, plugin-backed LLVM mode.
-   For more info about 'trace-pc-guard', see README.llvm.
+   For more info about 'trace-pc-guard', see llvm_mode/README.md.
 
    The first function (__sanitizer_cov_trace_pc_guard) is called back on every
    edge (as opposed to every basic block). */

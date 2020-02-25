@@ -1,7 +1,7 @@
 ## Tips for performance optimization
 
   This file provides tips for troubleshooting slow or wasteful fuzzing jobs.
-  See README for the general instruction manual.
+  See README.md for the general instruction manual.
 
 ## 1. Keep your test cases small
 

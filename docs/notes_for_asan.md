@@ -1,7 +1,7 @@
 # Notes for using ASAN with afl-fuzz
 
   This file discusses some of the caveats for fuzzing under ASAN, and suggests
-  a handful of alternatives. See README for the general instruction manual.
+  a handful of alternatives. See README.md for the general instruction manual.
 
 ## 1) Short version
 

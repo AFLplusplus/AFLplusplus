@@ -1,7 +1,7 @@
 # Sister projects
 
 This doc lists some of the projects that are inspired by, derived from,
-designed for, or meant to integrate with AFL. See README for the general
+designed for, or meant to integrate with AFL. See README.md for the general
 instruction manual.
 
 !!!
@@ -252,7 +252,7 @@ https://code.google.com/p/address-sanitizer/wiki/AsanCoverage#Coverage_counters
 ### AFL JS (Han Choongwoo)
 
 One-off optimizations to speed up the fuzzing of JavaScriptCore (now likely
-superseded by LLVM deferred forkserver init - see llvm_mode/README.llvm).
+superseded by LLVM deferred forkserver init - see llvm_mode/README.md).
 
 https://github.com/tunz/afl-fuzz-js
 

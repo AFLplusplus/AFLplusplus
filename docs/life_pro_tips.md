@@ -62,7 +62,7 @@ Specify `AFL_HARDEN=1` in the environment to enable hardening flags.
 
 ## Bumping into problems with non-reproducible crashes? 
 It happens, but usually
-isn't hard to diagnose. See section #7 in README for tips.
+isn't hard to diagnose. See section #7 in README.md for tips.
 
 ## Fuzzing is not just about memory corruption issues in the codebase. 
 Add some

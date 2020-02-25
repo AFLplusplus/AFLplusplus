@@ -798,7 +798,7 @@ static void usage(u8* argv0) {
 
       "  -e            - look for edge coverage only, ignore hit counts\n\n"
 
-      "For additional tips, please consult %s/README.\n\n",
+      "For additional tips, please consult %s/README.md.\n\n",
 
       argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
