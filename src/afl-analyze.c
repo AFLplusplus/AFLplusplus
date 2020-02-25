@@ -780,11 +780,11 @@ static void usage(u8* argv0) {
   SAYF(
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
-      "Required parameters:\n\n"
+      "Required parameters:\n"
 
-      "  -i file       - input test case to be analyzed by the tool\n"
+      "  -i file       - input test case to be analyzed by the tool\n\n"
 
-      "Execution control settings:\n\n"
+      "Execution control settings:\n"
 
       "  -f file       - input file read by the tested program (stdin)\n"
       "  -t msec       - timeout for each run (%d ms)\n"
@@ -794,7 +794,7 @@ static void usage(u8* argv0) {
       "  -W            - use qemu-based instrumentation with Wine (Wine "
       "mode)\n\n"
 
-      "Analysis settings:\n\n"
+      "Analysis settings:\n"
 
       "  -e            - look for edge coverage only, ignore hit counts\n\n"
 

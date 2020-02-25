@@ -520,8 +520,9 @@ int main(int argc, char** argv) {
 
   if (argc < 2 || (argc == 2 && strcmp(argv[1], "-h") == 0)) {
 
-    SAYF(
-        "\n"
+    fprintf(stdout, 
+        "afl-as" VERSION " by Michal Zalewski\n"
+        "\n%s [-h]\n\n"
         "This is a helper application for afl-fuzz. It is a wrapper around GNU "
         "'as',\n"
         "executed by the toolchain whenever using afl-gcc or afl-clang. You "
@@ -545,7 +546,8 @@ int main(int argc, char** argv) {
         "AFL_KEEP_ASSEMBLY: leave instrumented assembly files\n"
         "AFL_AS_FORCE_INSTRUMENT: force instrumentation for asm sources\n"
         "AFL_HARDEN, AFL_USE_ASAN, AFL_USE_MSAN, AFL_USE_UBSAN:\n"
-        "  used in the instrumentation summary message\n");
+        "  used in the instrumentation summary message\n"
+        ,argv[0]);
 
     exit(1);
 
