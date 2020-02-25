@@ -1980,11 +1980,11 @@ void check_binary(u8* fname) {
         "while\n"
         "    mutating the input data. For more information, and for tips on "
         "how to\n"
-        "    instrument binaries, please see %s/README.\n\n"
+        "    instrument binaries, please see %s/README.md.\n\n"
 
         "    When source code is not available, you may be able to leverage "
         "QEMU\n"
-        "    mode support. Consult the README for tips on how to enable this.\n"
+        "    mode support. Consult the README.md for tips on how to enable this.\n"
 
         "    (It is also possible to use afl-fuzz as a traditional, \"dumb\" "
         "fuzzer.\n"

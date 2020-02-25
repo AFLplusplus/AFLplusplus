@@ -1,7 +1,7 @@
 # Understanding the status screen
 
 This document provides an overview of the status screen - plus tips for
-troubleshooting any warnings and red text shown in the UI. See README for
+troubleshooting any warnings and red text shown in the UI. See README.md for
 the general instruction manual.
 
 ## A note about colors

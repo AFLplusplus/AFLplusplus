@@ -533,7 +533,7 @@ int plugin_init(struct plugin_name_args *  plugin_info,
   }
 
   /* Show a banner */
-  if (isatty(2) && !getenv("AFL_QUIET")) {
+  if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
     SAYF(G_(cCYA "afl-gcc-pass" VERSION cRST
                  " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n"));

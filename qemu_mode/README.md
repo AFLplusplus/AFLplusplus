@@ -1,6 +1,6 @@
 # High-performance binary-only instrumentation for afl-fuzz
 
-  (See ../docs/README for the general instruction manual.)
+  (See ../docs/README.md for the general instruction manual.)
 
 ## 1) Introduction
 
@@ -60,7 +60,7 @@ binary on x86_64) use QEMU_LD_PREFIX.
 
 ## 3) Bonus feature #1: deferred initialization
 
-As for LLVM mode (refer to its README for mode details) QEMU mode supports
+As for LLVM mode (refer to its README.md for mode details) QEMU mode supports
 the deferred initialization.
 
 This can be enabled setting the environment variable AFL_ENTRYPOINT which allows
