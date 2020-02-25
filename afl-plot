@@ -32,6 +32,8 @@ an empty directory where this tool can write the resulting plots to.
 The program will put index.html and three PNG images in the output directory;
 you should be able to view it with any web browser of your choice.
 
+Environment variables used:
+AFL_ALLOW_TMP: allow /var/tmp or /tmp for input and output directories
 _EOF_
 
   exit 1

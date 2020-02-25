@@ -798,9 +798,19 @@ static void usage(u8* argv0) {
 
       "  -e            - look for edge coverage only, ignore hit counts\n\n"
 
-      "For additional tips, please consult %s/README.md.\n\n",
+      "For additional tips, please consult %s/README.md.\n\n"
 
-      argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
+      "Environment variables used:\n"
+      "TMPDIR: directory to use for temporary input files\n"
+      "ASAN_OPTIONS: custom settings for ASAN\n"
+      "              (must contain abort_on_error=1 and symbolize=0)\n"
+      "MSAN_OPTIONS: custom settings for MSAN\n"
+      "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_PRELOAD: LD_PRELOAD settings for target\n"
+      "AFL_ANALYZE_HEX: print file offsets in hexadecimal instead of decimal\n"
+      "AFL_SKIP_BIN_CHECK: skip checking the location of and the target\n"
+
+      , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
 
