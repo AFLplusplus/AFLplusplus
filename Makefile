@@ -103,9 +103,9 @@ ifneq "$(shell which python)" ""
 endif
 
 ifdef SOURCE_DATE_EPOCH
-    BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" -I 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" -I 2>/dev/null || date -u -I)
+    BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u "+%Y-%m-%d")
 else
-    BUILD_DATE ?= $(shell date -I)
+    BUILD_DATE ?= $(shell date "+%Y-%m-%d")
 endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
