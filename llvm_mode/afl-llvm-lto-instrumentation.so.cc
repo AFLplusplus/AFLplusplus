@@ -97,6 +97,8 @@ typedef long double max_align_t;
 
 #define MAX_ID_CNT 1024
 
+#define DEBUGPRINT(x) (if (debug) SAYF(cMGN "[D] " cRST(x)))
+
 using namespace llvm;
 
 namespace {
@@ -160,6 +162,16 @@ class AFLLTOPass : public ModulePass {
     for (i = 0; i < MAP_SIZE_POW2; i++)
       if ((num & (1 << i))) reverse_num |= 1 << ((MAP_SIZE_POW2 - 1) - i);
     return reverse_num % MAP_SIZE;
+
+  }
+
+  unsigned int reverseBitsBits(unsigned int num, unsigned int bits) {
+
+    int i, reverse_num = 0;
+
+    for (i = 0; i < bits; i++)
+      if ((num & (1 << i))) reverse_num |= 1 << ((bits - 1) - i);
+    return reverse_num % (1 << bits);
 
   }
 
@@ -358,7 +370,7 @@ class AFLLTOPass : public ModulePass {
 
  protected:
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, id_cnt = 0, debug = 0,
-           entrypoints = 0;
+           entrypoints = 0, warn = 0, best_coll = 0xffffffff;
   uint32_t cur_loc, inst_ratio = 100, global_cur_loc, total_instr, selected = 0;
   unsigned long long int edges = 0, collisions = 0, my_edges = 0,
                          cnt_callsites = 0;
@@ -707,6 +719,8 @@ class AFLLTOPass : public ModulePass {
 
     if (stage != STAGE_GETBB && stage != STAGE_SETID) return;
 
+    time_t before = time(NULL);
+
 #if LLVM_VERSION_MAJOR < 9
     char *neverZero_counters_str;
     if (stage == STAGE_SETID &&
@@ -737,6 +751,7 @@ class AFLLTOPass : public ModulePass {
     ConstantInt *One32 = ConstantInt::get(Int32Ty, 1);
 
     u64 total_rs = 0;
+    inst_funcs = 0;
 
     for (Function &F : M) {
 
@@ -744,6 +759,8 @@ class AFLLTOPass : public ModulePass {
       if (F.size() < 2) { continue; }
 
       if (isBlacklisted(&F)) continue;
+
+      inst_funcs++;
 
       std::unordered_set<BasicBlock *> MS;
 
@@ -800,7 +817,7 @@ class AFLLTOPass : public ModulePass {
               if (cnt == 0) {
 
                 MS.insert(Succ);
-                total_rs += 1;
+                total_rs++;
 
               }
 
@@ -830,10 +847,10 @@ class AFLLTOPass : public ModulePass {
           BasicBlock *PBB = *PI;
           if (stage == STAGE_GETBB) {
 
-            InsBlocks.push_back(&*PBB);
             LinkMap[&*PBB] = InsBlocks.size();
             ReverseMap[InsBlocks.size()] = &*PBB;
-            if (debug) printDebugText(PBB, "GETBB");
+            InsBlocks.push_back(&*PBB);
+            if (debug) printDebugText(PBB, (char*)"GETBB");
             if (debug) SAYF("MAP: %u\n", LinkMap[&*PBB]);
 
           } else {  // STAGE_SETID
@@ -903,7 +920,9 @@ class AFLLTOPass : public ModulePass {
 
     if (stage == STAGE_GETBB) {
 
-      OKF("Stage 1 collected %zu locations to instrument", InsBlocks.size());
+      uint32_t diff = (uint32_t)(time(NULL) - before);
+      OKF("Stage 1: collected %zu locations to instrument (%u second%s)",
+          InsBlocks.size() - 1, diff, diff == 1 ? "" : "s");
       return;
 
     }
@@ -916,12 +935,12 @@ class AFLLTOPass : public ModulePass {
              getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
 
     OKF("Instrumented %u/%llu locations in %u functions with %llu edges and "
-        "resulting in %llu potential "
+        "resulting in %u potential "
         "collision(s) with strategy 0x%02x (afl-clang-fast/afl-gcc would have "
         "produced "
         "%llu collision(s) on average) (%s mode).",
-        total_instr, total_rs, inst_funcs, edges, collisions, selected,
-        calculateCollisions(edges + cnt_callsites), modeline);
+        total_instr, total_rs, inst_funcs, my_edges, best_coll, selected,
+        calculateCollisions(my_edges), modeline);
 
   }
 
@@ -1018,8 +1037,6 @@ class AFLLTOPass : public ModulePass {
   bool findPrevBB(BasicBlock *origin, BasicBlock *current,
                   std::string *target_func) {
 
-    // if (debug) {
-
     std::string fn1 = getSimpleNodeLabel(origin, origin->getParent());
     std::string fn2 = getSimpleNodeLabel(current, current->getParent());
     if (debug) {
@@ -1060,7 +1077,7 @@ class AFLLTOPass : public ModulePass {
       // it is a 1 size block
       // This is very complex. For now we just check if there is
       // such a function and warn if so.
-      uint32_t  found = 0, problems = 0, warn = 0;
+      uint32_t  found = 0, problems = 0;
       Value *   curr_called;
       Function *curr_f;
 
@@ -1100,10 +1117,12 @@ class AFLLTOPass : public ModulePass {
 
         if (debug) SAYF(" failure\n");
         warn = 1;
-        WARNF(
-            "This basic callee block %s->%s has %d functions that are likely "
-            "predecessors that we dont process yet!",
-            target_func->c_str(), fn2.c_str(), problems);
+        /*
+                WARNF(
+                    "This basic callee block %s->%s has %d functions that are
+           likely " "predecessors that we dont process yet!",
+                    target_func->c_str(), fn2.c_str(), problems);
+        */
         return false;
 
       } else if (debug)
@@ -1185,7 +1204,7 @@ class AFLLTOPass : public ModulePass {
 
         if (found_callsites == 0) {
 
-          if (debug) SAYF("Found entrypoint (%d)\n", entrypoints);
+          SAYF(cMGN "[D] " cRST "Found entrypoint (%d)\n", entrypoints);
           Entrypoints[entrypoints++] = &*current;
 
         }
@@ -1200,38 +1219,99 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  uint32_t getNextEmptyMap(uint32_t current, unsigned char *thismap) {
+  uint32_t getNextEmptyMap(uint32_t current, unsigned char *thismap,
+                           bool bottomhalf) {
 
-    current++;
-    while (current < MAP_SIZE && thismap[current])
+    uint32_t mapsize;
+
+    if (bottomhalf == true)
+      mapsize = MAP_SIZE >> 1;
+    else
+      mapsize = MAP_SIZE;
+
+    if (current < mapsize) current++;
+
+    while (current < mapsize && thismap[current])
       current++;
+
     return current;
 
   }
 
-  uint32_t getID() {
+  uint32_t getNextEmptyMapReverse(uint32_t current, unsigned char *thismap,
+                                  bool bottomhalf) {
 
-    if (id_strategy == true)
-      return ((global_cur_loc += 2) % MAP_SIZE);
+    uint32_t mapsize;
+
+    if (bottomhalf == true)
+      mapsize = MAP_SIZE >> 1;
     else
-      return AFL_R(MAP_SIZE);
+      mapsize = MAP_SIZE;
+
+    if (current == 0) return 0;
+    if (current > mapsize)
+      current = mapsize - 1;
+    else
+      current--;
+
+    while (current > 0 && thismap[current])
+      current--;
+
+    return current;
 
   }
 
+  uint32_t getID(bool bottomhalf) {
+
+    uint32_t map_size;
+
+    if (bottomhalf)
+      map_size = MAP_SIZE >> 1;
+    else
+      map_size = MAP_SIZE;
+
+    if (id_strategy == true)
+      // +2 because of >> 1 on prev_loc
+      return ((global_cur_loc += 2) % map_size);
+    else
+      return AFL_R(map_size);
+
+  }
+
+  // select IDs by empty MapIDs and calculate backwards
   uint32_t calcID_2(uint32_t index, bool force) {
 
-    // select IDs by empty MapIDs and calculate backwards
-    uint32_t i, curr_id = CurrIDs[ReverseMap[index]], colls = 0, ccol,
-                tcol = Predecessors[index].size() + 1, icnt = 0,
-                bcurr_id = CurrIDs[ReverseMap[index]];
-    std::vector<uint32_t> val;
-    unsigned char         tmap[MAP_SIZE];
-    std::vector<uint32_t> best, curr;
+    uint32_t i, j, map_id = 0, map_size = MAP_SIZE,
+                   curr_id = CurrIDs[ReverseMap[index]];
+    std::vector<uint32_t> val, curr;
+    time_t                start = time(NULL);
+    bool                  bottomhalfmap = false;
+
+    if (Predecessors[index].size() > 0) {
+
+      for (i = 0; i < Predecessors[index].size(); i++)
+        if (CurrIDs[ReverseMap[Predecessors[index][i]]] < MAP_SIZE)
+          val.push_back(CurrIDs[ReverseMap[Predecessors[index][i]]]);
+
+      if (Predecessors[index].size() - val.size() > 0) {
+
+        curr.resize(Predecessors[index].size() - val.size());
+        for (i = 0; i < curr.size(); i++)
+          curr[i] = MAP_SIZE;
+        bottomhalfmap = true;
+        map_size = MAP_SIZE >> 1;
+
+      }
+
+    }
 
     if (debug) {
 
-      SAYF("Handling %u preds:%zu loc:%u (", index, Predecessors[index].size(),
-           curr_id);
+      SAYF(cMGN
+           "[D] " cRST
+           "Handling %u preds:%zu (vals:%zu) loc:%u map_size:%u force:%s (",
+           index, Predecessors[index].size(), val.size(), curr_id, map_size,
+           force == true ? "true" : "false");
       if (Predecessors[index].size() > 0)
         for (i = 0; i < Predecessors[index].size(); i++)
           SAYF("%s%u", i > 0 ? "|" : "", Predecessors[index][i]);
@@ -1239,300 +1319,338 @@ class AFLLTOPass : public ModulePass {
 
     }
 
-    if (force == false &&
-        Predecessors[index].size() == 0)  // no predecessors? skip it for now
-      return 0;
+    if (force == false && Predecessors[index].size() == 0)
+      return 0;  // no predecessors? skip it for now
 
-    for (uint32_t pre : Predecessors[index])
-      if (CurrIDs[ReverseMap[pre]] < MAP_SIZE)
-        val.push_back(CurrIDs[ReverseMap[pre]]);
+    if (curr_id >= map_size) {  // we need to determine the curr_id
 
-    // if (val.size() == 0 && curr_id >= MAP_SIZE)
-    //  return 0;  // no data whatsoever yet, will be set later
+      if (val.size() == 1) {
 
-    if (debug) SAYF("WORK!\n");
+        map_id = getNextEmptyMap(map_id, map, bottomhalfmap);
+        if (map_id >= map_size)
+          curr_id = getID(bottomhalfmap);  // damn :-(
+        else
+          curr_id = map_id ^ (val[0] >> 1);
 
-    curr.resize(Predecessors[index].size() - val.size());
-    best.resize(curr.size());
+      } else if (val.size() > 1) {  // for this we could use Z3 ...
 
-    do {
+        uint32_t coll, curr_loc, found = 0, best_loc = MAP_SIZE,
+                                 lowest_coll = val.size() + 1;
 
-      ccol = 0;
-      curr_id = CurrIDs[ReverseMap[index]];
-      memcpy(tmap, map, MAP_SIZE);
-      icnt++;
+        do {  // while(map_id < map_size && coll > 0)
 
-      if (curr_id >= MAP_SIZE) {  // we do not have a current location ID yet
-                                  // but we have prev location IDs
-        uint32_t curr, best, ccnt = 0, bcol = val.size() + 1;
+          if ((map_id = getNextEmptyMap(map_id, map, bottomhalfmap)) <
+              map_size) {
 
-        do {
+            coll = 0;
 
-          ccol = 0;
-          memcpy(tmap, map, MAP_SIZE);
-          ccnt++;
-          curr = getID();
+            for (i = 0; i < val.size() && found == 0; i++) {
 
-          if (val.size() > 0)
-            for (i = 0; i < val.size(); i++) {
+              curr_loc = map_id ^ (val[i] >> 1);
 
-              if (tmap[curr ^ (val[i] >> 1)]) ccol++;
-              if (debug)
-                SAYF("(%u) %u/%zu = %u\n", curr, i + 1, val.size(), ccol);
+              for (j = 0; j < val.size() && found == 0; j++)
+                if (map[curr_loc ^ (val[j] >> 1)]) coll++;
+
+              if (coll < lowest_coll) {
+
+                lowest_coll = coll;
+                if (lowest_coll == 0) found = 1;
+                best_loc = curr_loc;
+
+              }
 
             }
 
-          if (ccol < bcol) {
+          }
+
+        } while (map_id < map_size && coll > 0);
+
+        if (best_loc >= map_size)
+          curr_id = getID(bottomhalfmap);  // damn :(
+        else
+          curr_id = best_loc;
+
+      } else {
+
+        curr_id = getID(bottomhalfmap);  // damn :(
+
+      }
+
+      CurrIDs[ReverseMap[index]] = curr_id;  // now write it
+
+    }  // if (curr_id >= map_size)
+
+    if (curr_id >= map_size) FATAL("calcID_2: curr_id >= map_size");
+
+    if (debug) {
+
+      SAYF(cMGN "[D] " cRST
+                "Continue %u preds:%zu (vals:%zu) loc:%u force:%s (",
+           index, Predecessors[index].size(), val.size(), curr_id,
+           force == true ? "true" : "false");
+      if (Predecessors[index].size() > 0)
+        for (i = 0; i < Predecessors[index].size(); i++)
+          SAYF("%s%u", i > 0 ? "|" : "", Predecessors[index][i]);
+      SAYF(")\n");
+
+    }
+
+    // do we have predecessors without value?
+    if (curr.size() > 0) {
+
+      uint32_t ok;
+      map_id = 0;
+
+      for (i = 0; i < curr.size(); i++) {  // calculate values
+
+        do {  // while(ok == 0 && map_id < map_size)
+
+          ok = 1;
+
+          if ((map_id = getNextEmptyMap(map_id, map, true)) < map_size) {
+
+            if ((curr[i] = (curr_id ^ map_id) << 1) < MAP_SIZE) {
+
+              if (val.size() > 0)
+                for (j = 0; j < val.size() && ok == 1; j++)
+                  if ((curr[i] >> 1) == (val[j] >> 1)) ok = 0;
+              /*if (ok && i > 0) // not possible
+                for (j = 0; j < i; j++)
+                  if ((curr[i] >> 1) == (curr[j] >> 1))
+                    ok = 0;*/
+
+            }
+
+          }
+
+        } while (ok == 0 && map_id < map_size);
+
+        if (curr[i] >= MAP_SIZE) {
+
+          do {  // while (ok == 0)
+
+            ok = 1;
+            curr[i] = getID(false);  // damn :-(
+
+            if (val.size() > 0)
+              for (j = 0; j < val.size() && ok == 1; j++)
+                if ((curr[i] >> 1) == (val[j] >> 1)) ok = 0;
+            if (ok && i > 0)
+              for (j = 0; j < i; j++)
+                if ((curr[i] >> 1) == (curr[j] >> 1)) ok = 0;
+
+          } while (ok == 0);
+
+        }
+
+      }
+
+      // assign values
+      j = 0;
+      for (i = 0; i < Predecessors[index].size(); i++)
+        if (CurrIDs[ReverseMap[Predecessors[index][i]]] >= MAP_SIZE)
+          CurrIDs[ReverseMap[Predecessors[index][i]]] = curr[j++];
+
+    }
+
+    if (debug) {
+
+      SAYF(cMGN "[D] " cRST "Done %u preds:%zu loc:%u force:%s (", index,
+           Predecessors[index].size(), curr_id,
+           force == true ? "true" : "false");
+      if (Predecessors[index].size() > 0)
+        for (i = 0; i < Predecessors[index].size(); i++)
+          SAYF("%s%u", i > 0 ? "|" : "", Predecessors[index][i]);
+      SAYF(") in %u seconds \n", (unsigned int)(time(NULL) - start));
+
+    }
+
+    return 1;
+
+  }
+
+  // Assign IDs to the current location and/or previous locations
+  // as needed, no strategy. disabled because it is not efficient.
+  /*
+    uint32_t calcID_1(uint32_t index, bool force) {
+
+      uint32_t i, curr_id = CurrIDs[ReverseMap[index]], loc, bcol = 0, ccol = 0;
+      std::vector<uint32_t> val;
+
+      if (force == false &&
+          Predecessors[index].size() == 0)  // no predecessors? skip it for now
+        return 0;
+
+      for (i = 0; i < Predecessors[index].size(); i++)
+        if (CurrIDs[ReverseMap[Predecessors[index][i]]] < MAP_SIZE)
+          val.push_back(CurrIDs[ReverseMap[Predecessors[index][i]]]);
+
+      // if (val.size() == 0 && curr_id >= MAP_SIZE)
+      //  return 0;  // no data whatsoever yet, will be set later
+
+      if (curr_id >= MAP_SIZE) {  // we do not have a current location ID yet
+        uint32_t curr, best, icnt = 0;
+        bcol = val.size() + 1;
+
+        do { // -> while (ccol > 0 && icnt < FIND_VALUE_ATTEMPTS);
+
+          ccol = 0;
+          curr = getID(false);
+
+          if (val.size() > 0)
+            for (i = 0; i < val.size(); i++)
+              if (map[curr ^ (val[i] >> 1)]) ccol++;
+
+          if (ccol < bcol && curr_id < MAP_SIZE) {
 
             bcol = ccol;
             best = curr;
 
           }
 
-        } while (ccol > 0 && ccnt < FIND_VALUE_ATTEMPTS);
+          icnt++;
 
-        curr_id = best;
-        ccol = bcol;
+        } while (ccol > 0 && icnt < FIND_VALUE_ATTEMPTS);
 
-      }
+        if (best >= MAP_SIZE)
+          best = getID(false);
 
-      // now count collisions with existing prev location IDs
-      if (val.size() > 0) {
-
-        int warn = 0;
-        for (i = 0; i < val.size(); i++) {
-
-          if (tmap[curr_id ^ (val[i] >> 1)]++) ccol++;
-
-          if (warn == 0 && i + 1 < val.size())
-            for (uint32_t j = i + 1; j < val.size() && warn == 0; j++)
-              if ((val[i] >> 1) == (val[j] >> 1)) {
-
-                warn = 1;
-                WARNF("damn, duplicate previous IDs :-(");
-
-              }
-
-        }
+        CurrIDs[ReverseMap[index]] = curr_id = best;
+        if (debug) printDebugLocation(ReverseMap[index], curr_id);
 
       }
-
-      uint32_t target = 0, j;
 
       // if we have unassigned locations - assign them
-      if (curr.size() > 0) {
+      if (val.size() < Predecessors[index].size()) {
 
-        for (i = 0; i < curr.size(); i++) {
+        uint32_t cnt = 0, icnt, tmp, duplicate, j, tcol =
+    Predecessors[index].size() + 1; std::vector<uint32_t> best, curr;
+        curr.resize(Predecessors[index].size() - val.size());
+        best.resize(curr.size());
+        do { // -> while (cnt < FIND_VALUE_ATTEMPTS && ccol > 0);
 
-          int ok = 1;
+          ccol = bcol;
 
-          do {
+          for (i = 0; i < curr.size(); i++) {
 
-            target = getNextEmptyMap(target, tmap);
-            if (target >= MAP_SIZE)  // damn :-(
-              curr[i] = reverseBits(getID());
-            else
-              curr[i] = (target ^ curr_id) << 1;  // reverse calculcate
+            icnt = 0;
 
-            if (val.size() > 0)
-              for (j = 0; j < val.size() && ok == 1; j++)
-                if ((curr[i] >> 1) == (val[j] >> 1)) ok = 0;
-            if (i > 0)
-              for (j = 0; j < i && ok == 1; j++)
-                if ((curr[i] >> 1) == (curr[j] >> 1)) ok = 0;
+            do { // -> while (icnt < FIND_VALUE_ATTEMPTS && map[(tmp >> 1) ^
+    curr_id]);
 
-          } while (ok == 0);
+              icnt++;
 
-          if (curr[i] > global_cur_loc) global_cur_loc = curr[i];
+              do { // -> while (duplicate == 1);
 
-        }
+                duplicate = 0;
+                // for predecessors it is better to reverse
+                tmp = reverseBits(getID(false));
+                if (val.size() > 0)
+                  for (j = 0; j < val.size() && duplicate == 0; j++)
+                    if (val[j] == tmp) duplicate = 1;
+                if (i > 0)
+                  for (j = 0; j < i && duplicate == 0; j++)
+                    if (curr[i] == tmp) duplicate = 1;
 
-        if (tmap[(curr[i] >> 1) ^ curr_id]++) ccol++;
+              } while (duplicate == 1);
 
-      }
+            } while (icnt < FIND_VALUE_ATTEMPTS && map[(tmp >> 1) ^ curr_id] >
 
-      if (ccol < tcol) {
+    0);
 
-        if (curr.size() > 0)
-          for (i = 0; i < curr.size(); i++)
-            best[i] = curr[i];
-        bcurr_id = curr_id;
-        tcol = ccol;
+            if (tmp >= MAP_SIZE) {
 
-      }
-
-    } while (ccol > 0 && icnt < FIND_VALUE_ATTEMPTS);
-
-    // now set map, curr_id, preds and colls
-    CurrIDs[ReverseMap[index]] = curr_id = bcurr_id;
-    if (debug) printDebugLocation(ReverseMap[index], curr_id);
-    if (debug) SAYF("Pre-Setting\n");
-
-    if (val.size() > 0)
-      for (i = 0; i < val.size(); i++)
-        if (map[curr_id ^ (val[i] >> 1)]++) colls++;
-
-    i = 0;
-    if (Predecessors[index].size() > 0)
-      for (uint32_t pre : Predecessors[index])
-        if (CurrIDs[ReverseMap[pre]] >= MAP_SIZE) {
-
-          CurrIDs[ReverseMap[pre]] = best[i++];
-          if (debug)
-            printDebugLocation(ReverseMap[pre], CurrIDs[ReverseMap[pre]]);
-
-        }
-
-    if (best.size() > 0)
-      for (i = 0; i < best.size(); i++)
-        if (map[curr_id ^ (best[i] >> 1)]++) colls++;
-
-    return colls;
-
-  }
-
-  // Assign IDs to the current location and/or previous locations
-  // as needed
-  uint32_t calcID_1(uint32_t index, bool force) {
-
-    uint32_t i, curr_id = CurrIDs[ReverseMap[index]], colls = 0, loc;
-    std::vector<uint32_t> val;
-
-    if (force == false &&
-        Predecessors[index].size() == 0)  // no predecessors? skip it for now
-      return 0;
-
-    for (uint32_t pre : Predecessors[index])
-      if (CurrIDs[ReverseMap[pre]] < MAP_SIZE)
-        val.push_back(CurrIDs[ReverseMap[pre]]);
-
-    // if (val.size() == 0 && curr_id >= MAP_SIZE)
-    //  return 0;  // no data whatsoever yet, will be set later
-
-    if (curr_id >= MAP_SIZE) {  // we do not have a current location ID yet
-      // but we have prev location IDs
-      uint32_t curr, best, bcol = val.size() + 1, ccol, icnt = 0;
-
-      do {
-
-        ccol = 0;
-        icnt++;
-        curr = getID();
-
-        if (val.size() > 0)
-          for (i = 0; i < val.size(); i++)
-            if (map[curr ^ (val[i] >> 1)]) ccol++;
-
-        if (ccol < bcol) {
-
-          bcol = ccol;
-          best = curr;
-
-        }
-
-      } while (ccol > 0 && icnt < FIND_VALUE_ATTEMPTS);
-
-      CurrIDs[ReverseMap[index]] = curr_id = best;
-      if (debug) printDebugLocation(ReverseMap[index], curr_id);
-
-    }
-
-    // now count collisions with existing prev location IDs
-    if (val.size() > 0) {
-
-      int warn = 0;
-      for (i = 0; i < val.size(); i++) {
-
-        loc = curr_id ^ (val[i] >> 1);
-        if (map[loc]++) colls++;
-
-        if (warn == 0 && i + 1 < val.size())
-          for (uint32_t j = i + 1; j < val.size() && warn == 0; j++)
-            if ((val[i] >> 1) == (val[j] >> 1)) {
-
-              warn = 1;
-              WARNF("damn, duplicate previous IDs :-(");
+              tmp = getID(false);
 
             }
 
+            curr[i] = tmp;
+            if (map[(tmp >> 1) ^ curr_id]) ccol++;
+
+          }
+
+          if (ccol < tcol) {
+
+            for (i = 0; i < curr.size(); i++)
+              best[i] = curr[i];
+            tcol = ccol;
+
+          }
+
+          cnt++;
+
+        } while (cnt < FIND_VALUE_ATTEMPTS && ccol > 0);
+
+        j = 0;
+        for (uint32_t k = 0; k < Predecessors[index].size(); k++) {
+
+          if (CurrIDs[ReverseMap[Predecessors[index][k]]] >= MAP_SIZE) {
+
+            if (best[j] >= MAP_SIZE)
+              best[j] = getID(false);
+            CurrIDs[ReverseMap[Predecessors[index][k]]] = best[j++];
+            if (debug) printDebugLocation(ReverseMap[Predecessors[index][k]],
+    CurrIDs[ReverseMap[Predecessors[index][k]]]);
+
+          }
+
+        }
+
       }
+
+      return 1;
 
     }
 
-    // if we have unassigned locations - assign them
-    if (val.size() < Predecessors[index].size()) {
+  */
 
-      uint32_t ccol, bcol = val.size() + 1, cnt = 0, icnt, tmp, duplicate, j;
-      std::vector<uint32_t> best, curr;
-      curr.resize(Predecessors[index].size() - val.size());
-      best.resize(curr.size());
-      do {
+  uint32_t calcID(uint32_t index, bool force) {
 
-        ccol = 0;
+    uint32_t colls = 0, i, j, warn = 0, ret;
 
-        for (i = 0; i < curr.size(); i++) {
+    if (assign_strategy == true)
+      ret = calcID_2(index, force);
+    else
+      FATAL("disabled");
+    // ret = calcID_1(index, force);
 
-          duplicate = icnt = 0;
+    if (ret == 0)  // incomplete
+      return 0;
 
-          do {
+    if (Predecessors[index].size() > 0) {
 
-            icnt++;
-            do {
+      for (i = 0; i < Predecessors[index].size(); i++) {
 
-              // for predecessors it is better to reverse
-              tmp = reverseBits(getID());
-              if (val.size() > 0)
-                for (j = 0; j < val.size() && !duplicate; j++)
-                  if (val[j] == tmp) duplicate = 1;
-              if (i > 0)
-                for (j = 0; j < i && !duplicate; j++)
-                  if (curr[i] == tmp) duplicate = 1;
+        if (CurrIDs[ReverseMap[index]] >= MAP_SIZE ||
+            CurrIDs[ReverseMap[Predecessors[index][i]]] >= MAP_SIZE) {
 
-            } while (!duplicate);
-
-          } while (icnt < FIND_VALUE_ATTEMPTS && map[(tmp >> 1) ^ curr_id]);
-
-          curr[i] = tmp;
-          if (map[(tmp >> 1) ^ curr_id]) ccol++;
+          if (force == false) return 0;
+          if (CurrIDs[ReverseMap[index]] >= MAP_SIZE)
+            CurrIDs[ReverseMap[index]] = getID(false);
+          if (CurrIDs[ReverseMap[Predecessors[index][i]]] >= MAP_SIZE)
+            CurrIDs[ReverseMap[Predecessors[index][i]]] = getID(false);
 
         }
 
-        if (ccol < bcol) {
+        if (i > 0)  // duplicate counting
+          for (j = 0; j < i; j++)
+            if ((CurrIDs[ReverseMap[Predecessors[index][i]]] >> 1) < MAP_SIZE &&
+                (CurrIDs[ReverseMap[Predecessors[index][i]]] >> 1) ==
+                    (CurrIDs[ReverseMap[Predecessors[index][j]]] >> 1))
+              warn++;
+        if (map[CurrIDs[ReverseMap[index]] ^
+                (CurrIDs[ReverseMap[Predecessors[index][i]]] >> 1)]++)
+          colls++;
 
-          for (i = 0; i < curr.size(); i++)
-            best[i] = curr[i];
-          bcol = ccol;
+      }
 
-        }
-
-        cnt++;
-
-      } while (cnt < FIND_VALUE_ATTEMPTS && ccol > 0);
-
-      j = 0;
-      for (uint32_t pre : Predecessors[index])
-        if (CurrIDs[ReverseMap[pre]] >= MAP_SIZE) {
-
-          CurrIDs[ReverseMap[pre]] = best[j++];
-          if (debug) printDebugLocation(ReverseMap[pre], pre);
-
-        }
-
-      for (j = 0; j < best.size(); j++)
-        if (map[curr_id ^ (best[j] >> 1)]++) colls++;
+      if (warn)
+        WARNF("Found %u duplicates for index %u with %zu predecessors", warn,
+              index, Predecessors[index].size());
 
     }
 
     return colls;
-
-  }
-
-  uint32_t calcID(uint32_t index, bool force) {
-
-    if (assign_strategy == true)
-      return calcID_2(index, force);
-    else
-      return calcID_1(index, force);
 
   }
 
@@ -1541,23 +1659,27 @@ class AFLLTOPass : public ModulePass {
   // the one with the lowest
   uint32_t runCalc() {
 
-    int32_t  curr_coll = 0, best_coll = -1;
-    uint32_t iteration = 0, i;
+    uint32_t curr_coll = 0, iteration = 0, i, recoll;
+    time_t   before, after, stage3_start = time(NULL);
 
-    if (InsBlocks.size() < 1)  // nothing to instrument
+    debug = 1;
+
+    if (InsBlocks.size() < 2)  // nothing to instrument
       return 0;
 
     while (1) {
 
       // initialize calculation run
-      uint32_t idx = 1, fix = 1;
+      uint32_t idx = 1;
       memset(map, 0, MAP_SIZE);
       map[0] = 1;  // we do not want map[0] as it also has another use
-      for (i = 1; i <= InsBlocks.size(); i++)
+      iteration++;
+      for (i = 1; i < InsBlocks.size(); i++)
         CurrIDs[ReverseMap[i]] = MAP_SIZE + 1;  // MAP_SIZE > 31 => problem!
       curr_coll = 0;
-      global_cur_loc = AFL_R(MAP_SIZE >> 4);
-      iteration++;
+      global_cur_loc = AFL_R(256);
+
+      before = time(NULL);
 
       if (debug)
         SAYF("runCalc(%u %s %s)\n", iteration,
@@ -1567,7 +1689,7 @@ class AFLLTOPass : public ModulePass {
       // different calculations
       if (iteration == idx++) {
 
-        for (i = 1; i <= InsBlocks.size(); i++) {
+        for (i = 1; i < InsBlocks.size(); i++) {
 
           curr_coll += calcID(i, false);
 
@@ -1577,7 +1699,7 @@ class AFLLTOPass : public ModulePass {
 
         i = InsBlocks.size();
         do
-          curr_coll += calcID(i--, false);
+          curr_coll += calcID(--i, false);
         while (i > 0);
 
 #if 0
@@ -1590,15 +1712,27 @@ class AFLLTOPass : public ModulePass {
 
         // entrypoint rev
 
-#endif
-#ifdef _HAVE_Z3
 
       } else if (iteration == idx++) {
 
-        // z3
+        // exitpoint
+
+      } else if (iteration == idx++) {
+
+        // exitpoint rev
 
 #endif
 
+      } else if (iteration == idx++) {
+
+        if (id_strategy == true) {
+          for (uint32_t i = 1; i < InsBlocks.size(); i++)
+            MapIDs[ReverseMap[i]] = getID(false);
+        } else {
+          for (uint32_t i = 1; i < InsBlocks.size(); i++)
+            MapIDs[ReverseMap[i]] = i * (MAP_SIZE / my_edges);
+        }
+      
       } else {
 
         if (id_strategy == true) {
@@ -1606,14 +1740,14 @@ class AFLLTOPass : public ModulePass {
           id_strategy = false;  // redo with random assignments
           iteration = 0;
 
-        } else
+          /*       } else  // DISABLED, not effective
 
-            if (assign_strategy == true) {
+                     if (assign_strategy == true) {
 
-          assign_strategy = false;
-          id_strategy = true;
-          iteration = 0;
-          fix = 0;
+                   assign_strategy = false;
+                   id_strategy = true;
+                   iteration = 0;
+         */
 
         } else
 
@@ -1621,52 +1755,95 @@ class AFLLTOPass : public ModulePass {
 
       }
 
-      if (fix)
-        for (i = 1; i <= InsBlocks.size(); i++)
-          if (CurrIDs[ReverseMap[i]] >= MAP_SIZE) {  // SAYF("fix: %u\n", i);
+      if (iteration > 0) {
+
+        for (i = 1; i < InsBlocks.size(); i++)
+          if (CurrIDs[ReverseMap[i]] >= MAP_SIZE) {
+
+            SAYF("fix index %u %u\n", i, CurrIDs[ReverseMap[i]]);
             curr_coll += calcID(i, true);
 
           }
 
-      /*if (debug)*/
-      SAYF(cMGN "[D] " cRST
-                "Strategy %u with id_strategy %s and assign_strategy %s = %u "
-                "collisions\n",
-           iteration, id_strategy == true ? "true" : "false",
-           assign_strategy == true ? "true" : "false", curr_coll);
+        after = time(NULL);
 
-      if (curr_coll < best_coll || best_coll == -1) {
+        memset(map, 0, MAP_SIZE);
+        map[0] = 1;
+        recoll = 0;
+        for (i = 1; i < InsBlocks.size(); i++)
+          if (Predecessors[i].size() > 0)
+            for (uint32_t j = 0; j < Predecessors[i].size(); j++) {
 
-        for (uint32_t i = 1; i <= InsBlocks.size(); i++)
-          MapIDs[ReverseMap[i]] = CurrIDs[ReverseMap[i]];
-        best_coll = curr_coll;
-        selected = iteration;
-        if (id_strategy == false) selected += 0x10;
-        if (assign_strategy == false) selected += 0x100;
+              //if (Predecessors[i][j] >= MAP_SIZE)
+              //  fprintf(stderr, "ERRORz: [%u][%u] = %u\n", i, j,
+              //          Predecessors[i][j]);
+              if (CurrIDs[ReverseMap[i]] >= MAP_SIZE) {
+
+                //fprintf(stderr, "ERROR1: i=%u -> %u %llu\n", i,
+                //        CurrIDs[ReverseMap[i]], time(NULL));
+                curr_coll += calcID(i, true);
+                //fprintf(stderr, "ERROR2: i=%u -> %u %llu\n", i,
+                //        CurrIDs[ReverseMap[i]], time(NULL));
+
+              }
+
+              if (map[(CurrIDs[ReverseMap[Predecessors[i][j]]] >> 1) ^
+                      CurrIDs[ReverseMap[i]]]++)
+                recoll++;
+
+            }
+
+        uint32_t diff = (uint32_t)(after - before);
+        SAYF(cMGN
+             "[D] " cRST
+             "Strategy %u with id_strategy %s and assign_strategy %s = %u(%u) "
+             "collisions in %u second%s\n",
+             iteration, id_strategy == true ? "true" : "false",
+             assign_strategy == true ? "true" : "false", recoll, curr_coll,
+             diff, diff == 1 ? "" : "s");
+        if (recoll < best_coll) {
+
+          if (debug)
+            SAYF(cMGN "[D] " cRST "Best strategy with %u(%u) < %u: %u %s %s\n", recoll,
+                  curr_coll, best_coll, iteration,
+                  id_strategy == true ? "true" : "false",
+                  assign_strategy == true ? "true" : "false");
+
+          for (uint32_t i = 1; i < InsBlocks.size(); i++)
+            MapIDs[ReverseMap[i]] = CurrIDs[ReverseMap[i]];
+          best_coll = recoll;
+          selected = iteration;
+          if (id_strategy == false) selected += 0x10;
+          if (assign_strategy == false) selected += 0x100;
+
+        }
 
       }
 
-      if (best_coll == 0) break;
+      // if (best_coll == 0) break; // TODO FIXME
 
     }
 
-    // temporary
-    // for (uint32_t i = 1; i <= InsBlocks.size(); i++)
-    //  MapIDs[ReverseMap[i]] = i << 1;
 
-    if (!be_quiet)
-      OKF("Stage 3: best strategy %02x found %d collisions", selected,
-          best_coll);
+    if (!be_quiet) {
+
+      uint32_t diff = (uint32_t)(time(NULL) - stage3_start);
+      OKF("Stage 3: best strategy 0x%02x found %d collisions (%u second%s)",
+          selected, best_coll, diff, diff == 1 ? "" : "s");
+
+    }
 
     return (uint32_t)best_coll;
 
   }
 
   // This is very simple and just gets the predecessors with locationIDs
-  // for a each locationID block
+  // for a each locationID block. It takes a long time though!
   void generateCFG(Module &M) {
 
-    Predecessors.resize(InsBlocks.size() + 1);
+    time_t before = time(NULL);
+
+    Predecessors.resize(InsBlocks.size());
 
     for (auto &F : M) {
 
@@ -1675,26 +1852,32 @@ class AFLLTOPass : public ModulePass {
 
       auto *EBB = &F.getEntryBlock();
       int   found_callsites = 0;
+      warn = 0;
       if (debug) SAYF("Function: %s\n", F.getName().str().c_str());
 
       // Only at the start of a function:
       // This is a bit complicated to explain.
       // For the first line of basic blocks in a function that are
       // instrumented the predecessors are in the callee - or even deeper
-      // callees if the callee is a single block function
-      // For this we need to do 2 steps, first collect the first line of
-      // basic blocks in the function and second the predecessors in the
-      // callees
+      // callees if the call happens in the entry block of the callee.
+      // For this we need to do 2 steps:
+      //   1: collect the first line of basic blocks in the function
+      //   2: the predecessors in the callees
 
       // 1: collect the first line of instrumented blocks in the function
       Successors.clear();
       std::string bb_name = getSimpleNodeLabel(EBB, &F);
-      if (findSuccBB(EBB) == false && debug)
-        SAYF(cMGN
-             "[D] " cRST
-             "function %s->%s(entry) has incomplete successors (%zu found).\n",
-             F.getName().str().c_str(), bb_name.c_str(), Successors.size());
-      else if (debug)
+      if (findSuccBB(EBB) == false) {
+
+        if (debug)
+          SAYF(
+              cMGN
+              "[D] " cRST
+              "function %s->%s(entry) has incomplete successors (%zu found).\n",
+              F.getName().str().c_str(), bb_name.c_str(), Successors.size());
+
+      } else if (debug)
+
         SAYF(cMGN "[D] " cRST "function %s->%s(entry) has %zu successors.\n",
              F.getName().str().c_str(), bb_name.c_str(), Successors.size());
 
@@ -1774,10 +1957,16 @@ class AFLLTOPass : public ModulePass {
 
     }
 
-    for (uint32_t i = 1; i <= InsBlocks.size(); i++)
+    for (uint32_t i = 1; i < InsBlocks.size(); i++)
       my_edges += Predecessors[i].size();
 
-    if (!be_quiet) OKF("Stage 2 identified %llu predecessors/edges", my_edges);
+    if (!be_quiet) {
+
+      uint32_t diff = (uint32_t)(time(NULL) - before);
+      OKF("Stage 2: identified %llu predecessors/edges (%u second%s)", my_edges,
+          diff, diff == 1 ? "" : "s");
+
+    }
 
   }
 
@@ -1788,13 +1977,13 @@ class AFLLTOPass : public ModulePass {
     if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL)
       SAYF(cCYA "afl-llvm-lto-instrumentation" VERSION cRST
                 " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
-    else
-      be_quiet = 1;
+    //    else
+    //      be_quiet = 1;
 
     // Initialisation
     LinkMap.clear();
     InsBlocks.clear();
-    // InsBlocks.push_back(NULL); // needed!
+    InsBlocks.push_back(NULL);  // needed!
     Predecessors.clear();
     MapIDs.clear();
     AFL_SR(time(NULL) + getpid());
@@ -1854,6 +2043,12 @@ class AFLLTOPass : public ModulePass {
 
     // Collect all BBs to instrument
     runInstrim(M, STAGE_GETBB);
+    if (InsBlocks.size() <= 1) {
+
+      WARNF("Nothing to instrument!");
+      return false;
+
+    }
 
     // Get all predecessors for BBs
     generateCFG(M);  // STAGE_CFG

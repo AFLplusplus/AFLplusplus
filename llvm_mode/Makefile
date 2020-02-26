@@ -128,7 +128,7 @@ CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
 
 CXXFLAGS    ?= -O3 -funroll-loops
 CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -I ../include/ \
-               -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
+               -DVERSION=\"$(VERSION)\" -Wno-variadic-macros 
 
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
@@ -248,7 +248,7 @@ endif
 	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
 
 ../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc MarkNodes.cc
-	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
+	$(CXX) $(CLANG_CFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
 
 # laf
 ../split-switches-pass.so:	split-switches-pass.so.cc | test_deps
