@@ -97,8 +97,6 @@ typedef long double max_align_t;
 
 #define MAX_ID_CNT 1024
 
-#define DEBUGPRINT(x) (if (debug) SAYF(cMGN "[D] " cRST(x)))
-
 using namespace llvm;
 
 namespace {
@@ -850,8 +848,8 @@ class AFLLTOPass : public ModulePass {
             LinkMap[&*PBB] = InsBlocks.size();
             ReverseMap[InsBlocks.size()] = &*PBB;
             InsBlocks.push_back(&*PBB);
-            if (debug) printDebugText(PBB, (char*)"GETBB");
-            if (debug) SAYF("MAP: %u\n", LinkMap[&*PBB]);
+            if (debug) printDebugText(PBB, (char *)"GETBB");
+            if (debug) SAYF(cMGN "[D]" cRST "MAP: %u\n", LinkMap[&*PBB]);
 
           } else {  // STAGE_SETID
 
@@ -1706,7 +1704,9 @@ class AFLLTOPass : public ModulePass {
 
       } else if (iteration == idx++) {
 
-        // entrypoint
+        if (entrypoints > 0)
+          for (i = 0; i < entrypoints; i++)
+            Entrypoints[i], false);
 
       } else if (iteration == idx++) {
 
@@ -1726,13 +1726,17 @@ class AFLLTOPass : public ModulePass {
       } else if (iteration == idx++) {
 
         if (id_strategy == true) {
+
           for (uint32_t i = 1; i < InsBlocks.size(); i++)
             MapIDs[ReverseMap[i]] = getID(false);
+
         } else {
+
           for (uint32_t i = 1; i < InsBlocks.size(); i++)
             MapIDs[ReverseMap[i]] = i * (MAP_SIZE / my_edges);
+
         }
-      
+
       } else {
 
         if (id_strategy == true) {
@@ -1760,7 +1764,9 @@ class AFLLTOPass : public ModulePass {
         for (i = 1; i < InsBlocks.size(); i++)
           if (CurrIDs[ReverseMap[i]] >= MAP_SIZE) {
 
-            SAYF("fix index %u %u\n", i, CurrIDs[ReverseMap[i]]);
+            if (debug)
+              SAYF(cMGN "[D] " cRST "fix index %u %u\n", i,
+                   CurrIDs[ReverseMap[i]]);
             curr_coll += calcID(i, true);
 
           }
@@ -1774,15 +1780,15 @@ class AFLLTOPass : public ModulePass {
           if (Predecessors[i].size() > 0)
             for (uint32_t j = 0; j < Predecessors[i].size(); j++) {
 
-              //if (Predecessors[i][j] >= MAP_SIZE)
+              // if (Predecessors[i][j] >= MAP_SIZE)
               //  fprintf(stderr, "ERRORz: [%u][%u] = %u\n", i, j,
               //          Predecessors[i][j]);
               if (CurrIDs[ReverseMap[i]] >= MAP_SIZE) {
 
-                //fprintf(stderr, "ERROR1: i=%u -> %u %llu\n", i,
+                // fprintf(stderr, "ERROR1: i=%u -> %u %llu\n", i,
                 //        CurrIDs[ReverseMap[i]], time(NULL));
                 curr_coll += calcID(i, true);
-                //fprintf(stderr, "ERROR2: i=%u -> %u %llu\n", i,
+                // fprintf(stderr, "ERROR2: i=%u -> %u %llu\n", i,
                 //        CurrIDs[ReverseMap[i]], time(NULL));
 
               }
@@ -1794,20 +1800,22 @@ class AFLLTOPass : public ModulePass {
             }
 
         uint32_t diff = (uint32_t)(after - before);
-        SAYF(cMGN
-             "[D] " cRST
-             "Strategy %u with id_strategy %s and assign_strategy %s = %u(%u) "
-             "collisions in %u second%s\n",
-             iteration, id_strategy == true ? "true" : "false",
-             assign_strategy == true ? "true" : "false", recoll, curr_coll,
-             diff, diff == 1 ? "" : "s");
+        if (debug)
+          SAYF(
+              cMGN
+              "[D] " cRST
+              "Strategy %u with id_strategy %s and assign_strategy %s = %u(%u) "
+              "collisions in %u second%s\n",
+              iteration, id_strategy == true ? "true" : "false",
+              assign_strategy == true ? "true" : "false", recoll, curr_coll,
+              diff, diff == 1 ? "" : "s");
         if (recoll < best_coll) {
 
           if (debug)
-            SAYF(cMGN "[D] " cRST "Best strategy with %u(%u) < %u: %u %s %s\n", recoll,
-                  curr_coll, best_coll, iteration,
-                  id_strategy == true ? "true" : "false",
-                  assign_strategy == true ? "true" : "false");
+            SAYF(cMGN "[D] " cRST "Best strategy with %u(%u) < %u: %u %s %s\n",
+                 recoll, curr_coll, best_coll, iteration,
+                 id_strategy == true ? "true" : "false",
+                 assign_strategy == true ? "true" : "false");
 
           for (uint32_t i = 1; i < InsBlocks.size(); i++)
             MapIDs[ReverseMap[i]] = CurrIDs[ReverseMap[i]];
@@ -1823,7 +1831,6 @@ class AFLLTOPass : public ModulePass {
       // if (best_coll == 0) break; // TODO FIXME
 
     }
-
 
     if (!be_quiet) {
 
@@ -1853,7 +1860,8 @@ class AFLLTOPass : public ModulePass {
       auto *EBB = &F.getEntryBlock();
       int   found_callsites = 0;
       warn = 0;
-      if (debug) SAYF("Function: %s\n", F.getName().str().c_str());
+      if (debug)
+        SAYF(cMGN "[D] " cRST "Function: %s\n", F.getName().str().c_str());
 
       // Only at the start of a function:
       // This is a bit complicated to explain.
@@ -1922,7 +1930,7 @@ class AFLLTOPass : public ModulePass {
 
         }
 
-        if (debug) SAYF("done callsite pred!\n");
+        if (debug) SAYF(cMGN "[D] " cRST "done callsite pred!\n");
 
       }
 
