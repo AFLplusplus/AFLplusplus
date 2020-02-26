@@ -120,22 +120,6 @@ std::vector<BasicBlock *>           InsBlocks;
 std::vector<BasicBlock *>           Successors;
 std::vector<std::vector<uint32_t> > Predecessors;
 
-struct bb_id {
-
-  std::string * function;
-  std::string * bb;
-  uint32_t      id;
-  struct bb_id *next;
-
-};
-
-struct id_id {
-
-  std::string *function;
-  std::string *bb;
-
-};
-
 class AFLLTOPass : public ModulePass {
 
  public:
@@ -163,15 +147,18 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  unsigned int reverseBitsBits(unsigned int num, unsigned int bits) {
+  /*
+    unsigned int reverseBitsBits(unsigned int num, unsigned int bits) {
 
-    int i, reverse_num = 0;
+      int i, reverse_num = 0;
 
-    for (i = 0; i < bits; i++)
-      if ((num & (1 << i))) reverse_num |= 1 << ((bits - 1) - i);
-    return reverse_num % (1 << bits);
+      for (i = 0; i < bits; i++)
+        if ((num & (1 << i))) reverse_num |= 1 << ((bits - 1) - i);
+      return reverse_num % (1 << bits);
 
-  }
+    }
+
+  */
 
   // Calculate the number of average collisions that would occur if all
   // location IDs would be assigned randomly (like normal afl/afl++).
@@ -224,121 +211,6 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  // check if the basic block already has a location ID assigned, if not
-  // generate one randomly. Put the location ID in the list for previous IDs.
-  void getOrAddNew(std::string *fname, std::string bbname) {
-
-    bb_id *bb_cur = bb_list;
-    int    tmp_loc = 0, i, tmp_found = 0;
-
-    if (id_cnt >= MAX_ID_CNT) {
-
-      if (debug)
-        SAYF(cMGN "[D] " cRST "prevID list full! (%s->%s)\n", fname->c_str(),
-             bbname.c_str());
-      return;
-
-    }
-
-    while (bb_cur != NULL && (bbname.compare(*bb_cur->bb) != 0 ||
-                              fname->compare(*bb_cur->function) != 0))
-      bb_cur = bb_cur->next;
-
-    if (bb_cur != NULL) {  // predecessor has a cur_loc
-
-      for (i = 0; i < id_cnt && tmp_found == 0; i++)
-        if (id_info[i].bb->compare(bbname) == 0 &&
-            id_info[i].function->compare(*fname) == 0)
-          tmp_found = 1;
-      if (tmp_found == 0) {
-
-        if (debug)
-          SAYF(cMGN "[D] " cRST "predecessor %s of %s has id %u\n",
-               bbname.c_str(), fname->c_str(), bb_cur->id);
-        id_info[id_cnt].bb = new std::string(bbname);
-        id_info[id_cnt].function = fname;
-        id_list[id_cnt++] = bb_cur->id;
-
-      }
-
-    } else {  // this predecessor was not instrumented yet
-
-      tmp_loc = reverseBits(global_cur_loc++);
-
-      /*
-            int tmp_coll = 0, loop_cnt = 0;
-            while (tmp_found == 0) {
-
-              // BUG: this is a potential source of collision.
-              // we might randomly select the same ID here that is then found
-              // in a different predecessor for the same target BB afterwards!
-              tmp_loc = AFL_R(MAP_SIZE);
-              loop_cnt++;
-              for (i = 0; i < id_cnt; i++)  // may not be in the current list
-                if (id_list[i] == tmp_loc) continue;
-              // if avoidable it should not be assigned elsewhere
-              if (ids[tmp_loc] <= tmp_coll) {
-
-                tmp_found = 1;
-
-              } else if (loop_cnt >= (MAP_SIZE << 2)) {
-
-                loop_cnt = 0;
-                tmp_coll++;
-
-              }
-
-            }
-
-      */
-
-      if ((bb_cur = (struct bb_id *)malloc(sizeof(struct bb_id))) == NULL)
-        PFATAL("malloc");
-      bb_cur->bb = new std::string(bbname);
-      bb_cur->function = fname;
-      bb_cur->id = tmp_loc;
-      bb_cur->next = bb_list;
-      bb_list = bb_cur;
-      if (debug)
-        SAYF(cMGN
-             "[D] " cRST
-             "predecessor %s of %s does not have an ID yet, assigning %u\n",
-             bbname.c_str(), fname->c_str(), tmp_loc);
-      // ids[tmp_loc]++;
-      id_info[id_cnt].bb = new std::string(bbname);
-      id_info[id_cnt].function = fname;
-      id_list[id_cnt++] = bb_cur->id;
-
-    }
-
-  }
-
-  // Recurseivly walk previous basic blocks until every path has been
-  // followed and their location ID gathered.
-  void addPredLocIDs(Function &F, std::string *fname, BasicBlock &BB) {
-
-    for (BasicBlock *Pred : predecessors(&BB))
-      if (Pred != NULL) {
-
-        std::string pred_name = getSimpleNodeLabel(Pred, &F);
-
-        if (shouldBeInstrumented(*Pred) == false) {
-
-          if (debug)
-            SAYF(cMGN "[D] " cRST
-                      "predecessor %s is not instrumented, digging deeper\n",
-                 pred_name.c_str());
-          addPredLocIDs(F, fname, *Pred);
-          continue;
-
-        }
-
-        getOrAddNew(fname, pred_name);
-
-      }
-
-  }
-
   // We skip over blacklisted functions. Obvously.
   bool isBlacklisted(const Function *F) {
 
@@ -368,8 +240,8 @@ class AFLLTOPass : public ModulePass {
 
  protected:
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, id_cnt = 0, debug = 0,
-           entrypoints = 0, warn = 0, best_coll = 0xffffffff;
-  uint32_t cur_loc, inst_ratio = 100, global_cur_loc, total_instr, selected = 0;
+           entrypoints = 0, warn = 0, best_coll = 0xffffffff, inst_ratio = 100,
+           global_cur_loc, total_instr, selected = 0;
   unsigned long long int edges = 0, collisions = 0, my_edges = 0,
                          cnt_callsites = 0;
   bool            id_strategy = true, assign_strategy = true;
@@ -377,323 +249,10 @@ class AFLLTOPass : public ModulePass {
   IntegerType *   Int32Ty;
   unsigned char   map[MAP_SIZE];
   uint32_t        id_list[MAX_ID_CNT];
-  id_id           id_info[MAX_ID_CNT];
-  bb_id *         bb_list;
-  char *          inst_ratio_str = NULL, *neverZero_counters_str = NULL;
+  char **         neverZero_counters_str = NULL;
   GlobalVariable *AFLMapPtr, *AFLPrevLoc;
 
-  void handleFunction(Module &M, Function &F) {
-
-    if (!F.size()) return;
-
-    if (isBlacklisted(&F)) return;
-
-    if (debug)
-      SAYF(cMGN "[D] " cRST "Working on function %s\n",
-           F.getName().str().c_str());
-    inst_funcs++;
-
-    LLVMContext &C = M.getContext();
-    char         is_first_bb = 1;
-
-    for (auto &BB : F) {
-
-      std::string *        fname = new std::string(F.getName().str());
-      BasicBlock::iterator IP = BB.getFirstInsertionPt();
-      IRBuilder<>          IRB(&(*IP));
-      int found_tmp = 0, max_collisions = 0, cnt_coll = 0, already_exists = 0,
-          i;
-      std::string bb_name = getSimpleNodeLabel(&BB, &F);
-
-      if (debug) SAYF(cMGN "[D] " cRST "bb name is %s\n", bb_name.c_str());
-
-      if (AFL_R(100) > inst_ratio) continue;
-
-      for (i = 0; i < id_cnt; i++)  // clean up previous run
-        delete id_info[i].bb;
-
-      cur_loc = 0, id_cnt = 0, cnt_coll = 0;
-      memset((char *)id_list, 0, sizeof(id_list));
-
-      if (is_first_bb) {
-
-        unsigned int found_callsites = 0, processed_callsites = 0;
-        is_first_bb = 0;
-        if (debug)
-          SAYF(cMGN "[D] " cRST "bb %s is the first in the function\n",
-               bb_name.c_str());
-
-        // Lets try to get the call sites and setup initial the loc_id
-        // BUG: this can go wrong:
-        //  a) if this is not the entry bb for the function
-        //  b) if there are multiple entry bbs in this function
-        for (auto *U : F.users()) {
-
-          CallSite CS(U);
-          found_callsites++;
-          auto *I = CS.getInstruction();
-
-          if (I) {
-
-            Value *   called = CS.getCalledValue()->stripPointerCasts();
-            Function *f = dyn_cast<Function>(called);
-
-            if (f->getName().compare(F.getName()) == 0) {
-
-              Function *prev_function =
-                  cast<CallInst>(I)->getParent()->getParent();
-              BasicBlock *prev_bb = cast<CallInst>(I)->getParent();
-              std::string prev_bb_name =
-                  getSimpleNodeLabel(prev_bb, prev_function);
-              std::string *prev_fname =
-                  new std::string(prev_function->getName().str());
-
-              if (debug)
-                SAYF(cMGN "[D] " cRST "callsite #%d: %s -> %s\n",
-                     found_callsites, prev_fname->c_str(),
-                     prev_bb_name.c_str());
-
-              if (isBlacklisted(prev_function)) continue;
-
-              if (shouldBeInstrumented(*prev_bb) == false) {
-
-                if (debug)
-                  SAYF(cMGN
-                       "[D] " cRST
-                       "callsite is not to be instrumented, digging deeper\n");
-                addPredLocIDs(*prev_function, prev_fname, *prev_bb);
-
-              } else {
-
-                if (debug) SAYF(cMGN "[D] " cRST "adding callsite\n");
-                getOrAddNew(prev_fname, prev_bb_name);
-
-              }
-
-              processed_callsites++;
-
-            }
-
-          }
-
-        }
-
-        if (debug)
-          SAYF(cMGN "[D] " cRST "%d callsites found, %d processed\n",
-               found_callsites, processed_callsites);
-
-      } else {
-
-        // only instrument if this basic block is the destination of a previous
-        // basic block that has multiple successors
-        // this gets rid of ~5-10% of instrumentations that are unnecessary
-        // result: a little more speed and less map pollution
-
-        if (shouldBeInstrumented(BB) == false) {
-
-          if (debug)
-            SAYF(cMGN "[D] " cRST "bb %s will NOT be instrumented\n",
-                 bb_name.c_str());
-          continue;
-
-        } else {
-
-          if (debug)
-            SAYF(cMGN "[D] " cRST "bb %s will be instrumented\n",
-                 bb_name.c_str());
-
-        }
-
-        // so we want to instrument this basic block, so we have to find all
-        // previous basic blocks that have an ID, jumping over those
-        // that were ignored due the previous step. tedious but necessary.
-
-        addPredLocIDs(F, fname, BB);
-
-      }
-
-      if (id_cnt > 1) {  // Debugging test: check for duplicates
-
-        edges += id_cnt;  // we count the edges for statistics
-
-        if (debug)
-          for (int i = 0; i < id_cnt - 1; i++)
-            for (int j = i + 1; j < id_cnt; j++)
-              if (id_list[i] == id_list[j])
-                SAYF(cMGN
-                     "[D] "
-                     "!!! duplicate IDs ... :-( %d:%u == %d:%u\n",
-                     i, id_list[i], j, id_list[j]);
-
-      }
-
-      if (debug) SAYF(cMGN "[D] " cRST "found %d predecessor IDs\n", id_cnt);
-
-      // now for the loc_id of this BB:
-      // maybe this BB already got an loc_id preassigned?
-      bb_id *bb_cur = bb_list;
-      found_tmp = 0;
-
-      while (bb_cur != NULL && found_tmp == 0) {
-
-        if (bb_name.compare(*bb_cur->bb) == 0 &&
-            fname->compare(*bb_cur->function) == 0)
-          found_tmp = 1;
-        else
-          bb_cur = bb_cur->next;
-
-      }
-
-      if (found_tmp) {  // BUG: ID was already assigned (potential COLLISION!)
-
-        cur_loc = bb_cur->id;
-        already_exists = 1;
-        cnt_coll = 0;
-
-        for (int i = 0; i < id_cnt && cnt_coll <= max_collisions; i++)
-          if (map[cur_loc ^ (id_list[i] >> 1)] > 0) cnt_coll++;
-
-        if (debug)
-          SAYF(cMGN "[D] " cRST
-                    "bb %s got preassigned %u (%u collisions, %u prevIDs)\n",
-               bb_name.c_str(), cur_loc, cnt_coll, id_cnt);
-
-      } else {  // nope we are free to choose
-
-        if (id_cnt == 0) {  // uh nothing before ???
-
-          cur_loc = reverseBits(global_cur_loc++);
-
-        } else {  // we have predecessors :)
-
-          found_tmp = 0;
-          max_collisions = 0;
-
-          while (found_tmp == 0) {
-
-            unsigned int loop_cnt = 0;
-
-            while (found_tmp == 0 && loop_cnt < (MAP_SIZE << 2) + 1) {
-
-              cur_loc = reverseBits(global_cur_loc++);
-              cnt_coll = 0;
-              loop_cnt++;
-
-              for (int i = 0; i < id_cnt && cnt_coll <= max_collisions; i++) {
-
-                if ((cur_loc ^ (id_list[i] >> 1)) ==
-                    0)  // map[0] as last resort
-                  cnt_coll++;
-                if (map[cur_loc ^ (id_list[i] >> 1)] > 0) cnt_coll++;
-
-              }
-
-              if (cnt_coll <= max_collisions) {
-
-                found_tmp = 1;
-                break;
-
-              }
-
-            }
-
-            if (found_tmp == 0) max_collisions++;
-
-          }                                                      /* while() */
-
-        }                                                    /* id_cnt != 0 */
-
-        // add the new cur_loc to the linked list
-        if ((bb_cur = (struct bb_id *)malloc(sizeof(struct bb_id))) == NULL)
-          PFATAL("malloc");
-        bb_cur->bb = new std::string(bb_name);
-        bb_cur->function = fname;
-        bb_cur->id = cur_loc;
-        bb_cur->next = bb_list;
-        bb_list = bb_cur;
-        // ids[cur_loc]++;
-        if (debug)
-          SAYF(cMGN "[D] " cRST
-                    "bb %s got assigned %u (%u collisions, %u prevID)\n",
-               bb_name.c_str(), cur_loc, cnt_coll, id_cnt);
-
-      }                                                   /* else found_tmp */
-
-      // document all new edges in the map
-      cnt_coll = 0;
-      for (int i = 0; i < id_cnt; i++) {
-
-        if (map[cur_loc ^ (id_list[i] >> 1)]++) cnt_coll++;
-        if (debug)
-          SAYF(cMGN "[D] " cRST "setting map[%u ^ (%u >> 1)] = map[%u] = %u\n",
-               cur_loc, id_list[i], cur_loc ^ (id_list[i] >> 1),
-               map[cur_loc ^ (id_list[i] >> 1)]);
-
-      }
-
-      collisions += cnt_coll;  // count collisions
-
-      /*
-       * And *finally* we do the instrumentation!
-       *
-       */
-
-      /* set cur_loc */
-
-      ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
-
-      /* Load prev_loc */
-
-      LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
-      PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
-
-      /* Load SHM pointer */
-
-      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-      MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *MapPtrIdx =
-          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
-
-      /* Update bitmap */
-
-      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
-
-#if LLVM_VERSION_MAJOR < 9
-      // with llvm 9 we make this the default as the bug in llvm is then fixed
-      if (neverZero_counters_str != NULL) {
-
-#endif
-        // this is the solution we choose because llvm9 should do the right
-        // thing here
-        auto cf = IRB.CreateICmpEQ(Incr, ConstantInt::get(Int8Ty, 0));
-        auto carry = IRB.CreateZExt(cf, Int8Ty);
-        Incr = IRB.CreateAdd(Incr, carry);
-#if LLVM_VERSION_MAJOR < 9
-
-      }
-
-#endif
-
-      IRB.CreateStore(Incr, MapPtrIdx)
-          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-      /* Set prev_loc to cur_loc >> 1 */
-
-      StoreInst *Store =
-          IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
-      Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-      inst_blocks++;
-
-    }
-
-  }
-
-  /*************************************************************************/
+  // Helper functions
 
   void printDebugLocation(BasicBlock *BB, uint32_t loc) {
 
@@ -1660,8 +1219,6 @@ class AFLLTOPass : public ModulePass {
     uint32_t curr_coll = 0, iteration = 0, i, recoll;
     time_t   before, after, stage3_start = time(NULL);
 
-    debug = 1;
-
     if (InsBlocks.size() < 2)  // nothing to instrument
       return 0;
 
@@ -1828,7 +1385,7 @@ class AFLLTOPass : public ModulePass {
 
       }
 
-      // if (best_coll == 0) break; // TODO FIXME
+      if (debug == 0 && best_coll == 0) break;
 
     }
 
