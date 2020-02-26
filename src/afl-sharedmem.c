@@ -146,7 +146,7 @@ void setup_shm(unsigned char dumb_mode) {
 
   trace_bits = g_shm_base;
 
-  if (!trace_bits) PFATAL("mmap() failed");
+  if (trace_bits == -1 || !trace_bits) PFATAL("mmap() failed");
 
 #else
   u8 *shm_str;
