@@ -1024,6 +1024,7 @@ int main(int argc, char** argv, char** envp) {
       if (most_time * 1000 < cur_ms_lv - start_time) {
 
         most_time_key = 2;
+        stop_soon = 2;
         break;
 
       }
@@ -1035,6 +1036,7 @@ int main(int argc, char** argv, char** envp) {
       if (most_execs <= total_execs) {
 
         most_execs_key = 2;
+        stop_soon = 2;
         break;
 
       }
