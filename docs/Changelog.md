@@ -11,7 +11,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++2.61d (develop):
 
-  - ...
+  - Important fix for memory allocation functions that result in afl-fuzz
+    not identifying crashes - UPDATE!
+  - Small fix for -E/-V to release the CPU
+  - CmpLog does not need sancov anymore
 
 
 ### Version ++2.61c (release):
