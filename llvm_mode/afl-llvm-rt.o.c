@@ -260,7 +260,8 @@ static void __afl_start_forkserver(void) {
 
 }
 
-/* A simplified persistent mode handler, used as explained in llvm_mode/README.md. */
+/* A simplified persistent mode handler, used as explained in
+ * llvm_mode/README.md. */
 
 int __afl_persistent_loop(unsigned int max_cnt) {
 
