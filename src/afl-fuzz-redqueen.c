@@ -118,8 +118,8 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
   stage_max = 1000;
 
   struct range* rng;
-  stage_cur = stage_max;
-  while ((rng = pop_biggest_range(&ranges)) != NULL && stage_cur) {
+  stage_cur = 0;
+  while ((rng = pop_biggest_range(&ranges)) != NULL && stage_cur < stage_max) {
 
     u32 s = rng->end - rng->start;
     if (s == 0) goto empty_range;
@@ -142,15 +142,15 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
 
   empty_range:
     ck_free(rng);
-    --stage_cur;
+    ++stage_cur;
 
   }
 
-  if (stage_cur) queue_cur->fully_colorized = 1;
+  if (stage_cur < stage_max) queue_cur->fully_colorized = 1;
 
   new_hit_cnt = queued_paths + unique_crashes;
   stage_finds[STAGE_COLORIZATION] += new_hit_cnt - orig_hit_cnt;
-  stage_cycles[STAGE_COLORIZATION] += stage_max - stage_cur;
+  stage_cycles[STAGE_COLORIZATION] += stage_cur;
   ck_free(backup);
 
   while (ranges) {

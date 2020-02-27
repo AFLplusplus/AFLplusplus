@@ -201,49 +201,58 @@ static void edit_params(u32 argc, char** argv) {
 
   if (cmplog_mode) {
 
-    cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard,trace-cmp";
-
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] =
         alloc_printf("%s/cmplog-routines-pass.so", obj_path);
-
+    
+    // reuse split switches from laf
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] = "-load";
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] =
+        alloc_printf("%s/split-switches-pass.so", obj_path);
+    
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] = "-load";
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] =
+        alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
+        
     cc_params[cc_par_cnt++] = "-fno-inline";
 
-  } else {
+  }
 
 #ifdef USE_TRACE_PC
 
+  cc_params[cc_par_cnt++] =
+      "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
+  // cc_params[cc_par_cnt++] = "-mllvm";
+  // cc_params[cc_par_cnt++] =
+  // "-fsanitize-coverage=trace-cmp,trace-div,trace-gep";
+  // cc_params[cc_par_cnt++] = "-sanitizer-coverage-block-threshold=0";
+#else
+  if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
+      getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
+
     cc_params[cc_par_cnt++] =
         "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
-    // cc_params[cc_par_cnt++] = "-mllvm";
-    // cc_params[cc_par_cnt++] =
-    // "-fsanitize-coverage=trace-cmp,trace-div,trace-gep";
-    // cc_params[cc_par_cnt++] = "-sanitizer-coverage-block-threshold=0";
-#else
-    if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
-        getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
 
+  } else {
+
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] = "-load";
+    cc_params[cc_par_cnt++] = "-Xclang";
+    if (getenv("AFL_LLVM_INSTRIM") != NULL || getenv("INSTRIM_LIB") != NULL)
       cc_params[cc_par_cnt++] =
-          "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
-
-    } else {
-
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      if (getenv("AFL_LLVM_INSTRIM") != NULL || getenv("INSTRIM_LIB") != NULL)
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/libLLVMInsTrim.so", obj_path);
-      else
-        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
-
-    }
-
-#endif                                                     /* ^USE_TRACE_PC */
+          alloc_printf("%s/libLLVMInsTrim.so", obj_path);
+    else
+      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
 
   }
+
+#endif                                                     /* ^USE_TRACE_PC */
 
   cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
