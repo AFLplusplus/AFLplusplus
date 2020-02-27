@@ -206,20 +206,20 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] =
         alloc_printf("%s/cmplog-routines-pass.so", obj_path);
-    
+
     // reuse split switches from laf
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] =
         alloc_printf("%s/split-switches-pass.so", obj_path);
-    
+
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] =
         alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
-        
+
     cc_params[cc_par_cnt++] = "-fno-inline";
 
   }
@@ -245,8 +245,7 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
     if (getenv("AFL_LLVM_INSTRIM") != NULL || getenv("INSTRIM_LIB") != NULL)
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/libLLVMInsTrim.so", obj_path);
+      cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
     else
       cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
 

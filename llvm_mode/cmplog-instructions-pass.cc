@@ -105,14 +105,14 @@ char CmpLogInstructions::ID = 0;
 bool CmpLogInstructions::hookInstrs(Module &M) {
 
   std::vector<Instruction *> icomps;
-  LLVMContext &           C = M.getContext();
+  LLVMContext &              C = M.getContext();
 
   Type *       VoidTy = Type::getVoidTy(C);
-  IntegerType *           Int8Ty = IntegerType::getInt8Ty(C);
-  IntegerType *           Int16Ty = IntegerType::getInt16Ty(C);
-  IntegerType *           Int32Ty = IntegerType::getInt32Ty(C);
-  IntegerType *           Int64Ty = IntegerType::getInt64Ty(C);
-  
+  IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
+  IntegerType *Int16Ty = IntegerType::getInt16Ty(C);
+  IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
+  IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
+
 #if LLVM_VERSION_MAJOR < 9
   Constant *
 #else
@@ -120,8 +120,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 #endif
       c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy, Int8Ty, Int8Ty
 #if LLVM_VERSION_MAJOR < 5
-                                ,
-                                NULL
+                                 ,
+                                 NULL
 #endif
       );
 #if LLVM_VERSION_MAJOR < 9
@@ -137,8 +137,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 #endif
       c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy, Int16Ty, Int16Ty
 #if LLVM_VERSION_MAJOR < 5
-                                ,
-                                NULL
+                                 ,
+                                 NULL
 #endif
       );
 #if LLVM_VERSION_MAJOR < 9
@@ -154,8 +154,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 #endif
       c4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy, Int32Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
-                                ,
-                                NULL
+                                 ,
+                                 NULL
 #endif
       );
 #if LLVM_VERSION_MAJOR < 9
@@ -171,8 +171,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 #endif
       c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy, Int64Ty, Int64Ty
 #if LLVM_VERSION_MAJOR < 5
-                                ,
-                                NULL
+                                 ,
+                                 NULL
 #endif
       );
 #if LLVM_VERSION_MAJOR < 9
@@ -339,29 +339,32 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   errs() << "Hooking " << icomps.size() << " cmp instructions\n";
 
   for (auto &selectcmpInst : icomps) {
-  
+
     IRBuilder<> IRB(selectcmpInst->getParent());
     IRB.SetInsertPoint(selectcmpInst);
 
     auto op0 = selectcmpInst->getOperand(0);
     auto op1 = selectcmpInst->getOperand(1);
-    
+
     IntegerType *intTyOp0 = dyn_cast<IntegerType>(op0->getType());
     IntegerType *intTyOp1 = dyn_cast<IntegerType>(op1->getType());
 
-    unsigned max_size = intTyOp0->getBitWidth() > intTyOp1->getBitWidth() ?
-                        intTyOp0->getBitWidth() : intTyOp1->getBitWidth();
+    unsigned max_size = intTyOp0->getBitWidth() > intTyOp1->getBitWidth()
+                            ? intTyOp0->getBitWidth()
+                            : intTyOp1->getBitWidth();
 
     std::vector<Value *> args;
     args.push_back(op0);
     args.push_back(op1);
 
     switch (max_size) {
+
       case 8: IRB.CreateCall(cmplogHookIns1, args, "tmp"); break;
       case 16: IRB.CreateCall(cmplogHookIns2, args, "tmp"); break;
       case 32: IRB.CreateCall(cmplogHookIns4, args, "tmp"); break;
       case 64: IRB.CreateCall(cmplogHookIns8, args, "tmp"); break;
       default: break;
+
     }
 
   }
@@ -383,7 +386,7 @@ bool CmpLogInstructions::runOnModule(Module &M) {
 }
 
 static void registerCmpLogInstructionsPass(const PassManagerBuilder &,
-                                       legacy::PassManagerBase &PM) {
+                                           legacy::PassManagerBase &PM) {
 
   auto p = new CmpLogInstructions();
   PM.add(p);
