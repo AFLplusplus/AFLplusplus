@@ -32,6 +32,13 @@ on Redqueen, the Radamsa mutator, the Custom mutator (the user can define
 its own mutator) and the work is to generalize MOpt for all the current
 and future mutators.
 
+## perf-fuzz Linux Kernel Module
+
+Port the parts of the Linux Kernel modified by [perf-fuzz](https://gts3.org/assets/papers/2017/xu:os-fuzz.pdf) in a LKM.
+Or reimplement it from scratch.
+
+This enable snapshot fuzzing on Linux with an incredible performance.
+
 ## QEMU 4-based Instrumentation
 
 First tests to use QEMU 4 for binary-only AFL++ showed that caching behavior
