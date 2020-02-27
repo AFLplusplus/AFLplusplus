@@ -40,6 +40,11 @@
 
 #define USE_COLOR
 
+/* If you want to have the original afl internal memory corruption checks.
+   Disabled by default for speed. it is better to use "make ASAN_BUILD=1". */
+
+//#define _WANT_ORIGINAL_AFL_ALLOC
+
 /* Comment out to disable fancy ANSI boxes and use poor man's 7-bit UI: */
 
 #ifndef ANDROID_DISABLE_FANCY  // Fancy boxes are ugly from adb
