@@ -10,8 +10,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.62d (developt):
-
-  - ... your patch? :-)
+  - qemu_mode now uses solely the internal capstone version to fix builds
+    on modern Linux distributions
+  - more tools get environment variable usage info in the help output
 
 
 ### Version ++2.62c (release):
