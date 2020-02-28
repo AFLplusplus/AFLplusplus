@@ -177,7 +177,7 @@ if [ "$STATIC" = "1" ]; then
 	  --disable-sdl --disable-seccomp --disable-smartcard --disable-snappy --disable-spice --disable-libssh2 \
 	  --disable-libusb --disable-usb-redir --disable-vde --disable-vhost-net --disable-virglrenderer \
 	  --disable-virtfs --disable-vnc --disable-vte --disable-xen --disable-xen-pci-passthrough --disable-xfsctl \
-	  --enable-linux-user --disable-system --disable-blobs --disable-tools \
+	  --enable-linux-user --disable-system --disable-blobs --disable-tools --enable-capstone=internal \
 	  --target-list="${CPU_TARGET}-linux-user" --static --disable-pie --cross-prefix=$CROSS_PREFIX || exit 1
 
 else
@@ -186,7 +186,7 @@ else
   # improvement, much to my surprise. Not sure how universal this is..
   
   ./configure --disable-system \
-    --enable-linux-user --disable-gtk --disable-sdl --disable-vnc \
+    --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --enable-capstone=internal \
     --target-list="${CPU_TARGET}-linux-user" --enable-pie $CROSS_PREFIX || exit 1
 
 fi

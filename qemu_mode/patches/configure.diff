@@ -1,12 +1,18 @@
-diff --git a/configure b/configure
-index 1c9f609..3edc9a7 100755
---- a/configure
-+++ b/configure
-@@ -4603,6 +4603,21 @@ if test "$darwin" != "yes" -a "$mingw32" != "yes" -a "$solaris" != yes -a \
-     libs_softmmu="-lutil $libs_softmmu"
+--- a/configure	2019-08-02 18:04:50.000000000 +0200
++++ b/configure	2020-02-28 06:31:30.424895061 +0100
+@@ -1479,6 +1479,8 @@
+   ;;
+   --enable-capstone=system) capstone="system"
+   ;;
++  --enable-capstone=internal) capstone="internal"
++  ;;
+   --with-git=*) git="$optarg"
+   ;;
+   --enable-git-update) git_update=yes
+@@ -4604,6 +4606,21 @@
  fi
  
-+##########################################
+ ##########################################
 +cat > $TMPC << EOF
 +#include <dlfcn.h>
 +#include <stdlib.h>
@@ -21,6 +27,7 @@ index 1c9f609..3edc9a7 100755
 +  error_exit "libdl check failed"
 +fi
 +
- ##########################################
++##########################################
  # spice probe
  if test "$spice" != "no" ; then
+   cat > $TMPC << EOF
