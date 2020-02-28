@@ -153,6 +153,7 @@ These build options exist:
 * STATIC - compile AFL++ static
 * ASAN_BUILD - compiles with memory sanitizer for debug purposes
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
+* LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)
 
 e.g.: make ASAN_BUILD=1
 
