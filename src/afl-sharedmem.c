@@ -189,10 +189,15 @@ void setup_shm(unsigned char dumb_mode) {
 
   trace_bits = shmat(shm_id, NULL, 0);
 
-  if (cmplog_mode) cmp_map = shmat(cmplog_shm_id, NULL, 0);
+  if (trace_bits == (void *)-1 || !trace_bits) PFATAL("shmat() failed");
 
-  if (trace_bits == -1 || !trace_bits || cmp_map == -1 || !cmp_map)
-    PFATAL("shmat() failed");
+  if (cmplog_mode) {
+
+    cmp_map = shmat(cmplog_shm_id, NULL, 0);
+
+    if (cmp_map == (void *)-1 || !cmp_map) PFATAL("shmat() failed");
+
+  }
 
 #endif
 
