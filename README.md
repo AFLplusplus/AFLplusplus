@@ -105,6 +105,9 @@ something cool
 
 We have an idea list in [docs/ideas.md](docs/ideas.md)
 
+For everyone who wants to contribute (and send pull requests) please read
+[CONTRIBUTING.md](CONTRIBUTING.md) before your submit.
+
 ## 0) Building and installing afl++
 
 afl++ has many build options.
