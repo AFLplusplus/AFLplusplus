@@ -82,7 +82,7 @@ static void find_obj(u8* argv0) {
     *slash = '/';
 
 #ifdef __ANDROID__
-    tmp = alloc_printf("%s/afl-llvm-rt.so", afl_path);
+    tmp = alloc_printf("%s/afl-llvm-rt.so", dir);
 #else
     tmp = alloc_printf("%s/afl-llvm-rt.o", dir);
 #endif
@@ -114,7 +114,7 @@ static void find_obj(u8* argv0) {
   }
 
   FATAL(
-      "Unable to find 'afl-llvm-rt.o' or 'afl-llvm-pass.so.cc'. Please set "
+      "Unable to find 'afl-llvm-rt.o' or 'afl-llvm-pass.so'. Please set "
       "AFL_PATH");
 
 }
@@ -491,12 +491,40 @@ int main(int argc, char** argv, char** envp) {
         "an LLVM pass and tends to offer improved performance with slow "
         "programs.\n\n"
 
-        "You can specify custom next-stage toolchain via AFL_CC and AFL_CXX. "
-        "Setting\n"
-        "AFL_HARDEN enables hardening optimizations in the compiled code.\n\n"
-        "afl-clang-fast was built for llvm %s with the llvm binary path of "
-        "\"%s\".\n\n",
-        BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
+        "Environment variables used:\n"
+        "AFL_CC: path to the C compiler to use\n"
+        "AFL_CXX: path to the C++ compiler to use\n"
+        "AFL_PATH: path to instrumenting pass and runtime (afl-llvm-rt.*o)\n"
+        "AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
+        "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
+        "AFL_INST_RATIO: percentage of branches to instrument\n"
+        "AFL_QUIET: suppress verbose output\n"
+        "AFL_DEBUG: enable developer debugging output\n"
+        "AFL_HARDEN: adds code hardening to catch memory bugs\n"
+        "AFL_USE_ASAN: activate address sanitizer\n"
+        "AFL_USE_MSAN: activate memory sanitizer\n"
+        "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+        "AFL_LLVM_WHITELIST: enable whitelisting (selective instrumentation)\n"
+        "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+
+        "AFL_USE_TRACE_PC, USE_TRACE_PC, AFL_LLVM_USE_TRACE_PC, AFL_TRACE_PC: \n"
+        "  use LLVM trace-pc-guard instrumentation\n"
+
+        "AFL_LLVM_LAF_SPLIT_COMPARES, LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
+        "AFL_LLVM_LAF_SPLIT_SWITCHES, LAF_SPLIT_SWITCHES: casc. comp. in 'switch'\n"
+        "AFL_LLVM_LAF_TRANSFORM_COMPARES, LAF_TRANSFORM_COMPARES:\n"
+        "  transform library comparison function calls to cascaded comparisons\n"
+        "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to cascaded comp.\n"
+        "AFL_LLVM_LAF_SPLIT_COMPARES_BITW, LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
+
+        "AFL_LLVM_INSTRIM, INSTRIM_LIB: use light weight instrumentation InsTrim\n"
+        "AFL_LLVM_INSTRIM_LOOPHEAD, LOOPHEAD: optimize loop tracing for speed\n"
+
+        "AFL_CMPLOG, AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
+
+        "\nafl-clang-fast was built for llvm %s with the llvm binary path of "
+        "\"%s\".\n\n"
+        , BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
 
     exit(1);
 

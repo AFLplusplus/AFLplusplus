@@ -371,7 +371,7 @@ int main(int argc, char** argv) {
 
     printf("afl-cc" VERSION " by Michal Zalewski\n\n");
     printf("%s \n\n", argv[0]);
-    printf("afl-gcc has no command line options\n\n%s", env_info);
+    printf("afl-gcc has no command line options\n\n%s\n", env_info);
     printf(
         "NOTE: afl-gcc is deprecated, llvm_mode is much faster and has more "
         "options\n");
@@ -402,12 +402,7 @@ int main(int argc, char** argv) {
         "following:\n\n"
 
         "  CC=%s/afl-gcc ./configure\n"
-        "  CXX=%s/afl-g++ ./configure\n\n"
-
-        "You can specify custom next-stage toolchain via AFL_CC, AFL_CXX, and "
-        "AFL_AS.\n"
-        "Setting AFL_HARDEN enables hardening optimizations in the compiled "
-        "code.\n\n%s"
+        "  CXX=%s/afl-g++ ./configure\n\n%s"
 
         ,
         BIN_PATH, BIN_PATH, env_info);
