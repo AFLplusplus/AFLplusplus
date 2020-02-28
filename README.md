@@ -326,6 +326,11 @@ Here are some good writeups to show how to effectibly use AFL++:
  * [https://bananamafia.dev/post/gb-fuzz/](https://bananamafia.dev/post/gb-fuzz/)
  * [https://securitylab.github.com/research/fuzzing-challenges-solutions-1](https://securitylab.github.com/research/fuzzing-challenges-solutions-1)
 
+If you are interested in fuzzing structured data (where you define what the
+structure is), these two links have you covered:
+ * [https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator](https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator)
+ * [https://github.com/thebabush/afl-libprotobuf-mutator](https://github.com/thebabush/afl-libprotobuf-mutator)
+
 If you find other good ones, please send them to us :-)
 
 ## 6) Power schedules
