@@ -46,7 +46,7 @@ Or write your worn LKM from scratch to do this.
 The perf-fuzz kernel can be found at [https://github.com/sslab-gatech/perf-fuzz](https://github.com/sslab-gatech/perf-fuzz)
 There also is/was a FreeBSD project at [https://github.com/veracode-research/freebsd-perf-fuzz](https://github.com/veracode-research/freebsd-perf-fuzz)
 
-This enable snapshot fuzzing on Linux with an incredible performance!
+This enables snapshot fuzzing on Linux with an incredible performance!
 
 Mentor: any
 
