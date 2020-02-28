@@ -9,6 +9,11 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++2.62d (developt):
+
+  - ... your patch? :-)
+
+
 ### Version ++2.62c (release):
 
   - Important fix for memory allocation functions that result in afl-fuzz
