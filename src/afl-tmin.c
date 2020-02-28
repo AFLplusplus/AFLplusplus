@@ -903,9 +903,9 @@ static void set_up_environment(void) {
       }
 
       if (qemu_preload)
-        buf = alloc_printf("%s,LD_PRELOAD=%s", qemu_preload, afl_preload);
+        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s", qemu_preload, afl_preload, afl_preload);
       else
-        buf = alloc_printf("LD_PRELOAD=%s", afl_preload);
+        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s", afl_preload, afl_preload);
 
       setenv("QEMU_SET_ENV", buf, 1);
 
@@ -985,7 +985,7 @@ static void usage(u8* argv0) {
       "              (must contain abort_on_error=1 and symbolize=0)\n"
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
-      "AFL_PRELOAD: LD_PRELOAD settings for target\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TMIN_EXACT: require execution paths to match for crashing inputs\n"
 
       , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
