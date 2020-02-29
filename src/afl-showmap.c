@@ -72,7 +72,7 @@ s32 dev_null_fd = -1;                  /* FD to /dev/null                   */
 
 s32   out_fd = -1, out_dir_fd = -1, dev_urandom_fd = -1;
 FILE* plot_file;
-u8    uses_asan;
+u8    uses_asan, be_quiet;
 
 u8* trace_bits;                        /* SHM with instrumentation bitmap   */
 
@@ -173,8 +173,8 @@ static u32 write_results_to_file(u8* out_file) {
   s32 fd;
   u32 i, ret = 0;
 
-  u8 cco = !!getenv("AFL_CMIN_CRASHES_ONLY"),
-     caa = !!getenv("AFL_CMIN_ALLOW_ANY");
+  u8 cco = !!get_afl_env("AFL_CMIN_CRASHES_ONLY"),
+     caa = !!get_afl_env("AFL_CMIN_ALLOW_ANY");
 
   if (!strncmp(out_file, "/dev/", 5)) {
 
@@ -541,7 +541,7 @@ static void set_up_environment(void) {
                          "allocator_may_return_null=1:"
                          "msan_track_origins=0", 0);
 
-  if (getenv("AFL_PRELOAD")) {
+  if (get_afl_env("AFL_PRELOAD")) {
 
     if (qemu_mode) {
 
@@ -955,7 +955,7 @@ int main(int argc, char** argv, char** envp) {
 
     if (access(use_dir, R_OK | W_OK | X_OK)) {
 
-      use_dir = getenv("TMPDIR");
+      use_dir = get_afl_env("TMPDIR");
       if (!use_dir) use_dir = "/tmp";
 
     }
@@ -968,7 +968,7 @@ int main(int argc, char** argv, char** envp) {
 
     if (arg_offset) argv[arg_offset] = stdin_file;
 
-    if (getenv("AFL_DEBUG")) {
+    if (get_afl_env("AFL_DEBUG")) {
 
       int i = optind;
       SAYF(cMGN "[D]" cRST " %s:", target_path);

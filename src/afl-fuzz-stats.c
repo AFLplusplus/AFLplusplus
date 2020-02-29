@@ -267,10 +267,10 @@ void show_stats(void) {
   /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
 
   if (!dumb_mode && cycles_wo_finds > 100 && !pending_not_fuzzed &&
-      getenv("AFL_EXIT_WHEN_DONE"))
+      get_afl_env("AFL_EXIT_WHEN_DONE"))
     stop_soon = 2;
 
-  if (total_crashes && getenv("AFL_BENCH_UNTIL_CRASH")) stop_soon = 2;
+  if (total_crashes && get_afl_env("AFL_BENCH_UNTIL_CRASH")) stop_soon = 2;
 
   /* If we're not on TTY, bail out. */
 
@@ -829,7 +829,7 @@ void show_init_stats(void) {
   /* In dumb mode, re-running every timing out test case with a generous time
      limit is very expensive, so let's select a more conservative default. */
 
-  if (dumb_mode && !getenv("AFL_HANG_TMOUT"))
+  if (dumb_mode && !get_afl_env("AFL_HANG_TMOUT"))
     hang_tmout = MIN(EXEC_TIMEOUT, exec_tmout * 2 + 100);
 
   OKF("All set and ready to roll!");

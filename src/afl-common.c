@@ -38,6 +38,7 @@
 
 u8*       target_path;                  /* Path to target binary            */
 extern u8 use_stdin;
+extern u8 be_quiet;
 
 void detect_file_args(char** argv, u8* prog_in) {
 
@@ -310,6 +311,18 @@ void check_environment_vars(char** envp) {
   }
 
   if (found) sleep(2);
+
+}
+
+char* get_afl_env(char* env) {
+
+  char* val;
+
+  if ((val = getenv(env)) != NULL)
+    if (!be_quiet)
+      OKF("Loaded environment variable %s with value %s\n", env, val);
+
+  return val;
 
 }
 
