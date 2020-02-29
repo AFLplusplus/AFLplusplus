@@ -90,7 +90,7 @@ if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
   TARCMD=gtar
 fi
 
-for i in wget $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
+for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 
   T=`which "$i" 2>/dev/null`
 
