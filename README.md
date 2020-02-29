@@ -114,7 +114,7 @@ afl++ has many build options.
 The easiest is to build and install everything:
 
 ```shell
-$ sudo apt install build-essential libtool-bin python3 automake bison libglib2.0-dev libpixman-1-dev clang
+$ sudo apt install build-essential libtool-bin python3 automake bison libglib2.0-dev libpixman-1-dev clang python-setuptools
 $ make distrib
 $ sudo make install
 ```
@@ -153,6 +153,7 @@ These build options exist:
 * STATIC - compile AFL++ static
 * ASAN_BUILD - compiles with memory sanitizer for debug purposes
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
+* LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)
 
 e.g.: make ASAN_BUILD=1
 
