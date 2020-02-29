@@ -228,7 +228,7 @@ int main(int argc, char** argv, char** envp) {
   u32    sync_interval_cnt = 0, seek_to, show_help = 0;
   u8*    extras_dir = 0;
   u8     mem_limit_given = 0;
-  u8     exit_1 = !!getenv("AFL_BENCH_JUST_ONE");
+  u8     exit_1 = !!get_afl_env("AFL_BENCH_JUST_ONE");
   char** use_argv;
 
   struct timeval  tv;
@@ -461,7 +461,7 @@ int main(int argc, char** argv, char** envp) {
       case 'n':                                                /* dumb mode */
 
         if (dumb_mode) FATAL("Multiple -n options not supported");
-        if (getenv("AFL_DUMB_FORKSRV"))
+        if (get_afl_env("AFL_DUMB_FORKSRV"))
           dumb_mode = 2;
         else
           dumb_mode = 1;
@@ -715,7 +715,7 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  if (getenv("AFL_DISABLE_TRIM")) disable_trim = 1;
+  if (get_afl_env("AFL_DISABLE_TRIM")) disable_trim = 1;
 
   if (getenv("AFL_NO_UI") && getenv("AFL_FORCE_UI"))
     FATAL("AFL_NO_UI and AFL_FORCE_UI are mutually exclusive");
@@ -744,13 +744,13 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  if (getenv("AFL_NO_FORKSRV")) no_forkserver = 1;
-  if (getenv("AFL_NO_CPU_RED")) no_cpu_meter_red = 1;
-  if (getenv("AFL_NO_ARITH")) no_arith = 1;
-  if (getenv("AFL_SHUFFLE_QUEUE")) shuffle_queue = 1;
-  if (getenv("AFL_FAST_CAL")) fast_cal = 1;
+  if (get_afl_env("AFL_NO_FORKSRV")) no_forkserver = 1;
+  if (get_afl_env("AFL_NO_CPU_RED")) no_cpu_meter_red = 1;
+  if (get_afl_env("AFL_NO_ARITH")) no_arith = 1;
+  if (get_afl_env("AFL_SHUFFLE_QUEUE")) shuffle_queue = 1;
+  if (get_afl_env("AFL_FAST_CAL")) fast_cal = 1;
 
-  if (getenv("AFL_HANG_TMOUT")) {
+  if (get_afl_env("AFL_HANG_TMOUT")) {
 
     hang_tmout = atoi(getenv("AFL_HANG_TMOUT"));
     if (!hang_tmout) FATAL("Invalid value of AFL_HANG_TMOUT");
@@ -765,7 +765,7 @@ int main(int argc, char** argv, char** envp) {
         "LD_PRELOAD is set, are you sure that is what to you want to do "
         "instead of using AFL_PRELOAD?");
 
-  if (getenv("AFL_PRELOAD")) {
+  if (get_afl_env("AFL_PRELOAD")) {
 
     if (qemu_mode) {
 
@@ -811,9 +811,9 @@ int main(int argc, char** argv, char** envp) {
   fix_up_banner(argv[optind]);
 
   check_if_tty();
-  if (getenv("AFL_FORCE_UI")) not_on_tty = 0;
+  if (get_afl_env("AFL_FORCE_UI")) not_on_tty = 0;
 
-  if (getenv("AFL_CAL_FAST")) {
+  if (get_afl_env("AFL_CAL_FAST")) {
 
     /* Use less calibration cycles, for slow applications */
     cal_cycles = 3;
@@ -821,9 +821,9 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  if (getenv("AFL_DEBUG")) debug = 1;
+  if (get_afl_env("AFL_DEBUG")) debug = 1;
 
-  if (getenv("AFL_PYTHON_ONLY")) {
+  if (get_afl_env("AFL_PYTHON_ONLY")) {
 
     /* This ensures we don't proceed to havoc/splice */
     python_only = 1;
@@ -833,7 +833,7 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  if (getenv("AFL_CUSTOM_MUTATOR_ONLY")) {
+  if (get_afl_env("AFL_CUSTOM_MUTATOR_ONLY")) {
 
     /* This ensures we don't proceed to havoc/splice */
     custom_only = 1;
@@ -882,7 +882,7 @@ int main(int argc, char** argv, char** envp) {
 
   if (!timeout_given) find_timeout();
 
-  if ((tmp_dir = getenv("AFL_TMPDIR")) != NULL && !in_place_resume) {
+  if ((tmp_dir = get_afl_env("AFL_TMPDIR")) != NULL && !in_place_resume) {
 
     char tmpfile[file_extension
                      ? strlen(tmp_dir) + 1 + 10 + 1 + strlen(file_extension) + 1
@@ -1046,7 +1046,7 @@ int main(int argc, char** argv, char** envp) {
 
       prev_queued = queued_paths;
 
-      if (sync_id && queue_cycle == 1 && getenv("AFL_IMPORT_FIRST"))
+      if (sync_id && queue_cycle == 1 && get_afl_env("AFL_IMPORT_FIRST"))
         sync_fuzzers(use_argv);
 
     }

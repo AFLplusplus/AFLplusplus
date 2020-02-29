@@ -34,5 +34,6 @@ void check_environment_vars(char** env);
 
 char** get_qemu_argv(u8* own_loc, char** argv, int argc);
 char** get_wine_argv(u8* own_loc, char** argv, int argc);
+char*  get_afl_env(char* env);
 #endif
 

@@ -77,7 +77,7 @@ static s32 dev_null_fd = -1;           /* FD to /dev/null                   */
 
 u8 edges_only,                         /* Ignore hit counts?                */
     use_hex_offsets,                   /* Show hex offsets?                 */
-    use_stdin = 1;                     /* Use stdin for program input?      */
+    be_quiet, use_stdin = 1;           /* Use stdin for program input?      */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_timed_out;                   /* Child timed out?                  */
@@ -660,7 +660,7 @@ static void set_up_environment(void) {
 
     if (access(use_dir, R_OK | W_OK | X_OK)) {
 
-      use_dir = getenv("TMPDIR");
+      use_dir = get_afl_env("TMPDIR");
       if (!use_dir) use_dir = "/tmp";
 
     }
@@ -671,7 +671,7 @@ static void set_up_environment(void) {
 
   /* Set sane defaults... */
 
-  x = getenv("ASAN_OPTIONS");
+  x = get_afl_env("ASAN_OPTIONS");
 
   if (x) {
 
@@ -683,7 +683,7 @@ static void set_up_environment(void) {
 
   }
 
-  x = getenv("MSAN_OPTIONS");
+  x = get_afl_env("MSAN_OPTIONS");
 
   if (x) {
 
@@ -709,7 +709,7 @@ static void set_up_environment(void) {
                          "allocator_may_return_null=1:"
                          "msan_track_origins=0", 0);
 
-  if (getenv("AFL_PRELOAD")) {
+  if (get_afl_env("AFL_PRELOAD")) {
 
     if (qemu_mode) {
 
@@ -995,7 +995,7 @@ int main(int argc, char** argv, char** envp) {
 
   if (optind == argc || !in_file) usage(argv[0]);
 
-  use_hex_offsets = !!getenv("AFL_ANALYZE_HEX");
+  use_hex_offsets = !!get_afl_env("AFL_ANALYZE_HEX");
 
   check_environment_vars(envp);
   setup_shm(0);
@@ -1030,7 +1030,7 @@ int main(int argc, char** argv, char** envp) {
   if (child_timed_out)
     FATAL("Target binary times out (adjusting -t may help).");
 
-  if (getenv("AFL_SKIP_BIN_CHECK") == NULL && !anything_set())
+  if (get_afl_env("AFL_SKIP_BIN_CHECK") == NULL && !anything_set())
     FATAL("No instrumentation detected.");
 
   analyze(use_argv);

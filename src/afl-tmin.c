@@ -92,7 +92,7 @@ u8 crash_mode,                         /* Crash-centric mode?               */
     exit_crash,                        /* Treat non-zero exit as crash?     */
     edges_only,                        /* Ignore hit counts?                */
     exact_mode,                        /* Require path match for crashes?   */
-    use_stdin = 1;                     /* Use stdin for program input?      */
+    be_quiet, use_stdin = 1;           /* Use stdin for program input?      */
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
@@ -829,7 +829,7 @@ static void set_up_environment(void) {
 
     if (access(use_dir, R_OK | W_OK | X_OK)) {
 
-      use_dir = getenv("TMPDIR");
+      use_dir = get_afl_env("TMPDIR");
       if (!use_dir) use_dir = "/tmp";
 
     }
@@ -846,7 +846,7 @@ static void set_up_environment(void) {
 
   /* Set sane defaults... */
 
-  x = getenv("ASAN_OPTIONS");
+  x = get_afl_env("ASAN_OPTIONS");
 
   if (x) {
 
@@ -858,7 +858,7 @@ static void set_up_environment(void) {
 
   }
 
-  x = getenv("MSAN_OPTIONS");
+  x = get_afl_env("MSAN_OPTIONS");
 
   if (x) {
 
@@ -884,7 +884,7 @@ static void set_up_environment(void) {
                          "allocator_may_return_null=1:"
                          "msan_track_origins=0", 0);
 
-  if (getenv("AFL_PRELOAD")) {
+  if (get_afl_env("AFL_PRELOAD")) {
 
     if (qemu_mode) {
 
@@ -1240,7 +1240,7 @@ int main(int argc, char** argv, char** envp) {
 
     use_argv = argv + optind;
 
-  exact_mode = !!getenv("AFL_TMIN_EXACT");
+  exact_mode = !!get_afl_env("AFL_TMIN_EXACT");
 
   SAYF("\n");
 
