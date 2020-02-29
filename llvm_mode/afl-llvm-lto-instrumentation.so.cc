@@ -24,8 +24,8 @@
 
 /*
  * TODO LIST
- *  * get loc_id of callsites
- *  * ... ?
+ *  * fix: dont fix the index but those where index is predecessor
+ *  * callsites follow-up
  *
  */
 
@@ -239,8 +239,8 @@ class AFLLTOPass : public ModulePass {
   }
 
  protected:
-  uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, id_cnt = 0,
-           /*entrypoints = 0,*/ warn = 0, best_coll = 0xffffffff,
+  uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, id_cnt = 0, warn = 0,
+           best_coll = 0xffffffff, afl_strat = 0, print_strat = 0,
            global_cur_loc, total_instr = 0, selected = 0, debug = 0;
   unsigned long long int edges = 0, collisions = 0, my_edges = 0,
                          cnt_callsites = 0;
@@ -282,7 +282,7 @@ class AFLLTOPass : public ModulePass {
     char *neverZero_counters_str;
     if (stage == STAGE_SETID &&
         (neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO")) != NULL)
-      OKF("LLVM neverZero activated (by hexcoder)\n");
+      if (!be_quiet) OKF("LLVM neverZero activated (by hexcoder)\n");
 #endif
 
     LLVMContext &C = M.getContext();
@@ -473,7 +473,7 @@ class AFLLTOPass : public ModulePass {
 
     }
 
-    if (be_quiet) return;
+    if (be_quiet && !print_strat) return;
 
     if (stage == STAGE_GETBB) {
 
@@ -491,13 +491,12 @@ class AFLLTOPass : public ModulePass {
              getenv("AFL_USE_MSAN") ? ", MSAN" : "",
              getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
 
-    OKF("Instrumented %u/%llu locations in %u functions with %llu edges and "
-        "resulting in %u potential "
-        "collision(s) with strategy 0x%03x (afl-clang-fast/afl-gcc would have "
-        "produced "
-        "%llu collision(s) on average) (%s mode).",
-        total_instr, total_rs, inst_funcs, my_edges, best_coll, selected,
-        calculateCollisions(my_edges), modeline);
+    OKF("Instrumented %u locations in %u functions with %llu edges and "
+        "resulting in %u potential collision(s) with strategy 0x%03x "
+        "(afl-clang-fast/afl-gcc would have produced %u collision(s) on "
+        "average) (%s mode).",
+        total_instr, inst_funcs, my_edges, best_coll, selected, afl_strat >> 1,
+        modeline);
 
   }
 
@@ -583,7 +582,7 @@ class AFLLTOPass : public ModulePass {
 
     }
 
-    // if we get here we could not resolve one path
+    // if we get here we could not resolve a path
     if (debug) SAYF(" failure\n");
     return false;
 
@@ -674,7 +673,7 @@ class AFLLTOPass : public ModulePass {
 
         if (debug) SAYF(" failure\n");
         warn = 1;
-        /*
+        /* TODO
                 WARNF(
                     "This basic callee block %s->%s has %d functions that are
            likely " "predecessors that we dont process yet!",
@@ -774,7 +773,7 @@ class AFLLTOPass : public ModulePass {
 
     }
 
-    // if we get here we could not resolve one path
+    // if we get here we could not resolve a path
     if (debug) SAYF(" failure\n");
     return false;
 
@@ -865,19 +864,20 @@ class AFLLTOPass : public ModulePass {
 
     }
 
-    //    if (debug) {
+    if (debug) {
 
-    SAYF(cMGN "[D] " cRST
-              "Handling %u preds:%zu (vals:%zu) loc:%u map_size:%u force:%s (",
-         index, Predecessors[index].size(), val.size(), curr_id, map_size,
-         force == true ? "true" : "false");
-    if (Predecessors[index].size() > 0)
-      for (i = 0; i < Predecessors[index].size(); i++)
-        SAYF("%s%u:%u", i > 0 ? "|" : "", Predecessors[index][i],
-             CurrIDs[ReverseMap[Predecessors[index][i]]]);
-    SAYF(")\n");
+      SAYF(cMGN
+           "[D] " cRST
+           "Handling %u preds:%zu (vals:%zu) loc:%u map_size:%u force:%s (",
+           index, Predecessors[index].size(), val.size(), curr_id, map_size,
+           force == true ? "true" : "false");
+      if (Predecessors[index].size() > 0)
+        for (i = 0; i < Predecessors[index].size(); i++)
+          SAYF("%s%u:%u", i > 0 ? "|" : "", Predecessors[index][i],
+               CurrIDs[ReverseMap[Predecessors[index][i]]]);
+      SAYF(")\n");
 
-    //   }
+    }
 
     if (force == false && Predecessors[index].size() == 0)
       return 0;  // no predecessors? skip it for now
@@ -939,8 +939,6 @@ class AFLLTOPass : public ModulePass {
       CurrIDs[ReverseMap[index]] = curr_id;  // now write it
 
     }  // if (curr_id >= map_size)
-
-    if (curr_id >= map_size) FATAL("calcID_2: curr_id >= map_size");
 
     if (debug) {
 
@@ -1018,18 +1016,18 @@ class AFLLTOPass : public ModulePass {
 
     }
 
-    //    if (debug) {
+    if (debug) {
 
-    SAYF(cMGN "[D] " cRST "Done %u colls:<=%u preds:%zu loc:%u force:%s (",
-         index, colls, Predecessors[index].size(), curr_id,
-         force == true ? "true" : "false");
-    if (Predecessors[index].size() > 0)
-      for (i = 0; i < Predecessors[index].size(); i++)
-        SAYF("%s%u:%u", i > 0 ? "|" : "", Predecessors[index][i],
-             CurrIDs[ReverseMap[Predecessors[index][i]]]);
-    SAYF(") in %u seconds \n", (unsigned int)(time(NULL) - start));
+      SAYF(cMGN "[D] " cRST "Done %u colls:<=%u preds:%zu loc:%u force:%s (",
+           index, colls, Predecessors[index].size(), curr_id,
+           force == true ? "true" : "false");
+      if (Predecessors[index].size() > 0)
+        for (i = 0; i < Predecessors[index].size(); i++)
+          SAYF("%s%u:%u", i > 0 ? "|" : "", Predecessors[index][i],
+               CurrIDs[ReverseMap[Predecessors[index][i]]]);
+      SAYF(") in %u seconds \n", (unsigned int)(time(NULL) - start));
 
-    //    }
+    }
 
     return 1;
 
@@ -1181,8 +1179,8 @@ class AFLLTOPass : public ModulePass {
                 (CurrIDs[ReverseMap[Predecessors[index][i]]] >> 1)]++)
           colls++;
     // if some predecessors are >= MAP_SIZE and some are not we put
-    // values > 0 in the map that are not true. but we dont need to
-    // care
+    // values in the map that are not true. but this is better than not
+    // doing this.
 
     return;
 
@@ -1215,10 +1213,11 @@ class AFLLTOPass : public ModulePass {
 
       before = time(NULL);
 
-      // if (debug)
-      SAYF("runCalc(%u %s %s) at %llu\n", iteration,
-           id_strategy == true ? "true" : "false",
-           assign_strategy == true ? "true" : "false", before);
+      if (debug)
+        SAYF("runCalc(%u %s %s) at %llu\n", iteration,
+             id_strategy == true ? "true" : "false",
+             assign_strategy == true ? "true" : "false",
+             (unsigned long long int)before);
 
       // different calculations
       if (iteration == idx++) {  // 1
@@ -1369,9 +1368,9 @@ class AFLLTOPass : public ModulePass {
         for (i = 1; i < InsBlocks.size(); i++)
           if (CurrIDs[ReverseMap[i]] >= MAP_SIZE) {
 
-            // if (debug)
-            SAYF(cMGN "[D] " cRST "fix index %u %u\n", i,
-                 CurrIDs[ReverseMap[i]]);
+            if (debug)
+              SAYF(cMGN "[D] " cRST "fix index %u %u\n", i,
+                   CurrIDs[ReverseMap[i]]);
             calcID(i, true);
 
           }
@@ -1400,14 +1399,21 @@ class AFLLTOPass : public ModulePass {
 
         }
 
+        if (assign_strategy == true && id_strategy == false && iteration > 2)
+          afl_strat += recoll;
+
         uint32_t diff = (uint32_t)(after - before);
-        //        if (debug) TODO
-        SAYF(cMGN "[D] " cRST
-                  "Strategy %u with id_strategy %s and assign_strategy %s = %u "
-                  "collisions for %llu edges in %u second%s\n",
-             iteration, id_strategy == true ? "true" : "false",
-             assign_strategy == true ? "true" : "false", recoll, my_edges, diff,
-             diff == 1 ? "" : "s");
+        if (debug || print_strat)
+          SAYF(cMGN
+               "[D] " cRST
+               "Strategy %u with id_strategy %s and assign_strategy %s = %u "
+               "collisions for %llu edges in %u second%s%s\n",
+               iteration, id_strategy == true ? "true" : "false",
+               assign_strategy == true ? "true" : "false", recoll, my_edges,
+               diff, diff == 1 ? "" : "s",
+               assign_strategy == true && id_strategy == false && iteration > 2
+                   ? " [afl strategy]"
+                   : "");
 
         if (recoll < best_coll) {
 
@@ -1429,42 +1435,45 @@ class AFLLTOPass : public ModulePass {
 
       }
 
-      //      if (debug == 0 && best_coll == 0) break; TODO
+      if (debug == 0 && print_strat == 0 && best_coll == 0) break;
 
     }
 
-    if (!be_quiet) {
+    if (!be_quiet || print_strat) {
 
       stage3_end = time(NULL);
 
       uint32_t diff = (uint32_t)(stage3_end - stage3_start);
-      OKF("Stage 3: best strategy 0x%03x found %d collisions (%u second%s)",
-          selected, best_coll, diff, diff == 1 ? "" : "s");
+      if (!be_quiet || print_strat)
+        OKF("Stage 3: best strategy 0x%03x found %d collisions (%u second%s)",
+            selected, best_coll, diff, diff == 1 ? "" : "s");
 
       fprintf(stderr,
-              "TIME strategy stage3_start %llu, time %llu, diff %llu, before "
-              "%llu\n",
+              "TIME strategy stage3_start %ld, time %ld, diff %u, before %ld\n",
               stage3_start, time(NULL), diff, before);
-      // if (debug) TODO
-      SAYF(
-          "================================================================"
-          "\n");
-      for (i = 0; i < MAP_SIZE; i++) {
+      if (debug || print_strat) {
 
-        // if (i % 64 == 0) SAYF("  ");
-        if (bmap[i] == 0)
-          SAYF(".");
-        else if (bmap[i] >= 1 && bmap[i] <= 9)
-          SAYF("%c", bmap[i] + '0');
-        else
-          SAYF("X");
-        if (i % 64 == 63) SAYF("\n");
+        SAYF(
+            "================================================================"
+            "\n");
+        for (i = 0; i < MAP_SIZE; i++) {
+
+          // if (i % 64 == 0) SAYF("  ");
+          if (bmap[i] == 0)
+            SAYF(".");
+          else if (bmap[i] >= 1 && bmap[i] <= 9)
+            SAYF("%c", bmap[i] + '0');
+          else
+            SAYF("X");
+          if (i % 64 == 63) SAYF("\n");
+
+        }
+
+        SAYF(
+            "================================================================"
+            "\n");
 
       }
-
-      SAYF(
-          "================================================================"
-          "\n");
 
     }
 
@@ -1596,7 +1605,7 @@ class AFLLTOPass : public ModulePass {
     for (uint32_t i = 1; i < InsBlocks.size(); i++)
       my_edges += Predecessors[i].size();
 
-    if (!be_quiet) {
+    if (!be_quiet || print_strat) {
 
       uint32_t diff = (uint32_t)(time(NULL) - before);
       OKF("Stage 2: identified %llu predecessors/edges (%u second%s)", my_edges,
@@ -1608,11 +1617,12 @@ class AFLLTOPass : public ModulePass {
 
   bool runOnModule(Module &M) override {
 
+    if (getenv("AFL_PRINT_STRATEGY") != NULL) print_strat = 1;
     if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL)
       SAYF(cCYA "afl-llvm-lto-instrumentation" VERSION cRST
                 " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
-    // TODO    else
-    //      be_quiet = 1;
+    else if (print_strat == 0)
+      be_quiet = 1;
 
     // Initialisation
     LinkMap.clear();
@@ -1649,7 +1659,7 @@ class AFLLTOPass : public ModulePass {
 
     }
 
-    if (!be_quiet) {
+    if (!be_quiet || print_strat) {
 
       OKF("Module has %llu function%s, %llu callsite%s, %llu total basic "
           "block%s and %llu edge%s.",
@@ -1679,7 +1689,7 @@ class AFLLTOPass : public ModulePass {
     runInstrim(M, STAGE_GETBB);
     if (InsBlocks.size() <= 1) {
 
-      WARNF("Nothing to instrument!");
+      if (getenv("AFL_QUIET")) WARNF("Nothing to instrument!");
       return false;
 
     }

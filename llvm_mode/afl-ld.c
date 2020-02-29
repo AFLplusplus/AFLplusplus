@@ -154,7 +154,8 @@ static void edit_params(int argc, char** argv) {
     if (argv[i][0] != '-' && strlen(argv[i]) > 2 &&
         argv[i][strlen(argv[i]) - 1] == 'a' &&
         argv[i][strlen(argv[i]) - 2] == '.')
-      WARNF("object archive %s is not handled yet", argv[i]);
+      if (!getenv("AFL_QUIET"))
+        WARNF("object archive %s is not handled yet", argv[i]);
 
     if (passthrough || argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
       ld_params[ld_par_cnt++] = argv[i];
@@ -297,7 +298,7 @@ int main(int argc, char** argv) {
                 "Error: afl-ld calls itself in a loop, set AFL_REAL_LD to the "
                 "real 'ld' program!");
 
-  if (!getenv("AFL_QUIET")) {
+  if (isatty(2) && !getenv("AFL_QUIET") && !getenv("AFL_DEBUG")) {
 
     if (getenv("AFL_LD") != NULL)
       SAYF(cCYA "afl-ld" VERSION cRST
@@ -350,7 +351,8 @@ int main(int argc, char** argv) {
 
     if (we_link == 0) {
 
-      WARNF("No LTO input file found, cannot instrument!");
+      if (!getenv("AFL_QUIET"))
+        WARNF("No LTO input file found, cannot instrument!");
 
     } else {
 
@@ -442,8 +444,9 @@ int main(int argc, char** argv) {
 
     } else {
 
-      SAYF("[!] afl-ld: keeping link file %s and bitcode file %s\n",
-           linked_file, modified_file);
+      if (!be_quiet)
+        SAYF("[!] afl-ld: keeping link file %s and bitcode file %s\n",
+             linked_file, modified_file);
 
     }
 
