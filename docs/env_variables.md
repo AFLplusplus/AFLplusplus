@@ -228,7 +228,8 @@ checks or alter some of the more exotic semantics of the tool:
     performed with/from the library. See [custom_mutator.md](custom_mutator.md)
 
   - For AFL_PYTHON_MODULE and AFL_PYTHON_ONLY - they require afl-fuzz to
-    be compiled with -DUSE_PYTHON. Please see [python_mutators.md](python_mutators.md).
+    be compiled with Python (which is autodetected during builing afl-fuzz).
+    Please see [python_mutators.md](python_mutators.md).
     This feature allows to configure custom mutators which can be very helpful
     in e.g. fuzzing XML or other highly flexible structured input.
 
@@ -264,7 +265,7 @@ checks or alter some of the more exotic semantics of the tool:
 
   - Setting AFL_NO_CPU_RED will not display very high cpu usages in red color.
 
-  - Outdated environment variables are:
+  - Outdated environment variables that are that not supported anymore:
     AFL_DEFER_FORKSRV
     AFL_PERSISTENT
 

@@ -82,7 +82,7 @@ static u8* get_libradamsa_path(u8* own_loc) {
 
 /* Display usage hints. */
 
-static void usage(u8* argv0) {
+static void usage(u8* argv0, int more_help) {
 
   SAYF(
       "\n%s [ options ] -- /path/to/fuzzed_app [ ... ]\n\n"
@@ -143,8 +143,11 @@ static void usage(u8* argv0) {
       "file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
       "  -e ext        - File extension for the temporarily generated test "
-      "case\n\n"
+      "case\n\n",
+      argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
+  if (more_help > 1)
+    SAYF(
       "Environment variables used:\n"
       "AFL_PATH: path to AFL support binaries\n"
       "AFL_QUIET: suppress forkserver status messages\n"
@@ -179,11 +182,16 @@ static void usage(u8* argv0) {
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an excutable\n"
-      "AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
-      "AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
+      //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
+      //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
       "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
-      , argv0, EXEC_TIMEOUT, MEM_LIMIT);
+      "\n"
+    );
+  else
+    SAYF(
+        "To view also the supported environment variables of afl-fuzz please "
+        "use \"-hh\".\n\n");
 
 #ifdef USE_PYTHON
   SAYF("Compiled with %s module support, see docs/python_mutators.md\n",
@@ -217,7 +225,7 @@ int main(int argc, char** argv, char** envp) {
 
   s32    opt;
   u64    prev_queued = 0;
-  u32    sync_interval_cnt = 0, seek_to;
+  u32    sync_interval_cnt = 0, seek_to, show_help = 0;
   u8*    extras_dir = 0;
   u8     mem_limit_given = 0;
   u8     exit_1 = !!getenv("AFL_BENCH_JUST_ONE");
@@ -621,10 +629,7 @@ int main(int argc, char** argv, char** envp) {
 
       } break;
 
-      case 'h':
-        usage(argv[0]);
-        return -1;
-        break;  // not needed
+      case 'h': show_help++; break;  // not needed
 
       case 'R':
 
@@ -635,11 +640,13 @@ int main(int argc, char** argv, char** envp) {
 
         break;
 
-      default: usage(argv[0]);
+      default:
+        if (!show_help) show_help = 1;
 
     }
 
-  if (optind == argc || !in_dir || !out_dir) usage(argv[0]);
+  if (optind == argc || !in_dir || !out_dir || show_help)
+    usage(argv[0], show_help);
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
       "Eißfeldt and Andrea Fioraldi");
@@ -777,9 +784,11 @@ int main(int argc, char** argv, char** envp) {
       }
 
       if (qemu_preload)
-        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s", qemu_preload, afl_preload, afl_preload);
+        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           qemu_preload, afl_preload, afl_preload);
       else
-        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s", afl_preload, afl_preload);
+        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           afl_preload, afl_preload);
 
       setenv("QEMU_SET_ENV", buf, 1);
 

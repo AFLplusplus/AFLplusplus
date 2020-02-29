@@ -399,7 +399,7 @@ source-only: all radamsa
 	@echo >> $@
 	@echo .SH OPTIONS >> $@
 	@echo .nf >> $@
-	@./$* -h 2>&1 | tail -n +4 >> $@
+	@./$* -hh 2>&1 | tail -n +4 >> $@
 	@echo >> $@
 	@echo .SH AUTHOR >> $@
 	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>" >> $@

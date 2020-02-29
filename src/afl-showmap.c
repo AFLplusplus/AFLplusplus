@@ -560,9 +560,11 @@ static void set_up_environment(void) {
       }
 
       if (qemu_preload)
-        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s", qemu_preload, afl_preload, afl_preload);
+        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           qemu_preload, afl_preload, afl_preload);
       else
-        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s", afl_preload, afl_preload);
+        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           afl_preload, afl_preload);
 
       setenv("QEMU_SET_ENV", buf, 1);
 
@@ -652,10 +654,11 @@ static void usage(u8* argv0) {
       "Environment variables used:\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_DEBUG: enable extra developer output\n"
-      "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing inputs\n"
+      "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
+      "inputs\n"
       "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing inputs also\n"
-      "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
-      , argv0, MEM_LIMIT, doc_path);
+      "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n",
+      argv0, MEM_LIMIT, doc_path);
 
   exit(1);
 
