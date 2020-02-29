@@ -129,7 +129,7 @@ static void __afl_map_shm(void) {
     __afl_area_ptr[0] = 1;
 
   }
-  
+
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
   if (id_str) {
@@ -260,7 +260,8 @@ static void __afl_start_forkserver(void) {
 
 }
 
-/* A simplified persistent mode handler, used as explained in README.llvm. */
+/* A simplified persistent mode handler, used as explained in
+ * llvm_mode/README.md. */
 
 int __afl_persistent_loop(unsigned int max_cnt) {
 
@@ -346,7 +347,7 @@ __attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
 
 /* The following stuff deals with supporting -fsanitize-coverage=trace-pc-guard.
    It remains non-operational in the traditional, plugin-backed LLVM mode.
-   For more info about 'trace-pc-guard', see README.llvm.
+   For more info about 'trace-pc-guard', see llvm_mode/README.md.
 
    The first function (__sanitizer_cov_trace_pc_guard) is called back on every
    edge (as opposed to every basic block). */
@@ -399,13 +400,13 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t* start, uint32_t* stop) {
 
 ///// CmpLog instrumentation
 
-void __sanitizer_cov_trace_cmp1(uint8_t Arg1, uint8_t Arg2) {
+void __cmplog_ins_hook1(uint8_t Arg1, uint8_t Arg2) {
 
   return;
 
 }
 
-void __sanitizer_cov_trace_cmp2(uint16_t Arg1, uint16_t Arg2) {
+void __cmplog_ins_hook2(uint16_t Arg1, uint16_t Arg2) {
 
   if (!__afl_cmp_map) return;
 
@@ -429,7 +430,7 @@ void __sanitizer_cov_trace_cmp2(uint16_t Arg1, uint16_t Arg2) {
 
 }
 
-void __sanitizer_cov_trace_cmp4(uint32_t Arg1, uint32_t Arg2) {
+void __cmplog_ins_hook4(uint32_t Arg1, uint32_t Arg2) {
 
   if (!__afl_cmp_map) return;
 
@@ -450,7 +451,7 @@ void __sanitizer_cov_trace_cmp4(uint32_t Arg1, uint32_t Arg2) {
 
 }
 
-void __sanitizer_cov_trace_cmp8(uint64_t Arg1, uint64_t Arg2) {
+void __cmplog_ins_hook8(uint64_t Arg1, uint64_t Arg2) {
 
   if (!__afl_cmp_map) return;
 
@@ -472,19 +473,33 @@ void __sanitizer_cov_trace_cmp8(uint64_t Arg1, uint64_t Arg2) {
 }
 
 #if defined(__APPLE__)
-#pragma weak __sanitizer_cov_trace_const_cmp1 = __sanitizer_cov_trace_cmp1
-#pragma weak __sanitizer_cov_trace_const_cmp2 = __sanitizer_cov_trace_cmp2
-#pragma weak __sanitizer_cov_trace_const_cmp4 = __sanitizer_cov_trace_cmp4
-#pragma weak __sanitizer_cov_trace_const_cmp8 = __sanitizer_cov_trace_cmp8
+#pragma weak __sanitizer_cov_trace_const_cmp1 = __cmplog_ins_hook1
+#pragma weak __sanitizer_cov_trace_const_cmp2 = __cmplog_ins_hook2
+#pragma weak __sanitizer_cov_trace_const_cmp4 = __cmplog_ins_hook4
+#pragma weak __sanitizer_cov_trace_const_cmp8 = __cmplog_ins_hook8
+
+#pragma weak __sanitizer_cov_trace_cmp1 = __cmplog_ins_hook1
+#pragma weak __sanitizer_cov_trace_cmp2 = __cmplog_ins_hook2
+#pragma weak __sanitizer_cov_trace_cmp4 = __cmplog_ins_hook4
+#pragma weak __sanitizer_cov_trace_cmp8 = __cmplog_ins_hook8
 #else
 void __sanitizer_cov_trace_const_cmp1(uint8_t Arg1, uint8_t Arg2)
-    __attribute__((alias("__sanitizer_cov_trace_cmp1")));
+    __attribute__((alias("__cmplog_ins_hook1")));
 void __sanitizer_cov_trace_const_cmp2(uint16_t Arg1, uint16_t Arg2)
-    __attribute__((alias("__sanitizer_cov_trace_cmp2")));
+    __attribute__((alias("__cmplog_ins_hook2")));
 void __sanitizer_cov_trace_const_cmp4(uint32_t Arg1, uint32_t Arg2)
-    __attribute__((alias("__sanitizer_cov_trace_cmp4")));
+    __attribute__((alias("__cmplog_ins_hook4")));
 void __sanitizer_cov_trace_const_cmp8(uint64_t Arg1, uint64_t Arg2)
-    __attribute__((alias("__sanitizer_cov_trace_cmp8")));
+    __attribute__((alias("__cmplog_ins_hook8")));
+
+void __sanitizer_cov_trace_cmp1(uint8_t Arg1, uint8_t Arg2)
+    __attribute__((alias("__cmplog_ins_hook1")));
+void __sanitizer_cov_trace_cmp2(uint16_t Arg1, uint16_t Arg2)
+    __attribute__((alias("__cmplog_ins_hook2")));
+void __sanitizer_cov_trace_cmp4(uint32_t Arg1, uint32_t Arg2)
+    __attribute__((alias("__cmplog_ins_hook4")));
+void __sanitizer_cov_trace_cmp8(uint64_t Arg1, uint64_t Arg2)
+    __attribute__((alias("__cmplog_ins_hook8")));
 #endif                                                /* defined(__APPLE__) */
 
 void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t* Cases) {

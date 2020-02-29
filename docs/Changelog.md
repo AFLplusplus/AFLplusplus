@@ -1,7 +1,7 @@
 # Changelog
 
   This is the list of all noteworthy changes made in every public release of
-  the tool. See README for the general instruction manual.
+  the tool. See README.md for the general instruction manual.
 
 ## Staying informed
 
@@ -9,7 +9,21 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-### Version ++2.60d (develop):
+### Version ++2.62d (developt):
+  - qemu_mode now uses solely the internal capstone version to fix builds
+    on modern Linux distributions
+  - more tools get environment variable usage info in the help output
+
+
+### Version ++2.62c (release):
+
+  - Important fix for memory allocation functions that result in afl-fuzz
+    not identifying crashes - UPDATE!
+  - Small fix for -E/-V to release the CPU
+  - CmpLog does not need sancov anymore
+
+
+### Version ++2.61c (release):
 
   - use -march=native if available
   - most tools now check for mistyped environment variables
@@ -17,6 +31,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - the memory safety checks are now disabled for a little more speed during
     fuzzing (only affects creating queue entries), can be toggled in config.h
   - afl-fuzz:
+     - MOpt out of bounds writing crash fixed
      - now prints the real python version support compiled in
      - set stronger performance compile options and little tweaks
      - Android: prefer bigcores when selecting a CPU
@@ -28,13 +43,18 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - bugfix for dictionary insert stage count (fix via Google repo PR)
      - added warning if -M is used together with custom mutators with _ONLY option
      - AFL_TMPDIR checks are now later and better explained if they fail
-  - llvm_mode InsTrim: no pointless instrumentation of 1 block functions
+  - llvm_mode 
+     - InsTrim: three bug fixes:
+        1. (minor) no pointless instrumentation of 1 block functions
+        2. (medium) path bug that leads a few blocks not instrumented that
+           should be
+        3. (major) incorrect prev_loc was written, fixed!
   - afl-clang-fast:
      - show in the help output for which llvm version it was compiled for
      - now does not need to be recompiled between trace-pc and pass
        instrumentation. compile normally and set AFL_LLVM_USE_TRACE_PC :)
      - LLVM 11 is supported
-     - CmpLog instrumentation using SanCov (see llvm_mode/README.cmplog)
+     - CmpLog instrumentation using SanCov (see llvm_mode/README.cmplog.md)
   - afl-gcc, afl-clang-fast, afl-gcc-fast:
      - experimental support for undefined behaviour sanitizer UBSAN
        (set AFL_USE_UBSAN=1)
@@ -178,7 +198,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - fix llvm_mode AFL_TRACE_PC with modern llvm
   - fix a crash in qemu_mode which also exists in stock afl
   - added libcompcov, a laf-intel implementation for qemu! :)
-    see qemu_mode/libcompcov/README.libcompcov
+    see qemu_mode/libcompcov/README.libcompcov.md
   - afl-fuzz now displays the selected core in the status screen (blue {#})
   - updated afl-fuzz and afl-system-config for new scaling governor location
     in modern kernels
@@ -187,8 +207,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - if llvm_mode was compiled, afl-clang/afl-clang++ will point to these
     instead of afl-gcc
   - added instrim, a much faster llvm_mode instrumentation at the cost of
-    path discovery. See llvm_mode/README.instrim (https://github.com/csienslab/instrim)
-  - added MOpt (github.com/puppet-meteor/MOpt-AFL) mode, see docs/README.MOpt
+    path discovery. See llvm_mode/README.instrim.md (https://github.com/csienslab/instrim)
+  - added MOpt (github.com/puppet-meteor/MOpt-AFL) mode, see docs/README.MOpt.md
   - added code to make it more portable to other platforms than Intel Linux
   - added never zero counters for afl-gcc and optionally (because of an
     optimization issue in llvm < 9) for llvm_mode (AFL_LLVM_NEVER_ZERO=1)
@@ -218,11 +238,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     LLVM and Qemu modes are now faster.
     Important changes:
       afl-fuzz: -e EXTENSION commandline option
-      llvm_mode: LAF-intel performance (needs activation, see llvm/README.laf-intel)
-      a few new environment variables for afl-fuzz, llvm and qemu, see docs/env_variables.txt
+      llvm_mode: LAF-intel performance (needs activation, see llvm/README.laf-intel.md)
+      a few new environment variables for afl-fuzz, llvm and qemu, see docs/env_variables.md
   - Added the power schedules of AFLfast by Marcel Boehme, but set the default
     to the AFL schedule, not to the FAST schedule. So nothing changes unless
-    you use the new -p option :-) - see docs/power_schedules.txt
+    you use the new -p option :-) - see docs/power_schedules.md
   - added afl-system-config script to set all system performance options for fuzzing
   - llvm_mode works with llvm 3.9 up to including 8 !
   - qemu_mode got upgraded from 2.1 to 3.1 - incorporated from 
@@ -465,7 +485,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Added libtokencap, a simple feature to intercept strcmp / memcmp and
     generate dictionary entries that can help extend coverage.
 
-  - Moved libdislocator to its own dir, added README.
+  - Moved libdislocator to its own dir, added README.md.
 
   - The demo in examples/instrumented_cmp is no more.
 

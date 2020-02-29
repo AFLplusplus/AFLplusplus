@@ -27,7 +27,7 @@ how to hit the ground running:
 
 4) Get a small but valid input file that makes sense to the program. When
    fuzzing verbose syntax (SQL, HTTP, etc), create a dictionary as described in
-   dictionaries/README.dictionaries, too.
+   dictionaries/README.md, too.
 
 5) If the program reads from stdin, run 'afl-fuzz' like so:
 

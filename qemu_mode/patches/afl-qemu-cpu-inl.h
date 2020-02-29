@@ -80,7 +80,7 @@ unsigned char is_persistent;
 target_long   persistent_stack_offset;
 unsigned char persistent_first_pass = 1;
 unsigned char persistent_save_gpr;
-target_ulong  persistent_saved_gpr[AFL_REGS_NUM];
+uint64_t      persistent_saved_gpr[AFL_REGS_NUM];
 int           persisent_retaddr_offset;
 
 afl_persistent_hook_fn afl_persistent_hook_ptr;
@@ -407,7 +407,8 @@ void afl_forkserver(CPUState *cpu) {
 
 }
 
-/* A simplified persistent mode handler, used as explained in README.llvm. */
+/* A simplified persistent mode handler, used as explained in
+ * llvm_mode/README.md. */
 
 void afl_persistent_loop(void) {
 

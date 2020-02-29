@@ -17,10 +17,10 @@ matrix:
   - os: linux
     dist: trusty
     env: NAME="trusty-amd64" MODERN="no" GCC="4.8"
-  - os: linux
-    dist: xenial
-    arch: arm64
-    env: NAME="xenial-arm64" MODERN="no" GCC="5" EXTRA="libtool-bin clang-6.0" AFL_NO_X86="1" CPU_TARGET="aarch64"
+#  - os: linux # until travis can fix this!
+#    dist: xenial
+#    arch: arm64
+#    env: NAME="xenial-arm64" MODERN="no" GCC="5" EXTRA="libtool-bin clang-6.0" AFL_NO_X86="1" CPU_TARGET="aarch64"
 #  - os: osx
 #    osx_image: xcode11.2
 #    env: NAME="osx" HOMEBREW_NO_ANALYTICS="1" LINK="http://releases.llvm.org/9.0.0/" NAME="clang+llvm-9.0.0-x86_64-darwin-apple"
@@ -50,5 +50,4 @@ script:
   - if [ "$TRAVIS_OS_NAME" = "linux" -a "$TRAVIS_CPU_ARCH" = "amd64" ]; then make distrib ASAN_BUILD=1 ; fi
   - if [ "$TRAVIS_CPU_ARCH" = "arm64" ] ; then echo DEBUG ; find / -name llvm-config.h 2>/dev/null; apt-cache search clang | grep clang- ; apt-cache search llvm | grep llvm- ; dpkg -l | egrep 'clang|llvm'; echo DEBUG ; export LLVM_CONFIG=llvm-config-6.0 ; make ASAN_BUILD=1 ; cd qemu_mode && sh ./build_qemu_support.sh ; cd .. ; fi
   - make tests
-  - exit 0
-
+  - travis_terminate 0

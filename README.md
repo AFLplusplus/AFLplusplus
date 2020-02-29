@@ -4,9 +4,9 @@
 
   ![Travis State](https://api.travis-ci.com/vanhauser-thc/AFLplusplus.svg?branch=master)
 
-  Release Version: 2.60c 
+  Release Version: 2.62c
 
-  Github Version: 2.60d
+  Github Version: 2.62d
 
   includes all necessary/interesting changes from Google's afl 2.56b
 
@@ -14,8 +14,11 @@
 
   Repository: [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
 
-  afl++ is maintained by Marc "van Hauser" Heuse <mh@mh-sec.de>,
-  Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>, Andrea Fioraldi <andreafioraldi@gmail.com> and Dominik Maier <mail@dmnk.co>.
+  afl++ is maintained by:
+    * Marc "van Hauser" Heuse <mh@mh-sec.de>,
+    * Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>,
+    * Andrea Fioraldi <andreafioraldi@gmail.com> and
+    * Dominik Maier <mail@dmnk.co>.
 
   Note that although afl now has a Google afl repository [https://github.com/Google/afl](https://github.com/Google/afl),
   it is unlikely to receive any noteable enhancements: [https://twitter.com/Dor3s/status/1154737061787660288](https://twitter.com/Dor3s/status/1154737061787660288)
@@ -102,6 +105,9 @@ something cool
 
 We have an idea list in [docs/ideas.md](docs/ideas.md)
 
+For everyone who wants to contribute (and send pull requests) please read
+[CONTRIBUTING.md](CONTRIBUTING.md) before your submit.
+
 ## 0) Building and installing afl++
 
 afl++ has many build options.
@@ -156,7 +162,8 @@ Hence gcc-9 and especially llvm-9 should be the compilers of choice.
 If your distribution does not have them, you can use the Dockerfile:
 
 ```shell
-$ docker build -t aflplusplus
+$ cd AFLplusplus
+$ sudo docker build -t aflplusplus .
 ```
 
 
@@ -318,6 +325,11 @@ Here are some good writeups to show how to effectibly use AFL++:
  * [https://aflplus.plus/docs/tutorials/libxml2_tutorial/](https://aflplus.plus/docs/tutorials/libxml2_tutorial/)
  * [https://bananamafia.dev/post/gb-fuzz/](https://bananamafia.dev/post/gb-fuzz/)
  * [https://securitylab.github.com/research/fuzzing-challenges-solutions-1](https://securitylab.github.com/research/fuzzing-challenges-solutions-1)
+
+If you are interested in fuzzing structured data (where you define what the
+structure is), these two links have you covered:
+ * [https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator](https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator)
+ * [https://github.com/thebabush/afl-libprotobuf-mutator](https://github.com/thebabush/afl-libprotobuf-mutator)
 
 If you find other good ones, please send them to us :-)
 
@@ -701,7 +713,7 @@ without feedback, bug reports, or patches from:
   Nathan Voss                           Dominik Maier
   Andrea Biondo                         Vincent Le Garrec
   Khaled Yakdan                         Kuang-che Wu
-  Josephine Calliotte
+  Josephine Calliotte                   Konrad Welc
 ```
 
 Thank you!

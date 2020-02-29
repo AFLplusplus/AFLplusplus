@@ -1,7 +1,7 @@
 # Tips for parallel fuzzing
 
   This document talks about synchronizing afl-fuzz jobs on a single machine
-  or across a fleet of systems. See README for the general instruction manual.
+  or across a fleet of systems. See README.md for the general instruction manual.
 
 ## 1) Introduction
 

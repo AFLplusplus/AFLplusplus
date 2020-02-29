@@ -82,7 +82,7 @@ static u8* get_libradamsa_path(u8* own_loc) {
 
 /* Display usage hints. */
 
-static void usage(u8* argv0) {
+static void usage(u8* argv0, int more_help) {
 
   SAYF(
       "\n%s [ options ] -- /path/to/fuzzed_app [ ... ]\n\n"
@@ -112,7 +112,8 @@ static void usage(u8* argv0) {
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths, 0 = "
       "immediately).\n"
-      "                  a recommended value is 10-60. see docs/README.MOpt\n"
+      "                  a recommended value is 10-60. see "
+      "docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU, just use -c 0.\n\n"
@@ -121,7 +122,7 @@ static void usage(u8* argv0) {
       "  -N            - do not unlink the fuzzing input file\n"
       "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (dumb mode)\n"
-      "  -x dir        - optional fuzzer dictionary (see README, its really "
+      "  -x dir        - optional fuzzer dictionary (see README.md, its really "
       "good!)\n\n"
 
       "Testing settings:\n"
@@ -143,8 +144,54 @@ static void usage(u8* argv0) {
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
       "  -e ext        - File extension for the temporarily generated test "
       "case\n\n",
-
       argv0, EXEC_TIMEOUT, MEM_LIMIT);
+
+  if (more_help > 1)
+    SAYF(
+      "Environment variables used:\n"
+      "AFL_PATH: path to AFL support binaries\n"
+      "AFL_QUIET: suppress forkserver status messages\n"
+      "AFL_DEBUG_CHILD_OUTPUT: do not suppress stdout/stderr from target\n"
+      "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
+      "AFL_BENCH_JUST_ONE: run the target just once\n"
+      "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
+      "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_mutator() to mutate inputs\n"
+      "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
+      "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
+      "AFL_PYTHON_ONLY: skip AFL++'s own mutators\n"
+      "AFL_DEBUG: extra debugging output for Python mode trimming\n"
+      "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
+      "AFL_NO_UI: switch status screen off\n"
+      "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
+      "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
+      "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
+      "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
+      "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
+      "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
+      "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
+      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
+      "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
+      "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
+      "AFL_POST_LIBRARY: postprocess generated test cases before use as target input\n"
+      "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
+      "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
+      "ASAN_OPTIONS: custom settings for ASAN\n"
+      "              (must contain abort_on_error=1 and symbolize=0)\n"
+      "MSAN_OPTIONS: custom settings for MSAN\n"
+      "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_SKIP_BIN_CHECK: skip the check, if the target is an excutable\n"
+      //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
+      //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
+      "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
+      "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
+      "\n"
+    );
+  else
+    SAYF(
+        "To view also the supported environment variables of afl-fuzz please "
+        "use \"-hh\".\n\n");
 
 #ifdef USE_PYTHON
   SAYF("Compiled with %s module support, see docs/python_mutators.md\n",
@@ -178,7 +225,7 @@ int main(int argc, char** argv, char** envp) {
 
   s32    opt;
   u64    prev_queued = 0;
-  u32    sync_interval_cnt = 0, seek_to;
+  u32    sync_interval_cnt = 0, seek_to, show_help = 0;
   u8*    extras_dir = 0;
   u8     mem_limit_given = 0;
   u8     exit_1 = !!getenv("AFL_BENCH_JUST_ONE");
@@ -582,10 +629,7 @@ int main(int argc, char** argv, char** envp) {
 
       } break;
 
-      case 'h':
-        usage(argv[0]);
-        return -1;
-        break;  // not needed
+      case 'h': show_help++; break;  // not needed
 
       case 'R':
 
@@ -596,11 +640,13 @@ int main(int argc, char** argv, char** envp) {
 
         break;
 
-      default: usage(argv[0]);
+      default:
+        if (!show_help) show_help = 1;
 
     }
 
-  if (optind == argc || !in_dir || !out_dir) usage(argv[0]);
+  if (optind == argc || !in_dir || !out_dir || show_help)
+    usage(argv[0], show_help);
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
       "Eißfeldt and Andrea Fioraldi");
@@ -716,7 +762,7 @@ int main(int argc, char** argv, char** envp) {
 
   if (getenv("LD_PRELOAD"))
     WARNF(
-        "LD_PRELOAD is set, are you sure that is want to you want to do "
+        "LD_PRELOAD is set, are you sure that is what to you want to do "
         "instead of using AFL_PRELOAD?");
 
   if (getenv("AFL_PRELOAD")) {
@@ -738,9 +784,11 @@ int main(int argc, char** argv, char** envp) {
       }
 
       if (qemu_preload)
-        buf = alloc_printf("%s,LD_PRELOAD=%s", qemu_preload, afl_preload);
+        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           qemu_preload, afl_preload, afl_preload);
       else
-        buf = alloc_printf("LD_PRELOAD=%s", afl_preload);
+        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           afl_preload, afl_preload);
 
       setenv("QEMU_SET_ENV", buf, 1);
 
@@ -1024,6 +1072,7 @@ int main(int argc, char** argv, char** envp) {
       if (most_time * 1000 < cur_ms_lv - start_time) {
 
         most_time_key = 2;
+        stop_soon = 2;
         break;
 
       }
@@ -1035,6 +1084,7 @@ int main(int argc, char** argv, char** envp) {
       if (most_execs <= total_execs) {
 
         most_execs_key = 2;
+        stop_soon = 2;
         break;
 
       }
@@ -1087,7 +1137,7 @@ stop_fuzzing:
 
     SAYF("\n" cYEL "[!] " cRST
          "Stopped during the first cycle, results may be incomplete.\n"
-         "    (For info on resuming, see %s/README)\n",
+         "    (For info on resuming, see %s/README.md)\n",
          doc_path);
 
   }

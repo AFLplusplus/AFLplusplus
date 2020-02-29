@@ -118,8 +118,8 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
   stage_max = 1000;
 
   struct range* rng;
-  stage_cur = stage_max;
-  while ((rng = pop_biggest_range(&ranges)) != NULL && stage_cur) {
+  stage_cur = 0;
+  while ((rng = pop_biggest_range(&ranges)) != NULL && stage_cur < stage_max) {
 
     u32 s = rng->end - rng->start;
     if (s == 0) goto empty_range;
@@ -142,15 +142,15 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
 
   empty_range:
     ck_free(rng);
-    --stage_cur;
+    ++stage_cur;
 
   }
 
-  if (stage_cur) queue_cur->fully_colorized = 1;
+  if (stage_cur < stage_max) queue_cur->fully_colorized = 1;
 
   new_hit_cnt = queued_paths + unique_crashes;
   stage_finds[STAGE_COLORIZATION] += new_hit_cnt - orig_hit_cnt;
-  stage_cycles[STAGE_COLORIZATION] += stage_max - stage_cur;
+  stage_cycles[STAGE_COLORIZATION] += stage_cur;
   ck_free(backup);
 
   while (ranges) {
@@ -243,7 +243,7 @@ u8 cmp_extend_encoding(struct cmp_header* h, u64 pattern, u64 repl, u32 idx,
 
   if (SHAPE_BYTES(h->shape) == 8) {
 
-    if (its_len >= 8 && *buf_64 == pattern) {// && *o_buf_64 == pattern) {
+    if (its_len >= 8 && *buf_64 == pattern) {  // && *o_buf_64 == pattern) {
 
       *buf_64 = repl;
       if (unlikely(its_fuzz(buf, len, status))) return 1;
@@ -261,7 +261,8 @@ u8 cmp_extend_encoding(struct cmp_header* h, u64 pattern, u64 repl, u32 idx,
 
   if (SHAPE_BYTES(h->shape) == 4 || *status == 2) {
 
-    if (its_len >= 4 && *buf_32 == (u32)pattern) {// && *o_buf_32 == (u32)pattern) {
+    if (its_len >= 4 &&
+        *buf_32 == (u32)pattern) {  // && *o_buf_32 == (u32)pattern) {
 
       *buf_32 = (u32)repl;
       if (unlikely(its_fuzz(buf, len, status))) return 1;
@@ -279,7 +280,8 @@ u8 cmp_extend_encoding(struct cmp_header* h, u64 pattern, u64 repl, u32 idx,
 
   if (SHAPE_BYTES(h->shape) == 2 || *status == 2) {
 
-    if (its_len >= 2 && *buf_16 == (u16)pattern) {// && *o_buf_16 == (u16)pattern) {
+    if (its_len >= 2 &&
+        *buf_16 == (u16)pattern) {  // && *o_buf_16 == (u16)pattern) {
 
       *buf_16 = (u16)repl;
       if (unlikely(its_fuzz(buf, len, status))) return 1;
@@ -531,7 +533,7 @@ u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
       stage_max += MIN(cmp_map->headers[k].hits, CMP_MAP_RTN_H);
 
   }
-  
+
   for (k = 0; k < CMP_MAP_W; ++k) {
 
     if (!cmp_map->headers[k].hits) continue;

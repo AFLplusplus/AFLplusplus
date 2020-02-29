@@ -52,8 +52,8 @@
 #include "../config.h"
 #include "../include/debug.h"
 
-/* clear helper AFL types pulls in, which intervene with gcc-plugin geaders from
- * GCC-8 */
+/* clear helper macros AFL types pull in, which intervene with gcc-plugin
+ * headers from GCC-8 */
 #ifdef likely
 #undef likely
 #endif
@@ -533,7 +533,7 @@ int plugin_init(struct plugin_name_args *  plugin_info,
   }
 
   /* Show a banner */
-  if (isatty(2) && !getenv("AFL_QUIET")) {
+  if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
     SAYF(G_(cCYA "afl-gcc-pass" VERSION cRST
                  " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n"));

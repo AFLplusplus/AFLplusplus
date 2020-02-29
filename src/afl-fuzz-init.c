@@ -1972,25 +1972,25 @@ void check_binary(u8* fname) {
   if (!qemu_mode && !unicorn_mode && !dumb_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
-    SAYF(
-        "\n" cLRD "[-] " cRST
-        "Looks like the target binary is not instrumented! The fuzzer depends "
-        "on\n"
-        "    compile-time instrumentation to isolate interesting test cases "
-        "while\n"
-        "    mutating the input data. For more information, and for tips on "
-        "how to\n"
-        "    instrument binaries, please see %s/README.\n\n"
+    SAYF("\n" cLRD "[-] " cRST
+         "Looks like the target binary is not instrumented! The fuzzer depends "
+         "on\n"
+         "    compile-time instrumentation to isolate interesting test cases "
+         "while\n"
+         "    mutating the input data. For more information, and for tips on "
+         "how to\n"
+         "    instrument binaries, please see %s/README.md.\n\n"
 
-        "    When source code is not available, you may be able to leverage "
-        "QEMU\n"
-        "    mode support. Consult the README for tips on how to enable this.\n"
+         "    When source code is not available, you may be able to leverage "
+         "QEMU\n"
+         "    mode support. Consult the README.md for tips on how to enable "
+         "this.\n"
 
-        "    (It is also possible to use afl-fuzz as a traditional, \"dumb\" "
-        "fuzzer.\n"
-        "    For that, you can use the -n option - but expect much worse "
-        "results.)\n",
-        doc_path);
+         "    (It is also possible to use afl-fuzz as a traditional, \"dumb\" "
+         "fuzzer.\n"
+         "    For that, you can use the -n option - but expect much worse "
+         "results.)\n",
+         doc_path);
 
     FATAL("No instrumentation detected");
 

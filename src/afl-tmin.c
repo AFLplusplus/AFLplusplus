@@ -903,9 +903,11 @@ static void set_up_environment(void) {
       }
 
       if (qemu_preload)
-        buf = alloc_printf("%s,LD_PRELOAD=%s", qemu_preload, afl_preload);
+        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           qemu_preload, afl_preload, afl_preload);
       else
-        buf = alloc_printf("LD_PRELOAD=%s", afl_preload);
+        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           afl_preload, afl_preload);
 
       setenv("QEMU_SET_ENV", buf, 1);
 
@@ -955,12 +957,12 @@ static void usage(u8* argv0) {
   SAYF(
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
-      "Required parameters:\n\n"
+      "Required parameters:\n"
 
       "  -i file       - input test case to be shrunk by the tool\n"
       "  -o file       - final output location for the minimized data\n\n"
 
-      "Execution control settings:\n\n"
+      "Execution control settings:\n"
 
       "  -f file       - input file read by the tested program (stdin)\n"
       "  -t msec       - timeout for each run (%d ms)\n"
@@ -968,18 +970,27 @@ static void usage(u8* argv0) {
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
-      "mode)\n\n"
+      "mode)\n"
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
 
-      "Minimization settings:\n\n"
+      "Minimization settings:\n"
 
       "  -e            - solve for edge coverage only, ignore hit counts\n"
       "  -x            - treat non-zero exit codes as crashes\n\n"
 
-      "For additional tips, please consult %s/README.\n\n",
+      "For additional tips, please consult %s/README.md.\n\n"
 
-      argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
+      "Environment variables used:\n"
+      "TMPDIR: directory to use for temporary input files\n"
+      "ASAN_OPTIONS: custom settings for ASAN\n"
+      "              (must contain abort_on_error=1 and symbolize=0)\n"
+      "MSAN_OPTIONS: custom settings for MSAN\n"
+      "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_TMIN_EXACT: require execution paths to match for crashing inputs\n"
+
+      , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
 
