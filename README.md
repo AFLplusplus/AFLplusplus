@@ -116,6 +116,7 @@ The easiest is to build and install everything:
 ```shell
 $ sudo apt install build-essential libtool-bin python3 automake bison libglib2.0-dev libpixman-1-dev clang llvm flex
 $ sudo apt-get install gcc-multilib g++-multilib
+sudo apt-get --reinstall install libc6 libc6-dev
 $ make distrib
 $ sudo make install
 ```

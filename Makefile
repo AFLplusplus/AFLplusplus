@@ -372,8 +372,6 @@ distrib: all radamsa
 	$(MAKE) -C libtokencap
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
-	sudo apt-get --reinstall install libc6 libc6-dev
-	sudo apt install flex
 	cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && sh ./build_unicorn_support.sh
 
