@@ -52,7 +52,7 @@
 #include "../config.h"
 #include "../include/debug.h"
 
-/* clear helper macros AFL types pull in, which intervene with gcc-plugin 
+/* clear helper macros AFL types pull in, which intervene with gcc-plugin
  * headers from GCC-8 */
 #ifdef likely
 #undef likely

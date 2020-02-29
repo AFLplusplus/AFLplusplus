@@ -339,8 +339,8 @@ int main(int argc, char** argv, char** envp) {
         "AFL_GCC_WHITELIST: enable whitelisting (selective instrumentation)\n"
 
         "\nafl-gcc-fast was built for gcc %s with the gcc binary path of "
-        "\"%s\".\n\n"
-        , BIN_PATH, BIN_PATH, GCC_VERSION, GCC_BINDIR);
+        "\"%s\".\n\n",
+        BIN_PATH, BIN_PATH, GCC_VERSION, GCC_BINDIR);
 
     exit(1);
 
