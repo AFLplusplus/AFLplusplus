@@ -636,7 +636,6 @@ u32    find_start_position(void);
 void   find_timeout(void);
 double get_runnable_processes(void);
 void   nuke_resume_dir(void);
-void   maybe_delete_out_dir(void);
 void   setup_dirs_fds(void);
 void   setup_cmdline_file(char**);
 void   setup_stdio_file(void);
