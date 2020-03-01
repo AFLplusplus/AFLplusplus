@@ -314,14 +314,7 @@ int main(int argc, char** argv, char** envp) {
         if (in_dir) FATAL("Multiple -i options not supported");
         in_dir = optarg;
 
-        if (!strcmp(in_dir, "-")) {
-            
-            if (getenv("AFL_AUTORESUME")) 
-              WARNF("AFL_AUTORESUME has no effect for '-i -'");
-
-            in_place_resume = 1;
-
-        }
+        if (!strcmp(in_dir, "-")) in_place_resume = 1;
 
         break;
 
@@ -756,6 +749,14 @@ int main(int argc, char** argv, char** envp) {
   if (get_afl_env("AFL_NO_ARITH")) no_arith = 1;
   if (get_afl_env("AFL_SHUFFLE_QUEUE")) shuffle_queue = 1;
   if (get_afl_env("AFL_FAST_CAL")) fast_cal = 1;
+
+  if (get_afl_env("AFL_AUTORESUME")) {
+    
+    autoresume = 1;
+    if (in_place_resume) 
+      WARNF("AFL_AUTORESUME has no effect for '-i -'");
+
+  }
 
   if (get_afl_env("AFL_HANG_TMOUT")) {
 
