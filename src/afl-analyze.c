@@ -55,34 +55,34 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-static s32 child_pid;                  /* PID of the tested program         */
+static s32 afl->child_pid;                  /* PID of the tested program         */
 
-u8* trace_bits;                        /* SHM with instrumentation bitmap   */
+u8* afl->trace_bits;                        /* SHM with instrumentation bitmap   */
 
 static u8 *in_file,                    /* Analyzer input test case          */
     *prog_in,                          /* Targeted program input file       */
-    *doc_path;                         /* Path to docs                      */
+    *afl->doc_path;                         /* Path to docs                      */
 
 static u8* in_data;                    /* Input data for analysis           */
 
 static u32 in_len,                     /* Input data length                 */
     orig_cksum,                        /* Original checksum                 */
-    total_execs,                       /* Total number of execs             */
+    afl->total_execs,                       /* Total number of execs             */
     exec_hangs,                        /* Total number of hangs             */
-    exec_tmout = EXEC_TIMEOUT;         /* Exec timeout (ms)                 */
+    afl->exec_tmout = EXEC_TIMEOUT;         /* Exec timeout (ms)                 */
 
-static u64 mem_limit = MEM_LIMIT;      /* Memory limit (MB)                 */
+static u64 afl->mem_limit = afl->mem_limit;      /* Memory limit (MB)                 */
 
-static s32 dev_null_fd = -1;           /* FD to /dev/null                   */
+static s32 afl->dev_null_fd = -1;           /* FD to /dev/null                   */
 
 u8 edges_only,                         /* Ignore hit counts?                */
     use_hex_offsets,                   /* Show hex offsets?                 */
-    be_quiet, use_stdin = 1;           /* Use stdin for program input?      */
+    be_quiet, afl->use_stdin = 1;           /* Use stdin for program input?      */
 
-static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
-    child_timed_out;                   /* Child timed out?                  */
+static volatile u8 afl->stop_soon,          /* Ctrl-C pressed?                   */
+    afl->child_timed_out;                   /* Child timed out?                  */
 
-static u8 qemu_mode;
+static u8 afl->qemu_mode;
 
 /* Constants used for describing byte behavior. */
 
@@ -142,7 +142,7 @@ static void classify_counts(u8* mem) {
 
 static inline u8 anything_set(void) {
 
-  u32* ptr = (u32*)trace_bits;
+  u32* ptr = (u32*)afl->trace_bits;
   u32  i = (MAP_SIZE >> 2);
 
   while (i--)
@@ -209,8 +209,8 @@ static s32 write_to_file(u8* path, u8* mem, u32 len) {
 
 static void handle_timeout(int sig) {
 
-  child_timed_out = 1;
-  if (child_pid > 0) kill(child_pid, SIGKILL);
+  afl->child_timed_out = 1;
+  if (afl->child_pid > 0) kill(afl->child_pid, SIGKILL);
 
 }
 
@@ -225,33 +225,33 @@ static u32 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
   s32 prog_in_fd;
   u32 cksum;
 
-  memset(trace_bits, 0, MAP_SIZE);
+  memset(afl->trace_bits, 0, MAP_SIZE);
   MEM_BARRIER();
 
   prog_in_fd = write_to_file(prog_in, mem, len);
 
-  child_pid = fork();
+  afl->child_pid = fork();
 
-  if (child_pid < 0) PFATAL("fork() failed");
+  if (afl->child_pid < 0) PFATAL("fork() failed");
 
-  if (!child_pid) {
+  if (!afl->child_pid) {
 
     struct rlimit r;
 
-    if (dup2(use_stdin ? prog_in_fd : dev_null_fd, 0) < 0 ||
-        dup2(dev_null_fd, 1) < 0 || dup2(dev_null_fd, 2) < 0) {
+    if (dup2(afl->use_stdin ? prog_in_fd : afl->dev_null_fd, 0) < 0 ||
+        dup2(afl->dev_null_fd, 1) < 0 || dup2(afl->dev_null_fd, 2) < 0) {
 
-      *(u32*)trace_bits = EXEC_FAIL_SIG;
+      *(u32*)afl->trace_bits = EXEC_FAIL_SIG;
       PFATAL("dup2() failed");
 
     }
 
-    close(dev_null_fd);
+    close(afl->dev_null_fd);
     close(prog_in_fd);
 
-    if (mem_limit) {
+    if (afl->mem_limit) {
 
-      r.rlim_max = r.rlim_cur = ((rlim_t)mem_limit) << 20;
+      r.rlim_max = r.rlim_cur = ((rlim_t)afl->mem_limit) << 20;
 
 #ifdef RLIMIT_AS
 
@@ -270,7 +270,7 @@ static u32 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
     execv(target_path, argv);
 
-    *(u32*)trace_bits = EXEC_FAIL_SIG;
+    *(u32*)afl->trace_bits = EXEC_FAIL_SIG;
     exit(0);
 
   }
@@ -279,15 +279,15 @@ static u32 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   /* Configure timeout, wait for child, cancel timeout. */
 
-  child_timed_out = 0;
-  it.it_value.tv_sec = (exec_tmout / 1000);
-  it.it_value.tv_usec = (exec_tmout % 1000) * 1000;
+  afl->child_timed_out = 0;
+  it.it_value.tv_sec = (afl->exec_tmout / 1000);
+  it.it_value.tv_usec = (afl->exec_tmout % 1000) * 1000;
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  if (waitpid(child_pid, &status, 0) <= 0) FATAL("waitpid() failed");
+  if (waitpid(afl->child_pid, &status, 0) <= 0) FATAL("waitpid() failed");
 
-  child_pid = 0;
+  afl->child_pid = 0;
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
 
@@ -297,13 +297,13 @@ static u32 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32*)trace_bits == EXEC_FAIL_SIG)
+  if (*(u32*)afl->trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
-  classify_counts(trace_bits);
-  total_execs++;
+  classify_counts(afl->trace_bits);
+  afl->total_execs++;
 
-  if (stop_soon) {
+  if (afl->stop_soon) {
 
     SAYF(cRST cLRD "\n+++ Analysis aborted by user +++\n" cRST);
     exit(1);
@@ -312,14 +312,14 @@ static u32 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   /* Always discard inputs that time out. */
 
-  if (child_timed_out) {
+  if (afl->child_timed_out) {
 
     exec_hangs++;
     return 0;
 
   }
 
-  cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
+  cksum = hash32(afl->trace_bits, MAP_SIZE, HASH_CONST);
 
   /* We don't actually care if the target is crashing or not,
      except that when it does, the checksum should be different. */
@@ -639,9 +639,9 @@ static void analyze(char** argv) {
 
 static void handle_stop_sig(int sig) {
 
-  stop_soon = 1;
+  afl->stop_soon = 1;
 
-  if (child_pid > 0) kill(child_pid, SIGKILL);
+  if (afl->child_pid > 0) kill(afl->child_pid, SIGKILL);
 
 }
 
@@ -651,8 +651,8 @@ static void set_up_environment(void) {
 
   u8* x;
 
-  dev_null_fd = open("/dev/null", O_RDWR);
-  if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+  afl->dev_null_fd = open("/dev/null", O_RDWR);
+  if (afl->dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
   if (!prog_in) {
 
@@ -711,7 +711,7 @@ static void set_up_environment(void) {
 
   if (get_afl_env("AFL_PRELOAD")) {
 
-    if (qemu_mode) {
+    if (afl->qemu_mode) {
 
       u8* qemu_preload = getenv("QEMU_SET_ENV");
       u8* afl_preload = getenv("AFL_PRELOAD");
@@ -812,7 +812,7 @@ static void usage(u8* argv0) {
       "AFL_ANALYZE_HEX: print file offsets in hexadecimal instead of decimal\n"
       "AFL_SKIP_BIN_CHECK: skip checking the location of and the target\n"
 
-      , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
+      , argv0, EXEC_TIMEOUT, afl->mem_limit, afl->doc_path);
 
   exit(1);
 
@@ -878,10 +878,10 @@ static void find_binary(u8* fname) {
 int main(int argc, char** argv, char** envp) {
 
   s32    opt;
-  u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
+  u8     afl->mem_limit_given = 0, afl->timeout_given = 0, afl->unicorn_mode = 0, afl->use_wine = 0;
   char** use_argv;
 
-  doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
+  afl->doc_path = access(afl->doc_path, F_OK) ? "docs" : afl->doc_path;
 
   SAYF(cCYA "afl-analyze" VERSION cRST " by Michal Zalewski\n");
 
@@ -898,7 +898,7 @@ int main(int argc, char** argv, char** envp) {
       case 'f':
 
         if (prog_in) FATAL("Multiple -f options not supported");
-        use_stdin = 0;
+        afl->use_stdin = 0;
         prog_in = optarg;
         break;
 
@@ -912,34 +912,34 @@ int main(int argc, char** argv, char** envp) {
 
         u8 suffix = 'M';
 
-        if (mem_limit_given) FATAL("Multiple -m options not supported");
-        mem_limit_given = 1;
+        if (afl->mem_limit_given) FATAL("Multiple -m options not supported");
+        afl->mem_limit_given = 1;
 
         if (!strcmp(optarg, "none")) {
 
-          mem_limit = 0;
+          afl->mem_limit = 0;
           break;
 
         }
 
-        if (sscanf(optarg, "%llu%c", &mem_limit, &suffix) < 1 ||
+        if (sscanf(optarg, "%llu%c", &afl->mem_limit, &suffix) < 1 ||
             optarg[0] == '-')
           FATAL("Bad syntax used for -m");
 
         switch (suffix) {
 
-          case 'T': mem_limit *= 1024 * 1024; break;
-          case 'G': mem_limit *= 1024; break;
-          case 'k': mem_limit /= 1024; break;
+          case 'T': afl->mem_limit *= 1024 * 1024; break;
+          case 'G': afl->mem_limit *= 1024; break;
+          case 'k': afl->mem_limit /= 1024; break;
           case 'M': break;
 
           default: FATAL("Unsupported suffix or bad syntax for -m");
 
         }
 
-        if (mem_limit < 5) FATAL("Dangerously low value of -m");
+        if (afl->mem_limit < 5) FATAL("Dangerously low value of -m");
 
-        if (sizeof(rlim_t) == 4 && mem_limit > 2000)
+        if (sizeof(rlim_t) == 4 && afl->mem_limit > 2000)
           FATAL("Value of -m out of range on 32-bit systems");
 
       }
@@ -948,39 +948,39 @@ int main(int argc, char** argv, char** envp) {
 
       case 't':
 
-        if (timeout_given) FATAL("Multiple -t options not supported");
-        timeout_given = 1;
+        if (afl->timeout_given) FATAL("Multiple -t options not supported");
+        afl->timeout_given = 1;
 
-        exec_tmout = atoi(optarg);
+        afl->exec_tmout = atoi(optarg);
 
-        if (exec_tmout < 10 || optarg[0] == '-')
+        if (afl->exec_tmout < 10 || optarg[0] == '-')
           FATAL("Dangerously low value of -t");
 
         break;
 
       case 'Q':
 
-        if (qemu_mode) FATAL("Multiple -Q options not supported");
-        if (!mem_limit_given) mem_limit = MEM_LIMIT_QEMU;
+        if (afl->qemu_mode) FATAL("Multiple -Q options not supported");
+        if (!afl->mem_limit_given) afl->mem_limit = afl->mem_limit_QEMU;
 
-        qemu_mode = 1;
+        afl->qemu_mode = 1;
         break;
 
       case 'U':
 
-        if (unicorn_mode) FATAL("Multiple -U options not supported");
-        if (!mem_limit_given) mem_limit = MEM_LIMIT_UNICORN;
+        if (afl->unicorn_mode) FATAL("Multiple -U options not supported");
+        if (!afl->mem_limit_given) afl->mem_limit = afl->mem_limit_UNICORN;
 
-        unicorn_mode = 1;
+        afl->unicorn_mode = 1;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
 
-        if (use_wine) FATAL("Multiple -W options not supported");
-        qemu_mode = 1;
-        use_wine = 1;
+        if (afl->use_wine) FATAL("Multiple -W options not supported");
+        afl->qemu_mode = 1;
+        afl->use_wine = 1;
 
-        if (!mem_limit_given) mem_limit = 0;
+        if (!afl->mem_limit_given) afl->mem_limit = 0;
 
         break;
 
@@ -1007,9 +1007,9 @@ int main(int argc, char** argv, char** envp) {
   find_binary(argv[optind]);
   detect_file_args(argv + optind, prog_in);
 
-  if (qemu_mode) {
+  if (afl->qemu_mode) {
 
-    if (use_wine)
+    if (afl->use_wine)
       use_argv = get_wine_argv(argv[0], argv + optind, argc - optind);
     else
       use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
@@ -1023,11 +1023,11 @@ int main(int argc, char** argv, char** envp) {
   read_initial_file();
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
-       mem_limit, exec_tmout, edges_only ? ", edges only" : "");
+       afl->mem_limit, afl->exec_tmout, edges_only ? ", edges only" : "");
 
   run_target(use_argv, in_data, in_len, 1);
 
-  if (child_timed_out)
+  if (afl->child_timed_out)
     FATAL("Target binary times out (adjusting -t may help).");
 
   if (get_afl_env("AFL_SKIP_BIN_CHECK") == NULL && !anything_set())

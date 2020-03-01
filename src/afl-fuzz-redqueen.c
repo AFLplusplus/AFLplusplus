@@ -86,11 +86,11 @@ struct range* pop_biggest_range(struct range** ranges) {
 
 }
 
-u8 get_exec_checksum(u8* buf, u32 len, u32* cksum) {
+u8 get_exec_checksum(afl_state_t *afl, u8* buf, u32 len, u32* cksum) {
 
-  if (unlikely(common_fuzz_stuff(its_argv, buf, len))) return 1;
+  if (unlikely(common_fuzz_stuff(afl, its_argv, buf, len))) return 1;
 
-  *cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
+  *cksum = hash32(afl->trace_bits, MAP_SIZE, HASH_CONST);
   return 0;
 
 }
@@ -99,7 +99,7 @@ static void rand_replace(u8* buf, u32 len) {
 
   u32 i;
   for (i = 0; i < len; ++i)
-    buf[i] = UR(256);
+    buf[i] = UR(afl, 256);
 
 }
 
@@ -111,15 +111,15 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
   u8 needs_write = 0;
 
   u64 orig_hit_cnt, new_hit_cnt;
-  orig_hit_cnt = queued_paths + unique_crashes;
+  orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
-  stage_name = "colorization";
-  stage_short = "colorization";
-  stage_max = 1000;
+  afl->stage_name = "colorization";
+  afl->stage_short = "colorization";
+  afl->stage_max = 1000;
 
   struct range* rng;
-  stage_cur = 0;
-  while ((rng = pop_biggest_range(&ranges)) != NULL && stage_cur < stage_max) {
+  afl->stage_cur = 0;
+  while ((rng = pop_biggest_range(&ranges)) != NULL && afl->stage_cur < afl->stage_max) {
 
     u32 s = rng->end - rng->start;
     if (s == 0) goto empty_range;
@@ -142,15 +142,15 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
 
   empty_range:
     ck_free(rng);
-    ++stage_cur;
+    ++afl->stage_cur;
 
   }
 
-  if (stage_cur < stage_max) queue_cur->fully_colorized = 1;
+  if (afl->stage_cur < afl->stage_max) afl->queue_cur->fully_colorized = 1;
 
-  new_hit_cnt = queued_paths + unique_crashes;
-  stage_finds[STAGE_COLORIZATION] += new_hit_cnt - orig_hit_cnt;
-  stage_cycles[STAGE_COLORIZATION] += stage_cur;
+  new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+  afl->stage_finds[STAGE_COLORIZATION] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_COLORIZATION] += afl->stage_cur;
   ck_free(backup);
 
   while (ranges) {
@@ -167,21 +167,21 @@ u8 colorization(u8* buf, u32 len, u32 exec_cksum) {
 
     s32 fd;
 
-    if (no_unlink) {
+    if (afl->no_unlink) {
 
-      fd = open(queue_cur->fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+      fd = open(afl->queue_cur->fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
     } else {
 
-      unlink(queue_cur->fname);                            /* ignore errors */
-      fd = open(queue_cur->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+      unlink(afl->queue_cur->fname);                            /* ignore errors */
+      fd = open(afl->queue_cur->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
     }
 
-    if (fd < 0) PFATAL("Unable to create '%s'", queue_cur->fname);
+    if (fd < 0) PFATAL("Unable to create '%s'", afl->queue_cur->fname);
 
-    ck_write(fd, buf, len, queue_cur->fname);
-    queue_cur->len = len;  // no-op, just to be 100% safe
+    ck_write(fd, buf, len, afl->queue_cur->fname);
+    afl->queue_cur->len = len;  // no-op, just to be 100% safe
 
     close(fd);
 
@@ -210,11 +210,11 @@ u8 its_fuzz(u8* buf, u32 len, u8* status) {
 
   u64 orig_hit_cnt, new_hit_cnt;
 
-  orig_hit_cnt = queued_paths + unique_crashes;
+  orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
   if (unlikely(common_fuzz_stuff(its_argv, buf, len))) return 1;
 
-  new_hit_cnt = queued_paths + unique_crashes;
+  new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
   if (unlikely(new_hit_cnt != orig_hit_cnt))
     *status = 1;
@@ -406,7 +406,7 @@ u8 cmp_fuzz(u32 key, u8* orig_buf, u8* buf, u32 len) {
     }
 
   cmp_fuzz_next_iter:
-    stage_cur++;
+    afl->stage_cur++;
 
   }
 
@@ -490,7 +490,7 @@ u8 rtn_fuzz(u32 key, u8* orig_buf, u8* buf, u32 len) {
     }
 
   rtn_fuzz_next_iter:
-    stage_cur++;
+    afl->stage_cur++;
 
   }
 
@@ -500,8 +500,8 @@ u8 rtn_fuzz(u32 key, u8* orig_buf, u8* buf, u32 len) {
 
 ///// Input to State stage
 
-// queue_cur->exec_cksum
-u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
+// afl->queue_cur->exec_cksum
+u8 input_to_state_stage(afl_state_t *afl, char** argv, u8* orig_buf, u8* buf, u32 len,
                         u32 exec_cksum) {
 
   u8 r = 1;
@@ -509,28 +509,28 @@ u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
 
   if (unlikely(colorization(buf, len, exec_cksum))) return 1;
 
-  // do it manually, forkserver clear only trace_bits
+  // do it manually, forkserver clear only afl->trace_bits
   memset(cmp_map->headers, 0, sizeof(cmp_map->headers));
 
   if (unlikely(common_fuzz_cmplog_stuff(argv, buf, len))) return 1;
 
   u64 orig_hit_cnt, new_hit_cnt;
-  u64 orig_execs = total_execs;
-  orig_hit_cnt = queued_paths + unique_crashes;
+  u64 orig_execs = afl->total_execs;
+  orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
-  stage_name = "input-to-state";
-  stage_short = "its";
-  stage_max = 0;
-  stage_cur = 0;
+  afl->stage_name = "input-to-state";
+  afl->stage_short = "its";
+  afl->stage_max = 0;
+  afl->stage_cur = 0;
 
   u32 k;
   for (k = 0; k < CMP_MAP_W; ++k) {
 
     if (!cmp_map->headers[k].hits) continue;
     if (cmp_map->headers[k].type == CMP_TYPE_INS)
-      stage_max += MIN(cmp_map->headers[k].hits, CMP_MAP_H);
+      afl->stage_max += MIN(cmp_map->headers[k].hits, CMP_MAP_H);
     else
-      stage_max += MIN(cmp_map->headers[k].hits, CMP_MAP_RTN_H);
+      afl->stage_max += MIN(cmp_map->headers[k].hits, CMP_MAP_RTN_H);
 
   }
 
@@ -555,9 +555,9 @@ u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
 exit_its:
   memcpy(orig_buf, buf, len);
 
-  new_hit_cnt = queued_paths + unique_crashes;
-  stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
-  stage_cycles[STAGE_ITS] += total_execs - orig_execs;
+  new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+  afl->stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_ITS] += afl->total_execs - orig_execs;
 
   return r;
 

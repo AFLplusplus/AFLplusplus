@@ -75,7 +75,7 @@ static int forkserver_installed = 0;
 static int disable_caching = 0;
 
 unsigned char afl_fork_child;
-unsigned int  afl_forksrv_pid;
+unsigned int  afl->forksrv_pid;
 unsigned char is_persistent;
 target_long   persistent_stack_offset;
 unsigned char persistent_first_pass = 1;
@@ -115,7 +115,7 @@ struct afl_tsl {
 
 struct afl_chain {
 
-  struct afl_tb last_tb;
+  struct afl_tb afl->last_tb;
   uint32_t      cf_mask;
   int           tb_exit;
 
@@ -311,7 +311,7 @@ void afl_forkserver(CPUState *cpu) {
 
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
 
-  afl_forksrv_pid = getpid();
+  afl->forksrv_pid = getpid();
 
   int first_run = 1;
 
@@ -475,7 +475,7 @@ void afl_persistent_loop(void) {
    mirror the operation, so that the next fork() has a cached copy. */
 
 static void afl_request_tsl(target_ulong pc, target_ulong cb, uint32_t flags,
-                            uint32_t cf_mask, TranslationBlock *last_tb,
+                            uint32_t cf_mask, TranslationBlock *afl->last_tb,
                             int tb_exit) {
 
   if (disable_caching) return;
@@ -489,16 +489,16 @@ static void afl_request_tsl(target_ulong pc, target_ulong cb, uint32_t flags,
   t.tb.cs_base = cb;
   t.tb.flags = flags;
   t.tb.cf_mask = cf_mask;
-  t.is_chain = (last_tb != NULL);
+  t.is_chain = (afl->last_tb != NULL);
 
   if (write(TSL_FD, &t, sizeof(struct afl_tsl)) != sizeof(struct afl_tsl))
     return;
 
   if (t.is_chain) {
 
-    c.last_tb.pc = last_tb->pc;
-    c.last_tb.cs_base = last_tb->cs_base;
-    c.last_tb.flags = last_tb->flags;
+    c.afl->last_tb.pc = afl->last_tb->pc;
+    c.afl->last_tb.cs_base = afl->last_tb->cs_base;
+    c.afl->last_tb.flags = afl->last_tb->flags;
     c.cf_mask = cf_mask;
     c.tb_exit = tb_exit;
 
@@ -516,7 +516,7 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
 
   struct afl_tsl    t;
   struct afl_chain  c;
-  TranslationBlock *tb, *last_tb;
+  TranslationBlock *tb, *afl->last_tb;
 
   while (1) {
 
@@ -560,9 +560,9 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
 
       if (!invalid_pc) {
 
-        last_tb = tb_htable_lookup(cpu, c.last_tb.pc, c.last_tb.cs_base,
-                                   c.last_tb.flags, c.cf_mask);
-        if (last_tb) { tb_add_jump(last_tb, c.tb_exit, tb); }
+        afl->last_tb = tb_htable_lookup(cpu, c.afl->last_tb.pc, c.afl->last_tb.cs_base,
+                                   c.afl->last_tb.flags, c.cf_mask);
+        if (afl->last_tb) { tb_add_jump(afl->last_tb, c.tb_exit, tb); }
 
       }
 

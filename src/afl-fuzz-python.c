@@ -28,14 +28,14 @@
 /* Python stuff */
 #ifdef USE_PYTHON
 
-int init_py() {
+int init_py(afl_state_t *afl) {
 
   Py_Initialize();
   u8* module_name = getenv("AFL_PYTHON_MODULE");
 
   if (module_name) {
 
-    if (limit_time_sig)
+    if (afl->limit_time_sig)
       FATAL(
           "MOpt and Python mutator are mutually exclusive. We accept pull "
           "requests that integrates MOpt with the optional mutators "
@@ -47,23 +47,23 @@ int init_py() {
     PyObject* py_name = PyString_FromString(module_name);
 #endif
 
-    py_module = PyImport_Import(py_name);
+    afl->py_module = PyImport_Import(py_name);
     Py_DECREF(py_name);
 
-    if (py_module != NULL) {
+    if (afl->py_module != NULL) {
 
       u8 py_notrim = 0, py_idx;
-      py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
-      py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
-      py_functions[PY_FUNC_INIT_TRIM] =
+      afl->py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
+      afl->py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
+      afl->py_functions[PY_FUNC_INIT_TRIM] =
           PyObject_GetAttrString(py_module, "init_trim");
-      py_functions[PY_FUNC_POST_TRIM] =
+      afl->py_functions[PY_FUNC_POST_TRIM] =
           PyObject_GetAttrString(py_module, "post_trim");
-      py_functions[PY_FUNC_TRIM] = PyObject_GetAttrString(py_module, "trim");
+      afl->py_functions[PY_FUNC_TRIM] = PyObject_GetAttrString(py_module, "trim");
 
       for (py_idx = 0; py_idx < PY_FUNC_COUNT; ++py_idx) {
 
-        if (!py_functions[py_idx] || !PyCallable_Check(py_functions[py_idx])) {
+        if (!afl->py_functions[py_idx] || !PyCallable_Check(afl->py_functions[py_idx])) {
 
           if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
 
@@ -86,11 +86,11 @@ int init_py() {
 
       }
 
-      if (py_notrim) {
+      if (afl->py_notrim) {
 
-        py_functions[PY_FUNC_INIT_TRIM] = NULL;
-        py_functions[PY_FUNC_POST_TRIM] = NULL;
-        py_functions[PY_FUNC_TRIM] = NULL;
+        afl->py_functions[PY_FUNC_INIT_TRIM] = NULL;
+        afl->py_functions[PY_FUNC_POST_TRIM] = NULL;
+        afl->py_functions[PY_FUNC_TRIM] = NULL;
         WARNF(
             "Python module does not implement trim API, standard trimming will "
             "be used.");
@@ -132,7 +132,7 @@ int init_py() {
     } else {
 
       PyErr_Print();
-      fprintf(stderr, "Failed to load \"%s\"\n", module_name);
+      fprintf(stderr, "Failed to load \"%s\"\n", afl->module_name);
       return 1;
 
     }
@@ -143,15 +143,15 @@ int init_py() {
 
 }
 
-void finalize_py() {
+void finalize_py(afl_state_t *afl) {
 
-  if (py_module != NULL) {
+  if (afl->py_module != NULL) {
 
     u32 i;
     for (i = 0; i < PY_FUNC_COUNT; ++i)
-      Py_XDECREF(py_functions[i]);
+      Py_XDECREF(afl->py_functions[i]);
 
-    Py_DECREF(py_module);
+    Py_DECREF(afl->py_module);
 
   }
 
@@ -162,7 +162,7 @@ void finalize_py() {
 void fuzz_py(char* buf, size_t buflen, char* add_buf, size_t add_buflen,
              char** ret, size_t* retlen) {
 
-  if (py_module != NULL) {
+  if (alf->py_module != NULL) {
 
     PyObject *py_args, *py_value;
     py_args = PyTuple_New(2);
@@ -310,7 +310,7 @@ void trim_py(char** ret, size_t* retlen) {
 
 }
 
-u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
+u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in_buf) {
 
   static u8 tmp[64];
   static u8 clean_trace[MAP_SIZE];
@@ -319,18 +319,18 @@ u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
   u32 trim_exec = 0;
   u32 orig_len = q->len;
 
-  stage_name = tmp;
-  bytes_trim_in += q->len;
+  afl->stage_name = tmp;
+  afl->bytes_trim_in += q->len;
 
   /* Initialize trimming in the Python module */
-  stage_cur = 0;
-  stage_max = init_trim_py(in_buf, q->len);
+  afl->stage_cur = 0;
+  afl->stage_max = init_trim_py(in_buf, q->len);
 
-  if (not_on_tty && debug)
-    SAYF("[Python Trimming] START: Max %d iterations, %u bytes", stage_max,
+  if (afl->not_on_tty && afl->debug)
+    SAYF("[Python Trimming] START: Max %d iterations, %u bytes", afl->stage_max,
          q->len);
 
-  while (stage_cur < stage_max) {
+  while (afl->stage_cur < afl->stage_max) {
 
     sprintf(tmp, "ptrim %s", DI(trim_exec));
 
@@ -348,17 +348,17 @@ u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
 
     write_to_testcase(retbuf, retlen);
 
-    fault = run_target(argv, exec_tmout);
-    ++trim_execs;
+    fault = run_target(argv, afl->exec_tmout);
+    ++afl->trim_execs;
 
-    if (stop_soon || fault == FAULT_ERROR) {
+    if (afl->stop_soon || fault == FAULT_ERROR) {
 
       free(retbuf);
       goto abort_trimming;
 
     }
 
-    cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
+    cksum = hash32(afl->trace_bits, MAP_SIZE, HASH_CONST);
 
     if (cksum == q->exec_cksum) {
 
@@ -371,24 +371,24 @@ u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
       if (!needs_write) {
 
         needs_write = 1;
-        memcpy(clean_trace, trace_bits, MAP_SIZE);
+        memcpy(clean_trace, afl->trace_bits, MAP_SIZE);
 
       }
 
       /* Tell the Python module that the trimming was successful */
-      stage_cur = post_trim_py(1);
+      afl->stage_cur = post_trim_py(1);
 
-      if (not_on_tty && debug)
+      if (afl->not_on_tty && afl->debug)
         SAYF("[Python Trimming] SUCCESS: %d/%d iterations (now at %u bytes)",
-             stage_cur, stage_max, q->len);
+             afl->stage_cur, afl->stage_max, q->len);
 
     } else {
 
       /* Tell the Python module that the trimming was unsuccessful */
-      stage_cur = post_trim_py(0);
-      if (not_on_tty && debug)
-        SAYF("[Python Trimming] FAILURE: %d/%d iterations", stage_cur,
-             stage_max);
+      afl->stage_cur = post_trim_py(0);
+      if (afl->not_on_tty && afl->debug)
+        SAYF("[Python Trimming] FAILURE: %d/%d iterations", afl->stage_cur,
+             afl->stage_max);
 
     }
 
@@ -396,11 +396,11 @@ u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
 
     /* Since this can be slow, update the screen every now and then. */
 
-    if (!(trim_exec++ % stats_update_freq)) show_stats();
+    if (!(trim_exec++ % afl->stats_update_freq)) show_stats();
 
   }
 
-  if (not_on_tty && debug)
+  if (afl->not_on_tty && afl->debug)
     SAYF("[Python Trimming] DONE: %u bytes -> %u bytes", orig_len, q->len);
 
   /* If we have made changes to in_buf, we also need to update the on-disk
@@ -419,14 +419,14 @@ u8 trim_case_python(char** argv, struct queue_entry* q, u8* in_buf) {
     ck_write(fd, in_buf, q->len, q->fname);
     close(fd);
 
-    memcpy(trace_bits, clean_trace, MAP_SIZE);
+    memcpy(afl->trace_bits, clean_trace, MAP_SIZE);
     update_bitmap_score(q);
 
   }
 
 abort_trimming:
 
-  bytes_trim_out += q->len;
+  afl->bytes_trim_out += q->len;
   return fault;
 
 }

@@ -103,7 +103,7 @@ void pmparser_print(procmaps_struct* map, int order);
 /**
  * gobal variables
  */
-// procmaps_struct* g_last_head=NULL;
+// procmaps_struct* g_afl->last_head=NULL;
 // procmaps_struct* g_current=NULL;
 
 procmaps_iterator* pmparser_parse(int pid) {
@@ -187,7 +187,7 @@ procmaps_iterator* pmparser_parse(int pid) {
   // close file
   fclose(file);
 
-  // g_last_head=list_maps;
+  // g_afl->last_head=list_maps;
   maps_it->head = list_maps;
   maps_it->current = list_maps;
   return maps_it;
@@ -203,7 +203,7 @@ procmaps_struct* pmparser_next(procmaps_iterator* p_procmaps_it) {
   /*
   if(g_current==NULL){
 
-          g_current=g_last_head;
+          g_current=g_afl->last_head;
 
   }else
 
