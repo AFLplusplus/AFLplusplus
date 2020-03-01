@@ -51,6 +51,8 @@ TIMEOUT=none
 unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
   AFL_CMIN_CRASHES_ONLY AFL_CMIN_ALLOW_ANY QEMU_MODE UNICORN_MODE
 
+export AFL_QUIET=1
+
 while getopts "+i:o:f:m:t:eQUCh" opt; do
 
   case "$opt" in 
