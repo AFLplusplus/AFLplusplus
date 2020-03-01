@@ -314,7 +314,14 @@ int main(int argc, char** argv, char** envp) {
         if (in_dir) FATAL("Multiple -i options not supported");
         in_dir = optarg;
 
-        if (!strcmp(in_dir, "-")) in_place_resume = 1;
+        if (!strcmp(in_dir, "-")) {
+            
+            if (getenv("AFL_AUTORESUME")) 
+              WARNF("AFL_AUTORESUME has no effect for '-i -'");
+
+            in_place_resume = 1;
+
+        }
 
         break;
 
@@ -649,7 +656,7 @@ int main(int argc, char** argv, char** envp) {
     usage(argv[0], show_help);
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
-      "Eißfeldt and Andrea Fioraldi");
+      "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
       "https://github.com/vanhauser-thc/AFLplusplus");
   OKF("Power schedules from github.com/mboehme/aflfast");
