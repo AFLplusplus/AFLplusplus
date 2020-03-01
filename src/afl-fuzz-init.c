@@ -30,7 +30,7 @@
 /* Build a list of processes bound to specific cores. Returns -1 if nothing
    can be found. Assumes an upper bound of 4k CPUs. */
 
-void bind_to_free_cpu(void) {
+void bind_to_free_cpu(afl_state_t *afl) {
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   cpu_set_t c;
@@ -41,7 +41,7 @@ void bind_to_free_cpu(void) {
   u8  cpu_used[4096] = {0};
   u32 i;
 
-  if (cpu_core_count < 2) return;
+  if (afl->cpu_core_count < 2) return;
 
   if (getenv("AFL_NO_AFFINITY")) {
 
@@ -188,12 +188,12 @@ void bind_to_free_cpu(void) {
 
   try:
 #ifndef __ANDROID__
-    for (i = cpu_start; i < cpu_core_count; i++)
+    for (i = cpu_start; i < afl->cpu_core_count; i++)
       if (!cpu_used[i]) break;
-  if (i == cpu_core_count) {
+  if (i == afl->cpu_core_count) {
 
 #else
-    for (i = cpu_core_count - cpu_start - 1; i > -1; i--)
+    for (i = afl->cpu_core_count - cpu_start - 1; i > -1; i--)
       if (!cpu_used[i]) break;
   if (i == -1) {
 
@@ -206,14 +206,14 @@ void bind_to_free_cpu(void) {
          "    another fuzzer on this machine is probably a bad plan, but if "
          "you are\n"
          "    absolutely sure, you can set AFL_NO_AFFINITY and try again.\n",
-         cpu_core_count);
+         afl->cpu_core_count);
     FATAL("No more free CPU cores");
 
   }
 
   OKF("Found a free CPU core, try binding to #%u.", i);
 
-  cpu_aff = i;
+  afl->cpu_aff = i;
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   CPU_ZERO(&c);
@@ -227,7 +227,7 @@ void bind_to_free_cpu(void) {
 #if defined(__linux__)
   if (sched_setaffinity(0, sizeof(c), &c)) {
 
-    if (cpu_start == cpu_core_count)
+    if (cpu_start == afl->cpu_core_count)
       PFATAL("sched_setaffinity failed for CPU %d, exit", i);
     WARNF("sched_setaffinity failed to CPU %d, trying next CPU", i);
     cpu_start++;
@@ -239,7 +239,7 @@ void bind_to_free_cpu(void) {
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
   if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c)) {
 
-    if (cpu_start == cpu_core_count)
+    if (cpu_start == afl->cpu_core_count)
       PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
     WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
     cpu_start++;
@@ -251,7 +251,7 @@ void bind_to_free_cpu(void) {
 #elif defined(__NetBSD__)
 if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
 
-  if (cpu_start == cpu_core_count)
+  if (cpu_start == afl->cpu_core_count)
     PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
   WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
   cpu_start++;
@@ -272,7 +272,7 @@ cpuset_destroy(c);
 
 /* Load postprocessor, if available. */
 
-void setup_post(void) {
+void setup_post(afl_state_t *afl) {
 
   void* dh;
   u8*   fn = get_afl_env("AFL_POST_LIBRARY");
@@ -285,25 +285,25 @@ void setup_post(void) {
   dh = dlopen(fn, RTLD_NOW);
   if (!dh) FATAL("%s", dlerror());
 
-  post_handler = dlsym(dh, "afl_postprocess");
-  if (!post_handler) FATAL("Symbol 'afl_postprocess' not found.");
+  afl->post_handler = dlsym(dh, "afl_postprocess");
+  if (!afl->post_handler) FATAL("Symbol 'afl_postprocess' not found.");
 
   /* Do a quick test. It's better to segfault now than later =) */
 
-  post_handler("hello", &tlen);
+  afl->post_handler("hello", &tlen);
 
   OKF("Postprocessor installed successfully.");
 
 }
 
-void setup_custom_mutator(void) {
+void setup_afl->custom_mutator(afl_state_t *afl) {
 
   void* dh;
   u8*   fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
 
   if (!fn) return;
 
-  if (limit_time_sig)
+  if (afl->limit_time_sig)
     FATAL(
         "MOpt and custom mutator are mutually exclusive. We accept pull "
         "requests that integrates MOpt with the optional mutators "
@@ -314,11 +314,11 @@ void setup_custom_mutator(void) {
   dh = dlopen(fn, RTLD_NOW);
   if (!dh) FATAL("%s", dlerror());
 
-  custom_mutator = dlsym(dh, "afl_custom_mutator");
-  if (!custom_mutator) FATAL("Symbol 'afl_custom_mutator' not found.");
+  afl->custom_mutator = dlsym(dh, "afl->custom_mutator");
+  if (!afl->custom_mutator) FATAL("Symbol 'afl->custom_mutator' not found.");
 
-  pre_save_handler = dlsym(dh, "afl_pre_save_handler");
-  //  if (!pre_save_handler) WARNF("Symbol 'afl_pre_save_handler' not found.");
+  afl->pre_save_handler = dlsym(dh, "afl->pre_save_handler");
+  //  if (!afl->pre_save_handler) WARNF("Symbol 'afl->pre_save_handler' not found.");
 
   OKF("Custom mutator installed successfully.");
 
@@ -326,13 +326,13 @@ void setup_custom_mutator(void) {
 
 /* Shuffle an array of pointers. Might be slightly biased. */
 
-static void shuffle_ptrs(void** ptrs, u32 cnt) {
+static void shuffle_ptrs(afl_state_t *afl, void** ptrs, u32 cnt) {
 
   u32 i;
 
   for (i = 0; i < cnt - 2; ++i) {
 
-    u32   j = i + UR(cnt - i);
+    u32   j = i + UR(afl, cnt - i);
     void* s = ptrs[i];
     ptrs[i] = ptrs[j];
     ptrs[j] = s;
@@ -344,7 +344,7 @@ static void shuffle_ptrs(void** ptrs, u32 cnt) {
 /* Read all testcases from the input directory, then queue them for testing.
    Called at startup. */
 
-void read_testcases(void) {
+void read_testcases(afl_state_t *afl) {
 
   struct dirent** nl;
   s32             nl_cnt;
@@ -353,19 +353,19 @@ void read_testcases(void) {
 
   /* Auto-detect non-in-place resumption attempts. */
 
-  fn1 = alloc_printf("%s/queue", in_dir);
+  fn1 = alloc_printf("%s/queue", afl->in_dir);
   if (!access(fn1, F_OK))
-    in_dir = fn1;
+    afl->in_dir = fn1;
   else
     ck_free(fn1);
 
-  ACTF("Scanning '%s'...", in_dir);
+  ACTF("Scanning '%s'...", afl->in_dir);
 
   /* We use scandir() + alphasort() rather than readdir() because otherwise,
      the ordering  of test cases would vary somewhat randomly and would be
      difficult to control. */
 
-  nl_cnt = scandir(in_dir, &nl, NULL, alphasort);
+  nl_cnt = scandir(afl->in_dir, &nl, NULL, alphasort);
 
   if (nl_cnt < 0) {
 
@@ -380,11 +380,11 @@ void read_testcases(void) {
            "the input\n"
            "    directory.\n");
 
-    PFATAL("Unable to open '%s'", in_dir);
+    PFATAL("Unable to open '%s'", afl->in_dir);
 
   }
 
-  if (shuffle_queue && nl_cnt > 1) {
+  if (afl->shuffle_queue && nl_cnt > 1) {
 
     ACTF("Shuffling queue...");
     shuffle_ptrs((void**)nl, nl_cnt);
@@ -395,9 +395,9 @@ void read_testcases(void) {
 
     struct stat st;
 
-    u8* fn2 = alloc_printf("%s/%s", in_dir, nl[i]->d_name);
+    u8* fn2 = alloc_printf("%s/%s", afl->in_dir, nl[i]->d_name);
     u8* dfn =
-        alloc_printf("%s/.state/deterministic_done/%s", in_dir, nl[i]->d_name);
+        alloc_printf("%s/.state/deterministic_done/%s", afl->in_dir, nl[i]->d_name);
 
     u8 passed_det = 0;
 
@@ -434,7 +434,7 @@ void read_testcases(void) {
 
   free(nl);                                                  /* not tracked */
 
-  if (!queued_paths) {
+  if (!afl->queued_paths) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like there are no valid test cases in the input directory! The "
@@ -445,25 +445,25 @@ void read_testcases(void) {
          "in the\n"
          "    input directory.\n");
 
-    FATAL("No usable test cases in '%s'", in_dir);
+    FATAL("No usable test cases in '%s'", afl->in_dir);
 
   }
 
-  last_path_time = 0;
-  queued_at_start = queued_paths;
+  afl->last_path_time = 0;
+  afl->queued_at_start = afl->queued_paths;
 
 }
 
 /* Examine map coverage. Called once, for first test case. */
 
-static void check_map_coverage(void) {
+static void check_map_coverage(afl_struct_t *afl) {
 
   u32 i;
 
-  if (count_bytes(trace_bits) < 100) return;
+  if (count_bytes(afl->trace_bits) < 100) return;
 
   for (i = (1 << (MAP_SIZE_POW2 - 1)); i < MAP_SIZE; ++i)
-    if (trace_bits[i]) return;
+    if (afl->trace_bits[i]) return;
 
   WARNF("Recompile binary with newer version of afl to improve coverage!");
 
@@ -472,9 +472,9 @@ static void check_map_coverage(void) {
 /* Perform dry run of all test cases to confirm that the app is working as
    expected. This is done only for the initial inputs, and only once. */
 
-void perform_dry_run(char** argv) {
+void perform_dry_run(afl_state_t *afl, char** argv) {
 
-  struct queue_entry* q = queue;
+  struct queue_entry* q = afl->queue;
   u32                 cal_failures = 0;
   u8*                 skip_crashes = get_afl_env("AFL_SKIP_CRASHES");
 
@@ -501,9 +501,9 @@ void perform_dry_run(char** argv) {
     res = calibrate_case(argv, q, use_mem, 0, 1);
     ck_free(use_mem);
 
-    if (stop_soon) return;
+    if (afl->stop_soon) return;
 
-    if (res == crash_mode || res == FAULT_NOBITS)
+    if (res == afl->crash_mode || res == FAULT_NOBITS)
       SAYF(cGRA "    len = %u, map size = %u, exec speed = %llu us\n" cRST,
            q->len, q->bitmap_size, q->exec_us);
 
@@ -511,21 +511,21 @@ void perform_dry_run(char** argv) {
 
       case FAULT_NONE:
 
-        if (q == queue) check_map_coverage();
+        if (q == afl->queue) check_map_coverage();
 
-        if (crash_mode) FATAL("Test case '%s' does *NOT* crash", fn);
+        if (afl->crash_mode) FATAL("Test case '%s' does *NOT* crash", fn);
 
         break;
 
       case FAULT_TMOUT:
 
-        if (timeout_given) {
+        if (afl->timeout_given) {
 
-          /* The -t nn+ syntax in the command line sets timeout_given to '2' and
+          /* The -t nn+ syntax in the command line sets afl->timeout_given to '2' and
              instructs afl-fuzz to tolerate but skip queue entries that time
              out. */
 
-          if (timeout_given > 1) {
+          if (afl->timeout_given > 1) {
 
             WARNF("Test case results in a timeout (skipping)");
             q->cal_failed = CAL_CHANCES;
@@ -544,7 +544,7 @@ void perform_dry_run(char** argv) {
                "    what you are doing and want to simply skip the unruly test "
                "cases, append\n"
                "    '+' at the end of the value passed to -t ('-t %u+').\n",
-               exec_tmout, exec_tmout);
+               afl->exec_tmout, afl->exec_tmout);
 
           FATAL("Test case '%s' results in a timeout", fn);
 
@@ -560,7 +560,7 @@ void perform_dry_run(char** argv) {
                "    If this test case is just a fluke, the other option is to "
                "just avoid it\n"
                "    altogether, and find one that is less of a CPU hog.\n",
-               exec_tmout);
+               afl->exec_tmout);
 
           FATAL("Test case '%s' results in a timeout", fn);
 
@@ -568,7 +568,7 @@ void perform_dry_run(char** argv) {
 
       case FAULT_CRASH:
 
-        if (crash_mode) break;
+        if (afl->crash_mode) break;
 
         if (skip_crashes) {
 
@@ -579,7 +579,7 @@ void perform_dry_run(char** argv) {
 
         }
 
-        if (mem_limit) {
+        if (afl->mem_limit) {
 
           SAYF("\n" cLRD "[-] " cRST
                "Oops, the program crashed with one of the test cases provided. "
@@ -621,7 +621,7 @@ void perform_dry_run(char** argv) {
                "other options\n"
                "      fail, poke <afl-users@googlegroups.com> for "
                "troubleshooting tips.\n",
-               DMS(mem_limit << 20), mem_limit - 1, doc_path);
+               DMS(afl->mem_limit << 20), afl->mem_limit - 1, afl->doc_path);
 
         } else {
 
@@ -664,9 +664,9 @@ void perform_dry_run(char** argv) {
 
       case FAULT_NOBITS:
 
-        ++useless_at_start;
+        ++afl->useless_at_start;
 
-        if (!in_bitmap && !shuffle_queue)
+        if (!afl->in_bitmap && !afl->shuffle_queue)
           WARNF("No new instrumentation output, test case may be useless.");
 
         break;
@@ -681,15 +681,15 @@ void perform_dry_run(char** argv) {
 
   if (cal_failures) {
 
-    if (cal_failures == queued_paths)
+    if (cal_failures == afl->queued_paths)
       FATAL("All test cases time out%s, giving up!",
             skip_crashes ? " or crash" : "");
 
     WARNF("Skipped %u test cases (%0.02f%%) due to timeouts%s.", cal_failures,
-          ((double)cal_failures) * 100 / queued_paths,
+          ((double)cal_failures) * 100 / afl->queued_paths,
           skip_crashes ? " or crashes" : "");
 
-    if (cal_failures * 5 > queued_paths)
+    if (cal_failures * 5 > afl->queued_paths)
       WARNF(cLRD "High percentage of rejected test cases, check settings!");
 
   }
@@ -730,9 +730,9 @@ static void link_or_copy(u8* old_path, u8* new_path) {
 /* Create hard links for input test cases in the output directory, choosing
    good names and pivoting accordingly. */
 
-void pivot_inputs(void) {
+void pivot_inputs(afl_state_t *afl) {
 
-  struct queue_entry* q = queue;
+  struct queue_entry* q = afl->queue;
   u32                 id = 0;
 
   ACTF("Creating hard links for all input files...");
@@ -757,8 +757,8 @@ void pivot_inputs(void) {
       u8* src_str;
       u32 src_id;
 
-      resuming_fuzz = 1;
-      nfn = alloc_printf("%s/queue/%s", out_dir, rsl);
+      afl->resuming_fuzz = 1;
+      nfn = alloc_printf("%s/queue/%s", afl->out_dir, rsl);
 
       /* Since we're at it, let's also try to find parent and figure out the
          appropriate depth for this entry. */
@@ -767,12 +767,12 @@ void pivot_inputs(void) {
 
       if (src_str && sscanf(src_str + 1, "%06u", &src_id) == 1) {
 
-        struct queue_entry* s = queue;
+        struct queue_entry* s = afl->queue;
         while (src_id-- && s)
           s = s->next;
         if (s) q->depth = s->depth + 1;
 
-        if (max_depth < q->depth) max_depth = q->depth;
+        if (afl->max_depth < q->depth) afl->max_depth = q->depth;
 
       }
 
@@ -789,12 +789,12 @@ void pivot_inputs(void) {
         use_name += 6;
       else
         use_name = rsl;
-      nfn = alloc_printf("%s/queue/id:%06u,time:0,orig:%s", out_dir, id,
+      nfn = alloc_printf("%s/queue/id:%06u,time:0,orig:%s", afl->out_dir, id,
                          use_name);
 
 #else
 
-      nfn = alloc_printf("%s/queue/id_%06u", out_dir, id);
+      nfn = alloc_printf("%s/queue/id_%06u", afl->out_dir, id);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
@@ -815,14 +815,14 @@ void pivot_inputs(void) {
 
   }
 
-  if (in_place_resume) nuke_resume_dir();
+  if (afl->in_place_resume) nuke_resume_dir();
 
 }
 
 /* When resuming, try to find the queue position to start from. This makes sense
    only when resuming, and when we can find the original fuzzer_stats. */
 
-u32 find_start_position(void) {
+u32 find_start_position(afl_state_t *afl) {
 
   static u8 tmp[4096];                   /* Ought to be enough for anybody. */
 
@@ -830,12 +830,12 @@ u32 find_start_position(void) {
   s32 fd, i;
   u32 ret;
 
-  if (!resuming_fuzz) return 0;
+  if (!afl->resuming_fuzz) return 0;
 
-  if (in_place_resume)
-    fn = alloc_printf("%s/fuzzer_stats", out_dir);
+  if (afl->in_place_resume)
+    fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
   else
-    fn = alloc_printf("%s/../fuzzer_stats", in_dir);
+    fn = alloc_printf("%s/../fuzzer_stats", afl->in_dir);
 
   fd = open(fn, O_RDONLY);
   ck_free(fn);
@@ -850,7 +850,7 @@ u32 find_start_position(void) {
   if (!off) return 0;
 
   ret = atoi(off + 20);
-  if (ret >= queued_paths) ret = 0;
+  if (ret >= afl->queued_paths) ret = 0;
   return ret;
 
 }
@@ -859,7 +859,7 @@ u32 find_start_position(void) {
    -t given, we don't want to keep auto-scaling the timeout over and over
    again to prevent it from growing due to random flukes. */
 
-void find_timeout(void) {
+void find_timeout(afl_state_t *afl) {
 
   static u8 tmp[4096];                   /* Ought to be enough for anybody. */
 
@@ -867,12 +867,12 @@ void find_timeout(void) {
   s32 fd, i;
   u32 ret;
 
-  if (!resuming_fuzz) return;
+  if (!afl->resuming_fuzz) return;
 
-  if (in_place_resume)
-    fn = alloc_printf("%s/fuzzer_stats", out_dir);
+  if (afl->in_place_resume)
+    fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
   else
-    fn = alloc_printf("%s/../fuzzer_stats", in_dir);
+    fn = alloc_printf("%s/../fuzzer_stats", afl->in_dir);
 
   fd = open(fn, O_RDONLY);
   ck_free(fn);
@@ -889,12 +889,12 @@ void find_timeout(void) {
   ret = atoi(off + 20);
   if (ret <= 4) return;
 
-  exec_tmout = ret;
-  timeout_given = 3;
+  afl->exec_tmout = ret;
+  afl->timeout_given = 3;
 
 }
 
-/* A helper function for handle_existing_out_dir(), deleting all prefixed
+/* A helper function for handle_existing_afl->out_dir(), deleting all prefixed
    files in a directory. */
 
 static u8 delete_files(u8* path, u8* prefix) {
@@ -985,27 +985,27 @@ void nuke_resume_dir(void) {
 
   u8* fn;
 
-  fn = alloc_printf("%s/_resume/.state/deterministic_done", out_dir);
+  fn = alloc_printf("%s/_resume/.state/deterministic_done", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/_resume/.state/auto_extras", out_dir);
+  fn = alloc_printf("%s/_resume/.state/auto_extras", afl->out_dir);
   if (delete_files(fn, "auto_")) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/_resume/.state/redundant_edges", out_dir);
+  fn = alloc_printf("%s/_resume/.state/redundant_edges", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/_resume/.state/variable_behavior", out_dir);
+  fn = alloc_printf("%s/_resume/.state/variable_behavior", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/_resume/.state", out_dir);
+  fn = alloc_printf("%s/_resume/.state", afl->out_dir);
   if (rmdir(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/_resume", out_dir);
+  fn = alloc_printf("%s/_resume", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
@@ -1019,32 +1019,32 @@ dir_cleanup_failed:
 
 /* Delete fuzzer output directory if we recognize it as ours, if the fuzzer
    is not currently running, and if the last run time isn't too great. 
-   Resume fuzzing if `-` is set as in_dir or if AFL_AUTORESUME is set */
+   Resume fuzzing if `-` is set as afl->in_dir or if AFL_AUTORESUME is set */
 
-static void handle_existing_out_dir(void) {
+static void handle_existing_afl->out_dir(void) {
 
   FILE* f;
-  u8*   fn = alloc_printf("%s/fuzzer_stats", out_dir);
+  u8*   fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
 
   /* See if the output directory is locked. If yes, bail out. If not,
      create a lock that will persist for the lifetime of the process
      (this requires leaving the descriptor open).*/
 
-  out_dir_fd = open(out_dir, O_RDONLY);
-  if (out_dir_fd < 0) PFATAL("Unable to open '%s'", out_dir);
+  afl->out_dir_fd = open(afl->out_dir, O_RDONLY);
+  if (afl->out_dir_fd < 0) PFATAL("Unable to open '%s'", afl->out_dir);
 
 #ifndef __sun
 
-  if (flock(out_dir_fd, LOCK_EX | LOCK_NB) && errno == EWOULDBLOCK) {
+  if (flock(afl->out_dir_fd, LOCK_EX | LOCK_NB) && errno == EWOULDBLOCK) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like the job output directory is being actively used by "
          "another\n"
          "    instance of afl-fuzz. You will need to choose a different %s\n"
          "    or stop the other process first.\n",
-         sync_id ? "fuzzer ID" : "output location");
+         afl->sync_id ? "fuzzer ID" : "output location");
 
-    FATAL("Directory '%s' is in use", out_dir);
+    FATAL("Directory '%s' is in use", afl->out_dir);
 
   }
 
@@ -1054,28 +1054,28 @@ static void handle_existing_out_dir(void) {
 
   if (f) {
 
-    u64 start_time2, last_update;
+    u64 afl->start_time2, afl->last_update;
 
     if (fscanf(f,
-               "start_time     : %llu\n"
-               "last_update    : %llu\n",
-               &start_time2, &last_update) != 2)
+               "afl->start_time     : %llu\n"
+               "afl->last_update    : %llu\n",
+               &afl->start_time2, &afl->last_update) != 2)
       FATAL("Malformed data in '%s'", fn);
 
     fclose(f);
 
-    /* Autoresume treats a normal run as in_place_resume if a valid out dir already exists */
+    /* Autoresume treats a normal run as afl->in_place_resume if a valid out dir already exists */
 
-    if (!in_place_resume && autoresume) {
+    if (!afl->in_place_resume && afl->autoresume) {
     
       OKF("Detected prior run with AFL_AUTORESUME set. Resuming.");
-      in_place_resume = 1;
+      afl->in_place_resume = 1;
 
     }
 
     /* Let's see how much work is at stake. */
 
-    if (!in_place_resume && last_update - start_time2 > OUTPUT_GRACE * 60) {
+    if (!afl->in_place_resume && afl->last_update - afl->start_time2 > OUTPUT_GRACE * 60) {
 
       SAYF("\n" cLRD "[-] " cRST
            "The job output directory already exists and contains the results "
@@ -1093,7 +1093,7 @@ static void handle_existing_out_dir(void) {
            "    try again.\n",
            OUTPUT_GRACE);
 
-      FATAL("At-risk data found in '%s'", out_dir);
+      FATAL("At-risk data found in '%s'", afl->out_dir);
 
     }
 
@@ -1107,13 +1107,13 @@ static void handle_existing_out_dir(void) {
      incomplete due to an earlier abort, so we want to use the old _resume/
      dir instead, and we let rename() fail silently. */
 
-  if (in_place_resume) {
+  if (afl->in_place_resume) {
 
-    u8* orig_q = alloc_printf("%s/queue", out_dir);
+    u8* orig_q = alloc_printf("%s/queue", afl->out_dir);
 
-    in_dir = alloc_printf("%s/_resume", out_dir);
+    afl->in_dir = alloc_printf("%s/_resume", afl->out_dir);
 
-    rename(orig_q, in_dir);                                /* Ignore errors */
+    rename(orig_q, afl->in_dir);                                /* Ignore errors */
 
     OKF("Output directory exists, will attempt session resume.");
 
@@ -1128,61 +1128,61 @@ static void handle_existing_out_dir(void) {
   ACTF("Deleting old session data...");
 
   /* Okay, let's get the ball rolling! First, we need to get rid of the entries
-     in <out_dir>/.synced/.../id:*, if any are present. */
+     in <afl->out_dir>/.synced/.../id:*, if any are present. */
 
-  if (!in_place_resume) {
+  if (!afl->in_place_resume) {
 
-    fn = alloc_printf("%s/.synced", out_dir);
+    fn = alloc_printf("%s/.synced", afl->out_dir);
     if (delete_files(fn, NULL)) goto dir_cleanup_failed;
     ck_free(fn);
 
   }
 
-  /* Next, we need to clean up <out_dir>/queue/.state/ subdirectories: */
+  /* Next, we need to clean up <afl->out_dir>/queue/.state/ subdirectories: */
 
-  fn = alloc_printf("%s/queue/.state/deterministic_done", out_dir);
+  fn = alloc_printf("%s/queue/.state/deterministic_done", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/queue/.state/auto_extras", out_dir);
+  fn = alloc_printf("%s/queue/.state/auto_extras", afl->out_dir);
   if (delete_files(fn, "auto_")) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/queue/.state/redundant_edges", out_dir);
+  fn = alloc_printf("%s/queue/.state/redundant_edges", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/queue/.state/variable_behavior", out_dir);
+  fn = alloc_printf("%s/queue/.state/variable_behavior", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
   /* Then, get rid of the .state subdirectory itself (should be empty by now)
-     and everything matching <out_dir>/queue/id:*. */
+     and everything matching <afl->out_dir>/queue/id:*. */
 
-  fn = alloc_printf("%s/queue/.state", out_dir);
+  fn = alloc_printf("%s/queue/.state", afl->out_dir);
   if (rmdir(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/queue", out_dir);
+  fn = alloc_printf("%s/queue", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  /* All right, let's do <out_dir>/crashes/id:* and <out_dir>/hangs/id:*. */
+  /* All right, let's do <afl->out_dir>/crashes/id:* and <afl->out_dir>/hangs/id:*. */
 
-  if (!in_place_resume) {
+  if (!afl->in_place_resume) {
 
-    fn = alloc_printf("%s/crashes/README.txt", out_dir);
+    fn = alloc_printf("%s/crashes/README.txt", afl->out_dir);
     unlink(fn);                                            /* Ignore errors */
     ck_free(fn);
 
   }
 
-  fn = alloc_printf("%s/crashes", out_dir);
+  fn = alloc_printf("%s/crashes", afl->out_dir);
 
   /* Make backup of the crashes directory if it's not empty and if we're
      doing in-place resume. */
 
-  if (in_place_resume && rmdir(fn)) {
+  if (afl->in_place_resume && rmdir(fn)) {
 
     time_t     cur_t = time(0);
     struct tm* t = localtime(&cur_t);
@@ -1682,19 +1682,19 @@ void get_core_count(void) {
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__DragonFly__)
 
-  size_t s = sizeof(cpu_core_count);
+  size_t s = sizeof(afl->cpu_core_count);
 
   /* On *BSD systems, we can just use a sysctl to get the number of CPUs. */
 
 #ifdef __APPLE__
 
-  if (sysctlbyname("hw.logicalcpu", &cpu_core_count, &s, NULL, 0) < 0) return;
+  if (sysctlbyname("hw.logicalcpu", &afl->cpu_core_count, &s, NULL, 0) < 0) return;
 
 #else
 
   int s_name[2] = {CTL_HW, HW_NCPU};
 
-  if (sysctl(s_name, 2, &cpu_core_count, &s, NULL, 0) < 0) return;
+  if (sysctl(s_name, 2, &afl->cpu_core_count, &s, NULL, 0) < 0) return;
 
 #endif                                                        /* ^__APPLE__ */
 
@@ -1702,7 +1702,7 @@ void get_core_count(void) {
 
 #ifdef HAVE_AFFINITY
 
-  cpu_core_count = sysconf(_SC_NPROCESSORS_ONLN);
+  afl->cpu_core_count = sysconf(_SC_NPROCESSORS_ONLN);
 
 #else
 
@@ -1712,7 +1712,7 @@ void get_core_count(void) {
   if (!f) return;
 
   while (fgets(tmp, sizeof(tmp), f))
-    if (!strncmp(tmp, "cpu", 3) && isdigit(tmp[3])) ++cpu_core_count;
+    if (!strncmp(tmp, "cpu", 3) && isdigit(tmp[3])) ++afl->cpu_core_count;
 
   fclose(f);
 
@@ -1720,7 +1720,7 @@ void get_core_count(void) {
 
 #endif                        /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__) */
 
-  if (cpu_core_count > 0) {
+  if (afl->cpu_core_count > 0) {
 
     u32 cur_runnable = 0;
 
@@ -1736,16 +1736,16 @@ void get_core_count(void) {
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
     OKF("You have %d CPU core%s and %u runnable tasks (utilization: %0.0f%%).",
-        cpu_core_count, cpu_core_count > 1 ? "s" : "", cur_runnable,
-        cur_runnable * 100.0 / cpu_core_count);
+        afl->cpu_core_count, afl->cpu_core_count > 1 ? "s" : "", cur_runnable,
+        cur_runnable * 100.0 / afl->cpu_core_count);
 
-    if (cpu_core_count > 1) {
+    if (afl->cpu_core_count > 1) {
 
-      if (cur_runnable > cpu_core_count * 1.5) {
+      if (cur_runnable > afl->cpu_core_count * 1.5) {
 
         WARNF("System under apparent load, performance may be spotty.");
 
-      } else if (cur_runnable + 1 <= cpu_core_count) {
+      } else if (cur_runnable + 1 <= afl->cpu_core_count) {
 
         OKF("Try parallel jobs - see %s/parallel_fuzzing.md.", doc_path);
 
@@ -1755,7 +1755,7 @@ void get_core_count(void) {
 
   } else {
 
-    cpu_core_count = 0;
+    afl->cpu_core_count = 0;
     WARNF("Unable to figure out the number of CPU cores.");
 
   }
@@ -1848,10 +1848,10 @@ static void handle_stop_sig(int sig) {
 
   stop_soon = 1;
 
-  if (child_pid > 0) kill(child_pid, SIGKILL);
-  if (forksrv_pid > 0) kill(forksrv_pid, SIGKILL);
-  if (cmplog_child_pid > 0) kill(cmplog_child_pid, SIGKILL);
-  if (cmplog_forksrv_pid > 0) kill(cmplog_forksrv_pid, SIGKILL);
+  if (child_pid > 0) kill(afl->child_pid, SIGKILL);
+  if (forksrv_pid > 0) kill(afl->forksrv_pid, SIGKILL);
+  if (cmplog_child_pid > 0) kill(afl->cmplog_child_pid, SIGKILL);
+  if (cmplog_forksrv_pid > 0) kill(afl->cmplog_forksrv_pid, SIGKILL);
 
 }
 

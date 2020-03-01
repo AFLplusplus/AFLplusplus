@@ -74,7 +74,7 @@ static struct mapping { void *st, *en; } __tokencap_ro[MAX_MAPPINGS];
 
 static u32   __tokencap_ro_cnt;
 static u8    __tokencap_ro_loaded;
-static int   __tokencap_out_file = -1;
+static int   __tokencap_afl->out_file = -1;
 static pid_t __tokencap_pid = -1;
 
 /* Identify read-only regions in memory. Only parameters that fall into these
@@ -256,7 +256,7 @@ static void __tokencap_dump(const u8* ptr, size_t len, u8 is_text) {
   u32 i;
   u32 pos = 0;
 
-  if (len < MIN_AUTO_EXTRA || len > MAX_AUTO_EXTRA || __tokencap_out_file == -1)
+  if (len < MIN_AUTO_EXTRA || len > MAX_AUTO_EXTRA || __tokencap_afl->out_file == -1)
     return;
 
   for (i = 0; i < len; i++) {
@@ -282,9 +282,9 @@ static void __tokencap_dump(const u8* ptr, size_t len, u8 is_text) {
 
   buf[pos] = 0;
 
-  int wrt_ok = (1 == write(__tokencap_out_file, "\"", 1));
-  wrt_ok &= (pos == write(__tokencap_out_file, buf, pos));
-  wrt_ok &= (2 == write(__tokencap_out_file, "\"\n", 2));
+  int wrt_ok = (1 == write(__tokencap_afl->out_file, "\"", 1));
+  wrt_ok &= (pos == write(__tokencap_afl->out_file, buf, pos));
+  wrt_ok &= (2 == write(__tokencap_afl->out_file, "\"\n", 2));
 
 }
 
@@ -710,8 +710,8 @@ int timingsafe_memcmp(const void* mem1, const void* mem2, size_t len) {
 __attribute__((constructor)) void __tokencap_init(void) {
 
   u8* fn = getenv("AFL_TOKEN_FILE");
-  if (fn) __tokencap_out_file = open(fn, O_RDWR | O_CREAT | O_APPEND, 0655);
-  if (__tokencap_out_file == -1) __tokencap_out_file = STDERR_FILENO;
+  if (fn) __tokencap_afl->out_file = open(fn, O_RDWR | O_CREAT | O_APPEND, 0655);
+  if (__tokencap_afl->out_file == -1) __tokencap_afl->out_file = STDERR_FILENO;
   __tokencap_pid = getpid();
 
 #ifdef RTLD_NEXT
@@ -731,7 +731,7 @@ __attribute__((constructor)) void __tokencap_init(void) {
 /* closing as best as we can the tokens file */
 __attribute__((destructor)) void __tokencap_shutdown(void) {
 
-  if (__tokencap_out_file != STDERR_FILENO) close(__tokencap_out_file);
+  if (__tokencap_afl->out_file != STDERR_FILENO) close(__tokencap_afl->out_file);
 
 }
 

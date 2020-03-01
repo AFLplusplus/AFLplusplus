@@ -151,7 +151,7 @@ static u8  alloc_verbose,               /* Additional debug messages        */
 #define __thread
 #warning no thread support available
 #endif
-static __thread size_t total_mem;       /* Currently allocated mem          */
+static __thread size_t afl->total_mem;       /* Currently allocated mem          */
 
 static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
 static u32          alloc_canary;
@@ -167,7 +167,7 @@ static void* __dislocator_alloc(size_t len) {
   size_t tlen;
   int    flags, fd, sp;
 
-  if (total_mem + len > max_mem || total_mem + len < total_mem) {
+  if (afl->total_mem + len > max_mem || afl->total_mem + len < afl->total_mem) {
 
     if (hard_fail) FATAL("total allocs exceed %u MB", max_mem / 1024 / 1024);
 
@@ -248,7 +248,7 @@ static void* __dislocator_alloc(size_t len) {
   PTR_L(ret) = len;
   PTR_C(ret) = alloc_canary;
 
-  total_mem += len;
+  afl->total_mem += len;
 
   if (rlen != len) {
 
@@ -290,7 +290,7 @@ void* calloc(size_t elem_len, size_t elem_cnt) {
   ret = __dislocator_alloc(len);
 
   DEBUGF("calloc(%zu, %zu) = %p [%zu total]", elem_len, elem_cnt, ret,
-         total_mem);
+         afl->total_mem);
 
   return ret;
 
@@ -310,7 +310,7 @@ void* malloc(size_t len) {
 
   ret = __dislocator_alloc(len);
 
-  DEBUGF("malloc(%zu) = %p [%zu total]", len, ret, total_mem);
+  DEBUGF("malloc(%zu) = %p [%zu total]", len, ret, afl->total_mem);
 
   if (ret && len) memset(ret, ALLOC_CLOBBER, len);
 
@@ -334,7 +334,7 @@ void free(void* ptr) {
 
   len = PTR_L(ptr);
 
-  total_mem -= len;
+  afl->total_mem -= len;
 
   if (align_allocations && (len & (ALLOC_ALIGN_SIZE - 1))) {
 
@@ -377,7 +377,7 @@ void* realloc(void* ptr, size_t len) {
 
   }
 
-  DEBUGF("realloc(%p, %zu) = %p [%zu total]", ptr, len, ret, total_mem);
+  DEBUGF("realloc(%p, %zu) = %p [%zu total]", ptr, len, ret, afl->total_mem);
 
   return ret;
 
