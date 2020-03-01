@@ -1066,7 +1066,7 @@ static void handle_existing_out_dir(void) {
 
     /* Autoresume treats a normal run as in_place_resume if a valid out dir already exists */
 
-    if (getenv("AFL_AUTORESUME")) {
+    if (!in_place_resume && autoresume) {
     
       OKF("Detected prior run with AFL_AUTORESUME set. Resuming.");
       in_place_resume = 1;
