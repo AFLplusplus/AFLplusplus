@@ -275,7 +275,7 @@ cpuset_destroy(c);
 void setup_post(void) {
 
   void* dh;
-  u8*   fn = getenv("AFL_POST_LIBRARY");
+  u8*   fn = get_afl_env("AFL_POST_LIBRARY");
   u32   tlen = 6;
 
   if (!fn) return;
@@ -476,7 +476,7 @@ void perform_dry_run(char** argv) {
 
   struct queue_entry* q = queue;
   u32                 cal_failures = 0;
-  u8*                 skip_crashes = getenv("AFL_SKIP_CRASHES");
+  u8*                 skip_crashes = get_afl_env("AFL_SKIP_CRASHES");
 
   while (q) {
 
@@ -894,7 +894,7 @@ void find_timeout(void) {
 
 }
 
-/* A helper function for maybe_delete_out_dir(), deleting all prefixed
+/* A helper function for handle_existing_out_dir(), deleting all prefixed
    files in a directory. */
 
 static u8 delete_files(u8* path, u8* prefix) {
@@ -1018,9 +1018,10 @@ dir_cleanup_failed:
 }
 
 /* Delete fuzzer output directory if we recognize it as ours, if the fuzzer
-   is not currently running, and if the last run time isn't too great. */
+   is not currently running, and if the last run time isn't too great. 
+   Resume fuzzing if `-` is set as in_dir or if AFL_AUTORESUME is set */
 
-void maybe_delete_out_dir(void) {
+static void handle_existing_out_dir(void) {
 
   FILE* f;
   u8*   fn = alloc_printf("%s/fuzzer_stats", out_dir);
@@ -1063,6 +1064,15 @@ void maybe_delete_out_dir(void) {
 
     fclose(f);
 
+    /* Autoresume treats a normal run as in_place_resume if a valid out dir already exists */
+
+    if (!in_place_resume && autoresume) {
+    
+      OKF("Detected prior run with AFL_AUTORESUME set. Resuming.");
+      in_place_resume = 1;
+
+    }
+
     /* Let's see how much work is at stake. */
 
     if (!in_place_resume && last_update - start_time2 > OUTPUT_GRACE * 60) {
@@ -1079,7 +1089,7 @@ void maybe_delete_out_dir(void) {
            "    or specify a different output location for this job. To resume "
            "the old\n"
            "    session, put '-' as the input directory in the command line "
-           "('-i -') and\n"
+           "('-i -') or set the AFL_AUTORESUME=1 env variable and\n"
            "    try again.\n",
            OUTPUT_GRACE);
 
@@ -1306,7 +1316,7 @@ void setup_dirs_fds(void) {
 
     if (errno != EEXIST) PFATAL("Unable to create '%s'", out_dir);
 
-    maybe_delete_out_dir();
+    handle_existing_out_dir();
 
   } else {
 
@@ -1499,7 +1509,7 @@ void check_crash_handling(void) {
       "    sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist\n");
 
 #endif
-  if (!getenv("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES"))
+  if (!get_afl_env("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES"))
     FATAL("Crash reporter detected");
 
 #else
@@ -1551,7 +1561,7 @@ void check_cpu_governor(void) {
   u8    tmp[128];
   u64   min = 0, max = 0;
 
-  if (getenv("AFL_SKIP_CPUFREQ")) return;
+  if (get_afl_env("AFL_SKIP_CPUFREQ")) return;
 
   if (cpu_aff > 0)
     snprintf(tmp, sizeof(tmp), "%s%d%s", "/sys/devices/system/cpu/cpu", cpu_aff,
@@ -1632,7 +1642,7 @@ void check_cpu_governor(void) {
 #elif defined __APPLE__
   u64 min = 0, max = 0;
   size_t mlen = sizeof(min);
-  if (getenv("AFL_SKIP_CPUFREQ")) return;
+  if (get_afl_env("AFL_SKIP_CPUFREQ")) return;
 
   ACTF("Checking CPU scaling governor...");
 
@@ -1805,7 +1815,7 @@ static void handle_resize(int sig) {
 
 void check_asan_opts(void) {
 
-  u8* x = getenv("ASAN_OPTIONS");
+  u8* x = get_afl_env("ASAN_OPTIONS");
 
   if (x) {
 
@@ -1817,7 +1827,7 @@ void check_asan_opts(void) {
 
   }
 
-  x = getenv("MSAN_OPTIONS");
+  x = get_afl_env("MSAN_OPTIONS");
 
   if (x) {
 
@@ -1913,7 +1923,7 @@ void check_binary(u8* fname) {
 
   }
 
-  if (getenv("AFL_SKIP_BIN_CHECK") || use_wine) return;
+  if (get_afl_env("AFL_SKIP_BIN_CHECK") || use_wine) return;
 
   /* Check for blatant user errors. */
 
@@ -2082,7 +2092,7 @@ void check_if_tty(void) {
 
   struct winsize ws;
 
-  if (getenv("AFL_NO_UI")) {
+  if (get_afl_env("AFL_NO_UI")) {
 
     OKF("Disabling the UI because AFL_NO_UI is set.");
     not_on_tty = 1;

@@ -43,6 +43,7 @@ static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
 static u8   cmplog_mode;
 u8          use_stdin = 0;                                         /* dummy */
+u8          be_quiet = 0;
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
@@ -506,30 +507,18 @@ int main(int argc, char** argv, char** envp) {
         "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
         "AFL_LLVM_WHITELIST: enable whitelisting (selective instrumentation)\n"
         "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
-
-        "AFL_USE_TRACE_PC, USE_TRACE_PC, AFL_LLVM_USE_TRACE_PC, AFL_TRACE_PC: "
-        "\n"
-        "  use LLVM trace-pc-guard instrumentation\n"
-
-        "AFL_LLVM_LAF_SPLIT_COMPARES, LAF_SPLIT_COMPARES: enable cascaded "
-        "comparisons\n"
-        "AFL_LLVM_LAF_SPLIT_SWITCHES, LAF_SPLIT_SWITCHES: casc. comp. in "
-        "'switch'\n"
-        "AFL_LLVM_LAF_TRANSFORM_COMPARES, LAF_TRANSFORM_COMPARES:\n"
-        "  transform library comparison function calls to cascaded "
-        "comparisons\n"
+        "AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
+        "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
+        "AFL_LLVM_LAF_SPLIT_SWITCHES: casc. comp. in 'switch'\n"
+        "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
+        "function calls\n"
+        " to cascaded comparisons\n"
         "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to cascaded "
         "comp.\n"
-        "AFL_LLVM_LAF_SPLIT_COMPARES_BITW, LAF_SPLIT_COMPARES_BITW: size limit "
-        "(default 8)\n"
-
-        "AFL_LLVM_INSTRIM, INSTRIM_LIB: use light weight instrumentation "
-        "InsTrim\n"
-        "AFL_LLVM_INSTRIM_LOOPHEAD, LOOPHEAD: optimize loop tracing for speed\n"
-
-        "AFL_CMPLOG, AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen "
-        "mutator)\n"
-
+        "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
+        "AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
+        "AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed\n"
+        "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
         "\nafl-clang-fast was built for llvm %s with the llvm binary path of "
         "\"%s\".\n\n",
         BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
