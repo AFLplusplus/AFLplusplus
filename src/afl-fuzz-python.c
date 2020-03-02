@@ -55,6 +55,8 @@ int init_py() {
       u8 py_notrim = 0, py_idx;
       py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
+      py_functions[PY_FUNC_PRE_SAVE] =
+          PyObject_GetAttrString(py_module, "pre_save");
       py_functions[PY_FUNC_INIT_TRIM] =
           PyObject_GetAttrString(py_module, "init_trim");
       py_functions[PY_FUNC_POST_TRIM] =
