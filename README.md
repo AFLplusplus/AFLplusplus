@@ -116,10 +116,16 @@ The easiest is to build and install everything:
 ```shell
 $ sudo apt install build-essential libtool-bin python3 automake bison libglib2.0-dev libpixman-1-dev clang llvm flex
 $ sudo apt-get install gcc-multilib g++-multilib
-sudo apt-get --reinstall install libc6 libc6-dev
+$ sudo apt-get --reinstall install libc6 libc6-dev
 $ make distrib
 $ sudo make install
 ```
+If you got some error regarding gcc plugin ,simply do:
+```shell
+$ chmod +x gcc_plugin/install.sh
+$ gcc_plugin/install.sh
+```
+This will install gcc-plugin-X-dev in your system and try above commands again.
 
 Note that "make distrib" also builds llvm_mode, qemu_mode, unicorn_mode and
 more. If you just want plain afl then do "make all", however compiling and
