@@ -48,7 +48,7 @@ void mark_as_det_done(afl_state_t *afl, struct queue_entry* q) {
 /* Mark as variable. Create symlinks if possible to make it easier to examine
    the files. */
 
-void mark_as_variable(struct queue_entry* q) {
+void mark_as_variable(afl_state_t *afl, struct queue_entry* q) {
 
   u8 *fn = strrchr(q->fname, '/') + 1, *ldest;
 

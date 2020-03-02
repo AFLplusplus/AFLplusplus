@@ -296,7 +296,7 @@ void setup_post(afl_state_t *afl) {
 
 }
 
-void setup_afl->custom_mutator(afl_state_t *afl) {
+void setup_custom_mutator(afl_state_t *afl) {
 
   void* dh;
   u8*   fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
@@ -314,10 +314,10 @@ void setup_afl->custom_mutator(afl_state_t *afl) {
   dh = dlopen(fn, RTLD_NOW);
   if (!dh) FATAL("%s", dlerror());
 
-  afl->custom_mutator = dlsym(dh, "afl->custom_mutator");
-  if (!afl->custom_mutator) FATAL("Symbol 'afl->custom_mutator' not found.");
+  afl->custom_mutator = dlsym(dh, "custom_mutator");
+  if (!afl->custom_mutator) FATAL("Symbol 'custom_mutator' not found.");
 
-  afl->pre_save_handler = dlsym(dh, "afl->pre_save_handler");
+  afl->pre_save_handler = dlsym(dh, "pre_save_handler");
   //  if (!afl->pre_save_handler) WARNF("Symbol 'afl->pre_save_handler' not found.");
 
   OKF("Custom mutator installed successfully.");
@@ -387,7 +387,7 @@ void read_testcases(afl_state_t *afl) {
   if (afl->shuffle_queue && nl_cnt > 1) {
 
     ACTF("Shuffling queue...");
-    shuffle_ptrs((void**)nl, nl_cnt);
+    shuffle_ptrs(afl, (void**)nl, nl_cnt);
 
   }
 
@@ -428,7 +428,7 @@ void read_testcases(afl_state_t *afl) {
     if (!access(dfn, F_OK)) passed_det = 1;
     ck_free(dfn);
 
-    add_to_queue(fn2, st.st_size, passed_det);
+    add_to_queue(afl, fn2, st.st_size, passed_det);
 
   }
 
@@ -456,7 +456,7 @@ void read_testcases(afl_state_t *afl) {
 
 /* Examine map coverage. Called once, for first test case. */
 
-static void check_map_coverage(afl_struct_t *afl) {
+static void check_map_coverage(afl_state_t *afl) {
 
   u32 i;
 
@@ -498,7 +498,7 @@ void perform_dry_run(afl_state_t *afl, char** argv) {
 
     close(fd);
 
-    res = calibrate_case(argv, q, use_mem, 0, 1);
+    res = calibrate_case(afl, argv, q, use_mem, 0, 1);
     ck_free(use_mem);
 
     if (afl->stop_soon) return;
@@ -511,7 +511,7 @@ void perform_dry_run(afl_state_t *afl, char** argv) {
 
       case FAULT_NONE:
 
-        if (q == afl->queue) check_map_coverage();
+        if (q == afl->queue) check_map_coverage(afl);
 
         if (afl->crash_mode) FATAL("Test case '%s' does *NOT* crash", fn);
 
@@ -808,14 +808,14 @@ void pivot_inputs(afl_state_t *afl) {
 
     /* Make sure that the passed_det value carries over, too. */
 
-    if (q->passed_det) mark_as_det_done(q);
+    if (q->passed_det) mark_as_det_done(afl, q);
 
     q = q->next;
     ++id;
 
   }
 
-  if (afl->in_place_resume) nuke_resume_dir();
+  if (afl->in_place_resume) nuke_resume_dir(afl);
 
 }
 
@@ -894,7 +894,7 @@ void find_timeout(afl_state_t *afl) {
 
 }
 
-/* A helper function for handle_existing_afl->out_dir(), deleting all prefixed
+/* A helper function for handle_existing_out_dir(), deleting all prefixed
    files in a directory. */
 
 static u8 delete_files(u8* path, u8* prefix) {
@@ -981,7 +981,7 @@ double get_runnable_processes(void) {
 
 /* Delete the temporary directory used for in-place session resume. */
 
-void nuke_resume_dir(void) {
+void nuke_resume_dir(afl_state_t *afl) {
 
   u8* fn;
 
@@ -1021,7 +1021,7 @@ dir_cleanup_failed:
    is not currently running, and if the last run time isn't too great. 
    Resume fuzzing if `-` is set as afl->in_dir or if AFL_AUTORESUME is set */
 
-static void handle_existing_afl->out_dir(void) {
+static void handle_existing_out_dir(afl_state_t *afl) {
 
   FILE* f;
   u8*   fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
@@ -1054,12 +1054,12 @@ static void handle_existing_afl->out_dir(void) {
 
   if (f) {
 
-    u64 afl->start_time2, afl->last_update;
+    u64 start_time2, last_update;
 
     if (fscanf(f,
-               "afl->start_time     : %llu\n"
-               "afl->last_update    : %llu\n",
-               &afl->start_time2, &afl->last_update) != 2)
+               "start_time     : %llu\n"
+               "last_update    : %llu\n",
+               &start_time2, &last_update) != 2)
       FATAL("Malformed data in '%s'", fn);
 
     fclose(f);
@@ -1075,7 +1075,7 @@ static void handle_existing_afl->out_dir(void) {
 
     /* Let's see how much work is at stake. */
 
-    if (!afl->in_place_resume && afl->last_update - afl->start_time2 > OUTPUT_GRACE * 60) {
+    if (!afl->in_place_resume && last_update - start_time2 > OUTPUT_GRACE * 60) {
 
       SAYF("\n" cLRD "[-] " cRST
            "The job output directory already exists and contains the results "
@@ -1209,11 +1209,11 @@ static void handle_existing_afl->out_dir(void) {
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/hangs", out_dir);
+  fn = alloc_printf("%s/hangs", afl->out_dir);
 
   /* Backup hangs, too. */
 
-  if (in_place_resume && rmdir(fn)) {
+  if (afl->in_place_resume && rmdir(fn)) {
 
     time_t     cur_t = time(0);
     struct tm* t = localtime(&cur_t);
@@ -1242,36 +1242,36 @@ static void handle_existing_afl->out_dir(void) {
 
   /* And now, for some finishing touches. */
 
-  if (file_extension) {
+  if (afl->file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", tmp_dir, file_extension);
+    fn = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", tmp_dir);
+    fn = alloc_printf("%s/.cur_input", afl->tmp_dir);
 
   }
 
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/fuzz_bitmap", out_dir);
+  fn = alloc_printf("%s/fuzz_bitmap", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
-  if (!in_place_resume) {
+  if (!afl->in_place_resume) {
 
-    fn = alloc_printf("%s/fuzzer_stats", out_dir);
+    fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
     if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
     ck_free(fn);
 
   }
 
-  fn = alloc_printf("%s/plot_data", out_dir);
+  fn = alloc_printf("%s/plot_data", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/cmdline", out_dir);
+  fn = alloc_printf("%s/cmdline", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
@@ -1302,32 +1302,32 @@ dir_cleanup_failed:
 
 /* Prepare output directories and fds. */
 
-void setup_dirs_fds(void) {
+void setup_dirs_fds(afl_state_t *afl) {
 
   u8* tmp;
   s32 fd;
 
   ACTF("Setting up output directories...");
 
-  if (sync_id && mkdir(sync_dir, 0700) && errno != EEXIST)
-    PFATAL("Unable to create '%s'", sync_dir);
+  if (afl->sync_id && mkdir(afl->sync_dir, 0700) && errno != EEXIST)
+    PFATAL("Unable to create '%s'", afl->sync_dir);
 
-  if (mkdir(out_dir, 0700)) {
+  if (mkdir(afl->out_dir, 0700)) {
 
-    if (errno != EEXIST) PFATAL("Unable to create '%s'", out_dir);
+    if (errno != EEXIST) PFATAL("Unable to create '%s'", afl->out_dir);
 
-    handle_existing_out_dir();
+    handle_existing_out_dir(afl);
 
   } else {
 
-    if (in_place_resume)
+    if (afl->in_place_resume)
       FATAL("Resume attempted but old output directory not found");
 
-    out_dir_fd = open(out_dir, O_RDONLY);
+    afl->out_dir_fd = open(afl->out_dir, O_RDONLY);
 
 #ifndef __sun
 
-    if (out_dir_fd < 0 || flock(out_dir_fd, LOCK_EX | LOCK_NB))
+    if (afl->out_dir_fd < 0 || flock(afl->out_dir_fd, LOCK_EX | LOCK_NB))
       PFATAL("Unable to flock() output directory.");
 
 #endif                                                            /* !__sun */
@@ -1336,49 +1336,49 @@ void setup_dirs_fds(void) {
 
   /* Queue directory for any starting & discovered paths. */
 
-  tmp = alloc_printf("%s/queue", out_dir);
+  tmp = alloc_printf("%s/queue", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* Top-level directory for queue metadata used for session
      resume and related tasks. */
 
-  tmp = alloc_printf("%s/queue/.state/", out_dir);
+  tmp = alloc_printf("%s/queue/.state/", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* Directory for flagging queue entries that went through
      deterministic fuzzing in the past. */
 
-  tmp = alloc_printf("%s/queue/.state/deterministic_done/", out_dir);
+  tmp = alloc_printf("%s/queue/.state/deterministic_done/", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* Directory with the auto-selected dictionary entries. */
 
-  tmp = alloc_printf("%s/queue/.state/auto_extras/", out_dir);
+  tmp = alloc_printf("%s/queue/.state/auto_extras/", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* The set of paths currently deemed redundant. */
 
-  tmp = alloc_printf("%s/queue/.state/redundant_edges/", out_dir);
+  tmp = alloc_printf("%s/queue/.state/redundant_edges/", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* The set of paths showing variable behavior. */
 
-  tmp = alloc_printf("%s/queue/.state/variable_behavior/", out_dir);
+  tmp = alloc_printf("%s/queue/.state/variable_behavior/", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* Sync directory for keeping track of cooperating fuzzers. */
 
-  if (sync_id) {
+  if (afl->sync_id) {
 
-    tmp = alloc_printf("%s/.synced/", out_dir);
+    tmp = alloc_printf("%s/.synced/", afl->out_dir);
 
-    if (mkdir(tmp, 0700) && (!in_place_resume || errno != EEXIST))
+    if (mkdir(tmp, 0700) && (!afl->in_place_resume || errno != EEXIST))
       PFATAL("Unable to create '%s'", tmp);
 
     ck_free(tmp);
@@ -1387,37 +1387,37 @@ void setup_dirs_fds(void) {
 
   /* All recorded crashes. */
 
-  tmp = alloc_printf("%s/crashes", out_dir);
+  tmp = alloc_printf("%s/crashes", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* All recorded hangs. */
 
-  tmp = alloc_printf("%s/hangs", out_dir);
+  tmp = alloc_printf("%s/hangs", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* Generally useful file descriptors. */
 
-  dev_null_fd = open("/dev/null", O_RDWR);
-  if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+  afl->dev_null_fd = open("/dev/null", O_RDWR);
+  if (afl->dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
 #ifndef HAVE_ARC4RANDOM
-  dev_urandom_fd = open("/dev/urandom", O_RDONLY);
-  if (dev_urandom_fd < 0) PFATAL("Unable to open /dev/urandom");
+  afl->dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+  if (afl->dev_urandom_fd < 0) PFATAL("Unable to open /dev/urandom");
 #endif
 
   /* Gnuplot output file. */
 
-  tmp = alloc_printf("%s/plot_data", out_dir);
+  tmp = alloc_printf("%s/plot_data", afl->out_dir);
   fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
   if (fd < 0) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
-  plot_file = fdopen(fd, "w");
-  if (!plot_file) PFATAL("fdopen() failed");
+  afl->plot_file = fdopen(fd, "w");
+  if (!afl->plot_file) PFATAL("fdopen() failed");
 
-  fprintf(plot_file,
+  fprintf(afl->plot_file,
           "# unix_time, cycles_done, cur_path, paths_total, "
           "pending_total, pending_favs, map_size, unique_crashes, "
           "unique_hangs, max_depth, execs_per_sec\n");
@@ -1425,7 +1425,7 @@ void setup_dirs_fds(void) {
 
 }
 
-void setup_cmdline_file(char** argv) {
+void setup_cmdline_file(afl_state_t *afl, char** argv) {
 
   u8* tmp;
   s32 fd;
@@ -1434,7 +1434,7 @@ void setup_cmdline_file(char** argv) {
   FILE* cmdline_file = NULL;
 
   /* Store the command line to reproduce our findings */
-  tmp = alloc_printf("%s/cmdline", out_dir);
+  tmp = alloc_printf("%s/cmdline", afl->out_dir);
   fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
   if (fd < 0) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
@@ -1455,24 +1455,24 @@ void setup_cmdline_file(char** argv) {
 
 /* Setup the output file for fuzzed data, if not using -f. */
 
-void setup_stdio_file(void) {
+void setup_stdio_file(afl_state_t *afl) {
 
   u8* fn;
-  if (file_extension) {
+  if (afl->file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", tmp_dir, file_extension);
+    fn = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", tmp_dir);
+    fn = alloc_printf("%s/.cur_input", afl->tmp_dir);
 
   }
 
   unlink(fn);                                              /* Ignore errors */
 
-  out_fd = open(fn, O_RDWR | O_CREAT | O_EXCL, 0600);
+  afl->out_fd = open(fn, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (out_fd < 0) PFATAL("Unable to create '%s'", fn);
+  if (afl->out_fd < 0) PFATAL("Unable to create '%s'", fn);
 
   ck_free(fn);
 
@@ -1554,7 +1554,7 @@ void check_crash_handling(void) {
 
 /* Check CPU governor. */
 
-void check_cpu_governor(void) {
+void check_cpu_governor(afl_state_t *afl) {
 
 #ifdef __linux__
   FILE* f;
@@ -1563,8 +1563,8 @@ void check_cpu_governor(void) {
 
   if (get_afl_env("AFL_SKIP_CPUFREQ")) return;
 
-  if (cpu_aff > 0)
-    snprintf(tmp, sizeof(tmp), "%s%d%s", "/sys/devices/system/cpu/cpu", cpu_aff,
+  if (afl->cpu_aff > 0)
+    snprintf(tmp, sizeof(tmp), "%s%d%s", "/sys/devices/system/cpu/cpu", afl->cpu_aff,
              "/cpufreq/scaling_governor");
   else
     snprintf(tmp, sizeof(tmp), "%s",
@@ -1572,9 +1572,9 @@ void check_cpu_governor(void) {
   f = fopen("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", "r");
   if (!f) {
 
-    if (cpu_aff > 0)
+    if (afl->cpu_aff > 0)
       snprintf(tmp, sizeof(tmp), "%s%d%s",
-               "/sys/devices/system/cpu/cpufreq/policy", cpu_aff,
+               "/sys/devices/system/cpu/cpufreq/policy", afl->cpu_aff,
                "/scaling_governor");
     else
       snprintf(tmp, sizeof(tmp), "%s",
@@ -1677,7 +1677,7 @@ void check_cpu_governor(void) {
 
 /* Count the number of logical CPU cores. */
 
-void get_core_count(void) {
+void get_core_count(afl_state_t *afl) {
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__DragonFly__)
@@ -1747,7 +1747,7 @@ void get_core_count(void) {
 
       } else if (cur_runnable + 1 <= afl->cpu_core_count) {
 
-        OKF("Try parallel jobs - see %s/parallel_fuzzing.md.", doc_path);
+        OKF("Try parallel jobs - see %s/parallel_fuzzing.md.", afl->doc_path);
 
       }
 
@@ -1762,17 +1762,17 @@ void get_core_count(void) {
 
 }
 
-/* Validate and fix up out_dir and sync_dir when using -S. */
+/* Validate and fix up afl->out_dir and sync_dir when using -S. */
 
-void fix_up_sync(void) {
+void fix_up_sync(afl_state_t *afl) {
 
-  u8* x = sync_id;
+  u8* x = afl->sync_id;
 
-  if (dumb_mode) FATAL("-S / -M and -n are mutually exclusive");
+  if (afl->dumb_mode) FATAL("-S / -M and -n are mutually exclusive");
 
-  if (skip_deterministic) {
+  if (afl->skip_deterministic) {
 
-    if (force_deterministic) FATAL("use -S instead of -M -d");
+    if (afl->force_deterministic) FATAL("use -S instead of -M -d");
     // else
     //  FATAL("-S already implies -d");
 
@@ -1787,17 +1787,17 @@ void fix_up_sync(void) {
 
   }
 
-  if (strlen(sync_id) > 32) FATAL("Fuzzer ID too long");
+  if (strlen(afl->sync_id) > 32) FATAL("Fuzzer ID too long");
 
-  x = alloc_printf("%s/%s", out_dir, sync_id);
+  x = alloc_printf("%s/%s", afl->out_dir, afl->sync_id);
 
-  sync_dir = out_dir;
-  out_dir = x;
+  afl->sync_dir = afl->out_dir;
+  afl->out_dir = x;
 
-  if (!force_deterministic) {
+  if (!afl->force_deterministic) {
 
-    skip_deterministic = 1;
-    use_splicing = 1;
+    afl->skip_deterministic = 1;
+    afl->use_splicing = 1;
 
   }
 
@@ -1807,7 +1807,15 @@ void fix_up_sync(void) {
 
 static void handle_resize(int sig) {
 
-  clear_screen = 1;
+  u32 i;
+  for (i = 0; i < AFL_STATES_MAX; i++) {
+
+    afl_state_t *afl = afl_states[i];
+    if (!afl) continue;
+
+    afl->clear_screen = 1;
+
+  }
 
 }
 
@@ -1846,12 +1854,20 @@ void check_asan_opts(void) {
 
 static void handle_stop_sig(int sig) {
 
-  stop_soon = 1;
+  u32 i;
+  for (i = 0; i < AFL_STATES_MAX; i++) {
 
-  if (child_pid > 0) kill(afl->child_pid, SIGKILL);
-  if (forksrv_pid > 0) kill(afl->forksrv_pid, SIGKILL);
-  if (cmplog_child_pid > 0) kill(afl->cmplog_child_pid, SIGKILL);
-  if (cmplog_forksrv_pid > 0) kill(afl->cmplog_forksrv_pid, SIGKILL);
+    afl_state_t *afl = afl_states[i];
+    if (!afl) continue;
+
+    afl->stop_soon = 1;
+
+    if (afl->child_pid > 0) kill(afl->child_pid, SIGKILL);
+    if (afl->forksrv_pid > 0) kill(afl->forksrv_pid, SIGKILL);
+    if (afl->cmplog_child_pid > 0) kill(afl->cmplog_child_pid, SIGKILL);
+    if (afl->cmplog_forksrv_pid > 0) kill(afl->cmplog_forksrv_pid, SIGKILL);
+
+  }
 
 }
 
@@ -1859,7 +1875,14 @@ static void handle_stop_sig(int sig) {
 
 static void handle_skipreq(int sig) {
 
-  skip_requested = 1;
+  u32 i;
+  for (i = 0; i < AFL_STATES_MAX; i++) {
+
+    afl_state_t *afl = afl_states[i];
+    if (!afl) continue;
+    afl->skip_requested = 1;
+
+  }
 
 }
 
@@ -1867,7 +1890,7 @@ static void handle_skipreq(int sig) {
    isn't a shell script - a common and painful mistake. We also check for
    a valid ELF header and for evidence of AFL instrumentation. */
 
-void check_binary(u8* fname) {
+void check_binary(afl_state_t *afl, u8* fname) {
 
   u8*         env_path = 0;
   struct stat st;
@@ -1923,7 +1946,7 @@ void check_binary(u8* fname) {
 
   }
 
-  if (get_afl_env("AFL_SKIP_BIN_CHECK") || use_wine) return;
+  if (get_afl_env("AFL_SKIP_BIN_CHECK") || afl->use_wine) return;
 
   /* Check for blatant user errors. */
 
@@ -1979,7 +2002,7 @@ void check_binary(u8* fname) {
 
 #endif                                                       /* ^!__APPLE__ */
 
-  if (!qemu_mode && !unicorn_mode && !dumb_mode &&
+  if (!afl->qemu_mode && !afl->unicorn_mode && !afl->dumb_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -2000,13 +2023,13 @@ void check_binary(u8* fname) {
          "fuzzer.\n"
          "    For that, you can use the -n option - but expect much worse "
          "results.)\n",
-         doc_path);
+         afl->doc_path);
 
     FATAL("No instrumentation detected");
 
   }
 
-  if ((qemu_mode) &&
+  if ((afl->qemu_mode) &&
       memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -2022,7 +2045,7 @@ void check_binary(u8* fname) {
 
   if (memmem(f_data, f_len, "libasan.so", 10) ||
       memmem(f_data, f_len, "__msan_init", 11))
-    uses_asan = 1;
+    afl->uses_asan = 1;
 
   /* Detect persistent & deferred init signatures in the binary. */
 
@@ -2030,7 +2053,7 @@ void check_binary(u8* fname) {
 
     OKF(cPIN "Persistent mode binary detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
-    persistent_mode = 1;
+    afl->persistent_mode = 1;
 
   } else if (getenv("AFL_PERSISTENT")) {
 
@@ -2042,7 +2065,7 @@ void check_binary(u8* fname) {
 
     OKF(cPIN "Deferred forkserver binary detected.");
     setenv(DEFER_ENV_VAR, "1", 1);
-    deferred_mode = 1;
+    afl->deferred_mode = 1;
 
   } else if (getenv("AFL_DEFER_FORKSRV")) {
 
@@ -2056,31 +2079,31 @@ void check_binary(u8* fname) {
 
 /* Trim and possibly create a banner for the run. */
 
-void fix_up_banner(u8* name) {
+void fix_up_banner(afl_state_t *afl, u8* name) {
 
-  if (!use_banner) {
+  if (!afl->use_banner) {
 
-    if (sync_id) {
+    if (afl->sync_id) {
 
-      use_banner = sync_id;
+      afl->use_banner = afl->sync_id;
 
     } else {
 
       u8* trim = strrchr(name, '/');
       if (!trim)
-        use_banner = name;
+        afl->use_banner = name;
       else
-        use_banner = trim + 1;
+        afl->use_banner = trim + 1;
 
     }
 
   }
 
-  if (strlen(use_banner) > 32) {
+  if (strlen(afl->use_banner) > 32) {
 
     u8* tmp = ck_alloc(36);
-    sprintf(tmp, "%.32s...", use_banner);
-    use_banner = tmp;
+    sprintf(tmp, "%.32s...", afl->use_banner);
+    afl->use_banner = tmp;
 
   }
 
@@ -2088,14 +2111,14 @@ void fix_up_banner(u8* name) {
 
 /* Check if we're on TTY. */
 
-void check_if_tty(void) {
+void check_if_tty(afl_state_t *afl) {
 
   struct winsize ws;
 
   if (get_afl_env("AFL_NO_UI")) {
 
     OKF("Disabling the UI because AFL_NO_UI is set.");
-    not_on_tty = 1;
+    afl->not_on_tty = 1;
     return;
 
   }
@@ -2106,7 +2129,7 @@ void check_if_tty(void) {
 
       OKF("Looks like we're not running on a tty, so I'll be a bit less "
           "verbose.");
-      not_on_tty = 1;
+      afl->not_on_tty = 1;
 
     }
 
@@ -2162,7 +2185,7 @@ void setup_signal_handlers(void) {
 
 /* Make a copy of the current command line. */
 
-void save_cmdline(u32 argc, char** argv) {
+void save_cmdline(afl_state_t *afl, u32 argc, char** argv) {
 
   u32 len = 1, i;
   u8* buf;
@@ -2170,7 +2193,7 @@ void save_cmdline(u32 argc, char** argv) {
   for (i = 0; i < argc; ++i)
     len += strlen(argv[i]) + 1;
 
-  buf = orig_cmdline = ck_alloc(len);
+  buf = afl->orig_cmdline = ck_alloc(len);
 
   for (i = 0; i < argc; ++i) {
 

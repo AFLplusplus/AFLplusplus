@@ -334,7 +334,7 @@ void write_to_testcase(afl_state_t *afl, void* mem, u32 len) {
 
 /* The same, but with an adjustable gap. Used for trimming. */
 
-void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) {
+static void write_with_gap(afl_state_t *afl, void* mem, u32 len, u32 skip_at, u32 skip_len) {
 
   s32 fd = afl->out_fd;
   u32 tail_len = len - skip_at - skip_len;
@@ -409,8 +409,8 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
      count its spin-up time toward binary calibration. */
 
   if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->forksrv_pid) init_forkserver(argv);
-  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->cmplog_afl->forksrv_pid && cmplog_mode)
-    init_cmplog_forkserver(argv);
+  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->cmplog_forksrv_pid && cmplog_mode)
+    init_cmplog_forkserver(afl, argv);
 
   if (q->exec_cksum) memcpy(first_trace, afl->trace_bits, MAP_SIZE);
 
@@ -420,11 +420,11 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
 
     u32 cksum;
 
-    if (!first_run && !(afl->stage_cur % afl->stats_update_freq)) show_stats();
+    if (!first_run && !(afl->stage_cur % afl->stats_update_freq)) show_stats(afl);
 
-    write_to_testcase(use_mem, q->len);
+    write_to_testcase(afl, use_mem, q->len);
 
-    fault = run_target(argv, use_tmout);
+    fault = run_target(afl, argv, use_tmout);
 
     /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
        we want to bail out quickly. */
@@ -442,7 +442,7 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
 
     if (q->exec_cksum != cksum) {
 
-      u8 hnb = has_new_bits(afl->virgin_bits);
+      u8 hnb = has_new_bits(afl, afl->virgin_bits);
       if (hnb > new_bits) new_bits = hnb;
 
       if (q->exec_cksum) {
@@ -514,7 +514,7 @@ abort_calibration:
 
     if (!q->var_behavior) {
 
-      mark_as_variable(q);
+      mark_as_variable(afl, q);
       ++afl->queued_variable;
 
     }
@@ -525,7 +525,7 @@ abort_calibration:
   afl->stage_cur = old_sc;
   afl->stage_max = old_sm;
 
-  if (!first_run) show_stats();
+  if (!first_run) show_stats(afl);
 
   return fault;
 
@@ -638,19 +638,19 @@ void sync_fuzzers(afl_state_t *afl, char** argv) {
         /* See what happens. We rely on save_if_interesting() to catch major
            errors and save the test case. */
 
-        write_to_testcase(mem, st.st_size);
+        write_to_testcase(afl, mem, st.st_size);
 
-        fault = run_target(argv, afl->exec_tmout);
+        fault = run_target(afl, argv, afl->exec_tmout);
 
         if (afl->stop_soon) return;
 
         afl->syncing_party = sd_ent->d_name;
-        afl->queued_imported += save_if_interesting(argv, mem, st.st_size, fault);
+        afl->queued_imported += save_if_interesting(afl, argv, mem, st.st_size, fault);
         afl->syncing_party = 0;
 
         munmap(mem, st.st_size);
 
-        if (!(afl->stage_cur++ % afl->stats_update_freq)) show_stats();
+        if (!(afl->stage_cur++ % afl->stats_update_freq)) show_stats(afl);
 
       }
 
@@ -722,9 +722,9 @@ u8 trim_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in_buf) {
       u32 trim_avail = MIN(remove_len, q->len - remove_pos);
       u32 cksum;
 
-      write_with_gap(in_buf, q->len, remove_pos, trim_avail);
+      write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
 
-      fault = run_target(argv, afl->exec_tmout);
+      fault = run_target(afl, argv, afl->exec_tmout);
       ++afl->trim_execs;
 
       if (afl->stop_soon || fault == FAULT_ERROR) goto abort_trimming;
@@ -764,7 +764,7 @@ u8 trim_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in_buf) {
 
       /* Since this can be slow, update the screen every now and then. */
 
-      if (!(trim_exec++ % afl->stats_update_freq)) show_stats();
+      if (!(trim_exec++ % afl->stats_update_freq)) show_stats(afl);
       ++afl->stage_cur;
 
     }
@@ -812,7 +812,7 @@ abort_trimming:
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
 
-u8 common_fuzz_stuff(afl_state_t afl*, char** argv, u8* out_buf, u32 len) {
+u8 common_fuzz_stuff(afl_state_t *afl, char** argv, u8* out_buf, u32 len) {
 
   u8 fault;
 
@@ -823,9 +823,9 @@ u8 common_fuzz_stuff(afl_state_t afl*, char** argv, u8* out_buf, u32 len) {
 
   }
 
-  write_to_testcase(out_buf, len);
+  write_to_testcase(afl, out_buf, len);
 
-  fault = run_target(argv, afl->exec_tmout);
+  fault = run_target(afl, argv, afl->exec_tmout);
 
   if (afl->stop_soon) return 1;
 
@@ -855,10 +855,10 @@ u8 common_fuzz_stuff(afl_state_t afl*, char** argv, u8* out_buf, u32 len) {
 
   /* This handles FAULT_ERROR for us: */
 
-  afl->queued_discovered += save_if_interesting(argv, out_buf, len, fault);
+  afl->queued_discovered += save_if_interesting(afl, argv, out_buf, len, fault);
 
   if (!(afl->stage_cur % afl->stats_update_freq) || afl->stage_cur + 1 == afl->stage_max)
-    show_stats();
+    show_stats(afl);
 
   return 0;
 

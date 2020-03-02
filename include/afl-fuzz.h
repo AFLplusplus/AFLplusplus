@@ -274,16 +274,38 @@ enum {
 
 #endif
 
+typedef struct MOpt_globals {
+
+  u64*      finds;
+  u64*      finds_v2;
+  u64*      cycles;
+  u64*      cycles_v2;
+  u64*      cycles_v3;
+  u32       is_pilot_mode;
+  u64*      pTime;
+  u64 period;
+  char*     havoc_stagename;
+  char*     splice_stageformat;
+  char*     havoc_stagenameshort;
+  char*     splice_stagenameshort;
+
+} MOpt_globals_t;
+
 extern char* power_names[POWER_SCHEDULES_NUM];
 
-
 typedef struct afl_state {
+
+  /* Position of this state in the global states list */
+  u32 id;
+
 /* MOpt:
    Lots of globals, but mostly for the status UI and other things where it
    really makes no sense to haul them around as function parameters. */
 u64 limit_time_puppet, orig_hit_cnt_puppet, last_limit_time_start,
     tmp_pilot_time, total_pacemaker_time, total_puppet_find, temp_puppet_find,
     most_time_key, most_time, most_execs_key, most_execs, old_hit_count;
+
+MOpt_globals_t mopt_globals_core, mopt_globals_pilot;
 
 s32 SPLICE_CYCLES_puppet, limit_time_sig, key_puppet, key_module;
 
@@ -392,7 +414,7 @@ s32 out_fd,                      /* Persistent fd for afl->out_file       */
 
 s32 forksrv_pid,                 /* PID of the fork server           */
     child_pid,                   /* PID of the fuzzed program        */
-   out_dirfd;                  /* FD of the lock file              */
+   out_dir_fd;                   /* FD of the lock file              */
 
 u8* trace_bits;                  /* SHM with instrumentation bitmap  */
 
@@ -542,9 +564,19 @@ extern u8  do_document;
 extern u32 document_counter;
 #endif
 
+/* cmplog forkserver ids */
+s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
+
 } afl_state_t;
 
-afl_state_init(afl_state_t*);
+/* A global pointer to all instances is needed (for now) for signals to arrive */
+/* We can make this a linked list at some point, or change it completely. */
+
+#define AFL_STATES_MAX 64
+extern afl_state_t *afl_states[AFL_STATES_MAX];
+
+afl_state_t *afl_state_create();
+void afl_state_destroy(afl_state_t*);
 
 /**** Prototypes ****/
 
@@ -562,9 +594,9 @@ u8   trim_case_python(afl_state_t*, char**, struct queue_entry*, u8*);
 /* Queue */
 
 void mark_as_det_done(afl_state_t*, struct queue_entry*);
-void mark_as_variable(struct queue_entry*);
+void mark_as_variable(afl_state_t*, struct queue_entry*);
 void mark_as_redundant(afl_state_t*, struct queue_entry*, u8);
-void add_to_queue(u8*, u32, u8);
+void add_to_queue(afl_state_t*, u8*, u32, u8);
 void destroy_queue(afl_state_t*);
 void update_bitmap_score(afl_state_t*, struct queue_entry*);
 void cull_queue(afl_state_t*);
@@ -572,9 +604,8 @@ u32  calculate_score(afl_state_t*, struct queue_entry*);
 
 /* Bitmap */
 
-void write_bitmap(void);
-void read_bitmap(u8*);
-u8   has_new_bits(u8*);
+void read_bitmap(afl_state_t*, u8*);
+void write_bitmap(afl_state_t*);
 u32  count_bits(u8*);
 u32  count_bytes(u8*);
 u32  count_non_255_bytes(u8*);
@@ -588,9 +619,10 @@ void classify_counts(u32*);
 void init_count_class16(void);
 void minimize_bits(u8*, u8*);
 #ifndef SIMPLE_FILES
-u8* describe_op(u8);
+u8* describe_op(afl_state_t*, u8);
 #endif
-u8 save_if_interesting(char**, void*, u32, u8);
+u8 save_if_interesting(afl_state_t*, char**, void*, u32, u8);
+u8 has_new_bits(afl_state_t *, u8*);
 
 /* Misc */
 
@@ -601,76 +633,74 @@ u8* DTD(u64, u64);
 
 /* Extras */
 
-void load_extras_file(u8*, u32*, u32*, u32);
-void load_extras(u8*);
-void maybe_add_auto(u8*, u32);
+void load_extras_file(afl_state_t*, u8*, u32*, u32*, u32);
+void load_extras(afl_state_t*, u8*);
+void maybe_add_auto(afl_state_t*, u8*, u32);
 void save_auto(afl_state_t*);
-void load_auto(void);
-void destroy_extras(void);
+void load_auto(afl_state_t*);
+void destroy_extras(afl_state_t*);
 
 /* Stats */
 
 void write_stats_file(afl_state_t*, double, double, double);
-void maybe_update_plot_file(double, double);
-void show_stats(void);
-void show_init_stats(void);
+void maybe_update_plot_file(afl_state_t*, double, double);
+void show_stats(afl_state_t*);
+void show_init_stats(afl_state_t*);
 
 /* Run */
 
-u8   run_target(char**, u32);
-void write_to_testcase(void*, u32);
-void write_with_gap(void*, u32, u32, u32);
-u8   calibrate_case(char**, struct queue_entry*, u8*, u32, u8);
+u8   run_target(afl_state_t*, char**, u32);
+void write_to_testcase(afl_state_t*, void*, u32);
+u8   calibrate_case(afl_state_t*, char**, struct queue_entry*, u8*, u32, u8);
 void sync_fuzzers(afl_state_t*, char**);
 u8   trim_case(afl_state_t*, char**, struct queue_entry*, u8*);
 u8   common_fuzz_stuff(afl_state_t*, char**, u8*, u32);
 
 /* Fuzz one */
 
-u8   fuzz_one_original(char**);
-u8   pilot_fuzzing(char**);
-u8   core_fuzzing(char**);
-void pso_updating(void);
-u8   fuzz_one(char**);
+u8   fuzz_one_original(afl_state_t*, char**);
+u8   pilot_fuzzing(afl_state_t*, char**);
+u8   core_fuzzing(afl_state_t*, char**);
+void pso_updating(afl_state_t*);
+u8   fuzz_one(afl_state_t*, char**);
 
 /* Init */
 
 #ifdef HAVE_AFFINITY
 void bind_to_free_cpu(afl_state_t*);
 #endif
-void   setup_post(void);
+void   setup_post(afl_state_t*);
 void   setup_custom_mutator(afl_state_t*);
 void   read_testcases(afl_state_t *);
 void   perform_dry_run(afl_state_t *, char**);
-void   pivot_inputs(void);
+void   pivot_inputs(afl_state_t*);
 u32    find_start_position(afl_state_t*);
 void   find_timeout(afl_state_t*);
 double get_runnable_processes(void);
-void   nuke_resume_dir(void);
-void   setup_dirs_fds(void);
-void   setup_cmdline_file(char**);
-void   setup_stdio_file(void);
+void   nuke_resume_dir(afl_state_t*);
+void   setup_dirs_fds(afl_state_t*);
+void   setup_cmdline_file(afl_state_t*, char**);
+void   setup_stdio_file(afl_state_t*);
 void   check_crash_handling(void);
-void   check_cpu_governor(void);
-void   get_core_count(void);
-void   fix_up_sync(void);
+void   check_cpu_governor(afl_state_t*);
+void   get_core_count(afl_state_t*);
+void   fix_up_sync(afl_state_t*);
 void   check_asan_opts(void);
-void   check_binary(u8*);
-void   fix_up_banner(u8*);
-void   check_if_tty(void);
+void   check_binary(afl_state_t*, u8*);
+void   fix_up_banner(afl_state_t*, u8*);
+void   check_if_tty(afl_state_t*);
 void   setup_signal_handlers(void);
 char** get_qemu_argv(u8*, char**, int);
 char** get_wine_argv(u8*, char**, int);
-void   save_cmdline(u32, char**);
+void   save_cmdline(afl_state_t*, u32, char**);
 
 /* CmpLog */
 
-void init_cmplog_forkserver(char** argv);
-u8   common_fuzz_cmplog_stuff(char** argv, u8* out_buf, u32 len);
+void init_cmplog_forkserver(afl_state_t *afl, char **argv);
+u8   common_fuzz_cmplog_stuff(afl_state_t *afl, char **argv, u8 *out_buf, u32 len);
 
 /* RedQueen */
-
-u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
+u8 input_to_state_stage(afl_state_t *afl, char** argv, u8* orig_buf, u8* buf, u32 len,
                         u32 exec_cksum);
 
 /**** Inline routines ****/

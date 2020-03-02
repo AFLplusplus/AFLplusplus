@@ -37,7 +37,7 @@ void write_bitmap(afl_state_t *afl) {
   if (!afl->bitmap_changed) return;
   afl->bitmap_changed = 0;
 
-  fname = alloc_printf("%s/fuzz_bitmap",afl->out_dir;
+  fname = alloc_printf("%s/fuzz_bitmap", afl->out_dir);
   fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
   if (fd < 0) PFATAL("Unable to open '%s'", fname);
@@ -51,7 +51,7 @@ void write_bitmap(afl_state_t *afl) {
 
 /* Read bitmap from file. This is for the -B option again. */
 
-void read_bitmap(u8* fname) {
+void read_bitmap(afl_state_t *afl, u8* fname) {
 
   s32 fd = open(fname, O_RDONLY);
 
@@ -71,19 +71,19 @@ void read_bitmap(u8* fname) {
    This function is called after every exec() on a fairly large buffer, so
    it needs to be fast. We do this in 32-bit and 64-bit flavors. */
 
-u8 has_new_bits(u8* afl->virgin_map) {
+u8 has_new_bits(afl_state_t *afl, u8* virgin_map) {
 
 #ifdef WORD_SIZE_64
 
   u64* current = (u64*)afl->trace_bits;
-  u64* virgin = (u64*)afl->virgin_map;
+  u64* virgin = (u64*)virgin_map;
 
   u32 i = (MAP_SIZE >> 3);
 
 #else
 
   u32* current = (u32*)afl->trace_bits;
-  u32* virgin = (u32*)afl->virgin_map;
+  u32* virgin = (u32*)virgin_map;
 
   u32 i = (MAP_SIZE >> 2);
 
@@ -138,7 +138,7 @@ u8 has_new_bits(u8* afl->virgin_map) {
 
   }
 
-  if (ret && afl->virgin_map == afl->virgin_bits) afl->bitmap_changed = 1;
+  if (ret && virgin_map == afl->virgin_bits) afl->bitmap_changed = 1;
 
   return ret;
 
@@ -415,7 +415,7 @@ void minimize_bits(u8* dst, u8* src) {
 /* Construct a file name for a new test case, capturing the operation
    that led to its discovery. Uses a static buffer. */
 
-u8* describe_op(u8 hnb) {
+u8* describe_op(afl_state_t *afl, u8 hnb) {
 
   static u8 ret[256];
 
@@ -457,9 +457,9 @@ u8* describe_op(u8 hnb) {
 
 /* Write a message accompanying the crash directory :-) */
 
-static void write_crash_readme(void) {
+static void write_crash_readme(afl_state_t *afl) {
 
-  u8*   fn = alloc_printf("%s/crashes/README.txt",afl->out_dir;
+  u8*   fn = alloc_printf("%s/crashes/README.txt", afl->out_dir);
   s32   fd;
   FILE* f;
 
@@ -509,7 +509,7 @@ static void write_crash_readme(void) {
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
 
-u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
+u8 save_if_interesting(afl_state_t *afl, char** argv, void* mem, u32 len, u8 fault) {
 
   if (len == 0) return 0;
 
@@ -521,7 +521,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
   /* Update path frequency. */
   u32 cksum = hash32(afl->trace_bits, MAP_SIZE, HASH_CONST);
 
-  struct queue_entry* q = queue;
+  struct queue_entry* q = afl->queue;
   while (q) {
 
     if (q->exec_cksum == cksum) {
@@ -540,7 +540,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
 
-    if (!(hnb = has_new_bits(afl->virgin_bits))) {
+    if (!(hnb = has_new_bits(afl, afl->virgin_bits))) {
 
       if (afl->crash_mode) ++afl->total_crashes;
       return 0;
@@ -550,7 +550,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 #ifndef SIMPLE_FILES
 
     fn = alloc_printf("%s/queue/id:%06u,%s", afl->out_dir, afl->queued_paths,
-                      describe_op(hnb));
+                      describe_op(afl, hnb));
 
 #else
 
@@ -558,7 +558,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
-    add_to_queue(fn, len, 0);
+    add_to_queue(afl, fn, len, 0);
 
     if (hnb == 2) {
 
@@ -572,7 +572,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
 
-    res = calibrate_case(argv, afl->queue_top, mem, afl->queue_cycle - 1, 0);
+    res = calibrate_case(afl, argv, afl->queue_top, mem, afl->queue_cycle - 1, 0);
 
     if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -606,7 +606,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
         simplify_trace((u32*)afl->trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
-        if (!has_new_bits(afl->virgin_tmout)) return keeping;
+        if (!has_new_bits(afl, afl->virgin_tmout)) return keeping;
 
       }
 
@@ -619,8 +619,8 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
       if (afl->exec_tmout < afl->hang_tmout) {
 
         u8 new_fault;
-        write_to_testcase(mem, len);
-        new_fault = run_target(argv, afl->hang_tmout);
+        write_to_testcase(afl, mem, len);
+        new_fault = run_target(afl, argv, afl->hang_tmout);
 
         /* A corner case that one user reported bumping into: increasing the
            timeout actually uncovers a crash. Make sure we don't discard it if
@@ -635,7 +635,7 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 #ifndef SIMPLE_FILES
 
       fn = alloc_printf("%s/hangs/id:%06llu,%s", afl->out_dir, afl->unique_hangs,
-                        describe_op(0));
+                        describe_op(afl, 0));
 
 #else
 
@@ -669,16 +669,16 @@ u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
         simplify_trace((u32*)afl->trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
-        if (!has_new_bits(afl->virgin_crash)) return keeping;
+        if (!has_new_bits(afl, afl->virgin_crash)) return keeping;
 
       }
 
-      if (!afl->unique_crashes) write_crash_readme();
+      if (!afl->unique_crashes) write_crash_readme(afl);
 
 #ifndef SIMPLE_FILES
 
       fn = alloc_printf("%s/crashes/id:%06llu,sig:%02u,%s", afl->out_dir,
-                        afl->unique_crashes, afl->kill_signal, describe_op(0));
+                        afl->unique_crashes, afl->kill_signal, describe_op(afl, 0));
 
 #else
 

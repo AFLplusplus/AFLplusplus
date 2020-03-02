@@ -27,9 +27,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-static s32 afl->cmplog_afl->fsrv_ctl_fd, afl->cmplog_afl->fsrv_st_fd;
-
-void init_afl->cmplog_forkserver(char** argv) {
+void init_cmplog_forkserver(afl_state_t *afl, char **argv) {
 
   static struct itimerval it;
   int                     st_pipe[2], ctl_pipe[2];
@@ -41,11 +39,11 @@ void init_afl->cmplog_forkserver(char** argv) {
   if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
 
   afl->child_timed_out = 0;
-  afl->cmplog_afl->forksrv_pid = fork();
+  afl->cmplog_forksrv_pid = fork();
 
-  if (afl->cmplog_afl->forksrv_pid < 0) PFATAL("fork() failed");
+  if (afl->cmplog_forksrv_pid < 0) PFATAL("fork() failed");
 
-  if (!afl->cmplog_afl->forksrv_pid) {
+  if (!afl->cmplog_forksrv_pid) {
 
     /* CHILD PROCESS */
 
@@ -116,7 +114,7 @@ void init_afl->cmplog_forkserver(char** argv) {
     close(st_pipe[0]);
     close(st_pipe[1]);
 
-    closeafl->out_dir_fd);
+    close(afl->out_dir_fd);
     close(afl->dev_null_fd);
 #ifndef HAVE_ARC4RANDOM
     close(afl->dev_urandom_fd);
@@ -170,8 +168,8 @@ void init_afl->cmplog_forkserver(char** argv) {
   close(ctl_pipe[0]);
   close(st_pipe[1]);
 
-  afl->cmplog_afl->fsrv_ctl_fd = ctl_pipe[1];
-  afl->cmplog_afl->fsrv_st_fd = st_pipe[0];
+  afl->cmplog_fsrv_ctl_fd = ctl_pipe[1];
+  afl->cmplog_fsrv_st_fd = st_pipe[0];
 
   /* Wait for the fork server to come up, but don't wait too long. */
 
@@ -184,7 +182,7 @@ void init_afl->cmplog_forkserver(char** argv) {
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  rlen = read(afl->cmplog_afl->fsrv_st_fd, &status, 4);
+  rlen = read(afl->cmplog_fsrv_st_fd, &status, 4);
 
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
@@ -206,7 +204,7 @@ void init_afl->cmplog_forkserver(char** argv) {
         "Timeout while initializing cmplog fork server (adjusting -t may "
         "help)");
 
-  if (waitpid(afl->cmplog_afl->forksrv_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+  if (waitpid(afl->cmplog_forksrv_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
 
   if (WIFSIGNALED(status)) {
 
@@ -349,7 +347,7 @@ void init_afl->cmplog_forkserver(char** argv) {
 
 }
 
-u8 run_afl->cmplog_target(char** argv, u32 timeout) {
+u8 run_cmplog_target(afl_state_t *afl, char** argv, u32 timeout) {
 
   static struct itimerval it;
   static u32              prev_timed_out = 0;
@@ -374,11 +372,11 @@ u8 run_afl->cmplog_target(char** argv, u32 timeout) {
 
   if (afl->dumb_mode == 1 || afl->no_forkserver) {
 
-    afl->cmplog_afl->child_pid = fork();
+    afl->cmplog_child_pid = fork();
 
-    if (afl->cmplog_afl->child_pid < 0) PFATAL("fork() failed");
+    if (afl->cmplog_child_pid < 0) PFATAL("fork() failed");
 
-    if (!afl->cmplog_afl->child_pid) {
+    if (!afl->cmplog_child_pid) {
 
       struct rlimit r;
 
@@ -424,7 +422,7 @@ u8 run_afl->cmplog_target(char** argv, u32 timeout) {
       /* On Linux, would be faster to use O_CLOEXEC. Maybe TODO. */
 
       close(afl->dev_null_fd);
-      closeafl->out_dir_fd);
+      close(afl->out_dir_fd);
 #ifndef HAVE_ARC4RANDOM
       close(afl->dev_urandom_fd);
 #endif
@@ -463,7 +461,7 @@ u8 run_afl->cmplog_target(char** argv, u32 timeout) {
     /* In non-dumb mode, we have the fork server up and running, so simply
        tell it to have at it, and then read back PID. */
 
-    if ((res = write(afl->cmplog_afl->fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+    if ((res = write(afl->cmplog_fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
 
       if (afl->stop_soon) return 0;
       RPFATAL(res,
@@ -471,7 +469,7 @@ u8 run_afl->cmplog_target(char** argv, u32 timeout) {
 
     }
 
-    if ((res = read(afl->cmplog_afl->fsrv_st_fd, &afl->cmplog_afl->child_pid, 4)) != 4) {
+    if ((res = read(afl->cmplog_fsrv_st_fd, &afl->cmplog_child_pid, 4)) != 4) {
 
       if (afl->stop_soon) return 0;
       RPFATAL(res,
@@ -479,7 +477,7 @@ u8 run_afl->cmplog_target(char** argv, u32 timeout) {
 
     }
 
-    if (afl->cmplog_afl->child_pid <= 0)
+    if (afl->cmplog_child_pid <= 0)
       FATAL("Cmplog fork server is misbehaving (OOM?)");
 
   }
@@ -492,18 +490,18 @@ u8 run_afl->cmplog_target(char** argv, u32 timeout) {
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  /* The SIGALRM handler simply kills the afl->cmplog_afl->child_pid and sets
+  /* The SIGALRM handler simply kills the afl->cmplog_child_pid and sets
    * afl->child_timed_out. */
 
   if (afl->dumb_mode == 1 || afl->no_forkserver) {
 
-    if (waitpid(afl->cmplog_afl->child_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+    if (waitpid(afl->cmplog_child_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
 
   } else {
 
     s32 res;
 
-    if ((res = read(afl->cmplog_afl->fsrv_st_fd, &status, 4)) != 4) {
+    if ((res = read(afl->cmplog_fsrv_st_fd, &status, 4)) != 4) {
 
       if (afl->stop_soon) return 0;
       SAYF(
@@ -527,7 +525,7 @@ u8 run_afl->cmplog_target(char** argv, u32 timeout) {
 
   }
 
-  if (!WIFSTOPPED(status)) afl->cmplog_afl->child_pid = 0;
+  if (!WIFSTOPPED(status)) afl->cmplog_child_pid = 0;
 
   getitimer(ITIMER_REAL, &it);
   exec_ms =
@@ -586,7 +584,7 @@ u8 run_afl->cmplog_target(char** argv, u32 timeout) {
 
 }
 
-u8 common_fuzz_afl->cmplog_stuff(char** argv, u8* out_buf, u32 len) {
+u8 common_fuzz_cmplog_stuff(afl_state_t *afl, char** argv, u8* out_buf, u32 len) {
 
   u8 fault;
 
@@ -597,9 +595,9 @@ u8 common_fuzz_afl->cmplog_stuff(char** argv, u8* out_buf, u32 len) {
 
   }
 
-  write_to_testcase(out_buf, len);
+  write_to_testcase(afl, out_buf, len);
 
-  fault = run_afl->cmplog_target(argv, afl->exec_tmout);
+  fault = run_cmplog_target(afl, argv, afl->exec_tmout);
 
   if (afl->stop_soon) return 1;
 
@@ -629,10 +627,10 @@ u8 common_fuzz_afl->cmplog_stuff(char** argv, u8* out_buf, u32 len) {
 
   /* This handles FAULT_ERROR for us: */
 
-  /* afl->queued_discovered += save_if_interesting(argv, out_buf, len, fault);
+  /* afl->queued_discovered += save_if_interesting(afl, argv, out_buf, len, fault);
 
   if (!(afl->stage_cur % afl->stats_update_freq) || afl->stage_cur + 1 == afl->stage_max)
-    show_stats(); */
+    show_stats(afl); */
 
   return 0;
 
