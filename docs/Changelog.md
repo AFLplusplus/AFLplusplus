@@ -10,9 +10,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.62d (developt):
+
   - qemu_mode now uses solely the internal capstone version to fix builds
     on modern Linux distributions
+  - afl-fuzz basic tools now report on the environment variables picked up
   - more tools get environment variable usage info in the help output
+  - AFL_AUTORESUME will resume execution without the need to specify `-i -`
 
 
 ### Version ++2.62c (release):

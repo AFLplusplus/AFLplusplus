@@ -43,6 +43,7 @@ static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
 static u8   cmplog_mode;
 u8          use_stdin = 0;                                         /* dummy */
+u8          be_quiet = 0;
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
