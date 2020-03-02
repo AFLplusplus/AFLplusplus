@@ -68,8 +68,8 @@ override CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
-ifneq "$(shell which python3m)" ""
-  ifneq "$(shell which python3m-config)" ""
+ifneq "$(shell which python3m 2>/dev/null)" ""
+  ifneq "$(shell which python3m-config 2>/dev/null)" ""
     PYTHON_INCLUDE  ?= $(shell python3m-config --includes)
     PYTHON_VERSION  ?= $(strip $(shell python3m --version 2>&1))
     # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
@@ -81,8 +81,8 @@ ifneq "$(shell which python3m)" ""
   endif
 endif
 
-ifneq "$(shell which python3)" ""
-  ifneq "$(shell which python3-config)" ""
+ifneq "$(shell which python3 2>/dev/null)" ""
+  ifneq "$(shell which python3-config 2>/dev/null)" ""
     PYTHON_INCLUDE  ?= $(shell python3-config --includes)
     PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
     # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
@@ -94,8 +94,8 @@ ifneq "$(shell which python3)" ""
   endif
 endif
 
-ifneq "$(shell which python)" ""
-  ifneq "$(shell which python-config)" ""
+ifneq "$(shell which python 2>/dev/null)" ""
+  ifneq "$(shell which python-config 2>/dev/null)" ""
     PYTHON_INCLUDE  ?= $(shell python-config --includes)
     PYTHON_LIB      ?= $(shell python-config --ldflags)
     PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
