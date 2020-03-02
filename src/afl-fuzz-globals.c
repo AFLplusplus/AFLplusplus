@@ -255,6 +255,9 @@ u8 *(*post_handler)(u8 *buf, u32 *len);
 u8 *cmplog_binary;
 s32 cmplog_child_pid, cmplog_forksrv_pid;
 
+/* Custom mutator */
+struct custom_mutator* mutator;
+
 /* hooks for the custom mutator function */
 size_t (*custom_mutator)(u8 *data, size_t size, u8 *mutated_out,
                          size_t max_size, unsigned int seed);

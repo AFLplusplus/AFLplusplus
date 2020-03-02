@@ -458,29 +458,83 @@ u8* (*post_handler)(u8* buf, u32* len);
 extern u8* cmplog_binary;
 extern s32 cmplog_child_pid, cmplog_forksrv_pid;
 
-/* hooks for the custom mutator function */
-/**
- * Perform custom mutations on a given input
- * @param data Input data to be mutated
- * @param size Size of input data
- * @param mutated_out Buffer to store the mutated input
- * @param max_size Maximum size of the mutated output. The mutation must not
- * produce data larger than max_size.
- * @param seed Seed used for the mutation. The mutation should produce the same
- * output given the same seed.
- * @return Size of the mutated output.
- */
+/* Custom mutators */
+
+struct custom_mutator {
+  const char* name;
+  void* dh;
+
+  /* hooks for the custom mutator function */
+
+  /**
+   * Initialize the custom mutator.
+   *
+   * (Optional)
+   */
+  u32 (*afl_custom_init)(void);
+
+  /**
+   * Perform custom mutations on a given input
+   *
+   * (Required)
+   *
+   * @param[in] data Input data to be mutated
+   * @param[in] size Size of input data
+   * @param[out] mutated_out Buffer to store the mutated input
+   * @param[in] max_size Maximum size of the mutated output. The mutation must not
+   *     produce data larger than max_size.
+   * @param[in] seed Seed used for the mutation. The mutation should produce the
+   *     same output given the same seed.
+   * @return Size of the mutated output.
+   */
+  size_t (*afl_custom_fuzz)(u8* data, size_t size, u8* mutated_out,
+                            size_t max_size, unsigned int seed);
+
+  /**
+   * A post-processing function to use right before AFL writes the test case to
+   * disk in order to execute the target.
+   *
+   * (Optional) If this functionality is not needed, simply don't define this
+   * function.
+   *
+   * @param[in] data Buffer containing the test case to be executed.
+   * @param[in] size Size of the test case.
+   * @param[out] new_data Buffer to store the test case after processing
+   * @return Size of data after processing.
+   */
+  size_t (*afl_custom_pre_save)(u8* data, size_t size, u8** new_data);
+
+  /**
+   * TODO: figure out what `trim` is
+   *
+   * (Optional)
+   */
+  u32 (*afl_custom_init_trim)(u8*, size_t);
+
+  /**
+   * TODO: figure out how `trim` works
+   *
+   * (Optional)
+   *
+   * @param[out] ret (TODO: finish here)
+   * @param[out] ret_len (TODO: finish here)
+   */
+  void (*afl_custom_trim)(u8** ret, size_t* ret_len);
+
+  /**
+   * A post-processing function for the last trim operation.
+   *
+   * (Optional)
+   *
+   * @param success Indicates if the last trim operation was successful.
+   */
+  u32 (*afl_custom_post_trim)(u8 success);
+};
+
+extern struct custom_mutator* mutator;
+
 size_t (*custom_mutator)(u8* data, size_t size, u8* mutated_out,
                          size_t max_size, unsigned int seed);
-/**
- * A post-processing function to use right before AFL writes the test case to
- * disk in order to execute the target. If this functionality is not needed,
- * Simply don't define this function.
- * @param data Buffer containing the test case to be executed.
- * @param size Size of the test case.
- * @param new_data Buffer to store the test case after processing
- * @return Size of data after processing.
- */
 size_t (*pre_save_handler)(u8* data, size_t size, u8** new_data);
 
 /* Interesting values, as per config.h */
@@ -524,9 +578,10 @@ enum {
 
   /* 00 */ PY_FUNC_INIT,
   /* 01 */ PY_FUNC_FUZZ,
-  /* 02 */ PY_FUNC_INIT_TRIM,
-  /* 03 */ PY_FUNC_POST_TRIM,
-  /* 04 */ PY_FUNC_TRIM,
+  /* 02 */ PY_FUNC_PRE_SAVE,
+  /* 03 */ PY_FUNC_INIT_TRIM,
+  /* 04 */ PY_FUNC_POST_TRIM,
+  /* 05 */ PY_FUNC_TRIM,
   PY_FUNC_COUNT
 
 };
@@ -537,11 +592,18 @@ extern PyObject* py_functions[PY_FUNC_COUNT];
 
 /**** Prototypes ****/
 
+/* Custom mutators */
+void setup_custom_mutator(void);
+void destroy_custom_mutator(void);
+void load_custom_mutator(const char*);
+void load_custom_mutator_py(const char*);
+
 /* Python */
 #ifdef USE_PYTHON
 int  init_py();
 void finalize_py();
 void fuzz_py(char*, size_t, char*, size_t, char**, size_t*);
+size_t pre_save_py(u8* data, size_t size, u8** new_data);
 u32  init_trim_py(char*, size_t);
 u32  post_trim_py(char);
 void trim_py(char**, size_t*);
@@ -628,7 +690,6 @@ u8   fuzz_one(char**);
 void bind_to_free_cpu(void);
 #endif
 void   setup_post(void);
-void   setup_custom_mutator(void);
 void   read_testcases(void);
 void   perform_dry_run(char**);
 void   pivot_inputs(void);
