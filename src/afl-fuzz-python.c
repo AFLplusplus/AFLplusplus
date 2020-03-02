@@ -53,13 +53,13 @@ int init_py(afl_state_t *afl) {
     if (afl->py_module != NULL) {
 
       u8 py_notrim = 0, py_idx;
-      afl->py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
-      afl->py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
+      afl->py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(afl->py_module, "init");
+      afl->py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(afl->py_module, "fuzz");
       afl->py_functions[PY_FUNC_INIT_TRIM] =
-          PyObject_GetAttrString(py_module, "init_trim");
+          PyObject_GetAttrString(afl->py_module, "init_trim");
       afl->py_functions[PY_FUNC_POST_TRIM] =
-          PyObject_GetAttrString(py_module, "post_trim");
-      afl->py_functions[PY_FUNC_TRIM] = PyObject_GetAttrString(py_module, "trim");
+          PyObject_GetAttrString(afl->py_module, "post_trim");
+      afl->py_functions[PY_FUNC_TRIM] = PyObject_GetAttrString(afl->py_module, "trim");
 
       for (py_idx = 0; py_idx < PY_FUNC_COUNT; ++py_idx) {
 
@@ -86,7 +86,7 @@ int init_py(afl_state_t *afl) {
 
       }
 
-      if (afl->py_notrim) {
+      if (py_notrim) {
 
         afl->py_functions[PY_FUNC_INIT_TRIM] = NULL;
         afl->py_functions[PY_FUNC_POST_TRIM] = NULL;
@@ -102,9 +102,9 @@ int init_py(afl_state_t *afl) {
       /* Provide the init function a seed for the Python RNG */
       py_args = PyTuple_New(1);
 #if PY_MAJOR_VERSION >= 3
-      py_value = PyLong_FromLong(UR(0xFFFFFFFF));
+      py_value = PyLong_FromLong(UR(afl, 0xFFFFFFFF));
 #else
-      py_value = PyInt_FromLong(UR(0xFFFFFFFF));
+      py_value = PyInt_FromLong(UR(afl, 0xFFFFFFFF));
 #endif
 
       if (!py_value) {
@@ -117,7 +117,7 @@ int init_py(afl_state_t *afl) {
 
       PyTuple_SetItem(py_args, 0, py_value);
 
-      py_value = PyObject_CallObject(py_functions[PY_FUNC_INIT], py_args);
+      py_value = PyObject_CallObject(afl->py_functions[PY_FUNC_INIT], py_args);
 
       Py_DECREF(py_args);
 
@@ -132,7 +132,7 @@ int init_py(afl_state_t *afl) {
     } else {
 
       PyErr_Print();
-      fprintf(stderr, "Failed to load \"%s\"\n", afl->module_name);
+      fprintf(stderr, "Failed to load \"%s\"\n", module_name);
       return 1;
 
     }
@@ -159,10 +159,10 @@ void finalize_py(afl_state_t *afl) {
 
 }
 
-void fuzz_py(char* buf, size_t buflen, char* add_buf, size_t add_buflen,
+void fuzz_py(afl_state_t *afl, char* buf, size_t buflen, char* add_buf, size_t add_buflen,
              char** ret, size_t* retlen) {
 
-  if (alf->py_module != NULL) {
+  if (afl->py_module != NULL) {
 
     PyObject *py_args, *py_value;
     py_args = PyTuple_New(2);
@@ -188,7 +188,7 @@ void fuzz_py(char* buf, size_t buflen, char* add_buf, size_t add_buflen,
 
     PyTuple_SetItem(py_args, 1, py_value);
 
-    py_value = PyObject_CallObject(py_functions[PY_FUNC_FUZZ], py_args);
+    py_value = PyObject_CallObject(afl->py_functions[PY_FUNC_FUZZ], py_args);
 
     Py_DECREF(py_args);
 
@@ -211,7 +211,7 @@ void fuzz_py(char* buf, size_t buflen, char* add_buf, size_t add_buflen,
 
 }
 
-u32 init_trim_py(char* buf, size_t buflen) {
+u32 init_trim_py(afl_state_t *afl, char* buf, size_t buflen) {
 
   PyObject *py_args, *py_value;
 
@@ -226,7 +226,7 @@ u32 init_trim_py(char* buf, size_t buflen) {
 
   PyTuple_SetItem(py_args, 0, py_value);
 
-  py_value = PyObject_CallObject(py_functions[PY_FUNC_INIT_TRIM], py_args);
+  py_value = PyObject_CallObject(afl->py_functions[PY_FUNC_INIT_TRIM], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
@@ -248,7 +248,7 @@ u32 init_trim_py(char* buf, size_t buflen) {
 
 }
 
-u32 post_trim_py(char success) {
+u32 post_trim_py(afl_state_t *afl, char success) {
 
   PyObject *py_args, *py_value;
 
@@ -264,7 +264,7 @@ u32 post_trim_py(char success) {
 
   PyTuple_SetItem(py_args, 0, py_value);
 
-  py_value = PyObject_CallObject(py_functions[PY_FUNC_POST_TRIM], py_args);
+  py_value = PyObject_CallObject(afl->py_functions[PY_FUNC_POST_TRIM], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
@@ -286,12 +286,12 @@ u32 post_trim_py(char success) {
 
 }
 
-void trim_py(char** ret, size_t* retlen) {
+void trim_py(afl_state_t *afl, char** ret, size_t* retlen) {
 
   PyObject *py_args, *py_value;
 
   py_args = PyTuple_New(0);
-  py_value = PyObject_CallObject(py_functions[PY_FUNC_TRIM], py_args);
+  py_value = PyObject_CallObject(afl->py_functions[PY_FUNC_TRIM], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
@@ -324,7 +324,7 @@ u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in
 
   /* Initialize trimming in the Python module */
   afl->stage_cur = 0;
-  afl->stage_max = init_trim_py(in_buf, q->len);
+  afl->stage_max = init_trim_py(afl, in_buf, q->len);
 
   if (afl->not_on_tty && afl->debug)
     SAYF("[Python Trimming] START: Max %d iterations, %u bytes", afl->stage_max,
@@ -339,16 +339,16 @@ u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in
     char*  retbuf = NULL;
     size_t retlen = 0;
 
-    trim_py(&retbuf, &retlen);
+    trim_py(afl, &retbuf, &retlen);
 
     if (retlen > orig_len)
       FATAL(
           "Trimmed data returned by Python module is larger than original "
           "data");
 
-    write_to_testcase(retbuf, retlen);
+    write_to_testcase(afl, retbuf, retlen);
 
-    fault = run_target(argv, afl->exec_tmout);
+    fault = run_target(afl, argv, afl->exec_tmout);
     ++afl->trim_execs;
 
     if (afl->stop_soon || fault == FAULT_ERROR) {
@@ -376,7 +376,7 @@ u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in
       }
 
       /* Tell the Python module that the trimming was successful */
-      afl->stage_cur = post_trim_py(1);
+      afl->stage_cur = post_trim_py(afl, 1);
 
       if (afl->not_on_tty && afl->debug)
         SAYF("[Python Trimming] SUCCESS: %d/%d iterations (now at %u bytes)",
@@ -385,7 +385,7 @@ u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in
     } else {
 
       /* Tell the Python module that the trimming was unsuccessful */
-      afl->stage_cur = post_trim_py(0);
+      afl->stage_cur = post_trim_py(afl, 0);
       if (afl->not_on_tty && afl->debug)
         SAYF("[Python Trimming] FAILURE: %d/%d iterations", afl->stage_cur,
              afl->stage_max);
@@ -396,7 +396,7 @@ u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in
 
     /* Since this can be slow, update the screen every now and then. */
 
-    if (!(trim_exec++ % afl->stats_update_freq)) show_stats();
+    if (!(trim_exec++ % afl->stats_update_freq)) show_stats(afl);
 
   }
 
@@ -420,7 +420,7 @@ u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in
     close(fd);
 
     memcpy(afl->trace_bits, clean_trace, MAP_SIZE);
-    update_bitmap_score(q);
+    update_bitmap_score(afl, q);
 
   }
 

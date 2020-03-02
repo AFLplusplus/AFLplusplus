@@ -58,57 +58,57 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-s32 afl->forksrv_pid,                        /* PID of the fork server           */
-    afl->child_pid;                          /* PID of the tested program        */
+s32 forksrv_pid,                        /* PID of the fork server           */
+    child_pid;                          /* PID of the tested program        */
 
-s32 afl->fsrv_ctl_fd,                        /* Fork server control pipe (write) */
-    afl->fsrv_st_fd;                         /* Fork server status pipe (read)   */
+s32 fsrv_ctl_fd,                        /* Fork server control pipe (write) */
+    fsrv_st_fd;                         /* Fork server status pipe (read)   */
 
-u8*        afl->trace_bits;                 /* SHM with instrumentation bitmap   */
+u8*        trace_bits;                 /* SHM with instrumentation bitmap   */
 static u8* mask_bitmap;                /* Mask for trace bits (-B)          */
 
 u8 *in_file,                           /* Minimizer input test case         */
     *output_file,                      /* Minimizer output file             */
-    *afl->out_file,                         /* Targeted program input file       */
-    *afl->doc_path;                         /* Path to docs                      */
+    *out_file,                         /* Targeted program input file       */
+    *doc_path;                         /* Path to docs                      */
 
-s32 afl->out_fd;                           /* Persistent fd for afl->out_file         */
+s32 out_fd;                           /* Persistent fd for out_file         */
 
 static u8* in_data;                    /* Input data for trimming           */
 
 static u32 in_len,                     /* Input data length                 */
     orig_cksum,                        /* Original checksum                 */
-    afl->total_execs,                       /* Total number of execs             */
+    total_execs,                       /* Total number of execs             */
     missed_hangs,                      /* Misses due to hangs               */
     missed_crashes,                    /* Misses due to crashes             */
     missed_paths;                      /* Misses due to exec path diffs     */
-u32 afl->exec_tmout = EXEC_TIMEOUT;         /* Exec timeout (ms)                 */
+u32 exec_tmout = EXEC_TIMEOUT;         /* Exec timeout (ms)                 */
 
-u64 afl->mem_limit = afl->mem_limit;             /* Memory limit (MB)                 */
+u64 mem_limit = MEM_LIMIT;             /* Memory limit (MB)                 */
 
-s32 afl->dev_null_fd = -1;                  /* FD to /dev/null                   */
+s32 dev_null_fd = -1;                  /* FD to /dev/null                   */
 
-u8 afl->crash_mode,                         /* Crash-centric mode?               */
+u8 crash_mode,                         /* Crash-centric mode?               */
     exit_crash,                        /* Treat non-zero exit as crash?     */
     edges_only,                        /* Ignore hit counts?                */
     exact_mode,                        /* Require path match for crashes?   */
-    be_quiet, afl->use_stdin = 1;           /* Use stdin for program input?      */
+    be_quiet, use_stdin = 1;           /* Use stdin for program input?      */
 
-static volatile u8 afl->stop_soon;          /* Ctrl-C pressed?                   */
+static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
-static u8 afl->qemu_mode;
+static u8 qemu_mode;
 
 /*
  * forkserver section
  */
 
 /* we only need this to use afl-forkserver */
-FILE* afl->plot_file;
-u8    afl->uses_asan;
-s32   afl->out_fd = -1,afl->out_dir_fd = -1, afl->dev_urandom_fd = -1;
+FILE* plot_file;
+u8    uses_asan;
+s32   out_fd = -1, out_dir_fd = -1, dev_urandom_fd = -1;
 
 /* we import this as we need this information */
-extern u8 afl->child_timed_out;
+extern u8 child_timed_out;
 
 /* Classify tuple counts. This is a slow & naive version, but good enough here.
  */
@@ -175,7 +175,7 @@ static void apply_mask(u32* mem, u32* mask) {
 
 static inline u8 anything_set(void) {
 
-  u32* ptr = (u32*)afl->trace_bits;
+  u32* ptr = (u32*)trace_bits;
   u32  i = (MAP_SIZE >> 2);
 
   while (i--)
@@ -189,7 +189,7 @@ static inline u8 anything_set(void) {
 
 static void at_exit_handler(void) {
 
-  if (afl->out_file) unlink(afl->out_file);                          /* Ignore errors */
+  if (out_file) unlink(out_file);                          /* Ignore errors */
 
 }
 
@@ -238,29 +238,29 @@ static s32 write_to_file(u8* path, u8* mem, u32 len) {
 
 }
 
-/* Write modified data to file for testing. If afl->use_stdin is clear, the old file
-   is unlinked and a new one is created. Otherwise, afl->out_fd is rewound and
+/* Write modified data to file for testing. If use_stdin is clear, the old file
+   is unlinked and a new one is created. Otherwise, out_fd is rewound and
    truncated. */
 
 static void write_to_testcase(void* mem, u32 len) {
 
-  s32 fd = afl->out_fd;
+  s32 fd = out_fd;
 
-  if (!afl->use_stdin) {
+  if (!use_stdin) {
 
-    unlink(afl->out_file);                                     /* Ignore errors. */
+    unlink(out_file);                                     /* Ignore errors. */
 
-    fd = open(afl->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
-    if (fd < 0) PFATAL("Unable to create '%s'", afl->out_file);
+    if (fd < 0) PFATAL("Unable to create '%s'", out_file);
 
   } else
 
     lseek(fd, 0, SEEK_SET);
 
-  ck_write(fd, mem, len, afl->out_file);
+  ck_write(fd, mem, len, out_file);
 
-  if (afl->use_stdin) {
+  if (use_stdin) {
 
     if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
     lseek(fd, 0, SEEK_SET);
@@ -275,15 +275,15 @@ static void write_to_testcase(void* mem, u32 len) {
 /*
 static void handle_timeout(int sig) {
 
-  if (afl->child_pid > 0) {
+  if (child_pid > 0) {
 
-  afl->child_timed_out = 1;
-    kill(afl->child_pid, SIGKILL);
+  child_timed_out = 1;
+    kill(child_pid, SIGKILL);
 
-  } else if (afl->child_pid == -1 && afl->forksrv_pid > 0) {
+  } else if (child_pid == -1 && forksrv_pid > 0) {
 
-    afl->child_timed_out = 1;
-    kill(afl->forksrv_pid, SIGKILL);
+    child_timed_out = 1;
+    kill(forksrv_pid, SIGKILL);
 
   }
 
@@ -303,31 +303,31 @@ static void init_forkserver(char **argv) {
   ACTF("Spinning up the fork server...");
   if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
 
-  afl->forksrv_pid = fork();
+  forksrv_pid = fork();
 
-  if (afl->forksrv_pid < 0) PFATAL("fork() failed");
+  if (forksrv_pid < 0) PFATAL("fork() failed");
 
-  if (!afl->forksrv_pid) {
+  if (!forksrv_pid) {
 
     struct rlimit r;
 
-    if (dup2(afl->use_stdin ? afl->out_fd : afl->dev_null_fd, 0) < 0 ||
-        dup2(afl->dev_null_fd, 1) < 0 ||
-        dup2(afl->dev_null_fd, 2) < 0) {
+    if (dup2(use_stdin ? out_fd : dev_null_fd, 0) < 0 ||
+        dup2(dev_null_fd, 1) < 0 ||
+        dup2(dev_null_fd, 2) < 0) {
 
-      *(u32*)afl->trace_bits = EXEC_FAIL_SIG;
+      *(u32*)trace_bits = EXEC_FAIL_SIG;
       PFATAL("dup2() failed");
 
     }
 
-    close(afl->dev_null_fd);
-    close(afl->out_fd);
+    close(dev_null_fd);
+    close(out_fd);
 
     setsid();
 
-    if (afl->mem_limit) {
+    if (mem_limit) {
 
-      r.rlim_max = r.rlim_cur = ((rlim_t)afl->mem_limit) << 20;
+      r.rlim_max = r.rlim_cur = ((rlim_t)mem_limit) << 20;
 
 #ifdef RLIMIT_AS
 
@@ -356,7 +356,7 @@ static void init_forkserver(char **argv) {
 
     execv(target_path, argv);
 
-    *(u32*)afl->trace_bits = EXEC_FAIL_SIG;
+    *(u32*)trace_bits = EXEC_FAIL_SIG;
     exit(0);
 
   }
@@ -366,22 +366,22 @@ static void init_forkserver(char **argv) {
   close(ctl_pipe[0]);
   close(st_pipe[1]);
 
-  afl->fsrv_ctl_fd = ctl_pipe[1];
-  afl->fsrv_st_fd  = st_pipe[0];
+  fsrv_ctl_fd = ctl_pipe[1];
+  fsrv_st_fd  = st_pipe[0];
 
   // Configure timeout, wait for child, cancel timeout.
 
-  if (afl->exec_tmout) {
+  if (exec_tmout) {
 
-    afl->child_timed_out = 0;
-    it.it_value.tv_sec = (afl->exec_tmout * FORK_WAIT_MULT / 1000);
-    it.it_value.tv_usec = ((afl->exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+    child_timed_out = 0;
+    it.it_value.tv_sec = (exec_tmout * FORK_WAIT_MULT / 1000);
+    it.it_value.tv_usec = ((exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
 
   }
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  rlen = read(afl->fsrv_st_fd, &status, 4);
+  rlen = read(fsrv_st_fd, &status, 4);
 
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
@@ -397,7 +397,7 @@ static void init_forkserver(char **argv) {
 
   }
 
-  if (waitpid(afl->forksrv_pid, &status, 0) <= 0)
+  if (waitpid(forksrv_pid, &status, 0) <= 0)
     PFATAL("waitpid() failed");
 
   u8 child_crashed;
@@ -405,9 +405,9 @@ static void init_forkserver(char **argv) {
   if (WIFSIGNALED(status))
     child_crashed = 1;
 
-  if (afl->child_timed_out)
+  if (child_timed_out)
     SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
-  else if (afl->stop_soon)
+  else if (stop_soon)
     SAYF(cLRD "\n+++ Program aborted by user +++\n" cRST);
   else if (child_crashed)
     SAYF(cLRD "\n+++ Program killed by signal %u +++\n" cRST, WTERMSIG(status));
@@ -427,7 +427,7 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   u32 cksum;
 
-  memset(afl->trace_bits, 0, MAP_SIZE);
+  memset(trace_bits, 0, MAP_SIZE);
   MEM_BARRIER();
 
   write_to_testcase(mem, len);
@@ -437,41 +437,41 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
   /* we have the fork server up and running, so simply
      tell it to have at it, and then read back PID. */
 
-  if ((res = write(afl->fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+  if ((res = write(fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
 
-    if (afl->stop_soon) return 0;
+    if (stop_soon) return 0;
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
 
-  if ((res = read(afl->fsrv_st_fd, &afl->child_pid, 4)) != 4) {
+  if ((res = read(fsrv_st_fd, &child_pid, 4)) != 4) {
 
-    if (afl->stop_soon) return 0;
+    if (stop_soon) return 0;
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
 
-  if (afl->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
+  if (child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
 
   /* Configure timeout, wait for child, cancel timeout. */
 
-  if (afl->exec_tmout) {
+  if (exec_tmout) {
 
-    it.it_value.tv_sec = (afl->exec_tmout / 1000);
-    it.it_value.tv_usec = (afl->exec_tmout % 1000) * 1000;
+    it.it_value.tv_sec = (exec_tmout / 1000);
+    it.it_value.tv_usec = (exec_tmout % 1000) * 1000;
 
   }
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  if ((res = read(afl->fsrv_st_fd, &status, 4)) != 4) {
+  if ((res = read(fsrv_st_fd, &status, 4)) != 4) {
 
-    if (afl->stop_soon) return 0;
+    if (stop_soon) return 0;
     RPFATAL(res, "Unable to communicate with fork server (OOM?)");
 
   }
 
-  afl->child_pid = 0;
+  child_pid = 0;
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
 
@@ -481,14 +481,14 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32*)afl->trace_bits == EXEC_FAIL_SIG)
+  if (*(u32*)trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
-  classify_counts(afl->trace_bits);
-  apply_mask((u32*)afl->trace_bits, (u32*)mask_bitmap);
-  afl->total_execs++;
+  classify_counts(trace_bits);
+  apply_mask((u32*)trace_bits, (u32*)mask_bitmap);
+  total_execs++;
 
-  if (afl->stop_soon) {
+  if (stop_soon) {
 
     SAYF(cRST cLRD "\n+++ Minimization aborted by user +++\n" cRST);
     close(write_to_file(output_file, in_data, in_len));
@@ -498,7 +498,7 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   /* Always discard inputs that time out. */
 
-  if (afl->child_timed_out) {
+  if (child_timed_out) {
 
     missed_hangs++;
     return 0;
@@ -511,9 +511,9 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
       (WIFEXITED(status) && WEXITSTATUS(status) == MSAN_ERROR) ||
       (WIFEXITED(status) && WEXITSTATUS(status) && exit_crash)) {
 
-    if (first_run) afl->crash_mode = 1;
+    if (first_run) crash_mode = 1;
 
-    if (afl->crash_mode) {
+    if (crash_mode) {
 
       if (!exact_mode) return 1;
 
@@ -528,7 +528,7 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
     /* Handle non-crashing inputs appropriately. */
 
-    if (afl->crash_mode) {
+    if (crash_mode) {
 
       missed_paths++;
       return 0;
@@ -537,7 +537,7 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   }
 
-  cksum = hash32(afl->trace_bits, MAP_SIZE, HASH_CONST);
+  cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
 
   if (first_run) orig_cksum = cksum;
 
@@ -796,10 +796,10 @@ finalize_all:
        "%0.02f%%\n" cGRA "     Number of execs done : " cRST "%u\n" cGRA
        "          Fruitless execs : " cRST "path=%u crash=%u hang=%s%u\n\n",
        100 - ((double)in_len) * 100 / orig_len, in_len, in_len == 1 ? "" : "s",
-       ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), afl->total_execs,
+       ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), total_execs,
        missed_paths, missed_crashes, missed_hangs ? cLRD : "", missed_hangs);
 
-  if (afl->total_execs > 50 && missed_hangs * 10 > afl->total_execs)
+  if (total_execs > 50 && missed_hangs * 10 > total_execs)
     WARNF(cLRD "Frequent timeouts - results may be skewed." cRST);
 
 }
@@ -808,9 +808,9 @@ finalize_all:
 
 static void handle_stop_sig(int sig) {
 
-  afl->stop_soon = 1;
+  stop_soon = 1;
 
-  if (afl->child_pid > 0) kill(afl->child_pid, SIGKILL);
+  if (child_pid > 0) kill(child_pid, SIGKILL);
 
 }
 
@@ -820,10 +820,10 @@ static void set_up_environment(void) {
 
   u8* x;
 
-  afl->dev_null_fd = open("/dev/null", O_RDWR);
-  if (afl->dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+  dev_null_fd = open("/dev/null", O_RDWR);
+  if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
-  if (!afl->out_file) {
+  if (!out_file) {
 
     u8* use_dir = ".";
 
@@ -834,15 +834,15 @@ static void set_up_environment(void) {
 
     }
 
-    afl->out_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
+    out_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
 
   }
 
-  unlink(afl->out_file);
+  unlink(out_file);
 
-  afl->out_fd = open(afl->out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+  out_fd = open(out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (afl->out_fd < 0) PFATAL("Unable to create '%s'", afl->out_file);
+  if (out_fd < 0) PFATAL("Unable to create '%s'", out_file);
 
   /* Set sane defaults... */
 
@@ -886,7 +886,7 @@ static void set_up_environment(void) {
 
   if (get_afl_env("AFL_PRELOAD")) {
 
-    if (afl->qemu_mode) {
+    if (qemu_mode) {
 
       u8* qemu_preload = getenv("QEMU_SET_ENV");
       u8* afl_preload = getenv("AFL_PRELOAD");
@@ -990,7 +990,7 @@ static void usage(u8* argv0) {
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TMIN_EXACT: require execution paths to match for crashing inputs\n"
 
-      , argv0, EXEC_TIMEOUT, afl->mem_limit, afl->doc_path);
+      , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
 
@@ -1070,10 +1070,10 @@ static void read_bitmap(u8* fname) {
 int main(int argc, char** argv, char** envp) {
 
   s32    opt;
-  u8     afl->mem_limit_given = 0, afl->timeout_given = 0, afl->unicorn_mode = 0, afl->use_wine = 0;
+  u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   char** use_argv;
 
-  afl->doc_path = access(afl->doc_path, F_OK) ? "docs" : afl->doc_path;
+  doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
@@ -1095,9 +1095,9 @@ int main(int argc, char** argv, char** envp) {
 
       case 'f':
 
-        if (afl->out_file) FATAL("Multiple -f options not supported");
-        afl->use_stdin = 0;
-        afl->out_file = optarg;
+        if (out_file) FATAL("Multiple -f options not supported");
+        use_stdin = 0;
+        out_file = optarg;
         break;
 
       case 'e':
@@ -1116,34 +1116,34 @@ int main(int argc, char** argv, char** envp) {
 
         u8 suffix = 'M';
 
-        if (afl->mem_limit_given) FATAL("Multiple -m options not supported");
-        afl->mem_limit_given = 1;
+        if (mem_limit_given) FATAL("Multiple -m options not supported");
+        mem_limit_given = 1;
 
         if (!strcmp(optarg, "none")) {
 
-          afl->mem_limit = 0;
+          mem_limit = 0;
           break;
 
         }
 
-        if (sscanf(optarg, "%llu%c", &afl->mem_limit, &suffix) < 1 ||
+        if (sscanf(optarg, "%llu%c", &mem_limit, &suffix) < 1 ||
             optarg[0] == '-')
           FATAL("Bad syntax used for -m");
 
         switch (suffix) {
 
-          case 'T': afl->mem_limit *= 1024 * 1024; break;
-          case 'G': afl->mem_limit *= 1024; break;
-          case 'k': afl->mem_limit /= 1024; break;
+          case 'T': mem_limit *= 1024 * 1024; break;
+          case 'G': mem_limit *= 1024; break;
+          case 'k': mem_limit /= 1024; break;
           case 'M': break;
 
           default: FATAL("Unsupported suffix or bad syntax for -m");
 
         }
 
-        if (afl->mem_limit < 5) FATAL("Dangerously low value of -m");
+        if (mem_limit < 5) FATAL("Dangerously low value of -m");
 
-        if (sizeof(rlim_t) == 4 && afl->mem_limit > 2000)
+        if (sizeof(rlim_t) == 4 && mem_limit > 2000)
           FATAL("Value of -m out of range on 32-bit systems");
 
       }
@@ -1152,39 +1152,39 @@ int main(int argc, char** argv, char** envp) {
 
       case 't':
 
-        if (afl->timeout_given) FATAL("Multiple -t options not supported");
-        afl->timeout_given = 1;
+        if (timeout_given) FATAL("Multiple -t options not supported");
+        timeout_given = 1;
 
-        afl->exec_tmout = atoi(optarg);
+        exec_tmout = atoi(optarg);
 
-        if (afl->exec_tmout < 10 || optarg[0] == '-')
+        if (exec_tmout < 10 || optarg[0] == '-')
           FATAL("Dangerously low value of -t");
 
         break;
 
       case 'Q':
 
-        if (afl->qemu_mode) FATAL("Multiple -Q options not supported");
-        if (!afl->mem_limit_given) afl->mem_limit = afl->mem_limit_QEMU;
+        if (qemu_mode) FATAL("Multiple -Q options not supported");
+        if (!mem_limit_given) mem_limit = MEM_LIMIT_QEMU;
 
-        afl->qemu_mode = 1;
+        qemu_mode = 1;
         break;
 
       case 'U':
 
-        if (afl->unicorn_mode) FATAL("Multiple -Q options not supported");
-        if (!afl->mem_limit_given) afl->mem_limit = afl->mem_limit_UNICORN;
+        if (unicorn_mode) FATAL("Multiple -Q options not supported");
+        if (!mem_limit_given) mem_limit = MEM_LIMIT_UNICORN;
 
-        afl->unicorn_mode = 1;
+        unicorn_mode = 1;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
 
-        if (afl->use_wine) FATAL("Multiple -W options not supported");
-        afl->qemu_mode = 1;
-        afl->use_wine = 1;
+        if (use_wine) FATAL("Multiple -W options not supported");
+        qemu_mode = 1;
+        use_wine = 1;
 
-        if (!afl->mem_limit_given) afl->mem_limit = 0;
+        if (!mem_limit_given) mem_limit = 0;
 
         break;
 
@@ -1227,11 +1227,11 @@ int main(int argc, char** argv, char** envp) {
   set_up_environment();
 
   find_binary(argv[optind]);
-  detect_file_args(argv + optind, afl->out_file);
+  detect_file_args(argv + optind, out_file);
 
-  if (afl->qemu_mode) {
+  if (qemu_mode) {
 
-    if (afl->use_wine)
+    if (use_wine)
       use_argv = get_wine_argv(argv[0], argv + optind, argc - optind);
     else
       use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
@@ -1249,14 +1249,14 @@ int main(int argc, char** argv, char** envp) {
   init_forkserver(use_argv);
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
-       afl->mem_limit, afl->exec_tmout, edges_only ? ", edges only" : "");
+       mem_limit, exec_tmout, edges_only ? ", edges only" : "");
 
   run_target(use_argv, in_data, in_len, 1);
 
-  if (afl->child_timed_out)
+  if (child_timed_out)
     FATAL("Target binary times out (adjusting -t may help).");
 
-  if (!afl->crash_mode) {
+  if (!crash_mode) {
 
     OKF("Program terminates normally, minimizing in " cCYA "instrumented" cRST
         " mode.");
@@ -1275,8 +1275,8 @@ int main(int argc, char** argv, char** envp) {
 
   ACTF("Writing output to '%s'...", output_file);
 
-  unlink(afl->out_file);
-  afl->out_file = NULL;
+  unlink(out_file);
+  out_file = NULL;
 
   close(write_to_file(output_file, in_data, in_len));
 

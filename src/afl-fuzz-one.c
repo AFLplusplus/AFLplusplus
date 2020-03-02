@@ -27,7 +27,7 @@
 
 /* MOpt */
 
-int select_algorithm(void) {
+int select_algorithm(afl_state_t *afl) {
 
   int i_puppet, j_puppet;
 
@@ -61,7 +61,7 @@ int select_algorithm(void) {
 /* Helper to choose random block len for block operations in fuzz_one().
    Doesn't return zero, provided that max_len is > 0. */
 
-static u32 choose_block_len(u32 limit) {
+static u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
   u32 min_value, max_value;
   u32 rlim = MIN(afl->queue_cycle, 3);
@@ -334,7 +334,7 @@ static void locate_diffs(u8* ptr1, u8* ptr2, u32 len, s32* first, s32* last) {
    function is a tad too long... returns 0 if fuzzed successfully, 1 if
    skipped or bailed out. */
 
-u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
+u8 fuzz_one_original(afl_state_t *afl, char** argv) {
 
   s32 len, fd, temp_len, i, j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
@@ -430,7 +430,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
 
-      res = calibrate_case(argv, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
+      res = calibrate_case(afl, argv, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
       if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -451,7 +451,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
 
   if (!afl->dumb_mode && !afl->queue_cur->trim_done && !afl->custom_mutator && !afl->disable_trim) {
 
-    u8 res = trim_case(argv, afl->queue_cur, in_buf);
+    u8 res = trim_case(afl, argv, afl->queue_cur, in_buf);
 
     if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -476,7 +476,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
    * PERFORMANCE SCORE *
    *********************/
 
-  orig_perf = perf_score = calculate_score(afl->queue_cur);
+  orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
   if (perf_score == 0) goto abandon_entry;
 
@@ -505,7 +505,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
 
         out_buf = ck_realloc(out_buf, mutated_size);
         memcpy(out_buf, mutated_buf, mutated_size);
-        if (common_fuzz_stuff(argv, out_buf, (u32)mutated_size)) {
+        if (common_fuzz_stuff(afl, argv, out_buf, (u32)mutated_size)) {
 
           goto abandon_entry;
 
@@ -531,9 +531,9 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
 
   }
 
-  if (afl->cmplog_mode) {
+  if (cmplog_mode) {
 
-    if (input_to_state_stage(argv, in_buf, out_buf, len, afl->queue_cur->exec_cksum))
+    if (input_to_state_stage(afl, argv, in_buf, out_buf, len, afl->queue_cur->exec_cksum))
       goto abandon_entry;
 
   }
@@ -604,7 +604,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
@@ -648,7 +648,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
         ++a_len;
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
-          maybe_add_auto(a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
       } else if (cksum != prev_cksum) {
 
@@ -656,7 +656,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
            worthwhile queued up, and collect that if the answer is yes. */
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
-          maybe_add_auto(a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         a_len = 0;
         prev_cksum = cksum;
@@ -697,7 +697,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -726,7 +726,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
     FLIP_BIT(out_buf, afl->stage_cur + 2);
     FLIP_BIT(out_buf, afl->stage_cur + 3);
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -780,7 +780,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
 
     out_buf[afl->stage_cur] ^= 0xFF;
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
     /* We also use this stage to pull off a simple trick: we identify
        bytes that seem to have no effect on the current execution path
@@ -862,7 +862,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
 
     *(u16*)(out_buf + i) ^= 0xFFFF;
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
     ++afl->stage_cur;
 
     *(u16*)(out_buf + i) ^= 0xFFFF;
@@ -900,7 +900,7 @@ u8 fuzz_one_original(afl_sate_t *afl, char** argv) {
 
     *(u32*)(out_buf + i) ^= 0xFFFFFFFF;
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
     ++afl->stage_cur;
 
     *(u32*)(out_buf + i) ^= 0xFFFFFFFF;
@@ -958,7 +958,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         out_buf[i] = orig + j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -972,7 +972,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         out_buf[i] = orig - j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1034,7 +1034,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16*)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1046,7 +1046,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u16*)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1062,7 +1062,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16*)(out_buf + i) = SWAP16(SWAP16(orig) + j);
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1074,7 +1074,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u16*)(out_buf + i) = SWAP16(SWAP16(orig) - j);
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1135,7 +1135,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32*)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1147,7 +1147,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u32*)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1163,7 +1163,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32*)(out_buf + i) = SWAP32(SWAP32(orig) + j);
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1175,7 +1175,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u32*)(out_buf + i) = SWAP32(SWAP32(orig) - j);
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1240,7 +1240,7 @@ skip_arith:
       afl->stage_cur_val = interesting_8[j];
       out_buf[i] = interesting_8[j];
 
-      if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
       out_buf[i] = orig;
       ++afl->stage_cur;
@@ -1295,7 +1295,7 @@ skip_arith:
 
         *(u16*)(out_buf + i) = interesting_16[j];
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1310,7 +1310,7 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u16*)(out_buf + i) = SWAP16(interesting_16[j]);
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1370,7 +1370,7 @@ skip_arith:
 
         *(u32*)(out_buf + i) = interesting_32[j];
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1385,7 +1385,7 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u32*)(out_buf + i) = SWAP32(interesting_32[j]);
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1442,8 +1442,8 @@ skip_interest:
 
       if ((afl->extras_cnt > MAX_DET_EXTRAS && UR(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
           afl->extras[j].len > len - i ||
-          !memcmp(afl->extras[j].data, out_buf + i, extras[j].len) ||
-          !memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, extras[j].len))) {
+          !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
+          !memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, afl->extras[j].len))) {
 
         --afl->stage_max;
         continue;
@@ -1453,7 +1453,7 @@ skip_interest:
       last_len = afl->extras[j].len;
       memcpy(out_buf + i, afl->extras[j].data, last_len);
 
-      if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
       ++afl->stage_cur;
 
@@ -1499,7 +1499,7 @@ skip_interest:
       /* Copy tail */
       memcpy(ex_tmp + i + afl->extras[j].len, out_buf + i, len - i);
 
-      if (common_fuzz_stuff(argv, ex_tmp, len + afl->extras[j].len)) {
+      if (common_fuzz_stuff(afl, argv, ex_tmp, len + afl->extras[j].len)) {
 
         ck_free(ex_tmp);
         goto abandon_entry;
@@ -1558,7 +1558,7 @@ skip_user_extras:
       last_len = afl->a_extras[j].len;
       memcpy(out_buf + i, afl->a_extras[j].data, last_len);
 
-      if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
       ++afl->stage_cur;
 
@@ -1580,7 +1580,7 @@ skip_extras:
      we're properly done with deterministic steps and can mark it as such
      in the .state/ directory. */
 
-  if (!afl->queue_cur->passed_det) mark_as_det_done(afl->queue_cur);
+  if (!afl->queue_cur->passed_det) mark_as_det_done(afl, afl->queue_cur);
 
 #ifdef USE_PYTHON
 python_stage:
@@ -1588,7 +1588,7 @@ python_stage:
    * EXTERNAL MUTATORS (Python API) *
    **********************************/
 
-  if (!py_module) goto havoc_stage;
+  if (!afl->py_module) goto havoc_stage;
 
   afl->stage_name = "python";
   afl->stage_short = "python";
@@ -1611,11 +1611,11 @@ python_stage:
     /* Pick a random other queue entry for passing to external API */
     do {
 
-      tid = UR(afl->queued_paths);
+      tid = UR(afl, afl->queued_paths);
 
     } while (tid == afl->current_entry && afl->queued_paths > 1);
 
-    target = queue;
+    target = afl->queue;
 
     while (tid >= 100) {
 
@@ -1646,7 +1646,7 @@ python_stage:
     ck_read(fd, new_buf, target->len, target->fname);
     close(fd);
 
-    fuzz_py(out_buf, len, new_buf, target->len, &retbuf, &retlen);
+    fuzz_py(afl, out_buf, len, new_buf, target->len, &retbuf, &retlen);
 
     ck_free(new_buf);
 
@@ -1654,7 +1654,7 @@ python_stage:
 
       if (!retlen) goto abandon_entry;
 
-      if (common_fuzz_stuff(argv, retbuf, retlen)) {
+      if (common_fuzz_stuff(afl, argv, retbuf, retlen)) {
 
         free(retbuf);
         goto abandon_entry;
@@ -1745,26 +1745,26 @@ havoc_stage:
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
-    u32 use_stacking = 1 << (1 + UR(HAVOC_STACK_POW2));
+    u32 use_stacking = 1 << (1 + UR(afl, HAVOC_STACK_POW2));
 
     afl->stage_cur_val = use_stacking;
 
     for (i = 0; i < use_stacking; ++i) {
 
-      switch (UR(15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
+      switch (UR(afl, 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
 
         case 0:
 
           /* Flip a single bit somewhere. Spooky! */
 
-          FLIP_BIT(out_buf, UR(temp_len << 3));
+          FLIP_BIT(out_buf, UR(afl, temp_len << 3));
           break;
 
         case 1:
 
           /* Set byte to interesting value. */
 
-          out_buf[UR(temp_len)] = interesting_8[UR(sizeof(interesting_8))];
+          out_buf[UR(afl, temp_len)] = interesting_8[UR(afl, sizeof(interesting_8))];
           break;
 
         case 2:
@@ -1773,15 +1773,15 @@ havoc_stage:
 
           if (temp_len < 2) break;
 
-          if (UR(2)) {
+          if (UR(afl, 2)) {
 
-            *(u16*)(out_buf + UR(temp_len - 1)) =
-                interesting_16[UR(sizeof(interesting_16) >> 1)];
+            *(u16*)(out_buf + UR(afl, temp_len - 1)) =
+                interesting_16[UR(afl, sizeof(interesting_16) >> 1)];
 
           } else {
 
-            *(u16*)(out_buf + UR(temp_len - 1)) =
-                SWAP16(interesting_16[UR(sizeof(interesting_16) >> 1)]);
+            *(u16*)(out_buf + UR(afl, temp_len - 1)) =
+                SWAP16(interesting_16[UR(afl, sizeof(interesting_16) >> 1)]);
 
           }
 
@@ -1793,15 +1793,15 @@ havoc_stage:
 
           if (temp_len < 4) break;
 
-          if (UR(2)) {
+          if (UR(afl, 2)) {
 
-            *(u32*)(out_buf + UR(temp_len - 3)) =
-                interesting_32[UR(sizeof(interesting_32) >> 2)];
+            *(u32*)(out_buf + UR(afl, temp_len - 3)) =
+                interesting_32[UR(afl, sizeof(interesting_32) >> 2)];
 
           } else {
 
-            *(u32*)(out_buf + UR(temp_len - 3)) =
-                SWAP32(interesting_32[UR(sizeof(interesting_32) >> 2)]);
+            *(u32*)(out_buf + UR(afl, temp_len - 3)) =
+                SWAP32(interesting_32[UR(afl, sizeof(interesting_32) >> 2)]);
 
           }
 
@@ -1811,14 +1811,14 @@ havoc_stage:
 
           /* Randomly subtract from byte. */
 
-          out_buf[UR(temp_len)] -= 1 + UR(ARITH_MAX);
+          out_buf[UR(afl, temp_len)] -= 1 + UR(afl, ARITH_MAX);
           break;
 
         case 5:
 
           /* Randomly add to byte. */
 
-          out_buf[UR(temp_len)] += 1 + UR(ARITH_MAX);
+          out_buf[UR(afl, temp_len)] += 1 + UR(afl, ARITH_MAX);
           break;
 
         case 6:
@@ -1827,16 +1827,16 @@ havoc_stage:
 
           if (temp_len < 2) break;
 
-          if (UR(2)) {
+          if (UR(afl, 2)) {
 
-            u32 pos = UR(temp_len - 1);
+            u32 pos = UR(afl, temp_len - 1);
 
-            *(u16*)(out_buf + pos) -= 1 + UR(ARITH_MAX);
+            *(u16*)(out_buf + pos) -= 1 + UR(afl, ARITH_MAX);
 
           } else {
 
-            u32 pos = UR(temp_len - 1);
-            u16 num = 1 + UR(ARITH_MAX);
+            u32 pos = UR(afl, temp_len - 1);
+            u16 num = 1 + UR(afl, ARITH_MAX);
 
             *(u16*)(out_buf + pos) =
                 SWAP16(SWAP16(*(u16*)(out_buf + pos)) - num);
@@ -1851,16 +1851,16 @@ havoc_stage:
 
           if (temp_len < 2) break;
 
-          if (UR(2)) {
+          if (UR(afl, 2)) {
 
-            u32 pos = UR(temp_len - 1);
+            u32 pos = UR(afl, temp_len - 1);
 
-            *(u16*)(out_buf + pos) += 1 + UR(ARITH_MAX);
+            *(u16*)(out_buf + pos) += 1 + UR(afl, ARITH_MAX);
 
           } else {
 
-            u32 pos = UR(temp_len - 1);
-            u16 num = 1 + UR(ARITH_MAX);
+            u32 pos = UR(afl, temp_len - 1);
+            u16 num = 1 + UR(afl, ARITH_MAX);
 
             *(u16*)(out_buf + pos) =
                 SWAP16(SWAP16(*(u16*)(out_buf + pos)) + num);
@@ -1875,16 +1875,16 @@ havoc_stage:
 
           if (temp_len < 4) break;
 
-          if (UR(2)) {
+          if (UR(afl, 2)) {
 
-            u32 pos = UR(temp_len - 3);
+            u32 pos = UR(afl, temp_len - 3);
 
-            *(u32*)(out_buf + pos) -= 1 + UR(ARITH_MAX);
+            *(u32*)(out_buf + pos) -= 1 + UR(afl, ARITH_MAX);
 
           } else {
 
-            u32 pos = UR(temp_len - 3);
-            u32 num = 1 + UR(ARITH_MAX);
+            u32 pos = UR(afl, temp_len - 3);
+            u32 num = 1 + UR(afl, ARITH_MAX);
 
             *(u32*)(out_buf + pos) =
                 SWAP32(SWAP32(*(u32*)(out_buf + pos)) - num);
@@ -1899,16 +1899,16 @@ havoc_stage:
 
           if (temp_len < 4) break;
 
-          if (UR(2)) {
+          if (UR(afl, 2)) {
 
-            u32 pos = UR(temp_len - 3);
+            u32 pos = UR(afl, temp_len - 3);
 
-            *(u32*)(out_buf + pos) += 1 + UR(ARITH_MAX);
+            *(u32*)(out_buf + pos) += 1 + UR(afl, ARITH_MAX);
 
           } else {
 
-            u32 pos = UR(temp_len - 3);
-            u32 num = 1 + UR(ARITH_MAX);
+            u32 pos = UR(afl, temp_len - 3);
+            u32 num = 1 + UR(afl, ARITH_MAX);
 
             *(u32*)(out_buf + pos) =
                 SWAP32(SWAP32(*(u32*)(out_buf + pos)) + num);
@@ -1923,7 +1923,7 @@ havoc_stage:
              why not. We use XOR with 1-255 to eliminate the
              possibility of a no-op. */
 
-          out_buf[UR(temp_len)] ^= 1 + UR(255);
+          out_buf[UR(afl, temp_len)] ^= 1 + UR(afl, 255);
           break;
 
         case 11 ... 12: {
@@ -1938,9 +1938,9 @@ havoc_stage:
 
           /* Don't delete too much. */
 
-          del_len = choose_block_len(temp_len - 1);
+          del_len = choose_block_len(afl, temp_len - 1);
 
-          del_from = UR(temp_len - del_len + 1);
+          del_from = UR(afl, temp_len - del_len + 1);
 
           memmove(out_buf + del_from, out_buf + del_from + del_len,
                   temp_len - del_from - del_len);
@@ -1957,23 +1957,23 @@ havoc_stage:
 
             /* Clone bytes (75%) or insert a block of constant bytes (25%). */
 
-            u8  actually_clone = UR(4);
+            u8  actually_clone = UR(afl, 4);
             u32 clone_from, clone_to, clone_len;
             u8* new_buf;
 
             if (actually_clone) {
 
-              clone_len = choose_block_len(temp_len);
-              clone_from = UR(temp_len - clone_len + 1);
+              clone_len = choose_block_len(afl, temp_len);
+              clone_from = UR(afl, temp_len - clone_len + 1);
 
             } else {
 
-              clone_len = choose_block_len(HAVOC_BLK_XL);
+              clone_len = choose_block_len(afl, HAVOC_BLK_XL);
               clone_from = 0;
 
             }
 
-            clone_to = UR(temp_len);
+            clone_to = UR(afl, temp_len);
 
             new_buf = ck_alloc_nozero(temp_len + clone_len);
 
@@ -1987,7 +1987,7 @@ havoc_stage:
               memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
             else
               memset(new_buf + clone_to,
-                     UR(2) ? UR(256) : out_buf[UR(temp_len)], clone_len);
+                     UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)], clone_len);
 
             /* Tail */
             memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
@@ -2010,19 +2010,19 @@ havoc_stage:
 
           if (temp_len < 2) break;
 
-          copy_len = choose_block_len(temp_len - 1);
+          copy_len = choose_block_len(afl, temp_len - 1);
 
-          copy_from = UR(temp_len - copy_len + 1);
-          copy_to = UR(temp_len - copy_len + 1);
+          copy_from = UR(afl, temp_len - copy_len + 1);
+          copy_to = UR(afl, temp_len - copy_len + 1);
 
-          if (UR(4)) {
+          if (UR(afl, 4)) {
 
             if (copy_from != copy_to)
               memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
 
           } else
 
-            memset(out_buf + copy_to, UR(2) ? UR(256) : out_buf[UR(temp_len)],
+            memset(out_buf + copy_to, UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)],
                    copy_len);
 
           break;
@@ -2036,32 +2036,32 @@ havoc_stage:
 
           /* Overwrite bytes with an extra. */
 
-          if (!afl->extras_cnt || (afl->a_extras_cnt && UR(2))) {
+          if (!afl->extras_cnt || (afl->a_extras_cnt && UR(afl, 2))) {
 
             /* No user-specified extras or odds in our favor. Let's use an
                auto-detected one. */
 
-            u32 use_extra = UR(afl->a_extras_cnt);
+            u32 use_extra = UR(afl, afl->a_extras_cnt);
             u32 extra_len = afl->a_extras[use_extra].len;
             u32 insert_at;
 
             if (extra_len > temp_len) break;
 
-            insert_at = UR(temp_len - extra_len + 1);
+            insert_at = UR(afl, temp_len - extra_len + 1);
             memcpy(out_buf + insert_at, afl->a_extras[use_extra].data, extra_len);
 
           } else {
 
             /* No auto extras or odds in our favor. Use the dictionary. */
 
-            u32 use_extra = UR(afl->extras_cnt);
-            u32 extra_len = extras[use_extra].len;
+            u32 use_extra = UR(afl, afl->extras_cnt);
+            u32 extra_len =afl->extras[use_extra].len;
             u32 insert_at;
 
             if (extra_len > temp_len) break;
 
-            insert_at = UR(temp_len - extra_len + 1);
-            memcpy(out_buf + insert_at, extras[use_extra].data, extra_len);
+            insert_at = UR(afl, temp_len - extra_len + 1);
+            memcpy(out_buf + insert_at,afl->extras[use_extra].data, extra_len);
 
           }
 
@@ -2071,15 +2071,15 @@ havoc_stage:
 
         case 16: {
 
-          u32 use_extra, extra_len, insert_at = UR(temp_len + 1);
+          u32 use_extra, extra_len, insert_at = UR(afl, temp_len + 1);
           u8* new_buf;
 
           /* Insert an extra. Do the same dice-rolling stuff as for the
              previous case. */
 
-          if (!afl->extras_cnt || (afl->a_extras_cnt && UR(2))) {
+          if (!afl->extras_cnt || (afl->a_extras_cnt && UR(afl, 2))) {
 
-            use_extra = UR(afl->a_extras_cnt);
+            use_extra = UR(afl, afl->a_extras_cnt);
             extra_len = afl->a_extras[use_extra].len;
 
             if (temp_len + extra_len >= MAX_FILE) break;
@@ -2094,8 +2094,8 @@ havoc_stage:
 
           } else {
 
-            use_extra = UR(afl->extras_cnt);
-            extra_len = extras[use_extra].len;
+            use_extra = UR(afl, afl->extras_cnt);
+            extra_len =afl->extras[use_extra].len;
 
             if (temp_len + extra_len >= MAX_FILE) break;
 
@@ -2105,7 +2105,7 @@ havoc_stage:
             memcpy(new_buf, out_buf, insert_at);
 
             /* Inserted part */
-            memcpy(new_buf + insert_at, extras[use_extra].data, extra_len);
+            memcpy(new_buf + insert_at,afl->extras[use_extra].data, extra_len);
 
           }
 
@@ -2125,7 +2125,7 @@ havoc_stage:
 
     }
 
-    if (common_fuzz_stuff(argv, out_buf, temp_len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, temp_len)) goto abandon_entry;
 
     /* out_buf might have been mangled a bit, so let's restore it to its
        original size and shape. */
@@ -2202,12 +2202,12 @@ retry_splicing:
 
     do {
 
-      tid = UR(afl->queued_paths);
+      tid = UR(afl, afl->queued_paths);
 
     } while (tid == afl->current_entry);
 
     afl->splicing_with = tid;
-    target = queue;
+    target = afl->queue;
 
     while (tid >= 100) {
 
@@ -2257,7 +2257,7 @@ retry_splicing:
 
     /* Split somewhere between the first and last differing byte. */
 
-    split_at = f_diff + UR(l_diff - f_diff);
+    split_at = f_diff + UR(afl, l_diff - f_diff);
 
     /* Do the thing. */
 
@@ -2298,14 +2298,14 @@ radamsa_stage:
   u8* save_buf = ck_alloc_nozero(len);
   memcpy(save_buf, out_buf, len);
 
-  u32 max_len = len + choose_block_len(HAVOC_BLK_XL);
+  u32 max_len = len + choose_block_len(afl, HAVOC_BLK_XL);
   u8* new_buf = ck_alloc_nozero(max_len);
   u8* tmp_buf;
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     u32 new_len =
-        afl->radamsa_mutate_ptr(save_buf, len, new_buf, max_len, get_afl->rand_seed());
+        afl->radamsa_mutate_ptr(save_buf, len, new_buf, max_len, get_rand_seed(afl));
 
     if (new_len) {
 
@@ -2319,7 +2319,7 @@ radamsa_stage:
 
     }
 
-    if (common_fuzz_stuff(argv, tmp_buf, temp_len)) {
+    if (common_fuzz_stuff(afl, argv, tmp_buf, temp_len)) {
 
       ck_free(save_buf);
       ck_free(new_buf);
@@ -2371,49 +2371,8 @@ abandon_entry:
 
 }
 
-struct MOpt_globals_t {
-
-  u64*      finds;
-  u64*      finds_v2;
-  u64*      cycles;
-  u64*      cycles_v2;
-  u64*      cycles_v3;
-  u32       is_pilot_mode;
-  u64*      pTime;
-  const u64 period;
-  char*     havoc_stagename;
-  char*     splice_stageformat;
-  char*     havoc_stagenameshort;
-  char*     splice_stagenameshort;
-
-} MOpt_globals_pilot = {afl->stage_finds_puppet[0],
-
-                        afl->stage_finds_puppet_v2[0],
-                        afl->stage_afl->cycles_puppet[0],
-                        afl->stage_afl->cycles_puppet_v2[0],
-                        afl->stage_afl->cycles_puppet_v3[0],
-                        1,
-                        &afl->tmp_pilot_time,
-                        period_pilot,
-                        "MOpt-havoc",
-                        "MOpt-splice %u",
-                        "MOpt_havoc",
-                        "MOpt_splice"},
-  MOpt_globals_core = {afl->core_afl->operator_finds_puppet,
-                       afl->core_afl->operator_finds_puppet_v2,
-                       afl->core_operator_afl->cycles_puppet,
-                       afl->core_operator_afl->cycles_puppet_v2,
-                       afl->core_operator_afl->cycles_puppet_v3,
-                       0,
-                       &afl->tmp_core_time,
-                       period_core,
-                       "MOpt-core-havoc",
-                       "MOpt-core-splice %u",
-                       "MOpt_core_havoc",
-                       "MOpt_core_splice"};
-
 /* MOpt mode */
-u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
+u8 mopt_common_fuzzing(afl_state_t *afl, char** argv, MOpt_globals_t MOpt_globals) {
 
   if (!MOpt_globals.is_pilot_mode) {
 
@@ -2452,7 +2411,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
        cases. */
 
     if ((afl->queue_cur->was_fuzzed || !afl->queue_cur->favored) &&
-        UR(100) < SKIP_TO_NEW_PROB)
+        UR(afl, 100) < SKIP_TO_NEW_PROB)
       return 1;
 
   } else if (!afl->dumb_mode && !afl->queue_cur->favored && afl->queued_paths > 10) {
@@ -2463,11 +2422,11 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
     if (afl->queue_cycle > 1 && !afl->queue_cur->was_fuzzed) {
 
-      if (UR(100) < SKIP_NFAV_NEW_PROB) return 1;
+      if (UR(afl, 100) < SKIP_NFAV_NEW_PROB) return 1;
 
     } else {
 
-      if (UR(100) < SKIP_NFAV_OLD_PROB) return 1;
+      if (UR(afl, 100) < SKIP_NFAV_OLD_PROB) return 1;
 
     }
 
@@ -2517,7 +2476,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
 
-      res = calibrate_case(argv, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
+      res = calibrate_case(afl, argv, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
       if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -2538,7 +2497,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
   if (!afl->dumb_mode && !afl->queue_cur->trim_done) {
 
-    u8 res = trim_case(argv, afl->queue_cur, in_buf);
+    u8 res = trim_case(afl, argv, afl->queue_cur, in_buf);
 
     if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -2563,7 +2522,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
    * PERFORMANCE SCORE *
    *********************/
 
-  orig_perf = perf_score = calculate_score(afl->queue_cur);
+  orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
   /* Skip right away if -d is given, if we have done deterministic fuzzing on
      this entry ourselves (was_fuzzed), or if it has gone through deterministic
@@ -2622,7 +2581,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
@@ -2666,7 +2625,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
         ++a_len;
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
-          maybe_add_auto(a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
       } else if (cksum != prev_cksum) {
 
@@ -2674,7 +2633,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
            worthwhile queued up, and collect that if the answer is yes. */
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
-          maybe_add_auto(a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         a_len = 0;
         prev_cksum = cksum;
@@ -2715,7 +2674,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -2744,7 +2703,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
     FLIP_BIT(out_buf, afl->stage_cur + 2);
     FLIP_BIT(out_buf, afl->stage_cur + 3);
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -2798,7 +2757,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
     out_buf[afl->stage_cur] ^= 0xFF;
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
     /* We also use this stage to pull off a simple trick: we identify
        bytes that seem to have no effect on the current execution path
@@ -2880,7 +2839,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
     *(u16*)(out_buf + i) ^= 0xFFFF;
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
     ++afl->stage_cur;
 
     *(u16*)(out_buf + i) ^= 0xFFFF;
@@ -2918,7 +2877,7 @@ u8 common_fuzzing(char** argv, struct MOpt_globals_t MOpt_globals) {
 
     *(u32*)(out_buf + i) ^= 0xFFFFFFFF;
 
-    if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
     ++afl->stage_cur;
 
     *(u32*)(out_buf + i) ^= 0xFFFFFFFF;
@@ -2976,7 +2935,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         out_buf[i] = orig + j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -2990,7 +2949,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         out_buf[i] = orig - j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3052,7 +3011,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16*)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3064,7 +3023,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u16*)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3080,7 +3039,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16*)(out_buf + i) = SWAP16(SWAP16(orig) + j);
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3092,7 +3051,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u16*)(out_buf + i) = SWAP16(SWAP16(orig) - j);
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3153,7 +3112,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32*)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3165,7 +3124,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u32*)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3181,7 +3140,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32*)(out_buf + i) = SWAP32(SWAP32(orig) + j);
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3193,7 +3152,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u32*)(out_buf + i) = SWAP32(SWAP32(orig) - j);
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3258,7 +3217,7 @@ skip_arith:
       afl->stage_cur_val = interesting_8[j];
       out_buf[i] = interesting_8[j];
 
-      if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
       out_buf[i] = orig;
       ++afl->stage_cur;
@@ -3313,7 +3272,7 @@ skip_arith:
 
         *(u16*)(out_buf + i) = interesting_16[j];
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3328,7 +3287,7 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u16*)(out_buf + i) = SWAP16(interesting_16[j]);
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3388,7 +3347,7 @@ skip_arith:
 
         *(u32*)(out_buf + i) = interesting_32[j];
 
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3403,7 +3362,7 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u32*)(out_buf + i) = SWAP32(interesting_32[j]);
-        if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3458,20 +3417,20 @@ skip_interest:
          is redundant, or if its entire span has no bytes set in the effector
          map. */
 
-      if ((afl->extras_cnt > MAX_DET_EXTRAS && UR(afl->extras_cnt) >= MAX_DET_EXTRAS) ||
-          extras[j].len > len - i ||
-          !memcmp(extras[j].data, out_buf + i, extras[j].len) ||
-          !memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, extras[j].len))) {
+      if ((afl->extras_cnt > MAX_DET_EXTRAS && UR(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
+          afl->extras[j].len > len - i ||
+          !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
+          !memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, afl->extras[j].len))) {
 
         --afl->stage_max;
         continue;
 
       }
 
-      last_len = extras[j].len;
-      memcpy(out_buf + i, extras[j].data, last_len);
+      last_len = afl->extras[j].len;
+      memcpy(out_buf + i, afl->extras[j].data, last_len);
 
-      if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
       ++afl->stage_cur;
 
@@ -3504,7 +3463,7 @@ skip_interest:
 
     for (j = 0; j < afl->extras_cnt; ++j) {
 
-      if (len + extras[j].len > MAX_FILE) {
+      if (len + afl->extras[j].len > MAX_FILE) {
 
         --afl->stage_max;
         continue;
@@ -3512,12 +3471,12 @@ skip_interest:
       }
 
       /* Insert token */
-      memcpy(ex_tmp + i, extras[j].data, extras[j].len);
+      memcpy(ex_tmp + i, afl->extras[j].data, afl->extras[j].len);
 
       /* Copy tail */
-      memcpy(ex_tmp + i + extras[j].len, out_buf + i, len - i);
+      memcpy(ex_tmp + i + afl->extras[j].len, out_buf + i, len - i);
 
-      if (common_fuzz_stuff(argv, ex_tmp, len + extras[j].len)) {
+      if (common_fuzz_stuff(afl, argv, ex_tmp, len +afl->extras[j].len)) {
 
         ck_free(ex_tmp);
         goto abandon_entry;
@@ -3576,7 +3535,7 @@ skip_user_extras:
       last_len = afl->a_extras[j].len;
       memcpy(out_buf + i, afl->a_extras[j].data, last_len);
 
-      if (common_fuzz_stuff(argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
 
       ++afl->stage_cur;
 
@@ -3598,7 +3557,7 @@ skip_extras:
      we're properly done with deterministic steps and can mark it as such
      in the .state/ directory. */
 
-  if (!afl->queue_cur->passed_det) mark_as_det_done(afl->queue_cur);
+  if (!afl->queue_cur->passed_det) mark_as_det_done(afl, afl->queue_cur);
 
   /****************
    * RANDOM HAVOC *
@@ -3645,7 +3604,7 @@ pacemaker_fuzzing:
         afl->orig_hit_cnt_puppet = afl->queued_paths + afl->unique_crashes;
         afl->last_limit_time_start = get_cur_time();
         afl->SPLICE_CYCLES_puppet =
-            (UR(SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
+            (UR(afl, SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
              SPLICE_CYCLES_puppet_low);
 
       }
@@ -3692,115 +3651,115 @@ pacemaker_fuzzing:
 
       for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
-        u32 use_stacking = 1 << (1 + UR(HAVOC_STACK_POW2));
+        u32 use_stacking = 1 << (1 + UR(afl, HAVOC_STACK_POW2));
 
         afl->stage_cur_val = use_stacking;
 
         for (i = 0; i < operator_num; ++i) {
 
-          MOpt_globals.afl->cycles_v3[i] = MOpt_globals.afl->cycles_v2[i];
+          MOpt_globals.cycles_v3[i] = MOpt_globals.cycles_v2[i];
 
         }
 
         for (i = 0; i < use_stacking; ++i) {
 
-          switch (select_algorithm()) {
+          switch (select_algorithm(afl)) {
 
             case 0:
               /* Flip a single bit somewhere. Spooky! */
-              FLIP_BIT(out_buf, UR(temp_len << 3));
-              MOpt_globals.afl->cycles_v2[STAGE_FLIP1] += 1;
+              FLIP_BIT(out_buf, UR(afl, temp_len << 3));
+              MOpt_globals.cycles_v2[STAGE_FLIP1] += 1;
               break;
 
             case 1:
               if (temp_len < 2) break;
-              temp_len_puppet = UR((temp_len << 3) - 1);
+              temp_len_puppet = UR(afl, (temp_len << 3) - 1);
               FLIP_BIT(out_buf, temp_len_puppet);
               FLIP_BIT(out_buf, temp_len_puppet + 1);
-              MOpt_globals.afl->cycles_v2[STAGE_FLIP2] += 1;
+              MOpt_globals.cycles_v2[STAGE_FLIP2] += 1;
               break;
 
             case 2:
               if (temp_len < 2) break;
-              temp_len_puppet = UR((temp_len << 3) - 3);
+              temp_len_puppet = UR(afl, (temp_len << 3) - 3);
               FLIP_BIT(out_buf, temp_len_puppet);
               FLIP_BIT(out_buf, temp_len_puppet + 1);
               FLIP_BIT(out_buf, temp_len_puppet + 2);
               FLIP_BIT(out_buf, temp_len_puppet + 3);
-              MOpt_globals.afl->cycles_v2[STAGE_FLIP4] += 1;
+              MOpt_globals.cycles_v2[STAGE_FLIP4] += 1;
               break;
 
             case 3:
               if (temp_len < 4) break;
-              out_buf[UR(temp_len)] ^= 0xFF;
-              MOpt_globals.afl->cycles_v2[STAGE_FLIP8] += 1;
+              out_buf[UR(afl, temp_len)] ^= 0xFF;
+              MOpt_globals.cycles_v2[STAGE_FLIP8] += 1;
               break;
 
             case 4:
               if (temp_len < 8) break;
-              *(u16*)(out_buf + UR(temp_len - 1)) ^= 0xFFFF;
-              MOpt_globals.afl->cycles_v2[STAGE_FLIP16] += 1;
+              *(u16*)(out_buf + UR(afl, temp_len - 1)) ^= 0xFFFF;
+              MOpt_globals.cycles_v2[STAGE_FLIP16] += 1;
               break;
 
             case 5:
               if (temp_len < 8) break;
-              *(u32*)(out_buf + UR(temp_len - 3)) ^= 0xFFFFFFFF;
-              MOpt_globals.afl->cycles_v2[STAGE_FLIP32] += 1;
+              *(u32*)(out_buf + UR(afl, temp_len - 3)) ^= 0xFFFFFFFF;
+              MOpt_globals.cycles_v2[STAGE_FLIP32] += 1;
               break;
 
             case 6:
-              out_buf[UR(temp_len)] -= 1 + UR(ARITH_MAX);
-              out_buf[UR(temp_len)] += 1 + UR(ARITH_MAX);
-              MOpt_globals.afl->cycles_v2[STAGE_ARITH8] += 1;
+              out_buf[UR(afl, temp_len)] -= 1 + UR(afl, ARITH_MAX);
+              out_buf[UR(afl, temp_len)] += 1 + UR(afl, ARITH_MAX);
+              MOpt_globals.cycles_v2[STAGE_ARITH8] += 1;
               break;
 
             case 7:
               /* Randomly subtract from word, random endian. */
               if (temp_len < 8) break;
-              if (UR(2)) {
+              if (UR(afl, 2)) {
 
-                u32 pos = UR(temp_len - 1);
-                *(u16*)(out_buf + pos) -= 1 + UR(ARITH_MAX);
+                u32 pos = UR(afl, temp_len - 1);
+                *(u16*)(out_buf + pos) -= 1 + UR(afl, ARITH_MAX);
 
               } else {
 
-                u32 pos = UR(temp_len - 1);
-                u16 num = 1 + UR(ARITH_MAX);
+                u32 pos = UR(afl, temp_len - 1);
+                u16 num = 1 + UR(afl, ARITH_MAX);
                 *(u16*)(out_buf + pos) =
                     SWAP16(SWAP16(*(u16*)(out_buf + pos)) - num);
 
               }
 
               /* Randomly add to word, random endian. */
-              if (UR(2)) {
+              if (UR(afl, 2)) {
 
-                u32 pos = UR(temp_len - 1);
-                *(u16*)(out_buf + pos) += 1 + UR(ARITH_MAX);
+                u32 pos = UR(afl, temp_len - 1);
+                *(u16*)(out_buf + pos) += 1 + UR(afl, ARITH_MAX);
 
               } else {
 
-                u32 pos = UR(temp_len - 1);
-                u16 num = 1 + UR(ARITH_MAX);
+                u32 pos = UR(afl, temp_len - 1);
+                u16 num = 1 + UR(afl, ARITH_MAX);
                 *(u16*)(out_buf + pos) =
                     SWAP16(SWAP16(*(u16*)(out_buf + pos)) + num);
 
               }
 
-              MOpt_globals.afl->cycles_v2[STAGE_ARITH16] += 1;
+              MOpt_globals.cycles_v2[STAGE_ARITH16] += 1;
               break;
 
             case 8:
               /* Randomly subtract from dword, random endian. */
               if (temp_len < 8) break;
-              if (UR(2)) {
+              if (UR(afl, 2)) {
 
-                u32 pos = UR(temp_len - 3);
-                *(u32*)(out_buf + pos) -= 1 + UR(ARITH_MAX);
+                u32 pos = UR(afl, temp_len - 3);
+                *(u32*)(out_buf + pos) -= 1 + UR(afl, ARITH_MAX);
 
               } else {
 
-                u32 pos = UR(temp_len - 3);
-                u32 num = 1 + UR(ARITH_MAX);
+                u32 pos = UR(afl, temp_len - 3);
+                u32 num = 1 + UR(afl, ARITH_MAX);
                 *(u32*)(out_buf + pos) =
                     SWAP32(SWAP32(*(u32*)(out_buf + pos)) - num);
 
@@ -3808,28 +3767,28 @@ pacemaker_fuzzing:
 
               /* Randomly add to dword, random endian. */
               // if (temp_len < 4) break;
-              if (UR(2)) {
+              if (UR(afl, 2)) {
 
-                u32 pos = UR(temp_len - 3);
-                *(u32*)(out_buf + pos) += 1 + UR(ARITH_MAX);
+                u32 pos = UR(afl, temp_len - 3);
+                *(u32*)(out_buf + pos) += 1 + UR(afl, ARITH_MAX);
 
               } else {
 
-                u32 pos = UR(temp_len - 3);
-                u32 num = 1 + UR(ARITH_MAX);
+                u32 pos = UR(afl, temp_len - 3);
+                u32 num = 1 + UR(afl, ARITH_MAX);
                 *(u32*)(out_buf + pos) =
                     SWAP32(SWAP32(*(u32*)(out_buf + pos)) + num);
 
               }
 
-              MOpt_globals.afl->cycles_v2[STAGE_ARITH32] += 1;
+              MOpt_globals.cycles_v2[STAGE_ARITH32] += 1;
               break;
 
             case 9:
               /* Set byte to interesting value. */
               if (temp_len < 4) break;
-              out_buf[UR(temp_len)] = interesting_8[UR(sizeof(interesting_8))];
-              MOpt_globals.afl->cycles_v2[STAGE_INTEREST8] += 1;
+              out_buf[UR(afl, temp_len)] = interesting_8[UR(afl, sizeof(interesting_8))];
+              MOpt_globals.cycles_v2[STAGE_INTEREST8] += 1;
               break;
 
             case 10:
@@ -3847,7 +3806,7 @@ pacemaker_fuzzing:
 
               }
 
-              MOpt_globals.afl->cycles_v2[STAGE_INTEREST16] += 1;
+              MOpt_globals.cycles_v2[STAGE_INTEREST16] += 1;
               break;
 
             case 11:
@@ -3855,19 +3814,19 @@ pacemaker_fuzzing:
 
               if (temp_len < 8) break;
 
-              if (UR(2)) {
+              if (UR(afl, 2)) {
 
-                *(u32*)(out_buf + UR(temp_len - 3)) =
-                    interesting_32[UR(sizeof(interesting_32) >> 2)];
+                *(u32*)(out_buf + UR(afl, temp_len - 3)) =
+                    interesting_32[UR(afl, sizeof(interesting_32) >> 2)];
 
               } else {
 
-                *(u32*)(out_buf + UR(temp_len - 3)) =
-                    SWAP32(interesting_32[UR(sizeof(interesting_32) >> 2)]);
+                *(u32*)(out_buf + UR(afl, temp_len - 3)) =
+                    SWAP32(interesting_32[UR(afl, sizeof(interesting_32) >> 2)]);
 
               }
 
-              MOpt_globals.afl->cycles_v2[STAGE_INTEREST32] += 1;
+              MOpt_globals.cycles_v2[STAGE_INTEREST32] += 1;
               break;
 
             case 12:
@@ -3876,8 +3835,8 @@ pacemaker_fuzzing:
                  why not. We use XOR with 1-255 to eliminate the
                  possibility of a no-op. */
 
-              out_buf[UR(temp_len)] ^= 1 + UR(255);
-              MOpt_globals.afl->cycles_v2[STAGE_RANDOMBYTE] += 1;
+              out_buf[UR(afl, temp_len)] ^= 1 + UR(afl, 255);
+              MOpt_globals.cycles_v2[STAGE_RANDOMBYTE] += 1;
               break;
 
             case 13: {
@@ -3892,15 +3851,15 @@ pacemaker_fuzzing:
 
               /* Don't delete too much. */
 
-              del_len = choose_block_len(temp_len - 1);
+              del_len = choose_block_len(afl, temp_len - 1);
 
-              del_from = UR(temp_len - del_len + 1);
+              del_from = UR(afl, temp_len - del_len + 1);
 
               memmove(out_buf + del_from, out_buf + del_from + del_len,
                       temp_len - del_from - del_len);
 
               temp_len -= del_len;
-              MOpt_globals.afl->cycles_v2[STAGE_DELETEBYTE] += 1;
+              MOpt_globals.cycles_v2[STAGE_DELETEBYTE] += 1;
               break;
 
             }
@@ -3912,23 +3871,23 @@ pacemaker_fuzzing:
                 /* Clone bytes (75%) or insert a block of constant bytes (25%).
                  */
 
-                u8  actually_clone = UR(4);
+                u8  actually_clone = UR(afl, 4);
                 u32 clone_from, clone_to, clone_len;
                 u8* new_buf;
 
                 if (actually_clone) {
 
-                  clone_len = choose_block_len(temp_len);
-                  clone_from = UR(temp_len - clone_len + 1);
+                  clone_len = choose_block_len(afl, temp_len);
+                  clone_from = UR(afl, temp_len - clone_len + 1);
 
                 } else {
 
-                  clone_len = choose_block_len(HAVOC_BLK_XL);
+                  clone_len = choose_block_len(afl, HAVOC_BLK_XL);
                   clone_from = 0;
 
                 }
 
-                clone_to = UR(temp_len);
+                clone_to = UR(afl, temp_len);
 
                 new_buf = ck_alloc_nozero(temp_len + clone_len);
 
@@ -3942,7 +3901,7 @@ pacemaker_fuzzing:
                   memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
                 else
                   memset(new_buf + clone_to,
-                         UR(2) ? UR(256) : out_buf[UR(temp_len)], clone_len);
+                         UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)], clone_len);
 
                 /* Tail */
                 memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
@@ -3951,7 +3910,7 @@ pacemaker_fuzzing:
                 ck_free(out_buf);
                 out_buf = new_buf;
                 temp_len += clone_len;
-                MOpt_globals.afl->cycles_v2[STAGE_Clone75] += 1;
+                MOpt_globals.cycles_v2[STAGE_Clone75] += 1;
 
               }
 
@@ -3966,12 +3925,12 @@ pacemaker_fuzzing:
 
               if (temp_len < 2) break;
 
-              copy_len = choose_block_len(temp_len - 1);
+              copy_len = choose_block_len(afl, temp_len - 1);
 
-              copy_from = UR(temp_len - copy_len + 1);
-              copy_to = UR(temp_len - copy_len + 1);
+              copy_from = UR(afl, temp_len - copy_len + 1);
+              copy_to = UR(afl, temp_len - copy_len + 1);
 
-              if (UR(4)) {
+              if (UR(afl, 4)) {
 
                 if (copy_from != copy_to)
                   memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
@@ -3979,8 +3938,8 @@ pacemaker_fuzzing:
               } else
 
                 memset(out_buf + copy_to,
-                       UR(2) ? UR(256) : out_buf[UR(temp_len)], copy_len);
-              MOpt_globals.afl->cycles_v2[STAGE_OverWrite75] += 1;
+                       UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)], copy_len);
+              MOpt_globals.cycles_v2[STAGE_OverWrite75] += 1;
               break;
 
             }                                                    /* case 15 */
@@ -3991,9 +3950,9 @@ pacemaker_fuzzing:
 
         *MOpt_globals.pTime += 1;
 
-        u64 temp_afl->total_found = afl->queued_paths + afl->unique_crashes;
+        u64 temp_total_found = afl->queued_paths + afl->unique_crashes;
 
-        if (common_fuzz_stuff(argv, out_buf, temp_len))
+        if (common_fuzz_stuff(afl, argv, out_buf, temp_len))
           goto abandon_entry_puppet;
 
         /* out_buf might have been mangled a bit, so let's restore it to its
@@ -4019,14 +3978,14 @@ pacemaker_fuzzing:
 
         }
 
-        if (unlikely(afl->queued_paths + afl->unique_crashes > temp_afl->total_found)) {
+        if (unlikely(afl->queued_paths + afl->unique_crashes > temp_total_found)) {
 
           u64 temp_temp_puppet =
-              afl->queued_paths + afl->unique_crashes - temp_afl->total_found;
+              afl->queued_paths + afl->unique_crashes - temp_total_found;
           afl->total_puppet_find = afl->total_puppet_find + temp_temp_puppet;
           for (i = 0; i < operator_num; ++i) {
 
-            if (MOpt_globals.afl->cycles_v2[i] > MOpt_globals.afl->cycles_v3[i])
+            if (MOpt_globals.cycles_v2[i] > MOpt_globals.cycles_v3[i])
               MOpt_globals.finds_v2[i] += temp_temp_puppet;
 
           }
@@ -4085,12 +4044,12 @@ pacemaker_fuzzing:
 
         do {
 
-          tid = UR(afl->queued_paths);
+          tid = UR(afl, afl->queued_paths);
 
         } while (tid == afl->current_entry);
 
         afl->splicing_with = tid;
-        target = queue;
+        target = afl->queue;
 
         while (tid >= 100) {
 
@@ -4140,7 +4099,7 @@ pacemaker_fuzzing:
 
         /* Split somewhere between the first and last differing byte. */
 
-        split_at = f_diff + UR(l_diff - f_diff);
+        split_at = f_diff + UR(afl, l_diff - f_diff);
 
         /* Do the thing. */
 
@@ -4164,7 +4123,7 @@ pacemaker_fuzzing:
 
       if (splice_cycle >= afl->SPLICE_CYCLES_puppet)
         afl->SPLICE_CYCLES_puppet =
-            (UR(SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
+            (UR(afl, SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
              SPLICE_CYCLES_puppet_low);
 
       afl->splicing_with = -1;
@@ -4216,17 +4175,17 @@ pacemaker_fuzzing:
 
         }
 
-        u64 temp_afl->stage_finds_puppet = 0;
+        u64 temp_stage_finds_puppet = 0;
         for (i = 0; i < operator_num; ++i) {
 
           if (MOpt_globals.is_pilot_mode) {
 
             double temp_eff = 0.0;
 
-            if (MOpt_globals.afl->cycles_v2[i] > MOpt_globals.cycles[i])
+            if (MOpt_globals.cycles_v2[i] > MOpt_globals.cycles[i])
               temp_eff =
                   (double)(MOpt_globals.finds_v2[i] - MOpt_globals.finds[i]) /
-                  (double)(MOpt_globals.afl->cycles_v2[i] - MOpt_globals.cycles[i]);
+                  (double)(MOpt_globals.cycles_v2[i] - MOpt_globals.cycles[i]);
 
             if (afl->eff_best[afl->swarm_now][i] < temp_eff) {
 
@@ -4238,8 +4197,8 @@ pacemaker_fuzzing:
           }
 
           MOpt_globals.finds[i] = MOpt_globals.finds_v2[i];
-          MOpt_globals.cycles[i] = MOpt_globals.afl->cycles_v2[i];
-          temp_afl->stage_finds_puppet += MOpt_globals.finds[i];
+          MOpt_globals.cycles[i] = MOpt_globals.cycles_v2[i];
+          temp_stage_finds_puppet += MOpt_globals.finds[i];
 
         }                                    /* for i = 0; i < operator_num */
 
@@ -4251,11 +4210,11 @@ pacemaker_fuzzing:
             afl->key_module = 1;
             for (i = 0; i < operator_num; ++i) {
 
-              afl->core_operator_afl->cycles_puppet_v2[i] =
-                  afl->core_operator_afl->cycles_puppet[i];
-              afl->core_operator_afl->cycles_puppet_v3[i] =
-                  afl->core_operator_afl->cycles_puppet[i];
-              afl->core_afl->operator_finds_puppet_v2[i] = afl->core_afl->operator_finds_puppet[i];
+              afl->core_operator_cycles_puppet_v2[i] =
+                  afl->core_operator_cycles_puppet[i];
+              afl->core_operator_cycles_puppet_v3[i] =
+                  afl->core_operator_cycles_puppet[i];
+              afl->core_operator_finds_puppet_v2[i] = afl->core_operator_finds_puppet[i];
 
             }
 
@@ -4273,16 +4232,16 @@ pacemaker_fuzzing:
             }
 
             if (afl->swarm_now < 0 || afl->swarm_now > swarm_num - 1)
-              PFATAL("afl->swarm_now error number  %d", afl->swarm_now);
+              PFATAL("swarm_now error number  %d", afl->swarm_now);
 
           }                                    /* if afl->swarm_now == swarm_num */
 
           /* adjust pointers dependent on 'afl->swarm_now' */
-          MOpt_globals_pilot.finds = afl->stage_finds_puppet[afl->swarm_now];
-          MOpt_globals_pilot.finds_v2 = afl->stage_finds_puppet_v2[afl->swarm_now];
-          MOpt_globals_pilot.cycles = afl->stage_afl->cycles_puppet[afl->swarm_now];
-          MOpt_globals_pilot.afl->cycles_v2 = afl->stage_afl->cycles_puppet_v2[afl->swarm_now];
-          MOpt_globals_pilot.afl->cycles_v3 = afl->stage_afl->cycles_puppet_v3[afl->swarm_now];
+          afl->mopt_globals_pilot.finds = afl->stage_finds_puppet[afl->swarm_now];
+          afl->mopt_globals_pilot.finds_v2 = afl->stage_finds_puppet_v2[afl->swarm_now];
+          afl->mopt_globals_pilot.cycles = afl->stage_cycles_puppet[afl->swarm_now];
+          afl->mopt_globals_pilot.cycles_v2 = afl->stage_cycles_puppet_v2[afl->swarm_now];
+          afl->mopt_globals_pilot.cycles_v3 = afl->stage_cycles_puppet_v3[afl->swarm_now];
 
         } else {
 
@@ -4304,20 +4263,24 @@ pacemaker_fuzzing:
 
 #undef FLIP_BIT
 
-#define pilot_fuzzing(a) common_fuzzing((a), MOpt_globals_pilot)
+u8 core_fuzzing(afl_state_t *afl, char **argv) {
+  return mopt_common_fuzzing(afl, argv, afl->mopt_globals_core);
+}
 
-#define core_fuzzing(a) common_fuzzing((a), MOpt_globals_core)
+u8 pilot_fuzzing(afl_state_t *afl, char **argv) {
+  return mopt_common_fuzzing(afl, argv, afl->mopt_globals_pilot);
+}
 
-void pso_updating(void) {
+void pso_updating(afl_state_t *afl) {
 
   afl->g_now += 1;
   if (afl->g_now > afl->g_max) afl->g_now = 0;
   afl->w_now = (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) / (afl->g_max) + afl->w_end;
   int tmp_swarm, i, j;
-  u64 temp_afl->operator_finds_puppet = 0;
+  u64 temp_operator_finds_puppet = 0;
   for (i = 0; i < operator_num; ++i) {
 
-    afl->operator_finds_puppet[i] = afl->core_afl->operator_finds_puppet[i];
+    afl->operator_finds_puppet[i] = afl->core_operator_finds_puppet[i];
 
     for (j = 0; j < swarm_num; ++j) {
 
@@ -4326,8 +4289,8 @@ void pso_updating(void) {
 
     }
 
-    temp_afl->operator_finds_puppet =
-        temp_afl->operator_finds_puppet + afl->operator_finds_puppet[i];
+    temp_operator_finds_puppet =
+        temp_operator_finds_puppet + afl->operator_finds_puppet[i];
 
   }
 
@@ -4335,7 +4298,7 @@ void pso_updating(void) {
 
     if (afl->operator_finds_puppet[i])
       afl->G_best[i] = (double)((double)(afl->operator_finds_puppet[i]) /
-                           (double)(temp_afl->operator_finds_puppet));
+                           (double)(temp_operator_finds_puppet));
 
   }
 
@@ -4413,20 +4376,19 @@ u8 fuzz_one(afl_state_t *afl, char** argv) {
 
   if (afl->limit_time_sig == 0) {
 
-    key_val_lv = fuzz_one_original(argv);
+    key_val_lv = fuzz_one_original(afl, argv);
 
   } else {
 
     if (afl->key_module == 0)
-      key_val_lv = pilot_fuzzing(argv);
+      key_val_lv = pilot_fuzzing(afl, argv);
     else if (afl->key_module == 1)
-      key_val_lv = core_fuzzing(argv);
+      key_val_lv = core_fuzzing(afl, argv);
     else if (afl->key_module == 2)
-      pso_updating();
+      pso_updating(afl);
 
   }
 
   return key_val_lv;
 
 }
-

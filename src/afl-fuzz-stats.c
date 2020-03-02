@@ -67,10 +67,10 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability, dou
 
   fprintf(
       f,
-      "afl->start_time        : %llu\n"
-      "afl->last_update       : %llu\n"
+      "start_time        : %llu\n"
+      "last_update       : %llu\n"
       "fuzzer_pid        : %d\n"
-      "afl->cycles_done       : %llu\n"
+      "cycles_done       : %llu\n"
       "execs_done        : %llu\n"
       "execs_per_sec     : %0.02f\n"
       //          "real_execs_per_sec: %0.02f\n"  // damn the name is too long
@@ -78,21 +78,21 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability, dou
       "paths_favored     : %u\n"
       "paths_found       : %u\n"
       "paths_imported    : %u\n"
-      "afl->max_depth         : %u\n"
+      "max_depth         : %u\n"
       "cur_path          : %u\n"        /* Must match find_start_position() */
       "pending_favs      : %u\n"
       "pending_total     : %u\n"
       "variable_paths    : %u\n"
       "stability         : %0.02f%%\n"
       "bitmap_cvg        : %0.02f%%\n"
-      "afl->unique_crashes    : %llu\n"
-      "afl->unique_hangs      : %llu\n"
-      "afl->last_path         : %llu\n"
-      "afl->last_crash        : %llu\n"
-      "afl->last_hang         : %llu\n"
+      "unique_crashes    : %llu\n"
+      "unique_hangs      : %llu\n"
+      "last_path         : %llu\n"
+      "last_crash        : %llu\n"
+      "last_hang         : %llu\n"
       "execs_since_crash : %llu\n"
       "exec_timeout      : %u\n"
-      "afl->slowest_exec_ms   : %llu\n"
+      "slowest_exec_ms   : %llu\n"
       "peak_rss_mb       : %lu\n"
       "afl_banner        : %s\n"
       "afl_version       : " VERSION
@@ -167,7 +167,7 @@ void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
 
 /* Check terminal dimensions after resize. */
 
-static void check_term_size(void) {
+static void check_term_size(afl_state_t *afl) {
 
   struct winsize ws;
 
@@ -260,7 +260,7 @@ void show_stats(afl_state_t *afl) {
   if (cur_ms - last_plot_ms > PLOT_UPDATE_SEC * 1000) {
 
     last_plot_ms = cur_ms;
-    maybe_update_plot_file(t_byte_ratio, avg_exec);
+    maybe_update_plot_file(afl, t_byte_ratio, avg_exec);
 
   }
 
@@ -287,7 +287,7 @@ void show_stats(afl_state_t *afl) {
     SAYF(TERM_CLEAR CURSOR_HIDE);
     afl->clear_screen = 0;
 
-    check_term_size();
+    check_term_size(afl);
 
   }
 
@@ -829,7 +829,7 @@ void show_init_stats(afl_state_t *afl) {
   /* In dumb mode, re-running every timing out test case with a generous time
      limit is very expensive, so let's select a more conservative default. */
 
-  if (afl->dumb_mode && !get_afl_env("AFL_afl->hang_tmout"))
+  if (afl->dumb_mode && !get_afl_env("AFL_HANG_TMOUT"))
     afl->hang_tmout = MIN(EXEC_TIMEOUT, afl->exec_tmout * 2 + 100);
 
   OKF("All set and ready to roll!");

@@ -144,7 +144,7 @@ static void usage(afl_state_t *afl, u8* argv0, int more_help) {
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
       "  -e ext        - File extension for the temporarily generated test "
       "case\n\n",
-      argv0, EXEC_TIMEOUT, afl->mem_limit);
+      argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
   if (more_help > 1)
     SAYF(
@@ -169,7 +169,7 @@ static void usage(afl_state_t *afl, u8* argv0, int more_help) {
       "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
-      "AFL_afl->hang_tmout: override timeout value (in milliseconds)\n"
+      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
@@ -220,6 +220,7 @@ static int stricmp(char const* a, char const* b) {
 
 }
 
+
 /* Main entry point */
 
 int main(int argc, char** argv, char** envp) {
@@ -235,14 +236,12 @@ int main(int argc, char** argv, char** envp) {
   struct timeval  tv;
   struct timezone tz;
 
-  afl_state_t afl_state = {0};
-  const afl_state_t *afl = &afl_state;
-  afl_state_init(afl);
+  afl_state_t *afl = afl_state_create();
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a big online community\n");
           
-  afl->doc_path = access(afl->doc_path, F_OK) ? "docs" : afl->doc_path;
+  afl->doc_path = access(afl->doc_path, F_OK) ? (u8 *)"docs" : afl->doc_path;
 
   gettimeofday(&tv, &tz);
   afl->init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
@@ -256,7 +255,7 @@ int main(int argc, char** argv, char** envp) {
 
       case 'c': {
 
-        afl->cmplog_mode = 1;
+        cmplog_mode = 1;
         afl->cmplog_binary = ck_strdup(optarg);
         break;
 
@@ -264,7 +263,7 @@ int main(int argc, char** argv, char** envp) {
 
       case 's': {
 
-        afl.init_seed = strtoul(optarg, 0L, 10);
+        afl->init_seed = strtoul(optarg, 0L, 10);
         afl->fixed_seed = 1;
         break;
 
@@ -274,29 +273,29 @@ int main(int argc, char** argv, char** envp) {
 
         if (!stricmp(optarg, "fast")) {
 
-          afl.schedule = FAST;
+          afl->schedule = FAST;
 
         } else if (!stricmp(optarg, "coe")) {
 
-          afl.schedule = COE;
+          afl->schedule = COE;
 
         } else if (!stricmp(optarg, "exploit")) {
 
-          afl.schedule = EXPLOIT;
+          afl->schedule = EXPLOIT;
 
         } else if (!stricmp(optarg, "lin")) {
 
-          afl.schedule = LIN;
+          afl->schedule = LIN;
 
         } else if (!stricmp(optarg, "quad")) {
 
-          afl.schedule = QUAD;
+          afl->schedule = QUAD;
 
         } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "default") ||
 
                    !stricmp(optarg, "normal") || !stricmp(optarg, "afl")) {
 
-          afl.schedule = EXPLORE;
+          afl->schedule = EXPLORE;
 
         } else {
 
@@ -397,8 +396,8 @@ int main(int argc, char** argv, char** envp) {
 
         u8 suffix = 'M';
 
-        if (afl->mem_limit_given) FATAL("Multiple -m options not supported");
-        afl->mem_limit_given = 1;
+        if (mem_limit_given) FATAL("Multiple -m options not supported");
+        mem_limit_given = 1;
 
         if (!strcmp(optarg, "none")) {
 
@@ -454,7 +453,7 @@ int main(int argc, char** argv, char** envp) {
         if (afl->in_bitmap) FATAL("Multiple -B options not supported");
 
         afl->in_bitmap = optarg;
-        read_bitmap(afl->in_bitmap);
+        read_bitmap(afl, afl->in_bitmap);
         break;
 
       case 'C':                                               /* crash mode */
@@ -484,7 +483,7 @@ int main(int argc, char** argv, char** envp) {
         if (afl->qemu_mode) FATAL("Multiple -Q options not supported");
         afl->qemu_mode = 1;
 
-        if (!afl->mem_limit_given) afl->mem_limit = afl->mem_limit_QEMU;
+        if (!mem_limit_given) afl->mem_limit = MEM_LIMIT_QEMU;
 
         break;
 
@@ -500,7 +499,7 @@ int main(int argc, char** argv, char** envp) {
         if (afl->unicorn_mode) FATAL("Multiple -U options not supported");
         afl->unicorn_mode = 1;
 
-        if (!afl->mem_limit_given) afl->mem_limit = afl->mem_limit_UNICORN;
+        if (!mem_limit_given) afl->mem_limit = MEM_LIMIT_UNICORN;
 
         break;
 
@@ -510,7 +509,7 @@ int main(int argc, char** argv, char** envp) {
         afl->qemu_mode = 1;
         afl->use_wine = 1;
 
-        if (!afl->mem_limit_given) afl->mem_limit = 0;
+        if (!mem_limit_given) afl->mem_limit = 0;
 
         break;
 
@@ -532,20 +531,20 @@ int main(int argc, char** argv, char** envp) {
 
       case 'L': {                                              /* MOpt mode */
 
-        if (afl.limit_time_sig) FATAL("Multiple -L options not supported");
-        afl.limit_time_sig = 1;
+        if (afl->limit_time_sig) FATAL("Multiple -L options not supported");
+        afl->limit_time_sig = 1;
         afl->havoc_max_mult = HAVOC_MAX_MULT_MOPT;
 
         if (sscanf(optarg, "%llu", &afl->limit_time_puppet) < 1 || optarg[0] == '-')
           FATAL("Bad syntax used for -L");
 
-        u64 afl->limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
+        u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
 
-        if (afl->limit_time_puppet2 < afl->limit_time_puppet)
+        if (limit_time_puppet2 < afl->limit_time_puppet)
           FATAL("limit_time overflow");
-        afl->limit_time_puppet = afl->limit_time_puppet2;
+        afl->limit_time_puppet = limit_time_puppet2;
 
-        SAYF("afl->limit_time_puppet %llu\n", afl->limit_time_puppet);
+        SAYF("limit_time_puppet %llu\n", afl->limit_time_puppet);
         afl->swarm_now = 0;
 
         if (afl->limit_time_puppet == 0) afl->key_puppet = 1;
@@ -558,7 +557,7 @@ int main(int argc, char** argv, char** envp) {
 
         for (tmp_swarm = 0; tmp_swarm < swarm_num; ++tmp_swarm) {
 
-          double afl->total_puppet_temp = 0.0;
+          double total_puppet_temp = 0.0;
           afl->swarm_fitness[tmp_swarm] = 0.0;
 
           for (i = 0; i < operator_num; ++i) {
@@ -566,7 +565,7 @@ int main(int argc, char** argv, char** envp) {
             afl->stage_finds_puppet[tmp_swarm][i] = 0;
             afl->probability_now[tmp_swarm][i] = 0.0;
             afl->x_now[tmp_swarm][i] = ((double)(random() % 7000) * 0.0001 + 0.1);
-            afl->total_puppet_temp += afl->x_now[tmp_swarm][i];
+            total_puppet_temp += afl->x_now[tmp_swarm][i];
             afl->v_now[tmp_swarm][i] = 0.1;
             afl->L_best[tmp_swarm][i] = 0.5;
             afl->G_best[i] = 0.5;
@@ -576,11 +575,11 @@ int main(int argc, char** argv, char** envp) {
 
           for (i = 0; i < operator_num; ++i) {
 
-            afl->stage_afl->cycles_puppet_v2[tmp_swarm][i] =
-                afl->stage_afl->cycles_puppet[tmp_swarm][i];
+            afl->stage_cycles_puppet_v2[tmp_swarm][i] =
+                afl->stage_cycles_puppet[tmp_swarm][i];
             afl->stage_finds_puppet_v2[tmp_swarm][i] =
                 afl->stage_finds_puppet[tmp_swarm][i];
-            afl->x_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i] / afl->total_puppet_temp;
+            afl->x_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i] / total_puppet_temp;
 
           }
 
@@ -624,11 +623,11 @@ int main(int argc, char** argv, char** envp) {
 
         for (i = 0; i < operator_num; ++i) {
 
-          afl->core_afl->operator_finds_puppet[i] = 0;
-          afl->core_afl->operator_finds_puppet_v2[i] = 0;
-          afl->core_operator_afl->cycles_puppet[i] = 0;
-          afl->core_operator_afl->cycles_puppet_v2[i] = 0;
-          afl->core_operator_afl->cycles_puppet_v3[i] = 0;
+          afl->core_operator_finds_puppet[i] = 0;
+          afl->core_operator_finds_puppet_v2[i] = 0;
+          afl->core_operator_cycles_puppet[i] = 0;
+          afl->core_operator_cycles_puppet_v2[i] = 0;
+          afl->core_operator_cycles_puppet_v3[i] = 0;
 
         }
 
@@ -638,10 +637,10 @@ int main(int argc, char** argv, char** envp) {
 
       case 'R':
 
-        if (afl.use_radamsa)
-          afl.use_radamsa = 2;
+        if (afl->use_radamsa)
+          afl->use_radamsa = 2;
         else
-          afl.use_radamsa = 1;
+          afl->use_radamsa = 1;
 
         break;
 
@@ -651,7 +650,7 @@ int main(int argc, char** argv, char** envp) {
     }
 
   if (optind == argc || !afl->in_dir || !afl->out_dir || show_help)
-    usage(&afl, argv[0], show_help);
+    usage(afl, argv[0], show_help);
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
@@ -670,12 +669,12 @@ int main(int argc, char** argv, char** envp) {
 
   check_environment_vars(envp);
 
-  if (afl->fixed_seed) OKF("Running with fixed seed: %u", (u32)afl.init_seed);
-  srandom((u32)afl.init_seed);
+  if (afl->fixed_seed) OKF("Running with fixed seed: %u", (u32)afl->init_seed);
+  srandom((u32)afl->init_seed);
 
-  if (afl.use_radamsa) {
+  if (afl->use_radamsa) {
 
-    if (afl.limit_time_sig)
+    if (afl->limit_time_sig)
       FATAL(
           "MOpt and Radamsa are mutually exclusive. We accept pull requests "
           "that integrates MOpt with the optional mutators "
@@ -690,9 +689,9 @@ int main(int argc, char** argv, char** envp) {
     if (!handle) FATAL("Failed to dlopen() libradamsa");
 
     void (*radamsa_init_ptr)(void) = dlsym(handle, "radamsa_init");
-    afl.radamsa_mutate_ptr = dlsym(handle, "radamsa");
+    afl->radamsa_mutate_ptr = dlsym(handle, "radamsa");
 
-    if (!radamsa_init_ptr || !afl.radamsa_mutate_ptr)
+    if (!radamsa_init_ptr || !afl->radamsa_mutate_ptr)
       FATAL("Failed to dlsym() libradamsa");
 
     /* randamsa_init installs some signal hadlers, call it before
@@ -705,9 +704,9 @@ int main(int argc, char** argv, char** envp) {
   setup_signal_handlers();
   check_asan_opts();
 
-  afl->power_name = afl->power_names[afl.schedule];
+  afl->power_name = power_names[afl->schedule];
 
-  if (afl->sync_id) fix_up_sync();
+  if (afl->sync_id) fix_up_sync(afl);
 
   if (!strcmp(afl->in_dir, afl->out_dir))
     FATAL("Input and output directories can't be the same");
@@ -733,7 +732,7 @@ int main(int argc, char** argv, char** envp) {
 
   ACTF("Getting to work...");
 
-  switch (afl.schedule) {
+  switch (afl->schedule) {
 
     case FAST: OKF("Using exponential power schedule (FAST)"); break;
     case COE: OKF("Using cut-off exponential power schedule (COE)"); break;
@@ -763,10 +762,10 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  if (get_afl_env("AFL_afl->hang_tmout")) {
+  if (get_afl_env("AFL_HANG_TMOUT")) {
 
-    afl->hang_tmout = atoi(getenv("AFL_afl->hang_tmout"));
-    if (!afl->hang_tmout) FATAL("Invalid value of AFL_afl->hang_tmout");
+    afl->hang_tmout = atoi(getenv("AFL_HANG_TMOUT"));
+    if (!afl->hang_tmout) FATAL("Invalid value of AFL_HANG_TMOUT");
 
   }
 
@@ -819,22 +818,22 @@ int main(int argc, char** argv, char** envp) {
   if (getenv("AFL_LD_PRELOAD"))
     FATAL("Use AFL_PRELOAD instead of AFL_LD_PRELOAD");
 
-  save_cmdline(argc, argv);
+  save_cmdline(afl, argc, argv);
 
-  fix_up_banner(argv[optind]);
+  fix_up_banner(afl, argv[optind]);
 
-  check_if_tty();
+  check_if_tty(afl);
   if (get_afl_env("AFL_FORCE_UI")) afl->not_on_tty = 0;
 
   if (get_afl_env("AFL_CAL_FAST")) {
 
     /* Use less calibration cycles, for slow applications */
-    cal_cycles = 3;
-    cal_cycles_long = 5;
+    afl->cal_cycles = 3;
+    afl->cal_cycles_long = 5;
 
   }
 
-  if (get_afl_env("AFL_DEBUG")) afl.debug = 1;
+  if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
 
   if (get_afl_env("AFL_PYTHON_ONLY")) {
 
@@ -856,17 +855,17 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  get_core_count();
+  get_core_count(afl);
 
 #ifdef HAVE_AFFINITY
   bind_to_free_cpu(afl);
 #endif                                                     /* HAVE_AFFINITY */
 
   check_crash_handling();
-  check_cpu_governor();
+  check_cpu_governor(afl);
 
   setup_post(afl);
-  setup_custom_mutator();
+  setup_custom_mutator(afl);
   setup_shm(afl->dumb_mode);
 
   if (!afl->in_bitmap) memset(afl->virgin_bits, 255, MAP_SIZE);
@@ -875,25 +874,25 @@ int main(int argc, char** argv, char** envp) {
 
   init_count_class16();
 
-  setup_dirs_fds();
+  setup_dirs_fds(afl);
 
 #ifdef USE_PYTHON
-  if (init_py()) FATAL("Failed to initialize Python module");
+  if (init_py(afl)) FATAL("Failed to initialize Python module");
 #else
   if (getenv("AFL_PYTHON_MODULE"))
     FATAL("Your AFL binary was built without Python support");
 #endif
 
-  setup_cmdline_file(argv + optind);
+  setup_cmdline_file(afl, argv + optind);
 
-  read_testcases();
-  load_auto();
+  read_testcases(afl);
+  load_auto(afl);
 
-  pivot_inputs();
+  pivot_inputs(afl);
 
-  if (extras_dir) load_extras(extras_dir);
+  if (extras_dir) load_extras(afl, extras_dir);
 
-  if (!afl->timeout_given) find_timeout();
+  if (!afl->timeout_given) find_timeout(afl);
 
   if ((afl->tmp_dir = get_afl_env("AFL_TMPDIR")) != NULL && !afl->in_place_resume) {
 
@@ -955,11 +954,11 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  if (!afl->out_file) setup_stdio_file();
+  if (!afl->out_file) setup_stdio_file(afl);
 
-  if (afl.cmplog_binary) {
+  if (afl->cmplog_binary) {
 
-    if (afl.limit_time_sig)
+    if (afl->limit_time_sig)
       FATAL(
           "MOpt and CmpLog are mutually exclusive. We accept pull requests "
           "that integrates MOpt with the optional mutators "
@@ -967,11 +966,11 @@ int main(int argc, char** argv, char** envp) {
 
     if (afl->unicorn_mode)
       FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");
-    if (!afl->qemu_mode) check_binary(afl.cmplog_binary);
+    if (!afl->qemu_mode) check_binary(afl, afl->cmplog_binary);
 
   }
 
-  check_binary(argv[optind]);
+  check_binary(afl, argv[optind]);
 
   afl->start_time = get_cur_time();
 
@@ -986,17 +985,17 @@ int main(int argc, char** argv, char** envp) {
 
     use_argv = argv + optind;
 
-  perform_dry_run(use_argv);
+  perform_dry_run(afl, use_argv);
 
-  cull_queue();
+  cull_queue(afl);
 
-  show_init_stats();
+  show_init_stats(afl);
 
-  seek_to = find_start_position();
+  seek_to = find_start_position(afl);
 
-  write_stats_file(0, 0, 0);
-  maybe_update_plot_file(0, 0);
-  save_auto();
+  write_stats_file(afl, 0, 0, 0);
+  maybe_update_plot_file(afl, 0, 0);
+  save_auto(afl);
 
   if (afl->stop_soon) goto stop_fuzzing;
 
@@ -1017,14 +1016,14 @@ int main(int argc, char** argv, char** envp) {
 
     u8 skipped_fuzz;
 
-    cull_queue();
+    cull_queue(afl);
 
     if (!afl->queue_cur) {
 
       ++afl->queue_cycle;
       afl->current_entry = 0;
       afl->cur_skipped_paths = 0;
-      afl->queue_cur = afl.queue;
+      afl->queue_cur = afl->queue;
 
       while (seek_to) {
 
@@ -1034,7 +1033,7 @@ int main(int argc, char** argv, char** envp) {
 
       }
 
-      show_stats();
+      show_stats(afl);
 
       if (afl->not_on_tty) {
 
@@ -1060,15 +1059,15 @@ int main(int argc, char** argv, char** envp) {
       prev_queued = afl->queued_paths;
 
       if (afl->sync_id && afl->queue_cycle == 1 && get_afl_env("AFL_IMPORT_FIRST"))
-        sync_fuzzers(use_argv);
+        sync_fuzzers(afl, use_argv);
 
     }
 
-    skipped_fuzz = fuzz_one(&afl, use_argv);
+    skipped_fuzz = fuzz_one(afl, use_argv);
 
     if (!afl->stop_soon && afl->sync_id && !skipped_fuzz) {
 
-      if (!(sync_interval_cnt++ % SYNC_INTERVAL)) sync_fuzzers(&afl, use_argv);
+      if (!(sync_interval_cnt++ % SYNC_INTERVAL)) sync_fuzzers(afl, use_argv);
 
     }
 
@@ -1106,7 +1105,7 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  if (afl->queue_cur) show_stats(&afl);
+  if (afl->queue_cur) show_stats(afl);
 
   /*
    * ATTENTION - the following 10 lines were copied from a PR to Google's afl
@@ -1122,18 +1121,18 @@ int main(int argc, char** argv, char** envp) {
 
     if (afl->child_pid > 0) kill(afl->child_pid, SIGKILL);
     if (afl->forksrv_pid > 0) kill(afl->forksrv_pid, SIGKILL);
-    if (afl.cmplog_afl->child_pid > 0) kill(afl.cmplog_afl->child_pid, SIGKILL);
-    if (afl.cmplog_afl->forksrv_pid > 0) kill(afl.cmplog_afl->forksrv_pid, SIGKILL);
+    if (afl->cmplog_child_pid > 0) kill(afl->cmplog_child_pid, SIGKILL);
+    if (afl->cmplog_forksrv_pid > 0) kill(afl->cmplog_forksrv_pid, SIGKILL);
     /* Now that we've killed the forkserver, we wait for it to be able to get
      * rusage stats. */
     if (waitpid(afl->forksrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
 
   }
 
-  write_bitmap(&afl);
-  write_stats_file(&afl, 0, 0, 0);
-  maybe_update_plot_file(&afl, 0, 0);
-  save_auto(&afl);
+  write_bitmap(afl);
+  write_stats_file(afl, 0, 0, 0);
+  maybe_update_plot_file(afl, 0, 0);
+  save_auto(afl);
 
 stop_fuzzing:
 
@@ -1156,16 +1155,20 @@ stop_fuzzing:
   }
 
   fclose(afl->plot_file);
-  destroy_queue(&afl);
-  destroy_extras(&afl);
+
+  destroy_queue(afl);
+  destroy_extras(afl);
   ck_free(target_path);
   ck_free(afl->sync_id);
 
   alloc_report();
 
 #ifdef USE_PYTHON
-  finalize_py(&afl);
+  finalize_py(afl);
 #endif
+
+  afl_state_destroy(afl);
+  afl = NULL;
 
   OKF("We're done here. Have a nice day!\n");
 

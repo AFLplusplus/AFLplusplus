@@ -126,6 +126,8 @@ u8 *forkserver_DMS(u64 val) {
 
 void handle_timeout(int sig) {
 
+  //TODO: We need a proper timer to handle multiple timeouts
+
   if (child_pid > 0) {
 
     child_timed_out = 1;

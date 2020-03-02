@@ -29,7 +29,41 @@ s8  interesting_8[] = {INTERESTING_8};
 s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
 s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 
-afl_state_init(afl_state_t *afl) {
+/* Initialize MOpt "globals" for this afl state */
+
+static void init_mopt_globals(afl_state_t *afl){ 
+
+  MOpt_globals_t *core = &afl->mopt_globals_pilot;
+  core->finds = afl->core_operator_finds_puppet;
+  core->finds_v2 = afl->core_operator_finds_puppet_v2;
+  core->cycles = afl->core_operator_cycles_puppet;
+  core->cycles_v2 = afl->core_operator_cycles_puppet_v2;
+  core->cycles_v3 = afl->core_operator_cycles_puppet_v3;
+  core->is_pilot_mode = 0;
+  core->pTime = &afl->tmp_core_time;
+  core->period = period_core;
+  core->havoc_stagename = "MOpt-core-havoc";
+  core->splice_stageformat = "MOpt-core-splice %u";
+  core->havoc_stagenameshort = "MOpt_core_havoc";
+  core->splice_stagenameshort = "MOpt_core_splice";
+
+  MOpt_globals_t *pilot = &afl->mopt_globals_pilot;
+  pilot->finds = afl->stage_finds_puppet[0];
+  pilot->finds_v2 = afl->stage_finds_puppet_v2[0];
+  pilot->cycles = afl->stage_cycles_puppet[0];
+  pilot->cycles_v2 = afl->stage_cycles_puppet_v2[0];
+  pilot->cycles_v3 = afl->stage_cycles_puppet_v3[0];
+  pilot->is_pilot_mode = 1;
+  pilot->pTime = &afl->tmp_pilot_time;
+  pilot->period = period_pilot;
+  pilot->havoc_stagename = "MOpt-havoc";
+  pilot->splice_stageformat = "MOpt-splice %u";
+  pilot->havoc_stagenameshort = "MOpt_havoc";
+  pilot->splice_stagenameshort = "MOpt_splice";
+
+}
+
+static void afl_state_init(afl_state_t *afl) {
 
     afl->w_init = 0.9;
     afl->w_end = 0.3;
@@ -40,7 +74,7 @@ afl_state_init(afl_state_t *afl) {
 
     afl->clear_screen = 1;                   /* Window resized?                  */
     afl->havoc_div = 1;                      /* Cycle count divisor for havoc    */
-    afl->stage_name = &"init";               /* Name of the current fuzz stage   */
+    afl->stage_name = "init";                /* Name of the current fuzz stage   */
     afl->splicing_with = -1;                 /* Splicing with which test case?   */
 
 #ifdef HAVE_AFFINITY
@@ -67,5 +101,36 @@ afl_state_init(afl_state_t *afl) {
     afl->child_pid = -1;
     afl->out_dir_fd = -1;
 
+    init_mopt_globals(afl);
+
 }
 
+/* A global pointer to all instances is needed (for now) for signals to arrive */
+/* We can make this a linked list at some point, or change it completely. */
+
+afl_state_t *afl_states[AFL_STATES_MAX] = {0};
+
+/* Mallocs and initializes an afl_state_t.
+   Returns NULL if OOM or AFL_STATES_MAX states already exist.
+   This is not threat safe, as we don't have threading yet. */
+
+afl_state_t *afl_state_create() {
+
+    u32 i;
+    for (i = 0; i < AFL_STATES_MAX; i++) {
+        if (afl_states[i] == NULL) {
+            afl_state_t *afl = calloc(1, sizeof(afl_state_t));
+            afl_state_init(afl);
+            afl->id = i;
+            afl_states[i] = afl;
+        }
+    }
+    return NULL;
+}
+
+/* Removes this afl_state instance and frees it. */
+
+void afl_state_destroy(afl_state_t *afl) {
+    afl_states[afl->id] = NULL;
+    free(afl);
+}
