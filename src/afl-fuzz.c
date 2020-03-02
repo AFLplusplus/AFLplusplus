@@ -186,6 +186,7 @@ static void usage(u8* argv0, int more_help) {
       //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
       "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
+      "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
       "\n"
     );
   else
@@ -754,7 +755,7 @@ int main(int argc, char** argv, char** envp) {
     
     autoresume = 1;
     if (in_place_resume) 
-      WARNF("AFL_AUTORESUME has no effect for '-i -'");
+      SAYF("AFL_AUTORESUME has no effect for '-i -'");
 
   }
 
