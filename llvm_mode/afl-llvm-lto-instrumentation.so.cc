@@ -478,7 +478,7 @@ class AFLLTOPass : public ModulePass {
 
     }
 
-    if (be_quiet && !print_strat) return;
+    if (be_quiet && !print_strat && !debug) return;
 
     if (stage == STAGE_GETBB) {
 
@@ -1468,17 +1468,14 @@ class AFLLTOPass : public ModulePass {
                 }
 
                 if (fix_id != i)
-                  if (debug || print_strat)
-                    SAYF(cMGN "[D] " cRST "Fix ID from %u to %u (%u preds)\n",
-                         i, fix_id, no_of_pred);
+                  if (debug)
+                    SAYF(cMGN "[D] " cRST
+                              "Fix ID from %u to %u (%lu succs, %u preds)\n",
+                         i, fix_id, Successors[i].size(), no_of_pred);
 
-              } else if (Predecessors[i].size() == 0)
+              }
 
-                if (print_strat || debug)
-                  WARNF("Block %u has no successors and no predecessors - WTF?",
-                        i);
-
-              if (debug || print_strat)
+              if (debug)
                 SAYF(cMGN "[D] " cRST "fix index %u %u\n", fix_id,
                      CurrIDs[ReverseMap[fix_id]]);
               calcID(fix_id, true);
@@ -1531,7 +1528,9 @@ class AFLLTOPass : public ModulePass {
                      ? " [afl strategy]"
                      : "");
 
-          if (recoll < best_coll) {
+          if (recoll < best_coll ||
+              (recoll == best_coll && iteration < afl_idx &&
+               (selected & 0xf) >= afl_idx)) {
 
             if (debug)
               SAYF(cMGN "[D] " cRST "Best strategy with %u < %u: %u %s %s\n",
@@ -1567,10 +1566,12 @@ class AFLLTOPass : public ModulePass {
         OKF("Stage 3: best strategy 0x%04x found %d collisions (%u second%s)",
             selected, best_coll, diff, diff == 1 ? "" : "s");
 
-      fprintf(stderr,
-              "TIME strategy stage3_start %ld, time %ld, diff %u, before %ld\n",
-              stage3_start, time(NULL), diff, before);
       if (debug || print_strat) {
+
+        SAYF(cMGN
+             "[D] " cRST
+             "TIME strategy stage3_start %ld, time %ld, diff %u, before %ld\n",
+             stage3_start, time(NULL), diff, before);
 
         SAYF(
             "================================================================"
