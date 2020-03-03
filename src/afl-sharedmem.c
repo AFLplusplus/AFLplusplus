@@ -72,10 +72,10 @@ void remove_shm() {
   shm_global = NULL;
 
 #ifdef USEMMAP
-  if (shm->g_shm_base != NULL) {
+  if (shm->map != NULL) {
 
-    munmap(shm->g_shm_base, shm->size_alloc);
-    shm->g_shm_base = NULL;
+    munmap(shm->map, shm->size_alloc);
+    shm->map = NULL;
 
   }
 
@@ -91,16 +91,24 @@ void remove_shm() {
   if (shm->cmplog_mode) shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);
 #endif
 
+  shm->map = NULL;
+
 }
 
 /* Configure shared memory. */
 
-void setup_shm(sharedmem_t *shm, size_t map_size, u8 **trace_bits_p, unsigned char dumb_mode) {
+u8 *setup_shm(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
 
   shm_global = shm;
   shm->size_alloc = shm->size_used = map_size;
 
+  shm->map = NULL;
+
 #ifdef USEMMAP
+
+  shm->g_shm_fd = -1;
+
+  /* ======
   /* generate random file name for multi instance */
 
   /* thanks to f*cking glibc we can not use tmpnam securely, it generates a
@@ -120,9 +128,9 @@ void setup_shm(sharedmem_t *shm, size_t map_size, u8 **trace_bits_p, unsigned ch
   }
 
   /* map the shared memory segment to the address space of the process */
-  shm->g_shm_base =
+  shm->map =
       mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, map_size->g_shm_fd, 0);
-  if (map_size->g_shm_base == MAP_FAILED) {
+  if (map_size->map == MAP_FAILED) {
 
     close(map_size->g_shm_fd);
     map_size->g_shm_fd = -1;
@@ -139,9 +147,7 @@ void setup_shm(sharedmem_t *shm, size_t map_size, u8 **trace_bits_p, unsigned ch
 
   if (!dumb_mode) setenv(SHM_ENV_VAR, shm->g_shm_file_path, 1);
 
-  *trace_bits_p = shm->g_shm_base;
-
-  if (*trace_bits_p == -1 || !*trace_bits_p) PFATAL("mmap() failed");
+  if (shm->map == -1 || !shm->map) PFATAL("mmap() failed");
 
 #else
   u8 *shm_str;
@@ -182,10 +188,9 @@ void setup_shm(sharedmem_t *shm, size_t map_size, u8 **trace_bits_p, unsigned ch
 
   }
 
-  //TODO: Pointer? :/
-  *trace_bits_p = shmat(shm->shm_id, NULL, 0);
+  shm->map = shmat(shm->shm_id, NULL, 0);
 
-  if (*trace_bits_p == (void *)-1 || !*trace_bits_p) PFATAL("shmat() failed");
+  if (shm->map == (void *)-1 || !shm->map) PFATAL("shmat() failed");
 
   if (shm->cmplog_mode) {
 
@@ -195,7 +200,10 @@ void setup_shm(sharedmem_t *shm, size_t map_size, u8 **trace_bits_p, unsigned ch
 
   }
 
+
 #endif
+
+  return shm->map;
 
 }
 

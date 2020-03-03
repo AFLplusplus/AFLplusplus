@@ -1002,7 +1002,7 @@ int main(int argc, char** argv, char** envp) {
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  setup_shm(&shm, MAP_SIZE, &trace_bits, 0);
+  trace_bits = setup_shm(&shm, MAP_SIZE, 0);
   atexit(at_exit_handler);
   setup_signal_handlers();
 

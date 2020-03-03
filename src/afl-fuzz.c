@@ -873,7 +873,7 @@ int main(int argc, char** argv, char** envp) {
 
   setup_post(afl);
   setup_custom_mutator(afl);
-  setup_shm(&afl->shm, MAP_SIZE, &afl->frk_srv.trace_bits, afl->dumb_mode);
+  afl->frk_srv.trace_bits = setup_shm(&afl->shm, MAP_SIZE, afl->dumb_mode);
 
   if (!afl->in_bitmap) memset(afl->virgin_bits, 255, MAP_SIZE);
   memset(afl->virgin_tmout, 255, MAP_SIZE);

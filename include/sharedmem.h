@@ -33,14 +33,15 @@ typedef struct sharedmem {
 
   #ifdef USEMMAP
   /* ================ Proteas ================ */
-  int            g_shm_fd = -1;
-  unsigned char *g_shm_base = NULL;
+  int            g_shm_fd;
   char           g_shm_file_path[L_tmpnam];
   /* ========================================= */
   #else
   s32 shm_id;                     /* ID of the SHM region              */
   s32 cmplog_shm_id;
   #endif
+
+  u8 *map;                   /* shared memory region */
 
   size_t         size_alloc; /* actual allocated size */
   size_t         size_used;  /* in use by shmem app */
@@ -50,7 +51,7 @@ typedef struct sharedmem {
 
 } sharedmem_t;
 
-void setup_shm(sharedmem_t*, size_t, u8**, unsigned char dumb_mode);
+u8 *setup_shm(sharedmem_t*, size_t, unsigned char dumb_mode);
 void remove_shm(void);
 
 #endif

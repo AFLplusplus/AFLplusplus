@@ -882,7 +882,7 @@ int main(int argc, char** argv, char** envp) {
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  setup_shm(&shm, MAP_SIZE, &frk_srv->trace_bits, 0);
+  frk_srv->trace_bits = setup_shm(&shm, MAP_SIZE, 0);
   setup_signal_handlers();
 
   set_up_environment();
