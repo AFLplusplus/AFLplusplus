@@ -265,6 +265,10 @@ checks or alter some of the more exotic semantics of the tool:
 
   - Setting AFL_NO_CPU_RED will not display very high cpu usages in red color.
 
+  - Setting AFL_AUTORESUME will resume a fuzz run (same as providing `-i -`)
+    for an existing out folder, even if a different `-i` was provided.
+    Without this setting, afl-fuzz will refuse execution for a long-fuzzed out dir.
+
   - Outdated environment variables that are that not supported anymore:
     AFL_DEFER_FORKSRV
     AFL_PERSISTENT

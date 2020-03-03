@@ -315,6 +315,7 @@ extern u8 skip_deterministic,           /* Skip deterministic stages?       */
     no_forkserver,                      /* Disable forkserver?              */
     crash_mode,                         /* Crash mode! Yeah!                */
     in_place_resume,                    /* Attempt in-place resume?         */
+    autoresume,                         /* Resume if out_dir exists?        */
     auto_changed,                       /* Auto-generated tokens changed?   */
     no_cpu_meter_red,                   /* Feng shui on the status screen   */
     no_arith,                           /* Skip most arithmetic ops         */
@@ -636,7 +637,6 @@ u32    find_start_position(void);
 void   find_timeout(void);
 double get_runnable_processes(void);
 void   nuke_resume_dir(void);
-void   maybe_delete_out_dir(void);
 void   setup_dirs_fds(void);
 void   setup_cmdline_file(char**);
 void   setup_stdio_file(void);

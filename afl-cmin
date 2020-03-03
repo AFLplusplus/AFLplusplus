@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+export AFL_QUIET=1
 THISPATH=`dirname ${0}`
 export PATH="${THISPATH}:$PATH"
 awk -f - -- ${@+"$@"} <<'EOF'
