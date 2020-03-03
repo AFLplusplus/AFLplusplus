@@ -29,6 +29,9 @@ s8  interesting_8[] = {INTERESTING_8};
 s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
 s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 
+
+u8 *doc_path;                  /* gath to documentation dir        */
+
 /* Initialize MOpt "globals" for this afl state */
 
 static void init_mopt_globals(afl_state_t *afl){ 
@@ -81,25 +84,25 @@ static void afl_state_init(afl_state_t *afl) {
     afl->cpu_aff = -1;                       /* Selected CPU core                */
 #endif                                                      /* HAVE_AFFINITY */
 
-    afl->use_stdin = 1;
+    afl->frk_srv.use_stdin = 1;
 
     afl->cal_cycles = CAL_CYCLES;
     afl->cal_cycles_long = CAL_CYCLES_LONG;
 
-    afl->exec_tmout = EXEC_TIMEOUT;
+    afl->frk_srv.exec_tmout = EXEC_TIMEOUT;
     afl->hang_tmout = EXEC_TIMEOUT;
 
-    afl->mem_limit = MEM_LIMIT;
+    afl->frk_srv.mem_limit = MEM_LIMIT;
 
     afl->stats_update_freq = 1;
 
 #ifndef HAVE_ARC4RANDOM
-    afl->dev_urandom_fd = -1;
+    afl->frk_srv.dev_urandom_fd = -1;
 #endif
-    afl->dev_null_fd = -1;
+    afl->frk_srv.dev_null_fd = -1;
 
-    afl->child_pid = -1;
-    afl->out_dir_fd = -1;
+    afl->frk_srv.child_pid = -1;
+    afl->frk_srv.out_dir_fd = -1;
 
     init_mopt_globals(afl);
 
@@ -121,7 +124,7 @@ afl_state_t *afl_state_create() {
         if (afl_states[i] == NULL) {
             afl_state_t *afl = calloc(1, sizeof(afl_state_t));
             afl_state_init(afl);
-            afl->id = i;
+            afl->_id = i;
             afl_states[i] = afl;
         }
     }
@@ -131,6 +134,6 @@ afl_state_t *afl_state_create() {
 /* Removes this afl_state instance and frees it. */
 
 void afl_state_destroy(afl_state_t *afl) {
-    afl_states[afl->id] = NULL;
+    afl_states[afl->_id] = NULL;
     free(afl);
 }

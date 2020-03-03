@@ -37,10 +37,9 @@
 #endif
 
 u8*       target_path;                  /* Path to target binary            */
-extern u8 use_stdin;
 extern u8 be_quiet;
 
-void detect_file_args(char** argv, u8* prog_in) {
+void detect_file_args(char** argv, u8* prog_in, u8 use_stdin) {
 
   u32 i = 0;
 #ifdef __GLIBC__

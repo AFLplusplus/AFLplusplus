@@ -75,14 +75,14 @@ u8 has_new_bits(afl_state_t *afl, u8* virgin_map) {
 
 #ifdef WORD_SIZE_64
 
-  u64* current = (u64*)afl->trace_bits;
+  u64* current = (u64*)afl->frk_srv.trace_bits;
   u64* virgin = (u64*)virgin_map;
 
   u32 i = (MAP_SIZE >> 3);
 
 #else
 
-  u32* current = (u32*)afl->trace_bits;
+  u32* current = (u32*)afl->frk_srv.trace_bits;
   u32* virgin = (u32*)virgin_map;
 
   u32 i = (MAP_SIZE >> 2);
@@ -499,7 +499,7 @@ static void write_crash_readme(afl_state_t *afl) {
 
       "  https://github.com/vanhauser-thc/AFLplusplus\n\n",
 
-      afl->orig_cmdline, DMS(afl->mem_limit << 20));                 /* ignore errors */
+      afl->orig_cmdline, DMS(afl->frk_srv.mem_limit << 20));                 /* ignore errors */
 
   fclose(f);
 
@@ -519,7 +519,7 @@ u8 save_if_interesting(afl_state_t *afl, char** argv, void* mem, u32 len, u8 fau
   u8  keeping = 0, res;
 
   /* Update path frequency. */
-  u32 cksum = hash32(afl->trace_bits, MAP_SIZE, HASH_CONST);
+  u32 cksum = hash32(afl->frk_srv.trace_bits, MAP_SIZE, HASH_CONST);
 
   struct queue_entry* q = afl->queue;
   while (q) {
@@ -601,9 +601,9 @@ u8 save_if_interesting(afl_state_t *afl, char** argv, void* mem, u32 len, u8 fau
       if (!afl->dumb_mode) {
 
 #ifdef WORD_SIZE_64
-        simplify_trace((u64*)afl->trace_bits);
+        simplify_trace((u64*)afl->frk_srv.trace_bits);
 #else
-        simplify_trace((u32*)afl->trace_bits);
+        simplify_trace((u32*)afl->frk_srv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
         if (!has_new_bits(afl, afl->virgin_tmout)) return keeping;
@@ -616,7 +616,7 @@ u8 save_if_interesting(afl_state_t *afl, char** argv, void* mem, u32 len, u8 fau
          the target with a more generous timeout (unless the default timeout
          is already generous). */
 
-      if (afl->exec_tmout < afl->hang_tmout) {
+      if (afl->frk_srv.exec_tmout < afl->hang_tmout) {
 
         u8 new_fault;
         write_to_testcase(afl, mem, len);
@@ -664,9 +664,9 @@ u8 save_if_interesting(afl_state_t *afl, char** argv, void* mem, u32 len, u8 fau
       if (!afl->dumb_mode) {
 
 #ifdef WORD_SIZE_64
-        simplify_trace((u64*)afl->trace_bits);
+        simplify_trace((u64*)afl->frk_srv.trace_bits);
 #else
-        simplify_trace((u32*)afl->trace_bits);
+        simplify_trace((u32*)afl->frk_srv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
         if (!has_new_bits(afl, afl->virgin_crash)) return keeping;

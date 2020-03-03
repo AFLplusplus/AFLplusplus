@@ -893,7 +893,8 @@ int main(int argc, char** argv, char** envp) {
 
   check_environment_vars(envp);
 
-  setup_shm(0);
+  sharedmem_t shm = {0};
+  setup_shm(&shm, MAP_SIZE, trace_bits, 0);
   setup_signal_handlers();
 
   set_up_environment();
@@ -910,11 +911,11 @@ int main(int argc, char** argv, char** envp) {
   if (in_dir) {
 
     if (at_file) PFATAL("Options -A and -i are mutually exclusive");
-    detect_file_args(argv + optind, "");
+    detect_file_args(argv + optind, "", use_stdin);
 
   } else {
 
-    detect_file_args(argv + optind, at_file);
+    detect_file_args(argv + optind, at_file, use_stdin);
 
   }
 
@@ -980,7 +981,9 @@ int main(int argc, char** argv, char** envp) {
 
     }
 
-    init_forkserver(use_argv);
+    afl_forkserver_t frk_srv = {0};
+    frk_srv.target_path = target_path;
+    init_forkserver(&frk_srv, use_argv);
 
     while (done == 0 && (dir_ent = readdir(dir_in))) {
 

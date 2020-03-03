@@ -998,14 +998,16 @@ int main(int argc, char** argv, char** envp) {
   use_hex_offsets = !!get_afl_env("AFL_ANALYZE_HEX");
 
   check_environment_vars(envp);
-  setup_shm(0);
+
+  sharedmem_t shm = {0};
+  setup_shm(&shm, MAP_SIZE, trace_bits, 0);
   atexit(at_exit_handler);
   setup_signal_handlers();
 
   set_up_environment();
 
   find_binary(argv[optind]);
-  detect_file_args(argv + optind, prog_in);
+  detect_file_args(argv + optind, prog_in, use_stdin);
 
   if (qemu_mode) {
 

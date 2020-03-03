@@ -106,7 +106,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability, dou
       afl->max_depth, afl->current_entry, afl->pending_favored, afl->pending_not_fuzzed,
       afl->queued_variable, stability, bitmap_cvg, afl->unique_crashes, afl->unique_hangs,
       afl->last_path_time / 1000, afl->last_crash_time / 1000, afl->last_hang_time / 1000,
-      afl->total_execs - afl->last_crash_execs, afl->exec_tmout, afl->slowest_exec_ms,
+      afl->total_execs - afl->last_crash_execs, afl->frk_srv.exec_tmout, afl->slowest_exec_ms,
 #ifdef __APPLE__
       (unsigned long int)(rus.ru_maxrss >> 20),
 #else
@@ -155,13 +155,13 @@ void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
      favored_not_fuzzed, afl->unique_crashes, afl->unique_hangs, afl->max_depth,
      execs_per_sec */
 
-  fprintf(afl->plot_file,
+  fprintf(afl->frk_srv.plot_file,
           "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f\n",
           get_cur_time() / 1000, afl->queue_cycle - 1, afl->current_entry, afl->queued_paths,
           afl->pending_not_fuzzed, afl->pending_favored, bitmap_cvg, afl->unique_crashes,
           afl->unique_hangs, afl->max_depth, eps);                   /* ignore errors */
 
-  fflush(afl->plot_file);
+  fflush(afl->frk_srv.plot_file);
 
 }
 
@@ -599,7 +599,7 @@ void show_stats(afl_state_t *afl) {
                   : cRST),
        tmp);
 
-  if (cmplog_mode) {
+  if (afl->shm.cmplog_mode) {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s, %s/%s", DI(afl->stage_finds[STAGE_PYTHON]),
             DI(afl->stage_cycles[STAGE_PYTHON]),
@@ -751,7 +751,7 @@ void show_init_stats(afl_state_t *afl) {
 
   if (avg_us > ((afl->qemu_mode || afl->unicorn_mode) ? 50000 : 10000))
     WARNF(cLRD "The target binary is pretty slow! See %s/perf_tips.md.",
-          afl->doc_path);
+          doc_path);
 
   /* Let's keep things moving with slow binaries. */
 
@@ -766,10 +766,10 @@ void show_init_stats(afl_state_t *afl) {
 
     if (max_len > 50 * 1024)
       WARNF(cLRD "Some test cases are huge (%s) - see %s/perf_tips.md!",
-            DMS(max_len), afl->doc_path);
+            DMS(max_len), doc_path);
     else if (max_len > 10 * 1024)
       WARNF("Some test cases are big (%s) - see %s/perf_tips.md.", DMS(max_len),
-            afl->doc_path);
+            doc_path);
 
     if (afl->useless_at_start && !afl->in_bitmap)
       WARNF(cLRD "Some test cases look useless. Consider using a smaller set.");
@@ -804,25 +804,25 @@ void show_init_stats(afl_state_t *afl) {
        our patience is wearing thin =) */
 
     if (avg_us > 50000)
-      afl->exec_tmout = avg_us * 2 / 1000;
+      afl->frk_srv.exec_tmout = avg_us * 2 / 1000;
     else if (avg_us > 10000)
-      afl->exec_tmout = avg_us * 3 / 1000;
+      afl->frk_srv.exec_tmout = avg_us * 3 / 1000;
     else
-      afl->exec_tmout = avg_us * 5 / 1000;
+      afl->frk_srv.exec_tmout = avg_us * 5 / 1000;
 
-    afl->exec_tmout = MAX(afl->exec_tmout, max_us / 1000);
-    afl->exec_tmout = (afl->exec_tmout + EXEC_TM_ROUND) / EXEC_TM_ROUND * EXEC_TM_ROUND;
+    afl->frk_srv.exec_tmout = MAX(afl->frk_srv.exec_tmout, max_us / 1000);
+    afl->frk_srv.exec_tmout = (afl->frk_srv.exec_tmout + EXEC_TM_ROUND) / EXEC_TM_ROUND * EXEC_TM_ROUND;
 
-    if (afl->exec_tmout > EXEC_TIMEOUT) afl->exec_tmout = EXEC_TIMEOUT;
+    if (afl->frk_srv.exec_tmout > EXEC_TIMEOUT) afl->frk_srv.exec_tmout = EXEC_TIMEOUT;
 
     ACTF("No -t option specified, so I'll use exec timeout of %u ms.",
-         afl->exec_tmout);
+         afl->frk_srv.exec_tmout);
 
     afl->timeout_given = 1;
 
   } else if (afl->timeout_given == 3) {
 
-    ACTF("Applying timeout settings from resumed session (%u ms).", afl->exec_tmout);
+    ACTF("Applying timeout settings from resumed session (%u ms).", afl->frk_srv.exec_tmout);
 
   }
 
@@ -830,7 +830,7 @@ void show_init_stats(afl_state_t *afl) {
      limit is very expensive, so let's select a more conservative default. */
 
   if (afl->dumb_mode && !get_afl_env("AFL_HANG_TMOUT"))
-    afl->hang_tmout = MIN(EXEC_TIMEOUT, afl->exec_tmout * 2 + 100);
+    afl->hang_tmout = MIN(EXEC_TIMEOUT, afl->frk_srv.exec_tmout * 2 + 100);
 
   OKF("All set and ready to roll!");
 

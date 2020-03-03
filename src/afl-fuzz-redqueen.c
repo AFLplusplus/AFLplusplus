@@ -90,7 +90,7 @@ static u8 get_exec_checksum(afl_state_t *afl, u8* buf, u32 len, u32* cksum) {
 
   if (unlikely(common_fuzz_stuff(afl, its_argv, buf, len))) return 1;
 
-  *cksum = hash32(afl->trace_bits, MAP_SIZE, HASH_CONST);
+  *cksum = hash32(afl->frk_srv.trace_bits, MAP_SIZE, HASH_CONST);
   return 0;
 
 }
@@ -358,7 +358,7 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
 static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
-  struct cmp_header* h = &cmp_map->headers[key];
+  struct cmp_header* h = &afl->shm.cmp_map->headers[key];
   u32                i, j, idx;
 
   u32 loggeds = h->hits;
@@ -370,11 +370,11 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
   for (i = 0; i < loggeds; ++i) {
 
-    struct cmp_operands* o = &cmp_map->log[key][i];
+    struct cmp_operands* o = &afl->shm.cmp_map->log[key][i];
 
     // opt not in the paper
     for (j = 0; j < i; ++j)
-      if (cmp_map->log[key][j].v0 == o->v0 && cmp_map->log[key][i].v1 == o->v1)
+      if (afl->shm.cmp_map->log[key][j].v0 == o->v0 && afl->shm.cmp_map->log[key][i].v1 == o->v1)
         goto cmp_fuzz_next_iter;
 
     for (idx = 0; idx < len && fails < 8; ++idx) {
@@ -441,7 +441,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, struct cmp_header* h, u8* patter
 
 static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
-  struct cmp_header* h = &cmp_map->headers[key];
+  struct cmp_header* h = &afl->shm.cmp_map->headers[key];
   u32                i, j, idx;
 
   u32 loggeds = h->hits;
@@ -453,11 +453,11 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
   for (i = 0; i < loggeds; ++i) {
 
-    struct cmpfn_operands* o = &((struct cmpfn_operands*)cmp_map->log[key])[i];
+    struct cmpfn_operands* o = &((struct cmpfn_operands*)afl->shm.cmp_map->log[key])[i];
 
     // opt not in the paper
     for (j = 0; j < i; ++j)
-      if (!memcmp(&((struct cmpfn_operands*)cmp_map->log[key])[j], o,
+      if (!memcmp(&((struct cmpfn_operands*)afl->shm.cmp_map->log[key])[j], o,
                   sizeof(struct cmpfn_operands)))
         goto rtn_fuzz_next_iter;
 
@@ -509,8 +509,8 @@ u8 input_to_state_stage(afl_state_t *afl, char** argv, u8* orig_buf, u8* buf, u3
 
   if (unlikely(colorization(afl, buf, len, exec_cksum))) return 1;
 
-  // do it manually, forkserver clear only afl->trace_bits
-  memset(cmp_map->headers, 0, sizeof(cmp_map->headers));
+  // do it manually, forkserver clear only afl->frk_srv.trace_bits
+  memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
 
   if (unlikely(common_fuzz_cmplog_stuff(afl, argv, buf, len))) return 1;
 
@@ -526,19 +526,19 @@ u8 input_to_state_stage(afl_state_t *afl, char** argv, u8* orig_buf, u8* buf, u3
   u32 k;
   for (k = 0; k < CMP_MAP_W; ++k) {
 
-    if (!cmp_map->headers[k].hits) continue;
-    if (cmp_map->headers[k].type == CMP_TYPE_INS)
-      afl->stage_max += MIN(cmp_map->headers[k].hits, CMP_MAP_H);
+    if (!afl->shm.cmp_map->headers[k].hits) continue;
+    if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS)
+      afl->stage_max += MIN(afl->shm.cmp_map->headers[k].hits, CMP_MAP_H);
     else
-      afl->stage_max += MIN(cmp_map->headers[k].hits, CMP_MAP_RTN_H);
+      afl->stage_max += MIN(afl->shm.cmp_map->headers[k].hits, CMP_MAP_RTN_H);
 
   }
 
   for (k = 0; k < CMP_MAP_W; ++k) {
 
-    if (!cmp_map->headers[k].hits) continue;
+    if (!afl->shm.cmp_map->headers[k].hits) continue;
 
-    if (cmp_map->headers[k].type == CMP_TYPE_INS) {
+    if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
 
       if (unlikely(cmp_fuzz(afl, k, orig_buf, buf, len))) goto exit_its;
 

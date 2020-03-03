@@ -460,10 +460,10 @@ static void check_map_coverage(afl_state_t *afl) {
 
   u32 i;
 
-  if (count_bytes(afl->trace_bits) < 100) return;
+  if (count_bytes(afl->frk_srv.trace_bits) < 100) return;
 
   for (i = (1 << (MAP_SIZE_POW2 - 1)); i < MAP_SIZE; ++i)
-    if (afl->trace_bits[i]) return;
+    if (afl->frk_srv.trace_bits[i]) return;
 
   WARNF("Recompile binary with newer version of afl to improve coverage!");
 
@@ -544,7 +544,7 @@ void perform_dry_run(afl_state_t *afl, char** argv) {
                "    what you are doing and want to simply skip the unruly test "
                "cases, append\n"
                "    '+' at the end of the value passed to -t ('-t %u+').\n",
-               afl->exec_tmout, afl->exec_tmout);
+               afl->frk_srv.exec_tmout, afl->frk_srv.exec_tmout);
 
           FATAL("Test case '%s' results in a timeout", fn);
 
@@ -560,7 +560,7 @@ void perform_dry_run(afl_state_t *afl, char** argv) {
                "    If this test case is just a fluke, the other option is to "
                "just avoid it\n"
                "    altogether, and find one that is less of a CPU hog.\n",
-               afl->exec_tmout);
+               afl->frk_srv.exec_tmout);
 
           FATAL("Test case '%s' results in a timeout", fn);
 
@@ -579,7 +579,7 @@ void perform_dry_run(afl_state_t *afl, char** argv) {
 
         }
 
-        if (afl->mem_limit) {
+        if (afl->frk_srv.mem_limit) {
 
           SAYF("\n" cLRD "[-] " cRST
                "Oops, the program crashed with one of the test cases provided. "
@@ -621,7 +621,7 @@ void perform_dry_run(afl_state_t *afl, char** argv) {
                "other options\n"
                "      fail, poke <afl-users@googlegroups.com> for "
                "troubleshooting tips.\n",
-               DMS(afl->mem_limit << 20), afl->mem_limit - 1, afl->doc_path);
+               DMS(afl->frk_srv.mem_limit << 20), afl->frk_srv.mem_limit - 1, doc_path);
 
         } else {
 
@@ -889,7 +889,7 @@ void find_timeout(afl_state_t *afl) {
   ret = atoi(off + 20);
   if (ret <= 4) return;
 
-  afl->exec_tmout = ret;
+  afl->frk_srv.exec_tmout = ret;
   afl->timeout_given = 3;
 
 }
@@ -1030,12 +1030,12 @@ static void handle_existing_out_dir(afl_state_t *afl) {
      create a lock that will persist for the lifetime of the process
      (this requires leaving the descriptor open).*/
 
-  afl->out_dir_fd = open(afl->out_dir, O_RDONLY);
-  if (afl->out_dir_fd < 0) PFATAL("Unable to open '%s'", afl->out_dir);
+  afl->frk_srv.out_dir_fd = open(afl->out_dir, O_RDONLY);
+  if (afl->frk_srv.out_dir_fd < 0) PFATAL("Unable to open '%s'", afl->out_dir);
 
 #ifndef __sun
 
-  if (flock(afl->out_dir_fd, LOCK_EX | LOCK_NB) && errno == EWOULDBLOCK) {
+  if (flock(afl->frk_srv.out_dir_fd, LOCK_EX | LOCK_NB) && errno == EWOULDBLOCK) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like the job output directory is being actively used by "
@@ -1323,11 +1323,11 @@ void setup_dirs_fds(afl_state_t *afl) {
     if (afl->in_place_resume)
       FATAL("Resume attempted but old output directory not found");
 
-    afl->out_dir_fd = open(afl->out_dir, O_RDONLY);
+    afl->frk_srv.out_dir_fd = open(afl->out_dir, O_RDONLY);
 
 #ifndef __sun
 
-    if (afl->out_dir_fd < 0 || flock(afl->out_dir_fd, LOCK_EX | LOCK_NB))
+    if (afl->frk_srv.out_dir_fd < 0 || flock(afl->frk_srv.out_dir_fd, LOCK_EX | LOCK_NB))
       PFATAL("Unable to flock() output directory.");
 
 #endif                                                            /* !__sun */
@@ -1399,12 +1399,12 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   /* Generally useful file descriptors. */
 
-  afl->dev_null_fd = open("/dev/null", O_RDWR);
-  if (afl->dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+  afl->frk_srv.dev_null_fd = open("/dev/null", O_RDWR);
+  if (afl->frk_srv.dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
 #ifndef HAVE_ARC4RANDOM
-  afl->dev_urandom_fd = open("/dev/urandom", O_RDONLY);
-  if (afl->dev_urandom_fd < 0) PFATAL("Unable to open /dev/urandom");
+  afl->frk_srv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+  if (afl->frk_srv.dev_urandom_fd < 0) PFATAL("Unable to open /dev/urandom");
 #endif
 
   /* Gnuplot output file. */
@@ -1414,10 +1414,10 @@ void setup_dirs_fds(afl_state_t *afl) {
   if (fd < 0) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
-  afl->plot_file = fdopen(fd, "w");
-  if (!afl->plot_file) PFATAL("fdopen() failed");
+  afl->frk_srv.plot_file = fdopen(fd, "w");
+  if (!afl->frk_srv.plot_file) PFATAL("fdopen() failed");
 
-  fprintf(afl->plot_file,
+  fprintf(afl->frk_srv.plot_file,
           "# unix_time, cycles_done, cur_path, paths_total, "
           "pending_total, pending_favs, map_size, unique_crashes, "
           "unique_hangs, max_depth, execs_per_sec\n");
@@ -1470,9 +1470,9 @@ void setup_stdio_file(afl_state_t *afl) {
 
   unlink(fn);                                              /* Ignore errors */
 
-  afl->out_fd = open(fn, O_RDWR | O_CREAT | O_EXCL, 0600);
+  afl->frk_srv.out_fd = open(fn, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (afl->out_fd < 0) PFATAL("Unable to create '%s'", fn);
+  if (afl->frk_srv.out_fd < 0) PFATAL("Unable to create '%s'", fn);
 
   ck_free(fn);
 
@@ -1747,7 +1747,7 @@ void get_core_count(afl_state_t *afl) {
 
       } else if (cur_runnable + 1 <= afl->cpu_core_count) {
 
-        OKF("Try parallel jobs - see %s/parallel_fuzzing.md.", afl->doc_path);
+        OKF("Try parallel jobs - see %s/parallel_fuzzing.md.", doc_path);
 
       }
 
@@ -1862,8 +1862,8 @@ static void handle_stop_sig(int sig) {
 
     afl->stop_soon = 1;
 
-    if (afl->child_pid > 0) kill(afl->child_pid, SIGKILL);
-    if (afl->forksrv_pid > 0) kill(afl->forksrv_pid, SIGKILL);
+    if (afl->frk_srv.child_pid > 0) kill(afl->frk_srv.child_pid, SIGKILL);
+    if (afl->frk_srv.forksrv_pid > 0) kill(afl->frk_srv.forksrv_pid, SIGKILL);
     if (afl->cmplog_child_pid > 0) kill(afl->cmplog_child_pid, SIGKILL);
     if (afl->cmplog_forksrv_pid > 0) kill(afl->cmplog_forksrv_pid, SIGKILL);
 
@@ -2023,7 +2023,7 @@ void check_binary(afl_state_t *afl, u8* fname) {
          "fuzzer.\n"
          "    For that, you can use the -n option - but expect much worse "
          "results.)\n",
-         afl->doc_path);
+         doc_path);
 
     FATAL("No instrumentation detected");
 
@@ -2045,7 +2045,7 @@ void check_binary(afl_state_t *afl, u8* fname) {
 
   if (memmem(f_data, f_len, "libasan.so", 10) ||
       memmem(f_data, f_len, "__msan_init", 11))
-    afl->uses_asan = 1;
+    afl->frk_srv.uses_asan = 1;
 
   /* Detect persistent & deferred init signatures in the binary. */
 

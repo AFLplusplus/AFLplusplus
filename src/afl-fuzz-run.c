@@ -26,7 +26,7 @@
 #include "afl-fuzz.h"
 
 /* Execute target application, monitoring for timeouts. Return status
-   information. The called program will update afl->trace_bits[]. */
+   information. The called program will update afl->frk_srv.trace_bits[]. */
 
 u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
 
@@ -37,13 +37,13 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
   int status = 0;
   u32 tb4;
 
-  afl->child_timed_out = 0;
+  afl->frk_srv.child_timed_out = 0;
 
-  /* After this memset, afl->trace_bits[] are effectively volatile, so we
+  /* After this memset, afl->frk_srv.trace_bits[] are effectively volatile, so we
      must prevent any earlier operations from venturing into that
      territory. */
 
-  memset(afl->trace_bits, 0, MAP_SIZE);
+  memset(afl->frk_srv.trace_bits, 0, MAP_SIZE);
   MEM_BARRIER();
 
   /* If we're running in "dumb" mode, we can't rely on the fork server
@@ -53,17 +53,17 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
 
   if (afl->dumb_mode == 1 || afl->no_forkserver) {
 
-    afl->child_pid = fork();
+    afl->frk_srv.child_pid = fork();
 
-    if (afl->child_pid < 0) PFATAL("fork() failed");
+    if (afl->frk_srv.child_pid < 0) PFATAL("fork() failed");
 
-    if (!afl->child_pid) {
+    if (!afl->frk_srv.child_pid) {
 
       struct rlimit r;
 
-      if (afl->mem_limit) {
+      if (afl->frk_srv.mem_limit) {
 
-        r.rlim_max = r.rlim_cur = ((rlim_t)afl->mem_limit) << 20;
+        r.rlim_max = r.rlim_cur = ((rlim_t)afl->frk_srv.mem_limit) << 20;
 
 #ifdef RLIMIT_AS
 
@@ -81,33 +81,33 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
 
       setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
 
-      /* Isolate the process and configure standard descriptors. If afl->out_file is
-         specified, stdin is /dev/null; otherwise, afl->out_fd is cloned instead. */
+      /* Isolate the process and configure standard descriptors. If afl->frk_srv.out_file is
+         specified, stdin is /dev/null; otherwise, afl->frk_srv.out_fd is cloned instead. */
 
       setsid();
 
-      dup2(afl->dev_null_fd, 1);
-      dup2(afl->dev_null_fd, 2);
+      dup2(afl->frk_srv.dev_null_fd, 1);
+      dup2(afl->frk_srv.dev_null_fd, 2);
 
-      if (afl->out_file) {
+      if (afl->frk_srv.out_file) {
 
-        dup2(afl->dev_null_fd, 0);
+        dup2(afl->frk_srv.dev_null_fd, 0);
 
       } else {
 
-        dup2(afl->out_fd, 0);
-        close(afl->out_fd);
+        dup2(afl->frk_srv.out_fd, 0);
+        close(afl->frk_srv.out_fd);
 
       }
 
       /* On Linux, would be faster to use O_CLOEXEC. Maybe TODO. */
 
-      close(afl->dev_null_fd);
-      close(afl->out_dir_fd);
+      close(afl->frk_srv.dev_null_fd);
+      close(afl->frk_srv.out_dir_fd);
 #ifndef HAVE_ARC4RANDOM
-      close(afl->dev_urandom_fd);
+      close(afl->frk_srv.dev_urandom_fd);
 #endif
-      close(fileno(afl->plot_file));
+      close(fileno(afl->frk_srv.plot_file));
 
       /* Set sane defaults for ASAN if nothing else specified. */
 
@@ -127,7 +127,7 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
       /* Use a distinctive bitmap value to tell the parent about execv()
          falling through. */
 
-      *(u32*)afl->trace_bits = EXEC_FAIL_SIG;
+      *(u32*)afl->frk_srv.trace_bits = EXEC_FAIL_SIG;
       exit(0);
 
     }
@@ -139,21 +139,21 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
     /* In non-dumb mode, we have the fork server up and running, so simply
        tell it to have at it, and then read back PID. */
 
-    if ((res = write(afl->fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+    if ((res = write(afl->frk_srv.fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
 
       if (afl->stop_soon) return 0;
       RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
     }
 
-    if ((res = read(afl->fsrv_st_fd, &afl->child_pid, 4)) != 4) {
+    if ((res = read(afl->frk_srv.fsrv_st_fd, &afl->frk_srv.child_pid, 4)) != 4) {
 
       if (afl->stop_soon) return 0;
       RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
     }
 
-    if (afl->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
+    if (afl->frk_srv.child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
 
   }
 
@@ -165,17 +165,17 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  /* The SIGALRM handler simply kills the afl->child_pid and sets afl->child_timed_out. */
+  /* The SIGALRM handler simply kills the afl->frk_srv.child_pid and sets afl->frk_srv.child_timed_out. */
 
   if (afl->dumb_mode == 1 || afl->no_forkserver) {
 
-    if (waitpid(afl->child_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+    if (waitpid(afl->frk_srv.child_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
 
   } else {
 
     s32 res;
 
-    if ((res = read(afl->fsrv_st_fd, &status, 4)) != 4) {
+    if ((res = read(afl->frk_srv.fsrv_st_fd, &status, 4)) != 4) {
 
       if (afl->stop_soon) return 0;
       SAYF(
@@ -196,14 +196,14 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
           "\n\n"
           "If all else fails you can disable the fork server via "
           "AFL_NO_FORKSRV=1.\n",
-          afl->mem_limit);
+          afl->frk_srv.mem_limit);
       RPFATAL(res, "Unable to communicate with fork server");
 
     }
 
   }
 
-  if (!WIFSTOPPED(status)) afl->child_pid = 0;
+  if (!WIFSTOPPED(status)) afl->frk_srv.child_pid = 0;
 
   getitimer(ITIMER_REAL, &it);
   exec_ms =
@@ -217,21 +217,21 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
 
   ++afl->total_execs;
 
-  /* Any subsequent operations on afl->trace_bits must not be moved by the
-     compiler below this point. Past this location, afl->trace_bits[] behave
+  /* Any subsequent operations on afl->frk_srv.trace_bits must not be moved by the
+     compiler below this point. Past this location, afl->frk_srv.trace_bits[] behave
      very normally and do not have to be treated as volatile. */
 
   MEM_BARRIER();
 
-  tb4 = *(u32*)afl->trace_bits;
+  tb4 = *(u32*)afl->frk_srv.trace_bits;
 
 #ifdef WORD_SIZE_64
-  classify_counts((u64*)afl->trace_bits);
+  classify_counts((u64*)afl->frk_srv.trace_bits);
 #else
-  classify_counts((u32*)afl->trace_bits);
+  classify_counts((u32*)afl->frk_srv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
-  prev_timed_out = afl->child_timed_out;
+  prev_timed_out = afl->frk_srv.child_timed_out;
 
   /* Report outcome to caller. */
 
@@ -239,7 +239,7 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
 
     afl->kill_signal = WTERMSIG(status);
 
-    if (afl->child_timed_out && afl->kill_signal == SIGKILL) return FAULT_TMOUT;
+    if (afl->frk_srv.child_timed_out && afl->kill_signal == SIGKILL) return FAULT_TMOUT;
 
     return FAULT_CRASH;
 
@@ -248,7 +248,7 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
   /* A somewhat nasty hack for MSAN, which doesn't support abort_on_error and
      must use a special exit code. */
 
-  if (afl->uses_asan && WEXITSTATUS(status) == MSAN_ERROR) {
+  if (afl->frk_srv.uses_asan && WEXITSTATUS(status) == MSAN_ERROR) {
 
     afl->kill_signal = 0;
     return FAULT_CRASH;
@@ -262,13 +262,13 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
 
 }
 
-/* Write modified data to file for testing. If afl->out_file is set, the old file
-   is unlinked and a new one is created. Otherwise, afl->out_fd is rewound and
+/* Write modified data to file for testing. If afl->frk_srv.out_file is set, the old file
+   is unlinked and a new one is created. Otherwise, afl->frk_srv.out_fd is rewound and
    truncated. */
 
 void write_to_testcase(afl_state_t *afl, void* mem, u32 len) {
 
-  s32 fd = afl->out_fd;
+  s32 fd = afl->frk_srv.out_fd;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   s32   doc_fd;
@@ -290,20 +290,20 @@ void write_to_testcase(afl_state_t *afl, void* mem, u32 len) {
 
 #endif
 
-  if (afl->out_file) {
+  if (afl->frk_srv.out_file) {
 
     if (afl->no_unlink) {
 
-      fd = open(afl->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+      fd = open(afl->frk_srv.out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
     } else {
 
-      unlink(afl->out_file);                                   /* Ignore errors. */
-      fd = open(afl->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+      unlink(afl->frk_srv.out_file);                                   /* Ignore errors. */
+      fd = open(afl->frk_srv.out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
     }
 
-    if (fd < 0) PFATAL("Unable to create '%s'", afl->out_file);
+    if (fd < 0) PFATAL("Unable to create '%s'", afl->frk_srv.out_file);
 
   } else
 
@@ -313,15 +313,15 @@ void write_to_testcase(afl_state_t *afl, void* mem, u32 len) {
 
     u8*    new_data;
     size_t new_size = afl->pre_save_handler(mem, len, &new_data);
-    ck_write(fd, new_data, new_size, afl->out_file);
+    ck_write(fd, new_data, new_size, afl->frk_srv.out_file);
 
   } else {
 
-    ck_write(fd, mem, len, afl->out_file);
+    ck_write(fd, mem, len, afl->frk_srv.out_file);
 
   }
 
-  if (!afl->out_file) {
+  if (!afl->frk_srv.out_file) {
 
     if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
     lseek(fd, 0, SEEK_SET);
@@ -336,34 +336,34 @@ void write_to_testcase(afl_state_t *afl, void* mem, u32 len) {
 
 static void write_with_gap(afl_state_t *afl, void* mem, u32 len, u32 skip_at, u32 skip_len) {
 
-  s32 fd = afl->out_fd;
+  s32 fd = afl->frk_srv.out_fd;
   u32 tail_len = len - skip_at - skip_len;
 
-  if (afl->out_file) {
+  if (afl->frk_srv.out_file) {
 
     if (afl->no_unlink) {
 
-      fd = open(afl->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+      fd = open(afl->frk_srv.out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
     } else {
 
-      unlink(afl->out_file);                                   /* Ignore errors. */
-      fd = open(afl->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+      unlink(afl->frk_srv.out_file);                                   /* Ignore errors. */
+      fd = open(afl->frk_srv.out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
     }
 
-    if (fd < 0) PFATAL("Unable to create '%s'", afl->out_file);
+    if (fd < 0) PFATAL("Unable to create '%s'", afl->frk_srv.out_file);
 
   } else
 
     lseek(fd, 0, SEEK_SET);
 
-  if (skip_at) ck_write(fd, mem, skip_at, afl->out_file);
+  if (skip_at) ck_write(fd, mem, skip_at, afl->frk_srv.out_file);
 
   u8* memu8 = mem;
-  if (tail_len) ck_write(fd, memu8 + skip_at + skip_len, tail_len, afl->out_file);
+  if (tail_len) ck_write(fd, memu8 + skip_at + skip_len, tail_len, afl->frk_srv.out_file);
 
-  if (!afl->out_file) {
+  if (!afl->frk_srv.out_file) {
 
     if (ftruncate(fd, len - skip_len)) PFATAL("ftruncate() failed");
     lseek(fd, 0, SEEK_SET);
@@ -389,7 +389,7 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
   u64 start_us, stop_us;
 
   s32 old_sc = afl->stage_cur, old_sm = afl->stage_max;
-  u32 use_tmout = afl->exec_tmout;
+  u32 use_tmout = afl->frk_srv.exec_tmout;
   u8* old_sn = afl->stage_name;
 
   /* Be a bit more generous about timeouts when resuming sessions, or when
@@ -398,7 +398,7 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
 
   if (!from_queue || afl->resuming_fuzz)
     use_tmout =
-        MAX(afl->exec_tmout + CAL_TMOUT_ADD, afl->exec_tmout * CAL_TMOUT_PERC / 100);
+        MAX(afl->frk_srv.exec_tmout + CAL_TMOUT_ADD, afl->frk_srv.exec_tmout * CAL_TMOUT_PERC / 100);
 
   ++q->cal_failed;
 
@@ -408,11 +408,11 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
 
-  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->forksrv_pid) init_forkserver(argv);
-  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->cmplog_forksrv_pid && cmplog_mode)
+  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->frk_srv.forksrv_pid) init_forkserver(&afl->frk_srv, argv);
+  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->cmplog_forksrv_pid && afl->shm.cmplog_mode)
     init_cmplog_forkserver(afl, argv);
 
-  if (q->exec_cksum) memcpy(first_trace, afl->trace_bits, MAP_SIZE);
+  if (q->exec_cksum) memcpy(first_trace, afl->frk_srv.trace_bits, MAP_SIZE);
 
   start_us = get_cur_time_us();
 
@@ -431,14 +431,14 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
 
     if (afl->stop_soon || fault != afl->crash_mode) goto abort_calibration;
 
-    if (!afl->dumb_mode && !afl->stage_cur && !count_bytes(afl->trace_bits)) {
+    if (!afl->dumb_mode && !afl->stage_cur && !count_bytes(afl->frk_srv.trace_bits)) {
 
       fault = FAULT_NOINST;
       goto abort_calibration;
 
     }
 
-    cksum = hash32(afl->trace_bits, MAP_SIZE, HASH_CONST);
+    cksum = hash32(afl->frk_srv.trace_bits, MAP_SIZE, HASH_CONST);
 
     if (q->exec_cksum != cksum) {
 
@@ -451,7 +451,7 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
 
         for (i = 0; i < MAP_SIZE; ++i) {
 
-          if (!afl->var_bytes[i] && first_trace[i] != afl->trace_bits[i]) {
+          if (!afl->var_bytes[i] && first_trace[i] != afl->frk_srv.trace_bits[i]) {
 
             afl->var_bytes[i] = 1;
             afl->stage_max = CAL_CYCLES_LONG;
@@ -465,7 +465,7 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
       } else {
 
         q->exec_cksum = cksum;
-        memcpy(first_trace, afl->trace_bits, MAP_SIZE);
+        memcpy(first_trace, afl->frk_srv.trace_bits, MAP_SIZE);
 
       }
 
@@ -482,7 +482,7 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
      This is used for fuzzing air time calculations in calculate_score(). */
 
   q->exec_us = (stop_us - start_us) / afl->stage_max;
-  q->bitmap_size = count_bytes(afl->trace_bits);
+  q->bitmap_size = count_bytes(afl->frk_srv.trace_bits);
   q->handicap = handicap;
   q->cal_failed = 0;
 
@@ -640,7 +640,7 @@ void sync_fuzzers(afl_state_t *afl, char** argv) {
 
         write_to_testcase(afl, mem, st.st_size);
 
-        fault = run_target(afl, argv, afl->exec_tmout);
+        fault = run_target(afl, argv, afl->frk_srv.exec_tmout);
 
         if (afl->stop_soon) return;
 
@@ -724,14 +724,14 @@ u8 trim_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in_buf) {
 
       write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
 
-      fault = run_target(afl, argv, afl->exec_tmout);
+      fault = run_target(afl, argv, afl->frk_srv.exec_tmout);
       ++afl->trim_execs;
 
       if (afl->stop_soon || fault == FAULT_ERROR) goto abort_trimming;
 
       /* Note that we don't keep track of crashes or hangs here; maybe TODO? */
 
-      cksum = hash32(afl->trace_bits, MAP_SIZE, HASH_CONST);
+      cksum = hash32(afl->frk_srv.trace_bits, MAP_SIZE, HASH_CONST);
 
       /* If the deletion had no impact on the trace, make it permanent. This
          isn't perfect for variable-path inputs, but we're just making a
@@ -754,7 +754,7 @@ u8 trim_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in_buf) {
         if (!needs_write) {
 
           needs_write = 1;
-          memcpy(clean_trace, afl->trace_bits, MAP_SIZE);
+          memcpy(clean_trace, afl->frk_srv.trace_bits, MAP_SIZE);
 
         }
 
@@ -796,7 +796,7 @@ u8 trim_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in_buf) {
     ck_write(fd, in_buf, q->len, q->fname);
     close(fd);
 
-    memcpy(afl->trace_bits, clean_trace, MAP_SIZE);
+    memcpy(afl->frk_srv.trace_bits, clean_trace, MAP_SIZE);
     update_bitmap_score(afl, q);
 
   }
@@ -825,7 +825,7 @@ u8 common_fuzz_stuff(afl_state_t *afl, char** argv, u8* out_buf, u32 len) {
 
   write_to_testcase(afl, out_buf, len);
 
-  fault = run_target(afl, argv, afl->exec_tmout);
+  fault = run_target(afl, argv, afl->frk_srv.exec_tmout);
 
   if (afl->stop_soon) return 1;
 

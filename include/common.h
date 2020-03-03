@@ -29,7 +29,7 @@
 
 extern u8* target_path;                 /* Path to target binary            */
 
-void detect_file_args(char** argv, u8* prog_in);
+void detect_file_args(char** argv, u8* prog_in, u8 use_stdin);
 void check_environment_vars(char** env);
 
 char** get_qemu_argv(u8* own_loc, char** argv, int argc);

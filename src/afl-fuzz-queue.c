@@ -175,12 +175,12 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry* q) {
   u64 fav_factor = q->exec_us * q->len;
   u64 fuzz_p2 = next_p2(q->n_fuzz);
 
-  /* For every byte set in afl->trace_bits[], see if there is a previous winner,
+  /* For every byte set in afl->frk_srv.trace_bits[], see if there is a previous winner,
      and how it compares to us. */
 
   for (i = 0; i < MAP_SIZE; ++i)
 
-    if (afl->trace_bits[i]) {
+    if (afl->frk_srv.trace_bits[i]) {
 
       if (afl->top_rated[i]) {
 
@@ -201,7 +201,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry* q) {
         if (fav_factor > afl->top_rated[i]->exec_us * afl->top_rated[i]->len) continue;
 
         /* Looks like we're going to win. Decrease ref count for the
-           previous winner, discard its afl->trace_bits[] if necessary. */
+           previous winner, discard its afl->frk_srv.trace_bits[] if necessary. */
 
         if (!--afl->top_rated[i]->tc_ref) {
 
@@ -220,7 +220,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry* q) {
       if (!q->trace_mini) {
 
         q->trace_mini = ck_alloc(MAP_SIZE >> 3);
-        minimize_bits(q->trace_mini, afl->trace_bits);
+        minimize_bits(q->trace_mini, afl->frk_srv.trace_bits);
 
       }
 

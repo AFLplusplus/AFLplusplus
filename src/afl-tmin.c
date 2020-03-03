@@ -1220,14 +1220,17 @@ int main(int argc, char** argv, char** envp) {
   if (optind == argc || !in_file || !output_file) usage(argv[0]);
 
   check_environment_vars(envp);
-  setup_shm(0);
+
+  sharedmem_t shm = {0};
+  setup_shm(&shm, MAP_SIZE, trace_bits, 0);
+
   atexit(at_exit_handler);
   setup_signal_handlers();
 
   set_up_environment();
 
   find_binary(argv[optind]);
-  detect_file_args(argv + optind, out_file);
+  detect_file_args(argv + optind, out_file, use_stdin);
 
   if (qemu_mode) {
 
@@ -1246,14 +1249,16 @@ int main(int argc, char** argv, char** envp) {
 
   read_initial_file();
 
-  init_forkserver(use_argv);
+  afl_forkserver_t frk_srv = {0};
+  frk_srv.target_path = target_path;
+  init_forkserver(&frk_srv, use_argv);
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");
 
   run_target(use_argv, in_data, in_len, 1);
 
-  if (child_timed_out)
+  if (frk_srv.child_timed_out)
     FATAL("Target binary times out (adjusting -t may help).");
 
   if (!crash_mode) {

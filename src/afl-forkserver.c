@@ -41,26 +41,9 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 
-/* a program that includes afl-forkserver needs to define these */
-extern u8  uses_asan;
-extern u8 *trace_bits;
-extern u8  use_stdin;
-
-extern s32 forksrv_pid, child_pid, fsrv_ctl_fd, fsrv_st_fd;
-extern s32 out_fd, out_dir_fd, dev_null_fd;     /* initialize these with -1 */
-#ifndef HAVE_ARC4RANDOM
-extern s32 dev_urandom_fd;
-#endif
-extern u32   exec_tmout;
-extern u64   mem_limit;
-extern u8 *  out_file, *target_path, *doc_path;
-extern FILE *plot_file;
-
-/* we need this internally but can be defined and read extern in the main source
- */
-u8 child_timed_out;
-
 /* Describe integer as memory size. */
+
+extern u8 *doc_path;
 
 u8 *forkserver_DMS(u64 val) {
 
@@ -122,21 +105,24 @@ u8 *forkserver_DMS(u64 val) {
 
 }
 
+afl_forkserver_t *frk_srv_glob = NULL; // TODO: Linked list
+
 /* the timeout handler */
 
 void handle_timeout(int sig) {
 
   //TODO: We need a proper timer to handle multiple timeouts
+  if (frk_srv_glob == NULL) return;
 
-  if (child_pid > 0) {
+  if (frk_srv_glob->child_pid > 0) {
 
-    child_timed_out = 1;
-    kill(child_pid, SIGKILL);
+    frk_srv_glob->child_timed_out = 1;
+    kill(frk_srv_glob->child_pid, SIGKILL);
 
-  } else if (child_pid == -1 && forksrv_pid > 0) {
+  } else if (frk_srv_glob->child_pid == -1 && frk_srv_glob->forksrv_pid > 0) {
 
-    child_timed_out = 1;
-    kill(forksrv_pid, SIGKILL);
+    frk_srv_glob->child_timed_out = 1;
+    kill(frk_srv_glob->forksrv_pid, SIGKILL);
 
   }
 
@@ -150,7 +136,8 @@ void handle_timeout(int sig) {
    cloning a stopped child. So, we just execute once, and then send commands
    through a pipe. The other part of this logic is in afl-as.h / llvm_mode */
 
-void init_forkserver(char **argv) {
+void init_forkserver(afl_forkserver_t *frk_srv, char **argv) {
+  frk_srv_glob = frk_srv;
 
   static struct itimerval it;
   int                     st_pipe[2], ctl_pipe[2];
@@ -161,12 +148,12 @@ void init_forkserver(char **argv) {
 
   if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
 
-  child_timed_out = 0;
-  forksrv_pid = fork();
+  frk_srv->child_timed_out = 0;
+  frk_srv->forksrv_pid = fork();
 
-  if (forksrv_pid < 0) PFATAL("fork() failed");
+  if (frk_srv->forksrv_pid < 0) PFATAL("fork() failed");
 
-  if (!forksrv_pid) {
+  if (!frk_srv->forksrv_pid) {
 
     /* CHILD PROCESS */
 
@@ -182,9 +169,9 @@ void init_forkserver(char **argv) {
 
     }
 
-    if (mem_limit) {
+    if (frk_srv->mem_limit) {
 
-      r.rlim_max = r.rlim_cur = ((rlim_t)mem_limit) << 20;
+      r.rlim_max = r.rlim_cur = ((rlim_t)frk_srv->mem_limit) << 20;
 
 #ifdef RLIMIT_AS
       setrlimit(RLIMIT_AS, &r);                            /* Ignore errors */
@@ -211,19 +198,19 @@ void init_forkserver(char **argv) {
 
     if (!get_afl_env("AFL_DEBUG_CHILD_OUTPUT")) {
 
-      dup2(dev_null_fd, 1);
-      dup2(dev_null_fd, 2);
+      dup2(frk_srv->dev_null_fd, 1);
+      dup2(frk_srv->dev_null_fd, 2);
 
     }
 
-    if (!use_stdin) {
+    if (!frk_srv->use_stdin) {
 
-      dup2(dev_null_fd, 0);
+      dup2(frk_srv->dev_null_fd, 0);
 
     } else {
 
-      dup2(out_fd, 0);
-      close(out_fd);
+      dup2(frk_srv->out_fd, 0);
+      close(frk_srv->out_fd);
 
     }
 
@@ -237,12 +224,12 @@ void init_forkserver(char **argv) {
     close(st_pipe[0]);
     close(st_pipe[1]);
 
-    close(out_dir_fd);
-    close(dev_null_fd);
+    close(frk_srv->out_dir_fd);
+    close(frk_srv->dev_null_fd);
 #ifndef HAVE_ARC4RANDOM
-    close(dev_urandom_fd);
+    close(frk_srv->dev_urandom_fd);
 #endif
-    close(plot_file == NULL ? -1 : fileno(plot_file));
+    close(frk_srv->plot_file == NULL ? -1 : fileno(frk_srv->plot_file));
 
     /* This should improve performance a bit, since it stops the linker from
        doing extra work post-fork(). */
@@ -276,7 +263,7 @@ void init_forkserver(char **argv) {
     /* Use a distinctive bitmap signature to tell the parent about execv()
        falling through. */
 
-    *(u32 *)trace_bits = EXEC_FAIL_SIG;
+    *(u32 *)frk_srv->trace_bits = EXEC_FAIL_SIG;
     exit(0);
 
   }
@@ -288,21 +275,21 @@ void init_forkserver(char **argv) {
   close(ctl_pipe[0]);
   close(st_pipe[1]);
 
-  fsrv_ctl_fd = ctl_pipe[1];
-  fsrv_st_fd = st_pipe[0];
+  frk_srv->fsrv_ctl_fd = ctl_pipe[1];
+  frk_srv->fsrv_st_fd = st_pipe[0];
 
   /* Wait for the fork server to come up, but don't wait too long. */
 
-  if (exec_tmout) {
+  if (frk_srv->exec_tmout) {
 
-    it.it_value.tv_sec = ((exec_tmout * FORK_WAIT_MULT) / 1000);
-    it.it_value.tv_usec = ((exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+    it.it_value.tv_sec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) / 1000);
+    it.it_value.tv_usec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
 
   }
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  rlen = read(fsrv_st_fd, &status, 4);
+  rlen = read(frk_srv->fsrv_st_fd, &status, 4);
 
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
@@ -319,14 +306,14 @@ void init_forkserver(char **argv) {
 
   }
 
-  if (child_timed_out)
+  if (frk_srv->child_timed_out)
     FATAL("Timeout while initializing fork server (adjusting -t may help)");
 
-  if (waitpid(forksrv_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+  if (waitpid(frk_srv->forksrv_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
 
   if (WIFSIGNALED(status)) {
 
-    if (mem_limit && mem_limit < 500 && uses_asan) {
+    if (frk_srv->mem_limit && frk_srv->mem_limit < 500 && frk_srv->uses_asan) {
 
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
@@ -338,7 +325,7 @@ void init_forkserver(char **argv) {
            "    %s/notes_for_asan.md for help.\n",
            doc_path);
 
-    } else if (!mem_limit) {
+    } else if (!frk_srv->mem_limit) {
 
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
@@ -391,7 +378,7 @@ void init_forkserver(char **argv) {
            "options\n"
            "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
            "tips.\n",
-           forkserver_DMS(mem_limit << 20), mem_limit - 1);
+           forkserver_DMS(frk_srv->mem_limit << 20), frk_srv->mem_limit - 1);
 
     }
 
@@ -399,10 +386,10 @@ void init_forkserver(char **argv) {
 
   }
 
-  if (*(u32 *)trace_bits == EXEC_FAIL_SIG)
+  if (*(u32 *)frk_srv->trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute target application ('%s')", argv[0]);
 
-  if (mem_limit && mem_limit < 500 && uses_asan) {
+  if (frk_srv->mem_limit && frk_srv->mem_limit < 500 && frk_srv->uses_asan) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Hmm, looks like the target binary terminated "
@@ -414,7 +401,7 @@ void init_forkserver(char **argv) {
          "    read %s/notes_for_asan.md for help.\n",
          doc_path);
 
-  } else if (!mem_limit) {
+  } else if (!frk_srv->mem_limit) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Hmm, looks like the target binary terminated "
@@ -457,7 +444,7 @@ void init_forkserver(char **argv) {
               "never\n"
               "      reached before the program terminates.\n\n"
             : "",
-        forkserver_DMS(mem_limit << 20), mem_limit - 1);
+        forkserver_DMS(frk_srv->mem_limit << 20), frk_srv->mem_limit - 1);
 
   }
 

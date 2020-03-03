@@ -91,7 +91,7 @@ static u8 use_64bit = 0;
 
 static void edit_params(int argc, char** argv) {
 
-  u8 *afl->tmp_dir = getenv("TMPDIR"), *afl_as = getenv("AFL_AS");
+  u8 *tmp_dir = getenv("TMPDIR"), *afl_as = getenv("AFL_AS");
   u32 i;
 
 #ifdef __APPLE__
@@ -126,9 +126,9 @@ static void edit_params(int argc, char** argv) {
      is not set. We need to check these non-standard variables to properly
      handle the pass_thru logic later on. */
 
-  if (!afl->tmp_dir) afl->tmp_dir = getenv("TEMP");
-  if (!afl->tmp_dir) afl->tmp_dir = getenv("TMP");
-  if (!afl->tmp_dir) afl->tmp_dir = "/tmp";
+  if (!tmp_dir) tmp_dir = getenv("TEMP");
+  if (!tmp_dir) tmp_dir = getenv("TMP");
+  if (!tmp_dir) tmp_dir = "/tmp";
 
   as_params = ck_alloc((argc + 32) * sizeof(u8*));
 
@@ -207,7 +207,7 @@ static void edit_params(int argc, char** argv) {
        a format we may not understand. This works around an issue compiling
        NSS. */
 
-    if (strncmp(input_file, afl->tmp_dir, strlen(afl->tmp_dir)) &&
+    if (strncmp(input_file, tmp_dir, strlen(tmp_dir)) &&
         strncmp(input_file, "/var/tmp/", 9) &&
         strncmp(input_file, "/tmp/", 5) &&
         getenv("AFL_AS_FORCE_INSTRUMENT") == NULL)
@@ -218,7 +218,7 @@ static void edit_params(int argc, char** argv) {
   }
 
   modified_file =
-      alloc_printf("%s/.afl-%u-%u.s", afl->tmp_dir, getpid(), (u32)time(NULL));
+      alloc_printf("%s/.afl-%u-%u.s", tmp_dir, getpid(), (u32)time(NULL));
 
 wrap_things_up:
 
@@ -501,7 +501,7 @@ static void add_instrumentation(void) {
 int main(int argc, char** argv) {
 
   s32 pid;
-  u32 afl->rand_seed;
+  u32 rand_seed;
   int status;
   u8* inst_ratio_str = getenv("AFL_INST_RATIO");
 
@@ -557,9 +557,9 @@ int main(int argc, char** argv) {
 
   gettimeofday(&tv, &tz);
 
-  afl->rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
+  rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
-  srandom(afl->rand_seed);
+  srandom(rand_seed);
 
   edit_params(argc, argv);
 

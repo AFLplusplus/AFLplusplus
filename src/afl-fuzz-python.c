@@ -348,7 +348,7 @@ u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in
 
     write_to_testcase(afl, retbuf, retlen);
 
-    fault = run_target(afl, argv, afl->exec_tmout);
+    fault = run_target(afl, argv, afl->frk_srv.exec_tmout);
     ++afl->trim_execs;
 
     if (afl->stop_soon || fault == FAULT_ERROR) {
@@ -358,7 +358,7 @@ u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in
 
     }
 
-    cksum = hash32(afl->trace_bits, MAP_SIZE, HASH_CONST);
+    cksum = hash32(afl->frk_srv.trace_bits, MAP_SIZE, HASH_CONST);
 
     if (cksum == q->exec_cksum) {
 
@@ -371,7 +371,7 @@ u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in
       if (!needs_write) {
 
         needs_write = 1;
-        memcpy(clean_trace, afl->trace_bits, MAP_SIZE);
+        memcpy(clean_trace, afl->frk_srv.trace_bits, MAP_SIZE);
 
       }
 
@@ -419,7 +419,7 @@ u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in
     ck_write(fd, in_buf, q->len, q->fname);
     close(fd);
 
-    memcpy(afl->trace_bits, clean_trace, MAP_SIZE);
+    memcpy(afl->frk_srv.trace_bits, clean_trace, MAP_SIZE);
     update_bitmap_score(afl, q);
 
   }

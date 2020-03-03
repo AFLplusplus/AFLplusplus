@@ -233,6 +233,8 @@ enum {
 
 };
 
+extern u8 *doc_path;                  /* gath to documentation dir        */
+
 /* Python stuff */
 #ifdef USE_PYTHON
 
@@ -296,7 +298,10 @@ extern char* power_names[POWER_SCHEDULES_NUM];
 typedef struct afl_state {
 
   /* Position of this state in the global states list */
-  u32 id;
+  u32 _id;
+
+  afl_forkserver_t frk_srv;
+  sharedmem_t shm;
 
 /* MOpt:
    Lots of globals, but mostly for the status UI and other things where it
@@ -348,19 +353,13 @@ u8 *in_dir,                      /* Input directory with test cases  */
     *in_bitmap,                  /* Input bitmap                     */
     *file_extension,             /* File extension                   */
     *orig_cmdline,               /* Original command line            */
-    *doc_path,                   /* Path to documentation dir        */
-    *infoexec,                   /* Command to execute on a new crash */
-    *out_file;                   /* File to fuzz, if any             */
+    *infoexec;                   /* Command to execute on a new crash */
 
-u32 exec_tmout;                  /* Configurable exec timeout (ms)   */
 u32 hang_tmout;                  /* Timeout used for hang det (ms)   */
-
-u64 mem_limit;                   /* Memory cap for child (MB)        */
 
 u8 cal_cycles,                   /* Calibration cycles defaults      */
     cal_cycles_long,             /* Calibration cycles defaults      */
     no_unlink,                   /* do not unlink cur_input          */
-    use_stdin,                   /* use stdin for sending data       */
     debug,                       /* Debug mode                       */
     custom_only,                 /* Custom mutator only mode         */
     python_only;                 /* Python-only mode                 */
@@ -401,22 +400,7 @@ u8 skip_deterministic,           /* Skip deterministic stages?       */
     deferred_mode,               /* Deferred forkserver mode?        */
     fixed_seed,                  /* do not reseed                    */
     fast_cal,                    /* Try to calibrate faster?         */
-    uses_asan,                   /* Target uses ASAN?                */
     disable_trim;                /* Never trim in fuzz_one           */
-
-s32 out_fd,                      /* Persistent fd for afl->out_file       */
-#ifndef HAVE_ARC4RANDOM
-    dev_urandom_fd,              /* Persistent fd for /dev/urandom   */
-#endif
-    dev_null_fd,                 /* Persistent fd for /dev/null      */
-    fsrv_ctl_fd,                 /* Fork server control pipe (write) */
-    fsrv_st_fd;                  /* Fork server status pipe (read)   */
-
-s32 forksrv_pid,                 /* PID of the fork server           */
-    child_pid,                   /* PID of the fuzzed program        */
-   out_dir_fd;                   /* FD of the lock file              */
-
-u8* trace_bits;                  /* SHM with instrumentation bitmap  */
 
 u8 virgin_bits[MAP_SIZE],        /* Regions yet untouched by fuzzing */
     virgin_tmout[MAP_SIZE],      /* Bits we haven't seen in tmouts   */
@@ -425,8 +409,7 @@ u8 virgin_bits[MAP_SIZE],        /* Regions yet untouched by fuzzing */
 u8 var_bytes[MAP_SIZE];          /* Bytes that appear to be variable */
 
 volatile u8 stop_soon,           /* Ctrl-C pressed?                  */
-    clear_screen,                /* Window resized?                  */
-    child_timed_out;             /* Traced process timed out?        */
+    clear_screen;                /* Window resized?                  */
 
 u32 queued_paths,                /* Total number of queued testcases */
     queued_variable,             /* Testcases with variable behavior */
@@ -504,8 +487,6 @@ s32 cpu_core_count;              /* CPU core count                   */
 #ifdef HAVE_AFFINITY
 s32 cpu_aff;                     /* Selected CPU core                */
 #endif                                              /* HAVE_AFFINITY */
-
-FILE* plot_file;                 /* Gnuplot output file              */
 
 struct queue_entry *queue,       /* Fuzzing queue (linked list)      */
     *queue_cur,                  /* Current offset within the queue  */
@@ -719,7 +700,7 @@ static inline u32 UR(afl_state_t *afl, u32 limit) {
 #else
   if (!afl->fixed_seed && unlikely(!afl->rand_cnt--)) {
 
-    ck_read(afl->dev_urandom_fd, &afl->rand_seed, sizeof(afl->rand_seed), "/dev/urandom");
+    ck_read(afl->frk_srv.dev_urandom_fd, &afl->rand_seed, sizeof(afl->rand_seed), "/dev/urandom");
     srandom(afl->rand_seed[0]);
     afl->rand_cnt = (RESEED_RNG / 2) + (afl->rand_seed[1] % RESEED_RNG);
 
