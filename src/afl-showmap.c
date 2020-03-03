@@ -993,7 +993,7 @@ int main(int argc, char** argv, char** envp) {
 
         run_target_forkserver(frk_srv, use_argv, in_data, in_len);
         ck_free(in_data);
-        tcnt = write_results_to_file(&frk_srv);
+        tcnt = write_results_to_file(frk_srv);
 
       }
 
