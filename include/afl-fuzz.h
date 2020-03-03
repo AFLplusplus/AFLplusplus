@@ -472,12 +472,12 @@ struct custom_mutator {
    *
    * (Optional)
    */
-  u32 (*afl_custom_init)(void);
+  void (*afl_custom_init)(unsigned int seed);
 
   /**
    * Perform custom mutations on a given input
    *
-   * (Required)
+   * (Optional for now. Required in the future)
    *
    * @param[in] data Input data to be mutated
    * @param[in] size Size of input data
@@ -498,45 +498,66 @@ struct custom_mutator {
    * (Optional) If this functionality is not needed, simply don't define this
    * function.
    *
-   * @param[in] data Buffer containing the test case to be executed.
-   * @param[in] size Size of the test case.
+   * @param[in] data Buffer containing the test case to be executed
+   * @param[in] size Size of the test case
    * @param[out] new_data Buffer to store the test case after processing
-   * @return Size of data after processing.
+   * @return Size of data after processing
    */
   size_t (*afl_custom_pre_save)(u8* data, size_t size, u8** new_data);
 
   /**
-   * TODO: figure out what `trim` is
+   * This method is called at the start of each trimming operation and receives
+   * the initial buffer. It should return the amount of iteration steps possible
+   * on this input (e.g. if your input has n elements and you want to remove
+   * them one by one, return n, if you do a binary search, return log(n),
+   * and so on...).
+   *
+   * If your trimming algorithm doesn't allow you to determine the amount of
+   * (remaining) steps easily (esp. while running), then you can alternatively
+   * return 1 here and always return 0 in post_trim until you are finished and
+   * no steps remain. In that case, returning 1 in post_trim will end the
+   * trimming routine. The whole current index/max iterations stuff is only used
+   * to show progress.
    *
    * (Optional)
+   *
+   * @param data Buffer containing the test case
+   * @param size Size of the test case
+   * @return The amount of possible iteration steps to trim the input
    */
-  u32 (*afl_custom_init_trim)(u8*, size_t);
+  u32 (*afl_custom_init_trim)(u8* data, size_t size);
 
   /**
-   * TODO: figure out how `trim` works
+   * This method is called for each trimming operation. It doesn't have any
+   * arguments because we already have the initial buffer from init_trim and we
+   * can memorize the current state in global variables. This can also save
+   * reparsing steps for each iteration. It should return the trimmed input
+   * buffer, where the returned data must not exceed the initial input data in
+   * length. Returning anything that is larger than the original data (passed
+   * to init_trim) will result in a fatal abort of AFLFuzz.
    *
    * (Optional)
    *
-   * @param[out] ret (TODO: finish here)
-   * @param[out] ret_len (TODO: finish here)
+   * @param[out] ret Buffer containing the trimmed test case
+   * @param[out] ret_len Size of the trimmed test case
    */
   void (*afl_custom_trim)(u8** ret, size_t* ret_len);
 
   /**
-   * A post-processing function for the last trim operation.
+   * This method is called after each trim operation to inform you if your
+   * trimming step was successful or not (in terms of coverage). If you receive
+   * a failure here, you should reset your input to the last known good state.
    *
    * (Optional)
    *
    * @param success Indicates if the last trim operation was successful.
+   * @return The next trim iteration index (from 0 to the maximum amount of
+   *     steps returned in init_trim)
    */
   u32 (*afl_custom_post_trim)(u8 success);
 };
 
 extern struct custom_mutator* mutator;
-
-size_t (*custom_mutator)(u8* data, size_t size, u8* mutated_out,
-                         size_t max_size, unsigned int seed);
-size_t (*pre_save_handler)(u8* data, size_t size, u8** new_data);
 
 /* Interesting values, as per config.h */
 
@@ -598,17 +619,19 @@ void setup_custom_mutator(void);
 void destroy_custom_mutator(void);
 void load_custom_mutator(const char*);
 void load_custom_mutator_py(const char*);
+u8   trim_case_custom(char** argv, struct queue_entry* q, u8* in_buf);
 
 /* Python */
 #ifdef USE_PYTHON
-int  init_py();
-void finalize_py();
-void fuzz_py(char*, size_t, char*, size_t, char**, size_t*);
+int    init_py_module(u8*);
+void   finalize_py_module();
+
+void   init_py(unsigned int seed);
+void   fuzz_py(char*, size_t, char*, size_t, char**, size_t*);
 size_t pre_save_py(u8* data, size_t size, u8** new_data);
-u32  init_trim_py(char*, size_t);
-u32  post_trim_py(char);
-void trim_py(char**, size_t*);
-u8   trim_case_python(char**, struct queue_entry*, u8*);
+u32    init_trim_py(u8*, size_t);
+u32    post_trim_py(u8);
+void   trim_py(u8**, size_t*);
 #endif
 
 /* Queue */

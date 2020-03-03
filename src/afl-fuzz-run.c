@@ -309,10 +309,10 @@ void write_to_testcase(void* mem, u32 len) {
 
     lseek(fd, 0, SEEK_SET);
 
-  if (pre_save_handler) {
+  if (mutator->afl_custom_pre_save) {
 
     u8*    new_data;
-    size_t new_size = pre_save_handler(mem, len, &new_data);
+    size_t new_size = mutator->afl_custom_pre_save(mem, len, &new_data);
     ck_write(fd, new_data, new_size, out_file);
 
   } else {
@@ -678,9 +678,8 @@ void sync_fuzzers(char** argv) {
 
 u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
 
-#ifdef USE_PYTHON
-  if (py_functions[PY_FUNC_TRIM]) return trim_case_python(argv, q, in_buf);
-#endif
+  /* Custom mutator trimmer */
+  if (mutator->afl_custom_trim) return trim_case_custom(argv, q, in_buf);
 
   static u8 tmp[64];
   static u8 clean_trace[MAP_SIZE];
