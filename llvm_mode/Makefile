@@ -66,7 +66,7 @@ ifeq "$(LLVM_APPLE)" "1"
 endif
 
 CFLAGS          ?= -O3 -funroll-loops
-override CFLAGS += -Wall
+override CFLAGS = -Wall \
                -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
