@@ -151,6 +151,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   for (auto &F : M) {
 
+    if (F.size() < 2) continue;
     if (isBlacklisted(&F)) continue;
 
     std::vector<BasicBlock *> InsBlocks;
@@ -179,6 +180,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         Instruction *TI = oldBB->getTerminator();
         
+fprintf(stderr, "Terminators: %u\n", TI->getNumSuccessors());
+
         if (TI == NULL)
           continue;
 
@@ -190,10 +193,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         }
 
+fprintf(stderr, "Successors: %lu\n", Successors.size());
+
         for (uint32_t j = 0; j < Successors.size(); j++) {
 
           BasicBlock *BB = BasicBlock::Create(C, "", &F, nullptr);
-
+//          F.getBasicBlockList().push_back(BB);
           IRBuilder<> IRB(BB);
 
           /* Set the ID of the inserted basic block */
@@ -235,10 +240,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           IRB.CreateBr(Successors[j]);
 
-          // Replace the original destination to this newly inserted BB
-
-          BB->replaceSuccessorsPhiUsesWith(Successors[j], BB);
+          //oldBB->replaceSuccessorsPhiUsesWith(Successors[j], BB);
           TI->setSuccessor(j, BB);
+          BasicBlock *S = Successors[j];
+          S->removePredecessor(oldBB);
+
+          // Replace the original destination to this newly inserted BB
 
           // done :)
 
