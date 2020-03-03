@@ -36,13 +36,14 @@ typedef struct sharedmem {
   int            g_shm_fd = -1;
   unsigned char *g_shm_base = NULL;
   char           g_shm_file_path[L_tmpnam];
-  size_t         size_alloc; /* actual allocated size */
-  size_t         size_used;  /* in use by shmem app */
   /* ========================================= */
   #else
   s32 shm_id;                     /* ID of the SHM region              */
   s32 cmplog_shm_id;
   #endif
+
+  size_t         size_alloc; /* actual allocated size */
+  size_t         size_used;  /* in use by shmem app */
 
   int             cmplog_mode;
   struct cmp_map *cmp_map;

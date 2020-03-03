@@ -98,6 +98,7 @@ void remove_shm() {
 void setup_shm(sharedmem_t *shm, size_t map_size, u8 **trace_bits_p, unsigned char dumb_mode) {
 
   shm_global = shm;
+  shm->size_alloc = shm->size_used = map_size;
 
 #ifdef USEMMAP
   /* generate random file name for multi instance */
@@ -117,11 +118,10 @@ void setup_shm(sharedmem_t *shm, size_t map_size, u8 **trace_bits_p, unsigned ch
     PFATAL("setup_shm(): ftruncate() failed");
 
   }
-  shm->size_alloc = shm->size_used = map_size;
 
   /* map the shared memory segment to the address space of the process */
   shm->g_shm_base =
-      mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, map_size->g_shm_fd, 0);
+      mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, map_size->g_shm_fd, 0);
   if (map_size->g_shm_base == MAP_FAILED) {
 
     close(map_size->g_shm_fd);
@@ -146,7 +146,7 @@ void setup_shm(sharedmem_t *shm, size_t map_size, u8 **trace_bits_p, unsigned ch
 #else
   u8 *shm_str;
 
-  shm->shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+  shm->shm_id = shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | 0600);
 
   if (shm->shm_id < 0) PFATAL("shmget() failed");
 
