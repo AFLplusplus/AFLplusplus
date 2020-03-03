@@ -118,6 +118,40 @@ void finalize_py_module() {
 
 }
 
+void init_py(unsigned int seed) {
+  PyObject *py_args, *py_value;
+
+  /* Provide the init function a seed for the Python RNG */
+  py_args = PyTuple_New(1);
+#if PY_MAJOR_VERSION >= 3
+  py_value = PyLong_FromLong(seed);
+#else
+  py_value = PyInt_FromLong(seed);
+#endif
+
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    fprintf(stderr, "Cannot convert argument\n");
+    return;
+
+  }
+
+  PyTuple_SetItem(py_args, 0, py_value);
+
+  py_value = PyObject_CallObject(py_functions[PY_FUNC_INIT], py_args);
+
+  Py_DECREF(py_args);
+
+  if (py_value == NULL) {
+
+    PyErr_Print();
+    fprintf(stderr, "Call failed\n");
+    return;
+
+  }
+}
+
 void fuzz_py(char* buf, size_t buflen, char* add_buf, size_t add_buflen,
              char** ret, size_t* retlen) {
 
