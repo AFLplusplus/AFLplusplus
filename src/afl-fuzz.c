@@ -239,6 +239,9 @@ int main(int argc, char** argv, char** envp) {
   struct timezone tz;
 
   afl_state_t *afl = afl_state_create();
+  if (!afl) {
+    FATAL("Could not create afl state");
+  }
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a big online community\n");
@@ -868,7 +871,7 @@ int main(int argc, char** argv, char** envp) {
 
   setup_post(afl);
   setup_custom_mutator(afl);
-  setup_shm(&afl->shm, MAP_SIZE, afl->frk_srv.trace_bits, afl->dumb_mode);
+  setup_shm(&afl->shm, MAP_SIZE, &afl->frk_srv.trace_bits, afl->dumb_mode);
 
   if (!afl->in_bitmap) memset(afl->virgin_bits, 255, MAP_SIZE);
   memset(afl->virgin_tmout, 255, MAP_SIZE);

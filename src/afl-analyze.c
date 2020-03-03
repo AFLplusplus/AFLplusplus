@@ -1000,7 +1000,7 @@ int main(int argc, char** argv, char** envp) {
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  setup_shm(&shm, MAP_SIZE, trace_bits, 0);
+  setup_shm(&shm, MAP_SIZE, &trace_bits, 0);
   atexit(at_exit_handler);
   setup_signal_handlers();
 
@@ -1038,6 +1038,8 @@ int main(int argc, char** argv, char** envp) {
   analyze(use_argv);
 
   OKF("We're done here. Have a nice day!\n");
+
+  remove_shm();
 
   exit(0);
 

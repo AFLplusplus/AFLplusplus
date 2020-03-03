@@ -49,7 +49,7 @@ typedef struct sharedmem {
 
 } sharedmem_t;
 
-void setup_shm(sharedmem_t*, size_t, u8*, unsigned char dumb_mode);
+void setup_shm(sharedmem_t*, size_t, u8**, unsigned char dumb_mode);
 void remove_shm(void);
 
 #endif

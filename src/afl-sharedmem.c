@@ -67,8 +67,9 @@ sharedmem_t *shm_global = NULL;
 
 void remove_shm() {
 
-  if (!shm_global) return; 
+  if (!shm_global) return;  //TODO: Make it a list.
   sharedmem_t *shm = shm_global;
+  shm_global = NULL;
 
 #ifdef USEMMAP
   if (shm->g_shm_base != NULL) {
@@ -94,7 +95,7 @@ void remove_shm() {
 
 /* Configure shared memory. */
 
-void setup_shm(sharedmem_t *shm, size_t map_size, u8 *trace_bits, unsigned char dumb_mode) {
+void setup_shm(sharedmem_t *shm, size_t map_size, u8 **trace_bits_p, unsigned char dumb_mode) {
 
   shm_global = shm;
 
@@ -138,9 +139,9 @@ void setup_shm(sharedmem_t *shm, size_t map_size, u8 *trace_bits, unsigned char 
 
   if (!dumb_mode) setenv(SHM_ENV_VAR, shm->g_shm_file_path, 1);
 
-  trace_bits = shm->g_shm_base;
+  *trace_bits_p = shm->g_shm_base;
 
-  if (trace_bits == -1 || !trace_bits) PFATAL("mmap() failed");
+  if (*trace_bits_p == -1 || !*trace_bits_p) PFATAL("mmap() failed");
 
 #else
   u8 *shm_str;
@@ -182,9 +183,9 @@ void setup_shm(sharedmem_t *shm, size_t map_size, u8 *trace_bits, unsigned char 
   }
 
   //TODO: Pointer? :/
-  trace_bits = shmat(shm->shm_id, NULL, 0);
+  *trace_bits_p = shmat(shm->shm_id, NULL, 0);
 
-  if (trace_bits == (void *)-1 || !trace_bits) PFATAL("shmat() failed");
+  if (*trace_bits_p == (void *)-1 || !*trace_bits_p) PFATAL("shmat() failed");
 
   if (shm->cmplog_mode) {
 

@@ -452,3 +452,8 @@ void init_forkserver(afl_forkserver_t *frk_srv, char **argv) {
 
 }
 
+void deinit_forkserver(afl_forkserver_t *frk_srv) {
+
+  if (frk_srv_glob == frk_srv) frk_srv_glob = NULL;
+
+}
