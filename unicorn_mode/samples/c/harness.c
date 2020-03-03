@@ -8,7 +8,7 @@
 
    Run under AFL as follows:
 
-   $ cd <afl_path>/afl->unicorn_mode/samples/simple/
+   $ cd <afl_path>/unicorn_mode/samples/simple/
    $ make
    $ ../../../afl-fuzz -m none -i sample_inputs -o out -- ./harness @@
 */
