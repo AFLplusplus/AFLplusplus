@@ -323,4 +323,3 @@ char* get_afl_env(char* env) {
   return val;
 
 }
-

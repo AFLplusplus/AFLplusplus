@@ -499,12 +499,7 @@ extern afl_forkserver_t *frk_srv_glob;
 static void handle_stop_sig(int sig) {
 
   stop_soon = 1;
-
-  if (frk_srv_glob) {
-
-    if (frk_srv_glob->child_pid > 0) kill(frk_srv_glob->child_pid, SIGKILL);
-
-  }
+  afl_frk_srv_killall();
 
 }
 
@@ -715,6 +710,7 @@ int main(int argc, char** argv, char** envp) {
   char** use_argv;
 
   afl_forkserver_t *frk_srv = calloc(1, sizeof(afl_forkserver_t));
+  afl_frk_srv_init(frk_srv);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -882,7 +878,7 @@ int main(int argc, char** argv, char** envp) {
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  frk_srv->trace_bits = setup_shm(&shm, MAP_SIZE, 0);
+  frk_srv->trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
   setup_signal_handlers();
 
   set_up_environment();
@@ -969,7 +965,7 @@ int main(int argc, char** argv, char** envp) {
 
     }
 
-    init_forkserver(frk_srv, use_argv);
+    afl_frk_srv_start(frk_srv, use_argv);
 
     while (done == 0 && (dir_ent = readdir(dir_in))) {
 
@@ -1022,9 +1018,10 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  remove_shm();
+  afl_shm_deinit(&shm);
 
   u8 child_timed_out = frk_srv->child_timed_out;
+  afl_frk_srv_deinit(frk_srv);
   free(frk_srv);
 
   exit(child_crashed * 2 + child_timed_out);

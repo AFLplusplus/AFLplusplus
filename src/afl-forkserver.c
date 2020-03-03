@@ -28,6 +28,7 @@
 #include "types.h"
 #include "debug.h"
 #include "common.h"
+#include "list.h"
 #include "forkserver.h"
 
 #include <stdio.h>
@@ -105,30 +106,40 @@ u8 *forkserver_DMS(u64 val) {
 
 }
 
-afl_forkserver_t *frk_srv_glob = NULL; // TODO: Linked list
+list_t frk_srv_list = {0};
 
 /* the timeout handler */
 
 void handle_timeout(int sig) {
 
-  //TODO: We need a proper timer to handle multiple timeouts
-  if (frk_srv_glob == NULL) return;
+  LIST_FOREACH(&frk_srv_list, afl_forkserver_t, {
 
-  if (frk_srv_glob->child_pid > 0) {
+    //TODO: We need a proper timer to handle multiple timeouts
+    if (el->child_pid > 0) {
 
-    frk_srv_glob->child_timed_out = 1;
-    kill(frk_srv_glob->child_pid, SIGKILL);
+      el->child_timed_out = 1;
+      kill(el->child_pid, SIGKILL);
 
-  } else if (frk_srv_glob->child_pid == -1 && frk_srv_glob->forksrv_pid > 0) {
+    } else if (el->child_pid == -1 && el->forksrv_pid > 0) {
 
-    frk_srv_glob->child_timed_out = 1;
-    kill(frk_srv_glob->forksrv_pid, SIGKILL);
+      el->child_timed_out = 1;
+      kill(el->forksrv_pid, SIGKILL);
 
-  }
+    }
+
+  });
 
 }
 
-/* Spin up fork server (instrumented mode only). The idea is explained here:
+/* Initializes the struct */
+
+void afl_frk_srv_init(afl_forkserver_t *frk_srv) {
+
+  list_append(&frk_srv_list, frk_srv);
+
+}
+
+/* Spins up fork server (instrumented mode only). The idea is explained here:
 
    http://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
 
@@ -136,8 +147,7 @@ void handle_timeout(int sig) {
    cloning a stopped child. So, we just execute once, and then send commands
    through a pipe. The other part of this logic is in afl-as.h / llvm_mode */
 
-void init_forkserver(afl_forkserver_t *frk_srv, char **argv) {
-  frk_srv_glob = frk_srv;
+void afl_frk_srv_start(afl_forkserver_t *frk_srv, char **argv) {
 
   static struct itimerval it;
   int                     st_pipe[2], ctl_pipe[2];
@@ -452,8 +462,15 @@ void init_forkserver(afl_forkserver_t *frk_srv, char **argv) {
 
 }
 
-void deinit_forkserver(afl_forkserver_t *frk_srv) {
+void afl_frk_srv_killall() {
 
-  if (frk_srv_glob == frk_srv) frk_srv_glob = NULL;
+  LIST_FOREACH(&frk_srv_list, afl_forkserver_t, {
+    if (el->child_pid > 0) kill(el->child_pid, SIGKILL);
+  });
+}
+
+void afl_frk_srv_deinit(afl_forkserver_t *frk_srv) {
+
+  list_remove(&frk_srv_list, frk_srv);
 
 }

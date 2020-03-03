@@ -238,10 +238,13 @@ int main(int argc, char** argv, char** envp) {
   struct timeval  tv;
   struct timezone tz;
 
-  afl_state_t *afl = afl_state_create();
+  afl_state_t *afl = calloc(1, sizeof(afl_state_t));
   if (!afl) {
     FATAL("Could not create afl state");
   }
+
+  afl_state_init(afl);
+  afl_frk_srv_init(&afl->frk_srv);
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a big online community\n");
@@ -873,7 +876,7 @@ int main(int argc, char** argv, char** envp) {
 
   setup_post(afl);
   setup_custom_mutator(afl);
-  afl->frk_srv.trace_bits = setup_shm(&afl->shm, MAP_SIZE, afl->dumb_mode);
+  afl->frk_srv.trace_bits = afl_shm_init(&afl->shm, MAP_SIZE, afl->dumb_mode);
 
   if (!afl->in_bitmap) memset(afl->virgin_bits, 255, MAP_SIZE);
   memset(afl->virgin_tmout, 255, MAP_SIZE);
@@ -1177,7 +1180,9 @@ stop_fuzzing:
   finalize_py(afl);
 #endif
 
-  afl_state_destroy(afl);
+  afl_shm_deinit(&afl->shm);
+  afl_state_deinit(afl);
+  free(afl);
   afl = NULL;
 
   OKF("We're done here. Have a nice day!\n");

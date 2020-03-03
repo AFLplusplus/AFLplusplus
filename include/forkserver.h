@@ -64,8 +64,10 @@ s32 out_fd,                      /* Persistent fd for afl->frk_srv.out_file     
 
 
 void handle_timeout(int sig);
-void init_forkserver(afl_forkserver_t *frk_srv, char **argv);
-void deinit_forkserver(afl_forkserver_t *frk_srv);
+void afl_frk_srv_init(afl_forkserver_t *frk_srv);
+void afl_frk_srv_start(afl_forkserver_t *frk_srv, char **argv);
+void afl_frk_srv_deinit(afl_forkserver_t *frk_srv);
+void afl_frk_srv_killall();
 
 #ifdef __APPLE__
 #define MSG_FORK_ON_APPLE                                                    \

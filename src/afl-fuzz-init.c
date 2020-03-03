@@ -1807,15 +1807,7 @@ void fix_up_sync(afl_state_t *afl) {
 
 static void handle_resize(int sig) {
 
-  u32 i;
-  for (i = 0; i < AFL_STATES_MAX; i++) {
-
-    afl_state_t *afl = afl_states[i];
-    if (!afl) continue;
-
-    afl->clear_screen = 1;
-
-  }
+  LIST_FOREACH(&afl_states, afl_state_t, { el->clear_screen; });
 
 }
 
@@ -1854,20 +1846,16 @@ void check_asan_opts(void) {
 
 static void handle_stop_sig(int sig) {
 
-  u32 i;
-  for (i = 0; i < AFL_STATES_MAX; i++) {
+  LIST_FOREACH(&afl_states, afl_state_t, {
 
-    afl_state_t *afl = afl_states[i];
-    if (!afl) continue;
+    el->stop_soon = 1;
 
-    afl->stop_soon = 1;
+    if (el->frk_srv.child_pid > 0) kill(el->frk_srv.child_pid, SIGKILL);
+    if (el->frk_srv.forksrv_pid > 0) kill(el->frk_srv.forksrv_pid, SIGKILL);
+    if (el->cmplog_child_pid > 0) kill(el->cmplog_child_pid, SIGKILL);
+    if (el->cmplog_forksrv_pid > 0) kill(el->cmplog_forksrv_pid, SIGKILL);
 
-    if (afl->frk_srv.child_pid > 0) kill(afl->frk_srv.child_pid, SIGKILL);
-    if (afl->frk_srv.forksrv_pid > 0) kill(afl->frk_srv.forksrv_pid, SIGKILL);
-    if (afl->cmplog_child_pid > 0) kill(afl->cmplog_child_pid, SIGKILL);
-    if (afl->cmplog_forksrv_pid > 0) kill(afl->cmplog_forksrv_pid, SIGKILL);
-
-  }
+  });
 
 }
 
@@ -1875,14 +1863,7 @@ static void handle_stop_sig(int sig) {
 
 static void handle_skipreq(int sig) {
 
-  u32 i;
-  for (i = 0; i < AFL_STATES_MAX; i++) {
-
-    afl_state_t *afl = afl_states[i];
-    if (!afl) continue;
-    afl->skip_requested = 1;
-
-  }
+  LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
 
 }
 

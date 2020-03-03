@@ -46,6 +46,7 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
+#include "list.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -557,13 +558,11 @@ u8 describe_op_buf_256[256]; /* describe_op will use this to return a string up 
 } afl_state_t;
 
 /* A global pointer to all instances is needed (for now) for signals to arrive */
-/* We can make this a linked list at some point, or change it completely. */
 
-#define AFL_STATES_MAX 64
-extern afl_state_t *afl_states[AFL_STATES_MAX];
+extern list_t afl_states;
 
-afl_state_t *afl_state_create();
-void afl_state_destroy(afl_state_t*);
+void afl_state_init(afl_state_t *);
+void afl_state_deinit(afl_state_t*);
 
 /**** Prototypes ****/
 

@@ -408,7 +408,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry* q, u8* use_mem, u32 hand
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
 
-  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->frk_srv.forksrv_pid) init_forkserver(&afl->frk_srv, afl->argv);
+  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->frk_srv.forksrv_pid) afl_frk_srv_start(&afl->frk_srv, afl->argv);
   if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->cmplog_forksrv_pid && afl->shm.cmplog_mode)
     init_cmplog_forkserver(afl);
 

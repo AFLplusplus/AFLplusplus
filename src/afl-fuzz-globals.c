@@ -68,8 +68,14 @@ static void init_mopt_globals(afl_state_t *afl){
 
 }
 
-static void afl_state_init(afl_state_t *afl) {
+/* A global pointer to all instances is needed (for now) for signals to arrive */
 
+list_t afl_states = {0};
+
+/* Initializes an afl_state_t. */
+
+void afl_state_init(afl_state_t *afl) {
+    
     afl->w_init = 0.9;
     afl->w_end = 0.3;
     afl->g_max = 5000;
@@ -108,35 +114,14 @@ static void afl_state_init(afl_state_t *afl) {
 
     init_mopt_globals(afl);
 
-}
+    list_append(&afl_states, afl);
 
-/* A global pointer to all instances is needed (for now) for signals to arrive */
-/* We can make this a linked list at some point, or change it completely. */
-
-afl_state_t *afl_states[AFL_STATES_MAX] = {0};
-
-/* Mallocs and initializes an afl_state_t.
-   Returns NULL if OOM or AFL_STATES_MAX states already exist.
-   This is not threat safe, as we don't have threading yet. */
-
-afl_state_t *afl_state_create() {
-
-    u32 i;
-    for (i = 0; i < AFL_STATES_MAX; i++) {
-        if (afl_states[i] == NULL) {
-            afl_state_t *afl = calloc(1, sizeof(afl_state_t));
-            afl_state_init(afl);
-            afl->_id = i;
-            afl_states[i] = afl;
-            return afl;
-        }
-    }
-    return NULL;
 }
 
 /* Removes this afl_state instance and frees it. */
 
-void afl_state_destroy(afl_state_t *afl) {
-    afl_states[afl->_id] = NULL;
-    free(afl);
+void afl_state_deinit(afl_state_t *afl) {
+
+    list_remove(&afl_states, afl);
+
 }

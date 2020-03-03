@@ -158,16 +158,9 @@ static inline u8 anything_set(afl_forkserver_t *frk_srv) {
 
 }
 
-extern afl_forkserver_t *frk_srv_glob;
-/* Get rid of temp files (atexit handler). */
-
 static void at_exit_handler(void) {
 
-  if (frk_srv_glob) {
-
-    if (frk_srv_glob->out_file) unlink(frk_srv_glob->out_file);                          /* Ignore errors */
-
-  }
+  afl_frk_srv_killall();
 
 }
 
@@ -787,12 +780,7 @@ finalize_all:
 static void handle_stop_sig(int sig) {
 
   stop_soon = 1;
-
-  if (frk_srv_glob) {
-
-    if (frk_srv_glob->child_pid > 0) kill(frk_srv_glob->child_pid, SIGKILL);
-
-  }
+  afl_frk_srv_killall();
 
 }
 
@@ -1056,6 +1044,7 @@ int main(int argc, char** argv, char** envp) {
   char** use_argv;
 
   afl_forkserver_t *frk_srv = calloc(1, sizeof(afl_forkserver_t));
+  afl_frk_srv_init(frk_srv);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -1206,7 +1195,7 @@ int main(int argc, char** argv, char** envp) {
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  frk_srv->trace_bits = setup_shm(&shm, MAP_SIZE, 0);
+  frk_srv->trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
 
   atexit(at_exit_handler);
   setup_signal_handlers();
@@ -1233,7 +1222,7 @@ int main(int argc, char** argv, char** envp) {
 
   read_initial_file();
 
-  init_forkserver(frk_srv, use_argv);
+  afl_frk_srv_start(frk_srv, use_argv);
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        frk_srv->mem_limit, frk_srv->exec_tmout, edges_only ? ", edges only" : "");
@@ -1269,9 +1258,9 @@ int main(int argc, char** argv, char** envp) {
 
   OKF("We're done here. Have a nice day!\n");
 
-  remove_shm();
 
-  deinit_forkserver(frk_srv);
+  afl_shm_deinit(&shm);
+  afl_frk_srv_deinit(frk_srv);
   free(frk_srv);
 
   exit(0);

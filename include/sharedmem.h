@@ -51,8 +51,8 @@ typedef struct sharedmem {
 
 } sharedmem_t;
 
-u8 *setup_shm(sharedmem_t*, size_t, unsigned char dumb_mode);
-void remove_shm(void);
+u8 *afl_shm_init(sharedmem_t*, size_t, unsigned char dumb_mode);
+void afl_shm_deinit(sharedmem_t*);
 
 #endif
 

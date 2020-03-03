@@ -36,6 +36,7 @@
 #include "hash.h"
 #include "sharedmem.h"
 #include "cmplog.h"
+#include "list.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -60,16 +61,13 @@
 #include <sys/shm.h>
 #endif
 
-// TODO: List!
-sharedmem_t *shm_global = NULL;
+list_t shm_list = {0};
 
-/* Get rid of shared memory (atexit handler). */
+/* Get rid of shared memory. */
 
-void remove_shm() {
+void afl_shm_deinit(sharedmem_t *shm) {
 
-  if (!shm_global) return;  //TODO: Make it a list.
-  sharedmem_t *shm = shm_global;
-  shm_global = NULL;
+  list_remove(&shm_list, shm);
 
 #ifdef USEMMAP
   if (shm->map != NULL) {
@@ -95,11 +93,20 @@ void remove_shm() {
 
 }
 
-/* Configure shared memory. */
+/* At exit, remove all leftover maps */
 
-u8 *setup_shm(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
+void afl_shm_atexit() {
 
-  shm_global = shm;
+  LIST_FOREACH(&shm_list, sharedmem_t, { afl_shm_deinit(el); });
+
+}
+
+/* Configure shared memory. 
+   Returns a pointer to shm->map for ease of use.
+*/
+
+u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
+
   shm->size_alloc = shm->size_used = map_size;
 
   shm->map = NULL;
@@ -109,11 +116,11 @@ u8 *setup_shm(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
   shm->g_shm_fd = -1;
 
   /* ======
-  /* generate random file name for multi instance */
+  generate random file name for multi instance
 
-  /* thanks to f*cking glibc we can not use tmpnam securely, it generates a
-   * security warning that cannot be suppressed */
-  /* so we do this worse workaround */
+  thanks to f*cking glibc we can not use tmpnam securely, it generates a
+  security warning that cannot be suppressed
+  so we do this worse workaround */
   snprintf(shm->g_shm_file_path, L_tmpnam, "/afl_%d_%ld", getpid(), random());
 
   /* create the shared memory segment as if it was a file */
@@ -137,8 +144,6 @@ u8 *setup_shm(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
     PFATAL("mmap() failed");
 
   }
-
-  atexit(map_size->remove_shm);
 
   /* If somebody is asking us to fuzz instrumented binaries in dumb mode,
      we don't want them to detect instrumentation, since we won't be sending
@@ -164,8 +169,6 @@ u8 *setup_shm(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
     if (shm->cmplog_shm_id < 0) PFATAL("shmget() failed");
 
   }
-
-  atexit(remove_shm);
 
   shm_str = alloc_printf("%d", shm->shm_id);
 
@@ -203,7 +206,9 @@ u8 *setup_shm(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
 
 #endif
 
+  list_append(&shm_list, shm);
+  atexit(afl_shm_atexit);
+
   return shm->map;
 
 }
-
