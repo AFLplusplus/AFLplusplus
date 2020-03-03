@@ -303,6 +303,8 @@ typedef struct afl_state {
   afl_forkserver_t frk_srv;
   sharedmem_t shm;
 
+  char** argv;                              /* argv if needed */
+
 /* MOpt:
    Lots of globals, but mostly for the status UI and other things where it
    really makes no sense to haul them around as function parameters. */
@@ -454,6 +456,8 @@ u8 *stage_name,                  /* Name of the current fuzz stage   */
     *stage_short,                /* Short stage name                 */
     *syncing_party;              /* Currently syncing with...        */
 
+u8 stage_name_buf64[64];         /* A name buf with len 64 if needed */
+
 s32 stage_cur, stage_max;        /* Stage progression                */
 s32 splicing_with;               /* Splicing with which test case?   */
 
@@ -548,6 +552,8 @@ extern u32 document_counter;
 /* cmplog forkserver ids */
 s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
 
+u8 describe_op_buf_256[256]; /* describe_op will use this to return a string up to 256 */
+
 } afl_state_t;
 
 /* A global pointer to all instances is needed (for now) for signals to arrive */
@@ -569,7 +575,7 @@ void fuzz_py(afl_state_t*, char*, size_t, char*, size_t, char**, size_t*);
 u32  init_trim_py(afl_state_t*, char*, size_t);
 u32  post_trim_py(afl_state_t*, char);
 void trim_py(afl_state_t*, char**, size_t*);
-u8   trim_case_python(afl_state_t*, char**, struct queue_entry*, u8*);
+u8   trim_case_python(afl_state_t*, struct queue_entry*, u8*);
 #endif
 
 /* Queue */
@@ -602,7 +608,7 @@ void minimize_bits(u8*, u8*);
 #ifndef SIMPLE_FILES
 u8* describe_op(afl_state_t*, u8);
 #endif
-u8 save_if_interesting(afl_state_t*, char**, void*, u32, u8);
+u8 save_if_interesting(afl_state_t*, void*, u32, u8);
 u8 has_new_bits(afl_state_t *, u8*);
 
 /* Misc */
@@ -630,20 +636,20 @@ void show_init_stats(afl_state_t*);
 
 /* Run */
 
-u8   run_target(afl_state_t*, char**, u32);
+u8   run_target(afl_state_t*, u32);
 void write_to_testcase(afl_state_t*, void*, u32);
-u8   calibrate_case(afl_state_t*, char**, struct queue_entry*, u8*, u32, u8);
-void sync_fuzzers(afl_state_t*, char**);
-u8   trim_case(afl_state_t*, char**, struct queue_entry*, u8*);
-u8   common_fuzz_stuff(afl_state_t*, char**, u8*, u32);
+u8   calibrate_case(afl_state_t*, struct queue_entry*, u8*, u32, u8);
+void sync_fuzzers(afl_state_t*);
+u8   trim_case(afl_state_t*, struct queue_entry*, u8*);
+u8   common_fuzz_stuff(afl_state_t*, u8*, u32);
 
 /* Fuzz one */
 
-u8   fuzz_one_original(afl_state_t*, char**);
-u8   pilot_fuzzing(afl_state_t*, char**);
-u8   core_fuzzing(afl_state_t*, char**);
+u8   fuzz_one_original(afl_state_t*);
+u8   pilot_fuzzing(afl_state_t*);
+u8   core_fuzzing(afl_state_t*);
 void pso_updating(afl_state_t*);
-u8   fuzz_one(afl_state_t*, char**);
+u8   fuzz_one(afl_state_t*);
 
 /* Init */
 
@@ -653,7 +659,7 @@ void bind_to_free_cpu(afl_state_t*);
 void   setup_post(afl_state_t*);
 void   setup_custom_mutator(afl_state_t*);
 void   read_testcases(afl_state_t *);
-void   perform_dry_run(afl_state_t *, char**);
+void   perform_dry_run(afl_state_t *);
 void   pivot_inputs(afl_state_t*);
 u32    find_start_position(afl_state_t*);
 void   find_timeout(afl_state_t*);
@@ -671,17 +677,15 @@ void   check_binary(afl_state_t*, u8*);
 void   fix_up_banner(afl_state_t*, u8*);
 void   check_if_tty(afl_state_t*);
 void   setup_signal_handlers(void);
-char** get_qemu_argv(u8*, char**, int);
-char** get_wine_argv(u8*, char**, int);
 void   save_cmdline(afl_state_t*, u32, char**);
 
 /* CmpLog */
 
-void init_cmplog_forkserver(afl_state_t *afl, char **argv);
-u8   common_fuzz_cmplog_stuff(afl_state_t *afl, char **argv, u8 *out_buf, u32 len);
+void init_cmplog_forkserver(afl_state_t *afl);
+u8   common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */
-u8 input_to_state_stage(afl_state_t *afl, char** argv, u8* orig_buf, u8* buf, u32 len,
+u8 input_to_state_stage(afl_state_t *afl, u8* orig_buf, u8* buf, u32 len,
                         u32 exec_cksum);
 
 /**** Inline routines ****/

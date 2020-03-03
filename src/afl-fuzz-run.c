@@ -28,7 +28,7 @@
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->frk_srv.trace_bits[]. */
 
-u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
+u8 run_target(afl_state_t *afl, u32 timeout) {
 
   static struct itimerval it;
   static u32              prev_timed_out = 0;
@@ -122,7 +122,7 @@ u8 run_target(afl_state_t *afl, char** argv, u32 timeout) {
                              "symbolize=0:"
                              "msan_track_origins=0", 0);
 
-      execv(target_path, argv);
+      execv(afl->frk_srv.target_path, afl->argv);
 
       /* Use a distinctive bitmap value to tell the parent about execv()
          falling through. */
@@ -378,7 +378,7 @@ static void write_with_gap(afl_state_t *afl, void* mem, u32 len, u32 skip_at, u3
    to warn about flaky or otherwise problematic test cases early on; and when
    new paths are discovered to detect variable behavior and so on. */
 
-u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_mem, u32 handicap,
+u8 calibrate_case(afl_state_t *afl, struct queue_entry* q, u8* use_mem, u32 handicap,
                   u8 from_queue) {
 
   static u8 first_trace[MAP_SIZE];
@@ -408,9 +408,9 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
 
-  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->frk_srv.forksrv_pid) init_forkserver(&afl->frk_srv, argv);
+  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->frk_srv.forksrv_pid) init_forkserver(&afl->frk_srv, afl->argv);
   if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->cmplog_forksrv_pid && afl->shm.cmplog_mode)
-    init_cmplog_forkserver(afl, argv);
+    init_cmplog_forkserver(afl);
 
   if (q->exec_cksum) memcpy(first_trace, afl->frk_srv.trace_bits, MAP_SIZE);
 
@@ -424,7 +424,7 @@ u8 calibrate_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* use_
 
     write_to_testcase(afl, use_mem, q->len);
 
-    fault = run_target(afl, argv, use_tmout);
+    fault = run_target(afl, use_tmout);
 
     /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
        we want to bail out quickly. */
@@ -533,7 +533,7 @@ abort_calibration:
 
 /* Grab interesting test cases from other fuzzers. */
 
-void sync_fuzzers(afl_state_t *afl, char** argv) {
+void sync_fuzzers(afl_state_t *afl) {
 
   DIR*           sd;
   struct dirent* sd_ent;
@@ -640,12 +640,12 @@ void sync_fuzzers(afl_state_t *afl, char** argv) {
 
         write_to_testcase(afl, mem, st.st_size);
 
-        fault = run_target(afl, argv, afl->frk_srv.exec_tmout);
+        fault = run_target(afl, afl->frk_srv.exec_tmout);
 
         if (afl->stop_soon) return;
 
         afl->syncing_party = sd_ent->d_name;
-        afl->queued_imported += save_if_interesting(afl, argv, mem, st.st_size, fault);
+        afl->queued_imported += save_if_interesting(afl, mem, st.st_size, fault);
         afl->syncing_party = 0;
 
         munmap(mem, st.st_size);
@@ -676,10 +676,10 @@ void sync_fuzzers(afl_state_t *afl, char** argv) {
    trimmer uses power-of-two increments somewhere between 1/16 and 1/1024 of
    file size, to keep the stage short and sweet. */
 
-u8 trim_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in_buf) {
+u8 trim_case(afl_state_t *afl, struct queue_entry* q, u8* in_buf) {
 
 #ifdef USE_PYTHON
-  if (afl->py_functions[PY_FUNC_TRIM]) return trim_case_python(afl, argv, q, in_buf);
+  if (afl->py_functions[PY_FUNC_TRIM]) return trim_case_python(afl, q, in_buf);
 #endif
 
   static u8 tmp[64];
@@ -724,7 +724,7 @@ u8 trim_case(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in_buf) {
 
       write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
 
-      fault = run_target(afl, argv, afl->frk_srv.exec_tmout);
+      fault = run_target(afl, afl->frk_srv.exec_tmout);
       ++afl->trim_execs;
 
       if (afl->stop_soon || fault == FAULT_ERROR) goto abort_trimming;
@@ -812,7 +812,7 @@ abort_trimming:
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
 
-u8 common_fuzz_stuff(afl_state_t *afl, char** argv, u8* out_buf, u32 len) {
+u8 common_fuzz_stuff(afl_state_t *afl, u8* out_buf, u32 len) {
 
   u8 fault;
 
@@ -825,7 +825,7 @@ u8 common_fuzz_stuff(afl_state_t *afl, char** argv, u8* out_buf, u32 len) {
 
   write_to_testcase(afl, out_buf, len);
 
-  fault = run_target(afl, argv, afl->frk_srv.exec_tmout);
+  fault = run_target(afl, afl->frk_srv.exec_tmout);
 
   if (afl->stop_soon) return 1;
 
@@ -855,7 +855,7 @@ u8 common_fuzz_stuff(afl_state_t *afl, char** argv, u8* out_buf, u32 len) {
 
   /* This handles FAULT_ERROR for us: */
 
-  afl->queued_discovered += save_if_interesting(afl, argv, out_buf, len, fault);
+  afl->queued_discovered += save_if_interesting(afl, out_buf, len, fault);
 
   if (!(afl->stage_cur % afl->stats_update_freq) || afl->stage_cur + 1 == afl->stage_max)
     show_stats(afl);

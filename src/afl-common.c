@@ -36,10 +36,9 @@
 #include <unistd.h>
 #endif
 
-u8*       target_path;                  /* Path to target binary            */
 extern u8 be_quiet;
 
-void detect_file_args(char** argv, u8* prog_in, u8 use_stdin) {
+void detect_file_args(char **argv, u8 *prog_in, u8 use_stdin) {
 
   u32 i = 0;
 #ifdef __GLIBC__
@@ -107,14 +106,14 @@ void detect_file_args(char** argv, u8* prog_in, u8 use_stdin) {
 
 /* Rewrite argv for QEMU. */
 
-char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
+char** get_qemu_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv) {
 
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 4));
   u8 *   tmp, *cp, *rsl, *own_copy;
 
   memcpy(new_argv + 3, argv + 1, (int)(sizeof(char*)) * argc);
 
-  new_argv[2] = target_path;
+  new_argv[2] = *target_path_p;
   new_argv[1] = "--";
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
@@ -127,7 +126,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
     if (access(cp, X_OK)) FATAL("Unable to find '%s'", tmp);
 
-    target_path = new_argv[0] = cp;
+    *target_path_p = new_argv[0] = cp;
     return new_argv;
 
   }
@@ -144,7 +143,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
     if (!access(cp, X_OK)) {
 
-      target_path = new_argv[0] = cp;
+      *target_path_p = new_argv[0] = cp;
       return new_argv;
 
     }
@@ -155,7 +154,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
   if (!access(BIN_PATH "/afl-qemu-trace", X_OK)) {
 
-    target_path = new_argv[0] = ck_strdup(BIN_PATH "/afl-qemu-trace");
+    *target_path_p = new_argv[0] = ck_strdup(BIN_PATH "/afl-qemu-trace");
     return new_argv;
 
   }
@@ -182,14 +181,14 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
 /* Rewrite argv for Wine+QEMU. */
 
-char** get_wine_argv(u8* own_loc, char** argv, int argc) {
+char** get_wine_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv) {
 
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 3));
   u8 *   tmp, *cp, *rsl, *own_copy;
 
   memcpy(new_argv + 2, argv + 1, (int)(sizeof(char*)) * argc);
 
-  new_argv[1] = target_path;
+  new_argv[1] = *target_path_p;
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
 
@@ -207,7 +206,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
 
     if (access(cp, X_OK)) FATAL("Unable to find '%s'", tmp);
 
-    target_path = new_argv[0] = cp;
+    *target_path_p = new_argv[0] = cp;
     return new_argv;
 
   }
@@ -230,7 +229,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
 
       if (!access(cp, X_OK)) {
 
-        target_path = new_argv[0] = cp;
+        *target_path_p = new_argv[0] = cp;
         return new_argv;
 
       }
@@ -249,7 +248,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
 
     if (!access(ncp, X_OK)) {
 
-      target_path = new_argv[0] = ck_strdup(ncp);
+      *target_path_p = new_argv[0] = ck_strdup(ncp);
       return new_argv;
 
     }

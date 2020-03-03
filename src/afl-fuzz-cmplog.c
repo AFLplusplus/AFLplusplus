@@ -27,7 +27,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-void init_cmplog_forkserver(afl_state_t *afl, char **argv) {
+void init_cmplog_forkserver(afl_state_t *afl) {
 
   static struct itimerval it;
   int                     st_pipe[2], ctl_pipe[2];
@@ -150,8 +150,8 @@ void init_cmplog_forkserver(afl_state_t *afl, char **argv) {
 
     setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
-    if (!afl->qemu_mode) argv[0] = afl->cmplog_binary;
-    execv(argv[0], argv);
+    if (!afl->qemu_mode) afl->argv[0] = afl->cmplog_binary;
+    execv(afl->argv[0], afl->argv);
 
     /* Use a distinctive bitmap signature to tell the parent about execv()
        falling through. */
@@ -282,7 +282,7 @@ void init_cmplog_forkserver(afl_state_t *afl, char **argv) {
   }
 
   if (*(u32*)afl->frk_srv.trace_bits == EXEC_FAIL_SIG)
-    FATAL("Unable to execute target application ('%s')", argv[0]);
+    FATAL("Unable to execute target application ('%s')", afl->argv[0]);
 
   if (afl->frk_srv.mem_limit && afl->frk_srv.mem_limit < 500 && afl->frk_srv.uses_asan) {
 
@@ -347,7 +347,7 @@ void init_cmplog_forkserver(afl_state_t *afl, char **argv) {
 
 }
 
-u8 run_cmplog_target(afl_state_t *afl, char** argv, u32 timeout) {
+u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
   static struct itimerval it;
   static u32              prev_timed_out = 0;
@@ -443,8 +443,8 @@ u8 run_cmplog_target(afl_state_t *afl, char** argv, u32 timeout) {
 
       setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
-      if (!afl->qemu_mode) argv[0] = afl->cmplog_binary;
-      execv(argv[0], argv);
+      if (!afl->qemu_mode) afl->argv[0] = afl->cmplog_binary;
+      execv(afl->argv[0], afl->argv);
 
       /* Use a distinctive bitmap value to tell the parent about execv()
          falling through. */
@@ -584,7 +584,7 @@ u8 run_cmplog_target(afl_state_t *afl, char** argv, u32 timeout) {
 
 }
 
-u8 common_fuzz_cmplog_stuff(afl_state_t *afl, char** argv, u8* out_buf, u32 len) {
+u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8* out_buf, u32 len) {
 
   u8 fault;
 
@@ -597,7 +597,7 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, char** argv, u8* out_buf, u32 len)
 
   write_to_testcase(afl, out_buf, len);
 
-  fault = run_cmplog_target(afl, argv, afl->frk_srv.exec_tmout);
+  fault = run_cmplog_target(afl, afl->frk_srv.exec_tmout);
 
   if (afl->stop_soon) return 1;
 

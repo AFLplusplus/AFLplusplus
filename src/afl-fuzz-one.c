@@ -334,7 +334,7 @@ static void locate_diffs(u8* ptr1, u8* ptr2, u32 len, s32* first, s32* last) {
    function is a tad too long... returns 0 if fuzzed successfully, 1 if
    skipped or bailed out. */
 
-u8 fuzz_one_original(afl_state_t *afl, char** argv) {
+u8 fuzz_one_original(afl_state_t *afl) {
 
   s32 len, fd, temp_len, i, j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
@@ -430,7 +430,7 @@ u8 fuzz_one_original(afl_state_t *afl, char** argv) {
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
 
-      res = calibrate_case(afl, argv, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
+      res = calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
       if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -451,7 +451,7 @@ u8 fuzz_one_original(afl_state_t *afl, char** argv) {
 
   if (!afl->dumb_mode && !afl->queue_cur->trim_done && !afl->custom_mutator && !afl->disable_trim) {
 
-    u8 res = trim_case(afl, argv, afl->queue_cur, in_buf);
+    u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
     if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -505,7 +505,7 @@ u8 fuzz_one_original(afl_state_t *afl, char** argv) {
 
         out_buf = ck_realloc(out_buf, mutated_size);
         memcpy(out_buf, mutated_buf, mutated_size);
-        if (common_fuzz_stuff(afl, argv, out_buf, (u32)mutated_size)) {
+        if (common_fuzz_stuff(afl, out_buf, (u32)mutated_size)) {
 
           goto abandon_entry;
 
@@ -533,7 +533,7 @@ u8 fuzz_one_original(afl_state_t *afl, char** argv) {
 
   if (afl->shm.cmplog_mode) {
 
-    if (input_to_state_stage(afl, argv, in_buf, out_buf, len, afl->queue_cur->exec_cksum))
+    if (input_to_state_stage(afl, in_buf, out_buf, len, afl->queue_cur->exec_cksum))
       goto abandon_entry;
 
   }
@@ -604,7 +604,7 @@ u8 fuzz_one_original(afl_state_t *afl, char** argv) {
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
@@ -697,7 +697,7 @@ u8 fuzz_one_original(afl_state_t *afl, char** argv) {
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -726,7 +726,7 @@ u8 fuzz_one_original(afl_state_t *afl, char** argv) {
     FLIP_BIT(out_buf, afl->stage_cur + 2);
     FLIP_BIT(out_buf, afl->stage_cur + 3);
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -780,7 +780,7 @@ u8 fuzz_one_original(afl_state_t *afl, char** argv) {
 
     out_buf[afl->stage_cur] ^= 0xFF;
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
     /* We also use this stage to pull off a simple trick: we identify
        bytes that seem to have no effect on the current execution path
@@ -862,7 +862,7 @@ u8 fuzz_one_original(afl_state_t *afl, char** argv) {
 
     *(u16*)(out_buf + i) ^= 0xFFFF;
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
     ++afl->stage_cur;
 
     *(u16*)(out_buf + i) ^= 0xFFFF;
@@ -900,7 +900,7 @@ u8 fuzz_one_original(afl_state_t *afl, char** argv) {
 
     *(u32*)(out_buf + i) ^= 0xFFFFFFFF;
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
     ++afl->stage_cur;
 
     *(u32*)(out_buf + i) ^= 0xFFFFFFFF;
@@ -958,7 +958,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         out_buf[i] = orig + j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -972,7 +972,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         out_buf[i] = orig - j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1034,7 +1034,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16*)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1046,7 +1046,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u16*)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1062,7 +1062,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16*)(out_buf + i) = SWAP16(SWAP16(orig) + j);
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1074,7 +1074,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u16*)(out_buf + i) = SWAP16(SWAP16(orig) - j);
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1135,7 +1135,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32*)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1147,7 +1147,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u32*)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1163,7 +1163,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32*)(out_buf + i) = SWAP32(SWAP32(orig) + j);
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1175,7 +1175,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u32*)(out_buf + i) = SWAP32(SWAP32(orig) - j);
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1240,7 +1240,7 @@ skip_arith:
       afl->stage_cur_val = interesting_8[j];
       out_buf[i] = interesting_8[j];
 
-      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
       out_buf[i] = orig;
       ++afl->stage_cur;
@@ -1295,7 +1295,7 @@ skip_arith:
 
         *(u16*)(out_buf + i) = interesting_16[j];
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1310,7 +1310,7 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u16*)(out_buf + i) = SWAP16(interesting_16[j]);
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1370,7 +1370,7 @@ skip_arith:
 
         *(u32*)(out_buf + i) = interesting_32[j];
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1385,7 +1385,7 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u32*)(out_buf + i) = SWAP32(interesting_32[j]);
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -1453,7 +1453,7 @@ skip_interest:
       last_len = afl->extras[j].len;
       memcpy(out_buf + i, afl->extras[j].data, last_len);
 
-      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
       ++afl->stage_cur;
 
@@ -1499,7 +1499,7 @@ skip_interest:
       /* Copy tail */
       memcpy(ex_tmp + i + afl->extras[j].len, out_buf + i, len - i);
 
-      if (common_fuzz_stuff(afl, argv, ex_tmp, len + afl->extras[j].len)) {
+      if (common_fuzz_stuff(afl, ex_tmp, len + afl->extras[j].len)) {
 
         ck_free(ex_tmp);
         goto abandon_entry;
@@ -1558,7 +1558,7 @@ skip_user_extras:
       last_len = afl->a_extras[j].len;
       memcpy(out_buf + i, afl->a_extras[j].data, last_len);
 
-      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
       ++afl->stage_cur;
 
@@ -1654,7 +1654,7 @@ python_stage:
 
       if (!retlen) goto abandon_entry;
 
-      if (common_fuzz_stuff(afl, argv, retbuf, retlen)) {
+      if (common_fuzz_stuff(afl, retbuf, retlen)) {
 
         free(retbuf);
         goto abandon_entry;
@@ -1721,12 +1721,10 @@ havoc_stage:
 
   } else {
 
-    static u8 tmp[32];
-
     perf_score = orig_perf;
 
-    sprintf(tmp, "splice %u", splice_cycle);
-    afl->stage_name = tmp;
+    snprintf(afl->stage_name_buf64, 64, "splice %u", splice_cycle);
+    afl->stage_name = afl->stage_name_buf64;
     afl->stage_short = "splice";
     afl->stage_max = SPLICE_HAVOC * perf_score / afl->havoc_div / 100;
 
@@ -2125,7 +2123,7 @@ havoc_stage:
 
     }
 
-    if (common_fuzz_stuff(afl, argv, out_buf, temp_len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, temp_len)) goto abandon_entry;
 
     /* out_buf might have been mangled a bit, so let's restore it to its
        original size and shape. */
@@ -2319,7 +2317,7 @@ radamsa_stage:
 
     }
 
-    if (common_fuzz_stuff(afl, argv, tmp_buf, temp_len)) {
+    if (common_fuzz_stuff(afl, tmp_buf, temp_len)) {
 
       ck_free(save_buf);
       ck_free(new_buf);
@@ -2372,7 +2370,7 @@ abandon_entry:
 }
 
 /* MOpt mode */
-u8 mopt_common_fuzzing(afl_state_t *afl, char** argv, MOpt_globals_t MOpt_globals) {
+u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   if (!MOpt_globals.is_pilot_mode) {
 
@@ -2476,7 +2474,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, char** argv, MOpt_globals_t MOpt_global
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
 
-      res = calibrate_case(afl, argv, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
+      res = calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
       if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -2497,7 +2495,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, char** argv, MOpt_globals_t MOpt_global
 
   if (!afl->dumb_mode && !afl->queue_cur->trim_done) {
 
-    u8 res = trim_case(afl, argv, afl->queue_cur, in_buf);
+    u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
     if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -2581,7 +2579,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, char** argv, MOpt_globals_t MOpt_global
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
@@ -2674,7 +2672,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, char** argv, MOpt_globals_t MOpt_global
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -2703,7 +2701,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, char** argv, MOpt_globals_t MOpt_global
     FLIP_BIT(out_buf, afl->stage_cur + 2);
     FLIP_BIT(out_buf, afl->stage_cur + 3);
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -2757,7 +2755,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, char** argv, MOpt_globals_t MOpt_global
 
     out_buf[afl->stage_cur] ^= 0xFF;
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
     /* We also use this stage to pull off a simple trick: we identify
        bytes that seem to have no effect on the current execution path
@@ -2839,7 +2837,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, char** argv, MOpt_globals_t MOpt_global
 
     *(u16*)(out_buf + i) ^= 0xFFFF;
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
     ++afl->stage_cur;
 
     *(u16*)(out_buf + i) ^= 0xFFFF;
@@ -2877,7 +2875,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, char** argv, MOpt_globals_t MOpt_global
 
     *(u32*)(out_buf + i) ^= 0xFFFFFFFF;
 
-    if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
     ++afl->stage_cur;
 
     *(u32*)(out_buf + i) ^= 0xFFFFFFFF;
@@ -2935,7 +2933,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         out_buf[i] = orig + j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -2949,7 +2947,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         out_buf[i] = orig - j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3011,7 +3009,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16*)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3023,7 +3021,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u16*)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3039,7 +3037,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16*)(out_buf + i) = SWAP16(SWAP16(orig) + j);
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3051,7 +3049,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u16*)(out_buf + i) = SWAP16(SWAP16(orig) - j);
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3112,7 +3110,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32*)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3124,7 +3122,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u32*)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3140,7 +3138,7 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32*)(out_buf + i) = SWAP32(SWAP32(orig) + j);
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3152,7 +3150,7 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u32*)(out_buf + i) = SWAP32(SWAP32(orig) - j);
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3217,7 +3215,7 @@ skip_arith:
       afl->stage_cur_val = interesting_8[j];
       out_buf[i] = interesting_8[j];
 
-      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
       out_buf[i] = orig;
       ++afl->stage_cur;
@@ -3272,7 +3270,7 @@ skip_arith:
 
         *(u16*)(out_buf + i) = interesting_16[j];
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3287,7 +3285,7 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u16*)(out_buf + i) = SWAP16(interesting_16[j]);
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3347,7 +3345,7 @@ skip_arith:
 
         *(u32*)(out_buf + i) = interesting_32[j];
 
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3362,7 +3360,7 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u32*)(out_buf + i) = SWAP32(interesting_32[j]);
-        if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
         ++afl->stage_cur;
 
       } else
@@ -3430,7 +3428,7 @@ skip_interest:
       last_len = afl->extras[j].len;
       memcpy(out_buf + i, afl->extras[j].data, last_len);
 
-      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
       ++afl->stage_cur;
 
@@ -3476,7 +3474,7 @@ skip_interest:
       /* Copy tail */
       memcpy(ex_tmp + i + afl->extras[j].len, out_buf + i, len - i);
 
-      if (common_fuzz_stuff(afl, argv, ex_tmp, len +afl->extras[j].len)) {
+      if (common_fuzz_stuff(afl, ex_tmp, len +afl->extras[j].len)) {
 
         ck_free(ex_tmp);
         goto abandon_entry;
@@ -3535,7 +3533,7 @@ skip_user_extras:
       last_len = afl->a_extras[j].len;
       memcpy(out_buf + i, afl->a_extras[j].data, last_len);
 
-      if (common_fuzz_stuff(afl, argv, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
 
       ++afl->stage_cur;
 
@@ -3580,12 +3578,10 @@ pacemaker_fuzzing:
 
   } else {
 
-    static u8 tmp[32];
-
     perf_score = orig_perf;
 
-    sprintf(tmp, MOpt_globals.splice_stageformat, splice_cycle);
-    afl->stage_name = tmp;
+    snprintf(afl->stage_name_buf64, 64, MOpt_globals.splice_stageformat, splice_cycle);
+    afl->stage_name = afl->stage_name_buf64;
     afl->stage_short = MOpt_globals.splice_stagenameshort;
     afl->stage_max = SPLICE_HAVOC * perf_score / afl->havoc_div / 100;
 
@@ -3632,10 +3628,9 @@ pacemaker_fuzzing:
 
       } else {
 
-        static u8 tmp[32];
         perf_score = orig_perf;
-        sprintf(tmp, MOpt_globals.splice_stageformat, splice_cycle);
-        afl->stage_name = tmp;
+        snprintf(afl->stage_name_buf64, 64, MOpt_globals.splice_stageformat, splice_cycle);
+        afl->stage_name = afl->stage_name_buf64;
         afl->stage_short = MOpt_globals.splice_stagenameshort;
         afl->stage_max = SPLICE_HAVOC * perf_score / afl->havoc_div / 100;
 
@@ -3952,7 +3947,7 @@ pacemaker_fuzzing:
 
         u64 temp_total_found = afl->queued_paths + afl->unique_crashes;
 
-        if (common_fuzz_stuff(afl, argv, out_buf, temp_len))
+        if (common_fuzz_stuff(afl, out_buf, temp_len))
           goto abandon_entry_puppet;
 
         /* out_buf might have been mangled a bit, so let's restore it to its
@@ -4263,12 +4258,12 @@ pacemaker_fuzzing:
 
 #undef FLIP_BIT
 
-u8 core_fuzzing(afl_state_t *afl, char **argv) {
-  return mopt_common_fuzzing(afl, argv, afl->mopt_globals_core);
+u8 core_fuzzing(afl_state_t *afl) {
+  return mopt_common_fuzzing(afl, afl->mopt_globals_core);
 }
 
-u8 pilot_fuzzing(afl_state_t *afl, char **argv) {
-  return mopt_common_fuzzing(afl, argv, afl->mopt_globals_pilot);
+u8 pilot_fuzzing(afl_state_t *afl) {
+  return mopt_common_fuzzing(afl, afl->mopt_globals_pilot);
 }
 
 void pso_updating(afl_state_t *afl) {
@@ -4347,7 +4342,7 @@ void pso_updating(afl_state_t *afl) {
    to fuzz_one_original. All documentation references to fuzz_one therefore
    mean fuzz_one_original */
 
-u8 fuzz_one(afl_state_t *afl, char** argv) {
+u8 fuzz_one(afl_state_t *afl) {
 
   int key_val_lv = 0;
 
@@ -4376,14 +4371,14 @@ u8 fuzz_one(afl_state_t *afl, char** argv) {
 
   if (afl->limit_time_sig == 0) {
 
-    key_val_lv = fuzz_one_original(afl, argv);
+    key_val_lv = fuzz_one_original(afl);
 
   } else {
 
     if (afl->key_module == 0)
-      key_val_lv = pilot_fuzzing(afl, argv);
+      key_val_lv = pilot_fuzzing(afl);
     else if (afl->key_module == 1)
-      key_val_lv = core_fuzzing(afl, argv);
+      key_val_lv = core_fuzzing(afl);
     else if (afl->key_module == 2)
       pso_updating(afl);
 

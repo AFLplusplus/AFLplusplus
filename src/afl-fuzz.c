@@ -869,6 +869,8 @@ int main(int argc, char** argv, char** envp) {
   check_crash_handling();
   check_cpu_governor(afl);
 
+  afl->argv = argv;
+
   setup_post(afl);
   setup_custom_mutator(afl);
   setup_shm(&afl->shm, MAP_SIZE, &afl->frk_srv.trace_bits, afl->dumb_mode);
@@ -982,15 +984,18 @@ int main(int argc, char** argv, char** envp) {
   if (afl->qemu_mode) {
 
     if (afl->use_wine)
-      use_argv = get_wine_argv(argv[0], argv + optind, argc - optind);
+      use_argv = get_wine_argv(argv[0], &afl->frk_srv.target_path, argc - optind, argv + optind);
     else
-      use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
+      use_argv = get_qemu_argv(argv[0], &afl->frk_srv.target_path, argc - optind, argv + optind);
 
-  } else
+  } else {
 
     use_argv = argv + optind;
 
-  perform_dry_run(afl, use_argv);
+  }
+
+  afl->argv = use_argv; 
+  perform_dry_run(afl);
 
   cull_queue(afl);
 
@@ -1064,15 +1069,15 @@ int main(int argc, char** argv, char** envp) {
       prev_queued = afl->queued_paths;
 
       if (afl->sync_id && afl->queue_cycle == 1 && get_afl_env("AFL_IMPORT_FIRST"))
-        sync_fuzzers(afl, use_argv);
+        sync_fuzzers(afl);
 
     }
 
-    skipped_fuzz = fuzz_one(afl, use_argv);
+    skipped_fuzz = fuzz_one(afl);
 
     if (!afl->stop_soon && afl->sync_id && !skipped_fuzz) {
 
-      if (!(sync_interval_cnt++ % SYNC_INTERVAL)) sync_fuzzers(afl, use_argv);
+      if (!(sync_interval_cnt++ % SYNC_INTERVAL)) sync_fuzzers(afl);
 
     }
 
@@ -1163,7 +1168,7 @@ stop_fuzzing:
 
   destroy_queue(afl);
   destroy_extras(afl);
-  ck_free(target_path);
+  ck_free(afl->frk_srv.target_path);
   ck_free(afl->sync_id);
 
   alloc_report();

@@ -27,13 +27,11 @@
 #define __AFLCOMMON_H
 #include "types.h"
 
-extern u8* target_path;                 /* Path to target binary            */
-
 void detect_file_args(char** argv, u8* prog_in, u8 use_stdin);
 void check_environment_vars(char** env);
 
-char** get_qemu_argv(u8* own_loc, char** argv, int argc);
-char** get_wine_argv(u8* own_loc, char** argv, int argc);
+char** get_qemu_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv);
+char** get_wine_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv);
 char*  get_afl_env(char* env);
 #endif
 

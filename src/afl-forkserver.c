@@ -258,7 +258,7 @@ void init_forkserver(afl_forkserver_t *frk_srv, char **argv) {
            "msan_track_origins=0",
            0);
 
-    execv(target_path, argv);
+    execv(frk_srv->target_path, argv);
 
     /* Use a distinctive bitmap signature to tell the parent about execv()
        falling through. */

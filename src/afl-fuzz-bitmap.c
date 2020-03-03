@@ -417,7 +417,7 @@ void minimize_bits(u8* dst, u8* src) {
 
 u8* describe_op(afl_state_t *afl, u8 hnb) {
 
-  static u8 ret[256];
+  u8 *ret = afl->describe_op_buf_256;
 
   if (afl->syncing_party) {
 
@@ -509,7 +509,7 @@ static void write_crash_readme(afl_state_t *afl) {
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
 
-u8 save_if_interesting(afl_state_t *afl, char** argv, void* mem, u32 len, u8 fault) {
+u8 save_if_interesting(afl_state_t *afl, void* mem, u32 len, u8 fault) {
 
   if (len == 0) return 0;
 
@@ -572,7 +572,7 @@ u8 save_if_interesting(afl_state_t *afl, char** argv, void* mem, u32 len, u8 fau
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
 
-    res = calibrate_case(afl, argv, afl->queue_top, mem, afl->queue_cycle - 1, 0);
+    res = calibrate_case(afl, afl->queue_top, mem, afl->queue_cycle - 1, 0);
 
     if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -620,7 +620,7 @@ u8 save_if_interesting(afl_state_t *afl, char** argv, void* mem, u32 len, u8 fau
 
         u8 new_fault;
         write_to_testcase(afl, mem, len);
-        new_fault = run_target(afl, argv, afl->hang_tmout);
+        new_fault = run_target(afl, afl->hang_tmout);
 
         /* A corner case that one user reported bumping into: increasing the
            timeout actually uncovers a crash. Make sure we don't discard it if

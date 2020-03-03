@@ -310,7 +310,7 @@ void trim_py(afl_state_t *afl, char** ret, size_t* retlen) {
 
 }
 
-u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in_buf) {
+u8 trim_case_python(afl_state_t *afl, struct queue_entry* q, u8* in_buf) {
 
   static u8 tmp[64];
   static u8 clean_trace[MAP_SIZE];
@@ -348,7 +348,7 @@ u8 trim_case_python(afl_state_t *afl, char** argv, struct queue_entry* q, u8* in
 
     write_to_testcase(afl, retbuf, retlen);
 
-    fault = run_target(afl, argv, afl->frk_srv.exec_tmout);
+    fault = run_target(afl, afl->frk_srv.exec_tmout);
     ++afl->trim_execs;
 
     if (afl->stop_soon || fault == FAULT_ERROR) {

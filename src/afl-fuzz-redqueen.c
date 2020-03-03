@@ -27,8 +27,6 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-static char** its_argv;
-
 ///// Colorization
 
 struct range {
@@ -88,7 +86,7 @@ struct range* pop_biggest_range(struct range** ranges) {
 
 static u8 get_exec_checksum(afl_state_t *afl, u8* buf, u32 len, u32* cksum) {
 
-  if (unlikely(common_fuzz_stuff(afl, its_argv, buf, len))) return 1;
+  if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
 
   *cksum = hash32(afl->frk_srv.trace_bits, MAP_SIZE, HASH_CONST);
   return 0;
@@ -212,7 +210,7 @@ static u8 its_fuzz(afl_state_t *afl, u8* buf, u32 len, u8* status) {
 
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
-  if (unlikely(common_fuzz_stuff(afl, its_argv, buf, len))) return 1;
+  if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -501,18 +499,17 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 ///// Input to State stage
 
 // afl->queue_cur->exec_cksum
-u8 input_to_state_stage(afl_state_t *afl, char** argv, u8* orig_buf, u8* buf, u32 len,
+u8 input_to_state_stage(afl_state_t *afl, u8* orig_buf, u8* buf, u32 len,
                         u32 exec_cksum) {
 
   u8 r = 1;
-  its_argv = argv;
 
   if (unlikely(colorization(afl, buf, len, exec_cksum))) return 1;
 
   // do it manually, forkserver clear only afl->frk_srv.trace_bits
   memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
 
-  if (unlikely(common_fuzz_cmplog_stuff(afl, argv, buf, len))) return 1;
+  if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 1;
 
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->total_execs;

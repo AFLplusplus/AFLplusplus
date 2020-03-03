@@ -438,7 +438,7 @@ static void run_target(afl_forkserver_t *frk_srv, char** argv) {
 
     setsid();
 
-    execv(target_path, argv);
+    execv(frk_srv->target_path, argv);
 
     *(u32*)frk_srv->trace_bits = EXEC_FAIL_SIG;
     exit(0);
@@ -650,16 +650,16 @@ static void usage(u8* argv0) {
 
 /* Find binary. */
 
-static void find_binary(u8* fname) {
+static void find_binary(afl_forkserver_t *frk_srv, u8* fname) {
 
   u8*         env_path = 0;
   struct stat st;
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
-    target_path = ck_strdup(fname);
+    frk_srv->target_path = ck_strdup(fname);
 
-    if (stat(target_path, &st) || !S_ISREG(st.st_mode) ||
+    if (stat(frk_srv->target_path, &st) || !S_ISREG(st.st_mode) ||
         !(st.st_mode & 0111) || st.st_size < 4)
       FATAL("Program '%s' not found or not executable", fname);
 
@@ -682,22 +682,22 @@ static void find_binary(u8* fname) {
       env_path = delim;
 
       if (cur_elem[0])
-        target_path = alloc_printf("%s/%s", cur_elem, fname);
+        frk_srv->target_path = alloc_printf("%s/%s", cur_elem, fname);
       else
-        target_path = ck_strdup(fname);
+        frk_srv->target_path = ck_strdup(fname);
 
       ck_free(cur_elem);
 
-      if (!stat(target_path, &st) && S_ISREG(st.st_mode) &&
+      if (!stat(frk_srv->target_path, &st) && S_ISREG(st.st_mode) &&
           (st.st_mode & 0111) && st.st_size >= 4)
         break;
 
-      ck_free(target_path);
-      target_path = 0;
+      ck_free(frk_srv->target_path);
+      frk_srv->target_path = 0;
 
     }
 
-    if (!target_path) FATAL("Program '%s' not found or not executable", fname);
+    if (!frk_srv->target_path) FATAL("Program '%s' not found or not executable", fname);
 
   }
 
@@ -715,7 +715,6 @@ int main(int argc, char** argv, char** envp) {
   char** use_argv;
 
   afl_forkserver_t *frk_srv = calloc(1, sizeof(afl_forkserver_t));
-  frk_srv->target_path = target_path;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -888,12 +887,12 @@ int main(int argc, char** argv, char** envp) {
 
   set_up_environment();
 
-  find_binary(argv[optind]);
+  find_binary(frk_srv, argv[optind]);
 
   if (!quiet_mode) {
 
     show_banner();
-    ACTF("Executing '%s'...", target_path);
+    ACTF("Executing '%s'...", frk_srv->target_path);
 
   }
 
@@ -914,9 +913,9 @@ int main(int argc, char** argv, char** envp) {
   if (qemu_mode) {
 
     if (use_wine)
-      use_argv = get_wine_argv(argv[0], argv + optind, argc - optind);
+      use_argv = get_wine_argv(argv[0], &frk_srv->target_path, argc - optind, argv + optind);
     else
-      use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
+      use_argv = get_qemu_argv(argv[0], &frk_srv->target_path, argc - optind, argv + optind);
 
   } else
 
@@ -961,7 +960,7 @@ int main(int argc, char** argv, char** envp) {
     if (get_afl_env("AFL_DEBUG")) {
 
       int i = optind;
-      SAYF(cMGN "[D]" cRST " %s:", target_path);
+      SAYF(cMGN "[D]" cRST " %s:", frk_srv->target_path);
       while (argv[i] != NULL)
         SAYF(" \"%s\"", argv[i++]);
       SAYF("\n");

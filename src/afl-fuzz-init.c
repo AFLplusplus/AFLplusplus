@@ -472,7 +472,7 @@ static void check_map_coverage(afl_state_t *afl) {
 /* Perform dry run of all test cases to confirm that the app is working as
    expected. This is done only for the initial inputs, and only once. */
 
-void perform_dry_run(afl_state_t *afl, char** argv) {
+void perform_dry_run(afl_state_t *afl) {
 
   struct queue_entry* q = afl->queue;
   u32                 cal_failures = 0;
@@ -498,7 +498,7 @@ void perform_dry_run(afl_state_t *afl, char** argv) {
 
     close(fd);
 
-    res = calibrate_case(afl, argv, q, use_mem, 0, 1);
+    res = calibrate_case(afl, q, use_mem, 0, 1);
     ck_free(use_mem);
 
     if (afl->stop_soon) return;
@@ -658,7 +658,7 @@ void perform_dry_run(afl_state_t *afl, char** argv) {
 
       case FAULT_ERROR:
 
-        FATAL("Unable to execute target application ('%s')", argv[0]);
+        FATAL("Unable to execute target application ('%s')", afl->argv[0]);
 
       case FAULT_NOINST: FATAL("No instrumentation detected");
 
@@ -1425,7 +1425,7 @@ void setup_dirs_fds(afl_state_t *afl) {
 
 }
 
-void setup_cmdline_file(afl_state_t *afl, char** argv) {
+void setup_cmdline_file(afl_state_t *afl, char **argv) {
 
   u8* tmp;
   s32 fd;
@@ -1903,8 +1903,8 @@ void check_binary(afl_state_t *afl, u8* fname) {
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
-    target_path = ck_strdup(fname);
-    if (stat(target_path, &st) || !S_ISREG(st.st_mode) ||
+    afl->frk_srv.target_path = ck_strdup(fname);
+    if (stat(afl->frk_srv.target_path, &st) || !S_ISREG(st.st_mode) ||
         !(st.st_mode & 0111) || (f_len = st.st_size) < 4)
       FATAL("Program '%s' not found or not executable", fname);
 
@@ -1927,22 +1927,22 @@ void check_binary(afl_state_t *afl, u8* fname) {
       env_path = delim;
 
       if (cur_elem[0])
-        target_path = alloc_printf("%s/%s", cur_elem, fname);
+        afl->frk_srv.target_path = alloc_printf("%s/%s", cur_elem, fname);
       else
-        target_path = ck_strdup(fname);
+        afl->frk_srv.target_path = ck_strdup(fname);
 
       ck_free(cur_elem);
 
-      if (!stat(target_path, &st) && S_ISREG(st.st_mode) &&
+      if (!stat(afl->frk_srv.target_path, &st) && S_ISREG(st.st_mode) &&
           (st.st_mode & 0111) && (f_len = st.st_size) >= 4)
         break;
 
-      ck_free(target_path);
-      target_path = 0;
+      ck_free(afl->frk_srv.target_path);
+      afl->frk_srv.target_path = 0;
 
     }
 
-    if (!target_path) FATAL("Program '%s' not found or not executable", fname);
+    if (!afl->frk_srv.target_path) FATAL("Program '%s' not found or not executable", fname);
 
   }
 
@@ -1950,17 +1950,17 @@ void check_binary(afl_state_t *afl, u8* fname) {
 
   /* Check for blatant user errors. */
 
-  if ((!strncmp(target_path, "/tmp/", 5) && !strchr(target_path + 5, '/')) ||
-      (!strncmp(target_path, "/var/tmp/", 9) && !strchr(target_path + 9, '/')))
+  if ((!strncmp(afl->frk_srv.target_path, "/tmp/", 5) && !strchr(afl->frk_srv.target_path + 5, '/')) ||
+      (!strncmp(afl->frk_srv.target_path, "/var/tmp/", 9) && !strchr(afl->frk_srv.target_path + 9, '/')))
     FATAL("Please don't keep binaries in /tmp or /var/tmp");
 
-  fd = open(target_path, O_RDONLY);
+  fd = open(afl->frk_srv.target_path, O_RDONLY);
 
-  if (fd < 0) PFATAL("Unable to open '%s'", target_path);
+  if (fd < 0) PFATAL("Unable to open '%s'", afl->frk_srv.target_path);
 
   f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
 
-  if (f_data == MAP_FAILED) PFATAL("Unable to mmap file '%s'", target_path);
+  if (f_data == MAP_FAILED) PFATAL("Unable to mmap file '%s'", afl->frk_srv.target_path);
 
   close(fd);
 
@@ -1982,14 +1982,14 @@ void check_binary(afl_state_t *afl, u8* fname) {
          "the wrapper\n"
          "    in a compiled language instead.\n");
 
-    FATAL("Program '%s' is a shell script", target_path);
+    FATAL("Program '%s' is a shell script", afl->frk_srv.target_path);
 
   }
 
 #ifndef __APPLE__
 
   if (f_data[0] != 0x7f || memcmp(f_data + 1, "ELF", 3))
-    FATAL("Program '%s' is not an ELF binary", target_path);
+    FATAL("Program '%s' is not an ELF binary", afl->frk_srv.target_path);
 
 #else
 
@@ -1997,7 +1997,7 @@ void check_binary(afl_state_t *afl, u8* fname) {
   if ((f_data[0] != 0xCF || f_data[1] != 0xFA || f_data[2] != 0xED) &&
       (f_data[0] != 0xCA || f_data[1] != 0xFE || f_data[2] != 0xBA))
     FATAL("Program '%s' is not a 64-bit or universal Mach-O binary",
-          target_path);
+          afl->frk_srv.target_path);
 #endif
 
 #endif                                                       /* ^!__APPLE__ */
@@ -2185,7 +2185,7 @@ void setup_signal_handlers(void) {
 
 /* Make a copy of the current command line. */
 
-void save_cmdline(afl_state_t *afl, u32 argc, char** argv) {
+void save_cmdline(afl_state_t *afl, u32 argc, char **argv) {
 
   u32 len = 1, i;
   u8* buf;

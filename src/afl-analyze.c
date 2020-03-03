@@ -84,6 +84,8 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 
 static u8 qemu_mode;
 
+static u8 *target_path;
+
 /* Constants used for describing byte behavior. */
 
 #define RESP_NONE 0x00                 /* Changing byte is a no-op.         */
@@ -1012,9 +1014,9 @@ int main(int argc, char** argv, char** envp) {
   if (qemu_mode) {
 
     if (use_wine)
-      use_argv = get_wine_argv(argv[0], argv + optind, argc - optind);
+      use_argv = get_wine_argv(argv[0], &target_path, argc - optind, argv + optind);
     else
-      use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
+      use_argv = get_qemu_argv(argv[0], &target_path, argc - optind, argv + optind);
 
   } else
 
