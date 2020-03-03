@@ -752,9 +752,9 @@ int main(int argc, char** argv, char** envp) {
   if (get_afl_env("AFL_FAST_CAL")) fast_cal = 1;
 
   if (get_afl_env("AFL_AUTORESUME")) {
-    
+
     autoresume = 1;
-    if (in_place_resume) 
+    if (in_place_resume)
       SAYF("AFL_AUTORESUME has no effect for '-i -'");
 
   }
@@ -862,7 +862,6 @@ int main(int argc, char** argv, char** envp) {
   check_cpu_governor();
 
   setup_post();
-  setup_custom_mutator();
   setup_shm(dumb_mode);
 
   if (!in_bitmap) memset(virgin_bits, 255, MAP_SIZE);
@@ -872,6 +871,8 @@ int main(int argc, char** argv, char** envp) {
   init_count_class16();
 
   setup_dirs_fds();
+
+  setup_custom_mutator();
 
   setup_cmdline_file(argv + optind);
 

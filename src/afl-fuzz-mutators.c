@@ -281,7 +281,6 @@ void load_custom_mutator_py(const char* module_name) {
   mutator->name = module_name;
   ACTF("Loading Python mutator library from '%s'...", module_name);
 
-  /* TODO: unify "init" and "fuzz" */
   if (py_functions[PY_FUNC_INIT])
     mutator->afl_custom_init = init_py;
 

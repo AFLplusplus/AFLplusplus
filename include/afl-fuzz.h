@@ -627,7 +627,9 @@ int    init_py_module(u8*);
 void   finalize_py_module();
 
 void   init_py(unsigned int seed);
-void   fuzz_py(char*, size_t, char*, size_t, char**, size_t*);
+/* TODO: unify fuzz interface for custom mutator and Python mutator */
+size_t fuzz_py(u8*, size_t, u8*, size_t, unsigned int);
+void   fuzz_py_original(char*, size_t, char*, size_t, char**, size_t*);
 size_t pre_save_py(u8* data, size_t size, u8** new_data);
 u32    init_trim_py(u8*, size_t);
 u32    post_trim_py(u8);
