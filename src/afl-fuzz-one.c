@@ -449,7 +449,7 @@ u8 fuzz_one_original(char** argv) {
    * TRIMMING *
    ************/
 
-  if (!dumb_mode && !queue_cur->trim_done && !custom_mutator && !disable_trim) {
+  if (!dumb_mode && !queue_cur->trim_done && !disable_trim) {
 
     u8 res = trim_case(argv, queue_cur, in_buf);
 
@@ -484,7 +484,7 @@ u8 fuzz_one_original(char** argv) {
 
   // custom_stage:	// not used - yet
 
-  if (custom_mutator) {
+  if (mutator->afl_custom_fuzz) {
 
     stage_short = "custom";
     stage_name = "custom mutator";
@@ -499,8 +499,9 @@ u8 fuzz_one_original(char** argv) {
     for (stage_cur = 0; stage_cur < stage_max; ++stage_cur) {
 
       size_t orig_size = (size_t)len;
-      size_t mutated_size = custom_mutator(in_buf, orig_size, mutated_buf,
-                                           max_seed_size, UR(UINT32_MAX));
+      size_t mutated_size = mutator->afl_custom_fuzz(in_buf, orig_size,
+                                                     mutated_buf, max_seed_size,
+                                                     UR(UINT32_MAX));
       if (mutated_size > 0) {
 
         out_buf = ck_realloc(out_buf, mutated_size);

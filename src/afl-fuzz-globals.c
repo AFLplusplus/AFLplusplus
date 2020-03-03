@@ -259,11 +259,6 @@ s32 cmplog_child_pid, cmplog_forksrv_pid;
 /* Custom mutator */
 struct custom_mutator* mutator;
 
-/* hooks for the custom mutator function */
-size_t (*custom_mutator)(u8 *data, size_t size, u8 *mutated_out,
-                         size_t max_size, unsigned int seed);
-size_t (*pre_save_handler)(u8 *data, size_t size, u8 **new_data);
-
 /* Interesting values, as per config.h */
 
 s8  interesting_8[] = {INTERESTING_8};
