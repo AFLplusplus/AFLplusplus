@@ -1647,7 +1647,7 @@ python_stage:
     ck_read(fd, new_buf, target->len, target->fname);
     close(fd);
 
-    fuzz_py(out_buf, len, new_buf, target->len, &retbuf, &retlen);
+    fuzz_py_original(out_buf, len, new_buf, target->len, &retbuf, &retlen);
 
     ck_free(new_buf);
 

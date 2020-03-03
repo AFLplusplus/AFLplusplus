@@ -32,6 +32,8 @@ int init_py_module(u8* module_name) {
 
   if (!module_name) return 1;
 
+  Py_Initialize();
+
 #if PY_MAJOR_VERSION >= 3
   PyObject* py_name = PyUnicode_FromString(module_name);
 #else
@@ -58,7 +60,12 @@ int init_py_module(u8* module_name) {
 
       if (!py_functions[py_idx] || !PyCallable_Check(py_functions[py_idx])) {
 
-        if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
+        if (py_idx == PY_FUNC_PRE_SAVE) {
+
+          // Implenting the pre_save API is optional for now
+          if (PyErr_Occurred()) PyErr_Print();
+
+        } else if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
 
           // Implementing the trim API is optional for now
           if (PyErr_Occurred()) PyErr_Print();
@@ -152,8 +159,9 @@ void init_py(unsigned int seed) {
   }
 }
 
-void fuzz_py(char* buf, size_t buflen, char* add_buf, size_t add_buflen,
-             char** ret, size_t* retlen) {
+void fuzz_py_original(char* buf, size_t buflen,
+                      char* add_buf, size_t add_buflen,
+                      char** ret, size_t* retlen) {
 
   if (py_module != NULL) {
 
@@ -199,6 +207,72 @@ void fuzz_py(char* buf, size_t buflen, char* add_buf, size_t add_buflen,
       return;
 
     }
+
+  }
+
+}
+
+size_t fuzz_py(u8* data, size_t size, u8* mutated_out, size_t max_size,
+               unsigned int seed) {
+
+  size_t out_size;
+  PyObject *py_args, *py_value;
+  py_args = PyTuple_New(3);
+
+  py_value = PyByteArray_FromStringAndSize(data, size);
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+
+  }
+
+  PyTuple_SetItem(py_args, 0, py_value);
+
+#if PY_MAJOR_VERSION >= 3
+  py_value = PyLong_FromLong(max_size);
+#else
+  py_value = PyInt_FromLong(max_size);
+#endif
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+
+  }
+
+  PyTuple_SetItem(py_args, 1, py_value);
+
+#if PY_MAJOR_VERSION >= 3
+  py_value = PyLong_FromLong(seed);
+#else
+  py_value = PyInt_FromLong(seed);
+#endif
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+
+  }
+
+  PyTuple_SetItem(py_args, 2, py_value);
+
+  py_value = PyObject_CallObject(py_functions[PY_FUNC_FUZZ], py_args);
+
+  Py_DECREF(py_args);
+
+  if (py_value != NULL) {
+
+    out_size = PyByteArray_Size(py_value);
+    memcpy(mutated_out, PyByteArray_AsString(py_value), out_size);
+    Py_DECREF(py_value);
+
+    return out_size;
+
+  } else {
+
+    PyErr_Print();
+    FATAL("Call failed");
 
   }
 
