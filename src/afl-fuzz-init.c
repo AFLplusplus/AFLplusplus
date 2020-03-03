@@ -894,7 +894,7 @@ void find_timeout(void) {
 
 }
 
-/* A helper function for maybe_delete_out_dir(), deleting all prefixed
+/* A helper function for handle_existing_out_dir(), deleting all prefixed
    files in a directory. */
 
 static u8 delete_files(u8* path, u8* prefix) {
@@ -1018,9 +1018,10 @@ dir_cleanup_failed:
 }
 
 /* Delete fuzzer output directory if we recognize it as ours, if the fuzzer
-   is not currently running, and if the last run time isn't too great. */
+   is not currently running, and if the last run time isn't too great. 
+   Resume fuzzing if `-` is set as in_dir or if AFL_AUTORESUME is set */
 
-void maybe_delete_out_dir(void) {
+static void handle_existing_out_dir(void) {
 
   FILE* f;
   u8*   fn = alloc_printf("%s/fuzzer_stats", out_dir);
@@ -1063,6 +1064,15 @@ void maybe_delete_out_dir(void) {
 
     fclose(f);
 
+    /* Autoresume treats a normal run as in_place_resume if a valid out dir already exists */
+
+    if (!in_place_resume && autoresume) {
+    
+      OKF("Detected prior run with AFL_AUTORESUME set. Resuming.");
+      in_place_resume = 1;
+
+    }
+
     /* Let's see how much work is at stake. */
 
     if (!in_place_resume && last_update - start_time2 > OUTPUT_GRACE * 60) {
@@ -1079,7 +1089,7 @@ void maybe_delete_out_dir(void) {
            "    or specify a different output location for this job. To resume "
            "the old\n"
            "    session, put '-' as the input directory in the command line "
-           "('-i -') and\n"
+           "('-i -') or set the AFL_AUTORESUME=1 env variable and\n"
            "    try again.\n",
            OUTPUT_GRACE);
 
@@ -1306,7 +1316,7 @@ void setup_dirs_fds(void) {
 
     if (errno != EEXIST) PFATAL("Unable to create '%s'", out_dir);
 
-    maybe_delete_out_dir();
+    handle_existing_out_dir();
 
   } else {
 
