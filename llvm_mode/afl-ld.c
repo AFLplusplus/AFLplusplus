@@ -125,6 +125,7 @@ static void edit_params(int argc, char** argv) {
   opt_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "opt");
   opt_params[opt_par_cnt++] =
       alloc_printf("--load=%s/afl-llvm-lto-instrumentation.so", afl_path);
+opt_params[opt_par_cnt++] = "-S"; // TODO FIXME BUG - temporay, remove
   opt_params[opt_par_cnt++] = "--afl-lto";
   opt_params[opt_par_cnt++] = linked_file;  // input: .ll file
   opt_params[opt_par_cnt++] = "-o";
