@@ -65,8 +65,9 @@ ifeq "$(LLVM_APPLE)" "1"
   $(warning llvm_mode will not compile with Xcode clang...)
 endif
 
-CFLAGS      ?= -O3 -funroll-loops
-CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
+CFLAGS          ?= -O3 -funroll-loops
+override CFLAGS += -Wall
+               -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
                -DLLVM_VERSION=\"$(LLVMVER)\"
@@ -74,9 +75,9 @@ ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
 endif
 
-CXXFLAGS    ?= -O3 -funroll-loops
-CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -I ../include/ \
-               -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
+CXXFLAGS          ?= -O3 -funroll-loops
+override CXXFLAGS += -Wall -D_FORTIFY_SOURCE=2 -g -I ../include/ \
+                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
