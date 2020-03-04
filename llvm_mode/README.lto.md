@@ -30,10 +30,10 @@ and many dead ends until we got to this:
    the program to our executable
 
 The result:
- * 15% speed gain compared to llvm_mode
+ * 10-15% speed gain compared to llvm_mode
  * non-colliding edge coverage :-)
- * due to an unknown issue not all interesting edges are instrumened - this
-   is currently investigated
+ * due to an unknown issue not a small number of interesting edges are
+   instrumened - this is currently investigated
 
 Because of no collisions and the speed gain the new LTO mode is already better
 than llvm_mode even with the issue present.

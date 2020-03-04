@@ -45,12 +45,14 @@
 #include <dirent.h>
 
 static u8 **ld_params,              /* Parameters passed to the real 'ld'   */
-    **link_params,                  /*   Parameters passed to 'llvm-link'   */
-    **opt_params;                   /*           Parameters passed to 'opt' */
+    **link_params,                  /* Parameters passed to 'llvm-link'     */
+    **opt_params,                   /* Parameters passed to 'opt' opt       */
+    **inst_params;                  /* Parameters passed to 'opt' inst      */
 
 static u8* input_file;              /* Originally specified input file      */
-static u8 *modified_file,           /* Instrumented file for the real 'ld'  */
-    *linked_file;                   /* file where we link all files         */
+static u8 *final_file,              /* Instrumented file for the real 'ld'  */
+    *linked_file,                   /* file where we link all files         */
+    *modified_file;                 /* file that was optimized before instr */
 static u8* afl_path = AFL_PATH;
 static u8* real_ld = AFL_REAL_LD;
 static u8  cwd[4096];
@@ -64,9 +66,10 @@ static u8 be_quiet,                 /* Quiet mode (no stderr output)        */
     we_link,                        /* we have bc/ll -> link + optimize     */
     just_version;                   /* Just show version?                   */
 
-static u32 ld_par_cnt = 1,          /* Number of params to 'ld'             */
-    link_par_cnt = 1,               /* Number of params to 'llvm-link'      */
-    opt_par_cnt = 1;                /* Number of params to 'opt'            */
+static u32 ld_param_cnt = 1,        /* Number of params to 'ld'             */
+    link_param_cnt = 1,             /* Number of params to 'llvm-link'      */
+    opt_param_cnt = 1,              /* Number of params to 'opt' opt        */
+    inst_param_cnt = 1;             /* Number of params to 'opt' instr      */
 
 /* This function wipes a directory - our AR unpack directory in this case */
 static u8 wipe_directory(u8* path) {
@@ -115,6 +118,13 @@ static void at_exit_handler(void) {
 
     }
 
+    if (final_file) {
+
+      unlink(final_file);
+      final_file = NULL;
+
+    }
+
     if (ar_dir != NULL) {
 
       wipe_directory(ar_dir);
@@ -158,9 +168,9 @@ u8* getthecwd() {
 }
 
 /* Check if an ar extracted file is already in the parameter list */
-int is_duplicate(u8** params, u32 ld_par_cnt, u8* ar_file) {
+int is_duplicate(u8** params, u32 ld_param_cnt, u8* ar_file) {
 
-  for (uint32_t i = 0; i < ld_par_cnt; i++)
+  for (uint32_t i = 0; i < ld_param_cnt; i++)
     if (params[i] != NULL)
       if (strcmp(params[i], ar_file) == 0) return 1;
 
@@ -184,31 +194,45 @@ static void edit_params(int argc, char** argv) {
 
   }
 
-  modified_file =
-      alloc_printf("%s/.afl-%u-%u.bc", tmp_dir, getpid(), (u32)time(NULL));
   linked_file =
-      alloc_printf("%s/.afl-%u-%u.ll", tmp_dir, getpid(), (u32)time(NULL));
+      alloc_printf("%s/.afl-%u-%u-1.ll", tmp_dir, getpid(), (u32)time(NULL));
+  modified_file =
+      alloc_printf("%s/.afl-%u-%u-2.bc", tmp_dir, getpid(), (u32)time(NULL));
+  final_file =
+      alloc_printf("%s/.afl-%u-%u-3.bc", tmp_dir, getpid(), (u32)time(NULL));
 
-  ld_params = ck_alloc((argc + 32) * sizeof(u8*));
-  link_params = ck_alloc((argc + 32) * sizeof(u8*));
-  opt_params = ck_alloc(8 * sizeof(u8*));
+  ld_params = ck_alloc((argc + 128) * sizeof(u8*));
+  link_params = ck_alloc((argc + 256) * sizeof(u8*));
+  inst_params = ck_alloc(12 * sizeof(u8*));
+  opt_params = ck_alloc(12 * sizeof(u8*));
 
   ld_params[0] = (u8*)real_ld;
   ld_params[argc] = 0;
 
   link_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "llvm-link");
-  link_params[link_par_cnt++] = "-S";  // we create the linked file as .ll
-  link_params[link_par_cnt++] = "-o";
-  link_params[link_par_cnt++] = linked_file;
+  link_params[link_param_cnt++] = "-S";  // we create the linked file as .ll
+  link_params[link_param_cnt++] = "-o";
+  link_params[link_param_cnt++] = linked_file;
 
   opt_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "opt");
-  opt_params[opt_par_cnt++] =
+  if (getenv("AFL_DONT_OPTIMIZE") == NULL)
+    opt_params[opt_param_cnt++] = "-O3";
+  else
+    opt_params[opt_param_cnt++] = "-O0";
+  // opt_params[opt_param_cnt++] = "-S"; // only when debugging
+  opt_params[opt_param_cnt++] = linked_file;  // input: .ll file
+  opt_params[opt_param_cnt++] = "-o";
+  opt_params[opt_param_cnt++] = modified_file;  // output: .bc file
+
+  inst_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "opt");
+  inst_params[inst_param_cnt++] =
       alloc_printf("--load=%s/afl-llvm-lto-instrumentation.so", afl_path);
-  // opt_params[opt_par_cnt++] = "-S"; // only when debugging
-  opt_params[opt_par_cnt++] = "--afl-lto";
-  opt_params[opt_par_cnt++] = linked_file;  // input: .ll file
-  opt_params[opt_par_cnt++] = "-o";
-  opt_params[opt_par_cnt++] = modified_file;  // output: .bc file
+  // inst_params[inst_param_cnt++] = "-S"; // only when debugging
+  inst_params[inst_param_cnt++] = "--disable-opt";
+  inst_params[inst_param_cnt++] = "--afl-lto";
+  inst_params[inst_param_cnt++] = modified_file;  // input: .bc file
+  inst_params[inst_param_cnt++] = "-o";
+  inst_params[inst_param_cnt++] = final_file;  // output: .bc file
 
   for (i = 1; i < argc; i++) {
 
@@ -219,7 +243,7 @@ static void edit_params(int argc, char** argv) {
       just_version = 1;
       ld_params[1] = argv[i];
       ld_params[2] = NULL;
-      modified_file = input_file;
+      final_file = input_file;
       return;
 
     }
@@ -305,9 +329,9 @@ static void edit_params(int argc, char** argv) {
 
           if (passthrough || argv[i][0] == '-' || is_llvm_file(ar_file) == 0) {
 
-            if (is_duplicate(ld_params, ld_par_cnt, ar_file) == 0) {
+            if (is_duplicate(ld_params, ld_param_cnt, ar_file) == 0) {
 
-              ld_params[ld_par_cnt++] = ar_file;
+              ld_params[ld_param_cnt++] = ar_file;
               if (debug)
                 SAYF(cMGN "[D] " cRST "not a LTO link file: %s\n", ar_file);
 
@@ -315,16 +339,16 @@ static void edit_params(int argc, char** argv) {
 
           } else {
 
-            if (is_duplicate(link_params, link_par_cnt, ar_file) == 0) {
+            if (is_duplicate(link_params, link_param_cnt, ar_file) == 0) {
 
               if (we_link == 0) {  // we have to honor order ...
 
-                ld_params[ld_par_cnt++] = modified_file;
+                ld_params[ld_param_cnt++] = final_file;
                 we_link = 1;
 
               }
 
-              link_params[link_par_cnt++] = ar_file;
+              link_params[link_param_cnt++] = ar_file;
               if (debug) SAYF(cMGN "[D] " cRST "is a link file: %s\n", ar_file);
 
             }
@@ -345,26 +369,37 @@ static void edit_params(int argc, char** argv) {
 
     }
 
-    if (passthrough || argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
-      ld_params[ld_par_cnt++] = argv[i];
-    else {
+    if (passthrough || argv[i][0] == '-' || is_llvm_file(argv[i]) == 0) {
+
+      // -O3 fucks up the CFG and instrumentation, so we downgrade to O2
+      // which is as we want things. Lets hope this is not too different
+      // in the various llvm versions!
+      if (strncmp(argv[i], "-plugin-opt=O", 13) == 0 &&
+          !getenv("AFL_DONT_OPTIMIZE"))
+        ld_params[ld_param_cnt++] = "-plugin-opt=O2";
+      else
+        ld_params[ld_param_cnt++] = argv[i];
+
+    } else {
 
       if (we_link == 0) {  // we have to honor order ...
-        ld_params[ld_par_cnt++] = modified_file;
+        ld_params[ld_param_cnt++] = final_file;
         we_link = 1;
 
       }
 
-      link_params[link_par_cnt++] = argv[i];
+      link_params[link_param_cnt++] = argv[i];
 
     }
 
   }
 
-  // if (have_lto == 0) ld_params[ld_par_cnt++] = AFL_CLANG_FLTO; // maybe we
+  // if (have_lto == 0) ld_params[ld_param_cnt++] = AFL_CLANG_FLTO; // maybe we
   // should not ...
-  ld_params[ld_par_cnt] = NULL;
-  link_params[link_par_cnt] = NULL;
+  ld_params[ld_param_cnt] = NULL;
+  link_params[link_param_cnt] = NULL;
+  opt_params[opt_param_cnt] = NULL;
+  inst_params[inst_param_cnt] = NULL;
 
 }
 
@@ -549,7 +584,7 @@ int main(int argc, char** argv) {
       if (debug) {
 
         SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
-        for (i = 0; i < link_par_cnt; i++)
+        for (i = 0; i < link_param_cnt; i++)
           SAYF(" \"%s\"", link_params[i]);
         SAYF("\n");
 
@@ -566,13 +601,13 @@ int main(int argc, char** argv) {
       if (waitpid(pid, &status, 0) <= 0) PFATAL("waitpid() failed");
       if (WEXITSTATUS(status) != 0) exit(WEXITSTATUS(status));
 
-      /* then we run the instrumentation through the optimizer */
+      /* then we perform an optimization on the collected objects files */
       if (!be_quiet)
-        OKF("Performing instrumentation via opt, creating %s", modified_file);
+        OKF("Performing optimization via opt, creating %s", modified_file);
       if (debug) {
 
         SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
-        for (i = 0; i < opt_par_cnt; i++)
+        for (i = 0; i < opt_param_cnt; i++)
           SAYF(" \"%s\"", opt_params[i]);
         SAYF("\n");
 
@@ -582,6 +617,29 @@ int main(int argc, char** argv) {
 
         execvp(opt_params[0], (char**)opt_params);
         FATAL("Oops, failed to execute '%s'", opt_params[0]);
+
+      }
+
+      if (pid < 0) PFATAL("fork() failed");
+      if (waitpid(pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+      if (WEXITSTATUS(status) != 0) exit(WEXITSTATUS(status));
+
+      /* then we run the instrumentation through the optimizer */
+      if (!be_quiet)
+        OKF("Performing instrumentation via opt, creating %s", final_file);
+      if (debug) {
+
+        SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
+        for (i = 0; i < inst_param_cnt; i++)
+          SAYF(" \"%s\"", inst_params[i]);
+        SAYF("\n");
+
+      }
+
+      if (!(pid = fork())) {
+
+        execvp(inst_params[0], (char**)inst_params);
+        FATAL("Oops, failed to execute '%s'", inst_params[0]);
 
       }
 
@@ -599,7 +657,7 @@ int main(int argc, char** argv) {
   if (debug) {
 
     SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
-    for (i = 0; i < ld_par_cnt; i++)
+    for (i = 0; i < ld_param_cnt; i++)
       SAYF(" \"%s\"", ld_params[i]);
     SAYF("\n");
 
@@ -640,6 +698,13 @@ int main(int argc, char** argv) {
 
       }
 
+      if (final_file) {
+
+        unlink(final_file);
+        final_file = NULL;
+
+      }
+
       if (ar_dir != NULL) {
 
         wipe_directory(ar_dir);
@@ -651,8 +716,10 @@ int main(int argc, char** argv) {
 
       if (!be_quiet) {
 
-        SAYF("[!] afl-ld: keeping link file %s and bitcode file %s",
-             linked_file, modified_file);
+        SAYF(
+            "[!] afl-ld: keeping link file %s, optimized bitcode %s and "
+            "instrumented bitcode %s",
+            linked_file, modified_file, final_file);
         if (ar_dir_cnt > 0 && ar_dir)
           SAYF(" and ar archive unpack directory %s", ar_dir);
         SAYF("\n");
@@ -680,3 +747,4 @@ int main(int argc, char** argv) {
   exit(WEXITSTATUS(status));
 
 }
+
