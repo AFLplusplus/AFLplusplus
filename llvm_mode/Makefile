@@ -65,33 +65,6 @@ ifeq "$(LLVM_APPLE)" "1"
   $(warning llvm_mode will not compile with Xcode clang...)
 endif
 
-CFLAGS          ?= -O3 -funroll-loops
-override CFLAGS = -Wall \
-               -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
-               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
-               -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
-               -DLLVM_VERSION=\"$(LLVMVER)\"
-ifdef AFL_TRACE_PC
-  CFLAGS    += -DUSE_TRACE_PC=1
-endif
-
-CXXFLAGS          ?= -O3 -funroll-loops
-override CXXFLAGS += -Wall -D_FORTIFY_SOURCE=2 -g -I ../include/ \
-                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
-
-CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
-CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
-
-
-# User teor2345 reports that this is required to make things work on MacOS X.
-ifeq "$(shell uname)" "Darwin"
-  CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
-endif
-
-ifeq "$(shell uname)" "OpenBSD"
-  CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so
-endif
-
 # We were using llvm-config --bindir to get the location of clang, but
 # this seems to be busted on some distros, so using the one in $PATH is
 # probably better.
@@ -144,25 +117,23 @@ ifneq "$(AFL_CLANG_FLTO)" ""
   AFL_REAL_LD ?= $(shell readlink /bin/ld 2>/dev/null)
 endif
 
-ifdef AFL_CLANG_FUSELD
-  CFLAGS    += -DAFL_CLANG_FUSELD=1
-endif
+CFLAGS          ?= -O3 -funroll-loops
+override CFLAGS = -Wall \
+               -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
+               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
+               -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
+               -DLLVM_VERSION=\"$(LLVMVER)\"  -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\"
 ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
 endif
 
-CFLAGS      ?= -O3 -funroll-loops
-CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
-               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
-               -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
-               -DLLVM_VERSION=\"$(LLVMVER)\" -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\"
-
-CXXFLAGS    ?= -O3 -funroll-loops
-CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -I ../include/ \
-               -DVERSION=\"$(VERSION)\" -Wno-variadic-macros 
+CXXFLAGS          ?= -O3 -funroll-loops
+override CXXFLAGS += -Wall -D_FORTIFY_SOURCE=2 -g -I ../include/ \
+                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
+
 
 # User teor2345 reports that this is required to make things work on MacOS X.
 ifeq "$(shell uname)" "Darwin"

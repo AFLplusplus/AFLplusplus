@@ -291,6 +291,9 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = AFL_PATH;
 
     cc_params[cc_par_cnt++] = lto_flag;
+  
+  } else
+
   if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
       getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
 

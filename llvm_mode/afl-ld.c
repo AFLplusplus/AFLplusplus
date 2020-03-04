@@ -248,10 +248,11 @@ static void edit_params(int argc, char** argv) {
       struct dirent* dir_ent;
 
       if (ar_dir_cnt == 0) {  // first archive, we setup up the basics
+
         ar_dir = alloc_printf("%s/.afl-%u-%u.dir", tmp_dir, getpid(),
                               (u32)time(NULL));
         if (mkdir(ar_dir, 0700) != 0)
-          FATAL("can not create temporary directory %s", ar_dir[ar_dir_cnt]);
+          FATAL("can not create temporary directory %s", ar_dir);
 
       }
 
