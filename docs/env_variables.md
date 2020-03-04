@@ -104,7 +104,7 @@ Then there are a few specific features that are only available in llvm_mode:
     - Setting AFL_LLVM_LAF_SPLIT_COMPARES will split all floating point and
       64, 32 and 16 bit integer CMP instructions
 
-    See llvm_mode/README.laf-intel.md for more information. 
+    See llvm_mode/README.laf-intel.md for more information.
 
 ### WHITELIST
 
@@ -192,7 +192,7 @@ checks or alter some of the more exotic semantics of the tool:
     deciding if a particular test case is a "hang". The default is 1 second
     or the value of the -t parameter, whichever is larger. Dialing the value
     down can be useful if you are very concerned about slow inputs, or if you
-    don't want AFL to spend too much time classifying that stuff and just 
+    don't want AFL to spend too much time classifying that stuff and just
     rapidly put all timeouts in that bin.
 
   - AFL_NO_ARITH causes AFL to skip most of the deterministic arithmetics.
@@ -223,15 +223,15 @@ checks or alter some of the more exotic semantics of the tool:
     for more.
 
   - Setting AFL_CUSTOM_MUTATOR_LIBRARY to a shared library with
-    afl_custom_mutator() creates additional mutations through this library.
+    afl_custom_fuzz() creates additional mutations through this library.
+    If afl-fuzz is compiled with Python (which is autodetected during builing
+    afl-fuzz), setting AFL_PYTHON_MODULE to a Python module can also provide
+    additional mutations.
     If AFL_CUSTOM_MUTATOR_ONLY is also set, all mutations will solely be
-    performed with/from the library. See [custom_mutator.md](custom_mutator.md)
-
-  - For AFL_PYTHON_MODULE and AFL_PYTHON_ONLY - they require afl-fuzz to
-    be compiled with Python (which is autodetected during builing afl-fuzz).
-    Please see [python_mutators.md](python_mutators.md).
-    This feature allows to configure custom mutators which can be very helpful
-    in e.g. fuzzing XML or other highly flexible structured input.
+    performed with the custom mutator.
+    This feature allows to configure custom mutators which can be very helpful,
+    e.g. fuzzing XML or other highly flexible structured input.
+    Please see [custom_mutators.md](custom_mutators.md).
 
   - AFL_FAST_CAL keeps the calibration stage about 2.5x faster (albeit less
     precise), which can help when starting a session against a slow target.
@@ -283,7 +283,7 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
 
   - Setting AFL_INST_LIBS causes the translator to also instrument the code
     inside any dynamically linked libraries (notably including glibc).
-  
+
   - Setting AFL_COMPCOV_LEVEL enables the CompareCoverage tracing of all cmp
     and sub in x86 and x86_64 and memory comparions functions (e.g. strcmp,
     memcmp, ...) when libcompcov is preloaded using AFL_PRELOAD.
@@ -292,7 +292,7 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     only comparisons with immediate values / read-only memory and
     AFL_COMPCOV_LEVEL=2 that instruments all the comparions. Level 2 is more
     accurate but may need a larger shared memory.
-  
+
   - Setting AFL_QEMU_COMPCOV enables the CompareCoverage tracing of all
     cmp and sub in x86 and x86_64.
     This is an alias of AFL_COMPCOV_LEVEL=1 when AFL_COMPCOV_LEVEL is
@@ -304,25 +304,25 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
 
   - AFL_DEBUG will print the found entrypoint for the binary to stderr.
     Use this if you are unsure if the entrypoint might be wrong - but
-    use it directly, e.g. afl-qemu-trace ./program 
+    use it directly, e.g. afl-qemu-trace ./program
 
   - AFL_ENTRYPOINT allows you to specify a specific entrypoint into the
     binary (this can be very good for the performance!).
     The entrypoint is specified as hex address, e.g. 0x4004110
     Note that the address must be the address of a basic block.
-  
+
   - When the target is i386/x86_64 you can specify the address of the function
     that has to be the body of the persistent loop using
     AFL_QEMU_PERSISTENT_ADDR=`start addr`.
-  
+
   - Another modality to execute the persistent loop is to specify also the
     AFL_QEMU_PERSISTENT_RET=`end addr` env variable.
     With this variable assigned, instead of patching the return address, the
     specified instruction is transformed to a jump towards `start addr`.
-    
+
   - AFL_QEMU_PERSISTENT_GPR=1 QEMU will save the original value of general
     purpose registers and restore them in each persistent cycle.
-  
+
   - With AFL_QEMU_PERSISTENT_RETADDR_OFFSET you can specify the offset from the
     stack pointer in which QEMU can find the return address when `start addr` is
     hitted.
@@ -376,7 +376,7 @@ The library honors these environmental variables:
   - AFL_LD_NO_CALLOC_OVER inhibits abort() on calloc() overflows. Most
     of the common allocators check for that internally and return NULL, so
     it's a security risk only in more exotic setups.
-  
+
   - AFL_ALIGNED_ALLOC=1 will force the alignment of the allocation size to
     max_align_t to be compliant with the C standard.
 
@@ -410,7 +410,7 @@ optimal values if not already present in the environment:
 
   - In the same vein, by default, MSAN_OPTIONS are set to:
 
-    exit_code=86 (required for legacy reasons)    
+    exit_code=86 (required for legacy reasons)
     abort_on_error=1
     symbolize=0
     msan_track_origins=0

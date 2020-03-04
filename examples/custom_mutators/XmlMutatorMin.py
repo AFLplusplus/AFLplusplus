@@ -7,6 +7,7 @@ from copy import deepcopy
 from lxml import etree as ET
 import random, re, io
 
+
 ###########################
 # The XmlMutatorMin class #
 ###########################
@@ -40,19 +41,19 @@ class XmlMutatorMin:
         self.tree = None
 
         # High-level mutators (no database needed)
-        hl_mutators_delete = [ "del_node_and_children", "del_node_but_children", "del_attribute", "del_content" ] # Delete items
-        hl_mutators_fuzz = ["fuzz_attribute"] # Randomly change attribute values
+        hl_mutators_delete = ["del_node_and_children", "del_node_but_children", "del_attribute", "del_content"]  # Delete items
+        hl_mutators_fuzz = ["fuzz_attribute"]  # Randomly change attribute values
 
         # Exposed mutators
         self.hl_mutators_all = hl_mutators_fuzz + hl_mutators_delete
-        
-    def __parse_xml (self, xml):
+
+    def __parse_xml(self, xml):
 
         """ Parse an XML string. Basic wrapper around lxml.parse() """
 
         try:
             # Function parse() takes care of comments / DTD / processing instructions / ...
-        	tree = ET.parse(io.BytesIO(xml))
+            tree = ET.parse(io.BytesIO(xml))
         except ET.ParseError:
             raise RuntimeError("XML isn't well-formed!")
         except LookupError as e:
@@ -61,34 +62,34 @@ class XmlMutatorMin:
         # Return a document wrapper
         return tree
 
-    def __exec_among (self, module, functions, min_times, max_times):
+    def __exec_among(self, module, functions, min_times, max_times):
 
         """ Randomly execute $functions between $min and $max times """
 
-        for i in xrange (random.randint (min_times, max_times)):
+        for i in xrange(random.randint(min_times, max_times)):
             # Function names are mangled because they are "private"
-            getattr (module, "_XmlMutatorMin__" + random.choice(functions)) ()
+            getattr(module, "_XmlMutatorMin__" + random.choice(functions))()
 
-    def __serialize_xml (self, tree):
+    def __serialize_xml(self, tree):
 
         """ Serialize a XML document. Basic wrapper around lxml.tostring() """
 
         return ET.tostring(tree, with_tail=False, xml_declaration=True, encoding=tree.docinfo.encoding)
 
-    def __ver (self, version):
+    def __ver(self, version):
 
         """ Helper for displaying lxml version numbers """
 
         return ".".join(map(str, version))
 
-    def reset (self):
-    
+    def reset(self):
+
         """ Reset the mutator """
 
         self.tree = deepcopy(self.input_tree)
 
-    def init_from_string (self, input_string):
-    
+    def init_from_string(self, input_string):
+
         """ Initialize the mutator from a XML string """
 
         # Get a pointer to the top-element
@@ -97,15 +98,15 @@ class XmlMutatorMin:
         # Get a working copy
         self.tree = deepcopy(self.input_tree)
 
-    def save_to_string (self):
-    
+    def save_to_string(self):
+
         """ Return the current XML document as UTF-8 string """
 
         # Return a text version of the tree
         return self.__serialize_xml(self.tree)
 
-    def __pick_element (self, exclude_root_node = False):
-    
+    def __pick_element(self, exclude_root_node=False):
+
         """ Pick a random element from the current document """
 
         # Get a list of all elements, but nodes like PI and comments
@@ -119,7 +120,7 @@ class XmlMutatorMin:
 
         # Pick a random element
         try:
-            elem_id = random.randint (start, len(elems) - 1)
+            elem_id = random.randint(start, len(elems) - 1)
             elem = elems[elem_id]
         except ValueError:
             # Should only occurs if "exclude_root_node = True"
@@ -127,8 +128,8 @@ class XmlMutatorMin:
 
         return (elem_id, elem)
 
-    def __fuzz_attribute (self):
-    
+    def __fuzz_attribute(self):
+
         """ Fuzz (part of) an attribute value """
 
         # Select a node to modify
@@ -144,19 +145,19 @@ class XmlMutatorMin:
             return
 
         # Pick a random attribute
-        rand_attrib_id = random.randint (0, len(attribs) - 1)
+        rand_attrib_id = random.randint(0, len(attribs) - 1)
         rand_attrib = attribs[rand_attrib_id]
 
         # We have the attribute to modify
         # Get its value
-        attrib_value = rand_elem.get(rand_attrib);
+        attrib_value = rand_elem.get(rand_attrib)
         # print("- Value: " + attrib_value)
 
         # Should we work on the whole value?
         func_call = "(?P<func>[a-zA-Z:\-]+)\((?P<args>.*?)\)"
         p = re.compile(func_call)
         l = p.findall(attrib_value)
-        if random.choice((True,False)) and l:
+        if random.choice((True, False)) and l:
             # Randomly pick one the function calls
             (func, args) = random.choice(l)
             # Split by "," and randomly pick one of the arguments
@@ -236,29 +237,29 @@ class XmlMutatorMin:
         # Modify the attribute
         rand_elem.set(rand_attrib, new_value.decode("utf-8"))
 
-    def __del_node_and_children (self):
+    def __del_node_and_children(self):
 
         """ High-level minimizing mutator
             Delete a random node and its children (i.e. delete a random tree) """
 
         self.__del_node(True)
 
-    def __del_node_but_children (self):
+    def __del_node_but_children(self):
 
         """ High-level minimizing mutator
             Delete a random node but its children (i.e. link them to the parent of the deleted node) """
 
         self.__del_node(False)
 
-    def __del_node (self, delete_children):
-    
+    def __del_node(self, delete_children):
+
         """ Called by the __del_node_* mutators """
 
         # Select a node to modify (but the root one)
-        (rand_elem_id, rand_elem) = self.__pick_element (exclude_root_node = True)
+        (rand_elem_id, rand_elem) = self.__pick_element(exclude_root_node=True)
 
         # If the document includes only a top-level element
-        # Then we can't pick a element (given that "exclude_root_node = True") 
+        # Then we can't pick a element (given that "exclude_root_node = True")
 
         # Is the document deep enough?
         if rand_elem is None:
@@ -275,12 +276,12 @@ class XmlMutatorMin:
             # Link children of the random (soon to be deleted) node to its parent
             for child in rand_elem:
                 rand_elem.getparent().append(child)
-            
+
         # Remove the node
         rand_elem.getparent().remove(rand_elem)
 
-    def __del_content (self):
-    
+    def __del_content(self):
+
         """ High-level minimizing mutator
             Delete the attributes and children of a random node """
 
@@ -294,8 +295,8 @@ class XmlMutatorMin:
         # Reset the node
         rand_elem.clear()
 
-    def __del_attribute (self):
-     
+    def __del_attribute(self):
+
         """ High-level minimizing mutator
             Delete a random attribute from a random node """
 
@@ -312,7 +313,7 @@ class XmlMutatorMin:
             return
 
         # Pick a random attribute
-        rand_attrib_id = random.randint (0, len(attribs) - 1)
+        rand_attrib_id = random.randint(0, len(attribs) - 1)
         rand_attrib = attribs[rand_attrib_id]
 
         # Log something
@@ -322,8 +323,8 @@ class XmlMutatorMin:
         # Delete the attribute
         rand_elem.attrib.pop(rand_attrib)
 
-    def mutate (self, min=1, max=5):
-    
+    def mutate(self, min=1, max=5):
+
         """ Execute some high-level mutators between $min and $max times, then some medium-level ones """
 
         # High-level mutation
