@@ -276,8 +276,7 @@ extern u8 cal_cycles,                   /* Calibration cycles defaults      */
     no_unlink,                          /* do not unlink cur_input          */
     use_stdin,                          /* use stdin for sending data       */
     debug,                              /* Debug mode                       */
-    custom_only,                        /* Custom mutator only mode         */
-    python_only;                        /* Python-only mode                 */
+    custom_only;                        /* Custom mutator only mode         */
 
 extern u32 stats_update_freq;           /* Stats update frequency (execs)   */
 
@@ -459,30 +458,112 @@ u8* (*post_handler)(u8* buf, u32* len);
 extern u8* cmplog_binary;
 extern s32 cmplog_child_pid, cmplog_forksrv_pid;
 
-/* hooks for the custom mutator function */
-/**
- * Perform custom mutations on a given input
- * @param data Input data to be mutated
- * @param size Size of input data
- * @param mutated_out Buffer to store the mutated input
- * @param max_size Maximum size of the mutated output. The mutation must not
- * produce data larger than max_size.
- * @param seed Seed used for the mutation. The mutation should produce the same
- * output given the same seed.
- * @return Size of the mutated output.
- */
-size_t (*custom_mutator)(u8* data, size_t size, u8* mutated_out,
-                         size_t max_size, unsigned int seed);
-/**
- * A post-processing function to use right before AFL writes the test case to
- * disk in order to execute the target. If this functionality is not needed,
- * Simply don't define this function.
- * @param data Buffer containing the test case to be executed.
- * @param size Size of the test case.
- * @param new_data Buffer to store the test case after processing
- * @return Size of data after processing.
- */
-size_t (*pre_save_handler)(u8* data, size_t size, u8** new_data);
+/* Custom mutators */
+
+struct custom_mutator {
+  const char* name;
+  void* dh;
+
+  /* hooks for the custom mutator function */
+
+  /**
+   * Initialize the custom mutator.
+   *
+   * (Optional)
+   *
+   * @param seed Seed used for the mutation.
+   */
+  void (*afl_custom_init)(unsigned int seed);
+
+  /**
+   * Perform custom mutations on a given input
+   *
+   * (Optional for now. Required in the future)
+   *
+   * @param[in] buf Input data to be mutated
+   * @param[in] buf_size Size of input data
+   * @param[in] add_buf Buffer containing the additional test case
+   * @param[in] add_buf_size Size of the additional test case
+   * @param[out] mutated_out Buffer to store the mutated input
+   * @param[in] max_size Maximum size of the mutated output. The mutation must not
+   *     produce data larger than max_size.
+   * @return Size of the mutated output.
+   */
+  size_t (*afl_custom_fuzz)(u8* buf, size_t buf_size,
+                            u8* add_buf, size_t add_buf_size,
+                            u8* mutated_out, size_t max_size);
+
+  /**
+   * A post-processing function to use right before AFL writes the test case to
+   * disk in order to execute the target.
+   *
+   * (Optional) If this functionality is not needed, simply don't define this
+   * function.
+   *
+   * @param[in] buf Buffer containing the test case to be executed
+   * @param[in] buf_size Size of the test case
+   * @param[out] out_buf Pointer to the buffer of storing the test case after
+   *     processing. External library should allocate memory for out_buf. AFL++
+   *     will release the memory after saving the test case.
+   * @return Size of the output buffer after processing
+   */
+  size_t (*afl_custom_pre_save)(u8* buf, size_t buf_size, u8** out_buf);
+
+  /**
+   * This method is called at the start of each trimming operation and receives
+   * the initial buffer. It should return the amount of iteration steps possible
+   * on this input (e.g. if your input has n elements and you want to remove
+   * them one by one, return n, if you do a binary search, return log(n),
+   * and so on...).
+   *
+   * If your trimming algorithm doesn't allow you to determine the amount of
+   * (remaining) steps easily (esp. while running), then you can alternatively
+   * return 1 here and always return 0 in post_trim until you are finished and
+   * no steps remain. In that case, returning 1 in post_trim will end the
+   * trimming routine. The whole current index/max iterations stuff is only used
+   * to show progress.
+   *
+   * (Optional)
+   *
+   * @param buf Buffer containing the test case
+   * @param buf_size Size of the test case
+   * @return The amount of possible iteration steps to trim the input
+   */
+  u32 (*afl_custom_init_trim)(u8* buf, size_t buf_size);
+
+  /**
+   * This method is called for each trimming operation. It doesn't have any
+   * arguments because we already have the initial buffer from init_trim and we
+   * can memorize the current state in global variables. This can also save
+   * reparsing steps for each iteration. It should return the trimmed input
+   * buffer, where the returned data must not exceed the initial input data in
+   * length. Returning anything that is larger than the original data (passed
+   * to init_trim) will result in a fatal abort of AFLFuzz.
+   *
+   * (Optional)
+   *
+   * @param[out] out_buf Pointer to the buffer containing the trimmed test case.
+   *     External library should allocate memory for out_buf. AFL++ will release
+   *     the memory after saving the test case.
+   * @param[out] out_buf_size Pointer to the size of the trimmed test case
+   */
+  void (*afl_custom_trim)(u8** out_buf, size_t* out_buf_size);
+
+  /**
+   * This method is called after each trim operation to inform you if your
+   * trimming step was successful or not (in terms of coverage). If you receive
+   * a failure here, you should reset your input to the last known good state.
+   *
+   * (Optional)
+   *
+   * @param success Indicates if the last trim operation was successful.
+   * @return The next trim iteration index (from 0 to the maximum amount of
+   *     steps returned in init_trim)
+   */
+  u32 (*afl_custom_post_trim)(u8 success);
+};
+
+extern struct custom_mutator* mutator;
 
 /* Interesting values, as per config.h */
 
@@ -525,9 +606,10 @@ enum {
 
   /* 00 */ PY_FUNC_INIT,
   /* 01 */ PY_FUNC_FUZZ,
-  /* 02 */ PY_FUNC_INIT_TRIM,
-  /* 03 */ PY_FUNC_POST_TRIM,
-  /* 04 */ PY_FUNC_TRIM,
+  /* 02 */ PY_FUNC_PRE_SAVE,
+  /* 03 */ PY_FUNC_INIT_TRIM,
+  /* 04 */ PY_FUNC_POST_TRIM,
+  /* 05 */ PY_FUNC_TRIM,
   PY_FUNC_COUNT
 
 };
@@ -538,15 +620,26 @@ extern PyObject* py_functions[PY_FUNC_COUNT];
 
 /**** Prototypes ****/
 
+/* Custom mutators */
+void setup_custom_mutator(void);
+void destroy_custom_mutator(void);
+void load_custom_mutator(const char*);
+void load_custom_mutator_py(const char*);
+u8   trim_case_custom(char** argv, struct queue_entry* q, u8* in_buf);
+
 /* Python */
 #ifdef USE_PYTHON
-int  init_py();
-void finalize_py();
-void fuzz_py(char*, size_t, char*, size_t, char**, size_t*);
-u32  init_trim_py(char*, size_t);
-u32  post_trim_py(char);
-void trim_py(char**, size_t*);
-u8   trim_case_python(char**, struct queue_entry*, u8*);
+int    init_py_module(u8*);
+void   finalize_py_module();
+
+void   init_py(unsigned int seed);
+size_t fuzz_py(u8* buf, size_t buf_size,
+               u8* add_buf, size_t add_buf_size,
+               u8* mutated_out, size_t max_size);
+size_t pre_save_py(u8* data, size_t size, u8** new_data);
+u32    init_trim_py(u8*, size_t);
+u32    post_trim_py(u8);
+void   trim_py(u8**, size_t*);
 #endif
 
 /* Queue */
@@ -629,7 +722,6 @@ u8   fuzz_one(char**);
 void bind_to_free_cpu(void);
 #endif
 void   setup_post(void);
-void   setup_custom_mutator(void);
 void   read_testcases(void);
 void   perform_dry_run(char**);
 void   pivot_inputs(void);

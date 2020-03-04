@@ -24,7 +24,7 @@ const char *afl_environment_variables[] = {
     "AFL_NO_X86",  // not really an env but we dont want to warn on it
     "AFL_PATH", "AFL_PERFORMANCE_FILE",
     //"AFL_PERSISTENT", // not implemented anymore, so warn additionally
-    "AFL_POST_LIBRARY", "AFL_PRELOAD", "AFL_PYTHON_MODULE", "AFL_PYTHON_ONLY",
+    "AFL_POST_LIBRARY", "AFL_PRELOAD", "AFL_PYTHON_MODULE",
     "AFL_QEMU_COMPCOV", "AFL_QEMU_COMPCOV_DEBUG", "AFL_QEMU_DEBUG_MAPS",
     "AFL_QEMU_DISABLE_CACHE", "AFL_QEMU_PERSISTENT_ADDR",
     "AFL_QEMU_PERSISTENT_CNT", "AFL_QEMU_PERSISTENT_GPR",

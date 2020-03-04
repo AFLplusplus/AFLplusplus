@@ -88,8 +88,7 @@ u8 cal_cycles = CAL_CYCLES,             /* Calibration cycles defaults      */
     no_unlink,                          /* do not unlink cur_input          */
     use_stdin = 1,                      /* use stdin for sending data       */
     be_quiet,                           /* is AFL_QUIET set?                */
-    custom_only,                        /* Custom mutator only mode         */
-    python_only;                        /* Python-only mode                 */
+    custom_only;                        /* Custom mutator only mode         */
 
 u32 stats_update_freq = 1;              /* Stats update frequency (execs)   */
 
@@ -256,10 +255,8 @@ u8 *(*post_handler)(u8 *buf, u32 *len);
 u8 *cmplog_binary;
 s32 cmplog_child_pid, cmplog_forksrv_pid;
 
-/* hooks for the custom mutator function */
-size_t (*custom_mutator)(u8 *data, size_t size, u8 *mutated_out,
-                         size_t max_size, unsigned int seed);
-size_t (*pre_save_handler)(u8 *data, size_t size, u8 **new_data);
+/* Custom mutator */
+struct custom_mutator* mutator;
 
 /* Interesting values, as per config.h */
 

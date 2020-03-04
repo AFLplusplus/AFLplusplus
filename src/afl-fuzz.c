@@ -155,10 +155,9 @@ static void usage(u8* argv0, int more_help) {
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
       "AFL_BENCH_JUST_ONE: run the target just once\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
-      "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_mutator() to mutate inputs\n"
+      "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
       "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
-      "AFL_PYTHON_ONLY: skip AFL++'s own mutators\n"
       "AFL_DEBUG: extra debugging output for Python mode trimming\n"
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_NO_UI: switch status screen off\n"
@@ -195,7 +194,7 @@ static void usage(u8* argv0, int more_help) {
         "use \"-hh\".\n\n");
 
 #ifdef USE_PYTHON
-  SAYF("Compiled with %s module support, see docs/python_mutators.md\n",
+  SAYF("Compiled with %s module support, see docs/custom_mutator.md\n",
        (char*)PYTHON_VERSION);
 #endif
 
@@ -658,11 +657,10 @@ int main(int argc, char** argv, char** envp) {
   OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
-  if (sync_id && force_deterministic &&
-      (getenv("AFL_CUSTOM_MUTATOR_ONLY") || getenv("AFL_PYTHON_ONLY")))
+  if (sync_id && force_deterministic && getenv("AFL_CUSTOM_MUTATOR_ONLY"))
     WARNF(
-        "Using -M master with the AFL_..._ONLY mutator options will result in "
-        "no deterministic mutations being done!");
+        "Using -M master with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "
+        "result in no deterministic mutations being done!");
 
   check_environment_vars(envp);
 
@@ -752,9 +750,9 @@ int main(int argc, char** argv, char** envp) {
   if (get_afl_env("AFL_FAST_CAL")) fast_cal = 1;
 
   if (get_afl_env("AFL_AUTORESUME")) {
-    
+
     autoresume = 1;
-    if (in_place_resume) 
+    if (in_place_resume)
       SAYF("AFL_AUTORESUME has no effect for '-i -'");
 
   }
@@ -832,16 +830,6 @@ int main(int argc, char** argv, char** envp) {
 
   if (get_afl_env("AFL_DEBUG")) debug = 1;
 
-  if (get_afl_env("AFL_PYTHON_ONLY")) {
-
-    /* This ensures we don't proceed to havoc/splice */
-    python_only = 1;
-
-    /* Ensure we also skip all deterministic steps */
-    skip_deterministic = 1;
-
-  }
-
   if (get_afl_env("AFL_CUSTOM_MUTATOR_ONLY")) {
 
     /* This ensures we don't proceed to havoc/splice */
@@ -862,7 +850,6 @@ int main(int argc, char** argv, char** envp) {
   check_cpu_governor();
 
   setup_post();
-  setup_custom_mutator();
   setup_shm(dumb_mode);
 
   if (!in_bitmap) memset(virgin_bits, 255, MAP_SIZE);
@@ -873,12 +860,7 @@ int main(int argc, char** argv, char** envp) {
 
   setup_dirs_fds();
 
-#ifdef USE_PYTHON
-  if (init_py()) FATAL("Failed to initialize Python module");
-#else
-  if (getenv("AFL_PYTHON_MODULE"))
-    FATAL("Your AFL binary was built without Python support");
-#endif
+  setup_custom_mutator();
 
   setup_cmdline_file(argv + optind);
 
@@ -1156,12 +1138,9 @@ stop_fuzzing:
   destroy_extras();
   ck_free(target_path);
   ck_free(sync_id);
+  destroy_custom_mutator();
 
   alloc_report();
-
-#ifdef USE_PYTHON
-  finalize_py();
-#endif
 
   OKF("We're done here. Have a nice day!\n");
 
