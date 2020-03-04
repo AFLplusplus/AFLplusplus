@@ -5,8 +5,12 @@
 
 #include "types.h"
 #include "list.h"
+#include "afl-prealloc.h"
 
-typedef struct timer_event {
+#define TIMER_PREALLOC_SIZE (64)
+
+typedef struct timer_event { 
+  PREALLOCABLE;
 
   u64 start_time;
   u64 end_time;
@@ -16,6 +20,11 @@ typedef struct timer_event {
 } timer_event_t;
 
 static list_t timer_events = {0};
+
+/* less calls to malloc */
+static timer_event_t timer_preallocate_buf[TIMER_PREALLOC_SIZE] = {0};
+static u8 timer_preallocate_count = 0;
+
 static u64 next_end_time = 0;
 static struct itimerval it;
 
@@ -65,7 +74,7 @@ static void handle_timeout(int signum) {
 
       el->callback(el->start_time, el->end_time, el->data);
       LIST_REMOVE_CURRENT_EL_IN_FOREACH();
-      free(el);
+      PRE_FREE(el, timer_preallocate_count);
 
     } else {
 
@@ -81,11 +90,19 @@ static void handle_timeout(int signum) {
 
 }
 
+static timer_event_t *timer_alloc() {
+  
+  timer_event_t *event;
+  PRE_ALLOC(event, timer_preallocate_buf, TIMER_PREALLOC_SIZE, timer_preallocate_count);
+  return event;
+
+}
+
 timer_event_t *timer_start(u64 millis, void (*callback)(u64 start_time, u64 end_time, void *data)) {
 
   /* add us to timeout list */
 
-  timer_event_t *event = calloc(1, sizeof(timer_event_t));
+  timer_event_t *event = timer_alloc();
   if (!event) FATAL("Failed to allocate timer event");
   event->callback = callback;
   event->start_time = get_cur_time();
@@ -107,7 +124,7 @@ void timer_cancel(timer_event_t *event) {
        but this way it triggers and resets anwyay */
 
   list_remove(&timer_events, event);
-  free(event);
+  PRE_FREE(event, timer_preallocate_count);
 
 }
 
@@ -118,13 +135,16 @@ void counter_inc() {
   counter++;
 }
 
+
+#ifdef TIMER_TEST_CODE
+/* test code for lists and timer */
 list_t testlist = {0};
 
 int main(int argc, char **argv) {
 
   u64 c2;
 
-
+  list_append(&testlist, (void *)1);
   for (c2 = 0; c2 < 77; c2 ++) {
 
     list_append(&testlist, (void *)c2);
@@ -155,7 +175,11 @@ int main(int argc, char **argv) {
     printf("%d ", (int)el);
   })
 
+
   printf(" contain 0: %d", list_contains(&testlist, (void *)0));
   printf(" contain 1: %d", list_contains(&testlist, (void *)1));
 
 }
+
+#endif /* TIMER_TEST_CODE */
+

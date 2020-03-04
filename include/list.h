@@ -6,18 +6,13 @@
 #include <string.h>
 
 #include "debug.h"
+#include "afl-prealloc.h"
 
-#define LIST_PREALLOC (64)  /* How many elements to allocate before malloc is needed */
-
-typedef enum el_status {
-  EL_UNUSED = 0,
-  EL_USED,
-  EL_ALLOCATED
-} el_status_t;
+#define LIST_PREALLOC_SIZE (64)  /* How many elements to allocate before malloc is needed */
 
 typedef struct list_element {
+  PREALLOCABLE;
 
-  el_status_t status;
   struct list_element *prev;
   struct list_element *next;
   void *data;
@@ -26,62 +21,21 @@ typedef struct list_element {
 
 typedef struct list {
 
-  u32 child_elements_used;
-  element_t child_elements[LIST_PREALLOC];
+  element_t element_prealloc_buf[LIST_PREALLOC_SIZE];
+  u32 element_prealloc_count;
 
 } list_t;
 
 static inline element_t *get_head(list_t *list) {
 
-  return &list->child_elements[0];
-
-}
-
-static element_t *list_alloc_el(list_t *list) {
-
-  element_t *el = NULL;
-
-  if (list->child_elements_used == LIST_PREALLOC) {
-
-    el = calloc(1, sizeof(element_t));
-    el->status = EL_ALLOCATED;
-    return el;
-
-  } else {
-
-    /* Find one of our preallocated elements */
-    u32 i;
-    /* Start with 1 as 0 is HEAD */
-    for (i = 1; i < LIST_PREALLOC; i++) { 
-
-      el = &list->child_elements[i];
-      if (el->status == EL_UNUSED) {
-
-        list->child_elements_used++;
-        el->status = EL_USED;
-        return el;
-
-      }
-    }
-  }
-
-  FATAL("BUG in list.h -> no element found or allocated!");
-  return el;
+  return &list->element_prealloc_buf[0];
 
 }
 
 static void list_free_el(list_t *list, element_t *el) {
 
-  if (el->status == EL_ALLOCATED) {
+  PRE_FREE(el, list->element_prealloc_count);
 
-    free(el);
-
-  } else {
-
-    --list->child_elements_used;
-    el->status = EL_UNUSED;
-
-  }
 }
 
 static void list_append(list_t *list, void *el) {
@@ -92,12 +46,13 @@ static void list_append(list_t *list, void *el) {
     /* initialize */
 
     memset(list, 0, sizeof(list_t));
+    PRE_ALLOC_FORCE(head, list->element_prealloc_count);
     head->next = head->prev = head;
-    list->child_elements_used = 1;
 
   }
 
-  element_t *el_box = list_alloc_el(list);
+  element_t *el_box = NULL;
+  PRE_ALLOC(el_box, list->element_prealloc_buf, LIST_PREALLOC_SIZE, list->element_prealloc_count);
   if (!el_box) FATAL("failed to allocate list element");
   el_box->data = el;
   el_box->next = head;
@@ -117,8 +72,6 @@ static void list_append(list_t *list, void *el) {
   list_t *li = (list);                       \
   element_t *head = get_head((li));          \
   element_t *el_box = (head)->next;          \
-  /* printf("List access from %x (next = %x)"\
-             "\n", (head), (head)->next); */ \
   if (!el_box)                               \
     FATAL("foreach over uninitialized list");\
   while(el_box != head) {                    \
