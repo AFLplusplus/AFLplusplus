@@ -111,7 +111,6 @@ void timer_cancel(timer_event_t *event) {
 
 }
 
-/* Test 
 volatile u64 counter = 0;
 
 void counter_inc() {
@@ -119,9 +118,24 @@ void counter_inc() {
   counter++;
 }
 
+list_t testlist = {0};
+
 int main(int argc, char **argv) {
 
   u64 c2;
+
+
+  for (c2 = 0; c2 < 77; c2 ++) {
+
+    list_append(&testlist, (void *)c2);
+
+  }
+
+  list_remove(&testlist, (void *)55);
+  list_remove(&testlist, (void *)72);
+  list_append(&testlist, (void *)88);
+  list_append(&testlist, (void *)99);
+  list_remove(&testlist, (void *)0);
 
   timer_start(1000, counter_inc);
   timer_event_t *cancelme = timer_start(2000, counter_inc);
@@ -136,7 +150,12 @@ int main(int argc, char **argv) {
 
   }
 
-  //printf("%ld", c2);
+  printf("\n");
+  LIST_FOREACH(&testlist, void, {
+    printf("%d ", (int)el);
+  })
+
+  printf(" contain 0: %d", list_contains(&testlist, (void *)0));
+  printf(" contain 1: %d", list_contains(&testlist, (void *)1));
 
 }
-*/
