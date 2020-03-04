@@ -32,8 +32,8 @@ typedef enum prealloc_status {
                                                                                 \
   if ((prealloc_counter) >= (prealloc_size)) {                                  \
                                                                                 \
-    el_ptr = malloc(sizeof(*el_ptr));                                           \
-    el_ptr->pre_status = PRE_STATUS_MALLOC;                                     \
+    (el_ptr) = malloc(sizeof(*(el_ptr)));                                       \
+    (el_ptr)->pre_status = PRE_STATUS_MALLOC;                                   \
                                                                                 \
   } else {                                                                      \
                                                                                 \
@@ -41,18 +41,18 @@ typedef enum prealloc_status {
     u32 i;                                                                      \
     for (i = 0; i < (prealloc_size); i++) {                                     \
                                                                                 \
-      el_ptr = &((prealloc_buf)[i]);                                            \
-      if (el_ptr->pre_status == PRE_STATUS_UNUSED) {                            \
+      (el_ptr) = &((prealloc_buf)[i]);                                          \
+      if ((el_ptr)->pre_status == PRE_STATUS_UNUSED) {                          \
                                                                                 \
         (prealloc_counter)++;                                                   \
-        el_ptr->pre_status = PRE_STATUS_USED;                                   \
+        (el_ptr)->pre_status = PRE_STATUS_USED;                                 \
         break;                                                                  \
                                                                                 \
       }                                                                         \
     }                                                                           \
   }                                                                             \
                                                                                 \
-  if(!el_ptr) {                                                                 \
+  if(!(el_ptr)) {                                                               \
     FATAL("BUG in list.h -> no element found or allocated!");                   \
   }                                                                             \
 } while(0);
