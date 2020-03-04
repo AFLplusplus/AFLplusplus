@@ -25,9 +25,9 @@
 
 // CONFIG OPTION:
 // If #define USE_SPLIT is used, then the llvm::SplitEdge function is used
-// instead of our own implementation. Ours looks better though and will
-// compile everywhere. So default is not to define this.
-//#define USE_SPLIT
+// instead of our own implementation. Ours looks better and will
+// compile everywhere. But it is not working for complex code. yet.
+#define USE_SPLIT
 
 #define AFL_LLVM_PASS
 
@@ -179,8 +179,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
     if (isBlacklisted(&F)) continue;
 
 #ifdef USE_SPLIT
-    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    LoopInfo &     LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+      // DominatorTree &DT =
+      // getAnalysis<DominatorTreeWrapperPass>(F).getDomTree(); LoopInfo &     LI
+      // = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 #endif
 
     std::vector<BasicBlock *> InsBlocks;
@@ -210,7 +211,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         Instruction *TI = origBB->getTerminator();
 
-        if (TI == NULL) continue;
+        if (TI == NULL || TI->getNumSuccessors() < 2) continue;
 
         for (succ_iterator SI = succ_begin(origBB), SE = succ_end(origBB);
              SI != SE; ++SI) {
@@ -220,11 +221,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         }
 
+        if (Successors.size() != TI->getNumSuccessors())
+          FATAL("Different successor numbers %lu <-> %u\n", Successors.size(),
+                TI->getNumSuccessors());
+
         for (uint32_t j = 0; j < Successors.size(); j++) {
 
 #ifdef USE_SPLIT
-          BasicBlock *newBB =
-              llvm::SplitEdge(origBB, Successors[j], &DT, &LI, nullptr);
+          BasicBlock *newBB = llvm::SplitEdge(origBB, Successors[j]);
 #else
           BasicBlock *newBB = BasicBlock::Create(C, "", &F, nullptr);
 #endif
