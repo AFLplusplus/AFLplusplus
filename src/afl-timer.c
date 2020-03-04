@@ -122,6 +122,7 @@ void cancel_timeout(timer_event_t *event) {
        but this way it triggers and resets anwyay */
 
   list_remove(&timer_events, event);
+  free(event);
 
 }
 
