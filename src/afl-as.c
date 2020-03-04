@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -27,7 +27,7 @@
    utility has right now is to be able to skip them gracefully and allow the
    compilation process to continue.
 
-   That said, see experimental/clang_asm_normalize/ for a solution that may
+   That said, see examples/clang_asm_normalize/ for a solution that may
    allow clang users to make things work even with hand-crafted assembly. Just
    note that there is no equivalent for GCC.
 
@@ -478,12 +478,19 @@ static void add_instrumentation(void) {
     if (!ins_lines)
       WARNF("No instrumentation targets found%s.",
             pass_thru ? " (pass-thru mode)" : "");
-    else
+    else {
+
+      char modeline[100];
+      snprintf(modeline, sizeof(modeline), "%s%s%s%s",
+               getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
+               getenv("AFL_USE_ASAN") ? ", ASAN" : "",
+               getenv("AFL_USE_MSAN") ? ", MSAN" : "",
+               getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
+
       OKF("Instrumented %u locations (%s-bit, %s mode, ratio %u%%).", ins_lines,
-          use_64bit ? "64" : "32",
-          getenv("AFL_HARDEN") ? "hardened"
-                               : (sanitizer ? "ASAN/MSAN" : "non-hardened"),
-          inst_ratio);
+          use_64bit ? "64" : "32", modeline, inst_ratio);
+
+    }
 
   }
 
@@ -503,7 +510,7 @@ int main(int argc, char** argv) {
 
   clang_mode = !!getenv(CLANG_ENV_VAR);
 
-  if (!getenv("AFL_QUIET")) {
+  if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
     SAYF(cCYA "afl-as" VERSION cRST " by Michal Zalewski\n");
 
@@ -511,10 +518,13 @@ int main(int argc, char** argv) {
 
     be_quiet = 1;
 
-  if (argc < 2) {
+  if (argc < 2 || (argc == 2 && strcmp(argv[1], "-h") == 0)) {
 
-    SAYF(
-        "\n"
+    fprintf(
+        stdout,
+        "afl-as" VERSION
+        " by Michal Zalewski\n"
+        "\n%s [-h]\n\n"
         "This is a helper application for afl-fuzz. It is a wrapper around GNU "
         "'as',\n"
         "executed by the toolchain whenever using afl-gcc or afl-clang. You "
@@ -522,10 +532,24 @@ int main(int argc, char** argv) {
         "don't want to run this program directly.\n\n"
 
         "Rarely, when dealing with extremely complex projects, it may be "
-        "advisable to\n"
-        "set AFL_INST_RATIO to a value less than 100 in order to reduce the "
-        "odds of\n"
-        "instrumenting every discovered branch.\n\n");
+        "advisable\n"
+        "to set AFL_INST_RATIO to a value less than 100 in order to reduce "
+        "the\n"
+        "odds of instrumenting every discovered branch.\n\n"
+        "Environment variables used:\n"
+        "AFL_AS: path to assembler to use for instrumented files\n"
+        "AFL_CC: fall back path to assembler\n"
+        "AFL_CXX: fall back path to assembler\n"
+        "TMPDIR: directory to use for temporary files\n"
+        "TEMP: fall back path to directory for temporary files\n"
+        "TMP: fall back path to directory for temporary files\n"
+        "AFL_INST_RATIO: user specified instrumentation ratio\n"
+        "AFL_QUIET: suppress verbose output\n"
+        "AFL_KEEP_ASSEMBLY: leave instrumented assembly files\n"
+        "AFL_AS_FORCE_INSTRUMENT: force instrumentation for asm sources\n"
+        "AFL_HARDEN, AFL_USE_ASAN, AFL_USE_MSAN, AFL_USE_UBSAN:\n"
+        "  used in the instrumentation summary message\n",
+        argv[0]);
 
     exit(1);
 

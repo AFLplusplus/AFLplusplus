@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -29,6 +29,7 @@
 
 #include "debug.h"
 #include "alloc-inl.h"
+#include "envs.h"
 
 /* Detect @@ in args. */
 #ifndef __glibc__
@@ -37,6 +38,7 @@
 
 u8*       target_path;                  /* Path to target binary            */
 extern u8 use_stdin;
+extern u8 be_quiet;
 
 void detect_file_args(char** argv, u8* prog_in) {
 
@@ -72,23 +74,27 @@ void detect_file_args(char** argv, u8* prog_in) {
 
       if (!prog_in) FATAL("@@ syntax is not supported by this tool.");
 
-      /* Be sure that we're always using fully-qualified paths. */
-
-      if (prog_in[0] == '/')
-        aa_subst = prog_in;
-      else
-        aa_subst = alloc_printf("%s/%s", cwd, prog_in);
-
       use_stdin = 0;
 
-      /* Construct a replacement argv value. */
+      if (prog_in[0] != 0) {  // not afl-showmap special case
 
-      *aa_loc = 0;
-      n_arg = alloc_printf("%s%s%s", argv[i], aa_subst, aa_loc + 2);
-      argv[i] = n_arg;
-      *aa_loc = '@';
+        /* Be sure that we're always using fully-qualified paths. */
 
-      if (prog_in[0] != '/') ck_free(aa_subst);
+        if (prog_in[0] == '/')
+          aa_subst = prog_in;
+        else
+          aa_subst = alloc_printf("%s/%s", cwd, prog_in);
+
+        /* Construct a replacement argv value. */
+
+        *aa_loc = 0;
+        n_arg = alloc_printf("%s%s%s", argv[i], aa_subst, aa_loc + 2);
+        argv[i] = n_arg;
+        *aa_loc = '@';
+
+        if (prog_in[0] != '/') ck_free(aa_subst);
+
+      }
 
     }
 
@@ -107,7 +113,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 4));
   u8 *   tmp, *cp, *rsl, *own_copy;
 
-  memcpy(new_argv + 3, argv + 1, sizeof(char*) * argc);
+  memcpy(new_argv + 3, argv + 1, (int)(sizeof(char*)) * argc);
 
   new_argv[2] = target_path;
   new_argv[1] = "--";
@@ -158,7 +164,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
   SAYF("\n" cLRD "[-] " cRST
        "Oops, unable to find the 'afl-qemu-trace' binary. The binary must be "
        "built\n"
-       "    separately by following the instructions in qemu_mode/README.qemu. "
+       "    separately by following the instructions in qemu_mode/README.md. "
        "If you\n"
        "    already have the binary installed, you may need to specify "
        "AFL_PATH in the\n"
@@ -182,7 +188,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 3));
   u8 *   tmp, *cp, *rsl, *own_copy;
 
-  memcpy(new_argv + 2, argv + 1, sizeof(char*) * argc);
+  memcpy(new_argv + 2, argv + 1, (int)(sizeof(char*)) * argc);
 
   new_argv[1] = target_path;
 
@@ -254,7 +260,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
   SAYF("\n" cLRD "[-] " cRST
        "Oops, unable to find the '%s' binary. The binary must be "
        "built\n"
-       "    separately by following the instructions in qemu_mode/README.qemu. "
+       "    separately by following the instructions in qemu_mode/README.md. "
        "If you\n"
        "    already have the binary installed, you may need to specify "
        "AFL_PATH in the\n"
@@ -269,6 +275,54 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
        ncp);
 
   FATAL("Failed to locate '%s'.", ncp);
+
+}
+
+void check_environment_vars(char** envp) {
+
+  int   index = 0, found = 0;
+  char* env;
+  while ((env = envp[index++]) != NULL) {
+
+    if (strncmp(env, "ALF_", 4) == 0) {
+
+      WARNF("Potentially mistyped AFL environment variable: %s", env);
+      found++;
+
+    } else if (strncmp(env, "AFL_", 4) == 0) {
+
+      int i = 0, match = 0;
+      while (match == 0 && afl_environment_variables[i] != NULL)
+        if (strncmp(env, afl_environment_variables[i],
+                    strlen(afl_environment_variables[i])) == 0 &&
+            env[strlen(afl_environment_variables[i])] == '=')
+          match = 1;
+        else
+          i++;
+      if (match == 0) {
+
+        WARNF("Mistyped AFL environment variable: %s", env);
+        found++;
+
+      }
+
+    }
+
+  }
+
+  if (found) sleep(2);
+
+}
+
+char* get_afl_env(char* env) {
+
+  char* val;
+
+  if ((val = getenv(env)) != NULL)
+    if (!be_quiet)
+      OKF("Loaded environment variable %s with value %s\n", env, val);
+
+  return val;
 
 }
 

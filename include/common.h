@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -30,8 +30,10 @@
 extern u8* target_path;                 /* Path to target binary            */
 
 void detect_file_args(char** argv, u8* prog_in);
+void check_environment_vars(char** env);
 
 char** get_qemu_argv(u8* own_loc, char** argv, int argc);
 char** get_wine_argv(u8* own_loc, char** argv, int argc);
+char*  get_afl_env(char* env);
 #endif
 

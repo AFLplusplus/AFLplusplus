@@ -32,6 +32,7 @@ import os
 import sys
 import time
 import zlib
+import traceback
 
 # GDB Python SDK
 import gdb
@@ -164,7 +165,7 @@ def dump_process_memory(output_dir):
                     print("Segment empty: @0x{0:016x} (size:UNKNOWN) {1}".format(entry.start, entry.objfile))
                 else:
                     print("Dumping segment @0x{0:016x} (size:0x{1:x}): {2} [{3}]".format(entry.start, len(seg_content), entry.objfile, repr(seg_info['permissions'])))
-                    compressed_seg_content = zlib.compress(seg_content)
+                    compressed_seg_content = zlib.compress(str(seg_content))
                     md5_sum = hashlib.md5(compressed_seg_content).hexdigest() + ".bin"
                     seg_info["content_file"] = md5_sum
                     
@@ -173,7 +174,8 @@ def dump_process_memory(output_dir):
                     out_file.write(compressed_seg_content)
                     out_file.close()
 
-            except:
+            except Exception as e:
+                traceback.print_exc()
                 print("Exception reading segment ({}): {}".format(entry.objfile, sys.exc_info()[0]))
         else:
             print("Skipping segment {0}@0x{1:016x}".format(entry.objfile, entry.start))

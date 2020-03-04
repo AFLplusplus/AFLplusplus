@@ -22,6 +22,7 @@
 #include <string>
 #include <fstream>
 #include <sys/time.h>
+#include "llvm/Config/llvm-config.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/DebugInfo.h"
@@ -32,9 +33,18 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/IR/Verifier.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
+
+#if LLVM_VERSION_MAJOR > 3 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
+#include "llvm/IR/Verifier.h"
+#include "llvm/IR/DebugInfo.h"
+#else
+#include "llvm/Analysis/Verifier.h"
+#include "llvm/DebugInfo.h"
+#define nullptr 0
+#endif
 
 #include <set>
 
@@ -115,7 +125,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       c = M.getOrInsertFunction("tolower", Int32Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                 ,
-                                nullptr
+                                NULL
 #endif
       );
 #if LLVM_VERSION_MAJOR < 9
@@ -140,6 +150,8 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
          * For now, just instrument the block if we are not able
          * to determine our location. */
         DebugLoc Loc = IP->getDebugLoc();
+#if LLVM_VERSION_MAJOR >= 4 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
         if (Loc) {
 
           DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
@@ -191,6 +203,47 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           }
 
         }
+
+#else
+        if (!Loc.isUnknown()) {
+
+          DILocation cDILoc(Loc.getAsMDNode(C));
+
+          unsigned int instLine = cDILoc.getLineNumber();
+          StringRef    instFilename = cDILoc.getFilename();
+
+          (void)instLine;
+
+          /* Continue only if we know where we actually are */
+          if (!instFilename.str().empty()) {
+
+            for (std::list<std::string>::iterator it = myWhitelist.begin();
+                 it != myWhitelist.end(); ++it) {
+
+              /* We don't check for filename equality here because
+               * filenames might actually be full paths. Instead we
+               * check that the actual filename ends in the filename
+               * specified in the list. */
+              if (instFilename.str().length() >= it->length()) {
+
+                if (instFilename.str().compare(
+                        instFilename.str().length() - it->length(),
+                        it->length(), *it) == 0) {
+
+                  instrumentBlock = true;
+                  break;
+
+                }
+
+              }
+
+            }
+
+          }
+
+        }
+
+#endif
 
         /* Either we couldn't figure out our location or the location is
          * not whitelisted, so we skip instrumentation. */
@@ -444,7 +497,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
 bool CompareTransform::runOnModule(Module &M) {
 
-  if (getenv("AFL_QUIET") == NULL)
+  if (isatty(2) && getenv("AFL_QUIET") == NULL)
     llvm::errs() << "Running compare-transform-pass by laf.intel@gmail.com, "
                     "extended by heiko@hexco.de\n";
   transformCmps(M, true, true, true, true, true);

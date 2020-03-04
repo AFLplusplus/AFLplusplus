@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -26,8 +26,8 @@
 
 /* Version string: */
 
-// c = release, d = volatilegithub dev, e = experimental branch
-#define VERSION "++2.60e"
+// c = release, d = volatile github dev, e = experimental branch
+#define VERSION "++2.62d"
 
 /******************************************************
  *                                                    *
@@ -39,6 +39,11 @@
    a lot less nice): */
 
 #define USE_COLOR
+
+/* If you want to have the original afl internal memory corruption checks.
+   Disabled by default for speed. it is better to use "make ASAN_BUILD=1". */
+
+//#define _WANT_ORIGINAL_AFL_ALLOC
 
 /* Comment out to disable fancy ANSI boxes and use poor man's 7-bit UI: */
 
@@ -62,12 +67,16 @@
 
 /* Default memory limit for child process (MB): */
 
+#ifndef __NetBSD__
 #ifndef WORD_SIZE_64
 #define MEM_LIMIT 25
 #else
 #define MEM_LIMIT 50
 #endif                                                    /* ^!WORD_SIZE_64 */
-
+#else  /* NetBSD's kernel needs more space for stack, see discussion for issue \
+          #165 */
+#define MEM_LIMIT 200
+#endif
 /* Default memory limit when running in QEMU mode (MB): */
 
 #define MEM_LIMIT_QEMU 200
@@ -361,6 +370,10 @@
 /* Enable NeverZero counters in QEMU mode */
 
 #define AFL_QEMU_NOT_ZERO
+
+/* AFL RedQueen */
+
+#define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
 
 /* Uncomment this to use inferior block-coverage-based instrumentation. Note
    that you need to recompile the target binary for this to have any effect: */

@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -528,6 +528,13 @@ u8 fuzz_one_original(char** argv) {
       goto abandon_entry;
 
     }
+
+  }
+
+  if (cmplog_mode) {
+
+    if (input_to_state_stage(argv, in_buf, out_buf, len, queue_cur->exec_cksum))
+      goto abandon_entry;
 
   }
 
@@ -1467,7 +1474,7 @@ skip_interest:
   stage_name = "user extras (insert)";
   stage_short = "ext_UI";
   stage_cur = 0;
-  stage_max = extras_cnt * len;
+  stage_max = extras_cnt * (len + 1);
 
   orig_hit_cnt = new_hit_cnt;
 
@@ -3485,7 +3492,7 @@ skip_interest:
   stage_name = "user extras (insert)";
   stage_short = "ext_UI";
   stage_cur = 0;
-  stage_max = extras_cnt * len;
+  stage_max = extras_cnt * (len + 1);
 
   orig_hit_cnt = new_hit_cnt;
 
@@ -3707,7 +3714,7 @@ pacemaker_fuzzing:
 
             case 1:
               if (temp_len < 2) break;
-              temp_len_puppet = UR(temp_len << 3);
+              temp_len_puppet = UR((temp_len << 3) - 1);
               FLIP_BIT(out_buf, temp_len_puppet);
               FLIP_BIT(out_buf, temp_len_puppet + 1);
               MOpt_globals.cycles_v2[STAGE_FLIP2] += 1;
@@ -3715,7 +3722,7 @@ pacemaker_fuzzing:
 
             case 2:
               if (temp_len < 2) break;
-              temp_len_puppet = UR(temp_len << 3);
+              temp_len_puppet = UR((temp_len << 3) - 3);
               FLIP_BIT(out_buf, temp_len_puppet);
               FLIP_BIT(out_buf, temp_len_puppet + 1);
               FLIP_BIT(out_buf, temp_len_puppet + 2);

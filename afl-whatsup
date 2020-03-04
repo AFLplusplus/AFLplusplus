@@ -18,12 +18,13 @@
 # instances of afl-fuzz.
 #
 
-echo "status check tool for afl-fuzz by Michal Zalewski"
+echo "$0 status check tool for afl-fuzz by Michal Zalewski"
 echo
 test "$1" = "-h" && {
-  echo $0
+  echo $0 [-s] output_directory
   echo
-  echo afl-whatsup has no command line options
+  echo Options:
+  echo   -s  -  skip details and output summary results only
   echo
   exit 1
 }
@@ -45,7 +46,7 @@ if [ "$DIR" = "" ]; then
   echo "Usage: $0 [ -s ] afl_sync_dir" 1>&2
   echo 1>&2
   echo "The -s option causes the tool to skip all the per-fuzzer trivia and show" 1>&2
-  echo "just the summary results. See docs/parallel_fuzzing.txt for additional tips." 1>&2
+  echo "just the summary results. See docs/parallel_fuzzing.md for additional tips." 1>&2
   echo 1>&2
   exit 1
 

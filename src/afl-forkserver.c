@@ -6,7 +6,7 @@
 
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -27,6 +27,7 @@
 #include "config.h"
 #include "types.h"
 #include "debug.h"
+#include "common.h"
 #include "forkserver.h"
 
 #include <stdio.h>
@@ -154,7 +155,7 @@ void init_forkserver(char **argv) {
   int                     status;
   s32                     rlen;
 
-  ACTF("Spinning up the fork server...");
+  if (!getenv("AFL_QUIET")) ACTF("Spinning up the fork server...");
 
   if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
 
@@ -206,7 +207,7 @@ void init_forkserver(char **argv) {
 
     setsid();
 
-    if (!getenv("AFL_DEBUG_CHILD_OUTPUT")) {
+    if (!get_afl_env("AFL_DEBUG_CHILD_OUTPUT")) {
 
       dup2(dev_null_fd, 1);
       dup2(dev_null_fd, 2);
@@ -311,7 +312,7 @@ void init_forkserver(char **argv) {
 
   if (rlen == 4) {
 
-    OKF("All right - fork server is up.");
+    if (!getenv("AFL_QUIET")) OKF("All right - fork server is up.");
     return;
 
   }
@@ -332,7 +333,7 @@ void init_forkserver(char **argv) {
            "have a\n"
            "    restrictive memory limit configured, this is expected; please "
            "read\n"
-           "    %s/notes_for_asan.txt for help.\n",
+           "    %s/notes_for_asan.md for help.\n",
            doc_path);
 
     } else if (!mem_limit) {
@@ -408,7 +409,7 @@ void init_forkserver(char **argv) {
          "with ASAN and\n"
          "    you have a restrictive memory limit configured, this is "
          "expected; please\n"
-         "    read %s/notes_for_asan.txt for help.\n",
+         "    read %s/notes_for_asan.md for help.\n",
          doc_path);
 
   } else if (!mem_limit) {

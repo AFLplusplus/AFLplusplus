@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -184,10 +184,20 @@ void bind_to_free_cpu(void) {
     "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/vanhauser-thc/AFLplusplus"
 #endif
 
-  for (i = 0; i < cpu_core_count; ++i)
-    if (!cpu_used[i]) break;
+  size_t cpu_start = 0;
 
+  try:
+#ifndef __ANDROID__
+    for (i = cpu_start; i < cpu_core_count; i++)
+      if (!cpu_used[i]) break;
   if (i == cpu_core_count) {
+
+#else
+    for (i = cpu_core_count - cpu_start - 1; i > -1; i--)
+      if (!cpu_used[i]) break;
+  if (i == -1) {
+
+#endif
 
     SAYF("\n" cLRD "[-] " cRST
          "Uh-oh, looks like all %d CPU cores on your system are allocated to\n"
@@ -197,12 +207,11 @@ void bind_to_free_cpu(void) {
          "you are\n"
          "    absolutely sure, you can set AFL_NO_AFFINITY and try again.\n",
          cpu_core_count);
-
     FATAL("No more free CPU cores");
 
   }
 
-  OKF("Found a free CPU core, binding to #%u.", i);
+  OKF("Found a free CPU core, try binding to #%u.", i);
 
   cpu_aff = i;
 
@@ -212,22 +221,49 @@ void bind_to_free_cpu(void) {
 #elif defined(__NetBSD__)
   c = cpuset_create();
   if (c == NULL) PFATAL("cpuset_create failed");
-
   cpuset_set(i, c);
 #endif
 
 #if defined(__linux__)
-  if (sched_setaffinity(0, sizeof(c), &c)) PFATAL("sched_setaffinity failed");
-#elif defined(__FreeBSD__) || defined(__DragonFly__)
-  if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c))
-    PFATAL("pthread_setaffinity failed");
-#elif defined(__NetBSD__)
-  if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c))
-    PFATAL("pthread_setaffinity failed");
+  if (sched_setaffinity(0, sizeof(c), &c)) {
 
-  cpuset_destroy(c);
+    if (cpu_start == cpu_core_count)
+      PFATAL("sched_setaffinity failed for CPU %d, exit", i);
+    WARNF("sched_setaffinity failed to CPU %d, trying next CPU", i);
+    cpu_start++;
+    goto try
+      ;
+
+  }
+
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+  if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c)) {
+
+    if (cpu_start == cpu_core_count)
+      PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
+    WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
+    cpu_start++;
+    goto try
+      ;
+
+  }
+
+#elif defined(__NetBSD__)
+if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
+
+  if (cpu_start == cpu_core_count)
+    PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
+  WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
+  cpu_start++;
+  goto try
+    ;
+
+}
+
+cpuset_destroy(c);
 #else
-  // this will need something for other platforms
+// this will need something for other platforms
+// TODO: Solaris/Illumos has processor_bind ... might worth a try
 #endif
 
 }
@@ -239,7 +275,7 @@ void bind_to_free_cpu(void) {
 void setup_post(void) {
 
   void* dh;
-  u8*   fn = getenv("AFL_POST_LIBRARY");
+  u8*   fn = get_afl_env("AFL_POST_LIBRARY");
   u32   tlen = 6;
 
   if (!fn) return;
@@ -266,6 +302,12 @@ void setup_custom_mutator(void) {
   u8*   fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
 
   if (!fn) return;
+
+  if (limit_time_sig)
+    FATAL(
+        "MOpt and custom mutator are mutually exclusive. We accept pull "
+        "requests that integrates MOpt with the optional mutators "
+        "(custom/radamsa/redquenn/...).");
 
   ACTF("Loading custom mutator library from '%s'...", fn);
 
@@ -434,7 +476,7 @@ void perform_dry_run(char** argv) {
 
   struct queue_entry* q = queue;
   u32                 cal_failures = 0;
-  u8*                 skip_crashes = getenv("AFL_SKIP_CRASHES");
+  u8*                 skip_crashes = get_afl_env("AFL_SKIP_CRASHES");
 
   while (q) {
 
@@ -565,7 +607,13 @@ void perform_dry_run(char** argv) {
                "quickly\n"
                "      estimate the required amount of virtual memory for the "
                "binary. Also,\n"
-               "      if you are using ASAN, see %s/notes_for_asan.txt.\n\n"
+               "      if you are using ASAN, see %s/notes_for_asan.md.\n\n"
+
+               "    - In QEMU persistent mode the selected address(es) for the "
+               "loop are not\n"
+               "      properly cleaning up variables and memory. Try adding\n"
+               "      AFL_QEMU_PERSISTENT_GPR=1 or select better addresses in "
+               "the binary.\n\n"
 
                MSG_FORK_ON_APPLE
 
@@ -587,6 +635,12 @@ void perform_dry_run(char** argv) {
                "      so, please remove it. The fuzzer should be seeded with "
                "interesting\n"
                "      inputs - but not ones that cause an outright crash.\n\n"
+
+               "    - In QEMU persistent mode the selected address(es) for the "
+               "loop are not\n"
+               "      properly cleaning up variables and memory. Try adding\n"
+               "      AFL_QEMU_PERSISTENT_GPR=1 or select better addresses in "
+               "the binary.\n\n"
 
                MSG_FORK_ON_APPLE
 
@@ -840,7 +894,7 @@ void find_timeout(void) {
 
 }
 
-/* A helper function for maybe_delete_out_dir(), deleting all prefixed
+/* A helper function for handle_existing_out_dir(), deleting all prefixed
    files in a directory. */
 
 static u8 delete_files(u8* path, u8* prefix) {
@@ -964,9 +1018,10 @@ dir_cleanup_failed:
 }
 
 /* Delete fuzzer output directory if we recognize it as ours, if the fuzzer
-   is not currently running, and if the last run time isn't too great. */
+   is not currently running, and if the last run time isn't too great. 
+   Resume fuzzing if `-` is set as in_dir or if AFL_AUTORESUME is set */
 
-void maybe_delete_out_dir(void) {
+static void handle_existing_out_dir(void) {
 
   FILE* f;
   u8*   fn = alloc_printf("%s/fuzzer_stats", out_dir);
@@ -1009,6 +1064,15 @@ void maybe_delete_out_dir(void) {
 
     fclose(f);
 
+    /* Autoresume treats a normal run as in_place_resume if a valid out dir already exists */
+
+    if (!in_place_resume && autoresume) {
+    
+      OKF("Detected prior run with AFL_AUTORESUME set. Resuming.");
+      in_place_resume = 1;
+
+    }
+
     /* Let's see how much work is at stake. */
 
     if (!in_place_resume && last_update - start_time2 > OUTPUT_GRACE * 60) {
@@ -1025,7 +1089,7 @@ void maybe_delete_out_dir(void) {
            "    or specify a different output location for this job. To resume "
            "the old\n"
            "    session, put '-' as the input directory in the command line "
-           "('-i -') and\n"
+           "('-i -') or set the AFL_AUTORESUME=1 env variable and\n"
            "    try again.\n",
            OUTPUT_GRACE);
 
@@ -1180,11 +1244,11 @@ void maybe_delete_out_dir(void) {
 
   if (file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
+    fn = alloc_printf("%s/.cur_input.%s", tmp_dir, file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", out_dir);
+    fn = alloc_printf("%s/.cur_input", tmp_dir);
 
   }
 
@@ -1252,7 +1316,7 @@ void setup_dirs_fds(void) {
 
     if (errno != EEXIST) PFATAL("Unable to create '%s'", out_dir);
 
-    maybe_delete_out_dir();
+    handle_existing_out_dir();
 
   } else {
 
@@ -1396,11 +1460,11 @@ void setup_stdio_file(void) {
   u8* fn;
   if (file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", out_dir, file_extension);
+    fn = alloc_printf("%s/.cur_input.%s", tmp_dir, file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", out_dir);
+    fn = alloc_printf("%s/.cur_input", tmp_dir);
 
   }
 
@@ -1445,7 +1509,7 @@ void check_crash_handling(void) {
       "    sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist\n");
 
 #endif
-  if (!getenv("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES"))
+  if (!get_afl_env("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES"))
     FATAL("Crash reporter detected");
 
 #else
@@ -1497,7 +1561,7 @@ void check_cpu_governor(void) {
   u8    tmp[128];
   u64   min = 0, max = 0;
 
-  if (getenv("AFL_SKIP_CPUFREQ")) return;
+  if (get_afl_env("AFL_SKIP_CPUFREQ")) return;
 
   if (cpu_aff > 0)
     snprintf(tmp, sizeof(tmp), "%s%d%s", "/sys/devices/system/cpu/cpu", cpu_aff,
@@ -1578,7 +1642,7 @@ void check_cpu_governor(void) {
 #elif defined __APPLE__
   u64 min = 0, max = 0;
   size_t mlen = sizeof(min);
-  if (getenv("AFL_SKIP_CPUFREQ")) return;
+  if (get_afl_env("AFL_SKIP_CPUFREQ")) return;
 
   ACTF("Checking CPU scaling governor...");
 
@@ -1683,7 +1747,7 @@ void get_core_count(void) {
 
       } else if (cur_runnable + 1 <= cpu_core_count) {
 
-        OKF("Try parallel jobs - see %s/parallel_fuzzing.txt.", doc_path);
+        OKF("Try parallel jobs - see %s/parallel_fuzzing.md.", doc_path);
 
       }
 
@@ -1751,7 +1815,7 @@ static void handle_resize(int sig) {
 
 void check_asan_opts(void) {
 
-  u8* x = getenv("ASAN_OPTIONS");
+  u8* x = get_afl_env("ASAN_OPTIONS");
 
   if (x) {
 
@@ -1763,7 +1827,7 @@ void check_asan_opts(void) {
 
   }
 
-  x = getenv("MSAN_OPTIONS");
+  x = get_afl_env("MSAN_OPTIONS");
 
   if (x) {
 
@@ -1786,6 +1850,8 @@ static void handle_stop_sig(int sig) {
 
   if (child_pid > 0) kill(child_pid, SIGKILL);
   if (forksrv_pid > 0) kill(forksrv_pid, SIGKILL);
+  if (cmplog_child_pid > 0) kill(cmplog_child_pid, SIGKILL);
+  if (cmplog_forksrv_pid > 0) kill(cmplog_forksrv_pid, SIGKILL);
 
 }
 
@@ -1857,7 +1923,7 @@ void check_binary(u8* fname) {
 
   }
 
-  if (getenv("AFL_SKIP_BIN_CHECK") || use_wine) return;
+  if (get_afl_env("AFL_SKIP_BIN_CHECK") || use_wine) return;
 
   /* Check for blatant user errors. */
 
@@ -1916,41 +1982,41 @@ void check_binary(u8* fname) {
   if (!qemu_mode && !unicorn_mode && !dumb_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
-    SAYF(
-        "\n" cLRD "[-] " cRST
-        "Looks like the target binary is not instrumented! The fuzzer depends "
-        "on\n"
-        "    compile-time instrumentation to isolate interesting test cases "
-        "while\n"
-        "    mutating the input data. For more information, and for tips on "
-        "how to\n"
-        "    instrument binaries, please see %s/README.\n\n"
+    SAYF("\n" cLRD "[-] " cRST
+         "Looks like the target binary is not instrumented! The fuzzer depends "
+         "on\n"
+         "    compile-time instrumentation to isolate interesting test cases "
+         "while\n"
+         "    mutating the input data. For more information, and for tips on "
+         "how to\n"
+         "    instrument binaries, please see %s/README.md.\n\n"
 
-        "    When source code is not available, you may be able to leverage "
-        "QEMU\n"
-        "    mode support. Consult the README for tips on how to enable this.\n"
+         "    When source code is not available, you may be able to leverage "
+         "QEMU\n"
+         "    mode support. Consult the README.md for tips on how to enable "
+         "this.\n"
 
-        "    (It is also possible to use afl-fuzz as a traditional, \"dumb\" "
-        "fuzzer.\n"
-        "    For that, you can use the -n option - but expect much worse "
-        "results.)\n",
-        doc_path);
+         "    (It is also possible to use afl-fuzz as a traditional, \"dumb\" "
+         "fuzzer.\n"
+         "    For that, you can use the -n option - but expect much worse "
+         "results.)\n",
+         doc_path);
 
     FATAL("No instrumentation detected");
 
   }
 
-  if ((qemu_mode || unicorn_mode) &&
+  if ((qemu_mode) &&
       memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
          "This program appears to be instrumented with afl-gcc, but is being "
          "run in\n"
-         "    QEMU or Unicorn mode (-Q or -U). This is probably not what you "
+         "    QEMU mode (-Q). This is probably not what you "
          "want -\n"
          "    this setup will be slow and offer no practical benefits.\n");
 
-    FATAL("Instrumentation found in -Q or -U mode");
+    FATAL("Instrumentation found in -Q mode");
 
   }
 
@@ -2026,7 +2092,7 @@ void check_if_tty(void) {
 
   struct winsize ws;
 
-  if (getenv("AFL_NO_UI")) {
+  if (get_afl_env("AFL_NO_UI")) {
 
     OKF("Disabling the UI because AFL_NO_UI is set.");
     not_on_tty = 1;

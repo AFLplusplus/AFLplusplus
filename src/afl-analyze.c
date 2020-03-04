@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -77,7 +77,7 @@ static s32 dev_null_fd = -1;           /* FD to /dev/null                   */
 
 u8 edges_only,                         /* Ignore hit counts?                */
     use_hex_offsets,                   /* Show hex offsets?                 */
-    use_stdin = 1;                     /* Use stdin for program input?      */
+    be_quiet, use_stdin = 1;           /* Use stdin for program input?      */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_timed_out;                   /* Child timed out?                  */
@@ -660,7 +660,7 @@ static void set_up_environment(void) {
 
     if (access(use_dir, R_OK | W_OK | X_OK)) {
 
-      use_dir = getenv("TMPDIR");
+      use_dir = get_afl_env("TMPDIR");
       if (!use_dir) use_dir = "/tmp";
 
     }
@@ -671,7 +671,7 @@ static void set_up_environment(void) {
 
   /* Set sane defaults... */
 
-  x = getenv("ASAN_OPTIONS");
+  x = get_afl_env("ASAN_OPTIONS");
 
   if (x) {
 
@@ -683,7 +683,7 @@ static void set_up_environment(void) {
 
   }
 
-  x = getenv("MSAN_OPTIONS");
+  x = get_afl_env("MSAN_OPTIONS");
 
   if (x) {
 
@@ -709,7 +709,7 @@ static void set_up_environment(void) {
                          "allocator_may_return_null=1:"
                          "msan_track_origins=0", 0);
 
-  if (getenv("AFL_PRELOAD")) {
+  if (get_afl_env("AFL_PRELOAD")) {
 
     if (qemu_mode) {
 
@@ -728,9 +728,11 @@ static void set_up_environment(void) {
       }
 
       if (qemu_preload)
-        buf = alloc_printf("%s,LD_PRELOAD=%s", qemu_preload, afl_preload);
+        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           qemu_preload, afl_preload, afl_preload);
       else
-        buf = alloc_printf("LD_PRELOAD=%s", afl_preload);
+        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           afl_preload, afl_preload);
 
       setenv("QEMU_SET_ENV", buf, 1);
 
@@ -780,11 +782,11 @@ static void usage(u8* argv0) {
   SAYF(
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
-      "Required parameters:\n\n"
+      "Required parameters:\n"
 
-      "  -i file       - input test case to be analyzed by the tool\n"
+      "  -i file       - input test case to be analyzed by the tool\n\n"
 
-      "Execution control settings:\n\n"
+      "Execution control settings:\n"
 
       "  -f file       - input file read by the tested program (stdin)\n"
       "  -t msec       - timeout for each run (%d ms)\n"
@@ -794,13 +796,23 @@ static void usage(u8* argv0) {
       "  -W            - use qemu-based instrumentation with Wine (Wine "
       "mode)\n\n"
 
-      "Analysis settings:\n\n"
+      "Analysis settings:\n"
 
       "  -e            - look for edge coverage only, ignore hit counts\n\n"
 
-      "For additional tips, please consult %s/README.\n\n",
+      "For additional tips, please consult %s/README.md.\n\n"
 
-      argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
+      "Environment variables used:\n"
+      "TMPDIR: directory to use for temporary input files\n"
+      "ASAN_OPTIONS: custom settings for ASAN\n"
+      "              (must contain abort_on_error=1 and symbolize=0)\n"
+      "MSAN_OPTIONS: custom settings for MSAN\n"
+      "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_ANALYZE_HEX: print file offsets in hexadecimal instead of decimal\n"
+      "AFL_SKIP_BIN_CHECK: skip checking the location of and the target\n"
+
+      , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
 
@@ -863,7 +875,7 @@ static void find_binary(u8* fname) {
 
 /* Main entry point */
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv, char** envp) {
 
   s32    opt;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
@@ -983,8 +995,9 @@ int main(int argc, char** argv) {
 
   if (optind == argc || !in_file) usage(argv[0]);
 
-  use_hex_offsets = !!getenv("AFL_ANALYZE_HEX");
+  use_hex_offsets = !!get_afl_env("AFL_ANALYZE_HEX");
 
+  check_environment_vars(envp);
   setup_shm(0);
   atexit(at_exit_handler);
   setup_signal_handlers();
@@ -1017,7 +1030,7 @@ int main(int argc, char** argv) {
   if (child_timed_out)
     FATAL("Target binary times out (adjusting -t may help).");
 
-  if (getenv("AFL_SKIP_BIN_CHECK") == NULL && !anything_set())
+  if (get_afl_env("AFL_SKIP_BIN_CHECK") == NULL && !anything_set())
     FATAL("No instrumentation detected.");
 
   analyze(use_argv);

@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -87,6 +87,7 @@ u8 cal_cycles = CAL_CYCLES,             /* Calibration cycles defaults      */
     debug,                              /* Debug mode                       */
     no_unlink,                          /* do not unlink cur_input          */
     use_stdin = 1,                      /* use stdin for sending data       */
+    be_quiet,                           /* is AFL_QUIET set?                */
     custom_only,                        /* Custom mutator only mode         */
     python_only;                        /* Python-only mode                 */
 
@@ -114,6 +115,7 @@ u8 skip_deterministic,                  /* Skip deterministic stages?       */
     no_forkserver,                      /* Disable forkserver?              */
     crash_mode,                         /* Crash mode! Yeah!                */
     in_place_resume,                    /* Attempt in-place resume?         */
+    autoresume,                         /* Resume if out_dir exists?        */
     auto_changed,                       /* Auto-generated tokens changed?   */
     no_cpu_meter_red,                   /* Feng shui on the status screen   */
     no_arith,                           /* Skip most arithmetic ops         */
@@ -250,6 +252,9 @@ struct extra_data *a_extras;            /* Automatically selected extras    */
 u32                a_extras_cnt;        /* Total number of tokens available */
 
 u8 *(*post_handler)(u8 *buf, u32 *len);
+
+u8 *cmplog_binary;
+s32 cmplog_child_pid, cmplog_forksrv_pid;
 
 /* hooks for the custom mutator function */
 size_t (*custom_mutator)(u8 *data, size_t size, u8 *mutated_out,

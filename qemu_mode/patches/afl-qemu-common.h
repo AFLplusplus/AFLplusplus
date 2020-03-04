@@ -35,11 +35,18 @@
 #define __AFL_QEMU_COMMON
 
 #include "../../config.h"
+#include "../../include/cmplog.h"
 
-#ifndef CPU_NB_REGS
-#define AFL_REGS_NUM 1000
-#else
+#define PERSISTENT_DEFAULT_MAX_CNT 1000
+
+#ifdef CPU_NB_REGS
 #define AFL_REGS_NUM CPU_NB_REGS
+#elif TARGET_ARM
+#define AFL_REGS_NUM 32
+#elif TARGET_AARCH64
+#define AFL_REGS_NUM 32
+#else
+#define AFL_REGS_NUM 100
 #endif
 
 /* NeverZero */
@@ -56,11 +63,13 @@
 #define INC_AFL_AREA(loc) afl_area_ptr[loc]++
 #endif
 
+typedef void (*afl_persistent_hook_fn)(uint64_t *regs, uint64_t guest_base);
+
 /* Declared in afl-qemu-cpu-inl.h */
 
 extern unsigned char *afl_area_ptr;
 extern unsigned int   afl_inst_rms;
-extern abi_ulong      afl_start_code, afl_end_code;
+extern abi_ulong      afl_entry_point, afl_start_code, afl_end_code;
 extern abi_ulong      afl_persistent_addr;
 extern abi_ulong      afl_persistent_ret_addr;
 extern u8             afl_compcov_level;
@@ -69,20 +78,24 @@ extern unsigned char  is_persistent;
 extern target_long    persistent_stack_offset;
 extern unsigned char  persistent_first_pass;
 extern unsigned char  persistent_save_gpr;
-extern target_ulong   persistent_saved_gpr[AFL_REGS_NUM];
+extern uint64_t       persistent_saved_gpr[AFL_REGS_NUM];
 extern int            persisent_retaddr_offset;
+
+extern afl_persistent_hook_fn afl_persistent_hook_ptr;
 
 extern __thread abi_ulong afl_prev_loc;
 
-void afl_debug_dump_saved_regs();
+extern struct cmp_map *__afl_cmp_map;
+extern __thread u32    __afl_cmp_counter;
 
-void afl_persistent_loop();
+void afl_setup(void);
+void afl_forkserver(CPUState *cpu);
 
-void tcg_gen_afl_call0(void *func);
-void tcg_gen_afl_compcov_log_call(void *func, target_ulong cur_loc, TCGv arg1,
-                                  TCGv arg2);
+// void afl_debug_dump_saved_regs(void);
 
-void tcg_gen_afl_maybe_log_call(target_ulong cur_loc);
+void afl_persistent_loop(void);
+
+void afl_gen_tcg_plain_call(void *func);
 
 void afl_float_compcov_log_32(target_ulong cur_loc, float32 arg1, float32 arg2,
                               void *status);
@@ -95,12 +108,10 @@ void afl_float_compcov_log_80(target_ulong cur_loc, floatx80 arg1,
 
 static inline int is_valid_addr(target_ulong addr) {
 
-  int          l, flags;
+  int          flags;
   target_ulong page;
-  void *       p;
 
   page = addr & TARGET_PAGE_MASK;
-  l = (page + TARGET_PAGE_SIZE) - addr;
 
   flags = page_get_flags(page);
   if (!(flags & PAGE_VALID) || !(flags & PAGE_READ)) return 0;

@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -118,7 +118,8 @@ struct queue_entry {
       has_new_cov,                      /* Triggers new coverage?           */
       var_behavior,                     /* Variable behavior?               */
       favored,                          /* Currently favored?               */
-      fs_redundant;                     /* Marked as redundant in the fs?   */
+      fs_redundant,                     /* Marked as redundant in the fs?   */
+      fully_colorized;                  /* Do not run redqueen stage again  */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
       fuzz_level,                       /* Number of fuzzing iterations     */
@@ -168,7 +169,9 @@ enum {
   /* 16 */ STAGE_SPLICE,
   /* 17 */ STAGE_PYTHON,
   /* 18 */ STAGE_RADAMSA,
-  /* 19 */ STAGE_CUSTOM_MUTATOR
+  /* 19 */ STAGE_CUSTOM_MUTATOR,
+  /* 20 */ STAGE_COLORIZATION,
+  /* 21 */ STAGE_ITS,
 
 };
 
@@ -312,6 +315,7 @@ extern u8 skip_deterministic,           /* Skip deterministic stages?       */
     no_forkserver,                      /* Disable forkserver?              */
     crash_mode,                         /* Crash mode! Yeah!                */
     in_place_resume,                    /* Attempt in-place resume?         */
+    autoresume,                         /* Resume if out_dir exists?        */
     auto_changed,                       /* Auto-generated tokens changed?   */
     no_cpu_meter_red,                   /* Feng shui on the status screen   */
     no_arith,                           /* Skip most arithmetic ops         */
@@ -449,6 +453,11 @@ extern struct extra_data* a_extras;     /* Automatically selected extras    */
 extern u32                a_extras_cnt; /* Total number of tokens available */
 
 u8* (*post_handler)(u8* buf, u32* len);
+
+/* CmpLog */
+
+extern u8* cmplog_binary;
+extern s32 cmplog_child_pid, cmplog_forksrv_pid;
 
 /* hooks for the custom mutator function */
 /**
@@ -628,7 +637,6 @@ u32    find_start_position(void);
 void   find_timeout(void);
 double get_runnable_processes(void);
 void   nuke_resume_dir(void);
-void   maybe_delete_out_dir(void);
 void   setup_dirs_fds(void);
 void   setup_cmdline_file(char**);
 void   setup_stdio_file(void);
@@ -644,6 +652,16 @@ void   setup_signal_handlers(void);
 char** get_qemu_argv(u8*, char**, int);
 char** get_wine_argv(u8*, char**, int);
 void   save_cmdline(u32, char**);
+
+/* CmpLog */
+
+void init_cmplog_forkserver(char** argv);
+u8   common_fuzz_cmplog_stuff(char** argv, u8* out_buf, u32 len);
+
+/* RedQueen */
+
+u8 input_to_state_stage(char** argv, u8* orig_buf, u8* buf, u32 len,
+                        u32 exec_cksum);
 
 /**** Inline routines ****/
 

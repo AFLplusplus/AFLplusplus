@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -34,6 +34,12 @@ int init_py() {
   u8* module_name = getenv("AFL_PYTHON_MODULE");
 
   if (module_name) {
+
+    if (limit_time_sig)
+      FATAL(
+          "MOpt and Python mutator are mutually exclusive. We accept pull "
+          "requests that integrates MOpt with the optional mutators "
+          "(custom/radamsa/redquenn/...).");
 
 #if PY_MAJOR_VERSION >= 3
     PyObject* py_name = PyUnicode_FromString(module_name);

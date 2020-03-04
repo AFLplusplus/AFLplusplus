@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -76,6 +76,20 @@ typedef int64_t s64;
     (u32)((_ret << 24) | (_ret >> 24) | ((_ret << 8) & 0x00FF0000) | \
           ((_ret >> 8) & 0x0000FF00));                               \
                                                                      \
+  })
+
+#define SWAP64(_x)                                                             \
+  ({                                                                           \
+                                                                               \
+    u64 _ret = (_x);                                                           \
+    _ret =                                                                     \
+        (_ret & 0x00000000FFFFFFFF) << 32 | (_ret & 0xFFFFFFFF00000000) >> 32; \
+    _ret =                                                                     \
+        (_ret & 0x0000FFFF0000FFFF) << 16 | (_ret & 0xFFFF0000FFFF0000) >> 16; \
+    _ret =                                                                     \
+        (_ret & 0x00FF00FF00FF00FF) << 8 | (_ret & 0xFF00FF00FF00FF00) >> 8;   \
+    _ret;                                                                      \
+                                                                               \
   })
 
 #ifdef AFL_LLVM_PASS

@@ -20,8 +20,10 @@
 
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
@@ -29,6 +31,10 @@
 
 #ifdef __APPLE__
 #include <mach/vm_statistics.h>
+#endif
+
+#ifdef __FreeBSD__
+#include <sys/param.h>
 #endif
 
 #ifdef __linux__
@@ -61,6 +67,20 @@
 
 #include "config.h"
 #include "types.h"
+
+#if __STDC_VERSION__ < 201112L || \
+    (defined(__FreeBSD__) && __FreeBSD_version < 1200000)
+// use this hack if not C11
+typedef struct {
+
+  long long   __ll;
+  long double __ld;
+
+} max_align_t;
+
+#endif
+
+#define ALLOC_ALIGN_SIZE (_Alignof(max_align_t))
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
@@ -114,6 +134,8 @@
 #define ALLOC_CANARY 0xAACCAACC
 #define ALLOC_CLOBBER 0xCC
 
+#define TAIL_ALLOC_CANARY 0xAC
+
 #define PTR_C(_p) (((u32*)(_p))[-1])
 #define PTR_L(_p) (((u32*)(_p))[-2])
 
@@ -122,7 +144,8 @@
 static u32 max_mem = MAX_ALLOC;         /* Max heap usage to permit         */
 static u8  alloc_verbose,               /* Additional debug messages        */
     hard_fail,                          /* abort() when max_mem exceeded?   */
-    no_calloc_over;                     /* abort() on calloc() overflows?   */
+    no_calloc_over,                     /* abort() on calloc() overflows?   */
+    align_allocations;                  /* Force alignment to sizeof(void*) */
 
 #if defined __OpenBSD__ || defined __APPLE__
 #define __thread
@@ -140,7 +163,7 @@ static u32          alloc_canary;
 
 static void* __dislocator_alloc(size_t len) {
 
-  void*  ret;
+  u8*    ret;
   size_t tlen;
   int    flags, fd, sp;
 
@@ -154,11 +177,17 @@ static void* __dislocator_alloc(size_t len) {
 
   }
 
-  tlen = (1 + PG_COUNT(len + 8)) * PAGE_SIZE;
+  size_t rlen;
+  if (align_allocations && (len & (ALLOC_ALIGN_SIZE - 1)))
+    rlen = (len & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
+  else
+    rlen = len;
+
+  tlen = (1 + PG_COUNT(rlen + 8)) * PAGE_SIZE;
   flags = MAP_PRIVATE | MAP_ANONYMOUS;
   fd = -1;
 #if defined(USEHUGEPAGE)
-  sp = (len >= SUPER_PAGE_SIZE && !(len % SUPER_PAGE_SIZE));
+  sp = (rlen >= SUPER_PAGE_SIZE && !(rlen % SUPER_PAGE_SIZE));
 
 #if defined(__APPLE__)
   if (sp) fd = VM_FLAGS_SUPERPAGE_SIZE_2MB;
@@ -174,7 +203,7 @@ static void* __dislocator_alloc(size_t len) {
   /* We will also store buffer length and a canary below the actual buffer, so
      let's add 8 bytes for that. */
 
-  ret = mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
+  ret = (u8*)mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
 #if defined(USEHUGEPAGE)
   /* We try one more time with regular call */
   if (ret == MAP_FAILED) {
@@ -186,7 +215,7 @@ static void* __dislocator_alloc(size_t len) {
 #elif defined(__FreeBSD__)
     flags &= -MAP_ALIGNED_SUPER;
 #endif
-    ret = mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
+    ret = (u8*)mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
 
   }
 
@@ -204,13 +233,13 @@ static void* __dislocator_alloc(size_t len) {
 
   /* Set PROT_NONE on the last page. */
 
-  if (mprotect(ret + PG_COUNT(len + 8) * PAGE_SIZE, PAGE_SIZE, PROT_NONE))
+  if (mprotect(ret + PG_COUNT(rlen + 8) * PAGE_SIZE, PAGE_SIZE, PROT_NONE))
     FATAL("mprotect() failed when allocating memory");
 
   /* Offset the return pointer so that it's right-aligned to the page
      boundary. */
 
-  ret += PAGE_SIZE * PG_COUNT(len + 8) - len - 8;
+  ret += PAGE_SIZE * PG_COUNT(rlen + 8) - rlen - 8;
 
   /* Store allocation metadata. */
 
@@ -220,6 +249,14 @@ static void* __dislocator_alloc(size_t len) {
   PTR_C(ret) = alloc_canary;
 
   total_mem += len;
+
+  if (rlen != len) {
+
+    size_t i;
+    for (i = len; i < rlen; ++i)
+      ret[i] = TAIL_ALLOC_CANARY;
+
+  }
 
   return ret;
 
@@ -299,6 +336,16 @@ void free(void* ptr) {
 
   total_mem -= len;
 
+  if (align_allocations && (len & (ALLOC_ALIGN_SIZE - 1))) {
+
+    u8*    ptr_ = ptr;
+    size_t rlen = (len & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
+    for (; len < rlen; ++len)
+      if (ptr_[len] != TAIL_ALLOC_CANARY)
+        FATAL("bad tail allocator canary on free()");
+
+  }
+
   /* Protect everything. Note that the extra page at the end is already
      set as PROT_NONE, so we don't need to touch that. */
 
@@ -323,6 +370,7 @@ void* realloc(void* ptr, size_t len) {
   if (ret && ptr) {
 
     if (PTR_C(ptr) != alloc_canary) FATAL("bad allocator canary on realloc()");
+    // Here the tail canary check is delayed to free()
 
     memcpy(ret, ptr, MIN(len, PTR_L(ptr)));
     free(ptr);
@@ -397,6 +445,29 @@ void* aligned_alloc(size_t align, size_t len) {
 
 }
 
+/* specific BSD api mainly checking possible overflow for the size */
+
+void* reallocarray(void* ptr, size_t elem_len, size_t elem_cnt) {
+
+  const size_t elem_lim = 1UL << (sizeof(size_t) * 4);
+  const size_t elem_tot = elem_len * elem_cnt;
+  void*        ret = NULL;
+
+  if ((elem_len >= elem_lim || elem_cnt >= elem_lim) && elem_len > 0 &&
+      elem_cnt > (SIZE_MAX / elem_len)) {
+
+    DEBUGF("reallocarray size overflow (%zu)", elem_tot);
+
+  } else {
+
+    ret = realloc(ptr, elem_tot);
+
+  }
+
+  return ret;
+
+}
+
 __attribute__((constructor)) void __dislocator_init(void) {
 
   u8* tmp = (u8*)getenv("AFL_LD_LIMIT_MB");
@@ -418,6 +489,7 @@ __attribute__((constructor)) void __dislocator_init(void) {
   alloc_verbose = !!getenv("AFL_LD_VERBOSE");
   hard_fail = !!getenv("AFL_LD_HARD_FAIL");
   no_calloc_over = !!getenv("AFL_LD_NO_CALLOC_OVER");
+  align_allocations = !!getenv("AFL_ALIGNED_ALLOC");
 
 }
 

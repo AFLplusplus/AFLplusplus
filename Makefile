@@ -13,8 +13,12 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
-# Recommendation: 
-#   Better do not install afl++ into the same target directory as gcc/clang
+# For Heiko:
+#TEST_MMAP=1
+# the hash character is treated differently in different make versions
+# so use a variable for '#'
+HASH=\#
+
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
@@ -23,13 +27,13 @@ MISC_PATH   = $(PREFIX)/share/afl
 MAN_PATH    = $(PREFIX)/man/man8
 
 PROGNAME    = afl
-VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
+VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
 PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
-SH_PROGS    = afl-plot afl-cmin afl-whatsup afl-system-config
-MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8)
+SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
+MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
 
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
@@ -43,61 +47,65 @@ else
  endif
 endif
 
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+	CFLAGS_OPT = -march=native
+endif
+
 ifneq "$(shell uname -m)" "x86_64"
  ifneq "$(shell uname -m)" "i386"
+  ifneq "$(shell uname -m)" "amd64"
+   ifneq "$(shell uname -m)" "i86pc"
 	AFL_NO_X86=1
+   endif
+  endif
  endif
 endif
 
-CFLAGS     ?= -O3 -funroll-loops -march=native
-CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
+CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
+override CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
-              -DDOC_PATH=\"$(DOC_PATH)\" -Wno-unused-function
+              -DDOC_PATH=\"$(DOC_PATH)\" -Wno-unused-function -fcommon
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
-ifneq "($filter %3.7m, $(shell python3.7m-config --includes 2>/dev/null)" ""
-  PYTHON_INCLUDE  ?= $(shell python3.7m-config --includes)
-  PYTHON_LIB      ?= $(shell python3.7m-config --ldflags)
-  PYTHON_VERSION   = 3.7m
-else
-  ifneq "($filter %3.7, $(shell python3.7-config --includes) 2> /dev/null" ""
-    PYTHON_INCLUDE  ?= $(shell python3.7-config --includes)
-    PYTHON_LIB      ?= $(shell python3.7-config --ldflags)
-    PYTHON_VERSION   = 3.7
-  else
-    ifneq "($filter %2.7, $(shell python2.7-config --includes) 2> /dev/null" ""
-      PYTHON_INCLUDE  ?= $(shell python2.7-config --includes)
-      PYTHON_LIB      ?= $(shell python2.7-config --ldflags)
-      PYTHON_VERSION   = 2.7
+ifneq "$(shell which python3m 2>/dev/null)" ""
+  ifneq "$(shell which python3m-config 2>/dev/null)" ""
+    PYTHON_INCLUDE  ?= $(shell python3m-config --includes)
+    PYTHON_VERSION  ?= $(strip $(shell python3m --version 2>&1))
+    # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
+    ifeq "$(shell python3m-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
+      PYTHON_LIB      ?= $(shell python3m-config --libs --embed)
+    else
+      PYTHON_LIB      ?= $(shell python3m-config --ldflags)
     endif
   endif
 endif
 
-PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7m && echo /usr/include/python3.7m)
-PYTHON_INCLUDE	?= $(shell test -e /usr/include/python3.7 && echo /usr/include/python3.7)
-PYTHON_INCLUDE	?= $(shell test -e /usr/include/python2.7 && echo /usr/include/python2.7)
-
-ifneq "($filter %3.7m, $(PYTHON_INCLUDE))" ""
-    PYTHON_VERSION ?= 3.7m
-    PYTHON_LIB  ?= -lpython3.7m
-else
-    ifneq "($filter %3.7, $(PYTHON_INCLUDE))" ""
-        PYTHON_VERSION ?= 3.7
+ifneq "$(shell which python3 2>/dev/null)" ""
+  ifneq "$(shell which python3-config 2>/dev/null)" ""
+    PYTHON_INCLUDE  ?= $(shell python3-config --includes)
+    PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
+    # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
+    ifeq "$(shell python3-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
+      PYTHON_LIB      ?= $(shell python3-config --libs --embed)
     else
-        ifneq "($filter %2.7, $(PYTHON_INCLUDE))" ""
-            PYTHON_VERSION ?= 2.7
-            PYTHON_LIB     ?= -lpython2.7
-        else
-            PYTHON_VERSION ?= none
-        endif
+      PYTHON_LIB      ?= $(shell python3-config --ldflags)
     endif
+  endif
+endif
+
+ifneq "$(shell which python 2>/dev/null)" ""
+  ifneq "$(shell which python-config 2>/dev/null)" ""
+    PYTHON_INCLUDE  ?= $(shell python-config --includes)
+    PYTHON_LIB      ?= $(shell python-config --ldflags)
+    PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+  endif
 endif
 
 ifdef SOURCE_DATE_EPOCH
-    BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" -I 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" -I 2>/dev/null || date -u -I)
+    BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u "+%Y-%m-%d")
 else
-    BUILD_DATE ?= $(shell date -I)
+    BUILD_DATE ?= $(shell date "+%Y-%m-%d")
 endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
@@ -106,10 +114,12 @@ endif
 
 ifneq "$(findstring FreeBSD, $(shell uname))" ""
   CFLAGS += -pthread
+  LDFLAGS  += -lpthread
 endif
 
 ifneq "$(findstring NetBSD, $(shell uname))" ""
   CFLAGS += -pthread
+  LDFLAGS  += -lpthread
 endif
 
 ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
@@ -120,10 +130,9 @@ endif
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
 
-
-ifeq "$(shell echo '\#include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test -I$(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ifeq "$(shell echo '$(HASH)include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) -x c - -o .test $(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	PYTHON_OK=1
-	PYFLAGS=-DUSE_PYTHON -I$(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) -DPYTHON_VERSION=\"$(PYTHON_VERSION)\"
+	PYFLAGS=-DUSE_PYTHON $(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) -DPYTHON_VERSION="\"$(PYTHON_VERSION)\""
 else
 	PYTHON_OK=0
 	PYFLAGS=
@@ -139,7 +148,7 @@ ifdef STATIC
   LDFLAGS += -lm -lrt -lpthread -lz -lutil
 endif
 
-ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
+ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
 	SHMAT_OK=1
 else
 	SHMAT_OK=0
@@ -153,8 +162,12 @@ ifeq "$(TEST_MMAP)" "1"
 	LDFLAGS+=-Wno-deprecated-declarations -lrt
 endif
 
+ifdef ASAN_BUILD
+  CFLAGS+=-fsanitize=address
+	LDFLAGS+=-fsanitize=address
+endif
 
-all:	test_x86 test_shm test_python27 ready $(PROGS) afl-as test_build all_done
+all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 
 man:    $(MANPAGES) 
 	-$(MAKE) -C llvm_mode
@@ -187,7 +200,14 @@ help:
 	@echo "help: shows these build options :-)"
 	@echo "=========================================="
 	@echo "Recommended: \"distrib\" or \"source-only\", then \"install\""
-
+	@echo
+	@echo Known build environment options:
+	@echo "=========================================="
+	@echo STATIC - compile AFL++ static
+	@echo ASAN_BUILD - compiles with memory sanitizer for debug purposes
+	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
+	@echo "=========================================="
+	@echo e.g.: make ASAN_BUILD=1
 
 ifndef AFL_NO_X86
 
@@ -222,14 +242,14 @@ endif
 
 ifeq "$(PYTHON_OK)" "1"
 
-test_python27:
+test_python:
 	@rm -f .test 2> /dev/null
-	@echo "[+] Python $(PYTHON_VERSION) support seems to be working."
+	@echo "[+] $(PYTHON_VERSION) support seems to be working."
 
 else
 
-test_python27:
-	@echo "[-] You seem to need to install the package python3.7-dev or python2.7-dev (and perhaps python[23]-apt), but it is optional so we continue"
+test_python:
+	@echo "[-] You seem to need to install the package python3-dev or python2-dev (and perhaps python[23]-apt), but it is optional so we continue"
 
 endif
 
@@ -245,26 +265,26 @@ afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
 
-src/afl-common.o : src/afl-common.c include/common.h
+src/afl-common.o : $(COMM_HDR) src/afl-common.c include/common.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-common.c -o src/afl-common.o
 
-src/afl-forkserver.o : src/afl-forkserver.c include/forkserver.h
+src/afl-forkserver.o : $(COMM_HDR) src/afl-forkserver.c include/forkserver.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-forkserver.c -o src/afl-forkserver.o
 
-src/afl-sharedmem.o : src/afl-sharedmem.c include/sharedmem.h
+src/afl-sharedmem.o : $(COMM_HDR) src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
 radamsa: src/third_party/libradamsa/libradamsa.so
 	cp src/third_party/libradamsa/libradamsa.so .
 
 src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.c src/third_party/libradamsa/radamsa.h
-	$(MAKE) -C src/third_party/libradamsa/
+	$(MAKE) -C src/third_party/libradamsa/ CFLAGS="$(CFLAGS)"
 
-afl-fuzz: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
+afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o | test_x86
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
 
 afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
@@ -292,8 +312,8 @@ code-format:
 	./.custom-format.py -i gcc_plugin/*.c
 	#./.custom-format.py -i gcc_plugin/*.h
 	./.custom-format.py -i gcc_plugin/*.cc
-	./.custom-format.py -i experimental/*/*.c
-	./.custom-format.py -i experimental/*/*.h
+	./.custom-format.py -i examples/*/*.c
+	./.custom-format.py -i examples/*/*.h
 	./.custom-format.py -i qemu_mode/patches/*.h
 	./.custom-format.py -i qemu_mode/libcompcov/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.cc
@@ -308,7 +328,7 @@ ifndef AFL_NO_X86
 
 test_build: afl-gcc afl-as afl-showmap
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
-	@unset AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_INST_RATIO=100 AFL_PATH=. ./$(TEST_CC) $(CFLAGS) test-instr.c -o test-instr $(LDFLAGS) 2>&1 | grep 'afl-as' >/dev/null || (echo "Oops, afl-as did not get called from "$(TEST_CC)". This is normally achieved by "$(CC)" honoring the -B option."; exit 1 )
+	@unset AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_DEBUG=1 AFL_INST_RATIO=100 AFL_PATH=. ./$(TEST_CC) $(CFLAGS) test-instr.c -o test-instr $(LDFLAGS) 2>&1 | grep 'afl-as' >/dev/null || (echo "Oops, afl-as did not get called from "$(TEST_CC)". This is normally achieved by "$(CC)" honoring the -B option."; exit 1 )
 	./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
 	echo 1 | ./afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
@@ -324,10 +344,10 @@ endif
 
 
 all_done: test_build
-	@if [ ! "`which clang 2>/dev/null`" = "" ]; then echo "[+] LLVM users: see llvm_mode/README.llvm for a faster alternative to afl-gcc."; fi
+	@if [ ! "`which clang 2>/dev/null`" = "" ]; then echo "[+] LLVM users: see llvm_mode/README.md for a faster alternative to afl-gcc."; fi
 	@echo "[+] All done! Be sure to review the README.md - it's pretty short and useful."
 	@if [ "`uname`" = "Darwin" ]; then printf "\nWARNING: Fuzzing on MacOS X is slow because of the unusually high overhead of\nfork() on this OS. Consider using Linux or *BSD. You can also use VirtualBox\n(virtualbox.org) to put AFL inside a Linux or *BSD VM.\n\n"; fi
-	@! tty <&1 >/dev/null || printf "\033[0;30mNOTE: If you can read this, your terminal probably uses white background.\nThis will make the UI hard to read. See docs/status_screen.txt for advice.\033[0m\n" 2>/dev/null
+	@! tty <&1 >/dev/null || printf "\033[0;30mNOTE: If you can read this, your terminal probably uses white background.\nThis will make the UI hard to read. See docs/status_screen.md for advice.\033[0m\n" 2>/dev/null
 
 .NOTPARALLEL: clean
 
@@ -338,8 +358,8 @@ clean:
 	-$(MAKE) -C gcc_plugin clean
 	$(MAKE) -C libdislocator clean
 	$(MAKE) -C libtokencap clean
-	$(MAKE) -C experimental/socket_fuzzing clean
-	$(MAKE) -C experimental/argv_fuzzing clean
+	$(MAKE) -C examples/socket_fuzzing clean
+	$(MAKE) -C examples/argv_fuzzing clean
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 	$(MAKE) -C src/third_party/libradamsa/ clean
@@ -350,16 +370,16 @@ distrib: all radamsa
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
-	$(MAKE) -C experimental/socket_fuzzing
-	$(MAKE) -C experimental/argv_fuzzing
+	$(MAKE) -C examples/socket_fuzzing
+	$(MAKE) -C examples/argv_fuzzing
 	cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && sh ./build_unicorn_support.sh
 
 binary-only: all radamsa
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
-	$(MAKE) -C experimental/socket_fuzzing
-	$(MAKE) -C experimental/argv_fuzzing
+	$(MAKE) -C examples/socket_fuzzing
+	$(MAKE) -C examples/argv_fuzzing
 	cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && sh ./build_unicorn_support.sh
 
@@ -379,7 +399,7 @@ source-only: all radamsa
 	@echo >> $@
 	@echo .SH OPTIONS >> $@
 	@echo .nf >> $@
-	@./$* -h 2>&1 | tail -n +4 >> $@
+	@./$* -hh 2>&1 | tail -n +4 >> $@
 	@echo >> $@
 	@echo .SH AUTHOR >> $@
 	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>" >> $@
@@ -411,8 +431,8 @@ endif
 	if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libradamsa.so ]; then set -e; install -m 755 libradamsa.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
-	$(MAKE) -C experimental/socket_fuzzing install
-	$(MAKE) -C experimental/argv_fuzzing install
+	$(MAKE) -C examples/socket_fuzzing install
+	$(MAKE) -C examples/argv_fuzzing install
 
 	set -e; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-g++
 	set -e; if [ -f afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
@@ -422,21 +442,7 @@ endif
 
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
 	ln -sf afl-as $${DESTDIR}$(HELPER_PATH)/as
-	install -m 644 docs/README.md docs/ChangeLog docs/*.txt $${DESTDIR}$(DOC_PATH)
+	install -m 644 docs/*.md $${DESTDIR}$(DOC_PATH)
 	cp -r testcases/ $${DESTDIR}$(MISC_PATH)
 	cp -r dictionaries/ $${DESTDIR}$(MISC_PATH)
 
-#publish: clean
-#	test "`basename $$PWD`" = "afl" || exit 1
-#	test -f ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz; if [ "$$?" = "0" ]; then echo; echo "Change program version in config.h, mmkay?"; echo; exit 1; fi
-#	cd ..; rm -rf $(PROGNAME)-$(VERSION); cp -pr $(PROGNAME) $(PROGNAME)-$(VERSION); \
-#	  tar -cvz -f ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz $(PROGNAME)-$(VERSION)
-#	chmod 644 ~/www/afl/releases/$(PROGNAME)-$(VERSION).tgz
-#	( cd ~/www/afl/releases/; ln -s -f $(PROGNAME)-$(VERSION).tgz $(PROGNAME)-latest.tgz )
-#	cat docs/README.md >~/www/afl/README.txt
-#	cat docs/status_screen.txt >~/www/afl/status_screen.txt
-#	cat docs/historical_notes.txt >~/www/afl/historical_notes.txt
-#	cat docs/technical_details.txt >~/www/afl/technical_details.txt
-#	cat docs/ChangeLog >~/www/afl/ChangeLog.txt
-#	cat docs/QuickStartGuide.txt >~/www/afl/QuickStartGuide.txt
-#	echo -n "$(VERSION)" >~/www/afl/version.txt

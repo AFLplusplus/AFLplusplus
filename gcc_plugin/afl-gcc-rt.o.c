@@ -48,8 +48,10 @@ u8 *__afl_area_ptr = __afl_area_initial;
 
 #ifdef __ANDROID__
 u32 __afl_prev_loc;
+u32 __afl_final_loc;
 #else
 __thread u32 __afl_prev_loc;
+__thread u32 __afl_final_loc;
 #endif
 
 /* Trace a basic block with some ID */
@@ -214,7 +216,7 @@ static void __afl_start_forkserver(void) {
 
 }
 
-/* A simplified persistent mode handler, used as explained in README.llvm. */
+/* A simplified persistent mode handler, used as explained in README.md. */
 
 int __afl_persistent_loop(unsigned int max_cnt) {
 

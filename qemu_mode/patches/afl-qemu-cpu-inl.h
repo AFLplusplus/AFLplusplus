@@ -32,30 +32,15 @@
  */
 
 #include <sys/shm.h>
-#include "../../config.h"
 #include "afl-qemu-common.h"
 
-#define PERSISTENT_DEFAULT_MAX_CNT 1000
+#ifndef AFL_QEMU_STATIC_BUILD
+#include <dlfcn.h>
+#endif
 
 /***************************
  * VARIOUS AUXILIARY STUFF *
  ***************************/
-
-/* This snippet kicks in when the instruction pointer is positioned at
-   _start and does the usual forkserver stuff, not very different from
-   regular instrumentation injected via afl-as.h. */
-
-#define AFL_QEMU_CPU_SNIPPET2         \
-  do {                                \
-                                      \
-    if (itb->pc == afl_entry_point) { \
-                                      \
-      afl_setup();                    \
-      afl_forkserver(cpu);            \
-                                      \
-    }                                 \
-                                      \
-  } while (0)
 
 /* We use one additional file descriptor to relay "needs translation"
    messages between the child and the fork server. */
@@ -81,6 +66,9 @@ u8 afl_compcov_level;
 
 __thread abi_ulong afl_prev_loc;
 
+struct cmp_map *__afl_cmp_map;
+__thread u32    __afl_cmp_counter;
+
 /* Set in the child process in forkserver mode: */
 
 static int forkserver_installed = 0;
@@ -92,17 +80,16 @@ unsigned char is_persistent;
 target_long   persistent_stack_offset;
 unsigned char persistent_first_pass = 1;
 unsigned char persistent_save_gpr;
-target_ulong  persistent_saved_gpr[AFL_REGS_NUM];
+uint64_t      persistent_saved_gpr[AFL_REGS_NUM];
 int           persisent_retaddr_offset;
+
+afl_persistent_hook_fn afl_persistent_hook_ptr;
 
 /* Instrumentation ratio: */
 
 unsigned int afl_inst_rms = MAP_SIZE;         /* Exported for afl_gen_trace */
 
 /* Function declarations. */
-
-static void afl_setup(void);
-static void afl_forkserver(CPUState *);
 
 static void afl_wait_tsl(CPUState *, int);
 static void afl_request_tsl(target_ulong, target_ulong, uint32_t, uint32_t,
@@ -149,7 +136,7 @@ static inline void              tb_add_jump(TranslationBlock *tb, int n,
 
 /* Set up SHM region and initialize other stuff. */
 
-static void afl_setup(void) {
+void afl_setup(void) {
 
   char *id_str = getenv(SHM_ENV_VAR), *inst_r = getenv("AFL_INST_RATIO");
 
@@ -179,6 +166,22 @@ static void afl_setup(void) {
        so that the parent doesn't give up on us. */
 
     if (inst_r) afl_area_ptr[0] = 1;
+
+  }
+
+  if (getenv("___AFL_EINS_ZWEI_POLIZEI___")) {  // CmpLog forkserver
+
+    id_str = getenv(CMPLOG_SHM_ENV_VAR);
+
+    if (id_str) {
+
+      u32 shm_id = atoi(id_str);
+
+      __afl_cmp_map = shmat(shm_id, NULL, 0);
+
+      if (__afl_cmp_map == (void *)-1) exit(1);
+
+    }
 
   }
 
@@ -224,6 +227,43 @@ static void afl_setup(void) {
 
   if (getenv("AFL_QEMU_PERSISTENT_GPR")) persistent_save_gpr = 1;
 
+  if (getenv("AFL_QEMU_PERSISTENT_HOOK")) {
+
+#ifdef AFL_QEMU_STATIC_BUILD
+
+    fprintf(stderr,
+            "[AFL] ERROR: you cannot use AFL_QEMU_PERSISTENT_HOOK when "
+            "afl-qemu-trace is static\n");
+    exit(1);
+
+#else
+
+    persistent_save_gpr = 1;
+
+    void *plib = dlopen(getenv("AFL_QEMU_PERSISTENT_HOOK"), RTLD_NOW);
+    if (!plib) {
+
+      fprintf(stderr, "[AFL] ERROR: invalid AFL_QEMU_PERSISTENT_HOOK=%s\n",
+              getenv("AFL_QEMU_PERSISTENT_HOOK"));
+      exit(1);
+
+    }
+
+    afl_persistent_hook_ptr = dlsym(plib, "afl_persistent_hook");
+    if (!afl_persistent_hook_ptr) {
+
+      fprintf(stderr,
+              "[AFL] ERROR: failed to find the function "
+              "\"afl_persistent_hook\" in %s\n",
+              getenv("AFL_QEMU_PERSISTENT_HOOK"));
+      exit(1);
+
+    }
+
+#endif
+
+  }
+
   if (getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"))
     persisent_retaddr_offset =
         strtoll(getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"), NULL, 0);
@@ -251,7 +291,7 @@ static void print_mappings(void) {
 
 /* Fork server logic, invoked once we hit _start. */
 
-static void afl_forkserver(CPUState *cpu) {
+void afl_forkserver(CPUState *cpu) {
 
   static unsigned char tmp[4];
 
@@ -272,6 +312,8 @@ static void afl_forkserver(CPUState *cpu) {
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
 
   afl_forksrv_pid = getpid();
+
+  int first_run = 1;
 
   /* All right, let's await orders... */
 
@@ -348,7 +390,16 @@ static void afl_forkserver(CPUState *cpu) {
        a successful run. In this case, we want to wake it up without forking
        again. */
 
-    if (WIFSTOPPED(status)) child_stopped = 1;
+    if (WIFSTOPPED(status))
+      child_stopped = 1;
+    else if (unlikely(first_run && is_persistent)) {
+
+      fprintf(stderr, "[AFL] ERROR: no persistent iteration executed\n");
+      exit(12);  // Persistent is wrong
+
+    }
+
+    first_run = 0;
 
     if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(7);
 
@@ -356,9 +407,10 @@ static void afl_forkserver(CPUState *cpu) {
 
 }
 
-/* A simplified persistent mode handler, used as explained in README.llvm. */
+/* A simplified persistent mode handler, used as explained in
+ * llvm_mode/README.md. */
 
-void afl_persistent_loop() {
+void afl_persistent_loop(void) {
 
   static u32            cycle_cnt;
   static struct afl_tsl exit_cmd_tsl = {{-1, 0, 0, 0}, NULL};

@@ -6,7 +6,7 @@
 
    Forkserver design by Jann Horn <jannhorn@googlemail.com>
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -39,6 +39,7 @@
 #include "alloc-inl.h"
 #include "hash.h"
 #include "sharedmem.h"
+#include "forkserver.h"
 #include "common.h"
 
 #include <stdio.h>
@@ -58,19 +59,39 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-static s32 child_pid;                  /* PID of the tested program         */
+u8* trace_bits;                        /* SHM with instrumentation bitmap   */
+
+s32 forksrv_pid,                       /* PID of the fork server            */
+    child_pid;                         /* PID of the tested program         */
+
+s32 fsrv_ctl_fd,                       /* Fork server control pipe (write)  */
+    fsrv_st_fd;                        /* Fork server status pipe (read)    */
+
+s32 out_fd;                            /* Persistent fd for stdin_file      */
+s32 dev_null_fd = -1;                  /* FD to /dev/null                   */
+
+s32   out_fd = -1, out_dir_fd = -1, dev_urandom_fd = -1;
+FILE* plot_file;
+u8    uses_asan, be_quiet;
 
 u8* trace_bits;                        /* SHM with instrumentation bitmap   */
 
-static u8 *out_file,                   /* Trace output file                 */
+u8 *out_file,                          /* Trace output file                 */
+    *stdin_file,                       /* stdin file                        */
+    *in_dir,                           /* input folder                      */
     *doc_path,                         /* Path to docs                      */
-    *at_file;                          /* Substitution string for @@        */
+        *at_file = NULL;               /* Substitution string for @@        */
 
-static u32 exec_tmout;                 /* Exec timeout (ms)                 */
+static u8* in_data;                    /* Input data                        */
+
+u32 exec_tmout;                        /* Exec timeout (ms)                 */
 
 static u32 total, highest;             /* tuple content information         */
 
-static u64 mem_limit = MEM_LIMIT;      /* Memory limit (MB)                 */
+static u32 in_len,                     /* Input data length                 */
+    arg_offset, total_execs;           /* Total number of execs             */
+
+u64 mem_limit = MEM_LIMIT;             /* Memory limit (MB)                 */
 
 u8 quiet_mode,                         /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
@@ -137,15 +158,23 @@ static void classify_counts(u8* mem, const u8* map) {
 
 }
 
+/* Get rid of temp files (atexit handler). */
+
+static void at_exit_handler(void) {
+
+  if (stdin_file) unlink(stdin_file);
+
+}
+
 /* Write results. */
 
-static u32 write_results(void) {
+static u32 write_results_to_file(u8* out_file) {
 
   s32 fd;
   u32 i, ret = 0;
 
-  u8 cco = !!getenv("AFL_CMIN_CRASHES_ONLY"),
-     caa = !!getenv("AFL_CMIN_ALLOW_ANY");
+  u8 cco = !!get_afl_env("AFL_CMIN_CRASHES_ONLY"),
+     caa = !!get_afl_env("AFL_CMIN_ALLOW_ANY");
 
   if (!strncmp(out_file, "/dev/", 5)) {
 
@@ -208,12 +237,165 @@ static u32 write_results(void) {
 
 }
 
-/* Handle timeout signal. */
+/* Write results. */
 
-static void handle_timeout(int sig) {
+static u32 write_results(void) {
 
-  child_timed_out = 1;
-  if (child_pid > 0) kill(child_pid, SIGKILL);
+  return write_results_to_file(out_file);
+
+}
+
+/* Write output file. */
+
+static s32 write_to_file(u8* path, u8* mem, u32 len) {
+
+  s32 ret;
+
+  unlink(path);                                            /* Ignore errors */
+
+  ret = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
+
+  if (ret < 0) PFATAL("Unable to create '%s'", path);
+
+  ck_write(ret, mem, len, path);
+
+  lseek(ret, 0, SEEK_SET);
+
+  return ret;
+
+}
+
+/* Write modified data to file for testing. If use_stdin is clear, the old file
+   is unlinked and a new one is created. Otherwise, out_fd is rewound and
+   truncated. */
+
+static void write_to_testcase(void* mem, u32 len) {
+
+  lseek(out_fd, 0, SEEK_SET);
+  ck_write(out_fd, mem, len, out_file);
+  if (ftruncate(out_fd, len)) PFATAL("ftruncate() failed");
+  lseek(out_fd, 0, SEEK_SET);
+
+}
+
+/* Execute target application. Returns 0 if the changes are a dud, or
+   1 if they should be kept. */
+
+static u8 run_target_forkserver(char** argv, u8* mem, u32 len) {
+
+  static struct itimerval it;
+  static u32              prev_timed_out = 0;
+  int                     status = 0;
+
+  memset(trace_bits, 0, MAP_SIZE);
+  MEM_BARRIER();
+
+  write_to_testcase(mem, len);
+
+  s32 res;
+
+  /* we have the fork server up and running, so simply
+     tell it to have at it, and then read back PID. */
+
+  if ((res = write(fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+
+    if (stop_soon) return 0;
+    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+
+  }
+
+  if ((res = read(fsrv_st_fd, &child_pid, 4)) != 4) {
+
+    if (stop_soon) return 0;
+    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+
+  }
+
+  if (child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
+
+  /* Configure timeout, wait for child, cancel timeout. */
+
+  if (exec_tmout) {
+
+    it.it_value.tv_sec = (exec_tmout / 1000);
+    it.it_value.tv_usec = (exec_tmout % 1000) * 1000;
+
+  }
+
+  setitimer(ITIMER_REAL, &it, NULL);
+
+  if ((res = read(fsrv_st_fd, &status, 4)) != 4) {
+
+    if (stop_soon) return 0;
+    RPFATAL(res, "Unable to communicate with fork server (OOM?)");
+
+  }
+
+  child_pid = 0;
+  it.it_value.tv_sec = 0;
+  it.it_value.tv_usec = 0;
+
+  setitimer(ITIMER_REAL, &it, NULL);
+
+  MEM_BARRIER();
+
+  /* Clean up bitmap, analyze exit condition, etc. */
+
+  if (*(u32*)trace_bits == EXEC_FAIL_SIG)
+    FATAL("Unable to execute '%s'", argv[0]);
+
+  classify_counts(trace_bits,
+                  binary_mode ? count_class_binary : count_class_human);
+  total_execs++;
+
+  if (stop_soon) {
+
+    SAYF(cRST cLRD "\n+++ afl-showmap folder mode aborted by user +++\n" cRST);
+    close(write_to_file(out_file, in_data, in_len));
+    exit(1);
+
+  }
+
+  /* Always discard inputs that time out. */
+
+  if (child_timed_out) { return 0; }
+
+  /* Handle crashing inputs depending on current mode. */
+
+  if (WIFSIGNALED(status) ||
+      (WIFEXITED(status) && WEXITSTATUS(status) == MSAN_ERROR) ||
+      (WIFEXITED(status) && WEXITSTATUS(status))) {
+
+    return 0;
+
+  }
+
+  return 0;
+
+}
+
+/* Read initial file. */
+
+u32 read_file(u8* in_file) {
+
+  struct stat st;
+  s32         fd = open(in_file, O_RDONLY);
+
+  if (fd < 0) WARNF("Unable to open '%s'", in_file);
+
+  if (fstat(fd, &st) || !st.st_size)
+    WARNF("Zero-sized input file '%s'.", in_file);
+
+  in_len = st.st_size;
+  in_data = ck_alloc_nozero(in_len);
+
+  ck_read(fd, in_data, in_len, in_file);
+
+  close(fd);
+
+  // OKF("Read %u byte%s from '%s'.", in_len, in_len == 1 ? "" : "s", in_file);
+
+  return in_len;
 
 }
 
@@ -359,7 +541,7 @@ static void set_up_environment(void) {
                          "allocator_may_return_null=1:"
                          "msan_track_origins=0", 0);
 
-  if (getenv("AFL_PRELOAD")) {
+  if (get_afl_env("AFL_PRELOAD")) {
 
     if (qemu_mode) {
 
@@ -378,9 +560,11 @@ static void set_up_environment(void) {
       }
 
       if (qemu_preload)
-        buf = alloc_printf("%s,LD_PRELOAD=%s", qemu_preload, afl_preload);
+        buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           qemu_preload, afl_preload, afl_preload);
       else
-        buf = alloc_printf("LD_PRELOAD=%s", afl_preload);
+        buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
+                           afl_preload, afl_preload);
 
       setenv("QEMU_SET_ENV", buf, 1);
 
@@ -440,11 +624,11 @@ static void usage(u8* argv0) {
   SAYF(
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
-      "Required parameters:\n\n"
+      "Required parameters:\n"
 
       "  -o file       - file to write the trace data to\n\n"
 
-      "Execution control settings:\n\n"
+      "Execution control settings:\n"
 
       "  -t msec       - timeout for each run (none)\n"
       "  -m megs       - memory limit for child process (%d MB)\n"
@@ -454,16 +638,26 @@ static void usage(u8* argv0) {
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
 
-      "Other settings:\n\n"
+      "Other settings:\n"
 
+      "  -i dir        - process all files in this directory, -o must be a "
+      "directory\n"
+      "                  and each bitmap will be written there individually.\n"
       "  -q            - sink program's output and don't show messages\n"
       "  -e            - show edge coverage only, ignore hit counts\n"
       "  -r            - show real tuple values instead of AFL filter values\n"
       "  -c            - allow core dumps\n\n"
 
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
-      "For additional help, consult %s/README.\n\n" cRST,
+      "For additional help, consult %s/README.md.\n\n"
 
+      "Environment variables used:\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_DEBUG: enable extra developer output\n"
+      "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
+      "inputs\n"
+      "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing inputs also\n"
+      "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n",
       argv0, MEM_LIMIT, doc_path);
 
   exit(1);
@@ -527,18 +721,23 @@ static void find_binary(u8* fname) {
 
 /* Main entry point */
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv, char** envp) {
 
-  s32    opt;
+  s32    opt, i;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   u32    tcnt = 0;
   char** use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  while ((opt = getopt(argc, argv, "+o:f:m:t:A:eqZQUWbcrh")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqZQUWbcrh")) > 0)
 
     switch (opt) {
+
+      case 'i':
+        if (in_dir) FATAL("Multiple -i options not supported");
+        in_dir = optarg;
+        break;
 
       case 'o':
 
@@ -630,7 +829,6 @@ int main(int argc, char** argv) {
         break;
 
       case 'A':
-
         /* Another afl-cmin specific feature. */
         at_file = optarg;
         break;
@@ -693,6 +891,8 @@ int main(int argc, char** argv) {
 
   if (optind == argc || !out_file) usage(argv[0]);
 
+  check_environment_vars(envp);
+
   setup_shm(0);
   setup_signal_handlers();
 
@@ -703,11 +903,23 @@ int main(int argc, char** argv) {
   if (!quiet_mode) {
 
     show_banner();
-    ACTF("Executing '%s'...\n", target_path);
+    ACTF("Executing '%s'...", target_path);
 
   }
 
-  detect_file_args(argv + optind, at_file);
+  if (in_dir) {
+
+    if (at_file) PFATAL("Options -A and -i are mutually exclusive");
+    detect_file_args(argv + optind, "");
+
+  } else {
+
+    detect_file_args(argv + optind, at_file);
+
+  }
+
+  for (i = optind; i < argc; i++)
+    if (strcmp(argv[i], "@@") == 0) arg_offset = i;
 
   if (qemu_mode) {
 
@@ -720,15 +932,104 @@ int main(int argc, char** argv) {
 
     use_argv = argv + optind;
 
-  run_target(use_argv);
+  if (in_dir) {
 
-  tcnt = write_results();
+    DIR *          dir_in, *dir_out;
+    struct dirent* dir_ent;
+    int            done = 0;
+    u8             infile[4096], outfile[4096];
+#if !defined(DT_REG)
+    struct stat statbuf;
+#endif
+
+    dev_null_fd = open("/dev/null", O_RDWR);
+    if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+
+    if (!(dir_in = opendir(in_dir))) PFATAL("cannot open directory %s", in_dir);
+
+    if (!(dir_out = opendir(out_file)))
+      if (mkdir(out_file, 0700))
+        PFATAL("cannot create output directory %s", out_file);
+
+    u8* use_dir = ".";
+
+    if (access(use_dir, R_OK | W_OK | X_OK)) {
+
+      use_dir = get_afl_env("TMPDIR");
+      if (!use_dir) use_dir = "/tmp";
+
+    }
+
+    stdin_file = alloc_printf("%s/.afl-showmap-temp-%u", use_dir, getpid());
+    unlink(stdin_file);
+    atexit(at_exit_handler);
+    out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+    if (out_fd < 0) PFATAL("Unable to create '%s'", out_file);
+
+    if (arg_offset) argv[arg_offset] = stdin_file;
+
+    if (get_afl_env("AFL_DEBUG")) {
+
+      int i = optind;
+      SAYF(cMGN "[D]" cRST " %s:", target_path);
+      while (argv[i] != NULL)
+        SAYF(" \"%s\"", argv[i++]);
+      SAYF("\n");
+      SAYF(cMGN "[D]" cRST " %d - %d = %d, %s\n", arg_offset, optind,
+           arg_offset - optind, infile);
+
+    }
+
+    init_forkserver(use_argv);
+
+    while (done == 0 && (dir_ent = readdir(dir_in))) {
+
+      if (dir_ent->d_name[0] == '.')
+        continue;  // skip anything that starts with '.'
+
+#if defined(DT_REG)      /* Posix and Solaris do not know d_type and DT_REG */
+      if (dir_ent->d_type != DT_REG) continue;  // only regular files
+#endif
+
+      snprintf(infile, sizeof(infile), "%s/%s", in_dir, dir_ent->d_name);
+
+#if !defined(DT_REG)                                          /* use stat() */
+      if (-1 == stat(infile, &statbuf) || !S_ISREG(statbuf.st_mode)) continue;
+#endif
+
+      snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
+
+      if (read_file(infile)) {
+
+        run_target_forkserver(use_argv, in_data, in_len);
+        ck_free(in_data);
+        tcnt = write_results_to_file(outfile);
+
+      }
+
+    }
+
+    if (!quiet_mode) OKF("Processed %u input files.", total_execs);
+
+  } else {
+
+    run_target(use_argv);
+    tcnt = write_results();
+
+  }
 
   if (!quiet_mode) {
 
     if (!tcnt) FATAL("No instrumentation detected" cRST);
     OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST,
         tcnt, highest, total, out_file);
+
+  }
+
+  if (stdin_file) {
+
+    unlink(stdin_file);
+    stdin_file = NULL;
 
   }
 

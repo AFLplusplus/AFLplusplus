@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -261,6 +261,7 @@ static const u8* main_payload_32 =
   "  je   __afl_setup_abort\n"
   "\n"
 #endif
+  "  movb $1, (%eax)\n"
   "  /* Store the address of the SHM region. */\n"
   "\n"
   "  movl %eax, __afl_area_ptr\n"
@@ -383,6 +384,7 @@ static const u8* main_payload_32 =
 #ifndef COVERAGE_ONLY
   "  .comm   __afl_prev_loc, 4, 32\n"
 #endif                                                    /* !COVERAGE_ONLY */
+  "  .comm   __afl_final_loc, 4, 32\n"
   "  .comm   __afl_fork_pid, 4, 32\n"
   "  .comm   __afl_temp, 4, 32\n"
   "\n"
@@ -563,6 +565,7 @@ static const u8* main_payload_64 =
   "  je   __afl_setup_abort\n"
   "\n"
 #endif
+  "  movb $1, (%rax)\n"
   "  /* Store the address of the SHM region. */\n"
   "\n"
   "  movq %rax, %rdx\n"

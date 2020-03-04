@@ -24,6 +24,7 @@
 
 #define AFL_MAIN
 
+#include "common.h"
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -45,6 +46,9 @@ static u8*  lto_flag = AFL_CLANG_FLTO;
 static u8*  march_opt = CFLAGS_OPT;
 static u8   debug;
 static u8   cwd[4096];
+static u8   cmplog_mode;
+u8          use_stdin = 0;                                         /* dummy */
+u8          be_quiet = 0;
 
 u8* getthecwd() {
 
@@ -92,7 +96,7 @@ static void find_obj(u8* argv0) {
     *slash = '/';
 
 #ifdef __ANDROID__
-    tmp = alloc_printf("%s/afl-llvm-rt.so", afl_path);
+    tmp = alloc_printf("%s/afl-llvm-rt.so", dir);
 #else
     tmp = alloc_printf("%s/afl-llvm-rt.o", dir);
 #endif
@@ -124,7 +128,7 @@ static void find_obj(u8* argv0) {
   }
 
   FATAL(
-      "Unable to find 'afl-llvm-rt.o' or 'afl-llvm-pass.so.cc'. Please set "
+      "Unable to find 'afl-llvm-rt.o' or 'afl-llvm-pass.so'. Please set "
       "AFL_PATH");
 
 }
@@ -226,8 +230,33 @@ static void edit_params(u32 argc, char** argv) {
 
   unsetenv("AFL_LD");
   unsetenv("AFL_LD_CALLER");
+  if (cmplog_mode) {
+
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] = "-load";
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] =
+        alloc_printf("%s/cmplog-routines-pass.so", obj_path);
+
+    // reuse split switches from laf
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] = "-load";
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] =
+        alloc_printf("%s/split-switches-pass.so", obj_path);
+
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] = "-load";
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] =
+        alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
+
+    cc_params[cc_par_cnt++] = "-fno-inline";
+
+  }
 
 #ifdef USE_TRACE_PC
+
   cc_params[cc_par_cnt++] =
       "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
   // cc_params[cc_par_cnt++] = "-mllvm";
@@ -262,6 +291,11 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = AFL_PATH;
 
     cc_params[cc_par_cnt++] = lto_flag;
+  if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
+      getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
+
+    cc_params[cc_par_cnt++] =
+        "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
 
   } else {
 
@@ -344,10 +378,20 @@ static void edit_params(u32 argc, char** argv) {
 
   }
 
+  if (getenv("AFL_USE_UBSAN")) {
+
+    cc_params[cc_par_cnt++] = "-fsanitize=undefined";
+    cc_params[cc_par_cnt++] = "-fsanitize-undefined-trap-on-error";
+    cc_params[cc_par_cnt++] = "-fno-sanitize-recover=all";
+
+  }
+
 #ifdef USE_TRACE_PC
 
-  if (getenv("AFL_INST_RATIO"))
-    FATAL("AFL_INST_RATIO not available at compile time with 'trace-pc'.");
+  if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
+      getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC"))
+    if (getenv("AFL_INST_RATIO"))
+      FATAL("AFL_INST_RATIO not available at compile time with 'trace-pc'.");
 
 #endif                                                      /* USE_TRACE_PC */
 
@@ -474,7 +518,7 @@ static void edit_params(u32 argc, char** argv) {
 
 /* Main entry point */
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv, char** envp) {
 
   int   i;
   char* callname = "afl-clang-fast";
@@ -506,43 +550,68 @@ int main(int argc, char** argv) {
     }
 
 #endif                                                     /* ^USE_TRACE_PC */
-        SAYF(
-            "\n"
-            "%s[++] [options]\n"
-            "\n"
-            "This is a helper application for afl-fuzz. It serves as a drop-in "
-            "replacement\n"
-            "for clang, letting you recompile third-party code with the "
-            "required "
-            "runtime\n"
-            "instrumentation. A common use pattern would be one of the "
-            "following:\n\n"
 
-            "  CC=%s/%s ./configure\n"
-            "  CXX=%s/%s++ ./configure\n\n"
+    SAYF(
+        "\n"
+        "%s[++] [options]\n"
+        "\n"
+        "This is a helper application for afl-fuzz. It serves as a drop-in "
+        "replacement\n"
+        "for clang, letting you recompile third-party code with the required "
+        "runtime\n"
+        "instrumentation. A common use pattern would be one of the "
+        "following:\n\n"
 
-            "In contrast to the traditional afl-clang tool, this version is "
-            "implemented as\n"
-            "an LLVM pass and tends to offer improved performance with slow "
-            "programs.\n\n"
+        "  CC=%s/afl-clang-fast ./configure\n"
+        "  CXX=%s/afl-clang-fast++ ./configure\n\n"
 
-            "You can specify custom next-stage toolchain via AFL_CC and "
-            "AFL_CXX. "
-            "Setting\n"
-            "AFL_HARDEN enables hardening optimizations in the compiled "
-            "code.\n\n"
-            "%s was built for llvm %s with the llvm binary path of "
-            "\"%s\".\n\n",
-            callname, BIN_PATH, callname, BIN_PATH, callname, callname,
-            LLVM_VERSION, LLVM_BINDIR);
+        "In contrast to the traditional afl-clang tool, this version is "
+        "implemented as\n"
+        "an LLVM pass and tends to offer improved performance with slow "
+        "programs.\n\n"
+
+        "Environment variables used:\n"
+        "AFL_CC: path to the C compiler to use\n"
+        "AFL_CXX: path to the C++ compiler to use\n"
+        "AFL_PATH: path to instrumenting pass and runtime (afl-llvm-rt.*o)\n"
+        "AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
+        "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
+        "AFL_INST_RATIO: percentage of branches to instrument\n"
+        "AFL_QUIET: suppress verbose output\n"
+        "AFL_DEBUG: enable developer debugging output\n"
+        "AFL_HARDEN: adds code hardening to catch memory bugs\n"
+        "AFL_USE_ASAN: activate address sanitizer\n"
+        "AFL_USE_MSAN: activate memory sanitizer\n"
+        "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+        "AFL_LLVM_WHITELIST: enable whitelisting (selective instrumentation)\n"
+        "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+        "AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
+        "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
+        "AFL_LLVM_LAF_SPLIT_SWITCHES: casc. comp. in 'switch'\n"
+        "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
+        "function calls\n"
+        " to cascaded comparisons\n"
+        "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to cascaded "
+        "comp.\n"
+        "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
+        "AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
+        "AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed\n"
+        "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
+        "\nafl-clang-fast was built for llvm %s with the llvm binary path of "
+        "\"%s\".\n\n",
+        callname, BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
 
     exit(1);
 
-  } else if (isatty(2) && !getenv("AFL_QUIET")) {
+  } else if ((isatty(2) && !getenv("AFL_QUIET")) ||
+
+             getenv("AFL_DEBUG") != NULL) {
 
 #ifdef USE_TRACE_PC
     SAYF(cCYA "afl-clang-fast" VERSION cRST
               " [tpcg] by <lszekeres@google.com>\n");
+#warning \
+    "You do not need to specifically compile with USE_TRACE_PC anymore, setting the environment variable AFL_LLVM_USE_TRACE_PC is enough."
 #else
     if (strstr(argv[0], "afl-clang-lto") == NULL)
 
@@ -566,6 +635,11 @@ int main(int argc, char** argv) {
 
   }
 
+  check_environment_vars(envp);
+
+  cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG");
+  if (cmplog_mode) printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
+
 #ifndef __ANDROID__
   find_obj(argv[0]);
 #endif
@@ -588,4 +662,3 @@ int main(int argc, char** argv) {
   return 0;
 
 }
-

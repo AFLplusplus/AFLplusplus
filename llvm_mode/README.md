@@ -1,11 +1,12 @@
 # Fast LLVM-based instrumentation for afl-fuzz
 
-  (See ../docs/README for the general instruction manual.)
-  (See ../gcc_plugin/README.gcc for the GCC-based instrumentation.)
+  (See [../README](../README.md) for the general instruction manual.)
+
+  (See [../gcc_plugin/README](../gcc_plugin/README.md) for the GCC-based instrumentation.)
 
 ## 1) Introduction
 
-! llvm_mode works with llvm versions 3.8.0 up to 10 !
+! llvm_mode works with llvm versions 3.8.0 up to 11 !
 
 The code in this directory allows you to instrument programs for AFL using
 true compiler-level instrumentation, instead of the more crude
@@ -72,7 +73,7 @@ operating mode of AFL, e.g.:
 Be sure to also include CXX set to afl-clang-fast++ for C++ code.
 
 The tool honors roughly the same environmental variables as afl-gcc (see
-../docs/env_variables.txt). This includes AFL_USE_ASAN,
+[docs/env_variables.md](../docs/env_variables.md)). This includes AFL_USE_ASAN,
 AFL_HARDEN, and AFL_DONT_OPTIMIZE. However AFL_INST_RATIO is not honored
 as it does not serve a good purpose with the more effective instrim CFG
 analysis.
@@ -87,22 +88,26 @@ Several options are present to make llvm_mode faster or help it rearrange
 the code to make afl-fuzz path discovery easier.
 
 If you need just to instrument specific parts of the code, you can whitelist
-which C/C++ files to actually instrument. See README.whitelist
+which C/C++ files to actually instrument. See [README.whitelist](README.whitelist.md)
 
-For splitting memcmp, strncmp, etc. please see README.laf-intel
+For splitting memcmp, strncmp, etc. please see [README.laf-intel](README.laf-intel.md)
 
 Then there is an optimized instrumentation strategy that uses CFGs and
 markers to just instrument what is needed. This increases speed by 20-25%
 however has a lower path discovery.
 If you want to use this, set AFL_LLVM_INSTRIM=1
-See README.instrim
+See [README.instrim](README.instrim.md)
+
+A new instrumentation called CmpLog is also available as an alternative to
+laf-intel that allow AFL++ to apply mutations similar to Redqueen.
+See [README.cmplog](README.cmplog.md)
 
 Finally if your llvm version is 8 or lower, you can activate a mode that
 prevents that a counter overflow result in a 0 value. This is good for
 path discovery, but the llvm implementation for x86 for this functionality
 is not optimal and was only fixed in llvm 9.
 You can set this with AFL_LLVM_NOT_ZERO=1
-See README.neverzero
+See [README.neverzero](README.neverzero.md)
 
 ## 4) Gotchas, feedback, bugs
 
@@ -184,7 +189,7 @@ the impact of memory leaks and similar glitches; 1000 is a good starting point,
 and going much higher increases the likelihood of hiccups without giving you
 any real performance benefits.
 
-A more detailed template is shown in ../experimental/persistent_demo/.
+A more detailed template is shown in ../examples/persistent_demo/.
 Similarly to the previous mode, the feature works only with afl-clang-fast; #ifdef
 guards can be used to suppress it when using other compilers.
 
@@ -198,24 +203,23 @@ PS. Because there are task switches still involved, the mode isn't as fast as
 faster than the normal fork() model, and compared to in-process fuzzing,
 should be a lot more robust.
 
-## 8) Bonus feature #3: new 'trace-pc-guard' mode
+## 8) Bonus feature #3: 'trace-pc-guard' mode
 
-Recent versions of LLVM are shipping with a built-in execution tracing feature
+LLVM is shipping with a built-in execution tracing feature
 that provides AFL with the necessary tracing data without the need to
 post-process the assembly or install any compiler plugins. See:
 
   http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards
 
-If you have a sufficiently recent compiler and want to give it a try, build
-afl-clang-fast this way:
+If you have not an outdated compiler and want to give it a try, build
+targets this way:
 
 ```
-  AFL_TRACE_PC=1 make clean all
+ libtarget-1.0 $ AFL_LLVM_USE_TRACE_PC=1  make
 ```
 
-Note that this mode is currently about 20% slower than "vanilla" afl-clang-fast,
+Note that this mode is about 20% slower than "vanilla" afl-clang-fast,
 and about 5-10% slower than afl-clang. This is likely because the
-instrumentation is not inlined, and instead involves a function call. On systems
-that support it, compiling your target with -flto should help.
-
-
+instrumentation is not inlined, and instead involves a function call.
+On systems that support it, compiling your target with -flto can help
+a bit.

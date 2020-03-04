@@ -24,9 +24,12 @@ PREFIX      ?= /usr/local
 HELPER_PATH  = $(PREFIX)/lib/afl
 BIN_PATH     = $(PREFIX)/bin
 
+VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
+
 CFLAGS      ?= -O3 -g -funroll-loops
-CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -Wno-pointer-sign \
+CFLAGS      += -Wall -I../include -D_FORTIFY_SOURCE=2 -Wno-pointer-sign \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
+               -DGCC_VERSION=\"$(GCCVER)\" -DGCC_BINDIR=\"$(GCCBINDIR)\" \
 
 CXXFLAGS    ?= -O3 -g -funroll-loops
 CXXEFLAGS   := $(CXXFLAGS) -Wall -D_FORTIFY_SOURCE=2
@@ -35,8 +38,12 @@ CC          ?= gcc
 CXX         ?= g++
 
 PLUGIN_FLAGS = -fPIC -fno-rtti -I"$(shell $(CC) -print-file-name=plugin)/include"
+HASH=\#
 
-ifeq "$(shell echo '\#include <sys/ipc.h>@\#include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
+GCCVER    = $(shell $(CC) --version 2>/dev/null | awk 'NR == 1 {print $$NF}')
+GCCBINDIR = $(shell dirname `which $(CC)` 2>/dev/null )
+
+ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
 	SHMAT_OK=1
 else
 	SHMAT_OK=0
@@ -80,8 +87,11 @@ test_deps:
 	@test -f ../afl-showmap || ( echo "[-] Oops, can't find '../afl-showmap'. Be sure to compile AFL first."; exit 1 )
 	@echo "[+] All set and ready to build."
 
-../afl-gcc-fast: afl-gcc-fast.c | test_deps
-	$(CC) -DAFL_GCC_CC=\"$(CC)\" -DAFL_GCC_CXX=\"$(CXX)\" $(CFLAGS) $< -o $@ $(LDFLAGS)
+afl-common.o: ../src/afl-common.c
+	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
+
+../afl-gcc-fast: afl-gcc-fast.c afl-common.o | test_deps
+	$(CC) -DAFL_GCC_CC=\"$(CC)\" -DAFL_GCC_CXX=\"$(CXX)\" $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS)
 	ln -sf afl-gcc-fast ../afl-g++-fast
 
 ../afl-gcc-pass.so: afl-gcc-pass.so.cc | test_deps
@@ -128,4 +138,4 @@ vpath  % ..
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 .test2
-	rm -f $(PROGS) ../afl-g++-fast ../afl-g*-fast.8
+	rm -f $(PROGS) afl-common.o ../afl-g++-fast ../afl-g*-fast.8

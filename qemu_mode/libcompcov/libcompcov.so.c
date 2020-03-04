@@ -15,7 +15,7 @@
 
    This Linux-only companion library allows you to instrument strcmp(),
    memcmp(), and related functions to get compare coverage.
-   See README.compcov for more info.
+   See README.md for more info.
 
  */
 

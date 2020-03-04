@@ -1,7 +1,7 @@
 FROM ubuntu:eoan
 MAINTAINER David Carlier <devnexen@gmail.com>
 LABEL "about"="AFLplusplus docker image"
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get -y install \
     --no-install-suggests --no-install-recommends \
     automake \
     bison \
@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y \
     clang \
     clang-9 \
     flex \
+    git \
+    python3.7 \
+    python3.7-dev \
     gcc-9 \
     gcc-9-plugin-dev \
     gcc-9-multilib \
@@ -23,10 +26,12 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libpixman-1-dev \
     && rm -rf /var/lib/apt/lists/*
+
 ARG CC=gcc-9
 ARG CXX=g++-9
 ARG LLVM_CONFIG=llvm-config-9
-COPY . /app
-RUN cd /app && make clean && make distrib && \
-    make install && cd .. && rm -rf /app
-WORKDIR /work
+
+RUN git clone https://github.com/vanhauser-thc/AFLplusplus
+
+RUN cd AFLplusplus && make clean && make distrib && \
+    make install && cd .. && rm -rf AFLplusplus

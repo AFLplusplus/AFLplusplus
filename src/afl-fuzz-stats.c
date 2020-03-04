@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -65,59 +65,62 @@ void write_stats_file(double bitmap_cvg, double stability, double eps) {
 
   if (getrusage(RUSAGE_CHILDREN, &rus)) rus.ru_maxrss = 0;
 
-  fprintf(f,
-          "start_time        : %llu\n"
-          "last_update       : %llu\n"
-          "fuzzer_pid        : %d\n"
-          "cycles_done       : %llu\n"
-          "execs_done        : %llu\n"
-          "execs_per_sec     : %0.02f\n"
-          "paths_total       : %u\n"
-          "paths_favored     : %u\n"
-          "paths_found       : %u\n"
-          "paths_imported    : %u\n"
-          "max_depth         : %u\n"
-          "cur_path          : %u\n"    /* Must match find_start_position() */
-          "pending_favs      : %u\n"
-          "pending_total     : %u\n"
-          "variable_paths    : %u\n"
-          "stability         : %0.02f%%\n"
-          "bitmap_cvg        : %0.02f%%\n"
-          "unique_crashes    : %llu\n"
-          "unique_hangs      : %llu\n"
-          "last_path         : %llu\n"
-          "last_crash        : %llu\n"
-          "last_hang         : %llu\n"
-          "execs_since_crash : %llu\n"
-          "exec_timeout      : %u\n"
-          "slowest_exec_ms   : %llu\n"
-          "peak_rss_mb       : %lu\n"
-          "afl_banner        : %s\n"
-          "afl_version       : " VERSION
-          "\n"
-          "target_mode       : %s%s%s%s%s%s%s%s\n"
-          "command_line      : %s\n",
-          start_time / 1000, get_cur_time() / 1000, getpid(),
-          queue_cycle ? (queue_cycle - 1) : 0, total_execs, eps, queued_paths,
-          queued_favored, queued_discovered, queued_imported, max_depth,
-          current_entry, pending_favored, pending_not_fuzzed, queued_variable,
-          stability, bitmap_cvg, unique_crashes, unique_hangs,
-          last_path_time / 1000, last_crash_time / 1000, last_hang_time / 1000,
-          total_execs - last_crash_execs, exec_tmout, slowest_exec_ms,
+  fprintf(
+      f,
+      "start_time        : %llu\n"
+      "last_update       : %llu\n"
+      "fuzzer_pid        : %d\n"
+      "cycles_done       : %llu\n"
+      "execs_done        : %llu\n"
+      "execs_per_sec     : %0.02f\n"
+      //          "real_execs_per_sec: %0.02f\n"  // damn the name is too long
+      "paths_total       : %u\n"
+      "paths_favored     : %u\n"
+      "paths_found       : %u\n"
+      "paths_imported    : %u\n"
+      "max_depth         : %u\n"
+      "cur_path          : %u\n"        /* Must match find_start_position() */
+      "pending_favs      : %u\n"
+      "pending_total     : %u\n"
+      "variable_paths    : %u\n"
+      "stability         : %0.02f%%\n"
+      "bitmap_cvg        : %0.02f%%\n"
+      "unique_crashes    : %llu\n"
+      "unique_hangs      : %llu\n"
+      "last_path         : %llu\n"
+      "last_crash        : %llu\n"
+      "last_hang         : %llu\n"
+      "execs_since_crash : %llu\n"
+      "exec_timeout      : %u\n"
+      "slowest_exec_ms   : %llu\n"
+      "peak_rss_mb       : %lu\n"
+      "afl_banner        : %s\n"
+      "afl_version       : " VERSION
+      "\n"
+      "target_mode       : %s%s%s%s%s%s%s%s\n"
+      "command_line      : %s\n",
+      start_time / 1000, get_cur_time() / 1000, getpid(),
+      queue_cycle ? (queue_cycle - 1) : 0, total_execs,
+      /*eps,*/ total_execs / ((double)(get_cur_time() - start_time) / 1000),
+      queued_paths, queued_favored, queued_discovered, queued_imported,
+      max_depth, current_entry, pending_favored, pending_not_fuzzed,
+      queued_variable, stability, bitmap_cvg, unique_crashes, unique_hangs,
+      last_path_time / 1000, last_crash_time / 1000, last_hang_time / 1000,
+      total_execs - last_crash_execs, exec_tmout, slowest_exec_ms,
 #ifdef __APPLE__
-          (unsigned long int)(rus.ru_maxrss >> 20),
+      (unsigned long int)(rus.ru_maxrss >> 20),
 #else
-          (unsigned long int)(rus.ru_maxrss >> 10),
+      (unsigned long int)(rus.ru_maxrss >> 10),
 #endif
-          use_banner, unicorn_mode ? "unicorn" : "", qemu_mode ? "qemu " : "",
-          dumb_mode ? " dumb " : "", no_forkserver ? "no_forksrv " : "",
-          crash_mode ? "crash " : "", persistent_mode ? "persistent " : "",
-          deferred_mode ? "deferred " : "",
-          (unicorn_mode || qemu_mode || dumb_mode || no_forkserver ||
-           crash_mode || persistent_mode || deferred_mode)
-              ? ""
-              : "default",
-          orig_cmdline);
+      use_banner, unicorn_mode ? "unicorn" : "", qemu_mode ? "qemu " : "",
+      dumb_mode ? " dumb " : "", no_forkserver ? "no_forksrv " : "",
+      crash_mode ? "crash " : "", persistent_mode ? "persistent " : "",
+      deferred_mode ? "deferred " : "",
+      (unicorn_mode || qemu_mode || dumb_mode || no_forkserver || crash_mode ||
+       persistent_mode || deferred_mode)
+          ? ""
+          : "default",
+      orig_cmdline);
   /* ignore errors */
 
   fclose(f);
@@ -264,10 +267,10 @@ void show_stats(void) {
   /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
 
   if (!dumb_mode && cycles_wo_finds > 100 && !pending_not_fuzzed &&
-      getenv("AFL_EXIT_WHEN_DONE"))
+      get_afl_env("AFL_EXIT_WHEN_DONE"))
     stop_soon = 2;
 
-  if (total_crashes && getenv("AFL_BENCH_UNTIL_CRASH")) stop_soon = 2;
+  if (total_crashes && get_afl_env("AFL_BENCH_UNTIL_CRASH")) stop_soon = 2;
 
   /* If we're not on TTY, bail out. */
 
@@ -334,9 +337,9 @@ void show_stats(void) {
 
   /* Lord, forgive me this. */
 
-  SAYF(SET_G1 bSTG bLT bH bSTOP                         cCYA
+  SAYF(SET_G1 bSTG bLT bH bSTOP cCYA
        " process timing " bSTG bH30 bH5 bH bHB bH bSTOP cCYA
-       " overall results " bSTG bH2 bH2                 bRT "\n");
+       " overall results " bSTG bH2 bH2 bRT "\n");
 
   if (dumb_mode) {
 
@@ -413,9 +416,9 @@ void show_stats(void) {
                 "   uniq hangs : " cRST "%-6s" bSTG         bV "\n",
        DTD(cur_ms, last_hang_time), tmp);
 
-  SAYF(bVR bH bSTOP                                          cCYA
+  SAYF(bVR bH bSTOP            cCYA
        " cycle progress " bSTG bH10 bH5 bH2 bH2 bHB bH bSTOP cCYA
-       " map coverage " bSTG bH bHT bH20 bH2                 bVL "\n");
+       " map coverage " bSTG bH bHT bH20 bH2 bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
      together, but then cram them into a fixed-width field - so we need to
@@ -443,9 +446,9 @@ void show_stats(void) {
 
   SAYF(bSTOP " count coverage : " cRST "%-21s" bSTG bV "\n", tmp);
 
-  SAYF(bVR bH bSTOP                                         cCYA
+  SAYF(bVR bH bSTOP            cCYA
        " stage progress " bSTG bH10 bH5 bH2 bH2 bX bH bSTOP cCYA
-       " findings in depth " bSTG bH10 bH5 bH2 bH2          bVL "\n");
+       " findings in depth " bSTG bH10 bH5 bH2 bH2 bVL "\n");
 
   sprintf(tmp, "%s (%0.02f%%)", DI(queued_favored),
           ((double)queued_favored) * 100 / queued_paths);
@@ -514,7 +517,7 @@ void show_stats(void) {
 
   /* Aaaalmost there... hold on! */
 
-  SAYF(bVR bH cCYA                                                     bSTOP
+  SAYF(bVR bH cCYA                      bSTOP
        " fuzzing strategy yields " bSTG bH10 bHT bH10 bH5 bHB bH bSTOP cCYA
        " path geometry " bSTG bH5 bH2 bVL "\n");
 
@@ -596,12 +599,30 @@ void show_stats(void) {
                   : cRST),
        tmp);
 
-  sprintf(tmp, "%s/%s, %s/%s", DI(stage_finds[STAGE_PYTHON]),
-          DI(stage_cycles[STAGE_PYTHON]), DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
-          DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
+  if (cmplog_mode) {
 
-  SAYF(bV bSTOP "   py/custom : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
-       tmp);
+    sprintf(tmp, "%s/%s, %s/%s, %s/%s, %s/%s", DI(stage_finds[STAGE_PYTHON]),
+            DI(stage_cycles[STAGE_PYTHON]),
+            DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
+            DI(stage_cycles[STAGE_CUSTOM_MUTATOR]),
+            DI(stage_finds[STAGE_COLORIZATION]),
+            DI(stage_cycles[STAGE_COLORIZATION]), DI(stage_finds[STAGE_ITS]),
+            DI(stage_cycles[STAGE_ITS]));
+
+    SAYF(bV bSTOP "   custom/rq : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
+         tmp);
+
+  } else {
+
+    sprintf(tmp, "%s/%s, %s/%s", DI(stage_finds[STAGE_PYTHON]),
+            DI(stage_cycles[STAGE_PYTHON]),
+            DI(stage_finds[STAGE_CUSTOM_MUTATOR]),
+            DI(stage_cycles[STAGE_CUSTOM_MUTATOR]));
+
+    SAYF(bV bSTOP "   py/custom : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
+         tmp);
+
+  }
 
   if (!bytes_trim_out) {
 
@@ -729,7 +750,7 @@ void show_init_stats(void) {
   SAYF("\n");
 
   if (avg_us > ((qemu_mode || unicorn_mode) ? 50000 : 10000))
-    WARNF(cLRD "The target binary is pretty slow! See %s/perf_tips.txt.",
+    WARNF(cLRD "The target binary is pretty slow! See %s/perf_tips.md.",
           doc_path);
 
   /* Let's keep things moving with slow binaries. */
@@ -744,11 +765,11 @@ void show_init_stats(void) {
   if (!resuming_fuzz) {
 
     if (max_len > 50 * 1024)
-      WARNF(cLRD "Some test cases are huge (%s) - see %s/perf_tips.txt!",
+      WARNF(cLRD "Some test cases are huge (%s) - see %s/perf_tips.md!",
             DMS(max_len), doc_path);
     else if (max_len > 10 * 1024)
-      WARNF("Some test cases are big (%s) - see %s/perf_tips.txt.",
-            DMS(max_len), doc_path);
+      WARNF("Some test cases are big (%s) - see %s/perf_tips.md.", DMS(max_len),
+            doc_path);
 
     if (useless_at_start && !in_bitmap)
       WARNF(cLRD "Some test cases look useless. Consider using a smaller set.");
@@ -808,7 +829,7 @@ void show_init_stats(void) {
   /* In dumb mode, re-running every timing out test case with a generous time
      limit is very expensive, so let's select a more conservative default. */
 
-  if (dumb_mode && !getenv("AFL_HANG_TMOUT"))
+  if (dumb_mode && !get_afl_env("AFL_HANG_TMOUT"))
     hang_tmout = MIN(EXEC_TIMEOUT, exec_tmout * 2 + 100);
 
   OKF("All set and ready to roll!");

@@ -29,27 +29,29 @@ CLANG_FORMAT_BIN = os.getenv("CLANG_FORMAT_BIN")
 if CLANG_FORMAT_BIN is None:
     o = 0
     try:
-        p = subprocess.Popen(["clang-format", "--version"], stdout=subprocess.PIPE)
+        p = subprocess.Popen(["clang-format-8", "--version"], stdout=subprocess.PIPE)
         o, _ = p.communicate()
         o = str(o, "utf-8")
         o = o[len("clang-format version "):].strip()
         o = o[:o.find(".")]
         o = int(o)
-    except: pass
-    if o < 7:
-        if subprocess.call(['which', 'clang-format-7'], stdout=subprocess.PIPE) == 0:
-            CLANG_FORMAT_BIN = 'clang-format-7'
-        elif subprocess.call(['which', 'clang-format-8'], stdout=subprocess.PIPE) == 0:
-            CLANG_FORMAT_BIN = 'clang-format-8'
-        elif subprocess.call(['which', 'clang-format-9'], stdout=subprocess.PIPE) == 0:
-            CLANG_FORMAT_BIN = 'clang-format-9'
-        elif subprocess.call(['which', 'clang-format-10'], stdout=subprocess.PIPE) == 0:
-            CLANG_FORMAT_BIN = 'clang-format-10'
-        else:
-            print ("clang-format 7 or above is needed. Aborted.")
-            exit(1)
+    except:
+        print ("clang-format-8 is needed. Aborted.")
+        exit(1)
+    #if o < 7:
+    #    if subprocess.call(['which', 'clang-format-7'], stdout=subprocess.PIPE) == 0:
+    #        CLANG_FORMAT_BIN = 'clang-format-7'
+    #    elif subprocess.call(['which', 'clang-format-8'], stdout=subprocess.PIPE) == 0:
+    #        CLANG_FORMAT_BIN = 'clang-format-8'
+    #    elif subprocess.call(['which', 'clang-format-9'], stdout=subprocess.PIPE) == 0:
+    #        CLANG_FORMAT_BIN = 'clang-format-9'
+    #    elif subprocess.call(['which', 'clang-format-10'], stdout=subprocess.PIPE) == 0:
+    #        CLANG_FORMAT_BIN = 'clang-format-10'
+    #    else:
+    #        print ("clang-format 7 or above is needed. Aborted.")
+    #        exit(1)
     else:
-        CLANG_FORMAT_BIN = 'clang-format'
+        CLANG_FORMAT_BIN = 'clang-format-8'
             
 COLUMN_LIMIT = 80
 for line in fmt.split("\n"):

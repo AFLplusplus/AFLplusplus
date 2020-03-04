@@ -4,7 +4,7 @@
 
    Originally written by Michal Zalewski
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
+   Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
@@ -189,7 +189,11 @@ u8 run_target(char** argv, u32 timeout) {
           "    - The binary, at least in some circumstances, exits in a way "
           "that\n"
           "      also kills the parent process - raise() could be the "
-          "culprit.\n\n"
+          "culprit.\n"
+          "    - If using persistent mode with QEMU, AFL_QEMU_PERSISTENT_ADDR "
+          "is\n"
+          "      probably not valid (hint: add the base address in case of PIE)"
+          "\n\n"
           "If all else fails you can disable the fork server via "
           "AFL_NO_FORKSRV=1.\n",
           mem_limit);
@@ -405,6 +409,8 @@ u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 handicap,
      count its spin-up time toward binary calibration. */
 
   if (dumb_mode != 1 && !no_forkserver && !forksrv_pid) init_forkserver(argv);
+  if (dumb_mode != 1 && !no_forkserver && !cmplog_forksrv_pid && cmplog_mode)
+    init_cmplog_forkserver(argv);
 
   if (q->exec_cksum) memcpy(first_trace, trace_bits, MAP_SIZE);
 
