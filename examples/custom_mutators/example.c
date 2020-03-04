@@ -40,7 +40,7 @@ void afl_custom_init(unsigned int seed) {
  * @return Size of the mutated output.
  */
 size_t afl_custom_fuzz(uint8_t *buf, size_t buf_size,
-                       uint8_t *add_buf,size_t add_buf_size, // add_buf can be NULL
+                       uint8_t *add_buf,size_t add_buf_size,
                        uint8_t *mutated_out, size_t max_size) {
 
   // Make sure that the packet size does not exceed the maximum size expected by
@@ -53,7 +53,7 @@ size_t afl_custom_fuzz(uint8_t *buf, size_t buf_size,
   // Mutate the payload of the packet
   for (int i = 3; i < mutated_size; i++) {
 
-    mutated_out[i] = (data[i] + rand() % 10) & 0xff;
+    mutated_out[i] = (buf[i] + rand() % 10) & 0xff;
 
   }
 
@@ -89,10 +89,10 @@ size_t afl_custom_pre_save(uint8_t *buf, size_t buf_size, uint8_t **out_buf) {
 
 }
 
-uint8_t *trim_buf;
-size_t trim_buf_size
-int trimmming_steps;
-int cur_step;
+static uint8_t *trim_buf;
+static size_t trim_buf_size;
+static int trimmming_steps;
+static int cur_step;
 
 /**
  * This method is called at the start of each trimming operation and receives
