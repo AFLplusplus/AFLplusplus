@@ -384,6 +384,7 @@ static const u8* main_payload_32 =
 #ifndef COVERAGE_ONLY
   "  .comm   __afl_prev_loc, 4, 32\n"
 #endif                                                    /* !COVERAGE_ONLY */
+  "  .comm   __afl_final_loc, 4, 32\n"
   "  .comm   __afl_fork_pid, 4, 32\n"
   "  .comm   __afl_temp, 4, 32\n"
   "\n"
