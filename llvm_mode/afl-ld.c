@@ -1,26 +1,26 @@
 /*
-   american fuzzy lop++ - wrapper for GNU ld
-   -----------------------------------------
+  american fuzzy lop++ - wrapper for GNU ld
+  -----------------------------------------
 
-   Originally written by Michal Zalewski
+  Written by Marc Heuse <mh@mh-sec.de> for afl++
 
-   Now maintained by by Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+  Maintained by Marc Heuse <mh@mh-sec.de>,
+                Heiko Eißfeldt <heiko.eissfeldt@hexco.de>
+                Andrea Fioraldi <andreafioraldi@gmail.com>
+                Dominik Maier <domenukk@gmail.com>
 
-   Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2020 AFLplusplus Project. All rights reserved.
+  Copyright 2019-2020 AFLplusplus Project. All rights reserved.
 
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at:
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at:
 
-     http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-   The sole purpose of this wrapper is to preprocess clang LTO files before
-   linking by ld and perform the instrumentation on the whole program.
+  The sole purpose of this wrapper is to preprocess clang LTO files before
+  linking by ld and perform the instrumentation on the whole program.
 
- */
+*/
 
 #define AFL_MAIN
 
@@ -55,8 +55,8 @@ static u8* afl_path = AFL_PATH;
 static u8* real_ld = AFL_REAL_LD;
 static u8  cwd[4096];
 static u8* tmp_dir;
-static u8* ar_dirs[64];
-static u8  ar_dirs_cnt;
+static u8* ar_dir;
+static u8  ar_dir_cnt;
 
 static u8 be_quiet,                 /* Quiet mode (no stderr output)        */
     debug,                          /* AFL_DEBUG                            */
@@ -68,9 +68,66 @@ static u32 ld_par_cnt = 1,          /* Number of params to 'ld'             */
     link_par_cnt = 1,               /* Number of params to 'llvm-link'      */
     opt_par_cnt = 1;                /* Number of params to 'opt'            */
 
+/* This function wipes a directory - our AR unpack directory in this case */
+static u8 wipe_directory(u8* path) {
+
+  DIR*           d;
+  struct dirent* d_ent;
+
+  d = opendir(path);
+
+  if (!d) return 0;
+
+  while ((d_ent = readdir(d))) {
+
+    if (strcmp(d_ent->d_name, ".") != 0 && strcmp(d_ent->d_name, "..") != 0) {
+
+      u8* fname = alloc_printf("%s/%s", path, d_ent->d_name);
+      if (unlink(fname)) PFATAL("Unable to delete '%s'", fname);
+      ck_free(fname);
+
+    }
+
+  }
+
+  closedir(d);
+
+  return !!rmdir(path);
+
+}
+
+/* remove temporary files on fatal errors */
+static void at_exit_handler(void) {
+
+  if (!getenv("AFL_KEEP_ASSEMBLY")) {
+
+    if (linked_file) {
+
+      unlink(linked_file);
+      linked_file = NULL;
+
+    }
+
+    if (modified_file) {
+
+      unlink(modified_file);
+      modified_file = NULL;
+
+    }
+
+    if (ar_dir != NULL) {
+
+      wipe_directory(ar_dir);
+      ar_dir = NULL;
+
+    }
+
+  }
+
+}
+
 /* This function checks if the parameter is a) an existing file and b)
    if it is a BC or LL file, if both are true it returns 1 and 0 otherwise */
-
 int is_llvm_file(const char* file) {
 
   int fd;
@@ -91,6 +148,7 @@ int is_llvm_file(const char* file) {
 
 }
 
+/* Return the current working directory, not thread safe ;-) */
 u8* getthecwd() {
 
   static u8 fail[] = "";
@@ -99,10 +157,20 @@ u8* getthecwd() {
 
 }
 
-/* Examine and modify parameters to pass to 'ld'. Note that the file name
-   is always the last parameter passed by GCC, so we exploit this property
-   to keep the code simple. */
+/* Check if an ar extracted file is already in the parameter list */
+int is_duplicate(u8** params, u32 ld_par_cnt, u8* ar_file) {
 
+  for (uint32_t i = 0; i < ld_par_cnt; i++)
+    if (params[i] != NULL)
+      if (strcmp(params[i], ar_file) == 0) return 1;
+
+  return 0;
+
+}
+
+/* Examine and modify parameters to pass to 'ld', 'llvm-link' and 'llmv-ar'.
+   Note that the file name is always the last parameter passed by GCC,
+   so we exploit this property to keep the code "simple". */
 static void edit_params(int argc, char** argv) {
 
   u32 i, have_lto = 0;
@@ -163,10 +231,14 @@ static void edit_params(int argc, char** argv) {
 
     }
 
-    // now we handle .a AR archives
+    // is the parameter an .a AR archive? If so, unpack and check its files
     if (argv[i][0] != '-' && strlen(argv[i]) > 2 &&
         argv[i][strlen(argv[i]) - 1] == 'a' &&
         argv[i][strlen(argv[i]) - 2] == '.') {
+
+      // This gets a bit odd. I encountered several .a files being linked and
+      // where the same "foo.o" was in both .a archives. llvm-link does not
+      // like this so we have to work around that ...
 
       u8             this_wd[4096], *this_ar;
       u8             ar_params_cnt = 4;
@@ -175,14 +247,18 @@ static void edit_params(int argc, char** argv) {
       DIR*           arx;
       struct dirent* dir_ent;
 
-      ar_dirs[ar_dirs_cnt] =
-          alloc_printf("%s/.afl-%u-%u-%u.dir", tmp_dir, getpid(), (u32)time(NULL), ar_dirs_cnt);
-      if (mkdir(ar_dirs[ar_dirs_cnt], 0700) != 0)
-        FATAL("can not create temporary directory %s", ar_dirs[ar_dirs_cnt]);
+      if (ar_dir_cnt == 0) {  // first archive, we setup up the basics
+        ar_dir = alloc_printf("%s/.afl-%u-%u.dir", tmp_dir, getpid(),
+                              (u32)time(NULL));
+        if (mkdir(ar_dir, 0700) != 0)
+          FATAL("can not create temporary directory %s", ar_dir[ar_dir_cnt]);
+
+      }
+
       if (getcwd(this_wd, sizeof(this_wd)) == NULL)
         FATAL("can not get the current working directory");
-      if (chdir(ar_dirs[ar_dirs_cnt]) != 0)
-        FATAL("can not chdir to temporary directory %s", ar_dirs[ar_dirs_cnt]);
+      if (chdir(ar_dir) != 0)
+        FATAL("can not chdir to temporary directory %s", ar_dir);
       if (argv[i][0] == '/')
         this_ar = argv[i];
       else
@@ -192,10 +268,8 @@ static void edit_params(int argc, char** argv) {
       ar_params[2] = this_ar;
       ar_params[3] = NULL;
 
-      if (!be_quiet)
-        OKF("Running ar unpacker on %s into %s", this_ar, ar_dirs[ar_dirs_cnt]);
+      if (!be_quiet) OKF("Running ar unpacker on %s into %s", this_ar, ar_dir);
 
-debug=1;
       if (debug) {
 
         SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
@@ -219,49 +293,55 @@ debug=1;
       if (chdir(this_wd) != 0)
         FATAL("can not chdir back to our working directory %s", this_wd);
 
-      if (!(arx = opendir(ar_dirs[ar_dirs_cnt])))
-        FATAL("can not open directory %s", ar_dirs[ar_dirs_cnt]);
+      if (!(arx = opendir(ar_dir))) FATAL("can not open directory %s", ar_dir);
 
       while ((dir_ent = readdir(arx)) != NULL) {
 
-        u8 *ar_file = alloc_printf("%s/%s", ar_dirs[ar_dirs_cnt], dir_ent->d_name);
+        u8* ar_file = alloc_printf("%s/%s", ar_dir, dir_ent->d_name);
 
         if (dir_ent->d_name[strlen(dir_ent->d_name) - 1] == 'o' &&
             dir_ent->d_name[strlen(dir_ent->d_name) - 2] == '.') {
 
           if (passthrough || argv[i][0] == '-' || is_llvm_file(ar_file) == 0) {
 
-            ld_params[ld_par_cnt++] = ar_file;
-            if (debug) SAYF(cMGN "[D] " cRST "not a link file: %s\n", ar_file);
+            if (is_duplicate(ld_params, ld_par_cnt, ar_file) == 0) {
 
-          } else {
-
-            if (we_link == 0) {  // we have to honor order ...
-              ld_params[ld_par_cnt++] = modified_file;
-              we_link = 1;
+              ld_params[ld_par_cnt++] = ar_file;
+              if (debug)
+                SAYF(cMGN "[D] " cRST "not a LTO link file: %s\n", ar_file);
 
             }
 
-            link_params[link_par_cnt++] = ar_file;
-            if (debug) SAYF(cMGN "[D] " cRST "is a link file: %s\n", ar_file);
+          } else {
+
+            if (is_duplicate(link_params, link_par_cnt, ar_file) == 0) {
+
+              if (we_link == 0) {  // we have to honor order ...
+
+                ld_params[ld_par_cnt++] = modified_file;
+                we_link = 1;
+
+              }
+
+              link_params[link_par_cnt++] = ar_file;
+              if (debug) SAYF(cMGN "[D] " cRST "is a link file: %s\n", ar_file);
+
+            }
 
           }
 
         } else
 
-          if (dir_ent->d_name[0] != '.')
-            WARNF("Unusual file found in ar archive %s: %s", argv[i],
-                  ar_file);
+            if (dir_ent->d_name[0] != '.')
+          WARNF("Unusual file found in ar archive %s: %s", argv[i], ar_file);
 
       }
 
       closedir(arx);
-      ar_dirs_cnt++;
-      
-      if (ar_dirs_cnt >= 64)
-        FATAL("too many AR archives, we only support up to 63");
-      
+      ar_dir_cnt++;
+
       continue;
+
     }
 
     if (passthrough || argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
@@ -449,7 +529,9 @@ int main(int argc, char** argv) {
 
   }
 
-  edit_params(argc, argv);
+  atexit(at_exit_handler);  // ensure to wipe temp files if things fail
+
+  edit_params(argc, argv);  // here most of the magic happens :-)
 
   if (!just_version) {
 
@@ -543,14 +625,38 @@ int main(int argc, char** argv) {
 
     if (!getenv("AFL_KEEP_ASSEMBLY")) {
 
-      unlink(linked_file);
-      unlink(modified_file);
+      if (linked_file) {
+
+        unlink(linked_file);
+        linked_file = NULL;
+
+      }
+
+      if (modified_file) {
+
+        unlink(modified_file);
+        modified_file = NULL;
+
+      }
+
+      if (ar_dir != NULL) {
+
+        wipe_directory(ar_dir);
+        ar_dir = NULL;
+
+      }
 
     } else {
 
-      if (!be_quiet)
-        SAYF("[!] afl-ld: keeping link file %s and bitcode file %s\n",
+      if (!be_quiet) {
+
+        SAYF("[!] afl-ld: keeping link file %s and bitcode file %s",
              linked_file, modified_file);
+        if (ar_dir_cnt > 0 && ar_dir)
+          SAYF(" and ar archive unpack directory %s", ar_dir);
+        SAYF("\n");
+
+      }
 
     }
 
@@ -573,4 +679,3 @@ int main(int argc, char** argv) {
   exit(WEXITSTATUS(status));
 
 }
-

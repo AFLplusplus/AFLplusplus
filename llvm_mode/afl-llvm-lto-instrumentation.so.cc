@@ -150,7 +150,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
-    SAYF(cCYA "afl-llvm-pass" VERSION cRST " by <lszekeres@google.com>\n");
+    SAYF(cCYA "afl-llvm-lto" VERSION cRST
+              " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
 
   } else
 
@@ -320,9 +321,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
       pow2map++;
     FATAL(
         "We have %u blocks to instrument but the map size is only %u! Edit "
-        "config.h and set MAP_SIZE_POW2 to %u and recompile afl-fuzz and "
-        "llvm_mode",
-        afl_global_id, MAP_SIZE, pow2map);
+        "config.h and set MAP_SIZE_POW2 from %u to %u, then recompile "
+        "afl-fuzz and llvm_mode.",
+        afl_global_id, MAP_SIZE, MAP_SIZE_POW2, pow2map);
 
   }
 
