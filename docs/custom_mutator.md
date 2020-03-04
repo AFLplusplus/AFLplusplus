@@ -13,7 +13,7 @@ a given grammar.
 
 The custom mutator library is passed to afl-fuzz via the
 AFL_CUSTOM_MUTATOR_LIBRARY environment variable. The library must export
-the afl_custom_mutator() function and must be compiled as a shared object.
+the afl_custom_fuzz() function and must be compiled as a shared object.
 For example:
 ```
 $CC -shared -Wall -O3 <lib-name>.c -o <lib-name>.so

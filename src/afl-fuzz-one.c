@@ -482,56 +482,6 @@ u8 fuzz_one_original(char** argv) {
 
   if (use_radamsa > 1) goto radamsa_stage;
 
-  // custom_stage:	// not used - yet
-
-  if (mutator->afl_custom_fuzz) {
-
-    stage_short = "custom";
-    stage_name = "custom mutator";
-    stage_max = len << 3;
-    stage_val_type = STAGE_VAL_NONE;
-
-    const u32 max_seed_size = 4096 * 4096;
-    u8*       mutated_buf = ck_alloc(max_seed_size);
-
-    orig_hit_cnt = queued_paths + unique_crashes;
-
-    for (stage_cur = 0; stage_cur < stage_max; ++stage_cur) {
-
-      size_t orig_size = (size_t)len;
-      size_t mutated_size = mutator->afl_custom_fuzz(in_buf, orig_size,
-                                                     mutated_buf, max_seed_size,
-                                                     UR(UINT32_MAX));
-      if (mutated_size > 0) {
-
-        out_buf = ck_realloc(out_buf, mutated_size);
-        memcpy(out_buf, mutated_buf, mutated_size);
-        if (common_fuzz_stuff(argv, out_buf, (u32)mutated_size)) {
-
-          goto abandon_entry;
-
-        }
-
-      }
-
-    }
-
-    ck_free(mutated_buf);
-    new_hit_cnt = queued_paths + unique_crashes;
-
-    stage_finds[STAGE_CUSTOM_MUTATOR] += new_hit_cnt - orig_hit_cnt;
-    stage_cycles[STAGE_CUSTOM_MUTATOR] += stage_max;
-
-    if (custom_only) {
-
-      /* Skip other stages */
-      ret_val = 0;
-      goto abandon_entry;
-
-    }
-
-  }
-
   if (cmplog_mode) {
 
     if (input_to_state_stage(argv, in_buf, out_buf, len, queue_cur->exec_cksum))
@@ -551,11 +501,7 @@ u8 fuzz_one_original(char** argv) {
                          : havoc_max_mult * 100)) ||
       queue_cur->passed_det) {
 
-#ifdef USE_PYTHON
-    goto python_stage;
-#else
-    goto havoc_stage;
-#endif
+    goto custom_mutator_stage;
 
   }
 
@@ -564,11 +510,7 @@ u8 fuzz_one_original(char** argv) {
 
   if (master_max && (queue_cur->exec_cksum % master_max) != master_id - 1) {
 
-#ifdef USE_PYTHON
-    goto python_stage;
-#else
-    goto havoc_stage;
-#endif
+    goto custom_mutator_stage;
 
   }
 
@@ -1583,24 +1525,25 @@ skip_extras:
 
   if (!queue_cur->passed_det) mark_as_det_done(queue_cur);
 
-#ifdef USE_PYTHON
-python_stage:
-  /**********************************
-   * EXTERNAL MUTATORS (Python API) *
-   **********************************/
+custom_mutator_stage:
+  /*******************
+   * CUSTOM MUTATORS *
+   *******************/
 
-  if (!py_module) goto havoc_stage;
+  if (!mutator) goto havoc_stage;
+  if (!mutator->afl_custom_fuzz) goto havoc_stage;
 
-  stage_name = "python";
-  stage_short = "python";
+  stage_name = "custom mutator";
+  stage_short = "custom";
   stage_max = HAVOC_CYCLES * perf_score / havoc_div / 100;
+  stage_val_type = STAGE_VAL_NONE;
 
   if (stage_max < HAVOC_MIN) stage_max = HAVOC_MIN;
 
-  orig_hit_cnt = queued_paths + unique_crashes;
+  const u32 max_seed_size = 4096 * 4096;
+  u8*       mutated_buf = ck_alloc(max_seed_size);
 
-  char*  retbuf = NULL;
-  size_t retlen = 0;
+  orig_hit_cnt = queued_paths + unique_crashes;
 
   for (stage_cur = 0; stage_cur < stage_max; ++stage_cur) {
 
@@ -1647,25 +1590,23 @@ python_stage:
     ck_read(fd, new_buf, target->len, target->fname);
     close(fd);
 
-    fuzz_py_original(out_buf, len, new_buf, target->len, &retbuf, &retlen);
+    size_t mutated_size = mutator->afl_custom_fuzz(out_buf, len,
+                                                   new_buf, target->len,
+                                                   mutated_buf, max_seed_size);
 
     ck_free(new_buf);
 
-    if (retbuf) {
+    if (mutated_size > 0) {
 
-      if (!retlen) goto abandon_entry;
+      out_buf = ck_realloc(out_buf, mutated_size);
+      memcpy(out_buf, mutated_buf, mutated_size);
 
-      if (common_fuzz_stuff(argv, retbuf, retlen)) {
+      if (common_fuzz_stuff(argv, out_buf, (u32)mutated_size)) {
 
-        free(retbuf);
+        ck_free(mutated_buf);
         goto abandon_entry;
 
       }
-
-      /* Reset retbuf/retlen */
-      free(retbuf);
-      retbuf = NULL;
-      retlen = 0;
 
       /* If we're finding new stuff, let's run for a bit longer, limits
          permitting. */
@@ -1687,20 +1628,19 @@ python_stage:
 
   }
 
+  ck_free(mutated_buf);
   new_hit_cnt = queued_paths + unique_crashes;
 
-  stage_finds[STAGE_PYTHON] += new_hit_cnt - orig_hit_cnt;
-  stage_cycles[STAGE_PYTHON] += stage_max;
+  stage_finds[STAGE_CUSTOM_MUTATOR] += new_hit_cnt - orig_hit_cnt;
+  stage_cycles[STAGE_CUSTOM_MUTATOR] += stage_max;
 
-  if (python_only) {
+  if (custom_only) {
 
     /* Skip other stages */
     ret_val = 0;
     goto abandon_entry;
 
   }
-
-#endif
 
   /****************
    * RANDOM HAVOC *
@@ -2270,11 +2210,10 @@ retry_splicing:
     out_buf = ck_alloc_nozero(len);
     memcpy(out_buf, in_buf, len);
 
-#ifdef USE_PYTHON
-    goto python_stage;
-#else
-    goto havoc_stage;
-#endif
+    goto custom_mutator_stage;
+    /* ???: While integrating Python module, the author decided to jump to
+       python stage, but the reason behind this is not clear.*/
+    // goto havoc_stage;
 
   }
 

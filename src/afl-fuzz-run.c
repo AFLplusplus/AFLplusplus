@@ -309,11 +309,12 @@ void write_to_testcase(void* mem, u32 len) {
 
     lseek(fd, 0, SEEK_SET);
 
-  if (mutator->afl_custom_pre_save) {
+  if (mutator && mutator->afl_custom_pre_save) {
 
     u8*    new_data;
     size_t new_size = mutator->afl_custom_pre_save(mem, len, &new_data);
     ck_write(fd, new_data, new_size, out_file);
+    ck_free(new_data);
 
   } else {
 

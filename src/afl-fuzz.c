@@ -158,7 +158,6 @@ static void usage(u8* argv0, int more_help) {
       "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
       "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
-      "AFL_PYTHON_ONLY: skip AFL++'s own mutators\n"
       "AFL_DEBUG: extra debugging output for Python mode trimming\n"
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_NO_UI: switch status screen off\n"
@@ -658,11 +657,10 @@ int main(int argc, char** argv, char** envp) {
   OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
-  if (sync_id && force_deterministic &&
-      (getenv("AFL_CUSTOM_MUTATOR_ONLY") || getenv("AFL_PYTHON_ONLY")))
+  if (sync_id && force_deterministic && getenv("AFL_CUSTOM_MUTATOR_ONLY"))
     WARNF(
-        "Using -M master with the AFL_..._ONLY mutator options will result in "
-        "no deterministic mutations being done!");
+        "Using -M master with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "
+        "result in no deterministic mutations being done!");
 
   check_environment_vars(envp);
 
@@ -831,16 +829,6 @@ int main(int argc, char** argv, char** envp) {
   }
 
   if (get_afl_env("AFL_DEBUG")) debug = 1;
-
-  if (get_afl_env("AFL_PYTHON_ONLY")) {
-
-    /* This ensures we don't proceed to havoc/splice */
-    python_only = 1;
-
-    /* Ensure we also skip all deterministic steps */
-    skip_deterministic = 1;
-
-  }
 
   if (get_afl_env("AFL_CUSTOM_MUTATOR_ONLY")) {
 

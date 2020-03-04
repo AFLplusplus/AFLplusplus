@@ -18,9 +18,11 @@ afl-qemu-trace
 afl-showmap
 afl-tmin
 afl-analyze.8
+afl-as.8
 afl-clang-fast++.8
 afl-clang-fast.8
 afl-cmin.8
+afl-cmin.bash.8
 afl-fuzz.8
 afl-gcc.8
 afl-gcc-fast.8

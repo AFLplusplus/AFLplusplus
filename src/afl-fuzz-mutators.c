@@ -27,6 +27,7 @@
 
 void setup_custom_mutator(void) {
 
+  /* Try mutator library first */
   u8* fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
 
   if (fn) {
@@ -41,6 +42,7 @@ void setup_custom_mutator(void) {
     return;
   }
 
+  /* Try Python module */
 #ifdef USE_PYTHON
   u8* module_name = getenv("AFL_PYTHON_MODULE");
 
@@ -286,7 +288,7 @@ void load_custom_mutator_py(const char* module_name) {
 
   /* "afl_custom_fuzz" should not be NULL, but the interface of Python mutator
      is quite different from the custom mutator. */
-  mutator->afl_custom_fuzz = NULL;
+  mutator->afl_custom_fuzz = fuzz_py;
 
   if (py_functions[PY_FUNC_PRE_SAVE])
     mutator->afl_custom_pre_save = pre_save_py;
