@@ -70,7 +70,7 @@ static void handle_timeout(int signum) {
 
   LIST_FOREACH(&timer_events, timer_event_t, {
 
-    if (el->end_time + 2 <= cur_time) {
+    if (el->end_time <= cur_time) {
 
       el->callback(el->start_time, el->end_time, el->data);
       LIST_REMOVE_CURRENT_EL_IN_FOREACH();
@@ -98,7 +98,7 @@ static timer_event_t *timer_alloc() {
 
 }
 
-timer_event_t *timer_run_after(u64 millis, void (*callback)(u64 start_time, u64 end_time, void *data)) {
+timer_event_t *timer_start(u64 millis, void (*callback)(u64 start_time, u64 end_time, void *data)) {
 
   /* add us to timeout list */
 
