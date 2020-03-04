@@ -23,6 +23,12 @@
 
  */
 
+// CONFIG OPTION:
+// If #define USE_SPLIT is used, then the llvm::SplitEdge function is used
+// instead of our own implementation. Ours looks better though and will
+// compile everywhere. So default is not to define this.
+//#define USE_SPLIT
+
 #define AFL_LLVM_PASS
 
 #include "config.h"
@@ -49,6 +55,12 @@ typedef long double max_align_t;
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
+#ifdef USE_SPLIT
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/MemorySSAUpdater.h"
+#endif
+
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
 #include "llvm/IR/DebugInfo.h"
@@ -66,6 +78,7 @@ class AFLLTOPass : public ModulePass {
 
  public:
   static char ID;
+
   AFLLTOPass() : ModulePass(ID) {
 
     char *ptr;
@@ -74,9 +87,20 @@ class AFLLTOPass : public ModulePass {
     if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL)
       if ((afl_global_id = atoi(ptr)) < 0 || afl_global_id >= MAP_SIZE)
         FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is not between 0 and %d\n",
-              ptr, MAP_SIZE);
+              ptr, MAP_SIZE - 1);
 
   }
+
+#ifdef USE_SPLIT
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+
+    ModulePass::getAnalysisUsage(AU);
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
+
+  }
+
+#endif
 
   static bool isBlacklisted(const Function *F) {
 
@@ -154,6 +178,11 @@ bool AFLLTOPass::runOnModule(Module &M) {
     if (F.size() < 2) continue;
     if (isBlacklisted(&F)) continue;
 
+#ifdef USE_SPLIT
+    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+    LoopInfo &     LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+#endif
+
     std::vector<BasicBlock *> InsBlocks;
 
     for (auto &BB : F) {
@@ -175,17 +204,15 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       for (uint32_t i = 0; i < InsBlocks.size(); i++) {
 
-        BasicBlock *              oldBB = &*InsBlocks[i];
+        BasicBlock *origBB = &*InsBlocks[i];
+
         std::vector<BasicBlock *> Successors;
 
-        Instruction *TI = oldBB->getTerminator();
-        
-fprintf(stderr, "Terminators: %u\n", TI->getNumSuccessors());
+        Instruction *TI = origBB->getTerminator();
 
-        if (TI == NULL)
-          continue;
+        if (TI == NULL) continue;
 
-        for (succ_iterator SI = succ_begin(oldBB), SE = succ_end(oldBB);
+        for (succ_iterator SI = succ_begin(origBB), SE = succ_end(origBB);
              SI != SE; ++SI) {
 
           BasicBlock *succ = *SI;
@@ -193,13 +220,28 @@ fprintf(stderr, "Terminators: %u\n", TI->getNumSuccessors());
 
         }
 
-fprintf(stderr, "Successors: %lu\n", Successors.size());
-
         for (uint32_t j = 0; j < Successors.size(); j++) {
 
-          BasicBlock *BB = BasicBlock::Create(C, "", &F, nullptr);
-//          F.getBasicBlockList().push_back(BB);
-          IRBuilder<> IRB(BB);
+#ifdef USE_SPLIT
+          BasicBlock *newBB =
+              llvm::SplitEdge(origBB, Successors[j], &DT, &LI, nullptr);
+#else
+          BasicBlock *newBB = BasicBlock::Create(C, "", &F, nullptr);
+#endif
+
+          if (!newBB) {
+
+            WARNF("Split failed!");
+            continue;
+
+          }
+
+#ifdef USE_SPLIT
+          BasicBlock::iterator IP = newBB->getFirstInsertionPt();
+          IRBuilder<>          IRB(&(*IP));
+#else
+          IRBuilder<> IRB(&(*newBB));
+#endif
 
           /* Set the ID of the inserted basic block */
 
@@ -236,17 +278,22 @@ fprintf(stderr, "Successors: %lu\n", Successors.size());
           IRB.CreateStore(Incr, MapPtrIdx)
               ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
+#ifdef USE_SPLIT
+          // nothing
+#else
+
           // Unconditional jump to the destination BB
 
           IRB.CreateBr(Successors[j]);
 
-          //oldBB->replaceSuccessorsPhiUsesWith(Successors[j], BB);
-          TI->setSuccessor(j, BB);
-          BasicBlock *S = Successors[j];
-          S->removePredecessor(oldBB);
-
           // Replace the original destination to this newly inserted BB
 
+          origBB->replacePhiUsesWith(Successors[j], newBB);
+          BasicBlock *S = Successors[j];
+          S->replacePhiUsesWith(origBB, newBB);
+          TI->setSuccessor(j, newBB);
+
+#endif
           // done :)
 
           inst_blocks++;
@@ -256,6 +303,32 @@ fprintf(stderr, "Successors: %lu\n", Successors.size());
       }
 
     }
+
+  }
+
+  // save highest location ID to global variable
+
+  if (afl_global_id > MAP_SIZE) {
+
+    uint32_t pow2map = 1, map = afl_global_id;
+    while ((map = map >> 1))
+      pow2map++;
+    FATAL(
+        "We have %u blocks to instrument but the map size is only %u! Edit "
+        "config.h and set MAP_SIZE_POW2 to %u and recompile afl-fuzz and "
+        "llvm_mode",
+        afl_global_id, MAP_SIZE, pow2map);
+
+  }
+
+  if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL) {
+
+    GlobalVariable *AFLFinalLoc = new GlobalVariable(
+        M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc", 0,
+        GlobalVariable::GeneralDynamicTLSModel, 0, false);
+    ConstantInt *const_loc = ConstantInt::get(Int32Ty, afl_global_id);
+    AFLFinalLoc->setAlignment(4);
+    AFLFinalLoc->setInitializer(const_loc);
 
   }
 
