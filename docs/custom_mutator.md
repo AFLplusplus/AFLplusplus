@@ -192,7 +192,7 @@ afl-fuzz /path/to/program
 Please see [example.c](../examples/custom_mutators/example.c) and
 [example.py](../examples/custom_mutators/example.py)
 
-## 6) Other Resources
+## 5) Other Resources
 
 - AFL libprotobuf mutator
     - [bruce30262/libprotobuf-mutator_fuzzing_learning](https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator)
