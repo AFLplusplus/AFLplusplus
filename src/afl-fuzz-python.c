@@ -159,67 +159,16 @@ void init_py(unsigned int seed) {
   }
 }
 
-void fuzz_py_original(char* buf, size_t buflen,
-                      char* add_buf, size_t add_buflen,
-                      char** ret, size_t* retlen) {
+size_t fuzz_py(u8* buf, size_t buf_size,
+               u8* add_buf, size_t add_buf_size,
+               u8* mutated_out, size_t max_size) {
 
-  if (py_module != NULL) {
-
-    PyObject *py_args, *py_value;
-    py_args = PyTuple_New(2);
-    py_value = PyByteArray_FromStringAndSize(buf, buflen);
-    if (!py_value) {
-
-      Py_DECREF(py_args);
-      fprintf(stderr, "Cannot convert argument\n");
-      return;
-
-    }
-
-    PyTuple_SetItem(py_args, 0, py_value);
-
-    py_value = PyByteArray_FromStringAndSize(add_buf, add_buflen);
-    if (!py_value) {
-
-      Py_DECREF(py_args);
-      fprintf(stderr, "Cannot convert argument\n");
-      return;
-
-    }
-
-    PyTuple_SetItem(py_args, 1, py_value);
-
-    py_value = PyObject_CallObject(py_functions[PY_FUNC_FUZZ], py_args);
-
-    Py_DECREF(py_args);
-
-    if (py_value != NULL) {
-
-      *retlen = PyByteArray_Size(py_value);
-      *ret = malloc(*retlen);
-      memcpy(*ret, PyByteArray_AsString(py_value), *retlen);
-      Py_DECREF(py_value);
-
-    } else {
-
-      PyErr_Print();
-      fprintf(stderr, "Call failed\n");
-      return;
-
-    }
-
-  }
-
-}
-
-size_t fuzz_py(u8* data, size_t size, u8* mutated_out, size_t max_size,
-               unsigned int seed) {
-
-  size_t out_size;
+  size_t mutated_size;
   PyObject *py_args, *py_value;
   py_args = PyTuple_New(3);
 
-  py_value = PyByteArray_FromStringAndSize(data, size);
+  /* buf */
+  py_value = PyByteArray_FromStringAndSize(buf, buf_size);
   if (!py_value) {
 
     Py_DECREF(py_args);
@@ -229,11 +178,8 @@ size_t fuzz_py(u8* data, size_t size, u8* mutated_out, size_t max_size,
 
   PyTuple_SetItem(py_args, 0, py_value);
 
-#if PY_MAJOR_VERSION >= 3
-  py_value = PyLong_FromLong(max_size);
-#else
-  py_value = PyInt_FromLong(max_size);
-#endif
+  /* add_buf */
+  py_value = PyByteArray_FromStringAndSize(add_buf, add_buf_size);
   if (!py_value) {
 
     Py_DECREF(py_args);
@@ -243,10 +189,11 @@ size_t fuzz_py(u8* data, size_t size, u8* mutated_out, size_t max_size,
 
   PyTuple_SetItem(py_args, 1, py_value);
 
+  /* max_size */
 #if PY_MAJOR_VERSION >= 3
-  py_value = PyLong_FromLong(seed);
+  py_value = PyLong_FromLong(max_size);
 #else
-  py_value = PyInt_FromLong(seed);
+  py_value = PyInt_FromLong(max_size);
 #endif
   if (!py_value) {
 
@@ -263,11 +210,10 @@ size_t fuzz_py(u8* data, size_t size, u8* mutated_out, size_t max_size,
 
   if (py_value != NULL) {
 
-    out_size = PyByteArray_Size(py_value);
-    memcpy(mutated_out, PyByteArray_AsString(py_value), out_size);
+    mutated_size = PyByteArray_Size(py_value);
+    memcpy(mutated_out, PyByteArray_AsString(py_value), mutated_size);
     Py_DECREF(py_value);
-
-    return out_size;
+    return mutated_size;
 
   } else {
 
@@ -278,12 +224,12 @@ size_t fuzz_py(u8* data, size_t size, u8* mutated_out, size_t max_size,
 
 }
 
-size_t pre_save_py(u8* data, size_t size, u8** new_data) {
+size_t pre_save_py(u8* buf, size_t buf_size, u8** out_buf) {
 
-  size_t new_size;
+  size_t out_buf_size;
   PyObject *py_args, *py_value;
   py_args = PyTuple_New(2);
-  py_value = PyByteArray_FromStringAndSize(data, size);
+  py_value = PyByteArray_FromStringAndSize(buf, buf_size);
   if (!py_value) {
 
     Py_DECREF(py_args);
@@ -299,11 +245,11 @@ size_t pre_save_py(u8* data, size_t size, u8** new_data) {
 
   if (py_value != NULL) {
 
-    new_size = PyByteArray_Size(py_value);
-    *new_data = malloc(new_size);
-    memcpy(*new_data, PyByteArray_AsString(py_value), new_size);
+    out_buf_size = PyByteArray_Size(py_value);
+    *out_buf = malloc(out_buf_size);
+    memcpy(*out_buf, PyByteArray_AsString(py_value), out_buf_size);
     Py_DECREF(py_value);
-    return new_size;
+    return out_buf_size;
 
   } else {
 
@@ -314,12 +260,12 @@ size_t pre_save_py(u8* data, size_t size, u8** new_data) {
 
 }
 
-u32 init_trim_py(u8* buf, size_t buflen) {
+u32 init_trim_py(u8* buf, size_t buf_size) {
 
   PyObject *py_args, *py_value;
 
   py_args = PyTuple_New(1);
-  py_value = PyByteArray_FromStringAndSize(buf, buflen);
+  py_value = PyByteArray_FromStringAndSize(buf, buf_size);
   if (!py_value) {
 
     Py_DECREF(py_args);
@@ -389,7 +335,7 @@ u32 post_trim_py(u8 success) {
 
 }
 
-void trim_py(u8** ret, size_t* retlen) {
+void trim_py(u8** out_buf, size_t* out_buf_size) {
 
   PyObject *py_args, *py_value;
 
@@ -399,9 +345,9 @@ void trim_py(u8** ret, size_t* retlen) {
 
   if (py_value != NULL) {
 
-    *retlen = PyByteArray_Size(py_value);
-    *ret = malloc(*retlen);
-    memcpy(*ret, PyByteArray_AsString(py_value), *retlen);
+    *out_buf_size = PyByteArray_Size(py_value);
+    *out_buf = malloc(*out_buf_size);
+    memcpy(*out_buf, PyByteArray_AsString(py_value), *out_buf_size);
     Py_DECREF(py_value);
 
   } else {
