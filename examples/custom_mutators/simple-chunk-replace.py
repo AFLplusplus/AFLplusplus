@@ -16,27 +16,32 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import random
 
+
 def init(seed):
     '''
     Called once when AFLFuzz starts up. Used to seed our RNG.
-    
+
     @type seed: int
     @param seed: A 32-bit random value
     '''
     # Seed our RNG
     random.seed(seed)
-    return 0
 
-def fuzz(buf, add_buf):
+
+def fuzz(buf, add_buf, max_size):
     '''
     Called per fuzzing iteration.
-    
+
     @type buf: bytearray
     @param buf: The buffer that should be mutated.
-    
+
     @type add_buf: bytearray
     @param add_buf: A second buffer that can be used as mutation source.
-    
+
+    @type max_size: int
+    @param max_size: Maximum size of the mutated output. The mutation must not
+        produce data larger than max_size.
+
     @rtype: bytearray
     @return: A new bytearray containing the mutated data
     '''
@@ -45,10 +50,10 @@ def fuzz(buf, add_buf):
 
     # Take a random fragment length between 2 and 32 (or less if add_buf is shorter)
     fragment_len = random.randint(1, min(len(add_buf), 32))
-    
+
     # Determine a random source index where to take the data chunk from
     rand_src_idx = random.randint(0, len(add_buf) - fragment_len)
-    
+
     # Determine a random destination index where to put the data chunk
     rand_dst_idx = random.randint(0, len(buf))
 
