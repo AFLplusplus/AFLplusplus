@@ -37,8 +37,12 @@
 #include <ctype.h>
 #include <fcntl.h>
 
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+
+#include <dirent.h>
 
 static u8 **ld_params,              /* Parameters passed to the real 'ld'   */
     **link_params,                  /*   Parameters passed to 'llvm-link'   */
@@ -50,6 +54,9 @@ static u8 *modified_file,           /* Instrumented file for the real 'ld'  */
 static u8* afl_path = AFL_PATH;
 static u8* real_ld = AFL_REAL_LD;
 static u8  cwd[4096];
+static u8* tmp_dir;
+static u8* ar_dirs[64];
+static u8  ar_dirs_cnt;
 
 static u8 be_quiet,                 /* Quiet mode (no stderr output)        */
     debug,                          /* AFL_DEBUG                            */
@@ -98,12 +105,16 @@ u8* getthecwd() {
 
 static void edit_params(int argc, char** argv) {
 
-  u8* tmp_dir = getenv("TMPDIR");
   u32 i, have_lto = 0;
 
-  if (!tmp_dir) tmp_dir = getenv("TEMP");
-  if (!tmp_dir) tmp_dir = getenv("TMP");
-  if (!tmp_dir) tmp_dir = "/tmp";
+  if (tmp_dir == NULL) {
+
+    tmp_dir = getenv("TMPDIR");
+    if (!tmp_dir) tmp_dir = getenv("TEMP");
+    if (!tmp_dir) tmp_dir = getenv("TMP");
+    if (!tmp_dir) tmp_dir = "/tmp";
+
+  }
 
   modified_file =
       alloc_printf("%s/.afl-%u-%u.bc", tmp_dir, getpid(), (u32)time(NULL));
@@ -152,11 +163,106 @@ static void edit_params(int argc, char** argv) {
 
     }
 
+    // now we handle .a AR archives
     if (argv[i][0] != '-' && strlen(argv[i]) > 2 &&
         argv[i][strlen(argv[i]) - 1] == 'a' &&
-        argv[i][strlen(argv[i]) - 2] == '.')
-      if (!getenv("AFL_QUIET"))
-        WARNF("object archive %s is not handled yet", argv[i]);
+        argv[i][strlen(argv[i]) - 2] == '.') {
+
+      u8             this_wd[4096], *this_ar;
+      u8             ar_params_cnt = 4;
+      u8*            ar_params[ar_params_cnt];
+      s32            pid, status;
+      DIR*           arx;
+      struct dirent* dir_ent;
+
+      ar_dirs[ar_dirs_cnt] =
+          alloc_printf("%s/.afl-%u-%u-%u.dir", tmp_dir, getpid(), (u32)time(NULL), ar_dirs_cnt);
+      if (mkdir(ar_dirs[ar_dirs_cnt], 0700) != 0)
+        FATAL("can not create temporary directory %s", ar_dirs[ar_dirs_cnt]);
+      if (getcwd(this_wd, sizeof(this_wd)) == NULL)
+        FATAL("can not get the current working directory");
+      if (chdir(ar_dirs[ar_dirs_cnt]) != 0)
+        FATAL("can not chdir to temporary directory %s", ar_dirs[ar_dirs_cnt]);
+      if (argv[i][0] == '/')
+        this_ar = argv[i];
+      else
+        this_ar = alloc_printf("%s/%s", this_wd, argv[i]);
+      ar_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "llvm-ar");
+      ar_params[1] = "x";
+      ar_params[2] = this_ar;
+      ar_params[3] = NULL;
+
+      if (!be_quiet)
+        OKF("Running ar unpacker on %s into %s", this_ar, ar_dirs[ar_dirs_cnt]);
+
+debug=1;
+      if (debug) {
+
+        SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
+        for (uint32_t j = 0; j < ar_params_cnt; j++)
+          SAYF(" \"%s\"", ar_params[j]);
+        SAYF("\n");
+
+      }
+
+      if (!(pid = fork())) {
+
+        execvp(ar_params[0], (char**)ar_params);
+        FATAL("Oops, failed to execute '%s'", ar_params[0]);
+
+      }
+
+      if (pid < 0) FATAL("fork() failed");
+      if (waitpid(pid, &status, 0) <= 0) FATAL("waitpid() failed");
+      if (WEXITSTATUS(status) != 0) exit(WEXITSTATUS(status));
+
+      if (chdir(this_wd) != 0)
+        FATAL("can not chdir back to our working directory %s", this_wd);
+
+      if (!(arx = opendir(ar_dirs[ar_dirs_cnt])))
+        FATAL("can not open directory %s", ar_dirs[ar_dirs_cnt]);
+
+      while ((dir_ent = readdir(arx)) != NULL) {
+
+        u8 *ar_file = alloc_printf("%s/%s", ar_dirs[ar_dirs_cnt], dir_ent->d_name);
+
+        if (dir_ent->d_name[strlen(dir_ent->d_name) - 1] == 'o' &&
+            dir_ent->d_name[strlen(dir_ent->d_name) - 2] == '.') {
+
+          if (passthrough || argv[i][0] == '-' || is_llvm_file(ar_file) == 0) {
+
+            ld_params[ld_par_cnt++] = ar_file;
+            if (debug) SAYF(cMGN "[D] " cRST "not a link file: %s\n", ar_file);
+
+          } else {
+
+            if (we_link == 0) {  // we have to honor order ...
+              ld_params[ld_par_cnt++] = modified_file;
+              we_link = 1;
+
+            }
+
+            link_params[link_par_cnt++] = ar_file;
+            if (debug) SAYF(cMGN "[D] " cRST "is a link file: %s\n", ar_file);
+
+          }
+
+        } else
+
+          if (dir_ent->d_name[0] != '.')
+            WARNF("Unusual file found in ar archive %s: %s", argv[i],
+                  ar_file);
+
+      }
+
+      closedir(arx);
+      ar_dirs_cnt++;
+      
+      if (ar_dirs_cnt >= 64)
+        FATAL("too many AR archives, we only support up to 63");
+      
+      continue;
+    }
 
     if (passthrough || argv[i][0] == '-' || is_llvm_file(argv[i]) == 0)
       ld_params[ld_par_cnt++] = argv[i];
@@ -253,12 +359,20 @@ int main(int argc, char** argv) {
   u8 *ptr, exe[4096], exe2[4096], proc[32], val[2] = " ";
   int have_afl_ld_caller = 0;
 
+  if (isatty(2) && !getenv("AFL_QUIET") && !getenv("AFL_DEBUG")) {
+
+    if (getenv("AFL_LD") != NULL)
+      SAYF(cCYA "afl-ld" VERSION cRST
+                " by Marc \"vanHauser\" Heuse <mh@mh-sec.de> (level %d)\n",
+           have_afl_ld_caller);
+
+  } else
+
+    be_quiet = 1;
+
   if (getenv("AFL_DEBUG") != NULL) debug = 1;
-
   if (getenv("AFL_PATH") != NULL) afl_path = getenv("AFL_PATH");
-
   if (getenv("AFL_LD_PASSTHROUGH") != NULL) passthrough = 1;
-
   if (getenv("AFL_REAL_LD") != NULL) real_ld = getenv("AFL_REAL_LD");
   if (real_ld == NULL || strlen(real_ld) < 2) real_ld = "/bin/ld";
   if (real_ld != NULL && real_ld[0] != '/')
@@ -298,17 +412,6 @@ int main(int argc, char** argv) {
     PFATAL(cLRD "[!] " cRST
                 "Error: afl-ld calls itself in a loop, set AFL_REAL_LD to the "
                 "real 'ld' program!");
-
-  if (isatty(2) && !getenv("AFL_QUIET") && !getenv("AFL_DEBUG")) {
-
-    if (getenv("AFL_LD") != NULL)
-      SAYF(cCYA "afl-ld" VERSION cRST
-                " by Marc \"vanHauser\" Heuse <mh@mh-sec.de> (level %d)\n",
-           have_afl_ld_caller);
-
-  } else
-
-    be_quiet = 1;
 
   if (argc < 2) {
 

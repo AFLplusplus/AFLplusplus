@@ -26,7 +26,7 @@
 // CONFIG OPTION:
 // If #define USE_SPLIT is used, then the llvm::SplitEdge function is used
 // instead of our own implementation. Ours looks better and will
-// compile everywhere. But it is not working for complex code. yet.
+// compile everywhere. But it is not working for complex code. yet. damn.
 #define USE_SPLIT
 
 #define AFL_LLVM_PASS
@@ -106,7 +106,8 @@ class AFLLTOPass : public ModulePass {
 
     static const char *Blacklist[] = {
 
-        "asan.", "llvm.", "sancov.", "__ubsan_handle_", "ign."
+        "asan.",  "llvm.", "sancov.",   "__ubsan_handle_", "ign.",
+        "__afl_", "_fini", "__libc_csu"
 
     };
 
@@ -180,8 +181,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
 #ifdef USE_SPLIT
       // DominatorTree &DT =
-      // getAnalysis<DominatorTreeWrapperPass>(F).getDomTree(); LoopInfo &     LI
-      // = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+      // getAnalysis<DominatorTreeWrapperPass>(F).getDomTree(); LoopInfo & LI =
+      // getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 #endif
 
     std::vector<BasicBlock *> InsBlocks;
