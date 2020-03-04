@@ -194,7 +194,7 @@ static void usage(u8* argv0, int more_help) {
         "use \"-hh\".\n\n");
 
 #ifdef USE_PYTHON
-  SAYF("Compiled with %s module support, see docs/python_mutators.md\n",
+  SAYF("Compiled with %s module support, see docs/custom_mutator.md\n",
        (char*)PYTHON_VERSION);
 #endif
 
