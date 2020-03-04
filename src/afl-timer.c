@@ -39,10 +39,8 @@ static void handle_timeout(int signum);
 static void set_alarm_kickoff(u64 alarm_time) {
 
   struct sigaction sa = {0};
-  //sigemptyset(&sa.sa_mask);
   sa.sa_handler = handle_timeout;
   sa.sa_flags = SA_RESTART;
-  //sa.sa_sigaction = NULL;
   sigaction(SIGALRM, &sa, NULL);
 
   next_end_time = alarm_time;
@@ -52,34 +50,24 @@ static void set_alarm_kickoff(u64 alarm_time) {
   it.it_value.tv_sec = millis / 1000;
   it.it_value.tv_usec = (millis % 1000) * 1000;
 
-  //printf("millis: %d", millis);
-
   setitimer(ITIMER_REAL, &it, NULL);
 
 }
 
 static void handle_timeout(int signum) {
 
-  //printf("FUN\n");
-  //fflush(stdout);
-
   u64 cur_time = get_cur_time();
   next_end_time = 0;
-
-  //printf("cur_time %lld", cur_time);
 
   LIST_FOREACH(&timer_events, timer_event_t, {
 
     if (el->end_time <= cur_time) {
 
-      //printf("found 1 el to remove\n");
       el->callback(el->start_time, el->end_time, el->data);
       LIST_REMOVE_CURRENT_EL_IN_FOREACH();
       free(el);
 
     } else {
-
-      //printf("found 1 nexttime %lld\n", el->end_time);
 
       if (!next_end_time || next_end_time > el->end_time) {
         next_end_time = el->end_time;
@@ -89,16 +77,11 @@ static void handle_timeout(int signum) {
 
   });
 
-  //printf("next %lld\n", next_end_time);
-  //fflush(stdout);
-
   if (next_end_time) set_alarm_kickoff(next_end_time);
 
 }
 
 timer_event_t *add_timeout(u64 millis, void (*callback)(u64 start_time, u64 end_time, void *data)) {
-
-  /* set handler */
 
   /* add us to timeout list */
 
@@ -114,6 +97,8 @@ timer_event_t *add_timeout(u64 millis, void (*callback)(u64 start_time, u64 end_
 
   if (!next_end_time || next_end_time > event->end_time) set_alarm_kickoff(event->end_time);
 
+  return event;
+
 }
 
 void cancel_timeout(timer_event_t *event) {
@@ -125,32 +110,6 @@ void cancel_timeout(timer_event_t *event) {
   free(event);
 
 }
-
-
-void init_timeout() {
-
-  struct sigaction sa;
-
-  /* Exec timeout notifications. */
-
-  sa.sa_handler = handle_timeout;
-  sigaction(SIGALRM, &sa, NULL);
-
-
-
-  sa.sa_handler = NULL;
-  sa.sa_flags = SA_RESTART;
-  sa.sa_sigaction = NULL;
-
-  sigemptyset(&sa.sa_mask);
-
-  /* Various ways of saying "stop". */
-
-  sa.sa_handler = handle_timeout;
-  sigaction(SIGALRM, &sa, NULL);
-
-}
-
 
 volatile u64 counter = 0;
 
