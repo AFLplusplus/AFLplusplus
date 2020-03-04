@@ -680,7 +680,8 @@ void sync_fuzzers(char** argv) {
 u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) {
 
   /* Custom mutator trimmer */
-  if (mutator->afl_custom_trim) return trim_case_custom(argv, q, in_buf);
+  if (mutator && mutator->afl_custom_trim)
+    return trim_case_custom(argv, q, in_buf);
 
   static u8 tmp[64];
   static u8 clean_trace[MAP_SIZE];
