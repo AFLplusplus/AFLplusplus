@@ -149,6 +149,7 @@ void afl_frk_srv_init(afl_forkserver_t *frk_srv) {
 
 void afl_frk_srv_start(afl_forkserver_t *frk_srv, char **argv) {
 
+  static struct itimerval it;
   int                     st_pipe[2], ctl_pipe[2];
   int                     status;
   s32                     rlen;
@@ -287,56 +288,36 @@ void afl_frk_srv_start(afl_forkserver_t *frk_srv, char **argv) {
   frk_srv->fsrv_ctl_fd = ctl_pipe[1];
   frk_srv->fsrv_st_fd = st_pipe[0];
 
-  /* Wait for the fork server to come up.
-  First use select with a timeout so we don't wait too long. */
+  /* Wait for the fork server to come up, but don't wait too long. */
 
   if (frk_srv->exec_tmout) {
 
-    struct timeval timeout;
-    timeout.tv_sec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) / 1000);
-    timeout.tv_usec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
-
-    fd_set set;
-    FD_ZERO(&set);
-    FD_SET(frk_srv->fsrv_st_fd, &set);
-
-    int select_ret = select(frk_srv->fsrv_st_fd + 1, &set, NULL, NULL, &timeout);
-
-    if(select_ret == -1) {
-      if (errno != EINTR) {
-        /* EINTR is fine - it means our child died. Anything else is an error*/
-        perror("select");
-        FATAL("An error occurred while waiting for forkserver to spin up");
-      }
-    } else if(select_ret == 0) {
-      /* a timeout occurred */
-      if (frk_srv->child_pid > 0) {
-
-        frk_srv->child_timed_out = 1;
-        kill(frk_srv->child_pid, SIGKILL);
-
-      } else if (frk_srv->child_pid == -1 && frk_srv->forksrv_pid > 0) {
-
-        frk_srv->child_timed_out = 1;
-        kill(frk_srv->forksrv_pid, SIGKILL);
-      }
-
-      FATAL("Timeout while initializing fork server (adjusting -t may help)");
-
-    } else {
-
-      /* bytes are ready to be read from child */
-      rlen = read(frk_srv->fsrv_st_fd, &status, 4);
-      if (rlen != 4) FATAL("Short answer while initializing fork server (adjusting -t may help)");
-      if (!getenv("AFL_QUIET")) OKF("All right - fork server is up.");
-      return;
-
-    }
+    it.it_value.tv_sec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) / 1000);
+    it.it_value.tv_usec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
 
   }
 
+  setitimer(ITIMER_REAL, &it, NULL);
+
+  rlen = read(frk_srv->fsrv_st_fd, &status, 4);
+
+  it.it_value.tv_sec = 0;
+  it.it_value.tv_usec = 0;
+
+  setitimer(ITIMER_REAL, &it, NULL);
+
   /* If we have a four-byte "hello" message from the server, we're all set.
      Otherwise, try to figure out what went wrong. */
+
+  if (rlen == 4) {
+
+    if (!getenv("AFL_QUIET")) OKF("All right - fork server is up.");
+    return;
+
+  }
+
+  if (frk_srv->child_timed_out)
+    FATAL("Timeout while initializing fork server (adjusting -t may help)");
 
   if (waitpid(frk_srv->forksrv_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
 
@@ -486,7 +467,6 @@ void afl_frk_srv_killall() {
   LIST_FOREACH(&frk_srv_list, afl_forkserver_t, {
     if (el->child_pid > 0) kill(el->child_pid, SIGKILL);
   });
-
 }
 
 void afl_frk_srv_deinit(afl_forkserver_t *frk_srv) {
