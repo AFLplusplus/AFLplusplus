@@ -9,11 +9,11 @@ __seed__ = "RANDOM"
 __log__ = False
 __log_file__ = "wrapper.log"
 
-# AFL functions
 
+# AFL functions
 def log(text):
     """
-          Logger
+    Logger
     """
 
     global __seed__
@@ -23,6 +23,7 @@ def log(text):
     if __log__:
         with open(__log_file__, "a") as logf:
             logf.write("[%s] %s\n" % (__seed__, text))
+
 
 def init(seed):
     """
@@ -37,17 +38,18 @@ def init(seed):
 
     # Create a global mutation class
     try:
-	__mutator__ = XmlMutatorMin(__seed__, verbose=__log__)
+        __mutator__ = XmlMutatorMin(__seed__, verbose=__log__)
         log("init(): Mutator created")
     except RuntimeError as e:
         log("init(): Can't create mutator: %s" % e.message)
 
-def fuzz(buf, add_buf):
+
+def fuzz(buf, add_buf, max_size):
     """
-          Called for each fuzzing iteration.
+    Called for each fuzzing iteration.
     """
 
-    global __mutator__ 
+    global __mutator__
 
     # Do we have a working mutator object?
     if __mutator__ is None:
@@ -62,7 +64,7 @@ def fuzz(buf, add_buf):
         try:
             buf_str = str(buf)
             log("fuzz(): AFL buffer converted to a string")
-        except:
+        except Exception:
             via_buffer = False
             log("fuzz(): Can't convert AFL buffer to a string")
 
@@ -71,28 +73,28 @@ def fuzz(buf, add_buf):
         try:
             __mutator__.init_from_string(buf_str)
             log("fuzz(): Mutator successfully initialized with AFL buffer (%d bytes)" % len(buf_str))
-        except:
+        except Exception:
             via_buffer = False
             log("fuzz(): Can't initialize mutator with AFL buffer")
 
     # If init from AFL buffer wasn't succesful
     if not via_buffer:
-         log("fuzz(): Returning unmodified AFL buffer")
-         return buf
+        log("fuzz(): Returning unmodified AFL buffer")
+        return buf
 
     # Sucessful initialization -> mutate
     try:
         __mutator__.mutate(max=5)
         log("fuzz(): Input mutated")
-    except:
+    except Exception:
         log("fuzz(): Can't mutate input => returning buf")
         return buf
-            
+
     # Convert mutated data to a array of bytes
     try:
         data = bytearray(__mutator__.save_to_string())
         log("fuzz(): Mutated data converted as bytes")
-    except:
+    except Exception:
         log("fuzz(): Can't convert mutated data to bytes => returning buf")
         return buf
 
@@ -100,8 +102,8 @@ def fuzz(buf, add_buf):
     log("fuzz(): Returning %d bytes" % len(data))
     return data
 
-# Main (for debug)
 
+# Main (for debug)
 if __name__ == '__main__':
 
     __log__ = True
@@ -114,4 +116,3 @@ if __name__ == '__main__':
     in_2 = bytearray("<abc abc123='456' abcCBA='ppppppppppppppppppppppppppppp'/>")
     out = fuzz(in_1, in_2)
     print(out)
-

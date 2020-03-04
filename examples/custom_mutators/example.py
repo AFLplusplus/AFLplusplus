@@ -16,26 +16,31 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import random
 
+
 def init(seed):
     '''
     Called once when AFLFuzz starts up. Used to seed our RNG.
-    
+
     @type seed: int
     @param seed: A 32-bit random value
     '''
     random.seed(seed)
-    return 0
 
-def fuzz(buf, add_buf):
+
+def fuzz(buf, add_buf, max_size):
     '''
     Called per fuzzing iteration.
-    
+
     @type buf: bytearray
     @param buf: The buffer that should be mutated.
-    
+
     @type add_buf: bytearray
     @param add_buf: A second buffer that can be used as mutation source.
-    
+
+    @type max_size: int
+    @param max_size: Maximum size of the mutated output. The mutation must not
+        produce data larger than max_size.
+
     @rtype: bytearray
     @return: A new bytearray containing the mutated data
     '''
@@ -50,54 +55,68 @@ def fuzz(buf, add_buf):
 # def init_trim(buf):
 #     '''
 #     Called per trimming iteration.
-#     
+#
 #     @type buf: bytearray
 #     @param buf: The buffer that should be trimmed.
-#     
+#
 #     @rtype: int
 #     @return: The maximum number of trimming steps.
 #     '''
 #     global ...
-#     
+#
 #     # Initialize global variables
-#     
+#
 #     # Figure out how many trimming steps are possible.
 #     # If this is not possible for your trimming, you can
 #     # return 1 instead and always return 0 in post_trim
 #     # until you are done (then you return 1).
-#         
+#
 #     return steps
-# 
+#
 # def trim():
 #     '''
 #     Called per trimming iteration.
-# 
+#
 #     @rtype: bytearray
 #     @return: A new bytearray containing the trimmed data.
 #     '''
 #     global ...
-#     
+#
 #     # Implement the actual trimming here
-#     
+#
 #     return bytearray(...)
-# 
+#
 # def post_trim(success):
 #     '''
 #     Called after each trimming operation.
-#     
+#
 #     @type success: bool
 #     @param success: Indicates if the last trim operation was successful.
-#     
+#
 #     @rtype: int
 #     @return: The next trim index (0 to max number of steps) where max
 #              number of steps indicates the trimming is done.
 #     '''
 #     global ...
-# 
+#
 #     if not success:
 #         # Restore last known successful input, determine next index
 #     else:
 #         # Just determine the next index, based on what was successfully
 #         # removed in the last step
-#     
+#
 #     return next_index
+#
+# def pre_save(buf):
+#     '''
+#     Called just before the execution to write the test case in the format
+#     expected by the target
+#
+#     @type buf: bytearray
+#     @param buf: The buffer containing the test case to be executed
+#
+#     @rtype: bytearray
+#     @return: The buffer containing the test case after
+#     '''
+#     return buf
+#
