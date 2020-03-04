@@ -99,8 +99,50 @@ class AFLLTOPass : public ModulePass {
     AU.addRequired<LoopInfoWrapperPass>();
 
   }
-
 #endif
+
+  // Calculate the number of average collisions that would occur if all
+  // location IDs would be assigned randomly (like normal afl/afl++).
+  // This uses the "balls in bins" algorithm.
+  unsigned long long int calculateCollisions(uint32_t edges) {
+
+    double                 bins = MAP_SIZE;
+    double                 balls = edges;
+    double                 step1 = 1 - (1 / bins);
+    double                 step2 = pow(step1, balls);
+    double                 step3 = bins * step2;
+    double                 step4 = round(step3);
+    unsigned long long int empty = step4;
+    unsigned long long int collisions = edges - (MAP_SIZE - empty);
+    return collisions;
+
+  }
+
+  // Get the internal llvm name of a basic block
+  // This is an ugly debug support so it is commented out :-)
+/*
+  static char *getBBName(const BasicBlock *BB) {
+
+    static char *name;
+
+    if (!BB->getName().empty()) {
+    
+      name = strdup(BB->getName().str().c_str());
+      return name;
+      
+    }
+
+    std::string        Str;
+    raw_string_ostream OS(Str);
+
+    BB->printAsOperand(OS, false);
+    
+    name = strdup(OS.str().c_str());
+    
+    return name;
+
+  }
+*/
 
   static bool isBlacklisted(const Function *F) {
 
@@ -194,7 +236,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       for (succ_iterator SI = succ_begin(&BB), SE = succ_end(&BB); SI != SE;
            ++SI)
-        succ++;
+        if ((*SI)->size() > 0)
+          succ++;
 
       if (succ < 2)  // no need to instrument
         continue;
@@ -205,15 +248,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     if (InsBlocks.size() > 0) {
 
-      for (uint32_t i = 0; i < InsBlocks.size(); i++) {
+      uint32_t i = InsBlocks.size();
+      
+      do {
 
-        BasicBlock *origBB = &*InsBlocks[i];
-
+        --i;
+        BasicBlock *origBB = &(*InsBlocks[i]);
         std::vector<BasicBlock *> Successors;
-
         Instruction *TI = origBB->getTerminator();
-
-        if (TI == NULL || TI->getNumSuccessors() < 2) continue;
 
         for (succ_iterator SI = succ_begin(origBB), SE = succ_end(origBB);
              SI != SE; ++SI) {
@@ -223,9 +265,11 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         }
 
-        if (Successors.size() != TI->getNumSuccessors())
-          FATAL("Different successor numbers %lu <-> %u\n", Successors.size(),
-                TI->getNumSuccessors());
+        if (TI == NULL || TI->getNumSuccessors() < 2) continue;
+
+        //if (Successors.size() != TI->getNumSuccessors())
+        //  FATAL("Different successor numbers %lu <-> %u\n", Successors.size(),
+        //        TI->getNumSuccessors());
 
         for (uint32_t j = 0; j < Successors.size(); j++) {
 
@@ -306,7 +350,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         }
 
-      }
+      } while (i > 0);
 
     }
 
@@ -352,8 +396,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
                getenv("AFL_USE_ASAN") ? ", ASAN" : "",
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      OKF("Instrumented %u locations with no collisions :-) (%s mode).",
-          inst_blocks, modeline);
+      OKF("Instrumented %u locations with no collisions (on average %llu collisions would be in afl-gcc/afl-clang-fast) (%s mode).",
+          inst_blocks, calculateCollisions(inst_blocks), modeline);
 
     }
 

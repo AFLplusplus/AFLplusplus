@@ -1,5 +1,12 @@
 # afl-clang-lto - collision free instrumentation at link time
 
+## TLDR;
+
+1. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
+   coverage than anything else that is out there in the AFL world
+
+2. You can use it together with llvm_mode: laf-intel and whitelisting
+   features and can be combined with cmplog/Redqueen
 
 ## Introduction and problem description
 
@@ -17,39 +24,35 @@ instrumented blocks hence the real collisions are between 750-18.000!
 To get to a solution that prevents any collision took several approaches
 and many dead ends until we got to this:
 
- * We instrument at link time when we have all files compiled
+ * We instrument at link time when we have all files pre-compiled
  * To instrument at link time we compile in LTO (link time optimization) mode
  * Our compiler (afl-clang-lto/afl-clang-lto++) takes care of setting the
    correct LTO options and runs our own afl-ld linker instead of the system
    linker
  * Our linker collects all LTO files to link and instruments them so that
-   we have a non-colliding edge overage
+   we have non-colliding edge overage
  * We use a new (for afl) edge coverage - which is the same as in llvm
    -fsanitize=coverage edge coverage mode :)
  * after inserting our instrumentation in all interesting edges we link
-   the program to our executable
+   all parts of the program together to our executable
 
 The result:
  * 10-15% speed gain compared to llvm_mode
  * non-colliding edge coverage :-)
- * due to an unknown issue not a small number of interesting edges are
-   instrumened - this is currently investigated
-
-Because of no collisions and the speed gain the new LTO mode is already better
-than llvm_mode even with the issue present.
 
 Example build output from a libtiff build:
 ```
-bin/bash ../libtool  --tag=CC   --mode=link afl-clang-lto  -g -O2 -Wall -W   -o thumbnail thumbnail.o ../libtiff/libtiff.la ../port/libport.la -llzma -ljbig -ljpeg -lz -lm 
+/bin/bash ../libtool  --tag=CC   --mode=link afl-clang-lto  -g -O2 -Wall -W   -o thumbnail thumbnail.o ../libtiff/libtiff.la ../port/libport.la -llzma -ljbig -ljpeg -lz -lm 
 libtool: link: afl-clang-lto -g -O2 -Wall -W -o thumbnail thumbnail.o  ../libtiff/.libs/libtiff.a ../port/.libs/libport.a -llzma -ljbig -ljpeg -lz -lm
-afl-clang-lto++2.60e by Marc "vanHauser" Heuse <mh@mh-sec.de>
-afl-ld++2.60e by Marc "vanHauser" Heuse <mh@mh-sec.de> (level 0)
-[+] Running ar unpacker on /prg/tests/lto/tiff-4.0.4/tools/../libtiff/.libs/libtiff.a into /tmp/.afl-3873726-1583322431.dir
-[+] Running ar unpacker on /prg/tests/lto/tiff-4.0.4/tools/../port/.libs/libport.a into /tmp/.afl-3873726-1583322431.dir
-[+] Running bitcode linker, creating /tmp/.afl-3873726-1583322431.ll
-[+] Performing instrumentation via opt, creating /tmp/.afl-3873726-1583322431.bc
-afl-llvm-lto++2.60e by Marc "vanHauser" Heuse <mh@mh-sec.de>
-[+] Instrumented 9476 locations with no collisions :-) (non-hardened mode).
+afl-clang-lto++2.62d by Marc "vanHauser" Heuse <mh@mh-sec.de>
+afl-ld++2.62d by Marc "vanHauser" Heuse <mh@mh-sec.de> (level 0)
+[+] Running ar unpacker on /prg/tests/lto/tiff-4.0.4/tools/../libtiff/.libs/libtiff.a into /tmp/.afl-3914343-1583339800.dir
+[+] Running ar unpacker on /prg/tests/lto/tiff-4.0.4/tools/../port/.libs/libport.a into /tmp/.afl-3914343-1583339800.dir
+[+] Running bitcode linker, creating /tmp/.afl-3914343-1583339800-1.ll
+[+] Performing optimization via opt, creating /tmp/.afl-3914343-1583339800-2.bc
+[+] Performing instrumentation via opt, creating /tmp/.afl-3914343-1583339800-3.bc
+afl-llvm-lto++2.62d by Marc "vanHauser" Heuse <mh@mh-sec.de>
+[+] Instrumented 15833 locations with no collisions (on average 1767 collisions would be in afl-gcc/afl-clang-fast) (non-hardened mode).
 [+] Running real linker /bin/x86_64-linux-gnu-ld
 [+] Linker was successful
 ```
@@ -116,8 +119,11 @@ This can result in two problems though:
 
 ## Upcoming Work
 
-1. Fix the issue where not all blocks that should be instrumented are instrumented
-2. Currently the LTO whitelist feature does not allow to not instrument main, start and init functions
+1. Currently the LTO whitelist feature does not allow to not instrument main, start and init functions
+2. Modify the forkserver + afl-fuzz so that only the necessary map size is
+   loaded and used - and communicated to afl-fuzz too.
+   Result: faster fork in the target and faster map analysis in afl-fuzz
+   => more speed :-)
 
 ## Tested targets
 
