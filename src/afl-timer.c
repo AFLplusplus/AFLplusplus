@@ -81,7 +81,7 @@ static void handle_timeout(int signum) {
 
 }
 
-timer_event_t *add_timeout(u64 millis, void (*callback)(u64 start_time, u64 end_time, void *data)) {
+timer_event_t *timer_start(u64 millis, void (*callback)(u64 start_time, u64 end_time, void *data)) {
 
   /* add us to timeout list */
 
@@ -101,7 +101,7 @@ timer_event_t *add_timeout(u64 millis, void (*callback)(u64 start_time, u64 end_
 
 }
 
-void cancel_timeout(timer_event_t *event) {
+void timer_cancel(timer_event_t *event) {
 
   /* Could reschedule the alarm if needed, 
        but this way it triggers and resets anwyay */
@@ -111,6 +111,7 @@ void cancel_timeout(timer_event_t *event) {
 
 }
 
+/* Test 
 volatile u64 counter = 0;
 
 void counter_inc() {
@@ -122,9 +123,12 @@ int main(int argc, char **argv) {
 
   u64 c2;
 
-  add_timeout(1000, counter_inc);
-  add_timeout(2000, counter_inc);
-  add_timeout(3000, counter_inc);
+  timer_start(1000, counter_inc);
+  timer_event_t *cancelme = timer_start(2000, counter_inc);
+  timer_start(3000, counter_inc);
+  timer_start(1100, counter_inc);
+  timer_cancel(cancelme);
+  
 
   while(counter < 3) {
 
@@ -135,3 +139,4 @@ int main(int argc, char **argv) {
   //printf("%ld", c2);
 
 }
+*/
