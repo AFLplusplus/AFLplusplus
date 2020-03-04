@@ -228,10 +228,10 @@ checks or alter some of the more exotic semantics of the tool:
     afl-fuzz), setting AFL_PYTHON_MODULE to a Python module can also provide
     additional mutations.
     If AFL_CUSTOM_MUTATOR_ONLY is also set, all mutations will solely be
-    performed with/from the library/Python module.
-    This feature allows to configure custom mutators which can be very helpful
-    in e.g. fuzzing XML or other highly flexible structured input.
-    Please see [custom_mutator.md](custom_mutator.md) or [python_mutators.md](python_mutators.md).
+    performed with the custom mutator.
+    This feature allows to configure custom mutators which can be very helpful,
+    e.g. fuzzing XML or other highly flexible structured input.
+    Please see [custom_mutator.md](custom_mutator.md).
 
   - AFL_FAST_CAL keeps the calibration stage about 2.5x faster (albeit less
     precise), which can help when starting a session against a slow target.
