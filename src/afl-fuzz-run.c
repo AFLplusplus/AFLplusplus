@@ -643,7 +643,7 @@ void sync_fuzzers(char** argv) {
 
         fault = run_target(argv, exec_tmout);
 
-        if (stop_soon) return;
+        if (stop_soon) goto close_sync;
 
         syncing_party = sd_ent->d_name;
         queued_imported += save_if_interesting(argv, mem, st.st_size, fault);
@@ -662,6 +662,7 @@ void sync_fuzzers(char** argv) {
 
     ck_write(id_fd, &next_min_accept, sizeof(u32), qd_synced_path);
 
+close_sync:
     close(id_fd);
     closedir(qd);
     ck_free(qd_path);
