@@ -40,7 +40,8 @@ and many dead ends until we got to this:
 
 The result:
  * 10-15% speed gain compared to llvm_mode
- * non-colliding edge coverage :-)
+ * guaranteed non-colliding edge coverage :-)
+ * The compile time especially for libraries can be longer
 
 Example build output from a libtiff build:
 ```
@@ -128,6 +129,8 @@ Please report issues at:
 
 Known issues:
 * ffmpeg
+* bogofilter
+* libjpeg-turbo-1.3.1
 
 ## Upcoming Work
 
@@ -137,11 +140,11 @@ Known issues:
    Result: faster fork in the target and faster map analysis in afl-fuzz
    => more speed :-)
 
-## Tested targets
+## Tested and working targets
 
-* bogofilter-1.2.5
-* libjpeg-turbo-1.3.1 (needs CFLAGS=-fPIC)
 * libpng-1.2.53
 * libxml2-2.9.2
 * tiff-4.0.4
 * unrar-nonfree-5.6.6
+* exiv 0.27
+* jpeg-6b
