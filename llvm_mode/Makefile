@@ -43,9 +43,10 @@ LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//')
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 LLVM_STDCXX = gnu++11
 LLVM_APPLE = $(shell clang -v 2>&1 | grep -iq apple && echo 1 || echo 0)
+LLVM_LTO   = 0
 
 ifeq "$(LLVMVER)" ""
-  $(warning llvm_mode needs llvm-config, which was not found)
+  $(warning [!] llvm_mode needs llvm-config, which was not found)
 endif
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
@@ -53,16 +54,81 @@ ifeq "$(LLVM_UNSUPPORTED)" "1"
 endif
 
 ifeq "$(LLVM_MAJOR)" "9"
-  $(info llvm_mode detected llvm 9, enabling neverZero implementation)
+  $(info [+] llvm_mode detected llvm 9, enabling neverZero implementation)
+  $(info [+] llvm_mode detected llvm 9, enabling afl-clang-lto LTO implementation)
+  LLVM_LTO = 1
 endif
 
 ifeq "$(LLVM_NEW_API)" "1"
-  $(info llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
+  $(info [+] llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
+  $(info [+] llvm_mode detected llvm 9, enabling afl-clang-lto LTO implementation)
   LLVM_STDCXX = c++14
+  LLVM_LTO = 1
+endif
+
+ifeq "$(LLVM_LTO)" "0"
+  $(info [+] llvm_mode detected llvm < 9, afl-clang-lto LTO will not be build.)
 endif
 
 ifeq "$(LLVM_APPLE)" "1"
   $(warning llvm_mode will not compile with Xcode clang...)
+endif
+
+# We were using llvm-config --bindir to get the location of clang, but
+# this seems to be busted on some distros, so using the one in $PATH is
+# probably better.
+
+CC         = $(LLVM_BINDIR)/clang
+CXX        = $(LLVM_BINDIR)/clang++
+
+ifeq "$(shell test -e $(CC) || echo 1 )" "1"
+  # llvm-config --bindir may not providing a valid path, so ...
+  ifeq "$(shell test -e '$(BIN_DIR)/clang' && echo 1)" "1"
+    # we found one in the local install directory, lets use these
+    CC         = $(BIN_DIR)/clang
+    CXX        = $(BIN_DIR)/clang++
+  else
+    # hope for the best
+    $(warning we have trouble finding clang/clang++ - llvm-config is not helping us)
+    CC         = clang
+    CXX        = clang++
+  endif
+endif
+
+# sanity check.
+# Are versions of clang --version and llvm-config --version equal?
+CLANGVER = $(shell $(CC) --version | sed -E -ne '/^.*version\ ([0-9]\.[0-9]\.[0-9]).*/s//\1/p')
+
+ifneq "$(CLANGVER)" "$(LLVMVER)"
+  CC = $(shell $(LLVM_CONFIG) --bindir)/clang
+  CXX = $(shell $(LLVM_CONFIG) --bindir)/clang++
+endif
+
+# After we set CC/CXX we can start makefile magic tests
+
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+	CFLAGS_OPT = -march=native
+endif
+
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto=full
+else
+ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto=thin
+ else
+  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto
+  endif
+ endif
+endif
+
+ifneq "$(AFL_CLANG_FLTO)" ""
+ifeq "$(AFL_REAL_LD)" ""
+  AFL_REAL_LD = $(shell readlink /bin/ld 2>/dev/null)
+  ifeq "$(AFL_REAL_LD)" ""
+    AFL_REAL_LD = $(shell readlink /usr/bin/ld 2>/dev/null)
+  endif
+endif
 endif
 
 CFLAGS          ?= -O3 -funroll-loops
@@ -70,7 +136,7 @@ override CFLAGS = -Wall \
                -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
-               -DLLVM_VERSION=\"$(LLVMVER)\"
+               -DLLVM_VERSION=\"$(LLVMVER)\"  -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\"
 ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
 endif
@@ -92,31 +158,9 @@ ifeq "$(shell uname)" "OpenBSD"
   CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so
 endif
 
-# We were using llvm-config --bindir to get the location of clang, but
-# this seems to be busted on some distros, so using the one in $PATH is
-# probably better.
-
-CC         = $(LLVM_BINDIR)/clang
-CXX        = $(LLVM_BINDIR)/clang++
-
-ifeq "$(shell test -e $(CC) || echo 1 )" "1"
-  # llvm-config --bindir is not providing a valid path, so ...
-  ifeq "$(shell test -e '$(BIN_DIR)/clang' && echo 1)" "1"
-    # we found one in the local install directory, lets use these
-    CC         = $(BIN_DIR)/clang
-    CXX        = $(BIN_DIR)/clang++
-  else
-    # hope for the best
-    $(warning we have trouble finding clang/clang++ - llvm-config is not helping us)
-    CC         = clang
-    CXX        = clang++
-  endif
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -fuse-ld=`which ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+  CFLAGS += -DAFL_CLANG_FUSELD=1
 endif
-
-# sanity check.
-# Are versions of clang --version and llvm-config --version equal?
-CLANGVER = $(shell $(CC) --version | sed -E -ne '/^.*version\ ([0-9]\.[0-9]\.[0-9]).*/s//\1/p')
-
 
 ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
         SHMAT_OK=1
@@ -133,14 +177,9 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 ifndef AFL_TRACE_PC
-  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
+  PROGS      = ../afl-clang-fast ../afl-ld ../afl-llvm-pass.so ../afl-llvm-lto-whitelist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
 else
   PROGS      = ../afl-clang-fast ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
-endif
-
-ifneq "$(CLANGVER)" "$(LLVMVER)"
-  CC = $(shell $(LLVM_CONFIG) --bindir)/clang
-  CXX = $(shell $(LLVM_CONFIG) --bindir)/clang++
 endif
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
@@ -202,14 +241,40 @@ afl-common.o: ../src/afl-common.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
 ../afl-clang-fast: afl-clang-fast.c afl-common.o | test_deps
-	$(CC) $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS) -DCFLAGS_OPT=\"$(CFLAGS_OPT)\"
 	ln -sf afl-clang-fast ../afl-clang-fast++
+ifneq "$(AFL_CLANG_FLTO)" ""
+ifeq "$(LLVM_LTO)" "1"
+	ln -sf afl-clang-fast ../afl-clang-lto
+	ln -sf afl-clang-fast ../afl-clang-lto++
+endif
+endif
 
+../afl-ld: afl-ld.c
+ifneq "$(AFL_CLANG_FLTO)" ""
+ifeq "$(LLVM_LTO)" "1"
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -DAFL_REAL_LD=\"$(AFL_REAL_LD)\"
+	ln -sf afl-ld ../ld
+	@rm -f .test-instr
+	@-export AFL_QUIET=1 AFL_PATH=.. PATH="..:$(PATH)" ; ../afl-clang-lto -Wl,--afl -o .test-instr ../test-instr.c && echo "[+] afl-clang-lto and afl-ld seem to work fine :)" || echo "[!] WARNING: clang seems to have a hardcoded "'/bin/ld'" - check README.lto"
+	@rm -f .test-instr
+endif
+endif
 ../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc | test_deps
 	-$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
 
 ../afl-llvm-pass.so: afl-llvm-pass.so.cc | test_deps
 	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
+
+../afl-llvm-lto-whitelist.so: afl-llvm-lto-whitelist.so.cc
+ifeq "$(LLVM_LTO)" "1"
+	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
+endif
+
+../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc MarkNodes.cc
+ifeq "$(LLVM_LTO)" "1"
+	$(CXX) $(CLANG_CFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
+endif
 
 # laf
 ../split-switches-pass.so:	split-switches-pass.so.cc | test_deps
@@ -271,7 +336,13 @@ vpath  % ..
 	@echo .SH LICENSE >> ../$@
 	@echo Apache License Version 2.0, January 2004 >> ../$@
 	ln -sf afl-clang-fast.8 ../afl-clang-fast++.8
+ifneq "$(AFL_CLANG_FLTO)" ""
+ifeq "$(LLVM_LTO)" "0"
+	ln -sf afl-clang-fast.8 ../afl-clang-lto.8
+	ln -sf afl-clang-fast.8 ../afl-clang-lto++.8
+endif
+endif
 
 clean:
-	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 afl-llvm-pass.dwo
-	rm -f $(PROGS) afl-common.o ../afl-clang-fast++ ../afl-clang-fast*.8
+	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 *.dwo
+	rm -f $(PROGS) afl-common.o ../afl-clang-fast++ ../afl-clang-lto ../afl-clang-lto++ ../afl-clang*.8

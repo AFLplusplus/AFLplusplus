@@ -1,0 +1,88 @@
+
+markNodes
+ ->
+
+whitelist:
+  set meta information/context to functions? ask llvm-dev
+    setAttribute/hasAttribute?
+
+afl-ld:
+  handle(=instrument) .a archives on the cmdline
+
+afl-pass-lto-instrument.so:
+  either a or b:
+  a) use instrim
+  b) start in main() or _init() and first otherwise (warn!)
+     keep list of done functions
+     final: go through function list and instrument those missing
+
+
+
+---------------------------
+
+
+
+for (auto &module : Ctx.getModules()) {
+  auto &functionList = module->getModule()->getFunctionList();
+  for (auto &function : functionList) {
+    for (auto &bb : function) {
+      for (auto &instruction : bb) {
+        if (CallInst *callInst = dyn_cast<CallInst>(&instruction)) {
+          if (Function *calledFunction = callInst->getCalledFunction()) {
+            if (calledFunction->getName().startswith("llvm.dbg.declare")) {
+
+
+for (auto &U : F.getUsers()) { <- unbekannt
+  if (auto CS = CallSite(U)) {
+    if (CS->getCalledFunction() == F)
+
+getCalledValue()->stripPointerCasts()
+ -> for indirect calls
+
+
+CallGraph(M)
+
+
+
+#include "llvm/IR/CallSite.h"
+
+unsigned int indirect_call_cnt = 0;
+ 
+  printf("Function: %s\n", F.getName().str().c_str());
+  int cnt=0;
+  for (auto *U : F.users()) {
+//    auto *I = dyn_cast<Instruction>(U);
+//    if (I) {
+//      if (cast<CallInst>(I)->getCalledFunction()->getName() == F.getName()) {
+//       printf("DIRECT CALL %s->%s->%s\n", cast<CallInst>(I)->getParent()->getParent()->getName().str().c_str(), cast<CallInst>(I)->getCalledFunction()->getName().str().c_str(), F.getName().str().c_str());
+//     }
+printf("Callsite #%d\n", ++cnt);
+    CallSite CS(U);
+    auto *I = CS.getInstruction();
+    if (I) {
+      Value *called = CS.getCalledValue()->stripPointerCasts();
+      Function* f = dyn_cast<Function>(called);
+      if (f->getName().size() > 0) {
+        printf("test %s->%s->%s\n", cast<CallInst>(I)->getParent()->getParent()->getName().str().c_str(), f->getName().str().c_str(), F.getName().str().c_str());
+        if (f->getName() == F.getName()) {
+          printf("CALL %s->%s->%s\n", cast<CallInst>(I)->getParent()->getParent()->getName().str().c_str(), f->getName().str().c_str(), F.getName().str().c_str());
+        }
+      } else
+        printf("FOO  %s->...->%s\n", cast<CallInst>(I)->getParent()->getParent()->getName().str().c_str(), F.getName().str().c_str());
+      if (cast<CallInst>(I)->getCalledFunction()->getName() == F.getName()) {
+        printf("DIRECT %s->%s->%s\n", cast<CallInst>(I)->getParent()->getParent()->getName().str().c_str(), cast<CallInst>(I)->getCalledFunction()->getName().str().c_str(), F.getName().str().c_str());
+      }
+    } else {
+      printf("WE MISSED SOMETHING HERE!!\n");
+      indirect_call_cnt++;
+    }
+  }
+
+oder:
+  for (auto *U : F.users()) {
+    if (auto CS = CallSite(U->getUser())) {
+      if (CS->isCallee(&U)) {
+        // foo
+      }
+    }
+  }

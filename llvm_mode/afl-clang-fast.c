@@ -41,9 +41,22 @@ static u8*  obj_path;                  /* Path to runtime libraries         */
 static u8** cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
+static u8   lto_mode;
+static u8*  lto_flag = AFL_CLANG_FLTO;
+static u8*  march_opt = CFLAGS_OPT;
+static u8   debug;
+static u8   cwd[4096];
 static u8   cmplog_mode;
 u8          use_stdin = 0;                                         /* dummy */
 u8          be_quiet = 0;
+
+u8* getthecwd() {
+
+  static u8 fail[] = "";
+  if (getcwd(cwd, sizeof(cwd)) == NULL) return fail;
+  return cwd;
+
+}
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
@@ -138,7 +151,22 @@ static void edit_params(u32 argc, char** argv) {
 
   has_llvm_config = (strlen(LLVM_BINDIR) > 0);
 
-  if (!strcmp(name, "afl-clang-fast++")) {
+  if (!strncmp(name, "afl-clang-lto", strlen("afl-clang-lto"))) {
+
+#ifdef USE_TRACE_PC
+    FATAL("afl-clang-lto does not work with TRACE_PC mode");
+#endif
+    if (lto_flag[0] != '-')
+      FATAL(
+          "afl-clang-lto not possible because Makefile magic did not identify "
+          "the correct -flto flag");
+    if (getenv("AFL_LLVM_INSTRIM") != NULL)
+      FATAL("afl-clang-lto does not work with InsTrim mode");
+    lto_mode = 1;
+
+  }
+
+  if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
 
     u8* alt_cxx = getenv("AFL_CXX");
     if (has_llvm_config)
@@ -200,6 +228,8 @@ static void edit_params(u32 argc, char** argv) {
 
   // /laf
 
+  unsetenv("AFL_LD");
+  unsetenv("AFL_LD_CALLER");
   if (cmplog_mode) {
 
     cc_params[cc_par_cnt++] = "-Xclang";
@@ -234,6 +264,36 @@ static void edit_params(u32 argc, char** argv) {
   // "-fsanitize-coverage=trace-cmp,trace-div,trace-gep";
   // cc_params[cc_par_cnt++] = "-sanitizer-coverage-block-threshold=0";
 #else
+
+  if (lto_mode) {
+
+    char* old_path = getenv("PATH");
+    char* new_path = alloc_printf("%s:%s", AFL_PATH, old_path);
+
+    setenv("PATH", new_path, 1);
+    setenv("AFL_LD", "1", 1);
+
+    if (getenv("AFL_LLVM_WHITELIST") != NULL) {
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-llvm-lto-whitelist.so", obj_path);
+
+    }
+
+#ifdef AFL_CLANG_FUSELD
+    cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s/afl-ld", AFL_PATH);
+#endif
+
+    cc_params[cc_par_cnt++] = "-B";
+    cc_params[cc_par_cnt++] = AFL_PATH;
+
+    cc_params[cc_par_cnt++] = lto_flag;
+  
+  } else
+
   if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
       getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
 
@@ -343,6 +403,8 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = "-g";
     cc_params[cc_par_cnt++] = "-O3";
     cc_params[cc_par_cnt++] = "-funroll-loops";
+    if (strlen(march_opt) > 1 && march_opt[0] == '-')
+      cc_params[cc_par_cnt++] = march_opt;
 
   }
 
@@ -461,21 +523,40 @@ static void edit_params(u32 argc, char** argv) {
 
 int main(int argc, char** argv, char** envp) {
 
+  int   i;
+  char* callname = "afl-clang-fast";
+
+  if (getenv("AFL_DEBUG")) {
+
+    debug = 1;
+    if (strcmp(getenv("AFL_DEBUG"), "0") == 0) unsetenv("AFL_DEBUG");
+
+  }
+
+  if (strstr(argv[0], "afl-clang-lto") == NULL) callname = "afl-clang-lto";
+
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
 #ifdef USE_TRACE_PC
-    printf(
-        cCYA
-        "afl-clang-fast" VERSION cRST
-        " [tpcg] by <lszekeres@google.com>\n"
+    printf(cCYA "afl-clang-fast" VERSION cRST
+                " [tpcg] by <lszekeres@google.com>\n")
 #else
-    printf(
-        cCYA
-        "afl-clang-fast" VERSION cRST
-        " by <lszekeres@google.com>\n"
+    if (strstr(argv[0], "afl-clang-lto") == NULL)
+
+      printf(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
+
+    else {
+
+      printf(cCYA "afl-clang-lto" VERSION cRST
+                  "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+
+    }
+
 #endif                                                     /* ^USE_TRACE_PC */
+
+    SAYF(
         "\n"
-        "afl-clang-fast[++] [options]\n"
+        "%s[++] [options]\n"
         "\n"
         "This is a helper application for afl-fuzz. It serves as a drop-in "
         "replacement\n"
@@ -521,7 +602,7 @@ int main(int argc, char** argv, char** envp) {
         "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
         "\nafl-clang-fast was built for llvm %s with the llvm binary path of "
         "\"%s\".\n\n",
-        BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
+        callname, BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
 
     exit(1);
 
@@ -535,8 +616,25 @@ int main(int argc, char** argv, char** envp) {
 #warning \
     "You do not need to specifically compile with USE_TRACE_PC anymore, setting the environment variable AFL_LLVM_USE_TRACE_PC is enough."
 #else
-    SAYF(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
+    if (strstr(argv[0], "afl-clang-lto") == NULL)
+
+      SAYF(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
+
+    else
+
+      SAYF(cCYA "afl-clang-lto" VERSION cRST
+                " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+
 #endif                                                     /* ^USE_TRACE_PC */
+
+  }
+
+  if (debug) {
+
+    SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
+    for (i = 0; i < argc; i++)
+      SAYF(" \"%s\"", argv[i]);
+    SAYF("\n");
 
   }
 
@@ -551,13 +649,14 @@ int main(int argc, char** argv, char** envp) {
 
   edit_params(argc, argv);
 
-  /*
-    int i = 0;
-    printf("EXEC:");
-    while (cc_params[i] != NULL)
-      printf(" %s", cc_params[i++]);
-    printf("\n");
-  */
+  if (debug) {
+
+    SAYF(cMGN "[D]" cRST " cd \"%s\";", getthecwd());
+    for (i = 0; i < cc_par_cnt; i++)
+      SAYF(" \"%s\"", cc_params[i]);
+    SAYF("\n");
+
+  }
 
   execvp(cc_params[0], (char**)cc_params);
 
@@ -566,4 +665,3 @@ int main(int argc, char** argv, char** envp) {
   return 0;
 
 }
-
