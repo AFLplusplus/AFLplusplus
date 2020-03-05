@@ -8,6 +8,8 @@
 2. You can use it together with llvm_mode: laf-intel and whitelisting
    features and can be combined with cmplog/Redqueen
 
+3. It only works with llvm 9 (and likely 10+ but is not tested there yet)
+
 ## Introduction and problem description
 
 A big issue with how afl/afl++ works is that the basic block IDs that are
@@ -116,6 +118,16 @@ This can result in two problems though:
  !2! 
  When you install an updated gcc/clang/... package, your OS might restore
  the ld link.
+
+### compiling programs still fail
+
+afl-clang-lto is still work in progress.
+Complex targets are still likely not to compile and this needs to be fixed.
+Please report issues at:
+[https://github.com/vanhauser-thc/AFLplusplus/issues/226](https://github.com/vanhauser-thc/AFLplusplus/issues/226)
+
+Known issues:
+* ffmpeg
 
 ## Upcoming Work
 

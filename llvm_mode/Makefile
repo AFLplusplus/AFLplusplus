@@ -43,6 +43,7 @@ LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//')
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 LLVM_STDCXX = gnu++11
 LLVM_APPLE = $(shell clang -v 2>&1 | grep -iq apple && echo 1 || echo 0)
+LLVM_LTO   = 0
 
 ifeq "$(LLVMVER)" ""
   $(warning [!] llvm_mode needs llvm-config, which was not found)
@@ -54,11 +55,19 @@ endif
 
 ifeq "$(LLVM_MAJOR)" "9"
   $(info [+] llvm_mode detected llvm 9, enabling neverZero implementation)
+  $(info [+] llvm_mode detected llvm 9, enabling afl-clang-lto LTO implementation)
+  LLVM_LTO = 1
 endif
 
 ifeq "$(LLVM_NEW_API)" "1"
   $(info [+] llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
+  $(info [+] llvm_mode detected llvm 9, enabling afl-clang-lto LTO implementation)
   LLVM_STDCXX = c++14
+  LLVM_LTO = 1
+endif
+
+ifeq "$(LLVM_LTO)" "0"
+  $(info [+] llvm_mode detected llvm < 9, afl-clang-lto LTO will not be build.)
 endif
 
 ifeq "$(LLVM_APPLE)" "1"
@@ -114,7 +123,12 @@ else
 endif
 
 ifneq "$(AFL_CLANG_FLTO)" ""
-  AFL_REAL_LD ?= $(shell readlink /bin/ld 2>/dev/null)
+ifeq "$(AFL_REAL_LD)" ""
+  AFL_REAL_LD = $(shell readlink /bin/ld 2>/dev/null)
+  ifeq "$(AFL_REAL_LD)" ""
+    AFL_REAL_LD = $(shell readlink /usr/bin/ld 2>/dev/null)
+  endif
+endif
 endif
 
 CFLAGS          ?= -O3 -funroll-loops
@@ -230,19 +244,22 @@ afl-common.o: ../src/afl-common.c
 	$(CC) $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS) -DCFLAGS_OPT=\"$(CFLAGS_OPT)\"
 	ln -sf afl-clang-fast ../afl-clang-fast++
 ifneq "$(AFL_CLANG_FLTO)" ""
+ifeq "$(LLVM_LTO)" "1"
 	ln -sf afl-clang-fast ../afl-clang-lto
 	ln -sf afl-clang-fast ../afl-clang-lto++
+endif
 endif
 
 ../afl-ld: afl-ld.c
 ifneq "$(AFL_CLANG_FLTO)" ""
+ifeq "$(LLVM_LTO)" "1"
 	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -DAFL_REAL_LD=\"$(AFL_REAL_LD)\"
 	ln -sf afl-ld ../ld
 	@rm -f .test-instr
 	@-export AFL_QUIET=1 AFL_PATH=.. PATH="..:$(PATH)" ; ../afl-clang-lto -Wl,--afl -o .test-instr ../test-instr.c && echo "[+] afl-clang-lto and afl-ld seem to work fine :)" || echo "[!] WARNING: clang seems to have a hardcoded "'/bin/ld'" - check README.lto"
 	@rm -f .test-instr
 endif
-
+endif
 ../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc | test_deps
 	-$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
 
@@ -250,10 +267,14 @@ endif
 	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
 
 ../afl-llvm-lto-whitelist.so: afl-llvm-lto-whitelist.so.cc
+ifeq "$(LLVM_LTO)" "1"
 	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
+endif
 
 ../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc MarkNodes.cc
+ifeq "$(LLVM_LTO)" "1"
 	$(CXX) $(CLANG_CFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
+endif
 
 # laf
 ../split-switches-pass.so:	split-switches-pass.so.cc | test_deps
@@ -316,8 +337,10 @@ vpath  % ..
 	@echo Apache License Version 2.0, January 2004 >> ../$@
 	ln -sf afl-clang-fast.8 ../afl-clang-fast++.8
 ifneq "$(AFL_CLANG_FLTO)" ""
+ifeq "$(LLVM_LTO)" "0"
 	ln -sf afl-clang-fast.8 ../afl-clang-lto.8
 	ln -sf afl-clang-fast.8 ../afl-clang-lto++.8
+endif
 endif
 
 clean:
