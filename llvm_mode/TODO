@@ -1,0 +1,10 @@
+TODO for afl-ld:
+* handle libfoo.a object archives
+
+TODO for afl-llvm-lto-instrumentation:
+* better algo for putting stuff in the map?
+* try to predict how long the instrumentation process will take
+
+TODO for afl-llvm-lto-whitelist
+* different solution then renaming?
+

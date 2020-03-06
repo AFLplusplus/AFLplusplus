@@ -19,6 +19,7 @@ const char *afl_environment_variables[] = {
     "AFL_LLVM_LAF_SPLIT_COMPARES_BITW", "AFL_LLVM_LAF_SPLIT_FLOATS",
     "AFL_LLVM_LAF_SPLIT_SWITCHES", "AFL_LLVM_LAF_TRANSFORM_COMPARES",
     "AFL_LLVM_NOT_ZERO", "AFL_LLVM_WHITELIST", "AFL_NO_AFFINITY",
+    "AFL_LLVM_LTO_STARTID", "AFL_LLVM_LTO_DONTWRITEID",
     "AFL_NO_ARITH", "AFL_NO_BUILTIN", "AFL_NO_CPU_RED", "AFL_NO_FORKSRV",
     "AFL_NO_UI",
     "AFL_NO_X86",  // not really an env but we dont want to warn on it
