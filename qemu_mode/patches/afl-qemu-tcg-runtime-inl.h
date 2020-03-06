@@ -158,3 +158,62 @@ void HELPER(afl_cmplog_64)(target_ulong cur_loc, target_ulong arg1,
 
 }
 
+#include <sys/mman.h>
+
+static int area_is_mapped(void* ptr, size_t len) {
+
+  char* p = ptr;
+  char* page = (char*)((uintptr_t)p & ~(sysconf(_SC_PAGE_SIZE) - 1));
+
+  int r = msync(page, (p - page) + len, MS_ASYNC);
+  if (r < 0) return errno != ENOMEM;
+  return 1;
+
+}
+
+void HELPER(afl_cmplog_rtn)(CPUX86State *env) {
+
+#if defined(TARGET_X86_64)
+
+  void* ptr1 = g2h(env->regs[R_EDI]);
+  void* ptr2 = g2h(env->regs[R_ESI]);
+
+#elif defined(TARGET_I386)
+
+  target_ulong* stack = g2h(env->regs[R_ESP]);
+  
+  if (!area_is_mapped(stack, sizeof(target_ulong)*2)) return;
+  
+  // when this hook is executed, the retaddr is not on stack yet
+  void* ptr1 = g2h(stack[0]);
+  void* ptr2 = g2h(stack[1]);
+
+#else
+
+  // dumb code to make it compile
+  void* ptr1 = NULL;
+  void* ptr2 = NULL;
+  return;
+
+#endif
+
+  if (!area_is_mapped(ptr1, 32) || !area_is_mapped(ptr2, 32)) return;
+
+  uintptr_t k = (uintptr_t)env->eip;
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
+
+  __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+
+  __afl_cmp_map->headers[k].shape = 31;
+
+  hits &= CMP_MAP_RTN_H - 1;
+  __builtin_memcpy(((struct cmpfn_operands*)__afl_cmp_map->log[k])[hits].v0,
+                   ptr1, 32);
+  __builtin_memcpy(((struct cmpfn_operands*)__afl_cmp_map->log[k])[hits].v1,
+                   ptr2, 32);
+
+}

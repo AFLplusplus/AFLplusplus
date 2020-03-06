@@ -1,8 +1,8 @@
 diff --git a/accel/tcg/tcg-runtime.h b/accel/tcg/tcg-runtime.h
-index 1bd39d13..c58dee31 100644
+index 1bd39d13..81ef3973 100644
 --- a/accel/tcg/tcg-runtime.h
 +++ b/accel/tcg/tcg-runtime.h
-@@ -260,3 +260,12 @@ DEF_HELPER_FLAGS_4(gvec_leu8, TCG_CALL_NO_RWG, void, ptr, ptr, ptr, i32)
+@@ -260,3 +260,13 @@ DEF_HELPER_FLAGS_4(gvec_leu8, TCG_CALL_NO_RWG, void, ptr, ptr, ptr, i32)
  DEF_HELPER_FLAGS_4(gvec_leu16, TCG_CALL_NO_RWG, void, ptr, ptr, ptr, i32)
  DEF_HELPER_FLAGS_4(gvec_leu32, TCG_CALL_NO_RWG, void, ptr, ptr, ptr, i32)
  DEF_HELPER_FLAGS_4(gvec_leu64, TCG_CALL_NO_RWG, void, ptr, ptr, ptr, i32)
@@ -15,3 +15,4 @@ index 1bd39d13..c58dee31 100644
 +DEF_HELPER_FLAGS_3(afl_cmplog_16, TCG_CALL_NO_RWG, void, tl, tl, tl)
 +DEF_HELPER_FLAGS_3(afl_cmplog_32, TCG_CALL_NO_RWG, void, tl, tl, tl)
 +DEF_HELPER_FLAGS_3(afl_cmplog_64, TCG_CALL_NO_RWG, void, tl, tl, tl)
++DEF_HELPER_FLAGS_1(afl_cmplog_rtn, TCG_CALL_NO_RWG, void, env)
