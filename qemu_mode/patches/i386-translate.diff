@@ -1,5 +1,5 @@
 diff --git a/target/i386/translate.c b/target/i386/translate.c
-index 0dd5fbe4..a23da128 100644
+index 0dd5fbe4..0d405fb6 100644
 --- a/target/i386/translate.c
 +++ b/target/i386/translate.c
 @@ -32,6 +32,8 @@
@@ -40,3 +40,23 @@ index 0dd5fbe4..a23da128 100644
   next_byte:
      b = x86_ldub_code(env, s);
      /* Collect prefixes.  */
+@@ -5056,6 +5063,9 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
+                 tcg_gen_ext16u_tl(s->T0, s->T0);
+             }
+             next_eip = s->pc - s->cs_base;
++            if (__afl_cmp_map && next_eip >= afl_start_code &&
++                next_eip < afl_end_code)
++              gen_helper_afl_cmplog_rtn(cpu_env);
+             tcg_gen_movi_tl(s->T1, next_eip);
+             gen_push_v(s, s->T1);
+             gen_op_jmp_v(s->T0);
+@@ -6544,6 +6554,9 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
+                 tval = (int16_t)insn_get(env, s, MO_16);
+             }
+             next_eip = s->pc - s->cs_base;
++            if (__afl_cmp_map && next_eip >= afl_start_code &&
++                next_eip < afl_end_code)
++              gen_helper_afl_cmplog_rtn(cpu_env);
+             tval += next_eip;
+             if (dflag == MO_16) {
+                 tval &= 0xffff;
