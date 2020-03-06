@@ -89,10 +89,10 @@ size_t afl_custom_pre_save(uint8_t *buf, size_t buf_size, uint8_t **out_buf) {
 
 }
 
-static uint8_t *trim_buf;
-static size_t trim_buf_size;
-static int trimmming_steps;
-static int cur_step;
+uint8_t *trim_buf;
+size_t trim_buf_size;
+int trimmming_steps;
+int cur_step;
 
 /**
  * This method is called at the start of each trimming operation and receives

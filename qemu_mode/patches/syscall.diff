@@ -1,5 +1,5 @@
 diff --git a/linux-user/syscall.c b/linux-user/syscall.c
-index b13a170e..5678c006 100644
+index b13a170e..4af79175 100644
 --- a/linux-user/syscall.c
 +++ b/linux-user/syscall.c
 @@ -111,6 +111,9 @@
@@ -43,7 +43,23 @@ index b13a170e..5678c006 100644
              ts = (TaskState *)cpu->opaque;
              if (flags & CLONE_SETTLS)
                  cpu_set_tls (env, newtls);
-@@ -10529,7 +10533,7 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
+@@ -7324,10 +7328,12 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
+ #ifdef TARGET_NR_stime /* not on alpha */
+     case TARGET_NR_stime:
+         {
+-            time_t host_time;
+-            if (get_user_sal(host_time, arg1))
++            struct timespec ts;
++            ts.tv_nsec = 0;
++            if (get_user_sal(ts.tv_sec, arg1)) {
+                 return -TARGET_EFAULT;
+-            return get_errno(stime(&host_time));
++            }
++            return get_errno(clock_settime(CLOCK_REALTIME, &ts));
+         }
+ #endif
+ #ifdef TARGET_NR_alarm /* not on alpha */
+@@ -10529,7 +10535,7 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
          return TARGET_PAGE_SIZE;
  #endif
      case TARGET_NR_gettid:
@@ -52,7 +68,7 @@ index b13a170e..5678c006 100644
  #ifdef TARGET_NR_readahead
      case TARGET_NR_readahead:
  #if TARGET_ABI_BITS == 32
-@@ -10813,8 +10817,19 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
+@@ -10813,8 +10819,19 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
          return get_errno(safe_tkill((int)arg1, target_to_host_signal(arg2)));
  
      case TARGET_NR_tgkill:
