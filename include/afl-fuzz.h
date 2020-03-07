@@ -647,8 +647,6 @@ extern PyObject* py_functions[PY_FUNC_COUNT];
 /* Custom mutators */
 void setup_custom_mutator(void);
 void destroy_custom_mutator(void);
-void load_custom_mutator(const char*);
-void load_custom_mutator_py(const char*);
 u8   trim_case_custom(char** argv, struct queue_entry* q, u8* in_buf);
 
 /* Python */

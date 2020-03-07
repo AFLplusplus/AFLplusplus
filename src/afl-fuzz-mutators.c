@@ -25,6 +25,11 @@
 
 #include "afl-fuzz.h"
 
+void load_custom_mutator(const char*);
+#ifdef USE_PYTHON
+void load_custom_mutator_py(const char*);
+#endif
+
 void setup_custom_mutator(void) {
 
   /* Try mutator library first */
@@ -286,6 +291,7 @@ abort_trimming:
 
 }
 
+#ifdef USE_PYTHON
 void load_custom_mutator_py(const char* module_name) {
 
   mutator = ck_alloc(sizeof(struct custom_mutator));
@@ -325,3 +331,4 @@ void load_custom_mutator_py(const char* module_name) {
     mutator->afl_custom_init(UR(0xFFFFFFFF));
 
 }
+#endif
