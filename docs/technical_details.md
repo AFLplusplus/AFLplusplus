@@ -286,8 +286,9 @@ operation of `afl-tmin` is as follows.
 
 First, the tool automatically selects the operating mode. If the initial input
 crashes the target binary, afl-tmin will run in non-instrumented mode, simply
-keeping any tweaks that produce a simpler file but still crash the target. If
-the target is non-crashing, the tool uses an instrumented mode and keeps only
+keeping any tweaks that produce a simpler file but still crash the target.
+The same mode is used for hangs, if `-H` (hang mode) is specified.
+If the target is non-crashing, the tool uses an instrumented mode and keeps only
 the tweaks that produce exactly the same execution path.
 
 The actual minimization algorithm is:
