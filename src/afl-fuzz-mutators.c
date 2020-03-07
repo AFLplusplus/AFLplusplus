@@ -25,6 +25,11 @@
 
 #include "afl-fuzz.h"
 
+void load_custom_mutator(const char*);
+#ifdef USE_PYTHON
+void load_custom_mutator_py(const char*);
+#endif
+
 void setup_custom_mutator(void) {
 
   /* Try mutator library first */
@@ -146,6 +151,16 @@ void load_custom_mutator(const char* fn) {
         "trimming will be used.");
 
   }
+  
+  /* "afl_custom_havoc_mutation", optional */
+  mutator->afl_custom_havoc_mutation = dlsym(dh, "afl_custom_havoc_mutation");
+  if (!mutator->afl_custom_havoc_mutation)
+    WARNF("Symbol 'afl_custom_havoc_mutation' not found.");
+
+  /* "afl_custom_havoc_mutation", optional */
+  mutator->afl_custom_havoc_mutation_probability = dlsym(dh, "afl_custom_havoc_mutation_probability");
+  if (!mutator->afl_custom_havoc_mutation_probability)
+    WARNF("Symbol 'afl_custom_havoc_mutation_probability' not found.");
 
   OKF("Custom mutator '%s' installed successfully.", fn);
 
@@ -276,6 +291,7 @@ abort_trimming:
 
 }
 
+#ifdef USE_PYTHON
 void load_custom_mutator_py(const char* module_name) {
 
   mutator = ck_alloc(sizeof(struct custom_mutator));
@@ -301,6 +317,12 @@ void load_custom_mutator_py(const char* module_name) {
 
   if (py_functions[PY_FUNC_TRIM])
     mutator->afl_custom_trim = trim_py;
+  
+  if (py_functions[PY_FUNC_HAVOC_MUTATION])
+    mutator->afl_custom_havoc_mutation = havoc_mutation_py;
+  
+  if (py_functions[PY_FUNC_HAVOC_MUTATION_PROBABILITY])
+    mutator->afl_custom_havoc_mutation_probability = havoc_mutation_probability_py;
 
   OKF("Python mutator '%s' installed successfully.", module_name);
 
@@ -309,3 +331,4 @@ void load_custom_mutator_py(const char* module_name) {
     mutator->afl_custom_init(UR(0xFFFFFFFF));
 
 }
+#endif
