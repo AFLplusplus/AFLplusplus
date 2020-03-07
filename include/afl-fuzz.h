@@ -480,8 +480,9 @@ struct custom_mutator {
    *
    * (Optional for now. Required in the future)
    *
-   * @param[in] buf Pointer to input data to be mutated
-   * @param[in] buf_size Size of input data
+   * @param[inout] buf Pointer to the input data to be mutated and the mutated
+   *     output
+   * @param[in] buf_size Size of the input/output data
    * @param[in] add_buf Buffer containing the additional test case
    * @param[in] add_buf_size Size of the additional test case
    * @param[in] max_size Maximum size of the mutated output. The mutation must not
@@ -566,9 +567,11 @@ struct custom_mutator {
    *
    * (Optional)
    *
-   * @param[in] buf Pointer to the input data to be mutated
+   * @param[inout] buf Pointer to the input data to be mutated and the mutated
+   *     output
    * @param[in] buf_size Size of input data
-   * @param[in] max_size Maximum size of the mutated output. The mutation must not produce data larger than max_size.
+   * @param[in] max_size Maximum size of the mutated output. The mutation must
+   *     not produce data larger than max_size.
    * @return Size of the mutated output.
    */
   size_t (*afl_custom_havoc_mutation)(u8** buf, size_t buf_size, size_t max_size);
@@ -582,7 +585,30 @@ struct custom_mutator {
    * @return The probability (0-100).
    */
   u8 (*afl_custom_havoc_mutation_probability)(void);
-  
+
+  /**
+   * Determine whether the fuzzer should fuzz the current queue entry or not.
+   *
+   * (Optional)
+   *
+   * @param filename File name of the test case in the queue entry
+   * @return Return True(1) if the fuzzer will fuzz the queue entry, and
+   *     False(0) otherwise.
+   */
+  u8 (*afl_custom_queue_get)(const u8* filename);
+
+  /**
+   * Allow for additional analysis (e.g. calling a different tool that does a 
+   * different kind of coverage and saves this for the custom mutator).
+   *
+   * (Optional)
+   *
+   * @param filename_new_queue File name of the new queue entry
+   * @param filename_orig_queue File name of the original queue entry. This
+   *     argument can be NULL while initializing the fuzzer
+   */
+  void (*afl_custom_queue_new_entry)(const u8* filename_new_queue,
+                                     const u8* filename_orig_queue);
 };
 
 extern struct custom_mutator* mutator;
@@ -634,6 +660,8 @@ enum {
   /* 05 */ PY_FUNC_TRIM,
   /* 06 */ PY_FUNC_HAVOC_MUTATION,
   /* 07 */ PY_FUNC_HAVOC_MUTATION_PROBABILITY,
+  /* 08 */ PY_FUNC_QUEUE_GET,
+  /* 09 */ PY_FUNC_QUEUE_NEW_ENTRY,
   PY_FUNC_COUNT
 
 };
@@ -663,6 +691,8 @@ u32    post_trim_py(u8);
 void   trim_py(u8**, size_t*);
 size_t havoc_mutation_py(u8**, size_t, size_t);
 u8     havoc_mutation_probability_py(void);
+u8     queue_get_py(const u8*);
+void   queue_new_entry_py(const u8*, const u8*);
 
 #endif
 

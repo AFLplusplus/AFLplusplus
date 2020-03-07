@@ -355,6 +355,15 @@ u8 fuzz_one_original(char** argv) {
 
 #else
 
+  if (mutator && mutator->afl_custom_queue_get) {
+
+    /* The custom mutator will decide to skip this test case or not. */
+
+    if (!mutator->afl_custom_queue_get(queue_cur->fname))
+      return 1;
+
+  }
+
   if (pending_favored) {
 
     /* If we have any favored, non-fuzzed new arrivals in the queue,
