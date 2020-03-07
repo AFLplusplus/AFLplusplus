@@ -30,22 +30,26 @@ void afl_custom_init(unsigned int seed) {
  *
  * (Optional for now. Required in the future)
  *
- * @param[in] buf Input data to be mutated
+ * @param[in] buf Pointer to input data to be mutated
  * @param[in] buf_size Size of input data
  * @param[in] add_buf Buffer containing the additional test case
  * @param[in] add_buf_size Size of the additional test case
- * @param[out] mutated_out Buffer to store the mutated input
  * @param[in] max_size Maximum size of the mutated output. The mutation must not
  *     produce data larger than max_size.
  * @return Size of the mutated output.
  */
-size_t afl_custom_fuzz(uint8_t *buf, size_t buf_size,
+size_t afl_custom_fuzz(uint8_t **buf, size_t buf_size,
                        uint8_t *add_buf,size_t add_buf_size, // add_buf can be NULL
-                       uint8_t *mutated_out, size_t max_size) {
+                       size_t max_size) {
 
   // Make sure that the packet size does not exceed the maximum size expected by
   // the fuzzer
   size_t mutated_size = data_size <= max_size ? data_size : max_size;
+
+  if (mutated_size > buf_size)
+    *buf = realloc(*buf, mutated_size);
+  
+  uint8_t* mutated_out = *buf;
 
   // Randomly select a command string to add as a header to the packet
   memcpy(mutated_out, commands[rand() % 3], 3);
@@ -173,5 +177,47 @@ int afl_custom_post_trim(int success) {
   }
 
   return trimmming_steps;
+
+}
+
+/**
+ * Perform a single custom mutation on a given input.
+ * This mutation is stacked with the other muatations in havoc.
+ *
+ * (Optional)
+ *
+ * @param[in] buf Pointer to the input data to be mutated
+ * @param[in] buf_size Size of input data
+ * @param[in] max_size Maximum size of the mutated output. The mutation must not produce data larger than max_size.
+ * @return Size of the mutated output.
+ */
+size_t afl_custom_havoc_mutation(uint8_t** buf, size_t buf_size, size_t max_size) {
+
+  if (buf_size == 0) {
+
+    *buf = realloc(*buf, 1);
+    **buf = rand() % 256;
+    buf_size = 1;
+
+  }
+
+  size_t victim = rand() % buf_size;
+  (*buf)[victim] += rand() % 10;
+  
+  return buf_size;
+
+}
+
+/**
+ * Return the probability (in percentage) that afl_custom_havoc_mutation
+ * is called in havoc. By default it is 6 %.
+ *
+ * (Optional)
+ *
+ * @return The probability (0-100).
+ */
+uint8_t afl_custom_havoc_mutation_probability(void) {
+
+  return 5; // 5 %
 
 }
