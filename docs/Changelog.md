@@ -16,6 +16,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz basic tools now report on the environment variables picked up
   - more tools get environment variable usage info in the help output
   - AFL_AUTORESUME will resume execution without the need to specify `-i -`
+  - afl-tmin now supports hang mode `-H` to minimize hangs
+  - fixed potential afl-tmin missbehavior for targets with multiple hangs
 
 
 ### Version ++2.62c (release):

@@ -34,6 +34,8 @@
 #include "types.h"
 #include "debug.h"
 
+// Be careful! _WANT_ORIGINAL_AFL_ALLOC is not compatible with custom mutators
+
 #ifndef _WANT_ORIGINAL_AFL_ALLOC
 // afl++ stuff without memory corruption checks - for speed
 
