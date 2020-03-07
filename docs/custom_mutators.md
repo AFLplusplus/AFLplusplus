@@ -28,13 +28,14 @@ performed with the custom mutator.
 C/C++:
 ```c
 void afl_custom_init(unsigned int seed);
-size_t afl_custom_fuzz(u8* buf, size_t buf_size,
-                       u8* add_buf, size_t add_buf_size,
-                       u8* mutated_out, size_t max_size);
+size_t afl_custom_fuzz(u8** buf, size_t buf_size, u8* add_buf,
+                       size_t add_buf_size, size_t max_size);
 size_t afl_custom_pre_save(u8* buf, size_t buf_size, u8** out_buf);
 u32 afl_custom_init_trim(u8* buf, size_t buf_size);
 void afl_custom_trim(u8** out_buf, size_t* out_buf_size);
 u32 afl_custom_post_trim(u8 success);
+size_t afl_custom_havoc_mutation(uint8_t** buf, size_t buf_size, size_t max_size);
+uint8_t afl_custom_havoc_mutation_probability(void);
 ```
 
 Python:
@@ -56,6 +57,12 @@ def trim():
 
 def post_trim(success):
     return next_index
+
+def havoc_mutation(buf, max_size):
+    return mutated_out
+
+def havoc_mutation_probability():
+    return probability # int in [0, 100]
 ```
 
 ### Custom Mutation
