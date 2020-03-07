@@ -162,6 +162,16 @@ void load_custom_mutator(const char* fn) {
   if (!mutator->afl_custom_havoc_mutation_probability)
     WARNF("Symbol 'afl_custom_havoc_mutation_probability' not found.");
 
+  /* "afl_custom_queue_get", optional */
+  mutator->afl_custom_queue_get = dlsym(dh, "afl_custom_queue_get");
+  if (!mutator->afl_custom_queue_get)
+    WARNF("Symbol 'afl_custom_queue_get' not found.");
+
+  /* "afl_custom_queue_new_entry", optional */
+  mutator->afl_custom_queue_new_entry = dlsym(dh, "afl_custom_queue_new_entry");
+  if (!mutator->afl_custom_queue_new_entry)
+    WARNF("Symbol 'afl_custom_queue_new_entry' not found");
+
   OKF("Custom mutator '%s' installed successfully.", fn);
 
   /* Initialize the custom mutator */
@@ -323,6 +333,12 @@ void load_custom_mutator_py(const char* module_name) {
   
   if (py_functions[PY_FUNC_HAVOC_MUTATION_PROBABILITY])
     mutator->afl_custom_havoc_mutation_probability = havoc_mutation_probability_py;
+
+  if (py_functions[PY_FUNC_QUEUE_GET])
+    mutator->afl_custom_queue_get = queue_get_py;
+
+  if (py_functions[PY_FUNC_QUEUE_NEW_ENTRY])
+    mutator->afl_custom_queue_new_entry = queue_new_entry_py;
 
   OKF("Python mutator '%s' installed successfully.", module_name);
 

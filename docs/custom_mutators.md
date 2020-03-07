@@ -28,14 +28,17 @@ performed with the custom mutator.
 C/C++:
 ```c
 void afl_custom_init(unsigned int seed);
-size_t afl_custom_fuzz(u8** buf, size_t buf_size, u8* add_buf,
+size_t afl_custom_fuzz(uint8_t** buf, size_t buf_size, uint8_t* add_buf,
                        size_t add_buf_size, size_t max_size);
-size_t afl_custom_pre_save(u8* buf, size_t buf_size, u8** out_buf);
-u32 afl_custom_init_trim(u8* buf, size_t buf_size);
-void afl_custom_trim(u8** out_buf, size_t* out_buf_size);
-u32 afl_custom_post_trim(u8 success);
+size_t afl_custom_pre_save(uint8_t* buf, size_t buf_size, uint8_t** out_buf);
+uint32_t afl_custom_init_trim(uint8_t* buf, size_t buf_size);
+void afl_custom_trim(uint8_t** out_buf, size_t* out_buf_size);
+uint32_t afl_custom_post_trim(uint8_t success);
 size_t afl_custom_havoc_mutation(uint8_t** buf, size_t buf_size, size_t max_size);
 uint8_t afl_custom_havoc_mutation_probability(void);
+uint8_t afl_custom_queue_get(const uint8_t* filename);
+void afl_custom_queue_new_entry(const uint8_t* filename_new_queue,
+                                const uint8_t* filename_orig_queue);
 ```
 
 Python:
@@ -63,6 +66,12 @@ def havoc_mutation(buf, max_size):
 
 def havoc_mutation_probability():
     return probability # int in [0, 100]
+
+def queue_get(filename):
+    return True
+
+def queue_new_entry(filename_new_queue, filename_orig_queue):
+    pass
 ```
 
 ### Custom Mutation
@@ -71,10 +80,22 @@ def havoc_mutation_probability():
 
     This method is called when AFL++ starts up and is used to seed RNG.
 
+- `queue_get` (optional):
+
+    This method determines whether the fuzzer should fuzz the current queue
+    entry or not
+
 - `fuzz` (required):
 
     This method performs custom mutations on a given input. It also accepts an
     additional test case.
+
+- `havoc_mutation` and `havoc_mutation_probability` (optional):
+
+    `havoc_mutation` performs a single custom mutation on a given input. This
+    mutation is stacked with the other mutations in havoc. The other method,
+    `havoc_mutation_probability`, returns the probability that `havoc_mutation`
+    is called in havoc. By default, it is 6%.
 
 - `pre_save` (optional):
 
@@ -82,10 +103,14 @@ def havoc_mutation_probability():
     mutator is not suitable to directly execute the target with this input.
     For example, when using libprotobuf-mutator, the data returned is in a
     protobuf format which corresponds to a given grammar. In order to execute
-    the target, the protobuf data must be converted to the plain-text format expected by the target. In such scenarios, the user can define the
+    the target, the protobuf data must be converted to the plain-text format
+    expected by the target. In such scenarios, the user can define the
     `pre_save` function. This function is then transforms the data into the
     format expected by the API before executing the target.
 
+- `queue_new_entry` (optional):
+
+    This methods is called after adding a new test case to the queue. 
 
 ### Trimming Support
 
