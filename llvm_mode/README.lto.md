@@ -91,6 +91,15 @@ AR=llvm-ar RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto++ ./configure -
 ```
 and on some target you have to to AR=/RANLIB= even for make as the configure script does not save it ...
 
+### "linking globals named '...': symbol multiply defined" error
+
+The target program is using multiple global variables or functions with the
+same name. This is a common error when compiling a project with LTO, and
+the fix is `-Wl,--allow-multiple-definition` - however llvm-link which we
+need to link all llvm IR LTO files does not support this - yet (hopefully).
+Hence if you see this error either you have to remove the duplicate global
+variable (think `#ifdef` ...) or you are out of luck. :-(
+
 ### clang is hardcoded to /bin/ld
 
 Some clang packages have 'ld' hardcoded to /bin/ld. This is an issue as this
@@ -148,3 +157,30 @@ Known issues:
 * unrar-nonfree-5.6.6
 * exiv 0.27
 * jpeg-6b
+
+## History
+
+This was originally envisioned by hexcoder- in Summer 2019, however we saw no
+way to create a pass that is run at link time - although there is a option
+for this in the PassManager: EP_FullLinkTimeOptimizationLast
+("Fun" info - nobody knows what this is doing. And the developer who
+implemented this didn't respond to emails.)
+
+In December came then the idea to implement this as a pass that is run via
+the llvm "opt" program, which is performed via an own linker that afterwards
+calls the real linker.
+This was first implemented in January and work ... kinda.
+The LTO time instrumentation worked, however the "how" the basic blocks were
+instrumented was a problem, as reducing duplicates turned out to be very,
+very difficult with a program that has so many paths and therefore so many
+dependencies. At lot of stratgies were implemented - and failed.
+And then sat solvers were tried, but with over 10.000 variables that turned
+out to be a dead-end too.
+The final idea to solve this came from domenukk who proposed to insert a block
+into an edge and then just use incremental counters ... and this worked!
+After some trials and errors to implement this vanhauser-thc found out that
+there is actually an llvm function for this: SplitEdge() :-)
+Still more problems came up though as this only works without bugs from
+llvm 9 onwards, and with high optimization the link optimization ruins
+the instrumented control flow graph.
+As long as there are no larger changes in llvm this all should work well now ...

@@ -215,9 +215,12 @@ static void edit_params(int argc, char** argv) {
   link_params[link_param_cnt++] = linked_file;
 
   opt_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "opt");
-  if (getenv("AFL_DONT_OPTIMIZE") == NULL)
+  if (getenv("AFL_DONT_OPTIMIZE") == NULL) {
+
     opt_params[opt_param_cnt++] = "-O3";
-  else
+    opt_params[opt_param_cnt++] = "--polly";
+
+  } else
     opt_params[opt_param_cnt++] = "-O0";
   // opt_params[opt_param_cnt++] = "-S"; // only when debugging
   opt_params[opt_param_cnt++] = linked_file;  // input: .ll file
@@ -599,7 +602,16 @@ int main(int argc, char** argv) {
 
       if (pid < 0) PFATAL("fork() failed");
       if (waitpid(pid, &status, 0) <= 0) PFATAL("waitpid() failed");
-      if (WEXITSTATUS(status) != 0) exit(WEXITSTATUS(status));
+      if (WEXITSTATUS(status) != 0) { 
+      
+        SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                                \
+         "\n[-] PROGRAM ABORT : " cRST);
+        SAYF(                    "llvm-link failed, if this is because of a \"linking globals\n"
+             " named '...': symbol multiply defined\" error then there is nothing we can do -\n"
+             "llvm-link is missing an important feature :-(\n\n");
+        exit(WEXITSTATUS(status));
+        
+      }
 
       /* then we perform an optimization on the collected objects files */
       if (!be_quiet)
