@@ -397,10 +397,19 @@ BEGIN {
   cur = 0;
   if (!stdin_file) {
     print "    Processing "in_count" files (forkserver mode)..."
-    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
+    retval = system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
   } else {
     print "    Processing "in_count" files (forkserver mode)..."
-    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+    retval = system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+  }
+
+  if (retval) {
+    print "[!]Exit code != 0 received from afl-showmap, terminating..."
+
+    if (!ENVIRON["AFL_KEEP_TRACES"]) {
+      system("rm -rf "trace_dir" 2>/dev/null")
+    }
+    exit retval
   }
 
   #######################################################

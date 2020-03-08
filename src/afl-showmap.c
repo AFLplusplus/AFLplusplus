@@ -151,8 +151,8 @@ static u32 write_results_to_file(afl_forkserver_t *frk_srv) {
   s32 fd;
   u32 i, ret = 0;
 
-  u8 cco = !!get_afl_env("AFL_CMIN_CRASHES_ONLY"),
-     caa = !!get_afl_env("AFL_CMIN_ALLOW_ANY");
+  u8 cco = !!getenv("AFL_CMIN_CRASHES_ONLY"),
+     caa = !!getenv("AFL_CMIN_ALLOW_ANY");
 
   if (!strncmp(frk_srv->out_file, "/dev/", 5)) {
 
@@ -633,6 +633,7 @@ static void usage(u8* argv0) {
       "Environment variables used:\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_DEBUG: enable extra developer output\n"
+      "AFL_QUIET: do not print extra informational output"
       "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
       "inputs\n"
       "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing inputs also\n"
@@ -713,6 +714,9 @@ int main(int argc, char** argv, char** envp) {
   afl_frk_srv_init(frk_srv);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
+  
+  if (getenv("AFL_QUIET") != NULL)
+    be_quiet = 1;
 
   while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqZQUWbcrh")) > 0)
 

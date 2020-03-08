@@ -355,6 +355,15 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
 #else
 
+  if (afl->mutator && afl->mutator->afl_custom_queue_get) {
+
+    /* The custom mutator will decide to skip this test case or not. */
+
+    if (!afl->mutator->afl_custom_queue_get(afl->queue_cur->fname))
+      return 1;
+
+  }
+
   if (afl->pending_favored) {
 
     /* If we have any favored, non-fuzzed new arrivals in the queue,
@@ -449,7 +458,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * TRIMMING *
    ************/
 
-  if (!afl->dumb_mode && !afl->queue_cur->trim_done && !afl->custom_mutator && !afl->disable_trim) {
+  if (!afl->dumb_mode && !afl->queue_cur->trim_done && !afl->disable_trim) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
@@ -482,56 +491,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (afl->use_radamsa > 1) goto radamsa_stage;
 
-  // custom_stage:	// not used - yet
-
-  if (afl->custom_mutator) {
-
-    afl->stage_short = "custom";
-    afl->stage_name = "custom mutator";
-    afl->stage_max = len << 3;
-    afl->stage_val_type = STAGE_VAL_NONE;
-
-    const u32 max_seed_size = 4096 * 4096;
-    u8*       mutated_buf = ck_alloc(max_seed_size);
-
-    orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
-
-    for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
-
-      size_t orig_size = (size_t)len;
-      size_t mutated_size = afl->custom_mutator(in_buf, orig_size, mutated_buf,
-                                           max_seed_size, UR(afl, UINT32_MAX));
-      if (mutated_size > 0) {
-
-        out_buf = ck_realloc(out_buf, mutated_size);
-        memcpy(out_buf, mutated_buf, mutated_size);
-        if (common_fuzz_stuff(afl, out_buf, (u32)mutated_size)) {
-
-          goto abandon_entry;
-
-        }
-
-      }
-
-    }
-
-    ck_free(mutated_buf);
-    new_hit_cnt = afl->queued_paths + afl->unique_crashes;
-
-    afl->stage_finds[STAGE_CUSTOM_MUTATOR] += new_hit_cnt - orig_hit_cnt;
-    afl->stage_cycles[STAGE_CUSTOM_MUTATOR] += afl->stage_max;
-
-    if (afl->custom_only) {
-
-      /* Skip other stages */
-      ret_val = 0;
-      goto abandon_entry;
-
-    }
-
-  }
-
-  if (afl->shm.cmplog_mode) {
+  if (afl->cmplog_mode) {
 
     if (input_to_state_stage(afl, in_buf, out_buf, len, afl->queue_cur->exec_cksum))
       goto abandon_entry;
@@ -550,11 +510,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
                          : afl->havoc_max_mult * 100)) ||
       afl->queue_cur->passed_det) {
 
-#ifdef USE_PYTHON
-    goto python_stage;
-#else
-    goto havoc_stage;
-#endif
+    goto custom_mutator_stage;
 
   }
 
@@ -563,11 +519,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (afl->master_max && (afl->queue_cur->exec_cksum % afl->master_max) != afl->master_id - 1) {
 
-#ifdef USE_PYTHON
-    goto python_stage;
-#else
-    goto havoc_stage;
-#endif
+    goto custom_mutator_stage;
 
   }
 
@@ -1582,25 +1534,25 @@ skip_extras:
 
   if (!afl->queue_cur->passed_det) mark_as_det_done(afl, afl->queue_cur);
 
-#ifdef USE_PYTHON
-python_stage:
-  /**********************************
-   * EXTERNAL MUTATORS (Python API) *
-   **********************************/
+custom_mutator_stage:
+  /*******************
+   * CUSTOM MUTATORS *
+   *******************/
 
-  if (!afl->py_module) goto havoc_stage;
+  if (!afl->mutator) goto havoc_stage;
+  if (!afl->mutator->afl_custom_fuzz) goto havoc_stage;
 
-  afl->stage_name = "python";
-  afl->stage_short = "python";
-  afl->stage_max = HAVOC_CYCLES * perf_score / afl->havoc_div / 100;
+  afl->stage_name = "custom mutator";
+  afl->stage_short = "custom";
+  afl->stage_max = HAVOC_CYCLES * perf_score / havoc_div / 100;
+  afl->stage_val_type = STAGE_VAL_NONE;
 
   if (afl->stage_max < HAVOC_MIN) afl->stage_max = HAVOC_MIN;
 
+  const u32 max_seed_size = MAX_FILE;
+
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
-
-  char*  retbuf = NULL;
-  size_t retlen = 0;
-
+  
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     struct queue_entry* target;
@@ -1645,26 +1597,20 @@ python_stage:
     new_buf = ck_alloc_nozero(target->len);
     ck_read(fd, new_buf, target->len, target->fname);
     close(fd);
-
-    fuzz_py(afl, out_buf, len, new_buf, target->len, &retbuf, &retlen);
+    
+    size_t mutated_size = mutator->afl_custom_fuzz(&out_buf, len,
+                                                   new_buf, target->len,
+                                                   max_seed_size);
 
     ck_free(new_buf);
 
-    if (retbuf) {
+    if (mutated_size > 0) {
 
-      if (!retlen) goto abandon_entry;
+      if (common_fuzz_stuff(argv, out_buf, (u32)mutated_size)) {
 
-      if (common_fuzz_stuff(afl, retbuf, retlen)) {
-
-        free(retbuf);
         goto abandon_entry;
 
       }
-
-      /* Reset retbuf/retlen */
-      free(retbuf);
-      retbuf = NULL;
-      retlen = 0;
 
       /* If we're finding new stuff, let's run for a bit longer, limits
          permitting. */
@@ -1683,23 +1629,24 @@ python_stage:
       }
 
     }
+    
+    if (mutated_size < len) out_buf = ck_realloc(out_buf, len);
+    memcpy(out_buf, in_buf, len);
 
   }
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
-  afl->stage_finds[STAGE_PYTHON] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_PYTHON] += afl->stage_max;
+  stage_finds[STAGE_CUSTOM_MUTATOR] += new_hit_cnt - orig_hit_cnt;
+  stage_cycles[STAGE_CUSTOM_MUTATOR] += stage_max;
 
-  if (afl->python_only) {
+  if (custom_only) {
 
     /* Skip other stages */
     ret_val = 0;
     goto abandon_entry;
 
   }
-
-#endif
 
   /****************
    * RANDOM HAVOC *
@@ -1738,6 +1685,17 @@ havoc_stage:
 
   havoc_queued = afl->queued_paths;
 
+  u8 stacked_custom = (mutator && mutator->afl_custom_havoc_mutation);
+  u8 stacked_custom_prob = 6; // like one of the default mutations in havoc
+
+  if (stacked_custom && mutator->afl_custom_havoc_mutation_probability) {
+
+    stacked_custom_prob = mutator->afl_custom_havoc_mutation_probability();
+    if (stacked_custom_prob > 100)
+      FATAL("The probability returned by afl_custom_havoc_mutation_propability has to be in the range 0-100.");
+
+  }
+
   /* We essentially just do several thousand runs (depending on perf_score)
      where we take the input file and make random stacked tweaks. */
 
@@ -1748,6 +1706,13 @@ havoc_stage:
     afl->stage_cur_val = use_stacking;
 
     for (i = 0; i < use_stacking; ++i) {
+    
+      if (stacked_custom && UR(100) < stacked_custom_prob) {
+      
+        temp_len = mutator->afl_custom_havoc_mutation(&out_buf, temp_len,
+                                                      MAX_FILE);
+      
+      }
 
       switch (UR(afl, 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
 
@@ -2267,11 +2232,10 @@ retry_splicing:
     out_buf = ck_alloc_nozero(len);
     memcpy(out_buf, in_buf, len);
 
-#ifdef USE_PYTHON
-    goto python_stage;
-#else
-    goto havoc_stage;
-#endif
+    goto custom_mutator_stage;
+    /* ???: While integrating Python module, the author decided to jump to
+       python stage, but the reason behind this is not clear.*/
+    // goto havoc_stage;
 
   }
 

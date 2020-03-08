@@ -655,7 +655,7 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  if (afl->custom_mutator) {
+  if (afl->mutator) {
 
     sprintf(tmp, "%s/%s", DI(afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
             DI(afl->stage_cycles[STAGE_CUSTOM_MUTATOR]));

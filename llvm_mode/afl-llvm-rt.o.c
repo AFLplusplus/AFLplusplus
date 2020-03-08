@@ -63,8 +63,10 @@ u8* __afl_area_ptr = __afl_area_initial;
 
 #ifdef __ANDROID__
 u32 __afl_prev_loc;
+u32 __afl_final_loc;
 #else
 __thread u32 __afl_prev_loc;
+__thread u32 __afl_final_loc;
 #endif
 
 struct cmp_map* __afl_cmp_map;
@@ -540,6 +542,8 @@ static int area_is_mapped(void* ptr, size_t len) {
 }
 
 void __cmplog_rtn_hook(void* ptr1, void* ptr2) {
+
+  if (!__afl_cmp_map) return;
 
   if (!area_is_mapped(ptr1, 32) || !area_is_mapped(ptr2, 32)) return;
 

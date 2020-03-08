@@ -154,6 +154,7 @@ char** get_qemu_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv) {
 
   if (!access(BIN_PATH "/afl-qemu-trace", X_OK)) {
 
+    ck_free(cp);
     *target_path_p = new_argv[0] = ck_strdup(BIN_PATH "/afl-qemu-trace");
     return new_argv;
 

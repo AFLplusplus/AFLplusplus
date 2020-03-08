@@ -309,11 +309,12 @@ void write_to_testcase(afl_state_t *afl, void* mem, u32 len) {
 
     lseek(fd, 0, SEEK_SET);
 
-  if (afl->pre_save_handler) {
+  if (afl->mutator && afl->mutator->afl_custom_pre_save) {
 
     u8*    new_data;
-    size_t new_size = afl->pre_save_handler(mem, len, &new_data);
-    ck_write(fd, new_data, new_size, afl->frk_srv.out_file);
+    size_t new_size = afl->mutator->afl_custom_pre_save(mem, len, &new_data);
+    ck_write(fd, new_data, new_size, afl->out_file);
+    ck_free(new_data);
 
   } else {
 
@@ -642,7 +643,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
         fault = run_target(afl, afl->frk_srv.exec_tmout);
 
-        if (afl->stop_soon) return;
+        if (afl->stop_soon) goto close_sync;
 
         afl->syncing_party = sd_ent->d_name;
         afl->queued_imported += save_if_interesting(afl, mem, st.st_size, fault);
@@ -661,6 +662,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
     ck_write(id_fd, &next_min_accept, sizeof(u32), qd_synced_path);
 
+close_sync:
     close(id_fd);
     closedir(qd);
     ck_free(qd_path);
@@ -678,9 +680,9 @@ void sync_fuzzers(afl_state_t *afl) {
 
 u8 trim_case(afl_state_t *afl, struct queue_entry* q, u8* in_buf) {
 
-#ifdef USE_PYTHON
-  if (afl->py_functions[PY_FUNC_TRIM]) return trim_case_python(afl, q, in_buf);
-#endif
+  /* Custom mutator trimmer */
+  if (afl->mutator && afl->mutator->afl_custom_trim)
+    return trim_case_custom(argv, q, in_buf);
 
   static u8 tmp[64];
   static u8 clean_trace[MAP_SIZE];

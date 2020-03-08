@@ -296,34 +296,6 @@ void setup_post(afl_state_t *afl) {
 
 }
 
-void setup_custom_mutator(afl_state_t *afl) {
-
-  void* dh;
-  u8*   fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
-
-  if (!fn) return;
-
-  if (afl->limit_time_sig)
-    FATAL(
-        "MOpt and custom mutator are mutually exclusive. We accept pull "
-        "requests that integrates MOpt with the optional mutators "
-        "(custom/radamsa/redquenn/...).");
-
-  ACTF("Loading custom mutator library from '%s'...", fn);
-
-  dh = dlopen(fn, RTLD_NOW);
-  if (!dh) FATAL("%s", dlerror());
-
-  afl->custom_mutator = dlsym(dh, "custom_mutator");
-  if (!afl->custom_mutator) FATAL("Symbol 'custom_mutator' not found.");
-
-  afl->pre_save_handler = dlsym(dh, "pre_save_handler");
-  //  if (!afl->pre_save_handler) WARNF("Symbol 'afl->pre_save_handler' not found.");
-
-  OKF("Custom mutator installed successfully.");
-
-}
-
 /* Shuffle an array of pointers. Might be slightly biased. */
 
 static void shuffle_ptrs(afl_state_t *afl, void** ptrs, u32 cnt) {

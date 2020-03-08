@@ -74,6 +74,7 @@ static u32 in_len,                     /* Input data length                 */
     missed_paths;                      /* Misses due to exec path diffs     */
 
 u8 crash_mode,                         /* Crash-centric mode?               */
+    hang_mode,                         /* Minimize as long as it hangs      */
     exit_crash,                        /* Treat non-zero exit as crash?     */
     edges_only,                        /* Ignore hit counts?                */
     exact_mode,                        /* Require path match for crashes?   */
@@ -83,6 +84,22 @@ static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
 static u8 qemu_mode;
 
+<<<<<<< HEAD
+=======
+
+/*
+ * forkserver section
+ */
+
+/* we only need this to use afl-forkserver */
+FILE* plot_file;
+u8    uses_asan;
+s32   out_fd = -1, out_dir_fd = -1, dev_urandom_fd = -1;
+
+/* we import this as we need this information */
+extern u8 child_timed_out;
+
+>>>>>>> refs/rewritten/onto
 /* Classify tuple counts. This is a slow & naive version, but good enough here.
  */
 
@@ -398,7 +415,13 @@ static u8 run_target(afl_forkserver_t *frk_srv, char** argv, u8* mem, u32 len, u
 
   u32 cksum;
 
+<<<<<<< HEAD
   memset(frk_srv->trace_bits, 0, MAP_SIZE);
+=======
+  child_timed_out = 0;
+
+  memset(trace_bits, 0, MAP_SIZE);
+>>>>>>> refs/rewritten/onto
   MEM_BARRIER();
 
   write_to_testcase(frk_srv, mem, len);
@@ -455,8 +478,18 @@ static u8 run_target(afl_forkserver_t *frk_srv, char** argv, u8* mem, u32 len, u
   if (*(u32*)frk_srv->trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
+<<<<<<< HEAD
   classify_counts(frk_srv->trace_bits);
   apply_mask((u32*)frk_srv->trace_bits, (u32*)mask_bitmap);
+=======
+  if (!hang_mode) {
+
+    classify_counts(trace_bits);
+    apply_mask((u32*)trace_bits, (u32*)mask_bitmap);
+
+  }
+
+>>>>>>> refs/rewritten/onto
   total_execs++;
 
   if (stop_soon) {
@@ -467,7 +500,27 @@ static u8 run_target(afl_forkserver_t *frk_srv, char** argv, u8* mem, u32 len, u
 
   }
 
-  /* Always discard inputs that time out. */
+  /* Always discard inputs that time out, unless we are in hang mode */
+
+  if (hang_mode) {
+
+    if (child_timed_out) return 1;
+
+    if (WIFSIGNALED(status) ||
+        (WIFEXITED(status) && WEXITSTATUS(status) == MSAN_ERROR) ||
+        (WIFEXITED(status) && WEXITSTATUS(status) && exit_crash)) {
+
+      missed_crashes++;
+
+    } else {
+
+      missed_hangs++;
+
+    }
+
+    return 0;
+
+  }
 
   if (frk_srv->child_timed_out) {
 
@@ -475,7 +528,7 @@ static u8 run_target(afl_forkserver_t *frk_srv, char** argv, u8* mem, u32 len, u
     return 0;
 
   }
-
+      
   /* Handle crashing inputs depending on current mode. */
 
   if (WIFSIGNALED(status) ||
@@ -762,6 +815,19 @@ next_del_blksize:
 
 finalize_all:
 
+  if (hang_mode) {
+
+      SAYF("\n" cGRA "     File size reduced by : " cRST
+           "%0.02f%% (to %u byte%s)\n" cGRA "    Characters simplified : " cRST
+           "%0.02f%%\n" cGRA "     Number of execs done : " cRST "%u\n" cGRA
+           "          Fruitless execs : " cRST "termination=%u crash=%u\n\n",
+           100 - ((double)in_len) * 100 / orig_len, in_len, in_len == 1 ? "" : "s",
+           ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), total_execs,
+           missed_paths, missed_crashes);
+      return;
+
+  }
+
   SAYF("\n" cGRA "     File size reduced by : " cRST
        "%0.02f%% (to %u byte%s)\n" cGRA "    Characters simplified : " cRST
        "%0.02f%%\n" cGRA "     Number of execs done : " cRST "%u\n" cGRA
@@ -770,7 +836,7 @@ finalize_all:
        ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), total_execs,
        missed_paths, missed_crashes, missed_hangs ? cLRD : "", missed_hangs);
 
-  if (total_execs > 50 && missed_hangs * 10 > total_execs)
+  if (total_execs > 50 && missed_hangs * 10 > total_execs && !hang_mode)
     WARNF(cLRD "Frequent timeouts - results may be skewed." cRST);
 
 }
@@ -948,6 +1014,7 @@ static void usage(u8* argv0) {
 
       "  -e            - solve for edge coverage only, ignore hit counts\n"
       "  -x            - treat non-zero exit codes as crashes\n\n"
+      "  -H            - minimize a hang (hang mode)\n"
 
       "For additional tips, please consult %s/README.md.\n\n"
 
@@ -1050,7 +1117,7 @@ int main(int argc, char** argv, char** envp) {
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeQUWh")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:B:xeQUWHh")) > 0)
 
     switch (opt) {
 
@@ -1076,6 +1143,7 @@ int main(int argc, char** argv, char** envp) {
       case 'e':
 
         if (edges_only) FATAL("Multiple -e options not supported");
+        if (hang_mode) FATAL("Edges only and hang mode are mutually exclusive.");
         edges_only = 1;
         break;
 
@@ -1161,6 +1229,15 @@ int main(int argc, char** argv, char** envp) {
 
         break;
 
+      case 'H':                                             /* Hang Mode */
+        
+        /* Minimizes a testcase to the minimum that still times out */
+
+        if (hang_mode) FATAL("Multipe -H options not supported");
+        if (edges_only) FATAL("Edges only and hang mode are mutually exclusive.");
+        hang_mode = 1;
+        break;
+
       case 'B':                                              /* load bitmap */
 
         /* This is a secret undocumented option! It is speculated to be useful
@@ -1218,6 +1295,13 @@ int main(int argc, char** argv, char** envp) {
 
   exact_mode = !!get_afl_env("AFL_TMIN_EXACT");
 
+  if (hang_mode && exact_mode) {
+
+    SAYF("AFL_TMIN_EXACT won't work for loops in hang mode, ignoring.");
+    exact_mode = 0;
+
+  }
+
   SAYF("\n");
 
   read_initial_file();
@@ -1229,10 +1313,23 @@ int main(int argc, char** argv, char** envp) {
 
   run_target(frk_srv, use_argv, in_data, in_len, 1);
 
+<<<<<<< HEAD
   if (frk_srv->child_timed_out)
     FATAL("Target binary times out (adjusting -t may help).");
+=======
+  if (hang_mode && !child_timed_out)
+    FATAL("Target binary did not time out but hang minimization mode "
+          "(-H) was set (-t %u).", exec_tmout);
 
-  if (!crash_mode) {
+  if (child_timed_out && !hang_mode)
+    FATAL("Target binary times out (adjusting -t may help). Use -H to minimize a hang.");
+
+  if (hang_mode) {
+    
+    OKF("Program hangs as expected, minimizing in " cCYA "hang" cRST " mode.");
+>>>>>>> refs/rewritten/onto
+
+  } else if (!crash_mode) {
 
     OKF("Program terminates normally, minimizing in " cCYA "instrumented" cRST
         " mode.");
