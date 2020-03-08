@@ -244,7 +244,7 @@ size_t pre_save_py(u8* buf, size_t buf_size, u8** out_buf) {
 
   size_t out_buf_size;
   PyObject *py_args, *py_value;
-  py_args = PyTuple_New(2);
+  py_args = PyTuple_New(1);
   py_value = PyByteArray_FromStringAndSize(buf, buf_size);
   if (!py_value) {
 
