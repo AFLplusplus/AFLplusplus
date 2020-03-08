@@ -165,11 +165,17 @@ a fallback to the builtin default trimming routine.
 
 Optionally, the following environment variables are supported:
 
-- `AFL_PYTHON_ONLY`
-
+- `AFL_CUSTOM_MUTATOR_ONLY`
+ 
     Disable all other mutation stages. This can prevent broken testcases
     (those that your Python module can't work with anymore) to fill up your
     queue. Best combined with a custom trimming routine (see below) because
+    trimming can cause the same test breakage like havoc and splice.
+
+
+- `AFL_PYTHON_ONLY`
+
+    Deprecated and removed, use `AFL_CUSTOM_MUTATOR_ONLY` instead
     trimming can cause the same test breakage like havoc and splice.
 
 - `AFL_DEBUG`
