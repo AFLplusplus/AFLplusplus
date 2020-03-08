@@ -57,7 +57,7 @@ size_t afl_custom_fuzz(uint8_t **buf, size_t buf_size,
   // Mutate the payload of the packet
   for (int i = 3; i < mutated_size; i++) {
 
-    mutated_out[i] = (buf[i] + rand() % 10) & 0xff;
+    mutated_out[i] = (mutated_out[i] + rand() % 10) & 0xff;
 
   }
 
@@ -93,10 +93,10 @@ size_t afl_custom_pre_save(uint8_t *buf, size_t buf_size, uint8_t **out_buf) {
 
 }
 
-uint8_t *trim_buf;
-size_t trim_buf_size;
-int trimmming_steps;
-int cur_step;
+static uint8_t *trim_buf;
+static size_t trim_buf_size;
+static int trimmming_steps;
+static int cur_step;
 
 /**
  * This method is called at the start of each trimming operation and receives
@@ -186,9 +186,11 @@ int afl_custom_post_trim(int success) {
  *
  * (Optional)
  *
- * @param[in] buf Pointer to the input data to be mutated
+ * @param[inout] buf Pointer to the input data to be mutated and the mutated
+ *     output
  * @param[in] buf_size Size of input data
- * @param[in] max_size Maximum size of the mutated output. The mutation must not produce data larger than max_size.
+ * @param[in] max_size Maximum size of the mutated output. The mutation must
+ *     not produce data larger than max_size.
  * @return Size of the mutated output.
  */
 size_t afl_custom_havoc_mutation(uint8_t** buf, size_t buf_size, size_t max_size) {
@@ -221,3 +223,35 @@ uint8_t afl_custom_havoc_mutation_probability(void) {
   return 5; // 5 %
 
 }
+
+/**
+ * Determine whether the fuzzer should fuzz the queue entry or not.
+ *
+ * (Optional)
+ *
+ * @param filename File name of the test case in the queue entry
+ * @return Return True(1) if the fuzzer will fuzz the queue entry, and
+ *     False(0) otherwise.
+ */
+uint8_t afl_custom_queue_get(const uint8_t* filename) {
+
+  return 1;
+
+}
+
+/**
+ * Allow for additional analysis (e.g. calling a different tool that does a 
+ * different kind of coverage and saves this for the custom mutator).
+ *
+ * (Optional)
+ *
+ * @param filename_new_queue File name of the new queue entry
+ * @param filename_orig_queue File name of the original queue entry
+ */
+void afl_custom_queue_new_entry(const uint8_t* filename_new_queue,
+                                const uint8_t* filename_orig_queue) {
+
+  /* Additional analysis on the original or new test case */
+
+}
+

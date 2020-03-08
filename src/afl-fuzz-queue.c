@@ -139,6 +139,17 @@ void add_to_queue(u8* fname, u32 len, u8 passed_det) {
 
   last_path_time = get_cur_time();
 
+  if (mutator && mutator->afl_custom_queue_new_entry) {
+
+    u8* fname_orig = NULL;
+
+    /* At the initialization stage, queue_cur is NULL */
+    if (queue_cur) fname_orig = queue_cur->fname;
+
+    mutator->afl_custom_queue_new_entry(fname, fname_orig);
+
+  }
+
 }
 
 /* Destroy the entire queue. */

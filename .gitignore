@@ -8,6 +8,8 @@ afl-clang
 afl-clang++
 afl-clang-fast
 afl-clang-fast++
+afl-clang-lto
+afl-clang-lto++
 afl-fuzz
 afl-g++
 afl-gcc
@@ -21,6 +23,8 @@ afl-analyze.8
 afl-as.8
 afl-clang-fast++.8
 afl-clang-fast.8
+afl-clang-lto.8
+afl-clang-lto++.8
 afl-cmin.8
 afl-cmin.bash.8
 afl-fuzz.8
