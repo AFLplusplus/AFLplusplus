@@ -59,6 +59,8 @@ static u8  cwd[4096];
 static u8* tmp_dir;
 static u8* ar_dir;
 static u8  ar_dir_cnt;
+static u8* libdirs[254];
+static u8  libdir_cnt;
 
 static u8 be_quiet,                 /* Quiet mode (no stderr output)        */
     debug,                          /* AFL_DEBUG                            */
@@ -183,7 +185,8 @@ int is_duplicate(u8** params, u32 ld_param_cnt, u8* ar_file) {
    so we exploit this property to keep the code "simple". */
 static void edit_params(int argc, char** argv) {
 
-  u32 i, have_lto = 0;
+  u32 i, have_lto = 0, libdir_index;
+  u8 libdir_file[4096];
 
   if (tmp_dir == NULL) {
 
@@ -201,8 +204,8 @@ static void edit_params(int argc, char** argv) {
   final_file =
       alloc_printf("%s/.afl-%u-%u-3.bc", tmp_dir, getpid(), (u32)time(NULL));
 
-  ld_params = ck_alloc((argc + 128) * sizeof(u8*));
-  link_params = ck_alloc((argc + 256) * sizeof(u8*));
+  ld_params = ck_alloc((argc + 4096) * sizeof(u8*));
+  link_params = ck_alloc((argc + 4096) * sizeof(u8*));
   inst_params = ck_alloc(12 * sizeof(u8*));
   opt_params = ck_alloc(12 * sizeof(u8*));
 
@@ -237,6 +240,12 @@ static void edit_params(int argc, char** argv) {
   inst_params[inst_param_cnt++] = "-o";
   inst_params[inst_param_cnt++] = final_file;  // output: .bc file
 
+  // first we must collect all library search paths
+  for (i = 1; i < argc; i++)
+    if (strlen(argv[i]) > 2 && argv[i][0] == '-' && argv[i][1] == 'L')
+        libdirs[libdir_cnt++] = argv[i] + 2;
+
+  // then we inspect all options to the target linker
   for (i = 1; i < argc; i++) {
 
     if (strncmp(argv[i], "-flto", 5) == 0) have_lto = 1;
@@ -257,11 +266,44 @@ static void edit_params(int argc, char** argv) {
       exit(0);
 
     }
+    
+    // if a -l library is linked and no .so is found but an .a archive is there
+    // then the archive will be used. So we have to emulate this and check
+    // if an archive will be used and if yes we will instrument it too
+    libdir_file[0] = 0;
+    libdir_index = libdir_cnt;
+    if (strncmp(argv[i], "-l", 2) == 0 && libdir_cnt > 0 && strncmp(argv[i], "-lgcc", 5) != 0) {
+    
+      u8 found = 0;
+    
+      for (uint32_t j = 0; j < libdir_cnt && !found; j++) {
+
+        snprintf(libdir_file, sizeof(libdir_file), "%s/lib%s%s", libdirs[j], argv[i] + 2, ".so");
+        if (access(libdir_file, R_OK) != 0) { // no .so found?
+
+          snprintf(libdir_file, sizeof(libdir_file), "%s/lib%s%s", libdirs[j], argv[i] + 2, ".a");
+          if (access(libdir_file, R_OK) == 0) { // but .a found?
+
+            libdir_index = j;
+            found = 1;
+            if (debug) SAYF(cMGN "[D] " cRST "Found %s\n", libdir_file);
+
+          }
+
+        } else {
+
+          found = 1;
+          if (debug) SAYF(cMGN "[D] " cRST "Found %s\n", libdir_file);
+        
+        }
+
+      }
+    
+    }
 
     // is the parameter an .a AR archive? If so, unpack and check its files
-    if (argv[i][0] != '-' && strlen(argv[i]) > 2 &&
-        argv[i][strlen(argv[i]) - 1] == 'a' &&
-        argv[i][strlen(argv[i]) - 2] == '.') {
+    if (libdir_index < libdir_cnt || (argv[i][0] != '-' && strlen(argv[i]) > 2 &&
+        argv[i][strlen(argv[i]) - 1] == 'a' && argv[i][strlen(argv[i]) - 2] == '.')) {
 
       // This gets a bit odd. I encountered several .a files being linked and
       // where the same "foo.o" was in both .a archives. llvm-link does not
@@ -270,9 +312,13 @@ static void edit_params(int argc, char** argv) {
       u8             this_wd[4096], *this_ar;
       u8             ar_params_cnt = 4;
       u8*            ar_params[ar_params_cnt];
+      u8*            file = argv[i];
       s32            pid, status;
       DIR*           arx;
       struct dirent* dir_ent;
+
+      if (libdir_index < libdir_cnt)
+        file = libdir_file;
 
       if (ar_dir_cnt == 0) {  // first archive, we setup up the basics
 
@@ -287,10 +333,10 @@ static void edit_params(int argc, char** argv) {
         FATAL("can not get the current working directory");
       if (chdir(ar_dir) != 0)
         FATAL("can not chdir to temporary directory %s", ar_dir);
-      if (argv[i][0] == '/')
-        this_ar = argv[i];
+      if (file[0] == '/')
+        this_ar = file;
       else
-        this_ar = alloc_printf("%s/%s", this_wd, argv[i]);
+        this_ar = alloc_printf("%s/%s", this_wd, file);
       ar_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "llvm-ar");
       ar_params[1] = "x";
       ar_params[2] = this_ar;
@@ -382,7 +428,7 @@ static void edit_params(int argc, char** argv) {
         ld_params[ld_param_cnt++] = "-plugin-opt=O2";
       else
         ld_params[ld_param_cnt++] = argv[i];
-
+        
     } else {
 
       if (we_link == 0) {  // we have to honor order ...
@@ -571,6 +617,8 @@ int main(int argc, char** argv) {
   atexit(at_exit_handler);  // ensure to wipe temp files if things fail
 
   edit_params(argc, argv);  // here most of the magic happens :-)
+
+  if (debug) SAYF(cMGN "[D] " cRST "param counts: ar:%u lib:%u ld:%u link:%u opt:%u instr:%u\n", ar_dir_cnt, libdir_cnt, ld_param_cnt, link_param_cnt, opt_param_cnt, inst_param_cnt);
 
   if (!just_version) {
 
