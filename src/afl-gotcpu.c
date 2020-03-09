@@ -51,6 +51,7 @@
 
 #include "types.h"
 #include "debug.h"
+#include "common.h"
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
     defined(__APPLE__) || defined(__DragonFly__)
@@ -71,19 +72,6 @@
 #include <mach/thread_policy.h>
 #endif
 #endif               /* __linux__ || __FreeBSD__ || __NetBSD__ || __APPLE__ */
-
-/* Get unix time in microseconds. */
-
-static u64 get_cur_time_us(void) {
-
-  struct timeval  tv;
-  struct timezone tz;
-
-  gettimeofday(&tv, &tz);
-
-  return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
-
-}
 
 /* Get CPU usage in microseconds. */
 
