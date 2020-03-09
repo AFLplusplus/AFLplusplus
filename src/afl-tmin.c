@@ -803,6 +803,8 @@ next_del_blksize:
 
 finalize_all:
 
+  if (tmp_buf) ck_free(tmp_buf);
+
   if (hang_mode) {
 
     SAYF("\n" cGRA "     File size reduced by : " cRST
@@ -1350,7 +1352,10 @@ int main(int argc, char** argv, char** envp) {
 
   afl_shm_deinit(&shm);
   afl_fsrv_deinit(fsrv);
+  if (fsrv->out_file) ck_free(fsrv->out_file);
   free(fsrv);
+  if (mask_bitmap) ck_free(mask_bitmap);
+  if (in_data) ck_free(in_data);
 
   exit(0);
 

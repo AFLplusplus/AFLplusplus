@@ -1032,6 +1032,7 @@ int main(int argc, char** argv, char** envp) {
   u8 child_timed_out = fsrv->child_timed_out;
   afl_fsrv_deinit(fsrv);
   free(fsrv);
+  if (stdin_file) ck_free(stdin_file);
 
   exit(child_crashed * 2 + child_timed_out);
 

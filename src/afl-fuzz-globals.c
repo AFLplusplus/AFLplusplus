@@ -126,3 +126,4 @@ void afl_state_deinit(afl_state_t *afl) {
   list_remove(&afl_states, afl);
 
 }
+
