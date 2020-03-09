@@ -1344,6 +1344,7 @@ int main(int argc, char** argv, char** envp) {
   ACTF("Writing output to '%s'...", output_file);
 
   unlink(fsrv->out_file);
+  if (fsrv->out_file) ck_free(fsrv->out_file);
   fsrv->out_file = NULL;
 
   close(write_to_file(output_file, in_data, in_len));
@@ -1352,8 +1353,9 @@ int main(int argc, char** argv, char** envp) {
 
   afl_shm_deinit(&shm);
   afl_fsrv_deinit(fsrv);
-  if (fsrv->out_file) ck_free(fsrv->out_file);
-  free(fsrv);
+  if (fsrv->target_path) ck_free(fsrv->target_path);
+  ck_free(fsrv);
+  fsrv = NULL;
   if (mask_bitmap) ck_free(mask_bitmap);
   if (in_data) ck_free(in_data);
 
