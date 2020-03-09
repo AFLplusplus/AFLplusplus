@@ -1274,7 +1274,7 @@ int main(int argc, char** argv, char** envp) {
   set_up_environment(fsrv);
 
   find_binary(fsrv, argv[optind]);
-  detect_file_args(argv + optind, fsrv->out_file, fsrv->use_stdin);
+  detect_file_args(argv + optind, fsrv->out_file, &fsrv->use_stdin);
 
   if (qemu_mode) {
 

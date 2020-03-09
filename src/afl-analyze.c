@@ -1009,7 +1009,7 @@ int main(int argc, char** argv, char** envp) {
   set_up_environment();
 
   find_binary(argv[optind]);
-  detect_file_args(argv + optind, prog_in, use_stdin);
+  detect_file_args(argv + optind, prog_in, &use_stdin);
 
   if (qemu_mode) {
 
