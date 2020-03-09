@@ -99,7 +99,6 @@ static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
 static u8 qemu_mode;
 
-
 /*
  * forkserver section
  */
@@ -533,7 +532,7 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
     return 0;
 
   }
-      
+
   /* Handle crashing inputs depending on current mode. */
 
   if (WIFSIGNALED(status) ||
@@ -822,14 +821,15 @@ finalize_all:
 
   if (hang_mode) {
 
-      SAYF("\n" cGRA "     File size reduced by : " cRST
-           "%0.02f%% (to %u byte%s)\n" cGRA "    Characters simplified : " cRST
-           "%0.02f%%\n" cGRA "     Number of execs done : " cRST "%u\n" cGRA
-           "          Fruitless execs : " cRST "termination=%u crash=%u\n\n",
-           100 - ((double)in_len) * 100 / orig_len, in_len, in_len == 1 ? "" : "s",
-           ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), total_execs,
-           missed_paths, missed_crashes);
-      return;
+    SAYF("\n" cGRA "     File size reduced by : " cRST
+         "%0.02f%% (to %u byte%s)\n" cGRA "    Characters simplified : " cRST
+         "%0.02f%%\n" cGRA "     Number of execs done : " cRST "%u\n" cGRA
+         "          Fruitless execs : " cRST "termination=%u crash=%u\n\n",
+         100 - ((double)in_len) * 100 / orig_len, in_len,
+         in_len == 1 ? "" : "s",
+         ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), total_execs,
+         missed_paths, missed_crashes);
+    return;
 
   }
 
@@ -1146,7 +1146,8 @@ int main(int argc, char** argv, char** envp) {
       case 'e':
 
         if (edges_only) FATAL("Multiple -e options not supported");
-        if (hang_mode) FATAL("Edges only and hang mode are mutually exclusive.");
+        if (hang_mode)
+          FATAL("Edges only and hang mode are mutually exclusive.");
         edges_only = 1;
         break;
 
@@ -1232,12 +1233,13 @@ int main(int argc, char** argv, char** envp) {
 
         break;
 
-      case 'H':                                             /* Hang Mode */
-        
+      case 'H':                                                /* Hang Mode */
+
         /* Minimizes a testcase to the minimum that still times out */
 
         if (hang_mode) FATAL("Multipe -H options not supported");
-        if (edges_only) FATAL("Edges only and hang mode are mutually exclusive.");
+        if (edges_only)
+          FATAL("Edges only and hang mode are mutually exclusive.");
         hang_mode = 1;
         break;
 
@@ -1314,14 +1316,18 @@ int main(int argc, char** argv, char** envp) {
   run_target(use_argv, in_data, in_len, 1);
 
   if (hang_mode && !child_timed_out)
-    FATAL("Target binary did not time out but hang minimization mode "
-          "(-H) was set (-t %u).", exec_tmout);
+    FATAL(
+        "Target binary did not time out but hang minimization mode "
+        "(-H) was set (-t %u).",
+        exec_tmout);
 
   if (child_timed_out && !hang_mode)
-    FATAL("Target binary times out (adjusting -t may help). Use -H to minimize a hang.");
+    FATAL(
+        "Target binary times out (adjusting -t may help). Use -H to minimize a "
+        "hang.");
 
   if (hang_mode) {
-    
+
     OKF("Program hangs as expected, minimizing in " cCYA "hang" cRST " mode.");
 
   } else if (!crash_mode) {
