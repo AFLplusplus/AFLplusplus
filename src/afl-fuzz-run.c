@@ -24,15 +24,29 @@
  */
 
 #include "afl-fuzz.h"
+#include <sys/time.h>
+#include <signal.h>
 
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv.trace_bits[]. */
 
+void timeout_handle(union sigval timer_data) {
+
+  afl_state_t* afl = timer_data.sival_ptr;
+  pid_t        child_pid = afl->frk_srv.child_pid;
+  afl->frk_srv.child_timed_out = 1;
+  if (child_pid > 0) kill(child_pid, SIGKILL);
+
+}
+
 u8 run_target(afl_state_t* afl, u32 timeout) {
 
-  static struct itimerval it;
-  static u32              prev_timed_out = 0;
-  static u64              exec_ms = 0;
+  // static struct itimerval it;
+  struct sigevent          timer_signal_event;
+  static timer_t           timer;
+  static struct itimerspec timer_period;
+  static u32               prev_timed_out = 0;
+  static u64               exec_ms = 0;
 
   int status = 0;
   u32 tb4;
@@ -161,10 +175,12 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
   /* Configure timeout, as requested by user, then wait for child to terminate.
    */
 
-  it.it_value.tv_sec = (timeout / 1000);
-  it.it_value.tv_usec = (timeout % 1000) * 1000;
+  timer_period.it_value.tv_sec = (timeout / 1000);
+  timer_period.it_value.tv_nsec = (timeout % 1000) * 1000000;
+  timer_period.it_interval.tv_sec = 0;
+  timer_period.it_interval.tv_nsec = 0;
 
-  setitimer(ITIMER_REAL, &it, NULL);
+  timer_settime(timer, 0, &timer_period, NULL);
 
   /* The SIGALRM handler simply kills the afl->fsrv.child_pid and sets
    * afl->fsrv.child_timed_out. */
@@ -208,16 +224,15 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
   if (!WIFSTOPPED(status)) afl->fsrv.child_pid = 0;
 
-  getitimer(ITIMER_REAL, &it);
-  exec_ms =
-      (u64)timeout - (it.it_value.tv_sec * 1000 + it.it_value.tv_usec / 1000);
+  timer_gettime(timer, &timer_period);
+  exec_ms = (u64)timeout - (timer_period.it_value.tv_sec * 1000 +
+                            timer_period.it_value.tv_nsec / 1000000);
   if (afl->slowest_exec_ms < exec_ms) afl->slowest_exec_ms = exec_ms;
 
-  it.it_value.tv_sec = 0;
-  it.it_value.tv_usec = 0;
+  timer_period.it_value.tv_sec = 0;
+  timer_period.it_value.tv_nsec = 0;
 
-  setitimer(ITIMER_REAL, &it, NULL);
-
+  timer_settime(timer, 0, &timer_period, NULL);
   ++afl->total_execs;
 
   /* Any subsequent operations on afl->fsrv.trace_bits must not be moved by the
