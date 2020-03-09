@@ -136,7 +136,8 @@ override CFLAGS = -Wall \
                -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
-               -DLLVM_VERSION=\"$(LLVMVER)\"  -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\"
+               -DLLVM_VERSION=\"$(LLVMVER)\"  -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
+               -DAFL_REAL_LD=\"$(AFL_REAL_LD)\"
 ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
 endif
@@ -253,7 +254,7 @@ endif
 ../afl-ld: afl-ld.c
 ifneq "$(AFL_CLANG_FLTO)" ""
 ifeq "$(LLVM_LTO)" "1"
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -DAFL_REAL_LD=\"$(AFL_REAL_LD)\"
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 	ln -sf afl-ld ../ld
 	@rm -f .test-instr
 	@-export AFL_QUIET=1 AFL_PATH=.. PATH="..:$(PATH)" ; ../afl-clang-lto -Wl,--afl -o .test-instr ../test-instr.c && echo "[+] afl-clang-lto and afl-ld seem to work fine :)" || echo "[!] WARNING: clang seems to have a hardcoded "'/bin/ld'" - check README.lto"

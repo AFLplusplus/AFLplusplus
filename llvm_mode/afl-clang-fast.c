@@ -291,11 +291,11 @@ static void edit_params(u32 argc, char** argv) {
     cc_params[cc_par_cnt++] = AFL_PATH;
 
     cc_params[cc_par_cnt++] = lto_flag;
-  
+
   } else
 
-  if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
-      getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
+      if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
+          getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
 
     cc_params[cc_par_cnt++] =
         "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
@@ -533,7 +533,7 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  if (strstr(argv[0], "afl-clang-lto") == NULL) callname = "afl-clang-lto";
+  if (strstr(argv[0], "afl-clang-lto") != NULL) callname = "afl-clang-lto";
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -554,55 +554,66 @@ int main(int argc, char** argv, char** envp) {
 
 #endif                                                     /* ^USE_TRACE_PC */
 
-    SAYF(
-        "\n"
-        "%s[++] [options]\n"
-        "\n"
-        "This is a helper application for afl-fuzz. It serves as a drop-in "
-        "replacement\n"
-        "for clang, letting you recompile third-party code with the required "
-        "runtime\n"
-        "instrumentation. A common use pattern would be one of the "
-        "following:\n\n"
+        SAYF(
+            "\n"
+            "%s[++] [options]\n"
+            "\n"
+            "This is a helper application for afl-fuzz. It serves as a drop-in "
+            "replacement\n"
+            "for clang, letting you recompile third-party code with the "
+            "required "
+            "runtime\n"
+            "instrumentation. A common use pattern would be one of the "
+            "following:\n\n"
 
-        "  CC=%s/afl-clang-fast ./configure\n"
-        "  CXX=%s/afl-clang-fast++ ./configure\n\n"
+            "  CC=%s/afl-clang-fast ./configure\n"
+            "  CXX=%s/afl-clang-fast++ ./configure\n\n"
 
-        "In contrast to the traditional afl-clang tool, this version is "
-        "implemented as\n"
-        "an LLVM pass and tends to offer improved performance with slow "
-        "programs.\n\n"
+            "In contrast to the traditional afl-clang tool, this version is "
+            "implemented as\n"
+            "an LLVM pass and tends to offer improved performance with slow "
+            "programs.\n\n"
 
-        "Environment variables used:\n"
-        "AFL_CC: path to the C compiler to use\n"
-        "AFL_CXX: path to the C++ compiler to use\n"
-        "AFL_PATH: path to instrumenting pass and runtime (afl-llvm-rt.*o)\n"
-        "AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
-        "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
-        "AFL_INST_RATIO: percentage of branches to instrument\n"
-        "AFL_QUIET: suppress verbose output\n"
-        "AFL_DEBUG: enable developer debugging output\n"
-        "AFL_HARDEN: adds code hardening to catch memory bugs\n"
-        "AFL_USE_ASAN: activate address sanitizer\n"
-        "AFL_USE_MSAN: activate memory sanitizer\n"
-        "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
-        "AFL_LLVM_WHITELIST: enable whitelisting (selective instrumentation)\n"
-        "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
-        "AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
-        "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
-        "AFL_LLVM_LAF_SPLIT_SWITCHES: casc. comp. in 'switch'\n"
-        "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
-        "function calls\n"
-        " to cascaded comparisons\n"
-        "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to cascaded "
-        "comp.\n"
-        "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
-        "AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
-        "AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed\n"
-        "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
-        "\nafl-clang-fast was built for llvm %s with the llvm binary path of "
-        "\"%s\".\n\n",
-        callname, BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
+            "Environment variables used:\n"
+            "AFL_CC: path to the C compiler to use\n"
+            "AFL_CXX: path to the C++ compiler to use\n"
+            "AFL_PATH: path to instrumenting pass and runtime "
+            "(afl-llvm-rt.*o)\n"
+            "AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
+            "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
+            "AFL_INST_RATIO: percentage of branches to instrument\n"
+            "AFL_QUIET: suppress verbose output\n"
+            "AFL_DEBUG: enable developer debugging output\n"
+            "AFL_HARDEN: adds code hardening to catch memory bugs\n"
+            "AFL_USE_ASAN: activate address sanitizer\n"
+            "AFL_USE_MSAN: activate memory sanitizer\n"
+            "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+            "AFL_LLVM_WHITELIST: enable whitelisting (selective "
+            "instrumentation)\n"
+            "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+            "AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
+            "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
+            "AFL_LLVM_LAF_SPLIT_SWITCHES: casc. comp. in 'switch'\n"
+            "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
+            "function calls\n"
+            " to cascaded comparisons\n"
+            "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to "
+            "cascaded "
+            "comp.\n"
+            "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
+            "AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
+            "AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed\n"
+            "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
+            "\nafl-clang-fast was built for llvm %s with the llvm binary path "
+            "of "
+            "\"%s\".\n",
+            callname, BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
+
+    if (strcmp(callname, "afl-clang-lto") == 0)
+      SAYF("Compiled with linker target \"%s\" and LTO flags \"%s\"\n",
+           AFL_REAL_LD, AFL_CLANG_FLTO);
+
+    SAYF("\n");
 
     exit(1);
 
@@ -665,3 +676,4 @@ int main(int argc, char** argv, char** envp) {
   return 0;
 
 }
+

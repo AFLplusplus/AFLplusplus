@@ -100,6 +100,32 @@ need to link all llvm IR LTO files does not support this - yet (hopefully).
 Hence if you see this error either you have to remove the duplicate global
 variable (think `#ifdef` ...) or you are out of luck. :-(
 
+### "expected top-level entity" + binary ouput error
+
+This happens if multiple .a archives are to be linked and they contain the
+same object filenames, the first in LTO form, the other in ELF form.
+This can not be fixed programmatically, but can be fixed by hand.
+You can try to delete the file from either archive
+(`llvm-ar d <archive>.a <file>.o`) or performing the llvm-linking, optimizing
+and instrumentation by hand (see below).
+
+### "undefined reference to ..."
+
+This *can* be the opposite situation of the "expected top-level entity" error -
+the library with the ELF file is before the LTO library.
+However it can also be a bug in the program - try to compile it normally. If 
+fails then it is a bug in the program.
+Solutions: You can try to delete the file from either archive, e.g.
+(`llvm-ar d <archive>.a <file>.o`) or performing the llvm-linking, optimizing
+and instrumentation by hand (see below).
+
+### "File format not recognized"
+
+This happens if the build system has fixed LDFLAGS, CPPFLAGS, CXXFLAGS and/or
+CFLAGS. Ensure that they all contain the `-flto` flag that afl-clang-lto was
+compiled with (you can see that by typing `afl-clang-lto -h` and inspecting
+the last line of the help output) and add them otherwise
+
 ### clang is hardcoded to /bin/ld
 
 Some clang packages have 'ld' hardcoded to /bin/ld. This is an issue as this
@@ -128,6 +154,53 @@ This can result in two problems though:
  !2! 
  When you install an updated gcc/clang/... package, your OS might restore
  the ld link.
+
+### Performing the steps by hand
+
+It is possible to perform all the steps afl-ld by hand to workaround issues
+in the target.
+
+1. Recompile with AFL_DEBUG=1 and collect the afl-clang-lto command that fails
+   e.g.: `AFL_DEBUG=1 make 2>&1 | grep afl-clang-lto | tail -n 1`
+
+2. run this command prepended with AFL_DEBUG=1 and collect the afl-ld command
+   parameters, e.g. `AFL_DEBUG=1 afl-clang-lto[++] .... | grep /afl/ld`
+
+3. for every .a archive you want to instrument unpack it into a seperate
+   directory, e.g.
+   `mkdir archive1.dir ; cd archive1.dir ; llvm-link x ../<archive>.a`
+
+4. run `file archive*.dir/*.o` and make two lists, one containing all ELF files
+   and one containing all LLVM IR bitcode files.
+   You do the same for all .o files of the ../afl/ld command options
+
+5. Create a single bitcode file by using llvm-link, e.g.
+   `llvm-link -o all-bitcode.bc <list of all LLVM IR .o files>`
+   If this fails it is game over - or you modify the source code
+
+6. Run the optimizer on the new bitcode file:
+   `opt -O3 --polly -o all-optimized.bc all-bitcode.bc`
+
+7. Instrument the optimized bitcode file:
+   `opt --load=$AFL_PATH/afl-llvm-lto-instrumentation.so --disable-opt --afl-lto all-optimized.bc -o all-instrumented.bc
+
+8. If the parameter `--allow-multiple-definition` is not in the list, add it
+   as first command line option.
+
+9. Link everything together.
+   a) You use the afl-ld command and instead of e.g. `/usr/local/lib/afl/ld`
+      you replace that with `ld`, the real linker.
+   b) Every .a archive you instrumented files from you remove the <archive>.a
+      or -l<archive> from the command
+   c) If you have entries in your ELF files list (see step 4), you put them to
+      the command line - but them in the same order!
+   d) put the all-instrumented.bc before the first library or .o file
+   e) run the command and hope it compiles, if it doesn't you have to analyze
+      what the issue is and fix that in the approriate step above.
+
+Yes this is long and complicated. That is why there is afl-ld doing this and
+that why this can easily fail and not all different ways how it *can* fail can
+be implemented ...
 
 ### compiling programs still fail
 
