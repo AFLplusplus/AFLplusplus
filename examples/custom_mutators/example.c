@@ -38,17 +38,18 @@ void afl_custom_init(unsigned int seed) {
  *     produce data larger than max_size.
  * @return Size of the mutated output.
  */
-size_t afl_custom_fuzz(uint8_t **buf, size_t buf_size, uint8_t *add_buf,
-                       size_t add_buf_size,  // add_buf can be NULL
+size_t afl_custom_fuzz(uint8_t **buf, size_t buf_size,
+                       uint8_t *add_buf,size_t add_buf_size, // add_buf can be NULL
                        size_t max_size) {
 
   // Make sure that the packet size does not exceed the maximum size expected by
   // the fuzzer
   size_t mutated_size = data_size <= max_size ? data_size : max_size;
 
-  if (mutated_size > buf_size) *buf = realloc(*buf, mutated_size);
-
-  uint8_t *mutated_out = *buf;
+  if (mutated_size > buf_size)
+    *buf = realloc(*buf, mutated_size);
+  
+  uint8_t* mutated_out = *buf;
 
   // Randomly select a command string to add as a header to the packet
   memcpy(mutated_out, commands[rand() % 3], 3);
@@ -93,9 +94,9 @@ size_t afl_custom_pre_save(uint8_t *buf, size_t buf_size, uint8_t **out_buf) {
 }
 
 static uint8_t *trim_buf;
-static size_t   trim_buf_size;
-static int      trimmming_steps;
-static int      cur_step;
+static size_t trim_buf_size;
+static int trimmming_steps;
+static int cur_step;
 
 /**
  * This method is called at the start of each trimming operation and receives
@@ -146,7 +147,7 @@ int afl_custom_init_trim(uint8_t *buf, size_t buf_size) {
  *     the memory after saving the test case.
  * @param[out] out_buf_size Pointer to the size of the trimmed test case
  */
-void afl_custom_trim(uint8_t **out_buf, size_t *out_buf_size) {
+void afl_custom_trim(uint8_t **out_buf, size_t* out_buf_size) {
 
   *out_buf_size = trim_buf_size - 1;
 
@@ -171,10 +172,8 @@ void afl_custom_trim(uint8_t **out_buf, size_t *out_buf_size) {
 int afl_custom_post_trim(int success) {
 
   if (success) {
-
     ++cur_step;
     return cur_step;
-
   }
 
   return trimmming_steps;
@@ -194,8 +193,7 @@ int afl_custom_post_trim(int success) {
  *     not produce data larger than max_size.
  * @return Size of the mutated output.
  */
-size_t afl_custom_havoc_mutation(uint8_t **buf, size_t buf_size,
-                                 size_t max_size) {
+size_t afl_custom_havoc_mutation(uint8_t** buf, size_t buf_size, size_t max_size) {
 
   if (buf_size == 0) {
 
@@ -207,7 +205,7 @@ size_t afl_custom_havoc_mutation(uint8_t **buf, size_t buf_size,
 
   size_t victim = rand() % buf_size;
   (*buf)[victim] += rand() % 10;
-
+  
   return buf_size;
 
 }
@@ -222,7 +220,7 @@ size_t afl_custom_havoc_mutation(uint8_t **buf, size_t buf_size,
  */
 uint8_t afl_custom_havoc_mutation_probability(void) {
 
-  return 5;  // 5 %
+  return 5; // 5 %
 
 }
 
@@ -235,14 +233,14 @@ uint8_t afl_custom_havoc_mutation_probability(void) {
  * @return Return True(1) if the fuzzer will fuzz the queue entry, and
  *     False(0) otherwise.
  */
-uint8_t afl_custom_queue_get(const uint8_t *filename) {
+uint8_t afl_custom_queue_get(const uint8_t* filename) {
 
   return 1;
 
 }
 
 /**
- * Allow for additional analysis (e.g. calling a different tool that does a
+ * Allow for additional analysis (e.g. calling a different tool that does a 
  * different kind of coverage and saves this for the custom mutator).
  *
  * (Optional)
@@ -250,8 +248,8 @@ uint8_t afl_custom_queue_get(const uint8_t *filename) {
  * @param filename_new_queue File name of the new queue entry
  * @param filename_orig_queue File name of the original queue entry
  */
-void afl_custom_queue_new_entry(const uint8_t *filename_new_queue,
-                                const uint8_t *filename_orig_queue) {
+void afl_custom_queue_new_entry(const uint8_t* filename_new_queue,
+                                const uint8_t* filename_orig_queue) {
 
   /* Additional analysis on the original or new test case */
 

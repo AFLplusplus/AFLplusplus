@@ -34,7 +34,7 @@
 #include "afl-qemu-common.h"
 #include "tcg.h"
 
-void HELPER(afl_entry_routine)(CPUArchState* env) {
+void HELPER(afl_entry_routine)(CPUArchState *env) {
 
   afl_forkserver(ENV_GET_CPU(env));
 
@@ -171,7 +171,7 @@ static int area_is_mapped(void* ptr, size_t len) {
 
 }
 
-void HELPER(afl_cmplog_rtn)(CPUX86State* env) {
+void HELPER(afl_cmplog_rtn)(CPUX86State *env) {
 
 #if defined(TARGET_X86_64)
 
@@ -181,9 +181,9 @@ void HELPER(afl_cmplog_rtn)(CPUX86State* env) {
 #elif defined(TARGET_I386)
 
   target_ulong* stack = g2h(env->regs[R_ESP]);
-
-  if (!area_is_mapped(stack, sizeof(target_ulong) * 2)) return;
-
+  
+  if (!area_is_mapped(stack, sizeof(target_ulong)*2)) return;
+  
   // when this hook is executed, the retaddr is not on stack yet
   void* ptr1 = g2h(stack[0]);
   void* ptr2 = g2h(stack[1]);
@@ -217,4 +217,3 @@ void HELPER(afl_cmplog_rtn)(CPUX86State* env) {
                    ptr2, 32);
 
 }
-

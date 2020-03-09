@@ -990,7 +990,7 @@ dir_cleanup_failed:
 }
 
 /* Delete fuzzer output directory if we recognize it as ours, if the fuzzer
-   is not currently running, and if the last run time isn't too great.
+   is not currently running, and if the last run time isn't too great. 
    Resume fuzzing if `-` is set as in_dir or if AFL_AUTORESUME is set */
 
 static void handle_existing_out_dir(void) {
@@ -1036,11 +1036,10 @@ static void handle_existing_out_dir(void) {
 
     fclose(f);
 
-    /* Autoresume treats a normal run as in_place_resume if a valid out dir
-     * already exists */
+    /* Autoresume treats a normal run as in_place_resume if a valid out dir already exists */
 
     if (!in_place_resume && autoresume) {
-
+    
       OKF("Detected prior run with AFL_AUTORESUME set. Resuming.");
       in_place_resume = 1;
 

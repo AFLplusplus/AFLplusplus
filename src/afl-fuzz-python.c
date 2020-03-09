@@ -80,7 +80,6 @@ int init_py_module(u8* module_name) {
           py_notrim = 1;
 
         } else if ((py_idx >= PY_FUNC_HAVOC_MUTATION) &&
-
                    (py_idx <= PY_FUNC_QUEUE_NEW_ENTRY)) {
 
           // Implenting the havoc and queue API is optional for now
@@ -141,7 +140,6 @@ void finalize_py_module() {
 }
 
 void init_py(unsigned int seed) {
-
   PyObject *py_args, *py_value;
 
   /* Provide the init function a seed for the Python RNG */
@@ -173,13 +171,12 @@ void init_py(unsigned int seed) {
     return;
 
   }
-
 }
 
 size_t fuzz_py(u8** buf, size_t buf_size, u8* add_buf, size_t add_buf_size,
                size_t max_size) {
 
-  size_t    mutated_size;
+  size_t mutated_size;
   PyObject *py_args, *py_value;
   py_args = PyTuple_New(3);
 
@@ -227,7 +224,8 @@ size_t fuzz_py(u8** buf, size_t buf_size, u8* add_buf, size_t add_buf_size,
   if (py_value != NULL) {
 
     mutated_size = PyByteArray_Size(py_value);
-    if (buf_size < mutated_size) *buf = ck_realloc(*buf, mutated_size);
+    if (buf_size < mutated_size)
+      *buf = ck_realloc(*buf, mutated_size);
 
     memcpy(*buf, PyByteArray_AsString(py_value), mutated_size);
     Py_DECREF(py_value);
@@ -244,7 +242,7 @@ size_t fuzz_py(u8** buf, size_t buf_size, u8* add_buf, size_t add_buf_size,
 
 size_t pre_save_py(u8* buf, size_t buf_size, u8** out_buf) {
 
-  size_t    out_buf_size;
+  size_t out_buf_size;
   PyObject *py_args, *py_value;
   py_args = PyTuple_New(1);
   py_value = PyByteArray_FromStringAndSize(buf, buf_size);
@@ -379,7 +377,7 @@ void trim_py(u8** out_buf, size_t* out_buf_size) {
 
 size_t havoc_mutation_py(u8** buf, size_t buf_size, size_t max_size) {
 
-  size_t    mutated_size;
+  size_t mutated_size;
   PyObject *py_args, *py_value;
   py_args = PyTuple_New(2);
 
@@ -416,8 +414,9 @@ size_t havoc_mutation_py(u8** buf, size_t buf_size, size_t max_size) {
   if (py_value != NULL) {
 
     mutated_size = PyByteArray_Size(py_value);
-    if (buf_size < mutated_size) *buf = ck_realloc(*buf, mutated_size);
-
+    if (buf_size < mutated_size)
+      *buf = ck_realloc(*buf, mutated_size);
+    
     memcpy(*buf, PyByteArray_AsString(py_value), mutated_size);
 
     Py_DECREF(py_value);
@@ -437,8 +436,7 @@ u8 havoc_mutation_probability_py(void) {
   PyObject *py_args, *py_value;
 
   py_args = PyTuple_New(0);
-  py_value = PyObject_CallObject(
-      py_functions[PY_FUNC_HAVOC_MUTATION_PROBABILITY], py_args);
+  py_value = PyObject_CallObject(py_functions[PY_FUNC_HAVOC_MUTATION_PROBABILITY], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
@@ -485,7 +483,7 @@ u8 queue_get_py(const u8* filename) {
 
     int ret = PyObject_IsTrue(py_value);
     Py_DECREF(py_value);
-
+    
     if (ret == -1) {
 
       PyErr_Print();
@@ -493,10 +491,10 @@ u8 queue_get_py(const u8* filename) {
 
     }
 
-    return (u8)ret & 0xFF;
+    return (u8) ret & 0xFF;
 
   } else {
-
+    
     PyErr_Print();
     FATAL("Call failed");
 
@@ -518,7 +516,7 @@ void queue_new_entry_py(const u8* filename_new_queue,
   py_value = PyString_FromString(filename_new_queue);
 #endif
   if (!py_value) {
-
+  
     Py_DECREF(py_args);
     FATAL("Failed to convert arguments");
 
@@ -536,7 +534,7 @@ void queue_new_entry_py(const u8* filename_new_queue,
     py_value = PyString_FromString(filename_orig_queue);
 #endif
     if (!py_value) {
-
+ 
       Py_DECREF(py_args);
       FATAL("Failed to convert arguments");
 
@@ -547,8 +545,8 @@ void queue_new_entry_py(const u8* filename_new_queue,
   PyTuple_SetItem(py_args, 1, py_value);
 
   // Call
-  py_value =
-      PyObject_CallObject(py_functions[PY_FUNC_QUEUE_NEW_ENTRY], py_args);
+  py_value = PyObject_CallObject(py_functions[PY_FUNC_QUEUE_NEW_ENTRY],
+                                 py_args);
   Py_DECREF(py_args);
 
   if (py_value == NULL) {

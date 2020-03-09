@@ -359,7 +359,8 @@ u8 fuzz_one_original(char** argv) {
 
     /* The custom mutator will decide to skip this test case or not. */
 
-    if (!mutator->afl_custom_queue_get(queue_cur->fname)) return 1;
+    if (!mutator->afl_custom_queue_get(queue_cur->fname))
+      return 1;
 
   }
 
@@ -1551,7 +1552,7 @@ custom_mutator_stage:
   const u32 max_seed_size = MAX_FILE;
 
   orig_hit_cnt = queued_paths + unique_crashes;
-
+  
   for (stage_cur = 0; stage_cur < stage_max; ++stage_cur) {
 
     struct queue_entry* target;
@@ -1596,9 +1597,10 @@ custom_mutator_stage:
     new_buf = ck_alloc_nozero(target->len);
     ck_read(fd, new_buf, target->len, target->fname);
     close(fd);
-
-    size_t mutated_size = mutator->afl_custom_fuzz(&out_buf, len, new_buf,
-                                                   target->len, max_seed_size);
+    
+    size_t mutated_size = mutator->afl_custom_fuzz(&out_buf, len,
+                                                   new_buf, target->len,
+                                                   max_seed_size);
 
     ck_free(new_buf);
 
@@ -1627,7 +1629,7 @@ custom_mutator_stage:
       }
 
     }
-
+    
     if (mutated_size < len) out_buf = ck_realloc(out_buf, len);
     memcpy(out_buf, in_buf, len);
 
@@ -1686,15 +1688,13 @@ havoc_stage:
   havoc_queued = queued_paths;
 
   u8 stacked_custom = (mutator && mutator->afl_custom_havoc_mutation);
-  u8 stacked_custom_prob = 6;  // like one of the default mutations in havoc
+  u8 stacked_custom_prob = 6; // like one of the default mutations in havoc
 
   if (stacked_custom && mutator->afl_custom_havoc_mutation_probability) {
 
     stacked_custom_prob = mutator->afl_custom_havoc_mutation_probability();
     if (stacked_custom_prob > 100)
-      FATAL(
-          "The probability returned by afl_custom_havoc_mutation_propability "
-          "has to be in the range 0-100.");
+      FATAL("The probability returned by afl_custom_havoc_mutation_propability has to be in the range 0-100.");
 
   }
 
@@ -1708,12 +1708,12 @@ havoc_stage:
     stage_cur_val = use_stacking;
 
     for (i = 0; i < use_stacking; ++i) {
-
+    
       if (stacked_custom && UR(100) < stacked_custom_prob) {
-
-        temp_len =
-            mutator->afl_custom_havoc_mutation(&out_buf, temp_len, MAX_FILE);
-
+      
+        temp_len = mutator->afl_custom_havoc_mutation(&out_buf, temp_len,
+                                                      MAX_FILE);
+      
       }
 
       switch (UR(15 + ((extras_cnt + a_extras_cnt) ? 2 : 0))) {

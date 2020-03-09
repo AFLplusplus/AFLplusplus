@@ -119,8 +119,7 @@ static void usage(u8* argv0, int more_help) {
       "                  if using QEMU, just use -c 0.\n\n"
 
       "Fuzzing behavior settings:\n"
-      "  -N            - do not unlink the fuzzing input file (only for "
-      "devices etc.!)\n"
+      "  -N            - do not unlink the fuzzing input file (only for devices etc.!)\n"
       "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (dumb mode)\n"
       "  -x dir        - optional fuzzer dictionary (see README.md, its really "
@@ -753,7 +752,8 @@ int main(int argc, char** argv, char** envp) {
   if (get_afl_env("AFL_AUTORESUME")) {
 
     autoresume = 1;
-    if (in_place_resume) SAYF("AFL_AUTORESUME has no effect for '-i -'");
+    if (in_place_resume)
+      SAYF("AFL_AUTORESUME has no effect for '-i -'");
 
   }
 

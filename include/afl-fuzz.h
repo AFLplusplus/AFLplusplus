@@ -461,9 +461,8 @@ extern s32 cmplog_child_pid, cmplog_forksrv_pid;
 /* Custom mutators */
 
 struct custom_mutator {
-
   const char* name;
-  void*       dh;
+  void* dh;
 
   /* hooks for the custom mutator function */
 
@@ -486,8 +485,8 @@ struct custom_mutator {
    * @param[in] buf_size Size of the input/output data
    * @param[in] add_buf Buffer containing the additional test case
    * @param[in] add_buf_size Size of the additional test case
-   * @param[in] max_size Maximum size of the mutated output. The mutation must
-   * not produce data larger than max_size.
+   * @param[in] max_size Maximum size of the mutated output. The mutation must not
+   *     produce data larger than max_size.
    * @return Size of the mutated output.
    */
   size_t (*afl_custom_fuzz)(u8** buf, size_t buf_size, u8* add_buf,
@@ -561,7 +560,7 @@ struct custom_mutator {
    *     steps returned in init_trim)
    */
   u32 (*afl_custom_post_trim)(u8 success);
-
+  
   /**
    * Perform a single custom mutation on a given input.
    * This mutation is stacked with the other muatations in havoc.
@@ -575,9 +574,8 @@ struct custom_mutator {
    *     not produce data larger than max_size.
    * @return Size of the mutated output.
    */
-  size_t (*afl_custom_havoc_mutation)(u8** buf, size_t buf_size,
-                                      size_t max_size);
-
+  size_t (*afl_custom_havoc_mutation)(u8** buf, size_t buf_size, size_t max_size);
+  
   /**
    * Return the probability (in percentage) that afl_custom_havoc_mutation
    * is called in havoc. By default it is 6 %.
@@ -600,7 +598,7 @@ struct custom_mutator {
   u8 (*afl_custom_queue_get)(const u8* filename);
 
   /**
-   * Allow for additional analysis (e.g. calling a different tool that does a
+   * Allow for additional analysis (e.g. calling a different tool that does a 
    * different kind of coverage and saves this for the custom mutator).
    *
    * (Optional)
@@ -611,7 +609,6 @@ struct custom_mutator {
    */
   void (*afl_custom_queue_new_entry)(const u8* filename_new_queue,
                                      const u8* filename_orig_queue);
-
 };
 
 extern struct custom_mutator* mutator;
@@ -683,8 +680,8 @@ u8   trim_case_custom(char** argv, struct queue_entry* q, u8* in_buf);
 /* Python */
 #ifdef USE_PYTHON
 
-int  init_py_module(u8*);
-void finalize_py_module();
+int    init_py_module(u8*);
+void   finalize_py_module();
 
 void   init_py(unsigned int);
 size_t fuzz_py(u8**, size_t, u8*, size_t, size_t);

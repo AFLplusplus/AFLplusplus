@@ -256,7 +256,7 @@ u8 *cmplog_binary;
 s32 cmplog_child_pid, cmplog_forksrv_pid;
 
 /* Custom mutator */
-struct custom_mutator *mutator;
+struct custom_mutator* mutator;
 
 /* Interesting values, as per config.h */
 
