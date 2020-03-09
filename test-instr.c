@@ -18,22 +18,39 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 int main(int argc, char** argv) {
 
+  int   fd = 0;
   char  buff[8];
   char* buf = buff;
 
   // we support command line parameter and stdin
-  if (argc > 1) {
+  if (argc == 2) {
 
     buf = argv[1];
     printf("Input %s - ", buf);
 
-  } else if (read(0, buf, sizeof(buf)) < 1) {
+  } else {
 
-    printf("Hum?\n");
-    return 1;
+    if (argc >= 3 && strcmp(argv[1], "-f") == 0)
+      if ((fd = open(argv[2], O_RDONLY)) < 0) {
+
+        fprintf(stderr, "Error: unable to open %s\n", argv[2]);
+        exit(-1);
+
+      }
+
+    if (read(fd, buf, sizeof(buf)) < 1) {
+
+      printf("Hum?\n");
+      return 1;
+
+    }
 
   }
 

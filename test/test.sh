@@ -120,7 +120,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     rm -f test-instr.plain.0 test-instr.plain.1
     TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 3 -a "$TUPLES" -lt 8 && {
+    test "$TUPLES" -gt 3 -a "$TUPLES" -lt 10 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} produces weird instrumentation numbers: $TUPLES"
@@ -324,19 +324,20 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   rm -f test-instr.plain
 
   # now for the special llvm_mode things
-  AFL_LLVM_INSTRIM=1 AFL_LLVM_INSTRIM_LOOPHEAD=1 ../afl-clang-fast -o test-compcov.instrim test-compcov.c > /dev/null 2> test.out
-  test -e test-compcov.instrim && {
-    grep -Eq " [1-3] location" test.out && {
-      $ECHO "$GREEN[+] llvm_mode InsTrim feature works correctly"
+  AFL_LLVM_INSTRIM=1 AFL_LLVM_INSTRIM_LOOPHEAD=1 ../afl-clang-fast -o test-instr.instrim ../test-instr.c > /dev/null 2> test.out
+  test -e test-instr.instrim && {
+    TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.instrim 2>&1 | grep Captur | awk '{print$3}'`
+    test "$TUPLES" -gt 2 -a "$TUPLES" -lt 5 && {
+      $ECHO "$GREEN[+] llvm_mode Instrim reported $TUPLES instrumented locations which is fine"
     } || {
-      $ECHO "$RED[!] llvm_mode InsTrim feature failed"
+      $ECHO "$RED[!] llvm_mode Instrim produces weird numbers: $TUPLES"
       CODE=1
     }
+    rm -f test-instr.instrim test.out
   } || {
-    $ECHO "$RED[!] llvm_mode InsTrim feature compilation failed"
+    $ECHO "$RED[!] llvm_mode InsTrim compilation failed"
     CODE=1
   }
-  rm -f test-compcov.instrim test.out
   AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > /dev/null 2> test.out
   test -e test-compcov.compcov && {
     grep -Eq " [3-9][0-9] location" test.out && {
@@ -405,7 +406,7 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
       } || {
         $ECHO "$GREEN[+] llvm_mode LTO instrumentation present and working correctly"
         TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 6 && {
+        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 7 && {
           $ECHO "$GREEN[+] llvm_mode LTO run reported $TUPLES instrumented locations which is fine"
         } || {
           $ECHO "$RED[!] llvm_mode LTO instrumentation produces weird numbers: $TUPLES"
