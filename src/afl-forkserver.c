@@ -300,27 +300,23 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 
   /* Wait for the fork server to come up, but don't wait too long. */
 
-<<<<<<< HEAD
-  if (fsrv->exec_tmout) {
-=======
   fd_set readfds;
->>>>>>> Remove redundent conditons in select monitoring of fdsin forkserver and cmplog
 
   FD_ZERO(&readfds);
-  FD_SET(frk_srv->fsrv_st_fd, &readfds);
-  timeout.tv_sec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) / 1000);
-  timeout.tv_usec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+  FD_SET(fsrv->fsrv_st_fd, &readfds);
+  timeout.tv_sec = ((fsrv->exec_tmout * FORK_WAIT_MULT) / 1000);
+  timeout.tv_usec = ((fsrv->exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
 
-  int sret = select(frk_srv->fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
+  int sret = select(fsrv->fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
 
   if (sret == 0) {
 
-    frk_srv->child_timed_out = 1;
-    kill(frk_srv->child_pid, SIGKILL);
+    fsrv->child_timed_out = 1;
+    kill(fsrv->child_pid, SIGKILL);
 
   } else {
 
-    rlen = read(frk_srv->fsrv_st_fd, &status, 4);
+    rlen = read(fsrv->fsrv_st_fd, &status, 4);
 
   }
 
@@ -337,8 +333,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
   if (fsrv->child_timed_out)
     FATAL("Timeout while initializing fork server (adjusting -t may help)");
 
-  if (waitpid(frk_srv->forksrv_pid, &status, 0) <= 0)
-    PFATAL("waitpid() failed");
+  if (waitpid(fsrv->fsrv_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
 
   if (WIFSIGNALED(status)) {
 
