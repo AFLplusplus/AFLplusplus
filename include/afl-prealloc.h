@@ -123,7 +123,7 @@ typedef enum prealloc_status {
       case PRE_STATUS_MALLOC: {                   \
                                                   \
         (el_ptr)->pre_status = PRE_STATUS_UNUSED; \
-        free((el_ptr));                           \
+        ck_free((el_ptr));                        \
         break;                                    \
                                                   \
       }                                           \
