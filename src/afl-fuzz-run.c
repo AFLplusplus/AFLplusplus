@@ -273,6 +273,8 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
   }
 
+  timer_delete(timer);
+
   ++afl->total_execs;
 
   /* Any subsequent operations on afl->fsrv.trace_bits must not be moved by the
