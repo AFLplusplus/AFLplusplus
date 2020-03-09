@@ -233,7 +233,7 @@ u8 trim_case_custom(afl_state_t* afl, struct queue_entry* q, u8* in_buf) {
 
     if (afl->stop_soon || fault == FAULT_ERROR) {
 
-      free(retbuf);
+      ck_free(retbuf);
       goto abort_trimming;
 
     }
@@ -272,7 +272,7 @@ u8 trim_case_custom(afl_state_t* afl, struct queue_entry* q, u8* in_buf) {
 
     }
 
-    free(retbuf);
+    ck_free(retbuf);
 
     /* Since this can be slow, update the screen every now and then. */
 

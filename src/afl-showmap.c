@@ -146,7 +146,7 @@ static void at_exit_handler(void) {
 
 /* Write results. */
 
-static u32 write_results_to_file(afl_forkserver_t* fsrv) {
+static u32 write_results_to_file(afl_forkserver_t* fsrv, u8 *outfile) {
 
   s32 fd;
   u32 i, ret = 0;
@@ -154,21 +154,21 @@ static u32 write_results_to_file(afl_forkserver_t* fsrv) {
   u8 cco = !!getenv("AFL_CMIN_CRASHES_ONLY"),
      caa = !!getenv("AFL_CMIN_ALLOW_ANY");
 
-  if (!strncmp(fsrv->out_file, "/dev/", 5)) {
+  if (!strncmp(outfile, "/dev/", 5)) {
 
-    fd = open(fsrv->out_file, O_WRONLY, 0600);
+    fd = open(outfile, O_WRONLY, 0600);
     if (fd < 0) PFATAL("Unable to open '%s'", fsrv->out_file);
 
-  } else if (!strcmp(fsrv->out_file, "-")) {
+  } else if (!strcmp(outfile, "-")) {
 
     fd = dup(1);
     if (fd < 0) PFATAL("Unable to open stdout");
 
   } else {
 
-    unlink(fsrv->out_file);                                /* Ignore errors */
-    fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
-    if (fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
+    unlink(outfile);                                /* Ignore errors */
+    fd = open(outfile, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (fd < 0) PFATAL("Unable to create '%s'", outfile);
 
   }
 
@@ -177,7 +177,7 @@ static u32 write_results_to_file(afl_forkserver_t* fsrv) {
     for (i = 0; i < MAP_SIZE; i++)
       if (fsrv->trace_bits[i]) ret++;
 
-    ck_write(fd, fsrv->trace_bits, MAP_SIZE, fsrv->out_file);
+    ck_write(fd, fsrv->trace_bits, MAP_SIZE, outfile);
     close(fd);
 
   } else {
@@ -219,7 +219,7 @@ static u32 write_results_to_file(afl_forkserver_t* fsrv) {
 
 static u32 write_results(afl_forkserver_t* fsrv) {
 
-  return write_results_to_file(fsrv);
+  return write_results_to_file(fsrv, fsrv->out_file);
 
 }
 
@@ -493,8 +493,6 @@ static void run_target(afl_forkserver_t* fsrv, char** argv) {
   }
 
 }
-
-extern afl_forkserver_t* fsrv_glob;
 
 /* Handle Ctrl-C and the like. */
 
@@ -997,13 +995,16 @@ int main(int argc, char** argv, char** envp) {
 
         run_target_forkserver(fsrv, use_argv, in_data, in_len);
         ck_free(in_data);
-        tcnt = write_results_to_file(fsrv);
+        tcnt = write_results_to_file(fsrv, outfile);
 
       }
 
     }
 
     if (!quiet_mode) OKF("Processed %u input files.", total_execs);
+
+    closedir(dir_in);
+    closedir(dir_out);
 
   } else {
 
@@ -1023,18 +1024,22 @@ int main(int argc, char** argv, char** envp) {
   if (stdin_file) {
 
     unlink(stdin_file);
+    free(stdin_file);
     stdin_file = NULL;
 
   }
 
   afl_shm_deinit(&shm);
 
-  u8 child_timed_out = fsrv->child_timed_out;
+  u32 ret = child_crashed * 2 + fsrv->child_timed_out;
+
+  if (fsrv->target_path) free(fsrv->target_path);
+
   afl_fsrv_deinit(fsrv);
   free(fsrv);
   if (stdin_file) ck_free(stdin_file);
 
-  exit(child_crashed * 2 + child_timed_out);
+  exit(ret);
 
 }
 
