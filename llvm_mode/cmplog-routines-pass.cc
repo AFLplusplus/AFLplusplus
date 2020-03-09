@@ -92,6 +92,7 @@ class CmpLogRoutines : public ModulePass {
 
  protected:
   std::list<std::string> myWhitelist;
+  int                    be_quiet = 0;
 
  private:
   bool hookRtns(Module &M);
@@ -274,7 +275,9 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   }
 
   if (!calls.size()) return false;
-  errs() << "Hooking " << calls.size() << " calls with pointers as arguments\n";
+  if (!be_quiet)
+    errs() << "Hooking " << calls.size()
+           << " calls with pointers as arguments\n";
 
   for (auto &callInst : calls) {
 
@@ -302,6 +305,8 @@ bool CmpLogRoutines::runOnModule(Module &M) {
   if (getenv("AFL_QUIET") == NULL)
     llvm::errs()
         << "Running cmplog-routines-pass by andreafioraldi@gmail.com\n";
+  else
+    be_quiet = 1;
   hookRtns(M);
   verifyModule(M);
 

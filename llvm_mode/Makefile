@@ -137,7 +137,7 @@ override CFLAGS = -Wall \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
                -DLLVM_VERSION=\"$(LLVMVER)\"  -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
-               -DAFL_REAL_LD=\"$(AFL_REAL_LD)\"
+               -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" -Wno-unused-function
 ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
 endif
