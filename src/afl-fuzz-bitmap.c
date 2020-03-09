@@ -29,7 +29,7 @@
    -B option, to focus a separate fuzzing session on a particular
    interesting input without rediscovering all the others. */
 
-void write_bitmap(afl_state_t *afl) {
+void write_bitmap(afl_state_t* afl) {
 
   u8* fname;
   s32 fd;
@@ -51,7 +51,7 @@ void write_bitmap(afl_state_t *afl) {
 
 /* Read bitmap from file. This is for the -B option again. */
 
-void read_bitmap(afl_state_t *afl, u8* fname) {
+void read_bitmap(afl_state_t* afl, u8* fname) {
 
   s32 fd = open(fname, O_RDONLY);
 
@@ -71,7 +71,7 @@ void read_bitmap(afl_state_t *afl, u8* fname) {
    This function is called after every exec() on a fairly large buffer, so
    it needs to be fast. We do this in 32-bit and 64-bit flavors. */
 
-u8 has_new_bits(afl_state_t *afl, u8* virgin_map) {
+u8 has_new_bits(afl_state_t* afl, u8* virgin_map) {
 
 #ifdef WORD_SIZE_64
 
@@ -415,9 +415,9 @@ void minimize_bits(u8* dst, u8* src) {
 /* Construct a file name for a new test case, capturing the operation
    that led to its discovery. Uses a static buffer. */
 
-u8* describe_op(afl_state_t *afl, u8 hnb) {
+u8* describe_op(afl_state_t* afl, u8 hnb) {
 
-  u8 *ret = afl->describe_op_buf_256;
+  u8* ret = afl->describe_op_buf_256;
 
   if (afl->syncing_party) {
 
@@ -429,7 +429,8 @@ u8* describe_op(afl_state_t *afl, u8 hnb) {
 
     sprintf(ret + strlen(ret), ",time:%llu", get_cur_time() - afl->start_time);
 
-    if (afl->splicing_with >= 0) sprintf(ret + strlen(ret), "+%06d", afl->splicing_with);
+    if (afl->splicing_with >= 0)
+      sprintf(ret + strlen(ret), "+%06d", afl->splicing_with);
 
     sprintf(ret + strlen(ret), ",op:%s", afl->stage_short);
 
@@ -439,7 +440,8 @@ u8* describe_op(afl_state_t *afl, u8 hnb) {
 
       if (afl->stage_val_type != STAGE_VAL_NONE)
         sprintf(ret + strlen(ret), ",val:%s%+d",
-                (afl->stage_val_type == STAGE_VAL_BE) ? "be:" : "", afl->stage_cur_val);
+                (afl->stage_val_type == STAGE_VAL_BE) ? "be:" : "",
+                afl->stage_cur_val);
 
     } else
 
@@ -457,7 +459,7 @@ u8* describe_op(afl_state_t *afl, u8 hnb) {
 
 /* Write a message accompanying the crash directory :-) */
 
-static void write_crash_readme(afl_state_t *afl) {
+static void write_crash_readme(afl_state_t* afl) {
 
   u8*   fn = alloc_printf("%s/crashes/README.txt", afl->out_dir);
   s32   fd;
@@ -499,7 +501,7 @@ static void write_crash_readme(afl_state_t *afl) {
 
       "  https://github.com/vanhauser-thc/AFLplusplus\n\n",
 
-      afl->orig_cmdline, DMS(afl->fsrv.mem_limit << 20));                 /* ignore errors */
+      afl->orig_cmdline, DMS(afl->fsrv.mem_limit << 20));  /* ignore errors */
 
   fclose(f);
 
@@ -509,7 +511,7 @@ static void write_crash_readme(afl_state_t *afl) {
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
 
-u8 save_if_interesting(afl_state_t *afl, void* mem, u32 len, u8 fault) {
+u8 save_if_interesting(afl_state_t* afl, void* mem, u32 len, u8 fault) {
 
   if (len == 0) return 0;
 
@@ -634,8 +636,8 @@ u8 save_if_interesting(afl_state_t *afl, void* mem, u32 len, u8 fault) {
 
 #ifndef SIMPLE_FILES
 
-      fn = alloc_printf("%s/hangs/id:%06llu,%s", afl->out_dir, afl->unique_hangs,
-                        describe_op(afl, 0));
+      fn = alloc_printf("%s/hangs/id:%06llu,%s", afl->out_dir,
+                        afl->unique_hangs, describe_op(afl, 0));
 
 #else
 
@@ -678,19 +680,21 @@ u8 save_if_interesting(afl_state_t *afl, void* mem, u32 len, u8 fault) {
 #ifndef SIMPLE_FILES
 
       fn = alloc_printf("%s/crashes/id:%06llu,sig:%02u,%s", afl->out_dir,
-                        afl->unique_crashes, afl->kill_signal, describe_op(afl, 0));
+                        afl->unique_crashes, afl->kill_signal,
+                        describe_op(afl, 0));
 
 #else
 
-      fn = alloc_printf("%s/crashes/id_%06llu_%02u", afl->out_dir, afl->unique_crashes,
-                        afl->kill_signal);
+      fn = alloc_printf("%s/crashes/id_%06llu_%02u", afl->out_dir,
+                        afl->unique_crashes, afl->kill_signal);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
       ++afl->unique_crashes;
-      if (afl->infoexec) {  // if the user wants to be informed on new crashes - do
+      if (afl->infoexec) {  // if the user wants to be informed on new crashes -
+                            // do
 #if !TARGET_OS_IPHONE
-                       // that
+        // that
         if (system(afl->infoexec) == -1)
           hnb += 0;  // we dont care if system errors, but we dont want a
                      // compiler warning either

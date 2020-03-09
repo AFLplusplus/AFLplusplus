@@ -59,12 +59,12 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-u8    be_quiet;
+u8 be_quiet;
 
-u8  *stdin_file,                       /* stdin file                        */
+u8 *stdin_file,                        /* stdin file                        */
     *in_dir,                           /* input folder                      */
     *doc_path,                         /* Path to docs                      */
-    *at_file = NULL;               /* Substitution string for @@        */
+        *at_file = NULL;               /* Substitution string for @@        */
 
 static u8* in_data;                    /* Input data                        */
 
@@ -146,7 +146,7 @@ static void at_exit_handler(void) {
 
 /* Write results. */
 
-static u32 write_results_to_file(afl_forkserver_t *fsrv) {
+static u32 write_results_to_file(afl_forkserver_t* fsrv) {
 
   s32 fd;
   u32 i, ret = 0;
@@ -166,7 +166,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv) {
 
   } else {
 
-    unlink(fsrv->out_file);                                      /* Ignore errors */
+    unlink(fsrv->out_file);                                /* Ignore errors */
     fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
     if (fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
 
@@ -217,7 +217,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv) {
 
 /* Write results. */
 
-static u32 write_results(afl_forkserver_t *fsrv) {
+static u32 write_results(afl_forkserver_t* fsrv) {
 
   return write_results_to_file(fsrv);
 
@@ -247,7 +247,7 @@ static s32 write_to_file(u8* path, u8* mem, u32 len) {
    is unlinked and a new one is created. Otherwise, out_fd is rewound and
    truncated. */
 
-static void write_to_testcase(afl_forkserver_t *fsrv, void* mem, u32 len) {
+static void write_to_testcase(afl_forkserver_t* fsrv, void* mem, u32 len) {
 
   lseek(fsrv->out_fd, 0, SEEK_SET);
   ck_write(fsrv->out_fd, mem, len, fsrv->out_file);
@@ -259,7 +259,8 @@ static void write_to_testcase(afl_forkserver_t *fsrv, void* mem, u32 len) {
 /* Execute target application. Returns 0 if the changes are a dud, or
    1 if they should be kept. */
 
-static u8 run_target_forkserver(afl_forkserver_t *fsrv, char** argv, u8* mem, u32 len) {
+static u8 run_target_forkserver(afl_forkserver_t* fsrv, char** argv, u8* mem,
+                                u32 len) {
 
   static struct itimerval it;
   static u32              prev_timed_out = 0;
@@ -379,7 +380,7 @@ u32 read_file(u8* in_file) {
 
 /* Execute target application. */
 
-static void run_target(afl_forkserver_t *fsrv, char** argv) {
+static void run_target(afl_forkserver_t* fsrv, char** argv) {
 
   static struct itimerval it;
   int                     status = 0;
@@ -476,7 +477,8 @@ static void run_target(afl_forkserver_t *fsrv, char** argv) {
 
   if (!quiet_mode) SAYF(cRST "-- Program output ends --\n");
 
-  if (!fsrv->child_timed_out && !stop_soon && WIFSIGNALED(status)) child_crashed = 1;
+  if (!fsrv->child_timed_out && !stop_soon && WIFSIGNALED(status))
+    child_crashed = 1;
 
   if (!quiet_mode) {
 
@@ -492,7 +494,7 @@ static void run_target(afl_forkserver_t *fsrv, char** argv) {
 
 }
 
-extern afl_forkserver_t *fsrv_glob;
+extern afl_forkserver_t* fsrv_glob;
 
 /* Handle Ctrl-C and the like. */
 
@@ -646,7 +648,7 @@ static void usage(u8* argv0) {
 
 /* Find binary. */
 
-static void find_binary(afl_forkserver_t *fsrv, u8* fname) {
+static void find_binary(afl_forkserver_t* fsrv, u8* fname) {
 
   u8*         env_path = 0;
   struct stat st;
@@ -693,7 +695,8 @@ static void find_binary(afl_forkserver_t *fsrv, u8* fname) {
 
     }
 
-    if (!fsrv->target_path) FATAL("Program '%s' not found or not executable", fname);
+    if (!fsrv->target_path)
+      FATAL("Program '%s' not found or not executable", fname);
 
   }
 
@@ -703,14 +706,14 @@ static void find_binary(afl_forkserver_t *fsrv, u8* fname) {
 
 int main(int argc, char** argv, char** envp) {
 
-  //TODO: u64 mem_limit = MEM_LIMIT;             /* Memory limit (MB)                 */
+  // TODO: u64 mem_limit = MEM_LIMIT;                  /* Memory limit (MB) */
 
   s32    opt, i;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   u32    tcnt = 0;
   char** use_argv;
 
-  afl_forkserver_t *fsrv = calloc(1, sizeof(afl_forkserver_t));
+  afl_forkserver_t* fsrv = calloc(1, sizeof(afl_forkserver_t));
   afl_fsrv_init(fsrv);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
@@ -912,9 +915,11 @@ int main(int argc, char** argv, char** envp) {
   if (qemu_mode) {
 
     if (use_wine)
-      use_argv = get_wine_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
+      use_argv = get_wine_argv(argv[0], &fsrv->target_path, argc - optind,
+                               argv + optind);
     else
-      use_argv = get_qemu_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
+      use_argv = get_qemu_argv(argv[0], &fsrv->target_path, argc - optind,
+                               argv + optind);
 
   } else
 
@@ -985,7 +990,8 @@ int main(int argc, char** argv, char** envp) {
       if (-1 == stat(infile, &statbuf) || !S_ISREG(statbuf.st_mode)) continue;
 #endif
 
-      snprintf(outfile, sizeof(outfile), "%s/%s", fsrv->out_file, dir_ent->d_name);
+      snprintf(outfile, sizeof(outfile), "%s/%s", fsrv->out_file,
+               dir_ent->d_name);
 
       if (read_file(infile)) {
 

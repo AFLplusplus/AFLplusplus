@@ -27,7 +27,7 @@
 
 /* MOpt */
 
-int select_algorithm(afl_state_t *afl) {
+int select_algorithm(afl_state_t* afl) {
 
   int i_puppet, j_puppet;
 
@@ -52,7 +52,8 @@ int select_algorithm(afl_state_t *afl) {
 
   }
 
-  if (j_puppet == 1 && sele < afl->probability_now[afl->swarm_now][i_puppet - 1])
+  if (j_puppet == 1 &&
+      sele < afl->probability_now[afl->swarm_now][i_puppet - 1])
     FATAL("error select_algorithm");
   return i_puppet;
 
@@ -61,7 +62,7 @@ int select_algorithm(afl_state_t *afl) {
 /* Helper to choose random block len for block operations in fuzz_one().
    Doesn't return zero, provided that max_len is > 0. */
 
-static u32 choose_block_len(afl_state_t *afl, u32 limit) {
+static u32 choose_block_len(afl_state_t* afl, u32 limit) {
 
   u32 min_value, max_value;
   u32 rlim = MIN(afl->queue_cycle, 3);
@@ -334,7 +335,7 @@ static void locate_diffs(u8* ptr1, u8* ptr2, u32 len, s32* first, s32* last) {
    function is a tad too long... returns 0 if fuzzed successfully, 1 if
    skipped or bailed out. */
 
-u8 fuzz_one_original(afl_state_t *afl) {
+u8 fuzz_one_original(afl_state_t* afl) {
 
   s32 len, fd, temp_len, i, j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
@@ -375,7 +376,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
         UR(afl, 100) < SKIP_TO_NEW_PROB)
       return 1;
 
-  } else if (!afl->dumb_mode && !afl->queue_cur->favored && afl->queued_paths > 10) {
+  } else if (!afl->dumb_mode && !afl->queue_cur->favored &&
+
+             afl->queued_paths > 10) {
 
     /* Otherwise, still possibly skip non-favored cases, albeit less often.
        The odds of skipping stuff are higher for already-fuzzed inputs and
@@ -439,7 +442,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
 
-      res = calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
+      res =
+          calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
       if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -493,7 +497,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (afl->shm.cmplog_mode) {
 
-    if (input_to_state_stage(afl, in_buf, out_buf, len, afl->queue_cur->exec_cksum))
+    if (input_to_state_stage(afl, in_buf, out_buf, len,
+                             afl->queue_cur->exec_cksum))
       goto abandon_entry;
 
   }
@@ -517,7 +522,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
      for this master instance. */
 
-  if (afl->master_max && (afl->queue_cur->exec_cksum % afl->master_max) != afl->master_id - 1) {
+  if (afl->master_max &&
+      (afl->queue_cur->exec_cksum % afl->master_max) != afl->master_id - 1) {
 
     goto custom_mutator_stage;
 
@@ -596,7 +602,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
         /* If at end of file and we are still collecting a string, grab the
            final character and force output. */
 
-        if (a_len < MAX_AUTO_EXTRA) a_collect[a_len] = out_buf[afl->stage_cur >> 3];
+        if (a_len < MAX_AUTO_EXTRA)
+          a_collect[a_len] = out_buf[afl->stage_cur >> 3];
         ++a_len;
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
@@ -620,7 +627,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
       if (cksum != afl->queue_cur->exec_cksum) {
 
-        if (a_len < MAX_AUTO_EXTRA) a_collect[a_len] = out_buf[afl->stage_cur >> 3];
+        if (a_len < MAX_AUTO_EXTRA)
+          a_collect[a_len] = out_buf[afl->stage_cur >> 3];
         ++a_len;
 
       }
@@ -1392,10 +1400,12 @@ skip_interest:
          is redundant, or if its entire span has no bytes set in the effector
          map. */
 
-      if ((afl->extras_cnt > MAX_DET_EXTRAS && UR(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
+      if ((afl->extras_cnt > MAX_DET_EXTRAS &&
+           UR(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
           afl->extras[j].len > len - i ||
           !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
-          !memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, afl->extras[j].len))) {
+          !memchr(eff_map + EFF_APOS(i), 1,
+                  EFF_SPAN_ALEN(i, afl->extras[j].len))) {
 
         --afl->stage_max;
         continue;
@@ -1552,7 +1562,7 @@ custom_mutator_stage:
   const u32 max_seed_size = MAX_FILE;
 
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
-  
+
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     struct queue_entry* target;
@@ -1597,10 +1607,9 @@ custom_mutator_stage:
     new_buf = ck_alloc_nozero(target->len);
     ck_read(fd, new_buf, target->len, target->fname);
     close(fd);
-    
-    size_t mutated_size = afl->mutator->afl_custom_fuzz(afl, &out_buf, len,
-                                                   new_buf, target->len,
-                                                   max_seed_size);
+
+    size_t mutated_size = afl->mutator->afl_custom_fuzz(
+        afl, &out_buf, len, new_buf, target->len, max_seed_size);
 
     ck_free(new_buf);
 
@@ -1663,8 +1672,8 @@ havoc_stage:
 
     afl->stage_name = "havoc";
     afl->stage_short = "havoc";
-    afl->stage_max = (doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) * perf_score /
-                afl->havoc_div / 100;
+    afl->stage_max = (doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) *
+                     perf_score / afl->havoc_div / 100;
 
   } else {
 
@@ -1686,11 +1695,12 @@ havoc_stage:
   havoc_queued = afl->queued_paths;
 
   u8 stacked_custom = (afl->mutator && afl->mutator->afl_custom_havoc_mutation);
-  u8 stacked_custom_prob = 6; // like one of the default mutations in havoc
+  u8 stacked_custom_prob = 6;  // like one of the default mutations in havoc
 
   if (stacked_custom && afl->mutator->afl_custom_havoc_mutation_probability) {
 
-    stacked_custom_prob = afl->mutator->afl_custom_havoc_mutation_probability(afl);
+    stacked_custom_prob =
+        afl->mutator->afl_custom_havoc_mutation_probability(afl);
     if (stacked_custom_prob > 100)
       FATAL(
           "The probability returned by afl_custom_havoc_mutation_propability "
@@ -1708,12 +1718,12 @@ havoc_stage:
     afl->stage_cur_val = use_stacking;
 
     for (i = 0; i < use_stacking; ++i) {
-    
+
       if (stacked_custom && UR(afl, 100) < stacked_custom_prob) {
-      
-        temp_len = afl->mutator->afl_custom_havoc_mutation(afl, &out_buf, temp_len,
-                                                      MAX_FILE);
-      
+
+        temp_len = afl->mutator->afl_custom_havoc_mutation(afl, &out_buf,
+                                                           temp_len, MAX_FILE);
+
       }
 
       switch (UR(afl, 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
@@ -1729,7 +1739,8 @@ havoc_stage:
 
           /* Set byte to interesting value. */
 
-          out_buf[UR(afl, temp_len)] = interesting_8[UR(afl, sizeof(interesting_8))];
+          out_buf[UR(afl, temp_len)] =
+              interesting_8[UR(afl, sizeof(interesting_8))];
           break;
 
         case 2:
@@ -1952,7 +1963,8 @@ havoc_stage:
               memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
             else
               memset(new_buf + clone_to,
-                     UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)], clone_len);
+                     UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)],
+                     clone_len);
 
             /* Tail */
             memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
@@ -1987,7 +1999,8 @@ havoc_stage:
 
           } else
 
-            memset(out_buf + copy_to, UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)],
+            memset(out_buf + copy_to,
+                   UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)],
                    copy_len);
 
           break;
@@ -2013,20 +2026,21 @@ havoc_stage:
             if (extra_len > temp_len) break;
 
             insert_at = UR(afl, temp_len - extra_len + 1);
-            memcpy(out_buf + insert_at, afl->a_extras[use_extra].data, extra_len);
+            memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
+                   extra_len);
 
           } else {
 
             /* No auto extras or odds in our favor. Use the dictionary. */
 
             u32 use_extra = UR(afl, afl->extras_cnt);
-            u32 extra_len =afl->extras[use_extra].len;
+            u32 extra_len = afl->extras[use_extra].len;
             u32 insert_at;
 
             if (extra_len > temp_len) break;
 
             insert_at = UR(afl, temp_len - extra_len + 1);
-            memcpy(out_buf + insert_at,afl->extras[use_extra].data, extra_len);
+            memcpy(out_buf + insert_at, afl->extras[use_extra].data, extra_len);
 
           }
 
@@ -2055,12 +2069,13 @@ havoc_stage:
             memcpy(new_buf, out_buf, insert_at);
 
             /* Inserted part */
-            memcpy(new_buf + insert_at, afl->a_extras[use_extra].data, extra_len);
+            memcpy(new_buf + insert_at, afl->a_extras[use_extra].data,
+                   extra_len);
 
           } else {
 
             use_extra = UR(afl, afl->extras_cnt);
-            extra_len =afl->extras[use_extra].len;
+            extra_len = afl->extras[use_extra].len;
 
             if (temp_len + extra_len >= MAX_FILE) break;
 
@@ -2070,7 +2085,7 @@ havoc_stage:
             memcpy(new_buf, out_buf, insert_at);
 
             /* Inserted part */
-            memcpy(new_buf + insert_at,afl->extras[use_extra].data, extra_len);
+            memcpy(new_buf + insert_at, afl->extras[use_extra].data, extra_len);
 
           }
 
@@ -2144,8 +2159,8 @@ havoc_stage:
 
 retry_splicing:
 
-  if (afl->use_splicing && splice_cycle++ < SPLICE_CYCLES && afl->queued_paths > 1 &&
-      afl->queue_cur->len > 1) {
+  if (afl->use_splicing && splice_cycle++ < SPLICE_CYCLES &&
+      afl->queued_paths > 1 && afl->queue_cur->len > 1) {
 
     struct queue_entry* target;
     u32                 tid, split_at;
@@ -2252,7 +2267,8 @@ radamsa_stage:
 
   afl->stage_name = "radamsa";
   afl->stage_short = "radamsa";
-  afl->stage_max = (HAVOC_CYCLES * perf_score / afl->havoc_div / 100) << afl->use_radamsa;
+  afl->stage_max = (HAVOC_CYCLES * perf_score / afl->havoc_div / 100)
+                   << afl->use_radamsa;
 
   if (afl->stage_max < HAVOC_MIN) afl->stage_max = HAVOC_MIN;
 
@@ -2268,8 +2284,8 @@ radamsa_stage:
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
-    u32 new_len =
-        afl->radamsa_mutate_ptr(save_buf, len, new_buf, max_len, get_rand_seed(afl));
+    u32 new_len = afl->radamsa_mutate_ptr(save_buf, len, new_buf, max_len,
+                                          get_rand_seed(afl));
 
     if (new_len) {
 
@@ -2336,7 +2352,7 @@ abandon_entry:
 }
 
 /* MOpt mode */
-u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
+u8 mopt_common_fuzzing(afl_state_t* afl, MOpt_globals_t MOpt_globals) {
 
   if (!MOpt_globals.is_pilot_mode) {
 
@@ -2378,7 +2394,9 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
         UR(afl, 100) < SKIP_TO_NEW_PROB)
       return 1;
 
-  } else if (!afl->dumb_mode && !afl->queue_cur->favored && afl->queued_paths > 10) {
+  } else if (!afl->dumb_mode && !afl->queue_cur->favored &&
+
+             afl->queued_paths > 10) {
 
     /* Otherwise, still possibly skip non-favored cases, albeit less often.
        The odds of skipping stuff are higher for already-fuzzed inputs and
@@ -2416,7 +2434,8 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 
-  if (orig_in == MAP_FAILED) PFATAL("Unable to mmap '%s'", afl->queue_cur->fname);
+  if (orig_in == MAP_FAILED)
+    PFATAL("Unable to mmap '%s'", afl->queue_cur->fname);
 
   close(fd);
 
@@ -2440,7 +2459,8 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
 
-      res = calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
+      res =
+          calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
       if (res == FAULT_ERROR) FATAL("Unable to execute target application");
 
@@ -2492,20 +2512,23 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
      this entry ourselves (was_fuzzed), or if it has gone through deterministic
      testing in earlier, resumed runs (passed_det). */
 
-  if (afl->skip_deterministic || afl->queue_cur->was_fuzzed || afl->queue_cur->passed_det)
+  if (afl->skip_deterministic || afl->queue_cur->was_fuzzed ||
+      afl->queue_cur->passed_det)
     goto havoc_stage;
 
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
      for this master instance. */
 
-  if (afl->master_max && (afl->queue_cur->exec_cksum % afl->master_max) != afl->master_id - 1)
+  if (afl->master_max &&
+      (afl->queue_cur->exec_cksum % afl->master_max) != afl->master_id - 1)
     goto havoc_stage;
 
   cur_ms_lv = get_cur_time();
-  if (!(afl->key_puppet == 0 && ((cur_ms_lv - afl->last_path_time < afl->limit_time_puppet) ||
-                            (afl->last_crash_time != 0 &&
-                             cur_ms_lv - afl->last_crash_time < afl->limit_time_puppet) ||
-                            afl->last_path_time == 0))) {
+  if (!(afl->key_puppet == 0 &&
+        ((cur_ms_lv - afl->last_path_time < afl->limit_time_puppet) ||
+         (afl->last_crash_time != 0 &&
+          cur_ms_lv - afl->last_crash_time < afl->limit_time_puppet) ||
+         afl->last_path_time == 0))) {
 
     afl->key_puppet = 1;
     goto pacemaker_fuzzing;
@@ -2585,7 +2608,8 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
         /* If at end of file and we are still collecting a string, grab the
            final character and force output. */
 
-        if (a_len < MAX_AUTO_EXTRA) a_collect[a_len] = out_buf[afl->stage_cur >> 3];
+        if (a_len < MAX_AUTO_EXTRA)
+          a_collect[a_len] = out_buf[afl->stage_cur >> 3];
         ++a_len;
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
@@ -2609,14 +2633,15 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
       if (cksum != afl->queue_cur->exec_cksum) {
 
-        if (a_len < MAX_AUTO_EXTRA) a_collect[a_len] = out_buf[afl->stage_cur >> 3];
+        if (a_len < MAX_AUTO_EXTRA)
+          a_collect[a_len] = out_buf[afl->stage_cur >> 3];
         ++a_len;
 
       }
 
-    }                                            /* if (afl->stage_cur & 7) == 7 */
+    }                                       /* if (afl->stage_cur & 7) == 7 */
 
-  }                                                        /* for afl->stage_cur */
+  }                                                   /* for afl->stage_cur */
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -2643,7 +2668,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
 
-  }                                                        /* for afl->stage_cur */
+  }                                                   /* for afl->stage_cur */
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -2674,7 +2699,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     FLIP_BIT(out_buf, afl->stage_cur + 2);
     FLIP_BIT(out_buf, afl->stage_cur + 3);
 
-  }                                                        /* for afl->stage_cur */
+  }                                                   /* for afl->stage_cur */
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -2751,7 +2776,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     out_buf[afl->stage_cur] ^= 0xFF;
 
-  }                                                        /* for afl->stage_cur */
+  }                                                   /* for afl->stage_cur */
 
   /* If the effector map is more than EFF_MAX_PERC dense, just flag the
      whole thing as worth fuzzing, since we wouldn't be saving much time
@@ -3381,10 +3406,12 @@ skip_interest:
          is redundant, or if its entire span has no bytes set in the effector
          map. */
 
-      if ((afl->extras_cnt > MAX_DET_EXTRAS && UR(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
+      if ((afl->extras_cnt > MAX_DET_EXTRAS &&
+           UR(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
           afl->extras[j].len > len - i ||
           !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
-          !memchr(eff_map + EFF_APOS(i), 1, EFF_SPAN_ALEN(i, afl->extras[j].len))) {
+          !memchr(eff_map + EFF_APOS(i), 1,
+                  EFF_SPAN_ALEN(i, afl->extras[j].len))) {
 
         --afl->stage_max;
         continue;
@@ -3440,7 +3467,7 @@ skip_interest:
       /* Copy tail */
       memcpy(ex_tmp + i + afl->extras[j].len, out_buf + i, len - i);
 
-      if (common_fuzz_stuff(afl, ex_tmp, len +afl->extras[j].len)) {
+      if (common_fuzz_stuff(afl, ex_tmp, len + afl->extras[j].len)) {
 
         ck_free(ex_tmp);
         goto abandon_entry;
@@ -3539,14 +3566,15 @@ pacemaker_fuzzing:
 
     afl->stage_name = MOpt_globals.havoc_stagename;
     afl->stage_short = MOpt_globals.havoc_stagenameshort;
-    afl->stage_max = (doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) * perf_score /
-                afl->havoc_div / 100;
+    afl->stage_max = (doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) *
+                     perf_score / afl->havoc_div / 100;
 
   } else {
 
     perf_score = orig_perf;
 
-    snprintf(afl->stage_name_buf64, 64, MOpt_globals.splice_stageformat, splice_cycle);
+    snprintf(afl->stage_name_buf64, 64, MOpt_globals.splice_stageformat,
+             splice_cycle);
     afl->stage_name = afl->stage_name_buf64;
     afl->stage_short = MOpt_globals.splice_stagenameshort;
     afl->stage_max = SPLICE_HAVOC * perf_score / afl->havoc_div / 100;
@@ -3571,7 +3599,7 @@ pacemaker_fuzzing:
 
       }
 
-    }                                                 /* if afl->key_puppet == 1 */
+    }                                            /* if afl->key_puppet == 1 */
 
     {
 
@@ -3590,12 +3618,13 @@ pacemaker_fuzzing:
         afl->stage_name = MOpt_globals.havoc_stagename;
         afl->stage_short = MOpt_globals.havoc_stagenameshort;
         afl->stage_max = (doing_det ? HAVOC_CYCLES_INIT : HAVOC_CYCLES) *
-                    perf_score / afl->havoc_div / 100;
+                         perf_score / afl->havoc_div / 100;
 
       } else {
 
         perf_score = orig_perf;
-        snprintf(afl->stage_name_buf64, 64, MOpt_globals.splice_stageformat, splice_cycle);
+        snprintf(afl->stage_name_buf64, 64, MOpt_globals.splice_stageformat,
+                 splice_cycle);
         afl->stage_name = afl->stage_name_buf64;
         afl->stage_short = MOpt_globals.splice_stagenameshort;
         afl->stage_max = SPLICE_HAVOC * perf_score / afl->havoc_div / 100;
@@ -3610,7 +3639,8 @@ pacemaker_fuzzing:
 
       havoc_queued = afl->queued_paths;
 
-      for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
+      for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
+           ++afl->stage_cur) {
 
         u32 use_stacking = 1 << (1 + UR(afl, HAVOC_STACK_POW2));
 
@@ -3748,7 +3778,8 @@ pacemaker_fuzzing:
             case 9:
               /* Set byte to interesting value. */
               if (temp_len < 4) break;
-              out_buf[UR(afl, temp_len)] = interesting_8[UR(afl, sizeof(interesting_8))];
+              out_buf[UR(afl, temp_len)] =
+                  interesting_8[UR(afl, sizeof(interesting_8))];
               MOpt_globals.cycles_v2[STAGE_INTEREST8] += 1;
               break;
 
@@ -3762,8 +3793,8 @@ pacemaker_fuzzing:
 
               } else {
 
-                *(u16*)(out_buf + UR(afl, temp_len - 1)) =
-                    SWAP16(interesting_16[UR(afl, sizeof(interesting_16) >> 1)]);
+                *(u16*)(out_buf + UR(afl, temp_len - 1)) = SWAP16(
+                    interesting_16[UR(afl, sizeof(interesting_16) >> 1)]);
 
               }
 
@@ -3782,8 +3813,8 @@ pacemaker_fuzzing:
 
               } else {
 
-                *(u32*)(out_buf + UR(afl, temp_len - 3)) =
-                    SWAP32(interesting_32[UR(afl, sizeof(interesting_32) >> 2)]);
+                *(u32*)(out_buf + UR(afl, temp_len - 3)) = SWAP32(
+                    interesting_32[UR(afl, sizeof(interesting_32) >> 2)]);
 
               }
 
@@ -3862,7 +3893,8 @@ pacemaker_fuzzing:
                   memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
                 else
                   memset(new_buf + clone_to,
-                         UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)], clone_len);
+                         UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)],
+                         clone_len);
 
                 /* Tail */
                 memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
@@ -3899,7 +3931,8 @@ pacemaker_fuzzing:
               } else
 
                 memset(out_buf + copy_to,
-                       UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)], copy_len);
+                       UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)],
+                       copy_len);
               MOpt_globals.cycles_v2[STAGE_OverWrite75] += 1;
               break;
 
@@ -3939,7 +3972,8 @@ pacemaker_fuzzing:
 
         }
 
-        if (unlikely(afl->queued_paths + afl->unique_crashes > temp_total_found)) {
+        if (unlikely(afl->queued_paths + afl->unique_crashes >
+                     temp_total_found)) {
 
           u64 temp_temp_puppet =
               afl->queued_paths + afl->unique_crashes - temp_total_found;
@@ -3953,7 +3987,9 @@ pacemaker_fuzzing:
 
         }                                                             /* if */
 
-      }        /* for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) { */
+      } /* for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
+
+           ++afl->stage_cur) { */
 
       new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -4089,10 +4125,11 @@ pacemaker_fuzzing:
 
       afl->splicing_with = -1;
 
-      /* Update afl->pending_not_fuzzed count if we made it through the calibration
-         cycle and have not seen this entry before. */
+      /* Update afl->pending_not_fuzzed count if we made it through the
+         calibration cycle and have not seen this entry before. */
 
-      // if (!afl->stop_soon && !afl->queue_cur->cal_failed && !afl->queue_cur->was_fuzzed) {
+      // if (!afl->stop_soon && !afl->queue_cur->cal_failed &&
+      // !afl->queue_cur->was_fuzzed) {
 
       //   afl->queue_cur->was_fuzzed = 1;
       //   --afl->pending_not_fuzzed;
@@ -4107,9 +4144,10 @@ pacemaker_fuzzing:
 
       if (afl->key_puppet == 1) {
 
-        if (unlikely(afl->queued_paths + afl->unique_crashes >
-                     ((afl->queued_paths + afl->unique_crashes) * limit_time_bound +
-                      afl->orig_hit_cnt_puppet))) {
+        if (unlikely(
+                afl->queued_paths + afl->unique_crashes >
+                ((afl->queued_paths + afl->unique_crashes) * limit_time_bound +
+                 afl->orig_hit_cnt_puppet))) {
 
           afl->key_puppet = 0;
           cur_ms_lv = get_cur_time();
@@ -4175,7 +4213,8 @@ pacemaker_fuzzing:
                   afl->core_operator_cycles_puppet[i];
               afl->core_operator_cycles_puppet_v3[i] =
                   afl->core_operator_cycles_puppet[i];
-              afl->core_operator_finds_puppet_v2[i] = afl->core_operator_finds_puppet[i];
+              afl->core_operator_finds_puppet_v2[i] =
+                  afl->core_operator_finds_puppet[i];
 
             }
 
@@ -4195,14 +4234,19 @@ pacemaker_fuzzing:
             if (afl->swarm_now < 0 || afl->swarm_now > swarm_num - 1)
               PFATAL("swarm_now error number  %d", afl->swarm_now);
 
-          }                                    /* if afl->swarm_now == swarm_num */
+          }                               /* if afl->swarm_now == swarm_num */
 
           /* adjust pointers dependent on 'afl->swarm_now' */
-          afl->mopt_globals_pilot.finds = afl->stage_finds_puppet[afl->swarm_now];
-          afl->mopt_globals_pilot.finds_v2 = afl->stage_finds_puppet_v2[afl->swarm_now];
-          afl->mopt_globals_pilot.cycles = afl->stage_cycles_puppet[afl->swarm_now];
-          afl->mopt_globals_pilot.cycles_v2 = afl->stage_cycles_puppet_v2[afl->swarm_now];
-          afl->mopt_globals_pilot.cycles_v3 = afl->stage_cycles_puppet_v3[afl->swarm_now];
+          afl->mopt_globals_pilot.finds =
+              afl->stage_finds_puppet[afl->swarm_now];
+          afl->mopt_globals_pilot.finds_v2 =
+              afl->stage_finds_puppet_v2[afl->swarm_now];
+          afl->mopt_globals_pilot.cycles =
+              afl->stage_cycles_puppet[afl->swarm_now];
+          afl->mopt_globals_pilot.cycles_v2 =
+              afl->stage_cycles_puppet_v2[afl->swarm_now];
+          afl->mopt_globals_pilot.cycles_v3 =
+              afl->stage_cycles_puppet_v3[afl->swarm_now];
 
         } else {
 
@@ -4224,19 +4268,25 @@ pacemaker_fuzzing:
 
 #undef FLIP_BIT
 
-u8 core_fuzzing(afl_state_t *afl) {
+u8 core_fuzzing(afl_state_t* afl) {
+
   return mopt_common_fuzzing(afl, afl->mopt_globals_core);
+
 }
 
-u8 pilot_fuzzing(afl_state_t *afl) {
+u8 pilot_fuzzing(afl_state_t* afl) {
+
   return mopt_common_fuzzing(afl, afl->mopt_globals_pilot);
+
 }
 
-void pso_updating(afl_state_t *afl) {
+void pso_updating(afl_state_t* afl) {
 
   afl->g_now += 1;
   if (afl->g_now > afl->g_max) afl->g_now = 0;
-  afl->w_now = (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) / (afl->g_max) + afl->w_end;
+  afl->w_now =
+      (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) / (afl->g_max) +
+      afl->w_end;
   int tmp_swarm, i, j;
   u64 temp_operator_finds_puppet = 0;
   for (i = 0; i < operator_num; ++i) {
@@ -4259,7 +4309,7 @@ void pso_updating(afl_state_t *afl) {
 
     if (afl->operator_finds_puppet[i])
       afl->G_best[i] = (double)((double)(afl->operator_finds_puppet[i]) /
-                           (double)(temp_operator_finds_puppet));
+                                (double)(temp_operator_finds_puppet));
 
   }
 
@@ -4308,7 +4358,7 @@ void pso_updating(afl_state_t *afl) {
    to fuzz_one_original. All documentation references to fuzz_one therefore
    mean fuzz_one_original */
 
-u8 fuzz_one(afl_state_t *afl) {
+u8 fuzz_one(afl_state_t* afl) {
 
   int key_val_lv = 0;
 
@@ -4353,3 +4403,4 @@ u8 fuzz_one(afl_state_t *afl) {
   return key_val_lv;
 
 }
+

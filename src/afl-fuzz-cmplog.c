@@ -81,8 +81,9 @@ void init_cmplog_forkserver(afl_state_t *afl) {
     //    r.rlim_max = r.rlim_cur = 0;
     //    setrlimit(RLIMIT_CORE, &r);                      /* Ignore errors */
 
-    /* Isolate the process and configure standard descriptors. If afl->fsrv.out_file is
-       specified, stdin is /dev/null; otherwise, afl->fsrv.out_fd is cloned instead. */
+    /* Isolate the process and configure standard descriptors. If
+       afl->fsrv.out_file is specified, stdin is /dev/null; otherwise,
+       afl->fsrv.out_fd is cloned instead. */
 
     setsid();
 
@@ -156,7 +157,7 @@ void init_cmplog_forkserver(afl_state_t *afl) {
     /* Use a distinctive bitmap signature to tell the parent about execv()
        falling through. */
 
-    *(u32*)afl->fsrv.trace_bits = EXEC_FAIL_SIG;
+    *(u32 *)afl->fsrv.trace_bits = EXEC_FAIL_SIG;
     exit(0);
 
   }
@@ -176,7 +177,8 @@ void init_cmplog_forkserver(afl_state_t *afl) {
   if (afl->fsrv.exec_tmout) {
 
     it.it_value.tv_sec = ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) / 1000);
-    it.it_value.tv_usec = ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+    it.it_value.tv_usec =
+        ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
 
   }
 
@@ -204,11 +206,13 @@ void init_cmplog_forkserver(afl_state_t *afl) {
         "Timeout while initializing cmplog fork server (adjusting -t may "
         "help)");
 
-  if (waitpid(afl->cmplog_fsrv_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+  if (waitpid(afl->cmplog_fsrv_pid, &status, 0) <= 0)
+    PFATAL("waitpid() failed");
 
   if (WIFSIGNALED(status)) {
 
-    if (afl->fsrv.mem_limit && afl->fsrv.mem_limit < 500 && afl->fsrv.uses_asan) {
+    if (afl->fsrv.mem_limit && afl->fsrv.mem_limit < 500 &&
+        afl->fsrv.uses_asan) {
 
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
@@ -281,7 +285,7 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
   }
 
-  if (*(u32*)afl->fsrv.trace_bits == EXEC_FAIL_SIG)
+  if (*(u32 *)afl->fsrv.trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute target application ('%s')", afl->argv[0]);
 
   if (afl->fsrv.mem_limit && afl->fsrv.mem_limit < 500 && afl->fsrv.uses_asan) {
@@ -400,8 +404,9 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
       setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
 
-      /* Isolate the process and configure standard descriptors. If afl->fsrv.out_file is
-         specified, stdin is /dev/null; otherwise, afl->fsrv.out_fd is cloned instead. */
+      /* Isolate the process and configure standard descriptors. If
+         afl->fsrv.out_file is specified, stdin is /dev/null; otherwise,
+         afl->fsrv.out_fd is cloned instead. */
 
       setsid();
 
@@ -449,7 +454,7 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
       /* Use a distinctive bitmap value to tell the parent about execv()
          falling through. */
 
-      *(u32*)afl->fsrv.trace_bits = EXEC_FAIL_SIG;
+      *(u32 *)afl->fsrv.trace_bits = EXEC_FAIL_SIG;
       exit(0);
 
     }
@@ -495,7 +500,8 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
   if (afl->dumb_mode == 1 || afl->no_forkserver) {
 
-    if (waitpid(afl->cmplog_child_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+    if (waitpid(afl->cmplog_child_pid, &status, 0) <= 0)
+      PFATAL("waitpid() failed");
 
   } else {
 
@@ -540,17 +546,17 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
   ++afl->total_execs;
 
   /* Any subsequent operations on afl->fsrv.trace_bits must not be moved by the
-     compiler below this point. Past this location, afl->fsrv.trace_bits[] behave
-     very normally and do not have to be treated as volatile. */
+     compiler below this point. Past this location, afl->fsrv.trace_bits[]
+     behave very normally and do not have to be treated as volatile. */
 
   MEM_BARRIER();
 
-  tb4 = *(u32*)afl->fsrv.trace_bits;
+  tb4 = *(u32 *)afl->fsrv.trace_bits;
 
 #ifdef WORD_SIZE_64
-  classify_counts((u64*)afl->fsrv.trace_bits);
+  classify_counts((u64 *)afl->fsrv.trace_bits);
 #else
-  classify_counts((u32*)afl->fsrv.trace_bits);
+  classify_counts((u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
   prev_timed_out = afl->fsrv.child_timed_out;
@@ -561,7 +567,8 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
     afl->kill_signal = WTERMSIG(status);
 
-    if (afl->fsrv.child_timed_out && afl->kill_signal == SIGKILL) return FAULT_TMOUT;
+    if (afl->fsrv.child_timed_out && afl->kill_signal == SIGKILL)
+      return FAULT_TMOUT;
 
     return FAULT_CRASH;
 
@@ -584,7 +591,7 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
 }
 
-u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8* out_buf, u32 len) {
+u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
 
@@ -627,10 +634,11 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8* out_buf, u32 len) {
 
   /* This handles FAULT_ERROR for us: */
 
-  /* afl->queued_discovered += save_if_interesting(afl, argv, out_buf, len, fault);
+  /* afl->queued_discovered += save_if_interesting(afl, argv, out_buf, len,
+  fault);
 
-  if (!(afl->stage_cur % afl->stats_update_freq) || afl->stage_cur + 1 == afl->stage_max)
-    show_stats(afl); */
+  if (!(afl->stage_cur % afl->stats_update_freq) || afl->stage_cur + 1 ==
+  afl->stage_max) show_stats(afl); */
 
   return 0;
 

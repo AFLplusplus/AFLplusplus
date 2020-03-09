@@ -84,7 +84,7 @@ struct range* pop_biggest_range(struct range** ranges) {
 
 }
 
-static u8 get_exec_checksum(afl_state_t *afl, u8* buf, u32 len, u32* cksum) {
+static u8 get_exec_checksum(afl_state_t* afl, u8* buf, u32 len, u32* cksum) {
 
   if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
 
@@ -93,7 +93,7 @@ static u8 get_exec_checksum(afl_state_t *afl, u8* buf, u32 len, u32* cksum) {
 
 }
 
-static void rand_replace(afl_state_t *afl, u8* buf, u32 len) {
+static void rand_replace(afl_state_t* afl, u8* buf, u32 len) {
 
   u32 i;
   for (i = 0; i < len; ++i)
@@ -101,7 +101,7 @@ static void rand_replace(afl_state_t *afl, u8* buf, u32 len) {
 
 }
 
-static u8 colorization(afl_state_t *afl, u8* buf, u32 len, u32 exec_cksum) {
+static u8 colorization(afl_state_t* afl, u8* buf, u32 len, u32 exec_cksum) {
 
   struct range* ranges = add_range(NULL, 0, len);
   u8*           backup = ck_alloc_nozero(len);
@@ -117,7 +117,8 @@ static u8 colorization(afl_state_t *afl, u8* buf, u32 len, u32 exec_cksum) {
 
   struct range* rng;
   afl->stage_cur = 0;
-  while ((rng = pop_biggest_range(&ranges)) != NULL && afl->stage_cur < afl->stage_max) {
+  while ((rng = pop_biggest_range(&ranges)) != NULL &&
+         afl->stage_cur < afl->stage_max) {
 
     u32 s = rng->end - rng->start;
     if (s == 0) goto empty_range;
@@ -171,7 +172,7 @@ static u8 colorization(afl_state_t *afl, u8* buf, u32 len, u32 exec_cksum) {
 
     } else {
 
-      unlink(afl->queue_cur->fname);                            /* ignore errors */
+      unlink(afl->queue_cur->fname);                       /* ignore errors */
       fd = open(afl->queue_cur->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
     }
@@ -204,7 +205,7 @@ checksum_fail:
 
 ///// Input to State replacement
 
-static u8 its_fuzz(afl_state_t *afl, u8* buf, u32 len, u8* status) {
+static u8 its_fuzz(afl_state_t* afl, u8* buf, u32 len, u8* status) {
 
   u64 orig_hit_cnt, new_hit_cnt;
 
@@ -223,9 +224,9 @@ static u8 its_fuzz(afl_state_t *afl, u8* buf, u32 len, u8* status) {
 
 }
 
-static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header* h, u64 pattern, u64 repl, u32 idx,
-                       u8* orig_buf, u8* buf, u32 len, u8 do_reverse,
-                       u8* status) {
+static u8 cmp_extend_encoding(afl_state_t* afl, struct cmp_header* h,
+                              u64 pattern, u64 repl, u32 idx, u8* orig_buf,
+                              u8* buf, u32 len, u8 do_reverse, u8* status) {
 
   u64* buf_64 = (u64*)&buf[idx];
   u32* buf_32 = (u32*)&buf[idx];
@@ -251,8 +252,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header* h, u64 patter
 
     // reverse encoding
     if (do_reverse)
-      if (unlikely(cmp_extend_encoding(afl, h, SWAP64(pattern), SWAP64(repl), idx,
-                                       orig_buf, buf, len, 0, status)))
+      if (unlikely(cmp_extend_encoding(afl, h, SWAP64(pattern), SWAP64(repl),
+                                       idx, orig_buf, buf, len, 0, status)))
         return 1;
 
   }
@@ -270,8 +271,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header* h, u64 patter
 
     // reverse encoding
     if (do_reverse)
-      if (unlikely(cmp_extend_encoding(afl, h, SWAP32(pattern), SWAP32(repl), idx,
-                                       orig_buf, buf, len, 0, status)))
+      if (unlikely(cmp_extend_encoding(afl, h, SWAP32(pattern), SWAP32(repl),
+                                       idx, orig_buf, buf, len, 0, status)))
         return 1;
 
   }
@@ -289,8 +290,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header* h, u64 patter
 
     // reverse encoding
     if (do_reverse)
-      if (unlikely(cmp_extend_encoding(afl, h, SWAP16(pattern), SWAP16(repl), idx,
-                                       orig_buf, buf, len, 0, status)))
+      if (unlikely(cmp_extend_encoding(afl, h, SWAP16(pattern), SWAP16(repl),
+                                       idx, orig_buf, buf, len, 0, status)))
         return 1;
 
   }
@@ -312,7 +313,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header* h, u64 patter
 
 }
 
-static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
+static void try_to_add_to_dict(afl_state_t* afl, u64 v, u8 shape) {
 
   u8* b = (u8*)&v;
 
@@ -354,7 +355,7 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
 }
 
-static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
+static u8 cmp_fuzz(afl_state_t* afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
   struct cmp_header* h = &afl->shm.cmp_map->headers[key];
   u32                i, j, idx;
@@ -372,21 +373,22 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
     // opt not in the paper
     for (j = 0; j < i; ++j)
-      if (afl->shm.cmp_map->log[key][j].v0 == o->v0 && afl->shm.cmp_map->log[key][i].v1 == o->v1)
+      if (afl->shm.cmp_map->log[key][j].v0 == o->v0 &&
+          afl->shm.cmp_map->log[key][i].v1 == o->v1)
         goto cmp_fuzz_next_iter;
 
     for (idx = 0; idx < len && fails < 8; ++idx) {
 
-      if (unlikely(cmp_extend_encoding(afl, h, o->v0, o->v1, idx, orig_buf, buf, len,
-                                       1, &status)))
+      if (unlikely(cmp_extend_encoding(afl, h, o->v0, o->v1, idx, orig_buf, buf,
+                                       len, 1, &status)))
         return 1;
       if (status == 2)
         ++fails;
       else if (status == 1)
         break;
 
-      if (unlikely(cmp_extend_encoding(afl, h, o->v1, o->v0, idx, orig_buf, buf, len,
-                                       1, &status)))
+      if (unlikely(cmp_extend_encoding(afl, h, o->v1, o->v0, idx, orig_buf, buf,
+                                       len, 1, &status)))
         return 1;
       if (status == 2)
         ++fails;
@@ -412,8 +414,9 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
 }
 
-static u8 rtn_extend_encoding(afl_state_t *afl, struct cmp_header* h, u8* pattern, u8* repl, u32 idx,
-                       u8* orig_buf, u8* buf, u32 len, u8* status) {
+static u8 rtn_extend_encoding(afl_state_t* afl, struct cmp_header* h,
+                              u8* pattern, u8* repl, u32 idx, u8* orig_buf,
+                              u8* buf, u32 len, u8* status) {
 
   u32 i;
   u32 its_len = MIN(32, len - idx);
@@ -437,7 +440,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, struct cmp_header* h, u8* patter
 
 }
 
-static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
+static u8 rtn_fuzz(afl_state_t* afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
   struct cmp_header* h = &afl->shm.cmp_map->headers[key];
   u32                i, j, idx;
@@ -451,7 +454,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
   for (i = 0; i < loggeds; ++i) {
 
-    struct cmpfn_operands* o = &((struct cmpfn_operands*)afl->shm.cmp_map->log[key])[i];
+    struct cmpfn_operands* o =
+        &((struct cmpfn_operands*)afl->shm.cmp_map->log[key])[i];
 
     // opt not in the paper
     for (j = 0; j < i; ++j)
@@ -461,16 +465,16 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
     for (idx = 0; idx < len && fails < 8; ++idx) {
 
-      if (unlikely(rtn_extend_encoding(afl, h, o->v0, o->v1, idx, orig_buf, buf, len,
-                                       &status)))
+      if (unlikely(rtn_extend_encoding(afl, h, o->v0, o->v1, idx, orig_buf, buf,
+                                       len, &status)))
         return 1;
       if (status == 2)
         ++fails;
       else if (status == 1)
         break;
 
-      if (unlikely(rtn_extend_encoding(afl, h, o->v1, o->v0, idx, orig_buf, buf, len,
-                                       &status)))
+      if (unlikely(rtn_extend_encoding(afl, h, o->v1, o->v0, idx, orig_buf, buf,
+                                       len, &status)))
         return 1;
       if (status == 2)
         ++fails;
@@ -499,7 +503,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 ///// Input to State stage
 
 // afl->queue_cur->exec_cksum
-u8 input_to_state_stage(afl_state_t *afl, u8* orig_buf, u8* buf, u32 len,
+u8 input_to_state_stage(afl_state_t* afl, u8* orig_buf, u8* buf, u32 len,
                         u32 exec_cksum) {
 
   u8 r = 1;

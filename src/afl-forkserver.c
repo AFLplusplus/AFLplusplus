@@ -114,7 +114,7 @@ void handle_timeout(int sig) {
 
   LIST_FOREACH(&fsrv_list, afl_forkserver_t, {
 
-    //TODO: We need a proper timer to handle multiple timeouts
+    // TODO: We need a proper timer to handle multiple timeouts
     if (el->child_pid > 0) {
 
       el->child_timed_out = 1;
@@ -465,8 +465,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 void afl_fsrv_killall() {
 
   LIST_FOREACH(&fsrv_list, afl_forkserver_t, {
+
     if (el->child_pid > 0) kill(el->child_pid, SIGKILL);
+
   });
+
 }
 
 void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
@@ -474,3 +477,4 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   list_remove(&fsrv_list, fsrv);
 
 }
+

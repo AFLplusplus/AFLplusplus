@@ -38,7 +38,7 @@
 
 extern u8 be_quiet;
 
-void detect_file_args(char **argv, u8 *prog_in, u8 use_stdin) {
+void detect_file_args(char** argv, u8* prog_in, u8 use_stdin) {
 
   u32 i = 0;
 #ifdef __GLIBC__
@@ -110,7 +110,7 @@ void detect_file_args(char **argv, u8 *prog_in, u8 use_stdin) {
 
 /* Rewrite argv for QEMU. */
 
-char** get_qemu_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv) {
+char** get_qemu_argv(u8* own_loc, u8** target_path_p, int argc, char** argv) {
 
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 4));
   u8 *   tmp, *cp = NULL, *rsl, *own_copy;
@@ -168,7 +168,8 @@ char** get_qemu_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv) {
   SAYF("\n" cLRD "[-] " cRST
        "Oops, unable to find the 'afl-qemu-trace' binary. The binary must be "
        "built\n"
-       "    separately by following the instructions in afl->qemu_mode/README.md. "
+       "    separately by following the instructions in "
+       "afl->qemu_mode/README.md. "
        "If you\n"
        "    already have the binary installed, you may need to specify "
        "AFL_PATH in the\n"
@@ -187,7 +188,7 @@ char** get_qemu_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv) {
 
 /* Rewrite argv for Wine+QEMU. */
 
-char** get_wine_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv) {
+char** get_wine_argv(u8* own_loc, u8** target_path_p, int argc, char** argv) {
 
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 3));
   u8 *   tmp, *cp = NULL, *rsl, *own_copy;
@@ -264,7 +265,8 @@ char** get_wine_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv) {
   SAYF("\n" cLRD "[-] " cRST
        "Oops, unable to find the '%s' binary. The binary must be "
        "built\n"
-       "    separately by following the instructions in afl->qemu_mode/README.md. "
+       "    separately by following the instructions in "
+       "afl->qemu_mode/README.md. "
        "If you\n"
        "    already have the binary installed, you may need to specify "
        "AFL_PATH in the\n"
@@ -329,3 +331,4 @@ char* get_afl_env(char* env) {
   return val;
 
 }
+

@@ -101,7 +101,7 @@ void afl_shm_atexit() {
 
 }
 
-/* Configure shared memory. 
+/* Configure shared memory.
    Returns a pointer to shm->map for ease of use.
 */
 
@@ -124,7 +124,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
   snprintf(shm->g_shm_file_path, L_tmpnam, "/afl_%d_%ld", getpid(), random());
 
   /* create the shared memory segment as if it was a file */
-  shm->g_shm_fd = shm_open(shm->g_shm_file_path, O_CREAT | O_RDWR | O_EXCL, 0600);
+  shm->g_shm_fd =
+      shm_open(shm->g_shm_file_path, O_CREAT | O_RDWR | O_EXCL, 0600);
   if (shm->g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
   /* configure the size of the shared memory segment */
@@ -135,8 +136,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
   }
 
   /* map the shared memory segment to the address space of the process */
-  shm->map =
-      mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, map_size->g_shm_fd, 0);
+  shm->map = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+                  map_size->g_shm_fd, 0);
   if (map_size->map == MAP_FAILED) {
 
     close(map_size->g_shm_fd);
@@ -164,7 +165,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
   if (shm->cmplog_mode) {
 
     shm->cmplog_shm_id = shmget(IPC_PRIVATE, sizeof(struct cmp_map),
-                           IPC_CREAT | IPC_EXCL | 0600);
+                                IPC_CREAT | IPC_EXCL | 0600);
 
     if (shm->cmplog_shm_id < 0) PFATAL("shmget() failed");
 
@@ -203,7 +204,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
 
   }
 
-
 #endif
 
   list_append(&shm_list, shm);
@@ -212,3 +212,4 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
   return shm->map;
 
 }
+

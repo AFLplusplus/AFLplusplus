@@ -84,7 +84,7 @@ static u8* get_libradamsa_path(u8* own_loc) {
 
 /* Display usage hints. */
 
-static void usage(afl_state_t *afl, u8* argv0, int more_help) {
+static void usage(afl_state_t* afl, u8* argv0, int more_help) {
 
   SAYF(
       "\n%s [ options ] -- /path/to/fuzzed_app [ ... ]\n\n"
@@ -222,7 +222,6 @@ static int stricmp(char const* a, char const* b) {
 
 }
 
-
 /* Main entry point */
 
 int main(int argc, char** argv, char** envp) {
@@ -238,18 +237,16 @@ int main(int argc, char** argv, char** envp) {
   struct timeval  tv;
   struct timezone tz;
 
-  afl_state_t *afl = calloc(1, sizeof(afl_state_t));
-  if (!afl) {
-    FATAL("Could not create afl state");
-  }
+  afl_state_t* afl = calloc(1, sizeof(afl_state_t));
+  if (!afl) { FATAL("Could not create afl state"); }
 
   afl_state_init(afl);
   afl_fsrv_init(&afl->fsrv);
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a big online community\n");
-          
-  doc_path = access(DOC_PATH, F_OK) ? (u8 *)"docs" : doc_path;
+
+  doc_path = access(DOC_PATH, F_OK) ? (u8*)"docs" : doc_path;
 
   gettimeofday(&tv, &tz);
   afl->init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
@@ -348,8 +345,8 @@ int main(int argc, char** argv, char** envp) {
           *c = 0;
 
           if (sscanf(c + 1, "%u/%u", &afl->master_id, &afl->master_max) != 2 ||
-              !afl->master_id || !afl->master_max || afl->master_id > afl->master_max ||
-              afl->master_max > 1000000)
+              !afl->master_id || !afl->master_max ||
+              afl->master_id > afl->master_max || afl->master_max > 1000000)
             FATAL("Bogus master ID passed to -M");
 
         }
@@ -543,7 +540,8 @@ int main(int argc, char** argv, char** envp) {
         afl->limit_time_sig = 1;
         afl->havoc_max_mult = HAVOC_MAX_MULT_MOPT;
 
-        if (sscanf(optarg, "%llu", &afl->limit_time_puppet) < 1 || optarg[0] == '-')
+        if (sscanf(optarg, "%llu", &afl->limit_time_puppet) < 1 ||
+            optarg[0] == '-')
           FATAL("Bad syntax used for -L");
 
         u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
@@ -561,7 +559,9 @@ int main(int argc, char** argv, char** envp) {
         int tmp_swarm = 0;
 
         if (afl->g_now > afl->g_max) afl->g_now = 0;
-        afl->w_now = (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) / (afl->g_max) + afl->w_end;
+        afl->w_now = (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) /
+                         (afl->g_max) +
+                     afl->w_end;
 
         for (tmp_swarm = 0; tmp_swarm < swarm_num; ++tmp_swarm) {
 
@@ -572,7 +572,8 @@ int main(int argc, char** argv, char** envp) {
 
             afl->stage_finds_puppet[tmp_swarm][i] = 0;
             afl->probability_now[tmp_swarm][i] = 0.0;
-            afl->x_now[tmp_swarm][i] = ((double)(random() % 7000) * 0.0001 + 0.1);
+            afl->x_now[tmp_swarm][i] =
+                ((double)(random() % 7000) * 0.0001 + 0.1);
             total_puppet_temp += afl->x_now[tmp_swarm][i];
             afl->v_now[tmp_swarm][i] = 0.1;
             afl->L_best[tmp_swarm][i] = 0.5;
@@ -587,7 +588,8 @@ int main(int argc, char** argv, char** envp) {
                 afl->stage_cycles_puppet[tmp_swarm][i];
             afl->stage_finds_puppet_v2[tmp_swarm][i] =
                 afl->stage_finds_puppet[tmp_swarm][i];
-            afl->x_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i] / total_puppet_temp;
+            afl->x_now[tmp_swarm][i] =
+                afl->x_now[tmp_swarm][i] / total_puppet_temp;
 
           }
 
@@ -598,7 +600,8 @@ int main(int argc, char** argv, char** envp) {
             afl->probability_now[tmp_swarm][i] = 0.0;
             afl->v_now[tmp_swarm][i] =
                 afl->w_now * afl->v_now[tmp_swarm][i] +
-                RAND_C * (afl->L_best[tmp_swarm][i] - afl->x_now[tmp_swarm][i]) +
+                RAND_C *
+                    (afl->L_best[tmp_swarm][i] - afl->x_now[tmp_swarm][i]) +
                 RAND_C * (afl->G_best[i] - afl->x_now[tmp_swarm][i]);
 
             afl->x_now[tmp_swarm][i] += afl->v_now[tmp_swarm][i];
@@ -617,7 +620,8 @@ int main(int argc, char** argv, char** envp) {
             afl->x_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i] / x_temp;
             if (likely(i != 0))
               afl->probability_now[tmp_swarm][i] =
-                  afl->probability_now[tmp_swarm][i - 1] + afl->x_now[tmp_swarm][i];
+                  afl->probability_now[tmp_swarm][i - 1] +
+                  afl->x_now[tmp_swarm][i];
             else
               afl->probability_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i];
 
@@ -669,7 +673,8 @@ int main(int argc, char** argv, char** envp) {
   OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
-  if (afl->sync_id && afl->force_deterministic && getenv("AFL_CUSTOM_MUTATOR_ONLY"))
+  if (afl->sync_id && afl->force_deterministic &&
+      getenv("AFL_CUSTOM_MUTATOR_ONLY"))
     WARNF(
         "Using -M master with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "
         "result in no deterministic mutations being done!");
@@ -764,8 +769,7 @@ int main(int argc, char** argv, char** envp) {
   if (get_afl_env("AFL_AUTORESUME")) {
 
     afl->autoresume = 1;
-    if (afl->in_place_resume)
-      SAYF("AFL_AUTORESUME has no effect for '-i -'");
+    if (afl->in_place_resume) SAYF("AFL_AUTORESUME has no effect for '-i -'");
 
   }
 
@@ -886,11 +890,12 @@ int main(int argc, char** argv, char** envp) {
 
   if (!afl->timeout_given) find_timeout(afl);
 
-  if ((afl->tmp_dir = get_afl_env("AFL_TMPDIR")) != NULL && !afl->in_place_resume) {
+  if ((afl->tmp_dir = get_afl_env("AFL_TMPDIR")) != NULL &&
+      !afl->in_place_resume) {
 
-    char tmpfile[afl->file_extension
-                     ? strlen(afl->tmp_dir) + 1 + 10 + 1 + strlen(afl->file_extension) + 1
-                     : strlen(afl->tmp_dir) + 1 + 10 + 1];
+    char tmpfile[afl->file_extension ? strlen(afl->tmp_dir) + 1 + 10 + 1 +
+                                           strlen(afl->file_extension) + 1
+                                     : strlen(afl->tmp_dir) + 1 + 10 + 1];
     if (afl->file_extension) {
 
       sprintf(tmpfile, "%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
@@ -927,7 +932,8 @@ int main(int argc, char** argv, char** envp) {
 
         if (afl->file_extension) {
 
-          afl->fsrv.out_file = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
+          afl->fsrv.out_file = alloc_printf("%s/.cur_input.%s", afl->tmp_dir,
+                                            afl->file_extension);
 
         } else {
 
@@ -935,7 +941,8 @@ int main(int argc, char** argv, char** envp) {
 
         }
 
-        detect_file_args(argv + optind + 1, afl->fsrv.out_file, afl->fsrv.use_stdin);
+        detect_file_args(argv + optind + 1, afl->fsrv.out_file,
+                         afl->fsrv.use_stdin);
         break;
 
       }
@@ -969,9 +976,11 @@ int main(int argc, char** argv, char** envp) {
   if (afl->qemu_mode) {
 
     if (afl->use_wine)
-      use_argv = get_wine_argv(argv[0], &afl->fsrv.target_path, argc - optind, argv + optind);
+      use_argv = get_wine_argv(argv[0], &afl->fsrv.target_path, argc - optind,
+                               argv + optind);
     else
-      use_argv = get_qemu_argv(argv[0], &afl->fsrv.target_path, argc - optind, argv + optind);
+      use_argv = get_qemu_argv(argv[0], &afl->fsrv.target_path, argc - optind,
+                               argv + optind);
 
   } else {
 
@@ -979,7 +988,7 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  afl->argv = use_argv; 
+  afl->argv = use_argv;
   perform_dry_run(afl);
 
   cull_queue(afl);
@@ -1053,7 +1062,8 @@ int main(int argc, char** argv, char** envp) {
 
       prev_queued = afl->queued_paths;
 
-      if (afl->sync_id && afl->queue_cycle == 1 && get_afl_env("AFL_IMPORT_FIRST"))
+      if (afl->sync_id && afl->queue_cycle == 1 &&
+          get_afl_env("AFL_IMPORT_FIRST"))
         sync_fuzzers(afl);
 
     }
@@ -1134,13 +1144,15 @@ stop_fuzzing:
   SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
        afl->stop_soon == 2 ? "programmatically" : "by user");
 
-  if (afl->most_time_key == 2) SAYF(cYEL "[!] " cRST "Time limit was reached\n");
+  if (afl->most_time_key == 2)
+    SAYF(cYEL "[!] " cRST "Time limit was reached\n");
   if (afl->most_execs_key == 2)
     SAYF(cYEL "[!] " cRST "Execution limit was reached\n");
 
   /* Running for more than 30 minutes but still doing first cycle? */
 
-  if (afl->queue_cycle == 1 && get_cur_time() - afl->start_time > 30 * 60 * 1000) {
+  if (afl->queue_cycle == 1 &&
+      get_cur_time() - afl->start_time > 30 * 60 * 1000) {
 
     SAYF("\n" cYEL "[!] " cRST
          "Stopped during the first cycle, results may be incomplete.\n"
