@@ -48,6 +48,7 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
   int status = 0;
   u32 tb4;
+  int timer_status;
 
   afl->fsrv.child_timed_out = 0;
 
@@ -178,14 +179,35 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
   /* Configure timeout, as requested by user, then wait for child to terminate.
    */
   timer_signal_event.sigev_value.sival_int = afl->fsrv.child_pid;
-  timer_create(CLOCK_MONOTONIC, &timer_signal_event, &timer);
+  timer_status = timer_create(CLOCK_MONOTONIC, &timer_signal_event, &timer);
+
+  if (timer_status == -1) {
+
+    FATAL("Failed to create Timer");
+
+  }
 
   timer_period.it_value.tv_sec = (timeout / 1000);
   timer_period.it_value.tv_nsec = (timeout % 1000) * 1000000;
   timer_period.it_interval.tv_sec = 0;
   timer_period.it_interval.tv_nsec = 0;
 
-  timer_settime(timer, 0, &timer_period, NULL);
+  timer_status = timer_settime(timer, 0, &timer_period, NULL);
+
+  if (timer_status == -1) {
+
+    if (errno == EINVAL) {
+
+      FATAL("Failed to set the timer. The timeout given is invalid.");
+
+    } else {
+
+    FATAL("Failed to set the timer to the given timeout");
+
+    }
+
+  }
+
 
   /* The SIGALRM handler simply kills the afl->fsrv.child_pid and sets
    * afl->fsrv.child_timed_out. */
@@ -235,13 +257,22 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
   if (afl->slowest_exec_ms < exec_ms) afl->slowest_exec_ms = exec_ms;
 
   if (exec_ms >= timeout) {
+
     afl->fsrv.child_timed_out = 1;
+
   }
 
   timer_period.it_value.tv_sec = 0;
   timer_period.it_value.tv_nsec = 0;
 
-  timer_settime(timer, 0, &timer_period, NULL);
+  timer_status = timer_settime(timer, 0, &timer_period, NULL);
+
+  if (timer_status == -1) {
+
+    FATAL("Failed to reset the timer.");
+
+  }
+
   ++afl->total_execs;
 
   /* Any subsequent operations on afl->fsrv.trace_bits must not be moved by the
