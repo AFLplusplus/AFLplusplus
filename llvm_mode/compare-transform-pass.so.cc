@@ -92,6 +92,7 @@ class CompareTransform : public ModulePass {
 
  protected:
   std::list<std::string> myWhitelist;
+  int                    be_quiet = 0;
 
  private:
   bool transformCmps(Module &M, const bool processStrcmp,
@@ -350,8 +351,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
   }
 
   if (!calls.size()) return false;
-  errs() << "Replacing " << calls.size()
-         << " calls to strcmp/memcmp/strncmp/strcasecmp/strncasecmp\n";
+  if (!be_quiet)
+    errs() << "Replacing " << calls.size()
+           << " calls to strcmp/memcmp/strncmp/strcasecmp/strncasecmp\n";
 
   for (auto &callInst : calls) {
 
@@ -409,8 +411,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     if (isSizedcmp && constLen > sizedLen) { constLen = sizedLen; }
 
-    errs() << callInst->getCalledFunction()->getName() << ": len " << constLen
-           << ": " << ConstStr << "\n";
+    if (!be_quiet)
+      errs() << callInst->getCalledFunction()->getName() << ": len " << constLen
+             << ": " << ConstStr << "\n";
 
     /* split before the call instruction */
     BasicBlock *bb = callInst->getParent();
@@ -500,6 +503,8 @@ bool CompareTransform::runOnModule(Module &M) {
   if (isatty(2) && getenv("AFL_QUIET") == NULL)
     llvm::errs() << "Running compare-transform-pass by laf.intel@gmail.com, "
                     "extended by heiko@hexco.de\n";
+  else
+    be_quiet = 1;
   transformCmps(M, true, true, true, true, true);
   verifyModule(M);
 

@@ -92,6 +92,7 @@ class CmpLogInstructions : public ModulePass {
 
  protected:
   std::list<std::string> myWhitelist;
+  int                    be_quiet = 0;
 
  private:
   bool hookInstrs(Module &M);
@@ -336,7 +337,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   }
 
   if (!icomps.size()) return false;
-  errs() << "Hooking " << icomps.size() << " cmp instructions\n";
+  if (!be_quiet) errs() << "Hooking " << icomps.size() << " cmp instructions\n";
 
   for (auto &selectcmpInst : icomps) {
 
@@ -378,6 +379,8 @@ bool CmpLogInstructions::runOnModule(Module &M) {
   if (getenv("AFL_QUIET") == NULL)
     llvm::errs()
         << "Running cmplog-instructions-pass by andreafioraldi@gmail.com\n";
+  else
+    be_quiet = 1;
   hookInstrs(M);
   verifyModule(M);
 

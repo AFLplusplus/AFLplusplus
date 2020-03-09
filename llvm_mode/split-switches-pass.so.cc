@@ -126,6 +126,7 @@ class SplitSwitchesTransform : public ModulePass {
 
  protected:
   std::list<std::string> myWhitelist;
+  int                    be_quiet = 0;
 
  private:
   bool        splitSwitches(Module &M);
@@ -473,8 +474,9 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
   }
 
   if (!switches.size()) return false;
-  errs() << "Rewriting " << switches.size() << " switch statements "
-         << "\n";
+  if (!be_quiet)
+    errs() << "Rewriting " << switches.size() << " switch statements "
+           << "\n";
 
   for (auto &SI : switches) {
 
@@ -486,14 +488,15 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
     BasicBlock *Default = SI->getDefaultDest();
     unsigned    bitw = Val->getType()->getIntegerBitWidth();
 
-    errs() << "switch: " << SI->getNumCases() << " cases " << bitw << " bit\n";
+    if (!be_quiet)
+      errs() << "switch: " << SI->getNumCases() << " cases " << bitw
+             << " bit\n";
 
     /* If there is only the default destination or the condition checks 8 bit or
      * less, don't bother with the code below. */
     if (!SI->getNumCases() || bitw <= 8) {
 
-      if (isatty(2) && getenv("AFL_QUIET") == NULL)
-        errs() << "skip trivial switch..\n";
+      if (!be_quiet) errs() << "skip trivial switch..\n";
       continue;
 
     }
@@ -560,6 +563,8 @@ bool SplitSwitchesTransform::runOnModule(Module &M) {
 
   if (isatty(2) && getenv("AFL_QUIET") == NULL)
     llvm::errs() << "Running split-switches-pass by laf.intel@gmail.com\n";
+  else
+    be_quiet = 1;
   splitSwitches(M);
   verifyModule(M);
 

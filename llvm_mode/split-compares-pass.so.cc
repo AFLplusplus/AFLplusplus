@@ -106,6 +106,7 @@ class SplitComparesTransform : public ModulePass {
 
  protected:
   std::list<std::string> myWhitelist;
+  int                    be_quiet = 0;
 
  private:
   int enableFPSplit;
@@ -1244,7 +1245,8 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
   simplifyIntSignedness(M);
 
-  if (isatty(2) && getenv("AFL_QUIET") == NULL) {
+  if ((isatty(2) && getenv("AFL_QUIET") == NULL) ||
+      getenv("AFL_DEBUG") != NULL) {
 
     errs() << "Split-compare-pass by laf.intel@gmail.com, extended by "
               "heiko@hexco.de\n";
@@ -1253,13 +1255,16 @@ bool SplitComparesTransform::runOnModule(Module &M) {
       errs() << "Split-floatingpoint-compare-pass: " << splitFPCompares(M)
              << " FP comparisons splitted\n";
 
-  }
+  } else
+
+    be_quiet = 1;
 
   switch (bitw) {
 
     case 64:
-      errs() << "Split-integer-compare-pass " << bitw
-             << "bit: " << splitIntCompares(M, bitw) << " splitted\n";
+      if (!be_quiet)
+        errs() << "Split-integer-compare-pass " << bitw
+               << "bit: " << splitIntCompares(M, bitw) << " splitted\n";
 
       bitw >>= 1;
 #if LLVM_VERSION_MAJOR > 3 || \
@@ -1267,8 +1272,9 @@ bool SplitComparesTransform::runOnModule(Module &M) {
       [[clang::fallthrough]]; /*FALLTHRU*/                   /* FALLTHROUGH */
 #endif
     case 32:
-      errs() << "Split-integer-compare-pass " << bitw
-             << "bit: " << splitIntCompares(M, bitw) << " splitted\n";
+      if (!be_quiet)
+        errs() << "Split-integer-compare-pass " << bitw
+               << "bit: " << splitIntCompares(M, bitw) << " splitted\n";
 
       bitw >>= 1;
 #if LLVM_VERSION_MAJOR > 3 || \
@@ -1276,14 +1282,15 @@ bool SplitComparesTransform::runOnModule(Module &M) {
       [[clang::fallthrough]]; /*FALLTHRU*/                   /* FALLTHROUGH */
 #endif
     case 16:
-      errs() << "Split-integer-compare-pass " << bitw
-             << "bit: " << splitIntCompares(M, bitw) << " splitted\n";
+      if (!be_quiet)
+        errs() << "Split-integer-compare-pass " << bitw
+               << "bit: " << splitIntCompares(M, bitw) << " splitted\n";
 
       bitw >>= 1;
       break;
 
     default:
-      errs() << "NOT Running split-compare-pass \n";
+      if (!be_quiet) errs() << "NOT Running split-compare-pass \n";
       return false;
       break;
 
