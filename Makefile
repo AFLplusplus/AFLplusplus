@@ -34,6 +34,7 @@ VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f
 PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
 SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
+ASAN_OPTIONS=detect_leaks=0
 
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
@@ -329,8 +330,8 @@ ifndef AFL_NO_X86
 test_build: afl-gcc afl-as afl-showmap
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
 	@unset AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_DEBUG=1 AFL_INST_RATIO=100 AFL_PATH=. ./$(TEST_CC) $(CFLAGS) test-instr.c -o test-instr $(LDFLAGS) 2>&1 | grep 'afl-as' >/dev/null || (echo "Oops, afl-as did not get called from "$(TEST_CC)". This is normally achieved by "$(CC)" honoring the -B option."; exit 1 )
-	./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
-	echo 1 | ./afl-showmap -m none -q -o .test-instr1 ./test-instr
+	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
+	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
 	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/vanhauser-thc/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
 	@echo "[+] All right, the instrumentation seems to be working!"
