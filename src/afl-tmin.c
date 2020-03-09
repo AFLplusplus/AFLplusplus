@@ -88,14 +88,6 @@ static u8 qemu_mode;
  * forkserver section
  */
 
-/* we only need this to use afl-forkserver */
-FILE* plot_file;
-u8    uses_asan;
-s32   out_fd = -1, out_dir_fd = -1, dev_urandom_fd = -1;
-
-/* we import this as we need this information */
-extern u8 child_timed_out;
-
 /* Classify tuple counts. This is a slow & naive version, but good enough here.
  */
 
