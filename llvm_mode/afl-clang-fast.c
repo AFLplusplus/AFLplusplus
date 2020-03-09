@@ -610,7 +610,8 @@ int main(int argc, char** argv, char** envp) {
             callname, BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
 
     if (strcmp(callname, "afl-clang-lto") == 0)
-      SAYF("Compiled with linker target \"%s\" and LTO flags \"%s\"\n",
+      SAYF("Compiled with linker target \"%s\" and LTO flags \"%s\"\n\n"
+           "If anything fails - be sure to read README.lto.md!\n\n",
            AFL_REAL_LD, AFL_CLANG_FLTO);
 
     SAYF("\n");

@@ -2,13 +2,16 @@
 
 ## TLDR;
 
-1. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
+1. This compile mode is very frickle if it works it is amazing, if it fails
+   - well use afl-clang-fast
+
+2. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
    coverage than anything else that is out there in the AFL world
 
-2. You can use it together with llvm_mode: laf-intel and whitelisting
+3. You can use it together with llvm_mode: laf-intel and whitelisting
    features and can be combined with cmplog/Redqueen
 
-3. It only works with llvm 9 (and likely 10+ but is not tested there yet)
+4. It only works with llvm 9 (and likely 10+ but is not tested there yet)
 
 ## Introduction and problem description
 
