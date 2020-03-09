@@ -291,31 +291,27 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 
   /* Wait for the fork server to come up, but don't wait too long. */
 
+<<<<<<< HEAD
   if (fsrv->exec_tmout) {
+=======
+  fd_set readfds;
+>>>>>>> Remove redundent conditons in select monitoring of fdsin forkserver and cmplog
 
-    fd_set readfds;
+  FD_ZERO(&readfds);
+  FD_SET(frk_srv->fsrv_st_fd, &readfds);
+  timeout.tv_sec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) / 1000);
+  timeout.tv_usec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
 
-    FD_ZERO(&readfds);
-    FD_SET(frk_srv->fsrv_st_fd, &readfds);
-    timeout.tv_sec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) / 1000);
-    timeout.tv_usec = ((frk_srv->exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+  int sret = select(frk_srv->fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
 
-    int sret = select(frk_srv->fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
+  if (sret == 0) {
 
-    if (sret == 0) {
+    frk_srv->child_timed_out = 1;
+    kill(frk_srv->child_pid, SIGKILL);
 
-      if (frk_srv->child_pid > 0) {
+  } else {
 
-        frk_srv->child_timed_out = 1;
-        kill(frk_srv->child_pid, SIGKILL);
-
-      }
-
-    } else {
-
-      rlen = read(frk_srv->fsrv_st_fd, &status, 4);
-
-    }
+    rlen = read(frk_srv->fsrv_st_fd, &status, 4);
 
   }
 

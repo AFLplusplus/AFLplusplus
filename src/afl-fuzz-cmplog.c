@@ -176,32 +176,25 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
   /* Wait for the fork server to come up, but don't wait too long. */
 
-  if (afl->fsrv.exec_tmout) {
 
-    fd_set readfds;
+  fd_set readfds;
 
-    FD_ZERO(&readfds);
-    FD_SET(afl->cmplog_fsrv_st_fd, &readfds);
-    timeout.tv_sec = ((afl->frk_srv.exec_tmout * FORK_WAIT_MULT) / 1000);
-    timeout.tv_usec =
-        ((afl->frk_srv.exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+  FD_ZERO(&readfds);
+  FD_SET(afl->cmplog_fsrv_st_fd, &readfds);
+  timeout.tv_sec = ((afl->frk_srv.exec_tmout * FORK_WAIT_MULT) / 1000);
+  timeout.tv_usec =
+      ((afl->frk_srv.exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
 
-    int sret =
-        select(afl->cmplog_fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
+  int sret =
+      select(afl->cmplog_fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
 
-    if (sret == 0) {
+  if (sret == 0) {
 
-      if (afl->cmplog_forksrv_pid > 0) {
+    kill(afl->cmplog_forksrv_pid, SIGKILL);
 
-        kill(afl->cmplog_forksrv_pid, SIGKILL);
+  } else {
 
-      }
-
-    } else {
-
-      rlen = read(afl->cmplog_fsrv_st_fd, &status, 4);
-
-    }
+    rlen = read(afl->cmplog_fsrv_st_fd, &status, 4);
 
   }
 
