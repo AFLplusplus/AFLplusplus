@@ -28,6 +28,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - now supports hang mode `-H` to minimize hangs
     - fixed potential afl-tmin missbehavior for targets with multiple hangs
   - Pressing Control-c in afl-cmin did not terminate it for some OS
+  - QEMU now logs routines arguments for CmpLog when the target is x86
 
 
 ### Version ++2.62c (release):
