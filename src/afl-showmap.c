@@ -714,9 +714,8 @@ int main(int argc, char** argv, char** envp) {
   afl_fsrv_init(fsrv);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
-  
-  if (getenv("AFL_QUIET") != NULL)
-    be_quiet = 1;
+
+  if (getenv("AFL_QUIET") != NULL) be_quiet = 1;
 
   while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqZQUWbcrh")) > 0)
 

@@ -1629,7 +1629,7 @@ custom_mutator_stage:
       }
 
     }
-    
+
     if (mutated_size < len) out_buf = ck_realloc(out_buf, len);
     memcpy(out_buf, in_buf, len);
 
@@ -1692,7 +1692,9 @@ havoc_stage:
 
     stacked_custom_prob = afl->mutator->afl_custom_havoc_mutation_probability(afl);
     if (stacked_custom_prob > 100)
-      FATAL("The probability returned by afl_custom_havoc_mutation_propability has to be in the range 0-100.");
+      FATAL(
+          "The probability returned by afl_custom_havoc_mutation_propability "
+          "has to be in the range 0-100.");
 
   }
 

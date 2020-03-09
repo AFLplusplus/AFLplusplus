@@ -662,7 +662,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
     ck_write(id_fd, &next_min_accept, sizeof(u32), qd_synced_path);
 
-close_sync:
+  close_sync:
     close(id_fd);
     closedir(qd);
     ck_free(qd_path);

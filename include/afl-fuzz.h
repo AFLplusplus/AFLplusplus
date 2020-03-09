@@ -545,8 +545,9 @@ typedef struct afl_state {
 extern list_t afl_states;
 
 struct custom_mutator {
+
   const char* name;
-  void* dh;
+  void*       dh;
 
   /* hooks for the custom mutator function */
 
@@ -569,8 +570,8 @@ struct custom_mutator {
    * @param[in] buf_size Size of the input/output data
    * @param[in] add_buf Buffer containing the additional test case
    * @param[in] add_buf_size Size of the additional test case
-   * @param[in] max_size Maximum size of the mutated output. The mutation must not
-   *     produce data larger than max_size.
+   * @param[in] max_size Maximum size of the mutated output. The mutation must
+   * not produce data larger than max_size.
    * @return Size of the mutated output.
    */
   size_t (*afl_custom_fuzz)(afl_state_t *afl, u8** buf, size_t buf_size, u8* add_buf,
@@ -682,7 +683,7 @@ struct custom_mutator {
   u8 (*afl_custom_queue_get)(afl_state_t *afl, const u8* filename);
 
   /**
-   * Allow for additional analysis (e.g. calling a different tool that does a 
+   * Allow for additional analysis (e.g. calling a different tool that does a
    * different kind of coverage and saves this for the custom mutator).
    *
    * (Optional)
@@ -693,6 +694,7 @@ struct custom_mutator {
    */
   void (*afl_custom_queue_new_entry)(afl_state_t *afl, const u8* filename_new_queue,
                                      const u8* filename_orig_queue);
+
 };
 
 

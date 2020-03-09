@@ -45,6 +45,7 @@ void setup_custom_mutator(afl_state_t *afl) {
     load_custom_mutator(afl, fn);
 
     return;
+
   }
 
   /* Try Python module */
@@ -65,6 +66,7 @@ void setup_custom_mutator(afl_state_t *afl) {
     load_custom_mutator_py(afl, module_name);
 
   }
+
 #else
   if (getenv("AFL_PYTHON_MODULE"))
     FATAL("Your AFL binary was built without Python support");
@@ -75,13 +77,16 @@ void setup_custom_mutator(afl_state_t *afl) {
 void destroy_custom_mutator(afl_state_t *afl) {
 
   if (afl->mutator) {
+
     if (afl->mutator->dh)
       dlclose(afl->mutator->dh);
     else {
+
       /* Python mutator */
 #ifdef USE_PYTHON
       finalize_py_module(afl);
 #endif
+
     }
 
     ck_free(afl->mutator);
@@ -89,7 +94,7 @@ void destroy_custom_mutator(afl_state_t *afl) {
 
 }
 
-void load_custom_mutator(afl_state_t *afl, const char* fn) {
+void load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   void* dh;
   afl->mutator = ck_alloc(sizeof(struct custom_mutator));
@@ -104,8 +109,7 @@ void load_custom_mutator(afl_state_t *afl, const char* fn) {
   /* Mutator */
   /* "afl_custom_init", optional for backward compatibility */
   afl->mutator->afl_custom_init = dlsym(dh, "afl_custom_init");
-  if (!afl->mutator->afl_custom_init)
-    WARNF("Symbol 'afl_custom_init' not found.");
+  if (!afl->mutator->afl_custom_init) WARNF("Symbol 'afl_custom_init' not found.");
 
   /* "afl_custom_fuzz" or "afl_custom_mutator", required */
   afl->mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_fuzz");
@@ -133,8 +137,7 @@ void load_custom_mutator(afl_state_t *afl, const char* fn) {
 
   /* "afl_custom_trim", optional */
   afl->mutator->afl_custom_trim = dlsym(dh, "afl_custom_trim");
-  if (!afl->mutator->afl_custom_trim)
-    WARNF("Symbol 'afl_custom_trim' not found.");
+  if (!afl->mutator->afl_custom_trim) WARNF("Symbol 'afl_custom_trim' not found.");
 
   /* "afl_custom_post_trim", optional */
   afl->mutator->afl_custom_post_trim = dlsym(dh, "afl_custom_post_trim");
@@ -151,14 +154,15 @@ void load_custom_mutator(afl_state_t *afl, const char* fn) {
         "trimming will be used.");
 
   }
-  
+
   /* "afl_custom_havoc_mutation", optional */
   afl->mutator->afl_custom_havoc_mutation = dlsym(dh, "afl_custom_havoc_mutation");
   if (!afl->mutator->afl_custom_havoc_mutation)
     WARNF("Symbol 'afl_custom_havoc_mutation' not found.");
 
   /* "afl_custom_havoc_mutation", optional */
-  afl->mutator->afl_custom_havoc_mutation_probability = dlsym(dh, "afl_custom_havoc_mutation_probability");
+  afl->mutator->afl_custom_havoc_mutation_probability = 
+      dlsym(dh, "afl_custom_havoc_mutation_probability");
   if (!afl->mutator->afl_custom_havoc_mutation_probability)
     WARNF("Symbol 'afl_custom_havoc_mutation_probability' not found.");
 
@@ -334,7 +338,8 @@ void load_custom_mutator_py(afl_state_t *afl, const char* module_name) {
     afl->mutator->afl_custom_havoc_mutation = havoc_mutation_py;
   
   if (py_functions[PY_FUNC_HAVOC_MUTATION_PROBABILITY])
-    afl->mutator->afl_custom_havoc_mutation_probability = havoc_mutation_probability_py;
+    afl->mutator->afl_custom_havoc_mutation_probability = 
+      havoc_mutation_probability_py;
 
   if (py_functions[PY_FUNC_QUEUE_GET])
     afl->mutator->afl_custom_queue_get = queue_get_py;
@@ -349,4 +354,6 @@ void load_custom_mutator_py(afl_state_t *afl, const char* module_name) {
     afl->mutator->afl_custom_init(afl, UR(afl, 0xFFFFFFFF));
 
 }
+
 #endif
+
