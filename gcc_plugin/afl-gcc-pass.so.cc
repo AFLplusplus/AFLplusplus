@@ -567,7 +567,7 @@ int plugin_init(struct plugin_name_args *  plugin_info,
     std::string   line;
     std::ifstream fileStream;
     fileStream.open(instWhiteListFilename);
-    if (!fileStream) fatal_error(0, "Unable to open AFL_GCC_WHITELIST");
+    if (!fileStream) PFATAL("Unable to open AFL_GCC_WHITELIST");
     getline(fileStream, line);
     while (fileStream) {
 
