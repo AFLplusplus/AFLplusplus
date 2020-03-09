@@ -291,20 +291,27 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 
   /* Wait for the fork server to come up, but don't wait too long. */
 
-  fd_set readfds;
+  if (fsrv->exec_tmout) {
 
-  FD_ZERO(&readfds);
-  FD_SET(fsrv->fsrv_st_fd, &readfds);
-  timeout.tv_sec = ((fsrv->exec_tmout * FORK_WAIT_MULT) / 1000);
-  timeout.tv_usec = ((fsrv->exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+    fd_set readfds;
 
-  int sret = select(fsrv->fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
+    FD_ZERO(&readfds);
+    FD_SET(fsrv->fsrv_st_fd, &readfds);
+    timeout.tv_sec = ((fsrv->exec_tmout * FORK_WAIT_MULT) / 1000);
+    timeout.tv_usec = ((fsrv->exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
 
-  if (sret == 0) {
+    int sret = select(fsrv->fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
 
-    fsrv->child_timed_out = 1;
-    kill(fsrv->child_pid, SIGKILL);
+    if (sret == 0) {
 
+      fsrv->child_timed_out = 1;
+      kill(fsrv->child_pid, SIGKILL);
+
+    } else {
+
+      rlen = read(fsrv->fsrv_st_fd, &status, 4);
+
+    }
   } else {
 
     rlen = read(fsrv->fsrv_st_fd, &status, 4);

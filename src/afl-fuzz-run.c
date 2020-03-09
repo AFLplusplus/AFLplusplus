@@ -63,7 +63,7 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
   timer_signal_event.sigev_notify = SIGEV_THREAD;
   timer_signal_event.sigev_notify_function = timeout_handle;
   timer_signal_event.sigev_value.sival_ptr = &afl;
-  timer_create(CLOCK_REALTIME, &timer_signal_event, &timer);
+  timer_create(CLOCK_MONOTONIC, &timer_signal_event, &timer);
 
   MEM_BARRIER();
 
