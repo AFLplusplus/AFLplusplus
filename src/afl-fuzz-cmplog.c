@@ -84,8 +84,8 @@ void init_cmplog_forkserver(afl_state_t *afl) {
     //    setrlimit(RLIMIT_CORE, &r);                      /* Ignore errors */
 
     /* Isolate the process and configure standard descriptors. If
-       afl->frk_srv.out_file is specified, stdin is /dev/null; otherwise,
-       afl->frk_srv.out_fd is cloned instead. */
+       afl->fsrv.out_file is specified, stdin is /dev/null; otherwise,
+       afl->fsrv.out_fd is cloned instead. */
 
     setsid();
 
@@ -176,21 +176,18 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
   /* Wait for the fork server to come up, but don't wait too long. */
 
-
   fd_set readfds;
 
   FD_ZERO(&readfds);
   FD_SET(afl->cmplog_fsrv_st_fd, &readfds);
-  timeout.tv_sec = ((afl->frk_srv.exec_tmout * FORK_WAIT_MULT) / 1000);
-  timeout.tv_usec =
-      ((afl->frk_srv.exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+  timeout.tv_sec = ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) / 1000);
+  timeout.tv_usec = ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
 
-  int sret =
-      select(afl->cmplog_fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
+  int sret = select(afl->cmplog_fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
 
   if (sret == 0) {
 
-    kill(afl->cmplog_forksrv_pid, SIGKILL);
+    kill(afl->cmplog_fsrv_pid, SIGKILL);
 
   } else {
 

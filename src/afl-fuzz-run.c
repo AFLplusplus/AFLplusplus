@@ -33,8 +33,8 @@
 void timeout_handle(union sigval timer_data) {
 
   afl_state_t* afl = timer_data.sival_ptr;
-  pid_t        child_pid = afl->frk_srv.child_pid;
-  afl->frk_srv.child_timed_out = 1;
+  pid_t        child_pid = afl->fsrv.child_pid;
+  afl->fsrv.child_timed_out = 1;
   if (child_pid > 0) kill(child_pid, SIGKILL);
 
 }
@@ -58,6 +58,13 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
      territory. */
 
   memset(afl->fsrv.trace_bits, 0, MAP_SIZE);
+  memset(&timer_signal_event, 0, sizeof(struct sigevent));
+
+  timer_signal_event.sigev_notify = SIGEV_THREAD;
+  timer_signal_event.sigev_notify_function = timeout_handle;
+  timer_signal_event.sigev_value.sival_ptr = &afl;
+  timer_create(CLOCK_REALTIME, &timer_signal_event, &timer);
+
   MEM_BARRIER();
 
   /* If we're running in "dumb" mode, we can't rely on the fork server
