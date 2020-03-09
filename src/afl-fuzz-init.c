@@ -30,7 +30,7 @@
 /* Build a list of processes bound to specific cores. Returns -1 if nothing
    can be found. Assumes an upper bound of 4k CPUs. */
 
-void bind_to_free_cpu(void) {
+void bind_to_free_cpu(afl_state_t *afl) {
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   cpu_set_t c;
@@ -41,7 +41,7 @@ void bind_to_free_cpu(void) {
   u8  cpu_used[4096] = {0};
   u32 i;
 
-  if (cpu_core_count < 2) return;
+  if (afl->cpu_core_count < 2) return;
 
   if (getenv("AFL_NO_AFFINITY")) {
 
@@ -188,12 +188,12 @@ void bind_to_free_cpu(void) {
 
   try:
 #ifndef __ANDROID__
-    for (i = cpu_start; i < cpu_core_count; i++)
+    for (i = cpu_start; i < afl->cpu_core_count; i++)
       if (!cpu_used[i]) break;
-  if (i == cpu_core_count) {
+  if (i == afl->cpu_core_count) {
 
 #else
-    for (i = cpu_core_count - cpu_start - 1; i > -1; i--)
+    for (i = afl->cpu_core_count - cpu_start - 1; i > -1; i--)
       if (!cpu_used[i]) break;
   if (i == -1) {
 
@@ -206,14 +206,14 @@ void bind_to_free_cpu(void) {
          "    another fuzzer on this machine is probably a bad plan, but if "
          "you are\n"
          "    absolutely sure, you can set AFL_NO_AFFINITY and try again.\n",
-         cpu_core_count);
+         afl->cpu_core_count);
     FATAL("No more free CPU cores");
 
   }
 
   OKF("Found a free CPU core, try binding to #%u.", i);
 
-  cpu_aff = i;
+  afl->cpu_aff = i;
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   CPU_ZERO(&c);
@@ -227,7 +227,7 @@ void bind_to_free_cpu(void) {
 #if defined(__linux__)
   if (sched_setaffinity(0, sizeof(c), &c)) {
 
-    if (cpu_start == cpu_core_count)
+    if (cpu_start == afl->cpu_core_count)
       PFATAL("sched_setaffinity failed for CPU %d, exit", i);
     WARNF("sched_setaffinity failed to CPU %d, trying next CPU", i);
     cpu_start++;
@@ -239,7 +239,7 @@ void bind_to_free_cpu(void) {
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
   if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c)) {
 
-    if (cpu_start == cpu_core_count)
+    if (cpu_start == afl->cpu_core_count)
       PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
     WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
     cpu_start++;
@@ -251,7 +251,7 @@ void bind_to_free_cpu(void) {
 #elif defined(__NetBSD__)
 if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
 
-  if (cpu_start == cpu_core_count)
+  if (cpu_start == afl->cpu_core_count)
     PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
   WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
   cpu_start++;
@@ -272,7 +272,7 @@ cpuset_destroy(c);
 
 /* Load postprocessor, if available. */
 
-void setup_post(void) {
+void setup_post(afl_state_t *afl) {
 
   void* dh;
   u8*   fn = get_afl_env("AFL_POST_LIBRARY");
@@ -285,12 +285,12 @@ void setup_post(void) {
   dh = dlopen(fn, RTLD_NOW);
   if (!dh) FATAL("%s", dlerror());
 
-  post_handler = dlsym(dh, "afl_postprocess");
-  if (!post_handler) FATAL("Symbol 'afl_postprocess' not found.");
+  afl->post_handler = dlsym(dh, "afl_postprocess");
+  if (!afl->post_handler) FATAL("Symbol 'afl_postprocess' not found.");
 
   /* Do a quick test. It's better to segfault now than later =) */
 
-  post_handler("hello", &tlen);
+  afl->post_handler("hello", &tlen);
 
   OKF("Postprocessor installed successfully.");
 
@@ -298,13 +298,13 @@ void setup_post(void) {
 
 /* Shuffle an array of pointers. Might be slightly biased. */
 
-static void shuffle_ptrs(void** ptrs, u32 cnt) {
+static void shuffle_ptrs(afl_state_t *afl, void** ptrs, u32 cnt) {
 
   u32 i;
 
   for (i = 0; i < cnt - 2; ++i) {
 
-    u32   j = i + UR(cnt - i);
+    u32   j = i + UR(afl, cnt - i);
     void* s = ptrs[i];
     ptrs[i] = ptrs[j];
     ptrs[j] = s;
@@ -316,7 +316,7 @@ static void shuffle_ptrs(void** ptrs, u32 cnt) {
 /* Read all testcases from the input directory, then queue them for testing.
    Called at startup. */
 
-void read_testcases(void) {
+void read_testcases(afl_state_t *afl) {
 
   struct dirent** nl;
   s32             nl_cnt;
@@ -325,19 +325,19 @@ void read_testcases(void) {
 
   /* Auto-detect non-in-place resumption attempts. */
 
-  fn1 = alloc_printf("%s/queue", in_dir);
+  fn1 = alloc_printf("%s/queue", afl->in_dir);
   if (!access(fn1, F_OK))
-    in_dir = fn1;
+    afl->in_dir = fn1;
   else
     ck_free(fn1);
 
-  ACTF("Scanning '%s'...", in_dir);
+  ACTF("Scanning '%s'...", afl->in_dir);
 
   /* We use scandir() + alphasort() rather than readdir() because otherwise,
      the ordering  of test cases would vary somewhat randomly and would be
      difficult to control. */
 
-  nl_cnt = scandir(in_dir, &nl, NULL, alphasort);
+  nl_cnt = scandir(afl->in_dir, &nl, NULL, alphasort);
 
   if (nl_cnt < 0) {
 
@@ -352,14 +352,14 @@ void read_testcases(void) {
            "the input\n"
            "    directory.\n");
 
-    PFATAL("Unable to open '%s'", in_dir);
+    PFATAL("Unable to open '%s'", afl->in_dir);
 
   }
 
-  if (shuffle_queue && nl_cnt > 1) {
+  if (afl->shuffle_queue && nl_cnt > 1) {
 
     ACTF("Shuffling queue...");
-    shuffle_ptrs((void**)nl, nl_cnt);
+    shuffle_ptrs(afl, (void**)nl, nl_cnt);
 
   }
 
@@ -367,9 +367,9 @@ void read_testcases(void) {
 
     struct stat st;
 
-    u8* fn2 = alloc_printf("%s/%s", in_dir, nl[i]->d_name);
+    u8* fn2 = alloc_printf("%s/%s", afl->in_dir, nl[i]->d_name);
     u8* dfn =
-        alloc_printf("%s/.state/deterministic_done/%s", in_dir, nl[i]->d_name);
+        alloc_printf("%s/.state/deterministic_done/%s", afl->in_dir, nl[i]->d_name);
 
     u8 passed_det = 0;
 
@@ -400,13 +400,13 @@ void read_testcases(void) {
     if (!access(dfn, F_OK)) passed_det = 1;
     ck_free(dfn);
 
-    add_to_queue(fn2, st.st_size, passed_det);
+    add_to_queue(afl, fn2, st.st_size, passed_det);
 
   }
 
   free(nl);                                                  /* not tracked */
 
-  if (!queued_paths) {
+  if (!afl->queued_paths) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like there are no valid test cases in the input directory! The "
@@ -417,25 +417,25 @@ void read_testcases(void) {
          "in the\n"
          "    input directory.\n");
 
-    FATAL("No usable test cases in '%s'", in_dir);
+    FATAL("No usable test cases in '%s'", afl->in_dir);
 
   }
 
-  last_path_time = 0;
-  queued_at_start = queued_paths;
+  afl->last_path_time = 0;
+  afl->queued_at_start = afl->queued_paths;
 
 }
 
 /* Examine map coverage. Called once, for first test case. */
 
-static void check_map_coverage(void) {
+static void check_map_coverage(afl_state_t *afl) {
 
   u32 i;
 
-  if (count_bytes(trace_bits) < 100) return;
+  if (count_bytes(afl->fsrv.trace_bits) < 100) return;
 
   for (i = (1 << (MAP_SIZE_POW2 - 1)); i < MAP_SIZE; ++i)
-    if (trace_bits[i]) return;
+    if (afl->fsrv.trace_bits[i]) return;
 
   WARNF("Recompile binary with newer version of afl to improve coverage!");
 
@@ -444,9 +444,9 @@ static void check_map_coverage(void) {
 /* Perform dry run of all test cases to confirm that the app is working as
    expected. This is done only for the initial inputs, and only once. */
 
-void perform_dry_run(char** argv) {
+void perform_dry_run(afl_state_t *afl) {
 
-  struct queue_entry* q = queue;
+  struct queue_entry* q = afl->queue;
   u32                 cal_failures = 0;
   u8*                 skip_crashes = get_afl_env("AFL_SKIP_CRASHES");
 
@@ -470,12 +470,12 @@ void perform_dry_run(char** argv) {
 
     close(fd);
 
-    res = calibrate_case(argv, q, use_mem, 0, 1);
+    res = calibrate_case(afl, q, use_mem, 0, 1);
     ck_free(use_mem);
 
-    if (stop_soon) return;
+    if (afl->stop_soon) return;
 
-    if (res == crash_mode || res == FAULT_NOBITS)
+    if (res == afl->crash_mode || res == FAULT_NOBITS)
       SAYF(cGRA "    len = %u, map size = %u, exec speed = %llu us\n" cRST,
            q->len, q->bitmap_size, q->exec_us);
 
@@ -483,21 +483,21 @@ void perform_dry_run(char** argv) {
 
       case FAULT_NONE:
 
-        if (q == queue) check_map_coverage();
+        if (q == afl->queue) check_map_coverage(afl);
 
-        if (crash_mode) FATAL("Test case '%s' does *NOT* crash", fn);
+        if (afl->crash_mode) FATAL("Test case '%s' does *NOT* crash", fn);
 
         break;
 
       case FAULT_TMOUT:
 
-        if (timeout_given) {
+        if (afl->timeout_given) {
 
-          /* The -t nn+ syntax in the command line sets timeout_given to '2' and
+          /* The -t nn+ syntax in the command line sets afl->timeout_given to '2' and
              instructs afl-fuzz to tolerate but skip queue entries that time
              out. */
 
-          if (timeout_given > 1) {
+          if (afl->timeout_given > 1) {
 
             WARNF("Test case results in a timeout (skipping)");
             q->cal_failed = CAL_CHANCES;
@@ -516,7 +516,7 @@ void perform_dry_run(char** argv) {
                "    what you are doing and want to simply skip the unruly test "
                "cases, append\n"
                "    '+' at the end of the value passed to -t ('-t %u+').\n",
-               exec_tmout, exec_tmout);
+               afl->fsrv.exec_tmout, afl->fsrv.exec_tmout);
 
           FATAL("Test case '%s' results in a timeout", fn);
 
@@ -532,7 +532,7 @@ void perform_dry_run(char** argv) {
                "    If this test case is just a fluke, the other option is to "
                "just avoid it\n"
                "    altogether, and find one that is less of a CPU hog.\n",
-               exec_tmout);
+               afl->fsrv.exec_tmout);
 
           FATAL("Test case '%s' results in a timeout", fn);
 
@@ -540,7 +540,7 @@ void perform_dry_run(char** argv) {
 
       case FAULT_CRASH:
 
-        if (crash_mode) break;
+        if (afl->crash_mode) break;
 
         if (skip_crashes) {
 
@@ -551,7 +551,7 @@ void perform_dry_run(char** argv) {
 
         }
 
-        if (mem_limit) {
+        if (afl->fsrv.mem_limit) {
 
           SAYF("\n" cLRD "[-] " cRST
                "Oops, the program crashed with one of the test cases provided. "
@@ -593,7 +593,7 @@ void perform_dry_run(char** argv) {
                "other options\n"
                "      fail, poke <afl-users@googlegroups.com> for "
                "troubleshooting tips.\n",
-               DMS(mem_limit << 20), mem_limit - 1, doc_path);
+               DMS(afl->fsrv.mem_limit << 20), afl->fsrv.mem_limit - 1, doc_path);
 
         } else {
 
@@ -630,15 +630,15 @@ void perform_dry_run(char** argv) {
 
       case FAULT_ERROR:
 
-        FATAL("Unable to execute target application ('%s')", argv[0]);
+        FATAL("Unable to execute target application ('%s')", afl->argv[0]);
 
       case FAULT_NOINST: FATAL("No instrumentation detected");
 
       case FAULT_NOBITS:
 
-        ++useless_at_start;
+        ++afl->useless_at_start;
 
-        if (!in_bitmap && !shuffle_queue)
+        if (!afl->in_bitmap && !afl->shuffle_queue)
           WARNF("No new instrumentation output, test case may be useless.");
 
         break;
@@ -653,15 +653,15 @@ void perform_dry_run(char** argv) {
 
   if (cal_failures) {
 
-    if (cal_failures == queued_paths)
+    if (cal_failures == afl->queued_paths)
       FATAL("All test cases time out%s, giving up!",
             skip_crashes ? " or crash" : "");
 
     WARNF("Skipped %u test cases (%0.02f%%) due to timeouts%s.", cal_failures,
-          ((double)cal_failures) * 100 / queued_paths,
+          ((double)cal_failures) * 100 / afl->queued_paths,
           skip_crashes ? " or crashes" : "");
 
-    if (cal_failures * 5 > queued_paths)
+    if (cal_failures * 5 > afl->queued_paths)
       WARNF(cLRD "High percentage of rejected test cases, check settings!");
 
   }
@@ -702,9 +702,9 @@ static void link_or_copy(u8* old_path, u8* new_path) {
 /* Create hard links for input test cases in the output directory, choosing
    good names and pivoting accordingly. */
 
-void pivot_inputs(void) {
+void pivot_inputs(afl_state_t *afl) {
 
-  struct queue_entry* q = queue;
+  struct queue_entry* q = afl->queue;
   u32                 id = 0;
 
   ACTF("Creating hard links for all input files...");
@@ -729,8 +729,8 @@ void pivot_inputs(void) {
       u8* src_str;
       u32 src_id;
 
-      resuming_fuzz = 1;
-      nfn = alloc_printf("%s/queue/%s", out_dir, rsl);
+      afl->resuming_fuzz = 1;
+      nfn = alloc_printf("%s/queue/%s", afl->out_dir, rsl);
 
       /* Since we're at it, let's also try to find parent and figure out the
          appropriate depth for this entry. */
@@ -739,12 +739,12 @@ void pivot_inputs(void) {
 
       if (src_str && sscanf(src_str + 1, "%06u", &src_id) == 1) {
 
-        struct queue_entry* s = queue;
+        struct queue_entry* s = afl->queue;
         while (src_id-- && s)
           s = s->next;
         if (s) q->depth = s->depth + 1;
 
-        if (max_depth < q->depth) max_depth = q->depth;
+        if (afl->max_depth < q->depth) afl->max_depth = q->depth;
 
       }
 
@@ -761,12 +761,12 @@ void pivot_inputs(void) {
         use_name += 6;
       else
         use_name = rsl;
-      nfn = alloc_printf("%s/queue/id:%06u,time:0,orig:%s", out_dir, id,
+      nfn = alloc_printf("%s/queue/id:%06u,time:0,orig:%s", afl->out_dir, id,
                          use_name);
 
 #else
 
-      nfn = alloc_printf("%s/queue/id_%06u", out_dir, id);
+      nfn = alloc_printf("%s/queue/id_%06u", afl->out_dir, id);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
@@ -780,21 +780,21 @@ void pivot_inputs(void) {
 
     /* Make sure that the passed_det value carries over, too. */
 
-    if (q->passed_det) mark_as_det_done(q);
+    if (q->passed_det) mark_as_det_done(afl, q);
 
     q = q->next;
     ++id;
 
   }
 
-  if (in_place_resume) nuke_resume_dir();
+  if (afl->in_place_resume) nuke_resume_dir(afl);
 
 }
 
 /* When resuming, try to find the queue position to start from. This makes sense
    only when resuming, and when we can find the original fuzzer_stats. */
 
-u32 find_start_position(void) {
+u32 find_start_position(afl_state_t *afl) {
 
   static u8 tmp[4096];                   /* Ought to be enough for anybody. */
 
@@ -802,12 +802,12 @@ u32 find_start_position(void) {
   s32 fd, i;
   u32 ret;
 
-  if (!resuming_fuzz) return 0;
+  if (!afl->resuming_fuzz) return 0;
 
-  if (in_place_resume)
-    fn = alloc_printf("%s/fuzzer_stats", out_dir);
+  if (afl->in_place_resume)
+    fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
   else
-    fn = alloc_printf("%s/../fuzzer_stats", in_dir);
+    fn = alloc_printf("%s/../fuzzer_stats", afl->in_dir);
 
   fd = open(fn, O_RDONLY);
   ck_free(fn);
@@ -822,7 +822,7 @@ u32 find_start_position(void) {
   if (!off) return 0;
 
   ret = atoi(off + 20);
-  if (ret >= queued_paths) ret = 0;
+  if (ret >= afl->queued_paths) ret = 0;
   return ret;
 
 }
@@ -831,7 +831,7 @@ u32 find_start_position(void) {
    -t given, we don't want to keep auto-scaling the timeout over and over
    again to prevent it from growing due to random flukes. */
 
-void find_timeout(void) {
+void find_timeout(afl_state_t *afl) {
 
   static u8 tmp[4096];                   /* Ought to be enough for anybody. */
 
@@ -839,12 +839,12 @@ void find_timeout(void) {
   s32 fd, i;
   u32 ret;
 
-  if (!resuming_fuzz) return;
+  if (!afl->resuming_fuzz) return;
 
-  if (in_place_resume)
-    fn = alloc_printf("%s/fuzzer_stats", out_dir);
+  if (afl->in_place_resume)
+    fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
   else
-    fn = alloc_printf("%s/../fuzzer_stats", in_dir);
+    fn = alloc_printf("%s/../fuzzer_stats", afl->in_dir);
 
   fd = open(fn, O_RDONLY);
   ck_free(fn);
@@ -861,8 +861,8 @@ void find_timeout(void) {
   ret = atoi(off + 20);
   if (ret <= 4) return;
 
-  exec_tmout = ret;
-  timeout_given = 3;
+  afl->fsrv.exec_tmout = ret;
+  afl->timeout_given = 3;
 
 }
 
@@ -953,31 +953,31 @@ double get_runnable_processes(void) {
 
 /* Delete the temporary directory used for in-place session resume. */
 
-void nuke_resume_dir(void) {
+void nuke_resume_dir(afl_state_t *afl) {
 
   u8* fn;
 
-  fn = alloc_printf("%s/_resume/.state/deterministic_done", out_dir);
+  fn = alloc_printf("%s/_resume/.state/deterministic_done", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/_resume/.state/auto_extras", out_dir);
+  fn = alloc_printf("%s/_resume/.state/auto_extras", afl->out_dir);
   if (delete_files(fn, "auto_")) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/_resume/.state/redundant_edges", out_dir);
+  fn = alloc_printf("%s/_resume/.state/redundant_edges", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/_resume/.state/variable_behavior", out_dir);
+  fn = alloc_printf("%s/_resume/.state/variable_behavior", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/_resume/.state", out_dir);
+  fn = alloc_printf("%s/_resume/.state", afl->out_dir);
   if (rmdir(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/_resume", out_dir);
+  fn = alloc_printf("%s/_resume", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
@@ -993,30 +993,30 @@ dir_cleanup_failed:
    is not currently running, and if the last run time isn't too great.
    Resume fuzzing if `-` is set as in_dir or if AFL_AUTORESUME is set */
 
-static void handle_existing_out_dir(void) {
+static void handle_existing_out_dir(afl_state_t *afl) {
 
   FILE* f;
-  u8*   fn = alloc_printf("%s/fuzzer_stats", out_dir);
+  u8*   fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
 
   /* See if the output directory is locked. If yes, bail out. If not,
      create a lock that will persist for the lifetime of the process
      (this requires leaving the descriptor open).*/
 
-  out_dir_fd = open(out_dir, O_RDONLY);
-  if (out_dir_fd < 0) PFATAL("Unable to open '%s'", out_dir);
+  afl->fsrv.out_dir_fd = open(afl->out_dir, O_RDONLY);
+  if (afl->fsrv.out_dir_fd < 0) PFATAL("Unable to open '%s'", afl->out_dir);
 
 #ifndef __sun
 
-  if (flock(out_dir_fd, LOCK_EX | LOCK_NB) && errno == EWOULDBLOCK) {
+  if (flock(afl->fsrv.out_dir_fd, LOCK_EX | LOCK_NB) && errno == EWOULDBLOCK) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like the job output directory is being actively used by "
          "another\n"
          "    instance of afl-fuzz. You will need to choose a different %s\n"
          "    or stop the other process first.\n",
-         sync_id ? "fuzzer ID" : "output location");
+         afl->sync_id ? "fuzzer ID" : "output location");
 
-    FATAL("Directory '%s' is in use", out_dir);
+    FATAL("Directory '%s' is in use", afl->out_dir);
 
   }
 
@@ -1039,16 +1039,16 @@ static void handle_existing_out_dir(void) {
     /* Autoresume treats a normal run as in_place_resume if a valid out dir
      * already exists */
 
-    if (!in_place_resume && autoresume) {
+    if (!afl->in_place_resume && afl->autoresume) {
 
       OKF("Detected prior run with AFL_AUTORESUME set. Resuming.");
-      in_place_resume = 1;
+      afl->in_place_resume = 1;
 
     }
 
     /* Let's see how much work is at stake. */
 
-    if (!in_place_resume && last_update - start_time2 > OUTPUT_GRACE * 60) {
+    if (!afl->in_place_resume && last_update - start_time2 > OUTPUT_GRACE * 60) {
 
       SAYF("\n" cLRD "[-] " cRST
            "The job output directory already exists and contains the results "
@@ -1066,7 +1066,7 @@ static void handle_existing_out_dir(void) {
            "    try again.\n",
            OUTPUT_GRACE);
 
-      FATAL("At-risk data found in '%s'", out_dir);
+      FATAL("At-risk data found in '%s'", afl->out_dir);
 
     }
 
@@ -1080,13 +1080,13 @@ static void handle_existing_out_dir(void) {
      incomplete due to an earlier abort, so we want to use the old _resume/
      dir instead, and we let rename() fail silently. */
 
-  if (in_place_resume) {
+  if (afl->in_place_resume) {
 
-    u8* orig_q = alloc_printf("%s/queue", out_dir);
+    u8* orig_q = alloc_printf("%s/queue", afl->out_dir);
 
-    in_dir = alloc_printf("%s/_resume", out_dir);
+    afl->in_dir = alloc_printf("%s/_resume", afl->out_dir);
 
-    rename(orig_q, in_dir);                                /* Ignore errors */
+    rename(orig_q, afl->in_dir);                                /* Ignore errors */
 
     OKF("Output directory exists, will attempt session resume.");
 
@@ -1101,61 +1101,61 @@ static void handle_existing_out_dir(void) {
   ACTF("Deleting old session data...");
 
   /* Okay, let's get the ball rolling! First, we need to get rid of the entries
-     in <out_dir>/.synced/.../id:*, if any are present. */
+     in <afl->out_dir>/.synced/.../id:*, if any are present. */
 
-  if (!in_place_resume) {
+  if (!afl->in_place_resume) {
 
-    fn = alloc_printf("%s/.synced", out_dir);
+    fn = alloc_printf("%s/.synced", afl->out_dir);
     if (delete_files(fn, NULL)) goto dir_cleanup_failed;
     ck_free(fn);
 
   }
 
-  /* Next, we need to clean up <out_dir>/queue/.state/ subdirectories: */
+  /* Next, we need to clean up <afl->out_dir>/queue/.state/ subdirectories: */
 
-  fn = alloc_printf("%s/queue/.state/deterministic_done", out_dir);
+  fn = alloc_printf("%s/queue/.state/deterministic_done", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/queue/.state/auto_extras", out_dir);
+  fn = alloc_printf("%s/queue/.state/auto_extras", afl->out_dir);
   if (delete_files(fn, "auto_")) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/queue/.state/redundant_edges", out_dir);
+  fn = alloc_printf("%s/queue/.state/redundant_edges", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/queue/.state/variable_behavior", out_dir);
+  fn = alloc_printf("%s/queue/.state/variable_behavior", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
   /* Then, get rid of the .state subdirectory itself (should be empty by now)
-     and everything matching <out_dir>/queue/id:*. */
+     and everything matching <afl->out_dir>/queue/id:*. */
 
-  fn = alloc_printf("%s/queue/.state", out_dir);
+  fn = alloc_printf("%s/queue/.state", afl->out_dir);
   if (rmdir(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/queue", out_dir);
+  fn = alloc_printf("%s/queue", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  /* All right, let's do <out_dir>/crashes/id:* and <out_dir>/hangs/id:*. */
+  /* All right, let's do <afl->out_dir>/crashes/id:* and <afl->out_dir>/hangs/id:*. */
 
-  if (!in_place_resume) {
+  if (!afl->in_place_resume) {
 
-    fn = alloc_printf("%s/crashes/README.txt", out_dir);
+    fn = alloc_printf("%s/crashes/README.txt", afl->out_dir);
     unlink(fn);                                            /* Ignore errors */
     ck_free(fn);
 
   }
 
-  fn = alloc_printf("%s/crashes", out_dir);
+  fn = alloc_printf("%s/crashes", afl->out_dir);
 
   /* Make backup of the crashes directory if it's not empty and if we're
      doing in-place resume. */
 
-  if (in_place_resume && rmdir(fn)) {
+  if (afl->in_place_resume && rmdir(fn)) {
 
     time_t     cur_t = time(0);
     struct tm* t = localtime(&cur_t);
@@ -1182,11 +1182,11 @@ static void handle_existing_out_dir(void) {
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/hangs", out_dir);
+  fn = alloc_printf("%s/hangs", afl->out_dir);
 
   /* Backup hangs, too. */
 
-  if (in_place_resume && rmdir(fn)) {
+  if (afl->in_place_resume && rmdir(fn)) {
 
     time_t     cur_t = time(0);
     struct tm* t = localtime(&cur_t);
@@ -1215,36 +1215,36 @@ static void handle_existing_out_dir(void) {
 
   /* And now, for some finishing touches. */
 
-  if (file_extension) {
+  if (afl->file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", tmp_dir, file_extension);
+    fn = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", tmp_dir);
+    fn = alloc_printf("%s/.cur_input", afl->tmp_dir);
 
   }
 
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/fuzz_bitmap", out_dir);
+  fn = alloc_printf("%s/fuzz_bitmap", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
-  if (!in_place_resume) {
+  if (!afl->in_place_resume) {
 
-    fn = alloc_printf("%s/fuzzer_stats", out_dir);
+    fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
     if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
     ck_free(fn);
 
   }
 
-  fn = alloc_printf("%s/plot_data", out_dir);
+  fn = alloc_printf("%s/plot_data", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
-  fn = alloc_printf("%s/cmdline", out_dir);
+  fn = alloc_printf("%s/cmdline", afl->out_dir);
   if (unlink(fn) && errno != ENOENT) goto dir_cleanup_failed;
   ck_free(fn);
 
@@ -1275,32 +1275,32 @@ dir_cleanup_failed:
 
 /* Prepare output directories and fds. */
 
-void setup_dirs_fds(void) {
+void setup_dirs_fds(afl_state_t *afl) {
 
   u8* tmp;
   s32 fd;
 
   ACTF("Setting up output directories...");
 
-  if (sync_id && mkdir(sync_dir, 0700) && errno != EEXIST)
-    PFATAL("Unable to create '%s'", sync_dir);
+  if (afl->sync_id && mkdir(afl->sync_dir, 0700) && errno != EEXIST)
+    PFATAL("Unable to create '%s'", afl->sync_dir);
 
-  if (mkdir(out_dir, 0700)) {
+  if (mkdir(afl->out_dir, 0700)) {
 
-    if (errno != EEXIST) PFATAL("Unable to create '%s'", out_dir);
+    if (errno != EEXIST) PFATAL("Unable to create '%s'", afl->out_dir);
 
-    handle_existing_out_dir();
+    handle_existing_out_dir(afl);
 
   } else {
 
-    if (in_place_resume)
+    if (afl->in_place_resume)
       FATAL("Resume attempted but old output directory not found");
 
-    out_dir_fd = open(out_dir, O_RDONLY);
+    afl->fsrv.out_dir_fd = open(afl->out_dir, O_RDONLY);
 
 #ifndef __sun
 
-    if (out_dir_fd < 0 || flock(out_dir_fd, LOCK_EX | LOCK_NB))
+    if (afl->fsrv.out_dir_fd < 0 || flock(afl->fsrv.out_dir_fd, LOCK_EX | LOCK_NB))
       PFATAL("Unable to flock() output directory.");
 
 #endif                                                            /* !__sun */
@@ -1309,49 +1309,49 @@ void setup_dirs_fds(void) {
 
   /* Queue directory for any starting & discovered paths. */
 
-  tmp = alloc_printf("%s/queue", out_dir);
+  tmp = alloc_printf("%s/queue", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* Top-level directory for queue metadata used for session
      resume and related tasks. */
 
-  tmp = alloc_printf("%s/queue/.state/", out_dir);
+  tmp = alloc_printf("%s/queue/.state/", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* Directory for flagging queue entries that went through
      deterministic fuzzing in the past. */
 
-  tmp = alloc_printf("%s/queue/.state/deterministic_done/", out_dir);
+  tmp = alloc_printf("%s/queue/.state/deterministic_done/", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* Directory with the auto-selected dictionary entries. */
 
-  tmp = alloc_printf("%s/queue/.state/auto_extras/", out_dir);
+  tmp = alloc_printf("%s/queue/.state/auto_extras/", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* The set of paths currently deemed redundant. */
 
-  tmp = alloc_printf("%s/queue/.state/redundant_edges/", out_dir);
+  tmp = alloc_printf("%s/queue/.state/redundant_edges/", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* The set of paths showing variable behavior. */
 
-  tmp = alloc_printf("%s/queue/.state/variable_behavior/", out_dir);
+  tmp = alloc_printf("%s/queue/.state/variable_behavior/", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* Sync directory for keeping track of cooperating fuzzers. */
 
-  if (sync_id) {
+  if (afl->sync_id) {
 
-    tmp = alloc_printf("%s/.synced/", out_dir);
+    tmp = alloc_printf("%s/.synced/", afl->out_dir);
 
-    if (mkdir(tmp, 0700) && (!in_place_resume || errno != EEXIST))
+    if (mkdir(tmp, 0700) && (!afl->in_place_resume || errno != EEXIST))
       PFATAL("Unable to create '%s'", tmp);
 
     ck_free(tmp);
@@ -1360,37 +1360,37 @@ void setup_dirs_fds(void) {
 
   /* All recorded crashes. */
 
-  tmp = alloc_printf("%s/crashes", out_dir);
+  tmp = alloc_printf("%s/crashes", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* All recorded hangs. */
 
-  tmp = alloc_printf("%s/hangs", out_dir);
+  tmp = alloc_printf("%s/hangs", afl->out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
   /* Generally useful file descriptors. */
 
-  dev_null_fd = open("/dev/null", O_RDWR);
-  if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+  afl->fsrv.dev_null_fd = open("/dev/null", O_RDWR);
+  if (afl->fsrv.dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
 #ifndef HAVE_ARC4RANDOM
-  dev_urandom_fd = open("/dev/urandom", O_RDONLY);
-  if (dev_urandom_fd < 0) PFATAL("Unable to open /dev/urandom");
+  afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+  if (afl->fsrv.dev_urandom_fd < 0) PFATAL("Unable to open /dev/urandom");
 #endif
 
   /* Gnuplot output file. */
 
-  tmp = alloc_printf("%s/plot_data", out_dir);
+  tmp = alloc_printf("%s/plot_data", afl->out_dir);
   fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
   if (fd < 0) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
-  plot_file = fdopen(fd, "w");
-  if (!plot_file) PFATAL("fdopen() failed");
+  afl->fsrv.plot_file = fdopen(fd, "w");
+  if (!afl->fsrv.plot_file) PFATAL("fdopen() failed");
 
-  fprintf(plot_file,
+  fprintf(afl->fsrv.plot_file,
           "# unix_time, cycles_done, cur_path, paths_total, "
           "pending_total, pending_favs, map_size, unique_crashes, "
           "unique_hangs, max_depth, execs_per_sec\n");
@@ -1398,7 +1398,7 @@ void setup_dirs_fds(void) {
 
 }
 
-void setup_cmdline_file(char** argv) {
+void setup_cmdline_file(afl_state_t *afl, char **argv) {
 
   u8* tmp;
   s32 fd;
@@ -1407,7 +1407,7 @@ void setup_cmdline_file(char** argv) {
   FILE* cmdline_file = NULL;
 
   /* Store the command line to reproduce our findings */
-  tmp = alloc_printf("%s/cmdline", out_dir);
+  tmp = alloc_printf("%s/cmdline", afl->out_dir);
   fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
   if (fd < 0) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
@@ -1428,24 +1428,24 @@ void setup_cmdline_file(char** argv) {
 
 /* Setup the output file for fuzzed data, if not using -f. */
 
-void setup_stdio_file(void) {
+void setup_stdio_file(afl_state_t *afl) {
 
   u8* fn;
-  if (file_extension) {
+  if (afl->file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", tmp_dir, file_extension);
+    fn = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", tmp_dir);
+    fn = alloc_printf("%s/.cur_input", afl->tmp_dir);
 
   }
 
   unlink(fn);                                              /* Ignore errors */
 
-  out_fd = open(fn, O_RDWR | O_CREAT | O_EXCL, 0600);
+  afl->fsrv.out_fd = open(fn, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (out_fd < 0) PFATAL("Unable to create '%s'", fn);
+  if (afl->fsrv.out_fd < 0) PFATAL("Unable to create '%s'", fn);
 
   ck_free(fn);
 
@@ -1527,7 +1527,7 @@ void check_crash_handling(void) {
 
 /* Check CPU governor. */
 
-void check_cpu_governor(void) {
+void check_cpu_governor(afl_state_t *afl) {
 
 #ifdef __linux__
   FILE* f;
@@ -1536,8 +1536,8 @@ void check_cpu_governor(void) {
 
   if (get_afl_env("AFL_SKIP_CPUFREQ")) return;
 
-  if (cpu_aff > 0)
-    snprintf(tmp, sizeof(tmp), "%s%d%s", "/sys/devices/system/cpu/cpu", cpu_aff,
+  if (afl->cpu_aff > 0)
+    snprintf(tmp, sizeof(tmp), "%s%d%s", "/sys/devices/system/cpu/cpu", afl->cpu_aff,
              "/cpufreq/scaling_governor");
   else
     snprintf(tmp, sizeof(tmp), "%s",
@@ -1545,9 +1545,9 @@ void check_cpu_governor(void) {
   f = fopen("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", "r");
   if (!f) {
 
-    if (cpu_aff > 0)
+    if (afl->cpu_aff > 0)
       snprintf(tmp, sizeof(tmp), "%s%d%s",
-               "/sys/devices/system/cpu/cpufreq/policy", cpu_aff,
+               "/sys/devices/system/cpu/cpufreq/policy", afl->cpu_aff,
                "/scaling_governor");
     else
       snprintf(tmp, sizeof(tmp), "%s",
@@ -1650,24 +1650,24 @@ void check_cpu_governor(void) {
 
 /* Count the number of logical CPU cores. */
 
-void get_core_count(void) {
+void get_core_count(afl_state_t *afl) {
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__DragonFly__)
 
-  size_t s = sizeof(cpu_core_count);
+  size_t s = sizeof(afl->cpu_core_count);
 
   /* On *BSD systems, we can just use a sysctl to get the number of CPUs. */
 
 #ifdef __APPLE__
 
-  if (sysctlbyname("hw.logicalcpu", &cpu_core_count, &s, NULL, 0) < 0) return;
+  if (sysctlbyname("hw.logicalcpu", &afl->cpu_core_count, &s, NULL, 0) < 0) return;
 
 #else
 
   int s_name[2] = {CTL_HW, HW_NCPU};
 
-  if (sysctl(s_name, 2, &cpu_core_count, &s, NULL, 0) < 0) return;
+  if (sysctl(s_name, 2, &afl->cpu_core_count, &s, NULL, 0) < 0) return;
 
 #endif                                                        /* ^__APPLE__ */
 
@@ -1675,7 +1675,7 @@ void get_core_count(void) {
 
 #ifdef HAVE_AFFINITY
 
-  cpu_core_count = sysconf(_SC_NPROCESSORS_ONLN);
+  afl->cpu_core_count = sysconf(_SC_NPROCESSORS_ONLN);
 
 #else
 
@@ -1685,7 +1685,7 @@ void get_core_count(void) {
   if (!f) return;
 
   while (fgets(tmp, sizeof(tmp), f))
-    if (!strncmp(tmp, "cpu", 3) && isdigit(tmp[3])) ++cpu_core_count;
+    if (!strncmp(tmp, "cpu", 3) && isdigit(tmp[3])) ++afl->cpu_core_count;
 
   fclose(f);
 
@@ -1693,7 +1693,7 @@ void get_core_count(void) {
 
 #endif                        /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__) */
 
-  if (cpu_core_count > 0) {
+  if (afl->cpu_core_count > 0) {
 
     u32 cur_runnable = 0;
 
@@ -1709,16 +1709,16 @@ void get_core_count(void) {
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
     OKF("You have %d CPU core%s and %u runnable tasks (utilization: %0.0f%%).",
-        cpu_core_count, cpu_core_count > 1 ? "s" : "", cur_runnable,
-        cur_runnable * 100.0 / cpu_core_count);
+        afl->cpu_core_count, afl->cpu_core_count > 1 ? "s" : "", cur_runnable,
+        cur_runnable * 100.0 / afl->cpu_core_count);
 
-    if (cpu_core_count > 1) {
+    if (afl->cpu_core_count > 1) {
 
-      if (cur_runnable > cpu_core_count * 1.5) {
+      if (cur_runnable > afl->cpu_core_count * 1.5) {
 
         WARNF("System under apparent load, performance may be spotty.");
 
-      } else if (cur_runnable + 1 <= cpu_core_count) {
+      } else if (cur_runnable + 1 <= afl->cpu_core_count) {
 
         OKF("Try parallel jobs - see %s/parallel_fuzzing.md.", doc_path);
 
@@ -1728,24 +1728,24 @@ void get_core_count(void) {
 
   } else {
 
-    cpu_core_count = 0;
+    afl->cpu_core_count = 0;
     WARNF("Unable to figure out the number of CPU cores.");
 
   }
 
 }
 
-/* Validate and fix up out_dir and sync_dir when using -S. */
+/* Validate and fix up afl->out_dir and sync_dir when using -S. */
 
-void fix_up_sync(void) {
+void fix_up_sync(afl_state_t *afl) {
 
-  u8* x = sync_id;
+  u8* x = afl->sync_id;
 
-  if (dumb_mode) FATAL("-S / -M and -n are mutually exclusive");
+  if (afl->dumb_mode) FATAL("-S / -M and -n are mutually exclusive");
 
-  if (skip_deterministic) {
+  if (afl->skip_deterministic) {
 
-    if (force_deterministic) FATAL("use -S instead of -M -d");
+    if (afl->force_deterministic) FATAL("use -S instead of -M -d");
     // else
     //  FATAL("-S already implies -d");
 
@@ -1760,17 +1760,17 @@ void fix_up_sync(void) {
 
   }
 
-  if (strlen(sync_id) > 32) FATAL("Fuzzer ID too long");
+  if (strlen(afl->sync_id) > 32) FATAL("Fuzzer ID too long");
 
-  x = alloc_printf("%s/%s", out_dir, sync_id);
+  x = alloc_printf("%s/%s", afl->out_dir, afl->sync_id);
 
-  sync_dir = out_dir;
-  out_dir = x;
+  afl->sync_dir = afl->out_dir;
+  afl->out_dir = x;
 
-  if (!force_deterministic) {
+  if (!afl->force_deterministic) {
 
-    skip_deterministic = 1;
-    use_splicing = 1;
+    afl->skip_deterministic = 1;
+    afl->use_splicing = 1;
 
   }
 
@@ -1780,7 +1780,7 @@ void fix_up_sync(void) {
 
 static void handle_resize(int sig) {
 
-  clear_screen = 1;
+  LIST_FOREACH(&afl_states, afl_state_t, { el->clear_screen; });
 
 }
 
@@ -1819,12 +1819,16 @@ void check_asan_opts(void) {
 
 static void handle_stop_sig(int sig) {
 
-  stop_soon = 1;
+  LIST_FOREACH(&afl_states, afl_state_t, {
 
-  if (child_pid > 0) kill(child_pid, SIGKILL);
-  if (forksrv_pid > 0) kill(forksrv_pid, SIGKILL);
-  if (cmplog_child_pid > 0) kill(cmplog_child_pid, SIGKILL);
-  if (cmplog_forksrv_pid > 0) kill(cmplog_forksrv_pid, SIGKILL);
+    el->stop_soon = 1;
+
+    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, SIGKILL);
+    if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, SIGKILL);
+    if (el->cmplog_child_pid > 0) kill(el->cmplog_child_pid, SIGKILL);
+    if (el->cmplog_fsrv_pid > 0) kill(el->cmplog_fsrv_pid, SIGKILL);
+
+  });
 
 }
 
@@ -1832,7 +1836,7 @@ static void handle_stop_sig(int sig) {
 
 static void handle_skipreq(int sig) {
 
-  skip_requested = 1;
+  LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
 
 }
 
@@ -1840,7 +1844,7 @@ static void handle_skipreq(int sig) {
    isn't a shell script - a common and painful mistake. We also check for
    a valid ELF header and for evidence of AFL instrumentation. */
 
-void check_binary(u8* fname) {
+void check_binary(afl_state_t *afl, u8* fname) {
 
   u8*         env_path = 0;
   struct stat st;
@@ -1853,8 +1857,8 @@ void check_binary(u8* fname) {
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
-    target_path = ck_strdup(fname);
-    if (stat(target_path, &st) || !S_ISREG(st.st_mode) ||
+    afl->fsrv.target_path = ck_strdup(fname);
+    if (stat(afl->fsrv.target_path, &st) || !S_ISREG(st.st_mode) ||
         !(st.st_mode & 0111) || (f_len = st.st_size) < 4)
       FATAL("Program '%s' not found or not executable", fname);
 
@@ -1877,40 +1881,40 @@ void check_binary(u8* fname) {
       env_path = delim;
 
       if (cur_elem[0])
-        target_path = alloc_printf("%s/%s", cur_elem, fname);
+        afl->fsrv.target_path = alloc_printf("%s/%s", cur_elem, fname);
       else
-        target_path = ck_strdup(fname);
+        afl->fsrv.target_path = ck_strdup(fname);
 
       ck_free(cur_elem);
 
-      if (!stat(target_path, &st) && S_ISREG(st.st_mode) &&
+      if (!stat(afl->fsrv.target_path, &st) && S_ISREG(st.st_mode) &&
           (st.st_mode & 0111) && (f_len = st.st_size) >= 4)
         break;
 
-      ck_free(target_path);
-      target_path = 0;
+      ck_free(afl->fsrv.target_path);
+      afl->fsrv.target_path = 0;
 
     }
 
-    if (!target_path) FATAL("Program '%s' not found or not executable", fname);
+    if (!afl->fsrv.target_path) FATAL("Program '%s' not found or not executable", fname);
 
   }
 
-  if (get_afl_env("AFL_SKIP_BIN_CHECK") || use_wine) return;
+  if (get_afl_env("AFL_SKIP_BIN_CHECK") || afl->use_wine) return;
 
   /* Check for blatant user errors. */
 
-  if ((!strncmp(target_path, "/tmp/", 5) && !strchr(target_path + 5, '/')) ||
-      (!strncmp(target_path, "/var/tmp/", 9) && !strchr(target_path + 9, '/')))
+  if ((!strncmp(afl->fsrv.target_path, "/tmp/", 5) && !strchr(afl->fsrv.target_path + 5, '/')) ||
+      (!strncmp(afl->fsrv.target_path, "/var/tmp/", 9) && !strchr(afl->fsrv.target_path + 9, '/')))
     FATAL("Please don't keep binaries in /tmp or /var/tmp");
 
-  fd = open(target_path, O_RDONLY);
+  fd = open(afl->fsrv.target_path, O_RDONLY);
 
-  if (fd < 0) PFATAL("Unable to open '%s'", target_path);
+  if (fd < 0) PFATAL("Unable to open '%s'", afl->fsrv.target_path);
 
   f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
 
-  if (f_data == MAP_FAILED) PFATAL("Unable to mmap file '%s'", target_path);
+  if (f_data == MAP_FAILED) PFATAL("Unable to mmap file '%s'", afl->fsrv.target_path);
 
   close(fd);
 
@@ -1932,14 +1936,14 @@ void check_binary(u8* fname) {
          "the wrapper\n"
          "    in a compiled language instead.\n");
 
-    FATAL("Program '%s' is a shell script", target_path);
+    FATAL("Program '%s' is a shell script", afl->fsrv.target_path);
 
   }
 
 #ifndef __APPLE__
 
   if (f_data[0] != 0x7f || memcmp(f_data + 1, "ELF", 3))
-    FATAL("Program '%s' is not an ELF binary", target_path);
+    FATAL("Program '%s' is not an ELF binary", afl->fsrv.target_path);
 
 #else
 
@@ -1947,12 +1951,12 @@ void check_binary(u8* fname) {
   if ((f_data[0] != 0xCF || f_data[1] != 0xFA || f_data[2] != 0xED) &&
       (f_data[0] != 0xCA || f_data[1] != 0xFE || f_data[2] != 0xBA))
     FATAL("Program '%s' is not a 64-bit or universal Mach-O binary",
-          target_path);
+          afl->fsrv.target_path);
 #endif
 
 #endif                                                       /* ^!__APPLE__ */
 
-  if (!qemu_mode && !unicorn_mode && !dumb_mode &&
+  if (!afl->qemu_mode && !afl->unicorn_mode && !afl->dumb_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -1979,7 +1983,7 @@ void check_binary(u8* fname) {
 
   }
 
-  if ((qemu_mode) &&
+  if ((afl->qemu_mode) &&
       memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -1995,7 +1999,7 @@ void check_binary(u8* fname) {
 
   if (memmem(f_data, f_len, "libasan.so", 10) ||
       memmem(f_data, f_len, "__msan_init", 11))
-    uses_asan = 1;
+    afl->fsrv.uses_asan = 1;
 
   /* Detect persistent & deferred init signatures in the binary. */
 
@@ -2003,7 +2007,7 @@ void check_binary(u8* fname) {
 
     OKF(cPIN "Persistent mode binary detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
-    persistent_mode = 1;
+    afl->persistent_mode = 1;
 
   } else if (getenv("AFL_PERSISTENT")) {
 
@@ -2015,7 +2019,7 @@ void check_binary(u8* fname) {
 
     OKF(cPIN "Deferred forkserver binary detected.");
     setenv(DEFER_ENV_VAR, "1", 1);
-    deferred_mode = 1;
+    afl->deferred_mode = 1;
 
   } else if (getenv("AFL_DEFER_FORKSRV")) {
 
@@ -2029,31 +2033,31 @@ void check_binary(u8* fname) {
 
 /* Trim and possibly create a banner for the run. */
 
-void fix_up_banner(u8* name) {
+void fix_up_banner(afl_state_t *afl, u8* name) {
 
-  if (!use_banner) {
+  if (!afl->use_banner) {
 
-    if (sync_id) {
+    if (afl->sync_id) {
 
-      use_banner = sync_id;
+      afl->use_banner = afl->sync_id;
 
     } else {
 
       u8* trim = strrchr(name, '/');
       if (!trim)
-        use_banner = name;
+        afl->use_banner = name;
       else
-        use_banner = trim + 1;
+        afl->use_banner = trim + 1;
 
     }
 
   }
 
-  if (strlen(use_banner) > 32) {
+  if (strlen(afl->use_banner) > 32) {
 
     u8* tmp = ck_alloc(36);
-    sprintf(tmp, "%.32s...", use_banner);
-    use_banner = tmp;
+    sprintf(tmp, "%.32s...", afl->use_banner);
+    afl->use_banner = tmp;
 
   }
 
@@ -2061,14 +2065,14 @@ void fix_up_banner(u8* name) {
 
 /* Check if we're on TTY. */
 
-void check_if_tty(void) {
+void check_if_tty(afl_state_t *afl) {
 
   struct winsize ws;
 
   if (get_afl_env("AFL_NO_UI")) {
 
     OKF("Disabling the UI because AFL_NO_UI is set.");
-    not_on_tty = 1;
+    afl->not_on_tty = 1;
     return;
 
   }
@@ -2079,7 +2083,7 @@ void check_if_tty(void) {
 
       OKF("Looks like we're not running on a tty, so I'll be a bit less "
           "verbose.");
-      not_on_tty = 1;
+      afl->not_on_tty = 1;
 
     }
 
@@ -2135,7 +2139,7 @@ void setup_signal_handlers(void) {
 
 /* Make a copy of the current command line. */
 
-void save_cmdline(u32 argc, char** argv) {
+void save_cmdline(afl_state_t *afl, u32 argc, char **argv) {
 
   u32 len = 1, i;
   u8* buf;
@@ -2143,7 +2147,7 @@ void save_cmdline(u32 argc, char** argv) {
   for (i = 0; i < argc; ++i)
     len += strlen(argv[i]) + 1;
 
-  buf = orig_cmdline = ck_alloc(len);
+  buf = afl->orig_cmdline = ck_alloc(len);
 
   for (i = 0; i < argc; ++i) {
 

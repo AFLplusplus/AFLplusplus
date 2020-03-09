@@ -36,9 +36,11 @@
 #include "hash.h"
 #include "sharedmem.h"
 #include "cmplog.h"
+#include "list.h"
 
 #include <stdio.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -59,114 +61,116 @@
 #include <sys/shm.h>
 #endif
 
-extern unsigned char *trace_bits;
+list_t shm_list = {0};
+
+/* Get rid of shared memory. */
+
+void afl_shm_deinit(sharedmem_t *shm) {
+
+  list_remove(&shm_list, shm);
 
 #ifdef USEMMAP
-/* ================ Proteas ================ */
-int            g_shm_fd = -1;
-unsigned char *g_shm_base = NULL;
-char           g_shm_file_path[L_tmpnam];
-/* ========================================= */
-#else
-static s32 shm_id;                     /* ID of the SHM region              */
-static s32 cmplog_shm_id;
-#endif
+  if (shm->map != NULL) {
 
-int             cmplog_mode;
-struct cmp_map *cmp_map;
-
-/* Get rid of shared memory (atexit handler). */
-
-void remove_shm(void) {
-
-#ifdef USEMMAP
-  if (g_shm_base != NULL) {
-
-    munmap(g_shm_base, MAP_SIZE);
-    g_shm_base = NULL;
+    munmap(shm->map, shm->size_alloc);
+    shm->map = NULL;
 
   }
 
-  if (g_shm_fd != -1) {
+  if (shm->g_shm_fd != -1) {
 
-    close(g_shm_fd);
-    g_shm_fd = -1;
+    close(shm->g_shm_fd);
+    shm->g_shm_fd = -1;
 
   }
 
 #else
-  shmctl(shm_id, IPC_RMID, NULL);
-  if (cmplog_mode) shmctl(cmplog_shm_id, IPC_RMID, NULL);
+  shmctl(shm->shm_id, IPC_RMID, NULL);
+  if (shm->cmplog_mode) shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);
 #endif
+
+  shm->map = NULL;
 
 }
 
-/* Configure shared memory. */
+/* At exit, remove all leftover maps */
 
-void setup_shm(unsigned char dumb_mode) {
+void afl_shm_atexit() {
+
+  LIST_FOREACH(&shm_list, sharedmem_t, { afl_shm_deinit(el); });
+
+}
+
+/* Configure shared memory. 
+   Returns a pointer to shm->map for ease of use.
+*/
+
+u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
+
+  shm->size_alloc = shm->size_used = map_size;
+
+  shm->map = NULL;
 
 #ifdef USEMMAP
-  /* generate random file name for multi instance */
 
-  /* thanks to f*cking glibc we can not use tmpnam securely, it generates a
-   * security warning that cannot be suppressed */
-  /* so we do this worse workaround */
-  snprintf(g_shm_file_path, L_tmpnam, "/afl_%d_%ld", getpid(), random());
+  shm->g_shm_fd = -1;
+
+  /* ======
+  generate random file name for multi instance
+
+  thanks to f*cking glibc we can not use tmpnam securely, it generates a
+  security warning that cannot be suppressed
+  so we do this worse workaround */
+  snprintf(shm->g_shm_file_path, L_tmpnam, "/afl_%d_%ld", getpid(), random());
 
   /* create the shared memory segment as if it was a file */
-  g_shm_fd = shm_open(g_shm_file_path, O_CREAT | O_RDWR | O_EXCL, 0600);
-  if (g_shm_fd == -1) { PFATAL("shm_open() failed"); }
+  shm->g_shm_fd = shm_open(shm->g_shm_file_path, O_CREAT | O_RDWR | O_EXCL, 0600);
+  if (shm->g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
   /* configure the size of the shared memory segment */
-  if (ftruncate(g_shm_fd, MAP_SIZE)) {
+  if (ftruncate(shm->g_shm_fd, map_size)) {
 
     PFATAL("setup_shm(): ftruncate() failed");
 
   }
 
   /* map the shared memory segment to the address space of the process */
-  g_shm_base =
-      mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, g_shm_fd, 0);
-  if (g_shm_base == MAP_FAILED) {
+  shm->map =
+      mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, map_size->g_shm_fd, 0);
+  if (map_size->map == MAP_FAILED) {
 
-    close(g_shm_fd);
-    g_shm_fd = -1;
+    close(map_size->g_shm_fd);
+    map_size->g_shm_fd = -1;
     PFATAL("mmap() failed");
 
   }
-
-  atexit(remove_shm);
 
   /* If somebody is asking us to fuzz instrumented binaries in dumb mode,
      we don't want them to detect instrumentation, since we won't be sending
      fork server commands. This should be replaced with better auto-detection
      later on, perhaps? */
 
-  if (!dumb_mode) setenv(SHM_ENV_VAR, g_shm_file_path, 1);
+  if (!dumb_mode) setenv(SHM_ENV_VAR, shm->g_shm_file_path, 1);
 
-  trace_bits = g_shm_base;
-
-  if (trace_bits == -1 || !trace_bits) PFATAL("mmap() failed");
+  if (shm->map == -1 || !shm->map) PFATAL("mmap() failed");
 
 #else
   u8 *shm_str;
 
-  shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+  shm->shm_id = shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | 0600);
 
-  if (shm_id < 0) PFATAL("shmget() failed");
+  if (shm->shm_id < 0) PFATAL("shmget() failed");
 
-  if (cmplog_mode) {
+  if (shm->cmplog_mode) {
 
-    cmplog_shm_id = shmget(IPC_PRIVATE, sizeof(struct cmp_map),
+    shm->cmplog_shm_id = shmget(IPC_PRIVATE, sizeof(struct cmp_map),
                            IPC_CREAT | IPC_EXCL | 0600);
 
-    if (cmplog_shm_id < 0) PFATAL("shmget() failed");
+    if (shm->cmplog_shm_id < 0) PFATAL("shmget() failed");
 
   }
 
-  atexit(remove_shm);
-
-  shm_str = alloc_printf("%d", shm_id);
+  shm_str = alloc_printf("%d", shm->shm_id);
 
   /* If somebody is asking us to fuzz instrumented binaries in dumb mode,
      we don't want them to detect instrumentation, since we won't be sending
@@ -177,9 +181,9 @@ void setup_shm(unsigned char dumb_mode) {
 
   ck_free(shm_str);
 
-  if (cmplog_mode) {
+  if (shm->cmplog_mode) {
 
-    shm_str = alloc_printf("%d", cmplog_shm_id);
+    shm_str = alloc_printf("%d", shm->cmplog_shm_id);
 
     if (!dumb_mode) setenv(CMPLOG_SHM_ENV_VAR, shm_str, 1);
 
@@ -187,19 +191,24 @@ void setup_shm(unsigned char dumb_mode) {
 
   }
 
-  trace_bits = shmat(shm_id, NULL, 0);
+  shm->map = shmat(shm->shm_id, NULL, 0);
 
-  if (trace_bits == (void *)-1 || !trace_bits) PFATAL("shmat() failed");
+  if (shm->map == (void *)-1 || !shm->map) PFATAL("shmat() failed");
 
-  if (cmplog_mode) {
+  if (shm->cmplog_mode) {
 
-    cmp_map = shmat(cmplog_shm_id, NULL, 0);
+    shm->cmp_map = shmat(shm->cmplog_shm_id, NULL, 0);
 
-    if (cmp_map == (void *)-1 || !cmp_map) PFATAL("shmat() failed");
+    if (shm->cmp_map == (void *)-1 || !shm->cmp_map) PFATAL("shmat() failed");
 
   }
 
+
 #endif
 
-}
+  list_append(&shm_list, shm);
+  atexit(afl_shm_atexit);
 
+  return shm->map;
+
+}

@@ -36,11 +36,9 @@
 #include <unistd.h>
 #endif
 
-u8*       target_path;                  /* Path to target binary            */
-extern u8 use_stdin;
 extern u8 be_quiet;
 
-void detect_file_args(char** argv, u8* prog_in) {
+void detect_file_args(char **argv, u8 *prog_in, u8 use_stdin) {
 
   u32 i = 0;
 #ifdef __GLIBC__
@@ -63,6 +61,8 @@ void detect_file_args(char** argv, u8* prog_in) {
 #endif
 
   if (!cwd) PFATAL("getcwd() failed");
+
+  // TODO: free allocs below... somewhere.
 
   while (argv[i]) {
 
@@ -87,6 +87,8 @@ void detect_file_args(char** argv, u8* prog_in) {
 
         /* Construct a replacement argv value. */
 
+        // TODO: n_arg is never freed
+
         *aa_loc = 0;
         n_arg = alloc_printf("%s%s%s", argv[i], aa_subst, aa_loc + 2);
         argv[i] = n_arg;
@@ -108,14 +110,14 @@ void detect_file_args(char** argv, u8* prog_in) {
 
 /* Rewrite argv for QEMU. */
 
-char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
+char** get_qemu_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv) {
 
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 4));
   u8 *   tmp, *cp = NULL, *rsl, *own_copy;
 
   memcpy(new_argv + 3, argv + 1, (int)(sizeof(char*)) * argc);
 
-  new_argv[2] = target_path;
+  new_argv[2] = *target_path_p;
   new_argv[1] = "--";
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
@@ -128,7 +130,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
     if (access(cp, X_OK)) FATAL("Unable to find '%s'", tmp);
 
-    target_path = new_argv[0] = cp;
+    *target_path_p = new_argv[0] = cp;
     return new_argv;
 
   }
@@ -145,7 +147,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
     if (!access(cp, X_OK)) {
 
-      target_path = new_argv[0] = cp;
+      *target_path_p = new_argv[0] = cp;
       return new_argv;
 
     }
@@ -156,8 +158,9 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
   if (!access(BIN_PATH "/afl-qemu-trace", X_OK)) {
 
-    if (cp != NULL) ck_free(cp);
-    target_path = new_argv[0] = ck_strdup(BIN_PATH "/afl-qemu-trace");
+    if (cp) ck_free(cp);
+    *target_path_p = new_argv[0] = ck_strdup(BIN_PATH "/afl-qemu-trace");
+
     return new_argv;
 
   }
@@ -165,7 +168,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
   SAYF("\n" cLRD "[-] " cRST
        "Oops, unable to find the 'afl-qemu-trace' binary. The binary must be "
        "built\n"
-       "    separately by following the instructions in qemu_mode/README.md. "
+       "    separately by following the instructions in afl->qemu_mode/README.md. "
        "If you\n"
        "    already have the binary installed, you may need to specify "
        "AFL_PATH in the\n"
@@ -184,14 +187,14 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
 /* Rewrite argv for Wine+QEMU. */
 
-char** get_wine_argv(u8* own_loc, char** argv, int argc) {
+char** get_wine_argv(u8* own_loc, u8 **target_path_p, int argc, char **argv) {
 
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 3));
   u8 *   tmp, *cp = NULL, *rsl, *own_copy;
 
   memcpy(new_argv + 2, argv + 1, (int)(sizeof(char*)) * argc);
 
-  new_argv[1] = target_path;
+  new_argv[1] = *target_path_p;
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
 
@@ -209,7 +212,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
 
     if (access(cp, X_OK)) FATAL("Unable to find '%s'", tmp);
 
-    target_path = new_argv[0] = cp;
+    *target_path_p = new_argv[0] = cp;
     return new_argv;
 
   }
@@ -232,7 +235,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
 
       if (!access(cp, X_OK)) {
 
-        target_path = new_argv[0] = cp;
+        *target_path_p = new_argv[0] = cp;
         return new_argv;
 
       }
@@ -251,7 +254,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
 
     if (!access(ncp, X_OK)) {
 
-      target_path = new_argv[0] = ck_strdup(ncp);
+      *target_path_p = new_argv[0] = ck_strdup(ncp);
       return new_argv;
 
     }
@@ -261,7 +264,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
   SAYF("\n" cLRD "[-] " cRST
        "Oops, unable to find the '%s' binary. The binary must be "
        "built\n"
-       "    separately by following the instructions in qemu_mode/README.md. "
+       "    separately by following the instructions in afl->qemu_mode/README.md. "
        "If you\n"
        "    already have the binary installed, you may need to specify "
        "AFL_PATH in the\n"
@@ -326,4 +329,3 @@ char* get_afl_env(char* env) {
   return val;
 
 }
-
