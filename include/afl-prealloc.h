@@ -1,4 +1,6 @@
 /* If we know we'll reuse small elements often, we'll just preallocate a buffer, then fall back to malloc */
+// TODO: Replace free status check with bitmask+CLZ
+
 #ifndef AFL_PREALLOC_H
 #define AFL_PREALLOC_H
 
