@@ -30,6 +30,7 @@ CFLAGS      ?= -O3 -g -funroll-loops
 CFLAGS      += -Wall -I../include -D_FORTIFY_SOURCE=2 -Wno-pointer-sign \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DGCC_VERSION=\"$(GCCVER)\" -DGCC_BINDIR=\"$(GCCBINDIR)\" \
+               -Wno-unused-function
 
 CXXFLAGS    ?= -O3 -g -funroll-loops
 CXXEFLAGS   := $(CXXFLAGS) -Wall -D_FORTIFY_SOURCE=2

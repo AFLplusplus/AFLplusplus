@@ -361,7 +361,9 @@ int main(int argc, char** argv, char** envp) {
 
     }
 
-  }
+  } else
+
+    be_quiet = 1;
 
   check_environment_vars(envp);
 

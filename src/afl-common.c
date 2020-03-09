@@ -111,7 +111,7 @@ void detect_file_args(char** argv, u8* prog_in) {
 char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 4));
-  u8 *   tmp, *cp, *rsl, *own_copy;
+  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
 
   memcpy(new_argv + 3, argv + 1, (int)(sizeof(char*)) * argc);
 
@@ -156,7 +156,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 
   if (!access(BIN_PATH "/afl-qemu-trace", X_OK)) {
 
-    ck_free(cp);
+    if (cp != NULL) ck_free(cp);
     target_path = new_argv[0] = ck_strdup(BIN_PATH "/afl-qemu-trace");
     return new_argv;
 
@@ -187,7 +187,7 @@ char** get_qemu_argv(u8* own_loc, char** argv, int argc) {
 char** get_wine_argv(u8* own_loc, char** argv, int argc) {
 
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 3));
-  u8 *   tmp, *cp, *rsl, *own_copy;
+  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
 
   memcpy(new_argv + 2, argv + 1, (int)(sizeof(char*)) * argc);
 
@@ -226,7 +226,7 @@ char** get_wine_argv(u8* own_loc, char** argv, int argc) {
 
     if (!access(cp, X_OK)) {
 
-      ck_free(cp);
+      if (cp != NULL) ck_free(cp);
 
       cp = alloc_printf("%s/afl-wine-trace", own_copy);
 
