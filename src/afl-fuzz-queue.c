@@ -139,14 +139,14 @@ void add_to_queue(afl_state_t *afl, u8* fname, u32 len, u8 passed_det) {
 
   afl->last_path_time = get_cur_time();
 
-  if (mutator && mutator->afl_custom_queue_new_entry) {
+  if (afl->mutator && afl->mutator->afl_custom_queue_new_entry) {
 
     u8* fname_orig = NULL;
 
     /* At the initialization stage, queue_cur is NULL */
-    if (queue_cur) fname_orig = queue_cur->fname;
+    if (afl->queue_cur) fname_orig = afl->queue_cur->fname;
 
-    mutator->afl_custom_queue_new_entry(fname, fname_orig);
+    afl->mutator->afl_custom_queue_new_entry(afl, fname, fname_orig);
 
   }
 
@@ -186,12 +186,12 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry* q) {
   u64 fav_factor = q->exec_us * q->len;
   u64 fuzz_p2 = next_p2(q->n_fuzz);
 
-  /* For every byte set in afl->frk_srv.trace_bits[], see if there is a previous winner,
+  /* For every byte set in afl->fsrv.trace_bits[], see if there is a previous winner,
      and how it compares to us. */
 
   for (i = 0; i < MAP_SIZE; ++i)
 
-    if (afl->frk_srv.trace_bits[i]) {
+    if (afl->fsrv.trace_bits[i]) {
 
       if (afl->top_rated[i]) {
 
@@ -212,7 +212,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry* q) {
         if (fav_factor > afl->top_rated[i]->exec_us * afl->top_rated[i]->len) continue;
 
         /* Looks like we're going to win. Decrease ref count for the
-           previous winner, discard its afl->frk_srv.trace_bits[] if necessary. */
+           previous winner, discard its afl->fsrv.trace_bits[] if necessary. */
 
         if (!--afl->top_rated[i]->tc_ref) {
 
@@ -231,7 +231,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry* q) {
       if (!q->trace_mini) {
 
         q->trace_mini = ck_alloc(MAP_SIZE >> 3);
-        minimize_bits(q->trace_mini, afl->frk_srv.trace_bits);
+        minimize_bits(q->trace_mini, afl->fsrv.trace_bits);
 
       }
 

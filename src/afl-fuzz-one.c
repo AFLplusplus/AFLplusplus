@@ -359,7 +359,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     /* The custom mutator will decide to skip this test case or not. */
 
-    if (!afl->mutator->afl_custom_queue_get(afl->queue_cur->fname))
+    if (!afl->mutator->afl_custom_queue_get(afl, afl->queue_cur->fname))
       return 1;
 
   }
@@ -491,7 +491,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (afl->use_radamsa > 1) goto radamsa_stage;
 
-  if (afl->cmplog_mode) {
+  if (afl->shm.cmplog_mode) {
 
     if (input_to_state_stage(afl, in_buf, out_buf, len, afl->queue_cur->exec_cksum))
       goto abandon_entry;
@@ -589,7 +589,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (!afl->dumb_mode && (afl->stage_cur & 7) == 7) {
 
-      u32 cksum = hash32(afl->frk_srv.trace_bits, MAP_SIZE, HASH_CONST);
+      u32 cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
 
       if (afl->stage_cur == afl->stage_max - 1 && cksum == prev_cksum) {
 
@@ -747,7 +747,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
          without wasting time on checksums. */
 
       if (!afl->dumb_mode && len >= EFF_MIN_LEN)
-        cksum = hash32(afl->frk_srv.trace_bits, MAP_SIZE, HASH_CONST);
+        cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
       else
         cksum = ~afl->queue_cur->exec_cksum;
 
@@ -1544,7 +1544,7 @@ custom_mutator_stage:
 
   afl->stage_name = "custom mutator";
   afl->stage_short = "custom";
-  afl->stage_max = HAVOC_CYCLES * perf_score / havoc_div / 100;
+  afl->stage_max = HAVOC_CYCLES * perf_score / afl->havoc_div / 100;
   afl->stage_val_type = STAGE_VAL_NONE;
 
   if (afl->stage_max < HAVOC_MIN) afl->stage_max = HAVOC_MIN;
@@ -1598,7 +1598,7 @@ custom_mutator_stage:
     ck_read(fd, new_buf, target->len, target->fname);
     close(fd);
     
-    size_t mutated_size = mutator->afl_custom_fuzz(&out_buf, len,
+    size_t mutated_size = afl->mutator->afl_custom_fuzz(afl, &out_buf, len,
                                                    new_buf, target->len,
                                                    max_seed_size);
 
@@ -1606,7 +1606,7 @@ custom_mutator_stage:
 
     if (mutated_size > 0) {
 
-      if (common_fuzz_stuff(argv, out_buf, (u32)mutated_size)) {
+      if (common_fuzz_stuff(afl, out_buf, (u32)mutated_size)) {
 
         goto abandon_entry;
 
@@ -1637,10 +1637,10 @@ custom_mutator_stage:
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
-  stage_finds[STAGE_CUSTOM_MUTATOR] += new_hit_cnt - orig_hit_cnt;
-  stage_cycles[STAGE_CUSTOM_MUTATOR] += stage_max;
+  afl->stage_finds[STAGE_CUSTOM_MUTATOR] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_CUSTOM_MUTATOR] += afl->stage_max;
 
-  if (custom_only) {
+  if (afl->custom_only) {
 
     /* Skip other stages */
     ret_val = 0;
@@ -1685,12 +1685,12 @@ havoc_stage:
 
   havoc_queued = afl->queued_paths;
 
-  u8 stacked_custom = (mutator && mutator->afl_custom_havoc_mutation);
+  u8 stacked_custom = (afl->mutator && afl->mutator->afl_custom_havoc_mutation);
   u8 stacked_custom_prob = 6; // like one of the default mutations in havoc
 
-  if (stacked_custom && mutator->afl_custom_havoc_mutation_probability) {
+  if (stacked_custom && afl->mutator->afl_custom_havoc_mutation_probability) {
 
-    stacked_custom_prob = mutator->afl_custom_havoc_mutation_probability();
+    stacked_custom_prob = afl->mutator->afl_custom_havoc_mutation_probability(afl);
     if (stacked_custom_prob > 100)
       FATAL("The probability returned by afl_custom_havoc_mutation_propability has to be in the range 0-100.");
 
@@ -1707,9 +1707,9 @@ havoc_stage:
 
     for (i = 0; i < use_stacking; ++i) {
     
-      if (stacked_custom && UR(100) < stacked_custom_prob) {
+      if (stacked_custom && UR(afl, 100) < stacked_custom_prob) {
       
-        temp_len = mutator->afl_custom_havoc_mutation(&out_buf, temp_len,
+        temp_len = afl->mutator->afl_custom_havoc_mutation(afl, &out_buf, temp_len,
                                                       MAX_FILE);
       
       }
@@ -2576,7 +2576,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     if (!afl->dumb_mode && (afl->stage_cur & 7) == 7) {
 
-      u32 cksum = hash32(afl->frk_srv.trace_bits, MAP_SIZE, HASH_CONST);
+      u32 cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
 
       if (afl->stage_cur == afl->stage_max - 1 && cksum == prev_cksum) {
 
@@ -2734,7 +2734,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
          without wasting time on checksums. */
 
       if (!afl->dumb_mode && len >= EFF_MIN_LEN)
-        cksum = hash32(afl->frk_srv.trace_bits, MAP_SIZE, HASH_CONST);
+        cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
       else
         cksum = ~afl->queue_cur->exec_cksum;
 

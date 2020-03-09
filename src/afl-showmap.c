@@ -146,7 +146,7 @@ static void at_exit_handler(void) {
 
 /* Write results. */
 
-static u32 write_results_to_file(afl_forkserver_t *frk_srv) {
+static u32 write_results_to_file(afl_forkserver_t *fsrv) {
 
   s32 fd;
   u32 i, ret = 0;
@@ -154,30 +154,30 @@ static u32 write_results_to_file(afl_forkserver_t *frk_srv) {
   u8 cco = !!getenv("AFL_CMIN_CRASHES_ONLY"),
      caa = !!getenv("AFL_CMIN_ALLOW_ANY");
 
-  if (!strncmp(frk_srv->out_file, "/dev/", 5)) {
+  if (!strncmp(fsrv->out_file, "/dev/", 5)) {
 
-    fd = open(frk_srv->out_file, O_WRONLY, 0600);
-    if (fd < 0) PFATAL("Unable to open '%s'", frk_srv->out_file);
+    fd = open(fsrv->out_file, O_WRONLY, 0600);
+    if (fd < 0) PFATAL("Unable to open '%s'", fsrv->out_file);
 
-  } else if (!strcmp(frk_srv->out_file, "-")) {
+  } else if (!strcmp(fsrv->out_file, "-")) {
 
     fd = dup(1);
     if (fd < 0) PFATAL("Unable to open stdout");
 
   } else {
 
-    unlink(frk_srv->out_file);                                      /* Ignore errors */
-    fd = open(frk_srv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
-    if (fd < 0) PFATAL("Unable to create '%s'", frk_srv->out_file);
+    unlink(fsrv->out_file);                                      /* Ignore errors */
+    fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
 
   }
 
   if (binary_mode) {
 
     for (i = 0; i < MAP_SIZE; i++)
-      if (frk_srv->trace_bits[i]) ret++;
+      if (fsrv->trace_bits[i]) ret++;
 
-    ck_write(fd, frk_srv->trace_bits, MAP_SIZE, frk_srv->out_file);
+    ck_write(fd, fsrv->trace_bits, MAP_SIZE, fsrv->out_file);
     close(fd);
 
   } else {
@@ -188,22 +188,22 @@ static u32 write_results_to_file(afl_forkserver_t *frk_srv) {
 
     for (i = 0; i < MAP_SIZE; i++) {
 
-      if (!frk_srv->trace_bits[i]) continue;
+      if (!fsrv->trace_bits[i]) continue;
       ret++;
 
-      total += frk_srv->trace_bits[i];
-      if (highest < frk_srv->trace_bits[i]) highest = frk_srv->trace_bits[i];
+      total += fsrv->trace_bits[i];
+      if (highest < fsrv->trace_bits[i]) highest = fsrv->trace_bits[i];
 
       if (cmin_mode) {
 
-        if (frk_srv->child_timed_out) break;
+        if (fsrv->child_timed_out) break;
         if (!caa && child_crashed != cco) break;
 
-        fprintf(f, "%u%u\n", frk_srv->trace_bits[i], i);
+        fprintf(f, "%u%u\n", fsrv->trace_bits[i], i);
 
       } else
 
-        fprintf(f, "%06u:%u\n", i, frk_srv->trace_bits[i]);
+        fprintf(f, "%06u:%u\n", i, fsrv->trace_bits[i]);
 
     }
 
@@ -217,9 +217,9 @@ static u32 write_results_to_file(afl_forkserver_t *frk_srv) {
 
 /* Write results. */
 
-static u32 write_results(afl_forkserver_t *frk_srv) {
+static u32 write_results(afl_forkserver_t *fsrv) {
 
-  return write_results_to_file(frk_srv);
+  return write_results_to_file(fsrv);
 
 }
 
@@ -247,69 +247,69 @@ static s32 write_to_file(u8* path, u8* mem, u32 len) {
    is unlinked and a new one is created. Otherwise, out_fd is rewound and
    truncated. */
 
-static void write_to_testcase(afl_forkserver_t *frk_srv, void* mem, u32 len) {
+static void write_to_testcase(afl_forkserver_t *fsrv, void* mem, u32 len) {
 
-  lseek(frk_srv->out_fd, 0, SEEK_SET);
-  ck_write(frk_srv->out_fd, mem, len, frk_srv->out_file);
-  if (ftruncate(frk_srv->out_fd, len)) PFATAL("ftruncate() failed");
-  lseek(frk_srv->out_fd, 0, SEEK_SET);
+  lseek(fsrv->out_fd, 0, SEEK_SET);
+  ck_write(fsrv->out_fd, mem, len, fsrv->out_file);
+  if (ftruncate(fsrv->out_fd, len)) PFATAL("ftruncate() failed");
+  lseek(fsrv->out_fd, 0, SEEK_SET);
 
 }
 
 /* Execute target application. Returns 0 if the changes are a dud, or
    1 if they should be kept. */
 
-static u8 run_target_forkserver(afl_forkserver_t *frk_srv, char** argv, u8* mem, u32 len) {
+static u8 run_target_forkserver(afl_forkserver_t *fsrv, char** argv, u8* mem, u32 len) {
 
   static struct itimerval it;
   static u32              prev_timed_out = 0;
   int                     status = 0;
 
-  memset(frk_srv->trace_bits, 0, MAP_SIZE);
+  memset(fsrv->trace_bits, 0, MAP_SIZE);
   MEM_BARRIER();
 
-  write_to_testcase(frk_srv, mem, len);
+  write_to_testcase(fsrv, mem, len);
 
   s32 res;
 
   /* we have the fork server up and running, so simply
      tell it to have at it, and then read back PID. */
 
-  if ((res = write(frk_srv->fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+  if ((res = write(fsrv->fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
 
     if (stop_soon) return 0;
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
 
-  if ((res = read(frk_srv->fsrv_st_fd, &frk_srv->child_pid, 4)) != 4) {
+  if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
 
     if (stop_soon) return 0;
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
 
-  if (frk_srv->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
+  if (fsrv->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
 
   /* Configure timeout, wait for child, cancel timeout. */
 
-  if (frk_srv->exec_tmout) {
+  if (fsrv->exec_tmout) {
 
-    it.it_value.tv_sec = (frk_srv->exec_tmout / 1000);
-    it.it_value.tv_usec = (frk_srv->exec_tmout % 1000) * 1000;
+    it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
+    it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
 
   }
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  if ((res = read(frk_srv->fsrv_st_fd, &status, 4)) != 4) {
+  if ((res = read(fsrv->fsrv_st_fd, &status, 4)) != 4) {
 
     if (stop_soon) return 0;
     RPFATAL(res, "Unable to communicate with fork server (OOM?)");
 
   }
 
-  frk_srv->child_pid = 0;
+  fsrv->child_pid = 0;
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
 
@@ -319,24 +319,24 @@ static u8 run_target_forkserver(afl_forkserver_t *frk_srv, char** argv, u8* mem,
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32*)frk_srv->trace_bits == EXEC_FAIL_SIG)
+  if (*(u32*)fsrv->trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
-  classify_counts(frk_srv->trace_bits,
+  classify_counts(fsrv->trace_bits,
                   binary_mode ? count_class_binary : count_class_human);
   total_execs++;
 
   if (stop_soon) {
 
     SAYF(cRST cLRD "\n+++ afl-showmap folder mode aborted by user +++\n" cRST);
-    close(write_to_file(frk_srv->out_file, in_data, in_len));
+    close(write_to_file(fsrv->out_file, in_data, in_len));
     exit(1);
 
   }
 
   /* Always discard inputs that time out. */
 
-  if (frk_srv->child_timed_out) { return 0; }
+  if (fsrv->child_timed_out) { return 0; }
 
   /* Handle crashing inputs depending on current mode. */
 
@@ -379,7 +379,7 @@ u32 read_file(u8* in_file) {
 
 /* Execute target application. */
 
-static void run_target(afl_forkserver_t *frk_srv, char** argv) {
+static void run_target(afl_forkserver_t *fsrv, char** argv) {
 
   static struct itimerval it;
   int                     status = 0;
@@ -388,11 +388,11 @@ static void run_target(afl_forkserver_t *frk_srv, char** argv) {
 
   MEM_BARRIER();
 
-  frk_srv->child_pid = fork();
+  fsrv->child_pid = fork();
 
-  if (frk_srv->child_pid < 0) PFATAL("fork() failed");
+  if (fsrv->child_pid < 0) PFATAL("fork() failed");
 
-  if (!frk_srv->child_pid) {
+  if (!fsrv->child_pid) {
 
     struct rlimit r;
 
@@ -402,7 +402,7 @@ static void run_target(afl_forkserver_t *frk_srv, char** argv) {
 
       if (fd < 0 || dup2(fd, 1) < 0 || dup2(fd, 2) < 0) {
 
-        *(u32*)frk_srv->trace_bits = EXEC_FAIL_SIG;
+        *(u32*)fsrv->trace_bits = EXEC_FAIL_SIG;
         PFATAL("Descriptor initialization failed");
 
       }
@@ -411,9 +411,9 @@ static void run_target(afl_forkserver_t *frk_srv, char** argv) {
 
     }
 
-    if (frk_srv->mem_limit) {
+    if (fsrv->mem_limit) {
 
-      r.rlim_max = r.rlim_cur = ((rlim_t)frk_srv->mem_limit) << 20;
+      r.rlim_max = r.rlim_cur = ((rlim_t)fsrv->mem_limit) << 20;
 
 #ifdef RLIMIT_AS
 
@@ -438,28 +438,28 @@ static void run_target(afl_forkserver_t *frk_srv, char** argv) {
 
     setsid();
 
-    execv(frk_srv->target_path, argv);
+    execv(fsrv->target_path, argv);
 
-    *(u32*)frk_srv->trace_bits = EXEC_FAIL_SIG;
+    *(u32*)fsrv->trace_bits = EXEC_FAIL_SIG;
     exit(0);
 
   }
 
   /* Configure timeout, wait for child, cancel timeout. */
 
-  if (frk_srv->exec_tmout) {
+  if (fsrv->exec_tmout) {
 
-    frk_srv->child_timed_out = 0;
-    it.it_value.tv_sec = (frk_srv->exec_tmout / 1000);
-    it.it_value.tv_usec = (frk_srv->exec_tmout % 1000) * 1000;
+    fsrv->child_timed_out = 0;
+    it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
+    it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
 
   }
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  if (waitpid(frk_srv->child_pid, &status, 0) <= 0) FATAL("waitpid() failed");
+  if (waitpid(fsrv->child_pid, &status, 0) <= 0) FATAL("waitpid() failed");
 
-  frk_srv->child_pid = 0;
+  fsrv->child_pid = 0;
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
   setitimer(ITIMER_REAL, &it, NULL);
@@ -468,19 +468,19 @@ static void run_target(afl_forkserver_t *frk_srv, char** argv) {
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32*)frk_srv->trace_bits == EXEC_FAIL_SIG)
+  if (*(u32*)fsrv->trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
-  classify_counts(frk_srv->trace_bits,
+  classify_counts(fsrv->trace_bits,
                   binary_mode ? count_class_binary : count_class_human);
 
   if (!quiet_mode) SAYF(cRST "-- Program output ends --\n");
 
-  if (!frk_srv->child_timed_out && !stop_soon && WIFSIGNALED(status)) child_crashed = 1;
+  if (!fsrv->child_timed_out && !stop_soon && WIFSIGNALED(status)) child_crashed = 1;
 
   if (!quiet_mode) {
 
-    if (frk_srv->child_timed_out)
+    if (fsrv->child_timed_out)
       SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
     else if (stop_soon)
       SAYF(cLRD "\n+++ Program aborted by user +++\n" cRST);
@@ -492,14 +492,14 @@ static void run_target(afl_forkserver_t *frk_srv, char** argv) {
 
 }
 
-extern afl_forkserver_t *frk_srv_glob;
+extern afl_forkserver_t *fsrv_glob;
 
 /* Handle Ctrl-C and the like. */
 
 static void handle_stop_sig(int sig) {
 
   stop_soon = 1;
-  afl_frk_srv_killall();
+  afl_fsrv_killall();
 
 }
 
@@ -646,16 +646,16 @@ static void usage(u8* argv0) {
 
 /* Find binary. */
 
-static void find_binary(afl_forkserver_t *frk_srv, u8* fname) {
+static void find_binary(afl_forkserver_t *fsrv, u8* fname) {
 
   u8*         env_path = 0;
   struct stat st;
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
-    frk_srv->target_path = ck_strdup(fname);
+    fsrv->target_path = ck_strdup(fname);
 
-    if (stat(frk_srv->target_path, &st) || !S_ISREG(st.st_mode) ||
+    if (stat(fsrv->target_path, &st) || !S_ISREG(st.st_mode) ||
         !(st.st_mode & 0111) || st.st_size < 4)
       FATAL("Program '%s' not found or not executable", fname);
 
@@ -678,22 +678,22 @@ static void find_binary(afl_forkserver_t *frk_srv, u8* fname) {
       env_path = delim;
 
       if (cur_elem[0])
-        frk_srv->target_path = alloc_printf("%s/%s", cur_elem, fname);
+        fsrv->target_path = alloc_printf("%s/%s", cur_elem, fname);
       else
-        frk_srv->target_path = ck_strdup(fname);
+        fsrv->target_path = ck_strdup(fname);
 
       ck_free(cur_elem);
 
-      if (!stat(frk_srv->target_path, &st) && S_ISREG(st.st_mode) &&
+      if (!stat(fsrv->target_path, &st) && S_ISREG(st.st_mode) &&
           (st.st_mode & 0111) && st.st_size >= 4)
         break;
 
-      ck_free(frk_srv->target_path);
-      frk_srv->target_path = 0;
+      ck_free(fsrv->target_path);
+      fsrv->target_path = 0;
 
     }
 
-    if (!frk_srv->target_path) FATAL("Program '%s' not found or not executable", fname);
+    if (!fsrv->target_path) FATAL("Program '%s' not found or not executable", fname);
 
   }
 
@@ -710,8 +710,8 @@ int main(int argc, char** argv, char** envp) {
   u32    tcnt = 0;
   char** use_argv;
 
-  afl_forkserver_t *frk_srv = calloc(1, sizeof(afl_forkserver_t));
-  afl_frk_srv_init(frk_srv);
+  afl_forkserver_t *fsrv = calloc(1, sizeof(afl_forkserver_t));
+  afl_fsrv_init(fsrv);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
   
@@ -729,8 +729,8 @@ int main(int argc, char** argv, char** envp) {
 
       case 'o':
 
-        if (frk_srv->out_file) FATAL("Multiple -o options not supported");
-        frk_srv->out_file = optarg;
+        if (fsrv->out_file) FATAL("Multiple -o options not supported");
+        fsrv->out_file = optarg;
         break;
 
       case 'm': {
@@ -742,29 +742,29 @@ int main(int argc, char** argv, char** envp) {
 
         if (!strcmp(optarg, "none")) {
 
-          frk_srv->mem_limit = 0;
+          fsrv->mem_limit = 0;
           break;
 
         }
 
-        if (sscanf(optarg, "%llu%c", &frk_srv->mem_limit, &suffix) < 1 ||
+        if (sscanf(optarg, "%llu%c", &fsrv->mem_limit, &suffix) < 1 ||
             optarg[0] == '-')
           FATAL("Bad syntax used for -m");
 
         switch (suffix) {
 
-          case 'T': frk_srv->mem_limit *= 1024 * 1024; break;
-          case 'G': frk_srv->mem_limit *= 1024; break;
-          case 'k': frk_srv->mem_limit /= 1024; break;
+          case 'T': fsrv->mem_limit *= 1024 * 1024; break;
+          case 'G': fsrv->mem_limit *= 1024; break;
+          case 'k': fsrv->mem_limit /= 1024; break;
           case 'M': break;
 
           default: FATAL("Unsupported suffix or bad syntax for -m");
 
         }
 
-        if (frk_srv->mem_limit < 5) FATAL("Dangerously low value of -m");
+        if (fsrv->mem_limit < 5) FATAL("Dangerously low value of -m");
 
-        if (sizeof(rlim_t) == 4 && frk_srv->mem_limit > 2000)
+        if (sizeof(rlim_t) == 4 && fsrv->mem_limit > 2000)
           FATAL("Value of -m out of range on 32-bit systems");
 
       }
@@ -773,7 +773,7 @@ int main(int argc, char** argv, char** envp) {
 
       case 'f':  // only in here to avoid a compiler warning for use_stdin
 
-        frk_srv->use_stdin = 0;
+        fsrv->use_stdin = 0;
         FATAL("Option -f is not supported in afl-showmap");
 
         break;
@@ -785,9 +785,9 @@ int main(int argc, char** argv, char** envp) {
 
         if (strcmp(optarg, "none")) {
 
-          frk_srv->exec_tmout = atoi(optarg);
+          fsrv->exec_tmout = atoi(optarg);
 
-          if (frk_srv->exec_tmout < 20 || optarg[0] == '-')
+          if (fsrv->exec_tmout < 20 || optarg[0] == '-')
             FATAL("Dangerously low value of -t");
 
         }
@@ -824,7 +824,7 @@ int main(int argc, char** argv, char** envp) {
       case 'Q':
 
         if (qemu_mode) FATAL("Multiple -Q options not supported");
-        if (!mem_limit_given) frk_srv->mem_limit = MEM_LIMIT_QEMU;
+        if (!mem_limit_given) fsrv->mem_limit = MEM_LIMIT_QEMU;
 
         qemu_mode = 1;
         break;
@@ -832,7 +832,7 @@ int main(int argc, char** argv, char** envp) {
       case 'U':
 
         if (unicorn_mode) FATAL("Multiple -U options not supported");
-        if (!mem_limit_given) frk_srv->mem_limit = MEM_LIMIT_UNICORN;
+        if (!mem_limit_given) fsrv->mem_limit = MEM_LIMIT_UNICORN;
 
         unicorn_mode = 1;
         break;
@@ -843,7 +843,7 @@ int main(int argc, char** argv, char** envp) {
         qemu_mode = 1;
         use_wine = 1;
 
-        if (!mem_limit_given) frk_srv->mem_limit = 0;
+        if (!mem_limit_given) fsrv->mem_limit = 0;
 
         break;
 
@@ -877,33 +877,33 @@ int main(int argc, char** argv, char** envp) {
 
     }
 
-  if (optind == argc || !frk_srv->out_file) usage(argv[0]);
+  if (optind == argc || !fsrv->out_file) usage(argv[0]);
 
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  frk_srv->trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
+  fsrv->trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
   setup_signal_handlers();
 
   set_up_environment();
 
-  find_binary(frk_srv, argv[optind]);
+  find_binary(fsrv, argv[optind]);
 
   if (!quiet_mode) {
 
     show_banner();
-    ACTF("Executing '%s'...", frk_srv->target_path);
+    ACTF("Executing '%s'...", fsrv->target_path);
 
   }
 
   if (in_dir) {
 
     if (at_file) PFATAL("Options -A and -i are mutually exclusive");
-    detect_file_args(argv + optind, "", frk_srv->use_stdin);
+    detect_file_args(argv + optind, "", fsrv->use_stdin);
 
   } else {
 
-    detect_file_args(argv + optind, at_file, frk_srv->use_stdin);
+    detect_file_args(argv + optind, at_file, fsrv->use_stdin);
 
   }
 
@@ -913,9 +913,9 @@ int main(int argc, char** argv, char** envp) {
   if (qemu_mode) {
 
     if (use_wine)
-      use_argv = get_wine_argv(argv[0], &frk_srv->target_path, argc - optind, argv + optind);
+      use_argv = get_wine_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
     else
-      use_argv = get_qemu_argv(argv[0], &frk_srv->target_path, argc - optind, argv + optind);
+      use_argv = get_qemu_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
 
   } else
 
@@ -931,14 +931,14 @@ int main(int argc, char** argv, char** envp) {
     struct stat statbuf;
 #endif
 
-    frk_srv->dev_null_fd = open("/dev/null", O_RDWR);
-    if (frk_srv->dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+    fsrv->dev_null_fd = open("/dev/null", O_RDWR);
+    if (fsrv->dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
     if (!(dir_in = opendir(in_dir))) PFATAL("cannot open directory %s", in_dir);
 
-    if (!(dir_out = opendir(frk_srv->out_file)))
-      if (mkdir(frk_srv->out_file, 0700))
-        PFATAL("cannot create output directory %s", frk_srv->out_file);
+    if (!(dir_out = opendir(fsrv->out_file)))
+      if (mkdir(fsrv->out_file, 0700))
+        PFATAL("cannot create output directory %s", fsrv->out_file);
 
     u8* use_dir = ".";
 
@@ -952,15 +952,15 @@ int main(int argc, char** argv, char** envp) {
     stdin_file = alloc_printf("%s/.afl-showmap-temp-%u", use_dir, getpid());
     unlink(stdin_file);
     atexit(at_exit_handler);
-    frk_srv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
-    if (frk_srv->out_fd < 0) PFATAL("Unable to create '%s'", frk_srv->out_file);
+    fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+    if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
 
     if (arg_offset) argv[arg_offset] = stdin_file;
 
     if (get_afl_env("AFL_DEBUG")) {
 
       int i = optind;
-      SAYF(cMGN "[D]" cRST " %s:", frk_srv->target_path);
+      SAYF(cMGN "[D]" cRST " %s:", fsrv->target_path);
       while (argv[i] != NULL)
         SAYF(" \"%s\"", argv[i++]);
       SAYF("\n");
@@ -969,7 +969,7 @@ int main(int argc, char** argv, char** envp) {
 
     }
 
-    afl_frk_srv_start(frk_srv, use_argv);
+    afl_fsrv_start(fsrv, use_argv);
 
     while (done == 0 && (dir_ent = readdir(dir_in))) {
 
@@ -986,13 +986,13 @@ int main(int argc, char** argv, char** envp) {
       if (-1 == stat(infile, &statbuf) || !S_ISREG(statbuf.st_mode)) continue;
 #endif
 
-      snprintf(outfile, sizeof(outfile), "%s/%s", frk_srv->out_file, dir_ent->d_name);
+      snprintf(outfile, sizeof(outfile), "%s/%s", fsrv->out_file, dir_ent->d_name);
 
       if (read_file(infile)) {
 
-        run_target_forkserver(frk_srv, use_argv, in_data, in_len);
+        run_target_forkserver(fsrv, use_argv, in_data, in_len);
         ck_free(in_data);
-        tcnt = write_results_to_file(frk_srv);
+        tcnt = write_results_to_file(fsrv);
 
       }
 
@@ -1002,8 +1002,8 @@ int main(int argc, char** argv, char** envp) {
 
   } else {
 
-    run_target(frk_srv, use_argv);
-    tcnt = write_results(frk_srv);
+    run_target(fsrv, use_argv);
+    tcnt = write_results(fsrv);
 
   }
 
@@ -1011,7 +1011,7 @@ int main(int argc, char** argv, char** envp) {
 
     if (!tcnt) FATAL("No instrumentation detected" cRST);
     OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST,
-        tcnt, highest, total, frk_srv->out_file);
+        tcnt, highest, total, fsrv->out_file);
 
   }
 
@@ -1024,9 +1024,9 @@ int main(int argc, char** argv, char** envp) {
 
   afl_shm_deinit(&shm);
 
-  u8 child_timed_out = frk_srv->child_timed_out;
-  afl_frk_srv_deinit(frk_srv);
-  free(frk_srv);
+  u8 child_timed_out = fsrv->child_timed_out;
+  afl_fsrv_deinit(fsrv);
+  free(fsrv);
 
   exit(child_crashed * 2 + child_timed_out);
 

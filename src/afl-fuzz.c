@@ -243,12 +243,12 @@ int main(int argc, char** argv, char** envp) {
   }
 
   afl_state_init(afl);
-  afl_frk_srv_init(&afl->frk_srv);
+  afl_fsrv_init(&afl->fsrv);
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a big online community\n");
           
-  doc_path = access(doc_path, F_OK) ? (u8 *)"docs" : doc_path;
+  doc_path = access(DOC_PATH, F_OK) ? (u8 *)"docs" : doc_path;
 
   gettimeofday(&tv, &tz);
   afl->init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
@@ -367,9 +367,9 @@ int main(int argc, char** argv, char** envp) {
 
       case 'f':                                              /* target file */
 
-        if (afl->frk_srv.out_file) FATAL("Multiple -f options not supported");
-        afl->frk_srv.out_file = optarg;
-        afl->frk_srv.use_stdin = 0;
+        if (afl->fsrv.out_file) FATAL("Multiple -f options not supported");
+        afl->fsrv.out_file = optarg;
+        afl->fsrv.use_stdin = 0;
         break;
 
       case 'x':                                               /* dictionary */
@@ -384,11 +384,11 @@ int main(int argc, char** argv, char** envp) {
 
         if (afl->timeout_given) FATAL("Multiple -t options not supported");
 
-        if (sscanf(optarg, "%u%c", &afl->frk_srv.exec_tmout, &suffix) < 1 ||
+        if (sscanf(optarg, "%u%c", &afl->fsrv.exec_tmout, &suffix) < 1 ||
             optarg[0] == '-')
           FATAL("Bad syntax used for -t");
 
-        if (afl->frk_srv.exec_tmout < 5) FATAL("Dangerously low value of -t");
+        if (afl->fsrv.exec_tmout < 5) FATAL("Dangerously low value of -t");
 
         if (suffix == '+')
           afl->timeout_given = 2;
@@ -408,29 +408,29 @@ int main(int argc, char** argv, char** envp) {
 
         if (!strcmp(optarg, "none")) {
 
-          afl->frk_srv.mem_limit = 0;
+          afl->fsrv.mem_limit = 0;
           break;
 
         }
 
-        if (sscanf(optarg, "%llu%c", &afl->frk_srv.mem_limit, &suffix) < 1 ||
+        if (sscanf(optarg, "%llu%c", &afl->fsrv.mem_limit, &suffix) < 1 ||
             optarg[0] == '-')
           FATAL("Bad syntax used for -m");
 
         switch (suffix) {
 
-          case 'T': afl->frk_srv.mem_limit *= 1024 * 1024; break;
-          case 'G': afl->frk_srv.mem_limit *= 1024; break;
-          case 'k': afl->frk_srv.mem_limit /= 1024; break;
+          case 'T': afl->fsrv.mem_limit *= 1024 * 1024; break;
+          case 'G': afl->fsrv.mem_limit *= 1024; break;
+          case 'k': afl->fsrv.mem_limit /= 1024; break;
           case 'M': break;
 
           default: FATAL("Unsupported suffix or bad syntax for -m");
 
         }
 
-        if (afl->frk_srv.mem_limit < 5) FATAL("Dangerously low value of -m");
+        if (afl->fsrv.mem_limit < 5) FATAL("Dangerously low value of -m");
 
-        if (sizeof(rlim_t) == 4 && afl->frk_srv.mem_limit > 2000)
+        if (sizeof(rlim_t) == 4 && afl->fsrv.mem_limit > 2000)
           FATAL("Value of -m out of range on 32-bit systems");
 
       }
@@ -490,7 +490,7 @@ int main(int argc, char** argv, char** envp) {
         if (afl->qemu_mode) FATAL("Multiple -Q options not supported");
         afl->qemu_mode = 1;
 
-        if (!mem_limit_given) afl->frk_srv.mem_limit = MEM_LIMIT_QEMU;
+        if (!mem_limit_given) afl->fsrv.mem_limit = MEM_LIMIT_QEMU;
 
         break;
 
@@ -506,7 +506,7 @@ int main(int argc, char** argv, char** envp) {
         if (afl->unicorn_mode) FATAL("Multiple -U options not supported");
         afl->unicorn_mode = 1;
 
-        if (!mem_limit_given) afl->frk_srv.mem_limit = MEM_LIMIT_UNICORN;
+        if (!mem_limit_given) afl->fsrv.mem_limit = MEM_LIMIT_UNICORN;
 
         break;
 
@@ -516,7 +516,7 @@ int main(int argc, char** argv, char** envp) {
         afl->qemu_mode = 1;
         afl->use_wine = 1;
 
-        if (!mem_limit_given) afl->frk_srv.mem_limit = 0;
+        if (!mem_limit_given) afl->fsrv.mem_limit = 0;
 
         break;
 
@@ -860,12 +860,9 @@ int main(int argc, char** argv, char** envp) {
   check_crash_handling();
   check_cpu_governor(afl);
 
-  setup_post(afl);
-  setup_shm(afl, dumb_mode);
+  afl->fsrv.trace_bits = afl_shm_init(&afl->shm, MAP_SIZE, afl->dumb_mode);
 
   setup_post(afl);
-  setup_custom_mutator(afl);
-  afl->frk_srv.trace_bits = afl_shm_init(&afl->shm, MAP_SIZE, afl->dumb_mode);
 
   if (!afl->in_bitmap) memset(afl->virgin_bits, 255, MAP_SIZE);
   memset(afl->virgin_tmout, 255, MAP_SIZE);
@@ -916,28 +913,28 @@ int main(int argc, char** argv, char** envp) {
 
   /* If we don't have a file name chosen yet, use a safe default. */
 
-  if (!afl->frk_srv.out_file) {
+  if (!afl->fsrv.out_file) {
 
     u32 i = optind + 1;
     while (argv[i]) {
 
       u8* aa_loc = strstr(argv[i], "@@");
 
-      if (aa_loc && !afl->frk_srv.out_file) {
+      if (aa_loc && !afl->fsrv.out_file) {
 
-        afl->frk_srv.use_stdin = 0;
+        afl->fsrv.use_stdin = 0;
 
         if (afl->file_extension) {
 
-          afl->frk_srv.out_file = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
+          afl->fsrv.out_file = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
 
         } else {
 
-          afl->frk_srv.out_file = alloc_printf("%s/.cur_input", afl->tmp_dir);
+          afl->fsrv.out_file = alloc_printf("%s/.cur_input", afl->tmp_dir);
 
         }
 
-        detect_file_args(argv + optind + 1, afl->frk_srv.out_file, afl->frk_srv.use_stdin);
+        detect_file_args(argv + optind + 1, afl->fsrv.out_file, afl->fsrv.use_stdin);
         break;
 
       }
@@ -948,7 +945,7 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  if (!afl->frk_srv.out_file) setup_stdio_file(afl);
+  if (!afl->fsrv.out_file) setup_stdio_file(afl);
 
   if (afl->cmplog_binary) {
 
@@ -971,9 +968,9 @@ int main(int argc, char** argv, char** envp) {
   if (afl->qemu_mode) {
 
     if (afl->use_wine)
-      use_argv = get_wine_argv(argv[0], &afl->frk_srv.target_path, argc - optind, argv + optind);
+      use_argv = get_wine_argv(argv[0], &afl->fsrv.target_path, argc - optind, argv + optind);
     else
-      use_argv = get_qemu_argv(argv[0], &afl->frk_srv.target_path, argc - optind, argv + optind);
+      use_argv = get_qemu_argv(argv[0], &afl->fsrv.target_path, argc - optind, argv + optind);
 
   } else {
 
@@ -1116,13 +1113,13 @@ int main(int argc, char** argv, char** envp) {
      runner. if we stopped manually, this is done by the signal handler */
   if (afl->stop_soon == 2) {
 
-    if (afl->frk_srv.child_pid > 0) kill(afl->frk_srv.child_pid, SIGKILL);
-    if (afl->frk_srv.forksrv_pid > 0) kill(afl->frk_srv.forksrv_pid, SIGKILL);
+    if (afl->fsrv.child_pid > 0) kill(afl->fsrv.child_pid, SIGKILL);
+    if (afl->fsrv.fsrv_pid > 0) kill(afl->fsrv.fsrv_pid, SIGKILL);
     if (afl->cmplog_child_pid > 0) kill(afl->cmplog_child_pid, SIGKILL);
-    if (afl->cmplog_forksrv_pid > 0) kill(afl->cmplog_forksrv_pid, SIGKILL);
+    if (afl->cmplog_fsrv_pid > 0) kill(afl->cmplog_fsrv_pid, SIGKILL);
     /* Now that we've killed the forkserver, we wait for it to be able to get
      * rusage stats. */
-    if (waitpid(afl->frk_srv.forksrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
+    if (waitpid(afl->fsrv.fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
 
   }
 
@@ -1151,12 +1148,12 @@ stop_fuzzing:
 
   }
 
-  fclose(afl->plot_file);
-  destroy_queue();
-  destroy_extras();
-  ck_free(target_path);
-  ck_free(sync_id);
-  destroy_custom_mutator();
+  fclose(afl->fsrv.plot_file);
+  destroy_queue(afl);
+  destroy_extras(afl);
+  ck_free(afl->fsrv.target_path);
+  ck_free(afl->sync_id);
+  destroy_custom_mutator(afl);
 
   alloc_report();
 

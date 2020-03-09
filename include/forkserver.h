@@ -37,11 +37,11 @@ typedef struct afl_forkserver {
   u8* trace_bits;                /* SHM with instrumentation bitmap  */
   u8 use_stdin;                  /* use stdin for sending data       */
 
-s32 forksrv_pid,                 /* PID of the fork server           */
+s32 fsrv_pid,                 /* PID of the fork server           */
     child_pid,                   /* PID of the fuzzed program        */
     out_dir_fd;                  /* FD of the lock file              */
 
-s32 out_fd,                      /* Persistent fd for afl->frk_srv.out_file       */
+s32 out_fd,                      /* Persistent fd for afl->fsrv.out_file       */
 #ifndef HAVE_ARC4RANDOM
     dev_urandom_fd,              /* Persistent fd for /dev/urandom   */
 #endif
@@ -64,10 +64,10 @@ s32 out_fd,                      /* Persistent fd for afl->frk_srv.out_file     
 
 
 void handle_timeout(int sig);
-void afl_frk_srv_init(afl_forkserver_t *frk_srv);
-void afl_frk_srv_start(afl_forkserver_t *frk_srv, char **argv);
-void afl_frk_srv_deinit(afl_forkserver_t *frk_srv);
-void afl_frk_srv_killall();
+void afl_fsrv_init(afl_forkserver_t *fsrv);
+void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv);
+void afl_fsrv_deinit(afl_forkserver_t *fsrv);
+void afl_fsrv_killall();
 
 #ifdef __APPLE__
 #define MSG_FORK_ON_APPLE                                                    \

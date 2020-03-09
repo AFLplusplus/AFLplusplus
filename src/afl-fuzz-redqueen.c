@@ -88,7 +88,7 @@ static u8 get_exec_checksum(afl_state_t *afl, u8* buf, u32 len, u32* cksum) {
 
   if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
 
-  *cksum = hash32(afl->frk_srv.trace_bits, MAP_SIZE, HASH_CONST);
+  *cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
   return 0;
 
 }
@@ -506,7 +506,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8* orig_buf, u8* buf, u32 len,
 
   if (unlikely(colorization(afl, buf, len, exec_cksum))) return 1;
 
-  // do it manually, forkserver clear only afl->frk_srv.trace_bits
+  // do it manually, forkserver clear only afl->fsrv.trace_bits
   memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
 
   if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 1;

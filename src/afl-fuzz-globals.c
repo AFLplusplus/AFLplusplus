@@ -32,7 +32,7 @@ s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 char *power_names[POWER_SCHEDULES_NUM] = {"explore", "fast", "coe",
                                           "lin",     "quad", "exploit"};
 
-u8 *doc_path;                  /* gath to documentation dir        */
+u8 *doc_path = NULL;                  /* gath to documentation dir        */
 
 /* Initialize MOpt "globals" for this afl state */
 
@@ -92,25 +92,25 @@ void afl_state_init(afl_state_t *afl) {
     afl->cpu_aff = -1;                       /* Selected CPU core                */
 #endif                                                      /* HAVE_AFFINITY */
 
-    afl->frk_srv.use_stdin = 1;
+    afl->fsrv.use_stdin = 1;
 
     afl->cal_cycles = CAL_CYCLES;
     afl->cal_cycles_long = CAL_CYCLES_LONG;
 
-    afl->frk_srv.exec_tmout = EXEC_TIMEOUT;
+    afl->fsrv.exec_tmout = EXEC_TIMEOUT;
     afl->hang_tmout = EXEC_TIMEOUT;
 
-    afl->frk_srv.mem_limit = MEM_LIMIT;
+    afl->fsrv.mem_limit = MEM_LIMIT;
 
     afl->stats_update_freq = 1;
 
 #ifndef HAVE_ARC4RANDOM
-    afl->frk_srv.dev_urandom_fd = -1;
+    afl->fsrv.dev_urandom_fd = -1;
 #endif
-    afl->frk_srv.dev_null_fd = -1;
+    afl->fsrv.dev_null_fd = -1;
 
-    afl->frk_srv.child_pid = -1;
-    afl->frk_srv.out_dir_fd = -1;
+    afl->fsrv.child_pid = -1;
+    afl->fsrv.out_dir_fd = -1;
 
     init_mopt_globals(afl);
 

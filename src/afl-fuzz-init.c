@@ -432,10 +432,10 @@ static void check_map_coverage(afl_state_t *afl) {
 
   u32 i;
 
-  if (count_bytes(afl->frk_srv.trace_bits) < 100) return;
+  if (count_bytes(afl->fsrv.trace_bits) < 100) return;
 
   for (i = (1 << (MAP_SIZE_POW2 - 1)); i < MAP_SIZE; ++i)
-    if (afl->frk_srv.trace_bits[i]) return;
+    if (afl->fsrv.trace_bits[i]) return;
 
   WARNF("Recompile binary with newer version of afl to improve coverage!");
 
@@ -516,7 +516,7 @@ void perform_dry_run(afl_state_t *afl) {
                "    what you are doing and want to simply skip the unruly test "
                "cases, append\n"
                "    '+' at the end of the value passed to -t ('-t %u+').\n",
-               afl->frk_srv.exec_tmout, afl->frk_srv.exec_tmout);
+               afl->fsrv.exec_tmout, afl->fsrv.exec_tmout);
 
           FATAL("Test case '%s' results in a timeout", fn);
 
@@ -532,7 +532,7 @@ void perform_dry_run(afl_state_t *afl) {
                "    If this test case is just a fluke, the other option is to "
                "just avoid it\n"
                "    altogether, and find one that is less of a CPU hog.\n",
-               afl->frk_srv.exec_tmout);
+               afl->fsrv.exec_tmout);
 
           FATAL("Test case '%s' results in a timeout", fn);
 
@@ -551,7 +551,7 @@ void perform_dry_run(afl_state_t *afl) {
 
         }
 
-        if (afl->frk_srv.mem_limit) {
+        if (afl->fsrv.mem_limit) {
 
           SAYF("\n" cLRD "[-] " cRST
                "Oops, the program crashed with one of the test cases provided. "
@@ -593,7 +593,7 @@ void perform_dry_run(afl_state_t *afl) {
                "other options\n"
                "      fail, poke <afl-users@googlegroups.com> for "
                "troubleshooting tips.\n",
-               DMS(afl->frk_srv.mem_limit << 20), afl->frk_srv.mem_limit - 1, doc_path);
+               DMS(afl->fsrv.mem_limit << 20), afl->fsrv.mem_limit - 1, doc_path);
 
         } else {
 
@@ -861,7 +861,7 @@ void find_timeout(afl_state_t *afl) {
   ret = atoi(off + 20);
   if (ret <= 4) return;
 
-  afl->frk_srv.exec_tmout = ret;
+  afl->fsrv.exec_tmout = ret;
   afl->timeout_given = 3;
 
 }
@@ -1002,12 +1002,12 @@ static void handle_existing_out_dir(afl_state_t *afl) {
      create a lock that will persist for the lifetime of the process
      (this requires leaving the descriptor open).*/
 
-  afl->frk_srv.out_dir_fd = open(afl->out_dir, O_RDONLY);
-  if (afl->frk_srv.out_dir_fd < 0) PFATAL("Unable to open '%s'", afl->out_dir);
+  afl->fsrv.out_dir_fd = open(afl->out_dir, O_RDONLY);
+  if (afl->fsrv.out_dir_fd < 0) PFATAL("Unable to open '%s'", afl->out_dir);
 
 #ifndef __sun
 
-  if (flock(afl->frk_srv.out_dir_fd, LOCK_EX | LOCK_NB) && errno == EWOULDBLOCK) {
+  if (flock(afl->fsrv.out_dir_fd, LOCK_EX | LOCK_NB) && errno == EWOULDBLOCK) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like the job output directory is being actively used by "
@@ -1295,11 +1295,11 @@ void setup_dirs_fds(afl_state_t *afl) {
     if (afl->in_place_resume)
       FATAL("Resume attempted but old output directory not found");
 
-    afl->frk_srv.out_dir_fd = open(afl->out_dir, O_RDONLY);
+    afl->fsrv.out_dir_fd = open(afl->out_dir, O_RDONLY);
 
 #ifndef __sun
 
-    if (afl->frk_srv.out_dir_fd < 0 || flock(afl->frk_srv.out_dir_fd, LOCK_EX | LOCK_NB))
+    if (afl->fsrv.out_dir_fd < 0 || flock(afl->fsrv.out_dir_fd, LOCK_EX | LOCK_NB))
       PFATAL("Unable to flock() output directory.");
 
 #endif                                                            /* !__sun */
@@ -1371,12 +1371,12 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   /* Generally useful file descriptors. */
 
-  afl->frk_srv.dev_null_fd = open("/dev/null", O_RDWR);
-  if (afl->frk_srv.dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+  afl->fsrv.dev_null_fd = open("/dev/null", O_RDWR);
+  if (afl->fsrv.dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
 #ifndef HAVE_ARC4RANDOM
-  afl->frk_srv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
-  if (afl->frk_srv.dev_urandom_fd < 0) PFATAL("Unable to open /dev/urandom");
+  afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+  if (afl->fsrv.dev_urandom_fd < 0) PFATAL("Unable to open /dev/urandom");
 #endif
 
   /* Gnuplot output file. */
@@ -1386,10 +1386,10 @@ void setup_dirs_fds(afl_state_t *afl) {
   if (fd < 0) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
-  afl->frk_srv.plot_file = fdopen(fd, "w");
-  if (!afl->frk_srv.plot_file) PFATAL("fdopen() failed");
+  afl->fsrv.plot_file = fdopen(fd, "w");
+  if (!afl->fsrv.plot_file) PFATAL("fdopen() failed");
 
-  fprintf(afl->frk_srv.plot_file,
+  fprintf(afl->fsrv.plot_file,
           "# unix_time, cycles_done, cur_path, paths_total, "
           "pending_total, pending_favs, map_size, unique_crashes, "
           "unique_hangs, max_depth, execs_per_sec\n");
@@ -1442,9 +1442,9 @@ void setup_stdio_file(afl_state_t *afl) {
 
   unlink(fn);                                              /* Ignore errors */
 
-  afl->frk_srv.out_fd = open(fn, O_RDWR | O_CREAT | O_EXCL, 0600);
+  afl->fsrv.out_fd = open(fn, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (afl->frk_srv.out_fd < 0) PFATAL("Unable to create '%s'", fn);
+  if (afl->fsrv.out_fd < 0) PFATAL("Unable to create '%s'", fn);
 
   ck_free(fn);
 
@@ -1822,10 +1822,10 @@ static void handle_stop_sig(int sig) {
 
     el->stop_soon = 1;
 
-    if (el->frk_srv.child_pid > 0) kill(el->frk_srv.child_pid, SIGKILL);
-    if (el->frk_srv.forksrv_pid > 0) kill(el->frk_srv.forksrv_pid, SIGKILL);
+    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, SIGKILL);
+    if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, SIGKILL);
     if (el->cmplog_child_pid > 0) kill(el->cmplog_child_pid, SIGKILL);
-    if (el->cmplog_forksrv_pid > 0) kill(el->cmplog_forksrv_pid, SIGKILL);
+    if (el->cmplog_fsrv_pid > 0) kill(el->cmplog_fsrv_pid, SIGKILL);
 
   });
 
@@ -1856,8 +1856,8 @@ void check_binary(afl_state_t *afl, u8* fname) {
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
-    afl->frk_srv.target_path = ck_strdup(fname);
-    if (stat(afl->frk_srv.target_path, &st) || !S_ISREG(st.st_mode) ||
+    afl->fsrv.target_path = ck_strdup(fname);
+    if (stat(afl->fsrv.target_path, &st) || !S_ISREG(st.st_mode) ||
         !(st.st_mode & 0111) || (f_len = st.st_size) < 4)
       FATAL("Program '%s' not found or not executable", fname);
 
@@ -1880,22 +1880,22 @@ void check_binary(afl_state_t *afl, u8* fname) {
       env_path = delim;
 
       if (cur_elem[0])
-        afl->frk_srv.target_path = alloc_printf("%s/%s", cur_elem, fname);
+        afl->fsrv.target_path = alloc_printf("%s/%s", cur_elem, fname);
       else
-        afl->frk_srv.target_path = ck_strdup(fname);
+        afl->fsrv.target_path = ck_strdup(fname);
 
       ck_free(cur_elem);
 
-      if (!stat(afl->frk_srv.target_path, &st) && S_ISREG(st.st_mode) &&
+      if (!stat(afl->fsrv.target_path, &st) && S_ISREG(st.st_mode) &&
           (st.st_mode & 0111) && (f_len = st.st_size) >= 4)
         break;
 
-      ck_free(afl->frk_srv.target_path);
-      afl->frk_srv.target_path = 0;
+      ck_free(afl->fsrv.target_path);
+      afl->fsrv.target_path = 0;
 
     }
 
-    if (!afl->frk_srv.target_path) FATAL("Program '%s' not found or not executable", fname);
+    if (!afl->fsrv.target_path) FATAL("Program '%s' not found or not executable", fname);
 
   }
 
@@ -1903,17 +1903,17 @@ void check_binary(afl_state_t *afl, u8* fname) {
 
   /* Check for blatant user errors. */
 
-  if ((!strncmp(afl->frk_srv.target_path, "/tmp/", 5) && !strchr(afl->frk_srv.target_path + 5, '/')) ||
-      (!strncmp(afl->frk_srv.target_path, "/var/tmp/", 9) && !strchr(afl->frk_srv.target_path + 9, '/')))
+  if ((!strncmp(afl->fsrv.target_path, "/tmp/", 5) && !strchr(afl->fsrv.target_path + 5, '/')) ||
+      (!strncmp(afl->fsrv.target_path, "/var/tmp/", 9) && !strchr(afl->fsrv.target_path + 9, '/')))
     FATAL("Please don't keep binaries in /tmp or /var/tmp");
 
-  fd = open(afl->frk_srv.target_path, O_RDONLY);
+  fd = open(afl->fsrv.target_path, O_RDONLY);
 
-  if (fd < 0) PFATAL("Unable to open '%s'", afl->frk_srv.target_path);
+  if (fd < 0) PFATAL("Unable to open '%s'", afl->fsrv.target_path);
 
   f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
 
-  if (f_data == MAP_FAILED) PFATAL("Unable to mmap file '%s'", afl->frk_srv.target_path);
+  if (f_data == MAP_FAILED) PFATAL("Unable to mmap file '%s'", afl->fsrv.target_path);
 
   close(fd);
 
@@ -1935,14 +1935,14 @@ void check_binary(afl_state_t *afl, u8* fname) {
          "the wrapper\n"
          "    in a compiled language instead.\n");
 
-    FATAL("Program '%s' is a shell script", afl->frk_srv.target_path);
+    FATAL("Program '%s' is a shell script", afl->fsrv.target_path);
 
   }
 
 #ifndef __APPLE__
 
   if (f_data[0] != 0x7f || memcmp(f_data + 1, "ELF", 3))
-    FATAL("Program '%s' is not an ELF binary", afl->frk_srv.target_path);
+    FATAL("Program '%s' is not an ELF binary", afl->fsrv.target_path);
 
 #else
 
@@ -1950,7 +1950,7 @@ void check_binary(afl_state_t *afl, u8* fname) {
   if ((f_data[0] != 0xCF || f_data[1] != 0xFA || f_data[2] != 0xED) &&
       (f_data[0] != 0xCA || f_data[1] != 0xFE || f_data[2] != 0xBA))
     FATAL("Program '%s' is not a 64-bit or universal Mach-O binary",
-          afl->frk_srv.target_path);
+          afl->fsrv.target_path);
 #endif
 
 #endif                                                       /* ^!__APPLE__ */
@@ -1998,7 +1998,7 @@ void check_binary(afl_state_t *afl, u8* fname) {
 
   if (memmem(f_data, f_len, "libasan.so", 10) ||
       memmem(f_data, f_len, "__msan_init", 11))
-    afl->frk_srv.uses_asan = 1;
+    afl->fsrv.uses_asan = 1;
 
   /* Detect persistent & deferred init signatures in the binary. */
 
