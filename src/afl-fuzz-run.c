@@ -32,9 +32,7 @@
 
 void timeout_handle(union sigval timer_data) {
 
-  afl_state_t* afl = timer_data.sival_ptr;
-  pid_t        child_pid = afl->fsrv.child_pid;
-  afl->fsrv.child_timed_out = 1;
+  pid_t        child_pid = timer_data.sival_int;
   if (child_pid > 0) kill(child_pid, SIGKILL);
 
 }
@@ -62,8 +60,6 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
   timer_signal_event.sigev_notify = SIGEV_THREAD;
   timer_signal_event.sigev_notify_function = timeout_handle;
-  timer_signal_event.sigev_value.sival_ptr = &afl;
-  timer_create(CLOCK_MONOTONIC, &timer_signal_event, &timer);
 
   MEM_BARRIER();
 
@@ -181,6 +177,8 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
   /* Configure timeout, as requested by user, then wait for child to terminate.
    */
+  timer_signal_event.sigev_value.sival_int = afl->fsrv.child_pid;
+  timer_create(CLOCK_MONOTONIC, &timer_signal_event, &timer);
 
   timer_period.it_value.tv_sec = (timeout / 1000);
   timer_period.it_value.tv_nsec = (timeout % 1000) * 1000000;
@@ -235,6 +233,10 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
   exec_ms = (u64)timeout - (timer_period.it_value.tv_sec * 1000 +
                             timer_period.it_value.tv_nsec / 1000000);
   if (afl->slowest_exec_ms < exec_ms) afl->slowest_exec_ms = exec_ms;
+
+  if (exec_ms >= timeout) {
+    afl->fsrv.child_timed_out = 1;
+  }
 
   timer_period.it_value.tv_sec = 0;
   timer_period.it_value.tv_nsec = 0;
