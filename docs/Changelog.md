@@ -11,15 +11,23 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++2.62d (develop):
 
+  - all:
+    - big code changes to make afl-fuzz thread-safe so afl-fuzz can spawn 
+      multiple fuzzing threads in the future or even become a library
+    - afl basic tools now report on the environment variables picked up
+    - more tools get environment variable usage info in the help output
+  - afl-fuzz:
+    - python mutator modules and custom mutator modules now use the same
+      interface and hence the API changed
+    - AFL_AUTORESUME will resume execution without the need to specify `-i -`
   - LTO collision free instrumented added in llvm_mode with afl-clang-lto -
     note that this mode is amazing, but quite some targets won't compile
   - qemu_mode now uses solely the internal capstone version to fix builds
     on modern Linux distributions
-  - afl-fuzz basic tools now report on the environment variables picked up
-  - more tools get environment variable usage info in the help output
-  - AFL_AUTORESUME will resume execution without the need to specify `-i -`
-  - afl-tmin now supports hang mode `-H` to minimize hangs
-  - fixed potential afl-tmin missbehavior for targets with multiple hangs
+  - afl-tmin:
+    - now supports hang mode `-H` to minimize hangs
+    - fixed potential afl-tmin missbehavior for targets with multiple hangs
+  - Pressing Control-c in afl-cmin did not terminate it for some OS
 
 
 ### Version ++2.62c (release):
