@@ -1096,13 +1096,16 @@ static void read_bitmap(u8* fname) {
 
 /* Main entry point */
 
-int main(int argc, char** argv, char** envp) {
+int main(int argc, char** argv_orig, char** envp) {
 
   s32    opt;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
-  char** use_argv;
+  char **use_argv;
 
-  afl_forkserver_t* fsrv = calloc(1, sizeof(afl_forkserver_t));
+  char **argv = argv_cpy_dup(argc, argv_orig);
+
+  afl_forkserver_t fsrv_var = {0};
+  afl_forkserver_t* fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
@@ -1354,10 +1357,10 @@ int main(int argc, char** argv, char** envp) {
   afl_shm_deinit(&shm);
   afl_fsrv_deinit(fsrv);
   if (fsrv->target_path) ck_free(fsrv->target_path);
-  ck_free(fsrv);
-  fsrv = NULL;
   if (mask_bitmap) ck_free(mask_bitmap);
   if (in_data) ck_free(in_data);
+
+  argv_cpy_free(argv);
 
   exit(0);
 

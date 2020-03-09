@@ -61,8 +61,9 @@
 
 u8 be_quiet;
 
-u8 *stdin_file,                        /* stdin file                        */
-    *in_dir,                           /* input folder                      */
+char*stdin_file;                       /* stdin file                        */
+
+u8  *in_dir,                           /* input folder                      */
     *doc_path,                         /* Path to docs                      */
         *at_file = NULL;               /* Substitution string for @@        */
 
@@ -702,16 +703,19 @@ static void find_binary(afl_forkserver_t* fsrv, u8* fname) {
 
 /* Main entry point */
 
-int main(int argc, char** argv, char** envp) {
+int main(int argc, char** argv_orig, char** envp) {
 
   // TODO: u64 mem_limit = MEM_LIMIT;                  /* Memory limit (MB) */
 
   s32    opt, i;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   u32    tcnt = 0;
-  char** use_argv;
+  char **use_argv;
 
-  afl_forkserver_t* fsrv = calloc(1, sizeof(afl_forkserver_t));
+  char **argv = argv_cpy_dup(argc, argv_orig);
+
+  afl_forkserver_t fsrv_var = {0};
+  afl_forkserver_t* fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
@@ -957,7 +961,12 @@ int main(int argc, char** argv, char** envp) {
     fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
 
-    if (arg_offset) argv[arg_offset] = stdin_file;
+    if (arg_offset && argv[arg_offset] != stdin_file) {
+      
+      ck_free(argv[arg_offset]);
+      argv[arg_offset] = strdup(stdin_file);
+
+    }
 
     if (get_afl_env("AFL_DEBUG")) {
 
@@ -1024,7 +1033,7 @@ int main(int argc, char** argv, char** envp) {
   if (stdin_file) {
 
     unlink(stdin_file);
-    free(stdin_file);
+    ck_free(stdin_file);
     stdin_file = NULL;
 
   }
@@ -1033,11 +1042,12 @@ int main(int argc, char** argv, char** envp) {
 
   u32 ret = child_crashed * 2 + fsrv->child_timed_out;
 
-  if (fsrv->target_path) free(fsrv->target_path);
+  if (fsrv->target_path) ck_free(fsrv->target_path);
 
   afl_fsrv_deinit(fsrv);
-  free(fsrv);
   if (stdin_file) ck_free(stdin_file);
+
+  argv_cpy_free(argv);
 
   exit(ret);
 

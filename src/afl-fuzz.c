@@ -224,7 +224,7 @@ static int stricmp(char const* a, char const* b) {
 
 /* Main entry point */
 
-int main(int argc, char** argv, char** envp) {
+int main(int argc, char** argv_orig, char** envp) {
 
   s32    opt;
   u64    prev_queued = 0;
@@ -236,6 +236,8 @@ int main(int argc, char** argv, char** envp) {
 
   struct timeval  tv;
   struct timezone tz;
+
+  char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_state_t* afl = calloc(1, sizeof(afl_state_t));
   if (!afl) { FATAL("Could not create afl state"); }
@@ -1172,6 +1174,8 @@ stop_fuzzing:
   ck_free(afl->fsrv.out_file);
   ck_free(afl->sync_id);
   ck_free(afl);
+
+  argv_cpy_free(argv);
 
   alloc_report();
 

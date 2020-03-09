@@ -515,7 +515,7 @@ typedef struct afl_state {
 
   /* CmpLog */
 
-  u8* cmplog_binary;
+  char* cmplog_binary;
   s32 cmplog_child_pid, cmplog_fsrv_pid;
 
   /* Custom mutators */

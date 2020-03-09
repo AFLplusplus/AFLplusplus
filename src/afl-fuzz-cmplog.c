@@ -151,7 +151,13 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
     setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
-    if (!afl->qemu_mode) afl->argv[0] = afl->cmplog_binary;
+    if (!afl->qemu_mode && afl->argv[0] != afl->cmplog_binary) {
+
+      ck_free(afl->argv[0]);
+      afl->argv[0] = afl->cmplog_binary;
+
+    }
+
     execv(afl->argv[0], afl->argv);
 
     /* Use a distinctive bitmap signature to tell the parent about execv()
@@ -448,7 +454,13 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
       setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
-      if (!afl->qemu_mode) afl->argv[0] = afl->cmplog_binary;
+      if (!afl->qemu_mode && afl->argv[0] != afl->cmplog_binary) {
+        
+        ck_free(afl->argv[0]);
+        afl->argv[0] = afl->cmplog_binary;
+
+      }
+
       execv(afl->argv[0], afl->argv);
 
       /* Use a distinctive bitmap value to tell the parent about execv()

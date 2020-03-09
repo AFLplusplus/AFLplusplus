@@ -87,12 +87,11 @@ void detect_file_args(char** argv, u8* prog_in, u8 *use_stdin) {
 
         /* Construct a replacement argv value. */
 
-        // TODO: n_arg is never freed
-
         *aa_loc = 0;
         n_arg = alloc_printf("%s%s%s", argv[i], aa_subst, aa_loc + 2);
+        ck_free(argv[i]);
         argv[i] = n_arg;
-        *aa_loc = '@';
+        //*aa_loc = '@';
 
         if (prog_in[0] != '/') ck_free(aa_subst);
 
@@ -108,90 +107,31 @@ void detect_file_args(char** argv, u8* prog_in, u8 *use_stdin) {
 
 }
 
+/* duplicate the system argv so that 
+  we can edit (and free!) it later */
 
-char **create_file_args(int argc, char** argv, u8* prog_in, u8 *use_stdin) {
+char **argv_cpy_dup(int argc, char** argv) {
 
   u32 i = 0;
 
-  char **ret = malloc((argc + 1) * sizeof(char));
+  char **ret = ck_alloc((argc + 1) * sizeof(char *));
 
-#ifdef __GLIBC__
-  u8* cwd = getcwd(NULL, 0);                /* non portable glibc extension */
-#else
-  u8*   cwd;
-  char* buf;
-  long  size = pathconf(".", _PC_PATH_MAX);
-  if ((buf = (char*)malloc((size_t)size)) != NULL) {
-
-    cwd = getcwd(buf, (size_t)size);                    /* portable version */
-    ck_free(buf);
-
-  } else {
-
-    cwd = 0;                                          /* for dumb compilers */
-    PFATAL("getcwd() failed");
-
-  }
-
-#endif
-
-  if (!cwd) PFATAL("getcwd() failed");
-
-  // TODO: free allocs below... somewhere.
-
-  while (argv[i]) {
-
-    u8* aa_loc = strstr(argv[i], "@@");
-
-    if (aa_loc) {
-
-      u8 *aa_subst, *n_arg;
-
-      if (!prog_in) FATAL("@@ syntax is not supported by this tool.");
-
-      *use_stdin = 0;
-
-      if (prog_in[0] != 0) {  // not afl-showmap special case
-
-        /* Be sure that we're always using fully-qualified paths. */
-
-        if (prog_in[0] == '/')
-          aa_subst = prog_in;
-        else
-          aa_subst = alloc_printf("%s/%s", cwd, prog_in);
-
-        /* Construct a replacement argv value. */
-
-        // TODO: n_arg is never freed
-
-        *aa_loc = 0;
-        n_arg = alloc_printf("%s%s%s", argv[i], aa_subst, aa_loc + 2);
-        ret[i] = n_arg;
-        *aa_loc = '@';
-
-        if (prog_in[0] != '/') ck_free(aa_subst);
-
-        i++;
-        continue;
-
-      }
-
-    }
+  for (i = 0; i < argc; i++) {
 
     ret[i] = ck_strdup(argv[i]);
-    i++;
 
   }
+
   ret[i] = NULL;
 
-  ck_free(cwd);                                                 /* not tracked */
-
   return ret;
+
 }
 
 /* frees all args in the given argv, 
-   previously created by create_file_args */
-void destroy_file_args(char **argv) {
+   previously created by argv_cpy_dup */
+
+void argv_cpy_free(char **argv) {
 
   u32 i=0;
   while(argv[i]) {

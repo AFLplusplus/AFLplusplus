@@ -32,6 +32,7 @@
 #include <string.h>
 
 #include "debug.h"
+#include "alloc-inl.h"
 
 typedef enum prealloc_status {
 
@@ -123,7 +124,7 @@ typedef enum prealloc_status {
       case PRE_STATUS_MALLOC: {                   \
                                                   \
         (el_ptr)->pre_status = PRE_STATUS_UNUSED; \
-        ck_free((el_ptr));                        \
+        DFL_ck_free((el_ptr));                    \
         break;                                    \
                                                   \
       }                                           \
