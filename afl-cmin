@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 export AFL_QUIET=1
+export ASAN_OPTIONS=detect_leaks=0
 THISPATH=`dirname ${0}`
 export PATH="${THISPATH}:$PATH"
 awk -f - -- ${@+"$@"} <<'EOF'

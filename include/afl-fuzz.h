@@ -887,3 +887,4 @@ static u64 next_p2(u64 val) {
 }
 
 #endif
+
