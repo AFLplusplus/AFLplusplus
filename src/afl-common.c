@@ -38,7 +38,7 @@
 
 extern u8 be_quiet;
 
-void detect_file_args(char** argv, u8* prog_in, u8 use_stdin) {
+void detect_file_args(char** argv, u8* prog_in, u8 *use_stdin) {
 
   u32 i = 0;
 #ifdef __GLIBC__
@@ -149,7 +149,7 @@ char **create_file_args(int argc, char** argv, u8* prog_in, u8 use_stdin) {
 
       if (!prog_in) FATAL("@@ syntax is not supported by this tool.");
 
-      use_stdin = 0;
+      *use_stdin = 0;
 
       if (prog_in[0] != 0) {  // not afl-showmap special case
 

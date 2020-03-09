@@ -942,7 +942,7 @@ int main(int argc, char** argv, char** envp) {
         }
 
         detect_file_args(argv + optind + 1, afl->fsrv.out_file,
-                         afl->fsrv.use_stdin);
+                         &afl->fsrv.use_stdin);
         break;
 
       }

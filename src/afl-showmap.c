@@ -899,11 +899,11 @@ int main(int argc, char** argv, char** envp) {
   if (in_dir) {
 
     if (at_file) PFATAL("Options -A and -i are mutually exclusive");
-    detect_file_args(argv + optind, "", fsrv->use_stdin);
+    detect_file_args(argv + optind, "", &fsrv->use_stdin);
 
   } else {
 
-    detect_file_args(argv + optind, at_file, fsrv->use_stdin);
+    detect_file_args(argv + optind, at_file, &fsrv->use_stdin);
 
   }
 
