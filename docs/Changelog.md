@@ -9,8 +9,10 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-### Version ++2.62d (developt):
+### Version ++2.62d (develop):
 
+  - LTO collision free instrumented added in llvm_mode with afl-clang-lto -
+    note that this mode is amazing, but quite some targets won't compile
   - qemu_mode now uses solely the internal capstone version to fix builds
     on modern Linux distributions
   - afl-fuzz basic tools now report on the environment variables picked up
