@@ -282,7 +282,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           if (!newBB) {
 
-            WARNF("Split failed!");
+            if (!be_quiet) WARNF("Split failed!");
             continue;
 
           }
