@@ -424,7 +424,7 @@ static void edit_params(int argc, char** argv) {
 
         } else
 
-            if (dir_ent->d_name[0] != '.')
+            if (dir_ent->d_name[0] != '.' && !be_quiet)
           WARNF("Unusual file found in ar archive %s: %s", argv[i], ar_file);
 
       }

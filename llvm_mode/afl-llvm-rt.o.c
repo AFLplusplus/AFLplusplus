@@ -97,7 +97,7 @@ static void __afl_map_shm(void) {
     shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
     if (shm_fd == -1) {
 
-      printf("shm_open() failed\n");
+      fprintf(stderr, "shm_open() failed\n");
       exit(1);
 
     }
@@ -109,7 +109,7 @@ static void __afl_map_shm(void) {
       close(shm_fd);
       shm_fd = -1;
 
-      printf("mmap() failed\n");
+      fprintf(stderr, "mmap() failed\n");
       exit(2);
 
     }
@@ -145,7 +145,7 @@ static void __afl_map_shm(void) {
     shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
     if (shm_fd == -1) {
 
-      printf("shm_open() failed\n");
+      fprintf(stderr, "shm_open() failed\n");
       exit(1);
 
     }
@@ -158,7 +158,7 @@ static void __afl_map_shm(void) {
       close(shm_fd);
       shm_fd = -1;
 
-      printf("mmap() failed\n");
+      fprintf(stderr, "mmap() failed\n");
       exit(2);
 
     }

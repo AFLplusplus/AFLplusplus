@@ -217,6 +217,7 @@ bool AFLwhitelist::runOnModule(Module &M) {
               F.getName().compare("init") == 0 ||
               F.getName().compare("_init") == 0) {
 
+            // We do not honor be_quiet for this one
             WARNF("Cannot ignore functions main/init/start");
 
           } else {
