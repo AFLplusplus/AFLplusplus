@@ -78,7 +78,7 @@ u8 crash_mode,                         /* Crash-centric mode?               */
     exit_crash,                        /* Treat non-zero exit as crash?     */
     edges_only,                        /* Ignore hit counts?                */
     exact_mode,                        /* Require path match for crashes?   */
-    be_quiet; 
+    be_quiet;
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
@@ -159,7 +159,7 @@ static void apply_mask(u32* mem, u32* mask) {
 
 /* See if any bytes are set in the bitmap. */
 
-static inline u8 anything_set(afl_forkserver_t *fsrv) {
+static inline u8 anything_set(afl_forkserver_t* fsrv) {
 
   u32* ptr = (u32*)fsrv->trace_bits;
   u32  i = (MAP_SIZE >> 2);
@@ -226,13 +226,13 @@ static s32 write_to_file(u8* path, u8* mem, u32 len) {
    is unlinked and a new one is created. Otherwise, out_fd is rewound and
    truncated. */
 
-static void write_to_testcase(afl_forkserver_t *fsrv, void* mem, u32 len) {
+static void write_to_testcase(afl_forkserver_t* fsrv, void* mem, u32 len) {
 
   s32 fd = fsrv->out_fd;
 
   if (!fsrv->use_stdin) {
 
-    unlink(fsrv->out_file);                                     /* Ignore errors. */
+    unlink(fsrv->out_file);                               /* Ignore errors. */
 
     fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
@@ -403,7 +403,8 @@ static void init_forkserver(char **argv) {
 /* Execute target application. Returns 0 if the changes are a dud, or
    1 if they should be kept. */
 
-static u8 run_target(afl_forkserver_t *fsrv, char** argv, u8* mem, u32 len, u8 first_run) {
+static u8 run_target(afl_forkserver_t* fsrv, char** argv, u8* mem, u32 len,
+                     u8 first_run) {
 
   static struct itimerval it;
   static u32              prev_timed_out = 0;
@@ -572,7 +573,7 @@ static u32 next_p2(u32 val) {
 
 /* Actually minimize! */
 
-static void minimize(afl_forkserver_t *fsrv, char** argv) {
+static void minimize(afl_forkserver_t* fsrv, char** argv) {
 
   static u32 alpha_map[256];
 
@@ -840,7 +841,7 @@ static void handle_stop_sig(int sig) {
 
 /* Do basic preparations - persistent fds, filenames, etc. */
 
-static void set_up_environment(afl_forkserver_t *fsrv) {
+static void set_up_environment(afl_forkserver_t* fsrv) {
 
   u8* x;
 
@@ -1023,7 +1024,7 @@ static void usage(u8* argv0) {
 
 /* Find binary. */
 
-static void find_binary(afl_forkserver_t *fsrv, u8* fname) {
+static void find_binary(afl_forkserver_t* fsrv, u8* fname) {
 
   u8*         env_path = 0;
   struct stat st;
@@ -1070,7 +1071,8 @@ static void find_binary(afl_forkserver_t *fsrv, u8* fname) {
 
     }
 
-    if (!fsrv->target_path) FATAL("Program '%s' not found or not executable", fname);
+    if (!fsrv->target_path)
+      FATAL("Program '%s' not found or not executable", fname);
 
   }
 
@@ -1098,7 +1100,7 @@ int main(int argc, char** argv, char** envp) {
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   char** use_argv;
 
-  afl_forkserver_t *fsrv = calloc(1, sizeof(afl_forkserver_t));
+  afl_forkserver_t* fsrv = calloc(1, sizeof(afl_forkserver_t));
   afl_fsrv_init(fsrv);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
@@ -1275,9 +1277,11 @@ int main(int argc, char** argv, char** envp) {
   if (qemu_mode) {
 
     if (use_wine)
-      use_argv = get_wine_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
+      use_argv = get_wine_argv(argv[0], &fsrv->target_path, argc - optind,
+                               argv + optind);
     else
-      use_argv = get_qemu_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
+      use_argv = get_qemu_argv(argv[0], &fsrv->target_path, argc - optind,
+                               argv + optind);
 
   } else
 
@@ -1343,7 +1347,6 @@ int main(int argc, char** argv, char** envp) {
   close(write_to_file(output_file, in_data, in_len));
 
   OKF("We're done here. Have a nice day!\n");
-
 
   afl_shm_deinit(&shm);
   afl_fsrv_deinit(fsrv);

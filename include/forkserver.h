@@ -33,35 +33,33 @@ typedef struct afl_forkserver {
 
   /* a program that includes afl-forkserver needs to define these */
 
-  u8 uses_asan;                  /* Target uses ASAN?                */
-  u8* trace_bits;                /* SHM with instrumentation bitmap  */
-  u8 use_stdin;                  /* use stdin for sending data       */
+  u8  uses_asan;                        /* Target uses ASAN?                */
+  u8 *trace_bits;                       /* SHM with instrumentation bitmap  */
+  u8  use_stdin;                        /* use stdin for sending data       */
 
-s32 fsrv_pid,                 /* PID of the fork server           */
-    child_pid,                   /* PID of the fuzzed program        */
-    out_dir_fd;                  /* FD of the lock file              */
+  s32 fsrv_pid,                         /* PID of the fork server           */
+      child_pid,                        /* PID of the fuzzed program        */
+      out_dir_fd;                       /* FD of the lock file              */
 
-s32 out_fd,                      /* Persistent fd for afl->fsrv.out_file       */
+  s32 out_fd,                 /* Persistent fd for afl->fsrv.out_file       */
 #ifndef HAVE_ARC4RANDOM
-    dev_urandom_fd,              /* Persistent fd for /dev/urandom   */
+      dev_urandom_fd,                   /* Persistent fd for /dev/urandom   */
 #endif
-    dev_null_fd,                 /* Persistent fd for /dev/null      */
-    fsrv_ctl_fd,                 /* Fork server control pipe (write) */
-    fsrv_st_fd;                  /* Fork server status pipe (read)   */
+      dev_null_fd,                      /* Persistent fd for /dev/null      */
+      fsrv_ctl_fd,                      /* Fork server control pipe (write) */
+      fsrv_st_fd;                       /* Fork server status pipe (read)   */
 
-  u32 exec_tmout;                  /* Configurable exec timeout (ms)   */
-  u64 mem_limit;                   /* Memory cap for child (MB)        */
+  u32 exec_tmout;                       /* Configurable exec timeout (ms)   */
+  u64 mem_limit;                        /* Memory cap for child (MB)        */
 
-  u8 *out_file,                    /* File to fuzz, if any             */
-     *target_path;                 /* Path of the target */
+  u8 *out_file,                         /* File to fuzz, if any             */
+      *target_path;                                   /* Path of the target */
 
-  FILE* plot_file;                 /* Gnuplot output file              */
+  FILE *plot_file;                      /* Gnuplot output file              */
 
-  u8  child_timed_out;             /* Traced process timed out?        */
+  u8 child_timed_out;                   /* Traced process timed out?        */
 
 } afl_forkserver_t;
-
-
 
 void handle_timeout(int sig);
 void afl_fsrv_init(afl_forkserver_t *fsrv);

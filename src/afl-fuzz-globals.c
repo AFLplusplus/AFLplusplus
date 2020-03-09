@@ -32,11 +32,11 @@ s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 char *power_names[POWER_SCHEDULES_NUM] = {"explore", "fast", "coe",
                                           "lin",     "quad", "exploit"};
 
-u8 *doc_path = NULL;                  /* gath to documentation dir        */
+u8 *doc_path = NULL;                    /* gath to documentation dir        */
 
 /* Initialize MOpt "globals" for this afl state */
 
-static void init_mopt_globals(afl_state_t *afl){ 
+static void init_mopt_globals(afl_state_t *afl) {
 
   MOpt_globals_t *core = &afl->mopt_globals_pilot;
   core->finds = afl->core_operator_finds_puppet;
@@ -68,53 +68,54 @@ static void init_mopt_globals(afl_state_t *afl){
 
 }
 
-/* A global pointer to all instances is needed (for now) for signals to arrive */
+/* A global pointer to all instances is needed (for now) for signals to arrive
+ */
 
 list_t afl_states = {0};
 
 /* Initializes an afl_state_t. */
 
 void afl_state_init(afl_state_t *afl) {
-    
-    afl->w_init = 0.9;
-    afl->w_end = 0.3;
-    afl->g_max = 5000;
-    afl->period_pilot_tmp = 5000.0;
-    afl->schedule = EXPLORE;                 /* Power schedule (default: EXPLORE)*/
-    afl->havoc_max_mult = HAVOC_MAX_MULT;
 
-    afl->clear_screen = 1;                   /* Window resized?                  */
-    afl->havoc_div = 1;                      /* Cycle count divisor for havoc    */
-    afl->stage_name = "init";                /* Name of the current fuzz stage   */
-    afl->splicing_with = -1;                 /* Splicing with which test case?   */
+  afl->w_init = 0.9;
+  afl->w_end = 0.3;
+  afl->g_max = 5000;
+  afl->period_pilot_tmp = 5000.0;
+  afl->schedule = EXPLORE;              /* Power schedule (default: EXPLORE)*/
+  afl->havoc_max_mult = HAVOC_MAX_MULT;
+
+  afl->clear_screen = 1;                /* Window resized?                  */
+  afl->havoc_div = 1;                   /* Cycle count divisor for havoc    */
+  afl->stage_name = "init";             /* Name of the current fuzz stage   */
+  afl->splicing_with = -1;              /* Splicing with which test case?   */
 
 #ifdef HAVE_AFFINITY
-    afl->cpu_aff = -1;                       /* Selected CPU core                */
-#endif                                                      /* HAVE_AFFINITY */
+  afl->cpu_aff = -1;                    /* Selected CPU core                */
+#endif                                                     /* HAVE_AFFINITY */
 
-    afl->fsrv.use_stdin = 1;
+  afl->fsrv.use_stdin = 1;
 
-    afl->cal_cycles = CAL_CYCLES;
-    afl->cal_cycles_long = CAL_CYCLES_LONG;
+  afl->cal_cycles = CAL_CYCLES;
+  afl->cal_cycles_long = CAL_CYCLES_LONG;
 
-    afl->fsrv.exec_tmout = EXEC_TIMEOUT;
-    afl->hang_tmout = EXEC_TIMEOUT;
+  afl->fsrv.exec_tmout = EXEC_TIMEOUT;
+  afl->hang_tmout = EXEC_TIMEOUT;
 
-    afl->fsrv.mem_limit = MEM_LIMIT;
+  afl->fsrv.mem_limit = MEM_LIMIT;
 
-    afl->stats_update_freq = 1;
+  afl->stats_update_freq = 1;
 
 #ifndef HAVE_ARC4RANDOM
-    afl->fsrv.dev_urandom_fd = -1;
+  afl->fsrv.dev_urandom_fd = -1;
 #endif
-    afl->fsrv.dev_null_fd = -1;
+  afl->fsrv.dev_null_fd = -1;
 
-    afl->fsrv.child_pid = -1;
-    afl->fsrv.out_dir_fd = -1;
+  afl->fsrv.child_pid = -1;
+  afl->fsrv.out_dir_fd = -1;
 
-    init_mopt_globals(afl);
+  init_mopt_globals(afl);
 
-    list_append(&afl_states, afl);
+  list_append(&afl_states, afl);
 
 }
 
@@ -122,6 +123,6 @@ void afl_state_init(afl_state_t *afl) {
 
 void afl_state_deinit(afl_state_t *afl) {
 
-    list_remove(&afl_states, afl);
+  list_remove(&afl_states, afl);
 
 }

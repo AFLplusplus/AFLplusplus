@@ -28,7 +28,7 @@
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv.trace_bits[]. */
 
-u8 run_target(afl_state_t *afl, u32 timeout) {
+u8 run_target(afl_state_t* afl, u32 timeout) {
 
   static struct itimerval it;
   static u32              prev_timed_out = 0;
@@ -81,8 +81,9 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
 
       setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
 
-      /* Isolate the process and configure standard descriptors. If afl->fsrv.out_file is
-         specified, stdin is /dev/null; otherwise, afl->fsrv.out_fd is cloned instead. */
+      /* Isolate the process and configure standard descriptors. If
+         afl->fsrv.out_file is specified, stdin is /dev/null; otherwise,
+         afl->fsrv.out_fd is cloned instead. */
 
       setsid();
 
@@ -165,11 +166,13 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  /* The SIGALRM handler simply kills the afl->fsrv.child_pid and sets afl->fsrv.child_timed_out. */
+  /* The SIGALRM handler simply kills the afl->fsrv.child_pid and sets
+   * afl->fsrv.child_timed_out. */
 
   if (afl->dumb_mode == 1 || afl->no_forkserver) {
 
-    if (waitpid(afl->fsrv.child_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+    if (waitpid(afl->fsrv.child_pid, &status, 0) <= 0)
+      PFATAL("waitpid() failed");
 
   } else {
 
@@ -218,8 +221,8 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
   ++afl->total_execs;
 
   /* Any subsequent operations on afl->fsrv.trace_bits must not be moved by the
-     compiler below this point. Past this location, afl->fsrv.trace_bits[] behave
-     very normally and do not have to be treated as volatile. */
+     compiler below this point. Past this location, afl->fsrv.trace_bits[]
+     behave very normally and do not have to be treated as volatile. */
 
   MEM_BARRIER();
 
@@ -239,7 +242,8 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
 
     afl->kill_signal = WTERMSIG(status);
 
-    if (afl->fsrv.child_timed_out && afl->kill_signal == SIGKILL) return FAULT_TMOUT;
+    if (afl->fsrv.child_timed_out && afl->kill_signal == SIGKILL)
+      return FAULT_TMOUT;
 
     return FAULT_CRASH;
 
@@ -262,18 +266,18 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
 
 }
 
-/* Write modified data to file for testing. If afl->fsrv.out_file is set, the old file
-   is unlinked and a new one is created. Otherwise, afl->fsrv.out_fd is rewound and
-   truncated. */
+/* Write modified data to file for testing. If afl->fsrv.out_file is set, the
+   old file is unlinked and a new one is created. Otherwise, afl->fsrv.out_fd is
+   rewound and truncated. */
 
-void write_to_testcase(afl_state_t *afl, void* mem, u32 len) {
+void write_to_testcase(afl_state_t* afl, void* mem, u32 len) {
 
   s32 fd = afl->fsrv.out_fd;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   s32   doc_fd;
-  char* fn = alloc_printf("%s/mutations/%09u:%s", afl->out_dir, afl->document_counter++,
-                          describe_op(0));
+  char* fn = alloc_printf("%s/mutations/%09u:%s", afl->out_dir,
+                          afl->document_counter++, describe_op(0));
   if (fn != NULL) {
 
     if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600)) >= 0) {
@@ -298,7 +302,7 @@ void write_to_testcase(afl_state_t *afl, void* mem, u32 len) {
 
     } else {
 
-      unlink(afl->fsrv.out_file);                                   /* Ignore errors. */
+      unlink(afl->fsrv.out_file);                         /* Ignore errors. */
       fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
     }
@@ -312,7 +316,8 @@ void write_to_testcase(afl_state_t *afl, void* mem, u32 len) {
   if (afl->mutator && afl->mutator->afl_custom_pre_save) {
 
     u8*    new_data;
-    size_t new_size = afl->mutator->afl_custom_pre_save(afl, mem, len, &new_data);
+    size_t new_size =
+        afl->mutator->afl_custom_pre_save(afl, mem, len, &new_data);
     ck_write(fd, new_data, new_size, afl->fsrv.out_file);
     ck_free(new_data);
 
@@ -335,7 +340,8 @@ void write_to_testcase(afl_state_t *afl, void* mem, u32 len) {
 
 /* The same, but with an adjustable gap. Used for trimming. */
 
-static void write_with_gap(afl_state_t *afl, void* mem, u32 len, u32 skip_at, u32 skip_len) {
+static void write_with_gap(afl_state_t* afl, void* mem, u32 len, u32 skip_at,
+                           u32 skip_len) {
 
   s32 fd = afl->fsrv.out_fd;
   u32 tail_len = len - skip_at - skip_len;
@@ -348,7 +354,7 @@ static void write_with_gap(afl_state_t *afl, void* mem, u32 len, u32 skip_at, u3
 
     } else {
 
-      unlink(afl->fsrv.out_file);                                   /* Ignore errors. */
+      unlink(afl->fsrv.out_file);                         /* Ignore errors. */
       fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
     }
@@ -362,7 +368,8 @@ static void write_with_gap(afl_state_t *afl, void* mem, u32 len, u32 skip_at, u3
   if (skip_at) ck_write(fd, mem, skip_at, afl->fsrv.out_file);
 
   u8* memu8 = mem;
-  if (tail_len) ck_write(fd, memu8 + skip_at + skip_len, tail_len, afl->fsrv.out_file);
+  if (tail_len)
+    ck_write(fd, memu8 + skip_at + skip_len, tail_len, afl->fsrv.out_file);
 
   if (!afl->fsrv.out_file) {
 
@@ -379,8 +386,8 @@ static void write_with_gap(afl_state_t *afl, void* mem, u32 len, u32 skip_at, u3
    to warn about flaky or otherwise problematic test cases early on; and when
    new paths are discovered to detect variable behavior and so on. */
 
-u8 calibrate_case(afl_state_t *afl, struct queue_entry* q, u8* use_mem, u32 handicap,
-                  u8 from_queue) {
+u8 calibrate_case(afl_state_t* afl, struct queue_entry* q, u8* use_mem,
+                  u32 handicap, u8 from_queue) {
 
   static u8 first_trace[MAP_SIZE];
 
@@ -398,8 +405,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry* q, u8* use_mem, u32 hand
      to intermittent latency. */
 
   if (!from_queue || afl->resuming_fuzz)
-    use_tmout =
-        MAX(afl->fsrv.exec_tmout + CAL_TMOUT_ADD, afl->fsrv.exec_tmout * CAL_TMOUT_PERC / 100);
+    use_tmout = MAX(afl->fsrv.exec_tmout + CAL_TMOUT_ADD,
+                    afl->fsrv.exec_tmout * CAL_TMOUT_PERC / 100);
 
   ++q->cal_failed;
 
@@ -409,8 +416,10 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry* q, u8* use_mem, u32 hand
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
 
-  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->fsrv.fsrv_pid) afl_fsrv_start(&afl->fsrv, afl->argv);
-  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->cmplog_fsrv_pid && afl->shm.cmplog_mode)
+  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->fsrv.fsrv_pid)
+    afl_fsrv_start(&afl->fsrv, afl->argv);
+  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->cmplog_fsrv_pid &&
+      afl->shm.cmplog_mode)
     init_cmplog_forkserver(afl);
 
   if (q->exec_cksum) memcpy(first_trace, afl->fsrv.trace_bits, MAP_SIZE);
@@ -421,7 +430,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry* q, u8* use_mem, u32 hand
 
     u32 cksum;
 
-    if (!first_run && !(afl->stage_cur % afl->stats_update_freq)) show_stats(afl);
+    if (!first_run && !(afl->stage_cur % afl->stats_update_freq))
+      show_stats(afl);
 
     write_to_testcase(afl, use_mem, q->len);
 
@@ -432,7 +442,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry* q, u8* use_mem, u32 hand
 
     if (afl->stop_soon || fault != afl->crash_mode) goto abort_calibration;
 
-    if (!afl->dumb_mode && !afl->stage_cur && !count_bytes(afl->fsrv.trace_bits)) {
+    if (!afl->dumb_mode && !afl->stage_cur &&
+        !count_bytes(afl->fsrv.trace_bits)) {
 
       fault = FAULT_NOINST;
       goto abort_calibration;
@@ -534,7 +545,7 @@ abort_calibration:
 
 /* Grab interesting test cases from other fuzzers. */
 
-void sync_fuzzers(afl_state_t *afl) {
+void sync_fuzzers(afl_state_t* afl) {
 
   DIR*           sd;
   struct dirent* sd_ent;
@@ -562,7 +573,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
     /* Skip dot files and our own output directory. */
 
-    if (sd_ent->d_name[0] == '.' || !strcmp(afl->sync_id, sd_ent->d_name)) continue;
+    if (sd_ent->d_name[0] == '.' || !strcmp(afl->sync_id, sd_ent->d_name))
+      continue;
 
     /* Skip anything that doesn't have a queue/ subdirectory. */
 
@@ -577,7 +589,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
     /* Retrieve the ID of the last seen test case. */
 
-    qd_synced_path = alloc_printf("%s/.synced/%s", afl->out_dir, sd_ent->d_name);
+    qd_synced_path =
+        alloc_printf("%s/.synced/%s", afl->out_dir, sd_ent->d_name);
 
     id_fd = open(qd_synced_path, O_RDWR | O_CREAT, 0600);
 
@@ -610,7 +623,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
       /* OK, sounds like a new one. Let's give it a try. */
 
-      if (afl->syncing_case >= next_min_accept) next_min_accept = afl->syncing_case + 1;
+      if (afl->syncing_case >= next_min_accept)
+        next_min_accept = afl->syncing_case + 1;
 
       path = alloc_printf("%s/%s", qd_path, qd_ent->d_name);
 
@@ -646,7 +660,8 @@ void sync_fuzzers(afl_state_t *afl) {
         if (afl->stop_soon) goto close_sync;
 
         afl->syncing_party = sd_ent->d_name;
-        afl->queued_imported += save_if_interesting(afl, mem, st.st_size, fault);
+        afl->queued_imported +=
+            save_if_interesting(afl, mem, st.st_size, fault);
         afl->syncing_party = 0;
 
         munmap(mem, st.st_size);
@@ -678,7 +693,7 @@ void sync_fuzzers(afl_state_t *afl) {
    trimmer uses power-of-two increments somewhere between 1/16 and 1/1024 of
    file size, to keep the stage short and sweet. */
 
-u8 trim_case(afl_state_t *afl, struct queue_entry* q, u8* in_buf) {
+u8 trim_case(afl_state_t* afl, struct queue_entry* q, u8* in_buf) {
 
   /* Custom mutator trimmer */
   if (afl->mutator && afl->mutator->afl_custom_trim)
@@ -814,7 +829,7 @@ abort_trimming:
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
 
-u8 common_fuzz_stuff(afl_state_t *afl, u8* out_buf, u32 len) {
+u8 common_fuzz_stuff(afl_state_t* afl, u8* out_buf, u32 len) {
 
   u8 fault;
 
@@ -859,7 +874,8 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8* out_buf, u32 len) {
 
   afl->queued_discovered += save_if_interesting(afl, out_buf, len, fault);
 
-  if (!(afl->stage_cur % afl->stats_update_freq) || afl->stage_cur + 1 == afl->stage_max)
+  if (!(afl->stage_cur % afl->stats_update_freq) ||
+      afl->stage_cur + 1 == afl->stage_max)
     show_stats(afl);
 
   return 0;

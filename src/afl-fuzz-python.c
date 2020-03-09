@@ -28,22 +28,22 @@
 /* Python stuff */
 #ifdef USE_PYTHON
 
-int init_py_module(afl_state_t *afl, u8* module_name) {
+int init_py_module(afl_state_t *afl, u8 *module_name) {
 
   if (!module_name) return 1;
 
   Py_Initialize();
 
 #if PY_MAJOR_VERSION >= 3
-  PyObject* py_name = PyUnicode_FromString(module_name);
+  PyObject *py_name = PyUnicode_FromString(module_name);
 #else
-  PyObject* py_name = PyString_FromString(module_name);
+  PyObject *py_name = PyString_FromString(module_name);
 #endif
 
   afl->py_module = PyImport_Import(py_name);
   Py_DECREF(py_name);
 
-  PyObject *py_module = afl->py_module;
+  PyObject * py_module = afl->py_module;
   PyObject **py_functions = afl->py_functions;
 
   if (afl->py_module != NULL) {
@@ -144,6 +144,7 @@ void finalize_py_module(afl_state_t *afl) {
 }
 
 void init_py(afl_state_t *afl, unsigned int seed) {
+
   PyObject *py_args, *py_value;
 
   /* Provide the init function a seed for the Python RNG */
@@ -178,7 +179,7 @@ void init_py(afl_state_t *afl, unsigned int seed) {
 
 }
 
-size_t fuzz_py(afl_state_t *afl, u8** buf, size_t buf_size, u8* add_buf, 
+size_t fuzz_py(afl_state_t *afl, u8 **buf, size_t buf_size, u8 *add_buf,
                size_t add_buf_size, size_t max_size) {
 
   size_t    mutated_size;
@@ -244,7 +245,7 @@ size_t fuzz_py(afl_state_t *afl, u8** buf, size_t buf_size, u8* add_buf,
 
 }
 
-size_t pre_save_py(afl_state_t *afl, u8* buf, size_t buf_size, u8** out_buf) {
+size_t pre_save_py(afl_state_t *afl, u8 *buf, size_t buf_size, u8 **out_buf) {
 
   size_t    out_buf_size;
   PyObject *py_args, *py_value;
@@ -280,7 +281,7 @@ size_t pre_save_py(afl_state_t *afl, u8* buf, size_t buf_size, u8** out_buf) {
 
 }
 
-u32 init_trim_py(afl_state_t *afl, u8* buf, size_t buf_size) {
+u32 init_trim_py(afl_state_t *afl, u8 *buf, size_t buf_size) {
 
   PyObject *py_args, *py_value;
 
@@ -355,7 +356,7 @@ u32 post_trim_py(afl_state_t *afl, u8 success) {
 
 }
 
-void trim_py(afl_state_t *afl, u8** out_buf, size_t* out_buf_size) {
+void trim_py(afl_state_t *afl, u8 **out_buf, size_t *out_buf_size) {
 
   PyObject *py_args, *py_value;
 
@@ -379,7 +380,8 @@ void trim_py(afl_state_t *afl, u8** out_buf, size_t* out_buf_size) {
 
 }
 
-size_t havoc_mutation_py(afl_state_t *afl, u8** buf, size_t buf_size, size_t max_size) {
+size_t havoc_mutation_py(afl_state_t *afl, u8 **buf, size_t buf_size,
+                         size_t max_size) {
 
   size_t    mutated_size;
   PyObject *py_args, *py_value;
@@ -411,7 +413,8 @@ size_t havoc_mutation_py(afl_state_t *afl, u8** buf, size_t buf_size, size_t max
 
   PyTuple_SetItem(py_args, 1, py_value);
 
-  py_value = PyObject_CallObject(afl->py_functions[PY_FUNC_HAVOC_MUTATION], py_args);
+  py_value =
+      PyObject_CallObject(afl->py_functions[PY_FUNC_HAVOC_MUTATION], py_args);
 
   Py_DECREF(py_args);
 
@@ -439,8 +442,8 @@ u8 havoc_mutation_probability_py(afl_state_t *afl) {
   PyObject *py_args, *py_value;
 
   py_args = PyTuple_New(0);
-  py_value = PyObject_CallObject(afl->py_functions[PY_FUNC_HAVOC_MUTATION_PROBABILITY], 
-                                 py_args);
+  py_value = PyObject_CallObject(
+      afl->py_functions[PY_FUNC_HAVOC_MUTATION_PROBABILITY], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
@@ -458,7 +461,7 @@ u8 havoc_mutation_probability_py(afl_state_t *afl) {
 
 }
 
-u8 queue_get_py(afl_state_t *afl, const u8* filename) {
+u8 queue_get_py(afl_state_t *afl, const u8 *filename) {
 
   PyObject *py_args, *py_value;
 
@@ -506,8 +509,8 @@ u8 queue_get_py(afl_state_t *afl, const u8* filename) {
 
 }
 
-void queue_new_entry_py(afl_state_t *afl, const u8* filename_new_queue,
-                        const u8* filename_orig_queue) {
+void queue_new_entry_py(afl_state_t *afl, const u8 *filename_new_queue,
+                        const u8 *filename_orig_queue) {
 
   PyObject *py_args, *py_value;
 
@@ -549,8 +552,8 @@ void queue_new_entry_py(afl_state_t *afl, const u8* filename_new_queue,
   PyTuple_SetItem(py_args, 1, py_value);
 
   // Call
-  py_value = PyObject_CallObject(afl->py_functions[PY_FUNC_QUEUE_NEW_ENTRY],
-                                 py_args);
+  py_value =
+      PyObject_CallObject(afl->py_functions[PY_FUNC_QUEUE_NEW_ENTRY], py_args);
   Py_DECREF(py_args);
 
   if (py_value == NULL) {

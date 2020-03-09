@@ -28,12 +28,13 @@
    .state file to avoid repeating deterministic fuzzing when resuming aborted
    scans. */
 
-void mark_as_det_done(afl_state_t *afl, struct queue_entry* q) {
+void mark_as_det_done(afl_state_t* afl, struct queue_entry* q) {
 
   u8* fn = strrchr(q->fname, '/');
   s32 fd;
 
-  fn = alloc_printf("%s/queue/.state/deterministic_done/%s", afl->out_dir, fn + 1);
+  fn = alloc_printf("%s/queue/.state/deterministic_done/%s", afl->out_dir,
+                    fn + 1);
 
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
   if (fd < 0) PFATAL("Unable to create '%s'", fn);
@@ -48,7 +49,7 @@ void mark_as_det_done(afl_state_t *afl, struct queue_entry* q) {
 /* Mark as variable. Create symlinks if possible to make it easier to examine
    the files. */
 
-void mark_as_variable(afl_state_t *afl, struct queue_entry* q) {
+void mark_as_variable(afl_state_t* afl, struct queue_entry* q) {
 
   u8 *fn = strrchr(q->fname, '/') + 1, *ldest;
 
@@ -73,7 +74,7 @@ void mark_as_variable(afl_state_t *afl, struct queue_entry* q) {
 /* Mark / unmark as redundant (edge-only). This is not used for restoring state,
    but may be useful for post-processing datasets. */
 
-void mark_as_redundant(afl_state_t *afl, struct queue_entry* q, u8 state) {
+void mark_as_redundant(afl_state_t* afl, struct queue_entry* q, u8 state) {
 
   u8* fn;
 
@@ -104,7 +105,7 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry* q, u8 state) {
 
 /* Append new test case to the queue. */
 
-void add_to_queue(afl_state_t *afl, u8* fname, u32 len, u8 passed_det) {
+void add_to_queue(afl_state_t* afl, u8* fname, u32 len, u8 passed_det) {
 
   struct queue_entry* q = ck_alloc(sizeof(struct queue_entry));
 
@@ -154,7 +155,7 @@ void add_to_queue(afl_state_t *afl, u8* fname, u32 len, u8 passed_det) {
 
 /* Destroy the entire queue. */
 
-void destroy_queue(afl_state_t *afl) {
+void destroy_queue(afl_state_t* afl) {
 
   struct queue_entry *q = afl->queue, *n;
 
@@ -176,18 +177,19 @@ void destroy_queue(afl_state_t *afl) {
    seen in the bitmap so far, and focus on fuzzing them at the expense of
    the rest.
 
-   The first step of the process is to maintain a list of afl->top_rated[] entries
-   for every byte in the bitmap. We win that slot if there is no previous
-   contender, or if the contender has a more favorable speed x size factor. */
+   The first step of the process is to maintain a list of afl->top_rated[]
+   entries for every byte in the bitmap. We win that slot if there is no
+   previous contender, or if the contender has a more favorable speed x size
+   factor. */
 
-void update_bitmap_score(afl_state_t *afl, struct queue_entry* q) {
+void update_bitmap_score(afl_state_t* afl, struct queue_entry* q) {
 
   u32 i;
   u64 fav_factor = q->exec_us * q->len;
   u64 fuzz_p2 = next_p2(q->n_fuzz);
 
-  /* For every byte set in afl->fsrv.trace_bits[], see if there is a previous winner,
-     and how it compares to us. */
+  /* For every byte set in afl->fsrv.trace_bits[], see if there is a previous
+     winner, and how it compares to us. */
 
   for (i = 0; i < MAP_SIZE; ++i)
 
@@ -197,7 +199,8 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry* q) {
 
         /* Faster-executing or smaller test cases are favored. */
         u64 top_rated_fuzz_p2 = next_p2(afl->top_rated[i]->n_fuzz);
-        u64 top_rated_fav_factor = afl->top_rated[i]->exec_us * afl->top_rated[i]->len;
+        u64 top_rated_fav_factor =
+            afl->top_rated[i]->exec_us * afl->top_rated[i]->len;
 
         if (fuzz_p2 > top_rated_fuzz_p2) {
 
@@ -209,7 +212,8 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry* q) {
 
         }
 
-        if (fav_factor > afl->top_rated[i]->exec_us * afl->top_rated[i]->len) continue;
+        if (fav_factor > afl->top_rated[i]->exec_us * afl->top_rated[i]->len)
+          continue;
 
         /* Looks like we're going to win. Decrease ref count for the
            previous winner, discard its afl->fsrv.trace_bits[] if necessary. */
@@ -247,7 +251,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry* q) {
    until the next run. The favored entries are given more air time during
    all fuzzing steps. */
 
-void cull_queue(afl_state_t *afl) {
+void cull_queue(afl_state_t* afl) {
 
   struct queue_entry* q;
   static u8           temp_v[MAP_SIZE >> 3];
@@ -308,7 +312,7 @@ void cull_queue(afl_state_t *afl) {
    A helper function for fuzz_one(). Maybe some of these constants should
    go into config.h. */
 
-u32 calculate_score(afl_state_t *afl, struct queue_entry* q) {
+u32 calculate_score(afl_state_t* afl, struct queue_entry* q) {
 
   u32 avg_exec_us = afl->total_cal_us / afl->total_cal_cycles;
   u32 avg_bitmap_size = afl->total_bitmap_size / afl->total_bitmap_entries;
@@ -459,7 +463,8 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry* q) {
 
   /* Make sure that we don't go over limit. */
 
-  if (perf_score > afl->havoc_max_mult * 100) perf_score = afl->havoc_max_mult * 100;
+  if (perf_score > afl->havoc_max_mult * 100)
+    perf_score = afl->havoc_max_mult * 100;
 
   return perf_score;
 
