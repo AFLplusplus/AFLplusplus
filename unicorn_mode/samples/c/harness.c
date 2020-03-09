@@ -209,10 +209,10 @@ int main(int argc, char **argv, char **envp) {
     // reserve some space for our input data
     mem_map_checked(uc, INPUT_LOCATION, INPUT_SIZE_MAX, UC_PROT_READ);
 
-    // build a "dummy" argv with lenth 2 at 0x10000: 
+    // build a "dummy" argv with length 2 at 0x10000: 
     // 0x10000 argv[0]  NULL
     // 0x10008 argv[1]  (char *)0x10016 --. points to the next offset.
-    // 0x10016 argv[1][0], ...          <-^ contains the acutal input data. (INPUT_LOCATION + INPUT_OFFSET)
+    // 0x10016 argv[1][0], ...          <-^ contains the actual input data. (INPUT_LOCATION + INPUT_OFFSET)
 
     uc_mem_write(uc, 0x10008, "\x16\x00\x01", 3); // little endian of 0x10016, see above
 

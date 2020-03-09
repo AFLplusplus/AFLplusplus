@@ -27,11 +27,32 @@
 #ifndef __AFL_SHAREDMEM_H
 #define __AFL_SHAREDMEM_H
 
-void setup_shm(unsigned char dumb_mode);
-void remove_shm(void);
+typedef struct sharedmem {
 
-extern int             cmplog_mode;
-extern struct cmp_map* cmp_map;
+  //extern unsigned char *trace_bits;
+
+  #ifdef USEMMAP
+  /* ================ Proteas ================ */
+  int            g_shm_fd;
+  char           g_shm_file_path[L_tmpnam];
+  /* ========================================= */
+  #else
+  s32 shm_id;                     /* ID of the SHM region              */
+  s32 cmplog_shm_id;
+  #endif
+
+  u8 *map;                   /* shared memory region */
+
+  size_t         size_alloc; /* actual allocated size */
+  size_t         size_used;  /* in use by shmem app */
+
+  int             cmplog_mode;
+  struct cmp_map *cmp_map;
+
+} sharedmem_t;
+
+u8 *afl_shm_init(sharedmem_t*, size_t, unsigned char dumb_mode);
+void afl_shm_deinit(sharedmem_t*);
 
 #endif
 

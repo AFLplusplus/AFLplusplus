@@ -45,7 +45,7 @@ static int compare_extras_use_d(const void* p1, const void* p2) {
 
 /* Read extras from a file, sort by size. */
 
-void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
+void load_extras_file(afl_state_t *afl, u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
 
   FILE* f;
   u8    buf[MAX_LINE];
@@ -120,10 +120,10 @@ void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
     /* Okay, let's allocate memory and copy data between "...", handling
        \xNN escaping, \\, and \". */
 
-    extras =
-        ck_realloc_block(extras, (extras_cnt + 1) * sizeof(struct extra_data));
+    afl->extras =
+        ck_realloc_block(afl->extras, (afl->extras_cnt + 1) * sizeof(struct extra_data));
 
-    wptr = extras[extras_cnt].data = ck_alloc(rptr - lptr);
+    wptr = afl->extras[afl->extras_cnt].data = ck_alloc(rptr - lptr);
 
     while (*lptr) {
 
@@ -164,16 +164,16 @@ void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
 
     }
 
-    extras[extras_cnt].len = klen;
+    afl->extras[afl->extras_cnt].len = klen;
 
-    if (extras[extras_cnt].len > MAX_DICT_FILE)
+    if (afl->extras[afl->extras_cnt].len > MAX_DICT_FILE)
       FATAL("Keyword too big in line %u (%s, limit is %s)", cur_line, DMS(klen),
             DMS(MAX_DICT_FILE));
 
     if (*min_len > klen) *min_len = klen;
     if (*max_len < klen) *max_len = klen;
 
-    ++extras_cnt;
+    ++afl->extras_cnt;
 
   }
 
@@ -183,7 +183,7 @@ void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) {
 
 /* Read extras from the extras directory and sort them by size. */
 
-void load_extras(u8* dir) {
+void load_extras(afl_state_t *afl, u8* dir) {
 
   DIR*           d;
   struct dirent* de;
@@ -207,7 +207,7 @@ void load_extras(u8* dir) {
 
     if (errno == ENOTDIR) {
 
-      load_extras_file(dir, &min_len, &max_len, dict_level);
+      load_extras_file(afl, dir, &min_len, &max_len, dict_level);
       goto check_and_sort;
 
     }
@@ -241,22 +241,22 @@ void load_extras(u8* dir) {
     if (min_len > st.st_size) min_len = st.st_size;
     if (max_len < st.st_size) max_len = st.st_size;
 
-    extras =
-        ck_realloc_block(extras, (extras_cnt + 1) * sizeof(struct extra_data));
+    afl->extras =
+        ck_realloc_block(afl->extras, (afl->extras_cnt + 1) * sizeof(struct extra_data));
 
-    extras[extras_cnt].data = ck_alloc(st.st_size);
-    extras[extras_cnt].len = st.st_size;
+    afl->extras[afl->extras_cnt].data = ck_alloc(st.st_size);
+    afl->extras[afl->extras_cnt].len = st.st_size;
 
     fd = open(fn, O_RDONLY);
 
     if (fd < 0) PFATAL("Unable to open '%s'", fn);
 
-    ck_read(fd, extras[extras_cnt].data, st.st_size, fn);
+    ck_read(fd, afl->extras[afl->extras_cnt].data, st.st_size, fn);
 
     close(fd);
     ck_free(fn);
 
-    ++extras_cnt;
+    ++afl->extras_cnt;
 
   }
 
@@ -264,24 +264,24 @@ void load_extras(u8* dir) {
 
 check_and_sort:
 
-  if (!extras_cnt) FATAL("No usable files in '%s'", dir);
+  if (!afl->extras_cnt) FATAL("No usable files in '%s'", dir);
 
-  qsort(extras, extras_cnt, sizeof(struct extra_data), compare_extras_len);
+  qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data), compare_extras_len);
 
-  OKF("Loaded %u extra tokens, size range %s to %s.", extras_cnt, DMS(min_len),
+  OKF("Loaded %u extra tokens, size range %s to %s.", afl->extras_cnt, DMS(min_len),
       DMS(max_len));
 
   if (max_len > 32)
     WARNF("Some tokens are relatively large (%s) - consider trimming.",
           DMS(max_len));
 
-  if (extras_cnt > MAX_DET_EXTRAS)
+  if (afl->extras_cnt > MAX_DET_EXTRAS)
     WARNF("More than %d tokens - will use them probabilistically.",
           MAX_DET_EXTRAS);
 
 }
 
-/* Helper function for maybe_add_auto() */
+/* Helper function for maybe_add_auto(afl, ) */
 
 static inline u8 memcmp_nocase(u8* m1, u8* m2, u32 len) {
 
@@ -293,7 +293,7 @@ static inline u8 memcmp_nocase(u8* m1, u8* m2, u32 len) {
 
 /* Maybe add automatic extra. */
 
-void maybe_add_auto(u8* mem, u32 len) {
+void maybe_add_auto(afl_state_t *afl, u8* mem, u32 len) {
 
   u32 i;
 
@@ -336,22 +336,22 @@ void maybe_add_auto(u8* mem, u32 len) {
      match. We optimize by exploiting the fact that extras[] are sorted
      by size. */
 
-  for (i = 0; i < extras_cnt; ++i)
-    if (extras[i].len >= len) break;
+  for (i = 0; i < afl->extras_cnt; ++i)
+    if (afl->extras[i].len >= len) break;
 
-  for (; i < extras_cnt && extras[i].len == len; ++i)
-    if (!memcmp_nocase(extras[i].data, mem, len)) return;
+  for (; i < afl->extras_cnt && afl->extras[i].len == len; ++i)
+    if (!memcmp_nocase(afl->extras[i].data, mem, len)) return;
 
-  /* Last but not least, check a_extras[] for matches. There are no
+  /* Last but not least, check afl->a_extras[] for matches. There are no
      guarantees of a particular sort order. */
 
-  auto_changed = 1;
+  afl->auto_changed = 1;
 
-  for (i = 0; i < a_extras_cnt; ++i) {
+  for (i = 0; i < afl->a_extras_cnt; ++i) {
 
-    if (a_extras[i].len == len && !memcmp_nocase(a_extras[i].data, mem, len)) {
+    if (afl->a_extras[i].len == len && !memcmp_nocase(afl->a_extras[i].data, mem, len)) {
 
-      a_extras[i].hit_cnt++;
+      afl->a_extras[i].hit_cnt++;
       goto sort_a_extras;
 
     }
@@ -362,24 +362,24 @@ void maybe_add_auto(u8* mem, u32 len) {
      append it if we have room. Otherwise, let's randomly evict some other
      entry from the bottom half of the list. */
 
-  if (a_extras_cnt < MAX_AUTO_EXTRAS) {
+  if (afl->a_extras_cnt < MAX_AUTO_EXTRAS) {
 
-    a_extras = ck_realloc_block(a_extras,
-                                (a_extras_cnt + 1) * sizeof(struct extra_data));
+    afl->a_extras = ck_realloc_block(afl->a_extras,
+                                (afl->a_extras_cnt + 1) * sizeof(struct extra_data));
 
-    a_extras[a_extras_cnt].data = ck_memdup(mem, len);
-    a_extras[a_extras_cnt].len = len;
-    ++a_extras_cnt;
+    afl->a_extras[afl->a_extras_cnt].data = ck_memdup(mem, len);
+    afl->a_extras[afl->a_extras_cnt].len = len;
+    ++afl->a_extras_cnt;
 
   } else {
 
-    i = MAX_AUTO_EXTRAS / 2 + UR((MAX_AUTO_EXTRAS + 1) / 2);
+    i = MAX_AUTO_EXTRAS / 2 + UR(afl, (MAX_AUTO_EXTRAS + 1) / 2);
 
-    ck_free(a_extras[i].data);
+    ck_free(afl->a_extras[i].data);
 
-    a_extras[i].data = ck_memdup(mem, len);
-    a_extras[i].len = len;
-    a_extras[i].hit_cnt = 0;
+    afl->a_extras[i].data = ck_memdup(mem, len);
+    afl->a_extras[i].len = len;
+    afl->a_extras[i].hit_cnt = 0;
 
   }
 
@@ -387,35 +387,35 @@ sort_a_extras:
 
   /* First, sort all auto extras by use count, descending order. */
 
-  qsort(a_extras, a_extras_cnt, sizeof(struct extra_data),
+  qsort(afl->a_extras, afl->a_extras_cnt, sizeof(struct extra_data),
         compare_extras_use_d);
 
   /* Then, sort the top USE_AUTO_EXTRAS entries by size. */
 
-  qsort(a_extras, MIN(USE_AUTO_EXTRAS, a_extras_cnt), sizeof(struct extra_data),
+  qsort(afl->a_extras, MIN(USE_AUTO_EXTRAS, afl->a_extras_cnt), sizeof(struct extra_data),
         compare_extras_len);
 
 }
 
 /* Save automatically generated extras. */
 
-void save_auto(void) {
+void save_auto(afl_state_t *afl) {
 
   u32 i;
 
-  if (!auto_changed) return;
-  auto_changed = 0;
+  if (!afl->auto_changed) return;
+  afl->auto_changed = 0;
 
-  for (i = 0; i < MIN(USE_AUTO_EXTRAS, a_extras_cnt); ++i) {
+  for (i = 0; i < MIN(USE_AUTO_EXTRAS, afl->a_extras_cnt); ++i) {
 
-    u8* fn = alloc_printf("%s/queue/.state/auto_extras/auto_%06u", out_dir, i);
+    u8* fn = alloc_printf("%s/queue/.state/auto_extras/auto_%06u", afl->out_dir, i);
     s32 fd;
 
     fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
     if (fd < 0) PFATAL("Unable to create '%s'", fn);
 
-    ck_write(fd, a_extras[i].data, a_extras[i].len, fn);
+    ck_write(fd, afl->a_extras[i].data, afl->a_extras[i].len, fn);
 
     close(fd);
     ck_free(fn);
@@ -426,14 +426,14 @@ void save_auto(void) {
 
 /* Load automatically generated extras. */
 
-void load_auto(void) {
+void load_auto(afl_state_t *afl) {
 
   u32 i;
 
   for (i = 0; i < USE_AUTO_EXTRAS; ++i) {
 
     u8  tmp[MAX_AUTO_EXTRA + 1];
-    u8* fn = alloc_printf("%s/.state/auto_extras/auto_%06u", in_dir, i);
+    u8* fn = alloc_printf("%s/.state/auto_extras/auto_%06u", afl->in_dir, i);
     s32 fd, len;
 
     fd = open(fn, O_RDONLY, 0600);
@@ -454,7 +454,7 @@ void load_auto(void) {
     if (len < 0) PFATAL("Unable to read from '%s'", fn);
 
     if (len >= MIN_AUTO_EXTRA && len <= MAX_AUTO_EXTRA)
-      maybe_add_auto(tmp, len);
+      maybe_add_auto(afl, tmp, len);
 
     close(fd);
     ck_free(fn);
@@ -470,19 +470,19 @@ void load_auto(void) {
 
 /* Destroy extras. */
 
-void destroy_extras(void) {
+void destroy_extras(afl_state_t *afl) {
 
   u32 i;
 
-  for (i = 0; i < extras_cnt; ++i)
-    ck_free(extras[i].data);
+  for (i = 0; i < afl->extras_cnt; ++i)
+    ck_free(afl->extras[i].data);
 
-  ck_free(extras);
+  ck_free(afl->extras);
 
-  for (i = 0; i < a_extras_cnt; ++i)
-    ck_free(a_extras[i].data);
+  for (i = 0; i < afl->a_extras_cnt; ++i)
+    ck_free(afl->a_extras[i].data);
 
-  ck_free(a_extras);
+  ck_free(afl->a_extras);
 
 }
 

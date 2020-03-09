@@ -27,9 +27,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-static s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
-
-void init_cmplog_forkserver(char** argv) {
+void init_cmplog_forkserver(afl_state_t *afl) {
 
   static struct itimerval it;
   int                     st_pipe[2], ctl_pipe[2];
@@ -40,12 +38,12 @@ void init_cmplog_forkserver(char** argv) {
 
   if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
 
-  child_timed_out = 0;
-  cmplog_forksrv_pid = fork();
+  afl->fsrv.child_timed_out = 0;
+  afl->cmplog_fsrv_pid = fork();
 
-  if (cmplog_forksrv_pid < 0) PFATAL("fork() failed");
+  if (afl->cmplog_fsrv_pid < 0) PFATAL("fork() failed");
 
-  if (!cmplog_forksrv_pid) {
+  if (!afl->cmplog_fsrv_pid) {
 
     /* CHILD PROCESS */
 
@@ -61,9 +59,9 @@ void init_cmplog_forkserver(char** argv) {
 
     }
 
-    if (mem_limit) {
+    if (afl->fsrv.mem_limit) {
 
-      r.rlim_max = r.rlim_cur = ((rlim_t)mem_limit) << 20;
+      r.rlim_max = r.rlim_cur = ((rlim_t)afl->fsrv.mem_limit) << 20;
 
 #ifdef RLIMIT_AS
       setrlimit(RLIMIT_AS, &r);                            /* Ignore errors */
@@ -83,26 +81,26 @@ void init_cmplog_forkserver(char** argv) {
     //    r.rlim_max = r.rlim_cur = 0;
     //    setrlimit(RLIMIT_CORE, &r);                      /* Ignore errors */
 
-    /* Isolate the process and configure standard descriptors. If out_file is
-       specified, stdin is /dev/null; otherwise, out_fd is cloned instead. */
+    /* Isolate the process and configure standard descriptors. If afl->fsrv.out_file is
+       specified, stdin is /dev/null; otherwise, afl->fsrv.out_fd is cloned instead. */
 
     setsid();
 
     if (!get_afl_env("AFL_DEBUG_CHILD_OUTPUT")) {
 
-      dup2(dev_null_fd, 1);
-      dup2(dev_null_fd, 2);
+      dup2(afl->fsrv.dev_null_fd, 1);
+      dup2(afl->fsrv.dev_null_fd, 2);
 
     }
 
-    if (!use_stdin) {
+    if (!afl->fsrv.use_stdin) {
 
-      dup2(dev_null_fd, 0);
+      dup2(afl->fsrv.dev_null_fd, 0);
 
     } else {
 
-      dup2(out_fd, 0);
-      close(out_fd);
+      dup2(afl->fsrv.out_fd, 0);
+      close(afl->fsrv.out_fd);
 
     }
 
@@ -116,12 +114,12 @@ void init_cmplog_forkserver(char** argv) {
     close(st_pipe[0]);
     close(st_pipe[1]);
 
-    close(out_dir_fd);
-    close(dev_null_fd);
+    close(afl->fsrv.out_dir_fd);
+    close(afl->fsrv.dev_null_fd);
 #ifndef HAVE_ARC4RANDOM
-    close(dev_urandom_fd);
+    close(afl->fsrv.dev_urandom_fd);
 #endif
-    close(plot_file == NULL ? -1 : fileno(plot_file));
+    close(afl->fsrv.plot_file == NULL ? -1 : fileno(afl->fsrv.plot_file));
 
     /* This should improve performance a bit, since it stops the linker from
        doing extra work post-fork(). */
@@ -152,13 +150,13 @@ void init_cmplog_forkserver(char** argv) {
 
     setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
-    if (!qemu_mode) argv[0] = cmplog_binary;
-    execv(argv[0], argv);
+    if (!afl->qemu_mode) afl->argv[0] = afl->cmplog_binary;
+    execv(afl->argv[0], afl->argv);
 
     /* Use a distinctive bitmap signature to tell the parent about execv()
        falling through. */
 
-    *(u32*)trace_bits = EXEC_FAIL_SIG;
+    *(u32*)afl->fsrv.trace_bits = EXEC_FAIL_SIG;
     exit(0);
 
   }
@@ -170,21 +168,21 @@ void init_cmplog_forkserver(char** argv) {
   close(ctl_pipe[0]);
   close(st_pipe[1]);
 
-  cmplog_fsrv_ctl_fd = ctl_pipe[1];
-  cmplog_fsrv_st_fd = st_pipe[0];
+  afl->cmplog_fsrv_ctl_fd = ctl_pipe[1];
+  afl->cmplog_fsrv_st_fd = st_pipe[0];
 
   /* Wait for the fork server to come up, but don't wait too long. */
 
-  if (exec_tmout) {
+  if (afl->fsrv.exec_tmout) {
 
-    it.it_value.tv_sec = ((exec_tmout * FORK_WAIT_MULT) / 1000);
-    it.it_value.tv_usec = ((exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+    it.it_value.tv_sec = ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) / 1000);
+    it.it_value.tv_usec = ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
 
   }
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  rlen = read(cmplog_fsrv_st_fd, &status, 4);
+  rlen = read(afl->cmplog_fsrv_st_fd, &status, 4);
 
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
@@ -201,16 +199,16 @@ void init_cmplog_forkserver(char** argv) {
 
   }
 
-  if (child_timed_out)
+  if (afl->fsrv.child_timed_out)
     FATAL(
         "Timeout while initializing cmplog fork server (adjusting -t may "
         "help)");
 
-  if (waitpid(cmplog_forksrv_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+  if (waitpid(afl->cmplog_fsrv_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
 
   if (WIFSIGNALED(status)) {
 
-    if (mem_limit && mem_limit < 500 && uses_asan) {
+    if (afl->fsrv.mem_limit && afl->fsrv.mem_limit < 500 && afl->fsrv.uses_asan) {
 
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
@@ -222,7 +220,7 @@ void init_cmplog_forkserver(char** argv) {
            "    %s/notes_for_asan.md for help.\n",
            doc_path);
 
-    } else if (!mem_limit) {
+    } else if (!afl->fsrv.mem_limit) {
 
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
@@ -275,7 +273,7 @@ void init_cmplog_forkserver(char** argv) {
            "options\n"
            "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
            "tips.\n",
-           DMS(mem_limit << 20), mem_limit - 1);
+           DMS(afl->fsrv.mem_limit << 20), afl->fsrv.mem_limit - 1);
 
     }
 
@@ -283,10 +281,10 @@ void init_cmplog_forkserver(char** argv) {
 
   }
 
-  if (*(u32*)trace_bits == EXEC_FAIL_SIG)
-    FATAL("Unable to execute target application ('%s')", argv[0]);
+  if (*(u32*)afl->fsrv.trace_bits == EXEC_FAIL_SIG)
+    FATAL("Unable to execute target application ('%s')", afl->argv[0]);
 
-  if (mem_limit && mem_limit < 500 && uses_asan) {
+  if (afl->fsrv.mem_limit && afl->fsrv.mem_limit < 500 && afl->fsrv.uses_asan) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Hmm, looks like the target binary terminated "
@@ -298,7 +296,7 @@ void init_cmplog_forkserver(char** argv) {
          "    read %s/notes_for_asan.md for help.\n",
          doc_path);
 
-  } else if (!mem_limit) {
+  } else if (!afl->fsrv.mem_limit) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Hmm, looks like the target binary terminated "
@@ -341,7 +339,7 @@ void init_cmplog_forkserver(char** argv) {
               "never\n"
               "      reached before the program terminates.\n\n"
             : "",
-        DMS(mem_limit << 20), mem_limit - 1);
+        DMS(afl->fsrv.mem_limit << 20), afl->fsrv.mem_limit - 1);
 
   }
 
@@ -349,7 +347,7 @@ void init_cmplog_forkserver(char** argv) {
 
 }
 
-u8 run_cmplog_target(char** argv, u32 timeout) {
+u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
   static struct itimerval it;
   static u32              prev_timed_out = 0;
@@ -358,13 +356,13 @@ u8 run_cmplog_target(char** argv, u32 timeout) {
   int status = 0;
   u32 tb4;
 
-  child_timed_out = 0;
+  afl->fsrv.child_timed_out = 0;
 
-  /* After this memset, trace_bits[] are effectively volatile, so we
+  /* After this memset, afl->fsrv.trace_bits[] are effectively volatile, so we
      must prevent any earlier operations from venturing into that
      territory. */
 
-  memset(trace_bits, 0, MAP_SIZE);
+  memset(afl->fsrv.trace_bits, 0, MAP_SIZE);
   MEM_BARRIER();
 
   /* If we're running in "dumb" mode, we can't rely on the fork server
@@ -372,19 +370,19 @@ u8 run_cmplog_target(char** argv, u32 timeout) {
      execve(). There is a bit of code duplication between here and
      init_forkserver(), but c'est la vie. */
 
-  if (dumb_mode == 1 || no_forkserver) {
+  if (afl->dumb_mode == 1 || afl->no_forkserver) {
 
-    cmplog_child_pid = fork();
+    afl->cmplog_child_pid = fork();
 
-    if (cmplog_child_pid < 0) PFATAL("fork() failed");
+    if (afl->cmplog_child_pid < 0) PFATAL("fork() failed");
 
-    if (!cmplog_child_pid) {
+    if (!afl->cmplog_child_pid) {
 
       struct rlimit r;
 
-      if (mem_limit) {
+      if (afl->fsrv.mem_limit) {
 
-        r.rlim_max = r.rlim_cur = ((rlim_t)mem_limit) << 20;
+        r.rlim_max = r.rlim_cur = ((rlim_t)afl->fsrv.mem_limit) << 20;
 
 #ifdef RLIMIT_AS
 
@@ -402,33 +400,33 @@ u8 run_cmplog_target(char** argv, u32 timeout) {
 
       setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
 
-      /* Isolate the process and configure standard descriptors. If out_file is
-         specified, stdin is /dev/null; otherwise, out_fd is cloned instead. */
+      /* Isolate the process and configure standard descriptors. If afl->fsrv.out_file is
+         specified, stdin is /dev/null; otherwise, afl->fsrv.out_fd is cloned instead. */
 
       setsid();
 
-      dup2(dev_null_fd, 1);
-      dup2(dev_null_fd, 2);
+      dup2(afl->fsrv.dev_null_fd, 1);
+      dup2(afl->fsrv.dev_null_fd, 2);
 
-      if (out_file) {
+      if (afl->fsrv.out_file) {
 
-        dup2(dev_null_fd, 0);
+        dup2(afl->fsrv.dev_null_fd, 0);
 
       } else {
 
-        dup2(out_fd, 0);
-        close(out_fd);
+        dup2(afl->fsrv.out_fd, 0);
+        close(afl->fsrv.out_fd);
 
       }
 
       /* On Linux, would be faster to use O_CLOEXEC. Maybe TODO. */
 
-      close(dev_null_fd);
-      close(out_dir_fd);
+      close(afl->fsrv.dev_null_fd);
+      close(afl->fsrv.out_dir_fd);
 #ifndef HAVE_ARC4RANDOM
-      close(dev_urandom_fd);
+      close(afl->fsrv.dev_urandom_fd);
 #endif
-      close(fileno(plot_file));
+      close(fileno(afl->fsrv.plot_file));
 
       /* Set sane defaults for ASAN if nothing else specified. */
 
@@ -445,13 +443,13 @@ u8 run_cmplog_target(char** argv, u32 timeout) {
 
       setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
-      if (!qemu_mode) argv[0] = cmplog_binary;
-      execv(argv[0], argv);
+      if (!afl->qemu_mode) afl->argv[0] = afl->cmplog_binary;
+      execv(afl->argv[0], afl->argv);
 
       /* Use a distinctive bitmap value to tell the parent about execv()
          falling through. */
 
-      *(u32*)trace_bits = EXEC_FAIL_SIG;
+      *(u32*)afl->fsrv.trace_bits = EXEC_FAIL_SIG;
       exit(0);
 
     }
@@ -463,23 +461,23 @@ u8 run_cmplog_target(char** argv, u32 timeout) {
     /* In non-dumb mode, we have the fork server up and running, so simply
        tell it to have at it, and then read back PID. */
 
-    if ((res = write(cmplog_fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+    if ((res = write(afl->cmplog_fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
 
-      if (stop_soon) return 0;
+      if (afl->stop_soon) return 0;
       RPFATAL(res,
               "Unable to request new process from cmplog fork server (OOM?)");
 
     }
 
-    if ((res = read(cmplog_fsrv_st_fd, &cmplog_child_pid, 4)) != 4) {
+    if ((res = read(afl->cmplog_fsrv_st_fd, &afl->cmplog_child_pid, 4)) != 4) {
 
-      if (stop_soon) return 0;
+      if (afl->stop_soon) return 0;
       RPFATAL(res,
               "Unable to request new process from cmplog fork server (OOM?)");
 
     }
 
-    if (cmplog_child_pid <= 0)
+    if (afl->cmplog_child_pid <= 0)
       FATAL("Cmplog fork server is misbehaving (OOM?)");
 
   }
@@ -492,20 +490,20 @@ u8 run_cmplog_target(char** argv, u32 timeout) {
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  /* The SIGALRM handler simply kills the cmplog_child_pid and sets
-   * child_timed_out. */
+  /* The SIGALRM handler simply kills the afl->cmplog_child_pid and sets
+   * afl->fsrv.child_timed_out. */
 
-  if (dumb_mode == 1 || no_forkserver) {
+  if (afl->dumb_mode == 1 || afl->no_forkserver) {
 
-    if (waitpid(cmplog_child_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+    if (waitpid(afl->cmplog_child_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
 
   } else {
 
     s32 res;
 
-    if ((res = read(cmplog_fsrv_st_fd, &status, 4)) != 4) {
+    if ((res = read(afl->cmplog_fsrv_st_fd, &status, 4)) != 4) {
 
-      if (stop_soon) return 0;
+      if (afl->stop_soon) return 0;
       SAYF(
           "\n" cLRD "[-] " cRST
           "Unable to communicate with fork server. Some possible reasons:\n\n"
@@ -520,50 +518,50 @@ u8 run_cmplog_target(char** argv, u32 timeout) {
           "culprit.\n\n"
           "If all else fails you can disable the fork server via "
           "AFL_NO_FORKSRV=1.\n",
-          mem_limit);
+          afl->fsrv.mem_limit);
       RPFATAL(res, "Unable to communicate with fork server");
 
     }
 
   }
 
-  if (!WIFSTOPPED(status)) cmplog_child_pid = 0;
+  if (!WIFSTOPPED(status)) afl->cmplog_child_pid = 0;
 
   getitimer(ITIMER_REAL, &it);
   exec_ms =
       (u64)timeout - (it.it_value.tv_sec * 1000 + it.it_value.tv_usec / 1000);
-  if (slowest_exec_ms < exec_ms) slowest_exec_ms = exec_ms;
+  if (afl->slowest_exec_ms < exec_ms) afl->slowest_exec_ms = exec_ms;
 
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  ++total_execs;
+  ++afl->total_execs;
 
-  /* Any subsequent operations on trace_bits must not be moved by the
-     compiler below this point. Past this location, trace_bits[] behave
+  /* Any subsequent operations on afl->fsrv.trace_bits must not be moved by the
+     compiler below this point. Past this location, afl->fsrv.trace_bits[] behave
      very normally and do not have to be treated as volatile. */
 
   MEM_BARRIER();
 
-  tb4 = *(u32*)trace_bits;
+  tb4 = *(u32*)afl->fsrv.trace_bits;
 
 #ifdef WORD_SIZE_64
-  classify_counts((u64*)trace_bits);
+  classify_counts((u64*)afl->fsrv.trace_bits);
 #else
-  classify_counts((u32*)trace_bits);
+  classify_counts((u32*)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
-  prev_timed_out = child_timed_out;
+  prev_timed_out = afl->fsrv.child_timed_out;
 
   /* Report outcome to caller. */
 
-  if (WIFSIGNALED(status) && !stop_soon) {
+  if (WIFSIGNALED(status) && !afl->stop_soon) {
 
-    kill_signal = WTERMSIG(status);
+    afl->kill_signal = WTERMSIG(status);
 
-    if (child_timed_out && kill_signal == SIGKILL) return FAULT_TMOUT;
+    if (afl->fsrv.child_timed_out && afl->kill_signal == SIGKILL) return FAULT_TMOUT;
 
     return FAULT_CRASH;
 
@@ -572,67 +570,67 @@ u8 run_cmplog_target(char** argv, u32 timeout) {
   /* A somewhat nasty hack for MSAN, which doesn't support abort_on_error and
      must use a special exit code. */
 
-  if (uses_asan && WEXITSTATUS(status) == MSAN_ERROR) {
+  if (afl->fsrv.uses_asan && WEXITSTATUS(status) == MSAN_ERROR) {
 
-    kill_signal = 0;
+    afl->kill_signal = 0;
     return FAULT_CRASH;
 
   }
 
-  if ((dumb_mode == 1 || no_forkserver) && tb4 == EXEC_FAIL_SIG)
+  if ((afl->dumb_mode == 1 || afl->no_forkserver) && tb4 == EXEC_FAIL_SIG)
     return FAULT_ERROR;
 
   return FAULT_NONE;
 
 }
 
-u8 common_fuzz_cmplog_stuff(char** argv, u8* out_buf, u32 len) {
+u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8* out_buf, u32 len) {
 
   u8 fault;
 
-  if (post_handler) {
+  if (afl->post_handler) {
 
-    out_buf = post_handler(out_buf, &len);
+    out_buf = afl->post_handler(out_buf, &len);
     if (!out_buf || !len) return 0;
 
   }
 
-  write_to_testcase(out_buf, len);
+  write_to_testcase(afl, out_buf, len);
 
-  fault = run_cmplog_target(argv, exec_tmout);
+  fault = run_cmplog_target(afl, afl->fsrv.exec_tmout);
 
-  if (stop_soon) return 1;
+  if (afl->stop_soon) return 1;
 
   if (fault == FAULT_TMOUT) {
 
-    if (subseq_tmouts++ > TMOUT_LIMIT) {
+    if (afl->subseq_tmouts++ > TMOUT_LIMIT) {
 
-      ++cur_skipped_paths;
+      ++afl->cur_skipped_paths;
       return 1;
 
     }
 
   } else
 
-    subseq_tmouts = 0;
+    afl->subseq_tmouts = 0;
 
   /* Users can hit us with SIGUSR1 to request the current input
      to be abandoned. */
 
-  if (skip_requested) {
+  if (afl->skip_requested) {
 
-    skip_requested = 0;
-    ++cur_skipped_paths;
+    afl->skip_requested = 0;
+    ++afl->cur_skipped_paths;
     return 1;
 
   }
 
   /* This handles FAULT_ERROR for us: */
 
-  /* queued_discovered += save_if_interesting(argv, out_buf, len, fault);
+  /* afl->queued_discovered += save_if_interesting(afl, argv, out_buf, len, fault);
 
-  if (!(stage_cur % stats_update_freq) || stage_cur + 1 == stage_max)
-    show_stats(); */
+  if (!(afl->stage_cur % afl->stats_update_freq) || afl->stage_cur + 1 == afl->stage_max)
+    show_stats(afl); */
 
   return 0;
 

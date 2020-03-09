@@ -84,6 +84,8 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 
 static u8 qemu_mode;
 
+static u8 *target_path;
+
 /* Constants used for describing byte behavior. */
 
 #define RESP_NONE 0x00                 /* Changing byte is a no-op.         */
@@ -998,21 +1000,23 @@ int main(int argc, char** argv, char** envp) {
   use_hex_offsets = !!get_afl_env("AFL_ANALYZE_HEX");
 
   check_environment_vars(envp);
-  setup_shm(0);
+
+  sharedmem_t shm = {0};
+  trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
   atexit(at_exit_handler);
   setup_signal_handlers();
 
   set_up_environment();
 
   find_binary(argv[optind]);
-  detect_file_args(argv + optind, prog_in);
+  detect_file_args(argv + optind, prog_in, use_stdin);
 
   if (qemu_mode) {
 
     if (use_wine)
-      use_argv = get_wine_argv(argv[0], argv + optind, argc - optind);
+      use_argv = get_wine_argv(argv[0], &target_path, argc - optind, argv + optind);
     else
-      use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
+      use_argv = get_qemu_argv(argv[0], &target_path, argc - optind, argv + optind);
 
   } else
 
@@ -1036,6 +1040,8 @@ int main(int argc, char** argv, char** envp) {
   analyze(use_argv);
 
   OKF("We're done here. Have a nice day!\n");
+
+  afl_shm_deinit(&shm);
 
   exit(0);
 

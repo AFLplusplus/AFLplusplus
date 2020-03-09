@@ -58,21 +58,11 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-s32 forksrv_pid,                        /* PID of the fork server           */
-    child_pid;                          /* PID of the tested program        */
-
-s32 fsrv_ctl_fd,                        /* Fork server control pipe (write) */
-    fsrv_st_fd;                         /* Fork server status pipe (read)   */
-
-u8*        trace_bits;                 /* SHM with instrumentation bitmap   */
 static u8* mask_bitmap;                /* Mask for trace bits (-B)          */
 
 u8 *in_file,                           /* Minimizer input test case         */
     *output_file,                      /* Minimizer output file             */
-    *out_file,                         /* Targeted program input file       */
     *doc_path;                         /* Path to docs                      */
-
-s32 out_fd;                           /* Persistent fd for out_file         */
 
 static u8* in_data;                    /* Input data for trimming           */
 
@@ -82,18 +72,13 @@ static u32 in_len,                     /* Input data length                 */
     missed_hangs,                      /* Misses due to hangs               */
     missed_crashes,                    /* Misses due to crashes             */
     missed_paths;                      /* Misses due to exec path diffs     */
-u32 exec_tmout = EXEC_TIMEOUT;         /* Exec timeout (ms)                 */
-
-u64 mem_limit = MEM_LIMIT;             /* Memory limit (MB)                 */
-
-s32 dev_null_fd = -1;                  /* FD to /dev/null                   */
 
 u8 crash_mode,                         /* Crash-centric mode?               */
     hang_mode,                         /* Minimize as long as it hangs      */
     exit_crash,                        /* Treat non-zero exit as crash?     */
     edges_only,                        /* Ignore hit counts?                */
     exact_mode,                        /* Require path match for crashes?   */
-    be_quiet, use_stdin = 1;           /* Use stdin for program input?      */
+    be_quiet; 
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
@@ -174,9 +159,9 @@ static void apply_mask(u32* mem, u32* mask) {
 
 /* See if any bytes are set in the bitmap. */
 
-static inline u8 anything_set(void) {
+static inline u8 anything_set(afl_forkserver_t *fsrv) {
 
-  u32* ptr = (u32*)trace_bits;
+  u32* ptr = (u32*)fsrv->trace_bits;
   u32  i = (MAP_SIZE >> 2);
 
   while (i--)
@@ -186,11 +171,9 @@ static inline u8 anything_set(void) {
 
 }
 
-/* Get rid of temp files (atexit handler). */
-
 static void at_exit_handler(void) {
 
-  if (out_file) unlink(out_file);                          /* Ignore errors */
+  afl_fsrv_killall();
 
 }
 
@@ -243,25 +226,25 @@ static s32 write_to_file(u8* path, u8* mem, u32 len) {
    is unlinked and a new one is created. Otherwise, out_fd is rewound and
    truncated. */
 
-static void write_to_testcase(void* mem, u32 len) {
+static void write_to_testcase(afl_forkserver_t *fsrv, void* mem, u32 len) {
 
-  s32 fd = out_fd;
+  s32 fd = fsrv->out_fd;
 
-  if (!use_stdin) {
+  if (!fsrv->use_stdin) {
 
-    unlink(out_file);                                     /* Ignore errors. */
+    unlink(fsrv->out_file);                                     /* Ignore errors. */
 
-    fd = open(out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
-    if (fd < 0) PFATAL("Unable to create '%s'", out_file);
+    if (fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
 
   } else
 
     lseek(fd, 0, SEEK_SET);
 
-  ck_write(fd, mem, len, out_file);
+  ck_write(fd, mem, len, fsrv->out_file);
 
-  if (use_stdin) {
+  if (fsrv->use_stdin) {
 
     if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
     lseek(fd, 0, SEEK_SET);
@@ -355,7 +338,7 @@ static void init_forkserver(char **argv) {
     close(st_pipe[0]);
     close(st_pipe[1]);
 
-    execv(target_path, argv);
+    execv(fsrv->target_path, argv);
 
     *(u32*)trace_bits = EXEC_FAIL_SIG;
     exit(0);
@@ -420,7 +403,7 @@ static void init_forkserver(char **argv) {
 /* Execute target application. Returns 0 if the changes are a dud, or
    1 if they should be kept. */
 
-static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
+static u8 run_target(afl_forkserver_t *fsrv, char** argv, u8* mem, u32 len, u8 first_run) {
 
   static struct itimerval it;
   static u32              prev_timed_out = 0;
@@ -428,53 +411,53 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   u32 cksum;
 
-  child_timed_out = 0;
+  fsrv->child_timed_out = 0;
 
-  memset(trace_bits, 0, MAP_SIZE);
+  memset(fsrv->trace_bits, 0, MAP_SIZE);
   MEM_BARRIER();
 
-  write_to_testcase(mem, len);
+  write_to_testcase(fsrv, mem, len);
 
   s32 res;
 
   /* we have the fork server up and running, so simply
      tell it to have at it, and then read back PID. */
 
-  if ((res = write(fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+  if ((res = write(fsrv->fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
 
     if (stop_soon) return 0;
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
 
-  if ((res = read(fsrv_st_fd, &child_pid, 4)) != 4) {
+  if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
 
     if (stop_soon) return 0;
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
 
-  if (child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
+  if (fsrv->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
 
   /* Configure timeout, wait for child, cancel timeout. */
 
-  if (exec_tmout) {
+  if (fsrv->exec_tmout) {
 
-    it.it_value.tv_sec = (exec_tmout / 1000);
-    it.it_value.tv_usec = (exec_tmout % 1000) * 1000;
+    it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
+    it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
 
   }
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  if ((res = read(fsrv_st_fd, &status, 4)) != 4) {
+  if ((res = read(fsrv->fsrv_st_fd, &status, 4)) != 4) {
 
     if (stop_soon) return 0;
     RPFATAL(res, "Unable to communicate with fork server (OOM?)");
 
   }
 
-  child_pid = 0;
+  fsrv->child_pid = 0;
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
 
@@ -484,13 +467,13 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32*)trace_bits == EXEC_FAIL_SIG)
+  if (*(u32*)fsrv->trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
   if (!hang_mode) {
 
-    classify_counts(trace_bits);
-    apply_mask((u32*)trace_bits, (u32*)mask_bitmap);
+    classify_counts(fsrv->trace_bits);
+    apply_mask((u32*)fsrv->trace_bits, (u32*)mask_bitmap);
 
   }
 
@@ -508,7 +491,7 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   if (hang_mode) {
 
-    if (child_timed_out) return 1;
+    if (fsrv->child_timed_out) return 1;
 
     if (WIFSIGNALED(status) ||
         (WIFEXITED(status) && WEXITSTATUS(status) == MSAN_ERROR) ||
@@ -526,7 +509,7 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   }
 
-  if (child_timed_out) {
+  if (fsrv->child_timed_out) {
 
     missed_hangs++;
     return 0;
@@ -565,7 +548,7 @@ static u8 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   }
 
-  cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
+  cksum = hash32(fsrv->trace_bits, MAP_SIZE, HASH_CONST);
 
   if (first_run) orig_cksum = cksum;
 
@@ -589,7 +572,7 @@ static u32 next_p2(u32 val) {
 
 /* Actually minimize! */
 
-static void minimize(char** argv) {
+static void minimize(afl_forkserver_t *fsrv, char** argv) {
 
   static u32 alpha_map[256];
 
@@ -624,7 +607,7 @@ static void minimize(char** argv) {
       memset(tmp_buf + set_pos, '0', use_len);
 
       u8 res;
-      res = run_target(argv, tmp_buf, in_len, 0);
+      res = run_target(fsrv, argv, tmp_buf, in_len, 0);
 
       if (res) {
 
@@ -697,7 +680,7 @@ next_del_blksize:
     /* Tail */
     memcpy(tmp_buf + del_pos, in_data + del_pos + del_len, tail_len);
 
-    res = run_target(argv, tmp_buf, del_pos + tail_len, 0);
+    res = run_target(fsrv, argv, tmp_buf, del_pos + tail_len, 0);
 
     if (res) {
 
@@ -760,7 +743,7 @@ next_del_blksize:
     for (r = 0; r < in_len; r++)
       if (tmp_buf[r] == i) tmp_buf[r] = '0';
 
-    res = run_target(argv, tmp_buf, in_len, 0);
+    res = run_target(fsrv, argv, tmp_buf, in_len, 0);
 
     if (res) {
 
@@ -796,7 +779,7 @@ next_del_blksize:
     if (orig == '0') continue;
     tmp_buf[i] = '0';
 
-    res = run_target(argv, tmp_buf, in_len, 0);
+    res = run_target(fsrv, argv, tmp_buf, in_len, 0);
 
     if (res) {
 
@@ -851,21 +834,20 @@ finalize_all:
 static void handle_stop_sig(int sig) {
 
   stop_soon = 1;
-
-  if (child_pid > 0) kill(child_pid, SIGKILL);
+  afl_fsrv_killall();
 
 }
 
 /* Do basic preparations - persistent fds, filenames, etc. */
 
-static void set_up_environment(void) {
+static void set_up_environment(afl_forkserver_t *fsrv) {
 
   u8* x;
 
-  dev_null_fd = open("/dev/null", O_RDWR);
-  if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+  fsrv->dev_null_fd = open("/dev/null", O_RDWR);
+  if (fsrv->dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
-  if (!out_file) {
+  if (!fsrv->out_file) {
 
     u8* use_dir = ".";
 
@@ -876,15 +858,15 @@ static void set_up_environment(void) {
 
     }
 
-    out_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
+    fsrv->out_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
 
   }
 
-  unlink(out_file);
+  unlink(fsrv->out_file);
 
-  out_fd = open(out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+  fsrv->out_fd = open(fsrv->out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (out_fd < 0) PFATAL("Unable to create '%s'", out_file);
+  if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
 
   /* Set sane defaults... */
 
@@ -1041,16 +1023,16 @@ static void usage(u8* argv0) {
 
 /* Find binary. */
 
-static void find_binary(u8* fname) {
+static void find_binary(afl_forkserver_t *fsrv, u8* fname) {
 
   u8*         env_path = 0;
   struct stat st;
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
-    target_path = ck_strdup(fname);
+    fsrv->target_path = ck_strdup(fname);
 
-    if (stat(target_path, &st) || !S_ISREG(st.st_mode) ||
+    if (stat(fsrv->target_path, &st) || !S_ISREG(st.st_mode) ||
         !(st.st_mode & 0111) || st.st_size < 4)
       FATAL("Program '%s' not found or not executable", fname);
 
@@ -1073,22 +1055,22 @@ static void find_binary(u8* fname) {
       env_path = delim;
 
       if (cur_elem[0])
-        target_path = alloc_printf("%s/%s", cur_elem, fname);
+        fsrv->target_path = alloc_printf("%s/%s", cur_elem, fname);
       else
-        target_path = ck_strdup(fname);
+        fsrv->target_path = ck_strdup(fname);
 
       ck_free(cur_elem);
 
-      if (!stat(target_path, &st) && S_ISREG(st.st_mode) &&
+      if (!stat(fsrv->target_path, &st) && S_ISREG(st.st_mode) &&
           (st.st_mode & 0111) && st.st_size >= 4)
         break;
 
-      ck_free(target_path);
-      target_path = 0;
+      ck_free(fsrv->target_path);
+      fsrv->target_path = NULL;
 
     }
 
-    if (!target_path) FATAL("Program '%s' not found or not executable", fname);
+    if (!fsrv->target_path) FATAL("Program '%s' not found or not executable", fname);
 
   }
 
@@ -1116,6 +1098,9 @@ int main(int argc, char** argv, char** envp) {
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   char** use_argv;
 
+  afl_forkserver_t *fsrv = calloc(1, sizeof(afl_forkserver_t));
+  afl_fsrv_init(fsrv);
+
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
@@ -1138,9 +1123,9 @@ int main(int argc, char** argv, char** envp) {
 
       case 'f':
 
-        if (out_file) FATAL("Multiple -f options not supported");
-        use_stdin = 0;
-        out_file = optarg;
+        if (fsrv->out_file) FATAL("Multiple -f options not supported");
+        fsrv->use_stdin = 0;
+        fsrv->out_file = optarg;
         break;
 
       case 'e':
@@ -1166,29 +1151,29 @@ int main(int argc, char** argv, char** envp) {
 
         if (!strcmp(optarg, "none")) {
 
-          mem_limit = 0;
+          fsrv->mem_limit = 0;
           break;
 
         }
 
-        if (sscanf(optarg, "%llu%c", &mem_limit, &suffix) < 1 ||
+        if (sscanf(optarg, "%llu%c", &fsrv->mem_limit, &suffix) < 1 ||
             optarg[0] == '-')
           FATAL("Bad syntax used for -m");
 
         switch (suffix) {
 
-          case 'T': mem_limit *= 1024 * 1024; break;
-          case 'G': mem_limit *= 1024; break;
-          case 'k': mem_limit /= 1024; break;
+          case 'T': fsrv->mem_limit *= 1024 * 1024; break;
+          case 'G': fsrv->mem_limit *= 1024; break;
+          case 'k': fsrv->mem_limit /= 1024; break;
           case 'M': break;
 
           default: FATAL("Unsupported suffix or bad syntax for -m");
 
         }
 
-        if (mem_limit < 5) FATAL("Dangerously low value of -m");
+        if (fsrv->mem_limit < 5) FATAL("Dangerously low value of -m");
 
-        if (sizeof(rlim_t) == 4 && mem_limit > 2000)
+        if (sizeof(rlim_t) == 4 && fsrv->mem_limit > 2000)
           FATAL("Value of -m out of range on 32-bit systems");
 
       }
@@ -1200,9 +1185,9 @@ int main(int argc, char** argv, char** envp) {
         if (timeout_given) FATAL("Multiple -t options not supported");
         timeout_given = 1;
 
-        exec_tmout = atoi(optarg);
+        fsrv->exec_tmout = atoi(optarg);
 
-        if (exec_tmout < 10 || optarg[0] == '-')
+        if (fsrv->exec_tmout < 10 || optarg[0] == '-')
           FATAL("Dangerously low value of -t");
 
         break;
@@ -1210,7 +1195,7 @@ int main(int argc, char** argv, char** envp) {
       case 'Q':
 
         if (qemu_mode) FATAL("Multiple -Q options not supported");
-        if (!mem_limit_given) mem_limit = MEM_LIMIT_QEMU;
+        if (!mem_limit_given) fsrv->mem_limit = MEM_LIMIT_QEMU;
 
         qemu_mode = 1;
         break;
@@ -1218,7 +1203,7 @@ int main(int argc, char** argv, char** envp) {
       case 'U':
 
         if (unicorn_mode) FATAL("Multiple -Q options not supported");
-        if (!mem_limit_given) mem_limit = MEM_LIMIT_UNICORN;
+        if (!mem_limit_given) fsrv->mem_limit = MEM_LIMIT_UNICORN;
 
         unicorn_mode = 1;
         break;
@@ -1229,7 +1214,7 @@ int main(int argc, char** argv, char** envp) {
         qemu_mode = 1;
         use_wine = 1;
 
-        if (!mem_limit_given) mem_limit = 0;
+        if (!mem_limit_given) fsrv->mem_limit = 0;
 
         break;
 
@@ -1275,21 +1260,24 @@ int main(int argc, char** argv, char** envp) {
   if (optind == argc || !in_file || !output_file) usage(argv[0]);
 
   check_environment_vars(envp);
-  setup_shm(0);
+
+  sharedmem_t shm = {0};
+  fsrv->trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
+
   atexit(at_exit_handler);
   setup_signal_handlers();
 
-  set_up_environment();
+  set_up_environment(fsrv);
 
-  find_binary(argv[optind]);
-  detect_file_args(argv + optind, out_file);
+  find_binary(fsrv, argv[optind]);
+  detect_file_args(argv + optind, fsrv->out_file, fsrv->use_stdin);
 
   if (qemu_mode) {
 
     if (use_wine)
-      use_argv = get_wine_argv(argv[0], argv + optind, argc - optind);
+      use_argv = get_wine_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
     else
-      use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
+      use_argv = get_qemu_argv(argv[0], &fsrv->target_path, argc - optind, argv + optind);
 
   } else
 
@@ -1308,20 +1296,20 @@ int main(int argc, char** argv, char** envp) {
 
   read_initial_file();
 
-  init_forkserver(use_argv);
+  afl_fsrv_start(fsrv, use_argv);
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
-       mem_limit, exec_tmout, edges_only ? ", edges only" : "");
+       fsrv->mem_limit, fsrv->exec_tmout, edges_only ? ", edges only" : "");
 
-  run_target(use_argv, in_data, in_len, 1);
+  run_target(fsrv, use_argv, in_data, in_len, 1);
 
-  if (hang_mode && !child_timed_out)
+  if (hang_mode && !fsrv->child_timed_out)
     FATAL(
         "Target binary did not time out but hang minimization mode "
         "(-H) was set (-t %u).",
-        exec_tmout);
+        fsrv->exec_tmout);
 
-  if (child_timed_out && !hang_mode)
+  if (fsrv->child_timed_out && !hang_mode)
     FATAL(
         "Target binary times out (adjusting -t may help). Use -H to minimize a "
         "hang.");
@@ -1335,7 +1323,7 @@ int main(int argc, char** argv, char** envp) {
     OKF("Program terminates normally, minimizing in " cCYA "instrumented" cRST
         " mode.");
 
-    if (!anything_set()) FATAL("No instrumentation detected.");
+    if (!anything_set(fsrv)) FATAL("No instrumentation detected.");
 
   } else {
 
@@ -1345,16 +1333,21 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  minimize(use_argv);
+  minimize(fsrv, use_argv);
 
   ACTF("Writing output to '%s'...", output_file);
 
-  unlink(out_file);
-  out_file = NULL;
+  unlink(fsrv->out_file);
+  fsrv->out_file = NULL;
 
   close(write_to_file(output_file, in_data, in_len));
 
   OKF("We're done here. Have a nice day!\n");
+
+
+  afl_shm_deinit(&shm);
+  afl_fsrv_deinit(fsrv);
+  free(fsrv);
 
   exit(0);
 
