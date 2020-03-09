@@ -369,7 +369,7 @@ int main(int argc, char** argv, char** envp) {
       case 'f':                                              /* target file */
 
         if (afl->fsrv.out_file) FATAL("Multiple -f options not supported");
-        afl->fsrv.out_file = optarg;
+        afl->fsrv.out_file = ck_strdup(optarg);
         afl->fsrv.use_stdin = 0;
         break;
 
@@ -1152,9 +1152,14 @@ stop_fuzzing:
   fclose(afl->fsrv.plot_file);
   destroy_queue(afl);
   destroy_extras(afl);
-  ck_free(afl->fsrv.target_path);
-  ck_free(afl->sync_id);
   destroy_custom_mutator(afl);
+  afl_shm_deinit(&afl->shm);
+  afl_fsrv_deinit(&afl->fsrv);
+  if (afl->orig_cmdline) ck_free(afl->orig_cmdline);
+  ck_free(afl->fsrv.target_path);
+  ck_free(afl->fsrv.out_file);
+  ck_free(afl->sync_id);
+  ck_free(afl);
 
   alloc_report();
 

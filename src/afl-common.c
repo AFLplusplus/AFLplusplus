@@ -62,6 +62,8 @@ void detect_file_args(char **argv, u8 *prog_in, u8 use_stdin) {
 
   if (!cwd) PFATAL("getcwd() failed");
 
+  // TODO: free allocs below... somewhere.
+
   while (argv[i]) {
 
     u8* aa_loc = strstr(argv[i], "@@");
@@ -84,6 +86,8 @@ void detect_file_args(char **argv, u8 *prog_in, u8 use_stdin) {
           aa_subst = alloc_printf("%s/%s", cwd, prog_in);
 
         /* Construct a replacement argv value. */
+
+        // TODO: n_arg is never freed
 
         *aa_loc = 0;
         n_arg = alloc_printf("%s%s%s", argv[i], aa_subst, aa_loc + 2);
