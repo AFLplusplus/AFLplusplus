@@ -22,13 +22,19 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - AFL_AUTORESUME will resume execution without the need to specify `-i -`
   - LTO collision free instrumented added in llvm_mode with afl-clang-lto -
     note that this mode is amazing, but quite some targets won't compile
-  - qemu_mode now uses solely the internal capstone version to fix builds
-    on modern Linux distributions
+  - llvm_mode InsTrim mode:
+    - removed workaround for bug where paths were not instrumented and 
+      imported fix by author
+    - made skipping 1 block functions an option and is disable by default
+-> TODO: document this!
+  - qemu_mode:
+    - qemu_mode now uses solely the internal capstone version to fix builds
+      on modern Linux distributions
+    - QEMU now logs routines arguments for CmpLog when the target is x86
   - afl-tmin:
     - now supports hang mode `-H` to minimize hangs
     - fixed potential afl-tmin missbehavior for targets with multiple hangs
   - Pressing Control-c in afl-cmin did not terminate it for some OS
-  - QEMU now logs routines arguments for CmpLog when the target is x86
 
 
 ### Version ++2.62c (release):
