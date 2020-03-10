@@ -139,21 +139,17 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   // this structure needs default so we initialize it if this was not done
   // already
 
-  if (!fsrv->use_stdin) {
-
-    fsrv->use_stdin = 1;
-    fsrv->out_fd = -1;
-    fsrv->out_dir_fd = -1;
-    fsrv->dev_null_fd = -1;
+  fsrv->use_stdin = 1;
+  fsrv->out_fd = -1;
+  fsrv->out_dir_fd = -1;
+  fsrv->dev_null_fd = -1;
 #ifndef HAVE_ARC4RANDOM
-    fsrv->dev_urandom_fd = -1;
+  fsrv->dev_urandom_fd = -1;
 #endif
-    fsrv->exec_tmout = EXEC_TIMEOUT;
-    fsrv->mem_limit = MEM_LIMIT;
-    fsrv->child_pid = -1;
-    fsrv->out_dir_fd = -1;
-
-  }
+  fsrv->exec_tmout = EXEC_TIMEOUT;
+  fsrv->mem_limit = MEM_LIMIT;
+  fsrv->child_pid = -1;
+  fsrv->out_dir_fd = -1;
 
   list_append(&fsrv_list, fsrv);
 
