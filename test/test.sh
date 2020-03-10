@@ -120,10 +120,10 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     rm -f test-instr.plain.0 test-instr.plain.1
     TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 3 -a "$TUPLES" -lt 10 && {
+    test "$TUPLES" -gt 3 -a "$TUPLES" -lt 11 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
-      $ECHO "$RED[!] ${AFL_GCC} produces weird instrumentation numbers: $TUPLES"
+      $ECHO "$RED[!] ${AFL_GCC} instrumentation produces weird numbers: $TUPLES"
       CODE=1
     }
   } || {
@@ -330,7 +330,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     test "$TUPLES" -gt 2 -a "$TUPLES" -lt 5 && {
       $ECHO "$GREEN[+] llvm_mode Instrim reported $TUPLES instrumented locations which is fine"
     } || {
-      $ECHO "$RED[!] llvm_mode Instrim produces weird numbers: $TUPLES"
+      $ECHO "$RED[!] llvm_mode Instrim instrumentation produces weird numbers: $TUPLES"
       CODE=1
     }
     rm -f test-instr.instrim test.out
@@ -476,7 +476,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
         test "$TUPLES" -gt 3 -a "$TUPLES" -lt 7 && {
           $ECHO "$GREEN[+] gcc_plugin run reported $TUPLES instrumented locations which is fine"
         } || {
-          $ECHO "$RED[!] gcc_plugin instrumentation produces a weird number of instrumented locations: $TUPLES"
+          $ECHO "$RED[!] gcc_plugin instrumentation produces a weird numbers: $TUPLES"
           $ECHO "$YELLOW[-] this is a known issue in gcc, not afl++. It is not flagged as an error because travis builds would all fail otherwise :-("
           #CODE=1
         }
