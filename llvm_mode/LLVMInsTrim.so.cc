@@ -54,6 +54,7 @@ struct InsTrim : public ModulePass {
 
  protected:
   std::list<std::string> myWhitelist;
+  uint32_t function_minimum_size = 1;
 
  private:
   std::mt19937 generator;
@@ -152,6 +153,9 @@ struct InsTrim : public ModulePass {
 
     }
 
+    if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") != NULL)
+      function_minimum_size = 2;
+
     // this is our default
     MarkSetOpt = true;
 
@@ -176,8 +180,8 @@ struct InsTrim : public ModulePass {
 
     for (Function &F : M) {
 
-      // if it is external or only contains one basic block: skip it
-      if (F.size() < 2) { continue; }
+      // if the function below our minimum size skip it (1 or 2)
+      if (F.size() < function_minimum_size) { continue; }
 
       if (!myWhitelist.empty()) {
 
@@ -383,67 +387,15 @@ struct InsTrim : public ModulePass {
 
         }
 
-        // Bugfix #1: remove single block function instrumentation
-
-        for (BasicBlock &BB : F) {
-
-          if (MarkSetOpt && MS.find(&BB) == MS.end()) {
-
-            // Bugfix #2: instrument blocks that should be but InsTrim
-            //            doesn't due to an algorithmic bug
-            int more_than_one = -1;
-
-            for (pred_iterator PI = pred_begin(&BB), E = pred_end(&BB); PI != E;
-                 ++PI) {
-
-              BasicBlock *Pred = *PI;
-              int         count = 0;
-
-              if (more_than_one == -1) more_than_one = 0;
-              for (succ_iterator SI = succ_begin(Pred), E = succ_end(Pred);
-                   SI != E; ++SI) {
-
-                BasicBlock *Succ = *SI;
-                if (Succ != NULL) count++;
-
-              }
-
-              if (count > 1) more_than_one = 1;
-
+	if (function_minimum_size < 2) {
+          for (BasicBlock &BB : F) {
+            if (MS.find(&BB) == MS.end()) {
+              continue;
             }
-
-            if (more_than_one != 1) continue;
-            for (succ_iterator SI = succ_begin(&BB), E = succ_end(&BB); SI != E;
-                 ++SI) {
-
-              BasicBlock *Succ = *SI;
-              if (Succ != NULL && MS.find(Succ) == MS.end()) {
-
-                int cnt = 0;
-                for (succ_iterator SI2 = succ_begin(Succ), E2 = succ_end(Succ);
-                     SI2 != E2; ++SI2) {
-
-                  BasicBlock *Succ2 = *SI2;
-                  if (Succ2 != NULL) cnt++;
-
-                }
-
-                if (cnt == 0) {
-
-                  // fprintf(stderr, "INSERT!\n");
-                  MS.insert(Succ);
-                  total_rs += 1;
-
-                }
-
-              }
-
-            }
-
+            IRBuilder<> IRB(&*BB.getFirstInsertionPt());
+            IRB.CreateStore(ConstantInt::get(Int32Ty, genLabel()), OldPrev);
           }
-
         }
-
       }
 
       for (BasicBlock &BB : F) {
