@@ -160,14 +160,14 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
     if ((res = write(afl->fsrv.fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
 
-      if (afl->stop_soon) return 0;
+      if (afl->stop_soon) goto handle_stop_soon;
       RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
     }
 
     if ((res = read(afl->fsrv.fsrv_st_fd, &afl->fsrv.child_pid, 4)) != 4) {
 
-      if (afl->stop_soon) return 0;
+      if (afl->stop_soon) goto handle_stop_soon;
       RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
     }
@@ -196,6 +196,7 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
   if (timer_status == -1) {
 
+    timer_delete(timer);
     if (errno == EINVAL) {
 
       FATAL("Failed to set the timer. The timeout given is invalid.");
@@ -214,16 +215,19 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
   if (afl->dumb_mode == 1 || afl->no_forkserver) {
 
-    if (waitpid(afl->fsrv.child_pid, &status, 0) <= 0)
+    if (waitpid(afl->fsrv.child_pid, &status, 0) <= 0) {
+
+      timer_delete(timer);
       PFATAL("waitpid() failed");
 
+    }
   } else {
 
     s32 res;
 
     if ((res = read(afl->fsrv.fsrv_st_fd, &status, 4)) != 4) {
 
-      if (afl->stop_soon) return 0;
+      if (afl->stop_soon) goto handle_stop_soon;
       SAYF(
           "\n" cLRD "[-] " cRST
           "Unable to communicate with fork server. Some possible reasons:\n\n"
@@ -243,6 +247,7 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
           "If all else fails you can disable the fork server via "
           "AFL_NO_FORKSRV=1.\n",
           afl->fsrv.mem_limit);
+      timer_delete(timer);
       RPFATAL(res, "Unable to communicate with fork server");
 
     }
@@ -269,6 +274,7 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
   if (timer_status == -1) {
 
+    timer_delete(timer);
     FATAL("Failed to reset the timer.");
 
   }
@@ -320,6 +326,11 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
     return FAULT_ERROR;
 
   return FAULT_NONE;
+
+  handle_stop_soon:
+    printf("CALLED");
+    timer_delete(timer);
+    return 0;
 
 }
 
