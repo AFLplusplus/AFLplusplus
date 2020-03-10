@@ -135,15 +135,24 @@ void handle_timeout(int sig) {
 
 void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
-  uint32_t i, j = 0;
+  // this structure needs default so we initialize it if this was not done already
 
-  // this is the default and is != 0 so we need to set it if fsrv is still
-  // uninitialized
-  for (i = 0; i < sizeof(afl_forkserver_t) && j == 0; i++)
-    if (((char*)fsrv)[i] != 0)
-      j = 1;
-  if (j == 0)
+  if (!fsrv->use_stdin) {
+
     fsrv->use_stdin = 1;
+    fsrv->out_fd = -1;
+    fsrv->out_dir_fd = -1;
+    fsrv->dev_null_fd = -1;
+#ifndef HAVE_ARC4RANDOM
+    fsrv->dev_urandom_fd = -1;
+#endif
+    fsrv->exec_tmout = EXEC_TIMEOUT;
+    fsrv->mem_limit = MEM_LIMIT;
+    fsrv->child_pid = -1;
+    fsrv->out_dir_fd = -1;
+    
+  }
+  
   list_append(&fsrv_list, fsrv);
 
 }
