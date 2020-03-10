@@ -393,10 +393,9 @@ bool MarkSubGraph(uint32_t ss, uint32_t tt) {
     MakeUniq(TopoOrder[i]);
 
   }
-  
-   // Check if there is an empty path.
-  if (NextMarked[tt].count(TopoOrder[0]) > 0)
-    return true;
+
+  // Check if there is an empty path.
+  if (NextMarked[tt].count(TopoOrder[0]) > 0) return true;
   return false;
 
 }
@@ -422,7 +421,7 @@ void MarkVertice() {
 
   timeStamp = 0;
   uint32_t t = 0;
-  bool emptyPathExists = true;
+  bool     emptyPathExists = true;
 
   while (s != t) {
 
@@ -430,10 +429,12 @@ void MarkVertice() {
     t = DominatorTree::idom[t];
 
   }
-  
+
   if (emptyPathExists) {
+
     // Mark all exit blocks to catch the empty path.
     Marked.insert(t_Pred[0].begin(), t_Pred[0].end());
+
   }
 
 }

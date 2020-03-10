@@ -25,8 +25,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - llvm_mode InsTrim mode:
     - removed workaround for bug where paths were not instrumented and 
       imported fix by author
-    - made skipping 1 block functions an option and is disable by default
--> TODO: document this!
+    - made skipping 1 block functions an option and is disable by default,
+      set AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK=1 to renable this
   - qemu_mode:
     - qemu_mode now uses solely the internal capstone version to fix builds
       on modern Linux distributions
