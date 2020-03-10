@@ -93,7 +93,7 @@ Mentor: hexcoder- or vanhauser-thc
 ## Collision-free Binary-Only Maps
 
 AFL++ supports collison-free maps using an LTO (link-time-optimization) pass.
-This should be possile to implement for QEMU and Unicorn instrumentations.
+This should be possible to implement for QEMU and Unicorn instrumentations.
 As the forkserver parent caches just in time translated translation blocks, adding a simple counter between jumps should be doable.
 
 Mentor: andreafioraldi or domenukk
