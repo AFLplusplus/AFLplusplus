@@ -54,7 +54,7 @@ struct InsTrim : public ModulePass {
 
  protected:
   std::list<std::string> myWhitelist;
-  uint32_t function_minimum_size = 1;
+  uint32_t               function_minimum_size = 1;
 
  private:
   std::mt19937 generator;
@@ -387,15 +387,18 @@ struct InsTrim : public ModulePass {
 
         }
 
-	if (function_minimum_size < 2) {
+        if (function_minimum_size < 2) {
+
           for (BasicBlock &BB : F) {
-            if (MS.find(&BB) == MS.end()) {
-              continue;
-            }
+
+            if (MS.find(&BB) == MS.end()) { continue; }
             IRBuilder<> IRB(&*BB.getFirstInsertionPt());
             IRB.CreateStore(ConstantInt::get(Int32Ty, genLabel()), OldPrev);
+
           }
+
         }
+
       }
 
       for (BasicBlock &BB : F) {

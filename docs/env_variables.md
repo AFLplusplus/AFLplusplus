@@ -91,6 +91,25 @@ of the settings discussed in section #1, with the exception of:
 
 Then there are a few specific features that are only available in llvm_mode:
 
+### LTO
+
+This is a different kind way of instrumentation: first it compiles all
+code in LTO (link time optimization) and then performs an edge inserting
+instrumentation which is 100% collision free (collisions are a big issue
+in afl and afl-like instrumentations). This is performed by using
+afl-clang-lto/afl-clang-lto++ instead of afl-clang-fast, but is only
+built if LLVM 9 or newer is used.
+
+None of these options are necessary to be used and are rather for manual
+use (which only ever the author of this LTO implementation will use ;-)
+These are used if several seperated instrumentation are performed which
+are then later combined.
+
+   - AFL_LLVM_LTO_STARTID sets the starting location ID for the instrumentation.
+     This defaults to 1
+   - AFL_LLVM_LTO_DONTWRITEID prevents that the highest location ID written
+     into the instrumentation is set in a global variable
+
 ### LAF-INTEL
 
     This great feature will split compares to series of single byte comparisons
@@ -125,6 +144,10 @@ Then there are a few specific features that are only available in llvm_mode:
     - Setting AFL_LLVM_INSTRIM_LOOPHEAD=1 expands on INSTRIM to optimize loops.
       afl-fuzz will only be able to see the path the loop took, but not how
       many times it was called (unless it is a complex loop).
+
+    - Setting AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK=1 will skip instrumenting
+      functions with a single basic block. This is useful for most C and
+      some C++ targets.
 
     See llvm_mode/README.instrim.md
 

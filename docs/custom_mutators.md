@@ -15,7 +15,7 @@ cases beyond those available in AFL. For example, to enable structure-aware
 fuzzing by using libraries that perform mutations according to a given grammar.
 
 The custom mutator is passed to `afl-fuzz` via the `AFL_CUSTOM_MUTATOR_LIBRARY`
-or `AFL_PYTHON_MODULE` environment variable., and must export a fuzz function.
+or `AFL_PYTHON_MODULE` environment variable, and must export a fuzz function.
 Please see [APIs](#2-apis) and [Usage](#3-usage) for detail.
 
 The custom mutation stage is set to be the first non-deterministic stage (right before the havoc stage).
