@@ -39,10 +39,10 @@ void timeout_handle(union sigval timer_data) {
 
 u8 run_target(afl_state_t *afl, u32 timeout) {
 
-  // static struct itimerval it;
   struct sigevent          timer_signal_event;
   static timer_t           timer;
   static struct itimerspec timer_period;
+  static struct timeval    it;
   static u32               prev_timed_out = 0;
   static u64               exec_ms = 0;
 
@@ -151,23 +151,54 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
 
     }
 
-  } else {
+    /* Configure timeout using POSIX timers in dumb-mode,
+        as requested by user, then wait for child to terminate.
+     */
 
-    s32 res;
+    timer_signal_event.sigev_value.sival_int = afl->fsrv.child_pid;
+    timer_status = timer_create(CLOCK_MONOTONIC, &timer_signal_event, &timer);
+
+    if (timer_status == -1) { FATAL("Failed to create Timer"); }
+
+    timer_period.it_value.tv_sec = (timeout / 1000);
+    timer_period.it_value.tv_nsec = (timeout % 1000) * 1000000;
+    timer_period.it_interval.tv_sec = 0;
+    timer_period.it_interval.tv_nsec = 0;
+
+    timer_status = timer_settime(timer, 0, &timer_period, NULL);
+
+    if (timer_status == -1) {
+
+      timer_delete(timer);
+      if (errno == EINVAL) {
+
+        FATAL("Failed to set the timer. The timeout given is invalid.");
+
+      } else {
+
+        FATAL("Failed to set the timer to the given timeout");
+
+      }
+
+    }
+
+  } else {
 
     /* In non-dumb mode, we have the fork server up and running, so simply
        tell it to have at it, and then read back PID. */
 
+    int res;
+
     if ((res = write(afl->fsrv.fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
 
-      if (afl->stop_soon) goto handle_stop_soon;
+      if (afl->stop_soon) return 0;
       RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
     }
 
     if ((res = read(afl->fsrv.fsrv_st_fd, &afl->fsrv.child_pid, 4)) != 4) {
 
-      if (afl->stop_soon) goto handle_stop_soon;
+      if (afl->stop_soon) return 0;
       RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
     }
@@ -175,38 +206,6 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
     if (afl->fsrv.child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
 
   }
-
-  /* Configure timeout, as requested by user, then wait for child to terminate.
-   */
-  timer_signal_event.sigev_value.sival_int = afl->fsrv.child_pid;
-  timer_status = timer_create(CLOCK_MONOTONIC, &timer_signal_event, &timer);
-
-  if (timer_status == -1) { FATAL("Failed to create Timer"); }
-
-  timer_period.it_value.tv_sec = (timeout / 1000);
-  timer_period.it_value.tv_nsec = (timeout % 1000) * 1000000;
-  timer_period.it_interval.tv_sec = 0;
-  timer_period.it_interval.tv_nsec = 0;
-
-  timer_status = timer_settime(timer, 0, &timer_period, NULL);
-
-  if (timer_status == -1) {
-
-    timer_delete(timer);
-    if (errno == EINVAL) {
-
-      FATAL("Failed to set the timer. The timeout given is invalid.");
-
-    } else {
-
-      FATAL("Failed to set the timer to the given timeout");
-
-    }
-
-  }
-
-  /* The SIGALRM handler simply kills the afl->fsrv.child_pid and sets
-   * afl->fsrv.child_timed_out. */
 
   if (afl->dumb_mode == 1 || afl->no_forkserver) {
 
@@ -217,61 +216,85 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
 
     }
 
-  } else {
+    timer_gettime(timer, &timer_period);
+    exec_ms = (u64)timeout - (timer_period.it_value.tv_sec * 1000 +
+                              timer_period.it_value.tv_nsec / 1000000);
+    timer_period.it_value.tv_sec = 0;
+    timer_period.it_value.tv_nsec = 0;
 
-    s32 res;
+    timer_status = timer_settime(timer, 0, &timer_period, NULL);
 
-    if ((res = read(afl->fsrv.fsrv_st_fd, &status, 4)) != 4) {
+    if (timer_status == -1) {
 
-      if (afl->stop_soon) goto handle_stop_soon;
-      SAYF(
-          "\n" cLRD "[-] " cRST
-          "Unable to communicate with fork server. Some possible reasons:\n\n"
-          "    - You've run out of memory. Use -m to increase the the memory "
-          "limit\n"
-          "      to something higher than %lld.\n"
-          "    - The binary or one of the libraries it uses manages to create\n"
-          "      threads before the forkserver initializes.\n"
-          "    - The binary, at least in some circumstances, exits in a way "
-          "that\n"
-          "      also kills the parent process - raise() could be the "
-          "culprit.\n"
-          "    - If using persistent mode with QEMU, AFL_QEMU_PERSISTENT_ADDR "
-          "is\n"
-          "      probably not valid (hint: add the base address in case of PIE)"
-          "\n\n"
-          "If all else fails you can disable the fork server via "
-          "AFL_NO_FORKSRV=1.\n",
-          afl->fsrv.mem_limit);
       timer_delete(timer);
-      RPFATAL(res, "Unable to communicate with fork server");
+      FATAL("Failed to reset the timer.");
 
     }
+
+    timer_delete(timer);
+
+  } else {
+
+    /* In non-dumb mode, use select to monitor the forkserver for timeouts.
+     */
+
+    s32 res;
+    int sret;
+
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(afl->fsrv.fsrv_st_fd, &readfds);
+    it.tv_sec = ((timeout) / 1000);
+    it.tv_usec = ((timeout) % 1000) * 1000;
+
+    sret = select(afl->fsrv.fsrv_st_fd + 1, &readfds, NULL, NULL, &it);
+
+    if (sret == 0) {
+
+      kill(afl->fsrv.child_pid, SIGKILL);
+
+    } else {
+
+      if ((res = read(afl->fsrv.fsrv_st_fd, &status, 4)) != 4) {
+
+        if (afl->stop_soon) return 0;
+        SAYF(
+            "\n" cLRD "[-] " cRST
+            "Unable to communicate with fork server. Some possible reasons:\n\n"
+            "    - You've run out of memory. Use -m to increase the the memory "
+            "limit\n"
+            "      to something higher than %lld.\n"
+            "    - The binary or one of the libraries it uses manages to "
+            "create\n"
+            "      threads before the forkserver initializes.\n"
+            "    - The binary, at least in some circumstances, exits in a way "
+            "that\n"
+            "      also kills the parent process - raise() could be the "
+            "culprit.\n"
+            "    - If using persistent mode with QEMU, "
+            "AFL_QEMU_PERSISTENT_ADDR "
+            "is\n"
+            "      probably not valid (hint: add the base address in case of "
+            "PIE)"
+            "\n\n"
+            "If all else fails you can disable the fork server via "
+            "AFL_NO_FORKSRV=1.\n",
+            afl->fsrv.mem_limit);
+        RPFATAL(res, "Unable to communicate with fork server");
+
+      }
+
+    }
+
+    exec_ms = (u64)timeout - (it.tv_sec * 1000 + it.tv_usec / 1000);
+    it.tv_sec = 0;
+    it.tv_usec = 0;
 
   }
 
   if (!WIFSTOPPED(status)) afl->fsrv.child_pid = 0;
 
-  timer_gettime(timer, &timer_period);
-  exec_ms = (u64)timeout - (timer_period.it_value.tv_sec * 1000 +
-                            timer_period.it_value.tv_nsec / 1000000);
-  if (afl->slowest_exec_ms < exec_ms) afl->slowest_exec_ms = exec_ms;
-
   if (exec_ms >= timeout) { afl->fsrv.child_timed_out = 1; }
-
-  timer_period.it_value.tv_sec = 0;
-  timer_period.it_value.tv_nsec = 0;
-
-  timer_status = timer_settime(timer, 0, &timer_period, NULL);
-
-  if (timer_status == -1) {
-
-    timer_delete(timer);
-    FATAL("Failed to reset the timer.");
-
-  }
-
-  timer_delete(timer);
 
   ++afl->total_execs;
 
@@ -318,10 +341,6 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
     return FAULT_ERROR;
 
   return FAULT_NONE;
-
-handle_stop_soon:
-  timer_delete(timer);
-  return 0;
 
 }
 
@@ -374,7 +393,7 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
   if (afl->mutator && afl->mutator->afl_custom_pre_save) {
 
-    u8 *new_data;
+    u8 *   new_data;
     size_t new_size =
         afl->mutator->afl_custom_pre_save(afl, mem, len, &new_data);
     ck_write(fd, new_data, new_size, afl->fsrv.out_file);
@@ -606,9 +625,9 @@ abort_calibration:
 
 void sync_fuzzers(afl_state_t *afl) {
 
-  DIR *sd;
+  DIR *          sd;
   struct dirent *sd_ent;
-  u32 sync_cnt = 0;
+  u32            sync_cnt = 0;
 
   sd = opendir(afl->sync_dir);
   if (!sd) PFATAL("Unable to open '%s'", afl->sync_dir);
@@ -623,10 +642,10 @@ void sync_fuzzers(afl_state_t *afl) {
 
     static u8 stage_tmp[128];
 
-    DIR *qd;
+    DIR *          qd;
     struct dirent *qd_ent;
-    u8 *qd_path, *qd_synced_path;
-    u32 min_accept = 0, next_min_accept;
+    u8 *           qd_path, *qd_synced_path;
+    u32            min_accept = 0, next_min_accept;
 
     s32 id_fd;
 
@@ -671,8 +690,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
     while ((qd_ent = readdir(qd))) {
 
-      u8 *path;
-      s32 fd;
+      u8 *        path;
+      s32         fd;
       struct stat st;
 
       if (qd_ent->d_name[0] == '.' ||
