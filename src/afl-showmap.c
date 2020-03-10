@@ -61,9 +61,9 @@
 
 u8 be_quiet;
 
-char*stdin_file;                       /* stdin file                        */
+char* stdin_file;                      /* stdin file                        */
 
-u8  *in_dir,                           /* input folder                      */
+u8 *in_dir,                            /* input folder                      */
     *doc_path,                         /* Path to docs                      */
         *at_file = NULL;               /* Substitution string for @@        */
 
@@ -147,7 +147,7 @@ static void at_exit_handler(void) {
 
 /* Write results. */
 
-static u32 write_results_to_file(afl_forkserver_t* fsrv, u8 *outfile) {
+static u32 write_results_to_file(afl_forkserver_t* fsrv, u8* outfile) {
 
   s32 fd;
   u32 i, ret = 0;
@@ -167,7 +167,7 @@ static u32 write_results_to_file(afl_forkserver_t* fsrv, u8 *outfile) {
 
   } else {
 
-    unlink(outfile);                                /* Ignore errors */
+    unlink(outfile);                                       /* Ignore errors */
     fd = open(outfile, O_WRONLY | O_CREAT | O_EXCL, 0600);
     if (fd < 0) PFATAL("Unable to create '%s'", outfile);
 
@@ -710,11 +710,11 @@ int main(int argc, char** argv_orig, char** envp) {
   s32    opt, i;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   u32    tcnt = 0;
-  char **use_argv;
+  char** use_argv;
 
-  char **argv = argv_cpy_dup(argc, argv_orig);
+  char** argv = argv_cpy_dup(argc, argv_orig);
 
-  afl_forkserver_t fsrv_var = {0};
+  afl_forkserver_t  fsrv_var = {0};
   afl_forkserver_t* fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
 
@@ -962,7 +962,7 @@ int main(int argc, char** argv_orig, char** envp) {
     if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
 
     if (arg_offset && argv[arg_offset] != stdin_file) {
-      
+
       ck_free(argv[arg_offset]);
       argv[arg_offset] = strdup(stdin_file);
 

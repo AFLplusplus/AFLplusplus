@@ -38,7 +38,7 @@
 
 extern u8 be_quiet;
 
-void detect_file_args(char** argv, u8* prog_in, u8 *use_stdin) {
+void detect_file_args(char** argv, u8* prog_in, u8* use_stdin) {
 
   u32 i = 0;
 #ifdef __GLIBC__
@@ -58,6 +58,7 @@ void detect_file_args(char** argv, u8* prog_in, u8 *use_stdin) {
     PFATAL("getcwd() failed");
 
   }
+
 #endif
 
   if (!cwd) PFATAL("getcwd() failed");
@@ -103,18 +104,18 @@ void detect_file_args(char** argv, u8* prog_in, u8 *use_stdin) {
 
   }
 
-  ck_free(cwd);                                                 /* not tracked */
+  ck_free(cwd);                                              /* not tracked */
 
 }
 
-/* duplicate the system argv so that 
+/* duplicate the system argv so that
   we can edit (and free!) it later */
 
-char **argv_cpy_dup(int argc, char** argv) {
+char** argv_cpy_dup(int argc, char** argv) {
 
   u32 i = 0;
 
-  char **ret = ck_alloc((argc + 1) * sizeof(char *));
+  char** ret = ck_alloc((argc + 1) * sizeof(char*));
 
   for (i = 0; i < argc; i++) {
 
@@ -128,19 +129,22 @@ char **argv_cpy_dup(int argc, char** argv) {
 
 }
 
-/* frees all args in the given argv, 
+/* frees all args in the given argv,
    previously created by argv_cpy_dup */
 
-void argv_cpy_free(char **argv) {
+void argv_cpy_free(char** argv) {
 
-  u32 i=0;
-  while(argv[i]) {
+  u32 i = 0;
+  while (argv[i]) {
+
     ck_free(argv[i]);
     i++;
-  }
-  ck_free(argv);
-}
 
+  }
+
+  ck_free(argv);
+
+}
 
 /* Rewrite argv for QEMU. */
 
@@ -360,7 +364,7 @@ char* get_afl_env(char* env) {
 
   if ((val = getenv(env)) != NULL)
     if (!be_quiet)
-      OKF("Loaded environment variable %s with value %s\n", env, val);
+      OKF("Loaded environment variable %s with value %s", env, val);
 
   return val;
 

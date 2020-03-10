@@ -455,7 +455,7 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
       setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
       if (!afl->qemu_mode && afl->argv[0] != afl->cmplog_binary) {
-        
+
         ck_free(afl->argv[0]);
         afl->argv[0] = afl->cmplog_binary;
 
