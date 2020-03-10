@@ -103,8 +103,8 @@ void pmparser_print(procmaps_struct *map, int order);
 /**
  * gobal variables
  */
-// procmaps_struct* g_last_head=NULL;
-// procmaps_struct* g_current=NULL;
+// procmaps_struct *g_last_head=NULL;
+// procmaps_struct *g_current=NULL;
 
 procmaps_iterator *pmparser_parse(int pid) {
 
