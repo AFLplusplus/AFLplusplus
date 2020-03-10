@@ -24,15 +24,17 @@
 
  */
 
+#include <sys/select.h>
+
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
 void init_cmplog_forkserver(afl_state_t *afl) {
 
-  static struct itimerval it;
-  int                     st_pipe[2], ctl_pipe[2];
-  int                     status;
-  s32                     rlen;
+  static struct timeval timeout;
+  int                   st_pipe[2], ctl_pipe[2];
+  int                   status;
+  s32                   rlen;
 
   ACTF("Spinning up the cmplog fork server...");
 
@@ -182,20 +184,28 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
   if (afl->fsrv.exec_tmout) {
 
-    it.it_value.tv_sec = ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) / 1000);
-    it.it_value.tv_usec =
-        ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(afl->cmplog_fsrv_st_fd, &readfds);
+    timeout.tv_sec = ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) / 1000);
+    timeout.tv_usec = ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
+
+    int sret = select(afl->cmplog_fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
+
+    if (sret == 0) {
+
+      kill(afl->cmplog_fsrv_pid, SIGKILL);
+
+    } else {
+
+      rlen = read(afl->cmplog_fsrv_st_fd, &status, 4);
+
+    }
+  } else {
+
+    rlen = read(afl->cmplog_fsrv_st_fd, &status, 4);
 
   }
-
-  setitimer(ITIMER_REAL, &it, NULL);
-
-  rlen = read(afl->cmplog_fsrv_st_fd, &status, 4);
-
-  it.it_value.tv_sec = 0;
-  it.it_value.tv_usec = 0;
-
-  setitimer(ITIMER_REAL, &it, NULL);
 
   /* If we have a four-byte "hello" message from the server, we're all set.
      Otherwise, try to figure out what went wrong. */

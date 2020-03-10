@@ -24,18 +24,31 @@
  */
 
 #include "afl-fuzz.h"
+#include <sys/time.h>
+#include <signal.h>
 
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv.trace_bits[]. */
 
+void timeout_handle(union sigval timer_data) {
+
+  pid_t        child_pid = timer_data.sival_int;
+  if (child_pid > 0) kill(child_pid, SIGKILL);
+
+}
+
 u8 run_target(afl_state_t* afl, u32 timeout) {
 
-  static struct itimerval it;
-  static u32              prev_timed_out = 0;
-  static u64              exec_ms = 0;
+  // static struct itimerval it;
+  struct sigevent          timer_signal_event;
+  static timer_t           timer;
+  static struct itimerspec timer_period;
+  static u32               prev_timed_out = 0;
+  static u64               exec_ms = 0;
 
   int status = 0;
   u32 tb4;
+  int timer_status;
 
   afl->fsrv.child_timed_out = 0;
 
@@ -44,6 +57,11 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
      territory. */
 
   memset(afl->fsrv.trace_bits, 0, MAP_SIZE);
+  memset(&timer_signal_event, 0, sizeof(struct sigevent));
+
+  timer_signal_event.sigev_notify = SIGEV_THREAD;
+  timer_signal_event.sigev_notify_function = timeout_handle;
+
   MEM_BARRIER();
 
   /* If we're running in "dumb" mode, we can't rely on the fork server
@@ -142,14 +160,14 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
     if ((res = write(afl->fsrv.fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
 
-      if (afl->stop_soon) return 0;
+      if (afl->stop_soon) goto handle_stop_soon;
       RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
     }
 
     if ((res = read(afl->fsrv.fsrv_st_fd, &afl->fsrv.child_pid, 4)) != 4) {
 
-      if (afl->stop_soon) return 0;
+      if (afl->stop_soon) goto handle_stop_soon;
       RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
     }
@@ -160,27 +178,56 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
   /* Configure timeout, as requested by user, then wait for child to terminate.
    */
+  timer_signal_event.sigev_value.sival_int = afl->fsrv.child_pid;
+  timer_status = timer_create(CLOCK_MONOTONIC, &timer_signal_event, &timer);
 
-  it.it_value.tv_sec = (timeout / 1000);
-  it.it_value.tv_usec = (timeout % 1000) * 1000;
+  if (timer_status == -1) {
 
-  setitimer(ITIMER_REAL, &it, NULL);
+    FATAL("Failed to create Timer");
+
+  }
+
+  timer_period.it_value.tv_sec = (timeout / 1000);
+  timer_period.it_value.tv_nsec = (timeout % 1000) * 1000000;
+  timer_period.it_interval.tv_sec = 0;
+  timer_period.it_interval.tv_nsec = 0;
+
+  timer_status = timer_settime(timer, 0, &timer_period, NULL);
+
+  if (timer_status == -1) {
+
+    timer_delete(timer);
+    if (errno == EINVAL) {
+
+      FATAL("Failed to set the timer. The timeout given is invalid.");
+
+    } else {
+
+    FATAL("Failed to set the timer to the given timeout");
+
+    }
+
+  }
+
 
   /* The SIGALRM handler simply kills the afl->fsrv.child_pid and sets
    * afl->fsrv.child_timed_out. */
 
   if (afl->dumb_mode == 1 || afl->no_forkserver) {
 
-    if (waitpid(afl->fsrv.child_pid, &status, 0) <= 0)
+    if (waitpid(afl->fsrv.child_pid, &status, 0) <= 0) {
+
+      timer_delete(timer);
       PFATAL("waitpid() failed");
 
+    }
   } else {
 
     s32 res;
 
     if ((res = read(afl->fsrv.fsrv_st_fd, &status, 4)) != 4) {
 
-      if (afl->stop_soon) return 0;
+      if (afl->stop_soon) goto handle_stop_soon;
       SAYF(
           "\n" cLRD "[-] " cRST
           "Unable to communicate with fork server. Some possible reasons:\n\n"
@@ -200,6 +247,7 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
           "If all else fails you can disable the fork server via "
           "AFL_NO_FORKSRV=1.\n",
           afl->fsrv.mem_limit);
+      timer_delete(timer);
       RPFATAL(res, "Unable to communicate with fork server");
 
     }
@@ -208,15 +256,30 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
 
   if (!WIFSTOPPED(status)) afl->fsrv.child_pid = 0;
 
-  getitimer(ITIMER_REAL, &it);
-  exec_ms =
-      (u64)timeout - (it.it_value.tv_sec * 1000 + it.it_value.tv_usec / 1000);
+  timer_gettime(timer, &timer_period);
+  exec_ms = (u64)timeout - (timer_period.it_value.tv_sec * 1000 +
+                            timer_period.it_value.tv_nsec / 1000000);
   if (afl->slowest_exec_ms < exec_ms) afl->slowest_exec_ms = exec_ms;
 
-  it.it_value.tv_sec = 0;
-  it.it_value.tv_usec = 0;
+  if (exec_ms >= timeout) {
 
-  setitimer(ITIMER_REAL, &it, NULL);
+    afl->fsrv.child_timed_out = 1;
+
+  }
+
+  timer_period.it_value.tv_sec = 0;
+  timer_period.it_value.tv_nsec = 0;
+
+  timer_status = timer_settime(timer, 0, &timer_period, NULL);
+
+  if (timer_status == -1) {
+
+    timer_delete(timer);
+    FATAL("Failed to reset the timer.");
+
+  }
+
+  timer_delete(timer);
 
   ++afl->total_execs;
 
@@ -263,6 +326,11 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
     return FAULT_ERROR;
 
   return FAULT_NONE;
+
+  handle_stop_soon:
+    printf("CALLED");
+    timer_delete(timer);
+    return 0;
 
 }
 
