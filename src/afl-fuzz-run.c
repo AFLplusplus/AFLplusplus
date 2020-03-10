@@ -328,7 +328,6 @@ u8 run_target(afl_state_t* afl, u32 timeout) {
   return FAULT_NONE;
 
   handle_stop_soon:
-    printf("CALLED");
     timer_delete(timer);
     return 0;
 
