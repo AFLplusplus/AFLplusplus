@@ -28,9 +28,9 @@
    .state file to avoid repeating deterministic fuzzing when resuming aborted
    scans. */
 
-void mark_as_det_done(afl_state_t* afl, struct queue_entry* q) {
+void mark_as_det_done(afl_state_t *afl, struct queue_entry *q) {
 
-  u8* fn = strrchr(q->fname, '/');
+  u8 *fn = strrchr(q->fname, '/');
   s32 fd;
 
   fn = alloc_printf("%s/queue/.state/deterministic_done/%s", afl->out_dir,
@@ -49,7 +49,7 @@ void mark_as_det_done(afl_state_t* afl, struct queue_entry* q) {
 /* Mark as variable. Create symlinks if possible to make it easier to examine
    the files. */
 
-void mark_as_variable(afl_state_t* afl, struct queue_entry* q) {
+void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
 
   u8 *fn = strrchr(q->fname, '/') + 1, *ldest;
 
@@ -74,9 +74,9 @@ void mark_as_variable(afl_state_t* afl, struct queue_entry* q) {
 /* Mark / unmark as redundant (edge-only). This is not used for restoring state,
    but may be useful for post-processing datasets. */
 
-void mark_as_redundant(afl_state_t* afl, struct queue_entry* q, u8 state) {
+void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
-  u8* fn;
+  u8 *fn;
 
   if (state == q->fs_redundant) return;
 
@@ -105,9 +105,9 @@ void mark_as_redundant(afl_state_t* afl, struct queue_entry* q, u8 state) {
 
 /* Append new test case to the queue. */
 
-void add_to_queue(afl_state_t* afl, u8* fname, u32 len, u8 passed_det) {
+void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
-  struct queue_entry* q = ck_alloc(sizeof(struct queue_entry));
+  struct queue_entry *q = ck_alloc(sizeof(struct queue_entry));
 
   q->fname = fname;
   q->len = len;
@@ -142,7 +142,7 @@ void add_to_queue(afl_state_t* afl, u8* fname, u32 len, u8 passed_det) {
 
   if (afl->mutator && afl->mutator->afl_custom_queue_new_entry) {
 
-    u8* fname_orig = NULL;
+    u8 *fname_orig = NULL;
 
     /* At the initialization stage, queue_cur is NULL */
     if (afl->queue_cur) fname_orig = afl->queue_cur->fname;
@@ -155,7 +155,7 @@ void add_to_queue(afl_state_t* afl, u8* fname, u32 len, u8 passed_det) {
 
 /* Destroy the entire queue. */
 
-void destroy_queue(afl_state_t* afl) {
+void destroy_queue(afl_state_t *afl) {
 
   struct queue_entry *q = afl->queue, *n;
 
@@ -182,7 +182,7 @@ void destroy_queue(afl_state_t* afl) {
    previous contender, or if the contender has a more favorable speed x size
    factor. */
 
-void update_bitmap_score(afl_state_t* afl, struct queue_entry* q) {
+void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
   u32 i;
   u64 fav_factor = q->exec_us * q->len;
@@ -251,9 +251,9 @@ void update_bitmap_score(afl_state_t* afl, struct queue_entry* q) {
    until the next run. The favored entries are given more air time during
    all fuzzing steps. */
 
-void cull_queue(afl_state_t* afl) {
+void cull_queue(afl_state_t *afl) {
 
-  struct queue_entry* q;
+  struct queue_entry *q;
   static u8           temp_v[MAP_SIZE >> 3];
   u32                 i;
 
@@ -312,7 +312,7 @@ void cull_queue(afl_state_t* afl) {
    A helper function for fuzz_one(). Maybe some of these constants should
    go into config.h. */
 
-u32 calculate_score(afl_state_t* afl, struct queue_entry* q) {
+u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   u32 avg_exec_us = afl->total_cal_us / afl->total_cal_cycles;
   u32 avg_bitmap_size = afl->total_bitmap_size / afl->total_bitmap_entries;
@@ -405,7 +405,7 @@ u32 calculate_score(afl_state_t* afl, struct queue_entry* q) {
       fuzz_total = 0;
       n_paths = 0;
 
-      struct queue_entry* queue_it = afl->queue;
+      struct queue_entry *queue_it = afl->queue;
       while (queue_it) {
 
         fuzz_total += queue_it->n_fuzz;

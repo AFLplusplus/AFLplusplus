@@ -23,11 +23,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
   int   fd = 0;
   char  buff[8];
-  char* buf = buff;
+  char *buf = buff;
 
   // we support command line parameter and stdin
   if (argc == 2) {

@@ -61,13 +61,13 @@
 
 u8 be_quiet;
 
-char* stdin_file;                      /* stdin file                        */
+char *stdin_file;                      /* stdin file                        */
 
 u8 *in_dir,                            /* input folder                      */
     *doc_path,                         /* Path to docs                      */
         *at_file = NULL;               /* Substitution string for @@        */
 
-static u8* in_data;                    /* Input data                        */
+static u8 *in_data;                    /* Input data                        */
 
 static u32 total, highest;             /* tuple content information         */
 
@@ -111,7 +111,7 @@ static const u8 count_class_binary[256] = {
 
 };
 
-static void classify_counts(u8* mem, const u8* map) {
+static void classify_counts(u8 *mem, const u8 *map) {
 
   u32 i = MAP_SIZE;
 
@@ -147,7 +147,7 @@ static void at_exit_handler(void) {
 
 /* Write results. */
 
-static u32 write_results_to_file(afl_forkserver_t* fsrv, u8* outfile) {
+static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
   s32 fd;
   u32 i, ret = 0;
@@ -183,7 +183,7 @@ static u32 write_results_to_file(afl_forkserver_t* fsrv, u8* outfile) {
 
   } else {
 
-    FILE* f = fdopen(fd, "w");
+    FILE *f = fdopen(fd, "w");
 
     if (!f) PFATAL("fdopen() failed");
 
@@ -218,7 +218,7 @@ static u32 write_results_to_file(afl_forkserver_t* fsrv, u8* outfile) {
 
 /* Write results. */
 
-static u32 write_results(afl_forkserver_t* fsrv) {
+static u32 write_results(afl_forkserver_t *fsrv) {
 
   return write_results_to_file(fsrv, fsrv->out_file);
 
@@ -226,7 +226,7 @@ static u32 write_results(afl_forkserver_t* fsrv) {
 
 /* Write output file. */
 
-static s32 write_to_file(u8* path, u8* mem, u32 len) {
+static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 
   s32 ret;
 
@@ -248,7 +248,7 @@ static s32 write_to_file(u8* path, u8* mem, u32 len) {
    is unlinked and a new one is created. Otherwise, out_fd is rewound and
    truncated. */
 
-static void write_to_testcase(afl_forkserver_t* fsrv, void* mem, u32 len) {
+static void write_to_testcase(afl_forkserver_t *fsrv, void *mem, u32 len) {
 
   lseek(fsrv->out_fd, 0, SEEK_SET);
   ck_write(fsrv->out_fd, mem, len, fsrv->out_file);
@@ -260,7 +260,7 @@ static void write_to_testcase(afl_forkserver_t* fsrv, void* mem, u32 len) {
 /* Execute target application. Returns 0 if the changes are a dud, or
    1 if they should be kept. */
 
-static u8 run_target_forkserver(afl_forkserver_t* fsrv, char** argv, u8* mem,
+static u8 run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
                                 u32 len) {
 
   static struct itimerval it;
@@ -321,7 +321,7 @@ static u8 run_target_forkserver(afl_forkserver_t* fsrv, char** argv, u8* mem,
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32*)fsrv->trace_bits == EXEC_FAIL_SIG)
+  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
   classify_counts(fsrv->trace_bits,
@@ -356,7 +356,7 @@ static u8 run_target_forkserver(afl_forkserver_t* fsrv, char** argv, u8* mem,
 
 /* Read initial file. */
 
-u32 read_file(u8* in_file) {
+u32 read_file(u8 *in_file) {
 
   struct stat st;
   s32         fd = open(in_file, O_RDONLY);
@@ -381,7 +381,7 @@ u32 read_file(u8* in_file) {
 
 /* Execute target application. */
 
-static void run_target(afl_forkserver_t* fsrv, char** argv) {
+static void run_target(afl_forkserver_t *fsrv, char **argv) {
 
   static struct itimerval it;
   int                     status = 0;
@@ -404,7 +404,7 @@ static void run_target(afl_forkserver_t* fsrv, char** argv) {
 
       if (fd < 0 || dup2(fd, 1) < 0 || dup2(fd, 2) < 0) {
 
-        *(u32*)fsrv->trace_bits = EXEC_FAIL_SIG;
+        *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
         PFATAL("Descriptor initialization failed");
 
       }
@@ -442,7 +442,7 @@ static void run_target(afl_forkserver_t* fsrv, char** argv) {
 
     execv(fsrv->target_path, argv);
 
-    *(u32*)fsrv->trace_bits = EXEC_FAIL_SIG;
+    *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
     exit(0);
 
   }
@@ -470,7 +470,7 @@ static void run_target(afl_forkserver_t* fsrv, char** argv) {
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32*)fsrv->trace_bits == EXEC_FAIL_SIG)
+  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
   classify_counts(fsrv->trace_bits,
@@ -525,9 +525,9 @@ static void set_up_environment(void) {
 
     if (qemu_mode) {
 
-      u8* qemu_preload = getenv("QEMU_SET_ENV");
-      u8* afl_preload = getenv("AFL_PRELOAD");
-      u8* buf;
+      u8 *qemu_preload = getenv("QEMU_SET_ENV");
+      u8 *afl_preload = getenv("AFL_PRELOAD");
+      u8 *buf;
 
       s32 i, afl_preload_size = strlen(afl_preload);
       for (i = 0; i < afl_preload_size; ++i) {
@@ -597,7 +597,7 @@ static void show_banner(void) {
 
 /* Display usage hints. */
 
-static void usage(u8* argv0) {
+static void usage(u8 *argv0) {
 
   show_banner();
 
@@ -647,9 +647,9 @@ static void usage(u8* argv0) {
 
 /* Find binary. */
 
-static void find_binary(afl_forkserver_t* fsrv, u8* fname) {
+static void find_binary(afl_forkserver_t *fsrv, u8 *fname) {
 
-  u8*         env_path = 0;
+  u8 *env_path = 0;
   struct stat st;
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
@@ -703,19 +703,19 @@ static void find_binary(afl_forkserver_t* fsrv, u8* fname) {
 
 /* Main entry point */
 
-int main(int argc, char** argv_orig, char** envp) {
+int main(int argc, char **argv_orig, char **envp) {
 
   // TODO: u64 mem_limit = MEM_LIMIT;                  /* Memory limit (MB) */
 
   s32    opt, i;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   u32    tcnt = 0;
-  char** use_argv;
+  char **use_argv;
 
-  char** argv = argv_cpy_dup(argc, argv_orig);
+  char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_forkserver_t  fsrv_var = {0};
-  afl_forkserver_t* fsrv = &fsrv_var;
+  afl_forkserver_t *fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
@@ -929,10 +929,10 @@ int main(int argc, char** argv_orig, char** envp) {
 
   if (in_dir) {
 
-    DIR *          dir_in, *dir_out;
-    struct dirent* dir_ent;
-    int            done = 0;
-    u8             infile[4096], outfile[4096];
+    DIR *dir_in, *dir_out;
+    struct dirent *dir_ent;
+    int done = 0;
+    u8 infile[4096], outfile[4096];
 #if !defined(DT_REG)
     struct stat statbuf;
 #endif
@@ -946,7 +946,7 @@ int main(int argc, char** argv_orig, char** envp) {
       if (mkdir(fsrv->out_file, 0700))
         PFATAL("cannot create output directory %s", fsrv->out_file);
 
-    u8* use_dir = ".";
+    u8 *use_dir = ".";
 
     if (access(use_dir, R_OK | W_OK | X_OK)) {
 

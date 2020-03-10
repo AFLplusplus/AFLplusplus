@@ -37,20 +37,20 @@
 #include <limits.h>
 #include <assert.h>
 
-static u8*  obj_path;                  /* Path to runtime libraries         */
-static u8** cc_params;                 /* Parameters passed to the real CC  */
+static u8 *obj_path;                  /* Path to runtime libraries         */
+static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
 static u8   lto_mode;
-static u8*  lto_flag = AFL_CLANG_FLTO;
-static u8*  march_opt = CFLAGS_OPT;
+static u8 *lto_flag = AFL_CLANG_FLTO;
+static u8 *march_opt = CFLAGS_OPT;
 static u8   debug;
 static u8   cwd[4096];
 static u8   cmplog_mode;
 u8          use_stdin = 0;                                         /* dummy */
 u8          be_quiet = 0;
 
-u8* getthecwd() {
+u8 *getthecwd() {
 
   static u8 fail[] = "";
   if (getcwd(cwd, sizeof(cwd)) == NULL) return fail;
@@ -60,9 +60,9 @@ u8* getthecwd() {
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
-static void find_obj(u8* argv0) {
+static void find_obj(u8 *argv0) {
 
-  u8* afl_path = getenv("AFL_PATH");
+  u8 *afl_path = getenv("AFL_PATH");
   u8 *slash, *tmp;
 
   if (afl_path) {
@@ -89,7 +89,7 @@ static void find_obj(u8* argv0) {
 
   if (slash) {
 
-    u8* dir;
+    u8 *dir;
 
     *slash = 0;
     dir = ck_strdup(argv0);
@@ -135,13 +135,13 @@ static void find_obj(u8* argv0) {
 
 /* Copy argv to cc_params, making the necessary edits. */
 
-static void edit_params(u32 argc, char** argv) {
+static void edit_params(u32 argc, char **argv) {
 
   u8  fortify_set = 0, asan_set = 0, x_set = 0, maybe_linking = 1, bit_mode = 0;
   u8  has_llvm_config = 0;
-  u8* name;
+  u8 *name;
 
-  cc_params = ck_alloc((argc + 128) * sizeof(u8*));
+  cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
 
   name = strrchr(argv[0], '/');
   if (!name)
@@ -168,21 +168,21 @@ static void edit_params(u32 argc, char** argv) {
 
   if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
 
-    u8* alt_cxx = getenv("AFL_CXX");
+    u8 *alt_cxx = getenv("AFL_CXX");
     if (has_llvm_config)
       snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang++", LLVM_BINDIR);
     else
       sprintf(llvm_fullpath, "clang++");
-    cc_params[0] = alt_cxx ? alt_cxx : (u8*)llvm_fullpath;
+    cc_params[0] = alt_cxx ? alt_cxx : (u8 *)llvm_fullpath;
 
   } else {
 
-    u8* alt_cc = getenv("AFL_CC");
+    u8 *alt_cc = getenv("AFL_CC");
     if (has_llvm_config)
       snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang", LLVM_BINDIR);
     else
       sprintf(llvm_fullpath, "clang");
-    cc_params[0] = alt_cc ? alt_cc : (u8*)llvm_fullpath;
+    cc_params[0] = alt_cc ? alt_cc : (u8 *)llvm_fullpath;
 
   }
 
@@ -267,8 +267,8 @@ static void edit_params(u32 argc, char** argv) {
 
   if (lto_mode) {
 
-    char* old_path = getenv("PATH");
-    char* new_path = alloc_printf("%s:%s", AFL_PATH, old_path);
+    char *old_path = getenv("PATH");
+    char *new_path = alloc_printf("%s:%s", AFL_PATH, old_path);
 
     setenv("PATH", new_path, 1);
     setenv("AFL_LD", "1", 1);
@@ -322,7 +322,7 @@ static void edit_params(u32 argc, char** argv) {
 
   while (--argc) {
 
-    u8* cur = *(++argv);
+    u8 *cur = *(++argv);
 
     if (!strcmp(cur, "-m32")) bit_mode = 32;
     if (!strcmp(cur, "armv7a-linux-androideabi")) bit_mode = 32;
@@ -521,10 +521,10 @@ static void edit_params(u32 argc, char** argv) {
 
 /* Main entry point */
 
-int main(int argc, char** argv, char** envp) {
+int main(int argc, char **argv, char **envp) {
 
   int   i;
-  char* callname = "afl-clang-fast";
+  char *callname = "afl-clang-fast";
 
   if (getenv("AFL_DEBUG")) {
 
@@ -671,7 +671,7 @@ int main(int argc, char** argv, char** envp) {
 
   }
 
-  execvp(cc_params[0], (char**)cc_params);
+  execvp(cc_params[0], (char **)cc_params);
 
   FATAL("Oops, failed to execute '%s' - check your PATH", cc_params[0]);
 

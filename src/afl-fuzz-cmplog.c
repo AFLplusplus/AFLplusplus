@@ -190,7 +190,8 @@ void init_cmplog_forkserver(afl_state_t *afl) {
     timeout.tv_sec = ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) / 1000);
     timeout.tv_usec = ((afl->fsrv.exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
 
-    int sret = select(afl->cmplog_fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
+    int sret =
+        select(afl->cmplog_fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
 
     if (sret == 0) {
 
@@ -201,6 +202,7 @@ void init_cmplog_forkserver(afl_state_t *afl) {
       rlen = read(afl->cmplog_fsrv_st_fd, &status, 4);
 
     }
+
   } else {
 
     rlen = read(afl->cmplog_fsrv_st_fd, &status, 4);

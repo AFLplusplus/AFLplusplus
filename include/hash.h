@@ -34,9 +34,9 @@
 
 #define ROL64(_x, _r) ((((u64)(_x)) << (_r)) | (((u64)(_x)) >> (64 - (_r))))
 
-static inline u32 hash32(const void* key, u32 len, u32 seed) {
+static inline u32 hash32(const void *key, u32 len, u32 seed) {
 
-  const u64* data = (u64*)key;
+  const u64 *data = (u64 *)key;
   u64        h1 = seed ^ len;
 
   len >>= 3;
@@ -69,9 +69,9 @@ static inline u32 hash32(const void* key, u32 len, u32 seed) {
 
 #define ROL32(_x, _r) ((((u32)(_x)) << (_r)) | (((u32)(_x)) >> (32 - (_r))))
 
-static inline u32 hash32(const void* key, u32 len, u32 seed) {
+static inline u32 hash32(const void *key, u32 len, u32 seed) {
 
-  const u32* data = (u32*)key;
+  const u32 *data = (u32 *)key;
   u32        h1 = seed ^ len;
 
   len >>= 2;

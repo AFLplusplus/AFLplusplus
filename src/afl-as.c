@@ -53,10 +53,10 @@
 #include <sys/wait.h>
 #include <sys/time.h>
 
-static u8** as_params;              /* Parameters passed to the real 'as'   */
+static u8 **as_params;              /* Parameters passed to the real 'as'   */
 
-static u8* input_file;              /* Originally specified input file      */
-static u8* modified_file;           /* Instrumented file for the real 'as'  */
+static u8 *input_file;              /* Originally specified input file      */
+static u8 *modified_file;           /* Instrumented file for the real 'as'  */
 
 static u8 be_quiet,                 /* Quiet mode (no stderr output)        */
     clang_mode,                     /* Running in clang mode?               */
@@ -89,7 +89,7 @@ static u8 use_64bit = 0;
    is always the last parameter passed by GCC, so we exploit this property
    to keep the code simple. */
 
-static void edit_params(int argc, char** argv) {
+static void edit_params(int argc, char **argv) {
 
   u8 *tmp_dir = getenv("TMPDIR"), *afl_as = getenv("AFL_AS");
   u32 i;
@@ -130,9 +130,9 @@ static void edit_params(int argc, char** argv) {
   if (!tmp_dir) tmp_dir = getenv("TMP");
   if (!tmp_dir) tmp_dir = "/tmp";
 
-  as_params = ck_alloc((argc + 32) * sizeof(u8*));
+  as_params = ck_alloc((argc + 32) * sizeof(u8 *));
 
-  as_params[0] = afl_as ? afl_as : (u8*)"as";
+  as_params[0] = afl_as ? afl_as : (u8 *)"as";
 
   as_params[argc] = 0;
 
@@ -234,8 +234,8 @@ static void add_instrumentation(void) {
 
   static u8 line[MAX_LINE];
 
-  FILE* inf;
-  FILE* outf;
+  FILE *inf;
+  FILE *outf;
   s32   outfd;
   u32   ins_lines = 0;
 
@@ -244,7 +244,7 @@ static void add_instrumentation(void) {
 
 #ifdef __APPLE__
 
-  u8* colon_pos;
+  u8 *colon_pos;
 
 #endif                                                         /* __APPLE__ */
 
@@ -498,12 +498,12 @@ static void add_instrumentation(void) {
 
 /* Main entry point */
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
   s32 pid;
   u32 rand_seed;
   int status;
-  u8* inst_ratio_str = getenv("AFL_INST_RATIO");
+  u8 *inst_ratio_str = getenv("AFL_INST_RATIO");
 
   struct timeval  tv;
   struct timezone tz;
@@ -590,7 +590,7 @@ int main(int argc, char** argv) {
 
   if (!(pid = fork())) {
 
-    execvp(as_params[0], (char**)as_params);
+    execvp(as_params[0], (char **)as_params);
     FATAL("Oops, failed to execute '%s' - check your PATH", as_params[0]);
 
   }

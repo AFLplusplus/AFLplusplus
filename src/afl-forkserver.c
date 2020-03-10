@@ -331,6 +331,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
       rlen = read(fsrv->fsrv_st_fd, &status, 4);
 
     }
+
   } else {
 
     rlen = read(fsrv->fsrv_st_fd, &status, 4);

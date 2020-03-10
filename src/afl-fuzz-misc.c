@@ -29,7 +29,7 @@
    returned should be five characters or less for all the integers we reasonably
    expect to see. */
 
-u8* DI(u64 val) {
+u8 *DI(u64 val) {
 
   static u8 tmp[12][16];
   static u8 cur;
@@ -90,7 +90,7 @@ u8* DI(u64 val) {
 /* Describe float. Similar to the above, except with a single
    static buffer. */
 
-u8* DF(double val) {
+u8 *DF(double val) {
 
   static u8 tmp[16];
 
@@ -114,7 +114,7 @@ u8* DF(double val) {
 
 /* Describe integer as memory size. */
 
-u8* DMS(u64 val) {
+u8 *DMS(u64 val) {
 
   static u8 tmp[12][16];
   static u8 cur;
@@ -164,7 +164,7 @@ u8* DMS(u64 val) {
 
 /* Describe time delta. Returns one static buffer, 34 chars of less. */
 
-u8* DTD(u64 cur_ms, u64 event_ms) {
+u8 *DTD(u64 cur_ms, u64 event_ms) {
 
   static u8 tmp[64];
   u64       delta;

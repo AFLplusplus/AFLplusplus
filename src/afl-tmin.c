@@ -58,13 +58,13 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-static u8* mask_bitmap;                /* Mask for trace bits (-B)          */
+static u8 *mask_bitmap;                /* Mask for trace bits (-B)          */
 
 u8 *in_file,                           /* Minimizer input test case         */
     *output_file,                      /* Minimizer output file             */
     *doc_path;                         /* Path to docs                      */
 
-static u8* in_data;                    /* Input data for trimming           */
+static u8 *in_data;                    /* Input data for trimming           */
 
 static u32 in_len,                     /* Input data length                 */
     orig_cksum,                        /* Original checksum                 */
@@ -105,7 +105,7 @@ static const u8 count_class_lookup[256] = {
 
 };
 
-static void classify_counts(u8* mem) {
+static void classify_counts(u8 *mem) {
 
   u32 i = MAP_SIZE;
 
@@ -133,7 +133,7 @@ static void classify_counts(u8* mem) {
 
 /* Apply mask to classified bitmap (if set). */
 
-static void apply_mask(u32* mem, u32* mask) {
+static void apply_mask(u32 *mem, u32 *mask) {
 
   u32 i = (MAP_SIZE >> 2);
 
@@ -151,9 +151,9 @@ static void apply_mask(u32* mem, u32* mask) {
 
 /* See if any bytes are set in the bitmap. */
 
-static inline u8 anything_set(afl_forkserver_t* fsrv) {
+static inline u8 anything_set(afl_forkserver_t *fsrv) {
 
-  u32* ptr = (u32*)fsrv->trace_bits;
+  u32 *ptr = (u32 *)fsrv->trace_bits;
   u32  i = (MAP_SIZE >> 2);
 
   while (i--)
@@ -196,7 +196,7 @@ static void read_initial_file(void) {
 
 /* Write output file. */
 
-static s32 write_to_file(u8* path, u8* mem, u32 len) {
+static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 
   s32 ret;
 
@@ -218,7 +218,7 @@ static s32 write_to_file(u8* path, u8* mem, u32 len) {
    is unlinked and a new one is created. Otherwise, out_fd is rewound and
    truncated. */
 
-static void write_to_testcase(afl_forkserver_t* fsrv, void* mem, u32 len) {
+static void write_to_testcase(afl_forkserver_t *fsrv, void *mem, u32 len) {
 
   s32 fd = fsrv->out_fd;
 
@@ -395,7 +395,7 @@ static void init_forkserver(char **argv) {
 /* Execute target application. Returns 0 if the changes are a dud, or
    1 if they should be kept. */
 
-static u8 run_target(afl_forkserver_t* fsrv, char** argv, u8* mem, u32 len,
+static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
                      u8 first_run) {
 
   static struct itimerval it;
@@ -460,13 +460,13 @@ static u8 run_target(afl_forkserver_t* fsrv, char** argv, u8* mem, u32 len,
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32*)fsrv->trace_bits == EXEC_FAIL_SIG)
+  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
   if (!hang_mode) {
 
     classify_counts(fsrv->trace_bits);
-    apply_mask((u32*)fsrv->trace_bits, (u32*)mask_bitmap);
+    apply_mask((u32 *)fsrv->trace_bits, (u32 *)mask_bitmap);
 
   }
 
@@ -565,11 +565,11 @@ static u32 next_p2(u32 val) {
 
 /* Actually minimize! */
 
-static void minimize(afl_forkserver_t* fsrv, char** argv) {
+static void minimize(afl_forkserver_t *fsrv, char **argv) {
 
   static u32 alpha_map[256];
 
-  u8* tmp_buf = ck_alloc_nozero(in_len);
+  u8 *tmp_buf = ck_alloc_nozero(in_len);
   u32 orig_len = in_len, stage_o_len;
 
   u32 del_len, set_len, del_pos, set_pos, i, alpha_size, cur_pass = 0;
@@ -835,16 +835,16 @@ static void handle_stop_sig(int sig) {
 
 /* Do basic preparations - persistent fds, filenames, etc. */
 
-static void set_up_environment(afl_forkserver_t* fsrv) {
+static void set_up_environment(afl_forkserver_t *fsrv) {
 
-  u8* x;
+  u8 *x;
 
   fsrv->dev_null_fd = open("/dev/null", O_RDWR);
   if (fsrv->dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
   if (!fsrv->out_file) {
 
-    u8* use_dir = ".";
+    u8 *use_dir = ".";
 
     if (access(use_dir, R_OK | W_OK | X_OK)) {
 
@@ -907,9 +907,9 @@ static void set_up_environment(afl_forkserver_t* fsrv) {
 
     if (qemu_mode) {
 
-      u8* qemu_preload = getenv("QEMU_SET_ENV");
-      u8* afl_preload = getenv("AFL_PRELOAD");
-      u8* buf;
+      u8 *qemu_preload = getenv("QEMU_SET_ENV");
+      u8 *afl_preload = getenv("AFL_PRELOAD");
+      u8 *buf;
 
       s32 i, afl_preload_size = strlen(afl_preload);
       for (i = 0; i < afl_preload_size; ++i) {
@@ -971,7 +971,7 @@ static void setup_signal_handlers(void) {
 
 /* Display usage hints. */
 
-static void usage(u8* argv0) {
+static void usage(u8 *argv0) {
 
   SAYF(
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
@@ -1018,9 +1018,9 @@ static void usage(u8* argv0) {
 
 /* Find binary. */
 
-static void find_binary(afl_forkserver_t* fsrv, u8* fname) {
+static void find_binary(afl_forkserver_t *fsrv, u8 *fname) {
 
-  u8*         env_path = 0;
+  u8 *        env_path = 0;
   struct stat st;
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
@@ -1074,7 +1074,7 @@ static void find_binary(afl_forkserver_t* fsrv, u8* fname) {
 
 /* Read mask bitmap from file. This is for the -B option. */
 
-static void read_bitmap(u8* fname) {
+static void read_bitmap(u8 *fname) {
 
   s32 fd = open(fname, O_RDONLY);
 
@@ -1088,16 +1088,16 @@ static void read_bitmap(u8* fname) {
 
 /* Main entry point */
 
-int main(int argc, char** argv_orig, char** envp) {
+int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
-  char** use_argv;
+  char **use_argv;
 
-  char** argv = argv_cpy_dup(argc, argv_orig);
+  char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_forkserver_t  fsrv_var = {0};
-  afl_forkserver_t* fsrv = &fsrv_var;
+  afl_forkserver_t *fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;

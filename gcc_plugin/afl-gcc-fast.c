@@ -37,17 +37,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-static u8*  obj_path;                  /* Path to runtime libraries         */
-static u8** cc_params;                 /* Parameters passed to the real CC  */
+static u8 *obj_path;                  /* Path to runtime libraries         */
+static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 u8          use_stdin = 0;                                         /* dummy */
 u8          be_quiet;
 
 /* Try to find the runtime libraries. If that fails, abort. */
 
-static void find_obj(u8* argv0) {
+static void find_obj(u8 *argv0) {
 
-  u8* afl_path = getenv("AFL_PATH");
+  u8 *afl_path = getenv("AFL_PATH");
   u8 *slash, *tmp;
 
   if (afl_path) {
@@ -70,7 +70,7 @@ static void find_obj(u8* argv0) {
 
   if (slash) {
 
-    u8* dir;
+    u8 *dir;
 
     *slash = 0;
     dir = ck_strdup(argv0);
@@ -106,12 +106,12 @@ static void find_obj(u8* argv0) {
 
 /* Copy argv to cc_params, making the necessary edits. */
 
-static void edit_params(u32 argc, char** argv) {
+static void edit_params(u32 argc, char **argv) {
 
   u8  fortify_set = 0, asan_set = 0, x_set = 0, maybe_linking = 1;
-  u8* name;
+  u8 *name;
 
-  cc_params = ck_alloc((argc + 128) * sizeof(u8*));
+  cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
 
   name = strrchr(argv[0], '/');
   if (!name)
@@ -121,17 +121,17 @@ static void edit_params(u32 argc, char** argv) {
 
   if (!strcmp(name, "afl-g++-fast")) {
 
-    u8* alt_cxx = getenv("AFL_CXX");
-    cc_params[0] = alt_cxx ? alt_cxx : (u8*)AFL_GCC_CXX;
+    u8 *alt_cxx = getenv("AFL_CXX");
+    cc_params[0] = alt_cxx ? alt_cxx : (u8 *)AFL_GCC_CXX;
 
   } else {
 
-    u8* alt_cc = getenv("AFL_CC");
-    cc_params[0] = alt_cc ? alt_cc : (u8*)AFL_GCC_CC;
+    u8 *alt_cc = getenv("AFL_CC");
+    cc_params[0] = alt_cc ? alt_cc : (u8 *)AFL_GCC_CC;
 
   }
 
-  char* fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
+  char *fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
   cc_params[cc_par_cnt++] = fplugin_arg;
 
   /* Detect stray -v calls from ./configure scripts. */
@@ -140,7 +140,7 @@ static void edit_params(u32 argc, char** argv) {
 
   while (--argc) {
 
-    u8* cur = *(++argv);
+    u8 *cur = *(++argv);
 
 #if defined(__x86_64__)
     if (!strcmp(cur, "-m32")) FATAL("-m32 is not supported");
@@ -297,7 +297,7 @@ static void edit_params(u32 argc, char** argv) {
 
 /* Main entry point */
 
-int main(int argc, char** argv, char** envp) {
+int main(int argc, char **argv, char **envp) {
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -378,7 +378,7 @@ int main(int argc, char** argv, char** envp) {
     }
 
   */
-  execvp(cc_params[0], (char**)cc_params);
+  execvp(cc_params[0], (char **)cc_params);
 
   FATAL("Oops, failed to execute '%s' - check your PATH", cc_params[0]);
 

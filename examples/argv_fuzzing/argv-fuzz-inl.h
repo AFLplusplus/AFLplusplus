@@ -55,12 +55,12 @@
 #define MAX_CMDLINE_LEN 100000
 #define MAX_CMDLINE_PAR 50000
 
-static char** afl_init_argv(int* argc) {
+static char **afl_init_argv(int *argc) {
 
   static char  in_buf[MAX_CMDLINE_LEN];
-  static char* ret[MAX_CMDLINE_PAR];
+  static char *ret[MAX_CMDLINE_PAR];
 
-  char* ptr = in_buf;
+  char *ptr = in_buf;
   int   rc = 0;
 
   if (read(0, in_buf, MAX_CMDLINE_LEN - 2) < 0) {}

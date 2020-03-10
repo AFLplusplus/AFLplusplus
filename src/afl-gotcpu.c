@@ -129,7 +129,7 @@ repeat_loop:
 
 /* Do the benchmark thing. */
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
   if (argc > 1) {
 
@@ -165,7 +165,7 @@ int main(int argc, char** argv) {
       CPU_ZERO(&c);
       CPU_SET(i, &c);
 #elif defined(__NetBSD__)
-      cpuset_t* c;
+      cpuset_t *c;
 
       c = cpuset_create();
       if (c == NULL) PFATAL("cpuset_create failed");

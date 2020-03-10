@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define g2h(x) ((void*)((unsigned long)(x) + guest_base))
+#define g2h(x) ((void *)((unsigned long)(x) + guest_base))
 #define h2g(x) ((uint64_t)(x)-guest_base)
 
 enum {
@@ -35,7 +35,7 @@ enum {
 
 };
 
-void afl_persistent_hook(uint64_t* regs, uint64_t guest_base) {
+void afl_persistent_hook(uint64_t *regs, uint64_t guest_base) {
 
   // In this example the register RDI is pointing to the memory location
   // of the target buffer, and the length of the input is in RAX.

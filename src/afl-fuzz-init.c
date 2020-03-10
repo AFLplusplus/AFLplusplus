@@ -30,12 +30,12 @@
 /* Build a list of processes bound to specific cores. Returns -1 if nothing
    can be found. Assumes an upper bound of 4k CPUs. */
 
-void bind_to_free_cpu(afl_state_t* afl) {
+void bind_to_free_cpu(afl_state_t *afl) {
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   cpu_set_t c;
 #elif defined(__NetBSD__)
-  cpuset_t*          c;
+  cpuset_t *c;
 #endif
 
   u8  cpu_used[4096] = {0};
@@ -51,8 +51,8 @@ void bind_to_free_cpu(afl_state_t* afl) {
   }
 
 #if defined(__linux__)
-  DIR*           d;
-  struct dirent* de;
+  DIR *d;
+  struct dirent *de;
   d = opendir("/proc");
 
   if (!d) {
@@ -76,8 +76,8 @@ void bind_to_free_cpu(afl_state_t* afl) {
 
   while ((de = readdir(d))) {
 
-    u8*   fn;
-    FILE* f;
+    u8 *fn;
+    FILE *f;
     u8    tmp[MAX_LINE];
     u8    has_vmsize = 0;
 
@@ -118,7 +118,7 @@ void bind_to_free_cpu(afl_state_t* afl) {
 
   closedir(d);
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
-  struct kinfo_proc* procs;
+  struct kinfo_proc *procs;
   size_t             nprocs;
   size_t             proccount;
   int                s_name[] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
@@ -151,7 +151,7 @@ void bind_to_free_cpu(afl_state_t* afl) {
 
   ck_free(procs);
 #elif defined(__NetBSD__)
-  struct kinfo_proc2* procs;
+  struct kinfo_proc2 *procs;
   size_t              nprocs;
   size_t              proccount;
   int                 s_name[] = {
@@ -272,11 +272,11 @@ cpuset_destroy(c);
 
 /* Load postprocessor, if available. */
 
-void setup_post(afl_state_t* afl) {
+void setup_post(afl_state_t *afl) {
 
-  void* dh;
-  u8*   fn = get_afl_env("AFL_POST_LIBRARY");
-  u32   tlen = 6;
+  void *dh;
+  u8 *fn = get_afl_env("AFL_POST_LIBRARY");
+  u32 tlen = 6;
 
   if (!fn) return;
 
@@ -298,14 +298,14 @@ void setup_post(afl_state_t* afl) {
 
 /* Shuffle an array of pointers. Might be slightly biased. */
 
-static void shuffle_ptrs(afl_state_t* afl, void** ptrs, u32 cnt) {
+static void shuffle_ptrs(afl_state_t *afl, void **ptrs, u32 cnt) {
 
   u32 i;
 
   for (i = 0; i < cnt - 2; ++i) {
 
     u32   j = i + UR(afl, cnt - i);
-    void* s = ptrs[i];
+    void *s = ptrs[i];
     ptrs[i] = ptrs[j];
     ptrs[j] = s;
 
@@ -316,12 +316,12 @@ static void shuffle_ptrs(afl_state_t* afl, void** ptrs, u32 cnt) {
 /* Read all testcases from the input directory, then queue them for testing.
    Called at startup. */
 
-void read_testcases(afl_state_t* afl) {
+void read_testcases(afl_state_t *afl) {
 
-  struct dirent** nl;
-  s32             nl_cnt;
-  u32             i;
-  u8*             fn1;
+  struct dirent **nl;
+  s32 nl_cnt;
+  u32 i;
+  u8 *fn1;
 
   /* Auto-detect non-in-place resumption attempts. */
 
@@ -359,7 +359,7 @@ void read_testcases(afl_state_t* afl) {
   if (afl->shuffle_queue && nl_cnt > 1) {
 
     ACTF("Shuffling queue...");
-    shuffle_ptrs(afl, (void**)nl, nl_cnt);
+    shuffle_ptrs(afl, (void **)nl, nl_cnt);
 
   }
 
@@ -367,8 +367,8 @@ void read_testcases(afl_state_t* afl) {
 
     struct stat st;
 
-    u8* fn2 = alloc_printf("%s/%s", afl->in_dir, nl[i]->d_name);
-    u8* dfn = alloc_printf("%s/.state/deterministic_done/%s", afl->in_dir,
+    u8 *fn2 = alloc_printf("%s/%s", afl->in_dir, nl[i]->d_name);
+    u8 *dfn = alloc_printf("%s/.state/deterministic_done/%s", afl->in_dir,
                            nl[i]->d_name);
 
     u8 passed_det = 0;
@@ -428,7 +428,7 @@ void read_testcases(afl_state_t* afl) {
 
 /* Examine map coverage. Called once, for first test case. */
 
-static void check_map_coverage(afl_state_t* afl) {
+static void check_map_coverage(afl_state_t *afl) {
 
   u32 i;
 
@@ -444,19 +444,19 @@ static void check_map_coverage(afl_state_t* afl) {
 /* Perform dry run of all test cases to confirm that the app is working as
    expected. This is done only for the initial inputs, and only once. */
 
-void perform_dry_run(afl_state_t* afl) {
+void perform_dry_run(afl_state_t *afl) {
 
-  struct queue_entry* q = afl->queue;
-  u32                 cal_failures = 0;
-  u8*                 skip_crashes = get_afl_env("AFL_SKIP_CRASHES");
+  struct queue_entry *q = afl->queue;
+  u32 cal_failures = 0;
+  u8 *skip_crashes = get_afl_env("AFL_SKIP_CRASHES");
 
   while (q) {
 
-    u8* use_mem;
+    u8 *use_mem;
     u8  res;
     s32 fd;
 
-    u8* fn = strrchr(q->fname, '/') + 1;
+    u8 *fn = strrchr(q->fname, '/') + 1;
 
     ACTF("Attempting dry run with '%s'...", fn);
 
@@ -673,11 +673,11 @@ void perform_dry_run(afl_state_t* afl) {
 
 /* Helper function: link() if possible, copy otherwise. */
 
-static void link_or_copy(u8* old_path, u8* new_path) {
+static void link_or_copy(u8 *old_path, u8 *new_path) {
 
   s32 i = link(old_path, new_path);
   s32 sfd, dfd;
-  u8* tmp;
+  u8 *tmp;
 
   if (!i) return;
 
@@ -703,9 +703,9 @@ static void link_or_copy(u8* old_path, u8* new_path) {
 /* Create hard links for input test cases in the output directory, choosing
    good names and pivoting accordingly. */
 
-void pivot_inputs(afl_state_t* afl) {
+void pivot_inputs(afl_state_t *afl) {
 
-  struct queue_entry* q = afl->queue;
+  struct queue_entry *q = afl->queue;
   u32                 id = 0;
 
   ACTF("Creating hard links for all input files...");
@@ -727,7 +727,7 @@ void pivot_inputs(afl_state_t* afl) {
     if (!strncmp(rsl, CASE_PREFIX, 3) &&
         sscanf(rsl + 3, "%06u", &orig_id) == 1 && orig_id == id) {
 
-      u8* src_str;
+      u8 *src_str;
       u32 src_id;
 
       afl->resuming_fuzz = 1;
@@ -740,7 +740,7 @@ void pivot_inputs(afl_state_t* afl) {
 
       if (src_str && sscanf(src_str + 1, "%06u", &src_id) == 1) {
 
-        struct queue_entry* s = afl->queue;
+        struct queue_entry *s = afl->queue;
         while (src_id-- && s)
           s = s->next;
         if (s) q->depth = s->depth + 1;
@@ -756,7 +756,7 @@ void pivot_inputs(afl_state_t* afl) {
 
 #ifndef SIMPLE_FILES
 
-      u8* use_name = strstr(rsl, ",orig:");
+      u8 *use_name = strstr(rsl, ",orig:");
 
       if (use_name)
         use_name += 6;
@@ -795,7 +795,7 @@ void pivot_inputs(afl_state_t* afl) {
 /* When resuming, try to find the queue position to start from. This makes sense
    only when resuming, and when we can find the original fuzzer_stats. */
 
-u32 find_start_position(afl_state_t* afl) {
+u32 find_start_position(afl_state_t *afl) {
 
   static u8 tmp[4096];                   /* Ought to be enough for anybody. */
 
@@ -832,7 +832,7 @@ u32 find_start_position(afl_state_t* afl) {
    -t given, we don't want to keep auto-scaling the timeout over and over
    again to prevent it from growing due to random flukes. */
 
-void find_timeout(afl_state_t* afl) {
+void find_timeout(afl_state_t *afl) {
 
   static u8 tmp[4096];                   /* Ought to be enough for anybody. */
 
@@ -870,10 +870,10 @@ void find_timeout(afl_state_t* afl) {
 /* A helper function for handle_existing_out_dir(), deleting all prefixed
    files in a directory. */
 
-static u8 delete_files(u8* path, u8* prefix) {
+static u8 delete_files(u8 *path, u8 *prefix) {
 
-  DIR*           d;
-  struct dirent* d_ent;
+  DIR *d;
+  struct dirent *d_ent;
 
   d = opendir(path);
 
@@ -884,7 +884,7 @@ static u8 delete_files(u8* path, u8* prefix) {
     if (d_ent->d_name[0] != '.' &&
         (!prefix || !strncmp(d_ent->d_name, prefix, strlen(prefix)))) {
 
-      u8* fname = alloc_printf("%s/%s", path, d_ent->d_name);
+      u8 *fname = alloc_printf("%s/%s", path, d_ent->d_name);
       if (unlink(fname)) PFATAL("Unable to delete '%s'", fname);
       ck_free(fname);
 
@@ -919,7 +919,7 @@ double get_runnable_processes(void) {
      computed in funny ways and sometimes don't reflect extremely short-lived
      processes well. */
 
-  FILE* f = fopen("/proc/stat", "r");
+  FILE *f = fopen("/proc/stat", "r");
   u8 tmp[1024];
   u32 val = 0;
 
@@ -954,9 +954,9 @@ double get_runnable_processes(void) {
 
 /* Delete the temporary directory used for in-place session resume. */
 
-void nuke_resume_dir(afl_state_t* afl) {
+void nuke_resume_dir(afl_state_t *afl) {
 
-  u8* fn;
+  u8 *fn;
 
   fn = alloc_printf("%s/_resume/.state/deterministic_done", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
@@ -994,10 +994,10 @@ dir_cleanup_failed:
    is not currently running, and if the last run time isn't too great.
    Resume fuzzing if `-` is set as in_dir or if AFL_AUTORESUME is set */
 
-static void handle_existing_out_dir(afl_state_t* afl) {
+static void handle_existing_out_dir(afl_state_t *afl) {
 
-  FILE* f;
-  u8*   fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
+  FILE *f;
+  u8 *fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
 
   /* See if the output directory is locked. If yes, bail out. If not,
      create a lock that will persist for the lifetime of the process
@@ -1084,7 +1084,7 @@ static void handle_existing_out_dir(afl_state_t* afl) {
 
   if (afl->in_place_resume) {
 
-    u8* orig_q = alloc_printf("%s/queue", afl->out_dir);
+    u8 *orig_q = alloc_printf("%s/queue", afl->out_dir);
 
     afl->in_dir = alloc_printf("%s/_resume", afl->out_dir);
 
@@ -1161,17 +1161,17 @@ static void handle_existing_out_dir(afl_state_t* afl) {
   if (afl->in_place_resume && rmdir(fn)) {
 
     time_t     cur_t = time(0);
-    struct tm* t = localtime(&cur_t);
+    struct tm *t = localtime(&cur_t);
 
 #ifndef SIMPLE_FILES
 
-    u8* nfn = alloc_printf("%s.%04d-%02d-%02d-%02d:%02d:%02d", fn,
+    u8 *nfn = alloc_printf("%s.%04d-%02d-%02d-%02d:%02d:%02d", fn,
                            t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
                            t->tm_hour, t->tm_min, t->tm_sec);
 
 #else
 
-    u8* nfn = alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn, t->tm_year + 1900,
+    u8 *nfn = alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn, t->tm_year + 1900,
                            t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min,
                            t->tm_sec);
 
@@ -1192,17 +1192,17 @@ static void handle_existing_out_dir(afl_state_t* afl) {
   if (afl->in_place_resume && rmdir(fn)) {
 
     time_t     cur_t = time(0);
-    struct tm* t = localtime(&cur_t);
+    struct tm *t = localtime(&cur_t);
 
 #ifndef SIMPLE_FILES
 
-    u8* nfn = alloc_printf("%s.%04d-%02d-%02d-%02d:%02d:%02d", fn,
+    u8 *nfn = alloc_printf("%s.%04d-%02d-%02d-%02d:%02d:%02d", fn,
                            t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
                            t->tm_hour, t->tm_min, t->tm_sec);
 
 #else
 
-    u8* nfn = alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn, t->tm_year + 1900,
+    u8 *nfn = alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn, t->tm_year + 1900,
                            t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min,
                            t->tm_sec);
 
@@ -1278,9 +1278,9 @@ dir_cleanup_failed:
 
 /* Prepare output directories and fds. */
 
-void setup_dirs_fds(afl_state_t* afl) {
+void setup_dirs_fds(afl_state_t *afl) {
 
-  u8* tmp;
+  u8 *tmp;
   s32 fd;
 
   ACTF("Setting up output directories...");
@@ -1402,13 +1402,13 @@ void setup_dirs_fds(afl_state_t* afl) {
 
 }
 
-void setup_cmdline_file(afl_state_t* afl, char** argv) {
+void setup_cmdline_file(afl_state_t *afl, char **argv) {
 
-  u8* tmp;
+  u8 *tmp;
   s32 fd;
   u32 i = 0;
 
-  FILE* cmdline_file = NULL;
+  FILE *cmdline_file = NULL;
 
   /* Store the command line to reproduce our findings */
   tmp = alloc_printf("%s/cmdline", afl->out_dir);
@@ -1432,9 +1432,9 @@ void setup_cmdline_file(afl_state_t* afl, char** argv) {
 
 /* Setup the output file for fuzzed data, if not using -f. */
 
-void setup_stdio_file(afl_state_t* afl) {
+void setup_stdio_file(afl_state_t *afl) {
 
-  u8* fn;
+  u8 *fn;
   if (afl->file_extension) {
 
     fn = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
@@ -1531,10 +1531,10 @@ void check_crash_handling(void) {
 
 /* Check CPU governor. */
 
-void check_cpu_governor(afl_state_t* afl) {
+void check_cpu_governor(afl_state_t *afl) {
 
 #ifdef __linux__
-  FILE* f;
+  FILE *f;
   u8    tmp[128];
   u64   min = 0, max = 0;
 
@@ -1654,7 +1654,7 @@ void check_cpu_governor(afl_state_t* afl) {
 
 /* Count the number of logical CPU cores. */
 
-void get_core_count(afl_state_t* afl) {
+void get_core_count(afl_state_t *afl) {
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__DragonFly__)
@@ -1684,7 +1684,7 @@ void get_core_count(afl_state_t* afl) {
 
 #else
 
-  FILE* f = fopen("/proc/stat", "r");
+  FILE *f = fopen("/proc/stat", "r");
   u8    tmp[1024];
 
   if (!f) return;
@@ -1742,9 +1742,9 @@ void get_core_count(afl_state_t* afl) {
 
 /* Validate and fix up afl->out_dir and sync_dir when using -S. */
 
-void fix_up_sync(afl_state_t* afl) {
+void fix_up_sync(afl_state_t *afl) {
 
-  u8* x = afl->sync_id;
+  u8 *x = afl->sync_id;
 
   if (afl->dumb_mode) FATAL("-S / -M and -n are mutually exclusive");
 
@@ -1793,7 +1793,7 @@ static void handle_resize(int sig) {
 
 void check_asan_opts(void) {
 
-  u8* x = get_afl_env("ASAN_OPTIONS");
+  u8 *x = get_afl_env("ASAN_OPTIONS");
 
   if (x) {
 
@@ -1849,13 +1849,13 @@ static void handle_skipreq(int sig) {
    isn't a shell script - a common and painful mistake. We also check for
    a valid ELF header and for evidence of AFL instrumentation. */
 
-void check_binary(afl_state_t* afl, u8* fname) {
+void check_binary(afl_state_t *afl, u8 *fname) {
 
-  u8*         env_path = 0;
+  u8 *env_path = 0;
   struct stat st;
 
   s32 fd;
-  u8* f_data;
+  u8 *f_data;
   u32 f_len = 0;
 
   ACTF("Validating target binary...");
@@ -2042,7 +2042,7 @@ void check_binary(afl_state_t* afl, u8* fname) {
 
 /* Trim and possibly create a banner for the run. */
 
-void fix_up_banner(afl_state_t* afl, u8* name) {
+void fix_up_banner(afl_state_t *afl, u8 *name) {
 
   if (!afl->use_banner) {
 
@@ -2052,7 +2052,7 @@ void fix_up_banner(afl_state_t* afl, u8* name) {
 
     } else {
 
-      u8* trim = strrchr(name, '/');
+      u8 *trim = strrchr(name, '/');
       if (!trim)
         afl->use_banner = name;
       else
@@ -2064,7 +2064,7 @@ void fix_up_banner(afl_state_t* afl, u8* name) {
 
   if (strlen(afl->use_banner) > 32) {
 
-    u8* tmp = ck_alloc(36);
+    u8 *tmp = ck_alloc(36);
     sprintf(tmp, "%.32s...", afl->use_banner);
     afl->use_banner = tmp;
 
@@ -2074,7 +2074,7 @@ void fix_up_banner(afl_state_t* afl, u8* name) {
 
 /* Check if we're on TTY. */
 
-void check_if_tty(afl_state_t* afl) {
+void check_if_tty(afl_state_t *afl) {
 
   struct winsize ws;
 
@@ -2148,10 +2148,10 @@ void setup_signal_handlers(void) {
 
 /* Make a copy of the current command line. */
 
-void save_cmdline(afl_state_t* afl, u32 argc, char** argv) {
+void save_cmdline(afl_state_t *afl, u32 argc, char **argv) {
 
   u32 len = 1, i;
-  u8* buf;
+  u8 *buf;
 
   for (i = 0; i < argc; ++i)
     len += strlen(argv[i]) + 1;

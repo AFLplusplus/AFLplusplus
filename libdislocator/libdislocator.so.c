@@ -56,7 +56,7 @@
                                  \
     srand(time(NULL));           \
     u32 i;                       \
-    u8* ptr = (u8*)p;            \
+    u8 *ptr = (u8 *)p;           \
     for (i = 0; i < l; i++)      \
       ptr[i] = rand() % INT_MAX; \
                                  \
@@ -136,8 +136,8 @@ typedef struct {
 
 #define TAIL_ALLOC_CANARY 0xAC
 
-#define PTR_C(_p) (((u32*)(_p))[-1])
-#define PTR_L(_p) (((u32*)(_p))[-2])
+#define PTR_C(_p) (((u32 *)(_p))[-1])
+#define PTR_L(_p) (((u32 *)(_p))[-2])
 
 /* Configurable stuff (use AFL_LD_* to set): */
 
@@ -161,9 +161,9 @@ static u32          alloc_canary;
    so that it is right-aligned to that boundary. Since it always uses mmap(),
    the returned memory will be zeroed. */
 
-static void* __dislocator_alloc(size_t len) {
+static void *__dislocator_alloc(size_t len) {
 
-  u8*    ret;
+  u8 *ret;
   size_t tlen;
   int    flags, fd, sp;
 
@@ -203,7 +203,7 @@ static void* __dislocator_alloc(size_t len) {
   /* We will also store buffer length and a canary below the actual buffer, so
      let's add 8 bytes for that. */
 
-  ret = (u8*)mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
+  ret = (u8 *)mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
 #if defined(USEHUGEPAGE)
   /* We try one more time with regular call */
   if (ret == MAP_FAILED) {
@@ -215,7 +215,7 @@ static void* __dislocator_alloc(size_t len) {
 #elif defined(__FreeBSD__)
     flags &= -MAP_ALIGNED_SUPER;
 #endif
-    ret = (u8*)mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
+    ret = (u8 *)mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
 
   }
 
@@ -265,9 +265,9 @@ static void* __dislocator_alloc(size_t len) {
 /* The "user-facing" wrapper for calloc(). This just checks for overflows and
    displays debug messages if requested. */
 
-void* calloc(size_t elem_len, size_t elem_cnt) {
+void *calloc(size_t elem_len, size_t elem_cnt) {
 
-  void* ret;
+  void *ret;
 
   size_t len = elem_len * elem_cnt;
 
@@ -304,9 +304,9 @@ void* calloc(size_t elem_len, size_t elem_cnt) {
    memory (unlike calloc(), malloc() is not guaranteed to return zeroed
    memory). */
 
-void* malloc(size_t len) {
+void *malloc(size_t len) {
 
-  void* ret;
+  void *ret;
 
   ret = __dislocator_alloc(len);
 
@@ -322,7 +322,7 @@ void* malloc(size_t len) {
    If the region is already freed, the code will segfault during the attempt to
    read the canary. Not very graceful, but works, right? */
 
-void free(void* ptr) {
+void free(void *ptr) {
 
   u32 len;
 
@@ -338,7 +338,7 @@ void free(void* ptr) {
 
   if (align_allocations && (len & (ALLOC_ALIGN_SIZE - 1))) {
 
-    u8*    ptr_ = ptr;
+    u8 *ptr_ = ptr;
     size_t rlen = (len & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
     for (; len < rlen; ++len)
       if (ptr_[len] != TAIL_ALLOC_CANARY)
@@ -361,9 +361,9 @@ void free(void* ptr) {
 /* Realloc is pretty straightforward, too. We forcibly reallocate the buffer,
    move data, and then free (aka mprotect()) the original one. */
 
-void* realloc(void* ptr, size_t len) {
+void *realloc(void *ptr, size_t len) {
 
-  void* ret;
+  void *ret;
 
   ret = malloc(len);
 
@@ -387,10 +387,10 @@ void* realloc(void* ptr, size_t len) {
    if the requested size fits within the alignment we do
    a normal request */
 
-int posix_memalign(void** ptr, size_t align, size_t len) {
+int posix_memalign(void **ptr, size_t align, size_t len) {
 
   // if (*ptr == NULL) return EINVAL; // (andrea) Why? I comment it out for now
-  if ((align % 2) || (align % sizeof(void*))) return EINVAL;
+  if ((align % 2) || (align % sizeof(void *))) return EINVAL;
   if (len == 0) {
 
     *ptr = NULL;
@@ -413,9 +413,9 @@ int posix_memalign(void** ptr, size_t align, size_t len) {
 
 /* just the non-posix fashion */
 
-void* memalign(size_t align, size_t len) {
+void *memalign(size_t align, size_t len) {
 
-  void* ret = NULL;
+  void *ret = NULL;
 
   if (posix_memalign(&ret, align, len)) {
 
@@ -429,9 +429,9 @@ void* memalign(size_t align, size_t len) {
 
 /* sort of C11 alias of memalign only more severe, alignment-wise */
 
-void* aligned_alloc(size_t align, size_t len) {
+void *aligned_alloc(size_t align, size_t len) {
 
-  void* ret = NULL;
+  void *ret = NULL;
 
   if ((len % align)) return NULL;
 
@@ -447,11 +447,11 @@ void* aligned_alloc(size_t align, size_t len) {
 
 /* specific BSD api mainly checking possible overflow for the size */
 
-void* reallocarray(void* ptr, size_t elem_len, size_t elem_cnt) {
+void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
 
   const size_t elem_lim = 1UL << (sizeof(size_t) * 4);
   const size_t elem_tot = elem_len * elem_cnt;
-  void*        ret = NULL;
+  void *ret = NULL;
 
   if ((elem_len >= elem_lim || elem_cnt >= elem_lim) && elem_len > 0 &&
       elem_cnt > (SIZE_MAX / elem_len)) {
@@ -470,19 +470,19 @@ void* reallocarray(void* ptr, size_t elem_len, size_t elem_cnt) {
 
 __attribute__((constructor)) void __dislocator_init(void) {
 
-  u8* tmp = (u8*)getenv("AFL_LD_LIMIT_MB");
+  u8 *tmp = (u8 *)getenv("AFL_LD_LIMIT_MB");
 
   if (tmp) {
 
-    u8* tok;
-    s32 mmem = (s32)strtol((char*)tmp, (char**)&tok, 10);
+    u8 *tok;
+    s32 mmem = (s32)strtol((char *)tmp, (char **)&tok, 10);
     if (*tok != '\0' || errno == ERANGE) FATAL("Bad value for AFL_LD_LIMIT_MB");
     max_mem = mmem * 1024 * 1024;
 
   }
 
   alloc_canary = ALLOC_CANARY;
-  tmp = (u8*)getenv("AFL_RANDOM_ALLOC_CANARY");
+  tmp = (u8 *)getenv("AFL_RANDOM_ALLOC_CANARY");
 
   if (tmp) arc4random_buf(&alloc_canary, sizeof(alloc_canary));
 

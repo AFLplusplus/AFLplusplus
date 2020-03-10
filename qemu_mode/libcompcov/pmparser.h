@@ -32,8 +32,8 @@ implied warranty.
  */
 typedef struct procmaps_struct {
 
-  void*         addr_start;  //< start address of the area
-  void*         addr_end;    //< end address
+  void *addr_start;  //< start address of the area
+  void *addr_end;    //< end address
   unsigned long length;      //< size of the range
 
   char  perm[5];  //< permissions rwxp
@@ -48,7 +48,7 @@ typedef struct procmaps_struct {
 
   char pathname[600];  //< the path of the file that backs the area
   // chained list
-  struct procmaps_struct* next;  //<handler of the chinaed list
+  struct procmaps_struct *next;  //<handler of the chinaed list
 
 } procmaps_struct;
 
@@ -58,8 +58,8 @@ typedef struct procmaps_struct {
  */
 typedef struct procmaps_iterator {
 
-  procmaps_struct* head;
-  procmaps_struct* current;
+  procmaps_struct *head;
+  procmaps_struct *current;
 
 } procmaps_iterator;
 
@@ -69,7 +69,7 @@ typedef struct procmaps_iterator {
  * if pid<0
  * @return an iterator over all the nodes
  */
-procmaps_iterator* pmparser_parse(int pid);
+procmaps_iterator *pmparser_parse(int pid);
 
 /**
  * pmparser_next
@@ -77,28 +77,28 @@ procmaps_iterator* pmparser_parse(int pid);
  * @param p_procmaps_it the iterator to move on step in the chained list
  * @return a procmaps structure filled with information about this VM area
  */
-procmaps_struct* pmparser_next(procmaps_iterator* p_procmaps_it);
+procmaps_struct *pmparser_next(procmaps_iterator *p_procmaps_it);
 /**
  * pmparser_free
  * @description should be called at the end to free the resources
  * @param p_procmaps_it the iterator structure returned by pmparser_parse
  */
-void pmparser_free(procmaps_iterator* p_procmaps_it);
+void pmparser_free(procmaps_iterator *p_procmaps_it);
 
 /**
  * _pmparser_split_line
  * @description internal usage
  */
-void _pmparser_split_line(char* buf, char* addr1, char* addr2, char* perm,
-                          char* offset, char* device, char* inode,
-                          char* pathname);
+void _pmparser_split_line(char *buf, char *addr1, char *addr2, char *perm,
+                          char *offset, char *device, char *inode,
+                          char *pathname);
 
 /**
  * pmparser_print
  * @param map the head of the list
  * @order the order of the area to print, -1 to print everything
  */
-void pmparser_print(procmaps_struct* map, int order);
+void pmparser_print(procmaps_struct *map, int order);
 
 /**
  * gobal variables
@@ -106,9 +106,9 @@ void pmparser_print(procmaps_struct* map, int order);
 // procmaps_struct* g_last_head=NULL;
 // procmaps_struct* g_current=NULL;
 
-procmaps_iterator* pmparser_parse(int pid) {
+procmaps_iterator *pmparser_parse(int pid) {
 
-  procmaps_iterator* maps_it = malloc(sizeof(procmaps_iterator));
+  procmaps_iterator *maps_it = malloc(sizeof(procmaps_iterator));
   char               maps_path[500];
   if (pid >= 0) {
 
@@ -120,7 +120,7 @@ procmaps_iterator* pmparser_parse(int pid) {
 
   }
 
-  FILE* file = fopen(maps_path, "r");
+  FILE *file = fopen(maps_path, "r");
   if (!file) {
 
     fprintf(stderr, "pmparser : cannot open the memory maps, %s\n",
@@ -132,24 +132,24 @@ procmaps_iterator* pmparser_parse(int pid) {
   int  ind = 0;
   char buf[PROCMAPS_LINE_MAX_LENGTH];
   // int c;
-  procmaps_struct* list_maps = NULL;
-  procmaps_struct* tmp;
-  procmaps_struct* current_node = list_maps;
+  procmaps_struct *list_maps = NULL;
+  procmaps_struct *tmp;
+  procmaps_struct *current_node = list_maps;
   char addr1[20], addr2[20], perm[8], offset[20], dev[10], inode[30],
       pathname[PATH_MAX];
   while (!feof(file)) {
 
     fgets(buf, PROCMAPS_LINE_MAX_LENGTH, file);
     // allocate a node
-    tmp = (procmaps_struct*)malloc(sizeof(procmaps_struct));
+    tmp = (procmaps_struct *)malloc(sizeof(procmaps_struct));
     // fill the node
     _pmparser_split_line(buf, addr1, addr2, perm, offset, dev, inode, pathname);
     // printf("#%s",buf);
     // printf("%s-%s %s %s %s
     // %s\t%s\n",addr1,addr2,perm,offset,dev,inode,pathname); addr_start &
     // addr_end unsigned long l_addr_start;
-    sscanf(addr1, "%lx", (long unsigned*)&tmp->addr_start);
-    sscanf(addr2, "%lx", (long unsigned*)&tmp->addr_end);
+    sscanf(addr1, "%lx", (long unsigned *)&tmp->addr_start);
+    sscanf(addr2, "%lx", (long unsigned *)&tmp->addr_end);
     // size
     tmp->length = (unsigned long)(tmp->addr_end - tmp->addr_start);
     // perm
@@ -194,10 +194,10 @@ procmaps_iterator* pmparser_parse(int pid) {
 
 }
 
-procmaps_struct* pmparser_next(procmaps_iterator* p_procmaps_it) {
+procmaps_struct *pmparser_next(procmaps_iterator *p_procmaps_it) {
 
   if (p_procmaps_it->current == NULL) return NULL;
-  procmaps_struct* p_current = p_procmaps_it->current;
+  procmaps_struct *p_current = p_procmaps_it->current;
   p_procmaps_it->current = p_procmaps_it->current->next;
   return p_current;
   /*
@@ -214,12 +214,12 @@ procmaps_struct* pmparser_next(procmaps_iterator* p_procmaps_it) {
 
 }
 
-void pmparser_free(procmaps_iterator* p_procmaps_it) {
+void pmparser_free(procmaps_iterator *p_procmaps_it) {
 
-  procmaps_struct* maps_list = p_procmaps_it->head;
+  procmaps_struct *maps_list = p_procmaps_it->head;
   if (maps_list == NULL) return;
-  procmaps_struct* act = maps_list;
-  procmaps_struct* nxt = act->next;
+  procmaps_struct *act = maps_list;
+  procmaps_struct *nxt = act->next;
   while (act != NULL) {
 
     free(act);
@@ -230,9 +230,9 @@ void pmparser_free(procmaps_iterator* p_procmaps_it) {
 
 }
 
-void _pmparser_split_line(char* buf, char* addr1, char* addr2, char* perm,
-                          char* offset, char* device, char* inode,
-                          char* pathname) {
+void _pmparser_split_line(char *buf, char *addr1, char *addr2, char *perm,
+                          char *offset, char *device, char *inode,
+                          char *pathname) {
 
   //
   int orig = 0;

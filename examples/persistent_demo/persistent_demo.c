@@ -30,7 +30,7 @@
 
 /* Main entry point. */
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
   ssize_t len;                               /* how much input did we read? */
   char buf[100]; /* Example-only buffer, you'd replace it with other global or

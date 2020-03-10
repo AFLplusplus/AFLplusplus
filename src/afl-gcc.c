@@ -48,18 +48,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-static u8*  as_path;                   /* Path to the AFL 'as' wrapper      */
-static u8** cc_params;                 /* Parameters passed to the real CC  */
-static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
-static u8   be_quiet,                  /* Quiet mode                        */
+static u8 *as_path;                    /* Path to the AFL 'as' wrapper      */
+static u8 **cc_params;                 /* Parameters passed to the real CC  */
+static u32 cc_par_cnt = 1;             /* Param count, including argv0      */
+static u8 be_quiet,                    /* Quiet mode                        */
     clang_mode;                        /* Invoked as afl-clang*?            */
 
 /* Try to find our "fake" GNU assembler in AFL_PATH or at the location derived
    from argv[0]. If that fails, abort. */
 
-static void find_as(u8* argv0) {
+static void find_as(u8 *argv0) {
 
-  u8* afl_path = getenv("AFL_PATH");
+  u8 *afl_path = getenv("AFL_PATH");
   u8 *slash, *tmp;
 
   if (afl_path) {
@@ -82,7 +82,7 @@ static void find_as(u8* argv0) {
 
   if (slash) {
 
-    u8* dir;
+    u8 *dir;
 
     *slash = 0;
     dir = ck_strdup(argv0);
@@ -116,16 +116,16 @@ static void find_as(u8* argv0) {
 
 /* Copy argv to cc_params, making the necessary edits. */
 
-static void edit_params(u32 argc, char** argv) {
+static void edit_params(u32 argc, char **argv) {
 
   u8  fortify_set = 0, asan_set = 0;
-  u8* name;
+  u8 *name;
 
 #if defined(__FreeBSD__) && defined(WORD_SIZE_64)
   u8 m32_set = 0;
 #endif
 
-  cc_params = ck_alloc((argc + 128) * sizeof(u8*));
+  cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
 
   name = strrchr(argv[0], '/');
   if (!name)
@@ -141,13 +141,13 @@ static void edit_params(u32 argc, char** argv) {
 
     if (!strcmp(name, "afl-clang++")) {
 
-      u8* alt_cxx = getenv("AFL_CXX");
-      cc_params[0] = alt_cxx ? alt_cxx : (u8*)"clang++";
+      u8 *alt_cxx = getenv("AFL_CXX");
+      cc_params[0] = alt_cxx ? alt_cxx : (u8 *)"clang++";
 
     } else {
 
-      u8* alt_cc = getenv("AFL_CC");
-      cc_params[0] = alt_cc ? alt_cc : (u8*)"clang";
+      u8 *alt_cc = getenv("AFL_CC");
+      cc_params[0] = alt_cc ? alt_cc : (u8 *)"clang";
 
     }
 
@@ -186,18 +186,18 @@ static void edit_params(u32 argc, char** argv) {
 
     if (!strcmp(name, "afl-g++")) {
 
-      u8* alt_cxx = getenv("AFL_CXX");
-      cc_params[0] = alt_cxx ? alt_cxx : (u8*)"g++";
+      u8 *alt_cxx = getenv("AFL_CXX");
+      cc_params[0] = alt_cxx ? alt_cxx : (u8 *)"g++";
 
     } else if (!strcmp(name, "afl-gcj")) {
 
-      u8* alt_cc = getenv("AFL_GCJ");
-      cc_params[0] = alt_cc ? alt_cc : (u8*)"gcj";
+      u8 *alt_cc = getenv("AFL_GCJ");
+      cc_params[0] = alt_cc ? alt_cc : (u8 *)"gcj";
 
     } else {
 
-      u8* alt_cc = getenv("AFL_CC");
-      cc_params[0] = alt_cc ? alt_cc : (u8*)"gcc";
+      u8 *alt_cc = getenv("AFL_CC");
+      cc_params[0] = alt_cc ? alt_cc : (u8 *)"gcc";
 
     }
 
@@ -207,7 +207,7 @@ static void edit_params(u32 argc, char** argv) {
 
   while (--argc) {
 
-    u8* cur = *(++argv);
+    u8 *cur = *(++argv);
 
     if (!strncmp(cur, "-B", 2)) {
 
@@ -340,9 +340,9 @@ static void edit_params(u32 argc, char** argv) {
 
 /* Main entry point */
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
-  char* env_info =
+  char *env_info =
       "Environment variables used by afl-gcc:\n"
       "AFL_CC: path to the C compiler to use\n"
       "AFL_CXX: path to the C++ compiler to use\n"
@@ -415,7 +415,7 @@ int main(int argc, char** argv) {
 
   edit_params(argc, argv);
 
-  execvp(cc_params[0], (char**)cc_params);
+  execvp(cc_params[0], (char **)cc_params);
 
   FATAL("Oops, failed to execute '%s' - check your PATH", cc_params[0]);
 
