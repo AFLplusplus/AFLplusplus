@@ -25,15 +25,15 @@
 
 #include "afl-fuzz.h"
 
-void load_custom_mutator(afl_state_t*, const char*);
+void load_custom_mutator(afl_state_t *, const char *);
 #ifdef USE_PYTHON
-void load_custom_mutator_py(afl_state_t*, const char*);
+void load_custom_mutator_py(afl_state_t *, const char *);
 #endif
 
-void setup_custom_mutator(afl_state_t* afl) {
+void setup_custom_mutator(afl_state_t *afl) {
 
   /* Try mutator library first */
-  u8* fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+  u8 *fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
 
   if (fn) {
 
@@ -51,7 +51,7 @@ void setup_custom_mutator(afl_state_t* afl) {
 
   /* Try Python module */
 #ifdef USE_PYTHON
-  u8* module_name = getenv("AFL_PYTHON_MODULE");
+  u8 *module_name = getenv("AFL_PYTHON_MODULE");
 
   if (module_name) {
 
@@ -75,7 +75,7 @@ void setup_custom_mutator(afl_state_t* afl) {
 
 }
 
-void destroy_custom_mutator(afl_state_t* afl) {
+void destroy_custom_mutator(afl_state_t *afl) {
 
   if (afl->mutator) {
 
@@ -96,9 +96,9 @@ void destroy_custom_mutator(afl_state_t* afl) {
 
 }
 
-void load_custom_mutator(afl_state_t* afl, const char* fn) {
+void load_custom_mutator(afl_state_t *afl, const char *fn) {
 
-  void* dh;
+  void *dh;
   afl->mutator = ck_alloc(sizeof(struct custom_mutator));
 
   afl->mutator->name = fn;
@@ -190,7 +190,7 @@ void load_custom_mutator(afl_state_t* afl, const char* fn) {
 
 }
 
-u8 trim_case_custom(afl_state_t* afl, struct queue_entry* q, u8* in_buf) {
+u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   static u8 tmp[64];
   static u8 clean_trace[MAP_SIZE];
@@ -216,7 +216,7 @@ u8 trim_case_custom(afl_state_t* afl, struct queue_entry* q, u8* in_buf) {
 
     u32 cksum;
 
-    u8*    retbuf = NULL;
+    u8 *retbuf = NULL;
     size_t retlen = 0;
 
     afl->mutator->afl_custom_trim(afl, &retbuf, &retlen);
@@ -312,9 +312,9 @@ abort_trimming:
 }
 
 #ifdef USE_PYTHON
-void load_custom_mutator_py(afl_state_t* afl, const char* module_name) {
+void load_custom_mutator_py(afl_state_t *afl, const char *module_name) {
 
-  PyObject** py_functions = afl->py_functions;
+  PyObject **py_functions = afl->py_functions;
 
   afl->mutator = ck_alloc(sizeof(struct custom_mutator));
 

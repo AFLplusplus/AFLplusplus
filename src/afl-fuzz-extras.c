@@ -27,17 +27,19 @@
 
 /* Helper function for load_extras. */
 
-static int compare_extras_len(const void* p1, const void* p2) {
+static int compare_extras_len(const void *p1, const void *p2) {
 
-  struct extra_data *e1 = (struct extra_data*)p1, *e2 = (struct extra_data*)p2;
+  struct extra_data *e1 = (struct extra_data *)p1,
+                    *e2 = (struct extra_data *)p2;
 
   return e1->len - e2->len;
 
 }
 
-static int compare_extras_use_d(const void* p1, const void* p2) {
+static int compare_extras_use_d(const void *p1, const void *p2) {
 
-  struct extra_data *e1 = (struct extra_data*)p1, *e2 = (struct extra_data*)p2;
+  struct extra_data *e1 = (struct extra_data *)p1,
+                    *e2 = (struct extra_data *)p2;
 
   return e2->hit_cnt - e1->hit_cnt;
 
@@ -45,13 +47,13 @@ static int compare_extras_use_d(const void* p1, const void* p2) {
 
 /* Read extras from a file, sort by size. */
 
-void load_extras_file(afl_state_t* afl, u8* fname, u32* min_len, u32* max_len,
+void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
                       u32 dict_level) {
 
-  FILE* f;
-  u8    buf[MAX_LINE];
-  u8*   lptr;
-  u32   cur_line = 0;
+  FILE *f;
+  u8 buf[MAX_LINE];
+  u8 *lptr;
+  u32 cur_line = 0;
 
   f = fopen(fname, "r");
 
@@ -128,7 +130,7 @@ void load_extras_file(afl_state_t* afl, u8* fname, u32* min_len, u32* max_len,
 
     while (*lptr) {
 
-      char* hexdigits = "0123456789abcdef";
+      char *hexdigits = "0123456789abcdef";
 
       switch (*lptr) {
 
@@ -184,12 +186,12 @@ void load_extras_file(afl_state_t* afl, u8* fname, u32* min_len, u32* max_len,
 
 /* Read extras from the extras directory and sort them by size. */
 
-void load_extras(afl_state_t* afl, u8* dir) {
+void load_extras(afl_state_t *afl, u8 *dir) {
 
-  DIR*           d;
-  struct dirent* de;
-  u32            min_len = MAX_DICT_FILE, max_len = 0, dict_level = 0;
-  u8*            x;
+  DIR *d;
+  struct dirent *de;
+  u32 min_len = MAX_DICT_FILE, max_len = 0, dict_level = 0;
+  u8 *x;
 
   /* If the name ends with @, extract level and continue. */
 
@@ -222,8 +224,8 @@ void load_extras(afl_state_t* afl, u8* dir) {
   while ((de = readdir(d))) {
 
     struct stat st;
-    u8*         fn = alloc_printf("%s/%s", dir, de->d_name);
-    s32         fd;
+    u8 *fn = alloc_printf("%s/%s", dir, de->d_name);
+    s32 fd;
 
     if (lstat(fn, &st) || access(fn, R_OK)) PFATAL("Unable to access '%s'", fn);
 
@@ -285,7 +287,7 @@ check_and_sort:
 
 /* Helper function for maybe_add_auto(afl, ) */
 
-static inline u8 memcmp_nocase(u8* m1, u8* m2, u32 len) {
+static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
 
   while (len--)
     if (tolower(*(m1++)) ^ tolower(*(m2++))) return 1;
@@ -295,7 +297,7 @@ static inline u8 memcmp_nocase(u8* m1, u8* m2, u32 len) {
 
 /* Maybe add automatic extra. */
 
-void maybe_add_auto(afl_state_t* afl, u8* mem, u32 len) {
+void maybe_add_auto(afl_state_t *afl, u8 *mem, u32 len) {
 
   u32 i;
 
@@ -317,8 +319,8 @@ void maybe_add_auto(afl_state_t* afl, u8* mem, u32 len) {
     i = sizeof(interesting_16) >> 1;
 
     while (i--)
-      if (*((u16*)mem) == interesting_16[i] ||
-          *((u16*)mem) == SWAP16(interesting_16[i]))
+      if (*((u16 *)mem) == interesting_16[i] ||
+          *((u16 *)mem) == SWAP16(interesting_16[i]))
         return;
 
   }
@@ -328,8 +330,8 @@ void maybe_add_auto(afl_state_t* afl, u8* mem, u32 len) {
     i = sizeof(interesting_32) >> 2;
 
     while (i--)
-      if (*((u32*)mem) == interesting_32[i] ||
-          *((u32*)mem) == SWAP32(interesting_32[i]))
+      if (*((u32 *)mem) == interesting_32[i] ||
+          *((u32 *)mem) == SWAP32(interesting_32[i]))
         return;
 
   }
@@ -402,7 +404,7 @@ sort_a_extras:
 
 /* Save automatically generated extras. */
 
-void save_auto(afl_state_t* afl) {
+void save_auto(afl_state_t *afl) {
 
   u32 i;
 
@@ -411,7 +413,7 @@ void save_auto(afl_state_t* afl) {
 
   for (i = 0; i < MIN(USE_AUTO_EXTRAS, afl->a_extras_cnt); ++i) {
 
-    u8* fn =
+    u8 *fn =
         alloc_printf("%s/queue/.state/auto_extras/auto_%06u", afl->out_dir, i);
     s32 fd;
 
@@ -430,14 +432,14 @@ void save_auto(afl_state_t* afl) {
 
 /* Load automatically generated extras. */
 
-void load_auto(afl_state_t* afl) {
+void load_auto(afl_state_t *afl) {
 
   u32 i;
 
   for (i = 0; i < USE_AUTO_EXTRAS; ++i) {
 
     u8  tmp[MAX_AUTO_EXTRA + 1];
-    u8* fn = alloc_printf("%s/.state/auto_extras/auto_%06u", afl->in_dir, i);
+    u8 *fn = alloc_printf("%s/.state/auto_extras/auto_%06u", afl->in_dir, i);
     s32 fd, len;
 
     fd = open(fn, O_RDONLY, 0600);
@@ -474,7 +476,7 @@ void load_auto(afl_state_t* afl) {
 
 /* Destroy extras. */
 
-void destroy_extras(afl_state_t* afl) {
+void destroy_extras(afl_state_t *afl) {
 
   u32 i;
 

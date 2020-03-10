@@ -43,7 +43,7 @@ int init_py_module(afl_state_t *afl, u8 *module_name) {
   afl->py_module = PyImport_Import(py_name);
   Py_DECREF(py_name);
 
-  PyObject * py_module = afl->py_module;
+  PyObject *py_module = afl->py_module;
   PyObject **py_functions = afl->py_functions;
 
   if (afl->py_module != NULL) {

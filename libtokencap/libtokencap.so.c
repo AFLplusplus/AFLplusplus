@@ -54,16 +54,16 @@
 #ifdef RTLD_NEXT
 /* The libc functions are a magnitude faster than our replacements.
    Use them when RTLD_NEXT is available. */
-int (*__libc_strcmp)(const char* str1, const char* str2);
-int (*__libc_strncmp)(const char* str1, const char* str2, size_t len);
-int (*__libc_strcasecmp)(const char* str1, const char* str2);
-int (*__libc_strncasecmp)(const char* str1, const char* str2, size_t len);
-int (*__libc_memcmp)(const void* mem1, const void* mem2, size_t len);
-int (*__libc_bcmp)(const void* mem1, const void* mem2, size_t len);
-char* (*__libc_strstr)(const char* haystack, const char* needle);
-char* (*__libc_strcasestr)(const char* haystack, const char* needle);
-void* (*__libc_memmem)(const void* haystack, size_t haystack_len,
-                       const void* needle, size_t needle_len);
+int (*__libc_strcmp)(const char *str1, const char *str2);
+int (*__libc_strncmp)(const char *str1, const char *str2, size_t len);
+int (*__libc_strcasecmp)(const char *str1, const char *str2);
+int (*__libc_strncasecmp)(const char *str1, const char *str2, size_t len);
+int (*__libc_memcmp)(const void *mem1, const void *mem2, size_t len);
+int (*__libc_bcmp)(const void *mem1, const void *mem2, size_t len);
+char *(*__libc_strstr)(const char *haystack, const char *needle);
+char *(*__libc_strcasestr)(const char *haystack, const char *needle);
+void *(*__libc_memmem)(const void *haystack, size_t haystack_len,
+                       const void *needle, size_t needle_len);
 #endif
 
 /* Mapping data and such */
@@ -86,7 +86,7 @@ static void __tokencap_load_mappings(void) {
 #if defined __linux__
 
   u8    buf[MAX_LINE];
-  FILE* f = fopen("/proc/self/maps", "r");
+  FILE *f = fopen("/proc/self/maps", "r");
 
   __tokencap_ro_loaded = 1;
 
@@ -100,8 +100,8 @@ static void __tokencap_load_mappings(void) {
     if (sscanf(buf, "%p-%p %c%c", &st, &en, &rf, &wf) != 4) continue;
     if (wf == 'w' || rf != 'r') continue;
 
-    __tokencap_ro[__tokencap_ro_cnt].st = (void*)st;
-    __tokencap_ro[__tokencap_ro_cnt].en = (void*)en;
+    __tokencap_ro[__tokencap_ro_cnt].st = (void *)st;
+    __tokencap_ro[__tokencap_ro_cnt].en = (void *)en;
 
     if (++__tokencap_ro_cnt == MAX_MAPPINGS) break;
 
@@ -136,8 +136,8 @@ static void __tokencap_load_mappings(void) {
       if ((region.protection & VM_PROT_READ) &&
           !(region.protection & VM_PROT_WRITE)) {
 
-        __tokencap_ro[__tokencap_ro_cnt].st = (void*)base;
-        __tokencap_ro[__tokencap_ro_cnt].en = (void*)(base + size);
+        __tokencap_ro[__tokencap_ro_cnt].st = (void *)base;
+        __tokencap_ro[__tokencap_ro_cnt].en = (void *)(base + size);
 
         if (++__tokencap_ro_cnt == MAX_MAPPINGS) break;
 
@@ -160,7 +160,7 @@ static void __tokencap_load_mappings(void) {
   int mib[] = {CTL_VM, VM_PROC, VM_PROC_MAP, __tokencap_pid,
                sizeof(struct kinfo_vmentry)};
 #endif
-  char * buf, *low, *high;
+  char *buf, *low, *high;
   size_t miblen = sizeof(mib) / sizeof(mib[0]);
   size_t len;
 
@@ -189,7 +189,7 @@ static void __tokencap_load_mappings(void) {
 
   while (low < high) {
 
-    struct kinfo_vmentry* region = (struct kinfo_vmentry*)low;
+    struct kinfo_vmentry *region = (struct kinfo_vmentry *)low;
 
 #if defined __FreeBSD__ || defined __NetBSD__
 
@@ -216,8 +216,8 @@ static void __tokencap_load_mappings(void) {
         !(region->kve_protection & KVE_PROT_WRITE)) {
 
 #endif
-      __tokencap_ro[__tokencap_ro_cnt].st = (void*)region->kve_start;
-      __tokencap_ro[__tokencap_ro_cnt].en = (void*)region->kve_end;
+      __tokencap_ro[__tokencap_ro_cnt].st = (void *)region->kve_start;
+      __tokencap_ro[__tokencap_ro_cnt].en = (void *)region->kve_end;
 
       if (++__tokencap_ro_cnt == MAX_MAPPINGS) break;
 
@@ -234,7 +234,7 @@ static void __tokencap_load_mappings(void) {
 
 /* Check an address against the list of read-only mappings. */
 
-static u8 __tokencap_is_ro(const void* ptr) {
+static u8 __tokencap_is_ro(const void *ptr) {
 
   u32 i;
 
@@ -250,7 +250,7 @@ static u8 __tokencap_is_ro(const void* ptr) {
 /* Dump an interesting token to output file, quoting and escaping it
    properly. */
 
-static void __tokencap_dump(const u8* ptr, size_t len, u8 is_text) {
+static void __tokencap_dump(const u8 *ptr, size_t len, u8 is_text) {
 
   u8  buf[MAX_AUTO_EXTRA * 4 + 1];
   u32 i;
@@ -293,7 +293,7 @@ static void __tokencap_dump(const u8* ptr, size_t len, u8 is_text) {
 
 #undef strcmp
 
-int strcmp(const char* str1, const char* str2) {
+int strcmp(const char *str1, const char *str2) {
 
   if (__tokencap_is_ro(str1)) __tokencap_dump(str1, strlen(str1), 1);
   if (__tokencap_is_ro(str2)) __tokencap_dump(str2, strlen(str2), 1);
@@ -317,7 +317,7 @@ int strcmp(const char* str1, const char* str2) {
 
 #undef strncmp
 
-int strncmp(const char* str1, const char* str2, size_t len) {
+int strncmp(const char *str1, const char *str2, size_t len) {
 
   if (__tokencap_is_ro(str1)) __tokencap_dump(str1, len, 1);
   if (__tokencap_is_ro(str2)) __tokencap_dump(str2, len, 1);
@@ -343,7 +343,7 @@ int strncmp(const char* str1, const char* str2, size_t len) {
 
 #undef strcasecmp
 
-int strcasecmp(const char* str1, const char* str2) {
+int strcasecmp(const char *str1, const char *str2) {
 
   if (__tokencap_is_ro(str1)) __tokencap_dump(str1, strlen(str1), 1);
   if (__tokencap_is_ro(str2)) __tokencap_dump(str2, strlen(str2), 1);
@@ -367,7 +367,7 @@ int strcasecmp(const char* str1, const char* str2) {
 
 #undef strncasecmp
 
-int strncasecmp(const char* str1, const char* str2, size_t len) {
+int strncasecmp(const char *str1, const char *str2, size_t len) {
 
   if (__tokencap_is_ro(str1)) __tokencap_dump(str1, len, 1);
   if (__tokencap_is_ro(str2)) __tokencap_dump(str2, len, 1);
@@ -393,7 +393,7 @@ int strncasecmp(const char* str1, const char* str2, size_t len) {
 
 #undef memcmp
 
-int memcmp(const void* mem1, const void* mem2, size_t len) {
+int memcmp(const void *mem1, const void *mem2, size_t len) {
 
   if (__tokencap_is_ro(mem1)) __tokencap_dump(mem1, len, 0);
   if (__tokencap_is_ro(mem2)) __tokencap_dump(mem2, len, 0);
@@ -402,8 +402,8 @@ int memcmp(const void* mem1, const void* mem2, size_t len) {
   if (__libc_memcmp) return __libc_memcmp(mem1, mem2, len);
 #endif
 
-  const char* strmem1 = (const char*)mem1;
-  const char* strmem2 = (const char*)mem2;
+  const char *strmem1 = (const char *)mem1;
+  const char *strmem2 = (const char *)mem2;
 
   while (len--) {
 
@@ -420,7 +420,7 @@ int memcmp(const void* mem1, const void* mem2, size_t len) {
 
 #undef bcmp
 
-int bcmp(const void* mem1, const void* mem2, size_t len) {
+int bcmp(const void *mem1, const void *mem2, size_t len) {
 
   if (__tokencap_is_ro(mem1)) __tokencap_dump(mem1, len, 0);
   if (__tokencap_is_ro(mem2)) __tokencap_dump(mem2, len, 0);
@@ -429,8 +429,8 @@ int bcmp(const void* mem1, const void* mem2, size_t len) {
   if (__libc_bcmp) return __libc_bcmp(mem1, mem2, len);
 #endif
 
-  const char* strmem1 = (const char*)mem1;
-  const char* strmem2 = (const char*)mem2;
+  const char *strmem1 = (const char *)mem1;
+  const char *strmem2 = (const char *)mem2;
 
   while (len--) {
 
@@ -447,7 +447,7 @@ int bcmp(const void* mem1, const void* mem2, size_t len) {
 
 #undef strstr
 
-char* strstr(const char* haystack, const char* needle) {
+char *strstr(const char *haystack, const char *needle) {
 
   if (__tokencap_is_ro(haystack))
     __tokencap_dump(haystack, strlen(haystack), 1);
@@ -460,13 +460,13 @@ char* strstr(const char* haystack, const char* needle) {
 
   do {
 
-    const char* n = needle;
-    const char* h = haystack;
+    const char *n = needle;
+    const char *h = haystack;
 
     while (*n && *h && *n == *h)
       n++, h++;
 
-    if (!*n) return (char*)haystack;
+    if (!*n) return (char *)haystack;
 
   } while (*(haystack++));
 
@@ -476,7 +476,7 @@ char* strstr(const char* haystack, const char* needle) {
 
 #undef strcasestr
 
-char* strcasestr(const char* haystack, const char* needle) {
+char *strcasestr(const char *haystack, const char *needle) {
 
   if (__tokencap_is_ro(haystack))
     __tokencap_dump(haystack, strlen(haystack), 1);
@@ -489,13 +489,13 @@ char* strcasestr(const char* haystack, const char* needle) {
 
   do {
 
-    const char* n = needle;
-    const char* h = haystack;
+    const char *n = needle;
+    const char *h = haystack;
 
     while (*n && *h && tolower(*n) == tolower(*h))
       n++, h++;
 
-    if (!*n) return (char*)haystack;
+    if (!*n) return (char *)haystack;
 
   } while (*(haystack++));
 
@@ -505,7 +505,7 @@ char* strcasestr(const char* haystack, const char* needle) {
 
 #undef memmem
 
-void* memmem(const void* haystack, size_t haystack_len, const void* needle,
+void *memmem(const void *haystack, size_t haystack_len, const void *needle,
              size_t needle_len) {
 
   if (__tokencap_is_ro(haystack)) __tokencap_dump(haystack, haystack_len, 1);
@@ -517,19 +517,19 @@ void* memmem(const void* haystack, size_t haystack_len, const void* needle,
     return __libc_memmem(haystack, haystack_len, needle, needle_len);
 #endif
 
-  const char* n = (const char*)needle;
-  const char* h = (const char*)haystack;
+  const char *n = (const char *)needle;
+  const char *h = (const char *)haystack;
   if (haystack_len < needle_len) return 0;
-  if (needle_len == 0) return (void*)haystack;
+  if (needle_len == 0) return (void *)haystack;
   if (needle_len == 1) return memchr(haystack, *n, haystack_len);
 
-  const char* end = h + (haystack_len - needle_len);
+  const char *end = h + (haystack_len - needle_len);
 
   do {
 
     if (*h == *n) {
 
-      if (memcmp(h, n, needle_len) == 0) return (void*)h;
+      if (memcmp(h, n, needle_len) == 0) return (void *)h;
 
     }
 
@@ -544,31 +544,31 @@ void* memmem(const void* haystack, size_t haystack_len, const void* needle,
 /*
  * Apache's httpd wrappers
  */
-int ap_cstr_casecmp(const char* s1, const char* s2) {
+int ap_cstr_casecmp(const char *s1, const char *s2) {
 
   return strcasecmp(s1, s2);
 
 }
 
-int ap_cstr_casecmpn(const char* s1, const char* s2, size_t n) {
+int ap_cstr_casecmpn(const char *s1, const char *s2, size_t n) {
 
   return strncasecmp(s1, s2, n);
 
 }
 
-const char* ap_strcasestr(const char* s1, const char* s2) {
+const char *ap_strcasestr(const char *s1, const char *s2) {
 
   return strcasestr(s1, s2);
 
 }
 
-int apr_cstr_casecmp(const char* s1, const char* s2) {
+int apr_cstr_casecmp(const char *s1, const char *s2) {
 
   return strcasecmp(s1, s2);
 
 }
 
-int apr_cstr_casecmpn(const char* s1, const char* s2, size_t n) {
+int apr_cstr_casecmpn(const char *s1, const char *s2, size_t n) {
 
   return strncasecmp(s1, s2, n);
 
@@ -577,31 +577,31 @@ int apr_cstr_casecmpn(const char* s1, const char* s2, size_t n) {
 /*
  * *SSL wrappers
  */
-int CRYPTO_memcmp(const void* m1, const void* m2, size_t len) {
+int CRYPTO_memcmp(const void *m1, const void *m2, size_t len) {
 
   return memcmp(m1, m2, len);
 
 }
 
-int OPENSSL_memcmp(const void* m1, const void* m2, size_t len) {
+int OPENSSL_memcmp(const void *m1, const void *m2, size_t len) {
 
   return memcmp(m1, m2, len);
 
 }
 
-int OPENSSL_strcasecmp(const char* s1, const char* s2) {
+int OPENSSL_strcasecmp(const char *s1, const char *s2) {
 
   return strcasecmp(s1, s2);
 
 }
 
-int OPENSSL_strncasecmp(const char* s1, const char* s2, size_t len) {
+int OPENSSL_strncasecmp(const char *s1, const char *s2, size_t len) {
 
   return strncasecmp(s1, s2, len);
 
 }
 
-int32_t memcmpct(const void* s1, const void* s2, size_t len) {
+int32_t memcmpct(const void *s1, const void *s2, size_t len) {
 
   return memcmp(s1, s2, len);
 
@@ -610,7 +610,7 @@ int32_t memcmpct(const void* s1, const void* s2, size_t len) {
 /*
  * libXML wrappers
  */
-int xmlStrncmp(const char* s1, const char* s2, int len) {
+int xmlStrncmp(const char *s1, const char *s2, int len) {
 
   if (len <= 0) { return 0; }
   if (s1 == s2) { return 0; }
@@ -620,7 +620,7 @@ int xmlStrncmp(const char* s1, const char* s2, int len) {
 
 }
 
-int xmlStrcmp(const char* s1, const char* s2) {
+int xmlStrcmp(const char *s1, const char *s2) {
 
   if (s1 == s2) { return 0; }
   if (s1 == NULL) { return -1; }
@@ -629,7 +629,7 @@ int xmlStrcmp(const char* s1, const char* s2) {
 
 }
 
-int xmlStrEqual(const char* s1, const char* s2) {
+int xmlStrEqual(const char *s1, const char *s2) {
 
   if (s1 == s2) { return 1; }
   if (s1 == NULL) { return 0; }
@@ -639,7 +639,7 @@ int xmlStrEqual(const char* s1, const char* s2) {
 
 }
 
-int xmlStrcasecmp(const char* s1, const char* s2) {
+int xmlStrcasecmp(const char *s1, const char *s2) {
 
   if (s1 == s2) { return 0; }
   if (s1 == NULL) { return -1; }
@@ -648,7 +648,7 @@ int xmlStrcasecmp(const char* s1, const char* s2) {
 
 }
 
-int xmlStrncasecmp(const char* s1, const char* s2, int len) {
+int xmlStrncasecmp(const char *s1, const char *s2, int len) {
 
   if (len <= 0) { return 0; }
   if (s1 == s2) { return 0; }
@@ -658,7 +658,7 @@ int xmlStrncasecmp(const char* s1, const char* s2, int len) {
 
 }
 
-const char* xmlStrstr(const char* haystack, const char* needle) {
+const char *xmlStrstr(const char *haystack, const char *needle) {
 
   if (haystack == NULL) { return NULL; }
   if (needle == NULL) { return NULL; }
@@ -666,7 +666,7 @@ const char* xmlStrstr(const char* haystack, const char* needle) {
 
 }
 
-const char* xmlStrcasestr(const char* haystack, const char* needle) {
+const char *xmlStrcasestr(const char *haystack, const char *needle) {
 
   if (haystack == NULL) { return NULL; }
   if (needle == NULL) { return NULL; }
@@ -677,13 +677,13 @@ const char* xmlStrcasestr(const char* haystack, const char* needle) {
 /*
  * Samba wrappers
  */
-int memcmp_const_time(const void* s1, const void* s2, size_t n) {
+int memcmp_const_time(const void *s1, const void *s2, size_t n) {
 
   return memcmp(s1, s2, n);
 
 }
 
-bool strcsequal(const void* s1, const void* s2) {
+bool strcsequal(const void *s1, const void *s2) {
 
   if (s1 == s2) { return true; }
   if (!s1 || !s2) { return false; }
@@ -693,13 +693,13 @@ bool strcsequal(const void* s1, const void* s2) {
 
 /* bcmp/memcmp BSD flavors, similar to CRYPTO_memcmp */
 
-int timingsafe_bcmp(const void* mem1, const void* mem2, size_t len) {
+int timingsafe_bcmp(const void *mem1, const void *mem2, size_t len) {
 
   return bcmp(mem1, mem2, len);
 
 }
 
-int timingsafe_memcmp(const void* mem1, const void* mem2, size_t len) {
+int timingsafe_memcmp(const void *mem1, const void *mem2, size_t len) {
 
   return memcmp(mem1, mem2, len);
 
@@ -709,7 +709,7 @@ int timingsafe_memcmp(const void* mem1, const void* mem2, size_t len) {
 
 __attribute__((constructor)) void __tokencap_init(void) {
 
-  u8* fn = getenv("AFL_TOKEN_FILE");
+  u8 *fn = getenv("AFL_TOKEN_FILE");
   if (fn) __tokencap_out_file = open(fn, O_RDWR | O_CREAT | O_APPEND, 0655);
   if (__tokencap_out_file == -1) __tokencap_out_file = STDERR_FILENO;
   __tokencap_pid = getpid();

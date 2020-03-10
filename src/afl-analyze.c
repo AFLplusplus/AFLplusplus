@@ -57,13 +57,13 @@
 
 static s32 child_pid;                  /* PID of the tested program         */
 
-u8* trace_bits;                        /* SHM with instrumentation bitmap   */
+u8 *trace_bits;                        /* SHM with instrumentation bitmap   */
 
 static u8 *in_file,                    /* Analyzer input test case          */
     *prog_in,                          /* Targeted program input file       */
     *doc_path;                         /* Path to docs                      */
 
-static u8* in_data;                    /* Input data for analysis           */
+static u8 *in_data;                    /* Input data for analysis           */
 
 static u32 in_len,                     /* Input data length                 */
     orig_cksum,                        /* Original checksum                 */
@@ -84,7 +84,7 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 
 static u8 qemu_mode;
 
-static u8* target_path;
+static u8 *target_path;
 
 /* Constants used for describing byte behavior. */
 
@@ -114,7 +114,7 @@ static u8 count_class_lookup[256] = {
 
 };
 
-static void classify_counts(u8* mem) {
+static void classify_counts(u8 *mem) {
 
   u32 i = MAP_SIZE;
 
@@ -144,7 +144,7 @@ static void classify_counts(u8* mem) {
 
 static inline u8 anything_set(void) {
 
-  u32* ptr = (u32*)trace_bits;
+  u32 *ptr = (u32 *)trace_bits;
   u32  i = (MAP_SIZE >> 2);
 
   while (i--)
@@ -189,7 +189,7 @@ static void read_initial_file(void) {
 
 /* Write output file. */
 
-static s32 write_to_file(u8* path, u8* mem, u32 len) {
+static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 
   s32 ret;
 
@@ -219,7 +219,7 @@ static void handle_timeout(int sig) {
 /* Execute target application. Returns exec checksum, or 0 if program
    times out. */
 
-static u32 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
+static u32 run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   static struct itimerval it;
   int                     status = 0;
@@ -243,7 +243,7 @@ static u32 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
     if (dup2(use_stdin ? prog_in_fd : dev_null_fd, 0) < 0 ||
         dup2(dev_null_fd, 1) < 0 || dup2(dev_null_fd, 2) < 0) {
 
-      *(u32*)trace_bits = EXEC_FAIL_SIG;
+      *(u32 *)trace_bits = EXEC_FAIL_SIG;
       PFATAL("dup2() failed");
 
     }
@@ -272,7 +272,7 @@ static u32 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
     execv(target_path, argv);
 
-    *(u32*)trace_bits = EXEC_FAIL_SIG;
+    *(u32 *)trace_bits = EXEC_FAIL_SIG;
     exit(0);
 
   }
@@ -299,7 +299,7 @@ static u32 run_target(char** argv, u8* mem, u32 len, u8 first_run) {
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32*)trace_bits == EXEC_FAIL_SIG)
+  if (*(u32 *)trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
   classify_counts(trace_bits);
@@ -378,7 +378,7 @@ static void show_legend(void) {
 
 /* Interpret and report a pattern in the input file. */
 
-static void dump_hex(u8* buf, u32 len, u8* b_data) {
+static void dump_hex(u8 *buf, u32 len, u8 *b_data) {
 
   u32 i;
 
@@ -409,7 +409,7 @@ static void dump_hex(u8* buf, u32 len, u8* b_data) {
 
         case 2: {
 
-          u16 val = *(u16*)(in_data + i);
+          u16 val = *(u16 *)(in_data + i);
 
           /* Small integers may be length fields. */
 
@@ -435,7 +435,7 @@ static void dump_hex(u8* buf, u32 len, u8* b_data) {
 
         case 4: {
 
-          u32 val = *(u32*)(in_data + i);
+          u32 val = *(u32 *)(in_data + i);
 
           /* Small integers may be length fields. */
 
@@ -544,12 +544,12 @@ static void dump_hex(u8* buf, u32 len, u8* b_data) {
 
 /* Actually analyze! */
 
-static void analyze(char** argv) {
+static void analyze(char **argv) {
 
   u32 i;
   u32 boring_len = 0, prev_xff = 0, prev_x01 = 0, prev_s10 = 0, prev_a10 = 0;
 
-  u8* b_data = ck_alloc(in_len + 1);
+  u8 *b_data = ck_alloc(in_len + 1);
   u8  seq_byte = 0;
 
   b_data[in_len] = 0xff;                         /* Intentional terminator. */
@@ -651,14 +651,14 @@ static void handle_stop_sig(int sig) {
 
 static void set_up_environment(void) {
 
-  u8* x;
+  u8 *x;
 
   dev_null_fd = open("/dev/null", O_RDWR);
   if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
   if (!prog_in) {
 
-    u8* use_dir = ".";
+    u8 *use_dir = ".";
 
     if (access(use_dir, R_OK | W_OK | X_OK)) {
 
@@ -715,9 +715,9 @@ static void set_up_environment(void) {
 
     if (qemu_mode) {
 
-      u8* qemu_preload = getenv("QEMU_SET_ENV");
-      u8* afl_preload = getenv("AFL_PRELOAD");
-      u8* buf;
+      u8 *qemu_preload = getenv("QEMU_SET_ENV");
+      u8 *afl_preload = getenv("AFL_PRELOAD");
+      u8 *buf;
 
       s32 i, afl_preload_size = strlen(afl_preload);
       for (i = 0; i < afl_preload_size; ++i) {
@@ -779,7 +779,7 @@ static void setup_signal_handlers(void) {
 
 /* Display usage hints. */
 
-static void usage(u8* argv0) {
+static void usage(u8 *argv0) {
 
   SAYF(
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
@@ -822,9 +822,9 @@ static void usage(u8* argv0) {
 
 /* Find binary. */
 
-static void find_binary(u8* fname) {
+static void find_binary(u8 *fname) {
 
-  u8*         env_path = 0;
+  u8 *env_path = 0;
   struct stat st;
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
@@ -877,11 +877,11 @@ static void find_binary(u8* fname) {
 
 /* Main entry point */
 
-int main(int argc, char** argv, char** envp) {
+int main(int argc, char **argv, char **envp) {
 
   s32    opt;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
-  char** use_argv;
+  char **use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 

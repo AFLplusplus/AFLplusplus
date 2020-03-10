@@ -27,7 +27,7 @@
 
 u8 be_quiet = 0;
 
-static u8* get_libradamsa_path(u8* own_loc) {
+static u8 *get_libradamsa_path(u8 *own_loc) {
 
   u8 *tmp, *cp, *rsl, *own_copy;
 
@@ -84,7 +84,7 @@ static u8* get_libradamsa_path(u8* own_loc) {
 
 /* Display usage hints. */
 
-static void usage(afl_state_t* afl, u8* argv0, int more_help) {
+static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
 
   SAYF(
       "\n%s [ options ] -- /path/to/fuzzed_app [ ... ]\n\n"
@@ -198,7 +198,7 @@ static void usage(afl_state_t* afl, u8* argv0, int more_help) {
 
 #ifdef USE_PYTHON
   SAYF("Compiled with %s module support, see docs/custom_mutator.md\n",
-       (char*)PYTHON_VERSION);
+       (char *)PYTHON_VERSION);
 #endif
 
   SAYF("For additional help please consult %s/README.md\n\n", doc_path);
@@ -210,7 +210,7 @@ static void usage(afl_state_t* afl, u8* argv0, int more_help) {
 
 #ifndef AFL_LIB
 
-static int stricmp(char const* a, char const* b) {
+static int stricmp(char const *a, char const *b) {
 
   for (;; ++a, ++b) {
 
@@ -224,22 +224,22 @@ static int stricmp(char const* a, char const* b) {
 
 /* Main entry point */
 
-int main(int argc, char** argv_orig, char** envp) {
+int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt;
   u64    prev_queued = 0;
   u32    sync_interval_cnt = 0, seek_to, show_help = 0;
-  u8*    extras_dir = 0;
+  u8 *   extras_dir = 0;
   u8     mem_limit_given = 0;
   u8     exit_1 = !!get_afl_env("AFL_BENCH_JUST_ONE");
-  char** use_argv;
+  char **use_argv;
 
   struct timeval  tv;
   struct timezone tz;
 
-  char** argv = argv_cpy_dup(argc, argv_orig);
+  char **argv = argv_cpy_dup(argc, argv_orig);
 
-  afl_state_t* afl = calloc(1, sizeof(afl_state_t));
+  afl_state_t *afl = calloc(1, sizeof(afl_state_t));
   if (!afl) { FATAL("Could not create afl state"); }
 
   afl_state_init(afl);
@@ -248,7 +248,7 @@ int main(int argc, char** argv_orig, char** envp) {
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a big online community\n");
 
-  doc_path = access(DOC_PATH, F_OK) ? (u8*)"docs" : doc_path;
+  doc_path = access(DOC_PATH, F_OK) ? (u8 *)"docs" : doc_path;
 
   gettimeofday(&tv, &tz);
   afl->init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
@@ -337,7 +337,7 @@ int main(int argc, char** argv_orig, char** envp) {
 
       case 'M': {                                         /* master sync ID */
 
-        u8* c;
+        u8 *c;
 
         if (afl->sync_id) FATAL("Multiple -S or -M options not supported");
         afl->sync_id = ck_strdup(optarg);
@@ -696,8 +696,8 @@ int main(int argc, char** argv_orig, char** envp) {
 
     OKF("Using Radamsa add-on");
 
-    u8*   libradamsa_path = get_libradamsa_path(argv[0]);
-    void* handle = dlopen(libradamsa_path, RTLD_NOW);
+    u8 *  libradamsa_path = get_libradamsa_path(argv[0]);
+    void *handle = dlopen(libradamsa_path, RTLD_NOW);
     ck_free(libradamsa_path);
 
     if (!handle) FATAL("Failed to dlopen() libradamsa");
@@ -794,9 +794,9 @@ int main(int argc, char** argv_orig, char** envp) {
 
     if (afl->qemu_mode) {
 
-      u8* qemu_preload = getenv("QEMU_SET_ENV");
-      u8* afl_preload = getenv("AFL_PRELOAD");
-      u8* buf;
+      u8 *qemu_preload = getenv("QEMU_SET_ENV");
+      u8 *afl_preload = getenv("AFL_PRELOAD");
+      u8 *buf;
 
       s32 i, afl_preload_size = strlen(afl_preload);
       for (i = 0; i < afl_preload_size; ++i) {
@@ -926,7 +926,7 @@ int main(int argc, char** argv_orig, char** envp) {
     u32 i = optind + 1;
     while (argv[i]) {
 
-      u8* aa_loc = strstr(argv[i], "@@");
+      u8 *aa_loc = strstr(argv[i], "@@");
 
       if (aa_loc && !afl->fsrv.out_file) {
 

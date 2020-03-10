@@ -76,11 +76,11 @@
 
 /* The actual postprocessor routine called by afl-fuzz: */
 
-const unsigned char* afl_postprocess(const unsigned char* in_buf,
-                                     unsigned int*        len) {
+const unsigned char *afl_postprocess(const unsigned char *in_buf,
+                                     unsigned int *len) {
 
-  static unsigned char* saved_buf;
-  unsigned char*        new_buf;
+  static unsigned char *saved_buf;
+  unsigned char *new_buf;
 
   /* Skip execution altogether for buffers shorter than 6 bytes (just to
      show how it's done). We can trust *len to be sane. */

@@ -108,7 +108,7 @@
 
  */
 
-static const u8* trampoline_fmt_32 =
+static const u8 *trampoline_fmt_32 =
 
     "\n"
     "/* --- AFL TRAMPOLINE (32-BIT) --- */\n"
@@ -131,7 +131,7 @@ static const u8* trampoline_fmt_32 =
     "/* --- END --- */\n"
     "\n";
 
-static const u8* trampoline_fmt_64 =
+static const u8 *trampoline_fmt_64 =
 
     "\n"
     "/* --- AFL TRAMPOLINE (64-BIT) --- */\n"
@@ -152,7 +152,7 @@ static const u8* trampoline_fmt_64 =
     "/* --- END --- */\n"
     "\n";
 
-static const u8* main_payload_32 = 
+static const u8*main_payload_32 = 
 
   "\n"
   "/* --- AFL MAIN PAYLOAD (32-BIT) --- */\n"

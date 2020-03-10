@@ -35,13 +35,13 @@
 
 #define UP4K(_i) ((((_i) >> 12) + 1) << 12)
 
-const unsigned char* afl_postprocess(const unsigned char* in_buf,
-                                     unsigned int*        len) {
+const unsigned char *afl_postprocess(const unsigned char *in_buf,
+                                     unsigned int *       len) {
 
-  static unsigned char* saved_buf;
+  static unsigned char *saved_buf;
   static unsigned int   saved_len;
 
-  unsigned char* new_buf = (unsigned char*)in_buf;
+  unsigned char *new_buf = (unsigned char *)in_buf;
   unsigned int   pos = 8;
 
   /* Don't do anything if there's not enough room for the PNG header
@@ -58,7 +58,7 @@ const unsigned char* afl_postprocess(const unsigned char* in_buf,
 
     /* Chunk length is the first big-endian dword in the chunk. */
 
-    chunk_len = ntohl(*(uint32_t*)(in_buf + pos));
+    chunk_len = ntohl(*(uint32_t *)(in_buf + pos));
 
     /* Bail out if chunk size is too big or goes past EOF. */
 
@@ -71,7 +71,7 @@ const unsigned char* afl_postprocess(const unsigned char* in_buf,
 
     /* The in-file checksum is the last dword past the chunk data. */
 
-    file_cksum = *(uint32_t*)(in_buf + pos + 8 + chunk_len);
+    file_cksum = *(uint32_t *)(in_buf + pos + 8 + chunk_len);
 
     /* If the checksums do not match, we need to fix the file. */
 
@@ -98,7 +98,7 @@ const unsigned char* afl_postprocess(const unsigned char* in_buf,
 
       }
 
-      *(uint32_t*)(new_buf + pos + 8 + chunk_len) = real_cksum;
+      *(uint32_t *)(new_buf + pos + 8 + chunk_len) = real_cksum;
 
     }
 

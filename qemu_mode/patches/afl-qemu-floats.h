@@ -64,14 +64,14 @@ union afl_float64 {
 // TODO figure out why float*_unpack_canonical does not work
 
 void afl_float_compcov_log_32(target_ulong cur_loc, float32 arg1, float32 arg2,
-                              void* status) {
+                              void *status) {
 
   cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
   cur_loc &= MAP_SIZE - 7;
 
   if (cur_loc >= afl_inst_rms) return;
 
-  // float_status* s = (float_status*)status;
+  // float_status*s = (float_status*)status;
   // FloatParts    a = float32_unpack_canonical(arg1, s);
   // FloatParts    b = float32_unpack_canonical(arg2, s);
   union afl_float32 a = {.f = arg1};
@@ -96,14 +96,14 @@ void afl_float_compcov_log_32(target_ulong cur_loc, float32 arg1, float32 arg2,
 }
 
 void afl_float_compcov_log_64(target_ulong cur_loc, float64 arg1, float64 arg2,
-                              void* status) {
+                              void *status) {
 
   cur_loc = (cur_loc >> 4) ^ (cur_loc << 8);
   cur_loc &= MAP_SIZE - 7;
 
   if (cur_loc >= afl_inst_rms) return;
 
-  // float_status* s = (float_status*)status;
+  // float_status*s = (float_status*)status;
   // FloatParts    a = float64_unpack_canonical(arg1, s);
   // FloatParts    b = float64_unpack_canonical(arg2, s);
   union afl_float64 a = {.f = arg1};

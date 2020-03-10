@@ -33,13 +33,13 @@ struct range {
 
   u32           start;
   u32           end;
-  struct range* next;
+  struct range *next;
 
 };
 
-struct range* add_range(struct range* ranges, u32 start, u32 end) {
+struct range *add_range(struct range *ranges, u32 start, u32 end) {
 
-  struct range* r = ck_alloc_nozero(sizeof(struct range));
+  struct range *r = ck_alloc_nozero(sizeof(struct range));
   r->start = start;
   r->end = end;
   r->next = ranges;
@@ -47,12 +47,12 @@ struct range* add_range(struct range* ranges, u32 start, u32 end) {
 
 }
 
-struct range* pop_biggest_range(struct range** ranges) {
+struct range *pop_biggest_range(struct range **ranges) {
 
-  struct range* r = *ranges;
-  struct range* prev = NULL;
-  struct range* rmax = NULL;
-  struct range* prev_rmax = NULL;
+  struct range *r = *ranges;
+  struct range *prev = NULL;
+  struct range *rmax = NULL;
+  struct range *prev_rmax = NULL;
   u32           max_size = 0;
 
   while (r) {
@@ -84,7 +84,7 @@ struct range* pop_biggest_range(struct range** ranges) {
 
 }
 
-static u8 get_exec_checksum(afl_state_t* afl, u8* buf, u32 len, u32* cksum) {
+static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u32 *cksum) {
 
   if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
 
@@ -93,7 +93,7 @@ static u8 get_exec_checksum(afl_state_t* afl, u8* buf, u32 len, u32* cksum) {
 
 }
 
-static void rand_replace(afl_state_t* afl, u8* buf, u32 len) {
+static void rand_replace(afl_state_t *afl, u8 *buf, u32 len) {
 
   u32 i;
   for (i = 0; i < len; ++i)
@@ -101,10 +101,10 @@ static void rand_replace(afl_state_t* afl, u8* buf, u32 len) {
 
 }
 
-static u8 colorization(afl_state_t* afl, u8* buf, u32 len, u32 exec_cksum) {
+static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
 
-  struct range* ranges = add_range(NULL, 0, len);
-  u8*           backup = ck_alloc_nozero(len);
+  struct range *ranges = add_range(NULL, 0, len);
+  u8 *          backup = ck_alloc_nozero(len);
 
   u8 needs_write = 0;
 
@@ -115,7 +115,7 @@ static u8 colorization(afl_state_t* afl, u8* buf, u32 len, u32 exec_cksum) {
   afl->stage_short = "colorization";
   afl->stage_max = 1000;
 
-  struct range* rng;
+  struct range *rng;
   afl->stage_cur = 0;
   while ((rng = pop_biggest_range(&ranges)) != NULL &&
          afl->stage_cur < afl->stage_max) {
@@ -205,7 +205,7 @@ checksum_fail:
 
 ///// Input to State replacement
 
-static u8 its_fuzz(afl_state_t* afl, u8* buf, u32 len, u8* status) {
+static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
   u64 orig_hit_cnt, new_hit_cnt;
 
@@ -224,13 +224,13 @@ static u8 its_fuzz(afl_state_t* afl, u8* buf, u32 len, u8* status) {
 
 }
 
-static u8 cmp_extend_encoding(afl_state_t* afl, struct cmp_header* h,
-                              u64 pattern, u64 repl, u32 idx, u8* orig_buf,
-                              u8* buf, u32 len, u8 do_reverse, u8* status) {
+static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
+                              u64 pattern, u64 repl, u32 idx, u8 *orig_buf,
+                              u8 *buf, u32 len, u8 do_reverse, u8 *status) {
 
-  u64* buf_64 = (u64*)&buf[idx];
-  u32* buf_32 = (u32*)&buf[idx];
-  u16* buf_16 = (u16*)&buf[idx];
+  u64 *buf_64 = (u64 *)&buf[idx];
+  u32 *buf_32 = (u32 *)&buf[idx];
+  u16 *buf_16 = (u16 *)&buf[idx];
   // u8*  buf_8  = &buf[idx];
   // u64* o_buf_64 = (u64*)&orig_buf[idx];
   // u32* o_buf_32 = (u32*)&orig_buf[idx];
@@ -313,9 +313,9 @@ static u8 cmp_extend_encoding(afl_state_t* afl, struct cmp_header* h,
 
 }
 
-static void try_to_add_to_dict(afl_state_t* afl, u64 v, u8 shape) {
+static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
-  u8* b = (u8*)&v;
+  u8 *b = (u8 *)&v;
 
   u32 k;
   u8  cons_ff = 0, cons_0 = 0;
@@ -332,7 +332,7 @@ static void try_to_add_to_dict(afl_state_t* afl, u64 v, u8 shape) {
 
   }
 
-  maybe_add_auto(afl, (u8*)&v, shape);
+  maybe_add_auto(afl, (u8 *)&v, shape);
 
   u64 rev;
   switch (shape) {
@@ -340,24 +340,24 @@ static void try_to_add_to_dict(afl_state_t* afl, u64 v, u8 shape) {
     case 1: break;
     case 2:
       rev = SWAP16((u16)v);
-      maybe_add_auto(afl, (u8*)&rev, shape);
+      maybe_add_auto(afl, (u8 *)&rev, shape);
       break;
     case 4:
       rev = SWAP32((u32)v);
-      maybe_add_auto(afl, (u8*)&rev, shape);
+      maybe_add_auto(afl, (u8 *)&rev, shape);
       break;
     case 8:
       rev = SWAP64(v);
-      maybe_add_auto(afl, (u8*)&rev, shape);
+      maybe_add_auto(afl, (u8 *)&rev, shape);
       break;
 
   }
 
 }
 
-static u8 cmp_fuzz(afl_state_t* afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
+static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
-  struct cmp_header* h = &afl->shm.cmp_map->headers[key];
+  struct cmp_header *h = &afl->shm.cmp_map->headers[key];
   u32                i, j, idx;
 
   u32 loggeds = h->hits;
@@ -369,7 +369,7 @@ static u8 cmp_fuzz(afl_state_t* afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
   for (i = 0; i < loggeds; ++i) {
 
-    struct cmp_operands* o = &afl->shm.cmp_map->log[key][i];
+    struct cmp_operands *o = &afl->shm.cmp_map->log[key][i];
 
     // opt not in the paper
     for (j = 0; j < i; ++j)
@@ -414,9 +414,9 @@ static u8 cmp_fuzz(afl_state_t* afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
 }
 
-static u8 rtn_extend_encoding(afl_state_t* afl, struct cmp_header* h,
-                              u8* pattern, u8* repl, u32 idx, u8* orig_buf,
-                              u8* buf, u32 len, u8* status) {
+static u8 rtn_extend_encoding(afl_state_t *afl, struct cmp_header *h,
+                              u8 *pattern, u8 *repl, u32 idx, u8 *orig_buf,
+                              u8 *buf, u32 len, u8 *status) {
 
   u32 i;
   u32 its_len = MIN(32, len - idx);
@@ -440,9 +440,9 @@ static u8 rtn_extend_encoding(afl_state_t* afl, struct cmp_header* h,
 
 }
 
-static u8 rtn_fuzz(afl_state_t* afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
+static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
-  struct cmp_header* h = &afl->shm.cmp_map->headers[key];
+  struct cmp_header *h = &afl->shm.cmp_map->headers[key];
   u32                i, j, idx;
 
   u32 loggeds = h->hits;
@@ -454,12 +454,12 @@ static u8 rtn_fuzz(afl_state_t* afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 
   for (i = 0; i < loggeds; ++i) {
 
-    struct cmpfn_operands* o =
-        &((struct cmpfn_operands*)afl->shm.cmp_map->log[key])[i];
+    struct cmpfn_operands *o =
+        &((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[i];
 
     // opt not in the paper
     for (j = 0; j < i; ++j)
-      if (!memcmp(&((struct cmpfn_operands*)afl->shm.cmp_map->log[key])[j], o,
+      if (!memcmp(&((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[j], o,
                   sizeof(struct cmpfn_operands)))
         goto rtn_fuzz_next_iter;
 
@@ -503,7 +503,7 @@ static u8 rtn_fuzz(afl_state_t* afl, u32 key, u8* orig_buf, u8* buf, u32 len) {
 ///// Input to State stage
 
 // afl->queue_cur->exec_cksum
-u8 input_to_state_stage(afl_state_t* afl, u8* orig_buf, u8* buf, u32 len,
+u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
                         u32 exec_cksum) {
 
   u8 r = 1;

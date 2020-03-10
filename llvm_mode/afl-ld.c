@@ -51,17 +51,17 @@ static u8 **ld_params,              /* Parameters passed to the real 'ld'   */
     **opt_params,                   /* Parameters passed to 'opt' opt       */
     **inst_params;                  /* Parameters passed to 'opt' inst      */
 
-static u8* input_file;              /* Originally specified input file      */
+static u8 *input_file;              /* Originally specified input file      */
 static u8 *final_file,              /* Instrumented file for the real 'ld'  */
     *linked_file,                   /* file where we link all files         */
     *modified_file;                 /* file that was optimized before instr */
-static u8* afl_path = AFL_PATH;
-static u8* real_ld = AFL_REAL_LD;
+static u8 *afl_path = AFL_PATH;
+static u8 *real_ld = AFL_REAL_LD;
 static u8  cwd[4096];
-static u8* tmp_dir;
-static u8* ar_dir;
+static u8 *tmp_dir;
+static u8 *ar_dir;
 static u8  ar_dir_cnt;
-static u8* libdirs[254];
+static u8 *libdirs[254];
 static u8  libdir_cnt;
 
 static u8 be_quiet,                 /* Quiet mode (no stderr output)        */
@@ -76,10 +76,10 @@ static u32 ld_param_cnt = 1,        /* Number of params to 'ld'             */
     inst_param_cnt = 1;             /* Number of params to 'opt' instr      */
 
 /* This function wipes a directory - our AR unpack directory in this case */
-static u8 wipe_directory(u8* path) {
+static u8 wipe_directory(u8 *path) {
 
-  DIR*           d;
-  struct dirent* d_ent;
+  DIR *d;
+  struct dirent *d_ent;
 
   d = opendir(path);
 
@@ -89,7 +89,7 @@ static u8 wipe_directory(u8* path) {
 
     if (strcmp(d_ent->d_name, ".") != 0 && strcmp(d_ent->d_name, "..") != 0) {
 
-      u8* fname = alloc_printf("%s/%s", path, d_ent->d_name);
+      u8 *fname = alloc_printf("%s/%s", path, d_ent->d_name);
       if (unlink(fname)) PFATAL("Unable to delete '%s'", fname);
       ck_free(fname);
 
@@ -142,7 +142,7 @@ static void at_exit_handler(void) {
 
 /* This function checks if the parameter is a) an existing file and b)
    if it is a BC or LL file, if both are true it returns 1 and 0 otherwise */
-int is_llvm_file(const char* file) {
+int is_llvm_file(const char *file) {
 
   int fd;
   u8  buf[5];
@@ -169,7 +169,7 @@ int is_llvm_file(const char* file) {
 }
 
 /* Return the current working directory, not thread safe ;-) */
-u8* getthecwd() {
+u8 *getthecwd() {
 
   static u8 fail[] = "";
   if (getcwd(cwd, sizeof(cwd)) == NULL) return fail;
@@ -178,7 +178,7 @@ u8* getthecwd() {
 }
 
 /* Check if an ar extracted file is already in the parameter list */
-int is_duplicate(u8** params, u32 ld_param_cnt, u8* ar_file) {
+int is_duplicate(u8 **params, u32 ld_param_cnt, u8 *ar_file) {
 
   for (uint32_t i = 0; i < ld_param_cnt; i++)
     if (params[i] != NULL)
@@ -191,7 +191,7 @@ int is_duplicate(u8** params, u32 ld_param_cnt, u8* ar_file) {
 /* Examine and modify parameters to pass to 'ld', 'llvm-link' and 'llmv-ar'.
    Note that the file name is always the last parameter passed by GCC,
    so we exploit this property to keep the code "simple". */
-static void edit_params(int argc, char** argv) {
+static void edit_params(int argc, char **argv) {
 
   u32 i, have_lto = 0, libdir_index;
   u8  libdir_file[4096];
@@ -212,12 +212,12 @@ static void edit_params(int argc, char** argv) {
   final_file =
       alloc_printf("%s/.afl-%u-%u-3.bc", tmp_dir, getpid(), (u32)time(NULL));
 
-  ld_params = ck_alloc(4096 * sizeof(u8*));
-  link_params = ck_alloc(4096 * sizeof(u8*));
-  inst_params = ck_alloc(12 * sizeof(u8*));
-  opt_params = ck_alloc(12 * sizeof(u8*));
+  ld_params = ck_alloc(4096 * sizeof(u8 *));
+  link_params = ck_alloc(4096 * sizeof(u8 *));
+  inst_params = ck_alloc(12 * sizeof(u8 *));
+  opt_params = ck_alloc(12 * sizeof(u8 *));
 
-  ld_params[0] = (u8*)real_ld;
+  ld_params[0] = (u8 *)real_ld;
   ld_params[ld_param_cnt++] = "--allow-multiple-definition";
 
   link_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "llvm-link");
@@ -328,13 +328,13 @@ static void edit_params(int argc, char** argv) {
       // where the same "foo.o" was in both .a archives. llvm-link does not
       // like this so we have to work around that ...
 
-      u8             this_wd[4096], *this_ar;
-      u8             ar_params_cnt = 4;
-      u8*            ar_params[ar_params_cnt];
-      u8*            file = argv[i];
-      s32            pid, status;
-      DIR*           arx;
-      struct dirent* dir_ent;
+      u8 this_wd[4096], *this_ar;
+      u8 ar_params_cnt = 4;
+      u8 *ar_params[ar_params_cnt];
+      u8 *file = argv[i];
+      s32 pid, status;
+      DIR *arx;
+      struct dirent *dir_ent;
 
       if (libdir_index < libdir_cnt) file = libdir_file;
 
@@ -373,7 +373,7 @@ static void edit_params(int argc, char** argv) {
 
       if (!(pid = fork())) {
 
-        execvp(ar_params[0], (char**)ar_params);
+        execvp(ar_params[0], (char **)ar_params);
         FATAL("Oops, failed to execute '%s'", ar_params[0]);
 
       }
@@ -389,7 +389,7 @@ static void edit_params(int argc, char** argv) {
 
       while ((dir_ent = readdir(arx)) != NULL) {
 
-        u8* ar_file = alloc_printf("%s/%s", ar_dir, dir_ent->d_name);
+        u8 *ar_file = alloc_printf("%s/%s", ar_dir, dir_ent->d_name);
 
         if (dir_ent->d_name[strlen(dir_ent->d_name) - 1] == 'o' &&
             dir_ent->d_name[strlen(dir_ent->d_name) - 2] == '.') {
@@ -535,7 +535,7 @@ void clean_path() {
 
 /* Main entry point */
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
   s32 pid, i;
   int status;
@@ -665,7 +665,7 @@ int main(int argc, char** argv) {
 
       if (!(pid = fork())) {
 
-        execvp(link_params[0], (char**)link_params);
+        execvp(link_params[0], (char **)link_params);
         FATAL("Oops, failed to execute '%s'", link_params[0]);
 
       }
@@ -707,7 +707,7 @@ int main(int argc, char** argv) {
 
       if (!(pid = fork())) {
 
-        execvp(opt_params[0], (char**)opt_params);
+        execvp(opt_params[0], (char **)opt_params);
         FATAL("Oops, failed to execute '%s'", opt_params[0]);
 
       }
@@ -730,7 +730,7 @@ int main(int argc, char** argv) {
 
       if (!(pid = fork())) {
 
-        execvp(inst_params[0], (char**)inst_params);
+        execvp(inst_params[0], (char **)inst_params);
         FATAL("Oops, failed to execute '%s'", inst_params[0]);
 
       }
@@ -761,8 +761,8 @@ int main(int argc, char** argv) {
 
     unsetenv("AFL_LD");
 
-    if (strlen(real_ld) > 1) execvp(real_ld, (char**)ld_params);
-    execvp("ld", (char**)ld_params);  // fallback
+    if (strlen(real_ld) > 1) execvp(real_ld, (char **)ld_params);
+    execvp("ld", (char **)ld_params);  // fallback
     FATAL("Oops, failed to execute 'ld' - check your PATH");
 
   }

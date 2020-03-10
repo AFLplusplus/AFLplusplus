@@ -59,7 +59,7 @@
    run. It will end up as .comm, so it shouldn't be too wasteful. */
 
 u8  __afl_area_initial[MAP_SIZE];
-u8* __afl_area_ptr = __afl_area_initial;
+u8 *__afl_area_ptr = __afl_area_initial;
 
 #ifdef __ANDROID__
 u32 __afl_prev_loc;
@@ -69,7 +69,7 @@ __thread u32 __afl_prev_loc;
 __thread u32 __afl_final_loc;
 #endif
 
-struct cmp_map* __afl_cmp_map;
+struct cmp_map *__afl_cmp_map;
 __thread u32    __afl_cmp_counter;
 
 /* Running in persistent mode? */
@@ -80,7 +80,7 @@ static u8 is_persistent;
 
 static void __afl_map_shm(void) {
 
-  u8* id_str = getenv(SHM_ENV_VAR);
+  u8 *id_str = getenv(SHM_ENV_VAR);
 
   /* If we're running under AFL, attach to the appropriate region, replacing the
      early-stage __afl_area_initial region that is needed to allow some really
@@ -89,9 +89,9 @@ static void __afl_map_shm(void) {
   if (id_str) {
 
 #ifdef USEMMAP
-    const char*    shm_file_path = id_str;
-    int            shm_fd = -1;
-    unsigned char* shm_base = NULL;
+    const char *shm_file_path = id_str;
+    int shm_fd = -1;
+    unsigned char *shm_base = NULL;
 
     /* create the shared memory segment as if it was a file */
     shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
@@ -123,7 +123,7 @@ static void __afl_map_shm(void) {
 
     /* Whooooops. */
 
-    if (__afl_area_ptr == (void*)-1) _exit(1);
+    if (__afl_area_ptr == (void *)-1) _exit(1);
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
        our parent doesn't give up on us. */
@@ -137,9 +137,9 @@ static void __afl_map_shm(void) {
   if (id_str) {
 
 #ifdef USEMMAP
-    const char*    shm_file_path = id_str;
-    int            shm_fd = -1;
-    unsigned char* shm_base = NULL;
+    const char *shm_file_path = id_str;
+    int shm_fd = -1;
+    unsigned char *shm_base = NULL;
 
     /* create the shared memory segment as if it was a file */
     shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
@@ -170,7 +170,7 @@ static void __afl_map_shm(void) {
     __afl_cmp_map = shmat(shm_id, NULL, 0);
 #endif
 
-    if (__afl_cmp_map == (void*)-1) _exit(1);
+    if (__afl_cmp_map == (void *)-1) _exit(1);
 
   }
 
@@ -354,7 +354,7 @@ __attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
    The first function (__sanitizer_cov_trace_pc_guard) is called back on every
    edge (as opposed to every basic block). */
 
-void __sanitizer_cov_trace_pc_guard(uint32_t* guard) {
+void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
   __afl_area_ptr[*guard]++;
 
@@ -364,10 +364,10 @@ void __sanitizer_cov_trace_pc_guard(uint32_t* guard) {
    ID of 0 as a special value to indicate non-instrumented bits. That may
    still touch the bitmap, but in a fairly harmless way. */
 
-void __sanitizer_cov_trace_pc_guard_init(uint32_t* start, uint32_t* stop) {
+void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   u32 inst_ratio = 100;
-  u8* x;
+  u8 *x;
 
   if (start == stop || *start) return;
 
@@ -504,7 +504,7 @@ void __sanitizer_cov_trace_cmp8(uint64_t Arg1, uint64_t Arg2)
     __attribute__((alias("__cmplog_ins_hook8")));
 #endif                                                /* defined(__APPLE__) */
 
-void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t* Cases) {
+void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t *Cases) {
 
   for (uint64_t i = 0; i < Cases[0]; i++) {
 
@@ -530,10 +530,10 @@ void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t* Cases) {
 // POSIX shenanigan to see if an area is mapped.
 // If it is mapped as X-only, we have a problem, so maybe we should add a check
 // to avoid to call it on .text addresses
-static int area_is_mapped(void* ptr, size_t len) {
+static int area_is_mapped(void *ptr, size_t len) {
 
-  char* p = ptr;
-  char* page = (char*)((uintptr_t)p & ~(sysconf(_SC_PAGE_SIZE) - 1));
+  char *p = ptr;
+  char *page = (char *)((uintptr_t)p & ~(sysconf(_SC_PAGE_SIZE) - 1));
 
   int r = msync(page, (p - page) + len, MS_ASYNC);
   if (r < 0) return errno != ENOMEM;
@@ -541,7 +541,7 @@ static int area_is_mapped(void* ptr, size_t len) {
 
 }
 
-void __cmplog_rtn_hook(void* ptr1, void* ptr2) {
+void __cmplog_rtn_hook(void *ptr1, void *ptr2) {
 
   if (!__afl_cmp_map) return;
 
@@ -559,9 +559,9 @@ void __cmplog_rtn_hook(void* ptr1, void* ptr2) {
   __afl_cmp_map->headers[k].shape = 31;
 
   hits &= CMP_MAP_RTN_H - 1;
-  __builtin_memcpy(((struct cmpfn_operands*)__afl_cmp_map->log[k])[hits].v0,
+  __builtin_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0,
                    ptr1, 32);
-  __builtin_memcpy(((struct cmpfn_operands*)__afl_cmp_map->log[k])[hits].v1,
+  __builtin_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1,
                    ptr2, 32);
 
 }

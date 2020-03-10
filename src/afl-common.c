@@ -38,16 +38,16 @@
 
 extern u8 be_quiet;
 
-void detect_file_args(char** argv, u8* prog_in, u8* use_stdin) {
+void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
   u32 i = 0;
 #ifdef __GLIBC__
-  u8* cwd = getcwd(NULL, 0);                /* non portable glibc extension */
+  u8 *cwd = getcwd(NULL, 0);                /* non portable glibc extension */
 #else
-  u8*   cwd;
-  char* buf;
+  u8 *cwd;
+  char *buf;
   long  size = pathconf(".", _PC_PATH_MAX);
-  if ((buf = (char*)malloc((size_t)size)) != NULL) {
+  if ((buf = (char *)malloc((size_t)size)) != NULL) {
 
     cwd = getcwd(buf, (size_t)size);                    /* portable version */
     ck_free(buf);
@@ -67,7 +67,7 @@ void detect_file_args(char** argv, u8* prog_in, u8* use_stdin) {
 
   while (argv[i]) {
 
-    u8* aa_loc = strstr(argv[i], "@@");
+    u8 *aa_loc = strstr(argv[i], "@@");
 
     if (aa_loc) {
 
@@ -111,11 +111,11 @@ void detect_file_args(char** argv, u8* prog_in, u8* use_stdin) {
 /* duplicate the system argv so that
   we can edit (and free!) it later */
 
-char** argv_cpy_dup(int argc, char** argv) {
+char **argv_cpy_dup(int argc, char **argv) {
 
   u32 i = 0;
 
-  char** ret = ck_alloc((argc + 1) * sizeof(char*));
+  char **ret = ck_alloc((argc + 1) * sizeof(char *));
 
   for (i = 0; i < argc; i++) {
 
@@ -132,7 +132,7 @@ char** argv_cpy_dup(int argc, char** argv) {
 /* frees all args in the given argv,
    previously created by argv_cpy_dup */
 
-void argv_cpy_free(char** argv) {
+void argv_cpy_free(char **argv) {
 
   u32 i = 0;
   while (argv[i]) {
@@ -148,12 +148,12 @@ void argv_cpy_free(char** argv) {
 
 /* Rewrite argv for QEMU. */
 
-char** get_qemu_argv(u8* own_loc, u8** target_path_p, int argc, char** argv) {
+char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
-  char** new_argv = ck_alloc(sizeof(char*) * (argc + 4));
-  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
+  char **new_argv = ck_alloc(sizeof(char *) * (argc + 4));
+  u8 *tmp, *cp = NULL, *rsl, *own_copy;
 
-  memcpy(new_argv + 3, argv + 1, (int)(sizeof(char*)) * argc);
+  memcpy(new_argv + 3, argv + 1, (int)(sizeof(char *)) * argc);
 
   new_argv[2] = *target_path_p;
   new_argv[1] = "--";
@@ -226,12 +226,12 @@ char** get_qemu_argv(u8* own_loc, u8** target_path_p, int argc, char** argv) {
 
 /* Rewrite argv for Wine+QEMU. */
 
-char** get_wine_argv(u8* own_loc, u8** target_path_p, int argc, char** argv) {
+char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
-  char** new_argv = ck_alloc(sizeof(char*) * (argc + 3));
-  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
+  char **new_argv = ck_alloc(sizeof(char *) * (argc + 3));
+  u8 *tmp, *cp = NULL, *rsl, *own_copy;
 
-  memcpy(new_argv + 2, argv + 1, (int)(sizeof(char*)) * argc);
+  memcpy(new_argv + 2, argv + 1, (int)(sizeof(char *)) * argc);
 
   new_argv[1] = *target_path_p;
 
@@ -285,7 +285,7 @@ char** get_wine_argv(u8* own_loc, u8** target_path_p, int argc, char** argv) {
 
     ck_free(own_copy);
 
-  u8* ncp = BIN_PATH "/afl-qemu-trace";
+  u8 *ncp = BIN_PATH "/afl-qemu-trace";
 
   if (!access(ncp, X_OK)) {
 
@@ -322,10 +322,10 @@ char** get_wine_argv(u8* own_loc, u8** target_path_p, int argc, char** argv) {
 
 }
 
-void check_environment_vars(char** envp) {
+void check_environment_vars(char **envp) {
 
   int   index = 0, found = 0;
-  char* env;
+  char *env;
   while ((env = envp[index++]) != NULL) {
 
     if (strncmp(env, "ALF_", 4) == 0) {
@@ -358,9 +358,9 @@ void check_environment_vars(char** envp) {
 
 }
 
-char* get_afl_env(char* env) {
+char *get_afl_env(char *env) {
 
-  char* val;
+  char *val;
 
   if ((val = getenv(env)) != NULL)
     if (!be_quiet)
