@@ -135,7 +135,8 @@ void handle_timeout(int sig) {
 
 void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
-  // this structure needs default so we initialize it if this was not done already
+  // this structure needs default so we initialize it if this was not done
+  // already
 
   if (!fsrv->use_stdin) {
 
@@ -150,9 +151,9 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
     fsrv->mem_limit = MEM_LIMIT;
     fsrv->child_pid = -1;
     fsrv->out_dir_fd = -1;
-    
+
   }
-  
+
   list_append(&fsrv_list, fsrv);
 
 }

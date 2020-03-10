@@ -1092,11 +1092,11 @@ int main(int argc, char** argv_orig, char** envp) {
 
   s32    opt;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
-  char **use_argv;
+  char** use_argv;
 
-  char **argv = argv_cpy_dup(argc, argv_orig);
+  char** argv = argv_cpy_dup(argc, argv_orig);
 
-  afl_forkserver_t fsrv_var = {0};
+  afl_forkserver_t  fsrv_var = {0};
   afl_forkserver_t* fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
 

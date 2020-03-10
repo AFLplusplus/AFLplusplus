@@ -373,7 +373,7 @@ void read_testcases(afl_state_t* afl) {
 
     u8 passed_det = 0;
 
-    ck_free(nl[i]);                                             /* not tracked */
+    ck_free(nl[i]);                                          /* not tracked */
 
     if (lstat(fn2, &st) || access(fn2, R_OK))
       PFATAL("Unable to access '%s'", fn2);
@@ -404,7 +404,7 @@ void read_testcases(afl_state_t* afl) {
 
   }
 
-  ck_free(nl);                                                /* not tracked */
+  ck_free(nl);                                               /* not tracked */
 
   if (!afl->queued_paths) {
 

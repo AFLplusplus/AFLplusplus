@@ -237,7 +237,7 @@ int main(int argc, char** argv_orig, char** envp) {
   struct timeval  tv;
   struct timezone tz;
 
-  char **argv = argv_cpy_dup(argc, argv_orig);
+  char** argv = argv_cpy_dup(argc, argv_orig);
 
   afl_state_t* afl = calloc(1, sizeof(afl_state_t));
   if (!afl) { FATAL("Could not create afl state"); }
