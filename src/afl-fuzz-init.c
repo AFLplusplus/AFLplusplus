@@ -275,8 +275,8 @@ cpuset_destroy(c);
 void setup_post(afl_state_t *afl) {
 
   void *dh;
-  u8 *fn = afl->afl_env.afl_post_library;
-  u32 tlen = 6;
+  u8 *  fn = afl->afl_env.afl_post_library;
+  u32   tlen = 6;
 
   if (!fn) return;
 
@@ -447,8 +447,8 @@ static void check_map_coverage(afl_state_t *afl) {
 void perform_dry_run(afl_state_t *afl) {
 
   struct queue_entry *q = afl->queue;
-  u32 cal_failures = 0;
-  u8 *skip_crashes = afl->afl_env.afl_skip_crashes;
+  u32                 cal_failures = 0;
+  u8 *                skip_crashes = afl->afl_env.afl_skip_crashes;
 
   while (q) {
 
@@ -1486,7 +1486,7 @@ void check_crash_handling(void) {
       "    sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist\n");
 
 #endif
-  if (!)get_afl_env("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES")
+  if (!get_afl_env("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES"))
     FATAL("Crash reporter detected");
 
 #else

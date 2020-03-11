@@ -37,7 +37,7 @@
 #endif
 
 extern u8 be_quiet;
-char *afl_environment_variables[] = {
+char *    afl_environment_variables[] = {
 
     "AFL_ALIGNED_ALLOC", "AFL_ALLOW_TMP", "AFL_ANALYZE_HEX", "AFL_AS",
     "AFL_AUTORESUME", "AFL_AS_FORCE_INSTRUMENT", "AFL_BENCH_JUST_ONE",

@@ -242,8 +242,10 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
   if (!afl) { FATAL("Could not create afl state"); }
 
-  afl_state_init(afl, envp);
+  afl_state_init(afl);
   afl_fsrv_init(&afl->fsrv);
+
+  set_afl_environment(afl, envp);
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a big online community\n");
@@ -680,7 +682,6 @@ int main(int argc, char **argv_orig, char **envp) {
     WARNF(
         "Using -M master with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "
         "result in no deterministic mutations being done!");
-
 
   if (afl->fixed_seed) OKF("Running with fixed seed: %u", (u32)afl->init_seed);
   srandom((u32)afl->init_seed);
