@@ -245,7 +245,7 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_state_init(afl);
   afl_fsrv_init(&afl->fsrv);
 
-  set_afl_environment(afl, envp);
+  read_afl_environment(afl, envp);
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a big online community\n");

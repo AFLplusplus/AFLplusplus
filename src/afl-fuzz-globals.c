@@ -123,7 +123,7 @@ void afl_state_init(afl_state_t *afl) {
 /*This sets up the environment variables for afl-fuzz into the afl_state
  * struct*/
 
-void set_afl_environment(afl_state_t *afl, char **envp) {
+void read_afl_environment(afl_state_t *afl, char **envp) {
 
   int   index = 0, found = 0;
   char *env;

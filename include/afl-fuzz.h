@@ -719,7 +719,7 @@ struct custom_mutator {
 
 void afl_state_init(afl_state_t *);
 void afl_state_deinit(afl_state_t *);
-void set_afl_environment(afl_state_t *, char **);
+void read_afl_environment(afl_state_t *, char **);
 
 /**** Prototypes ****/
 
