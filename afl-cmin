@@ -409,6 +409,7 @@ BEGIN {
 
     if (!ENVIRON["AFL_KEEP_TRACES"]) {
       system("rm -rf "trace_dir" 2>/dev/null")
+      system("rmdir "out_dir)
     }
     exit retval
   }
