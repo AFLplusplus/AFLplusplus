@@ -37,13 +37,13 @@
 #include <limits.h>
 #include <assert.h>
 
-static u8 *obj_path;                  /* Path to runtime libraries         */
+static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
 static u8   lto_mode;
-static u8 *lto_flag = AFL_CLANG_FLTO;
-static u8 *march_opt = CFLAGS_OPT;
+static u8 * lto_flag = AFL_CLANG_FLTO;
+static u8 * march_opt = CFLAGS_OPT;
 static u8   debug;
 static u8   cwd[4096];
 static u8   cmplog_mode;

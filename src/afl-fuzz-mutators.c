@@ -216,7 +216,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     u32 cksum;
 
-    u8 *retbuf = NULL;
+    u8 *   retbuf = NULL;
     size_t retlen = 0;
 
     afl->mutator->afl_custom_trim(afl, &retbuf, &retlen);

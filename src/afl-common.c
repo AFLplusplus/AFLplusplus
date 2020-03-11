@@ -44,7 +44,7 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 #ifdef __GLIBC__
   u8 *cwd = getcwd(NULL, 0);                /* non portable glibc extension */
 #else
-  u8 *cwd;
+  u8 *  cwd;
   char *buf;
   long  size = pathconf(".", _PC_PATH_MAX);
   if ((buf = (char *)malloc((size_t)size)) != NULL) {
@@ -151,7 +151,7 @@ void argv_cpy_free(char **argv) {
 char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   char **new_argv = ck_alloc(sizeof(char *) * (argc + 4));
-  u8 *tmp, *cp = NULL, *rsl, *own_copy;
+  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
 
   memcpy(new_argv + 3, argv + 1, (int)(sizeof(char *)) * argc);
 
@@ -229,7 +229,7 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   char **new_argv = ck_alloc(sizeof(char *) * (argc + 3));
-  u8 *tmp, *cp = NULL, *rsl, *own_copy;
+  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
 
   memcpy(new_argv + 2, argv + 1, (int)(sizeof(char *)) * argc);
 
@@ -323,6 +323,8 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 }
 
 void check_environment_vars(char **envp) {
+
+  if (be_quiet) return;
 
   int   index = 0, found = 0;
   char *env;

@@ -1566,8 +1566,8 @@ custom_mutator_stage:
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     struct queue_entry *target;
-    u32 tid;
-    u8 *new_buf;
+    u32                 tid;
+    u8 *                new_buf;
 
   retry_external_pick:
     /* Pick a random other queue entry for passing to external API */
@@ -2163,9 +2163,9 @@ retry_splicing:
       afl->queued_paths > 1 && afl->queue_cur->len > 1) {
 
     struct queue_entry *target;
-    u32 tid, split_at;
-    u8 *new_buf;
-    s32 f_diff, l_diff;
+    u32                 tid, split_at;
+    u8 *                new_buf;
+    s32                 f_diff, l_diff;
 
     /* First of all, if we've modified in_buf for havoc, let's clean that
        up... */

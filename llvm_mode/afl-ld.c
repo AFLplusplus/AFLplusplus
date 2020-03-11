@@ -78,7 +78,7 @@ static u32 ld_param_cnt = 1,        /* Number of params to 'ld'             */
 /* This function wipes a directory - our AR unpack directory in this case */
 static u8 wipe_directory(u8 *path) {
 
-  DIR *d;
+  DIR *          d;
   struct dirent *d_ent;
 
   d = opendir(path);
@@ -328,12 +328,12 @@ static void edit_params(int argc, char **argv) {
       // where the same "foo.o" was in both .a archives. llvm-link does not
       // like this so we have to work around that ...
 
-      u8 this_wd[4096], *this_ar;
-      u8 ar_params_cnt = 4;
-      u8 *ar_params[ar_params_cnt];
-      u8 *file = argv[i];
-      s32 pid, status;
-      DIR *arx;
+      u8             this_wd[4096], *this_ar;
+      u8             ar_params_cnt = 4;
+      u8 *           ar_params[ar_params_cnt];
+      u8 *           file = argv[i];
+      s32            pid, status;
+      DIR *          arx;
       struct dirent *dir_ent;
 
       if (libdir_index < libdir_cnt) file = libdir_file;

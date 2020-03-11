@@ -284,14 +284,14 @@ enum {
 
 typedef struct MOpt_globals {
 
-  u64 *finds;
-  u64 *finds_v2;
-  u64 *cycles;
-  u64 *cycles_v2;
-  u64 *cycles_v3;
-  u32 is_pilot_mode;
-  u64 *pTime;
-  u64 period;
+  u64 * finds;
+  u64 * finds_v2;
+  u64 * cycles;
+  u64 * cycles_v2;
+  u64 * cycles_v3;
+  u32   is_pilot_mode;
+  u64 * pTime;
+  u64   period;
   char *havoc_stagename;
   char *splice_stageformat;
   char *havoc_stagenameshort;
@@ -548,7 +548,7 @@ extern list_t afl_states;
 struct custom_mutator {
 
   const char *name;
-  void *dh;
+  void *      dh;
 
   /* hooks for the custom mutator function */
 
@@ -696,8 +696,8 @@ struct custom_mutator {
    *     argument can be NULL while initializing the fuzzer
    */
   void (*afl_custom_queue_new_entry)(afl_state_t *afl,
-                                     const u8 *filename_new_queue,
-                                     const u8 *filename_orig_queue);
+                                     const u8 *   filename_new_queue,
+                                     const u8 *   filename_orig_queue);
 
 };
 

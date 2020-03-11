@@ -48,10 +48,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-static u8 *as_path;                    /* Path to the AFL 'as' wrapper      */
+static u8 * as_path;                   /* Path to the AFL 'as' wrapper      */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
-static u32 cc_par_cnt = 1;             /* Param count, including argv0      */
-static u8 be_quiet,                    /* Quiet mode                        */
+static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
+static u8   be_quiet,                  /* Quiet mode                        */
     clang_mode;                        /* Invoked as afl-clang*?            */
 
 /* Try to find our "fake" GNU assembler in AFL_PATH or at the location derived

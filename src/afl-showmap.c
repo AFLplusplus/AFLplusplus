@@ -648,7 +648,7 @@ static void usage(u8 *argv0) {
 
 static void find_binary(afl_forkserver_t *fsrv, u8 *fname) {
 
-  u8 *env_path = 0;
+  u8 *        env_path = 0;
   struct stat st;
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
@@ -928,10 +928,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (in_dir) {
 
-    DIR *dir_in, *dir_out;
+    DIR *          dir_in, *dir_out;
     struct dirent *dir_ent;
-    int done = 0;
-    u8 infile[4096], outfile[4096];
+    int            done = 0;
+    u8             infile[4096], outfile[4096];
 #if !defined(DT_REG)
     struct stat statbuf;
 #endif

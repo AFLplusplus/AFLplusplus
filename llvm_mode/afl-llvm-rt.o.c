@@ -89,8 +89,8 @@ static void __afl_map_shm(void) {
   if (id_str) {
 
 #ifdef USEMMAP
-    const char *shm_file_path = id_str;
-    int shm_fd = -1;
+    const char *   shm_file_path = id_str;
+    int            shm_fd = -1;
     unsigned char *shm_base = NULL;
 
     /* create the shared memory segment as if it was a file */
@@ -137,8 +137,8 @@ static void __afl_map_shm(void) {
   if (id_str) {
 
 #ifdef USEMMAP
-    const char *shm_file_path = id_str;
-    int shm_fd = -1;
+    const char *   shm_file_path = id_str;
+    int            shm_fd = -1;
     unsigned char *shm_base = NULL;
 
     /* create the shared memory segment as if it was a file */

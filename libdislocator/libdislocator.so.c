@@ -163,7 +163,7 @@ static u32          alloc_canary;
 
 static void *__dislocator_alloc(size_t len) {
 
-  u8 *ret;
+  u8 *   ret;
   size_t tlen;
   int    flags, fd, sp;
 
@@ -338,7 +338,7 @@ void free(void *ptr) {
 
   if (align_allocations && (len & (ALLOC_ALIGN_SIZE - 1))) {
 
-    u8 *ptr_ = ptr;
+    u8 *   ptr_ = ptr;
     size_t rlen = (len & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
     for (; len < rlen; ++len)
       if (ptr_[len] != TAIL_ALLOC_CANARY)
@@ -451,7 +451,7 @@ void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
 
   const size_t elem_lim = 1UL << (sizeof(size_t) * 4);
   const size_t elem_tot = elem_len * elem_cnt;
-  void *ret = NULL;
+  void *       ret = NULL;
 
   if ((elem_len >= elem_lim || elem_cnt >= elem_lim) && elem_len > 0 &&
       elem_cnt > (SIZE_MAX / elem_len)) {
