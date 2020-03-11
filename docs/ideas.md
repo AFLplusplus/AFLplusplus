@@ -3,6 +3,9 @@
 In the following, we describe a variety of ideas that could be implemented
 for future AFL++ versions.
 
+For GSOC2020 interested students please see
+[https://github.com/vanhauser-thc/AFLplusplus/issues/208](https://github.com/vanhauser-thc/AFLplusplus/issues/208)
+
 ## Flexible Grammar Mutator
 
 Currently, AFL++'s mutation does not have deeper knowledge about the fuzzed
@@ -39,16 +42,17 @@ Mentor: vanhauser-thc or andreafioraldi
 
 ## perf-fuzz Linux Kernel Module
 
-Port the parts of the Linux Kernel modified by 
+Either Port the patch to the upcoming Ubuntu LTS 20.04 default kernel
+and provide a qemu-kvm image or find a different userspace snapshot
+solution that has a good performance and is reliable, e.g. with docker.
 [perf-fuzz](https://gts3.org/assets/papers/2017/xu:os-fuzz.pdf)
-into a linux kernel module, so no source in the kernel needs to be changed.
-Or write your worn LKM from scratch to do this.
 The perf-fuzz kernel can be found at [https://github.com/sslab-gatech/perf-fuzz](https://github.com/sslab-gatech/perf-fuzz)
 There also is/was a FreeBSD project at [https://github.com/veracode-research/freebsd-perf-fuzz](https://github.com/veracode-research/freebsd-perf-fuzz)
 
 This enables snapshot fuzzing on Linux with an incredible performance!
 
 Mentor: any
+Idea/Issue tracker: [https://github.com/vanhauser-thc/AFLplusplus/issues/248](https://github.com/vanhauser-thc/AFLplusplus/issues/248)
 
 ## QEMU 4-based Instrumentation
 
@@ -84,9 +88,15 @@ Mentor: domenukk
 
 ## Reengineer `afl-fuzz` as Thread Safe, Embeddable Library
 
-Right now, afl-fuzz is single threaded, cannot safely be embedded in tools, and not multi-threaded. It makes use of a large number of globals, must always be the parent process and exec child processes. 
+Right now, afl-fuzz is single threaded, cannot safely be embedded in tools,
+and not multi-threaded. It makes use of a large number of globals, must always
+be the parent process and exec child processes. 
 Instead, afl-fuzz could be refactored to contain no global state and globals.
-This allows for different use cases that could be implemented during this project.
+This allows for different use cases that could be implemented during this
+project.
+Note that in the mean time a lot has happened here already, but e.g. making
+it all work and implement multithreading in afl-fuzz ... there is still quite
+some work to do.
 
 Mentor: hexcoder- or vanhauser-thc
 
@@ -94,9 +104,14 @@ Mentor: hexcoder- or vanhauser-thc
 
 AFL++ supports collison-free maps using an LTO (link-time-optimization) pass.
 This should be possible to implement for QEMU and Unicorn instrumentations.
-As the forkserver parent caches just in time translated translation blocks, adding a simple counter between jumps should be doable.
+As the forkserver parent caches just in time translated translation blocks,
+adding a simple counter between jumps should be doable.
+
+Note: this is already in development for qemu by Andrea, so for people who
+want to contribute it might make more sense to port his solution to unicorn.
 
 Mentor: andreafioraldi or domenukk
+Issue/idea tracker: [https://github.com/vanhauser-thc/AFLplusplus/issues/237](https://github.com/vanhauser-thc/AFLplusplus/issues/237)
 
 ## Your idea!
 
