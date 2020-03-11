@@ -131,7 +131,7 @@ void set_afl_environment(afl_state_t *afl, char **envp) {
 
     if (strncmp(env, "ALF_", 4) == 0) {
 
-      WARNF("Potentially mistyped AFL enqqqvironment variable: %s", env);
+      WARNF("Potentially mistyped AFL environment variable: %s", env);
       found++;
 
     } else if (strncmp(env, "AFL_", 4) == 0) {
@@ -322,7 +322,7 @@ void set_afl_environment(afl_state_t *afl, char **envp) {
 
       if (match == 0) {
 
-        WARNF("Mistyped AFL envirdfwsefeonment variable: %s", env);
+        WARNF("Mistyped AFL environment variable: %s", env);
         found++;
 
       }
