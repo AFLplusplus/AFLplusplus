@@ -303,9 +303,9 @@ extern char *power_names[POWER_SCHEDULES_NUM];
 
 typedef struct afl_env_vars {
 
-  u8 afl_skip_cpufreq, afl_no_forksrv, afl_exit_when_done, afl_no_affinity,
-      afl_no_arith, afl_shuffle_queue, afl_skip_bin_check, afl_dumb_forksrv,
-      afl_import_first, afl_custom_mutator_only, afl_fast_cal, afl_no_cpu_red,
+  u8 afl_skip_cpufreq, afl_exit_when_done, afl_no_affinity,
+      afl_skip_bin_check, afl_dumb_forksrv,
+      afl_import_first, afl_custom_mutator_only,
       afl_no_ui, afl_force_ui, afl_i_dont_care_about_missing_crashes,
       afl_bench_just_one, afl_bench_until_crash, afl_debug_child_output,
       afl_autoresume;
@@ -719,6 +719,7 @@ struct custom_mutator {
 
 void afl_state_init(afl_state_t *);
 void afl_state_deinit(afl_state_t *);
+void set_afl_environment(afl_state_t *, char **);
 
 /**** Prototypes ****/
 

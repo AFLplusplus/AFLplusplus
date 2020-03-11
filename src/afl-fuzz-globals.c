@@ -149,12 +149,6 @@ void set_afl_environment(afl_state_t *afl, char **envp) {
 
             afl->afl_env.afl_skip_cpufreq = (u8)get_afl_env(env);
 
-          } else if (!strncmp(env, "AFL_NO_FORKSRV",
-
-                              strlen(afl_environment_variables[i]))) {
-
-            afl->afl_env.afl_no_forksrv = (u8)get_afl_env(env);
-
           } else if (!strncmp(env, "AFL_EXIT_WHEN_DONE",
 
                               strlen(afl_environment_variables[i]))) {
@@ -179,18 +173,6 @@ void set_afl_environment(afl_state_t *afl, char **envp) {
 
             afl->afl_env.afl_hang_tmout = (u8)get_afl_env(env);
 
-          } else if (!strncmp(env, "AFL_NO_ARITH",
-
-                              strlen(afl_environment_variables[i]))) {
-
-            afl->afl_env.afl_no_arith = (u8)get_afl_env(env);
-
-          } else if (!strncmp(env, "AFL_SHUFFLE_QUEUE",
-
-                              strlen(afl_environment_variables[i]))) {
-
-            afl->afl_env.afl_shuffle_queue = (u8)get_afl_env(env);
-
           } else if (!strncmp(env, "AFL_SKIP_BIN_CHECK",
 
                               strlen(afl_environment_variables[i]))) {
@@ -214,18 +196,6 @@ void set_afl_environment(afl_state_t *afl, char **envp) {
                               strlen(afl_environment_variables[i]))) {
 
             afl->afl_env.afl_custom_mutator_only = (u8)get_afl_env(env);
-
-          } else if (!strncmp(env, "AFL_FAST_CAL",
-
-                              strlen(afl_environment_variables[i]))) {
-
-            afl->afl_env.afl_fast_cal = (u8)get_afl_env(env);
-
-          } else if (!strncmp(env, "AFL_NO_CPU_RED",
-
-                              strlen(afl_environment_variables[i]))) {
-
-            afl->afl_env.afl_no_cpu_red = (u8)get_afl_env(env);
 
           } else if (!strncmp(env, "AFL_NO_UI",
 
@@ -263,12 +233,6 @@ void set_afl_environment(afl_state_t *afl, char **envp) {
                               strlen(afl_environment_variables[i]))) {
 
             afl->afl_env.afl_debug_child_output = (u8)get_afl_env(env);
-
-          } else if (!strncmp(env, "AFL_NO_CPU_RED",
-
-                              strlen(afl_environment_variables[i]))) {
-
-            afl->afl_env.afl_no_cpu_red = (u8)get_afl_env(env);
 
           } else if (!strncmp(env, "AFL_AUTORESUME",
 
