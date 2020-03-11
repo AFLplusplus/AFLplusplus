@@ -51,9 +51,9 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
                       u32 dict_level) {
 
   FILE *f;
-  u8 buf[MAX_LINE];
-  u8 *lptr;
-  u32 cur_line = 0;
+  u8    buf[MAX_LINE];
+  u8 *  lptr;
+  u32   cur_line = 0;
 
   f = fopen(fname, "r");
 
@@ -188,10 +188,10 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
 void load_extras(afl_state_t *afl, u8 *dir) {
 
-  DIR *d;
+  DIR *          d;
   struct dirent *de;
-  u32 min_len = MAX_DICT_FILE, max_len = 0, dict_level = 0;
-  u8 *x;
+  u32            min_len = MAX_DICT_FILE, max_len = 0, dict_level = 0;
+  u8 *           x;
 
   /* If the name ends with @, extract level and continue. */
 
@@ -224,8 +224,8 @@ void load_extras(afl_state_t *afl, u8 *dir) {
   while ((de = readdir(d))) {
 
     struct stat st;
-    u8 *fn = alloc_printf("%s/%s", dir, de->d_name);
-    s32 fd;
+    u8 *        fn = alloc_printf("%s/%s", dir, de->d_name);
+    s32         fd;
 
     if (lstat(fn, &st) || access(fn, R_OK)) PFATAL("Unable to access '%s'", fn);
 

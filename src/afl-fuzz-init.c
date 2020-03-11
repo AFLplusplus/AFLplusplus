@@ -35,7 +35,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   cpu_set_t c;
 #elif defined(__NetBSD__)
-  cpuset_t *c;
+  cpuset_t *         c;
 #endif
 
   u8  cpu_used[4096] = {0};
@@ -51,7 +51,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
   }
 
 #if defined(__linux__)
-  DIR *d;
+  DIR *          d;
   struct dirent *de;
   d = opendir("/proc");
 
@@ -76,7 +76,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   while ((de = readdir(d))) {
 
-    u8 *fn;
+    u8 *  fn;
     FILE *f;
     u8    tmp[MAX_LINE];
     u8    has_vmsize = 0;
@@ -275,8 +275,8 @@ cpuset_destroy(c);
 void setup_post(afl_state_t *afl) {
 
   void *dh;
-  u8 *fn = get_afl_env("AFL_POST_LIBRARY");
-  u32 tlen = 6;
+  u8 *  fn = get_afl_env("AFL_POST_LIBRARY");
+  u32   tlen = 6;
 
   if (!fn) return;
 
@@ -319,9 +319,9 @@ static void shuffle_ptrs(afl_state_t *afl, void **ptrs, u32 cnt) {
 void read_testcases(afl_state_t *afl) {
 
   struct dirent **nl;
-  s32 nl_cnt;
-  u32 i;
-  u8 *fn1;
+  s32             nl_cnt;
+  u32             i;
+  u8 *            fn1;
 
   /* Auto-detect non-in-place resumption attempts. */
 
@@ -447,8 +447,8 @@ static void check_map_coverage(afl_state_t *afl) {
 void perform_dry_run(afl_state_t *afl) {
 
   struct queue_entry *q = afl->queue;
-  u32 cal_failures = 0;
-  u8 *skip_crashes = get_afl_env("AFL_SKIP_CRASHES");
+  u32                 cal_failures = 0;
+  u8 *                skip_crashes = get_afl_env("AFL_SKIP_CRASHES");
 
   while (q) {
 
@@ -872,7 +872,7 @@ void find_timeout(afl_state_t *afl) {
 
 static u8 delete_files(u8 *path, u8 *prefix) {
 
-  DIR *d;
+  DIR *          d;
   struct dirent *d_ent;
 
   d = opendir(path);
@@ -997,7 +997,7 @@ dir_cleanup_failed:
 static void handle_existing_out_dir(afl_state_t *afl) {
 
   FILE *f;
-  u8 *fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
+  u8 *  fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
 
   /* See if the output directory is locked. If yes, bail out. If not,
      create a lock that will persist for the lifetime of the process
@@ -1851,7 +1851,7 @@ static void handle_skipreq(int sig) {
 
 void check_binary(afl_state_t *afl, u8 *fname) {
 
-  u8 *env_path = 0;
+  u8 *        env_path = 0;
   struct stat st;
 
   s32 fd;

@@ -461,8 +461,8 @@ u8 *describe_op(afl_state_t *afl, u8 hnb) {
 
 static void write_crash_readme(afl_state_t *afl) {
 
-  u8 *fn = alloc_printf("%s/crashes/README.txt", afl->out_dir);
-  s32 fd;
+  u8 *  fn = alloc_printf("%s/crashes/README.txt", afl->out_dir);
+  s32   fd;
   FILE *f;
 
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);

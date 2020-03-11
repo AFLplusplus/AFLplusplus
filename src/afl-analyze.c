@@ -824,7 +824,7 @@ static void usage(u8 *argv0) {
 
 static void find_binary(u8 *fname) {
 
-  u8 *env_path = 0;
+  u8 *        env_path = 0;
   struct stat st;
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
