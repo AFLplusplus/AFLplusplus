@@ -242,7 +242,7 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
   if (!afl) { FATAL("Could not create afl state"); }
 
-  afl_state_init(afl);
+  afl_state_init(afl, envp);
   afl_fsrv_init(&afl->fsrv);
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
@@ -472,7 +472,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'n':                                                /* dumb mode */
 
         if (afl->dumb_mode) FATAL("Multiple -n options not supported");
-        if (get_afl_env("AFL_DUMB_FORKSRV"))
+        if (afl->afl_env.afl_dumb_forksrv)
           afl->dumb_mode = 2;
         else
           afl->dumb_mode = 1;
@@ -681,7 +681,6 @@ int main(int argc, char **argv_orig, char **envp) {
         "Using -M master with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "
         "result in no deterministic mutations being done!");
 
-  check_environment_vars(envp);
 
   if (afl->fixed_seed) OKF("Running with fixed seed: %u", (u32)afl->init_seed);
   srandom((u32)afl->init_seed);
@@ -762,22 +761,22 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (get_afl_env("AFL_NO_FORKSRV")) afl->no_forkserver = 1;
-  if (get_afl_env("AFL_NO_CPU_RED")) afl->no_cpu_meter_red = 1;
-  if (get_afl_env("AFL_NO_ARITH")) afl->no_arith = 1;
-  if (get_afl_env("AFL_SHUFFLE_QUEUE")) afl->shuffle_queue = 1;
-  if (get_afl_env("AFL_FAST_CAL")) afl->fast_cal = 1;
+  if (afl->afl_env.afl_no_forksrv) afl->no_forkserver = 1;
+  if (afl->afl_env.afl_no_cpu_red) afl->no_cpu_meter_red = 1;
+  if (afl->afl_env.afl_no_arith) afl->no_arith = 1;
+  if (afl->afl_env.afl_shuffle_queue) afl->shuffle_queue = 1;
+  if (afl->afl_env.afl_fast_cal) afl->fast_cal = 1;
 
-  if (get_afl_env("AFL_AUTORESUME")) {
+  if (afl->afl_env.afl_autoresume) {
 
     afl->autoresume = 1;
     if (afl->in_place_resume) SAYF("AFL_AUTORESUME has no effect for '-i -'");
 
   }
 
-  if (get_afl_env("AFL_HANG_TMOUT")) {
+  if (afl->afl_env.afl_hang_tmout) {
 
-    afl->hang_tmout = atoi(getenv("AFL_HANG_TMOUT"));
+    afl->hang_tmout = atoi(afl->afl_env.afl_hang_tmout);
     if (!afl->hang_tmout) FATAL("Invalid value of AFL_HANG_TMOUT");
 
   }
@@ -790,7 +789,7 @@ int main(int argc, char **argv_orig, char **envp) {
         "LD_PRELOAD is set, are you sure that is what to you want to do "
         "instead of using AFL_PRELOAD?");
 
-  if (get_afl_env("AFL_PRELOAD")) {
+  if (afl->afl_env.afl_preload) {
 
     if (afl->qemu_mode) {
 
@@ -836,7 +835,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fix_up_banner(afl, argv[optind]);
 
   check_if_tty(afl);
-  if (get_afl_env("AFL_FORCE_UI")) afl->not_on_tty = 0;
+  if (afl->afl_env.afl_force_ui) afl->not_on_tty = 0;
 
   if (get_afl_env("AFL_CAL_FAST")) {
 
@@ -848,7 +847,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
 
-  if (get_afl_env("AFL_CUSTOM_MUTATOR_ONLY")) {
+  if (afl->afl_env.afl_custom_mutator_only) {
 
     /* This ensures we don't proceed to havoc/splice */
     afl->custom_only = 1;
@@ -892,7 +891,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->timeout_given) find_timeout(afl);
 
-  if ((afl->tmp_dir = get_afl_env("AFL_TMPDIR")) != NULL &&
+  if ((afl->tmp_dir = afl->afl_env.afl_tmpdir) != NULL &&
       !afl->in_place_resume) {
 
     char tmpfile[afl->file_extension ? strlen(afl->tmp_dir) + 1 + 10 + 1 +
@@ -1065,7 +1064,7 @@ int main(int argc, char **argv_orig, char **envp) {
       prev_queued = afl->queued_paths;
 
       if (afl->sync_id && afl->queue_cycle == 1 &&
-          get_afl_env("AFL_IMPORT_FIRST"))
+          afl->afl_env.afl_import_first)
         sync_fuzzers(afl);
 
     }

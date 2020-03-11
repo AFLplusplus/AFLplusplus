@@ -43,7 +43,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   if (afl->cpu_core_count < 2) return;
 
-  if (getenv("AFL_NO_AFFINITY")) {
+  if (afl->afl_env.afl_no_affinity) {
 
     WARNF("Not binding to a CPU core (AFL_NO_AFFINITY set).");
     return;
@@ -275,8 +275,8 @@ cpuset_destroy(c);
 void setup_post(afl_state_t *afl) {
 
   void *dh;
-  u8 *  fn = get_afl_env("AFL_POST_LIBRARY");
-  u32   tlen = 6;
+  u8 *fn = afl->afl_env.afl_post_library;
+  u32 tlen = 6;
 
   if (!fn) return;
 
@@ -447,8 +447,8 @@ static void check_map_coverage(afl_state_t *afl) {
 void perform_dry_run(afl_state_t *afl) {
 
   struct queue_entry *q = afl->queue;
-  u32                 cal_failures = 0;
-  u8 *                skip_crashes = get_afl_env("AFL_SKIP_CRASHES");
+  u32 cal_failures = 0;
+  u8 *skip_crashes = afl->afl_env.afl_skip_crashes;
 
   while (q) {
 
@@ -1486,7 +1486,7 @@ void check_crash_handling(void) {
       "    sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist\n");
 
 #endif
-  if (!get_afl_env("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES"))
+  if (!)get_afl_env("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES")
     FATAL("Crash reporter detected");
 
 #else
@@ -1538,7 +1538,7 @@ void check_cpu_governor(afl_state_t *afl) {
   u8    tmp[128];
   u64   min = 0, max = 0;
 
-  if (get_afl_env("AFL_SKIP_CPUFREQ")) return;
+  if (afl->afl_env.afl_skip_cpufreq) return;
 
   if (afl->cpu_aff > 0)
     snprintf(tmp, sizeof(tmp), "%s%d%s", "/sys/devices/system/cpu/cpu",
@@ -1619,7 +1619,7 @@ void check_cpu_governor(afl_state_t *afl) {
 #elif defined __APPLE__
   u64 min = 0, max = 0;
   size_t mlen = sizeof(min);
-  if (get_afl_env("AFL_SKIP_CPUFREQ")) return;
+  if (afl->afl_env.afl_skip_cpufreq) return;
 
   ACTF("Checking CPU scaling governor...");
 
@@ -1906,7 +1906,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if (get_afl_env("AFL_SKIP_BIN_CHECK") || afl->use_wine) return;
+  if (afl->afl_env.afl_skip_bin_check || afl->use_wine) return;
 
   /* Check for blatant user errors. */
 
@@ -2078,7 +2078,7 @@ void check_if_tty(afl_state_t *afl) {
 
   struct winsize ws;
 
-  if (get_afl_env("AFL_NO_UI")) {
+  if (afl->afl_env.afl_no_ui) {
 
     OKF("Disabling the UI because AFL_NO_UI is set.");
     afl->not_on_tty = 1;

@@ -89,7 +89,7 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
     setsid();
 
-    if (!get_afl_env("AFL_DEBUG_CHILD_OUTPUT")) {
+    if (!(afl->afl_env.afl_debug_child_output)) {
 
       dup2(afl->fsrv.dev_null_fd, 1);
       dup2(afl->fsrv.dev_null_fd, 2);
