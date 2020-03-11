@@ -163,7 +163,7 @@ else
   echo "[*] Info: Installing python unicornafl to virtualenv: $VIRTUAL_ENV"
   $PYTHONBIN setup.py install --force || exit 1
 fi
-echo '[*] If needed, you can (re)install the bindigns from `./unicornafl/bindings/python` using `python setup.py install`'
+echo '[*] If needed, you can (re)install the bindings from `./unicornafl/bindings/python` using `python setup.py install`'
 
 cd ../../ || exit 1
 
