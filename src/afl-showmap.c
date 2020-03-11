@@ -331,7 +331,6 @@ static u8 run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
   if (stop_soon) {
 
     SAYF(cRST cLRD "\n+++ afl-showmap folder mode aborted by user +++\n" cRST);
-    close(write_to_file(fsrv->out_file, in_data, in_len));
     exit(1);
 
   }
