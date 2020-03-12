@@ -50,7 +50,6 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
   if ((buf = (char *)malloc((size_t)size)) != NULL) {
 
     cwd = getcwd(buf, (size_t)size);                    /* portable version */
-    ck_free(buf);
 
   } else {
 
@@ -104,7 +103,7 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
   }
 
-  ck_free(cwd);                                              /* not tracked */
+  free(cwd);                                              /* not tracked!!!! */
 
 }
 
