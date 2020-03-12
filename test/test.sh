@@ -185,14 +185,20 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     esac
     rm -f in2/in*
     export AFL_QUIET=1
-    AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
-    CNT=`ls in2/* 2>/dev/null | wc -l`
-    case "$CNT" in
-      *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
-      *)  $ECHO "$RED[!] afl-cmin.bash did not correctly minimize the number of testcases ($CNT)"
-          CODE=1
-          ;;
-    esac
+    if type bash >/dev/null ; then {
+      AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
+      CNT=`ls in2/* 2>/dev/null | wc -l`
+      case "$CNT" in
+        *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
+        *)  $ECHO "$RED[!] afl-cmin.bash did not correctly minimize the number of testcases ($CNT)"
+            CODE=1
+            ;;
+        esac
+    } else {
+      $ECHO "$YELLOW[-] no bash available, cannot test afl-cmin.bash"
+      INCOMPLETE=1
+    }
+    fi
     ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
     SIZE=`ls -l in2/in2 2> /dev/null | awk '{print$5}'`
     test "$SIZE" = 1 && $ECHO "$GREEN[+] afl-tmin correctly minimized the testcase"
@@ -302,14 +308,21 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
             ;;
       esac
       rm -f in2/in*
-      AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
-      CNT=`ls in2/* 2>/dev/null | wc -l`
-      case "$CNT" in
-        *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
-        *)  $ECHO "$RED[!] afl-cmin.bash did not correctly minimize the number of testcases ($CNT)"
-            CODE=1
-            ;;
-      esac
+      export AFL_QUIET=1
+      if type bash >/dev/null ; then {
+        AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
+        CNT=`ls in2/* 2>/dev/null | wc -l`
+        case "$CNT" in
+          *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
+          *)  $ECHO "$RED[!] afl-cmin.bash did not correctly minimize the number of testcases ($CNT)"
+              CODE=1
+              ;;
+          esac
+      } else {
+        $ECHO "$YELLOW[-] no bash available, cannot test afl-cmin.bash"
+        INCOMPLETE=1
+      }
+      fi
       ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
       SIZE=`ls -l in2/in2 2> /dev/null | awk '{print$5}'`
       test "$SIZE" = 1 && $ECHO "$GREEN[+] afl-tmin correctly minimized the testcase"
