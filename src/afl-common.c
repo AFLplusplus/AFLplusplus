@@ -57,36 +57,26 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
     if (aa_loc) {
 
-      u8 *n_arg;
-
       if (!prog_in) FATAL("@@ syntax is not supported by this tool.");
 
       *use_stdin = 0;
 
       if (prog_in[0] != 0) {  // not afl-showmap special case
 
-        s32 new_size;
+        u8 *n_arg;
 
         /* Be sure that we're always using fully-qualified paths. */
 
         *aa_loc = 0;
-        if (prog_in[0] == '/') {
-          new_size = snprintf(NULL, 0, "%s%s%s", argv[i], prog_in, aa_loc + 2);
-        } else {
-          new_size = snprintf(NULL, 0, "%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
-        }
-        if (new_size < 0) PFATAL("snprintf() failed");
 
         /* Construct a replacement argv value. */
 
-        if ((n_arg = realloc(argv[i], new_size + 1)) == NULL) {
-          PFATAL("realloc() failed");
-        }
         if (prog_in[0] == '/') {
-          snprintf(n_arg, new_size, "%s%s%s", argv[i], prog_in, aa_loc + 2);
+          n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + 2);
         } else {
-          snprintf(n_arg, new_size, "%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
+          n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
         } 
+        free(argv[i]);
         argv[i] = n_arg;
 
       }
