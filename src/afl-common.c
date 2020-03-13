@@ -35,42 +35,29 @@
 #ifndef __glibc__
 #include <unistd.h>
 #endif
+#include <limits.h>
 
 extern u8 be_quiet;
 
 void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
   u32 i = 0;
-#ifdef __GLIBC__
-  u8 *cwd = getcwd(NULL, 0);                /* non portable glibc extension */
-#else
-  u8 *  cwd;
-  char *buf;
-  long  size = pathconf(".", _PC_PATH_MAX);
-  if ((buf = (char *)malloc((size_t)size)) != NULL) {
+  u8 cwd[PATH_MAX];
+  if (getcwd(cwd, (size_t)sizeof(cwd)) == NULL) {
 
-    cwd = getcwd(buf, (size_t)size);                    /* portable version */
-
-  } else {
-
-    cwd = 0;                                          /* for dumb compilers */
     PFATAL("getcwd() failed");
 
   }
 
-#endif
-
-  if (!cwd) PFATAL("getcwd() failed");
-
-  // TODO: free allocs below... somewhere.
-
+  /* we are working with libc-heap-allocated argvs. So do not mix them with
+   * other allocation APIs like ck_alloc. That would disturb the free() calls. */
   while (argv[i]) {
 
     u8 *aa_loc = strstr(argv[i], "@@");
 
     if (aa_loc) {
 
-      u8 *aa_subst, *n_arg;
+      u8 *n_arg;
 
       if (!prog_in) FATAL("@@ syntax is not supported by this tool.");
 
@@ -78,22 +65,29 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
       if (prog_in[0] != 0) {  // not afl-showmap special case
 
+        s32 new_size;
+
         /* Be sure that we're always using fully-qualified paths. */
 
-        if (prog_in[0] == '/')
-          aa_subst = prog_in;
-        else
-          aa_subst = alloc_printf("%s/%s", cwd, prog_in);
+        *aa_loc = 0;
+        if (prog_in[0] == '/') {
+          new_size = snprintf(NULL, 0, "%s%s%s", argv[i], prog_in, aa_loc + 2);
+        } else {
+          new_size = snprintf(NULL, 0, "%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
+        }
+        if (new_size < 0) PFATAL("snprintf() failed");
 
         /* Construct a replacement argv value. */
 
-        *aa_loc = 0;
-        n_arg = alloc_printf("%s%s%s", argv[i], aa_subst, aa_loc + 2);
-        ck_free(argv[i]);
+        if ((n_arg = realloc(argv[i], new_size + 1)) == NULL) {
+          PFATAL("realloc() failed");
+        }
+        if (prog_in[0] == '/') {
+          snprintf(n_arg, new_size, "%s%s%s", argv[i], prog_in, aa_loc + 2);
+        } else {
+          snprintf(n_arg, new_size, "%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
+        } 
         argv[i] = n_arg;
-        //*aa_loc = '@';
-
-        if (prog_in[0] != '/') ck_free(aa_subst);
 
       }
 
@@ -102,9 +96,7 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
     i++;
 
   }
-
-  free(cwd);                                              /* not tracked!!!! */
-
+  /* argvs are automatically freed at exit. */
 }
 
 /* duplicate the system argv so that
