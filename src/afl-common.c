@@ -76,7 +76,7 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
         } else {
           n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
         } 
-        free(argv[i]);
+        ck_free(argv[i]);
         argv[i] = n_arg;
 
       }
