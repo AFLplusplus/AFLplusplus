@@ -75,6 +75,11 @@ TOTAL_CRASHES=0
 TOTAL_PFAV=0
 TOTAL_PENDING=0
 
+# Time since last path / crash / hang, formatted as string
+LAST_PATH="none seen yet"
+LAST_CRASH="none seen yet"
+LAST_HANG="none seen yet"
+
 if [ "$SUMMARY_ONLY" = "" ]; then
 
   echo "Individual fuzzers"
@@ -82,6 +87,30 @@ if [ "$SUMMARY_ONLY" = "" ]; then
   echo
 
 fi
+
+function fmt_duration
+{
+  if [ $2 -eq 0 ]; then
+    return
+  fi
+
+  local -n ref=$1
+  local duration=$((CUR_TIME - $2))
+  local days=$((duration / 60 / 60 / 24))
+  local hours=$(((duration / 60 / 60) % 24))
+  local minutes=$(((duration / 60) % 60))
+  local seconds=$((duration % 60))
+
+  if [ $days -gt 0 ]; then
+    ref="$days days, $hours hours"
+  elif [ $hours -gt 0 ]; then
+    ref="$hours hours, $minutes minutes"
+  elif [ $minutes -gt 0 ]; then
+    ref="$minutes minutes, $seconds seconds"
+  else
+    ref="$seconds seconds"
+  fi
+}
 
 for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
@@ -125,6 +154,10 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
   TOTAL_PFAV=$((TOTAL_PFAV + pending_favs))
 
+  fmt_duration LAST_PATH $last_path
+  fmt_duration LAST_CRASH $last_crash
+  fmt_duration LAST_HANG $last_hang
+
   if [ "$SUMMARY_ONLY" = "" ]; then
 
     echo "  cycle $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, path $cur_path/$paths_total (${PATH_PERC}%)"
@@ -158,6 +191,9 @@ if [ ! "$DEAD_CNT" = "0" ]; then
 fi
 
 echo "      Total run time : $TOTAL_DAYS days, $TOTAL_HRS hours"
+echo "           Last path : $LAST_PATH"
+echo "          Last crash : $LAST_CRASH"
+echo "           Last hang : $LAST_HANG"
 echo "         Total execs : $((TOTAL_EXECS / 1000 / 1000)) million"
 echo "    Cumulative speed : $TOTAL_EPS execs/sec"
 echo "       Pending paths : $TOTAL_PFAV faves, $TOTAL_PENDING total"
