@@ -107,7 +107,7 @@ u8 *forkserver_DMS(u64 val) {
 
 }
 
-list_t fsrv_list = {0};
+list_t fsrv_list = {.element_prealloc_count = 0};
 
 /* the timeout handler */
 
@@ -306,6 +306,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 
   /* Wait for the fork server to come up, but don't wait too long. */
 
+  rlen = 0;
   if (fsrv->exec_tmout) {
 
     fd_set readfds;
