@@ -47,7 +47,6 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
-#include "list.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -102,6 +101,8 @@
 #include <TargetConditionals.h>
 #endif
 
+#undef  LIST_FOREACH                                /* clashes with FreeBSD */
+#include "list.h"
 #ifndef SIMPLE_FILES
 #define CASE_PREFIX "id:"
 #else
