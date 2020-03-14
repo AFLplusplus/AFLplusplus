@@ -71,7 +71,7 @@ static void init_mopt_globals(afl_state_t *afl) {
 /* A global pointer to all instances is needed (for now) for signals to arrive
  */
 
-list_t afl_states = {0};
+list_t afl_states = {.element_prealloc_count = 0};
 
 /* Initializes an afl_state_t. */
 

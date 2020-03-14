@@ -182,6 +182,7 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
   /* Wait for the fork server to come up, but don't wait too long. */
 
+  rlen = 0;
   if (afl->fsrv.exec_tmout) {
 
     fd_set readfds;
