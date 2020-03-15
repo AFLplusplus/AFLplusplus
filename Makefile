@@ -298,8 +298,9 @@ afl-gotcpu: src/afl-gotcpu.c $(COMM_HDR) | test_x86
 
 
 # document all mutations and only do one run (use with only one input file!)
-document: include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(AFL_FUZZ_FILES) -D_AFL_DOCUMENT_MUTATIONS src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o afl-fuzz-document $(LDFLAGS) $(PYFLAGS)
+document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o | test_x86
+	$(CC) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) -lrt src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
+
 
 
 code-format:
