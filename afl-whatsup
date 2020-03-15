@@ -76,9 +76,10 @@ TOTAL_PFAV=0
 TOTAL_PENDING=0
 
 # Time since last path / crash / hang, formatted as string
-LAST_PATH="none seen yet"
-LAST_CRASH="none seen yet"
-LAST_HANG="none seen yet"
+FMT_TIME="0 days 0 hours"
+FMT_PATH="none seen yet"
+FMT_CRASH="none seen yet"
+FMT_HANG="none seen yet"
 
 if [ "$SUMMARY_ONLY" = "" ]; then
 
@@ -154,11 +155,17 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
   TOTAL_PFAV=$((TOTAL_PFAV + pending_favs))
 
-  fmt_duration LAST_PATH $last_path
-  fmt_duration LAST_CRASH $last_crash
-  fmt_duration LAST_HANG $last_hang
-
   if [ "$SUMMARY_ONLY" = "" ]; then
+
+    fmt_duration FMT_PATH $last_path
+    fmt_duration FMT_CRASH $last_crash
+    fmt_duration FMT_HANG $last_hang
+    CPU_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $3}')
+
+    echo "  cpu usage $CPU_USAGE%"
+    echo "  last_path  : $FMT_PATH"
+    echo "  last_crash : $FMT_CRASH"
+    echo "  last_hang  : $FMT_HANG"
 
     echo "  cycle $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, path $cur_path/$paths_total (${PATH_PERC}%)"
 
@@ -173,6 +180,21 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   fi
 
 done
+
+# Formatting for total time, time since last path, crash, and hang
+fmt_duration FMT_TIME $((CUR_TIME - TOTAL_TIME))
+
+# Formatting for total execution
+FMT_EXECS="0 millions"
+EXECS_MILLION=$((TOTAL_EXECS / 1000 / 1000))
+EXECS_THOUSAND=$((TOTAL_EXECS / 1000 % 1000))
+if [ $EXECS_MILLION -gt 9 ]; then
+  FMT_EXECS="$EXECS_MILLION millions"
+elif [ $EXECS_MILLION -gt 0 ]; then
+  FMT_EXECS="$EXECS_MILLION millions, $EXECS_THOUSAND thousands"
+else
+  FMT_EXECS="$EXECS_THOUSAND thousands"
+fi
 
 rm -f "$TMP"
 
@@ -190,11 +212,8 @@ if [ ! "$DEAD_CNT" = "0" ]; then
   echo "      Dead or remote : $DEAD_CNT (excluded from stats)"
 fi
 
-echo "      Total run time : $TOTAL_DAYS days, $TOTAL_HRS hours"
-echo "           Last path : $LAST_PATH"
-echo "          Last crash : $LAST_CRASH"
-echo "           Last hang : $LAST_HANG"
-echo "         Total execs : $((TOTAL_EXECS / 1000 / 1000)) million"
+echo "      Total run time : $FMT_TIME"
+echo "         Total execs : $FMT_EXECS"
 echo "    Cumulative speed : $TOTAL_EPS execs/sec"
 echo "       Pending paths : $TOTAL_PFAV faves, $TOTAL_PENDING total"
 
