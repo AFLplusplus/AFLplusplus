@@ -1074,7 +1074,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     skipped_fuzz = fuzz_one(afl);
 
-    if (!afl->stop_soon && afl->sync_id && !skipped_fuzz) {
+    if (!skipped_fuzz && !afl->stop_soon && afl->sync_id) {
 
       if (!(sync_interval_cnt++ % SYNC_INTERVAL)) sync_fuzzers(afl);
 
@@ -1144,6 +1144,9 @@ int main(int argc, char **argv_orig, char **envp) {
   save_auto(afl);
 
 stop_fuzzing:
+
+  afl->force_ui_update = 1;  // ensure the screen is reprinted
+  show_stats(afl);           // print the screen one last time
 
   SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
        afl->stop_soon == 2 ? "programmatically" : "by user");
