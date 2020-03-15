@@ -304,12 +304,10 @@ extern char *power_names[POWER_SCHEDULES_NUM];
 
 typedef struct afl_env_vars {
 
-  u8 afl_skip_cpufreq, afl_exit_when_done, afl_no_affinity,
-      afl_skip_bin_check, afl_dumb_forksrv,
-      afl_import_first, afl_custom_mutator_only,
-      afl_no_ui, afl_force_ui, afl_i_dont_care_about_missing_crashes,
-      afl_bench_just_one, afl_bench_until_crash, afl_debug_child_output,
-      afl_autoresume;
+  u8 afl_skip_cpufreq, afl_exit_when_done, afl_no_affinity, afl_skip_bin_check,
+      afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
+      afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
+      afl_bench_until_crash, afl_debug_child_output, afl_autoresume;
 
   u8 *afl_tmpdir, *afl_post_library, *afl_custom_mutator_library,
       *afl_python_module, *afl_path, *afl_hang_tmout, *afl_skip_crashes,
