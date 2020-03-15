@@ -331,7 +331,8 @@ typedef struct afl_state {
     really makes no sense to haul them around as function parameters. */
   u64 limit_time_puppet, orig_hit_cnt_puppet, last_limit_time_start,
       tmp_pilot_time, total_pacemaker_time, total_puppet_find, temp_puppet_find,
-      most_time_key, most_time, most_execs_key, most_execs, old_hit_count;
+      most_time_key, most_time, most_execs_key, most_execs, old_hit_count,
+      force_ui_update;
 
   MOpt_globals_t mopt_globals_core, mopt_globals_pilot;
 

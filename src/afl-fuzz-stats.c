@@ -206,7 +206,7 @@ void show_stats(afl_state_t *afl) {
 
   /* If not enough time has passed since last UI update, bail out. */
 
-  if (cur_ms - last_ms < 1000 / UI_TARGET_HZ) return;
+  if (cur_ms - last_ms < 1000 / UI_TARGET_HZ && !afl->force_ui_update) return;
 
   /* Check if we're past the 10 minute mark. */
 
@@ -484,7 +484,7 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  SAYF(bV bSTOP " stage execs : " cRST "%-20s " bSTG bV bSTOP, tmp);
+  SAYF(bV bSTOP " stage execs : " cRST "%-21s" bSTG bV bSTOP, tmp);
 
   sprintf(tmp, "%s (%0.02f%%)", DI(afl->queued_with_cov),
           ((double)afl->queued_with_cov) * 100 / afl->queued_paths);
