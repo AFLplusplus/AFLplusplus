@@ -139,140 +139,120 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
       int i = 0, match = 0;
       while (match == 0 && afl_environment_variables[i] != NULL) {
 
+        size_t afl_environment_variable_len = strlen(afl_environment_variables[i]);
         if (strncmp(env, afl_environment_variables[i],
-                    strlen(afl_environment_variables[i])) == 0 &&
-            env[strlen(afl_environment_variables[i])] == '=') {
+                    afl_environment_variable_len) == 0 &&
+            env[afl_environment_variable_len] == '=') {
 
           match = 1;
-          if (strncmp(env, "AFL_SKIP_CPUFREQ",
-                      strlen(afl_environment_variables[i]) == 0)) {
+          if (!strncmp(env, "AFL_SKIP_CPUFREQ",
+                      afl_environment_variable_len)) {
 
             afl->afl_env.afl_skip_cpufreq = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_EXIT_WHEN_DONE",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_exit_when_done = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_NO_AFFINITY",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_no_affinity = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_SKIP_CRASHES",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_skip_crashes = (u8 *)get_afl_env(env);
 
           } else if (!strncmp(env, "AFL_HANG_TMOUT",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_hang_tmout = (u8 *)get_afl_env(env);
 
           } else if (!strncmp(env, "AFL_SKIP_BIN_CHECK",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_skip_bin_check = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_DUMB_FORKSRV",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_dumb_forksrv = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_IMPORT_FIRST",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_import_first = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_ONLY",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_custom_mutator_only = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_NO_UI",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_no_ui = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_FORCE_UI",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_force_ui = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_i_dont_care_about_missing_crashes =
                 get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_BENCH_JUST_ONE",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_bench_just_one = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_BENCH_UNTIL_CRASH",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_bench_until_crash = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_DEBUG_CHILD_OUTPUT",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_debug_child_output = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_AUTORESUME",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_autoresume = get_afl_env(env) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_TMPDIR",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_tmpdir = (u8 *)get_afl_env(env);
 
           } else if (!strncmp(env, "AFL_POST_LIBRARY",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_post_library = (u8 *)get_afl_env(env);
 
           } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_LIBRARY",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_custom_mutator_library = (u8 *)get_afl_env(env);
 
           } else if (!strncmp(env, "AFL_PYTHON_MODULE",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_python_module = (u8 *)get_afl_env(env);
 
           } else if (!strncmp(env, "AFL_PATH",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_path = (u8 *)get_afl_env(env);
 
           } else if (!strncmp(env, "AFL_PRELOAD",
-
-                              strlen(afl_environment_variables[i]))) {
+                              afl_environment_variable_len)) {
 
             afl->afl_env.afl_preload = (u8 *)get_afl_env(env);
 
