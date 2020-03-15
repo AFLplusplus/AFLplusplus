@@ -146,7 +146,7 @@ ifdef STATIC
   PYFLAGS=
 
   CFLAGS += -static
-  LDFLAGS += -lm -lrt -lpthread -lz -lutil
+  LDFLAGS += -lm -lpthread -lz -lutil
 endif
 
 ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
@@ -154,13 +154,13 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 else
 	SHMAT_OK=0
 	CFLAGS+=-DUSEMMAP=1
-	LDFLAGS+=-Wno-deprecated-declarations -lrt
+	LDFLAGS+=-Wno-deprecated-declarations
 endif
 
 ifeq "$(TEST_MMAP)" "1"
 	SHMAT_OK=0
 	CFLAGS+=-DUSEMMAP=1
-	LDFLAGS+=-Wno-deprecated-declarations -lrt
+	LDFLAGS+=-Wno-deprecated-declarations
 endif
 
 ifdef ASAN_BUILD
@@ -282,7 +282,7 @@ src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.
 	$(MAKE) -C src/third_party/libradamsa/ CFLAGS="$(CFLAGS)"
 
 afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o | test_x86
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) -lrt src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)

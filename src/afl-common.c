@@ -42,15 +42,12 @@ extern u8 be_quiet;
 void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
   u32 i = 0;
-  u8 cwd[PATH_MAX];
-  if (getcwd(cwd, (size_t)sizeof(cwd)) == NULL) {
-
-    PFATAL("getcwd() failed");
-
-  }
+  u8  cwd[PATH_MAX];
+  if (getcwd(cwd, (size_t)sizeof(cwd)) == NULL) { PFATAL("getcwd() failed"); }
 
   /* we are working with libc-heap-allocated argvs. So do not mix them with
-   * other allocation APIs like ck_alloc. That would disturb the free() calls. */
+   * other allocation APIs like ck_alloc. That would disturb the free() calls.
+   */
   while (argv[i]) {
 
     u8 *aa_loc = strstr(argv[i], "@@");
@@ -72,10 +69,15 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
         /* Construct a replacement argv value. */
 
         if (prog_in[0] == '/') {
+
           n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + 2);
+
         } else {
+
           n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
-        } 
+
+        }
+
         ck_free(argv[i]);
         argv[i] = n_arg;
 
@@ -86,7 +88,9 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
     i++;
 
   }
+
   /* argvs are automatically freed at exit. */
+
 }
 
 /* duplicate the system argv so that

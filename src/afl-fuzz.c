@@ -785,6 +785,8 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->dumb_mode == 2 && afl->no_forkserver)
     FATAL("AFL_DUMB_FORKSRV and AFL_NO_FORKSRV are mutually exclusive");
 
+  afl->fsrv.use_fauxsrv = afl->dumb_mode == 1 || afl->no_forkserver;
+
   if (getenv("LD_PRELOAD"))
     WARNF(
         "LD_PRELOAD is set, are you sure that is what to you want to do "

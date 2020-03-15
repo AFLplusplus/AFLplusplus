@@ -39,16 +39,16 @@ void timeout_handle(union sigval timer_data) {
 
 u8 run_target(afl_state_t *afl, u32 timeout) {
 
-  struct sigevent          timer_signal_event;
-  static timer_t           timer;
-  static struct itimerspec timer_period;
-  static struct timeval    it;
-  static u32               prev_timed_out = 0;
-  static u64               exec_ms = 0;
+  s32 res;
+  int sret;
+
+  fd_set readfds;
+
+  static struct timeval it;
+  static u32            prev_timed_out = 0;
 
   int status = 0;
   u32 tb4;
-  int timer_status;
 
   afl->fsrv.child_timed_out = 0;
 
@@ -57,244 +57,76 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
      territory. */
 
   memset(afl->fsrv.trace_bits, 0, MAP_SIZE);
-  memset(&timer_signal_event, 0, sizeof(struct sigevent));
-
-  timer_signal_event.sigev_notify = SIGEV_THREAD;
-  timer_signal_event.sigev_notify_function = timeout_handle;
 
   MEM_BARRIER();
 
-  /* If we're running in "dumb" mode, we can't rely on the fork server
-     logic compiled into the target program, so we will just keep calling
-     execve(). There is a bit of code duplication between here and
-     init_forkserver(), but c'est la vie. */
+  /* we have the fork server (or faux server) up and running, so simply
+      tell it to have at it, and then read back PID. */
 
-  if (afl->dumb_mode == 1 || afl->no_forkserver) {
+  if ((res = write(afl->fsrv.fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
 
-    afl->fsrv.child_pid = fork();
-
-    if (afl->fsrv.child_pid < 0) PFATAL("fork() failed");
-
-    if (!afl->fsrv.child_pid) {
-
-      struct rlimit r;
-
-      if (afl->fsrv.mem_limit) {
-
-        r.rlim_max = r.rlim_cur = ((rlim_t)afl->fsrv.mem_limit) << 20;
-
-#ifdef RLIMIT_AS
-
-        setrlimit(RLIMIT_AS, &r);                          /* Ignore errors */
-
-#else
-
-        setrlimit(RLIMIT_DATA, &r);                        /* Ignore errors */
-
-#endif                                                        /* ^RLIMIT_AS */
-
-      }
-
-      r.rlim_max = r.rlim_cur = 0;
-
-      setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
-
-      /* Isolate the process and configure standard descriptors. If
-         afl->fsrv.out_file is specified, stdin is /dev/null; otherwise,
-         afl->fsrv.out_fd is cloned instead. */
-
-      setsid();
-
-      dup2(afl->fsrv.dev_null_fd, 1);
-      dup2(afl->fsrv.dev_null_fd, 2);
-
-      if (afl->fsrv.out_file) {
-
-        dup2(afl->fsrv.dev_null_fd, 0);
-
-      } else {
-
-        dup2(afl->fsrv.out_fd, 0);
-        close(afl->fsrv.out_fd);
-
-      }
-
-      /* On Linux, would be faster to use O_CLOEXEC. Maybe TODO. */
-
-      close(afl->fsrv.dev_null_fd);
-      close(afl->fsrv.out_dir_fd);
-#ifndef HAVE_ARC4RANDOM
-      close(afl->fsrv.dev_urandom_fd);
-#endif
-      close(fileno(afl->fsrv.plot_file));
-
-      /* Set sane defaults for ASAN if nothing else specified. */
-
-      setenv("ASAN_OPTIONS",
-             "abort_on_error=1:"
-             "detect_leaks=0:"
-             "symbolize=0:"
-             "allocator_may_return_null=1",
-             0);
-
-      setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
-                             "symbolize=0:"
-                             "msan_track_origins=0", 0);
-
-      execv(afl->fsrv.target_path, afl->argv);
-
-      /* Use a distinctive bitmap value to tell the parent about execv()
-         falling through. */
-
-      *(u32 *)afl->fsrv.trace_bits = EXEC_FAIL_SIG;
-      exit(0);
-
-    }
-
-    /* Configure timeout using POSIX timers in dumb-mode,
-        as requested by user, then wait for child to terminate.
-     */
-
-    timer_signal_event.sigev_value.sival_int = afl->fsrv.child_pid;
-    timer_status = timer_create(CLOCK_MONOTONIC, &timer_signal_event, &timer);
-
-    if (timer_status == -1) { FATAL("Failed to create Timer"); }
-
-    timer_period.it_value.tv_sec = (timeout / 1000);
-    timer_period.it_value.tv_nsec = (timeout % 1000) * 1000000;
-    timer_period.it_interval.tv_sec = 0;
-    timer_period.it_interval.tv_nsec = 0;
-
-    timer_status = timer_settime(timer, 0, &timer_period, NULL);
-
-    if (timer_status == -1) {
-
-      timer_delete(timer);
-      if (errno == EINVAL) {
-
-        FATAL("Failed to set the timer. The timeout given is invalid.");
-
-      } else {
-
-        FATAL("Failed to set the timer to the given timeout");
-
-      }
-
-    }
-
-  } else {
-
-    /* In non-dumb mode, we have the fork server up and running, so simply
-       tell it to have at it, and then read back PID. */
-
-    int res;
-
-    if ((res = write(afl->fsrv.fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
-
-      if (afl->stop_soon) return 0;
-      RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-    }
-
-    if ((res = read(afl->fsrv.fsrv_st_fd, &afl->fsrv.child_pid, 4)) != 4) {
-
-      if (afl->stop_soon) return 0;
-      RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-    }
-
-    if (afl->fsrv.child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
+    if (afl->stop_soon) return 0;
+    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
 
-  if (afl->dumb_mode == 1 || afl->no_forkserver) {
+  if ((res = read(afl->fsrv.fsrv_st_fd, &afl->fsrv.child_pid, 4)) != 4) {
 
-    if (waitpid(afl->fsrv.child_pid, &status, 0) <= 0) {
+    if (afl->stop_soon) return 0;
+    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
-      timer_delete(timer);
-      PFATAL("waitpid() failed");
+  }
 
-    }
+  if (afl->fsrv.child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
 
-    timer_gettime(timer, &timer_period);
-    exec_ms = (u64)timeout - (timer_period.it_value.tv_sec * 1000 +
-                              timer_period.it_value.tv_nsec / 1000000);
-    timer_period.it_value.tv_sec = 0;
-    timer_period.it_value.tv_nsec = 0;
+  /* use select to monitor the forkserver for timeouts. */
 
-    timer_status = timer_settime(timer, 0, &timer_period, NULL);
+  FD_ZERO(&readfds);
+  FD_SET(afl->fsrv.fsrv_st_fd, &readfds);
+  it.tv_sec = ((timeout) / 1000);
+  it.tv_usec = ((timeout) % 1000) * 1000;
 
-    if (timer_status == -1) {
+  sret = select(afl->fsrv.fsrv_st_fd + 1, &readfds, NULL, NULL, &it);
 
-      timer_delete(timer);
-      FATAL("Failed to reset the timer.");
+  if (sret == 0) {
 
-    }
+    /* If there was no response from forkserver after timeout seconds,
+    we kill the child. The forkserver should inform us afterwards */
 
-    timer_delete(timer);
+    kill(afl->fsrv.child_pid, SIGKILL);
+    afl->fsrv.child_timed_out = 1;
 
-  } else {
+  }
 
-    /* In non-dumb mode, use select to monitor the forkserver for timeouts.
-     */
+  if ((res = read(afl->fsrv.fsrv_st_fd, &status, 4)) != 4) {
 
-    s32 res;
-    int sret;
-
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(afl->fsrv.fsrv_st_fd, &readfds);
-    it.tv_sec = ((timeout) / 1000);
-    it.tv_usec = ((timeout) % 1000) * 1000;
-
-    sret = select(afl->fsrv.fsrv_st_fd + 1, &readfds, NULL, NULL, &it);
-
-    if (sret == 0) {
-
-      kill(afl->fsrv.child_pid, SIGKILL);
-
-    } else {
-
-      if ((res = read(afl->fsrv.fsrv_st_fd, &status, 4)) != 4) {
-
-        if (afl->stop_soon) return 0;
-        SAYF(
-            "\n" cLRD "[-] " cRST
-            "Unable to communicate with fork server. Some possible reasons:\n\n"
-            "    - You've run out of memory. Use -m to increase the the memory "
-            "limit\n"
-            "      to something higher than %lld.\n"
-            "    - The binary or one of the libraries it uses manages to "
-            "create\n"
-            "      threads before the forkserver initializes.\n"
-            "    - The binary, at least in some circumstances, exits in a way "
-            "that\n"
-            "      also kills the parent process - raise() could be the "
-            "culprit.\n"
-            "    - If using persistent mode with QEMU, "
-            "AFL_QEMU_PERSISTENT_ADDR "
-            "is\n"
-            "      probably not valid (hint: add the base address in case of "
-            "PIE)"
-            "\n\n"
-            "If all else fails you can disable the fork server via "
-            "AFL_NO_FORKSRV=1.\n",
-            afl->fsrv.mem_limit);
-        RPFATAL(res, "Unable to communicate with fork server");
-
-      }
-
-    }
-
-    exec_ms = (u64)timeout - (it.tv_sec * 1000 + it.tv_usec / 1000);
-    it.tv_sec = 0;
-    it.tv_usec = 0;
+    if (afl->stop_soon) return 0;
+    SAYF("\n" cLRD "[-] " cRST
+         "Unable to communicate with fork server. Some possible reasons:\n\n"
+         "    - You've run out of memory. Use -m to increase the the memory "
+         "limit\n"
+         "      to something higher than %lld.\n"
+         "    - The binary or one of the libraries it uses manages to "
+         "create\n"
+         "      threads before the forkserver initializes.\n"
+         "    - The binary, at least in some circumstances, exits in a way "
+         "that\n"
+         "      also kills the parent process - raise() could be the "
+         "culprit.\n"
+         "    - If using persistent mode with QEMU, "
+         "AFL_QEMU_PERSISTENT_ADDR "
+         "is\n"
+         "      probably not valid (hint: add the base address in case of "
+         "PIE)"
+         "\n\n"
+         "If all else fails you can disable the fork server via "
+         "AFL_NO_FORKSRV=1.\n",
+         afl->fsrv.mem_limit);
+    RPFATAL(res, "Unable to communicate with fork server");
 
   }
 
   if (!WIFSTOPPED(status)) afl->fsrv.child_pid = 0;
-
-  if (exec_ms >= timeout) { afl->fsrv.child_timed_out = 1; }
 
   ++afl->total_execs;
 
@@ -494,8 +326,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
 
-  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->fsrv.fsrv_pid)
-    afl_fsrv_start(&afl->fsrv, afl->argv);
+  if (!afl->fsrv.fsrv_pid) afl_fsrv_start(&afl->fsrv, afl->argv);
   if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->cmplog_fsrv_pid &&
       afl->shm.cmplog_mode)
     init_cmplog_forkserver(afl);
