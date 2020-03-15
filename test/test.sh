@@ -706,7 +706,7 @@ test -e ../afl-qemu-trace && {
             unset AFL_PRELOAD
             unset AFL_COMPCOV_LEVEL
           } >>errors 2>&1
-          test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+          test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
             $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode compcov"
           } || {
             echo CUT------------------------------------------------------------------CUT
