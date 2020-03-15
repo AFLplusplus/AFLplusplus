@@ -101,7 +101,7 @@
 #include <TargetConditionals.h>
 #endif
 
-#undef  LIST_FOREACH                                /* clashes with FreeBSD */
+#undef LIST_FOREACH                                 /* clashes with FreeBSD */
 #include "list.h"
 #ifndef SIMPLE_FILES
 #define CASE_PREFIX "id:"

@@ -43,6 +43,10 @@
 #include <sys/resource.h>
 #include <sys/select.h>
 
+/**
+ * The correct fds for reading and writing pipes
+ */
+
 /* Describe integer as memory size. */
 
 extern u8 *doc_path;
@@ -151,7 +155,84 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->child_pid = -1;
   fsrv->out_dir_fd = -1;
 
+  fsrv->use_fauxsrv = 0;
+
   list_append(&fsrv_list, fsrv);
+
+}
+
+/* Internal forkserver for dumb_mode=1 and non-forkserver mode runs.
+  It execvs for each fork, forwarding exit codes and child pids to afl. */
+
+static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
+
+  static unsigned char tmp[4] = {0};
+  pid_t                child_pid = -1;
+
+  /* Phone home and tell the parent that we're OK. If parent isn't there,
+     assume we're not running in forkserver mode and just execute program. */
+
+  if (write(FORKSRV_FD + 1, tmp, 4) != 4) abort();  // TODO: Abort?
+
+  void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
+
+  while (1) {
+
+    uint32_t was_killed;
+    int      status;
+
+    /* Wait for parent by reading from the pipe. Exit if read fails. */
+
+    if (read(FORKSRV_FD, &was_killed, 4) != 4) exit(0);
+
+    /* Create a clone of our process. */
+
+    child_pid = fork();
+
+    if (child_pid < 0) PFATAL("Fork failed");
+
+    /* In child process: close fds, resume execution. */
+
+    if (!child_pid) {  // New child
+
+      signal(SIGCHLD, old_sigchld_handler);
+      // FORKSRV_FD is for communication with AFL, we don't need it in the
+      // child.
+      close(FORKSRV_FD);
+      close(FORKSRV_FD + 1);
+
+      // TODO: exec...
+
+      execv(fsrv->target_path, argv);
+
+      /* Use a distinctive bitmap signature to tell the parent about execv()
+        falling through. */
+
+      *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
+
+      PFATAL("Execv failed in fauxserver.");
+
+    }
+
+    /* In parent process: write PID to AFL. */
+
+    if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) exit(0);
+
+    /* after child exited, get and relay exit status to parent through waitpid.
+     */
+
+    if (waitpid(child_pid, &status, 0) < 0) {
+
+      // Zombie Child could not be collected. Scary!
+      PFATAL("Fauxserver could not determin child's exit code. ");
+
+    }
+
+    /* Relay wait status to AFL pipe, then loop back. */
+
+    if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(0);
+
+  }
 
 }
 
@@ -169,6 +250,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
   int            st_pipe[2], ctl_pipe[2];
   int            status;
   s32            rlen;
+
+  if (fsrv->use_fauxsrv) ACTF("Using Fauxserver:");
 
   if (!getenv("AFL_QUIET")) ACTF("Spinning up the fork server...");
 
@@ -284,7 +367,15 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
            "msan_track_origins=0",
            0);
 
-    execv(fsrv->target_path, argv);
+    if (fsrv->use_fauxsrv) {
+
+      afl_fauxsrv_execv(fsrv, argv);
+
+    } else {
+
+      execv(fsrv->target_path, argv);
+
+    }
 
     /* Use a distinctive bitmap signature to tell the parent about execv()
        falling through. */

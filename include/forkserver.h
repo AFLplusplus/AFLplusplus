@@ -42,7 +42,7 @@ typedef struct afl_forkserver {
       child_pid,                        /* PID of the fuzzed program        */
       out_dir_fd;                       /* FD of the lock file              */
 
-  s32 out_fd,                 /* Persistent fd for afl->fsrv.out_file       */
+  s32 out_fd,                           /* Persistent fd for fsrv->out_file */
 #ifndef HAVE_ARC4RANDOM
       dev_urandom_fd,                   /* Persistent fd for /dev/urandom   */
 #endif
@@ -59,6 +59,8 @@ typedef struct afl_forkserver {
   FILE *plot_file;                      /* Gnuplot output file              */
 
   u8 child_timed_out;                   /* Traced process timed out?        */
+
+  u8 use_fauxsrv;                       /* Fauxsrv for non-forking targets? */
 
 } afl_forkserver_t;
 
