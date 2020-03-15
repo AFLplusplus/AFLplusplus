@@ -24,6 +24,7 @@
  */
 
 #include "afl-fuzz.h"
+#include "envs.h"
 
 s8  interesting_8[] = {INTERESTING_8};
 s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
@@ -116,6 +117,185 @@ void afl_state_init(afl_state_t *afl) {
   init_mopt_globals(afl);
 
   list_append(&afl_states, afl);
+
+}
+
+/*This sets up the environment variables for afl-fuzz into the afl_state
+ * struct*/
+
+void read_afl_environment(afl_state_t *afl, char **envp) {
+
+  int   index = 0, found = 0;
+  char *env;
+  while ((env = envp[index++]) != NULL) {
+
+    if (strncmp(env, "ALF_", 4) == 0) {
+
+      WARNF("Potentially mistyped AFL environment variable: %s", env);
+      found++;
+
+    } else if (strncmp(env, "AFL_", 4) == 0) {
+
+      int i = 0, match = 0;
+      while (match == 0 && afl_environment_variables[i] != NULL) {
+
+        if (strncmp(env, afl_environment_variables[i],
+                    strlen(afl_environment_variables[i])) == 0 &&
+            env[strlen(afl_environment_variables[i])] == '=') {
+
+          match = 1;
+          if (strncmp(env, "AFL_SKIP_CPUFREQ",
+                      strlen(afl_environment_variables[i]) == 0)) {
+
+            afl->afl_env.afl_skip_cpufreq = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_EXIT_WHEN_DONE",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_exit_when_done = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_NO_AFFINITY",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_no_affinity = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_SKIP_CRASHES",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_skip_crashes = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_HANG_TMOUT",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_hang_tmout = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_SKIP_BIN_CHECK",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_skip_bin_check = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_DUMB_FORKSRV",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_dumb_forksrv = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_IMPORT_FIRST",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_import_first = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_ONLY",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_custom_mutator_only = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_NO_UI",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_no_ui = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_FORCE_UI",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_force_ui = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_i_dont_care_about_missing_crashes =
+                (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_BENCH_JUST_ONE",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_bench_just_one = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_BENCH_UNTIL_CRASH",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_bench_until_crash = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_DEBUG_CHILD_OUTPUT",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_debug_child_output = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_AUTORESUME",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_autoresume = (u8)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_TMPDIR",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_tmpdir = (u8 *)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_POST_LIBRARY",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_post_library = (u8 *)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_LIBRARY",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_custom_mutator_library = (u8 *)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_PYTHON_MODULE",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_python_module = (u8 *)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_PATH",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_path = (u8 *)get_afl_env(env);
+
+          } else if (!strncmp(env, "AFL_PRELOAD",
+
+                              strlen(afl_environment_variables[i]))) {
+
+            afl->afl_env.afl_preload = (u8 *)get_afl_env(env);
+
+          }
+
+        } else
+
+          i++;
+
+      }
+
+      if (match == 0) {
+
+        WARNF("Mistyped AFL environment variable: %s", env);
+        found++;
+
+      }
+
+    }
+
+  }
+
+  if (found) sleep(2);
 
 }
 
