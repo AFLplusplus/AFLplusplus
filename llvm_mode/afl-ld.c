@@ -226,14 +226,11 @@ static void edit_params(int argc, char **argv) {
   link_params[link_param_cnt++] = linked_file;
 
   opt_params[0] = alloc_printf("%s/%s", LLVM_BINDIR, "opt");
-  if (getenv("AFL_DONT_OPTIMIZE") == NULL) {
-
+  if (getenv("AFL_DONT_OPTIMIZE") == NULL)
     opt_params[opt_param_cnt++] = "-O3";
-    opt_params[opt_param_cnt++] = "--polly";
-
-  } else
-
+  else
     opt_params[opt_param_cnt++] = "-O0";
+
   // opt_params[opt_param_cnt++] = "-S"; // only when debugging
   opt_params[opt_param_cnt++] = linked_file;  // input: .ll file
   opt_params[opt_param_cnt++] = "-o";
