@@ -39,7 +39,7 @@ u8 *doc_path = NULL;                    /* gath to documentation dir        */
 
 static void init_mopt_globals(afl_state_t *afl) {
 
-  MOpt_globals_t *core = &afl->mopt_globals_pilot;
+  MOpt_globals_t *core = &afl->mopt_globals_core;
   core->finds = afl->core_operator_finds_puppet;
   core->finds_v2 = afl->core_operator_finds_puppet_v2;
   core->cycles = afl->core_operator_cycles_puppet;
