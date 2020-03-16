@@ -61,6 +61,9 @@ if [ -d queue ]; then
 
 fi
 
+RED=`tput setaf 1`
+NC=`tput sgr0`
+
 CUR_TIME=`date +%s`
 
 TMP=`mktemp -t .afl-whatsup-XXXXXXXX` || TMP=`mktemp -p /data/local/tmp .afl-whatsup-XXXXXXXX` || TMP=`mktemp -p /data/local/tmp .afl-whatsup-XXXXXXXX` || exit 1
@@ -77,7 +80,7 @@ TOTAL_PENDING=0
 
 # Time since last path / crash / hang, formatted as string
 FMT_TIME="0 days 0 hours"
-FMT_PATH="none seen yet"
+FMT_PATH="${RED}none seen yet${NC}"
 FMT_CRASH="none seen yet"
 FMT_HANG="none seen yet"
 
@@ -124,7 +127,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
   if [ "$SUMMARY_ONLY" = "" ]; then
 
-    echo ">>> $afl_banner ($RUN_DAYS days, $RUN_HRS hrs) <<<"
+    echo ">>> $afl_banner ($RUN_DAYS days, $RUN_HRS hrs) fuzzer PID: $fuzzer_pid <<<"
     echo
 
   fi
@@ -157,16 +160,28 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
   if [ "$SUMMARY_ONLY" = "" ]; then
 
+    # Warnings in red
+    TIMEOUT_PERC=$((exec_timeout * 100 / execs_done))
+    if [ $TIMEOUT_PERC -ge 10 ]; then
+      echo "  ${RED}timeout_ratio $TIMEOUT_PERC%${NC}"
+    fi
+
+    if [ $EXEC_SEC -lt 100 ]; then 
+      echo "  ${RED}slow execution, $EXEC_SEC execs/sec${NC}"
+    fi
+
     fmt_duration FMT_PATH $last_path
     fmt_duration FMT_CRASH $last_crash
     fmt_duration FMT_HANG $last_hang
-    CPU_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $3}')
 
-    echo "  cpu usage $CPU_USAGE%"
     echo "  last_path  : $FMT_PATH"
     echo "  last_crash : $FMT_CRASH"
     echo "  last_hang  : $FMT_HANG"
 
+    CPU_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $3}')
+    MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
+
+    echo "  cpu usage $CPU_USAGE%, memory usage $MEM_USAGE%"
     echo "  cycle $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, path $cur_path/$paths_total (${PATH_PERC}%)"
 
     if [ "$unique_crashes" = "0" ]; then
@@ -215,6 +230,7 @@ fi
 echo "      Total run time : $FMT_TIME"
 echo "         Total execs : $FMT_EXECS"
 echo "    Cumulative speed : $TOTAL_EPS execs/sec"
+echo "       Average speed : $((TOTAL_EPS / ALIVE_CNT)) execs/sec"
 echo "       Pending paths : $TOTAL_PFAV faves, $TOTAL_PENDING total"
 
 if [ "$ALIVE_CNT" -gt "1" ]; then
