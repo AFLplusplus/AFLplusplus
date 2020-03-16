@@ -55,6 +55,7 @@ struct InsTrim : public ModulePass {
  protected:
   std::list<std::string> myWhitelist;
   uint32_t               function_minimum_size = 1;
+  uint32_t               debug = 0;
 
  private:
   std::mt19937 generator;
@@ -132,13 +133,15 @@ struct InsTrim : public ModulePass {
 
     char be_quiet = 0;
 
-    if (isatty(2) && !getenv("AFL_QUIET")) {
+    if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
       SAYF(cCYA "LLVMInsTrim" VERSION cRST " by csienslab\n");
 
     } else
 
       be_quiet = 1;
+
+    if (getenv("AFL_DEBUG") != NULL) debug = 1;
 
 #if LLVM_VERSION_MAJOR < 9
     char *neverZero_counters_str;
@@ -179,6 +182,17 @@ struct InsTrim : public ModulePass {
     u64 total_hs = 0;
 
     for (Function &F : M) {
+
+      if (debug) {
+
+        uint32_t bb_cnt = 0;
+
+        for (auto &BB : F)
+          if (BB.size() > 0) ++bb_cnt;
+        SAYF(cMGN "[D] " cRST "Function %s size %zu %u\n",
+             F.getName().str().c_str(), F.size(), bb_cnt);
+
+      }
 
       // if the function below our minimum size skip it (1 or 2)
       if (F.size() < function_minimum_size) { continue; }
@@ -405,21 +419,31 @@ struct InsTrim : public ModulePass {
 
         if (MarkSetOpt && MS.find(&BB) == MS.end()) { continue; }
 
+        auto        PI = pred_begin(&BB);
+        auto        PE = pred_end(&BB);
         IRBuilder<> IRB(&*BB.getFirstInsertionPt());
         Value *     L = NULL;
 
-        auto *PN = PHINode::Create(Int32Ty, 0, "", &*BB.begin());
-        DenseMap<BasicBlock *, unsigned> PredMap;
-        for (auto PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE; ++PI) {
+        if (function_minimum_size < 2 && PI == PE) {
 
-          BasicBlock *PBB = *PI;
-          auto        It = PredMap.insert({PBB, genLabel()});
-          unsigned    Label = It.first->second;
-          PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
+          L = ConstantInt::get(Int32Ty, genLabel());
+
+        } else {
+
+          auto *PN = PHINode::Create(Int32Ty, 0, "", &*BB.begin());
+          DenseMap<BasicBlock *, unsigned> PredMap;
+          for (auto PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE; ++PI) {
+
+            BasicBlock *PBB = *PI;
+            auto        It = PredMap.insert({PBB, genLabel()});
+            unsigned    Label = It.first->second;
+            PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
+
+          }
+
+          L = PN;
 
         }
-
-        L = PN;
 
         /* Load prev_loc */
         LoadInst *PrevLoc = IRB.CreateLoad(OldPrev);
@@ -467,10 +491,14 @@ struct InsTrim : public ModulePass {
         IRB.CreateStore(Incr, MapPtrIdx)
             ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-        // Bugfix #3: save the actually location ID to OldPrev
-        Value *Shr = IRB.CreateLShr(L, One32);
-        IRB.CreateStore(Shr, OldPrev)
-            ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        // save the actually location ID to OldPrev if function_minimum_size > 1
+        if (function_minimum_size > 1) {
+
+          Value *Shr = IRB.CreateLShr(L, One32);
+          IRB.CreateStore(Shr, OldPrev)
+              ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+        }
 
         total_instr++;
 
