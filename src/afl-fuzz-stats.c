@@ -284,6 +284,10 @@ void show_stats(afl_state_t *afl) {
 
   if (afl->not_on_tty) return;
 
+  /* If we haven't started doing things, bail out. */
+
+  if (!afl->queue_cur) return;
+
   /* Compute some mildly useful bitmap stats. */
 
   t_bits = (MAP_SIZE << 3) - count_bits(afl->virgin_bits);
