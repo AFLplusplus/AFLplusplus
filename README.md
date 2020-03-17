@@ -311,7 +311,7 @@ $ ./build_qemu_support.sh
 
 For additional instructions and caveats, see [qemu_mode/README.md](qemu_mode/README.md).
 
-If possible you should use the persistent mode, see [README.persistent.md](README.persistent.md).
+If possible you should use the persistent mode, see [qemu_mode/README.persistent.md](qemu_mode/README.persistent.md).
 
 The mode is approximately 2-5x slower than compile-time instrumentation, is
 less conducive to parallelization, and may have some other quirks.
