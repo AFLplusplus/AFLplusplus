@@ -61,6 +61,9 @@ if [ -d queue ]; then
 
 fi
 
+RED=`tput setaf 1 1 1`
+NC=`tput sgr0`
+
 CUR_TIME=`date +%s`
 
 TMP=`mktemp -t .afl-whatsup-XXXXXXXX` || TMP=`mktemp -p /data/local/tmp .afl-whatsup-XXXXXXXX` || TMP=`mktemp -p /data/local/tmp .afl-whatsup-XXXXXXXX` || exit 1
@@ -75,6 +78,12 @@ TOTAL_CRASHES=0
 TOTAL_PFAV=0
 TOTAL_PENDING=0
 
+# Time since last path / crash / hang, formatted as string
+FMT_TIME="0 days 0 hours"
+FMT_PATH="${RED}none seen yet${NC}"
+FMT_CRASH="none seen yet"
+FMT_HANG="none seen yet"
+
 if [ "$SUMMARY_ONLY" = "" ]; then
 
   echo "Individual fuzzers"
@@ -82,6 +91,30 @@ if [ "$SUMMARY_ONLY" = "" ]; then
   echo
 
 fi
+
+fmt_duration()
+{
+  DUR_STRING=
+  if [ $1 -eq 0 ]; then
+    return 1
+  fi
+
+  local duration=$((CUR_TIME - $1))
+  local days=$((duration / 60 / 60 / 24))
+  local hours=$(((duration / 60 / 60) % 24))
+  local minutes=$(((duration / 60) % 60))
+  local seconds=$((duration % 60))
+
+  if [ $days -gt 0 ]; then
+    DUR_STRING="$days days, $hours hours"
+  elif [ $hours -gt 0 ]; then
+    DUR_STRING="$hours hours, $minutes minutes"
+  elif [ $minutes -gt 0 ]; then
+    DUR_STRING="$minutes minutes, $seconds seconds"
+  else
+    DUR_STRING="$seconds seconds"
+  fi
+}
 
 for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
@@ -94,7 +127,7 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
   if [ "$SUMMARY_ONLY" = "" ]; then
 
-    echo ">>> $afl_banner ($RUN_DAYS days, $RUN_HRS hrs) <<<"
+    echo ">>> $afl_banner ($RUN_DAYS days, $RUN_HRS hrs) fuzzer PID: $fuzzer_pid <<<"
     echo
 
   fi
@@ -127,6 +160,28 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
   if [ "$SUMMARY_ONLY" = "" ]; then
 
+    # Warnings in red
+    TIMEOUT_PERC=$((exec_timeout * 100 / execs_done))
+    if [ $TIMEOUT_PERC -ge 10 ]; then
+      echo "  ${RED}timeout_ratio $TIMEOUT_PERC%${NC}"
+    fi
+
+    if [ $EXEC_SEC -lt 100 ]; then
+      echo "  ${RED}slow execution, $EXEC_SEC execs/sec${NC}"
+    fi
+
+    fmt_duration $last_path && FMT_PATH=$DUR_STRING
+    fmt_duration $last_crash && FMT_CRASH=$DUR_STRING
+    fmt_duration $last_hang && FMT_HANG=$DUR_STRING
+
+    echo "  last_path  : $FMT_PATH"
+    echo "  last_crash : $FMT_CRASH"
+    echo "  last_hang  : $FMT_HANG"
+
+    CPU_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $3}')
+    MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
+
+    echo "  cpu usage $CPU_USAGE%, memory usage $MEM_USAGE%"
     echo "  cycle $((cycles_done + 1)), lifetime speed $EXEC_SEC execs/sec, path $cur_path/$paths_total (${PATH_PERC}%)"
 
     if [ "$unique_crashes" = "0" ]; then
@@ -140,6 +195,20 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   fi
 
 done
+
+# Formatting for total time, time since last path, crash, and hang
+fmt_duration $((CUR_TIME - TOTAL_TIME)) && FMT_TIME=$DUR_STRING
+# Formatting for total execution
+FMT_EXECS="0 millions"
+EXECS_MILLION=$((TOTAL_EXECS / 1000 / 1000))
+EXECS_THOUSAND=$((TOTAL_EXECS / 1000 % 1000))
+if [ $EXECS_MILLION -gt 9 ]; then
+  FMT_EXECS="$EXECS_MILLION millions"
+elif [ $EXECS_MILLION -gt 0 ]; then
+  FMT_EXECS="$EXECS_MILLION millions, $EXECS_THOUSAND thousands"
+else
+  FMT_EXECS="$EXECS_THOUSAND thousands"
+fi
 
 rm -f "$TMP"
 
@@ -157,9 +226,12 @@ if [ ! "$DEAD_CNT" = "0" ]; then
   echo "      Dead or remote : $DEAD_CNT (excluded from stats)"
 fi
 
-echo "      Total run time : $TOTAL_DAYS days, $TOTAL_HRS hours"
-echo "         Total execs : $((TOTAL_EXECS / 1000 / 1000)) million"
+echo "      Total run time : $FMT_TIME"
+echo "         Total execs : $FMT_EXECS"
 echo "    Cumulative speed : $TOTAL_EPS execs/sec"
+if [ "$ALIVE_CNT" -gt "0" ]; then
+  echo "       Average speed : $((TOTAL_EPS / ALIVE_CNT)) execs/sec"
+fi
 echo "       Pending paths : $TOTAL_PFAV faves, $TOTAL_PENDING total"
 
 if [ "$ALIVE_CNT" -gt "1" ]; then
