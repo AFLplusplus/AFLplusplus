@@ -353,14 +353,16 @@ The available schedules are:
  - quad
  - lin
  - exploit
+ - mmopt
 
 In parallel mode (-M/-S, several instances with shared queue), we suggest to
-run the master using the exploit schedule (-p exploit) and the slaves with a
-combination of cut-off-exponential (-p coe), exponential (-p fast; default),
-and explore (-p explore) schedules.
+run the master using the explore or fast schedule (-p explore) and the slaves
+with a combination of cut-off-exponential (-p coe), exponential (-p fast),
+explore (-p explore) and mmopt (-p mmopt) schedules. If a schedule does
+not perform well for a target, restart the slave with a different schedule.
 
-In single mode, using -p fast is usually more beneficial than the default
-explore mode.
+In single mode, using -p fast is usually slightly more beneficial than the
+default explore mode.
 (We don't want to change the default behaviour of afl, so "fast" has not been
 made the default mode).
 
