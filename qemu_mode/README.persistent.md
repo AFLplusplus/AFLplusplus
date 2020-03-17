@@ -26,7 +26,8 @@ hexadecimal with the 0x prefix or as a decimal value.
 If the target is compiled with position independant code (PIE/PIC), you must
 add 0x4000000000 to that address, because qemu loads to this base address.
 On strange setups the base address set by QEMU for PIE executable may change,
-you can check it printing the process map using AFL_QEMU_DEBUG_MAPS=1.
+you can check it printing the process map using 
+`AFL_QEMU_DEBUG_MAPS=1 afl-qemu-trace TARGET-BINARY`
 
 If this address is not valid, afl-fuzz will error during startup with the
 message that the forkserver was not found.
