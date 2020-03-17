@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-int target_func(char *buf, int size) {
+int target_func(unsigned char *buf, int size) {
 
   printf("buffer:%p, size:%p\n", buf, size);
   switch (buf[0]) {
