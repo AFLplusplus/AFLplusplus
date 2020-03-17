@@ -328,20 +328,24 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   // Longer execution time means longer work on the input, the deeper in
   // coverage, the better the fuzzing, right? -mh
 
-  if (q->exec_us * 0.1 > avg_exec_us)
-    perf_score = 10;
-  else if (q->exec_us * 0.25 > avg_exec_us)
-    perf_score = 25;
-  else if (q->exec_us * 0.5 > avg_exec_us)
-    perf_score = 50;
-  else if (q->exec_us * 0.75 > avg_exec_us)
-    perf_score = 75;
-  else if (q->exec_us * 4 < avg_exec_us)
-    perf_score = 300;
-  else if (q->exec_us * 3 < avg_exec_us)
-    perf_score = 200;
-  else if (q->exec_us * 2 < avg_exec_us)
-    perf_score = 150;
+  if (afl->schedule != MMOPT) {
+
+    if (q->exec_us * 0.1 > avg_exec_us)
+      perf_score = 10;
+    else if (q->exec_us * 0.25 > avg_exec_us)
+      perf_score = 25;
+    else if (q->exec_us * 0.5 > avg_exec_us)
+      perf_score = 50;
+    else if (q->exec_us * 0.75 > avg_exec_us)
+      perf_score = 75;
+    else if (q->exec_us * 4 < avg_exec_us)
+      perf_score = 300;
+    else if (q->exec_us * 3 < avg_exec_us)
+      perf_score = 200;
+    else if (q->exec_us * 2 < avg_exec_us)
+      perf_score = 150;
+
+  }
 
   /* Adjust score based on bitmap size. The working theory is that better
      coverage translates to better targets. Multiplier from 0.25x to 3x. */
@@ -431,12 +435,9 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       break;
 
     case FAST:
-      if (q->fuzz_level < 16) {
-
+      if (q->fuzz_level < 16)
         factor = ((u32)(1 << q->fuzz_level)) / (fuzz == 0 ? 1 : fuzz);
-
-      } else
-
+      else
         factor = MAX_FACTOR / (fuzz == 0 ? 1 : next_p2(fuzz));
       break;
 
@@ -444,6 +445,12 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
     case QUAD:
       factor = q->fuzz_level * q->fuzz_level / (fuzz == 0 ? 1 : fuzz);
+      break;
+
+    case MMOPT:
+
+      if (afl->max_depth - q->depth < 5) perf_score *= 1.5;
+
       break;
 
     default: PFATAL("Unknown Power Schedule");
@@ -458,8 +465,8 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   if (afl->limit_time_sig != 0 && afl->max_depth - q->depth < 3)
     perf_score *= 2;
   else if (perf_score < 1)
-    perf_score =
-        1;  // Add a lower bound to AFLFast's energy assignment strategies
+    // Add a lower bound to AFLFast's energy assignment strategies
+    perf_score = 1;
 
   /* Make sure that we don't go over limit. */
 

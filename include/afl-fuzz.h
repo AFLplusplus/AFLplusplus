@@ -230,6 +230,7 @@ enum {
   /* 03 */ LIN,     /* Linear schedule                  */
   /* 04 */ QUAD,    /* Quadratic schedule               */
   /* 05 */ EXPLOIT, /* AFL's exploitation-based const.  */
+  /* 06 */ MMOPT,   /* Modified MOPT schedule           */
 
   POWER_SCHEDULES_NUM
 
