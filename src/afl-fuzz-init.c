@@ -1063,7 +1063,8 @@ static void handle_existing_out_dir(afl_state_t *afl) {
            "directory manually,\n"
            "    or specify a different output location for this job. To resume "
            "the old\n"
-           "    session, pass '-' as input directory in the command line ('-i -')\n"
+           "    session, pass '-' as input directory in the command line ('-i "
+           "-')\n"
            "    or set the 'AFL_AUTORESUME=1' env variable and try again.\n",
            OUTPUT_GRACE);
 
@@ -1510,7 +1511,8 @@ void check_crash_handling(void) {
         "    between stumbling upon a crash and having this information "
         "relayed to the\n"
         "    fuzzer via the standard waitpid() API.\n"
-        "    If you're just testing, set 'AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1'.\n\n"
+        "    If you're just testing, set "
+        "'AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1'.\n\n"
 
         "    To avoid having crashes misinterpreted as timeouts, please log in "
         "as root\n"
