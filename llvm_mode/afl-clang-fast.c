@@ -531,7 +531,9 @@ int main(int argc, char **argv, char **envp) {
     debug = 1;
     if (strcmp(getenv("AFL_DEBUG"), "0") == 0) unsetenv("AFL_DEBUG");
 
-  }
+  } else if (getenv("AFL_QUIET"))
+
+    be_quiet = 1;
 
   if (strstr(argv[0], "afl-clang-lto") != NULL) callname = "afl-clang-lto";
 
@@ -619,7 +621,7 @@ int main(int argc, char **argv, char **envp) {
 
     exit(1);
 
-  } else if ((isatty(2) && !getenv("AFL_QUIET")) ||
+  } else if ((isatty(2) && !be_quiet) ||
 
              getenv("AFL_DEBUG") != NULL) {
 
@@ -654,7 +656,8 @@ int main(int argc, char **argv, char **envp) {
   check_environment_vars(envp);
 
   cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG");
-  if (cmplog_mode) printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
+  if (!be_quiet && cmplog_mode)
+    printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
 
 #ifndef __ANDROID__
   find_obj(argv[0]);
