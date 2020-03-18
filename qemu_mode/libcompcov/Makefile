@@ -38,5 +38,5 @@ compcovtest:	compcovtest.cc
 
 install: all
 	install -m 755 ../../libcompcov.so $${DESTDIR}$(HELPER_PATH)
-	install -m 644 README.compcov $${DESTDIR}$(HELPER_PATH)
+	install -m 644 -T README.md $${DESTDIR}$(HELPER_PATH)/README.compcov.md
 
