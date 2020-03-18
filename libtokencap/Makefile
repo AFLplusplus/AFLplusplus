@@ -15,6 +15,8 @@
 
 PREFIX      ?= /usr/local
 HELPER_PATH  = $(PREFIX)/lib/afl
+DOC_PATH    ?= $(PREFIX)/share/doc/afl
+MAN_PATH    ?= $(PREFIX)/man/man8
 
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
@@ -57,5 +59,5 @@ clean:
 install: all
 	install -m 755 -d $${DESTDIR}$(HELPER_PATH)
 	install -m 755 ../libtokencap.so $${DESTDIR}$(HELPER_PATH)
-	install -m 644 -T README.md $${DESTDIR}$(HELPER_PATH)/README.tokencap.md
+	install -m 644 -T README.md $${DESTDIR}$(DOC_PATH)/README.tokencap.md
 

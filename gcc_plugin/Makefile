@@ -21,8 +21,10 @@
 #
 
 PREFIX      ?= /usr/local
-HELPER_PATH  = $(PREFIX)/lib/afl
-BIN_PATH     = $(PREFIX)/bin
+HELPER_PATH ?= $(PREFIX)/lib/afl
+BIN_PATH    ?= $(PREFIX)/bin
+DOC_PATH    ?= $(PREFIX)/share/doc/afl
+MAN_PATH    ?= $(PREFIX)/man/man8
 
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
@@ -136,6 +138,12 @@ vpath  % ..
 	@echo .SH LICENSE >> ../$@
 	@echo Apache License Version 2.0, January 2004 >> ../$@
 	ln -sf afl-gcc-fast.8 ../afl-g++-fast.8
+
+install: all
+	install -m 755 ../afl-gcc-fast $${DESTDIR}$(BIN_PATH)
+	install -m 755 ../afl-gcc-pass.so ../afl-gcc-rt.o $${DESTDIR}$(HELPER_PATH)
+	install -m 644 -T README.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
+	install -m 644 -T README.whitelist.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin_whitelist.md
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 .test2

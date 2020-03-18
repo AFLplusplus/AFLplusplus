@@ -15,6 +15,8 @@
 
 PREFIX      ?= /usr/local
 HELPER_PATH  = $(PREFIX)/lib/afl
+DOC_PATH    ?= $(PREFIX)/share/doc/afl
+MAN_PATH    ?= $(PREFIX)/man/man8
 
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
@@ -38,5 +40,5 @@ compcovtest:	compcovtest.cc
 
 install: all
 	install -m 755 ../../libcompcov.so $${DESTDIR}$(HELPER_PATH)
-	install -m 644 -T README.md $${DESTDIR}$(HELPER_PATH)/README.compcov.md
+	install -m 644 -T README.md $${DESTDIR}$(DOC_PATH)/README.compcov.md
 
