@@ -171,7 +171,7 @@ static int area_is_mapped(void *ptr, size_t len) {
 
 }
 
-void HELPER(afl_cmplog_rtn)(CPUX86State *env) {
+void HELPER(afl_cmplog_rtn)(CPUArchState *env) {
 
 #if defined(TARGET_X86_64)
 
@@ -199,7 +199,12 @@ void HELPER(afl_cmplog_rtn)(CPUX86State *env) {
 
   if (!area_is_mapped(ptr1, 32) || !area_is_mapped(ptr2, 32)) return;
 
+#if defined(TARGET_X86_64) || defined(TARGET_I386)
   uintptr_t k = (uintptr_t)env->eip;
+#else
+  uintptr_t k = 0;
+#endif
+
   k = (k >> 4) ^ (k << 8);
   k &= CMP_MAP_W - 1;
 
