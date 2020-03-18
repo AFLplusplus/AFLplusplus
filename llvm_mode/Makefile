@@ -159,7 +159,7 @@ ifeq "$(shell uname)" "OpenBSD"
   CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so
 endif
 
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -fuse-ld=`which ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -fuse-ld=`type ld | awk '{print $$NF}'` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
   CFLAGS += -DAFL_CLANG_FUSELD=1
 endif
 
