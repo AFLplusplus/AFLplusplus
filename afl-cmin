@@ -25,7 +25,7 @@ awk -f - -- ${@+"$@"} <<'EOF'
 # ln
 # cp
 # pwd
-# which
+# type
 # cd
 # find
 # stat
@@ -264,7 +264,7 @@ BEGIN {
 
   if (target_bin && !exists_and_is_executable(target_bin)) {
 
-    "which "target_bin" 2>/dev/null" | getline tnew
+    "type "target_bin" | awk '{print $NF}' 2>/dev/null" | getline tnew
     if (!tnew || !exists_and_is_executable(tnew)) {
       print "[-] Error: binary '"target_bin"' not found or not executable." > "/dev/stderr"
       exit 1
@@ -313,7 +313,7 @@ BEGIN {
     if (0 == system("test -f afl-cmin")) {
       showmap = "./afl-showmap"
     } else {
-      "which afl-showmap 2>/dev/null" | getline showmap
+      "type afl-showmap | awk '{print $NF}' 2>/dev/null" | getline showmap
     }
   } else {
     showmap = ENVIRON["AFL_PATH"] "/afl-showmap"
