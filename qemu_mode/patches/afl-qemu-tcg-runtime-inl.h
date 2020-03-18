@@ -171,7 +171,7 @@ static int area_is_mapped(void *ptr, size_t len) {
 
 }
 
-void HELPER(afl_cmplog_rtn)(CPUX86State *env) {
+void HELPER(afl_cmplog_rtn)(CPUArchState *env) {
 
 #if defined(TARGET_X86_64)
 
