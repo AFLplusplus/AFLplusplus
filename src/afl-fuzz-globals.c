@@ -78,6 +78,8 @@ list_t afl_states = {.element_prealloc_count = 0};
 
 void afl_state_init(afl_state_t *afl) {
 
+  memset(afl, 0, sizeof(afl_state_t));
+
   afl->w_init = 0.9;
   afl->w_end = 0.3;
   afl->g_max = 5000;
@@ -113,6 +115,29 @@ void afl_state_init(afl_state_t *afl) {
 
   afl->fsrv.child_pid = -1;
   afl->fsrv.out_dir_fd = -1;
+
+  afl->cmplog_prev_timed_out = 0;
+
+  /* statis file */
+  afl->last_bitmap_cvg = 0;
+  afl->last_stability = 0;
+  afl->last_eps = 0;
+
+  /* plot file saves from last run */
+  afl->plot_prev_qp = 0;
+  afl->plot_prev_pf = 0;
+  afl->plot_prev_pnf = 0;
+  afl->plot_prev_ce = 0;
+  afl->plot_prev_md = 0;
+  afl->plot_prev_qc = 0;
+  afl->plot_prev_uc = 0;
+  afl->plot_prev_uh = 0;
+
+  afl->stats_last_stats_ms = 0;
+  afl->stats_last_plot_ms = 0;
+  afl->stats_last_ms = 0;
+  afl->stats_last_execs = 0;
+  afl->stats_avg_exec = -1;
 
   init_mopt_globals(afl);
 

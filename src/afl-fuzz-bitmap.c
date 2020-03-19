@@ -413,7 +413,7 @@ void minimize_bits(u8 *dst, u8 *src) {
 #ifndef SIMPLE_FILES
 
 /* Construct a file name for a new test case, capturing the operation
-   that led to its discovery. Uses a static buffer. */
+   that led to its discovery. Returns a ptr to afl->describe_op_buf_256. */
 
 u8 *describe_op(afl_state_t *afl, u8 hnb) {
 

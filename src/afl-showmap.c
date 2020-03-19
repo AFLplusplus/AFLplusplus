@@ -263,8 +263,7 @@ static void write_to_testcase(afl_forkserver_t *fsrv, void *mem, u32 len) {
 static u8 run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
                                 u32 len) {
 
-  static struct itimerval it;
-  static u32              prev_timed_out = 0;
+  struct itimerval it;
   int                     status = 0;
 
   memset(fsrv->trace_bits, 0, MAP_SIZE);
@@ -277,7 +276,7 @@ static u8 run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
   /* we have the fork server up and running, so simply
      tell it to have at it, and then read back PID. */
 
-  if ((res = write(fsrv->fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+  if ((res = write(fsrv->fsrv_ctl_fd, &fsrv->prev_timed_out, 4)) != 4) {
 
     if (stop_soon) return 0;
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");

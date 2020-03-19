@@ -62,6 +62,8 @@ typedef struct afl_forkserver {
 
   u8 use_fauxsrv;                       /* Fauxsrv for non-forking targets? */
 
+  u32 prev_timed_out;                   /* if prev forkserver run timed out */
+
 } afl_forkserver_t;
 
 void handle_timeout(int sig);

@@ -28,14 +28,7 @@
 #include <signal.h>
 
 /* Execute target application, monitoring for timeouts. Return status
-   information. The called program will update afl->fsrv.trace_bits[]. */
-
-void timeout_handle(union sigval timer_data) {
-
-  pid_t child_pid = timer_data.sival_int;
-  if (child_pid > 0) kill(child_pid, SIGKILL);
-
-}
+   information. The called program will update afl->fsrv.trace_bits. */
 
 u8 run_target(afl_state_t *afl, u32 timeout) {
 
@@ -44,9 +37,7 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
 
   fd_set readfds;
 
-  static struct timeval it;
-  static u32            prev_timed_out = 0;
-
+  struct timeval it;
   int status = 0;
   u32 tb4;
 
@@ -63,7 +54,7 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
   /* we have the fork server (or faux server) up and running, so simply
       tell it to have at it, and then read back PID. */
 
-  if ((res = write(afl->fsrv.fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+  if ((res = write(afl->fsrv.fsrv_ctl_fd, &afl->fsrv.prev_timed_out, 4)) != 4) {
 
     if (afl->stop_soon) return 0;
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
@@ -144,7 +135,7 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
   classify_counts((u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
-  prev_timed_out = afl->fsrv.child_timed_out;
+  afl->fsrv.prev_timed_out = afl->fsrv.child_timed_out;
 
   /* Report outcome to caller. */
 
@@ -299,8 +290,6 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
 u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
                   u32 handicap, u8 from_queue) {
 
-  static u8 first_trace[MAP_SIZE];
-
   u8 fault = 0, new_bits = 0, var_detected = 0,
      first_run = (q->exec_cksum == 0);
 
@@ -331,7 +320,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
       afl->shm.cmplog_mode)
     init_cmplog_forkserver(afl);
 
-  if (q->exec_cksum) memcpy(first_trace, afl->fsrv.trace_bits, MAP_SIZE);
+  if (q->exec_cksum) memcpy(afl->first_trace, afl->fsrv.trace_bits, MAP_SIZE);
 
   start_us = get_cur_time_us();
 
@@ -372,7 +361,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
         for (i = 0; i < MAP_SIZE; ++i) {
 
-          if (!afl->var_bytes[i] && first_trace[i] != afl->fsrv.trace_bits[i]) {
+          if (!afl->var_bytes[i] && afl->first_trace[i] != afl->fsrv.trace_bits[i]) {
 
             afl->var_bytes[i] = 1;
             afl->stage_max = CAL_CYCLES_LONG;
@@ -386,7 +375,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
       } else {
 
         q->exec_cksum = cksum;
-        memcpy(first_trace, afl->fsrv.trace_bits, MAP_SIZE);
+        memcpy(afl->first_trace, afl->fsrv.trace_bits, MAP_SIZE);
 
       }
 
@@ -471,8 +460,6 @@ void sync_fuzzers(afl_state_t *afl) {
 
   while ((sd_ent = readdir(sd))) {
 
-    static u8 stage_tmp[128];
-
     DIR *          qd;
     struct dirent *qd_ent;
     u8 *           qd_path, *qd_synced_path;
@@ -511,8 +498,9 @@ void sync_fuzzers(afl_state_t *afl) {
 
     /* Show stats */
 
-    sprintf(stage_tmp, "sync %u", ++sync_cnt);
-    afl->stage_name = stage_tmp;
+    snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "sync %u", ++sync_cnt);
+
+    if (afl->stage_name != afl->stage_name_buf) afl->stage_name = afl->stage_name_buf;
     afl->stage_cur = 0;
     afl->stage_max = 0;
 
@@ -608,9 +596,6 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   if (afl->mutator && afl->mutator->afl_custom_trim)
     return trim_case_custom(afl, q, in_buf);
 
-  static u8 tmp[64];
-  static u8 clean_trace[MAP_SIZE];
-
   u8  needs_write = 0, fault = 0;
   u32 trim_exec = 0;
   u32 remove_len;
@@ -622,7 +607,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   if (q->len < 5) return 0;
 
-  afl->stage_name = tmp;
+  if (afl->stage_name != afl->stage_name_buf) afl->stage_name = afl->stage_name_buf;
   afl->bytes_trim_in += q->len;
 
   /* Select initial chunk len, starting with large steps. */
@@ -638,7 +623,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     u32 remove_pos = remove_len;
 
-    sprintf(tmp, "trim %s/%s", DI(remove_len), DI(remove_len));
+    snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "trim %s/%s", DI(remove_len), DI(remove_len));
 
     afl->stage_cur = 0;
     afl->stage_max = q->len / remove_len;
@@ -680,7 +665,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
         if (!needs_write) {
 
           needs_write = 1;
-          memcpy(clean_trace, afl->fsrv.trace_bits, MAP_SIZE);
+          memcpy(afl->clean_trace, afl->fsrv.trace_bits, MAP_SIZE);
 
         }
 
@@ -722,7 +707,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     ck_write(fd, in_buf, q->len, q->fname);
     close(fd);
 
-    memcpy(afl->fsrv.trace_bits, clean_trace, MAP_SIZE);
+    memcpy(afl->fsrv.trace_bits, afl->clean_trace, MAP_SIZE);
     update_bitmap_score(afl, q);
 
   }

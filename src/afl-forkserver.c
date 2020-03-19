@@ -156,6 +156,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->out_dir_fd = -1;
 
   fsrv->use_fauxsrv = 0;
+  fsrv->prev_timed_out = 0;
 
   list_append(&fsrv_list, fsrv);
 
@@ -166,7 +167,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
 static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
-  static unsigned char tmp[4] = {0};
+  unsigned char tmp[4] = {0};
   pid_t                child_pid = -1;
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,

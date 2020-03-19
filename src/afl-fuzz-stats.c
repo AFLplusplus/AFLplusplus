@@ -30,8 +30,7 @@
 void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
                       double eps) {
 
-  static double        last_bcvg, last_stab, last_eps;
-  static struct rusage rus;
+  struct rusage rus;
 
   u8 *  fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
   s32   fd;
@@ -52,15 +51,15 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
   if (!bitmap_cvg && !stability && !eps) {
 
-    bitmap_cvg = last_bcvg;
-    stability = last_stab;
-    eps = last_eps;
+    bitmap_cvg = afl->last_bitmap_cvg;
+    stability = afl->last_stability;
+    eps = afl->last_eps;
 
   } else {
 
-    last_bcvg = bitmap_cvg;
-    last_stab = stability;
-    last_eps = eps;
+    afl->last_bitmap_cvg = bitmap_cvg;
+    afl->last_stability = stability;
+    afl->last_eps = eps;
 
   }
 
@@ -137,23 +136,24 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
 void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
 
-  static u32 prev_qp, prev_pf, prev_pnf, prev_ce, prev_md;
-  static u64 prev_qc, prev_uc, prev_uh;
-
-  if (prev_qp == afl->queued_paths && prev_pf == afl->pending_favored &&
-      prev_pnf == afl->pending_not_fuzzed && prev_ce == afl->current_entry &&
-      prev_qc == afl->queue_cycle && prev_uc == afl->unique_crashes &&
-      prev_uh == afl->unique_hangs && prev_md == afl->max_depth)
+  if (afl->plot_prev_qp == afl->queued_paths &&
+      afl->plot_prev_pf == afl->pending_favored &&
+      afl->plot_prev_pnf == afl->pending_not_fuzzed &&
+      afl->plot_prev_ce == afl->current_entry &&
+      afl->plot_prev_qc == afl->queue_cycle &&
+      afl->plot_prev_uc == afl->unique_crashes &&
+      afl->plot_prev_uh == afl->unique_hangs &&
+      afl->plot_prev_md == afl->max_depth)
     return;
 
-  prev_qp = afl->queued_paths;
-  prev_pf = afl->pending_favored;
-  prev_pnf = afl->pending_not_fuzzed;
-  prev_ce = afl->current_entry;
-  prev_qc = afl->queue_cycle;
-  prev_uc = afl->unique_crashes;
-  prev_uh = afl->unique_hangs;
-  prev_md = afl->max_depth;
+  afl->plot_prev_qp = afl->queued_paths;
+  afl->plot_prev_pf = afl->pending_favored;
+  afl->plot_prev_pnf = afl->pending_not_fuzzed;
+  afl->plot_prev_ce = afl->current_entry;
+  afl->plot_prev_qc = afl->queue_cycle;
+  afl->plot_prev_uc = afl->unique_crashes;
+  afl->plot_prev_uh = afl->unique_hangs;
+  afl->plot_prev_md = afl->max_depth;
 
   /* Fields in the file:
 
@@ -192,8 +192,6 @@ static void check_term_size(afl_state_t *afl) {
 
 void show_stats(afl_state_t *afl) {
 
-  static u64    last_stats_ms, last_plot_ms, last_ms, last_execs;
-  static double avg_exec;
   double        t_byte_ratio, stab_ratio;
 
   u64 cur_ms;
@@ -201,12 +199,13 @@ void show_stats(afl_state_t *afl) {
 
   u32 banner_len, banner_pad;
   u8  tmp[256];
+  u8 time_tmp[64];
 
   cur_ms = get_cur_time();
 
   /* If not enough time has passed since last UI update, bail out. */
 
-  if (cur_ms - last_ms < 1000 / UI_TARGET_HZ && !afl->force_ui_update) return;
+  if (cur_ms - afl->stats_last_ms < 1000 / UI_TARGET_HZ && !afl->force_ui_update) return;
 
   /* Check if we're past the 10 minute mark. */
 
@@ -214,31 +213,29 @@ void show_stats(afl_state_t *afl) {
 
   /* Calculate smoothed exec speed stats. */
 
-  if (!last_execs) {
+  if (!afl->stats_last_execs) {
 
-    avg_exec = ((double)afl->total_execs) * 1000 / (cur_ms - afl->start_time);
+    afl->stats_avg_exec = ((double)afl->total_execs) * 1000 / (cur_ms - afl->start_time);
 
   } else {
 
-    double cur_avg =
-        ((double)(afl->total_execs - last_execs)) * 1000 / (cur_ms - last_ms);
+    double cur_avg = ((double)(afl->total_execs - afl->stats_last_execs)) * 1000 / (cur_ms - afl->stats_last_ms);
 
     /* If there is a dramatic (5x+) jump in speed, reset the indicator
        more quickly. */
 
-    if (cur_avg * 5 < avg_exec || cur_avg / 5 > avg_exec) avg_exec = cur_avg;
+    if (cur_avg * 5 < afl->stats_avg_exec || cur_avg / 5 > afl->stats_avg_exec) afl->stats_avg_exec = cur_avg;
 
-    avg_exec = avg_exec * (1.0 - 1.0 / AVG_SMOOTHING) +
-               cur_avg * (1.0 / AVG_SMOOTHING);
+    afl->stats_avg_exec = afl->stats_avg_exec * (1.0 - 1.0 / AVG_SMOOTHING) + cur_avg * (1.0 / AVG_SMOOTHING);
 
   }
 
-  last_ms = cur_ms;
-  last_execs = afl->total_execs;
+  afl->stats_last_ms = cur_ms;
+  afl->stats_last_execs = afl->total_execs;
 
   /* Tell the callers when to contact us (as measured in execs). */
 
-  afl->stats_update_freq = avg_exec / (UI_TARGET_HZ * 10);
+  afl->stats_update_freq = afl->stats_avg_exec / (UI_TARGET_HZ * 10);
   if (!afl->stats_update_freq) afl->stats_update_freq = 1;
 
   /* Do some bitmap stats. */
@@ -253,10 +250,10 @@ void show_stats(afl_state_t *afl) {
 
   /* Roughly every minute, update fuzzer stats and save auto tokens. */
 
-  if (cur_ms - last_stats_ms > STATS_UPDATE_SEC * 1000) {
+  if (cur_ms - afl->stats_last_stats_ms > STATS_UPDATE_SEC * 1000) {
 
-    last_stats_ms = cur_ms;
-    write_stats_file(afl, t_byte_ratio, stab_ratio, avg_exec);
+    afl->stats_last_stats_ms = cur_ms;
+    write_stats_file(afl, t_byte_ratio, stab_ratio, afl->stats_avg_exec);
     save_auto(afl);
     write_bitmap(afl);
 
@@ -264,10 +261,10 @@ void show_stats(afl_state_t *afl) {
 
   /* Every now and then, write plot data. */
 
-  if (cur_ms - last_plot_ms > PLOT_UPDATE_SEC * 1000) {
+  if (cur_ms - afl->stats_last_plot_ms > PLOT_UPDATE_SEC * 1000) {
 
-    last_plot_ms = cur_ms;
-    maybe_update_plot_file(afl, t_byte_ratio, avg_exec);
+    afl->stats_last_plot_ms = cur_ms;
+    maybe_update_plot_file(afl, t_byte_ratio, afl->stats_avg_exec);
 
   }
 
@@ -384,9 +381,9 @@ void show_stats(afl_state_t *afl) {
 
   }
 
+  DTD(time_tmp, sizeof(time_tmp), cur_ms, afl->start_time);
   SAYF(bV bSTOP "        run time : " cRST "%-33s " bSTG bV bSTOP
-                "  cycles done : %s%-5s " bSTG              bV "\n",
-       DTD(cur_ms, afl->start_time), tmp, DI(afl->queue_cycle - 1));
+                "  cycles done : %s%-5s " bSTG              bV "\n", time_tmp, tmp, DI(afl->queue_cycle - 1));
 
   /* We want to warn people about not seeing new paths after a full cycle,
      except when resuming fuzzing or running in non-instrumented mode. */
@@ -395,8 +392,8 @@ void show_stats(afl_state_t *afl) {
       (afl->last_path_time || afl->resuming_fuzz || afl->queue_cycle == 1 ||
        afl->in_bitmap || afl->crash_mode)) {
 
-    SAYF(bV bSTOP "   last new path : " cRST "%-33s ",
-         DTD(cur_ms, afl->last_path_time));
+    DTD(time_tmp, sizeof(time_tmp), cur_ms, afl->last_path_time);
+    SAYF(bV bSTOP "   last new path : " cRST "%-33s ", time_tmp);
 
   } else {
 
@@ -421,17 +418,16 @@ void show_stats(afl_state_t *afl) {
   sprintf(tmp, "%s%s", DI(afl->unique_crashes),
           (afl->unique_crashes >= KEEP_UNIQUE_CRASH) ? "+" : "");
 
+  DTD(time_tmp, sizeof(time_tmp), cur_ms, afl->last_crash_time);
   SAYF(bV bSTOP " last uniq crash : " cRST "%-33s " bSTG bV bSTOP
-                " uniq crashes : %s%-6s" bSTG               bV "\n",
-       DTD(cur_ms, afl->last_crash_time), afl->unique_crashes ? cLRD : cRST,
-       tmp);
+                " uniq crashes : %s%-6s" bSTG               bV "\n", time_tmp, afl->unique_crashes ? cLRD : cRST, tmp);
 
   sprintf(tmp, "%s%s", DI(afl->unique_hangs),
           (afl->unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
+  DTD(time_tmp, sizeof(time_tmp), cur_ms, afl->last_hang_time);
   SAYF(bV bSTOP "  last uniq hang : " cRST "%-33s " bSTG bV bSTOP
-                "   uniq hangs : " cRST "%-6s" bSTG         bV "\n",
-       DTD(cur_ms, afl->last_hang_time), tmp);
+                "   uniq hangs : " cRST "%-6s" bSTG         bV "\n", time_tmp, tmp);
 
   SAYF(bVR bH bSTOP            cCYA
        " cycle progress " bSTG bH10 bH5 bH2 bH2 bHB bH bSTOP cCYA
@@ -515,23 +511,22 @@ void show_stats(afl_state_t *afl) {
 
   /* Show a warning about slow execution. */
 
-  if (avg_exec < 100) {
+  if (afl->stats_avg_exec < 100) {
 
-    sprintf(tmp, "%s/sec (%s)", DF(avg_exec),
-            avg_exec < 20 ? "zzzz..." : "slow!");
+    sprintf(tmp, "%s/sec (%s)", DF(afl->stats_avg_exec),
+            afl->stats_avg_exec < 20 ? "zzzz..." : "slow!");
 
     SAYF(bV bSTOP "  exec speed : " cLRD "%-20s ", tmp);
 
   } else {
 
-    sprintf(tmp, "%s/sec", DF(avg_exec));
+    sprintf(tmp, "%s/sec", DF(afl->stats_avg_exec));
     SAYF(bV bSTOP "  exec speed : " cRST "%-20s ", tmp);
 
   }
 
   sprintf(tmp, "%s (%s%s unique)", DI(afl->total_tmouts),
-          DI(afl->unique_tmouts),
-          (afl->unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
+          DI(afl->unique_tmouts), (afl->unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   SAYF(bSTG bV bSTOP "  total tmouts : " cRST "%-22s" bSTG bV "\n", tmp);
 
