@@ -399,7 +399,7 @@ static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
                      u8 first_run) {
 
   struct itimerval it;
-  int                     status = 0;
+  int              status = 0;
 
   u32 cksum;
 

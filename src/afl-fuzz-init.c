@@ -797,7 +797,7 @@ void pivot_inputs(afl_state_t *afl) {
 
 u32 find_start_position(afl_state_t *afl) {
 
-  u8 tmp[4096] = {0};                 /* Ought to be enough for anybody. */
+  u8 tmp[4096] = {0};                    /* Ought to be enough for anybody. */
 
   u8 *fn, *off;
   s32 fd, i;
@@ -834,7 +834,7 @@ u32 find_start_position(afl_state_t *afl) {
 
 void find_timeout(afl_state_t *afl) {
 
-  u8 tmp[4096] = {0};                /* Ought to be enough for anybody. */
+  u8 tmp[4096] = {0};                    /* Ought to be enough for anybody. */
 
   u8 *fn, *off;
   s32 fd, i;

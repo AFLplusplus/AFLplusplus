@@ -166,8 +166,8 @@ u8 *DMS(u64 val) {
 
 void DTD(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
 
-  u64       delta;
-  s32       t_d, t_h, t_m, t_s;
+  u64 delta;
+  s32 t_d, t_h, t_m, t_s;
 
   if (!event_ms) snprintf(buf, len, "none seen yet");
 

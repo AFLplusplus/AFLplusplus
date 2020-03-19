@@ -38,8 +38,8 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
   fd_set readfds;
 
   struct timeval it;
-  int status = 0;
-  u32 tb4;
+  int            status = 0;
+  u32            tb4;
 
   afl->fsrv.child_timed_out = 0;
 
@@ -361,7 +361,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
         for (i = 0; i < MAP_SIZE; ++i) {
 
-          if (!afl->var_bytes[i] && afl->first_trace[i] != afl->fsrv.trace_bits[i]) {
+          if (!afl->var_bytes[i] &&
+              afl->first_trace[i] != afl->fsrv.trace_bits[i]) {
 
             afl->var_bytes[i] = 1;
             afl->stage_max = CAL_CYCLES_LONG;
@@ -500,7 +501,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
     snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "sync %u", ++sync_cnt);
 
-    if (afl->stage_name != afl->stage_name_buf) afl->stage_name = afl->stage_name_buf;
+    if (afl->stage_name != afl->stage_name_buf)
+      afl->stage_name = afl->stage_name_buf;
     afl->stage_cur = 0;
     afl->stage_max = 0;
 
@@ -607,7 +609,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   if (q->len < 5) return 0;
 
-  if (afl->stage_name != afl->stage_name_buf) afl->stage_name = afl->stage_name_buf;
+  if (afl->stage_name != afl->stage_name_buf)
+    afl->stage_name = afl->stage_name_buf;
   afl->bytes_trim_in += q->len;
 
   /* Select initial chunk len, starting with large steps. */
@@ -623,7 +626,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     u32 remove_pos = remove_len;
 
-    snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "trim %s/%s", DI(remove_len), DI(remove_len));
+    snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "trim %s/%s", DI(remove_len),
+             DI(remove_len));
 
     afl->stage_cur = 0;
     afl->stage_max = q->len / remove_len;

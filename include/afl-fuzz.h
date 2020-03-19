@@ -109,7 +109,8 @@
 #define CASE_PREFIX "id_"
 #endif                                                    /* ^!SIMPLE_FILES */
 
-#define STAGE_BUF_SIZE (64) /* usable size of the stage name buf in afl_state */
+#define STAGE_BUF_SIZE (64) /* usable size of the stage name buf in afl_state \
+                             */
 
 extern s8  interesting_8[INTERESTING_8_LEN];
 extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
@@ -542,7 +543,7 @@ typedef struct afl_state {
 
   /* cmplog forkserver ids */
   s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
-  u32            cmplog_prev_timed_out;
+  u32 cmplog_prev_timed_out;
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
@@ -559,13 +560,13 @@ typedef struct afl_state {
 #endif
 
   /* statis file */
-  double        last_bitmap_cvg, last_stability, last_eps;
+  double last_bitmap_cvg, last_stability, last_eps;
 
   /* plot file saves from last run */
   u32 plot_prev_qp, plot_prev_pf, plot_prev_pnf, plot_prev_ce, plot_prev_md;
   u64 plot_prev_qc, plot_prev_uc, plot_prev_uh;
 
-  u64    stats_last_stats_ms, stats_last_plot_ms, stats_last_ms, stats_last_execs;
+  u64 stats_last_stats_ms, stats_last_plot_ms, stats_last_ms, stats_last_execs;
   double stats_avg_exec;
 
   u8 clean_trace[MAP_SIZE];
@@ -800,9 +801,9 @@ u8 has_new_bits(afl_state_t *, u8 *);
 
 /* Misc */
 
-u8 *DI(u64);
-u8 *DF(double);
-u8 *DMS(u64);
+u8 * DI(u64);
+u8 * DF(double);
+u8 * DMS(u64);
 void DTD(u8 *, size_t, u64, u64);
 
 /* Extras */

@@ -168,7 +168,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
   unsigned char tmp[4] = {0};
-  pid_t                child_pid = -1;
+  pid_t         child_pid = -1;
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */

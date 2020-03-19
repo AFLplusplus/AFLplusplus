@@ -264,7 +264,7 @@ static u8 run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
                                 u32 len) {
 
   struct itimerval it;
-  int                     status = 0;
+  int              status = 0;
 
   memset(fsrv->trace_bits, 0, MAP_SIZE);
   MEM_BARRIER();
