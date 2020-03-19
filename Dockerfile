@@ -31,7 +31,7 @@ ARG CC=gcc-9
 ARG CXX=g++-9
 ARG LLVM_CONFIG=llvm-config-9
 
-RUN git clone https://github.com/vanhauser-thc/AFLplusplus
+RUN git clone https://github.com/AFLplusplus/AFLplusplus
 
 RUN cd AFLplusplus && make clean && make distrib && \
     make install && cd .. && rm -rf AFLplusplus

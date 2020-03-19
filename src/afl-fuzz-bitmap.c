@@ -499,7 +499,7 @@ static void write_crash_readme(afl_state_t *afl) {
       "drop\n"
       "an mail at <afl-users@googlegroups.com> once the issues are fixed\n\n"
 
-      "  https://github.com/vanhauser-thc/AFLplusplus\n\n",
+      "  https://github.com/AFLplusplus/AFLplusplus\n\n",
 
       afl->orig_cmdline, DMS(afl->fsrv.mem_limit << 20));  /* ignore errors */
 

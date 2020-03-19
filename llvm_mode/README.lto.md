@@ -210,7 +210,7 @@ be implemented ...
 afl-clang-lto is still work in progress.
 Complex targets are still likely not to compile and this needs to be fixed.
 Please report issues at:
-[https://github.com/vanhauser-thc/AFLplusplus/issues/226](https://github.com/vanhauser-thc/AFLplusplus/issues/226)
+[https://github.com/AFLplusplus/AFLplusplus/issues/226](https://github.com/AFLplusplus/AFLplusplus/issues/226)
 
 Known issues:
 * ffmpeg

@@ -675,7 +675,7 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
-      "https://github.com/vanhauser-thc/AFLplusplus");
+      "https://github.com/AFLplusplus/AFLplusplus");
   OKF("Power schedules from github.com/mboehme/aflfast");
   OKF("Python Mutator and llvm_mode whitelisting from github.com/choller/afl");
   OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");

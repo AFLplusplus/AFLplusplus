@@ -4,7 +4,7 @@ In the following, we describe a variety of ideas that could be implemented
 for future AFL++ versions.
 
 For GSOC2020 interested students please see
-[https://github.com/vanhauser-thc/AFLplusplus/issues/208](https://github.com/vanhauser-thc/AFLplusplus/issues/208)
+[https://github.com/AFLplusplus/AFLplusplus/issues/208](https://github.com/AFLplusplus/AFLplusplus/issues/208)
 
 ## Flexible Grammar Mutator
 
@@ -52,7 +52,7 @@ There also is/was a FreeBSD project at [https://github.com/veracode-research/fre
 This enables snapshot fuzzing on Linux with an incredible performance!
 
 Mentor: any
-Idea/Issue tracker: [https://github.com/vanhauser-thc/AFLplusplus/issues/248](https://github.com/vanhauser-thc/AFLplusplus/issues/248)
+Idea/Issue tracker: [https://github.com/AFLplusplus/AFLplusplus/issues/248](https://github.com/AFLplusplus/AFLplusplus/issues/248)
 
 ## QEMU 4-based Instrumentation
 
@@ -111,10 +111,10 @@ Note: this is already in development for qemu by Andrea, so for people who
 want to contribute it might make more sense to port his solution to unicorn.
 
 Mentor: andreafioraldi or domenukk
-Issue/idea tracker: [https://github.com/vanhauser-thc/AFLplusplus/issues/237](https://github.com/vanhauser-thc/AFLplusplus/issues/237)
+Issue/idea tracker: [https://github.com/AFLplusplus/AFLplusplus/issues/237](https://github.com/AFLplusplus/AFLplusplus/issues/237)
 
 ## Your idea!
 
 Finally, we are open to proposals!
-Create an issue at https://github.com/vanhauser-thc/AFLplusplus/issues and let's discuss :-)
+Create an issue at https://github.com/AFLplusplus/AFLplusplus/issues and let's discuss :-)
 

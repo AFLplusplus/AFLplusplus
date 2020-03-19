@@ -2,7 +2,7 @@
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">
 
-  ![Travis State](https://api.travis-ci.com/vanhauser-thc/AFLplusplus.svg?branch=master)
+  ![Travis State](https://api.travis-ci.com/AFLplusplus/AFLplusplus.svg?branch=master)
 
   Release Version: 2.62c
 
@@ -12,7 +12,7 @@
 
   Originally developed by Michal "lcamtuf" Zalewski.
 
-  Repository: [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
+  Repository: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
   afl++ is maintained by:
     * Marc "van Hauser" Heuse <mh@mh-sec.de>,
@@ -88,7 +88,7 @@
   So all in all this is the best-of afl that is currently out there :-)
 
   For new versions and additional information, check out:
-  [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
+  [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
   To compare notes with other users or get notified about major new features,
   send a mail to <afl-users+subscribe@googlegroups.com>.
@@ -730,7 +730,7 @@ Thank you!
 ## 18) Contact
 
 Questions? Concerns? Bug reports? The contributors can be reached via
-[https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
+[https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
 There is also a mailing list for the afl project; to join, send a mail to
 <afl-users+subscribe@googlegroups.com>. Or, if you prefer to browse
