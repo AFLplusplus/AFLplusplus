@@ -33,7 +33,7 @@ This is an excellent mutations scheduler based on Particle Swarm
 Optimization but the current implementation schedule only the mutations
 that were present on AFL.
 
-AFL++ added a lost of optional mutators like the Input-2-State one based
+AFL++ added a lot of optional mutators like the Input-2-State one based
 on Redqueen, the Radamsa mutator, the Custom mutator (the user can define
 its own mutator) and the work is to generalize MOpt for all the current
 and future mutators.
