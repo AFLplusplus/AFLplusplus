@@ -578,11 +578,6 @@ static void setup_signal_handlers(void) {
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
 
-  /* Exec timeout notifications. */
-
-  sa.sa_handler = handle_timeout;
-  sigaction(SIGALRM, &sa, NULL);
-
 }
 
 /* Show banner. */

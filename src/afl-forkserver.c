@@ -51,18 +51,17 @@
 
 extern u8 *doc_path;
 
-u8 *forkserver_DMS(u64 val) {
+static void forkserver_stringify_int(u8 *buf, size_t len, u64 val) {
 
-  static u8 tmp[12][16];
-  static u8 cur;
+  u8 cur = 0;
 
 #define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)    \
   do {                                                    \
                                                           \
     if (val < (_divisor) * (_limit_mult)) {               \
                                                           \
-      sprintf(tmp[cur], _fmt, ((_cast)val) / (_divisor)); \
-      return tmp[cur];                                    \
+      snprintf(buf, len, _fmt, ((_cast)val) / (_divisor));\
+      return;                                             \
                                                           \
     }                                                     \
                                                           \
@@ -106,35 +105,12 @@ u8 *forkserver_DMS(u64 val) {
 #undef CHK_FORMAT
 
   /* 100T+ */
-  strcpy(tmp[cur], "infty");
-  return tmp[cur];
+  strncpy(buf, "infty", len - 1);
+  buf[len - 1] = '\0';
 
 }
 
 list_t fsrv_list = {.element_prealloc_count = 0};
-
-/* the timeout handler */
-
-void handle_timeout(int sig) {
-
-  LIST_FOREACH(&fsrv_list, afl_forkserver_t, {
-
-    // TODO: We need a proper timer to handle multiple timeouts
-    if (el->child_pid > 0) {
-
-      el->child_timed_out = 1;
-      kill(el->child_pid, SIGKILL);
-
-    } else if (el->child_pid == -1 && el->fsrv_pid > 0) {
-
-      el->child_timed_out = 1;
-      kill(el->fsrv_pid, SIGKILL);
-
-    }
-
-  });
-
-}
 
 /* Initializes the struct */
 
@@ -477,6 +453,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 
     } else {
 
+      u8 mem_limit_buf[16];
+      forkserver_stringify_int(mem_limit_buf, sizeof(mem_limit_buf), fsrv->mem_limit << 20);
+
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
            "before receiving any input\n"
@@ -509,7 +488,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
            "options\n"
            "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
            "tips.\n",
-           forkserver_DMS(fsrv->mem_limit << 20), fsrv->mem_limit - 1);
+           mem_limit_buf, fsrv->mem_limit - 1);
 
     }
 
@@ -544,6 +523,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 
   } else {
 
+    u8 mem_limit_buf[16];
+    forkserver_stringify_int(mem_limit_buf, sizeof(mem_limit_buf), fsrv->mem_limit << 20);
+
     SAYF(
         "\n" cLRD "[-] " cRST
         "Hmm, looks like the target binary terminated "
@@ -575,7 +557,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
               "never\n"
               "      reached before the program terminates.\n\n"
             : "",
-        forkserver_DMS(fsrv->mem_limit << 20), fsrv->mem_limit - 1);
+        mem_limit_buf, fsrv->mem_limit - 1);
 
   }
 
