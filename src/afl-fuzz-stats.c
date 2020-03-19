@@ -192,20 +192,22 @@ static void check_term_size(afl_state_t *afl) {
 
 void show_stats(afl_state_t *afl) {
 
-  double        t_byte_ratio, stab_ratio;
+  double t_byte_ratio, stab_ratio;
 
   u64 cur_ms;
   u32 t_bytes, t_bits;
 
   u32 banner_len, banner_pad;
   u8  tmp[256];
-  u8 time_tmp[64];
+  u8  time_tmp[64];
 
   cur_ms = get_cur_time();
 
   /* If not enough time has passed since last UI update, bail out. */
 
-  if (cur_ms - afl->stats_last_ms < 1000 / UI_TARGET_HZ && !afl->force_ui_update) return;
+  if (cur_ms - afl->stats_last_ms < 1000 / UI_TARGET_HZ &&
+      !afl->force_ui_update)
+    return;
 
   /* Check if we're past the 10 minute mark. */
 
@@ -215,18 +217,22 @@ void show_stats(afl_state_t *afl) {
 
   if (!afl->stats_last_execs) {
 
-    afl->stats_avg_exec = ((double)afl->total_execs) * 1000 / (cur_ms - afl->start_time);
+    afl->stats_avg_exec =
+        ((double)afl->total_execs) * 1000 / (cur_ms - afl->start_time);
 
   } else {
 
-    double cur_avg = ((double)(afl->total_execs - afl->stats_last_execs)) * 1000 / (cur_ms - afl->stats_last_ms);
+    double cur_avg = ((double)(afl->total_execs - afl->stats_last_execs)) *
+                     1000 / (cur_ms - afl->stats_last_ms);
 
     /* If there is a dramatic (5x+) jump in speed, reset the indicator
        more quickly. */
 
-    if (cur_avg * 5 < afl->stats_avg_exec || cur_avg / 5 > afl->stats_avg_exec) afl->stats_avg_exec = cur_avg;
+    if (cur_avg * 5 < afl->stats_avg_exec || cur_avg / 5 > afl->stats_avg_exec)
+      afl->stats_avg_exec = cur_avg;
 
-    afl->stats_avg_exec = afl->stats_avg_exec * (1.0 - 1.0 / AVG_SMOOTHING) + cur_avg * (1.0 / AVG_SMOOTHING);
+    afl->stats_avg_exec = afl->stats_avg_exec * (1.0 - 1.0 / AVG_SMOOTHING) +
+                          cur_avg * (1.0 / AVG_SMOOTHING);
 
   }
 
@@ -348,9 +354,9 @@ void show_stats(afl_state_t *afl) {
 
   /* Lord, forgive me this. */
 
-  SAYF(SET_G1 bSTG bLT bH bSTOP cCYA
+  SAYF(SET_G1 bSTG bLT bH bSTOP                         cCYA
        " process timing " bSTG bH30 bH5 bH bHB bH bSTOP cCYA
-       " overall results " bSTG bH2 bH2 bRT "\n");
+       " overall results " bSTG bH2 bH2                 bRT "\n");
 
   if (afl->dumb_mode) {
 
@@ -383,7 +389,8 @@ void show_stats(afl_state_t *afl) {
 
   DTD(time_tmp, sizeof(time_tmp), cur_ms, afl->start_time);
   SAYF(bV bSTOP "        run time : " cRST "%-33s " bSTG bV bSTOP
-                "  cycles done : %s%-5s " bSTG              bV "\n", time_tmp, tmp, DI(afl->queue_cycle - 1));
+                "  cycles done : %s%-5s " bSTG              bV "\n",
+       time_tmp, tmp, DI(afl->queue_cycle - 1));
 
   /* We want to warn people about not seeing new paths after a full cycle,
      except when resuming fuzzing or running in non-instrumented mode. */
@@ -420,18 +427,20 @@ void show_stats(afl_state_t *afl) {
 
   DTD(time_tmp, sizeof(time_tmp), cur_ms, afl->last_crash_time);
   SAYF(bV bSTOP " last uniq crash : " cRST "%-33s " bSTG bV bSTOP
-                " uniq crashes : %s%-6s" bSTG               bV "\n", time_tmp, afl->unique_crashes ? cLRD : cRST, tmp);
+                " uniq crashes : %s%-6s" bSTG               bV "\n",
+       time_tmp, afl->unique_crashes ? cLRD : cRST, tmp);
 
   sprintf(tmp, "%s%s", DI(afl->unique_hangs),
           (afl->unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   DTD(time_tmp, sizeof(time_tmp), cur_ms, afl->last_hang_time);
   SAYF(bV bSTOP "  last uniq hang : " cRST "%-33s " bSTG bV bSTOP
-                "   uniq hangs : " cRST "%-6s" bSTG         bV "\n", time_tmp, tmp);
+                "   uniq hangs : " cRST "%-6s" bSTG         bV "\n",
+       time_tmp, tmp);
 
-  SAYF(bVR bH bSTOP            cCYA
+  SAYF(bVR bH bSTOP                                          cCYA
        " cycle progress " bSTG bH10 bH5 bH2 bH2 bHB bH bSTOP cCYA
-       " map coverage " bSTG bH bHT bH20 bH2 bVL "\n");
+       " map coverage " bSTG bH bHT bH20 bH2                 bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
      together, but then cram them into a fixed-width field - so we need to
@@ -460,9 +469,9 @@ void show_stats(afl_state_t *afl) {
 
   SAYF(bSTOP " count coverage : " cRST "%-21s" bSTG bV "\n", tmp);
 
-  SAYF(bVR bH bSTOP            cCYA
+  SAYF(bVR bH bSTOP                                         cCYA
        " stage progress " bSTG bH10 bH5 bH2 bH2 bX bH bSTOP cCYA
-       " findings in depth " bSTG bH10 bH5 bH2 bH2 bVL "\n");
+       " findings in depth " bSTG bH10 bH5 bH2 bH2          bVL "\n");
 
   sprintf(tmp, "%s (%0.02f%%)", DI(afl->queued_favored),
           ((double)afl->queued_favored) * 100 / afl->queued_paths);
@@ -526,13 +535,14 @@ void show_stats(afl_state_t *afl) {
   }
 
   sprintf(tmp, "%s (%s%s unique)", DI(afl->total_tmouts),
-          DI(afl->unique_tmouts), (afl->unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
+          DI(afl->unique_tmouts),
+          (afl->unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   SAYF(bSTG bV bSTOP "  total tmouts : " cRST "%-22s" bSTG bV "\n", tmp);
 
   /* Aaaalmost there... hold on! */
 
-  SAYF(bVR bH cCYA                      bSTOP
+  SAYF(bVR bH cCYA                                                     bSTOP
        " fuzzing strategy yields " bSTG bH10 bHT bH10 bH5 bHB bH bSTOP cCYA
        " path geometry " bSTG bH5 bH2 bVL "\n");
 

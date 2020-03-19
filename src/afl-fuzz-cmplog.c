@@ -32,9 +32,9 @@
 void init_cmplog_forkserver(afl_state_t *afl) {
 
   struct timeval timeout;
-  int                   st_pipe[2], ctl_pipe[2];
-  int                   status;
-  s32                   rlen;
+  int            st_pipe[2], ctl_pipe[2];
+  int            status;
+  s32            rlen;
 
   ACTF("Spinning up the cmplog fork server...");
 
@@ -373,9 +373,9 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
   struct timeval it;
-  int status = 0;
-  int sret;
-  u64 exec_ms;
+  int            status = 0;
+  int            sret;
+  u64            exec_ms;
 
   u32 tb4;
   s32 res;
@@ -394,7 +394,8 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
   /* Since we always have a forkserver (or a fauxserver) running, we can simply
   tell them to have at it and read back the pid from it.*/
 
-  if ((res = write(afl->cmplog_fsrv_ctl_fd, &afl->cmplog_prev_timed_out, 4)) != 4) {
+  if ((res = write(afl->cmplog_fsrv_ctl_fd, &afl->cmplog_prev_timed_out, 4)) !=
+      4) {
 
     if (afl->stop_soon) return 0;
     RPFATAL(res,
