@@ -55,16 +55,16 @@ static void forkserver_stringify_int(u8 *buf, size_t len, u64 val) {
 
   u8 cur = 0;
 
-#define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)    \
-  do {                                                    \
-                                                          \
-    if (val < (_divisor) * (_limit_mult)) {               \
-                                                          \
-      snprintf(buf, len, _fmt, ((_cast)val) / (_divisor));\
-      return;                                             \
-                                                          \
-    }                                                     \
-                                                          \
+#define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)     \
+  do {                                                     \
+                                                           \
+    if (val < (_divisor) * (_limit_mult)) {                \
+                                                           \
+      snprintf(buf, len, _fmt, ((_cast)val) / (_divisor)); \
+      return;                                              \
+                                                           \
+    }                                                      \
+                                                           \
   } while (0)
 
   cur = (cur + 1) % 12;
@@ -454,7 +454,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
     } else {
 
       u8 mem_limit_buf[16];
-      forkserver_stringify_int(mem_limit_buf, sizeof(mem_limit_buf), fsrv->mem_limit << 20);
+      forkserver_stringify_int(mem_limit_buf, sizeof(mem_limit_buf),
+                               fsrv->mem_limit << 20);
 
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
@@ -524,7 +525,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
   } else {
 
     u8 mem_limit_buf[16];
-    forkserver_stringify_int(mem_limit_buf, sizeof(mem_limit_buf), fsrv->mem_limit << 20);
+    forkserver_stringify_int(mem_limit_buf, sizeof(mem_limit_buf),
+                             fsrv->mem_limit << 20);
 
     SAYF(
         "\n" cLRD "[-] " cRST

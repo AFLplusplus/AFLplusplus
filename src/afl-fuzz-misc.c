@@ -25,27 +25,22 @@
 
 #include "afl-fuzz.h"
 
-/* Describe integer. Uses 12 cyclic static buffers for return values. The value
-   returned should be five characters or less for all the integers we reasonably
-   expect to see. */
+/* Describe integer. The buf should be
+   at least 6 bytes to fit all ints we randomly see.
+   Will return buf for convenience. */
 
-u8 *DI(u64 val) {
-
-  static u8 tmp[12][16];
-  static u8 cur;
-
-  cur = (cur + 1) % 12;
-
-#define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)    \
-  do {                                                    \
-                                                          \
-    if (val < (_divisor) * (_limit_mult)) {               \
-                                                          \
-      sprintf(tmp[cur], _fmt, ((_cast)val) / (_divisor)); \
-      return tmp[cur];                                    \
-                                                          \
-    }                                                     \
-                                                          \
+u8 *DI(u8 *buf, size_t len, u64 val) {
+\
+#define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)     \
+  do {                                                     \
+                                                           \
+    if (val < (_divisor) * (_limit_mult)) {                \
+                                                           \
+      snprintf(buf, len, _fmt, ((_cast)val) / (_divisor)); \
+      return buf;                                          \
+                                                           \
+    }                                                      \
+                                                           \
   } while (0)
 
   /* 0-9999 */
@@ -82,44 +77,38 @@ u8 *DI(u64 val) {
   CHK_FORMAT(1000LL * 1000 * 1000 * 1000, 99.95, "%0.01fT", double);
 
   /* 100T+ */
-  strcpy(tmp[cur], "infty");
-  return tmp[cur];
+  strncpy(buf, "infty", len);
+  buf[len - 1] = '\0';
+
+  return buf;
 
 }
 
-/* Describe float. Similar to the above, except with a single
-   static buffer. */
+/* Describe float. Similar as int. */
 
-u8 *DF(double val) {
-
-  static u8 tmp[16];
+u8 *DF(u8 *buf, size_t len, double val) {
 
   if (val < 99.995) {
 
-    sprintf(tmp, "%0.02f", val);
-    return tmp;
+    snprintf(buf, len, "%0.02f", val);
+
+  } else if (val < 999.95) {
+
+    snprintf(buf, len, "%0.01f", val);
+
+  } else {
+
+    DI(buf, len, (u64)val);
 
   }
 
-  if (val < 999.95) {
-
-    sprintf(tmp, "%0.01f", val);
-    return tmp;
-
-  }
-
-  return DI((u64)val);
+  return buf;
 
 }
 
 /* Describe integer as memory size. */
 
-u8 *DMS(u64 val) {
-
-  static u8 tmp[12][16];
-  static u8 cur;
-
-  cur = (cur + 1) % 12;
+u8 *DMS(u8 *buf, size_t len, u64 val) {
 
   /* 0-9999 */
   CHK_FORMAT(1, 10000, "%llu B", u64);
@@ -157,17 +146,21 @@ u8 *DMS(u64 val) {
 #undef CHK_FORMAT
 
   /* 100T+ */
-  strcpy(tmp[cur], "infty");
-  return tmp[cur];
+  strncpy(buf, "infty", len - 1);
+  buf[len - 1] = '\0';
+
+  return buf;
 
 }
 
-/* Describe time delta as string. */
+/* Describe time delta as string.
+   Returns a pointer to buf for convenience. */
 
-void DTD(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
+u8 *DTD(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
 
   u64 delta;
   s32 t_d, t_h, t_m, t_s;
+  u8  int_buf[16];
 
   if (!event_ms) snprintf(buf, len, "none seen yet");
 
@@ -178,7 +171,10 @@ void DTD(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
   t_m = (delta / 1000 / 60) % 60;
   t_s = (delta / 1000) % 60;
 
-  snprintf(buf, len, "%s days, %d hrs, %d min, %d sec", DI(t_d), t_h, t_m, t_s);
+  DI(int_buf, sizeof(int_buf), t_d);
+  snprintf(buf, len, "%s days, %d hrs, %d min, %d sec", int_buf, t_h, t_m, t_s);
+
+  return buf;
 
 }
 
