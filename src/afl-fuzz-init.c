@@ -181,7 +181,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
   ck_free(procs);
 #else
 #warning \
-    "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/vanhauser-thc/AFLplusplus"
+    "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/AFLplusplus/AFLplusplus"
 #endif
 
   size_t cpu_start = 0;

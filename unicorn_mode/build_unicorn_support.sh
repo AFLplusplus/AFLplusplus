@@ -131,7 +131,7 @@ test -d unicornafl || {
    CNT=1
    while [ '!' -d unicornafl -a "$CNT" -lt 4 ]; do
      echo "Trying to clone unicornafl (attempt $CNT/3)"
-     git clone https://github.com/vanhauser-thc/unicornafl
+     git clone https://github.com/AFLplusplus/unicornafl
      CNT=`expr "$CNT" + 1`
    done
 }

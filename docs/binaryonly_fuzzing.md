@@ -148,7 +148,7 @@
   There is a WIP fuzzer available at [https://github.com/andreafioraldi/frida-fuzzer](https://github.com/andreafioraldi/frida-fuzzer)
 
   There is also an early implementation in an AFL++ test branch:
-  [https://github.com/vanhauser-thc/AFLplusplus/tree/frida](https://github.com/vanhauser-thc/AFLplusplus/tree/frida)
+  [https://github.com/AFLplusplus/AFLplusplus/tree/frida](https://github.com/AFLplusplus/AFLplusplus/tree/frida)
 
 
 ## PIN & DYNAMORIO
