@@ -4,7 +4,7 @@
 
   ![Travis State](https://api.travis-ci.com/AFLplusplus/AFLplusplus.svg?branch=master)
 
-  Release Version: 2.62c
+  Release Version: [2.62c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
   Github Version: 2.62d
 
@@ -23,6 +23,18 @@
   Note that although afl now has a Google afl repository [https://github.com/Google/afl](https://github.com/Google/afl),
   it is unlikely to receive any noteable enhancements: [https://twitter.com/Dor3s/status/1154737061787660288](https://twitter.com/Dor3s/status/1154737061787660288)
 
+## Branches
+
+  The following branches exist:
+
+  * [master/trunk](https://github.com/AFLplusplus/AFLplusplus/) : stable state of afl++ - it is synced from dev from time to
+    time when we are satisfied with it's stability
+  * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev) : development state of afl++ - bleeding edge and you might catch a
+    checkout which does not compile or has a bug. *We only accept PRs in dev!!*
+  * (any other) : experimental branches to work on specific features or testing
+    new functionality or changes
+
+  For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab.
 
 ## The enhancements compared to the original stock afl
 
