@@ -1787,7 +1787,7 @@ void fix_up_sync(afl_state_t *afl) {
 
 static void handle_resize(int sig) {
 
-  LIST_FOREACH(&afl_states, afl_state_t, { el->clear_screen; });
+  LIST_FOREACH(&afl_states, afl_state_t, { el->clear_screen = 1; });
 
 }
 
@@ -2124,11 +2124,6 @@ void setup_signal_handlers(void) {
   sigaction(SIGHUP, &sa, NULL);
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
-
-  /* Exec timeout notifications. */
-
-  sa.sa_handler = handle_timeout;
-  sigaction(SIGALRM, &sa, NULL);
 
   /* Window resize */
 
