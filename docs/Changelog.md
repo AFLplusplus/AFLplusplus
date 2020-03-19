@@ -11,6 +11,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++2.62d (develop):
 
+  ! the repository was moved from vanhauser-thc to AFLplusplus. It is now
+    an own organisation :)
+  ! development and acceptance of PRs now happen only in the dev branch
+    and only occasional when everything is fine we PR to master
   - all:
     - big code changes to make afl-fuzz thread-safe so afl-fuzz can spawn 
       multiple fuzzing threads in the future or even become a library
