@@ -162,15 +162,14 @@ u8 *DMS(u64 val) {
 
 }
 
-/* Describe time delta. Returns one static buffer, 34 chars of less. */
+/* Describe time delta as string. */
 
-u8 *DTD(u64 cur_ms, u64 event_ms) {
+void DTD(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
 
-  static u8 tmp[64];
   u64       delta;
   s32       t_d, t_h, t_m, t_s;
 
-  if (!event_ms) return "none seen yet";
+  if (!event_ms) snprintf(buf, len, "none seen yet");
 
   delta = cur_ms - event_ms;
 
@@ -179,8 +178,7 @@ u8 *DTD(u64 cur_ms, u64 event_ms) {
   t_m = (delta / 1000 / 60) % 60;
   t_s = (delta / 1000) % 60;
 
-  sprintf(tmp, "%s days, %d hrs, %d min, %d sec", DI(t_d), t_h, t_m, t_s);
-  return tmp;
+  snprintf(buf, len, "%s days, %d hrs, %d min, %d sec", DI(t_d), t_h, t_m, t_s);
 
 }
 

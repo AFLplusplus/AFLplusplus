@@ -31,7 +31,7 @@
 
 void init_cmplog_forkserver(afl_state_t *afl) {
 
-  static struct timeval timeout;
+  struct timeval timeout;
   int                   st_pipe[2], ctl_pipe[2];
   int                   status;
   s32                   rlen;
@@ -372,12 +372,10 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
 u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
-  static struct timeval it;
-  static u32            prev_timed_out = 0;
-  static u64            exec_ms = 0;
-
+  struct timeval it;
   int status = 0;
   int sret;
+  u64 exec_ms;
 
   u32 tb4;
   s32 res;
@@ -396,7 +394,7 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
   /* Since we always have a forkserver (or a fauxserver) running, we can simply
   tell them to have at it and read back the pid from it.*/
 
-  if ((res = write(afl->cmplog_fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+  if ((res = write(afl->cmplog_fsrv_ctl_fd, &afl->cmplog_prev_timed_out, 4)) != 4) {
 
     if (afl->stop_soon) return 0;
     RPFATAL(res,
@@ -483,7 +481,7 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
   classify_counts((u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
-  prev_timed_out = afl->fsrv.child_timed_out;
+  afl->cmplog_prev_timed_out = afl->fsrv.child_timed_out;
 
   /* Report outcome to caller. */
 

@@ -254,7 +254,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 void cull_queue(afl_state_t *afl) {
 
   struct queue_entry *q;
-  static u8           temp_v[MAP_SIZE >> 3];
+  u8           temp_v[MAP_SIZE >> 3];
   u32                 i;
 
   if (afl->dumb_mode || !afl->score_changed) return;

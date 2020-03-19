@@ -192,14 +192,11 @@ void load_custom_mutator(afl_state_t *afl, const char *fn) {
 
 u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
-  static u8 tmp[64];
-  static u8 clean_trace[MAP_SIZE];
-
   u8  needs_write = 0, fault = 0;
   u32 trim_exec = 0;
   u32 orig_len = q->len;
 
-  afl->stage_name = tmp;
+  if (afl->stage_name != afl->stage_name_buf) afl->stage_name = afl->stage_name_buf;
   afl->bytes_trim_in += q->len;
 
   /* Initialize trimming in the custom mutator */
@@ -212,7 +209,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   while (afl->stage_cur < afl->stage_max) {
 
-    sprintf(tmp, "ptrim %s", DI(trim_exec));
+    snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "ptrim %s", DI(trim_exec));
 
     u32 cksum;
 
@@ -251,7 +248,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       if (!needs_write) {
 
         needs_write = 1;
-        memcpy(clean_trace, afl->fsrv.trace_bits, MAP_SIZE);
+        memcpy(afl->clean_trace_custom, afl->fsrv.trace_bits, MAP_SIZE);
 
       }
 
@@ -299,7 +296,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     ck_write(fd, in_buf, q->len, q->fname);
     close(fd);
 
-    memcpy(afl->fsrv.trace_bits, clean_trace, MAP_SIZE);
+    memcpy(afl->fsrv.trace_bits, afl->clean_trace_custom, MAP_SIZE);
     update_bitmap_score(afl, q);
 
   }

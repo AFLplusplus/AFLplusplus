@@ -1679,8 +1679,8 @@ havoc_stage:
 
     perf_score = orig_perf;
 
-    snprintf(afl->stage_name_buf64, 64, "splice %u", splice_cycle);
-    afl->stage_name = afl->stage_name_buf64;
+    snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "splice %u", splice_cycle);
+    if (afl->stage_name != afl->stage_name_buf) afl->stage_name = afl->stage_name_buf;
     afl->stage_short = "splice";
     afl->stage_max = SPLICE_HAVOC * perf_score / afl->havoc_div / 100;
 
@@ -3573,9 +3573,9 @@ pacemaker_fuzzing:
 
     perf_score = orig_perf;
 
-    snprintf(afl->stage_name_buf64, 64, MOpt_globals.splice_stageformat,
+    snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, MOpt_globals.splice_stageformat,
              splice_cycle);
-    afl->stage_name = afl->stage_name_buf64;
+    if (afl->stage_name != afl->stage_name_buf) afl->stage_name = afl->stage_name_buf;
     afl->stage_short = MOpt_globals.splice_stagenameshort;
     afl->stage_max = SPLICE_HAVOC * perf_score / afl->havoc_div / 100;
 
@@ -3623,9 +3623,8 @@ pacemaker_fuzzing:
       } else {
 
         perf_score = orig_perf;
-        snprintf(afl->stage_name_buf64, 64, MOpt_globals.splice_stageformat,
-                 splice_cycle);
-        afl->stage_name = afl->stage_name_buf64;
+        snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, MOpt_globals.splice_stageformat, splice_cycle);
+        afl->stage_name = afl->stage_name_buf;
         afl->stage_short = MOpt_globals.splice_stagenameshort;
         afl->stage_max = SPLICE_HAVOC * perf_score / afl->havoc_div / 100;
 

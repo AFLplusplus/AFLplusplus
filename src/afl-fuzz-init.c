@@ -797,7 +797,7 @@ void pivot_inputs(afl_state_t *afl) {
 
 u32 find_start_position(afl_state_t *afl) {
 
-  static u8 tmp[4096];                   /* Ought to be enough for anybody. */
+  u8 tmp[4096] = {0};                 /* Ought to be enough for anybody. */
 
   u8 *fn, *off;
   s32 fd, i;
@@ -834,7 +834,7 @@ u32 find_start_position(afl_state_t *afl) {
 
 void find_timeout(afl_state_t *afl) {
 
-  static u8 tmp[4096];                   /* Ought to be enough for anybody. */
+  u8 tmp[4096] = {0};                /* Ought to be enough for anybody. */
 
   u8 *fn, *off;
   s32 fd, i;
@@ -902,7 +902,7 @@ static u8 delete_files(u8 *path, u8 *prefix) {
 
 double get_runnable_processes(void) {
 
-  static double res;
+  double res = 0;
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__NetBSD__) || defined(__DragonFly__)
