@@ -109,8 +109,9 @@
 #define CASE_PREFIX "id_"
 #endif                                                    /* ^!SIMPLE_FILES */
 
-#define STAGE_BUF_SIZE (64) /* usable size of the stage name buf in afl_state \
-                             */
+#define STAGE_BUF_SIZE                                   \
+  (64) /* usable size of the stage name buf in afl_state \
+        */
 
 extern s8  interesting_8[INTERESTING_8_LEN];
 extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
@@ -801,10 +802,10 @@ u8 has_new_bits(afl_state_t *, u8 *);
 
 /* Misc */
 
-u8 * DI(u64);
-u8 * DF(double);
-u8 * DMS(u64);
-void DTD(u8 *, size_t, u64, u64);
+u8 *DI(u8 *, size_t, u64);
+u8 *DF(u8 *, size_t, double);
+u8 *DMS(u8 *, size_t, u64);
+u8 *DTD(u8 *, size_t, u64, u64);
 
 /* Extras */
 
