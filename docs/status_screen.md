@@ -377,6 +377,7 @@ directory. This includes:
   - `run_time`          - run time in seconds to the last update of this file
   - `fuzzer_pid`        - PID of the fuzzer process
   - `cycles_done`       - queue cycles completed so far
+  - `cycles_wo_finds`   - number of cycles without any new paths found
   - `execs_done`        - number of execve() calls attempted
   - `execs_per_sec`     - overall number of execs per second
   - `paths_total`       - total number of entries in the queue
