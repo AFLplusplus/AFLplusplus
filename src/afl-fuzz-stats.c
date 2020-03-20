@@ -32,9 +32,10 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
   struct rusage rus;
 
-  u8 *  fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
-  s32   fd;
-  FILE *f;
+  unsigned long long int cur_time = get_cur_time();
+  u8 *                   fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
+  s32                    fd;
+  FILE *                 f;
 
   fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
@@ -69,6 +70,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       f,
       "start_time        : %llu\n"
       "last_update       : %llu\n"
+      "run_time          : %llu\n"
       "fuzzer_pid        : %d\n"
       "cycles_done       : %llu\n"
       "execs_done        : %llu\n"
@@ -99,7 +101,8 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       "\n"
       "target_mode       : %s%s%s%s%s%s%s%s\n"
       "command_line      : %s\n",
-      afl->start_time / 1000, get_cur_time() / 1000, getpid(),
+      afl->start_time / 1000, cur_time / 1000,
+      (cur_time - afl->start_time) / 1000, getpid(),
       afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->total_execs,
       /*eps,*/ afl->total_execs /
           ((double)(get_cur_time() - afl->start_time) / 1000),
@@ -357,9 +360,9 @@ void show_stats(afl_state_t *afl) {
 
   /* Lord, forgive me this. */
 
-  SAYF(SET_G1 bSTG bLT bH bSTOP                         cCYA
+  SAYF(SET_G1 bSTG bLT bH bSTOP cCYA
        " process timing " bSTG bH30 bH5 bH bHB bH bSTOP cCYA
-       " overall results " bSTG bH2 bH2                 bRT "\n");
+       " overall results " bSTG bH2 bH2 bRT "\n");
 
   if (afl->dumb_mode) {
 
@@ -441,9 +444,9 @@ void show_stats(afl_state_t *afl) {
                 "   uniq hangs : " cRST "%-6s" bSTG         bV "\n",
        time_tmp, tmp);
 
-  SAYF(bVR bH bSTOP                                          cCYA
+  SAYF(bVR bH bSTOP            cCYA
        " cycle progress " bSTG bH10 bH5 bH2 bH2 bHB bH bSTOP cCYA
-       " map coverage " bSTG bH bHT bH20 bH2                 bVL "\n");
+       " map coverage " bSTG bH bHT bH20 bH2 bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
      together, but then cram them into a fixed-width field - so we need to
@@ -472,9 +475,9 @@ void show_stats(afl_state_t *afl) {
 
   SAYF(bSTOP " count coverage : " cRST "%-21s" bSTG bV "\n", tmp);
 
-  SAYF(bVR bH bSTOP                                         cCYA
+  SAYF(bVR bH bSTOP            cCYA
        " stage progress " bSTG bH10 bH5 bH2 bH2 bX bH bSTOP cCYA
-       " findings in depth " bSTG bH10 bH5 bH2 bH2          bVL "\n");
+       " findings in depth " bSTG bH10 bH5 bH2 bH2 bVL "\n");
 
   sprintf(tmp, "%s (%0.02f%%)", DI(IB(0), afl->queued_favored),
           ((double)afl->queued_favored) * 100 / afl->queued_paths);
@@ -546,7 +549,7 @@ void show_stats(afl_state_t *afl) {
 
   /* Aaaalmost there... hold on! */
 
-  SAYF(bVR bH cCYA                                                     bSTOP
+  SAYF(bVR bH cCYA                      bSTOP
        " fuzzing strategy yields " bSTG bH10 bHT bH10 bH5 bHB bH bSTOP cCYA
        " path geometry " bSTG bH5 bH2 bVL "\n");
 

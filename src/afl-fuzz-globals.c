@@ -30,8 +30,9 @@ s8  interesting_8[] = {INTERESTING_8};
 s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
 s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 
-char *power_names[POWER_SCHEDULES_NUM] = {"explore", "fast",    "coe",  "lin",
-                                          "quad",    "exploit", "mmopt"};
+char *power_names[POWER_SCHEDULES_NUM] = {
+
+    "explore", "fast", "coe", "lin", "quad", "exploit", "mmopt", "rare"};
 
 u8 *doc_path = NULL;                    /* gath to documentation dir        */
 
