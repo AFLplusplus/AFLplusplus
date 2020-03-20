@@ -158,13 +158,19 @@ static void edit_params(u32 argc, char **argv) {
 #endif
     if (lto_flag[0] != '-')
       FATAL(
-          "afl-clang-lto not possible because Makefile magic did not identify "
-          "the correct -flto flag");
+          "Using afl-clang-lto is not possible because Makefile magic did not "
+          "identify the correct -flto flag");
     if (getenv("AFL_LLVM_INSTRIM") != NULL)
       FATAL("afl-clang-lto does not work with InsTrim mode");
+    if (getenv("AFL_LLVM_NGRAM_SIZE") != NULL)
+      FATAL("afl-clang-lto does not work with ngram coverage mode");
     lto_mode = 1;
 
   }
+
+  if (getenv("AFL_LLVM_NGRAM_SIZE") != NULL &&
+      getenv("AFL_LLVM_INSTRIM") != NULL)
+    FATAL("AFL_LLVM_NGRAM_SIZE and AFL_LLVM_INSTRIM can not be used together");
 
   if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
 
@@ -605,6 +611,7 @@ int main(int argc, char **argv, char **envp) {
             "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
             "AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
             "AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed\n"
+            "AFL_LLVM_NGRAM_SIZE: use ngram prev_loc coverage\n"
             "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
             "\nafl-clang-fast was built for llvm %s with the llvm binary path "
             "of "
