@@ -32,7 +32,7 @@
   * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev) : development state of afl++ - bleeding edge and you might catch a
     checkout which does not compile or has a bug. *We only accept PRs in dev!!*
   * (any other) : experimental branches to work on specific features or testing
-    new functionality or changes
+    new functionality or changes.
 
   For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab.
 
@@ -365,7 +365,8 @@ The available schedules are:
  - quad
  - lin
  - exploit
- - mmopt
+ - mmopt (experimental)
+ - rare (experimental)
 
 In parallel mode (-M/-S, several instances with shared queue), we suggest to
 run the master using the explore or fast schedule (-p explore) and the slaves

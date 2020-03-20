@@ -24,10 +24,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - python mutator modules and custom mutator modules now use the same
       interface and hence the API changed
     - AFL_AUTORESUME will resume execution without the need to specify `-i -`
-    - added experimental power schedule -p mmopt that ignores the runtime of
-      queue entries and gives higher weighting to the last 5 queue entries
-      it is currently experimental and subject to change but preliminary
-      results are good
+    - added experimental power schedules (-p):
+      - mmopt: ignores runtime of queue entries, gives higher weighting to
+               the last 5 queue entries
+      - rare: puts focus on queue entries that hits rare branches, also ignores
+              runtime
   - LTO collision free instrumented added in llvm_mode with afl-clang-lto -
     note that this mode is amazing, but quite some targets won't compile
   - llvm_mode InsTrim mode:

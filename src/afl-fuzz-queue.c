@@ -185,12 +185,16 @@ void destroy_queue(afl_state_t *afl) {
 void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
   u32 i;
-  u64 fav_factor = q->exec_us * q->len;
+  u64 fav_factor;
   u64 fuzz_p2 = next_p2(q->n_fuzz);
+
+  if (afl->schedule == MMOPT || afl->schedule == RARE)
+    fav_factor = q->len << 2;
+  else
+    fav_factor = q->exec_us * q->len;
 
   /* For every byte set in afl->fsrv.trace_bits[], see if there is a previous
      winner, and how it compares to us. */
-
   for (i = 0; i < MAP_SIZE; ++i)
 
     if (afl->fsrv.trace_bits[i]) {
@@ -198,19 +202,19 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
       if (afl->top_rated[i]) {
 
         /* Faster-executing or smaller test cases are favored. */
+        u64 top_rated_fav_factor;
         u64 top_rated_fuzz_p2 = next_p2(afl->top_rated[i]->n_fuzz);
-        u64 top_rated_fav_factor =
-            afl->top_rated[i]->exec_us * afl->top_rated[i]->len;
 
-        if (fuzz_p2 > top_rated_fuzz_p2) {
+        if (afl->schedule == MMOPT || afl->schedule == RARE)
+          top_rated_fav_factor = afl->top_rated[i]->len << 2;
+        else
+          top_rated_fav_factor =
+              afl->top_rated[i]->exec_us * afl->top_rated[i]->len;
 
+        if (fuzz_p2 > top_rated_fuzz_p2)
           continue;
-
-        } else if (fuzz_p2 == top_rated_fuzz_p2) {
-
+        else if (fuzz_p2 == top_rated_fuzz_p2)
           if (fav_factor > top_rated_fav_factor) continue;
-
-        }
 
         if (fav_factor > afl->top_rated[i]->exec_us * afl->top_rated[i]->len)
           continue;
@@ -328,7 +332,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   // Longer execution time means longer work on the input, the deeper in
   // coverage, the better the fuzzing, right? -mh
 
-  if (afl->schedule != MMOPT) {
+  if (afl->schedule != MMOPT && afl->schedule != RARE) {
 
     if (q->exec_us * 0.1 > avg_exec_us)
       perf_score = 10;
@@ -448,8 +452,29 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       break;
 
     case MMOPT:
+      /* -- this was a more complex setup, which is good, but competed with
+         -- rare. the simpler algo however is good when rare is not.
+        // the newer the entry, the higher the pref_score
+        perf_score *= (1 + (double)((double)q->depth /
+        (double)afl->queued_paths));
+        // with special focus on the last 8 entries
+        if (afl->max_depth - q->depth < 8) perf_score *= (1 + ((8 -
+        (afl->max_depth - q->depth)) / 5));
+      */
+      // put focus on the last 5 entries
+      if (afl->max_depth - q->depth < 5) perf_score *= 2;
 
-      if (afl->max_depth - q->depth < 5) perf_score *= 1.5;
+      break;
+
+    case RARE:
+
+      // increase the score for every bitmap byte for which this entry
+      // is the top contender
+      perf_score += (q->tc_ref * 10);
+      // the more often fuzz result paths are equal to this queue entry,
+      // reduce its value
+      perf_score *=
+          (1 - (double)((double)q->n_fuzz / (double)afl->total_execs));
 
       break;
 

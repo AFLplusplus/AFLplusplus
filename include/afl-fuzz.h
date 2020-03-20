@@ -235,6 +235,7 @@ enum {
   /* 04 */ QUAD,    /* Quadratic schedule               */
   /* 05 */ EXPLOIT, /* AFL's exploitation-based const.  */
   /* 06 */ MMOPT,   /* Modified MOPT schedule           */
+  /* 07 */ RARE,    /* Rare edges                       */
 
   POWER_SCHEDULES_NUM
 

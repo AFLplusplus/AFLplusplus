@@ -96,8 +96,8 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "Execution control settings:\n"
       "  -p schedule   - power schedules recompute a seed's performance "
       "score.\n"
-      "                  <explore (default), fast, coe, lin, quad, exploit, "
-      "mmopt>\n"
+      "                  <explore(default), fast, coe, lin, quad, exploit, "
+      "mmopt, rare>\n"
       "                  see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (stdin)\n"
       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
@@ -250,7 +250,7 @@ int main(int argc, char **argv_orig, char **envp) {
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a big online community\n");
 
-  doc_path = access(DOC_PATH, F_OK) ? (u8 *)"docs" : doc_path;
+  doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
 
   gettimeofday(&tv, &tz);
   afl->init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
@@ -303,6 +303,10 @@ int main(int argc, char **argv_orig, char **envp) {
         } else if (!stricmp(optarg, "mopt") || !stricmp(optarg, "mmopt")) {
 
           afl->schedule = MMOPT;
+
+        } else if (!stricmp(optarg, "rare")) {
+
+          afl->schedule = RARE;
 
         } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "default") ||
 
@@ -760,8 +764,9 @@ int main(int argc, char **argv_orig, char **envp) {
     case LIN: OKF("Using linear power schedule (LIN)"); break;
     case QUAD: OKF("Using quadratic power schedule (QUAD)"); break;
     case MMOPT: OKF("Using modified MOpt power schedule (MMOPT)"); break;
+    case RARE: OKF("Using rare edge focus power schedule (RARE)"); break;
     case EXPLORE:
-      OKF("Using exploration-based constant power schedule (EXPLORE)");
+      OKF("Using exploration-based constant power schedule (EXPLORE, default)");
       break;
     default: FATAL("Unknown power schedule"); break;
 
