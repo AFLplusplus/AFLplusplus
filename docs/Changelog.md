@@ -31,6 +31,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
               runtime
   - LTO collision free instrumented added in llvm_mode with afl-clang-lto -
     note that this mode is amazing, but quite some targets won't compile
+  - Added llvm_mode NGRAM prev_loc coverage by Adrean Herrera
+    (https://github.com/adrianherrera/afl-ngram-pass/), activate by setting
+    AFL_LLVM_NGRAM_SIZE
   - llvm_mode InsTrim mode:
     - removed workaround for bug where paths were not instrumented and 
       imported fix by author

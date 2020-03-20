@@ -93,22 +93,25 @@ Then there are a few specific features that are only available in llvm_mode:
 
 ### LTO
 
-This is a different kind way of instrumentation: first it compiles all
-code in LTO (link time optimization) and then performs an edge inserting
-instrumentation which is 100% collision free (collisions are a big issue
-in afl and afl-like instrumentations). This is performed by using
-afl-clang-lto/afl-clang-lto++ instead of afl-clang-fast, but is only
-built if LLVM 9 or newer is used.
+    This is a different kind way of instrumentation: first it compiles all
+    code in LTO (link time optimization) and then performs an edge inserting
+    instrumentation which is 100% collision free (collisions are a big issue
+    in afl and afl-like instrumentations). This is performed by using
+    afl-clang-lto/afl-clang-lto++ instead of afl-clang-fast, but is only
+    built if LLVM 9 or newer is used.
 
-None of these options are necessary to be used and are rather for manual
-use (which only ever the author of this LTO implementation will use ;-)
-These are used if several seperated instrumentation are performed which
-are then later combined.
+    None of these options are necessary to be used and are rather for manual
+    use (which only ever the author of this LTO implementation will use ;-)
+    These are used if several seperated instrumentation are performed which
+    are then later combined.
 
    - AFL_LLVM_LTO_STARTID sets the starting location ID for the instrumentation.
      This defaults to 1
    - AFL_LLVM_LTO_DONTWRITEID prevents that the highest location ID written
      into the instrumentation is set in a global variable
+
+    Instrim, LTO and ngram modes can not be used together.
+    See llvm_mode/README.LTO.md for more information.
 
 ### LAF-INTEL
 
@@ -149,7 +152,16 @@ are then later combined.
       functions with a single basic block. This is useful for most C and
       some C++ targets.
 
+    Instrim, LTO and ngram modes can not be used together.
     See llvm_mode/README.instrim.md
+
+### NGRAM
+
+    - Setting AFL_LLVM_NGRAM_SIZE activates ngram prev_loc coverage, good
+      values are 2, 4 or 8.
+
+    Instrim, LTO and ngram modes can not be used together.
+    See llvm_mode/README.ngram.md
 
 ### NOT_ZERO
 

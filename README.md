@@ -73,6 +73,8 @@
 
   * The new CmpLog instrumentation for LLVM and QEMU inspired by [Redqueen](https://www.syssec.ruhr-uni-bochum.de/media/emma/veroeffentlichungen/2018/12/17/NDSS19-Redqueen.pdf)
 
+  * llvm_mode ngram coverage by Adrean Herrera [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
+
   A more thorough list is available in the PATCHES file.
 
   | Feature/Instrumentation | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
@@ -84,6 +86,7 @@
   | Whitelist               |         |     x     |     x      |        (x)(3)    |              |
   | non-colliding coverage  |         |     x(4)  |            |        (x)(5)    |              |
   | InsTrim                 |         |     x     |            |                  |              |
+  | ngram prev_loc coverage |         |     x(6)  |            |                  |              |
 
   neverZero:
 
@@ -96,6 +99,8 @@
   (4) Only for LLVM >= 9 and not all targets compile
 
   (5) upcoming, development in branch
+
+  (6) not compatible with LTO and InsTrim modes
 
   So all in all this is the best-of afl that is currently out there :-)
 
