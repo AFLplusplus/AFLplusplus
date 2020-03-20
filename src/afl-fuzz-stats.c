@@ -73,6 +73,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       "run_time          : %llu\n"
       "fuzzer_pid        : %d\n"
       "cycles_done       : %llu\n"
+      "cycles_wo_finds   : %llu\n"
       "execs_done        : %llu\n"
       "execs_per_sec     : %0.02f\n"
       //          "real_execs_per_sec: %0.02f\n"  // damn the name is too long
@@ -103,9 +104,9 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       "command_line      : %s\n",
       afl->start_time / 1000, cur_time / 1000,
       (cur_time - afl->start_time) / 1000, getpid(),
-      afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->total_execs,
-      /*eps,*/ afl->total_execs /
-          ((double)(get_cur_time() - afl->start_time) / 1000),
+      afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
+      afl->total_execs, /*eps,*/
+      afl->total_execs / ((double)(get_cur_time() - afl->start_time) / 1000),
       afl->queued_paths, afl->queued_favored, afl->queued_discovered,
       afl->queued_imported, afl->max_depth, afl->current_entry,
       afl->pending_favored, afl->pending_not_fuzzed, afl->queued_variable,
