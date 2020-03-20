@@ -20,6 +20,7 @@ afl-qemu-speed.diff			by abiondo on github
 afl-qemu-optimize-map.diff		by mh(at)mh-sec(dot)de
 ```
 
++ llvm_mode ngram prev_loc coverage (github.com/adrianherrera/afl-ngram-pass)
 + Custom mutator (native library) (by kyakdan)
 + unicorn_mode (modernized and updated by domenukk)
 + instrim (https://github.com/csienslab/instrim) was integrated
