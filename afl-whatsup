@@ -61,8 +61,12 @@ if [ -d queue ]; then
 
 fi
 
-RED=`tput setaf 1 1 1`
+RED=`tput setaf 9 1 1`
+GREEN=`tput setaf 2 1 1`
+BLUE=`tput setaf 4 1 1`
+YELLOW=`tput setaf 11 1 1`
 NC=`tput sgr0`
+RESET="$NC"
 
 CUR_TIME=`date +%s`
 
@@ -116,6 +120,9 @@ fmt_duration()
   fi
 }
 
+FIRST=true
+TOTAL_WCOP=
+
 for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
   sed 's/^command_line.*$/_skip:1/;s/[ ]*:[ ]*/="/;s/$/"/' "$i" >"$TMP"
@@ -124,6 +131,12 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   RUN_UNIX=$((CUR_TIME - start_time))
   RUN_DAYS=$((RUN_UNIX / 60 / 60 / 24))
   RUN_HRS=$(((RUN_UNIX / 60 / 60) % 24))
+
+  test -n "$cycles_wo_finds" && {
+    test -z "$FIRST" && TOTAL_WCOP="${TOTAL_WCOP}/"
+    TOTAL_WCOP="${TOTAL_WCOP}${cycles_wo_finds}"
+    FIRST=
+  }
 
   if [ "$SUMMARY_ONLY" = "" ]; then
 
@@ -173,10 +186,17 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
     fmt_duration $last_path && FMT_PATH=$DUR_STRING
     fmt_duration $last_crash && FMT_CRASH=$DUR_STRING
     fmt_duration $last_hang && FMT_HANG=$DUR_STRING
+    FMT_CWOP="not available"
+    test -n "$cycles_wo_finds" && {
+      test "$cycles_wo_finds" = 0 && FMT_CWOP="$cycles_wo_finds"
+      test "$cycles_wo_finds" -gt 10 && FMT_CWOP="${YELLOW}$cycles_wo_finds${NC}"
+      test "$cycles_wo_finds" -gt 50 && FMT_CWOP="${RED}$cycles_wo_finds${NC}"
+    }
 
-    echo "  last_path  : $FMT_PATH"
-    echo "  last_crash : $FMT_CRASH"
-    echo "  last_hang  : $FMT_HANG"
+    echo "  last_path       : $FMT_PATH"
+    echo "  last_crash      : $FMT_CRASH"
+    echo "  last_hang       : $FMT_HANG"
+    echo "  cycles_wo_finds : $FMT_CWOP"
 
     CPU_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $3}')
     MEM_USAGE=$(ps aux | grep $fuzzer_pid | grep -v grep | awk '{print $4}')
@@ -215,6 +235,8 @@ rm -f "$TMP"
 TOTAL_DAYS=$((TOTAL_TIME / 60 / 60 / 24))
 TOTAL_HRS=$(((TOTAL_TIME / 60 / 60) % 24))
 
+test -z "$TOTAL_WCOP" && TOTAL_WCOP="not available"
+
 test "$TOTAL_TIME" = "0" && TOTAL_TIME=1
 
 echo "Summary stats"
@@ -239,6 +261,7 @@ if [ "$ALIVE_CNT" -gt "1" ]; then
 fi
 
 echo "       Crashes found : $TOTAL_CRASHES locally unique"
+echo "Cycles without finds : $TOTAL_WCOP"
 echo
 
 exit 0
