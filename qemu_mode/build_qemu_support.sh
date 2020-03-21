@@ -90,7 +90,7 @@ if echo "$CC" | grep -qF /afl-; then
 
 fi
 
-if [ "$PREREQ_NOTFOUND" == "1" ]; then
+if [ "$PREREQ_NOTFOUND" = "1" ]; then
   exit 1
 fi
 
