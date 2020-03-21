@@ -473,7 +473,6 @@ void perform_dry_run(afl_state_t *afl) {
 
     close(fd);
 
-    initcnt++;
     res = calibrate_case(afl, q, use_mem, 0, 1);
     ck_free(use_mem);
 
