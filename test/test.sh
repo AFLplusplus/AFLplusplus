@@ -653,7 +653,7 @@ test -e ../libradamsa.so && {
 
 $ECHO "$BLUE[*] Testing: qemu_mode"
 test -e ../afl-qemu-trace && {
-  gcc -pie -fPIE -o test-instr ../test-instr.c
+  gcc -no-pie -fPIE -o test-instr ../test-instr.c
   gcc -o test-compcov test-compcov.c
   test -e test-instr -a -e test-compcov && {
     {
@@ -678,8 +678,8 @@ test -e ../afl-qemu-trace && {
       $ECHO "$GREY[*] running afl-fuzz for qemu_mode AFL_ENTRYPOINT, this will take approx 6 seconds"
       {
         {
-          export AFL_ENTRYPOINT=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
-          $ECHO AFL_ENTRYPOINT=$AFL_ENTRYPOINT - $(m test-instr | grep "T main") - $(file ./test-instr)
+          export AFL_ENTRYPOINT=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' )`
+          #$ECHO AFL_ENTRYPOINT=$AFL_ENTRYPOINT - $(nm test-instr | grep "T main") - $(file ./test-instr)
           ../afl-fuzz -m ${MEM_LIMIT} -V2 -Q -i in -o out -- ./test-instr
           unset AFL_ENTRYPOINT
         } >>errors 2>&1
@@ -727,9 +727,9 @@ test -e ../afl-qemu-trace && {
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
         {
-          export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
+          export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' )`
           export AFL_QEMU_PERSISTENT_GPR=1
-          $ECHO "Info: AFL_QEMU_PERSISTENT_ADDR=$AFL_QEMU_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
+          #$ECHO "Info: AFL_QEMU_PERSISTENT_ADDR=$AFL_QEMU_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
           file test-instr
           ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr
           unset AFL_QEMU_PERSISTENT_ADDR
