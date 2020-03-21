@@ -90,26 +90,27 @@ if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
   TARCMD=gtar
 fi
 
+PREREQ_NOTFOUND=
 for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 
-  T=`which "$i" 2>/dev/null`
+  T=`type "$i" | awk '{print $NF}' 2>/dev/null`
 
   if [ "$T" = "" ]; then
 
     echo "[-] Error: '$i' not found. Run 'sudo apt-get install $i' or similar."
-    exit 1
+    PREREQ_NOTFOUND=1
 
   fi
 
 done
 
-if ! which $EASY_INSTALL > /dev/null; then
+if ! type $EASY_INSTALL > /dev/null; then
 
   # work around for unusual installs
   if [ '!' -e /usr/lib/python2.7/dist-packages/easy_install.py ] && [ '!' -e /usr/local/lib/python2.7/dist-packages/easy_install.py ] && [ '!' -e /usr/pkg/lib/python2.7/dist-packages/easy_install.py ]; then
 
     echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
-    exit 1
+    PREREQ_NOTFOUND=1
 
   fi
 
@@ -118,8 +119,12 @@ fi
 if echo "$CC" | grep -qF /afl-; then
 
   echo "[-] Error: do not use afl-gcc or afl-clang to compile this tool."
-  exit 1
+  PREREQ_NOTFOUND=1
 
+fi
+
+if [ "$PREREQ_NOTFOUND" == "1" ]; then
+  exit 1
 fi
 
 echo "[+] All checks passed!"
