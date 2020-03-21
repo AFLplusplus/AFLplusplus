@@ -1196,8 +1196,6 @@ stop_fuzzing:
 
   OKF("We're done here. Have a nice day!\n");
 
-printf("%u %u %u %u %u\n", bmcnt, initcnt, one1cnt, one2cnt, runcnt);
-
   exit(0);
 
 }

@@ -438,8 +438,6 @@ abort_calibration:
 
   if (!first_run) show_stats(afl);
 
-  runcnt++;
-
   return fault;
 
 }
