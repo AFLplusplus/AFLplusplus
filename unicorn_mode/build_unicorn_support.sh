@@ -93,7 +93,7 @@ fi
 PREREQ_NOTFOUND=
 for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 
-  T=`type "$i" | awk '{print $NF}' 2>/dev/null`
+  T=`command -v "$i" 2>/dev/null`
 
   if [ "$T" = "" ]; then
 
