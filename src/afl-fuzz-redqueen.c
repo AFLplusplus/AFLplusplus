@@ -97,7 +97,7 @@ static void rand_replace(afl_state_t *afl, u8 *buf, u32 len) {
 
   u32 i;
   for (i = 0; i < len; ++i)
-    buf[i] = UR(afl, 256);
+    buf[i] = rand_below(afl, 256);
 
 }
 

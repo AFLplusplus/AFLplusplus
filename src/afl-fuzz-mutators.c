@@ -186,7 +186,7 @@ void load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   /* Initialize the custom mutator */
   if (afl->mutator->afl_custom_init)
-    afl->mutator->afl_custom_init(afl, UR(afl, 0xFFFFFFFF));
+    afl->mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
 
 }
 
@@ -356,7 +356,7 @@ void load_custom_mutator_py(afl_state_t *afl, const char *module_name) {
 
   /* Initialize the custom mutator */
   if (afl->mutator->afl_custom_init)
-    afl->mutator->afl_custom_init(afl, UR(afl, 0xFFFFFFFF));
+    afl->mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
 
 }
 

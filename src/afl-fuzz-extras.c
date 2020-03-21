@@ -387,7 +387,7 @@ void maybe_add_auto(afl_state_t *afl, u8 *mem, u32 len) {
 
   } else {
 
-    i = MAX_AUTO_EXTRAS / 2 + UR(afl, (MAX_AUTO_EXTRAS + 1) / 2);
+    i = MAX_AUTO_EXTRAS / 2 + rand_below(afl, (MAX_AUTO_EXTRAS + 1) / 2);
 
     ck_free(afl->a_extras[i].data);
 

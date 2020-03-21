@@ -304,7 +304,7 @@ static void shuffle_ptrs(afl_state_t *afl, void **ptrs, u32 cnt) {
 
   for (i = 0; i < cnt - 2; ++i) {
 
-    u32   j = i + UR(afl, cnt - i);
+    u32   j = i + rand_below(afl, cnt - i);
     void *s = ptrs[i];
     ptrs[i] = ptrs[j];
     ptrs[j] = s;
