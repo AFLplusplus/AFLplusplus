@@ -31,7 +31,7 @@ int select_algorithm(afl_state_t *afl) {
 
   int i_puppet, j_puppet;
 
-  double sele = ((double)(UR(afl, 10000)) * 0.0001);
+  double sele = ((double)(rand_below(afl, 10000)) * 0.0001);
   j_puppet = 0;
   for (i_puppet = 0; i_puppet < operator_num; ++i_puppet) {
 
@@ -69,7 +69,7 @@ static u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
   if (!afl->run_over10m) rlim = 1;
 
-  switch (UR(afl, rlim)) {
+  switch (rand_below(afl, rlim)) {
 
     case 0:
       min_value = 1;
@@ -83,7 +83,7 @@ static u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
     default:
 
-      if (UR(afl, 10)) {
+      if (rand_below(afl, 10)) {
 
         min_value = HAVOC_BLK_MEDIUM;
         max_value = HAVOC_BLK_LARGE;
@@ -99,7 +99,7 @@ static u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
   if (min_value >= limit) min_value = 1;
 
-  return min_value + UR(afl, MIN(max_value, limit) - min_value + 1);
+  return min_value + rand_below(afl, MIN(max_value, limit) - min_value + 1);
 
 }
 
@@ -373,7 +373,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (((afl->queue_cur->was_fuzzed > 0 || afl->queue_cur->fuzz_level > 0) ||
          !afl->queue_cur->favored) &&
-        UR(afl, 100) < SKIP_TO_NEW_PROB)
+        rand_below(afl, 100) < SKIP_TO_NEW_PROB)
       return 1;
 
   } else if (!afl->dumb_mode && !afl->queue_cur->favored &&
@@ -387,11 +387,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     if (afl->queue_cycle > 1 &&
         (afl->queue_cur->fuzz_level == 0 || afl->queue_cur->was_fuzzed)) {
 
-      if (UR(afl, 100) < SKIP_NFAV_NEW_PROB) return 1;
+      if (rand_below(afl, 100) < SKIP_NFAV_NEW_PROB) return 1;
 
     } else {
 
-      if (UR(afl, 100) < SKIP_NFAV_OLD_PROB) return 1;
+      if (rand_below(afl, 100) < SKIP_NFAV_OLD_PROB) return 1;
 
     }
 
@@ -1401,7 +1401,7 @@ skip_interest:
          map. */
 
       if ((afl->extras_cnt > MAX_DET_EXTRAS &&
-           UR(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
+           rand_below(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
           afl->extras[j].len > len - i ||
           !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
           !memchr(eff_map + EFF_APOS(i), 1,
@@ -1573,7 +1573,7 @@ custom_mutator_stage:
     /* Pick a random other queue entry for passing to external API */
     do {
 
-      tid = UR(afl, afl->queued_paths);
+      tid = rand_below(afl, afl->queued_paths);
 
     } while (tid == afl->current_entry && afl->queued_paths > 1);
 
@@ -1714,34 +1714,34 @@ havoc_stage:
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
-    u32 use_stacking = 1 << (1 + UR(afl, HAVOC_STACK_POW2));
+    u32 use_stacking = 1 << (1 + rand_below(afl, HAVOC_STACK_POW2));
 
     afl->stage_cur_val = use_stacking;
 
     for (i = 0; i < use_stacking; ++i) {
 
-      if (stacked_custom && UR(afl, 100) < stacked_custom_prob) {
+      if (stacked_custom && rand_below(afl, 100) < stacked_custom_prob) {
 
         temp_len = afl->mutator->afl_custom_havoc_mutation(afl, &out_buf,
                                                            temp_len, MAX_FILE);
 
       }
 
-      switch (UR(afl, 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
+      switch (rand_below(afl, 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
 
         case 0:
 
           /* Flip a single bit somewhere. Spooky! */
 
-          FLIP_BIT(out_buf, UR(afl, temp_len << 3));
+          FLIP_BIT(out_buf, rand_below(afl, temp_len << 3));
           break;
 
         case 1:
 
           /* Set byte to interesting value. */
 
-          out_buf[UR(afl, temp_len)] =
-              interesting_8[UR(afl, sizeof(interesting_8))];
+          out_buf[rand_below(afl, temp_len)] =
+              interesting_8[rand_below(afl, sizeof(interesting_8))];
           break;
 
         case 2:
@@ -1750,15 +1750,15 @@ havoc_stage:
 
           if (temp_len < 2) break;
 
-          if (UR(afl, 2)) {
+          if (rand_below(afl, 2)) {
 
-            *(u16 *)(out_buf + UR(afl, temp_len - 1)) =
-                interesting_16[UR(afl, sizeof(interesting_16) >> 1)];
+            *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
+                interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)];
 
           } else {
 
-            *(u16 *)(out_buf + UR(afl, temp_len - 1)) =
-                SWAP16(interesting_16[UR(afl, sizeof(interesting_16) >> 1)]);
+            *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
+                SWAP16(interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)]);
 
           }
 
@@ -1770,15 +1770,15 @@ havoc_stage:
 
           if (temp_len < 4) break;
 
-          if (UR(afl, 2)) {
+          if (rand_below(afl, 2)) {
 
-            *(u32 *)(out_buf + UR(afl, temp_len - 3)) =
-                interesting_32[UR(afl, sizeof(interesting_32) >> 2)];
+            *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
+                interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)];
 
           } else {
 
-            *(u32 *)(out_buf + UR(afl, temp_len - 3)) =
-                SWAP32(interesting_32[UR(afl, sizeof(interesting_32) >> 2)]);
+            *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
+                SWAP32(interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)]);
 
           }
 
@@ -1788,14 +1788,14 @@ havoc_stage:
 
           /* Randomly subtract from byte. */
 
-          out_buf[UR(afl, temp_len)] -= 1 + UR(afl, ARITH_MAX);
+          out_buf[rand_below(afl, temp_len)] -= 1 + rand_below(afl, ARITH_MAX);
           break;
 
         case 5:
 
           /* Randomly add to byte. */
 
-          out_buf[UR(afl, temp_len)] += 1 + UR(afl, ARITH_MAX);
+          out_buf[rand_below(afl, temp_len)] += 1 + rand_below(afl, ARITH_MAX);
           break;
 
         case 6:
@@ -1804,16 +1804,16 @@ havoc_stage:
 
           if (temp_len < 2) break;
 
-          if (UR(afl, 2)) {
+          if (rand_below(afl, 2)) {
 
-            u32 pos = UR(afl, temp_len - 1);
+            u32 pos = rand_below(afl, temp_len - 1);
 
-            *(u16 *)(out_buf + pos) -= 1 + UR(afl, ARITH_MAX);
+            *(u16 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
 
           } else {
 
-            u32 pos = UR(afl, temp_len - 1);
-            u16 num = 1 + UR(afl, ARITH_MAX);
+            u32 pos = rand_below(afl, temp_len - 1);
+            u16 num = 1 + rand_below(afl, ARITH_MAX);
 
             *(u16 *)(out_buf + pos) =
                 SWAP16(SWAP16(*(u16 *)(out_buf + pos)) - num);
@@ -1828,16 +1828,16 @@ havoc_stage:
 
           if (temp_len < 2) break;
 
-          if (UR(afl, 2)) {
+          if (rand_below(afl, 2)) {
 
-            u32 pos = UR(afl, temp_len - 1);
+            u32 pos = rand_below(afl, temp_len - 1);
 
-            *(u16 *)(out_buf + pos) += 1 + UR(afl, ARITH_MAX);
+            *(u16 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
 
           } else {
 
-            u32 pos = UR(afl, temp_len - 1);
-            u16 num = 1 + UR(afl, ARITH_MAX);
+            u32 pos = rand_below(afl, temp_len - 1);
+            u16 num = 1 + rand_below(afl, ARITH_MAX);
 
             *(u16 *)(out_buf + pos) =
                 SWAP16(SWAP16(*(u16 *)(out_buf + pos)) + num);
@@ -1852,16 +1852,16 @@ havoc_stage:
 
           if (temp_len < 4) break;
 
-          if (UR(afl, 2)) {
+          if (rand_below(afl, 2)) {
 
-            u32 pos = UR(afl, temp_len - 3);
+            u32 pos = rand_below(afl, temp_len - 3);
 
-            *(u32 *)(out_buf + pos) -= 1 + UR(afl, ARITH_MAX);
+            *(u32 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
 
           } else {
 
-            u32 pos = UR(afl, temp_len - 3);
-            u32 num = 1 + UR(afl, ARITH_MAX);
+            u32 pos = rand_below(afl, temp_len - 3);
+            u32 num = 1 + rand_below(afl, ARITH_MAX);
 
             *(u32 *)(out_buf + pos) =
                 SWAP32(SWAP32(*(u32 *)(out_buf + pos)) - num);
@@ -1876,16 +1876,16 @@ havoc_stage:
 
           if (temp_len < 4) break;
 
-          if (UR(afl, 2)) {
+          if (rand_below(afl, 2)) {
 
-            u32 pos = UR(afl, temp_len - 3);
+            u32 pos = rand_below(afl, temp_len - 3);
 
-            *(u32 *)(out_buf + pos) += 1 + UR(afl, ARITH_MAX);
+            *(u32 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
 
           } else {
 
-            u32 pos = UR(afl, temp_len - 3);
-            u32 num = 1 + UR(afl, ARITH_MAX);
+            u32 pos = rand_below(afl, temp_len - 3);
+            u32 num = 1 + rand_below(afl, ARITH_MAX);
 
             *(u32 *)(out_buf + pos) =
                 SWAP32(SWAP32(*(u32 *)(out_buf + pos)) + num);
@@ -1900,7 +1900,7 @@ havoc_stage:
              why not. We use XOR with 1-255 to eliminate the
              possibility of a no-op. */
 
-          out_buf[UR(afl, temp_len)] ^= 1 + UR(afl, 255);
+          out_buf[rand_below(afl, temp_len)] ^= 1 + rand_below(afl, 255);
           break;
 
         case 11 ... 12: {
@@ -1917,7 +1917,7 @@ havoc_stage:
 
           del_len = choose_block_len(afl, temp_len - 1);
 
-          del_from = UR(afl, temp_len - del_len + 1);
+          del_from = rand_below(afl, temp_len - del_len + 1);
 
           memmove(out_buf + del_from, out_buf + del_from + del_len,
                   temp_len - del_from - del_len);
@@ -1934,14 +1934,14 @@ havoc_stage:
 
             /* Clone bytes (75%) or insert a block of constant bytes (25%). */
 
-            u8  actually_clone = UR(afl, 4);
+            u8  actually_clone = rand_below(afl, 4);
             u32 clone_from, clone_to, clone_len;
             u8 *new_buf;
 
             if (actually_clone) {
 
               clone_len = choose_block_len(afl, temp_len);
-              clone_from = UR(afl, temp_len - clone_len + 1);
+              clone_from = rand_below(afl, temp_len - clone_len + 1);
 
             } else {
 
@@ -1950,7 +1950,7 @@ havoc_stage:
 
             }
 
-            clone_to = UR(afl, temp_len);
+            clone_to = rand_below(afl, temp_len);
 
             new_buf = ck_alloc_nozero(temp_len + clone_len);
 
@@ -1964,7 +1964,7 @@ havoc_stage:
               memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
             else
               memset(new_buf + clone_to,
-                     UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)],
+                     rand_below(afl, 2) ? rand_below(afl, 256) : out_buf[rand_below(afl, temp_len)],
                      clone_len);
 
             /* Tail */
@@ -1990,10 +1990,10 @@ havoc_stage:
 
           copy_len = choose_block_len(afl, temp_len - 1);
 
-          copy_from = UR(afl, temp_len - copy_len + 1);
-          copy_to = UR(afl, temp_len - copy_len + 1);
+          copy_from = rand_below(afl, temp_len - copy_len + 1);
+          copy_to = rand_below(afl, temp_len - copy_len + 1);
 
-          if (UR(afl, 4)) {
+          if (rand_below(afl, 4)) {
 
             if (copy_from != copy_to)
               memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
@@ -2001,7 +2001,7 @@ havoc_stage:
           } else
 
             memset(out_buf + copy_to,
-                   UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)],
+                   rand_below(afl, 2) ? rand_below(afl, 256) : out_buf[rand_below(afl, temp_len)],
                    copy_len);
 
           break;
@@ -2015,18 +2015,18 @@ havoc_stage:
 
           /* Overwrite bytes with an extra. */
 
-          if (!afl->extras_cnt || (afl->a_extras_cnt && UR(afl, 2))) {
+          if (!afl->extras_cnt || (afl->a_extras_cnt && rand_below(afl, 2))) {
 
             /* No user-specified extras or odds in our favor. Let's use an
                auto-detected one. */
 
-            u32 use_extra = UR(afl, afl->a_extras_cnt);
+            u32 use_extra = rand_below(afl, afl->a_extras_cnt);
             u32 extra_len = afl->a_extras[use_extra].len;
             u32 insert_at;
 
             if (extra_len > temp_len) break;
 
-            insert_at = UR(afl, temp_len - extra_len + 1);
+            insert_at = rand_below(afl, temp_len - extra_len + 1);
             memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
                    extra_len);
 
@@ -2034,13 +2034,13 @@ havoc_stage:
 
             /* No auto extras or odds in our favor. Use the dictionary. */
 
-            u32 use_extra = UR(afl, afl->extras_cnt);
+            u32 use_extra = rand_below(afl, afl->extras_cnt);
             u32 extra_len = afl->extras[use_extra].len;
             u32 insert_at;
 
             if (extra_len > temp_len) break;
 
-            insert_at = UR(afl, temp_len - extra_len + 1);
+            insert_at = rand_below(afl, temp_len - extra_len + 1);
             memcpy(out_buf + insert_at, afl->extras[use_extra].data, extra_len);
 
           }
@@ -2051,15 +2051,15 @@ havoc_stage:
 
         case 16: {
 
-          u32 use_extra, extra_len, insert_at = UR(afl, temp_len + 1);
+          u32 use_extra, extra_len, insert_at = rand_below(afl, temp_len + 1);
           u8 *new_buf;
 
           /* Insert an extra. Do the same dice-rolling stuff as for the
              previous case. */
 
-          if (!afl->extras_cnt || (afl->a_extras_cnt && UR(afl, 2))) {
+          if (!afl->extras_cnt || (afl->a_extras_cnt && rand_below(afl, 2))) {
 
-            use_extra = UR(afl, afl->a_extras_cnt);
+            use_extra = rand_below(afl, afl->a_extras_cnt);
             extra_len = afl->a_extras[use_extra].len;
 
             if (temp_len + extra_len >= MAX_FILE) break;
@@ -2075,7 +2075,7 @@ havoc_stage:
 
           } else {
 
-            use_extra = UR(afl, afl->extras_cnt);
+            use_extra = rand_below(afl, afl->extras_cnt);
             extra_len = afl->extras[use_extra].len;
 
             if (temp_len + extra_len >= MAX_FILE) break;
@@ -2183,7 +2183,7 @@ retry_splicing:
 
     do {
 
-      tid = UR(afl, afl->queued_paths);
+      tid = rand_below(afl, afl->queued_paths);
 
     } while (tid == afl->current_entry);
 
@@ -2238,7 +2238,7 @@ retry_splicing:
 
     /* Split somewhere between the first and last differing byte. */
 
-    split_at = f_diff + UR(afl, l_diff - f_diff);
+    split_at = f_diff + rand_below(afl, l_diff - f_diff);
 
     /* Do the thing. */
 
@@ -2392,7 +2392,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
        cases. */
 
     if ((afl->queue_cur->was_fuzzed || !afl->queue_cur->favored) &&
-        UR(afl, 100) < SKIP_TO_NEW_PROB)
+        rand_below(afl, 100) < SKIP_TO_NEW_PROB)
       return 1;
 
   } else if (!afl->dumb_mode && !afl->queue_cur->favored &&
@@ -2405,11 +2405,11 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     if (afl->queue_cycle > 1 && !afl->queue_cur->was_fuzzed) {
 
-      if (UR(afl, 100) < SKIP_NFAV_NEW_PROB) return 1;
+      if (rand_below(afl, 100) < SKIP_NFAV_NEW_PROB) return 1;
 
     } else {
 
-      if (UR(afl, 100) < SKIP_NFAV_OLD_PROB) return 1;
+      if (rand_below(afl, 100) < SKIP_NFAV_OLD_PROB) return 1;
 
     }
 
@@ -3408,7 +3408,7 @@ skip_interest:
          map. */
 
       if ((afl->extras_cnt > MAX_DET_EXTRAS &&
-           UR(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
+           rand_below(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
           afl->extras[j].len > len - i ||
           !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
           !memchr(eff_map + EFF_APOS(i), 1,
@@ -3596,7 +3596,7 @@ pacemaker_fuzzing:
         afl->orig_hit_cnt_puppet = afl->queued_paths + afl->unique_crashes;
         afl->last_limit_time_start = get_cur_time();
         afl->SPLICE_CYCLES_puppet =
-            (UR(afl, SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
+            (rand_below(afl, SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
              SPLICE_CYCLES_puppet_low);
 
       }
@@ -3644,7 +3644,7 @@ pacemaker_fuzzing:
       for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
            ++afl->stage_cur) {
 
-        u32 use_stacking = 1 << (1 + UR(afl, HAVOC_STACK_POW2));
+        u32 use_stacking = 1 << (1 + rand_below(afl, HAVOC_STACK_POW2));
 
         afl->stage_cur_val = use_stacking;
 
@@ -3660,13 +3660,13 @@ pacemaker_fuzzing:
 
             case 0:
               /* Flip a single bit somewhere. Spooky! */
-              FLIP_BIT(out_buf, UR(afl, temp_len << 3));
+              FLIP_BIT(out_buf, rand_below(afl, temp_len << 3));
               MOpt_globals.cycles_v2[STAGE_FLIP1] += 1;
               break;
 
             case 1:
               if (temp_len < 2) break;
-              temp_len_puppet = UR(afl, (temp_len << 3) - 1);
+              temp_len_puppet = rand_below(afl, (temp_len << 3) - 1);
               FLIP_BIT(out_buf, temp_len_puppet);
               FLIP_BIT(out_buf, temp_len_puppet + 1);
               MOpt_globals.cycles_v2[STAGE_FLIP2] += 1;
@@ -3674,7 +3674,7 @@ pacemaker_fuzzing:
 
             case 2:
               if (temp_len < 2) break;
-              temp_len_puppet = UR(afl, (temp_len << 3) - 3);
+              temp_len_puppet = rand_below(afl, (temp_len << 3) - 3);
               FLIP_BIT(out_buf, temp_len_puppet);
               FLIP_BIT(out_buf, temp_len_puppet + 1);
               FLIP_BIT(out_buf, temp_len_puppet + 2);
@@ -3684,55 +3684,55 @@ pacemaker_fuzzing:
 
             case 3:
               if (temp_len < 4) break;
-              out_buf[UR(afl, temp_len)] ^= 0xFF;
+              out_buf[rand_below(afl, temp_len)] ^= 0xFF;
               MOpt_globals.cycles_v2[STAGE_FLIP8] += 1;
               break;
 
             case 4:
               if (temp_len < 8) break;
-              *(u16 *)(out_buf + UR(afl, temp_len - 1)) ^= 0xFFFF;
+              *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) ^= 0xFFFF;
               MOpt_globals.cycles_v2[STAGE_FLIP16] += 1;
               break;
 
             case 5:
               if (temp_len < 8) break;
-              *(u32 *)(out_buf + UR(afl, temp_len - 3)) ^= 0xFFFFFFFF;
+              *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) ^= 0xFFFFFFFF;
               MOpt_globals.cycles_v2[STAGE_FLIP32] += 1;
               break;
 
             case 6:
-              out_buf[UR(afl, temp_len)] -= 1 + UR(afl, ARITH_MAX);
-              out_buf[UR(afl, temp_len)] += 1 + UR(afl, ARITH_MAX);
+              out_buf[rand_below(afl, temp_len)] -= 1 + rand_below(afl, ARITH_MAX);
+              out_buf[rand_below(afl, temp_len)] += 1 + rand_below(afl, ARITH_MAX);
               MOpt_globals.cycles_v2[STAGE_ARITH8] += 1;
               break;
 
             case 7:
               /* Randomly subtract from word, random endian. */
               if (temp_len < 8) break;
-              if (UR(afl, 2)) {
+              if (rand_below(afl, 2)) {
 
-                u32 pos = UR(afl, temp_len - 1);
-                *(u16 *)(out_buf + pos) -= 1 + UR(afl, ARITH_MAX);
+                u32 pos = rand_below(afl, temp_len - 1);
+                *(u16 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
 
               } else {
 
-                u32 pos = UR(afl, temp_len - 1);
-                u16 num = 1 + UR(afl, ARITH_MAX);
+                u32 pos = rand_below(afl, temp_len - 1);
+                u16 num = 1 + rand_below(afl, ARITH_MAX);
                 *(u16 *)(out_buf + pos) =
                     SWAP16(SWAP16(*(u16 *)(out_buf + pos)) - num);
 
               }
 
               /* Randomly add to word, random endian. */
-              if (UR(afl, 2)) {
+              if (rand_below(afl, 2)) {
 
-                u32 pos = UR(afl, temp_len - 1);
-                *(u16 *)(out_buf + pos) += 1 + UR(afl, ARITH_MAX);
+                u32 pos = rand_below(afl, temp_len - 1);
+                *(u16 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
 
               } else {
 
-                u32 pos = UR(afl, temp_len - 1);
-                u16 num = 1 + UR(afl, ARITH_MAX);
+                u32 pos = rand_below(afl, temp_len - 1);
+                u16 num = 1 + rand_below(afl, ARITH_MAX);
                 *(u16 *)(out_buf + pos) =
                     SWAP16(SWAP16(*(u16 *)(out_buf + pos)) + num);
 
@@ -3744,15 +3744,15 @@ pacemaker_fuzzing:
             case 8:
               /* Randomly subtract from dword, random endian. */
               if (temp_len < 8) break;
-              if (UR(afl, 2)) {
+              if (rand_below(afl, 2)) {
 
-                u32 pos = UR(afl, temp_len - 3);
-                *(u32 *)(out_buf + pos) -= 1 + UR(afl, ARITH_MAX);
+                u32 pos = rand_below(afl, temp_len - 3);
+                *(u32 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
 
               } else {
 
-                u32 pos = UR(afl, temp_len - 3);
-                u32 num = 1 + UR(afl, ARITH_MAX);
+                u32 pos = rand_below(afl, temp_len - 3);
+                u32 num = 1 + rand_below(afl, ARITH_MAX);
                 *(u32 *)(out_buf + pos) =
                     SWAP32(SWAP32(*(u32 *)(out_buf + pos)) - num);
 
@@ -3760,15 +3760,15 @@ pacemaker_fuzzing:
 
               /* Randomly add to dword, random endian. */
               // if (temp_len < 4) break;
-              if (UR(afl, 2)) {
+              if (rand_below(afl, 2)) {
 
-                u32 pos = UR(afl, temp_len - 3);
-                *(u32 *)(out_buf + pos) += 1 + UR(afl, ARITH_MAX);
+                u32 pos = rand_below(afl, temp_len - 3);
+                *(u32 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
 
               } else {
 
-                u32 pos = UR(afl, temp_len - 3);
-                u32 num = 1 + UR(afl, ARITH_MAX);
+                u32 pos = rand_below(afl, temp_len - 3);
+                u32 num = 1 + rand_below(afl, ARITH_MAX);
                 *(u32 *)(out_buf + pos) =
                     SWAP32(SWAP32(*(u32 *)(out_buf + pos)) + num);
 
@@ -3780,23 +3780,23 @@ pacemaker_fuzzing:
             case 9:
               /* Set byte to interesting value. */
               if (temp_len < 4) break;
-              out_buf[UR(afl, temp_len)] =
-                  interesting_8[UR(afl, sizeof(interesting_8))];
+              out_buf[rand_below(afl, temp_len)] =
+                  interesting_8[rand_below(afl, sizeof(interesting_8))];
               MOpt_globals.cycles_v2[STAGE_INTEREST8] += 1;
               break;
 
             case 10:
               /* Set word to interesting value, randomly choosing endian. */
               if (temp_len < 8) break;
-              if (UR(afl, 2)) {
+              if (rand_below(afl, 2)) {
 
-                *(u16 *)(out_buf + UR(afl, temp_len - 1)) =
-                    interesting_16[UR(afl, sizeof(interesting_16) >> 1)];
+                *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
+                    interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)];
 
               } else {
 
-                *(u16 *)(out_buf + UR(afl, temp_len - 1)) = SWAP16(
-                    interesting_16[UR(afl, sizeof(interesting_16) >> 1)]);
+                *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) = SWAP16(
+                    interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)]);
 
               }
 
@@ -3808,15 +3808,15 @@ pacemaker_fuzzing:
 
               if (temp_len < 8) break;
 
-              if (UR(afl, 2)) {
+              if (rand_below(afl, 2)) {
 
-                *(u32 *)(out_buf + UR(afl, temp_len - 3)) =
-                    interesting_32[UR(afl, sizeof(interesting_32) >> 2)];
+                *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
+                    interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)];
 
               } else {
 
-                *(u32 *)(out_buf + UR(afl, temp_len - 3)) = SWAP32(
-                    interesting_32[UR(afl, sizeof(interesting_32) >> 2)]);
+                *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) = SWAP32(
+                    interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)]);
 
               }
 
@@ -3829,7 +3829,7 @@ pacemaker_fuzzing:
                  why not. We use XOR with 1-255 to eliminate the
                  possibility of a no-op. */
 
-              out_buf[UR(afl, temp_len)] ^= 1 + UR(afl, 255);
+              out_buf[rand_below(afl, temp_len)] ^= 1 + rand_below(afl, 255);
               MOpt_globals.cycles_v2[STAGE_RANDOMBYTE] += 1;
               break;
 
@@ -3847,7 +3847,7 @@ pacemaker_fuzzing:
 
               del_len = choose_block_len(afl, temp_len - 1);
 
-              del_from = UR(afl, temp_len - del_len + 1);
+              del_from = rand_below(afl, temp_len - del_len + 1);
 
               memmove(out_buf + del_from, out_buf + del_from + del_len,
                       temp_len - del_from - del_len);
@@ -3865,14 +3865,14 @@ pacemaker_fuzzing:
                 /* Clone bytes (75%) or insert a block of constant bytes (25%).
                  */
 
-                u8  actually_clone = UR(afl, 4);
+                u8  actually_clone = rand_below(afl, 4);
                 u32 clone_from, clone_to, clone_len;
                 u8 *new_buf;
 
                 if (actually_clone) {
 
                   clone_len = choose_block_len(afl, temp_len);
-                  clone_from = UR(afl, temp_len - clone_len + 1);
+                  clone_from = rand_below(afl, temp_len - clone_len + 1);
 
                 } else {
 
@@ -3881,7 +3881,7 @@ pacemaker_fuzzing:
 
                 }
 
-                clone_to = UR(afl, temp_len);
+                clone_to = rand_below(afl, temp_len);
 
                 new_buf = ck_alloc_nozero(temp_len + clone_len);
 
@@ -3895,7 +3895,7 @@ pacemaker_fuzzing:
                   memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
                 else
                   memset(new_buf + clone_to,
-                         UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)],
+                         rand_below(afl, 2) ? rand_below(afl, 256) : out_buf[rand_below(afl, temp_len)],
                          clone_len);
 
                 /* Tail */
@@ -3922,10 +3922,10 @@ pacemaker_fuzzing:
 
               copy_len = choose_block_len(afl, temp_len - 1);
 
-              copy_from = UR(afl, temp_len - copy_len + 1);
-              copy_to = UR(afl, temp_len - copy_len + 1);
+              copy_from = rand_below(afl, temp_len - copy_len + 1);
+              copy_to = rand_below(afl, temp_len - copy_len + 1);
 
-              if (UR(afl, 4)) {
+              if (rand_below(afl, 4)) {
 
                 if (copy_from != copy_to)
                   memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
@@ -3933,7 +3933,7 @@ pacemaker_fuzzing:
               } else
 
                 memset(out_buf + copy_to,
-                       UR(afl, 2) ? UR(afl, 256) : out_buf[UR(afl, temp_len)],
+                       rand_below(afl, 2) ? rand_below(afl, 256) : out_buf[rand_below(afl, temp_len)],
                        copy_len);
               MOpt_globals.cycles_v2[STAGE_OverWrite75] += 1;
               break;
@@ -4043,7 +4043,7 @@ pacemaker_fuzzing:
 
         do {
 
-          tid = UR(afl, afl->queued_paths);
+          tid = rand_below(afl, afl->queued_paths);
 
         } while (tid == afl->current_entry);
 
@@ -4098,7 +4098,7 @@ pacemaker_fuzzing:
 
         /* Split somewhere between the first and last differing byte. */
 
-        split_at = f_diff + UR(afl, l_diff - f_diff);
+        split_at = f_diff + rand_below(afl, l_diff - f_diff);
 
         /* Do the thing. */
 
@@ -4122,7 +4122,7 @@ pacemaker_fuzzing:
 
       if (splice_cycle >= afl->SPLICE_CYCLES_puppet)
         afl->SPLICE_CYCLES_puppet =
-            (UR(afl, SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
+            (rand_below(afl, SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
              SPLICE_CYCLES_puppet_low);
 
       afl->splicing_with = -1;

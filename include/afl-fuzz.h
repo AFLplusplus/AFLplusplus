@@ -875,7 +875,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
 /* Generate a random number (from 0 to limit - 1). This may
    have slight bias. */
 
-static inline u32 UR(afl_state_t *afl, u32 limit) {
+static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
 #ifdef HAVE_ARC4RANDOM
   if (afl->fixed_seed) { return random() % limit; }
