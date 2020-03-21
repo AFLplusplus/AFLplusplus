@@ -303,8 +303,6 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
      trying to calibrate already-added finds. This helps avoid trouble due
      to intermittent latency. */
 
-  runcnt++;
-
   if (!from_queue || afl->resuming_fuzz)
     use_tmout = MAX(afl->fsrv.exec_tmout + CAL_TMOUT_ADD,
                     afl->fsrv.exec_tmout * CAL_TMOUT_PERC / 100);
@@ -439,6 +437,8 @@ abort_calibration:
   afl->stage_max = old_sm;
 
   if (!first_run) show_stats(afl);
+
+  runcnt++;
 
   return fault;
 
