@@ -86,7 +86,7 @@ fi
 if echo "$CC" | grep -qF /afl-; then
 
   echo "[-] Error: do not use afl-gcc or afl-clang to compile this tool."
-  exit 1
+  PREREQ_NOTFOUND=1
 
 fi
 

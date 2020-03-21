@@ -223,7 +223,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   # on FreeBSD need to set AFL_CC
   test `uname -s` = 'FreeBSD' && {
     if type clang >/dev/null; then
-      export AFL_CC=`type clang | awk '{print $NF}'`
+      export AFL_CC=`command -v clang`
     else
       export AFL_CC=`$LLVM_CONFIG --bindir`/clang
     fi
@@ -401,7 +401,7 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
   # on FreeBSD need to set AFL_CC
   test `uname -s` = 'FreeBSD' && {
     if type clang >/dev/null; then
-      export AFL_CC=`type clang | awk '{print $NF}'`
+      export AFL_CC=`command -v clang`
     else
       export AFL_CC=`$LLVM_CONFIG --bindir`/clang
     fi
@@ -471,7 +471,7 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
 }
 
 $ECHO "$BLUE[*] Testing: gcc_plugin"
-export AFL_CC=`type gcc | awk '{print $NF}'`
+export AFL_CC=`command -v gcc`
 test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   ../afl-gcc-fast -o test-instr.plain.gccpi ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-gcc-fast -o test-compcov.harden.gccpi test-compcov.c > /dev/null 2>&1
@@ -617,7 +617,7 @@ test -e ../libradamsa.so && {
 
   test `uname -s` = 'FreeBSD' && {
     if type clang >/dev/null; then
-      export AFL_CC=`type clang | awk '{print $NF}'`
+      export AFL_CC=`command -v clang`
     else
       export AFL_CC=`$LLVM_CONFIG --bindir`/clang
     fi
@@ -835,7 +835,7 @@ test -d ../unicorn_mode/unicornafl && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
       # travis workaround
-      PY=`type python | awk '{print $NF}'`
+      PY=`command -v python`
       test "$PY" = "/opt/pyenv/shims/python" -a -x /usr/bin/python && PY=/usr/bin/python
       mkdir -p in
       echo 0 > in/in
