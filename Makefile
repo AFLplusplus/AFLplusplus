@@ -151,6 +151,18 @@ ifdef STATIC
   LDFLAGS += -lm -lpthread -lz -lutil
 endif
 
+ifdef ASAN_BUILD
+  $(info Compiling ASAN version of binaries)
+  CFLAGS+=-fsanitize=address
+  LDFLAGS+=-fsanitize=address
+endif
+
+ifdef PROFILING
+  $(info Compiling profiling version of binaries)
+  CFLAGS+=-pg
+  LDFLAGS+=-pg
+endif
+
 ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
 	SHMAT_OK=1
 else
@@ -163,11 +175,6 @@ ifeq "$(TEST_MMAP)" "1"
 	SHMAT_OK=0
 	CFLAGS+=-DUSEMMAP=1
 	LDFLAGS+=-Wno-deprecated-declarations
-endif
-
-ifdef ASAN_BUILD
-  CFLAGS+=-fsanitize=address
-	LDFLAGS+=-fsanitize=address
 endif
 
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
@@ -208,6 +215,7 @@ help:
 	@echo "=========================================="
 	@echo STATIC - compile AFL++ static
 	@echo ASAN_BUILD - compiles with memory sanitizer for debug purposes
+	@echo PROFILING - compile afl-fuzz with profiling information
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
 	@echo "=========================================="
 	@echo e.g.: make ASAN_BUILD=1

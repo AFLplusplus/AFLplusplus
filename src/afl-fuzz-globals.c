@@ -38,6 +38,8 @@ u8 *doc_path = NULL;                    /* gath to documentation dir        */
 
 /* Initialize MOpt "globals" for this afl state */
 
+u32 bmcnt, initcnt, one1cnt, one2cnt, runcnt;
+
 static void init_mopt_globals(afl_state_t *afl) {
 
   MOpt_globals_t *core = &afl->mopt_globals_core;

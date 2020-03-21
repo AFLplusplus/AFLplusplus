@@ -118,6 +118,9 @@ extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
 extern s32
     interesting_32[INTERESTING_8_LEN + INTERESTING_16_LEN + INTERESTING_32_LEN];
 
+extern u32 bmcnt, initcnt, one1cnt, one2cnt, runcnt;
+
+
 struct queue_entry {
 
   u8 *fname;                            /* File name for the test case      */
