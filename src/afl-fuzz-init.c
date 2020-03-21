@@ -323,7 +323,7 @@ void read_testcases(afl_state_t *afl) {
   u32             i;
   u8 *            fn1;
 
-  u8 int_buf[12][16];
+  u8 int_buf[2][16];
 
   /* Auto-detect non-in-place resumption attempts. */
 
@@ -556,7 +556,7 @@ void perform_dry_run(afl_state_t *afl) {
 
         if (afl->fsrv.mem_limit) {
 
-          u8 int_tmp[16];
+          u8 int_buf[16];
 
           SAYF("\n" cLRD "[-] " cRST
                "Oops, the program crashed with one of the test cases provided. "
@@ -598,7 +598,7 @@ void perform_dry_run(afl_state_t *afl) {
                "other options\n"
                "      fail, poke <afl-users@googlegroups.com> for "
                "troubleshooting tips.\n",
-               DMS(int_tmp, sizeof(int_tmp), afl->fsrv.mem_limit << 20),
+               DMS(int_buf, sizeof(int_buf), afl->fsrv.mem_limit << 20),
                afl->fsrv.mem_limit - 1, doc_path);
 
         } else {

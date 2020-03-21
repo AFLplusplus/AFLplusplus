@@ -205,7 +205,7 @@ void show_stats(afl_state_t *afl) {
   u8  tmp[256];
   u8  time_tmp[64];
 
-  u8 int_buf[16][16];
+  u8 int_buf[8][16];
 #define IB(i) int_buf[(i)], sizeof(int_buf[(i)])
 
   cur_ms = get_cur_time();
@@ -789,8 +789,8 @@ void show_init_stats(afl_state_t *afl) {
   u64                 avg_us = 0;
   u32                 max_len = 0;
 
-  u8 int_buf[12][16];
-#define IB(i) int_buf[(i)], sizeof(int_buf[(i)])
+  u8 int_bufs[4][16];
+#define IB(i) int_bufs[(i)], sizeof(int_bufs[(i)])
 
   if (afl->total_cal_cycles) avg_us = afl->total_cal_us / afl->total_cal_cycles;
 
