@@ -323,7 +323,7 @@ void read_testcases(afl_state_t *afl) {
   u32             i;
   u8 *            fn1;
 
-  u8 int_buf[2][16];
+  u8 val_buf[2][STRINGIFY_VAL_SIZE_MAX];
 
   /* Auto-detect non-in-place resumption attempts. */
 
@@ -392,8 +392,8 @@ void read_testcases(afl_state_t *afl) {
 
     if (st.st_size > MAX_FILE)
       FATAL("Test case '%s' is too big (%s, limit is %s)", fn2,
-            DMS(int_buf[0], sizeof(int_buf[0]), st.st_size),
-            DMS(int_buf[1], sizeof(int_buf[1]), MAX_FILE));
+            stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
+            stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
 
     /* Check for metadata that indicates that deterministic fuzzing
        is complete for this entry. We don't want to repeat deterministic
@@ -557,7 +557,7 @@ void perform_dry_run(afl_state_t *afl) {
 
         if (afl->fsrv.mem_limit) {
 
-          u8 int_buf[16];
+          u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
           SAYF("\n" cLRD "[-] " cRST
                "Oops, the program crashed with one of the test cases provided. "
@@ -599,7 +599,8 @@ void perform_dry_run(afl_state_t *afl) {
                "other options\n"
                "      fail, poke <afl-users@googlegroups.com> for "
                "troubleshooting tips.\n",
-               DMS(int_buf, sizeof(int_buf), afl->fsrv.mem_limit << 20),
+               stringify_mem_size(val_buf, sizeof(val_buf),
+                                  afl->fsrv.mem_limit << 20),
                afl->fsrv.mem_limit - 1, doc_path);
 
         } else {
