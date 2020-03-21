@@ -1054,7 +1054,7 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 
     /* Let's see how much work is at stake. */
 
-    if (!afl->in_place_resume &&
+    if (!afl->in_place_resume && last_update > start_time2 &&
         last_update - start_time2 > OUTPUT_GRACE * 60) {
 
       SAYF("\n" cLRD "[-] " cRST

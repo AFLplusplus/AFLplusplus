@@ -162,17 +162,24 @@ u8 *DTD(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
   s32 t_d, t_h, t_m, t_s;
   u8  int_buf[16];
 
-  if (!event_ms) snprintf(buf, len, "none seen yet");
+  if (!event_ms) {
 
-  delta = cur_ms - event_ms;
+    snprintf(buf, len, "none seen yet");
 
-  t_d = delta / 1000 / 60 / 60 / 24;
-  t_h = (delta / 1000 / 60 / 60) % 24;
-  t_m = (delta / 1000 / 60) % 60;
-  t_s = (delta / 1000) % 60;
+  } else {
 
-  DI(int_buf, sizeof(int_buf), t_d);
-  snprintf(buf, len, "%s days, %d hrs, %d min, %d sec", int_buf, t_h, t_m, t_s);
+    delta = cur_ms - event_ms;
+
+    t_d = delta / 1000 / 60 / 60 / 24;
+    t_h = (delta / 1000 / 60 / 60) % 24;
+    t_m = (delta / 1000 / 60) % 60;
+    t_s = (delta / 1000) % 60;
+
+    DI(int_buf, sizeof(int_buf), t_d);
+    snprintf(buf, len, "%s days, %d hrs, %d min, %d sec", int_buf, t_h, t_m,
+             t_s);
+
+  }
 
   return buf;
 
