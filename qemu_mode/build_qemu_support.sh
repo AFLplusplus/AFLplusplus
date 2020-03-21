@@ -63,7 +63,7 @@ if [ ! -f "../afl-showmap" ]; then
 fi
 
 PREREQ_NOTFOUND=
-for i in libtool wget python automake autoconf sha384sum bison iconv patch; do
+for i in libtool wget python automake autoconf sha384sum bison flex iconv patch pkg-config; do
 
   T=`type "$i" | awk '{print $NF}' 2>/dev/null`
 
