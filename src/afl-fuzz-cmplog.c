@@ -264,7 +264,7 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
     } else {
 
-      u8 int_buf[16];
+      u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
@@ -298,7 +298,8 @@ void init_cmplog_forkserver(afl_state_t *afl) {
            "options\n"
            "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
            "tips.\n",
-           DMS(int_buf, sizeof(int_buf), afl->fsrv.mem_limit << 20),
+           stringify_mem_size(val_buf, sizeof(val_buf),
+                              afl->fsrv.mem_limit << 20),
            afl->fsrv.mem_limit - 1);
 
     }
@@ -334,7 +335,7 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
   } else {
 
-    u8 int_buf[16];
+    u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
     SAYF(
         "\n" cLRD "[-] " cRST
@@ -367,7 +368,7 @@ void init_cmplog_forkserver(afl_state_t *afl) {
               "never\n"
               "      reached before the program terminates.\n\n"
             : "",
-        DMS(int_buf, sizeof(int_buf), afl->fsrv.mem_limit << 20),
+        stringify_mem_size(val_buf, sizeof(val_buf), afl->fsrv.mem_limit << 20),
         afl->fsrv.mem_limit - 1);
 
   }

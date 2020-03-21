@@ -51,65 +51,6 @@
 
 extern u8 *doc_path;
 
-static void forkserver_stringify_int(u8 *buf, size_t len, u64 val) {
-
-  u8 cur = 0;
-
-#define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)     \
-  do {                                                     \
-                                                           \
-    if (val < (_divisor) * (_limit_mult)) {                \
-                                                           \
-      snprintf(buf, len, _fmt, ((_cast)val) / (_divisor)); \
-      return;                                              \
-                                                           \
-    }                                                      \
-                                                           \
-  } while (0)
-
-  cur = (cur + 1) % 12;
-
-  /* 0-9999 */
-  CHK_FORMAT(1, 10000, "%llu B", u64);
-
-  /* 10.0k - 99.9k */
-  CHK_FORMAT(1024, 99.95, "%0.01f kB", double);
-
-  /* 100k - 999k */
-  CHK_FORMAT(1024, 1000, "%llu kB", u64);
-
-  /* 1.00M - 9.99M */
-  CHK_FORMAT(1024 * 1024, 9.995, "%0.02f MB", double);
-
-  /* 10.0M - 99.9M */
-  CHK_FORMAT(1024 * 1024, 99.95, "%0.01f MB", double);
-
-  /* 100M - 999M */
-  CHK_FORMAT(1024 * 1024, 1000, "%llu MB", u64);
-
-  /* 1.00G - 9.99G */
-  CHK_FORMAT(1024LL * 1024 * 1024, 9.995, "%0.02f GB", double);
-
-  /* 10.0G - 99.9G */
-  CHK_FORMAT(1024LL * 1024 * 1024, 99.95, "%0.01f GB", double);
-
-  /* 100G - 999G */
-  CHK_FORMAT(1024LL * 1024 * 1024, 1000, "%llu GB", u64);
-
-  /* 1.00T - 9.99G */
-  CHK_FORMAT(1024LL * 1024 * 1024 * 1024, 9.995, "%0.02f TB", double);
-
-  /* 10.0T - 99.9T */
-  CHK_FORMAT(1024LL * 1024 * 1024 * 1024, 99.95, "%0.01f TB", double);
-
-#undef CHK_FORMAT
-
-  /* 100T+ */
-  strncpy(buf, "infty", len - 1);
-  buf[len - 1] = '\0';
-
-}
-
 list_t fsrv_list = {.element_prealloc_count = 0};
 
 /* Initializes the struct */
@@ -453,9 +394,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 
     } else {
 
-      u8 mem_limit_buf[16];
-      forkserver_stringify_int(mem_limit_buf, sizeof(mem_limit_buf),
-                               fsrv->mem_limit << 20);
+      u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
@@ -489,7 +428,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
            "options\n"
            "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
            "tips.\n",
-           mem_limit_buf, fsrv->mem_limit - 1);
+           stringify_mem_size(val_buf, sizeof(val_buf), fsrv->mem_limit << 20),
+           fsrv->mem_limit - 1);
 
     }
 
@@ -524,9 +464,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 
   } else {
 
-    u8 mem_limit_buf[16];
-    forkserver_stringify_int(mem_limit_buf, sizeof(mem_limit_buf),
-                             fsrv->mem_limit << 20);
+    u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
     SAYF(
         "\n" cLRD "[-] " cRST
@@ -559,7 +497,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
               "never\n"
               "      reached before the program terminates.\n\n"
             : "",
-        mem_limit_buf, fsrv->mem_limit - 1);
+        stringify_int(val_buf, sizeof(val_buf), fsrv->mem_limit << 20),
+        fsrv->mem_limit - 1);
 
   }
 

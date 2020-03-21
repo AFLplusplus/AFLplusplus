@@ -465,7 +465,7 @@ static void write_crash_readme(afl_state_t *afl) {
   s32   fd;
   FILE *f;
 
-  u8 int_buf[16];
+  u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
   ck_free(fn);
@@ -504,8 +504,8 @@ static void write_crash_readme(afl_state_t *afl) {
       "  https://github.com/AFLplusplus/AFLplusplus\n\n",
 
       afl->orig_cmdline,
-      DMS(int_buf, sizeof(int_buf),
-          afl->fsrv.mem_limit << 20));                     /* ignore errors */
+      stringify_mem_size(val_buf, sizeof(val_buf),
+                         afl->fsrv.mem_limit << 20));      /* ignore errors */
 
   fclose(f);
 

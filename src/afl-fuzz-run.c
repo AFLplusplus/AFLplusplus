@@ -605,7 +605,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   u32 remove_len;
   u32 len_p2;
 
-  u8 int_bufs[2][16];
+  u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
 
   /* Although the trimmer will be less useful when variable behavior is
      detected, it will still work to some extent, so we don't check for
@@ -631,8 +631,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     u32 remove_pos = remove_len;
 
     snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "trim %s/%s",
-             DI(int_bufs[0], sizeof(int_bufs[0]), remove_len),
-             DI(int_bufs[1], sizeof(int_bufs[1]), remove_len));
+             stringify_int(val_bufs[0], sizeof(val_bufs[0]), remove_len),
+             stringify_int(val_bufs[1], sizeof(val_bufs[1]), remove_len));
 
     afl->stage_cur = 0;
     afl->stage_max = q->len / remove_len;

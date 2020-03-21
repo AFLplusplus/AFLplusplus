@@ -196,7 +196,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   u32 trim_exec = 0;
   u32 orig_len = q->len;
 
-  u8 int_buf[16];
+  u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
   if (afl->stage_name != afl->stage_name_buf)
     afl->stage_name = afl->stage_name_buf;
@@ -213,7 +213,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   while (afl->stage_cur < afl->stage_max) {
 
     snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "ptrim %s",
-             DI(int_buf, sizeof(int_buf), trim_exec));
+             stringify_int(val_buf, sizeof(val_buf), trim_exec));
 
     u32 cksum;
 

@@ -804,13 +804,6 @@ u8 *describe_op(afl_state_t *, u8);
 u8 save_if_interesting(afl_state_t *, void *, u32, u8);
 u8 has_new_bits(afl_state_t *, u8 *);
 
-/* Misc */
-
-u8 *DI(u8 *, size_t, u64);
-u8 *DF(u8 *, size_t, double);
-u8 *DMS(u8 *, size_t, u64);
-u8 *DTD(u8 *, size_t, u64, u64);
-
 /* Extras */
 
 void load_extras_file(afl_state_t *, u8 *, u32 *, u32 *, u32);
