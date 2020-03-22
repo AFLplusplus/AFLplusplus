@@ -143,8 +143,16 @@ echo "[*] Configuring QEMU for $CPU_TARGET..."
 
 ORIG_CPU_TARGET="$CPU_TARGET"
 
-test "$CPU_TARGET" = "" && CPU_TARGET="`uname -m`"
-test "$CPU_TARGET" = "i686" && CPU_TARGET="i386"
+if [ "$ORIG_CPU_TARGET" = "" ]; then
+  CPU_TARGET="`uname -m`"
+  test "$CPU_TARGET" = "i686" && CPU_TARGET="i386"
+  test "$CPU_TARGET" = "arm64v8" && CPU_TARGET="aarch64"
+  case "$CPU_TARGET" in 
+    *arm*)
+      CPU_TARGET="arm"
+      ;;
+  esac
+fi
 
 cd qemu-$VERSION || exit 1
 
