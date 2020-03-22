@@ -28,7 +28,7 @@ test -x ./afl-fuzz || { echo "BUILD FAIL $C" > $C.out ; make clean ; exit 1 ; }
 
 START=`date +%s`
 echo $START > $C.out
-time ./afl-fuzz -i "$INDIR" -s 123 -o out-profile -- $CMDLINE 2>> $C.out
+time nice -n -20 ./afl-fuzz -i "$INDIR" -s 123 -o out-profile -- $CMDLINE 2>> $C.out
 STOP=`date +%s`
 echo $STOP >> $C.out
 echo RUNTIME: `expr $STOP - $START` >> $C.out
