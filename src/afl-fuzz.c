@@ -1051,9 +1051,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
-      show_stats(afl);
+      //show_stats(afl);
 
-      if (afl->not_on_tty) {
+      if (unlikely(afl->not_on_tty)) {
 
         ACTF("Entering queue cycle %llu.", afl->queue_cycle);
         fflush(stdout);
@@ -1124,7 +1124,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->queue_cur) show_stats(afl);
+  //if (afl->queue_cur) show_stats(afl);
 
   /*
    * ATTENTION - the following 10 lines were copied from a PR to Google's afl
@@ -1149,12 +1149,12 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   write_bitmap(afl);
-  write_stats_file(afl, 0, 0, 0);
   maybe_update_plot_file(afl, 0, 0);
   save_auto(afl);
 
 stop_fuzzing:
 
+  write_stats_file(afl, 0, 0, 0);
   afl->force_ui_update = 1;  // ensure the screen is reprinted
   show_stats(afl);           // print the screen one last time
 
