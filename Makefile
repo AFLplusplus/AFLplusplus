@@ -64,11 +64,6 @@ ifneq "$(shell uname -m)" "x86_64"
  endif
 endif
 
-#support for qemu on arm
-ifneq "$(findstring arm, $(shell uname -m))" ""
-	export CPU_TARGET=arm
-endif
-
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
 override CFLAGS     += -Wall -g -Wno-pointer-sign -I include/ \
               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
