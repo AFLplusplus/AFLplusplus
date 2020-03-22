@@ -8,6 +8,7 @@ test -z "$1" -o -n "$4" && {
   echo "Switches to the defined commit ID, compiles with profiling and runs"
   echo "afl-fuzz on a defind target and input directory, saving timing,"
   echo "fuzzer_stats and profiling output to \"<commit-id>.out\""
+  echo "Honors CFLAGS and LDFLAGS"
   echo
   echo "Defaults:"
   echo "  indir: \"$INDIR\""
@@ -21,8 +22,9 @@ test -n "$3" && CMDLINE=$3
 
 git checkout "$C" || { echo "CHECKOUT FAIL $C" > $C.out ; exit 1 ; }
 export AFL_BENCH_JUST_ONE=1
-export CFLAGS="-O3 -funroll-loops -pg"
-export LDFLAGS=-pg
+test -z "$CFLAGS" && CFLAGS="-O3 -funroll-loops"
+export CFLAGS="$CFLAGS -pg"
+export LDFLAGS="$LDFLAGS -pg"
 make >/dev/null 2>&1 || echo ERROR: BUILD FAILURE 
 test -x ./afl-fuzz || { echo "BUILD FAIL $C" > $C.out ; make clean ; exit 1 ; }
 
