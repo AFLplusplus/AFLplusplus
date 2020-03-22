@@ -20,6 +20,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       multiple fuzzing threads in the future or even become a library
     - afl basic tools now report on the environment variables picked up
     - more tools get environment variable usage info in the help output
+    - force all output to stdout (some OK/SAY/WARN messages were sent to
+      stdout, some to stderr)
   - afl-fuzz:
     - python mutator modules and custom mutator modules now use the same
       interface and hence the API changed
