@@ -198,8 +198,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
-  if (afl->stage_name != afl->stage_name_buf)
-    afl->stage_name = afl->stage_name_buf;
+  afl->stage_name = afl->stage_name_buf;
   afl->bytes_trim_in += q->len;
 
   /* Initialize trimming in the custom mutator */
