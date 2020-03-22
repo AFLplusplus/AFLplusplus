@@ -78,7 +78,7 @@ static u64 get_cur_time_us(void) {
    Will return buf for convenience. */
 
 static u8 *stringify_int(u8 *buf, size_t len, u64 val) {
-
+\
 #define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)     \
   do {                                                     \
                                                            \
@@ -204,8 +204,7 @@ static u8 *stringify_mem_size(u8 *buf, size_t len, u64 val) {
 /* Describe time delta as string.
    Returns a pointer to buf for convenience. */
 
-static u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms,
-                                      u64 event_ms) {
+static u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
 
   u64 delta;
   s32 t_d, t_h, t_m, t_s;

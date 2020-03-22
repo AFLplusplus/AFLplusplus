@@ -1051,7 +1051,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
-      //show_stats(afl);
+      // show_stats(afl);
 
       if (unlikely(afl->not_on_tty)) {
 
@@ -1124,7 +1124,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  //if (afl->queue_cur) show_stats(afl);
+  // if (afl->queue_cur) show_stats(afl);
 
   /*
    * ATTENTION - the following 10 lines were copied from a PR to Google's afl
