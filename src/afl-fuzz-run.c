@@ -501,8 +501,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
     snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "sync %u", ++sync_cnt);
 
-    if (afl->stage_name != afl->stage_name_buf)
-      afl->stage_name = afl->stage_name_buf;
+    afl->stage_name = afl->stage_name_buf;
     afl->stage_cur = 0;
     afl->stage_max = 0;
 
@@ -611,8 +610,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   if (q->len < 5) return 0;
 
-  if (afl->stage_name != afl->stage_name_buf)
-    afl->stage_name = afl->stage_name_buf;
+  afl->stage_name = afl->stage_name_buf;
   afl->bytes_trim_in += q->len;
 
   /* Select initial chunk len, starting with large steps. */

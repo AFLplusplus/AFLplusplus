@@ -109,9 +109,7 @@
 #define CASE_PREFIX "id_"
 #endif                                                    /* ^!SIMPLE_FILES */
 
-#define STAGE_BUF_SIZE                                   \
-  (64) /* usable size of the stage name buf in afl_state \
-        */
+#define STAGE_BUF_SIZE (64)  /* usable size for stage name buf in afl_state */
 
 extern s8  interesting_8[INTERESTING_8_LEN];
 extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
