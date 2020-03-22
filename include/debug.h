@@ -32,7 +32,7 @@
  * Terminal colors *
  *******************/
 
-#ifndev MESSAGES_TO_STDOUT
+#ifndef MESSAGES_TO_STDOUT
 #define MESSAGES_TO_STDOUT
 #endif
 
