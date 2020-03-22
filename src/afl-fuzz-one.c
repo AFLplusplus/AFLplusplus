@@ -67,7 +67,7 @@ static u32 choose_block_len(afl_state_t *afl, u32 limit) {
   u32 min_value, max_value;
   u32 rlim = MIN(afl->queue_cycle, 3);
 
-  if (!afl->run_over10m) rlim = 1;
+  if (unlikely(!afl->run_over10m)) rlim = 1;
 
   switch (rand_below(afl, rlim)) {
 
@@ -356,7 +356,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
 #else
 
-  if (afl->mutator && afl->mutator->afl_custom_queue_get) {
+  if (unlikely(afl->mutator) && unlikely(afl->mutator->afl_custom_queue_get)) {
 
     /* The custom mutator will decide to skip this test case or not. */
 
@@ -365,7 +365,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  if (afl->pending_favored) {
+  if (likely(afl->pending_favored)) {
 
     /* If we have any favored, non-fuzzed new arrivals in the queue,
        possibly skip to them at the expense of already-fuzzed or non-favored
@@ -399,7 +399,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
 #endif                                                     /* ^IGNORE_FINDS */
 
-  if (afl->not_on_tty) {
+  if (unlikely(afl->not_on_tty)) {
 
     ACTF("Fuzzing test case #%u (%u total, %llu uniq crashes found)...",
          afl->current_entry, afl->queued_paths, afl->unique_crashes);
@@ -411,13 +411,13 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   fd = open(afl->queue_cur->fname, O_RDONLY);
 
-  if (fd < 0) PFATAL("Unable to open '%s'", afl->queue_cur->fname);
+  if (unlikely(fd < 0)) PFATAL("Unable to open '%s'", afl->queue_cur->fname);
 
   len = afl->queue_cur->len;
 
   orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 
-  if (orig_in == MAP_FAILED)
+  if (unlikely(orig_in == MAP_FAILED))
     PFATAL("Unable to mmap '%s' with len %d", afl->queue_cur->fname, len);
 
   close(fd);
@@ -436,7 +436,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * CALIBRATION (only if failed earlier on) *
    *******************************************/
 
-  if (afl->queue_cur->cal_failed) {
+  if (unlikely(afl->queue_cur->cal_failed)) {
 
     u8 res = FAULT_TMOUT;
 
@@ -445,11 +445,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
       res =
           calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
-      if (res == FAULT_ERROR) FATAL("Unable to execute target application");
+      if (unlikely(res == FAULT_ERROR))
+        FATAL("Unable to execute target application");
 
     }
 
-    if (afl->stop_soon || res != afl->crash_mode) {
+    if (unlikely(afl->stop_soon) || res != afl->crash_mode) {
 
       ++afl->cur_skipped_paths;
       goto abandon_entry;
@@ -466,9 +467,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
-    if (res == FAULT_ERROR) FATAL("Unable to execute target application");
+    if (unlikely(res == FAULT_ERROR))
+      FATAL("Unable to execute target application");
 
-    if (afl->stop_soon) {
+    if (unlikely(afl->stop_soon)) {
 
       ++afl->cur_skipped_paths;
       goto abandon_entry;
@@ -491,9 +493,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
-  if (perf_score == 0) goto abandon_entry;
+  if (unlikely(perf_score == 0)) goto abandon_entry;
 
-  if (afl->use_radamsa > 1) goto radamsa_stage;
+  if (unlikely(afl->use_radamsa > 1)) goto radamsa_stage;
 
   if (afl->shm.cmplog_mode) {
 
@@ -1549,8 +1551,8 @@ custom_mutator_stage:
    * CUSTOM MUTATORS *
    *******************/
 
-  if (!afl->mutator) goto havoc_stage;
-  if (!afl->mutator->afl_custom_fuzz) goto havoc_stage;
+  if (likely(!afl->mutator)) goto havoc_stage;
+  if (likely(!afl->mutator->afl_custom_fuzz)) goto havoc_stage;
 
   afl->stage_name = "custom mutator";
   afl->stage_short = "custom";
@@ -1603,7 +1605,7 @@ custom_mutator_stage:
 
     /* Read the additional testcase into a new buffer. */
     fd = open(target->fname, O_RDONLY);
-    if (fd < 0) PFATAL("Unable to open '%s'", target->fname);
+    if (unlikely(fd < 0)) PFATAL("Unable to open '%s'", target->fname);
     new_buf = ck_alloc_nozero(target->len);
     ck_read(fd, new_buf, target->len, target->fname);
     close(fd);
@@ -1649,7 +1651,7 @@ custom_mutator_stage:
   afl->stage_finds[STAGE_CUSTOM_MUTATOR] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_CUSTOM_MUTATOR] += afl->stage_max;
 
-  if (afl->custom_only) {
+  if (likely(afl->custom_only)) {
 
     /* Skip other stages */
     ret_val = 0;
@@ -1680,7 +1682,7 @@ havoc_stage:
     perf_score = orig_perf;
 
     snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "splice %u", splice_cycle);
-    if (afl->stage_name != afl->stage_name_buf)
+    if (unlikely(afl->stage_name != afl->stage_name_buf))
       afl->stage_name = afl->stage_name_buf;
     afl->stage_short = "splice";
     afl->stage_max = SPLICE_HAVOC * perf_score / afl->havoc_div / 100;
@@ -1727,7 +1729,8 @@ havoc_stage:
 
       }
 
-      switch (rand_below(afl, 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
+      switch (rand_below(
+          afl, 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
 
         case 0:
 
@@ -1757,8 +1760,8 @@ havoc_stage:
 
           } else {
 
-            *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
-                SWAP16(interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)]);
+            *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) = SWAP16(
+                interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)]);
 
           }
 
@@ -1777,8 +1780,8 @@ havoc_stage:
 
           } else {
 
-            *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
-                SWAP32(interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)]);
+            *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) = SWAP32(
+                interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)]);
 
           }
 
@@ -1964,7 +1967,8 @@ havoc_stage:
               memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
             else
               memset(new_buf + clone_to,
-                     rand_below(afl, 2) ? rand_below(afl, 256) : out_buf[rand_below(afl, temp_len)],
+                     rand_below(afl, 2) ? rand_below(afl, 256)
+                                        : out_buf[rand_below(afl, temp_len)],
                      clone_len);
 
             /* Tail */
@@ -2001,7 +2005,8 @@ havoc_stage:
           } else
 
             memset(out_buf + copy_to,
-                   rand_below(afl, 2) ? rand_below(afl, 256) : out_buf[rand_below(afl, temp_len)],
+                   rand_below(afl, 2) ? rand_below(afl, 256)
+                                      : out_buf[rand_below(afl, temp_len)],
                    copy_len);
 
           break;
@@ -2215,7 +2220,7 @@ retry_splicing:
 
     fd = open(target->fname, O_RDONLY);
 
-    if (fd < 0) PFATAL("Unable to open '%s'", target->fname);
+    if (unlikely(fd < 0)) PFATAL("Unable to open '%s'", target->fname);
 
     new_buf = ck_alloc_nozero(target->len);
 
@@ -2264,7 +2269,7 @@ retry_splicing:
 
 radamsa_stage:
 
-  if (!afl->use_radamsa || !afl->radamsa_mutate_ptr) goto abandon_entry;
+  if (likely(!afl->use_radamsa || !afl->radamsa_mutate_ptr)) goto abandon_entry;
 
   afl->stage_name = "radamsa";
   afl->stage_short = "radamsa";
@@ -3596,7 +3601,8 @@ pacemaker_fuzzing:
         afl->orig_hit_cnt_puppet = afl->queued_paths + afl->unique_crashes;
         afl->last_limit_time_start = get_cur_time();
         afl->SPLICE_CYCLES_puppet =
-            (rand_below(afl, SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
+            (rand_below(
+                 afl, SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
              SPLICE_CYCLES_puppet_low);
 
       }
@@ -3701,8 +3707,10 @@ pacemaker_fuzzing:
               break;
 
             case 6:
-              out_buf[rand_below(afl, temp_len)] -= 1 + rand_below(afl, ARITH_MAX);
-              out_buf[rand_below(afl, temp_len)] += 1 + rand_below(afl, ARITH_MAX);
+              out_buf[rand_below(afl, temp_len)] -=
+                  1 + rand_below(afl, ARITH_MAX);
+              out_buf[rand_below(afl, temp_len)] +=
+                  1 + rand_below(afl, ARITH_MAX);
               MOpt_globals.cycles_v2[STAGE_ARITH8] += 1;
               break;
 
@@ -3791,12 +3799,14 @@ pacemaker_fuzzing:
               if (rand_below(afl, 2)) {
 
                 *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
-                    interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)];
+                    interesting_16[rand_below(afl,
+                                              sizeof(interesting_16) >> 1)];
 
               } else {
 
-                *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) = SWAP16(
-                    interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)]);
+                *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
+                    SWAP16(interesting_16[rand_below(
+                        afl, sizeof(interesting_16) >> 1)]);
 
               }
 
@@ -3811,12 +3821,14 @@ pacemaker_fuzzing:
               if (rand_below(afl, 2)) {
 
                 *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
-                    interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)];
+                    interesting_32[rand_below(afl,
+                                              sizeof(interesting_32) >> 2)];
 
               } else {
 
-                *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) = SWAP32(
-                    interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)]);
+                *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
+                    SWAP32(interesting_32[rand_below(
+                        afl, sizeof(interesting_32) >> 2)]);
 
               }
 
@@ -3895,7 +3907,9 @@ pacemaker_fuzzing:
                   memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
                 else
                   memset(new_buf + clone_to,
-                         rand_below(afl, 2) ? rand_below(afl, 256) : out_buf[rand_below(afl, temp_len)],
+                         rand_below(afl, 2)
+                             ? rand_below(afl, 256)
+                             : out_buf[rand_below(afl, temp_len)],
                          clone_len);
 
                 /* Tail */
@@ -3933,7 +3947,8 @@ pacemaker_fuzzing:
               } else
 
                 memset(out_buf + copy_to,
-                       rand_below(afl, 2) ? rand_below(afl, 256) : out_buf[rand_below(afl, temp_len)],
+                       rand_below(afl, 2) ? rand_below(afl, 256)
+                                          : out_buf[rand_below(afl, temp_len)],
                        copy_len);
               MOpt_globals.cycles_v2[STAGE_OverWrite75] += 1;
               break;
@@ -4122,7 +4137,8 @@ pacemaker_fuzzing:
 
       if (splice_cycle >= afl->SPLICE_CYCLES_puppet)
         afl->SPLICE_CYCLES_puppet =
-            (rand_below(afl, SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
+            (rand_below(
+                 afl, SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
              SPLICE_CYCLES_puppet_low);
 
       afl->splicing_with = -1;
