@@ -32,6 +32,10 @@
  * Terminal colors *
  *******************/
 
+#ifndev MESSAGES_TO_STDOUT
+#define MESSAGES_TO_STDOUT
+#endif
+
 #ifdef USE_COLOR
 
 #define cBLK "\x1b[0;30m"

@@ -230,8 +230,7 @@ int main(int argc, char **argv_orig, char **envp) {
   u64    prev_queued = 0;
   u32    sync_interval_cnt = 0, seek_to, show_help = 0;
   u8 *   extras_dir = 0;
-  u8     mem_limit_given = 0;
-  u8     exit_1 = !!get_afl_env("AFL_BENCH_JUST_ONE");
+  u8     mem_limit_given = 0, exit_1 = 0;
   char **use_argv;
 
   struct timeval  tv;
@@ -246,6 +245,7 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_fsrv_init(&afl->fsrv);
 
   read_afl_environment(afl, envp);
+  exit_1 = !!afl->afl_env.afl_bench_just_one;
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a big online community\n");
