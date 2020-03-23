@@ -483,7 +483,7 @@ static void edit_params(u32 argc, char **argv) {
 #endif                                                        /* ^__APPLE__ */
       "_I(); } while (0)";
 
-  if (maybe_linking) {
+  // if (maybe_linking) {
 
     if (x_set) {
 
@@ -519,7 +519,7 @@ static void edit_params(u32 argc, char **argv) {
 
 #endif
 
-  }
+  // }
 
   cc_params[cc_par_cnt] = NULL;
 
