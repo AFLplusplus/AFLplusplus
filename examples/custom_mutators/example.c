@@ -5,6 +5,9 @@
              Shengtuo Hu <h1994st@gmail.com>
 */
 
+// You need to use -I /path/to/AFLplusplus/include
+#include "custom_mutator_helpers.h"
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,7 +24,7 @@ static size_t data_size = 100;
 
 void afl_custom_init(unsigned int seed) {
 
-  srand(seed);
+  srand(seed); // needed also by surgical_havoc_mutate()
 
 }
 
@@ -54,10 +57,12 @@ size_t afl_custom_fuzz(uint8_t **buf, size_t buf_size, uint8_t *add_buf,
   memcpy(mutated_out, commands[rand() % 3], 3);
 
   // Mutate the payload of the packet
-  for (int i = 3; i < mutated_size; i++) {
-
-    mutated_out[i] = (mutated_out[i] + rand() % 10) & 0xff;
-
+  int i;
+  for (i = 0; i < 8; ++i) {
+  
+    // Randomly perform one of the (no len modification) havoc mutations
+    surgical_havoc_mutate(mutated_out, 3, mutated_size);
+  
   }
 
   return mutated_size;
