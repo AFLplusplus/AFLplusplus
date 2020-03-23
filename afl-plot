@@ -68,7 +68,7 @@ BANNER="`cat "$1/fuzzer_stats" | grep '^afl_banner ' | cut -d: -f2- | cut -b2-`"
 
 test "$BANNER" = "" && BANNER="(none)"
 
-GNUPLOT=`which gnuplot 2>/dev/null`
+GNUPLOT=`command -v gnuplot 2>/dev/null`
 
 if [ "$GNUPLOT" = "" ]; then
 

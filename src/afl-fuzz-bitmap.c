@@ -138,7 +138,8 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
   }
 
-  if (ret && virgin_map == afl->virgin_bits) afl->bitmap_changed = 1;
+  if (unlikely(ret) && unlikely(virgin_map == afl->virgin_bits))
+    afl->bitmap_changed = 1;
 
   return ret;
 
@@ -413,13 +414,13 @@ void minimize_bits(u8 *dst, u8 *src) {
 #ifndef SIMPLE_FILES
 
 /* Construct a file name for a new test case, capturing the operation
-   that led to its discovery. Uses a static buffer. */
+   that led to its discovery. Returns a ptr to afl->describe_op_buf_256. */
 
 u8 *describe_op(afl_state_t *afl, u8 hnb) {
 
   u8 *ret = afl->describe_op_buf_256;
 
-  if (afl->syncing_party) {
+  if (unlikely(afl->syncing_party)) {
 
     sprintf(ret, "sync:%s,src:%06u", afl->syncing_party, afl->syncing_case);
 
@@ -465,16 +466,18 @@ static void write_crash_readme(afl_state_t *afl) {
   s32   fd;
   FILE *f;
 
+  u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
+
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
   ck_free(fn);
 
   /* Do not die on errors here - that would be impolite. */
 
-  if (fd < 0) return;
+  if (unlikely(fd < 0)) return;
 
   f = fdopen(fd, "w");
 
-  if (!f) {
+  if (unlikely(!f)) {
 
     close(fd);
     return;
@@ -501,7 +504,9 @@ static void write_crash_readme(afl_state_t *afl) {
 
       "  https://github.com/AFLplusplus/AFLplusplus\n\n",
 
-      afl->orig_cmdline, DMS(afl->fsrv.mem_limit << 20));  /* ignore errors */
+      afl->orig_cmdline,
+      stringify_mem_size(val_buf, sizeof(val_buf),
+                         afl->fsrv.mem_limit << 20));      /* ignore errors */
 
   fclose(f);
 
@@ -513,7 +518,7 @@ static void write_crash_readme(afl_state_t *afl) {
 
 u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
-  if (len == 0) return 0;
+  if (unlikely(len == 0)) return 0;
 
   u8 *fn = "";
   u8  hnb;
@@ -537,14 +542,14 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   }
 
-  if (fault == afl->crash_mode) {
+  if (unlikely(fault == afl->crash_mode)) {
 
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
 
     if (!(hnb = has_new_bits(afl, afl->virgin_bits))) {
 
-      if (afl->crash_mode) ++afl->total_crashes;
+      if (unlikely(afl->crash_mode)) ++afl->total_crashes;
       return 0;
 
     }
@@ -576,10 +581,11 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     res = calibrate_case(afl, afl->queue_top, mem, afl->queue_cycle - 1, 0);
 
-    if (res == FAULT_ERROR) FATAL("Unable to execute target application");
+    if (unlikely(res == FAULT_ERROR))
+      FATAL("Unable to execute target application");
 
     fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
-    if (fd < 0) PFATAL("Unable to create '%s'", fn);
+    if (unlikely(fd < 0)) PFATAL("Unable to create '%s'", fn);
     ck_write(fd, mem, len, fn);
     close(fd);
 
@@ -600,7 +606,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (afl->unique_hangs >= KEEP_UNIQUE_HANG) return keeping;
 
-      if (!afl->dumb_mode) {
+      if (likely(!afl->dumb_mode)) {
 
 #ifdef WORD_SIZE_64
         simplify_trace((u64 *)afl->fsrv.trace_bits);
@@ -663,7 +669,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (afl->unique_crashes >= KEEP_UNIQUE_CRASH) return keeping;
 
-      if (!afl->dumb_mode) {
+      if (likely(!afl->dumb_mode)) {
 
 #ifdef WORD_SIZE_64
         simplify_trace((u64 *)afl->fsrv.trace_bits);
@@ -675,7 +681,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       }
 
-      if (!afl->unique_crashes) write_crash_readme(afl);
+      if (unlikely(!afl->unique_crashes)) write_crash_readme(afl);
 
 #ifndef SIMPLE_FILES
 
@@ -691,10 +697,10 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #endif                                                    /* ^!SIMPLE_FILES */
 
       ++afl->unique_crashes;
-      if (afl->infoexec) {  // if the user wants to be informed on new crashes -
-                            // do
+      if (unlikely(afl->infoexec)) {
+
+        // if the user wants to be informed on new crashes - do that
 #if !TARGET_OS_IPHONE
-        // that
         if (system(afl->infoexec) == -1)
           hnb += 0;  // we dont care if system errors, but we dont want a
                      // compiler warning either
@@ -719,7 +725,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
      test case, too. */
 
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
-  if (fd < 0) PFATAL("Unable to create '%s'", fn);
+  if (unlikely(fd < 0)) PFATAL("Unable to create '%s'", fn);
   ck_write(fd, mem, len, fn);
   close(fd);
 

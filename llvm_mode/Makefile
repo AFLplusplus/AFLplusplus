@@ -21,8 +21,11 @@
 HASH=\#
 
 PREFIX      ?= /usr/local
-HELPER_PATH  = $(PREFIX)/lib/afl
-BIN_PATH     = $(PREFIX)/bin
+HELPER_PATH ?= $(PREFIX)/lib/afl
+BIN_PATH    ?= $(PREFIX)/bin
+DOC_PATH    ?= $(PREFIX)/share/doc/afl
+MISC_PATH   ?= $(PREFIX)/share/afl
+MAN_PATH    ?= $(PREFIX)/man/man8
 
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
@@ -159,7 +162,7 @@ ifeq "$(shell uname)" "OpenBSD"
   CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so
 endif
 
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -fuse-ld=`type ld | awk '{print $$NF}'` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -fuse-ld=`command -v ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
   CFLAGS += -DAFL_CLANG_FUSELD=1
 endif
 
@@ -317,6 +320,24 @@ all_done: test_build
 
 .NOTPARALLEL: clean
 
+install: all
+	install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
+ifndef AFL_TRACE_PC
+	if [ -f ../afl-clang-fast -a -f ../libLLVMInsTrim.so -a -f ../afl-llvm-rt.o ]; then set -e; install -m 755 ../afl-clang-fast $${DESTDIR}$(BIN_PATH); ln -sf ../afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-fast++; install -m 755 ../libLLVMInsTrim.so ../afl-llvm-pass.so ../afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f afl-clang-lto -a -f afl-ld ]; then set -e; install -m 755 afl-clang-lto $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 afl-ld $${DESTDIR}$(HELPER_PATH); ln -sf afl-ld $${DESTDIR}$(HELPER_PATH)/ld; install -m 755 afl-llvm-lto-instrumentation.so $${DESTDIR}$(HELPER_PATH); install -m 755 afl-llvm-lto-whitelist.so $${DESTDIR}$(HELPER_PATH); fi
+else
+	if [ -f afl-clang-fast -a -f afl-llvm-rt.o ]; then set -e; install -m 755 afl-clang-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-fast++; install -m 755 afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH); fi
+endif
+	if [ -f ../afl-llvm-rt-32.o ]; then set -e; install -m 755 ../afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f ../afl-llvm-rt-64.o ]; then set -e; install -m 755 ../afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f ../compare-transform-pass.so ]; then set -e; install -m 755 ../compare-transform-pass.so $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f ../split-compares-pass.so ]; then set -e; install -m 755 ../split-compares-pass.so $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f ../split-switches-pass.so ]; then set -e; install -m 755 ../split-switches-pass.so $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f ../cmplog-instructions-pass.so ]; then set -e; install -m 755 ../cmplog-*-pass.so $${DESTDIR}$(HELPER_PATH); fi
+	set -e; if [ -f ../afl-clang-fast ] ; then ln -sf ../afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ../afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf ../afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ../afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
+	install -m 644 README.*.md $${DESTDIR}$(DOC_PATH)/
+	install -m 644 -T README.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.md
+
 vpath  % ..
 %.8: %
 	@echo .TH $* 8 `date "+%Y-%m-%d"` "afl++" > ../$@
@@ -331,14 +352,14 @@ vpath  % ..
 	@../$* -h 2>&1 | tail -n +4 >> ../$@
 	@echo >> ../$@
 	@echo .SH AUTHOR >> ../$@
-	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de> and Andrea Fioraldi <andreafioraldi@gmail.com>" >> ../$@
+	@echo "afl++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de>, Andrea Fioraldi <andreafioraldi@gmail.com> and Dominik Maier <domenukk@gmail.com>" >> ../$@
 	@echo  The homepage of afl++ is: https://github.com/AFLplusplus/AFLplusplus >> ../$@
 	@echo >> ../$@
 	@echo .SH LICENSE >> ../$@
 	@echo Apache License Version 2.0, January 2004 >> ../$@
 	ln -sf afl-clang-fast.8 ../afl-clang-fast++.8
 ifneq "$(AFL_CLANG_FLTO)" ""
-ifeq "$(LLVM_LTO)" "0"
+ifeq "$(LLVM_LTO)" "1"
 	ln -sf afl-clang-fast.8 ../afl-clang-lto.8
 	ln -sf afl-clang-fast.8 ../afl-clang-lto++.8
 endif
@@ -346,4 +367,4 @@ endif
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 *.dwo
-	rm -f $(PROGS) afl-common.o ../afl-clang-fast++ ../afl-clang-lto ../afl-clang-lto++ ../afl-clang*.8
+	rm -f $(PROGS) afl-common.o ../afl-clang-fast++ ../afl-clang-lto ../afl-clang-lto++ ../afl-clang*.8 ../ld

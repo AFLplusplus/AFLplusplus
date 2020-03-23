@@ -75,6 +75,7 @@ fi
 if [ "$PLT" = "Darwin" ]; then
   CORES=`sysctl -n hw.ncpu`
   TARCMD=tar
+  PYTHONBIN=python3
 fi
 
 if [ "$PLT" = "FreeBSD" ]; then
@@ -90,26 +91,27 @@ if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
   TARCMD=gtar
 fi
 
+PREREQ_NOTFOUND=
 for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 
-  T=`which "$i" 2>/dev/null`
+  T=`command -v "$i" 2>/dev/null`
 
   if [ "$T" = "" ]; then
 
     echo "[-] Error: '$i' not found. Run 'sudo apt-get install $i' or similar."
-    exit 1
+    PREREQ_NOTFOUND=1
 
   fi
 
 done
 
-if ! which $EASY_INSTALL > /dev/null; then
+if ! type $EASY_INSTALL > /dev/null; then
 
   # work around for unusual installs
   if [ '!' -e /usr/lib/python2.7/dist-packages/easy_install.py ] && [ '!' -e /usr/local/lib/python2.7/dist-packages/easy_install.py ] && [ '!' -e /usr/pkg/lib/python2.7/dist-packages/easy_install.py ]; then
 
     echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
-    exit 1
+    PREREQ_NOTFOUND=1
 
   fi
 
@@ -118,8 +120,12 @@ fi
 if echo "$CC" | grep -qF /afl-; then
 
   echo "[-] Error: do not use afl-gcc or afl-clang to compile this tool."
-  exit 1
+  PREREQ_NOTFOUND=1
 
+fi
+
+if [ "$PREREQ_NOTFOUND" = "1" ]; then
+  exit 1
 fi
 
 echo "[+] All checks passed!"
@@ -176,7 +182,7 @@ cd ../samples/simple || exit 1
 
 # Run afl-showmap on the sample application. If anything comes out then it must have worked!
 unset AFL_INST_RATIO
-echo 0 | ../../../afl-showmap -U -m none -q -o .test-instr0 -- $PYTHONBIN simple_test_harness.py ./sample_inputs/sample1.bin || exit 1
+echo 0 | ../../../afl-showmap -U -m none -t 2000 -q -o .test-instr0 -- $PYTHONBIN simple_test_harness.py ./sample_inputs/sample1.bin || exit 1
 
 if [ -s .test-instr0 ]
 then

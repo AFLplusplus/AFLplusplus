@@ -3,10 +3,10 @@
 #
 # Ensure we have: test, type, diff, grep -qE
 #
-test -z "" 2> /dev/null || { echo Error: test command not found ; exit 1 ; }
+test -z "" 2>/dev/null || { echo Error: test command not found ; exit 1 ; }
 GREP=`type grep > /dev/null 2>&1 && echo OK`
 test "$GREP" = OK || { echo Error: grep command not found ; exit 1 ; }
-echo foobar | grep -qE 'asd|oob' 2> /dev/null || { echo Error: grep command does not support -q and/or -E option ; exit 1 ; }
+echo foobar | grep -qE 'asd|oob' 2>/dev/null || { echo Error: grep command does not support -q and/or -E option ; exit 1 ; }
 echo 1 > test.1
 echo 1 > test.2
 OK=OK
@@ -163,7 +163,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     {
       ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+    test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
     } || {
       echo CUT------------------------------------------------------------------CUT
@@ -200,7 +200,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     fi
     ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
-    SIZE=`ls -l in2/in2 2> /dev/null | awk '{print$5}'`
+    SIZE=`ls -l in2/in2 2>/dev/null | awk '{print$5}'`
     test "$SIZE" = 1 && $ECHO "$GREEN[+] afl-tmin correctly minimized the testcase"
     test "$SIZE" = 1 || {
        $ECHO "$RED[!] afl-tmin did incorrectly minimize the testcase to $SIZE"
@@ -223,7 +223,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   # on FreeBSD need to set AFL_CC
   test `uname -s` = 'FreeBSD' && {
     if type clang >/dev/null; then
-      export AFL_CC=`type clang | awk '{print $NF}'`
+      export AFL_CC=`command -v clang`
     else
       export AFL_CC=`$LLVM_CONFIG --bindir`/clang
     fi
@@ -286,7 +286,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     {
       ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+    test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode"
     } || {
       echo CUT------------------------------------------------------------------CUT
@@ -324,7 +324,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       }
       fi
       ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
-      SIZE=`ls -l in2/in2 2> /dev/null | awk '{print$5}'`
+      SIZE=`ls -l in2/in2 2>/dev/null | awk '{print$5}'`
       test "$SIZE" = 1 && $ECHO "$GREEN[+] afl-tmin correctly minimized the testcase"
       test "$SIZE" = 1 || {
          $ECHO "$RED[!] afl-tmin did incorrectly minimize the testcase to $SIZE"
@@ -337,13 +337,13 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   rm -f test-instr.plain
 
   # now for the special llvm_mode things
-  AFL_LLVM_INSTRIM=1 AFL_LLVM_INSTRIM_LOOPHEAD=1 ../afl-clang-fast -o test-instr.instrim ../test-instr.c > /dev/null 2> test.out
+  AFL_LLVM_INSTRIM=1 AFL_LLVM_INSTRIM_LOOPHEAD=1 ../afl-clang-fast -o test-instr.instrim ../test-instr.c > /dev/null 2>test.out
   test -e test-instr.instrim && {
     TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.instrim 2>&1 | grep Captur | awk '{print$3}'`
     test "$TUPLES" -gt 2 -a "$TUPLES" -lt 5 && {
-      $ECHO "$GREEN[+] llvm_mode Instrim reported $TUPLES instrumented locations which is fine"
+      $ECHO "$GREEN[+] llvm_mode InsTrim reported $TUPLES instrumented locations which is fine"
     } || {
-      $ECHO "$RED[!] llvm_mode Instrim instrumentation produces weird numbers: $TUPLES"
+      $ECHO "$RED[!] llvm_mode InsTrim instrumentation produces weird numbers: $TUPLES"
       CODE=1
     }
     rm -f test-instr.instrim test.out
@@ -351,7 +351,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$RED[!] llvm_mode InsTrim compilation failed"
     CODE=1
   }
-  AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > /dev/null 2> test.out
+  AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
   test -e test-compcov.compcov && {
     grep -Eq " [3-9][0-9] location" test.out && {
       $ECHO "$GREEN[+] llvm_mode laf-intel/compcov feature works correctly"
@@ -401,7 +401,7 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
   # on FreeBSD need to set AFL_CC
   test `uname -s` = 'FreeBSD' && {
     if type clang >/dev/null; then
-      export AFL_CC=`type clang | awk '{print $NF}'`
+      export AFL_CC=`command -v clang`
     else
       export AFL_CC=`$LLVM_CONFIG --bindir`/clang
     fi
@@ -471,7 +471,7 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
 }
 
 $ECHO "$BLUE[*] Testing: gcc_plugin"
-export AFL_CC=`type gcc | awk '{print $NF}'`
+export AFL_CC=`command -v gcc`
 test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   ../afl-gcc-fast -o test-instr.plain.gccpi ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-gcc-fast -o test-compcov.harden.gccpi test-compcov.c > /dev/null 2>&1
@@ -533,7 +533,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
     {
       ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain.gccpi >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+    test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with gcc_plugin"
     } || {
       echo CUT------------------------------------------------------------------CUT
@@ -598,7 +598,7 @@ test -e ../libdislocator.so && {
   {
     ulimit -c 1
     # DYLD_INSERT_LIBRARIES and DYLD_FORCE_FLAT_NAMESPACE is used on Darwin/MacOSX
-    LD_PRELOAD=../libdislocator.so DYLD_INSERT_LIBRARIES=../libdislocator.so DYLD_FORCE_FLAT_NAMESPACE=1 ./test-compcov BUFFEROVERFLOW > test.out 2> /dev/null
+    LD_PRELOAD=../libdislocator.so DYLD_INSERT_LIBRARIES=../libdislocator.so DYLD_FORCE_FLAT_NAMESPACE=1 ./test-compcov BUFFEROVERFLOW > test.out 2>/dev/null
   } > /dev/null 2>&1
   grep -q BUFFEROVERFLOW test.out > /dev/null 2>&1 && {
     $ECHO "$RED[!] libdislocator did not detect the memory corruption"
@@ -617,7 +617,7 @@ test -e ../libradamsa.so && {
 
   test `uname -s` = 'FreeBSD' && {
     if type clang >/dev/null; then
-      export AFL_CC=`type clang | awk '{print $NF}'`
+      export AFL_CC=`command -v clang`
     else
       export AFL_CC=`$LLVM_CONFIG --bindir`/clang
     fi
@@ -632,7 +632,7 @@ test -e ../libradamsa.so && {
     {
       ../afl-fuzz -RR -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain
     } >>errors 2>&1
-    test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
+    test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
       $ECHO "$GREEN[+] libradamsa performs good - and very slow - mutations"
     } || {
       echo CUT------------------------------------------------------------------CUT
@@ -663,7 +663,7 @@ test -e ../afl-qemu-trace && {
       {
         ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr >>errors 2>&1
       } >>errors 2>&1
-      test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+      test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode"
         RUNTIME=`grep execs_done out/fuzzer_stats | awk '{print$3}'`
       } || {
@@ -678,13 +678,13 @@ test -e ../afl-qemu-trace && {
       $ECHO "$GREY[*] running afl-fuzz for qemu_mode AFL_ENTRYPOINT, this will take approx 6 seconds"
       {
         {
-          export AFL_ENTRYPOINT=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
-          $ECHO AFL_ENTRYPOINT=$AFL_ENTRYPOINT - $(m test-instr | grep "T main") - $(file ./test-instr)
+          export AFL_ENTRYPOINT=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//' )`
+          $ECHO AFL_ENTRYPOINT=$AFL_ENTRYPOINT - $(nm test-instr | grep "T main") - $(file ./test-instr)
           ../afl-fuzz -m ${MEM_LIMIT} -V2 -Q -i in -o out -- ./test-instr
           unset AFL_ENTRYPOINT
         } >>errors 2>&1
       } >>errors 2>&1
-      test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
+      test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode AFL_ENTRYPOINT"
         RUNTIME=`grep execs_done out/fuzzer_stats | awk '{print$3}'`
       } || {
@@ -706,7 +706,7 @@ test -e ../afl-qemu-trace && {
             unset AFL_PRELOAD
             unset AFL_COMPCOV_LEVEL
           } >>errors 2>&1
-          test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
+          test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
             $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode compcov"
           } || {
             echo CUT------------------------------------------------------------------CUT
@@ -727,14 +727,15 @@ test -e ../afl-qemu-trace && {
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
         {
-          export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//')`
+          export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//' )`
           export AFL_QEMU_PERSISTENT_GPR=1
           $ECHO "Info: AFL_QEMU_PERSISTENT_ADDR=$AFL_QEMU_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
+          env|grep AFL_|sort
           file test-instr
           ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr
           unset AFL_QEMU_PERSISTENT_ADDR
         } >>errors 2>&1
-        test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+        test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
           RUNTIMEP=`grep execs_done out/fuzzer_stats | awk '{print$3}'`
           test -n "$RUNTIME" -a -n "$RUNTIMEP" && {
@@ -835,12 +836,12 @@ test -d ../unicorn_mode/unicornafl && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
       # travis workaround
-      PY=`type python | awk '{print $NF}'`
+      PY=`command -v python`
       test "$PY" = "/opt/pyenv/shims/python" -a -x /usr/bin/python && PY=/usr/bin/python
       mkdir -p in
       echo 0 > in/in
       $ECHO "$GREY[*] Using python binary $PY"
-      if ! $PY -c 'import unicornafl' 2> /dev/null ; then
+      if ! $PY -c 'import unicornafl' 2>/dev/null ; then
         $ECHO "$YELLOW[-] we cannot test unicorn_mode because it is not present"
         INCOMPLETE=1
       else
@@ -849,7 +850,7 @@ test -d ../unicorn_mode/unicornafl && {
         {
           ../afl-fuzz -m ${MEM_LIMIT} -V25 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
         } >>errors 2>&1
-        test -n "$( ls out/queue/id:000002* 2> /dev/null )" && {
+        test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
         } || {
           echo CUT------------------------------------------------------------------CUT
@@ -869,7 +870,7 @@ test -d ../unicorn_mode/unicornafl && {
           ../afl-fuzz -m ${MEM_LIMIT} -V35 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
           unset AFL_COMPCOV_LEVEL
         } >>errors 2>&1
-        test -n "$( ls out/queue/id:000001* 2> /dev/null )" && {
+        test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
         } || {
           echo CUT------------------------------------------------------------------CUT

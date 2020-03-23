@@ -90,7 +90,7 @@ static u64 get_cpu_usage_us(void) {
 
 static u32 measure_preemption(u32 target_ms) {
 
-  static volatile u32 v1, v2;
+  volatile u32 v1, v2 = 0;
 
   u64 st_t, en_t, st_c, en_c, real_delta, slice_delta;
   s32 loop_repeats = 0;
