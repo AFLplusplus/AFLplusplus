@@ -109,6 +109,8 @@
 #define CASE_PREFIX "id_"
 #endif                                                    /* ^!SIMPLE_FILES */
 
+#define STAGE_BUF_SIZE (64)  /* usable size for stage name buf in afl_state */
+
 extern s8  interesting_8[INTERESTING_8_LEN];
 extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
 extern s32
@@ -231,6 +233,7 @@ enum {
   /* 04 */ QUAD,    /* Quadratic schedule               */
   /* 05 */ EXPLOIT, /* AFL's exploitation-based const.  */
   /* 06 */ MMOPT,   /* Modified MOPT schedule           */
+  /* 07 */ RARE,    /* Rare edges                       */
 
   POWER_SCHEDULES_NUM
 
@@ -278,9 +281,19 @@ enum {
   /* 07 */ PY_FUNC_HAVOC_MUTATION_PROBABILITY,
   /* 08 */ PY_FUNC_QUEUE_GET,
   /* 09 */ PY_FUNC_QUEUE_NEW_ENTRY,
+  /* 10 */ PY_FUNC_DEINIT,
   PY_FUNC_COUNT
 
 };
+
+typedef struct py_mutator {
+
+  PyObject *py_module;
+  PyObject *py_functions[PY_FUNC_COUNT];
+  void *afl_state;
+  void *py_data;
+
+} py_mutator_t;
 
 #endif
 
@@ -479,7 +492,7 @@ typedef struct afl_state {
       *stage_short,                     /* Short stage name                 */
       *syncing_party;                   /* Currently syncing with...        */
 
-  u8 stage_name_buf64[64];              /* A name buf with len 64 if needed */
+  u8 stage_name_buf[STAGE_BUF_SIZE];    /* reused stagename buf with len 64 */
 
   s32 stage_cur, stage_max;             /* Stage progression                */
   s32 splicing_with;                    /* Splicing with which test case?   */
@@ -537,23 +550,35 @@ typedef struct afl_state {
 
   /* Custom mutators */
   struct custom_mutator *mutator;
+#ifdef USE_PYTHON
+  struct custom_mutator *py_mutator;
+#endif
 
   /* cmplog forkserver ids */
   s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
+  u32 cmplog_prev_timed_out;
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
-
-#ifdef USE_PYTHON
-  /* Python Mutators */
-  PyObject *py_module;
-  PyObject *py_functions[PY_FUNC_COUNT];
-#endif
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   u8  do_document;
   u32 document_counter;
 #endif
+
+  /* statis file */
+  double last_bitmap_cvg, last_stability, last_eps;
+
+  /* plot file saves from last run */
+  u32 plot_prev_qp, plot_prev_pf, plot_prev_pnf, plot_prev_ce, plot_prev_md;
+  u64 plot_prev_qc, plot_prev_uc, plot_prev_uh;
+
+  u64 stats_last_stats_ms, stats_last_plot_ms, stats_last_ms, stats_last_execs;
+  double stats_avg_exec;
+
+  u8 clean_trace[MAP_SIZE];
+  u8 clean_trace_custom[MAP_SIZE];
+  u8 first_trace[MAP_SIZE];
 
 } afl_state_t;
 
@@ -567,22 +592,25 @@ struct custom_mutator {
   const char *name;
   void *      dh;
 
+  void *data;    /* custom mutator data ptr */
+
   /* hooks for the custom mutator function */
 
   /**
    * Initialize the custom mutator.
    *
-   * (Optional)
-   *
+   * @param afl AFL instance.
    * @param seed Seed used for the mutation.
+   * @return pointer to internal data or NULL on error
    */
-  void (*afl_custom_init)(afl_state_t *afl, unsigned int seed);
+  void *(*afl_custom_init)(afl_state_t *afl, unsigned int seed);
 
   /**
    * Perform custom mutations on a given input
    *
    * (Optional for now. Required in the future)
    *
+   * @param data pointer returned in afl_custom_init for this fuzz case
    * @param[inout] buf Pointer to the input data to be mutated and the mutated
    *     output
    * @param[in] buf_size Size of the input/output data
@@ -592,7 +620,7 @@ struct custom_mutator {
    * not produce data larger than max_size.
    * @return Size of the mutated output.
    */
-  size_t (*afl_custom_fuzz)(afl_state_t *afl, u8 **buf, size_t buf_size,
+  size_t (*afl_custom_fuzz)(void *data, u8 **buf, size_t buf_size,
                             u8 *add_buf, size_t add_buf_size, size_t max_size);
 
   /**
@@ -602,6 +630,7 @@ struct custom_mutator {
    * (Optional) If this functionality is not needed, simply don't define this
    * function.
    *
+   * @param[in] data pointer returned in afl_custom_init for this fuzz case
    * @param[in] buf Buffer containing the test case to be executed
    * @param[in] buf_size Size of the test case
    * @param[out] out_buf Pointer to the buffer of storing the test case after
@@ -609,7 +638,7 @@ struct custom_mutator {
    *     will release the memory after saving the test case.
    * @return Size of the output buffer after processing
    */
-  size_t (*afl_custom_pre_save)(afl_state_t *afl, u8 *buf, size_t buf_size,
+  size_t (*afl_custom_pre_save)(void *data, u8 *buf, size_t buf_size,
                                 u8 **out_buf);
 
   /**
@@ -628,11 +657,12 @@ struct custom_mutator {
    *
    * (Optional)
    *
+   * @param data pointer returned in afl_custom_init for this fuzz case
    * @param buf Buffer containing the test case
    * @param buf_size Size of the test case
    * @return The amount of possible iteration steps to trim the input
    */
-  u32 (*afl_custom_init_trim)(afl_state_t *afl, u8 *buf, size_t buf_size);
+  u32 (*afl_custom_init_trim)(void *data, u8 *buf, size_t buf_size);
 
   /**
    * This method is called for each trimming operation. It doesn't have any
@@ -645,12 +675,13 @@ struct custom_mutator {
    *
    * (Optional)
    *
+   * @param data pointer returned in afl_custom_init for this fuzz case
    * @param[out] out_buf Pointer to the buffer containing the trimmed test case.
    *     External library should allocate memory for out_buf. AFL++ will release
    *     the memory after saving the test case.
    * @param[out] out_buf_size Pointer to the size of the trimmed test case
    */
-  void (*afl_custom_trim)(afl_state_t *afl, u8 **out_buf, size_t *out_buf_size);
+  void (*afl_custom_trim)(void *data, u8 **out_buf, size_t *out_buf_size);
 
   /**
    * This method is called after each trim operation to inform you if your
@@ -659,11 +690,12 @@ struct custom_mutator {
    *
    * (Optional)
    *
+   * @param data pointer returned in afl_custom_init for this fuzz case
    * @param success Indicates if the last trim operation was successful.
    * @return The next trim iteration index (from 0 to the maximum amount of
    *     steps returned in init_trim)
    */
-  u32 (*afl_custom_post_trim)(afl_state_t *afl, u8 success);
+  u32 (*afl_custom_post_trim)(void *data, u8 success);
 
   /**
    * Perform a single custom mutation on a given input.
@@ -671,6 +703,7 @@ struct custom_mutator {
    *
    * (Optional)
    *
+   * @param data pointer returned in afl_custom_init for this fuzz case
    * @param[inout] buf Pointer to the input data to be mutated and the mutated
    *     output
    * @param[in] buf_size Size of input data
@@ -678,7 +711,7 @@ struct custom_mutator {
    *     not produce data larger than max_size.
    * @return Size of the mutated output.
    */
-  size_t (*afl_custom_havoc_mutation)(afl_state_t *afl, u8 **buf,
+  size_t (*afl_custom_havoc_mutation)(void *data, u8 **buf,
                                       size_t buf_size, size_t max_size);
 
   /**
@@ -687,20 +720,22 @@ struct custom_mutator {
    *
    * (Optional)
    *
+   * @param data pointer returned in afl_custom_init for this fuzz case
    * @return The probability (0-100).
    */
-  u8 (*afl_custom_havoc_mutation_probability)(afl_state_t *afl);
+  u8 (*afl_custom_havoc_mutation_probability)(void *data);
 
   /**
    * Determine whether the fuzzer should fuzz the current queue entry or not.
    *
    * (Optional)
    *
+   * @param data pointer returned in afl_custom_init for this fuzz case
    * @param filename File name of the test case in the queue entry
    * @return Return True(1) if the fuzzer will fuzz the queue entry, and
    *     False(0) otherwise.
    */
-  u8 (*afl_custom_queue_get)(afl_state_t *afl, const u8 *filename);
+  u8 (*afl_custom_queue_get)(void *data, const u8 *filename);
 
   /**
    * Allow for additional analysis (e.g. calling a different tool that does a
@@ -708,13 +743,20 @@ struct custom_mutator {
    *
    * (Optional)
    *
+   * @param data pointer returned in afl_custom_init for this fuzz case
    * @param filename_new_queue File name of the new queue entry
    * @param filename_orig_queue File name of the original queue entry. This
    *     argument can be NULL while initializing the fuzzer
    */
-  void (*afl_custom_queue_new_entry)(afl_state_t *afl,
+  void (*afl_custom_queue_new_entry)(void *data,
                                      const u8 *   filename_new_queue,
                                      const u8 *   filename_orig_queue);
+  /**
+   * Deinitialize the custom mutator.
+   *
+   * @param data pointer returned in afl_custom_init for this fuzz case
+   */
+  void (*afl_custom_deinit)(void *data);
 
 };
 
@@ -732,19 +774,17 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf);
 /* Python */
 #ifdef USE_PYTHON
 
-int  init_py_module(afl_state_t *, u8 *);
-void finalize_py_module(afl_state_t *);
+void finalize_py_module(void *);
 
-void   init_py(afl_state_t *, unsigned int);
-size_t fuzz_py(afl_state_t *, u8 **, size_t, u8 *, size_t, size_t);
-size_t pre_save_py(afl_state_t *, u8 *, size_t, u8 **);
-u32    init_trim_py(afl_state_t *, u8 *, size_t);
-u32    post_trim_py(afl_state_t *, u8);
-void   trim_py(afl_state_t *, u8 **, size_t *);
-size_t havoc_mutation_py(afl_state_t *, u8 **, size_t, size_t);
-u8     havoc_mutation_probability_py(afl_state_t *);
-u8     queue_get_py(afl_state_t *, const u8 *);
-void   queue_new_entry_py(afl_state_t *, const u8 *, const u8 *);
+size_t pre_save_py(void *, u8 *, size_t, u8 **);
+u32    init_trim_py(void *, u8 *, size_t);
+u32    post_trim_py(void *, u8);
+void   trim_py(void *, u8 **, size_t *);
+size_t havoc_mutation_py(void *, u8 **, size_t, size_t);
+u8     havoc_mutation_probability_py(void *);
+u8     queue_get_py(void *, const u8 *);
+void   queue_new_entry_py(void *, const u8 *, const u8 *);
+void   deinit_py(void *);
 
 #endif
 
@@ -780,13 +820,6 @@ u8 *describe_op(afl_state_t *, u8);
 #endif
 u8 save_if_interesting(afl_state_t *, void *, u32, u8);
 u8 has_new_bits(afl_state_t *, u8 *);
-
-/* Misc */
-
-u8 *DI(u64);
-u8 *DF(double);
-u8 *DMS(u64);
-u8 *DTD(u64, u64);
 
 /* Extras */
 
@@ -862,7 +895,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
 /* Generate a random number (from 0 to limit - 1). This may
    have slight bias. */
 
-static inline u32 UR(afl_state_t *afl, u32 limit) {
+static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
 #ifdef HAVE_ARC4RANDOM
   if (afl->fixed_seed) { return random() % limit; }

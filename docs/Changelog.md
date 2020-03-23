@@ -11,21 +11,31 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++2.62d (develop):
 
+  ! the repository was moved from vanhauser-thc to AFLplusplus. It is now
+    an own organisation :)
+  ! development and acceptance of PRs now happen only in the dev branch
+    and only occasionally when everything is fine we PR to master
   - all:
     - big code changes to make afl-fuzz thread-safe so afl-fuzz can spawn 
       multiple fuzzing threads in the future or even become a library
     - afl basic tools now report on the environment variables picked up
     - more tools get environment variable usage info in the help output
+    - force all output to stdout (some OK/SAY/WARN messages were sent to
+      stdout, some to stderr)
   - afl-fuzz:
     - python mutator modules and custom mutator modules now use the same
       interface and hence the API changed
     - AFL_AUTORESUME will resume execution without the need to specify `-i -`
-    - added experimental power schedule -p mmopt that ignores the runtime of
-      queue entries and gives higher weighting to the last 5 queue entries
-      it is currently experimental and subject to change but preliminary
-      results are good
+    - added experimental power schedules (-p):
+      - mmopt: ignores runtime of queue entries, gives higher weighting to
+               the last 5 queue entries
+      - rare: puts focus on queue entries that hits rare branches, also ignores
+              runtime
   - LTO collision free instrumented added in llvm_mode with afl-clang-lto -
     note that this mode is amazing, but quite some targets won't compile
+  - Added llvm_mode NGRAM prev_loc coverage by Adrean Herrera
+    (https://github.com/adrianherrera/afl-ngram-pass/), activate by setting
+    AFL_LLVM_NGRAM_SIZE
   - llvm_mode InsTrim mode:
     - removed workaround for bug where paths were not instrumented and 
       imported fix by author

@@ -185,8 +185,8 @@ void HELPER(afl_cmplog_rtn)(CPUArchState *env) {
   if (!area_is_mapped(stack, sizeof(target_ulong) * 2)) return;
 
   // when this hook is executed, the retaddr is not on stack yet
-  void *ptr1 = g2h(stack[0]);
-  void *ptr2 = g2h(stack[1]);
+  void *    ptr1 = g2h(stack[0]);
+  void *    ptr2 = g2h(stack[1]);
 
 #else
 

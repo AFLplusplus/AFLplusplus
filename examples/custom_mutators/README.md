@@ -7,7 +7,7 @@ Note that if you compile with python3.7 you must use python3 scripts, and if
 you use pyton2.7 to compile python2 scripts!
 
 example.c - this is a simple example written in C and should be compiled to a
-          shared library
+          shared library. Use make to compile it and produce libexamplemutator.so
 
 example.py - this is the template you can use, the functions are there but they
            are empty

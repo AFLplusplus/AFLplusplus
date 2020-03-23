@@ -152,7 +152,7 @@ static const u8 *trampoline_fmt_64 =
     "/* --- END --- */\n"
     "\n";
 
-static const u8*main_payload_32 = 
+static const u8 *main_payload_32 = 
 
   "\n"
   "/* --- AFL MAIN PAYLOAD (32-BIT) --- */\n"
@@ -409,7 +409,7 @@ static const u8*main_payload_32 =
 #define CALL_L64(str) "call " str "@PLT\n"
 #endif                                                        /* ^__APPLE__ */
 
-static const u8* main_payload_64 = 
+static const u8 *main_payload_64 = 
 
   "\n"
   "/* --- AFL MAIN PAYLOAD (64-BIT) --- */\n"

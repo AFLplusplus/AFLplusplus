@@ -31,10 +31,10 @@
 
 void init_cmplog_forkserver(afl_state_t *afl) {
 
-  static struct timeval timeout;
-  int                   st_pipe[2], ctl_pipe[2];
-  int                   status;
-  s32                   rlen;
+  struct timeval timeout;
+  int            st_pipe[2], ctl_pipe[2];
+  int            status;
+  s32            rlen;
 
   ACTF("Spinning up the cmplog fork server...");
 
@@ -264,6 +264,8 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
     } else {
 
+      u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
+
       SAYF("\n" cLRD "[-] " cRST
            "Whoops, the target binary crashed suddenly, "
            "before receiving any input\n"
@@ -296,7 +298,9 @@ void init_cmplog_forkserver(afl_state_t *afl) {
            "options\n"
            "      fail, poke <afl-users@googlegroups.com> for troubleshooting "
            "tips.\n",
-           DMS(afl->fsrv.mem_limit << 20), afl->fsrv.mem_limit - 1);
+           stringify_mem_size(val_buf, sizeof(val_buf),
+                              afl->fsrv.mem_limit << 20),
+           afl->fsrv.mem_limit - 1);
 
     }
 
@@ -331,6 +335,8 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
   } else {
 
+    u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
+
     SAYF(
         "\n" cLRD "[-] " cRST
         "Hmm, looks like the target binary terminated "
@@ -362,7 +368,8 @@ void init_cmplog_forkserver(afl_state_t *afl) {
               "never\n"
               "      reached before the program terminates.\n\n"
             : "",
-        DMS(afl->fsrv.mem_limit << 20), afl->fsrv.mem_limit - 1);
+        stringify_mem_size(val_buf, sizeof(val_buf), afl->fsrv.mem_limit << 20),
+        afl->fsrv.mem_limit - 1);
 
   }
 
@@ -372,12 +379,15 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 
 u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
-  static struct itimerval it;
-  static u32              prev_timed_out = 0;
-  static u64              exec_ms = 0;
+  struct timeval it;
+  int            status = 0;
+  int            sret;
+  u64            exec_ms;
 
-  int status = 0;
   u32 tb4;
+  s32 res;
+
+  fd_set readfds;
 
   afl->fsrv.child_timed_out = 0;
 
@@ -388,185 +398,80 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
   memset(afl->fsrv.trace_bits, 0, MAP_SIZE);
   MEM_BARRIER();
 
-  /* If we're running in "dumb" mode, we can't rely on the fork server
-     logic compiled into the target program, so we will just keep calling
-     execve(). There is a bit of code duplication between here and
-     init_forkserver(), but c'est la vie. */
+  /* Since we always have a forkserver (or a fauxserver) running, we can simply
+  tell them to have at it and read back the pid from it.*/
 
-  if (afl->dumb_mode == 1 || afl->no_forkserver) {
+  if ((res = write(afl->cmplog_fsrv_ctl_fd, &afl->cmplog_prev_timed_out, 4)) !=
+      4) {
 
-    afl->cmplog_child_pid = fork();
-
-    if (afl->cmplog_child_pid < 0) PFATAL("fork() failed");
-
-    if (!afl->cmplog_child_pid) {
-
-      struct rlimit r;
-
-      if (afl->fsrv.mem_limit) {
-
-        r.rlim_max = r.rlim_cur = ((rlim_t)afl->fsrv.mem_limit) << 20;
-
-#ifdef RLIMIT_AS
-
-        setrlimit(RLIMIT_AS, &r);                          /* Ignore errors */
-
-#else
-
-        setrlimit(RLIMIT_DATA, &r);                        /* Ignore errors */
-
-#endif                                                        /* ^RLIMIT_AS */
-
-      }
-
-      r.rlim_max = r.rlim_cur = 0;
-
-      setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
-
-      /* Isolate the process and configure standard descriptors. If
-         afl->fsrv.out_file is specified, stdin is /dev/null; otherwise,
-         afl->fsrv.out_fd is cloned instead. */
-
-      setsid();
-
-      dup2(afl->fsrv.dev_null_fd, 1);
-      dup2(afl->fsrv.dev_null_fd, 2);
-
-      if (afl->fsrv.out_file) {
-
-        dup2(afl->fsrv.dev_null_fd, 0);
-
-      } else {
-
-        dup2(afl->fsrv.out_fd, 0);
-        close(afl->fsrv.out_fd);
-
-      }
-
-      /* On Linux, would be faster to use O_CLOEXEC. Maybe TODO. */
-
-      close(afl->fsrv.dev_null_fd);
-      close(afl->fsrv.out_dir_fd);
-#ifndef HAVE_ARC4RANDOM
-      close(afl->fsrv.dev_urandom_fd);
-#endif
-      close(fileno(afl->fsrv.plot_file));
-
-      /* Set sane defaults for ASAN if nothing else specified. */
-
-      setenv("ASAN_OPTIONS",
-             "abort_on_error=1:"
-             "detect_leaks=0:"
-             "symbolize=0:"
-             "allocator_may_return_null=1",
-             0);
-
-      setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
-                             "symbolize=0:"
-                             "msan_track_origins=0", 0);
-
-      setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
-
-      if (!afl->qemu_mode && afl->argv[0] != afl->cmplog_binary) {
-
-        ck_free(afl->argv[0]);
-        afl->argv[0] = afl->cmplog_binary;
-
-      }
-
-      execv(afl->argv[0], afl->argv);
-
-      /* Use a distinctive bitmap value to tell the parent about execv()
-         falling through. */
-
-      *(u32 *)afl->fsrv.trace_bits = EXEC_FAIL_SIG;
-      exit(0);
-
-    }
-
-  } else {
-
-    s32 res;
-
-    /* In non-dumb mode, we have the fork server up and running, so simply
-       tell it to have at it, and then read back PID. */
-
-    if ((res = write(afl->cmplog_fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
-
-      if (afl->stop_soon) return 0;
-      RPFATAL(res,
-              "Unable to request new process from cmplog fork server (OOM?)");
-
-    }
-
-    if ((res = read(afl->cmplog_fsrv_st_fd, &afl->cmplog_child_pid, 4)) != 4) {
-
-      if (afl->stop_soon) return 0;
-      RPFATAL(res,
-              "Unable to request new process from cmplog fork server (OOM?)");
-
-    }
-
-    if (afl->cmplog_child_pid <= 0)
-      FATAL("Cmplog fork server is misbehaving (OOM?)");
+    if (afl->stop_soon) return 0;
+    RPFATAL(res,
+            "Unable to request new process from cmplog fork server (OOM?)");
 
   }
+
+  if ((res = read(afl->cmplog_fsrv_st_fd, &afl->cmplog_child_pid, 4)) != 4) {
+
+    if (afl->stop_soon) return 0;
+    RPFATAL(res,
+            "Unable to request new process from cmplog fork server (OOM?)");
+
+  }
+
+  if (afl->cmplog_child_pid <= 0)
+    FATAL("Cmplog fork server is misbehaving (OOM?)");
 
   /* Configure timeout, as requested by user, then wait for child to terminate.
    */
 
-  it.it_value.tv_sec = (timeout / 1000);
-  it.it_value.tv_usec = (timeout % 1000) * 1000;
+  it.tv_sec = (timeout / 1000);
+  it.tv_usec = (timeout % 1000) * 1000;
 
-  setitimer(ITIMER_REAL, &it, NULL);
+  FD_ZERO(&readfds);
+  FD_SET(afl->cmplog_fsrv_st_fd, &readfds);
+  it.tv_sec = ((timeout) / 1000);
+  it.tv_usec = ((timeout) % 1000) * 1000;
 
-  /* The SIGALRM handler simply kills the afl->cmplog_child_pid and sets
-   * afl->fsrv.child_timed_out. */
+  sret = select(afl->cmplog_fsrv_st_fd + 1, &readfds, NULL, NULL, &it);
 
-  if (afl->dumb_mode == 1 || afl->no_forkserver) {
+  if (sret == 0) {
 
-    if (waitpid(afl->cmplog_child_pid, &status, 0) <= 0)
-      PFATAL("waitpid() failed");
+    /* If there was no response from forkserver after timeout seconds,
+    we kill the child. The forkserver should inform us afterwards */
 
-  } else {
+    kill(afl->cmplog_child_pid, SIGKILL);
+    afl->fsrv.child_timed_out = 1;
 
-    s32 res;
+  }
 
-    if ((res = read(afl->cmplog_fsrv_st_fd, &status, 4)) != 4) {
+  if ((res = read(afl->cmplog_fsrv_st_fd, &status, 4)) != 4) {
 
-      if (afl->stop_soon) return 0;
-      SAYF(
-          "\n" cLRD "[-] " cRST
-          "Unable to communicate with fork server. Some possible reasons:\n\n"
-          "    - You've run out of memory. Use -m to increase the the memory "
-          "limit\n"
-          "      to something higher than %lld.\n"
-          "    - The binary or one of the libraries it uses manages to create\n"
-          "      threads before the forkserver initializes.\n"
-          "    - The binary, at least in some circumstances, exits in a way "
-          "that\n"
-          "      also kills the parent process - raise() could be the "
-          "culprit.\n\n"
-          "If all else fails you can disable the fork server via "
-          "AFL_NO_FORKSRV=1.\n",
-          afl->fsrv.mem_limit);
-      RPFATAL(res, "Unable to communicate with fork server");
-
-    }
+    if (afl->stop_soon) return 0;
+    SAYF("\n" cLRD "[-] " cRST
+         "Unable to communicate with fork server. Some possible reasons:\n\n"
+         "    - You've run out of memory. Use -m to increase the the memory "
+         "limit\n"
+         "      to something higher than %lld.\n"
+         "    - The binary or one of the libraries it uses manages to create\n"
+         "      threads before the forkserver initializes.\n"
+         "    - The binary, at least in some circumstances, exits in a way "
+         "that\n"
+         "      also kills the parent process - raise() could be the "
+         "culprit.\n\n"
+         "If all else fails you can disable the fork server via "
+         "AFL_NO_FORKSRV=1.\n",
+         afl->fsrv.mem_limit);
+    RPFATAL(res, "Unable to communicate with fork server");
 
   }
 
   if (!WIFSTOPPED(status)) afl->cmplog_child_pid = 0;
 
-  getitimer(ITIMER_REAL, &it);
-  exec_ms =
-      (u64)timeout - (it.it_value.tv_sec * 1000 + it.it_value.tv_usec / 1000);
+  exec_ms = (u64)timeout - (it.tv_sec * 1000 + it.tv_usec / 1000);
   if (afl->slowest_exec_ms < exec_ms) afl->slowest_exec_ms = exec_ms;
 
-  it.it_value.tv_sec = 0;
-  it.it_value.tv_usec = 0;
-
-  setitimer(ITIMER_REAL, &it, NULL);
+  it.tv_sec = 0;
+  it.tv_usec = 0;
 
   ++afl->total_execs;
 
@@ -584,7 +489,7 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
   classify_counts((u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
-  prev_timed_out = afl->fsrv.child_timed_out;
+  afl->cmplog_prev_timed_out = afl->fsrv.child_timed_out;
 
   /* Report outcome to caller. */
 

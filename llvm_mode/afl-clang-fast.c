@@ -158,13 +158,19 @@ static void edit_params(u32 argc, char **argv) {
 #endif
     if (lto_flag[0] != '-')
       FATAL(
-          "afl-clang-lto not possible because Makefile magic did not identify "
-          "the correct -flto flag");
+          "Using afl-clang-lto is not possible because Makefile magic did not "
+          "identify the correct -flto flag");
     if (getenv("AFL_LLVM_INSTRIM") != NULL)
       FATAL("afl-clang-lto does not work with InsTrim mode");
+    if (getenv("AFL_LLVM_NGRAM_SIZE") != NULL)
+      FATAL("afl-clang-lto does not work with ngram coverage mode");
     lto_mode = 1;
 
   }
+
+  if (getenv("AFL_LLVM_NGRAM_SIZE") != NULL &&
+      getenv("AFL_LLVM_INSTRIM") != NULL)
+    FATAL("AFL_LLVM_NGRAM_SIZE and AFL_LLVM_INSTRIM cannot be used together");
 
   if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
 
@@ -545,12 +551,12 @@ int main(int argc, char **argv, char **envp) {
 #else
     if (strstr(argv[0], "afl-clang-lto") == NULL)
 
-      printf(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
+      printf("afl-clang-fast" VERSION " by <lszekeres@google.com>\n");
 
     else {
 
-      printf(cCYA "afl-clang-lto" VERSION cRST
-                  "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+      printf("afl-clang-lto" VERSION
+             "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
 
     }
 
@@ -602,20 +608,36 @@ int main(int argc, char **argv, char **envp) {
             "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to "
             "cascaded "
             "comp.\n"
-            "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
-            "AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
-            "AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed\n"
-            "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
-            "\nafl-clang-fast was built for llvm %s with the llvm binary path "
-            "of "
-            "\"%s\".\n",
-            callname, BIN_PATH, BIN_PATH, LLVM_VERSION, LLVM_BINDIR);
+            "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n",
+            callname, BIN_PATH, BIN_PATH);
 
-    if (strcmp(callname, "afl-clang-lto") == 0)
-      SAYF(
-          "Compiled with linker target \"%s\" and LTO flags \"%s\"\n\n"
-          "If anything fails - be sure to read README.lto.md!\n\n",
-          AFL_REAL_LD, AFL_CLANG_FLTO);
+    SAYF(
+        "\nafl-clang-fast specific environment variables:\n"
+        "AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
+        "AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed\n"
+        "AFL_LLVM_NGRAM_SIZE: use ngram prev_loc coverage\n"
+        "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n");
+
+#ifdef AFL_CLANG_FLTO
+    SAYF(
+        "\nafl-clang-lto specific environment variables:\n"
+        "AFL_LLVM_LTO_STARTID: from which ID to start counting from for a "
+        "bb\n"
+        "AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
+        "global var\n"
+        "AFL_REAL_LD: use this linker instead of the compiled in path\n"
+        "AFL_LD_PASSTHROUGH: do not perform instrumentation (for configure "
+        "scripts)\n"
+        "\nafl-clang-lto was built with linker target \"%s\" and LTO flags "
+        "\"%s\"\n"
+        "If anything fails - be sure to read README.lto.md!\n",
+        AFL_REAL_LD, AFL_CLANG_FLTO);
+#endif
+
+    SAYF(
+        "\nafl-clang-fast was built for llvm %s with the llvm binary path "
+        "of \"%s\".\n",
+        LLVM_VERSION, LLVM_BINDIR);
 
     SAYF("\n");
 
