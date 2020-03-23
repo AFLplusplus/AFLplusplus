@@ -170,7 +170,7 @@ static void edit_params(u32 argc, char **argv) {
 
   if (getenv("AFL_LLVM_NGRAM_SIZE") != NULL &&
       getenv("AFL_LLVM_INSTRIM") != NULL)
-    FATAL("AFL_LLVM_NGRAM_SIZE and AFL_LLVM_INSTRIM can not be used together");
+    FATAL("AFL_LLVM_NGRAM_SIZE and AFL_LLVM_INSTRIM cannot be used together");
 
   if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
 
@@ -551,11 +551,11 @@ int main(int argc, char **argv, char **envp) {
 #else
     if (strstr(argv[0], "afl-clang-lto") == NULL)
 
-      printf(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
+      printf("afl-clang-fast" VERSION " by <lszekeres@google.com>\n");
 
     else {
 
-      printf(cCYA "afl-clang-lto" VERSION cRST
+      printf("afl-clang-lto" VERSION
                   "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
 
     }

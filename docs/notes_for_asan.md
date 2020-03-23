@@ -29,7 +29,8 @@ Note that ASAN is incompatible with -static, so be mindful of that.
 (You can also use AFL_USE_MSAN=1 to enable MSAN instead.)
 
 NOTE: if you run several slaves only one should run the target compiled with
-ASAN (and UBSAN), the others run the target with no sanitiziers compiled.
+ASAN (and UBSAN), the others should run the target with no sanitiziers
+compiled in.
 
 There is also the option of generating a corpus using a non-ASAN binary, and
 then feeding it to an ASAN-instrumented one to check for bugs. This is faster,
