@@ -335,12 +335,7 @@ endif
 	if [ -f ../split-switches-pass.so ]; then set -e; install -m 755 ../split-switches-pass.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../cmplog-instructions-pass.so ]; then set -e; install -m 755 ../cmplog-*-pass.so $${DESTDIR}$(HELPER_PATH); fi
 	set -e; if [ -f ../afl-clang-fast ] ; then ln -sf ../afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ../afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf ../afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ../afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
-	install -m 644 -T README.laf-intel.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.laf-intel.md
-	install -m 644 -T README.cmplog.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.cmplog.md
-	install -m 644 -T README.lto.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.lto.md
-	install -m 644 -T README.instrim.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.instrim.md
-	install -m 644 -T README.neverzero.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.neverzero.md
-	install -m 644 -T README.whitelist.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.whitelist.md
+	install -m 644 -T README.*.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.laf-intel.md
 	install -m 644 -T README.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.md
 
 vpath  % ..
