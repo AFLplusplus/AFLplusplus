@@ -626,9 +626,9 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     u32 remove_pos = remove_len;
 
-    snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "trim %s/%s",
-             stringify_int(val_bufs[0], sizeof(val_bufs[0]), remove_len),
-             stringify_int(val_bufs[1], sizeof(val_bufs[1]), remove_len));
+    sprintf(afl->stage_name_buf, "trim %s/%s",
+             u_stringify_int(val_bufs[0], remove_len),
+             u_stringify_int(val_bufs[1], remove_len));
 
     afl->stage_cur = 0;
     afl->stage_max = q->len / remove_len;
