@@ -359,7 +359,7 @@ vpath  % ..
 	@echo Apache License Version 2.0, January 2004 >> ../$@
 	ln -sf afl-clang-fast.8 ../afl-clang-fast++.8
 ifneq "$(AFL_CLANG_FLTO)" ""
-ifeq "$(LLVM_LTO)" "0"
+ifeq "$(LLVM_LTO)" "1"
 	ln -sf afl-clang-fast.8 ../afl-clang-lto.8
 	ln -sf afl-clang-fast.8 ../afl-clang-lto++.8
 endif

@@ -611,28 +611,33 @@ int main(int argc, char **argv, char **envp) {
             "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n",
             callname, BIN_PATH, BIN_PATH);
 
-    if (strcmp(callname, "afl-clang-lto") == 0)
-      SAYF(
-          "AFL_LLVM_LTO_STARTID: from which ID to start counting from for a "
-          "bb\n"
-          "AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
-          "global var\n"
-          "AFL_REAL_LD: use this linker instead of the compiled in path\n"
-          "AFL_LD_PASSTHROUGH: do not perform instrumentation (for configure "
-          "scripts)\n"
-          "\nafl-clang-lto was built for llvm %s with the llvm binary path "
-          "of \"%s\"; linker target \"%s\" and LTO flags \"%s\"\n"
-          "If anything fails - be sure to read README.lto.md!\n\n",
-          LLVM_VERSION, LLVM_BINDIR, AFL_REAL_LD, AFL_CLANG_FLTO);
-    else
-      SAYF(
-          "AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
-          "AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed\n"
-          "AFL_LLVM_NGRAM_SIZE: use ngram prev_loc coverage\n"
-          "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
-          "\nafl-clang-fast was built for llvm %s with the llvm binary path "
-          "of \"%s\".\n",
-          LLVM_VERSION, LLVM_BINDIR);
+    SAYF(
+        "\nafl-clang-fast specific environment variables:\n"
+        "AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
+        "AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed\n"
+        "AFL_LLVM_NGRAM_SIZE: use ngram prev_loc coverage\n"
+        "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n");
+
+#ifdef AFL_CLANG_FLTO
+    SAYF(
+        "\nafl-clang-lto specific environment variables:\n"
+        "AFL_LLVM_LTO_STARTID: from which ID to start counting from for a "
+        "bb\n"
+        "AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
+        "global var\n"
+        "AFL_REAL_LD: use this linker instead of the compiled in path\n"
+        "AFL_LD_PASSTHROUGH: do not perform instrumentation (for configure "
+        "scripts)\n"
+        "\nafl-clang-lto was built with linker target \"%s\" and LTO flags "
+        "\"%s\"\n"
+        "If anything fails - be sure to read README.lto.md!\n",
+        AFL_REAL_LD, AFL_CLANG_FLTO);
+#endif
+
+    SAYF(
+        "\nafl-clang-fast was built for llvm %s with the llvm binary path "
+        "of \"%s\".\n",
+        LLVM_VERSION, LLVM_BINDIR);
 
     SAYF("\n");
 
