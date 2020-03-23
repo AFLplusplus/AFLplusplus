@@ -2014,7 +2014,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if (memmem(f_data, f_len, "libasan.so", 10) ||
+  if (memmem(f_data, f_len, "__asan_init", 11) ||
       memmem(f_data, f_len, "__msan_init", 11))
     afl->fsrv.uses_asan = 1;
 
