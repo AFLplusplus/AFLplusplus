@@ -211,8 +211,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   while (afl->stage_cur < afl->stage_max) {
 
-    snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "ptrim %s",
-             stringify_int(val_buf, sizeof(val_buf), trim_exec));
+    sprintf(afl->stage_name_buf, "ptrim %s", u_stringify_int(val_buf, trim_exec));
 
     u32 cksum;
 
