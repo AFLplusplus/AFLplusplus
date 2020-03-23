@@ -340,8 +340,7 @@ the speed compared to qemu_mode.
 A more comprehensive description of these and other options can be found in
 [docs/binaryonly_fuzzing.md](docs/binaryonly_fuzzing.md)
 
-
-## 5) Good examples and writeups
+## Good examples and writeups
 
 Here are some good writeups to show how to effectibly use AFL++:
 
