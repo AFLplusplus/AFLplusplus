@@ -147,7 +147,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
     /* At the initialization stage, queue_cur is NULL */
     if (afl->queue_cur) fname_orig = afl->queue_cur->fname;
 
-    afl->mutator->afl_custom_queue_new_entry(afl, fname, fname_orig);
+    afl->mutator->afl_custom_queue_new_entry(afl->mutator->data, fname, fname_orig);
 
   }
 
