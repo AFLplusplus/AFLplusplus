@@ -28,10 +28,13 @@
 
 void load_custom_mutator(afl_state_t *, const char *);
 
+struct custom_mutator * load_mutator(afl_state_t *, const char *);
+
 void setup_custom_mutator(afl_state_t *afl) {
 
   /* Try mutator library first */
-  u8 *fn = afl->afl_env.afl_custom_mutator_library;
+  u8 *fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+  struct custom_mutator *mut; 
 
   if (fn) {
 
@@ -48,6 +51,20 @@ void setup_custom_mutator(afl_state_t *afl) {
 
     return;
 
+  }
+
+  char *s ;
+
+  fn = getenv("TEST_MUT");
+
+  if (fn) {
+    u8 *fn_token = strsep(&fn, ";");
+    while (fn_token)
+    {
+      mut = load_mutator(afl, fn_token);
+      list_append(afl->list_mutators, mut);
+      fn_token = strsep(&fn, ";");
+    }
   }
 
   /* Try Python module */
@@ -100,6 +117,103 @@ void destroy_custom_mutator(afl_state_t *afl) {
     afl->mutator = NULL;
 
   }
+
+}
+
+
+struct custom_mutator * load_mutator(afl_state_t *afl, const char *fn) {
+
+  void *dh;
+  struct custom_mutator *mutator = ck_alloc(sizeof(struct custom_mutator));
+
+  mutator->name = fn;
+  ACTF("Loading custom mutator library from '%s'...", fn);
+
+  dh = dlopen(fn, RTLD_NOW);
+  if (!dh) FATAL("%s", dlerror());
+  mutator->dh = dh;
+
+  /* Mutator */
+  /* "afl_custom_init", optional for backward compatibility */
+  mutator->afl_custom_init = dlsym(dh, "afl_custom_init");
+  if (!mutator->afl_custom_init)
+    WARNF("Symbol 'afl_custom_init' not found.");
+
+  /* "afl_custom_fuzz" or "afl_custom_mutator", required */
+  mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_fuzz");
+  if (!mutator->afl_custom_fuzz) {
+
+    /* Try "afl_custom_mutator" for backward compatibility */
+    WARNF("Symbol 'afl_custom_fuzz' not found. Try 'afl_custom_mutator'.");
+
+    mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_mutator");
+    if (!mutator->afl_custom_fuzz)
+      FATAL("Symbol 'afl_custom_mutator' not found.");
+
+  }
+
+  /* "afl_custom_pre_save", optional */
+  mutator->afl_custom_pre_save = dlsym(dh, "afl_custom_pre_save");
+  if (!mutator->afl_custom_pre_save)
+    WARNF("Symbol 'afl_custom_pre_save' not found.");
+
+  u8 notrim = 0;
+  /* "afl_custom_init_trim", optional */
+  mutator->afl_custom_init_trim = dlsym(dh, "afl_custom_init_trim");
+  if (!mutator->afl_custom_init_trim)
+    WARNF("Symbol 'afl_custom_init_trim' not found.");
+
+  /* "afl_custom_trim", optional */
+  mutator->afl_custom_trim = dlsym(dh, "afl_custom_trim");
+  if (!mutator->afl_custom_trim)
+    WARNF("Symbol 'afl_custom_trim' not found.");
+
+  /* "afl_custom_post_trim", optional */
+  mutator->afl_custom_post_trim = dlsym(dh, "afl_custom_post_trim");
+  if (!mutator->afl_custom_post_trim)
+    WARNF("Symbol 'afl_custom_post_trim' not found.");
+
+  if (notrim) {
+
+    mutator->afl_custom_init_trim = NULL;
+    mutator->afl_custom_trim = NULL;
+    mutator->afl_custom_post_trim = NULL;
+    WARNF(
+        "Custom mutator does not implement all three trim APIs, standard "
+        "trimming will be used.");
+
+  }
+
+  /* "afl_custom_havoc_mutation", optional */
+  mutator->afl_custom_havoc_mutation =
+      dlsym(dh, "afl_custom_havoc_mutation");
+  if (!mutator->afl_custom_havoc_mutation)
+    WARNF("Symbol 'afl_custom_havoc_mutation' not found.");
+
+  /* "afl_custom_havoc_mutation", optional */
+  mutator->afl_custom_havoc_mutation_probability =
+      dlsym(dh, "afl_custom_havoc_mutation_probability");
+  if (!mutator->afl_custom_havoc_mutation_probability)
+    WARNF("Symbol 'afl_custom_havoc_mutation_probability' not found.");
+
+  /* "afl_custom_queue_get", optional */
+  mutator->afl_custom_queue_get = dlsym(dh, "afl_custom_queue_get");
+  if (!mutator->afl_custom_queue_get)
+    WARNF("Symbol 'afl_custom_queue_get' not found.");
+
+  /* "afl_custom_queue_new_entry", optional */
+  mutator->afl_custom_queue_new_entry =
+      dlsym(dh, "afl_custom_queue_new_entry");
+  if (!mutator->afl_custom_queue_new_entry)
+    WARNF("Symbol 'afl_custom_queue_new_entry' not found");
+
+  OKF("Custom mutator '%s' installed successfully.", fn);
+
+  /* Initialize the custom mutator */
+  if (mutator->afl_custom_init)
+    mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
+  
+  return mutator;
 
 }
 
