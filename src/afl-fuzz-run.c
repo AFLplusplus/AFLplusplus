@@ -218,9 +218,9 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
     u8 *   new_data;
     size_t new_size =
-        afl->mutator->afl_custom_pre_save(afl, mem, len, &new_data);
+        afl->mutator->afl_custom_pre_save(afl->mutator->data, mem, len, &new_data);
     ck_write(fd, new_data, new_size, afl->fsrv.out_file);
-    ck_free(new_data);
+    free(new_data);
 
   } else {
 

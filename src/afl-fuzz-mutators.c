@@ -213,7 +213,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     u8 *   retbuf = NULL;
     size_t retlen = 0;
 
-    afl->mutator->afl_custom_trim(afl, &retbuf, &retlen);
+    afl->mutator->afl_custom_trim(afl->mutator->data, &retbuf, &retlen);
 
     if (retlen > orig_len)
       FATAL(
@@ -250,7 +250,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       }
 
       /* Tell the custom mutator that the trimming was successful */
-      afl->stage_cur = afl->mutator->afl_custom_post_trim(afl, 1);
+      afl->stage_cur = afl->mutator->afl_custom_post_trim(afl->mutator->data, 1);
 
       if (afl->not_on_tty && afl->debug)
         SAYF("[Custom Trimming] SUCCESS: %d/%d iterations (now at %u bytes)",
@@ -259,7 +259,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     } else {
 
       /* Tell the custom mutator that the trimming was unsuccessful */
-      afl->stage_cur = afl->mutator->afl_custom_post_trim(afl, 0);
+      afl->stage_cur = afl->mutator->afl_custom_post_trim(afl->mutator->data, 0);
       if (afl->not_on_tty && afl->debug)
         SAYF("[Custom Trimming] FAILURE: %d/%d iterations", afl->stage_cur,
              afl->stage_max);
