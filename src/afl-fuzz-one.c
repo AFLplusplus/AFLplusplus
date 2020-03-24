@@ -360,7 +360,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     /* The custom mutator will decide to skip this test case or not. */
 
-    if (!afl->mutator->afl_custom_queue_get(afl, afl->queue_cur->fname))
+    if (!afl->mutator->afl_custom_queue_get(afl->mutator->data, afl->queue_cur->fname))
       return 1;
 
   }
@@ -1611,7 +1611,7 @@ custom_mutator_stage:
     close(fd);
 
     size_t mutated_size = afl->mutator->afl_custom_fuzz(
-        afl, &out_buf, len, new_buf, target->len, max_seed_size);
+        afl->mutator->data, &out_buf, len, new_buf, target->len, max_seed_size);
 
     ck_free(new_buf);
 
@@ -1702,7 +1702,7 @@ havoc_stage:
   if (stacked_custom && afl->mutator->afl_custom_havoc_mutation_probability) {
 
     stacked_custom_prob =
-        afl->mutator->afl_custom_havoc_mutation_probability(afl);
+        afl->mutator->afl_custom_havoc_mutation_probability(afl->mutator->data);
     if (stacked_custom_prob > 100)
       FATAL(
           "The probability returned by afl_custom_havoc_mutation_propability "
@@ -1723,7 +1723,7 @@ havoc_stage:
 
       if (stacked_custom && rand_below(afl, 100) < stacked_custom_prob) {
 
-        temp_len = afl->mutator->afl_custom_havoc_mutation(afl, &out_buf,
+        temp_len = afl->mutator->afl_custom_havoc_mutation(afl->mutator->data, &out_buf,
                                                            temp_len, MAX_FILE);
 
       }
