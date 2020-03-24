@@ -1,7 +1,7 @@
 # Examples for the custom mutator
 
 These are example and helper files for the custom mutator feature.
-See [docs/python_mutators.md](../docs/custom_mutators.md) for more information
+See [docs/custom_mutators.md](../docs/custom_mutators.md) for more information
 
 Note that if you compile with python3.7 you must use python3 scripts, and if
 you use pyton2.7 to compile python2 scripts!
