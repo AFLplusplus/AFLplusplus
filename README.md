@@ -54,7 +54,7 @@
   
   * Win32 PE binary-only fuzzing with QEMU and Wine
 
-  * Radamsa mutator (enable with `-R` to add or `-RR` to run it exclusivly).
+  * Radamsa mutator (enable with `-R` to add or `-RR` to run it exclusively).
 
   * QBDI mode to fuzz android native libraries via QBDI framework
 
@@ -85,7 +85,7 @@
 
   (4) Only for LLVM >= 9 and not all targets compile
 
-  (5) upcoming, development in branch
+  (5) upcoming, development in the branch
 
   (6) not compatible with LTO and InsTrim modes
 
@@ -118,13 +118,13 @@
 We are happy to be part of [Google Summer of Code 2020](https://summerofcode.withgoogle.com/organizations/5100744400699392/)! :-)
 
 We have several ideas we would like to see in AFL++ to make it even better.
-However we already work on so many things that we do not have the time for
+However, we already work on so many things that we do not have the time for
 all the big ideas.
 
 This can be your way to support and contribute to AFL++ - extend it to
 something cool
 
-We have an idea list in [docs/ideas.md](docs/ideas.md)
+We have an idealist in [docs/ideas.md](docs/ideas.md)
 
 For everyone who wants to contribute (and send pull requests) please read
 [CONTRIBUTING.md](CONTRIBUTING.md) before your submit.
@@ -205,9 +205,9 @@ There have been numerous attempts to solve this problem. One of the early
 approaches - pioneered by Tavis Ormandy - is corpus distillation. The method
 relies on coverage signals to select a subset of interesting seeds from a
 massive, high-quality corpus of candidate files, and then fuzz them by
-traditional means. The approach works exceptionally well, but requires such
+traditional means. The approach works exceptionally well but requires such
 a corpus to be readily available. In addition, block coverage measurements
-provide only a very simplistic understanding of program state, and are less
+provide only a very simplistic understanding of the program state and are less
 useful for guiding the fuzzing effort in the long haul.
 
 Other, more sophisticated research has focused on techniques such as program
@@ -228,7 +228,7 @@ Simplifying a bit, the overall algorithm can be summed up as:
 
   1) Load user-supplied initial test cases into the queue,
 
-  2) Take next input file from the queue,
+  2) Take the next input file from the queue,
 
   3) Attempt to trim the test case to the smallest size that doesn't alter
      the measured behavior of the program,
@@ -295,7 +295,7 @@ Using partial instrumentation is also recommended, see
 When testing libraries, you need to find or write a simple program that reads
 data from stdin or from a file and passes it to the tested library. In such a
 case, it is essential to link this executable against a static version of the
-instrumented library, or to make sure that the correct .so file is loaded at
+instrumented library or to make sure that the correct .so file is loaded at
 runtime (usually by setting `LD_LIBRARY_PATH`). The simplest option is a static
 build, usually possible via:
 
@@ -316,7 +316,7 @@ file for important caveats.
 
 When source code is *NOT* available, the fuzzer offers experimental support for
 fast, on-the-fly instrumentation of black-box binaries. This is accomplished
-with a version of QEMU running in the lesser-known "user space emulation" mode.
+with a version of QEMU running in the lesser-known "userspace emulation" mode.
 
 QEMU is a project separate from AFL, but you can conveniently build the
 feature by doing:
@@ -342,7 +342,7 @@ A more comprehensive description of these and other options can be found in
 
 ## Good examples and writeups
 
-Here are some good writeups to show how to effectibly use AFL++:
+Here are some good writeups to show how to effectively use AFL++:
 
  * [https://aflplus.plus/docs/tutorials/libxml2_tutorial/](https://aflplus.plus/docs/tutorials/libxml2_tutorial/)
  * [https://bananamafia.dev/post/gb-fuzz/](https://bananamafia.dev/post/gb-fuzz/)
@@ -372,7 +372,7 @@ The available schedules are:
  - mmopt (experimental)
  - rare (experimental)
 
-In parallel mode (-M/-S, several instances with shared queue), we suggest to
+In parallel mode (-M/-S, several instances with the shared queue), we suggest to
 run the master using the explore or fast schedule (-p explore) and the slaves
 with a combination of cut-off-exponential (-p coe), exponential (-p fast),
 explore (-p explore) and mmopt (-p mmopt) schedules. If a schedule does
@@ -380,7 +380,7 @@ not perform well for a target, restart the slave with a different schedule.
 
 In single mode, using -p fast is usually slightly more beneficial than the
 default explore mode.
-(We don't want to change the default behaviour of afl, so "fast" has not been
+(We don't want to change the default behavior of afl, so "fast" has not been
 made the default mode).
 
 More details can be found in the paper published at the 23rd ACM Conference on
@@ -450,12 +450,12 @@ See the [docs/status_screen.md](docs/status_screen.md) file for information on
 how to interpret the displayed stats and monitor the health of the process. Be
 sure to consult this file especially if any UI elements are highlighted in red.
 
-The fuzzing process will continue until you press Ctrl-C. At minimum, you want
+The fuzzing process will continue until you press Ctrl-C. At a minimum, you want
 to allow the fuzzer to complete one queue cycle, which may take anywhere from a
 couple of hours to a week or so.
 
 There are three subdirectories created within the output directory and updated
-in real time:
+in real-time:
 
   - queue/   - test cases for every distinctive execution path, plus all the
                starting files given by the user. This is the synthesized corpus
@@ -480,7 +480,7 @@ involve any state transitions not seen in previously-recorded faults. If a
 single bug can be reached in multiple ways, there will be some count inflation
 early in the process, but this should quickly taper off.
 
-The file names for crashes and hangs are correlated with parent, non-faulting
+The file names for crashes and hangs are correlated with the parent, non-faulting
 queue entries. This should help with debugging.
 
 When you can't reproduce a crash found by afl-fuzz, the most likely cause is
@@ -544,10 +544,10 @@ instrumentation feedback alone. This actually works in practice, say:
 PS. Even when no explicit dictionary is given, afl-fuzz will try to extract
 existing syntax tokens in the input corpus by watching the instrumentation
 very closely during deterministic byte flips. This works for some types of
-parsers and grammars, but isn't nearly as good as the -x mode.
+parsers and grammars but isn't nearly as good as the -x mode.
 
 If a dictionary is really hard to come by, another option is to let AFL run
-for a while, and then use the token capture library that comes as a companion
+for a while and then use the token capture library that comes as a companion
 utility with AFL. For that, see [libtokencap/README.md](libtokencap/README.tokencap.md).
 
 ## Crash triage
@@ -562,7 +562,7 @@ difficult to quickly evaluate for exploitability without a lot of debugging and
 code analysis work. To assist with this task, afl-fuzz supports a very unique
 "crash exploration" mode enabled with the -C flag.
 
-In this mode, the fuzzer takes one or more crashing test cases as the input,
+In this mode, the fuzzer takes one or more crashing test cases as the input
 and uses its feedback-driven fuzzing strategies to very quickly enumerate all
 code paths that can be reached in the program while keeping it in the
 crashing state.
@@ -601,7 +601,7 @@ near the end of [docs/technical_details.md](docs/technical_details.md).
 
 Fuzzing is a wonderful and underutilized technique for discovering non-crashing
 design and implementation errors, too. Quite a few interesting bugs have been
-found by modifying the target programs to call abort() when, say:
+found by modifying the target programs to call abort() when say:
 
   - Two bignum libraries produce different outputs when given the same
     fuzzer-generated input,
@@ -623,7 +623,7 @@ shared with libfuzzer) or `#ifdef __AFL_COMPILER` (this one is just for AFL).
 ## Common-sense risks
 
 Please keep in mind that, similarly to many other computationally-intensive
-tasks, fuzzing may put strain on your hardware and on the OS. In particular:
+tasks, fuzzing may put a strain on your hardware and on the OS. In particular:
 
   - Your CPU will run hot and will need adequate cooling. In most cases, if
     cooling is insufficient or stops working properly, CPU speeds will be
@@ -656,7 +656,7 @@ Here are some of the most important caveats for AFL:
   - AFL detects faults by checking for the first spawned process dying due to
     a signal (SIGSEGV, SIGABRT, etc). Programs that install custom handlers for
     these signals may need to have the relevant code commented out. In the same
-    vein, faults in child processed spawned by the fuzzed target may evade
+    vein, faults in child process spawned by the fuzzed target may evade
     detection unless you manually add some code to catch that.
 
   - As with any other brute-force tool, the fuzzer offers limited coverage if
