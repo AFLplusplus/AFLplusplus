@@ -290,8 +290,8 @@ typedef struct py_mutator {
 
   PyObject *py_module;
   PyObject *py_functions[PY_FUNC_COUNT];
-  void *afl_state;
-  void *py_data;
+  void *    afl_state;
+  void *    py_data;
 
 } py_mutator_t;
 
@@ -592,7 +592,7 @@ struct custom_mutator {
   const char *name;
   void *      dh;
 
-  void *data;    /* custom mutator data ptr */
+  void *data;                                    /* custom mutator data ptr */
 
   /* hooks for the custom mutator function */
 
@@ -620,8 +620,8 @@ struct custom_mutator {
    * not produce data larger than max_size.
    * @return Size of the mutated output.
    */
-  size_t (*afl_custom_fuzz)(void *data, u8 **buf, size_t buf_size,
-                            u8 *add_buf, size_t add_buf_size, size_t max_size);
+  size_t (*afl_custom_fuzz)(void *data, u8 **buf, size_t buf_size, u8 *add_buf,
+                            size_t add_buf_size, size_t max_size);
 
   /**
    * A post-processing function to use right before AFL writes the test case to
@@ -711,8 +711,8 @@ struct custom_mutator {
    *     not produce data larger than max_size.
    * @return Size of the mutated output.
    */
-  size_t (*afl_custom_havoc_mutation)(void *data, u8 **buf,
-                                      size_t buf_size, size_t max_size);
+  size_t (*afl_custom_havoc_mutation)(void *data, u8 **buf, size_t buf_size,
+                                      size_t max_size);
 
   /**
    * Return the probability (in percentage) that afl_custom_havoc_mutation
@@ -748,9 +748,8 @@ struct custom_mutator {
    * @param filename_orig_queue File name of the original queue entry. This
    *     argument can be NULL while initializing the fuzzer
    */
-  void (*afl_custom_queue_new_entry)(void *data,
-                                     const u8 *   filename_new_queue,
-                                     const u8 *   filename_orig_queue);
+  void (*afl_custom_queue_new_entry)(void *data, const u8 *filename_new_queue,
+                                     const u8 *filename_orig_queue);
   /**
    * Deinitialize the custom mutator.
    *

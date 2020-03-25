@@ -78,7 +78,7 @@ static u64 get_cur_time_us(void) {
    Will return buf for convenience. */
 
 static u8 *stringify_int(u8 *buf, size_t len, u64 val) {
-
+\
 #define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)     \
   do {                                                     \
                                                            \
@@ -233,23 +233,22 @@ static u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
 
 }
 
-
 /* Unsafe Describe integer. The buf sizes are not checked.
    This is unsafe but fast.
    Will return buf for convenience. */
 
 static u8 *u_stringify_int(u8 *buf, u64 val) {
-
-#define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)     \
-  do {                                                     \
-                                                           \
-    if (val < (_divisor) * (_limit_mult)) {                \
-                                                           \
-      sprintf(buf, _fmt, ((_cast)val) / (_divisor));       \
-      return buf;                                          \
-                                                           \
-    }                                                      \
-                                                           \
+\
+#define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast) \
+  do {                                                 \
+                                                       \
+    if (val < (_divisor) * (_limit_mult)) {            \
+                                                       \
+      sprintf(buf, _fmt, ((_cast)val) / (_divisor));   \
+      return buf;                                      \
+                                                       \
+    }                                                  \
+                                                       \
   } while (0)
 
   /* 0-9999 */
