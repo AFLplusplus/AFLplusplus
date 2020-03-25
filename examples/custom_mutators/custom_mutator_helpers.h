@@ -7,11 +7,13 @@
 
 #define RAND_BELOW(limit) (rand() % (limit))
 
-typedef struct{} afl_t;
+typedef struct {
+
+} afl_t;
 
 static void surgical_havoc_mutate(u8 *out_buf, s32 begin, s32 end) {
 
-  static s8  interesting_8[]  = {INTERESTING_8};
+  static s8  interesting_8[] = {INTERESTING_8};
   static s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
   static s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 
@@ -111,8 +113,8 @@ static void surgical_havoc_mutate(u8 *out_buf, s32 begin, s32 end) {
               (s64)interesting_32[RAND_BELOW(sizeof(interesting_32) >> 2)];
           break;
         case 1:
-          *(u64 *)(out_buf + byte_idx) =
-              SWAP64((s64)interesting_32[RAND_BELOW(sizeof(interesting_32) >> 2)]);
+          *(u64 *)(out_buf + byte_idx) = SWAP64(
+              (s64)interesting_32[RAND_BELOW(sizeof(interesting_32) >> 2)]);
           break;
 
       }
@@ -266,3 +268,4 @@ static void surgical_havoc_mutate(u8 *out_buf, s32 begin, s32 end) {
 }
 
 #endif
+

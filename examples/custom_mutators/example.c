@@ -23,7 +23,6 @@ static const char *commands[] = {
 
 };
 
-
 typedef struct my_mutator {
 
   afl_t *afl;
@@ -34,21 +33,26 @@ typedef struct my_mutator {
 /**
  * Initialize this custom mutator
  *
- * @param[in] afl a pointer to the internal state object. Can be ignored for now.
- * @param[in] seed A seed for this mutator - the same seed should always mutate in the same way.
+ * @param[in] afl a pointer to the internal state object. Can be ignored for
+ * now.
+ * @param[in] seed A seed for this mutator - the same seed should always mutate
+ * in the same way.
  * @return Pointer to the data object this custom mutator instance should use.
  *         There may be multiple instances of this mutator in one afl-fuzz run!
  *         Returns NULL on error.
  */
 my_mutator_t *afl_custom_init(afl_t *afl, unsigned int seed) {
 
-  srand(seed); // needed also by surgical_havoc_mutate()
+  srand(seed);  // needed also by surgical_havoc_mutate()
 
   my_mutator_t *data = calloc(1, sizeof(my_mutator_t));
   if (!data) {
+
     perror("afl_custom_init alloc");
     return NULL;
+
   }
+
   data->afl = afl;
 
   return data;
@@ -71,8 +75,8 @@ my_mutator_t *afl_custom_init(afl_t *afl, unsigned int seed) {
  */
 size_t afl_custom_fuzz(my_mutator_t *data, uint8_t **buf, size_t buf_size,
                        uint8_t *add_buf,
-                       size_t add_buf_size,  // add_buf can be NULL
-                       size_t max_size) {
+                       size_t   add_buf_size,  // add_buf can be NULL
+                       size_t   max_size) {
 
   // Make sure that the packet size does not exceed the maximum size expected by
   // the fuzzer
@@ -113,7 +117,8 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t **buf, size_t buf_size,
  *     will release the memory after saving the test case.
  * @return Size of the output buffer after processing
  */
-size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size, uint8_t **out_buf) {
+size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
+                           uint8_t **out_buf) {
 
   size_t out_buf_size;
 
@@ -183,7 +188,8 @@ int afl_custom_init_trim(my_mutator_t *data, uint8_t *buf, size_t buf_size) {
  *     the memory after saving the test case.
  * @param[out] out_buf_size Pointer to the size of the trimmed test case
  */
-void afl_custom_trim(my_mutator_t *data, uint8_t **out_buf, size_t *out_buf_size) {
+void afl_custom_trim(my_mutator_t *data, uint8_t **out_buf,
+                     size_t *out_buf_size) {
 
   *out_buf_size = trim_buf_size - 1;
 
@@ -233,8 +239,8 @@ int afl_custom_post_trim(my_mutator_t *data, int success) {
  *     not produce data larger than max_size.
  * @return Size of the mutated output.
  */
-size_t afl_custom_havoc_mutation(my_mutator_t *data, uint8_t **buf, size_t buf_size,
-                                 size_t max_size) {
+size_t afl_custom_havoc_mutation(my_mutator_t *data, uint8_t **buf,
+                                 size_t buf_size, size_t max_size) {
 
   if (buf_size == 0) {
 
@@ -292,7 +298,8 @@ uint8_t afl_custom_queue_get(my_mutator_t *data, const uint8_t *filename) {
  * @param filename_new_queue File name of the new queue entry
  * @param filename_orig_queue File name of the original queue entry
  */
-void afl_custom_queue_new_entry(my_mutator_t *data, const uint8_t *filename_new_queue,
+void afl_custom_queue_new_entry(my_mutator_t * data,
+                                const uint8_t *filename_new_queue,
                                 const uint8_t *filename_orig_queue) {
 
   /* Additional analysis on the original or new test case */
