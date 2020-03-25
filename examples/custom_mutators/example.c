@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #define DATA_SIZE (100)
 
@@ -112,21 +113,29 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t **buf, size_t buf_size,
  * @param[in] data pointer returned in afl_custom_init for this fuzz case
  * @param[in] buf Buffer containing the test case to be executed
  * @param[in] buf_size Size of the test case
- * @param[out] out_buf Pointer to the buffer containing the test case after
+ * @param[in] out_buf Pointer to the buffer containing the test case after
  *     processing. External library should allocate memory for out_buf. AFL++
  *     will release the memory after saving the test case.
- * @return Size of the output buffer after processing
+ *     out_buf will always be at least as large as buf.
+ * @param[in] out_buf_size The maximum size we may use.
+ *            In case we need to have this bigger, simply return that.
+ * @return Size of the output buffer after processing or the needed amount.
+ *         return 0 to indicate the original buf should be used.
  */
 size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
-                           uint8_t **out_buf) {
+                           uint8_t *out_buf, size_t out_buf_size) {
 
-  size_t out_buf_size;
+  // In case we need more than out_buf_size, we return that amount and get
+  // called again.
+  if (out_buf_size < 32000) return 32000;
 
+  memcpy(out_buf, buf, buf_size);
   out_buf_size = buf_size;
-
-  // External mutator should allocate memory for `out_buf`
-  *out_buf = malloc(out_buf_size);
-  memcpy(*out_buf, buf, out_buf_size);
+  out_buf[0] = 'A';
+  out_buf[1] = 'F';
+  out_buf[2] = 'L';
+  out_buf[3] = '+';
+  out_buf[4] = '+';
 
   return out_buf_size;
 

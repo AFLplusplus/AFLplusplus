@@ -216,14 +216,49 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
   if (afl->mutator && afl->mutator->afl_custom_pre_save) {
 
-    u8 *   new_data;
-    size_t new_size = afl->mutator->afl_custom_pre_save(afl->mutator->data, mem,
-                                                        len, &new_data);
-    ck_write(fd, new_data, new_size, afl->fsrv.out_file);
-    free(new_data);
+    if (unlikely(afl->mutator->pre_save_size < len)) {
+
+      afl->mutator->pre_save_buf =
+          ck_realloc(afl->mutator->pre_save_buf, len * sizeof(u8));
+      afl->mutator->pre_save_size = len;
+
+    }
+
+    u8 buf_written = 0;
+    while (!buf_written) {
+
+      buf_written = 1;
+      size_t new_size = afl->mutator->afl_custom_pre_save(
+          afl->mutator->data, mem, len, afl->mutator->pre_save_buf,
+          afl->mutator->pre_save_size);
+
+      if (unlikely(new_size) == 0) {
+
+        /* custom_pre_save wants us to use the old buf */
+        ck_write(fd, mem, len, afl->fsrv.out_file);
+
+      } else if (unlikely(new_size) > afl->mutator->pre_save_size) {
+
+        /* The custom func needs more space.
+           Realloc and call again. */
+        afl->mutator->pre_save_buf =
+            ck_realloc(afl->mutator->pre_save_buf, new_size * sizeof(u8));
+        afl->mutator->pre_save_size = new_size;
+        buf_written = 0;
+        continue;
+
+      } else {
+
+        /* everything as planned. use the new data. */
+        ck_write(fd, afl->mutator->pre_save_buf, new_size, afl->fsrv.out_file);
+
+      }
+
+    }
 
   } else {
 
+    /* boring uncustom. */
     ck_write(fd, mem, len, afl->fsrv.out_file);
 
   }
@@ -505,8 +540,8 @@ void sync_fuzzers(afl_state_t *afl) {
     afl->stage_cur = 0;
     afl->stage_max = 0;
 
-    /* For every file queued by this fuzzer, parse ID and see if we have looked
-       at it before; exec a test case if not. */
+    /* For every file queued by this fuzzer, parse ID and see if we have
+       looked at it before; exec a test case if not. */
 
     while ((qd_ent = readdir(qd))) {
 
@@ -645,7 +680,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
       if (afl->stop_soon || fault == FAULT_ERROR) goto abort_trimming;
 
-      /* Note that we don't keep track of crashes or hangs here; maybe TODO? */
+      /* Note that we don't keep track of crashes or hangs here; maybe TODO?
+       */
 
       cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
 

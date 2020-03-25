@@ -30,6 +30,9 @@
 #define AFL_MAIN
 #define MESSAGES_TO_STDOUT
 
+/* We preallocate a buffer of this size for afl_custom_pre_save */
+#define PRE_SAVE_BUF_INIT_SIZE (16384)
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE 1
 #endif
@@ -292,6 +295,9 @@ typedef struct py_mutator {
   PyObject *py_functions[PY_FUNC_COUNT];
   void *    afl_state;
   void *    py_data;
+
+  PyObject *scratch_buf;
+  size_t    scratch_size;
 
 } py_mutator_t;
 
@@ -591,6 +597,8 @@ struct custom_mutator {
 
   const char *name;
   void *      dh;
+  u8 *        pre_save_buf;
+  size_t      pre_save_size;
 
   void *data;                                    /* custom mutator data ptr */
 
@@ -639,7 +647,7 @@ struct custom_mutator {
    * @return Size of the output buffer after processing
    */
   size_t (*afl_custom_pre_save)(void *data, u8 *buf, size_t buf_size,
-                                u8 **out_buf);
+                                u8 *out_buf, size_t out_buf_size);
 
   /**
    * This method is called at the start of each trimming operation and receives
@@ -775,7 +783,7 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf);
 
 void finalize_py_module(void *);
 
-size_t pre_save_py(void *, u8 *, size_t, u8 **);
+size_t pre_save_py(void *, u8 *, size_t, u8 *, size_t);
 u32    init_trim_py(void *, u8 *, size_t);
 u32    post_trim_py(void *, u8);
 void   trim_py(void *, u8 **, size_t *);
