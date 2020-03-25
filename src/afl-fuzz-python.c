@@ -29,8 +29,10 @@
 #ifdef USE_PYTHON
 
 static void *unsupported(afl_state_t *afl, unsigned int seed) {
+
   FATAL("Python Mutator cannot be called twice yet");
   return NULL;
+
 }
 
 size_t fuzz_py(void *py_mutator, u8 **buf, size_t buf_size, u8 *add_buf,
@@ -77,7 +79,8 @@ size_t fuzz_py(void *py_mutator, u8 **buf, size_t buf_size, u8 *add_buf,
 
   PyTuple_SetItem(py_args, 2, py_value);
 
-  py_value = PyObject_CallObject(((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_FUZZ], py_args);
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_FUZZ], py_args);
 
   Py_DECREF(py_args);
 
@@ -98,7 +101,6 @@ size_t fuzz_py(void *py_mutator, u8 **buf, size_t buf_size, u8 *add_buf,
   }
 
 }
-
 
 static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
 
@@ -223,7 +225,8 @@ void finalize_py_module(void *py_mutator) {
 
 }
 
-static void init_py(afl_state_t *afl, py_mutator_t *py_mutator, unsigned int seed) {
+static void init_py(afl_state_t *afl, py_mutator_t *py_mutator,
+                    unsigned int seed) {
 
   PyObject *py_args, *py_value;
 
@@ -244,7 +247,8 @@ static void init_py(afl_state_t *afl, py_mutator_t *py_mutator, unsigned int see
 
   PyTuple_SetItem(py_args, 0, py_value);
 
-  py_value = PyObject_CallObject(py_mutator->py_functions[PY_FUNC_INIT], py_args);
+  py_value =
+      PyObject_CallObject(py_mutator->py_functions[PY_FUNC_INIT], py_args);
 
   Py_DECREF(py_args);
 
@@ -289,9 +293,7 @@ void load_custom_mutator_py(afl_state_t *afl, char *module_name) {
 
   py_mutator_t *py_mutator;
   py_mutator = init_py_module(afl, module_name);
-  if (!py_mutator) {
-    FATAL("Failed to load python mutator.");
-  }
+  if (!py_mutator) { FATAL("Failed to load python mutator."); }
 
   PyObject **py_functions = py_mutator->py_functions;
 
@@ -334,7 +336,6 @@ void load_custom_mutator_py(afl_state_t *afl, char *module_name) {
 
 }
 
-
 size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
 
   size_t    out_buf_size;
@@ -350,7 +351,8 @@ size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
 
   PyTuple_SetItem(py_args, 0, py_value);
 
-  py_value = PyObject_CallObject(((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_PRE_SAVE], py_args);
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_PRE_SAVE], py_args);
 
   Py_DECREF(py_args);
 
@@ -386,7 +388,8 @@ u32 init_trim_py(void *py_mutator, u8 *buf, size_t buf_size) {
 
   PyTuple_SetItem(py_args, 0, py_value);
 
-  py_value = PyObject_CallObject(((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_INIT_TRIM], py_args);
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_INIT_TRIM], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
@@ -424,7 +427,8 @@ u32 post_trim_py(void *py_mutator, u8 success) {
 
   PyTuple_SetItem(py_args, 0, py_value);
 
-  py_value = PyObject_CallObject(((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_POST_TRIM], py_args);
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_POST_TRIM], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
@@ -451,7 +455,8 @@ void trim_py(void *py_mutator, u8 **out_buf, size_t *out_buf_size) {
   PyObject *py_args, *py_value;
 
   py_args = PyTuple_New(0);
-  py_value = PyObject_CallObject(((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_TRIM], py_args);
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_TRIM], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
@@ -503,8 +508,9 @@ size_t havoc_mutation_py(void *py_mutator, u8 **buf, size_t buf_size,
 
   PyTuple_SetItem(py_args, 1, py_value);
 
-  py_value =
-      PyObject_CallObject(((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_HAVOC_MUTATION], py_args);
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_HAVOC_MUTATION],
+      py_args);
 
   Py_DECREF(py_args);
 
@@ -533,7 +539,9 @@ u8 havoc_mutation_probability_py(void *py_mutator) {
 
   py_args = PyTuple_New(0);
   py_value = PyObject_CallObject(
-      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_HAVOC_MUTATION_PROBABILITY], py_args);
+      ((py_mutator_t *)py_mutator)
+          ->py_functions[PY_FUNC_HAVOC_MUTATION_PROBABILITY],
+      py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
@@ -573,7 +581,8 @@ u8 queue_get_py(void *py_mutator, const u8 *filename) {
   PyTuple_SetItem(py_args, 0, py_value);
 
   // Call Python function
-  py_value = PyObject_CallObject(((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_QUEUE_GET], py_args);
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_QUEUE_GET], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
@@ -642,8 +651,9 @@ void queue_new_entry_py(void *py_mutator, const u8 *filename_new_queue,
   PyTuple_SetItem(py_args, 1, py_value);
 
   // Call
-  py_value =
-      PyObject_CallObject(((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_QUEUE_NEW_ENTRY], py_args);
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_QUEUE_NEW_ENTRY],
+      py_args);
   Py_DECREF(py_args);
 
   if (py_value == NULL) {

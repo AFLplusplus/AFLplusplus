@@ -360,7 +360,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     /* The custom mutator will decide to skip this test case or not. */
 
-    if (!afl->mutator->afl_custom_queue_get(afl->mutator->data, afl->queue_cur->fname))
+    if (!afl->mutator->afl_custom_queue_get(afl->mutator->data,
+                                            afl->queue_cur->fname))
       return 1;
 
   }
@@ -1723,8 +1724,8 @@ havoc_stage:
 
       if (stacked_custom && rand_below(afl, 100) < stacked_custom_prob) {
 
-        temp_len = afl->mutator->afl_custom_havoc_mutation(afl->mutator->data, &out_buf,
-                                                           temp_len, MAX_FILE);
+        temp_len = afl->mutator->afl_custom_havoc_mutation(
+            afl->mutator->data, &out_buf, temp_len, MAX_FILE);
 
       }
 
