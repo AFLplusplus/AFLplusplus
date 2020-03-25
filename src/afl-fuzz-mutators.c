@@ -78,8 +78,7 @@ void destroy_custom_mutator(afl_state_t *afl) {
 
     afl->mutator->afl_custom_deinit(afl->mutator->data);
 
-    if (afl->mutator->dh)
-      dlclose(afl->mutator->dh);
+    if (afl->mutator->dh) dlclose(afl->mutator->dh);
 
     ck_free(afl->mutator);
     afl->mutator = NULL;
@@ -103,11 +102,13 @@ void load_custom_mutator(afl_state_t *afl, const char *fn) {
   /* Mutator */
   /* "afl_custom_init", required */
   afl->mutator->afl_custom_init = dlsym(dh, "afl_custom_init");
-  if (!afl->mutator->afl_custom_init) FATAL("Symbol 'afl_custom_init' not found.");
+  if (!afl->mutator->afl_custom_init)
+    FATAL("Symbol 'afl_custom_init' not found.");
 
   /* "afl_custom_deinit", required */
   afl->mutator->afl_custom_deinit = dlsym(dh, "afl_custom_deinit");
-  if (!afl->mutator->afl_custom_deinit) FATAL("Symbol 'afl_custom_deinit' not found.");
+  if (!afl->mutator->afl_custom_deinit)
+    FATAL("Symbol 'afl_custom_deinit' not found.");
 
   /* "afl_custom_fuzz" or "afl_custom_mutator", required */
   afl->mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_fuzz");
@@ -198,7 +199,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   /* Initialize trimming in the custom mutator */
   afl->stage_cur = 0;
-  afl->stage_max = afl->mutator->afl_custom_init_trim(afl->mutator->data, in_buf, q->len);
+  afl->stage_max =
+      afl->mutator->afl_custom_init_trim(afl->mutator->data, in_buf, q->len);
 
   if (afl->not_on_tty && afl->debug)
     SAYF("[Custom Trimming] START: Max %d iterations, %u bytes", afl->stage_max,
@@ -206,7 +208,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   while (afl->stage_cur < afl->stage_max) {
 
-    sprintf(afl->stage_name_buf, "ptrim %s", u_stringify_int(val_buf, trim_exec));
+    sprintf(afl->stage_name_buf, "ptrim %s",
+            u_stringify_int(val_buf, trim_exec));
 
     u32 cksum;
 
@@ -250,7 +253,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       }
 
       /* Tell the custom mutator that the trimming was successful */
-      afl->stage_cur = afl->mutator->afl_custom_post_trim(afl->mutator->data, 1);
+      afl->stage_cur =
+          afl->mutator->afl_custom_post_trim(afl->mutator->data, 1);
 
       if (afl->not_on_tty && afl->debug)
         SAYF("[Custom Trimming] SUCCESS: %d/%d iterations (now at %u bytes)",
@@ -259,7 +263,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     } else {
 
       /* Tell the custom mutator that the trimming was unsuccessful */
-      afl->stage_cur = afl->mutator->afl_custom_post_trim(afl->mutator->data, 0);
+      afl->stage_cur =
+          afl->mutator->afl_custom_post_trim(afl->mutator->data, 0);
       if (afl->not_on_tty && afl->debug)
         SAYF("[Custom Trimming] FAILURE: %d/%d iterations", afl->stage_cur,
              afl->stage_max);
@@ -304,3 +309,4 @@ abort_trimming:
   return fault;
 
 }
+

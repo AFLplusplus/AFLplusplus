@@ -217,8 +217,8 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
   if (afl->mutator && afl->mutator->afl_custom_pre_save) {
 
     u8 *   new_data;
-    size_t new_size =
-        afl->mutator->afl_custom_pre_save(afl->mutator->data, mem, len, &new_data);
+    size_t new_size = afl->mutator->afl_custom_pre_save(afl->mutator->data, mem,
+                                                        len, &new_data);
     ck_write(fd, new_data, new_size, afl->fsrv.out_file);
     free(new_data);
 
@@ -627,8 +627,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     u32 remove_pos = remove_len;
 
     sprintf(afl->stage_name_buf, "trim %s/%s",
-             u_stringify_int(val_bufs[0], remove_len),
-             u_stringify_int(val_bufs[1], remove_len));
+            u_stringify_int(val_bufs[0], remove_len),
+            u_stringify_int(val_bufs[1], remove_len));
 
     afl->stage_cur = 0;
     afl->stage_max = q->len / remove_len;
