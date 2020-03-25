@@ -30,7 +30,7 @@ C/C++:
 void afl_custom_init(unsigned int seed);
 size_t afl_custom_fuzz(uint8_t** buf, size_t buf_size, uint8_t* add_buf,
                        size_t add_buf_size, size_t max_size);
-size_t afl_custom_pre_save(uint8_t* buf, size_t buf_size, uint8_t** out_buf);
+size_t afl_custom_write_to_testcase(uint8_t* buf, size_t buf_size, uint8_t** out_buf);
 uint32_t afl_custom_init_trim(uint8_t* buf, size_t buf_size);
 void afl_custom_trim(uint8_t** out_buf, size_t* out_buf_size);
 uint32_t afl_custom_post_trim(uint8_t success);
