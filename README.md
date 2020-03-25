@@ -124,7 +124,7 @@ all the big ideas.
 This can be your way to support and contribute to AFL++ - extend it to
 something cool
 
-We have an idealist in [docs/ideas.md](docs/ideas.md)
+We have an idea list in [docs/ideas.md](docs/ideas.md)
 
 For everyone who wants to contribute (and send pull requests) please read
 [CONTRIBUTING.md](CONTRIBUTING.md) before your submit.
@@ -316,7 +316,7 @@ file for important caveats.
 
 When source code is *NOT* available, the fuzzer offers experimental support for
 fast, on-the-fly instrumentation of black-box binaries. This is accomplished
-with a version of QEMU running in the lesser-known "userspace emulation" mode.
+with a version of QEMU running in the lesser-known "user space emulation" mode.
 
 QEMU is a project separate from AFL, but you can conveniently build the
 feature by doing:
@@ -656,7 +656,7 @@ Here are some of the most important caveats for AFL:
   - AFL detects faults by checking for the first spawned process dying due to
     a signal (SIGSEGV, SIGABRT, etc). Programs that install custom handlers for
     these signals may need to have the relevant code commented out. In the same
-    vein, faults in child process spawned by the fuzzed target may evade
+    vein, faults in child processes spawned by the fuzzed target may evade
     detection unless you manually add some code to catch that.
 
   - As with any other brute-force tool, the fuzzer offers limited coverage if
