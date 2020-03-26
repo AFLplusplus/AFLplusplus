@@ -214,47 +214,18 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
     lseek(fd, 0, SEEK_SET);
 
-  if (afl->mutator && afl->mutator->afl_custom_pre_save) {
+  if (unlikely(afl->mutator && afl->mutator->afl_custom_pre_save)) {
 
-    if (unlikely(afl->mutator->pre_save_size < len)) {
+    u8 *new_buf = NULL;
 
-      afl->mutator->pre_save_buf =
-          ck_realloc(afl->mutator->pre_save_buf, len * sizeof(u8));
-      afl->mutator->pre_save_size = len;
+    size_t new_size = afl->mutator->afl_custom_pre_save(afl->mutator->data, mem,
+                                                        len, &new_buf);
 
-    }
+    if (unlikely(new_size <= 0 || !new_buf))
+      FATAL("Custom_pre_save failed (ret: %ld)", new_size);
 
-    u8 buf_written = 0;
-    while (!buf_written) {
-
-      buf_written = 1;
-      size_t new_size = afl->mutator->afl_custom_pre_save(
-          afl->mutator->data, mem, len, afl->mutator->pre_save_buf,
-          afl->mutator->pre_save_size);
-
-      if (unlikely(new_size) == 0) {
-
-        /* custom_pre_save wants us to use the old buf */
-        ck_write(fd, mem, len, afl->fsrv.out_file);
-
-      } else if (unlikely(new_size) > afl->mutator->pre_save_size) {
-
-        /* The custom func needs more space.
-           Realloc and call again. */
-        afl->mutator->pre_save_buf =
-            ck_realloc(afl->mutator->pre_save_buf, new_size * sizeof(u8));
-        afl->mutator->pre_save_size = new_size;
-        buf_written = 0;
-        continue;
-
-      } else {
-
-        /* everything as planned. use the new data. */
-        ck_write(fd, afl->mutator->pre_save_buf, new_size, afl->fsrv.out_file);
-
-      }
-
-    }
+    /* everything as planned. use the new data. */
+    ck_write(fd, new_buf, new_size, afl->fsrv.out_file);
 
   } else {
 
