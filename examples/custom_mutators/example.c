@@ -149,14 +149,15 @@ size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
     data->pre_save_size = buf_size + 5;
 
   }
+  *out_buf = data->pre_save_buf;
 
-  memcpy(out_buf + 5, buf, buf_size);
-  out_buf_size = buf_size + 5;
-  out_buf[0] = 'A';
-  out_buf[1] = 'F';
-  out_buf[2] = 'L';
-  out_buf[3] = '+';
-  out_buf[4] = '+';
+  memcpy(*out_buf + 5, buf, buf_size);
+  size_t out_buf_size = buf_size + 5;
+  *out_buf[0] = 'A';
+  *out_buf[1] = 'F';
+  *out_buf[2] = 'L';
+  *out_buf[3] = '+';
+  *out_buf[4] = '+';
 
   return out_buf_size;
 
