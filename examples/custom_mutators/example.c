@@ -126,17 +126,14 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t **buf, size_t buf_size,
  * @param[in] data pointer returned in afl_custom_init for this fuzz case
  * @param[in] buf Buffer containing the test case to be executed
  * @param[in] buf_size Size of the test case
- * @param[in] out_buf Pointer to the buffer containing the test case after
- *     processing. External library should allocate memory for out_buf. AFL++
- *     will release the memory after saving the test case.
- *     out_buf will always be at least as large as buf.
- * @param[in] out_buf_size The maximum size we may use.
- *            In case we need to have this bigger, simply return that.
+ * @param[out] out_buf Pointer to the buffer containing the test case after
+ *     processing. External library should allocate memory for out_buf.
+ *     The buf pointer may be reused (up to the given buf_size);
  * @return Size of the output buffer after processing or the needed amount.
- *         return 0 to indicate the original buf should be used.
+ *     A return smaller 1 indicates an error.
  */
 size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
-                           uint8_t *out_buf, size_t out_buf_size) {
+                           uint8_t **out_buf) {
 
   if (data->pre_save_size < buf_size + 5) {
 
