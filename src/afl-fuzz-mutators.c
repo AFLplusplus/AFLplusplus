@@ -135,17 +135,8 @@ void load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   /* "afl_custom_pre_save", optional */
   afl->mutator->afl_custom_pre_save = dlsym(dh, "afl_custom_pre_save");
-  if (!afl->mutator->afl_custom_pre_save) {
-
+  if (!afl->mutator->afl_custom_pre_save)
     WARNF("Symbol 'afl_custom_pre_save' not found.");
-
-  } else {
-
-    /* if we have a pre_save hook, prealloc some memory. */
-    afl->mutator->pre_save_buf = ck_alloc(PRE_SAVE_BUF_INIT_SIZE * sizeof(u8));
-    afl->mutator->pre_save_size = PRE_SAVE_BUF_INIT_SIZE;
-
-  }
 
   u8 notrim = 0;
   /* "afl_custom_init_trim", optional */

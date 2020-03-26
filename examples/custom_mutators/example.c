@@ -15,6 +15,7 @@
 #include <stdio.h>
 
 #define DATA_SIZE (100)
+#define INITIAL_BUF_SIZE (16384)
 
 static const char *commands[] = {
 
@@ -28,6 +29,8 @@ typedef struct my_mutator {
 
   afl_t *afl;
   // any additional data here!
+  size_t pre_save_size;
+  u8 *   pre_save_buf;
 
 } my_mutator_t;
 
@@ -55,6 +58,16 @@ my_mutator_t *afl_custom_init(afl_t *afl, unsigned int seed) {
   }
 
   data->afl = afl;
+
+  data->pre_save_buf = malloc(INITIAL_BUF_SIZE);
+  if (!data->pre_save_buf) {
+
+    free(data);
+    return NULL;
+
+  }
+
+  data->pre_save_size = INITIAL_BUF_SIZE;
 
   return data;
 
@@ -125,12 +138,23 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t **buf, size_t buf_size,
 size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
                            uint8_t *out_buf, size_t out_buf_size) {
 
-  // In case we need more than out_buf_size, we return that amount and get
-  // called again.
-  if (out_buf_size < 32000) return 32000;
+  if (data->pre_save_size < buf_size + 5) {
 
-  memcpy(out_buf, buf, buf_size);
-  out_buf_size = buf_size;
+    data->pre_save_buf = realloc(data->pre_save_buf, buf_size + 5);
+    if (!data->pre_save_buf) {
+
+      perror("custom mutator realloc");
+      free(data);
+      return -1;
+
+    }
+
+    data->pre_save_size = buf_size + 5;
+
+  }
+
+  memcpy(out_buf + 5, buf, buf_size);
+  out_buf_size = buf_size + 5;
   out_buf[0] = 'A';
   out_buf[1] = 'F';
   out_buf[2] = 'L';
@@ -322,6 +346,7 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
  */
 void afl_custom_deinit(my_mutator_t *data) {
 
+  free(data->pre_save_buf);
   free(data);
 
 }
