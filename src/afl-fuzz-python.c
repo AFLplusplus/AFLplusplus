@@ -307,14 +307,8 @@ void load_custom_mutator_py(afl_state_t *afl, char *module_name) {
      is quite different from the custom mutator. */
   afl->mutator->afl_custom_fuzz = fuzz_py;
 
-  if (py_functions[PY_FUNC_PRE_SAVE]) {
-
+  if (py_functions[PY_FUNC_PRE_SAVE])
     afl->mutator->afl_custom_pre_save = pre_save_py;
-    /* if we have a pre_save hook, prealloc some memory. */
-    afl->mutator->pre_save_buf = ck_alloc(PRE_SAVE_BUF_INIT_SIZE * sizeof(u8));
-    afl->mutator->pre_save_size = PRE_SAVE_BUF_INIT_SIZE;
-
-  }
 
   if (py_functions[PY_FUNC_INIT_TRIM])
     afl->mutator->afl_custom_init_trim = init_trim_py;
@@ -344,39 +338,18 @@ void load_custom_mutator_py(afl_state_t *afl, char *module_name) {
 
 }
 
-size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 *out_buf,
-                   size_t out_buf_size) {
+size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
 
-  size_t    py_out_buf_size;
-  PyObject *py_args, *py_value;
-
-  if (((py_mutator_t *)py_mutator)->scratch_buf) {
-
-    /* We are being recalled from an earlier run
-    where we didn't have enough mem. */
-    if (((py_mutator_t *)py_mutator)->scratch_size < out_buf_size) {
-
-      FATAL("out_buf is still too small after resizing in custom mutator.");
-
-    }
-
-    py_value = ((py_mutator_t *)py_mutator)->scratch_buf;
-    py_out_buf_size = ((py_mutator_t *)py_mutator)->scratch_size;
-    ((py_mutator_t *)py_mutator)->scratch_buf = NULL;
-    py_out_buf_size = 0;
-
-    memcpy(out_buf, PyByteArray_AsString(py_value), py_out_buf_size);
-    Py_DECREF(py_value);
-    return py_out_buf_size;
-
-  }
+  size_t        py_out_buf_size;
+  PyObject *    py_args, *py_value;
+  py_mutator_t *py = (py_mutator_t *)py_mutator;
 
   py_args = PyTuple_New(1);
   py_value = PyByteArray_FromStringAndSize(buf, buf_size);
   if (!py_value) {
 
     Py_DECREF(py_args);
-    FATAL("Failed to convert arguments");
+    FATAL("Failed to convert arguments in custom pre_save");
 
   }
 
@@ -390,25 +363,26 @@ size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 *out_buf,
   if (py_value != NULL) {
 
     py_out_buf_size = PyByteArray_Size(py_value);
-    if (py_out_buf_size > out_buf_size) {
+
+    if (py_out_buf_size > py->pre_save_size) {
 
       /* Not enough space!
-      We will get called again right after resizing the buf.
-      Keep the references to our data for now. */
-      ((py_mutator_t *)py_mutator)->scratch_buf = py_value;
-      ((py_mutator_t *)py_mutator)->scratch_size = py_out_buf_size;
-      return py_out_buf_size;
+      Let's resize our buf */
+      py->pre_save_buf = ck_realloc(py->pre_save_buf, py_out_buf_size);
+      py->pre_save_size = py_out_buf_size;
 
     }
 
-    memcpy(out_buf, PyByteArray_AsString(py_value), py_out_buf_size);
+    memcpy(py->pre_save_buf, PyByteArray_AsString(py_value), py_out_buf_size);
     Py_DECREF(py_value);
+
+    *out_buf = py->pre_save_buf;
     return py_out_buf_size;
 
   } else {
 
     PyErr_Print();
-    FATAL("Call failed");
+    FATAL("Python custom mutator: pre_save call failed.");
 
   }
 
