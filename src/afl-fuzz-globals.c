@@ -349,6 +349,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
 void afl_state_deinit(afl_state_t *afl) {
 
+  free(afl->out_buf);
+  free(afl->out_scratch_buf);
+  free(afl->eff_buf);
+  free(afl->in_buf);
+  free(afl->in_scratch_buf);
+  free(afl->ex_buf);
+
   list_remove(&afl_states, afl);
 
 }
