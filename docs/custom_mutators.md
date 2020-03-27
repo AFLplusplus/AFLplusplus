@@ -27,7 +27,7 @@ performed with the custom mutator.
 
 C/C++:
 ```c
-void afl_custom_init(unsigned int seed);
+void afl_custom_init(void *afl, unsigned int seed);
 size_t afl_custom_fuzz(uint8_t** buf, size_t buf_size, uint8_t* add_buf,
                        size_t add_buf_size, size_t max_size);
 size_t afl_custom_write_to_testcase(uint8_t* buf, size_t buf_size,
@@ -40,6 +40,7 @@ uint8_t afl_custom_havoc_mutation_probability(void);
 uint8_t afl_custom_queue_get(const uint8_t* filename);
 void afl_custom_queue_new_entry(const uint8_t* filename_new_queue,
                                 const uint8_t* filename_orig_queue);
+void afl_custom_deinit(void *data);
 ```
 
 Python:

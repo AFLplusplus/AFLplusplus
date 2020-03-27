@@ -30,9 +30,6 @@
 #define AFL_MAIN
 #define MESSAGES_TO_STDOUT
 
-/* We preallocate a buffer of this size for afl_custom_pre_save */
-#define PRE_SAVE_BUF_INIT_SIZE (16384)
-
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE 1
 #endif
@@ -296,8 +293,8 @@ typedef struct py_mutator {
   void *    afl_state;
   void *    py_data;
 
-  PyObject *scratch_buf;
-  size_t    scratch_size;
+  u8 *   pre_save_buf;
+  size_t pre_save_size;
 
 } py_mutator_t;
 
@@ -641,14 +638,13 @@ struct custom_mutator {
    * @param[in] data pointer returned in afl_custom_init for this fuzz case
    * @param[in] buf Buffer containing the test case to be executed
    * @param[in] buf_size Size of the test case
-   * @param[out] out_buf Buffer storing the test case after processing.
-   * @param[in] out_buf_size The maximum size we may use.
-   *            In case we need to have this bigger, simply return that.
-   * @return Size of the output buffer after processing or the needed amount.
-   *         return 0 to indicate the original buf should be used.
+   * @param[out] out_buf Pointer to the buffer storing the test case after
+   *     processing. External library should allocate memory for out_buf.
+   *     It can chose to alter buf in-place, if the space is large enough.
+   * @return Size of the output buffer.
    */
   size_t (*afl_custom_pre_save)(void *data, u8 *buf, size_t buf_size,
-                                u8 *out_buf, size_t out_buf_size);
+                                u8 **out_buf);
 
   /**
    * This method is called at the start of each trimming operation and receives
@@ -784,7 +780,7 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf);
 
 void finalize_py_module(void *);
 
-size_t pre_save_py(void *, u8 *, size_t, u8 *, size_t);
+size_t pre_save_py(void *, u8 *, size_t, u8 **);
 u32    init_trim_py(void *, u8 *, size_t);
 u32    post_trim_py(void *, u8);
 void   trim_py(void *, u8 **, size_t *);

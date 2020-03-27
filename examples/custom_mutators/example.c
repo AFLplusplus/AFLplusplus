@@ -15,6 +15,7 @@
 #include <stdio.h>
 
 #define DATA_SIZE (100)
+#define INITIAL_BUF_SIZE (16384)
 
 static const char *commands[] = {
 
@@ -28,6 +29,8 @@ typedef struct my_mutator {
 
   afl_t *afl;
   // any additional data here!
+  size_t pre_save_size;
+  u8 *   pre_save_buf;
 
 } my_mutator_t;
 
@@ -55,6 +58,16 @@ my_mutator_t *afl_custom_init(afl_t *afl, unsigned int seed) {
   }
 
   data->afl = afl;
+
+  data->pre_save_buf = malloc(INITIAL_BUF_SIZE);
+  if (!data->pre_save_buf) {
+
+    free(data);
+    return NULL;
+
+  }
+
+  data->pre_save_size = INITIAL_BUF_SIZE;
 
   return data;
 
@@ -113,26 +126,38 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t **buf, size_t buf_size,
  * @param[in] data pointer returned in afl_custom_init for this fuzz case
  * @param[in] buf Buffer containing the test case to be executed
  * @param[in] buf_size Size of the test case
- * @param[out] out_buf Buffer storing the test case after processing.
- * @param[in] out_buf_size The maximum size we may use.
- *            In case we need to have this bigger, simply return that.
+ * @param[out] out_buf Pointer to the buffer containing the test case after
+ *     processing. External library should allocate memory for out_buf.
+ *     The buf pointer may be reused (up to the given buf_size);
  * @return Size of the output buffer after processing or the needed amount.
- *         return 0 to indicate the original buf should be used.
+ *     A return smaller 1 indicates an error.
  */
 size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
-                           uint8_t *out_buf, size_t out_buf_size) {
+                           uint8_t **out_buf) {
 
-  // In case we need more than out_buf_size, we return that amount and get
-  // called again.
-  if (out_buf_size < 32000) return 32000;
+  if (data->pre_save_size < buf_size + 5) {
 
-  memcpy(out_buf, buf, buf_size);
-  out_buf_size = buf_size;
-  out_buf[0] = 'A';
-  out_buf[1] = 'F';
-  out_buf[2] = 'L';
-  out_buf[3] = '+';
-  out_buf[4] = '+';
+    data->pre_save_buf = realloc(data->pre_save_buf, buf_size + 5);
+    if (!data->pre_save_buf) {
+
+      perror("custom mutator realloc");
+      free(data);
+      return -1;
+
+    }
+
+    data->pre_save_size = buf_size + 5;
+
+  }
+  *out_buf = data->pre_save_buf;
+
+  memcpy(*out_buf + 5, buf, buf_size);
+  size_t out_buf_size = buf_size + 5;
+  *out_buf[0] = 'A';
+  *out_buf[1] = 'F';
+  *out_buf[2] = 'L';
+  *out_buf[3] = '+';
+  *out_buf[4] = '+';
 
   return out_buf_size;
 
@@ -319,6 +344,7 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
  */
 void afl_custom_deinit(my_mutator_t *data) {
 
+  free(data->pre_save_buf);
   free(data);
 
 }
