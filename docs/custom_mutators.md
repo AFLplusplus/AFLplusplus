@@ -30,7 +30,8 @@ C/C++:
 void afl_custom_init(unsigned int seed);
 size_t afl_custom_fuzz(uint8_t** buf, size_t buf_size, uint8_t* add_buf,
                        size_t add_buf_size, size_t max_size);
-size_t afl_custom_write_to_testcase(uint8_t* buf, size_t buf_size, uint8_t** out_buf);
+size_t afl_custom_write_to_testcase(uint8_t* buf, size_t buf_size,
+                                    uint8_t* out_buf, size_t out_buf_size);
 uint32_t afl_custom_init_trim(uint8_t* buf, size_t buf_size);
 void afl_custom_trim(uint8_t** out_buf, size_t* out_buf_size);
 uint32_t afl_custom_post_trim(uint8_t success);
@@ -110,7 +111,7 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
 
 - `queue_new_entry` (optional):
 
-    This methods is called after adding a new test case to the queue. 
+    This methods is called after adding a new test case to the queue.
 
 ### Trimming Support
 
@@ -166,7 +167,7 @@ a fallback to the builtin default trimming routine.
 Optionally, the following environment variables are supported:
 
 - `AFL_CUSTOM_MUTATOR_ONLY`
- 
+
     Disable all other mutation stages. This can prevent broken testcases
     (those that your Python module can't work with anymore) to fill up your
     queue. Best combined with a custom trimming routine (see below) because

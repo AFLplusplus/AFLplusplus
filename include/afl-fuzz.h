@@ -641,10 +641,11 @@ struct custom_mutator {
    * @param[in] data pointer returned in afl_custom_init for this fuzz case
    * @param[in] buf Buffer containing the test case to be executed
    * @param[in] buf_size Size of the test case
-   * @param[out] out_buf Pointer to the buffer of storing the test case after
-   *     processing. External library should allocate memory for out_buf. AFL++
-   *     will release the memory after saving the test case.
-   * @return Size of the output buffer after processing
+   * @param[out] out_buf Buffer storing the test case after processing.
+   * @param[in] out_buf_size The maximum size we may use.
+   *            In case we need to have this bigger, simply return that.
+   * @return Size of the output buffer after processing or the needed amount.
+   *         return 0 to indicate the original buf should be used.
    */
   size_t (*afl_custom_pre_save)(void *data, u8 *buf, size_t buf_size,
                                 u8 *out_buf, size_t out_buf_size);
