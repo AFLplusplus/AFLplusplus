@@ -76,7 +76,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   while ((de = readdir(d))) {
 
-    u8 fn[PATH_MAX];
+    u8    fn[PATH_MAX];
     FILE *f;
     u8    tmp[MAX_LINE];
     u8    has_vmsize = 0;
@@ -85,11 +85,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     snprintf(fn, PATH_MAX, "/proc/%s/status", de->d_name);
 
-    if (!(f = fopen(fn, "r"))) {
-
-      continue;
-
-    }
+    if (!(f = fopen(fn, "r"))) { continue; }
 
     while (fgets(tmp, MAX_LINE, f)) {
 
@@ -368,7 +364,8 @@ void read_testcases(afl_state_t *afl) {
     struct stat st;
 
     u8 dfn[PATH_MAX];
-    snprintf(dfn, PATH_MAX, "%s/.state/deterministic_done/%s", afl->in_dir, nl[i]->d_name);
+    snprintf(dfn, PATH_MAX, "%s/.state/deterministic_done/%s", afl->in_dir,
+             nl[i]->d_name);
     u8 *fn2 = alloc_printf("%s/%s", afl->in_dir, nl[i]->d_name);
 
     u8 passed_det = 0;

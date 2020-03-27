@@ -1957,7 +1957,9 @@ havoc_stage:
 
             clone_to = rand_below(afl, temp_len);
 
-            new_buf = ck_maybe_grow((void **)&afl->out_scratch_buf, &afl->out_scratch_size, temp_len + clone_len);
+            new_buf =
+                ck_maybe_grow((void **)&afl->out_scratch_buf,
+                              &afl->out_scratch_size, temp_len + clone_len);
 
             /* Head */
 
@@ -1977,8 +1979,8 @@ havoc_stage:
             memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
                    temp_len - clone_to);
 
-
-            swap_bufs((void **)&afl->out_buf, &afl->out_size, (void **)&afl->out_scratch_buf, &afl->out_scratch_size);
+            swap_bufs((void **)&afl->out_buf, &afl->out_size,
+                      (void **)&afl->out_scratch_buf, &afl->out_scratch_size);
             out_buf = new_buf;
             temp_len += clone_len;
 
@@ -2072,7 +2074,8 @@ havoc_stage:
 
             if (temp_len + extra_len >= MAX_FILE) break;
 
-            new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + extra_len);
+            new_buf =
+                ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + extra_len);
 
             /* Head */
             memcpy(new_buf, out_buf, insert_at);
@@ -2088,7 +2091,8 @@ havoc_stage:
 
             if (temp_len + extra_len >= MAX_FILE) break;
 
-            new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + extra_len);
+            new_buf =
+                ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + extra_len);
 
             /* Head */
             memcpy(new_buf, out_buf, insert_at);
@@ -2236,11 +2240,7 @@ retry_splicing:
 
     locate_diffs(in_buf, new_buf, MIN(len, target->len), &f_diff, &l_diff);
 
-    if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) {
-
-      goto retry_splicing;
-
-    }
+    if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) { goto retry_splicing; }
 
     /* Split somewhere between the first and last differing byte. */
 
@@ -2308,11 +2308,7 @@ radamsa_stage:
 
     }
 
-    if (common_fuzz_stuff(afl, tmp_buf, temp_len)) {
-
-      goto abandon_entry;
-
-    }
+    if (common_fuzz_stuff(afl, tmp_buf, temp_len)) { goto abandon_entry; }
 
   }
 
@@ -3885,7 +3881,8 @@ pacemaker_fuzzing:
 
                 clone_to = rand_below(afl, temp_len);
 
-                new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+                new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
+                                        temp_len + clone_len);
 
                 /* Head */
 
@@ -4398,7 +4395,6 @@ u8 fuzz_one(afl_state_t *afl) {
   }
 
   return key_val_lv;
-
 
 #undef BUF_PARAMS
 
