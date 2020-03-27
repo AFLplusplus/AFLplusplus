@@ -347,6 +347,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
   u8  a_collect[MAX_AUTO_EXTRA];
   u32 a_len = 0;
 
+/* Not pretty, but saves a lot of writing */
+#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
+
 #ifdef IGNORE_FINDS
 
   /* In IGNORE_FINDS mode, skip any entries that weren't in the
@@ -427,7 +430,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
      single byte anyway, so it wouldn't give us any performance or memory usage
      benefits. */
 
-  out_buf = ck_alloc_nozero(len);
+  out_buf = ck_maybe_grow((void **)&afl->out_buf, &afl->out_size, len);
 
   afl->subseq_tmouts = 0;
 
@@ -719,7 +722,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* Initialize effector map for the next step (see comments below). Always
      flag first and last byte as doing something. */
 
-  eff_map = ck_alloc(EFF_ALEN(len));
+  eff_map = ck_maybe_grow(BUF_PARAMS(eff), EFF_ALEN(len));
   eff_map[0] = 1;
 
   if (EFF_APOS(len - 1) != 0) {
@@ -1443,7 +1446,7 @@ skip_interest:
 
   orig_hit_cnt = new_hit_cnt;
 
-  ex_tmp = ck_alloc(len + MAX_DICT_FILE);
+  ex_tmp = ck_maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE);
 
   for (i = 0; i <= len; ++i) {
 
@@ -1466,7 +1469,6 @@ skip_interest:
 
       if (common_fuzz_stuff(afl, ex_tmp, len + afl->extras[j].len)) {
 
-        ck_free(ex_tmp);
         goto abandon_entry;
 
       }
@@ -1479,8 +1481,6 @@ skip_interest:
     ex_tmp[i] = out_buf[i];
 
   }
-
-  ck_free(ex_tmp);
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -1607,14 +1607,16 @@ custom_mutator_stage:
     /* Read the additional testcase into a new buffer. */
     fd = open(target->fname, O_RDONLY);
     if (unlikely(fd < 0)) PFATAL("Unable to open '%s'", target->fname);
-    new_buf = ck_alloc_nozero(target->len);
+
+    new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), target->len);
     ck_read(fd, new_buf, target->len, target->fname);
     close(fd);
 
+    // TODO: clean up this mess.
     size_t mutated_size = afl->mutator->afl_custom_fuzz(
         afl->mutator->data, &out_buf, len, new_buf, target->len, max_seed_size);
 
-    ck_free(new_buf);
+    if (mutated_size > len) afl->out_size = mutated_size;
 
     if (mutated_size > 0) {
 
@@ -1642,7 +1644,7 @@ custom_mutator_stage:
 
     }
 
-    if (mutated_size < len) out_buf = ck_realloc(out_buf, len);
+    out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
     memcpy(out_buf, in_buf, len);
 
   }
@@ -1955,7 +1957,7 @@ havoc_stage:
 
             clone_to = rand_below(afl, temp_len);
 
-            new_buf = ck_alloc_nozero(temp_len + clone_len);
+            new_buf = ck_maybe_grow((void **)&afl->out_scratch_buf, &afl->out_scratch_size, temp_len + clone_len);
 
             /* Head */
 
@@ -1975,7 +1977,8 @@ havoc_stage:
             memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
                    temp_len - clone_to);
 
-            ck_free(out_buf);
+
+            swap_bufs((void **)&afl->out_buf, &afl->out_size, (void **)&afl->out_scratch_buf, &afl->out_scratch_size);
             out_buf = new_buf;
             temp_len += clone_len;
 
@@ -2069,7 +2072,7 @@ havoc_stage:
 
             if (temp_len + extra_len >= MAX_FILE) break;
 
-            new_buf = ck_alloc_nozero(temp_len + extra_len);
+            new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + extra_len);
 
             /* Head */
             memcpy(new_buf, out_buf, insert_at);
@@ -2085,7 +2088,7 @@ havoc_stage:
 
             if (temp_len + extra_len >= MAX_FILE) break;
 
-            new_buf = ck_alloc_nozero(temp_len + extra_len);
+            new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + extra_len);
 
             /* Head */
             memcpy(new_buf, out_buf, insert_at);
@@ -2099,7 +2102,7 @@ havoc_stage:
           memcpy(new_buf + insert_at + extra_len, out_buf + insert_at,
                  temp_len - insert_at);
 
-          ck_free(out_buf);
+          swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
           out_buf = new_buf;
           temp_len += extra_len;
 
@@ -2116,7 +2119,7 @@ havoc_stage:
     /* out_buf might have been mangled a bit, so let's restore it to its
        original size and shape. */
 
-    if (temp_len < len) out_buf = ck_realloc(out_buf, len);
+    out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
     temp_len = len;
     memcpy(out_buf, in_buf, len);
 
@@ -2178,7 +2181,6 @@ retry_splicing:
 
     if (in_buf != orig_in) {
 
-      ck_free(in_buf);
       in_buf = orig_in;
       len = afl->queue_cur->len;
 
@@ -2222,7 +2224,7 @@ retry_splicing:
 
     if (unlikely(fd < 0)) PFATAL("Unable to open '%s'", target->fname);
 
-    new_buf = ck_alloc_nozero(target->len);
+    new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), target->len);
 
     ck_read(fd, new_buf, target->len, target->fname);
 
@@ -2236,7 +2238,6 @@ retry_splicing:
 
     if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) {
 
-      ck_free(new_buf);
       goto retry_splicing;
 
     }
@@ -2249,10 +2250,10 @@ retry_splicing:
 
     len = target->len;
     memcpy(new_buf, in_buf, split_at);
+    swap_bufs(BUF_PARAMS(in), BUF_PARAMS(in_scratch));
     in_buf = new_buf;
 
-    ck_free(out_buf);
-    out_buf = ck_alloc_nozero(len);
+    out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
     memcpy(out_buf, in_buf, len);
 
     goto custom_mutator_stage;
@@ -2280,12 +2281,14 @@ radamsa_stage:
 
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
-  /* Read the additional testcase into a new buffer. */
-  u8 *save_buf = ck_alloc_nozero(len);
+  /* Read the additional testcase.
+  We'll reuse in_scratch, as it is free at this point.
+  */
+  u8 *save_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), len);
   memcpy(save_buf, out_buf, len);
 
   u32 max_len = len + choose_block_len(afl, HAVOC_BLK_XL);
-  u8 *new_buf = ck_alloc_nozero(max_len);
+  u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), max_len);
   u8 *tmp_buf;
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
@@ -2307,16 +2310,11 @@ radamsa_stage:
 
     if (common_fuzz_stuff(afl, tmp_buf, temp_len)) {
 
-      ck_free(save_buf);
-      ck_free(new_buf);
       goto abandon_entry;
 
     }
 
   }
-
-  ck_free(save_buf);
-  ck_free(new_buf);
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -2346,10 +2344,6 @@ abandon_entry:
   ++afl->queue_cur->fuzz_level;
 
   munmap(orig_in, afl->queue_cur->len);
-
-  if (in_buf != orig_in) ck_free(in_buf);
-  ck_free(out_buf);
-  ck_free(eff_map);
 
   return ret_val;
 
@@ -2449,7 +2443,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
      single byte anyway, so it wouldn't give us any performance or memory usage
      benefits. */
 
-  out_buf = ck_alloc_nozero(len);
+  out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
 
   afl->subseq_tmouts = 0;
 
@@ -2728,7 +2722,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   /* Initialize effector map for the next step (see comments below). Always
          flag first and last byte as doing something. */
 
-  eff_map = ck_alloc(EFF_ALEN(len));
+  eff_map = ck_maybe_grow(BUF_PARAMS(eff), EFF_ALEN(len));
   eff_map[0] = 1;
 
   if (EFF_APOS(len - 1) != 0) {
@@ -3452,7 +3446,7 @@ skip_interest:
 
   orig_hit_cnt = new_hit_cnt;
 
-  ex_tmp = ck_alloc(len + MAX_DICT_FILE);
+  ex_tmp = ck_maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE);
 
   for (i = 0; i <= len; ++i) {
 
@@ -3475,7 +3469,6 @@ skip_interest:
 
       if (common_fuzz_stuff(afl, ex_tmp, len + afl->extras[j].len)) {
 
-        ck_free(ex_tmp);
         goto abandon_entry;
 
       }
@@ -3488,8 +3481,6 @@ skip_interest:
     ex_tmp[i] = out_buf[i];
 
   }                                                  /* for i = 0; i <= len */
-
-  ck_free(ex_tmp);
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -3894,7 +3885,7 @@ pacemaker_fuzzing:
 
                 clone_to = rand_below(afl, temp_len);
 
-                new_buf = ck_alloc_nozero(temp_len + clone_len);
+                new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
 
                 /* Head */
 
@@ -3915,7 +3906,7 @@ pacemaker_fuzzing:
                 memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
                        temp_len - clone_to);
 
-                ck_free(out_buf);
+                swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
                 out_buf = new_buf;
                 temp_len += clone_len;
                 MOpt_globals.cycles_v2[STAGE_Clone75] += 1;
@@ -3968,7 +3959,7 @@ pacemaker_fuzzing:
         /* out_buf might have been mangled a bit, so let's restore it to its
            original size and shape. */
 
-        if (temp_len < len) out_buf = ck_realloc(out_buf, len);
+        out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
         temp_len = len;
         memcpy(out_buf, in_buf, len);
 
@@ -4046,7 +4037,6 @@ pacemaker_fuzzing:
 
         if (in_buf != orig_in) {
 
-          ck_free(in_buf);
           in_buf = orig_in;
           len = afl->queue_cur->len;
 
@@ -4091,7 +4081,7 @@ pacemaker_fuzzing:
 
         if (fd < 0) PFATAL("Unable to open '%s'", target->fname);
 
-        new_buf = ck_alloc_nozero(target->len);
+        new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), target->len);
 
         ck_read(fd, new_buf, target->len, target->fname);
 
@@ -4105,7 +4095,6 @@ pacemaker_fuzzing:
 
         if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) {
 
-          ck_free(new_buf);
           goto retry_splicing_puppet;
 
         }
@@ -4118,9 +4107,9 @@ pacemaker_fuzzing:
 
         len = target->len;
         memcpy(new_buf, in_buf, split_at);
+        swap_bufs(BUF_PARAMS(in), BUF_PARAMS(in_scratch));
         in_buf = new_buf;
-        ck_free(out_buf);
-        out_buf = ck_alloc_nozero(len);
+        out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
         memcpy(out_buf, in_buf, len);
 
         goto havoc_stage_puppet;
@@ -4154,10 +4143,6 @@ pacemaker_fuzzing:
       // }
 
       munmap(orig_in, afl->queue_cur->len);
-
-      if (in_buf != orig_in) ck_free(in_buf);
-      ck_free(out_buf);
-      ck_free(eff_map);
 
       if (afl->key_puppet == 1) {
 
@@ -4380,18 +4365,13 @@ u8 fuzz_one(afl_state_t *afl) {
   int key_val_lv = 0;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
+
+  u8 path_buf[PATH_MAX];
   if (afl->do_document == 0) {
 
-    char *fn = alloc_printf("%s/mutations", afl->out_dir);
-    if (fn) {
-
-      afl->do_document = mkdir(fn, 0700);  // if it exists we do not care
-      afl->do_document = 1;
-      ck_free(fn);
-
-    } else
-
-      PFATAL("malloc()");
+    snprintf(path_buf, PATH_MAX, "%s/mutations", afl->out_dir);
+    afl->do_document = mkdir(path_buf, 0700);  // if it exists we do not care
+    afl->do_document = 1;
 
   } else {
 
@@ -4418,6 +4398,9 @@ u8 fuzz_one(afl_state_t *afl) {
   }
 
   return key_val_lv;
+
+
+#undef BUF_PARAMS
 
 }
 
