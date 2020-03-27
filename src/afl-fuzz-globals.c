@@ -79,6 +79,8 @@ list_t afl_states = {.element_prealloc_count = 0};
 
 void afl_state_init(afl_state_t *afl) {
 
+  /* thanks to this memset, growing vars like out_buf
+  and out_size are NULL/0 by default. */
   memset(afl, 0, sizeof(afl_state_t));
 
   afl->w_init = 0.9;
