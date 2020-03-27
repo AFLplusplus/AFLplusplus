@@ -430,7 +430,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
      single byte anyway, so it wouldn't give us any performance or memory usage
      benefits. */
 
-  out_buf = ck_maybe_grow((void **)&afl->out_buf, &afl->out_size, len);
+  out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
 
   afl->subseq_tmouts = 0;
 
@@ -1958,8 +1958,7 @@ havoc_stage:
             clone_to = rand_below(afl, temp_len);
 
             new_buf =
-                ck_maybe_grow((void **)&afl->out_scratch_buf,
-                              &afl->out_scratch_size, temp_len + clone_len);
+                ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
 
             /* Head */
 
@@ -1979,9 +1978,9 @@ havoc_stage:
             memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
                    temp_len - clone_to);
 
-            swap_bufs((void **)&afl->out_buf, &afl->out_size,
-                      (void **)&afl->out_scratch_buf, &afl->out_scratch_size);
+            swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
             out_buf = new_buf;
+            new_buf = NULL;
             temp_len += clone_len;
 
           }
@@ -2108,6 +2107,7 @@ havoc_stage:
 
           swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
           out_buf = new_buf;
+          new_buf = NULL;
           temp_len += extra_len;
 
           break;
