@@ -788,10 +788,12 @@ static inline void *ck_maybe_grow(void **buf, size_t *size,
   while (*size < size_needed) {
 
     *size *= 2;
+    if ((*size) < 0) FATAL("size_t overflow");
 
   }
 
   *buf = ck_realloc(*buf, *size);
+
   return *buf;
 
 }
