@@ -35,6 +35,9 @@
 #include "types.h"
 #include "debug.h"
 
+/* Initial size used for ck_maybe_grow */
+#define INITIAL_GROWTH_SIZE (64)
+
 // Be careful! _WANT_ORIGINAL_AFL_ALLOC is not compatible with custom mutators
 
 #ifndef _WANT_ORIGINAL_AFL_ALLOC
@@ -763,6 +766,50 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
 #endif                                                     /* ^!DEBUG_BUILD */
 
 #endif                                          /* _WANT_ORIGINAL_AFL_ALLOC */
+
+/* This function makes sure *size is > size_needed after call.
+ It will realloc *buf otherwise.
+ *size will grow exponentially as per:
+ https://blog.mozilla.org/nnethercote/2014/11/04/please-grow-your-buffers-exponentially/
+ Will FATAL if size_needed is <1 or *size is negative.
+ @return For convenience, this function returns *buf.
+ */
+static inline void *ck_maybe_grow(void **buf, size_t *size,
+                                  size_t size_needed) {
+
+  /* Oops. found a bug? */
+  if (unlikely(size_needed < 1)) FATAL("cannot grow to non-positive size");
+
+  /* No need to realloc */
+  if (likely(*size >= size_needed)) return *buf;
+  if (unlikely(*size < 0)) FATAL("Negative size detected!");
+  /* No inital size was set */
+  if (*size == 0) *size = INITIAL_GROWTH_SIZE;
+  while (*size < size_needed) {
+
+    *size *= 2;
+
+  }
+
+  *buf = ck_realloc(*buf, *size);
+  return *buf;
+
+}
+
+/* Swaps buf1 ptr and buf2 ptr, as well as their sizes */
+static inline void swap_bufs(void **buf1, size_t *size1, void **buf2,
+                             size_t *size2) {
+
+  void * scratch_buf = *buf1;
+  size_t scratch_size = *size1;
+  *buf1 = *buf2;
+  *size1 = *size2;
+  *buf2 = scratch_buf;
+  *size2 = scratch_size;
+
+}
+
+#undef INITIAL_GROWTH_SIZE
 
 #endif                                               /* ! _HAVE_ALLOC_INL_H */
 

@@ -76,21 +76,16 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   while ((de = readdir(d))) {
 
-    u8 *  fn;
+    u8    fn[PATH_MAX];
     FILE *f;
     u8    tmp[MAX_LINE];
     u8    has_vmsize = 0;
 
     if (!isdigit(de->d_name[0])) continue;
 
-    fn = alloc_printf("/proc/%s/status", de->d_name);
+    snprintf(fn, PATH_MAX, "/proc/%s/status", de->d_name);
 
-    if (!(f = fopen(fn, "r"))) {
-
-      ck_free(fn);
-      continue;
-
-    }
+    if (!(f = fopen(fn, "r"))) { continue; }
 
     while (fgets(tmp, MAX_LINE, f)) {
 
@@ -111,7 +106,6 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     }
 
-    ck_free(fn);
     fclose(f);
 
   }
@@ -369,9 +363,10 @@ void read_testcases(afl_state_t *afl) {
 
     struct stat st;
 
+    u8 dfn[PATH_MAX];
+    snprintf(dfn, PATH_MAX, "%s/.state/deterministic_done/%s", afl->in_dir,
+             nl[i]->d_name);
     u8 *fn2 = alloc_printf("%s/%s", afl->in_dir, nl[i]->d_name);
-    u8 *dfn = alloc_printf("%s/.state/deterministic_done/%s", afl->in_dir,
-                           nl[i]->d_name);
 
     u8 passed_det = 0;
 
@@ -384,8 +379,6 @@ void read_testcases(afl_state_t *afl) {
 
     if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
 
-      ck_free(fn2);
-      ck_free(dfn);
       continue;
 
     }
@@ -401,7 +394,6 @@ void read_testcases(afl_state_t *afl) {
        and probably very time-consuming. */
 
     if (!access(dfn, F_OK)) passed_det = 1;
-    ck_free(dfn);
 
     add_to_queue(afl, fn2, st.st_size, passed_det);
 

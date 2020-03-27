@@ -30,17 +30,15 @@
 
 void mark_as_det_done(afl_state_t *afl, struct queue_entry *q) {
 
-  u8 *fn = strrchr(q->fname, '/');
+  u8  fn[PATH_MAX];
   s32 fd;
 
-  fn = alloc_printf("%s/queue/.state/deterministic_done/%s", afl->out_dir,
-                    fn + 1);
+  snprintf(fn, PATH_MAX, "%s/queue/.state/deterministic_done/%s", afl->out_dir,
+           strrchr(q->fname, '/') + 1);
 
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
   if (fd < 0) PFATAL("Unable to create '%s'", fn);
   close(fd);
-
-  ck_free(fn);
 
   q->passed_det = 1;
 
@@ -51,10 +49,13 @@ void mark_as_det_done(afl_state_t *afl, struct queue_entry *q) {
 
 void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
 
-  u8 *fn = strrchr(q->fname, '/') + 1, *ldest;
+  u8 fn[PATH_MAX];
+  u8 ldest[PATH_MAX];
 
-  ldest = alloc_printf("../../%s", fn);
-  fn = alloc_printf("%s/queue/.state/variable_behavior/%s", afl->out_dir, fn);
+  u8 *fn_name = strrchr(q->fname, '/') + 1;
+
+  sprintf(ldest, "../../%s", fn_name);
+  sprintf(fn, "%s/queue/.state/variable_behavior/%s", afl->out_dir, fn_name);
 
   if (symlink(ldest, fn)) {
 
@@ -63,9 +64,6 @@ void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
     close(fd);
 
   }
-
-  ck_free(ldest);
-  ck_free(fn);
 
   q->var_behavior = 1;
 
@@ -76,14 +74,14 @@ void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
 
 void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
-  u8 *fn;
+  u8 fn[PATH_MAX];
 
   if (state == q->fs_redundant) return;
 
   q->fs_redundant = state;
 
-  fn = strrchr(q->fname, '/');
-  fn = alloc_printf("%s/queue/.state/redundant_edges/%s", afl->out_dir, fn + 1);
+  sprintf(fn, "%s/queue/.state/redundant_edges/%s", afl->out_dir,
+          strrchr(q->fname, '/') + 1);
 
   if (state) {
 
@@ -99,8 +97,6 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
   }
 
-  ck_free(fn);
-
 }
 
 /* Append new test case to the queue. */
@@ -114,6 +110,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->depth = afl->cur_depth + 1;
   q->passed_det = passed_det;
   q->n_fuzz = 1;
+  q->trace_mini = NULL;
 
   if (q->depth > afl->max_depth) afl->max_depth = q->depth;
 

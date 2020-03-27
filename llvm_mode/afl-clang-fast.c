@@ -397,15 +397,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (getenv("AFL_USE_CFISAN")) {
 
-    if (!lto_mode) { 
-    
+    if (!lto_mode) {
+
       uint32_t i = 0, found = 0;
       while (envp[i] != NULL && !found)
-        if (strncmp("-flto", envp[i++], 5) == 0)
-          found = 1;
+        if (strncmp("-flto", envp[i++], 5) == 0) found = 1;
       if (!found) cc_params[cc_par_cnt++] = "-flto";
-      
+
     }
+
     cc_params[cc_par_cnt++] = "-fsanitize=cfi";
     cc_params[cc_par_cnt++] = "-fvisibility=hidden";
 

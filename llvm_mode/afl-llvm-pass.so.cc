@@ -131,6 +131,25 @@ class AFLCoverage : public ModulePass {
 
 char AFLCoverage::ID = 0;
 
+/* needed up to 3.9.0 */
+#if LLVM_VERSION_MAJOR == 3 && \
+    (LLVM_VERSION_MINOR < 9 || \
+     (LLVM_VERSION_MINOR == 9 && LLVM_VERSION_PATCH < 1))
+uint64_t PowerOf2Ceil(unsigned in) {
+
+  uint64_t in64 = in - 1;
+  in64 |= (in64 >> 1);
+  in64 |= (in64 >> 2);
+  in64 |= (in64 >> 4);
+  in64 |= (in64 >> 8);
+  in64 |= (in64 >> 16);
+  in64 |= (in64 >> 32);
+  return in64 + 1;
+
+}
+
+#endif
+
 bool AFLCoverage::runOnModule(Module &M) {
 
   LLVMContext &C = M.getContext();
