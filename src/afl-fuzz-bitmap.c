@@ -31,13 +31,13 @@
 
 void write_bitmap(afl_state_t *afl) {
 
-  u8 *fname;
+  u8 fname[PATH_MAX];
   s32 fd;
 
   if (!afl->bitmap_changed) return;
   afl->bitmap_changed = 0;
 
-  fname = alloc_printf("%s/fuzz_bitmap", afl->out_dir);
+  snprintf(fname, PATH_MAX, "%s/fuzz_bitmap", afl->out_dir);
   fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
   if (fd < 0) PFATAL("Unable to open '%s'", fname);
@@ -45,7 +45,6 @@ void write_bitmap(afl_state_t *afl) {
   ck_write(fd, afl->virgin_bits, MAP_SIZE, fname);
 
   close(fd);
-  ck_free(fname);
 
 }
 
@@ -462,14 +461,15 @@ u8 *describe_op(afl_state_t *afl, u8 hnb) {
 
 static void write_crash_readme(afl_state_t *afl) {
 
-  u8 *  fn = alloc_printf("%s/crashes/README.txt", afl->out_dir);
+  u8 fn[PATH_MAX];
   s32   fd;
   FILE *f;
 
   u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
+  sprintf(fn, "%s/crashes/README.txt", afl->out_dir);
+
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
-  ck_free(fn);
 
   /* Do not die on errors here - that would be impolite. */
 
@@ -520,10 +520,12 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   if (unlikely(len == 0)) return 0;
 
-  u8 *fn = "";
+  u8 *queue_fn = "";
   u8  hnb;
   s32 fd;
   u8  keeping = 0, res;
+
+  u8 fn[PATH_MAX];
 
   /* Update path frequency. */
   u32 cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
@@ -556,16 +558,16 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #ifndef SIMPLE_FILES
 
-    fn = alloc_printf("%s/queue/id:%06u,%s", afl->out_dir, afl->queued_paths,
+    queue_fn = alloc_printf("%s/queue/id:%06u,%s", afl->out_dir, afl->queued_paths,
                       describe_op(afl, hnb));
 
 #else
 
-    fn = alloc_printf("%s/queue/id_%06u", afl->out_dir, afl->queued_paths);
+    queue_fn = alloc_printf("%s/queue/id_%06u", afl->out_dir, afl->queued_paths);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
-    add_to_queue(afl, fn, len, 0);
+    add_to_queue(afl, queue_fn, len, 0);
 
     if (hnb == 2) {
 
@@ -584,9 +586,9 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     if (unlikely(res == FAULT_ERROR))
       FATAL("Unable to execute target application");
 
-    fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
-    if (unlikely(fd < 0)) PFATAL("Unable to create '%s'", fn);
-    ck_write(fd, mem, len, fn);
+    fd = open(queue_fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (unlikely(fd < 0)) PFATAL("Unable to create '%s'", queue_fn);
+    ck_write(fd, mem, len, queue_fn);
     close(fd);
 
     keeping = 1;
@@ -642,12 +644,12 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #ifndef SIMPLE_FILES
 
-      fn = alloc_printf("%s/hangs/id:%06llu,%s", afl->out_dir,
+      snprintf(fn, PATH_MAX, "%s/hangs/id:%06llu,%s", afl->out_dir,
                         afl->unique_hangs, describe_op(afl, 0));
 
 #else
 
-      fn = alloc_printf("%s/hangs/id_%06llu", afl->out_dir, afl->unique_hangs);
+      snprintf(fn, PATH_MAX, "%s/hangs/id_%06llu", afl->out_dir, afl->unique_hangs);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
@@ -685,14 +687,11 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #ifndef SIMPLE_FILES
 
-      fn = alloc_printf("%s/crashes/id:%06llu,sig:%02u,%s", afl->out_dir,
-                        afl->unique_crashes, afl->kill_signal,
-                        describe_op(afl, 0));
+      snprintf(fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s", afl->out_dir, afl->unique_crashes, afl->kill_signal, describe_op(afl, 0));
 
 #else
 
-      fn = alloc_printf("%s/crashes/id_%06llu_%02u", afl->out_dir,
-                        afl->unique_crashes, afl->kill_signal);
+      snprintf(fn, PATH_MAX, "%s/crashes/id_%06llu_%02u", afl->out_dir, afl->unique_crashes, afl->kill_signal);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
@@ -728,8 +727,6 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   if (unlikely(fd < 0)) PFATAL("Unable to create '%s'", fn);
   ck_write(fd, mem, len, fn);
   close(fd);
-
-  ck_free(fn);
 
   return keeping;
 
