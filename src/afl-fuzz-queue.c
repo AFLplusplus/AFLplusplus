@@ -30,10 +30,11 @@
 
 void mark_as_det_done(afl_state_t *afl, struct queue_entry *q) {
 
-  u8 fn[PATH_MAX];
+  u8  fn[PATH_MAX];
   s32 fd;
 
-  snprintf(fn, PATH_MAX, "%s/queue/.state/deterministic_done/%s", afl->out_dir, strrchr(q->fname, '/') + 1);
+  snprintf(fn, PATH_MAX, "%s/queue/.state/deterministic_done/%s", afl->out_dir,
+           strrchr(q->fname, '/') + 1);
 
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
   if (fd < 0) PFATAL("Unable to create '%s'", fn);
@@ -79,7 +80,8 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
   q->fs_redundant = state;
 
-  sprintf(fn, "%s/queue/.state/redundant_edges/%s", afl->out_dir, strrchr(q->fname, '/') + 1);
+  sprintf(fn, "%s/queue/.state/redundant_edges/%s", afl->out_dir,
+          strrchr(q->fname, '/') + 1);
 
   if (state) {
 
