@@ -583,26 +583,25 @@ typedef struct afl_state {
   u8 clean_trace_custom[MAP_SIZE];
   u8 first_trace[MAP_SIZE];
 
-/*needed for afl_fuzz_one */
-// TODO: see which we can reuse
-  u8 *out_buf;
+  /*needed for afl_fuzz_one */
+  // TODO: see which we can reuse
+  u8 *   out_buf;
   size_t out_size;
 
-  u8 *out_scratch_buf;
+  u8 *   out_scratch_buf;
   size_t out_scratch_size;
 
-  u8 *eff_buf;
+  u8 *   eff_buf;
   size_t eff_size;
 
-  u8 *in_buf;
+  u8 *   in_buf;
   size_t in_size;
 
-  u8 *in_scratch_buf;
+  u8 *   in_scratch_buf;
   size_t in_scratch_size;
 
-  u8 *ex_buf;
+  u8 *   ex_buf;
   size_t ex_size;
-
 
 } afl_state_t;
 

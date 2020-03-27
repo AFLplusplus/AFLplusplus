@@ -774,7 +774,8 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
  Will FATAL if size_needed is <1 or *size is negative.
  @return For convenience, this function returns *buf.
  */
-static inline void *ck_maybe_grow(void **buf, size_t *size, size_t size_needed) {
+static inline void *ck_maybe_grow(void **buf, size_t *size,
+                                  size_t size_needed) {
 
   /* Oops. found a bug? */
   if (unlikely(size_needed < 1)) FATAL("cannot grow to non-positive size");
@@ -785,21 +786,27 @@ static inline void *ck_maybe_grow(void **buf, size_t *size, size_t size_needed) 
   /* No inital size was set */
   if (*size == 0) *size = INITIAL_GROWTH_SIZE;
   while (*size < size_needed) {
+
     *size *= 2;
+
   }
+
   *buf = ck_realloc(*buf, *size);
   return *buf;
 
 }
 
 /* Swaps buf1 ptr and buf2 ptr, as well as their sizes */
-static inline void swap_bufs(void **buf1, size_t *size1, void **buf2, size_t *size2) {
-  void *scratch_buf = *buf1;
+static inline void swap_bufs(void **buf1, size_t *size1, void **buf2,
+                             size_t *size2) {
+
+  void * scratch_buf = *buf1;
   size_t scratch_size = *size1;
   *buf1 = *buf2;
   *size1 = *size2;
   *buf2 = scratch_buf;
   *size2 = scratch_size;
+
 }
 
 #undef INITIAL_GROWTH_SIZE

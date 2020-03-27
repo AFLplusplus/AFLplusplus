@@ -31,7 +31,7 @@
 
 void write_bitmap(afl_state_t *afl) {
 
-  u8 fname[PATH_MAX];
+  u8  fname[PATH_MAX];
   s32 fd;
 
   if (!afl->bitmap_changed) return;
@@ -461,7 +461,7 @@ u8 *describe_op(afl_state_t *afl, u8 hnb) {
 
 static void write_crash_readme(afl_state_t *afl) {
 
-  u8 fn[PATH_MAX];
+  u8    fn[PATH_MAX];
   s32   fd;
   FILE *f;
 
@@ -558,12 +558,13 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #ifndef SIMPLE_FILES
 
-    queue_fn = alloc_printf("%s/queue/id:%06u,%s", afl->out_dir, afl->queued_paths,
-                      describe_op(afl, hnb));
+    queue_fn = alloc_printf("%s/queue/id:%06u,%s", afl->out_dir,
+                            afl->queued_paths, describe_op(afl, hnb));
 
 #else
 
-    queue_fn = alloc_printf("%s/queue/id_%06u", afl->out_dir, afl->queued_paths);
+    queue_fn =
+        alloc_printf("%s/queue/id_%06u", afl->out_dir, afl->queued_paths);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
@@ -645,11 +646,12 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #ifndef SIMPLE_FILES
 
       snprintf(fn, PATH_MAX, "%s/hangs/id:%06llu,%s", afl->out_dir,
-                        afl->unique_hangs, describe_op(afl, 0));
+               afl->unique_hangs, describe_op(afl, 0));
 
 #else
 
-      snprintf(fn, PATH_MAX, "%s/hangs/id_%06llu", afl->out_dir, afl->unique_hangs);
+      snprintf(fn, PATH_MAX, "%s/hangs/id_%06llu", afl->out_dir,
+               afl->unique_hangs);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
@@ -687,11 +689,13 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #ifndef SIMPLE_FILES
 
-      snprintf(fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s", afl->out_dir, afl->unique_crashes, afl->kill_signal, describe_op(afl, 0));
+      snprintf(fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s", afl->out_dir,
+               afl->unique_crashes, afl->kill_signal, describe_op(afl, 0));
 
 #else
 
-      snprintf(fn, PATH_MAX, "%s/crashes/id_%06llu_%02u", afl->out_dir, afl->unique_crashes, afl->kill_signal);
+      snprintf(fn, PATH_MAX, "%s/crashes/id_%06llu_%02u", afl->out_dir,
+               afl->unique_crashes, afl->kill_signal);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
