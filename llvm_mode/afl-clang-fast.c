@@ -135,7 +135,7 @@ static void find_obj(u8 *argv0) {
 
 /* Copy argv to cc_params, making the necessary edits. */
 
-static void edit_params(u32 argc, char **argv) {
+static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8  fortify_set = 0, asan_set = 0, x_set = 0, maybe_linking = 1, bit_mode = 0;
   u8  has_llvm_config = 0;
@@ -395,6 +395,22 @@ static void edit_params(u32 argc, char **argv) {
 
   }
 
+  if (getenv("AFL_USE_CFISAN")) {
+
+    if (!lto_mode) { 
+    
+      uint32_t i = 0, found = 0;
+      while (envp[i] != NULL && !found)
+        if (strncmp("-flto", envp[i++], 5) == 0)
+          found = 1;
+      if (!found) cc_params[cc_par_cnt++] = "-flto";
+      
+    }
+    cc_params[cc_par_cnt++] = "-fsanitize=cfi";
+    cc_params[cc_par_cnt++] = "-fvisibility=hidden";
+
+  }
+
 #ifdef USE_TRACE_PC
 
   if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
@@ -596,6 +612,7 @@ int main(int argc, char **argv, char **envp) {
             "AFL_USE_ASAN: activate address sanitizer\n"
             "AFL_USE_MSAN: activate memory sanitizer\n"
             "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+            "AFL_USE_CFISAN: activate control flow sanitizer\n"
             "AFL_LLVM_WHITELIST: enable whitelisting (selective "
             "instrumentation)\n"
             "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
@@ -685,7 +702,7 @@ int main(int argc, char **argv, char **envp) {
   find_obj(argv[0]);
 #endif
 
-  edit_params(argc, argv);
+  edit_params(argc, argv, envp);
 
   if (debug) {
 

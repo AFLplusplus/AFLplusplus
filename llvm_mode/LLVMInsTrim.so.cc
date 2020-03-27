@@ -513,6 +513,7 @@ struct InsTrim : public ModulePass {
                getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
                getenv("AFL_USE_ASAN") ? ", ASAN" : "",
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
+               getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
 
       OKF("Instrumented %u locations (%llu, %llu) (%s mode)\n", total_instr,

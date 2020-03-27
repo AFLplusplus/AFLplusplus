@@ -259,7 +259,7 @@ superior to blind fuzzing or coverage-only tools.
 ## Instrumenting programs for use with AFL
 
 PLEASE NOTE: llvm_mode compilation with afl-clang-fast/afl-clang-fast++
-instead of afl-gcc/afl-g++ is much faster and has a few cool features.
+instead of afl-gcc/afl-g++ is much faster and has many cool features.
 See llvm_mode/ - however few code does not compile with llvm.
 We support llvm versions 3.8.0 to 11.
 
