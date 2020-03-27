@@ -33,7 +33,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
   struct rusage rus;
 
   unsigned long long int cur_time = get_cur_time();
-  u8 fn[PATH_MAX];
+  u8                     fn[PATH_MAX];
   s32                    fd;
   FILE *                 f;
 

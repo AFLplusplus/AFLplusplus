@@ -149,6 +149,7 @@ size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
     data->pre_save_size = buf_size + 5;
 
   }
+
   *out_buf = data->pre_save_buf;
 
   memcpy(*out_buf + 5, buf, buf_size);
