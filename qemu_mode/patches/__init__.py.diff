@@ -1,0 +1,17 @@
+--- a/scripts/tracetool/__init__.py	2020-03-28 13:42:21.937700726 +0100
++++ b/scripts/tracetool/__init__.py	2020-03-28 13:41:50.991034257 +0100
+@@ -447,12 +447,12 @@
+     import tracetool
+ 
+     format = str(format)
+-    if len(format) is 0:
++    if len(format) == 0:
+         raise TracetoolError("format not set")
+     if not tracetool.format.exists(format):
+         raise TracetoolError("unknown format: %s" % format)
+ 
+-    if len(backends) is 0:
++    if len(backends) == 0:
+         raise TracetoolError("no backends specified")
+     for backend in backends:
+         if not tracetool.backend.exists(backend):
