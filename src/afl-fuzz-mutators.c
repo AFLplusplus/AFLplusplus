@@ -7,6 +7,7 @@
    Now maintained by  Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
                         Andrea Fioraldi <andreafioraldi@gmail.com>
+                        Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -192,7 +193,8 @@ void load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   /* Initialize the custom mutator */
   if (afl->mutator->afl_custom_init)
-    afl->mutator->data = afl->mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
+    afl->mutator->data =
+        afl->mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
 
 }
 
@@ -218,17 +220,18 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   while (afl->stage_cur < afl->stage_max) {
 
+    u8 *retbuf = NULL;
+
     sprintf(afl->stage_name_buf, "ptrim %s",
             u_stringify_int(val_buf, trim_exec));
 
     u32 cksum;
 
-    u8 *   retbuf = NULL;
-    size_t retlen = 0;
+    size_t retlen = afl->mutator->afl_custom_trim(afl->mutator->data, &retbuf);
 
-    afl->mutator->afl_custom_trim(afl->mutator->data, &retbuf, &retlen);
-
-    if (retlen > orig_len)
+    if (unlikely(retlen < 0 || !retbuf))
+      FATAL("custom_trim failed (ret %zd)", retlen);
+    else if (unlikely(retlen > orig_len))
       FATAL(
           "Trimmed data returned by custom mutator is larger than original "
           "data");
@@ -238,12 +241,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     fault = run_target(afl, afl->fsrv.exec_tmout);
     ++afl->trim_execs;
 
-    if (afl->stop_soon || fault == FAULT_ERROR) {
-
-      ck_free(retbuf);
-      goto abort_trimming;
-
-    }
+    if (afl->stop_soon || fault == FAULT_ERROR) { goto abort_trimming; }
 
     cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
 
@@ -280,8 +278,6 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
              afl->stage_max);
 
     }
-
-    ck_free(retbuf);
 
     /* Since this can be slow, update the screen every now and then. */
 
