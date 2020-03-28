@@ -771,10 +771,10 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
  It will realloc *buf otherwise.
  *size will grow exponentially as per:
  https://blog.mozilla.org/nnethercote/2014/11/04/please-grow-your-buffers-exponentially/
- Will FATAL if size_needed is <1 or *size is negative.
+ Will FATAL if size_needed is <1.
  @return For convenience, this function returns *buf.
  */
-static inline void *ck_maybe_grow(void **buf, ssize_t *size,
+static inline void *ck_maybe_grow(void **buf, size_t *size,
                                   size_t size_needed) {
 
   /* Oops. found a bug? */
@@ -782,14 +782,14 @@ static inline void *ck_maybe_grow(void **buf, ssize_t *size,
 
   /* No need to realloc */
   if (likely(*size >= size_needed)) return *buf;
-  if (unlikely(*size < 0)) FATAL("Negative size detected!");
-  /* No inital size was set */
+
+  /* No initial size was set */
   if (*size == 0) *size = INITIAL_GROWTH_SIZE;
   while (*size < size_needed) {
 
-    *size *= 2;
     /* in case of overflow we'll realloc to size_needed */
-    if ((*size) < 0) *size = size_needed;
+    if (2*(*size) < size_needed) *size = size_needed;
+    else *size *= 2;
 
   }
 
