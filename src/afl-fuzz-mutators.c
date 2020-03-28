@@ -213,7 +213,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   afl->stage_cur = 0;
   afl->stage_max =
       afl->mutator->afl_custom_init_trim(afl->mutator->data, in_buf, q->len);
-  if (unlikely(afl->stage_max) < 0) FATAL("custom_init_trim error ret: %d", afl->stage_max);
+  if (unlikely(afl->stage_max) < 0)
+    FATAL("custom_init_trim error ret: %d", afl->stage_max);
   if (afl->not_on_tty && afl->debug)
     SAYF("[Custom Trimming] START: Max %d iterations, %u bytes", afl->stage_max,
          q->len);
@@ -273,7 +274,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       /* Tell the custom mutator that the trimming was unsuccessful */
       afl->stage_cur =
           afl->mutator->afl_custom_post_trim(afl->mutator->data, 0);
-      if (unlikely(afl->stage_cur < 0)) FATAL("Error ret in custom_post_trim: %d", afl->stage_cur);
+      if (unlikely(afl->stage_cur < 0))
+        FATAL("Error ret in custom_post_trim: %d", afl->stage_cur);
       if (afl->not_on_tty && afl->debug)
         SAYF("[Custom Trimming] FAILURE: %d/%d iterations", afl->stage_cur,
              afl->stage_max);

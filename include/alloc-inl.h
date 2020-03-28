@@ -771,7 +771,9 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
  @return The rounded up power of 2 (if no overflow) or 0 on overflow.
 */
 static inline size_t next_pow2(size_t in) {
-  if (in == 0 || in > (size_t)-1) return 0; /* avoid undefined behaviour under-/overflow */
+
+  if (in == 0 || in > (size_t)-1)
+    return 0;                  /* avoid undefined behaviour under-/overflow */
   size_t out = in - 1;
   out |= out >> 1;
   out |= out >> 2;
@@ -779,6 +781,7 @@ static inline size_t next_pow2(size_t in) {
   out |= out >> 8;
   out |= out >> 16;
   return out + 1;
+
 }
 
 /* This function makes sure *size is > size_needed after call.
@@ -804,9 +807,7 @@ static inline void *ck_maybe_grow(void **buf, size_t *size,
   size_t next_size = next_pow2(size_needed);
 
   /* handle overflow */
-  if (!next_size) {
-    next_size = size_needed;
-  }
+  if (!next_size) { next_size = size_needed; }
 
   /* alloc */
   *buf = ck_realloc(*buf, next_size);
