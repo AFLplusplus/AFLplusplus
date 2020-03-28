@@ -649,14 +649,16 @@ struct custom_mutator {
    * (Optional for now. Required in the future)
    *
    * @param data pointer returned in afl_custom_init for this fuzz case
-   * @param[inout] buf Pointer to the input data to be mutated and the mutated
+   * @param[in] buf Pointer to the input data to be mutated and the mutated
    *     output
    * @param[in] buf_size Size of the input/output data
+   * @param[out] out_buf the new buffer. We may reuse *buf if large enough.
+   *             *out_buf = NULL is treated as FATAL.
    * @param[in] add_buf Buffer containing the additional test case
    * @param[in] add_buf_size Size of the additional test case
    * @param[in] max_size Maximum size of the mutated output. The mutation must
    * not produce data larger than max_size.
-   * @return Size of the mutated output. Negative on error will abort exeuction.
+   * @return Size of the mutated output.
    */
   size_t (*afl_custom_fuzz)(void *data, u8 *buf, size_t buf_size, u8 **out_buf,
                             u8 *add_buf, size_t add_buf_size, size_t max_size);
@@ -698,9 +700,10 @@ struct custom_mutator {
    * @param data pointer returned in afl_custom_init for this fuzz case
    * @param buf Buffer containing the test case
    * @param buf_size Size of the test case
-   * @return The amount of possible iteration steps to trim the input
+   * @return The amount of possible iteration steps to trim the input.
+   *        Negative on error.
    */
-  u32 (*afl_custom_init_trim)(void *data, u8 *buf, size_t buf_size);
+  s32 (*afl_custom_init_trim)(void *data, u8 *buf, size_t buf_size);
 
   /**
    * This method is called for each trimming operation. It doesn't have any
@@ -731,9 +734,9 @@ struct custom_mutator {
    * @param data pointer returned in afl_custom_init for this fuzz case
    * @param success Indicates if the last trim operation was successful.
    * @return The next trim iteration index (from 0 to the maximum amount of
-   *     steps returned in init_trim)
+   *     steps returned in init_trim). Negative on error.
    */
-  u32 (*afl_custom_post_trim)(void *data, u8 success);
+  s32 (*afl_custom_post_trim)(void *data, u8 success);
 
   /**
    * Perform a single custom mutation on a given input.
@@ -816,8 +819,8 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf);
 void finalize_py_module(void *);
 
 size_t pre_save_py(void *, u8 *, size_t, u8 **);
-u32    init_trim_py(void *, u8 *, size_t);
-u32    post_trim_py(void *, u8);
+s32    init_trim_py(void *, u8 *, size_t);
+s32    post_trim_py(void *, u8);
 size_t trim_py(void *, u8 **);
 size_t havoc_mutation_py(void *, u8 *, size_t, u8 **, size_t);
 u8     havoc_mutation_probability_py(void *);

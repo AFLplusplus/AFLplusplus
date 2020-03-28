@@ -36,7 +36,7 @@ static void *unsupported(afl_state_t *afl, unsigned int seed) {
 }
 
 /* sorry for this makro...
-it just filles in `&py_mutator->something_buf, &py_mutator->something_size`. */
+it just fills in `&py_mutator->something_buf, &py_mutator->something_size`. */
 #define BUF_PARAMS(name)                              \
   (void **)&((py_mutator_t *)py_mutator)->name##_buf, \
       &((py_mutator_t *)py_mutator)->name##_size
@@ -103,7 +103,7 @@ size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
   } else {
 
     PyErr_Print();
-    FATAL("Call failed");
+    FATAL("python custom fuzz: call failed");
 
   }
 
@@ -372,8 +372,7 @@ size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
 
     py_out_buf_size = PyByteArray_Size(py_value);
 
-    ck_maybe_grow((void **)&py->pre_save_buf, &py->pre_save_size,
-                  py_out_buf_size);
+    ck_maybe_grow(BUF_PARAMS(pre_save), py_out_buf_size);
 
     memcpy(py->pre_save_buf, PyByteArray_AsString(py_value), py_out_buf_size);
     Py_DECREF(py_value);
@@ -390,7 +389,7 @@ size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
 
 }
 
-u32 init_trim_py(void *py_mutator, u8 *buf, size_t buf_size) {
+s32 init_trim_py(void *py_mutator, u8 *buf, size_t buf_size) {
 
   PyObject *py_args, *py_value;
 
@@ -428,7 +427,7 @@ u32 init_trim_py(void *py_mutator, u8 *buf, size_t buf_size) {
 
 }
 
-u32 post_trim_py(void *py_mutator, u8 success) {
+s32 post_trim_py(void *py_mutator, u8 success) {
 
   PyObject *py_args, *py_value;
 
