@@ -103,7 +103,7 @@ size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
   } else {
 
     PyErr_Print();
-    FATAL("Call failed");
+    FATAL("python custom fuzz: call failed");
 
   }
 
