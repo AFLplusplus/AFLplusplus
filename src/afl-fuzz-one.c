@@ -1618,8 +1618,8 @@ custom_mutator_stage:
         afl->mutator->data, out_buf, len, &mutated_buf, new_buf, target->len,
         max_seed_size);
 
-    if (unlikely(mutated_size < 0))
-      FATAL("custom_fuzz returned %zd", mutated_size);
+    if (unlikely(!mutated_buf))
+      FATAL("Error in custom_fuzz. Size returned: %zd", mutated_size);
 
     if (mutated_size > len) afl->out_size = mutated_size;
 
@@ -1734,7 +1734,7 @@ havoc_stage:
         u8 *   custom_havoc_buf = NULL;
         size_t new_len = afl->mutator->afl_custom_havoc_mutation(
             afl->mutator->data, out_buf, temp_len, &custom_havoc_buf, MAX_FILE);
-        if (unlikely(new_len < 0))
+        if (unlikely(!custom_havoc_buf))
           FATAL("Error in custom_havoc (return %zd)", new_len);
         if (likely(new_len > 0 && custom_havoc_buf)) {
 
