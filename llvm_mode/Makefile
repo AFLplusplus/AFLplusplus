@@ -201,6 +201,8 @@ else
   TARGETS = test_shm test_deps $(PROGS) afl-clang-fast.8 test_build all_done
 endif
 
+LLVM_MIN_4_0_1 = $(shell awk 'BEGIN { exit ARGV[1] >= ARGV[2] }' $(LLVMVER) 4.0.1; echo $$?)
+
 all: $(TARGETS)
 
 ifeq "$(SHMAT_OK)" "1"
@@ -268,6 +270,9 @@ endif
 	-$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
 
 ../afl-llvm-pass.so: afl-llvm-pass.so.cc | test_deps
+ifeq "$(LLVM_MIN_4_0_1)" "0"
+	$(info [!] N-gram branch coverage instrumentation is not available for llvm version $(LLVMVER))
+endif
 	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
 
 ../afl-llvm-lto-whitelist.so: afl-llvm-lto-whitelist.so.cc
