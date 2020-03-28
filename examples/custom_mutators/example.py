@@ -164,11 +164,10 @@ def fuzz(buf, add_buf, max_size):
 #     '''
 #     Called after adding a new test case to the queue
 #
-#     @type filename_new_queue: str 
+#     @type filename_new_queue: str
 #     @param filename_new_queue: File name of the new queue entry
 #
 #     @type filename_orig_queue: str
 #     @param filename_orig_queue: File name of the original queue entry
 #     '''
 #     pass
-
