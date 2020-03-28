@@ -134,9 +134,9 @@ ifeq "$(AFL_REAL_LD)" ""
 endif
 endif
 
-CFLAGS          ?= -O3 -funroll-loops
+CFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
 override CFLAGS = -Wall \
-               -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -I ../include/ \
+               -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
                -DLLVM_VERSION=\"$(LLVMVER)\"  -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
@@ -145,8 +145,8 @@ ifdef AFL_TRACE_PC
   CFLAGS    += -DUSE_TRACE_PC=1
 endif
 
-CXXFLAGS          ?= -O3 -funroll-loops
-override CXXFLAGS += -Wall -D_FORTIFY_SOURCE=2 -g -I ../include/ \
+CXXFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
+override CXXFLAGS += -Wall -g -I ../include/ \
                      -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
