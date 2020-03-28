@@ -126,8 +126,8 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
   if (py_module != NULL) {
 
     u8 py_notrim = 0, py_idx;
+    /* init, required */
     py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
-    py_functions[PY_FUNC_DEINIT] = PyObject_GetAttrString(py_module, "deinit");
     py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
     py_functions[PY_FUNC_PRE_SAVE] =
         PyObject_GetAttrString(py_module, "pre_save");
@@ -144,6 +144,7 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "queue_get");
     py_functions[PY_FUNC_QUEUE_NEW_ENTRY] =
         PyObject_GetAttrString(py_module, "queue_new_entry");
+    py_functions[PY_FUNC_DEINIT] = PyObject_GetAttrString(py_module, "deinit");
 
     for (py_idx = 0; py_idx < PY_FUNC_COUNT; ++py_idx) {
 
