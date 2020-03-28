@@ -277,37 +277,47 @@ static void surgical_havoc_mutate(u8 *out_buf, s32 begin, s32 end) {
 
 }
 
+/* This function calculates the next power of 2 greater or equal its argument.
+ @return The rounded up power of 2 (if no overflow) or 0 on overflow.
+*/
+static inline size_t next_pow2(size_t in) {
+
+  if (in == 0 || in > (size_t)-1)
+    return 0;                  /* avoid undefined behaviour under-/overflow */
+  size_t out = in - 1;
+  out |= out >> 1;
+  out |= out >> 2;
+  out |= out >> 4;
+  out |= out >> 8;
+  out |= out >> 16;
+  return out + 1;
+
+}
+
 /* This function makes sure *size is > size_needed after call.
- It changes buf and size in-place, if needed.
  It will realloc *buf otherwise.
  *size will grow exponentially as per:
  https://blog.mozilla.org/nnethercote/2014/11/04/please-grow-your-buffers-exponentially/
- Will return NULL if size_needed is <1 or *size is negative or malloc Failed.
- @return For convenience, this function returns *buf. NULL on error.
+ Will return NULL and free *buf if size_needed is <1 or realloc failed.
+ @return For convenience, this function returns *buf.
  */
 static inline void *maybe_grow(void **buf, size_t *size, size_t size_needed) {
 
-  /* Oops. found a bug? */
-  if (unlikely(size_needed < 1)) return NULL;
-
   /* No need to realloc */
-  if (likely(*size >= size_needed)) return *buf;
-  if (unlikely(*size < 0)) return NULL;
-  /* No inital size was set */
-  if (*size == 0) *size = INITIAL_GROWTH_SIZE;
-  while (*size < size_needed) {
+  if (likely(size_needed && *size >= size_needed)) return *buf;
 
-    *size *= 2;
-    if ((*size) < 0) {
+  /* No initial size was set */
+  if (size_needed < INITIAL_GROWTH_SIZE) size_needed = INITIAL_GROWTH_SIZE;
 
-      /* An overflow occurred. Fall back to size_needed */
-      *size = size_needed;
+  /* grow exponentially */
+  size_t next_size = next_pow2(size_needed);
 
-    }
+  /* handle overflow */
+  if (!next_size) { next_size = size_needed; }
 
-  }
-
-  *buf = realloc(*buf, *size);
+  /* alloc */
+  *buf = realloc(*buf, next_size);
+  *size = *buf ? next_size : 0;
 
   return *buf;
 
