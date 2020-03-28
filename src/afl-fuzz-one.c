@@ -430,7 +430,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
      single byte anyway, so it wouldn't give us any performance or memory usage
      benefits. */
 
-  out_buf = ck_maybe_grow((void **)&afl->out_buf, &afl->out_size, len);
+  out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
 
   afl->subseq_tmouts = 0;
 
@@ -1612,15 +1612,20 @@ custom_mutator_stage:
     ck_read(fd, new_buf, target->len, target->fname);
     close(fd);
 
-    // TODO: clean up this mess.
+    u8 *mutated_buf = NULL;
+
     size_t mutated_size = afl->mutator->afl_custom_fuzz(
-        afl->mutator->data, &out_buf, len, new_buf, target->len, max_seed_size);
+        afl->mutator->data, out_buf, len, &mutated_buf, new_buf, target->len,
+        max_seed_size);
+
+    if (unlikely(mutated_size < 0))
+      FATAL("custom_fuzz returned %zd", mutated_size);
 
     if (mutated_size > len) afl->out_size = mutated_size;
 
     if (mutated_size > 0) {
 
-      if (common_fuzz_stuff(afl, out_buf, (u32)mutated_size)) {
+      if (common_fuzz_stuff(afl, mutated_buf, (u32)mutated_size)) {
 
         goto abandon_entry;
 
@@ -1726,8 +1731,22 @@ havoc_stage:
 
       if (stacked_custom && rand_below(afl, 100) < stacked_custom_prob) {
 
-        temp_len = afl->mutator->afl_custom_havoc_mutation(
-            afl->mutator->data, &out_buf, temp_len, MAX_FILE);
+        u8 *   custom_havoc_buf = NULL;
+        size_t new_len = afl->mutator->afl_custom_havoc_mutation(
+            afl->mutator->data, out_buf, temp_len, &custom_havoc_buf, MAX_FILE);
+        if (unlikely(new_len < 0))
+          FATAL("Error in custom_havoc (return %zd)", new_len);
+        if (likely(new_len > 0 && custom_havoc_buf)) {
+
+          temp_len = new_len;
+          if (out_buf != custom_havoc_buf) {
+
+            ck_maybe_grow(BUF_PARAMS(out), temp_len);
+            memcpy(out_buf, custom_havoc_buf, temp_len);
+
+          }
+
+        }
 
       }
 
@@ -1958,8 +1977,7 @@ havoc_stage:
             clone_to = rand_below(afl, temp_len);
 
             new_buf =
-                ck_maybe_grow((void **)&afl->out_scratch_buf,
-                              &afl->out_scratch_size, temp_len + clone_len);
+                ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
 
             /* Head */
 
@@ -1979,9 +1997,9 @@ havoc_stage:
             memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
                    temp_len - clone_to);
 
-            swap_bufs((void **)&afl->out_buf, &afl->out_size,
-                      (void **)&afl->out_scratch_buf, &afl->out_scratch_size);
+            swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
             out_buf = new_buf;
+            new_buf = NULL;
             temp_len += clone_len;
 
           }
@@ -2108,6 +2126,7 @@ havoc_stage:
 
           swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
           out_buf = new_buf;
+          new_buf = NULL;
           temp_len += extra_len;
 
           break;

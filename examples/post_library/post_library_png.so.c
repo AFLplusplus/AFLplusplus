@@ -5,6 +5,7 @@
    Originally written by Michal Zalewski
 
    Copyright 2015 Google Inc. All rights reserved.
+   Adapted to the new API, 2020 by Dominik Maier
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -35,11 +36,32 @@
 
 #define UP4K(_i) ((((_i) >> 12) + 1) << 12)
 
-const unsigned char *afl_postprocess(const unsigned char *in_buf,
-                                     unsigned int *       len) {
+typedef struct post_state {
 
-  static unsigned char *saved_buf;
-  static unsigned int   saved_len;
+  unsigned char *buf;
+  size_t         size;
+
+} post_state_t;
+
+void *afl_postprocess_init(void *afl) {
+
+  post_state_t *state = malloc(sizeof(post_state_t));
+  if (!state) {
+
+    perror("malloc");
+    return NULL;
+
+  }
+
+  state->buf = calloc(sizeof(unsigned char), 4096);
+  if (!state->buf) { return NULL; }
+
+  return state;
+
+}
+
+size_t afl_postprocess(post_state_t *data, const unsigned char *in_buf,
+                       unsigned int len, const unsigned char **out_buf) {
 
   unsigned char *new_buf = (unsigned char *)in_buf;
   unsigned int   pos = 8;
@@ -47,12 +69,17 @@ const unsigned char *afl_postprocess(const unsigned char *in_buf,
   /* Don't do anything if there's not enough room for the PNG header
      (8 bytes). */
 
-  if (*len < 8) return in_buf;
+  if (len < 8) {
+
+    *out_buf = in_buf;
+    return len;
+
+  }
 
   /* Minimum size of a zero-length PNG chunk is 12 bytes; if we
      don't have that, we can bail out. */
 
-  while (pos + 12 <= *len) {
+  while (pos + 12 <= len) {
 
     unsigned int chunk_len, real_cksum, file_cksum;
 
@@ -62,7 +89,7 @@ const unsigned char *afl_postprocess(const unsigned char *in_buf,
 
     /* Bail out if chunk size is too big or goes past EOF. */
 
-    if (chunk_len > 1024 * 1024 || pos + 12 + chunk_len > *len) break;
+    if (chunk_len > 1024 * 1024 || pos + 12 + chunk_len > len) break;
 
     /* Chunk checksum is calculated for chunk ID (dword) and the actual
        payload. */
@@ -82,17 +109,23 @@ const unsigned char *afl_postprocess(const unsigned char *in_buf,
 
       if (new_buf == in_buf) {
 
-        if (*len <= saved_len) {
+        if (len <= data->size) {
 
-          new_buf = saved_buf;
+          new_buf = data->buf;
 
         } else {
 
-          new_buf = realloc(saved_buf, UP4K(*len));
-          if (!new_buf) return in_buf;
-          saved_buf = new_buf;
-          saved_len = UP4K(*len);
-          memcpy(new_buf, in_buf, *len);
+          new_buf = realloc(data->buf, UP4K(len));
+          if (!new_buf) {
+
+            *out_buf = in_buf;
+            return len;
+
+          }
+
+          data->buf = new_buf;
+          data->size = UP4K(len);
+          memcpy(new_buf, in_buf, len);
 
         }
 
@@ -108,7 +141,16 @@ const unsigned char *afl_postprocess(const unsigned char *in_buf,
 
   }
 
-  return new_buf;
+  *out_buf = new_buf;
+  return len;
+
+}
+
+/* Gets called afterwards */
+void afl_postprocess_deinit(post_state_t *data) {
+
+  free(data->buf);
+  free(data);
 
 }
 
