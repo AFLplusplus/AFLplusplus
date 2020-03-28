@@ -30815,7 +30815,7 @@ size_t copy_list(uint8_t *ptr, word lispval, size_t max) {
       lispval = G(lispval, 2);              // list   = cdr(list)
    }
    if (lispval != INULL && max == 0) {
-      printf("ERROR: lisp return value was not a proper list. Trailing %lu\n", lispval);
+      printf("ERROR: lisp return value was not a proper list. Trailing %lu\n", (unsigned long)lispval);
    }
    return n;
 }
