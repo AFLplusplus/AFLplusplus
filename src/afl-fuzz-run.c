@@ -221,7 +221,7 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
     size_t new_size = afl->mutator->afl_custom_pre_save(afl->mutator->data, mem,
                                                         len, &new_buf);
 
-    if (unlikely(new_size <= 0 || !new_buf))
+    if (unlikely(!new_buf))
       FATAL("Custom_pre_save failed (ret: %lu)", (long unsigned)new_size);
 
     /* everything as planned. use the new data. */
