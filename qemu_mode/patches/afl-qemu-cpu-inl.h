@@ -413,7 +413,7 @@ void afl_forkserver(CPUState *cpu) {
 void afl_persistent_loop(void) {
 
   static u32            cycle_cnt;
-  static struct afl_tsl exit_cmd_tsl = {{-1, 0, 0, 0}, NULL};
+  static struct afl_tsl exit_cmd_tsl = {{-1, 0, 0, 0}, '\0'};
 
   if (!afl_fork_child) return;
 
