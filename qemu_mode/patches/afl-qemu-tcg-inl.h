@@ -30,6 +30,7 @@
    have a look at afl-showmap.c.
 
  */
+void afl_gen_tcg_plain_call(void *func);
 
 void afl_gen_tcg_plain_call(void *func) {
 
