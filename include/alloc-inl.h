@@ -774,7 +774,7 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
  Will FATAL if size_needed is <1 or *size is negative.
  @return For convenience, this function returns *buf.
  */
-static inline void *ck_maybe_grow(void **buf, size_t *size,
+static inline void *ck_maybe_grow(void **buf, ssize_t *size,
                                   size_t size_needed) {
 
   /* Oops. found a bug? */
