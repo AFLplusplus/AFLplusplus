@@ -16,6 +16,7 @@ afl-gcc
 afl-gcc-fast
 afl-g++-fast
 afl-gotcpu
+afl-ld
 afl-qemu-trace
 afl-showmap
 afl-tmin
@@ -39,6 +40,7 @@ afl-tmin.8
 afl-whatsup.8
 qemu_mode/libcompcov/compcovtest
 as
+ld
 qemu_mode/qemu-*
 unicorn_mode/unicornafl/
 unicorn_mode/samples/*/\.test-*
