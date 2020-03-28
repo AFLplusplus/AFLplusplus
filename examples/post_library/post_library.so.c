@@ -156,3 +156,4 @@ void afl_postprocess_deinit(post_state_t *data) {
   free(data);
 
 }
+
