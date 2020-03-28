@@ -270,7 +270,9 @@ void setup_post(afl_state_t *afl) {
 
   void *dh;
   u8 *  fn = afl->afl_env.afl_post_library;
+  u8    tbuf[6];
   u32   tlen = 6;
+  strncpy(tbuf, "hello", tlen);
 
   if (!fn) return;
 
@@ -281,10 +283,20 @@ void setup_post(afl_state_t *afl) {
 
   afl->post_handler = dlsym(dh, "afl_postprocess");
   if (!afl->post_handler) FATAL("Symbol 'afl_postprocess' not found.");
+  afl->post_init = dlsym(dh, "afl_postprocess_init");
+  if (!afl->post_init) FATAL("Symbol 'afl_postprocess_init' not found.");
+  afl->post_deinit = dlsym(dh, "afl_postprocess_deinit");
+  if (!afl->post_deinit) FATAL("Symbol 'afl_postprocess_deinit' not found.");
 
   /* Do a quick test. It's better to segfault now than later =) */
 
-  afl->post_handler("hello", &tlen);
+  u8 *post_buf = NULL;
+  afl->post_data = afl->post_init(afl);
+  if (!afl->post_data) FATAL("Could not initialize post handler.");
+
+  size_t post_len = afl->post_handler(afl->post_data, tbuf, tlen, &post_buf);
+  if (!post_len || !post_buf)
+    SAYF("Empty return in test post handler for buf=\"hello\\0\".");
 
   OKF("Postprocessor installed successfully.");
 

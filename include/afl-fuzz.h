@@ -293,8 +293,17 @@ typedef struct py_mutator {
   void *    afl_state;
   void *    py_data;
 
+  u8 *   fuzz_buf;
+  size_t fuzz_size;
+
   u8 *   pre_save_buf;
   size_t pre_save_size;
+
+  u8 *   trim_buf;
+  size_t trim_size;
+
+  u8 *   havoc_buf;
+  size_t havoc_size;
 
 } py_mutator_t;
 
@@ -544,7 +553,11 @@ typedef struct afl_state {
   struct extra_data *a_extras;          /* Automatically selected extras    */
   u32                a_extras_cnt;      /* Total number of tokens available */
 
-  u8 *(*post_handler)(u8 *buf, u32 *len);
+  /* afl_postprocess API */
+  void *(*post_init)(struct afl_state *afl);
+  size_t (*post_handler)(void *data, u8 *buf, u32 len, u8 **out_buf);
+  void *(*post_deinit)(void *data);
+  void *post_data;
 
   /* CmpLog */
 
@@ -643,10 +656,10 @@ struct custom_mutator {
    * @param[in] add_buf_size Size of the additional test case
    * @param[in] max_size Maximum size of the mutated output. The mutation must
    * not produce data larger than max_size.
-   * @return Size of the mutated output.
+   * @return Size of the mutated output. Negative on error will abort exeuction.
    */
-  size_t (*afl_custom_fuzz)(void *data, u8 **buf, size_t buf_size, u8 *add_buf,
-                            size_t add_buf_size, size_t max_size);
+  size_t (*afl_custom_fuzz)(void *data, u8 *buf, size_t buf_size, u8 **out_buf,
+                            u8 *add_buf, size_t add_buf_size, size_t max_size);
 
   /**
    * A post-processing function to use right before AFL writes the test case to
@@ -704,9 +717,9 @@ struct custom_mutator {
    * @param[out] out_buf Pointer to the buffer containing the trimmed test case.
    *     External library should allocate memory for out_buf. AFL++ will release
    *     the memory after saving the test case.
-   * @param[out] out_buf_size Pointer to the size of the trimmed test case
+   * @return the size of the trimmed test case
    */
-  void (*afl_custom_trim)(void *data, u8 **out_buf, size_t *out_buf_size);
+  size_t (*afl_custom_trim)(void *data, u8 **out_buf);
 
   /**
    * This method is called after each trim operation to inform you if your
@@ -728,16 +741,18 @@ struct custom_mutator {
    *
    * (Optional)
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
-   * @param[inout] buf Pointer to the input data to be mutated and the mutated
+   * @param[in] data pointer returned in afl_custom_init for this fuzz case
+   * @param[in] buf Pointer to the input data to be mutated and the mutated
    *     output
    * @param[in] buf_size Size of input data
+   * @param[out] out_buf The new buffer. It's legal to reuse *buf if it's <
+   * buf_size.
    * @param[in] max_size Maximum size of the mutated output. The mutation must
    *     not produce data larger than max_size.
-   * @return Size of the mutated output.
+   * @return Size of the mutated output (out_size).
    */
-  size_t (*afl_custom_havoc_mutation)(void *data, u8 **buf, size_t buf_size,
-                                      size_t max_size);
+  size_t (*afl_custom_havoc_mutation)(void *data, u8 *buf, size_t buf_size,
+                                      u8 **out_buf, size_t max_size);
 
   /**
    * Return the probability (in percentage) that afl_custom_havoc_mutation
@@ -803,8 +818,8 @@ void finalize_py_module(void *);
 size_t pre_save_py(void *, u8 *, size_t, u8 **);
 u32    init_trim_py(void *, u8 *, size_t);
 u32    post_trim_py(void *, u8);
-void   trim_py(void *, u8 **, size_t *);
-size_t havoc_mutation_py(void *, u8 **, size_t, size_t);
+size_t trim_py(void *, u8 **);
+size_t havoc_mutation_py(void *, u8 *, size_t, u8 **, size_t);
 u8     havoc_mutation_probability_py(void *);
 u8     queue_get_py(void *, const u8 *);
 void   queue_new_entry_py(void *, const u8 *, const u8 *);
