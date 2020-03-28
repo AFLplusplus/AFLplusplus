@@ -35,15 +35,22 @@ static void *unsupported(afl_state_t *afl, unsigned int seed) {
 
 }
 
-size_t fuzz_py(void *py_mutator, u8 **buf, size_t buf_size, u8 *add_buf,
-               size_t add_buf_size, size_t max_size) {
+/* sorry for this makro...
+it just filles in `&py_mutator->something_buf, &py_mutator->something_size`. */
+#define BUF_PARAMS(name)                              \
+  (void **)&((py_mutator_t *)py_mutator)->name##_buf, \
+      &((py_mutator_t *)py_mutator)->name##_size
+
+size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
+               u8 *add_buf, size_t add_buf_size, size_t max_size) {
 
   size_t    mutated_size;
   PyObject *py_args, *py_value;
   py_args = PyTuple_New(3);
+  py_mutator_t *py = (py_mutator_t *)py_mutator;
 
   /* buf */
-  py_value = PyByteArray_FromStringAndSize(*buf, buf_size);
+  py_value = PyByteArray_FromStringAndSize(buf, buf_size);
   if (!py_value) {
 
     Py_DECREF(py_args);
@@ -79,17 +86,17 @@ size_t fuzz_py(void *py_mutator, u8 **buf, size_t buf_size, u8 *add_buf,
 
   PyTuple_SetItem(py_args, 2, py_value);
 
-  py_value = PyObject_CallObject(
-      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_FUZZ], py_args);
+  py_value = PyObject_CallObject(py->py_functions[PY_FUNC_FUZZ], py_args);
 
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
 
     mutated_size = PyByteArray_Size(py_value);
-    if (buf_size < mutated_size) *buf = ck_realloc(*buf, mutated_size);
 
-    memcpy(*buf, PyByteArray_AsString(py_value), mutated_size);
+    *out_buf = ck_maybe_grow(BUF_PARAMS(fuzz), mutated_size);
+
+    memcpy(*out_buf, PyByteArray_AsString(py_value), mutated_size);
     Py_DECREF(py_value);
     return mutated_size;
 
@@ -364,14 +371,8 @@ size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
 
     py_out_buf_size = PyByteArray_Size(py_value);
 
-    if (py_out_buf_size > py->pre_save_size) {
-
-      /* Not enough space!
-      Let's resize our buf */
-      py->pre_save_buf = ck_realloc(py->pre_save_buf, py_out_buf_size);
-      py->pre_save_size = py_out_buf_size;
-
-    }
+    ck_maybe_grow((void **)&py->pre_save_buf, &py->pre_save_size,
+                  py_out_buf_size);
 
     memcpy(py->pre_save_buf, PyByteArray_AsString(py_value), py_out_buf_size);
     Py_DECREF(py_value);
@@ -465,9 +466,10 @@ u32 post_trim_py(void *py_mutator, u8 success) {
 
 }
 
-void trim_py(void *py_mutator, u8 **out_buf, size_t *out_buf_size) {
+size_t trim_py(void *py_mutator, u8 **out_buf) {
 
   PyObject *py_args, *py_value;
+  size_t    ret;
 
   py_args = PyTuple_New(0);
   py_value = PyObject_CallObject(
@@ -476,9 +478,9 @@ void trim_py(void *py_mutator, u8 **out_buf, size_t *out_buf_size) {
 
   if (py_value != NULL) {
 
-    *out_buf_size = PyByteArray_Size(py_value);
-    *out_buf = malloc(*out_buf_size);
-    memcpy(*out_buf, PyByteArray_AsString(py_value), *out_buf_size);
+    ret = PyByteArray_Size(py_value);
+    *out_buf = ck_maybe_grow(BUF_PARAMS(trim), ret);
+    memcpy(*out_buf, PyByteArray_AsString(py_value), ret);
     Py_DECREF(py_value);
 
   } else {
@@ -488,17 +490,19 @@ void trim_py(void *py_mutator, u8 **out_buf, size_t *out_buf_size) {
 
   }
 
+  return ret;
+
 }
 
-size_t havoc_mutation_py(void *py_mutator, u8 **buf, size_t buf_size,
-                         size_t max_size) {
+size_t havoc_mutation_py(void *py_mutator, u8 *buf, size_t buf_size,
+                         u8 **out_buf, size_t max_size) {
 
   size_t    mutated_size;
   PyObject *py_args, *py_value;
   py_args = PyTuple_New(2);
 
   /* buf */
-  py_value = PyByteArray_FromStringAndSize(*buf, buf_size);
+  py_value = PyByteArray_FromStringAndSize(buf, buf_size);
   if (!py_value) {
 
     Py_DECREF(py_args);
@@ -532,9 +536,19 @@ size_t havoc_mutation_py(void *py_mutator, u8 **buf, size_t buf_size,
   if (py_value != NULL) {
 
     mutated_size = PyByteArray_Size(py_value);
-    if (buf_size < mutated_size) *buf = ck_realloc(*buf, mutated_size);
+    if (mutated_size <= buf_size) {
 
-    memcpy(*buf, PyByteArray_AsString(py_value), mutated_size);
+      /* We reuse the input buf here. */
+      *out_buf = buf;
+
+    } else {
+
+      /* A new buf is needed... */
+      *out_buf = ck_maybe_grow(BUF_PARAMS(havoc), mutated_size);
+
+    }
+
+    memcpy(*out_buf, PyByteArray_AsString(py_value), mutated_size);
 
     Py_DECREF(py_value);
     return mutated_size;
@@ -679,6 +693,8 @@ void queue_new_entry_py(void *py_mutator, const u8 *filename_new_queue,
   }
 
 }
+
+#undef BUF_PARAMS
 
 #endif                                                        /* USE_PYTHON */
 
