@@ -29,7 +29,7 @@ MAN_PATH    ?= $(PREFIX)/man/man8
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
 CFLAGS      ?= -O3 -g -funroll-loops
-CFLAGS      += -Wall -I../include -D_FORTIFY_SOURCE=2 -Wno-pointer-sign \
+override CFLAGS = -Wall -I../include -D_FORTIFY_SOURCE=2 -Wno-pointer-sign \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DGCC_VERSION=\"$(GCCVER)\" -DGCC_BINDIR=\"$(GCCBINDIR)\" \
                -Wno-unused-function
@@ -39,6 +39,16 @@ CXXEFLAGS   := $(CXXFLAGS) -Wall -D_FORTIFY_SOURCE=2
 
 CC          ?= gcc
 CXX         ?= g++
+
+ifeq "clang" "$(CC)"
+        CC  = gcc
+        CXX = g++
+endif
+
+ifeq "clang++" "$(CXX)"
+        CC  = gcc
+        CXX = g++
+endif
 
 PLUGIN_FLAGS = -fPIC -fno-rtti -I"$(shell $(CC) -print-file-name=plugin)/include"
 HASH=\#
