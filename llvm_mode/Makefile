@@ -268,7 +268,7 @@ endif
 	-$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
 
 ../afl-llvm-pass.so: afl-llvm-pass.so.cc | test_deps
-	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
+	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -Wno-#warnings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
 
 ../afl-llvm-lto-whitelist.so: afl-llvm-lto-whitelist.so.cc
 ifeq "$(LLVM_LTO)" "1"
