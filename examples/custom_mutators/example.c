@@ -193,7 +193,8 @@ size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
  * @return The amount of possible iteration steps to trim the input.
  *        negative on error.
  */
-int32_t afl_custom_init_trim(my_mutator_t *data, uint8_t *buf, size_t buf_size) {
+int32_t afl_custom_init_trim(my_mutator_t *data, uint8_t *buf,
+                             size_t buf_size) {
 
   // We simply trim once
   data->trimmming_steps = 1;
@@ -201,9 +202,12 @@ int32_t afl_custom_init_trim(my_mutator_t *data, uint8_t *buf, size_t buf_size) 
   data->cur_step = 0;
 
   if (!maybe_grow(BUF_PARAMS(data, trim), buf_size)) {
+
     perror("init_trim grow");
     return -1;
+
   }
+
   memcpy(data->trim_buf, buf, buf_size);
 
   data->trim_size_current = buf_size;
