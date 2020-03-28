@@ -700,9 +700,10 @@ struct custom_mutator {
    * @param data pointer returned in afl_custom_init for this fuzz case
    * @param buf Buffer containing the test case
    * @param buf_size Size of the test case
-   * @return The amount of possible iteration steps to trim the input
+   * @return The amount of possible iteration steps to trim the input.
+   *        Negative on error.
    */
-  u32 (*afl_custom_init_trim)(void *data, u8 *buf, size_t buf_size);
+  s32 (*afl_custom_init_trim)(void *data, u8 *buf, size_t buf_size);
 
   /**
    * This method is called for each trimming operation. It doesn't have any
@@ -733,9 +734,9 @@ struct custom_mutator {
    * @param data pointer returned in afl_custom_init for this fuzz case
    * @param success Indicates if the last trim operation was successful.
    * @return The next trim iteration index (from 0 to the maximum amount of
-   *     steps returned in init_trim)
+   *     steps returned in init_trim). Negative on error.
    */
-  u32 (*afl_custom_post_trim)(void *data, u8 success);
+  s32 (*afl_custom_post_trim)(void *data, u8 success);
 
   /**
    * Perform a single custom mutation on a given input.
@@ -818,8 +819,8 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf);
 void finalize_py_module(void *);
 
 size_t pre_save_py(void *, u8 *, size_t, u8 **);
-u32    init_trim_py(void *, u8 *, size_t);
-u32    post_trim_py(void *, u8);
+s32    init_trim_py(void *, u8 *, size_t);
+s32    post_trim_py(void *, u8);
 size_t trim_py(void *, u8 **);
 size_t havoc_mutation_py(void *, u8 *, size_t, u8 **, size_t);
 u8     havoc_mutation_probability_py(void *);

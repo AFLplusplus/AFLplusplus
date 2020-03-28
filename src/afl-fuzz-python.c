@@ -388,7 +388,7 @@ size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
 
 }
 
-u32 init_trim_py(void *py_mutator, u8 *buf, size_t buf_size) {
+s32 init_trim_py(void *py_mutator, u8 *buf, size_t buf_size) {
 
   PyObject *py_args, *py_value;
 
@@ -426,7 +426,7 @@ u32 init_trim_py(void *py_mutator, u8 *buf, size_t buf_size) {
 
 }
 
-u32 post_trim_py(void *py_mutator, u8 success) {
+s32 post_trim_py(void *py_mutator, u8 success) {
 
   PyObject *py_args, *py_value;
 
