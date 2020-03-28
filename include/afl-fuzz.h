@@ -649,14 +649,16 @@ struct custom_mutator {
    * (Optional for now. Required in the future)
    *
    * @param data pointer returned in afl_custom_init for this fuzz case
-   * @param[inout] buf Pointer to the input data to be mutated and the mutated
+   * @param[in] buf Pointer to the input data to be mutated and the mutated
    *     output
    * @param[in] buf_size Size of the input/output data
+   * @param[out] out_buf the new buffer. We may reuse *buf if large enough.
+   *             *out_buf = NULL is treated as FATAL.
    * @param[in] add_buf Buffer containing the additional test case
    * @param[in] add_buf_size Size of the additional test case
    * @param[in] max_size Maximum size of the mutated output. The mutation must
    * not produce data larger than max_size.
-   * @return Size of the mutated output. Negative on error will abort exeuction.
+   * @return Size of the mutated output.
    */
   size_t (*afl_custom_fuzz)(void *data, u8 *buf, size_t buf_size, u8 **out_buf,
                             u8 *add_buf, size_t add_buf_size, size_t max_size);

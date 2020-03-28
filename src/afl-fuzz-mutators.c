@@ -229,7 +229,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     size_t retlen = afl->mutator->afl_custom_trim(afl->mutator->data, &retbuf);
 
-    if (unlikely(retlen < 0 || !retbuf))
+    if (unlikely(!retbuf))
       FATAL("custom_trim failed (ret %zd)", retlen);
     else if (unlikely(retlen > orig_len))
       FATAL(
