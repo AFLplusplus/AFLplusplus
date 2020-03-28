@@ -26,7 +26,10 @@
 
 #include "afl-fuzz.h"
 
-void load_custom_mutator(afl_state_t *, const char *);
+struct custom_mutator * load_custom_mutator(afl_state_t *, const char *);
+#ifdef USE_PYTHON
+void load_custom_mutator_py(afl_state_t *, char *);
+#endif
 
 struct custom_mutator * load_mutator(afl_state_t *, const char *);
 
@@ -35,36 +38,32 @@ void setup_custom_mutator(afl_state_t *afl) {
   /* Try mutator library first */
   u8 *fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
   struct custom_mutator *mut; 
+  u8 count_of_mutators;
 
   if (fn) {
-
-    if (afl->limit_time_sig) {
-
+    if (afl->limit_time_sig)
       FATAL(
           "MOpt and custom mutator are mutually exclusive. We accept pull "
           "requests that integrates MOpt with the optional mutators "
           "(custom/radamsa/redquenn/...).");
 
+    u8 *fn_token = strsep(&fn, ";");
+
+    if (!fn_token) {
+      afl->mutator = load_custom_mutator(afl, fn);
     }
 
-    load_custom_mutator(afl, fn);
-
-    return;
-
-  }
-
-  char *s ;
-
-  fn = getenv("TEST_MUT");
-
-  if (fn) {
-    u8 *fn_token = strsep(&fn, ";");
     while (fn_token)
     {
-      mut = load_mutator(afl, fn_token);
+      mut = load_custom_mutator(afl, fn_token);
       list_append(afl->list_mutators, mut);
       fn_token = strsep(&fn, ";");
+
     }
+
+    mut = get_head(afl->list_mutators)->prev->data;
+    afl->mutator = mut;
+
   }
 
   /* Try Python module */
@@ -121,7 +120,7 @@ void destroy_custom_mutator(afl_state_t *afl) {
 }
 
 
-struct custom_mutator * load_mutator(afl_state_t *afl, const char *fn) {
+struct custom_mutator * load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   void *dh;
   struct custom_mutator *mutator = ck_alloc(sizeof(struct custom_mutator));
@@ -217,143 +216,6 @@ struct custom_mutator * load_mutator(afl_state_t *afl, const char *fn) {
 
 }
 
-void load_custom_mutator(afl_state_t *afl, const char *fn) {
-
-  void *dh;
-  afl->mutator = ck_alloc(sizeof(struct custom_mutator));
-  afl->mutator->pre_save_buf = NULL;
-  afl->mutator->pre_save_size = 0;
-
-  afl->mutator->name = fn;
-  ACTF("Loading custom mutator library from '%s'...", fn);
-
-  dh = dlopen(fn, RTLD_NOW);
-  if (!dh) { FATAL("%s", dlerror()); }
-  afl->mutator->dh = dh;
-
-  /* Mutator */
-  /* "afl_custom_init", required */
-  afl->mutator->afl_custom_init = dlsym(dh, "afl_custom_init");
-  if (!afl->mutator->afl_custom_init) {
-
-    FATAL("Symbol 'afl_custom_init' not found.");
-
-  }
-
-  /* "afl_custom_deinit", required */
-  afl->mutator->afl_custom_deinit = dlsym(dh, "afl_custom_deinit");
-  if (!afl->mutator->afl_custom_deinit) {
-
-    FATAL("Symbol 'afl_custom_deinit' not found.");
-
-  }
-
-  /* "afl_custom_fuzz" or "afl_custom_mutator", required */
-  afl->mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_fuzz");
-  if (!afl->mutator->afl_custom_fuzz) {
-
-    /* Try "afl_custom_mutator" for backward compatibility */
-    WARNF("Symbol 'afl_custom_fuzz' not found. Try 'afl_custom_mutator'.");
-
-    afl->mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_mutator");
-    if (!afl->mutator->afl_custom_fuzz) {
-
-      FATAL("Symbol 'afl_custom_mutator' not found.");
-
-    }
-
-  }
-
-  /* "afl_custom_pre_save", optional */
-  afl->mutator->afl_custom_pre_save = dlsym(dh, "afl_custom_pre_save");
-  if (!afl->mutator->afl_custom_pre_save) {
-
-    WARNF("Symbol 'afl_custom_pre_save' not found.");
-
-  }
-
-  u8 notrim = 0;
-  /* "afl_custom_init_trim", optional */
-  afl->mutator->afl_custom_init_trim = dlsym(dh, "afl_custom_init_trim");
-  if (!afl->mutator->afl_custom_init_trim) {
-
-    WARNF("Symbol 'afl_custom_init_trim' not found.");
-
-  }
-
-  /* "afl_custom_trim", optional */
-  afl->mutator->afl_custom_trim = dlsym(dh, "afl_custom_trim");
-  if (!afl->mutator->afl_custom_trim) {
-
-    WARNF("Symbol 'afl_custom_trim' not found.");
-
-  }
-
-  /* "afl_custom_post_trim", optional */
-  afl->mutator->afl_custom_post_trim = dlsym(dh, "afl_custom_post_trim");
-  if (!afl->mutator->afl_custom_post_trim) {
-
-    WARNF("Symbol 'afl_custom_post_trim' not found.");
-
-  }
-
-  if (notrim) {
-
-    afl->mutator->afl_custom_init_trim = NULL;
-    afl->mutator->afl_custom_trim = NULL;
-    afl->mutator->afl_custom_post_trim = NULL;
-    WARNF(
-        "Custom mutator does not implement all three trim APIs, standard "
-        "trimming will be used.");
-
-  }
-
-  /* "afl_custom_havoc_mutation", optional */
-  afl->mutator->afl_custom_havoc_mutation =
-      dlsym(dh, "afl_custom_havoc_mutation");
-  if (!afl->mutator->afl_custom_havoc_mutation) {
-
-    WARNF("Symbol 'afl_custom_havoc_mutation' not found.");
-
-  }
-
-  /* "afl_custom_havoc_mutation", optional */
-  afl->mutator->afl_custom_havoc_mutation_probability =
-      dlsym(dh, "afl_custom_havoc_mutation_probability");
-  if (!afl->mutator->afl_custom_havoc_mutation_probability) {
-
-    WARNF("Symbol 'afl_custom_havoc_mutation_probability' not found.");
-
-  }
-
-  /* "afl_custom_queue_get", optional */
-  afl->mutator->afl_custom_queue_get = dlsym(dh, "afl_custom_queue_get");
-  if (!afl->mutator->afl_custom_queue_get) {
-
-    WARNF("Symbol 'afl_custom_queue_get' not found.");
-
-  }
-
-  /* "afl_custom_queue_new_entry", optional */
-  afl->mutator->afl_custom_queue_new_entry =
-      dlsym(dh, "afl_custom_queue_new_entry");
-  if (!afl->mutator->afl_custom_queue_new_entry) {
-
-    WARNF("Symbol 'afl_custom_queue_new_entry' not found");
-
-  }
-
-  OKF("Custom mutator '%s' installed successfully.", fn);
-
-  /* Initialize the custom mutator */
-  if (afl->mutator->afl_custom_init) {
-
-    afl->mutator->data =
-        afl->mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
-
-  }
-
-}
 
 u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
