@@ -100,6 +100,7 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
   u8 *mutated_out = maybe_grow(BUF_PARAMS(data, fuzz), mutated_size);
   if (!mutated_out) {
 
+    *out_buf = NULL;
     perror("custom mutator allocation (maybe_grow)");
     return 0;            /* afl-fuzz will very likely error out after this. */
 
@@ -189,16 +190,20 @@ size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
  * @param data pointer returned in afl_custom_init for this fuzz case
  * @param buf Buffer containing the test case
  * @param buf_size Size of the test case
- * @return The amount of possible iteration steps to trim the input
+ * @return The amount of possible iteration steps to trim the input.
+ *        negative on error.
  */
-int afl_custom_init_trim(my_mutator_t *data, uint8_t *buf, size_t buf_size) {
+int32_t afl_custom_init_trim(my_mutator_t *data, uint8_t *buf, size_t buf_size) {
 
   // We simply trim once
   data->trimmming_steps = 1;
 
   data->cur_step = 0;
 
-  maybe_grow(BUF_PARAMS(data, trim), buf_size);
+  if (!maybe_grow(BUF_PARAMS(data, trim), buf_size)) {
+    perror("init_trim grow");
+    return -1;
+  }
   memcpy(data->trim_buf, buf, buf_size);
 
   data->trim_size_current = buf_size;
@@ -245,9 +250,9 @@ size_t afl_custom_trim(my_mutator_t *data, uint8_t **out_buf) {
  * @param[in] data pointer returned in afl_custom_init for this fuzz case
  * @param success Indicates if the last trim operation was successful.
  * @return The next trim iteration index (from 0 to the maximum amount of
- *     steps returned in init_trim)
+ *     steps returned in init_trim). negative ret on failure.
  */
-int afl_custom_post_trim(my_mutator_t *data, int success) {
+int32_t afl_custom_post_trim(my_mutator_t *data, int success) {
 
   if (success) {
 
