@@ -153,8 +153,6 @@ uint64_t PowerOf2Ceil(unsigned in) {
 /* #if LLVM_VERSION_STRING >= "4.0.1" */
 #if LLVM_VERSION_MAJOR >= 4 || (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
 #define AFL_HAVE_VECTOR_INTRINSICS 1
-#else
-#warning this clang version does not have vector intrinsics -> no ngram instrumentation
 #endif
 bool AFLCoverage::runOnModule(Module &M) {
 
