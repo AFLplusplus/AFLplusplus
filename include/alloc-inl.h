@@ -767,11 +767,13 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
 
 #endif                                          /* _WANT_ORIGINAL_AFL_ALLOC */
 
-/* This function calculates the lowest power of 2 greater or equal its argument.
+/* This function calculates the next power of 2 greater or equal its argument.
  @return The rounded up power of 2 (if no overflow) or 0 on overflow.
 */
-static inline size_t powerOf2Ceil(size_t in) {
-  if (in == 0 || in > (size_t)-1) return 0; /* avoid undefined behaviour under-/overflow */
+static inline size_t next_pow2(size_t in) {
+
+  if (in == 0 || in > (size_t)-1)
+    return 0;                  /* avoid undefined behaviour under-/overflow */
   size_t out = in - 1;
   out |= out >> 1;
   out |= out >> 2;
@@ -779,6 +781,7 @@ static inline size_t powerOf2Ceil(size_t in) {
   out |= out >> 8;
   out |= out >> 16;
   return out + 1;
+
 }
 
 /* This function makes sure *size is > size_needed after call.
@@ -801,12 +804,10 @@ static inline void *ck_maybe_grow(void **buf, size_t *size,
   if (size_needed < INITIAL_GROWTH_SIZE) size_needed = INITIAL_GROWTH_SIZE;
 
   /* grow exponentially */
-  size_t next_size = powerOf2Ceil(size_needed);
+  size_t next_size = next_pow2(size_needed);
 
   /* handle overflow */
-  if (!next_size) {
-    next_size = size_needed;
-  }
+  if (!next_size) { next_size = size_needed; }
 
   /* alloc */
   *buf = ck_realloc(*buf, next_size);
