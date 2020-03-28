@@ -580,7 +580,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
 }
 
 $ECHO "$BLUE[*] Testing: shared library extensions"
-cc -o test-compcov test-compcov.c > /dev/null 2>&1
+cc $CFLAGS -o test-compcov test-compcov.c > /dev/null 2>&1
 test -e ../libtokencap.so && {
   AFL_TOKEN_FILE=token.out LD_PRELOAD=../libtokencap.so DYLD_INSERT_LIBRARIES=../libtokencap.so DYLD_FORCE_FLAT_NAMESPACE=1 ./test-compcov foobar > /dev/null 2>&1
   grep -q BUGMENOT token.out > /dev/null 2>&1 && {
