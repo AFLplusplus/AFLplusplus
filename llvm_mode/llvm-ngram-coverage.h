@@ -12,7 +12,7 @@ typedef u64 PREV_LOC_T;
 #endif
 
 /* Maximum ngram size */
-#define MAX_NGRAM_SIZE 128
+#define MAX_NGRAM_SIZE 128U
 
 #endif
 
