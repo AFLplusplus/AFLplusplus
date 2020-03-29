@@ -151,7 +151,8 @@ uint64_t PowerOf2Ceil(unsigned in) {
 #endif
 
 /* #if LLVM_VERSION_STRING >= "4.0.1" */
-#if LLVM_VERSION_MAJOR >= 4 || (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
+#if LLVM_VERSION_MAJOR >= 4 || \
+    (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
 #define AFL_HAVE_VECTOR_INTRINSICS 1
 #endif
 bool AFLCoverage::runOnModule(Module &M) {
@@ -217,7 +218,8 @@ bool AFLCoverage::runOnModule(Module &M) {
     if (sscanf(ngram_size_str, "%u", &ngram_size) != 1 || ngram_size < 2 ||
         ngram_size > MAX_NGRAM_SIZE)
       FATAL(
-          "Bad value of AFL_NGRAM_SIZE (must be between 2 and MAX_NGRAM_SIZE (%u))",
+          "Bad value of AFL_NGRAM_SIZE (must be between 2 and MAX_NGRAM_SIZE "
+          "(%u))",
           MAX_NGRAM_SIZE);
 
   if (ngram_size == 1) ngram_size = 0;
@@ -233,7 +235,7 @@ bool AFLCoverage::runOnModule(Module &M) {
     PrevLocSize = 1;
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
-  uint64_t    PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
+  uint64_t PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
   if (ngram_size) PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize);
 #endif
 
@@ -247,26 +249,26 @@ bool AFLCoverage::runOnModule(Module &M) {
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   if (ngram_size)
-# ifdef __ANDROID__
+#ifdef __ANDROID__
     AFLPrevLoc = new GlobalVariable(
         M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
         /* Initializer */ nullptr, "__afl_prev_loc");
-# else
+#else
     AFLPrevLoc = new GlobalVariable(
         M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
         /* Initializer */ nullptr, "__afl_prev_loc",
         /* InsertBefore */ nullptr, GlobalVariable::GeneralDynamicTLSModel,
         /* AddressSpace */ 0, /* IsExternallyInitialized */ false);
-# endif
+#endif
   else
 #endif
 #ifdef __ANDROID__
     AFLPrevLoc = new GlobalVariable(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
 #else
-    AFLPrevLoc = new GlobalVariable(
-        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
-        GlobalVariable::GeneralDynamicTLSModel, 0, false);
+  AFLPrevLoc = new GlobalVariable(
+      M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
+      GlobalVariable::GeneralDynamicTLSModel, 0, false);
 #endif
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
@@ -594,6 +596,7 @@ bool AFLCoverage::runOnModule(Module &M) {
         Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
       } else
+
 #endif
       {
 
