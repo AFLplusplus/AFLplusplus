@@ -27,6 +27,10 @@ def init(seed):
     random.seed(seed)
 
 
+def deinit():
+    pass
+
+
 def fuzz(buf, add_buf, max_size):
     '''
     Called per fuzzing iteration.
