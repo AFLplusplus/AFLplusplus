@@ -894,9 +894,13 @@ test -d ../unicorn_mode/unicornafl && {
 }
 
 $ECHO "$BLUE[*] Testing: custom mutator"
-unset AFL_CC  # Line 474 sets AFL_CC to "gcc". We reset it to use the default compiler
-CUSTOM_MUTATOR_PATH=$( realpath ../examples/custom_mutators )
-test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c && {
+unset AFL_CC  # Test case "gcc_plugin" sets AFL_CC to "gcc". We reset it to use the default compiler
+test `uname -s` = 'Darwin' && {
+  CUSTOM_MUTATOR_PATH=$( realpath ../examples/custom_mutators )
+} || {
+  CUSTOM_MUTATOR_PATH=$( readlink -f ../examples/custom_mutators )
+}
+test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
   # Compile the vulnerable program
   ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
   # Compile the custom mutator
@@ -904,7 +908,7 @@ test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUS
   test -e test-custom-mutator -a -e ${CUSTOM_MUTATOR_PATH}/libexamplemutator.so && {
     # Create input directory
     mkdir -p in
-    echo 00000 > in/in
+    echo "00000" > in/in
 
     # Run afl-fuzz w/ the C mutator
     $ECHO "$GREY[*] running afl-fuzz for the C mutator, this will take approx 10 seconds"
@@ -915,7 +919,7 @@ test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUS
     } >>errors 2>&1
 
     # Check results
-    test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {  # TODO: update here
+    test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
       $ECHO "$GREEN[+] afl-fuzz is working correctly with the C mutator"
     } || {
       echo CUT------------------------------------------------------------------CUT
@@ -939,7 +943,7 @@ test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUS
     } >>errors 2>&1
 
     # Check results
-    test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {  # TODO: update here
+    test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
       $ECHO "$GREEN[+] afl-fuzz is working correctly with the Python mutator"
     } || {
       echo CUT------------------------------------------------------------------CUT
