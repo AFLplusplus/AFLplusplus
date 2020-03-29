@@ -201,7 +201,7 @@ else
   TARGETS = test_shm test_deps $(PROGS) afl-clang-fast.8 test_build all_done
 endif
 
-LLVM_MIN_4_0_1 = $(shell awk 'BEGIN { exit ARGV[1] >= ARGV[2] }' $(LLVMVER) 4.0.1; echo $$?)
+LLVM_MIN_4_0_1 = $(shell awk 'function tonum(ver, a) {split(ver,a,"."); return a[1]*1000000+a[2]*1000+a[3]} BEGIN { exit tonum(ARGV[1]) >= tonum(ARGV[2]) }' $(LLVMVER) 4.0.1; echo $$?)
 
 all: $(TARGETS)
 
