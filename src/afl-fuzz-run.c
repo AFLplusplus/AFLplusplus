@@ -33,13 +33,10 @@
 u8 run_target(afl_state_t *afl, u32 timeout) {
 
   s32 res;
-  int sret;
+  u32 time_ms;
 
-  fd_set readfds;
-
-  struct timeval it;
-  int            status = 0;
-  u32            tb4;
+  int status = 0;
+  u32 tb4;
 
   afl->fsrv.child_timed_out = 0;
 
@@ -70,26 +67,20 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
 
   if (afl->fsrv.child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
 
-  /* use select to monitor the forkserver for timeouts. */
+  time_ms = read_timed(afl->fsrv.fsrv_st_fd, &status, 4, timeout);
 
-  FD_ZERO(&readfds);
-  FD_SET(afl->fsrv.fsrv_st_fd, &readfds);
-  it.tv_sec = ((timeout) / 1000);
-  it.tv_usec = ((timeout) % 1000) * 1000;
-
-  sret = select(afl->fsrv.fsrv_st_fd + 1, &readfds, NULL, NULL, &it);
-
-  if (sret == 0) {
+  if (time_ms > timeout) {
 
     /* If there was no response from forkserver after timeout seconds,
     we kill the child. The forkserver should inform us afterwards */
 
     kill(afl->fsrv.child_pid, SIGKILL);
     afl->fsrv.child_timed_out = 1;
+    if (read(afl->fsrv.fsrv_st_fd, &status, 4) < 4) time_ms = 0;
 
   }
 
-  if ((res = read(afl->fsrv.fsrv_st_fd, &status, 4)) != 4) {
+  if (!time_ms) {
 
     if (afl->stop_soon) return 0;
     SAYF("\n" cLRD "[-] " cRST

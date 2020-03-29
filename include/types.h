@@ -58,8 +58,22 @@ typedef int32_t s32;
 typedef int64_t s64;
 
 #ifndef MIN
-#define MIN(_a, _b) ((_a) > (_b) ? (_b) : (_a))
-#define MAX(_a, _b) ((_a) > (_b) ? (_a) : (_b))
+#define MIN(a, b)           \
+  ({                        \
+                            \
+    __typeof__(a) _a = (a); \
+    __typeof__(b) _b = (b); \
+    _a < _b ? _a : _b;      \
+                            \
+  })
+#define MAX(a, b)           \
+  ({                        \
+                            \
+    __typeof__(a) _a = (a); \
+    __typeof__(b) _b = (b); \
+    _a > _b ? _a : _b;      \
+                            \
+  })
 #endif                                                              /* !MIN */
 
 #define SWAP16(_x)                    \
