@@ -566,9 +566,6 @@ typedef struct afl_state {
 
   /* Custom mutators */
   struct custom_mutator *mutator;
-#ifdef USE_PYTHON
-  struct custom_mutator *py_mutator;
-#endif
 
   /* cmplog forkserver ids */
   s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
