@@ -303,6 +303,7 @@ void load_custom_mutator_py(afl_state_t *afl, char *module_name) {
 
   py_mutator_t *py_mutator;
   py_mutator = init_py_module(afl, module_name);
+  afl->mutator->data = py_mutator;
   if (!py_mutator) { FATAL("Failed to load python mutator."); }
 
   PyObject **py_functions = py_mutator->py_functions;
