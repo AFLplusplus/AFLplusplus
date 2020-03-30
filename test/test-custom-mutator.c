@@ -10,11 +10,10 @@
 
 int main(int argc, char *argv[])
 {
-    char str[100]={ };
+    char str[100];
     read(0, str, 100);
-    int *ptr = NULL;
-    if( str[0] == 'P') {
-        *ptr = 123;
+    if( str[6] == 'A') {
+        abort();
     }
     return 0;
 }
