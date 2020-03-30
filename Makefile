@@ -206,6 +206,7 @@ help:
 	@echo "clean: cleans everything. for qemu_mode it means it deletes all downloads as well"
 	@echo "code-format: format the code, do this before you commit and send a PR please!"
 	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
+	@echo "unit: perform unit tests (based on cmocka)"
 	@echo "document: creates afl-fuzz-document which will only do one run and save all manipulated inputs into out/queue/mutations"
 	@echo "help: shows these build options :-)"
 	@echo "=========================================="
