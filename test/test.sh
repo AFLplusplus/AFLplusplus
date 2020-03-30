@@ -969,6 +969,10 @@ test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUS
 }
 unset CUSTOM_MUTATOR_PATH
 
+$ECHO "$BLUE[*] Execution cmocka Unit-Tests $GREY"
+unset AFL_CC
+make -C .. unit || "$CODE" = "1"
+
 $ECHO "$GREY[*] all test cases completed.$RESET"
 test "$INCOMPLETE" = "0" && $ECHO "$GREEN[+] all test cases executed"
 test "$INCOMPLETE" = "1" && $ECHO "$YELLOW[-] not all test cases were executed"
