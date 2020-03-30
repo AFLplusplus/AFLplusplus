@@ -142,34 +142,25 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
 size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
                            uint8_t **out_buf) {
 
-  if (data->pre_save_size < buf_size + 5) {
+  uint8_t *pre_save_buf = maybe_grow(BUF_PARAMS(data, pre_save), buf_size + 5);
+  if (!pre_save_buf) {
 
-    data->pre_save_buf = maybe_grow(BUF_PARAMS(data, pre_save), buf_size + 5);
-    if (!data->pre_save_buf) {
-
-      perror("custom mutator realloc failed.");
-      *out_buf = NULL;
-      return 0;
-
-    }
-
-    data->pre_save_size = buf_size + 5;
+    perror("custom mutator realloc failed.");
+    *out_buf = NULL;
+    return 0;
 
   }
 
-  uint8_t *pre_save_buf = data->pre_save_buf;
-
-  memcpy(pre_save_buf, buf, buf_size);
-  size_t out_buf_size = buf_size + 5;
-  pre_save_buf[buf_size + 0] = 'A';
-  pre_save_buf[buf_size + 1] = 'F';
-  pre_save_buf[buf_size + 2] = 'L';
-  pre_save_buf[buf_size + 3] = '+';
-  pre_save_buf[buf_size + 4] = '+';
+  memcpy(pre_save_buf + 5, buf, buf_size);
+  pre_save_buf[0] = 'A';
+  pre_save_buf[1] = 'F';
+  pre_save_buf[2] = 'L';
+  pre_save_buf[3] = '+';
+  pre_save_buf[4] = '+';
 
   *out_buf = pre_save_buf;
 
-  return out_buf_size;
+  return buf_size + 5;
 
 }
 

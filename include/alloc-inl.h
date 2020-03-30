@@ -788,6 +788,35 @@ static inline size_t next_pow2(size_t in) {
  It will realloc *buf otherwise.
  *size will grow exponentially as per:
  https://blog.mozilla.org/nnethercote/2014/11/04/please-grow-your-buffers-exponentially/
+ Will return NULL and free *buf if size_needed is <1 or realloc failed.
+ @return For convenience, this function returns *buf.
+ */
+static inline void *maybe_grow(void **buf, size_t *size, size_t size_needed) {
+
+  /* No need to realloc */
+  if (likely(size_needed && *size >= size_needed)) return *buf;
+
+  /* No initial size was set */
+  if (size_needed < INITIAL_GROWTH_SIZE) size_needed = INITIAL_GROWTH_SIZE;
+
+  /* grow exponentially */
+  size_t next_size = next_pow2(size_needed);
+
+  /* handle overflow and zero size_needed */
+  if (!next_size) { next_size = size_needed; }
+
+  /* alloc */
+  *buf = realloc(*buf, next_size);
+  *size = *buf ? next_size : 0;
+
+  return *buf;
+
+}
+
+/* This function makes sure *size is > size_needed after call.
+ It will realloc *buf otherwise.
+ *size will grow exponentially as per:
+ https://blog.mozilla.org/nnethercote/2014/11/04/please-grow-your-buffers-exponentially/
  Will FATAL if size_needed is <1.
  @return For convenience, this function returns *buf.
  */

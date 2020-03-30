@@ -1647,10 +1647,8 @@ custom_mutator_stage:
 
     }
 
-    /* `afl->out_buf` is actually not changed in the loop. Since `ck_maybe_grow`
-       is cheap, we still keep the following line but remove `memcpy`. */
-    out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
-    // memcpy(out_buf, in_buf, len);
+    /* `(afl->)out_buf` may have been changed by the call to custom_fuzz */
+    memcpy(out_buf, in_buf, len);
 
   }
 
