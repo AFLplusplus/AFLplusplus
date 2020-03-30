@@ -914,7 +914,7 @@ test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUS
     $ECHO "$GREY[*] running afl-fuzz for the C mutator, this will take approx 10 seconds"
     {
       export AFL_CUSTOM_MUTATOR_LIBRARY=${CUSTOM_MUTATOR_PATH}/libexamplemutator.so
-      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator
+      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
       unset AFL_CUSTOM_MUTATOR_LIBRARY
     } >>errors 2>&1
 
@@ -937,7 +937,7 @@ test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUS
     {
       export PYTHONPATH=${CUSTOM_MUTATOR_PATH}
       export AFL_PYTHON_MODULE=example
-      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator
+      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
       unset PYTHONPATH
       unset AFL_PYTHON_MODULE
     } >>errors 2>&1
