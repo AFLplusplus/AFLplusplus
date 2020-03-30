@@ -27,19 +27,15 @@ performed with the custom mutator.
 
 C/C++:
 ```c
-void afl_custom_init(void *afl, unsigned int seed);
-size_t afl_custom_fuzz(uint8_t** buf, size_t buf_size, uint8_t* add_buf,
-                       size_t add_buf_size, size_t max_size);
-size_t afl_custom_write_to_testcase(uint8_t* buf, size_t buf_size,
-                                    uint8_t* out_buf, size_t out_buf_size);
-uint32_t afl_custom_init_trim(uint8_t* buf, size_t buf_size);
-void afl_custom_trim(uint8_t** out_buf, size_t* out_buf_size);
-uint32_t afl_custom_post_trim(uint8_t success);
-size_t afl_custom_havoc_mutation(uint8_t** buf, size_t buf_size, size_t max_size);
-uint8_t afl_custom_havoc_mutation_probability(void);
-uint8_t afl_custom_queue_get(const uint8_t* filename);
-void afl_custom_queue_new_entry(const uint8_t* filename_new_queue,
-                                const uint8_t* filename_orig_queue);
+void *afl_custom_init(afl_t *afl, unsigned int seed);
+size_t afl_custom_fuzz(void *data, uint8_t *buf, size_t buf_size, u8 **out_buf, uint8_t *add_buf, size_t add_buf_size, size_t max_size);
+size_t afl_custom_pre_save(void *data, uint8_t *buf, size_t buf_size, uint8_t **out_buf);
+int32_t afl_custom_init_trim(void *data, uint8_t *buf, size_t buf_size);
+size_t afl_custom_trim(void *data, uint8_t **out_buf);
+int32_t afl_custom_post_trim(void *data, int success) {
+size_t afl_custom_havoc_mutation(void *data, u8 *buf, size_t buf_size, u8 **out_buf, size_t max_size);
+uint8_t afl_custom_havoc_mutation_probability(void *data);
+uint8_t afl_custom_queue_get(void *data, const uint8_t *filename); void afl_custom_queue_new_entry(void *data, const uint8_t *filename_new_queue, const uint8_t *filename_orig_queue);
 void afl_custom_deinit(void *data);
 ```
 
