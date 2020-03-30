@@ -41,8 +41,8 @@ before_install:
   # export LLVM_DIR=${TRAVIS_BUILD_DIR}/${LLVM_PACKAGE}
   - echo Testing on $NAME
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then wget "$LINK""$NAME".tar.xz ; export LLVM_CONFIG=`pwd`/"$NAME" ; tar xJf "$NAME".tar.xz ; fi
-  - if [ "$MODERN" = "yes" ]; then sudo apt update ; sudo apt upgrade ; sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-"$GCC" gcc-"$GCC"-plugin-dev libc++-"$GCC"-dev findutils cmocka ; fi
-  - if [ "$MODERN" = "no" ]; then sudo apt update ; sudo apt install -y libtool $EXTRA libpixman-1-dev automake bison libglib2.0 build-essential gcc-"$GCC" gcc-"$GCC"-plugin-dev libc++-dev findutils cmocka ; fi
+  - if [ "$MODERN" = "yes" ]; then sudo apt update ; sudo apt upgrade ; sudo apt install -y libtool libtool-bin automake bison libglib2.0 build-essential clang gcc-"$GCC" gcc-"$GCC"-plugin-dev libc++-"$GCC"-dev findutils libcmocka-dev ; fi
+  - if [ "$MODERN" = "no" ]; then sudo apt update ; sudo apt install -y libtool $EXTRA libpixman-1-dev automake bison libglib2.0 build-essential gcc-"$GCC" gcc-"$GCC"-plugin-dev libc++-dev findutils libcmocka-dev ; fi
 
 script:
   - gcc -v
