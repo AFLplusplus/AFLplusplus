@@ -895,12 +895,12 @@ test -d ../unicorn_mode/unicornafl && {
 
 $ECHO "$BLUE[*] Testing: custom mutator"
 unset AFL_CC  # Line 474 sets AFL_CC to "gcc". We reset it to use the default compiler
-CUSTOM_MUTATOR_PATH=../examples/custom_mutators
+CUSTOM_MUTATOR_PATH=$( realpath ../examples/custom_mutators )
 test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c && {
   # Compile the vulnerable program
-  ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c
+  ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
   # Compile the custom mutator
-  make -C ../examples/custom_mutators libexamplemutator.so
+  make -C ../examples/custom_mutators libexamplemutator.so > /dev/null 2>&1
   test -e test-custom-mutator -a -e ${CUSTOM_MUTATOR_PATH}/libexamplemutator.so && {
     # Create input directory
     mkdir -p in
