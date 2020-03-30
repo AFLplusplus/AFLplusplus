@@ -913,9 +913,7 @@ test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUS
     # Run afl-fuzz w/ the C mutator
     $ECHO "$GREY[*] running afl-fuzz for the C mutator, this will take approx 10 seconds"
     {
-      export AFL_CUSTOM_MUTATOR_LIBRARY=${CUSTOM_MUTATOR_PATH}/libexamplemutator.so
-      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
-      unset AFL_CUSTOM_MUTATOR_LIBRARY
+      AFL_CUSTOM_MUTATOR_LIBRARY=${CUSTOM_MUTATOR_PATH}/libexamplemutator.so ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
     } >>errors 2>&1
 
     # Check results
