@@ -160,6 +160,7 @@ These build targets exist:
 * clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well
 * code-format: format the code, do this before you commit and send a PR please!
 * tests: runs test cases to ensure that all features are still working as they should
+* unit: perform unit tests (based on cmocka)
 * help: shows these build options
 
 [Unless you are on Mac OS X](https://developer.apple.com/library/archive/qa/qa1118/_index.html) you can also build statically linked versions of the 
