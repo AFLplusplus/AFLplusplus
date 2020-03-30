@@ -846,8 +846,6 @@ static inline void *ck_maybe_grow(void **buf, size_t *size,
 
 }
 
-
-
 /* Swaps buf1 ptr and buf2 ptr, as well as their sizes */
 static inline void swap_bufs(void **buf1, size_t *size1, void **buf2,
                              size_t *size2) {
