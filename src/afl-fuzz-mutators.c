@@ -193,8 +193,8 @@ void load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   /* Initialize the custom mutator */
   if (afl->mutator->afl_custom_init)
-    afl->mutator->data = afl->mutator->afl_custom_init(
-      afl, rand_below(afl, 0xFFFFFFFF));
+    afl->mutator->data =
+        afl->mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
 
 }
 
