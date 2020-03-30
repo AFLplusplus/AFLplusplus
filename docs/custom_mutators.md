@@ -74,9 +74,9 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
 
 ### Custom Mutation
 
-- `init` (optional):
+- `init`:
 
-    This method is called when AFL++ starts up and is used to seed RNG.
+    This method is called when AFL++ starts up and is used to seed RNG and set up buffers and state.
 
 - `queue_get` (optional):
 
@@ -142,7 +142,7 @@ trimmed input. Here's a quick API description:
 
     This method is called for each trimming operation. It doesn't have any
     arguments because we already have the initial buffer from `init_trim` and we
-    can memorize the current state in global variables. This can also save
+    can memorize the current state in the data variables. This can also save
     reparsing steps for each iteration. It should return the trimmed input
     buffer, where the returned data must not exceed the initial input data in
     length. Returning anything that is larger than the original data (passed to
@@ -155,6 +155,8 @@ trimmed input. Here's a quick API description:
     a failure here, you should reset your input to the last known good state.
     In any case, this method must return the next trim iteration index (from 0
     to the maximum amount of steps you returned in `init_trim`).
+
+`deinit` the last method to be called, deinitializing the state.
 
 Omitting any of three methods will cause the trimming to be disabled and trigger
 a fallback to the builtin default trimming routine.
