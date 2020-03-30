@@ -1621,8 +1621,6 @@ custom_mutator_stage:
     if (unlikely(!mutated_buf))
       FATAL("Error in custom_fuzz. Size returned: %zd", mutated_size);
 
-    if (mutated_size > len) afl->out_size = mutated_size;
-
     if (mutated_size > 0) {
 
       if (common_fuzz_stuff(afl, mutated_buf, (u32)mutated_size)) {
@@ -1650,6 +1648,8 @@ custom_mutator_stage:
     }
 
     out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
+    // ??? (h1994st): this line may be not necessary, as we do not modify the
+    // content of "out_buf".
     memcpy(out_buf, in_buf, len);
 
   }
