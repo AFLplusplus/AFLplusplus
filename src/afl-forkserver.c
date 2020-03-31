@@ -49,8 +49,6 @@
 
 /* Describe integer as memory size. */
 
-extern u8 *doc_path;
-
 list_t fsrv_list = {.element_prealloc_count = 0};
 
 /* Initializes the struct */
