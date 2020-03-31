@@ -967,7 +967,7 @@ static inline u32 get_rand_seed(afl_state_t *afl) {
 /* Find first power of two greater or equal to val (assuming val under
    2^63). */
 
-static u64 next_p2(u64 val) {
+static inline u64 next_p2(u64 val) {
 
   u64 ret = 1;
   while (val > ret)

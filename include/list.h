@@ -60,13 +60,13 @@ static inline element_t *get_head(list_t *list) {
 
 }
 
-static void list_free_el(list_t *list, element_t *el) {
+static inline void list_free_el(list_t *list, element_t *el) {
 
   PRE_FREE(el, list->element_prealloc_count);
 
 }
 
-static void list_append(list_t *list, void *el) {
+static inline void list_append(list_t *list, void *el) {
 
   element_t *head = get_head(list);
   if (!head->next) {
@@ -143,7 +143,7 @@ static void list_append(list_t *list, void *el) {
 
 /* remove an item from the list */
 
-static void list_remove(list_t *list, void *remove_me) {
+static inline void list_remove(list_t *list, void *remove_me) {
 
   LIST_FOREACH(list, void, {
 
@@ -165,7 +165,7 @@ static void list_remove(list_t *list, void *remove_me) {
 
 /* Returns true if el is in list */
 
-static bool list_contains(list_t *list, void *contains_me) {
+static inline bool list_contains(list_t *list, void *contains_me) {
 
   LIST_FOREACH(list, void, {
 

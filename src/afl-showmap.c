@@ -224,26 +224,6 @@ static u32 write_results(afl_forkserver_t *fsrv) {
 
 }
 
-/* Write output file. */
-
-static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
-
-  s32 ret;
-
-  unlink(path);                                            /* Ignore errors */
-
-  ret = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
-
-  if (ret < 0) PFATAL("Unable to create '%s'", path);
-
-  ck_write(ret, mem, len, path);
-
-  lseek(ret, 0, SEEK_SET);
-
-  return ret;
-
-}
-
 /* Write modified data to file for testing. If use_stdin is clear, the old file
    is unlinked and a new one is created. Otherwise, out_fd is rewound and
    truncated. */
