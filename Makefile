@@ -65,9 +65,9 @@ ifneq "$(shell uname -m)" "x86_64"
 endif
 
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
-override CFLAGS += -Wall -g -Wno-pointer-sign -D_FORTIFY_SOURCE=2 -I include/ \
-              -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
-              -DDOC_PATH=\"$(DOC_PATH)\" -Wno-unused-function -fcommon
+override CFLAGS += -Wall -g -Wno-pointer-sign -D_FORTIFY_SOURCE=2 \
+			  -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
+			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
@@ -304,8 +304,8 @@ afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver
 afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
 
-afl-gotcpu: src/afl-gotcpu.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
+afl-gotcpu: src/afl-gotcpu.c src/afl-common.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) src/$@.c src/afl-common.o -o $@ $(LDFLAGS)
 
 
 # document all mutations and only do one run (use with only one input file!)
