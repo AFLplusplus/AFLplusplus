@@ -23,7 +23,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - force all output to stdout (some OK/SAY/WARN messages were sent to
       stdout, some to stderr)
     - uninstrumented mode uses an internal forkserver ("fauxserver")
-    - reduced number of (de)allocations
+    - now builds with `-D_FORTIFY_SOURCE=2`
+    - drastically reduced number of (de)allocations during fuzzing
   - afl-fuzz:
     - python mutator modules and custom mutator modules now use the same
       interface and hence the API changed
@@ -205,7 +206,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
   - big code refactoring:
     * all includes are now in include/
-    * all afl sources are now in src/ - see src/README.src
+    * all afl sources are now in src/ - see src/README.md
     * afl-fuzz was splitted up in various individual files for including
       functionality in other programs (e.g. forkserver, memory map, etc.)
       for better readability.
