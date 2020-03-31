@@ -60,10 +60,9 @@ static s32 child_pid;                  /* PID of the tested program         */
 u8 *trace_bits;                        /* SHM with instrumentation bitmap   */
 
 static u8 *in_file,                    /* Analyzer input test case          */
-    *prog_in,                          /* Targeted program input file       */
-    *doc_path;                         /* Path to docs                      */
+    *prog_in;                          /* Targeted program input file       */
 
-static u8 *in_data;                    /* Input data for analysis           */
+    static u8 *in_data;                /* Input data for analysis           */
 
 static u32 in_len,                     /* Input data length                 */
     orig_cksum,                        /* Original checksum                 */
@@ -77,7 +76,7 @@ static s32 dev_null_fd = -1;           /* FD to /dev/null                   */
 
 u8 edges_only,                         /* Ignore hit counts?                */
     use_hex_offsets,                   /* Show hex offsets?                 */
-    be_quiet, use_stdin = 1;           /* Use stdin for program input?      */
+    use_stdin = 1;                     /* Use stdin for program input?      */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_timed_out;                   /* Child timed out?                  */

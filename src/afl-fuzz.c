@@ -25,8 +25,6 @@
 
 #include "afl-fuzz.h"
 
-u8 be_quiet = 0;
-
 static u8 *get_libradamsa_path(u8 *own_loc) {
 
   u8 *tmp, *cp, *rsl, *own_copy;
