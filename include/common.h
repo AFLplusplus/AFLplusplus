@@ -48,6 +48,9 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv);
 char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv);
 char * get_afl_env(char *env);
 
+extern u8  be_quiet;
+extern u8 *doc_path;                    /* path to documentation dir        */
+
 /* Get unix time in milliseconds */
 
 u64 get_cur_time(void);

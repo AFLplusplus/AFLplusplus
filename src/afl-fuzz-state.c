@@ -34,8 +34,6 @@ char *power_names[POWER_SCHEDULES_NUM] = {
 
     "explore", "fast", "coe", "lin", "quad", "exploit", "mmopt", "rare"};
 
-u8 *doc_path = NULL;                    /* gath to documentation dir        */
-
 /* Initialize MOpt "globals" for this afl state */
 
 static void init_mopt_globals(afl_state_t *afl) {
