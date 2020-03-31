@@ -187,13 +187,13 @@ void init_cmplog_forkserver(afl_state_t *afl) {
     rlen = 4;
     u32 timeout_ms = afl->fsrv.exec_tmout * FORK_WAIT_MULT;
     /* Reuse readfds as exceptfds to see when the child closed the pipe */
-    u32 time_ms = read_timed(afl->cmplog_fsrv_st_fd, &status, rlen, timeout_ms);
+    u32 exec_ms = read_timed(afl->cmplog_fsrv_st_fd, &status, rlen, timeout_ms);
 
-    if (!time_ms) {
+    if (!exec_ms) {
 
       PFATAL("Error in timed read");
 
-    } else if (time_ms > timeout_ms) {
+    } else if (exec_ms > timeout_ms) {
 
       afl->fsrv.child_timed_out = 1;
       kill(afl->cmplog_fsrv_pid, SIGKILL);
@@ -377,7 +377,7 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
   int status = 0;
-  u64 exec_ms;
+  u32 exec_ms;
 
   u32 tb4;
   s32 res;
@@ -416,9 +416,9 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
   /* Configure timeout, as requested by user, then wait for child to terminate.
    */
-  u32 time_ms = read_timed(afl->cmplog_fsrv_st_fd, &status, 4, timeout);
+  exec_ms = read_timed(afl->cmplog_fsrv_st_fd, &status, 4, timeout);
 
-  if (time_ms > timeout) {
+  if (exec_ms > timeout) {
 
     /* If there was no response from forkserver after timeout seconds,
     we kill the child. The forkserver should inform us afterwards */
@@ -427,11 +427,11 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
     afl->fsrv.child_timed_out = 1;
 
     /* After killing the child, the forkserver should tell us */
-    if (!read(afl->cmplog_fsrv_st_fd, &status, 4)) time_ms = 0;
+    if (!read(afl->cmplog_fsrv_st_fd, &status, 4)) exec_ms = 0;
 
   }
 
-  if (!time_ms) {  // Something went wrong.
+  if (!exec_ms) {  // Something went wrong.
 
     if (afl->stop_soon) return 0;
     SAYF("\n" cLRD "[-] " cRST
