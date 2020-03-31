@@ -426,7 +426,7 @@ static inline u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms) {
 
     }
 
-    len_read = read(fd, buf + len_read, len - len_read);
+    len_read = read(fd, ((u8 *)buf) + len_read, len - len_read);
     if (!len_read) { return 0; }
     read_total += len_read;
 
