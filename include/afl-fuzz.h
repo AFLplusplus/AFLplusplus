@@ -484,11 +484,6 @@ typedef struct afl_state {
       unique_tmouts,                    /* Timeouts with unique signatures  */
       unique_hangs,                     /* Hangs with unique signatures     */
       total_execs,                      /* Total execve() calls             */
-      slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
-      start_time,                       /* Unix start time (ms)             */
-      last_path_time,                   /* Time for most recent path (ms)   */
-      last_crash_time,                  /* Time for most recent crash (ms)  */
-      last_hang_time,                   /* Time for most recent hang (ms)   */
       last_crash_execs,                 /* Exec counter at last crash       */
       queue_cycle,                      /* Queue round counter              */
       cycles_wo_finds,                  /* Cycles without any new paths     */
@@ -496,9 +491,14 @@ typedef struct afl_state {
       bytes_trim_in,                    /* Bytes coming into the trimmer    */
       bytes_trim_out,                   /* Bytes coming outa the trimmer    */
       blocks_eff_total,                 /* Blocks subject to effector maps  */
-      blocks_eff_select;                /* Blocks selected as fuzzable      */
+      blocks_eff_select,                /* Blocks selected as fuzzable      */
+      start_time,                       /* Unix start time (ms)             */
+      last_path_time,                   /* Time for most recent path (ms)   */
+      last_crash_time,                  /* Time for most recent crash (ms)  */
+      last_hang_time;                   /* Time for most recent hang (ms)   */
 
-  u32 subseq_tmouts;                    /* Number of timeouts in a row      */
+  u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
+      subseq_tmouts;                    /* Number of timeouts in a row      */
 
   u8 *stage_name,                       /* Name of the current fuzz stage   */
       *stage_short,                     /* Short stage name                 */
