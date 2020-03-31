@@ -59,13 +59,10 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-u8 be_quiet;
-
 char *stdin_file;                      /* stdin file                        */
 
 u8 *in_dir,                            /* input folder                      */
-    *doc_path,                         /* Path to docs                      */
-        *at_file = NULL;               /* Substitution string for @@        */
+    *at_file = NULL;              /* Substitution string for @@             */
 
 static u8 *in_data;                    /* Input data                        */
 

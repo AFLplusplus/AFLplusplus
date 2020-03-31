@@ -239,8 +239,6 @@ enum {
 
 };
 
-extern u8 *doc_path;                    /* gath to documentation dir        */
-
 /* Python stuff */
 #ifdef USE_PYTHON
 

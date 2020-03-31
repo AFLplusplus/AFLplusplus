@@ -61,8 +61,7 @@
 static u8 *mask_bitmap;                /* Mask for trace bits (-B)          */
 
 u8 *in_file,                           /* Minimizer input test case         */
-    *output_file,                      /* Minimizer output file             */
-    *doc_path;                         /* Path to docs                      */
+    *output_file;                      /* Minimizer output file             */
 
 static u8 *in_data;                    /* Input data for trimming           */
 
@@ -77,8 +76,7 @@ u8 crash_mode,                         /* Crash-centric mode?               */
     hang_mode,                         /* Minimize as long as it hangs      */
     exit_crash,                        /* Treat non-zero exit as crash?     */
     edges_only,                        /* Ignore hit counts?                */
-    exact_mode,                        /* Require path match for crashes?   */
-    be_quiet;
+    exact_mode;                        /* Require path match for crashes?   */
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
