@@ -34,8 +34,8 @@
 #include "debug.h"
 #include "afl-prealloc.h"
 
-#define LIST_PREALLOC_SIZE \
-  (64)             /* How many elements to allocate before malloc is needed */
+/* How many elements to allocate before malloc is needed */
+#define LIST_PREALLOC_SIZE (64)
 
 typedef struct list_element {
 
