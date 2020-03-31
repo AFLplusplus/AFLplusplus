@@ -713,8 +713,8 @@ struct custom_mutator {
    *
    * @param data pointer returned in afl_custom_init for this fuzz case
    * @param[out] out_buf Pointer to the buffer containing the trimmed test case.
-   *     External library should allocate memory for out_buf. AFL++ will release
-   *     the memory after saving the test case.
+   *             The library can reuse a buffer for each call
+   *             and will have to free the buf (for example in deinit)
    * @return the size of the trimmed test case
    */
   size_t (*afl_custom_trim)(void *data, u8 **out_buf);
