@@ -1648,6 +1648,7 @@ custom_mutator_stage:
     }
 
     /* `(afl->)out_buf` may have been changed by the call to custom_fuzz */
+    /* TODO: Only do this when `mutated_buf` == `out_buf`? Branch vs Memcpy. */
     memcpy(out_buf, in_buf, len);
 
   }
