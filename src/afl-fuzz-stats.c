@@ -95,7 +95,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       "last_hang         : %llu\n"
       "execs_since_crash : %llu\n"
       "exec_timeout      : %u\n"
-      "slowest_exec_ms   : %llu\n"
+      "slowest_exec_ms   : %u\n"
       "peak_rss_mb       : %lu\n"
       "afl_banner        : %s\n"
       "afl_version       : " VERSION
