@@ -153,8 +153,8 @@ endif
 
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
-  CFLAGS+=-fsanitize=address
-  LDFLAGS+=-fsanitize=address
+  CFLAGS+=-fsanitize=address -fstack-protector-strong
+  LDFLAGS+=-fsanitize=address -fstack-protector-strong
 endif
 
 ifdef PROFILING
