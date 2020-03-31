@@ -423,7 +423,7 @@ u64 get_cur_time_us(void) {
    Will return buf for convenience. */
 
 u8 *stringify_int(u8 *buf, size_t len, u64 val) {
-
+\
 #define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)     \
   do {                                                     \
                                                            \
@@ -583,7 +583,7 @@ u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
    Will return buf for convenience. */
 
 u8 *u_stringify_int(u8 *buf, u64 val) {
-
+\
 #define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast) \
   do {                                                 \
                                                        \
@@ -783,3 +783,4 @@ u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms) {
                      : 1;  // at least 1 milli must have passed (0 is an error)
 
 }
+
