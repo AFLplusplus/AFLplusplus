@@ -316,7 +316,7 @@ test/unittests/unit_maybe_alloc.o : $(COMM_HDR) include/alloc-inl.h test/unittes
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
 
 unit_maybe_alloc: test/unittests/unit_maybe_alloc.o
-	$(CC) $(CFLAGS) -lcmocka -Wl,--wrap=exit -Wl,--wrap=printf $(LDFLAGS) test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc
+	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $(LDFLAGS) test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc -ldl -lcmocka
 	./test/unittests/unit_maybe_alloc
 
 unit: unit_maybe_alloc
