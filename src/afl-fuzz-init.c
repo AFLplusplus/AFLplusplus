@@ -391,7 +391,7 @@ void read_testcases(afl_state_t *afl) {
 
     if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
 
-      free(fn2);
+      ck_free(fn2);
       continue;
 
     }
