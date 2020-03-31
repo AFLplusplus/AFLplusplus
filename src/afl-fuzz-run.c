@@ -168,19 +168,15 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   s32   doc_fd;
-  char *fn = alloc_printf("%s/mutations/%09u:%s", afl->out_dir,
+  char fn[PATH_MAX];
+  snprintf(fn, PATH_MAX, ("%s/mutations/%09u:%s", afl->out_dir,
                           afl->document_counter++, describe_op(afl, 0));
-  if (fn != NULL) {
 
-    if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600)) >= 0) {
+  if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600)) >= 0) {
 
-      if (write(doc_fd, mem, len) != len)
-        PFATAL("write to mutation file failed: %s", fn);
-      close(doc_fd);
-
-    }
-
-    ck_free(fn);
+    if (write(doc_fd, mem, len) != len)
+      PFATAL("write to mutation file failed: %s", fn);
+    close(doc_fd);
 
   }
 
