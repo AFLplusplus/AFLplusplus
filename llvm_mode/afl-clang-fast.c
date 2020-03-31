@@ -48,7 +48,6 @@ static u8   debug;
 static u8   cwd[4096];
 static u8   cmplog_mode;
 u8          use_stdin = 0;                                         /* dummy */
-u8          be_quiet = 0;
 
 u8 *getthecwd() {
 
