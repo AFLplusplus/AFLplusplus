@@ -171,8 +171,8 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   TOTAL_CRASHES=$((TOTAL_CRASHES + unique_crashes))
   TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
   TOTAL_PFAV=$((TOTAL_PFAV + pending_favs))
-  
-   if [ "$last_path" -gt "$TOTAL_LAST_PATH" ]; then
+
+  if [ "$last_path" -gt "$TOTAL_LAST_PATH" ]; then
     TOTAL_LAST_PATH=$last_path
   fi
 
