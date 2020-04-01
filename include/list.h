@@ -56,7 +56,8 @@ typedef struct list {
 
 static inline element_t *get_head(list_t *list) {
 
-  return &list->element_prealloc_buf[0];
+  /* The first element is the head */
+  return list->element_prealloc_buf;
 
 }
 
