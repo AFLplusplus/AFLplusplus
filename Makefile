@@ -315,12 +315,15 @@ document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/
 test/unittests/unit_maybe_alloc.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_maybe_alloc.c $(AFL_FUZZ_FILES)
 	$(CC) $(CFLAGS) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
 
+test/unittests/unit_preallocable.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_preallocable.c $(AFL_FUZZ_FILES)
+	$(CC) $(CFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
+
 unit_maybe_alloc: test/unittests/unit_maybe_alloc.o
 	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) -lcmocka
 	./test/unittests/unit_maybe_alloc
 
 unit_preallocable: test/unittests/unit_preallocable.o
-	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $(LDFLAGS) test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable -ldl -lcmocka
+	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) -lcmocka
 	./test/unittests/unit_preallocable
 
 
