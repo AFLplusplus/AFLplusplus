@@ -313,10 +313,10 @@ document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/
 	$(CC) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
 
 test/unittests/unit_maybe_alloc.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_maybe_alloc.c $(AFL_FUZZ_FILES)
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
+	$(CC) $(CFLAGS) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
 
 unit_maybe_alloc: test/unittests/unit_maybe_alloc.o
-	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $(LDFLAGS) test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc -ldl -lcmocka
+	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) -lcmocka
 	./test/unittests/unit_maybe_alloc
 
 unit_preallocable: test/unittests/unit_preallocable.o
