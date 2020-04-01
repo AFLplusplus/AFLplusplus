@@ -2,15 +2,17 @@
 #include <stddef.h>
 #include <setjmp.h>
 #include <assert.h>
-#include <cmocka.h>
-
-/* Apparently not supported in very old cmocka versions */
+/* cmocka < 1.0 didn't support these features we need */
 #ifndef assert_ptr_equal
 #define assert_ptr_equal(a, b) \
     _assert_int_equal(cast_ptr_to_largest_integral_type(a), \
                       cast_ptr_to_largest_integral_type(b), \
                       __FILE__, __LINE__)
+#define CMUnitTest UnitTest
+#define cmocka_unit_test unit_test
 #endif
+#include <cmocka.h>
+
 
 extern void mock_assert(const int result, const char* const expression,
                         const char * const file, const int line);
