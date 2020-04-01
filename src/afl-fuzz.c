@@ -721,6 +721,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+#ifdef _ASAN_BUILD
+  if (!afl->fsrv.mem_limit) {
+    WARNF("in the ASAN build we disable all memory limits");
+    afl->fsrv.mem_limit = 0;
+  }
+#endif
+
   setup_signal_handlers();
   check_asan_opts();
 
