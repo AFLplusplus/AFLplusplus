@@ -167,7 +167,7 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
   s32 fd = afl->fsrv.out_fd;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
-  s32   doc_fd;
+  s32  doc_fd;
   char fn[PATH_MAX];
   snprintf(fn, PATH_MAX, ("%s/mutations/%09u:%s", afl->out_dir,
                           afl->document_counter++, describe_op(afl, 0));
