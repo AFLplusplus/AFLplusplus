@@ -156,8 +156,8 @@ ASAN_LDFLAGS+=-fsanitize=address -fstack-protector-all
 
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
-  CFLAGS+="$ASAN_CFLAGS"
-  LDFLAGS+="$ASAN_LDFLAGS"
+  CFLAGS+=$(ASAN_CFLAGS)
+  LDFLAGS+=$(ASAN_LDFLAGS)
 endif
 
 ifdef PROFILING
