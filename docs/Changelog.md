@@ -34,7 +34,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
                the last 5 queue entries
       - rare: puts focus on queue entries that hits rare branches, also ignores
               runtime
-  - llvm_mode: added Control Flow Integrity sanatizer (AFL_USE_CFISAN)
+  - llvm_mode: added Control Flow Integrity sanitizer (AFL_USE_CFISAN)
   - LTO collision free instrumented added in llvm_mode with afl-clang-lto -
     note that this mode is amazing, but quite some targets won't compile
   - Added llvm_mode NGRAM prev_loc coverage by Adrean Herrera
