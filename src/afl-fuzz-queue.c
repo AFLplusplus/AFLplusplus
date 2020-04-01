@@ -184,7 +184,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
   u32 i;
   u64 fav_factor;
-  u64 fuzz_p2 = next_p2(q->n_fuzz);
+  u64 fuzz_p2 = next_pow2(q->n_fuzz);
 
   if (afl->schedule == MMOPT || afl->schedule == RARE)
     fav_factor = q->len << 2;
@@ -201,7 +201,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
         /* Faster-executing or smaller test cases are favored. */
         u64 top_rated_fav_factor;
-        u64 top_rated_fuzz_p2 = next_p2(afl->top_rated[i]->n_fuzz);
+        u64 top_rated_fuzz_p2 = next_pow2(afl->top_rated[i]->n_fuzz);
 
         if (afl->schedule == MMOPT || afl->schedule == RARE)
           top_rated_fav_factor = afl->top_rated[i]->len << 2;
@@ -440,7 +440,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       if (q->fuzz_level < 16)
         factor = ((u32)(1 << q->fuzz_level)) / (fuzz == 0 ? 1 : fuzz);
       else
-        factor = MAX_FACTOR / (fuzz == 0 ? 1 : next_p2(fuzz));
+        factor = MAX_FACTOR / (fuzz == 0 ? 1 : next_pow2(fuzz));
       break;
 
     case LIN: factor = q->fuzz_level / (fuzz == 0 ? 1 : fuzz); break;
