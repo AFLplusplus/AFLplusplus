@@ -605,9 +605,9 @@ typedef struct afl_state {
   u8 *   in_scratch_buf;
   size_t in_scratch_size;
 
-  u8 *   ex_buf;
-  size_t ex_size;
-  list_t * list_mutators;
+  u8 *    ex_buf;
+  size_t  ex_size;
+  list_t *list_mutators;
 
   /* this is a fixed buffer of size map_size that can be used by any function if
    * they do not call another function */

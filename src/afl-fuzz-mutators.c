@@ -26,43 +26,50 @@
 
 #include "afl-fuzz.h"
 
-struct custom_mutator * load_custom_mutator(afl_state_t *, const char *);
+struct custom_mutator *load_custom_mutator(afl_state_t *, const char *);
 #ifdef USE_PYTHON
 void load_custom_mutator_py(afl_state_t *, char *);
 #endif
 
-struct custom_mutator * load_mutator(afl_state_t *, const char *);
+struct custom_mutator *load_mutator(afl_state_t *, const char *);
 
 void setup_custom_mutator(afl_state_t *afl) {
 
   /* Try mutator library first */
-  u8 *fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
-  struct custom_mutator *mut; 
-  u8 count_of_mutators;
+  u8 *                   fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+  struct custom_mutator *mut;
 
   if (fn) {
+
     if (afl->limit_time_sig)
       FATAL(
           "MOpt and custom mutator are mutually exclusive. We accept pull "
           "requests that integrates MOpt with the optional mutators "
           "(custom/radamsa/redquenn/...).");
 
-    u8 *fn_token = strsep(&fn, ";");
+    afl->list_mutators = (list_t *)malloc(sizeof(list_t));
+    memset(afl->list_mutators, 0, sizeof(list_t));
+    u8 *fn_token = (u8 *)strsep((char **)&fn, ";");
 
-    if (!fn_token) {
+    if (likely(!fn_token)) {
+
       afl->mutator = load_custom_mutator(afl, fn);
+      list_append(afl->list_mutators, afl->mutator);
+
+    } else {
+
+      while (fn_token) {
+
+        mut = load_custom_mutator(afl, fn_token);
+        list_append(afl->list_mutators, mut);
+        fn_token = (u8 *)strsep((char **)&fn, ";");
+
+      }
+
+      mut = get_head(afl->list_mutators)->prev->data;
+      afl->mutator = mut;
+
     }
-
-    while (fn_token)
-    {
-      mut = load_custom_mutator(afl, fn_token);
-      list_append(afl->list_mutators, mut);
-      fn_token = strsep(&fn, ";");
-
-    }
-
-    mut = get_head(afl->list_mutators)->prev->data;
-    afl->mutator = mut;
 
   }
 
@@ -100,29 +107,33 @@ void destroy_custom_mutator(afl_state_t *afl) {
 
   if (afl->mutator) {
 
-    afl->mutator->afl_custom_deinit(afl->mutator->data);
+    LIST_FOREACH_CLEAR(afl->list_mutators, struct custom_mutator, {
 
-    if (afl->mutator->dh) { dlclose(afl->mutator->dh); }
+      if (el->data) { el->afl_custom_deinit(el->data); }
+      if (el->dh) dlclose(el->dh);
 
-    if (afl->mutator->pre_save_buf) {
+      if (el->pre_save_buf) {
 
-      ck_free(afl->mutator->pre_save_buf);
-      afl->mutator->pre_save_buf = NULL;
-      afl->mutator->pre_save_size = 0;
+        ck_free(el->pre_save_buf);
+        el->pre_save_buf = NULL;
+        el->pre_save_size = 0;
 
-    }
+      }
+
+    })
 
     ck_free(afl->mutator);
+    ck_free(afl->list_mutators);
+    afl->list_mutators = NULL;
     afl->mutator = NULL;
 
   }
 
 }
 
+struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
-struct custom_mutator * load_custom_mutator(afl_state_t *afl, const char *fn) {
-
-  void *dh;
+  void *                 dh;
   struct custom_mutator *mutator = ck_alloc(sizeof(struct custom_mutator));
 
   mutator->name = fn;
@@ -135,8 +146,7 @@ struct custom_mutator * load_custom_mutator(afl_state_t *afl, const char *fn) {
   /* Mutator */
   /* "afl_custom_init", optional for backward compatibility */
   mutator->afl_custom_init = dlsym(dh, "afl_custom_init");
-  if (!mutator->afl_custom_init)
-    WARNF("Symbol 'afl_custom_init' not found.");
+  if (!mutator->afl_custom_init) WARNF("Symbol 'afl_custom_init' not found.");
 
   /* "afl_custom_fuzz" or "afl_custom_mutator", required */
   mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_fuzz");
@@ -164,8 +174,7 @@ struct custom_mutator * load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   /* "afl_custom_trim", optional */
   mutator->afl_custom_trim = dlsym(dh, "afl_custom_trim");
-  if (!mutator->afl_custom_trim)
-    WARNF("Symbol 'afl_custom_trim' not found.");
+  if (!mutator->afl_custom_trim) WARNF("Symbol 'afl_custom_trim' not found.");
 
   /* "afl_custom_post_trim", optional */
   mutator->afl_custom_post_trim = dlsym(dh, "afl_custom_post_trim");
@@ -184,8 +193,7 @@ struct custom_mutator * load_custom_mutator(afl_state_t *afl, const char *fn) {
   }
 
   /* "afl_custom_havoc_mutation", optional */
-  mutator->afl_custom_havoc_mutation =
-      dlsym(dh, "afl_custom_havoc_mutation");
+  mutator->afl_custom_havoc_mutation = dlsym(dh, "afl_custom_havoc_mutation");
   if (!mutator->afl_custom_havoc_mutation)
     WARNF("Symbol 'afl_custom_havoc_mutation' not found.");
 
@@ -201,8 +209,7 @@ struct custom_mutator * load_custom_mutator(afl_state_t *afl, const char *fn) {
     WARNF("Symbol 'afl_custom_queue_get' not found.");
 
   /* "afl_custom_queue_new_entry", optional */
-  mutator->afl_custom_queue_new_entry =
-      dlsym(dh, "afl_custom_queue_new_entry");
+  mutator->afl_custom_queue_new_entry = dlsym(dh, "afl_custom_queue_new_entry");
   if (!mutator->afl_custom_queue_new_entry)
     WARNF("Symbol 'afl_custom_queue_new_entry' not found");
 
@@ -211,11 +218,10 @@ struct custom_mutator * load_custom_mutator(afl_state_t *afl, const char *fn) {
   /* Initialize the custom mutator */
   if (mutator->afl_custom_init)
     mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
-  
+
   return mutator;
 
 }
-
 
 u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
