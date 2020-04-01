@@ -608,7 +608,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   /* Select initial chunk len, starting with large steps. */
 
-  len_p2 = next_p2(q->len);
+  len_p2 = next_pow2(q->len);
 
   remove_len = MAX(len_p2 / TRIM_START_STEPS, TRIM_MIN_BYTES);
 
@@ -653,7 +653,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
         u32 move_tail = q->len - remove_pos - trim_avail;
 
         q->len -= trim_avail;
-        len_p2 = next_p2(q->len);
+        len_p2 = next_pow2(q->len);
 
         memmove(in_buf + remove_pos, in_buf + remove_pos + trim_avail,
                 move_tail);
