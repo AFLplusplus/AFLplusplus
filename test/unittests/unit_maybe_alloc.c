@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <setjmp.h>
 #include <assert.h>
+#include <cmocka.h>
 /* cmocka < 1.0 didn't support these features we need */
 #ifndef assert_ptr_equal
 #define assert_ptr_equal(a, b) \
@@ -12,7 +13,6 @@
 #define cmocka_unit_test unit_test
 #define cmocka_run_group_tests(t, setup, teardown) run_tests(t)
 #endif
-#include <cmocka.h>
 
 
 extern void mock_assert(const int result, const char* const expression,
