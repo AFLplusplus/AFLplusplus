@@ -39,11 +39,13 @@ int __wrap_printf(const char *format, ...) {
 
 #define BUF_PARAMS (void **)&buf, &size
 
+/*
 static int setup(void **state) {
 
     return 0;
 
 }
+*/
 
 static void test_null_allocs(void **state) {
 
@@ -130,11 +132,13 @@ static void test_grow_multiple(void **state) {
 
 }
 
+/*
 static int teardown(void **state) {
 
     return 0;
 
 }
+*/
 
 int main(int argc, char **argv) {
 
@@ -146,6 +150,7 @@ int main(int argc, char **argv) {
         cmocka_unit_test(test_grow_multiple),
 	};
 
-    return cmocka_run_group_tests (tests, setup, teardown);
+    //return cmocka_run_group_tests (tests, setup, teardown);
+    return cmocka_run_group_tests (tests, NULL, NULL);
 
 }
