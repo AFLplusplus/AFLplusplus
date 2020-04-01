@@ -93,7 +93,7 @@ static void test_long_list(void **state) {
     list_remove(&testlist, &vals[50]);
 
     LIST_FOREACH(&testlist, u32, {
-        printf("var: %d\n", *el);
+        // printf("var: %d\n", *el);
         result2 += *el;
     });
     assert_int_not_equal(result1, result2);
