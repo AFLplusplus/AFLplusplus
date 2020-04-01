@@ -325,11 +325,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
       kill(fsrv->fsrv_pid, SIGKILL);
 
     }
-    if (!time) {
 
-      kill(fsrv->fsrv_pid, SIGKILL);
-
-    }
+    if (!time) { kill(fsrv->fsrv_pid, SIGKILL); }
 
   } else {
 
