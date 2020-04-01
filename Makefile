@@ -323,10 +323,10 @@ unit_maybe_alloc: test/unittests/unit_maybe_alloc.o
 	./test/unittests/unit_maybe_alloc
 
 test/unittests/unit_list.o : $(COMM_HDR) include/list.h test/unittests/unit_list.c $(AFL_FUZZ_FILES)
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
+	$(CC) $(CFLAGS) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
 
 unit_list: test/unittests/unit_list.o
-	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $(LDFLAGS) test/unittests/unit_list.o -o test/unittests/unit_list -ldl -lcmocka
+	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_list.o -o test/unittests/unit_list  $(LDFLAGS) -lcmocka
 	./test/unittests/unit_list
 
 test/unittests/preallocable.o : $(COMM_HDR) include/afl-prealloc.h test/unittests/preallocable.c $(AFL_FUZZ_FILES)
