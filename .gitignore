@@ -47,3 +47,5 @@ unicorn_mode/samples/*/\.test-*
 unicorn_mode/samples/*/output/
 core\.*
 test/unittests/unit_maybe_alloc
+test/unittests/unit_preallocable
+test/unittests/unit_list

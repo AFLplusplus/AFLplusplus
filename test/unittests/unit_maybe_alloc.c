@@ -75,7 +75,7 @@ static void test_zero_size() {
 
     char *buf = NULL;
     size_t size = 0;
-    //assert_non_null(maybe_grow(BUF_PARAMS, 0));
+    assert_non_null(maybe_grow(BUF_PARAMS, 0));
     free(buf);
     buf = NULL;
     size = 0;
@@ -86,6 +86,8 @@ static void test_zero_size() {
     assert_true(size >= 100);
 
     expect_assert_failure(ck_maybe_grow(BUF_PARAMS, 0));
+
+    ck_free(ptr);
 
 }
 
