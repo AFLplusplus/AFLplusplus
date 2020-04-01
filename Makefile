@@ -64,7 +64,7 @@ ifneq "$(shell uname -m)" "x86_64"
  endif
 endif
 
-CFLAGS     ?= -O2 -funroll-loops $(CFLAGS_OPT) -D_FORTIFY_SOURCE=2
+CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT) -D_FORTIFY_SOURCE=2
 override CFLAGS += -Wall -g -Wno-pointer-sign \
 			  -I include/ -Werror -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
