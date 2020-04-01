@@ -322,12 +322,21 @@ unit_maybe_alloc: test/unittests/unit_maybe_alloc.o
 	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) -lcmocka
 	./test/unittests/unit_maybe_alloc
 
+test/unittests/unit_list.o : $(COMM_HDR) include/list.h test/unittests/unit_list.c $(AFL_FUZZ_FILES)
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
+
+unit_list: test/unittests/unit_list.o
+	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $(LDFLAGS) test/unittests/unit_list.o -o test/unittests/unit_list -ldl -lcmocka
+	./test/unittests/unit_list
+
+test/unittests/preallocable.o : $(COMM_HDR) include/afl-prealloc.h test/unittests/preallocable.c $(AFL_FUZZ_FILES)
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c test/unittests/preallocable.c -o test/unittests/preallocable.o
+
 unit_preallocable: test/unittests/unit_preallocable.o
 	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) -lcmocka
 	./test/unittests/unit_preallocable
 
-
-unit: unit_maybe_alloc unit_preallocable
+unit: unit_maybe_alloc unit_preallocable unit_list
 
 code-format:
 	./.custom-format.py -i src/*.c
