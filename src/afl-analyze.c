@@ -62,7 +62,7 @@ u8 *trace_bits;                        /* SHM with instrumentation bitmap   */
 static u8 *in_file,                    /* Analyzer input test case          */
     *prog_in;                          /* Targeted program input file       */
 
-    static u8 *in_data;                /* Input data for analysis           */
+static u8 *in_data;                    /* Input data for analysis           */
 
 static u32 in_len,                     /* Input data length                 */
     orig_cksum,                        /* Original checksum                 */
