@@ -10,6 +10,7 @@
                       __FILE__, __LINE__)
 #define CMUnitTest UnitTest
 #define cmocka_unit_test unit_test
+#define cmocka_run_group_tests(t, setup, teardown) run_tests(t)
 #endif
 #include <cmocka.h>
 
