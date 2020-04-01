@@ -107,6 +107,7 @@ static inline void list_append(list_t *list, void *el) {
     if (!el_box) FATAL("foreach over uninitialized list"); \
     while (el_box != head) {                               \
                                                            \
+      __attribute__((unused))                              \
       type *el = (type *)((el_box)->data);                 \
       /* get next so el_box can be unlinked */             \
       element_t *next = el_box->next;                      \
