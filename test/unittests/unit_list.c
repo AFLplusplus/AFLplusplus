@@ -83,6 +83,7 @@ static void test_long_list(void **state) {
         vals[i] = i;
     }
 
+    LIST_FOREACH_CLEAR(&testlist, void, {});
     for (i = 0; i < 100; i++) {
         list_append(&testlist, &vals[i]);
     }
@@ -97,7 +98,7 @@ static void test_long_list(void **state) {
         result2 += *el;
     });
     assert_int_not_equal(result1, result2);
-    assert_int_equal(result1 + 50, result2);
+    assert_int_equal(result1, result2 + 50);
 
     result1 = 0;
     LIST_FOREACH_CLEAR(&testlist, u32, {
