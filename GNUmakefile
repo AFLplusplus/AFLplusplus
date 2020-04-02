@@ -183,8 +183,6 @@ endif
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 
 man:    $(MANPAGES)
-	-$(MAKE) -C llvm_mode
-	-$(MAKE) -C gcc_plugin
 
 tests:	source-only
 	@cd test ; ./test.sh
