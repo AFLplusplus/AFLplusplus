@@ -935,13 +935,13 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
 static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
 #ifdef HAVE_ARC4RANDOM
-  if (afl->fixed_seed) { return random() % limit; }
+  if (unlikely(afl->fixed_seed)) { return random() % limit; }
 
   /* The boundary not being necessarily a power of 2,
      we need to ensure the result uniformity. */
   return arc4random_uniform(limit);
 #else
-  if (!afl->fixed_seed && unlikely(!afl->rand_cnt--)) {
+  if (unlikely(!afl->rand_cnt--) && likely(!afl->fixed_seed)) {
 
     ck_read(afl->fsrv.dev_urandom_fd, &afl->rand_seed, sizeof(afl->rand_seed),
             "/dev/urandom");
@@ -957,7 +957,7 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
 static inline u32 get_rand_seed(afl_state_t *afl) {
 
-  if (afl->fixed_seed) return (u32)afl->init_seed;
+  if (unlikely(afl->fixed_seed)) return (u32)afl->init_seed;
   return afl->rand_seed[0];
 
 }
