@@ -136,7 +136,7 @@ static void find_obj(u8 *argv0) {
 
 static void edit_params(u32 argc, char **argv, char **envp) {
 
-  u8  fortify_set = 0, asan_set = 0, x_set = 0, maybe_linking = 1, bit_mode = 0;
+  u8  fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0;
   u8  has_llvm_config = 0;
   u8 *name;
 
@@ -323,8 +323,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   /* Detect stray -v calls from ./configure scripts. */
 
-  if (argc == 1 && !strcmp(argv[1], "-v")) maybe_linking = 0;
-
   while (--argc) {
 
     u8 *cur = *(++argv);
@@ -335,15 +333,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (!strcmp(cur, "-x")) x_set = 1;
 
-    if (!strcmp(cur, "-c") || !strcmp(cur, "-S") || !strcmp(cur, "-E"))
-      maybe_linking = 0;
-
     if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
       asan_set = 1;
 
     if (strstr(cur, "FORTIFY_SOURCE")) fortify_set = 1;
-
-    if (!strcmp(cur, "-shared")) maybe_linking = 0;
 
     if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
       continue;
@@ -498,8 +491,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 #endif                                                        /* ^__APPLE__ */
       "_I(); } while (0)";
 
-  // if (maybe_linking) {
-
   if (x_set) {
 
     cc_params[cc_par_cnt++] = "-x";
@@ -533,8 +524,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
 #endif
-
-  // }
 
   cc_params[cc_par_cnt] = NULL;
 
