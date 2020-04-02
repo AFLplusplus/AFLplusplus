@@ -36,6 +36,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
   u8                     fn[PATH_MAX];
   s32                    fd;
   FILE *                 f;
+  uint32_t               t_bytes = count_non_255_bytes(afl->virgin_bits);
 
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
 
@@ -97,6 +98,8 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       "exec_timeout      : %u\n"
       "slowest_exec_ms   : %u\n"
       "peak_rss_mb       : %lu\n"
+      "var_byte_count    : %u\n"
+      "found_edges       : %u\n"
       "afl_banner        : %s\n"
       "afl_version       : " VERSION
       "\n"
@@ -119,9 +122,10 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 #else
       (unsigned long int)(rus.ru_maxrss >> 10),
 #endif
-      afl->use_banner, afl->unicorn_mode ? "unicorn" : "",
-      afl->qemu_mode ? "qemu " : "", afl->dumb_mode ? " dumb " : "",
-      afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",
+      afl->var_byte_count, t_bytes, afl->use_banner,
+      afl->unicorn_mode ? "unicorn" : "", afl->qemu_mode ? "qemu " : "",
+      afl->dumb_mode ? " dumb " : "", afl->no_forkserver ? "no_fsrv " : "",
+      afl->crash_mode ? "crash " : "",
       afl->persistent_mode ? "persistent " : "",
       afl->deferred_mode ? "deferred " : "",
       (afl->unicorn_mode || afl->qemu_mode || afl->dumb_mode ||
@@ -257,7 +261,7 @@ void show_stats(afl_state_t *afl) {
   t_byte_ratio = ((double)t_bytes * 100) / MAP_SIZE;
 
   if (t_bytes)
-    stab_ratio = 100 - ((double)afl->var_byte_count) * 100 / t_bytes;
+    stab_ratio = 100 - (((double)afl->var_byte_count) * 100) / t_bytes;
   else
     stab_ratio = 100;
 
@@ -361,9 +365,9 @@ void show_stats(afl_state_t *afl) {
 
   /* Lord, forgive me this. */
 
-  SAYF(SET_G1 bSTG bLT bH bSTOP                         cCYA
+  SAYF(SET_G1 bSTG bLT bH bSTOP cCYA
        " process timing " bSTG bH30 bH5 bH bHB bH bSTOP cCYA
-       " overall results " bSTG bH2 bH2                 bRT "\n");
+       " overall results " bSTG bH2 bH2 bRT "\n");
 
   if (afl->dumb_mode) {
 
@@ -445,9 +449,9 @@ void show_stats(afl_state_t *afl) {
                 "   uniq hangs : " cRST "%-6s" bSTG         bV "\n",
        time_tmp, tmp);
 
-  SAYF(bVR bH bSTOP                                          cCYA
+  SAYF(bVR bH bSTOP            cCYA
        " cycle progress " bSTG bH10 bH5 bH2 bH2 bHB bH bSTOP cCYA
-       " map coverage " bSTG bH bHT bH20 bH2                 bVL "\n");
+       " map coverage " bSTG bH bHT bH20 bH2 bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
      together, but then cram them into a fixed-width field - so we need to
@@ -476,9 +480,9 @@ void show_stats(afl_state_t *afl) {
 
   SAYF(bSTOP " count coverage : " cRST "%-21s" bSTG bV "\n", tmp);
 
-  SAYF(bVR bH bSTOP                                         cCYA
+  SAYF(bVR bH bSTOP            cCYA
        " stage progress " bSTG bH10 bH5 bH2 bH2 bX bH bSTOP cCYA
-       " findings in depth " bSTG bH10 bH5 bH2 bH2          bVL "\n");
+       " findings in depth " bSTG bH10 bH5 bH2 bH2 bVL "\n");
 
   sprintf(tmp, "%s (%0.02f%%)", u_stringify_int(IB(0), afl->queued_favored),
           ((double)afl->queued_favored) * 100 / afl->queued_paths);
@@ -552,7 +556,7 @@ void show_stats(afl_state_t *afl) {
 
   /* Aaaalmost there... hold on! */
 
-  SAYF(bVR bH cCYA                                                     bSTOP
+  SAYF(bVR bH cCYA                      bSTOP
        " fuzzing strategy yields " bSTG bH10 bHT bH10 bH5 bHB bH bSTOP cCYA
        " path geometry " bSTG bH5 bH2 bVL "\n");
 

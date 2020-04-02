@@ -691,6 +691,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->fixed_seed) OKF("Running with fixed seed: %u", (u32)afl->init_seed);
   srandom((u32)afl->init_seed);
+  srand((u32)afl->init_seed);  // in case it is a different implementation
 
   if (afl->use_radamsa) {
 
@@ -721,11 +722,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-#if defined(__SANITIZE_ADDRESS__) 
+#if defined(__SANITIZE_ADDRESS__)
   if (afl->fsrv.mem_limit) {
+
     WARNF("in the ASAN build we disable all memory limits");
     afl->fsrv.mem_limit = 0;
+
   }
+
 #endif
 
   setup_signal_handlers();
