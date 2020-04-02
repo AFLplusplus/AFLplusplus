@@ -151,8 +151,8 @@ ifdef STATIC
   LDFLAGS += -lm -lpthread -lz -lutil
 endif
 
-ASAN_CFLAGS=-fsanitize=address -fstack-protector-all
-ASAN_LDFLAGS+=-fsanitize=address -fstack-protector-all
+ASAN_CFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
+ASAN_LDFLAGS+=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
 
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
@@ -182,7 +182,7 @@ endif
 
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 
-man:    $(MANPAGES) 
+man:    $(MANPAGES)
 	-$(MAKE) -C llvm_mode
 	-$(MAKE) -C gcc_plugin
 
