@@ -378,7 +378,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
         M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc", 0,
         GlobalVariable::GeneralDynamicTLSModel, 0, false);
     ConstantInt *const_loc = ConstantInt::get(Int32Ty, afl_global_id);
-    AFLFinalLoc->setAlignment(MaybeAlign(4));
+    AFLFinalLoc->setAlignment(4);
     AFLFinalLoc->setInitializer(const_loc);
 
   }
