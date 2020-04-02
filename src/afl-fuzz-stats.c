@@ -571,7 +571,7 @@ void show_stats(afl_state_t *afl) {
             u_stringify_int(IB(1), afl->stage_cycles[STAGE_FLIP1]),
             u_stringify_int(IB(2), afl->stage_finds[STAGE_FLIP2]),
             u_stringify_int(IB(3), afl->stage_cycles[STAGE_FLIP2]),
-            u_stringify_int(IB(3), afl->stage_finds[STAGE_FLIP4]),
+            u_stringify_int(IB(4), afl->stage_finds[STAGE_FLIP4]),
             u_stringify_int(IB(5), afl->stage_cycles[STAGE_FLIP4]));
 
   }
