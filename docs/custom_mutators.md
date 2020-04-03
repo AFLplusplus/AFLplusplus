@@ -27,18 +27,16 @@ performed with the custom mutator.
 
 C/C++:
 ```c
-void afl_custom_init(unsigned int seed);
-size_t afl_custom_fuzz(uint8_t** buf, size_t buf_size, uint8_t* add_buf,
-                       size_t add_buf_size, size_t max_size);
-size_t afl_custom_pre_save(uint8_t* buf, size_t buf_size, uint8_t** out_buf);
-uint32_t afl_custom_init_trim(uint8_t* buf, size_t buf_size);
-void afl_custom_trim(uint8_t** out_buf, size_t* out_buf_size);
-uint32_t afl_custom_post_trim(uint8_t success);
-size_t afl_custom_havoc_mutation(uint8_t** buf, size_t buf_size, size_t max_size);
-uint8_t afl_custom_havoc_mutation_probability(void);
-uint8_t afl_custom_queue_get(const uint8_t* filename);
-void afl_custom_queue_new_entry(const uint8_t* filename_new_queue,
-                                const uint8_t* filename_orig_queue);
+void *afl_custom_init(afl_t *afl, unsigned int seed);
+size_t afl_custom_fuzz(void *data, uint8_t *buf, size_t buf_size, u8 **out_buf, uint8_t *add_buf, size_t add_buf_size, size_t max_size);
+size_t afl_custom_pre_save(void *data, uint8_t *buf, size_t buf_size, uint8_t **out_buf);
+int32_t afl_custom_init_trim(void *data, uint8_t *buf, size_t buf_size);
+size_t afl_custom_trim(void *data, uint8_t **out_buf);
+int32_t afl_custom_post_trim(void *data, int success) {
+size_t afl_custom_havoc_mutation(void *data, u8 *buf, size_t buf_size, u8 **out_buf, size_t max_size);
+uint8_t afl_custom_havoc_mutation_probability(void *data);
+uint8_t afl_custom_queue_get(void *data, const uint8_t *filename); void afl_custom_queue_new_entry(void *data, const uint8_t *filename_new_queue, const uint8_t *filename_orig_queue);
+void afl_custom_deinit(void *data);
 ```
 
 Python:
@@ -76,9 +74,9 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
 
 ### Custom Mutation
 
-- `init` (optional):
+- `init`:
 
-    This method is called when AFL++ starts up and is used to seed RNG.
+    This method is called when AFL++ starts up and is used to seed RNG and set up buffers and state.
 
 - `queue_get` (optional):
 
@@ -110,7 +108,7 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
 
 - `queue_new_entry` (optional):
 
-    This methods is called after adding a new test case to the queue. 
+    This methods is called after adding a new test case to the queue.
 
 ### Trimming Support
 
@@ -144,7 +142,7 @@ trimmed input. Here's a quick API description:
 
     This method is called for each trimming operation. It doesn't have any
     arguments because we already have the initial buffer from `init_trim` and we
-    can memorize the current state in global variables. This can also save
+    can memorize the current state in the data variables. This can also save
     reparsing steps for each iteration. It should return the trimmed input
     buffer, where the returned data must not exceed the initial input data in
     length. Returning anything that is larger than the original data (passed to
@@ -158,6 +156,8 @@ trimmed input. Here's a quick API description:
     In any case, this method must return the next trim iteration index (from 0
     to the maximum amount of steps you returned in `init_trim`).
 
+`deinit` the last method to be called, deinitializing the state.
+
 Omitting any of three methods will cause the trimming to be disabled and trigger
 a fallback to the builtin default trimming routine.
 
@@ -166,7 +166,7 @@ a fallback to the builtin default trimming routine.
 Optionally, the following environment variables are supported:
 
 - `AFL_CUSTOM_MUTATOR_ONLY`
- 
+
     Disable all other mutation stages. This can prevent broken testcases
     (those that your Python module can't work with anymore) to fill up your
     queue. Best combined with a custom trimming routine (see below) because

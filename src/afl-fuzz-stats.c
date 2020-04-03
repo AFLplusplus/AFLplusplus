@@ -33,15 +33,16 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
   struct rusage rus;
 
   unsigned long long int cur_time = get_cur_time();
-  u8 *                   fn = alloc_printf("%s/fuzzer_stats", afl->out_dir);
+  u8                     fn[PATH_MAX];
   s32                    fd;
   FILE *                 f;
+  uint32_t               t_bytes = count_non_255_bytes(afl->virgin_bits);
+
+  snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
 
   fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
   if (fd < 0) PFATAL("Unable to create '%s'", fn);
-
-  ck_free(fn);
 
   f = fdopen(fd, "w");
 
@@ -95,8 +96,10 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       "last_hang         : %llu\n"
       "execs_since_crash : %llu\n"
       "exec_timeout      : %u\n"
-      "slowest_exec_ms   : %llu\n"
+      "slowest_exec_ms   : %u\n"
       "peak_rss_mb       : %lu\n"
+      "var_byte_count    : %u\n"
+      "found_edges       : %u\n"
       "afl_banner        : %s\n"
       "afl_version       : " VERSION
       "\n"
@@ -119,9 +122,10 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 #else
       (unsigned long int)(rus.ru_maxrss >> 10),
 #endif
-      afl->use_banner, afl->unicorn_mode ? "unicorn" : "",
-      afl->qemu_mode ? "qemu " : "", afl->dumb_mode ? " dumb " : "",
-      afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",
+      afl->var_byte_count, t_bytes, afl->use_banner,
+      afl->unicorn_mode ? "unicorn" : "", afl->qemu_mode ? "qemu " : "",
+      afl->dumb_mode ? " dumb " : "", afl->no_forkserver ? "no_fsrv " : "",
+      afl->crash_mode ? "crash " : "",
       afl->persistent_mode ? "persistent " : "",
       afl->deferred_mode ? "deferred " : "",
       (afl->unicorn_mode || afl->qemu_mode || afl->dumb_mode ||
@@ -257,7 +261,7 @@ void show_stats(afl_state_t *afl) {
   t_byte_ratio = ((double)t_bytes * 100) / MAP_SIZE;
 
   if (t_bytes)
-    stab_ratio = 100 - ((double)afl->var_byte_count) * 100 / t_bytes;
+    stab_ratio = 100 - (((double)afl->var_byte_count) * 100) / t_bytes;
   else
     stab_ratio = 100;
 
@@ -406,8 +410,7 @@ void show_stats(afl_state_t *afl) {
       (afl->last_path_time || afl->resuming_fuzz || afl->queue_cycle == 1 ||
        afl->in_bitmap || afl->crash_mode)) {
 
-    u_stringify_time_diff(time_tmp, cur_ms,
-                        afl->last_path_time);
+    u_stringify_time_diff(time_tmp, cur_ms, afl->last_path_time);
     SAYF(bV bSTOP "   last new path : " cRST "%-33s ", time_tmp);
 
   } else {
@@ -533,24 +536,21 @@ void show_stats(afl_state_t *afl) {
 
   if (afl->stats_avg_exec < 100) {
 
-    sprintf(tmp, "%s/sec (%s)",
-             u_stringify_float(IB(0), afl->stats_avg_exec),
-             afl->stats_avg_exec < 20 ? "zzzz..." : "slow!");
+    sprintf(tmp, "%s/sec (%s)", u_stringify_float(IB(0), afl->stats_avg_exec),
+            afl->stats_avg_exec < 20 ? "zzzz..." : "slow!");
 
     SAYF(bV bSTOP "  exec speed : " cLRD "%-20s ", tmp);
 
   } else {
 
-    sprintf(tmp, "%s/sec",
-             u_stringify_float(IB(0), afl->stats_avg_exec));
+    sprintf(tmp, "%s/sec", u_stringify_float(IB(0), afl->stats_avg_exec));
     SAYF(bV bSTOP "  exec speed : " cRST "%-20s ", tmp);
 
   }
 
-  sprintf(tmp, "%s (%s%s unique)",
-           u_stringify_int(IB(0), afl->total_tmouts),
-           u_stringify_int(IB(1), afl->unique_tmouts),
-           (afl->unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
+  sprintf(tmp, "%s (%s%s unique)", u_stringify_int(IB(0), afl->total_tmouts),
+          u_stringify_int(IB(1), afl->unique_tmouts),
+          (afl->unique_hangs >= KEEP_UNIQUE_HANG) ? "+" : "");
 
   SAYF(bSTG bV bSTOP "  total tmouts : " cRST "%-22s" bSTG bV "\n", tmp);
 
@@ -567,12 +567,12 @@ void show_stats(afl_state_t *afl) {
   } else {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-             u_stringify_int(IB(0), afl->stage_finds[STAGE_FLIP1]),
-             u_stringify_int(IB(1), afl->stage_cycles[STAGE_FLIP1]),
-             u_stringify_int(IB(2), afl->stage_finds[STAGE_FLIP2]),
-             u_stringify_int(IB(3), afl->stage_cycles[STAGE_FLIP2]),
-             u_stringify_int(IB(3), afl->stage_finds[STAGE_FLIP4]),
-             u_stringify_int(IB(5), afl->stage_cycles[STAGE_FLIP4]));
+            u_stringify_int(IB(0), afl->stage_finds[STAGE_FLIP1]),
+            u_stringify_int(IB(1), afl->stage_cycles[STAGE_FLIP1]),
+            u_stringify_int(IB(2), afl->stage_finds[STAGE_FLIP2]),
+            u_stringify_int(IB(3), afl->stage_cycles[STAGE_FLIP2]),
+            u_stringify_int(IB(4), afl->stage_finds[STAGE_FLIP4]),
+            u_stringify_int(IB(5), afl->stage_cycles[STAGE_FLIP4]));
 
   }
 
@@ -582,12 +582,12 @@ void show_stats(afl_state_t *afl) {
 
   if (!afl->skip_deterministic)
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-             u_stringify_int(IB(0), afl->stage_finds[STAGE_FLIP8]),
-             u_stringify_int(IB(1), afl->stage_cycles[STAGE_FLIP8]),
-             u_stringify_int(IB(2), afl->stage_finds[STAGE_FLIP16]),
-             u_stringify_int(IB(3), afl->stage_cycles[STAGE_FLIP16]),
-             u_stringify_int(IB(4), afl->stage_finds[STAGE_FLIP32]),
-             u_stringify_int(IB(5), afl->stage_cycles[STAGE_FLIP32]));
+            u_stringify_int(IB(0), afl->stage_finds[STAGE_FLIP8]),
+            u_stringify_int(IB(1), afl->stage_cycles[STAGE_FLIP8]),
+            u_stringify_int(IB(2), afl->stage_finds[STAGE_FLIP16]),
+            u_stringify_int(IB(3), afl->stage_cycles[STAGE_FLIP16]),
+            u_stringify_int(IB(4), afl->stage_finds[STAGE_FLIP32]),
+            u_stringify_int(IB(5), afl->stage_cycles[STAGE_FLIP32]));
 
   SAYF(bV bSTOP "  byte flips : " cRST "%-36s " bSTG bV bSTOP
                 "   pending : " cRST "%-10s" bSTG       bV "\n",
@@ -595,12 +595,12 @@ void show_stats(afl_state_t *afl) {
 
   if (!afl->skip_deterministic)
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-             u_stringify_int(IB(0), afl->stage_finds[STAGE_ARITH8]),
-             u_stringify_int(IB(1), afl->stage_cycles[STAGE_ARITH8]),
-             u_stringify_int(IB(2), afl->stage_finds[STAGE_ARITH16]),
-             u_stringify_int(IB(3), afl->stage_cycles[STAGE_ARITH16]),
-             u_stringify_int(IB(4), afl->stage_finds[STAGE_ARITH32]),
-             u_stringify_int(IB(5), afl->stage_cycles[STAGE_ARITH32]));
+            u_stringify_int(IB(0), afl->stage_finds[STAGE_ARITH8]),
+            u_stringify_int(IB(1), afl->stage_cycles[STAGE_ARITH8]),
+            u_stringify_int(IB(2), afl->stage_finds[STAGE_ARITH16]),
+            u_stringify_int(IB(3), afl->stage_cycles[STAGE_ARITH16]),
+            u_stringify_int(IB(4), afl->stage_finds[STAGE_ARITH32]),
+            u_stringify_int(IB(5), afl->stage_cycles[STAGE_ARITH32]));
 
   SAYF(bV bSTOP " arithmetics : " cRST "%-36s " bSTG bV bSTOP
                 "  pend fav : " cRST "%-10s" bSTG       bV "\n",
@@ -621,25 +621,26 @@ void show_stats(afl_state_t *afl) {
 
   if (!afl->skip_deterministic)
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-             u_stringify_int(IB(0), afl->stage_finds[STAGE_EXTRAS_UO]),
-             u_stringify_int(IB(1), afl->stage_cycles[STAGE_EXTRAS_UO]),
-             u_stringify_int(IB(2), afl->stage_finds[STAGE_EXTRAS_UI]),
-             u_stringify_int(IB(3), afl->stage_cycles[STAGE_EXTRAS_UI]),
-             u_stringify_int(IB(4), afl->stage_finds[STAGE_EXTRAS_AO]),
-             u_stringify_int(IB(5), afl->stage_cycles[STAGE_EXTRAS_AO]));
+            u_stringify_int(IB(0), afl->stage_finds[STAGE_EXTRAS_UO]),
+            u_stringify_int(IB(1), afl->stage_cycles[STAGE_EXTRAS_UO]),
+            u_stringify_int(IB(2), afl->stage_finds[STAGE_EXTRAS_UI]),
+            u_stringify_int(IB(3), afl->stage_cycles[STAGE_EXTRAS_UI]),
+            u_stringify_int(IB(4), afl->stage_finds[STAGE_EXTRAS_AO]),
+            u_stringify_int(IB(5), afl->stage_cycles[STAGE_EXTRAS_AO]));
 
   SAYF(bV bSTOP "  dictionary : " cRST "%-36s " bSTG bV bSTOP
                 "  imported : " cRST "%-10s" bSTG       bV "\n",
        tmp,
-       afl->sync_id ? u_stringify_int(IB(0), afl->queued_imported) : (u8 *)"n/a");
+       afl->sync_id ? u_stringify_int(IB(0), afl->queued_imported)
+                    : (u8 *)"n/a");
 
   sprintf(tmp, "%s/%s, %s/%s, %s/%s",
-           u_stringify_int(IB(0), afl->stage_finds[STAGE_HAVOC]),
-           u_stringify_int(IB(2), afl->stage_cycles[STAGE_HAVOC]),
-           u_stringify_int(IB(3), afl->stage_finds[STAGE_SPLICE]),
-           u_stringify_int(IB(4), afl->stage_cycles[STAGE_SPLICE]),
-           u_stringify_int(IB(5), afl->stage_finds[STAGE_RADAMSA]),
-           u_stringify_int(IB(6), afl->stage_cycles[STAGE_RADAMSA]));
+          u_stringify_int(IB(0), afl->stage_finds[STAGE_HAVOC]),
+          u_stringify_int(IB(2), afl->stage_cycles[STAGE_HAVOC]),
+          u_stringify_int(IB(3), afl->stage_finds[STAGE_SPLICE]),
+          u_stringify_int(IB(4), afl->stage_cycles[STAGE_SPLICE]),
+          u_stringify_int(IB(5), afl->stage_finds[STAGE_RADAMSA]),
+          u_stringify_int(IB(6), afl->stage_cycles[STAGE_RADAMSA]));
 
   SAYF(bV bSTOP "   havoc/rad : " cRST "%-36s " bSTG bV bSTOP, tmp);
 
@@ -660,14 +661,14 @@ void show_stats(afl_state_t *afl) {
   if (afl->shm.cmplog_mode) {
 
     sprintf(tmp, "%s/%s, %s/%s, %s/%s, %s/%s",
-             u_stringify_int(IB(0), afl->stage_finds[STAGE_PYTHON]),
-             u_stringify_int(IB(1), afl->stage_cycles[STAGE_PYTHON]),
-             u_stringify_int(IB(2), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
-             u_stringify_int(IB(3), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]),
-             u_stringify_int(IB(4), afl->stage_finds[STAGE_COLORIZATION]),
-             u_stringify_int(IB(5), afl->stage_cycles[STAGE_COLORIZATION]),
-             u_stringify_int(IB(6), afl->stage_finds[STAGE_ITS]),
-             u_stringify_int(IB(7), afl->stage_cycles[STAGE_ITS]));
+            u_stringify_int(IB(0), afl->stage_finds[STAGE_PYTHON]),
+            u_stringify_int(IB(1), afl->stage_cycles[STAGE_PYTHON]),
+            u_stringify_int(IB(2), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
+            u_stringify_int(IB(3), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]),
+            u_stringify_int(IB(4), afl->stage_finds[STAGE_COLORIZATION]),
+            u_stringify_int(IB(5), afl->stage_cycles[STAGE_COLORIZATION]),
+            u_stringify_int(IB(6), afl->stage_finds[STAGE_ITS]),
+            u_stringify_int(IB(7), afl->stage_cycles[STAGE_ITS]));
 
     SAYF(bV bSTOP "   custom/rq : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
          tmp);
@@ -675,10 +676,10 @@ void show_stats(afl_state_t *afl) {
   } else {
 
     sprintf(tmp, "%s/%s, %s/%s",
-             u_stringify_int(IB(0), afl->stage_finds[STAGE_PYTHON]),
-             u_stringify_int(IB(1), afl->stage_cycles[STAGE_PYTHON]),
-             u_stringify_int(IB(2), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
-             u_stringify_int(IB(3), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]));
+            u_stringify_int(IB(0), afl->stage_finds[STAGE_PYTHON]),
+            u_stringify_int(IB(1), afl->stage_cycles[STAGE_PYTHON]),
+            u_stringify_int(IB(2), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
+            u_stringify_int(IB(3), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]));
 
     SAYF(bV bSTOP "   py/custom : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
          tmp);

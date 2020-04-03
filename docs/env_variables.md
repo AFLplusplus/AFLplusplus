@@ -31,7 +31,9 @@ tools make fairly broad use of environmental variables:
 
     (You can also enable MSAN via AFL_USE_MSAN; ASAN and MSAN come with the
     same gotchas; the modes are mutually exclusive. UBSAN can be enabled
-    similarly by setting the environment variable AFL_USE_UBSAN=1)
+    similarly by setting the environment variable AFL_USE_UBSAN=1. Finally
+    there is the Control Flow Integrity sanitizer that can be activated by
+    AFL_USE_CFISAN=1)
 
   - Setting AFL_CC, AFL_CXX, and AFL_AS lets you use alternate downstream
     compilation tools, rather than the default 'clang', 'gcc', or 'as' binaries

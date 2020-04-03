@@ -61,8 +61,7 @@
 static u8 *mask_bitmap;                /* Mask for trace bits (-B)          */
 
 u8 *in_file,                           /* Minimizer input test case         */
-    *output_file,                      /* Minimizer output file             */
-    *doc_path;                         /* Path to docs                      */
+    *output_file;                      /* Minimizer output file             */
 
 static u8 *in_data;                    /* Input data for trimming           */
 
@@ -77,8 +76,7 @@ u8 crash_mode,                         /* Crash-centric mode?               */
     hang_mode,                         /* Minimize as long as it hangs      */
     exit_crash,                        /* Treat non-zero exit as crash?     */
     edges_only,                        /* Ignore hit counts?                */
-    exact_mode,                        /* Require path match for crashes?   */
-    be_quiet;
+    exact_mode;                        /* Require path match for crashes?   */
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
@@ -406,17 +404,6 @@ static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
 }
 
-/* Find first power of two greater or equal to val. */
-
-static u32 next_p2(u32 val) {
-
-  u32 ret = 1;
-  while (val > ret)
-    ret <<= 1;
-  return ret;
-
-}
-
 /* Actually minimize! */
 
 static void minimize(afl_forkserver_t *fsrv, char **argv) {
@@ -434,7 +421,7 @@ static void minimize(afl_forkserver_t *fsrv, char **argv) {
    * BLOCK NORMALIZATION *
    ***********************/
 
-  set_len = next_p2(in_len / TMIN_SET_STEPS);
+  set_len = next_pow2(in_len / TMIN_SET_STEPS);
   set_pos = 0;
 
   if (set_len < TMIN_SET_MIN_SIZE) set_len = TMIN_SET_MIN_SIZE;
@@ -484,7 +471,7 @@ next_pass:
    * BLOCK DELETION *
    ******************/
 
-  del_len = next_p2(in_len / TRIM_START_STEPS);
+  del_len = next_pow2(in_len / TRIM_START_STEPS);
   stage_o_len = in_len;
 
   ACTF(cBRI "Stage #1: " cRST "Removing blocks of data...");

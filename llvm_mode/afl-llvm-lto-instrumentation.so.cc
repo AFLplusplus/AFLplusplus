@@ -392,10 +392,11 @@ bool AFLLTOPass::runOnModule(Module &M) {
     else {
 
       char modeline[100];
-      snprintf(modeline, sizeof(modeline), "%s%s%s%s",
+      snprintf(modeline, sizeof(modeline), "%s%s%s%s%s",
                getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
                getenv("AFL_USE_ASAN") ? ", ASAN" : "",
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
+               getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
       OKF("Instrumented %u locations with no collisions (on average %llu "
           "collisions would be in afl-gcc/afl-clang-fast) (%s mode).",

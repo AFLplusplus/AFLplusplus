@@ -3,6 +3,7 @@
    --------------------------------------------------
 
    Originally written by Michal Zalewski
+   Edited by Dominik Maier, 2020
 
    Copyright 2015 Google Inc. All rights reserved.
 
@@ -41,22 +42,23 @@
    AFL will call the afl_postprocess() function for every mutated output buffer.
    From there, you have three choices:
 
-   1) If you don't want to modify the test case, simply return the original
-      buffer pointer ('in_buf').
+   1) If you don't want to modify the test case, simply set `*out_buf = in_buf`
+      and return the original `len`.
 
    2) If you want to skip this test case altogether and have AFL generate a
-      new one, return NULL. Use this sparingly - it's faster than running
-      the target program with patently useless inputs, but still wastes CPU
-      time.
+      new one, return 0 or set `*out_buf = NULL`.
+      Use this sparingly - it's faster than running the target program
+      with patently useless inputs, but still wastes CPU time.
 
    3) If you want to modify the test case, allocate an appropriately-sized
       buffer, move the data into that buffer, make the necessary changes, and
-      then return the new pointer. You can update *len if necessary, too.
+      then return the new pointer as out_buf. Return an appropriate len
+   afterwards.
 
       Note that the buffer will *not* be freed for you. To avoid memory leaks,
       you need to free it or reuse it on subsequent calls (as shown below).
 
-      *** DO NOT MODIFY THE ORIGINAL 'in_buf' BUFFER. ***
+      *** Feel free to reuse the original 'in_buf' BUFFER and return it. ***
 
     Aight. The example below shows a simple postprocessor that tries to make
     sure that all input files start with "GIF89a".
@@ -74,47 +76,84 @@
 
 #define HEADER "GIF89a"
 
+typedef struct post_state {
+
+  unsigned char *buf;
+  size_t         size;
+
+} post_state_t;
+
+void *afl_postprocess_init(void *afl) {
+
+  post_state_t *state = malloc(sizeof(post_state_t));
+  if (!state) {
+
+    perror("malloc");
+    return NULL;
+
+  }
+
+  state->buf = calloc(sizeof(unsigned char), 4096);
+  if (!state->buf) { return NULL; }
+
+  return state;
+
+}
+
 /* The actual postprocessor routine called by afl-fuzz: */
 
-const unsigned char *afl_postprocess(const unsigned char *in_buf,
-                                     unsigned int *       len) {
-
-  static unsigned char *saved_buf;
-  unsigned char *       new_buf;
+size_t afl_postprocess(post_state_t *data, unsigned char *in_buf,
+                       unsigned int len, unsigned char **out_buf) {
 
   /* Skip execution altogether for buffers shorter than 6 bytes (just to
-     show how it's done). We can trust *len to be sane. */
+     show how it's done). We can trust len to be sane. */
 
-  if (*len < strlen(HEADER)) return NULL;
+  if (len < strlen(HEADER)) return 0;
 
   /* Do nothing for buffers that already start with the expected header. */
 
-  if (!memcmp(in_buf, HEADER, strlen(HEADER))) return in_buf;
+  if (!memcmp(in_buf, HEADER, strlen(HEADER))) {
+
+    *out_buf = in_buf;
+    return len;
+
+  }
 
   /* Allocate memory for new buffer, reusing previous allocation if
      possible. */
 
-  new_buf = realloc(saved_buf, *len);
+  *out_buf = realloc(data->buf, len);
 
   /* If we're out of memory, the most graceful thing to do is to return the
      original buffer and give up on modifying it. Let AFL handle OOM on its
      own later on. */
 
-  if (!new_buf) return in_buf;
-  saved_buf = new_buf;
+  if (!*out_buf) {
+
+    *out_buf = in_buf;
+    return len;
+
+  }
 
   /* Copy the original data to the new location. */
 
-  memcpy(new_buf, in_buf, *len);
+  memcpy(*out_buf, in_buf, len);
 
   /* Insert the new header. */
 
-  memcpy(new_buf, HEADER, strlen(HEADER));
+  memcpy(*out_buf, HEADER, strlen(HEADER));
 
-  /* Return modified buffer. No need to update *len in this particular case,
-     as we're not changing it. */
+  /* Return the new len. It hasn't changed, so it's just len. */
 
-  return new_buf;
+  return len;
+
+}
+
+/* Gets called afterwards */
+void afl_postprocess_deinit(post_state_t *data) {
+
+  free(data->buf);
+  free(data);
 
 }
 

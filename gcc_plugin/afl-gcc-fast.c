@@ -41,7 +41,6 @@ static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 u8          use_stdin = 0;                                         /* dummy */
-u8          be_quiet;
 
 /* Try to find the runtime libraries. If that fails, abort. */
 

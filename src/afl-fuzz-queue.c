@@ -30,17 +30,15 @@
 
 void mark_as_det_done(afl_state_t *afl, struct queue_entry *q) {
 
-  u8 *fn = strrchr(q->fname, '/');
+  u8  fn[PATH_MAX];
   s32 fd;
 
-  fn = alloc_printf("%s/queue/.state/deterministic_done/%s", afl->out_dir,
-                    fn + 1);
+  snprintf(fn, PATH_MAX, "%s/queue/.state/deterministic_done/%s", afl->out_dir,
+           strrchr(q->fname, '/') + 1);
 
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
   if (fd < 0) PFATAL("Unable to create '%s'", fn);
   close(fd);
-
-  ck_free(fn);
 
   q->passed_det = 1;
 
@@ -51,10 +49,13 @@ void mark_as_det_done(afl_state_t *afl, struct queue_entry *q) {
 
 void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
 
-  u8 *fn = strrchr(q->fname, '/') + 1, *ldest;
+  u8 fn[PATH_MAX];
+  u8 ldest[PATH_MAX];
 
-  ldest = alloc_printf("../../%s", fn);
-  fn = alloc_printf("%s/queue/.state/variable_behavior/%s", afl->out_dir, fn);
+  u8 *fn_name = strrchr(q->fname, '/') + 1;
+
+  sprintf(ldest, "../../%s", fn_name);
+  sprintf(fn, "%s/queue/.state/variable_behavior/%s", afl->out_dir, fn_name);
 
   if (symlink(ldest, fn)) {
 
@@ -63,9 +64,6 @@ void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
     close(fd);
 
   }
-
-  ck_free(ldest);
-  ck_free(fn);
 
   q->var_behavior = 1;
 
@@ -76,14 +74,14 @@ void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
 
 void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
-  u8 *fn;
+  u8 fn[PATH_MAX];
 
   if (state == q->fs_redundant) return;
 
   q->fs_redundant = state;
 
-  fn = strrchr(q->fname, '/');
-  fn = alloc_printf("%s/queue/.state/redundant_edges/%s", afl->out_dir, fn + 1);
+  sprintf(fn, "%s/queue/.state/redundant_edges/%s", afl->out_dir,
+          strrchr(q->fname, '/') + 1);
 
   if (state) {
 
@@ -99,8 +97,6 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
   }
 
-  ck_free(fn);
-
 }
 
 /* Append new test case to the queue. */
@@ -114,6 +110,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->depth = afl->cur_depth + 1;
   q->passed_det = passed_det;
   q->n_fuzz = 1;
+  q->trace_mini = NULL;
 
   if (q->depth > afl->max_depth) afl->max_depth = q->depth;
 
@@ -147,7 +144,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
     /* At the initialization stage, queue_cur is NULL */
     if (afl->queue_cur) fname_orig = afl->queue_cur->fname;
 
-    afl->mutator->afl_custom_queue_new_entry(afl, fname, fname_orig);
+    afl->mutator->afl_custom_queue_new_entry(afl->mutator->data, fname,
+                                             fname_orig);
 
   }
 
@@ -186,9 +184,9 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
   u32 i;
   u64 fav_factor;
-  u64 fuzz_p2 = next_p2(q->n_fuzz);
+  u64 fuzz_p2 = next_pow2(q->n_fuzz);
 
-  if (afl->schedule == MMOPT || afl->schedule == RARE)
+  if (afl->schedule == MMOPT || afl->schedule == RARE || unlikely(afl->fixed_seed))
     fav_factor = q->len << 2;
   else
     fav_factor = q->exec_us * q->len;
@@ -203,9 +201,9 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
         /* Faster-executing or smaller test cases are favored. */
         u64 top_rated_fav_factor;
-        u64 top_rated_fuzz_p2 = next_p2(afl->top_rated[i]->n_fuzz);
+        u64 top_rated_fuzz_p2 = next_pow2(afl->top_rated[i]->n_fuzz);
 
-        if (afl->schedule == MMOPT || afl->schedule == RARE)
+        if (afl->schedule == MMOPT || afl->schedule == RARE || unlikely(afl->fixed_seed))
           top_rated_fav_factor = afl->top_rated[i]->len << 2;
         else
           top_rated_fav_factor =
@@ -216,8 +214,17 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         else if (fuzz_p2 == top_rated_fuzz_p2)
           if (fav_factor > top_rated_fav_factor) continue;
 
-        if (fav_factor > afl->top_rated[i]->exec_us * afl->top_rated[i]->len)
-          continue;
+        if (afl->schedule == MMOPT || afl->schedule == RARE || unlikely(afl->fixed_seed)) {
+
+          if (fav_factor > afl->top_rated[i]->len << 2)
+            continue;
+
+        } else {        
+
+          if (fav_factor > afl->top_rated[i]->exec_us * afl->top_rated[i]->len)
+            continue;
+        
+        }
 
         /* Looks like we're going to win. Decrease ref count for the
            previous winner, discard its afl->fsrv.trace_bits[] if necessary. */
@@ -332,7 +339,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   // Longer execution time means longer work on the input, the deeper in
   // coverage, the better the fuzzing, right? -mh
 
-  if (afl->schedule != MMOPT && afl->schedule != RARE) {
+  if (afl->schedule != MMOPT && afl->schedule != RARE && likely(!afl->fixed_seed)) {
 
     if (q->exec_us * 0.1 > avg_exec_us)
       perf_score = 10;
@@ -442,7 +449,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       if (q->fuzz_level < 16)
         factor = ((u32)(1 << q->fuzz_level)) / (fuzz == 0 ? 1 : fuzz);
       else
-        factor = MAX_FACTOR / (fuzz == 0 ? 1 : next_p2(fuzz));
+        factor = MAX_FACTOR / (fuzz == 0 ? 1 : next_pow2(fuzz));
       break;
 
     case LIN: factor = q->fuzz_level / (fuzz == 0 ? 1 : fuzz); break;
