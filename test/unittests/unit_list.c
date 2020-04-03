@@ -90,7 +90,7 @@ static void test_long_list(void **state) {
     LIST_FOREACH(&testlist, u32, {
         result1 += *el;
     });
-    printf("removing %d\n", vals[50]);
+    //printf("removing %d\n", vals[50]);
     list_remove(&testlist, &vals[50]);
 
     LIST_FOREACH(&testlist, u32, {
