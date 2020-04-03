@@ -183,8 +183,6 @@ endif
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 
 man:    $(MANPAGES)
-	-$(MAKE) -C llvm_mode
-	-$(MAKE) -C gcc_plugin
 
 tests:	source-only
 	@cd test ; ./test.sh
@@ -339,7 +337,10 @@ unit_preallocable: test/unittests/unit_preallocable.o
 	$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_preallocable
 
-unit: unit_maybe_alloc unit_preallocable unit_list
+unit_clean:
+	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc test/unittests/*.o
+
+unit: unit_maybe_alloc unit_preallocable unit_list unit_clean
 
 code-format:
 	./.custom-format.py -i src/*.c

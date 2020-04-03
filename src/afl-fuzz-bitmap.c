@@ -177,8 +177,6 @@ u32 count_bits(u8 *mem) {
 
 }
 
-#define FF(_b) (0xff << ((_b) << 3))
-
 /* Count the number of bytes set in the bitmap. Called fairly sporadically,
    mostly to update the status screen or calibrate and examine confirmed
    new paths. */
@@ -194,10 +192,10 @@ u32 count_bytes(u8 *mem) {
     u32 v = *(ptr++);
 
     if (!v) continue;
-    if (v & FF(0)) ++ret;
-    if (v & FF(1)) ++ret;
-    if (v & FF(2)) ++ret;
-    if (v & FF(3)) ++ret;
+    if (v & 0x000000ff) ++ret;
+    if (v & 0x0000ff00) ++ret;
+    if (v & 0x00ff0000) ++ret;
+    if (v & 0xff000000) ++ret;
 
   }
 
@@ -222,10 +220,10 @@ u32 count_non_255_bytes(u8 *mem) {
        case. */
 
     if (v == 0xffffffff) continue;
-    if ((v & FF(0)) != FF(0)) ++ret;
-    if ((v & FF(1)) != FF(1)) ++ret;
-    if ((v & FF(2)) != FF(2)) ++ret;
-    if ((v & FF(3)) != FF(3)) ++ret;
+    if ((v & 0x000000ff) != 0x000000ff) ++ret;
+    if ((v & 0x0000ff00) != 0x0000ff00) ++ret;
+    if ((v & 0x00ff0000) != 0x00ff0000) ++ret;
+    if ((v & 0xff000000) != 0xff000000) ++ret;
 
   }
 
