@@ -400,6 +400,8 @@ directory. This includes:
   - `exec_timeout`      - the -t command line value
   - `slowest_exec_ms`   - real time of the slowest execution in ms
   - `peak_rss_mb`       - max rss usage reached during fuzzing in MB
+  - `edges_found`       - how many edges have been found
+  - `var_byte_count`    - how many edges are non-deterministic
   - `afl_banner`        - banner text (e.g. the target name)
   - `afl_version`       - the version of afl used
   - `target_mode`       - default, persistent, qemu, unicorn, dumb

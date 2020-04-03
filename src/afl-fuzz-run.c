@@ -354,17 +354,14 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
         for (i = 0; i < MAP_SIZE; ++i) {
 
-          if (!afl->var_bytes[i] &&
-              afl->first_trace[i] != afl->fsrv.trace_bits[i]) {
-
+          if (unlikely(!afl->var_bytes[i]) &&
+              unlikely(afl->first_trace[i] != afl->fsrv.trace_bits[i]))
             afl->var_bytes[i] = 1;
-            afl->stage_max = CAL_CYCLES_LONG;
-
-          }
 
         }
 
         var_detected = 1;
+        afl->stage_max = CAL_CYCLES_LONG;
 
       } else {
 

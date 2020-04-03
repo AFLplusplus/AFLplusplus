@@ -186,7 +186,8 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
   u64 fav_factor;
   u64 fuzz_p2 = next_pow2(q->n_fuzz);
 
-  if (afl->schedule == MMOPT || afl->schedule == RARE || unlikely(afl->fixed_seed))
+  if (afl->schedule == MMOPT || afl->schedule == RARE ||
+      unlikely(afl->fixed_seed))
     fav_factor = q->len << 2;
   else
     fav_factor = q->exec_us * q->len;
@@ -203,7 +204,8 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         u64 top_rated_fav_factor;
         u64 top_rated_fuzz_p2 = next_pow2(afl->top_rated[i]->n_fuzz);
 
-        if (afl->schedule == MMOPT || afl->schedule == RARE || unlikely(afl->fixed_seed))
+        if (afl->schedule == MMOPT || afl->schedule == RARE ||
+            unlikely(afl->fixed_seed))
           top_rated_fav_factor = afl->top_rated[i]->len << 2;
         else
           top_rated_fav_factor =
@@ -214,16 +216,16 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         else if (fuzz_p2 == top_rated_fuzz_p2)
           if (fav_factor > top_rated_fav_factor) continue;
 
-        if (afl->schedule == MMOPT || afl->schedule == RARE || unlikely(afl->fixed_seed)) {
+        if (afl->schedule == MMOPT || afl->schedule == RARE ||
+            unlikely(afl->fixed_seed)) {
 
-          if (fav_factor > afl->top_rated[i]->len << 2)
-            continue;
+          if (fav_factor > afl->top_rated[i]->len << 2) continue;
 
-        } else {        
+        } else {
 
           if (fav_factor > afl->top_rated[i]->exec_us * afl->top_rated[i]->len)
             continue;
-        
+
         }
 
         /* Looks like we're going to win. Decrease ref count for the
@@ -339,7 +341,8 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   // Longer execution time means longer work on the input, the deeper in
   // coverage, the better the fuzzing, right? -mh
 
-  if (afl->schedule != MMOPT && afl->schedule != RARE && likely(!afl->fixed_seed)) {
+  if (afl->schedule != MMOPT && afl->schedule != RARE &&
+      likely(!afl->fixed_seed)) {
 
     if (q->exec_us * 0.1 > avg_exec_us)
       perf_score = 10;
