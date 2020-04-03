@@ -20,3 +20,9 @@ common.py - this can be used for common functions and helpers.
 wrapper_afl_min.py - mutation of XML documents, loads XmlMutatorMin.py
 
 XmlMutatorMin.py - module for XML mutation
+
+custom_mutator_helpers.h is an header that defines some helper routines
+like surgical_havoc_mutate() that allow to perform a randomly chosen
+mutation from a subset of the havoc mutations.
+If you do so, you have to specify -I /path/to/AFLplusplus/include when
+compiling.
