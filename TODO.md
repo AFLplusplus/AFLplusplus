@@ -2,7 +2,15 @@
 
 ## Roadmap 2.63
 
- - get "no global vars" working
+ - complete custom_mutator API changes and documentation
+ - fix stability calculation bug
+ - libradamsa as a custom module?
+
+
+## Roadmap 2.64
+
+ - context sensitive branch coverage in llvm_mode
+
 
 ## Further down the road
 
