@@ -48,7 +48,6 @@ static u8   debug;
 static u8   cwd[4096];
 static u8   cmplog_mode;
 u8          use_stdin = 0;                                         /* dummy */
-u8          be_quiet = 0;
 
 u8 *getthecwd() {
 
@@ -135,9 +134,9 @@ static void find_obj(u8 *argv0) {
 
 /* Copy argv to cc_params, making the necessary edits. */
 
-static void edit_params(u32 argc, char **argv) {
+static void edit_params(u32 argc, char **argv, char **envp) {
 
-  u8  fortify_set = 0, asan_set = 0, x_set = 0, maybe_linking = 1, bit_mode = 0;
+  u8  fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0;
   u8  has_llvm_config = 0;
   u8 *name;
 
@@ -324,8 +323,6 @@ static void edit_params(u32 argc, char **argv) {
 
   /* Detect stray -v calls from ./configure scripts. */
 
-  if (argc == 1 && !strcmp(argv[1], "-v")) maybe_linking = 0;
-
   while (--argc) {
 
     u8 *cur = *(++argv);
@@ -336,15 +333,10 @@ static void edit_params(u32 argc, char **argv) {
 
     if (!strcmp(cur, "-x")) x_set = 1;
 
-    if (!strcmp(cur, "-c") || !strcmp(cur, "-S") || !strcmp(cur, "-E"))
-      maybe_linking = 0;
-
     if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
       asan_set = 1;
 
     if (strstr(cur, "FORTIFY_SOURCE")) fortify_set = 1;
-
-    if (!strcmp(cur, "-shared")) maybe_linking = 0;
 
     if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
       continue;
@@ -392,6 +384,22 @@ static void edit_params(u32 argc, char **argv) {
     cc_params[cc_par_cnt++] = "-fsanitize=undefined";
     cc_params[cc_par_cnt++] = "-fsanitize-undefined-trap-on-error";
     cc_params[cc_par_cnt++] = "-fno-sanitize-recover=all";
+
+  }
+
+  if (getenv("AFL_USE_CFISAN")) {
+
+    if (!lto_mode) {
+
+      uint32_t i = 0, found = 0;
+      while (envp[i] != NULL && !found)
+        if (strncmp("-flto", envp[i++], 5) == 0) found = 1;
+      if (!found) cc_params[cc_par_cnt++] = "-flto";
+
+    }
+
+    cc_params[cc_par_cnt++] = "-fsanitize=cfi";
+    cc_params[cc_par_cnt++] = "-fvisibility=hidden";
 
   }
 
@@ -483,43 +491,39 @@ static void edit_params(u32 argc, char **argv) {
 #endif                                                        /* ^__APPLE__ */
       "_I(); } while (0)";
 
-  // if (maybe_linking) {
+  if (x_set) {
 
-    if (x_set) {
+    cc_params[cc_par_cnt++] = "-x";
+    cc_params[cc_par_cnt++] = "none";
 
-      cc_params[cc_par_cnt++] = "-x";
-      cc_params[cc_par_cnt++] = "none";
-
-    }
+  }
 
 #ifndef __ANDROID__
-    switch (bit_mode) {
+  switch (bit_mode) {
 
-      case 0:
-        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt.o", obj_path);
-        break;
+    case 0:
+      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt.o", obj_path);
+      break;
 
-      case 32:
-        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-32.o", obj_path);
+    case 32:
+      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-32.o", obj_path);
 
-        if (access(cc_params[cc_par_cnt - 1], R_OK))
-          FATAL("-m32 is not supported by your compiler");
+      if (access(cc_params[cc_par_cnt - 1], R_OK))
+        FATAL("-m32 is not supported by your compiler");
 
-        break;
+      break;
 
-      case 64:
-        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-64.o", obj_path);
+    case 64:
+      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-64.o", obj_path);
 
-        if (access(cc_params[cc_par_cnt - 1], R_OK))
-          FATAL("-m64 is not supported by your compiler");
+      if (access(cc_params[cc_par_cnt - 1], R_OK))
+        FATAL("-m64 is not supported by your compiler");
 
-        break;
+      break;
 
-    }
+  }
 
 #endif
-
-  // }
 
   cc_params[cc_par_cnt] = NULL;
 
@@ -596,6 +600,7 @@ int main(int argc, char **argv, char **envp) {
             "AFL_USE_ASAN: activate address sanitizer\n"
             "AFL_USE_MSAN: activate memory sanitizer\n"
             "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+            "AFL_USE_CFISAN: activate control flow sanitizer\n"
             "AFL_LLVM_WHITELIST: enable whitelisting (selective "
             "instrumentation)\n"
             "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
@@ -685,7 +690,7 @@ int main(int argc, char **argv, char **envp) {
   find_obj(argv[0]);
 #endif
 
-  edit_params(argc, argv);
+  edit_params(argc, argv, envp);
 
   if (debug) {
 

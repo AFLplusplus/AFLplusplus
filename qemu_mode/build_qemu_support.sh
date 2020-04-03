@@ -174,6 +174,8 @@ patch -p1 <../patches/configure.diff || exit 1
 patch -p1 <../patches/tcg-runtime.diff || exit 1
 patch -p1 <../patches/tcg-runtime-head.diff || exit 1
 patch -p1 <../patches/translator.diff || exit 1
+patch -p1 <../patches/__init__.py.diff || exit 1
+patch -p1 <../patches/make_strncpy_safe.diff || exit 1
 
 echo "[+] Patching done."
 

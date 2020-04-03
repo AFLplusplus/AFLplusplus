@@ -34,8 +34,6 @@ char *power_names[POWER_SCHEDULES_NUM] = {
 
     "explore", "fast", "coe", "lin", "quad", "exploit", "mmopt", "rare"};
 
-u8 *doc_path = NULL;                    /* gath to documentation dir        */
-
 /* Initialize MOpt "globals" for this afl state */
 
 static void init_mopt_globals(afl_state_t *afl) {
@@ -79,6 +77,8 @@ list_t afl_states = {.element_prealloc_count = 0};
 
 void afl_state_init(afl_state_t *afl) {
 
+  /* thanks to this memset, growing vars like out_buf
+  and out_size are NULL/0 by default. */
   memset(afl, 0, sizeof(afl_state_t));
 
   afl->w_init = 0.9;
@@ -346,6 +346,15 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 /* Removes this afl_state instance and frees it. */
 
 void afl_state_deinit(afl_state_t *afl) {
+
+  if (afl->post_deinit) afl->post_deinit(afl->post_data);
+
+  free(afl->out_buf);
+  free(afl->out_scratch_buf);
+  free(afl->eff_buf);
+  free(afl->in_buf);
+  free(afl->in_scratch_buf);
+  free(afl->ex_buf);
 
   list_remove(&afl_states, afl);
 

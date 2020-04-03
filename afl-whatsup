@@ -122,6 +122,7 @@ fmt_duration()
 
 FIRST=true
 TOTAL_WCOP=
+TOTAL_LAST_PATH=0
 
 for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
@@ -170,6 +171,10 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
   TOTAL_CRASHES=$((TOTAL_CRASHES + unique_crashes))
   TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
   TOTAL_PFAV=$((TOTAL_PFAV + pending_favs))
+
+  if [ "$last_path" -gt "$TOTAL_LAST_PATH" ]; then
+    TOTAL_LAST_PATH=$last_path
+  fi
 
   if [ "$SUMMARY_ONLY" = "" ]; then
 
@@ -236,6 +241,7 @@ TOTAL_DAYS=$((TOTAL_TIME / 60 / 60 / 24))
 TOTAL_HRS=$(((TOTAL_TIME / 60 / 60) % 24))
 
 test -z "$TOTAL_WCOP" && TOTAL_WCOP="not available"
+fmt_duration $TOTAL_LAST_PATH && TOTAL_LAST_PATH=$DUR_STRING
 
 test "$TOTAL_TIME" = "0" && TOTAL_TIME=1
 
@@ -262,6 +268,7 @@ fi
 
 echo "       Crashes found : $TOTAL_CRASHES locally unique"
 echo "Cycles without finds : $TOTAL_WCOP"
+echo "  Time without finds : $TOTAL_LAST_PATH"
 echo
 
 exit 0

@@ -49,8 +49,6 @@
 
 /* Describe integer as memory size. */
 
-extern u8 *doc_path;
-
 list_t fsrv_list = {.element_prealloc_count = 0};
 
 /* Initializes the struct */
@@ -164,10 +162,9 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 
-  struct timeval timeout;
-  int            st_pipe[2], ctl_pipe[2];
-  int            status;
-  s32            rlen;
+  int st_pipe[2], ctl_pipe[2];
+  int status;
+  s32 rlen;
 
   if (fsrv->use_fauxsrv) ACTF("Using Fauxserver:");
 
@@ -318,25 +315,18 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
   rlen = 0;
   if (fsrv->exec_tmout) {
 
-    fd_set readfds;
+    rlen = 4;
+    u32 time = read_timed(fsrv->fsrv_st_fd, &status, rlen,
+                          fsrv->exec_tmout * FORK_WAIT_MULT);
 
-    FD_ZERO(&readfds);
-    FD_SET(fsrv->fsrv_st_fd, &readfds);
-    timeout.tv_sec = ((fsrv->exec_tmout * FORK_WAIT_MULT) / 1000);
-    timeout.tv_usec = ((fsrv->exec_tmout * FORK_WAIT_MULT) % 1000) * 1000;
-
-    int sret = select(fsrv->fsrv_st_fd + 1, &readfds, NULL, NULL, &timeout);
-
-    if (sret == 0) {
+    if (time > fsrv->exec_tmout * FORK_WAIT_MULT) {
 
       fsrv->child_timed_out = 1;
-      kill(fsrv->child_pid, SIGKILL);
-
-    } else {
-
-      rlen = read(fsrv->fsrv_st_fd, &status, 4);
+      kill(fsrv->fsrv_pid, SIGKILL);
 
     }
+
+    if (!time) { kill(fsrv->fsrv_pid, SIGKILL); }
 
   } else {
 

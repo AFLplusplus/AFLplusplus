@@ -35,6 +35,9 @@
 #include "types.h"
 #include "debug.h"
 
+/* Initial size used for ck_maybe_grow */
+#define INITIAL_GROWTH_SIZE (64)
+
 // Be careful! _WANT_ORIGINAL_AFL_ALLOC is not compatible with custom mutators
 
 #ifndef _WANT_ORIGINAL_AFL_ALLOC
@@ -763,6 +766,100 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
 #endif                                                     /* ^!DEBUG_BUILD */
 
 #endif                                          /* _WANT_ORIGINAL_AFL_ALLOC */
+
+/* This function calculates the next power of 2 greater or equal its argument.
+ @return The rounded up power of 2 (if no overflow) or 0 on overflow.
+*/
+static inline size_t next_pow2(size_t in) {
+
+  if (in == 0 || in > (size_t)-1)
+    return 0;                  /* avoid undefined behaviour under-/overflow */
+  size_t out = in - 1;
+  out |= out >> 1;
+  out |= out >> 2;
+  out |= out >> 4;
+  out |= out >> 8;
+  out |= out >> 16;
+  return out + 1;
+
+}
+
+/* This function makes sure *size is > size_needed after call.
+ It will realloc *buf otherwise.
+ *size will grow exponentially as per:
+ https://blog.mozilla.org/nnethercote/2014/11/04/please-grow-your-buffers-exponentially/
+ Will return NULL and free *buf if size_needed is <1 or realloc failed.
+ @return For convenience, this function returns *buf.
+ */
+static inline void *maybe_grow(void **buf, size_t *size, size_t size_needed) {
+
+  /* No need to realloc */
+  if (likely(size_needed && *size >= size_needed)) return *buf;
+
+  /* No initial size was set */
+  if (size_needed < INITIAL_GROWTH_SIZE) size_needed = INITIAL_GROWTH_SIZE;
+
+  /* grow exponentially */
+  size_t next_size = next_pow2(size_needed);
+
+  /* handle overflow and zero size_needed */
+  if (!next_size) { next_size = size_needed; }
+
+  /* alloc */
+  *buf = realloc(*buf, next_size);
+  *size = *buf ? next_size : 0;
+
+  return *buf;
+
+}
+
+/* This function makes sure *size is > size_needed after call.
+ It will realloc *buf otherwise.
+ *size will grow exponentially as per:
+ https://blog.mozilla.org/nnethercote/2014/11/04/please-grow-your-buffers-exponentially/
+ Will FATAL if size_needed is <1.
+ @return For convenience, this function returns *buf.
+ */
+static inline void *ck_maybe_grow(void **buf, size_t *size,
+                                  size_t size_needed) {
+
+  /* Oops. found a bug? */
+  if (unlikely(size_needed < 1)) FATAL("cannot grow to non-positive size");
+
+  /* No need to realloc */
+  if (likely(*size >= size_needed)) return *buf;
+
+  /* No initial size was set */
+  if (size_needed < INITIAL_GROWTH_SIZE) size_needed = INITIAL_GROWTH_SIZE;
+
+  /* grow exponentially */
+  size_t next_size = next_pow2(size_needed);
+
+  /* handle overflow */
+  if (!next_size) { next_size = size_needed; }
+
+  /* alloc */
+  *buf = ck_realloc(*buf, next_size);
+  *size = next_size;
+
+  return *buf;
+
+}
+
+/* Swaps buf1 ptr and buf2 ptr, as well as their sizes */
+static inline void swap_bufs(void **buf1, size_t *size1, void **buf2,
+                             size_t *size2) {
+
+  void * scratch_buf = *buf1;
+  size_t scratch_size = *size1;
+  *buf1 = *buf2;
+  *size1 = *size2;
+  *buf2 = scratch_buf;
+  *size2 = scratch_size;
+
+}
+
+#undef INITIAL_GROWTH_SIZE
 
 #endif                                               /* ! _HAVE_ALLOC_INL_H */
 

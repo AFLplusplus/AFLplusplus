@@ -44,9 +44,8 @@ typedef enum prealloc_status {
 
 /* Adds the entry used for prealloc bookkeeping to this struct */
 
-#define PREALLOCABLE \
-  ;                  \
-  pre_status_t pre_status;              /* prealloc status of this instance */
+/* prealloc status of this instance */
+#define PREALLOCABLE pre_status_t pre_status
 
 /* allocate an element of type *el_ptr, to this variable.
     Uses (and reuses) the given prealloc_buf before hitting libc's malloc.

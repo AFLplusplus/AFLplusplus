@@ -131,14 +131,40 @@ class AFLCoverage : public ModulePass {
 
 char AFLCoverage::ID = 0;
 
+/* needed up to 3.9.0 */
+#if LLVM_VERSION_MAJOR == 3 && \
+    (LLVM_VERSION_MINOR < 9 || \
+     (LLVM_VERSION_MINOR == 9 && LLVM_VERSION_PATCH < 1))
+uint64_t PowerOf2Ceil(unsigned in) {
+
+  uint64_t in64 = in - 1;
+  in64 |= (in64 >> 1);
+  in64 |= (in64 >> 2);
+  in64 |= (in64 >> 4);
+  in64 |= (in64 >> 8);
+  in64 |= (in64 >> 16);
+  in64 |= (in64 >> 32);
+  return in64 + 1;
+
+}
+
+#endif
+
+/* #if LLVM_VERSION_STRING >= "4.0.1" */
+#if LLVM_VERSION_MAJOR >= 4 || \
+    (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
+#define AFL_HAVE_VECTOR_INTRINSICS 1
+#endif
 bool AFLCoverage::runOnModule(Module &M) {
 
   LLVMContext &C = M.getContext();
 
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
   IntegerType *IntLocTy =
       IntegerType::getIntNTy(C, sizeof(PREV_LOC_T) * CHAR_BIT);
+#endif
   struct timeval  tv;
   struct timezone tz;
   u32             rand_seed;
@@ -179,27 +205,39 @@ bool AFLCoverage::runOnModule(Module &M) {
   char *neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
 #endif
 
-  /* Decide previous location vector size (must be a power of two) */
+  unsigned PrevLocSize;
 
   char *ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
   if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
+
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+  /* Decide previous location vector size (must be a power of two) */
+  VectorType *PrevLocTy;
 
   if (ngram_size_str)
     if (sscanf(ngram_size_str, "%u", &ngram_size) != 1 || ngram_size < 2 ||
         ngram_size > MAX_NGRAM_SIZE)
       FATAL(
-          "Bad value of AFL_NGRAM_SIZE (must be between 2 and MAX_NGRAM_SIZE)");
+          "Bad value of AFL_NGRAM_SIZE (must be between 2 and MAX_NGRAM_SIZE "
+          "(%u))",
+          MAX_NGRAM_SIZE);
 
-  unsigned PrevLocSize;
   if (ngram_size == 1) ngram_size = 0;
   if (ngram_size)
     PrevLocSize = ngram_size - 1;
   else
+#else
+  if (ngram_size_str)
+    FATAL(
+        "Sorry, n-gram branch coverage is not supported with llvm version %s!",
+        LLVM_VERSION_STRING);
+#endif
     PrevLocSize = 1;
-  uint64_t    PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
-  VectorType *PrevLocTy;
 
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+  uint64_t PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
   if (ngram_size) PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize);
+#endif
 
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
@@ -209,6 +247,7 @@ bool AFLCoverage::runOnModule(Module &M) {
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
   GlobalVariable *AFLPrevLoc;
 
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
   if (ngram_size)
 #ifdef __ANDROID__
     AFLPrevLoc = new GlobalVariable(
@@ -222,15 +261,17 @@ bool AFLCoverage::runOnModule(Module &M) {
         /* AddressSpace */ 0, /* IsExternallyInitialized */ false);
 #endif
   else
+#endif
 #ifdef __ANDROID__
     AFLPrevLoc = new GlobalVariable(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
 #else
-    AFLPrevLoc = new GlobalVariable(
-        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
-        GlobalVariable::GeneralDynamicTLSModel, 0, false);
+  AFLPrevLoc = new GlobalVariable(
+      M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
+      GlobalVariable::GeneralDynamicTLSModel, 0, false);
 #endif
 
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
   /* Create the vector shuffle mask for updating the previous block history.
      Note that the first element of the vector will store cur_loc, so just set
      it to undef to allow the optimizer to do its thing. */
@@ -244,6 +285,7 @@ bool AFLCoverage::runOnModule(Module &M) {
     PrevLocShuffle.push_back(ConstantInt::get(Int32Ty, PrevLocSize));
 
   Constant *PrevLocShuffleMask = ConstantVector::get(PrevLocShuffle);
+#endif
 
   // other constants we need
   ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
@@ -420,9 +462,11 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       ConstantInt *CurLoc;
 
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
       if (ngram_size)
         CurLoc = ConstantInt::get(IntLocTy, cur_loc);
       else
+#endif
         CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 
       /* Load prev_loc */
@@ -431,6 +475,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
       Value *PrevLocTrans;
 
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
       /* "For efficiency, we propose to hash the tuple as a key into the
          hit_count map as (prev_block_trans << 1) ^ curr_block_trans, where
          prev_block_trans = (block_trans_1 ^ ... ^ block_trans_(n-1)" */
@@ -438,6 +483,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       if (ngram_size)
         PrevLocTrans = IRB.CreateXorReduce(PrevLoc);
       else
+#endif
         PrevLocTrans = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
       /* Load SHM pointer */
@@ -446,11 +492,13 @@ bool AFLCoverage::runOnModule(Module &M) {
       MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
       Value *MapPtrIdx;
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
       if (ngram_size)
         MapPtrIdx = IRB.CreateGEP(
             MapPtr,
             IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, CurLoc), Int32Ty));
       else
+#endif
         MapPtrIdx = IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocTrans, CurLoc));
 
       /* Update bitmap */
@@ -536,6 +584,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       StoreInst *Store;
 
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
       if (ngram_size) {
 
         Value *ShuffledPrevLoc = IRB.CreateShuffleVector(
@@ -546,7 +595,10 @@ bool AFLCoverage::runOnModule(Module &M) {
         Store = IRB.CreateStore(UpdatedPrevLoc, AFLPrevLoc);
         Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-      } else {
+      } else
+
+#endif
+      {
 
         Store = IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1),
                                 AFLPrevLoc);
@@ -568,10 +620,11 @@ bool AFLCoverage::runOnModule(Module &M) {
     else {
 
       char modeline[100];
-      snprintf(modeline, sizeof(modeline), "%s%s%s%s",
+      snprintf(modeline, sizeof(modeline), "%s%s%s%s%s",
                getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
                getenv("AFL_USE_ASAN") ? ", ASAN" : "",
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
+               getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
       OKF("Instrumented %u locations (%s mode, ratio %u%%).", inst_blocks,
           modeline, inst_ratio);

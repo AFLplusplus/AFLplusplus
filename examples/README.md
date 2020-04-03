@@ -2,9 +2,7 @@
 
 Here's a quick overview of the stuff you can find in this directory:
 
-  - custom_mutstors      - An example custom mutator
-  
-  - python_mutators      - Python mutators examples
+  - custom_mutators      - example custom mutators in python an c
 
   - argv_fuzzing         - a simple wrapper to allow cmdline to be fuzzed
                            (e.g., to test setuid programs).
@@ -15,8 +13,8 @@ Here's a quick overview of the stuff you can find in this directory:
   - bash_shellshock      - a simple hack used to find a bunch of
                            post-Shellshock bugs in bash.
 
-  - canvas_harness       - a test harness used to find browser bugs with a 
-                           corpus generated using simple image parsing 
+  - canvas_harness       - a test harness used to find browser bugs with a
+                           corpus generated using simple image parsing
                            binaries & afl-fuzz.
 
   - clang_asm_normalize  - a script that makes it easy to instrument
@@ -34,7 +32,7 @@ Here's a quick overview of the stuff you can find in this directory:
                            mode to speed up certain fuzzing jobs.
 
   - post_library         - an example of how to build postprocessors for AFL.
-  
+
   - socket_fuzzing       - a LD_PRELOAD library 'redirects' a socket to stdin
                            for fuzzing access with afl++
 

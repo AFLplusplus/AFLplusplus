@@ -1,0 +1,31 @@
+--- a/util/qemu-sockets.c	2020-03-28 13:55:09.511029429 +0100
++++ b/util/qemu-sockets.c	2020-03-28 14:01:12.147693937 +0100
+@@ -877,7 +877,7 @@
+ 
+     memset(&un, 0, sizeof(un));
+     un.sun_family = AF_UNIX;
+-    strncpy(un.sun_path, path, sizeof(un.sun_path));
++    strncpy(un.sun_path, path, sizeof(un.sun_path) - 1);
+ 
+     if (bind(sock, (struct sockaddr*) &un, sizeof(un)) < 0) {
+         error_setg_errno(errp, errno, "Failed to bind socket to %s", path);
+@@ -922,7 +922,7 @@
+ 
+     memset(&un, 0, sizeof(un));
+     un.sun_family = AF_UNIX;
+-    strncpy(un.sun_path, saddr->path, sizeof(un.sun_path));
++    strncpy(un.sun_path, saddr->path, sizeof(un.sun_path) - 1);
+ 
+     /* connect to peer */
+     do {
+--- a/block/sheepdog.c	2020-03-28 14:01:57.164360270 +0100
++++ b/block/sheepdog.c	2020-03-28 14:02:52.781026597 +0100
+@@ -1236,7 +1236,7 @@
+      * don't want the send_req to read uninitialized data.
+      */
+     strncpy(buf, filename, SD_MAX_VDI_LEN);
+-    strncpy(buf + SD_MAX_VDI_LEN, tag, SD_MAX_VDI_TAG_LEN);
++    strncpy(buf + SD_MAX_VDI_LEN, tag, SD_MAX_VDI_TAG_LEN - 1);
+ 
+     memset(&hdr, 0, sizeof(hdr));
+     if (lock) {
