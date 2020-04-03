@@ -10,6 +10,7 @@
 ## Roadmap 2.64
 
  - context sensitive branch coverage in llvm_mode
+ - random crc32 HASH_CONST per run? because with 65536 paths we have collisions
 
 
 ## Further down the road
