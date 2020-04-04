@@ -24,9 +24,8 @@ CFLAGS      ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
 CFLAGS += -I ../include/ -Wall -g -Wno-pointer-sign
 
 UNAME_CMD=uname -s
-_UNAME_S =$(shell $(UNAME_CMD)) # GNU make puts a space at the end, great!!
-UNAME_S =$(_UNAME_S: =)
-UNAME_S:sh=$(UNAME_CMD)        # BSD make
+UNAME_S =$(shell $(UNAME_CMD))# GNU make
+UNAME_S:sh=$(UNAME_CMD)       # BSD make
 _UNIQ=_QINU_
 
      _OS_DL = $(_UNIQ)$(UNAME_S)
