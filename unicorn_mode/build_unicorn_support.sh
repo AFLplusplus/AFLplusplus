@@ -1,4 +1,4 @@
-#!/bin/sh
+#! /bin/sh
 #
 # american fuzzy lop++ - unicorn mode build script
 # ------------------------------------------------
@@ -107,8 +107,21 @@ done
 
 if ! type $EASY_INSTALL > /dev/null; then
 
-  # work around for unusual installs
-  if [ '!' -e /usr/lib/python2.7/dist-packages/easy_install.py ] && [ '!' -e /usr/local/lib/python2.7/dist-packages/easy_install.py ] && [ '!' -e /usr/pkg/lib/python2.7/dist-packages/easy_install.py ]; then
+  # work around for installs with executable easy_install
+  EASY_INSTALL_FOUND=0
+  MYPYTHONPATH=`python -v </dev/null 2>&1 >/dev/null | sed -n -e '/^# \/.*\/os.py/{ s/.*matches //; s/os.py$//; p}'`
+  for PATHCANDIDATE in \
+        "dist-packages/" \
+        "site-packages/"
+  do
+    if [ -e "${MYPYTHONPATH}/${PATHCANDIDATE}/easy_install.py" ] ; then
+
+      EASY_INSTALL_FOUND=1
+      break
+
+    fi
+  done
+  if [ '!' $EASY_INSTALL_FOUND ]; then
 
     echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
     PREREQ_NOTFOUND=1
