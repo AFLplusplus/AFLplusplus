@@ -71,34 +71,34 @@ override CFLAGS += -Wall -g -Wno-pointer-sign \
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
-ifneq "$(shell type python3m 2>/dev/null)" ""
-  ifneq "$(shell type python3m-config 2>/dev/null)" ""
+ifneq "$(shell command -v python3m 2>/dev/null)" ""
+  ifneq "$(shell command -v python3m-config 2>/dev/null)" ""
     PYTHON_INCLUDE  ?= $(shell python3m-config --includes)
     PYTHON_VERSION  ?= $(strip $(shell python3m --version 2>&1))
     # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
     ifeq "$(shell python3m-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
-      PYTHON_LIB      ?= $(shell python3m-config --libs --embed)
+      PYTHON_LIB      ?= $(shell python3m-config --libs --embed --ldflags)
     else
       PYTHON_LIB      ?= $(shell python3m-config --ldflags)
     endif
   endif
 endif
 
-ifneq "$(shell type python3 2>/dev/null)" ""
-  ifneq "$(shell type python3-config 2>/dev/null)" ""
+ifneq "$(shell command -v python3 2>/dev/null)" ""
+  ifneq "$(shell command -v python3-config 2>/dev/null)" ""
     PYTHON_INCLUDE  ?= $(shell python3-config --includes)
     PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
     # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
     ifeq "$(shell python3-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
-      PYTHON_LIB      ?= $(shell python3-config --libs --embed)
+      PYTHON_LIB      ?= $(shell python3-config --libs --embed --ldflags)
     else
       PYTHON_LIB      ?= $(shell python3-config --ldflags)
     endif
   endif
 endif
 
-ifneq "$(shell type python 2>/dev/null)" ""
-  ifneq "$(shell type python-config 2>/dev/null)" ""
+ifneq "$(shell command -v python 2>/dev/null)" ""
+  ifneq "$(shell command -v python-config 2>/dev/null)" ""
     PYTHON_INCLUDE  ?= $(shell python-config --includes)
     PYTHON_LIB      ?= $(shell python-config --ldflags)
     PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
