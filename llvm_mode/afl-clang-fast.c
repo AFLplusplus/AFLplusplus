@@ -272,12 +272,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (lto_mode) {
 
-    char *old_path = getenv("PATH");
-    char *new_path = alloc_printf("%s:%s", AFL_PATH, old_path);
-
-    setenv("PATH", new_path, 1);
-    setenv("AFL_LD", "1", 1);
-
     if (getenv("AFL_LLVM_WHITELIST") != NULL) {
 
       cc_params[cc_par_cnt++] = "-Xclang";
@@ -288,13 +282,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-#ifdef AFL_CLANG_FUSELD
-    cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s/afl-ld", AFL_PATH);
-#endif
-
-    cc_params[cc_par_cnt++] = "-B";
-    cc_params[cc_par_cnt++] = AFL_PATH;
-
+    cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
+    cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
+    cc_params[cc_par_cnt++] = alloc_printf(
+        "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
     cc_params[cc_par_cnt++] = lto_flag;
 
   } else
