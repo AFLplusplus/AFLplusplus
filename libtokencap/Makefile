@@ -23,9 +23,9 @@ VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 CFLAGS      ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
 CFLAGS += -I ../include/ -Wall -g -Wno-pointer-sign
 
-UNAME_CMD=uname -s
-UNAME_S =$(shell $(UNAME_CMD))# GNU make
-UNAME_S:sh=$(UNAME_CMD)       # BSD make
+
+UNAME_S =$(shell uname -s)# GNU make
+UNAME_S:sh=uname -s       # BSD make
 _UNIQ=_QINU_
 
      _OS_DL = $(_UNIQ)$(UNAME_S)
