@@ -29,11 +29,13 @@
 #include "types.h"
 #include "debug.h"
 #include "alloc-inl.h"
+#include "llvm-ngram-coverage.h"
 
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <limits.h>
 #include <assert.h>
 
@@ -41,13 +43,33 @@ static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
-static u8   lto_mode;
+static u8   instrument_mode;
 static u8 * lto_flag = AFL_CLANG_FLTO;
 static u8 * march_opt = CFLAGS_OPT;
 static u8   debug;
 static u8   cwd[4096];
 static u8   cmplog_mode;
 u8          use_stdin = 0;                                         /* dummy */
+
+enum {
+
+  INSTRUMENT_CLASSIC = 0,
+  INSTRUMENT_AFL = 0,
+  INSTRUMENT_DEFAULT = 0,
+  INSTRUMENT_PCGUARD = 1,
+  INSTRUMENT_INSTRIM = 2,
+  INSTRUMENT_CFG = 2,
+  INSTRUMENT_LTO = 3,
+  INSTRUMENT_CTX = 4,
+  INSTRUMENT_NGRAM = 5  // + ngram value of 2-16 = 7 - 21
+
+};
+
+char instrument_mode_string[6][16] = {
+
+    "DEFAULT", "PCGUARD", "CFG", "LTO", "CTX",
+
+};
 
 u8 *getthecwd() {
 
@@ -150,26 +172,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   has_llvm_config = (strlen(LLVM_BINDIR) > 0);
 
-  if (!strncmp(name, "afl-clang-lto", strlen("afl-clang-lto"))) {
-
-#ifdef USE_TRACE_PC
-    FATAL("afl-clang-lto does not work with TRACE_PC mode");
-#endif
+  if (instrument_mode == INSTRUMENT_LTO)
     if (lto_flag[0] != '-')
       FATAL(
           "Using afl-clang-lto is not possible because Makefile magic did not "
           "identify the correct -flto flag");
-    if (getenv("AFL_LLVM_INSTRIM") != NULL)
-      FATAL("afl-clang-lto does not work with InsTrim mode");
-    if (getenv("AFL_LLVM_NGRAM_SIZE") != NULL)
-      FATAL("afl-clang-lto does not work with ngram coverage mode");
-    lto_mode = 1;
-
-  }
-
-  if (getenv("AFL_LLVM_NGRAM_SIZE") != NULL &&
-      getenv("AFL_LLVM_INSTRIM") != NULL)
-    FATAL("AFL_LLVM_NGRAM_SIZE and AFL_LLVM_INSTRIM cannot be used together");
 
   if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
 
@@ -260,17 +267,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-#ifdef USE_TRACE_PC
-
-  cc_params[cc_par_cnt++] =
-      "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
-  // cc_params[cc_par_cnt++] = "-mllvm";
-  // cc_params[cc_par_cnt++] =
-  // "-fsanitize-coverage=trace-cmp,trace-div,trace-gep";
-  // cc_params[cc_par_cnt++] = "-sanitizer-coverage-block-threshold=0";
-#else
-
-  if (lto_mode) {
+  if (instrument_mode == INSTRUMENT_LTO) {
 
     char *old_path = getenv("PATH");
     char *new_path = alloc_printf("%s:%s", AFL_PATH, old_path);
@@ -299,8 +296,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   } else
 
-      if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
-          getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
+      if (instrument_mode == INSTRUMENT_PCGUARD) {
 
     cc_params[cc_par_cnt++] =
         "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
@@ -310,14 +306,12 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
-    if (getenv("AFL_LLVM_INSTRIM") != NULL || getenv("INSTRIM_LIB") != NULL)
+    if (instrument_mode == INSTRUMENT_CFG)
       cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
     else
       cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
 
   }
-
-#endif                                                     /* ^USE_TRACE_PC */
 
   cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
@@ -389,7 +383,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (getenv("AFL_USE_CFISAN")) {
 
-    if (!lto_mode) {
+    if (instrument_mode != INSTRUMENT_LTO) {
 
       uint32_t i = 0, found = 0;
       while (envp[i] != NULL && !found)
@@ -402,15 +396,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-fvisibility=hidden";
 
   }
-
-#ifdef USE_TRACE_PC
-
-  if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
-      getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC"))
-    if (getenv("AFL_INST_RATIO"))
-      FATAL("AFL_INST_RATIO not available at compile time with 'trace-pc'.");
-
-#endif                                                      /* USE_TRACE_PC */
 
   if (!getenv("AFL_DONT_OPTIMIZE")) {
 
@@ -534,7 +519,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 int main(int argc, char **argv, char **envp) {
 
   int   i;
-  char *callname = "afl-clang-fast";
+  char *callname = "afl-clang-fast", *ptr;
 
   if (getenv("AFL_DEBUG")) {
 
@@ -545,83 +530,200 @@ int main(int argc, char **argv, char **envp) {
 
     be_quiet = 1;
 
-  if (strstr(argv[0], "afl-clang-lto") != NULL) callname = "afl-clang-lto";
-
-  if (argc < 2 || strcmp(argv[1], "-h") == 0) {
-
 #ifdef USE_TRACE_PC
-    printf(cCYA "afl-clang-fast" VERSION cRST
-                " [tpcg] by <lszekeres@google.com>\n")
-#else
-    if (strstr(argv[0], "afl-clang-lto") == NULL)
+  instrument_mode = INSTRUMENT_PCGUARD;
+#endif
 
-      printf("afl-clang-fast" VERSION " by <lszekeres@google.com>\n");
+  if ((ptr = getenv("AFL_LLVM_INSTRUMENT")) != NULL) {
 
-    else {
+    if (strncasecmp(ptr, "cfg", strlen("cfg")) == 0 ||
+        strncasecmp(ptr, "instrim", strlen("instrim")) == 0)
+      instrument_mode = INSTRUMENT_CFG;
+    else if (strncasecmp(ptr, "pc-guard", strlen("pc-guard")) == 0 ||
+             strncasecmp(ptr, "pcguard", strlen("pcgard")) == 0)
+      instrument_mode = INSTRUMENT_PCGUARD;
+    else if (strncasecmp(ptr, "lto", strlen("lto")) == 0)
+      instrument_mode = INSTRUMENT_LTO;
+    else if (strncasecmp(ptr, "ctx", strlen("ctx")) == 0)
+      instrument_mode = INSTRUMENT_CTX;
+    else if (strncasecmp(ptr, "ngram", strlen("ngram")) == 0) {
 
-      printf("afl-clang-lto" VERSION
-             "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
+      ptr += strlen("ngram");
+      while (*ptr && (*ptr < '0' || *ptr > '9'))
+        ptr++;
+      if (!*ptr)
+        if ((ptr = getenv("AFL_LLVM_NGRAM_SIZE")) != NULL)
+          FATAL(
+              "you must set the NGRAM size with (e.g. for value 2) "
+              "AFL_LLVM_INSTRUMENT=ngram-2");
+      instrument_mode = INSTRUMENT_NGRAM + atoi(ptr);
+      if (instrument_mode < INSTRUMENT_NGRAM + 2 ||
+          instrument_mode > INSTRUMENT_NGRAM + NGRAM_SIZE_MAX)
+        FATAL(
+            "NGRAM instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
+            "(%u)",
+            NGRAM_SIZE_MAX);
+
+      ptr = alloc_printf("%u", instrument_mode - INSTRUMENT_NGRAM);
+      setenv("AFL_LLVM_NGRAM_SIZE", ptr, 1);
+
+    } else if (strncasecmp(ptr, "classic", strlen("classic")) != 0 ||
+
+               strncasecmp(ptr, "default", strlen("default")) != 0 ||
+               strncasecmp(ptr, "afl", strlen("afl")) != 0)
+      FATAL("unknown AFL_LLVM_INSTRUMENT value: %s", ptr);
+
+  }
+
+  if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
+      getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
+
+    if (instrument_mode == 0)
+      instrument_mode = INSTRUMENT_PCGUARD;
+    else if (instrument_mode != INSTRUMENT_PCGUARD)
+      FATAL("you can not set AFL_LLVM_INSTRUMENT and AFL_TRACE_PC together");
+
+  }
+
+  if (getenv("AFL_LLVM_INSTRIM") || getenv("INSTRIM") ||
+      getenv("INSTRIM_LIB")) {
+
+    if (instrument_mode == 0)
+      instrument_mode = INSTRUMENT_CFG;
+    else if (instrument_mode != INSTRUMENT_CFG)
+      FATAL(
+          "you can not set AFL_LLVM_INSTRUMENT and AFL_LLVM_INSTRIM together");
+
+  }
+
+  if (getenv("AFL_LLVM_CTX")) {
+
+    if (instrument_mode == 0)
+      instrument_mode = INSTRUMENT_CTX;
+    else if (instrument_mode != INSTRUMENT_CTX)
+      FATAL("you can not set AFL_LLVM_INSTRUMENT and AFL_LLVM_CTX together");
+
+  }
+
+  if (getenv("AFL_LLVM_NGRAM_SIZE")) {
+
+    if (instrument_mode == 0) {
+
+      instrument_mode = INSTRUMENT_NGRAM + atoi(getenv("AFL_LLVM_NGRAM_SIZE"));
+      if (instrument_mode < INSTRUMENT_NGRAM + 2 ||
+          instrument_mode > INSTRUMENT_NGRAM + NGRAM_SIZE_MAX)
+        FATAL(
+            "NGRAM instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
+            "(%u)",
+            NGRAM_SIZE_MAX);
+
+    } else if (instrument_mode != INSTRUMENT_NGRAM)
+
+      FATAL(
+          "you can not set AFL_LLVM_INSTRUMENT and AFL_LLVM_NGRAM_SIZE "
+          "together");
+
+  }
+
+  if (instrument_mode < INSTRUMENT_NGRAM)
+    ptr = instrument_mode_string[instrument_mode];
+  else
+    ptr = alloc_printf("NGRAM-%u", instrument_mode - INSTRUMENT_NGRAM);
+
+  if (strstr(argv[0], "afl-clang-lto") != NULL) {
+
+    if (instrument_mode == 0 || instrument_mode == INSTRUMENT_LTO) {
+
+      callname = "afl-clang-lto";
+      instrument_mode = INSTRUMENT_LTO;
+      ptr = instrument_mode_string[instrument_mode];
+
+    } else {
+
+      if (!be_quiet)
+        WARNF("afl-clang-lto called with mode %s, using that mode instead",
+              ptr);
 
     }
 
-#endif                                                     /* ^USE_TRACE_PC */
+  }
 
-        SAYF(
-            "\n"
-            "%s[++] [options]\n"
-            "\n"
-            "This is a helper application for afl-fuzz. It serves as a drop-in "
-            "replacement\n"
-            "for clang, letting you recompile third-party code with the "
-            "required "
-            "runtime\n"
-            "instrumentation. A common use pattern would be one of the "
-            "following:\n\n"
+#ifndef AFL_CLANG_FLTO
+  if (instrument_mode == INSTRUMENT_LTO)
+    FATAL("instrumentation mode LTO specified but LLVM support not available");
+#endif
 
-            "  CC=%s/afl-clang-fast ./configure\n"
-            "  CXX=%s/afl-clang-fast++ ./configure\n\n"
+  if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
-            "In contrast to the traditional afl-clang tool, this version is "
-            "implemented as\n"
-            "an LLVM pass and tends to offer improved performance with slow "
-            "programs.\n\n"
+    if (instrument_mode != INSTRUMENT_LTO)
+      printf("afl-clang-fast" VERSION " by <lszekeres@google.com> in %s mode\n",
+             ptr);
+    else
+      printf("afl-clang-lto" VERSION
+             "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de> in %s mode\n",
+             ptr);
 
-            "Environment variables used:\n"
-            "AFL_CC: path to the C compiler to use\n"
-            "AFL_CXX: path to the C++ compiler to use\n"
-            "AFL_PATH: path to instrumenting pass and runtime "
-            "(afl-llvm-rt.*o)\n"
-            "AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
-            "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
-            "AFL_INST_RATIO: percentage of branches to instrument\n"
-            "AFL_QUIET: suppress verbose output\n"
-            "AFL_DEBUG: enable developer debugging output\n"
-            "AFL_HARDEN: adds code hardening to catch memory bugs\n"
-            "AFL_USE_ASAN: activate address sanitizer\n"
-            "AFL_USE_MSAN: activate memory sanitizer\n"
-            "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
-            "AFL_USE_CFISAN: activate control flow sanitizer\n"
-            "AFL_LLVM_WHITELIST: enable whitelisting (selective "
-            "instrumentation)\n"
-            "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
-            "AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
-            "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
-            "AFL_LLVM_LAF_SPLIT_SWITCHES: casc. comp. in 'switch'\n"
-            "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
-            "function calls\n"
-            " to cascaded comparisons\n"
-            "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to "
-            "cascaded "
-            "comp.\n"
-            "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n",
-            callname, BIN_PATH, BIN_PATH);
+    SAYF(
+        "\n"
+        "%s[++] [options]\n"
+        "\n"
+        "This is a helper application for afl-fuzz. It serves as a drop-in "
+        "replacement\n"
+        "for clang, letting you recompile third-party code with the "
+        "required "
+        "runtime\n"
+        "instrumentation. A common use pattern would be one of the "
+        "following:\n\n"
+
+        "  CC=%s/afl-clang-fast ./configure\n"
+        "  CXX=%s/afl-clang-fast++ ./configure\n\n"
+
+        "In contrast to the traditional afl-clang tool, this version is "
+        "implemented as\n"
+        "an LLVM pass and tends to offer improved performance with slow "
+        "programs.\n\n"
+
+        "Environment variables used:\n"
+        "AFL_CC: path to the C compiler to use\n"
+        "AFL_CXX: path to the C++ compiler to use\n"
+        "AFL_PATH: path to instrumenting pass and runtime "
+        "(afl-llvm-rt.*o)\n"
+        "AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
+        "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
+        "AFL_INST_RATIO: percentage of branches to instrument\n"
+        "AFL_QUIET: suppress verbose output\n"
+        "AFL_DEBUG: enable developer debugging output\n"
+        "AFL_HARDEN: adds code hardening to catch memory bugs\n"
+        "AFL_USE_ASAN: activate address sanitizer\n"
+        "AFL_USE_MSAN: activate memory sanitizer\n"
+        "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+        "AFL_USE_CFISAN: activate control flow sanitizer\n"
+        "AFL_LLVM_WHITELIST: enable whitelisting (selective "
+        "instrumentation)\n"
+        "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+        "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
+        "AFL_LLVM_LAF_SPLIT_SWITCHES: casc. comp. in 'switch'\n"
+        "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
+        "function calls\n"
+        " to cascaded comparisons\n"
+        "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to "
+        "cascaded "
+        "comp.\n"
+        "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n",
+        callname, BIN_PATH, BIN_PATH);
 
     SAYF(
         "\nafl-clang-fast specific environment variables:\n"
+        "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
+        "AFL_LLVM_INSTRUMENT: set instrumentation mode: DEFAULT, CFG "
+        "(INSTRIM), LTO, CTX, NGRAM-2 ... NGRAM-16\n"
+        "You can also use the old environment variables:"
+        "AFL_LLVM_CTX: use context sensitive coverage\n"
+        "AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
+        "AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage\n"
         "AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
-        "AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed\n"
-        "AFL_LLVM_NGRAM_SIZE: use ngram prev_loc coverage\n"
-        "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n");
+        "AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed (sub "
+        "option to INSTRIM)\n");
 
 #ifdef AFL_CLANG_FLTO
     SAYF(
@@ -652,22 +754,17 @@ int main(int argc, char **argv, char **envp) {
 
              getenv("AFL_DEBUG") != NULL) {
 
-#ifdef USE_TRACE_PC
-    SAYF(cCYA "afl-clang-fast" VERSION cRST
-              " [tpcg] by <lszekeres@google.com>\n");
-#warning \
-    "You do not need to specifically compile with USE_TRACE_PC anymore, setting the environment variable AFL_LLVM_USE_TRACE_PC is enough."
-#else
-    if (strstr(argv[0], "afl-clang-lto") == NULL)
+    if (instrument_mode != INSTRUMENT_LTO)
 
-      SAYF(cCYA "afl-clang-fast" VERSION cRST " by <lszekeres@google.com>\n");
+      SAYF(cCYA "afl-clang-fast" VERSION cRST
+                " by <lszekeres@google.com> in %s mode\n",
+           ptr);
 
     else
 
       SAYF(cCYA "afl-clang-lto" VERSION cRST
-                " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
-
-#endif                                                     /* ^USE_TRACE_PC */
+                " by Marc \"vanHauser\" Heuse <mh@mh-sec.de> in mode %s\n",
+           ptr);
 
   }
 
