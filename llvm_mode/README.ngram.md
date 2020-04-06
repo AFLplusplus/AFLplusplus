@@ -16,5 +16,6 @@ the same results when compiling source code.
 ## Usage
 
 The size of `n` (i.e., the number of branches to remember) is an option
-that is specified in the `AFL_LLVM_NGRAM_SIZE` environment variable.
-Good values are 2, 4 or 8.
+that is specified either in the `AFL_LLVM_INSTRUMENT=NGRAM-{value}` or the
+`AFL_LLVM_NGRAM_SIZE` environment variable.
+Good values are 2, 4 or 8, valid are 2-16.
