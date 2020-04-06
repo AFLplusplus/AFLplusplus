@@ -63,10 +63,10 @@ u8  __afl_area_initial[MAP_SIZE];
 u8 *__afl_area_ptr = __afl_area_initial;
 
 #ifdef __ANDROID__
-PREV_LOC_T __afl_prev_loc[MAX_NGRAM_SIZE];
+PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 u32        __afl_final_loc;
 #else
-__thread PREV_LOC_T __afl_prev_loc[MAX_NGRAM_SIZE];
+__thread PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 __thread u32        __afl_final_loc;
 #endif
 
@@ -282,7 +282,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
       memset(__afl_area_ptr, 0, MAP_SIZE);
       __afl_area_ptr[0] = 1;
-      memset(__afl_prev_loc, 0, MAX_NGRAM_SIZE * sizeof(PREV_LOC_T));
+      memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
 
     }
 
@@ -299,7 +299,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       raise(SIGSTOP);
 
       __afl_area_ptr[0] = 1;
-      memset(__afl_prev_loc, 0, MAX_NGRAM_SIZE * sizeof(PREV_LOC_T));
+      memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
 
       return 1;
 
