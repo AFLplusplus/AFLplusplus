@@ -216,11 +216,11 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   if (ngram_size_str)
     if (sscanf(ngram_size_str, "%u", &ngram_size) != 1 || ngram_size < 2 ||
-        ngram_size > MAX_NGRAM_SIZE)
+        ngram_size > NGRAM_SIZE_MAX)
       FATAL(
-          "Bad value of AFL_NGRAM_SIZE (must be between 2 and MAX_NGRAM_SIZE "
+          "Bad value of AFL_NGRAM_SIZE (must be between 2 and NGRAM_SIZE_MAX "
           "(%u))",
-          MAX_NGRAM_SIZE);
+          NGRAM_SIZE_MAX);
 
   if (ngram_size == 1) ngram_size = 0;
   if (ngram_size)

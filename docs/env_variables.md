@@ -93,6 +93,17 @@ of the settings discussed in section #1, with the exception of:
 
 Then there are a few specific features that are only available in llvm_mode:
 
+### Select the instrumentation mode
+
+    - AFL_LLVM_INSTRUMENT - this configures the instrumentation mode. 
+      Available options:
+        DEFAULT - classic AFL (map[cur_loc ^ prev_loc >> 1]++)
+        CFG - InsTrim instrumentation (see below)
+        LTO - LTO instrumentation (see below)
+        CTX - context sensitive instrumentation (see below)
+        NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
+      Only one can be used.
+
 ### LTO
 
     This is a different kind way of instrumentation: first it compiles all
@@ -112,8 +123,31 @@ Then there are a few specific features that are only available in llvm_mode:
    - AFL_LLVM_LTO_DONTWRITEID prevents that the highest location ID written
      into the instrumentation is set in a global variable
 
-    Instrim, LTO and ngram modes can not be used together.
     See llvm_mode/README.LTO.md for more information.
+
+### INSTRIM
+
+    This feature increases the speed by ~15% without any disadvantages.
+
+    - Setting AFL_LLVM_INSTRIM or AFL_LLVM_INSTRUMENT=CFG to activates this mode
+
+    - Setting AFL_LLVM_INSTRIM_LOOPHEAD=1 expands on INSTRIM to optimize loops.
+      afl-fuzz will only be able to see the path the loop took, but not how
+      many times it was called (unless it is a complex loop).
+
+    - Setting AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK=1 will skip instrumenting
+      functions with a single basic block. This is useful for most C and
+      some C++ targets.
+
+    See llvm_mode/README.instrim.md
+
+### NGRAM
+
+    - Setting AFL_LLVM_NGRAM_SIZE or AFL_LLVM_INSTRUMENT=NGRAM-{value}
+      activates ngram prev_loc coverage, good values are 2, 4 or 8
+      (any value between 2 and 16 is valid).
+
+    See llvm_mode/README.ngram.md
 
 ### LAF-INTEL
 
@@ -138,32 +172,6 @@ Then there are a few specific features that are only available in llvm_mode:
       files that match the names listed in this file.
 
     See llvm_mode/README.whitelist.md for more information.
-
-### INSTRIM
-
-    This feature increases the speed by whopping 20% but at the cost of a
-    lower path discovery and therefore coverage.
-
-    - Setting AFL_LLVM_INSTRIM activates this mode
-
-    - Setting AFL_LLVM_INSTRIM_LOOPHEAD=1 expands on INSTRIM to optimize loops.
-      afl-fuzz will only be able to see the path the loop took, but not how
-      many times it was called (unless it is a complex loop).
-
-    - Setting AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK=1 will skip instrumenting
-      functions with a single basic block. This is useful for most C and
-      some C++ targets.
-
-    Instrim, LTO and ngram modes can not be used together.
-    See llvm_mode/README.instrim.md
-
-### NGRAM
-
-    - Setting AFL_LLVM_NGRAM_SIZE activates ngram prev_loc coverage, good
-      values are 2, 4 or 8.
-
-    Instrim, LTO and ngram modes can not be used together.
-    See llvm_mode/README.ngram.md
 
 ### NOT_ZERO
 

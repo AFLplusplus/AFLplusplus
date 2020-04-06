@@ -34,7 +34,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
                the last 5 queue entries
       - rare: puts focus on queue entries that hits rare branches, also ignores
               runtime
-  - llvm_mode: added Control Flow Integrity sanitizer (AFL_USE_CFISAN)
+  - llvm_mode: 
+    - added Control Flow Integrity sanitizer (AFL_USE_CFISAN)
+    - added AFL_LLVM_INSTRUMENT option to control the instrumentation type
+      easier: DEFAULT, CFG (INSTRIM), LTO, CTX, NGRAM-x (x=2-16)
+    - made USE_TRACE_PC compile obsolete
   - LTO collision free instrumented added in llvm_mode with afl-clang-lto -
     note that this mode is amazing, but quite some targets won't compile
   - Added llvm_mode NGRAM prev_loc coverage by Adrean Herrera
@@ -43,7 +47,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - llvm_mode InsTrim mode:
     - removed workaround for bug where paths were not instrumented and
       imported fix by author
-    - made skipping 1 block functions an option and is disable by default,
+    - made skipping 1 block functions an option and is disabled by default,
       set AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK=1 to re-enable this
   - qemu_mode:
     - qemu_mode now uses solely the internal capstone version to fix builds
@@ -53,6 +57,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - now supports hang mode `-H` to minimize hangs
     - fixed potential afl-tmin missbehavior for targets with multiple hangs
   - Pressing Control-c in afl-cmin did not terminate it for some OS
+  - the custom API was rewritten and is now the same for Python and shared
+    libraries.
 
 
 ### Version ++2.62c (release):

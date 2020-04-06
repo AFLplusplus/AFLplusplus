@@ -1235,8 +1235,8 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
   int bitw = 64;
 
-  char *bitw_env = getenv("LAF_SPLIT_COMPARES_BITW");
-  if (!bitw_env) bitw_env = getenv("AFL_LLVM_LAF_SPLIT_COMPARES_BITW");
+  char *bitw_env = getenv("AFL_LLVM_LAF_SPLIT_COMPARES_BITW");
+  if (!bitw_env) bitw_env = getenv("LAF_SPLIT_COMPARES_BITW");
   if (bitw_env) { bitw = atoi(bitw_env); }
 
   enableFPSplit = getenv("AFL_LLVM_LAF_SPLIT_FLOATS") != NULL;
