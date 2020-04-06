@@ -621,9 +621,7 @@ int main(int argc, char **argv, char **envp) {
         "bb\n"
         "AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
         "global var\n"
-        "AFL_REAL_LD: use this linker instead of the compiled in path\n"
-        "AFL_LD_PASSTHROUGH: do not perform instrumentation (for configure "
-        "scripts)\n"
+        "AFL_REAL_LD: use this lld linker instead of the compiled in path\n"
         "\nafl-clang-lto was built with linker target \"%s\" and LTO flags "
         "\"%s\"\n"
         "If anything fails - be sure to read README.lto.md!\n",
