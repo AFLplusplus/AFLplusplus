@@ -77,7 +77,8 @@ char *afl_environment_variables[] = {
     "AFL_SHUFFLE_QUEUE", "AFL_SKIP_BIN_CHECK", "AFL_SKIP_CPUFREQ",
     "AFL_SKIP_CRASHES", "AFL_TMIN_EXACT", "AFL_TMPDIR", "AFL_TOKEN_FILE",
     "AFL_TRACE_PC", "AFL_USE_ASAN", "AFL_USE_MSAN", "AFL_USE_TRACE_PC",
-    "AFL_USE_UBSAN", "AFL_USE_CFISAN", "AFL_WINE_PATH", NULL};
+    "AFL_USE_UBSAN", "AFL_USE_CFISAN", "AFL_WINE_PATH", "AFL_NO_SNAPSHOT",
+    NULL};
 
 void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
