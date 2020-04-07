@@ -237,15 +237,11 @@ static void __afl_start_snapshots(void) {
         __afl_area_ptr[0] = 1;
         memset(__afl_prev_loc, 0, MAX_NGRAM_SIZE * sizeof(PREV_LOC_T));
 
-        fprintf(stderr, "STARTED %p...\n", __builtin_return_address(0));
-
         return;
 
       }
 
     } else {
-
-      fprintf(stderr, "child stopped\n");
 
       /* Special handling for persistent mode: if the child is alive but
          currently stopped, simply restart it with SIGCONT. */
@@ -274,7 +270,6 @@ static void __afl_start_snapshots(void) {
   }
 
 }
-
 #endif
 
 /* Fork server logic. */
@@ -283,8 +278,12 @@ static void __afl_start_forkserver(void) {
 
 #ifdef __linux__
   if (!is_persistent && !__afl_cmp_map && !getenv("AFL_NO_SNAPSHOT") &&
-      afl_snapshot_init() >= 0)
+      afl_snapshot_init() >= 0) {
+
     __afl_start_snapshots();
+    return;
+
+  }
 #endif
 
   static u8 tmp[4];
