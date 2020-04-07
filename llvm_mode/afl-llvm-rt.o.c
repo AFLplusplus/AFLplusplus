@@ -42,6 +42,10 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
+#ifdef __linux__
+#include "snapshot-inl.h"
+#endif
+
 /* This is a somewhat ugly hack for the experimental 'trace-pc-guard' mode.
    Basically, we need to make sure that the forkserver is initialized after
    the LLVM-generated runtime initialization pass, not before. */
@@ -177,9 +181,111 @@ static void __afl_map_shm(void) {
 
 }
 
+#ifdef __linux__
+static void __afl_start_snapshots(void) {
+
+  static u8 tmp[4];
+  s32       child_pid;
+
+  u8 child_stopped = 0;
+
+  void (*old_sigchld_handler)(int) = 0;  // = signal(SIGCHLD, SIG_DFL);
+
+  /* Phone home and tell the parent that we're OK. If parent isn't there,
+     assume we're not running in forkserver mode and just execute program. */
+
+  if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
+
+  while (1) {
+
+    u32 was_killed;
+    int status;
+
+    /* Wait for parent by reading from the pipe. Abort if read fails. */
+
+    if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
+
+    /* If we stopped the child in persistent mode, but there was a race
+       condition and afl-fuzz already issued SIGKILL, write off the old
+       process. */
+
+    if (child_stopped && was_killed) {
+
+      child_stopped = 0;
+      if (waitpid(child_pid, &status, 0) < 0) _exit(1);
+
+    }
+
+    if (!child_stopped) {
+
+      /* Once woken up, create a clone of our process. */
+
+      child_pid = fork();
+      if (child_pid < 0) _exit(1);
+
+      /* In child process: close fds, resume execution. */
+
+      if (!child_pid) {
+
+        signal(SIGCHLD, old_sigchld_handler);
+
+        close(FORKSRV_FD);
+        close(FORKSRV_FD + 1);
+
+        if (!afl_snapshot_do()) { raise(SIGSTOP); }
+
+        __afl_area_ptr[0] = 1;
+        memset(__afl_prev_loc, 0, MAX_NGRAM_SIZE * sizeof(PREV_LOC_T));
+
+        fprintf(stderr, "STARTED %p...\n", __builtin_return_address(0));
+
+        return;
+
+      }
+
+    } else {
+
+      fprintf(stderr, "child stopped\n");
+
+      /* Special handling for persistent mode: if the child is alive but
+         currently stopped, simply restart it with SIGCONT. */
+
+      kill(child_pid, SIGCONT);
+      child_stopped = 0;
+
+    }
+
+    /* In parent process: write PID to pipe, then wait for child. */
+
+    if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) _exit(1);
+
+    if (waitpid(child_pid, &status, WUNTRACED) < 0) _exit(1);
+
+    /* In persistent mode, the child stops itself with SIGSTOP to indicate
+       a successful run. In this case, we want to wake it up without forking
+       again. */
+
+    if (WIFSTOPPED(status)) child_stopped = 1;
+
+    /* Relay wait status to pipe, then loop back. */
+
+    if (write(FORKSRV_FD + 1, &status, 4) != 4) _exit(1);
+
+  }
+
+}
+
+#endif
+
 /* Fork server logic. */
 
 static void __afl_start_forkserver(void) {
+
+#ifdef __linux__
+  if (!is_persistent && !__afl_cmp_map && !getenv("AFL_NO_SNAPSHOT") &&
+      afl_snapshot_init() >= 0)
+    __afl_start_snapshots();
+#endif
 
   static u8 tmp[4];
   s32       child_pid;
