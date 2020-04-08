@@ -43,7 +43,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     note that this mode is amazing, but quite some targets won't compile
   - Added llvm_mode NGRAM prev_loc coverage by Adrean Herrera
     (https://github.com/adrianherrera/afl-ngram-pass/), activate by setting
-    AFL_LLVM_NGRAM_SIZE
+    AFL_LLVM_INSTRUMENT=NGRAM-<value> or AFL_LLVM_NGRAM_SIZE=<value>
+  - Added llvm_mode context sensitive branch coverage, activated by setting
+    AFL_LLVM_INSTRUMENT=CTX or AFL_LLVM_CTX=1
   - llvm_mode InsTrim mode:
     - removed workaround for bug where paths were not instrumented and
       imported fix by author
