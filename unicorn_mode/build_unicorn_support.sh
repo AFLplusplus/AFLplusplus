@@ -1,10 +1,10 @@
-#! /bin/sh
+#!/bin/sh
 #
 # american fuzzy lop++ - unicorn mode build script
 # ------------------------------------------------
 #
 # Originally written by Nathan Voss <njvoss99@gmail.com>
-# 
+#
 # Adapted from code by Andrew Griffiths <agriffiths@google.com> and
 #                      Michal Zalewski
 #
@@ -24,7 +24,7 @@
 #
 # This script downloads, patches, and builds a version of Unicorn with
 # minor tweaks to allow Unicorn-emulated binaries to be run under
-# afl-fuzz. 
+# afl-fuzz.
 #
 # The modifications reside in patches/*. The standalone Unicorn library
 # will be written to /usr/lib/libunicornafl.so, and the Python bindings
@@ -46,7 +46,7 @@ if [ ! "$PLT" = "Linux" ] && [ ! "$PLT" = "Darwin" ] && [ ! "$PLT" = "FreeBSD" ]
 
   echo "[-] Error: Unicorn instrumentation is unsupported on $PLT."
   exit 1
-  
+
 fi
 
 if [ ! -f "../config.h" ]; then
@@ -199,7 +199,7 @@ echo 0 | ../../../afl-showmap -U -m none -t 2000 -q -o .test-instr0 -- $PYTHONBI
 
 if [ -s .test-instr0 ]
 then
-  
+
   echo "[+] Instrumentation tests passed. "
   echo '[+] Make sure to adapt older scripts to `import unicornafl` and use `uc.afl_forkserver_start`'
   echo '    or `uc.afl_fuzz` to kick off fuzzing.'
