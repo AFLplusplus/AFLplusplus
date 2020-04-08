@@ -127,7 +127,7 @@ all_done: test_build
 
 .NOTPARALLEL: clean
 
-vpath  % ..
+VPATH = ..
 %.8: %
 	@echo .TH $* 8 `date "+%Y-%m-%d"` "afl++" > ../$@
 	@echo .SH NAME >> ../$@
