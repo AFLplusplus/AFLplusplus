@@ -129,12 +129,18 @@ is not optimal and was only fixed in llvm 9.
 You can set this with AFL_LLVM_NOT_ZERO=1
 See [README.neverzero](README.neverzero.md)
 
-## 4) Gotchas, feedback, bugs
+## 4) Snapshot feature
+
+To speed up fuzzing you can use a linux loadable kernel module which enables
+a snapshot feature.
+See [README.snapshot](README.snapshot.md)
+
+## 5) Gotchas, feedback, bugs
 
 This is an early-stage mechanism, so field reports are welcome. You can send bug
 reports to <afl-users@googlegroups.com>.
 
-## 5) Bonus feature #1: deferred initialization
+## 6) Bonus feature #1: deferred initialization
 
 AFL tries to optimize performance by executing the targeted binary just once,
 stopping it just before main(), and then cloning this "master" process to get
@@ -182,7 +188,7 @@ will keep working normally when compiled with a tool other than afl-clang-fast.
 Finally, recompile the program with afl-clang-fast (afl-gcc or afl-clang will
 *not* generate a deferred-initialization binary) - and you should be all set!
 
-## 6) Bonus feature #2: persistent mode
+## 7) Bonus feature #2: persistent mode
 
 Some libraries provide APIs that are stateless, or whose state can be reset in
 between processing different input files. When such a reset is performed, a

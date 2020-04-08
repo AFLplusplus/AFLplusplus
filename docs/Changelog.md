@@ -35,6 +35,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       - rare: puts focus on queue entries that hits rare branches, also ignores
               runtime
   - llvm_mode: 
+    - added SNAPSHOT feature (using https://github.com/AFLplusplus/AFL-Snapshot-LKM)
     - added Control Flow Integrity sanitizer (AFL_USE_CFISAN)
     - added AFL_LLVM_INSTRUMENT option to control the instrumentation type
       easier: DEFAULT, CFG (INSTRIM), LTO, CTX, NGRAM-x (x=2-16)
