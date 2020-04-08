@@ -544,9 +544,12 @@ int main(int argc, char **argv, char **envp) {
       instrument_mode = INSTRUMENT_PCGUARD;
     else if (strncasecmp(ptr, "lto", strlen("lto")) == 0)
       instrument_mode = INSTRUMENT_LTO;
-    else if (strncasecmp(ptr, "ctx", strlen("ctx")) == 0)
+    else if (strncasecmp(ptr, "ctx", strlen("ctx")) == 0) {
+
       instrument_mode = INSTRUMENT_CTX;
-    else if (strncasecmp(ptr, "ngram", strlen("ngram")) == 0) {
+      setenv("AFL_LLVM_CTX", "1", 1);
+
+    } else if (strncasecmp(ptr, "ngram", strlen("ngram")) == 0) {
 
       ptr += strlen("ngram");
       while (*ptr && (*ptr < '0' || *ptr > '9'))
