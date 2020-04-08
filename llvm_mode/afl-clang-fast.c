@@ -294,22 +294,25 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = lto_flag;
 
-  } else
-
-      if (instrument_mode == INSTRUMENT_PCGUARD) {
-
-    cc_params[cc_par_cnt++] =
-        "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
-
   } else {
 
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] = "-load";
-    cc_params[cc_par_cnt++] = "-Xclang";
-    if (instrument_mode == INSTRUMENT_CFG)
-      cc_params[cc_par_cnt++] = alloc_printf("%s/libLLVMInsTrim.so", obj_path);
-    else
-      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+    if (instrument_mode == INSTRUMENT_PCGUARD) {
+
+      cc_params[cc_par_cnt++] =
+          "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
+
+    } else {
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      if (instrument_mode == INSTRUMENT_CFG)
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/libLLVMInsTrim.so", obj_path);
+      else
+        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+
+    }
 
   }
 
