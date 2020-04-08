@@ -23,6 +23,7 @@
 
  */
 
+#include <limits.h>
 #include "afl-fuzz.h"
 
 /* Write bitmap to file. The bitmap is useful mostly for the secret
