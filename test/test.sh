@@ -575,7 +575,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
     CODE=1
   }
   rm -f test-persistent
-  export AFL_CC=${SAVE_AFL_CC}  # restore the default compiler
+  export AFL_CC=${SAVE_AFL_CC}
 } || {
   $ECHO "$YELLOW[-] gcc_plugin not compiled, cannot test"
   INCOMPLETE=1
@@ -903,6 +903,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
     CUSTOM_MUTATOR_PATH=$( readlink -f ../examples/custom_mutators )
   }
   test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
+    unset AFL_CC
     # Compile the vulnerable program
     ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
     # Compile the custom mutator
