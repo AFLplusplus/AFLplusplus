@@ -36,7 +36,7 @@ CFLAGS = -Wall -I../include -Wno-pointer-sign \
                -Wno-unused-function
 
 CXXFLAGS    ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=2
-CXXEFLAGS   := $(CXXFLAGS) -Wall
+CXXEFLAGS   = $(CXXFLAGS) -Wall
 
 CC          ?= gcc
 CXX         ?= g++
