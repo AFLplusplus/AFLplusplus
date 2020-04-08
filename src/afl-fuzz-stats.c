@@ -23,6 +23,7 @@
 
  */
 
+#include <limits.h>
 #include "afl-fuzz.h"
 
 /* Update stats file for unattended monitoring. */
