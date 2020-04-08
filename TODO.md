@@ -4,7 +4,6 @@
 
  - complete custom_mutator API changes and documentation
  - fix stability calculation bug
- - fix afl-cmin bug
 
 ## Roadmap 2.64
 
