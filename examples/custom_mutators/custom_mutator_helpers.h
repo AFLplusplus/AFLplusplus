@@ -27,7 +27,7 @@ static void surgical_havoc_mutate(u8 *out_buf, s32 begin, s32 end) {
   static s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
   static s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 
-  switch (RAND_BELOW(12)) {
+  switch (RAND_BELOW(13)) {
 
     case 0: {
 
@@ -277,7 +277,8 @@ static void surgical_havoc_mutate(u8 *out_buf, s32 begin, s32 end) {
       if(end - begin <= 8) break;
       u32 offset_1 = RAND_BELOW((end - begin -8)) / 2;
       u32 offset_2 = (offset_1 ^ 0xffadeb)%(end - begin -8);
-
+      
+      /* If the offsets are different swap */
       if(offset_1 != offset_2) {
           SWAPQ((*(u64 *)(out_buf + offset_1)), (*(u64 *)(out_buf + offset_2)));
       }      
