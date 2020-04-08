@@ -257,6 +257,9 @@ checks or alter some of the more exotic semantics of the tool:
   - AFL_NO_ARITH causes AFL to skip most of the deterministic arithmetics.
     This can be useful to speed up the fuzzing of text-based file formats.
 
+  - AFL_NO_SNAPSHOT will advice afl-fuzz not to use the snapshot feature
+    if the snapshot lkm is loaded
+
   - AFL_SHUFFLE_QUEUE randomly reorders the input queue on startup. Requested
     by some users for unorthodox parallelized fuzzing setups, but not
     advisable otherwise.
