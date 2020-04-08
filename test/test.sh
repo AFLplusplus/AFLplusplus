@@ -616,7 +616,6 @@ test -e ../libdislocator.so && {
 rm -f test-compcov
 test -e ../libradamsa.so && {
   # on FreeBSD need to set AFL_CC
-
   test `uname -s` = 'FreeBSD' && {
     if type clang >/dev/null; then
       export AFL_CC=`command -v clang`
@@ -651,6 +650,16 @@ test -e ../libradamsa.so && {
 } || {
   $ECHO "$YELLOW[-] libradamsa is not compiled, cannot test"
   INCOMPLETE=1
+}
+
+test -z "$AFL_CC" && {
+  if type gcc >/dev/null; then
+    export AFL_CC=gcc
+  else
+    if type clang >/dev/null; then
+      export AFL_CC=clang
+    fi
+  fi
 }
 
 $ECHO "$BLUE[*] Testing: qemu_mode"
