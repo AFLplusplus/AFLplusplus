@@ -23,6 +23,7 @@
 
  */
 
+#include <limits.h>
 #include "afl-fuzz.h"
 
 #ifdef HAVE_AFFINITY
