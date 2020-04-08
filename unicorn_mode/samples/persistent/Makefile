@@ -35,13 +35,13 @@ clean:
 	rm -rf *.o harness harness-debug
 
 harness.o: harness.c ../../unicornafl/include/unicorn/*.h
-	${MYCC} ${CFLAGS} -O3 -c $<
+	${MYCC} ${CFLAGS} -O3 -c harness.c
 
 harness-debug.o: harness.c ../../unicornafl/include/unicorn/*.h
-	${MYCC} ${CFLAGS} -g -c $< -o $@
+	${MYCC} ${CFLAGS} -g -c harness.c -o $@
 
 harness: harness.o
-	${MYCC} -L${LIBDIR} $< ../../unicornafl/libunicornafl.a $(LDFLAGS) -o $@
+	${MYCC} -L${LIBDIR} harness.o ../../unicornafl/libunicornafl.a $(LDFLAGS) -o $@
 
 debug: harness-debug.o
-	${MYCC} -L${LIBDIR} $< ../../unicornafl/libunicornafl.a $(LDFLAGS) -o harness-debug
+	${MYCC} -L${LIBDIR} harness.o ../../unicornafl/libunicornafl.a $(LDFLAGS) -o harness-debug
