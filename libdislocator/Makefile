@@ -28,7 +28,7 @@ all: libdislocator.so
 
 VPATH = ..
 libdislocator.so: libdislocator.so.c ../config.h
-	$(CC) $(CFLAGS) -shared -fPIC $< -o ../$@ $(LDFLAGS)
+	$(CC) $(CFLAGS) -shared -fPIC libdislocator.so.c -o ../$@ $(LDFLAGS)
 
 .NOTPARALLEL: clean
 
