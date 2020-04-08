@@ -273,6 +273,7 @@ static void __afl_start_snapshots(void) {
   }
 
 }
+
 #endif
 
 /* Fork server logic. */
@@ -287,6 +288,7 @@ static void __afl_start_forkserver(void) {
     return;
 
   }
+
 #endif
 
   static u8 tmp[4];
