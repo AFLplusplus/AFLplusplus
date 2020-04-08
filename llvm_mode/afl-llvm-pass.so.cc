@@ -317,6 +317,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   for (auto &F : M) {
 
+    int has_calls = 0;
     if (debug)
       fprintf(stderr, "FUNCTION: %s (%zu)\n", F.getName().str().c_str(),
               F.size());
@@ -336,7 +337,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       // does the function have calls? and is any of the calls larger than one
       // basic block?
-      int has_calls = 0;
+      has_calls = 0;
       for (auto &BB : F) {
 
         if (has_calls) break;
@@ -484,6 +485,22 @@ bool AFLCoverage::runOnModule(Module &M) {
         /* Either we couldn't figure out our location or the location is
          * not whitelisted, so we skip instrumentation. */
         if (!instrumentBlock) continue;
+
+      }
+
+      // in CTX mode we have to restore the original context for the caller -
+      // she might be calling other functions which need the correct CTX
+      if (ctx_str && has_calls) {
+
+        Instruction *Inst = BB.getTerminator();
+        if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
+
+          IRBuilder<> Post_IRB(Inst);
+          StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+          RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
+
+        }
 
       }
 
@@ -679,22 +696,6 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         Store = IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1),
                                 AFLPrevLoc);
-
-      }
-
-      // in CTX mode we have to restore the original context for the caller -
-      // she might be calling other functions which need the correct CTX
-      if (ctx_str) {
-
-        Instruction *Inst = BB.getTerminator();
-        if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
-
-          IRBuilder<> Post_IRB(Inst);
-          StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
-          RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
-                                  MDNode::get(C, None));
-
-        }
 
       }
 

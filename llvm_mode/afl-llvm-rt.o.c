@@ -78,7 +78,7 @@ __thread u32        __afl_prev_ctx;
 __thread u32        __afl_cmp_counter;
 #endif
 
-    struct cmp_map *__afl_cmp_map;
+struct cmp_map *__afl_cmp_map;
 
 /* Running in persistent mode? */
 
