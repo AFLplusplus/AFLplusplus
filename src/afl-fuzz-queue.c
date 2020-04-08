@@ -22,6 +22,7 @@
 
  */
 
+#include <limits.h>
 #include "afl-fuzz.h"
 
 /* Mark deterministic checks as done for a particular queue entry. We use the
