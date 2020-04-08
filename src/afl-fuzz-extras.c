@@ -451,7 +451,7 @@ void load_auto(afl_state_t *afl) {
     u8 *fn = alloc_printf("%s/.state/auto_extras/auto_%06u", afl->in_dir, i);
     s32 fd, len;
 
-    fd = open(fn, O_RDONLY, 0600);
+    fd = open(fn, O_RDONLY);
 
     if (fd < 0) {
 

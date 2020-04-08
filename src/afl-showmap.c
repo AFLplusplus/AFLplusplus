@@ -154,7 +154,8 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
   if (!strncmp(outfile, "/dev/", 5)) {
 
-    fd = open(outfile, O_WRONLY, 0600);
+    fd = open(outfile, O_WRONLY);
+
     if (fd < 0) PFATAL("Unable to open '%s'", fsrv->out_file);
 
   } else if (!strcmp(outfile, "-")) {
