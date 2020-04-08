@@ -198,6 +198,8 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
 #ifdef USE_PYTHON
   SAYF("Compiled with %s module support, see docs/custom_mutator.md\n",
        (char *)PYTHON_VERSION);
+#else
+  SAYF("Compiled without python module support\n");
 #endif
 
   SAYF("For additional help please consult %s/README.md\n\n", doc_path);
