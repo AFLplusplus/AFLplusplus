@@ -92,13 +92,33 @@ which C/C++ files to actually instrument. See [README.whitelist](README.whitelis
 
 For splitting memcmp, strncmp, etc. please see [README.laf-intel](README.laf-intel.md)
 
-Then there is an optimized instrumentation strategy that uses CFGs and
-markers to just instrument what is needed. This increases speed by 20-25%
-however has a lower path discovery.
-If you want to use this, set AFL_LLVM_INSTRIM=1
+Then there are different ways of instrumenting the target:
+
+1. There is an optimized instrumentation strategy that uses CFGs and
+markers to just instrument what is needed. This increases speed by 10-15%
+without any disadvantages
+If you want to use this, set AFL_LLVM_INSTRUMENT=CFG or AFL_LLVM_INSTRIM=1
 See [README.instrim](README.instrim.md)
 
-A new instrumentation called CmpLog is also available as an alternative to
+2. An even better instrumentation strategy uses LTO and link time
+instrumentation. Note that not all targets can compile in this mode, however
+if it works it is the best option you can use.
+Simply use afl-clang-lto/afl-clang-lto++ to use this option.
+See [README.lto](README.lto.md)
+
+3. Alternativly you can choose a completely different coverage method:
+
+3a. N-GRAM coverage - which combines the previous visited edges with the
+current one. This explodes the map but on the other hand has proven to be
+effective for fuzzing.
+See [README.ngram](README.ngram.md)
+
+3b. Context sensitive coverage - which combines the visited edges with an
+individual caller ID (the function that called the current one)
+[README.ctx](README.ctx.md)
+
+Then - additionally to one of the instrumentation options above - there is
+a very effective new instrumentation option called CmpLog as an alternative to
 laf-intel that allow AFL++ to apply mutations similar to Redqueen.
 See [README.cmplog](README.cmplog.md)
 

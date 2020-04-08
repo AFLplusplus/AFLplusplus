@@ -69,13 +69,16 @@ u8 *__afl_area_ptr = __afl_area_initial;
 #ifdef __ANDROID__
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 u32        __afl_final_loc;
+u32        __afl_prev_ctx;
+u32        __afl_cmp_counter
 #else
 __thread PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 __thread u32        __afl_final_loc;
+__thread u32        __afl_prev_ctx;
+__thread u32        __afl_cmp_counter;
 #endif
 
-struct cmp_map *__afl_cmp_map;
-__thread u32    __afl_cmp_counter;
+    struct cmp_map *__afl_cmp_map;
 
 /* Running in persistent mode? */
 
