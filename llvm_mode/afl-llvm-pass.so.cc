@@ -682,6 +682,22 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       }
 
+      // in CTX mode we have to restore the original context for the caller -
+      // she might be calling other functions which need the correct CTX
+      if (ctx_str) {
+
+        Instruction *Inst = BB.getTerminator();
+        if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
+
+          IRBuilder<> Post_IRB(Inst);
+          StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+          RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
+
+        }
+
+      }
+
       inst_blocks++;
 
     }
