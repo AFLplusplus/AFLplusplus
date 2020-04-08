@@ -471,8 +471,9 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
 }
 
 $ECHO "$BLUE[*] Testing: gcc_plugin"
-export AFL_CC=`command -v gcc`
 test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
+  SAVE_AFL_CC=${AFL_CC}
+  export AFL_CC=`command -v gcc`
   ../afl-gcc-fast -o test-instr.plain.gccpi ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-gcc-fast -o test-compcov.harden.gccpi test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain.gccpi && {
@@ -574,6 +575,7 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
     CODE=1
   }
   rm -f test-persistent
+  export AFL_CC=${SAVE_AFL_CC}  # restore the default compiler
 } || {
   $ECHO "$YELLOW[-] gcc_plugin not compiled, cannot test"
   INCOMPLETE=1
@@ -894,82 +896,86 @@ test -d ../unicorn_mode/unicornafl && {
 }
 
 $ECHO "$BLUE[*] Testing: custom mutator"
-unset AFL_CC  # Test case "gcc_plugin" sets AFL_CC to "gcc". We reset it to use the default compiler
-test `uname -s` = 'Darwin' && {
-  CUSTOM_MUTATOR_PATH=$( realpath ../examples/custom_mutators )
-} || {
-  CUSTOM_MUTATOR_PATH=$( readlink -f ../examples/custom_mutators )
-}
-test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
-  # Compile the vulnerable program
-  ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
-  # Compile the custom mutator
-  make -C ../examples/custom_mutators libexamplemutator.so > /dev/null 2>&1
-  test -e test-custom-mutator -a -e ${CUSTOM_MUTATOR_PATH}/libexamplemutator.so && {
-    # Create input directory
-    mkdir -p in
-    echo "00000" > in/in
-
-    # Run afl-fuzz w/ the C mutator
-    $ECHO "$GREY[*] running afl-fuzz for the C mutator, this will take approx 10 seconds"
-    {
-      AFL_CUSTOM_MUTATOR_LIBRARY=${CUSTOM_MUTATOR_PATH}/libexamplemutator.so ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
-    } >>errors 2>&1
-
-    # Check results
-    test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
-      $ECHO "$GREEN[+] afl-fuzz is working correctly with the C mutator"
-    } || {
-      echo CUT------------------------------------------------------------------CUT
-      cat errors
-      echo CUT------------------------------------------------------------------CUT
-      $ECHO "$RED[!] afl-fuzz is not working correctly with the C mutator"
-      CODE=1
-    }
-
-    # Clean
-    rm -rf out errors
-
-    # Run afl-fuzz w/ the Python mutator
-    $ECHO "$GREY[*] running afl-fuzz for the Python mutator, this will take approx 10 seconds"
-    {
-      export PYTHONPATH=${CUSTOM_MUTATOR_PATH}
-      export AFL_PYTHON_MODULE=example
-      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
-      unset PYTHONPATH
-      unset AFL_PYTHON_MODULE
-    } >>errors 2>&1
-
-    # Check results
-    test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
-      $ECHO "$GREEN[+] afl-fuzz is working correctly with the Python mutator"
-    } || {
-      echo CUT------------------------------------------------------------------CUT
-      cat errors
-      echo CUT------------------------------------------------------------------CUT
-      $ECHO "$RED[!] afl-fuzz is not working correctly with the Python mutator"
-      CODE=1
-    }
-
-    # Clean
-    rm -rf in out errors
-    rm -rf ${CUSTOM_MUTATOR_PATH}/__pycache__/
+test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
+  test `uname -s` = 'Darwin' && {
+    CUSTOM_MUTATOR_PATH=$( realpath ../examples/custom_mutators )
   } || {
-    ls .
-    ls ${CUSTOM_MUTATOR_PATH}
-    $ECHO "$RED[!] cannot compile the test program or the custom mutator"
-    CODE=1
+    CUSTOM_MUTATOR_PATH=$( readlink -f ../examples/custom_mutators )
   }
+  test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
+    # Compile the vulnerable program
+    ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+    # Compile the custom mutator
+    make -C ../examples/custom_mutators libexamplemutator.so > /dev/null 2>&1
+    test -e test-custom-mutator -a -e ${CUSTOM_MUTATOR_PATH}/libexamplemutator.so && {
+      # Create input directory
+      mkdir -p in
+      echo "00000" > in/in
 
-  #test "$CODE" = 1 && { $ECHO "$YELLOW[!] custom mutator tests currently will not fail travis" ; CODE=0 ; }
+      # Run afl-fuzz w/ the C mutator
+      $ECHO "$GREY[*] running afl-fuzz for the C mutator, this will take approx 10 seconds"
+      {
+        AFL_CUSTOM_MUTATOR_LIBRARY=${CUSTOM_MUTATOR_PATH}/libexamplemutator.so ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
+      } >>errors 2>&1
 
-  make -C ../examples/custom_mutators clean > /dev/null 2>&1
-  rm -f test-custom-mutator
+      # Check results
+      test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with the C mutator"
+      } || {
+        echo CUT------------------------------------------------------------------CUT
+        cat errors
+        echo CUT------------------------------------------------------------------CUT
+        $ECHO "$RED[!] afl-fuzz is not working correctly with the C mutator"
+        CODE=1
+      }
+
+      # Clean
+      rm -rf out errors
+
+      # Run afl-fuzz w/ the Python mutator
+      $ECHO "$GREY[*] running afl-fuzz for the Python mutator, this will take approx 10 seconds"
+      {
+        export PYTHONPATH=${CUSTOM_MUTATOR_PATH}
+        export AFL_PYTHON_MODULE=example
+        ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
+        unset PYTHONPATH
+        unset AFL_PYTHON_MODULE
+      } >>errors 2>&1
+
+      # Check results
+      test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with the Python mutator"
+      } || {
+        echo CUT------------------------------------------------------------------CUT
+        cat errors
+        echo CUT------------------------------------------------------------------CUT
+        $ECHO "$RED[!] afl-fuzz is not working correctly with the Python mutator"
+        CODE=1
+      }
+
+      # Clean
+      rm -rf in out errors
+      rm -rf ${CUSTOM_MUTATOR_PATH}/__pycache__/
+    } || {
+      ls .
+      ls ${CUSTOM_MUTATOR_PATH}
+      $ECHO "$RED[!] cannot compile the test program or the custom mutator"
+      CODE=1
+    }
+
+    #test "$CODE" = 1 && { $ECHO "$YELLOW[!] custom mutator tests currently will not fail travis" ; CODE=0 ; }
+
+    make -C ../examples/custom_mutators clean > /dev/null 2>&1
+    rm -f test-custom-mutator
+  } || {
+    $ECHO "$YELLOW[-] no custom mutators in $CUSTOM_MUTATOR_PATH, cannot test"
+    INCOMPLETE=1
+  }
+  unset CUSTOM_MUTATOR_PATH
 } || {
-  $ECHO "$YELLOW[-] no custom mutators in $CUSTOM_MUTATOR_PATH, cannot test"
+  $ECHO "$YELLOW[-] no python support in afl-fuzz, cannot test"
   INCOMPLETE=1
 }
-unset CUSTOM_MUTATOR_PATH
 
 $ECHO "$BLUE[*] Execution cmocka Unit-Tests $GREY"
 unset AFL_CC
