@@ -124,6 +124,8 @@ class AFLCoverage : public ModulePass {
  protected:
   std::list<std::string> myWhitelist;
   uint32_t               ngram_size = 0;
+  uint32_t               debug = 0;
+  char *                 ctx_str = NULL;
 
 };
 
@@ -179,6 +181,8 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   char be_quiet = 0;
 
+  if (getenv("AFL_DEBUG")) debug = 1;
+
   if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
     SAYF(cCYA "afl-llvm-pass" VERSION cRST
@@ -209,6 +213,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   char *ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
   if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
+  ctx_str = getenv("AFL_LLVM_CTX");
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   /* Decide previous location vector size (must be a power of two) */
@@ -228,9 +233,8 @@ bool AFLCoverage::runOnModule(Module &M) {
   else
 #else
   if (ngram_size_str)
-    FATAL(
-        "Sorry, n-gram branch coverage is not supported with llvm version %s!",
-        LLVM_VERSION_STRING);
+    FATAL("Sorry, NGRAM branch coverage is not supported with llvm version %s!",
+          LLVM_VERSION_STRING);
 #endif
     PrevLocSize = 1;
 
@@ -239,6 +243,9 @@ bool AFLCoverage::runOnModule(Module &M) {
   if (ngram_size) PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize);
 #endif
 
+  if (ctx_str && ngram_size_str)
+    FATAL("you must decide between NGRAM and CTX instrumentation");
+
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
 
@@ -246,6 +253,17 @@ bool AFLCoverage::runOnModule(Module &M) {
       new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
   GlobalVariable *AFLPrevLoc;
+  GlobalVariable *AFLContext;
+
+  if (ctx_str)
+#ifdef __ANDROID__
+    AFLContext = new GlobalVariable(
+        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx");
+#else
+    AFLContext = new GlobalVariable(
+        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx", 0,
+        GlobalVariable::GeneralDynamicTLSModel, 0, false);
+#endif
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   if (ngram_size)
@@ -291,13 +309,69 @@ bool AFLCoverage::runOnModule(Module &M) {
   ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
   ConstantInt *One = ConstantInt::get(Int8Ty, 1);
 
+  LoadInst *PrevCtx;  // CTX sensitive coverage
+
   /* Instrument all the things! */
 
   int inst_blocks = 0;
 
   for (auto &F : M) {
 
+    if (debug)
+      fprintf(stderr, "FUNCTION: %s (%zu)\n", F.getName().str().c_str(),
+              F.size());
+
     if (isBlacklisted(&F)) continue;
+
+    // AllocaInst *CallingContext = nullptr;
+
+    if (ctx_str && F.size() > 1) {  // Context sensitive coverage
+      // load the context ID of the previous function and write to to a local
+      // variable on the stack
+      auto                 bb = &F.getEntryBlock();
+      BasicBlock::iterator IP = bb->getFirstInsertionPt();
+      IRBuilder<>          IRB(&(*IP));
+      PrevCtx = IRB.CreateLoad(AFLContext);
+      PrevCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+      // does the function have calls? and is any of the calls larger than one
+      // basic block?
+      int has_calls = 0;
+      for (auto &BB : F) {
+
+        if (has_calls) break;
+        for (auto &IN : BB) {
+
+          CallInst *callInst = nullptr;
+          if ((callInst = dyn_cast<CallInst>(&IN))) {
+
+            Function *Callee = callInst->getCalledFunction();
+            if (!Callee || Callee->size() < 2)
+              continue;
+            else {
+
+              has_calls = 1;
+              break;
+
+            }
+
+          }
+
+        }
+
+      }
+
+      // if yes we store a context ID for this function in the global var
+      if (has_calls) {
+
+        ConstantInt *NewCtx = ConstantInt::get(Int32Ty, AFL_R(MAP_SIZE));
+        StoreInst *  StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
+        StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                              MDNode::get(C, None));
+
+      }
+
+    }
 
     for (auto &BB : F) {
 
@@ -484,6 +558,9 @@ bool AFLCoverage::runOnModule(Module &M) {
         PrevLocTrans = IRB.CreateXorReduce(PrevLoc);
       else
 #endif
+          if (ctx_str)
+        PrevLocTrans = IRB.CreateZExt(IRB.CreateXor(PrevLoc, PrevCtx), Int32Ty);
+      else
         PrevLocTrans = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
       /* Load SHM pointer */

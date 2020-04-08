@@ -146,6 +146,20 @@ Then there are a few specific features that are only available in llvm_mode:
     - Setting AFL_LLVM_NGRAM_SIZE or AFL_LLVM_INSTRUMENT=NGRAM-{value}
       activates ngram prev_loc coverage, good values are 2, 4 or 8
       (any value between 2 and 16 is valid).
+      It is highly recommended to increase the MAP_SIZE_POW2 definition in
+      config.h to at least 18 and maybe up to 20 for this as otherwise too
+      many map collisions occur.
+
+    See llvm_mode/README.ctx.md
+
+### CTX
+
+    - Setting AFL_LLVM_CTX or AFL_LLVM_INSTRUMENT=CTX
+      activates context sensitive branch coverage - meaning that each edge
+      is additionally combined with its caller.
+      It is highly recommended to increase the MAP_SIZE_POW2 definition in
+      config.h to at least 18 and maybe up to 20 for this as otherwise too
+      many map collisions occur.
 
     See llvm_mode/README.ngram.md
 
