@@ -272,6 +272,17 @@ static void surgical_havoc_mutate(u8 *out_buf, s32 begin, s32 end) {
       break;
 
     }
+    case 12: {
+      /* Swap 2 random qwords in the out_buf */
+      if(end - begin <= 8) break;
+      u32 offset_1 = RAND_BELOW((end - begin -8)) / 2;
+      u32 offset_2 = (offset_1 ^ 0xffadeb)%(end - begin -8);
+
+      if(offset_1 != offset_2) {
+          SWAPQ((*(u64 *)(out_buf + offset_1)), (*(u64 *)(out_buf + offset_2)));
+      }      
+      break;  
+  }
 
   }
 
