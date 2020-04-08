@@ -238,7 +238,7 @@ static void __afl_start_snapshots(void) {
         if (!afl_snapshot_do()) { raise(SIGSTOP); }
 
         __afl_area_ptr[0] = 1;
-        memset(__afl_prev_loc, 0, MAX_NGRAM_SIZE * sizeof(PREV_LOC_T));
+        memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
 
         return;
 
