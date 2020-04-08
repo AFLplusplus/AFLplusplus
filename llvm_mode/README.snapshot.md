@@ -1,7 +1,7 @@
 # AFL++ snapshot feature
 
-Snapshot is a mechanic that makes a snapshot from a process and then restores
-it's state, which is faster then forking it again.
+Snapshotting is a feature that makes a snapshot from a process and then
+restores it's state, which is faster then forking it again.
 
 All targets compiled with llvm_mode are automatically enabled for the
 snapshot feature.
