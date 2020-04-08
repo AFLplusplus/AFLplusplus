@@ -74,10 +74,12 @@
   | Non-colliding coverage  |         |     x(4)  |            |        (x)(5)    |              |
   | InsTrim                 |         |     x     |            |                  |              |
   | Ngram prev_loc coverage |         |     x(6)  |            |                  |              |
+  | Context coverage        |         |     x     |            |                  |              |
+  | Snapshot LKM support    |         |     x     |            |        (x)(5)    |              |
 
   neverZero:
 
-  (1) only in LLVM >= 9.0 due to a bug in LLVM in previous versions
+  (1) default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
 
   (2) GCC creates non-performant code, hence it is disabled in gcc_plugin
 
@@ -87,7 +89,7 @@
 
   (5) upcoming, development in the branch
 
-  (6) not compatible with LTO and InsTrim modes
+  (6) not compatible with LTO and InsTrim and needs at least LLVM >= 4.1
 
   So all in all this is the best-of afl that is currently out there :-)
 
