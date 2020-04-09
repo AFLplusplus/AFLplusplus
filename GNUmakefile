@@ -54,7 +54,8 @@ ifneq "$(shell uname)" "Darwin"
  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_OPT = -march=native
  endif
-	CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+ # OS X does not like _FORTIFY_SOURCE=2
+ CFLAGS_OPT += -D_FORTIFY_SOURCE=2
 endif
 
 ifneq "$(shell uname -m)" "x86_64"
