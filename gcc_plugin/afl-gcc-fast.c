@@ -121,12 +121,12 @@ static void edit_params(u32 argc, char **argv) {
   if (!strcmp(name, "afl-g++-fast")) {
 
     u8 *alt_cxx = getenv("AFL_CXX");
-    cc_params[0] = alt_cxx ? alt_cxx : (u8 *)AFL_GCC_CXX;
+    cc_params[0] = alt_cxx && *alt_cxx ? alt_cxx : (u8 *)AFL_GCC_CXX;
 
   } else {
 
     u8 *alt_cc = getenv("AFL_CC");
-    cc_params[0] = alt_cc ? alt_cc : (u8 *)AFL_GCC_CC;
+    cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)AFL_GCC_CC;
 
   }
 
