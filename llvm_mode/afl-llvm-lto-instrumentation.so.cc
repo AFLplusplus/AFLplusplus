@@ -23,12 +23,6 @@
 
  */
 
-// CONFIG OPTION:
-// If #define USE_SPLIT is used, then the llvm::SplitEdge function is used
-// instead of our own implementation. Ours looks better and will
-// compile everywhere. But it is not working for complex code. yet. damn.
-#define USE_SPLIT
-
 #define AFL_LLVM_PASS
 
 #include "config.h"
@@ -44,31 +38,17 @@
 #include <sys/time.h>
 
 #include "llvm/Config/llvm-config.h"
-#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
-typedef long double max_align_t;
-#endif
-
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-
-#ifdef USE_SPLIT
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
-#endif
-
-#if LLVM_VERSION_MAJOR > 3 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/CFG.h"
-#else
-#include "llvm/DebugInfo.h"
-#include "llvm/Support/CFG.h"
-#endif
 
 using namespace llvm;
 
@@ -91,7 +71,6 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-#ifdef USE_SPLIT
   void getAnalysisUsage(AnalysisUsage &AU) const override {
 
     ModulePass::getAnalysisUsage(AU);
@@ -99,8 +78,6 @@ class AFLLTOPass : public ModulePass {
     AU.addRequired<LoopInfoWrapperPass>();
 
   }
-
-#endif
 
   // Calculate the number of average collisions that would occur if all
   // location IDs would be assigned randomly (like normal afl/afl++).
@@ -179,20 +156,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   LLVMContext &C = M.getContext();
 
-  IntegerType *   Int8Ty = IntegerType::getInt8Ty(C);
-  IntegerType *   Int32Ty = IntegerType::getInt32Ty(C);
-  struct timeval  tv;
-  struct timezone tz;
-  u32             rand_seed;
+  IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
+  IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
 
-  /* Setup random() so we get Actually Random(TM) outputs from AFL_R() */
-  gettimeofday(&tv, &tz);
-  rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
-  AFL_SR(rand_seed);
+  if (getenv("AFL_DEBUG")) debug = 1;
 
   /* Show a banner */
 
-  if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
+  if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
     SAYF(cCYA "afl-llvm-lto" VERSION cRST
               " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
@@ -200,10 +171,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
   } else
 
     be_quiet = 1;
-
-#if LLVM_VERSION_MAJOR < 9
-  char *neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
-#endif
 
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
@@ -223,12 +190,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     if (F.size() < 2) continue;
     if (isBlacklisted(&F)) continue;
-
-#ifdef USE_SPLIT
-      // DominatorTree &DT =
-      // getAnalysis<DominatorTreeWrapperPass>(F).getDomTree(); LoopInfo & LI =
-      // getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-#endif
 
     std::vector<BasicBlock *> InsBlocks;
 
@@ -274,11 +235,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         for (uint32_t j = 0; j < Successors.size(); j++) {
 
-#ifdef USE_SPLIT
           BasicBlock *newBB = llvm::SplitEdge(origBB, Successors[j]);
-#else
-          BasicBlock *newBB = BasicBlock::Create(C, "", &F, nullptr);
-#endif
 
           if (!newBB) {
 
@@ -287,12 +244,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           }
 
-#ifdef USE_SPLIT
           BasicBlock::iterator IP = newBB->getFirstInsertionPt();
           IRBuilder<>          IRB(&(*IP));
-#else
-          IRBuilder<> IRB(&(*newBB));
-#endif
 
           /* Set the ID of the inserted basic block */
 
@@ -313,38 +266,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           Value *Incr = IRB.CreateAdd(Counter, One);
 
-#if LLVM_VERSION_MAJOR < 9
-          if (neverZero_counters_str !=
-              NULL) {  // with llvm 9 we make this the default as the bug in
-                       // llvm is then fixed
-#endif
-            auto cf = IRB.CreateICmpEQ(Incr, Zero);
-            auto carry = IRB.CreateZExt(cf, Int8Ty);
-            Incr = IRB.CreateAdd(Incr, carry);
-#if LLVM_VERSION_MAJOR < 9
-
-          }
-
-#endif
+          auto cf = IRB.CreateICmpEQ(Incr, Zero);
+          auto carry = IRB.CreateZExt(cf, Int8Ty);
+          Incr = IRB.CreateAdd(Incr, carry);
           IRB.CreateStore(Incr, MapPtrIdx)
               ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-#ifdef USE_SPLIT
-          // nothing
-#else
-
-          // Unconditional jump to the destination BB
-
-          IRB.CreateBr(Successors[j]);
-
-          // Replace the original destination to this newly inserted BB
-
-          origBB->replacePhiUsesWith(Successors[j], newBB);
-          BasicBlock *S = Successors[j];
-          S->replacePhiUsesWith(origBB, newBB);
-          TI->setSuccessor(j, newBB);
-
-#endif
           // done :)
 
           inst_blocks++;
