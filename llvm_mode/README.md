@@ -92,13 +92,33 @@ which C/C++ files to actually instrument. See [README.whitelist](README.whitelis
 
 For splitting memcmp, strncmp, etc. please see [README.laf-intel](README.laf-intel.md)
 
-Then there is an optimized instrumentation strategy that uses CFGs and
-markers to just instrument what is needed. This increases speed by 20-25%
-however has a lower path discovery.
-If you want to use this, set AFL_LLVM_INSTRIM=1
+Then there are different ways of instrumenting the target:
+
+1. There is an optimized instrumentation strategy that uses CFGs and
+markers to just instrument what is needed. This increases speed by 10-15%
+without any disadvantages
+If you want to use this, set AFL_LLVM_INSTRUMENT=CFG or AFL_LLVM_INSTRIM=1
 See [README.instrim](README.instrim.md)
 
-A new instrumentation called CmpLog is also available as an alternative to
+2. An even better instrumentation strategy uses LTO and link time
+instrumentation. Note that not all targets can compile in this mode, however
+if it works it is the best option you can use.
+Simply use afl-clang-lto/afl-clang-lto++ to use this option.
+See [README.lto](README.lto.md)
+
+3. Alternativly you can choose a completely different coverage method:
+
+3a. N-GRAM coverage - which combines the previous visited edges with the
+current one. This explodes the map but on the other hand has proven to be
+effective for fuzzing.
+See [README.ngram](README.ngram.md)
+
+3b. Context sensitive coverage - which combines the visited edges with an
+individual caller ID (the function that called the current one)
+[README.ctx](README.ctx.md)
+
+Then - additionally to one of the instrumentation options above - there is
+a very effective new instrumentation option called CmpLog as an alternative to
 laf-intel that allow AFL++ to apply mutations similar to Redqueen.
 See [README.cmplog](README.cmplog.md)
 
@@ -109,12 +129,18 @@ is not optimal and was only fixed in llvm 9.
 You can set this with AFL_LLVM_NOT_ZERO=1
 See [README.neverzero](README.neverzero.md)
 
-## 4) Gotchas, feedback, bugs
+## 4) Snapshot feature
+
+To speed up fuzzing you can use a linux loadable kernel module which enables
+a snapshot feature.
+See [README.snapshot](README.snapshot.md)
+
+## 5) Gotchas, feedback, bugs
 
 This is an early-stage mechanism, so field reports are welcome. You can send bug
 reports to <afl-users@googlegroups.com>.
 
-## 5) Bonus feature #1: deferred initialization
+## 6) Bonus feature #1: deferred initialization
 
 AFL tries to optimize performance by executing the targeted binary just once,
 stopping it just before main(), and then cloning this "master" process to get
@@ -162,7 +188,7 @@ will keep working normally when compiled with a tool other than afl-clang-fast.
 Finally, recompile the program with afl-clang-fast (afl-gcc or afl-clang will
 *not* generate a deferred-initialization binary) - and you should be all set!
 
-## 6) Bonus feature #2: persistent mode
+## 7) Bonus feature #2: persistent mode
 
 Some libraries provide APIs that are stateless, or whose state can be reset in
 between processing different input files. When such a reset is performed, a

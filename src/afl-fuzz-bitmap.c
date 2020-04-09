@@ -24,6 +24,7 @@
  */
 
 #include "afl-fuzz.h"
+#include <limits.h>
 
 /* Write bitmap to file. The bitmap is useful mostly for the secret
    -B option, to focus a separate fuzzing session on a particular

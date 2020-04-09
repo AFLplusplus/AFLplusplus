@@ -36,6 +36,7 @@ SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
 ASAN_OPTIONS=detect_leaks=0
 
+ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
 else
@@ -47,11 +48,14 @@ else
   endif
  endif
 endif
+endif
 
 ifneq "$(shell uname)" "Darwin"
  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_OPT = -march=native
  endif
+ # OS X does not like _FORTIFY_SOURCE=2
+ CFLAGS_OPT += -D_FORTIFY_SOURCE=2
 endif
 
 ifneq "$(shell uname -m)" "x86_64"
@@ -64,41 +68,41 @@ ifneq "$(shell uname -m)" "x86_64"
  endif
 endif
 
-CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT) -D_FORTIFY_SOURCE=2
+CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
 override CFLAGS += -Wall -g -Wno-pointer-sign \
 			  -I include/ -Werror -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
-ifneq "$(shell type python3m 2>/dev/null)" ""
-  ifneq "$(shell type python3m-config 2>/dev/null)" ""
+ifneq "$(shell command -v python3m 2>/dev/null)" ""
+  ifneq "$(shell command -v python3m-config 2>/dev/null)" ""
     PYTHON_INCLUDE  ?= $(shell python3m-config --includes)
     PYTHON_VERSION  ?= $(strip $(shell python3m --version 2>&1))
     # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
     ifeq "$(shell python3m-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
-      PYTHON_LIB      ?= $(shell python3m-config --libs --embed)
+      PYTHON_LIB      ?= $(shell python3m-config --libs --embed --ldflags)
     else
       PYTHON_LIB      ?= $(shell python3m-config --ldflags)
     endif
   endif
 endif
 
-ifneq "$(shell type python3 2>/dev/null)" ""
-  ifneq "$(shell type python3-config 2>/dev/null)" ""
+ifneq "$(shell command -v python3 2>/dev/null)" ""
+  ifneq "$(shell command -v python3-config 2>/dev/null)" ""
     PYTHON_INCLUDE  ?= $(shell python3-config --includes)
     PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
     # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
     ifeq "$(shell python3-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
-      PYTHON_LIB      ?= $(shell python3-config --libs --embed)
+      PYTHON_LIB      ?= $(shell python3-config --libs --embed --ldflags)
     else
       PYTHON_LIB      ?= $(shell python3-config --ldflags)
     endif
   endif
 endif
 
-ifneq "$(shell type python 2>/dev/null)" ""
-  ifneq "$(shell type python-config 2>/dev/null)" ""
+ifneq "$(shell command -v python 2>/dev/null)" ""
+  ifneq "$(shell command -v python-config 2>/dev/null)" ""
     PYTHON_INCLUDE  ?= $(shell python-config --includes)
     PYTHON_LIB      ?= $(shell python-config --ldflags)
     PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))

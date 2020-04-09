@@ -23,6 +23,7 @@
  */
 
 #include "afl-fuzz.h"
+#include <limits.h>
 
 /* Mark deterministic checks as done for a particular queue entry. We use the
    .state file to avoid repeating deterministic fuzzing when resuming aborted

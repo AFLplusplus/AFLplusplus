@@ -165,6 +165,7 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
       "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
+      "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
@@ -197,6 +198,8 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
 #ifdef USE_PYTHON
   SAYF("Compiled with %s module support, see docs/custom_mutator.md\n",
        (char *)PYTHON_VERSION);
+#else
+  SAYF("Compiled without python module support\n");
 #endif
 
   SAYF("For additional help please consult %s/README.md\n\n", doc_path);
