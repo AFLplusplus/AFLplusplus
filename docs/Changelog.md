@@ -10,7 +10,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.63d (development):
-  - ...
+  - LTO mode now requires llvm11 - but compiles all targets! :)
+  - if AFL_CC/AFL_CXX is set but empty afl compilers did fail, fixed
+    (this bug is in vanilla afl too)
 
 
 ### Version ++2.63c (release):
