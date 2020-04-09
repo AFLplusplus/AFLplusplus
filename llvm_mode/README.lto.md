@@ -2,16 +2,15 @@
 
 ## TLDR;
 
-1. This compile mode is very frickle if it works it is amazing, if it fails
-   - well use afl-clang-fast
+This version requires a current llvm 11 compiled from the github master.
 
-2. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
+1. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
    coverage than anything else that is out there in the AFL world
 
-3. You can use it together with llvm_mode: laf-intel and whitelisting
+2. You can use it together with llvm_mode: laf-intel and whitelisting
    features and can be combined with cmplog/Redqueen
 
-4. It only works with llvm 9 (and likely 10+ but is not tested there yet)
+3. It only works with llvm 11 (current github master state)
 
 ## Introduction and problem description
 
@@ -63,6 +62,26 @@ afl-llvm-lto++2.62d by Marc "vanHauser" Heuse <mh@mh-sec.de>
 [+] Linker was successful
 ```
 
+## Building llvm 11
+
+```
+$ sudo apt install binutils-dev
+$ git clone https://github.com/llvm/llvm-project
+$ cd llvm-project
+$ mkdir build
+$ cd build
+$ cmake -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra;compiler-rt;libclc;libcxx;libcxxabi;libunwind;lld' -DLLVM_BINUTILS_INCDIR=/usr/include/ ../llvm/
+$ make
+$ export PATH=`pwd`/bin:$PATH
+$ export LLVM_CONFIG=`pwd`/bin/llcm-config
+$ cd /path/to/AFLplusplus/
+$ make
+$ cd llvm_mode
+$ make
+$ cd ..
+$ make install
+```
+
 ## How to use afl-clang-lto
 
 Just use afl-clang-lto like you did afl-clang-fast or afl-gcc.
@@ -94,128 +113,11 @@ AR=llvm-ar RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto++ ./configure -
 ```
 and on some target you have to to AR=/RANLIB= even for make as the configure script does not save it ...
 
-### "linking globals named '...': symbol multiply defined" error
-
-The target program is using multiple global variables or functions with the
-same name. This is a common error when compiling a project with LTO, and
-the fix is `-Wl,--allow-multiple-definition` - however llvm-link which we
-need to link all llvm IR LTO files does not support this - yet (hopefully).
-Hence if you see this error either you have to remove the duplicate global
-variable (think `#ifdef` ...) or you are out of luck. :-(
-
-### "expected top-level entity" + binary ouput error
-
-This happens if multiple .a archives are to be linked and they contain the
-same object filenames, the first in LTO form, the other in ELF form.
-This can not be fixed programmatically, but can be fixed by hand.
-You can try to delete the file from either archive
-(`llvm-ar d <archive>.a <file>.o`) or performing the llvm-linking, optimizing
-and instrumentation by hand (see below).
-
-### "undefined reference to ..."
-
-This *can* be the opposite situation of the "expected top-level entity" error -
-the library with the ELF file is before the LTO library.
-However it can also be a bug in the program - try to compile it normally. If 
-fails then it is a bug in the program.
-Solutions: You can try to delete the file from either archive, e.g.
-(`llvm-ar d <archive>.a <file>.o`) or performing the llvm-linking, optimizing
-and instrumentation by hand (see below).
-
-### "File format not recognized"
-
-This happens if the build system has fixed LDFLAGS, CPPFLAGS, CXXFLAGS and/or
-CFLAGS. Ensure that they all contain the `-flto` flag that afl-clang-lto was
-compiled with (you can see that by typing `afl-clang-lto -h` and inspecting
-the last line of the help output) and add them otherwise
-
-### clang is hardcoded to /bin/ld
-
-Some clang packages have 'ld' hardcoded to /bin/ld. This is an issue as this
-prevents "our" afl-ld being called.
-
--fuse-ld=/path/to/afl-ld should be set through makefile magic in llvm_mode - 
-if it is supported - however if this fails you can try:
-```
-LDFLAGS=-fuse-ld=</path/to/afl-ld
-```
-
-As workaround attempt #2 you will have to switch /bin/ld:
-```
-  mv /bin/ld /bin/ld.orig
-  cp afl-ld /bin/ld
-```
-This can result in two problems though:
-
- !1!
-  When compiling afl-ld, the build process looks at where the /bin/ld link
-  is going to. So when the workaround was applied and a recompiling afl-ld
-  is performed then the link is gone and the new afl-ld clueless where
-  the real ld is.
-  In this case set AFL_REAL_LD=/bin/ld.orig
-
- !2! 
- When you install an updated gcc/clang/... package, your OS might restore
- the ld link.
-
-### Performing the steps by hand
-
-It is possible to perform all the steps afl-ld by hand to workaround issues
-in the target.
-
-1. Recompile with AFL_DEBUG=1 and collect the afl-clang-lto command that fails
-   e.g.: `AFL_DEBUG=1 make 2>&1 | grep afl-clang-lto | tail -n 1`
-
-2. run this command prepended with AFL_DEBUG=1 and collect the afl-ld command
-   parameters, e.g. `AFL_DEBUG=1 afl-clang-lto[++] .... | grep /afl/ld`
-
-3. for every .a archive you want to instrument unpack it into a seperate
-   directory, e.g.
-   `mkdir archive1.dir ; cd archive1.dir ; llvm-link x ../<archive>.a`
-
-4. run `file archive*.dir/*.o` and make two lists, one containing all ELF files
-   and one containing all LLVM IR bitcode files.
-   You do the same for all .o files of the ../afl/ld command options
-
-5. Create a single bitcode file by using llvm-link, e.g.
-   `llvm-link -o all-bitcode.bc <list of all LLVM IR .o files>`
-   If this fails it is game over - or you modify the source code
-
-6. Run the optimizer on the new bitcode file:
-   `opt -O3 --polly -o all-optimized.bc all-bitcode.bc`
-
-7. Instrument the optimized bitcode file:
-   `opt --load=$AFL_PATH/afl-llvm-lto-instrumentation.so --disable-opt --afl-lto all-optimized.bc -o all-instrumented.bc
-
-8. If the parameter `--allow-multiple-definition` is not in the list, add it
-   as first command line option.
-
-9. Link everything together.
-   a) You use the afl-ld command and instead of e.g. `/usr/local/lib/afl/ld`
-      you replace that with `ld`, the real linker.
-   b) Every .a archive you instrumented files from you remove the <archive>.a
-      or -l<archive> from the command
-   c) If you have entries in your ELF files list (see step 4), you put them to
-      the command line - but them in the same order!
-   d) put the all-instrumented.bc before the first library or .o file
-   e) run the command and hope it compiles, if it doesn't you have to analyze
-      what the issue is and fix that in the approriate step above.
-
-Yes this is long and complicated. That is why there is afl-ld doing this and
-that why this can easily fail and not all different ways how it *can* fail can
-be implemented ...
-
 ### compiling programs still fail
 
 afl-clang-lto is still work in progress.
-Complex targets are still likely not to compile and this needs to be fixed.
 Please report issues at:
 [https://github.com/AFLplusplus/AFLplusplus/issues/226](https://github.com/AFLplusplus/AFLplusplus/issues/226)
-
-Known issues:
-* ffmpeg
-* bogofilter
-* libjpeg-turbo-1.3.1
 
 ## Upcoming Work
 
@@ -224,15 +126,6 @@ Known issues:
    loaded and used - and communicated to afl-fuzz too.
    Result: faster fork in the target and faster map analysis in afl-fuzz
    => more speed :-)
-
-## Tested and working targets
-
-* libpng-1.2.53
-* libxml2-2.9.2
-* tiff-4.0.4
-* unrar-nonfree-5.6.6
-* exiv 0.27
-* jpeg-6b
 
 ## History
 
@@ -252,11 +145,17 @@ very difficult with a program that has so many paths and therefore so many
 dependencies. At lot of stratgies were implemented - and failed.
 And then sat solvers were tried, but with over 10.000 variables that turned
 out to be a dead-end too.
+
 The final idea to solve this came from domenukk who proposed to insert a block
 into an edge and then just use incremental counters ... and this worked!
 After some trials and errors to implement this vanhauser-thc found out that
 there is actually an llvm function for this: SplitEdge() :-)
+
 Still more problems came up though as this only works without bugs from
 llvm 9 onwards, and with high optimization the link optimization ruins
 the instrumented control flow graph.
-As long as there are no larger changes in llvm this all should work well now ...
+
+This is all now fixed with llvm 11. The llvm's own linker is now able to
+load passes and this bypasses all problems we had.
+
+Happy end :)
