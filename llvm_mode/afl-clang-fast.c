@@ -185,7 +185,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang++", LLVM_BINDIR);
     else
       sprintf(llvm_fullpath, "clang++");
-    cc_params[0] = alt_cxx ? alt_cxx : (u8 *)llvm_fullpath;
+    cc_params[0] = alt_cxx && *alt_cxx ? alt_cxx : (u8 *)llvm_fullpath;
 
   } else {
 
@@ -194,7 +194,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang", LLVM_BINDIR);
     else
       sprintf(llvm_fullpath, "clang");
-    cc_params[0] = alt_cc ? alt_cc : (u8 *)llvm_fullpath;
+    cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)llvm_fullpath;
 
   }
 

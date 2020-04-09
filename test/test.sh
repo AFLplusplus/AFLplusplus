@@ -581,6 +581,8 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   INCOMPLETE=1
 }
 
+test -z "$AFL_CC" && unset AFL_CC
+
 $ECHO "$BLUE[*] Testing: shared library extensions"
 cc $CFLAGS -o test-compcov test-compcov.c > /dev/null 2>&1
 test -e ../libtokencap.so && {
