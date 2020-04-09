@@ -58,19 +58,20 @@ endif
 
 ifeq "$(LLVM_MAJOR)" "9"
   $(info [+] llvm_mode detected llvm 9, enabling neverZero implementation)
-  $(info [+] llvm_mode detected llvm 9, enabling afl-clang-lto LTO implementation)
-  LLVM_LTO = 1
 endif
 
 ifeq "$(LLVM_NEW_API)" "1"
   $(info [+] llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
-  $(info [+] llvm_mode detected llvm 9, enabling afl-clang-lto LTO implementation)
   LLVM_STDCXX = c++14
+endif
+
+ifeq "$(LLVM_MAJOR)" "11"
+  $(info [+] llvm_mode detected llvm 11, enabling afl-clang-lto LTO implementation)
   LLVM_LTO = 1
 endif
 
 ifeq "$(LLVM_LTO)" "0"
-  $(info [+] llvm_mode detected llvm < 9, afl-clang-lto LTO will not be build.)
+  $(info [+] llvm_mode detected llvm < 11, afl-clang-lto LTO will not be build.)
 endif
 
 ifeq "$(LLVM_APPLE)" "1"
@@ -125,13 +126,17 @@ else
  endif
 endif
 
-ifneq "$(AFL_CLANG_FLTO)" ""
-ifeq "$(AFL_REAL_LD)" ""
-  AFL_REAL_LD = $(shell readlink /bin/ld 2>/dev/null)
-  ifeq "$(AFL_REAL_LD)" ""
-    AFL_REAL_LD = $(shell readlink /usr/bin/ld 2>/dev/null)
+ifeq "$(LLVM_LTO)" "1"
+  ifneq "$(AFL_CLANG_FLTO)" ""
+    ifeq "$(AFL_REAL_LD)" ""
+      ifneq "$(shell readlink $(LLVM_BINDIR)/ld.lld 2>&1)" ""
+        AFL_REAL_LD = $(LLVM_BINDIR)/ld.lld
+      else
+        $(warn ld.lld not found, can not enable LTO mode)
+        LLVM_LTO = 0
+      endif
+    endif
   endif
-endif
 endif
 
 AFL_CLANG_FUSELD=
@@ -257,10 +262,11 @@ ifeq "$(LLVM_LTO)" "1"
 	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 	ln -sf afl-ld ../ld
 	@rm -f .test-instr
-	@-export AFL_QUIET=1 AFL_PATH=.. PATH="..:$(PATH)" ; ../afl-clang-lto -Wl,--afl -o .test-instr ../test-instr.c && echo "[+] afl-clang-lto and afl-ld seem to work fine :)" || echo "[!] WARNING: clang seems to have a hardcoded "'/bin/ld'" - check README.lto"
+	@-export AFL_QUIET=1 AFL_PATH=.. PATH="..:$(PATH)" ; ../afl-clang-lto -o .test-instr ../test-instr.c && echo "[+] afl-clang-lto seems to work fine :)" || echo "[!] WARNING: clang seems to have a hardcoded "'/bin/ld'" - check README.lto"
 	@rm -f .test-instr
 endif
 endif
+
 ../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc | test_deps
 	-$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
 
@@ -275,9 +281,9 @@ ifeq "$(LLVM_LTO)" "1"
 	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
 endif
 
-../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc MarkNodes.cc
+../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc
 ifeq "$(LLVM_LTO)" "1"
-	$(CXX) $(CLANG_CFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
+	$(CXX) $(CLANG_CFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
 endif
 
 # laf
@@ -323,7 +329,7 @@ all_done: test_build
 install: all
 	install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
 	if [ -f ../afl-clang-fast -a -f ../libLLVMInsTrim.so -a -f ../afl-llvm-rt.o ]; then set -e; install -m 755 ../afl-clang-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-fast++; install -m 755 ../libLLVMInsTrim.so ../afl-llvm-pass.so ../afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f ../afl-clang-lto -a -f ../afl-ld ]; then set -e; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 ../afl-ld $${DESTDIR}$(HELPER_PATH); ln -sf afl-ld $${DESTDIR}$(HELPER_PATH)/ld; install -m 755 ../afl-llvm-lto-instrumentation.so $${DESTDIR}$(HELPER_PATH); install -m 755 ../afl-llvm-lto-whitelist.so $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f ../afl-clang-lto ]; then set -e; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 ../afl-llvm-lto-instrumentation.so $${DESTDIR}$(HELPER_PATH); install -m 755 ../afl-llvm-lto-whitelist.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../afl-llvm-rt-32.o ]; then set -e; install -m 755 ../afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../afl-llvm-rt-64.o ]; then set -e; install -m 755 ../afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../compare-transform-pass.so ]; then set -e; install -m 755 ../compare-transform-pass.so $${DESTDIR}$(HELPER_PATH); fi
