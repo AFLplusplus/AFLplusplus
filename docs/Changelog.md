@@ -9,6 +9,10 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++2.63d (development):
+  - ...
+
+
 ### Version ++2.63c (release):
 
   ! the repository was moved from vanhauser-thc to AFLplusplus. It is now
