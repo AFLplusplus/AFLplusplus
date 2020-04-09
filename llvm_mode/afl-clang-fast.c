@@ -269,12 +269,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (instrument_mode == INSTRUMENT_LTO) {
 
-    char *old_path = getenv("PATH");
-    char *new_path = alloc_printf("%s:%s", AFL_PATH, old_path);
-
-    setenv("PATH", new_path, 1);
-    setenv("AFL_LD", "1", 1);
-
     if (getenv("AFL_LLVM_WHITELIST") != NULL) {
 
       cc_params[cc_par_cnt++] = "-Xclang";
@@ -285,13 +279,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-#ifdef AFL_CLANG_FUSELD
-    cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s/afl-ld", AFL_PATH);
-#endif
-
-    cc_params[cc_par_cnt++] = "-B";
-    cc_params[cc_par_cnt++] = AFL_PATH;
-
+    cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
+    cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
+    cc_params[cc_par_cnt++] = alloc_printf(
+        "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
     cc_params[cc_par_cnt++] = lto_flag;
 
   } else {
@@ -738,9 +729,7 @@ int main(int argc, char **argv, char **envp) {
         "bb\n"
         "AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
         "global var\n"
-        "AFL_REAL_LD: use this linker instead of the compiled in path\n"
-        "AFL_LD_PASSTHROUGH: do not perform instrumentation (for configure "
-        "scripts)\n"
+        "AFL_REAL_LD: use this lld linker instead of the compiled in path\n"
         "\nafl-clang-lto was built with linker target \"%s\" and LTO flags "
         "\"%s\"\n"
         "If anything fails - be sure to read README.lto.md!\n",

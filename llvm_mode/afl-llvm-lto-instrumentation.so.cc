@@ -378,7 +378,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
         M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc", 0,
         GlobalVariable::GeneralDynamicTLSModel, 0, false);
     ConstantInt *const_loc = ConstantInt::get(Int32Ty, afl_global_id);
-    AFLFinalLoc->setAlignment(4);
+    MaybeAlign   Align = MaybeAlign(4);
+    AFLFinalLoc->setAlignment(Align);
     AFLFinalLoc->setInitializer(const_loc);
 
   }
@@ -423,5 +424,5 @@ static RegisterPass<AFLLTOPass> X("afl-lto", "afl++ LTO instrumentation pass",
                                   false, false);
 
 static RegisterStandardPasses RegisterAFLLTOPass(
-    PassManagerBuilder::EP_OptimizerLast, registerAFLLTOPass);
+    PassManagerBuilder::EP_FullLinkTimeOptimizationLast, registerAFLLTOPass);
 

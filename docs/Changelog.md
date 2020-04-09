@@ -45,7 +45,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       easier: DEFAULT, CFG (INSTRIM), LTO, CTX, NGRAM-x (x=2-16)
     - made USE_TRACE_PC compile obsolete
   - LTO collision free instrumented added in llvm_mode with afl-clang-lto -
-    note that this mode is amazing, but quite some targets won't compile
+    this mode is amazing but requires you to build llvm 11 yourself
   - Added llvm_mode NGRAM prev_loc coverage by Adrean Herrera
     (https://github.com/adrianherrera/afl-ngram-pass/), activate by setting
     AFL_LLVM_INSTRUMENT=NGRAM-<value> or AFL_LLVM_NGRAM_SIZE=<value>
