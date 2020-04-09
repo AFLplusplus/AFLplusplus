@@ -353,7 +353,7 @@ void check_environment_vars(char **envp) {
   if (be_quiet) return;
 
   int   index = 0, found = 0;
-  char *env;
+  char *env, *val;
   while ((env = envp[index++]) != NULL) {
 
     if (strncmp(env, "ALF_", 4) == 0) {
@@ -367,10 +367,21 @@ void check_environment_vars(char **envp) {
       while (match == 0 && afl_environment_variables[i] != NULL)
         if (strncmp(env, afl_environment_variables[i],
                     strlen(afl_environment_variables[i])) == 0 &&
-            env[strlen(afl_environment_variables[i])] == '=')
+            env[strlen(afl_environment_variables[i])] == '=') {
+
           match = 1;
-        else
+          if ((val = getenv(afl_environment_variables[i])) && !*val)
+            WARNF(
+                "AFL environment variable %s defined but is empty, this can "
+                "lead to unexpected consequences",
+                afl_environment_variables[i]);
+
+        } else {
+
           i++;
+
+        }
+
       if (match == 0) {
 
         WARNF("Mistyped AFL environment variable: %s", env);
