@@ -142,12 +142,12 @@ static void edit_params(u32 argc, char **argv) {
     if (!strcmp(name, "afl-clang++")) {
 
       u8 *alt_cxx = getenv("AFL_CXX");
-      cc_params[0] = alt_cxx ? alt_cxx : (u8 *)"clang++";
+      cc_params[0] = alt_cxx && *alt_cxx ? alt_cxx : (u8 *)"clang++";
 
     } else {
 
       u8 *alt_cc = getenv("AFL_CC");
-      cc_params[0] = alt_cc ? alt_cc : (u8 *)"clang";
+      cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)"clang";
 
     }
 
@@ -187,17 +187,17 @@ static void edit_params(u32 argc, char **argv) {
     if (!strcmp(name, "afl-g++")) {
 
       u8 *alt_cxx = getenv("AFL_CXX");
-      cc_params[0] = alt_cxx ? alt_cxx : (u8 *)"g++";
+      cc_params[0] = alt_cxx && *alt_cxx ? alt_cxx : (u8 *)"g++";
 
     } else if (!strcmp(name, "afl-gcj")) {
 
       u8 *alt_cc = getenv("AFL_GCJ");
-      cc_params[0] = alt_cc ? alt_cc : (u8 *)"gcj";
+      cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)"gcj";
 
     } else {
 
       u8 *alt_cc = getenv("AFL_CC");
-      cc_params[0] = alt_cc ? alt_cc : (u8 *)"gcc";
+      cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)"gcc";
 
     }
 

@@ -188,7 +188,7 @@ ifeq "$(TEST_MMAP)" "1"
         LDFLAGS += -lrt
 endif
 
-  PROGS      = ../afl-clang-fast ../afl-ld ../afl-llvm-pass.so ../afl-llvm-lto-whitelist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
+  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-lto-whitelist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
 ifeq "$(LLVMVER)" ""
@@ -253,17 +253,6 @@ ifneq "$(AFL_CLANG_FLTO)" ""
 ifeq "$(LLVM_LTO)" "1"
 	ln -sf afl-clang-fast ../afl-clang-lto
 	ln -sf afl-clang-fast ../afl-clang-lto++
-endif
-endif
-
-../afl-ld: afl-ld.c
-ifneq "$(AFL_CLANG_FLTO)" ""
-ifeq "$(LLVM_LTO)" "1"
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
-	ln -sf afl-ld ../ld
-	@rm -f .test-instr
-	@-export AFL_QUIET=1 AFL_PATH=.. PATH="..:$(PATH)" ; ../afl-clang-lto -o .test-instr ../test-instr.c && echo "[+] afl-clang-lto seems to work fine :)" || echo "[!] WARNING: clang seems to have a hardcoded "'/bin/ld'" - check README.lto"
-	@rm -f .test-instr
 endif
 endif
 
