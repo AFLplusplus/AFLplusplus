@@ -10,3 +10,7 @@ To use the snapshot feature for fuzzing compile and load this kernel
 module: [https://github.com/AFLplusplus/AFL-Snapshot-LKM](https://github.com/AFLplusplus/AFL-Snapshot-LKM)
 
 Note that is has little value for persistent (__AFL_LOOP) fuzzing.
+
+## Notes
+
+Snapshot does not work with multithreaded targets yet. Still in WIP, it is now usable only for single threaded applications.
