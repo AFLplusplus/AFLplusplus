@@ -258,7 +258,7 @@ static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
   fsrv->child_timed_out = 0;
 
-  memset(fsrv->trace_bits, 0, MAP_SIZE);
+  memset(fsrv->trace_bits, 0, fsrv->map_size);
   MEM_BARRIER();
 
   write_to_testcase(fsrv, mem, len);
@@ -393,7 +393,7 @@ static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
   }
 
-  cksum = hash32(fsrv->trace_bits, MAP_SIZE, HASH_CONST);
+  cksum = hash32(fsrv->trace_bits, fsrv->map_size, HASH_CONST);
 
   if (first_run) orig_cksum = cksum;
 

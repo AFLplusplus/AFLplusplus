@@ -477,6 +477,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
+  if (instrument_mode == INSTRUMENT_LTO)
+    cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-lto.o", obj_path);
+
 #ifndef __ANDROID__
   switch (bit_mode) {
 

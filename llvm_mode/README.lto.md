@@ -12,6 +12,8 @@ This version requires a current llvm 11 compiled from the github master.
 
 3. It only works with llvm 11 (current github master state)
 
+4. AUTODICTIONARY feature! see below
+
 ## Introduction and problem description
 
 A big issue with how afl/afl++ works is that the basic block IDs that are
@@ -33,33 +35,22 @@ and many dead ends until we got to this:
  * Our compiler (afl-clang-lto/afl-clang-lto++) takes care of setting the
    correct LTO options and runs our own afl-ld linker instead of the system
    linker
- * Our linker collects all LTO files to link and instruments them so that
+ * The LLVM linker collects all LTO files to link and instruments them so that
    we have non-colliding edge overage
  * We use a new (for afl) edge coverage - which is the same as in llvm
    -fsanitize=coverage edge coverage mode :)
- * after inserting our instrumentation in all interesting edges we link
-   all parts of the program together to our executable
 
 The result:
- * 10-15% speed gain compared to llvm_mode
+ * 10-20% speed gain compared to llvm_mode
  * guaranteed non-colliding edge coverage :-)
  * The compile time especially for libraries can be longer
 
 Example build output from a libtiff build:
 ```
-/bin/bash ../libtool  --tag=CC   --mode=link afl-clang-lto  -g -O2 -Wall -W   -o thumbnail thumbnail.o ../libtiff/libtiff.la ../port/libport.la -llzma -ljbig -ljpeg -lz -lm 
 libtool: link: afl-clang-lto -g -O2 -Wall -W -o thumbnail thumbnail.o  ../libtiff/.libs/libtiff.a ../port/.libs/libport.a -llzma -ljbig -ljpeg -lz -lm
-afl-clang-lto++2.62d by Marc "vanHauser" Heuse <mh@mh-sec.de>
-afl-ld++2.62d by Marc "vanHauser" Heuse <mh@mh-sec.de> (level 0)
-[+] Running ar unpacker on /prg/tests/lto/tiff-4.0.4/tools/../libtiff/.libs/libtiff.a into /tmp/.afl-3914343-1583339800.dir
-[+] Running ar unpacker on /prg/tests/lto/tiff-4.0.4/tools/../port/.libs/libport.a into /tmp/.afl-3914343-1583339800.dir
-[+] Running bitcode linker, creating /tmp/.afl-3914343-1583339800-1.ll
-[+] Performing optimization via opt, creating /tmp/.afl-3914343-1583339800-2.bc
-[+] Performing instrumentation via opt, creating /tmp/.afl-3914343-1583339800-3.bc
-afl-llvm-lto++2.62d by Marc "vanHauser" Heuse <mh@mh-sec.de>
-[+] Instrumented 15833 locations with no collisions (on average 1767 collisions would be in afl-gcc/afl-clang-fast) (non-hardened mode).
-[+] Running real linker /bin/x86_64-linux-gnu-ld
-[+] Linker was successful
+afl-clang-lto++2.63d by Marc "vanHauser" Heuse <mh@mh-sec.de> in mode LTO
+afl-llvm-lto++2.63d by Marc "vanHauser" Heuse <mh@mh-sec.de>
+[+] Instrumented 11836 locations with no collisions (on average 1007 collisions would be in afl-gcc/afl-clang-fast) (non-hardened mode).
 ```
 
 ## Building llvm 11
@@ -70,8 +61,8 @@ $ git clone https://github.com/llvm/llvm-project
 $ cd llvm-project
 $ mkdir build
 $ cd build
-$ cmake -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra;compiler-rt;libclc;libcxx;libcxxabi;libunwind;lld' -DLLVM_BINUTILS_INCDIR=/usr/include/ ../llvm/
-$ make
+$ cmake -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra;compiler-rt;libclc;libcxx;libcxxabi;libunwind;lld' -DCMAKE_BUILD_TYPE=Release -DLLVM_BINUTILS_INCDIR=/usr/include/ ../llvm/
+$ make -j $(nproc)
 $ export PATH=`pwd`/bin:$PATH
 $ export LLVM_CONFIG=`pwd`/bin/llcm-config
 $ cd /path/to/AFLplusplus/
@@ -95,6 +86,13 @@ Example:
 CC=afl-clang-lto CXX=afl-clang-lto++ ./configure
 make
 ```
+
+## AUTODICTIONARY feature
+
+Setting `AFL_LLVM_LTO_AUTODICTIONARY` will generate a dictionary in the
+target binary based on string compare and memory compare functions.
+afl-fuzz will automatically get these transmitted when starting to fuzz.
+This improves coverage on a lot of targets.
 
 ## Potential issues
 
@@ -121,11 +119,8 @@ Please report issues at:
 
 ## Upcoming Work
 
-1. Currently the LTO whitelist feature does not allow to not instrument main, start and init functions
-2. Modify the forkserver + afl-fuzz so that only the necessary map size is
-   loaded and used - and communicated to afl-fuzz too.
-   Result: faster fork in the target and faster map analysis in afl-fuzz
-   => more speed :-)
+1. Currently the LTO whitelist feature does not allow to not instrument main,
+   start and init functions
 
 ## History
 

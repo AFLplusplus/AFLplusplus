@@ -99,6 +99,10 @@ void afl_state_init(afl_state_t *afl) {
 
   afl->fsrv.use_stdin = 1;
 
+  afl->fsrv.map_size = MAP_SIZE;
+  afl->fsrv.function_opt = (u8 *)afl;
+  afl->fsrv.function_ptr = &maybe_add_auto;
+
   afl->cal_cycles = CAL_CYCLES;
   afl->cal_cycles_long = CAL_CYCLES_LONG;
 

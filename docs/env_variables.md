@@ -111,10 +111,15 @@ Then there are a few specific features that are only available in llvm_mode:
     instrumentation which is 100% collision free (collisions are a big issue
     in afl and afl-like instrumentations). This is performed by using
     afl-clang-lto/afl-clang-lto++ instead of afl-clang-fast, but is only
-    built if LLVM 9 or newer is used.
+    built if LLVM 11 or newer is used.
 
-    None of these options are necessary to be used and are rather for manual
-    use (which only ever the author of this LTO implementation will use ;-)
+   - AFL_LLVM_LTO_AUTODICTIONARY will generate a dictionary in the target
+     binary based on string compare and memory compare functions.
+     afl-fuzz will automatically get these transmitted when starting to
+     fuzz.
+
+    None of the following options are necessary to be used and are rather for
+    manual use (which only ever the author of this LTO implementation will use).
     These are used if several seperated instrumentation are performed which
     are then later combined.
 

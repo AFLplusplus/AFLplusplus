@@ -577,7 +577,9 @@ typedef struct afl_state {
   u32 document_counter;
 #endif
 
-  /* statis file */
+  void *maybe_add_auto;
+
+  /* statistics file */
   double last_bitmap_cvg, last_stability, last_eps;
 
   /* plot file saves from last run */
@@ -840,18 +842,18 @@ u32  calculate_score(afl_state_t *, struct queue_entry *);
 
 void read_bitmap(afl_state_t *, u8 *);
 void write_bitmap(afl_state_t *);
-u32  count_bits(u8 *);
-u32  count_bytes(u8 *);
-u32  count_non_255_bytes(u8 *);
+u32  count_bits(afl_state_t *, u8 *);
+u32  count_bytes(afl_state_t *, u8 *);
+u32  count_non_255_bytes(afl_state_t *, u8 *);
 #ifdef WORD_SIZE_64
-void simplify_trace(u64 *);
-void classify_counts(u64 *);
+void simplify_trace(afl_state_t *, u64 *);
+void classify_counts(afl_state_t *, u64 *);
 #else
-void simplify_trace(u32 *);
-void classify_counts(u32 *);
+void simplify_trace(afl_state_t *, u32 *);
+void classify_counts(afl_state_t *, u32 *);
 #endif
 void init_count_class16(void);
-void minimize_bits(u8 *, u8 *);
+void minimize_bits(afl_state_t *, u8 *, u8 *);
 #ifndef SIMPLE_FILES
 u8 *describe_op(afl_state_t *, u8);
 #endif
@@ -862,7 +864,7 @@ u8 has_new_bits(afl_state_t *, u8 *);
 
 void load_extras_file(afl_state_t *, u8 *, u32 *, u32 *, u32);
 void load_extras(afl_state_t *, u8 *);
-void maybe_add_auto(afl_state_t *, u8 *, u32);
+void maybe_add_auto(void *, u8 *, u32);
 void save_auto(afl_state_t *);
 void load_auto(afl_state_t *);
 void destroy_extras(afl_state_t *);

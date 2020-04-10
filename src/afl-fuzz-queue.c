@@ -195,7 +195,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
   /* For every byte set in afl->fsrv.trace_bits[], see if there is a previous
      winner, and how it compares to us. */
-  for (i = 0; i < MAP_SIZE; ++i)
+  for (i = 0; i < afl->fsrv.map_size; ++i)
 
     if (afl->fsrv.trace_bits[i]) {
 
@@ -248,8 +248,10 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
       if (!q->trace_mini) {
 
-        q->trace_mini = ck_alloc(MAP_SIZE >> 3);
-        minimize_bits(q->trace_mini, afl->fsrv.trace_bits);
+        u32 len = (afl->fsrv.map_size >> 3);
+        if (len == 0) len = 1;
+        q->trace_mini = ck_alloc(len);
+        minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
 
       }
 
@@ -268,14 +270,17 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 void cull_queue(afl_state_t *afl) {
 
   struct queue_entry *q;
-  u8                  temp_v[MAP_SIZE >> 3];
+  u32                 len = (afl->fsrv.map_size >> 3);
   u32                 i;
+  u8                  temp_v[MAP_SIZE >> 3];
+
+  if (len == 0) len = 1;
 
   if (afl->dumb_mode || !afl->score_changed) return;
 
   afl->score_changed = 0;
 
-  memset(temp_v, 255, MAP_SIZE >> 3);
+  memset(temp_v, 255, len);
 
   afl->queued_favored = 0;
   afl->pending_favored = 0;
@@ -292,10 +297,10 @@ void cull_queue(afl_state_t *afl) {
   /* Let's see if anything in the bitmap isn't captured in temp_v.
      If yes, and if it has a afl->top_rated[] contender, let's use it. */
 
-  for (i = 0; i < MAP_SIZE; ++i)
+  for (i = 0; i < afl->fsrv.map_size; ++i)
     if (afl->top_rated[i] && (temp_v[i >> 3] & (1 << (i & 7)))) {
 
-      u32 j = MAP_SIZE >> 3;
+      u32 j = len;
 
       /* Remove all bits belonging to the current entry from temp_v. */
 

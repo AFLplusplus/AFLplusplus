@@ -69,7 +69,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->child_pid = -1;
   fsrv->out_dir_fd = -1;
-
+  fsrv->map_size = MAP_SIZE;
   fsrv->use_fauxsrv = 0;
   fsrv->prev_timed_out = 0;
 
@@ -82,7 +82,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
 static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
-  unsigned char tmp[4] = {0};
+  unsigned char tmp[4] = {0, 0, 0, 0};
   pid_t         child_pid = -1;
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
@@ -167,9 +167,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   int status;
   s32 rlen;
 
-  if (fsrv->use_fauxsrv) ACTF("Using Fauxserver:");
+  if (!be_quiet) ACTF("Using Fauxserver:");
 
-  if (!getenv("AFL_QUIET")) ACTF("Spinning up the fork server...");
+  if (!be_quiet) ACTF("Spinning up the fork server...");
 
   if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
 
@@ -340,7 +340,93 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (rlen == 4) {
 
-    if (!getenv("AFL_QUIET")) OKF("All right - fork server is up.");
+    if (!be_quiet) OKF("All right - fork server is up.");
+
+    if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
+
+      if (!be_quiet)
+        ACTF("Extended forkserver functions received (%08x).", status);
+
+      if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
+
+        fsrv->snapshot = 1;
+        if (!be_quiet) ACTF("Using SNAPSHOT feature.");
+
+      }
+
+      if ((status & FS_OPT_MAPSIZE) == FS_OPT_MAPSIZE) {
+
+        fsrv->map_size = FS_OPT_GET_MAPSIZE(status);
+        if (fsrv->map_size % 8)
+          fsrv->map_size = (((fsrv->map_size + 8) >> 3) << 3);
+        if (!be_quiet) ACTF("Target map size: %u", fsrv->map_size);
+
+      }
+
+      if (fsrv->function_ptr == NULL || fsrv->function_opt == NULL) {
+
+        // this is not afl-fuzz - we deny and return
+        status = (0xffffffff ^ (FS_OPT_ENABLED | FS_OPT_AUTODICT));
+        if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4)
+          FATAL("Writing to forkserver failed.");
+        return;
+
+      }
+
+      if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
+
+        if (!be_quiet) ACTF("Using AUTODICT feature.");
+        status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
+        if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4)
+          FATAL("Writing to forkserver failed.");
+        if (read(fsrv->fsrv_st_fd, &status, 4) != 4)
+          FATAL("Reading from forkserver failed.");
+
+        if (status < 2 || (u32)status > 0xffffff)
+          FATAL("Dictionary has an illegal size: %d", status);
+
+        u32 len = status, offset = 0, count = 0;
+        u8 *dict = ck_alloc(len);
+        if (dict == NULL)
+          FATAL("Could not allocate %u bytes of autodictionary memmory", len);
+
+        while (len != 0) {
+
+          rlen = read(fsrv->fsrv_st_fd, dict + offset, len);
+          if (rlen > 0) {
+
+            len -= rlen;
+            offset += rlen;
+
+          } else {
+
+            FATAL(
+                "Reading autodictionary fail at position %u with %u bytes "
+                "left.",
+                offset, len);
+
+          }
+
+        }
+
+        len = status;
+        offset = 0;
+        while (offset < status && (u8)dict[offset] + offset < status) {
+
+          fsrv->function_ptr(fsrv->function_opt, dict + offset + 1,
+                             (u8)dict[offset]);
+          offset += (1 + dict[offset]);
+          count++;
+
+        }
+
+        if (!be_quiet) ACTF("Loaded %u autodictionary entries", count);
+        ck_free(dict);
+
+      }
+
+    }
+
     return;
 
   }

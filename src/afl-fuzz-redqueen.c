@@ -88,7 +88,7 @@ static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u32 *cksum) {
 
   if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
 
-  *cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+  *cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
   return 0;
 
 }
@@ -332,7 +332,7 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
   }
 
-  maybe_add_auto(afl, (u8 *)&v, shape);
+  maybe_add_auto((u8 *)afl, (u8 *)&v, shape);
 
   u64 rev;
   switch (shape) {
@@ -340,15 +340,15 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
     case 1: break;
     case 2:
       rev = SWAP16((u16)v);
-      maybe_add_auto(afl, (u8 *)&rev, shape);
+      maybe_add_auto((u8 *)afl, (u8 *)&rev, shape);
       break;
     case 4:
       rev = SWAP32((u32)v);
-      maybe_add_auto(afl, (u8 *)&rev, shape);
+      maybe_add_auto((u8 *)afl, (u8 *)&rev, shape);
       break;
     case 8:
       rev = SWAP64(v);
-      maybe_add_auto(afl, (u8 *)&rev, shape);
+      maybe_add_auto((u8 *)afl, (u8 *)&rev, shape);
       break;
 
   }
@@ -486,8 +486,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
     // If failed, add to dictionary
     if (fails == 8) {
 
-      maybe_add_auto(afl, o->v0, SHAPE_BYTES(h->shape));
-      maybe_add_auto(afl, o->v1, SHAPE_BYTES(h->shape));
+      maybe_add_auto((u8 *)afl, o->v0, SHAPE_BYTES(h->shape));
+      maybe_add_auto((u8 *)afl, o->v1, SHAPE_BYTES(h->shape));
 
     }
 
