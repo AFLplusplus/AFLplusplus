@@ -186,7 +186,7 @@ static void __afl_map_shm(void) {
 #ifdef __linux__
 static void __afl_start_snapshots(void) {
 
-  static u8 tmp[4];
+  static u8 tmp[4] = { 0, 0, 0, 0 };
   s32       child_pid;
 
   u8 child_stopped = 0;
@@ -290,7 +290,7 @@ static void __afl_start_forkserver(void) {
 
 #endif
 
-  static u8 tmp[4];
+  u8 tmp[4] = { 0, 0, 0, 0 };
   s32       child_pid;
 
   u8 child_stopped = 0;

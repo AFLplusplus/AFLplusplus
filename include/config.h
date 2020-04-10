@@ -402,7 +402,7 @@
 
 /* Extended forkserver option values */
 
-#define FS_OPT_ENABLED  0x80000001
+#define FS_OPT_ENABLED  0x8f000001
 #define FS_OPT_MAPSIZE  0x40000000
 #define FS_OPT_SNAPSHOT 0x20000000
 #define FS_OPT_AUTODICT 0x10000000
