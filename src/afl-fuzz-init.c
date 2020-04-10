@@ -441,7 +441,7 @@ static void check_map_coverage(afl_state_t *afl) {
 
   u32 i;
 
-  if (count_bytes(afl->fsrv.trace_bits) < 100) return;
+  if (count_bytes(afl, afl->fsrv.trace_bits) < 100) return;
 
   for (i = (1 << (MAP_SIZE_POW2 - 1)); i < MAP_SIZE; ++i)
     if (afl->fsrv.trace_bits[i]) return;

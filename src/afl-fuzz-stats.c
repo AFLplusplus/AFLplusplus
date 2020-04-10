@@ -37,7 +37,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
   u8                     fn[PATH_MAX];
   s32                    fd;
   FILE *                 f;
-  uint32_t               t_bytes = count_non_255_bytes(afl->virgin_bits);
+  uint32_t               t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
 
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
 
@@ -258,7 +258,7 @@ void show_stats(afl_state_t *afl) {
 
   /* Do some bitmap stats. */
 
-  t_bytes = count_non_255_bytes(afl->virgin_bits);
+  t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
   t_byte_ratio = ((double)t_bytes * 100) / afl->fsrv.map_size;
 
   if (likely(t_bytes) && unlikely(afl->var_byte_count))
@@ -305,7 +305,7 @@ void show_stats(afl_state_t *afl) {
 
   /* Compute some mildly useful bitmap stats. */
 
-  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl->virgin_bits);
+  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl, afl->virgin_bits);
 
   /* Now, for the visuals... */
 

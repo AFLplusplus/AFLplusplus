@@ -78,16 +78,17 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
   u64 *current = (u64 *)afl->fsrv.trace_bits;
   u64 *virgin = (u64 *)virgin_map;
 
-  u32 i = (MAP_SIZE >> 3);
+  u32 i = (afl->fsrv.map_size >> 3);
 
 #else
 
   u32 *current = (u32 *)afl->fsrv.trace_bits;
   u32 *virgin = (u32 *)virgin_map;
 
-  u32 i = (MAP_SIZE >> 2);
+  u32 i = (afl->fsrv.map_size >> 2);
 
 #endif                                                     /* ^WORD_SIZE_64 */
+  if (i == 0) i = 1;
 
   u8 ret = 0;
 
@@ -148,11 +149,13 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 /* Count the number of bits set in the provided bitmap. Used for the status
    screen several times every second, does not have to be fast. */
 
-u32 count_bits(u8 *mem) {
+u32 count_bits(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (MAP_SIZE >> 2);
+  u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
+
+  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -182,11 +185,13 @@ u32 count_bits(u8 *mem) {
    mostly to update the status screen or calibrate and examine confirmed
    new paths. */
 
-u32 count_bytes(u8 *mem) {
+u32 count_bytes(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (MAP_SIZE >> 2);
+  u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
+
+  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -207,11 +212,13 @@ u32 count_bytes(u8 *mem) {
 /* Count the number of non-255 bytes set in the bitmap. Used strictly for the
    status screen, several calls per second or so. */
 
-u32 count_non_255_bytes(u8 *mem) {
+u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (MAP_SIZE >> 2);
+  u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
+
+  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -245,9 +252,11 @@ const u8 simplify_lookup[256] = {
 
 #ifdef WORD_SIZE_64
 
-void simplify_trace(u64 *mem) {
+void simplify_trace(afl_state_t *afl, u64 *mem) {
 
-  u32 i = MAP_SIZE >> 3;
+  u32 i = (afl->fsrv.map_size >> 3);
+
+  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -278,9 +287,11 @@ void simplify_trace(u64 *mem) {
 
 #else
 
-void simplify_trace(u32 *mem) {
+void simplify_trace(afl_state_t *afl, u32 *mem) {
 
-  u32 i = MAP_SIZE >> 2;
+  u32 i = (afl->fsrv.map_size >> 2);
+
+  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -340,9 +351,11 @@ void init_count_class16(void) {
 
 #ifdef WORD_SIZE_64
 
-void classify_counts(u64 *mem) {
+void classify_counts(afl_state_t *afl, u64 *mem) {
 
-  u32 i = MAP_SIZE >> 3;
+  u32 i = (afl->fsrv.map_size >> 3);
+
+  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -367,9 +380,11 @@ void classify_counts(u64 *mem) {
 
 #else
 
-void classify_counts(u32 *mem) {
+void classify_counts(afl_state_t *afl, u32 *mem) {
 
-  u32 i = MAP_SIZE >> 2;
+  u32 i = (afl->fsrv.map_size >> 2);
+
+  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -396,11 +411,11 @@ void classify_counts(u32 *mem) {
    count information here. This is called only sporadically, for some
    new paths. */
 
-void minimize_bits(u8 *dst, u8 *src) {
+void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
 
   u32 i = 0;
 
-  while (i < MAP_SIZE) {
+  while (i < afl->fsrv.map_size) {
 
     if (*(src++)) dst[i >> 3] |= 1 << (i & 7);
     ++i;
@@ -611,9 +626,9 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       if (likely(!afl->dumb_mode)) {
 
 #ifdef WORD_SIZE_64
-        simplify_trace((u64 *)afl->fsrv.trace_bits);
+        simplify_trace(afl, (u64 *)afl->fsrv.trace_bits);
 #else
-        simplify_trace((u32 *)afl->fsrv.trace_bits);
+        simplify_trace(afl, (u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
         if (!has_new_bits(afl, afl->virgin_tmout)) return keeping;
@@ -675,9 +690,9 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       if (likely(!afl->dumb_mode)) {
 
 #ifdef WORD_SIZE_64
-        simplify_trace((u64 *)afl->fsrv.trace_bits);
+        simplify_trace(afl, (u64 *)afl->fsrv.trace_bits);
 #else
-        simplify_trace((u32 *)afl->fsrv.trace_bits);
+        simplify_trace(afl, (u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
         if (!has_new_bits(afl, afl->virgin_crash)) return keeping;

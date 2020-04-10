@@ -419,7 +419,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 
         if (!be_quiet) ACTF("Loaded %u autodictionary entries", count);
         ck_free(dict);
-        sleep(5);
 
       }
 

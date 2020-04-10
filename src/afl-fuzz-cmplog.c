@@ -467,9 +467,9 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
   tb4 = *(u32 *)afl->fsrv.trace_bits;
 
 #ifdef WORD_SIZE_64
-  classify_counts((u64 *)afl->fsrv.trace_bits);
+  classify_counts(afl, (u64 *)afl->fsrv.trace_bits);
 #else
-  classify_counts((u32 *)afl->fsrv.trace_bits);
+  classify_counts(afl, (u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
   afl->cmplog_prev_timed_out = afl->fsrv.child_timed_out;

@@ -842,18 +842,18 @@ u32  calculate_score(afl_state_t *, struct queue_entry *);
 
 void read_bitmap(afl_state_t *, u8 *);
 void write_bitmap(afl_state_t *);
-u32  count_bits(u8 *);
-u32  count_bytes(u8 *);
-u32  count_non_255_bytes(u8 *);
+u32  count_bits(afl_state_t *, u8 *);
+u32  count_bytes(afl_state_t *, u8 *);
+u32  count_non_255_bytes(afl_state_t *, u8 *);
 #ifdef WORD_SIZE_64
-void simplify_trace(u64 *);
-void classify_counts(u64 *);
+void simplify_trace(afl_state_t *, u64 *);
+void classify_counts(afl_state_t *, u64 *);
 #else
-void simplify_trace(u32 *);
-void classify_counts(u32 *);
+void simplify_trace(afl_state_t *, u32 *);
+void classify_counts(afl_state_t *, u32 *);
 #endif
 void init_count_class16(void);
-void minimize_bits(u8 *, u8 *);
+void minimize_bits(afl_state_t *, u8 *, u8 *);
 #ifndef SIMPLE_FILES
 u8 *describe_op(afl_state_t *, u8);
 #endif

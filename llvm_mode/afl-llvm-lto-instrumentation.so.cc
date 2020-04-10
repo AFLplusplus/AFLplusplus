@@ -534,11 +534,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       }
 
-      if (!be_quiet)
-        printf(
-            "AUTODICTIONARY: %lu strings, %lu total size, %lu bytes memory "
-            "required\n",
-            count, memlen, count + memlen);
+      if (!be_quiet) printf("AUTODICTIONARY: %lu strings found\n", count);
 
       if (count) {
 

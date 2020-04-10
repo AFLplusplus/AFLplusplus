@@ -121,9 +121,9 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
   tb4 = *(u32 *)afl->fsrv.trace_bits;
 
 #ifdef WORD_SIZE_64
-  classify_counts((u64 *)afl->fsrv.trace_bits);
+  classify_counts(afl, (u64 *)afl->fsrv.trace_bits);
 #else
-  classify_counts((u32 *)afl->fsrv.trace_bits);
+  classify_counts(afl, (u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
   afl->fsrv.prev_timed_out = afl->fsrv.child_timed_out;
@@ -335,7 +335,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     if (afl->stop_soon || fault != afl->crash_mode) goto abort_calibration;
 
     if (!afl->dumb_mode && !afl->stage_cur &&
-        !count_bytes(afl->fsrv.trace_bits)) {
+        !count_bytes(afl, afl->fsrv.trace_bits)) {
 
       fault = FAULT_NOINST;
       goto abort_calibration;
@@ -384,7 +384,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
      This is used for fuzzing air time calculations in calculate_score(). */
 
   q->exec_us = (stop_us - start_us) / afl->stage_max;
-  q->bitmap_size = count_bytes(afl->fsrv.trace_bits);
+  q->bitmap_size = count_bytes(afl, afl->fsrv.trace_bits);
   q->handicap = handicap;
   q->cal_failed = 0;
 
@@ -412,7 +412,7 @@ abort_calibration:
 
   if (var_detected) {
 
-    afl->var_byte_count = count_bytes(afl->var_bytes);
+    afl->var_byte_count = count_bytes(afl, afl->var_bytes);
 
     if (!q->var_behavior) {
 
