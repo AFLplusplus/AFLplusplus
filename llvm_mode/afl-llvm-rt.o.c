@@ -99,6 +99,10 @@ static void __afl_map_shm(void) {
     const char *   shm_file_path = id_str;
     int            shm_fd = -1;
     unsigned char *shm_base = NULL;
+    unsigned int   map_size = MAP_SIZE
+
+        if (__afl_final_loc > 1 && __afl_final_loc < MAP_SIZE) map_size =
+            __afl_final_loc;
 
     /* create the shared memory segment as if it was a file */
     shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
@@ -110,7 +114,7 @@ static void __afl_map_shm(void) {
     }
 
     /* map the shared memory segment to the address space of the process */
-    shm_base = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    shm_base = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (shm_base == MAP_FAILED) {
 
       close(shm_fd);
@@ -186,8 +190,15 @@ static void __afl_map_shm(void) {
 #ifdef __linux__
 static void __afl_start_snapshots(void) {
 
-  static u8 tmp[4] = { 0, 0, 0, 0 };
+  static u8 tmp[4] = {0, 0, 0, 0};
   s32       child_pid;
+  u32       status = 0;
+  u32       map_size = MAP_SIZE;
+  u32       already_read_first = 0;
+  u32       was_killed;
+
+  if (__afl_final_loc > 1 && __afl_final_loc < MAP_SIZE)
+    map_size = __afl_final_loc;
 
   u8 child_stopped = 0;
 
@@ -196,16 +207,74 @@ static void __afl_start_snapshots(void) {
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
+  status |= (FS_OPT_ENABLED | FS_OPT_SNAPSHOT);
+  if (map_size <= 0x1000000)
+    status |= (FS_OPT_SET_MAPSIZE(map_size) | FS_OPT_MAPSIZE);
+  if (__afl_dictionary_len > 0 && __afl_dictionary) status |= FS_OPT_AUTODICT;
+  memcpy(tmp, &status, 4);
+
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
+
+  if (__afl_dictionary_len > 0 && __afl_dictionary) {
+
+    if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
+
+    if ((was_killed & (FS_OPT_ENABLED | FS_OPT_AUTODICT)) ==
+        (FS_OPT_ENABLED | FS_OPT_AUTODICT)) {
+
+      // great lets pass the dictionary through the forkserver FD
+      u32 len = __afl_dictionary_len, offset = 0;
+      s32 ret;
+
+      if (write(FORKSRV_FD + 1, &len, 4) != 4) {
+
+        write(2, "Error: could not send dictionary len\n",
+              strlen("Error: could not send dictionary len\n"));
+        _exit(1);
+
+      }
+
+      while (len != 0) {
+
+        ret = write(FORKSRV_FD + 1, __afl_dictionary + offset, len);
+
+        if (ret < 1) {
+
+          write(2, "Error: could not send dictionary\n",
+                strlen("Error: could not send dictionary\n"));
+          _exit(1);
+
+        }
+
+        len -= ret;
+        offset += ret;
+
+      }
+
+    } else {
+
+      // uh this forkserver master does not understand extended option passing
+      // or does not want the dictionary
+      already_read_first = 1;
+
+    }
+
+  }
 
   while (1) {
 
-    u32 was_killed;
     int status;
 
-    /* Wait for parent by reading from the pipe. Abort if read fails. */
+    if (already_read_first) {
 
-    if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
+      already_read_first = 0;
+
+    } else {
+
+      /* Wait for parent by reading from the pipe. Abort if read fails. */
+      if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
+
+    }
 
     /* If we stopped the child in persistent mode, but there was a race
        condition and afl-fuzz already issued SIGKILL, write off the old
@@ -290,26 +359,92 @@ static void __afl_start_forkserver(void) {
 
 #endif
 
-  u8 tmp[4] = { 0, 0, 0, 0 };
-  s32       child_pid;
+  u8  tmp[4] = {0, 0, 0, 0};
+  s32 child_pid;
+  u32 status = 0;
+  u32 map_size = MAP_SIZE;
+  u32 already_read_first = 0;
+  u32 was_killed;
+
+  if (__afl_final_loc > 1 && __afl_final_loc < MAP_SIZE)
+    map_size = __afl_final_loc;
 
   u8 child_stopped = 0;
 
   void (*old_sigchld_handler)(int) = 0;  // = signal(SIGCHLD, SIG_DFL);
+
+  if (map_size <= 0x1000000)
+    status |= (FS_OPT_SET_MAPSIZE(map_size) | FS_OPT_MAPSIZE);
+  if (__afl_dictionary_len > 0 && __afl_dictionary) status |= FS_OPT_AUTODICT;
+  if (status) status |= (FS_OPT_ENABLED);
+  memcpy(tmp, &status, 4);
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
 
+  if (__afl_dictionary_len > 0 && __afl_dictionary) {
+
+    if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
+
+    if ((was_killed & (FS_OPT_ENABLED | FS_OPT_AUTODICT)) ==
+        (FS_OPT_ENABLED | FS_OPT_AUTODICT)) {
+
+      // great lets pass the dictionary through the forkserver FD
+      u32 len = __afl_dictionary_len, offset = 0;
+      s32 ret;
+
+      if (write(FORKSRV_FD + 1, &len, 4) != 4) {
+
+        write(2, "Error: could not send dictionary len\n",
+              strlen("Error: could not send dictionary len\n"));
+        _exit(1);
+
+      }
+
+      while (len != 0) {
+
+        ret = write(FORKSRV_FD + 1, __afl_dictionary + offset, len);
+
+        if (ret < 1) {
+
+          write(2, "Error: could not send dictionary\n",
+                strlen("Error: could not send dictionary\n"));
+          _exit(1);
+
+        }
+
+        len -= ret;
+        offset += ret;
+
+      }
+
+    } else {
+
+      // uh this forkserver master does not understand extended option passing
+      // or does not want the dictionary
+      already_read_first = 1;
+
+    }
+
+  }
+
   while (1) {
 
-    u32 was_killed;
     int status;
 
     /* Wait for parent by reading from the pipe. Abort if read fails. */
 
-    if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
+    if (already_read_first) {
+
+      already_read_first = 0;
+
+    } else {
+
+      if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
+
+    }
 
     /* If we stopped the child in persistent mode, but there was a race
        condition and afl-fuzz already issued SIGKILL, write off the old
@@ -377,8 +512,12 @@ static void __afl_start_forkserver(void) {
 
 int __afl_persistent_loop(unsigned int max_cnt) {
 
-  static u8  first_pass = 1;
-  static u32 cycle_cnt;
+  static u8    first_pass = 1;
+  static u32   cycle_cnt;
+  unsigned int map_size = MAP_SIZE;
+
+  if (__afl_final_loc > 1 && __afl_final_loc < MAP_SIZE)
+    map_size = __afl_final_loc;
 
   if (first_pass) {
 
@@ -389,7 +528,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     if (is_persistent) {
 
-      memset(__afl_area_ptr, 0, MAP_SIZE);
+      memset(__afl_area_ptr, 0, map_size);
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
 

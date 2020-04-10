@@ -613,7 +613,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
         ++a_len;
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
-          maybe_add_auto(afl, a_collect, a_len);
+          maybe_add_auto((u8 *)afl, a_collect, a_len);
 
       } else if (cksum != prev_cksum) {
 
@@ -621,7 +621,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
            worthwhile queued up, and collect that if the answer is yes. */
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
-          maybe_add_auto(afl, a_collect, a_len);
+          maybe_add_auto((u8 *)afl, a_collect, a_len);
 
         a_len = 0;
         prev_cksum = cksum;
@@ -2627,7 +2627,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
         ++a_len;
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
-          maybe_add_auto(afl, a_collect, a_len);
+          maybe_add_auto((u8 *)afl, a_collect, a_len);
 
       } else if (cksum != prev_cksum) {
 
@@ -2635,7 +2635,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
            worthwhile queued up, and collect that if the answer is yes. */
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
-          maybe_add_auto(afl, a_collect, a_len);
+          maybe_add_auto((u8 *)afl, a_collect, a_len);
 
         a_len = 0;
         prev_cksum = cksum;

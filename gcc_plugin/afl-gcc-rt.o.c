@@ -138,8 +138,8 @@ static void __afl_map_shm(void) {
 
 static void __afl_start_forkserver(void) {
 
-  u8 tmp[4] = { 0, 0, 0, 0 };
-  s32       child_pid;
+  u8  tmp[4] = {0, 0, 0, 0};
+  s32 child_pid;
 
   u8 child_stopped = 0;
 

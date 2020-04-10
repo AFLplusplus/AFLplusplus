@@ -474,7 +474,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
         errs() << callInst->getCalledFunction()->getName() << ": len "
                << constLen << ": " << ConstStr << "\n";
 
-      if (constLen && constLen < 256)
+      if (constLen && constLen < MAX_DICT_FILE)
         dictionary.push_back(ConstStr.str().substr(0, constLen));
 
     }
@@ -552,9 +552,13 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         for (auto token : dictionary) {
 
-          ptr[offset++] = (uint8_t)token.length();
-          memcpy(ptr + offset, token.c_str(), token.length());
-          offset += token.length();
+          if (offset + token.length() < 0xfffff0) {
+
+            ptr[offset++] = (uint8_t)token.length();
+            memcpy(ptr + offset, token.c_str(), token.length());
+            offset += token.length();
+
+          }
 
         }
 
