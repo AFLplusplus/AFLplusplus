@@ -185,7 +185,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     esac
     rm -f in2/in*
     export AFL_QUIET=1
-    if type bash >/dev/null ; then {
+    if command -v bash >/dev/null ; then {
       AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
       CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
