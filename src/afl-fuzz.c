@@ -919,21 +919,20 @@ int main(int argc, char **argv_orig, char **envp) {
   if ((afl->tmp_dir = afl->afl_env.afl_tmpdir) != NULL &&
       !afl->in_place_resume) {
 
-    char tmpfile[afl->file_extension ? strlen(afl->tmp_dir) + 1 + 10 + 1 +
-                                           strlen(afl->file_extension) + 1
-                                     : strlen(afl->tmp_dir) + 1 + 10 + 1];
+    char tmpfile[PATH_MAX];
+
     if (afl->file_extension) {
 
-      sprintf(tmpfile, "%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
+      snprintf(tmpfile, PATH_MAX, "%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
 
     } else {
 
-      sprintf(tmpfile, "%s/.cur_input", afl->tmp_dir);
+      snprintf(tmpfile, PATH_MAX, "%s/.cur_input", afl->tmp_dir);
 
     }
 
-    if (access(tmpfile, F_OK) !=
-        -1)  // there is still a race condition here, but well ...
+    /* there is still a race condition here, but well ... */
+    if (access(tmpfile, F_OK) != -1)
       FATAL(
           "AFL_TMPDIR already has an existing temporary input file: %s - if "
           "this is not from another instance, then just remove the file.",
