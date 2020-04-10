@@ -272,6 +272,7 @@ void cull_queue(afl_state_t *afl) {
   struct queue_entry *q;
   u32                 len = (afl->fsrv.map_size >> 3);
   u32                 i;
+  u8                  temp_v[MAP_SIZE >> 3];
 
   if (len == 0) len = 1;
 
@@ -279,7 +280,6 @@ void cull_queue(afl_state_t *afl) {
 
   afl->score_changed = 0;
 
-  u8 temp_v[len];
   memset(temp_v, 255, len);
 
   afl->queued_favored = 0;

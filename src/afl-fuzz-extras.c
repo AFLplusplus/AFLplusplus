@@ -309,7 +309,7 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
    afl-forkserver.c - which is shared with other afl tools that do not
    have the afl state struct */
 
-void maybe_add_auto(u8 *afl_tmp, u8 *mem, u32 len) {
+void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
 
   afl_state_t *afl = (afl_state_t *)afl_tmp;
   u32          i;

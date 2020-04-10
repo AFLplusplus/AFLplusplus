@@ -68,7 +68,7 @@ typedef struct afl_forkserver {
 
   u8 *function_opt;                     /* for autodictionary: afl ptr      */
 
-  void (*function_ptr)(u8 *afl_tmp, u8 *mem, u32 len);
+  void (*function_ptr)(void *afl_tmp, u8 *mem, u32 len);
 
 } afl_forkserver_t;
 
