@@ -140,7 +140,7 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
 char **argv_cpy_dup(int argc, char **argv) {
 
-  u32 i = 0;
+  int i = 0;
 
   char **ret = ck_alloc((argc + 1) * sizeof(char *));
 
