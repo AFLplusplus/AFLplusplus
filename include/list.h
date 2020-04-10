@@ -50,7 +50,7 @@ typedef struct list_element {
 typedef struct list {
 
   element_t element_prealloc_buf[LIST_PREALLOC_SIZE];
-  u32       element_prealloc_count;
+  s32       element_prealloc_count;
 
 } list_t;
 
