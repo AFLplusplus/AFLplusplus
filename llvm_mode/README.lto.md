@@ -89,7 +89,7 @@ make
 
 ## AUTODICTIONARY feature
 
-Setting `AFL_LLVM_LTO_AUTODICTIONARY?  will generate a dictionary in the
+Setting `AFL_LLVM_LTO_AUTODICTIONARY` will generate a dictionary in the
 target binary based on string compare and memory compare functions.
 afl-fuzz will automatically get these transmitted when starting to fuzz.
 This improves coverage on a lot of targets.
