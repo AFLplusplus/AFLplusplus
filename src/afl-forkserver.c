@@ -160,7 +160,8 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
    cloning a stopped child. So, we just execute once, and then send commands
    through a pipe. The other part of this logic is in afl-as.h / llvm_mode */
 
-void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
+void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
+                    volatile u8 *stop_soon_p) {
 
   int st_pipe[2], ctl_pipe[2];
   int status;
@@ -253,7 +254,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 #ifndef HAVE_ARC4RANDOM
     close(fsrv->dev_urandom_fd);
 #endif
-    close(fsrv->plot_file == NULL ? -1 : fileno(fsrv->plot_file));
+    if (fsrv->plot_file != NULL) fclose(fsrv->plot_file);
 
     /* This should improve performance a bit, since it stops the linker from
        doing extra work post-fork(). */
@@ -317,7 +318,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 
     rlen = 4;
     u32 time = read_timed(fsrv->fsrv_st_fd, &status, rlen,
-                          fsrv->exec_tmout * FORK_WAIT_MULT);
+                          fsrv->exec_tmout * FORK_WAIT_MULT, stop_soon_p);
 
     if (time > fsrv->exec_tmout * FORK_WAIT_MULT) {
 

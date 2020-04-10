@@ -40,6 +40,7 @@
 
 u8  be_quiet = 0;
 u8 *doc_path = "";
+u8  last_intr = 0;
 
 char *afl_environment_variables[] = {
 
@@ -354,7 +355,7 @@ void check_environment_vars(char **envp) {
   if (be_quiet) return;
 
   int   index = 0, found = 0;
-  char *env;
+  char *env, *val;
   while ((env = envp[index++]) != NULL) {
 
     if (strncmp(env, "ALF_", 4) == 0) {
@@ -368,10 +369,21 @@ void check_environment_vars(char **envp) {
       while (match == 0 && afl_environment_variables[i] != NULL)
         if (strncmp(env, afl_environment_variables[i],
                     strlen(afl_environment_variables[i])) == 0 &&
-            env[strlen(afl_environment_variables[i])] == '=')
+            env[strlen(afl_environment_variables[i])] == '=') {
+
           match = 1;
-        else
+          if ((val = getenv(afl_environment_variables[i])) && !*val)
+            WARNF(
+                "AFL environment variable %s defined but is empty, this can "
+                "lead to unexpected consequences",
+                afl_environment_variables[i]);
+
+        } else {
+
           i++;
+
+        }
+
       if (match == 0) {
 
         WARNF("Mistyped AFL environment variable: %s", env);
@@ -744,7 +756,8 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
-u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms) {
+u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
+               volatile u8 *stop_soon_p) {
 
   struct timeval timeout;
   fd_set         readfds;
@@ -769,8 +782,8 @@ u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms) {
 
     } else if (sret < 0) {
 
-      // perror("sret malloc");
-      // TODO: catch other (errno == EINTR) than ctrl+c?
+      /* Retry select for all signals other than than ctrl+c */
+      if (errno == EINTR && !*stop_soon_p) { continue; }
       return 0;
 
     }

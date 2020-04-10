@@ -199,6 +199,7 @@ performance-test:	source-only
 	@cd test ; ./test-performance.sh
 
 
+# hint: make targets are also listed in the top level README.md
 help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="

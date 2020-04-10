@@ -121,7 +121,7 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 #ifndef HAVE_ARC4RANDOM
     close(afl->fsrv.dev_urandom_fd);
 #endif
-    close(afl->fsrv.plot_file == NULL ? -1 : fileno(afl->fsrv.plot_file));
+    if (afl->fsrv.plot_file != NULL) fclose(afl->fsrv.plot_file);
 
     /* This should improve performance a bit, since it stops the linker from
        doing extra work post-fork(). */
@@ -187,7 +187,8 @@ void init_cmplog_forkserver(afl_state_t *afl) {
     rlen = 4;
     u32 timeout_ms = afl->fsrv.exec_tmout * FORK_WAIT_MULT;
     /* Reuse readfds as exceptfds to see when the child closed the pipe */
-    u32 exec_ms = read_timed(afl->cmplog_fsrv_st_fd, &status, rlen, timeout_ms);
+    u32 exec_ms = read_timed(afl->cmplog_fsrv_st_fd, &status, rlen, timeout_ms,
+                             &afl->stop_soon);
 
     if (!exec_ms) {
 
@@ -416,7 +417,8 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
 
   /* Configure timeout, as requested by user, then wait for child to terminate.
    */
-  exec_ms = read_timed(afl->cmplog_fsrv_st_fd, &status, 4, timeout);
+  exec_ms =
+      read_timed(afl->cmplog_fsrv_st_fd, &status, 4, timeout, &afl->stop_soon);
 
   if (exec_ms > timeout) {
 
