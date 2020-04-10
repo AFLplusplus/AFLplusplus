@@ -470,9 +470,11 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       if (isSizedcmp && constLen > sizedLen) { constLen = sizedLen; }
 
-      if (!be_quiet)
-        errs() << callInst->getCalledFunction()->getName() << ": len "
-               << constLen << ": " << ConstStr << "\n";
+      /*
+            if (!be_quiet)
+              errs() << callInst->getCalledFunction()->getName() << ": len "
+                     << constLen << ": " << ConstStr << "\n";
+      */
 
       if (constLen && constLen < MAX_DICT_FILE)
         dictionary.push_back(ConstStr.str().substr(0, constLen));
