@@ -388,7 +388,7 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
      must prevent any earlier operations from venturing into that
      territory. */
 
-  memset(afl->fsrv.trace_bits, 0, MAP_SIZE);
+  memset(afl->fsrv.trace_bits, 0, afl->fsrv.map_size);
   MEM_BARRIER();
 
   /* Since we always have a forkserver (or a fauxserver) running, we can simply

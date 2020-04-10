@@ -259,7 +259,7 @@ void show_stats(afl_state_t *afl) {
   /* Do some bitmap stats. */
 
   t_bytes = count_non_255_bytes(afl->virgin_bits);
-  t_byte_ratio = ((double)t_bytes * 100) / MAP_SIZE;
+  t_byte_ratio = ((double)t_bytes * 100) / afl->fsrv.map_size;
 
   if (likely(t_bytes) && unlikely(afl->var_byte_count))
     stab_ratio = 100 - (((double)afl->var_byte_count * 100) / t_bytes);
@@ -305,7 +305,7 @@ void show_stats(afl_state_t *afl) {
 
   /* Compute some mildly useful bitmap stats. */
 
-  t_bits = (MAP_SIZE << 3) - count_bits(afl->virgin_bits);
+  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl->virgin_bits);
 
   /* Now, for the visuals... */
 
@@ -465,7 +465,8 @@ void show_stats(afl_state_t *afl) {
   SAYF(bV bSTOP "  now processing : " cRST "%-16s " bSTG bV bSTOP, tmp);
 
   sprintf(tmp, "%0.02f%% / %0.02f%%",
-          ((double)afl->queue_cur->bitmap_size) * 100 / MAP_SIZE, t_byte_ratio);
+          ((double)afl->queue_cur->bitmap_size) * 100 / afl->fsrv.map_size,
+          t_byte_ratio);
 
   SAYF("    map density : %s%-21s" bSTG bV "\n",
        t_byte_ratio > 70 ? cLRD

@@ -601,7 +601,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (!afl->dumb_mode && (afl->stage_cur & 7) == 7) {
 
-      u32 cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+      u32 cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       if (afl->stage_cur == afl->stage_max - 1 && cksum == prev_cksum) {
 
@@ -761,7 +761,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
          without wasting time on checksums. */
 
       if (!afl->dumb_mode && len >= EFF_MIN_LEN)
-        cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+        cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
       else
         cksum = ~afl->queue_cur->exec_cksum;
 
@@ -2615,7 +2615,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     if (!afl->dumb_mode && (afl->stage_cur & 7) == 7) {
 
-      u32 cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+      u32 cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       if (afl->stage_cur == afl->stage_max - 1 && cksum == prev_cksum) {
 
@@ -2775,7 +2775,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
          without wasting time on checksums. */
 
       if (!afl->dumb_mode && len >= EFF_MIN_LEN)
-        cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+        cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
       else
         cksum = ~afl->queue_cur->exec_cksum;
 

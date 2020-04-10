@@ -446,6 +446,8 @@ static void check_map_coverage(afl_state_t *afl) {
   for (i = (1 << (MAP_SIZE_POW2 - 1)); i < MAP_SIZE; ++i)
     if (afl->fsrv.trace_bits[i]) return;
 
+  if (afl->fsrv.map_size != MAP_SIZE) return;
+
   WARNF("Recompile binary with newer version of afl to improve coverage!");
 
 }

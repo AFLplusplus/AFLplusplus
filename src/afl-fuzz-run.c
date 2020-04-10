@@ -44,7 +44,7 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
      must prevent any earlier operations from venturing into that
      territory. */
 
-  memset(afl->fsrv.trace_bits, 0, MAP_SIZE);
+  memset(afl->fsrv.trace_bits, 0, afl->fsrv.map_size);
 
   MEM_BARRIER();
 
@@ -313,7 +313,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
       afl->shm.cmplog_mode)
     init_cmplog_forkserver(afl);
 
-  if (q->exec_cksum) memcpy(afl->first_trace, afl->fsrv.trace_bits, MAP_SIZE);
+  if (q->exec_cksum)
+    memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
 
   start_us = get_cur_time_us();
 
@@ -341,7 +342,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     }
 
-    cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+    cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
     if (q->exec_cksum != cksum) {
 
@@ -352,7 +353,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
         u32 i;
 
-        for (i = 0; i < MAP_SIZE; ++i) {
+        for (i = 0; i < afl->fsrv.map_size; ++i) {
 
           if (unlikely(!afl->var_bytes[i]) &&
               unlikely(afl->first_trace[i] != afl->fsrv.trace_bits[i]))
@@ -366,7 +367,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
       } else {
 
         q->exec_cksum = cksum;
-        memcpy(afl->first_trace, afl->fsrv.trace_bits, MAP_SIZE);
+        memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
 
       }
 
@@ -638,7 +639,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       /* Note that we don't keep track of crashes or hangs here; maybe TODO?
        */
 
-      cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+      cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       /* If the deletion had no impact on the trace, make it permanent. This
          isn't perfect for variable-path inputs, but we're just making a
@@ -661,7 +662,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
         if (!needs_write) {
 
           needs_write = 1;
-          memcpy(afl->clean_trace, afl->fsrv.trace_bits, MAP_SIZE);
+          memcpy(afl->clean_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
 
         }
 
@@ -703,7 +704,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     ck_write(fd, in_buf, q->len, q->fname);
     close(fd);
 
-    memcpy(afl->fsrv.trace_bits, afl->clean_trace, MAP_SIZE);
+    memcpy(afl->fsrv.trace_bits, afl->clean_trace, afl->fsrv.map_size);
     update_bitmap_score(afl, q);
 
   }
