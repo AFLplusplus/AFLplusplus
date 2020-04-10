@@ -239,7 +239,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     write_to_testcase(afl, retbuf, retlen);
 
-    fault = run_target(afl, afl->fsrv.exec_tmout);
+    fault = run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
     ++afl->trim_execs;
 
     if (afl->stop_soon || fault == FAULT_ERROR) { goto abort_trimming; }
