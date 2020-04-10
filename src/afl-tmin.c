@@ -1133,7 +1133,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_initial_file();
 
-  afl_fsrv_start(fsrv, use_argv);
+  afl_fsrv_start(fsrv, use_argv, &stop_soon);
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        fsrv->mem_limit, fsrv->exec_tmout, edges_only ? ", edges only" : "");

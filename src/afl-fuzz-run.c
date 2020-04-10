@@ -67,7 +67,8 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
 
   if (afl->fsrv.child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
 
-  exec_ms = read_timed(afl->fsrv.fsrv_st_fd, &status, 4, timeout);
+  exec_ms =
+      read_timed(afl->fsrv.fsrv_st_fd, &status, 4, timeout, &afl->stop_soon);
 
   if (exec_ms > timeout) {
 
@@ -308,7 +309,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
 
-  if (!afl->fsrv.fsrv_pid) afl_fsrv_start(&afl->fsrv, afl->argv);
+  if (!afl->fsrv.fsrv_pid)
+    afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon);
   if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->cmplog_fsrv_pid &&
       afl->shm.cmplog_mode)
     init_cmplog_forkserver(afl);

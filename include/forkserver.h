@@ -67,7 +67,8 @@ typedef struct afl_forkserver {
 } afl_forkserver_t;
 
 void afl_fsrv_init(afl_forkserver_t *fsrv);
-void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv);
+void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
+                    volatile u8 *stop_soon_p);
 void afl_fsrv_deinit(afl_forkserver_t *fsrv);
 void afl_fsrv_killall();
 

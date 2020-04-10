@@ -951,7 +951,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    afl_fsrv_start(fsrv, use_argv);
+    afl_fsrv_start(fsrv, use_argv, &stop_soon);
 
     while (done == 0 && (dir_ent = readdir(dir_in))) {
 
