@@ -99,9 +99,11 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms);
 
 /* Wrapper for select() and read(), reading exactly len bytes.
   Returns the time passed to read.
+  stop_soon should point to a variable indicating ctrl+c was pressed.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
-u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms);
+u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
+               volatile u8 *stop_soon_p);
 
 #endif
 

@@ -40,6 +40,7 @@
 
 u8  be_quiet = 0;
 u8 *doc_path = "";
+u8  last_intr = 0;
 
 char *afl_environment_variables[] = {
 
@@ -754,7 +755,8 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
-u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms) {
+u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
+               volatile u8 *stop_soon_p) {
 
   struct timeval timeout;
   fd_set         readfds;
@@ -779,8 +781,8 @@ u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms) {
 
     } else if (sret < 0) {
 
-      // perror("sret malloc");
-      // TODO: catch other (errno == EINTR) than ctrl+c?
+      /* Retry select for all signals other than than ctrl+c */
+      if (errno == EINTR && !*stop_soon_p) { continue; }
       return 0;
 
     }
