@@ -85,6 +85,8 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
   unsigned char tmp[4] = {0, 0, 0, 0};
   pid_t         child_pid = -1;
 
+  if (!be_quiet) ACTF("Using Fauxserver:");
+
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
@@ -166,8 +168,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   int st_pipe[2], ctl_pipe[2];
   int status;
   s32 rlen;
-
-  if (!be_quiet) ACTF("Using Fauxserver:");
 
   if (!be_quiet) ACTF("Spinning up the fork server...");
 
