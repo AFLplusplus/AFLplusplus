@@ -121,7 +121,7 @@ void init_cmplog_forkserver(afl_state_t *afl) {
 #ifndef HAVE_ARC4RANDOM
     close(afl->fsrv.dev_urandom_fd);
 #endif
-    close(afl->fsrv.plot_file == NULL ? -1 : fileno(afl->fsrv.plot_file));
+    if (afl->fsrv.plot_file != NULL) fclose(afl->fsrv.plot_file);
 
     /* This should improve performance a bit, since it stops the linker from
        doing extra work post-fork(). */

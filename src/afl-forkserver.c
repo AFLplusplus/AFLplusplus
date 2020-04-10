@@ -253,7 +253,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv) {
 #ifndef HAVE_ARC4RANDOM
     close(fsrv->dev_urandom_fd);
 #endif
-    close(fsrv->plot_file == NULL ? -1 : fileno(fsrv->plot_file));
+    if (fsrv->plot_file != NULL) fclose(fsrv->plot_file);
 
     /* This should improve performance a bit, since it stops the linker from
        doing extra work post-fork(). */
