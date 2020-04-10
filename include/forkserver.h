@@ -51,6 +51,8 @@ typedef struct afl_forkserver {
       fsrv_st_fd;                       /* Fork server status pipe (read)   */
 
   u32 exec_tmout;                       /* Configurable exec timeout (ms)   */
+  u32 map_size;                         /* map size used by the target      */
+  u32 snapshot;                         /* is snapshot feature used         */
   u64 mem_limit;                        /* Memory cap for child (MB)        */
 
   u8 *out_file,                         /* File to fuzz, if any             */
@@ -63,6 +65,10 @@ typedef struct afl_forkserver {
   u8 use_fauxsrv;                       /* Fauxsrv for non-forking targets? */
 
   u32 prev_timed_out;                   /* if prev forkserver run timed out */
+
+  u8 *function_opt;                     /* for autodictionary: afl ptr      */
+
+  void (*function_ptr)(void *afl_tmp, u8 *mem, u32 len);
 
 } afl_forkserver_t;
 

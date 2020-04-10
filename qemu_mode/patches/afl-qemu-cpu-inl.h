@@ -293,7 +293,7 @@ static void print_mappings(void) {
 
 void afl_forkserver(CPUState *cpu) {
 
-  static unsigned char tmp[4];
+  static unsigned char tmp[4] = {0, 0, 0, 0};
 
   if (forkserver_installed == 1) return;
   forkserver_installed = 1;

@@ -244,7 +244,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     if (afl->stop_soon || fault == FAULT_ERROR) { goto abort_trimming; }
 
-    cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+    cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
     if (cksum == q->exec_cksum) {
 
@@ -257,7 +257,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       if (!needs_write) {
 
         needs_write = 1;
-        memcpy(afl->clean_trace_custom, afl->fsrv.trace_bits, MAP_SIZE);
+        memcpy(afl->clean_trace_custom, afl->fsrv.trace_bits,
+               afl->fsrv.map_size);
 
       }
 
@@ -307,7 +308,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     ck_write(fd, in_buf, q->len, q->fname);
     close(fd);
 
-    memcpy(afl->fsrv.trace_bits, afl->clean_trace_custom, MAP_SIZE);
+    memcpy(afl->fsrv.trace_bits, afl->clean_trace_custom, afl->fsrv.map_size);
     update_bitmap_score(afl, q);
 
   }
