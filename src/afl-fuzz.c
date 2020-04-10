@@ -923,7 +923,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (afl->file_extension) {
 
-      snprintf(tmpfile, PATH_MAX, "%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
+      snprintf(tmpfile, PATH_MAX, "%s/.cur_input.%s", afl->tmp_dir,
+               afl->file_extension);
 
     } else {
 

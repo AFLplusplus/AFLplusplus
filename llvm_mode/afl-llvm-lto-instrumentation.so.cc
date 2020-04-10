@@ -517,8 +517,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
       GlobalVariable *AFLFinalLoc = new GlobalVariable(
           M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc",
           0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
-      ConstantInt *const_loc = ConstantInt::get(Int32Ty, (((afl_global_id + 8) >> 3) << 3));
-      StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
+      ConstantInt *const_loc =
+          ConstantInt::get(Int32Ty, (((afl_global_id + 8) >> 3) << 3));
+      StoreInst *StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
       StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
                                  MDNode::get(C, None));
 
