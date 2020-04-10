@@ -348,6 +348,7 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 void afl_state_deinit(afl_state_t *afl) {
 
   if (afl->post_deinit) afl->post_deinit(afl->post_data);
+  if (afl->in_place_resume) ck_free(afl->in_dir);
 
   free(afl->out_buf);
   free(afl->out_scratch_buf);
