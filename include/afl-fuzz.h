@@ -439,7 +439,6 @@ typedef struct afl_state {
       no_arith,                         /* Skip most arithmetic ops         */
       shuffle_queue,                    /* Shuffle input queue?             */
       bitmap_changed,                   /* Time to update bitmap?           */
-      qemu_mode,                        /* Running in QEMU mode?            */
       unicorn_mode,                     /* Running in Unicorn mode?         */
       use_wine,                         /* Use WINE with QEMU mode          */
       skip_requested,                   /* Skip request, via SIGUSR1        */
@@ -560,7 +559,7 @@ typedef struct afl_state {
   /* CmpLog */
 
   char *cmplog_binary;
-  s32   cmplog_child_pid, cmplog_fsrv_pid;
+  afl_forkserver_t cmplog_fsrv;     /* cmplog has its own little forkserver */
 
   /* Custom mutators */
   struct custom_mutator *mutator;
@@ -878,7 +877,7 @@ void show_init_stats(afl_state_t *);
 
 /* Run */
 
-u8   run_target(afl_state_t *, u32);
+u8   run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
 void write_to_testcase(afl_state_t *, void *, u32);
 u8   calibrate_case(afl_state_t *, struct queue_entry *, u8 *, u32, u8);
 void sync_fuzzers(afl_state_t *);
@@ -922,7 +921,6 @@ void   save_cmdline(afl_state_t *, u32, char **);
 
 /* CmpLog */
 
-void init_cmplog_forkserver(afl_state_t *afl);
 u8   common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */

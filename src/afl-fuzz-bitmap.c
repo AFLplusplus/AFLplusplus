@@ -645,7 +645,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
         u8 new_fault;
         write_to_testcase(afl, mem, len);
-        new_fault = run_target(afl, afl->hang_tmout);
+        new_fault = run_target(afl, &afl->fsrv, afl->hang_tmout);
 
         /* A corner case that one user reported bumping into: increasing the
            timeout actually uncovers a crash. Make sure we don't discard it if

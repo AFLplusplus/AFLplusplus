@@ -24,6 +24,7 @@
  */
 
 #include "afl-fuzz.h"
+#include "cmplog.h"
 
 static u8 *get_libradamsa_path(u8 *own_loc) {
 
@@ -212,6 +213,8 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
 #ifndef AFL_LIB
 
 static int stricmp(char const *a, char const *b) {
+
+  if (!a || !b) FATAL("Null reference");
 
   for (;; ++a, ++b) {
 
@@ -498,8 +501,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'Q':                                                /* QEMU mode */
 
-        if (afl->qemu_mode) FATAL("Multiple -Q options not supported");
-        afl->qemu_mode = 1;
+        if (afl->fsrv.qemu_mode) FATAL("Multiple -Q options not supported");
+        afl->fsrv.qemu_mode = 1;
 
         if (!mem_limit_given) afl->fsrv.mem_limit = MEM_LIMIT_QEMU;
 
@@ -524,7 +527,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'W':                                           /* Wine+QEMU mode */
 
         if (afl->use_wine) FATAL("Multiple -W options not supported");
-        afl->qemu_mode = 1;
+        afl->fsrv.qemu_mode = 1;
         afl->use_wine = 1;
 
         if (!mem_limit_given) afl->fsrv.mem_limit = 0;
@@ -748,7 +751,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->dumb_mode) {
 
     if (afl->crash_mode) FATAL("-C and -n are mutually exclusive");
-    if (afl->qemu_mode) FATAL("-Q and -n are mutually exclusive");
+    if (afl->fsrv.qemu_mode) FATAL("-Q and -n are mutually exclusive");
     if (afl->unicorn_mode) FATAL("-U and -n are mutually exclusive");
 
   }
@@ -816,7 +819,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->afl_env.afl_preload) {
 
-    if (afl->qemu_mode) {
+    if (afl->fsrv.qemu_mode) {
 
       u8 *qemu_preload = getenv("QEMU_SET_ENV");
       u8 *afl_preload = getenv("AFL_PRELOAD");
@@ -991,7 +994,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (afl->unicorn_mode)
       FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");
-    if (!afl->qemu_mode) check_binary(afl, afl->cmplog_binary);
+    if (!afl->fsrv.qemu_mode) check_binary(afl, afl->cmplog_binary);
 
   }
 
@@ -999,7 +1002,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->start_time = get_cur_time();
 
-  if (afl->qemu_mode) {
+  if (afl->fsrv.qemu_mode) {
 
     if (afl->use_wine)
       use_argv = get_wine_argv(argv[0], &afl->fsrv.target_path, argc - optind,
@@ -1015,6 +1018,16 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   afl->argv = use_argv;
+
+  if (afl->cmplog_binary) {
+
+    SAYF("Spawning cmplog forkserver");
+    memcpy(&afl->cmplog_fsrv, &afl->fsrv, sizeof(afl->fsrv));
+    afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
+    afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child_output);
+
+  }
+
   perform_dry_run(afl);
 
   cull_queue(afl);
@@ -1152,8 +1165,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (afl->fsrv.child_pid > 0) kill(afl->fsrv.child_pid, SIGKILL);
     if (afl->fsrv.fsrv_pid > 0) kill(afl->fsrv.fsrv_pid, SIGKILL);
-    if (afl->cmplog_child_pid > 0) kill(afl->cmplog_child_pid, SIGKILL);
-    if (afl->cmplog_fsrv_pid > 0) kill(afl->cmplog_fsrv_pid, SIGKILL);
     /* Now that we've killed the forkserver, we wait for it to be able to get
      * rusage stats. */
     if (waitpid(afl->fsrv.fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }

@@ -36,6 +36,7 @@
 #include "hash.h"
 #include "sharedmem.h"
 #include "common.h"
+#include "forkserver.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -57,7 +58,7 @@
 
 static s32 child_pid;                  /* PID of the tested program         */
 
-u8 *trace_bits;                        /* SHM with instrumentation bitmap   */
+static u8 *trace_bits;                        /* SHM with instrumentation bitmap   */
 
 static u8 *in_file,                    /* Analyzer input test case          */
     *prog_in;                          /* Targeted program input file       */
@@ -74,16 +75,15 @@ static u64 mem_limit = MEM_LIMIT;      /* Memory limit (MB)                 */
 
 static s32 dev_null_fd = -1;           /* FD to /dev/null                   */
 
-u8 edges_only,                         /* Ignore hit counts?                */
+static u8 edges_only,                         /* Ignore hit counts?                */
     use_hex_offsets,                   /* Show hex offsets?                 */
     use_stdin = 1;                     /* Use stdin for program input?      */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_timed_out;                   /* Child timed out?                  */
 
-static u8 qemu_mode;
-
 static u8 *target_path;
+static u8 qemu_mode;
 
 /* Constants used for describing byte behavior. */
 
@@ -639,7 +639,7 @@ static void handle_stop_sig(int sig) {
 
 /* Do basic preparations - persistent fds, filenames, etc. */
 
-static void set_up_environment(void) {
+static void set_up_environment() {
 
   u8 *x;
 

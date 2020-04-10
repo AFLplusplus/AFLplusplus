@@ -80,8 +80,6 @@ u8 crash_mode,                         /* Crash-centric mode?               */
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
-static u8 qemu_mode;
-
 /*
  * forkserver section
  */
@@ -746,7 +744,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
   if (get_afl_env("AFL_PRELOAD")) {
 
-    if (qemu_mode) {
+    if (fsrv->qemu_mode) {
 
       u8 *qemu_preload = getenv("QEMU_SET_ENV");
       u8 *afl_preload = getenv("AFL_PRELOAD");
@@ -1029,10 +1027,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'Q':
 
-        if (qemu_mode) FATAL("Multiple -Q options not supported");
+        if (fsrv->qemu_mode) FATAL("Multiple -Q options not supported");
         if (!mem_limit_given) fsrv->mem_limit = MEM_LIMIT_QEMU;
 
-        qemu_mode = 1;
+        fsrv->qemu_mode = 1;
         break;
 
       case 'U':
@@ -1046,7 +1044,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'W':                                           /* Wine+QEMU mode */
 
         if (use_wine) FATAL("Multiple -W options not supported");
-        qemu_mode = 1;
+        fsrv->qemu_mode = 1;
         use_wine = 1;
 
         if (!mem_limit_given) fsrv->mem_limit = 0;
@@ -1107,7 +1105,7 @@ int main(int argc, char **argv_orig, char **envp) {
   find_binary(fsrv, argv[optind]);
   detect_file_args(argv + optind, fsrv->out_file, &fsrv->use_stdin);
 
-  if (qemu_mode) {
+  if (fsrv->qemu_mode) {
 
     if (use_wine)
       use_argv = get_wine_argv(argv[0], &fsrv->target_path, argc - optind,
@@ -1133,7 +1131,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_initial_file();
 
-  afl_fsrv_start(fsrv, use_argv, &stop_soon);
+  afl_fsrv_start(fsrv, use_argv, &stop_soon, get_afl_env("AFL_DEBUG_CHILD_OUTPUT")? 1 :0);
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        fsrv->mem_limit, fsrv->exec_tmout, edges_only ? ", edges only" : "");

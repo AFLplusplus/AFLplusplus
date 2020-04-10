@@ -81,8 +81,6 @@ u8 quiet_mode,                         /* Hide non-essential messages?      */
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
 
-static u8 qemu_mode;
-
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
 
@@ -482,7 +480,7 @@ static void handle_stop_sig(int sig) {
 
 /* Do basic preparations - persistent fds, filenames, etc. */
 
-static void set_up_environment(void) {
+static void set_up_environment(afl_forkserver_t *fsrv) {
 
   setenv("ASAN_OPTIONS",
          "abort_on_error=1:"
@@ -499,7 +497,7 @@ static void set_up_environment(void) {
 
   if (get_afl_env("AFL_PRELOAD")) {
 
-    if (qemu_mode) {
+    if (fsrv->qemu_mode) {
 
       u8 *qemu_preload = getenv("QEMU_SET_ENV");
       u8 *afl_preload = getenv("AFL_PRELOAD");
@@ -798,10 +796,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'Q':
 
-        if (qemu_mode) FATAL("Multiple -Q options not supported");
+        if (fsrv->qemu_mode) FATAL("Multiple -Q options not supported");
         if (!mem_limit_given) fsrv->mem_limit = MEM_LIMIT_QEMU;
 
-        qemu_mode = 1;
+        fsrv->qemu_mode = 1;
         break;
 
       case 'U':
@@ -815,7 +813,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'W':                                           /* Wine+QEMU mode */
 
         if (use_wine) FATAL("Multiple -W options not supported");
-        qemu_mode = 1;
+        fsrv->qemu_mode = 1;
         use_wine = 1;
 
         if (!mem_limit_given) fsrv->mem_limit = 0;
@@ -860,7 +858,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
   setup_signal_handlers();
 
-  set_up_environment();
+  set_up_environment(fsrv);
 
   find_binary(fsrv, argv[optind]);
 
@@ -885,7 +883,7 @@ int main(int argc, char **argv_orig, char **envp) {
   for (i = optind; i < argc; i++)
     if (strcmp(argv[i], "@@") == 0) arg_offset = i;
 
-  if (qemu_mode) {
+  if (fsrv->qemu_mode) {
 
     if (use_wine)
       use_argv = get_wine_argv(argv[0], &fsrv->target_path, argc - optind,
@@ -951,7 +949,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    afl_fsrv_start(fsrv, use_argv, &stop_soon);
+    afl_fsrv_start(fsrv, use_argv, &stop_soon, get_afl_env("AFL_DEBUG_CHILD_OUTPUT")? 1 :0);
 
     while (done == 0 && (dir_ent = readdir(dir_in))) {
 

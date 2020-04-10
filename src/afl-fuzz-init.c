@@ -1853,8 +1853,6 @@ static void handle_stop_sig(int sig) {
 
     if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, SIGKILL);
     if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, SIGKILL);
-    if (el->cmplog_child_pid > 0) kill(el->cmplog_child_pid, SIGKILL);
-    if (el->cmplog_fsrv_pid > 0) kill(el->cmplog_fsrv_pid, SIGKILL);
 
   });
 
@@ -1988,7 +1986,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
 #endif                                                       /* ^!__APPLE__ */
 
-  if (!afl->qemu_mode && !afl->unicorn_mode && !afl->dumb_mode &&
+  if (!afl->fsrv.qemu_mode && !afl->unicorn_mode && !afl->dumb_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -2015,7 +2013,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if ((afl->qemu_mode) &&
+  if ((afl->fsrv.qemu_mode) &&
       memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
