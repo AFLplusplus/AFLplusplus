@@ -1200,6 +1200,7 @@ stop_fuzzing:
   ck_free(afl->fsrv.target_path);
   ck_free(afl->fsrv.out_file);
   ck_free(afl->sync_id);
+  afl_state_deinit(afl);
   free(afl);                                                 /* not tracked */
 
   argv_cpy_free(argv);
