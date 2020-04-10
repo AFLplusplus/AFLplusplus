@@ -416,19 +416,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-  if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL) {
+  if (calls.size()) {
 
-    GlobalVariable *AFLFinalLoc = new GlobalVariable(
-        M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc", 0,
-        GlobalVariable::GeneralDynamicTLSModel, 0, false);
-    ConstantInt *const_loc = ConstantInt::get(Int32Ty, afl_global_id);
-    MaybeAlign   Align = MaybeAlign(4);
-    AFLFinalLoc->setAlignment(Align);
-    AFLFinalLoc->setInitializer(const_loc);
-
-  }
-
-  if (calls.size())
     for (auto &callInst : calls) {
 
       Value *Str1P = callInst->getArgOperand(0),
@@ -490,58 +479,117 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     }
 
-  if (dictionary.size()) {
+  }
 
-    size_t memlen = 0, count = 0, offset = 0;
-    char * ptr;
+  if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL || dictionary.size()) {
 
-    for (auto token : dictionary) {
+    // yes we could create our own function, insert it into ctors ...
+    // but this would be a pain in the butt ... so we use afl-llvm-rt-lto.o
 
-      memlen += token.length();
-      count++;
+    Function *f = M.getFunction("__afl_auto_init_globals");
+
+    if (!f) {
+
+      fprintf(stderr,
+              "Error: init function could not be found (this hould not "
+              "happen)\n");
+      exit(-1);
 
     }
 
-    if (!be_quiet)
-      printf(
-          "AUTODICTIONARY: %lu strings, %lu total size, %lu bytes memory "
-          "required\n",
-          count, memlen, count + memlen);
+    BasicBlock *bb = &f->getEntryBlock();
+    if (!bb) {
 
-    if (count) {
+      fprintf(stderr,
+              "Error: init function does not have an EntryBlock (this should "
+              "not happen)\n");
+      exit(-1);
 
-      if ((ptr = (char *)malloc(memlen + count)) == NULL) {
+    }
 
-        fprintf(stderr, "Error: malloc for %lu bytes failed!\n",
-                memlen + count);
-        exit(-1);
+    BasicBlock::iterator IP = bb->getFirstInsertionPt();
+    IRBuilder<>          IRB(&(*IP));
 
-      }
+    if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL) {
+
+      GlobalVariable *AFLFinalLoc = new GlobalVariable(
+          M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc",
+          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+      ConstantInt *const_loc = ConstantInt::get(Int32Ty, afl_global_id);
+      StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
+      StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
+                                 MDNode::get(C, None));
+
+    }
+
+    if (dictionary.size()) {
+
+      size_t memlen = 0, count = 0, offset = 0;
+      char * ptr;
 
       for (auto token : dictionary) {
 
-        ptr[offset++] = (uint8_t)token.length();
-        memcpy(ptr + offset, token.c_str(), token.length());
-        offset += token.length();
+        memlen += token.length();
+        count++;
 
       }
 
-      GlobalVariable *AFLDictionaryLen =
-          new GlobalVariable(M, Int32Ty, true, GlobalValue::ExternalLinkage, 0,
-                             "__afl_dictionary_len", 0,
-                             GlobalVariable::GeneralDynamicTLSModel, 0, false);
-      ConstantInt *const_size = ConstantInt::get(Int32Ty, offset);
-      AFLDictionaryLen->setInitializer(const_size);
+      if (!be_quiet)
+        printf(
+            "AUTODICTIONARY: %lu strings, %lu total size, %lu bytes memory "
+            "required\n",
+            count, memlen, count + memlen);
 
-      /*
-        SmallVector<Constant *, 32> PCs;
+      if (count) {
 
-      auto *PCArray = CreateFunctionLocalArrayInSection(N * 2, F, IntptrPtrTy,
-                                                          SanCovPCsSectionName);
-        PCArray->setInitializer(
-            ConstantArray::get(ArrayType::get(IntptrPtrTy, N * 2), PCs));
-        PCArray->setConstant(true);
-      */
+        if ((ptr = (char *)malloc(memlen + count)) == NULL) {
+
+          fprintf(stderr, "Error: malloc for %lu bytes failed!\n",
+                  memlen + count);
+          exit(-1);
+
+        }
+
+        for (auto token : dictionary) {
+
+          ptr[offset++] = (uint8_t)token.length();
+          memcpy(ptr + offset, token.c_str(), token.length());
+          offset += token.length();
+
+        }
+
+        GlobalVariable *AFLDictionaryLen = new GlobalVariable(
+            M, Int32Ty, false, GlobalValue::ExternalLinkage, 0,
+            "__afl_dictionary_len", 0, GlobalVariable::GeneralDynamicTLSModel,
+            0, false);
+        ConstantInt *const_len = ConstantInt::get(Int32Ty, offset);
+        StoreInst *StoreDictLen = IRB.CreateStore(const_len, AFLDictionaryLen);
+        StoreDictLen->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
+
+        ArrayType *ArrayTy = ArrayType::get(IntegerType::get(C, 8), offset);
+        GlobalVariable *AFLInternalDictionary = new GlobalVariable(
+            M, ArrayTy, true, GlobalValue::ExternalLinkage,
+            ConstantDataArray::get(C,
+                                   *(new ArrayRef<char>((char *)ptr, offset))),
+            "__afl_internal_dictionary", 0,
+            GlobalVariable::GeneralDynamicTLSModel, 0, false);
+        AFLInternalDictionary->setInitializer(ConstantDataArray::get(
+            C, *(new ArrayRef<char>((char *)ptr, offset))));
+        AFLInternalDictionary->setConstant(true);
+
+        GlobalVariable *AFLDictionary = new GlobalVariable(
+            M, PointerType::get(Int8Ty, 0), false, GlobalValue::ExternalLinkage,
+            0, "__afl_dictionary");
+
+        Value *AFLDictOff = IRB.CreateGEP(AFLInternalDictionary, Zero);
+        Value *AFLDictPtr =
+            IRB.CreatePointerCast(AFLDictOff, PointerType::get(Int8Ty, 0));
+        StoreInst *StoreDict = IRB.CreateStore(AFLDictPtr, AFLDictionary);
+        StoreDict->setMetadata(M.getMDKindID("nosanitize"),
+                               MDNode::get(C, None));
+
+      }
 
     }
 

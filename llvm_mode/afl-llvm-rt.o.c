@@ -50,11 +50,7 @@
    Basically, we need to make sure that the forkserver is initialized after
    the LLVM-generated runtime initialization pass, not before. */
 
-#ifdef USE_TRACE_PC
 #define CONST_PRIO 5
-#else
-#define CONST_PRIO 0
-#endif                                                     /* ^USE_TRACE_PC */
 
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -65,6 +61,7 @@
 
 u8  __afl_area_initial[MAP_SIZE];
 u8 *__afl_area_ptr = __afl_area_initial;
+u8 *__afl_dictionary;
 
 #ifdef __ANDROID__
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
