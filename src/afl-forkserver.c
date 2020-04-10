@@ -357,6 +357,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       if ((status & FS_OPT_MAPSIZE) == FS_OPT_MAPSIZE) {
 
         fsrv->map_size = FS_OPT_GET_MAPSIZE(status);
+        if (fsrv->map_size % 8)
+          fsrv->map_size = (((fsrv->map_size + 8) >> 3) << 3);
         if (!be_quiet) ACTF("Target map size: %u", fsrv->map_size);
 
       }
