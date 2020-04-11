@@ -77,7 +77,6 @@ typedef struct afl_forkserver {
 
   void (*function_ptr)(void *afl_tmp, u8 *mem, u32 len);
 
-
 } afl_forkserver_t;
 
 void afl_fsrv_init(afl_forkserver_t *fsrv);
