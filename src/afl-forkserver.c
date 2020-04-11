@@ -357,23 +357,28 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       if ((status & FS_OPT_MAPSIZE) == FS_OPT_MAPSIZE) {
 
         fsrv->map_size = FS_OPT_GET_MAPSIZE(status);
-        if (fsrv->map_size % 8)
+        if (fsrv->map_size % 8)  // should not happen
           fsrv->map_size = (((fsrv->map_size + 8) >> 3) << 3);
         if (!be_quiet) ACTF("Target map size: %u", fsrv->map_size);
-
-      }
-
-      if (fsrv->function_ptr == NULL || fsrv->function_opt == NULL) {
-
-        // this is not afl-fuzz - we deny and return
-        status = (0xffffffff ^ (FS_OPT_ENABLED | FS_OPT_AUTODICT));
-        if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4)
-          FATAL("Writing to forkserver failed.");
-        return;
+        if (fsrv->map_size > MAP_SIZE)
+          FATAL(
+              "Target's coverage map size of %u is larger than the one this "
+              "afl++ is compiled with (%u)\n",
+              fsrv->map_size, MAP_SIZE);
 
       }
 
       if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
+
+        if (fsrv->function_ptr == NULL || fsrv->function_opt == NULL) {
+
+          // this is not afl-fuzz - we deny and return
+          status = (0xffffffff ^ (FS_OPT_ENABLED | FS_OPT_AUTODICT));
+          if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4)
+            FATAL("Writing to forkserver failed.");
+          return;
+
+        }
 
         if (!be_quiet) ACTF("Using AUTODICT feature.");
         status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);

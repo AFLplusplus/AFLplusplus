@@ -468,15 +468,13 @@ bool AFLLTOPass::runOnModule(Module &M) {
       TmpConstStr.append("\0", 1);
       ConstStr = StringRef(TmpConstStr);
 
-      if (isSizedcmp && constLen > sizedLen) { constLen = sizedLen; }
+      if (isSizedcmp && constLen > sizedLen) constLen = sizedLen;
 
-      /*
-            if (!be_quiet)
-              errs() << callInst->getCalledFunction()->getName() << ": len "
-                     << constLen << ": " << ConstStr << "\n";
-      */
+      if (debug)
+        errs() << callInst->getCalledFunction()->getName() << ": len "
+               << constLen << ": " << ConstStr << "\n";
 
-      if (constLen && constLen < MAX_DICT_FILE)
+      if (constLen >= MIN_AUTO_EXTRA && constLen < MAX_DICT_FILE)
         dictionary.push_back(ConstStr.str().substr(0, constLen));
 
     }
@@ -514,13 +512,22 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL) {
 
-      GlobalVariable *AFLFinalLoc = new GlobalVariable(
-          M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc",
-          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
-      ConstantInt *const_loc = ConstantInt::get(Int32Ty, (((afl_global_id + 8) >> 3) << 3));
-      StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
-      StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
-                                 MDNode::get(C, None));
+      uint32_t write_loc = afl_global_id;
+
+      if (afl_global_id % 8) write_loc = (((afl_global_id + 8) >> 3) << 3);
+
+      if (write_loc <= MAP_SIZE && write_loc <= 0x800000) {
+
+        GlobalVariable *AFLFinalLoc = new GlobalVariable(
+            M, Int32Ty, true, GlobalValue::ExternalLinkage, 0,
+            "__afl_final_loc", 0, GlobalVariable::GeneralDynamicTLSModel, 0,
+            false);
+        ConstantInt *const_loc = ConstantInt::get(Int32Ty, write_loc);
+        StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
+        StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
+                                   MDNode::get(C, None));
+
+      }
 
     }
 
@@ -536,7 +543,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       }
 
-      if (!be_quiet) printf("AUTODICTIONARY: %lu strings found\n", count);
+      if (!be_quiet)
+        printf("AUTODICTIONARY: %lu string%s found\n", count,
+               count == 1 ? "" : "s");
 
       if (count) {
 
@@ -548,13 +557,16 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         }
 
+        count = 0;
+
         for (auto token : dictionary) {
 
-          if (offset + token.length() < 0xfffff0) {
+          if (offset + token.length() < 0xfffff0 && count < MAX_AUTO_EXTRAS) {
 
             ptr[offset++] = (uint8_t)token.length();
             memcpy(ptr + offset, token.c_str(), token.length());
             offset += token.length();
+            count++;
 
           }
 

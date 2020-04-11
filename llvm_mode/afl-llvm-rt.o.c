@@ -208,7 +208,7 @@ static void __afl_start_snapshots(void) {
      assume we're not running in forkserver mode and just execute program. */
 
   status |= (FS_OPT_ENABLED | FS_OPT_SNAPSHOT);
-  if (map_size <= 0x1000000)
+  if (map_size <= 0x800000)
     status |= (FS_OPT_SET_MAPSIZE(map_size) | FS_OPT_MAPSIZE);
   if (__afl_dictionary_len > 0 && __afl_dictionary) status |= FS_OPT_AUTODICT;
   memcpy(tmp, &status, 4);
@@ -373,7 +373,7 @@ static void __afl_start_forkserver(void) {
 
   void (*old_sigchld_handler)(int) = 0;  // = signal(SIGCHLD, SIG_DFL);
 
-  if (map_size <= 0x1000000)
+  if (map_size <= 0x800000)
     status |= (FS_OPT_SET_MAPSIZE(map_size) | FS_OPT_MAPSIZE);
   if (__afl_dictionary_len > 0 && __afl_dictionary) status |= FS_OPT_AUTODICT;
   if (status) status |= (FS_OPT_ENABLED);
