@@ -124,12 +124,12 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       (unsigned long int)(rus.ru_maxrss >> 10),
 #endif
       t_bytes, afl->var_byte_count, afl->use_banner,
-      afl->unicorn_mode ? "unicorn" : "", afl->qemu_mode ? "qemu " : "",
+      afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
       afl->dumb_mode ? " dumb " : "", afl->no_forkserver ? "no_fsrv " : "",
       afl->crash_mode ? "crash " : "",
       afl->persistent_mode ? "persistent " : "",
       afl->deferred_mode ? "deferred " : "",
-      (afl->unicorn_mode || afl->qemu_mode || afl->dumb_mode ||
+      (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->dumb_mode ||
        afl->no_forkserver || afl->crash_mode || afl->persistent_mode ||
        afl->deferred_mode)
           ? ""
@@ -824,7 +824,7 @@ void show_init_stats(afl_state_t *afl) {
 
   SAYF("\n");
 
-  if (avg_us > ((afl->qemu_mode || afl->unicorn_mode) ? 50000 : 10000))
+  if (avg_us > ((afl->fsrv.qemu_mode || afl->unicorn_mode) ? 50000 : 10000))
     WARNF(cLRD "The target binary is pretty slow! See %s/perf_tips.md.",
           doc_path);
 

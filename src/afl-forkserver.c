@@ -51,6 +51,12 @@
 
 list_t fsrv_list = {.element_prealloc_count = 0};
 
+static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
+
+  execv(fsrv->target_path, argv);
+
+}
+
 /* Initializes the struct */
 
 void afl_fsrv_init(afl_forkserver_t *fsrv) {
@@ -73,6 +79,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->use_fauxsrv = 0;
   fsrv->prev_timed_out = 0;
 
+  fsrv->init_child_func = fsrv_exec_child;
+
   list_append(&fsrv_list, fsrv);
 
 }
@@ -84,6 +92,8 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
   unsigned char tmp[4] = {0, 0, 0, 0};
   pid_t         child_pid = -1;
+
+  if (!be_quiet) ACTF("Using Fauxserver:");
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
@@ -161,15 +171,23 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
    through a pipe. The other part of this logic is in afl-as.h / llvm_mode */
 
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
-                    volatile u8 *stop_soon_p) {
+                    volatile u8 *stop_soon_p, u8 debug_child_output) {
 
   int st_pipe[2], ctl_pipe[2];
   int status;
   s32 rlen;
 
-  if (!be_quiet) ACTF("Using Fauxserver:");
-
   if (!be_quiet) ACTF("Spinning up the fork server...");
+
+  if (fsrv->use_fauxsrv) {
+
+    /* TODO: Come up with sone nice way to initalize this all */
+
+    if (fsrv->init_child_func != fsrv_exec_child)
+      FATAL("Different forkserver not compatible with fauxserver");
+
+    fsrv->init_child_func = afl_fauxsrv_execv;
+  }
 
   if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
 
@@ -221,7 +239,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     setsid();
 
-    if (!get_afl_env("AFL_DEBUG_CHILD_OUTPUT")) {
+    if (!(debug_child_output)) {
 
       dup2(fsrv->dev_null_fd, 1);
       dup2(fsrv->dev_null_fd, 2);
@@ -283,15 +301,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "msan_track_origins=0",
            0);
 
-    if (fsrv->use_fauxsrv) {
-
-      afl_fauxsrv_execv(fsrv, argv);
-
-    } else {
-
-      execv(fsrv->target_path, argv);
-
-    }
+    fsrv->init_child_func(fsrv, argv);
 
     /* Use a distinctive bitmap signature to tell the parent about execv()
        falling through. */

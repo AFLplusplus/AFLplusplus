@@ -474,7 +474,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
         errs() << callInst->getCalledFunction()->getName() << ": len "
                << constLen << ": " << ConstStr << "\n";
 
-      if (constLen >= MIN_AUTO_EXTRA && constLen < MAX_DICT_FILE)
+      if (constLen >= MIN_AUTO_EXTRA && constLen <= MAX_DICT_FILE)
         dictionary.push_back(ConstStr.str().substr(0, constLen));
 
     }

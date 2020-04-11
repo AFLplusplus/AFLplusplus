@@ -29,16 +29,16 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-void init_cmplog_forkserver(afl_state_t *afl) {
+typedef struct cmplog_data {
+} cmplog_data_t;
 
-  int st_pipe[2], ctl_pipe[2];
-  int status;
-  s32 rlen;
+void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
-  ACTF("Spinning up the cmplog fork server...");
+  setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
-  if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
+  if (!fsrv->qemu_mode && argv[0] != fsrv->cmplog_binary) {
 
+#if 0
   afl->fsrv.child_timed_out = 0;
   afl->cmplog_fsrv_pid = fork();
 
@@ -503,6 +503,14 @@ u8 run_cmplog_target(afl_state_t *afl, u32 timeout) {
     return FAULT_ERROR;
 
   return FAULT_NONE;
+#else
+    ck_free(argv[0]);
+    argv[0] = fsrv->cmplog_binary;
+
+  }
+
+  execv(argv[0], argv);
+#endif
 
 }
 
@@ -524,7 +532,7 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   write_to_testcase(afl, out_buf, len);
 
-  fault = run_cmplog_target(afl, afl->fsrv.exec_tmout);
+  fault = run_target(afl, &afl->cmplog_fsrv, afl->fsrv.exec_tmout);
 
   if (afl->stop_soon) return 1;
 
@@ -563,4 +571,3 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   return 0;
 
 }
-
