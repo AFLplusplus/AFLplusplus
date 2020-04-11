@@ -10,7 +10,16 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.63d (development):
-  - LTO mode now requires llvm11 - but compiles all targets! :)
+  - llvm_mode LTO mode:
+    - now requires llvm11 - but compiles all targets! :)
+    - autodictionary feature added, enable with AFL_LLVM_LTO_AUTODICTIONARY
+    - variable map size usage
+  - afl-fuzz:
+    - variable map size support added (only LTO mode can use this)
+    - snapshot feature usage now visible in UI
+  - extended forkserver: map_size and more information is communicated to
+    afl-fuzz (and afl-fuzz acts accordingly)
+  - more refactoring
   - if AFL_CC/AFL_CXX is set but empty afl compilers did fail, fixed
     (this bug is in vanilla afl too)
 

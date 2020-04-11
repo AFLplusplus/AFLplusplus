@@ -248,6 +248,7 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_state_init(afl);
   afl_fsrv_init(&afl->fsrv);
 
+  if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
   read_afl_environment(afl, envp);
   exit_1 = !!afl->afl_env.afl_bench_just_one;
 
@@ -690,7 +691,7 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
   if (afl->sync_id && afl->force_deterministic &&
-      getenv("AFL_CUSTOM_MUTATOR_ONLY"))
+      afl->afl_env.afl_custom_mutator_only)
     WARNF(
         "Using -M master with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "
         "result in no deterministic mutations being done!");
@@ -865,15 +866,13 @@ int main(int argc, char **argv_orig, char **envp) {
   check_if_tty(afl);
   if (afl->afl_env.afl_force_ui) afl->not_on_tty = 0;
 
-  if (get_afl_env("AFL_CAL_FAST")) {
+  if (afl->afl_env.afl_cal_fast) {
 
     /* Use less calibration cycles, for slow applications */
     afl->cal_cycles = 3;
     afl->cal_cycles_long = 5;
 
   }
-
-  if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
 
   if (afl->afl_env.afl_custom_mutator_only) {
 
@@ -1024,7 +1023,8 @@ int main(int argc, char **argv_orig, char **envp) {
     SAYF("Spawning cmplog forkserver");
     memcpy(&afl->cmplog_fsrv, &afl->fsrv, sizeof(afl->fsrv));
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
-    afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child_output);
+    afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
+                   afl->afl_env.afl_debug_child_output);
 
   }
 

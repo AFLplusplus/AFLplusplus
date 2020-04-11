@@ -79,6 +79,5 @@ struct cmp_map {
 
 void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv);
 
-
 #endif
 

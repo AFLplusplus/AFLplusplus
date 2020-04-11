@@ -68,7 +68,7 @@ typedef struct afl_forkserver {
 
   u8 qemu_mode;                         /* if running in qemu mode or not   */
 
-  char *cmplog_binary;                    /* the name of the cmplog binary    */
+  char *cmplog_binary;                  /* the name of the cmplog binary    */
 
   /* Function to kick off the forkserver child */
   void (*init_child_func)(struct afl_forkserver *fsrv, char **argv);

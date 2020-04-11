@@ -69,8 +69,7 @@ u8 run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
   if (fsrv->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
 
-  exec_ms =
-      read_timed(fsrv->fsrv_st_fd, &status, 4, timeout, &afl->stop_soon);
+  exec_ms = read_timed(fsrv->fsrv_st_fd, &status, 4, timeout, &afl->stop_soon);
 
   if (exec_ms > timeout) {
 
@@ -312,10 +311,17 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
      count its spin-up time toward binary calibration. */
 
   if (!afl->fsrv.fsrv_pid) {
-    if (afl->shm.cmplog_mode && afl->fsrv.init_child_func != cmplog_exec_child) {
+
+    if (afl->shm.cmplog_mode &&
+        afl->fsrv.init_child_func != cmplog_exec_child) {
+
       FATAL("BUG in afl-fuzz detected. Cmplog mode not set correctly.");
+
     }
-    afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child_output);
+
+    afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                   afl->afl_env.afl_debug_child_output);
+
   }
 
   if (q->exec_cksum)
