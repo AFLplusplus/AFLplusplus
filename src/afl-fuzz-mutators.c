@@ -34,7 +34,7 @@ void load_custom_mutator_py(afl_state_t *, char *);
 void setup_custom_mutator(afl_state_t *afl) {
 
   /* Try mutator library first */
-  u8 *fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+  u8 *fn = afl->afl_env.afl_custom_mutator_library;
 
   if (fn) {
 
@@ -52,7 +52,7 @@ void setup_custom_mutator(afl_state_t *afl) {
 
   /* Try Python module */
 #ifdef USE_PYTHON
-  u8 *module_name = getenv("AFL_PYTHON_MODULE");
+  u8 *module_name = afl->afl_env.afl_python_module;
 
   if (module_name) {
 
@@ -67,7 +67,7 @@ void setup_custom_mutator(afl_state_t *afl) {
   }
 
 #else
-  if (getenv("AFL_PYTHON_MODULE"))
+  if (afl->afl_env.afl_python_module)
     FATAL("Your AFL binary was built without Python support");
 #endif
 

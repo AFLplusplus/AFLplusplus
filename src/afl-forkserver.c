@@ -187,6 +187,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       FATAL("Different forkserver not compatible with fauxserver");
 
     fsrv->init_child_func = afl_fauxsrv_execv;
+
   }
 
   if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");

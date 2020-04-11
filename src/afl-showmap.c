@@ -949,7 +949,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    afl_fsrv_start(fsrv, use_argv, &stop_soon, get_afl_env("AFL_DEBUG_CHILD_OUTPUT")? 1 :0);
+    afl_fsrv_start(fsrv, use_argv, &stop_soon,
+                   get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
 
     while (done == 0 && (dir_ent = readdir(dir_in))) {
 

@@ -331,7 +331,8 @@ typedef struct afl_env_vars {
   u8 afl_skip_cpufreq, afl_exit_when_done, afl_no_affinity, afl_skip_bin_check,
       afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
-      afl_bench_until_crash, afl_debug_child_output, afl_autoresume;
+      afl_bench_until_crash, afl_debug_child_output, afl_autoresume,
+      afl_cal_fast;
 
   u8 *afl_tmpdir, *afl_post_library, *afl_custom_mutator_library,
       *afl_python_module, *afl_path, *afl_hang_tmout, *afl_skip_crashes,
@@ -558,7 +559,7 @@ typedef struct afl_state {
 
   /* CmpLog */
 
-  char *cmplog_binary;
+  char *           cmplog_binary;
   afl_forkserver_t cmplog_fsrv;     /* cmplog has its own little forkserver */
 
   /* Custom mutators */
@@ -921,7 +922,7 @@ void   save_cmdline(afl_state_t *, u32, char **);
 
 /* CmpLog */
 
-u8   common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
+u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
