@@ -147,7 +147,7 @@ endif
 endif
 
 CFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
-override CFLAGS = -Wall \
+override CFLAGS += -Wall \
                -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
