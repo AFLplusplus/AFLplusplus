@@ -47,10 +47,12 @@ The result:
 
 Example build output from a libtiff build:
 ```
+/bin/bash ../libtool  --tag=CC   --mode=link afl-clang-lto  -g -O2 -Wall -W   -o thumbnail thumbnail.o ../libtiff/libtiff.la ../port/libport.la -llzma -ljbig -ljpeg -lz -lm 
 libtool: link: afl-clang-lto -g -O2 -Wall -W -o thumbnail thumbnail.o  ../libtiff/.libs/libtiff.a ../port/.libs/libport.a -llzma -ljbig -ljpeg -lz -lm
 afl-clang-lto++2.63d by Marc "vanHauser" Heuse <mh@mh-sec.de> in mode LTO
 afl-llvm-lto++2.63d by Marc "vanHauser" Heuse <mh@mh-sec.de>
-[+] Instrumented 11836 locations with no collisions (on average 1007 collisions would be in afl-gcc/afl-clang-fast) (non-hardened mode).
+AUTODICTIONARY: 11 strings found
+[+] Instrumented 12071 locations with no collisions (on average 1046 collisions would be in afl-gcc/afl-clang-fast) (non-hardened mode).
 ```
 
 ## Building llvm 11
