@@ -215,6 +215,28 @@ void show_stats(afl_state_t *afl) {
 
   cur_ms = get_cur_time();
 
+  if (afl->most_time_key) {
+
+    if (afl->most_time * 1000 < cur_ms - afl->start_time) {
+
+      afl->most_time_key = 2;
+      afl->stop_soon = 2;
+
+    }
+
+  }
+
+  if (afl->most_execs_key == 1) {
+
+    if (afl->most_execs <= afl->total_execs) {
+
+      afl->most_execs_key = 2;
+      afl->stop_soon = 2;
+
+    }
+
+  }
+
   /* If not enough time has passed since last UI update, bail out. */
 
   if (cur_ms - afl->stats_last_ms < 1000 / UI_TARGET_HZ &&

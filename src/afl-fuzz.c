@@ -129,12 +129,11 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
 
       "Testing settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
-      "  -V seconds    - fuzz for a maximum total time of seconds then "
+      "  -V seconds    - fuzz for a specific time then terminate\n"
+      "  -E execs      - fuzz for a approx. no of total executions then "
       "terminate\n"
-      "  -E execs      - fuzz for a maximum number of total executions then "
-      "terminate\n"
-      "  Note: -V/-E are not precise, they are checked after a queue entry "
-      "is done\n  which can be many minutes/execs later\n\n"
+      "                  Note: not precise and can have several more "
+      "executions.\n\n"
 
       "Other stuff:\n"
       "  -T text       - text banner to show on the screen\n"
@@ -144,7 +143,7 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap "
       "file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
-      "  -e ext        - File extension for the temporarily generated test "
+      "  -e ext        - file extension for the temporarily generated test "
       "case\n\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
@@ -1121,31 +1120,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl->queue_cur = afl->queue_cur->next;
     ++afl->current_entry;
-
-    if (afl->most_time_key == 1) {
-
-      u64 cur_ms_lv = get_cur_time();
-      if (afl->most_time * 1000 < cur_ms_lv - afl->start_time) {
-
-        afl->most_time_key = 2;
-        afl->stop_soon = 2;
-        break;
-
-      }
-
-    }
-
-    if (afl->most_execs_key == 1) {
-
-      if (afl->most_execs <= afl->total_execs) {
-
-        afl->most_execs_key = 2;
-        afl->stop_soon = 2;
-        break;
-
-      }
-
-    }
 
   }
 
