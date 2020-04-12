@@ -720,7 +720,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        if (sscanf(optarg, "%" PRIu64 "%c", &fsrv->mem_limit, &suffix) < 1 ||
+        if (sscanf(optarg, "%llu%c", &fsrv->mem_limit, &suffix) < 1 ||
             optarg[0] == '-')
           FATAL("Bad syntax used for -m");
 

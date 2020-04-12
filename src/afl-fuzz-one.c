@@ -405,7 +405,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (unlikely(afl->not_on_tty)) {
 
-    ACTF("Fuzzing test case #%u (%u total, %" PRIu64 " uniq crashes found)...",
+    ACTF("Fuzzing test case #%u (%u total, %llu uniq crashes found)...",
          afl->current_entry, afl->queued_paths, afl->unique_crashes);
     fflush(stdout);
 
@@ -2432,7 +2432,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   if (afl->not_on_tty) {
 
-    ACTF("Fuzzing test case #%u (%u total, %" PRIu64 " uniq crashes found)...",
+    ACTF("Fuzzing test case #%u (%u total, %llu uniq crashes found)...",
          afl->current_entry, afl->queued_paths, afl->unique_crashes);
     fflush(stdout);
 

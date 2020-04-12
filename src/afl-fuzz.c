@@ -427,7 +427,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        if (sscanf(optarg, "%" PRIu64 "%c", &afl->fsrv.mem_limit, &suffix) < 1 ||
+        if (sscanf(optarg, "%llu%c", &afl->fsrv.mem_limit, &suffix) < 1 ||
             optarg[0] == '-')
           FATAL("Bad syntax used for -m");
 
@@ -537,7 +537,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'V': {
 
         afl->most_time_key = 1;
-        if (sscanf(optarg, "%" PRIu64, &afl->most_time) < 1 || optarg[0] == '-')
+        if (sscanf(optarg, "%llu", &afl->most_time) < 1 || optarg[0] == '-')
           FATAL("Bad syntax used for -V");
 
       } break;
@@ -545,7 +545,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'E': {
 
         afl->most_execs_key = 1;
-        if (sscanf(optarg, "%" PRIu64, &afl->most_execs) < 1 || optarg[0] == '-')
+        if (sscanf(optarg, "%llu", &afl->most_execs) < 1 || optarg[0] == '-')
           FATAL("Bad syntax used for -E");
 
       } break;
@@ -556,7 +556,7 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->limit_time_sig = 1;
         afl->havoc_max_mult = HAVOC_MAX_MULT_MOPT;
 
-        if (sscanf(optarg, "%" PRIu64, &afl->limit_time_puppet) < 1 ||
+        if (sscanf(optarg, "%llu", &afl->limit_time_puppet) < 1 ||
             optarg[0] == '-')
           FATAL("Bad syntax used for -L");
 
@@ -566,7 +566,7 @@ int main(int argc, char **argv_orig, char **envp) {
           FATAL("limit_time overflow");
         afl->limit_time_puppet = limit_time_puppet2;
 
-        SAYF("limit_time_puppet %" PRIu64 "\n", afl->limit_time_puppet);
+        SAYF("limit_time_puppet %llu\n", afl->limit_time_puppet);
         afl->swarm_now = 0;
 
         if (afl->limit_time_puppet == 0) afl->key_puppet = 1;
@@ -1079,7 +1079,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (unlikely(afl->not_on_tty)) {
 
-        ACTF("Entering queue cycle %" PRIu64 ".", afl->queue_cycle);
+        ACTF("Entering queue cycle %llu.", afl->queue_cycle);
         fflush(stdout);
 
       }
