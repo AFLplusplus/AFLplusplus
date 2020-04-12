@@ -353,7 +353,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
   test -e test-compcov.compcov && {
-    grep -Eq " [3-9][0-9] location" test.out && {
+    grep -Eq " [ 12][0-9][0-9] location| [3-9][0-9] location" test.out && {
       $ECHO "$GREEN[+] llvm_mode laf-intel/compcov feature works correctly"
     } || {
       $ECHO "$RED[!] llvm_mode laf-intel/compcov feature failed"
