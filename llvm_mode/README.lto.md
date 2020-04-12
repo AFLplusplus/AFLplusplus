@@ -57,7 +57,7 @@ AUTODICTIONARY: 11 strings found
 ## Building llvm 11
 
 ```
-$ sudo apt install binutils-dev
+$ sudo apt install binutils-dev  # this is *essential*!
 $ git clone https://github.com/llvm/llvm-project
 $ cd llvm-project
 $ mkdir build
