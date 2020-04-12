@@ -29,6 +29,7 @@
 #define __AFL_FORKSERVER_H
 
 #include <stdio.h>
+#include <inttypes.h>
 
 typedef struct afl_forkserver {
 
@@ -97,9 +98,9 @@ void afl_fsrv_killall();
 #endif
 
 #ifdef RLIMIT_AS
-#define MSG_ULIMIT_USAGE "      ( ulimit -Sv $[%llu << 10];"
+#define MSG_ULIMIT_USAGE "      ( ulimit -Sv $[%" PRIu64 " << 10];"
 #else
-#define MSG_ULIMIT_USAGE "      ( ulimit -Sd $[%llu << 10];"
+#define MSG_ULIMIT_USAGE "      ( ulimit -Sd $[%" PRIu64 " << 10];"
 #endif                                                        /* ^RLIMIT_AS */
 
 #endif

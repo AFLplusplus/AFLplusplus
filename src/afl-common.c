@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <strings.h>
+#include <inttypes.h>
 
 #include "debug.h"
 #include "alloc-inl.h"
@@ -454,13 +455,13 @@ u8 *stringify_int(u8 *buf, size_t len, u64 val) {
   } while (0)
 
   /* 0-9999 */
-  CHK_FORMAT(1, 10000, "%llu", u64);
+  CHK_FORMAT(1, 10000, "%" PRIu64, u64);
 
   /* 10.0k - 99.9k */
   CHK_FORMAT(1000, 99.95, "%0.01fk", double);
 
   /* 100k - 999k */
-  CHK_FORMAT(1000, 1000, "%lluk", u64);
+  CHK_FORMAT(1000, 1000, "%" PRIu64 "k", u64);
 
   /* 1.00M - 9.99M */
   CHK_FORMAT(1000 * 1000, 9.995, "%0.02fM", double);
@@ -469,7 +470,7 @@ u8 *stringify_int(u8 *buf, size_t len, u64 val) {
   CHK_FORMAT(1000 * 1000, 99.95, "%0.01fM", double);
 
   /* 100M - 999M */
-  CHK_FORMAT(1000 * 1000, 1000, "%lluM", u64);
+  CHK_FORMAT(1000 * 1000, 1000, "%" PRIu64 "M", u64);
 
   /* 1.00G - 9.99G */
   CHK_FORMAT(1000LL * 1000 * 1000, 9.995, "%0.02fG", double);
@@ -521,13 +522,13 @@ u8 *stringify_float(u8 *buf, size_t len, double val) {
 u8 *stringify_mem_size(u8 *buf, size_t len, u64 val) {
 
   /* 0-9999 */
-  CHK_FORMAT(1, 10000, "%llu B", u64);
+  CHK_FORMAT(1, 10000, "%" PRIu64 " B", u64);
 
   /* 10.0k - 99.9k */
   CHK_FORMAT(1024, 99.95, "%0.01f kB", double);
 
   /* 100k - 999k */
-  CHK_FORMAT(1024, 1000, "%llu kB", u64);
+  CHK_FORMAT(1024, 1000, "%" PRIu64 " kB", u64);
 
   /* 1.00M - 9.99M */
   CHK_FORMAT(1024 * 1024, 9.995, "%0.02f MB", double);
@@ -536,7 +537,7 @@ u8 *stringify_mem_size(u8 *buf, size_t len, u64 val) {
   CHK_FORMAT(1024 * 1024, 99.95, "%0.01f MB", double);
 
   /* 100M - 999M */
-  CHK_FORMAT(1024 * 1024, 1000, "%llu MB", u64);
+  CHK_FORMAT(1024 * 1024, 1000, "%" PRIu64 " MB", u64);
 
   /* 1.00G - 9.99G */
   CHK_FORMAT(1024LL * 1024 * 1024, 9.995, "%0.02f GB", double);
@@ -614,13 +615,13 @@ u8 *u_stringify_int(u8 *buf, u64 val) {
   } while (0)
 
   /* 0-9999 */
-  CHK_FORMAT(1, 10000, "%llu", u64);
+  CHK_FORMAT(1, 10000, "%" PRIu64, u64);
 
   /* 10.0k - 99.9k */
   CHK_FORMAT(1000, 99.95, "%0.01fk", double);
 
   /* 100k - 999k */
-  CHK_FORMAT(1000, 1000, "%lluk", u64);
+  CHK_FORMAT(1000, 1000, "%" PRIu64 "k", u64);
 
   /* 1.00M - 9.99M */
   CHK_FORMAT(1000 * 1000, 9.995, "%0.02fM", double);
@@ -629,7 +630,7 @@ u8 *u_stringify_int(u8 *buf, u64 val) {
   CHK_FORMAT(1000 * 1000, 99.95, "%0.01fM", double);
 
   /* 100M - 999M */
-  CHK_FORMAT(1000 * 1000, 1000, "%lluM", u64);
+  CHK_FORMAT(1000 * 1000, 1000, "%" PRIu64 "M", u64);
 
   /* 1.00G - 9.99G */
   CHK_FORMAT(1000LL * 1000 * 1000, 9.995, "%0.02fG", double);
@@ -680,13 +681,13 @@ u8 *u_stringify_float(u8 *buf, double val) {
 u8 *u_stringify_mem_size(u8 *buf, u64 val) {
 
   /* 0-9999 */
-  CHK_FORMAT(1, 10000, "%llu B", u64);
+  CHK_FORMAT(1, 10000, "%" PRIu64 " B", u64);
 
   /* 10.0k - 99.9k */
   CHK_FORMAT(1024, 99.95, "%0.01f kB", double);
 
   /* 100k - 999k */
-  CHK_FORMAT(1024, 1000, "%llu kB", u64);
+  CHK_FORMAT(1024, 1000, "%" PRIu64 " kB", u64);
 
   /* 1.00M - 9.99M */
   CHK_FORMAT(1024 * 1024, 9.995, "%0.02f MB", double);
@@ -695,7 +696,7 @@ u8 *u_stringify_mem_size(u8 *buf, u64 val) {
   CHK_FORMAT(1024 * 1024, 99.95, "%0.01f MB", double);
 
   /* 100M - 999M */
-  CHK_FORMAT(1024 * 1024, 1000, "%llu MB", u64);
+  CHK_FORMAT(1024 * 1024, 1000, "%" PRIu64 " MB", u64);
 
   /* 1.00G - 9.99G */
   CHK_FORMAT(1024LL * 1024 * 1024, 9.995, "%0.02f GB", double);
