@@ -112,11 +112,12 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                                      const bool processStrcasecmp,
                                      const bool processStrncasecmp) {
 
-  std::vector<CallInst *> calls;
-  LLVMContext &           C = M.getContext();
-  IntegerType *           Int8Ty = IntegerType::getInt8Ty(C);
-  IntegerType *           Int32Ty = IntegerType::getInt32Ty(C);
-  IntegerType *           Int64Ty = IntegerType::getInt64Ty(C);
+  DenseMap<Value *, std::string *> valueMap;
+  std::vector<CallInst *>          calls;
+  LLVMContext &                    C = M.getContext();
+  IntegerType *                    Int8Ty = IntegerType::getInt8Ty(C);
+  IntegerType *                    Int32Ty = IntegerType::getInt32Ty(C);
+  IntegerType *                    Int64Ty = IntegerType::getInt64Ty(C);
 
 #if LLVM_VERSION_MAJOR < 9
   Constant *
@@ -263,6 +264,8 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           bool isStrncmp = processStrncmp;
           bool isStrcasecmp = processStrcasecmp;
           bool isStrncasecmp = processStrncasecmp;
+          bool isIntMemcpy = true;
+          bool indirect = false;
 
           Function *Callee = callInst->getCalledFunction();
           if (!Callee) continue;
@@ -273,9 +276,10 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           isStrncmp &= !FuncName.compare(StringRef("strncmp"));
           isStrcasecmp &= !FuncName.compare(StringRef("strcasecmp"));
           isStrncasecmp &= !FuncName.compare(StringRef("strncasecmp"));
+          isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
 
           if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
-              !isStrncasecmp)
+              !isStrncasecmp && !isIntMemcpy)
             continue;
 
           /* Verify the strcmp/memcmp/strncmp/strcasecmp/strncasecmp function
@@ -309,7 +313,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                            FT->getParamType(2)->isIntegerTy();
 
           if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
-              !isStrncasecmp)
+              !isStrncasecmp && !isIntMemcpy)
             continue;
 
           /* is a str{n,}{case,}cmp/memcmp, check if we have
@@ -321,6 +325,97 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           StringRef Str1, Str2;
           bool      HasStr1 = getConstantStringInfo(Str1P, Str1);
           bool      HasStr2 = getConstantStringInfo(Str2P, Str2);
+
+          if (isIntMemcpy && HasStr2) {
+
+            valueMap[Str1P] = new std::string(Str2.str());
+            // fprintf(stderr, "saved %s for %p\n", Str2.str().c_str(), Str1P);
+            continue;
+
+          }
+
+          // not literal? maybe global or local variable
+          if (!(HasStr1 ^ HasStr2)) {
+
+            auto *Ptr = dyn_cast<ConstantExpr>(Str2P);
+            if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+
+              if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
+
+                if (auto *Array =
+                        dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+
+                  HasStr2 = true;
+                  Str2 = Array->getAsString();
+                  valueMap[Str2P] = new std::string(Str2.str());
+                  // fprintf(stderr, "glo2 %s\n", Str2.str().c_str());
+
+                }
+
+              }
+
+            }
+
+            if (!HasStr2) {
+
+              auto *Ptr = dyn_cast<ConstantExpr>(Str1P);
+              if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+
+                if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
+
+                  if (auto *Array =
+                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+
+                    HasStr1 = true;
+                    Str1 = Array->getAsString();
+                    valueMap[Str1P] = new std::string(Str1.str());
+                    // fprintf(stderr, "glo1 %s\n", Str1.str().c_str());
+
+                  }
+
+                }
+
+              }
+
+            } else if (isIntMemcpy) {
+
+              valueMap[Str1P] = new std::string(Str2.str());
+              // fprintf(stderr, "saved\n");
+
+            }
+
+            if ((HasStr1 ^ HasStr2)) indirect = true;
+
+          }
+
+          if (isIntMemcpy) continue;
+
+          if (!(HasStr1 ^ HasStr2)) {
+
+            // do we have a saved local variable initialization?
+            std::string *val = valueMap[Str1P];
+            if (val && !val->empty()) {
+
+              Str1 = StringRef(*val);
+              HasStr1 = true;
+              indirect = true;
+              // fprintf(stderr, "loaded1 %s\n", Str1.str().c_str());
+
+            } else {
+
+              val = valueMap[Str2P];
+              if (val && !val->empty()) {
+
+                Str2 = StringRef(*val);
+                HasStr2 = true;
+                indirect = true;
+                // fprintf(stderr, "loaded2 %s\n", Str2.str().c_str());
+
+              }
+
+            }
+
+          }
 
           /* handle cases of one string is const, one string is variable */
           if (!(HasStr1 ^ HasStr2)) continue;
@@ -334,9 +429,8 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
             if (!ilen) continue;
             /* final precaution: if size of compare is larger than constant
              * string skip it*/
-            uint64_t literalLength =
-                HasStr1 ? GetStringLength(Str1P) : GetStringLength(Str2P);
-            if (literalLength < ilen->getZExtValue()) continue;
+            uint64_t literalLength = HasStr1 ? Str1.size() : Str2.size();
+            if (literalLength + 1 < ilen->getZExtValue()) continue;
 
           }
 
@@ -363,9 +457,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     std::string TmpConstStr;
     Value *     VarStr;
     bool        HasStr1 = getConstantStringInfo(Str1P, Str1);
-    getConstantStringInfo(Str2P, Str2);
-    uint64_t constLen, sizedLen;
-    bool     isMemcmp =
+    bool        HasStr2 = getConstantStringInfo(Str2P, Str2);
+    uint64_t    constLen, sizedLen;
+    bool        isMemcmp =
         !callInst->getCalledFunction()->getName().compare(StringRef("memcmp"));
     bool isSizedcmp = isMemcmp ||
                       !callInst->getCalledFunction()->getName().compare(
@@ -386,6 +480,29 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     } else {
 
       sizedLen = 0;
+
+    }
+
+    if (!(HasStr1 ^ HasStr2)) {
+
+      // do we have a saved local or global variable initialization?
+      std::string *val = valueMap[Str1P];
+      if (val && !val->empty()) {
+
+        Str1 = StringRef(*val);
+        HasStr1 = true;
+
+      } else {
+
+        val = valueMap[Str2P];
+        if (val && !val->empty()) {
+
+          Str2 = StringRef(*val);
+          HasStr2 = true;
+
+        }
+
+      }
 
     }
 

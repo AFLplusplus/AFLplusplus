@@ -6,27 +6,33 @@
 char global_cmpval[] = "GLOBALVARIABLE";
 
 int main(int argc, char **argv) {
+
   char *input = argv[1], *buf, buffer[20];
-  char cmpval[] = "LOCALVARIABLE";
-  char shortval[4] = "abc";
+  char  cmpval[] = "LOCALVARIABLE";
+  char  shortval[4] = "abc";
 
   if (argc < 2) {
+
     ssize_t ret = read(0, buffer, sizeof(buffer) - 1);
     buffer[ret] = 0;
     input = buffer;
+
   }
-  
+
   if (strcmp(input, "LIBTOKENCAP") == 0)
     printf("your string was libtokencap\n");
   else if (strcmp(input, "BUGMENOT") == 0)
     printf("your string was bugmenot\n");
   else if (strcmp(input, "BUFFEROVERFLOW") == 0) {
+
     buf = malloc(16);
     strcpy(buf, "TEST");
     strcat(buf, input);
     printf("This will only crash with libdislocator: %s\n", buf);
     return 0;
-  } else if (*(unsigned int*)input == 0xabadcafe)
+
+  } else if (*(unsigned int *)input == 0xabadcafe)
+
     printf("GG you eat cmp tokens for breakfast!\n");
   else if (memcmp(cmpval, input, 8) == 0)
     printf("local var memcmp works!\n");
@@ -40,3 +46,4 @@ int main(int argc, char **argv) {
   return 0;
 
 }
+
