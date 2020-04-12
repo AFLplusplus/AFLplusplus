@@ -989,7 +989,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        if (sscanf(optarg, "%" PRIu64 "%c", &fsrv->mem_limit, &suffix) < 1 ||
+        if (sscanf(optarg, "%llu%c", &fsrv->mem_limit, &suffix) < 1 ||
             optarg[0] == '-')
           FATAL("Bad syntax used for -m");
 
@@ -1134,7 +1134,7 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_fsrv_start(fsrv, use_argv, &stop_soon,
                  get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
 
-  ACTF("Performing dry run (mem limit = %" PRIu64 " MB, timeout = %u ms%s)...",
+  ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        fsrv->mem_limit, fsrv->exec_tmout, edges_only ? ", edges only" : "");
 
   run_target(fsrv, use_argv, in_data, in_len, 1);

@@ -70,13 +70,13 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
   fprintf(
       f,
-      "start_time        : %" PRIu64 "\n"
-      "last_update       : %lld\n"
-      "run_time          : %lld\n"
+      "start_time        : %llu\n"
+      "last_update       : %llu\n"
+      "run_time          : %llu\n"
       "fuzzer_pid        : %d\n"
-      "cycles_done       : %" PRIu64 "\n"
-      "cycles_wo_finds   : %" PRIu64 "\n"
-      "execs_done        : %" PRIu64 "\n"
+      "cycles_done       : %llu\n"
+      "cycles_wo_finds   : %llu\n"
+      "execs_done        : %llu\n"
       "execs_per_sec     : %0.02f\n"
       //          "real_execs_per_sec: %0.02f\n"  // damn the name is too long
       "paths_total       : %u\n"
@@ -90,12 +90,12 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       "variable_paths    : %u\n"
       "stability         : %0.02f%%\n"
       "bitmap_cvg        : %0.02f%%\n"
-      "unique_crashes    : %" PRIu64 "\n"
-      "unique_hangs      : %" PRIu64 "\n"
-      "last_path         : %" PRIu64 "\n"
-      "last_crash        : %" PRIu64 "\n"
-      "last_hang         : %" PRIu64 "\n"
-      "execs_since_crash : %" PRIu64 "\n"
+      "unique_crashes    : %llu\n"
+      "unique_hangs      : %llu\n"
+      "last_path         : %llu\n"
+      "last_crash        : %llu\n"
+      "last_hang         : %llu\n"
+      "execs_since_crash : %llu\n"
       "exec_timeout      : %u\n"
       "slowest_exec_ms   : %u\n"
       "peak_rss_mb       : %lu\n"
@@ -171,7 +171,7 @@ void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
      execs_per_sec */
 
   fprintf(afl->fsrv.plot_file,
-          "%" PRIu64 ", %" PRIu64 ", %u, %u, %u, %u, %0.02f%%, %" PRIu64 ", %" PRIu64 ", %u, %0.02f\n",
+          "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f\n",
           get_cur_time() / 1000, afl->queue_cycle - 1, afl->current_entry,
           afl->queued_paths, afl->pending_not_fuzzed, afl->pending_favored,
           bitmap_cvg, afl->unique_crashes, afl->unique_hangs, afl->max_depth,
