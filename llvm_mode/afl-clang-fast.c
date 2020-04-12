@@ -485,28 +485,39 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   switch (bit_mode) {
 
     case 0:
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/afl-llvm-rt%s.o", obj_path,
-                       instrument_mode == INSTRUMENT_LTO ? "-lto" : "");
+      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt.o", obj_path);
+      if (instrument_mode == INSTRUMENT_LTO)
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/afl-llvm-rt-lto.o", obj_path);
       break;
 
     case 32:
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/afl-llvm-rt%s-32.o", obj_path,
-                       instrument_mode == INSTRUMENT_LTO ? "-lto" : "");
-
+      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-32.o", obj_path);
       if (access(cc_params[cc_par_cnt - 1], R_OK))
         FATAL("-m32 is not supported by your compiler");
+      if (instrument_mode == INSTRUMENT_LTO) {
+
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/afl-llvm-rt-lto-32.o", obj_path);
+        if (access(cc_params[cc_par_cnt - 1], R_OK))
+          FATAL("-m32 is not supported by your compiler");
+
+      }
 
       break;
 
     case 64:
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/afl-llvm-rt%s-64.o", obj_path,
-                       instrument_mode == INSTRUMENT_LTO ? "-lto" : "");
-
+      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-64.o", obj_path);
       if (access(cc_params[cc_par_cnt - 1], R_OK))
         FATAL("-m64 is not supported by your compiler");
+      if (instrument_mode == INSTRUMENT_LTO) {
+
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/afl-llvm-rt-lto-64.o", obj_path);
+        if (access(cc_params[cc_par_cnt - 1], R_OK))
+          FATAL("-m64 is not supported by your compiler");
+
+      }
 
       break;
 
