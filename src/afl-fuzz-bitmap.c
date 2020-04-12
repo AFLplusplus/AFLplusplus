@@ -441,7 +441,7 @@ u8 *describe_op(afl_state_t *afl, u8 hnb) {
 
     sprintf(ret, "src:%06u", afl->current_entry);
 
-    sprintf(ret + strlen(ret), ",time:%" PRIu64, get_cur_time() - afl->start_time);
+    sprintf(ret + strlen(ret), ",time:%llu", get_cur_time() - afl->start_time);
 
     if (afl->splicing_with >= 0)
       sprintf(ret + strlen(ret), "+%06d", afl->splicing_with);
@@ -659,12 +659,12 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #ifndef SIMPLE_FILES
 
-      snprintf(fn, PATH_MAX, "%s/hangs/id:%06" PRIu64 ",%s", afl->out_dir,
+      snprintf(fn, PATH_MAX, "%s/hangs/id:%06llu,%s", afl->out_dir,
                afl->unique_hangs, describe_op(afl, 0));
 
 #else
 
-      snprintf(fn, PATH_MAX, "%s/hangs/id_%06" PRIu64, afl->out_dir,
+      snprintf(fn, PATH_MAX, "%s/hangs/id_%06llu", afl->out_dir,
                afl->unique_hangs);
 
 #endif                                                    /* ^!SIMPLE_FILES */
@@ -703,12 +703,12 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #ifndef SIMPLE_FILES
 
-      snprintf(fn, PATH_MAX, "%s/crashes/id:%06" PRIu64 ",sig:%02u,%s", afl->out_dir,
+      snprintf(fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s", afl->out_dir,
                afl->unique_crashes, afl->kill_signal, describe_op(afl, 0));
 
 #else
 
-      snprintf(fn, PATH_MAX, "%s/crashes/id_%06" PRIu64 "_%02u", afl->out_dir,
+      snprintf(fn, PATH_MAX, "%s/crashes/id_%06llu_%02u", afl->out_dir,
                afl->unique_crashes, afl->kill_signal);
 
 #endif                                                    /* ^!SIMPLE_FILES */
