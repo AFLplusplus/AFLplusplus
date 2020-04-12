@@ -89,7 +89,7 @@ u8 run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
          "Unable to communicate with fork server. Some possible reasons:\n\n"
          "    - You've run out of memory. Use -m to increase the the memory "
          "limit\n"
-         "      to something higher than %lld.\n"
+         "      to something higher than %" PRIu64 ".\n"
          "    - The binary or one of the libraries it uses manages to "
          "create\n"
          "      threads before the forkserver initializes.\n"

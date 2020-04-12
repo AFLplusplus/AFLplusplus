@@ -494,7 +494,7 @@ void perform_dry_run(afl_state_t *afl) {
     if (afl->stop_soon) return;
 
     if (res == afl->crash_mode || res == FAULT_NOBITS)
-      SAYF(cGRA "    len = %u, map size = %u, exec speed = %llu us\n" cRST,
+      SAYF(cGRA "    len = %u, map size = %u, exec speed = %" PRIu64 " us\n" cRST,
            q->len, q->bitmap_size, q->exec_us);
 
     switch (res) {
@@ -1051,8 +1051,8 @@ static void handle_existing_out_dir(afl_state_t *afl) {
     u64 start_time2, last_update;
 
     if (fscanf(f,
-               "start_time     : %llu\n"
-               "last_update    : %llu\n",
+               "start_time     : %" PRIu64 "\n"
+               "last_update    : %" PRIu64 "\n",
                &start_time2, &last_update) != 2)
       FATAL("Malformed data in '%s'", fn);
 
@@ -1602,7 +1602,7 @@ void check_cpu_governor(afl_state_t *afl) {
 
   if (f) {
 
-    if (fscanf(f, "%llu", &min) != 1) min = 0;
+    if (fscanf(f, "%" PRIu64, &min) != 1) min = 0;
     fclose(f);
 
   }
@@ -1611,7 +1611,7 @@ void check_cpu_governor(afl_state_t *afl) {
 
   if (f) {
 
-    if (fscanf(f, "%llu", &max) != 1) max = 0;
+    if (fscanf(f, "%" PRIu64, &max) != 1) max = 0;
     fclose(f);
 
   }
@@ -1620,7 +1620,7 @@ void check_cpu_governor(afl_state_t *afl) {
 
   SAYF("\n" cLRD "[-] " cRST
        "Whoops, your system uses on-demand CPU frequency scaling, adjusted\n"
-       "    between %llu and %llu MHz. Unfortunately, the scaling algorithm in "
+       "    between %" PRIu64 " and %" PRIu64 " MHz. Unfortunately, the scaling algorithm in "
        "the\n"
        "    kernel is imperfect and can miss the short-lived processes spawned "
        "by\n"
