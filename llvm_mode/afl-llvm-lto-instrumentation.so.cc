@@ -161,9 +161,10 @@ class AFLLTOPass : public ModulePass {
 
 bool AFLLTOPass::runOnModule(Module &M) {
 
-  LLVMContext &            C = M.getContext();
-  std::vector<std::string> dictionary;
-  std::vector<CallInst *>  calls;
+  LLVMContext &                    C = M.getContext();
+  std::vector<std::string>         dictionary;
+  std::vector<CallInst *>          calls;
+  DenseMap<Value *, std::string *> valueMap;
 
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
@@ -208,6 +209,34 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     if (autodictionary) {
 
+      /*  Some implementation notes.
+       *
+       *  We try to handle 3 cases:
+       *  - memcmp("foo", arg, 3) <- literal string
+       *  - static char globalvar[] = "foo";
+       *    memcmp(globalvar, arg, 3) <- global variable
+       *  - char localvar[] = "foo";
+       *    memcmp(locallvar, arg, 3) <- local variable
+       *
+       *  The local variable case is the hardest. We can only detect that
+       *  case if there is no reassignment or change in the variable.
+       *  And it might not work across llvm version.
+       *  What we do is hooking the initializer function for local variables
+       *  (llvm.memcpy.p0i8.p0i8.i64) and note the string and the assigned
+       *  variable. And if that variable is then used in a compare function
+       *  we use that noted string.
+       *  This seems not to work for tokens that have a size <= 4 :-(
+       *
+       *  - if the compared length is smaller than the string length we
+       *    save the full string. This is likely better for fuzzing but
+       *    might be wrong in a few cases depending on optimizers
+       *
+       *  - not using StringRef because there is a bug in the llvm 11
+       *    checkout I am using which sometimes points to wrong strings
+       *
+       *  Over and out. Took me a full day. damn. mh/vh
+       */
+
       for (auto &BB : F) {
 
         for (auto &IN : BB) {
@@ -216,24 +245,28 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           if ((callInst = dyn_cast<CallInst>(&IN))) {
 
-            bool isStrcmp = true;
-            bool isMemcmp = true;
-            bool isStrncmp = true;
-            bool isStrcasecmp = true;
-            bool isStrncasecmp = true;
+            bool    isStrcmp = true;
+            bool    isMemcmp = true;
+            bool    isStrncmp = true;
+            bool    isStrcasecmp = true;
+            bool    isStrncasecmp = true;
+            bool    isIntMemcpy = true;
+            bool    addedNull = false;
+            uint8_t optLen = 0;
 
             Function *Callee = callInst->getCalledFunction();
             if (!Callee) continue;
             if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
-            StringRef FuncName = Callee->getName();
-            isStrcmp &= !FuncName.compare(StringRef("strcmp"));
-            isMemcmp &= !FuncName.compare(StringRef("memcmp"));
-            isStrncmp &= !FuncName.compare(StringRef("strncmp"));
-            isStrcasecmp &= !FuncName.compare(StringRef("strcasecmp"));
-            isStrncasecmp &= !FuncName.compare(StringRef("strncasecmp"));
+            std::string FuncName = Callee->getName().str();
+            isStrcmp &= !FuncName.compare("strcmp");
+            isMemcmp &= !FuncName.compare("memcmp");
+            isStrncmp &= !FuncName.compare("strncmp");
+            isStrcasecmp &= !FuncName.compare("strcasecmp");
+            isStrncasecmp &= !FuncName.compare("strncasecmp");
+            isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
 
             if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
-                !isStrncasecmp)
+                !isStrncasecmp && !isIntMemcpy)
               continue;
 
             /* Verify the strcmp/memcmp/strncmp/strcasecmp/strncasecmp function
@@ -269,7 +302,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
                              FT->getParamType(2)->isIntegerTy();
 
             if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
-                !isStrncasecmp)
+                !isStrncasecmp && !isIntMemcpy)
               continue;
 
             /* is a str{n,}{case,}cmp/memcmp, check if we have
@@ -278,29 +311,205 @@ bool AFLLTOPass::runOnModule(Module &M) {
              * memcmp(x, "const", ..) or memcmp("const", x, ..) */
             Value *Str1P = callInst->getArgOperand(0),
                   *Str2P = callInst->getArgOperand(1);
-            StringRef Str1, Str2;
-            bool      HasStr1 = getConstantStringInfo(Str1P, Str1);
-            bool      HasStr2 = getConstantStringInfo(Str2P, Str2);
+            std::string Str1, Str2;
+            StringRef   TmpStr;
+            bool        HasStr1 = getConstantStringInfo(Str1P, TmpStr);
+            if (TmpStr.empty())
+              HasStr1 = false;
+            else
+              Str1 = TmpStr.str();
+            bool HasStr2 = getConstantStringInfo(Str2P, TmpStr);
+            if (TmpStr.empty())
+              HasStr2 = false;
+            else
+              Str2 = TmpStr.str();
+
+            if (debug)
+              fprintf(stderr, "F:%s %p(%s)->\"%s\"(%s) %p(%s)->\"%s\"(%s)\n",
+                      FuncName.c_str(), Str1P, Str1P->getName().str().c_str(),
+                      Str1.c_str(), HasStr1 == true ? "true" : "false", Str2P,
+                      Str2P->getName().str().c_str(), Str2.c_str(),
+                      HasStr2 == true ? "true" : "false");
+
+            // we handle the 2nd parameter first because of llvm memcpy
+            if (!HasStr2) {
+
+              auto *Ptr = dyn_cast<ConstantExpr>(Str2P);
+              if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+
+                if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
+
+                  if (auto *Array =
+                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+
+                    HasStr2 = true;
+                    Str2 = Array->getAsString().str();
+
+                  }
+
+                }
+
+              }
+
+            }
+
+            // for the internal memcpy routine we only care for the second
+            // parameter and are not reporting anything.
+            if (isIntMemcpy == true) {
+
+              if (HasStr2 == true) {
+
+                Value *      op2 = callInst->getArgOperand(2);
+                ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
+                if (ilen) {
+
+                  uint64_t literalLength = Str2.size();
+                  uint64_t optLength = ilen->getZExtValue();
+                  if (literalLength + 1 == optLength) {
+
+                    Str2.append("\0", 1);  // add null byte
+                    addedNull = true;
+
+                  }
+
+                }
+
+                valueMap[Str1P] = new std::string(Str2);
+
+                if (debug)
+                  fprintf(stderr, "Saved: %s for %p\n", Str2.c_str(), Str1P);
+                continue;
+
+              }
+
+              continue;
+
+            }
+
+            // Neither a literal nor a global variable?
+            // maybe it is a local variable that we saved
+            if (!HasStr2) {
+
+              std::string *strng = valueMap[Str2P];
+              if (strng && !strng->empty()) {
+
+                Str2 = *strng;
+                HasStr2 = true;
+                if (debug)
+                  fprintf(stderr, "Filled2: %s for %p\n", strng->c_str(),
+                          Str2P);
+
+              }
+
+            }
+
+            if (!HasStr1) {
+
+              auto Ptr = dyn_cast<ConstantExpr>(Str1P);
+
+              if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+
+                if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
+
+                  if (auto *Array =
+                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+
+                    HasStr1 = true;
+                    Str1 = Array->getAsString().str();
+
+                  }
+
+                }
+
+              }
+
+            }
+
+            // Neither a literal nor a global variable?
+            // maybe it is a local variable that we saved
+            if (!HasStr1) {
+
+              std::string *strng = valueMap[Str1P];
+              if (strng && !strng->empty()) {
+
+                Str1 = *strng;
+                HasStr1 = true;
+                if (debug)
+                  fprintf(stderr, "Filled1: %s for %p\n", strng->c_str(),
+                          Str1P);
+
+              }
+
+            }
 
             /* handle cases of one string is const, one string is variable */
             if (!(HasStr1 ^ HasStr2)) continue;
 
+            std::string thestring;
+
+            if (HasStr1)
+              thestring = Str1;
+            else
+              thestring = Str2;
+
+            optLen = thestring.length();
+
             if (isMemcmp || isStrncmp || isStrncasecmp) {
 
-              /* check if third operand is a constant integer
-               * strlen("constStr") and sizeof() are treated as constant */
               Value *      op2 = callInst->getArgOperand(2);
               ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
-              if (!ilen) continue;
-              /* final precaution: if size of compare is larger than constant
-               * string skip it*/
-              uint64_t literalLength =
-                  HasStr1 ? GetStringLength(Str1P) : GetStringLength(Str2P);
-              if (literalLength < ilen->getZExtValue()) continue;
+              if (ilen) {
+
+                uint64_t literalLength = optLen;
+                optLen = ilen->getZExtValue();
+                if (literalLength + 1 == optLen) {  // add null byte
+                  thestring.append("\0", 1);
+                  addedNull = true;
+
+                }
+
+              }
 
             }
 
-            calls.push_back(callInst);
+            // add null byte if this is a string compare function and a null
+            // was not already added
+            if (addedNull == false && !isMemcmp) {
+
+              thestring.append("\0", 1);  // add null byte
+              optLen++;
+
+            }
+
+            if (!be_quiet) {
+
+              std::string outstring;
+              fprintf(stderr, "%s: length %u/%u \"", FuncName.c_str(), optLen,
+                      (unsigned int)thestring.length());
+              for (uint8_t i = 0; i < thestring.length(); i++) {
+
+                uint8_t c = thestring[i];
+                if (c <= 32 || c >= 127)
+                  fprintf(stderr, "\\x%02x", c);
+                else
+                  fprintf(stderr, "%c", c);
+
+              }
+
+              fprintf(stderr, "\"\n");
+
+            }
+
+            // we take the longer string, even if the compare was to a
+            // shorter part. Note that depending on the optimizer of the
+            // compiler this can be wrong, but it is more likely that this
+            // is helping the fuzzer
+            if (optLen != thestring.length()) optLen = thestring.length();
+            if (optLen > MAX_AUTO_EXTRA) optLen = MAX_AUTO_EXTRA;
+            if (optLen < MIN_AUTO_EXTRA)  // too short? skip
+              continue;
+
+            dictionary.push_back(thestring.substr(0, optLen));
 
           }
 
@@ -411,71 +620,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
           "config.h and set MAP_SIZE_POW2 from %u to %u, then recompile "
           "afl-fuzz and llvm_mode.",
           afl_global_id, MAP_SIZE, MAP_SIZE_POW2, pow2map);
-
-    }
-
-  }
-
-  if (calls.size()) {
-
-    for (auto &callInst : calls) {
-
-      Value *Str1P = callInst->getArgOperand(0),
-            *Str2P = callInst->getArgOperand(1);
-      StringRef   Str1, Str2, ConstStr;
-      std::string TmpConstStr;
-      Value *     VarStr;
-      bool        HasStr1 = getConstantStringInfo(Str1P, Str1);
-      getConstantStringInfo(Str2P, Str2);
-      uint64_t constLen, sizedLen;
-      bool     isMemcmp = !callInst->getCalledFunction()->getName().compare(
-          StringRef("memcmp"));
-      bool isSizedcmp = isMemcmp ||
-                        !callInst->getCalledFunction()->getName().compare(
-                            StringRef("strncmp")) ||
-                        !callInst->getCalledFunction()->getName().compare(
-                            StringRef("strncasecmp"));
-
-      if (isSizedcmp) {
-
-        Value *      op2 = callInst->getArgOperand(2);
-        ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
-        sizedLen = ilen->getZExtValue();
-
-      } else {
-
-        sizedLen = 0;
-
-      }
-
-      if (HasStr1) {
-
-        TmpConstStr = Str1.str();
-        VarStr = Str2P;
-        constLen = isMemcmp ? sizedLen : GetStringLength(Str1P);
-
-      } else {
-
-        TmpConstStr = Str2.str();
-        VarStr = Str1P;
-        constLen = isMemcmp ? sizedLen : GetStringLength(Str2P);
-
-      }
-
-      /* properly handle zero terminated C strings by adding the terminating 0
-       * to the StringRef (in comparison to std::string a StringRef has built-in
-       * runtime bounds checking, which makes debugging easier) */
-      TmpConstStr.append("\0", 1);
-      ConstStr = StringRef(TmpConstStr);
-
-      if (isSizedcmp && constLen > sizedLen) constLen = sizedLen;
-
-      if (debug)
-        errs() << callInst->getCalledFunction()->getName() << ": len "
-               << constLen << ": " << ConstStr << "\n";
-
-      if (constLen >= MIN_AUTO_EXTRA && constLen <= MAX_DICT_FILE)
-        dictionary.push_back(ConstStr.str().substr(0, constLen));
 
     }
 
