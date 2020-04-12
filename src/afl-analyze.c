@@ -909,7 +909,7 @@ int main(int argc, char **argv, char **envp) {
 
         }
 
-        if (sscanf(optarg, "%llu%c", &mem_limit, &suffix) < 1 ||
+        if (sscanf(optarg, "%" PRIu64 "%c", &mem_limit, &suffix) < 1 ||
             optarg[0] == '-')
           FATAL("Bad syntax used for -m");
 
@@ -1013,7 +1013,7 @@ int main(int argc, char **argv, char **envp) {
 
   read_initial_file();
 
-  ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
+  ACTF("Performing dry run (mem limit = %" PRIu64 " MB, timeout = %u ms%s)...",
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");
 
   run_target(use_argv, in_data, in_len, 1);

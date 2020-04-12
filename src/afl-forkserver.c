@@ -38,6 +38,7 @@
 #include <time.h>
 #include <errno.h>
 #include <signal.h>
+#include <inttypes.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
