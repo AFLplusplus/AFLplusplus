@@ -479,18 +479,19 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (instrument_mode == INSTRUMENT_LTO)
-    cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-lto.o", obj_path);
-
 #ifndef __ANDROID__
   switch (bit_mode) {
 
     case 0:
-      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt.o", obj_path);
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-llvm-rt%s.o", obj_path,
+                       instrument_mode == INSTRUMENT_LTO ? "-lto" : "");
       break;
 
     case 32:
-      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-32.o", obj_path);
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-llvm-rt%s-32.o", obj_path,
+                       instrument_mode == INSTRUMENT_LTO ? "-lto" : "");
 
       if (access(cc_params[cc_par_cnt - 1], R_OK))
         FATAL("-m32 is not supported by your compiler");
@@ -498,7 +499,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       break;
 
     case 64:
-      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-64.o", obj_path);
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-llvm-rt%s-64.o", obj_path,
+                       instrument_mode == INSTRUMENT_LTO ? "-lto" : "");
 
       if (access(cc_params[cc_par_cnt - 1], R_OK))
         FATAL("-m64 is not supported by your compiler");
