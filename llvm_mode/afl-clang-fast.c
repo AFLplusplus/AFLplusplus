@@ -401,9 +401,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (getenv("AFL_NO_BUILTIN") || (instrument_mode == INSTRUMENT_LTO &&
-                                   (getenv("AFL_LLVM_LTO_AUTODICTIONARY") ||
-                                    getenv("AFL_LLVM_AUTODICTIONARY")))) {
+  if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
+      getenv("LAF_TRANSFORM_COMPARES") ||
+      (instrument_mode == INSTRUMENT_LTO &&
+       (getenv("AFL_LLVM_LTO_AUTODICTIONARY") ||
+        getenv("AFL_LLVM_AUTODICTIONARY")))) {
 
     cc_params[cc_par_cnt++] = "-fno-builtin-strcmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-strncmp";
