@@ -17,6 +17,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz:
     - variable map size support added (only LTO mode can use this)
     - snapshot feature usage now visible in UI
+  - compare-transform/AFL_LLVM_LAF_TRANSFORM_COMPARES now transforms also
+    static global and local variable comparisons (cannot find all though)
   - extended forkserver: map_size and more information is communicated to
     afl-fuzz (and afl-fuzz acts accordingly)
   - more refactoring
