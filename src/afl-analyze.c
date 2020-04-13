@@ -639,7 +639,7 @@ static void handle_stop_sig(int sig) {
 
 /* Do basic preparations - persistent fds, filenames, etc. */
 
-static void set_up_environment() {
+static void set_up_environment(void) {
 
   u8 *x;
 

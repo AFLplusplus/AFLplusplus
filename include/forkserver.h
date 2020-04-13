@@ -80,10 +80,11 @@ typedef struct afl_forkserver {
 } afl_forkserver_t;
 
 void afl_fsrv_init(afl_forkserver_t *fsrv);
+void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from);
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output);
+void afl_fsrv_killall(void);
 void afl_fsrv_deinit(afl_forkserver_t *fsrv);
-void afl_fsrv_killall();
 
 #ifdef __APPLE__
 #define MSG_FORK_ON_APPLE                                                    \

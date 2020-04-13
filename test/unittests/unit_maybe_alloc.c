@@ -71,7 +71,7 @@ static void test_nonpow2_size(void **state) {
 
 }
 
-static void test_zero_size() {
+static void test_zero_size(void **state) {
 
     char *buf = NULL;
     size_t size = 0;

@@ -1020,7 +1020,9 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->cmplog_binary) {
 
     SAYF("Spawning cmplog forkserver");
-    memcpy(&afl->cmplog_fsrv, &afl->fsrv, sizeof(afl->fsrv));
+    afl_fsrv_init_dup(&afl->cmplog_fsrv, &afl->fsrv);
+    // TODO: this is semi-nice
+    afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
     afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                    afl->afl_env.afl_debug_child_output);
@@ -1120,28 +1122,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl->queue_cur = afl->queue_cur->next;
     ++afl->current_entry;
-
-  }
-
-  // if (afl->queue_cur) show_stats(afl);
-
-  /*
-   * ATTENTION - the following 10 lines were copied from a PR to Google's afl
-   * repository - and slightly fixed.
-   * These lines have nothing to do with the purpose of original PR though.
-   * Looks like when an exit condition was completed (AFL_BENCH_JUST_ONE,
-   * AFL_EXIT_WHEN_DONE or AFL_BENCH_UNTIL_CRASH) the child and forkserver
-   * where not killed?
-   */
-  /* if we stopped programmatically, we kill the forkserver and the current
-     runner. if we stopped manually, this is done by the signal handler */
-  if (afl->stop_soon == 2) {
-
-    if (afl->fsrv.child_pid > 0) kill(afl->fsrv.child_pid, SIGKILL);
-    if (afl->fsrv.fsrv_pid > 0) kill(afl->fsrv.fsrv_pid, SIGKILL);
-    /* Now that we've killed the forkserver, we wait for it to be able to get
-     * rusage stats. */
-    if (waitpid(afl->fsrv.fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
 
   }
 

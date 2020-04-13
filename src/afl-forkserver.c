@@ -74,7 +74,6 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->exec_tmout = EXEC_TIMEOUT;
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->child_pid = -1;
-  fsrv->out_dir_fd = -1;
   fsrv->map_size = MAP_SIZE;
   fsrv->use_fauxsrv = 0;
   fsrv->prev_timed_out = 0;
@@ -82,6 +81,32 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->init_child_func = fsrv_exec_child;
 
   list_append(&fsrv_list, fsrv);
+
+}
+
+/* Initialize a new forkserver instance, duplicating "global" settings */
+void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
+
+  fsrv_to->use_stdin = from->use_stdin;
+  fsrv_to->dev_null_fd = from->dev_null_fd;
+  fsrv_to->exec_tmout = from->exec_tmout;
+  fsrv_to->mem_limit = from->mem_limit;
+  fsrv_to->map_size = from->map_size;
+
+#ifndef HAVE_ARC4RANDOM
+  fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
+#endif
+
+  // These are forkserver specific.
+  fsrv_to->out_fd = -1;
+  fsrv_to->out_dir_fd = -1;
+  fsrv_to->child_pid = -1;
+  fsrv_to->use_fauxsrv = 0;
+  fsrv_to->prev_timed_out = 0;
+
+  fsrv_to->init_child_func = fsrv_exec_child;
+
+  list_append(&fsrv_list, fsrv_to);
 
 }
 
@@ -599,11 +624,19 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
 }
 
+static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
+
+    if (fsrv->child_pid > 0) kill(fsrv->child_pid, SIGKILL);
+    if (fsrv->fsrv_pid > 0) kill(fsrv->fsrv_pid, SIGKILL);
+    if (waitpid(fsrv->fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
+
+}
+
 void afl_fsrv_killall() {
 
   LIST_FOREACH(&fsrv_list, afl_forkserver_t, {
 
-    if (el->child_pid > 0) kill(el->child_pid, SIGKILL);
+    afl_fsrv_kill(el);
 
   });
 
@@ -611,6 +644,7 @@ void afl_fsrv_killall() {
 
 void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
 
+  afl_fsrv_kill(fsrv);
   list_remove(&fsrv_list, fsrv);
 
 }
