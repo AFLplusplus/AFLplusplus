@@ -2178,6 +2178,8 @@ void save_cmdline(afl_state_t *afl, u32 argc, char **argv) {
 
     u32 l = strlen(argv[i]);
 
+    if (!argv[i] || !buf) FATAL("null deref detected");
+
     memcpy(buf, argv[i], l);
     buf += l;
 

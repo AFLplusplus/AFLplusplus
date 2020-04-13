@@ -130,6 +130,8 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     wptr = afl->extras[afl->extras_cnt].data = ck_alloc(rptr - lptr);
 
+    if (!wptr) PFATAL("no mem for data");
+
     while (*lptr) {
 
       char *hexdigits = "0123456789abcdef";

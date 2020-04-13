@@ -292,11 +292,10 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
     *rsl = 0;
 
     cp = alloc_printf("%s/afl-qemu-trace", own_copy);
-    ck_free(own_copy);
 
-    if (!access(cp, X_OK)) {
+    if (cp && !access(cp, X_OK)) {
 
-      if (cp != NULL) ck_free(cp);
+      ck_free(cp);
 
       cp = alloc_printf("%s/afl-wine-trace", own_copy);
 
@@ -309,9 +308,13 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
     }
 
-  } else
+    ck_free(own_copy);
+
+  } else {
 
     ck_free(own_copy);
+
+  }
 
   u8 *ncp = BIN_PATH "/afl-qemu-trace";
 

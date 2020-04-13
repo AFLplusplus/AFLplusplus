@@ -56,7 +56,6 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
     bitmap_cvg = afl->last_bitmap_cvg;
     stability = afl->last_stability;
-    eps = afl->last_eps;
 
   } else {
 
