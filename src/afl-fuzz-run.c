@@ -46,7 +46,7 @@ u8 run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
      must prevent any earlier operations from venturing into that
      territory. */
 
-  memset(fsrv->trace_bits, 0, fsrv->map_size);
+  if (fsrv->trace_bits) memset(fsrv->trace_bits, 0, fsrv->map_size);
 
   MEM_BARRIER();
 
@@ -120,13 +120,17 @@ u8 run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
   MEM_BARRIER();
 
-  tb4 = *(u32 *)fsrv->trace_bits;
+  if (fsrv->trace_bits) {
+
+    tb4 = *(u32 *)fsrv->trace_bits;
 
 #ifdef WORD_SIZE_64
-  classify_counts(afl, (u64 *)fsrv->trace_bits);
+    classify_counts(afl, (u64 *)fsrv->trace_bits);
 #else
-  classify_counts(afl, (u32 *)fsrv->trace_bits);
+    classify_counts(afl, (u32 *)fsrv->trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
+
+  }
 
   fsrv->prev_timed_out = fsrv->child_timed_out;
 
@@ -312,7 +316,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   if (!afl->fsrv.fsrv_pid) {
 
-    if (afl->shm.cmplog_mode &&
+    if (afl->fsrv.cmplog_binary &&
         afl->fsrv.init_child_func != cmplog_exec_child) {
 
       FATAL("BUG in afl-fuzz detected. Cmplog mode not set correctly.");

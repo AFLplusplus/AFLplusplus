@@ -1019,7 +1019,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->cmplog_binary) {
 
-    SAYF("Spawning cmplog forkserver");
+    ACTF("Spawning cmplog forkserver");
     afl_fsrv_init_dup(&afl->cmplog_fsrv, &afl->fsrv);
     // TODO: this is semi-nice
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
