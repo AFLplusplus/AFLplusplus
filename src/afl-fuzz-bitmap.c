@@ -720,6 +720,8 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #if !TARGET_OS_IPHONE
         // we dont care if system errors, but we dont want a
         // compiler warning either
+        // See
+        // https://stackoverflow.com/questions/11888594/ignoring-return-values-in-c
         (void)(system(afl->infoexec) + 1);
 #else
         WARNF("command execution unsupported");
