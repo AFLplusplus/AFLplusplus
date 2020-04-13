@@ -109,12 +109,12 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "Mutator settings:\n"
       "  -R[R]         - add Radamsa as mutator, add another -R to exclusivly "
       "run it\n"
-      "  -L minutes    - use MOpt(imize) mode and set the limit time for "
+      "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
-      "                  pacemaker mode (minutes of no new paths, 0 = "
-      "immediately).\n"
-      "                  a recommended value is 10-60. see "
-      "docs/README.MOpt.md\n"
+      "                  pacemaker mode (minutes of no new paths). 0 = "
+      "immediately,\n"
+      "                  -1 = immediately and together with normal mutation).\n"
+      "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU, just use -c 0.\n\n"
@@ -553,12 +553,25 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'L': {                                              /* MOpt mode */
 
         if (afl->limit_time_sig) FATAL("Multiple -L options not supported");
-        afl->limit_time_sig = 1;
         afl->havoc_max_mult = HAVOC_MAX_MULT_MOPT;
 
-        if (sscanf(optarg, "%llu", &afl->limit_time_puppet) < 1 ||
-            optarg[0] == '-')
+        if (sscanf(optarg, "%d", &afl->limit_time_puppet) < 1)
           FATAL("Bad syntax used for -L");
+
+        if (afl->limit_time_puppet == -1) {
+
+          afl->limit_time_sig = -1;
+          afl->limit_time_puppet = 0;
+
+        } else if (afl->limit_time_puppet < 0) {
+
+          FATAL("-L value must be between 0 and 2000000 or -1");
+
+        } else {
+
+          afl->limit_time_sig = 1;
+
+        }
 
         u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
 
@@ -566,7 +579,7 @@ int main(int argc, char **argv_orig, char **envp) {
           FATAL("limit_time overflow");
         afl->limit_time_puppet = limit_time_puppet2;
 
-        SAYF("limit_time_puppet %llu\n", afl->limit_time_puppet);
+        SAYF("limit_time_puppet %d\n", afl->limit_time_puppet);
         afl->swarm_now = 0;
 
         if (afl->limit_time_puppet == 0) afl->key_puppet = 1;
@@ -701,11 +714,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->use_radamsa) {
 
-    if (afl->limit_time_sig)
+    if (afl->limit_time_sig > 0)
       FATAL(
-          "MOpt and Radamsa are mutually exclusive. We accept pull requests "
-          "that integrates MOpt with the optional mutators "
-          "(custom/radamsa/redquenn/...).");
+          "MOpt and Radamsa are mutually exclusive unless you specify -L -1. "
+          "We accept pull requests that integrates MOpt with the optional "
+          "mutators (custom/radamsa/redqueen/...).");
+
+    if (afl->limit_time_sig && afl->use_radamsa > 1)
+      FATAL("Radamsa in radamsa-only mode can not run together with -L");
 
     OKF("Using Radamsa add-on");
 
@@ -984,11 +1000,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->cmplog_binary) {
 
-    if (afl->limit_time_sig)
+    if (afl->limit_time_sig > 0)
       FATAL(
-          "MOpt and CmpLog are mutually exclusive. We accept pull requests "
-          "that integrates MOpt with the optional mutators "
-          "(custom/radamsa/redquenn/...).");
+          "MOpt and CmpLog are mutually exclusive unless you specify -L -1. We "
+          "accept pull requests that integrates MOpt with the optional "
+          "mutators (custom/radamsa/redqueen/...).");
 
     if (afl->unicorn_mode)
       FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");

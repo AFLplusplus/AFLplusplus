@@ -36,6 +36,9 @@ enter the pacemaker fuzzing mode.
 Setting 0 will enter the pacemaker fuzzing mode at first, which is
 recommended in a short time-scale evaluation. 
 
+Setting -1 will enable both pacemaker mode and normal aflmutation fuzzing in
+parallel.
+
 Other important parameters can be found in afl-fuzz.c, for instance, 
 
 'swarm_num': the number of the PSO swarms used in the fuzzing process.

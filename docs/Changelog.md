@@ -17,6 +17,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz:
     - variable map size support added (only LTO mode can use this)
     - snapshot feature usage now visible in UI
+    - Now setting "-L -1" will enable MOpt in parallel to normal mutation.
+      Additionally this allows to run dictionaries, radamsa and cmplog.
   - compare-transform/AFL_LLVM_LAF_TRANSFORM_COMPARES now transforms also
     static global and local variable comparisons (cannot find all though)
   - extended forkserver: map_size and more information is communicated to
