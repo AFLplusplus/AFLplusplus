@@ -60,7 +60,7 @@
 
 static u8 *mask_bitmap;                /* Mask for trace bits (-B)          */
 
-u8 *in_file,                           /* Minimizer input test case         */
+static u8 *in_file,                           /* Minimizer input test case         */
     *output_file;                      /* Minimizer output file             */
 
 static u8 *in_data;                    /* Input data for trimming           */
@@ -72,7 +72,7 @@ static u32 in_len,                     /* Input data length                 */
     missed_crashes,                    /* Misses due to crashes             */
     missed_paths;                      /* Misses due to exec path diffs     */
 
-u8 crash_mode,                         /* Crash-centric mode?               */
+static u8 crash_mode,                         /* Crash-centric mode?               */
     hang_mode,                         /* Minimize as long as it hangs      */
     exit_crash,                        /* Treat non-zero exit as crash?     */
     edges_only,                        /* Ignore hit counts?                */

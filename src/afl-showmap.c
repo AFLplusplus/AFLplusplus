@@ -59,9 +59,9 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-char *stdin_file;                      /* stdin file                        */
+static char *stdin_file;                      /* stdin file                        */
 
-u8 *in_dir,                            /* input folder                      */
+static  u8 *in_dir,                            /* input folder                      */
     *at_file = NULL;              /* Substitution string for @@             */
 
 static u8 *in_data;                    /* Input data                        */
@@ -71,7 +71,7 @@ static u32 total, highest;             /* tuple content information         */
 static u32 in_len,                     /* Input data length                 */
     arg_offset, total_execs;           /* Total number of execs             */
 
-u8 quiet_mode,                         /* Hide non-essential messages?      */
+static u8 quiet_mode,                         /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
     raw_instr_output,                  /* Do not apply AFL filters          */
     cmin_mode,                         /* Generate output in afl-cmin mode? */
