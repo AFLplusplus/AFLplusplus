@@ -736,6 +736,25 @@ test -e ../afl-qemu-trace && {
       } || {
        $ECHO "$YELLOW[-] not an intel or arm platform, cannot test qemu_mode compcov"
       }
+      
+      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
+        $ECHO "$GREY[*] running afl-fuzz for qemu_mode cmplog, this will take approx 10 seconds"
+        {
+          ../afl-fuzz -m none -V10 -Q -c 0 -i in -o out -- ./test-compcov >>errors 2>&1
+        } >>errors 2>&1
+        test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
+          $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode cmplog"
+        } || {
+          echo CUT------------------------------------------------------------------CUT
+          cat errors
+          echo CUT------------------------------------------------------------------CUT
+          $ECHO "$RED[!] afl-fuzz is not working correctly with qemu_mode cmplog"
+          CODE=1
+        }
+        rm -f errors
+      } || {
+       $ECHO "$YELLOW[-] not an intel or arm platform, cannot test qemu_mode cmplog"
+      }
 
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
