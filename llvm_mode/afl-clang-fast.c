@@ -159,7 +159,6 @@ static void find_obj(u8 *argv0) {
 static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8  fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0;
-  u8  has_llvm_config = 0;
   u8 *name;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
@@ -170,8 +169,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   else
     ++name;
 
-  has_llvm_config = (strlen(LLVM_BINDIR) > 0);
-
   if (instrument_mode == INSTRUMENT_LTO)
     if (lto_flag[0] != '-')
       FATAL(
@@ -181,19 +178,19 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
 
     u8 *alt_cxx = getenv("AFL_CXX");
-    if (has_llvm_config)
+    if (USE_BINDIR)
       snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang++", LLVM_BINDIR);
     else
-      sprintf(llvm_fullpath, "clang++");
+      sprintf(llvm_fullpath, CLANGPP_BIN);
     cc_params[0] = alt_cxx && *alt_cxx ? alt_cxx : (u8 *)llvm_fullpath;
 
   } else {
 
     u8 *alt_cc = getenv("AFL_CC");
-    if (has_llvm_config)
+    if (USE_BINDIR)
       snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang", LLVM_BINDIR);
     else
-      sprintf(llvm_fullpath, "clang");
+      sprintf(llvm_fullpath, CLANG_BIN);
     cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)llvm_fullpath;
 
   }
