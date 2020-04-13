@@ -719,8 +719,8 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         // if the user wants to be informed on new crashes - do that
 #if !TARGET_OS_IPHONE
         // we dont care if system errors, but we dont want a
-          // compiler warning either
-        (void)(system(afl->infoexec)+1);
+        // compiler warning either
+        (void)(system(afl->infoexec) + 1);
 #else
         WARNF("command execution unsupported");
 #endif

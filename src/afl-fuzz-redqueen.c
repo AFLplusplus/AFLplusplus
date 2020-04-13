@@ -188,7 +188,6 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
 
   }
 
-
   return 0;
 
 checksum_fail:
