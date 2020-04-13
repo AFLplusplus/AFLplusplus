@@ -354,14 +354,14 @@ typedef struct afl_state {
   /* MOpt:
     Lots of globals, but mostly for the status UI and other things where it
     really makes no sense to haul them around as function parameters. */
-  u64 limit_time_puppet, orig_hit_cnt_puppet, last_limit_time_start,
-      tmp_pilot_time, total_pacemaker_time, total_puppet_find, temp_puppet_find,
-      most_time_key, most_time, most_execs_key, most_execs, old_hit_count,
-      force_ui_update;
+  u64 orig_hit_cnt_puppet, last_limit_time_start, tmp_pilot_time,
+      total_pacemaker_time, total_puppet_find, temp_puppet_find, most_time_key,
+      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update;
 
   MOpt_globals_t mopt_globals_core, mopt_globals_pilot;
 
-  s32 SPLICE_CYCLES_puppet, limit_time_sig, key_puppet, key_module;
+  s32 limit_time_puppet, SPLICE_CYCLES_puppet, limit_time_sig, key_puppet,
+      key_module;
 
   double w_init, w_end, w_now;
 
