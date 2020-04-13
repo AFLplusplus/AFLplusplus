@@ -2177,7 +2177,7 @@ static uint llen(word *ptr) {
    return len;
 }
 
-static void set_signal_handler() {
+static void set_signal_handler(void) {
    struct sigaction sa;
    sa.sa_handler = signal_handler;
    sigemptyset(&sa.sa_mask);
@@ -2312,7 +2312,7 @@ static word prim_set(word wptr, hval pos, word val) {
    return (word) new;
 }
 
-static void setdown() {
+static void setdown(void) {
    tcsetattr(0, TCSANOW, &tsettings); /* return stdio settings */
 }
 
@@ -30773,7 +30773,7 @@ int secondary(int nargs, char **argv) {
    return 127;
 }
 
-void radamsa_init() {
+void radamsa_init(void) {
    int nobjs=0, nwords=0;
    hp = (byte *) &heap; /* builtin heap */
    state = IFALSE;

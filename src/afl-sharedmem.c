@@ -95,7 +95,7 @@ void afl_shm_deinit(sharedmem_t *shm) {
 
 /* At exit, remove all leftover maps */
 
-void afl_shm_atexit() {
+void afl_shm_atexit(void) {
 
   LIST_FOREACH(&shm_list, sharedmem_t, { afl_shm_deinit(el); });
 
