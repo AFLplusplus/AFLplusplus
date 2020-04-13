@@ -352,18 +352,23 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   rlen = 0;
   if (fsrv->exec_tmout) {
 
-    rlen = 4;
-    u32 time = read_timed(fsrv->fsrv_st_fd, &status, rlen,
+    u32 time = read_timed(fsrv->fsrv_st_fd, &status, 4,
                           fsrv->exec_tmout * FORK_WAIT_MULT, stop_soon_p);
 
-    if (time > fsrv->exec_tmout * FORK_WAIT_MULT) {
+    if (!time) {
+
+      kill(fsrv->fsrv_pid, SIGKILL);
+
+    } else if (time > fsrv->exec_tmout * FORK_WAIT_MULT) {
 
       fsrv->child_timed_out = 1;
       kill(fsrv->fsrv_pid, SIGKILL);
 
+    } else {
+    
+      rlen = 4;
+    
     }
-
-    if (!time) { kill(fsrv->fsrv_pid, SIGKILL); }
 
   } else {
 
