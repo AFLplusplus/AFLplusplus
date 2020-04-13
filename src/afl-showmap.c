@@ -983,7 +983,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (!quiet_mode) OKF("Processed %u input files.", total_execs);
 
     closedir(dir_in);
-    closedir(dir_out);
+    if (dir_out) closedir(dir_out);
 
   } else {
 

@@ -3593,7 +3593,6 @@ pacemaker_fuzzing:
   }
 
   s32 temp_len_puppet;
-  cur_ms_lv = get_cur_time();
 
   // for (; afl->swarm_now < swarm_num; ++afl->swarm_now)
   {
@@ -4167,8 +4166,6 @@ pacemaker_fuzzing:
                  afl->orig_hit_cnt_puppet))) {
 
           afl->key_puppet = 0;
-          cur_ms_lv = get_cur_time();
-          new_hit_cnt = afl->queued_paths + afl->unique_crashes;
           afl->orig_hit_cnt_puppet = 0;
           afl->last_limit_time_start = 0;
 

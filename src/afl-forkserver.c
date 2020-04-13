@@ -455,7 +455,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         }
 
-        len = status;
         offset = 0;
         while (offset < status && (u8)dict[offset] + offset < status) {
 

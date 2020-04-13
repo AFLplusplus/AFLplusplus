@@ -115,7 +115,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
   afl->stage_short = "colorization";
   afl->stage_max = 1000;
 
-  struct range *rng;
+  struct range *rng = NULL;
   afl->stage_cur = 0;
   while ((rng = pop_biggest_range(&ranges)) != NULL &&
          afl->stage_cur < afl->stage_max) {
@@ -141,6 +141,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
 
   empty_range:
     ck_free(rng);
+    rng = NULL;
     ++afl->stage_cur;
 
   }
@@ -157,6 +158,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
     rng = ranges;
     ranges = ranges->next;
     ck_free(rng);
+    rng = NULL;
 
   }
 
@@ -186,6 +188,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
 
   }
 
+
   return 0;
 
 checksum_fail:
@@ -196,8 +199,11 @@ checksum_fail:
     rng = ranges;
     ranges = ranges->next;
     ck_free(rng);
+    rng = NULL;
 
   }
+
+  // TODO: clang notices a _potential_ leak of mem pointed to by rng
 
   return 1;
 
