@@ -145,6 +145,11 @@ else
 	PYFLAGS=
 endif
 
+ifdef NO_PYTHON
+	PYTHON_OK=0
+	PYFLAGS=
+endif
+
 ifdef STATIC
   $(info Compiling static version of binaries)
   # Disable python for static compilation to simplify things
