@@ -569,8 +569,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
     if (!afl->shm.cmp_map->headers[k].hits) continue;
     
     if (afl->pass_stats[k].total &&
-        (UR(afl, afl->pass_stats[k].total) < afl->pass_stats[k].faileds ||
-         afl->pass_stats[k].total == 0xff))
+        (rand_below(afl, afl->pass_stats[k].total) < afl->pass_stats[k].faileds
+         || afl->pass_stats[k].total == 0xff))
       afl->shm.cmp_map->headers[k].hits = 0;
     
     if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS)
