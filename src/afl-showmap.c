@@ -236,12 +236,13 @@ static void write_to_testcase(afl_forkserver_t *fsrv, void *mem, u32 len) {
 /* Execute target application. */
 
 void run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
-                                u32 len) {
+                           u32 len) {
 
   write_to_testcase(fsrv, mem, len);
 
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, &stop_soon);
-  if (res == FSRV_RUN_NOINST || res == FSRV_RUN_ERROR) FATAL("Error running target");
+  if (res == FSRV_RUN_NOINST || res == FSRV_RUN_ERROR)
+    FATAL("Error running target");
 
   classify_counts(fsrv->trace_bits,
                   binary_mode ? count_class_binary : count_class_human);

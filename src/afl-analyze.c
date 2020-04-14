@@ -80,7 +80,7 @@ static u8 edges_only,                  /* Ignore hit counts?                */
     use_stdin = 1;                     /* Use stdin for program input?      */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
-         child_timed_out;              /* Child timed out?                  */
+    child_timed_out;                   /* Child timed out?                  */
 
 static u8 *target_path;
 static u8  qemu_mode;

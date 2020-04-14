@@ -32,7 +32,8 @@
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
+fsrv_run_result_t run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
+                             u32 timeout) {
 
   fsrv_run_result_t res = afl_fsrv_run_target(&afl->fsrv, &afl->stop_soon);
 
@@ -294,7 +295,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
      parent. This is a non-critical problem, but something to warn the user
      about. */
 
-  if (!afl->dumb_mode && first_run && !fault && !new_bits) fault = FSRV_RUN_NOBITS;
+  if (!afl->dumb_mode && first_run && !fault && !new_bits)
+    fault = FSRV_RUN_NOBITS;
 
 abort_calibration:
 

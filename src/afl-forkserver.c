@@ -643,7 +643,8 @@ static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, volatile u8 *stop_soon_p) {
+fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv,
+                                      volatile u8 *     stop_soon_p) {
 
   s32 res;
   u32 exec_ms;
@@ -777,3 +778,4 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   list_remove(&fsrv_list, fsrv);
 
 }
+

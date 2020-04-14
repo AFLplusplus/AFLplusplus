@@ -273,16 +273,12 @@ static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
   if (hang_mode) {
 
-    switch (ret)
-    {
-    case FSRV_RUN_TMOUT:
-      return 1;
-    case FSRV_RUN_CRASH:
-      missed_crashes++;
-      return 0;
-    default:
-      missed_hangs++;
-      return 0;
+    switch (ret) {
+
+      case FSRV_RUN_TMOUT: return 1;
+      case FSRV_RUN_CRASH: missed_crashes++; return 0;
+      default: missed_hangs++; return 0;
+
     }
 
   }
@@ -579,8 +575,8 @@ finalize_all:
          "          Fruitless execs : " cRST "termination=%u crash=%u\n\n",
          100 - ((double)in_len) * 100 / orig_len, in_len,
          in_len == 1 ? "" : "s",
-         ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), fsrv->total_execs,
-         missed_paths, missed_crashes);
+         ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1),
+         fsrv->total_execs, missed_paths, missed_crashes);
     return;
 
   }
@@ -590,10 +586,12 @@ finalize_all:
        "%0.02f%%\n" cGRA "     Number of execs done : " cRST "%llu\n" cGRA
        "          Fruitless execs : " cRST "path=%u crash=%u hang=%s%u\n\n",
        100 - ((double)in_len) * 100 / orig_len, in_len, in_len == 1 ? "" : "s",
-       ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), fsrv->total_execs,
-       missed_paths, missed_crashes, missed_hangs ? cLRD : "", missed_hangs);
+       ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1),
+       fsrv->total_execs, missed_paths, missed_crashes,
+       missed_hangs ? cLRD : "", missed_hangs);
 
-  if (fsrv->total_execs > 50 && missed_hangs * 10 > fsrv->total_execs && !hang_mode)
+  if (fsrv->total_execs > 50 && missed_hangs * 10 > fsrv->total_execs &&
+      !hang_mode)
     WARNF(cLRD "Frequent timeouts - results may be skewed." cRST);
 
 }
