@@ -31,8 +31,10 @@ LDFLAGS  += $(LDFLAGS_ADD)
 M32FLAG = -m32
 M64FLAG = -m64
 
-CC_IS_GCC=$(shell $(CC) --version 2>/dev/null | grep gcc; echo $$?)
-CC_IS_ARMCOMPILER=$(shell $(CC) -v 2>&1 >/dev/null | grep arm; echo $$?)
+CC_IS_GCC=$(shell $(CC) --version 2>/dev/null | grep -q gcc; echo $$?)
+CC_IS_GCC:sh=$(CC) --version 2>/dev/null | grep -q gcc; echo $$?
+CC_IS_ARMCOMPILER=$(shell $(CC) -v 2>&1 >/dev/null | grep -q arm; echo $$?)
+CC_IS_ARMCOMPILER:sh=$(CC) -v 2>&1 >/dev/null | grep -q arm; echo $$?
 
 _M32FLAG=$(CC_IS_GCC)$(CC_IS_ARMCOMPILER)
 __M32FLAG=$(_M32FLAG:00=-mbe32)
