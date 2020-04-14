@@ -145,7 +145,7 @@ $ sudo make install
 Note that "make distrib" also builds llvm_mode, qemu_mode, unicorn_mode and
 more. If you just want plain afl then do "make all", however compiling and
 using at least llvm_mode is highly recommended for much better results -
-hence in this case 
+hence in this case
 
 ```shell
 $ make source-only
@@ -178,6 +178,7 @@ These build options exist:
 * STATIC - compile AFL++ static
 * ASAN_BUILD - compiles with memory sanitizer for debug purposes
 * PROFILING - compile with profiling information (gprof)
+* NO_PYTHON - disable python support
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)
 
