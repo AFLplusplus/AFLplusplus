@@ -127,9 +127,14 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
     rand_replace(afl, buf + rng->start, s);
 
     u32 cksum;
+    u64 start_us = get_cur_time_us();
     if (unlikely(get_exec_checksum(afl, buf, len, &cksum))) goto checksum_fail;
+    u64 stop_us = get_cur_time_us();
 
-    if (cksum != exec_cksum) {
+    /* Discard if the mutations change the paths or if it is too decremental
+       in speed */
+    if (cksum != exec_cksum ||
+        (stop_us - start_us > 2 * afl->queue_cur->exec_us)) {
 
       ranges = add_range(ranges, rng->start, rng->start + s / 2);
       ranges = add_range(ranges, rng->start + s / 2 + 1, rng->end);
@@ -365,9 +370,12 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
   u8 status;
   // opt not in the paper
-  u32 fails = 0;
+  u32 fails;
+  u8 found_one = 0;
 
   for (i = 0; i < loggeds; ++i) {
+  
+    fails = 0;
 
     struct cmp_operands *o = &afl->shm.cmp_map->log[key][i];
 
@@ -396,12 +404,17 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
         break;
 
     }
+    
+    if (status == 1)
+      found_one = 1;
 
     // If failed, add to dictionary
     if (fails == 8) {
 
-      try_to_add_to_dict(afl, o->v0, SHAPE_BYTES(h->shape));
-      try_to_add_to_dict(afl, o->v1, SHAPE_BYTES(h->shape));
+      if (afl->pass_stats[key].total == 0) {
+        try_to_add_to_dict(afl, o->v0, SHAPE_BYTES(h->shape));
+        try_to_add_to_dict(afl, o->v1, SHAPE_BYTES(h->shape));
+      }
 
     }
 
@@ -409,6 +422,11 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
     afl->stage_cur++;
 
   }
+  
+  if (!found_one && afl->pass_stats[key].faileds < 0xff) {
+    afl->pass_stats[key].faileds++;
+  }
+  if (afl->pass_stats[key].total < 0xff) afl->pass_stats[key].total++;
 
   return 0;
 
@@ -450,9 +468,12 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
   u8 status;
   // opt not in the paper
-  u32 fails = 0;
+  u32 fails;
+  u8 found_one = 0;
 
   for (i = 0; i < loggeds; ++i) {
+  
+    fails = 0;
 
     struct cmpfn_operands *o =
         &((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[i];
@@ -482,12 +503,17 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
         break;
 
     }
+    
+    if (status == 1)
+      found_one = 1;
 
     // If failed, add to dictionary
     if (fails == 8) {
 
-      maybe_add_auto(afl, o->v0, SHAPE_BYTES(h->shape));
-      maybe_add_auto(afl, o->v1, SHAPE_BYTES(h->shape));
+      if (afl->pass_stats[key].total == 0) {
+        maybe_add_auto(afl, o->v0, SHAPE_BYTES(h->shape));
+        maybe_add_auto(afl, o->v1, SHAPE_BYTES(h->shape));
+      }
 
     }
 
@@ -495,6 +521,11 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
     afl->stage_cur++;
 
   }
+  
+  if (!found_one && afl->pass_stats[key].faileds < 0xff) {
+    afl->pass_stats[key].faileds++;
+  }
+  if (afl->pass_stats[key].total < 0xff) afl->pass_stats[key].total++;
 
   return 0;
 
@@ -507,6 +538,9 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
                         u32 exec_cksum) {
 
   u8 r = 1;
+  
+  if (afl->pass_stats == NULL)
+    afl->pass_stats = ck_alloc(sizeof(struct afl_pass_stat) * CMP_MAP_W);
 
   if (unlikely(colorization(afl, buf, len, exec_cksum))) return 1;
 
@@ -528,6 +562,12 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
   for (k = 0; k < CMP_MAP_W; ++k) {
 
     if (!afl->shm.cmp_map->headers[k].hits) continue;
+    
+    if (afl->pass_stats[k].total &&
+        (UR(afl, afl->pass_stats[k].total) < afl->pass_stats[k].faileds ||
+         afl->pass_stats[k].total == 0xff))
+      afl->shm.cmp_map->headers[k].hits = 0;
+    
     if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS)
       afl->stage_max += MIN(afl->shm.cmp_map->headers[k].hits, CMP_MAP_H);
     else
