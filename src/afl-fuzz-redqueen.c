@@ -471,9 +471,9 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
   u32 loggeds = h->hits;
   if (h->hits > CMP_MAP_RTN_H) loggeds = CMP_MAP_RTN_H;
 
-  u8 status;
+  u8 status = 0;
   // opt not in the paper
-  u32 fails;
+  u32 fails = 0;
   u8 found_one = 0;
 
   for (i = 0; i < loggeds; ++i) {
