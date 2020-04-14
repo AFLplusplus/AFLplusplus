@@ -377,7 +377,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
   u32 loggeds = h->hits;
   if (h->hits > CMP_MAP_H) loggeds = CMP_MAP_H;
 
-  u8 status;
+  u8 status = 0;
   // opt not in the paper
   u32 fails;
   u8  found_one = 0;
