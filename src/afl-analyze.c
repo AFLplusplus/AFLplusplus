@@ -902,6 +902,8 @@ int main(int argc, char **argv, char **envp) {
         if (mem_limit_given) FATAL("Multiple -m options not supported");
         mem_limit_given = 1;
 
+        if (!optarg) { FATAL("Bad syntax used for -m"); }
+
         if (!strcmp(optarg, "none")) {
 
           mem_limit = 0;
@@ -937,6 +939,8 @@ int main(int argc, char **argv, char **envp) {
 
         if (timeout_given) FATAL("Multiple -t options not supported");
         timeout_given = 1;
+
+        if (!optarg) FATAL("Wrong usage of -t");
 
         exec_tmout = atoi(optarg);
 

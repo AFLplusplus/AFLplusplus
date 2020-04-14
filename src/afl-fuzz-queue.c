@@ -438,6 +438,8 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
       }
 
+      if (unlikely(!n_paths)) FATAL("Queue state corrupt");
+
       fuzz_mu = fuzz_total / n_paths;
       if (fuzz <= fuzz_mu) {
 

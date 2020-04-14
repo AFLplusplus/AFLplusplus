@@ -365,9 +365,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       kill(fsrv->fsrv_pid, SIGKILL);
 
     } else {
-    
+
       rlen = 4;
-    
+
     }
 
   } else {
@@ -455,7 +455,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         }
 
-        len = status;
         offset = 0;
         while (offset < status && (u8)dict[offset] + offset < status) {
 
@@ -631,9 +630,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
 static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
-    if (fsrv->child_pid > 0) kill(fsrv->child_pid, SIGKILL);
-    if (fsrv->fsrv_pid > 0) kill(fsrv->fsrv_pid, SIGKILL);
+  if (fsrv->child_pid > 0) kill(fsrv->child_pid, SIGKILL);
+  if (fsrv->fsrv_pid > 0) {
+
+    kill(fsrv->fsrv_pid, SIGKILL);
     if (waitpid(fsrv->fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
+
+  }
 
 }
 

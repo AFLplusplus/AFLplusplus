@@ -82,8 +82,8 @@ endif
 # this seems to be busted on some distros, so using the one in $PATH is
 # probably better.
 
-CC         = $(LLVM_BINDIR)/clang
-CXX        = $(LLVM_BINDIR)/clang++
+CC         ?= $(LLVM_BINDIR)/clang
+CXX        ?= $(LLVM_BINDIR)/clang++
 
 ifeq "$(shell test -e $(CC) || echo 1 )" "1"
   # llvm-config --bindir may not providing a valid path, so ...
@@ -146,13 +146,27 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -fuse-ld=`command -v
 endif
 endif
 
+CLANG_BIN = $(basename $(CC))
+CLANGPP_BIN = $(basename $(CXX))
+ifeq "$(shell test -e $(CLANG_BIN) || echo 1 )" "1"
+  CLANG_BIN = $(CC)
+  CLANGPP_BIN = $(CXX)
+endif
+
+ifeq "$(CC)" "$(LLVM_BINDIR)/clang"
+  USE_BINDIR = 1
+else
+  USE_BINDIR = 0
+endif
+
 CFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
 override CFLAGS += -Wall \
                -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
                -DLLVM_VERSION=\"$(LLVMVER)\"  -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
-               -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" -Wno-unused-function
+               -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
+               -DCLANG_BIN=\"$(CC)\" -DCLANGPP_BIN=\"$(CXX)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function
 ifdef AFL_TRACE_PC
   $(info Compile option AFL_TRACE_PC is deprecated, just set AFL_LLVM_INSTRUMENT=PCGUARD to activate when compiling targets )
 endif

@@ -49,7 +49,7 @@ u8 run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
   memset(fsrv->trace_bits, 0, fsrv->map_size);
 
   MEM_BARRIER();
-  
+
   /* we have the fork server (or faux server) up and running, so simply
       tell it to have at it, and then read back PID. */
 
