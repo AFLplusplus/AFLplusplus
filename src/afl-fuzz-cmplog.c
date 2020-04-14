@@ -66,7 +66,7 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   if (afl->stop_soon) return 1;
 
-  if (fault == FAULT_TMOUT) {
+  if (fault == FSRV_RUN_TMOUT) {
 
     if (afl->subseq_tmouts++ > TMOUT_LIMIT) {
 

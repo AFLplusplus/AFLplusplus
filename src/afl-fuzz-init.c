@@ -493,13 +493,13 @@ void perform_dry_run(afl_state_t *afl) {
 
     if (afl->stop_soon) return;
 
-    if (res == afl->crash_mode || res == FAULT_NOBITS)
+    if (res == afl->crash_mode || res == FSRV_RUN_NOBITS)
       SAYF(cGRA "    len = %u, map size = %u, exec speed = %llu us\n" cRST,
            q->len, q->bitmap_size, q->exec_us);
 
     switch (res) {
 
-      case FAULT_NONE:
+      case FSRV_RUN_OK:
 
         if (q == afl->queue) check_map_coverage(afl);
 
@@ -507,7 +507,7 @@ void perform_dry_run(afl_state_t *afl) {
 
         break;
 
-      case FAULT_TMOUT:
+      case FSRV_RUN_TMOUT:
 
         if (afl->timeout_given) {
 
@@ -556,7 +556,7 @@ void perform_dry_run(afl_state_t *afl) {
 
         }
 
-      case FAULT_CRASH:
+      case FSRV_RUN_CRASH:
 
         if (afl->crash_mode) break;
 
@@ -650,13 +650,13 @@ void perform_dry_run(afl_state_t *afl) {
 
         FATAL("Test case '%s' results in a crash", fn);
 
-      case FAULT_ERROR:
+      case FSRV_RUN_ERROR:
 
         FATAL("Unable to execute target application ('%s')", afl->argv[0]);
 
-      case FAULT_NOINST: FATAL("No instrumentation detected");
+      case FSRV_RUN_NOINST: FATAL("No instrumentation detected");
 
-      case FAULT_NOBITS:
+      case FSRV_RUN_NOBITS:
 
         ++afl->useless_at_start;
 

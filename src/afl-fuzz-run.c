@@ -32,95 +32,9 @@
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-u8 run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
+fsrv_run_result_t run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
-  s32 res;
-  u32 exec_ms;
-
-  int status = 0;
-  u32 tb4;
-
-  fsrv->child_timed_out = 0;
-
-  /* After this memset, fsrv->trace_bits[] are effectively volatile, so we
-     must prevent any earlier operations from venturing into that
-     territory. */
-
-  memset(fsrv->trace_bits, 0, fsrv->map_size);
-
-  MEM_BARRIER();
-
-  /* we have the fork server (or faux server) up and running, so simply
-      tell it to have at it, and then read back PID. */
-
-  if ((res = write(fsrv->fsrv_ctl_fd, &fsrv->prev_timed_out, 4)) != 4) {
-
-    if (afl->stop_soon) return 0;
-    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-  }
-
-  if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
-
-    if (afl->stop_soon) return 0;
-    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-  }
-
-  if (fsrv->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
-
-  exec_ms = read_timed(fsrv->fsrv_st_fd, &status, 4, timeout, &afl->stop_soon);
-
-  if (exec_ms > timeout) {
-
-    /* If there was no response from forkserver after timeout seconds,
-    we kill the child. The forkserver should inform us afterwards */
-
-    kill(fsrv->child_pid, SIGKILL);
-    fsrv->child_timed_out = 1;
-    if (read(fsrv->fsrv_st_fd, &status, 4) < 4) exec_ms = 0;
-
-  }
-
-  if (!exec_ms) {
-
-    if (afl->stop_soon) return 0;
-    SAYF("\n" cLRD "[-] " cRST
-         "Unable to communicate with fork server. Some possible reasons:\n\n"
-         "    - You've run out of memory. Use -m to increase the the memory "
-         "limit\n"
-         "      to something higher than %lld.\n"
-         "    - The binary or one of the libraries it uses manages to "
-         "create\n"
-         "      threads before the forkserver initializes.\n"
-         "    - The binary, at least in some circumstances, exits in a way "
-         "that\n"
-         "      also kills the parent process - raise() could be the "
-         "culprit.\n"
-         "    - If using persistent mode with QEMU, "
-         "AFL_QEMU_PERSISTENT_ADDR "
-         "is\n"
-         "      probably not valid (hint: add the base address in case of "
-         "PIE)"
-         "\n\n"
-         "If all else fails you can disable the fork server via "
-         "AFL_NO_FORKSRV=1.\n",
-         fsrv->mem_limit);
-    RPFATAL(res, "Unable to communicate with fork server");
-
-  }
-
-  if (!WIFSTOPPED(status)) fsrv->child_pid = 0;
-
-  ++afl->total_execs;
-
-  /* Any subsequent operations on fsrv->trace_bits must not be moved by the
-     compiler below this point. Past this location, fsrv->trace_bits[]
-     behave very normally and do not have to be treated as volatile. */
-
-  MEM_BARRIER();
-
-  tb4 = *(u32 *)fsrv->trace_bits;
+  fsrv_run_result_t res = afl_fsrv_run_target(&afl->fsrv, &afl->stop_soon);
 
 #ifdef WORD_SIZE_64
   classify_counts(afl, (u64 *)fsrv->trace_bits);
@@ -128,35 +42,7 @@ u8 run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
   classify_counts(afl, (u32 *)fsrv->trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
-  fsrv->prev_timed_out = fsrv->child_timed_out;
-
-  /* Report outcome to caller. */
-
-  if (WIFSIGNALED(status) && !afl->stop_soon) {
-
-    afl->kill_signal = WTERMSIG(status);
-
-    if (fsrv->child_timed_out && afl->kill_signal == SIGKILL)
-      return FAULT_TMOUT;
-
-    return FAULT_CRASH;
-
-  }
-
-  /* A somewhat nasty hack for MSAN, which doesn't support abort_on_error and
-     must use a special exit code. */
-
-  if (fsrv->uses_asan && WEXITSTATUS(status) == MSAN_ERROR) {
-
-    afl->kill_signal = 0;
-    return FAULT_CRASH;
-
-  }
-
-  if ((afl->dumb_mode == 1 || afl->no_forkserver) && tb4 == EXEC_FAIL_SIG)
-    return FAULT_ERROR;
-
-  return FAULT_NONE;
+  return res;
 
 }
 
@@ -348,7 +234,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     if (!afl->dumb_mode && !afl->stage_cur &&
         !count_bytes(afl, afl->fsrv.trace_bits)) {
 
-      fault = FAULT_NOINST;
+      fault = FSRV_RUN_NOINST;
       goto abort_calibration;
 
     }
@@ -408,7 +294,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
      parent. This is a non-critical problem, but something to warn the user
      about. */
 
-  if (!afl->dumb_mode && first_run && !fault && !new_bits) fault = FAULT_NOBITS;
+  if (!afl->dumb_mode && first_run && !fault && !new_bits) fault = FSRV_RUN_NOBITS;
 
 abort_calibration:
 
@@ -645,7 +531,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       fault = run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
       ++afl->trim_execs;
 
-      if (afl->stop_soon || fault == FAULT_ERROR) goto abort_trimming;
+      if (afl->stop_soon || fault == FSRV_RUN_ERROR) goto abort_trimming;
 
       /* Note that we don't keep track of crashes or hangs here; maybe TODO?
        */
@@ -753,7 +639,7 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   if (afl->stop_soon) return 1;
 
-  if (fault == FAULT_TMOUT) {
+  if (fault == FSRV_RUN_TMOUT) {
 
     if (afl->subseq_tmouts++ > TMOUT_LIMIT) {
 

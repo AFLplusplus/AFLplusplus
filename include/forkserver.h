@@ -29,6 +29,7 @@
 #define __AFL_FORKSERVER_H
 
 #include <stdio.h>
+#include <stdbool.h>
 
 typedef struct afl_forkserver {
 
@@ -55,16 +56,18 @@ typedef struct afl_forkserver {
   u32 snapshot;                         /* is snapshot feature used         */
   u64 mem_limit;                        /* Memory cap for child (MB)        */
 
+  u64 total_execs;                      /* How often run_target was called  */
+
   u8 *out_file,                         /* File to fuzz, if any             */
       *target_path;                                   /* Path of the target */
 
   FILE *plot_file;                      /* Gnuplot output file              */
 
-  u8 child_timed_out;                   /* Traced process timed out?        */
+  u8 last_run_timed_out;                   /* Traced process timed out?        */
+
+  u8 last_kill_signal;                  /* Signal that killed the child     */
 
   u8 use_fauxsrv;                       /* Fauxsrv for non-forking targets? */
-
-  u32 prev_timed_out;                   /* if prev forkserver run timed out */
 
   u8 qemu_mode;                         /* if running in qemu mode or not   */
 
@@ -79,10 +82,22 @@ typedef struct afl_forkserver {
 
 } afl_forkserver_t;
 
+typedef enum fsrv_run_result {
+
+  /* 00 */ FSRV_RUN_OK = 0,
+  /* 01 */ FSRV_RUN_TMOUT,
+  /* 02 */ FSRV_RUN_CRASH,
+  /* 03 */ FSRV_RUN_ERROR,
+  /* 04 */ FSRV_RUN_NOINST,
+  /* 05 */ FSRV_RUN_NOBITS,
+
+} fsrv_run_result_t;
+
 void afl_fsrv_init(afl_forkserver_t *fsrv);
 void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from);
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output);
+fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, volatile u8 *stop_soon_p);
 void afl_fsrv_killall(void);
 void afl_fsrv_deinit(afl_forkserver_t *fsrv);
 

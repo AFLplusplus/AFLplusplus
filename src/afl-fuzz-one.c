@@ -442,14 +442,14 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (unlikely(afl->queue_cur->cal_failed)) {
 
-    u8 res = FAULT_TMOUT;
+    u8 res = FSRV_RUN_TMOUT;
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
 
       res =
           calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
-      if (unlikely(res == FAULT_ERROR))
+      if (unlikely(res == FSRV_RUN_ERROR))
         FATAL("Unable to execute target application");
 
     }
@@ -471,7 +471,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
-    if (unlikely(res == FAULT_ERROR))
+    if (unlikely(res == FSRV_RUN_ERROR))
       FATAL("Unable to execute target application");
 
     if (unlikely(afl->stop_soon)) {
@@ -2469,14 +2469,14 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   if (afl->queue_cur->cal_failed) {
 
-    u8 res = FAULT_TMOUT;
+    u8 res = FSRV_RUN_TMOUT;
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
 
       res =
           calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
-      if (res == FAULT_ERROR) FATAL("Unable to execute target application");
+      if (res == FSRV_RUN_ERROR) FATAL("Unable to execute target application");
 
     }
 
@@ -2497,7 +2497,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
-    if (res == FAULT_ERROR) FATAL("Unable to execute target application");
+    if (res == FSRV_RUN_ERROR) FATAL("Unable to execute target application");
 
     if (afl->stop_soon) {
 

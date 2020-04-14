@@ -242,7 +242,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     fault = run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
     ++afl->trim_execs;
 
-    if (afl->stop_soon || fault == FAULT_ERROR) { goto abort_trimming; }
+    if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
 
     cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 

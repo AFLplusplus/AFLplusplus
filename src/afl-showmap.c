@@ -69,7 +69,7 @@ static u8 *in_data;                    /* Input data                        */
 static u32 total, highest;             /* tuple content information         */
 
 static u32 in_len,                     /* Input data length                 */
-    arg_offset, total_execs;           /* Total number of execs             */
+    arg_offset;                        /* Total number of execs             */
 
 static u8 quiet_mode,                  /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
@@ -193,7 +193,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
       if (cmin_mode) {
 
-        if (fsrv->child_timed_out) break;
+        if (fsrv->last_run_timed_out) break;
         if (!caa && child_crashed != cco) break;
 
         fprintf(f, "%u%u\n", fsrv->trace_bits[i], i);
@@ -233,75 +233,18 @@ static void write_to_testcase(afl_forkserver_t *fsrv, void *mem, u32 len) {
 
 }
 
-/* Execute target application. Returns 0 if the changes are a dud, or
-   1 if they should be kept. */
+/* Execute target application. */
 
-static u8 run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
+void run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
                                 u32 len) {
-
-  struct itimerval it;
-  int              status = 0;
-
-  memset(fsrv->trace_bits, 0, MAP_SIZE);
-  MEM_BARRIER();
 
   write_to_testcase(fsrv, mem, len);
 
-  s32 res;
-
-  /* we have the fork server up and running, so simply
-     tell it to have at it, and then read back PID. */
-
-  if ((res = write(fsrv->fsrv_ctl_fd, &fsrv->prev_timed_out, 4)) != 4) {
-
-    if (stop_soon) return 0;
-    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-  }
-
-  if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
-
-    if (stop_soon) return 0;
-    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-  }
-
-  if (fsrv->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
-
-  /* Configure timeout, wait for child, cancel timeout. */
-
-  if (fsrv->exec_tmout) {
-
-    it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
-    it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
-
-  }
-
-  setitimer(ITIMER_REAL, &it, NULL);
-
-  if ((res = read(fsrv->fsrv_st_fd, &status, 4)) != 4) {
-
-    if (stop_soon) return 0;
-    RPFATAL(res, "Unable to communicate with fork server (OOM?)");
-
-  }
-
-  fsrv->child_pid = 0;
-  it.it_value.tv_sec = 0;
-  it.it_value.tv_usec = 0;
-
-  setitimer(ITIMER_REAL, &it, NULL);
-
-  MEM_BARRIER();
-
-  /* Clean up bitmap, analyze exit condition, etc. */
-
-  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)
-    FATAL("Unable to execute '%s'", argv[0]);
+  fsrv_run_result_t res = afl_fsrv_run_target(fsrv, &stop_soon);
+  if (res == FSRV_RUN_NOINST || res == FSRV_RUN_ERROR) FATAL("Error running target");
 
   classify_counts(fsrv->trace_bits,
                   binary_mode ? count_class_binary : count_class_human);
-  total_execs++;
 
   if (stop_soon) {
 
@@ -309,22 +252,6 @@ static u8 run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
     exit(1);
 
   }
-
-  /* Always discard inputs that time out. */
-
-  if (fsrv->child_timed_out) { return 0; }
-
-  /* Handle crashing inputs depending on current mode. */
-
-  if (WIFSIGNALED(status) ||
-      (WIFEXITED(status) && WEXITSTATUS(status) == MSAN_ERROR) ||
-      (WIFEXITED(status) && WEXITSTATUS(status))) {
-
-    return 0;
-
-  }
-
-  return 0;
 
 }
 
@@ -425,7 +352,7 @@ static void run_target(afl_forkserver_t *fsrv, char **argv) {
 
   if (fsrv->exec_tmout) {
 
-    fsrv->child_timed_out = 0;
+    fsrv->last_run_timed_out = 0;
     it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
     it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
 
@@ -452,12 +379,12 @@ static void run_target(afl_forkserver_t *fsrv, char **argv) {
 
   if (!quiet_mode) SAYF(cRST "-- Program output ends --\n");
 
-  if (!fsrv->child_timed_out && !stop_soon && WIFSIGNALED(status))
+  if (!fsrv->last_run_timed_out && !stop_soon && WIFSIGNALED(status))
     child_crashed = 1;
 
   if (!quiet_mode) {
 
-    if (fsrv->child_timed_out)
+    if (fsrv->last_run_timed_out)
       SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
     else if (stop_soon)
       SAYF(cLRD "\n+++ Program aborted by user +++\n" cRST);
@@ -980,7 +907,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (!quiet_mode) OKF("Processed %u input files.", total_execs);
+    if (!quiet_mode) OKF("Processed %llu input files.", fsrv->total_execs);
 
     closedir(dir_in);
     if (dir_out) closedir(dir_out);
@@ -1010,7 +937,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl_shm_deinit(&shm);
 
-  u32 ret = child_crashed * 2 + fsrv->child_timed_out;
+  u32 ret = child_crashed * 2 + fsrv->last_run_timed_out;
 
   if (fsrv->target_path) ck_free(fsrv->target_path);
 
