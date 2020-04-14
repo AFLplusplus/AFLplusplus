@@ -549,8 +549,8 @@ int main(int argc, char **argv, char **envp) {
   if ((ptr = getenv("AFL_LLVM_INSTRUMENT")) != NULL) {
 
     if (strncasecmp(ptr, "default", strlen("default")) == 0 ||
-        strncasecmp(ptr, "afl", strlen("afl")) == 0 || 
-        strncasecmp(ptr, "classic", strlen("classic")) == 0 )
+        strncasecmp(ptr, "afl", strlen("afl")) == 0 ||
+        strncasecmp(ptr, "classic", strlen("classic")) == 0)
       instrument_mode = INSTRUMENT_DEFAULT;
     if (strncasecmp(ptr, "cfg", strlen("cfg")) == 0 ||
         strncasecmp(ptr, "instrim", strlen("instrim")) == 0)
