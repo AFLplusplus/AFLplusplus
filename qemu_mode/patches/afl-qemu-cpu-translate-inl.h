@@ -53,11 +53,12 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv arg1, TCGv arg2,
 
     TCGv cur_loc_v = tcg_const_tl(cur_loc);
 
-    switch (ot) {
+    switch (ot & MO_SIZE) {
 
       case MO_64: gen_helper_afl_cmplog_64(cur_loc_v, arg1, arg2); break;
       case MO_32: gen_helper_afl_cmplog_32(cur_loc_v, arg1, arg2); break;
       case MO_16: gen_helper_afl_cmplog_16(cur_loc_v, arg1, arg2); break;
+      case MO_8: gen_helper_afl_cmplog_8(cur_loc_v, arg1, arg2); break;
       default: break;
 
     }
@@ -75,7 +76,7 @@ static void afl_gen_compcov(target_ulong cur_loc, TCGv arg1, TCGv arg2,
 
     if (cur_loc >= afl_inst_rms) return;
 
-    switch (ot) {
+    switch (ot & MO_SIZE) {
 
       case MO_64: gen_helper_afl_compcov_64(cur_loc_v, arg1, arg2); break;
       case MO_32: gen_helper_afl_compcov_32(cur_loc_v, arg1, arg2); break;

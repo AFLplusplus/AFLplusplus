@@ -107,10 +107,32 @@ void HELPER(afl_compcov_64)(target_ulong cur_loc, target_ulong arg1,
 
 }
 
+void HELPER(afl_cmplog_8)(target_ulong cur_loc, target_ulong arg1,
+                           target_ulong arg2) {
+
+  register uintptr_t k = (uintptr_t)cur_loc;
+  
+  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+  // if (!__afl_cmp_map->headers[k].cnt)
+  //  __afl_cmp_map->headers[k].cnt = __afl_cmp_counter++;
+
+  __afl_cmp_map->headers[k].shape = 0;
+
+  hits &= CMP_MAP_H - 1;
+  __afl_cmp_map->log[k][hits].v0 = arg1;
+  __afl_cmp_map->log[k][hits].v1 = arg2;
+
+}
+
 void HELPER(afl_cmplog_16)(target_ulong cur_loc, target_ulong arg1,
                            target_ulong arg2) {
 
   register uintptr_t k = (uintptr_t)cur_loc;
+
+  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
 
   u32 hits = __afl_cmp_map->headers[k].hits;
   __afl_cmp_map->headers[k].hits = hits + 1;
@@ -118,7 +140,6 @@ void HELPER(afl_cmplog_16)(target_ulong cur_loc, target_ulong arg1,
   //  __afl_cmp_map->headers[k].cnt = __afl_cmp_counter++;
 
   __afl_cmp_map->headers[k].shape = 1;
-  //__afl_cmp_map->headers[k].type = CMP_TYPE_INS;
 
   hits &= CMP_MAP_H - 1;
   __afl_cmp_map->log[k][hits].v0 = arg1;
@@ -130,6 +151,8 @@ void HELPER(afl_cmplog_32)(target_ulong cur_loc, target_ulong arg1,
                            target_ulong arg2) {
 
   register uintptr_t k = (uintptr_t)cur_loc;
+
+  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
 
   u32 hits = __afl_cmp_map->headers[k].hits;
   __afl_cmp_map->headers[k].hits = hits + 1;
@@ -146,6 +169,8 @@ void HELPER(afl_cmplog_64)(target_ulong cur_loc, target_ulong arg1,
                            target_ulong arg2) {
 
   register uintptr_t k = (uintptr_t)cur_loc;
+
+  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
 
   u32 hits = __afl_cmp_map->headers[k].hits;
   __afl_cmp_map->headers[k].hits = hits + 1;

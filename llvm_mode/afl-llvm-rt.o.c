@@ -651,13 +651,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
 ///// CmpLog instrumentation
 
-void __cmplog_ins_hook1(uint8_t Arg1, uint8_t Arg2) {
-
-  return;
-
-}
-
-void __cmplog_ins_hook2(uint16_t Arg1, uint16_t Arg2) {
+void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2) {
 
   if (!__afl_cmp_map) return;
 
@@ -672,16 +666,35 @@ void __cmplog_ins_hook2(uint16_t Arg1, uint16_t Arg2) {
   // if (!__afl_cmp_map->headers[k].cnt)
   //  __afl_cmp_map->headers[k].cnt = __afl_cmp_counter++;
 
-  __afl_cmp_map->headers[k].shape = 1;
-  //__afl_cmp_map->headers[k].type = CMP_TYPE_INS;
+  __afl_cmp_map->headers[k].shape = 0;
 
   hits &= CMP_MAP_H - 1;
-  __afl_cmp_map->log[k][hits].v0 = Arg1;
-  __afl_cmp_map->log[k][hits].v1 = Arg2;
+  __afl_cmp_map->log[k][hits].v0 = arg1;
+  __afl_cmp_map->log[k][hits].v1 = arg2;
+}
+
+void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2) {
+
+  if (!__afl_cmp_map) return;
+
+  uintptr_t k = (uintptr_t)__builtin_return_address(0);
+  k = (k >> 4) ^ (k << 8);
+  k &= CMP_MAP_W - 1;
+
+  __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
+
+  u32 hits = __afl_cmp_map->headers[k].hits;
+  __afl_cmp_map->headers[k].hits = hits + 1;
+
+  __afl_cmp_map->headers[k].shape = 1;
+
+  hits &= CMP_MAP_H - 1;
+  __afl_cmp_map->log[k][hits].v0 = arg1;
+  __afl_cmp_map->log[k][hits].v1 = arg2;
 
 }
 
-void __cmplog_ins_hook4(uint32_t Arg1, uint32_t Arg2) {
+void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2) {
 
   if (!__afl_cmp_map) return;
 
@@ -697,12 +710,12 @@ void __cmplog_ins_hook4(uint32_t Arg1, uint32_t Arg2) {
   __afl_cmp_map->headers[k].shape = 3;
 
   hits &= CMP_MAP_H - 1;
-  __afl_cmp_map->log[k][hits].v0 = Arg1;
-  __afl_cmp_map->log[k][hits].v1 = Arg2;
+  __afl_cmp_map->log[k][hits].v0 = arg1;
+  __afl_cmp_map->log[k][hits].v1 = arg2;
 
 }
 
-void __cmplog_ins_hook8(uint64_t Arg1, uint64_t Arg2) {
+void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2) {
 
   if (!__afl_cmp_map) return;
 
@@ -718,8 +731,8 @@ void __cmplog_ins_hook8(uint64_t Arg1, uint64_t Arg2) {
   __afl_cmp_map->headers[k].shape = 7;
 
   hits &= CMP_MAP_H - 1;
-  __afl_cmp_map->log[k][hits].v0 = Arg1;
-  __afl_cmp_map->log[k][hits].v1 = Arg2;
+  __afl_cmp_map->log[k][hits].v0 = arg1;
+  __afl_cmp_map->log[k][hits].v1 = arg2;
 
 }
 
@@ -734,28 +747,28 @@ void __cmplog_ins_hook8(uint64_t Arg1, uint64_t Arg2) {
 #pragma weak __sanitizer_cov_trace_cmp4 = __cmplog_ins_hook4
 #pragma weak __sanitizer_cov_trace_cmp8 = __cmplog_ins_hook8
 #else
-void __sanitizer_cov_trace_const_cmp1(uint8_t Arg1, uint8_t Arg2)
+void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2)
     __attribute__((alias("__cmplog_ins_hook1")));
-void __sanitizer_cov_trace_const_cmp2(uint16_t Arg1, uint16_t Arg2)
+void __sanitizer_cov_trace_const_cmp2(uint16_t arg1, uint16_t arg2)
     __attribute__((alias("__cmplog_ins_hook2")));
-void __sanitizer_cov_trace_const_cmp4(uint32_t Arg1, uint32_t Arg2)
+void __sanitizer_cov_trace_const_cmp4(uint32_t arg1, uint32_t arg2)
     __attribute__((alias("__cmplog_ins_hook4")));
-void __sanitizer_cov_trace_const_cmp8(uint64_t Arg1, uint64_t Arg2)
+void __sanitizer_cov_trace_const_cmp8(uint64_t arg1, uint64_t arg2)
     __attribute__((alias("__cmplog_ins_hook8")));
 
-void __sanitizer_cov_trace_cmp1(uint8_t Arg1, uint8_t Arg2)
+void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2)
     __attribute__((alias("__cmplog_ins_hook1")));
-void __sanitizer_cov_trace_cmp2(uint16_t Arg1, uint16_t Arg2)
+void __sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2)
     __attribute__((alias("__cmplog_ins_hook2")));
-void __sanitizer_cov_trace_cmp4(uint32_t Arg1, uint32_t Arg2)
+void __sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2)
     __attribute__((alias("__cmplog_ins_hook4")));
-void __sanitizer_cov_trace_cmp8(uint64_t Arg1, uint64_t Arg2)
+void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2)
     __attribute__((alias("__cmplog_ins_hook8")));
 #endif                                                /* defined(__APPLE__) */
 
-void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t *Cases) {
+void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
-  for (uint64_t i = 0; i < Cases[0]; i++) {
+  for (uint64_t i = 0; i < cases[0]; i++) {
 
     uintptr_t k = (uintptr_t)__builtin_return_address(0) + i;
     k = (k >> 4) ^ (k << 8);
@@ -769,8 +782,8 @@ void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t *Cases) {
     __afl_cmp_map->headers[k].shape = 7;
 
     hits &= CMP_MAP_H - 1;
-    __afl_cmp_map->log[k][hits].v0 = Val;
-    __afl_cmp_map->log[k][hits].v1 = Cases[i + 2];
+    __afl_cmp_map->log[k][hits].v0 = val;
+    __afl_cmp_map->log[k][hits].v1 = cases[i + 2];
 
   }
 
