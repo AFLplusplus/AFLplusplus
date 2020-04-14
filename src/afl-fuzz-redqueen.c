@@ -131,7 +131,8 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
 
       u32 cksum;
       u64 start_us = get_cur_time_us();
-      if (unlikely(get_exec_checksum(afl, buf, len, &cksum))) goto checksum_fail;
+      if (unlikely(get_exec_checksum(afl, buf, len, &cksum)))
+        goto checksum_fail;
 
       u64 stop_us = get_cur_time_us();
 
