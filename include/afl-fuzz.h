@@ -340,6 +340,10 @@ typedef struct afl_env_vars {
 
 } afl_env_vars_t;
 
+struct afl_pass_stat {
+  u8 total; u8 faileds;
+};
+
 typedef struct afl_state {
 
   /* Position of this state in the global states list */
@@ -568,6 +572,8 @@ typedef struct afl_state {
   /* cmplog forkserver ids */
   s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
   u32 cmplog_prev_timed_out;
+
+  struct afl_pass_stat* pass_stats;
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
