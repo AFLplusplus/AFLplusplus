@@ -67,7 +67,6 @@ static u8 *in_data;                    /* Input data for trimming           */
 
 static u32 in_len,                     /* Input data length                 */
     orig_cksum,                        /* Original checksum                 */
-    total_execs,                       /* Total number of execs             */
     missed_hangs,                      /* Misses due to hangs               */
     missed_crashes,                    /* Misses due to crashes             */
     missed_paths;                      /* Misses due to exec path diffs     */
@@ -249,69 +248,11 @@ static void write_to_testcase(afl_forkserver_t *fsrv, void *mem, u32 len) {
 static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
                      u8 first_run) {
 
-  struct itimerval it;
-  int              status = 0;
-
-  u32 cksum;
-
-  fsrv->child_timed_out = 0;
-
-  memset(fsrv->trace_bits, 0, fsrv->map_size);
-  MEM_BARRIER();
-
   write_to_testcase(fsrv, mem, len);
 
-  s32 res;
+  fsrv_run_result_t ret = afl_fsrv_run_target(fsrv, &stop_soon);
 
-  /* we have the fork server up and running, so simply
-     tell it to have at it, and then read back PID. */
-
-  if ((res = write(fsrv->fsrv_ctl_fd, &fsrv->prev_timed_out, 4)) != 4) {
-
-    if (stop_soon) return 0;
-    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-  }
-
-  if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
-
-    if (stop_soon) return 0;
-    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-  }
-
-  if (fsrv->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
-
-  /* Configure timeout, wait for child, cancel timeout. */
-
-  if (fsrv->exec_tmout) {
-
-    it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
-    it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
-
-  }
-
-  setitimer(ITIMER_REAL, &it, NULL);
-
-  if ((res = read(fsrv->fsrv_st_fd, &status, 4)) != 4) {
-
-    if (stop_soon) return 0;
-    RPFATAL(res, "Unable to communicate with fork server (OOM?)");
-
-  }
-
-  fsrv->child_pid = 0;
-  it.it_value.tv_sec = 0;
-  it.it_value.tv_usec = 0;
-
-  setitimer(ITIMER_REAL, &it, NULL);
-
-  MEM_BARRIER();
-
-  /* Clean up bitmap, analyze exit condition, etc. */
-
-  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)
-    FATAL("Unable to execute '%s'", argv[0]);
+  if (ret == FSRV_RUN_ERROR) FATAL("Couldn't run child");
 
   if (!hang_mode) {
 
@@ -319,8 +260,6 @@ static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
     apply_mask((u32 *)fsrv->trace_bits, (u32 *)mask_bitmap);
 
   }
-
-  total_execs++;
 
   if (stop_soon) {
 
@@ -334,25 +273,21 @@ static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
   if (hang_mode) {
 
-    if (fsrv->child_timed_out) return 1;
-
-    if (WIFSIGNALED(status) ||
-        (WIFEXITED(status) && WEXITSTATUS(status) == MSAN_ERROR) ||
-        (WIFEXITED(status) && WEXITSTATUS(status) && exit_crash)) {
-
+    switch (ret)
+    {
+    case FSRV_RUN_TMOUT:
+      return 1;
+    case FSRV_RUN_CRASH:
       missed_crashes++;
-
-    } else {
-
+      return 0;
+    default:
       missed_hangs++;
-
+      return 0;
     }
-
-    return 0;
 
   }
 
-  if (fsrv->child_timed_out) {
+  if (ret == FSRV_RUN_TMOUT) {
 
     missed_hangs++;
     return 0;
@@ -361,9 +296,7 @@ static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
   /* Handle crashing inputs depending on current mode. */
 
-  if (WIFSIGNALED(status) ||
-      (WIFEXITED(status) && WEXITSTATUS(status) == MSAN_ERROR) ||
-      (WIFEXITED(status) && WEXITSTATUS(status) && exit_crash)) {
+  if (ret == FSRV_RUN_CRASH) {
 
     if (first_run) crash_mode = 1;
 
@@ -391,7 +324,9 @@ static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
   }
 
-  cksum = hash32(fsrv->trace_bits, fsrv->map_size, HASH_CONST);
+  if (ret == FSRV_RUN_NOINST) FATAL("Binary not instrumented?");
+
+  u32 cksum = hash32(fsrv->trace_bits, fsrv->map_size, HASH_CONST);
 
   if (first_run) orig_cksum = cksum;
 
@@ -640,11 +575,11 @@ finalize_all:
 
     SAYF("\n" cGRA "     File size reduced by : " cRST
          "%0.02f%% (to %u byte%s)\n" cGRA "    Characters simplified : " cRST
-         "%0.02f%%\n" cGRA "     Number of execs done : " cRST "%u\n" cGRA
+         "%0.02f%%\n" cGRA "     Number of execs done : " cRST "%llu\n" cGRA
          "          Fruitless execs : " cRST "termination=%u crash=%u\n\n",
          100 - ((double)in_len) * 100 / orig_len, in_len,
          in_len == 1 ? "" : "s",
-         ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), total_execs,
+         ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), fsrv->total_execs,
          missed_paths, missed_crashes);
     return;
 
@@ -652,13 +587,13 @@ finalize_all:
 
   SAYF("\n" cGRA "     File size reduced by : " cRST
        "%0.02f%% (to %u byte%s)\n" cGRA "    Characters simplified : " cRST
-       "%0.02f%%\n" cGRA "     Number of execs done : " cRST "%u\n" cGRA
+       "%0.02f%%\n" cGRA "     Number of execs done : " cRST "%llu\n" cGRA
        "          Fruitless execs : " cRST "path=%u crash=%u hang=%s%u\n\n",
        100 - ((double)in_len) * 100 / orig_len, in_len, in_len == 1 ? "" : "s",
-       ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), total_execs,
+       ((double)(alpha_d_total)) * 100 / (in_len ? in_len : 1), fsrv->total_execs,
        missed_paths, missed_crashes, missed_hangs ? cLRD : "", missed_hangs);
 
-  if (total_execs > 50 && missed_hangs * 10 > total_execs && !hang_mode)
+  if (fsrv->total_execs > 50 && missed_hangs * 10 > fsrv->total_execs && !hang_mode)
     WARNF(cLRD "Frequent timeouts - results may be skewed." cRST);
 
 }
@@ -1139,13 +1074,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   run_target(fsrv, use_argv, in_data, in_len, 1);
 
-  if (hang_mode && !fsrv->child_timed_out)
+  if (hang_mode && !fsrv->last_run_timed_out)
     FATAL(
         "Target binary did not time out but hang minimization mode "
         "(-H) was set (-t %u).",
         fsrv->exec_tmout);
 
-  if (fsrv->child_timed_out && !hang_mode)
+  if (fsrv->last_run_timed_out && !hang_mode)
     FATAL(
         "Target binary times out (adjusting -t may help). Use -H to minimize a "
         "hang.");

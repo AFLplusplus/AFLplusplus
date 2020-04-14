@@ -622,7 +622,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
   if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 1;
 
   u64 orig_hit_cnt, new_hit_cnt;
-  u64 orig_execs = afl->total_execs;
+  u64 orig_execs = afl->fsrv.total_execs;
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
   afl->stage_name = "input-to-state";
@@ -670,7 +670,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
 exit_its:
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
   afl->stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_ITS] += afl->total_execs - orig_execs;
+  afl->stage_cycles[STAGE_ITS] += afl->fsrv.total_execs - orig_execs;
 
   memcpy(orig_buf, buf, len);
 

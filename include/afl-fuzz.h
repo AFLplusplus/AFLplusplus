@@ -195,18 +195,6 @@ enum {
 
 };
 
-/* Execution status fault codes */
-
-enum {
-
-  /* 00 */ FAULT_NONE,
-  /* 01 */ FAULT_TMOUT,
-  /* 02 */ FAULT_CRASH,
-  /* 03 */ FAULT_ERROR,
-  /* 04 */ FAULT_NOINST,
-  /* 05 */ FAULT_NOBITS
-
-};
 
 #define operator_num 16
 #define swarm_num 5
@@ -433,7 +421,6 @@ typedef struct afl_state {
       use_splicing,                     /* Recombine input files?           */
       dumb_mode,                        /* Run in non-instrumented mode?    */
       score_changed,                    /* Scoring for favorites changed?   */
-      kill_signal,                      /* Signal that killed the child     */
       resuming_fuzz,                    /* Resuming an older fuzzing job?   */
       timeout_given,                    /* Specific timeout given?          */
       not_on_tty,                       /* stdout is not a tty              */
@@ -488,7 +475,6 @@ typedef struct afl_state {
       total_tmouts,                     /* Total number of timeouts         */
       unique_tmouts,                    /* Timeouts with unique signatures  */
       unique_hangs,                     /* Hangs with unique signatures     */
-      total_execs,                      /* Total execve() calls             */
       last_crash_execs,                 /* Exec counter at last crash       */
       queue_cycle,                      /* Queue round counter              */
       cycles_wo_finds,                  /* Cycles without any new paths     */
@@ -888,7 +874,7 @@ void show_init_stats(afl_state_t *);
 
 /* Run */
 
-u8   run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
+fsrv_run_result_t run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
 void write_to_testcase(afl_state_t *, void *, u32);
 u8   calibrate_case(afl_state_t *, struct queue_entry *, u8 *, u32, u8);
 void sync_fuzzers(afl_state_t *);

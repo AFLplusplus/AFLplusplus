@@ -76,7 +76,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->child_pid = -1;
   fsrv->map_size = MAP_SIZE;
   fsrv->use_fauxsrv = 0;
-  fsrv->prev_timed_out = 0;
+  fsrv->last_run_timed_out = 0;
 
   fsrv->init_child_func = fsrv_exec_child;
 
@@ -102,7 +102,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->out_dir_fd = -1;
   fsrv_to->child_pid = -1;
   fsrv_to->use_fauxsrv = 0;
-  fsrv_to->prev_timed_out = 0;
+  fsrv_to->last_run_timed_out = 0;
 
   fsrv_to->init_child_func = fsrv_exec_child;
 
@@ -217,7 +217,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
 
-  fsrv->child_timed_out = 0;
+  fsrv->last_run_timed_out = 0;
   fsrv->fsrv_pid = fork();
 
   if (fsrv->fsrv_pid < 0) PFATAL("fork() failed");
@@ -361,7 +361,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     } else if (time > fsrv->exec_tmout * FORK_WAIT_MULT) {
 
-      fsrv->child_timed_out = 1;
+      fsrv->last_run_timed_out = 1;
       kill(fsrv->fsrv_pid, SIGKILL);
 
     } else {
@@ -476,7 +476,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   }
 
-  if (fsrv->child_timed_out)
+  if (fsrv->last_run_timed_out)
     FATAL("Timeout while initializing fork server (adjusting -t may help)");
 
   if (waitpid(fsrv->fsrv_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
@@ -640,6 +640,127 @@ static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
 }
 
+/* Execute target application, monitoring for timeouts. Return status
+   information. The called program will update afl->fsrv->trace_bits. */
+
+fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, volatile u8 *stop_soon_p) {
+
+  s32 res;
+  u32 exec_ms;
+
+  int status = 0;
+
+  u32 timeout = fsrv->exec_tmout;
+
+  /* After this memset, fsrv->trace_bits[] are effectively volatile, so we
+     must prevent any earlier operations from venturing into that
+     territory. */
+
+  memset(fsrv->trace_bits, 0, fsrv->map_size);
+
+  MEM_BARRIER();
+
+  /* we have the fork server (or faux server) up and running
+  First, tell it if the previous run timed out. */
+
+  if ((res = write(fsrv->fsrv_ctl_fd, &fsrv->last_run_timed_out, 4)) != 4) {
+
+    if (*stop_soon_p) return 0;
+    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+
+  }
+
+  fsrv->last_run_timed_out = 0;
+
+  if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
+
+    if (stop_soon_p) return 0;
+    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+
+  }
+
+  if (fsrv->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
+
+  exec_ms = read_timed(fsrv->fsrv_st_fd, &status, 4, timeout, stop_soon_p);
+
+  if (exec_ms > timeout) {
+
+    /* If there was no response from forkserver after timeout seconds,
+    we kill the child. The forkserver should inform us afterwards */
+
+    kill(fsrv->child_pid, SIGKILL);
+    fsrv->last_run_timed_out = 1;
+    if (read(fsrv->fsrv_st_fd, &status, 4) < 4) exec_ms = 0;
+
+  }
+
+  if (!exec_ms) {
+
+    if (*stop_soon_p) return 0;
+    SAYF("\n" cLRD "[-] " cRST
+         "Unable to communicate with fork server. Some possible reasons:\n\n"
+         "    - You've run out of memory. Use -m to increase the the memory "
+         "limit\n"
+         "      to something higher than %lld.\n"
+         "    - The binary or one of the libraries it uses manages to "
+         "create\n"
+         "      threads before the forkserver initializes.\n"
+         "    - The binary, at least in some circumstances, exits in a way "
+         "that\n"
+         "      also kills the parent process - raise() could be the "
+         "culprit.\n"
+         "    - If using persistent mode with QEMU, "
+         "AFL_QEMU_PERSISTENT_ADDR "
+         "is\n"
+         "      probably not valid (hint: add the base address in case of "
+         "PIE)"
+         "\n\n"
+         "If all else fails you can disable the fork server via "
+         "AFL_NO_FORKSRV=1.\n",
+         fsrv->mem_limit);
+    RPFATAL(res, "Unable to communicate with fork server");
+
+  }
+
+  if (!WIFSTOPPED(status)) fsrv->child_pid = 0;
+
+  fsrv->total_execs++;
+
+  /* Any subsequent operations on fsrv->trace_bits must not be moved by the
+     compiler below this point. Past this location, fsrv->trace_bits[]
+     behave very normally and do not have to be treated as volatile. */
+
+  MEM_BARRIER();
+
+  /* Report outcome to caller. */
+
+  if (WIFSIGNALED(status) && !*stop_soon_p) {
+
+    fsrv->last_kill_signal = WTERMSIG(status);
+
+    if (fsrv->last_run_timed_out && fsrv->last_kill_signal == SIGKILL)
+      return FSRV_RUN_TMOUT;
+
+    return FSRV_RUN_CRASH;
+
+  }
+
+  /* A somewhat nasty hack for MSAN, which doesn't support abort_on_error and
+     must use a special exit code. */
+
+  if (fsrv->uses_asan && WEXITSTATUS(status) == MSAN_ERROR) {
+
+    fsrv->last_kill_signal = 0;
+    return FSRV_RUN_CRASH;
+
+  }
+
+  if ((*(u32 *)fsrv->trace_bits) == EXEC_FAIL_SIG) return FSRV_RUN_NOINST;
+
+  return FSRV_RUN_OK;
+
+}
+
 void afl_fsrv_killall() {
 
   LIST_FOREACH(&fsrv_list, afl_forkserver_t, {
@@ -656,4 +777,3 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   list_remove(&fsrv_list, fsrv);
 
 }
-

@@ -598,7 +598,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     res = calibrate_case(afl, afl->queue_top, mem, afl->queue_cycle - 1, 0);
 
-    if (unlikely(res == FAULT_ERROR))
+    if (unlikely(res == FSRV_RUN_ERROR))
       FATAL("Unable to execute target application");
 
     fd = open(queue_fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
@@ -612,7 +612,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   switch (fault) {
 
-    case FAULT_TMOUT:
+    case FSRV_RUN_TMOUT:
 
       /* Timeouts are not very interesting, but we're still obliged to keep
          a handful of samples. We use the presence of new bits in the
@@ -651,9 +651,9 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
            timeout actually uncovers a crash. Make sure we don't discard it if
            so. */
 
-        if (!afl->stop_soon && new_fault == FAULT_CRASH) goto keep_as_crash;
+        if (!afl->stop_soon && new_fault == FSRV_RUN_CRASH) goto keep_as_crash;
 
-        if (afl->stop_soon || new_fault != FAULT_TMOUT) return keeping;
+        if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) return keeping;
 
       }
 
@@ -675,7 +675,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       break;
 
-    case FAULT_CRASH:
+    case FSRV_RUN_CRASH:
 
     keep_as_crash:
 
@@ -704,7 +704,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #ifndef SIMPLE_FILES
 
       snprintf(fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s", afl->out_dir,
-               afl->unique_crashes, afl->kill_signal, describe_op(afl, 0));
+               afl->unique_crashes, afl->fsrv.last_kill_signal, describe_op(afl, 0));
 
 #else
 
@@ -730,11 +730,11 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       }
 
       afl->last_crash_time = get_cur_time();
-      afl->last_crash_execs = afl->total_execs;
+      afl->last_crash_execs = afl->fsrv.total_execs;
 
       break;
 
-    case FAULT_ERROR: FATAL("Unable to execute target application");
+    case FSRV_RUN_ERROR: FATAL("Unable to execute target application");
 
     default: return keeping;
 

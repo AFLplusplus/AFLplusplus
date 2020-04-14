@@ -108,14 +108,14 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       afl->start_time / 1000, cur_time / 1000,
       (cur_time - afl->start_time) / 1000, getpid(),
       afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
-      afl->total_execs,
-      afl->total_execs / ((double)(get_cur_time() - afl->start_time) / 1000),
+      afl->fsrv.total_execs,
+      afl->fsrv.total_execs / ((double)(get_cur_time() - afl->start_time) / 1000),
       afl->queued_paths, afl->queued_favored, afl->queued_discovered,
       afl->queued_imported, afl->max_depth, afl->current_entry,
       afl->pending_favored, afl->pending_not_fuzzed, afl->queued_variable,
       stability, bitmap_cvg, afl->unique_crashes, afl->unique_hangs,
       afl->last_path_time / 1000, afl->last_crash_time / 1000,
-      afl->last_hang_time / 1000, afl->total_execs - afl->last_crash_execs,
+      afl->last_hang_time / 1000, afl->fsrv.total_execs - afl->last_crash_execs,
       afl->fsrv.exec_tmout, afl->slowest_exec_ms,
 #ifdef __APPLE__
       (unsigned long int)(rus.ru_maxrss >> 20),
@@ -227,7 +227,7 @@ void show_stats(afl_state_t *afl) {
 
   if (afl->most_execs_key == 1) {
 
-    if (afl->most_execs <= afl->total_execs) {
+    if (afl->most_execs <= afl->fsrv.total_execs) {
 
       afl->most_execs_key = 2;
       afl->stop_soon = 2;
@@ -251,11 +251,11 @@ void show_stats(afl_state_t *afl) {
   if (!afl->stats_last_execs) {
 
     afl->stats_avg_exec =
-        ((double)afl->total_execs) * 1000 / (cur_ms - afl->start_time);
+        ((double)afl->fsrv.total_execs) * 1000 / (cur_ms - afl->start_time);
 
   } else {
 
-    double cur_avg = ((double)(afl->total_execs - afl->stats_last_execs)) *
+    double cur_avg = ((double)(afl->fsrv.total_execs - afl->stats_last_execs)) *
                      1000 / (cur_ms - afl->stats_last_ms);
 
     /* If there is a dramatic (5x+) jump in speed, reset the indicator
@@ -270,7 +270,7 @@ void show_stats(afl_state_t *afl) {
   }
 
   afl->stats_last_ms = cur_ms;
-  afl->stats_last_execs = afl->total_execs;
+  afl->stats_last_execs = afl->fsrv.total_execs;
 
   /* Tell the callers when to contact us (as measured in execs). */
 
@@ -543,14 +543,14 @@ void show_stats(afl_state_t *afl) {
 
     SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
                   "   new crashes : %s%-22s" bSTG         bV "\n",
-         u_stringify_int(IB(0), afl->total_execs),
+         u_stringify_int(IB(0), afl->fsrv.total_execs),
          afl->unique_crashes ? cLRD : cRST, tmp);
 
   } else {
 
     SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
                   " total crashes : %s%-22s" bSTG         bV "\n",
-         u_stringify_int(IB(0), afl->total_execs),
+         u_stringify_int(IB(0), afl->fsrv.total_execs),
          afl->unique_crashes ? cLRD : cRST, tmp);
 
   }

@@ -480,7 +480,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'C':                                               /* crash mode */
 
         if (afl->crash_mode) FATAL("Multiple -C options not supported");
-        afl->crash_mode = FAULT_CRASH;
+        afl->crash_mode = FSRV_RUN_CRASH;
         break;
 
       case 'n':                                                /* dumb mode */

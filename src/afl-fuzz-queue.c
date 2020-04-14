@@ -492,7 +492,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       // the more often fuzz result paths are equal to this queue entry,
       // reduce its value
       perf_score *=
-          (1 - (double)((double)q->n_fuzz / (double)afl->total_execs));
+          (1 - (double)((double)q->n_fuzz / (double)afl->fsrv.total_execs));
 
       break;
 
