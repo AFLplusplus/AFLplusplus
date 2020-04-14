@@ -370,7 +370,7 @@ void afl_state_deinit(afl_state_t *afl) {
   free(afl->in_buf);
   free(afl->in_scratch_buf);
   free(afl->ex_buf);
-  
+
   list_remove(&afl_states, afl);
 
 }

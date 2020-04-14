@@ -2543,7 +2543,7 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     goto pacemaker_fuzzing;
 
   }
-  
+
   /* Skip right away if -d is given, if we have done deterministic fuzzing on
      this entry ourselves (was_fuzzed), or if it has gone through deterministic
      testing in earlier, resumed runs (passed_det). */
@@ -2558,7 +2558,6 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   if (afl->master_max &&
       (afl->queue_cur->exec_cksum % afl->master_max) != afl->master_id - 1)
     goto havoc_stage;
-
 
   doing_det = 1;
 
