@@ -574,6 +574,7 @@ typedef struct afl_state {
   u32 cmplog_prev_timed_out;
 
   struct afl_pass_stat* pass_stats;
+  struct cmp_map *orig_cmp_map;
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */

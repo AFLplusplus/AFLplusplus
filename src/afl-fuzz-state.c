@@ -361,6 +361,8 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->post_deinit) afl->post_deinit(afl->post_data);
   if (afl->in_place_resume) ck_free(afl->in_dir);
   if (afl->sync_id) ck_free(afl->out_dir);
+  if (afl->pass_stats) ck_free(afl->pass_stats);
+  if (afl->orig_cmp_map) ck_free(afl->orig_cmp_map);
 
   free(afl->out_buf);
   free(afl->out_scratch_buf);
@@ -368,7 +370,7 @@ void afl_state_deinit(afl_state_t *afl) {
   free(afl->in_buf);
   free(afl->in_scratch_buf);
   free(afl->ex_buf);
-
+  
   list_remove(&afl_states, afl);
 
 }
