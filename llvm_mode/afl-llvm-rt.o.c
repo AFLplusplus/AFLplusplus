@@ -671,6 +671,7 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2) {
   hits &= CMP_MAP_H - 1;
   __afl_cmp_map->log[k][hits].v0 = arg1;
   __afl_cmp_map->log[k][hits].v1 = arg2;
+
 }
 
 void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2) {
