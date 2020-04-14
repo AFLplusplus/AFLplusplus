@@ -121,30 +121,37 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
          afl->stage_cur < afl->stage_max) {
 
     u32 s = rng->end - rng->start;
-    if (s == 0) goto empty_range;
 
-    memcpy(backup, buf + rng->start, s);
-    rand_replace(afl, buf + rng->start, s);
+    if (s != 0) {
 
-    u32 cksum;
-    u64 start_us = get_cur_time_us();
-    if (unlikely(get_exec_checksum(afl, buf, len, &cksum))) goto checksum_fail;
-    u64 stop_us = get_cur_time_us();
+      /* Range not empty */
 
-    /* Discard if the mutations change the paths or if it is too decremental
-       in speed */
-    if (cksum != exec_cksum ||
-        (stop_us - start_us > 2 * afl->queue_cur->exec_us)) {
+      memcpy(backup, buf + rng->start, s);
+      rand_replace(afl, buf + rng->start, s);
 
-      ranges = add_range(ranges, rng->start, rng->start + s / 2);
-      ranges = add_range(ranges, rng->start + s / 2 + 1, rng->end);
-      memcpy(buf + rng->start, backup, s);
+      u32 cksum;
+      u64 start_us = get_cur_time_us();
+      if (unlikely(get_exec_checksum(afl, buf, len, &cksum))) goto checksum_fail;
 
-    } else
+      u64 stop_us = get_cur_time_us();
 
-      needs_write = 1;
+      /* Discard if the mutations change the paths or if it is too decremental
+        in speed */
+      if (cksum != exec_cksum ||
+          (stop_us - start_us > 2 * afl->queue_cur->exec_us)) {
 
-  empty_range:
+        ranges = add_range(ranges, rng->start, rng->start + s / 2);
+        ranges = add_range(ranges, rng->start + s / 2 + 1, rng->end);
+        memcpy(buf + rng->start, backup, s);
+
+      } else {
+
+        needs_write = 1;
+
+      }
+
+    }
+
     ck_free(rng);
     rng = NULL;
     ++afl->stage_cur;
@@ -196,6 +203,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
   return 0;
 
 checksum_fail:
+  if (rng) ck_free(rng);
   ck_free(backup);
 
   while (ranges) {
@@ -242,11 +250,11 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   u64 *buf_64 = (u64 *)&buf[idx];
   u32 *buf_32 = (u32 *)&buf[idx];
   u16 *buf_16 = (u16 *)&buf[idx];
-  u8*  buf_8  = &buf[idx];
+  u8 * buf_8 = &buf[idx];
   u64 *o_buf_64 = (u64 *)&orig_buf[idx];
   u32 *o_buf_32 = (u32 *)&orig_buf[idx];
   u16 *o_buf_16 = (u16 *)&orig_buf[idx];
-  u8*  o_buf_8  = &orig_buf[idx];
+  u8 * o_buf_8 = &orig_buf[idx];
 
   u32 its_len = len - idx;
   *status = 0;

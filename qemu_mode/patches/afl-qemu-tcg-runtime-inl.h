@@ -108,10 +108,10 @@ void HELPER(afl_compcov_64)(target_ulong cur_loc, target_ulong arg1,
 }
 
 void HELPER(afl_cmplog_8)(target_ulong cur_loc, target_ulong arg1,
-                           target_ulong arg2) {
+                          target_ulong arg2) {
 
   register uintptr_t k = (uintptr_t)cur_loc;
-  
+
   __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
 
   u32 hits = __afl_cmp_map->headers[k].hits;
