@@ -495,7 +495,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (afl->use_radamsa > 1) goto radamsa_stage;
 
-  if (afl->shm.cmplog_mode) {
+  if (afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized) {
 
     if (input_to_state_stage(afl, in_buf, out_buf, len,
                              afl->queue_cur->exec_cksum))
@@ -2508,6 +2508,28 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
+  if (afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized) {
+
+    if (input_to_state_stage(afl, in_buf, out_buf, len,
+                             afl->queue_cur->exec_cksum))
+      goto abandon_entry;
+
+  }
+
+  /* Go to pacemker fuzzing if MOpt is doing well */
+
+  cur_ms_lv = get_cur_time();
+  if (!(afl->key_puppet == 0 &&
+        ((cur_ms_lv - afl->last_path_time < afl->limit_time_puppet) ||
+         (afl->last_crash_time != 0 &&
+          cur_ms_lv - afl->last_crash_time < afl->limit_time_puppet) ||
+         afl->last_path_time == 0))) {
+
+    afl->key_puppet = 1;
+    goto pacemaker_fuzzing;
+
+  }
+  
   /* Skip right away if -d is given, if we have done deterministic fuzzing on
      this entry ourselves (was_fuzzed), or if it has gone through deterministic
      testing in earlier, resumed runs (passed_det). */
@@ -2523,17 +2545,6 @@ u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
       (afl->queue_cur->exec_cksum % afl->master_max) != afl->master_id - 1)
     goto havoc_stage;
 
-  cur_ms_lv = get_cur_time();
-  if (!(afl->key_puppet == 0 &&
-        ((cur_ms_lv - afl->last_path_time < afl->limit_time_puppet) ||
-         (afl->last_crash_time != 0 &&
-          cur_ms_lv - afl->last_crash_time < afl->limit_time_puppet) ||
-         afl->last_path_time == 0))) {
-
-    afl->key_puppet = 1;
-    goto pacemaker_fuzzing;
-
-  }
 
   doing_det = 1;
 

@@ -966,12 +966,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->cmplog_binary) {
 
-    if (afl->limit_time_sig)
-      FATAL(
-          "MOpt and CmpLog are mutually exclusive. We accept pull requests "
-          "that integrates MOpt with the optional mutators "
-          "(custom/radamsa/redquenn/...).");
-
     if (afl->unicorn_mode)
       FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");
     if (!afl->qemu_mode) check_binary(afl, afl->cmplog_binary);
