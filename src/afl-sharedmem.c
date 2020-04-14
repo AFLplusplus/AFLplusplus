@@ -67,6 +67,7 @@ list_t shm_list = {.element_prealloc_count = 0};
 
 void afl_shm_deinit(sharedmem_t *shm) {
 
+  // TODO: clang reports a potential UAF in this function/makro(?)
   list_remove(&shm_list, shm);
 
 #ifdef USEMMAP
@@ -90,14 +91,6 @@ void afl_shm_deinit(sharedmem_t *shm) {
 #endif
 
   shm->map = NULL;
-
-}
-
-/* At exit, remove all leftover maps */
-
-void afl_shm_atexit(void) {
-
-  LIST_FOREACH(&shm_list, sharedmem_t, { afl_shm_deinit(el); });
 
 }
 
@@ -207,7 +200,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
 #endif
 
   list_append(&shm_list, shm);
-  atexit(afl_shm_atexit);
 
   return shm->map;
 

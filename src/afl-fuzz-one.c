@@ -3604,7 +3604,6 @@ pacemaker_fuzzing:
   }
 
   s32 temp_len_puppet;
-  cur_ms_lv = get_cur_time();
 
   // for (; afl->swarm_now < swarm_num; ++afl->swarm_now)
   {
@@ -4178,8 +4177,6 @@ pacemaker_fuzzing:
                  afl->orig_hit_cnt_puppet))) {
 
           afl->key_puppet = 0;
-          cur_ms_lv = get_cur_time();
-          new_hit_cnt = afl->queued_paths + afl->unique_crashes;
           afl->orig_hit_cnt_puppet = 0;
           afl->last_limit_time_start = 0;
 
@@ -4388,7 +4385,7 @@ void pso_updating(afl_state_t *afl) {
 
 u8 fuzz_one(afl_state_t *afl) {
 
-  int key_val_lv = 0;
+  int key_val_lv_1 = 0, key_val_lv_2 = 0;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
 
@@ -4408,22 +4405,22 @@ u8 fuzz_one(afl_state_t *afl) {
 
 #endif
 
-  if (afl->limit_time_sig == 0) {
+  // if limit_time_sig == -1 then both are run after each other
 
-    key_val_lv = fuzz_one_original(afl);
+  if (afl->limit_time_sig <= 0) { key_val_lv_1 = fuzz_one_original(afl); }
 
-  } else {
+  if (afl->limit_time_sig != 0) {
 
     if (afl->key_module == 0)
-      key_val_lv = pilot_fuzzing(afl);
+      key_val_lv_2 = pilot_fuzzing(afl);
     else if (afl->key_module == 1)
-      key_val_lv = core_fuzzing(afl);
+      key_val_lv_2 = core_fuzzing(afl);
     else if (afl->key_module == 2)
       pso_updating(afl);
 
   }
 
-  return key_val_lv;
+  return (key_val_lv_1 | key_val_lv_2);
 
 #undef BUF_PARAMS
 

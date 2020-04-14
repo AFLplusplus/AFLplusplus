@@ -535,7 +535,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   if (unlikely(len == 0)) return 0;
 
   u8 *queue_fn = "";
-  u8  hnb;
+  u8  hnb = '\0';
   s32 fd;
   u8  keeping = 0, res;
 
@@ -718,9 +718,11 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
         // if the user wants to be informed on new crashes - do that
 #if !TARGET_OS_IPHONE
-        if (system(afl->infoexec) == -1)
-          hnb += 0;  // we dont care if system errors, but we dont want a
-                     // compiler warning either
+        // we dont care if system errors, but we dont want a
+        // compiler warning either
+        // See
+        // https://stackoverflow.com/questions/11888594/ignoring-return-values-in-c
+        (void)(system(afl->infoexec) + 1);
 #else
         WARNF("command execution unsupported");
 #endif
