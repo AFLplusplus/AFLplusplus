@@ -242,11 +242,11 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   u64 *buf_64 = (u64 *)&buf[idx];
   u32 *buf_32 = (u32 *)&buf[idx];
   u16 *buf_16 = (u16 *)&buf[idx];
-  // u8*  buf_8  = &buf[idx];
+  u8*  buf_8  = &buf[idx];
   u64 *o_buf_64 = (u64 *)&orig_buf[idx];
   u32 *o_buf_32 = (u32 *)&orig_buf[idx];
   u16 *o_buf_16 = (u16 *)&orig_buf[idx];
-  // u8*  o_buf_8  = &orig_buf[idx];
+  u8*  o_buf_8  = &orig_buf[idx];
 
   u32 its_len = len - idx;
   *status = 0;
@@ -310,18 +310,17 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  /*if (SHAPE_BYTES(h->shape) == 1 || *status == 2) {
+  if (SHAPE_BYTES(h->shape) == 1 || *status == 2) {
 
-    if (its_len >= 2 && *buf_8 == (u8)pattern && *o_buf_8 == (u8)o_pattern) {
+    if (its_len >= 1 && *buf_8 == (u8)pattern && *o_buf_8 == (u8)o_pattern) {
 
       *buf_8 = (u8)repl;
-      if (unlikely(its_fuzz(afl, buf, len, status)))
-        return 1;
-      *buf_16 = (u16)pattern;
+      if (unlikely(its_fuzz(afl, buf, len, status))) return 1;
+      *buf_8 = (u8)pattern;
 
     }
 
-  }*/
+  }
 
   return 0;
 
