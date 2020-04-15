@@ -106,7 +106,10 @@ static const u8 count_class_binary[256] = {
 
 };
 
-static void classify_counts(u8 *mem, const u8 *map) {
+static void classify_counts(afl_forkserver_t *fsrv) {
+
+  u8 *      mem = fsrv->trace_bits;
+  const u8 *map = binary_mode ? count_class_binary : count_class_human;
 
   u32 i = MAP_SIZE;
 
@@ -240,12 +243,12 @@ void run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
 
   write_to_testcase(fsrv, mem, len);
 
-  fsrv_run_result_t res = afl_fsrv_run_target(fsrv, &stop_soon);
-  if (res == FSRV_RUN_NOINST || res == FSRV_RUN_ERROR)
+  if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, classify_counts,
+                          &stop_soon) == FSRV_RUN_ERROR) {
+
     FATAL("Error running target");
 
-  classify_counts(fsrv->trace_bits,
-                  binary_mode ? count_class_binary : count_class_human);
+  }
 
   if (stop_soon) {
 
@@ -375,8 +378,7 @@ static void run_target(afl_forkserver_t *fsrv, char **argv) {
   if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
-  classify_counts(fsrv->trace_bits,
-                  binary_mode ? count_class_binary : count_class_human);
+  classify_counts(fsrv);
 
   if (!quiet_mode) SAYF(cRST "-- Program output ends --\n");
 
@@ -587,7 +589,7 @@ static void find_binary(afl_forkserver_t *fsrv, u8 *fname) {
         break;
 
       ck_free(fsrv->target_path);
-      fsrv->target_path = 0;
+      fsrv->target_path = NULL;
 
     }
 

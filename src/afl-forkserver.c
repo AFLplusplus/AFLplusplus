@@ -643,15 +643,15 @@ static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv,
-                                      volatile u8 *     stop_soon_p) {
+fsrv_run_result_t afl_fsrv_run_target(
+    afl_forkserver_t *fsrv, u32 timeout,
+    void(classify_counts_func)(afl_forkserver_t *fsrv),
+    volatile u8 *stop_soon_p) {
 
   s32 res;
   u32 exec_ms;
 
   int status = 0;
-
-  u32 timeout = fsrv->exec_tmout;
 
   /* After this memset, fsrv->trace_bits[] are effectively volatile, so we
      must prevent any earlier operations from venturing into that
@@ -732,6 +732,9 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv,
      behave very normally and do not have to be treated as volatile. */
 
   MEM_BARRIER();
+  u32 tb4 = *(u32 *)fsrv->trace_bits;
+
+  if (likely(classify_counts_func)) classify_counts_func(fsrv);
 
   /* Report outcome to caller. */
 
@@ -756,7 +759,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv,
 
   }
 
-  if ((*(u32 *)fsrv->trace_bits) == EXEC_FAIL_SIG) return FSRV_RUN_NOINST;
+  if (tb4 == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
 
   return FSRV_RUN_OK;
 

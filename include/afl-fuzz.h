@@ -842,10 +842,10 @@ u32  count_bytes(afl_state_t *, u8 *);
 u32  count_non_255_bytes(afl_state_t *, u8 *);
 #ifdef WORD_SIZE_64
 void simplify_trace(afl_state_t *, u64 *);
-void classify_counts(afl_state_t *, u64 *);
+void classify_counts(afl_forkserver_t *);
 #else
 void simplify_trace(afl_state_t *, u32 *);
-void classify_counts(afl_state_t *, u32 *);
+void classify_counts(afl_forkserver_t *);
 #endif
 void init_count_class16(void);
 void minimize_bits(afl_state_t *, u8 *, u8 *);

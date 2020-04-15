@@ -351,9 +351,11 @@ void init_count_class16(void) {
 
 #ifdef WORD_SIZE_64
 
-void classify_counts(afl_state_t *afl, u64 *mem) {
+void classify_counts(afl_forkserver_t *fsrv) {
 
-  u32 i = (afl->fsrv.map_size >> 3);
+  u32 *mem = (u32 *)fsrv->trace_bits;
+
+  u32 i = (fsrv->map_size >> 3);
 
   if (i == 0) i = 1;
 
@@ -380,9 +382,11 @@ void classify_counts(afl_state_t *afl, u64 *mem) {
 
 #else
 
-void classify_counts(afl_state_t *afl, u32 *mem) {
+void classify_counts(afl_forkserver_t *fsrv) {
 
-  u32 i = (afl->fsrv.map_size >> 2);
+  u64 *mem = (u64 *)fsrv->trace_bits;
+
+  u32 i = (fsrv->map_size >> 2);
 
   if (i == 0) i = 1;
 
