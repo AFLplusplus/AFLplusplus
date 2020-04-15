@@ -8,7 +8,8 @@
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+                        Andrea Fioraldi <andreafioraldi@gmail.com> and
+                        Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -61,7 +62,8 @@
 
 static char *stdin_file;               /* stdin file                        */
 
-static u8 *in_dir,                     /* input folder                      */
+static u8 *in_dir = NULL,              /* input folder                      */
+    *out_file = NULL,
     *at_file = NULL;              /* Substitution string for @@             */
 
 static u8 *in_data;                    /* Input data                        */
@@ -157,7 +159,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
     fd = open(outfile, O_WRONLY);
 
-    if (fd < 0) PFATAL("Unable to open '%s'", fsrv->out_file);
+    if (fd < 0) PFATAL("Unable to open '%s'", out_file);
 
   } else if (!strcmp(outfile, "-")) {
 
@@ -215,33 +217,12 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
 }
 
-/* Write results. */
-
-static u32 write_results(afl_forkserver_t *fsrv) {
-
-  return write_results_to_file(fsrv, fsrv->out_file);
-
-}
-
-/* Write modified data to file for testing. If use_stdin is clear, the old file
-   is unlinked and a new one is created. Otherwise, out_fd is rewound and
-   truncated. */
-
-static void write_to_testcase(afl_forkserver_t *fsrv, void *mem, u32 len) {
-
-  lseek(fsrv->out_fd, 0, SEEK_SET);
-  ck_write(fsrv->out_fd, mem, len, fsrv->out_file);
-  if (ftruncate(fsrv->out_fd, len)) PFATAL("ftruncate() failed");
-  lseek(fsrv->out_fd, 0, SEEK_SET);
-
-}
-
 /* Execute target application. */
 
 void run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
                            u32 len) {
 
-  write_to_testcase(fsrv, mem, len);
+  afl_fsrv_write_to_testcase(fsrv, mem, len);
 
   if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, classify_counts,
                           &stop_soon) == FSRV_RUN_ERROR) {
@@ -632,8 +613,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'o':
 
-        if (fsrv->out_file) FATAL("Multiple -o options not supported");
-        fsrv->out_file = optarg;
+        if (out_file) FATAL("Multiple -o options not supported");
+        out_file = optarg;
         break;
 
       case 'm': {
@@ -780,7 +761,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-  if (optind == argc || !fsrv->out_file) usage(argv[0]);
+  if (optind == argc || !out_file) usage(argv[0]);
 
   check_environment_vars(envp);
 
@@ -831,7 +812,7 @@ int main(int argc, char **argv_orig, char **envp) {
     DIR *          dir_in, *dir_out;
     struct dirent *dir_ent;
     int            done = 0;
-    u8             infile[4096], outfile[4096];
+    u8             infile[PATH_MAX], outfile[PATH_MAX];
 #if !defined(DT_REG)
     struct stat statbuf;
 #endif
@@ -841,9 +822,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (!(dir_in = opendir(in_dir))) PFATAL("cannot open directory %s", in_dir);
 
-    if (!(dir_out = opendir(fsrv->out_file)))
-      if (mkdir(fsrv->out_file, 0700))
-        PFATAL("cannot create output directory %s", fsrv->out_file);
+    if (!(dir_out = opendir(out_file)))
+      if (mkdir(out_file, 0700))
+        PFATAL("cannot create output directory %s", out_file);
 
     u8 *use_dir = ".";
 
@@ -858,7 +839,7 @@ int main(int argc, char **argv_orig, char **envp) {
     unlink(stdin_file);
     atexit(at_exit_handler);
     fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
-    if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
+    if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", out_file);
 
     if (arg_offset && argv[arg_offset] != stdin_file) {
 
@@ -897,7 +878,7 @@ int main(int argc, char **argv_orig, char **envp) {
       if (-1 == stat(infile, &statbuf) || !S_ISREG(statbuf.st_mode)) continue;
 #endif
 
-      snprintf(outfile, sizeof(outfile), "%s/%s", fsrv->out_file,
+      snprintf(outfile, sizeof(outfile), "%s/%s", out_file,
                dir_ent->d_name);
 
       if (read_file(infile)) {
@@ -918,7 +899,9 @@ int main(int argc, char **argv_orig, char **envp) {
   } else {
 
     run_target(fsrv, use_argv);
-    tcnt = write_results(fsrv);
+    tcnt = write_results_to_file(fsrv, out_file);
+
+
 
   }
 
@@ -926,7 +909,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (!tcnt) FATAL("No instrumentation detected" cRST);
     OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST,
-        tcnt, highest, total, fsrv->out_file);
+        tcnt, highest, total, out_file);
 
   }
 
