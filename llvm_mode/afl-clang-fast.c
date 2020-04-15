@@ -184,7 +184,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       sprintf(llvm_fullpath, CLANGPP_BIN);
     cc_params[0] = alt_cxx && *alt_cxx ? alt_cxx : (u8 *)llvm_fullpath;
 
-  } else {
+  } else if (!strcmp(name, "afl-clang-fast") || !strcmp(name, "afl-clang-lto")) {
 
     u8 *alt_cc = getenv("AFL_CC");
     if (USE_BINDIR)
@@ -193,6 +193,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       sprintf(llvm_fullpath, CLANG_BIN);
     cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)llvm_fullpath;
 
+  } else {
+    fprintf(stderr, "Name of the binary: %s\n", argv[0]);
+    FATAL("Name of the binary is not a known name, expected afl-clang-fast(++) or afl-clang-lto(++)");
   }
 
   /* There are three ways to compile with afl-clang-fast. In the traditional
