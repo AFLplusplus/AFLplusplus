@@ -223,8 +223,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (!getenv("AFL_LLVM_LTO_AUTODICTIONARY") // disabled when autodictionary
-    && instrument_mode != INSTRUMENT_LTO     // and lto_mode is used
+  if ((!(getenv("AFL_LLVM_LTO_AUTODICTIONARY") // disabled when autodictionary
+    && instrument_mode != INSTRUMENT_LTO))     // and lto_mode is used
     && (getenv("LAF_TRANSFORM_COMPARES") ||
         getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES"))) {
 
