@@ -8,7 +8,8 @@
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+                        Andrea Fioraldi <andreafioraldi@gmail.com> and
+                        Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -61,6 +62,7 @@
 static u8 *mask_bitmap;                /* Mask for trace bits (-B)          */
 
 static u8 *in_file,                    /* Minimizer input test case         */
+    *out_file,
     *output_file;                      /* Minimizer output file             */
 
 static u8 *in_data;                    /* Input data for trimming           */
@@ -214,46 +216,13 @@ static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 
 }
 
-/* Write modified data to file for testing. If use_stdin is clear, the old file
-   is unlinked and a new one is created. Otherwise, out_fd is rewound and
-   truncated. */
-
-static void write_to_testcase(afl_forkserver_t *fsrv, void *mem, u32 len) {
-
-  s32 fd = fsrv->out_fd;
-
-  if (!fsrv->use_stdin) {
-
-    unlink(fsrv->out_file);                               /* Ignore errors. */
-
-    fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
-
-    if (fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
-
-  } else
-
-    lseek(fd, 0, SEEK_SET);
-
-  ck_write(fd, mem, len, fsrv->out_file);
-
-  if (fsrv->use_stdin) {
-
-    if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
-    lseek(fd, 0, SEEK_SET);
-
-  } else
-
-    close(fd);
-
-}
-
 /* Execute target application. Returns 0 if the changes are a dud, or
    1 if they should be kept. */
 
 static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
                      u8 first_run) {
 
-  write_to_testcase(fsrv, mem, len);
+  afl_fsrv_write_to_testcase(fsrv, mem, len);
 
   fsrv_run_result_t ret =
       afl_fsrv_run_target(fsrv, fsrv->exec_tmout, classify_counts, &stop_soon);
@@ -613,7 +582,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
   fsrv->dev_null_fd = open("/dev/null", O_RDWR);
   if (fsrv->dev_null_fd < 0) PFATAL("Unable to open /dev/null");
 
-  if (!fsrv->out_file) {
+  if (!out_file) {
 
     u8 *use_dir = ".";
 
@@ -624,15 +593,15 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     }
 
-    fsrv->out_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
+    out_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
 
   }
 
-  unlink(fsrv->out_file);
+  unlink(out_file);
 
-  fsrv->out_fd = open(fsrv->out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
+  fsrv->out_fd = open(out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
+  if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", out_file);
 
   /* Set sane defaults... */
 
@@ -888,9 +857,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'f':
 
-        if (fsrv->out_file) FATAL("Multiple -f options not supported");
+        if (out_file) FATAL("Multiple -f options not supported");
         fsrv->use_stdin = 0;
-        fsrv->out_file = optarg;
+        out_file = optarg;
         break;
 
       case 'e':
@@ -1035,7 +1004,7 @@ int main(int argc, char **argv_orig, char **envp) {
   set_up_environment(fsrv);
 
   find_binary(fsrv, argv[optind]);
-  detect_file_args(argv + optind, fsrv->out_file, &fsrv->use_stdin);
+  detect_file_args(argv + optind, out_file, &fsrv->use_stdin);
 
   if (fsrv->qemu_mode) {
 
@@ -1105,9 +1074,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   ACTF("Writing output to '%s'...", output_file);
 
-  unlink(fsrv->out_file);
-  if (fsrv->out_file) ck_free(fsrv->out_file);
-  fsrv->out_file = NULL;
+  unlink(out_file);
+  if (out_file) ck_free(out_file);
+  out_file = NULL;
 
   close(write_to_file(output_file, in_data, in_len));
 

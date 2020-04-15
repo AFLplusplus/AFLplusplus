@@ -8,7 +8,9 @@
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+                        Andrea Fioraldi <andreafioraldi@gmail.com> and
+                        Dominik Maier <mail@dmnk.co>
+
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -38,10 +40,12 @@
 #include <time.h>
 #include <errno.h>
 #include <signal.h>
+#include <fcntl.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <sys/select.h>
+#include <sys/stat.h>
 
 /**
  * The correct fds for reading and writing pipes
@@ -64,15 +68,20 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   // this structure needs default so we initialize it if this was not done
   // already
 
-  fsrv->use_stdin = 1;
   fsrv->out_fd = -1;
   fsrv->out_dir_fd = -1;
   fsrv->dev_null_fd = -1;
 #ifndef HAVE_ARC4RANDOM
   fsrv->dev_urandom_fd = -1;
 #endif
+  /* Settings */
+  fsrv->use_stdin = 1;
+  fsrv->no_unlink = 0;
   fsrv->exec_tmout = EXEC_TIMEOUT;
   fsrv->mem_limit = MEM_LIMIT;
+  fsrv->out_file = NULL;
+
+  /* exec related stuff */
   fsrv->child_pid = -1;
   fsrv->map_size = MAP_SIZE;
   fsrv->use_fauxsrv = 0;
@@ -103,6 +112,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_pid = -1;
   fsrv_to->use_fauxsrv = 0;
   fsrv_to->last_run_timed_out = 0;
+  fsrv_to->out_file = NULL;
 
   fsrv_to->init_child_func = fsrv_exec_child;
 
@@ -635,6 +645,48 @@ static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
     kill(fsrv->fsrv_pid, SIGKILL);
     if (waitpid(fsrv->fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
+
+  }
+
+}
+
+/* Delete the current testcase and write the buf to the testcase file */
+
+void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
+
+  s32 fd = fsrv->out_fd;
+
+  if (fsrv->out_file) {
+
+    if (fsrv->no_unlink) {
+
+      fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+    } else {
+
+      unlink(fsrv->out_file);                             /* Ignore errors. */
+      fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+
+    }
+
+    if (fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
+
+  } else {
+
+    lseek(fd, 0, SEEK_SET);
+
+  }
+
+  ck_write(fd, buf, len, fsrv->out_file);
+
+  if (!fsrv->out_file) {
+
+    if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
+    lseek(fd, 0, SEEK_SET);
+
+  } else {
+
+    close(fd);
 
   }
 

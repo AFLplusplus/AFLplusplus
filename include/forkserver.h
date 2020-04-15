@@ -51,6 +51,8 @@ typedef struct afl_forkserver {
       fsrv_ctl_fd,                      /* Fork server control pipe (write) */
       fsrv_st_fd;                       /* Fork server status pipe (read)   */
 
+  u8 no_unlink;                         /* do not unlink cur_input          */
+
   u32 exec_tmout;                       /* Configurable exec timeout (ms)   */
   u32 map_size;                         /* map size used by the target      */
   u32 snapshot;                         /* is snapshot feature used         */
@@ -97,6 +99,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv);
 void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from);
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output);
+void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len);
 fsrv_run_result_t afl_fsrv_run_target(
     afl_forkserver_t *fsrv, u32 timeout,
     void(classify_counts_func)(afl_forkserver_t *fsrv),

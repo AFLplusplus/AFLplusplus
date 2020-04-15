@@ -6,7 +6,8 @@
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+                        Andrea Fioraldi <andreafioraldi@gmail.com> and
+                        Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -45,8 +46,6 @@ fsrv_run_result_t run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
 
 void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
-  s32 fd = afl->fsrv.out_fd;
-
 #ifdef _AFL_DOCUMENT_MUTATIONS
   s32  doc_fd;
   char fn[PATH_MAX];
@@ -63,25 +62,6 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
 #endif
 
-  if (afl->fsrv.out_file) {
-
-    if (afl->no_unlink) {
-
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-
-    } else {
-
-      unlink(afl->fsrv.out_file);                         /* Ignore errors. */
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
-
-    }
-
-    if (fd < 0) PFATAL("Unable to create '%s'", afl->fsrv.out_file);
-
-  } else
-
-    lseek(fd, 0, SEEK_SET);
-
   if (unlikely(afl->mutator && afl->mutator->afl_custom_pre_save)) {
 
     u8 *new_buf = NULL;
@@ -93,23 +73,14 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
       FATAL("Custom_pre_save failed (ret: %lu)", (long unsigned)new_size);
 
     /* everything as planned. use the new data. */
-    ck_write(fd, new_buf, new_size, afl->fsrv.out_file);
+    afl_fsrv_write_to_testcase(&afl->fsrv, new_buf, new_size);
 
   } else {
 
     /* boring uncustom. */
-    ck_write(fd, mem, len, afl->fsrv.out_file);
+    afl_fsrv_write_to_testcase(&afl->fsrv, mem, len);
 
   }
-
-  if (!afl->fsrv.out_file) {
-
-    if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
-    lseek(fd, 0, SEEK_SET);
-
-  } else
-
-    close(fd);
 
 }
 
