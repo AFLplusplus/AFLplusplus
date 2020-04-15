@@ -353,7 +353,7 @@ void init_count_class16(void) {
 
 void classify_counts(afl_forkserver_t *fsrv) {
 
-  u32 *mem = (u32 *)fsrv->trace_bits;
+  u64 *mem = (u64 *)fsrv->trace_bits;
 
   u32 i = (fsrv->map_size >> 3);
 
@@ -384,7 +384,7 @@ void classify_counts(afl_forkserver_t *fsrv) {
 
 void classify_counts(afl_forkserver_t *fsrv) {
 
-  u64 *mem = (u64 *)fsrv->trace_bits;
+  u32 *mem = (u32 *)fsrv->trace_bits;
 
   u32 i = (fsrv->map_size >> 2);
 
