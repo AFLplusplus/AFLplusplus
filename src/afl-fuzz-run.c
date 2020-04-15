@@ -35,15 +35,7 @@
 fsrv_run_result_t run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
                              u32 timeout) {
 
-  fsrv_run_result_t res = afl_fsrv_run_target(&afl->fsrv, &afl->stop_soon);
-
-#ifdef WORD_SIZE_64
-  classify_counts(afl, (u64 *)fsrv->trace_bits);
-#else
-  classify_counts(afl, (u32 *)fsrv->trace_bits);
-#endif                                                     /* ^WORD_SIZE_64 */
-
-  return res;
+  return afl_fsrv_run_target(fsrv, timeout, classify_counts, &afl->stop_soon);
 
 }
 

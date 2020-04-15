@@ -100,8 +100,29 @@ static const u8 count_class_lookup[256] = {
 
 };
 
-static void classify_counts(u8 *mem) {
+/* Apply mask to classified bitmap (if set). */
 
+static void apply_mask(u32 *mem, u32 *mask) {
+
+  u32 i = (MAP_SIZE >> 2);
+
+  if (!mask) return;
+
+  while (i--) {
+
+    *mem &= ~*mask;
+    mem++;
+    mask++;
+
+  }
+
+}
+
+static void classify_counts(afl_forkserver_t *fsrv) {
+
+  if (hang_mode) return;                              /* We only want hangs */
+
+  u8 *mem = fsrv->trace_bits;
   u32 i = MAP_SIZE;
 
   if (edges_only) {
@@ -124,23 +145,7 @@ static void classify_counts(u8 *mem) {
 
   }
 
-}
-
-/* Apply mask to classified bitmap (if set). */
-
-static void apply_mask(u32 *mem, u32 *mask) {
-
-  u32 i = (MAP_SIZE >> 2);
-
-  if (!mask) return;
-
-  while (i--) {
-
-    *mem &= ~*mask;
-    mem++;
-    mask++;
-
-  }
+  apply_mask((u32 *)fsrv->trace_bits, (u32 *)mask_bitmap);
 
 }
 
@@ -250,16 +255,10 @@ static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
   write_to_testcase(fsrv, mem, len);
 
-  fsrv_run_result_t ret = afl_fsrv_run_target(fsrv, &stop_soon);
+  fsrv_run_result_t ret =
+      afl_fsrv_run_target(fsrv, fsrv->exec_tmout, classify_counts, &stop_soon);
 
   if (ret == FSRV_RUN_ERROR) FATAL("Couldn't run child");
-
-  if (!hang_mode) {
-
-    classify_counts(fsrv->trace_bits);
-    apply_mask((u32 *)fsrv->trace_bits, (u32 *)mask_bitmap);
-
-  }
 
   if (stop_soon) {
 

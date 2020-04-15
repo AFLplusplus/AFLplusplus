@@ -97,10 +97,12 @@ void afl_fsrv_init(afl_forkserver_t *fsrv);
 void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from);
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output);
-fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv,
-                                      volatile u8 *     stop_soon_p);
-void              afl_fsrv_killall(void);
-void              afl_fsrv_deinit(afl_forkserver_t *fsrv);
+fsrv_run_result_t afl_fsrv_run_target(
+    afl_forkserver_t *fsrv, u32 timeout,
+    void(classify_counts_func)(afl_forkserver_t *fsrv),
+    volatile u8 *stop_soon_p);
+void afl_fsrv_killall(void);
+void afl_fsrv_deinit(afl_forkserver_t *fsrv);
 
 #ifdef __APPLE__
 #define MSG_FORK_ON_APPLE                                                    \
