@@ -8,7 +8,9 @@
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+                        Andrea Fioraldi <andreafioraldi@gmail.com> and
+                        Dominik Maier <mail@dmnk.co>
+
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -38,10 +40,12 @@
 #include <time.h>
 #include <errno.h>
 #include <signal.h>
+#include <fcntl.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <sys/select.h>
+#include <sys/stat.h>
 
 /**
  * The correct fds for reading and writing pipes
@@ -64,15 +68,20 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   // this structure needs default so we initialize it if this was not done
   // already
 
-  fsrv->use_stdin = 1;
   fsrv->out_fd = -1;
   fsrv->out_dir_fd = -1;
   fsrv->dev_null_fd = -1;
 #ifndef HAVE_ARC4RANDOM
   fsrv->dev_urandom_fd = -1;
 #endif
+  /* Settings */
+  fsrv->use_stdin = 1;
+  fsrv->no_unlink = 0;
   fsrv->exec_tmout = EXEC_TIMEOUT;
   fsrv->mem_limit = MEM_LIMIT;
+  fsrv->out_file = NULL;
+
+  /* exec related stuff */
   fsrv->child_pid = -1;
   fsrv->map_size = MAP_SIZE;
   fsrv->use_fauxsrv = 0;
@@ -103,6 +112,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_pid = -1;
   fsrv_to->use_fauxsrv = 0;
   fsrv_to->last_run_timed_out = 0;
+  fsrv_to->out_file = NULL;
 
   fsrv_to->init_child_func = fsrv_exec_child;
 
@@ -385,7 +395,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
 
-      if (!be_quiet)
+      if (!be_quiet && getenv("AFL_DEBUG"))
         ACTF("Extended forkserver functions received (%08x).", status);
 
       if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
@@ -398,13 +408,19 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       if ((status & FS_OPT_MAPSIZE) == FS_OPT_MAPSIZE) {
 
         fsrv->map_size = FS_OPT_GET_MAPSIZE(status);
-        if (fsrv->map_size % 8)  // should not happen
+        if (unlikely(fsrv->map_size % 8)) {
+
+          // should not happen
+          WARNF("Target reported non-aligned map size of %ud", fsrv->map_size);
           fsrv->map_size = (((fsrv->map_size + 8) >> 3) << 3);
+
+        }
+
         if (!be_quiet) ACTF("Target map size: %u", fsrv->map_size);
         if (fsrv->map_size > MAP_SIZE)
           FATAL(
               "Target's coverage map size of %u is larger than the one this "
-              "afl++ is compiled with (%u)\n",
+              "afl++ is compiled with (%u) (change MAP_SIZE and recompile)\n",
               fsrv->map_size, MAP_SIZE);
 
       }
@@ -434,7 +450,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         u32 len = status, offset = 0, count = 0;
         u8 *dict = ck_alloc(len);
         if (dict == NULL)
-          FATAL("Could not allocate %u bytes of autodictionary memmory", len);
+          FATAL("Could not allocate %u bytes of autodictionary memory", len);
 
         while (len != 0) {
 
@@ -640,13 +656,53 @@ static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
 }
 
+/* Delete the current testcase and write the buf to the testcase file */
+
+void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
+
+  s32 fd = fsrv->out_fd;
+
+  if (fsrv->out_file) {
+
+    if (fsrv->no_unlink) {
+
+      fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+    } else {
+
+      unlink(fsrv->out_file);                             /* Ignore errors. */
+      fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+
+    }
+
+    if (fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
+
+  } else {
+
+    lseek(fd, 0, SEEK_SET);
+
+  }
+
+  ck_write(fd, buf, len, fsrv->out_file);
+
+  if (!fsrv->out_file) {
+
+    if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
+    lseek(fd, 0, SEEK_SET);
+
+  } else {
+
+    close(fd);
+
+  }
+
+}
+
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t afl_fsrv_run_target(
-    afl_forkserver_t *fsrv, u32 timeout,
-    void(classify_counts_func)(afl_forkserver_t *fsrv),
-    volatile u8 *stop_soon_p) {
+fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
+                                      volatile u8 *stop_soon_p) {
 
   s32 res;
   u32 exec_ms;
@@ -675,7 +731,7 @@ fsrv_run_result_t afl_fsrv_run_target(
 
   if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
 
-    if (stop_soon_p) return 0;
+    if (*stop_soon_p) return 0;
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
@@ -732,9 +788,6 @@ fsrv_run_result_t afl_fsrv_run_target(
      behave very normally and do not have to be treated as volatile. */
 
   MEM_BARRIER();
-  u32 tb4 = *(u32 *)fsrv->trace_bits;
-
-  if (likely(classify_counts_func)) classify_counts_func(fsrv);
 
   /* Report outcome to caller. */
 
@@ -759,7 +812,8 @@ fsrv_run_result_t afl_fsrv_run_target(
 
   }
 
-  if (tb4 == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
+  // Fauxserver should handle this now.
+  // if (tb4 == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
 
   return FSRV_RUN_OK;
 

@@ -1841,6 +1841,8 @@ static const unsigned char heap[] = {2,3,4,105,111,116,97,2,3,7,112,97,116,116,1
 #include <stdio.h>
 #include <netdb.h>
 
+#include "./radamsa.h"
+
 #ifndef EMULTIHOP
 #define EMULTIHOP -1
 #endif
@@ -2155,17 +2157,17 @@ static word *gc(int size, word *regs) {
 
 /*** OS Interaction and Helpers ***/
 
-static void signal_handler(int signal) {
-   switch (signal) {
-      case SIGINT:
-         breaked |= 2;
-         break;
-      case SIGPIPE:
-         break; /* can cause loop when reporting errors */
-      default:
-         breaked |= 4;
-   }
-}
+//static void signal_handler(int signal) {
+//   switch (signal) {
+//      case SIGINT:
+//         breaked |= 2;
+//         break;
+//      case SIGPIPE:
+//         break; /* can cause loop when reporting errors */
+//      default:
+//         breaked |= 4;
+//   }
+//}
 
 /* list length, no overflow or valid termination checks */
 static uint llen(word *ptr) {
@@ -2176,7 +2178,7 @@ static uint llen(word *ptr) {
    }
    return len;
 }
-
+/*
 static void set_signal_handler(void) {
    struct sigaction sa;
    sa.sa_handler = signal_handler;
@@ -2185,7 +2187,7 @@ static void set_signal_handler(void) {
    sigaction(SIGINT, &sa, NULL);
    sigaction(SIGPIPE, &sa, NULL);
 }
-
+*/
 static word mkpair(word h, word a, word d) {
    word *pair;
    allocate(3, pair);
@@ -30683,7 +30685,7 @@ static void heap_metrics(int *rwords, int *rnobjs) {
       get_obj_metrics(rwords, rnobjs);
    hp = hp_start;
 }
-
+/*
 static void read_heap(const char *path) {
    struct stat st;
    off_t pos = 0;
@@ -30703,25 +30705,26 @@ static void read_heap(const char *path) {
    } while (n && (pos += n) < st.st_size);
    close(fd);
 }
+*/
 
 /* find a fasl image source to *hp or exit */
-static void find_heap(int *nargs, char ***argv, int *nobjs, int *nwords) {
-   file_heap = NULL;
-   if ((word)heap == 0) {
+//static void find_heap(int *nargs, char ***argv, int *nobjs, int *nwords) {
+//   file_heap = NULL;
+//   if ((word)heap == 0) {
       /* if no preloaded heap, try to load it from first vm arg */
-      if (*nargs < 2)
-         exit(1);
-      read_heap(argv[0][1]);
-      ++*argv;
-      --*nargs;
-      hp = file_heap;
-      if (*hp == '#')
-         while (*hp++ != '\n');
-   } else {
-      hp = heap; /* builtin heap */
-   }
-   heap_metrics(nwords, nobjs);
-}
+//      if (*nargs < 2)
+//         exit(1);
+//      read_heap(argv[0][1]);
+//      ++*argv;
+//      --*nargs;
+//      hp = file_heap;
+//      if (*hp == '#')
+//         while (*hp++ != '\n');
+//   } else {
+//      hp = heap; /* builtin heap */
+//   }
+//   heap_metrics(nwords, nobjs);
+//}
 
 static word *decode_fasl(uint nobjs) {
    word *ptrs;
@@ -30744,7 +30747,7 @@ static word *load_heap(uint nobjs) {
       free(file_heap);
    return entry;
 }
-
+/*
 static void setup(int nwords, int nobjs) {
    tcgetattr(0, &tsettings);
    state = IFALSE;
@@ -30757,7 +30760,7 @@ static void setup(int nwords, int nobjs) {
    memend = memstart + nwords - MEMPAD;
 }
 
-int secondary(int nargs, char **argv) {
+static int secondary(int nargs, char **argv) {
    word *prog;
    int rval, nobjs=0, nwords=0;
    find_heap(&nargs, &argv, &nobjs, &nwords);
@@ -30772,6 +30775,7 @@ int secondary(int nargs, char **argv) {
    }
    return 127;
 }
+*/
 
 void radamsa_init(void) {
    int nobjs=0, nwords=0;
@@ -30787,7 +30791,7 @@ void radamsa_init(void) {
 }
 
 /* bvec → value library call test with preserved state */
-word library_call(word val) {
+static word library_call(word val) {
    word program_state = state;
    word res;
    state = IFALSE; 
@@ -30798,7 +30802,8 @@ word library_call(word val) {
    return res;
 }
 
-size_t list_length(word lispval) {
+/*
+static size_t list_length(word lispval) {
    size_t l = 0;
    while(lispval != INULL) {
       lispval = G(lispval, 2);
@@ -30806,8 +30811,9 @@ size_t list_length(word lispval) {
    }
    return l;
 }
+*/
 
-size_t copy_list(uint8_t *ptr, word lispval, size_t max) {
+static size_t copy_list(uint8_t *ptr, word lispval, size_t max) {
    size_t n = 0;
    while(pairp((word)lispval) && max-- && lispval != INULL) {
       *ptr++ = 255 & immval(G(lispval, 1)); // *ptr++ = car(list)

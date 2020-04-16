@@ -60,7 +60,7 @@
 #include <sys/shm.h>
 #endif
 
-list_t shm_list = {.element_prealloc_count = 0};
+static list_t shm_list = {.element_prealloc_count = 0};
 
 /* Get rid of shared memory. */
 

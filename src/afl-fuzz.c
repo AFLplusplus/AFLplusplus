@@ -420,6 +420,8 @@ int main(int argc, char **argv_orig, char **envp) {
         if (mem_limit_given) FATAL("Multiple -m options not supported");
         mem_limit_given = 1;
 
+        if (!optarg) FATAL("Wrong usage of -m");
+
         if (!strcmp(optarg, "none")) {
 
           afl->fsrv.mem_limit = 0;
@@ -474,7 +476,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->in_bitmap) FATAL("Multiple -B options not supported");
 
         afl->in_bitmap = optarg;
-        read_bitmap(afl, afl->in_bitmap);
+        read_bitmap(afl->in_bitmap, afl->virgin_bits, MAP_SIZE);
         break;
 
       case 'C':                                               /* crash mode */

@@ -209,7 +209,7 @@ static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 /* Execute target application. Returns exec checksum, or 0 if program
    times out. */
 
-static u32 run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
+static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   static struct itimerval it;
   int                     status = 0;
@@ -560,16 +560,16 @@ static void analyze(char **argv) {
        code. */
 
     in_data[i] ^= 0xff;
-    xor_ff = run_target(argv, in_data, in_len, 0);
+    xor_ff = analyze_run_target(argv, in_data, in_len, 0);
 
     in_data[i] ^= 0xfe;
-    xor_01 = run_target(argv, in_data, in_len, 0);
+    xor_01 = analyze_run_target(argv, in_data, in_len, 0);
 
     in_data[i] = (in_data[i] ^ 0x01) - 0x10;
-    sub_10 = run_target(argv, in_data, in_len, 0);
+    sub_10 = analyze_run_target(argv, in_data, in_len, 0);
 
     in_data[i] += 0x20;
-    add_10 = run_target(argv, in_data, in_len, 0);
+    add_10 = analyze_run_target(argv, in_data, in_len, 0);
     in_data[i] -= 0x10;
 
     /* Classify current behavior. */
@@ -805,61 +805,6 @@ static void usage(u8 *argv0) {
 
 }
 
-/* Find binary. */
-
-static void find_binary(u8 *fname) {
-
-  u8 *        env_path = 0;
-  struct stat st;
-
-  if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
-
-    target_path = ck_strdup(fname);
-
-    if (stat(target_path, &st) || !S_ISREG(st.st_mode) ||
-        !(st.st_mode & 0111) || st.st_size < 4)
-      FATAL("Program '%s' not found or not executable", fname);
-
-  } else {
-
-    while (env_path) {
-
-      u8 *cur_elem, *delim = strchr(env_path, ':');
-
-      if (delim) {
-
-        cur_elem = ck_alloc(delim - env_path + 1);
-        memcpy(cur_elem, env_path, delim - env_path);
-        delim++;
-
-      } else
-
-        cur_elem = ck_strdup(env_path);
-
-      env_path = delim;
-
-      if (cur_elem[0])
-        target_path = alloc_printf("%s/%s", cur_elem, fname);
-      else
-        target_path = ck_strdup(fname);
-
-      ck_free(cur_elem);
-
-      if (!stat(target_path, &st) && S_ISREG(st.st_mode) &&
-          (st.st_mode & 0111) && st.st_size >= 4)
-        break;
-
-      ck_free(target_path);
-      target_path = 0;
-
-    }
-
-    if (!target_path) FATAL("Program '%s' not found or not executable", fname);
-
-  }
-
-}
-
 /* Main entry point */
 
 int main(int argc, char **argv, char **envp) {
@@ -902,7 +847,7 @@ int main(int argc, char **argv, char **envp) {
         if (mem_limit_given) FATAL("Multiple -m options not supported");
         mem_limit_given = 1;
 
-        if (!optarg) { FATAL("Bad syntax used for -m"); }
+        if (!optarg) { FATAL("Wrong usage of -m"); }
 
         if (!strcmp(optarg, "none")) {
 
@@ -997,7 +942,7 @@ int main(int argc, char **argv, char **envp) {
 
   set_up_environment();
 
-  find_binary(argv[optind]);
+  target_path = find_binary(argv[optind]);
   detect_file_args(argv + optind, prog_in, &use_stdin);
 
   if (qemu_mode) {
@@ -1020,7 +965,7 @@ int main(int argc, char **argv, char **envp) {
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");
 
-  run_target(use_argv, in_data, in_len, 1);
+  analyze_run_target(use_argv, in_data, in_len, 1);
 
   if (child_timed_out)
     FATAL("Target binary times out (adjusting -t may help).");
@@ -1031,6 +976,8 @@ int main(int argc, char **argv, char **envp) {
   analyze(use_argv);
 
   OKF("We're done here. Have a nice day!\n");
+
+  if (target_path) ck_free(target_path);
 
   afl_shm_deinit(&shm);
 

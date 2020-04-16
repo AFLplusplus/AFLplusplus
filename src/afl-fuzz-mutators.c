@@ -27,9 +27,6 @@
 #include "afl-fuzz.h"
 
 void load_custom_mutator(afl_state_t *, const char *);
-#ifdef USE_PYTHON
-void load_custom_mutator_py(afl_state_t *, char *);
-#endif
 
 void setup_custom_mutator(afl_state_t *afl) {
 
@@ -239,7 +236,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     write_to_testcase(afl, retbuf, retlen);
 
-    fault = run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+    fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
     ++afl->trim_execs;
 
     if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }

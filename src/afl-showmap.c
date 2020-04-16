@@ -8,7 +8,8 @@
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+                        Andrea Fioraldi <andreafioraldi@gmail.com> and
+                        Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -61,8 +62,8 @@
 
 static char *stdin_file;               /* stdin file                        */
 
-static u8 *in_dir,                     /* input folder                      */
-    *at_file = NULL;              /* Substitution string for @@             */
+static u8 *in_dir = NULL,              /* input folder                      */
+    *out_file = NULL, *at_file = NULL;        /* Substitution string for @@ */
 
 static u8 *in_data;                    /* Input data                        */
 
@@ -157,7 +158,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
     fd = open(outfile, O_WRONLY);
 
-    if (fd < 0) PFATAL("Unable to open '%s'", fsrv->out_file);
+    if (fd < 0) PFATAL("Unable to open '%s'", out_file);
 
   } else if (!strcmp(outfile, "-")) {
 
@@ -215,40 +216,21 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
 }
 
-/* Write results. */
-
-static u32 write_results(afl_forkserver_t *fsrv) {
-
-  return write_results_to_file(fsrv, fsrv->out_file);
-
-}
-
-/* Write modified data to file for testing. If use_stdin is clear, the old file
-   is unlinked and a new one is created. Otherwise, out_fd is rewound and
-   truncated. */
-
-static void write_to_testcase(afl_forkserver_t *fsrv, void *mem, u32 len) {
-
-  lseek(fsrv->out_fd, 0, SEEK_SET);
-  ck_write(fsrv->out_fd, mem, len, fsrv->out_file);
-  if (ftruncate(fsrv->out_fd, len)) PFATAL("ftruncate() failed");
-  lseek(fsrv->out_fd, 0, SEEK_SET);
-
-}
-
 /* Execute target application. */
 
-void run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
+static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
                            u32 len) {
 
-  write_to_testcase(fsrv, mem, len);
+  afl_fsrv_write_to_testcase(fsrv, mem, len);
 
-  if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, classify_counts,
-                          &stop_soon) == FSRV_RUN_ERROR) {
+  if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
+      FSRV_RUN_ERROR) {
 
     FATAL("Error running target");
 
   }
+
+  classify_counts(fsrv);
 
   if (stop_soon) {
 
@@ -261,7 +243,7 @@ void run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
 
 /* Read initial file. */
 
-u32 read_file(u8 *in_file) {
+static u32 read_file(u8 *in_file) {
 
   struct stat st;
   s32         fd = open(in_file, O_RDONLY);
@@ -286,7 +268,7 @@ u32 read_file(u8 *in_file) {
 
 /* Execute target application. */
 
-static void run_target(afl_forkserver_t *fsrv, char **argv) {
+static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   static struct itimerval it;
   int                     status = 0;
@@ -544,62 +526,6 @@ static void usage(u8 *argv0) {
 
 }
 
-/* Find binary. */
-
-static void find_binary(afl_forkserver_t *fsrv, u8 *fname) {
-
-  u8 *        env_path = 0;
-  struct stat st;
-
-  if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
-
-    fsrv->target_path = ck_strdup(fname);
-
-    if (stat(fsrv->target_path, &st) || !S_ISREG(st.st_mode) ||
-        !(st.st_mode & 0111) || st.st_size < 4)
-      FATAL("Program '%s' not found or not executable", fname);
-
-  } else {
-
-    while (env_path) {
-
-      u8 *cur_elem, *delim = strchr(env_path, ':');
-
-      if (delim) {
-
-        cur_elem = ck_alloc(delim - env_path + 1);
-        memcpy(cur_elem, env_path, delim - env_path);
-        delim++;
-
-      } else
-
-        cur_elem = ck_strdup(env_path);
-
-      env_path = delim;
-
-      if (cur_elem[0])
-        fsrv->target_path = alloc_printf("%s/%s", cur_elem, fname);
-      else
-        fsrv->target_path = ck_strdup(fname);
-
-      ck_free(cur_elem);
-
-      if (!stat(fsrv->target_path, &st) && S_ISREG(st.st_mode) &&
-          (st.st_mode & 0111) && st.st_size >= 4)
-        break;
-
-      ck_free(fsrv->target_path);
-      fsrv->target_path = NULL;
-
-    }
-
-    if (!fsrv->target_path)
-      FATAL("Program '%s' not found or not executable", fname);
-
-  }
-
-}
-
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
@@ -632,8 +558,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'o':
 
-        if (fsrv->out_file) FATAL("Multiple -o options not supported");
-        fsrv->out_file = optarg;
+        if (out_file) FATAL("Multiple -o options not supported");
+        out_file = optarg;
         break;
 
       case 'm': {
@@ -642,6 +568,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (mem_limit_given) FATAL("Multiple -m options not supported");
         mem_limit_given = 1;
+
+        if (!optarg) FATAL("Wrong usage of -m");
 
         if (!strcmp(optarg, "none")) {
 
@@ -685,6 +613,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (timeout_given) FATAL("Multiple -t options not supported");
         timeout_given = 1;
+
+        if (!optarg) FATAL("Wrong usage of -t");
 
         if (strcmp(optarg, "none")) {
 
@@ -780,7 +710,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-  if (optind == argc || !fsrv->out_file) usage(argv[0]);
+  if (optind == argc || !out_file) usage(argv[0]);
 
   check_environment_vars(envp);
 
@@ -790,7 +720,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(fsrv);
 
-  find_binary(fsrv, argv[optind]);
+  fsrv->target_path = find_binary(argv[optind]);
 
   if (!quiet_mode) {
 
@@ -831,7 +761,7 @@ int main(int argc, char **argv_orig, char **envp) {
     DIR *          dir_in, *dir_out;
     struct dirent *dir_ent;
     int            done = 0;
-    u8             infile[4096], outfile[4096];
+    u8             infile[PATH_MAX], outfile[PATH_MAX];
 #if !defined(DT_REG)
     struct stat statbuf;
 #endif
@@ -841,9 +771,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (!(dir_in = opendir(in_dir))) PFATAL("cannot open directory %s", in_dir);
 
-    if (!(dir_out = opendir(fsrv->out_file)))
-      if (mkdir(fsrv->out_file, 0700))
-        PFATAL("cannot create output directory %s", fsrv->out_file);
+    if (!(dir_out = opendir(out_file)))
+      if (mkdir(out_file, 0700))
+        PFATAL("cannot create output directory %s", out_file);
 
     u8 *use_dir = ".";
 
@@ -858,7 +788,7 @@ int main(int argc, char **argv_orig, char **envp) {
     unlink(stdin_file);
     atexit(at_exit_handler);
     fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
-    if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
+    if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", out_file);
 
     if (arg_offset && argv[arg_offset] != stdin_file) {
 
@@ -897,12 +827,11 @@ int main(int argc, char **argv_orig, char **envp) {
       if (-1 == stat(infile, &statbuf) || !S_ISREG(statbuf.st_mode)) continue;
 #endif
 
-      snprintf(outfile, sizeof(outfile), "%s/%s", fsrv->out_file,
-               dir_ent->d_name);
+      snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
 
       if (read_file(infile)) {
 
-        run_target_forkserver(fsrv, use_argv, in_data, in_len);
+        showmap_run_target_forkserver(fsrv, use_argv, in_data, in_len);
         ck_free(in_data);
         tcnt = write_results_to_file(fsrv, outfile);
 
@@ -917,8 +846,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
-    run_target(fsrv, use_argv);
-    tcnt = write_results(fsrv);
+    showmap_run_target(fsrv, use_argv);
+    tcnt = write_results_to_file(fsrv, out_file);
 
   }
 
@@ -926,7 +855,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (!tcnt) FATAL("No instrumentation detected" cRST);
     OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST,
-        tcnt, highest, total, fsrv->out_file);
+        tcnt, highest, total, out_file);
 
   }
 
