@@ -2178,7 +2178,7 @@ static uint llen(word *ptr) {
    }
    return len;
 }
-
+/*
 static void set_signal_handler(void) {
    struct sigaction sa;
    sa.sa_handler = signal_handler;
@@ -2187,7 +2187,7 @@ static void set_signal_handler(void) {
    sigaction(SIGINT, &sa, NULL);
    sigaction(SIGPIPE, &sa, NULL);
 }
-
+*/
 static word mkpair(word h, word a, word d) {
    word *pair;
    allocate(3, pair);
@@ -30685,7 +30685,7 @@ static void heap_metrics(int *rwords, int *rnobjs) {
       get_obj_metrics(rwords, rnobjs);
    hp = hp_start;
 }
-
+/*
 static void read_heap(const char *path) {
    struct stat st;
    off_t pos = 0;
@@ -30705,6 +30705,7 @@ static void read_heap(const char *path) {
    } while (n && (pos += n) < st.st_size);
    close(fd);
 }
+*/
 
 /* find a fasl image source to *hp or exit */
 //static void find_heap(int *nargs, char ***argv, int *nobjs, int *nwords) {
