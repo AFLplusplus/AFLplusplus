@@ -65,7 +65,7 @@ typedef struct afl_forkserver {
 
   FILE *plot_file;                      /* Gnuplot output file              */
 
-  u8 last_run_timed_out;                /* Traced process timed out?        */
+  u32 last_run_timed_out;               /* Traced process timed out?        */
 
   u8 last_kill_signal;                  /* Signal that killed the child     */
 
