@@ -977,6 +977,8 @@ int main(int argc, char **argv, char **envp) {
 
   OKF("We're done here. Have a nice day!\n");
 
+  if (target_path) ck_free(target_path);
+
   afl_shm_deinit(&shm);
 
   exit(0);
