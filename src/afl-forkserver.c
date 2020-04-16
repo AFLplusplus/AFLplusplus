@@ -88,6 +88,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
   fsrv_to->use_stdin = from->use_stdin;
+  fsrv_to->out_fd = from->out_fd;
   fsrv_to->dev_null_fd = from->dev_null_fd;
   fsrv_to->exec_tmout = from->exec_tmout;
   fsrv_to->mem_limit = from->mem_limit;
@@ -98,7 +99,6 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 #endif
 
   // These are forkserver specific.
-  fsrv_to->out_fd = -1;
   fsrv_to->out_dir_fd = -1;
   fsrv_to->child_pid = -1;
   fsrv_to->use_fauxsrv = 0;
