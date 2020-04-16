@@ -30707,23 +30707,23 @@ static void read_heap(const char *path) {
 }
 
 /* find a fasl image source to *hp or exit */
-static void find_heap(int *nargs, char ***argv, int *nobjs, int *nwords) {
-   file_heap = NULL;
-   if ((word)heap == 0) {
+//static void find_heap(int *nargs, char ***argv, int *nobjs, int *nwords) {
+//   file_heap = NULL;
+//   if ((word)heap == 0) {
       /* if no preloaded heap, try to load it from first vm arg */
-      if (*nargs < 2)
-         exit(1);
-      read_heap(argv[0][1]);
-      ++*argv;
-      --*nargs;
-      hp = file_heap;
-      if (*hp == '#')
-         while (*hp++ != '\n');
-   } else {
-      hp = heap; /* builtin heap */
-   }
-   heap_metrics(nwords, nobjs);
-}
+//      if (*nargs < 2)
+//         exit(1);
+//      read_heap(argv[0][1]);
+//      ++*argv;
+//      --*nargs;
+//      hp = file_heap;
+//      if (*hp == '#')
+//         while (*hp++ != '\n');
+//   } else {
+//      hp = heap; /* builtin heap */
+//   }
+//   heap_metrics(nwords, nobjs);
+//}
 
 static word *decode_fasl(uint nobjs) {
    word *ptrs;
@@ -30746,7 +30746,7 @@ static word *load_heap(uint nobjs) {
       free(file_heap);
    return entry;
 }
-
+/*
 static void setup(int nwords, int nobjs) {
    tcgetattr(0, &tsettings);
    state = IFALSE;
@@ -30758,7 +30758,7 @@ static void setup(int nwords, int nobjs) {
       exit(4);
    memend = memstart + nwords - MEMPAD;
 }
-/*
+
 static int secondary(int nargs, char **argv) {
    word *prog;
    int rval, nobjs=0, nwords=0;
