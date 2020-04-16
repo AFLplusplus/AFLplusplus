@@ -808,6 +808,7 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf);
 /* Python */
 #ifdef USE_PYTHON
 
+void load_custom_mutator_py(afl_state_t *, char *);
 void finalize_py_module(void *);
 
 size_t pre_save_py(void *, u8 *, size_t, u8 **);
