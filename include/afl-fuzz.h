@@ -873,7 +873,7 @@ void show_init_stats(afl_state_t *);
 
 /* Run */
 
-fsrv_run_result_t run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
+fsrv_run_result_t fuzz_run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
 void              write_to_testcase(afl_state_t *, void *, u32);
 u8   calibrate_case(afl_state_t *, struct queue_entry *, u8 *, u32, u8);
 void sync_fuzzers(afl_state_t *);

@@ -218,7 +218,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
 /* Execute target application. */
 
-void run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
+static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
                            u32 len) {
 
   afl_fsrv_write_to_testcase(fsrv, mem, len);
@@ -243,7 +243,7 @@ void run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
 
 /* Read initial file. */
 
-u32 read_file(u8 *in_file) {
+static u32 read_file(u8 *in_file) {
 
   struct stat st;
   s32         fd = open(in_file, O_RDONLY);
@@ -268,7 +268,7 @@ u32 read_file(u8 *in_file) {
 
 /* Execute target application. */
 
-static void run_target(afl_forkserver_t *fsrv, char **argv) {
+static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   static struct itimerval it;
   int                     status = 0;
@@ -883,7 +883,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (read_file(infile)) {
 
-        run_target_forkserver(fsrv, use_argv, in_data, in_len);
+        showmap_run_target_forkserver(fsrv, use_argv, in_data, in_len);
         ck_free(in_data);
         tcnt = write_results_to_file(fsrv, outfile);
 
@@ -898,7 +898,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
-    run_target(fsrv, use_argv);
+    showmap_run_target(fsrv, use_argv);
     tcnt = write_results_to_file(fsrv, out_file);
 
   }
