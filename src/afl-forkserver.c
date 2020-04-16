@@ -395,7 +395,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
 
-      if (!be_quiet)
+      if (!be_quiet && getenv("AFL_DEBUG"))
         ACTF("Extended forkserver functions received (%08x).", status);
 
       if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
@@ -408,13 +408,16 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       if ((status & FS_OPT_MAPSIZE) == FS_OPT_MAPSIZE) {
 
         fsrv->map_size = FS_OPT_GET_MAPSIZE(status);
-        if (fsrv->map_size % 8)  // should not happen
+        if (unlikely(fsrv->map_size % 8))  {
+          // should not happen
+          WARNF("Target reported non-aligned map size of %ud", fsrv->map_size);
           fsrv->map_size = (((fsrv->map_size + 8) >> 3) << 3);
+        }
         if (!be_quiet) ACTF("Target map size: %u", fsrv->map_size);
         if (fsrv->map_size > MAP_SIZE)
           FATAL(
               "Target's coverage map size of %u is larger than the one this "
-              "afl++ is compiled with (%u)\n",
+              "afl++ is compiled with (%u) (change MAP_SIZE and recompile)\n",
               fsrv->map_size, MAP_SIZE);
 
       }
@@ -444,7 +447,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         u32 len = status, offset = 0, count = 0;
         u8 *dict = ck_alloc(len);
         if (dict == NULL)
-          FATAL("Could not allocate %u bytes of autodictionary memmory", len);
+          FATAL("Could not allocate %u bytes of autodictionary memory", len);
 
         while (len != 0) {
 
@@ -727,7 +730,7 @@ fsrv_run_result_t afl_fsrv_run_target(
 
   if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
 
-    if (stop_soon_p) return 0;
+    if (*stop_soon_p) return 0;
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
@@ -784,7 +787,7 @@ fsrv_run_result_t afl_fsrv_run_target(
      behave very normally and do not have to be treated as volatile. */
 
   MEM_BARRIER();
-  u32 tb4 = *(u32 *)fsrv->trace_bits;
+  //u32 tb4 = *(u32 *)fsrv->trace_bits;
 
   if (likely(classify_counts_func)) classify_counts_func(fsrv);
 
@@ -811,7 +814,8 @@ fsrv_run_result_t afl_fsrv_run_target(
 
   }
 
-  if (tb4 == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
+  // Fauxserver should handle this now.
+  // if (tb4 == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
 
   return FSRV_RUN_OK;
 
