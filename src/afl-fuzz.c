@@ -474,7 +474,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->in_bitmap) FATAL("Multiple -B options not supported");
 
         afl->in_bitmap = optarg;
-        read_bitmap(afl, afl->in_bitmap);
+        read_bitmap(afl->in_bitmap, afl->virgin_bits, MAP_SIZE);
         break;
 
       case 'C':                                               /* crash mode */

@@ -49,20 +49,6 @@ void write_bitmap(afl_state_t *afl) {
 
 }
 
-/* Read bitmap from file. This is for the -B option again. */
-
-void read_bitmap(afl_state_t *afl, u8 *fname) {
-
-  s32 fd = open(fname, O_RDONLY);
-
-  if (fd < 0) PFATAL("Unable to open '%s'", fname);
-
-  ck_read(fd, afl->virgin_bits, MAP_SIZE, fname);
-
-  close(fd);
-
-}
-
 /* Check if the current execution path brings anything new to the table.
    Update virgin bits to reflect the finds. Returns 1 if the only change is
    the hit-count for a particular tuple; 2 if there are new tuples seen.

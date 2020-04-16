@@ -749,76 +749,6 @@ static void usage(u8 *argv0) {
 
 }
 
-/* Find binary. */
-
-static void find_binary(afl_forkserver_t *fsrv, u8 *fname) {
-
-  u8 *        env_path = 0;
-  struct stat st;
-
-  if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
-
-    fsrv->target_path = ck_strdup(fname);
-
-    if (stat(fsrv->target_path, &st) || !S_ISREG(st.st_mode) ||
-        !(st.st_mode & 0111) || st.st_size < 4)
-      FATAL("Program '%s' not found or not executable", fname);
-
-  } else {
-
-    while (env_path) {
-
-      u8 *cur_elem, *delim = strchr(env_path, ':');
-
-      if (delim) {
-
-        cur_elem = ck_alloc(delim - env_path + 1);
-        memcpy(cur_elem, env_path, delim - env_path);
-        delim++;
-
-      } else
-
-        cur_elem = ck_strdup(env_path);
-
-      env_path = delim;
-
-      if (cur_elem[0])
-        fsrv->target_path = alloc_printf("%s/%s", cur_elem, fname);
-      else
-        fsrv->target_path = ck_strdup(fname);
-
-      ck_free(cur_elem);
-
-      if (!stat(fsrv->target_path, &st) && S_ISREG(st.st_mode) &&
-          (st.st_mode & 0111) && st.st_size >= 4)
-        break;
-
-      ck_free(fsrv->target_path);
-      fsrv->target_path = NULL;
-
-    }
-
-    if (!fsrv->target_path)
-      FATAL("Program '%s' not found or not executable", fname);
-
-  }
-
-}
-
-/* Read mask bitmap from file. This is for the -B option. */
-
-static void read_bitmap(u8 *fname) {
-
-  s32 fd = open(fname, O_RDONLY);
-
-  if (fd < 0) PFATAL("Unable to open '%s'", fname);
-
-  ck_read(fd, mask_bitmap, MAP_SIZE, fname);
-
-  close(fd);
-
-}
-
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
@@ -977,7 +907,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (mask_bitmap) FATAL("Multiple -B options not supported");
         mask_bitmap = ck_alloc(MAP_SIZE);
-        read_bitmap(optarg);
+        read_bitmap(optarg, mask_bitmap, MAP_SIZE);
         break;
 
       case 'h':
@@ -1001,7 +931,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(fsrv);
 
-  find_binary(fsrv, argv[optind]);
+  fsrv->target_path = find_binary(argv[optind]);
   detect_file_args(argv + optind, out_file, &fsrv->use_stdin);
 
   if (fsrv->qemu_mode) {
