@@ -408,11 +408,14 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       if ((status & FS_OPT_MAPSIZE) == FS_OPT_MAPSIZE) {
 
         fsrv->map_size = FS_OPT_GET_MAPSIZE(status);
-        if (unlikely(fsrv->map_size % 8))  {
+        if (unlikely(fsrv->map_size % 8)) {
+
           // should not happen
           WARNF("Target reported non-aligned map size of %ud", fsrv->map_size);
           fsrv->map_size = (((fsrv->map_size + 8) >> 3) << 3);
+
         }
+
         if (!be_quiet) ACTF("Target map size: %u", fsrv->map_size);
         if (fsrv->map_size > MAP_SIZE)
           FATAL(
@@ -787,7 +790,7 @@ fsrv_run_result_t afl_fsrv_run_target(
      behave very normally and do not have to be treated as volatile. */
 
   MEM_BARRIER();
-  //u32 tb4 = *(u32 *)fsrv->trace_bits;
+  // u32 tb4 = *(u32 *)fsrv->trace_bits;
 
   if (likely(classify_counts_func)) classify_counts_func(fsrv);
 

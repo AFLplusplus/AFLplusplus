@@ -62,8 +62,7 @@
 static u8 *mask_bitmap;                /* Mask for trace bits (-B)          */
 
 static u8 *in_file,                    /* Minimizer input test case         */
-    *out_file,
-    *output_file;                      /* Minimizer output file             */
+    *out_file, *output_file;           /* Minimizer output file             */
 
 static u8 *in_data;                    /* Input data for trimming           */
 
