@@ -2157,17 +2157,17 @@ static word *gc(int size, word *regs) {
 
 /*** OS Interaction and Helpers ***/
 
-static void signal_handler(int signal) {
-   switch (signal) {
-      case SIGINT:
-         breaked |= 2;
-         break;
-      case SIGPIPE:
-         break; /* can cause loop when reporting errors */
-      default:
-         breaked |= 4;
-   }
-}
+//static void signal_handler(int signal) {
+//   switch (signal) {
+//      case SIGINT:
+//         breaked |= 2;
+//         break;
+//      case SIGPIPE:
+//         break; /* can cause loop when reporting errors */
+//      default:
+//         breaked |= 4;
+//   }
+//}
 
 /* list length, no overflow or valid termination checks */
 static uint llen(word *ptr) {
