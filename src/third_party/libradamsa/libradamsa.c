@@ -30758,7 +30758,7 @@ static void setup(int nwords, int nobjs) {
       exit(4);
    memend = memstart + nwords - MEMPAD;
 }
-
+/*
 static int secondary(int nargs, char **argv) {
    word *prog;
    int rval, nobjs=0, nwords=0;
@@ -30774,6 +30774,7 @@ static int secondary(int nargs, char **argv) {
    }
    return 127;
 }
+*/
 
 void radamsa_init(void) {
    int nobjs=0, nwords=0;
@@ -30800,6 +30801,7 @@ static word library_call(word val) {
    return res;
 }
 
+/*
 static size_t list_length(word lispval) {
    size_t l = 0;
    while(lispval != INULL) {
@@ -30808,6 +30810,7 @@ static size_t list_length(word lispval) {
    }
    return l;
 }
+*/
 
 static size_t copy_list(uint8_t *ptr, word lispval, size_t max) {
    size_t n = 0;
