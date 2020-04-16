@@ -112,18 +112,20 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
 #ifdef WORD_SIZE_64
 
-        if (*virgin == 0xffffffffffffffff || (cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff) ||
-            (cur[4] && vir[4] == 0xff) || (cur[5] && vir[5] == 0xff) ||
-            (cur[6] && vir[6] == 0xff) || (cur[7] && vir[7] == 0xff))
+        if (*virgin == 0xffffffffffffffff || (cur[0] && vir[0] == 0xff) ||
+            (cur[1] && vir[1] == 0xff) || (cur[2] && vir[2] == 0xff) ||
+            (cur[3] && vir[3] == 0xff) || (cur[4] && vir[4] == 0xff) ||
+            (cur[5] && vir[5] == 0xff) || (cur[6] && vir[6] == 0xff) ||
+            (cur[7] && vir[7] == 0xff))
           ret = 2;
         else
           ret = 1;
 
 #else
 
-        if (*virgin == 0xffffffff || (cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff))
+        if (*virgin == 0xffffffff || (cur[0] && vir[0] == 0xff) ||
+            (cur[1] && vir[1] == 0xff) || (cur[2] && vir[2] == 0xff) ||
+            (cur[3] && vir[3] == 0xff))
           ret = 2;
         else
           ret = 1;

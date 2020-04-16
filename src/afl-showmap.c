@@ -63,8 +63,7 @@
 static char *stdin_file;               /* stdin file                        */
 
 static u8 *in_dir = NULL,              /* input folder                      */
-    *out_file = NULL,
-    *at_file = NULL;              /* Substitution string for @@             */
+    *out_file = NULL, *at_file = NULL;        /* Substitution string for @@ */
 
 static u8 *in_data;                    /* Input data                        */
 
@@ -878,8 +877,7 @@ int main(int argc, char **argv_orig, char **envp) {
       if (-1 == stat(infile, &statbuf) || !S_ISREG(statbuf.st_mode)) continue;
 #endif
 
-      snprintf(outfile, sizeof(outfile), "%s/%s", out_file,
-               dir_ent->d_name);
+      snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
 
       if (read_file(infile)) {
 
@@ -900,8 +898,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     run_target(fsrv, use_argv);
     tcnt = write_results_to_file(fsrv, out_file);
-
-
 
   }
 
