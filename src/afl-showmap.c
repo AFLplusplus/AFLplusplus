@@ -223,12 +223,14 @@ void run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
 
   afl_fsrv_write_to_testcase(fsrv, mem, len);
 
-  if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, classify_counts,
-                          &stop_soon) == FSRV_RUN_ERROR) {
+  if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
+      FSRV_RUN_ERROR) {
 
     FATAL("Error running target");
 
   }
+
+  classify_counts(fsrv);
 
   if (stop_soon) {
 
