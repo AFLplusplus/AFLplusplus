@@ -36,7 +36,10 @@
 fsrv_run_result_t run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
                              u32 timeout) {
 
-  return afl_fsrv_run_target(fsrv, timeout, classify_counts, &afl->stop_soon);
+  fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
+  // TODO: Don't classify for faults?
+  classify_counts(fsrv);
+  return res;
 
 }
 

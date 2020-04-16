@@ -701,10 +701,8 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t afl_fsrv_run_target(
-    afl_forkserver_t *fsrv, u32 timeout,
-    void(classify_counts_func)(afl_forkserver_t *fsrv),
-    volatile u8 *stop_soon_p) {
+fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
+                                      volatile u8 *stop_soon_p) {
 
   s32 res;
   u32 exec_ms;
@@ -790,9 +788,6 @@ fsrv_run_result_t afl_fsrv_run_target(
      behave very normally and do not have to be treated as volatile. */
 
   MEM_BARRIER();
-  // u32 tb4 = *(u32 *)fsrv->trace_bits;
-
-  if (likely(classify_counts_func)) classify_counts_func(fsrv);
 
   /* Report outcome to caller. */
 
