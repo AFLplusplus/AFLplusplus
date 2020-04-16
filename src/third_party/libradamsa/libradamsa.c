@@ -30789,7 +30789,7 @@ void radamsa_init(void) {
 }
 
 /* bvec → value library call test with preserved state */
-word library_call(word val) {
+static word library_call(word val) {
    word program_state = state;
    word res;
    state = IFALSE; 
@@ -30800,7 +30800,7 @@ word library_call(word val) {
    return res;
 }
 
-size_t list_length(word lispval) {
+static size_t list_length(word lispval) {
    size_t l = 0;
    while(lispval != INULL) {
       lispval = G(lispval, 2);
@@ -30809,7 +30809,7 @@ size_t list_length(word lispval) {
    return l;
 }
 
-size_t copy_list(uint8_t *ptr, word lispval, size_t max) {
+static size_t copy_list(uint8_t *ptr, word lispval, size_t max) {
    size_t n = 0;
    while(pairp((word)lispval) && max-- && lispval != INULL) {
       *ptr++ = 255 & immval(G(lispval, 1)); // *ptr++ = car(list)
