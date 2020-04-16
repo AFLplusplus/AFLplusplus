@@ -31,7 +31,6 @@
 /* __FUNCTION__ is non-iso */
 #ifdef __func__
 #define __FUNCTION__ __func__
-#else
 #endif
 
 /*******************
