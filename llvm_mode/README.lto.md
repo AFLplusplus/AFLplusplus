@@ -17,17 +17,17 @@ This version requires a current llvm 11 compiled from the github master.
 ## Introduction and problem description
 
 A big issue with how afl/afl++ works is that the basic block IDs that are
-set during compilation are random - and hence natually the larger the number
-of instrumented locations, the higher the number of edge collisions in the
+set during compilation are random - and hence naturally the larger the number
+of instrumented locations, the higher the number of edge collisions are in the
 map. This can result in not discovering new paths and therefore degrade the
-efficiency of the fuzzing.
+efficiency of the fuzzing process.
 
-*This issue is understimated in the fuzzing community!*
+*This issue is underestimated in the fuzzing community!*
 With a 2^16 = 64kb standard map at already 256 instrumented blocks there is
 on average one collision. On average a target has 10.000 to 50.000
 instrumented blocks hence the real collisions are between 750-18.000!
 
-To get to a solution that prevents any collision took several approaches
+To reach a solution that prevents any collisions took several approaches
 and many dead ends until we got to this:
 
  * We instrument at link time when we have all files pre-compiled
@@ -76,7 +76,7 @@ $ make install
 
 ## How to use afl-clang-lto
 
-Just use afl-clang-lto like you did afl-clang-fast or afl-gcc.
+Just use afl-clang-lto like you did with afl-clang-fast or afl-gcc.
 
 Also whitelisting (AFL_LLVM_WHITELIST -> [README.whitelist.md](README.whitelist.md)) and
 laf-intel/compcov (AFL_LLVM_LAF_* -> [README.laf-intel.md](README.laf-intel.md)) work.
@@ -120,7 +120,7 @@ Please report issues at:
 
 ## Upcoming Work
 
-1. Currently the LTO whitelist feature does not allow to not instrument main,
+1. Currently the LTO whitelist feature does not allow to instrument main,
    start and init functions
 
 ## History
@@ -138,7 +138,7 @@ This was first implemented in January and work ... kinda.
 The LTO time instrumentation worked, however the "how" the basic blocks were
 instrumented was a problem, as reducing duplicates turned out to be very,
 very difficult with a program that has so many paths and therefore so many
-dependencies. At lot of stratgies were implemented - and failed.
+dependencies. At lot of strategies were implemented - and failed.
 And then sat solvers were tried, but with over 10.000 variables that turned
 out to be a dead-end too.
 

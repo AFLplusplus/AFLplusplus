@@ -27,7 +27,7 @@
 
 /* MOpt */
 
-int select_algorithm(afl_state_t *afl) {
+static int select_algorithm(afl_state_t *afl) {
 
   int i_puppet, j_puppet;
 
@@ -2366,7 +2366,7 @@ abandon_entry:
 }
 
 /* MOpt mode */
-u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
+static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   if (!MOpt_globals.is_pilot_mode) {
 

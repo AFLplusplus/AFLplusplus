@@ -22,6 +22,7 @@ extern void mock_assert(const int result, const char* const expression,
     mock_assert((int)(expression), #expression, __FILE__, __LINE__);
 #include "alloc-inl.h"
 
+void __wrap_exit(int status);
 /* remap exit -> assert, then use cmocka's mock_assert
     (compile with `--wrap=exit`) */
 extern void exit(int status);
@@ -30,6 +31,7 @@ void __wrap_exit(int status) {
     assert(0);
 }
 
+int __wrap_printf(const char *format, ...);
 /* ignore all printfs */
 extern int printf(const char *format, ...);
 extern int __real_printf(const char *format, ...);

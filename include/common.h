@@ -51,6 +51,16 @@ char * get_afl_env(char *env);
 extern u8  be_quiet;
 extern u8 *doc_path;                    /* path to documentation dir        */
 
+/* Find binary, used by analyze, showmap, tmin
+   @returns the path, allocating the string */
+
+u8 *find_binary(u8 *fname);
+
+/* Read a bitmap from file fname to memory
+   This is for the -B option again. */
+
+void read_bitmap(u8 *fname, u8 *map, size_t len);
+
 /* Get unix time in milliseconds */
 
 u64 get_cur_time(void);
