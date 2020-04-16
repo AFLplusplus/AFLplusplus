@@ -37,7 +37,7 @@ struct range {
 
 };
 
-struct range *add_range(struct range *ranges, u32 start, u32 end) {
+static struct range *add_range(struct range *ranges, u32 start, u32 end) {
 
   struct range *r = ck_alloc_nozero(sizeof(struct range));
   r->start = start;
@@ -47,7 +47,7 @@ struct range *add_range(struct range *ranges, u32 start, u32 end) {
 
 }
 
-struct range *pop_biggest_range(struct range **ranges) {
+static struct range *pop_biggest_range(struct range **ranges) {
 
   struct range *r = *ranges;
   struct range *prev = NULL;
