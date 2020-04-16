@@ -88,7 +88,8 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
   u32 i = (afl->fsrv.map_size >> 2);
 
 #endif                                                     /* ^WORD_SIZE_64 */
-  if (i == 0) i = 1;
+  // the map size must be a minimum of 8 bytes.
+  // for variable/dynamic map sizes this is ensured in the forkserver
 
   u8 ret = 0;
 
@@ -98,6 +99,7 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
        that have not been already cleared from the virgin map - since this will
        almost always be the case. */
 
+    // the (*current) is unnecessary but speeds up the overall comparison
     if (unlikely(*current) && unlikely(*current & *virgin)) {
 
       if (likely(ret < 2)) {
@@ -110,7 +112,7 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
 #ifdef WORD_SIZE_64
 
-        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
+        if (*virgin == 0xffffffffffffffff || (cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
             (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff) ||
             (cur[4] && vir[4] == 0xff) || (cur[5] && vir[5] == 0xff) ||
             (cur[6] && vir[6] == 0xff) || (cur[7] && vir[7] == 0xff))
@@ -120,7 +122,7 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
 #else
 
-        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
+        if (*virgin == 0xffffffff || (cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
             (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff))
           ret = 2;
         else
@@ -139,7 +141,7 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
   }
 
-  if (unlikely(ret) && unlikely(virgin_map == afl->virgin_bits))
+  if (unlikely(ret) && likely(virgin_map == afl->virgin_bits))
     afl->bitmap_changed = 1;
 
   return ret;
