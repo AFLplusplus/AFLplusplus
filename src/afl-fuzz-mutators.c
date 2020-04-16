@@ -27,9 +27,6 @@
 #include "afl-fuzz.h"
 
 void load_custom_mutator(afl_state_t *, const char *);
-#ifdef USE_PYTHON
-void load_custom_mutator_py(afl_state_t *, char *);
-#endif
 
 void setup_custom_mutator(afl_state_t *afl) {
 

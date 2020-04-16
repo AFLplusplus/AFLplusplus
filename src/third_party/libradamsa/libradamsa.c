@@ -1841,6 +1841,8 @@ static const unsigned char heap[] = {2,3,4,105,111,116,97,2,3,7,112,97,116,116,1
 #include <stdio.h>
 #include <netdb.h>
 
+#include "./radamsa.h"
+
 #ifndef EMULTIHOP
 #define EMULTIHOP -1
 #endif
@@ -30757,7 +30759,7 @@ static void setup(int nwords, int nobjs) {
    memend = memstart + nwords - MEMPAD;
 }
 
-int secondary(int nargs, char **argv) {
+static int secondary(int nargs, char **argv) {
    word *prog;
    int rval, nobjs=0, nwords=0;
    find_heap(&nargs, &argv, &nobjs, &nwords);
