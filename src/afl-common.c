@@ -222,9 +222,11 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
     }
 
-  } else
+  } else {
 
     ck_free(own_copy);
+
+  }
 
   if (!access(BIN_PATH "/afl-qemu-trace", X_OK)) {
 
@@ -389,16 +391,19 @@ u8 *find_binary(u8 *fname) {
         memcpy(cur_elem, env_path, delim - env_path);
         delim++;
 
-      } else
+      } else {
 
         cur_elem = ck_strdup(env_path);
 
+      }
+
       env_path = delim;
 
-      if (cur_elem[0])
+      if (cur_elem[0]) {
         target_path = alloc_printf("%s/%s", cur_elem, fname);
-      else
+      } else {
         target_path = ck_strdup(fname);
+      }
 
       ck_free(cur_elem);
 
