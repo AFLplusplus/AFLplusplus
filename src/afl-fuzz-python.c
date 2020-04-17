@@ -42,7 +42,7 @@ it just fills in `&py_mutator->something_buf, &py_mutator->something_size`. */
       &((py_mutator_t *)py_mutator)->name##_size
 
 static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
-               u8 *add_buf, size_t add_buf_size, size_t max_size) {
+                      u8 *add_buf, size_t add_buf_size, size_t max_size) {
 
   size_t    mutated_size;
   PyObject *py_args, *py_value;

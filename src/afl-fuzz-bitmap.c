@@ -43,7 +43,7 @@ void write_bitmap(afl_state_t *afl) {
 
   if (fd < 0) PFATAL("Unable to open '%s'", fname);
 
-  ck_write(fd, afl->virgin_bits, MAP_SIZE, fname);
+  ck_write(fd, afl->virgin_bits, afl->fsrv.map_size, fname);
 
   close(fd);
 
@@ -145,8 +145,6 @@ u32 count_bits(afl_state_t *afl, u8 *mem) {
   u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
 
-  if (i == 0) i = 1;
-
   while (i--) {
 
     u32 v = *(ptr++);
@@ -181,8 +179,6 @@ u32 count_bytes(afl_state_t *afl, u8 *mem) {
   u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
 
-  if (i == 0) i = 1;
-
   while (i--) {
 
     u32 v = *(ptr++);
@@ -207,8 +203,6 @@ u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
   u32 *ptr = (u32 *)mem;
   u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
-
-  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -246,8 +240,6 @@ void simplify_trace(afl_state_t *afl, u64 *mem) {
 
   u32 i = (afl->fsrv.map_size >> 3);
 
-  if (i == 0) i = 1;
-
   while (i--) {
 
     /* Optimize for sparse bitmaps. */
@@ -280,8 +272,6 @@ void simplify_trace(afl_state_t *afl, u64 *mem) {
 void simplify_trace(afl_state_t *afl, u32 *mem) {
 
   u32 i = (afl->fsrv.map_size >> 2);
-
-  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -347,8 +337,6 @@ void classify_counts(afl_forkserver_t *fsrv) {
 
   u32 i = (fsrv->map_size >> 3);
 
-  if (i == 0) i = 1;
-
   while (i--) {
 
     /* Optimize for sparse bitmaps. */
@@ -377,8 +365,6 @@ void classify_counts(afl_forkserver_t *fsrv) {
   u32 *mem = (u32 *)fsrv->trace_bits;
 
   u32 i = (fsrv->map_size >> 2);
-
-  if (i == 0) i = 1;
 
   while (i--) {
 
