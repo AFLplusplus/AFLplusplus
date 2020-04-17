@@ -1,11 +1,12 @@
 # TODO list for AFL++
 
-## Roadmap 2.64
+## Roadmap 2.65
 
+ - AFL_MAP_SIZE for afl-llvm-pass, qemu_mode and unicorn_mode
+ - fix stability calculation bug
  - random crc32 HASH_CONST per run? because with 65536 paths we have collisions
  - namespace for targets? e.g. network
  - libradamsa as a custom module?
- - fix stability calculation bug
 
 ## Further down the road
 

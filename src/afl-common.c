@@ -898,3 +898,21 @@ u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
 
 }
 
+u32 get_map_size() {
+
+  uint32_t map_size = MAP_SIZE;
+  char *   ptr;
+
+  if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
+
+    map_size = atoi(ptr);
+    if (map_size < 8 || map_size > (1 << 29))
+      FATAL("illegal AFL_MAP_SIZE %u, must be between 2^3 and 2^30", map_size);
+    if (map_size % 8) map_size = (((map_size >> 3) + 1) << 3);
+
+  }
+
+  return map_size;
+
+}
+

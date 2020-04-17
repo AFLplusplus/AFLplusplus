@@ -814,7 +814,7 @@ int main(int argc, char **argv, char **envp) {
 
   s32    opt;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
-  char **use_argv, *ptr;
+  char **use_argv;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -934,14 +934,7 @@ int main(int argc, char **argv, char **envp) {
 
   if (optind == argc || !in_file) usage(argv[0]);
 
-  if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
-
-    map_size = atoi(ptr);
-    if (map_size < 8 || map_size > (1 << 29))
-      FATAL("illegal AFL_MAP_SIZE %u, must be between 2^3 and 2^30", map_size);
-    if (map_size % 8) map_size = (((map_size >> 3) + 1) << 3);
-
-  }
+  map_size = get_map_size();
 
   use_hex_offsets = !!get_afl_env("AFL_ANALYZE_HEX");
 
