@@ -9,6 +9,11 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++2.64d (develop):
+  - ...
+
+
+
 ### Version ++2.64c (release):
   - llvm_mode LTO mode:
     - now requires llvm11 - but compiles all targets! :)
