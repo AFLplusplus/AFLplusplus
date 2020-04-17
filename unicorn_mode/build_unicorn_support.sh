@@ -33,7 +33,7 @@
 # You must make sure that Unicorn Engine is not already installed before
 # running this script. If it is, please uninstall it first.
 
-UNICORNAFL_VERSION='afl++2.64c'
+UNICORNAFL_VERSION="$(cat ./UNICORNAFL_VERSION)"
 
 echo "================================================="
 echo "UnicornAFL build script"
@@ -146,21 +146,32 @@ fi
 echo "[+] All checks passed!"
 
 echo "[*] Making sure unicornafl is checked out"
-rm -rf unicornafl # workaround for travis ... sadly ...
-#test -d unicorn && { cd unicorn && { git stash ; git pull ; cd .. ; } }
-test -d unicornafl || {
-   CNT=1
-   while [ '!' -d unicornafl -a "$CNT" -lt 4 ]; do
-     echo "Trying to clone unicornafl (attempt $CNT/3)"
-     git clone https://github.com/AFLplusplus/unicornafl
-     CNT=`expr "$CNT" + 1`
-   done
-}
+
+git status 1>/dev/null 2>/dev/null
+if [ $? -eq 0 ]; then
+  echo "[*] initializing unicornafl submodule"
+  git submodule init || exit 1
+  git submodule update 2>/dev/null # ignore errors
+else
+  echo "[*] cloning unicornafl"
+  rm -rf unicornafl # workaround for travis ... sadly ...
+  #test -d unicorn && { cd unicorn && { git stash ; git pull ; cd .. ; } }
+  test -d unicornafl || {
+    CNT=1
+    while [ '!' -d unicornafl -a "$CNT" -lt 4 ]; do
+      echo "Trying to clone unicornafl (attempt $CNT/3)"
+      git clone https://github.com/AFLplusplus/unicornafl
+      CNT=`expr "$CNT" + 1`
+    done
+  }
+fi
+
 test -d unicornafl || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got unicornafl."
 
 cd "unicornafl" || exit 1
 echo "[*] Checking out $UNICORNAFL_VERSION"
+sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
 git checkout "$UNICORNAFL_VERSION" || exit 1
 
 echo "[*] making sure config.h matches"
