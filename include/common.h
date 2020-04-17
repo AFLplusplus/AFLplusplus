@@ -115,5 +115,7 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms);
 u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
                volatile u8 *stop_soon_p);
 
+u32 get_map_size();
+
 #endif
 
