@@ -44,10 +44,10 @@ M32FLAG=$(___M32FLAG)
 all: argvfuzz32.so argvfuzz64.so
 
 argvfuzz32.so: argvfuzz.c
-	-$(CC) $(M32FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ || echo "argvfuzz32 build failure (that's fine)"
+	-@$(CC) $(M32FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ 2>/dev/null || echo "argvfuzz32 build failure (that's fine)"
 
 argvfuzz64.so: argvfuzz.c
-	-$(CC) $(M64FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ || echo "argvfuzz64 build failure (that's fine)"
+	-@$(CC) $(M64FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ 2>/dev/null || echo "argvfuzz64 build failure (that's fine)"
 
 install: argvfuzz32.so argvfuzz64.so
 	install -d -m 755 $(DESTDIR)$(HELPER_PATH)/
