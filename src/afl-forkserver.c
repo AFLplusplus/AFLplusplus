@@ -407,21 +407,26 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if ((status & FS_OPT_MAPSIZE) == FS_OPT_MAPSIZE) {
 
-        fsrv->map_size = FS_OPT_GET_MAPSIZE(status);
-        if (unlikely(fsrv->map_size % 8)) {
+        u32 tmp_map_size = FS_OPT_GET_MAPSIZE(status);
+
+        if (!fsrv->map_size) fsrv->map_size = MAP_SIZE;
+
+        if (unlikely(tmp_map_size % 8)) {
 
           // should not happen
-          WARNF("Target reported non-aligned map size of %ud", fsrv->map_size);
-          fsrv->map_size = (((fsrv->map_size + 8) >> 3) << 3);
+          WARNF("Target reported non-aligned map size of %ud", tmp_map_size);
+          tmp_map_size = (((tmp_map_size + 8) >> 3) << 3);
 
         }
 
-        if (!be_quiet) ACTF("Target map size: %u", fsrv->map_size);
-        if (fsrv->map_size > MAP_SIZE)
+        if (!be_quiet) ACTF("Target map size: %u", tmp_map_size);
+        if (tmp_map_size > fsrv->map_size)
           FATAL(
               "Target's coverage map size of %u is larger than the one this "
-              "afl++ is compiled with (%u) (change MAP_SIZE and recompile)\n",
-              fsrv->map_size, MAP_SIZE);
+              "afl++ is set with (%u) (change MAP_SIZE_POW2 in config.h and "
+              "recompile or set AFL_MAP_SIZE)\n",
+              tmp_map_size, fsrv->map_size);
+        fsrv->map_size = tmp_map_size;
 
       }
 

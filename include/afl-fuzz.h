@@ -325,6 +325,8 @@ typedef struct afl_env_vars {
       *afl_python_module, *afl_path, *afl_hang_tmout, *afl_skip_crashes,
       *afl_preload;
 
+  uint32_t map_size;
+
 } afl_env_vars_t;
 
 struct afl_pass_stat {

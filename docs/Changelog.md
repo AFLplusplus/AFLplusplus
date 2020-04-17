@@ -26,6 +26,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     static global and local variable comparisons (cannot find all though)
   - extended forkserver: map_size and more information is communicated to
     afl-fuzz (and afl-fuzz acts accordingly)
+  - new environment variable: AFL_MAP_SIZE to specify the size of the shared map
   - if AFL_CC/AFL_CXX is set but empty afl compilers did fail, fixed
     (this bug is in vanilla afl too)
   - added NO_PYTHON flag to disable python support when building afl-fuzz

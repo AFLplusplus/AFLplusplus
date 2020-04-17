@@ -72,7 +72,7 @@ char *afl_environment_variables[] = {
     "AFL_LLVM_LTO_DONTWRITEID", "AFL_NO_ARITH", "AFL_NO_BUILTIN",
     "AFL_NO_CPU_RED", "AFL_NO_FORKSRV", "AFL_NO_UI",
     "AFL_NO_X86",  // not really an env but we dont want to warn on it
-    "AFL_PATH", "AFL_PERFORMANCE_FILE",
+    "AFL_MAP_SIZE", "AFL_MAPSIZE", "AFL_PATH", "AFL_PERFORMANCE_FILE",
     //"AFL_PERSISTENT", // not implemented anymore, so warn additionally
     "AFL_POST_LIBRARY", "AFL_PRELOAD", "AFL_PYTHON_MODULE", "AFL_QEMU_COMPCOV",
     "AFL_QEMU_COMPCOV_DEBUG", "AFL_QEMU_DEBUG_MAPS", "AFL_QEMU_DISABLE_CACHE",
