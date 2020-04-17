@@ -234,6 +234,7 @@ if [ "$ORIG_CPU_TARGET" = "" ]; then
 
   unset AFL_INST_RATIO
 
+  echo "[*] Comparing two afl-showmap -Q outputs..."
   echo 0 | ./afl-showmap -m none -Q -q -o .test-instr0 ./test-instr || exit 1
   echo 1 | ./afl-showmap -m none -Q -q -o .test-instr1 ./test-instr || exit 1
 
