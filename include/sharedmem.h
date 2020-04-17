@@ -44,8 +44,7 @@ typedef struct sharedmem {
 
   u8 *map;                                          /* shared memory region */
 
-  size_t size_alloc;                               /* actual allocated size */
-  size_t size_used;                                  /* in use by shmem app */
+  size_t map_size;                                 /* actual allocated size */
 
   int             cmplog_mode;
   struct cmp_map *cmp_map;
