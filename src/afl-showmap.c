@@ -218,8 +218,8 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
 /* Execute target application. */
 
-static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
-                           u32 len) {
+static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, char **argv,
+                                          u8 *mem, u32 len) {
 
   afl_fsrv_write_to_testcase(fsrv, mem, len);
 
