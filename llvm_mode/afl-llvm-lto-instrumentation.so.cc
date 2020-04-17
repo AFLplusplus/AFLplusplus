@@ -637,7 +637,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
     if (!f) {
 
       fprintf(stderr,
-              "Error: init function could not be found (this hould not "
+              "Error: init function could not be found (this should not "
               "happen)\n");
       exit(-1);
 
