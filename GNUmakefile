@@ -69,7 +69,7 @@ ifneq "$(shell uname -m)" "x86_64"
 endif
 
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
-override CFLAGS += -Wall -g -Wno-pointer-sign \
+override CFLAGS += -Wall -g -Wno-pointer-sign -Wmissing-declarations\
 			  -I include/ -Werror -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
@@ -145,6 +145,11 @@ else
 	PYFLAGS=
 endif
 
+ifdef NO_PYTHON
+	PYTHON_OK=0
+	PYFLAGS=
+endif
+
 ifdef STATIC
   $(info Compiling static version of binaries)
   # Disable python for static compilation to simplify things
@@ -199,6 +204,7 @@ performance-test:	source-only
 	@cd test ; ./test-performance.sh
 
 
+# hint: make targets are also listed in the top level README.md
 help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
@@ -359,6 +365,7 @@ code-format:
 	./.custom-format.py -i gcc_plugin/*.cc
 	./.custom-format.py -i examples/*/*.c
 	./.custom-format.py -i examples/*/*.h
+	./.custom-format.py -i test/*.c
 	./.custom-format.py -i qemu_mode/patches/*.h
 	./.custom-format.py -i qemu_mode/libcompcov/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.cc

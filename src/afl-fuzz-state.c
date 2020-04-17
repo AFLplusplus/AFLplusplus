@@ -75,11 +75,13 @@ list_t afl_states = {.element_prealloc_count = 0};
 
 /* Initializes an afl_state_t. */
 
-void afl_state_init(afl_state_t *afl) {
+void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   /* thanks to this memset, growing vars like out_buf
   and out_size are NULL/0 by default. */
   memset(afl, 0, sizeof(afl_state_t));
+
+  if (!map_size) afl->shm.map_size = MAP_SIZE;
 
   afl->w_init = 0.9;
   afl->w_end = 0.3;
@@ -97,7 +99,20 @@ void afl_state_init(afl_state_t *afl) {
   afl->cpu_aff = -1;                    /* Selected CPU core                */
 #endif                                                     /* HAVE_AFFINITY */
 
+  afl->virgin_bits = ck_alloc(map_size);
+  afl->virgin_tmout = ck_alloc(map_size);
+  afl->virgin_crash = ck_alloc(map_size);
+  afl->var_bytes = ck_alloc(map_size);
+  afl->top_rated = ck_alloc(map_size * sizeof(void *));
+  afl->clean_trace = ck_alloc(map_size);
+  afl->clean_trace_custom = ck_alloc(map_size);
+  afl->first_trace = ck_alloc(map_size);
+  afl->map_tmp_buf = ck_alloc(map_size);
+
   afl->fsrv.use_stdin = 1;
+  afl->fsrv.map_size = map_size;
+  afl->fsrv.function_opt = (u8 *)afl;
+  afl->fsrv.function_ptr = &maybe_add_auto;
 
   afl->cal_cycles = CAL_CYCLES;
   afl->cal_cycles_long = CAL_CYCLES_LONG;
@@ -280,6 +295,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_autoresume =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_CAL_FAST",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_cal_fast =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_TMPDIR",
 
                               afl_environment_variable_len)) {
@@ -348,13 +370,27 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 void afl_state_deinit(afl_state_t *afl) {
 
   if (afl->post_deinit) afl->post_deinit(afl->post_data);
+  if (afl->in_place_resume) ck_free(afl->in_dir);
+  if (afl->sync_id) ck_free(afl->out_dir);
+  if (afl->pass_stats) ck_free(afl->pass_stats);
+  if (afl->orig_cmp_map) ck_free(afl->orig_cmp_map);
 
-  free(afl->out_buf);
-  free(afl->out_scratch_buf);
-  free(afl->eff_buf);
-  free(afl->in_buf);
-  free(afl->in_scratch_buf);
-  free(afl->ex_buf);
+  if (afl->out_buf) free(afl->out_buf);
+  if (afl->out_scratch_buf) free(afl->out_scratch_buf);
+  if (afl->eff_buf) free(afl->eff_buf);
+  if (afl->in_buf) free(afl->in_buf);
+  if (afl->in_scratch_buf) free(afl->in_scratch_buf);
+  if (afl->ex_buf) free(afl->ex_buf);
+
+  ck_free(afl->virgin_bits);
+  ck_free(afl->virgin_tmout);
+  ck_free(afl->virgin_crash);
+  ck_free(afl->var_bytes);
+  ck_free(afl->top_rated);
+  ck_free(afl->clean_trace);
+  ck_free(afl->clean_trace_custom);
+  ck_free(afl->first_trace);
+  ck_free(afl->map_tmp_buf);
 
   list_remove(&afl_states, afl);
 

@@ -28,6 +28,11 @@
 #include "types.h"
 #include "config.h"
 
+/* __FUNCTION__ is non-iso */
+#ifdef __func__
+#define __FUNCTION__ __func__
+#endif
+
 /*******************
  * Terminal colors *
  *******************/

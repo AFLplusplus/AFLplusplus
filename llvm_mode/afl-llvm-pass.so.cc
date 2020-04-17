@@ -125,6 +125,7 @@ class AFLCoverage : public ModulePass {
   std::list<std::string> myWhitelist;
   uint32_t               ngram_size = 0;
   uint32_t               debug = 0;
+  uint32_t               map_size = MAP_SIZE;
   char *                 ctx_str = NULL;
 
 };
@@ -191,6 +192,19 @@ bool AFLCoverage::runOnModule(Module &M) {
   } else
 
     be_quiet = 1;
+
+  /*
+    char *ptr;
+    if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
+
+      map_size = atoi(ptr);
+      if (map_size < 8 || map_size > (1 << 29))
+        FATAL("illegal AFL_MAP_SIZE %u, must be between 2^3 and 2^30",
+    map_size); if (map_size % 8) map_size = (((map_size >> 3) + 1) << 3);
+
+    }
+
+  */
 
   /* Decide instrumentation ratio */
 
@@ -365,7 +379,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       // if yes we store a context ID for this function in the global var
       if (has_calls) {
 
-        ConstantInt *NewCtx = ConstantInt::get(Int32Ty, AFL_R(MAP_SIZE));
+        ConstantInt *NewCtx = ConstantInt::get(Int32Ty, AFL_R(map_size));
         StoreInst *  StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
         StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
                               MDNode::get(C, None));
@@ -509,7 +523,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       /* Make up cur_loc */
 
       // cur_loc++;
-      cur_loc = AFL_R(MAP_SIZE);
+      cur_loc = AFL_R(map_size);
 
 /* There is a problem with Ubuntu 18.04 and llvm 6.0 (see issue #63).
    The inline function successors() is not inlined and also not found at runtime
@@ -704,6 +718,56 @@ bool AFLCoverage::runOnModule(Module &M) {
     }
 
   }
+
+  /*
+    // This is currently disabled because we not only need to create/insert a
+    // function (easy), but also add it as a constructor with an ID < 5
+
+    if (getenv("AFL_LLVM_DONTWRITEID") == NULL) {
+
+      // yes we could create our own function, insert it into ctors ...
+      // but this would be a pain in the butt ... so we use afl-llvm-rt.o
+
+      Function *f = ...
+
+      if (!f) {
+
+        fprintf(stderr,
+                "Error: init function could not be created (this should not
+    happen)\n"); exit(-1);
+
+      }
+
+      ... constructor for f = 4
+
+      BasicBlock *bb = &f->getEntryBlock();
+      if (!bb) {
+
+        fprintf(stderr,
+                "Error: init function does not have an EntryBlock (this should
+    not happen)\n"); exit(-1);
+
+      }
+
+      BasicBlock::iterator IP = bb->getFirstInsertionPt();
+      IRBuilder<>          IRB(&(*IP));
+
+      if (map_size <= 0x800000) {
+
+        GlobalVariable *AFLFinalLoc = new GlobalVariable(
+            M, Int32Ty, true, GlobalValue::ExternalLinkage, 0,
+            "__afl_final_loc", 0, GlobalVariable::GeneralDynamicTLSModel, 0,
+            false);
+        ConstantInt *const_loc = ConstantInt::get(Int32Ty, map_size);
+        StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
+        StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
+                                     MDNode::get(C, None));
+
+      }
+
+    }
+
+  */
 
   /* Say something nice. */
 

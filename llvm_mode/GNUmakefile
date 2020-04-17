@@ -58,19 +58,20 @@ endif
 
 ifeq "$(LLVM_MAJOR)" "9"
   $(info [+] llvm_mode detected llvm 9, enabling neverZero implementation)
-  $(info [+] llvm_mode detected llvm 9, enabling afl-clang-lto LTO implementation)
-  LLVM_LTO = 1
 endif
 
 ifeq "$(LLVM_NEW_API)" "1"
   $(info [+] llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
-  $(info [+] llvm_mode detected llvm 9, enabling afl-clang-lto LTO implementation)
   LLVM_STDCXX = c++14
+endif
+
+ifeq "$(LLVM_MAJOR)" "11"
+  $(info [+] llvm_mode detected llvm 11, enabling afl-clang-lto LTO implementation)
   LLVM_LTO = 1
 endif
 
 ifeq "$(LLVM_LTO)" "0"
-  $(info [+] llvm_mode detected llvm < 9, afl-clang-lto LTO will not be build.)
+  $(info [+] llvm_mode detected llvm < 11, afl-clang-lto LTO will not be build.)
 endif
 
 ifeq "$(LLVM_APPLE)" "1"
@@ -81,8 +82,8 @@ endif
 # this seems to be busted on some distros, so using the one in $PATH is
 # probably better.
 
-CC         = $(LLVM_BINDIR)/clang
-CXX        = $(LLVM_BINDIR)/clang++
+CC         ?= $(LLVM_BINDIR)/clang
+CXX        ?= $(LLVM_BINDIR)/clang++
 
 ifeq "$(shell test -e $(CC) || echo 1 )" "1"
   # llvm-config --bindir may not providing a valid path, so ...
@@ -125,13 +126,17 @@ else
  endif
 endif
 
-ifneq "$(AFL_CLANG_FLTO)" ""
-ifeq "$(AFL_REAL_LD)" ""
-  AFL_REAL_LD = $(shell readlink /bin/ld 2>/dev/null)
-  ifeq "$(AFL_REAL_LD)" ""
-    AFL_REAL_LD = $(shell readlink /usr/bin/ld 2>/dev/null)
+ifeq "$(LLVM_LTO)" "1"
+  ifneq "$(AFL_CLANG_FLTO)" ""
+    ifeq "$(AFL_REAL_LD)" ""
+      ifneq "$(shell readlink $(LLVM_BINDIR)/ld.lld 2>&1)" ""
+        AFL_REAL_LD = $(LLVM_BINDIR)/ld.lld
+      else
+        $(warn ld.lld not found, can not enable LTO mode)
+        LLVM_LTO = 0
+      endif
+    endif
   endif
-endif
 endif
 
 AFL_CLANG_FUSELD=
@@ -141,13 +146,27 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -fuse-ld=`command -v
 endif
 endif
 
+CLANG_BIN = $(basename $(CC))
+CLANGPP_BIN = $(basename $(CXX))
+ifeq "$(shell test -e $(CLANG_BIN) || echo 1 )" "1"
+  CLANG_BIN = $(CC)
+  CLANGPP_BIN = $(CXX)
+endif
+
+ifeq "$(CC)" "$(LLVM_BINDIR)/clang"
+  USE_BINDIR = 1
+else
+  USE_BINDIR = 0
+endif
+
 CFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
-override CFLAGS = -Wall \
+override CFLAGS += -Wall \
                -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
                -DLLVM_VERSION=\"$(LLVMVER)\"  -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
-               -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" -Wno-unused-function
+               -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
+               -DCLANG_BIN=\"$(CC)\" -DCLANGPP_BIN=\"$(CXX)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function
 ifdef AFL_TRACE_PC
   $(info Compile option AFL_TRACE_PC is deprecated, just set AFL_LLVM_INSTRUMENT=PCGUARD to activate when compiling targets )
 endif
@@ -183,7 +202,7 @@ ifeq "$(TEST_MMAP)" "1"
         LDFLAGS += -lrt
 endif
 
-  PROGS      = ../afl-clang-fast ../afl-ld ../afl-llvm-pass.so ../afl-llvm-lto-whitelist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
+  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-lto-whitelist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
 ifeq "$(LLVMVER)" ""
@@ -251,16 +270,6 @@ ifeq "$(LLVM_LTO)" "1"
 endif
 endif
 
-../afl-ld: afl-ld.c
-ifneq "$(AFL_CLANG_FLTO)" ""
-ifeq "$(LLVM_LTO)" "1"
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
-	ln -sf afl-ld ../ld
-	@rm -f .test-instr
-	@-export AFL_QUIET=1 AFL_PATH=.. PATH="..:$(PATH)" ; ../afl-clang-lto -Wl,--afl -o .test-instr ../test-instr.c && echo "[+] afl-clang-lto and afl-ld seem to work fine :)" || echo "[!] WARNING: clang seems to have a hardcoded "'/bin/ld'" - check README.lto"
-	@rm -f .test-instr
-endif
-endif
 ../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc | test_deps
 	-$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
 
@@ -275,9 +284,12 @@ ifeq "$(LLVM_LTO)" "1"
 	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
 endif
 
-../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc MarkNodes.cc
+../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc
 ifeq "$(LLVM_LTO)" "1"
-	$(CXX) $(CLANG_CFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
+	$(CXX) $(CLANG_CFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
+	$(CC) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto.o
+	@$(CC) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m64 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-64.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
+	@$(CC) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m32 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-32.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
 endif
 
 # laf
@@ -296,15 +308,15 @@ endif
 	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL)
 
 ../afl-llvm-rt.o: afl-llvm-rt.o.c | test_deps
-	$(CC) $(CFLAGS) -fPIC -c $< -o $@
+	$(CC) $(CFLAGS) -Wno-unused-result -fPIC -c $< -o $@
 
 ../afl-llvm-rt-32.o: afl-llvm-rt.o.c | test_deps
 	@printf "[*] Building 32-bit variant of the runtime (-m32)... "
-	@$(CC) $(CFLAGS) -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CC) $(CFLAGS) -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 ../afl-llvm-rt-64.o: afl-llvm-rt.o.c | test_deps
 	@printf "[*] Building 64-bit variant of the runtime (-m64)... "
-	@$(CC) $(CFLAGS) -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CC) $(CFLAGS) -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
@@ -323,7 +335,7 @@ all_done: test_build
 install: all
 	install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
 	if [ -f ../afl-clang-fast -a -f ../libLLVMInsTrim.so -a -f ../afl-llvm-rt.o ]; then set -e; install -m 755 ../afl-clang-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-fast++; install -m 755 ../libLLVMInsTrim.so ../afl-llvm-pass.so ../afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f ../afl-clang-lto -a -f ../afl-ld ]; then set -e; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 ../afl-ld $${DESTDIR}$(HELPER_PATH); ln -sf afl-ld $${DESTDIR}$(HELPER_PATH)/ld; install -m 755 ../afl-llvm-lto-instrumentation.so $${DESTDIR}$(HELPER_PATH); install -m 755 ../afl-llvm-lto-whitelist.so $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f ../afl-clang-lto ]; then set -e; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 ../afl-llvm-lto-instrumentation.so ../afl-llvm-rt-lto*.o ../afl-llvm-lto-whitelist.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../afl-llvm-rt-32.o ]; then set -e; install -m 755 ../afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../afl-llvm-rt-64.o ]; then set -e; install -m 755 ../afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../compare-transform-pass.so ]; then set -e; install -m 755 ../compare-transform-pass.so $${DESTDIR}$(HELPER_PATH); fi
@@ -363,4 +375,4 @@ endif
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 *.dwo
-	rm -f $(PROGS) afl-common.o ../afl-clang-fast++ ../afl-clang-lto ../afl-clang-lto++ ../afl-clang*.8 ../ld
+	rm -f $(PROGS) afl-common.o ../afl-clang-fast++ ../afl-clang-lto ../afl-clang-lto++ ../afl-clang*.8 ../ld ../afl-ld ../afl-llvm-rt*.o

@@ -138,8 +138,9 @@ static void __afl_map_shm(void) {
 
 static void __afl_start_forkserver(void) {
 
-  static u8 tmp[4];
-  s32       child_pid;
+  u8  tmp[4] = {0, 0, 0, 0};
+  u32 map_size = MAP_SIZE;
+  s32 child_pid;
 
   u8 child_stopped = 0;
 
@@ -147,6 +148,13 @@ static void __afl_start_forkserver(void) {
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
+
+  if (MAP_SIZE <= 0x800000) {
+
+    map_size = (FS_OPT_ENABLED | FS_OPT_MAPSIZE | FS_OPT_SET_MAPSIZE(MAP_SIZE));
+    memcpy(tmp, &map_size, 4);
+
+  }
 
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
 

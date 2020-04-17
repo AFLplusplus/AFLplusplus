@@ -4,9 +4,9 @@
 
   ![Travis State](https://api.travis-ci.com/AFLplusplus/AFLplusplus.svg?branch=master)
 
-  Release Version: [2.63c](https://github.com/AFLplusplus/AFLplusplus/releases)
+  Release Version: [2.64c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-  Github Version: 2.63d
+  Github Version: 2.64d
 
   includes all necessary/interesting changes from Google's afl 2.56b
 
@@ -21,7 +21,7 @@
     * Dominik Maier <mail@dmnk.co>.
 
   Note that although afl now has a Google afl repository [https://github.com/Google/afl](https://github.com/Google/afl),
-  it is unlikely to receive any noteable enhancements: [https://twitter.com/Dor3s/status/1154737061787660288](https://twitter.com/Dor3s/status/1154737061787660288)
+  it is unlikely to receive any notable enhancements: [https://twitter.com/Dor3s/status/1154737061787660288](https://twitter.com/Dor3s/status/1154737061787660288)
 
 ## The enhancements compared to the original stock afl
 
@@ -44,7 +44,7 @@
 
   * Custom mutator by a library (instead of Python) by kyakdan
 
-  * Unicron mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
+  * Unicorn mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
 
   * LAF-Intel or CompCov support for llvm_mode, qemu_mode and unicorn_mode
 
@@ -124,9 +124,9 @@ However, we already work on so many things that we do not have the time for
 all the big ideas.
 
 This can be your way to support and contribute to AFL++ - extend it to
-something cool
+something cool.
 
-We have an idea list in [docs/ideas.md](docs/ideas.md)
+We have an idea list in [docs/ideas.md](docs/ideas.md).
 
 For everyone who wants to contribute (and send pull requests) please read
 [CONTRIBUTING.md](CONTRIBUTING.md) before your submit.
@@ -145,7 +145,7 @@ $ sudo make install
 Note that "make distrib" also builds llvm_mode, qemu_mode, unicorn_mode and
 more. If you just want plain afl then do "make all", however compiling and
 using at least llvm_mode is highly recommended for much better results -
-hence in this case 
+hence in this case
 
 ```shell
 $ make source-only
@@ -158,6 +158,7 @@ These build targets exist:
 * binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap, radamsa
 * source-only: everything for source code fuzzing: llvm_mode, libdislocator, libtokencap, radamsa
 * distrib: everything (for both binary-only and source code fuzzing)
+* man: creates simple man pages from the help option of the programs
 * install: installs everything you have compiled with the build options above
 * clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well
 * code-format: format the code, do this before you commit and send a PR please!
@@ -177,6 +178,7 @@ These build options exist:
 * STATIC - compile AFL++ static
 * ASAN_BUILD - compiles with memory sanitizer for debug purposes
 * PROFILING - compile with profiling information (gprof)
+* NO_PYTHON - disable python support
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)
 
@@ -184,7 +186,7 @@ e.g.: make ASAN_BUILD=1
 
 
 Note that afl++ is faster and better the newer the compilers used are.
-Hence gcc-9 and especially llvm-9 should be the compilers of choice.
+Hence at least gcc-9 and especially llvm-9 should be the compilers of choice.
 If your distribution does not have them, you can use the Dockerfile:
 
 ```shell
@@ -350,6 +352,7 @@ Here are some good writeups to show how to effectively use AFL++:
  * [https://aflplus.plus/docs/tutorials/libxml2_tutorial/](https://aflplus.plus/docs/tutorials/libxml2_tutorial/)
  * [https://bananamafia.dev/post/gb-fuzz/](https://bananamafia.dev/post/gb-fuzz/)
  * [https://securitylab.github.com/research/fuzzing-challenges-solutions-1](https://securitylab.github.com/research/fuzzing-challenges-solutions-1)
+ * [https://securitylab.github.com/research/fuzzing-sockets-FTP](https://securitylab.github.com/research/fuzzing-sockets-FTP)
 
 If you are interested in fuzzing structured data (where you define what the
 structure is), these two links have you covered:

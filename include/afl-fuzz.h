@@ -195,19 +195,6 @@ enum {
 
 };
 
-/* Execution status fault codes */
-
-enum {
-
-  /* 00 */ FAULT_NONE,
-  /* 01 */ FAULT_TMOUT,
-  /* 02 */ FAULT_CRASH,
-  /* 03 */ FAULT_ERROR,
-  /* 04 */ FAULT_NOINST,
-  /* 05 */ FAULT_NOBITS
-
-};
-
 #define operator_num 16
 #define swarm_num 5
 #define period_core 500000
@@ -331,13 +318,21 @@ typedef struct afl_env_vars {
   u8 afl_skip_cpufreq, afl_exit_when_done, afl_no_affinity, afl_skip_bin_check,
       afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
-      afl_bench_until_crash, afl_debug_child_output, afl_autoresume;
+      afl_bench_until_crash, afl_debug_child_output, afl_autoresume,
+      afl_cal_fast;
 
   u8 *afl_tmpdir, *afl_post_library, *afl_custom_mutator_library,
       *afl_python_module, *afl_path, *afl_hang_tmout, *afl_skip_crashes,
       *afl_preload;
 
 } afl_env_vars_t;
+
+struct afl_pass_stat {
+
+  u8 total;
+  u8 faileds;
+
+};
 
 typedef struct afl_state {
 
@@ -353,14 +348,14 @@ typedef struct afl_state {
   /* MOpt:
     Lots of globals, but mostly for the status UI and other things where it
     really makes no sense to haul them around as function parameters. */
-  u64 limit_time_puppet, orig_hit_cnt_puppet, last_limit_time_start,
-      tmp_pilot_time, total_pacemaker_time, total_puppet_find, temp_puppet_find,
-      most_time_key, most_time, most_execs_key, most_execs, old_hit_count,
-      force_ui_update;
+  u64 orig_hit_cnt_puppet, last_limit_time_start, tmp_pilot_time,
+      total_pacemaker_time, total_puppet_find, temp_puppet_find, most_time_key,
+      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update;
 
   MOpt_globals_t mopt_globals_core, mopt_globals_pilot;
 
-  s32 SPLICE_CYCLES_puppet, limit_time_sig, key_puppet, key_module;
+  s32 limit_time_puppet, SPLICE_CYCLES_puppet, limit_time_sig, key_puppet,
+      key_module;
 
   double w_init, w_end, w_now;
 
@@ -425,7 +420,6 @@ typedef struct afl_state {
       use_splicing,                     /* Recombine input files?           */
       dumb_mode,                        /* Run in non-instrumented mode?    */
       score_changed,                    /* Scoring for favorites changed?   */
-      kill_signal,                      /* Signal that killed the child     */
       resuming_fuzz,                    /* Resuming an older fuzzing job?   */
       timeout_given,                    /* Specific timeout given?          */
       not_on_tty,                       /* stdout is not a tty              */
@@ -439,7 +433,6 @@ typedef struct afl_state {
       no_arith,                         /* Skip most arithmetic ops         */
       shuffle_queue,                    /* Shuffle input queue?             */
       bitmap_changed,                   /* Time to update bitmap?           */
-      qemu_mode,                        /* Running in QEMU mode?            */
       unicorn_mode,                     /* Running in Unicorn mode?         */
       use_wine,                         /* Use WINE with QEMU mode          */
       skip_requested,                   /* Skip request, via SIGUSR1        */
@@ -450,11 +443,11 @@ typedef struct afl_state {
       fast_cal,                         /* Try to calibrate faster?         */
       disable_trim;                     /* Never trim in fuzz_one           */
 
-  u8 virgin_bits[MAP_SIZE],             /* Regions yet untouched by fuzzing */
-      virgin_tmout[MAP_SIZE],           /* Bits we haven't seen in tmouts   */
-      virgin_crash[MAP_SIZE];           /* Bits we haven't seen in crashes  */
+  u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
+      *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
+      *virgin_crash;                    /* Bits we haven't seen in crashes  */
 
-  u8 var_bytes[MAP_SIZE];               /* Bytes that appear to be variable */
+  u8 *var_bytes;                        /* Bytes that appear to be variable */
 
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */
       clear_screen;                     /* Window resized?                  */
@@ -481,7 +474,6 @@ typedef struct afl_state {
       total_tmouts,                     /* Total number of timeouts         */
       unique_tmouts,                    /* Timeouts with unique signatures  */
       unique_hangs,                     /* Hangs with unique signatures     */
-      total_execs,                      /* Total execve() calls             */
       last_crash_execs,                 /* Exec counter at last crash       */
       queue_cycle,                      /* Queue round counter              */
       cycles_wo_finds,                  /* Cycles without any new paths     */
@@ -543,7 +535,7 @@ typedef struct afl_state {
       *queue_top,                       /* Top of the list                  */
       *q_prev100;                       /* Previous 100 marker              */
 
-  struct queue_entry *top_rated[MAP_SIZE];  /* Top entries for bitmap bytes */
+  struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
 
   struct extra_data *extras;            /* Extra tokens to fuzz with        */
   u32                extras_cnt;        /* Total number of tokens read      */
@@ -559,8 +551,8 @@ typedef struct afl_state {
 
   /* CmpLog */
 
-  char *cmplog_binary;
-  s32   cmplog_child_pid, cmplog_fsrv_pid;
+  char *           cmplog_binary;
+  afl_forkserver_t cmplog_fsrv;     /* cmplog has its own little forkserver */
 
   /* Custom mutators */
   struct custom_mutator *mutator;
@@ -568,6 +560,9 @@ typedef struct afl_state {
   /* cmplog forkserver ids */
   s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
   u32 cmplog_prev_timed_out;
+
+  struct afl_pass_stat *pass_stats;
+  struct cmp_map *      orig_cmp_map;
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
@@ -577,7 +572,9 @@ typedef struct afl_state {
   u32 document_counter;
 #endif
 
-  /* statis file */
+  void *maybe_add_auto;
+
+  /* statistics file */
   double last_bitmap_cvg, last_stability, last_eps;
 
   /* plot file saves from last run */
@@ -587,9 +584,9 @@ typedef struct afl_state {
   u64 stats_last_stats_ms, stats_last_plot_ms, stats_last_ms, stats_last_execs;
   double stats_avg_exec;
 
-  u8 clean_trace[MAP_SIZE];
-  u8 clean_trace_custom[MAP_SIZE];
-  u8 first_trace[MAP_SIZE];
+  u8 *clean_trace;
+  u8 *clean_trace_custom;
+  u8 *first_trace;
 
   /*needed for afl_fuzz_one */
   // TODO: see which we can reuse
@@ -610,6 +607,9 @@ typedef struct afl_state {
 
   u8 *   ex_buf;
   size_t ex_size;
+
+  /* this is a fixed buffer of size map_size that can be used by any function if they do not call another function */
+  u8 *   map_tmp_buf;
 
 } afl_state_t;
 
@@ -797,7 +797,7 @@ struct custom_mutator {
 
 };
 
-void afl_state_init(afl_state_t *);
+void afl_state_init(afl_state_t *, uint32_t map_size);
 void afl_state_deinit(afl_state_t *);
 void read_afl_environment(afl_state_t *, char **);
 
@@ -811,6 +811,7 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf);
 /* Python */
 #ifdef USE_PYTHON
 
+void load_custom_mutator_py(afl_state_t *, char *);
 void finalize_py_module(void *);
 
 size_t pre_save_py(void *, u8 *, size_t, u8 **);
@@ -838,20 +839,19 @@ u32  calculate_score(afl_state_t *, struct queue_entry *);
 
 /* Bitmap */
 
-void read_bitmap(afl_state_t *, u8 *);
 void write_bitmap(afl_state_t *);
-u32  count_bits(u8 *);
-u32  count_bytes(u8 *);
-u32  count_non_255_bytes(u8 *);
+u32  count_bits(afl_state_t *, u8 *);
+u32  count_bytes(afl_state_t *, u8 *);
+u32  count_non_255_bytes(afl_state_t *, u8 *);
 #ifdef WORD_SIZE_64
-void simplify_trace(u64 *);
-void classify_counts(u64 *);
+void simplify_trace(afl_state_t *, u64 *);
+void classify_counts(afl_forkserver_t *);
 #else
-void simplify_trace(u32 *);
-void classify_counts(u32 *);
+void simplify_trace(afl_state_t *, u32 *);
+void classify_counts(afl_forkserver_t *);
 #endif
 void init_count_class16(void);
-void minimize_bits(u8 *, u8 *);
+void minimize_bits(afl_state_t *, u8 *, u8 *);
 #ifndef SIMPLE_FILES
 u8 *describe_op(afl_state_t *, u8);
 #endif
@@ -862,7 +862,7 @@ u8 has_new_bits(afl_state_t *, u8 *);
 
 void load_extras_file(afl_state_t *, u8 *, u32 *, u32 *, u32);
 void load_extras(afl_state_t *, u8 *);
-void maybe_add_auto(afl_state_t *, u8 *, u32);
+void maybe_add_auto(void *, u8 *, u32);
 void save_auto(afl_state_t *);
 void load_auto(afl_state_t *);
 void destroy_extras(afl_state_t *);
@@ -876,8 +876,8 @@ void show_init_stats(afl_state_t *);
 
 /* Run */
 
-u8   run_target(afl_state_t *, u32);
-void write_to_testcase(afl_state_t *, void *, u32);
+fsrv_run_result_t fuzz_run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
+void              write_to_testcase(afl_state_t *, void *, u32);
 u8   calibrate_case(afl_state_t *, struct queue_entry *, u8 *, u32, u8);
 void sync_fuzzers(afl_state_t *);
 u8   trim_case(afl_state_t *, struct queue_entry *, u8 *);
@@ -920,8 +920,7 @@ void   save_cmdline(afl_state_t *, u32, char **);
 
 /* CmpLog */
 
-void init_cmplog_forkserver(afl_state_t *afl);
-u8   common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
+u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,

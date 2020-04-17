@@ -27,14 +27,11 @@
 #include "afl-fuzz.h"
 
 void load_custom_mutator(afl_state_t *, const char *);
-#ifdef USE_PYTHON
-void load_custom_mutator_py(afl_state_t *, char *);
-#endif
 
 void setup_custom_mutator(afl_state_t *afl) {
 
   /* Try mutator library first */
-  u8 *fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+  u8 *fn = afl->afl_env.afl_custom_mutator_library;
 
   if (fn) {
 
@@ -52,7 +49,7 @@ void setup_custom_mutator(afl_state_t *afl) {
 
   /* Try Python module */
 #ifdef USE_PYTHON
-  u8 *module_name = getenv("AFL_PYTHON_MODULE");
+  u8 *module_name = afl->afl_env.afl_python_module;
 
   if (module_name) {
 
@@ -67,7 +64,7 @@ void setup_custom_mutator(afl_state_t *afl) {
   }
 
 #else
-  if (getenv("AFL_PYTHON_MODULE"))
+  if (afl->afl_env.afl_python_module)
     FATAL("Your AFL binary was built without Python support");
 #endif
 
@@ -239,12 +236,12 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     write_to_testcase(afl, retbuf, retlen);
 
-    fault = run_target(afl, afl->fsrv.exec_tmout);
+    fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
     ++afl->trim_execs;
 
-    if (afl->stop_soon || fault == FAULT_ERROR) { goto abort_trimming; }
+    if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
 
-    cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+    cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
     if (cksum == q->exec_cksum) {
 
@@ -257,7 +254,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       if (!needs_write) {
 
         needs_write = 1;
-        memcpy(afl->clean_trace_custom, afl->fsrv.trace_bits, MAP_SIZE);
+        memcpy(afl->clean_trace_custom, afl->fsrv.trace_bits,
+               afl->fsrv.map_size);
 
       }
 
@@ -307,7 +305,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     ck_write(fd, in_buf, q->len, q->fname);
     close(fd);
 
-    memcpy(afl->fsrv.trace_bits, afl->clean_trace_custom, MAP_SIZE);
+    memcpy(afl->fsrv.trace_bits, afl->clean_trace_custom, afl->fsrv.map_size);
     update_bitmap_score(afl, q);
 
   }

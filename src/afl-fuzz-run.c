@@ -6,7 +6,8 @@
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+                        Andrea Fioraldi <andreafioraldi@gmail.com> and
+                        Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -27,134 +28,18 @@
 #include <sys/time.h>
 #include <signal.h>
 
+#include "cmplog.h"
+
 /* Execute target application, monitoring for timeouts. Return status
-   information. The called program will update afl->fsrv.trace_bits. */
+   information. The called program will update afl->fsrv->trace_bits. */
 
-u8 run_target(afl_state_t *afl, u32 timeout) {
+fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
+                                  u32 timeout) {
 
-  s32 res;
-  u32 exec_ms;
-
-  int status = 0;
-  u32 tb4;
-
-  afl->fsrv.child_timed_out = 0;
-
-  /* After this memset, afl->fsrv.trace_bits[] are effectively volatile, so we
-     must prevent any earlier operations from venturing into that
-     territory. */
-
-  memset(afl->fsrv.trace_bits, 0, MAP_SIZE);
-
-  MEM_BARRIER();
-
-  /* we have the fork server (or faux server) up and running, so simply
-      tell it to have at it, and then read back PID. */
-
-  if ((res = write(afl->fsrv.fsrv_ctl_fd, &afl->fsrv.prev_timed_out, 4)) != 4) {
-
-    if (afl->stop_soon) return 0;
-    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-  }
-
-  if ((res = read(afl->fsrv.fsrv_st_fd, &afl->fsrv.child_pid, 4)) != 4) {
-
-    if (afl->stop_soon) return 0;
-    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-  }
-
-  if (afl->fsrv.child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
-
-  exec_ms = read_timed(afl->fsrv.fsrv_st_fd, &status, 4, timeout);
-
-  if (exec_ms > timeout) {
-
-    /* If there was no response from forkserver after timeout seconds,
-    we kill the child. The forkserver should inform us afterwards */
-
-    kill(afl->fsrv.child_pid, SIGKILL);
-    afl->fsrv.child_timed_out = 1;
-    if (read(afl->fsrv.fsrv_st_fd, &status, 4) < 4) exec_ms = 0;
-
-  }
-
-  if (!exec_ms) {
-
-    if (afl->stop_soon) return 0;
-    SAYF("\n" cLRD "[-] " cRST
-         "Unable to communicate with fork server. Some possible reasons:\n\n"
-         "    - You've run out of memory. Use -m to increase the the memory "
-         "limit\n"
-         "      to something higher than %lld.\n"
-         "    - The binary or one of the libraries it uses manages to "
-         "create\n"
-         "      threads before the forkserver initializes.\n"
-         "    - The binary, at least in some circumstances, exits in a way "
-         "that\n"
-         "      also kills the parent process - raise() could be the "
-         "culprit.\n"
-         "    - If using persistent mode with QEMU, "
-         "AFL_QEMU_PERSISTENT_ADDR "
-         "is\n"
-         "      probably not valid (hint: add the base address in case of "
-         "PIE)"
-         "\n\n"
-         "If all else fails you can disable the fork server via "
-         "AFL_NO_FORKSRV=1.\n",
-         afl->fsrv.mem_limit);
-    RPFATAL(res, "Unable to communicate with fork server");
-
-  }
-
-  if (!WIFSTOPPED(status)) afl->fsrv.child_pid = 0;
-
-  ++afl->total_execs;
-
-  /* Any subsequent operations on afl->fsrv.trace_bits must not be moved by the
-     compiler below this point. Past this location, afl->fsrv.trace_bits[]
-     behave very normally and do not have to be treated as volatile. */
-
-  MEM_BARRIER();
-
-  tb4 = *(u32 *)afl->fsrv.trace_bits;
-
-#ifdef WORD_SIZE_64
-  classify_counts((u64 *)afl->fsrv.trace_bits);
-#else
-  classify_counts((u32 *)afl->fsrv.trace_bits);
-#endif                                                     /* ^WORD_SIZE_64 */
-
-  afl->fsrv.prev_timed_out = afl->fsrv.child_timed_out;
-
-  /* Report outcome to caller. */
-
-  if (WIFSIGNALED(status) && !afl->stop_soon) {
-
-    afl->kill_signal = WTERMSIG(status);
-
-    if (afl->fsrv.child_timed_out && afl->kill_signal == SIGKILL)
-      return FAULT_TMOUT;
-
-    return FAULT_CRASH;
-
-  }
-
-  /* A somewhat nasty hack for MSAN, which doesn't support abort_on_error and
-     must use a special exit code. */
-
-  if (afl->fsrv.uses_asan && WEXITSTATUS(status) == MSAN_ERROR) {
-
-    afl->kill_signal = 0;
-    return FAULT_CRASH;
-
-  }
-
-  if ((afl->dumb_mode == 1 || afl->no_forkserver) && tb4 == EXEC_FAIL_SIG)
-    return FAULT_ERROR;
-
-  return FAULT_NONE;
+  fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
+  // TODO: Don't classify for faults?
+  classify_counts(fsrv);
+  return res;
 
 }
 
@@ -164,13 +49,11 @@ u8 run_target(afl_state_t *afl, u32 timeout) {
 
 void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
-  s32 fd = afl->fsrv.out_fd;
-
 #ifdef _AFL_DOCUMENT_MUTATIONS
   s32  doc_fd;
   char fn[PATH_MAX];
-  snprintf(fn, PATH_MAX, ("%s/mutations/%09u:%s", afl->out_dir,
-                          afl->document_counter++, describe_op(afl, 0));
+  snprintf(fn, PATH_MAX, "%s/mutations/%09u:%s", afl->out_dir,
+           afl->document_counter++, describe_op(afl, 0));
 
   if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600)) >= 0) {
 
@@ -181,25 +64,6 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
   }
 
 #endif
-
-  if (afl->fsrv.out_file) {
-
-    if (afl->no_unlink) {
-
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-
-    } else {
-
-      unlink(afl->fsrv.out_file);                         /* Ignore errors. */
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
-
-    }
-
-    if (fd < 0) PFATAL("Unable to create '%s'", afl->fsrv.out_file);
-
-  } else
-
-    lseek(fd, 0, SEEK_SET);
 
   if (unlikely(afl->mutator && afl->mutator->afl_custom_pre_save)) {
 
@@ -212,23 +76,14 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
       FATAL("Custom_pre_save failed (ret: %lu)", (long unsigned)new_size);
 
     /* everything as planned. use the new data. */
-    ck_write(fd, new_buf, new_size, afl->fsrv.out_file);
+    afl_fsrv_write_to_testcase(&afl->fsrv, new_buf, new_size);
 
   } else {
 
     /* boring uncustom. */
-    ck_write(fd, mem, len, afl->fsrv.out_file);
+    afl_fsrv_write_to_testcase(&afl->fsrv, mem, len);
 
   }
-
-  if (!afl->fsrv.out_file) {
-
-    if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
-    lseek(fd, 0, SEEK_SET);
-
-  } else
-
-    close(fd);
 
 }
 
@@ -308,12 +163,22 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
 
-  if (!afl->fsrv.fsrv_pid) afl_fsrv_start(&afl->fsrv, afl->argv);
-  if (afl->dumb_mode != 1 && !afl->no_forkserver && !afl->cmplog_fsrv_pid &&
-      afl->shm.cmplog_mode)
-    init_cmplog_forkserver(afl);
+  if (!afl->fsrv.fsrv_pid) {
 
-  if (q->exec_cksum) memcpy(afl->first_trace, afl->fsrv.trace_bits, MAP_SIZE);
+    if (afl->fsrv.cmplog_binary &&
+        afl->fsrv.init_child_func != cmplog_exec_child) {
+
+      FATAL("BUG in afl-fuzz detected. Cmplog mode not set correctly.");
+
+    }
+
+    afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                   afl->afl_env.afl_debug_child_output);
+
+  }
+
+  if (q->exec_cksum)
+    memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
 
   start_us = get_cur_time_us();
 
@@ -326,7 +191,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     write_to_testcase(afl, use_mem, q->len);
 
-    fault = run_target(afl, use_tmout);
+    fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
 
     /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
        we want to bail out quickly. */
@@ -334,14 +199,14 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     if (afl->stop_soon || fault != afl->crash_mode) goto abort_calibration;
 
     if (!afl->dumb_mode && !afl->stage_cur &&
-        !count_bytes(afl->fsrv.trace_bits)) {
+        !count_bytes(afl, afl->fsrv.trace_bits)) {
 
-      fault = FAULT_NOINST;
+      fault = FSRV_RUN_NOINST;
       goto abort_calibration;
 
     }
 
-    cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+    cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
     if (q->exec_cksum != cksum) {
 
@@ -352,7 +217,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
         u32 i;
 
-        for (i = 0; i < MAP_SIZE; ++i) {
+        for (i = 0; i < afl->fsrv.map_size; ++i) {
 
           if (unlikely(!afl->var_bytes[i]) &&
               unlikely(afl->first_trace[i] != afl->fsrv.trace_bits[i]))
@@ -366,7 +231,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
       } else {
 
         q->exec_cksum = cksum;
-        memcpy(afl->first_trace, afl->fsrv.trace_bits, MAP_SIZE);
+        memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
 
       }
 
@@ -383,7 +248,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
      This is used for fuzzing air time calculations in calculate_score(). */
 
   q->exec_us = (stop_us - start_us) / afl->stage_max;
-  q->bitmap_size = count_bytes(afl->fsrv.trace_bits);
+  q->bitmap_size = count_bytes(afl, afl->fsrv.trace_bits);
   q->handicap = handicap;
   q->cal_failed = 0;
 
@@ -396,7 +261,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
      parent. This is a non-critical problem, but something to warn the user
      about. */
 
-  if (!afl->dumb_mode && first_run && !fault && !new_bits) fault = FAULT_NOBITS;
+  if (!afl->dumb_mode && first_run && !fault && !new_bits)
+    fault = FSRV_RUN_NOBITS;
 
 abort_calibration:
 
@@ -411,7 +277,7 @@ abort_calibration:
 
   if (var_detected) {
 
-    afl->var_byte_count = count_bytes(afl->var_bytes);
+    afl->var_byte_count = count_bytes(afl, afl->var_bytes);
 
     if (!q->var_behavior) {
 
@@ -543,7 +409,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
         write_to_testcase(afl, mem, st.st_size);
 
-        fault = run_target(afl, afl->fsrv.exec_tmout);
+        fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
         if (afl->stop_soon) goto close_sync;
 
@@ -630,15 +496,15 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
       write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
 
-      fault = run_target(afl, afl->fsrv.exec_tmout);
+      fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
       ++afl->trim_execs;
 
-      if (afl->stop_soon || fault == FAULT_ERROR) goto abort_trimming;
+      if (afl->stop_soon || fault == FSRV_RUN_ERROR) goto abort_trimming;
 
       /* Note that we don't keep track of crashes or hangs here; maybe TODO?
        */
 
-      cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+      cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       /* If the deletion had no impact on the trace, make it permanent. This
          isn't perfect for variable-path inputs, but we're just making a
@@ -661,7 +527,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
         if (!needs_write) {
 
           needs_write = 1;
-          memcpy(afl->clean_trace, afl->fsrv.trace_bits, MAP_SIZE);
+          memcpy(afl->clean_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
 
         }
 
@@ -703,7 +569,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     ck_write(fd, in_buf, q->len, q->fname);
     close(fd);
 
-    memcpy(afl->fsrv.trace_bits, afl->clean_trace, MAP_SIZE);
+    memcpy(afl->fsrv.trace_bits, afl->clean_trace, afl->fsrv.map_size);
     update_bitmap_score(afl, q);
 
   }
@@ -737,11 +603,11 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   write_to_testcase(afl, out_buf, len);
 
-  fault = run_target(afl, afl->fsrv.exec_tmout);
+  fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
   if (afl->stop_soon) return 1;
 
-  if (fault == FAULT_TMOUT) {
+  if (fault == FSRV_RUN_TMOUT) {
 
     if (afl->subseq_tmouts++ > TMOUT_LIMIT) {
 

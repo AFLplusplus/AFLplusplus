@@ -23,12 +23,6 @@
 
  */
 
-// CONFIG OPTION:
-// If #define USE_SPLIT is used, then the llvm::SplitEdge function is used
-// instead of our own implementation. Ours looks better and will
-// compile everywhere. But it is not working for complex code. yet. damn.
-#define USE_SPLIT
-
 #define AFL_LLVM_PASS
 
 #include "config.h"
@@ -44,31 +38,24 @@
 #include <sys/time.h>
 
 #include "llvm/Config/llvm-config.h"
-#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
-typedef long double max_align_t;
-#endif
-
+#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-
-#ifdef USE_SPLIT
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
-#endif
+#include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Pass.h"
 
-#if LLVM_VERSION_MAJOR > 3 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/CFG.h"
-#else
-#include "llvm/DebugInfo.h"
-#include "llvm/Support/CFG.h"
-#endif
+#include <set>
 
 using namespace llvm;
 
@@ -91,7 +78,6 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-#ifdef USE_SPLIT
   void getAnalysisUsage(AnalysisUsage &AU) const override {
 
     ModulePass::getAnalysisUsage(AU);
@@ -99,8 +85,6 @@ class AFLLTOPass : public ModulePass {
     AU.addRequired<LoopInfoWrapperPass>();
 
   }
-
-#endif
 
   // Calculate the number of average collisions that would occur if all
   // location IDs would be assigned randomly (like normal afl/afl++).
@@ -168,7 +152,7 @@ class AFLLTOPass : public ModulePass {
   bool runOnModule(Module &M) override;
 
  protected:
-  int      afl_global_id = 1, debug = 0;
+  int      afl_global_id = 1, debug = 0, autodictionary = 0;
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, total_instr = 0;
 
 };
@@ -177,22 +161,19 @@ class AFLLTOPass : public ModulePass {
 
 bool AFLLTOPass::runOnModule(Module &M) {
 
-  LLVMContext &C = M.getContext();
+  LLVMContext &                    C = M.getContext();
+  std::vector<std::string>         dictionary;
+  std::vector<CallInst *>          calls;
+  DenseMap<Value *, std::string *> valueMap;
 
-  IntegerType *   Int8Ty = IntegerType::getInt8Ty(C);
-  IntegerType *   Int32Ty = IntegerType::getInt32Ty(C);
-  struct timeval  tv;
-  struct timezone tz;
-  u32             rand_seed;
+  IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
+  IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
 
-  /* Setup random() so we get Actually Random(TM) outputs from AFL_R() */
-  gettimeofday(&tv, &tz);
-  rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
-  AFL_SR(rand_seed);
+  if (getenv("AFL_DEBUG")) debug = 1;
 
   /* Show a banner */
 
-  if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
+  if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
     SAYF(cCYA "afl-llvm-lto" VERSION cRST
               " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
@@ -201,9 +182,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     be_quiet = 1;
 
-#if LLVM_VERSION_MAJOR < 9
-  char *neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
-#endif
+  if (getenv("AFL_LLVM_AUTODICTIONARY") ||
+      getenv("AFL_LLVM_LTO_AUTODICTIONARY"))
+    autodictionary = 1;
 
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
@@ -224,13 +205,319 @@ bool AFLLTOPass::runOnModule(Module &M) {
     if (F.size() < 2) continue;
     if (isBlacklisted(&F)) continue;
 
-#ifdef USE_SPLIT
-      // DominatorTree &DT =
-      // getAnalysis<DominatorTreeWrapperPass>(F).getDomTree(); LoopInfo & LI =
-      // getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-#endif
-
     std::vector<BasicBlock *> InsBlocks;
+
+    if (autodictionary) {
+
+      /*  Some implementation notes.
+       *
+       *  We try to handle 3 cases:
+       *  - memcmp("foo", arg, 3) <- literal string
+       *  - static char globalvar[] = "foo";
+       *    memcmp(globalvar, arg, 3) <- global variable
+       *  - char localvar[] = "foo";
+       *    memcmp(locallvar, arg, 3) <- local variable
+       *
+       *  The local variable case is the hardest. We can only detect that
+       *  case if there is no reassignment or change in the variable.
+       *  And it might not work across llvm version.
+       *  What we do is hooking the initializer function for local variables
+       *  (llvm.memcpy.p0i8.p0i8.i64) and note the string and the assigned
+       *  variable. And if that variable is then used in a compare function
+       *  we use that noted string.
+       *  This seems not to work for tokens that have a size <= 4 :-(
+       *
+       *  - if the compared length is smaller than the string length we
+       *    save the full string. This is likely better for fuzzing but
+       *    might be wrong in a few cases depending on optimizers
+       *
+       *  - not using StringRef because there is a bug in the llvm 11
+       *    checkout I am using which sometimes points to wrong strings
+       *
+       *  Over and out. Took me a full day. damn. mh/vh
+       */
+
+      for (auto &BB : F) {
+
+        for (auto &IN : BB) {
+
+          CallInst *callInst = nullptr;
+
+          if ((callInst = dyn_cast<CallInst>(&IN))) {
+
+            bool    isStrcmp = true;
+            bool    isMemcmp = true;
+            bool    isStrncmp = true;
+            bool    isStrcasecmp = true;
+            bool    isStrncasecmp = true;
+            bool    isIntMemcpy = true;
+            bool    addedNull = false;
+            uint8_t optLen = 0;
+
+            Function *Callee = callInst->getCalledFunction();
+            if (!Callee) continue;
+            if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
+            std::string FuncName = Callee->getName().str();
+            isStrcmp &= !FuncName.compare("strcmp");
+            isMemcmp &= !FuncName.compare("memcmp");
+            isStrncmp &= !FuncName.compare("strncmp");
+            isStrcasecmp &= !FuncName.compare("strcasecmp");
+            isStrncasecmp &= !FuncName.compare("strncasecmp");
+            isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
+
+            if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
+                !isStrncasecmp && !isIntMemcpy)
+              continue;
+
+            /* Verify the strcmp/memcmp/strncmp/strcasecmp/strncasecmp function
+             * prototype */
+            FunctionType *FT = Callee->getFunctionType();
+
+            isStrcmp &= FT->getNumParams() == 2 &&
+                        FT->getReturnType()->isIntegerTy(32) &&
+                        FT->getParamType(0) == FT->getParamType(1) &&
+                        FT->getParamType(0) ==
+                            IntegerType::getInt8PtrTy(M.getContext());
+            isStrcasecmp &= FT->getNumParams() == 2 &&
+                            FT->getReturnType()->isIntegerTy(32) &&
+                            FT->getParamType(0) == FT->getParamType(1) &&
+                            FT->getParamType(0) ==
+                                IntegerType::getInt8PtrTy(M.getContext());
+            isMemcmp &= FT->getNumParams() == 3 &&
+                        FT->getReturnType()->isIntegerTy(32) &&
+                        FT->getParamType(0)->isPointerTy() &&
+                        FT->getParamType(1)->isPointerTy() &&
+                        FT->getParamType(2)->isIntegerTy();
+            isStrncmp &= FT->getNumParams() == 3 &&
+                         FT->getReturnType()->isIntegerTy(32) &&
+                         FT->getParamType(0) == FT->getParamType(1) &&
+                         FT->getParamType(0) ==
+                             IntegerType::getInt8PtrTy(M.getContext()) &&
+                         FT->getParamType(2)->isIntegerTy();
+            isStrncasecmp &= FT->getNumParams() == 3 &&
+                             FT->getReturnType()->isIntegerTy(32) &&
+                             FT->getParamType(0) == FT->getParamType(1) &&
+                             FT->getParamType(0) ==
+                                 IntegerType::getInt8PtrTy(M.getContext()) &&
+                             FT->getParamType(2)->isIntegerTy();
+
+            if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
+                !isStrncasecmp && !isIntMemcpy)
+              continue;
+
+            /* is a str{n,}{case,}cmp/memcmp, check if we have
+             * str{case,}cmp(x, "const") or str{case,}cmp("const", x)
+             * strn{case,}cmp(x, "const", ..) or strn{case,}cmp("const", x, ..)
+             * memcmp(x, "const", ..) or memcmp("const", x, ..) */
+            Value *Str1P = callInst->getArgOperand(0),
+                  *Str2P = callInst->getArgOperand(1);
+            std::string Str1, Str2;
+            StringRef   TmpStr;
+            bool        HasStr1 = getConstantStringInfo(Str1P, TmpStr);
+            if (TmpStr.empty())
+              HasStr1 = false;
+            else
+              Str1 = TmpStr.str();
+            bool HasStr2 = getConstantStringInfo(Str2P, TmpStr);
+            if (TmpStr.empty())
+              HasStr2 = false;
+            else
+              Str2 = TmpStr.str();
+
+            if (debug)
+              fprintf(stderr, "F:%s %p(%s)->\"%s\"(%s) %p(%s)->\"%s\"(%s)\n",
+                      FuncName.c_str(), Str1P, Str1P->getName().str().c_str(),
+                      Str1.c_str(), HasStr1 == true ? "true" : "false", Str2P,
+                      Str2P->getName().str().c_str(), Str2.c_str(),
+                      HasStr2 == true ? "true" : "false");
+
+            // we handle the 2nd parameter first because of llvm memcpy
+            if (!HasStr2) {
+
+              auto *Ptr = dyn_cast<ConstantExpr>(Str2P);
+              if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+
+                if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
+
+                  if (auto *Array =
+                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+
+                    HasStr2 = true;
+                    Str2 = Array->getAsString().str();
+
+                  }
+
+                }
+
+              }
+
+            }
+
+            // for the internal memcpy routine we only care for the second
+            // parameter and are not reporting anything.
+            if (isIntMemcpy == true) {
+
+              if (HasStr2 == true) {
+
+                Value *      op2 = callInst->getArgOperand(2);
+                ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
+                if (ilen) {
+
+                  uint64_t literalLength = Str2.size();
+                  uint64_t optLength = ilen->getZExtValue();
+                  if (literalLength + 1 == optLength) {
+
+                    Str2.append("\0", 1);  // add null byte
+                    addedNull = true;
+
+                  }
+
+                }
+
+                valueMap[Str1P] = new std::string(Str2);
+
+                if (debug)
+                  fprintf(stderr, "Saved: %s for %p\n", Str2.c_str(), Str1P);
+                continue;
+
+              }
+
+              continue;
+
+            }
+
+            // Neither a literal nor a global variable?
+            // maybe it is a local variable that we saved
+            if (!HasStr2) {
+
+              std::string *strng = valueMap[Str2P];
+              if (strng && !strng->empty()) {
+
+                Str2 = *strng;
+                HasStr2 = true;
+                if (debug)
+                  fprintf(stderr, "Filled2: %s for %p\n", strng->c_str(),
+                          Str2P);
+
+              }
+
+            }
+
+            if (!HasStr1) {
+
+              auto Ptr = dyn_cast<ConstantExpr>(Str1P);
+
+              if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
+
+                if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
+
+                  if (auto *Array =
+                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+
+                    HasStr1 = true;
+                    Str1 = Array->getAsString().str();
+
+                  }
+
+                }
+
+              }
+
+            }
+
+            // Neither a literal nor a global variable?
+            // maybe it is a local variable that we saved
+            if (!HasStr1) {
+
+              std::string *strng = valueMap[Str1P];
+              if (strng && !strng->empty()) {
+
+                Str1 = *strng;
+                HasStr1 = true;
+                if (debug)
+                  fprintf(stderr, "Filled1: %s for %p\n", strng->c_str(),
+                          Str1P);
+
+              }
+
+            }
+
+            /* handle cases of one string is const, one string is variable */
+            if (!(HasStr1 ^ HasStr2)) continue;
+
+            std::string thestring;
+
+            if (HasStr1)
+              thestring = Str1;
+            else
+              thestring = Str2;
+
+            optLen = thestring.length();
+
+            if (isMemcmp || isStrncmp || isStrncasecmp) {
+
+              Value *      op2 = callInst->getArgOperand(2);
+              ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
+              if (ilen) {
+
+                uint64_t literalLength = optLen;
+                optLen = ilen->getZExtValue();
+                if (literalLength + 1 == optLen) {  // add null byte
+                  thestring.append("\0", 1);
+                  addedNull = true;
+
+                }
+
+              }
+
+            }
+
+            // add null byte if this is a string compare function and a null
+            // was not already added
+            if (addedNull == false && !isMemcmp) {
+
+              thestring.append("\0", 1);  // add null byte
+              optLen++;
+
+            }
+
+            if (!be_quiet) {
+
+              std::string outstring;
+              fprintf(stderr, "%s: length %u/%u \"", FuncName.c_str(), optLen,
+                      (unsigned int)thestring.length());
+              for (uint8_t i = 0; i < thestring.length(); i++) {
+
+                uint8_t c = thestring[i];
+                if (c <= 32 || c >= 127)
+                  fprintf(stderr, "\\x%02x", c);
+                else
+                  fprintf(stderr, "%c", c);
+
+              }
+
+              fprintf(stderr, "\"\n");
+
+            }
+
+            // we take the longer string, even if the compare was to a
+            // shorter part. Note that depending on the optimizer of the
+            // compiler this can be wrong, but it is more likely that this
+            // is helping the fuzzer
+            if (optLen != thestring.length()) optLen = thestring.length();
+            if (optLen > MAX_AUTO_EXTRA) optLen = MAX_AUTO_EXTRA;
+            if (optLen < MIN_AUTO_EXTRA)  // too short? skip
+              continue;
+
+            dictionary.push_back(thestring.substr(0, optLen));
+
+          }
+
+        }
+
+      }
+
+    }
 
     for (auto &BB : F) {
 
@@ -274,11 +561,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         for (uint32_t j = 0; j < Successors.size(); j++) {
 
-#ifdef USE_SPLIT
           BasicBlock *newBB = llvm::SplitEdge(origBB, Successors[j]);
-#else
-          BasicBlock *newBB = BasicBlock::Create(C, "", &F, nullptr);
-#endif
 
           if (!newBB) {
 
@@ -287,12 +570,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           }
 
-#ifdef USE_SPLIT
           BasicBlock::iterator IP = newBB->getFirstInsertionPt();
           IRBuilder<>          IRB(&(*IP));
-#else
-          IRBuilder<> IRB(&(*newBB));
-#endif
 
           /* Set the ID of the inserted basic block */
 
@@ -313,38 +592,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           Value *Incr = IRB.CreateAdd(Counter, One);
 
-#if LLVM_VERSION_MAJOR < 9
-          if (neverZero_counters_str !=
-              NULL) {  // with llvm 9 we make this the default as the bug in
-                       // llvm is then fixed
-#endif
-            auto cf = IRB.CreateICmpEQ(Incr, Zero);
-            auto carry = IRB.CreateZExt(cf, Int8Ty);
-            Incr = IRB.CreateAdd(Incr, carry);
-#if LLVM_VERSION_MAJOR < 9
-
-          }
-
-#endif
+          auto cf = IRB.CreateICmpEQ(Incr, Zero);
+          auto carry = IRB.CreateZExt(cf, Int8Ty);
+          Incr = IRB.CreateAdd(Incr, carry);
           IRB.CreateStore(Incr, MapPtrIdx)
               ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-#ifdef USE_SPLIT
-          // nothing
-#else
-
-          // Unconditional jump to the destination BB
-
-          IRB.CreateBr(Successors[j]);
-
-          // Replace the original destination to this newly inserted BB
-
-          origBB->replacePhiUsesWith(Successors[j], newBB);
-          BasicBlock *S = Successors[j];
-          S->replacePhiUsesWith(origBB, newBB);
-          TI->setSuccessor(j, newBB);
-
-#endif
           // done :)
 
           inst_blocks++;
@@ -358,28 +611,147 @@ bool AFLLTOPass::runOnModule(Module &M) {
   }
 
   // save highest location ID to global variable
-
-  if (afl_global_id > MAP_SIZE) {
+  // do this after each function to fail faster
+  if (!be_quiet && afl_global_id > MAP_SIZE) {
 
     uint32_t pow2map = 1, map = afl_global_id;
     while ((map = map >> 1))
       pow2map++;
-    FATAL(
-        "We have %u blocks to instrument but the map size is only %u! Edit "
-        "config.h and set MAP_SIZE_POW2 from %u to %u, then recompile "
-        "afl-fuzz and llvm_mode.",
-        afl_global_id, MAP_SIZE, MAP_SIZE_POW2, pow2map);
+    WARNF(
+        "We have %u blocks to instrument but the map size is only %u. Either "
+        "edit config.h and set MAP_SIZE_POW2 from %u to %u, then recompile "
+        "afl-fuzz and llvm_mode and then make this target - or set "
+        "AFL_MAP_SIZE with at least size %u when running afl-fuzz with this "
+        "target.",
+        afl_global_id, MAP_SIZE, MAP_SIZE_POW2, pow2map, afl_global_id);
 
   }
 
-  if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL) {
+  if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL || dictionary.size()) {
 
-    GlobalVariable *AFLFinalLoc = new GlobalVariable(
-        M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc", 0,
-        GlobalVariable::GeneralDynamicTLSModel, 0, false);
-    ConstantInt *const_loc = ConstantInt::get(Int32Ty, afl_global_id);
-    AFLFinalLoc->setAlignment(4);
-    AFLFinalLoc->setInitializer(const_loc);
+    // yes we could create our own function, insert it into ctors ...
+    // but this would be a pain in the butt ... so we use afl-llvm-rt-lto.o
+
+    Function *f = M.getFunction("__afl_auto_init_globals");
+
+    if (!f) {
+
+      fprintf(stderr,
+              "Error: init function could not be found (this should not "
+              "happen)\n");
+      exit(-1);
+
+    }
+
+    BasicBlock *bb = &f->getEntryBlock();
+    if (!bb) {
+
+      fprintf(stderr,
+              "Error: init function does not have an EntryBlock (this should "
+              "not happen)\n");
+      exit(-1);
+
+    }
+
+    BasicBlock::iterator IP = bb->getFirstInsertionPt();
+    IRBuilder<>          IRB(&(*IP));
+
+    if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL) {
+
+      uint32_t write_loc = afl_global_id;
+
+      if (afl_global_id % 8) write_loc = (((afl_global_id + 8) >> 3) << 3);
+
+      if (write_loc <= MAP_SIZE && write_loc <= 0x800000) {
+
+        GlobalVariable *AFLFinalLoc = new GlobalVariable(
+            M, Int32Ty, true, GlobalValue::ExternalLinkage, 0,
+            "__afl_final_loc", 0, GlobalVariable::GeneralDynamicTLSModel, 0,
+            false);
+        ConstantInt *const_loc = ConstantInt::get(Int32Ty, write_loc);
+        StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
+        StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
+                                   MDNode::get(C, None));
+
+      }
+
+    }
+
+    if (dictionary.size()) {
+
+      size_t memlen = 0, count = 0, offset = 0;
+      char * ptr;
+
+      for (auto token : dictionary) {
+
+        memlen += token.length();
+        count++;
+
+      }
+
+      if (!be_quiet)
+        printf("AUTODICTIONARY: %lu string%s found\n", count,
+               count == 1 ? "" : "s");
+
+      if (count) {
+
+        if ((ptr = (char *)malloc(memlen + count)) == NULL) {
+
+          fprintf(stderr, "Error: malloc for %lu bytes failed!\n",
+                  memlen + count);
+          exit(-1);
+
+        }
+
+        count = 0;
+
+        for (auto token : dictionary) {
+
+          if (offset + token.length() < 0xfffff0 && count < MAX_AUTO_EXTRAS) {
+
+            ptr[offset++] = (uint8_t)token.length();
+            memcpy(ptr + offset, token.c_str(), token.length());
+            offset += token.length();
+            count++;
+
+          }
+
+        }
+
+        GlobalVariable *AFLDictionaryLen = new GlobalVariable(
+            M, Int32Ty, false, GlobalValue::ExternalLinkage, 0,
+            "__afl_dictionary_len", 0, GlobalVariable::GeneralDynamicTLSModel,
+            0, false);
+        ConstantInt *const_len = ConstantInt::get(Int32Ty, offset);
+        StoreInst *StoreDictLen = IRB.CreateStore(const_len, AFLDictionaryLen);
+        StoreDictLen->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
+
+        ArrayType *ArrayTy = ArrayType::get(IntegerType::get(C, 8), offset);
+        GlobalVariable *AFLInternalDictionary = new GlobalVariable(
+            M, ArrayTy, true, GlobalValue::ExternalLinkage,
+            ConstantDataArray::get(C,
+                                   *(new ArrayRef<char>((char *)ptr, offset))),
+            "__afl_internal_dictionary", 0,
+            GlobalVariable::GeneralDynamicTLSModel, 0, false);
+        AFLInternalDictionary->setInitializer(ConstantDataArray::get(
+            C, *(new ArrayRef<char>((char *)ptr, offset))));
+        AFLInternalDictionary->setConstant(true);
+
+        GlobalVariable *AFLDictionary = new GlobalVariable(
+            M, PointerType::get(Int8Ty, 0), false, GlobalValue::ExternalLinkage,
+            0, "__afl_dictionary");
+
+        Value *AFLDictOff = IRB.CreateGEP(AFLInternalDictionary, Zero);
+        Value *AFLDictPtr =
+            IRB.CreatePointerCast(AFLDictOff, PointerType::get(Int8Ty, 0));
+        StoreInst *StoreDict = IRB.CreateStore(AFLDictPtr, AFLDictionary);
+        StoreDict->setMetadata(M.getMDKindID("nosanitize"),
+                               MDNode::get(C, None));
+
+      }
+
+    }
 
   }
 
@@ -423,5 +795,5 @@ static RegisterPass<AFLLTOPass> X("afl-lto", "afl++ LTO instrumentation pass",
                                   false, false);
 
 static RegisterStandardPasses RegisterAFLLTOPass(
-    PassManagerBuilder::EP_OptimizerLast, registerAFLLTOPass);
+    PassManagerBuilder::EP_FullLinkTimeOptimizationLast, registerAFLLTOPass);
 

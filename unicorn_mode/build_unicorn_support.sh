@@ -33,6 +33,8 @@
 # You must make sure that Unicorn Engine is not already installed before
 # running this script. If it is, please uninstall it first.
 
+UNICORNAFL_VERSION='afl++2.64c'
+
 echo "================================================="
 echo "UnicornAFL build script"
 echo "================================================="
@@ -157,12 +159,14 @@ test -d unicornafl || {
 test -d unicornafl || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got unicornafl."
 
+cd "unicornafl" || exit 1
+echo "[*] Checking out $UNICORNAFL_VERSION"
+git checkout "$UNICORNAFL_VERSION" || exit 1
+
 echo "[*] making sure config.h matches"
-cp "../config.h" "./unicornafl/" || exit 1
+cp "../../config.h" "." || exit 1
 
 echo "[*] Configuring Unicorn build..."
-
-cd "unicornafl" || exit 1
 
 echo "[+] Configuration complete."
 
