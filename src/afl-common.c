@@ -374,8 +374,12 @@ u8 *find_binary(u8 *fname) {
     target_path = ck_strdup(fname);
 
     if (stat(target_path, &st) || !S_ISREG(st.st_mode) ||
-        !(st.st_mode & 0111) || st.st_size < 4)
+        !(st.st_mode & 0111) || st.st_size < 4) {
+
+      free(target_path);
       FATAL("Program '%s' not found or not executable", fname);
+
+    }
 
   } else {
 

@@ -233,6 +233,7 @@ if [ "$ORIG_CPU_TARGET" = "" ]; then
   gcc test-instr.c -o test-instr || exit 1
 
   unset AFL_INST_RATIO
+  export ASAN_OPTIONS=detect_leaks=0
 
   echo 0 | ./afl-showmap -m none -Q -q -o .test-instr0 ./test-instr || exit 1
   echo 1 | ./afl-showmap -m none -Q -q -o .test-instr1 ./test-instr || exit 1
