@@ -12,13 +12,13 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++2.63d (development):
   - llvm_mode LTO mode:
     - now requires llvm11 - but compiles all targets! :)
-    - autodictionary feature added, enable with AFL_LLVM_LTO_AUTODICTIONARY
+    - autodictionary feature added, enable with `AFL_LLVM_LTO_AUTODICTIONARY`
     - variable map size usage
   - afl-fuzz:
     - variable map size support added (only LTO mode can use this)
     - snapshot feature usage now visible in UI
-    - Now setting "-L -1" will enable MOpt in parallel to normal mutation.
-      Additionally this allows to run dictionaries, radamsa and cmplog.
+    - Now setting `-L -1` will enable MOpt in parallel to normal mutation.
+      Additionally, this allows to run dictionaries, radamsa and cmplog.
     - fix for cmplog/redqueen mode if stdin was used
     - fix for writing a better plot_data file
   - qemu_mode: fix for persistent mode
@@ -30,6 +30,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - if AFL_CC/AFL_CXX is set but empty afl compilers did fail, fixed
     (this bug is in vanilla afl too)
   - added NO_PYTHON flag to disable python support when building afl-fuzz
+  - Bugfix: in persistent mode, fuzzing could get stuck after initial crash (#319)
+  - Bugfix: alf-plot output (#320)
   - more refactoring
 
 
@@ -318,7 +320,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     you use the new -p option :-) - see docs/power_schedules.md
   - added afl-system-config script to set all system performance options for fuzzing
   - llvm_mode works with llvm 3.9 up to including 8 !
-  - qemu_mode got upgraded from 2.1 to 3.1 - incorporated from 
+  - qemu_mode got upgraded from 2.1 to 3.1 - incorporated from
     https://github.com/andreafioraldi/afl and with community patches added
 
 
