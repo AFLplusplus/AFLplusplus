@@ -271,11 +271,9 @@ void cull_queue(afl_state_t *afl) {
   struct queue_entry *q;
   u32                 len = (afl->fsrv.map_size >> 3);
   u32                 i;
-  u8 *                temp_v;
+  u8 *                temp_v = afl->map_tmp_buf;
 
   if (afl->dumb_mode || !afl->score_changed) return;
-
-  temp_v = ck_maybe_grow((void **)&afl->map_tmp_buf, &afl->map_tmp_size, afl->fsrv.map_size >> 3);
 
   afl->score_changed = 0;
 

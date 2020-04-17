@@ -107,6 +107,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->clean_trace = ck_alloc(map_size);
   afl->clean_trace_custom = ck_alloc(map_size);
   afl->first_trace = ck_alloc(map_size);
+  afl->map_tmp_buf = ck_alloc(map_size);
+  afl->map_tmp_len = map_size;
 
   afl->fsrv.use_stdin = 1;
   afl->fsrv.map_size = map_size;
@@ -389,6 +391,7 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->clean_trace);
   ck_free(afl->clean_trace_custom);
   ck_free(afl->first_trace);
+  ck_free(afl->map_tmp_buf);
 
   list_remove(&afl_states, afl);
 

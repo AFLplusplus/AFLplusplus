@@ -608,9 +608,10 @@ typedef struct afl_state {
   u8 *   ex_buf;
   size_t ex_size;
 
+  /* this is a fixed buffer of size map_size that can be used by any function if they do not call another function */
   u8 *   map_tmp_buf;
-  size_t map_tmp_size;
-
+  size_t map_tmp_len;
+  
 } afl_state_t;
 
 /* A global pointer to all instances is needed (for now) for signals to arrive
