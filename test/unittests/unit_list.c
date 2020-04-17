@@ -27,6 +27,7 @@ extern void mock_assert(const int result, const char* const expression,
     (compile with `--wrap=exit`) */
 extern void exit(int status);
 extern void __real_exit(int status);
+void __wrap_exit(int status);
 void __wrap_exit(int status) {
     assert(0);
 }
@@ -34,6 +35,7 @@ void __wrap_exit(int status) {
 /* ignore all printfs */
 extern int printf(const char *format, ...);
 extern int __real_printf(const char *format, ...);
+int __wrap_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...) {
     return 1;
 }

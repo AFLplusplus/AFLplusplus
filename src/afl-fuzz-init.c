@@ -442,23 +442,6 @@ void read_testcases(afl_state_t *afl) {
 
 }
 
-/* Examine map coverage. Called once, for first test case. */
-
-static void check_map_coverage(afl_state_t *afl) {
-
-  u32 i;
-
-  if (count_bytes(afl, afl->fsrv.trace_bits) < 100) return;
-
-  for (i = (1 << (MAP_SIZE_POW2 - 1)); i < MAP_SIZE; ++i)
-    if (afl->fsrv.trace_bits[i]) return;
-
-  if (afl->fsrv.map_size != MAP_SIZE) return;
-
-  WARNF("Recompile binary with newer version of afl to improve coverage!");
-
-}
-
 /* Perform dry run of all test cases to confirm that the app is working as
    expected. This is done only for the initial inputs, and only once. */
 
@@ -500,8 +483,6 @@ void perform_dry_run(afl_state_t *afl) {
     switch (res) {
 
       case FSRV_RUN_OK:
-
-        if (q == afl->queue) check_map_coverage(afl);
 
         if (afl->crash_mode) FATAL("Test case '%s' does *NOT* crash", fn);
 
@@ -1419,6 +1400,8 @@ void setup_dirs_fds(afl_state_t *afl) {
           "# unix_time, cycles_done, cur_path, paths_total, "
           "pending_total, pending_favs, map_size, unique_crashes, "
           "unique_hangs, max_depth, execs_per_sec\n");
+  fflush(afl->fsrv.plot_file);
+
   /* ignore errors */
 
 }

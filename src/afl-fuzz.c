@@ -150,44 +150,46 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
   if (more_help > 1)
     SAYF(
       "Environment variables used:\n"
-      "AFL_PATH: path to AFL support binaries\n"
-      "AFL_QUIET: suppress forkserver status messages\n"
-      "AFL_DEBUG_CHILD_OUTPUT: do not suppress stdout/stderr from target\n"
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
-      "AFL_BENCH_JUST_ONE: run the target just once\n"
-      "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
-      "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
-      "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
-      "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
-      "AFL_DEBUG: extra debugging output for Python mode trimming\n"
-      "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
-      "AFL_NO_UI: switch status screen off\n"
-      "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
-      "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
-      "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
-      "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
-      "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
-      "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
-      "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
-      "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
-      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
-      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
-      "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
-      "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
-      "AFL_POST_LIBRARY: postprocess generated test cases before use as target input\n"
-      "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
-      "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "ASAN_OPTIONS: custom settings for ASAN\n"
       "              (must contain abort_on_error=1 and symbolize=0)\n"
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
+      "AFL_BENCH_JUST_ONE: run the target just once\n"
+      "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
+      "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
+      "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
+      "AFL_DEBUG: extra debugging output for Python mode trimming\n"
+      "AFL_DEBUG_CHILD_OUTPUT: do not suppress stdout/stderr from target\n"
+      "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
+      "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
+      "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
+      "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
+      "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
+      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
+      "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
+      "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
+      "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
+      "              the target was compiled for\n"
+      "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
+      "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
+      "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
+      "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
+      "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
+      "AFL_NO_UI: switch status screen off\n"
+      "AFL_PATH: path to AFL support binaries\n"
+      "AFL_POST_LIBRARY: postprocess generated test cases before use as target input\n"
+      "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
+      "AFL_QUIET: suppress forkserver status messages\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an excutable\n"
+      "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
+      "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
+      "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
       //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
-      "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
-      "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
-      "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
       "\n"
     );
   else
@@ -231,7 +233,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt;
   u64    prev_queued = 0;
-  u32    sync_interval_cnt = 0, seek_to, show_help = 0;
+  u32    sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
   u8 *   extras_dir = 0;
   u8     mem_limit_given = 0, exit_1 = 0;
   char **use_argv;
@@ -244,11 +246,14 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
   if (!afl) { FATAL("Could not create afl state"); }
 
-  afl_state_init(afl);
+  if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
+
+  map_size = get_map_size();
+  afl_state_init(afl, map_size);
   afl_fsrv_init(&afl->fsrv);
 
-  if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
   read_afl_environment(afl, envp);
+  if (afl->shm.map_size) afl->fsrv.map_size = afl->shm.map_size;
   exit_1 = !!afl->afl_env.afl_bench_just_one;
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
@@ -420,6 +425,8 @@ int main(int argc, char **argv_orig, char **envp) {
         if (mem_limit_given) FATAL("Multiple -m options not supported");
         mem_limit_given = 1;
 
+        if (!optarg) FATAL("Wrong usage of -m");
+
         if (!strcmp(optarg, "none")) {
 
           afl->fsrv.mem_limit = 0;
@@ -474,7 +481,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->in_bitmap) FATAL("Multiple -B options not supported");
 
         afl->in_bitmap = optarg;
-        read_bitmap(afl, afl->in_bitmap);
+        read_bitmap(afl->in_bitmap, afl->virgin_bits, afl->fsrv.map_size);
         break;
 
       case 'C':                                               /* crash mode */
@@ -908,13 +915,14 @@ int main(int argc, char **argv_orig, char **envp) {
   check_crash_handling();
   check_cpu_governor(afl);
 
-  afl->fsrv.trace_bits = afl_shm_init(&afl->shm, MAP_SIZE, afl->dumb_mode);
+  afl->fsrv.trace_bits =
+      afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->dumb_mode);
 
   setup_post(afl);
 
-  if (!afl->in_bitmap) memset(afl->virgin_bits, 255, MAP_SIZE);
-  memset(afl->virgin_tmout, 255, MAP_SIZE);
-  memset(afl->virgin_crash, 255, MAP_SIZE);
+  if (!afl->in_bitmap) memset(afl->virgin_bits, 255, afl->fsrv.map_size);
+  memset(afl->virgin_tmout, 255, afl->fsrv.map_size);
+  memset(afl->virgin_crash, 255, afl->fsrv.map_size);
 
   init_count_class16();
 

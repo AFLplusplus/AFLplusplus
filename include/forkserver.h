@@ -61,11 +61,12 @@ typedef struct afl_forkserver {
   u64 total_execs;                      /* How often run_target was called  */
 
   u8 *out_file,                         /* File to fuzz, if any             */
-      *target_path;                                   /* Path of the target */
+      *target_path;                     /* Path of the target               */
 
   FILE *plot_file;                      /* Gnuplot output file              */
 
-  u8 last_run_timed_out;                /* Traced process timed out?        */
+  /* Note: lat_run_timed_out is u32 to send it to the child as 4 byte array */
+  u32 last_run_timed_out;               /* Traced process timed out?        */
 
   u8 last_kill_signal;                  /* Signal that killed the child     */
 
@@ -100,12 +101,10 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from);
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output);
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len);
-fsrv_run_result_t afl_fsrv_run_target(
-    afl_forkserver_t *fsrv, u32 timeout,
-    void(classify_counts_func)(afl_forkserver_t *fsrv),
-    volatile u8 *stop_soon_p);
-void afl_fsrv_killall(void);
-void afl_fsrv_deinit(afl_forkserver_t *fsrv);
+fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
+                                      volatile u8 *stop_soon_p);
+void              afl_fsrv_killall(void);
+void              afl_fsrv_deinit(afl_forkserver_t *fsrv);
 
 #ifdef __APPLE__
 #define MSG_FORK_ON_APPLE                                                    \

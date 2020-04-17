@@ -43,21 +43,7 @@ void write_bitmap(afl_state_t *afl) {
 
   if (fd < 0) PFATAL("Unable to open '%s'", fname);
 
-  ck_write(fd, afl->virgin_bits, MAP_SIZE, fname);
-
-  close(fd);
-
-}
-
-/* Read bitmap from file. This is for the -B option again. */
-
-void read_bitmap(afl_state_t *afl, u8 *fname) {
-
-  s32 fd = open(fname, O_RDONLY);
-
-  if (fd < 0) PFATAL("Unable to open '%s'", fname);
-
-  ck_read(fd, afl->virgin_bits, MAP_SIZE, fname);
+  ck_write(fd, afl->virgin_bits, afl->fsrv.map_size, fname);
 
   close(fd);
 
@@ -88,7 +74,8 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
   u32 i = (afl->fsrv.map_size >> 2);
 
 #endif                                                     /* ^WORD_SIZE_64 */
-  if (i == 0) i = 1;
+  // the map size must be a minimum of 8 bytes.
+  // for variable/dynamic map sizes this is ensured in the forkserver
 
   u8 ret = 0;
 
@@ -98,6 +85,7 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
        that have not been already cleared from the virgin map - since this will
        almost always be the case. */
 
+    // the (*current) is unnecessary but speeds up the overall comparison
     if (unlikely(*current) && unlikely(*current & *virgin)) {
 
       if (likely(ret < 2)) {
@@ -110,18 +98,20 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
 #ifdef WORD_SIZE_64
 
-        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff) ||
-            (cur[4] && vir[4] == 0xff) || (cur[5] && vir[5] == 0xff) ||
-            (cur[6] && vir[6] == 0xff) || (cur[7] && vir[7] == 0xff))
+        if (*virgin == 0xffffffffffffffff || (cur[0] && vir[0] == 0xff) ||
+            (cur[1] && vir[1] == 0xff) || (cur[2] && vir[2] == 0xff) ||
+            (cur[3] && vir[3] == 0xff) || (cur[4] && vir[4] == 0xff) ||
+            (cur[5] && vir[5] == 0xff) || (cur[6] && vir[6] == 0xff) ||
+            (cur[7] && vir[7] == 0xff))
           ret = 2;
         else
           ret = 1;
 
 #else
 
-        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff))
+        if (*virgin == 0xffffffff || (cur[0] && vir[0] == 0xff) ||
+            (cur[1] && vir[1] == 0xff) || (cur[2] && vir[2] == 0xff) ||
+            (cur[3] && vir[3] == 0xff))
           ret = 2;
         else
           ret = 1;
@@ -139,7 +129,7 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
   }
 
-  if (unlikely(ret) && unlikely(virgin_map == afl->virgin_bits))
+  if (unlikely(ret) && likely(virgin_map == afl->virgin_bits))
     afl->bitmap_changed = 1;
 
   return ret;
@@ -154,8 +144,6 @@ u32 count_bits(afl_state_t *afl, u8 *mem) {
   u32 *ptr = (u32 *)mem;
   u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
-
-  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -191,8 +179,6 @@ u32 count_bytes(afl_state_t *afl, u8 *mem) {
   u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
 
-  if (i == 0) i = 1;
-
   while (i--) {
 
     u32 v = *(ptr++);
@@ -217,8 +203,6 @@ u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
   u32 *ptr = (u32 *)mem;
   u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
-
-  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -256,8 +240,6 @@ void simplify_trace(afl_state_t *afl, u64 *mem) {
 
   u32 i = (afl->fsrv.map_size >> 3);
 
-  if (i == 0) i = 1;
-
   while (i--) {
 
     /* Optimize for sparse bitmaps. */
@@ -290,8 +272,6 @@ void simplify_trace(afl_state_t *afl, u64 *mem) {
 void simplify_trace(afl_state_t *afl, u32 *mem) {
 
   u32 i = (afl->fsrv.map_size >> 2);
-
-  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -357,8 +337,6 @@ void classify_counts(afl_forkserver_t *fsrv) {
 
   u32 i = (fsrv->map_size >> 3);
 
-  if (i == 0) i = 1;
-
   while (i--) {
 
     /* Optimize for sparse bitmaps. */
@@ -387,8 +365,6 @@ void classify_counts(afl_forkserver_t *fsrv) {
   u32 *mem = (u32 *)fsrv->trace_bits;
 
   u32 i = (fsrv->map_size >> 2);
-
-  if (i == 0) i = 1;
 
   while (i--) {
 
@@ -649,7 +625,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
         u8 new_fault;
         write_to_testcase(afl, mem, len);
-        new_fault = run_target(afl, &afl->fsrv, afl->hang_tmout);
+        new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
 
         /* A corner case that one user reported bumping into: increasing the
            timeout actually uncovers a crash. Make sure we don't discard it if

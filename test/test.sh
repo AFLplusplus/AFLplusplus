@@ -671,7 +671,7 @@ test -e ../afl-qemu-trace && {
   test -e test-instr -a -e test-compcov && {
     {
       mkdir -p in
-      echo 0 > in/in
+      echo 00000 > in/in
       $ECHO "$GREY[*] running afl-fuzz for qemu_mode, this will take approx 10 seconds"
       {
         ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr >>errors 2>&1

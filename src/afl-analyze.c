@@ -84,6 +84,7 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 
 static u8 *target_path;
 static u8  qemu_mode;
+static u32 map_size = MAP_SIZE;
 
 /* Constants used for describing byte behavior. */
 
@@ -115,7 +116,7 @@ static u8 count_class_lookup[256] = {
 
 static void classify_counts(u8 *mem) {
 
-  u32 i = MAP_SIZE;
+  u32 i = map_size;
 
   if (edges_only) {
 
@@ -144,7 +145,7 @@ static void classify_counts(u8 *mem) {
 static inline u8 anything_set(void) {
 
   u32 *ptr = (u32 *)trace_bits;
-  u32  i = (MAP_SIZE >> 2);
+  u32  i = (map_size >> 2);
 
   while (i--)
     if (*(ptr++)) return 1;
@@ -209,7 +210,7 @@ static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 /* Execute target application. Returns exec checksum, or 0 if program
    times out. */
 
-static u32 run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
+static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   static struct itimerval it;
   int                     status = 0;
@@ -217,7 +218,7 @@ static u32 run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
   s32 prog_in_fd;
   u32 cksum;
 
-  memset(trace_bits, 0, MAP_SIZE);
+  memset(trace_bits, 0, map_size);
   MEM_BARRIER();
 
   prog_in_fd = write_to_file(prog_in, mem, len);
@@ -311,7 +312,7 @@ static u32 run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   }
 
-  cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
+  cksum = hash32(trace_bits, map_size, HASH_CONST);
 
   /* We don't actually care if the target is crashing or not,
      except that when it does, the checksum should be different. */
@@ -560,16 +561,16 @@ static void analyze(char **argv) {
        code. */
 
     in_data[i] ^= 0xff;
-    xor_ff = run_target(argv, in_data, in_len, 0);
+    xor_ff = analyze_run_target(argv, in_data, in_len, 0);
 
     in_data[i] ^= 0xfe;
-    xor_01 = run_target(argv, in_data, in_len, 0);
+    xor_01 = analyze_run_target(argv, in_data, in_len, 0);
 
     in_data[i] = (in_data[i] ^ 0x01) - 0x10;
-    sub_10 = run_target(argv, in_data, in_len, 0);
+    sub_10 = analyze_run_target(argv, in_data, in_len, 0);
 
     in_data[i] += 0x20;
-    add_10 = run_target(argv, in_data, in_len, 0);
+    add_10 = analyze_run_target(argv, in_data, in_len, 0);
     in_data[i] -= 0x10;
 
     /* Classify current behavior. */
@@ -795,68 +796,15 @@ static void usage(u8 *argv0) {
       "              (must contain abort_on_error=1 and symbolize=0)\n"
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
-      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_ANALYZE_HEX: print file offsets in hexadecimal instead of decimal\n"
+      "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
+      "              the target was compiled for\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_SKIP_BIN_CHECK: skip checking the location of and the target\n"
 
       , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
-
-}
-
-/* Find binary. */
-
-static void find_binary(u8 *fname) {
-
-  u8 *        env_path = 0;
-  struct stat st;
-
-  if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
-
-    target_path = ck_strdup(fname);
-
-    if (stat(target_path, &st) || !S_ISREG(st.st_mode) ||
-        !(st.st_mode & 0111) || st.st_size < 4)
-      FATAL("Program '%s' not found or not executable", fname);
-
-  } else {
-
-    while (env_path) {
-
-      u8 *cur_elem, *delim = strchr(env_path, ':');
-
-      if (delim) {
-
-        cur_elem = ck_alloc(delim - env_path + 1);
-        memcpy(cur_elem, env_path, delim - env_path);
-        delim++;
-
-      } else
-
-        cur_elem = ck_strdup(env_path);
-
-      env_path = delim;
-
-      if (cur_elem[0])
-        target_path = alloc_printf("%s/%s", cur_elem, fname);
-      else
-        target_path = ck_strdup(fname);
-
-      ck_free(cur_elem);
-
-      if (!stat(target_path, &st) && S_ISREG(st.st_mode) &&
-          (st.st_mode & 0111) && st.st_size >= 4)
-        break;
-
-      ck_free(target_path);
-      target_path = 0;
-
-    }
-
-    if (!target_path) FATAL("Program '%s' not found or not executable", fname);
-
-  }
 
 }
 
@@ -902,7 +850,7 @@ int main(int argc, char **argv, char **envp) {
         if (mem_limit_given) FATAL("Multiple -m options not supported");
         mem_limit_given = 1;
 
-        if (!optarg) { FATAL("Bad syntax used for -m"); }
+        if (!optarg) { FATAL("Wrong usage of -m"); }
 
         if (!strcmp(optarg, "none")) {
 
@@ -986,18 +934,20 @@ int main(int argc, char **argv, char **envp) {
 
   if (optind == argc || !in_file) usage(argv[0]);
 
+  map_size = get_map_size();
+
   use_hex_offsets = !!get_afl_env("AFL_ANALYZE_HEX");
 
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
+  trace_bits = afl_shm_init(&shm, map_size, 0);
   atexit(at_exit_handler);
   setup_signal_handlers();
 
   set_up_environment();
 
-  find_binary(argv[optind]);
+  target_path = find_binary(argv[optind]);
   detect_file_args(argv + optind, prog_in, &use_stdin);
 
   if (qemu_mode) {
@@ -1020,7 +970,7 @@ int main(int argc, char **argv, char **envp) {
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");
 
-  run_target(use_argv, in_data, in_len, 1);
+  analyze_run_target(use_argv, in_data, in_len, 1);
 
   if (child_timed_out)
     FATAL("Target binary times out (adjusting -t may help).");
@@ -1031,6 +981,8 @@ int main(int argc, char **argv, char **envp) {
   analyze(use_argv);
 
   OKF("We're done here. Have a nice day!\n");
+
+  if (target_path) ck_free(target_path);
 
   afl_shm_deinit(&shm);
 
