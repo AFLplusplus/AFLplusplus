@@ -28,6 +28,8 @@
 #ifndef __AFL_SHAREDMEM_H
 #define __AFL_SHAREDMEM_H
 
+#include "types.h"
+
 typedef struct sharedmem {
 
   // extern unsigned char *trace_bits;
