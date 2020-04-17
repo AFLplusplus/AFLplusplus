@@ -134,8 +134,15 @@ void bind_to_free_cpu(afl_state_t *afl) {
   for (i = 0; i < proccount; i++) {
 
 #if defined(__FreeBSD__)
-    if (procs[i].ki_oncpu < sizeof(cpu_used) && procs[i].ki_pctcpu > 60)
-      cpu_used[procs[i].ki_oncpu] = 1;
+    if (!strcmp(procs[i].ki_comm, "idle")) continue;
+
+    // fix when ki_oncpu = -1
+    int oncpu;
+    oncpu = procs[i].ki_oncpu;
+    if (oncpu == -1) oncpu = procs[i].ki_lastcpu;
+
+    if (oncpu != -1 && oncpu < sizeof(cpu_used) && procs[i].ki_pctcpu > 60)
+      cpu_used[oncpu] = 1;
 #elif defined(__DragonFly__)
     if (procs[i].kp_lwp.kl_cpuid < sizeof(cpu_used) &&
         procs[i].kp_lwp.kl_pctcpu > 10)
@@ -435,21 +442,6 @@ void read_testcases(afl_state_t *afl) {
 
 }
 
-/* Examine map coverage. Called once, for first test case. */
-
-static void check_map_coverage(afl_state_t *afl) {
-
-  u32 i;
-
-  if (count_bytes(afl->fsrv.trace_bits) < 100) return;
-
-  for (i = (1 << (MAP_SIZE_POW2 - 1)); i < MAP_SIZE; ++i)
-    if (afl->fsrv.trace_bits[i]) return;
-
-  WARNF("Recompile binary with newer version of afl to improve coverage!");
-
-}
-
 /* Perform dry run of all test cases to confirm that the app is working as
    expected. This is done only for the initial inputs, and only once. */
 
@@ -484,21 +476,19 @@ void perform_dry_run(afl_state_t *afl) {
 
     if (afl->stop_soon) return;
 
-    if (res == afl->crash_mode || res == FAULT_NOBITS)
+    if (res == afl->crash_mode || res == FSRV_RUN_NOBITS)
       SAYF(cGRA "    len = %u, map size = %u, exec speed = %llu us\n" cRST,
            q->len, q->bitmap_size, q->exec_us);
 
     switch (res) {
 
-      case FAULT_NONE:
-
-        if (q == afl->queue) check_map_coverage(afl);
+      case FSRV_RUN_OK:
 
         if (afl->crash_mode) FATAL("Test case '%s' does *NOT* crash", fn);
 
         break;
 
-      case FAULT_TMOUT:
+      case FSRV_RUN_TMOUT:
 
         if (afl->timeout_given) {
 
@@ -547,7 +537,7 @@ void perform_dry_run(afl_state_t *afl) {
 
         }
 
-      case FAULT_CRASH:
+      case FSRV_RUN_CRASH:
 
         if (afl->crash_mode) break;
 
@@ -641,13 +631,13 @@ void perform_dry_run(afl_state_t *afl) {
 
         FATAL("Test case '%s' results in a crash", fn);
 
-      case FAULT_ERROR:
+      case FSRV_RUN_ERROR:
 
         FATAL("Unable to execute target application ('%s')", afl->argv[0]);
 
-      case FAULT_NOINST: FATAL("No instrumentation detected");
+      case FSRV_RUN_NOINST: FATAL("No instrumentation detected");
 
-      case FAULT_NOBITS:
+      case FSRV_RUN_NOBITS:
 
         ++afl->useless_at_start;
 
@@ -1410,6 +1400,8 @@ void setup_dirs_fds(afl_state_t *afl) {
           "# unix_time, cycles_done, cur_path, paths_total, "
           "pending_total, pending_favs, map_size, unique_crashes, "
           "unique_hangs, max_depth, execs_per_sec\n");
+  fflush(afl->fsrv.plot_file);
+
   /* ignore errors */
 
 }
@@ -1844,8 +1836,6 @@ static void handle_stop_sig(int sig) {
 
     if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, SIGKILL);
     if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, SIGKILL);
-    if (el->cmplog_child_pid > 0) kill(el->cmplog_child_pid, SIGKILL);
-    if (el->cmplog_fsrv_pid > 0) kill(el->cmplog_fsrv_pid, SIGKILL);
 
   });
 
@@ -1979,7 +1969,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
 #endif                                                       /* ^!__APPLE__ */
 
-  if (!afl->qemu_mode && !afl->unicorn_mode && !afl->dumb_mode &&
+  if (!afl->fsrv.qemu_mode && !afl->unicorn_mode && !afl->dumb_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -2006,7 +1996,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if ((afl->qemu_mode) &&
+  if ((afl->fsrv.qemu_mode) &&
       memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -2170,6 +2160,8 @@ void save_cmdline(afl_state_t *afl, u32 argc, char **argv) {
   for (i = 0; i < argc; ++i) {
 
     u32 l = strlen(argv[i]);
+
+    if (!argv[i] || !buf) FATAL("null deref detected");
 
     memcpy(buf, argv[i], l);
     buf += l;

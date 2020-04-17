@@ -43,21 +43,7 @@ void write_bitmap(afl_state_t *afl) {
 
   if (fd < 0) PFATAL("Unable to open '%s'", fname);
 
-  ck_write(fd, afl->virgin_bits, MAP_SIZE, fname);
-
-  close(fd);
-
-}
-
-/* Read bitmap from file. This is for the -B option again. */
-
-void read_bitmap(afl_state_t *afl, u8 *fname) {
-
-  s32 fd = open(fname, O_RDONLY);
-
-  if (fd < 0) PFATAL("Unable to open '%s'", fname);
-
-  ck_read(fd, afl->virgin_bits, MAP_SIZE, fname);
+  ck_write(fd, afl->virgin_bits, afl->fsrv.map_size, fname);
 
   close(fd);
 
@@ -78,16 +64,18 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
   u64 *current = (u64 *)afl->fsrv.trace_bits;
   u64 *virgin = (u64 *)virgin_map;
 
-  u32 i = (MAP_SIZE >> 3);
+  u32 i = (afl->fsrv.map_size >> 3);
 
 #else
 
   u32 *current = (u32 *)afl->fsrv.trace_bits;
   u32 *virgin = (u32 *)virgin_map;
 
-  u32 i = (MAP_SIZE >> 2);
+  u32 i = (afl->fsrv.map_size >> 2);
 
 #endif                                                     /* ^WORD_SIZE_64 */
+  // the map size must be a minimum of 8 bytes.
+  // for variable/dynamic map sizes this is ensured in the forkserver
 
   u8 ret = 0;
 
@@ -97,6 +85,7 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
        that have not been already cleared from the virgin map - since this will
        almost always be the case. */
 
+    // the (*current) is unnecessary but speeds up the overall comparison
     if (unlikely(*current) && unlikely(*current & *virgin)) {
 
       if (likely(ret < 2)) {
@@ -109,18 +98,20 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
 #ifdef WORD_SIZE_64
 
-        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff) ||
-            (cur[4] && vir[4] == 0xff) || (cur[5] && vir[5] == 0xff) ||
-            (cur[6] && vir[6] == 0xff) || (cur[7] && vir[7] == 0xff))
+        if (*virgin == 0xffffffffffffffff || (cur[0] && vir[0] == 0xff) ||
+            (cur[1] && vir[1] == 0xff) || (cur[2] && vir[2] == 0xff) ||
+            (cur[3] && vir[3] == 0xff) || (cur[4] && vir[4] == 0xff) ||
+            (cur[5] && vir[5] == 0xff) || (cur[6] && vir[6] == 0xff) ||
+            (cur[7] && vir[7] == 0xff))
           ret = 2;
         else
           ret = 1;
 
 #else
 
-        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff))
+        if (*virgin == 0xffffffff || (cur[0] && vir[0] == 0xff) ||
+            (cur[1] && vir[1] == 0xff) || (cur[2] && vir[2] == 0xff) ||
+            (cur[3] && vir[3] == 0xff))
           ret = 2;
         else
           ret = 1;
@@ -138,7 +129,7 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
   }
 
-  if (unlikely(ret) && unlikely(virgin_map == afl->virgin_bits))
+  if (unlikely(ret) && likely(virgin_map == afl->virgin_bits))
     afl->bitmap_changed = 1;
 
   return ret;
@@ -148,10 +139,10 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 /* Count the number of bits set in the provided bitmap. Used for the status
    screen several times every second, does not have to be fast. */
 
-u32 count_bits(u8 *mem) {
+u32 count_bits(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (MAP_SIZE >> 2);
+  u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
 
   while (i--) {
@@ -182,10 +173,10 @@ u32 count_bits(u8 *mem) {
    mostly to update the status screen or calibrate and examine confirmed
    new paths. */
 
-u32 count_bytes(u8 *mem) {
+u32 count_bytes(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (MAP_SIZE >> 2);
+  u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
 
   while (i--) {
@@ -207,10 +198,10 @@ u32 count_bytes(u8 *mem) {
 /* Count the number of non-255 bytes set in the bitmap. Used strictly for the
    status screen, several calls per second or so. */
 
-u32 count_non_255_bytes(u8 *mem) {
+u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
 
   u32 *ptr = (u32 *)mem;
-  u32  i = (MAP_SIZE >> 2);
+  u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
 
   while (i--) {
@@ -245,9 +236,9 @@ const u8 simplify_lookup[256] = {
 
 #ifdef WORD_SIZE_64
 
-void simplify_trace(u64 *mem) {
+void simplify_trace(afl_state_t *afl, u64 *mem) {
 
-  u32 i = MAP_SIZE >> 3;
+  u32 i = (afl->fsrv.map_size >> 3);
 
   while (i--) {
 
@@ -278,9 +269,9 @@ void simplify_trace(u64 *mem) {
 
 #else
 
-void simplify_trace(u32 *mem) {
+void simplify_trace(afl_state_t *afl, u32 *mem) {
 
-  u32 i = MAP_SIZE >> 2;
+  u32 i = (afl->fsrv.map_size >> 2);
 
   while (i--) {
 
@@ -340,9 +331,11 @@ void init_count_class16(void) {
 
 #ifdef WORD_SIZE_64
 
-void classify_counts(u64 *mem) {
+void classify_counts(afl_forkserver_t *fsrv) {
 
-  u32 i = MAP_SIZE >> 3;
+  u64 *mem = (u64 *)fsrv->trace_bits;
+
+  u32 i = (fsrv->map_size >> 3);
 
   while (i--) {
 
@@ -367,9 +360,11 @@ void classify_counts(u64 *mem) {
 
 #else
 
-void classify_counts(u32 *mem) {
+void classify_counts(afl_forkserver_t *fsrv) {
 
-  u32 i = MAP_SIZE >> 2;
+  u32 *mem = (u32 *)fsrv->trace_bits;
+
+  u32 i = (fsrv->map_size >> 2);
 
   while (i--) {
 
@@ -396,11 +391,11 @@ void classify_counts(u32 *mem) {
    count information here. This is called only sporadically, for some
    new paths. */
 
-void minimize_bits(u8 *dst, u8 *src) {
+void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
 
   u32 i = 0;
 
-  while (i < MAP_SIZE) {
+  while (i < afl->fsrv.map_size) {
 
     if (*(src++)) dst[i >> 3] |= 1 << (i & 7);
     ++i;
@@ -520,14 +515,14 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   if (unlikely(len == 0)) return 0;
 
   u8 *queue_fn = "";
-  u8  hnb;
+  u8  hnb = '\0';
   s32 fd;
   u8  keeping = 0, res;
 
   u8 fn[PATH_MAX];
 
   /* Update path frequency. */
-  u32 cksum = hash32(afl->fsrv.trace_bits, MAP_SIZE, HASH_CONST);
+  u32 cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
   struct queue_entry *q = afl->queue;
   while (q) {
@@ -583,7 +578,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     res = calibrate_case(afl, afl->queue_top, mem, afl->queue_cycle - 1, 0);
 
-    if (unlikely(res == FAULT_ERROR))
+    if (unlikely(res == FSRV_RUN_ERROR))
       FATAL("Unable to execute target application");
 
     fd = open(queue_fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
@@ -597,7 +592,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   switch (fault) {
 
-    case FAULT_TMOUT:
+    case FSRV_RUN_TMOUT:
 
       /* Timeouts are not very interesting, but we're still obliged to keep
          a handful of samples. We use the presence of new bits in the
@@ -611,9 +606,9 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       if (likely(!afl->dumb_mode)) {
 
 #ifdef WORD_SIZE_64
-        simplify_trace((u64 *)afl->fsrv.trace_bits);
+        simplify_trace(afl, (u64 *)afl->fsrv.trace_bits);
 #else
-        simplify_trace((u32 *)afl->fsrv.trace_bits);
+        simplify_trace(afl, (u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
         if (!has_new_bits(afl, afl->virgin_tmout)) return keeping;
@@ -630,15 +625,15 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
         u8 new_fault;
         write_to_testcase(afl, mem, len);
-        new_fault = run_target(afl, afl->hang_tmout);
+        new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
 
         /* A corner case that one user reported bumping into: increasing the
            timeout actually uncovers a crash. Make sure we don't discard it if
            so. */
 
-        if (!afl->stop_soon && new_fault == FAULT_CRASH) goto keep_as_crash;
+        if (!afl->stop_soon && new_fault == FSRV_RUN_CRASH) goto keep_as_crash;
 
-        if (afl->stop_soon || new_fault != FAULT_TMOUT) return keeping;
+        if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) return keeping;
 
       }
 
@@ -660,7 +655,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       break;
 
-    case FAULT_CRASH:
+    case FSRV_RUN_CRASH:
 
     keep_as_crash:
 
@@ -675,9 +670,9 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       if (likely(!afl->dumb_mode)) {
 
 #ifdef WORD_SIZE_64
-        simplify_trace((u64 *)afl->fsrv.trace_bits);
+        simplify_trace(afl, (u64 *)afl->fsrv.trace_bits);
 #else
-        simplify_trace((u32 *)afl->fsrv.trace_bits);
+        simplify_trace(afl, (u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
         if (!has_new_bits(afl, afl->virgin_crash)) return keeping;
@@ -689,7 +684,8 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #ifndef SIMPLE_FILES
 
       snprintf(fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s", afl->out_dir,
-               afl->unique_crashes, afl->kill_signal, describe_op(afl, 0));
+               afl->unique_crashes, afl->fsrv.last_kill_signal,
+               describe_op(afl, 0));
 
 #else
 
@@ -703,9 +699,11 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
         // if the user wants to be informed on new crashes - do that
 #if !TARGET_OS_IPHONE
-        if (system(afl->infoexec) == -1)
-          hnb += 0;  // we dont care if system errors, but we dont want a
-                     // compiler warning either
+        // we dont care if system errors, but we dont want a
+        // compiler warning either
+        // See
+        // https://stackoverflow.com/questions/11888594/ignoring-return-values-in-c
+        (void)(system(afl->infoexec) + 1);
 #else
         WARNF("command execution unsupported");
 #endif
@@ -713,11 +711,11 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       }
 
       afl->last_crash_time = get_cur_time();
-      afl->last_crash_execs = afl->total_execs;
+      afl->last_crash_execs = afl->fsrv.total_execs;
 
       break;
 
-    case FAULT_ERROR: FATAL("Unable to execute target application");
+    case FSRV_RUN_ERROR: FATAL("Unable to execute target application");
 
     default: return keeping;
 

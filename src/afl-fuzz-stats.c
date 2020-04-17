@@ -37,7 +37,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
   u8                     fn[PATH_MAX];
   s32                    fd;
   FILE *                 f;
-  uint32_t               t_bytes = count_non_255_bytes(afl->virgin_bits);
+  uint32_t               t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
 
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
 
@@ -56,7 +56,6 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
     bitmap_cvg = afl->last_bitmap_cvg;
     stability = afl->last_stability;
-    eps = afl->last_eps;
 
   } else {
 
@@ -109,14 +108,15 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       afl->start_time / 1000, cur_time / 1000,
       (cur_time - afl->start_time) / 1000, getpid(),
       afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
-      afl->total_execs,
-      afl->total_execs / ((double)(get_cur_time() - afl->start_time) / 1000),
+      afl->fsrv.total_execs,
+      afl->fsrv.total_execs /
+          ((double)(get_cur_time() - afl->start_time) / 1000),
       afl->queued_paths, afl->queued_favored, afl->queued_discovered,
       afl->queued_imported, afl->max_depth, afl->current_entry,
       afl->pending_favored, afl->pending_not_fuzzed, afl->queued_variable,
       stability, bitmap_cvg, afl->unique_crashes, afl->unique_hangs,
       afl->last_path_time / 1000, afl->last_crash_time / 1000,
-      afl->last_hang_time / 1000, afl->total_execs - afl->last_crash_execs,
+      afl->last_hang_time / 1000, afl->fsrv.total_execs - afl->last_crash_execs,
       afl->fsrv.exec_tmout, afl->slowest_exec_ms,
 #ifdef __APPLE__
       (unsigned long int)(rus.ru_maxrss >> 20),
@@ -124,12 +124,12 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       (unsigned long int)(rus.ru_maxrss >> 10),
 #endif
       t_bytes, afl->var_byte_count, afl->use_banner,
-      afl->unicorn_mode ? "unicorn" : "", afl->qemu_mode ? "qemu " : "",
+      afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
       afl->dumb_mode ? " dumb " : "", afl->no_forkserver ? "no_fsrv " : "",
       afl->crash_mode ? "crash " : "",
       afl->persistent_mode ? "persistent " : "",
       afl->deferred_mode ? "deferred " : "",
-      (afl->unicorn_mode || afl->qemu_mode || afl->dumb_mode ||
+      (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->dumb_mode ||
        afl->no_forkserver || afl->crash_mode || afl->persistent_mode ||
        afl->deferred_mode)
           ? ""
@@ -145,14 +145,15 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
 void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
 
-  if (afl->plot_prev_qp == afl->queued_paths &&
-      afl->plot_prev_pf == afl->pending_favored &&
-      afl->plot_prev_pnf == afl->pending_not_fuzzed &&
-      afl->plot_prev_ce == afl->current_entry &&
-      afl->plot_prev_qc == afl->queue_cycle &&
-      afl->plot_prev_uc == afl->unique_crashes &&
-      afl->plot_prev_uh == afl->unique_hangs &&
-      afl->plot_prev_md == afl->max_depth)
+  if (unlikely(afl->plot_prev_qp == afl->queued_paths &&
+               afl->plot_prev_pf == afl->pending_favored &&
+               afl->plot_prev_pnf == afl->pending_not_fuzzed &&
+               afl->plot_prev_ce == afl->current_entry &&
+               afl->plot_prev_qc == afl->queue_cycle &&
+               afl->plot_prev_uc == afl->unique_crashes &&
+               afl->plot_prev_uh == afl->unique_hangs &&
+               afl->plot_prev_md == afl->max_depth) ||
+      unlikely(!afl->queue_cycle))
     return;
 
   afl->plot_prev_qp = afl->queued_paths;
@@ -215,6 +216,28 @@ void show_stats(afl_state_t *afl) {
 
   cur_ms = get_cur_time();
 
+  if (afl->most_time_key) {
+
+    if (afl->most_time * 1000 < cur_ms - afl->start_time) {
+
+      afl->most_time_key = 2;
+      afl->stop_soon = 2;
+
+    }
+
+  }
+
+  if (afl->most_execs_key == 1) {
+
+    if (afl->most_execs <= afl->fsrv.total_execs) {
+
+      afl->most_execs_key = 2;
+      afl->stop_soon = 2;
+
+    }
+
+  }
+
   /* If not enough time has passed since last UI update, bail out. */
 
   if (cur_ms - afl->stats_last_ms < 1000 / UI_TARGET_HZ &&
@@ -230,11 +253,11 @@ void show_stats(afl_state_t *afl) {
   if (!afl->stats_last_execs) {
 
     afl->stats_avg_exec =
-        ((double)afl->total_execs) * 1000 / (cur_ms - afl->start_time);
+        ((double)afl->fsrv.total_execs) * 1000 / (cur_ms - afl->start_time);
 
   } else {
 
-    double cur_avg = ((double)(afl->total_execs - afl->stats_last_execs)) *
+    double cur_avg = ((double)(afl->fsrv.total_execs - afl->stats_last_execs)) *
                      1000 / (cur_ms - afl->stats_last_ms);
 
     /* If there is a dramatic (5x+) jump in speed, reset the indicator
@@ -249,7 +272,7 @@ void show_stats(afl_state_t *afl) {
   }
 
   afl->stats_last_ms = cur_ms;
-  afl->stats_last_execs = afl->total_execs;
+  afl->stats_last_execs = afl->fsrv.total_execs;
 
   /* Tell the callers when to contact us (as measured in execs). */
 
@@ -258,8 +281,8 @@ void show_stats(afl_state_t *afl) {
 
   /* Do some bitmap stats. */
 
-  t_bytes = count_non_255_bytes(afl->virgin_bits);
-  t_byte_ratio = ((double)t_bytes * 100) / MAP_SIZE;
+  t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
+  t_byte_ratio = ((double)t_bytes * 100) / afl->fsrv.map_size;
 
   if (likely(t_bytes) && unlikely(afl->var_byte_count))
     stab_ratio = 100 - (((double)afl->var_byte_count * 100) / t_bytes);
@@ -305,7 +328,7 @@ void show_stats(afl_state_t *afl) {
 
   /* Compute some mildly useful bitmap stats. */
 
-  t_bits = (MAP_SIZE << 3) - count_bits(afl->virgin_bits);
+  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl, afl->virgin_bits);
 
   /* Now, for the visuals... */
 
@@ -465,7 +488,8 @@ void show_stats(afl_state_t *afl) {
   SAYF(bV bSTOP "  now processing : " cRST "%-16s " bSTG bV bSTOP, tmp);
 
   sprintf(tmp, "%0.02f%% / %0.02f%%",
-          ((double)afl->queue_cur->bitmap_size) * 100 / MAP_SIZE, t_byte_ratio);
+          ((double)afl->queue_cur->bitmap_size) * 100 / afl->fsrv.map_size,
+          t_byte_ratio);
 
   SAYF("    map density : %s%-21s" bSTG bV "\n",
        t_byte_ratio > 70 ? cLRD
@@ -521,14 +545,14 @@ void show_stats(afl_state_t *afl) {
 
     SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
                   "   new crashes : %s%-22s" bSTG         bV "\n",
-         u_stringify_int(IB(0), afl->total_execs),
+         u_stringify_int(IB(0), afl->fsrv.total_execs),
          afl->unique_crashes ? cLRD : cRST, tmp);
 
   } else {
 
     SAYF(bV bSTOP " total execs : " cRST "%-20s " bSTG bV bSTOP
                   " total crashes : %s%-22s" bSTG         bV "\n",
-         u_stringify_int(IB(0), afl->total_execs),
+         u_stringify_int(IB(0), afl->fsrv.total_execs),
          afl->unique_crashes ? cLRD : cRST, tmp);
 
   }
@@ -736,6 +760,8 @@ void show_stats(afl_state_t *afl) {
 
   if (afl->cpu_core_count) {
 
+    char *spacing = SP10, snap[24] = " " cLGN "snapshot" cRST " ";
+
     double cur_runnable = get_runnable_processes();
     u32    cur_utilization = cur_runnable * 100 / afl->cpu_core_count;
 
@@ -750,23 +776,25 @@ void show_stats(afl_state_t *afl) {
 
     if (!afl->no_cpu_meter_red && cur_utilization >= 150) cpu_color = cLRD;
 
+    if (afl->fsrv.snapshot) spacing = snap;
+
 #ifdef HAVE_AFFINITY
 
     if (afl->cpu_aff >= 0) {
 
-      SAYF(SP10 cGRA "[cpu%03u:%s%3u%%" cGRA "]\r" cRST, MIN(afl->cpu_aff, 999),
-           cpu_color, MIN(cur_utilization, 999));
+      SAYF("%s" cGRA "[cpu%03u:%s%3u%%" cGRA "]\r" cRST, spacing,
+           MIN(afl->cpu_aff, 999), cpu_color, MIN(cur_utilization, 999));
 
     } else {
 
-      SAYF(SP10 cGRA "   [cpu:%s%3u%%" cGRA "]\r" cRST, cpu_color,
+      SAYF("%s" cGRA "   [cpu:%s%3u%%" cGRA "]\r" cRST, spacing, cpu_color,
            MIN(cur_utilization, 999));
 
     }
 
 #else
 
-    SAYF(SP10 cGRA "   [cpu:%s%3u%%" cGRA "]\r" cRST, cpu_color,
+    SAYF("%s" cGRA "   [cpu:%s%3u%%" cGRA "]\r" cRST, spacing, cpu_color,
          MIN(cur_utilization, 999));
 
 #endif                                                    /* ^HAVE_AFFINITY */
@@ -819,7 +847,7 @@ void show_init_stats(afl_state_t *afl) {
 
   SAYF("\n");
 
-  if (avg_us > ((afl->qemu_mode || afl->unicorn_mode) ? 50000 : 10000))
+  if (avg_us > ((afl->fsrv.qemu_mode || afl->unicorn_mode) ? 50000 : 10000))
     WARNF(cLRD "The target binary is pretty slow! See %s/perf_tips.md.",
           doc_path);
 

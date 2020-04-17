@@ -185,7 +185,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     esac
     rm -f in2/in*
     export AFL_QUIET=1
-    if type bash >/dev/null ; then {
+    if command -v bash >/dev/null ; then {
       AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
       CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
@@ -353,7 +353,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
   test -e test-compcov.compcov && {
-    grep -Eq " [3-9][0-9] location" test.out && {
+    grep -Eq " [ 12][0-9][0-9] location| [3-9][0-9] location" test.out && {
       $ECHO "$GREEN[+] llvm_mode laf-intel/compcov feature works correctly"
     } || {
       $ECHO "$RED[!] llvm_mode laf-intel/compcov feature failed"
@@ -581,6 +581,8 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   INCOMPLETE=1
 }
 
+test -z "$AFL_CC" && unset AFL_CC
+
 $ECHO "$BLUE[*] Testing: shared library extensions"
 cc $CFLAGS -o test-compcov test-compcov.c > /dev/null 2>&1
 test -e ../libtokencap.so && {
@@ -669,7 +671,7 @@ test -e ../afl-qemu-trace && {
   test -e test-instr -a -e test-compcov && {
     {
       mkdir -p in
-      echo 0 > in/in
+      echo 00000 > in/in
       $ECHO "$GREY[*] running afl-fuzz for qemu_mode, this will take approx 10 seconds"
       {
         ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr >>errors 2>&1
@@ -733,6 +735,25 @@ test -e ../afl-qemu-trace && {
         rm -f errors
       } || {
        $ECHO "$YELLOW[-] not an intel or arm platform, cannot test qemu_mode compcov"
+      }
+      
+      test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
+        $ECHO "$GREY[*] running afl-fuzz for qemu_mode cmplog, this will take approx 10 seconds"
+        {
+          ../afl-fuzz -m none -V10 -Q -c 0 -i in -o out -- ./test-compcov >>errors 2>&1
+        } >>errors 2>&1
+        test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
+          $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode cmplog"
+        } || {
+          echo CUT------------------------------------------------------------------CUT
+          cat errors
+          echo CUT------------------------------------------------------------------CUT
+          $ECHO "$RED[!] afl-fuzz is not working correctly with qemu_mode cmplog"
+          CODE=1
+        }
+        rm -f errors
+      } || {
+       $ECHO "$YELLOW[-] not an intel or arm platform, cannot test qemu_mode cmplog"
       }
 
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {

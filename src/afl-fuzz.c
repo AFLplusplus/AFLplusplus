@@ -24,6 +24,8 @@
  */
 
 #include "afl-fuzz.h"
+#include "cmplog.h"
+#include <limits.h>
 
 static u8 *get_libradamsa_path(u8 *own_loc) {
 
@@ -108,12 +110,12 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "Mutator settings:\n"
       "  -R[R]         - add Radamsa as mutator, add another -R to exclusivly "
       "run it\n"
-      "  -L minutes    - use MOpt(imize) mode and set the limit time for "
+      "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
-      "                  pacemaker mode (minutes of no new paths, 0 = "
-      "immediately).\n"
-      "                  a recommended value is 10-60. see "
-      "docs/README.MOpt.md\n"
+      "                  pacemaker mode (minutes of no new paths). 0 = "
+      "immediately,\n"
+      "                  -1 = immediately and together with normal mutation).\n"
+      "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
       "                  if using QEMU, just use -c 0.\n\n"
@@ -128,12 +130,11 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
 
       "Testing settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
-      "  -V seconds    - fuzz for a maximum total time of seconds then "
+      "  -V seconds    - fuzz for a specific time then terminate\n"
+      "  -E execs      - fuzz for a approx. no of total executions then "
       "terminate\n"
-      "  -E execs      - fuzz for a maximum number of total executions then "
-      "terminate\n"
-      "  Note: -V/-E are not precise, they are checked after a queue entry "
-      "is done\n  which can be many minutes/execs later\n\n"
+      "                  Note: not precise and can have several more "
+      "executions.\n\n"
 
       "Other stuff:\n"
       "  -T text       - text banner to show on the screen\n"
@@ -143,51 +144,53 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap "
       "file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
-      "  -e ext        - File extension for the temporarily generated test "
+      "  -e ext        - file extension for the temporarily generated test "
       "case\n\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
   if (more_help > 1)
     SAYF(
       "Environment variables used:\n"
-      "AFL_PATH: path to AFL support binaries\n"
-      "AFL_QUIET: suppress forkserver status messages\n"
-      "AFL_DEBUG_CHILD_OUTPUT: do not suppress stdout/stderr from target\n"
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
-      "AFL_BENCH_JUST_ONE: run the target just once\n"
-      "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
-      "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
-      "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
-      "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
-      "AFL_DEBUG: extra debugging output for Python mode trimming\n"
-      "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
-      "AFL_NO_UI: switch status screen off\n"
-      "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
-      "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
-      "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
-      "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
-      "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
-      "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
-      "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
-      "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
-      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
-      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
-      "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
-      "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
-      "AFL_POST_LIBRARY: postprocess generated test cases before use as target input\n"
-      "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
-      "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "ASAN_OPTIONS: custom settings for ASAN\n"
       "              (must contain abort_on_error=1 and symbolize=0)\n"
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
+      "AFL_BENCH_JUST_ONE: run the target just once\n"
+      "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
+      "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
+      "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
+      "AFL_DEBUG: extra debugging output for Python mode trimming\n"
+      "AFL_DEBUG_CHILD_OUTPUT: do not suppress stdout/stderr from target\n"
+      "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
+      "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
+      "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
+      "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
+      "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
+      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
+      "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
+      "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
+      "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
+      "              the target was compiled for\n"
+      "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
+      "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
+      "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
+      "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
+      "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
+      "AFL_NO_UI: switch status screen off\n"
+      "AFL_PATH: path to AFL support binaries\n"
+      "AFL_POST_LIBRARY: postprocess generated test cases before use as target input\n"
+      "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
+      "AFL_QUIET: suppress forkserver status messages\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an excutable\n"
+      "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
+      "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
+      "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
       //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
-      "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
-      "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
-      "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
       "\n"
     );
   else
@@ -213,6 +216,8 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
 
 static int stricmp(char const *a, char const *b) {
 
+  if (!a || !b) FATAL("Null reference");
+
   for (;; ++a, ++b) {
 
     int d;
@@ -229,7 +234,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt;
   u64    prev_queued = 0;
-  u32    sync_interval_cnt = 0, seek_to, show_help = 0;
+  u32    sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
   u8 *   extras_dir = 0;
   u8     mem_limit_given = 0, exit_1 = 0;
   char **use_argv;
@@ -242,10 +247,14 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
   if (!afl) { FATAL("Could not create afl state"); }
 
-  afl_state_init(afl);
+  if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
+
+  map_size = get_map_size();
+  afl_state_init(afl, map_size);
   afl_fsrv_init(&afl->fsrv);
 
   read_afl_environment(afl, envp);
+  if (afl->shm.map_size) afl->fsrv.map_size = afl->shm.map_size;
   exit_1 = !!afl->afl_env.afl_bench_just_one;
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
@@ -417,6 +426,8 @@ int main(int argc, char **argv_orig, char **envp) {
         if (mem_limit_given) FATAL("Multiple -m options not supported");
         mem_limit_given = 1;
 
+        if (!optarg) FATAL("Wrong usage of -m");
+
         if (!strcmp(optarg, "none")) {
 
           afl->fsrv.mem_limit = 0;
@@ -471,13 +482,13 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->in_bitmap) FATAL("Multiple -B options not supported");
 
         afl->in_bitmap = optarg;
-        read_bitmap(afl, afl->in_bitmap);
+        read_bitmap(afl->in_bitmap, afl->virgin_bits, afl->fsrv.map_size);
         break;
 
       case 'C':                                               /* crash mode */
 
         if (afl->crash_mode) FATAL("Multiple -C options not supported");
-        afl->crash_mode = FAULT_CRASH;
+        afl->crash_mode = FSRV_RUN_CRASH;
         break;
 
       case 'n':                                                /* dumb mode */
@@ -498,8 +509,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'Q':                                                /* QEMU mode */
 
-        if (afl->qemu_mode) FATAL("Multiple -Q options not supported");
-        afl->qemu_mode = 1;
+        if (afl->fsrv.qemu_mode) FATAL("Multiple -Q options not supported");
+        afl->fsrv.qemu_mode = 1;
 
         if (!mem_limit_given) afl->fsrv.mem_limit = MEM_LIMIT_QEMU;
 
@@ -524,7 +535,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'W':                                           /* Wine+QEMU mode */
 
         if (afl->use_wine) FATAL("Multiple -W options not supported");
-        afl->qemu_mode = 1;
+        afl->fsrv.qemu_mode = 1;
         afl->use_wine = 1;
 
         if (!mem_limit_given) afl->fsrv.mem_limit = 0;
@@ -550,12 +561,25 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'L': {                                              /* MOpt mode */
 
         if (afl->limit_time_sig) FATAL("Multiple -L options not supported");
-        afl->limit_time_sig = 1;
         afl->havoc_max_mult = HAVOC_MAX_MULT_MOPT;
 
-        if (sscanf(optarg, "%llu", &afl->limit_time_puppet) < 1 ||
-            optarg[0] == '-')
+        if (sscanf(optarg, "%d", &afl->limit_time_puppet) < 1)
           FATAL("Bad syntax used for -L");
+
+        if (afl->limit_time_puppet == -1) {
+
+          afl->limit_time_sig = -1;
+          afl->limit_time_puppet = 0;
+
+        } else if (afl->limit_time_puppet < 0) {
+
+          FATAL("-L value must be between 0 and 2000000 or -1");
+
+        } else {
+
+          afl->limit_time_sig = 1;
+
+        }
 
         u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
 
@@ -563,7 +587,7 @@ int main(int argc, char **argv_orig, char **envp) {
           FATAL("limit_time overflow");
         afl->limit_time_puppet = limit_time_puppet2;
 
-        SAYF("limit_time_puppet %llu\n", afl->limit_time_puppet);
+        SAYF("limit_time_puppet %d\n", afl->limit_time_puppet);
         afl->swarm_now = 0;
 
         if (afl->limit_time_puppet == 0) afl->key_puppet = 1;
@@ -687,7 +711,7 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
   if (afl->sync_id && afl->force_deterministic &&
-      getenv("AFL_CUSTOM_MUTATOR_ONLY"))
+      afl->afl_env.afl_custom_mutator_only)
     WARNF(
         "Using -M master with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "
         "result in no deterministic mutations being done!");
@@ -698,11 +722,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->use_radamsa) {
 
-    if (afl->limit_time_sig)
+    if (afl->limit_time_sig > 0)
       FATAL(
-          "MOpt and Radamsa are mutually exclusive. We accept pull requests "
-          "that integrates MOpt with the optional mutators "
-          "(custom/radamsa/redquenn/...).");
+          "MOpt and Radamsa are mutually exclusive unless you specify -L -1. "
+          "We accept pull requests that integrates MOpt with the optional "
+          "mutators (custom/radamsa/redqueen/...).");
+
+    if (afl->limit_time_sig && afl->use_radamsa > 1)
+      FATAL("Radamsa in radamsa-only mode can not run together with -L");
 
     OKF("Using Radamsa add-on");
 
@@ -748,7 +775,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->dumb_mode) {
 
     if (afl->crash_mode) FATAL("-C and -n are mutually exclusive");
-    if (afl->qemu_mode) FATAL("-Q and -n are mutually exclusive");
+    if (afl->fsrv.qemu_mode) FATAL("-Q and -n are mutually exclusive");
     if (afl->unicorn_mode) FATAL("-U and -n are mutually exclusive");
 
   }
@@ -816,7 +843,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->afl_env.afl_preload) {
 
-    if (afl->qemu_mode) {
+    if (afl->fsrv.qemu_mode) {
 
       u8 *qemu_preload = getenv("QEMU_SET_ENV");
       u8 *afl_preload = getenv("AFL_PRELOAD");
@@ -862,15 +889,13 @@ int main(int argc, char **argv_orig, char **envp) {
   check_if_tty(afl);
   if (afl->afl_env.afl_force_ui) afl->not_on_tty = 0;
 
-  if (get_afl_env("AFL_CAL_FAST")) {
+  if (afl->afl_env.afl_cal_fast) {
 
     /* Use less calibration cycles, for slow applications */
     afl->cal_cycles = 3;
     afl->cal_cycles_long = 5;
 
   }
-
-  if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
 
   if (afl->afl_env.afl_custom_mutator_only) {
 
@@ -891,13 +916,14 @@ int main(int argc, char **argv_orig, char **envp) {
   check_crash_handling();
   check_cpu_governor(afl);
 
-  afl->fsrv.trace_bits = afl_shm_init(&afl->shm, MAP_SIZE, afl->dumb_mode);
+  afl->fsrv.trace_bits =
+      afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->dumb_mode);
 
   setup_post(afl);
 
-  if (!afl->in_bitmap) memset(afl->virgin_bits, 255, MAP_SIZE);
-  memset(afl->virgin_tmout, 255, MAP_SIZE);
-  memset(afl->virgin_crash, 255, MAP_SIZE);
+  if (!afl->in_bitmap) memset(afl->virgin_bits, 255, afl->fsrv.map_size);
+  memset(afl->virgin_tmout, 255, afl->fsrv.map_size);
+  memset(afl->virgin_crash, 255, afl->fsrv.map_size);
 
   init_count_class16();
 
@@ -919,21 +945,21 @@ int main(int argc, char **argv_orig, char **envp) {
   if ((afl->tmp_dir = afl->afl_env.afl_tmpdir) != NULL &&
       !afl->in_place_resume) {
 
-    char tmpfile[afl->file_extension ? strlen(afl->tmp_dir) + 1 + 10 + 1 +
-                                           strlen(afl->file_extension) + 1
-                                     : strlen(afl->tmp_dir) + 1 + 10 + 1];
+    char tmpfile[PATH_MAX];
+
     if (afl->file_extension) {
 
-      sprintf(tmpfile, "%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
+      snprintf(tmpfile, PATH_MAX, "%s/.cur_input.%s", afl->tmp_dir,
+               afl->file_extension);
 
     } else {
 
-      sprintf(tmpfile, "%s/.cur_input", afl->tmp_dir);
+      snprintf(tmpfile, PATH_MAX, "%s/.cur_input", afl->tmp_dir);
 
     }
 
-    if (access(tmpfile, F_OK) !=
-        -1)  // there is still a race condition here, but well ...
+    /* there is still a race condition here, but well ... */
+    if (access(tmpfile, F_OK) != -1)
       FATAL(
           "AFL_TMPDIR already has an existing temporary input file: %s - if "
           "this is not from another instance, then just remove the file.",
@@ -983,15 +1009,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->cmplog_binary) {
 
-    if (afl->limit_time_sig)
-      FATAL(
-          "MOpt and CmpLog are mutually exclusive. We accept pull requests "
-          "that integrates MOpt with the optional mutators "
-          "(custom/radamsa/redquenn/...).");
-
     if (afl->unicorn_mode)
       FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");
-    if (!afl->qemu_mode) check_binary(afl, afl->cmplog_binary);
+    if (!afl->fsrv.qemu_mode) check_binary(afl, afl->cmplog_binary);
 
   }
 
@@ -999,7 +1019,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->start_time = get_cur_time();
 
-  if (afl->qemu_mode) {
+  if (afl->fsrv.qemu_mode) {
 
     if (afl->use_wine)
       use_argv = get_wine_argv(argv[0], &afl->fsrv.target_path, argc - optind,
@@ -1015,6 +1035,21 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   afl->argv = use_argv;
+
+  if (afl->cmplog_binary) {
+
+    ACTF("Spawning cmplog forkserver");
+    afl_fsrv_init_dup(&afl->cmplog_fsrv, &afl->fsrv);
+    // TODO: this is semi-nice
+    afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
+    afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
+    afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
+    afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
+    afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
+                   afl->afl_env.afl_debug_child_output);
+
+  }
+
   perform_dry_run(afl);
 
   cull_queue(afl);
@@ -1109,55 +1144,6 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->queue_cur = afl->queue_cur->next;
     ++afl->current_entry;
 
-    if (afl->most_time_key == 1) {
-
-      u64 cur_ms_lv = get_cur_time();
-      if (afl->most_time * 1000 < cur_ms_lv - afl->start_time) {
-
-        afl->most_time_key = 2;
-        afl->stop_soon = 2;
-        break;
-
-      }
-
-    }
-
-    if (afl->most_execs_key == 1) {
-
-      if (afl->most_execs <= afl->total_execs) {
-
-        afl->most_execs_key = 2;
-        afl->stop_soon = 2;
-        break;
-
-      }
-
-    }
-
-  }
-
-  // if (afl->queue_cur) show_stats(afl);
-
-  /*
-   * ATTENTION - the following 10 lines were copied from a PR to Google's afl
-   * repository - and slightly fixed.
-   * These lines have nothing to do with the purpose of original PR though.
-   * Looks like when an exit condition was completed (AFL_BENCH_JUST_ONE,
-   * AFL_EXIT_WHEN_DONE or AFL_BENCH_UNTIL_CRASH) the child and forkserver
-   * where not killed?
-   */
-  /* if we stopped programmatically, we kill the forkserver and the current
-     runner. if we stopped manually, this is done by the signal handler */
-  if (afl->stop_soon == 2) {
-
-    if (afl->fsrv.child_pid > 0) kill(afl->fsrv.child_pid, SIGKILL);
-    if (afl->fsrv.fsrv_pid > 0) kill(afl->fsrv.fsrv_pid, SIGKILL);
-    if (afl->cmplog_child_pid > 0) kill(afl->cmplog_child_pid, SIGKILL);
-    if (afl->cmplog_fsrv_pid > 0) kill(afl->cmplog_fsrv_pid, SIGKILL);
-    /* Now that we've killed the forkserver, we wait for it to be able to get
-     * rusage stats. */
-    if (waitpid(afl->fsrv.fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
-
   }
 
   write_bitmap(afl);
@@ -1200,6 +1186,7 @@ stop_fuzzing:
   ck_free(afl->fsrv.target_path);
   ck_free(afl->fsrv.out_file);
   ck_free(afl->sync_id);
+  afl_state_deinit(afl);
   free(afl);                                                 /* not tracked */
 
   argv_cpy_free(argv);

@@ -8,7 +8,8 @@
 
    Now maintained by Marc Heuse <mh@mh-sec.de>,
                         Heiko Eißfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com>
+                        Andrea Fioraldi <andreafioraldi@gmail.com> and
+                        Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -51,6 +52,7 @@
 #include <signal.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include <sys/wait.h>
 #include <sys/time.h>
@@ -59,19 +61,21 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
-char *stdin_file;                      /* stdin file                        */
+static char *stdin_file;               /* stdin file                        */
 
-u8 *in_dir,                            /* input folder                      */
-    *at_file = NULL;              /* Substitution string for @@             */
+static u8 *in_dir = NULL,              /* input folder                      */
+    *out_file = NULL, *at_file = NULL;        /* Substitution string for @@ */
 
 static u8 *in_data;                    /* Input data                        */
 
 static u32 total, highest;             /* tuple content information         */
 
 static u32 in_len,                     /* Input data length                 */
-    arg_offset, total_execs;           /* Total number of execs             */
+    arg_offset;                        /* Total number of execs             */
 
-u8 quiet_mode,                         /* Hide non-essential messages?      */
+static u32 map_size = MAP_SIZE;
+
+static u8 quiet_mode,                  /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
     raw_instr_output,                  /* Do not apply AFL filters          */
     cmin_mode,                         /* Generate output in afl-cmin mode? */
@@ -80,8 +84,6 @@ u8 quiet_mode,                         /* Hide non-essential messages?      */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
-
-static u8 qemu_mode;
 
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
@@ -108,9 +110,12 @@ static const u8 count_class_binary[256] = {
 
 };
 
-static void classify_counts(u8 *mem, const u8 *map) {
+static void classify_counts(afl_forkserver_t *fsrv) {
 
-  u32 i = MAP_SIZE;
+  u8 *      mem = fsrv->trace_bits;
+  const u8 *map = binary_mode ? count_class_binary : count_class_human;
+
+  u32 i = map_size;
 
   if (edges_only) {
 
@@ -156,7 +161,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
     fd = open(outfile, O_WRONLY);
 
-    if (fd < 0) PFATAL("Unable to open '%s'", fsrv->out_file);
+    if (fd < 0) PFATAL("Unable to open '%s'", out_file);
 
   } else if (!strcmp(outfile, "-")) {
 
@@ -173,10 +178,10 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
   if (binary_mode) {
 
-    for (i = 0; i < MAP_SIZE; i++)
+    for (i = 0; i < map_size; i++)
       if (fsrv->trace_bits[i]) ret++;
 
-    ck_write(fd, fsrv->trace_bits, MAP_SIZE, outfile);
+    ck_write(fd, fsrv->trace_bits, map_size, outfile);
     close(fd);
 
   } else {
@@ -185,7 +190,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
     if (!f) PFATAL("fdopen() failed");
 
-    for (i = 0; i < MAP_SIZE; i++) {
+    for (i = 0; i < map_size; i++) {
 
       if (!fsrv->trace_bits[i]) continue;
       ret++;
@@ -195,7 +200,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
       if (cmin_mode) {
 
-        if (fsrv->child_timed_out) break;
+        if (fsrv->last_run_timed_out) break;
         if (!caa && child_crashed != cco) break;
 
         fprintf(f, "%u%u\n", fsrv->trace_bits[i], i);
@@ -214,96 +219,21 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
 }
 
-/* Write results. */
+/* Execute target application. */
 
-static u32 write_results(afl_forkserver_t *fsrv) {
+static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, char **argv,
+                                          u8 *mem, u32 len) {
 
-  return write_results_to_file(fsrv, fsrv->out_file);
+  afl_fsrv_write_to_testcase(fsrv, mem, len);
 
-}
+  if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
+      FSRV_RUN_ERROR) {
 
-/* Write modified data to file for testing. If use_stdin is clear, the old file
-   is unlinked and a new one is created. Otherwise, out_fd is rewound and
-   truncated. */
-
-static void write_to_testcase(afl_forkserver_t *fsrv, void *mem, u32 len) {
-
-  lseek(fsrv->out_fd, 0, SEEK_SET);
-  ck_write(fsrv->out_fd, mem, len, fsrv->out_file);
-  if (ftruncate(fsrv->out_fd, len)) PFATAL("ftruncate() failed");
-  lseek(fsrv->out_fd, 0, SEEK_SET);
-
-}
-
-/* Execute target application. Returns 0 if the changes are a dud, or
-   1 if they should be kept. */
-
-static u8 run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
-                                u32 len) {
-
-  struct itimerval it;
-  int              status = 0;
-
-  memset(fsrv->trace_bits, 0, MAP_SIZE);
-  MEM_BARRIER();
-
-  write_to_testcase(fsrv, mem, len);
-
-  s32 res;
-
-  /* we have the fork server up and running, so simply
-     tell it to have at it, and then read back PID. */
-
-  if ((res = write(fsrv->fsrv_ctl_fd, &fsrv->prev_timed_out, 4)) != 4) {
-
-    if (stop_soon) return 0;
-    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+    FATAL("Error running target");
 
   }
 
-  if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
-
-    if (stop_soon) return 0;
-    RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-  }
-
-  if (fsrv->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
-
-  /* Configure timeout, wait for child, cancel timeout. */
-
-  if (fsrv->exec_tmout) {
-
-    it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
-    it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
-
-  }
-
-  setitimer(ITIMER_REAL, &it, NULL);
-
-  if ((res = read(fsrv->fsrv_st_fd, &status, 4)) != 4) {
-
-    if (stop_soon) return 0;
-    RPFATAL(res, "Unable to communicate with fork server (OOM?)");
-
-  }
-
-  fsrv->child_pid = 0;
-  it.it_value.tv_sec = 0;
-  it.it_value.tv_usec = 0;
-
-  setitimer(ITIMER_REAL, &it, NULL);
-
-  MEM_BARRIER();
-
-  /* Clean up bitmap, analyze exit condition, etc. */
-
-  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)
-    FATAL("Unable to execute '%s'", argv[0]);
-
-  classify_counts(fsrv->trace_bits,
-                  binary_mode ? count_class_binary : count_class_human);
-  total_execs++;
+  classify_counts(fsrv);
 
   if (stop_soon) {
 
@@ -312,27 +242,11 @@ static u8 run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
 
   }
 
-  /* Always discard inputs that time out. */
-
-  if (fsrv->child_timed_out) { return 0; }
-
-  /* Handle crashing inputs depending on current mode. */
-
-  if (WIFSIGNALED(status) ||
-      (WIFEXITED(status) && WEXITSTATUS(status) == MSAN_ERROR) ||
-      (WIFEXITED(status) && WEXITSTATUS(status))) {
-
-    return 0;
-
-  }
-
-  return 0;
-
 }
 
 /* Read initial file. */
 
-u32 read_file(u8 *in_file) {
+static u32 read_file(u8 *in_file) {
 
   struct stat st;
   s32         fd = open(in_file, O_RDONLY);
@@ -357,7 +271,7 @@ u32 read_file(u8 *in_file) {
 
 /* Execute target application. */
 
-static void run_target(afl_forkserver_t *fsrv, char **argv) {
+static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   static struct itimerval it;
   int                     status = 0;
@@ -427,7 +341,7 @@ static void run_target(afl_forkserver_t *fsrv, char **argv) {
 
   if (fsrv->exec_tmout) {
 
-    fsrv->child_timed_out = 0;
+    fsrv->last_run_timed_out = 0;
     it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
     it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
 
@@ -449,17 +363,16 @@ static void run_target(afl_forkserver_t *fsrv, char **argv) {
   if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)
     FATAL("Unable to execute '%s'", argv[0]);
 
-  classify_counts(fsrv->trace_bits,
-                  binary_mode ? count_class_binary : count_class_human);
+  classify_counts(fsrv);
 
   if (!quiet_mode) SAYF(cRST "-- Program output ends --\n");
 
-  if (!fsrv->child_timed_out && !stop_soon && WIFSIGNALED(status))
+  if (!fsrv->last_run_timed_out && !stop_soon && WIFSIGNALED(status))
     child_crashed = 1;
 
   if (!quiet_mode) {
 
-    if (fsrv->child_timed_out)
+    if (fsrv->last_run_timed_out)
       SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
     else if (stop_soon)
       SAYF(cLRD "\n+++ Program aborted by user +++\n" cRST);
@@ -482,7 +395,7 @@ static void handle_stop_sig(int sig) {
 
 /* Do basic preparations - persistent fds, filenames, etc. */
 
-static void set_up_environment(void) {
+static void set_up_environment(afl_forkserver_t *fsrv) {
 
   setenv("ASAN_OPTIONS",
          "abort_on_error=1:"
@@ -499,7 +412,7 @@ static void set_up_environment(void) {
 
   if (get_afl_env("AFL_PRELOAD")) {
 
-    if (qemu_mode) {
+    if (fsrv->qemu_mode) {
 
       u8 *qemu_preload = getenv("QEMU_SET_ENV");
       u8 *afl_preload = getenv("AFL_PRELOAD");
@@ -576,11 +489,9 @@ static void usage(u8 *argv0) {
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
       "Required parameters:\n"
-
       "  -o file       - file to write the trace data to\n\n"
 
       "Execution control settings:\n"
-
       "  -t msec       - timeout for each run (none)\n"
       "  -m megs       - memory limit for child process (%d MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
@@ -588,9 +499,7 @@ static void usage(u8 *argv0) {
       "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
-
       "Other settings:\n"
-
       "  -i dir        - process all files in this directory, -o must be a "
       "directory\n"
       "                  and each bitmap will be written there individually.\n"
@@ -603,72 +512,19 @@ static void usage(u8 *argv0) {
       "For additional help, consult %s/README.md.\n\n"
 
       "Environment variables used:\n"
-      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_DEBUG: enable extra developer output\n"
-      "AFL_QUIET: do not print extra informational output"
+      "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
       "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
       "inputs\n"
       "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing inputs also\n"
-      "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n",
+      "AFL_DEBUG: enable extra developer output\n"
+      "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
+      "size\n"
+      "              the target was compiled for\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_QUIET: do not print extra informational output",
       argv0, MEM_LIMIT, doc_path);
 
   exit(1);
-
-}
-
-/* Find binary. */
-
-static void find_binary(afl_forkserver_t *fsrv, u8 *fname) {
-
-  u8 *        env_path = 0;
-  struct stat st;
-
-  if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
-
-    fsrv->target_path = ck_strdup(fname);
-
-    if (stat(fsrv->target_path, &st) || !S_ISREG(st.st_mode) ||
-        !(st.st_mode & 0111) || st.st_size < 4)
-      FATAL("Program '%s' not found or not executable", fname);
-
-  } else {
-
-    while (env_path) {
-
-      u8 *cur_elem, *delim = strchr(env_path, ':');
-
-      if (delim) {
-
-        cur_elem = ck_alloc(delim - env_path + 1);
-        memcpy(cur_elem, env_path, delim - env_path);
-        delim++;
-
-      } else
-
-        cur_elem = ck_strdup(env_path);
-
-      env_path = delim;
-
-      if (cur_elem[0])
-        fsrv->target_path = alloc_printf("%s/%s", cur_elem, fname);
-      else
-        fsrv->target_path = ck_strdup(fname);
-
-      ck_free(cur_elem);
-
-      if (!stat(fsrv->target_path, &st) && S_ISREG(st.st_mode) &&
-          (st.st_mode & 0111) && st.st_size >= 4)
-        break;
-
-      ck_free(fsrv->target_path);
-      fsrv->target_path = 0;
-
-    }
-
-    if (!fsrv->target_path)
-      FATAL("Program '%s' not found or not executable", fname);
-
-  }
 
 }
 
@@ -688,6 +544,8 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_forkserver_t  fsrv_var = {0};
   afl_forkserver_t *fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
+  map_size = get_map_size();
+  fsrv->map_size = map_size;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -704,8 +562,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'o':
 
-        if (fsrv->out_file) FATAL("Multiple -o options not supported");
-        fsrv->out_file = optarg;
+        if (out_file) FATAL("Multiple -o options not supported");
+        out_file = optarg;
         break;
 
       case 'm': {
@@ -714,6 +572,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (mem_limit_given) FATAL("Multiple -m options not supported");
         mem_limit_given = 1;
+
+        if (!optarg) FATAL("Wrong usage of -m");
 
         if (!strcmp(optarg, "none")) {
 
@@ -758,6 +618,8 @@ int main(int argc, char **argv_orig, char **envp) {
         if (timeout_given) FATAL("Multiple -t options not supported");
         timeout_given = 1;
 
+        if (!optarg) FATAL("Wrong usage of -t");
+
         if (strcmp(optarg, "none")) {
 
           fsrv->exec_tmout = atoi(optarg);
@@ -798,10 +660,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'Q':
 
-        if (qemu_mode) FATAL("Multiple -Q options not supported");
+        if (fsrv->qemu_mode) FATAL("Multiple -Q options not supported");
         if (!mem_limit_given) fsrv->mem_limit = MEM_LIMIT_QEMU;
 
-        qemu_mode = 1;
+        fsrv->qemu_mode = 1;
         break;
 
       case 'U':
@@ -815,7 +677,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'W':                                           /* Wine+QEMU mode */
 
         if (use_wine) FATAL("Multiple -W options not supported");
-        qemu_mode = 1;
+        fsrv->qemu_mode = 1;
         use_wine = 1;
 
         if (!mem_limit_given) fsrv->mem_limit = 0;
@@ -852,17 +714,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-  if (optind == argc || !fsrv->out_file) usage(argv[0]);
+  if (optind == argc || !out_file) usage(argv[0]);
 
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  fsrv->trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
+  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   setup_signal_handlers();
 
-  set_up_environment();
+  set_up_environment(fsrv);
 
-  find_binary(fsrv, argv[optind]);
+  fsrv->target_path = find_binary(argv[optind]);
 
   if (!quiet_mode) {
 
@@ -885,7 +747,7 @@ int main(int argc, char **argv_orig, char **envp) {
   for (i = optind; i < argc; i++)
     if (strcmp(argv[i], "@@") == 0) arg_offset = i;
 
-  if (qemu_mode) {
+  if (fsrv->qemu_mode) {
 
     if (use_wine)
       use_argv = get_wine_argv(argv[0], &fsrv->target_path, argc - optind,
@@ -903,7 +765,7 @@ int main(int argc, char **argv_orig, char **envp) {
     DIR *          dir_in, *dir_out;
     struct dirent *dir_ent;
     int            done = 0;
-    u8             infile[4096], outfile[4096];
+    u8             infile[PATH_MAX], outfile[PATH_MAX];
 #if !defined(DT_REG)
     struct stat statbuf;
 #endif
@@ -913,9 +775,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (!(dir_in = opendir(in_dir))) PFATAL("cannot open directory %s", in_dir);
 
-    if (!(dir_out = opendir(fsrv->out_file)))
-      if (mkdir(fsrv->out_file, 0700))
-        PFATAL("cannot create output directory %s", fsrv->out_file);
+    if (!(dir_out = opendir(out_file)))
+      if (mkdir(out_file, 0700))
+        PFATAL("cannot create output directory %s", out_file);
 
     u8 *use_dir = ".";
 
@@ -930,7 +792,7 @@ int main(int argc, char **argv_orig, char **envp) {
     unlink(stdin_file);
     atexit(at_exit_handler);
     fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
-    if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
+    if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", out_file);
 
     if (arg_offset && argv[arg_offset] != stdin_file) {
 
@@ -951,7 +813,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    afl_fsrv_start(fsrv, use_argv);
+    afl_fsrv_start(fsrv, use_argv, &stop_soon,
+                   get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
 
     while (done == 0 && (dir_ent = readdir(dir_in))) {
 
@@ -968,12 +831,11 @@ int main(int argc, char **argv_orig, char **envp) {
       if (-1 == stat(infile, &statbuf) || !S_ISREG(statbuf.st_mode)) continue;
 #endif
 
-      snprintf(outfile, sizeof(outfile), "%s/%s", fsrv->out_file,
-               dir_ent->d_name);
+      snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
 
       if (read_file(infile)) {
 
-        run_target_forkserver(fsrv, use_argv, in_data, in_len);
+        showmap_run_target_forkserver(fsrv, use_argv, in_data, in_len);
         ck_free(in_data);
         tcnt = write_results_to_file(fsrv, outfile);
 
@@ -981,15 +843,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (!quiet_mode) OKF("Processed %u input files.", total_execs);
+    if (!quiet_mode) OKF("Processed %llu input files.", fsrv->total_execs);
 
     closedir(dir_in);
-    closedir(dir_out);
+    if (dir_out) closedir(dir_out);
 
   } else {
 
-    run_target(fsrv, use_argv);
-    tcnt = write_results(fsrv);
+    showmap_run_target(fsrv, use_argv);
+    tcnt = write_results_to_file(fsrv, out_file);
 
   }
 
@@ -997,7 +859,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (!tcnt) FATAL("No instrumentation detected" cRST);
     OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST,
-        tcnt, highest, total, fsrv->out_file);
+        tcnt, highest, total, out_file);
 
   }
 
@@ -1011,7 +873,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl_shm_deinit(&shm);
 
-  u32 ret = child_crashed * 2 + fsrv->child_timed_out;
+  u32 ret = child_crashed * 2 + fsrv->last_run_timed_out;
 
   if (fsrv->target_path) ck_free(fsrv->target_path);
 
@@ -1019,6 +881,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (stdin_file) ck_free(stdin_file);
 
   argv_cpy_free(argv);
+  if (fsrv->qemu_mode) free(use_argv[2]);
 
   exit(ret);
 

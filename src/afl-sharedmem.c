@@ -40,7 +40,6 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -61,18 +60,19 @@
 #include <sys/shm.h>
 #endif
 
-list_t shm_list = {.element_prealloc_count = 0};
+static list_t shm_list = {.element_prealloc_count = 0};
 
 /* Get rid of shared memory. */
 
 void afl_shm_deinit(sharedmem_t *shm) {
 
+  // TODO: clang reports a potential UAF in this function/makro(?)
   list_remove(&shm_list, shm);
 
 #ifdef USEMMAP
   if (shm->map != NULL) {
 
-    munmap(shm->map, shm->size_alloc);
+    munmap(shm->map, shm->map_size);
     shm->map = NULL;
 
   }
@@ -93,21 +93,13 @@ void afl_shm_deinit(sharedmem_t *shm) {
 
 }
 
-/* At exit, remove all leftover maps */
-
-void afl_shm_atexit() {
-
-  LIST_FOREACH(&shm_list, sharedmem_t, { afl_shm_deinit(el); });
-
-}
-
 /* Configure shared memory.
    Returns a pointer to shm->map for ease of use.
 */
 
 u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
 
-  shm->size_alloc = shm->size_used = map_size;
+  shm->map_size = map_size;
 
   shm->map = NULL;
 
@@ -207,7 +199,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
 #endif
 
   list_append(&shm_list, shm);
-  atexit(afl_shm_atexit);
 
   return shm->map;
 

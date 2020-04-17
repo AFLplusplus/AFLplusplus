@@ -51,6 +51,16 @@ char * get_afl_env(char *env);
 extern u8  be_quiet;
 extern u8 *doc_path;                    /* path to documentation dir        */
 
+/* Find binary, used by analyze, showmap, tmin
+   @returns the path, allocating the string */
+
+u8 *find_binary(u8 *fname);
+
+/* Read a bitmap from file fname to memory
+   This is for the -B option again. */
+
+void read_bitmap(u8 *fname, u8 *map, size_t len);
+
 /* Get unix time in milliseconds */
 
 u64 get_cur_time(void);
@@ -99,9 +109,13 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms);
 
 /* Wrapper for select() and read(), reading exactly len bytes.
   Returns the time passed to read.
+  stop_soon should point to a variable indicating ctrl+c was pressed.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
-u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms);
+u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
+               volatile u8 *stop_soon_p);
+
+u32 get_map_size();
 
 #endif
 

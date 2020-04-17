@@ -1,17 +1,12 @@
 # TODO list for AFL++
 
-## Roadmap 2.63
+## Roadmap 2.65
 
- - complete custom_mutator API changes and documentation
+ - AFL_MAP_SIZE for afl-llvm-pass, qemu_mode and unicorn_mode
  - fix stability calculation bug
-
-## Roadmap 2.64
-
- - context sensitive branch coverage in llvm_mode
  - random crc32 HASH_CONST per run? because with 65536 paths we have collisions
  - namespace for targets? e.g. network
  - libradamsa as a custom module?
- - laf-intel build auto-dictionary?
 
 ## Further down the road
 

@@ -28,7 +28,7 @@
 /* Version string: */
 
 // c = release, d = volatile github dev, e = experimental branch
-#define VERSION "++2.63c"
+#define VERSION "++2.64c"
 
 /******************************************************
  *                                                    *
@@ -201,8 +201,8 @@
    (first value), and to keep in memory as candidates. The latter should be much
    higher than the former. */
 
-#define USE_AUTO_EXTRAS 50
-#define MAX_AUTO_EXTRAS (USE_AUTO_EXTRAS * 10)
+#define USE_AUTO_EXTRAS 128
+#define MAX_AUTO_EXTRAS (USE_AUTO_EXTRAS * 64)
 
 /* Scaling factor for the effector map used to skip some of the more
    expensive deterministic steps. The actual divisor is set to
@@ -399,6 +399,15 @@
 #define HAVE_ARC4RANDOM 1
 #endif
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
+
+/* Extended forkserver option values */
+
+#define FS_OPT_ENABLED 0x8f000001
+#define FS_OPT_MAPSIZE 0x40000000
+#define FS_OPT_SNAPSHOT 0x20000000
+#define FS_OPT_AUTODICT 0x10000000
+#define FS_OPT_GET_MAPSIZE(x) (((x & 0x00fffffe) >> 1) + 1)
+#define FS_OPT_SET_MAPSIZE(x) (x <= 1 || x > 0x1000000 ? 0 : ((x - 1) << 1))
 
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

@@ -85,7 +85,7 @@
 
 static inline void *DFL_ck_alloc_nozero(u32 size) {
 
-  u8 *ret;
+  void *ret;
 
   if (!size) return NULL;
 
@@ -127,7 +127,7 @@ static inline void DFL_ck_free(void *mem) {
 
 static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
-  u8 *ret;
+  void *ret;
 
   if (!size) {
 
@@ -182,7 +182,7 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
 
 static inline void *DFL_ck_memdup(void *mem, u32 size) {
 
-  u8 *ret;
+  void *ret;
 
   if (!mem || !size) return NULL;
 

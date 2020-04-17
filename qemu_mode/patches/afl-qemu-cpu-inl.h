@@ -293,7 +293,8 @@ static void print_mappings(void) {
 
 void afl_forkserver(CPUState *cpu) {
 
-  static unsigned char tmp[4];
+  u32           map_size = 0;
+  unsigned char tmp[4] = {0};
 
   if (forkserver_installed == 1) return;
   forkserver_installed = 1;
@@ -305,6 +306,15 @@ void afl_forkserver(CPUState *cpu) {
   pid_t child_pid;
   int   t_fd[2];
   u8    child_stopped = 0;
+
+  // if in the future qemu has non-collding coverage then switch MAP_SIZE
+  // with the max ID value
+  if (MAP_SIZE <= 0x800000) {
+
+    map_size = (FS_OPT_ENABLED | FS_OPT_MAPSIZE | FS_OPT_SET_MAPSIZE(MAP_SIZE));
+    memcpy(tmp, &map_size, 4);
+
+  }
 
   /* Tell the parent that we're alive. If the parent doesn't want
      to talk, assume that we're not running in forkserver mode. */
