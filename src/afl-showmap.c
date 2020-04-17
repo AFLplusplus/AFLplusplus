@@ -52,6 +52,7 @@
 #include <signal.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include <sys/wait.h>
 #include <sys/time.h>
