@@ -404,9 +404,13 @@ u8 *find_binary(u8 *fname) {
       env_path = delim;
 
       if (cur_elem[0]) {
+
         target_path = alloc_printf("%s/%s", cur_elem, fname);
+
       } else {
+
         target_path = ck_strdup(fname);
+
       }
 
       ck_free(cur_elem);

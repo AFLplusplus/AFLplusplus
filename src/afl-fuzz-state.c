@@ -103,7 +103,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->virgin_tmout = ck_alloc(map_size);
   afl->virgin_crash = ck_alloc(map_size);
   afl->var_bytes = ck_alloc(map_size);
-  afl->top_rated = ck_alloc(map_size);
+  afl->top_rated = ck_alloc(map_size * sizeof(void *));
   afl->clean_trace = ck_alloc(map_size);
   afl->clean_trace_custom = ck_alloc(map_size);
   afl->first_trace = ck_alloc(map_size);
