@@ -412,7 +412,8 @@ int main(int argc, char **argv) {
   }
 
   u8 *ptr;
-  if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
+  if (!be_quiet &&
+      ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE")))) {
 
     u32 map_size = atoi(ptr);
     if (map_size != MAP_SIZE) FATAL("AFL_MAP_SIZE is not supported by afl-gcc");
