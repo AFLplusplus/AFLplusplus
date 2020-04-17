@@ -445,11 +445,11 @@ typedef struct afl_state {
       fast_cal,                         /* Try to calibrate faster?         */
       disable_trim;                     /* Never trim in fuzz_one           */
 
-  u8 virgin_bits[MAP_SIZE],             /* Regions yet untouched by fuzzing */
-      virgin_tmout[MAP_SIZE],           /* Bits we haven't seen in tmouts   */
-      virgin_crash[MAP_SIZE];           /* Bits we haven't seen in crashes  */
+  u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
+      *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
+      *virgin_crash;                    /* Bits we haven't seen in crashes  */
 
-  u8 var_bytes[MAP_SIZE];               /* Bytes that appear to be variable */
+  u8 *var_bytes;                        /* Bytes that appear to be variable */
 
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */
       clear_screen;                     /* Window resized?                  */
@@ -537,7 +537,7 @@ typedef struct afl_state {
       *queue_top,                       /* Top of the list                  */
       *q_prev100;                       /* Previous 100 marker              */
 
-  struct queue_entry *top_rated[MAP_SIZE];  /* Top entries for bitmap bytes */
+  struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
 
   struct extra_data *extras;            /* Extra tokens to fuzz with        */
   u32                extras_cnt;        /* Total number of tokens read      */
@@ -586,9 +586,9 @@ typedef struct afl_state {
   u64 stats_last_stats_ms, stats_last_plot_ms, stats_last_ms, stats_last_execs;
   double stats_avg_exec;
 
-  u8 clean_trace[MAP_SIZE];
-  u8 clean_trace_custom[MAP_SIZE];
-  u8 first_trace[MAP_SIZE];
+  u8 *clean_trace;
+  u8 *clean_trace_custom;
+  u8 *first_trace;
 
   /*needed for afl_fuzz_one */
   // TODO: see which we can reuse
@@ -796,7 +796,7 @@ struct custom_mutator {
 
 };
 
-void afl_state_init(afl_state_t *);
+void afl_state_init(afl_state_t *, uint32_t map_size);
 void afl_state_deinit(afl_state_t *);
 void read_afl_environment(afl_state_t *, char **);
 
