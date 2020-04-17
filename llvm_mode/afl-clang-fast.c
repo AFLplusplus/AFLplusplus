@@ -224,19 +224,22 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   if (getenv("LAF_TRANSFORM_COMPARES") ||
-      getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES"))) {
+      getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
 
-      if (!be_quiet && getenv("AFL_LLVM_LTO_AUTODICTIONARY") &&
-          instrument_mode != INSTRUMENT_LTO))
-      WARNF("using AFL_LLVM_LAF_TRANSFORM_COMPARES together with AFL_LLVM_LTO_AUTODICTIONARY makes no sense. Use only AFL_LLVM_LTO_AUTODICTIONARY.");
+    if (!be_quiet && getenv("AFL_LLVM_LTO_AUTODICTIONARY") &&
+        instrument_mode != INSTRUMENT_LTO)
+      WARNF(
+          "using AFL_LLVM_LAF_TRANSFORM_COMPARES together with "
+          "AFL_LLVM_LTO_AUTODICTIONARY makes no sense. Use only "
+          "AFL_LLVM_LTO_AUTODICTIONARY.");
 
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/compare-transform-pass.so", obj_path);
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] = "-load";
+    cc_params[cc_par_cnt++] = "-Xclang";
+    cc_params[cc_par_cnt++] =
+        alloc_printf("%s/compare-transform-pass.so", obj_path);
 
-    }
+  }
 
   if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES")) {
 
