@@ -364,6 +364,16 @@ int main(int argc, char **argv, char **envp) {
 
     be_quiet = 1;
 
+  u8 *ptr;
+  if (!be_quiet &&
+      ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE")))) {
+
+    u32 map_size = atoi(ptr);
+    if (map_size != MAP_SIZE)
+      FATAL("AFL_MAP_SIZE is not supported by afl-gcc-fast");
+
+  }
+
   check_environment_vars(envp);
 
   find_obj(argv[0]);
