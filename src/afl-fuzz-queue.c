@@ -275,7 +275,7 @@ void cull_queue(afl_state_t *afl) {
 
   if (afl->dumb_mode || !afl->score_changed) return;
 
-  temp_v = ck_alloc(afl->fsrv.map_size >> 3);
+  temp_v = ck_maybe_grow((void **)&afl->map_tmp_buf, &afl->map_tmp_size, afl->fsrv.map_size >> 3);
 
   afl->score_changed = 0;
 
@@ -323,8 +323,6 @@ void cull_queue(afl_state_t *afl) {
     q = q->next;
 
   }
-
-  ck_free(temp_v);
 
 }
 

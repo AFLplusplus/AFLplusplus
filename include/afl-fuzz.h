@@ -608,6 +608,9 @@ typedef struct afl_state {
   u8 *   ex_buf;
   size_t ex_size;
 
+  u8 *   map_tmp_buf;
+  size_t map_tmp_size;
+
 } afl_state_t;
 
 /* A global pointer to all instances is needed (for now) for signals to arrive
