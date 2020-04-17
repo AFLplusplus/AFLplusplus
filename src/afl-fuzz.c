@@ -233,8 +233,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt;
   u64    prev_queued = 0;
-  u32    sync_interval_cnt = 0, seek_to, show_help = 0;
-  u8 *   extras_dir = 0;
+  u32    sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
+  u8 *   extras_dir = 0, *ptr;
   u8     mem_limit_given = 0, exit_1 = 0;
   char **use_argv;
 
@@ -246,10 +246,23 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
   if (!afl) { FATAL("Could not create afl state"); }
 
-  afl_state_init(afl);
+  if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
+  if ((ptr = get_afl_env("AFL_MAP_SIZE")) ||
+      (ptr = get_afl_env("AFL_MAPSIZE"))) {
+
+    map_size = atoi(ptr);
+    if (map_size < 8 || map_size > (1 << 29))
+      FATAL(
+          "the specified AFL_MAP_SIZE size is illegal and must be between 2^3 "
+          "and 2^30: %u\n",
+          map_size);
+    if (map_size % 8) map_size = (((map_size >> 3) + 1) << 3);
+
+  }
+
+  afl_state_init(afl, map_size);
   afl_fsrv_init(&afl->fsrv);
 
-  if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
   read_afl_environment(afl, envp);
   if (afl->afl_env.map_size) afl->fsrv.map_size = afl->afl_env.map_size;
   exit_1 = !!afl->afl_env.afl_bench_just_one;
