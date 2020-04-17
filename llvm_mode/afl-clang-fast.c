@@ -223,18 +223,20 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if ((!(getenv("AFL_LLVM_LTO_AUTODICTIONARY")   // disabled when autodictionary
-         && instrument_mode != INSTRUMENT_LTO))  // and lto_mode is used
-      && (getenv("LAF_TRANSFORM_COMPARES") ||
-          getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES"))) {
+  if (getenv("LAF_TRANSFORM_COMPARES") ||
+      getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES"))) {
 
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] = "-load";
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] =
-        alloc_printf("%s/compare-transform-pass.so", obj_path);
+      if (!be_quiet && getenv("AFL_LLVM_LTO_AUTODICTIONARY") &&
+          instrument_mode != INSTRUMENT_LTO))
+      WARNF("using AFL_LLVM_LAF_TRANSFORM_COMPARES together with AFL_LLVM_LTO_AUTODICTIONARY makes no sense. Use only AFL_LLVM_LTO_AUTODICTIONARY.");
 
-  }
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/compare-transform-pass.so", obj_path);
+
+    }
 
   if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES")) {
 

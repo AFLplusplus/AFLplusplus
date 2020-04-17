@@ -264,7 +264,7 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_fsrv_init(&afl->fsrv);
 
   read_afl_environment(afl, envp);
-  if (afl->afl_env.map_size) afl->fsrv.map_size = afl->afl_env.map_size;
+  if (afl->shm.map_size) afl->fsrv.map_size = afl->shm.map_size;
   exit_1 = !!afl->afl_env.afl_bench_just_one;
 
   SAYF(cCYA "afl-fuzz" VERSION cRST

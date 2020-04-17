@@ -72,7 +72,7 @@ void afl_shm_deinit(sharedmem_t *shm) {
 #ifdef USEMMAP
   if (shm->map != NULL) {
 
-    munmap(shm->map, shm->size_alloc);
+    munmap(shm->map, shm->map_size);
     shm->map = NULL;
 
   }
@@ -99,7 +99,7 @@ void afl_shm_deinit(sharedmem_t *shm) {
 
 u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
 
-  shm->size_alloc = shm->size_used = map_size;
+  shm->map_size = map_size;
 
   shm->map = NULL;
 
