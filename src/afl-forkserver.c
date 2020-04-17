@@ -97,6 +97,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
   fsrv_to->use_stdin = from->use_stdin;
+  fsrv_to->out_fd = from->out_fd;
   fsrv_to->dev_null_fd = from->dev_null_fd;
   fsrv_to->exec_tmout = from->exec_tmout;
   fsrv_to->mem_limit = from->mem_limit;
@@ -107,7 +108,6 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 #endif
 
   // These are forkserver specific.
-  fsrv_to->out_fd = -1;
   fsrv_to->out_dir_fd = -1;
   fsrv_to->child_pid = -1;
   fsrv_to->use_fauxsrv = 0;
@@ -395,7 +395,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
 
-      if (!be_quiet)
+      if (!be_quiet && getenv("AFL_DEBUG"))
         ACTF("Extended forkserver functions received (%08x).", status);
 
       if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
@@ -407,15 +407,26 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if ((status & FS_OPT_MAPSIZE) == FS_OPT_MAPSIZE) {
 
-        fsrv->map_size = FS_OPT_GET_MAPSIZE(status);
-        if (fsrv->map_size % 8)  // should not happen
-          fsrv->map_size = (((fsrv->map_size + 8) >> 3) << 3);
-        if (!be_quiet) ACTF("Target map size: %u", fsrv->map_size);
-        if (fsrv->map_size > MAP_SIZE)
+        u32 tmp_map_size = FS_OPT_GET_MAPSIZE(status);
+
+        if (!fsrv->map_size) fsrv->map_size = MAP_SIZE;
+
+        if (unlikely(tmp_map_size % 8)) {
+
+          // should not happen
+          WARNF("Target reported non-aligned map size of %ud", tmp_map_size);
+          tmp_map_size = (((tmp_map_size + 8) >> 3) << 3);
+
+        }
+
+        if (!be_quiet) ACTF("Target map size: %u", tmp_map_size);
+        if (tmp_map_size > fsrv->map_size)
           FATAL(
               "Target's coverage map size of %u is larger than the one this "
-              "afl++ is compiled with (%u)\n",
-              fsrv->map_size, MAP_SIZE);
+              "afl++ is set with (%u) (change MAP_SIZE_POW2 in config.h and "
+              "recompile or set AFL_MAP_SIZE)\n",
+              tmp_map_size, fsrv->map_size);
+        fsrv->map_size = tmp_map_size;
 
       }
 
@@ -444,7 +455,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         u32 len = status, offset = 0, count = 0;
         u8 *dict = ck_alloc(len);
         if (dict == NULL)
-          FATAL("Could not allocate %u bytes of autodictionary memmory", len);
+          FATAL("Could not allocate %u bytes of autodictionary memory", len);
 
         while (len != 0) {
 
@@ -695,10 +706,8 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t afl_fsrv_run_target(
-    afl_forkserver_t *fsrv, u32 timeout,
-    void(classify_counts_func)(afl_forkserver_t *fsrv),
-    volatile u8 *stop_soon_p) {
+fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
+                                      volatile u8 *stop_soon_p) {
 
   s32 res;
   u32 exec_ms;
@@ -727,7 +736,7 @@ fsrv_run_result_t afl_fsrv_run_target(
 
   if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
 
-    if (stop_soon_p) return 0;
+    if (*stop_soon_p) return 0;
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
@@ -784,9 +793,6 @@ fsrv_run_result_t afl_fsrv_run_target(
      behave very normally and do not have to be treated as volatile. */
 
   MEM_BARRIER();
-  u32 tb4 = *(u32 *)fsrv->trace_bits;
-
-  if (likely(classify_counts_func)) classify_counts_func(fsrv);
 
   /* Report outcome to caller. */
 
@@ -811,7 +817,8 @@ fsrv_run_result_t afl_fsrv_run_target(
 
   }
 
-  if (tb4 == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
+  // Fauxserver should handle this now.
+  // if (tb4 == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
 
   return FSRV_RUN_OK;
 

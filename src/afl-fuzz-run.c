@@ -33,10 +33,13 @@
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
-                             u32 timeout) {
+fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
+                                  u32 timeout) {
 
-  return afl_fsrv_run_target(fsrv, timeout, classify_counts, &afl->stop_soon);
+  fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
+  // TODO: Don't classify for faults?
+  classify_counts(fsrv);
+  return res;
 
 }
 
@@ -50,7 +53,7 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
   s32  doc_fd;
   char fn[PATH_MAX];
   snprintf(fn, PATH_MAX, "%s/mutations/%09u:%s", afl->out_dir,
-                          afl->document_counter++, describe_op(afl, 0));
+           afl->document_counter++, describe_op(afl, 0));
 
   if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600)) >= 0) {
 
@@ -188,7 +191,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     write_to_testcase(afl, use_mem, q->len);
 
-    fault = run_target(afl, &afl->fsrv, use_tmout);
+    fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
 
     /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
        we want to bail out quickly. */
@@ -406,7 +409,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
         write_to_testcase(afl, mem, st.st_size);
 
-        fault = run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+        fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
         if (afl->stop_soon) goto close_sync;
 
@@ -493,7 +496,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
       write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
 
-      fault = run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+      fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
       ++afl->trim_execs;
 
       if (afl->stop_soon || fault == FSRV_RUN_ERROR) goto abort_trimming;
@@ -600,7 +603,7 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   write_to_testcase(afl, out_buf, len);
 
-  fault = run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+  fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
   if (afl->stop_soon) return 1;
 

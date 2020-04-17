@@ -608,20 +608,22 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     }
 
-    // save highest location ID to global variable
-    // do this after each function to fail faster
-    if (afl_global_id > MAP_SIZE) {
+  }
 
-      uint32_t pow2map = 1, map = afl_global_id;
-      while ((map = map >> 1))
-        pow2map++;
-      FATAL(
-          "We have %u blocks to instrument but the map size is only %u! Edit "
-          "config.h and set MAP_SIZE_POW2 from %u to %u, then recompile "
-          "afl-fuzz and llvm_mode.",
-          afl_global_id, MAP_SIZE, MAP_SIZE_POW2, pow2map);
+  // save highest location ID to global variable
+  // do this after each function to fail faster
+  if (!be_quiet && afl_global_id > MAP_SIZE) {
 
-    }
+    uint32_t pow2map = 1, map = afl_global_id;
+    while ((map = map >> 1))
+      pow2map++;
+    WARNF(
+        "We have %u blocks to instrument but the map size is only %u. Either "
+        "edit config.h and set MAP_SIZE_POW2 from %u to %u, then recompile "
+        "afl-fuzz and llvm_mode and then make this target - or set "
+        "AFL_MAP_SIZE with at least size %u when running afl-fuzz with this "
+        "target.",
+        afl_global_id, MAP_SIZE, MAP_SIZE_POW2, pow2map, afl_global_id);
 
   }
 
@@ -635,7 +637,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
     if (!f) {
 
       fprintf(stderr,
-              "Error: init function could not be found (this hould not "
+              "Error: init function could not be found (this should not "
               "happen)\n");
       exit(-1);
 
