@@ -488,11 +488,9 @@ static void usage(u8 *argv0) {
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
       "Required parameters:\n"
-
       "  -o file       - file to write the trace data to\n\n"
 
       "Execution control settings:\n"
-
       "  -t msec       - timeout for each run (none)\n"
       "  -m megs       - memory limit for child process (%d MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
@@ -500,9 +498,7 @@ static void usage(u8 *argv0) {
       "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
-
       "Other settings:\n"
-
       "  -i dir        - process all files in this directory, -o must be a "
       "directory\n"
       "                  and each bitmap will be written there individually.\n"
@@ -524,7 +520,7 @@ static void usage(u8 *argv0) {
       "size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_QUIET: do not print extra informational output" argv0,
+      "AFL_QUIET: do not print extra informational output", argv0,
       MEM_LIMIT, doc_path);
 
   exit(1);
