@@ -81,7 +81,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   and out_size are NULL/0 by default. */
   memset(afl, 0, sizeof(afl_state_t));
 
-  if (!map_size) afl->shm.map_size = MAP_SIZE;
+  if (!map_size) { afl->shm.map_size = MAP_SIZE; }
 
   afl->w_init = 0.9;
   afl->w_end = 0.3;
@@ -343,9 +343,11 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
           }
 
-        } else
+        } else {
 
           i++;
+
+        }
 
       }
 
@@ -360,7 +362,7 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
   }
 
-  if (found) sleep(2);
+  if (found) { sleep(2); }
 
 }
 
@@ -368,18 +370,18 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
 void afl_state_deinit(afl_state_t *afl) {
 
-  if (afl->post_deinit) afl->post_deinit(afl->post_data);
-  if (afl->in_place_resume) ck_free(afl->in_dir);
-  if (afl->sync_id) ck_free(afl->out_dir);
-  if (afl->pass_stats) ck_free(afl->pass_stats);
-  if (afl->orig_cmp_map) ck_free(afl->orig_cmp_map);
+  if (afl->post_deinit) { afl->post_deinit(afl->post_data); }
+  if (afl->in_place_resume) { ck_free(afl->in_dir); }
+  if (afl->sync_id) { ck_free(afl->out_dir); }
+  if (afl->pass_stats) { ck_free(afl->pass_stats); }
+  if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
 
-  if (afl->out_buf) free(afl->out_buf);
-  if (afl->out_scratch_buf) free(afl->out_scratch_buf);
-  if (afl->eff_buf) free(afl->eff_buf);
-  if (afl->in_buf) free(afl->in_buf);
-  if (afl->in_scratch_buf) free(afl->in_scratch_buf);
-  if (afl->ex_buf) free(afl->ex_buf);
+  if (afl->out_buf) { free(afl->out_buf); }
+  if (afl->out_scratch_buf) { free(afl->out_scratch_buf); }
+  if (afl->eff_buf) { free(afl->eff_buf); }
+  if (afl->in_buf) { free(afl->in_buf); }
+  if (afl->in_scratch_buf) { free(afl->in_scratch_buf); }
+  if (afl->ex_buf) { free(afl->ex_buf); }
 
   ck_free(afl->virgin_bits);
   ck_free(afl->virgin_tmout);

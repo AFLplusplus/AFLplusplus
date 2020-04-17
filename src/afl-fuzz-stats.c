@@ -43,11 +43,11 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
   fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
-  if (fd < 0) PFATAL("Unable to create '%s'", fn);
+  if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 
   f = fdopen(fd, "w");
 
-  if (!f) PFATAL("fdopen() failed");
+  if (!f) { PFATAL("fdopen() failed"); }
 
   /* Keep last values in case we're called from another context
      where exec/sec stats and such are not readily available. */
@@ -65,7 +65,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
   }
 
-  if (getrusage(RUSAGE_CHILDREN, &rus)) rus.ru_maxrss = 0;
+  if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
 
   fprintf(
       f,
@@ -153,8 +153,11 @@ void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
                afl->plot_prev_uc == afl->unique_crashes &&
                afl->plot_prev_uh == afl->unique_hangs &&
                afl->plot_prev_md == afl->max_depth) ||
-      unlikely(!afl->queue_cycle))
+      unlikely(!afl->queue_cycle)) {
+
     return;
+
+  }
 
   afl->plot_prev_qp = afl->queued_paths;
   afl->plot_prev_pf = afl->pending_favored;
@@ -190,10 +193,10 @@ static void check_term_size(afl_state_t *afl) {
 
   afl->term_too_small = 0;
 
-  if (ioctl(1, TIOCGWINSZ, &ws)) return;
+  if (ioctl(1, TIOCGWINSZ, &ws)) { return; }
 
-  if (ws.ws_row == 0 || ws.ws_col == 0) return;
-  if (ws.ws_row < 24 || ws.ws_col < 79) afl->term_too_small = 1;
+  if (ws.ws_row == 0 || ws.ws_col == 0) { return; }
+  if (ws.ws_row < 24 || ws.ws_col < 79) { afl->term_too_small = 1; }
 
 }
 
@@ -241,12 +244,15 @@ void show_stats(afl_state_t *afl) {
   /* If not enough time has passed since last UI update, bail out. */
 
   if (cur_ms - afl->stats_last_ms < 1000 / UI_TARGET_HZ &&
-      !afl->force_ui_update)
+      !afl->force_ui_update) {
+
     return;
+
+  }
 
   /* Check if we're past the 10 minute mark. */
 
-  if (cur_ms - afl->start_time > 10 * 60 * 1000) afl->run_over10m = 1;
+  if (cur_ms - afl->start_time > 10 * 60 * 1000) { afl->run_over10m = 1; }
 
   /* Calculate smoothed exec speed stats. */
 
@@ -263,8 +269,12 @@ void show_stats(afl_state_t *afl) {
     /* If there is a dramatic (5x+) jump in speed, reset the indicator
        more quickly. */
 
-    if (cur_avg * 5 < afl->stats_avg_exec || cur_avg / 5 > afl->stats_avg_exec)
+    if (cur_avg * 5 < afl->stats_avg_exec ||
+        cur_avg / 5 > afl->stats_avg_exec) {
+
       afl->stats_avg_exec = cur_avg;
+
+    }
 
     afl->stats_avg_exec = afl->stats_avg_exec * (1.0 - 1.0 / AVG_SMOOTHING) +
                           cur_avg * (1.0 / AVG_SMOOTHING);
@@ -277,17 +287,22 @@ void show_stats(afl_state_t *afl) {
   /* Tell the callers when to contact us (as measured in execs). */
 
   afl->stats_update_freq = afl->stats_avg_exec / (UI_TARGET_HZ * 10);
-  if (!afl->stats_update_freq) afl->stats_update_freq = 1;
+  if (!afl->stats_update_freq) { afl->stats_update_freq = 1; }
 
   /* Do some bitmap stats. */
 
   t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
   t_byte_ratio = ((double)t_bytes * 100) / afl->fsrv.map_size;
 
-  if (likely(t_bytes) && unlikely(afl->var_byte_count))
+  if (likely(t_bytes) && unlikely(afl->var_byte_count)) {
+
     stab_ratio = 100 - (((double)afl->var_byte_count * 100) / t_bytes);
-  else
+
+  } else {
+
     stab_ratio = 100;
+
+  }
 
   /* Roughly every minute, update fuzzer stats and save auto tokens. */
 
@@ -312,19 +327,25 @@ void show_stats(afl_state_t *afl) {
   /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
 
   if (!afl->dumb_mode && afl->cycles_wo_finds > 100 &&
-      !afl->pending_not_fuzzed && afl->afl_env.afl_exit_when_done)
+      !afl->pending_not_fuzzed && afl->afl_env.afl_exit_when_done) {
+
     afl->stop_soon = 2;
 
-  if (afl->total_crashes && afl->afl_env.afl_bench_until_crash)
+  }
+
+  if (afl->total_crashes && afl->afl_env.afl_bench_until_crash) {
+
     afl->stop_soon = 2;
+
+  }
 
   /* If we're not on TTY, bail out. */
 
-  if (afl->not_on_tty) return;
+  if (afl->not_on_tty) { return; }
 
   /* If we haven't started doing things, bail out. */
 
-  if (!afl->queue_cur) return;
+  if (!afl->queue_cur) { return; }
 
   /* Compute some mildly useful bitmap stats. */
 
@@ -389,9 +410,9 @@ void show_stats(afl_state_t *afl) {
 
   /* Lord, forgive me this. */
 
-  SAYF(SET_G1 bSTG bLT bH bSTOP cCYA
+  SAYF(SET_G1 bSTG bLT bH bSTOP                         cCYA
        " process timing " bSTG bH30 bH5 bH bHB bH bSTOP cCYA
-       " overall results " bSTG bH2 bH2 bRT "\n");
+       " overall results " bSTG bH2 bH2                 bRT "\n");
 
   if (afl->dumb_mode) {
 
@@ -402,23 +423,32 @@ void show_stats(afl_state_t *afl) {
     u64 min_wo_finds = (cur_ms - afl->last_path_time) / 1000 / 60;
 
     /* First queue cycle: don't stop now! */
-    if (afl->queue_cycle == 1 || min_wo_finds < 15)
+    if (afl->queue_cycle == 1 || min_wo_finds < 15) {
+
       strcpy(tmp, cMGN);
-    else
+
+    } else
 
         /* Subsequent cycles, but we're still making finds. */
-        if (afl->cycles_wo_finds < 25 || min_wo_finds < 30)
+        if (afl->cycles_wo_finds < 25 || min_wo_finds < 30) {
+
       strcpy(tmp, cYEL);
-    else
+
+    } else
 
         /* No finds for a long time and no test cases to try. */
         if (afl->cycles_wo_finds > 100 && !afl->pending_not_fuzzed &&
-            min_wo_finds > 120)
+            min_wo_finds > 120) {
+
       strcpy(tmp, cLGN);
 
-    /* Default: cautiously OK to stop? */
-    else
+      /* Default: cautiously OK to stop? */
+
+    } else {
+
       strcpy(tmp, cLBL);
+
+    }
 
   }
 
@@ -439,15 +469,17 @@ void show_stats(afl_state_t *afl) {
 
   } else {
 
-    if (afl->dumb_mode)
+    if (afl->dumb_mode) {
 
       SAYF(bV bSTOP "   last new path : " cPIN "n/a" cRST
                     " (non-instrumented mode)       ");
 
-    else
+    } else {
 
       SAYF(bV bSTOP "   last new path : " cRST "none yet " cLRD
                     "(odd, check syntax!)     ");
+
+    }
 
   }
 
@@ -473,9 +505,9 @@ void show_stats(afl_state_t *afl) {
                 "   uniq hangs : " cRST "%-6s" bSTG         bV "\n",
        time_tmp, tmp);
 
-  SAYF(bVR bH bSTOP            cCYA
+  SAYF(bVR bH bSTOP                                          cCYA
        " cycle progress " bSTG bH10 bH5 bH2 bH2 bHB bH bSTOP cCYA
-       " map coverage " bSTG bH bHT bH20 bH2 bVL "\n");
+       " map coverage " bSTG bH bHT bH20 bH2                 bVL "\n");
 
   /* This gets funny because we want to print several variable-length variables
      together, but then cram them into a fixed-width field - so we need to
@@ -505,9 +537,9 @@ void show_stats(afl_state_t *afl) {
 
   SAYF(bSTOP " count coverage : " cRST "%-21s" bSTG bV "\n", tmp);
 
-  SAYF(bVR bH bSTOP            cCYA
+  SAYF(bVR bH bSTOP                                         cCYA
        " stage progress " bSTG bH10 bH5 bH2 bH2 bX bH bSTOP cCYA
-       " findings in depth " bSTG bH10 bH5 bH2 bH2 bVL "\n");
+       " findings in depth " bSTG bH10 bH5 bH2 bH2          bVL "\n");
 
   sprintf(tmp, "%s (%0.02f%%)", u_stringify_int(IB(0), afl->queued_favored),
           ((double)afl->queued_favored) * 100 / afl->queued_paths);
@@ -581,7 +613,7 @@ void show_stats(afl_state_t *afl) {
 
   /* Aaaalmost there... hold on! */
 
-  SAYF(bVR bH cCYA                      bSTOP
+  SAYF(bVR bH cCYA                                                     bSTOP
        " fuzzing strategy yields " bSTG bH10 bHT bH10 bH5 bHB bH bSTOP cCYA
        " path geometry " bSTG bH5 bH2 bVL "\n");
 
@@ -605,7 +637,8 @@ void show_stats(afl_state_t *afl) {
                 "    levels : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->max_depth));
 
-  if (!afl->skip_deterministic)
+  if (!afl->skip_deterministic) {
+
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_FLIP8]),
             u_stringify_int(IB(1), afl->stage_cycles[STAGE_FLIP8]),
@@ -614,11 +647,14 @@ void show_stats(afl_state_t *afl) {
             u_stringify_int(IB(4), afl->stage_finds[STAGE_FLIP32]),
             u_stringify_int(IB(5), afl->stage_cycles[STAGE_FLIP32]));
 
+  }
+
   SAYF(bV bSTOP "  byte flips : " cRST "%-36s " bSTG bV bSTOP
                 "   pending : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->pending_not_fuzzed));
 
-  if (!afl->skip_deterministic)
+  if (!afl->skip_deterministic) {
+
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_ARITH8]),
             u_stringify_int(IB(1), afl->stage_cycles[STAGE_ARITH8]),
@@ -627,11 +663,14 @@ void show_stats(afl_state_t *afl) {
             u_stringify_int(IB(4), afl->stage_finds[STAGE_ARITH32]),
             u_stringify_int(IB(5), afl->stage_cycles[STAGE_ARITH32]));
 
+  }
+
   SAYF(bV bSTOP " arithmetics : " cRST "%-36s " bSTG bV bSTOP
                 "  pend fav : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->pending_favored));
 
-  if (!afl->skip_deterministic)
+  if (!afl->skip_deterministic) {
+
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_INTEREST8]),
             u_stringify_int(IB(1), afl->stage_cycles[STAGE_INTEREST8]),
@@ -640,11 +679,14 @@ void show_stats(afl_state_t *afl) {
             u_stringify_int(IB(4), afl->stage_finds[STAGE_INTEREST32]),
             u_stringify_int(IB(5), afl->stage_cycles[STAGE_INTEREST32]));
 
+  }
+
   SAYF(bV bSTOP "  known ints : " cRST "%-36s " bSTG bV bSTOP
                 " own finds : " cRST "%-10s" bSTG       bV "\n",
        tmp, u_stringify_int(IB(0), afl->queued_discovered));
 
-  if (!afl->skip_deterministic)
+  if (!afl->skip_deterministic) {
+
     sprintf(tmp, "%s/%s, %s/%s, %s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_EXTRAS_UO]),
             u_stringify_int(IB(1), afl->stage_cycles[STAGE_EXTRAS_UO]),
@@ -652,6 +694,8 @@ void show_stats(afl_state_t *afl) {
             u_stringify_int(IB(3), afl->stage_cycles[STAGE_EXTRAS_UI]),
             u_stringify_int(IB(4), afl->stage_finds[STAGE_EXTRAS_AO]),
             u_stringify_int(IB(5), afl->stage_cycles[STAGE_EXTRAS_AO]));
+
+  }
 
   SAYF(bV bSTOP "  dictionary : " cRST "%-36s " bSTG bV bSTOP
                 "  imported : " cRST "%-10s" bSTG       bV "\n",
@@ -669,10 +713,15 @@ void show_stats(afl_state_t *afl) {
 
   SAYF(bV bSTOP "   havoc/rad : " cRST "%-36s " bSTG bV bSTOP, tmp);
 
-  if (t_bytes)
+  if (t_bytes) {
+
     sprintf(tmp, "%0.02f%%", stab_ratio);
-  else
+
+  } else {
+
     strcpy(tmp, "n/a");
+
+  }
 
   SAYF(" stability : %s%-10s" bSTG bV "\n",
        (stab_ratio < 85 && afl->var_byte_count > 40)
@@ -769,14 +818,17 @@ void show_stats(afl_state_t *afl) {
 
     /* If we could still run one or more processes, use green. */
 
-    if (afl->cpu_core_count > 1 && cur_runnable + 1 <= afl->cpu_core_count)
+    if (afl->cpu_core_count > 1 && cur_runnable + 1 <= afl->cpu_core_count) {
+
       cpu_color = cLGN;
+
+    }
 
     /* If we're clearly oversubscribed, use red. */
 
-    if (!afl->no_cpu_meter_red && cur_utilization >= 150) cpu_color = cLRD;
+    if (!afl->no_cpu_meter_red && cur_utilization >= 150) { cpu_color = cLRD; }
 
-    if (afl->fsrv.snapshot) spacing = snap;
+    if (afl->fsrv.snapshot) { spacing = snap; }
 
 #ifdef HAVE_AFFINITY
 
@@ -799,9 +851,11 @@ void show_stats(afl_state_t *afl) {
 
 #endif                                                    /* ^HAVE_AFFINITY */
 
-  } else
+  } else {
 
     SAYF("\r");
+
+  }
 
   /* Last line */
   SAYF(SET_G1 "\n" bSTG bLB bH30 bH20 bH2 bRB bSTOP cRST RESET_G1);
@@ -829,17 +883,21 @@ void show_init_stats(afl_state_t *afl) {
   u8 val_bufs[4][STRINGIFY_VAL_SIZE_MAX];
 #define IB(i) val_bufs[(i)], sizeof(val_bufs[(i)])
 
-  if (afl->total_cal_cycles) avg_us = afl->total_cal_us / afl->total_cal_cycles;
+  if (afl->total_cal_cycles) {
+
+    avg_us = afl->total_cal_us / afl->total_cal_cycles;
+
+  }
 
   while (q) {
 
-    if (!min_us || q->exec_us < min_us) min_us = q->exec_us;
-    if (q->exec_us > max_us) max_us = q->exec_us;
+    if (!min_us || q->exec_us < min_us) { min_us = q->exec_us; }
+    if (q->exec_us > max_us) { max_us = q->exec_us; }
 
-    if (!min_bits || q->bitmap_size < min_bits) min_bits = q->bitmap_size;
-    if (q->bitmap_size > max_bits) max_bits = q->bitmap_size;
+    if (!min_bits || q->bitmap_size < min_bits) { min_bits = q->bitmap_size; }
+    if (q->bitmap_size > max_bits) { max_bits = q->bitmap_size; }
 
-    if (q->len > max_len) max_len = q->len;
+    if (q->len > max_len) { max_len = q->len; }
 
     q = q->next;
 
@@ -847,37 +905,60 @@ void show_init_stats(afl_state_t *afl) {
 
   SAYF("\n");
 
-  if (avg_us > ((afl->fsrv.qemu_mode || afl->unicorn_mode) ? 50000 : 10000))
+  if (avg_us > ((afl->fsrv.qemu_mode || afl->unicorn_mode) ? 50000 : 10000)) {
+
     WARNF(cLRD "The target binary is pretty slow! See %s/perf_tips.md.",
           doc_path);
 
+  }
+
   /* Let's keep things moving with slow binaries. */
 
-  if (avg_us > 50000)
+  if (avg_us > 50000) {
+
     afl->havoc_div = 10;                                /* 0-19 execs/sec   */
-  else if (avg_us > 20000)
+
+  } else if (avg_us > 20000) {
+
     afl->havoc_div = 5;                                 /* 20-49 execs/sec  */
-  else if (avg_us > 10000)
+
+  } else if (avg_us > 10000) {
+
     afl->havoc_div = 2;                                 /* 50-100 execs/sec */
+
+  }
 
   if (!afl->resuming_fuzz) {
 
-    if (max_len > 50 * 1024)
+    if (max_len > 50 * 1024) {
+
       WARNF(cLRD "Some test cases are huge (%s) - see %s/perf_tips.md!",
             stringify_mem_size(IB(0), max_len), doc_path);
-    else if (max_len > 10 * 1024)
+
+    } else if (max_len > 10 * 1024) {
+
       WARNF("Some test cases are big (%s) - see %s/perf_tips.md.",
             stringify_mem_size(IB(0), max_len), doc_path);
 
-    if (afl->useless_at_start && !afl->in_bitmap)
+    }
+
+    if (afl->useless_at_start && !afl->in_bitmap) {
+
       WARNF(cLRD "Some test cases look useless. Consider using a smaller set.");
 
-    if (afl->queued_paths > 100)
+    }
+
+    if (afl->queued_paths > 100) {
+
       WARNF(cLRD
             "You probably have far too many input files! Consider trimming "
             "down.");
-    else if (afl->queued_paths > 20)
+
+    } else if (afl->queued_paths > 20) {
+
       WARNF("You have lots of input files; try starting small.");
+
+    }
 
   }
 
@@ -903,19 +984,29 @@ void show_init_stats(afl_state_t *afl) {
        random scheduler jitter is less likely to have any impact, and because
        our patience is wearing thin =) */
 
-    if (avg_us > 50000)
+    if (avg_us > 50000) {
+
       afl->fsrv.exec_tmout = avg_us * 2 / 1000;
-    else if (avg_us > 10000)
+
+    } else if (avg_us > 10000) {
+
       afl->fsrv.exec_tmout = avg_us * 3 / 1000;
-    else
+
+    } else {
+
       afl->fsrv.exec_tmout = avg_us * 5 / 1000;
+
+    }
 
     afl->fsrv.exec_tmout = MAX(afl->fsrv.exec_tmout, max_us / 1000);
     afl->fsrv.exec_tmout =
         (afl->fsrv.exec_tmout + EXEC_TM_ROUND) / EXEC_TM_ROUND * EXEC_TM_ROUND;
 
-    if (afl->fsrv.exec_tmout > EXEC_TIMEOUT)
+    if (afl->fsrv.exec_tmout > EXEC_TIMEOUT) {
+
       afl->fsrv.exec_tmout = EXEC_TIMEOUT;
+
+    }
 
     ACTF("No -t option specified, so I'll use exec timeout of %u ms.",
          afl->fsrv.exec_tmout);
@@ -932,8 +1023,11 @@ void show_init_stats(afl_state_t *afl) {
   /* In dumb mode, re-running every timing out test case with a generous time
      limit is very expensive, so let's select a more conservative default. */
 
-  if (afl->dumb_mode && !(afl->afl_env.afl_hang_tmout))
+  if (afl->dumb_mode && !(afl->afl_env.afl_hang_tmout)) {
+
     afl->hang_tmout = MIN(EXEC_TIMEOUT, afl->fsrv.exec_tmout * 2 + 100);
+
+  }
 
   OKF("All set and ready to roll!");
 #undef IB

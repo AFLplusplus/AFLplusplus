@@ -35,13 +35,13 @@ void write_bitmap(afl_state_t *afl) {
   u8  fname[PATH_MAX];
   s32 fd;
 
-  if (!afl->bitmap_changed) return;
+  if (!afl->bitmap_changed) { return; }
   afl->bitmap_changed = 0;
 
   snprintf(fname, PATH_MAX, "%s/fuzz_bitmap", afl->out_dir);
   fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
-  if (fd < 0) PFATAL("Unable to open '%s'", fname);
+  if (fd < 0) { PFATAL("Unable to open '%s'", fname); }
 
   ck_write(fd, afl->virgin_bits, afl->fsrv.map_size, fname);
 
@@ -102,10 +102,15 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
             (cur[1] && vir[1] == 0xff) || (cur[2] && vir[2] == 0xff) ||
             (cur[3] && vir[3] == 0xff) || (cur[4] && vir[4] == 0xff) ||
             (cur[5] && vir[5] == 0xff) || (cur[6] && vir[6] == 0xff) ||
-            (cur[7] && vir[7] == 0xff))
+            (cur[7] && vir[7] == 0xff)) {
+
           ret = 2;
-        else
+
+        } else {
+
           ret = 1;
+
+        }
 
 #else
 
@@ -129,8 +134,11 @@ u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
   }
 
-  if (unlikely(ret) && likely(virgin_map == afl->virgin_bits))
+  if (unlikely(ret) && likely(virgin_map == afl->virgin_bits)) {
+
     afl->bitmap_changed = 1;
+
+  }
 
   return ret;
 
@@ -183,11 +191,11 @@ u32 count_bytes(afl_state_t *afl, u8 *mem) {
 
     u32 v = *(ptr++);
 
-    if (!v) continue;
-    if (v & 0x000000ff) ++ret;
-    if (v & 0x0000ff00) ++ret;
-    if (v & 0x00ff0000) ++ret;
-    if (v & 0xff000000) ++ret;
+    if (!v) { continue; }
+    if (v & 0x000000ff) { ++ret; }
+    if (v & 0x0000ff00) { ++ret; }
+    if (v & 0x00ff0000) { ++ret; }
+    if (v & 0xff000000) { ++ret; }
 
   }
 
@@ -211,11 +219,11 @@ u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
     /* This is called on the virgin bitmap, so optimize for the most likely
        case. */
 
-    if (v == 0xffffffff) continue;
-    if ((v & 0x000000ff) != 0x000000ff) ++ret;
-    if ((v & 0x0000ff00) != 0x0000ff00) ++ret;
-    if ((v & 0x00ff0000) != 0x00ff0000) ++ret;
-    if ((v & 0xff000000) != 0xff000000) ++ret;
+    if (v == 0xffffffff) { continue; }
+    if ((v & 0x000000ff) != 0x000000ff) { ++ret; }
+    if ((v & 0x0000ff00) != 0x0000ff00) { ++ret; }
+    if ((v & 0x00ff0000) != 0x00ff0000) { ++ret; }
+    if ((v & 0xff000000) != 0xff000000) { ++ret; }
 
   }
 
@@ -257,9 +265,11 @@ void simplify_trace(afl_state_t *afl, u64 *mem) {
       mem8[6] = simplify_lookup[mem8[6]];
       mem8[7] = simplify_lookup[mem8[7]];
 
-    } else
+    } else {
 
       *mem = 0x0101010101010101ULL;
+
+    }
 
     ++mem;
 
@@ -322,10 +332,16 @@ void init_count_class16(void) {
 
   u32 b1, b2;
 
-  for (b1 = 0; b1 < 256; b1++)
-    for (b2 = 0; b2 < 256; b2++)
+  for (b1 = 0; b1 < 256; b1++) {
+
+    for (b2 = 0; b2 < 256; b2++) {
+
       count_class_lookup16[(b1 << 8) + b2] =
           (count_class_lookup8[b1] << 8) | count_class_lookup8[b2];
+
+    }
+
+  }
 
 }
 
@@ -397,7 +413,7 @@ void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
 
   while (i < afl->fsrv.map_size) {
 
-    if (*(src++)) dst[i >> 3] |= 1 << (i & 7);
+    if (*(src++)) { dst[i >> 3] |= 1 << (i & 7); }
     ++i;
 
   }
@@ -423,8 +439,11 @@ u8 *describe_op(afl_state_t *afl, u8 hnb) {
 
     sprintf(ret + strlen(ret), ",time:%llu", get_cur_time() - afl->start_time);
 
-    if (afl->splicing_with >= 0)
+    if (afl->splicing_with >= 0) {
+
       sprintf(ret + strlen(ret), "+%06d", afl->splicing_with);
+
+    }
 
     sprintf(ret + strlen(ret), ",op:%s", afl->stage_short);
 
@@ -432,18 +451,23 @@ u8 *describe_op(afl_state_t *afl, u8 hnb) {
 
       sprintf(ret + strlen(ret), ",pos:%d", afl->stage_cur_byte);
 
-      if (afl->stage_val_type != STAGE_VAL_NONE)
+      if (afl->stage_val_type != STAGE_VAL_NONE) {
+
         sprintf(ret + strlen(ret), ",val:%s%+d",
                 (afl->stage_val_type == STAGE_VAL_BE) ? "be:" : "",
                 afl->stage_cur_val);
 
-    } else
+      }
+
+    } else {
 
       sprintf(ret + strlen(ret), ",rep:%d", afl->stage_cur_val);
 
+    }
+
   }
 
-  if (hnb == 2) strcat(ret, ",+cov");
+  if (hnb == 2) { strcat(ret, ",+cov"); }
 
   return ret;
 
@@ -467,7 +491,7 @@ static void write_crash_readme(afl_state_t *afl) {
 
   /* Do not die on errors here - that would be impolite. */
 
-  if (unlikely(fd < 0)) return;
+  if (unlikely(fd < 0)) { return; }
 
   f = fdopen(fd, "w");
 
@@ -512,7 +536,7 @@ static void write_crash_readme(afl_state_t *afl) {
 
 u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
-  if (unlikely(len == 0)) return 0;
+  if (unlikely(len == 0)) { return 0; }
 
   u8 *queue_fn = "";
   u8  hnb = '\0';
@@ -545,7 +569,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     if (!(hnb = has_new_bits(afl, afl->virgin_bits))) {
 
-      if (unlikely(afl->crash_mode)) ++afl->total_crashes;
+      if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
       return 0;
 
     }
@@ -578,11 +602,14 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     res = calibrate_case(afl, afl->queue_top, mem, afl->queue_cycle - 1, 0);
 
-    if (unlikely(res == FSRV_RUN_ERROR))
+    if (unlikely(res == FSRV_RUN_ERROR)) {
+
       FATAL("Unable to execute target application");
 
+    }
+
     fd = open(queue_fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
-    if (unlikely(fd < 0)) PFATAL("Unable to create '%s'", queue_fn);
+    if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", queue_fn); }
     ck_write(fd, mem, len, queue_fn);
     close(fd);
 
@@ -601,7 +628,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       ++afl->total_tmouts;
 
-      if (afl->unique_hangs >= KEEP_UNIQUE_HANG) return keeping;
+      if (afl->unique_hangs >= KEEP_UNIQUE_HANG) { return keeping; }
 
       if (likely(!afl->dumb_mode)) {
 
@@ -611,7 +638,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         simplify_trace(afl, (u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
-        if (!has_new_bits(afl, afl->virgin_tmout)) return keeping;
+        if (!has_new_bits(afl, afl->virgin_tmout)) { return keeping; }
 
       }
 
@@ -631,9 +658,13 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
            timeout actually uncovers a crash. Make sure we don't discard it if
            so. */
 
-        if (!afl->stop_soon && new_fault == FSRV_RUN_CRASH) goto keep_as_crash;
+        if (!afl->stop_soon && new_fault == FSRV_RUN_CRASH) {
 
-        if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) return keeping;
+          goto keep_as_crash;
+
+        }
+
+        if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) { return keeping; }
 
       }
 
@@ -665,7 +696,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       ++afl->total_crashes;
 
-      if (afl->unique_crashes >= KEEP_UNIQUE_CRASH) return keeping;
+      if (afl->unique_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
 
       if (likely(!afl->dumb_mode)) {
 
@@ -675,11 +706,11 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         simplify_trace(afl, (u32 *)afl->fsrv.trace_bits);
 #endif                                                     /* ^WORD_SIZE_64 */
 
-        if (!has_new_bits(afl, afl->virgin_crash)) return keeping;
+        if (!has_new_bits(afl, afl->virgin_crash)) { return keeping; }
 
       }
 
-      if (unlikely(!afl->unique_crashes)) write_crash_readme(afl);
+      if (unlikely(!afl->unique_crashes)) { write_crash_readme(afl); }
 
 #ifndef SIMPLE_FILES
 
@@ -715,9 +746,11 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       break;
 
-    case FSRV_RUN_ERROR: FATAL("Unable to execute target application");
+    case FSRV_RUN_ERROR:
+      FATAL("Unable to execute target application");
 
-    default: return keeping;
+    default:
+      return keeping;
 
   }
 
@@ -725,7 +758,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
      test case, too. */
 
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
-  if (unlikely(fd < 0)) PFATAL("Unable to create '%s'", fn);
+  if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", fn); }
   ck_write(fd, mem, len, fn);
   close(fd);
 

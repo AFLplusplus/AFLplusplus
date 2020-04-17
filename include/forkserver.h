@@ -30,6 +30,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include "types.h"
 
 typedef struct afl_forkserver {
 
