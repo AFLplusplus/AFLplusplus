@@ -19,14 +19,18 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - snapshot feature usage now visible in UI
     - Now setting "-L -1" will enable MOpt in parallel to normal mutation.
       Additionally this allows to run dictionaries, radamsa and cmplog.
+    - fix for cmplog/redqueen mode if stdin was used
+    - fix for writing a better plot_data file
+  - qemu_mode: fix for persistent mode
   - compare-transform/AFL_LLVM_LAF_TRANSFORM_COMPARES now transforms also
     static global and local variable comparisons (cannot find all though)
   - extended forkserver: map_size and more information is communicated to
     afl-fuzz (and afl-fuzz acts accordingly)
-  - more refactoring
+  - new environment variable: AFL_MAP_SIZE to specify the size of the shared map
   - if AFL_CC/AFL_CXX is set but empty afl compilers did fail, fixed
     (this bug is in vanilla afl too)
   - added NO_PYTHON flag to disable python support when building afl-fuzz
+  - more refactoring
 
 
 ### Version ++2.63c (release):

@@ -99,7 +99,11 @@ void afl_state_init(afl_state_t *afl) {
 
   afl->fsrv.use_stdin = 1;
 
-  afl->fsrv.map_size = MAP_SIZE;
+  if (afl->afl_env.map_size > 8 && afl->afl_env.map_size <= (1 << 29))
+    afl->fsrv.map_size = afl->afl_env.map_size;
+  else
+    afl->fsrv.map_size = MAP_SIZE;
+
   afl->fsrv.function_opt = (u8 *)afl;
   afl->fsrv.function_ptr = &maybe_add_auto;
 
@@ -323,6 +327,24 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             afl->afl_env.afl_path =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_MAP_SIZE",
+
+                              afl_environment_variable_len) ||
+                     !strncmp(env, "AFL_MAPSIZE",
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.map_size =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+            if (afl->afl_env.map_size < 8 || afl->afl_env.map_size > (1 << 29))
+              FATAL(
+                  "the specified AFL_MAP_SIZE size is illegal and must be "
+                  "between 2^3 and 2^30: %u\n",
+                  afl->afl_env.map_size);
+
+            if (afl->afl_env.map_size % 8)
+              afl->afl_env.map_size = (((afl->afl_env.map_size >> 3) + 1) << 3);
 
           } else if (!strncmp(env, "AFL_PRELOAD",
 
