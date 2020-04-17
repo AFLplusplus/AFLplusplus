@@ -249,6 +249,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
   read_afl_environment(afl, envp);
+  if (afl->afl_env.map_size) afl->fsrv.map_size = afl->afl_env.map_size;
   exit_1 = !!afl->afl_env.afl_bench_just_one;
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
@@ -476,7 +477,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->in_bitmap) FATAL("Multiple -B options not supported");
 
         afl->in_bitmap = optarg;
-        read_bitmap(afl->in_bitmap, afl->virgin_bits, MAP_SIZE);
+        read_bitmap(afl->in_bitmap, afl->virgin_bits, afl->fsrv.map_size);
         break;
 
       case 'C':                                               /* crash mode */
@@ -910,13 +911,14 @@ int main(int argc, char **argv_orig, char **envp) {
   check_crash_handling();
   check_cpu_governor(afl);
 
-  afl->fsrv.trace_bits = afl_shm_init(&afl->shm, MAP_SIZE, afl->dumb_mode);
+  afl->fsrv.trace_bits =
+      afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->dumb_mode);
 
   setup_post(afl);
 
-  if (!afl->in_bitmap) memset(afl->virgin_bits, 255, MAP_SIZE);
-  memset(afl->virgin_tmout, 255, MAP_SIZE);
-  memset(afl->virgin_crash, 255, MAP_SIZE);
+  if (!afl->in_bitmap) memset(afl->virgin_bits, 255, afl->fsrv.map_size);
+  memset(afl->virgin_tmout, 255, afl->fsrv.map_size);
+  memset(afl->virgin_crash, 255, afl->fsrv.map_size);
 
   init_count_class16();
 

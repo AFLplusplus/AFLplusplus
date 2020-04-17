@@ -72,6 +72,8 @@ static u32 total, highest;             /* tuple content information         */
 static u32 in_len,                     /* Input data length                 */
     arg_offset;                        /* Total number of execs             */
 
+static u32 map_size = MAP_SIZE;
+
 static u8 quiet_mode,                  /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
     raw_instr_output,                  /* Do not apply AFL filters          */
@@ -112,7 +114,7 @@ static void classify_counts(afl_forkserver_t *fsrv) {
   u8 *      mem = fsrv->trace_bits;
   const u8 *map = binary_mode ? count_class_binary : count_class_human;
 
-  u32 i = MAP_SIZE;
+  u32 i = map_size;
 
   if (edges_only) {
 
@@ -175,10 +177,10 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
   if (binary_mode) {
 
-    for (i = 0; i < MAP_SIZE; i++)
+    for (i = 0; i < map_size; i++)
       if (fsrv->trace_bits[i]) ret++;
 
-    ck_write(fd, fsrv->trace_bits, MAP_SIZE, outfile);
+    ck_write(fd, fsrv->trace_bits, map_size, outfile);
     close(fd);
 
   } else {
@@ -187,7 +189,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
     if (!f) PFATAL("fdopen() failed");
 
-    for (i = 0; i < MAP_SIZE; i++) {
+    for (i = 0; i < map_size; i++) {
 
       if (!fsrv->trace_bits[i]) continue;
       ret++;
@@ -535,13 +537,23 @@ int main(int argc, char **argv_orig, char **envp) {
   s32    opt, i;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   u32    tcnt = 0;
-  char **use_argv;
+  char **use_argv, *ptr;
 
   char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_forkserver_t  fsrv_var = {0};
   afl_forkserver_t *fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
+
+  if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
+
+    map_size = atoi(ptr);
+    if (map_size < 8 || map_size > (1 << 29))
+      FATAL("illegal AFL_MAP_SIZE %u, must be between 2^3 and 2^30", map_size);
+    if (map_size % 8) map_size = (((map_size >> 3) + 1) << 3);
+    fsrv->map_size = map_size;
+
+  }
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -715,7 +727,7 @@ int main(int argc, char **argv_orig, char **envp) {
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  fsrv->trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
+  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   setup_signal_handlers();
 
   set_up_environment(fsrv);

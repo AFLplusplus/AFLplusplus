@@ -249,7 +249,6 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
       if (!q->trace_mini) {
 
         u32 len = (afl->fsrv.map_size >> 3);
-        if (len == 0) len = 1;
         q->trace_mini = ck_alloc(len);
         minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
 
@@ -272,11 +271,11 @@ void cull_queue(afl_state_t *afl) {
   struct queue_entry *q;
   u32                 len = (afl->fsrv.map_size >> 3);
   u32                 i;
-  u8                  temp_v[MAP_SIZE >> 3];
-
-  if (len == 0) len = 1;
+  u8 *                temp_v;
 
   if (afl->dumb_mode || !afl->score_changed) return;
+
+  temp_v = ck_alloc(afl->fsrv.map_size >> 3);
 
   afl->score_changed = 0;
 
@@ -324,6 +323,8 @@ void cull_queue(afl_state_t *afl) {
     q = q->next;
 
   }
+
+  ck_free(temp_v);
 
 }
 

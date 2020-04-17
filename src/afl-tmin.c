@@ -70,7 +70,8 @@ static u32 in_len,                     /* Input data length                 */
     orig_cksum,                        /* Original checksum                 */
     missed_hangs,                      /* Misses due to hangs               */
     missed_crashes,                    /* Misses due to crashes             */
-    missed_paths;                      /* Misses due to exec path diffs     */
+    missed_paths,                      /* Misses due to exec path diffs     */
+    map_size = MAP_SIZE;
 
 static u8 crash_mode,                  /* Crash-centric mode?               */
     hang_mode,                         /* Minimize as long as it hangs      */
@@ -105,7 +106,7 @@ static const u8 count_class_lookup[256] = {
 
 static void apply_mask(u32 *mem, u32 *mask) {
 
-  u32 i = (MAP_SIZE >> 2);
+  u32 i = (map_size >> 2);
 
   if (!mask) return;
 
@@ -122,7 +123,7 @@ static void apply_mask(u32 *mem, u32 *mask) {
 static void classify_counts(afl_forkserver_t *fsrv) {
 
   u8 *mem = fsrv->trace_bits;
-  u32 i = MAP_SIZE;
+  u32 i = map_size;
 
   if (edges_only) {
 
@@ -151,7 +152,7 @@ static void classify_counts(afl_forkserver_t *fsrv) {
 static inline u8 anything_set(afl_forkserver_t *fsrv) {
 
   u32 *ptr = (u32 *)fsrv->trace_bits;
-  u32  i = (MAP_SIZE >> 2);
+  u32  i = (map_size >> 2);
 
   while (i--)
     if (*(ptr++)) return 1;
@@ -755,13 +756,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
-  char **use_argv;
+  char **use_argv, *ptr;
 
   char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_forkserver_t  fsrv_var = {0};
   afl_forkserver_t *fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
+
+  if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
+
+    map_size = atoi(ptr);
+    if (map_size < 8 || map_size > (1 << 29))
+      FATAL("illegal AFL_MAP_SIZE %u, must be between 2^3 and 2^30", map_size);
+    if (map_size % 8) map_size = (((map_size >> 3) + 1) << 3);
+    fsrv->map_size = map_size;
+
+  }
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -910,8 +921,8 @@ int main(int argc, char **argv_orig, char **envp) {
            to be useful. */
 
         if (mask_bitmap) FATAL("Multiple -B options not supported");
-        mask_bitmap = ck_alloc(MAP_SIZE);
-        read_bitmap(optarg, mask_bitmap, MAP_SIZE);
+        mask_bitmap = ck_alloc(map_size);
+        read_bitmap(optarg, mask_bitmap, map_size);
         break;
 
       case 'h':
@@ -928,7 +939,7 @@ int main(int argc, char **argv_orig, char **envp) {
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  fsrv->trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
+  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
   atexit(at_exit_handler);
   setup_signal_handlers();

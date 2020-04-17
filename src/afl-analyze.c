@@ -84,6 +84,7 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 
 static u8 *target_path;
 static u8  qemu_mode;
+static u32 map_size = MAP_SIZE;
 
 /* Constants used for describing byte behavior. */
 
@@ -115,7 +116,7 @@ static u8 count_class_lookup[256] = {
 
 static void classify_counts(u8 *mem) {
 
-  u32 i = MAP_SIZE;
+  u32 i = map_size;
 
   if (edges_only) {
 
@@ -144,7 +145,7 @@ static void classify_counts(u8 *mem) {
 static inline u8 anything_set(void) {
 
   u32 *ptr = (u32 *)trace_bits;
-  u32  i = (MAP_SIZE >> 2);
+  u32  i = (map_size >> 2);
 
   while (i--)
     if (*(ptr++)) return 1;
@@ -217,7 +218,7 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
   s32 prog_in_fd;
   u32 cksum;
 
-  memset(trace_bits, 0, MAP_SIZE);
+  memset(trace_bits, 0, map_size);
   MEM_BARRIER();
 
   prog_in_fd = write_to_file(prog_in, mem, len);
@@ -311,7 +312,7 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   }
 
-  cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
+  cksum = hash32(trace_bits, map_size, HASH_CONST);
 
   /* We don't actually care if the target is crashing or not,
      except that when it does, the checksum should be different. */
@@ -811,7 +812,7 @@ int main(int argc, char **argv, char **envp) {
 
   s32    opt;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
-  char **use_argv;
+  char **use_argv, *ptr;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
@@ -931,12 +932,21 @@ int main(int argc, char **argv, char **envp) {
 
   if (optind == argc || !in_file) usage(argv[0]);
 
+  if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
+
+    map_size = atoi(ptr);
+    if (map_size < 8 || map_size > (1 << 29))
+      FATAL("illegal AFL_MAP_SIZE %u, must be between 2^3 and 2^30", map_size);
+    if (map_size % 8) map_size = (((map_size >> 3) + 1) << 3);
+
+  }
+
   use_hex_offsets = !!get_afl_env("AFL_ANALYZE_HEX");
 
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
+  trace_bits = afl_shm_init(&shm, map_size, 0);
   atexit(at_exit_handler);
   setup_signal_handlers();
 
