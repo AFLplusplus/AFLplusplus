@@ -215,7 +215,7 @@ static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
    1 if they should be kept. */
 
 static u8 tmin_run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
-                     u8 first_run) {
+                          u8 first_run) {
 
   afl_fsrv_write_to_testcase(fsrv, mem, len);
 
