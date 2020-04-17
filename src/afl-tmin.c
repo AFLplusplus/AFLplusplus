@@ -741,7 +741,9 @@ static void usage(u8 *argv0) {
       "              (must contain abort_on_error=1 and symbolize=0)\n"
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
-      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
+      "              the target was compiled for\n"
+      "AFL_PRELOAD:  LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TMIN_EXACT: require execution paths to match for crashing inputs\n"
 
       , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);

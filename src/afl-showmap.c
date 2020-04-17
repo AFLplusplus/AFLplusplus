@@ -515,13 +515,16 @@ static void usage(u8 *argv0) {
       "For additional help, consult %s/README.md.\n\n"
 
       "Environment variables used:\n"
-      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_DEBUG: enable extra developer output\n"
-      "AFL_QUIET: do not print extra informational output"
+      "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n",
       "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
       "inputs\n"
       "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing inputs also\n"
-      "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n",
+      "AFL_DEBUG: enable extra developer output\n"
+      "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
+      "size\n"
+      "              the target was compiled for\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_QUIET: do not print extra informational output"
       argv0, MEM_LIMIT, doc_path);
 
   exit(1);
