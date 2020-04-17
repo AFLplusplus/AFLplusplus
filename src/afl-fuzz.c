@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include "cmplog.h"
+#include <limits.h>
 
 static u8 *get_libradamsa_path(u8 *own_loc) {
 
