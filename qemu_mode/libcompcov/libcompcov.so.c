@@ -166,7 +166,7 @@ static void __compcov_trace(u64 cur_loc, const u8 *v0, const u8 *v1, size_t n) {
   if (debug_fd != 1) {
 
     char debugbuf[4096];
-    snprintf(debugbuf, sizeof(debugbuf), "0x%llx %s %s %lu\n", cur_loc,
+    snprintf(debugbuf, sizeof(debugbuf), "0x%llx %s %s %zu\n", cur_loc,
              v0 == NULL ? "(null)" : (char *)v0,
              v1 == NULL ? "(null)" : (char *)v1, n);
     write(debug_fd, debugbuf, strlen(debugbuf));
