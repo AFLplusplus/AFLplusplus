@@ -59,7 +59,7 @@ ifneq "$(shell uname)" "Darwin"
 endif
 
 ifneq "$(shell uname -m)" "x86_64"
- ifneq "$(shell uname -m)" "i386"
+ ifneq "$(patsubst i%86,i386,$(shell uname -m))" "i386"
   ifneq "$(shell uname -m)" "amd64"
    ifneq "$(shell uname -m)" "i86pc"
 	AFL_NO_X86=1
