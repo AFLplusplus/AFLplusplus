@@ -154,8 +154,6 @@ if [ $? -eq 0 ]; then
   git submodule update 2>/dev/null # ignore errors
 else
   echo "[*] cloning unicornafl"
-  rm -rf unicornafl # workaround for travis ... sadly ...
-  #test -d unicorn && { cd unicorn && { git stash ; git pull ; cd .. ; } }
   test -d unicornafl || {
     CNT=1
     while [ '!' -d unicornafl -a "$CNT" -lt 4 ]; do
