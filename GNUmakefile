@@ -416,7 +416,7 @@ clean:
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 	$(MAKE) -C src/third_party/libradamsa/ clean
-	$(MAKE) -C unicorn_mode/unicornafl clean
+	$(MAKE) -C unicorn_mode/unicornafl clean || true
 
 distrib: all radamsa
 	-$(MAKE) -C llvm_mode
