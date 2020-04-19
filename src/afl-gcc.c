@@ -128,10 +128,15 @@ static void edit_params(u32 argc, char **argv) {
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
 
   name = strrchr(argv[0], '/');
-  if (!name)
+  if (!name) {
+
     name = argv[0];
-  else
+
+  } else {
+
     ++name;
+
+  }
 
   if (!strncmp(name, "afl-clang", 9)) {
 
@@ -211,7 +216,7 @@ static void edit_params(u32 argc, char **argv) {
 
     if (!strncmp(cur, "-B", 2)) {
 
-      if (!be_quiet) WARNF("-B is already set, overriding");
+      if (!be_quiet) { WARNF("-B is already set, overriding"); }
 
       if (!cur[2] && argc > 1) {
 
@@ -224,18 +229,22 @@ static void edit_params(u32 argc, char **argv) {
 
     }
 
-    if (!strcmp(cur, "-integrated-as")) continue;
+    if (!strcmp(cur, "-integrated-as")) { continue; }
 
-    if (!strcmp(cur, "-pipe")) continue;
+    if (!strcmp(cur, "-pipe")) { continue; }
 
 #if defined(__FreeBSD__) && defined(WORD_SIZE_64)
     if (!strcmp(cur, "-m32")) m32_set = 1;
 #endif
 
-    if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
+    if (!strcmp(cur, "-fsanitize=address") ||
+        !strcmp(cur, "-fsanitize=memory")) {
+
       asan_set = 1;
 
-    if (strstr(cur, "FORTIFY_SOURCE")) fortify_set = 1;
+    }
+
+    if (strstr(cur, "FORTIFY_SOURCE")) { fortify_set = 1; }
 
     cc_params[cc_par_cnt++] = cur;
 
@@ -244,13 +253,13 @@ static void edit_params(u32 argc, char **argv) {
   cc_params[cc_par_cnt++] = "-B";
   cc_params[cc_par_cnt++] = as_path;
 
-  if (clang_mode) cc_params[cc_par_cnt++] = "-no-integrated-as";
+  if (clang_mode) { cc_params[cc_par_cnt++] = "-no-integrated-as"; }
 
   if (getenv("AFL_HARDEN")) {
 
     cc_params[cc_par_cnt++] = "-fstack-protector-all";
 
-    if (!fortify_set) cc_params[cc_par_cnt++] = "-D_FORTIFY_SOURCE=2";
+    if (!fortify_set) { cc_params[cc_par_cnt++] = "-D_FORTIFY_SOURCE=2"; }
 
   }
 
@@ -262,20 +271,34 @@ static void edit_params(u32 argc, char **argv) {
 
   } else if (getenv("AFL_USE_ASAN")) {
 
-    if (getenv("AFL_USE_MSAN")) FATAL("ASAN and MSAN are mutually exclusive");
+    if (getenv("AFL_USE_MSAN")) {
 
-    if (getenv("AFL_HARDEN"))
+      FATAL("ASAN and MSAN are mutually exclusive");
+
+    }
+
+    if (getenv("AFL_HARDEN")) {
+
       FATAL("ASAN and AFL_HARDEN are mutually exclusive");
+
+    }
 
     cc_params[cc_par_cnt++] = "-U_FORTIFY_SOURCE";
     cc_params[cc_par_cnt++] = "-fsanitize=address";
 
   } else if (getenv("AFL_USE_MSAN")) {
 
-    if (getenv("AFL_USE_ASAN")) FATAL("ASAN and MSAN are mutually exclusive");
+    if (getenv("AFL_USE_ASAN")) {
 
-    if (getenv("AFL_HARDEN"))
+      FATAL("ASAN and MSAN are mutually exclusive");
+
+    }
+
+    if (getenv("AFL_HARDEN")) {
+
       FATAL("MSAN and AFL_HARDEN are mutually exclusive");
+
+    }
 
     cc_params[cc_par_cnt++] = "-U_FORTIFY_SOURCE";
     cc_params[cc_par_cnt++] = "-fsanitize=memory";
@@ -386,9 +409,11 @@ int main(int argc, char **argv) {
               "afl-gcc is deprecated, llvm_mode is much faster and has more "
               "options\n");
 
-  } else
+  } else {
 
     be_quiet = 1;
+
+  }
 
   if (argc < 2) {
 
@@ -416,7 +441,11 @@ int main(int argc, char **argv) {
       ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE")))) {
 
     u32 map_size = atoi(ptr);
-    if (map_size != MAP_SIZE) FATAL("AFL_MAP_SIZE is not supported by afl-gcc");
+    if (map_size != MAP_SIZE) {
+
+      FATAL("AFL_MAP_SIZE is not supported by afl-gcc");
+
+    }
 
   }
 
