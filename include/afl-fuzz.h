@@ -956,7 +956,7 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
 static inline u32 get_rand_seed(afl_state_t *afl) {
 
-  if (unlikely(afl->fixed_seed)) return (u32)afl->init_seed;
+  if (unlikely(afl->fixed_seed)) { return (u32)afl->init_seed; }
   return afl->rand_seed[0];
 
 }
@@ -967,8 +967,12 @@ static inline u32 get_rand_seed(afl_state_t *afl) {
 static inline u64 next_p2(u64 val) {
 
   u64 ret = 1;
-  while (val > ret)
+  while (val > ret) {
+
     ret <<= 1;
+
+  }
+
   return ret;
 
 }

@@ -37,7 +37,7 @@ static int select_algorithm(afl_state_t *afl) {
 
     if (unlikely(i_puppet == 0)) {
 
-      if (sele < afl->probability_now[afl->swarm_now][i_puppet]) break;
+      if (sele < afl->probability_now[afl->swarm_now][i_puppet]) { break; }
 
     } else {
 
@@ -53,8 +53,12 @@ static int select_algorithm(afl_state_t *afl) {
   }
 
   if (j_puppet == 1 &&
-      sele < afl->probability_now[afl->swarm_now][i_puppet - 1])
+      sele < afl->probability_now[afl->swarm_now][i_puppet - 1]) {
+
     FATAL("error select_algorithm");
+
+  }
+
   return i_puppet;
 
 }
@@ -67,7 +71,7 @@ static u32 choose_block_len(afl_state_t *afl, u32 limit) {
   u32 min_value, max_value;
   u32 rlim = MIN(afl->queue_cycle, 3);
 
-  if (unlikely(!afl->run_over10m)) rlim = 1;
+  if (unlikely(!afl->run_over10m)) { rlim = 1; }
 
   switch (rand_below(afl, rlim)) {
 
@@ -97,7 +101,7 @@ static u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
   }
 
-  if (min_value >= limit) min_value = 1;
+  if (min_value >= limit) { min_value = 1; }
 
   return min_value + rand_below(afl, MIN(max_value, limit) - min_value + 1);
 
@@ -114,7 +118,7 @@ static u8 could_be_bitflip(u32 xor_val) {
 
   u32 sh = 0;
 
-  if (!xor_val) return 1;
+  if (!xor_val) { return 1; }
 
   /* Shift left until first bit set. */
 
@@ -127,14 +131,18 @@ static u8 could_be_bitflip(u32 xor_val) {
 
   /* 1-, 2-, and 4-bit patterns are OK anywhere. */
 
-  if (xor_val == 1 || xor_val == 3 || xor_val == 15) return 1;
+  if (xor_val == 1 || xor_val == 3 || xor_val == 15) { return 1; }
 
   /* 8-, 16-, and 32-bit patterns are OK only if shift factor is
      divisible by 8, since that's the stepover for these ops. */
 
-  if (sh & 7) return 0;
+  if (sh & 7) { return 0; }
 
-  if (xor_val == 0xff || xor_val == 0xffff || xor_val == 0xffffffff) return 1;
+  if (xor_val == 0xff || xor_val == 0xffff || xor_val == 0xffffffff) {
+
+    return 1;
+
+  }
 
   return 0;
 
@@ -147,7 +155,7 @@ static u8 could_be_arith(u32 old_val, u32 new_val, u8 blen) {
 
   u32 i, ov = 0, nv = 0, diffs = 0;
 
-  if (old_val == new_val) return 1;
+  if (old_val == new_val) { return 1; }
 
   /* See if one-byte adjustments to any byte could produce this result. */
 
@@ -169,11 +177,11 @@ static u8 could_be_arith(u32 old_val, u32 new_val, u8 blen) {
 
   if (diffs == 1) {
 
-    if ((u8)(ov - nv) <= ARITH_MAX || (u8)(nv - ov) <= ARITH_MAX) return 1;
+    if ((u8)(ov - nv) <= ARITH_MAX || (u8)(nv - ov) <= ARITH_MAX) { return 1; }
 
   }
 
-  if (blen == 1) return 0;
+  if (blen == 1) { return 0; }
 
   /* See if two-byte adjustments to any byte would produce this result. */
 
@@ -197,12 +205,20 @@ static u8 could_be_arith(u32 old_val, u32 new_val, u8 blen) {
 
   if (diffs == 1) {
 
-    if ((u16)(ov - nv) <= ARITH_MAX || (u16)(nv - ov) <= ARITH_MAX) return 1;
+    if ((u16)(ov - nv) <= ARITH_MAX || (u16)(nv - ov) <= ARITH_MAX) {
+
+      return 1;
+
+    }
 
     ov = SWAP16(ov);
     nv = SWAP16(nv);
 
-    if ((u16)(ov - nv) <= ARITH_MAX || (u16)(nv - ov) <= ARITH_MAX) return 1;
+    if ((u16)(ov - nv) <= ARITH_MAX || (u16)(nv - ov) <= ARITH_MAX) {
+
+      return 1;
+
+    }
 
   }
 
@@ -211,15 +227,21 @@ static u8 could_be_arith(u32 old_val, u32 new_val, u8 blen) {
   if (blen == 4) {
 
     if ((u32)(old_val - new_val) <= ARITH_MAX ||
-        (u32)(new_val - old_val) <= ARITH_MAX)
+        (u32)(new_val - old_val) <= ARITH_MAX) {
+
       return 1;
+
+    }
 
     new_val = SWAP32(new_val);
     old_val = SWAP32(old_val);
 
     if ((u32)(old_val - new_val) <= ARITH_MAX ||
-        (u32)(new_val - old_val) <= ARITH_MAX)
+        (u32)(new_val - old_val) <= ARITH_MAX) {
+
       return 1;
+
+    }
 
   }
 
@@ -237,7 +259,7 @@ static u8 could_be_interest(u32 old_val, u32 new_val, u8 blen, u8 check_le) {
 
   u32 i, j;
 
-  if (old_val == new_val) return 1;
+  if (old_val == new_val) { return 1; }
 
   /* See if one-byte insertions from interesting_8 over old_val could
      produce new_val. */
@@ -249,7 +271,7 @@ static u8 could_be_interest(u32 old_val, u32 new_val, u8 blen, u8 check_le) {
       u32 tval =
           (old_val & ~(0xff << (i * 8))) | (((u8)interesting_8[j]) << (i * 8));
 
-      if (new_val == tval) return 1;
+      if (new_val == tval) { return 1; }
 
     }
 
@@ -258,7 +280,7 @@ static u8 could_be_interest(u32 old_val, u32 new_val, u8 blen, u8 check_le) {
   /* Bail out unless we're also asked to examine two-byte LE insertions
      as a preparation for BE attempts. */
 
-  if (blen == 2 && !check_le) return 0;
+  if (blen == 2 && !check_le) { return 0; }
 
   /* See if two-byte insertions over old_val could give us new_val. */
 
@@ -269,7 +291,7 @@ static u8 could_be_interest(u32 old_val, u32 new_val, u8 blen, u8 check_le) {
       u32 tval = (old_val & ~(0xffff << (i * 8))) |
                  (((u16)interesting_16[j]) << (i * 8));
 
-      if (new_val == tval) return 1;
+      if (new_val == tval) { return 1; }
 
       /* Continue here only if blen > 2. */
 
@@ -278,7 +300,7 @@ static u8 could_be_interest(u32 old_val, u32 new_val, u8 blen, u8 check_le) {
         tval = (old_val & ~(0xffff << (i * 8))) |
                (SWAP16(interesting_16[j]) << (i * 8));
 
-        if (new_val == tval) return 1;
+        if (new_val == tval) { return 1; }
 
       }
 
@@ -291,8 +313,11 @@ static u8 could_be_interest(u32 old_val, u32 new_val, u8 blen, u8 check_le) {
     /* See if four-byte insertions could produce the same result
        (LE only). */
 
-    for (j = 0; j < sizeof(interesting_32) / 4; ++j)
-      if (new_val == (u32)interesting_32[j]) return 1;
+    for (j = 0; j < sizeof(interesting_32) / 4; ++j) {
+
+      if (new_val == (u32)interesting_32[j]) { return 1; }
+
+    }
 
   }
 
@@ -315,7 +340,7 @@ static void locate_diffs(u8 *ptr1, u8 *ptr2, u32 len, s32 *first, s32 *last) {
 
     if (*(ptr1++) != *(ptr2++)) {
 
-      if (f_loc == -1) f_loc = pos;
+      if (f_loc == -1) { f_loc = pos; }
       l_loc = pos;
 
     }
@@ -364,8 +389,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     /* The custom mutator will decide to skip this test case or not. */
 
     if (!afl->mutator->afl_custom_queue_get(afl->mutator->data,
-                                            afl->queue_cur->fname))
+                                            afl->queue_cur->fname)) {
+
       return 1;
+
+    }
 
   }
 
@@ -377,8 +405,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (((afl->queue_cur->was_fuzzed > 0 || afl->queue_cur->fuzz_level > 0) ||
          !afl->queue_cur->favored) &&
-        rand_below(afl, 100) < SKIP_TO_NEW_PROB)
+        rand_below(afl, 100) < SKIP_TO_NEW_PROB) {
+
       return 1;
+
+    }
 
   } else if (!afl->dumb_mode && !afl->queue_cur->favored &&
 
@@ -391,11 +422,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     if (afl->queue_cycle > 1 &&
         (afl->queue_cur->fuzz_level == 0 || afl->queue_cur->was_fuzzed)) {
 
-      if (rand_below(afl, 100) < SKIP_NFAV_NEW_PROB) return 1;
+      if (rand_below(afl, 100) < SKIP_NFAV_NEW_PROB) { return 1; }
 
     } else {
 
-      if (rand_below(afl, 100) < SKIP_NFAV_OLD_PROB) return 1;
+      if (rand_below(afl, 100) < SKIP_NFAV_OLD_PROB) { return 1; }
 
     }
 
@@ -415,14 +446,21 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   fd = open(afl->queue_cur->fname, O_RDONLY);
 
-  if (unlikely(fd < 0)) PFATAL("Unable to open '%s'", afl->queue_cur->fname);
+  if (unlikely(fd < 0)) {
+
+    PFATAL("Unable to open '%s'", afl->queue_cur->fname);
+
+  }
 
   len = afl->queue_cur->len;
 
   orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 
-  if (unlikely(orig_in == MAP_FAILED))
+  if (unlikely(orig_in == MAP_FAILED)) {
+
     PFATAL("Unable to mmap '%s' with len %d", afl->queue_cur->fname, len);
+
+  }
 
   close(fd);
 
@@ -449,8 +487,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
       res =
           calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
-      if (unlikely(res == FSRV_RUN_ERROR))
+      if (unlikely(res == FSRV_RUN_ERROR)) {
+
         FATAL("Unable to execute target application");
+
+      }
 
     }
 
@@ -471,8 +512,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
-    if (unlikely(res == FSRV_RUN_ERROR))
+    if (unlikely(res == FSRV_RUN_ERROR)) {
+
       FATAL("Unable to execute target application");
+
+    }
 
     if (unlikely(afl->stop_soon)) {
 
@@ -497,15 +541,18 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
-  if (unlikely(perf_score == 0)) goto abandon_entry;
+  if (unlikely(perf_score == 0)) { goto abandon_entry; }
 
-  if (unlikely(afl->use_radamsa > 1)) goto radamsa_stage;
+  if (unlikely(afl->use_radamsa > 1)) { goto radamsa_stage; }
 
   if (afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized) {
 
     if (input_to_state_stage(afl, in_buf, out_buf, len,
-                             afl->queue_cur->exec_cksum))
+                             afl->queue_cur->exec_cksum)) {
+
       goto abandon_entry;
+
+    }
 
   }
 
@@ -568,7 +615,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
@@ -608,20 +655,30 @@ u8 fuzz_one_original(afl_state_t *afl) {
         /* If at end of file and we are still collecting a string, grab the
            final character and force output. */
 
-        if (a_len < MAX_AUTO_EXTRA)
+        if (a_len < MAX_AUTO_EXTRA) {
+
           a_collect[a_len] = out_buf[afl->stage_cur >> 3];
+
+        }
+
         ++a_len;
 
-        if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
+        if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
+
           maybe_add_auto((u8 *)afl, a_collect, a_len);
+
+        }
 
       } else if (cksum != prev_cksum) {
 
         /* Otherwise, if the checksum has changed, see if we have something
            worthwhile queued up, and collect that if the answer is yes. */
 
-        if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
+        if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
+
           maybe_add_auto((u8 *)afl, a_collect, a_len);
+
+        }
 
         a_len = 0;
         prev_cksum = cksum;
@@ -633,8 +690,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
       if (cksum != afl->queue_cur->exec_cksum) {
 
-        if (a_len < MAX_AUTO_EXTRA)
+        if (a_len < MAX_AUTO_EXTRA) {
+
           a_collect[a_len] = out_buf[afl->stage_cur >> 3];
+
+        }
+
         ++a_len;
 
       }
@@ -663,7 +724,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -692,7 +753,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
     FLIP_BIT(out_buf, afl->stage_cur + 2);
     FLIP_BIT(out_buf, afl->stage_cur + 3);
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -746,7 +807,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     out_buf[afl->stage_cur] ^= 0xFF;
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     /* We also use this stage to pull off a simple trick: we identify
        bytes that seem to have no effect on the current execution path
@@ -760,10 +821,15 @@ u8 fuzz_one_original(afl_state_t *afl) {
       /* If in dumb mode or if the file is very short, just flag everything
          without wasting time on checksums. */
 
-      if (!afl->dumb_mode && len >= EFF_MIN_LEN)
+      if (!afl->dumb_mode && len >= EFF_MIN_LEN) {
+
         cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      else
+
+      } else {
+
         cksum = ~afl->queue_cur->exec_cksum;
+
+      }
 
       if (cksum != afl->queue_cur->exec_cksum) {
 
@@ -804,7 +870,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   /* Two walking bytes. */
 
-  if (len < 2) goto skip_bitflip;
+  if (len < 2) { goto skip_bitflip; }
 
   afl->stage_name = "bitflip 16/8";
   afl->stage_short = "flip16";
@@ -828,7 +894,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     *(u16 *)(out_buf + i) ^= 0xFFFF;
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
     ++afl->stage_cur;
 
     *(u16 *)(out_buf + i) ^= 0xFFFF;
@@ -840,7 +906,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   afl->stage_finds[STAGE_FLIP16] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP16] += afl->stage_max;
 
-  if (len < 4) goto skip_bitflip;
+  if (len < 4) { goto skip_bitflip; }
 
   /* Four walking bytes. */
 
@@ -866,7 +932,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     *(u32 *)(out_buf + i) ^= 0xFFFFFFFF;
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
     ++afl->stage_cur;
 
     *(u32 *)(out_buf + i) ^= 0xFFFFFFFF;
@@ -880,7 +946,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
 skip_bitflip:
 
-  if (afl->no_arith) goto skip_arith;
+  if (afl->no_arith) { goto skip_arith; }
 
   /**********************
    * ARITHMETIC INC/DEC *
@@ -924,12 +990,14 @@ skip_bitflip:
         afl->stage_cur_val = j;
         out_buf[i] = orig + j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       r = orig ^ (orig - j);
 
@@ -938,12 +1006,14 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         out_buf[i] = orig - j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       out_buf[i] = orig;
 
@@ -958,7 +1028,7 @@ skip_bitflip:
 
   /* 16-bit arithmetics, both endians. */
 
-  if (len < 2) goto skip_arith;
+  if (len < 2) { goto skip_arith; }
 
   afl->stage_name = "arith 16/8";
   afl->stage_short = "arith16";
@@ -1000,24 +1070,28 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16 *)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((orig & 0xff) < j && !could_be_bitflip(r2)) {
 
         afl->stage_cur_val = -j;
         *(u16 *)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       /* Big endian comes next. Same deal. */
 
@@ -1028,24 +1102,28 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16 *)(out_buf + i) = SWAP16(SWAP16(orig) + j);
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((orig >> 8) < j && !could_be_bitflip(r4)) {
 
         afl->stage_cur_val = -j;
         *(u16 *)(out_buf + i) = SWAP16(SWAP16(orig) - j);
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       *(u16 *)(out_buf + i) = orig;
 
@@ -1060,7 +1138,7 @@ skip_bitflip:
 
   /* 32-bit arithmetics, both endians. */
 
-  if (len < 4) goto skip_arith;
+  if (len < 4) { goto skip_arith; }
 
   afl->stage_name = "arith 32/8";
   afl->stage_short = "arith32";
@@ -1101,24 +1179,28 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32 *)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((orig & 0xffff) < j && !could_be_bitflip(r2)) {
 
         afl->stage_cur_val = -j;
         *(u32 *)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       /* Big endian next. */
 
@@ -1129,24 +1211,28 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32 *)(out_buf + i) = SWAP32(SWAP32(orig) + j);
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((SWAP32(orig) & 0xffff) < j && !could_be_bitflip(r4)) {
 
         afl->stage_cur_val = -j;
         *(u32 *)(out_buf + i) = SWAP32(SWAP32(orig) - j);
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       *(u32 *)(out_buf + i) = orig;
 
@@ -1206,7 +1292,7 @@ skip_arith:
       afl->stage_cur_val = interesting_8[j];
       out_buf[i] = interesting_8[j];
 
-      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
       out_buf[i] = orig;
       ++afl->stage_cur;
@@ -1222,7 +1308,7 @@ skip_arith:
 
   /* Setting 16-bit integers, both endians. */
 
-  if (afl->no_arith || len < 2) goto skip_interest;
+  if (afl->no_arith || len < 2) { goto skip_interest; }
 
   afl->stage_name = "interest 16/8";
   afl->stage_short = "int16";
@@ -1261,12 +1347,14 @@ skip_arith:
 
         *(u16 *)(out_buf + i) = interesting_16[j];
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((u16)interesting_16[j] != SWAP16(interesting_16[j]) &&
           !could_be_bitflip(orig ^ SWAP16(interesting_16[j])) &&
@@ -1276,12 +1364,14 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u16 *)(out_buf + i) = SWAP16(interesting_16[j]);
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
     }
 
@@ -1294,7 +1384,7 @@ skip_arith:
   afl->stage_finds[STAGE_INTEREST16] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_INTEREST16] += afl->stage_max;
 
-  if (len < 4) goto skip_interest;
+  if (len < 4) { goto skip_interest; }
 
   /* Setting 32-bit integers, both endians. */
 
@@ -1336,12 +1426,14 @@ skip_arith:
 
         *(u32 *)(out_buf + i) = interesting_32[j];
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((u32)interesting_32[j] != SWAP32(interesting_32[j]) &&
           !could_be_bitflip(orig ^ SWAP32(interesting_32[j])) &&
@@ -1351,12 +1443,14 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u32 *)(out_buf + i) = SWAP32(interesting_32[j]);
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
     }
 
@@ -1375,7 +1469,7 @@ skip_interest:
    * DICTIONARY STUFF *
    ********************/
 
-  if (!afl->extras_cnt) goto skip_user_extras;
+  if (!afl->extras_cnt) { goto skip_user_extras; }
 
   /* Overwrite with user-supplied extras. */
 
@@ -1421,7 +1515,7 @@ skip_interest:
       last_len = afl->extras[j].len;
       memcpy(out_buf + i, afl->extras[j].data, last_len);
 
-      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
       ++afl->stage_cur;
 
@@ -1489,7 +1583,7 @@ skip_interest:
 
 skip_user_extras:
 
-  if (!afl->a_extras_cnt) goto skip_extras;
+  if (!afl->a_extras_cnt) { goto skip_extras; }
 
   afl->stage_name = "auto extras (over)";
   afl->stage_short = "ext_AO";
@@ -1523,7 +1617,7 @@ skip_user_extras:
       last_len = afl->a_extras[j].len;
       memcpy(out_buf + i, afl->a_extras[j].data, last_len);
 
-      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
       ++afl->stage_cur;
 
@@ -1545,22 +1639,22 @@ skip_extras:
      we're properly done with deterministic steps and can mark it as such
      in the .state/ directory. */
 
-  if (!afl->queue_cur->passed_det) mark_as_det_done(afl, afl->queue_cur);
+  if (!afl->queue_cur->passed_det) { mark_as_det_done(afl, afl->queue_cur); }
 
 custom_mutator_stage:
   /*******************
    * CUSTOM MUTATORS *
    *******************/
 
-  if (likely(!afl->mutator)) goto havoc_stage;
-  if (likely(!afl->mutator->afl_custom_fuzz)) goto havoc_stage;
+  if (likely(!afl->mutator)) { goto havoc_stage; }
+  if (likely(!afl->mutator->afl_custom_fuzz)) { goto havoc_stage; }
 
   afl->stage_name = "custom mutator";
   afl->stage_short = "custom";
   afl->stage_max = HAVOC_CYCLES * perf_score / afl->havoc_div / 100;
   afl->stage_val_type = STAGE_VAL_NONE;
 
-  if (afl->stage_max < HAVOC_MIN) afl->stage_max = HAVOC_MIN;
+  if (afl->stage_max < HAVOC_MIN) { afl->stage_max = HAVOC_MIN; }
 
   const u32 max_seed_size = MAX_FILE;
 
@@ -1589,8 +1683,11 @@ custom_mutator_stage:
 
     }
 
-    while (tid--)
+    while (tid--) {
+
       target = target->next;
+
+    }
 
     /* Make sure that the target has a reasonable length. */
 
@@ -1602,11 +1699,11 @@ custom_mutator_stage:
 
     }
 
-    if (!target) goto retry_external_pick;
+    if (!target) { goto retry_external_pick; }
 
     /* Read the additional testcase into a new buffer. */
     fd = open(target->fname, O_RDONLY);
-    if (unlikely(fd < 0)) PFATAL("Unable to open '%s'", target->fname);
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
 
     new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), target->len);
     ck_read(fd, new_buf, target->len, target->fname);
@@ -1618,8 +1715,11 @@ custom_mutator_stage:
         afl->mutator->data, out_buf, len, &mutated_buf, new_buf, target->len,
         max_seed_size);
 
-    if (unlikely(!mutated_buf))
+    if (unlikely(!mutated_buf)) {
+
       FATAL("Error in custom_fuzz. Size returned: %zd", mutated_size);
+
+    }
 
     if (mutated_size > 0) {
 
@@ -1695,7 +1795,7 @@ havoc_stage:
 
   }
 
-  if (afl->stage_max < HAVOC_MIN) afl->stage_max = HAVOC_MIN;
+  if (afl->stage_max < HAVOC_MIN) { afl->stage_max = HAVOC_MIN; }
 
   temp_len = len;
 
@@ -1710,10 +1810,13 @@ havoc_stage:
 
     stacked_custom_prob =
         afl->mutator->afl_custom_havoc_mutation_probability(afl->mutator->data);
-    if (stacked_custom_prob > 100)
+    if (stacked_custom_prob > 100) {
+
       FATAL(
           "The probability returned by afl_custom_havoc_mutation_propability "
           "has to be in the range 0-100.");
+
+    }
 
   }
 
@@ -1733,8 +1836,12 @@ havoc_stage:
         u8 *   custom_havoc_buf = NULL;
         size_t new_len = afl->mutator->afl_custom_havoc_mutation(
             afl->mutator->data, out_buf, temp_len, &custom_havoc_buf, MAX_FILE);
-        if (unlikely(!custom_havoc_buf))
+        if (unlikely(!custom_havoc_buf)) {
+
           FATAL("Error in custom_havoc (return %zd)", new_len);
+
+        }
+
         if (likely(new_len > 0 && custom_havoc_buf)) {
 
           temp_len = new_len;
@@ -1771,7 +1878,7 @@ havoc_stage:
 
           /* Set word to interesting value, randomly choosing endian. */
 
-          if (temp_len < 2) break;
+          if (temp_len < 2) { break; }
 
           if (rand_below(afl, 2)) {
 
@@ -1791,7 +1898,7 @@ havoc_stage:
 
           /* Set dword to interesting value, randomly choosing endian. */
 
-          if (temp_len < 4) break;
+          if (temp_len < 4) { break; }
 
           if (rand_below(afl, 2)) {
 
@@ -1825,7 +1932,7 @@ havoc_stage:
 
           /* Randomly subtract from word, random endian. */
 
-          if (temp_len < 2) break;
+          if (temp_len < 2) { break; }
 
           if (rand_below(afl, 2)) {
 
@@ -1849,7 +1956,7 @@ havoc_stage:
 
           /* Randomly add to word, random endian. */
 
-          if (temp_len < 2) break;
+          if (temp_len < 2) { break; }
 
           if (rand_below(afl, 2)) {
 
@@ -1873,7 +1980,7 @@ havoc_stage:
 
           /* Randomly subtract from dword, random endian. */
 
-          if (temp_len < 4) break;
+          if (temp_len < 4) { break; }
 
           if (rand_below(afl, 2)) {
 
@@ -1897,7 +2004,7 @@ havoc_stage:
 
           /* Randomly add to dword, random endian. */
 
-          if (temp_len < 4) break;
+          if (temp_len < 4) { break; }
 
           if (rand_below(afl, 2)) {
 
@@ -1934,7 +2041,7 @@ havoc_stage:
 
           u32 del_from, del_len;
 
-          if (temp_len < 2) break;
+          if (temp_len < 2) { break; }
 
           /* Don't delete too much. */
 
@@ -1984,13 +2091,18 @@ havoc_stage:
 
             /* Inserted part */
 
-            if (actually_clone)
+            if (actually_clone) {
+
               memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
-            else
+
+            } else {
+
               memset(new_buf + clone_to,
                      rand_below(afl, 2) ? rand_below(afl, 256)
                                         : out_buf[rand_below(afl, temp_len)],
                      clone_len);
+
+            }
 
             /* Tail */
             memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
@@ -2012,7 +2124,7 @@ havoc_stage:
 
           u32 copy_from, copy_to, copy_len;
 
-          if (temp_len < 2) break;
+          if (temp_len < 2) { break; }
 
           copy_len = choose_block_len(afl, temp_len - 1);
 
@@ -2021,15 +2133,20 @@ havoc_stage:
 
           if (rand_below(afl, 4)) {
 
-            if (copy_from != copy_to)
+            if (copy_from != copy_to) {
+
               memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
 
-          } else
+            }
+
+          } else {
 
             memset(out_buf + copy_to,
                    rand_below(afl, 2) ? rand_below(afl, 256)
                                       : out_buf[rand_below(afl, temp_len)],
                    copy_len);
+
+          }
 
           break;
 
@@ -2051,7 +2168,7 @@ havoc_stage:
             u32 extra_len = afl->a_extras[use_extra].len;
             u32 insert_at;
 
-            if (extra_len > temp_len) break;
+            if (extra_len > temp_len) { break; }
 
             insert_at = rand_below(afl, temp_len - extra_len + 1);
             memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
@@ -2065,7 +2182,7 @@ havoc_stage:
             u32 extra_len = afl->extras[use_extra].len;
             u32 insert_at;
 
-            if (extra_len > temp_len) break;
+            if (extra_len > temp_len) { break; }
 
             insert_at = rand_below(afl, temp_len - extra_len + 1);
             memcpy(out_buf + insert_at, afl->extras[use_extra].data, extra_len);
@@ -2089,7 +2206,7 @@ havoc_stage:
             use_extra = rand_below(afl, afl->a_extras_cnt);
             extra_len = afl->a_extras[use_extra].len;
 
-            if (temp_len + extra_len >= MAX_FILE) break;
+            if (temp_len + extra_len >= MAX_FILE) { break; }
 
             new_buf =
                 ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + extra_len);
@@ -2106,7 +2223,7 @@ havoc_stage:
             use_extra = rand_below(afl, afl->extras_cnt);
             extra_len = afl->extras[use_extra].len;
 
-            if (temp_len + extra_len >= MAX_FILE) break;
+            if (temp_len + extra_len >= MAX_FILE) { break; }
 
             new_buf =
                 ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + extra_len);
@@ -2136,7 +2253,7 @@ havoc_stage:
 
     }
 
-    if (common_fuzz_stuff(afl, out_buf, temp_len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, temp_len)) { goto abandon_entry; }
 
     /* out_buf might have been mangled a bit, so let's restore it to its
        original size and shape. */
@@ -2226,8 +2343,11 @@ retry_splicing:
 
     }
 
-    while (tid--)
+    while (tid--) {
+
       target = target->next;
+
+    }
 
     /* Make sure that the target has a reasonable length. */
 
@@ -2238,13 +2358,13 @@ retry_splicing:
 
     }
 
-    if (!target) goto retry_splicing;
+    if (!target) { goto retry_splicing; }
 
     /* Read the testcase into a new buffer. */
 
     fd = open(target->fname, O_RDONLY);
 
-    if (unlikely(fd < 0)) PFATAL("Unable to open '%s'", target->fname);
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
 
     new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), target->len);
 
@@ -2288,14 +2408,18 @@ retry_splicing:
 
 radamsa_stage:
 
-  if (likely(!afl->use_radamsa || !afl->radamsa_mutate_ptr)) goto abandon_entry;
+  if (likely(!afl->use_radamsa || !afl->radamsa_mutate_ptr)) {
+
+    goto abandon_entry;
+
+  }
 
   afl->stage_name = "radamsa";
   afl->stage_short = "radamsa";
   afl->stage_max = (HAVOC_CYCLES * perf_score / afl->havoc_div / 100)
                    << afl->use_radamsa;
 
-  if (afl->stage_max < HAVOC_MIN) afl->stage_max = HAVOC_MIN;
+  if (afl->stage_max < HAVOC_MIN) { afl->stage_max = HAVOC_MIN; }
 
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -2351,7 +2475,7 @@ abandon_entry:
 
     --afl->pending_not_fuzzed;
     afl->queue_cur->was_fuzzed = 1;
-    if (afl->queue_cur->favored) --afl->pending_favored;
+    if (afl->queue_cur->favored) { --afl->pending_favored; }
 
   }
 
@@ -2405,8 +2529,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
        cases. */
 
     if ((afl->queue_cur->was_fuzzed || !afl->queue_cur->favored) &&
-        rand_below(afl, 100) < SKIP_TO_NEW_PROB)
+        rand_below(afl, 100) < SKIP_TO_NEW_PROB) {
+
       return 1;
+
+    }
 
   } else if (!afl->dumb_mode && !afl->queue_cur->favored &&
 
@@ -2418,11 +2545,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     if (afl->queue_cycle > 1 && !afl->queue_cur->was_fuzzed) {
 
-      if (rand_below(afl, 100) < SKIP_NFAV_NEW_PROB) return 1;
+      if (rand_below(afl, 100) < SKIP_NFAV_NEW_PROB) { return 1; }
 
     } else {
 
-      if (rand_below(afl, 100) < SKIP_NFAV_OLD_PROB) return 1;
+      if (rand_below(afl, 100) < SKIP_NFAV_OLD_PROB) { return 1; }
 
     }
 
@@ -2442,14 +2569,17 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   fd = open(afl->queue_cur->fname, O_RDONLY);
 
-  if (fd < 0) PFATAL("Unable to open '%s'", afl->queue_cur->fname);
+  if (fd < 0) { PFATAL("Unable to open '%s'", afl->queue_cur->fname); }
 
   len = afl->queue_cur->len;
 
   orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 
-  if (orig_in == MAP_FAILED)
+  if (orig_in == MAP_FAILED) {
+
     PFATAL("Unable to mmap '%s'", afl->queue_cur->fname);
+
+  }
 
   close(fd);
 
@@ -2476,7 +2606,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
       res =
           calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
-      if (res == FSRV_RUN_ERROR) FATAL("Unable to execute target application");
+      if (res == FSRV_RUN_ERROR) {
+
+        FATAL("Unable to execute target application");
+
+      }
 
     }
 
@@ -2497,7 +2631,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
-    if (res == FSRV_RUN_ERROR) FATAL("Unable to execute target application");
+    if (res == FSRV_RUN_ERROR) {
+
+      FATAL("Unable to execute target application");
+
+    }
 
     if (afl->stop_soon) {
 
@@ -2525,8 +2663,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   if (afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized) {
 
     if (input_to_state_stage(afl, in_buf, out_buf, len,
-                             afl->queue_cur->exec_cksum))
+                             afl->queue_cur->exec_cksum)) {
+
       goto abandon_entry;
+
+    }
 
   }
 
@@ -2549,15 +2690,21 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
      testing in earlier, resumed runs (passed_det). */
 
   if (afl->skip_deterministic || afl->queue_cur->was_fuzzed ||
-      afl->queue_cur->passed_det)
+      afl->queue_cur->passed_det) {
+
     goto havoc_stage;
+
+  }
 
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
      for this master instance. */
 
   if (afl->master_max &&
-      (afl->queue_cur->exec_cksum % afl->master_max) != afl->master_id - 1)
+      (afl->queue_cur->exec_cksum % afl->master_max) != afl->master_id - 1) {
+
     goto havoc_stage;
+
+  }
 
   doing_det = 1;
 
@@ -2592,7 +2739,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
@@ -2632,20 +2779,30 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
         /* If at end of file and we are still collecting a string, grab the
            final character and force output. */
 
-        if (a_len < MAX_AUTO_EXTRA)
+        if (a_len < MAX_AUTO_EXTRA) {
+
           a_collect[a_len] = out_buf[afl->stage_cur >> 3];
+
+        }
+
         ++a_len;
 
-        if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
+        if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
+
           maybe_add_auto((u8 *)afl, a_collect, a_len);
+
+        }
 
       } else if (cksum != prev_cksum) {
 
         /* Otherwise, if the checksum has changed, see if we have something
            worthwhile queued up, and collect that if the answer is yes. */
 
-        if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA)
+        if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
+
           maybe_add_auto((u8 *)afl, a_collect, a_len);
+
+        }
 
         a_len = 0;
         prev_cksum = cksum;
@@ -2657,8 +2814,12 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
       if (cksum != afl->queue_cur->exec_cksum) {
 
-        if (a_len < MAX_AUTO_EXTRA)
+        if (a_len < MAX_AUTO_EXTRA) {
+
           a_collect[a_len] = out_buf[afl->stage_cur >> 3];
+
+        }
+
         ++a_len;
 
       }
@@ -2687,7 +2848,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -2716,7 +2877,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     FLIP_BIT(out_buf, afl->stage_cur + 2);
     FLIP_BIT(out_buf, afl->stage_cur + 3);
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -2770,7 +2931,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     out_buf[afl->stage_cur] ^= 0xFF;
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     /* We also use this stage to pull off a simple trick: we identify
        bytes that seem to have no effect on the current execution path
@@ -2784,10 +2945,15 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
       /* If in dumb mode or if the file is very short, just flag everything
          without wasting time on checksums. */
 
-      if (!afl->dumb_mode && len >= EFF_MIN_LEN)
+      if (!afl->dumb_mode && len >= EFF_MIN_LEN) {
+
         cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      else
+
+      } else {
+
         cksum = ~afl->queue_cur->exec_cksum;
+
+      }
 
       if (cksum != afl->queue_cur->exec_cksum) {
 
@@ -2828,7 +2994,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   /* Two walking bytes. */
 
-  if (len < 2) goto skip_bitflip;
+  if (len < 2) { goto skip_bitflip; }
 
   afl->stage_name = "bitflip 16/8";
   afl->stage_short = "flip16";
@@ -2852,7 +3018,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     *(u16 *)(out_buf + i) ^= 0xFFFF;
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
     ++afl->stage_cur;
 
     *(u16 *)(out_buf + i) ^= 0xFFFF;
@@ -2864,7 +3030,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   afl->stage_finds[STAGE_FLIP16] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_FLIP16] += afl->stage_max;
 
-  if (len < 4) goto skip_bitflip;
+  if (len < 4) { goto skip_bitflip; }
 
   /* Four walking bytes. */
 
@@ -2890,7 +3056,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     *(u32 *)(out_buf + i) ^= 0xFFFFFFFF;
 
-    if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+    if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
     ++afl->stage_cur;
 
     *(u32 *)(out_buf + i) ^= 0xFFFFFFFF;
@@ -2904,7 +3070,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
 skip_bitflip:
 
-  if (afl->no_arith) goto skip_arith;
+  if (afl->no_arith) { goto skip_arith; }
 
   /**********************
    * ARITHMETIC INC/DEC *
@@ -2948,12 +3114,14 @@ skip_bitflip:
         afl->stage_cur_val = j;
         out_buf[i] = orig + j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       r = orig ^ (orig - j);
 
@@ -2962,12 +3130,14 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         out_buf[i] = orig - j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       out_buf[i] = orig;
 
@@ -2982,7 +3152,7 @@ skip_bitflip:
 
   /* 16-bit arithmetics, both endians. */
 
-  if (len < 2) goto skip_arith;
+  if (len < 2) { goto skip_arith; }
 
   afl->stage_name = "arith 16/8";
   afl->stage_short = "arith16";
@@ -3024,24 +3194,28 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16 *)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((orig & 0xff) < j && !could_be_bitflip(r2)) {
 
         afl->stage_cur_val = -j;
         *(u16 *)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       /* Big endian comes next. Same deal. */
 
@@ -3052,24 +3226,28 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16 *)(out_buf + i) = SWAP16(SWAP16(orig) + j);
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((orig >> 8) < j && !could_be_bitflip(r4)) {
 
         afl->stage_cur_val = -j;
         *(u16 *)(out_buf + i) = SWAP16(SWAP16(orig) - j);
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       *(u16 *)(out_buf + i) = orig;
 
@@ -3084,7 +3262,7 @@ skip_bitflip:
 
   /* 32-bit arithmetics, both endians. */
 
-  if (len < 4) goto skip_arith;
+  if (len < 4) { goto skip_arith; }
 
   afl->stage_name = "arith 32/8";
   afl->stage_short = "arith32";
@@ -3125,24 +3303,28 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32 *)(out_buf + i) = orig + j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((orig & 0xffff) < j && !could_be_bitflip(r2)) {
 
         afl->stage_cur_val = -j;
         *(u32 *)(out_buf + i) = orig - j;
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       /* Big endian next. */
 
@@ -3153,24 +3335,28 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32 *)(out_buf + i) = SWAP32(SWAP32(orig) + j);
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((SWAP32(orig) & 0xffff) < j && !could_be_bitflip(r4)) {
 
         afl->stage_cur_val = -j;
         *(u32 *)(out_buf + i) = SWAP32(SWAP32(orig) - j);
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       *(u32 *)(out_buf + i) = orig;
 
@@ -3230,7 +3416,7 @@ skip_arith:
       afl->stage_cur_val = interesting_8[j];
       out_buf[i] = interesting_8[j];
 
-      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
       out_buf[i] = orig;
       ++afl->stage_cur;
@@ -3246,7 +3432,7 @@ skip_arith:
 
   /* Setting 16-bit integers, both endians. */
 
-  if (afl->no_arith || len < 2) goto skip_interest;
+  if (afl->no_arith || len < 2) { goto skip_interest; }
 
   afl->stage_name = "interest 16/8";
   afl->stage_short = "int16";
@@ -3285,12 +3471,14 @@ skip_arith:
 
         *(u16 *)(out_buf + i) = interesting_16[j];
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((u16)interesting_16[j] != SWAP16(interesting_16[j]) &&
           !could_be_bitflip(orig ^ SWAP16(interesting_16[j])) &&
@@ -3300,12 +3488,14 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u16 *)(out_buf + i) = SWAP16(interesting_16[j]);
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
     }
 
@@ -3318,7 +3508,7 @@ skip_arith:
   afl->stage_finds[STAGE_INTEREST16] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_INTEREST16] += afl->stage_max;
 
-  if (len < 4) goto skip_interest;
+  if (len < 4) { goto skip_interest; }
 
   /* Setting 32-bit integers, both endians. */
 
@@ -3360,12 +3550,14 @@ skip_arith:
 
         *(u32 *)(out_buf + i) = interesting_32[j];
 
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
       if ((u32)interesting_32[j] != SWAP32(interesting_32[j]) &&
           !could_be_bitflip(orig ^ SWAP32(interesting_32[j])) &&
@@ -3375,12 +3567,14 @@ skip_arith:
         afl->stage_val_type = STAGE_VAL_BE;
 
         *(u32 *)(out_buf + i) = SWAP32(interesting_32[j]);
-        if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+        if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
-      } else
+      } else {
 
         --afl->stage_max;
+
+      }
 
     }
 
@@ -3399,7 +3593,7 @@ skip_interest:
    * DICTIONARY STUFF *
    ********************/
 
-  if (!afl->extras_cnt) goto skip_user_extras;
+  if (!afl->extras_cnt) { goto skip_user_extras; }
 
   /* Overwrite with user-supplied extras. */
 
@@ -3445,7 +3639,7 @@ skip_interest:
       last_len = afl->extras[j].len;
       memcpy(out_buf + i, afl->extras[j].data, last_len);
 
-      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
       ++afl->stage_cur;
 
@@ -3513,7 +3707,7 @@ skip_interest:
 
 skip_user_extras:
 
-  if (!afl->a_extras_cnt) goto skip_extras;
+  if (!afl->a_extras_cnt) { goto skip_extras; }
 
   afl->stage_name = "auto extras (over)";
   afl->stage_short = "ext_AO";
@@ -3547,7 +3741,7 @@ skip_user_extras:
       last_len = afl->a_extras[j].len;
       memcpy(out_buf + i, afl->a_extras[j].data, last_len);
 
-      if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+      if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
       ++afl->stage_cur;
 
@@ -3569,7 +3763,7 @@ skip_extras:
      we're properly done with deterministic steps and can mark it as such
      in the .state/ directory. */
 
-  if (!afl->queue_cur->passed_det) mark_as_det_done(afl, afl->queue_cur);
+  if (!afl->queue_cur->passed_det) { mark_as_det_done(afl, afl->queue_cur); }
 
   /****************
    * RANDOM HAVOC *
@@ -3652,7 +3846,7 @@ pacemaker_fuzzing:
 
       }
 
-      if (afl->stage_max < HAVOC_MIN) afl->stage_max = HAVOC_MIN;
+      if (afl->stage_max < HAVOC_MIN) { afl->stage_max = HAVOC_MIN; }
 
       temp_len = len;
 
@@ -3684,7 +3878,7 @@ pacemaker_fuzzing:
               break;
 
             case 1:
-              if (temp_len < 2) break;
+              if (temp_len < 2) { break; }
               temp_len_puppet = rand_below(afl, (temp_len << 3) - 1);
               FLIP_BIT(out_buf, temp_len_puppet);
               FLIP_BIT(out_buf, temp_len_puppet + 1);
@@ -3692,7 +3886,7 @@ pacemaker_fuzzing:
               break;
 
             case 2:
-              if (temp_len < 2) break;
+              if (temp_len < 2) { break; }
               temp_len_puppet = rand_below(afl, (temp_len << 3) - 3);
               FLIP_BIT(out_buf, temp_len_puppet);
               FLIP_BIT(out_buf, temp_len_puppet + 1);
@@ -3702,19 +3896,19 @@ pacemaker_fuzzing:
               break;
 
             case 3:
-              if (temp_len < 4) break;
+              if (temp_len < 4) { break; }
               out_buf[rand_below(afl, temp_len)] ^= 0xFF;
               MOpt_globals.cycles_v2[STAGE_FLIP8] += 1;
               break;
 
             case 4:
-              if (temp_len < 8) break;
+              if (temp_len < 8) { break; }
               *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) ^= 0xFFFF;
               MOpt_globals.cycles_v2[STAGE_FLIP16] += 1;
               break;
 
             case 5:
-              if (temp_len < 8) break;
+              if (temp_len < 8) { break; }
               *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) ^= 0xFFFFFFFF;
               MOpt_globals.cycles_v2[STAGE_FLIP32] += 1;
               break;
@@ -3729,7 +3923,7 @@ pacemaker_fuzzing:
 
             case 7:
               /* Randomly subtract from word, random endian. */
-              if (temp_len < 8) break;
+              if (temp_len < 8) { break; }
               if (rand_below(afl, 2)) {
 
                 u32 pos = rand_below(afl, temp_len - 1);
@@ -3764,7 +3958,7 @@ pacemaker_fuzzing:
 
             case 8:
               /* Randomly subtract from dword, random endian. */
-              if (temp_len < 8) break;
+              if (temp_len < 8) { break; }
               if (rand_below(afl, 2)) {
 
                 u32 pos = rand_below(afl, temp_len - 3);
@@ -3800,7 +3994,7 @@ pacemaker_fuzzing:
 
             case 9:
               /* Set byte to interesting value. */
-              if (temp_len < 4) break;
+              if (temp_len < 4) { break; }
               out_buf[rand_below(afl, temp_len)] =
                   interesting_8[rand_below(afl, sizeof(interesting_8))];
               MOpt_globals.cycles_v2[STAGE_INTEREST8] += 1;
@@ -3808,7 +4002,7 @@ pacemaker_fuzzing:
 
             case 10:
               /* Set word to interesting value, randomly choosing endian. */
-              if (temp_len < 8) break;
+              if (temp_len < 8) { break; }
               if (rand_below(afl, 2)) {
 
                 *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
@@ -3829,7 +4023,7 @@ pacemaker_fuzzing:
             case 11:
               /* Set dword to interesting value, randomly choosing endian. */
 
-              if (temp_len < 8) break;
+              if (temp_len < 8) { break; }
 
               if (rand_below(afl, 2)) {
 
@@ -3866,7 +4060,7 @@ pacemaker_fuzzing:
 
               u32 del_from, del_len;
 
-              if (temp_len < 2) break;
+              if (temp_len < 2) { break; }
 
               /* Don't delete too much. */
 
@@ -3917,14 +4111,19 @@ pacemaker_fuzzing:
 
                 /* Inserted part */
 
-                if (actually_clone)
+                if (actually_clone) {
+
                   memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
-                else
+
+                } else {
+
                   memset(new_buf + clone_to,
                          rand_below(afl, 2)
                              ? rand_below(afl, 256)
                              : out_buf[rand_below(afl, temp_len)],
                          clone_len);
+
+                }
 
                 /* Tail */
                 memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
@@ -3946,7 +4145,7 @@ pacemaker_fuzzing:
 
               u32 copy_from, copy_to, copy_len;
 
-              if (temp_len < 2) break;
+              if (temp_len < 2) { break; }
 
               copy_len = choose_block_len(afl, temp_len - 1);
 
@@ -3955,15 +4154,21 @@ pacemaker_fuzzing:
 
               if (rand_below(afl, 4)) {
 
-                if (copy_from != copy_to)
+                if (copy_from != copy_to) {
+
                   memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
 
-              } else
+                }
+
+              } else {
 
                 memset(out_buf + copy_to,
                        rand_below(afl, 2) ? rand_below(afl, 256)
                                           : out_buf[rand_below(afl, temp_len)],
                        copy_len);
+
+              }
+
               MOpt_globals.cycles_v2[STAGE_OverWrite75] += 1;
               break;
 
@@ -3977,8 +4182,11 @@ pacemaker_fuzzing:
 
         u64 temp_total_found = afl->queued_paths + afl->unique_crashes;
 
-        if (common_fuzz_stuff(afl, out_buf, temp_len))
+        if (common_fuzz_stuff(afl, out_buf, temp_len)) {
+
           goto abandon_entry_puppet;
+
+        }
 
         /* out_buf might have been mangled a bit, so let's restore it to its
            original size and shape. */
@@ -4011,8 +4219,11 @@ pacemaker_fuzzing:
           afl->total_puppet_find = afl->total_puppet_find + temp_temp_puppet;
           for (i = 0; i < operator_num; ++i) {
 
-            if (MOpt_globals.cycles_v2[i] > MOpt_globals.cycles_v3[i])
+            if (MOpt_globals.cycles_v2[i] > MOpt_globals.cycles_v3[i]) {
+
               MOpt_globals.finds_v2[i] += temp_temp_puppet;
+
+            }
 
           }
 
@@ -4085,8 +4296,11 @@ pacemaker_fuzzing:
 
         }
 
-        while (tid--)
+        while (tid--) {
+
           target = target->next;
+
+        }
 
         /* Make sure that the target has a reasonable length. */
 
@@ -4097,13 +4311,13 @@ pacemaker_fuzzing:
 
         }
 
-        if (!target) goto retry_splicing_puppet;
+        if (!target) { goto retry_splicing_puppet; }
 
         /* Read the testcase into a new buffer. */
 
         fd = open(target->fname, O_RDONLY);
 
-        if (fd < 0) PFATAL("Unable to open '%s'", target->fname);
+        if (fd < 0) { PFATAL("Unable to open '%s'", target->fname); }
 
         new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), target->len);
 
@@ -4147,11 +4361,14 @@ pacemaker_fuzzing:
     abandon_entry:
     abandon_entry_puppet:
 
-      if (splice_cycle >= afl->SPLICE_CYCLES_puppet)
+      if (splice_cycle >= afl->SPLICE_CYCLES_puppet) {
+
         afl->SPLICE_CYCLES_puppet =
             (rand_below(
                  afl, SPLICE_CYCLES_puppet_up - SPLICE_CYCLES_puppet_low + 1) +
              SPLICE_CYCLES_puppet_low);
+
+      }
 
       afl->splicing_with = -1;
 
@@ -4205,10 +4422,13 @@ pacemaker_fuzzing:
 
             double temp_eff = 0.0;
 
-            if (MOpt_globals.cycles_v2[i] > MOpt_globals.cycles[i])
+            if (MOpt_globals.cycles_v2[i] > MOpt_globals.cycles[i]) {
+
               temp_eff =
                   (double)(MOpt_globals.finds_v2[i] - MOpt_globals.finds[i]) /
                   (double)(MOpt_globals.cycles_v2[i] - MOpt_globals.cycles[i]);
+
+            }
 
             if (afl->eff_best[afl->swarm_now][i] < temp_eff) {
 
@@ -4255,8 +4475,11 @@ pacemaker_fuzzing:
 
             }
 
-            if (afl->swarm_now < 0 || afl->swarm_now > swarm_num - 1)
+            if (afl->swarm_now < 0 || afl->swarm_now > swarm_num - 1) {
+
               PFATAL("swarm_now error number  %d", afl->swarm_now);
+
+            }
 
           }                               /* if afl->swarm_now == swarm_num */
 
@@ -4307,7 +4530,7 @@ u8 pilot_fuzzing(afl_state_t *afl) {
 void pso_updating(afl_state_t *afl) {
 
   afl->g_now += 1;
-  if (afl->g_now > afl->g_max) afl->g_now = 0;
+  if (afl->g_now > afl->g_max) { afl->g_now = 0; }
   afl->w_now =
       (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) / (afl->g_max) +
       afl->w_end;
@@ -4331,9 +4554,12 @@ void pso_updating(afl_state_t *afl) {
 
   for (i = 0; i < operator_num; ++i) {
 
-    if (afl->operator_finds_puppet[i])
+    if (afl->operator_finds_puppet[i]) {
+
       afl->G_best[i] = (double)((double)(afl->operator_finds_puppet[i]) /
                                 (double)(temp_operator_finds_puppet));
+
+    }
 
   }
 
@@ -4348,10 +4574,16 @@ void pso_updating(afl_state_t *afl) {
           RAND_C * (afl->L_best[tmp_swarm][i] - afl->x_now[tmp_swarm][i]) +
           RAND_C * (afl->G_best[i] - afl->x_now[tmp_swarm][i]);
       afl->x_now[tmp_swarm][i] += afl->v_now[tmp_swarm][i];
-      if (afl->x_now[tmp_swarm][i] > v_max)
+      if (afl->x_now[tmp_swarm][i] > v_max) {
+
         afl->x_now[tmp_swarm][i] = v_max;
-      else if (afl->x_now[tmp_swarm][i] < v_min)
+
+      } else if (afl->x_now[tmp_swarm][i] < v_min) {
+
         afl->x_now[tmp_swarm][i] = v_min;
+
+      }
+
       x_temp += afl->x_now[tmp_swarm][i];
 
     }
@@ -4359,17 +4591,25 @@ void pso_updating(afl_state_t *afl) {
     for (i = 0; i < operator_num; ++i) {
 
       afl->x_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i] / x_temp;
-      if (likely(i != 0))
+      if (likely(i != 0)) {
+
         afl->probability_now[tmp_swarm][i] =
             afl->probability_now[tmp_swarm][i - 1] + afl->x_now[tmp_swarm][i];
-      else
+
+      } else {
+
         afl->probability_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i];
+
+      }
 
     }
 
     if (afl->probability_now[tmp_swarm][operator_num - 1] < 0.99 ||
-        afl->probability_now[tmp_swarm][operator_num - 1] > 1.01)
+        afl->probability_now[tmp_swarm][operator_num - 1] > 1.01) {
+
       FATAL("ERROR probability");
+
+    }
 
   }
 
@@ -4410,12 +4650,19 @@ u8 fuzz_one(afl_state_t *afl) {
 
   if (afl->limit_time_sig != 0) {
 
-    if (afl->key_module == 0)
+    if (afl->key_module == 0) {
+
       key_val_lv_2 = pilot_fuzzing(afl);
-    else if (afl->key_module == 1)
+
+    } else if (afl->key_module == 1) {
+
       key_val_lv_2 = core_fuzzing(afl);
-    else if (afl->key_module == 2)
+
+    } else if (afl->key_module == 2) {
+
       pso_updating(afl);
+
+    }
 
   }
 

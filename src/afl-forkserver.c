@@ -128,12 +128,16 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
   unsigned char tmp[4] = {0, 0, 0, 0};
   pid_t         child_pid = -1;
 
-  if (!be_quiet) ACTF("Using Fauxserver:");
+  if (!be_quiet) { ACTF("Using Fauxserver:"); }
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
-  if (write(FORKSRV_FD + 1, tmp, 4) != 4) abort();  // TODO: Abort?
+  if (write(FORKSRV_FD + 1, tmp, 4) != 4) {
+
+    abort();  // TODO: Abort?
+
+  }
 
   void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
 
@@ -144,13 +148,13 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
     /* Wait for parent by reading from the pipe. Exit if read fails. */
 
-    if (read(FORKSRV_FD, &was_killed, 4) != 4) exit(0);
+    if (read(FORKSRV_FD, &was_killed, 4) != 4) { exit(0); }
 
     /* Create a clone of our process. */
 
     child_pid = fork();
 
-    if (child_pid < 0) PFATAL("Fork failed");
+    if (child_pid < 0) { PFATAL("Fork failed"); }
 
     /* In child process: close fds, resume execution. */
 
@@ -177,7 +181,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
     /* In parent process: write PID to AFL. */
 
-    if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) exit(0);
+    if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) { exit(0); }
 
     /* after child exited, get and relay exit status to parent through waitpid.
      */
@@ -191,7 +195,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
     /* Relay wait status to AFL pipe, then loop back. */
 
-    if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(0);
+    if (write(FORKSRV_FD + 1, &status, 4) != 4) { exit(0); }
 
   }
 
@@ -212,25 +216,28 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   int status;
   s32 rlen;
 
-  if (!be_quiet) ACTF("Spinning up the fork server...");
+  if (!be_quiet) { ACTF("Spinning up the fork server..."); }
 
   if (fsrv->use_fauxsrv) {
 
     /* TODO: Come up with sone nice way to initalize this all */
 
-    if (fsrv->init_child_func != fsrv_exec_child)
+    if (fsrv->init_child_func != fsrv_exec_child) {
+
       FATAL("Different forkserver not compatible with fauxserver");
+
+    }
 
     fsrv->init_child_func = afl_fauxsrv_execv;
 
   }
 
-  if (pipe(st_pipe) || pipe(ctl_pipe)) PFATAL("pipe() failed");
+  if (pipe(st_pipe) || pipe(ctl_pipe)) { PFATAL("pipe() failed"); }
 
   fsrv->last_run_timed_out = 0;
   fsrv->fsrv_pid = fork();
 
-  if (fsrv->fsrv_pid < 0) PFATAL("fork() failed");
+  if (fsrv->fsrv_pid < 0) { PFATAL("fork() failed"); }
 
   if (!fsrv->fsrv_pid) {
 
@@ -295,8 +302,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* Set up control and status pipes, close the unneeded original fds. */
 
-    if (dup2(ctl_pipe[0], FORKSRV_FD) < 0) PFATAL("dup2() failed");
-    if (dup2(st_pipe[1], FORKSRV_FD + 1) < 0) PFATAL("dup2() failed");
+    if (dup2(ctl_pipe[0], FORKSRV_FD) < 0) { PFATAL("dup2() failed"); }
+    if (dup2(st_pipe[1], FORKSRV_FD + 1) < 0) { PFATAL("dup2() failed"); }
 
     close(ctl_pipe[0]);
     close(ctl_pipe[1]);
@@ -308,12 +315,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 #ifndef HAVE_ARC4RANDOM
     close(fsrv->dev_urandom_fd);
 #endif
-    if (fsrv->plot_file != NULL) fclose(fsrv->plot_file);
+    if (fsrv->plot_file != NULL) { fclose(fsrv->plot_file); }
 
     /* This should improve performance a bit, since it stops the linker from
        doing extra work post-fork(). */
 
-    if (!getenv("LD_BIND_LAZY")) setenv("LD_BIND_NOW", "1", 0);
+    if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 0); }
 
     /* Set sane defaults for ASAN if nothing else specified. */
 
@@ -391,17 +398,20 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (rlen == 4) {
 
-    if (!be_quiet) OKF("All right - fork server is up.");
+    if (!be_quiet) { OKF("All right - fork server is up."); }
 
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
 
-      if (!be_quiet && getenv("AFL_DEBUG"))
+      if (!be_quiet && getenv("AFL_DEBUG")) {
+
         ACTF("Extended forkserver functions received (%08x).", status);
+
+      }
 
       if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
 
         fsrv->snapshot = 1;
-        if (!be_quiet) ACTF("Using SNAPSHOT feature.");
+        if (!be_quiet) { ACTF("Using SNAPSHOT feature."); }
 
       }
 
@@ -409,7 +419,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         u32 tmp_map_size = FS_OPT_GET_MAPSIZE(status);
 
-        if (!fsrv->map_size) fsrv->map_size = MAP_SIZE;
+        if (!fsrv->map_size) { fsrv->map_size = MAP_SIZE; }
 
         if (unlikely(tmp_map_size % 8)) {
 
@@ -419,13 +429,17 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         }
 
-        if (!be_quiet) ACTF("Target map size: %u", tmp_map_size);
-        if (tmp_map_size > fsrv->map_size)
+        if (!be_quiet) { ACTF("Target map size: %u", tmp_map_size); }
+        if (tmp_map_size > fsrv->map_size) {
+
           FATAL(
               "Target's coverage map size of %u is larger than the one this "
               "afl++ is set with (%u) (change MAP_SIZE_POW2 in config.h and "
               "recompile or set AFL_MAP_SIZE)\n",
               tmp_map_size, fsrv->map_size);
+
+        }
+
         fsrv->map_size = tmp_map_size;
 
       }
@@ -436,26 +450,43 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
           // this is not afl-fuzz - we deny and return
           status = (0xffffffff ^ (FS_OPT_ENABLED | FS_OPT_AUTODICT));
-          if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4)
+          if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
+
             FATAL("Writing to forkserver failed.");
+
+          }
+
           return;
 
         }
 
-        if (!be_quiet) ACTF("Using AUTODICT feature.");
+        if (!be_quiet) { ACTF("Using AUTODICT feature."); }
         status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
-        if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4)
+        if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
+
           FATAL("Writing to forkserver failed.");
-        if (read(fsrv->fsrv_st_fd, &status, 4) != 4)
+
+        }
+
+        if (read(fsrv->fsrv_st_fd, &status, 4) != 4) {
+
           FATAL("Reading from forkserver failed.");
 
-        if (status < 2 || (u32)status > 0xffffff)
+        }
+
+        if (status < 2 || (u32)status > 0xffffff) {
+
           FATAL("Dictionary has an illegal size: %d", status);
+
+        }
 
         u32 len = status, offset = 0, count = 0;
         u8 *dict = ck_alloc(len);
-        if (dict == NULL)
+        if (dict == NULL) {
+
           FATAL("Could not allocate %u bytes of autodictionary memory", len);
+
+        }
 
         while (len != 0) {
 
@@ -486,7 +517,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         }
 
-        if (!be_quiet) ACTF("Loaded %u autodictionary entries", count);
+        if (!be_quiet) { ACTF("Loaded %u autodictionary entries", count); }
         ck_free(dict);
 
       }
@@ -497,10 +528,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   }
 
-  if (fsrv->last_run_timed_out)
+  if (fsrv->last_run_timed_out) {
+
     FATAL("Timeout while initializing fork server (adjusting -t may help)");
 
-  if (waitpid(fsrv->fsrv_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+  }
+
+  if (waitpid(fsrv->fsrv_pid, &status, 0) <= 0) { PFATAL("waitpid() failed"); }
 
   if (WIFSIGNALED(status)) {
 
@@ -580,8 +614,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   }
 
-  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)
+  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG) {
+
     FATAL("Unable to execute target application ('%s')", argv[0]);
+
+  }
 
   if (fsrv->mem_limit && fsrv->mem_limit < 500 && fsrv->uses_asan) {
 
@@ -651,7 +688,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
 static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
-  if (fsrv->child_pid > 0) kill(fsrv->child_pid, SIGKILL);
+  if (fsrv->child_pid > 0) { kill(fsrv->child_pid, SIGKILL); }
   if (fsrv->fsrv_pid > 0) {
 
     kill(fsrv->fsrv_pid, SIGKILL);
@@ -680,7 +717,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     }
 
-    if (fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
+    if (fd < 0) { PFATAL("Unable to create '%s'", fsrv->out_file); }
 
   } else {
 
@@ -692,7 +729,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
   if (!fsrv->out_file) {
 
-    if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
+    if (ftruncate(fd, len)) { PFATAL("ftruncate() failed"); }
     lseek(fd, 0, SEEK_SET);
 
   } else {
@@ -727,7 +764,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   if ((res = write(fsrv->fsrv_ctl_fd, &fsrv->last_run_timed_out, 4)) != 4) {
 
-    if (*stop_soon_p) return 0;
+    if (*stop_soon_p) { return 0; }
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
@@ -736,12 +773,12 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
 
-    if (*stop_soon_p) return 0;
+    if (*stop_soon_p) { return 0; }
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
 
-  if (fsrv->child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
+  if (fsrv->child_pid <= 0) { FATAL("Fork server is misbehaving (OOM?)"); }
 
   exec_ms = read_timed(fsrv->fsrv_st_fd, &status, 4, timeout, stop_soon_p);
 
@@ -752,13 +789,13 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
     kill(fsrv->child_pid, SIGKILL);
     fsrv->last_run_timed_out = 1;
-    if (read(fsrv->fsrv_st_fd, &status, 4) < 4) exec_ms = 0;
+    if (read(fsrv->fsrv_st_fd, &status, 4) < 4) { exec_ms = 0; }
 
   }
 
   if (!exec_ms) {
 
-    if (*stop_soon_p) return 0;
+    if (*stop_soon_p) { return 0; }
     SAYF("\n" cLRD "[-] " cRST
          "Unable to communicate with fork server. Some possible reasons:\n\n"
          "    - You've run out of memory. Use -m to increase the the memory "
@@ -784,7 +821,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-  if (!WIFSTOPPED(status)) fsrv->child_pid = 0;
+  if (!WIFSTOPPED(status)) { fsrv->child_pid = 0; }
 
   fsrv->total_execs++;
 
@@ -800,8 +837,11 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
     fsrv->last_kill_signal = WTERMSIG(status);
 
-    if (fsrv->last_run_timed_out && fsrv->last_kill_signal == SIGKILL)
+    if (fsrv->last_run_timed_out && fsrv->last_kill_signal == SIGKILL) {
+
       return FSRV_RUN_TMOUT;
+
+    }
 
     return FSRV_RUN_CRASH;
 
