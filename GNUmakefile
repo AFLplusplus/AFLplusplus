@@ -36,7 +36,6 @@ SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
 ASAN_OPTIONS=detect_leaks=0
 
-$(info echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test )
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
@@ -151,9 +150,12 @@ ifdef NO_PYTHON
 	PYFLAGS=
 endif
 
-IN_GIT=1
-ifeq "$(shell git status 2>/dev/null)" ""
-  IN_GIT=0
+IN_REPO=0
+ifeq "$(shell git status >/dev/null 2>&1 && echo 1 || echo 0)" "1"
+  IN_REPO=1
+endif
+ifeq "$(shell svn proplist . 2>/dev/null && echo 1 || echo 0)" "1"
+  IN_REPO=1
 endif
 
 ifdef STATIC
@@ -220,7 +222,8 @@ help:
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"
 	@echo "install: installs everything you have compiled with the build option above"
-	@echo "clean: cleans everything. for qemu_mode it means it deletes all downloads as well"
+	@echo "clean: cleans everything compiled (not downloads when on a checkout)"
+	@echo "deepclean: cleans everything including downloads"
 	@echo "code-format: format the code, do this before you commit and send a PR please!"
 	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
 	@echo "unit: perform unit tests (based on cmocka)"
@@ -407,21 +410,10 @@ all_done: test_build
 	@if [ "`uname`" = "Darwin" ]; then printf "\nWARNING: Fuzzing on MacOS X is slow because of the unusually high overhead of\nfork() on this OS. Consider using Linux or *BSD. You can also use VirtualBox\n(virtualbox.org) to put AFL inside a Linux or *BSD VM.\n\n"; fi
 	@! tty <&1 >/dev/null || printf "\033[0;30mNOTE: If you can read this, your terminal probably uses white background.\nThis will make the UI hard to read. See docs/status_screen.md for advice.\033[0m\n" 2>/dev/null
 
-.NOTPARALLEL: clean
+.NOTPARALLEL: clean all
 
-ifeq "$(IN_GIT)" "1"
-# In git, unicornafl is a submodules, clean recursively
-clean_unicorn:
-	$(MAKE) -C unicorn_mode/unicornafl clean || true
-
-else
-# Else we remove the folder
-clean_unicorn:
-	rm -rf unicorn_mode/unicornafl
-endif
-
-clean: clean_unicorn
-	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable
+clean:
+	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable
 	rm -rf out_dir qemu_mode/qemu-3.1.1 *.dSYM */*.dSYM
 	-$(MAKE) -C llvm_mode clean
 	-$(MAKE) -C gcc_plugin clean
@@ -432,7 +424,17 @@ clean: clean_unicorn
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 	$(MAKE) -C src/third_party/libradamsa/ clean
+	rm -rf qemu_mode/qemu-3.1.1
+ifeq "$(IN_REPO)" "1"
+	$(MAKE) -C unicorn_mode/unicornafl clean || true
+else
+	rm -rf qemu_mode/qemu-3.1.1.tar.xz
+	rm -rf unicorn_mode/unicornafl
+endif
 
+deepclean:	clean
+	rm -rf qemu_mode/qemu-3.1.1.tar.xz
+	rm -rf unicorn_mode/unicornafl
 
 distrib: all radamsa
 	-$(MAKE) -C llvm_mode
