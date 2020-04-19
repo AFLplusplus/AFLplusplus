@@ -151,6 +151,11 @@ ifdef NO_PYTHON
 	PYFLAGS=
 endif
 
+IN_GIT=1
+ifeq "$(shell git status 2>/dev/null)" ""
+  IN_GIT=0
+endif
+
 ifdef STATIC
   $(info Compiling static version of binaries)
   # Disable python for static compilation to simplify things
@@ -404,7 +409,18 @@ all_done: test_build
 
 .NOTPARALLEL: clean
 
-clean:
+ifeq "$(IN_GIT)" "1"
+# In git, unicornafl is a submodules, clean recursively
+clean_unicorn:
+	$(MAKE) -C unicorn_mode/unicornafl clean || true
+
+else
+# Else we remove the folder
+clean_unicorn:
+	rm -rf unicorn_mode/unicornafl
+endif
+
+clean: clean_unicorn
 	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 qemu_mode/qemu-3.1.1.tar.xz afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable
 	rm -rf out_dir qemu_mode/qemu-3.1.1 *.dSYM */*.dSYM
 	-$(MAKE) -C llvm_mode clean
@@ -416,7 +432,7 @@ clean:
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 	$(MAKE) -C src/third_party/libradamsa/ clean
-	$(MAKE) -C unicorn_mode/unicornafl clean || true
+
 
 distrib: all radamsa
 	-$(MAKE) -C llvm_mode
