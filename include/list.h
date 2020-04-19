@@ -83,7 +83,7 @@ static inline void list_append(list_t *list, void *el) {
   element_t *el_box = NULL;
   PRE_ALLOC(el_box, list->element_prealloc_buf, LIST_PREALLOC_SIZE,
             list->element_prealloc_count);
-  if (!el_box) FATAL("failed to allocate list element");
+  if (!el_box) { FATAL("failed to allocate list element"); }
   el_box->data = el;
   el_box->next = head;
   el_box->prev = head->prev;

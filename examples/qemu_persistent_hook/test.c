@@ -16,7 +16,8 @@ int target_func(unsigned char *buf, int size) {
       }
 
       break;
-    default: break;
+    default:
+      break;
 
   }
 

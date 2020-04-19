@@ -87,7 +87,7 @@ static inline void *DFL_ck_alloc_nozero(u32 size) {
 
   void *ret;
 
-  if (!size) return NULL;
+  if (!size) { return NULL; }
 
   ALLOC_CHECK_SIZE(size);
   ret = malloc(size);
@@ -103,7 +103,7 @@ static inline void *DFL_ck_alloc(u32 size) {
 
   void *mem;
 
-  if (!size) return NULL;
+  if (!size) { return NULL; }
   mem = DFL_ck_alloc_nozero(size);
 
   return memset(mem, 0, size);
@@ -115,7 +115,7 @@ static inline void *DFL_ck_alloc(u32 size) {
 
 static inline void DFL_ck_free(void *mem) {
 
-  if (!mem) return;
+  if (!mem) { return; }
 
   free(mem);
 
@@ -165,7 +165,7 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
   u8 *ret;
   u32 size;
 
-  if (!str) return NULL;
+  if (!str) { return NULL; }
 
   size = strlen((char *)str) + 1;
 
@@ -184,7 +184,7 @@ static inline void *DFL_ck_memdup(void *mem, u32 size) {
 
   void *ret;
 
-  if (!mem || !size) return NULL;
+  if (!mem || !size) { return NULL; }
 
   ALLOC_CHECK_SIZE(size);
   ret = malloc(size);
@@ -201,7 +201,7 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
 
   u8 *ret;
 
-  if (!mem || !size) return NULL;
+  if (!mem || !size) { return NULL; }
 
   ALLOC_CHECK_SIZE(size);
   ret = malloc(size + 1);
@@ -772,8 +772,12 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
 */
 static inline size_t next_pow2(size_t in) {
 
-  if (in == 0 || in > (size_t)-1)
+  if (in == 0 || in > (size_t)-1) {
+
     return 0;                  /* avoid undefined behaviour under-/overflow */
+
+  }
+
   size_t out = in - 1;
   out |= out >> 1;
   out |= out >> 2;
@@ -794,10 +798,10 @@ static inline size_t next_pow2(size_t in) {
 static inline void *maybe_grow(void **buf, size_t *size, size_t size_needed) {
 
   /* No need to realloc */
-  if (likely(size_needed && *size >= size_needed)) return *buf;
+  if (likely(size_needed && *size >= size_needed)) { return *buf; }
 
   /* No initial size was set */
-  if (size_needed < INITIAL_GROWTH_SIZE) size_needed = INITIAL_GROWTH_SIZE;
+  if (size_needed < INITIAL_GROWTH_SIZE) { size_needed = INITIAL_GROWTH_SIZE; }
 
   /* grow exponentially */
   size_t next_size = next_pow2(size_needed);
@@ -824,13 +828,13 @@ static inline void *ck_maybe_grow(void **buf, size_t *size,
                                   size_t size_needed) {
 
   /* Oops. found a bug? */
-  if (unlikely(size_needed < 1)) FATAL("cannot grow to non-positive size");
+  if (unlikely(size_needed < 1)) { FATAL("cannot grow to non-positive size"); }
 
   /* No need to realloc */
-  if (likely(*size >= size_needed)) return *buf;
+  if (likely(*size >= size_needed)) { return *buf; }
 
   /* No initial size was set */
-  if (size_needed < INITIAL_GROWTH_SIZE) size_needed = INITIAL_GROWTH_SIZE;
+  if (size_needed < INITIAL_GROWTH_SIZE) { size_needed = INITIAL_GROWTH_SIZE; }
 
   /* grow exponentially */
   size_t next_size = next_pow2(size_needed);

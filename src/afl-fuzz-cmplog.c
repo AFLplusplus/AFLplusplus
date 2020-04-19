@@ -37,8 +37,11 @@ void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);
 
-  if (!fsrv->qemu_mode && argv[0] != fsrv->cmplog_binary)
+  if (!fsrv->qemu_mode && argv[0] != fsrv->cmplog_binary) {
+
     argv[0] = fsrv->cmplog_binary;
+
+  }
 
   execv(argv[0], argv);
 
@@ -54,7 +57,7 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
     size_t post_len =
         afl->post_handler(afl->post_data, out_buf, len, &post_buf);
-    if (!post_buf || !post_len) return 0;
+    if (!post_buf || !post_len) { return 0; }
     out_buf = post_buf;
     len = post_len;
 
@@ -64,7 +67,7 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   fault = fuzz_run_target(afl, &afl->cmplog_fsrv, afl->fsrv.exec_tmout);
 
-  if (afl->stop_soon) return 1;
+  if (afl->stop_soon) { return 1; }
 
   if (fault == FSRV_RUN_TMOUT) {
 
@@ -75,9 +78,11 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
     }
 
-  } else
+  } else {
 
     afl->subseq_tmouts = 0;
+
+  }
 
   /* Users can hit us with SIGUSR1 to request the current input
      to be abandoned. */

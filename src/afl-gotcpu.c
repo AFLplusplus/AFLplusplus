@@ -102,8 +102,12 @@ repeat_loop:
 
   v1 = CTEST_BUSY_CYCLES;
 
-  while (v1--)
+  while (v1--) {
+
     v2++;
+
+  }
+
   sched_yield();
 
   en_t = get_cur_time_us();
@@ -154,7 +158,7 @@ int main(int argc, char **argv) {
 
     s32 fr = fork();
 
-    if (fr < 0) PFATAL("fork failed");
+    if (fr < 0) { PFATAL("fork failed"); }
 
     if (!fr) {
 
@@ -192,8 +196,12 @@ int main(int argc, char **argv) {
 #endif
 
 #if defined(__linux__)
-      if (sched_setaffinity(0, sizeof(c), &c))
+      if (sched_setaffinity(0, sizeof(c), &c)) {
+
         PFATAL("sched_setaffinity failed for cpu %d", i);
+
+      }
+
 #endif
 
       util_perc = measure_preemption(CTEST_CORE_TRG_MS);
@@ -221,10 +229,10 @@ int main(int argc, char **argv) {
   for (i = 0; i < cpu_cnt; i++) {
 
     int ret;
-    if (waitpid(-1, &ret, 0) < 0) PFATAL("waitpid failed");
+    if (waitpid(-1, &ret, 0) < 0) { PFATAL("waitpid failed"); }
 
-    if (WEXITSTATUS(ret) == 0) idle_cpus++;
-    if (WEXITSTATUS(ret) <= 1) maybe_cpus++;
+    if (WEXITSTATUS(ret) == 0) { idle_cpus++; }
+    if (WEXITSTATUS(ret) <= 1) { maybe_cpus++; }
 
   }
 

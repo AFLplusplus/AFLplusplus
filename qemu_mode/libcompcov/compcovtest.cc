@@ -51,9 +51,11 @@ int main() {
 
   switch (z) {
 
-    case 0xBEEF: break;
+    case 0xBEEF:
+      break;
 
-    default: return 4;
+    default:
+      return 4;
 
   }
 
