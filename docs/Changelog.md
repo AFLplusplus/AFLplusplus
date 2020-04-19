@@ -10,8 +10,15 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.64d (develop):
-  - ...
-
+  - qemu_mode:
+    - add information on PIE/PIC load addresses for 32 bit
+    - better dependency checks
+  - gcc_plugin:
+    - better dependency checks
+  - unicorn_mode:
+    - better submodule handling
+  - all:
+    - fix 32 bit build options
 
 
 ### Version ++2.64c (release):
