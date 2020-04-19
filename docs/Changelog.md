@@ -19,6 +19,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - better submodule handling
   - all:
     - fix 32 bit build options
+    - make clean does not wipe qemu-3.1.1.tar.xz and the unicornafl directory
+      anymore if in a git/svn checkout unless "deepclean" is used
 
 
 ### Version ++2.64c (release):

@@ -160,7 +160,8 @@ These build targets exist:
 * distrib: everything (for both binary-only and source code fuzzing)
 * man: creates simple man pages from the help option of the programs
 * install: installs everything you have compiled with the build options above
-* clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well
+* clean: cleans everything compiled, not downloads (unless not on a checkout)
+* deelclean: cleans everything including downloads
 * code-format: format the code, do this before you commit and send a PR please!
 * tests: runs test cases to ensure that all features are still working as they should
 * unit: perform unit tests (based on cmocka)
