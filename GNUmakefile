@@ -435,7 +435,7 @@ endif
 deepclean:	clean
 	rm -rf qemu_mode/qemu-3.1.1.tar.xz
 	rm -rf unicorn_mode/unicornafl
-	git reset --hard || true
+	git reset --hard >/dev/null 2>&1 || true
 
 distrib: all radamsa
 	-$(MAKE) -C llvm_mode
