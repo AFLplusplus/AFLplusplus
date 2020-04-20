@@ -66,7 +66,6 @@ static list_t shm_list = {.element_prealloc_count = 0};
 
 void afl_shm_deinit(sharedmem_t *shm) {
 
-  // TODO: clang reports a potential UAF in this function/makro(?)
   list_remove(&shm_list, shm);
 
 #ifdef USEMMAP
