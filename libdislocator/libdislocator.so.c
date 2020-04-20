@@ -466,7 +466,7 @@ void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
 
 size_t malloc_usable_size(void *ptr) {
 
-   return PTR_L(ptr);
+   return ptr ? PTR_L(ptr) : 0;
 
 }
 
