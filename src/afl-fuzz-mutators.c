@@ -70,8 +70,12 @@ void setup_custom_mutator(afl_state_t *afl) {
   }
 
 #else
-  if (afl->afl_env.afl_python_module)
+  if (afl->afl_env.afl_python_module) {
+
     FATAL("Your AFL binary was built without Python support");
+
+  }
+
 #endif
 
 }
