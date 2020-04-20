@@ -40,6 +40,7 @@
 #define shmdt bionic_shmdt
 #define shmget bionic_shmget
 #endif
+
 #include <sys/shm.h>
 #undef shmat
 #undef shmctl
