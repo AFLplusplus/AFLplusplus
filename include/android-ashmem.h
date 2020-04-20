@@ -105,7 +105,7 @@ static inline void *shmat(int __shmid, const void *__shmaddr, int __shmflg) {
 
 }
 
-#endif /* __ANDROID__ */
+#endif                                                       /* __ANDROID__ */
 
 #endif
 
