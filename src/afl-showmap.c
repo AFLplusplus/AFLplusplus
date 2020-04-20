@@ -157,6 +157,8 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
   u8 cco = !!getenv("AFL_CMIN_CRASHES_ONLY"),
      caa = !!getenv("AFL_CMIN_ALLOW_ANY");
 
+  if (!outfile) { FATAL("Output filename not set (Bug in AFL++?)"); }
+
   if (!strncmp(outfile, "/dev/", 5)) {
 
     fd = open(outfile, O_WRONLY);
