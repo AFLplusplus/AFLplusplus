@@ -161,7 +161,7 @@ These build targets exist:
 * man: creates simple man pages from the help option of the programs
 * install: installs everything you have compiled with the build options above
 * clean: cleans everything compiled, not downloads (unless not on a checkout)
-* deelclean: cleans everything including downloads
+* deepclean: cleans everything including downloads
 * code-format: format the code, do this before you commit and send a PR please!
 * tests: runs test cases to ensure that all features are still working as they should
 * unit: perform unit tests (based on cmocka)
