@@ -107,7 +107,7 @@ for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 
 done
 
-if ! type $EASY_INSTALL > /dev/null; then
+if ! command -v $EASY_INSTALL >/dev/null; then
 
   # work around for installs with executable easy_install
   EASY_INSTALL_FOUND=0
@@ -123,7 +123,7 @@ if ! type $EASY_INSTALL > /dev/null; then
 
     fi
   done
-  if [ '!' $EASY_INSTALL_FOUND ]; then
+  if [ "0" = $EASY_INSTALL_FOUND ]; then
 
     echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
     PREREQ_NOTFOUND=1
