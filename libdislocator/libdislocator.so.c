@@ -464,7 +464,11 @@ void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
 
 }
 
+#if !defined(__ANDROID__)
 size_t malloc_usable_size(void *ptr) {
+#else
+size_t malloc_usable_size(const void *ptr) {
+#endif
 
    return ptr ? PTR_L(ptr) : 0;
 
