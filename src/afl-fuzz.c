@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include "cmplog.h"
+#include <limits.h>
 
 static u8 *get_libradamsa_path(u8 *own_loc) {
 
@@ -36,7 +37,7 @@ static u8 *get_libradamsa_path(u8 *own_loc) {
 
     cp = alloc_printf("%s/libradamsa.so", tmp);
 
-    if (access(cp, X_OK)) FATAL("Unable to find '%s'", cp);
+    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", cp); }
 
     return cp;
 
@@ -52,11 +53,13 @@ static u8 *get_libradamsa_path(u8 *own_loc) {
     cp = alloc_printf("%s/libradamsa.so", own_copy);
     ck_free(own_copy);
 
-    if (!access(cp, X_OK)) return cp;
+    if (!access(cp, X_OK)) { return cp; }
 
-  } else
+  } else {
 
     ck_free(own_copy);
+
+  }
 
   if (!access(AFL_PATH "/libradamsa.so", X_OK)) {
 
@@ -147,53 +150,60 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "case\n\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
-  if (more_help > 1)
+  if (more_help > 1) {
+
     SAYF(
       "Environment variables used:\n"
-      "AFL_PATH: path to AFL support binaries\n"
-      "AFL_QUIET: suppress forkserver status messages\n"
-      "AFL_DEBUG_CHILD_OUTPUT: do not suppress stdout/stderr from target\n"
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
-      "AFL_BENCH_JUST_ONE: run the target just once\n"
-      "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
-      "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
-      "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
-      "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
-      "AFL_DEBUG: extra debugging output for Python mode trimming\n"
-      "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
-      "AFL_NO_UI: switch status screen off\n"
-      "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
-      "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
-      "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
-      "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
-      "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
-      "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
-      "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
-      "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
-      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
-      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
-      "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
-      "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
-      "AFL_POST_LIBRARY: postprocess generated test cases before use as target input\n"
-      "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
-      "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "ASAN_OPTIONS: custom settings for ASAN\n"
       "              (must contain abort_on_error=1 and symbolize=0)\n"
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
+      "AFL_BENCH_JUST_ONE: run the target just once\n"
+      "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
+      "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
+      "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
+      "AFL_DEBUG: extra debugging output for Python mode trimming\n"
+      "AFL_DEBUG_CHILD_OUTPUT: do not suppress stdout/stderr from target\n"
+      "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
+      "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
+      "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
+      "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
+      "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
+      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
+      "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
+      "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
+      "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
+      "              the target was compiled for\n"
+      "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
+      "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
+      "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
+      "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
+      "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
+      "AFL_NO_UI: switch status screen off\n"
+      "AFL_PATH: path to AFL support binaries\n"
+      "AFL_POST_LIBRARY: postprocess generated test cases before use as target input\n"
+      "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
+      "AFL_QUIET: suppress forkserver status messages\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an excutable\n"
+      "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
+      "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
+      "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
       //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
-      "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
-      "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
-      "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
       "\n"
     );
-  else
+
+  } else {
+
     SAYF(
         "To view also the supported environment variables of afl-fuzz please "
         "use \"-hh\".\n\n");
+
+  }
 
 #ifdef USE_PYTHON
   SAYF("Compiled with %s module support, see docs/custom_mutator.md\n",
@@ -213,13 +223,13 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
 
 static int stricmp(char const *a, char const *b) {
 
-  if (!a || !b) FATAL("Null reference");
+  if (!a || !b) { FATAL("Null reference"); }
 
   for (;; ++a, ++b) {
 
     int d;
     d = tolower(*a) - tolower(*b);
-    if (d != 0 || !*a) return d;
+    if (d != 0 || !*a) { return d; }
 
   }
 
@@ -231,7 +241,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt;
   u64    prev_queued = 0;
-  u32    sync_interval_cnt = 0, seek_to, show_help = 0;
+  u32    sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
   u8 *   extras_dir = 0;
   u8     mem_limit_given = 0, exit_1 = 0;
   char **use_argv;
@@ -244,11 +254,14 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
   if (!afl) { FATAL("Could not create afl state"); }
 
-  afl_state_init(afl);
+  if (get_afl_env("AFL_DEBUG")) { afl->debug = 1; }
+
+  map_size = get_map_size();
+  afl_state_init(afl, map_size);
   afl_fsrv_init(&afl->fsrv);
 
-  if (get_afl_env("AFL_DEBUG")) afl->debug = 1;
   read_afl_environment(afl, envp);
+  if (afl->shm.map_size) { afl->fsrv.map_size = afl->shm.map_size; }
   exit_1 = !!afl->afl_env.afl_bench_just_one;
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
@@ -260,11 +273,14 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
 
   while ((opt = getopt(argc, argv,
-                       "+c:i:I:o:f:m:t:T:dnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) > 0)
+                       "+c:i:I:o:f:m:t:T:dnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) >
+         0) {
 
     switch (opt) {
 
-      case 'I': afl->infoexec = optarg; break;
+      case 'I':
+        afl->infoexec = optarg;
+        break;
 
       case 'c': {
 
@@ -328,7 +344,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'e':
 
-        if (afl->file_extension) FATAL("Multiple -e options not supported");
+        if (afl->file_extension) { FATAL("Multiple -e options not supported"); }
 
         afl->file_extension = optarg;
 
@@ -336,16 +352,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'i':                                                /* input dir */
 
-        if (afl->in_dir) FATAL("Multiple -i options not supported");
+        if (afl->in_dir) { FATAL("Multiple -i options not supported"); }
         afl->in_dir = optarg;
 
-        if (!strcmp(afl->in_dir, "-")) afl->in_place_resume = 1;
+        if (!strcmp(afl->in_dir, "-")) { afl->in_place_resume = 1; }
 
         break;
 
       case 'o':                                               /* output dir */
 
-        if (afl->out_dir) FATAL("Multiple -o options not supported");
+        if (afl->out_dir) { FATAL("Multiple -o options not supported"); }
         afl->out_dir = optarg;
         break;
 
@@ -353,7 +369,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8 *c;
 
-        if (afl->sync_id) FATAL("Multiple -S or -M options not supported");
+        if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
 
         if ((c = strchr(afl->sync_id, ':'))) {
@@ -362,8 +378,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
           if (sscanf(c + 1, "%u/%u", &afl->master_id, &afl->master_max) != 2 ||
               !afl->master_id || !afl->master_max ||
-              afl->master_id > afl->master_max || afl->master_max > 1000000)
+              afl->master_id > afl->master_max || afl->master_max > 1000000) {
+
             FATAL("Bogus master ID passed to -M");
+
+          }
 
         }
 
@@ -375,20 +394,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'S':
 
-        if (afl->sync_id) FATAL("Multiple -S or -M options not supported");
+        if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
         break;
 
       case 'f':                                              /* target file */
 
-        if (afl->fsrv.out_file) FATAL("Multiple -f options not supported");
+        if (afl->fsrv.out_file) { FATAL("Multiple -f options not supported"); }
         afl->fsrv.out_file = ck_strdup(optarg);
         afl->fsrv.use_stdin = 0;
         break;
 
       case 'x':                                               /* dictionary */
 
-        if (extras_dir) FATAL("Multiple -x options not supported");
+        if (extras_dir) { FATAL("Multiple -x options not supported"); }
         extras_dir = optarg;
         break;
 
@@ -396,18 +415,26 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8 suffix = 0;
 
-        if (afl->timeout_given) FATAL("Multiple -t options not supported");
+        if (afl->timeout_given) { FATAL("Multiple -t options not supported"); }
 
         if (sscanf(optarg, "%u%c", &afl->fsrv.exec_tmout, &suffix) < 1 ||
-            optarg[0] == '-')
+            optarg[0] == '-') {
+
           FATAL("Bad syntax used for -t");
 
-        if (afl->fsrv.exec_tmout < 5) FATAL("Dangerously low value of -t");
+        }
 
-        if (suffix == '+')
+        if (afl->fsrv.exec_tmout < 5) { FATAL("Dangerously low value of -t"); }
+
+        if (suffix == '+') {
+
           afl->timeout_given = 2;
-        else
+
+        } else {
+
           afl->timeout_given = 1;
+
+        }
 
         break;
 
@@ -417,10 +444,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8 suffix = 'M';
 
-        if (mem_limit_given) FATAL("Multiple -m options not supported");
+        if (mem_limit_given) { FATAL("Multiple -m options not supported"); }
         mem_limit_given = 1;
 
-        if (!optarg) FATAL("Wrong usage of -m");
+        if (!optarg) { FATAL("Wrong usage of -m"); }
 
         if (!strcmp(optarg, "none")) {
 
@@ -430,24 +457,38 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         if (sscanf(optarg, "%llu%c", &afl->fsrv.mem_limit, &suffix) < 1 ||
-            optarg[0] == '-')
+            optarg[0] == '-') {
+
           FATAL("Bad syntax used for -m");
-
-        switch (suffix) {
-
-          case 'T': afl->fsrv.mem_limit *= 1024 * 1024; break;
-          case 'G': afl->fsrv.mem_limit *= 1024; break;
-          case 'k': afl->fsrv.mem_limit /= 1024; break;
-          case 'M': break;
-
-          default: FATAL("Unsupported suffix or bad syntax for -m");
 
         }
 
-        if (afl->fsrv.mem_limit < 5) FATAL("Dangerously low value of -m");
+        switch (suffix) {
 
-        if (sizeof(rlim_t) == 4 && afl->fsrv.mem_limit > 2000)
+          case 'T':
+            afl->fsrv.mem_limit *= 1024 * 1024;
+            break;
+          case 'G':
+            afl->fsrv.mem_limit *= 1024;
+            break;
+          case 'k':
+            afl->fsrv.mem_limit /= 1024;
+            break;
+          case 'M':
+            break;
+
+          default:
+            FATAL("Unsupported suffix or bad syntax for -m");
+
+        }
+
+        if (afl->fsrv.mem_limit < 5) { FATAL("Dangerously low value of -m"); }
+
+        if (sizeof(rlim_t) == 4 && afl->fsrv.mem_limit > 2000) {
+
           FATAL("Value of -m out of range on 32-bit systems");
+
+        }
 
       }
 
@@ -455,7 +496,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'd':                                       /* skip deterministic */
 
-        if (afl->skip_deterministic) FATAL("Multiple -d options not supported");
+        if (afl->skip_deterministic) {
+
+          FATAL("Multiple -d options not supported");
+
+        }
+
         afl->skip_deterministic = 1;
         afl->use_splicing = 1;
         break;
@@ -473,92 +519,106 @@ int main(int argc, char **argv_orig, char **envp) {
            I only used this once or twice to get variants of a particular
            file, so I'm not making this an official setting. */
 
-        if (afl->in_bitmap) FATAL("Multiple -B options not supported");
+        if (afl->in_bitmap) { FATAL("Multiple -B options not supported"); }
 
         afl->in_bitmap = optarg;
-        read_bitmap(afl->in_bitmap, afl->virgin_bits, MAP_SIZE);
+        read_bitmap(afl->in_bitmap, afl->virgin_bits, afl->fsrv.map_size);
         break;
 
       case 'C':                                               /* crash mode */
 
-        if (afl->crash_mode) FATAL("Multiple -C options not supported");
+        if (afl->crash_mode) { FATAL("Multiple -C options not supported"); }
         afl->crash_mode = FSRV_RUN_CRASH;
         break;
 
       case 'n':                                                /* dumb mode */
 
-        if (afl->dumb_mode) FATAL("Multiple -n options not supported");
-        if (afl->afl_env.afl_dumb_forksrv)
+        if (afl->dumb_mode) { FATAL("Multiple -n options not supported"); }
+        if (afl->afl_env.afl_dumb_forksrv) {
+
           afl->dumb_mode = 2;
-        else
+
+        } else {
+
           afl->dumb_mode = 1;
+
+        }
 
         break;
 
       case 'T':                                                   /* banner */
 
-        if (afl->use_banner) FATAL("Multiple -T options not supported");
+        if (afl->use_banner) { FATAL("Multiple -T options not supported"); }
         afl->use_banner = optarg;
         break;
 
       case 'Q':                                                /* QEMU mode */
 
-        if (afl->fsrv.qemu_mode) FATAL("Multiple -Q options not supported");
+        if (afl->fsrv.qemu_mode) { FATAL("Multiple -Q options not supported"); }
         afl->fsrv.qemu_mode = 1;
 
-        if (!mem_limit_given) afl->fsrv.mem_limit = MEM_LIMIT_QEMU;
+        if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_QEMU; }
 
         break;
 
       case 'N':                                             /* Unicorn mode */
 
-        if (afl->no_unlink) FATAL("Multiple -N options not supported");
+        if (afl->no_unlink) { FATAL("Multiple -N options not supported"); }
         afl->no_unlink = 1;
 
         break;
 
       case 'U':                                             /* Unicorn mode */
 
-        if (afl->unicorn_mode) FATAL("Multiple -U options not supported");
+        if (afl->unicorn_mode) { FATAL("Multiple -U options not supported"); }
         afl->unicorn_mode = 1;
 
-        if (!mem_limit_given) afl->fsrv.mem_limit = MEM_LIMIT_UNICORN;
+        if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_UNICORN; }
 
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
 
-        if (afl->use_wine) FATAL("Multiple -W options not supported");
+        if (afl->use_wine) { FATAL("Multiple -W options not supported"); }
         afl->fsrv.qemu_mode = 1;
         afl->use_wine = 1;
 
-        if (!mem_limit_given) afl->fsrv.mem_limit = 0;
+        if (!mem_limit_given) { afl->fsrv.mem_limit = 0; }
 
         break;
 
       case 'V': {
 
         afl->most_time_key = 1;
-        if (sscanf(optarg, "%llu", &afl->most_time) < 1 || optarg[0] == '-')
+        if (sscanf(optarg, "%llu", &afl->most_time) < 1 || optarg[0] == '-') {
+
           FATAL("Bad syntax used for -V");
+
+        }
 
       } break;
 
       case 'E': {
 
         afl->most_execs_key = 1;
-        if (sscanf(optarg, "%llu", &afl->most_execs) < 1 || optarg[0] == '-')
+        if (sscanf(optarg, "%llu", &afl->most_execs) < 1 || optarg[0] == '-') {
+
           FATAL("Bad syntax used for -E");
+
+        }
 
       } break;
 
       case 'L': {                                              /* MOpt mode */
 
-        if (afl->limit_time_sig) FATAL("Multiple -L options not supported");
+        if (afl->limit_time_sig) { FATAL("Multiple -L options not supported"); }
         afl->havoc_max_mult = HAVOC_MAX_MULT_MOPT;
 
-        if (sscanf(optarg, "%d", &afl->limit_time_puppet) < 1)
+        if (sscanf(optarg, "%d", &afl->limit_time_puppet) < 1) {
+
           FATAL("Bad syntax used for -L");
+
+        }
 
         if (afl->limit_time_puppet == -1) {
 
@@ -577,19 +637,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
 
-        if (limit_time_puppet2 < afl->limit_time_puppet)
+        if (limit_time_puppet2 < afl->limit_time_puppet) {
+
           FATAL("limit_time overflow");
+
+        }
+
         afl->limit_time_puppet = limit_time_puppet2;
 
         SAYF("limit_time_puppet %d\n", afl->limit_time_puppet);
         afl->swarm_now = 0;
 
-        if (afl->limit_time_puppet == 0) afl->key_puppet = 1;
+        if (afl->limit_time_puppet == 0) { afl->key_puppet = 1; }
 
         int i;
         int tmp_swarm = 0;
 
-        if (afl->g_now > afl->g_max) afl->g_now = 0;
+        if (afl->g_now > afl->g_max) { afl->g_now = 0; }
         afl->w_now = (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) /
                          (afl->g_max) +
                      afl->w_end;
@@ -637,10 +701,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
             afl->x_now[tmp_swarm][i] += afl->v_now[tmp_swarm][i];
 
-            if (afl->x_now[tmp_swarm][i] > v_max)
+            if (afl->x_now[tmp_swarm][i] > v_max) {
+
               afl->x_now[tmp_swarm][i] = v_max;
-            else if (afl->x_now[tmp_swarm][i] < v_min)
+
+            } else if (afl->x_now[tmp_swarm][i] < v_min) {
+
               afl->x_now[tmp_swarm][i] = v_min;
+
+            }
 
             x_temp += afl->x_now[tmp_swarm][i];
 
@@ -649,18 +718,26 @@ int main(int argc, char **argv_orig, char **envp) {
           for (i = 0; i < operator_num; ++i) {
 
             afl->x_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i] / x_temp;
-            if (likely(i != 0))
+            if (likely(i != 0)) {
+
               afl->probability_now[tmp_swarm][i] =
                   afl->probability_now[tmp_swarm][i - 1] +
                   afl->x_now[tmp_swarm][i];
-            else
+
+            } else {
+
               afl->probability_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i];
+
+            }
 
           }
 
           if (afl->probability_now[tmp_swarm][operator_num - 1] < 0.99 ||
-              afl->probability_now[tmp_swarm][operator_num - 1] > 1.01)
+              afl->probability_now[tmp_swarm][operator_num - 1] > 1.01) {
+
             FATAL("ERROR probability");
+
+          }
 
         }
 
@@ -676,24 +753,36 @@ int main(int argc, char **argv_orig, char **envp) {
 
       } break;
 
-      case 'h': show_help++; break;  // not needed
+      case 'h':
+        show_help++;
+        break;  // not needed
 
       case 'R':
 
-        if (afl->use_radamsa)
+        if (afl->use_radamsa) {
+
           afl->use_radamsa = 2;
-        else
+
+        } else {
+
           afl->use_radamsa = 1;
+
+        }
 
         break;
 
       default:
-        if (!show_help) show_help = 1;
+        if (!show_help) { show_help = 1; }
 
     }
 
-  if (optind == argc || !afl->in_dir || !afl->out_dir || show_help)
+  }
+
+  if (optind == argc || !afl->in_dir || !afl->out_dir || show_help) {
+
     usage(afl, argv[0], show_help);
+
+  }
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
@@ -705,25 +794,39 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
   if (afl->sync_id && afl->force_deterministic &&
-      afl->afl_env.afl_custom_mutator_only)
+      afl->afl_env.afl_custom_mutator_only) {
+
     WARNF(
         "Using -M master with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "
         "result in no deterministic mutations being done!");
 
-  if (afl->fixed_seed) OKF("Running with fixed seed: %u", (u32)afl->init_seed);
+  }
+
+  if (afl->fixed_seed) {
+
+    OKF("Running with fixed seed: %u", (u32)afl->init_seed);
+
+  }
+
   srandom((u32)afl->init_seed);
   srand((u32)afl->init_seed);  // in case it is a different implementation
 
   if (afl->use_radamsa) {
 
-    if (afl->limit_time_sig > 0)
+    if (afl->limit_time_sig > 0) {
+
       FATAL(
           "MOpt and Radamsa are mutually exclusive unless you specify -L -1. "
           "We accept pull requests that integrates MOpt with the optional "
           "mutators (custom/radamsa/redqueen/...).");
 
-    if (afl->limit_time_sig && afl->use_radamsa > 1)
+    }
+
+    if (afl->limit_time_sig && afl->use_radamsa > 1) {
+
       FATAL("Radamsa in radamsa-only mode can not run together with -L");
+
+    }
 
     OKF("Using Radamsa add-on");
 
@@ -731,13 +834,16 @@ int main(int argc, char **argv_orig, char **envp) {
     void *handle = dlopen(libradamsa_path, RTLD_NOW);
     ck_free(libradamsa_path);
 
-    if (!handle) FATAL("Failed to dlopen() libradamsa");
+    if (!handle) { FATAL("Failed to dlopen() libradamsa"); }
 
     void (*radamsa_init_ptr)(void) = dlsym(handle, "radamsa_init");
     afl->radamsa_mutate_ptr = dlsym(handle, "radamsa");
 
-    if (!radamsa_init_ptr || !afl->radamsa_mutate_ptr)
+    if (!radamsa_init_ptr || !afl->radamsa_mutate_ptr) {
+
       FATAL("Failed to dlsym() libradamsa");
+
+    }
 
     /* randamsa_init installs some signal hadlers, call it before
        setup_signal_handlers so that AFL++ can then replace those signal
@@ -761,79 +867,112 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->power_name = power_names[afl->schedule];
 
-  if (afl->sync_id) fix_up_sync(afl);
+  if (afl->sync_id) { fix_up_sync(afl); }
 
-  if (!strcmp(afl->in_dir, afl->out_dir))
+  if (!strcmp(afl->in_dir, afl->out_dir)) {
+
     FATAL("Input and output directories can't be the same");
-
-  if (afl->dumb_mode) {
-
-    if (afl->crash_mode) FATAL("-C and -n are mutually exclusive");
-    if (afl->fsrv.qemu_mode) FATAL("-Q and -n are mutually exclusive");
-    if (afl->unicorn_mode) FATAL("-U and -n are mutually exclusive");
 
   }
 
-  if (get_afl_env("AFL_DISABLE_TRIM")) afl->disable_trim = 1;
+  if (afl->dumb_mode) {
 
-  if (getenv("AFL_NO_UI") && getenv("AFL_FORCE_UI"))
+    if (afl->crash_mode) { FATAL("-C and -n are mutually exclusive"); }
+    if (afl->fsrv.qemu_mode) { FATAL("-Q and -n are mutually exclusive"); }
+    if (afl->unicorn_mode) { FATAL("-U and -n are mutually exclusive"); }
+
+  }
+
+  if (get_afl_env("AFL_DISABLE_TRIM")) { afl->disable_trim = 1; }
+
+  if (getenv("AFL_NO_UI") && getenv("AFL_FORCE_UI")) {
+
     FATAL("AFL_NO_UI and AFL_FORCE_UI are mutually exclusive");
 
-  if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode)
+  }
+
+  if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
+
     WARNF(cLRD
           "Target binary called without a prefixed path, make sure you are "
           "fuzzing the right binary: " cRST "%s",
           argv[optind]);
 
+  }
+
   ACTF("Getting to work...");
 
   switch (afl->schedule) {
 
-    case FAST: OKF("Using exponential power schedule (FAST)"); break;
-    case COE: OKF("Using cut-off exponential power schedule (COE)"); break;
+    case FAST:
+      OKF("Using exponential power schedule (FAST)");
+      break;
+    case COE:
+      OKF("Using cut-off exponential power schedule (COE)");
+      break;
     case EXPLOIT:
       OKF("Using exploitation-based constant power schedule (EXPLOIT)");
       break;
-    case LIN: OKF("Using linear power schedule (LIN)"); break;
-    case QUAD: OKF("Using quadratic power schedule (QUAD)"); break;
-    case MMOPT: OKF("Using modified MOpt power schedule (MMOPT)"); break;
-    case RARE: OKF("Using rare edge focus power schedule (RARE)"); break;
+    case LIN:
+      OKF("Using linear power schedule (LIN)");
+      break;
+    case QUAD:
+      OKF("Using quadratic power schedule (QUAD)");
+      break;
+    case MMOPT:
+      OKF("Using modified MOpt power schedule (MMOPT)");
+      break;
+    case RARE:
+      OKF("Using rare edge focus power schedule (RARE)");
+      break;
     case EXPLORE:
       OKF("Using exploration-based constant power schedule (EXPLORE, default)");
       break;
-    default: FATAL("Unknown power schedule"); break;
+    default:
+      FATAL("Unknown power schedule");
+      break;
 
   }
 
-  if (get_afl_env("AFL_NO_FORKSRV")) afl->no_forkserver = 1;
-  if (get_afl_env("AFL_NO_CPU_RED")) afl->no_cpu_meter_red = 1;
-  if (get_afl_env("AFL_NO_ARITH")) afl->no_arith = 1;
-  if (get_afl_env("AFL_SHUFFLE_QUEUE")) afl->shuffle_queue = 1;
-  if (get_afl_env("AFL_FAST_CAL")) afl->fast_cal = 1;
+  if (get_afl_env("AFL_NO_FORKSRV")) { afl->no_forkserver = 1; }
+  if (get_afl_env("AFL_NO_CPU_RED")) { afl->no_cpu_meter_red = 1; }
+  if (get_afl_env("AFL_NO_ARITH")) { afl->no_arith = 1; }
+  if (get_afl_env("AFL_SHUFFLE_QUEUE")) { afl->shuffle_queue = 1; }
+  if (get_afl_env("AFL_FAST_CAL")) { afl->fast_cal = 1; }
 
   if (afl->afl_env.afl_autoresume) {
 
     afl->autoresume = 1;
-    if (afl->in_place_resume) SAYF("AFL_AUTORESUME has no effect for '-i -'");
+    if (afl->in_place_resume) {
+
+      SAYF("AFL_AUTORESUME has no effect for '-i -'");
+
+    }
 
   }
 
   if (afl->afl_env.afl_hang_tmout) {
 
     afl->hang_tmout = atoi(afl->afl_env.afl_hang_tmout);
-    if (!afl->hang_tmout) FATAL("Invalid value of AFL_HANG_TMOUT");
+    if (!afl->hang_tmout) { FATAL("Invalid value of AFL_HANG_TMOUT"); }
 
   }
 
-  if (afl->dumb_mode == 2 && afl->no_forkserver)
+  if (afl->dumb_mode == 2 && afl->no_forkserver) {
+
     FATAL("AFL_DUMB_FORKSRV and AFL_NO_FORKSRV are mutually exclusive");
+
+  }
 
   afl->fsrv.use_fauxsrv = afl->dumb_mode == 1 || afl->no_forkserver;
 
-  if (getenv("LD_PRELOAD"))
+  if (getenv("LD_PRELOAD")) {
+
     WARNF(
         "LD_PRELOAD is set, are you sure that is what to you want to do "
         "instead of using AFL_PRELOAD?");
+
+  }
 
   if (afl->afl_env.afl_preload) {
 
@@ -846,19 +985,27 @@ int main(int argc, char **argv_orig, char **envp) {
       s32 i, afl_preload_size = strlen(afl_preload);
       for (i = 0; i < afl_preload_size; ++i) {
 
-        if (afl_preload[i] == ',')
+        if (afl_preload[i] == ',') {
+
           PFATAL(
               "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
               "specified!");
 
+        }
+
       }
 
-      if (qemu_preload)
+      if (qemu_preload) {
+
         buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
                            qemu_preload, afl_preload, afl_preload);
-      else
+
+      } else {
+
         buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
                            afl_preload, afl_preload);
+
+      }
 
       setenv("QEMU_SET_ENV", buf, 1);
 
@@ -873,15 +1020,18 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (getenv("AFL_LD_PRELOAD"))
+  if (getenv("AFL_LD_PRELOAD")) {
+
     FATAL("Use AFL_PRELOAD instead of AFL_LD_PRELOAD");
+
+  }
 
   save_cmdline(afl, argc, argv);
 
   fix_up_banner(afl, argv[optind]);
 
   check_if_tty(afl);
-  if (afl->afl_env.afl_force_ui) afl->not_on_tty = 0;
+  if (afl->afl_env.afl_force_ui) { afl->not_on_tty = 0; }
 
   if (afl->afl_env.afl_cal_fast) {
 
@@ -910,13 +1060,14 @@ int main(int argc, char **argv_orig, char **envp) {
   check_crash_handling();
   check_cpu_governor(afl);
 
-  afl->fsrv.trace_bits = afl_shm_init(&afl->shm, MAP_SIZE, afl->dumb_mode);
+  afl->fsrv.trace_bits =
+      afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->dumb_mode);
 
   setup_post(afl);
 
-  if (!afl->in_bitmap) memset(afl->virgin_bits, 255, MAP_SIZE);
-  memset(afl->virgin_tmout, 255, MAP_SIZE);
-  memset(afl->virgin_crash, 255, MAP_SIZE);
+  if (!afl->in_bitmap) { memset(afl->virgin_bits, 255, afl->fsrv.map_size); }
+  memset(afl->virgin_tmout, 255, afl->fsrv.map_size);
+  memset(afl->virgin_crash, 255, afl->fsrv.map_size);
 
   init_count_class16();
 
@@ -931,9 +1082,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   pivot_inputs(afl);
 
-  if (extras_dir) load_extras(afl, extras_dir);
+  if (extras_dir) { load_extras(afl, extras_dir); }
 
-  if (!afl->timeout_given) find_timeout(afl);
+  if (!afl->timeout_given) { find_timeout(afl); }
 
   if ((afl->tmp_dir = afl->afl_env.afl_tmpdir) != NULL &&
       !afl->in_place_resume) {
@@ -952,15 +1103,20 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     /* there is still a race condition here, but well ... */
-    if (access(tmpfile, F_OK) != -1)
+    if (access(tmpfile, F_OK) != -1) {
+
       FATAL(
           "AFL_TMPDIR already has an existing temporary input file: %s - if "
           "this is not from another instance, then just remove the file.",
           tmpfile);
 
-  } else
+    }
+
+  } else {
 
     afl->tmp_dir = afl->out_dir;
+
+  }
 
   /* If we don't have a file name chosen yet, use a safe default. */
 
@@ -998,13 +1154,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (!afl->fsrv.out_file) setup_stdio_file(afl);
+  if (!afl->fsrv.out_file) { setup_stdio_file(afl); }
 
   if (afl->cmplog_binary) {
 
-    if (afl->unicorn_mode)
+    if (afl->unicorn_mode) {
+
       FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");
-    if (!afl->fsrv.qemu_mode) check_binary(afl, afl->cmplog_binary);
+
+    }
+
+    if (!afl->fsrv.qemu_mode) { check_binary(afl, afl->cmplog_binary); }
 
   }
 
@@ -1014,12 +1174,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->fsrv.qemu_mode) {
 
-    if (afl->use_wine)
+    if (afl->use_wine) {
+
       use_argv = get_wine_argv(argv[0], &afl->fsrv.target_path, argc - optind,
                                argv + optind);
-    else
+
+    } else {
+
       use_argv = get_qemu_argv(argv[0], &afl->fsrv.target_path, argc - optind,
                                argv + optind);
+
+    }
 
   } else {
 
@@ -1055,7 +1220,7 @@ int main(int argc, char **argv_orig, char **envp) {
   maybe_update_plot_file(afl, 0, 0);
   save_auto(afl);
 
-  if (afl->stop_soon) goto stop_fuzzing;
+  if (afl->stop_soon) { goto stop_fuzzing; }
 
   /* Woop woop woop */
 
@@ -1063,7 +1228,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     sleep(4);
     afl->start_time += 4000;
-    if (afl->stop_soon) goto stop_fuzzing;
+    if (afl->stop_soon) { goto stop_fuzzing; }
 
   }
 
@@ -1105,20 +1270,30 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (afl->queued_paths == prev_queued) {
 
-        if (afl->use_splicing)
+        if (afl->use_splicing) {
+
           ++afl->cycles_wo_finds;
-        else
+
+        } else {
+
           afl->use_splicing = 1;
 
-      } else
+        }
+
+      } else {
 
         afl->cycles_wo_finds = 0;
+
+      }
 
       prev_queued = afl->queued_paths;
 
       if (afl->sync_id && afl->queue_cycle == 1 &&
-          afl->afl_env.afl_import_first)
+          afl->afl_env.afl_import_first) {
+
         sync_fuzzers(afl);
+
+      }
 
     }
 
@@ -1126,13 +1301,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (!skipped_fuzz && !afl->stop_soon && afl->sync_id) {
 
-      if (!(sync_interval_cnt++ % SYNC_INTERVAL)) sync_fuzzers(afl);
+      if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
 
     }
 
-    if (!afl->stop_soon && exit_1) afl->stop_soon = 2;
+    if (!afl->stop_soon && exit_1) { afl->stop_soon = 2; }
 
-    if (afl->stop_soon) break;
+    if (afl->stop_soon) { break; }
 
     afl->queue_cur = afl->queue_cur->next;
     ++afl->current_entry;
@@ -1152,10 +1327,17 @@ stop_fuzzing:
   SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
        afl->stop_soon == 2 ? "programmatically" : "by user");
 
-  if (afl->most_time_key == 2)
+  if (afl->most_time_key == 2) {
+
     SAYF(cYEL "[!] " cRST "Time limit was reached\n");
-  if (afl->most_execs_key == 2)
+
+  }
+
+  if (afl->most_execs_key == 2) {
+
     SAYF(cYEL "[!] " cRST "Execution limit was reached\n");
+
+  }
 
   /* Running for more than 30 minutes but still doing first cycle? */
 
@@ -1175,7 +1357,7 @@ stop_fuzzing:
   destroy_custom_mutator(afl);
   afl_shm_deinit(&afl->shm);
   afl_fsrv_deinit(&afl->fsrv);
-  if (afl->orig_cmdline) ck_free(afl->orig_cmdline);
+  if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
   ck_free(afl->fsrv.target_path);
   ck_free(afl->fsrv.out_file);
   ck_free(afl->sync_id);

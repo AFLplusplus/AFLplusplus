@@ -47,10 +47,10 @@ M32FLAG=$(___M32FLAG)
 all: socketfuzz32.so socketfuzz64.so
 
 socketfuzz32.so: socketfuzz.c
-	-$(CC) $(M32FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ || echo "socketfuzz32 build failure (that's fine)"
+	-@$(CC) $(M32FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ 2>/dev/null || echo "socketfuzz32 build failure (that's fine)"
 
 socketfuzz64.so: socketfuzz.c
-	-$(CC) $(M64FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ || echo "socketfuzz64 build failure (that's fine)"
+	-@$(CC) $(M64FLAG) $(CFLAGS) $^ $(LDFLAGS) -o $@ 2>/dev/null || echo "socketfuzz64 build failure (that's fine)"
 
 install: socketfuzz32.so socketfuzz64.so
 	install -d -m 755 $(DESTDIR)$(HELPER_PATH)/

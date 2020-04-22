@@ -293,8 +293,8 @@ static void print_mappings(void) {
 
 void afl_forkserver(CPUState *cpu) {
 
-  u32                  map_size = 0;
-  static unsigned char tmp[4] = {0, 0, 0, 0};
+  u32           map_size = 0;
+  unsigned char tmp[4] = {0};
 
   if (forkserver_installed == 1) return;
   forkserver_installed = 1;

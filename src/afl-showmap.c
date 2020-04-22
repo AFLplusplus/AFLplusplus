@@ -52,6 +52,7 @@
 #include <signal.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include <sys/wait.h>
 #include <sys/time.h>
@@ -71,6 +72,8 @@ static u32 total, highest;             /* tuple content information         */
 
 static u32 in_len,                     /* Input data length                 */
     arg_offset;                        /* Total number of execs             */
+
+static u32 map_size = MAP_SIZE;
 
 static u8 quiet_mode,                  /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
@@ -112,13 +115,13 @@ static void classify_counts(afl_forkserver_t *fsrv) {
   u8 *      mem = fsrv->trace_bits;
   const u8 *map = binary_mode ? count_class_binary : count_class_human;
 
-  u32 i = MAP_SIZE;
+  u32 i = map_size;
 
   if (edges_only) {
 
     while (i--) {
 
-      if (*mem) *mem = 1;
+      if (*mem) { *mem = 1; }
       mem++;
 
     }
@@ -140,7 +143,7 @@ static void classify_counts(afl_forkserver_t *fsrv) {
 
 static void at_exit_handler(void) {
 
-  if (stdin_file) unlink(stdin_file);
+  if (stdin_file) { unlink(stdin_file); }
 
 }
 
@@ -154,57 +157,64 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
   u8 cco = !!getenv("AFL_CMIN_CRASHES_ONLY"),
      caa = !!getenv("AFL_CMIN_ALLOW_ANY");
 
+  if (!outfile) { FATAL("Output filename not set (Bug in AFL++?)"); }
+
   if (!strncmp(outfile, "/dev/", 5)) {
 
     fd = open(outfile, O_WRONLY);
 
-    if (fd < 0) PFATAL("Unable to open '%s'", out_file);
+    if (fd < 0) { PFATAL("Unable to open '%s'", out_file); }
 
   } else if (!strcmp(outfile, "-")) {
 
     fd = dup(1);
-    if (fd < 0) PFATAL("Unable to open stdout");
+    if (fd < 0) { PFATAL("Unable to open stdout"); }
 
   } else {
 
     unlink(outfile);                                       /* Ignore errors */
     fd = open(outfile, O_WRONLY | O_CREAT | O_EXCL, 0600);
-    if (fd < 0) PFATAL("Unable to create '%s'", outfile);
+    if (fd < 0) { PFATAL("Unable to create '%s'", outfile); }
 
   }
 
   if (binary_mode) {
 
-    for (i = 0; i < MAP_SIZE; i++)
-      if (fsrv->trace_bits[i]) ret++;
+    for (i = 0; i < map_size; i++) {
 
-    ck_write(fd, fsrv->trace_bits, MAP_SIZE, outfile);
+      if (fsrv->trace_bits[i]) { ret++; }
+
+    }
+
+    ck_write(fd, fsrv->trace_bits, map_size, outfile);
     close(fd);
 
   } else {
 
     FILE *f = fdopen(fd, "w");
 
-    if (!f) PFATAL("fdopen() failed");
+    if (!f) { PFATAL("fdopen() failed"); }
 
-    for (i = 0; i < MAP_SIZE; i++) {
+    for (i = 0; i < map_size; i++) {
 
-      if (!fsrv->trace_bits[i]) continue;
+      if (!fsrv->trace_bits[i]) { continue; }
       ret++;
 
       total += fsrv->trace_bits[i];
-      if (highest < fsrv->trace_bits[i]) highest = fsrv->trace_bits[i];
+      if (highest < fsrv->trace_bits[i]) { highest = fsrv->trace_bits[i]; }
 
       if (cmin_mode) {
 
-        if (fsrv->last_run_timed_out) break;
-        if (!caa && child_crashed != cco) break;
+        if (fsrv->last_run_timed_out) { break; }
+        if (!caa && child_crashed != cco) { break; }
 
         fprintf(f, "%u%u\n", fsrv->trace_bits[i], i);
 
-      } else
+      } else {
 
         fprintf(f, "%06u:%u\n", i, fsrv->trace_bits[i]);
+
+      }
 
     }
 
@@ -218,8 +228,8 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
 /* Execute target application. */
 
-static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, char **argv, u8 *mem,
-                           u32 len) {
+static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, char **argv,
+                                          u8 *mem, u32 len) {
 
   afl_fsrv_write_to_testcase(fsrv, mem, len);
 
@@ -248,10 +258,13 @@ static u32 read_file(u8 *in_file) {
   struct stat st;
   s32         fd = open(in_file, O_RDONLY);
 
-  if (fd < 0) WARNF("Unable to open '%s'", in_file);
+  if (fd < 0) { WARNF("Unable to open '%s'", in_file); }
 
-  if (fstat(fd, &st) || !st.st_size)
+  if (fstat(fd, &st) || !st.st_size) {
+
     WARNF("Zero-sized input file '%s'.", in_file);
+
+  }
 
   in_len = st.st_size;
   in_data = ck_alloc_nozero(in_len);
@@ -273,13 +286,13 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
   static struct itimerval it;
   int                     status = 0;
 
-  if (!quiet_mode) SAYF("-- Program output begins --\n" cRST);
+  if (!quiet_mode) { SAYF("-- Program output begins --\n" cRST); }
 
   MEM_BARRIER();
 
   fsrv->child_pid = fork();
 
-  if (fsrv->child_pid < 0) PFATAL("fork() failed");
+  if (fsrv->child_pid < 0) { PFATAL("fork() failed"); }
 
   if (!fsrv->child_pid) {
 
@@ -316,14 +329,19 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
     }
 
-    if (!keep_cores)
+    if (!keep_cores) {
+
       r.rlim_max = r.rlim_cur = 0;
-    else
+
+    } else {
+
       r.rlim_max = r.rlim_cur = RLIM_INFINITY;
+
+    }
 
     setrlimit(RLIMIT_CORE, &r);                            /* Ignore errors */
 
-    if (!getenv("LD_BIND_LAZY")) setenv("LD_BIND_NOW", "1", 0);
+    if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 0); }
 
     setsid();
 
@@ -346,7 +364,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  if (waitpid(fsrv->child_pid, &status, 0) <= 0) FATAL("waitpid() failed");
+  if (waitpid(fsrv->child_pid, &status, 0) <= 0) { FATAL("waitpid() failed"); }
 
   fsrv->child_pid = 0;
   it.it_value.tv_sec = 0;
@@ -357,25 +375,38 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)
+  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG) {
+
     FATAL("Unable to execute '%s'", argv[0]);
+
+  }
 
   classify_counts(fsrv);
 
-  if (!quiet_mode) SAYF(cRST "-- Program output ends --\n");
+  if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
 
-  if (!fsrv->last_run_timed_out && !stop_soon && WIFSIGNALED(status))
+  if (!fsrv->last_run_timed_out && !stop_soon && WIFSIGNALED(status)) {
+
     child_crashed = 1;
+
+  }
 
   if (!quiet_mode) {
 
-    if (fsrv->last_run_timed_out)
+    if (fsrv->last_run_timed_out) {
+
       SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
-    else if (stop_soon)
+
+    } else if (stop_soon) {
+
       SAYF(cLRD "\n+++ Program aborted by user +++\n" cRST);
-    else if (child_crashed)
+
+    } else if (child_crashed) {
+
       SAYF(cLRD "\n+++ Program killed by signal %u +++\n" cRST,
            WTERMSIG(status));
+
+    }
 
   }
 
@@ -418,19 +449,27 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
       s32 i, afl_preload_size = strlen(afl_preload);
       for (i = 0; i < afl_preload_size; ++i) {
 
-        if (afl_preload[i] == ',')
+        if (afl_preload[i] == ',') {
+
           PFATAL(
               "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
               "specified!");
 
+        }
+
       }
 
-      if (qemu_preload)
+      if (qemu_preload) {
+
         buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
                            qemu_preload, afl_preload, afl_preload);
-      else
+
+      } else {
+
         buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
                            afl_preload, afl_preload);
+
+      }
 
       setenv("QEMU_SET_ENV", buf, 1);
 
@@ -486,11 +525,9 @@ static void usage(u8 *argv0) {
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
       "Required parameters:\n"
-
       "  -o file       - file to write the trace data to\n\n"
 
       "Execution control settings:\n"
-
       "  -t msec       - timeout for each run (none)\n"
       "  -m megs       - memory limit for child process (%d MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
@@ -498,9 +535,7 @@ static void usage(u8 *argv0) {
       "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
-
       "Other settings:\n"
-
       "  -i dir        - process all files in this directory, -o must be a "
       "directory\n"
       "                  and each bitmap will be written there individually.\n"
@@ -513,13 +548,16 @@ static void usage(u8 *argv0) {
       "For additional help, consult %s/README.md.\n\n"
 
       "Environment variables used:\n"
-      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_DEBUG: enable extra developer output\n"
-      "AFL_QUIET: do not print extra informational output"
+      "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
       "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
       "inputs\n"
       "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing inputs also\n"
-      "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n",
+      "AFL_DEBUG: enable extra developer output\n"
+      "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
+      "size\n"
+      "              the target was compiled for\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_QUIET: do not print extra informational output",
       argv0, MEM_LIMIT, doc_path);
 
   exit(1);
@@ -542,23 +580,25 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_forkserver_t  fsrv_var = {0};
   afl_forkserver_t *fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
+  map_size = get_map_size();
+  fsrv->map_size = map_size;
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
-  if (getenv("AFL_QUIET") != NULL) be_quiet = 1;
+  if (getenv("AFL_QUIET") != NULL) { be_quiet = 1; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqZQUWbcrh")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqZQUWbcrh")) > 0) {
 
     switch (opt) {
 
       case 'i':
-        if (in_dir) FATAL("Multiple -i options not supported");
+        if (in_dir) { FATAL("Multiple -i options not supported"); }
         in_dir = optarg;
         break;
 
       case 'o':
 
-        if (out_file) FATAL("Multiple -o options not supported");
+        if (out_file) { FATAL("Multiple -o options not supported"); }
         out_file = optarg;
         break;
 
@@ -566,10 +606,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8 suffix = 'M';
 
-        if (mem_limit_given) FATAL("Multiple -m options not supported");
+        if (mem_limit_given) { FATAL("Multiple -m options not supported"); }
         mem_limit_given = 1;
 
-        if (!optarg) FATAL("Wrong usage of -m");
+        if (!optarg) { FATAL("Wrong usage of -m"); }
 
         if (!strcmp(optarg, "none")) {
 
@@ -579,24 +619,38 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         if (sscanf(optarg, "%llu%c", &fsrv->mem_limit, &suffix) < 1 ||
-            optarg[0] == '-')
+            optarg[0] == '-') {
+
           FATAL("Bad syntax used for -m");
-
-        switch (suffix) {
-
-          case 'T': fsrv->mem_limit *= 1024 * 1024; break;
-          case 'G': fsrv->mem_limit *= 1024; break;
-          case 'k': fsrv->mem_limit /= 1024; break;
-          case 'M': break;
-
-          default: FATAL("Unsupported suffix or bad syntax for -m");
 
         }
 
-        if (fsrv->mem_limit < 5) FATAL("Dangerously low value of -m");
+        switch (suffix) {
 
-        if (sizeof(rlim_t) == 4 && fsrv->mem_limit > 2000)
+          case 'T':
+            fsrv->mem_limit *= 1024 * 1024;
+            break;
+          case 'G':
+            fsrv->mem_limit *= 1024;
+            break;
+          case 'k':
+            fsrv->mem_limit /= 1024;
+            break;
+          case 'M':
+            break;
+
+          default:
+            FATAL("Unsupported suffix or bad syntax for -m");
+
+        }
+
+        if (fsrv->mem_limit < 5) { FATAL("Dangerously low value of -m"); }
+
+        if (sizeof(rlim_t) == 4 && fsrv->mem_limit > 2000) {
+
           FATAL("Value of -m out of range on 32-bit systems");
+
+        }
 
       }
 
@@ -611,17 +665,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 't':
 
-        if (timeout_given) FATAL("Multiple -t options not supported");
+        if (timeout_given) { FATAL("Multiple -t options not supported"); }
         timeout_given = 1;
 
-        if (!optarg) FATAL("Wrong usage of -t");
+        if (!optarg) { FATAL("Wrong usage of -t"); }
 
         if (strcmp(optarg, "none")) {
 
           fsrv->exec_tmout = atoi(optarg);
 
-          if (fsrv->exec_tmout < 20 || optarg[0] == '-')
+          if (fsrv->exec_tmout < 20 || optarg[0] == '-') {
+
             FATAL("Dangerously low value of -t");
+
+          }
 
         }
 
@@ -629,14 +686,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'e':
 
-        if (edges_only) FATAL("Multiple -e options not supported");
-        if (raw_instr_output) FATAL("-e and -r are mutually exclusive");
+        if (edges_only) { FATAL("Multiple -e options not supported"); }
+        if (raw_instr_output) { FATAL("-e and -r are mutually exclusive"); }
         edges_only = 1;
         break;
 
       case 'q':
 
-        if (quiet_mode) FATAL("Multiple -q options not supported");
+        if (quiet_mode) { FATAL("Multiple -q options not supported"); }
         quiet_mode = 1;
         break;
 
@@ -656,27 +713,27 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'Q':
 
-        if (fsrv->qemu_mode) FATAL("Multiple -Q options not supported");
-        if (!mem_limit_given) fsrv->mem_limit = MEM_LIMIT_QEMU;
+        if (fsrv->qemu_mode) { FATAL("Multiple -Q options not supported"); }
+        if (!mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_QEMU; }
 
         fsrv->qemu_mode = 1;
         break;
 
       case 'U':
 
-        if (unicorn_mode) FATAL("Multiple -U options not supported");
-        if (!mem_limit_given) fsrv->mem_limit = MEM_LIMIT_UNICORN;
+        if (unicorn_mode) { FATAL("Multiple -U options not supported"); }
+        if (!mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
 
         unicorn_mode = 1;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
 
-        if (use_wine) FATAL("Multiple -W options not supported");
+        if (use_wine) { FATAL("Multiple -W options not supported"); }
         fsrv->qemu_mode = 1;
         use_wine = 1;
 
-        if (!mem_limit_given) fsrv->mem_limit = 0;
+        if (!mem_limit_given) { fsrv->mem_limit = 0; }
 
         break;
 
@@ -690,14 +747,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'c':
 
-        if (keep_cores) FATAL("Multiple -c options not supported");
+        if (keep_cores) { FATAL("Multiple -c options not supported"); }
         keep_cores = 1;
         break;
 
       case 'r':
 
-        if (raw_instr_output) FATAL("Multiple -r options not supported");
-        if (edges_only) FATAL("-e and -r are mutually exclusive");
+        if (raw_instr_output) { FATAL("Multiple -r options not supported"); }
+        if (edges_only) { FATAL("-e and -r are mutually exclusive"); }
         raw_instr_output = 1;
         break;
 
@@ -706,16 +763,19 @@ int main(int argc, char **argv_orig, char **envp) {
         return -1;
         break;
 
-      default: usage(argv[0]);
+      default:
+        usage(argv[0]);
 
     }
 
-  if (optind == argc || !out_file) usage(argv[0]);
+  }
+
+  if (optind == argc || !out_file) { usage(argv[0]); }
 
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  fsrv->trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
+  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   setup_signal_handlers();
 
   set_up_environment(fsrv);
@@ -731,7 +791,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (in_dir) {
 
-    if (at_file) PFATAL("Options -A and -i are mutually exclusive");
+    if (at_file) { PFATAL("Options -A and -i are mutually exclusive"); }
     detect_file_args(argv + optind, "", &fsrv->use_stdin);
 
   } else {
@@ -740,21 +800,31 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  for (i = optind; i < argc; i++)
-    if (strcmp(argv[i], "@@") == 0) arg_offset = i;
+  for (i = optind; i < argc; i++) {
+
+    if (strcmp(argv[i], "@@") == 0) { arg_offset = i; }
+
+  }
 
   if (fsrv->qemu_mode) {
 
-    if (use_wine)
+    if (use_wine) {
+
       use_argv = get_wine_argv(argv[0], &fsrv->target_path, argc - optind,
                                argv + optind);
-    else
+
+    } else {
+
       use_argv = get_qemu_argv(argv[0], &fsrv->target_path, argc - optind,
                                argv + optind);
 
-  } else
+    }
+
+  } else {
 
     use_argv = argv + optind;
+
+  }
 
   if (in_dir) {
 
@@ -767,20 +837,30 @@ int main(int argc, char **argv_orig, char **envp) {
 #endif
 
     fsrv->dev_null_fd = open("/dev/null", O_RDWR);
-    if (fsrv->dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+    if (fsrv->dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
 
-    if (!(dir_in = opendir(in_dir))) PFATAL("cannot open directory %s", in_dir);
+    if (!(dir_in = opendir(in_dir))) {
 
-    if (!(dir_out = opendir(out_file)))
-      if (mkdir(out_file, 0700))
+      PFATAL("cannot open directory %s", in_dir);
+
+    }
+
+    if (!(dir_out = opendir(out_file))) {
+
+      if (mkdir(out_file, 0700)) {
+
         PFATAL("cannot create output directory %s", out_file);
+
+      }
+
+    }
 
     u8 *use_dir = ".";
 
     if (access(use_dir, R_OK | W_OK | X_OK)) {
 
       use_dir = get_afl_env("TMPDIR");
-      if (!use_dir) use_dir = "/tmp";
+      if (!use_dir) { use_dir = "/tmp"; }
 
     }
 
@@ -788,7 +868,7 @@ int main(int argc, char **argv_orig, char **envp) {
     unlink(stdin_file);
     atexit(at_exit_handler);
     fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
-    if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", out_file);
+    if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
 
     if (arg_offset && argv[arg_offset] != stdin_file) {
 
@@ -801,8 +881,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
       int i = optind;
       SAYF(cMGN "[D]" cRST " %s:", fsrv->target_path);
-      while (argv[i] != NULL)
+      while (argv[i] != NULL) {
+
         SAYF(" \"%s\"", argv[i++]);
+
+      }
+
       SAYF("\n");
       SAYF(cMGN "[D]" cRST " %d - %d = %d, %s\n", arg_offset, optind,
            arg_offset - optind, infile);
@@ -814,11 +898,19 @@ int main(int argc, char **argv_orig, char **envp) {
 
     while (done == 0 && (dir_ent = readdir(dir_in))) {
 
-      if (dir_ent->d_name[0] == '.')
+      if (dir_ent->d_name[0] == '.') {
+
         continue;  // skip anything that starts with '.'
 
+      }
+
 #if defined(DT_REG)      /* Posix and Solaris do not know d_type and DT_REG */
-      if (dir_ent->d_type != DT_REG) continue;  // only regular files
+      if (dir_ent->d_type != DT_REG) {
+
+        continue;  // only regular files
+
+      }
+
 #endif
 
       snprintf(infile, sizeof(infile), "%s/%s", in_dir, dir_ent->d_name);
@@ -839,10 +931,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (!quiet_mode) OKF("Processed %llu input files.", fsrv->total_execs);
+    if (!quiet_mode) { OKF("Processed %llu input files.", fsrv->total_execs); }
 
     closedir(dir_in);
-    if (dir_out) closedir(dir_out);
+    if (dir_out) { closedir(dir_out); }
 
   } else {
 
@@ -853,7 +945,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!quiet_mode) {
 
-    if (!tcnt) FATAL("No instrumentation detected" cRST);
+    if (!tcnt) { FATAL("No instrumentation detected" cRST); }
     OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST,
         tcnt, highest, total, out_file);
 
@@ -871,12 +963,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   u32 ret = child_crashed * 2 + fsrv->last_run_timed_out;
 
-  if (fsrv->target_path) ck_free(fsrv->target_path);
+  if (fsrv->target_path) { ck_free(fsrv->target_path); }
 
   afl_fsrv_deinit(fsrv);
-  if (stdin_file) ck_free(stdin_file);
+  if (stdin_file) { ck_free(stdin_file); }
 
   argv_cpy_free(argv);
+  if (fsrv->qemu_mode) { free(use_argv[2]); }
 
   exit(ret);
 

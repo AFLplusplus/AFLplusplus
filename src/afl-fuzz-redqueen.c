@@ -73,10 +73,15 @@ static struct range *pop_biggest_range(struct range **ranges) {
 
   if (rmax) {
 
-    if (prev_rmax)
+    if (prev_rmax) {
+
       prev_rmax->next = rmax->next;
-    else
+
+    } else {
+
       *ranges = rmax->next;
+
+    }
 
   }
 
@@ -86,7 +91,7 @@ static struct range *pop_biggest_range(struct range **ranges) {
 
 static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u32 *cksum) {
 
-  if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
+  if (unlikely(common_fuzz_stuff(afl, buf, len))) { return 1; }
 
   *cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
   return 0;
@@ -96,8 +101,11 @@ static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u32 *cksum) {
 static void rand_replace(afl_state_t *afl, u8 *buf, u32 len) {
 
   u32 i;
-  for (i = 0; i < len; ++i)
+  for (i = 0; i < len; ++i) {
+
     buf[i] = rand_below(afl, 256);
+
+  }
 
 }
 
@@ -131,8 +139,11 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
 
       u32 cksum;
       u64 start_us = get_cur_time_us();
-      if (unlikely(get_exec_checksum(afl, buf, len, &cksum)))
+      if (unlikely(get_exec_checksum(afl, buf, len, &cksum))) {
+
         goto checksum_fail;
+
+      }
 
       u64 stop_us = get_cur_time_us();
 
@@ -159,7 +170,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
 
   }
 
-  if (afl->stage_cur < afl->stage_max) afl->queue_cur->fully_colorized = 1;
+  if (afl->stage_cur < afl->stage_max) { afl->queue_cur->fully_colorized = 1; }
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
   afl->stage_finds[STAGE_COLORIZATION] += new_hit_cnt - orig_hit_cnt;
@@ -174,6 +185,9 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
     rng = NULL;
 
   }
+
+  ck_free(rng);
+  rng = NULL;
 
   // save the input with the high entropy
 
@@ -192,7 +206,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
 
     }
 
-    if (fd < 0) PFATAL("Unable to create '%s'", afl->queue_cur->fname);
+    if (fd < 0) { PFATAL("Unable to create '%s'", afl->queue_cur->fname); }
 
     ck_write(fd, buf, len, afl->queue_cur->fname);
     afl->queue_cur->len = len;  // no-op, just to be 100% safe
@@ -204,7 +218,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
   return 0;
 
 checksum_fail:
-  if (rng) ck_free(rng);
+  if (rng) { ck_free(rng); }
   ck_free(backup);
 
   while (ranges) {
@@ -230,14 +244,19 @@ static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
-  if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
+  if (unlikely(common_fuzz_stuff(afl, buf, len))) { return 1; }
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
-  if (unlikely(new_hit_cnt != orig_hit_cnt))
+  if (unlikely(new_hit_cnt != orig_hit_cnt)) {
+
     *status = 1;
-  else
+
+  } else {
+
     *status = 2;
+
+  }
 
   return 0;
 
@@ -265,17 +284,23 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     if (its_len >= 8 && *buf_64 == pattern && *o_buf_64 == o_pattern) {
 
       *buf_64 = repl;
-      if (unlikely(its_fuzz(afl, buf, len, status))) return 1;
+      if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
       *buf_64 = pattern;
 
     }
 
     // reverse encoding
-    if (do_reverse)
+    if (do_reverse) {
+
       if (unlikely(cmp_extend_encoding(afl, h, SWAP64(pattern), SWAP64(repl),
                                        SWAP64(o_pattern), idx, orig_buf, buf,
-                                       len, 0, status)))
+                                       len, 0, status))) {
+
         return 1;
+
+      }
+
+    }
 
   }
 
@@ -285,17 +310,23 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         *o_buf_32 == (u32)o_pattern) {
 
       *buf_32 = (u32)repl;
-      if (unlikely(its_fuzz(afl, buf, len, status))) return 1;
+      if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
       *buf_32 = pattern;
 
     }
 
     // reverse encoding
-    if (do_reverse)
+    if (do_reverse) {
+
       if (unlikely(cmp_extend_encoding(afl, h, SWAP32(pattern), SWAP32(repl),
                                        SWAP32(o_pattern), idx, orig_buf, buf,
-                                       len, 0, status)))
+                                       len, 0, status))) {
+
         return 1;
+
+      }
+
+    }
 
   }
 
@@ -305,17 +336,23 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         *o_buf_16 == (u16)o_pattern) {
 
       *buf_16 = (u16)repl;
-      if (unlikely(its_fuzz(afl, buf, len, status))) return 1;
+      if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
       *buf_16 = (u16)pattern;
 
     }
 
     // reverse encoding
-    if (do_reverse)
+    if (do_reverse) {
+
       if (unlikely(cmp_extend_encoding(afl, h, SWAP16(pattern), SWAP16(repl),
                                        SWAP16(o_pattern), idx, orig_buf, buf,
-                                       len, 0, status)))
+                                       len, 0, status))) {
+
         return 1;
+
+      }
+
+    }
 
   }
 
@@ -324,7 +361,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     if (its_len >= 1 && *buf_8 == (u8)pattern && *o_buf_8 == (u8)o_pattern) {
 
       *buf_8 = (u8)repl;
-      if (unlikely(its_fuzz(afl, buf, len, status))) return 1;
+      if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
       *buf_8 = (u8)pattern;
 
     }
@@ -343,14 +380,21 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
   u8  cons_ff = 0, cons_0 = 0;
   for (k = 0; k < shape; ++k) {
 
-    if (b[k] == 0)
+    if (b[k] == 0) {
+
       ++cons_0;
-    else if (b[k] == 0xff)
+
+    } else if (b[k] == 0xff) {
+
       ++cons_0;
-    else
+
+    } else {
+
       cons_0 = cons_ff = 0;
 
-    if (cons_0 > 1 || cons_ff > 1) return;
+    }
+
+    if (cons_0 > 1 || cons_ff > 1) { return; }
 
   }
 
@@ -359,7 +403,8 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
   u64 rev;
   switch (shape) {
 
-    case 1: break;
+    case 1:
+      break;
     case 2:
       rev = SWAP16((u16)v);
       maybe_add_auto((u8 *)afl, (u8 *)&rev, shape);
@@ -383,7 +428,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
   u32                i, j, idx;
 
   u32 loggeds = h->hits;
-  if (h->hits > CMP_MAP_H) loggeds = CMP_MAP_H;
+  if (h->hits > CMP_MAP_H) { loggeds = CMP_MAP_H; }
 
   u8 status = 0;
   // opt not in the paper
@@ -410,12 +455,12 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
     } else {
 
-      if (s_v0 != o->v0) s_v0_fixed = 0;
-      if (s_v1 != o->v1) s_v1_fixed = 0;
-      if (s_v0 + 1 != o->v0) s_v0_inc = 0;
-      if (s_v1 + 1 != o->v1) s_v1_inc = 0;
-      if (s_v0 - 1 != o->v0) s_v0_dec = 0;
-      if (s_v1 - 1 != o->v1) s_v1_dec = 0;
+      if (s_v0 != o->v0) { s_v0_fixed = 0; }
+      if (s_v1 != o->v1) { s_v1_fixed = 0; }
+      if (s_v0 + 1 != o->v0) { s_v0_inc = 0; }
+      if (s_v1 + 1 != o->v1) { s_v1_inc = 0; }
+      if (s_v0 - 1 != o->v0) { s_v0_dec = 0; }
+      if (s_v1 - 1 != o->v1) { s_v1_dec = 0; }
       s_v0 = o->v0;
       s_v1 = o->v1;
 
@@ -424,32 +469,56 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
     struct cmp_operands *orig_o = &afl->orig_cmp_map->log[key][i];
 
     // opt not in the paper
-    for (j = 0; j < i; ++j)
+    for (j = 0; j < i; ++j) {
+
       if (afl->shm.cmp_map->log[key][j].v0 == o->v0 &&
-          afl->shm.cmp_map->log[key][i].v1 == o->v1)
+          afl->shm.cmp_map->log[key][i].v1 == o->v1) {
+
         goto cmp_fuzz_next_iter;
+
+      }
+
+    }
 
     for (idx = 0; idx < len && fails < 8; ++idx) {
 
       if (unlikely(cmp_extend_encoding(afl, h, o->v0, o->v1, orig_o->v0, idx,
-                                       orig_buf, buf, len, 1, &status)))
+                                       orig_buf, buf, len, 1, &status))) {
+
         return 1;
-      if (status == 2)
+
+      }
+
+      if (status == 2) {
+
         ++fails;
-      else if (status == 1)
+
+      } else if (status == 1) {
+
         break;
 
+      }
+
       if (unlikely(cmp_extend_encoding(afl, h, o->v1, o->v0, orig_o->v1, idx,
-                                       orig_buf, buf, len, 1, &status)))
+                                       orig_buf, buf, len, 1, &status))) {
+
         return 1;
-      if (status == 2)
+
+      }
+
+      if (status == 2) {
+
         ++fails;
-      else if (status == 1)
+
+      } else if (status == 1) {
+
         break;
+
+      }
 
     }
 
-    if (status == 1) found_one = 1;
+    if (status == 1) { found_one = 1; }
 
     // If failed, add to dictionary
     if (fails == 8) {
@@ -481,7 +550,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
-  if (afl->pass_stats[key].total < 0xff) afl->pass_stats[key].total++;
+  if (afl->pass_stats[key].total < 0xff) { afl->pass_stats[key].total++; }
 
   return 0;
 
@@ -502,11 +571,14 @@ static u8 rtn_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   for (i = 0; i < its_len; ++i) {
 
     if (pattern[idx + i] != buf[idx + i] ||
-        o_pattern[idx + i] != orig_buf[idx + i] || *status == 1)
+        o_pattern[idx + i] != orig_buf[idx + i] || *status == 1) {
+
       break;
 
+    }
+
     buf[idx + i] = repl[idx + i];
-    if (unlikely(its_fuzz(afl, buf, len, status))) return 1;
+    if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
 
   }
 
@@ -521,7 +593,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
   u32                i, j, idx;
 
   u32 loggeds = h->hits;
-  if (h->hits > CMP_MAP_RTN_H) loggeds = CMP_MAP_RTN_H;
+  if (h->hits > CMP_MAP_RTN_H) { loggeds = CMP_MAP_RTN_H; }
 
   u8 status = 0;
   // opt not in the paper
@@ -539,32 +611,56 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
         &((struct cmpfn_operands *)afl->orig_cmp_map->log[key])[i];
 
     // opt not in the paper
-    for (j = 0; j < i; ++j)
+    for (j = 0; j < i; ++j) {
+
       if (!memcmp(&((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[j], o,
-                  sizeof(struct cmpfn_operands)))
+                  sizeof(struct cmpfn_operands))) {
+
         goto rtn_fuzz_next_iter;
+
+      }
+
+    }
 
     for (idx = 0; idx < len && fails < 8; ++idx) {
 
       if (unlikely(rtn_extend_encoding(afl, h, o->v0, o->v1, orig_o->v0, idx,
-                                       orig_buf, buf, len, &status)))
+                                       orig_buf, buf, len, &status))) {
+
         return 1;
-      if (status == 2)
+
+      }
+
+      if (status == 2) {
+
         ++fails;
-      else if (status == 1)
+
+      } else if (status == 1) {
+
         break;
 
+      }
+
       if (unlikely(rtn_extend_encoding(afl, h, o->v1, o->v0, orig_o->v1, idx,
-                                       orig_buf, buf, len, &status)))
+                                       orig_buf, buf, len, &status))) {
+
         return 1;
-      if (status == 2)
+
+      }
+
+      if (status == 2) {
+
         ++fails;
-      else if (status == 1)
+
+      } else if (status == 1) {
+
         break;
+
+      }
 
     }
 
-    if (status == 1) found_one = 1;
+    if (status == 1) { found_one = 1; }
 
     // If failed, add to dictionary
     if (fails == 8) {
@@ -589,7 +685,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
-  if (afl->pass_stats[key].total < 0xff) afl->pass_stats[key].total++;
+  if (afl->pass_stats[key].total < 0xff) { afl->pass_stats[key].total++; }
 
   return 0;
 
@@ -602,25 +698,31 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
                         u32 exec_cksum) {
 
   u8 r = 1;
-  if (afl->orig_cmp_map == NULL)
+  if (afl->orig_cmp_map == NULL) {
+
     afl->orig_cmp_map = ck_alloc_nozero(sizeof(struct cmp_map));
 
-  if (afl->pass_stats == NULL)
+  }
+
+  if (afl->pass_stats == NULL) {
+
     afl->pass_stats = ck_alloc(sizeof(struct afl_pass_stat) * CMP_MAP_W);
+
+  }
 
   // do it manually, forkserver clear only afl->fsrv.trace_bits
   memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
 
-  if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 1;
+  if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) { return 1; }
 
   memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
 
-  if (unlikely(colorization(afl, buf, len, exec_cksum))) return 1;
+  if (unlikely(colorization(afl, buf, len, exec_cksum))) { return 1; }
 
   // do it manually, forkserver clear only afl->fsrv.trace_bits
   memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
 
-  if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 1;
+  if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) { return 1; }
 
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
@@ -634,33 +736,41 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
   u32 k;
   for (k = 0; k < CMP_MAP_W; ++k) {
 
-    if (!afl->shm.cmp_map->headers[k].hits) continue;
+    if (!afl->shm.cmp_map->headers[k].hits) { continue; }
 
     if (afl->pass_stats[k].total &&
         (rand_below(afl, afl->pass_stats[k].total) >=
              afl->pass_stats[k].faileds ||
-         afl->pass_stats[k].total == 0xff))
+         afl->pass_stats[k].total == 0xff)) {
+
       afl->shm.cmp_map->headers[k].hits = 0;  // blacklist this cmp
 
-    if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS)
+    }
+
+    if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
+
       afl->stage_max += MIN((u32)afl->shm.cmp_map->headers[k].hits, CMP_MAP_H);
-    else
+
+    } else {
+
       afl->stage_max +=
           MIN((u32)afl->shm.cmp_map->headers[k].hits, CMP_MAP_RTN_H);
+
+    }
 
   }
 
   for (k = 0; k < CMP_MAP_W; ++k) {
 
-    if (!afl->shm.cmp_map->headers[k].hits) continue;
+    if (!afl->shm.cmp_map->headers[k].hits) { continue; }
 
     if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
 
-      if (unlikely(cmp_fuzz(afl, k, orig_buf, buf, len))) goto exit_its;
+      if (unlikely(cmp_fuzz(afl, k, orig_buf, buf, len))) { goto exit_its; }
 
     } else {
 
-      if (unlikely(rtn_fuzz(afl, k, orig_buf, buf, len))) goto exit_its;
+      if (unlikely(rtn_fuzz(afl, k, orig_buf, buf, len))) { goto exit_its; }
 
     }
 

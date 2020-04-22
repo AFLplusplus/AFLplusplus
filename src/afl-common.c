@@ -70,9 +70,9 @@ char *afl_environment_variables[] = {
     "AFL_LLVM_NGRAM_SIZE", "AFL_NGRAM_SIZE", "AFL_LLVM_NOT_ZERO",
     "AFL_LLVM_WHITELIST", "AFL_NO_AFFINITY", "AFL_LLVM_LTO_STARTID",
     "AFL_LLVM_LTO_DONTWRITEID", "AFL_NO_ARITH", "AFL_NO_BUILTIN",
-    "AFL_NO_CPU_RED", "AFL_NO_FORKSRV", "AFL_NO_UI",
+    "AFL_NO_CPU_RED", "AFL_NO_FORKSRV", "AFL_NO_UI", "AFL_NO_PYTHON",
     "AFL_NO_X86",  // not really an env but we dont want to warn on it
-    "AFL_PATH", "AFL_PERFORMANCE_FILE",
+    "AFL_MAP_SIZE", "AFL_MAPSIZE", "AFL_PATH", "AFL_PERFORMANCE_FILE",
     //"AFL_PERSISTENT", // not implemented anymore, so warn additionally
     "AFL_POST_LIBRARY", "AFL_PRELOAD", "AFL_PYTHON_MODULE", "AFL_QEMU_COMPCOV",
     "AFL_QEMU_COMPCOV_DEBUG", "AFL_QEMU_DEBUG_MAPS", "AFL_QEMU_DISABLE_CACHE",
@@ -101,7 +101,7 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
     if (aa_loc) {
 
-      if (!prog_in) FATAL("@@ syntax is not supported by this tool.");
+      if (!prog_in) { FATAL("@@ syntax is not supported by this tool."); }
 
       *use_stdin = 0;
 
@@ -198,7 +198,7 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
     cp = alloc_printf("%s/afl-qemu-trace", tmp);
 
-    if (access(cp, X_OK)) FATAL("Unable to find '%s'", tmp);
+    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
 
     *target_path_p = new_argv[0] = cp;
     return new_argv;
@@ -222,13 +222,15 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
     }
 
-  } else
+  } else {
 
     ck_free(own_copy);
 
+  }
+
   if (!access(BIN_PATH "/afl-qemu-trace", X_OK)) {
 
-    if (cp) ck_free(cp);
+    if (cp) { ck_free(cp); }
     *target_path_p = new_argv[0] = ck_strdup(BIN_PATH "/afl-qemu-trace");
 
     return new_argv;
@@ -275,13 +277,13 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
     cp = alloc_printf("%s/afl-qemu-trace", tmp);
 
-    if (access(cp, X_OK)) FATAL("Unable to find '%s'", tmp);
+    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
 
     ck_free(cp);
 
     cp = alloc_printf("%s/afl-wine-trace", tmp);
 
-    if (access(cp, X_OK)) FATAL("Unable to find '%s'", tmp);
+    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
 
     *target_path_p = new_argv[0] = cp;
     return new_argv;
@@ -374,8 +376,12 @@ u8 *find_binary(u8 *fname) {
     target_path = ck_strdup(fname);
 
     if (stat(target_path, &st) || !S_ISREG(st.st_mode) ||
-        !(st.st_mode & 0111) || st.st_size < 4)
+        !(st.st_mode & 0111) || st.st_size < 4) {
+
+      free(target_path);
       FATAL("Program '%s' not found or not executable", fname);
+
+    }
 
   } else {
 
@@ -389,29 +395,43 @@ u8 *find_binary(u8 *fname) {
         memcpy(cur_elem, env_path, delim - env_path);
         delim++;
 
-      } else
+      } else {
 
         cur_elem = ck_strdup(env_path);
 
+      }
+
       env_path = delim;
 
-      if (cur_elem[0])
+      if (cur_elem[0]) {
+
         target_path = alloc_printf("%s/%s", cur_elem, fname);
-      else
+
+      } else {
+
         target_path = ck_strdup(fname);
+
+      }
 
       ck_free(cur_elem);
 
       if (!stat(target_path, &st) && S_ISREG(st.st_mode) &&
-          (st.st_mode & 0111) && st.st_size >= 4)
+          (st.st_mode & 0111) && st.st_size >= 4) {
+
         break;
+
+      }
 
       ck_free(target_path);
       target_path = NULL;
 
     }
 
-    if (!target_path) FATAL("Program '%s' not found or not executable", fname);
+    if (!target_path) {
+
+      FATAL("Program '%s' not found or not executable", fname);
+
+    }
 
   }
 
@@ -421,7 +441,7 @@ u8 *find_binary(u8 *fname) {
 
 void check_environment_vars(char **envp) {
 
-  if (be_quiet) return;
+  if (be_quiet) { return; }
 
   int   index = 0, found = 0;
   char *env, *val;
@@ -435,23 +455,29 @@ void check_environment_vars(char **envp) {
     } else if (strncmp(env, "AFL_", 4) == 0) {
 
       int i = 0, match = 0;
-      while (match == 0 && afl_environment_variables[i] != NULL)
+      while (match == 0 && afl_environment_variables[i] != NULL) {
+
         if (strncmp(env, afl_environment_variables[i],
                     strlen(afl_environment_variables[i])) == 0 &&
             env[strlen(afl_environment_variables[i])] == '=') {
 
           match = 1;
-          if ((val = getenv(afl_environment_variables[i])) && !*val)
+          if ((val = getenv(afl_environment_variables[i])) && !*val) {
+
             WARNF(
                 "AFL environment variable %s defined but is empty, this can "
                 "lead to unexpected consequences",
                 afl_environment_variables[i]);
+
+          }
 
         } else {
 
           i++;
 
         }
+
+      }
 
       if (match == 0) {
 
@@ -464,7 +490,7 @@ void check_environment_vars(char **envp) {
 
   }
 
-  if (found) sleep(2);
+  if (found) { sleep(2); }
 
 }
 
@@ -472,9 +498,15 @@ char *get_afl_env(char *env) {
 
   char *val;
 
-  if ((val = getenv(env)) != NULL)
-    if (!be_quiet)
+  if ((val = getenv(env)) != NULL) {
+
+    if (!be_quiet) {
+
       OKF("Loaded environment variable %s with value %s", env, val);
+
+    }
+
+  }
 
   return val;
 
@@ -486,7 +518,7 @@ void read_bitmap(u8 *fname, u8 *map, size_t len) {
 
   s32 fd = open(fname, O_RDONLY);
 
-  if (fd < 0) PFATAL("Unable to open '%s'", fname);
+  if (fd < 0) { PFATAL("Unable to open '%s'", fname); }
 
   ck_read(fd, map, len, fname);
 
@@ -882,6 +914,28 @@ u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
           ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
   return exec_ms > 0 ? exec_ms
                      : 1;  // at least 1 milli must have passed (0 is an error)
+
+}
+
+u32 get_map_size() {
+
+  uint32_t map_size = MAP_SIZE;
+  char *   ptr;
+
+  if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
+
+    map_size = atoi(ptr);
+    if (map_size < 8 || map_size > (1 << 29)) {
+
+      FATAL("illegal AFL_MAP_SIZE %u, must be between 2^3 and 2^30", map_size);
+
+    }
+
+    if (map_size % 8) { map_size = (((map_size >> 3) + 1) << 3); }
+
+  }
+
+  return map_size;
 
 }
 

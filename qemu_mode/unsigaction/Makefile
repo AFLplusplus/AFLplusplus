@@ -25,10 +25,10 @@ all:  $(TARGETS)
 	@if [ "$(AFL_NO_X86)" != "" ]; then echo "[!] Note: skipping compilation of unsigaction (AFL_NO_X86 set)."; fi
 
 unsigaction32.so:
-	@$(CC) -m32 -fPIC -shared unsigaction.c -o unsigaction32.so 2>/dev/null ; if [ "$$?" = "0" ]; then echo "unsigaction32 build success"; else echo "unsigaction32 build failure (that's fine)"; fi
+	@if $(CC) -m32 -fPIC -shared unsigaction.c -o unsigaction32.so 2>/dev/null ; then echo "unsigaction32 build success"; else echo "unsigaction32 build failure (that's fine)"; fi
 
 unsigaction64.so:
-	$(CC) -m64 -fPIC -shared unsigaction.c -o unsigaction64.so
+	@if $(CC) -m64 -fPIC -shared unsigaction.c -o unsigaction64.so 2>/dev/null ; then echo "unsigaction64 build success"; else echo "unsigaction64 build failure (that's fine)"; fi
 
 clean:
 	rm -f unsigaction32.so unsigaction64.so

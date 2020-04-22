@@ -84,6 +84,7 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 
 static u8 *target_path;
 static u8  qemu_mode;
+static u32 map_size = MAP_SIZE;
 
 /* Constants used for describing byte behavior. */
 
@@ -115,13 +116,13 @@ static u8 count_class_lookup[256] = {
 
 static void classify_counts(u8 *mem) {
 
-  u32 i = MAP_SIZE;
+  u32 i = map_size;
 
   if (edges_only) {
 
     while (i--) {
 
-      if (*mem) *mem = 1;
+      if (*mem) { *mem = 1; }
       mem++;
 
     }
@@ -144,10 +145,13 @@ static void classify_counts(u8 *mem) {
 static inline u8 anything_set(void) {
 
   u32 *ptr = (u32 *)trace_bits;
-  u32  i = (MAP_SIZE >> 2);
+  u32  i = (map_size >> 2);
 
-  while (i--)
-    if (*(ptr++)) return 1;
+  while (i--) {
+
+    if (*(ptr++)) { return 1; }
+
+  }
 
   return 0;
 
@@ -168,12 +172,15 @@ static void read_initial_file(void) {
   struct stat st;
   s32         fd = open(in_file, O_RDONLY);
 
-  if (fd < 0) PFATAL("Unable to open '%s'", in_file);
+  if (fd < 0) { PFATAL("Unable to open '%s'", in_file); }
 
-  if (fstat(fd, &st) || !st.st_size) FATAL("Zero-sized input file.");
+  if (fstat(fd, &st) || !st.st_size) { FATAL("Zero-sized input file."); }
 
-  if (st.st_size >= TMIN_MAX_FILE)
+  if (st.st_size >= TMIN_MAX_FILE) {
+
     FATAL("Input file is too large (%u MB max)", TMIN_MAX_FILE / 1024 / 1024);
+
+  }
 
   in_len = st.st_size;
   in_data = ck_alloc_nozero(in_len);
@@ -196,7 +203,7 @@ static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 
   ret = open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (ret < 0) PFATAL("Unable to create '%s'", path);
+  if (ret < 0) { PFATAL("Unable to create '%s'", path); }
 
   ck_write(ret, mem, len, path);
 
@@ -217,14 +224,14 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
   s32 prog_in_fd;
   u32 cksum;
 
-  memset(trace_bits, 0, MAP_SIZE);
+  memset(trace_bits, 0, map_size);
   MEM_BARRIER();
 
   prog_in_fd = write_to_file(prog_in, mem, len);
 
   child_pid = fork();
 
-  if (child_pid < 0) PFATAL("fork() failed");
+  if (child_pid < 0) { PFATAL("fork() failed"); }
 
   if (!child_pid) {
 
@@ -277,7 +284,7 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   setitimer(ITIMER_REAL, &it, NULL);
 
-  if (waitpid(child_pid, &status, 0) <= 0) FATAL("waitpid() failed");
+  if (waitpid(child_pid, &status, 0) <= 0) { FATAL("waitpid() failed"); }
 
   child_pid = 0;
   it.it_value.tv_sec = 0;
@@ -289,8 +296,11 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   /* Clean up bitmap, analyze exit condition, etc. */
 
-  if (*(u32 *)trace_bits == EXEC_FAIL_SIG)
+  if (*(u32 *)trace_bits == EXEC_FAIL_SIG) {
+
     FATAL("Unable to execute '%s'", argv[0]);
+
+  }
 
   classify_counts(trace_bits);
   total_execs++;
@@ -311,7 +321,7 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   }
 
-  cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
+  cksum = hash32(trace_bits, map_size, HASH_CONST);
 
   /* We don't actually care if the target is crashing or not,
      except that when it does, the checksum should be different. */
@@ -324,7 +334,7 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   }
 
-  if (first_run) orig_cksum = cksum;
+  if (first_run) { orig_cksum = cksum; }
 
   return cksum;
 
@@ -339,9 +349,12 @@ static void show_char(u8 val) {
   switch (val) {
 
     case 0 ... 32:
-    case 127 ... 255: SAYF("#%02x", val); break;
+    case 127 ... 255:
+      SAYF("#%02x", val);
+      break;
 
-    default: SAYF(" %c ", val);
+    default:
+      SAYF(" %c ", val);
 
   }
 
@@ -386,7 +399,12 @@ static void dump_hex(u8 *buf, u32 len, u8 *b_data) {
 
     while (i + rlen < len && (b_data[i] >> 7) == (b_data[i + rlen] >> 7)) {
 
-      if (rtype < (b_data[i + rlen] & 0x0f)) rtype = b_data[i + rlen] & 0x0f;
+      if (rtype < (b_data[i + rlen] & 0x0f)) {
+
+        rtype = b_data[i + rlen] & 0x0f;
+
+      }
+
       rlen++;
 
     }
@@ -453,9 +471,11 @@ static void dump_hex(u8 *buf, u32 len, u8 *b_data) {
 
         case 1:
         case 3:
-        case 5 ... MAX_AUTO_EXTRA - 1: break;
+        case 5 ... MAX_AUTO_EXTRA - 1:
+          break;
 
-        default: rtype = RESP_SUSPECT;
+        default:
+          rtype = RESP_SUSPECT;
 
       }
 
@@ -471,33 +491,57 @@ static void dump_hex(u8 *buf, u32 len, u8 *b_data) {
 
       if (!((i + off) % 16)) {
 
-        if (off) SAYF(cRST cLCY ">");
+        if (off) { SAYF(cRST cLCY ">"); }
 
-        if (use_hex_offsets)
+        if (use_hex_offsets) {
+
           SAYF(cRST cGRA "%s[%06x] " cRST, (i + off) ? "\n" : "", i + off);
-        else
+
+        } else {
+
           SAYF(cRST cGRA "%s[%06u] " cRST, (i + off) ? "\n" : "", i + off);
+
+        }
 
       }
 
       switch (rtype) {
 
-        case RESP_NONE: SAYF(cLGR bgGRA); break;
-        case RESP_MINOR: SAYF(cBRI bgGRA); break;
-        case RESP_VARIABLE: SAYF(cBLK bgCYA); break;
-        case RESP_FIXED: SAYF(cBLK bgMGN); break;
-        case RESP_LEN: SAYF(cBLK bgLGN); break;
-        case RESP_CKSUM: SAYF(cBLK bgYEL); break;
-        case RESP_SUSPECT: SAYF(cBLK bgLRD); break;
+        case RESP_NONE:
+          SAYF(cLGR bgGRA);
+          break;
+        case RESP_MINOR:
+          SAYF(cBRI bgGRA);
+          break;
+        case RESP_VARIABLE:
+          SAYF(cBLK bgCYA);
+          break;
+        case RESP_FIXED:
+          SAYF(cBLK bgMGN);
+          break;
+        case RESP_LEN:
+          SAYF(cBLK bgLGN);
+          break;
+        case RESP_CKSUM:
+          SAYF(cBLK bgYEL);
+          break;
+        case RESP_SUSPECT:
+          SAYF(cBLK bgLRD);
+          break;
 
       }
 
       show_char(in_data[i + off]);
 
-      if (off != rlen - 1 && (i + off + 1) % 16)
+      if (off != rlen - 1 && (i + off + 1) % 16) {
+
         SAYF(" ");
-      else
+
+      } else {
+
         SAYF(cRST " ");
+
+      }
 
     }
 
@@ -510,13 +554,27 @@ static void dump_hex(u8 *buf, u32 len, u8 *b_data) {
 
     switch (rtype) {
 
-      case RESP_NONE: SAYF("no-op block\n"); break;
-      case RESP_MINOR: SAYF("superficial content\n"); break;
-      case RESP_VARIABLE: SAYF("critical stream\n"); break;
-      case RESP_FIXED: SAYF("\"magic value\" section\n"); break;
-      case RESP_LEN: SAYF("suspected length field\n"); break;
-      case RESP_CKSUM: SAYF("suspected cksum or magic int\n"); break;
-      case RESP_SUSPECT: SAYF("suspected checksummed block\n"); break;
+      case RESP_NONE:
+        SAYF("no-op block\n");
+        break;
+      case RESP_MINOR:
+        SAYF("superficial content\n");
+        break;
+      case RESP_VARIABLE:
+        SAYF("critical stream\n");
+        break;
+      case RESP_FIXED:
+        SAYF("\"magic value\" section\n");
+        break;
+      case RESP_LEN:
+        SAYF("suspected length field\n");
+        break;
+      case RESP_CKSUM:
+        SAYF("suspected cksum or magic int\n");
+        break;
+      case RESP_SUSPECT:
+        SAYF("suspected checksummed block\n");
+        break;
 
     }
 
@@ -593,15 +651,20 @@ static void analyze(char **argv) {
 
       b_data[i] = RESP_FIXED;
 
-    } else
+    } else {
 
       b_data[i] = RESP_VARIABLE;
+
+    }
 
     /* When all checksums change, flip most significant bit of b_data. */
 
     if (prev_xff != xor_ff && prev_x01 != xor_01 && prev_s10 != sub_10 &&
-        prev_a10 != add_10)
+        prev_a10 != add_10) {
+
       seq_byte ^= 0x80;
+
+    }
 
     b_data[i] |= seq_byte;
 
@@ -619,9 +682,12 @@ static void analyze(char **argv) {
   OKF("Analysis complete. Interesting bits: %0.02f%% of the input file.",
       100.0 - ((double)boring_len * 100) / in_len);
 
-  if (exec_hangs)
+  if (exec_hangs) {
+
     WARNF(cLRD "Encountered %u timeouts - results may be skewed." cRST,
           exec_hangs);
+
+  }
 
   ck_free(b_data);
 
@@ -633,7 +699,7 @@ static void handle_stop_sig(int sig) {
 
   stop_soon = 1;
 
-  if (child_pid > 0) kill(child_pid, SIGKILL);
+  if (child_pid > 0) { kill(child_pid, SIGKILL); }
 
 }
 
@@ -644,7 +710,7 @@ static void set_up_environment(void) {
   u8 *x;
 
   dev_null_fd = open("/dev/null", O_RDWR);
-  if (dev_null_fd < 0) PFATAL("Unable to open /dev/null");
+  if (dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
 
   if (!prog_in) {
 
@@ -653,7 +719,7 @@ static void set_up_environment(void) {
     if (access(use_dir, R_OK | W_OK | X_OK)) {
 
       use_dir = get_afl_env("TMPDIR");
-      if (!use_dir) use_dir = "/tmp";
+      if (!use_dir) { use_dir = "/tmp"; }
 
     }
 
@@ -667,11 +733,17 @@ static void set_up_environment(void) {
 
   if (x) {
 
-    if (!strstr(x, "abort_on_error=1"))
+    if (!strstr(x, "abort_on_error=1")) {
+
       FATAL("Custom ASAN_OPTIONS set without abort_on_error=1 - please fix!");
 
-    if (!strstr(x, "symbolize=0"))
+    }
+
+    if (!strstr(x, "symbolize=0")) {
+
       FATAL("Custom ASAN_OPTIONS set without symbolize=0 - please fix!");
+
+    }
 
   }
 
@@ -679,12 +751,18 @@ static void set_up_environment(void) {
 
   if (x) {
 
-    if (!strstr(x, "exit_code=" STRINGIFY(MSAN_ERROR)))
+    if (!strstr(x, "exit_code=" STRINGIFY(MSAN_ERROR))) {
+
       FATAL("Custom MSAN_OPTIONS set without exit_code=" STRINGIFY(
           MSAN_ERROR) " - please fix!");
 
-    if (!strstr(x, "symbolize=0"))
+    }
+
+    if (!strstr(x, "symbolize=0")) {
+
       FATAL("Custom MSAN_OPTIONS set without symbolize=0 - please fix!");
+
+    }
 
   }
 
@@ -712,19 +790,27 @@ static void set_up_environment(void) {
       s32 i, afl_preload_size = strlen(afl_preload);
       for (i = 0; i < afl_preload_size; ++i) {
 
-        if (afl_preload[i] == ',')
+        if (afl_preload[i] == ',') {
+
           PFATAL(
               "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
               "specified!");
 
+        }
+
       }
 
-      if (qemu_preload)
+      if (qemu_preload) {
+
         buf = alloc_printf("%s,LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
                            qemu_preload, afl_preload, afl_preload);
-      else
+
+      } else {
+
         buf = alloc_printf("LD_PRELOAD=%s,DYLD_INSERT_LIBRARIES=%s",
                            afl_preload, afl_preload);
+
+      }
 
       setenv("QEMU_SET_ENV", buf, 1);
 
@@ -795,8 +881,10 @@ static void usage(u8 *argv0) {
       "              (must contain abort_on_error=1 and symbolize=0)\n"
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
-      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_ANALYZE_HEX: print file offsets in hexadecimal instead of decimal\n"
+      "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
+      "              the target was compiled for\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_SKIP_BIN_CHECK: skip checking the location of and the target\n"
 
       , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
@@ -817,26 +905,26 @@ int main(int argc, char **argv, char **envp) {
 
   SAYF(cCYA "afl-analyze" VERSION cRST " by Michal Zalewski\n");
 
-  while ((opt = getopt(argc, argv, "+i:f:m:t:eQUWh")) > 0)
+  while ((opt = getopt(argc, argv, "+i:f:m:t:eQUWh")) > 0) {
 
     switch (opt) {
 
       case 'i':
 
-        if (in_file) FATAL("Multiple -i options not supported");
+        if (in_file) { FATAL("Multiple -i options not supported"); }
         in_file = optarg;
         break;
 
       case 'f':
 
-        if (prog_in) FATAL("Multiple -f options not supported");
+        if (prog_in) { FATAL("Multiple -f options not supported"); }
         use_stdin = 0;
         prog_in = optarg;
         break;
 
       case 'e':
 
-        if (edges_only) FATAL("Multiple -e options not supported");
+        if (edges_only) { FATAL("Multiple -e options not supported"); }
         edges_only = 1;
         break;
 
@@ -844,7 +932,7 @@ int main(int argc, char **argv, char **envp) {
 
         u8 suffix = 'M';
 
-        if (mem_limit_given) FATAL("Multiple -m options not supported");
+        if (mem_limit_given) { FATAL("Multiple -m options not supported"); }
         mem_limit_given = 1;
 
         if (!optarg) { FATAL("Wrong usage of -m"); }
@@ -857,24 +945,38 @@ int main(int argc, char **argv, char **envp) {
         }
 
         if (sscanf(optarg, "%llu%c", &mem_limit, &suffix) < 1 ||
-            optarg[0] == '-')
+            optarg[0] == '-') {
+
           FATAL("Bad syntax used for -m");
-
-        switch (suffix) {
-
-          case 'T': mem_limit *= 1024 * 1024; break;
-          case 'G': mem_limit *= 1024; break;
-          case 'k': mem_limit /= 1024; break;
-          case 'M': break;
-
-          default: FATAL("Unsupported suffix or bad syntax for -m");
 
         }
 
-        if (mem_limit < 5) FATAL("Dangerously low value of -m");
+        switch (suffix) {
 
-        if (sizeof(rlim_t) == 4 && mem_limit > 2000)
+          case 'T':
+            mem_limit *= 1024 * 1024;
+            break;
+          case 'G':
+            mem_limit *= 1024;
+            break;
+          case 'k':
+            mem_limit /= 1024;
+            break;
+          case 'M':
+            break;
+
+          default:
+            FATAL("Unsupported suffix or bad syntax for -m");
+
+        }
+
+        if (mem_limit < 5) { FATAL("Dangerously low value of -m"); }
+
+        if (sizeof(rlim_t) == 4 && mem_limit > 2000) {
+
           FATAL("Value of -m out of range on 32-bit systems");
+
+        }
 
       }
 
@@ -882,41 +984,44 @@ int main(int argc, char **argv, char **envp) {
 
       case 't':
 
-        if (timeout_given) FATAL("Multiple -t options not supported");
+        if (timeout_given) { FATAL("Multiple -t options not supported"); }
         timeout_given = 1;
 
-        if (!optarg) FATAL("Wrong usage of -t");
+        if (!optarg) { FATAL("Wrong usage of -t"); }
 
         exec_tmout = atoi(optarg);
 
-        if (exec_tmout < 10 || optarg[0] == '-')
+        if (exec_tmout < 10 || optarg[0] == '-') {
+
           FATAL("Dangerously low value of -t");
+
+        }
 
         break;
 
       case 'Q':
 
-        if (qemu_mode) FATAL("Multiple -Q options not supported");
-        if (!mem_limit_given) mem_limit = MEM_LIMIT_QEMU;
+        if (qemu_mode) { FATAL("Multiple -Q options not supported"); }
+        if (!mem_limit_given) { mem_limit = MEM_LIMIT_QEMU; }
 
         qemu_mode = 1;
         break;
 
       case 'U':
 
-        if (unicorn_mode) FATAL("Multiple -U options not supported");
-        if (!mem_limit_given) mem_limit = MEM_LIMIT_UNICORN;
+        if (unicorn_mode) { FATAL("Multiple -U options not supported"); }
+        if (!mem_limit_given) { mem_limit = MEM_LIMIT_UNICORN; }
 
         unicorn_mode = 1;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
 
-        if (use_wine) FATAL("Multiple -W options not supported");
+        if (use_wine) { FATAL("Multiple -W options not supported"); }
         qemu_mode = 1;
         use_wine = 1;
 
-        if (!mem_limit_given) mem_limit = 0;
+        if (!mem_limit_given) { mem_limit = 0; }
 
         break;
 
@@ -925,18 +1030,23 @@ int main(int argc, char **argv, char **envp) {
         return -1;
         break;
 
-      default: usage(argv[0]);
+      default:
+        usage(argv[0]);
 
     }
 
-  if (optind == argc || !in_file) usage(argv[0]);
+  }
+
+  if (optind == argc || !in_file) { usage(argv[0]); }
+
+  map_size = get_map_size();
 
   use_hex_offsets = !!get_afl_env("AFL_ANALYZE_HEX");
 
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
-  trace_bits = afl_shm_init(&shm, MAP_SIZE, 0);
+  trace_bits = afl_shm_init(&shm, map_size, 0);
   atexit(at_exit_handler);
   setup_signal_handlers();
 
@@ -947,16 +1057,23 @@ int main(int argc, char **argv, char **envp) {
 
   if (qemu_mode) {
 
-    if (use_wine)
+    if (use_wine) {
+
       use_argv =
           get_wine_argv(argv[0], &target_path, argc - optind, argv + optind);
-    else
+
+    } else {
+
       use_argv =
           get_qemu_argv(argv[0], &target_path, argc - optind, argv + optind);
 
-  } else
+    }
+
+  } else {
 
     use_argv = argv + optind;
+
+  }
 
   SAYF("\n");
 
@@ -967,17 +1084,23 @@ int main(int argc, char **argv, char **envp) {
 
   analyze_run_target(use_argv, in_data, in_len, 1);
 
-  if (child_timed_out)
+  if (child_timed_out) {
+
     FATAL("Target binary times out (adjusting -t may help).");
 
-  if (get_afl_env("AFL_SKIP_BIN_CHECK") == NULL && !anything_set())
+  }
+
+  if (get_afl_env("AFL_SKIP_BIN_CHECK") == NULL && !anything_set()) {
+
     FATAL("No instrumentation detected.");
+
+  }
 
   analyze(use_argv);
 
   OKF("We're done here. Have a nice day!\n");
 
-  if (target_path) ck_free(target_path);
+  if (target_path) { ck_free(target_path); }
 
   afl_shm_deinit(&shm);
 

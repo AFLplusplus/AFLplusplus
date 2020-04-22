@@ -83,6 +83,13 @@ if [ ! -d "/usr/include/glib-2.0/" -a ! -d "/usr/local/include/glib-2.0/" ]; the
 
 fi
 
+if [ ! -d "/usr/include/pixman-1/" -a ! -d "/usr/local/include/pixman-1/" ]; then
+
+  echo "[-] Error: devel version of 'pixman-1' not found, please install first."
+  PREREQ_NOTFOUND=1
+
+fi
+
 if echo "$CC" | grep -qF /afl-; then
 
   echo "[-] Error: do not use afl-gcc or afl-clang to compile this tool."
@@ -230,10 +237,12 @@ if [ "$ORIG_CPU_TARGET" = "" ]; then
 
   make >/dev/null || exit 1
 
-  gcc test-instr.c -o test-instr || exit 1
+  cc test-instr.c -o test-instr || exit 1
 
   unset AFL_INST_RATIO
+  export ASAN_OPTIONS=detect_leaks=0
 
+  echo "[*] Comparing two afl-showmap -Q outputs..."
   echo 0 | ./afl-showmap -m none -Q -q -o .test-instr0 ./test-instr || exit 1
   echo 1 | ./afl-showmap -m none -Q -q -o .test-instr1 ./test-instr || exit 1
 

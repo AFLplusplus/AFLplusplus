@@ -4,9 +4,9 @@
 
   ![Travis State](https://api.travis-ci.com/AFLplusplus/AFLplusplus.svg?branch=master)
 
-  Release Version: [2.63c](https://github.com/AFLplusplus/AFLplusplus/releases)
+  Release Version: [2.64c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-  Github Version: 2.63d
+  Github Version: 2.64d
 
   includes all necessary/interesting changes from Google's afl 2.56b
 
@@ -160,7 +160,8 @@ These build targets exist:
 * distrib: everything (for both binary-only and source code fuzzing)
 * man: creates simple man pages from the help option of the programs
 * install: installs everything you have compiled with the build options above
-* clean: cleans everything. for qemu_mode and unicorn_mode it means it deletes all downloads as well
+* clean: cleans everything compiled, not downloads (unless not on a checkout)
+* deepclean: cleans everything including downloads
 * code-format: format the code, do this before you commit and send a PR please!
 * tests: runs test cases to ensure that all features are still working as they should
 * unit: perform unit tests (based on cmocka)

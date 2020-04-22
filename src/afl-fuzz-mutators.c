@@ -35,11 +35,14 @@ void setup_custom_mutator(afl_state_t *afl) {
 
   if (fn) {
 
-    if (afl->limit_time_sig)
+    if (afl->limit_time_sig) {
+
       FATAL(
           "MOpt and custom mutator are mutually exclusive. We accept pull "
           "requests that integrates MOpt with the optional mutators "
           "(custom/radamsa/redquenn/...).");
+
+    }
 
     load_custom_mutator(afl, fn);
 
@@ -53,19 +56,26 @@ void setup_custom_mutator(afl_state_t *afl) {
 
   if (module_name) {
 
-    if (afl->limit_time_sig)
+    if (afl->limit_time_sig) {
+
       FATAL(
           "MOpt and Python mutator are mutually exclusive. We accept pull "
           "requests that integrates MOpt with the optional mutators "
           "(custom/radamsa/redqueen/...).");
+
+    }
 
     load_custom_mutator_py(afl, module_name);
 
   }
 
 #else
-  if (afl->afl_env.afl_python_module)
+  if (afl->afl_env.afl_python_module) {
+
     FATAL("Your AFL binary was built without Python support");
+
+  }
+
 #endif
 
 }
@@ -76,7 +86,7 @@ void destroy_custom_mutator(afl_state_t *afl) {
 
     afl->mutator->afl_custom_deinit(afl->mutator->data);
 
-    if (afl->mutator->dh) dlclose(afl->mutator->dh);
+    if (afl->mutator->dh) { dlclose(afl->mutator->dh); }
 
     if (afl->mutator->pre_save_buf) {
 
@@ -104,19 +114,25 @@ void load_custom_mutator(afl_state_t *afl, const char *fn) {
   ACTF("Loading custom mutator library from '%s'...", fn);
 
   dh = dlopen(fn, RTLD_NOW);
-  if (!dh) FATAL("%s", dlerror());
+  if (!dh) { FATAL("%s", dlerror()); }
   afl->mutator->dh = dh;
 
   /* Mutator */
   /* "afl_custom_init", required */
   afl->mutator->afl_custom_init = dlsym(dh, "afl_custom_init");
-  if (!afl->mutator->afl_custom_init)
+  if (!afl->mutator->afl_custom_init) {
+
     FATAL("Symbol 'afl_custom_init' not found.");
+
+  }
 
   /* "afl_custom_deinit", required */
   afl->mutator->afl_custom_deinit = dlsym(dh, "afl_custom_deinit");
-  if (!afl->mutator->afl_custom_deinit)
+  if (!afl->mutator->afl_custom_deinit) {
+
     FATAL("Symbol 'afl_custom_deinit' not found.");
+
+  }
 
   /* "afl_custom_fuzz" or "afl_custom_mutator", required */
   afl->mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_fuzz");
@@ -126,31 +142,46 @@ void load_custom_mutator(afl_state_t *afl, const char *fn) {
     WARNF("Symbol 'afl_custom_fuzz' not found. Try 'afl_custom_mutator'.");
 
     afl->mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_mutator");
-    if (!afl->mutator->afl_custom_fuzz)
+    if (!afl->mutator->afl_custom_fuzz) {
+
       FATAL("Symbol 'afl_custom_mutator' not found.");
+
+    }
 
   }
 
   /* "afl_custom_pre_save", optional */
   afl->mutator->afl_custom_pre_save = dlsym(dh, "afl_custom_pre_save");
-  if (!afl->mutator->afl_custom_pre_save)
+  if (!afl->mutator->afl_custom_pre_save) {
+
     WARNF("Symbol 'afl_custom_pre_save' not found.");
+
+  }
 
   u8 notrim = 0;
   /* "afl_custom_init_trim", optional */
   afl->mutator->afl_custom_init_trim = dlsym(dh, "afl_custom_init_trim");
-  if (!afl->mutator->afl_custom_init_trim)
+  if (!afl->mutator->afl_custom_init_trim) {
+
     WARNF("Symbol 'afl_custom_init_trim' not found.");
+
+  }
 
   /* "afl_custom_trim", optional */
   afl->mutator->afl_custom_trim = dlsym(dh, "afl_custom_trim");
-  if (!afl->mutator->afl_custom_trim)
+  if (!afl->mutator->afl_custom_trim) {
+
     WARNF("Symbol 'afl_custom_trim' not found.");
+
+  }
 
   /* "afl_custom_post_trim", optional */
   afl->mutator->afl_custom_post_trim = dlsym(dh, "afl_custom_post_trim");
-  if (!afl->mutator->afl_custom_post_trim)
+  if (!afl->mutator->afl_custom_post_trim) {
+
     WARNF("Symbol 'afl_custom_post_trim' not found.");
+
+  }
 
   if (notrim) {
 
@@ -166,32 +197,47 @@ void load_custom_mutator(afl_state_t *afl, const char *fn) {
   /* "afl_custom_havoc_mutation", optional */
   afl->mutator->afl_custom_havoc_mutation =
       dlsym(dh, "afl_custom_havoc_mutation");
-  if (!afl->mutator->afl_custom_havoc_mutation)
+  if (!afl->mutator->afl_custom_havoc_mutation) {
+
     WARNF("Symbol 'afl_custom_havoc_mutation' not found.");
+
+  }
 
   /* "afl_custom_havoc_mutation", optional */
   afl->mutator->afl_custom_havoc_mutation_probability =
       dlsym(dh, "afl_custom_havoc_mutation_probability");
-  if (!afl->mutator->afl_custom_havoc_mutation_probability)
+  if (!afl->mutator->afl_custom_havoc_mutation_probability) {
+
     WARNF("Symbol 'afl_custom_havoc_mutation_probability' not found.");
+
+  }
 
   /* "afl_custom_queue_get", optional */
   afl->mutator->afl_custom_queue_get = dlsym(dh, "afl_custom_queue_get");
-  if (!afl->mutator->afl_custom_queue_get)
+  if (!afl->mutator->afl_custom_queue_get) {
+
     WARNF("Symbol 'afl_custom_queue_get' not found.");
+
+  }
 
   /* "afl_custom_queue_new_entry", optional */
   afl->mutator->afl_custom_queue_new_entry =
       dlsym(dh, "afl_custom_queue_new_entry");
-  if (!afl->mutator->afl_custom_queue_new_entry)
+  if (!afl->mutator->afl_custom_queue_new_entry) {
+
     WARNF("Symbol 'afl_custom_queue_new_entry' not found");
+
+  }
 
   OKF("Custom mutator '%s' installed successfully.", fn);
 
   /* Initialize the custom mutator */
-  if (afl->mutator->afl_custom_init)
+  if (afl->mutator->afl_custom_init) {
+
     afl->mutator->data =
         afl->mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
+
+  }
 
 }
 
@@ -210,11 +256,18 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   afl->stage_cur = 0;
   afl->stage_max =
       afl->mutator->afl_custom_init_trim(afl->mutator->data, in_buf, q->len);
-  if (unlikely(afl->stage_max) < 0)
+  if (unlikely(afl->stage_max) < 0) {
+
     FATAL("custom_init_trim error ret: %d", afl->stage_max);
-  if (afl->not_on_tty && afl->debug)
+
+  }
+
+  if (afl->not_on_tty && afl->debug) {
+
     SAYF("[Custom Trimming] START: Max %d iterations, %u bytes", afl->stage_max,
          q->len);
+
+  }
 
   while (afl->stage_cur < afl->stage_max) {
 
@@ -227,12 +280,17 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     size_t retlen = afl->mutator->afl_custom_trim(afl->mutator->data, &retbuf);
 
-    if (unlikely(!retbuf))
+    if (unlikely(!retbuf)) {
+
       FATAL("custom_trim failed (ret %zd)", retlen);
-    else if (unlikely(retlen > orig_len))
+
+    } else if (unlikely(retlen > orig_len)) {
+
       FATAL(
           "Trimmed data returned by custom mutator is larger than original "
           "data");
+
+    }
 
     write_to_testcase(afl, retbuf, retlen);
 
@@ -263,31 +321,44 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       afl->stage_cur =
           afl->mutator->afl_custom_post_trim(afl->mutator->data, 1);
 
-      if (afl->not_on_tty && afl->debug)
+      if (afl->not_on_tty && afl->debug) {
+
         SAYF("[Custom Trimming] SUCCESS: %d/%d iterations (now at %u bytes)",
              afl->stage_cur, afl->stage_max, q->len);
+
+      }
 
     } else {
 
       /* Tell the custom mutator that the trimming was unsuccessful */
       afl->stage_cur =
           afl->mutator->afl_custom_post_trim(afl->mutator->data, 0);
-      if (unlikely(afl->stage_cur < 0))
+      if (unlikely(afl->stage_cur < 0)) {
+
         FATAL("Error ret in custom_post_trim: %d", afl->stage_cur);
-      if (afl->not_on_tty && afl->debug)
+
+      }
+
+      if (afl->not_on_tty && afl->debug) {
+
         SAYF("[Custom Trimming] FAILURE: %d/%d iterations", afl->stage_cur,
              afl->stage_max);
+
+      }
 
     }
 
     /* Since this can be slow, update the screen every now and then. */
 
-    if (!(trim_exec++ % afl->stats_update_freq)) show_stats(afl);
+    if (!(trim_exec++ % afl->stats_update_freq)) { show_stats(afl); }
 
   }
 
-  if (afl->not_on_tty && afl->debug)
+  if (afl->not_on_tty && afl->debug) {
+
     SAYF("[Custom Trimming] DONE: %u bytes -> %u bytes", orig_len, q->len);
+
+  }
 
   /* If we have made changes to in_buf, we also need to update the on-disk
      version of the test case. */
@@ -300,7 +371,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
-    if (fd < 0) PFATAL("Unable to create '%s'", q->fname);
+    if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
 
     ck_write(fd, in_buf, q->len, q->fname);
     close(fd);

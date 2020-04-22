@@ -46,8 +46,8 @@ You can also compile statically-linked binaries by setting STATIC=1. This
 can be useful when compiling QEMU on a different system than the one you're
 planning to run the fuzzer on and is most often used with the HOST variable.
 
-Note: when targetting the i386 architecture, on some bianries the forkserver
-handshake may fail due to the lack of reversed memory. Fix it with
+Note: when targetting the i386 architecture, on some binaries the forkserver
+handshake may fail due to the lack of reserved memory. Fix it with
 
 export QEMU_RESERVED_VA=0x1000000
 
