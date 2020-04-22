@@ -29,7 +29,9 @@ int target_func(char *buf, int size) {
       }
 
       break;
-    default: puts("default action"); break;
+    default:
+      puts("default action");
+      break;
 
   }
 

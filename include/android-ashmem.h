@@ -26,6 +26,8 @@
 #ifndef _ANDROID_ASHMEM_H
 #define _ANDROID_ASHMEM_H
 
+#ifdef __ANDROID__
+
 #include <fcntl.h>
 #include <linux/shm.h>
 #include <linux/ashmem.h>
@@ -38,6 +40,7 @@
 #define shmdt bionic_shmdt
 #define shmget bionic_shmget
 #endif
+
 #include <sys/shm.h>
 #undef shmat
 #undef shmctl
@@ -102,6 +105,8 @@ static inline void *shmat(int __shmid, const void *__shmaddr, int __shmflg) {
   return ptr;
 
 }
+
+#endif                                                       /* __ANDROID__ */
 
 #endif
 

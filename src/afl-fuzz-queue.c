@@ -38,7 +38,7 @@ void mark_as_det_done(afl_state_t *afl, struct queue_entry *q) {
            strrchr(q->fname, '/') + 1);
 
   fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
-  if (fd < 0) PFATAL("Unable to create '%s'", fn);
+  if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
   close(fd);
 
   q->passed_det = 1;
@@ -61,7 +61,7 @@ void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
   if (symlink(ldest, fn)) {
 
     s32 fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
-    if (fd < 0) PFATAL("Unable to create '%s'", fn);
+    if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
     close(fd);
 
   }
@@ -77,7 +77,7 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
   u8 fn[PATH_MAX];
 
-  if (state == q->fs_redundant) return;
+  if (state == q->fs_redundant) { return; }
 
   q->fs_redundant = state;
 
@@ -89,12 +89,12 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
     s32 fd;
 
     fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
-    if (fd < 0) PFATAL("Unable to create '%s'", fn);
+    if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
     close(fd);
 
   } else {
 
-    if (unlink(fn)) PFATAL("Unable to remove '%s'", fn);
+    if (unlink(fn)) { PFATAL("Unable to remove '%s'", fn); }
 
   }
 
@@ -113,16 +113,18 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->n_fuzz = 1;
   q->trace_mini = NULL;
 
-  if (q->depth > afl->max_depth) afl->max_depth = q->depth;
+  if (q->depth > afl->max_depth) { afl->max_depth = q->depth; }
 
   if (afl->queue_top) {
 
     afl->queue_top->next = q;
     afl->queue_top = q;
 
-  } else
+  } else {
 
     afl->q_prev100 = afl->queue = afl->queue_top = q;
+
+  }
 
   ++afl->queued_paths;
   ++afl->pending_not_fuzzed;
@@ -143,7 +145,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
     u8 *fname_orig = NULL;
 
     /* At the initialization stage, queue_cur is NULL */
-    if (afl->queue_cur) fname_orig = afl->queue_cur->fname;
+    if (afl->queue_cur) { fname_orig = afl->queue_cur->fname; }
 
     afl->mutator->afl_custom_queue_new_entry(afl->mutator->data, fname,
                                              fname_orig);
@@ -188,14 +190,19 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
   u64 fuzz_p2 = next_pow2(q->n_fuzz);
 
   if (afl->schedule == MMOPT || afl->schedule == RARE ||
-      unlikely(afl->fixed_seed))
+      unlikely(afl->fixed_seed)) {
+
     fav_factor = q->len << 2;
-  else
+
+  } else {
+
     fav_factor = q->exec_us * q->len;
+
+  }
 
   /* For every byte set in afl->fsrv.trace_bits[], see if there is a previous
      winner, and how it compares to us. */
-  for (i = 0; i < afl->fsrv.map_size; ++i)
+  for (i = 0; i < afl->fsrv.map_size; ++i) {
 
     if (afl->fsrv.trace_bits[i]) {
 
@@ -206,26 +213,40 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         u64 top_rated_fuzz_p2 = next_pow2(afl->top_rated[i]->n_fuzz);
 
         if (afl->schedule == MMOPT || afl->schedule == RARE ||
-            unlikely(afl->fixed_seed))
+            unlikely(afl->fixed_seed)) {
+
           top_rated_fav_factor = afl->top_rated[i]->len << 2;
-        else
+
+        } else {
+
           top_rated_fav_factor =
               afl->top_rated[i]->exec_us * afl->top_rated[i]->len;
 
-        if (fuzz_p2 > top_rated_fuzz_p2)
+        }
+
+        if (fuzz_p2 > top_rated_fuzz_p2) {
+
           continue;
-        else if (fuzz_p2 == top_rated_fuzz_p2)
-          if (fav_factor > top_rated_fav_factor) continue;
+
+        } else if (fuzz_p2 == top_rated_fuzz_p2) {
+
+          if (fav_factor > top_rated_fav_factor) { continue; }
+
+        }
 
         if (afl->schedule == MMOPT || afl->schedule == RARE ||
             unlikely(afl->fixed_seed)) {
 
-          if (fav_factor > afl->top_rated[i]->len << 2) continue;
+          if (fav_factor > afl->top_rated[i]->len << 2) { continue; }
 
         } else {
 
-          if (fav_factor > afl->top_rated[i]->exec_us * afl->top_rated[i]->len)
+          if (fav_factor >
+              afl->top_rated[i]->exec_us * afl->top_rated[i]->len) {
+
             continue;
+
+          }
 
         }
 
@@ -249,7 +270,6 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
       if (!q->trace_mini) {
 
         u32 len = (afl->fsrv.map_size >> 3);
-        if (len == 0) len = 1;
         q->trace_mini = ck_alloc(len);
         minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
 
@@ -258,6 +278,8 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
       afl->score_changed = 1;
 
     }
+
+  }
 
 }
 
@@ -272,11 +294,9 @@ void cull_queue(afl_state_t *afl) {
   struct queue_entry *q;
   u32                 len = (afl->fsrv.map_size >> 3);
   u32                 i;
-  u8                  temp_v[MAP_SIZE >> 3];
+  u8 *                temp_v = afl->map_tmp_buf;
 
-  if (len == 0) len = 1;
-
-  if (afl->dumb_mode || !afl->score_changed) return;
+  if (afl->dumb_mode || !afl->score_changed) { return; }
 
   afl->score_changed = 0;
 
@@ -297,24 +317,37 @@ void cull_queue(afl_state_t *afl) {
   /* Let's see if anything in the bitmap isn't captured in temp_v.
      If yes, and if it has a afl->top_rated[] contender, let's use it. */
 
-  for (i = 0; i < afl->fsrv.map_size; ++i)
+  for (i = 0; i < afl->fsrv.map_size; ++i) {
+
     if (afl->top_rated[i] && (temp_v[i >> 3] & (1 << (i & 7)))) {
 
       u32 j = len;
 
       /* Remove all bits belonging to the current entry from temp_v. */
 
-      while (j--)
-        if (afl->top_rated[i]->trace_mini[j])
+      while (j--) {
+
+        if (afl->top_rated[i]->trace_mini[j]) {
+
           temp_v[j] &= ~afl->top_rated[i]->trace_mini[j];
+
+        }
+
+      }
 
       afl->top_rated[i]->favored = 1;
       ++afl->queued_favored;
 
-      if (afl->top_rated[i]->fuzz_level == 0 || !afl->top_rated[i]->was_fuzzed)
+      if (afl->top_rated[i]->fuzz_level == 0 ||
+          !afl->top_rated[i]->was_fuzzed) {
+
         ++afl->pending_favored;
 
+      }
+
     }
+
+  }
 
   q = afl->queue;
 
@@ -350,38 +383,66 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   if (afl->schedule != MMOPT && afl->schedule != RARE &&
       likely(!afl->fixed_seed)) {
 
-    if (q->exec_us * 0.1 > avg_exec_us)
+    if (q->exec_us * 0.1 > avg_exec_us) {
+
       perf_score = 10;
-    else if (q->exec_us * 0.25 > avg_exec_us)
+
+    } else if (q->exec_us * 0.25 > avg_exec_us) {
+
       perf_score = 25;
-    else if (q->exec_us * 0.5 > avg_exec_us)
+
+    } else if (q->exec_us * 0.5 > avg_exec_us) {
+
       perf_score = 50;
-    else if (q->exec_us * 0.75 > avg_exec_us)
+
+    } else if (q->exec_us * 0.75 > avg_exec_us) {
+
       perf_score = 75;
-    else if (q->exec_us * 4 < avg_exec_us)
+
+    } else if (q->exec_us * 4 < avg_exec_us) {
+
       perf_score = 300;
-    else if (q->exec_us * 3 < avg_exec_us)
+
+    } else if (q->exec_us * 3 < avg_exec_us) {
+
       perf_score = 200;
-    else if (q->exec_us * 2 < avg_exec_us)
+
+    } else if (q->exec_us * 2 < avg_exec_us) {
+
       perf_score = 150;
+
+    }
 
   }
 
   /* Adjust score based on bitmap size. The working theory is that better
      coverage translates to better targets. Multiplier from 0.25x to 3x. */
 
-  if (q->bitmap_size * 0.3 > avg_bitmap_size)
+  if (q->bitmap_size * 0.3 > avg_bitmap_size) {
+
     perf_score *= 3;
-  else if (q->bitmap_size * 0.5 > avg_bitmap_size)
+
+  } else if (q->bitmap_size * 0.5 > avg_bitmap_size) {
+
     perf_score *= 2;
-  else if (q->bitmap_size * 0.75 > avg_bitmap_size)
+
+  } else if (q->bitmap_size * 0.75 > avg_bitmap_size) {
+
     perf_score *= 1.5;
-  else if (q->bitmap_size * 3 < avg_bitmap_size)
+
+  } else if (q->bitmap_size * 3 < avg_bitmap_size) {
+
     perf_score *= 0.25;
-  else if (q->bitmap_size * 2 < avg_bitmap_size)
+
+  } else if (q->bitmap_size * 2 < avg_bitmap_size) {
+
     perf_score *= 0.5;
-  else if (q->bitmap_size * 1.5 < avg_bitmap_size)
+
+  } else if (q->bitmap_size * 1.5 < avg_bitmap_size) {
+
     perf_score *= 0.75;
+
+  }
 
   /* Adjust score based on handicap. Handicap is proportional to how late
      in the game we learned about this path. Latecomers are allowed to run
@@ -405,11 +466,19 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   switch (q->depth) {
 
-    case 0 ... 3: break;
-    case 4 ... 7: perf_score *= 2; break;
-    case 8 ... 13: perf_score *= 3; break;
-    case 14 ... 25: perf_score *= 4; break;
-    default: perf_score *= 5;
+    case 0 ... 3:
+      break;
+    case 4 ... 7:
+      perf_score *= 2;
+      break;
+    case 8 ... 13:
+      perf_score *= 3;
+      break;
+    case 14 ... 25:
+      perf_score *= 4;
+      break;
+    default:
+      perf_score *= 5;
 
   }
 
@@ -421,9 +490,12 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   switch (afl->schedule) {
 
-    case EXPLORE: break;
+    case EXPLORE:
+      break;
 
-    case EXPLOIT: factor = MAX_FACTOR; break;
+    case EXPLOIT:
+      factor = MAX_FACTOR;
+      break;
 
     case COE:
       fuzz_total = 0;
@@ -438,15 +510,20 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
       }
 
-      if (unlikely(!n_paths)) FATAL("Queue state corrupt");
+      if (unlikely(!n_paths)) { FATAL("Queue state corrupt"); }
 
       fuzz_mu = fuzz_total / n_paths;
       if (fuzz <= fuzz_mu) {
 
-        if (q->fuzz_level < 16)
+        if (q->fuzz_level < 16) {
+
           factor = ((u32)(1 << q->fuzz_level));
-        else
+
+        } else {
+
           factor = MAX_FACTOR;
+
+        }
 
       } else {
 
@@ -457,13 +534,21 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       break;
 
     case FAST:
-      if (q->fuzz_level < 16)
+      if (q->fuzz_level < 16) {
+
         factor = ((u32)(1 << q->fuzz_level)) / (fuzz == 0 ? 1 : fuzz);
-      else
+
+      } else {
+
         factor = MAX_FACTOR / (fuzz == 0 ? 1 : next_pow2(fuzz));
+
+      }
+
       break;
 
-    case LIN: factor = q->fuzz_level / (fuzz == 0 ? 1 : fuzz); break;
+    case LIN:
+      factor = q->fuzz_level / (fuzz == 0 ? 1 : fuzz);
+      break;
 
     case QUAD:
       factor = q->fuzz_level * q->fuzz_level / (fuzz == 0 ? 1 : fuzz);
@@ -480,7 +565,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
         (afl->max_depth - q->depth)) / 5));
       */
       // put focus on the last 5 entries
-      if (afl->max_depth - q->depth < 5) perf_score *= 2;
+      if (afl->max_depth - q->depth < 5) { perf_score *= 2; }
 
       break;
 
@@ -496,25 +581,34 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
       break;
 
-    default: PFATAL("Unknown Power Schedule");
+    default:
+      PFATAL("Unknown Power Schedule");
 
   }
 
-  if (factor > MAX_FACTOR) factor = MAX_FACTOR;
+  if (factor > MAX_FACTOR) { factor = MAX_FACTOR; }
 
   perf_score *= factor / POWER_BETA;
 
   // MOpt mode
-  if (afl->limit_time_sig != 0 && afl->max_depth - q->depth < 3)
+  if (afl->limit_time_sig != 0 && afl->max_depth - q->depth < 3) {
+
     perf_score *= 2;
-  else if (perf_score < 1)
+
+  } else if (perf_score < 1) {
+
     // Add a lower bound to AFLFast's energy assignment strategies
     perf_score = 1;
 
+  }
+
   /* Make sure that we don't go over limit. */
 
-  if (perf_score > afl->havoc_max_mult * 100)
+  if (perf_score > afl->havoc_max_mult * 100) {
+
     perf_score = afl->havoc_max_mult * 100;
+
+  }
 
   return perf_score;
 

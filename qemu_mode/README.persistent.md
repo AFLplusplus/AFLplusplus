@@ -23,8 +23,10 @@ in 2.2 and 2.3) have to be set.
 This address (as well as the RET address, see below) has to be defined in
 hexadecimal with the 0x prefix or as a decimal value.
 
-If the target is compiled with position independant code (PIE/PIC), you must
-add 0x4000000000 to that address, because qemu loads to this base address.
+*Note:* If the target is compiled with position independant code (PIE/PIC)
+qemu loads these to a specific base address.
+For 64 bit you have to add 0x4000000000 (9 zeroes) and for 32 bit 0x40000000
+(7 zeroes) to the address.
 On strange setups the base address set by QEMU for PIE executable may change,
 you can check it printing the process map using 
 `AFL_QEMU_DEBUG_MAPS=1 afl-qemu-trace TARGET-BINARY`
@@ -32,7 +34,7 @@ you can check it printing the process map using
 If this address is not valid, afl-fuzz will error during startup with the
 message that the forkserver was not found.
 
-### 2.2) the RET address
+### 2.2) The RET address
 
 The RET address is the last instruction of the persistent loop.
 The emulator will emit a jump to START when translating the instruction at RET.
@@ -46,7 +48,7 @@ patch the return address (on stack or in the link register) to return to START
 It is defined by setting AFL_QEMU_PERSISTENT_RET, and too 0x4000000000 has to
 be set if the target is position independant.
 
-### 2.3) the OFFSET
+### 2.3) The OFFSET
 
 This option is valid only for x86/x86_64 only, arm/aarch64 do not save the
 return address on stack.
@@ -72,7 +74,7 @@ Now to get this value right here some help:
 8. again print the ESP value
 9. calculate the difference between the two values - and this is the offset
 
-### 2.4) resetting the register state
+### 2.4) Resetting the register state
 
 It is very, very likely you need to restore the general purpose registers state
 when starting a new loop. Because of this you 99% of the time should set

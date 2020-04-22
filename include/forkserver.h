@@ -31,6 +31,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include "types.h"
+
 typedef struct afl_forkserver {
 
   /* a program that includes afl-forkserver needs to define these */
@@ -61,7 +63,7 @@ typedef struct afl_forkserver {
   u64 total_execs;                      /* How often run_target was called  */
 
   u8 *out_file,                         /* File to fuzz, if any             */
-      *target_path;                                   /* Path of the target */
+      *target_path;                     /* Path of the target               */
 
   FILE *plot_file;                      /* Gnuplot output file              */
 

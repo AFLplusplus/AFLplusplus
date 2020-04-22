@@ -81,6 +81,8 @@ test `uname -s` = 'Darwin' -o `uname -s` = 'FreeBSD' && {
 } || {
   AFL_GCC=afl-gcc
 }
+command -v gcc || AFL_GCC=afl-clang
+
 SYS=`uname -m`
 
 GREY="\\033[1;90m"
@@ -666,8 +668,8 @@ test -z "$AFL_CC" && {
 
 $ECHO "$BLUE[*] Testing: qemu_mode"
 test -e ../afl-qemu-trace && {
-  gcc -pie -fPIE -o test-instr ../test-instr.c
-  gcc -o test-compcov test-compcov.c
+  cc -pie -fPIE -o test-instr ../test-instr.c
+  cc -o test-compcov test-compcov.c
   test -e test-instr -a -e test-compcov && {
     {
       mkdir -p in
@@ -691,7 +693,14 @@ test -e ../afl-qemu-trace && {
       $ECHO "$GREY[*] running afl-fuzz for qemu_mode AFL_ENTRYPOINT, this will take approx 6 seconds"
       {
         {
-          export AFL_ENTRYPOINT=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//' )`
+          if file test-instr | grep -q "32-bit"; then
+            # for 32-bit reduce 8 nibbles to the lower 7 nibbles
+	    ADDR_LOWER_PART=`nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.//'`
+          else
+            # for 64-bit reduce 16 nibbles to the lower 9 nibbles
+	    ADDR_LOWER_PART=`nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//'`
+          fi
+          export AFL_ENTRYPOINT=`expr 0x4${ADDR_LOWER_PART}`
           $ECHO AFL_ENTRYPOINT=$AFL_ENTRYPOINT - $(nm test-instr | grep "T main") - $(file ./test-instr)
           ../afl-fuzz -m ${MEM_LIMIT} -V2 -Q -i in -o out -- ./test-instr
           unset AFL_ENTRYPOINT
@@ -759,7 +768,14 @@ test -e ../afl-qemu-trace && {
       test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "aarch64" -o ! "${SYS%%arm*}" && {
         $ECHO "$GREY[*] running afl-fuzz for persistent qemu_mode, this will take approx 10 seconds"
         {
-          export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4$(nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//' )`
+          if file test-instr | grep -q "32-bit"; then
+            # for 32-bit reduce 8 nibbles to the lower 7 nibbles
+	    ADDR_LOWER_PART=`nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.//'`
+          else
+            # for 64-bit reduce 16 nibbles to the lower 9 nibbles
+	    ADDR_LOWER_PART=`nm test-instr | grep "T main" | awk '{print $1}' | sed 's/^.......//'`
+          fi
+          export AFL_QEMU_PERSISTENT_ADDR=`expr 0x4${ADDR_LOWER_PART}`
           export AFL_QEMU_PERSISTENT_GPR=1
           $ECHO "Info: AFL_QEMU_PERSISTENT_ADDR=$AFL_QEMU_PERSISTENT_ADDR <= $(nm test-instr | grep "T main" | awk '{print $1}')"
           env|grep AFL_|sort
@@ -935,7 +951,15 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
   test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
     unset AFL_CC
     # Compile the vulnerable program
-    ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+    test -e ../afl-clang-fast && {
+      ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+    } || {
+      test -e ../afl-gcc-fast && {
+        ../afl-gcc-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+      } || {
+        ../afl-gcc -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+      }
+    }
     # Compile the custom mutator
     make -C ../examples/custom_mutators libexamplemutator.so > /dev/null 2>&1
     test -e test-custom-mutator -a -e ${CUSTOM_MUTATOR_PATH}/libexamplemutator.so && {

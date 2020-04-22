@@ -42,7 +42,6 @@ qemu_mode/libcompcov/compcovtest
 as
 ld
 qemu_mode/qemu-*
-unicorn_mode/unicornafl/
 unicorn_mode/samples/*/\.test-*
 unicorn_mode/samples/*/output/
 core\.*

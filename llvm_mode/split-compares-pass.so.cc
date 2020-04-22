@@ -318,10 +318,18 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
     CmpInst::Predicate new_pred;
     switch (pred) {
 
-      case CmpInst::ICMP_UGE: new_pred = CmpInst::ICMP_UGT; break;
-      case CmpInst::ICMP_SGE: new_pred = CmpInst::ICMP_SGT; break;
-      case CmpInst::ICMP_ULE: new_pred = CmpInst::ICMP_ULT; break;
-      case CmpInst::ICMP_SLE: new_pred = CmpInst::ICMP_SLT; break;
+      case CmpInst::ICMP_UGE:
+        new_pred = CmpInst::ICMP_UGT;
+        break;
+      case CmpInst::ICMP_SGE:
+        new_pred = CmpInst::ICMP_SGT;
+        break;
+      case CmpInst::ICMP_ULE:
+        new_pred = CmpInst::ICMP_ULT;
+        break;
+      case CmpInst::ICMP_SLE:
+        new_pred = CmpInst::ICMP_SLT;
+        break;
       default:  // keep the compiler happy
         continue;
 
@@ -384,10 +392,18 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
     CmpInst::Predicate new_pred;
     switch (pred) {
 
-      case CmpInst::FCMP_UGE: new_pred = CmpInst::FCMP_UGT; break;
-      case CmpInst::FCMP_OGE: new_pred = CmpInst::FCMP_OGT; break;
-      case CmpInst::FCMP_ULE: new_pred = CmpInst::FCMP_ULT; break;
-      case CmpInst::FCMP_OLE: new_pred = CmpInst::FCMP_OLT; break;
+      case CmpInst::FCMP_UGE:
+        new_pred = CmpInst::FCMP_UGT;
+        break;
+      case CmpInst::FCMP_OGE:
+        new_pred = CmpInst::FCMP_OGT;
+        break;
+      case CmpInst::FCMP_ULE:
+        new_pred = CmpInst::FCMP_ULT;
+        break;
+      case CmpInst::FCMP_OLE:
+        new_pred = CmpInst::FCMP_OLT;
+        break;
       default:  // keep the compiler happy
         continue;
 
@@ -855,7 +871,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
         icmp_exponent_result =
             BinaryOperator::Create(Instruction::Xor, icmp_exponent, t_s0);
         break;
-      default: continue;
+      default:
+        continue;
 
     }
 
@@ -958,7 +975,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
         icmp_fraction_result =
             BinaryOperator::Create(Instruction::Xor, icmp_fraction, t_s0);
         break;
-      default: continue;
+      default:
+        continue;
 
     }
 
@@ -1004,7 +1022,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
         PN->addIncoming(icmp_exponent_result, signequal_bb);
         PN->addIncoming(icmp_fraction_result, middle_bb);
         break;
-      default: continue;
+      default:
+        continue;
 
     }
 
