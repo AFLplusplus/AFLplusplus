@@ -792,7 +792,7 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  if (afl->mutator) {
+  if (afl->number_of_custom_mutators) {
 
     sprintf(tmp, "%s/%s",
             u_stringify_int(IB(0), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),

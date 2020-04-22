@@ -1646,12 +1646,13 @@ custom_mutator_stage:
    * CUSTOM MUTATORS *
    *******************/
 
-  if (likely(!afl->list_mutators)) goto havoc_stage;
+  if (likely(!afl->number_of_custom_mutators)) { goto havoc_stage; }
 
   afl->stage_name = "custom mutator";
   afl->stage_short = "custom";
   afl->stage_max = HAVOC_CYCLES * perf_score / afl->havoc_div / 100;
   afl->stage_val_type = STAGE_VAL_NONE;
+  bool has_custom_fuzz = false;
 
   if (afl->stage_max < HAVOC_MIN) { afl->stage_max = HAVOC_MIN; }
 
@@ -1659,104 +1660,114 @@ custom_mutator_stage:
 
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
-  LIST_FOREACH(afl->list_mutators, struct custom_mutator, {
+  struct custom_mutator * mutator;
 
-    if (likely(!el->afl_custom_fuzz)) { continue; }
+  for (int i = 0; i < afl->number_of_custom_mutators; i++) {
 
-    for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
-         ++afl->stage_cur) {
+    mutator = afl->custom_mutators[i];
 
-      struct queue_entry *target;
-      u32                 tid;
-      u8 *                new_buf;
+    if ( mutator->afl_custom_fuzz ) {
 
-    retry_external_pick:
-      /* Pick a random other queue entry for passing to external API */
-      do {
+      has_custom_fuzz = true;
 
-        tid = rand_below(afl, afl->queued_paths);
+      for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
-      } while (tid == afl->current_entry && afl->queued_paths > 1);
+        struct queue_entry *target;
+        u32                 tid;
+        u8 *                new_buf;
 
-      target = afl->queue;
+      retry_external_pick:
+        /* Pick a random other queue entry for passing to external API */
+        do {
 
-      while (tid >= 100) {
+          tid = rand_below(afl, afl->queued_paths);
 
-    while (tid--) {
+        } while (tid == afl->current_entry && afl->queued_paths > 1);
 
-      target = target->next;
+        target = afl->queue;
 
-    }
+        while (tid >= 100) {
 
-    /* Make sure that the target has a reasonable length. */
-
-      while (tid--)
-        target = target->next;
-
-      /* Make sure that the target has a reasonable length. */
-
-      while (target && (target->len < 2 || target == afl->queue_cur) &&
-             afl->queued_paths > 1) {
-
-    if (!target) { goto retry_external_pick; }
-
-    /* Read the additional testcase into a new buffer. */
-    fd = open(target->fname, O_RDONLY);
-    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
-
-      if (!target) goto retry_external_pick;
-
-      /* Read the additional testcase into a new buffer. */
-      fd = open(target->fname, O_RDONLY);
-      if (unlikely(fd < 0)) PFATAL("Unable to open '%s'", target->fname);
-
-      new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), target->len);
-      ck_read(fd, new_buf, target->len, target->fname);
-      close(fd);
-
-      u8 *mutated_buf = NULL;
-
-      size_t mutated_size =
-          el->afl_custom_fuzz(el->data, out_buf, len, &mutated_buf, new_buf,
-                              target->len, max_seed_size);
-
-      if (unlikely(!mutated_buf))
-        FATAL("Error in custom_fuzz. Size returned: %zd", mutated_size);
-
-      if (mutated_size > 0) {
-
-        if (common_fuzz_stuff(afl, mutated_buf, (u32)mutated_size)) {
-
-          goto abandon_entry;
+          target = target->next_100;
+          tid -= 100;
 
         }
 
-        /* If we're finding new stuff, let's run for a bit longer, limits
-          permitting. */
+        while (tid--) {
 
-        if (afl->queued_paths != havoc_queued) {
+          target = target->next;
 
-          if (perf_score <= afl->havoc_max_mult * 100) {
+        }
 
-            afl->stage_max *= 2;
-            perf_score *= 2;
+        /* Make sure that the target has a reasonable length. */
+
+        while (target && (target->len < 2 || target == afl->queue_cur) &&
+              afl->queued_paths > 1) {
+
+          target = target->next;
+          ++afl->splicing_with;
+
+        }
+
+        if (!target) { goto retry_external_pick; }
+
+        /* Read the additional testcase into a new buffer. */
+        fd = open(target->fname, O_RDONLY);
+        if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
+
+        new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), target->len);
+        ck_read(fd, new_buf, target->len, target->fname);
+        close(fd);
+
+        u8 *mutated_buf = NULL;
+
+        size_t mutated_size = mutator->afl_custom_fuzz(
+            mutator->data, out_buf, len, &mutated_buf, new_buf, target->len,
+            max_seed_size);
+
+        if (unlikely(!mutated_buf)) {
+
+          FATAL("Error in custom_fuzz. Size returned: %zd", mutated_size);
+
+        }
+
+        if (mutated_size > 0) {
+
+          if (common_fuzz_stuff(afl, mutated_buf, (u32)mutated_size)) {
+
+            goto abandon_entry;
 
           }
 
-          havoc_queued = afl->queued_paths;
+          /* If we're finding new stuff, let's run for a bit longer, limits
+            permitting. */
+
+          if (afl->queued_paths != havoc_queued) {
+
+            if (perf_score <= afl->havoc_max_mult * 100) {
+
+              afl->stage_max *= 2;
+              perf_score *= 2;
+
+            }
+
+            havoc_queued = afl->queued_paths;
+
+          }
 
         }
 
-      }
+        /* `(afl->)out_buf` may have been changed by the call to custom_fuzz */
+        /* TODO: Only do this when `mutated_buf` == `out_buf`? Branch vs Memcpy. */
+        memcpy(out_buf, in_buf, len);
 
-      /* `(afl->)out_buf` may have been changed by the call to custom_fuzz */
-      /* TODO: Only do this when `mutated_buf` == `out_buf`? Branch vs Memcpy.
-       */
-      memcpy(out_buf, in_buf, len);
+      }
 
     }
 
-  })
+  }
+
+  if (!has_custom_fuzz) goto havoc_stage;
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -1808,21 +1819,24 @@ havoc_stage:
 
   havoc_queued = afl->queued_paths;
 
-  u8 stacked_custom = (afl->mutator && afl->mutator->afl_custom_havoc_mutation);
-  u8 stacked_custom_prob = 6;  // like one of the default mutations in havoc
+  for (int i =0; i < afl->number_of_custom_mutators; i++) {
 
-  if (stacked_custom && afl->mutator->afl_custom_havoc_mutation_probability) {
+    mutator = afl->custom_mutators[i];
 
-    stacked_custom_prob =
-        afl->mutator->afl_custom_havoc_mutation_probability(afl->mutator->data);
-    if (stacked_custom_prob > 100) {
+    if (mutator->stacked_custom && mutator->afl_custom_havoc_mutation_probability) {
 
-      FATAL(
-          "The probability returned by afl_custom_havoc_mutation_probability "
-          "has to be in the range 0-100.");
+      mutator->stacked_custom_prob =
+          mutator->afl_custom_havoc_mutation_probability(mutator->data);
+      if (mutator->stacked_custom_prob > 100) {
+
+        FATAL(
+            "The probability returned by afl_custom_havoc_mutation_propability "
+            "has to be in the range 0-100.");
+
+      }
 
     }
-
+  
   }
 
   /* We essentially just do several thousand runs (depending on perf_score)
@@ -1836,29 +1850,35 @@ havoc_stage:
 
     for (i = 0; i < use_stacking; ++i) {
 
-      if (stacked_custom && rand_below(afl, 100) < stacked_custom_prob) {
+      for (int i =0; i < afl->number_of_custom_mutators; i++) {
+        
+        mutator = afl->custom_mutators[i];
 
-        u8 *   custom_havoc_buf = NULL;
-        size_t new_len = afl->mutator->afl_custom_havoc_mutation(
-            afl->mutator->data, out_buf, temp_len, &custom_havoc_buf, MAX_FILE);
-        if (unlikely(!custom_havoc_buf)) {
+        if (mutator->stacked_custom && rand_below(afl, 100) < mutator->stacked_custom_prob) {
 
-          FATAL("Error in custom_havoc (return %zd)", new_len);
+          u8 *   custom_havoc_buf = NULL;
+          size_t new_len = mutator->afl_custom_havoc_mutation(
+              mutator->data, out_buf, temp_len, &custom_havoc_buf, MAX_FILE);
+          if (unlikely(!custom_havoc_buf)) {
 
-        }
+            FATAL("Error in custom_havoc (return %zd)", new_len);
 
-        if (likely(new_len > 0 && custom_havoc_buf)) {
+          }
 
-          temp_len = new_len;
-          if (out_buf != custom_havoc_buf) {
+          if (likely(new_len > 0 && custom_havoc_buf)) {
 
-            ck_maybe_grow(BUF_PARAMS(out), temp_len);
-            memcpy(out_buf, custom_havoc_buf, temp_len);
+            temp_len = new_len;
+            if (out_buf != custom_havoc_buf) {
+
+              ck_maybe_grow(BUF_PARAMS(out), temp_len);
+              memcpy(out_buf, custom_havoc_buf, temp_len);
+
+            }
 
           }
 
         }
-
+  
       }
 
       switch (rand_below(

@@ -155,7 +155,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stats_last_execs = 0;
   afl->stats_avg_exec = -1;
 
-  afl->list_mutators = NULL;
+  memset(afl->custom_mutators, 0, sizeof(afl->custom_mutators));
 
   init_mopt_globals(afl);
 
