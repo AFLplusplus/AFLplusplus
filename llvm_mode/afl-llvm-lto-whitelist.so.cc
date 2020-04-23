@@ -91,7 +91,8 @@ class AFLwhitelist : public ModulePass {
 
     static const SmallVector<std::string, 5> Blacklist = {
 
-        "asan.", "llvm.", "sancov.", "__ubsan_handle_", "ign."
+        "asan.", "llvm.",      "sancov.", "__ubsan_handle_", "ign.", "__afl_",
+        "_fini", "__libc_csu", "__asan",  "__msan",          "msan."
 
     };
 

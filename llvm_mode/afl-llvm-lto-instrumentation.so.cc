@@ -134,8 +134,8 @@ class AFLLTOPass : public ModulePass {
 
     static const char *Blacklist[] = {
 
-        "asan.",  "llvm.", "sancov.",   "__ubsan_handle_", "ign.",
-        "__afl_", "_fini", "__libc_csu"
+        "asan.", "llvm.",      "sancov.", "__ubsan_handle_", "ign.", "__afl_",
+        "_fini", "__libc_csu", "__asan",  "__msan",          "msan."
 
     };
 
@@ -201,6 +201,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
   int inst_blocks = 0;
 
   for (auto &F : M) {
+
+    //fprintf(stderr, "DEBUG: Function %s\n", F.getName().str().c_str());
 
     if (F.size() < 2) continue;
     if (isBlacklisted(&F)) continue;
