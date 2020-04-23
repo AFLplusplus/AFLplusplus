@@ -149,10 +149,16 @@ static void edit_params(u32 argc, char **argv) {
       u8 *alt_cxx = getenv("AFL_CXX");
       cc_params[0] = alt_cxx && *alt_cxx ? alt_cxx : (u8 *)"clang++";
 
-    } else {
+    } else if (!strcmp(name, "afl-clang")) {
 
       u8 *alt_cc = getenv("AFL_CC");
       cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)"clang";
+
+    } else {
+
+      fprintf(stderr, "Name of the binary: %s\n", argv[0]);
+      FATAL(
+        "Name of the binary is not a known name, expected afl-clang(++)");
 
     }
 
@@ -166,12 +172,17 @@ static void edit_params(u32 argc, char **argv) {
 
 #ifdef __APPLE__
 
-    if (!strcmp(name, "afl-g++"))
+    if (!strcmp(name, "afl-g++")) {
       cc_params[0] = getenv("AFL_CXX");
-    else if (!strcmp(name, "afl-gcj"))
+    } else if (!strcmp(name, "afl-gcj")) {
       cc_params[0] = getenv("AFL_GCJ");
-    else
+    } else if (!strcmp(name, "afl-gcc")) {
       cc_params[0] = getenv("AFL_CC");
+    } else {
+      fprintf(stderr, "Name of the binary: %s\n", argv[0]);
+      FATAL(
+        "Name of the binary is not a known name, expected afl-gcc/g++/gcj");
+    }
 
     if (!cc_params[0]) {
 
@@ -199,10 +210,16 @@ static void edit_params(u32 argc, char **argv) {
       u8 *alt_cc = getenv("AFL_GCJ");
       cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)"gcj";
 
-    } else {
+    } else if (!strcmp(name, "afl-gcc")) {
 
       u8 *alt_cc = getenv("AFL_CC");
       cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)"gcc";
+
+    } else {
+
+      fprintf(stderr, "Name of the binary: %s\n", argv[0]);
+      FATAL(
+        "Name of the binary is not a known name, expected afl-gcc/g++/gcj");
 
     }
 
