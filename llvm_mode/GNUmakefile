@@ -68,6 +68,7 @@ endif
 ifeq "$(LLVM_MAJOR)" "11"
   $(info [+] llvm_mode detected llvm 11, enabling afl-clang-lto LTO implementation)
   LLVM_LTO = 1
+  TEST_MMAP = 1
 endif
 
 ifeq "$(LLVM_LTO)" "0"
@@ -193,13 +194,13 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 else
         SHMAT_OK=0
         CFLAGS+=-DUSEMMAP=1
-        LDFLAGS += -lrt
+        LDFLAGS += -Wno-deprecated-declarations
 endif
 
 ifeq "$(TEST_MMAP)" "1"
         SHMAT_OK=0
         CFLAGS+=-DUSEMMAP=1
-        LDFLAGS += -lrt
+        LDFLAGS += -Wno-deprecated-declarations
 endif
 
   PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-lto-whitelist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
