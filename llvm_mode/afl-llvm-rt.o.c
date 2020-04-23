@@ -52,6 +52,10 @@
 
 #define CONST_PRIO 5
 
+//#ifndef MAP_FIXED_NOREPLACE
+//#define MAP_FIXED_NOREPLACE MAP_FIXED
+//#endif
+
 #include <sys/mman.h>
 #include <fcntl.h>
 
@@ -69,12 +73,14 @@ u32        __afl_final_loc;
 u32        __afl_prev_ctx;
 u32        __afl_cmp_counter;
 u32        __afl_dictionary_len;
+u64        __afl_map_addr;
 #else
 __thread PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 __thread u32        __afl_final_loc;
 __thread u32        __afl_prev_ctx;
 __thread u32        __afl_cmp_counter;
 __thread u32        __afl_dictionary_len;
+__thread u64        __afl_map_addr;
 #endif
 
 struct cmp_map *__afl_cmp_map;
@@ -87,7 +93,11 @@ static u8 is_persistent;
 
 static void __afl_map_shm(void) {
 
-  u8 *id_str = getenv(SHM_ENV_VAR);
+  u8 *         id_str = getenv(SHM_ENV_VAR);
+  unsigned int map_size = MAP_SIZE;
+
+  if (__afl_final_loc > 1 && __afl_final_loc < MAP_SIZE)
+    map_size = __afl_final_loc;
 
   /* If we're running under AFL, attach to the appropriate region, replacing the
      early-stage __afl_area_initial region that is needed to allow some really
@@ -99,10 +109,6 @@ static void __afl_map_shm(void) {
     const char *   shm_file_path = id_str;
     int            shm_fd = -1;
     unsigned char *shm_base = NULL;
-    unsigned int   map_size = MAP_SIZE
-
-        if (__afl_final_loc > 1 && __afl_final_loc < MAP_SIZE) map_size =
-            __afl_final_loc;
 
     /* create the shared memory segment as if it was a file */
     shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
@@ -114,7 +120,18 @@ static void __afl_map_shm(void) {
     }
 
     /* map the shared memory segment to the address space of the process */
-    shm_base = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (__afl_map_addr) {
+
+      shm_base = mmap((void *)__afl_map_addr, map_size, PROT_READ | PROT_WRITE,
+                      MAP_FIXED | MAP_SHARED, shm_fd, 0);
+
+    } else {
+
+      shm_base =
+          mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+
+    }
+
     if (shm_base == MAP_FAILED) {
 
       close(shm_fd);
@@ -129,7 +146,8 @@ static void __afl_map_shm(void) {
 #else
     u32 shm_id = atoi(id_str);
 
-    __afl_area_ptr = shmat(shm_id, NULL, 0);
+    __afl_area_ptr = shmat(shm_id, (void *)__afl_map_addr, 0);
+
 #endif
 
     /* Whooooops. */
@@ -140,6 +158,19 @@ static void __afl_map_shm(void) {
        our parent doesn't give up on us. */
 
     __afl_area_ptr[0] = 1;
+
+  } else if (__afl_map_addr) {
+
+    __afl_area_ptr =
+        mmap((void *)__afl_map_addr, map_size, PROT_READ | PROT_WRITE,
+             MAP_FIXED | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (__afl_area_ptr == MAP_FAILED) {
+
+      fprintf(stderr, "can not aquire mmap for address %p\n",
+              (void *)__afl_map_addr);
+      exit(1);
+
+    }
 
   }
 

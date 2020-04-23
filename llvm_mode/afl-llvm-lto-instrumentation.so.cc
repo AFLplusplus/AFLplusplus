@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 #include <list>
 #include <string>
@@ -154,6 +155,7 @@ class AFLLTOPass : public ModulePass {
  protected:
   int      afl_global_id = 1, debug = 0, autodictionary = 0;
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, total_instr = 0;
+  uint64_t map_addr = 0x10000;
 
 };
 
@@ -165,9 +167,11 @@ bool AFLLTOPass::runOnModule(Module &M) {
   std::vector<std::string>         dictionary;
   std::vector<CallInst *>          calls;
   DenseMap<Value *, std::string *> valueMap;
+  char *                           ptr;
 
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
+  IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
 
   if (getenv("AFL_DEBUG")) debug = 1;
 
@@ -186,12 +190,63 @@ bool AFLLTOPass::runOnModule(Module &M) {
       getenv("AFL_LLVM_LTO_AUTODICTIONARY"))
     autodictionary = 1;
 
+  if (getenv("AFL_LLVM_MAP_DYNAMIC")) map_addr = 0;
+
+  if ((ptr = getenv("AFL_LLVM_MAP_ADDR"))) {
+
+    uint64_t val;
+    if (!*ptr || !strcmp(ptr, "0") || !strcmp(ptr, "0x0")) {
+
+      map_addr = 0;
+
+    } else if (map_addr == 0) {
+
+      FATAL(
+          "AFL_LLVM_MAP_ADDR and AFL_LLVM_MAP_DYNAMIC cannot be used together");
+
+    } else if (strncmp(ptr, "0x", 2) != 0) {
+
+      map_addr = 0x10000;  // the default
+
+    } else {
+
+      val = strtoull(ptr, NULL, 16);
+      if (val < 0x100 || val > 0xffffffff00000000) {
+
+        FATAL(
+            "AFL_LLVM_MAP_ADDR must be a value between 0x100 and "
+            "0xffffffff00000000");
+
+      }
+
+      map_addr = val;
+
+    }
+
+  }
+
+  if (debug) { fprintf(stderr, "map address is %lu\n", map_addr); }
+
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
 
-  GlobalVariable *AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                         GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+  GlobalVariable *AFLMapPtr = NULL;
+  ;
+  Value *MapPtrFixed = NULL;
+
+  if (!map_addr) {
+
+    AFLMapPtr =
+        new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+                           GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+
+  } else {
+
+    ConstantInt *MapAddr = ConstantInt::get(Int64Ty, map_addr);
+    MapPtrFixed =
+        ConstantExpr::getIntToPtr(MapAddr, PointerType::getUnqual(Int8Ty));
+
+  }
 
   ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
   ConstantInt *One = ConstantInt::get(Int8Ty, 1);
@@ -202,7 +257,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   for (auto &F : M) {
 
-    //fprintf(stderr, "DEBUG: Function %s\n", F.getName().str().c_str());
+    // fprintf(stderr, "DEBUG: Function %s\n", F.getName().str().c_str());
 
     if (F.size() < 2) continue;
     if (isBlacklisted(&F)) continue;
@@ -581,10 +636,20 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           /* Load SHM pointer */
 
-          LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-          MapPtr->setMetadata(M.getMDKindID("nosanitize"),
-                              MDNode::get(C, None));
-          Value *MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+          Value *MapPtrIdx;
+
+          if (map_addr) {
+
+            MapPtrIdx = IRB.CreateGEP(MapPtrFixed, CurLoc);
+
+          } else {
+
+            LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+            MapPtr->setMetadata(M.getMDKindID("nosanitize"),
+                                MDNode::get(C, None));
+            MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+
+          }
 
           /* Update bitmap */
 
@@ -629,7 +694,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-  if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL || dictionary.size()) {
+  if (!getenv("AFL_LLVM_LTO_DONTWRITEID") || dictionary.size() || map_addr) {
 
     // yes we could create our own function, insert it into ctors ...
     // but this would be a pain in the butt ... so we use afl-llvm-rt-lto.o
@@ -657,6 +722,18 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     BasicBlock::iterator IP = bb->getFirstInsertionPt();
     IRBuilder<>          IRB(&(*IP));
+
+    if (map_addr) {
+
+      GlobalVariable *AFLMapAddrFixed = new GlobalVariable(
+          M, Int64Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_map_addr",
+          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+      ConstantInt *MapAddr = ConstantInt::get(Int64Ty, map_addr);
+      StoreInst *  StoreMapAddr = IRB.CreateStore(MapAddr, AFLMapAddrFixed);
+      StoreMapAddr->setMetadata(M.getMDKindID("nosanitize"),
+                                MDNode::get(C, None));
+
+    }
 
     if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL) {
 
