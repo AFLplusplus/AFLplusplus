@@ -95,6 +95,18 @@ target binary based on string compare and memory compare functions.
 afl-fuzz will automatically get these transmitted when starting to fuzz.
 This improves coverage on a lot of targets.
 
+## Fixed memory map
+
+To sped up fuzzing, the shared memory map is hard set to a specific address,
+by default 0x10000.
+In most cases this will work without any problems.
+On unusual operating systems/processors/kernels or weird libraries this might
+fail so to change the fixed address at compile time set
+AFL_LLVM_MAP_ADDR (a value of 0 or empty sets the map address to be
+dynamic - the original afl way, which is slower).
+AFL_LLVM_MAP_DYNAMIC can be set so the shared memory address is dynamic (which
+is safer but also slower).
+
 ## Potential issues
 
 ### compiling libraries fails
