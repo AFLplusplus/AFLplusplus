@@ -384,14 +384,20 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
 #else
 
-  if (unlikely(afl->mutator) && unlikely(afl->mutator->afl_custom_queue_get)) {
+  if (unlikely(afl->number_of_custom_mutators )) {
 
     /* The custom mutator will decide to skip this test case or not. */
 
-    if (!afl->mutator->afl_custom_queue_get(afl->mutator->data,
-                                            afl->queue_cur->fname)) {
+    struct custom_mutator * mutator;
 
-      return 1;
+    for (int i = 0; i < afl->number_of_custom_mutators; i++) { 
+
+      if ( unlikely(mutator->afl_custom_queue_get) && !mutator->afl_custom_queue_get(mutator->data,
+                                              afl->queue_cur->fname)) {
+
+        return 1;
+
+      }
 
     }
 
