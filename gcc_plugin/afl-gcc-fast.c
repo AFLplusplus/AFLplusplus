@@ -123,10 +123,16 @@ static void edit_params(u32 argc, char **argv) {
     u8 *alt_cxx = getenv("AFL_CXX");
     cc_params[0] = alt_cxx && *alt_cxx ? alt_cxx : (u8 *)AFL_GCC_CXX;
 
-  } else {
+  } else if (!strcmp(name, "afl-gcc-fast")) {
 
     u8 *alt_cc = getenv("AFL_CC");
     cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)AFL_GCC_CC;
+
+  } else {
+
+    fprintf(stderr, "Name of the binary: %s\n", argv[0]);
+    FATAL(
+        "Name of the binary is not a known name, expected afl-(gcc|g++)-fast");
 
   }
 
