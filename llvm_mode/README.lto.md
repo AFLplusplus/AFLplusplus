@@ -97,13 +97,12 @@ This improves coverage on a lot of targets.
 
 ## Fixed memory map
 
-To sped up fuzzing, the shared memory map is hard set to a specific address,
-by default 0x10000.
-In most cases this will work without any problems.
+To speed up fuzzing, the shared memory map is hard set to a specific address,
+by default 0x10000. In most cases this will work without any problems.
 On unusual operating systems/processors/kernels or weird libraries this might
 fail so to change the fixed address at compile time set
-AFL_LLVM_MAP_ADDR (a value of 0 or empty sets the map address to be
-dynamic - the original afl way, which is slower).
+AFL_LLVM_MAP_ADDR with a better value (a value of 0 or empty sets the map address
+to be dynamic - the original afl way, which is slower).
 AFL_LLVM_MAP_DYNAMIC can be set so the shared memory address is dynamic (which
 is safer but also slower).
 
@@ -122,12 +121,22 @@ Solution:
 ```
 AR=llvm-ar RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto++ ./configure --disable-shared
 ```
-and on some target you have to to AR=/RANLIB= even for make as the configure script does not save it ...
+and on some target you have to to AR=/RANLIB= even for make as the configure script does not save it.
+Other targets ignore environment variables and need the parameters set via
+`./configure --cc=... --cxx= --ranlib= ...` etc. (I am looking at you ffmpeg!).
 
 ### compiling programs still fail
 
 afl-clang-lto is still work in progress.
-Please report issues at:
+
+Known issues:
+  * Anything that llvm11 cannot compile, afl-clang-lto can not compile either - obviously
+  * Anything that does not compile with LTO, afl-clang-lto can not compile either - obviously
+
+Hence if building a target with afl-clang-lto fails try to build it with llvm11
+and LTO enabled (`CC=clang-11` `CXX=clang++-11` `CFLAGS=-flto=full` and
+`CXXFLAGS=-flto=full`).
+If this succeeeds then there is an issue with afl-clang-lto. Please report at
 [https://github.com/AFLplusplus/AFLplusplus/issues/226](https://github.com/AFLplusplus/AFLplusplus/issues/226)
 
 ## Upcoming Work
