@@ -52,9 +52,9 @@
 
 #define CONST_PRIO 5
 
-//#ifndef MAP_FIXED_NOREPLACE
-//#define MAP_FIXED_NOREPLACE MAP_FIXED
-//#endif
+#ifndef MAP_FIXED_NOREPLACE
+#define MAP_FIXED_NOREPLACE MAP_FIXED
+#endif
 
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -73,6 +73,7 @@ u32        __afl_final_loc;
 u32        __afl_prev_ctx;
 u32        __afl_cmp_counter;
 u32        __afl_dictionary_len;
+u32        __afl_map_size = MAP_SIZE;
 u64        __afl_map_addr;
 #else
 __thread PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
@@ -80,6 +81,7 @@ __thread u32        __afl_final_loc;
 __thread u32        __afl_prev_ctx;
 __thread u32        __afl_cmp_counter;
 __thread u32        __afl_dictionary_len;
+__thread u32        __afl_map_size = MAP_SIZE;
 __thread u64        __afl_map_addr;
 #endif
 
@@ -89,19 +91,71 @@ struct cmp_map *__afl_cmp_map;
 
 static u8 is_persistent;
 
+/* Error reporting to forkserver controller */
+
+void send_forkserver_error(int error) {
+
+  u32 status;
+  if (!error || error > 0xffff) return;
+  status = (FS_OPT_ERROR | FS_OPT_SET_ERROR(error));
+  if (write(FORKSRV_FD + 1, (char *)&status, 4) != 4) return;
+
+}
+
 /* SHM setup. */
 
 static void __afl_map_shm(void) {
 
-  u8 *         id_str = getenv(SHM_ENV_VAR);
-  unsigned int map_size = MAP_SIZE;
+  char *id_str = getenv(SHM_ENV_VAR);
 
-  if (__afl_final_loc > 1 && __afl_final_loc < MAP_SIZE)
-    map_size = __afl_final_loc;
+  if (__afl_final_loc) {
+
+    __afl_map_size = __afl_final_loc;
+    if (__afl_final_loc > MAP_SIZE) {
+
+      char *ptr;
+      u32   val = 0;
+      if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) val = atoi(ptr);
+      if (val < __afl_final_loc) {
+
+        if (__afl_final_loc > FS_OPT_MAX_MAPSIZE) {
+
+          fprintf(stderr,
+                  "Error: AFL++ tools *require* to set AFL_MAP_SIZE to %u to "
+                  "be able to run this instrumented program!\n",
+                  __afl_final_loc);
+          if (id_str) {
+
+            send_forkserver_error(FS_ERROR_MAP_SIZE);
+            exit(-1);
+
+          }
+
+        } else {
+
+          fprintf(stderr,
+                  "Warning: AFL++ tools will need to set AFL_MAP_SIZE to %u to "
+                  "be able to run this instrumented program!\n",
+                  __afl_final_loc);
+
+        }
+
+      }
+
+    }
+
+  }
 
   /* If we're running under AFL, attach to the appropriate region, replacing the
      early-stage __afl_area_initial region that is needed to allow some really
      hacky .init code to work correctly in projects such as OpenSSL. */
+
+  if (getenv("AFL_DEBUG"))
+    fprintf(stderr,
+            "DEBUG: id_str %s, __afl_map_addr 0x%x, MAP_SIZE %u, "
+            "__afl_final_loc %u, max_size_forkserver %u/0x%x\n",
+            id_str == NULL ? "<null>" : id_str, __afl_map_addr, MAP_SIZE,
+            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
 
   if (id_str) {
 
@@ -115,6 +169,7 @@ static void __afl_map_shm(void) {
     if (shm_fd == -1) {
 
       fprintf(stderr, "shm_open() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
       exit(1);
 
     }
@@ -122,13 +177,14 @@ static void __afl_map_shm(void) {
     /* map the shared memory segment to the address space of the process */
     if (__afl_map_addr) {
 
-      shm_base = mmap((void *)__afl_map_addr, map_size, PROT_READ | PROT_WRITE,
-                      MAP_FIXED | MAP_SHARED, shm_fd, 0);
+      shm_base =
+          mmap((void *)__afl_map_addr, __afl_map_size, PROT_READ | PROT_WRITE,
+               MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
 
     } else {
 
-      shm_base =
-          mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+      shm_base = mmap(0, __afl_map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+                      shm_fd, 0);
 
     }
 
@@ -138,6 +194,10 @@ static void __afl_map_shm(void) {
       shm_fd = -1;
 
       fprintf(stderr, "mmap() failed\n");
+      if (__afl_map_addr)
+        send_forkserver_error(FS_ERROR_MAP_ADDR);
+      else
+        send_forkserver_error(FS_ERROR_MMAP);
       exit(2);
 
     }
@@ -152,7 +212,15 @@ static void __afl_map_shm(void) {
 
     /* Whooooops. */
 
-    if (__afl_area_ptr == (void *)-1) _exit(1);
+    if (__afl_area_ptr == (void *)-1) {
+
+      if (__afl_map_addr)
+        send_forkserver_error(FS_ERROR_MAP_ADDR);
+      else
+        send_forkserver_error(FS_ERROR_SHMAT);
+      _exit(1);
+
+    }
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
        our parent doesn't give up on us. */
@@ -162,8 +230,8 @@ static void __afl_map_shm(void) {
   } else if (__afl_map_addr) {
 
     __afl_area_ptr =
-        mmap((void *)__afl_map_addr, map_size, PROT_READ | PROT_WRITE,
-             MAP_FIXED | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        mmap((void *)__afl_map_addr, __afl_map_size, PROT_READ | PROT_WRITE,
+             MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (__afl_area_ptr == MAP_FAILED) {
 
       fprintf(stderr, "can not aquire mmap for address %p\n",
@@ -224,12 +292,8 @@ static void __afl_start_snapshots(void) {
   static u8 tmp[4] = {0, 0, 0, 0};
   s32       child_pid;
   u32       status = 0;
-  u32       map_size = MAP_SIZE;
   u32       already_read_first = 0;
   u32       was_killed;
-
-  if (__afl_final_loc > 1 && __afl_final_loc < MAP_SIZE)
-    map_size = __afl_final_loc;
 
   u8 child_stopped = 0;
 
@@ -239,8 +303,8 @@ static void __afl_start_snapshots(void) {
      assume we're not running in forkserver mode and just execute program. */
 
   status |= (FS_OPT_ENABLED | FS_OPT_SNAPSHOT);
-  if (map_size <= 0x800000)
-    status |= (FS_OPT_SET_MAPSIZE(map_size) | FS_OPT_MAPSIZE);
+  if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
+    status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
   if (__afl_dictionary_len > 0 && __afl_dictionary) status |= FS_OPT_AUTODICT;
   memcpy(tmp, &status, 4);
 
@@ -393,19 +457,15 @@ static void __afl_start_forkserver(void) {
   u8  tmp[4] = {0, 0, 0, 0};
   s32 child_pid;
   u32 status = 0;
-  u32 map_size = MAP_SIZE;
   u32 already_read_first = 0;
   u32 was_killed;
-
-  if (__afl_final_loc > 1 && __afl_final_loc < MAP_SIZE)
-    map_size = __afl_final_loc;
 
   u8 child_stopped = 0;
 
   void (*old_sigchld_handler)(int) = 0;  // = signal(SIGCHLD, SIG_DFL);
 
-  if (map_size <= 0x800000)
-    status |= (FS_OPT_SET_MAPSIZE(map_size) | FS_OPT_MAPSIZE);
+  if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
+    status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
   if (__afl_dictionary_len > 0 && __afl_dictionary) status |= FS_OPT_AUTODICT;
   if (status) status |= (FS_OPT_ENABLED);
   memcpy(tmp, &status, 4);
@@ -543,12 +603,8 @@ static void __afl_start_forkserver(void) {
 
 int __afl_persistent_loop(unsigned int max_cnt) {
 
-  static u8    first_pass = 1;
-  static u32   cycle_cnt;
-  unsigned int map_size = MAP_SIZE;
-
-  if (__afl_final_loc > 1 && __afl_final_loc < MAP_SIZE)
-    map_size = __afl_final_loc;
+  static u8  first_pass = 1;
+  static u32 cycle_cnt;
 
   if (first_pass) {
 
@@ -559,7 +615,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     if (is_persistent) {
 
-      memset(__afl_area_ptr, 0, map_size);
+      memset(__afl_area_ptr, 0, __afl_map_size);
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
 
