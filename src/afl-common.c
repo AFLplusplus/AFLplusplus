@@ -928,7 +928,8 @@ u32 get_map_size() {
     map_size = atoi(ptr);
     if (map_size < 8 || map_size > (1 << 29)) {
 
-      FATAL("illegal AFL_MAP_SIZE %u, must be between 2^3 and 2^30", map_size);
+      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 8,
+            1 << 29);
 
     }
 

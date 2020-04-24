@@ -10,6 +10,13 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.64d (develop):
+  - afl-fuzz:
+     - AFL_MAP_SIZE was not working correctly
+  - llvm_mode:
+     - if LLVM 11 is installed the posix shm_open+mmap is used and a fixed
+       address for the shared memory map is used as this increases the
+       fuzzing speed
+     - fixes to LTO mode if instrumented edges > MAP_SIZE
   - qemu_mode:
     - add information on PIE/PIC load addresses for 32 bit
     - better dependency checks
@@ -17,11 +24,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - better dependency checks
   - unicorn_mode:
     - better submodule handling
-  - llvm_mode:
-     - if LLVM 11 is installed the posix shm_open+mmap is used and a fixed
-       address for the shared memory map is used as this increases the
-       fuzzing speed
   - all:
+    - forkserver communication now also used for error reporting
     - fix 32 bit build options
     - make clean now leaves qemu-3.1.1.tar.xz and the unicornafl directory
       intact if in a git/svn checkout - unless "deepclean" is used

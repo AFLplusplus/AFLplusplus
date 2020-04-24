@@ -679,7 +679,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   // save highest location ID to global variable
   // do this after each function to fail faster
-  if (!be_quiet && afl_global_id > MAP_SIZE) {
+  if (!be_quiet && afl_global_id > MAP_SIZE &&
+      afl_global_id > FS_OPT_MAX_MAPSIZE) {
 
     uint32_t pow2map = 1, map = afl_global_id;
     while ((map = map >> 1))
@@ -741,18 +742,13 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       if (afl_global_id % 8) write_loc = (((afl_global_id + 8) >> 3) << 3);
 
-      if (write_loc <= MAP_SIZE && write_loc <= 0x800000) {
-
-        GlobalVariable *AFLFinalLoc = new GlobalVariable(
-            M, Int32Ty, true, GlobalValue::ExternalLinkage, 0,
-            "__afl_final_loc", 0, GlobalVariable::GeneralDynamicTLSModel, 0,
-            false);
-        ConstantInt *const_loc = ConstantInt::get(Int32Ty, write_loc);
-        StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
-        StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
-                                   MDNode::get(C, None));
-
-      }
+      GlobalVariable *AFLFinalLoc = new GlobalVariable(
+          M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc",
+          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+      ConstantInt *const_loc = ConstantInt::get(Int32Ty, write_loc);
+      StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
+      StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
+                                 MDNode::get(C, None));
 
     }
 
