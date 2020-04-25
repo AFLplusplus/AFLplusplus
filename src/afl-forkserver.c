@@ -53,9 +53,7 @@
 
 /* Describe integer as memory size. */
 
-list_t fsrv_list = {.element_prealloc_count = 0};
-
-void report_error_and_exit(int error);
+static list_t fsrv_list = {.element_prealloc_count = 0};
 
 static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
@@ -203,7 +201,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 }
 
 /* Report on the error received via the forkserver controller and exit */
-void report_error_and_exit(int error) {
+static void report_error_and_exit(int error) {
 
   switch (error) {
 
