@@ -40,6 +40,7 @@ typedef long double max_align_t;
 #include "debug.h"
 
 #include "MarkNodes.h"
+#include "afl-llvm-common.h"
 
 using namespace llvm;
 
@@ -53,9 +54,8 @@ namespace {
 struct InsTrim : public ModulePass {
 
  protected:
-  std::list<std::string> myWhitelist;
-  uint32_t               function_minimum_size = 1;
-  uint32_t               debug = 0;
+  uint32_t function_minimum_size = 1;
+  uint32_t debug = 0;
 
  private:
   std::mt19937 generator;
@@ -69,24 +69,10 @@ struct InsTrim : public ModulePass {
 
  public:
   static char ID;
+
   InsTrim() : ModulePass(ID), generator(0) {
 
-    char *instWhiteListFilename = getenv("AFL_LLVM_WHITELIST");
-    if (instWhiteListFilename) {
-
-      std::string   line;
-      std::ifstream fileStream;
-      fileStream.open(instWhiteListFilename);
-      if (!fileStream) report_fatal_error("Unable to open AFL_LLVM_WHITELIST");
-      getline(fileStream, line);
-      while (fileStream) {
-
-        myWhitelist.push_back(line);
-        getline(fileStream, line);
-
-      }
-
-    }
+    initWhitelist();
 
   }
 
@@ -104,26 +90,6 @@ struct InsTrim : public ModulePass {
   getPassName() const override {
 
     return "InstTrim Instrumentation";
-
-  }
-
-  // ripped from aflgo
-  static bool isBlacklisted(const Function *F) {
-
-    static const char *Blacklist[] = {
-
-        "asan.", "llvm.",      "sancov.", "__ubsan_handle_", "ign.", "__afl_",
-        "_fini", "__libc_csu", "__asan",  "__msan",          "msan."
-
-    };
-
-    for (auto const &BlacklistFunc : Blacklist) {
-
-      if (F->getName().startswith(BlacklistFunc)) { return true; }
-
-    }
-
-    return false;
 
   }
 
@@ -192,137 +158,10 @@ struct InsTrim : public ModulePass {
 
       }
 
+      if (!isInWhitelist(&F)) continue;
+
       // if the function below our minimum size skip it (1 or 2)
       if (F.size() < function_minimum_size) { continue; }
-
-      if (!myWhitelist.empty()) {
-
-        bool         instrumentBlock = false;
-        DebugLoc     Loc;
-        StringRef    instFilename;
-        unsigned int instLine = 0;
-
-#if LLVM_VERSION_MAJOR >= 4 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
-        for (auto &BB : F) {
-
-          BasicBlock::iterator IP = BB.getFirstInsertionPt();
-          IRBuilder<>          IRB(&(*IP));
-          if (!Loc) Loc = IP->getDebugLoc();
-
-        }
-
-        if (Loc) {
-
-          DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
-
-          instLine = cDILoc->getLine();
-          instFilename = cDILoc->getFilename();
-
-          if (instFilename.str().empty()) {
-
-            /* If the original location is empty, try using the inlined location
-             */
-            DILocation *oDILoc = cDILoc->getInlinedAt();
-            if (oDILoc) {
-
-              instFilename = oDILoc->getFilename();
-              instLine = oDILoc->getLine();
-
-            }
-
-          }
-
-          /* Continue only if we know where we actually are */
-          if (!instFilename.str().empty()) {
-
-            for (std::list<std::string>::iterator it = myWhitelist.begin();
-                 it != myWhitelist.end(); ++it) {
-
-              if (instFilename.str().length() >= it->length()) {
-
-                if (instFilename.str().compare(
-                        instFilename.str().length() - it->length(),
-                        it->length(), *it) == 0) {
-
-                  instrumentBlock = true;
-                  break;
-
-                }
-
-              }
-
-            }
-
-          }
-
-        }
-
-#else
-        for (auto &BB : F) {
-
-          BasicBlock::iterator IP = BB.getFirstInsertionPt();
-          IRBuilder<>          IRB(&(*IP));
-          if (Loc.isUnknown()) Loc = IP->getDebugLoc();
-
-        }
-
-        if (!Loc.isUnknown()) {
-
-          DILocation cDILoc(Loc.getAsMDNode(C));
-
-          instLine = cDILoc.getLineNumber();
-          instFilename = cDILoc.getFilename();
-
-          /* Continue only if we know where we actually are */
-          if (!instFilename.str().empty()) {
-
-            for (std::list<std::string>::iterator it = myWhitelist.begin();
-                 it != myWhitelist.end(); ++it) {
-
-              if (instFilename.str().length() >= it->length()) {
-
-                if (instFilename.str().compare(
-                        instFilename.str().length() - it->length(),
-                        it->length(), *it) == 0) {
-
-                  instrumentBlock = true;
-                  break;
-
-                }
-
-              }
-
-            }
-
-          }
-
-        }
-
-#endif
-        /* Either we couldn't figure out our location or the location is
-         * not whitelisted, so we skip instrumentation. */
-        if (!instrumentBlock) {
-
-          if (!be_quiet) {
-
-            if (!instFilename.str().empty())
-              SAYF(cYEL "[!] " cBRI
-                        "Not in whitelist, skipping %s line %u...\n",
-                   instFilename.str().c_str(), instLine);
-            else
-              SAYF(cYEL "[!] " cBRI
-                        "No filename information found, skipping it");
-
-          }
-
-          continue;
-
-        }
-
-      }
-
-      if (isBlacklisted(&F)) continue;
 
       std::unordered_set<BasicBlock *> MS;
       if (!MarkSetOpt) {

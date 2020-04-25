@@ -46,6 +46,8 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/IR/CFG.h"
 
+#include "afl-llvm-common.h"
+
 using namespace llvm;
 
 namespace {
@@ -83,26 +85,6 @@ class AFLwhitelist : public ModulePass {
     if (debug)
       SAYF(cMGN "[D] " cRST "loaded whitelist %s with %d entries\n",
            instWhiteListFilename, entries);
-
-  }
-
-  // ripped from aflgo
-  static bool isBlacklisted(const Function *F) {
-
-    static const SmallVector<std::string, 5> Blacklist = {
-
-        "asan.", "llvm.",      "sancov.", "__ubsan_handle_", "ign.", "__afl_",
-        "_fini", "__libc_csu", "__asan",  "__msan",          "msan."
-
-    };
-
-    for (auto const &BlacklistFunc : Blacklist) {
-
-      if (F->getName().startswith(BlacklistFunc)) { return true; }
-
-    }
-
-    return false;
 
   }
 
