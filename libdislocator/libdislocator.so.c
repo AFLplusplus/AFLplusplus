@@ -500,3 +500,4 @@ __attribute__((constructor)) void __dislocator_init(void) {
   align_allocations = !!getenv("AFL_ALIGNED_ALLOC");
 
 }
+

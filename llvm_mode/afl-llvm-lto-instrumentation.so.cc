@@ -57,6 +57,7 @@
 #include "llvm/Pass.h"
 
 #include <set>
+#include "afl-llvm-common.h"
 
 using namespace llvm;
 
@@ -101,52 +102,6 @@ class AFLLTOPass : public ModulePass {
     unsigned long long int empty = step4;
     unsigned long long int collisions = edges - (MAP_SIZE - empty);
     return collisions;
-
-  }
-
-  // Get the internal llvm name of a basic block
-  // This is an ugly debug support so it is commented out :-)
-  /*
-    static char *getBBName(const BasicBlock *BB) {
-
-      static char *name;
-
-      if (!BB->getName().empty()) {
-
-        name = strdup(BB->getName().str().c_str());
-        return name;
-
-      }
-
-      std::string        Str;
-      raw_string_ostream OS(Str);
-
-      BB->printAsOperand(OS, false);
-
-      name = strdup(OS.str().c_str());
-
-      return name;
-
-    }
-
-  */
-
-  static bool isBlacklisted(const Function *F) {
-
-    static const char *Blacklist[] = {
-
-        "asan.", "llvm.",      "sancov.", "__ubsan_handle_", "ign.", "__afl_",
-        "_fini", "__libc_csu", "__asan",  "__msan",          "msan."
-
-    };
-
-    for (auto const &BlacklistFunc : Blacklist) {
-
-      if (F->getName().startswith(BlacklistFunc)) { return true; }
-
-    }
-
-    return false;
 
   }
 
