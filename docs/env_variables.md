@@ -123,7 +123,6 @@ Then there are a few specific features that are only available in llvm_mode:
     These are used if several seperated instrumentation are performed which
     are then later combined.
 
-
    - AFL_LLVM_MAP_ADDR sets the fixed map address to a different address than
      the default 0x10000. A value of 0 or empty sets the map address to be
      dynamic (the original afl way, which is slower)
