@@ -107,6 +107,15 @@ typedef int64_t s64;
                                                                                \
   })
 
+  #define SWAPQ(_x, _y) \
+  (                     \
+      {                 \
+          u64 _t = _x;  \
+          _x     = _y;  \
+          _y     = _t;  \
+      }                 \
+  ) 
+
 #ifdef AFL_LLVM_PASS
 #if defined(__linux__)
 #define AFL_SR(s) (srandom(s))
