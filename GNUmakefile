@@ -88,24 +88,50 @@ ifneq "$(shell command -v python3m 2>/dev/null)" ""
   endif
 endif
 
-ifneq "$(shell command -v python3 2>/dev/null)" ""
-  ifneq "$(shell command -v python3-config 2>/dev/null)" ""
-    PYTHON_INCLUDE  ?= $(shell python3-config --includes)
-    PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
-    # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
-    ifeq "$(shell python3-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
-      PYTHON_LIB      ?= $(shell python3-config --libs --embed --ldflags)
-    else
-      PYTHON_LIB      ?= $(shell python3-config --ldflags)
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python3 2>/dev/null)" ""
+    ifneq "$(shell command -v python3-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python3-config --includes)
+      PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
+      # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
+      ifeq "$(shell python3-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
+        PYTHON_LIB      ?= $(shell python3-config --libs --embed --ldflags)
+      else
+        PYTHON_LIB      ?= $(shell python3-config --ldflags)
+      endif
     endif
   endif
 endif
 
-ifneq "$(shell command -v python 2>/dev/null)" ""
-  ifneq "$(shell command -v python-config 2>/dev/null)" ""
-    PYTHON_INCLUDE  ?= $(shell python-config --includes)
-    PYTHON_LIB      ?= $(shell python-config --ldflags)
-    PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python 2>/dev/null)" ""
+    ifneq "$(shell command -v python-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python-config --includes)
+      PYTHON_LIB      ?= $(shell python-config --ldflags)
+      PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+    endif
+  endif
+endif
+
+# Old Ubuntu and others dont have python/python3-config so we hardcode 3.7
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python3.7 2>/dev/null)" ""
+    ifneq "$(shell command -v python-config3.7-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python-config --includes)
+      PYTHON_LIB      ?= $(shell python-config --ldflags)
+      PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+    endif
+  endif
+endif
+
+# Old Ubuntu and others dont have python/python2-config so we hardcode 2.7
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python2.7 2>/dev/null)" ""
+    ifneq "$(shell command -v python-config2.7-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python-config --includes)
+      PYTHON_LIB      ?= $(shell python-config --ldflags)
+      PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+    endif
   endif
 endif
 
