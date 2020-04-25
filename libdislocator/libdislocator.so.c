@@ -37,7 +37,7 @@
 #include <sys/param.h>
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) && !defined(__ANDROID__)
 #include <unistd.h>
 #include <sys/syscall.h>
 #ifdef __NR_getrandom
