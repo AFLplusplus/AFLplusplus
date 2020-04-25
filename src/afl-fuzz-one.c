@@ -1750,7 +1750,7 @@ havoc_stage:
       }
 
       switch (rand_below(
-          afl, 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
+          afl, 16 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
 
         case 0:
 
@@ -2034,11 +2034,22 @@ havoc_stage:
           break;
 
         }
+            
+        case 15 : {
+          /* Swap QWORDS */
+          if(temp_len <= 8) break;
+
+          u32 offset_1 = rand_below(afl, temp_len-8);
+          u32 offset_2 = rand_below(afl, temp_len-8);
+
+          SWAPQ((*(u64 *)(out_buf + offset_1)), (*(u64 *)(out_buf + offset_2)));     
+          break;
+        }
 
           /* Values 15 and 16 can be selected only if there are any extras
              present in the dictionaries. */
 
-        case 15: {
+        case 16: {
 
           /* Overwrite bytes with an extra. */
 
@@ -2076,7 +2087,7 @@ havoc_stage:
 
         }
 
-        case 16: {
+        case 17: {
 
           u32 use_extra, extra_len, insert_at = rand_below(afl, temp_len + 1);
           u8 *new_buf;
