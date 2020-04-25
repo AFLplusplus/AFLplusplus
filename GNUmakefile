@@ -116,10 +116,10 @@ endif
 # Old Ubuntu and others dont have python/python3-config so we hardcode 3.7
 ifeq "$(PYTHON_INCLUDE)" ""
   ifneq "$(shell command -v python3.7 2>/dev/null)" ""
-    ifneq "$(shell command -v python-config3.7-config 2>/dev/null)" ""
-      PYTHON_INCLUDE  ?= $(shell python-config --includes)
-      PYTHON_LIB      ?= $(shell python-config --ldflags)
-      PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+    ifneq "$(shell command -v python3.7-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python3.7-config --includes)
+      PYTHON_LIB      ?= $(shell python3.7-config --ldflags)
+      PYTHON_VERSION  ?= $(strip $(shell python3.7 --version 2>&1))
     endif
   endif
 endif
@@ -127,10 +127,10 @@ endif
 # Old Ubuntu and others dont have python/python2-config so we hardcode 2.7
 ifeq "$(PYTHON_INCLUDE)" ""
   ifneq "$(shell command -v python2.7 2>/dev/null)" ""
-    ifneq "$(shell command -v python-config2.7-config 2>/dev/null)" ""
-      PYTHON_INCLUDE  ?= $(shell python-config --includes)
-      PYTHON_LIB      ?= $(shell python-config --ldflags)
-      PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+    ifneq "$(shell command -v python2.7-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python2.7-config --includes)
+      PYTHON_LIB      ?= $(shell python2.7-config --ldflags)
+      PYTHON_VERSION  ?= $(strip $(shell python2.7 --version 2>&1))
     endif
   endif
 endif
