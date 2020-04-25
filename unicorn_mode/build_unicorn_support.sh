@@ -182,8 +182,8 @@ echo "[+] Configuration complete."
 echo "[*] Attempting to build unicornafl (fingers crossed!)..."
 
 $MAKECMD clean  # make doesn't seem to work for unicorn
-#UNICORN_QEMU_FLAGS="--python=$PYTHONBIN" $MAKECMD -j$CORES || exit 1
-UNICORN_QEMU_FLAGS="--python=$PYTHONBIN" $MAKECMD || exit 1
+# Fixed to 1 core for now as there is a race condition in the makefile
+UNICORN_QEMU_FLAGS="--python=$PYTHONBIN" $MAKECMD -j1 || exit 1
 
 echo "[+] Build process successful!"
 
