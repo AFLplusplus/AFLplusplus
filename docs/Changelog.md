@@ -12,6 +12,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++2.64d (develop):
   - afl-fuzz:
      - AFL_MAP_SIZE was not working correctly
+     - better python detection
   - llvm_mode:
      - if LLVM 11 is installed the posix shm_open+mmap is used and a fixed
        address for the shared memory map is used as this increases the
