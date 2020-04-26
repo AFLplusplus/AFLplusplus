@@ -918,7 +918,7 @@ u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
 
 }
 
-u32 get_map_size() {
+u32 get_map_size(void) {
 
   uint32_t map_size = MAP_SIZE;
   char *   ptr;

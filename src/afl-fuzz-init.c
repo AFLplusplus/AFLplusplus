@@ -1903,7 +1903,7 @@ void fix_up_sync(afl_state_t *afl) {
 
 static void handle_resize(int sig) {
 
-  LIST_FOREACH(&afl_states, afl_state_t, { el->clear_screen = 1; });
+  afl_states_clear_screen();
 
 }
 
@@ -1954,14 +1954,7 @@ void check_asan_opts(void) {
 
 static void handle_stop_sig(int sig) {
 
-  LIST_FOREACH(&afl_states, afl_state_t, {
-
-    el->stop_soon = 1;
-
-    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, SIGKILL);
-    if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, SIGKILL);
-
-  });
+  afl_states_stop();
 
 }
 
@@ -1969,7 +1962,7 @@ static void handle_stop_sig(int sig) {
 
 static void handle_skipreq(int sig) {
 
-  LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
+  afl_states_request_skip();
 
 }
 
