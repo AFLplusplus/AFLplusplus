@@ -107,7 +107,7 @@ for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 
 done
 
-if ! type $EASY_INSTALL > /dev/null; then
+if ! command -v $EASY_INSTALL >/dev/null; then
 
   # work around for installs with executable easy_install
   EASY_INSTALL_FOUND=0
@@ -123,7 +123,7 @@ if ! type $EASY_INSTALL > /dev/null; then
 
     fi
   done
-  if [ '!' $EASY_INSTALL_FOUND ]; then
+  if [ "0" = $EASY_INSTALL_FOUND ]; then
 
     echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
     PREREQ_NOTFOUND=1
@@ -182,7 +182,8 @@ echo "[+] Configuration complete."
 echo "[*] Attempting to build unicornafl (fingers crossed!)..."
 
 $MAKECMD clean  # make doesn't seem to work for unicorn
-UNICORN_QEMU_FLAGS="--python=$PYTHONBIN" $MAKECMD -j$CORES || exit 1
+# Fixed to 1 core for now as there is a race condition in the makefile
+UNICORN_QEMU_FLAGS="--python=$PYTHONBIN" $MAKECMD -j1 || exit 1
 
 echo "[+] Build process successful!"
 

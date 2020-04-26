@@ -951,7 +951,15 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
   test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
     unset AFL_CC
     # Compile the vulnerable program
-    ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+    test -e ../afl-clang-fast && {
+      ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+    } || {
+      test -e ../afl-gcc-fast && {
+        ../afl-gcc-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+      } || {
+        ../afl-gcc -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+      }
+    }
     # Compile the custom mutator
     make -C ../examples/custom_mutators libexamplemutator.so > /dev/null 2>&1
     test -e test-custom-mutator -a -e ${CUSTOM_MUTATOR_PATH}/libexamplemutator.so && {
