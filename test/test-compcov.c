@@ -25,11 +25,10 @@ int main(int argc, char **argv) {
     printf("your string was bugmenot\n");
   else if (strcmp(input, "BUFFEROVERFLOW") == 0) {
 
-    buf = malloc(16);
+    buf = (char *)malloc(16);
     strcpy(buf, "TEST");
     strcat(buf, input);
     printf("This will only crash with libdislocator: %s\n", buf);
-    return 0;
 
   } else if (*(unsigned int *)input == 0xabadcafe)
 

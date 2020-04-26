@@ -68,8 +68,7 @@ LDFLAGS_ADD=$(_LDFLAGS_ADD:0=-lrt)
 CFLAGS += $(CFLAGS_ADD)
 LDFLAGS += $(LDFLAGS_ADD)
 
-PROGS        = ../afl-gcc-fast ../afl-gcc-pass.so ../afl-gcc-rt.o
-
+PROGS        = ../afl-gcc-pass.so ../afl-gcc-fast ../afl-gcc-rt.o
 
 all: test_shm test_deps $(PROGS) afl-gcc-fast.8 test_build all_done
 

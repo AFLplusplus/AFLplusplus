@@ -127,12 +127,12 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
   }
 
   /* map the shared memory segment to the address space of the process */
-  shm->map = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-                  map_size->g_shm_fd, 0);
-  if (map_size->map == MAP_FAILED) {
+  shm->map =
+      mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm->g_shm_fd, 0);
+  if (shm->map == MAP_FAILED) {
 
-    close(map_size->g_shm_fd);
-    map_size->g_shm_fd = -1;
+    close(shm->g_shm_fd);
+    shm->g_shm_fd = -1;
     PFATAL("mmap() failed");
 
   }

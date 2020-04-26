@@ -1,4 +1,3 @@
-#
 # american fuzzy lop++ - LLVM instrumentation
 # -----------------------------------------
 #
@@ -68,6 +67,7 @@ endif
 ifeq "$(LLVM_MAJOR)" "11"
   $(info [+] llvm_mode detected llvm 11, enabling afl-clang-lto LTO implementation)
   LLVM_LTO = 1
+  TEST_MMAP = 1
 endif
 
 ifeq "$(LLVM_LTO)" "0"
@@ -193,13 +193,13 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 else
         SHMAT_OK=0
         CFLAGS+=-DUSEMMAP=1
-        LDFLAGS += -lrt
+        LDFLAGS += -Wno-deprecated-declarations
 endif
 
 ifeq "$(TEST_MMAP)" "1"
         SHMAT_OK=0
         CFLAGS+=-DUSEMMAP=1
-        LDFLAGS += -lrt
+        LDFLAGS += -Wno-deprecated-declarations
 endif
 
   PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-lto-whitelist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
@@ -270,42 +270,45 @@ ifeq "$(LLVM_LTO)" "1"
 endif
 endif
 
-../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc | test_deps
-	-$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL)
+afl-llvm-common.o: afl-llvm-common.cc afl-llvm-common.h
+	$(CXX) $(CFLAGS) `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC -std=$(LLVM_STDCXX) -c $< -o $@ 
 
-../afl-llvm-pass.so: afl-llvm-pass.so.cc | test_deps
+../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc afl-llvm-common.o | test_deps
+	-$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL) afl-llvm-common.o
+
+../afl-llvm-pass.so: afl-llvm-pass.so.cc afl-llvm-common.o | test_deps
 ifeq "$(LLVM_MIN_4_0_1)" "0"
 	$(info [!] N-gram branch coverage instrumentation is not available for llvm version $(LLVMVER))
 endif
-	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
+	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
 
-../afl-llvm-lto-whitelist.so: afl-llvm-lto-whitelist.so.cc
+../afl-llvm-lto-whitelist.so: afl-llvm-lto-whitelist.so.cc afl-llvm-common.o
 ifeq "$(LLVM_LTO)" "1"
-	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
+	$(CXX) $(CLANG_CFL) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
 endif
 
-../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc
+../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc afl-llvm-common.o
 ifeq "$(LLVM_LTO)" "1"
-	$(CXX) $(CLANG_CFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL)
+	$(CXX) $(CLANG_CFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
 	$(CC) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto.o
 	@$(CC) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m64 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-64.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
 	@$(CC) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m32 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-32.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
 endif
 
 # laf
-../split-switches-pass.so:	split-switches-pass.so.cc | test_deps
-	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL)
-../compare-transform-pass.so:	compare-transform-pass.so.cc | test_deps
-	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL)
-../split-compares-pass.so:	split-compares-pass.so.cc | test_deps
-	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL)
+../split-switches-pass.so:	split-switches-pass.so.cc afl-llvm-common.o | test_deps
+	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
+../compare-transform-pass.so:	compare-transform-pass.so.cc afl-llvm-common.o | test_deps
+	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
+../split-compares-pass.so:	split-compares-pass.so.cc afl-llvm-common.o | test_deps
+	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
 # /laf
 
-../cmplog-routines-pass.so:	cmplog-routines-pass.cc | test_deps
-	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL)
+../cmplog-routines-pass.so:	cmplog-routines-pass.cc afl-llvm-common.o | test_deps
+	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
 
-../cmplog-instructions-pass.so:	cmplog-instructions-pass.cc | test_deps
-	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL)
+../cmplog-instructions-pass.so:	cmplog-instructions-pass.cc afl-llvm-common.o | test_deps
+	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
 
 ../afl-llvm-rt.o: afl-llvm-rt.o.c | test_deps
 	$(CC) $(CFLAGS) -Wno-unused-result -fPIC -c $< -o $@

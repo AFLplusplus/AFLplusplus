@@ -88,24 +88,50 @@ ifneq "$(shell command -v python3m 2>/dev/null)" ""
   endif
 endif
 
-ifneq "$(shell command -v python3 2>/dev/null)" ""
-  ifneq "$(shell command -v python3-config 2>/dev/null)" ""
-    PYTHON_INCLUDE  ?= $(shell python3-config --includes)
-    PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
-    # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
-    ifeq "$(shell python3-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
-      PYTHON_LIB      ?= $(shell python3-config --libs --embed --ldflags)
-    else
-      PYTHON_LIB      ?= $(shell python3-config --ldflags)
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python3 2>/dev/null)" ""
+    ifneq "$(shell command -v python3-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python3-config --includes)
+      PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
+      # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
+      ifeq "$(shell python3-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
+        PYTHON_LIB      ?= $(shell python3-config --libs --embed --ldflags)
+      else
+        PYTHON_LIB      ?= $(shell python3-config --ldflags)
+      endif
     endif
   endif
 endif
 
-ifneq "$(shell command -v python 2>/dev/null)" ""
-  ifneq "$(shell command -v python-config 2>/dev/null)" ""
-    PYTHON_INCLUDE  ?= $(shell python-config --includes)
-    PYTHON_LIB      ?= $(shell python-config --ldflags)
-    PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python 2>/dev/null)" ""
+    ifneq "$(shell command -v python-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python-config --includes)
+      PYTHON_LIB      ?= $(shell python-config --ldflags)
+      PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+    endif
+  endif
+endif
+
+# Old Ubuntu and others dont have python/python3-config so we hardcode 3.7
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python3.7 2>/dev/null)" ""
+    ifneq "$(shell command -v python3.7-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python3.7-config --includes)
+      PYTHON_LIB      ?= $(shell python3.7-config --ldflags)
+      PYTHON_VERSION  ?= $(strip $(shell python3.7 --version 2>&1))
+    endif
+  endif
+endif
+
+# Old Ubuntu and others dont have python/python2-config so we hardcode 2.7
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python2.7 2>/dev/null)" ""
+    ifneq "$(shell command -v python2.7-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python2.7-config --includes)
+      PYTHON_LIB      ?= $(shell python2.7-config --ldflags)
+      PYTHON_VERSION  ?= $(strip $(shell python2.7 --version 2>&1))
+    endif
   endif
 endif
 
@@ -333,27 +359,27 @@ document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/
 	$(CC) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
 
 test/unittests/unit_maybe_alloc.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_maybe_alloc.c $(AFL_FUZZ_FILES)
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
 
 test/unittests/unit_preallocable.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_preallocable.c $(AFL_FUZZ_FILES)
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
 
 unit_maybe_alloc: test/unittests/unit_maybe_alloc.o
-	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	@$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_maybe_alloc
 
 test/unittests/unit_list.o : $(COMM_HDR) include/list.h test/unittests/unit_list.c $(AFL_FUZZ_FILES)
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
 
 unit_list: test/unittests/unit_list.o
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_list.o -o test/unittests/unit_list  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_list.o -o test/unittests/unit_list  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_list
 
 test/unittests/preallocable.o : $(COMM_HDR) include/afl-prealloc.h test/unittests/preallocable.c $(AFL_FUZZ_FILES)
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CFLAGS_FLTO) -c test/unittests/preallocable.c -o test/unittests/preallocable.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CFLAGS_FLTO) -c test/unittests/preallocable.c -o test/unittests/preallocable.o
 
 unit_preallocable: test/unittests/unit_preallocable.o
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_preallocable
 
 unit_clean:
@@ -426,7 +452,7 @@ clean:
 	$(MAKE) -C src/third_party/libradamsa/ clean
 	rm -rf qemu_mode/qemu-3.1.1
 ifeq "$(IN_REPO)" "1"
-	$(MAKE) -C unicorn_mode/unicornafl clean || true
+	test -d unicorn_mode/unicornafl && $(MAKE) -C unicorn_mode/unicornafl clean || true
 else
 	rm -rf qemu_mode/qemu-3.1.1.tar.xz
 	rm -rf unicorn_mode/unicornafl
