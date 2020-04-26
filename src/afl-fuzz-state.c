@@ -81,15 +81,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   and out_size are NULL/0 by default. */
   memset(afl, 0, sizeof(afl_state_t));
 
-  if (!map_size) {
-
-    afl->shm.map_size = MAP_SIZE;
-
-  } else {
-
-    afl->shm.map_size = map_size;
-
-  }
+  afl->shm.map_size = map_size ? map_size : MAP_SIZE;
 
   afl->w_init = 0.9;
   afl->w_end = 0.3;
