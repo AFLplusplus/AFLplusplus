@@ -28,10 +28,8 @@
 
 struct custom_mutator *load_custom_mutator(afl_state_t *, const char *);
 #ifdef USE_PYTHON
-void load_custom_mutator_py(afl_state_t *, char *);
+struct custom_mutator * load_custom_mutator_py(afl_state_t *, char *);
 #endif
-
-struct custom_mutator *load_mutator(afl_state_t *, const char *);
 
 void setup_custom_mutator(afl_state_t *afl) {
 
@@ -87,7 +85,11 @@ void setup_custom_mutator(afl_state_t *afl) {
 
     }
 
-    load_custom_mutator_py(afl, module_name);
+    struct custom_mutator * mutator = load_custom_mutator_py(afl, module_name);
+
+    afl->custom_mutators[0] = mutator;
+    afl->mutator = mutator;
+    afl->number_of_custom_mutators++;
 
   }
 
