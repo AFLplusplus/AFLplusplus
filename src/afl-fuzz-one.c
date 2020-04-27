@@ -391,8 +391,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
     struct custom_mutator * mutator;
 
     for (int i = 0; i < afl->number_of_custom_mutators; i++) { 
-
-      if ( unlikely(mutator->afl_custom_queue_get) && !mutator->afl_custom_queue_get(mutator->data,
+      
+      mutator = afl->custom_mutators[i];
+      if ( mutator->afl_custom_queue_get && !mutator->afl_custom_queue_get(mutator->data,
                                               afl->queue_cur->fname)) {
 
         return 1;
