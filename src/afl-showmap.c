@@ -779,14 +779,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(fsrv);
 
-  i = 0;
-  while (argv[i] != NULL && !arg_offset) {
-
-    if (strcmp(argv[i], "@@") == 0) arg_offset = i;
-    i++;
-
-  }
-
   fsrv->target_path = find_binary(argv[optind]);
 
   if (!quiet_mode) {
@@ -827,11 +819,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  int arg_offset2 = 0;
   i = 0;
-  while (use_argv[i] != NULL && !arg_offset2) {
+  while (use_argv[i] != NULL && !arg_offset) {
 
-    if (strcmp(use_argv[i], "@@") == 0) { arg_offset2 = i; }
+    if (strcmp(use_argv[i], "@@") == 0) { arg_offset = i; }
     i++;
 
   }
@@ -880,11 +871,9 @@ int main(int argc, char **argv_orig, char **envp) {
     fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
 
-    if (arg_offset && use_argv[arg_offset] != stdin_file) {
+    if (use_argv[arg_offset] != stdin_file) {
 
-      ck_free(argv[arg_offset]);
-      argv[arg_offset] = strdup(stdin_file);
-      use_argv[arg_offset2] = argv[arg_offset];
+      use_argv[arg_offset] = strdup(stdin_file);
 
     }
 
