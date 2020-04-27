@@ -871,7 +871,7 @@ int main(int argc, char **argv_orig, char **envp) {
     fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
 
-    if (use_argv[arg_offset] != stdin_file) {
+    if (arg_offset && use_argv[arg_offset] != stdin_file) {
 
       use_argv[arg_offset] = strdup(stdin_file);
 
