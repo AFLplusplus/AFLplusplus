@@ -27,6 +27,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - better dependency checks
   - unicorn_mode:
     - better submodule handling
+  - afl-showmap: fix for -Q mode
   - all:
     - forkserver communication now also used for error reporting
     - fix 32 bit build options
