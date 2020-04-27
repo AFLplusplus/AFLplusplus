@@ -12,6 +12,7 @@
 #include <string>
 #include <fstream>
 
+#include <llvm/Support/raw_ostream.h>
 #include "afl-llvm-common.h"
 
 using namespace llvm;
