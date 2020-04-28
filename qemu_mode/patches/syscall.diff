@@ -1,5 +1,5 @@
 diff --git a/linux-user/syscall.c b/linux-user/syscall.c
-index b13a170e..4af79175 100644
+index b13a170e..3f5cc902 100644
 --- a/linux-user/syscall.c
 +++ b/linux-user/syscall.c
 @@ -111,6 +111,9 @@
@@ -43,6 +43,15 @@ index b13a170e..4af79175 100644
              ts = (TaskState *)cpu->opaque;
              if (flags & CLONE_SETTLS)
                  cpu_set_tls (env, newtls);
+@@ -6554,7 +6558,7 @@ static int open_self_cmdline(void *cpu_env, int fd)
+     return 0;
+ }
+ 
+-static int open_self_maps(void *cpu_env, int fd)
++int open_self_maps(void *cpu_env, int fd)
+ {
+     CPUState *cpu = ENV_GET_CPU((CPUArchState *)cpu_env);
+     TaskState *ts = cpu->opaque;
 @@ -7324,10 +7328,12 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
  #ifdef TARGET_NR_stime /* not on alpha */
      case TARGET_NR_stime:
