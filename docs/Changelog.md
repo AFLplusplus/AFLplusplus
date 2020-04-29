@@ -28,6 +28,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - unicorn_mode:
     - better submodule handling
   - afl-showmap: fix for -Q mode
+  - added examples/afl-proxy which can be easily used to fuzz and instrument
+    non-standard things
   - all:
     - forkserver communication now also used for error reporting
     - fix 32 bit build options
