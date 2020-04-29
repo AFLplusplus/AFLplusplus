@@ -274,26 +274,29 @@ int main(int argc, char *argv[]) {
   __afl_start_forkserver();
 
   int i = 1, j;
-  //fprintf(stderr, "Waiting for first testcase\n");
+  // fprintf(stderr, "Waiting for first testcase\n");
   while ((len = __afl_next_testcase(buf, max_len)) > 0) {
 
-    //fprintf(stderr, "Sending testcase with len %u\n", len);
+    // fprintf(stderr, "Sending testcase with len %u\n", len);
     if (send(s, &len, 4, 0) != 4) PFATAL("sending size data %d failed", len);
     if (send(s, buf, len, 0) != len) PFATAL("sending test data failed");
 
     int received = 0, ret;
-    while (received < __afl_map_size && (ret = recv(s, __afl_area_ptr + received, __afl_map_size - received, 0)) > 0)
+    while (received < __afl_map_size &&
+           (ret = recv(s, __afl_area_ptr + received, __afl_map_size - received,
+                       0)) > 0)
       received += ret;
     if (received != __afl_map_size)
       FATAL("did not receive valid data (%d, %d)", received, ret);
-    //fprintf(stderr, "Received coverage\n");
+    // fprintf(stderr, "Received coverage\n");
 
     /* report the test case is done and wait for the next */
     __afl_end_testcase();
-    //fprintf(stderr, "Waiting for next testcase %d\n", ++i);
+    // fprintf(stderr, "Waiting for next testcase %d\n", ++i);
 
   }
 
   return 0;
 
 }
+
