@@ -28,7 +28,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - unicorn_mode:
     - better submodule handling
   - afl-showmap: fix for -Q mode
-  - added examples/afl-proxy which can be easily used to fuzz and instrument
+  - added examples/afl_network_proxy which allows to fuzz a target over the
+    network (not fuzzing tcp/ip services but running afl-fuzz on one system
+    and the target being on an embedded device)
+  - added examples/afl_proxy which can be easily used to fuzz and instrument
     non-standard things
   - all:
     - forkserver communication now also used for error reporting

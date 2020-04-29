@@ -1,6 +1,6 @@
 /*
-   american fuzzy lop++ - afl-proxy skeleton example
-   ---------------------------------------------------
+   american fuzzy lop++ - afl-network-client
+   ---------------------------------------
 
    Written by Marc Heuse <mh@mh-sec.de>
 
@@ -12,15 +12,6 @@
 
    http://www.apache.org/licenses/LICENSE-2.0
 
-
-   HOW-TO
-   ======
-
-   You only need to change the while() loop of the main() to send the
-   data of buf[] with length len to the target and write the coverage
-   information to __afl_area_ptr[__afl_map_size]
-
-
 */
 
 #ifdef __ANDROID__
@@ -28,6 +19,7 @@
 #endif
 #include "config.h"
 #include "types.h"
+#include "debug.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,10 +30,15 @@
 #include <stdint.h>
 #include <errno.h>
 
+#include <netinet/in.h>
+#include <netinet/ip6.h>
+#include <arpa/inet.h>
 #include <sys/mman.h>
 #include <sys/shm.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 #include <fcntl.h>
 
 u8 *__afl_area_ptr;
@@ -178,13 +175,16 @@ static void __afl_start_forkserver(void) {
 
 static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
 
-  s32 status;
+  s32 status, res = 0xffffff;
 
   /* Wait for parent by reading from the pipe. Abort if read fails. */
   if (read(FORKSRV_FD, &status, 4) != 4) return 0;
 
   /* we have a testcase - read it */
   status = read(0, buf, max_len);
+
+  /* report that we are starting the target */
+  if (write(FORKSRV_FD + 1, &res, 4) != 4) return 0;
 
   if (status < 1)
     return 0;
@@ -205,31 +205,95 @@ static void __afl_end_testcase(void) {
 
 int main(int argc, char *argv[]) {
 
-  /* This is were the testcase data is written into */
-  u8  buf[1024];
-  u32 len;
+  u8 *            interface, *buf, *ptr;
+  s32             s = -1;
+  struct addrinfo hints, *hres, *aip;
+  u32             len, max_len = 65536;
 
-  /* here you specify the map size you need that you are reporting to
-     afl-fuzz. */
-  __afl_map_size = MAP_SIZE;
+  if (argc < 3 || argc > 4) {
 
-  /* then we initialize the shared memory map and start the forkserver */
+    printf("Syntax: %s host port [max-input-size]\n\n", argv[0]);
+    printf("Requires host and port of the remote afl-proxy-server instance.\n");
+    printf(
+        "IPv4 and IPv6 are supported, also binding to an interface with "
+        "\"%%\"\n");
+    printf("The max-input-size default is %u.\n", max_len);
+    printf(
+        "The default map size is %u and can be changed with setting "
+        "AFL_MAP_SIZE.\n",
+        __afl_map_size);
+    exit(-1);
+
+  }
+
+  if ((interface = index(argv[1], '%')) != NULL) *interface++ = 0;
+
+  if (argc > 3)
+    if ((max_len = atoi(argv[3])) < 0)
+      FATAL("max-input-size may not be negative or larger than 2GB: %s",
+            argv[3]);
+
+  if ((ptr = getenv("AFL_MAP_SIZE")) != NULL)
+    if ((__afl_map_size = atoi(ptr)) < 8)
+      FATAL("illegal map size, may not be < 8 or >= 2^30: %s", ptr);
+
+  if ((buf = malloc(max_len)) == NULL)
+    PFATAL("can not allocate %u memory", max_len);
+
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_family = PF_UNSPEC;
+
+  if (getaddrinfo(argv[1], argv[2], &hints, &hres) != 0)
+    PFATAL("could not resolve target %s", argv[1]);
+
+  for (aip = hres; aip != NULL && s == -1; aip = aip->ai_next) {
+
+    if ((s = socket(aip->ai_family, aip->ai_socktype, aip->ai_protocol)) >= 0) {
+
+#ifdef SO_BINDTODEVICE
+      if (interface != NULL)
+        if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, interface,
+                       strlen(interface) + 1) < 0)
+          fprintf(stderr, "Warning: could not bind to device %s\n", interface);
+#else
+      fprintf(stderr,
+              "Warning: binding to interface is not supported for your OS\n");
+#endif
+      if (connect(s, aip->ai_addr, aip->ai_addrlen) == -1) s = -1;
+
+    }
+
+  }
+
+  if (s == -1)
+    FATAL("could not connect to target tcp://%s:%s", argv[1], argv[2]);
+
+  /* we initialize the shared memory map and start the forkserver */
   __afl_map_shm();
   __afl_start_forkserver();
 
-  while ((len = __afl_next_testcase(buf, sizeof(buf))) > 0) {
+  int i = 1, j;
+  //fprintf(stderr, "Waiting for first testcase\n");
+  while ((len = __afl_next_testcase(buf, max_len)) > 0) {
 
-    /* here you have to create the magic that feeds the buf/len to the
-       target and write the coverage to __afl_area_ptr */
+    //fprintf(stderr, "Sending testcase with len %u\n", len);
+    if (send(s, &len, 4, 0) != 4) PFATAL("sending size data %d failed", len);
+    if (send(s, buf, len, 0) != len) PFATAL("sending test data failed");
 
-    // ... the magic ...
+    int received = 0, ret;
+    while (received < __afl_map_size && (ret = recv(s, __afl_area_ptr + received, __afl_map_size - received, 0)) > 0)
+      received += ret;
+    if (received != __afl_map_size)
+      FATAL("did not receive valid data (%d, %d)", received, ret);
+    //fprintf(stderr, "Received coverage\n");
 
     /* report the test case is done and wait for the next */
     __afl_end_testcase();
+    //fprintf(stderr, "Waiting for next testcase %d\n", ++i);
 
   }
 
   return 0;
 
 }
-
