@@ -118,7 +118,7 @@ static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
    1 if they should be kept. */
 
 static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
-                          u8 first_run) {
+                     u8 first_run) {
 
   afl_fsrv_write_to_testcase(fsrv, mem, len);
 
@@ -333,31 +333,30 @@ static void usage(u8 *argv0) {
 
 }
 
-
 int recv_testcase(int s, void **buf, size_t *max_len) {
 
   int size, received = 0, ret;
-  
+
   while (received < 4 && (ret = recv(s, &size + received, 4 - received, 0)) > 0)
     received += ret;
 
-  if (received != 4)
-    FATAL("did not receive size information");
-  if (size < 1)
-    FATAL("did not receive valid size information");
-  //fprintf(stderr, "received size information of %d\n", size);
+  if (received != 4) FATAL("did not receive size information");
+  if (size < 1) FATAL("did not receive valid size information");
+  // fprintf(stderr, "received size information of %d\n", size);
 
   *buf = maybe_grow(buf, max_len, size);
-  //fprintf(stderr, "receiving testcase %p %p max %u\n", buf, *buf, *max_len);
+  // fprintf(stderr, "receiving testcase %p %p max %u\n", buf, *buf, *max_len);
   received = 0;
-  while (received < size && (ret = recv(s, ((char*)*buf) + received, size - received, 0)) > 0)
+  while (received < size &&
+         (ret = recv(s, ((char *)*buf) + received, size - received, 0)) > 0)
     received += ret;
 
   if (received != size)
     FATAL("did not receive testcase data %u != %u, %d", received, size, ret);
 
-  //fprintf(stderr, "received testcase\n");
+  // fprintf(stderr, "received testcase\n");
   return size;
+
 }
 
 /* Main entry point */
@@ -372,7 +371,7 @@ int main(int argc, char **argv_orig, char **envp) {
   int                 addrlen = sizeof(clientaddr);
   char                str[INET6_ADDRSTRLEN];
   char **             argv = argv_cpy_dup(argc, argv_orig);
-  
+
   afl_forkserver_t  fsrv_var = {0};
   afl_forkserver_t *fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
@@ -514,7 +513,7 @@ int main(int argc, char **argv_orig, char **envp) {
   sharedmem_t shm = {0};
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
-  in_data = maybe_grow((void**)&in_data, &max_len, 65536);
+  in_data = maybe_grow((void **)&in_data, &max_len, 65536);
 
   atexit(at_exit_handler);
   setup_signal_handlers();
@@ -575,17 +574,17 @@ int main(int argc, char **argv_orig, char **envp) {
   if ((s = accept(sock, NULL, NULL)) < 0) { PFATAL("accept() failed"); }
   fprintf(stderr, "Received connection, starting ...\n");
 
-  while ((in_len = recv_testcase(s, (void**)&in_data, &max_len)) > 0) {
+  while ((in_len = recv_testcase(s, (void **)&in_data, &max_len)) > 0) {
 
-    //fprintf(stderr, "received %u\n", in_len);
+    // fprintf(stderr, "received %u\n", in_len);
     run_target(fsrv, use_argv, in_data, in_len, 1);
 
     if (send(s, fsrv->trace_bits, fsrv->map_size, 0) != fsrv->map_size)
       FATAL("could not send coverage data");
-    //fprintf(stderr, "sent result\n");
+    // fprintf(stderr, "sent result\n");
 
   }
-  
+
   unlink(out_file);
   if (out_file) { ck_free(out_file); }
   out_file = NULL;

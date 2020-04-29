@@ -178,13 +178,16 @@ static void __afl_start_forkserver(void) {
 
 static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
 
-  s32 status;
+  s32 status, res = 0xffffff;
 
   /* Wait for parent by reading from the pipe. Abort if read fails. */
   if (read(FORKSRV_FD, &status, 4) != 4) return 0;
 
   /* we have a testcase - read it */
   status = read(0, buf, max_len);
+
+  /* report that we are starting the target */
+  if (write(FORKSRV_FD + 1, &res, 4) != 4) return 0;
 
   if (status < 1)
     return 0;
@@ -206,12 +209,12 @@ static void __afl_end_testcase(void) {
 int main(int argc, char *argv[]) {
 
   /* This is were the testcase data is written into */
-  u8  buf[1024];
+  u8  buf[1024];  // this is the maximum size for a test case! set it!
   u32 len;
 
   /* here you specify the map size you need that you are reporting to
      afl-fuzz. */
-  __afl_map_size = MAP_SIZE;
+  __afl_map_size = MAP_SIZE;  // default is 65536
 
   /* then we initialize the shared memory map and start the forkserver */
   __afl_map_shm();
