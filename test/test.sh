@@ -802,7 +802,6 @@ test -e ../afl-qemu-trace && {
           echo CUT------------------------------------------------------------------CUT
           $ECHO "$RED[!] afl-fuzz is not working correctly with persistent qemu_mode"
           CODE=1
-          exit 1
         }
         rm -rf in out errors
       } || {
