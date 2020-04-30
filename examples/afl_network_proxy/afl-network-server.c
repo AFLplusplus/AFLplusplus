@@ -579,6 +579,8 @@ int main(int argc, char **argv_orig, char **envp) {
     // fprintf(stderr, "received %u\n", in_len);
     run_target(fsrv, use_argv, in_data, in_len, 1);
 
+    if (send(s, fsrv->child_status, 4, 0) != 4)
+      FATAL("could not send waitpid data");
     if (send(s, fsrv->trace_bits, fsrv->map_size, 0) != fsrv->map_size)
       FATAL("could not send coverage data");
     // fprintf(stderr, "sent result\n");

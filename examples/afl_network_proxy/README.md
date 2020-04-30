@@ -20,6 +20,7 @@ e.g.:
 ```
 $ afl-network-server -i 1111 -m 25M -t 1000 -- /bin/target -f @@
 ```
+
 ### on the fuzzing master
 
 Just run afl-fuzz with your normal options, however the target should be
@@ -42,3 +43,13 @@ either. Note that also the outgoing interface can be specified with a '%' for
 ## how to compile and install
 
 `make && sudo make install`
+
+## Future
+
+It would be much faster and more effective if `afl-network-server` does not
+send the map data back (64kb or more) but the checksum that `afl-fuzz` would
+generate. This change however would make it incompatible with existing
+afl spinoffs.
+
+But in the future this will be implemented and supported as a compile option.
+
