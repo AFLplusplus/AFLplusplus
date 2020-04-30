@@ -50,6 +50,7 @@
 #include <errno.h>
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 #include <sys/mman.h>
 #include <sys/shm.h>
@@ -67,14 +68,26 @@
 #define MEMORY_MAP_DECREMENT 0x200000000000
 #define MAX_LIB_COUNT 128
 
-#ifdef __ANDROID__
-u32 __afl_map_size = MAP_SIZE;
-#else
-__thread u32 __afl_map_size = MAP_SIZE;
-#endif
+// STEP 1:
 
-u8  __afl_dummy[MAP_SIZE];
-u8 *__afl_area_ptr = __afl_dummy;
+/* use stdin (1) or a file on the commandline (0) */
+static u32 use_stdin = 1;
+
+/* This is were the testcase data is written into */
+static u8 buf[10000];  // this is the maximum size for a test case! set it!
+
+/* if you want to use fork() then uncomment the following line. Otherwise
+   threads are used. The differences:
+                        fork()		pthread()
+  speed	        	slow		fast
+  coverage    		detailed	minimal
+  memory leaks		no problem	an issue                       */
+//#define USE_FORK
+
+/* If you want to have debug output set this to 1 */
+static u32 debug = 1;
+
+// END STEP 1
 
 typedef struct library_list {
 
@@ -83,11 +96,26 @@ typedef struct library_list {
 
 } library_list_t;
 
-library_list_t liblist[MAX_LIB_COUNT];
-u32            liblist_cnt;
-u32            use_stdin = 1;
+#ifdef __ANDROID__
+u32 __afl_map_size = MAP_SIZE;
+u32 do_exit;
+#else
+__thread u32 __afl_map_size = MAP_SIZE;
+__thread u32 do_exit;
+#endif
+
+static pid_t     pid = 65537;
+static pthread_t __afl_thread;
+static u8        __afl_dummy[MAP_SIZE];
+static u8 *      __afl_area_ptr = __afl_dummy;
+static u8 *      inputfile;  // this will point to argv[1]
+static u32       len;
+
+static library_list_t liblist[MAX_LIB_COUNT];
+static u32            liblist_cnt;
 
 static void sigtrap_handler(int signum, siginfo_t *si, void *context);
+static void fuzz();
 
 /* read the library information */
 void read_library_information() {
@@ -99,7 +127,7 @@ void read_library_information() {
   if ((f = fopen("/proc/self/maps", "r")) == NULL)
     FATAL("cannot open /proc/self/maps");
 
-  fprintf(stderr, "Library list:\n");
+  if (debug) fprintf(stderr, "Library list:\n");
   while (fgets(buf, sizeof(buf), f)) {
 
     if (strstr(buf, " r-xp ")) {
@@ -130,9 +158,10 @@ void read_library_information() {
         liblist[liblist_cnt].name = strdup(n);
         liblist[liblist_cnt].addr_start = strtoull(b, NULL, 16);
         liblist[liblist_cnt].addr_end = strtoull(m, NULL, 16);
-        fprintf(stderr, "%s:%x (%x-%x)\n", liblist[liblist_cnt].name,
-                liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start,
-                liblist[liblist_cnt].addr_start, liblist[liblist_cnt].addr_end);
+        if (debug)
+          fprintf(stderr, "%s:%x (%x-%x)\n", liblist[liblist_cnt].name,
+                  liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start,
+                  liblist[liblist_cnt].addr_start, liblist[liblist_cnt].addr_end);
         liblist_cnt++;
 
       }
@@ -141,7 +170,7 @@ void read_library_information() {
 
   }
 
-  fprintf(stderr, "\n");
+  if (debug) fprintf(stderr, "\n");
 
 #endif
 
@@ -300,7 +329,6 @@ static void __afl_map_shm(void) {
 }
 
 /* Fork server logic. */
-
 static void __afl_start_forkserver(void) {
 
   u8  tmp[4] = {0, 0, 0, 0};
@@ -312,36 +340,46 @@ static void __afl_start_forkserver(void) {
   memcpy(tmp, &status, 4);
 
   /* Phone home and tell the parent that we're OK. */
-
-  if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
+  if (write(FORKSRV_FD + 1, tmp, 4) != 4) do_exit = 1;
+  // fprintf(stderr, "write0 %d\n", do_exit);
 
 }
 
 static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
 
-  s32 status, res = 0xffffff;
+  s32 status;
 
   /* Wait for parent by reading from the pipe. Abort if read fails. */
-  if (read(FORKSRV_FD, &status, 4) != 4) return 0;
+  if (read(FORKSRV_FD, &status, 4) != 4) do_exit = 1;
+  // fprintf(stderr, "read %d\n", do_exit);
 
   /* we have a testcase - read it if we read from stdin */
-  if (use_stdin) status = read(0, buf, max_len);
+  if (use_stdin) {
+
+    if ((status = read(0, buf, max_len)) <= 0) exit(-1);
+
+  } else
+
+    status = 1;
+  // fprintf(stderr, "stdin: %d %d\n", use_stdin, status);
 
   /* report that we are starting the target */
-  if (write(FORKSRV_FD + 1, &res, 4) != 4) return 0;
+  if (write(FORKSRV_FD + 1, &pid, 4) != 4) do_exit = 1;
+  // fprintf(stderr, "write1 %d\n", do_exit);
 
-  if (status < 1)
-    return 0;
-  else
-    return status;
+  if (!do_exit)
+    __afl_area_ptr[0] = 1;  // otherwise afl-fuzz will exit with NOINST
+  return status;
 
 }
 
 static void __afl_end_testcase(void) {
 
-  int status = 0xffffff;
-
-  if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(1);
+  s32 res = 0xffffff;
+  if (write(FORKSRV_FD + 1, &res, 4) != 4) do_exit = 1;
+  // if (write(FORKSRV_FD + 1, &pid, 4) != 4) do_exit = 1;
+  // fprintf(stderr, "write2 %d\n", do_exit);
+  if (do_exit) exit(0);
 
 }
 
@@ -365,7 +403,7 @@ void setup_trap_instrumentation() {
   if (!patches) FATAL("Couldn't open AFL_UNTRACER_FILE file %s", filename);
 
   // Index into the coverage bitmap for the current trap instruction.
-  int bitmap_index = -1;
+  int bitmap_index = 0;
 
   while ((nread = getline(&line, &len, patches)) != -1) {
 
@@ -403,8 +441,9 @@ void setup_trap_instrumentation() {
         void *shadow_addr = SHADOW(lib_addr + i);
         void *shadow = mmap(shadow_addr, lib_size, PROT_READ | PROT_WRITE,
                             MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
-        fprintf(stderr, "Shadow: %s %d = %p-%p for %p\n", line, i, shadow,
-                shadow + lib_size - 1, lib_addr);
+        if (debug)
+          fprintf(stderr, "Shadow: %s %d = %p-%p for %p\n", line, i, shadow,
+                  shadow + lib_size - 1, lib_addr);
         if (shadow == MAP_FAILED) FATAL("Failed to mmap shadow memory");
 
       }
@@ -420,37 +459,38 @@ void setup_trap_instrumentation() {
       FATAL("Invalid offset: 0x%lx. Current library is 0x%zx bytes large",
             offset, lib_size);
 
-    bitmap_index++;
-
     if (bitmap_index >= __afl_map_size)
       FATAL("Too many basic blocks to instrument");
 
     uint32_t *shadow = SHADOW(lib_addr + offset);
-    if (*shadow != 0) FATAL("Potentially duplicate patch entry: 0x%lx", offset);
+    if (*shadow != 0) FATAL("Duplicate patch entry: 0x%lx", offset);
 
-      // Make lookup entry in shadow memory.
+    // Make lookup entry in shadow memory.
 #if ((defined(__APPLE__) && defined(__LP64__)) || defined(__x86_64__))
     // this is for Intel x64
 
     uint8_t orig_byte = lib_addr[offset];
     *shadow = (bitmap_index << 8) | orig_byte;
     lib_addr[offset] = 0xcc;  // replace instruction with debug trap
-    fprintf(stderr,
-            "Patch entry: %p[%x] = %p = %02x -> SHADOW(%p) #%d -> %08x\n",
-            lib_addr, offset, lib_addr + offset, orig_byte, shadow,
-            bitmap_index, *shadow);
+    if (debug)
+      fprintf(stderr,
+              "Patch entry: %p[%x] = %p = %02x -> SHADOW(%p) #%d -> %08x\n",
+              lib_addr, offset, lib_addr + offset, orig_byte, shadow,
+              bitmap_index, *shadow);
 
 #else
-      // this will be ARM and AARCH64
-      // for ARM we will need to identify if the code is in thumb or ARM
+    // this will be ARM and AARCH64
+    // for ARM we will need to identify if the code is in thumb or ARM
 #error "non x86_64 not supported yet"
-      //__arm__
-      // linux thumb: 0xde01
-      // linux thumb2: 0xf7f0a000
-      // linux arm: 0xe7f001f0
-      //__aarch64__
-      // linux aarch64: 0xd4200000
+    //__arm__
+    // linux thumb: 0xde01
+    // linux thumb2: 0xf7f0a000
+    // linux arm: 0xe7f001f0
+    //__aarch64__
+    // linux aarch64: 0xd4200000
 #endif
+
+    bitmap_index++;
 
   }
 
@@ -464,7 +504,7 @@ void setup_trap_instrumentation() {
   sigemptyset(&s.sa_mask);
   sigaction(SIGTRAP, &s, 0);
 
-  fprintf(stderr, "Patched %u locations.\n", bitmap_index);
+  if (debug) fprintf(stderr, "Patched %u locations.\n", bitmap_index);
   __afl_map_size = bitmap_index;
   if (__afl_map_size % 8) __afl_map_size = (((__afl_map_size + 7) >> 3) << 3);
 
@@ -485,8 +525,9 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
 #error "Unsupported platform"
 #endif
 
-  fprintf(stderr, "TRAP at context addr = %lx, fault addr = %lx\n", addr,
-          si->si_addr);
+  if (debug)
+    fprintf(stderr, "TRAP at context addr = %lx, fault addr = %lx\n", addr,
+            si->si_addr);
 
   // If the trap didn't come from our instrumentation, then we probably will
   // just segfault here
@@ -496,13 +537,15 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
   else
     faultaddr = (u8 *)addr;
   // u8 *loc = SHADOW(faultaddr);
-  fprintf(stderr, "Shadow location: %p\n", SHADOW(faultaddr));
+  if (debug)
+    fprintf(stderr, "Shadow location: %p\n", SHADOW(faultaddr));
   uint32_t shadow = *SHADOW(faultaddr);
   uint8_t  orig_byte = shadow & 0xff;
   uint32_t index = shadow >> 8;
 
-  fprintf(stderr, "shadow data: %x, orig_byte %02x, index %d\n", shadow,
-          orig_byte, index);
+  if (debug)
+    fprintf(stderr, "shadow data: %x, orig_byte %02x, index %d\n", shadow,
+            orig_byte, index);
 
   // Index zero is invalid so that it is still possible to catch actual trap
   // instructions in instrumented libraries.
@@ -516,66 +559,101 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
 }
 
 /* here you need to specify the parameter for the target function */
-static void *(*o_TIFFOpen)(char *filename, char *mode);
-static void *(*o_TIFFClose)(u8 *file);
+static void *(*o_function)(u8 *buf, int len);
 
 int main(int argc, char *argv[]) {
 
-  // STEP 1: use stdin or filename via commandline and set the maximum
-  //         size for a test case
+  pid = getpid();
+  if (getenv("AFL_DEBUG")) debug = 1;
 
   /* by default we use stdin, but also a filename can be passed, in this
      case the input is argv[1] and we have to disable stdin */
-  if (argc > 1) use_stdin = 0;
+  if (argc > 1) {
 
-  /* This is were the testcase data is written into */
-  u8 buf[10000];  // this is the maximum size for a test case! set it!
+    use_stdin = 0;
+    inputfile = argv[1];
 
-  // END STEP 1
+  }
 
   // STEP 2: load the library you want to fuzz and lookup the functions,
   //         inclusive of the cleanup functions
   //         NOTE: above the main() you have to define the functions!
 
   /* setup the target */
-  void *dl = dlopen("/prg/tests/libtiff.so", RTLD_LAZY);
+  void *dl = dlopen("./libtestinstr.so", RTLD_LAZY);
   if (!dl) FATAL("could not find target library");
-  o_TIFFOpen = dlsym(dl, "TIFFOpen");
-  if (!o_TIFFOpen) FATAL("could not resolve target function from library");
-  o_TIFFClose = dlsym(dl, "TIFFClose");
-  if (!o_TIFFClose) FATAL("could not resolve target function from library");
+  o_function = dlsym(dl, "testinstr");
+  if (!o_function) FATAL("could not resolve target function from library");
 
   // END STEP 2
 
   /* setup instrumentation, shared memory and forkserver */
-  u32 len;
   read_library_information();
   setup_trap_instrumentation();
   __afl_map_shm();
   __afl_start_forkserver();
 
-  while ((len = __afl_next_testcase(buf, sizeof(buf))) > 0) {
+  while (1) {
 
-// -> this still needs threading otherwise fuzzing stops when we crash
+#ifdef USE_FORK
+    if ((pid = fork()) == -1) PFATAL("fork failed");
+    if (pid) {
 
-    // STEP 3: call the function to fuzz, also the functions you might
-    //         need to call to prepare the function and - important! -
-    //         to clean everything up
+      u32 status;
+      if (waitpid(pid, &status, 0) < 0) exit(1);
 
-    // in this example we use the input file, not stdin!
-    u8 *file (*o_function)(argv[1], "wl");
+    } else {
 
-    // we have to release memory
-    if (file) (void)(*o_TIFFClose)(file);
+#endif
 
-    // END STEP 3
+      pid = getpid();
+      while ((len = __afl_next_testcase(buf, sizeof(buf))) > 0) {
 
-    /* report the test case is done and wait for the next */
-    __afl_end_testcase();
+#ifdef USE_FORK
+        fuzz();
+#else
+      if (pthread_create(&__afl_thread, NULL, (void *)fuzz, NULL) != 0)
+        PFATAL("cannot create thread");
+      pthread_join(__afl_thread, NULL);
+#endif
+
+        /* report the test case is done and wait for the next */
+        __afl_end_testcase();
+#ifdef USE_FORK
+        exit(0);
+#endif
+
+      }
+
+#ifdef USE_FORK
+
+    }
+
+#endif
 
   }
 
   return 0;
+
+}
+
+static void fuzz() {
+
+  // STEP 3: call the function to fuzz, also the functions you might
+  //         need to call to prepare the function and - important! -
+  //         to clean everything up
+
+  // in this example we use the input file, not stdin!
+  (*o_function)(buf, len);
+
+  // normally you also need to cleanup
+  //(*o_LibFree)(foo);
+
+  // END STEP 3
+
+#ifndef USE_FORK
+  pthread_exit(NULL);
+#endif
 
 }
 
