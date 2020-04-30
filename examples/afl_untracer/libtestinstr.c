@@ -20,8 +20,7 @@
 
 void testinstr(char *buf, int len) {
 
-  if (len < 1)
-    return;
+  if (len < 1) return;
   buf[len] = 0;
 
   // we support three input cases
@@ -33,3 +32,4 @@ void testinstr(char *buf, int len) {
     printf("Neither one or zero? How quaint!\n");
 
 }
+

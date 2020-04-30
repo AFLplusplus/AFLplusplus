@@ -155,9 +155,11 @@ void read_library_information() {
         liblist[liblist_cnt].addr_start = strtoull(b, NULL, 16);
         liblist[liblist_cnt].addr_end = strtoull(m, NULL, 16);
         if (debug)
-          fprintf(stderr, "%s:%x (%lx-%lx)\n", liblist[liblist_cnt].name,
-                  liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start,
-                  liblist[liblist_cnt].addr_start, liblist[liblist_cnt].addr_end - 1);
+          fprintf(
+              stderr, "%s:%x (%lx-%lx)\n", liblist[liblist_cnt].name,
+              liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start,
+              liblist[liblist_cnt].addr_start,
+              liblist[liblist_cnt].addr_end - 1);
         liblist_cnt++;
 
       }
@@ -170,25 +172,17 @@ void read_library_information() {
 
 #elif defined(__FreeBSD__)
   int    mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
-  char *buf, *start, *end;
+  char * buf, *start, *end;
   size_t miblen = sizeof(mib) / sizeof(mib[0]);
   size_t len;
 
   if (debug) fprintf(stderr, "Library list:\n");
-  if (sysctl(mib, miblen, NULL, &len, NULL, 0) == -1) {
-
-    return;
-
-  }
+  if (sysctl(mib, miblen, NULL, &len, NULL, 0) == -1) { return; }
 
   len = len * 4 / 3;
 
   buf = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-  if (buf == MAP_FAILED) {
-
-    return;
-
-  }
+  if (buf == MAP_FAILED) { return; }
 
   if (sysctl(mib, miblen, buf, &len, NULL, 0) == -1) {
 
@@ -205,31 +199,33 @@ void read_library_information() {
     struct kinfo_vmentry *region = (struct kinfo_vmentry *)start;
     size_t                size = region->kve_structsize;
 
-    if (size == 0) {
-
-      break;
-
-    }
+    if (size == 0) { break; }
 
     if ((region->kve_protection & KVME_PROT_READ) &&
         !(region->kve_protection & KVME_PROT_EXEC)) {
 
-        liblist[liblist_cnt].name = region->kve_path[0] != '\0' ? strdup(region->kve_path) : 0;
-        liblist[liblist_cnt].addr_start = region->kve_start;
-        liblist[liblist_cnt].addr_end = region->kve_end;
+      liblist[liblist_cnt].name =
+          region->kve_path[0] != '\0' ? strdup(region->kve_path) : 0;
+      liblist[liblist_cnt].addr_start = region->kve_start;
+      liblist[liblist_cnt].addr_end = region->kve_end;
 
-        if (debug) {
-          fprintf(stderr, "%s:%x (%lx-%lx)\n", liblist[liblist_cnt].name,
-                  liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start,
-                  liblist[liblist_cnt].addr_start, liblist[liblist_cnt].addr_end - 1);
-        }
+      if (debug) {
 
-        liblist_cnt++;
+        fprintf(stderr, "%s:%x (%lx-%lx)\n", liblist[liblist_cnt].name,
+                liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start,
+                liblist[liblist_cnt].addr_start,
+                liblist[liblist_cnt].addr_end - 1);
+
+      }
+
+      liblist_cnt++;
+
     }
 
     start += size;
 
   }
+
 #endif
 
 }
@@ -532,7 +528,7 @@ void setup_trap_instrumentation() {
     uint32_t *shadow = SHADOW(lib_addr + offset);
     if (*shadow != 0) FATAL("Duplicate patch entry: 0x%lx", offset);
 
-    // Make lookup entry in shadow memory.
+      // Make lookup entry in shadow memory.
 #if ((defined(__APPLE__) && defined(__LP64__)) || defined(__x86_64__))
     // this is for Intel x64
 
@@ -546,14 +542,14 @@ void setup_trap_instrumentation() {
               bitmap_index, *shadow);
 
 #else
-    // this will be ARM and AARCH64
-    // for ARM we will need to identify if the code is in thumb or ARM
+      // this will be ARM and AARCH64
+      // for ARM we will need to identify if the code is in thumb or ARM
 #error "non x86_64 not supported yet"
-    //__arm__:
-    // linux thumb: 0xde01
-    // linux arm: 0xe7f001f0
-    //__aarch64__:
-    // linux aarch64: 0xd4200000
+      //__arm__:
+      // linux thumb: 0xde01
+      // linux arm: 0xe7f001f0
+      //__aarch64__:
+      // linux aarch64: 0xd4200000
 #endif
 
     bitmap_index++;
@@ -596,7 +592,8 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
 #error "Unsupported platform"
 #endif
 
-  //fprintf(stderr, "TRAP at context addr = %lx, fault addr = %lx\n", addr, si->si_addr);
+  // fprintf(stderr, "TRAP at context addr = %lx, fault addr = %lx\n", addr,
+  // si->si_addr);
 
   // If the trap didn't come from our instrumentation, then we probably will
   // just segfault here
@@ -605,12 +602,13 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
     faultaddr = (u8 *)si->si_addr - 1;
   else
     faultaddr = (u8 *)addr;
-  //if (debug) fprintf(stderr, "Shadow location: %p\n", SHADOW(faultaddr));
+  // if (debug) fprintf(stderr, "Shadow location: %p\n", SHADOW(faultaddr));
   uint32_t shadow = *SHADOW(faultaddr);
   uint8_t  orig_byte = shadow & 0xff;
   uint32_t index = shadow >> 8;
 
-  //if (debug) fprintf(stderr, "shadow data: %x, orig_byte %02x, index %d\n", shadow, orig_byte, index);
+  // if (debug) fprintf(stderr, "shadow data: %x, orig_byte %02x, index %d\n",
+  // shadow, orig_byte, index);
 
   // Index zero is invalid so that it is still possible to catch actual trap
   // instructions in instrumented libraries.
@@ -672,7 +670,6 @@ int main(int argc, char *argv[]) {
 
     } else {
 
-
       pid = getpid();
       while ((len = __afl_next_testcase(buf, sizeof(buf))) > 0) {
 
@@ -709,3 +706,4 @@ static void fuzz() {
   // END STEP 3
 
 }
+
