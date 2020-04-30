@@ -38,7 +38,7 @@ else
   LLVM_CONFIG ?= llvm-config
 endif
 
-LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null )
+LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' )
 LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^3\.[0-7]|^1[2-9]' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[0-9]' && echo 1 || echo 0 )
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//')
@@ -82,30 +82,66 @@ endif
 # this seems to be busted on some distros, so using the one in $PATH is
 # probably better.
 
-CC         ?= $(LLVM_BINDIR)/clang
-CXX        ?= $(LLVM_BINDIR)/clang++
+CC         = $(LLVM_BINDIR)/clang
+CXX        = $(LLVM_BINDIR)/clang++
 
+# llvm-config --bindir may not providing a valid path, so ...
 ifeq "$(shell test -e $(CC) || echo 1 )" "1"
-  # llvm-config --bindir may not providing a valid path, so ...
-  ifeq "$(shell test -e '$(BIN_DIR)/clang' && echo 1)" "1"
-    # we found one in the local install directory, lets use these
-    CC         = $(BIN_DIR)/clang
-    CXX        = $(BIN_DIR)/clang++
-  else
-    # hope for the best
-    $(warning we have trouble finding clang/clang++ - llvm-config is not helping us)
-    CC         = clang
-    CXX        = clang++
+  # however we must ensure that this is not a "CC=gcc make"
+  ifeq "$(shell command -v $(CC) 2> /dev/null)" ""
+    # we do not have a valid CC variable so we try alternatives
+    ifeq "$(shell test -e '$(BIN_DIR)/clang' && echo 1)" "1"
+      # we found one in the local install directory, lets use these
+      CC         = $(BIN_DIR)/clang
+      CXX        = $(BIN_DIR)/clang++
+    else
+      # hope for the best
+      $(warning we have trouble finding clang/clang++ - llvm-config is not helping us)
+      CC         = clang
+      CXX        = clang++
+    endif
   endif
 endif
 
 # sanity check.
 # Are versions of clang --version and llvm-config --version equal?
-CLANGVER = $(shell $(CC) --version | sed -E -ne '/^.*version\ ([0-9]\.[0-9]\.[0-9]).*/s//\1/p')
+CLANGVER = $(shell $(CC) --version | sed -E -ne '/^.*version\ (1?[0-9]\.[0-9]\.[0-9]).*/s//\1/p')
 
-ifneq "$(CLANGVER)" "$(LLVMVER)"
-  CC = $(shell $(LLVM_CONFIG) --bindir)/clang
-  CXX = $(shell $(LLVM_CONFIG) --bindir)/clang++
+# I disable this because it does not make sense with what we did before (marc)
+# We did exactly set these 26 lines above with these values, and it would break
+# "CC=gcc make" etc. usages
+ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
+  CC_SAVE = $(LLVM_BINDIR)/clang
+else
+  CC_SAVE = $(CC)
+endif
+ifeq "$(findstring clang, $(shell $(CXX) --version 2>/dev/null))" ""
+  CXX_SAVE = $(LLVM_BINDIR)/clang++
+else
+  CXX_SAVE = $(CXX)
+endif
+
+CLANG_BIN = $(CC_SAVE)
+CLANGPP_BIN = $(CXX_SAVE)
+
+ifeq "$(CC_SAVE)" "$(LLVM_BINDIR)/clang"
+  USE_BINDIR = 1
+else
+  ifeq "$(CXX_SAVE)" "$(LLVM_BINDIR)/clang++"
+    USE_BINDIR = 1
+  else
+    USE_BINDIR = 0
+  endif
+endif
+
+# On old platform we cannot compile with clang because std++ libraries are too
+# old. For these we need to use gcc/g++, so if we find REAL_CC and REAL_CXX
+# variable we override the compiler variables here
+ifneq "$(REAL_CC)" ""
+CC         = $(REAL_CC)
+endif
+ifneq "$(REAL_CXX)" ""
+CXX        = $(REAL_CXX)
 endif
 
 # After we set CC/CXX we can start makefile magic tests
@@ -146,19 +182,6 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -fuse-ld=`command -v
 endif
 endif
 
-CLANG_BIN = $(basename $(CC))
-CLANGPP_BIN = $(basename $(CXX))
-ifeq "$(shell test -e $(CLANG_BIN) || echo 1 )" "1"
-  CLANG_BIN = $(CC)
-  CLANGPP_BIN = $(CXX)
-endif
-
-ifeq "$(CC)" "$(LLVM_BINDIR)/clang"
-  USE_BINDIR = 1
-else
-  USE_BINDIR = 0
-endif
-
 CFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
 override CFLAGS += -Wall \
                -g -Wno-pointer-sign -I ../include/ \
@@ -166,7 +189,7 @@ override CFLAGS += -Wall \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
                -DLLVM_VERSION=\"$(LLVMVER)\"  -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
                -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
-               -DCLANG_BIN=\"$(CC)\" -DCLANGPP_BIN=\"$(CXX)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function
+               -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function
 ifdef AFL_TRACE_PC
   $(info Compile option AFL_TRACE_PC is deprecated, just set AFL_LLVM_INSTRUMENT=PCGUARD to activate when compiling targets )
 endif
@@ -249,7 +272,7 @@ test_deps:
 	@echo "[*] Checking for matching versions of '$(CC)' and '$(LLVM_CONFIG)'"
 ifneq "$(CLANGVER)" "$(LLVMVER)"
 	@echo "[!] WARNING: we have llvm-config version $(LLVMVER) and a clang version $(CLANGVER)"
-	@echo "[!] Retrying with the clang compiler from llvm: CC=`llvm-config --bindir`/clang"
+	@echo "[!] Retry with the clang compiler from llvm: CC=`llvm-config --bindir`/clang"
 else
 	@echo "[*] We have llvm-config version $(LLVMVER) with a clang version $(CLANGVER), good."
 endif
@@ -290,9 +313,9 @@ endif
 ../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc afl-llvm-common.o
 ifeq "$(LLVM_LTO)" "1"
 	$(CXX) $(CLANG_CFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
-	$(CC) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto.o
-	@$(CC) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m64 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-64.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
-	@$(CC) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m32 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-32.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
+	$(CLANG_BIN) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto.o
+	@$(CLANG_BIN) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m64 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-64.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
+	@$(CLANG_BIN) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m32 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-32.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
 endif
 
 # laf
@@ -323,7 +346,7 @@ endif
 
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
-	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1 AFL_PATH=. AFL_CC=$(CC) AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
+	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1 AFL_PATH=. AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
 	ASAN_OPTIONS=detect_leaks=0 ../afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
 	echo 1 | ASAN_OPTIONS=detect_leaks=0 ../afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr

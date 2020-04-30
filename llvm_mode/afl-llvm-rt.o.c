@@ -152,7 +152,7 @@ static void __afl_map_shm(void) {
 
   if (getenv("AFL_DEBUG"))
     fprintf(stderr,
-            "DEBUG: id_str %s, __afl_map_addr 0x%x, MAP_SIZE %u, "
+            "DEBUG: id_str %s, __afl_map_addr 0x%lx, MAP_SIZE %u, "
             "__afl_final_loc %u, max_size_forkserver %u/0x%x\n",
             id_str == NULL ? "<null>" : id_str, __afl_map_addr, MAP_SIZE,
             __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
