@@ -175,7 +175,7 @@ static void __afl_start_forkserver(void) {
 
 static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
 
-  s32 status, res = 0x0fffffff; // res is a dummy pid
+  s32 status, res = 0x0fffffff;  // res is a dummy pid
 
   /* Wait for parent by reading from the pipe. Abort if read fails. */
   if (read(FORKSRV_FD, &status, 4) != 4) return 0;
@@ -305,3 +305,4 @@ int main(int argc, char *argv[]) {
   return 0;
 
 }
+
