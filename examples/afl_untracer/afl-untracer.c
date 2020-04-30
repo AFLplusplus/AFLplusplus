@@ -169,11 +169,12 @@ void read_library_information() {
   if (debug) fprintf(stderr, "\n");
 
 #elif defined(__FreeBSD__)
-  int    mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, -1};
+  int    mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
   char *buf, *start, *end;
   size_t miblen = sizeof(mib) / sizeof(mib[0]);
   size_t len;
 
+  if (debug) fprintf(stderr, "Library list:\n");
   if (sysctl(mib, miblen, NULL, &len, NULL, 0) == -1) {
 
     return;
