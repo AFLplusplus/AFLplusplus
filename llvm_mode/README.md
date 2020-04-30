@@ -37,7 +37,26 @@ co-exists with the original code.
 
 The idea and much of the implementation comes from Laszlo Szekeres.
 
-## 2) How to use this
+## 2a) How to use this - short
+
+Set the `LLVM_CONFIG` variable to the clang version you want to use, e.g.
+```
+LLVM_CONFIG=llvm-config-9 make
+```
+In case you have your own compiled llvm version specify the full path:
+```
+LLVM_CONFIG=~/llvm-project/build/bin/llvm-config make
+```
+If you try to use a new llvm version on an old Linux this can fail because of
+old c++ libraries. In this case usually switching to gcc/g++ to compile
+llvm_mode will work:
+```
+LLVM_CONFIG=llvm-config-7 REAL_CC=gcc REAL_CXX=g++ make
+```
+It is highly recommended to use the newest clang version you can put your
+hands on :)
+
+## 2b) How to use this - long
 
 In order to leverage this mechanism, you need to have clang installed on your
 system. You should also make sure that the llvm-config tool is in your path
