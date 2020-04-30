@@ -287,7 +287,7 @@ int main(int argc, char *argv[]) {
       FATAL("did not receive waitpid data (%d, %d)", received, ret);
     // fprintf(stderr, "Received status\n");
 
-    int received = 0;
+    received = 0;
     while (received < __afl_map_size &&
            (ret = recv(s, __afl_area_ptr + received, __afl_map_size - received,
                        0)) > 0)
