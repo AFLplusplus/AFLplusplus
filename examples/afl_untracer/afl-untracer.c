@@ -61,6 +61,9 @@
 #include <sys/ucontext.h>
 #elif defined(__APPLE__) && defined(__LP64__)
 #include <mach-o/dyld_images.h>
+#elif defined(__FreeBSD__)
+#include <sys/sysctl.h>
+#include <sys/user.h>
 #else
 #error "Unsupproted platform"
 #endif
@@ -165,6 +168,67 @@ void read_library_information() {
 
   if (debug) fprintf(stderr, "\n");
 
+#elif defined(__FreeBSD__)
+  int    mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, -1};
+  char *buf, *start, *end;
+  size_t miblen = sizeof(mib) / sizeof(mib[0]);
+  size_t len;
+
+  if (sysctl(mib, miblen, NULL, &len, NULL, 0) == -1) {
+
+    return;
+
+  }
+
+  len = len * 4 / 3;
+
+  buf = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+  if (buf == MAP_FAILED) {
+
+    return;
+
+  }
+
+  if (sysctl(mib, miblen, buf, &len, NULL, 0) == -1) {
+
+    munmap(buf, len);
+    return;
+
+  }
+
+  start = buf;
+  end = buf + len;
+
+  while (start < end) {
+
+    struct kinfo_vmentry *region = (struct kinfo_vmentry *)start;
+    size_t                size = region->kve_structsize;
+
+    if (size == 0) {
+
+      break;
+
+    }
+
+    if ((region->kve_protection & KVME_PROT_READ) &&
+        !(region->kve_protection & KVME_PROT_EXEC)) {
+
+        liblist[liblist_cnt].name = region->kve_path[0] != '\0' ? strdup(region->kve_path) : 0;
+        liblist[liblist_cnt].addr_start = region->kve_start;
+        liblist[liblist_cnt].addr_end = region->kve_end;
+
+        if (debug) {
+          fprintf(stderr, "%s:%x (%lx-%lx)\n", liblist[liblist_cnt].name,
+                  liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start,
+                  liblist[liblist_cnt].addr_start, liblist[liblist_cnt].addr_end - 1);
+        }
+
+        liblist_cnt++;
+    }
+
+    start += size;
+
+  }
 #endif
 
 }
@@ -524,6 +588,9 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
 #elif defined(__linux__)
   ctx->uc_mcontext.gregs[REG_RIP] -= 1;
   addr = ctx->uc_mcontext.gregs[REG_RIP];
+#elif defined(__FreeBSD__) && defined(__LP64__)
+  ctx->uc_mcontext.mc_rip -= 1;
+  addr = ctx->uc_mcontext.mc_rip;
 #else
 #error "Unsupported platform"
 #endif
