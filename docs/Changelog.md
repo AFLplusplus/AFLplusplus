@@ -31,6 +31,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - added examples/afl_network_proxy which allows to fuzz a target over the
     network (not fuzzing tcp/ip services but running afl-fuzz on one system
     and the target being on an embedded device)
+  - added examples/afl_untracer which does a binary-only fuzzing with the
+    modifications done in memory
   - added examples/afl_proxy which can be easily used to fuzz and instrument
     non-standard things
   - all:

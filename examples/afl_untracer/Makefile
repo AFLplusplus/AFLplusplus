@@ -7,4 +7,4 @@ libtestinstr.so:	libtestinstr.c
 	$(CC) -fPIC -o libtestinstr.so -shared libtestinstr.c
 
 clean:
-	rm -f afl-untracer *~ core
+	rm -f afl-untracer libtestinstr.so *~ core

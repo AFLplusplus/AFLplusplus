@@ -175,7 +175,7 @@ static void __afl_start_forkserver(void) {
 
 static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
 
-  s32 status, res = 0xffffff;
+  s32 status, res = 0x0fffffff; // res is a dummy pid
 
   /* Wait for parent by reading from the pipe. Abort if read fails. */
   if (read(FORKSRV_FD, &status, 4) != 4) return 0;
@@ -193,9 +193,7 @@ static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
 
 }
 
-static void __afl_end_testcase(void) {
-
-  int status = 0xffffff;
+static void __afl_end_testcase(int status) {
 
   if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(1);
 
@@ -273,7 +271,7 @@ int main(int argc, char *argv[]) {
   __afl_map_shm();
   __afl_start_forkserver();
 
-  int i = 1, j;
+  int i = 1, j, status, ret;
   // fprintf(stderr, "Waiting for first testcase\n");
   while ((len = __afl_next_testcase(buf, max_len)) > 0) {
 
@@ -281,17 +279,25 @@ int main(int argc, char *argv[]) {
     if (send(s, &len, 4, 0) != 4) PFATAL("sending size data %d failed", len);
     if (send(s, buf, len, 0) != len) PFATAL("sending test data failed");
 
-    int received = 0, ret;
+    int received = 0;
+    while (received < 4 &&
+           (ret = recv(s, &status + received, 4 - received, 0)) > 0)
+      received += ret;
+    if (received != 4)
+      FATAL("did not receive waitpid data (%d, %d)", received, ret);
+    // fprintf(stderr, "Received status\n");
+
+    int received = 0;
     while (received < __afl_map_size &&
            (ret = recv(s, __afl_area_ptr + received, __afl_map_size - received,
                        0)) > 0)
       received += ret;
     if (received != __afl_map_size)
-      FATAL("did not receive valid data (%d, %d)", received, ret);
+      FATAL("did not receive coverage data (%d, %d)", received, ret);
     // fprintf(stderr, "Received coverage\n");
 
     /* report the test case is done and wait for the next */
-    __afl_end_testcase();
+    __afl_end_testcase(status);
     // fprintf(stderr, "Waiting for next testcase %d\n", ++i);
 
   }
@@ -299,4 +305,3 @@ int main(int argc, char *argv[]) {
   return 0;
 
 }
-
