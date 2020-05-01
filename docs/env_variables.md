@@ -204,6 +204,10 @@ Then there are a few specific features that are only available in llvm_mode:
       slowdown due a performance issue that is only fixed in llvm 9+.
       This feature increases path discovery by a little bit.
 
+    - Setting AFL_LLVM_SKIP_NEVERZERO=1 will not implement the skip zero
+      test. If the target performs only few loops then this will give a
+      small performance boost.
+
     See llvm_mode/README.neverzero.md
 
 ### CMPLOG

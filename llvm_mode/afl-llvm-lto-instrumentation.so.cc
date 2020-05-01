@@ -78,6 +78,8 @@ class AFLLTOPass : public ModulePass {
         FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is not between 0 and %d\n",
               ptr, MAP_SIZE - 1);
 
+    skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
+
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -111,6 +113,7 @@ class AFLLTOPass : public ModulePass {
   int      afl_global_id = 1, debug = 0, autodictionary = 0;
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, total_instr = 0;
   uint64_t map_addr = 0x10000;
+  char *   skip_nozero = NULL;
 
 };
 
@@ -614,9 +617,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           Value *Incr = IRB.CreateAdd(Counter, One);
 
-          auto cf = IRB.CreateICmpEQ(Incr, Zero);
-          auto carry = IRB.CreateZExt(cf, Int8Ty);
-          Incr = IRB.CreateAdd(Incr, carry);
+          if (skip_nozero) {
+
+            auto cf = IRB.CreateICmpEQ(Incr, Zero);
+            auto carry = IRB.CreateZExt(cf, Int8Ty);
+            Incr = IRB.CreateAdd(Incr, carry);
+
+          }
+
           IRB.CreateStore(Incr, MapPtrIdx)
               ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 

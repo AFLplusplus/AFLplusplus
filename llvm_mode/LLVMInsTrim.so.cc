@@ -56,6 +56,7 @@ struct InsTrim : public ModulePass {
  protected:
   uint32_t function_minimum_size = 1;
   uint32_t debug = 0;
+  char *   skip_nozero = NULL;
 
  private:
   std::mt19937 generator;
@@ -112,6 +113,7 @@ struct InsTrim : public ModulePass {
     if ((neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO")) != NULL)
       if (!be_quiet) OKF("LLVM neverZero activated (by hexcoder)\n");
 #endif
+    skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
 
     if (getenv("AFL_LLVM_INSTRIM_LOOPHEAD") != NULL ||
         getenv("LOOPHEAD") != NULL) {
@@ -304,8 +306,7 @@ struct InsTrim : public ModulePass {
             NULL)  // with llvm 9 we make this the default as the bug in llvm is
                    // then fixed
 #else
-        if (1)  // with llvm 9 we make this the default as the bug in llvm is
-                // then fixed
+        if (!skip_nozero)
 #endif
         {
 

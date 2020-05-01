@@ -84,7 +84,7 @@ class AFLCoverage : public ModulePass {
   uint32_t ngram_size = 0;
   uint32_t debug = 0;
   uint32_t map_size = MAP_SIZE;
-  char *   ctx_str = NULL;
+  char *   ctx_str = NULL, *skip_nozero = NULL;
 
 };
 
@@ -180,6 +180,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 #if LLVM_VERSION_MAJOR < 9
   char *neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
 #endif
+  skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
 
   unsigned PrevLocSize;
 
@@ -467,6 +468,9 @@ bool AFLCoverage::runOnModule(Module &M) {
       if (neverZero_counters_str !=
           NULL) {  // with llvm 9 we make this the default as the bug in llvm is
                    // then fixed
+#else
+      if (!skip_nozero) {
+
 #endif
         /* hexcoder: Realize a counter that skips zero during overflow.
          * Once this counter reaches its maximum value, it next increments to 1
@@ -482,11 +486,7 @@ bool AFLCoverage::runOnModule(Module &M) {
         auto carry = IRB.CreateZExt(cf, Int8Ty);
         Incr = IRB.CreateAdd(Incr, carry);
 
-#if LLVM_VERSION_MAJOR < 9
-
       }
-
-#endif
 
       IRB.CreateStore(Incr, MapPtrIdx)
           ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
