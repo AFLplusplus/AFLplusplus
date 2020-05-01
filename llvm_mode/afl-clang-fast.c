@@ -562,6 +562,11 @@ int main(int argc, char **argv, char **envp) {
   instrument_mode = INSTRUMENT_PCGUARD;
 #endif
 
+  if (getenv("AFL_LLVM_SKIP_NEVERZERO") && getenv("AFL_LLVM_NOT_ZERO"))
+    FATAL(
+        "AFL_LLVM_NOT_ZERO and AFL_LLVM_SKIP_NEVERZERO can not be set "
+        "together");
+
   if ((ptr = getenv("AFL_LLVM_INSTRUMENT")) != NULL) {
 
     if (strncasecmp(ptr, "default", strlen("default")) == 0 ||
@@ -726,6 +731,7 @@ int main(int argc, char **argv, char **envp) {
         "AFL_HARDEN: adds code hardening to catch memory bugs\n"
         "AFL_INST_RATIO: percentage of branches to instrument\n"
         "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+        "AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
         "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
         "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to "
         "cascaded "

@@ -20,8 +20,16 @@ This is implemented in afl-gcc, however for llvm_mode this is optional if
 the llvm version is below 9 - as there is a perfomance bug that is only fixed
 in version 9 and onwards.
 
-If you want to enable this for llvm < 9 then set
+If you want to enable this for llvm versions below 9 then set
 
 ```
 export AFL_LLVM_NOT_ZERO=1
 ```
+
+In case you are on llvm 9 or greater and you do not want this behaviour then
+you can set:
+```
+AFL_LLVM_SKIP_NEVERZERO=1
+```
+If the target does not have extensive loops or functions that are called
+a lot then this can give a small performance boost.
