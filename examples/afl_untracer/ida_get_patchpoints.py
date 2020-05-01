@@ -24,6 +24,8 @@ for seg_ea in idautils.Segments():
 
     start = idc.get_segm_start(seg_ea)
     end = idc.get_segm_end(seg_ea)
+    first = 0
+    subtract_addr = 0
     #print("Start: " + hex(start) + " End: " + hex(end))
     for func_ea in idautils.Functions(start, end):
         f = idaapi.get_func(func_ea)
@@ -31,8 +33,13 @@ for seg_ea in idautils.Segments():
             continue
         for block in idaapi.FlowChart(f):
             if start <= block.start_ea < end:
+                if first == 0:
+                    if block.start_ea >= 0x1000:
+                        subtract_addr = 0x1000
+                        first = 1
+                        
                 max_offset = max(max_offset, block.start_ea)
-                patchpoints.add(block.start_ea)
+                patchpoints.add(block.start_ea - subtract_addr)
             #else:
             #    print("Warning: broken CFG?")
 

@@ -10,6 +10,10 @@ or cmplog.
 Read and modify afl-untracer.c then `make` and use it as the afl-fuzz target
 (or even remote via afl-network-proxy).
 
+To generate the `patches.txt` file for your target library use the
+`ida_get_patchpoints.py` script for IDA Pro or
+`ghidra_get_patchpoints.java` for Ghidra.
+
 This idea is based on [UnTracer](https://github.com/FoRTE-Research/UnTracer-AFL)
 and modified by [Trapfuzz](https://github.com/googleprojectzero/p0tools/tree/master/TrapFuzz).
 This implementation is slower because the traps are not patched out with each
