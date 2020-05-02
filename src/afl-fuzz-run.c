@@ -71,17 +71,17 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
     u8 *new_buf = NULL;
     ssize_t new_size;
-    struct custom_mutator * mutator;
 
-    for (int i =0; i<afl->number_of_custom_mutators; i++) {
-      mutator = afl->custom_mutators[i];
-      if (mutator->afl_custom_pre_save) {
-        new_size = mutator->afl_custom_pre_save(
-          mutator->data, mem, len, &new_buf
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_pre_save) {
+        new_size = el->afl_custom_pre_save(
+          el->data, mem, len, &new_buf
         );
         has_custom_pre_save = true;
       }
-    }
+
+    } );
 
     if (unlikely(!new_buf && has_custom_pre_save)) {
 
@@ -508,17 +508,19 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   /* Custom mutator trimmer */
   if (afl->number_of_custom_mutators) {
+
     u8 trimmed_case;
     bool custom_trimmed = false;
 
-    for (int i=0; i<afl->number_of_custom_mutators; i++) {
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-      if (afl->custom_mutators[i]->afl_custom_trim) {
+      if (el->afl_custom_trim) {
         
-        trimmed_case = trim_case_custom(afl, q, in_buf,afl->custom_mutators[i]);
+        trimmed_case = trim_case_custom(afl, q, in_buf, el);
         custom_trimmed = true;
       }
-    }
+
+    } );
 
     if (custom_trimmed) return trimmed_case;
     

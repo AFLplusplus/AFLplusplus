@@ -609,7 +609,8 @@ typedef struct afl_state {
   u8 *    ex_buf;
   size_t  ex_size;
   u8 number_of_custom_mutators;
-  struct custom_mutator * custom_mutators[MAX_MUTATORS_COUNT];
+
+  list_t custom_mutator_list;
 
   /* this is a fixed buffer of size map_size that can be used by any function if
    * they do not call another function */

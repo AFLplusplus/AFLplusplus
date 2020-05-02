@@ -34,6 +34,7 @@ struct custom_mutator * load_custom_mutator_py(afl_state_t *, char *);
 void setup_custom_mutator(afl_state_t *afl) {
 
   /* Try mutator library first */
+  struct custom_mutator * mutator;
   u8 *                   fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
 
   if (fn) {
@@ -48,24 +49,22 @@ void setup_custom_mutator(afl_state_t *afl) {
 
     if (likely(!fn_token)) {
 
-      afl->mutator = load_custom_mutator(afl, fn);
-      afl->custom_mutators[0] = afl->mutator;
+      mutator = load_custom_mutator(afl, fn);
+      list_append(&afl->custom_mutator_list, mutator);
       afl->number_of_custom_mutators++;
 
     } else {
 
       while (fn_token) {
 
-        afl->custom_mutators[afl->number_of_custom_mutators] = load_custom_mutator(afl, fn_token);
+        mutator = load_custom_mutator(afl, fn_token);
+        list_append(&afl->custom_mutator_list, mutator);
         afl->number_of_custom_mutators++;
         fn_token = (u8 *)strsep((char **)&fn, ";");
 
         if (afl->number_of_custom_mutators > MAX_MUTATORS_COUNT) FATAL("The max count of custom mutators is 8");
 
       }
-
-      afl->mutator = afl->custom_mutators[0];
-
     }
 
   }
@@ -86,10 +85,8 @@ void setup_custom_mutator(afl_state_t *afl) {
     }
 
     struct custom_mutator * mutator = load_custom_mutator_py(afl, module_name);
-
-    afl->custom_mutators[0] = mutator;
-    afl->mutator = mutator;
     afl->number_of_custom_mutators++;
+    list_append(&afl->custom_mutator_list, mutator);
 
   }
 
@@ -108,24 +105,21 @@ void destroy_custom_mutator(afl_state_t *afl) {
 
   if (afl->number_of_custom_mutators) {
 
-    struct custom_mutator * mutator;
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+    
+      // mutator = afl->custom_mutators[i];
+      if (el->data) {el->afl_custom_deinit(el->data); }
+      if (el->dh) dlclose(el->dh);
 
-    for(int i = 0; i<afl->number_of_custom_mutators; i++ ) {
-      mutator = afl->custom_mutators[i];
-      if (mutator->data) {mutator->afl_custom_deinit(mutator->data); }
-      if (mutator->dh) dlclose(mutator->dh);
-
-      if (mutator->pre_save_buf) {
-        ck_free(mutator->pre_save_buf);
-        mutator->pre_save_buf = NULL;
-        mutator->pre_save_size = 0;
+      if (el->pre_save_buf) {
+        ck_free(el->pre_save_buf);
+        el->pre_save_buf = NULL;
+        el->pre_save_size = 0;
       }
 
-      ck_free(mutator);
-      afl->custom_mutators[i] = NULL;
-    }
+    } );
 
-    afl->mutator = NULL;
+    // afl->custom_mutator_list = NULL;
 
   }
 
