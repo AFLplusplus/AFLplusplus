@@ -93,11 +93,24 @@ ifeq "$(shell test -e $(CC) || echo 1 )" "1"
     ifeq "$(shell test -e '$(BIN_DIR)/clang' && echo 1)" "1"
       # we found one in the local install directory, lets use these
       CC         = $(BIN_DIR)/clang
+    else
+      # hope for the best
+      $(warning we have trouble finding clang - llvm-config is not helping us)
+      CC         = clang
+    endif
+  endif
+endif
+# llvm-config --bindir may not providing a valid path, so ...
+ifeq "$(shell test -e $(CXX) || echo 1 )" "1"
+  # however we must ensure that this is not a "CC=gcc make"
+  ifeq "$(shell command -v $(CXX) 2> /dev/null)" ""
+    # we do not have a valid CC variable so we try alternatives
+    ifeq "$(shell test -e '$(BIN_DIR)/clang++' && echo 1)" "1"
+      # we found one in the local install directory, lets use these
       CXX        = $(BIN_DIR)/clang++
     else
       # hope for the best
-      $(warning we have trouble finding clang/clang++ - llvm-config is not helping us)
-      CC         = clang
+      $(warning we have trouble finding clang++ - llvm-config is not helping us)
       CXX        = clang++
     endif
   endif
@@ -111,18 +124,18 @@ CLANGVER = $(shell $(CC) --version | sed -E -ne '/^.*version\ (1?[0-9]\.[0-9]\.[
 # We did exactly set these 26 lines above with these values, and it would break
 # "CC=gcc make" etc. usages
 ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
-  CC_SAVE = $(LLVM_BINDIR)/clang
+  CC_SAVE := $(LLVM_BINDIR)/clang
 else
-  CC_SAVE = $(CC)
+  CC_SAVE := $(CC)
 endif
 ifeq "$(findstring clang, $(shell $(CXX) --version 2>/dev/null))" ""
-  CXX_SAVE = $(LLVM_BINDIR)/clang++
+  CXX_SAVE := $(LLVM_BINDIR)/clang++
 else
-  CXX_SAVE = $(CXX)
+  CXX_SAVE := $(CXX)
 endif
 
-CLANG_BIN = $(CC_SAVE)
-CLANGPP_BIN = $(CXX_SAVE)
+CLANG_BIN := $(CC_SAVE)
+CLANGPP_BIN := $(CXX_SAVE)
 
 ifeq "$(CC_SAVE)" "$(LLVM_BINDIR)/clang"
   USE_BINDIR = 1
@@ -150,13 +163,13 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .te
 	CFLAGS_OPT = -march=native
 endif
 
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
         AFL_CLANG_FLTO ?= -flto=full
 else
- ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
         AFL_CLANG_FLTO ?= -flto=thin
  else
-  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+  ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
         AFL_CLANG_FLTO ?= -flto
   endif
  endif
@@ -177,7 +190,7 @@ endif
 
 AFL_CLANG_FUSELD=
 ifneq "$(AFL_CLANG_FLTO)" ""
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -fuse-ld=`command -v ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=`command -v ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
   AFL_CLANG_FUSELD=1
 endif
 endif
@@ -272,7 +285,6 @@ test_deps:
 	@echo "[*] Checking for matching versions of '$(CC)' and '$(LLVM_CONFIG)'"
 ifneq "$(CLANGVER)" "$(LLVMVER)"
 	@echo "[!] WARNING: we have llvm-config version $(LLVMVER) and a clang version $(CLANGVER)"
-	@echo "[!] Retry with the clang compiler from llvm: CC=`llvm-config --bindir`/clang"
 else
 	@echo "[*] We have llvm-config version $(LLVMVER) with a clang version $(CLANGVER), good."
 endif
