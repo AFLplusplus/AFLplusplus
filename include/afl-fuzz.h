@@ -182,7 +182,8 @@ enum {
   /* 19 */ STAGE_CUSTOM_MUTATOR,
   /* 20 */ STAGE_COLORIZATION,
   /* 21 */ STAGE_ITS,
-
+  /* 22 */ STAGE_SWAP16,
+  /* 23 */ STAGE_SWAP32
 };
 
 /* Stage value types */

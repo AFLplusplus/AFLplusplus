@@ -1465,6 +1465,56 @@ skip_arith:
 
 skip_interest:
 
+  /**************
+   * SWAP STUFF *
+   *************/
+
+  #define SWAPT(t, p1, p2)          \
+  do {                              \
+    if(*(t *)(p1) != *(t *)(p2)) {  \
+      t temp = *(t *)(p1);          \
+      *(t *)(p1) = *(t *)(p2);      \
+      *(t *)(p2) = temp;            \
+    }                               \
+  } while(0)
+
+  if(len < 3 ) { goto skip_swap; }
+
+  afl->stage_name  = "swap 16/8";
+  afl->stage_short = "swap16";
+  afl->stage_cur   = 0;
+  afl->stage_max   = ((len - 1) * (len - 2))/2;
+
+  for(i = 0; i < (len - 1); i++) {
+    if(!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i+1)]) {
+      afl->stage_max -= len - i -2;
+      continue;
+    }
+
+    afl->stage_cur_byte = i;
+
+    for(j = i + 1; j < len -1 ; j++) {
+      if(!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i+1)]) {
+        afl->stage_max -= 1;
+        continue;
+      }
+
+      SWAPT(u16, out_buf + i, out_buf + j);
+
+      if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
+      ++afl->stage_cur;
+
+      SWAPT(u16, out_buf + i, out_buf + j);
+    }
+  }
+
+  new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+
+  afl->stage_finds[STAGE_SWAP16] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_SWAP16] += afl->stage_max;
+
+skip_swap:
+
   /********************
    * DICTIONARY STUFF *
    ********************/
