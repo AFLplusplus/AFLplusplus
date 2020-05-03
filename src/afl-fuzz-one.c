@@ -366,7 +366,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
   u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt;
   u32 splice_cycle = 0, perf_score = 100, orig_perf, prev_cksum, eff_cnt = 1;
-  u32 num_zone = 0;
+  u32* ind = 0;
 
   u8 ret_val = 1, doing_det = 0;
 
@@ -780,6 +780,19 @@ u8 fuzz_one_original(afl_state_t *afl) {
 #define EFF_REM(_x) ((_x) & ((1 << EFF_MAP_SCALE2) - 1))
 #define EFF_ALEN(_l) (EFF_APOS(_l) + !!EFF_REM(_l))
 #define EFF_SPAN_ALEN(_p, _l) (EFF_APOS((_p) + (_l)-1) - EFF_APOS(_p) + 1)
+#define EFF_SPOS(_p)                                     \
+{                                                        \
+  switch(EFF_REM(_p)) {                                  \
+    case 0 : eff_map[EFF_APOS(_p)] |= 0x01; break;       \
+    case 1 : eff_map[EFF_APOS(_p)] |= 0x02; break;       \
+    case 2 : eff_map[EFF_APOS(_p)] |= 0x04; break;       \
+    case 3 : eff_map[EFF_APOS(_p)] |= 0x08; break;       \
+    case 4 : eff_map[EFF_APOS(_p)] |= 0x10; break;       \
+    case 5 : eff_map[EFF_APOS(_p)] |= 0x20; break;       \
+    case 6 : eff_map[EFF_APOS(_p)] |= 0x30; break;       \
+    case 7 : eff_map[EFF_APOS(_p)] |= 0x40; break;       \
+  }                                                      \
+}
 
   /* Initialize effector map for the next step (see comments below). Always
      flag first and last byte as doing something. */
@@ -815,29 +828,25 @@ u8 fuzz_one_original(afl_state_t *afl) {
        even when fully flipped - and we skip them during more expensive
        deterministic stages, such as arithmetics or known ints. */
 
-    if (!eff_map[EFF_APOS(afl->stage_cur)]) {
+    u32 cksum;
 
-      u32 cksum;
+    /* If in dumb mode or if the file is very short, just flag everything
+        without wasting time on checksums. */
 
-      /* If in dumb mode or if the file is very short, just flag everything
-         without wasting time on checksums. */
+    if (!afl->dumb_mode && len >= EFF_MIN_LEN) {
 
-      if (!afl->dumb_mode && len >= EFF_MIN_LEN) {
+      cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-        cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+    } else {
 
-      } else {
+      cksum = ~afl->queue_cur->exec_cksum;
 
-        cksum = ~afl->queue_cur->exec_cksum;
+    }
 
-      }
+    if (cksum != afl->queue_cur->exec_cksum) {
 
-      if (cksum != afl->queue_cur->exec_cksum) {
-
-        eff_map[EFF_APOS(afl->stage_cur)] = 1;
-        ++eff_cnt;
-
-      }
+      EFF_SPOS(afl->stage_cur);
+      ++eff_cnt;
 
     }
 
@@ -850,7 +859,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
      anyway. */
 
   if (eff_cnt != EFF_ALEN(len) &&
-      eff_cnt * 100 / EFF_ALEN(len) > EFF_MAX_PERC) {
+      eff_cnt * 100 / (8 * EFF_ALEN(len)) > EFF_MAX_PERC) {
 
     memset(eff_map, 1, EFF_ALEN(len));
 
@@ -858,7 +867,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   } else {
 
-    afl->blocks_eff_select += eff_cnt;
+    afl->blocks_eff_select += eff_cnt/8;
 
   }
 
@@ -1479,18 +1488,21 @@ skip_interest:
     }                               \
   } while(0)
 
-  num_zone = 0;
-
-  for(i=0 ; i < len ; i++) {
-    if(eff_map[EFF_APOS(i)]) num_zone ++;
-  }
-
-  u32* ind = (u32 *)malloc(num_zone * sizeof(u32));
+  ind = (u32 *)malloc(eff_cnt * sizeof(u32));
 
   j = 0;
 
-  for(i=0 ; i < len ; i++) {
-    if(eff_map[EFF_APOS(i)]) ind[j++] = i;
+  for(i=0 ; i < len ; i ++) {
+    switch ( i % 8) {
+      case 0 : if (eff_map[EFF_APOS(i)] & 0x01) ind[j++] = i; break;
+      case 1 : if (eff_map[EFF_APOS(i)] & 0x02) ind[j++] = i; break;
+      case 2 : if (eff_map[EFF_APOS(i)] & 0x04) ind[j++] = i; break;
+      case 3 : if (eff_map[EFF_APOS(i)] & 0x08) ind[j++] = i; break;
+      case 4 : if (eff_map[EFF_APOS(i)] & 0x10) ind[j++] = i; break;
+      case 5 : if (eff_map[EFF_APOS(i)] & 0x20) ind[j++] = i; break;
+      case 6 : if (eff_map[EFF_APOS(i)] & 0x40) ind[j++] = i; break;
+      case 7 : if (eff_map[EFF_APOS(i)] & 0x80) ind[j++] = i; break;
+    }
   }
 
   if(len < 3 ) { goto skip_swap; }
@@ -1498,13 +1510,13 @@ skip_interest:
   afl->stage_name  = "swap 16/8";
   afl->stage_short = "swap16";
   afl->stage_cur   = 0;
-  afl->stage_max   = ((num_zone)*(num_zone - 1))/2;
+  afl->stage_max   = ((eff_cnt)*(eff_cnt - 1))/2;
 
-  for(i = 0; i < num_zone && ind[i] < len - 1; i++) {
+  for(i = 0; i < eff_cnt && ind[i] < len - 1; i++) {
 
     afl->stage_cur_byte = ind[i];
 
-    for(j = i + 1; j < num_zone && ind[j] < len - 1 ; j++) {
+    for(j = i + 1; j < eff_cnt && ind[j] < len - 1 ; j++) {
 
       SWAPT(u16, out_buf + i, out_buf + j);
 
@@ -1525,13 +1537,13 @@ skip_interest:
   afl->stage_name  = "swap 32/8";
   afl->stage_short = "swap32";
   afl->stage_cur   = 0;
-  afl->stage_max   = ((num_zone)*(num_zone - 1))/2;
+  afl->stage_max   = ((eff_cnt)*(eff_cnt - 1))/2;
 
-  for(i = 0; i < num_zone && ind[i] < (len - 3); i++) {
+  for(i = 0; i < eff_cnt && ind[i] < (len - 3); i++) {
 
     afl->stage_cur_byte = ind[i];
 
-    for(j = i + 1; j < num_zone && ind[j] < len - 3 ; j++) {
+    for(j = i + 1; j < eff_cnt && ind[j] < len - 3 ; j++) {
 
       SWAPT(u32, out_buf + i, out_buf + j);
 
