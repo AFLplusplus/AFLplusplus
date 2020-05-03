@@ -1478,7 +1478,7 @@ skip_interest:
     }                               \
   } while(0)
 
-  if(len < 3 || eff_cnt * 100 / EFF_ALEN(len) < 60 ) { goto skip_swap; }
+  if(len < 3 ) { goto skip_swap; }
 
   afl->stage_name  = "swap 16/8";
   afl->stage_short = "swap16";
