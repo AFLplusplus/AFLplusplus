@@ -1481,7 +1481,7 @@ skip_interest:
 
   num_zone = 0;
 
-  for(i=0 ; i < len ; i++) {
+  for(i=0 ; i < len ; i+= 2) {
     if(eff_map[EFF_APOS(i)]) num_zone ++;
   }
 
@@ -1489,7 +1489,7 @@ skip_interest:
 
   j = 0;
 
-  for(i=0 ; i < len ; i++) {
+  for(i=0 ; i < len ; i+= 2) {
     if(eff_map[EFF_APOS(i)]) ind[j++] = i;
   }
 
