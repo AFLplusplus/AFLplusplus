@@ -1478,7 +1478,7 @@ skip_interest:
     }                               \
   } while(0)
 
-  if(len < 3 ) { goto skip_swap; }
+  if(len < 3 || eff_cnt * 100 / EFF_ALEN(len) < 60 ) { goto skip_swap; }
 
   afl->stage_name  = "swap 16/8";
   afl->stage_short = "swap16";
@@ -1494,7 +1494,7 @@ skip_interest:
     afl->stage_cur_byte = i;
 
     for(j = i + 1; j < len -1 ; j++) {
-      if(!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i+1)]) {
+      if(!eff_map[EFF_APOS(j)] && !eff_map[EFF_APOS(j+1)]) {
         afl->stage_max -= 1;
         continue;
       }
@@ -1509,9 +1509,45 @@ skip_interest:
   }
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
-
   afl->stage_finds[STAGE_SWAP16] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_SWAP16] += afl->stage_max;
+
+
+  if (len < 5) { goto skip_swap; }
+  
+  afl->stage_name  = "swap 32/8";
+  afl->stage_short = "swap32";
+  afl->stage_cur   = 0;
+  afl->stage_max   = ((len - 3) * (len - 4))/2;
+
+  for(i = 0; i < (len - 3); i++) {
+    if(!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i+1)] 
+    && !eff_map[EFF_APOS(i+2)] && !eff_map[EFF_APOS(i+3)] ) {
+      afl->stage_max -= len - i -4;
+      continue;
+    }
+
+    afl->stage_cur_byte = i;
+
+    for(j = i + 1; j < len - 3 ; j++) {
+      if(!eff_map[EFF_APOS(j)] && !eff_map[EFF_APOS(j+1)] && 
+      !eff_map[EFF_APOS(j+2)] && !eff_map[EFF_APOS(j+3)]) {
+        afl->stage_max -= 1;
+        continue;
+      }
+
+      SWAPT(u32, out_buf + i, out_buf + j);
+
+      if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
+      ++afl->stage_cur;
+
+      SWAPT(u32, out_buf + i, out_buf + j);
+    }
+  }
+
+  new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+  afl->stage_finds[STAGE_SWAP32] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_SWAP32] += afl->stage_max;
 
 skip_swap:
 
