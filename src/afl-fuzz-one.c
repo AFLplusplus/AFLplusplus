@@ -1481,7 +1481,7 @@ skip_interest:
   u32 num_zone = 0;
 
   for(int i=0 ; i < len ; i++) {
-    if(EFF_APOS[i]) num_zone ++;
+    if(eff_map[EFF_APOS(i)]) num_zone ++;
   }
 
   u32* ind = (u32 *)malloc(num_zone * sizeof(u32));
@@ -1531,7 +1531,7 @@ skip_interest:
     afl->stage_cur_byte = ind[i];
 
     for(j = i + 1; j < num_zone && ind[j] < len - 3 ; j++) {
-      
+
       SWAPT(u32, out_buf + i, out_buf + j);
 
       if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
