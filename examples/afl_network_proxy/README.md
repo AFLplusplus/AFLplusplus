@@ -12,6 +12,14 @@ Note that the impact on fuzzing speed will be huge, expect a loss of 90%.
 
 ## how to get it running
 
+### Compiling
+
+Just type `make` and let the autodetection do everything for you.
+
+Note that compression is supported but currently disabled. It seems that
+sending 64kb of map data over TCP is faster than compressing it with the
+fastest algorithm and options to 112 byte and sending this. Weird.
+
 ### on the target
 
 Run `afl-network-server` with your target with the -m and -t values you need.
@@ -40,16 +48,11 @@ The TARGET can be an IPv4 or IPv6 address, or a host name that resolves to
 either. Note that also the outgoing interface can be specified with a '%' for
 `afl-network-client`, e.g. `fe80::1234%eth0`.
 
+Also make sure your middle value of `/proc/sys/net/ipv4/tcp_rmem` is larger
+than your MAP_SIZE (130kb is a good value). This is the default TCP window
+size value.
+
 ## how to compile and install
 
 `make && sudo make install`
-
-## Future
-
-It would be much faster and more effective if `afl-network-server` does not
-send the map data back (64kb or more) but the checksum that `afl-fuzz` would
-generate. This change however would make it incompatible with existing
-afl spinoffs.
-
-But in the future this will be implemented and supported as a compile option.
 

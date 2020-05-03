@@ -41,6 +41,10 @@
 #include <netdb.h>
 #include <fcntl.h>
 
+#ifdef USE_DEFLATE
+#include <libdeflate.h>
+#endif
+
 u8 *__afl_area_ptr;
 
 #ifdef __ANDROID__
@@ -206,7 +210,12 @@ int main(int argc, char *argv[]) {
   u8 *            interface, *buf, *ptr;
   s32             s = -1;
   struct addrinfo hints, *hres, *aip;
-  u32             len, max_len = 65536;
+  u32 *           lenptr, max_len = 65536;
+#ifdef USE_DEFLATE
+  u8 *   buf2;
+  u32 *  lenptr1, *lenptr2, buf2_len, compress_len;
+  size_t decompress_len;
+#endif
 
   if (argc < 3 || argc > 4) {
 
@@ -235,8 +244,17 @@ int main(int argc, char *argv[]) {
     if ((__afl_map_size = atoi(ptr)) < 8)
       FATAL("illegal map size, may not be < 8 or >= 2^30: %s", ptr);
 
-  if ((buf = malloc(max_len)) == NULL)
-    PFATAL("can not allocate %u memory", max_len);
+  if ((buf = malloc(max_len + 4)) == NULL)
+    PFATAL("can not allocate %u memory", max_len + 4);
+  lenptr = (u32 *)buf;
+
+#ifdef USE_DEFLATE
+  buf2_len = (max_len > __afl_map_size ? max_len : __afl_map_size);
+  if ((buf2 = malloc(buf2_len + 8)) == NULL)
+    PFATAL("can not allocate %u memory", buf2_len + 8);
+  lenptr1 = (u32 *)buf2;
+  lenptr2 = (u32 *)(buf2 + 4);
+#endif
 
   memset(&hints, 0, sizeof(hints));
   hints.ai_socktype = SOCK_STREAM;
@@ -258,28 +276,81 @@ int main(int argc, char *argv[]) {
       fprintf(stderr,
               "Warning: binding to interface is not supported for your OS\n");
 #endif
+
+#ifdef SO_PRIORITY
+      int priority = 7;
+      if (setsockopt(s, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) <
+          0) {
+
+        priority = 6;
+        if (setsockopt(s, SOL_SOCKET, SO_PRIORITY, &priority,
+                       sizeof(priority)) < 0)
+          WARNF("could not set priority on socket");
+
+      }
+
+#endif
+
       if (connect(s, aip->ai_addr, aip->ai_addrlen) == -1) s = -1;
 
     }
 
   }
 
+#ifdef USE_DEFLATE
+  struct libdeflate_compressor *compressor;
+  compressor = libdeflate_alloc_compressor(1);
+  struct libdeflate_decompressor *decompressor;
+  decompressor = libdeflate_alloc_decompressor();
+  fprintf(stderr, "Compile with compression support\n");
+#endif
+
   if (s == -1)
     FATAL("could not connect to target tcp://%s:%s", argv[1], argv[2]);
+  else
+    fprintf(stderr, "Connected to target tcp://%s:%s\n", argv[1], argv[2]);
 
   /* we initialize the shared memory map and start the forkserver */
   __afl_map_shm();
   __afl_start_forkserver();
 
-  int i = 1, j, status, ret;
+  int i = 1, j, status, ret, received;
+
   // fprintf(stderr, "Waiting for first testcase\n");
-  while ((len = __afl_next_testcase(buf, max_len)) > 0) {
+  while ((*lenptr = __afl_next_testcase(buf + 4, max_len)) > 0) {
 
-    // fprintf(stderr, "Sending testcase with len %u\n", len);
-    if (send(s, &len, 4, 0) != 4) PFATAL("sending size data %d failed", len);
-    if (send(s, buf, len, 0) != len) PFATAL("sending test data failed");
+    // fprintf(stderr, "Sending testcase with len %u\n", *lenptr);
+#ifdef USE_DEFLATE
+    // we only compress the testcase if it does not fit in the TCP packet
+    if (*lenptr > 1500 - 20 - 32 - 4) {
 
-    int received = 0;
+      // set highest byte to signify compression
+      *lenptr1 = (*lenptr | 0xff000000);
+      *lenptr2 = (u32)libdeflate_deflate_compress(compressor, buf + 4, *lenptr,
+                                                  buf2 + 8, buf2_len);
+      if (send(s, buf2, *lenptr2 + 8, 0) != *lenptr2 + 8)
+        PFATAL("sending test data failed");
+      fprintf(stderr, "COMPRESS (%u->%u):\n", *lenptr, *lenptr2);
+      for (u32 i = 0; i < *lenptr; i++)
+        fprintf(stderr, "%02x", buf[i + 4]);
+      fprintf(stderr, "\n");
+      for (u32 i = 0; i < *lenptr2; i++)
+        fprintf(stderr, "%02x", buf2[i + 8]);
+      fprintf(stderr, "\n");
+
+    } else {
+
+#endif
+      if (send(s, buf, *lenptr + 4, 0) != *lenptr + 4)
+        PFATAL("sending test data failed");
+#ifdef USE_DEFLATE
+      // fprintf(stderr, "unCOMPRESS (%u)\n", *lenptr);
+
+    }
+
+#endif
+
+    received = 0;
     while (received < 4 &&
            (ret = recv(s, &status + received, 4 - received, 0)) > 0)
       received += ret;
@@ -288,12 +359,37 @@ int main(int argc, char *argv[]) {
     // fprintf(stderr, "Received status\n");
 
     received = 0;
+#ifdef USE_DEFLATE
+    while (received < 4 &&
+           (ret = recv(s, &compress_len + received, 4 - received, 0)) > 0)
+      received += ret;
+    if (received != 4)
+      FATAL("did not receive compress_len (%d, %d)", received, ret);
+    // fprintf(stderr, "Received status\n");
+
+    received = 0;
+    while (received < compress_len &&
+           (ret = recv(s, buf2 + received, buf2_len - received, 0)) > 0)
+      received += ret;
+    if (received != compress_len)
+      FATAL("did not receive coverage data (%d, %d)", received, ret);
+
+    if (libdeflate_deflate_decompress(decompressor, buf2, compress_len,
+                                      __afl_area_ptr, __afl_map_size,
+                                      &decompress_len) != LIBDEFLATE_SUCCESS ||
+        decompress_len != __afl_map_size)
+      FATAL("decompression failed");
+// fprintf(stderr, "DECOMPRESS (%u->%u): ", compress_len, decompress_len);
+// for (u32 i = 0; i < __afl_map_size; i++) fprintf(stderr, "%02x",
+// __afl_area_ptr[i]); fprintf(stderr, "\n");
+#else
     while (received < __afl_map_size &&
            (ret = recv(s, __afl_area_ptr + received, __afl_map_size - received,
                        0)) > 0)
       received += ret;
     if (received != __afl_map_size)
       FATAL("did not receive coverage data (%d, %d)", received, ret);
+#endif
     // fprintf(stderr, "Received coverage\n");
 
     /* report the test case is done and wait for the next */
@@ -301,6 +397,11 @@ int main(int argc, char *argv[]) {
     // fprintf(stderr, "Waiting for next testcase %d\n", ++i);
 
   }
+
+#ifdef USE_DEFLATE
+  libdeflate_free_compressor(compressor);
+  libdeflate_free_decompressor(decompressor);
+#endif
 
   return 0;
 
