@@ -1489,7 +1489,7 @@ skip_interest:
   j = 0;
 
   for(int i=0 ; i < len ; i++) {
-    if(EFF_APOS[i]) ind[j++] = i;
+    if(eff_map[EFF_APOS(i)]) ind[j++] = i;
   }
 
   if(len < 3 ) { goto skip_swap; }
