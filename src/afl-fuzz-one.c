@@ -1481,7 +1481,7 @@ skip_interest:
   u32 num_zone;
   num_zone = 0;
 
-  for(int i=0 ; i < len ; i++) {
+  for(i=0 ; i < len ; i++) {
     if(eff_map[EFF_APOS(i)]) num_zone ++;
   }
 
@@ -1489,7 +1489,7 @@ skip_interest:
 
   j = 0;
 
-  for(int i=0 ; i < len ; i++) {
+  for(i=0 ; i < len ; i++) {
     if(eff_map[EFF_APOS(i)]) ind[j++] = i;
   }
 
