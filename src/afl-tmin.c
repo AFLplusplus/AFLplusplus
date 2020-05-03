@@ -839,7 +839,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (out_file) { FATAL("Multiple -f options not supported"); }
         fsrv->use_stdin = 0;
-        out_file = optarg;
+        out_file = ck_strdup(optarg);
         break;
 
       case 'e':
