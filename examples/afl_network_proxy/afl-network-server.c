@@ -61,13 +61,21 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#ifdef USE_DEFLATE
+#include <libdeflate.h>
+struct libdeflate_compressor *  compressor;
+struct libdeflate_decompressor *decompressor;
+#endif
+
 static u8 *in_file,                    /* Minimizer input test case         */
     *out_file;
 
 static u8 *in_data;                    /* Input data for trimming           */
+static u8 *buf2;
 
-static s32 in_len;
-static u32 map_size = MAP_SIZE;
+static s32    in_len;
+static u32    map_size = MAP_SIZE;
+static size_t buf2_len;
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
@@ -335,25 +343,64 @@ static void usage(u8 *argv0) {
 
 int recv_testcase(int s, void **buf, size_t *max_len) {
 
-  int size, received = 0, ret;
+  u32    size;
+  s32    ret;
+  size_t received;
 
+  received = 0;
   while (received < 4 && (ret = recv(s, &size + received, 4 - received, 0)) > 0)
     received += ret;
-
   if (received != 4) FATAL("did not receive size information");
-  if (size < 1) FATAL("did not receive valid size information");
+  if (size == 0) FATAL("did not receive valid size information");
   // fprintf(stderr, "received size information of %d\n", size);
 
-  *buf = maybe_grow(buf, max_len, size);
-  // fprintf(stderr, "receiving testcase %p %p max %u\n", buf, *buf, *max_len);
-  received = 0;
-  while (received < size &&
-         (ret = recv(s, ((char *)*buf) + received, size - received, 0)) > 0)
-    received += ret;
+  if ((size && 0xff000000) != 0xff000000) {
 
+    *buf = maybe_grow(buf, max_len, size);
+    received = 0;
+    // fprintf(stderr, "unCOMPRESS (%u)\n", size);
+    while (received < size &&
+           (ret = recv(s, ((char *)*buf) + received, size - received, 0)) > 0)
+      received += ret;
+
+  } else {
+
+#ifdef USE_DEFLATE
+    u32 clen;
+    size = (size & 0x00ffffff);
+    *buf = maybe_grow(buf, max_len, size);
+    received = 0;
+    while (received < 4 &&
+           (ret = recv(s, &clen + received, 4 - received, 0)) > 0)
+      received += ret;
+    if (received != 4) FATAL("did not receive size information");
+    // fprintf(stderr, "received clen information of %d\n", clen);
+    if (clen < 1)
+      FATAL("did not receive valid compressed len information: %u", clen);
+    buf2 = maybe_grow((void **)&buf2, &buf2_len, clen);
+    received = 0;
+    while (received < clen &&
+           (ret = recv(s, buf2 + received, clen - received, 0)) > 0)
+      received += ret;
+    if (received != clen) FATAL("did not receive compressed information");
+    if (libdeflate_deflate_decompress(decompressor, buf2, clen, (char *)*buf,
+                                      *max_len,
+                                      &received) != LIBDEFLATE_SUCCESS)
+      FATAL("decompression failed");
+      // fprintf(stderr, "DECOMPRESS (%u->%u):\n", clen, received);
+      // for (u32 i = 0; i < clen; i++) fprintf(stderr, "%02x", buf2[i]);
+      // fprintf(stderr, "\n");
+      // for (u32 i = 0; i < received; i++) fprintf(stderr, "%02x",
+      // ((u8*)(*buf))[i]); fprintf(stderr, "\n");
+#else
+    FATAL("Received compressed data but not compiled with compression support");
+#endif
+
+  }
+
+  // fprintf(stderr, "receiving testcase %p %p max %u\n", buf, *buf, *max_len);
   if (received != size)
     FATAL("did not receive testcase data %u != %u, %d", received, size, ret);
-
   // fprintf(stderr, "received testcase\n");
   return size;
 
@@ -371,12 +418,18 @@ int main(int argc, char **argv_orig, char **envp) {
   int                 addrlen = sizeof(clientaddr);
   char                str[INET6_ADDRSTRLEN];
   char **             argv = argv_cpy_dup(argc, argv_orig);
+  u8 *                send_buf;
+#ifdef USE_DEFLATE
+  u32 *lenptr;
+#endif
 
   afl_forkserver_t  fsrv_var = {0};
   afl_forkserver_t *fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
   map_size = get_map_size();
   fsrv->map_size = map_size;
+
+  if ((send_buf = malloc(map_size + 4)) == NULL) PFATAL("malloc");
 
   while ((opt = getopt(argc, argv, "+i:f:m:t:QUWh")) > 0) {
 
@@ -553,6 +606,21 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
 #endif
+
+#ifdef SO_PRIORITY
+  int priority = 7;
+  if (setsockopt(sock, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) <
+      0) {
+
+    priority = 6;
+    if (setsockopt(sock, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) <
+        0)
+      WARNF("could not set priority on socket");
+
+  }
+
+#endif
+
   memset(&serveraddr, 0, sizeof(serveraddr));
   serveraddr.sin6_family = AF_INET6;
   serveraddr.sin6_port = htons(port);
@@ -566,6 +634,14 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_fsrv_start(fsrv, use_argv, &stop_soon,
                  get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
 
+#ifdef USE_DEFLATE
+  compressor = libdeflate_alloc_compressor(1);
+  decompressor = libdeflate_alloc_decompressor();
+  buf2 = maybe_grow((void **)&buf2, &buf2_len, map_size + 16);
+  lenptr = (u32 *)(buf2 + 4);
+  fprintf(stderr, "Compiled with compression support\n");
+#endif
+
   fprintf(stderr,
           "Waiting for incoming connection from afl-network-client on port %d "
           "...\n",
@@ -574,15 +650,40 @@ int main(int argc, char **argv_orig, char **envp) {
   if ((s = accept(sock, NULL, NULL)) < 0) { PFATAL("accept() failed"); }
   fprintf(stderr, "Received connection, starting ...\n");
 
+#ifdef SO_PRIORITY
+  priority = 7;
+  if (setsockopt(s, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) < 0) {
+
+    priority = 6;
+    if (setsockopt(s, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) < 0)
+      WARNF("could not set priority on socket");
+
+  }
+
+#endif
+
   while ((in_len = recv_testcase(s, (void **)&in_data, &max_len)) > 0) {
 
     // fprintf(stderr, "received %u\n", in_len);
     run_target(fsrv, use_argv, in_data, in_len, 1);
 
-    if (send(s, &fsrv->child_status, 4, 0) != 4)
-      FATAL("could not send waitpid data");
-    if (send(s, fsrv->trace_bits, fsrv->map_size, 0) != fsrv->map_size)
-      FATAL("could not send coverage data");
+    memcpy(send_buf + 4, fsrv->trace_bits, fsrv->map_size);
+
+#ifdef USE_DEFLATE
+    memcpy(buf2, &fsrv->child_status, 4);
+    *lenptr = (u32)libdeflate_deflate_compress(
+        compressor, send_buf + 4, fsrv->map_size, buf2 + 8, buf2_len - 8);
+    // fprintf(stderr, "COMPRESS (%u->%u): ", fsrv->map_size, *lenptr);
+    // for (u32 i = 0; i < fsrv->map_size; i++) fprintf(stderr, "%02x",
+    // fsrv->trace_bits[i]); fprintf(stderr, "\n");
+    if (send(s, buf2, *lenptr + 8, 0) != 8 + *lenptr)
+      FATAL("could not send data");
+#else
+    memcpy(send_buf, &fsrv->child_status, 4);
+    if (send(s, send_buf, fsrv->map_size + 4, 0) != 4 + fsrv->map_size)
+      FATAL("could not send data");
+#endif
+
     // fprintf(stderr, "sent result\n");
 
   }
@@ -595,6 +696,11 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_fsrv_deinit(fsrv);
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
   if (in_data) { ck_free(in_data); }
+#if USE_DEFLATE
+  if (buf2) { ck_free(buf2); }
+  libdeflate_free_compressor(compressor);
+  libdeflate_free_decompressor(decompressor);
+#endif
 
   argv_cpy_free(argv);
 
