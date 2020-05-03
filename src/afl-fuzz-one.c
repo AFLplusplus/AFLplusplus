@@ -366,6 +366,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
   u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt;
   u32 splice_cycle = 0, perf_score = 100, orig_perf, prev_cksum, eff_cnt = 1;
+  u32 num_zone = 0;
 
   u8 ret_val = 1, doing_det = 0;
 
@@ -1478,7 +1479,6 @@ skip_interest:
     }                               \
   } while(0)
 
-  u32 num_zone;
   num_zone = 0;
 
   for(i=0 ; i < len ; i++) {
