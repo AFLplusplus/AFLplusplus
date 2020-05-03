@@ -1478,26 +1478,32 @@ skip_interest:
     }                               \
   } while(0)
 
+  u32 num_zone = 0;
+
+  for(int i=0 ; i < len ; i++) {
+    if(EFF_APOS[i]) num_zone ++;
+  }
+
+  u32* ind = (u32 *)malloc(num_zone * sizeof(u32));
+
+  j = 0;
+
+  for(int i=0 ; i < len ; i++) {
+    if(EFF_APOS[i]) ind[j++] = i;
+  }
+
   if(len < 3 ) { goto skip_swap; }
 
   afl->stage_name  = "swap 16/8";
   afl->stage_short = "swap16";
   afl->stage_cur   = 0;
-  afl->stage_max   = ((len - 1) * (len - 2))/2;
+  afl->stage_max   = ((num_zone)*(num_zone - 1))/2;
 
-  for(i = 0; i < (len - 1); i++) {
-    if(!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i+1)]) {
-      afl->stage_max -= len - i -2;
-      continue;
-    }
+  for(i = 0; i < num_zone && ind[i] < len - 1; i++) {
 
-    afl->stage_cur_byte = i;
+    afl->stage_cur_byte = ind[i];
 
-    for(j = i + 1; j < len -1 ; j++) {
-      if(!eff_map[EFF_APOS(j)] && !eff_map[EFF_APOS(j+1)]) {
-        afl->stage_max -= 1;
-        continue;
-      }
+    for(j = i + 1; j < num_zone && ind[j] < len - 1 ; j++) {
 
       SWAPT(u16, out_buf + i, out_buf + j);
 
@@ -1518,24 +1524,14 @@ skip_interest:
   afl->stage_name  = "swap 32/8";
   afl->stage_short = "swap32";
   afl->stage_cur   = 0;
-  afl->stage_max   = ((len - 3) * (len - 4))/2;
+  afl->stage_max   = ((num_zone)*(num_zone - 1))/2;
 
-  for(i = 0; i < (len - 3); i++) {
-    if(!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i+1)] 
-    && !eff_map[EFF_APOS(i+2)] && !eff_map[EFF_APOS(i+3)] ) {
-      afl->stage_max -= len - i -4;
-      continue;
-    }
+  for(i = 0; i < num_zone && ind[i] < (len - 3); i++) {
 
-    afl->stage_cur_byte = i;
+    afl->stage_cur_byte = ind[i];
 
-    for(j = i + 1; j < len - 3 ; j++) {
-      if(!eff_map[EFF_APOS(j)] && !eff_map[EFF_APOS(j+1)] && 
-      !eff_map[EFF_APOS(j+2)] && !eff_map[EFF_APOS(j+3)]) {
-        afl->stage_max -= 1;
-        continue;
-      }
-
+    for(j = i + 1; j < num_zone && ind[j] < len - 3 ; j++) {
+      
       SWAPT(u32, out_buf + i, out_buf + j);
 
       if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
@@ -1550,6 +1546,8 @@ skip_interest:
   afl->stage_cycles[STAGE_SWAP32] += afl->stage_max;
 
 skip_swap:
+
+  free(ind);
 
   /********************
    * DICTIONARY STUFF *
