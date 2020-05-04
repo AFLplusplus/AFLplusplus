@@ -365,7 +365,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   s32 len, fd, temp_len, i, j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
   u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt;
-  u32 splice_cycle = 0, perf_score = 100, orig_perf, prev_cksum, eff_cnt = 1;
+  u32 splice_cycle = 0, perf_score = 100, orig_perf, prev_cksum, num_ind = 0, eff_cnt = 1;
   u32* ind = 0;
 
   u8 ret_val = 1, doing_det = 0;
@@ -1492,7 +1492,22 @@ skip_interest:
     }                               \
   } while(0)
 
-  ind = (u32 *)malloc(eff_cnt * sizeof(u32));
+  num_ind = 0;
+
+  for(i=0 ; i < len ; i ++) {
+    switch ( i % 8) {
+      case 0 : if (eff_map[EFF_APOS(i)] & 0x01) num_ind++ ; break;
+      case 1 : if (eff_map[EFF_APOS(i)] & 0x02) num_ind++ ; break;
+      case 2 : if (eff_map[EFF_APOS(i)] & 0x04) num_ind++ ; break;
+      case 3 : if (eff_map[EFF_APOS(i)] & 0x08) num_ind++ ; break;
+      case 4 : if (eff_map[EFF_APOS(i)] & 0x10) num_ind++ ; break;
+      case 5 : if (eff_map[EFF_APOS(i)] & 0x20) num_ind++ ; break;
+      case 6 : if (eff_map[EFF_APOS(i)] & 0x40) num_ind++ ; break;
+      case 7 : if (eff_map[EFF_APOS(i)] & 0x80) num_ind++ ; break;
+    }
+  }  
+
+  ind = (u32 *)malloc(num_ind * sizeof(u32));
 
   j = 0;
 
@@ -1514,13 +1529,13 @@ skip_interest:
   afl->stage_name  = "swap 16/8";
   afl->stage_short = "swap16";
   afl->stage_cur   = 0;
-  afl->stage_max   = ((eff_cnt)*(eff_cnt - 1))/2;
+  afl->stage_max   = ((num_ind)*(num_ind - 1))/2;
 
-  for(i = 0; i < eff_cnt && ind[i] < len - 1; i++) {
+  for(i = 0; i < num_ind && ind[i] < len - 1; i++) {
 
     afl->stage_cur_byte = ind[i];
 
-    for(j = i + 1; j < eff_cnt && ind[j] < len - 1 ; j++) {
+    for(j = i + 1; j < num_ind && ind[j] < len - 1 ; j++) {
 
       SWAPT(u16, out_buf + i, out_buf + j);
 
@@ -1541,13 +1556,13 @@ skip_interest:
   afl->stage_name  = "swap 32/8";
   afl->stage_short = "swap32";
   afl->stage_cur   = 0;
-  afl->stage_max   = ((eff_cnt)*(eff_cnt - 1))/2;
+  afl->stage_max   = ((num_ind)*(num_ind - 1))/2;
 
-  for(i = 0; i < eff_cnt && ind[i] < (len - 3); i++) {
+  for(i = 0; i < num_ind && ind[i] < (len - 3); i++) {
 
     afl->stage_cur_byte = ind[i];
 
-    for(j = i + 1; j < eff_cnt && ind[j] < len - 3 ; j++) {
+    for(j = i + 1; j < num_ind && ind[j] < len - 3 ; j++) {
 
       SWAPT(u32, out_buf + i, out_buf + j);
 
