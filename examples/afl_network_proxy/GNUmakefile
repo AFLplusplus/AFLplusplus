@@ -10,27 +10,19 @@ ifdef STATIC
   CFLAGS += -static
 endif
 
-ifdef USE_DEFLATE
-  CFLAGS += -DUSE_DEFLATE=1
-  LDFLAGS += -ldeflate
-  $(info activating libdeflate-dev for compressing)
+ifeq "$(shell echo '$(HASH)include <libdeflate.h>@int main() { struct libdeflate_compressor *d = libdeflate_alloc_compressor(1); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test2 -ldeflate 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
+ CFLAGS += -ldeflate -DUSE_DEFLATE=1
+ $(info libdeflate-dev was detected, using compressing)
+else
+ $(warn did not find libdeflate-dev, cannot use compression)
 endif
-
-# Disables because compression is slower
-# sending 64kb instead of compressing to 112bytes is slower? weird ...
-#ifeq "$(shell echo '$(HASH)include <libdeflate.h>@int main() { struct libdeflate_compressor *d = libdeflate_alloc_compressor(1); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test2 -ldeflate 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
-# CFLAGS += -ldeflate -DUSE_DEFLATE=1
-# $(info libdeflate-dev was detected, using compressing)
-#else
-# $(warn did not find libdeflate-dev, cannot use compression)
-#endif
 
 all:	$(PROGRAMS)
 
 help:
 	@echo make options:
-	echo STATIC - build as static binaries
-	echo USE_DEFLATE - build with compression library
+	@echo STATIC - build as static binaries
+	@echo COMPRESS_TESTCASES - compress test cases
 
 afl-network-client:	afl-network-client.c
 	$(CC) $(CFLAGS) -I../../include -o afl-network-client afl-network-client.c $(LDFLAGS)
@@ -44,5 +36,5 @@ clean:
 install: all
 	install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(DOC_PATH)
 	install -m 755 $(PROGRAMS) $${DESTDIR}$(BIN_PATH)
-	install -m 644 README.md $${DESTDIR}$(DOC_PATH)/README.network_proxy.md
+	install -T -m 644 README.md $${DESTDIR}$(DOC_PATH)/README.network_proxy.md
 

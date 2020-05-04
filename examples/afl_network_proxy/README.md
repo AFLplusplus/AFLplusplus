@@ -16,9 +16,12 @@ Note that the impact on fuzzing speed will be huge, expect a loss of 90%.
 
 Just type `make` and let the autodetection do everything for you.
 
-Note that compression is supported but currently disabled. It seems that
-sending 64kb of map data over TCP is faster than compressing it with the
-fastest algorithm and options to 112 byte and sending this. Weird.
+Note that you will get a 40-50% performance increase if you have libdeflate-dev
+installed. The GNUmakefile will autodetect it if present.
+
+If your target has large test cases (10+kb) that are ascii only or large chunks
+of zero blocks then set `CFLAGS=-DCOMPRESS_TESTCASES=1` to compress them.
+For most targets this hurts performance though so it is disabled by default.
 
 ### on the target
 
@@ -29,7 +32,7 @@ e.g.:
 $ afl-network-server -i 1111 -m 25M -t 1000 -- /bin/target -f @@
 ```
 
-### on the fuzzing master
+### on the (afl-fuzz) master
 
 Just run afl-fuzz with your normal options, however the target should be
 `afl-network-client` with the IP and PORT of the `afl-network-server` and
