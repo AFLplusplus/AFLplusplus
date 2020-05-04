@@ -65,7 +65,7 @@ $ cd build
 $ cmake -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra;compiler-rt;libclc;libcxx;libcxxabi;libunwind;lld' -DCMAKE_BUILD_TYPE=Release -DLLVM_BINUTILS_INCDIR=/usr/include/ ../llvm/
 $ make -j $(nproc)
 $ export PATH=`pwd`/bin:$PATH
-$ export LLVM_CONFIG=`pwd`/bin/llcm-config
+$ export LLVM_CONFIG=`pwd`/bin/llvm-config
 $ cd /path/to/AFLplusplus/
 $ make
 $ cd llvm_mode
