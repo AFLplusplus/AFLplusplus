@@ -11,7 +11,8 @@ ifdef STATIC
 endif
 
 ifdef USE_DEFLATE
-  CFLAGS += -ldeflate -DUSE_DEFLATE=1
+  CFLAGS += -DUSE_DEFLATE=1
+  LDFLAGS += -ldeflate
   $(info activating libdeflate-dev for compressing)
 endif
 
@@ -32,10 +33,10 @@ help:
 	echo USE_DEFLATE - build with compression library
 
 afl-network-client:	afl-network-client.c
-	$(CC) $(CFLAGS) -I../../include -o afl-network-client afl-network-client.c
+	$(CC) $(CFLAGS) -I../../include -o afl-network-client afl-network-client.c $(LDFLAGS)
 
 afl-network-server:	afl-network-server.c
-	$(CC) $(CFLAGS) -I../../include -o afl-network-server afl-network-server.c ../../src/afl-forkserver.c ../../src/afl-sharedmem.c ../../src/afl-common.c -DBIN_PATH=\"$(BIN_PATH)\"
+	$(CC) $(CFLAGS) -I../../include -o afl-network-server afl-network-server.c ../../src/afl-forkserver.c ../../src/afl-sharedmem.c ../../src/afl-common.c -DBIN_PATH=\"$(BIN_PATH)\" $(LDFLAGS)
 
 clean:
 	rm -f $(PROGRAMS) *~ core
