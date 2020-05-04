@@ -32,10 +32,10 @@ help:
 	echo USE_DEFLATE - build with compression library
 
 afl-network-client:	afl-network-client.c
-	$(CC) $(CFLAGS) -I../../include -o afl-network-client afl-network-client.c -ldeflate
+	$(CC) $(CFLAGS) -I../../include -o afl-network-client afl-network-client.c
 
 afl-network-server:	afl-network-server.c
-	$(CC) $(CFLAGS) -I../../include -o afl-network-server afl-network-server.c ../../src/afl-forkserver.c ../../src/afl-sharedmem.c ../../src/afl-common.c -DBIN_PATH=\"$(BIN_PATH)\" -ldeflate
+	$(CC) $(CFLAGS) -I../../include -o afl-network-server afl-network-server.c ../../src/afl-forkserver.c ../../src/afl-sharedmem.c ../../src/afl-common.c -DBIN_PATH=\"$(BIN_PATH)\"
 
 clean:
 	rm -f $(PROGRAMS) *~ core
