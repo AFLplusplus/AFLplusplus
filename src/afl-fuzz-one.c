@@ -1488,7 +1488,6 @@ skip_interest:
     }                               \
   } while(0)
 
-<<<<<<< HEAD
   ind = (u32 *)malloc(eff_cnt * sizeof(u32));
 
   j = 0;
@@ -1504,20 +1503,6 @@ skip_interest:
       case 6 : if (eff_map[EFF_APOS(i)] & 0x40) ind[j++] = i; break;
       case 7 : if (eff_map[EFF_APOS(i)] & 0x80) ind[j++] = i; break;
     }
-=======
-  num_zone = 0;
-
-  for(i=0 ; i < len ; i+= 2) {
-    if(eff_map[EFF_APOS(i)]) num_zone ++;
-  }
-
-  u32* ind = (u32 *)malloc(num_zone * sizeof(u32));
-
-  j = 0;
-
-  for(i=0 ; i < len ; i+= 2) {
-    if(eff_map[EFF_APOS(i)]) ind[j++] = i;
->>>>>>> 5feb86a1a029f4d080d3b32ead19c2e7ec6387bf
   }
 
   if(len < 3 ) { goto skip_swap; }
