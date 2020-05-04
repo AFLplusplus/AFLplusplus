@@ -97,12 +97,14 @@ Then there are a few specific features that are only available in llvm_mode:
 
     - AFL_LLVM_INSTRUMENT - this configures the instrumentation mode. 
       Available options:
-        DEFAULT - classic AFL (map[cur_loc ^ prev_loc >> 1]++)
+        CLASSIC - classic AFL (map[cur_loc ^ prev_loc >> 1]++) (default)
         CFG - InsTrim instrumentation (see below)
         LTO - LTO instrumentation (see below)
         CTX - context sensitive instrumentation (see below)
         NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
-      Only one can be used.
+      In CLASSIC (default) can can also specify CTX and/nor NGRAM, seperate
+      the options with a comma "," then, e.g.:
+        AFL_LLVM_INSTRUMENT=CLASSIC,CTX,NGRAM-4
 
 ### LTO
 

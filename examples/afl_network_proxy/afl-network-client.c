@@ -321,7 +321,7 @@ int main(int argc, char *argv[]) {
 
     // fprintf(stderr, "Sending testcase with len %u\n", *lenptr);
 #ifdef USE_DEFLATE
-  #ifdef COMPRESS_TESTCASES
+#ifdef COMPRESS_TESTCASES
     // we only compress the testcase if it does not fit in the TCP packet
     if (*lenptr > 1500 - 20 - 32 - 4) {
 
@@ -331,25 +331,27 @@ int main(int argc, char *argv[]) {
                                                   buf2 + 8, buf2_len);
       if (send(s, buf2, *lenptr2 + 8, 0) != *lenptr2 + 8)
         PFATAL("sending test data failed");
-      //fprintf(stderr, "COMPRESS (%u->%u):\n", *lenptr, *lenptr2);
-      //for (u32 i = 0; i < *lenptr; i++)
+      // fprintf(stderr, "COMPRESS (%u->%u):\n", *lenptr, *lenptr2);
+      // for (u32 i = 0; i < *lenptr; i++)
       //  fprintf(stderr, "%02x", buf[i + 4]);
-      //fprintf(stderr, "\n");
-      //for (u32 i = 0; i < *lenptr2; i++)
+      // fprintf(stderr, "\n");
+      // for (u32 i = 0; i < *lenptr2; i++)
       //  fprintf(stderr, "%02x", buf2[i + 8]);
-      //fprintf(stderr, "\n");
+      // fprintf(stderr, "\n");
 
     } else {
-  #endif
+
+#endif
 #endif
       if (send(s, buf, *lenptr + 4, 0) != *lenptr + 4)
         PFATAL("sending test data failed");
 #ifdef USE_DEFLATE
-  #ifdef COMPRESS_TESTCASES
+#ifdef COMPRESS_TESTCASES
       // fprintf(stderr, "unCOMPRESS (%u)\n", *lenptr);
 
     }
-  #endif
+
+#endif
 #endif
 
     received = 0;
@@ -381,9 +383,9 @@ int main(int argc, char *argv[]) {
                                       &decompress_len) != LIBDEFLATE_SUCCESS ||
         decompress_len != __afl_map_size)
       FATAL("decompression failed");
-    // fprintf(stderr, "DECOMPRESS (%u->%u): ", compress_len, decompress_len);
-    // for (u32 i = 0; i < __afl_map_size; i++) fprintf(stderr, "%02x",
-    // __afl_area_ptr[i]); fprintf(stderr, "\n");
+      // fprintf(stderr, "DECOMPRESS (%u->%u): ", compress_len, decompress_len);
+      // for (u32 i = 0; i < __afl_map_size; i++) fprintf(stderr, "%02x",
+      // __afl_area_ptr[i]); fprintf(stderr, "\n");
 #else
     while (received < __afl_map_size &&
            (ret = recv(s, __afl_area_ptr + received, __afl_map_size - received,

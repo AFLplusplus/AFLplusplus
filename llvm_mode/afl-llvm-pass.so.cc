@@ -182,7 +182,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 #endif
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
 
-  unsigned PrevLocSize;
+  unsigned PrevLocSize = 0;
 
   char *ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
   if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
@@ -215,9 +215,6 @@ bool AFLCoverage::runOnModule(Module &M) {
   uint64_t PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
   if (ngram_size) PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize);
 #endif
-
-  if (ctx_str && ngram_size_str)
-    FATAL("you must decide between NGRAM and CTX instrumentation");
 
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
@@ -437,8 +434,10 @@ bool AFLCoverage::runOnModule(Module &M) {
         PrevLocTrans = IRB.CreateXorReduce(PrevLoc);
       else
 #endif
-          if (ctx_str)
-        PrevLocTrans = IRB.CreateZExt(IRB.CreateXor(PrevLoc, PrevCtx), Int32Ty);
+        PrevLocTrans = PrevLoc;
+      if (ctx_str)
+        PrevLocTrans =
+            IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, PrevCtx), Int32Ty);
       else
         PrevLocTrans = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
@@ -452,7 +451,9 @@ bool AFLCoverage::runOnModule(Module &M) {
       if (ngram_size)
         MapPtrIdx = IRB.CreateGEP(
             MapPtr,
-            IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, CurLoc), Int32Ty));
+            IRB.CreateZExt(
+                IRB.CreateXor(PrevLocTrans, IRB.CreateZExt(CurLoc, Int32Ty)),
+                Int32Ty));
       else
 #endif
         MapPtrIdx = IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocTrans, CurLoc));

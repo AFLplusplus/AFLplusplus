@@ -20,6 +20,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        address for the shared memory map is used as this increases the
        fuzzing speed
      - fixes to LTO mode if instrumented edges > MAP_SIZE
+     - CTX and NGRAM can now be used together
      - added AFL_LLVM_SKIP_NEVERZERO to skip the never zero coverage counter
        implmentation. For targets with little or no loops or heavy called
        functions. Gives a small performance boost.
