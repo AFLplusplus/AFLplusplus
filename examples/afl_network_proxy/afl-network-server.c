@@ -400,7 +400,7 @@ int recv_testcase(int s, void **buf, size_t *max_len) {
 
   // fprintf(stderr, "receiving testcase %p %p max %u\n", buf, *buf, *max_len);
   if (received != size)
-    FATAL("did not receive testcase data %u != %u, %d", received, size, ret);
+    FATAL("did not receive testcase data %lu != %u, %d", received, size, ret);
   // fprintf(stderr, "received testcase\n");
   return size;
 
