@@ -354,7 +354,7 @@ int recv_testcase(int s, void **buf, size_t *max_len) {
   if (size == 0) FATAL("did not receive valid size information");
   // fprintf(stderr, "received size information of %d\n", size);
 
-  if ((size && 0xff000000) != 0xff000000) {
+  if ((size & 0xff000000) != 0xff000000) {
 
     *buf = maybe_grow(buf, max_len, size);
     received = 0;
@@ -367,13 +367,13 @@ int recv_testcase(int s, void **buf, size_t *max_len) {
 
 #ifdef USE_DEFLATE
     u32 clen;
-    size = (size & 0x00ffffff);
+    size -= 0xff000000;
     *buf = maybe_grow(buf, max_len, size);
     received = 0;
     while (received < 4 &&
            (ret = recv(s, &clen + received, 4 - received, 0)) > 0)
       received += ret;
-    if (received != 4) FATAL("did not receive size information");
+    if (received != 4) FATAL("did not receive clen1 information");
     // fprintf(stderr, "received clen information of %d\n", clen);
     if (clen < 1)
       FATAL("did not receive valid compressed len information: %u", clen);
