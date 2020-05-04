@@ -828,25 +828,29 @@ u8 fuzz_one_original(afl_state_t *afl) {
        even when fully flipped - and we skip them during more expensive
        deterministic stages, such as arithmetics or known ints. */
 
-    u32 cksum;
+    if (!eff_map[EFF_APOS(afl->stage_cur)]) {
 
-    /* If in dumb mode or if the file is very short, just flag everything
-        without wasting time on checksums. */
+      u32 cksum;
 
-    if (!afl->dumb_mode && len >= EFF_MIN_LEN) {
+      /* If in dumb mode or if the file is very short, just flag everything
+         without wasting time on checksums. */
 
-      cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      if (!afl->dumb_mode && len >= EFF_MIN_LEN) {
 
-    } else {
+        cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-      cksum = ~afl->queue_cur->exec_cksum;
+      } else {
 
-    }
+        cksum = ~afl->queue_cur->exec_cksum;
 
-    if (cksum != afl->queue_cur->exec_cksum) {
+      }
 
-      EFF_SPOS(afl->stage_cur);
-      ++eff_cnt;
+      if (cksum != afl->queue_cur->exec_cksum) {
+
+        EFF_SPOS(afl->stage_cur);
+        ++eff_cnt;
+
+      }
 
     }
 
