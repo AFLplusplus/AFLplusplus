@@ -20,6 +20,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        address for the shared memory map is used as this increases the
        fuzzing speed
      - fixes to LTO mode if instrumented edges > MAP_SIZE
+     - CTX and NGRAM can now be used together
+     - CTX and NGRAM are now also supported in CFG/INSTRIM mode
+     - AFL_LLVM_LAF_TRANSFORM_COMPARES could crash, fixed
+     - added AFL_LLVM_SKIP_NEVERZERO to skip the never zero coverage counter
+       implementation. For targets with few or no loops or heavily called
+       functions. Gives a small performance boost.
   - qemu_mode:
     - add information on PIE/PIC load addresses for 32 bit
     - better dependency checks
@@ -28,6 +34,13 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - unicorn_mode:
     - better submodule handling
   - afl-showmap: fix for -Q mode
+  - added examples/afl_network_proxy which allows to fuzz a target over the
+    network (not fuzzing tcp/ip services but running afl-fuzz on one system
+    and the target being on an embedded device)
+  - added examples/afl_untracer which does a binary-only fuzzing with the
+    modifications done in memory
+  - added examples/afl_proxy which can be easily used to fuzz and instrument
+    non-standard things
   - all:
     - forkserver communication now also used for error reporting
     - fix 32 bit build options

@@ -67,22 +67,19 @@ u8  __afl_area_initial[MAP_SIZE];
 u8 *__afl_area_ptr = __afl_area_initial;
 u8 *__afl_dictionary;
 
+u32 __afl_final_loc;
+u32 __afl_map_size = MAP_SIZE;
+u32 __afl_dictionary_len;
+u64 __afl_map_addr;
+
 #ifdef __ANDROID__
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
-u32        __afl_final_loc;
 u32        __afl_prev_ctx;
 u32        __afl_cmp_counter;
-u32        __afl_dictionary_len;
-u32        __afl_map_size = MAP_SIZE;
-u64        __afl_map_addr;
 #else
 __thread PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
-__thread u32        __afl_final_loc;
 __thread u32        __afl_prev_ctx;
 __thread u32        __afl_cmp_counter;
-__thread u32        __afl_dictionary_len;
-__thread u32        __afl_map_size = MAP_SIZE;
-__thread u64        __afl_map_addr;
 #endif
 
 struct cmp_map *__afl_cmp_map;
@@ -152,7 +149,7 @@ static void __afl_map_shm(void) {
 
   if (getenv("AFL_DEBUG"))
     fprintf(stderr,
-            "DEBUG: id_str %s, __afl_map_addr 0x%x, MAP_SIZE %u, "
+            "DEBUG: id_str %s, __afl_map_addr 0x%llx, MAP_SIZE %u, "
             "__afl_final_loc %u, max_size_forkserver %u/0x%x\n",
             id_str == NULL ? "<null>" : id_str, __afl_map_addr, MAP_SIZE,
             __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);

@@ -151,7 +151,7 @@ static void mem_map_checked(uc_engine *uc, uint64_t addr, size_t size, uint32_t 
     //printf("SIZE %llx, align: %llx\n", size, ALIGNMENT);
     uc_err err = uc_mem_map(uc, addr, size, mode);
     if (err != UC_ERR_OK) {
-        printf("Error mapping %ld bytes at 0x%lx: %s (mode: %d)\n", size, addr, uc_strerror(err), mode);
+        printf("Error mapping %zu bytes at 0x%llx: %s (mode: %d)\n", size, (unsigned long long) addr, uc_strerror(err), mode);
         exit(1);
     }
 }
@@ -213,7 +213,7 @@ int main(int argc, char **argv, char **envp) {
     // Setup the Stack
     mem_map_checked(uc, STACK_ADDRESS - STACK_SIZE, STACK_SIZE, UC_PROT_READ | UC_PROT_WRITE);
     uint64_t stack_val = STACK_ADDRESS;
-    printf("%lu", stack_val);
+    printf("%llu", (unsigned long long) stack_val);
     uc_reg_write(uc, UC_X86_REG_RSP, &stack_val);
 
     // reserve some space for our input data

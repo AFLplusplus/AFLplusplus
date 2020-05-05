@@ -78,6 +78,8 @@ class AFLLTOPass : public ModulePass {
         FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is not between 0 and %d\n",
               ptr, MAP_SIZE - 1);
 
+    skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
+
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -111,6 +113,7 @@ class AFLLTOPass : public ModulePass {
   int      afl_global_id = 1, debug = 0, autodictionary = 0;
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, total_instr = 0;
   uint64_t map_addr = 0x10000;
+  char *   skip_nozero = NULL;
 
 };
 
@@ -614,9 +617,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           Value *Incr = IRB.CreateAdd(Counter, One);
 
-          auto cf = IRB.CreateICmpEQ(Incr, Zero);
-          auto carry = IRB.CreateZExt(cf, Int8Ty);
-          Incr = IRB.CreateAdd(Incr, carry);
+          if (skip_nozero) {
+
+            auto cf = IRB.CreateICmpEQ(Incr, Zero);
+            auto carry = IRB.CreateZExt(cf, Int8Ty);
+            Incr = IRB.CreateAdd(Incr, carry);
+
+          }
+
           IRB.CreateStore(Incr, MapPtrIdx)
               ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
@@ -682,8 +690,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
     if (map_addr) {
 
       GlobalVariable *AFLMapAddrFixed = new GlobalVariable(
-          M, Int64Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_map_addr",
-          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+          M, Int64Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_map_addr");
       ConstantInt *MapAddr = ConstantInt::get(Int64Ty, map_addr);
       StoreInst *  StoreMapAddr = IRB.CreateStore(MapAddr, AFLMapAddrFixed);
       StoreMapAddr->setMetadata(M.getMDKindID("nosanitize"),
@@ -698,8 +705,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
       if (afl_global_id % 8) write_loc = (((afl_global_id + 8) >> 3) << 3);
 
       GlobalVariable *AFLFinalLoc = new GlobalVariable(
-          M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc",
-          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+          M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc");
       ConstantInt *const_loc = ConstantInt::get(Int32Ty, write_loc);
       StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
       StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
@@ -748,10 +754,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         }
 
-        GlobalVariable *AFLDictionaryLen = new GlobalVariable(
-            M, Int32Ty, false, GlobalValue::ExternalLinkage, 0,
-            "__afl_dictionary_len", 0, GlobalVariable::GeneralDynamicTLSModel,
-            0, false);
+        GlobalVariable *AFLDictionaryLen =
+            new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage,
+                               0, "__afl_dictionary_len");
         ConstantInt *const_len = ConstantInt::get(Int32Ty, offset);
         StoreInst *StoreDictLen = IRB.CreateStore(const_len, AFLDictionaryLen);
         StoreDictLen->setMetadata(M.getMDKindID("nosanitize"),
@@ -762,8 +767,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
             M, ArrayTy, true, GlobalValue::ExternalLinkage,
             ConstantDataArray::get(C,
                                    *(new ArrayRef<char>((char *)ptr, offset))),
-            "__afl_internal_dictionary", 0,
-            GlobalVariable::GeneralDynamicTLSModel, 0, false);
+            "__afl_internal_dictionary");
         AFLInternalDictionary->setInitializer(ConstantDataArray::get(
             C, *(new ArrayRef<char>((char *)ptr, offset))));
         AFLInternalDictionary->setConstant(true);

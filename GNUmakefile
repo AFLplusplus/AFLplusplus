@@ -307,7 +307,7 @@ test_python:
 else
 
 test_python:
-	@echo "[-] You seem to need to install the package python3-dev or python2-dev (and perhaps python[23]-apt), but it is optional so we continue"
+	@echo "[-] You seem to need to install the package python3-dev, python2-dev or python-dev (and perhaps python[23]-apt), but it is optional so we continue"
 
 endif
 
@@ -445,6 +445,7 @@ clean:
 	-$(MAKE) -C gcc_plugin clean
 	$(MAKE) -C libdislocator clean
 	$(MAKE) -C libtokencap clean
+	$(MAKE) -C examples/afl_network_proxy clean
 	$(MAKE) -C examples/socket_fuzzing clean
 	$(MAKE) -C examples/argv_fuzzing clean
 	$(MAKE) -C qemu_mode/unsigaction clean
@@ -468,6 +469,7 @@ distrib: all radamsa
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
+	$(MAKE) -C examples/afl_network_proxy
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	cd qemu_mode && sh ./build_qemu_support.sh
@@ -476,6 +478,7 @@ distrib: all radamsa
 binary-only: all radamsa
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
+	$(MAKE) -C examples/afl_network_proxy
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	cd qemu_mode && sh ./build_qemu_support.sh
@@ -486,6 +489,9 @@ source-only: all radamsa
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
+	#$(MAKE) -C examples/afl_network_proxy
+	#$(MAKE) -C examples/socket_fuzzing
+	#$(MAKE) -C examples/argv_fuzzing
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
@@ -521,6 +527,7 @@ install: all $(MANPAGES)
 	if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
 	if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
 	if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
+	if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
 
 	set -e; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-g++
 	set -e; if [ -f afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi

@@ -81,7 +81,7 @@ test `uname -s` = 'Darwin' -o `uname -s` = 'FreeBSD' && {
 } || {
   AFL_GCC=afl-gcc
 }
-command -v gcc || AFL_GCC=afl-clang
+command -v gcc >/dev/null 2>&1 || AFL_GCC=afl-clang
 
 SYS=`uname -m`
 
@@ -802,7 +802,6 @@ test -e ../afl-qemu-trace && {
           echo CUT------------------------------------------------------------------CUT
           $ECHO "$RED[!] afl-fuzz is not working correctly with persistent qemu_mode"
           CODE=1
-          exit 1
         }
         rm -rf in out errors
       } || {
