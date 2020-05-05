@@ -33,6 +33,7 @@ void __wrap_exit(int status) {
 
 int __wrap_printf(const char *format, ...);
 /* ignore all printfs */
+#undef printf
 extern int printf(const char *format, ...);
 extern int __real_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...) {
