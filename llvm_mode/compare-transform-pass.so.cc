@@ -211,20 +211,24 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           }
 
           // not literal? maybe global or local variable
-          if (!(HasStr1 ^ HasStr2)) {
+          if (!(HasStr1 || HasStr2)) {
 
             auto *Ptr = dyn_cast<ConstantExpr>(Str2P);
             if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
 
               if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
-                if (auto *Array =
-                        dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+                if (Var->hasInitializer()) {
 
-                  HasStr2 = true;
-                  Str2 = Array->getAsString();
-                  valueMap[Str2P] = new std::string(Str2.str());
-                  // fprintf(stderr, "glo2 %s\n", Str2.str().c_str());
+                  if (auto *Array =
+                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+
+                    HasStr2 = true;
+                    Str2 = Array->getAsString();
+                    valueMap[Str2P] = new std::string(Str2.str());
+                    fprintf(stderr, "glo2 %s\n", Str2.str().c_str());
+
+                  }
 
                 }
 
@@ -239,13 +243,17 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
-                  if (auto *Array =
-                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+                  if (Var->hasInitializer()) {
 
-                    HasStr1 = true;
-                    Str1 = Array->getAsString();
-                    valueMap[Str1P] = new std::string(Str1.str());
-                    // fprintf(stderr, "glo1 %s\n", Str1.str().c_str());
+                    if (auto *Array = dyn_cast<ConstantDataArray>(
+                            Var->getInitializer())) {
+
+                      HasStr1 = true;
+                      Str1 = Array->getAsString();
+                      valueMap[Str1P] = new std::string(Str1.str());
+                      // fprintf(stderr, "glo1 %s\n", Str1.str().c_str());
+
+                    }
 
                   }
 
@@ -260,13 +268,13 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
             }
 
-            if ((HasStr1 ^ HasStr2)) indirect = true;
+            if ((HasStr1 || HasStr2)) indirect = true;
 
           }
 
           if (isIntMemcpy) continue;
 
-          if (!(HasStr1 ^ HasStr2)) {
+          if (!(HasStr1 || HasStr2)) {
 
             // do we have a saved local variable initialization?
             std::string *val = valueMap[Str1P];
@@ -294,7 +302,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           }
 
           /* handle cases of one string is const, one string is variable */
-          if (!(HasStr1 ^ HasStr2)) continue;
+          if (!(HasStr1 || HasStr2)) continue;
 
           if (isMemcmp || isStrncmp || isStrncasecmp) {
 
@@ -359,7 +367,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     }
 
-    if (!(HasStr1 ^ HasStr2)) {
+    if (!(HasStr1 || HasStr2)) {
 
       // do we have a saved local or global variable initialization?
       std::string *val = valueMap[Str1P];
