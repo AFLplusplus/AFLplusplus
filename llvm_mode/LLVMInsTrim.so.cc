@@ -36,11 +36,12 @@ typedef long double max_align_t;
 #include <string>
 #include <fstream>
 
-#include "config.h"
-#include "debug.h"
-
 #include "MarkNodes.h"
 #include "afl-llvm-common.h"
+#include "llvm-ngram-coverage.h"
+
+#include "config.h"
+#include "debug.h"
 
 using namespace llvm;
 
@@ -94,9 +95,15 @@ struct InsTrim : public ModulePass {
 
   }
 
+#if LLVM_VERSION_MAJOR >= 4 || \
+    (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
+#define AFL_HAVE_VECTOR_INTRINSICS 1
+#endif
+
   bool runOnModule(Module &M) override {
 
     char be_quiet = 0;
+    int  ngram_size = 0;
 
     if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
@@ -107,6 +114,11 @@ struct InsTrim : public ModulePass {
       be_quiet = 1;
 
     if (getenv("AFL_DEBUG") != NULL) debug = 1;
+
+    LLVMContext &C = M.getContext();
+
+    IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
+    IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
 
 #if LLVM_VERSION_MAJOR < 9
     char *neverZero_counters_str;
@@ -125,24 +137,107 @@ struct InsTrim : public ModulePass {
     if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") != NULL)
       function_minimum_size = 2;
 
+    unsigned PrevLocSize = 0;
+    char *   ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
+    if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
+    char *ctx_str = getenv("AFL_LLVM_CTX");
+
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+    /* Decide previous location vector size (must be a power of two) */
+    VectorType *PrevLocTy;
+
+    if (ngram_size_str)
+      if (sscanf(ngram_size_str, "%u", &ngram_size) != 1 || ngram_size < 2 ||
+          ngram_size > NGRAM_SIZE_MAX)
+        FATAL(
+            "Bad value of AFL_NGRAM_SIZE (must be between 2 and NGRAM_SIZE_MAX "
+            "(%u))",
+            NGRAM_SIZE_MAX);
+
+    if (ngram_size)
+      PrevLocSize = ngram_size - 1;
+    else
+#else
+    if (ngram_size_str)
+      FATAL(
+          "Sorry, NGRAM branch coverage is not supported with llvm version %s!",
+          LLVM_VERSION_STRING);
+#endif
+      PrevLocSize = 1;
+
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+    // IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
+    uint64_t     PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
+    IntegerType *IntLocTy =
+        IntegerType::getIntNTy(C, sizeof(PREV_LOC_T) * CHAR_BIT);
+    if (ngram_size) PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize);
+#endif
+
+    /* Get globals for the SHM region and the previous location. Note that
+       __afl_prev_loc is thread-local. */
+
+    GlobalVariable *AFLMapPtr =
+        new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+                           GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+    GlobalVariable *AFLPrevLoc;
+    GlobalVariable *AFLContext;
+    LoadInst *      PrevCtx = NULL;  // for CTX sensitive coverage
+
+    if (ctx_str)
+#ifdef __ANDROID__
+      AFLContext = new GlobalVariable(
+          M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx");
+#else
+      AFLContext = new GlobalVariable(
+          M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx",
+          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+#endif
+
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+    if (ngram_size)
+#ifdef __ANDROID__
+      AFLPrevLoc = new GlobalVariable(
+          M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
+          /* Initializer */ nullptr, "__afl_prev_loc");
+#else
+      AFLPrevLoc = new GlobalVariable(
+          M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
+          /* Initializer */ nullptr, "__afl_prev_loc",
+          /* InsertBefore */ nullptr, GlobalVariable::GeneralDynamicTLSModel,
+          /* AddressSpace */ 0, /* IsExternallyInitialized */ false);
+#endif
+    else
+#endif
+#ifdef __ANDROID__
+      AFLPrevLoc = new GlobalVariable(
+          M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
+#else
+    AFLPrevLoc = new GlobalVariable(
+        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
+        GlobalVariable::GeneralDynamicTLSModel, 0, false);
+#endif
+
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+    /* Create the vector shuffle mask for updating the previous block history.
+       Note that the first element of the vector will store cur_loc, so just set
+       it to undef to allow the optimizer to do its thing. */
+
+    SmallVector<Constant *, 32> PrevLocShuffle = {UndefValue::get(Int32Ty)};
+
+    for (unsigned I = 0; I < PrevLocSize - 1; ++I)
+      PrevLocShuffle.push_back(ConstantInt::get(Int32Ty, I));
+
+    for (unsigned I = PrevLocSize; I < PrevLocVecSize; ++I)
+      PrevLocShuffle.push_back(ConstantInt::get(Int32Ty, PrevLocSize));
+
+    Constant *PrevLocShuffleMask = ConstantVector::get(PrevLocShuffle);
+#endif
+
     // this is our default
     MarkSetOpt = true;
 
-    LLVMContext &C = M.getContext();
-    IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
-    IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
-
-    GlobalVariable *CovMapPtr = new GlobalVariable(
-        M, PointerType::getUnqual(Int8Ty), false, GlobalValue::ExternalLinkage,
-        nullptr, "__afl_area_ptr");
-
-    GlobalVariable *OldPrev = new GlobalVariable(
-        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
-        GlobalVariable::GeneralDynamicTLSModel, 0, false);
-
     ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
     ConstantInt *One = ConstantInt::get(Int8Ty, 1);
-    ConstantInt *One32 = ConstantInt::get(Int32Ty, 1);
 
     u64 total_rs = 0;
     u64 total_hs = 0;
@@ -240,13 +335,30 @@ struct InsTrim : public ModulePass {
 
         }
 
-        if (function_minimum_size < 2) {
+        for (BasicBlock &BB : F) {
 
-          for (BasicBlock &BB : F) {
+          if (MS.find(&BB) == MS.end()) { continue; }
+          IRBuilder<> IRB(&*BB.getFirstInsertionPt());
 
-            if (MS.find(&BB) == MS.end()) { continue; }
-            IRBuilder<> IRB(&*BB.getFirstInsertionPt());
-            IRB.CreateStore(ConstantInt::get(Int32Ty, genLabel()), OldPrev);
+          if (ngram_size) {
+
+            LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
+            PrevLoc->setMetadata(M.getMDKindID("nosanitize"),
+                                 MDNode::get(C, None));
+
+            Value *ShuffledPrevLoc = IRB.CreateShuffleVector(
+                PrevLoc, UndefValue::get(PrevLocTy), PrevLocShuffleMask);
+            Value *UpdatedPrevLoc = IRB.CreateInsertElement(
+                ShuffledPrevLoc, ConstantInt::get(Int32Ty, genLabel()),
+                (uint64_t)0);
+
+            IRB.CreateStore(UpdatedPrevLoc, AFLPrevLoc)
+                ->setMetadata(M.getMDKindID("nosanitize"),
+                              MDNode::get(C, None));
+
+          } else {
+
+            IRB.CreateStore(ConstantInt::get(Int32Ty, genLabel()), AFLPrevLoc);
 
           }
 
@@ -254,18 +366,67 @@ struct InsTrim : public ModulePass {
 
       }
 
+      int has_calls = 0;
       for (BasicBlock &BB : F) {
+
+        auto         PI = pred_begin(&BB);
+        auto         PE = pred_end(&BB);
+        IRBuilder<>  IRB(&*BB.getFirstInsertionPt());
+        Value *      L = NULL;
+        unsigned int cur_loc;
+
+        // Context sensitive coverage
+        if (ctx_str && &BB == &F.getEntryBlock()) {
+
+          PrevCtx = IRB.CreateLoad(AFLContext);
+          PrevCtx->setMetadata(M.getMDKindID("nosanitize"),
+                               MDNode::get(C, None));
+
+          // does the function have calls? and is any of the calls larger than
+          // one basic block?
+          has_calls = 0;
+          for (auto &BB : F) {
+
+            if (has_calls) break;
+            for (auto &IN : BB) {
+
+              CallInst *callInst = nullptr;
+              if ((callInst = dyn_cast<CallInst>(&IN))) {
+
+                Function *Callee = callInst->getCalledFunction();
+                if (!Callee || Callee->size() < 2)
+                  continue;
+                else {
+
+                  has_calls = 1;
+                  break;
+
+                }
+
+              }
+
+            }
+
+          }
+
+          // if yes we store a context ID for this function in the global var
+          if (has_calls) {
+
+            ConstantInt *NewCtx = ConstantInt::get(Int32Ty, genLabel());
+            StoreInst *  StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
+            StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
+
+          }
+
+        }  // END of ctx_str
 
         if (MarkSetOpt && MS.find(&BB) == MS.end()) { continue; }
 
-        auto        PI = pred_begin(&BB);
-        auto        PE = pred_end(&BB);
-        IRBuilder<> IRB(&*BB.getFirstInsertionPt());
-        Value *     L = NULL;
+        if (PI == PE) {
 
-        if (function_minimum_size < 2 && PI == PE) {
-
-          L = ConstantInt::get(Int32Ty, genLabel());
+          cur_loc = genLabel();
+          L = ConstantInt::get(Int32Ty, cur_loc);
 
         } else {
 
@@ -276,6 +437,7 @@ struct InsTrim : public ModulePass {
             BasicBlock *PBB = *PI;
             auto        It = PredMap.insert({PBB, genLabel()});
             unsigned    Label = It.first->second;
+            cur_loc = Label;
             PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
 
           }
@@ -285,15 +447,37 @@ struct InsTrim : public ModulePass {
         }
 
         /* Load prev_loc */
-        LoadInst *PrevLoc = IRB.CreateLoad(OldPrev);
+        LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
         PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-        Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
+        Value *PrevLocTrans;
+
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+        /* "For efficiency, we propose to hash the tuple as a key into the
+           hit_count map as (prev_block_trans << 1) ^ curr_block_trans, where
+           prev_block_trans = (block_trans_1 ^ ... ^ block_trans_(n-1)" */
+
+        if (ngram_size)
+          PrevLocTrans =
+              IRB.CreateZExt(IRB.CreateXorReduce(PrevLoc), IRB.getInt32Ty());
+        else
+#endif
+          PrevLocTrans = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
+
+        if (ctx_str)
+          PrevLocTrans =
+              IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, PrevCtx), Int32Ty);
 
         /* Load SHM pointer */
-        LoadInst *MapPtr = IRB.CreateLoad(CovMapPtr);
+        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
         MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-        Value *MapPtrIdx =
-            IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, L));
+        Value *MapPtrIdx;
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
+        if (ngram_size)
+          MapPtrIdx = IRB.CreateGEP(
+              MapPtr, IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, L), Int32Ty));
+        else
+#endif
+          MapPtrIdx = IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocTrans, L));
 
         /* Update bitmap */
         LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
@@ -329,12 +513,20 @@ struct InsTrim : public ModulePass {
         IRB.CreateStore(Incr, MapPtrIdx)
             ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-        // save the actually location ID to OldPrev if function_minimum_size > 1
-        if (function_minimum_size > 1) {
+        if (ctx_str && has_calls) {
 
-          Value *Shr = IRB.CreateLShr(L, One32);
-          IRB.CreateStore(Shr, OldPrev)
-              ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+          // in CTX mode we have to restore the original context for the
+          // caller - she might be calling other functions which need the
+          // correct CTX
+          Instruction *Inst = BB.getTerminator();
+          if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
+
+            IRBuilder<> Post_IRB(Inst);
+            StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+            RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                    MDNode::get(C, None));
+
+          }
 
         }
 
