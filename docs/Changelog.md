@@ -21,7 +21,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        fuzzing speed
      - fixes to LTO mode if instrumented edges > MAP_SIZE
      - CTX and NGRAM can now be used together
-     - AFL_LLVM_LAF_TRANSFORM_COMPARES would sometimes crash, fixed
+     - CTX and NGRAM are now also supported in CFG/INSTRIM mode
+     - AFL_LLVM_LAF_TRANSFORM_COMPARES could, fixed
      - added AFL_LLVM_SKIP_NEVERZERO to skip the never zero coverage counter
        implmentation. For targets with little or no loops or heavy called
        functions. Gives a small performance boost.

@@ -720,22 +720,16 @@ int main(int argc, char **argv, char **envp) {
         "(requires LLVM 11)");
 #endif
 
-  if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC)
-    /*&& instrument_mode != INSTRUMENT_CFG*/
+  if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC &&
+      instrument_mode != INSTRUMENT_CFG)
     FATAL(
-        "CTX and NGRAM instrumentation options can only be used with the "
-        "CLASSIC instrumentation mode!");
+        "CTX and NGRAM instrumentation options can only be used with CFG "
+        "(recommended) and CLASSIC instrumentation modes!");
 
   if (getenv("AFL_LLVM_SKIP_NEVERZERO") && getenv("AFL_LLVM_NOT_ZERO"))
     FATAL(
         "AFL_LLVM_NOT_ZERO and AFL_LLVM_SKIP_NEVERZERO can not be set "
         "together");
-
-  if (instrument_mode == INSTRUMENT_CFG &&
-      getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") == NULL && ngram_size)
-    FATAL(
-        "NGRAM option together with CFG/INSTRIM instrumentation mode can only "
-        "be used if AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK is set");
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
