@@ -102,9 +102,10 @@ Then there are a few specific features that are only available in llvm_mode:
         LTO - LTO instrumentation (see below)
         CTX - context sensitive instrumentation (see below)
         NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
-      In CLASSIC (default) can can also specify CTX and/nor NGRAM, seperate
-      the options with a comma "," then, e.g.:
-        AFL_LLVM_INSTRUMENT=CLASSIC,CTX,NGRAM-4
+      In CLASSIC (default) and CFG/INSTRIM you can also specify CTX and/or
+      NGRAM, seperate the options with a comma "," then, e.g.:
+        AFL_LLVM_INSTRUMENT=CFG,CTX,NGRAM-4
+      Not that this is a good idea to use both CTX and NGRAM :)
 
 ### LTO
 
