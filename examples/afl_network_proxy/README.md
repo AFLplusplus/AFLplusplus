@@ -26,7 +26,7 @@ For most targets this hurts performance though so it is disabled by default.
 ### on the target
 
 Run `afl-network-server` with your target with the -m and -t values you need.
-Important is the -i parameter which is the TCP port to liste on.
+Important is the -i parameter which is the TCP port to listen on.
 e.g.:
 ```
 $ afl-network-server -i 1111 -m 25M -t 1000 -- /bin/target -f @@
@@ -40,9 +40,9 @@ increase the -t value:
 ```
 $ afl-fuzz -i in -o out -t 2000+ -- afl-network-client TARGET-IP 1111
 ```
-Note the '+' on the -t parameter value. the afl-network-server will take
-care of proper timeouts hence afl-fuzz should not. The '+' increases the timout
-and the value itself should be 500-1000 higher than the one on 
+Note the '+' on the -t parameter value. The afl-network-server will take
+care of proper timeouts hence afl-fuzz should not. The '+' increases the
+timeout and the value itself should be 500-1000 higher than the one on 
 afl-network-server.
 
 ### networking
@@ -51,9 +51,9 @@ The TARGET can be an IPv4 or IPv6 address, or a host name that resolves to
 either. Note that also the outgoing interface can be specified with a '%' for
 `afl-network-client`, e.g. `fe80::1234%eth0`.
 
-Also make sure your middle value of `/proc/sys/net/ipv4/tcp_rmem` is larger
-than your MAP_SIZE (130kb is a good value). This is the default TCP window
-size value.
+Also make sure your default TCP window size is larger than your MAP_SIZE
+(130kb is a good value).
+On Linux that is the middle value of `/proc/sys/net/ipv4/tcp_rmem` 
 
 ## how to compile and install
 
