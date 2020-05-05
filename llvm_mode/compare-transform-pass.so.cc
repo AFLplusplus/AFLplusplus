@@ -386,13 +386,13 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
       TmpConstStr = Str1.str();
       VarStr = Str2P;
-      constLen = isMemcmp ? sizedLen : GetStringLength(Str1P);
+      constLen = isMemcmp ? sizedLen : TmpConstStr.length();
 
     } else {
 
       TmpConstStr = Str2.str();
       VarStr = Str1P;
-      constLen = isMemcmp ? sizedLen : GetStringLength(Str2P);
+      constLen = isMemcmp ? sizedLen : TmpConstStr.length();
 
     }
 
@@ -401,8 +401,12 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
      * runtime bounds checking, which makes debugging easier) */
     TmpConstStr.append("\0", 1);
     ConstStr = StringRef(TmpConstStr);
-
-    if (isSizedcmp && constLen > sizedLen) { constLen = sizedLen; }
+    // fprintf(stderr, "issized: %d, const > sized ? %u > %u\n", isSizedcmp,
+    // constLen, sizedLen);
+    if (isSizedcmp && constLen > sizedLen && sizedLen) constLen = sizedLen;
+    if (constLen > TmpConstStr.length()) constLen = TmpConstStr.length();
+    if (!constLen) constLen = TmpConstStr.length();
+    if (!constLen) continue;
 
     if (!be_quiet)
       errs() << callInst->getCalledFunction()->getName() << ": len " << constLen
