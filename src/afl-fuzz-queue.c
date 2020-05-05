@@ -140,7 +140,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   afl->last_path_time = get_cur_time();
 
-  if (afl->number_of_custom_mutators) {
+  if (afl->custom_mutators_count) {
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 

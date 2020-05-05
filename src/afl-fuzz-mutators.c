@@ -31,7 +31,7 @@ struct custom_mutator *load_custom_mutator(afl_state_t *, const char *);
 struct custom_mutator * load_custom_mutator_py(afl_state_t *, char *);
 #endif
 
-void setup_custom_mutator(afl_state_t *afl) {
+void setup_custom_mutators(afl_state_t *afl) {
 
   /* Try mutator library first */
   struct custom_mutator * mutator;
@@ -51,7 +51,7 @@ void setup_custom_mutator(afl_state_t *afl) {
 
       mutator = load_custom_mutator(afl, fn);
       list_append(&afl->custom_mutator_list, mutator);
-      afl->number_of_custom_mutators++;
+      afl->custom_mutators_count++;
 
     } else {
 
@@ -59,10 +59,8 @@ void setup_custom_mutator(afl_state_t *afl) {
 
         mutator = load_custom_mutator(afl, fn_token);
         list_append(&afl->custom_mutator_list, mutator);
-        afl->number_of_custom_mutators++;
+        afl->custom_mutators_count++;
         fn_token = (u8 *)strsep((char **)&fn, ";");
-
-        if (afl->number_of_custom_mutators > MAX_MUTATORS_COUNT) FATAL("The max count of custom mutators is 8");
 
       }
     }
@@ -85,7 +83,7 @@ void setup_custom_mutator(afl_state_t *afl) {
     }
 
     struct custom_mutator * mutator = load_custom_mutator_py(afl, module_name);
-    afl->number_of_custom_mutators++;
+    afl->custom_mutators_count++;
     list_append(&afl->custom_mutator_list, mutator);
 
   }
@@ -101,14 +99,14 @@ void setup_custom_mutator(afl_state_t *afl) {
 
 }
 
-void destroy_custom_mutator(afl_state_t *afl) {
+void destroy_custom_mutators(afl_state_t *afl) {
 
-  if (afl->number_of_custom_mutators) {
+  if (afl->custom_mutators_count) {
 
-    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-    
-      // mutator = afl->custom_mutators[i];
-      if (el->data) {el->afl_custom_deinit(el->data); }
+    LIST_FOREACH_CLEAR(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (!el->data) { FATAL("Deintializing NULL mutator"); }
+      el->afl_custom_deinit(el->data);
       if (el->dh) dlclose(el->dh);
 
       if (el->pre_save_buf) {
@@ -118,8 +116,6 @@ void destroy_custom_mutator(afl_state_t *afl) {
       }
 
     } );
-
-    // afl->custom_mutator_list = NULL;
 
   }
 

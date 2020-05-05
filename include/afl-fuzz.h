@@ -210,7 +210,6 @@ enum {
 #define STAGE_Clone75 14
 #define STAGE_OverWrite75 15
 #define period_pilot 50000
-#define MAX_MUTATORS_COUNT 8
 
 enum {
 
@@ -608,7 +607,7 @@ typedef struct afl_state {
 
   u8 *    ex_buf;
   size_t  ex_size;
-  u8 number_of_custom_mutators;
+  u8 custom_mutators_count;
 
   list_t custom_mutator_list;
 
@@ -811,8 +810,8 @@ void read_afl_environment(afl_state_t *, char **);
 /**** Prototypes ****/
 
 /* Custom mutators */
-void setup_custom_mutator(afl_state_t *);
-void destroy_custom_mutator(afl_state_t *);
+void setup_custom_mutators(afl_state_t *);
+void destroy_custom_mutators(afl_state_t *);
 u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf, struct custom_mutator * mutator);
 
 /* Python */

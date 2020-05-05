@@ -65,25 +65,26 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
 #endif
 
-  bool has_custom_pre_save = false;
-
-  if (unlikely(afl->number_of_custom_mutators)) {
+  if (unlikely(afl->custom_mutators_count)) {
 
     u8 *new_buf = NULL;
-    ssize_t new_size;
+    ssize_t new_size = len;
+    void * new_mem = mem;
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
       if (el->afl_custom_pre_save) {
         new_size = el->afl_custom_pre_save(
-          el->data, mem, len, &new_buf
+          el->data, new_mem, new_size, &new_buf
         );
-        has_custom_pre_save = true;
+
       }
+
+      new_mem = new_buf;
 
     } );
 
-    if (unlikely(!new_buf && has_custom_pre_save)) {
+    if (unlikely(!new_buf && (new_size <= 0))) {
 
       FATAL("Custom_pre_save failed (ret: %lu)", (long unsigned)new_size);
 
@@ -507,9 +508,9 @@ void sync_fuzzers(afl_state_t *afl) {
 u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   /* Custom mutator trimmer */
-  if (afl->number_of_custom_mutators) {
+  if (afl->custom_mutators_count) {
 
-    u8 trimmed_case;
+    u8 trimmed_case = 0;
     bool custom_trimmed = false;
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {

@@ -1073,7 +1073,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   setup_dirs_fds(afl);
 
-  setup_custom_mutator(afl);
+  setup_custom_mutators(afl);
 
   setup_cmdline_file(afl, argv + optind);
 
@@ -1354,7 +1354,7 @@ stop_fuzzing:
   fclose(afl->fsrv.plot_file);
   destroy_queue(afl);
   destroy_extras(afl);
-  destroy_custom_mutator(afl);
+  destroy_custom_mutators(afl);
   afl_shm_deinit(&afl->shm);
   afl_fsrv_deinit(&afl->fsrv);
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }

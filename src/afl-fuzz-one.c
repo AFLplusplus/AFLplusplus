@@ -384,7 +384,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
 #else
 
-  if (unlikely(afl->number_of_custom_mutators )) {
+  if (unlikely(afl->custom_mutators_count )) {
 
     /* The custom mutator will decide to skip this test case or not. */
 
@@ -1646,7 +1646,7 @@ custom_mutator_stage:
    * CUSTOM MUTATORS *
    *******************/
 
-  if (likely(!afl->number_of_custom_mutators)) { goto havoc_stage; }
+  if (likely(!afl->custom_mutators_count)) { goto havoc_stage; }
 
   afl->stage_name = "custom mutator";
   afl->stage_short = "custom";
@@ -1816,7 +1816,7 @@ havoc_stage:
 
   havoc_queued = afl->queued_paths;
 
-  if (afl->number_of_custom_mutators) {
+  if (afl->custom_mutators_count) {
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
@@ -1849,7 +1849,7 @@ havoc_stage:
 
     for (i = 0; i < use_stacking; ++i) {
 
-      if (afl->number_of_custom_mutators) {
+      if (afl->custom_mutators_count) {
       
         LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
