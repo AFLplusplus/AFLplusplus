@@ -307,7 +307,7 @@ test_python:
 else
 
 test_python:
-	@echo "[-] You seem to need to install the package python3-dev or python2-dev (and perhaps python[23]-apt), but it is optional so we continue"
+	@echo "[-] You seem to need to install the package python3-dev, python2-dev or python-dev (and perhaps python[23]-apt), but it is optional so we continue"
 
 endif
 
