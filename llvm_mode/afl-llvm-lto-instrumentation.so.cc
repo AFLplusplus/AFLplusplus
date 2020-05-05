@@ -690,8 +690,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
     if (map_addr) {
 
       GlobalVariable *AFLMapAddrFixed = new GlobalVariable(
-          M, Int64Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_map_addr",
-          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+          M, Int64Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_map_addr");
       ConstantInt *MapAddr = ConstantInt::get(Int64Ty, map_addr);
       StoreInst *  StoreMapAddr = IRB.CreateStore(MapAddr, AFLMapAddrFixed);
       StoreMapAddr->setMetadata(M.getMDKindID("nosanitize"),
@@ -706,8 +705,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
       if (afl_global_id % 8) write_loc = (((afl_global_id + 8) >> 3) << 3);
 
       GlobalVariable *AFLFinalLoc = new GlobalVariable(
-          M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc",
-          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+          M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc");
       ConstantInt *const_loc = ConstantInt::get(Int32Ty, write_loc);
       StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
       StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
@@ -756,10 +754,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         }
 
-        GlobalVariable *AFLDictionaryLen = new GlobalVariable(
-            M, Int32Ty, false, GlobalValue::ExternalLinkage, 0,
-            "__afl_dictionary_len", 0, GlobalVariable::GeneralDynamicTLSModel,
-            0, false);
+        GlobalVariable *AFLDictionaryLen =
+            new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage,
+                               0, "__afl_dictionary_len");
         ConstantInt *const_len = ConstantInt::get(Int32Ty, offset);
         StoreInst *StoreDictLen = IRB.CreateStore(const_len, AFLDictionaryLen);
         StoreDictLen->setMetadata(M.getMDKindID("nosanitize"),
@@ -770,8 +767,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
             M, ArrayTy, true, GlobalValue::ExternalLinkage,
             ConstantDataArray::get(C,
                                    *(new ArrayRef<char>((char *)ptr, offset))),
-            "__afl_internal_dictionary", 0,
-            GlobalVariable::GeneralDynamicTLSModel, 0, false);
+            "__afl_internal_dictionary");
         AFLInternalDictionary->setInitializer(ConstantDataArray::get(
             C, *(new ArrayRef<char>((char *)ptr, offset))));
         AFLInternalDictionary->setConstant(true);

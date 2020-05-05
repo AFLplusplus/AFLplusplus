@@ -2,7 +2,8 @@
 
 ## Roadmap 2.65+
 
- - AFL_MAP_SIZE for afl-llvm-pass, qemu_mode and unicorn_mode
+ - InsTrim mode for LTO solution
+ - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - random crc32 HASH_CONST per run? because with 65536 paths we have collisions
  - namespace for targets? e.g. network
  - libradamsa as a custom module?
