@@ -81,7 +81,7 @@ test `uname -s` = 'Darwin' -o `uname -s` = 'FreeBSD' && {
 } || {
   AFL_GCC=afl-gcc
 }
-command -v gcc || AFL_GCC=afl-clang
+command -v gcc >/dev/null 2>&1 || AFL_GCC=afl-clang
 
 SYS=`uname -m`
 
