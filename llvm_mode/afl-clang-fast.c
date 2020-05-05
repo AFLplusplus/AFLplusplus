@@ -717,7 +717,7 @@ int main(int argc, char **argv, char **envp) {
   if (instrument_mode == INSTRUMENT_LTO)
     FATAL(
         "instrumentation mode LTO specified but LLVM support not available "
-        "(requires LLVM 11)");
+        "(requires LLVM 11 or higher)");
 #endif
 
   if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC &&
