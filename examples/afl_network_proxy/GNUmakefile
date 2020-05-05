@@ -12,7 +12,7 @@ endif
 
 ifeq "$(shell echo '$(HASH)include <libdeflate.h>@int main() { struct libdeflate_compressor *d = libdeflate_alloc_compressor(1); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test2 -ldeflate 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
  CFLAGS += -ldeflate -DUSE_DEFLATE=1
- $(info libdeflate-dev was detected, using compressing)
+ $(info libdeflate-dev was detected, using compression)
 else
  $(warn did not find libdeflate-dev, cannot use compression)
 endif

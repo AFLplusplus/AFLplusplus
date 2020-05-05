@@ -22,9 +22,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - fixes to LTO mode if instrumented edges > MAP_SIZE
      - CTX and NGRAM can now be used together
      - CTX and NGRAM are now also supported in CFG/INSTRIM mode
-     - AFL_LLVM_LAF_TRANSFORM_COMPARES could, fixed
+     - AFL_LLVM_LAF_TRANSFORM_COMPARES could crash, fixed
      - added AFL_LLVM_SKIP_NEVERZERO to skip the never zero coverage counter
-       implmentation. For targets with little or no loops or heavy called
+       implementation. For targets with few or no loops or heavily called
        functions. Gives a small performance boost.
   - qemu_mode:
     - add information on PIE/PIC load addresses for 32 bit
