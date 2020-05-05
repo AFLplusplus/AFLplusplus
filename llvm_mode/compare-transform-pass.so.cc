@@ -408,6 +408,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
      * the StringRef (in comparison to std::string a StringRef has built-in
      * runtime bounds checking, which makes debugging easier) */
     TmpConstStr.append("\0", 1);
+    if (!sizedLen) constLen++;
     ConstStr = StringRef(TmpConstStr);
     // fprintf(stderr, "issized: %d, const > sized ? %u > %u\n", isSizedcmp,
     // constLen, sizedLen);
