@@ -294,33 +294,38 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     if (!isInWhitelist(&F)) continue;
 
-    if (ctx_str && F.size() > 1) {  // Context sensitive coverage
-      // load the context ID of the previous function and write to to a local
-      // variable on the stack
-      auto                 bb = &F.getEntryBlock();
-      BasicBlock::iterator IP = bb->getFirstInsertionPt();
+    for (auto &BB : F) {
+
+      BasicBlock::iterator IP = BB.getFirstInsertionPt();
       IRBuilder<>          IRB(&(*IP));
-      PrevCtx = IRB.CreateLoad(AFLContext);
-      PrevCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-      // does the function have calls? and is any of the calls larger than one
-      // basic block?
-      has_calls = 0;
-      for (auto &BB : F) {
+      // Context sensitive coverage
+      if (ctx_str && &BB == &F.getEntryBlock() && F.size() > 1) {
 
-        if (has_calls) break;
-        for (auto &IN : BB) {
+        // load the context ID of the previous function and write to to a local
+        // variable on the stack
+        PrevCtx = IRB.CreateLoad(AFLContext);
+        PrevCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-          CallInst *callInst = nullptr;
-          if ((callInst = dyn_cast<CallInst>(&IN))) {
+        // does the function have calls? and is any of the calls larger than one
+        // basic block?
+        for (auto &BB : F) {
 
-            Function *Callee = callInst->getCalledFunction();
-            if (!Callee || Callee->size() < 2)
-              continue;
-            else {
+          if (has_calls) break;
+          for (auto &IN : BB) {
 
-              has_calls = 1;
-              break;
+            CallInst *callInst = nullptr;
+            if ((callInst = dyn_cast<CallInst>(&IN))) {
+
+              Function *Callee = callInst->getCalledFunction();
+              if (!Callee || Callee->size() < 2)
+                continue;
+              else {
+
+                has_calls = 1;
+                break;
+
+              }
 
             }
 
@@ -328,36 +333,13 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         }
 
-      }
+        // if yes we store a context ID for this function in the global var
+        if (has_calls) {
 
-      // if yes we store a context ID for this function in the global var
-      if (has_calls) {
-
-        ConstantInt *NewCtx = ConstantInt::get(Int32Ty, AFL_R(map_size));
-        StoreInst *  StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
-        StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
-                              MDNode::get(C, None));
-
-      }
-
-    }
-
-    for (auto &BB : F) {
-
-      BasicBlock::iterator IP = BB.getFirstInsertionPt();
-      IRBuilder<>          IRB(&(*IP));
-
-      // in CTX mode we have to restore the original context for the caller -
-      // she might be calling other functions which need the correct CTX
-      if (ctx_str && has_calls) {
-
-        Instruction *Inst = BB.getTerminator();
-        if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
-
-          IRBuilder<> Post_IRB(Inst);
-          StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
-          RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
-                                  MDNode::get(C, None));
+          ConstantInt *NewCtx = ConstantInt::get(Int32Ty, AFL_R(map_size));
+          StoreInst *  StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
+          StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                MDNode::get(C, None));
 
         }
 
@@ -407,7 +389,28 @@ bool AFLCoverage::runOnModule(Module &M) {
       }
 
       // fprintf(stderr, " == %d\n", more_than_one);
-      if (more_than_one != 1) continue;
+      if (more_than_one != 1) {
+
+        // in CTX mode we have to restore the original context for the caller -
+        // she might be calling other functions which need the correct CTX
+        if (ctx_str && has_calls && F.size() > 1) {
+
+          Instruction *Inst = BB.getTerminator();
+          if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
+
+            IRBuilder<> Post_IRB(Inst);
+            StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+            RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                    MDNode::get(C, None));
+
+          }
+
+        }
+
+        continue;
+
+      }
+
 #endif
 
       ConstantInt *CurLoc;
@@ -431,15 +434,17 @@ bool AFLCoverage::runOnModule(Module &M) {
          prev_block_trans = (block_trans_1 ^ ... ^ block_trans_(n-1)" */
 
       if (ngram_size)
-        PrevLocTrans = IRB.CreateXorReduce(PrevLoc);
+        PrevLocTrans =
+            IRB.CreateZExt(IRB.CreateXorReduce(PrevLoc), IRB.getInt32Ty());
       else
 #endif
         PrevLocTrans = PrevLoc;
+
       if (ctx_str)
         PrevLocTrans =
             IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, PrevCtx), Int32Ty);
       else
-        PrevLocTrans = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
+        PrevLocTrans = IRB.CreateZExt(PrevLocTrans, IRB.getInt32Ty());
 
       /* Load SHM pointer */
 
@@ -515,6 +520,23 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         Store = IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1),
                                 AFLPrevLoc);
+
+      }
+
+      // in CTX mode we have to restore the original context for the caller -
+      // she might be calling other functions which need the correct CTX.
+      // Currently this is only needed for the Ubuntu clang-6.0 bug
+      if (ctx_str && has_calls && F.size() > 1) {
+
+        Instruction *Inst = BB.getTerminator();
+        if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
+
+          IRBuilder<> Post_IRB(Inst);
+          StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+          RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
+
+        }
 
       }
 
