@@ -65,7 +65,7 @@
 #include <sys/sysctl.h>
 #include <sys/user.h>
 #else
-#error "Unsupproted platform"
+#error "Unsupported platform"
 #endif
 
 #define MEMORY_MAP_DECREMENT 0x200000000000
@@ -667,7 +667,7 @@ int main(int argc, char *argv[]) {
         fuzz();
 
         // we can use _exit which is faster because our target library
-        // was loaded via dlopen and there cannot have deconstructors
+        // was loaded via dlopen and therefore cannot have deconstructors
         // registered.
         _exit(0);
 
