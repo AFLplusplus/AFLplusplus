@@ -790,8 +790,6 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   s32 res;
   u32 exec_ms;
 
-  int status = 0;
-
   /* After this memset, fsrv->trace_bits[] are effectively volatile, so we
      must prevent any earlier operations from venturing into that
      territory. */
@@ -821,7 +819,8 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   if (fsrv->child_pid <= 0) { FATAL("Fork server is misbehaving (OOM?)"); }
 
-  exec_ms = read_timed(fsrv->fsrv_st_fd, &status, 4, timeout, stop_soon_p);
+  exec_ms = read_timed(fsrv->fsrv_st_fd, &fsrv->child_status, 4, timeout,
+                       stop_soon_p);
 
   if (exec_ms > timeout) {
 
@@ -830,7 +829,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
     kill(fsrv->child_pid, SIGKILL);
     fsrv->last_run_timed_out = 1;
-    if (read(fsrv->fsrv_st_fd, &status, 4) < 4) { exec_ms = 0; }
+    if (read(fsrv->fsrv_st_fd, &fsrv->child_status, 4) < 4) { exec_ms = 0; }
 
   }
 
@@ -862,7 +861,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-  if (!WIFSTOPPED(status)) { fsrv->child_pid = 0; }
+  if (!WIFSTOPPED(fsrv->child_status)) { fsrv->child_pid = 0; }
 
   fsrv->total_execs++;
 
@@ -874,9 +873,9 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   /* Report outcome to caller. */
 
-  if (WIFSIGNALED(status) && !*stop_soon_p) {
+  if (WIFSIGNALED(fsrv->child_status) && !*stop_soon_p) {
 
-    fsrv->last_kill_signal = WTERMSIG(status);
+    fsrv->last_kill_signal = WTERMSIG(fsrv->child_status);
 
     if (fsrv->last_run_timed_out && fsrv->last_kill_signal == SIGKILL) {
 
@@ -891,7 +890,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   /* A somewhat nasty hack for MSAN, which doesn't support abort_on_error and
      must use a special exit code. */
 
-  if (fsrv->uses_asan && WEXITSTATUS(status) == MSAN_ERROR) {
+  if (fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) {
 
     fsrv->last_kill_signal = 0;
     return FSRV_RUN_CRASH;

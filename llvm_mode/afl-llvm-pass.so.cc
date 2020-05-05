@@ -84,7 +84,7 @@ class AFLCoverage : public ModulePass {
   uint32_t ngram_size = 0;
   uint32_t debug = 0;
   uint32_t map_size = MAP_SIZE;
-  char *   ctx_str = NULL;
+  char *   ctx_str = NULL, *skip_nozero = NULL;
 
 };
 
@@ -180,8 +180,9 @@ bool AFLCoverage::runOnModule(Module &M) {
 #if LLVM_VERSION_MAJOR < 9
   char *neverZero_counters_str = getenv("AFL_LLVM_NOT_ZERO");
 #endif
+  skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
 
-  unsigned PrevLocSize;
+  unsigned PrevLocSize = 0;
 
   char *ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
   if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
@@ -214,9 +215,6 @@ bool AFLCoverage::runOnModule(Module &M) {
   uint64_t PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
   if (ngram_size) PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize);
 #endif
-
-  if (ctx_str && ngram_size_str)
-    FATAL("you must decide between NGRAM and CTX instrumentation");
 
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
@@ -296,33 +294,38 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     if (!isInWhitelist(&F)) continue;
 
-    if (ctx_str && F.size() > 1) {  // Context sensitive coverage
-      // load the context ID of the previous function and write to to a local
-      // variable on the stack
-      auto                 bb = &F.getEntryBlock();
-      BasicBlock::iterator IP = bb->getFirstInsertionPt();
+    for (auto &BB : F) {
+
+      BasicBlock::iterator IP = BB.getFirstInsertionPt();
       IRBuilder<>          IRB(&(*IP));
-      PrevCtx = IRB.CreateLoad(AFLContext);
-      PrevCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-      // does the function have calls? and is any of the calls larger than one
-      // basic block?
-      has_calls = 0;
-      for (auto &BB : F) {
+      // Context sensitive coverage
+      if (ctx_str && &BB == &F.getEntryBlock() && F.size() > 1) {
 
-        if (has_calls) break;
-        for (auto &IN : BB) {
+        // load the context ID of the previous function and write to to a local
+        // variable on the stack
+        PrevCtx = IRB.CreateLoad(AFLContext);
+        PrevCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-          CallInst *callInst = nullptr;
-          if ((callInst = dyn_cast<CallInst>(&IN))) {
+        // does the function have calls? and is any of the calls larger than one
+        // basic block?
+        for (auto &BB : F) {
 
-            Function *Callee = callInst->getCalledFunction();
-            if (!Callee || Callee->size() < 2)
-              continue;
-            else {
+          if (has_calls) break;
+          for (auto &IN : BB) {
 
-              has_calls = 1;
-              break;
+            CallInst *callInst = nullptr;
+            if ((callInst = dyn_cast<CallInst>(&IN))) {
+
+              Function *Callee = callInst->getCalledFunction();
+              if (!Callee || Callee->size() < 2)
+                continue;
+              else {
+
+                has_calls = 1;
+                break;
+
+              }
 
             }
 
@@ -330,36 +333,13 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         }
 
-      }
+        // if yes we store a context ID for this function in the global var
+        if (has_calls) {
 
-      // if yes we store a context ID for this function in the global var
-      if (has_calls) {
-
-        ConstantInt *NewCtx = ConstantInt::get(Int32Ty, AFL_R(map_size));
-        StoreInst *  StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
-        StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
-                              MDNode::get(C, None));
-
-      }
-
-    }
-
-    for (auto &BB : F) {
-
-      BasicBlock::iterator IP = BB.getFirstInsertionPt();
-      IRBuilder<>          IRB(&(*IP));
-
-      // in CTX mode we have to restore the original context for the caller -
-      // she might be calling other functions which need the correct CTX
-      if (ctx_str && has_calls) {
-
-        Instruction *Inst = BB.getTerminator();
-        if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
-
-          IRBuilder<> Post_IRB(Inst);
-          StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
-          RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
-                                  MDNode::get(C, None));
+          ConstantInt *NewCtx = ConstantInt::get(Int32Ty, AFL_R(map_size));
+          StoreInst *  StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
+          StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                MDNode::get(C, None));
 
         }
 
@@ -409,7 +389,28 @@ bool AFLCoverage::runOnModule(Module &M) {
       }
 
       // fprintf(stderr, " == %d\n", more_than_one);
-      if (more_than_one != 1) continue;
+      if (more_than_one != 1) {
+
+        // in CTX mode we have to restore the original context for the caller -
+        // she might be calling other functions which need the correct CTX
+        if (ctx_str && has_calls && F.size() > 1) {
+
+          Instruction *Inst = BB.getTerminator();
+          if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
+
+            IRBuilder<> Post_IRB(Inst);
+            StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+            RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                    MDNode::get(C, None));
+
+          }
+
+        }
+
+        continue;
+
+      }
+
 #endif
 
       ConstantInt *CurLoc;
@@ -433,13 +434,17 @@ bool AFLCoverage::runOnModule(Module &M) {
          prev_block_trans = (block_trans_1 ^ ... ^ block_trans_(n-1)" */
 
       if (ngram_size)
-        PrevLocTrans = IRB.CreateXorReduce(PrevLoc);
+        PrevLocTrans =
+            IRB.CreateZExt(IRB.CreateXorReduce(PrevLoc), IRB.getInt32Ty());
       else
 #endif
-          if (ctx_str)
-        PrevLocTrans = IRB.CreateZExt(IRB.CreateXor(PrevLoc, PrevCtx), Int32Ty);
+        PrevLocTrans = PrevLoc;
+
+      if (ctx_str)
+        PrevLocTrans =
+            IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, PrevCtx), Int32Ty);
       else
-        PrevLocTrans = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
+        PrevLocTrans = IRB.CreateZExt(PrevLocTrans, IRB.getInt32Ty());
 
       /* Load SHM pointer */
 
@@ -451,7 +456,9 @@ bool AFLCoverage::runOnModule(Module &M) {
       if (ngram_size)
         MapPtrIdx = IRB.CreateGEP(
             MapPtr,
-            IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, CurLoc), Int32Ty));
+            IRB.CreateZExt(
+                IRB.CreateXor(PrevLocTrans, IRB.CreateZExt(CurLoc, Int32Ty)),
+                Int32Ty));
       else
 #endif
         MapPtrIdx = IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocTrans, CurLoc));
@@ -467,6 +474,9 @@ bool AFLCoverage::runOnModule(Module &M) {
       if (neverZero_counters_str !=
           NULL) {  // with llvm 9 we make this the default as the bug in llvm is
                    // then fixed
+#else
+      if (!skip_nozero) {
+
 #endif
         /* hexcoder: Realize a counter that skips zero during overflow.
          * Once this counter reaches its maximum value, it next increments to 1
@@ -482,11 +492,7 @@ bool AFLCoverage::runOnModule(Module &M) {
         auto carry = IRB.CreateZExt(cf, Int8Ty);
         Incr = IRB.CreateAdd(Incr, carry);
 
-#if LLVM_VERSION_MAJOR < 9
-
       }
-
-#endif
 
       IRB.CreateStore(Incr, MapPtrIdx)
           ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
@@ -514,6 +520,23 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         Store = IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1),
                                 AFLPrevLoc);
+
+      }
+
+      // in CTX mode we have to restore the original context for the caller -
+      // she might be calling other functions which need the correct CTX.
+      // Currently this is only needed for the Ubuntu clang-6.0 bug
+      if (ctx_str && has_calls && F.size() > 1) {
+
+        Instruction *Inst = BB.getTerminator();
+        if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst)) {
+
+          IRBuilder<> Post_IRB(Inst);
+          StoreInst * RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
+          RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+                                  MDNode::get(C, None));
+
+        }
 
       }
 
@@ -560,8 +583,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         GlobalVariable *AFLFinalLoc = new GlobalVariable(
             M, Int32Ty, true, GlobalValue::ExternalLinkage, 0,
-            "__afl_final_loc", 0, GlobalVariable::GeneralDynamicTLSModel, 0,
-            false);
+            "__afl_final_loc");
         ConstantInt *const_loc = ConstantInt::get(Int32Ty, map_size);
         StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
         StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),

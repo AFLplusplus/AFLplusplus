@@ -43,7 +43,7 @@ static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
-static u8   instrument_mode;
+static u8   instrument_mode, instrument_opt_mode, ngram_size;
 static u8 * lto_flag = AFL_CLANG_FLTO;
 static u8 * march_opt = CFLAGS_OPT;
 static u8   debug;
@@ -60,14 +60,15 @@ enum {
   INSTRUMENT_INSTRIM = 2,
   INSTRUMENT_CFG = 2,
   INSTRUMENT_LTO = 3,
-  INSTRUMENT_CTX = 4,
-  INSTRUMENT_NGRAM = 5  // + ngram value of 2-16 = 7 - 21
+  INSTRUMENT_OPT_CTX = 4,
+  INSTRUMENT_OPT_NGRAM = 8
 
 };
 
-char instrument_mode_string[6][16] = {
+char instrument_mode_string[10][16] = {
 
-    "DEFAULT", "PCGUARD", "CFG", "LTO", "CTX",
+    "CLASSIC", "PCGUARD", "CFG",   "LTO", "CTX", "",
+    "",        "",        "NGRAM", ""
 
 };
 
@@ -562,54 +563,6 @@ int main(int argc, char **argv, char **envp) {
   instrument_mode = INSTRUMENT_PCGUARD;
 #endif
 
-  if ((ptr = getenv("AFL_LLVM_INSTRUMENT")) != NULL) {
-
-    if (strncasecmp(ptr, "default", strlen("default")) == 0 ||
-        strncasecmp(ptr, "afl", strlen("afl")) == 0 ||
-        strncasecmp(ptr, "classic", strlen("classic")) == 0)
-      instrument_mode = INSTRUMENT_DEFAULT;
-    if (strncasecmp(ptr, "cfg", strlen("cfg")) == 0 ||
-        strncasecmp(ptr, "instrim", strlen("instrim")) == 0)
-      instrument_mode = INSTRUMENT_CFG;
-    else if (strncasecmp(ptr, "pc-guard", strlen("pc-guard")) == 0 ||
-             strncasecmp(ptr, "pcguard", strlen("pcgard")) == 0)
-      instrument_mode = INSTRUMENT_PCGUARD;
-    else if (strncasecmp(ptr, "lto", strlen("lto")) == 0)
-      instrument_mode = INSTRUMENT_LTO;
-    else if (strncasecmp(ptr, "ctx", strlen("ctx")) == 0) {
-
-      instrument_mode = INSTRUMENT_CTX;
-      setenv("AFL_LLVM_CTX", "1", 1);
-
-    } else if (strncasecmp(ptr, "ngram", strlen("ngram")) == 0) {
-
-      ptr += strlen("ngram");
-      while (*ptr && (*ptr < '0' || *ptr > '9'))
-        ptr++;
-      if (!*ptr)
-        if ((ptr = getenv("AFL_LLVM_NGRAM_SIZE")) != NULL)
-          FATAL(
-              "you must set the NGRAM size with (e.g. for value 2) "
-              "AFL_LLVM_INSTRUMENT=ngram-2");
-      instrument_mode = INSTRUMENT_NGRAM + atoi(ptr);
-      if (instrument_mode < INSTRUMENT_NGRAM + 2 ||
-          instrument_mode > INSTRUMENT_NGRAM + NGRAM_SIZE_MAX)
-        FATAL(
-            "NGRAM instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
-            "(%u)",
-            NGRAM_SIZE_MAX);
-
-      ptr = alloc_printf("%u", instrument_mode - INSTRUMENT_NGRAM);
-      setenv("AFL_LLVM_NGRAM_SIZE", ptr, 1);
-
-    } else if (strncasecmp(ptr, "classic", strlen("classic")) != 0 ||
-
-               strncasecmp(ptr, "default", strlen("default")) != 0 ||
-               strncasecmp(ptr, "afl", strlen("afl")) != 0)
-      FATAL("unknown AFL_LLVM_INSTRUMENT value: %s", ptr);
-
-  }
-
   if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
       getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
 
@@ -631,39 +584,116 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (getenv("AFL_LLVM_CTX")) {
-
-    if (instrument_mode == 0)
-      instrument_mode = INSTRUMENT_CTX;
-    else if (instrument_mode != INSTRUMENT_CTX)
-      FATAL("you can not set AFL_LLVM_INSTRUMENT and AFL_LLVM_CTX together");
-
-  }
+  if (getenv("AFL_LLVM_CTX")) instrument_opt_mode |= INSTRUMENT_OPT_CTX;
 
   if (getenv("AFL_LLVM_NGRAM_SIZE")) {
 
-    if (instrument_mode == 0) {
-
-      instrument_mode = INSTRUMENT_NGRAM + atoi(getenv("AFL_LLVM_NGRAM_SIZE"));
-      if (instrument_mode < INSTRUMENT_NGRAM + 2 ||
-          instrument_mode > INSTRUMENT_NGRAM + NGRAM_SIZE_MAX)
-        FATAL(
-            "NGRAM instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
-            "(%u)",
-            NGRAM_SIZE_MAX);
-
-    } else if (instrument_mode != INSTRUMENT_NGRAM)
-
+    instrument_opt_mode |= INSTRUMENT_OPT_NGRAM;
+    ngram_size = atoi(getenv("AFL_LLVM_NGRAM_SIZE"));
+    if (ngram_size < 2 || ngram_size > NGRAM_SIZE_MAX)
       FATAL(
-          "you can not set AFL_LLVM_INSTRUMENT and AFL_LLVM_NGRAM_SIZE "
-          "together");
+          "NGRAM instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
+          "(%u)",
+          NGRAM_SIZE_MAX);
 
   }
 
-  if (instrument_mode < INSTRUMENT_NGRAM)
+  if (getenv("AFL_LLVM_INSTRUMENT")) {
+
+    u8 *ptr = strtok(getenv("AFL_LLVM_INSTRUMENT"), ":,;");
+
+    while (ptr) {
+
+      if (strncasecmp(ptr, "default", strlen("default")) == 0 ||
+          strncasecmp(ptr, "afl", strlen("afl")) == 0 ||
+          strncasecmp(ptr, "classic", strlen("classic")) == 0) {
+
+        if (!instrument_mode || instrument_mode == INSTRUMENT_DEFAULT)
+          instrument_mode = INSTRUMENT_DEFAULT;
+        else
+          FATAL("main instrumentation mode already set with %s",
+                instrument_mode_string[instrument_mode]);
+
+      }
+
+      if (strncasecmp(ptr, "pc-guard", strlen("pc-guard")) == 0 ||
+          strncasecmp(ptr, "pcguard", strlen("pcgard")) == 0) {
+
+        if (!instrument_mode || instrument_mode == INSTRUMENT_PCGUARD)
+          instrument_mode = INSTRUMENT_PCGUARD;
+        else
+          FATAL("main instrumentation mode already set with %s",
+                instrument_mode_string[instrument_mode]);
+
+      }
+
+      if (strncasecmp(ptr, "cfg", strlen("cfg")) == 0 ||
+          strncasecmp(ptr, "instrim", strlen("instrim")) == 0) {
+
+        if (!instrument_mode || instrument_mode == INSTRUMENT_CFG)
+          instrument_mode = INSTRUMENT_CFG;
+        else
+          FATAL("main instrumentation mode already set with %s",
+                instrument_mode_string[instrument_mode]);
+
+      }
+
+      if (strncasecmp(ptr, "lto", strlen("lto")) == 0) {
+
+        if (!instrument_mode || instrument_mode == INSTRUMENT_LTO)
+          instrument_mode = INSTRUMENT_LTO;
+        else
+          FATAL("main instrumentation mode already set with %s",
+                instrument_mode_string[instrument_mode]);
+
+      }
+
+      if (strncasecmp(ptr, "ctx", strlen("ctx")) == 0) {
+
+        instrument_opt_mode |= INSTRUMENT_OPT_CTX;
+        setenv("AFL_LLVM_CTX", "1", 1);
+
+      }
+
+      if (strncasecmp(ptr, "ngram", strlen("ngram")) == 0) {
+
+        ptr += strlen("ngram");
+        while (*ptr && (*ptr < '0' || *ptr > '9'))
+          ptr++;
+        if (!*ptr)
+          if ((ptr = getenv("AFL_LLVM_NGRAM_SIZE")) != NULL)
+            FATAL(
+                "you must set the NGRAM size with (e.g. for value 2) "
+                "AFL_LLVM_INSTRUMENT=ngram-2");
+        ngram_size = atoi(ptr);
+        if (ngram_size < 2 || ngram_size > NGRAM_SIZE_MAX)
+          FATAL(
+              "NGRAM instrumentation option must be between 2 and "
+              "NGRAM_SIZE_MAX "
+              "(%u)",
+              NGRAM_SIZE_MAX);
+        instrument_opt_mode |= (INSTRUMENT_OPT_NGRAM);
+        ptr = alloc_printf("%u", ngram_size);
+        setenv("AFL_LLVM_NGRAM_SIZE", ptr, 1);
+
+      }
+
+      ptr = strtok(NULL, ":,;");
+
+    }
+
+  }
+
+  if (!instrument_opt_mode)
     ptr = instrument_mode_string[instrument_mode];
+  else if (instrument_opt_mode == INSTRUMENT_OPT_CTX)
+    ptr = alloc_printf("%s + CTX", instrument_mode_string[instrument_mode]);
+  else if (instrument_opt_mode == INSTRUMENT_OPT_NGRAM)
+    ptr = alloc_printf("%s + NGRAM-%u", instrument_mode_string[instrument_mode],
+                       ngram_size);
   else
-    ptr = alloc_printf("NGRAM-%u", instrument_mode - INSTRUMENT_NGRAM);
+    ptr = alloc_printf("%s + CTX + NGRAM-%u",
+                       instrument_mode_string[instrument_mode], ngram_size);
 
   if (strstr(argv[0], "afl-clang-lto") != NULL) {
 
@@ -685,8 +715,21 @@ int main(int argc, char **argv, char **envp) {
 
 #ifndef AFL_CLANG_FLTO
   if (instrument_mode == INSTRUMENT_LTO)
-    FATAL("instrumentation mode LTO specified but LLVM support not available");
+    FATAL(
+        "instrumentation mode LTO specified but LLVM support not available "
+        "(requires LLVM 11 or higher)");
 #endif
+
+  if (instrument_opt_mode && instrument_mode != INSTRUMENT_CLASSIC &&
+      instrument_mode != INSTRUMENT_CFG)
+    FATAL(
+        "CTX and NGRAM instrumentation options can only be used with CFG "
+        "(recommended) and CLASSIC instrumentation modes!");
+
+  if (getenv("AFL_LLVM_SKIP_NEVERZERO") && getenv("AFL_LLVM_NOT_ZERO"))
+    FATAL(
+        "AFL_LLVM_NOT_ZERO and AFL_LLVM_SKIP_NEVERZERO can not be set "
+        "together");
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -726,6 +769,7 @@ int main(int argc, char **argv, char **envp) {
         "AFL_HARDEN: adds code hardening to catch memory bugs\n"
         "AFL_INST_RATIO: percentage of branches to instrument\n"
         "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+        "AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
         "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
         "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to "
         "cascaded "

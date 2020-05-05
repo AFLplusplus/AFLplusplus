@@ -97,12 +97,15 @@ Then there are a few specific features that are only available in llvm_mode:
 
     - AFL_LLVM_INSTRUMENT - this configures the instrumentation mode. 
       Available options:
-        DEFAULT - classic AFL (map[cur_loc ^ prev_loc >> 1]++)
+        CLASSIC - classic AFL (map[cur_loc ^ prev_loc >> 1]++) (default)
         CFG - InsTrim instrumentation (see below)
         LTO - LTO instrumentation (see below)
         CTX - context sensitive instrumentation (see below)
         NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
-      Only one can be used.
+      In CLASSIC (default) and CFG/INSTRIM you can also specify CTX and/or
+      NGRAM, seperate the options with a comma "," then, e.g.:
+        AFL_LLVM_INSTRUMENT=CFG,CTX,NGRAM-4
+      Not that this is a good idea to use both CTX and NGRAM :)
 
 ### LTO
 
@@ -203,6 +206,10 @@ Then there are a few specific features that are only available in llvm_mode:
       however for llvm versions below that this will increase an unnecessary
       slowdown due a performance issue that is only fixed in llvm 9+.
       This feature increases path discovery by a little bit.
+
+    - Setting AFL_LLVM_SKIP_NEVERZERO=1 will not implement the skip zero
+      test. If the target performs only few loops then this will give a
+      small performance boost.
 
     See llvm_mode/README.neverzero.md
 
