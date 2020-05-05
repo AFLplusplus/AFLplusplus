@@ -356,7 +356,7 @@ int recv_testcase(int s, void **buf, size_t *max_len) {
 
   if ((size & 0xff000000) != 0xff000000) {
 
-    *buf = maybe_grow(buf, max_len, size);
+    *buf = ck_maybe_grow(buf, max_len, size);
     received = 0;
     // fprintf(stderr, "unCOMPRESS (%u)\n", size);
     while (received < size &&
@@ -368,7 +368,7 @@ int recv_testcase(int s, void **buf, size_t *max_len) {
 #ifdef USE_DEFLATE
     u32 clen;
     size -= 0xff000000;
-    *buf = maybe_grow(buf, max_len, size);
+    *buf = ck_maybe_grow(buf, max_len, size);
     received = 0;
     while (received < 4 &&
            (ret = recv(s, &clen + received, 4 - received, 0)) > 0)
@@ -377,7 +377,7 @@ int recv_testcase(int s, void **buf, size_t *max_len) {
     // fprintf(stderr, "received clen information of %d\n", clen);
     if (clen < 1)
       FATAL("did not receive valid compressed len information: %u", clen);
-    buf2 = maybe_grow((void **)&buf2, &buf2_len, clen);
+    buf2 = ck_maybe_grow((void **)&buf2, &buf2_len, clen);
     received = 0;
     while (received < clen &&
            (ret = recv(s, buf2 + received, clen - received, 0)) > 0)
@@ -566,7 +566,7 @@ int main(int argc, char **argv_orig, char **envp) {
   sharedmem_t shm = {0};
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
-  in_data = maybe_grow((void **)&in_data, &max_len, 65536);
+  in_data = ck_maybe_grow((void **)&in_data, &max_len, 65536);
 
   atexit(at_exit_handler);
   setup_signal_handlers();
@@ -637,7 +637,7 @@ int main(int argc, char **argv_orig, char **envp) {
 #ifdef USE_DEFLATE
   compressor = libdeflate_alloc_compressor(1);
   decompressor = libdeflate_alloc_decompressor();
-  buf2 = maybe_grow((void **)&buf2, &buf2_len, map_size + 16);
+  buf2 = ck_maybe_grow((void **)&buf2, &buf2_len, map_size + 16);
   lenptr = (u32 *)(buf2 + 4);
   fprintf(stderr, "Compiled with compression support\n");
 #endif
