@@ -85,7 +85,7 @@
 
   (3) partially via AFL_CODE_START/AFL_CODE_END
 
-  (4) Only for LLVM >= 9 and not all targets compile
+  (4) Only for LLVM >= 11 and not all targets compile
 
   (5) upcoming, development in the branch
 
