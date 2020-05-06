@@ -619,8 +619,8 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
   addr = ctx->uc_mcontext->__ss.__rip;
 #elif defined(__linux__)
 #if defined(__x86_64__) || defined(__i386__)
-  ctx->uc_mcontext.mc_rip -= 1;
-  addr = ctx->uc_mcontext.mc_rip;
+  ctx->uc_mcontext.gregs[REG_RIP] -= 1;
+  addr = ctx->uc_mcontext.gregs[REG_RIP];
 #elif defined(__aarch64__)
   ctx->uc_mcontext.pc -= 4;
   addr = ctx->uc_mcontext.pc;
