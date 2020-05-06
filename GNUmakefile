@@ -189,9 +189,8 @@ ifdef STATIC
   # Disable python for static compilation to simplify things
   PYTHON_OK=0
   PYFLAGS=
-
-  CFLAGS += -static
-  LDFLAGS += -lm -lpthread -lz -lutil
+  COMPILE_STATIC = -static
+  LDFLAGS += -lm
 endif
 
 ASAN_CFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
@@ -339,19 +338,19 @@ src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.
 	$(MAKE) -C src/third_party/libradamsa/ CFLAGS="$(CFLAGS)"
 
 afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o | test_x86
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
 
 afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
 
 afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
 
 afl-gotcpu: src/afl-gotcpu.c src/afl-common.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o -o $@ $(LDFLAGS)
 
 
 # document all mutations and only do one run (use with only one input file!)
