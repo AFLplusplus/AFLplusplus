@@ -57,3 +57,6 @@ with open(home + "/Desktop/patches.txt", "w") as f:
     f.write('\n')
 
 print("Done, found {} patchpoints".format(len(patchpoints)))
+
+# For headless script running remove the comment from the next line
+#ida_pro.qexit()
