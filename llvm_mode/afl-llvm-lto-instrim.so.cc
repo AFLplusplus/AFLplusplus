@@ -114,7 +114,7 @@ struct InsTrimLTO : public ModulePass {
 
     if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
-      SAYF(cCYA "LLVMInsTrimLTO" VERSION cRST
+      SAYF(cCYA "InsTrimLTO" VERSION cRST
                 " by csienslab and Marc \"vanHauser\" Heuse\n");
 
     } else
