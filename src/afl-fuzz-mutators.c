@@ -36,6 +36,7 @@ void setup_custom_mutators(afl_state_t *afl) {
   /* Try mutator library first */
   struct custom_mutator * mutator;
   u8 *                   fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
+  u32 prev_mutator_count = 0;
 
   if (fn) {
 
@@ -57,9 +58,11 @@ void setup_custom_mutators(afl_state_t *afl) {
 
       while (fn_token) {
 
+        prev_mutator_count = afl->custom_mutators_count;
         mutator = load_custom_mutator(afl, fn_token);
         list_append(&afl->custom_mutator_list, mutator);
         afl->custom_mutators_count++;
+        if (prev_mutator_count > afl->custom_mutators_count) FATAL("Maximum Custom Mutator count reached.");
         fn_token = (u8 *)strsep((char **)&fn, ";");
 
       }
@@ -114,6 +117,8 @@ void destroy_custom_mutators(afl_state_t *afl) {
         el->pre_save_buf = NULL;
         el->pre_save_size = 0;
       }
+
+      ck_free(el);
 
     } );
 

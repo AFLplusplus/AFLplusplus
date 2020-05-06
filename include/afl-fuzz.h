@@ -607,7 +607,7 @@ typedef struct afl_state {
 
   u8 *    ex_buf;
   size_t  ex_size;
-  u8 custom_mutators_count;
+  u32 custom_mutators_count;
 
   list_t custom_mutator_list;
 
