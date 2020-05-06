@@ -19,6 +19,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - if LLVM 11 is installed the posix shm_open+mmap is used and a fixed
        address for the shared memory map is used as this increases the
        fuzzing speed
+     - InsTrim now has an LTO version! :-) That is the best and fastest mode!
      - fixes to LTO mode if instrumented edges > MAP_SIZE
      - CTX and NGRAM can now be used together
      - CTX and NGRAM are now also supported in CFG/INSTRIM mode

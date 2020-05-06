@@ -116,6 +116,9 @@ Then there are a few specific features that are only available in llvm_mode:
     afl-clang-lto/afl-clang-lto++ instead of afl-clang-fast, but is only
     built if LLVM 11 or newer is used.
 
+   - AFL_LLVM_INSTRUMENT=CFG will use Control Flow Graph instrumentation.
+     (recommended)
+
    - AFL_LLVM_LTO_AUTODICTIONARY will generate a dictionary in the target
      binary based on string compare and memory compare functions.
      afl-fuzz will automatically get these transmitted when starting to
@@ -139,7 +142,13 @@ Then there are a few specific features that are only available in llvm_mode:
 
 ### INSTRIM
 
-    This feature increases the speed by ~15% without any disadvantages.
+    This feature increases the speed by ~15% without any disadvantages to the
+    classic instrumentation.
+
+    Note that there is also an LTO version (if you have llvm 11 or higher) -
+    that is the best instrumentation we have. Use `afl-clang-lto` to activate.
+    The InsTrim LTO version additionally has all the options and features of
+    LTO (see above).
 
     - Setting AFL_LLVM_INSTRIM or AFL_LLVM_INSTRUMENT=CFG to activates this mode
 
