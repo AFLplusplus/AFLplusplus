@@ -279,12 +279,13 @@ library_list_t *find_library(char *name) {
 /* for having an easy breakpoint after load the shared library */
 // this seems to work for clang too. nice :) requires gcc 4.4+
 #pragma GCC push_options
-#pragma GCC optimize ("O0")
-void breakpoint() {
+#pragma GCC optimize("O0")
+void        breakpoint() {
 
   if (debug) fprintf(stderr, "Breakpoint function \"breakpoint\" reached.\n");
 
 }
+
 #pragma GCC pop_options
 
 /* Error reporting to forkserver controller */
@@ -470,7 +471,7 @@ void setup_trap_instrumentation() {
   FILE *patches = fopen(filename, "r");
   if (!patches) FATAL("Couldn't open AFL_UNTRACER_FILE file %s", filename);
 
-  // Index into the coverage bitmap for the current trap instruction.
+    // Index into the coverage bitmap for the current trap instruction.
 #ifdef __aarch64__
   uint64_t bitmap_index = 0;
 #else
@@ -507,11 +508,13 @@ void setup_trap_instrumentation() {
                    PROT_READ | PROT_WRITE | PROT_EXEC) != 0)
         FATAL("Failed to mprotect library %s writable", line);
 
-      // Create shadow memory.
+        // Create shadow memory.
 #ifdef __aarch64__
       for (int i = 0; i < 8; i++) {
+
 #else
       for (int i = 0; i < 4; i++) {
+
 #endif
 
         void *shadow_addr = SHADOW(lib_addr + i);
@@ -540,16 +543,17 @@ void setup_trap_instrumentation() {
       FATAL("Too many basic blocks to instrument");
 
 #ifdef __arch64__
-    uint64_t 
+    uint64_t
 #else
-    uint32_t 
+    uint32_t
 #endif
-    *shadow = SHADOW(lib_addr + offset);
+        *shadow = SHADOW(lib_addr + offset);
     if (*shadow != 0) continue;  // skip duplicates
 
       // Make lookup entry in shadow memory.
 
-#if ((defined(__APPLE__) && defined(__LP64__)) || defined(__x86_64__) || defined(__i386__))
+#if ((defined(__APPLE__) && defined(__LP64__)) || defined(__x86_64__) || \
+     defined(__i386__))
 
     // this is for Intel x64
 
@@ -566,10 +570,10 @@ void setup_trap_instrumentation() {
 
     // this is for aarch64
 
-    uint32_t *patch_bytes = (uint32_t*)(lib_addr + offset);
-    uint32_t orig_bytes = *patch_bytes;
+    uint32_t *patch_bytes = (uint32_t *)(lib_addr + offset);
+    uint32_t  orig_bytes = *patch_bytes;
     *shadow = (bitmap_index << 32) | orig_bytes;
-    *patch_bytes = 0xd4200000; // replace instruction with debug trap
+    *patch_bytes = 0xd4200000;  // replace instruction with debug trap
     if (debug)
       fprintf(stderr,
               "Patch entry: %p[%x] = %p = %02x -> SHADOW(%p) #%d -> %016x\n",
@@ -577,14 +581,14 @@ void setup_trap_instrumentation() {
               bitmap_index, *shadow);
 
 #else
-      // this will be ARM and AARCH64
-      // for ARM we will need to identify if the code is in thumb or ARM
+    // this will be ARM and AARCH64
+    // for ARM we will need to identify if the code is in thumb or ARM
 #error "non x86_64/aarch64 not supported yet"
-      //__arm__:
-      // linux thumb: 0xde01
-      // linux arm: 0xe7f001f0
-      //__aarch64__:
-      // linux aarch64: 0xd4200000
+    //__arm__:
+    // linux thumb: 0xde01
+    // linux arm: 0xe7f001f0
+    //__aarch64__:
+    // linux aarch64: 0xd4200000
 #endif
 
     bitmap_index++;

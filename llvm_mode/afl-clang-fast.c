@@ -716,9 +716,11 @@ int main(int argc, char **argv, char **envp) {
     }
 
   }
-  
+
   if (instrument_opt_mode && lto_mode)
-    FATAL("CTX and NGRAM can not be used in LTO mode (and would make LTO useless)");
+    FATAL(
+        "CTX and NGRAM can not be used in LTO mode (and would make LTO "
+        "useless)");
 
   if (!instrument_opt_mode) {
 
