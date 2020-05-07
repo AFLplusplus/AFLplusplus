@@ -35,7 +35,7 @@ $ rm -rf /tmp/tmp$$
 
 ### Fuzzing
 
-Example (after modfying afl-untracer.c to your needs, compiling and creating
+Example (after modifying afl-untracer.c to your needs, compiling and creating
 patches.txt):
 ```
 AFL_UNTRACER_FILE=./patches.txt afl-fuzz -i in -o out -- ./afl-untracer
