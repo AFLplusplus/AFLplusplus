@@ -204,7 +204,7 @@ ifdef ASAN_BUILD
 endif
 
 ifdef PROFILING
-  $(info Compiling profiling version of binaries)
+  $(info Compiling with profiling information, for analysis: gprof ./afl-fuzz gmon.out > prof.txt)
   CFLAGS+=-pg
   LDFLAGS+=-pg
 endif

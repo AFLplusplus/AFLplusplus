@@ -855,6 +855,33 @@ struct InsTrimLTO : public ModulePass {
 
     }
 
+    // count basic blocks for comparison with classic instrumentation
+
+    u32 edges = 0;
+    for (auto &F : M) {
+
+      if (F.size() < function_minimum_size) continue;
+
+      for (auto &BB : F) {
+
+        bool would_instrument = false;
+
+        for (BasicBlock *Pred : predecessors(&BB)) {
+
+          int count = 0;
+          for (BasicBlock *Succ : successors(Pred))
+            if (Succ != NULL) count++;
+
+          if (count > 1) return true;
+
+        }
+
+        if (would_instrument == true) edges++;
+
+      }
+
+    }
+
     /* Say something nice. */
 
     if (!be_quiet) {
@@ -871,9 +898,9 @@ struct InsTrimLTO : public ModulePass {
                  getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                  getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
         OKF("Instrumented %u locations (%llu, %llu) with no collisions (on "
-            "average %llu "
-            "collisions would be in afl-gcc/afl-clang-fast) (%s mode).",
-            inst_blocks, total_rs, total_hs, calculateCollisions(inst_blocks),
+            "average %llu collisions would be in afl-gcc/afl-clang-fast for %u "
+            "edges) (%s mode).",
+            inst_blocks, total_rs, total_hs, calculateCollisions(edges), edges,
             modeline);
 
       }
