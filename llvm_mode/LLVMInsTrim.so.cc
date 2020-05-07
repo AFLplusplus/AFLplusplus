@@ -134,7 +134,8 @@ struct InsTrim : public ModulePass {
 
     }
 
-    if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") != NULL)
+    if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") ||
+        getenv("AFL_LLVM_SKIPSINGLEBLOCK"))
       function_minimum_size = 2;
 
     unsigned PrevLocSize = 0;
@@ -394,7 +395,7 @@ struct InsTrim : public ModulePass {
               if ((callInst = dyn_cast<CallInst>(&IN))) {
 
                 Function *Callee = callInst->getCalledFunction();
-                if (!Callee || Callee->size() < 2)
+                if (!Callee || Callee->size() < function_minimum_size)
                   continue;
                 else {
 

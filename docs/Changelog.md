@@ -16,6 +16,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - an old, old bug in afl that would show negative stability in rare
        circumstances is now hopefully fixed
   - llvm_mode:
+     - afl-clang-fast/lto now do not skip single block functions. This
+       behaviour can be reactivated with AFL_LLVM_SKIPSINGLEBLOCK
      - if LLVM 11 is installed the posix shm_open+mmap is used and a fixed
        address for the shared memory map is used as this increases the
        fuzzing speed
