@@ -346,11 +346,15 @@ struct InsTrimLTO : public ModulePass {
                   if (auto *Var =
                           dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
-                    if (auto *Array = dyn_cast<ConstantDataArray>(
-                            Var->getInitializer())) {
+                    if (Var->hasInitializer()) {
 
-                      HasStr2 = true;
-                      Str2 = Array->getAsString().str();
+                      if (auto *Array = dyn_cast<ConstantDataArray>(
+                              Var->getInitializer())) {
+
+                        HasStr2 = true;
+                        Str2 = Array->getAsString().str();
+
+                      }
 
                     }
 
@@ -419,11 +423,15 @@ struct InsTrimLTO : public ModulePass {
                   if (auto *Var =
                           dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
-                    if (auto *Array = dyn_cast<ConstantDataArray>(
-                            Var->getInitializer())) {
+                    if (Var->hasInitializer()) {
 
-                      HasStr1 = true;
-                      Str1 = Array->getAsString().str();
+                      if (auto *Array = dyn_cast<ConstantDataArray>(
+                              Var->getInitializer())) {
+
+                        HasStr1 = true;
+                        Str1 = Array->getAsString().str();
+
+                      }
 
                     }
 
