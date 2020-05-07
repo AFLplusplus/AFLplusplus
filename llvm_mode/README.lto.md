@@ -83,12 +83,12 @@ Just use afl-clang-lto like you did with afl-clang-fast or afl-gcc.
 Also whitelisting (AFL_LLVM_WHITELIST -> [README.whitelist.md](README.whitelist.md)) and
 laf-intel/compcov (AFL_LLVM_LAF_* -> [README.laf-intel.md](README.laf-intel.md)) work.
 InsTrim (control flow graph instrumentation) is supported and recommended!
-  (set `AFL_LLVM_INTRUMENT=CFG`)
+  (set `AFL_LLVM_INSTRUMENT=CFG`)
 
 Example:
 ```
 CC=afl-clang-lto CXX=afl-clang-lto++ RANLIB=llvm-ranlib AR=llvm-ar ./configure
-export AFL_LLVM_INTRUMENT=CFG
+export AFL_LLVM_INSTRUMENT=CFG
 make
 ```
 
