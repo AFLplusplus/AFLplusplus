@@ -27,6 +27,10 @@
 #include "cmplog.h"
 #include <limits.h>
 
+#ifdef PROFILING
+extern u64 time_spent_working;
+#endif
+
 static u8 *get_libradamsa_path(u8 *own_loc) {
 
   u8 *tmp, *cp, *rsl, *own_copy;
@@ -1350,6 +1354,13 @@ stop_fuzzing:
          doc_path);
 
   }
+
+#ifdef PROFILING
+  SAYF(cYEL "[!] " cRST
+            "Profiling information: %llu ms total work, %llu ns/run\n",
+       time_spent_working / 1000000,
+       time_spent_working / afl->fsrv.total_execs);
+#endif
 
   fclose(afl->fsrv.plot_file);
   destroy_queue(afl);

@@ -52,10 +52,26 @@ endif
 
 ifneq "$(shell uname)" "Darwin"
  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-	CFLAGS_OPT = -march=native
+	CFLAGS_OPT += -march=native
  endif
  # OS X does not like _FORTIFY_SOURCE=2
  CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+endif
+
+ifdef STATIC
+  $(info Compiling static version of binaries)
+  # Disable python for static compilation to simplify things
+  PYTHON_OK=0
+  PYFLAGS=
+
+  CFLAGS_OPT += -static
+  LDFLAGS += -lm -lpthread -lz -lutil
+endif
+
+ifdef PROFILING
+  $(info Compiling with profiling information, for analysis: gprof ./afl-fuzz gmon.out > prof.txt)
+  CFLAGS_OPT += -pg -DPROFILING=1
+  LDFLAGS += -pg
 endif
 
 ifneq "$(shell uname -m)" "x86_64"
@@ -142,23 +158,23 @@ else
 endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
-  LDFLAGS  += -ldl
+  LDFLAGS += -ldl
 endif
 
 ifneq "$(findstring FreeBSD, $(shell uname))" ""
-  CFLAGS += -pthread
-  LDFLAGS  += -lpthread
+  CFLAGS  += -pthread
+  LDFLAGS += -lpthread
 endif
 
 ifneq "$(findstring NetBSD, $(shell uname))" ""
-  CFLAGS += -pthread
-  LDFLAGS  += -lpthread
+  CFLAGS  += -pthread
+  LDFLAGS += -lpthread
 endif
 
 ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
-  TEST_CC   = afl-gcc
+  TEST_CC  = afl-gcc
 else
-  TEST_CC   = afl-clang
+  TEST_CC  = afl-clang
 endif
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
@@ -184,29 +200,13 @@ ifeq "$(shell svn proplist . 2>/dev/null && echo 1 || echo 0)" "1"
   IN_REPO=1
 endif
 
-ifdef STATIC
-  $(info Compiling static version of binaries)
-  # Disable python for static compilation to simplify things
-  PYTHON_OK=0
-  PYFLAGS=
-
-  CFLAGS += -static
-  LDFLAGS += -lm -lpthread -lz -lutil
-endif
-
 ASAN_CFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
-ASAN_LDFLAGS+=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
+ASAN_LDFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
 
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
   CFLAGS+=$(ASAN_CFLAGS)
   LDFLAGS+=$(ASAN_LDFLAGS)
-endif
-
-ifdef PROFILING
-  $(info Compiling profiling version of binaries)
-  CFLAGS+=-pg
-  LDFLAGS+=-pg
 endif
 
 ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"

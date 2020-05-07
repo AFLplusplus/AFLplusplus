@@ -43,7 +43,7 @@ static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
-static u8   instrument_mode, instrument_opt_mode, ngram_size;
+static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode;
 static u8 * lto_flag = AFL_CLANG_FLTO;
 static u8 * march_opt = CFLAGS_OPT;
 static u8   debug;
@@ -170,7 +170,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   else
     ++name;
 
-  if (instrument_mode == INSTRUMENT_LTO)
+  if (lto_mode)
     if (lto_flag[0] != '-')
       FATAL(
           "Using afl-clang-lto is not possible because Makefile magic did not "
@@ -227,8 +227,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (getenv("LAF_TRANSFORM_COMPARES") ||
       getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
 
-    if (!be_quiet && getenv("AFL_LLVM_LTO_AUTODICTIONARY") &&
-        instrument_mode != INSTRUMENT_LTO)
+    if (!be_quiet && getenv("AFL_LLVM_LTO_AUTODICTIONARY") && lto_mode)
       WARNF(
           "using AFL_LLVM_LAF_TRANSFORM_COMPARES together with "
           "AFL_LLVM_LTO_AUTODICTIONARY makes no sense. Use only "
@@ -281,7 +280,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (instrument_mode == INSTRUMENT_LTO) {
+  if (lto_mode) {
 
     if (getenv("AFL_LLVM_WHITELIST") != NULL) {
 
@@ -295,8 +294,12 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
-    cc_params[cc_par_cnt++] = alloc_printf(
-        "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
+    if (instrument_mode == INSTRUMENT_CFG)
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-lto-instrim.so", obj_path);
+    else
+      cc_params[cc_par_cnt++] = alloc_printf(
+          "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
     cc_params[cc_par_cnt++] = lto_flag;
 
   } else {
@@ -391,7 +394,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (getenv("AFL_USE_CFISAN")) {
 
-    if (instrument_mode != INSTRUMENT_LTO) {
+    if (!lto_mode) {
 
       uint32_t i = 0, found = 0;
       while (envp[i] != NULL && !found)
@@ -417,9 +420,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
       getenv("LAF_TRANSFORM_COMPARES") ||
-      (instrument_mode == INSTRUMENT_LTO &&
-       (getenv("AFL_LLVM_LTO_AUTODICTIONARY") ||
-        getenv("AFL_LLVM_AUTODICTIONARY")))) {
+      (lto_mode && (getenv("AFL_LLVM_LTO_AUTODICTIONARY") ||
+                    getenv("AFL_LLVM_AUTODICTIONARY")))) {
 
     cc_params[cc_par_cnt++] = "-fno-builtin-strcmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-strncmp";
@@ -500,7 +502,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     case 0:
       cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt.o", obj_path);
-      if (instrument_mode == INSTRUMENT_LTO)
+      if (lto_mode)
         cc_params[cc_par_cnt++] =
             alloc_printf("%s/afl-llvm-rt-lto.o", obj_path);
       break;
@@ -509,7 +511,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-32.o", obj_path);
       if (access(cc_params[cc_par_cnt - 1], R_OK))
         FATAL("-m32 is not supported by your compiler");
-      if (instrument_mode == INSTRUMENT_LTO) {
+      if (lto_mode) {
 
         cc_params[cc_par_cnt++] =
             alloc_printf("%s/afl-llvm-rt-lto-32.o", obj_path);
@@ -524,7 +526,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-64.o", obj_path);
       if (access(cc_params[cc_par_cnt - 1], R_OK))
         FATAL("-m64 is not supported by your compiler");
-      if (instrument_mode == INSTRUMENT_LTO) {
+      if (lto_mode) {
 
         cc_params[cc_par_cnt++] =
             alloc_printf("%s/afl-llvm-rt-lto-64.o", obj_path);
@@ -548,7 +550,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 int main(int argc, char **argv, char **envp) {
 
   int   i;
-  char *callname = "afl-clang-fast", *ptr;
+  char *callname = "afl-clang-fast", *ptr = NULL;
 
   if (getenv("AFL_DEBUG")) {
 
@@ -630,7 +632,13 @@ int main(int argc, char **argv, char **envp) {
       if (strncasecmp(ptr, "cfg", strlen("cfg")) == 0 ||
           strncasecmp(ptr, "instrim", strlen("instrim")) == 0) {
 
-        if (!instrument_mode || instrument_mode == INSTRUMENT_CFG)
+        if (instrument_mode == INSTRUMENT_LTO) {
+
+          instrument_mode = INSTRUMENT_CFG;
+          lto_mode = 1;
+
+        } else if (!instrument_mode || instrument_mode == INSTRUMENT_CFG)
+
           instrument_mode = INSTRUMENT_CFG;
         else
           FATAL("main instrumentation mode already set with %s",
@@ -640,9 +648,10 @@ int main(int argc, char **argv, char **envp) {
 
       if (strncasecmp(ptr, "lto", strlen("lto")) == 0) {
 
+        lto_mode = 1;
         if (!instrument_mode || instrument_mode == INSTRUMENT_LTO)
           instrument_mode = INSTRUMENT_LTO;
-        else
+        else if (instrument_mode != INSTRUMENT_CFG)
           FATAL("main instrumentation mode already set with %s",
                 instrument_mode_string[instrument_mode]);
 
@@ -684,9 +693,44 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (!instrument_opt_mode)
-    ptr = instrument_mode_string[instrument_mode];
-  else if (instrument_opt_mode == INSTRUMENT_OPT_CTX)
+  if (strstr(argv[0], "afl-clang-lto") != NULL) {
+
+    if (instrument_mode == 0 || instrument_mode == INSTRUMENT_LTO ||
+        instrument_mode == INSTRUMENT_CFG) {
+
+      lto_mode = 1;
+      callname = "afl-clang-lto";
+      if (!instrument_mode) {
+
+        instrument_mode = INSTRUMENT_LTO;
+        ptr = instrument_mode_string[instrument_mode];
+
+      }
+
+    } else {
+
+      if (!be_quiet)
+        WARNF("afl-clang-lto called with mode %s, using that mode instead",
+              instrument_mode_string[instrument_mode]);
+
+    }
+
+  }
+
+  if (instrument_opt_mode && lto_mode)
+    FATAL(
+        "CTX and NGRAM can not be used in LTO mode (and would make LTO "
+        "useless)");
+
+  if (!instrument_opt_mode) {
+
+    if (lto_mode && instrument_mode == INSTRUMENT_CFG)
+      ptr = alloc_printf("InsTrimLTO");
+    else
+      ptr = instrument_mode_string[instrument_mode];
+
+  } else if (instrument_opt_mode == INSTRUMENT_OPT_CTX)
+
     ptr = alloc_printf("%s + CTX", instrument_mode_string[instrument_mode]);
   else if (instrument_opt_mode == INSTRUMENT_OPT_NGRAM)
     ptr = alloc_printf("%s + NGRAM-%u", instrument_mode_string[instrument_mode],
@@ -695,26 +739,8 @@ int main(int argc, char **argv, char **envp) {
     ptr = alloc_printf("%s + CTX + NGRAM-%u",
                        instrument_mode_string[instrument_mode], ngram_size);
 
-  if (strstr(argv[0], "afl-clang-lto") != NULL) {
-
-    if (instrument_mode == 0 || instrument_mode == INSTRUMENT_LTO) {
-
-      callname = "afl-clang-lto";
-      instrument_mode = INSTRUMENT_LTO;
-      ptr = instrument_mode_string[instrument_mode];
-
-    } else {
-
-      if (!be_quiet)
-        WARNF("afl-clang-lto called with mode %s, using that mode instead",
-              ptr);
-
-    }
-
-  }
-
 #ifndef AFL_CLANG_FLTO
-  if (instrument_mode == INSTRUMENT_LTO)
+  if (lto_mode)
     FATAL(
         "instrumentation mode LTO specified but LLVM support not available "
         "(requires LLVM 11 or higher)");
@@ -733,7 +759,7 @@ int main(int argc, char **argv, char **envp) {
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
-    if (instrument_mode != INSTRUMENT_LTO)
+    if (!lto_mode)
       printf("afl-clang-fast" VERSION " by <lszekeres@google.com> in %s mode\n",
              ptr);
     else
@@ -831,7 +857,7 @@ int main(int argc, char **argv, char **envp) {
 
              getenv("AFL_DEBUG") != NULL) {
 
-    if (instrument_mode != INSTRUMENT_LTO)
+    if (!lto_mode)
 
       SAYF(cCYA "afl-clang-fast" VERSION cRST
                 " by <lszekeres@google.com> in %s mode\n",
@@ -846,7 +872,7 @@ int main(int argc, char **argv, char **envp) {
   }
 
   u8 *ptr2;
-  if (!be_quiet && instrument_mode != INSTRUMENT_LTO &&
+  if (!be_quiet && !lto_mode &&
       ((ptr2 = getenv("AFL_MAP_SIZE")) || (ptr2 = getenv("AFL_MAPSIZE")))) {
 
     u32 map_size = atoi(ptr2);

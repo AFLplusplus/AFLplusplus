@@ -156,7 +156,7 @@ void read_library_information() {
         liblist[liblist_cnt].addr_end = strtoull(m, NULL, 16);
         if (debug)
           fprintf(
-              stderr, "%s:%x (%lx-%lx)\n", liblist[liblist_cnt].name,
+              stderr, "%s:%llx (%llx-%llx)\n", liblist[liblist_cnt].name,
               liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start,
               liblist[liblist_cnt].addr_start,
               liblist[liblist_cnt].addr_end - 1);
@@ -275,6 +275,18 @@ library_list_t *find_library(char *name) {
   return NULL;
 
 }
+
+/* for having an easy breakpoint after load the shared library */
+// this seems to work for clang too. nice :) requires gcc 4.4+
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+void        breakpoint() {
+
+  if (debug) fprintf(stderr, "Breakpoint function \"breakpoint\" reached.\n");
+
+}
+
+#pragma GCC pop_options
 
 /* Error reporting to forkserver controller */
 
@@ -433,10 +445,17 @@ static void __afl_end_testcase(int status) {
 
 }
 
+#ifdef __aarch64__
+#define SHADOW(addr)                                     \
+  ((uint64_t *)(((uintptr_t)addr & 0xfffffffffffffff8) - \
+                MEMORY_MAP_DECREMENT -                   \
+                ((uintptr_t)addr & 0x7) * 0x10000000000))
+#else
 #define SHADOW(addr)                                     \
   ((uint32_t *)(((uintptr_t)addr & 0xfffffffffffffffc) - \
                 MEMORY_MAP_DECREMENT -                   \
                 ((uintptr_t)addr & 0x3) * 0x10000000000))
+#endif
 
 void setup_trap_instrumentation() {
 
@@ -452,8 +471,12 @@ void setup_trap_instrumentation() {
   FILE *patches = fopen(filename, "r");
   if (!patches) FATAL("Couldn't open AFL_UNTRACER_FILE file %s", filename);
 
-  // Index into the coverage bitmap for the current trap instruction.
-  int bitmap_index = 0;
+    // Index into the coverage bitmap for the current trap instruction.
+#ifdef __aarch64__
+  uint64_t bitmap_index = 0;
+#else
+  uint32_t bitmap_index = 0;
+#endif
 
   while ((nread = getline(&line, &len, patches)) != -1) {
 
@@ -485,8 +508,14 @@ void setup_trap_instrumentation() {
                    PROT_READ | PROT_WRITE | PROT_EXEC) != 0)
         FATAL("Failed to mprotect library %s writable", line);
 
-      // Create shadow memory.
+        // Create shadow memory.
+#ifdef __aarch64__
+      for (int i = 0; i < 8; i++) {
+
+#else
       for (int i = 0; i < 4; i++) {
+
+#endif
 
         void *shadow_addr = SHADOW(lib_addr + i);
         void *shadow = mmap(shadow_addr, lib_size, PROT_READ | PROT_WRITE,
@@ -513,12 +542,18 @@ void setup_trap_instrumentation() {
     if (bitmap_index >= __afl_map_size)
       FATAL("Too many basic blocks to instrument");
 
-    uint32_t *shadow = SHADOW(lib_addr + offset);
+#ifdef __arch64__
+    uint64_t
+#else
+    uint32_t
+#endif
+        *shadow = SHADOW(lib_addr + offset);
     if (*shadow != 0) continue;  // skip duplicates
 
       // Make lookup entry in shadow memory.
 
-#if ((defined(__APPLE__) && defined(__LP64__)) || defined(__x86_64__))
+#if ((defined(__APPLE__) && defined(__LP64__)) || defined(__x86_64__) || \
+     defined(__i386__))
 
     // this is for Intel x64
 
@@ -531,15 +566,29 @@ void setup_trap_instrumentation() {
               lib_addr, offset, lib_addr + offset, orig_byte, shadow,
               bitmap_index, *shadow);
 
+#elif defined(__aarch64__)
+
+    // this is for aarch64
+
+    uint32_t *patch_bytes = (uint32_t *)(lib_addr + offset);
+    uint32_t  orig_bytes = *patch_bytes;
+    *shadow = (bitmap_index << 32) | orig_bytes;
+    *patch_bytes = 0xd4200000;  // replace instruction with debug trap
+    if (debug)
+      fprintf(stderr,
+              "Patch entry: %p[%x] = %p = %02x -> SHADOW(%p) #%d -> %016x\n",
+              lib_addr, offset, lib_addr + offset, orig_bytes, shadow,
+              bitmap_index, *shadow);
+
 #else
-      // this will be ARM and AARCH64
-      // for ARM we will need to identify if the code is in thumb or ARM
-#error "non x86_64 not supported yet"
-      //__arm__:
-      // linux thumb: 0xde01
-      // linux arm: 0xe7f001f0
-      //__aarch64__:
-      // linux aarch64: 0xd4200000
+    // this will be ARM and AARCH64
+    // for ARM we will need to identify if the code is in thumb or ARM
+#error "non x86_64/aarch64 not supported yet"
+    //__arm__:
+    // linux thumb: 0xde01
+    // linux arm: 0xe7f001f0
+    //__aarch64__:
+    // linux aarch64: 0xd4200000
 #endif
 
     bitmap_index++;
@@ -573,8 +622,15 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
   ctx->uc_mcontext->__ss.__rip -= 1;
   addr = ctx->uc_mcontext->__ss.__rip;
 #elif defined(__linux__)
+#if defined(__x86_64__) || defined(__i386__)
   ctx->uc_mcontext.gregs[REG_RIP] -= 1;
   addr = ctx->uc_mcontext.gregs[REG_RIP];
+#elif defined(__aarch64__)
+  ctx->uc_mcontext.pc -= 4;
+  addr = ctx->uc_mcontext.pc;
+#else
+#error "Unsupported processor"
+#endif
 #elif defined(__FreeBSD__) && defined(__LP64__)
   ctx->uc_mcontext.mc_rip -= 1;
   addr = ctx->uc_mcontext.mc_rip;
@@ -642,6 +698,7 @@ int main(int argc, char *argv[]) {
   // END STEP 2
 
   /* setup instrumentation, shared memory and forkserver */
+  breakpoint();
   read_library_information();
   setup_trap_instrumentation();
   __afl_map_shm();

@@ -16,9 +16,12 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - an old, old bug in afl that would show negative stability in rare
        circumstances is now hopefully fixed
   - llvm_mode:
+     - afl-clang-fast/lto now do not skip single block functions. This
+       behaviour can be reactivated with AFL_LLVM_SKIPSINGLEBLOCK
      - if LLVM 11 is installed the posix shm_open+mmap is used and a fixed
        address for the shared memory map is used as this increases the
        fuzzing speed
+     - InsTrim now has an LTO version! :-) That is the best and fastest mode!
      - fixes to LTO mode if instrumented edges > MAP_SIZE
      - CTX and NGRAM can now be used together
      - CTX and NGRAM are now also supported in CFG/INSTRIM mode
@@ -38,7 +41,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     network (not fuzzing tcp/ip services but running afl-fuzz on one system
     and the target being on an embedded device)
   - added examples/afl_untracer which does a binary-only fuzzing with the
-    modifications done in memory
+    modifications done in memory (intel32/64 and aarch64 support)
   - added examples/afl_proxy which can be easily used to fuzz and instrument
     non-standard things
   - all:
