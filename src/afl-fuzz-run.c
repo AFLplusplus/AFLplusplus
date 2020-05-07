@@ -30,13 +30,37 @@
 
 #include "cmplog.h"
 
+#ifdef PROFILING
+u64 time_spent_working = 0;
+#endif
+
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
 fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
                                   u32 timeout) {
 
+#ifdef PROFILING
+  static u64      time_spent_start = 0;
+  struct timespec spec;
+  if (time_spent_start) {
+
+    u64 current;
+    clock_gettime(CLOCK_REALTIME, &spec);
+    current = (spec.tv_sec * 1000000000) + spec.tv_nsec;
+    time_spent_working += (current - time_spent_start);
+
+  }
+
+#endif
+
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
+
+#ifdef PROFILING
+  clock_gettime(CLOCK_REALTIME, &spec);
+  time_spent_start = (spec.tv_sec * 1000000000) + spec.tv_nsec;
+#endif
+
   // TODO: Don't classify for faults?
   classify_counts(fsrv);
   return res;

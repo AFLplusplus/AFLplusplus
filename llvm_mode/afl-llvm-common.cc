@@ -201,3 +201,20 @@ bool isInWhitelist(llvm::Function *F) {
 
 }
 
+// Calculate the number of average collisions that would occur if all
+// location IDs would be assigned randomly (like normal afl/afl++).
+// This uses the "balls in bins" algorithm.
+unsigned long long int calculateCollisions(uint32_t edges) {
+
+  double                 bins = MAP_SIZE;
+  double                 balls = edges;
+  double                 step1 = 1 - (1 / bins);
+  double                 step2 = pow(step1, balls);
+  double                 step3 = bins * step2;
+  double                 step4 = round(step3);
+  unsigned long long int empty = step4;
+  unsigned long long int collisions = edges - (MAP_SIZE - empty);
+  return collisions;
+
+}
+

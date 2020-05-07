@@ -1,14 +1,9 @@
 /*
-   american fuzzy lop++ - LLVM-mode instrumentation pass
-   ---------------------------------------------------
+   american fuzzy lop++ - LLVM LTO instrumentation pass
+   ----------------------------------------------------
 
-   Written by Laszlo Szekeres <lszekeres@google.com> and
-              Michal Zalewski
+   Written by Marc Heuse <mh@mh-sec.de>
 
-   LLVM integration design comes from Laszlo Szekeres. C bits copied-and-pasted
-   from afl-as.c are Michal's fault.
-
-   Copyright 2015, 2016 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,9 +12,7 @@
 
      http://www.apache.org/licenses/LICENSE-2.0
 
-   This library is plugged into LLVM when invoking clang through afl-clang-fast.
-   It tells the compiler to add code roughly equivalent to the bits discussed
-   in ../afl-as.h.
+   This library is plugged into LLVM when invoking clang through afl-clang-lto.
 
  */
 
@@ -32,11 +25,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include <list>
 #include <string>
 #include <fstream>
-#include <sys/time.h>
+#include <set>
 
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
@@ -56,7 +50,6 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Pass.h"
 
-#include <set>
 #include "afl-llvm-common.h"
 
 using namespace llvm;
@@ -90,27 +83,11 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  // Calculate the number of average collisions that would occur if all
-  // location IDs would be assigned randomly (like normal afl/afl++).
-  // This uses the "balls in bins" algorithm.
-  unsigned long long int calculateCollisions(uint32_t edges) {
-
-    double                 bins = MAP_SIZE;
-    double                 balls = edges;
-    double                 step1 = 1 - (1 / bins);
-    double                 step2 = pow(step1, balls);
-    double                 step3 = bins * step2;
-    double                 step4 = round(step3);
-    unsigned long long int empty = step4;
-    unsigned long long int collisions = edges - (MAP_SIZE - empty);
-    return collisions;
-
-  }
-
   bool runOnModule(Module &M) override;
 
  protected:
   int      afl_global_id = 1, debug = 0, autodictionary = 0;
+  uint32_t function_minimum_size = 1;
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, total_instr = 0;
   uint64_t map_addr = 0x10000;
   char *   skip_nozero = NULL;
@@ -131,8 +108,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
 
-  if (getenv("AFL_DEBUG")) debug = 1;
-
   /* Show a banner */
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
@@ -149,6 +124,10 @@ bool AFLLTOPass::runOnModule(Module &M) {
     autodictionary = 1;
 
   if (getenv("AFL_LLVM_MAP_DYNAMIC")) map_addr = 0;
+
+  if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") ||
+      getenv("AFL_LLVM_SKIPSINGLEBLOCK"))
+    function_minimum_size = 2;
 
   if ((ptr = getenv("AFL_LLVM_MAP_ADDR"))) {
 
@@ -185,12 +164,10 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   if (debug) { fprintf(stderr, "map address is %lu\n", map_addr); }
 
-  /* Get globals for the SHM region and the previous location. Note that
-     __afl_prev_loc is thread-local. */
+  /* Get/set the globals for the SHM region. */
 
   GlobalVariable *AFLMapPtr = NULL;
-  ;
-  Value *MapPtrFixed = NULL;
+  Value *         MapPtrFixed = NULL;
 
   if (!map_addr) {
 
@@ -217,7 +194,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     // fprintf(stderr, "DEBUG: Function %s\n", F.getName().str().c_str());
 
-    if (F.size() < 2) continue;
+    if (F.size() < function_minimum_size) continue;
     if (isBlacklisted(&F)) continue;
 
     std::vector<BasicBlock *> InsBlocks;
@@ -354,11 +331,15 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
-                  if (auto *Array =
-                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+                  if (Var->hasInitializer()) {
 
-                    HasStr2 = true;
-                    Str2 = Array->getAsString().str();
+                    if (auto *Array = dyn_cast<ConstantDataArray>(
+                            Var->getInitializer())) {
+
+                      HasStr2 = true;
+                      Str2 = Array->getAsString().str();
+
+                    }
 
                   }
 
@@ -426,11 +407,15 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
-                  if (auto *Array =
-                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+                  if (Var->hasInitializer()) {
 
-                    HasStr1 = true;
-                    Str1 = Array->getAsString().str();
+                    if (auto *Array = dyn_cast<ConstantDataArray>(
+                            Var->getInitializer())) {
+
+                      HasStr1 = true;
+                      Str1 = Array->getAsString().str();
+
+                    }
 
                   }
 
