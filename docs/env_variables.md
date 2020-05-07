@@ -83,6 +83,10 @@ tools make fairly broad use of environmental variables:
 The native instrumentation helpers (llvm_mode and gcc_plugin) accept a subset
 of the settings discussed in section #1, with the exception of:
 
+    - Setting AFL_LLVM_SKIPSINGLEBLOCK=1 will skip instrumenting
+      functions with a single basic block. This is useful for most C and
+      some C++ targets. This works for all instrumentation modes.
+
   - AFL_AS, since this toolchain does not directly invoke GNU as.
 
   - TMPDIR and AFL_KEEP_ASSEMBLY, since no temporary assembly files are
@@ -155,10 +159,6 @@ Then there are a few specific features that are only available in llvm_mode:
     - Setting AFL_LLVM_INSTRIM_LOOPHEAD=1 expands on INSTRIM to optimize loops.
       afl-fuzz will only be able to see the path the loop took, but not how
       many times it was called (unless it is a complex loop).
-
-    - Setting AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK=1 will skip instrumenting
-      functions with a single basic block. This is useful for most C and
-      some C++ targets.
 
     See llvm_mode/README.instrim.md
 

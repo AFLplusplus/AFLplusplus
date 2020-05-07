@@ -87,6 +87,7 @@ class AFLLTOPass : public ModulePass {
 
  protected:
   int      afl_global_id = 1, debug = 0, autodictionary = 0;
+  uint32_t function_minimum_size = 1;
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, total_instr = 0;
   uint64_t map_addr = 0x10000;
   char *   skip_nozero = NULL;
@@ -123,6 +124,10 @@ bool AFLLTOPass::runOnModule(Module &M) {
     autodictionary = 1;
 
   if (getenv("AFL_LLVM_MAP_DYNAMIC")) map_addr = 0;
+
+  if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") ||
+      getenv("AFL_LLVM_SKIPSINGLEBLOCK"))
+    function_minimum_size = 2;
 
   if ((ptr = getenv("AFL_LLVM_MAP_ADDR"))) {
 
@@ -189,7 +194,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     // fprintf(stderr, "DEBUG: Function %s\n", F.getName().str().c_str());
 
-    if (F.size() < 2) continue;
+    if (F.size() < function_minimum_size) continue;
     if (isBlacklisted(&F)) continue;
 
     std::vector<BasicBlock *> InsBlocks;
