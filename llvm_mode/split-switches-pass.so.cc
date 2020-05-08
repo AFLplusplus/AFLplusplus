@@ -418,7 +418,7 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
 bool SplitSwitchesTransform::runOnModule(Module &M) {
 
-  if (isatty(2) && getenv("AFL_QUIET") == NULL)
+  if ((isatty(2) && getenv("AFL_QUIET") == NULL) || getenv("AFL_DEBUG") != NULL)
     llvm::errs() << "Running split-switches-pass by laf.intel@gmail.com\n";
   else
     be_quiet = 1;

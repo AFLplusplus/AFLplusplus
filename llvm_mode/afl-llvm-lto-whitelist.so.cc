@@ -111,7 +111,7 @@ bool AFLwhitelist::runOnModule(Module &M) {
 
   char be_quiet = 0;
 
-  if (isatty(2) && !getenv("AFL_QUIET")) {
+  if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
     SAYF(cCYA "afl-llvm-lto-whitelist" VERSION cRST
               " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
