@@ -2574,3 +2574,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version 0.21b (2013-11-12):
 
   - Initial public release.
+
+  - Added support for use of multiple custom mutators which can be specified using 
+    the environment variable AFL_CUSTOM_MUTATOR_LIBRARY.
