@@ -949,7 +949,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
   }
   test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
     unset AFL_CC
-    # Compile the vulnerable program
+    # Compile the vulnerable program for single mutator
     test -e ../afl-clang-fast && {
       ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
     } || {
@@ -957,6 +957,16 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
         ../afl-gcc-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
       } || {
         ../afl-gcc -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+      }
+    }
+    # Compile the vulnerable program for multiple mutators
+    test -e ../afl-clang-fast && {
+      ../afl-clang-fast -o test-multiple-mutators test-multiple-mutators.c > /dev/null 2>&1
+    } || {
+      test -e ../afl-gcc-fast && {
+        ../afl-gcc-fast -o test-multiple-mutators test-multiple-mutators.c > /dev/null 2>&1
+      } || {
+        ../afl-gcc -o test-multiple-mutators test-multiple-mutators.c > /dev/null 2>&1
       }
     }
     # Compile the custom mutator
@@ -989,7 +999,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       #Run afl-fuzz w/ multiple C mutators
       $ECHO "$GREY[*] running afl-fuzz with multiple custom C mutators, this will take approx 20 seconds"
       {
-        AFL_CUSTOM_MUTATOR_LIBRARY="${CUSTOM_MUTATOR_PATH}/libexamplemutator.so;${CUSTOM_MUTATOR_PATH}/libexamplemutator.so" ../afl-fuzz -V20 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutators >>errors 2>&1
+        AFL_CUSTOM_MUTATOR_LIBRARY="${CUSTOM_MUTATOR_PATH}/libexamplemutator.so;${CUSTOM_MUTATOR_PATH}/libexamplemutator.so" ../afl-fuzz -V20 -m ${MEM_LIMIT} -i in -o out -- ./test-multiple-mutators >>errors 2>&1
       } >>errors 2>&1
 
       test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
