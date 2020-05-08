@@ -33,6 +33,7 @@ void __wrap_exit(int status) {
 }
 
 /* ignore all printfs */
+#undef printf
 extern int printf(const char *format, ...);
 extern int __real_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...);
@@ -40,7 +41,7 @@ int __wrap_printf(const char *format, ...) {
     return 1;
 }
 
-list_t testlist;
+static list_t testlist = {.element_prealloc_count = 0};
 
 static void test_contains(void **state) {
 

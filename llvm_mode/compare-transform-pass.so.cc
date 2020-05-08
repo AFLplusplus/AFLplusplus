@@ -47,6 +47,7 @@
 #endif
 
 #include <set>
+#include "afl-llvm-common.h"
 
 using namespace llvm;
 
@@ -58,22 +59,7 @@ class CompareTransform : public ModulePass {
   static char ID;
   CompareTransform() : ModulePass(ID) {
 
-    char *instWhiteListFilename = getenv("AFL_LLVM_WHITELIST");
-    if (instWhiteListFilename) {
-
-      std::string   line;
-      std::ifstream fileStream;
-      fileStream.open(instWhiteListFilename);
-      if (!fileStream) report_fatal_error("Unable to open AFL_LLVM_WHITELIST");
-      getline(fileStream, line);
-      while (fileStream) {
-
-        myWhitelist.push_back(line);
-        getline(fileStream, line);
-
-      }
-
-    }
+    initWhitelist();
 
   }
 
@@ -91,8 +77,7 @@ class CompareTransform : public ModulePass {
   }
 
  protected:
-  std::list<std::string> myWhitelist;
-  int                    be_quiet = 0;
+  int be_quiet = 0;
 
  private:
   bool transformCmps(Module &M, const bool processStrcmp,
@@ -140,118 +125,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
    * strcmp/memcmp/strncmp/strcasecmp/strncasecmp */
   for (auto &F : M) {
 
+    if (!isInWhitelist(&F)) continue;
+
     for (auto &BB : F) {
-
-      if (!myWhitelist.empty()) {
-
-        BasicBlock::iterator IP = BB.getFirstInsertionPt();
-
-        bool instrumentBlock = false;
-
-        /* Get the current location using debug information.
-         * For now, just instrument the block if we are not able
-         * to determine our location. */
-        DebugLoc Loc = IP->getDebugLoc();
-#if LLVM_VERSION_MAJOR >= 4 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
-        if (Loc) {
-
-          DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
-
-          unsigned int instLine = cDILoc->getLine();
-          StringRef    instFilename = cDILoc->getFilename();
-
-          if (instFilename.str().empty()) {
-
-            /* If the original location is empty, try using the inlined location
-             */
-            DILocation *oDILoc = cDILoc->getInlinedAt();
-            if (oDILoc) {
-
-              instFilename = oDILoc->getFilename();
-              instLine = oDILoc->getLine();
-
-            }
-
-          }
-
-          (void)instLine;
-
-          /* Continue only if we know where we actually are */
-          if (!instFilename.str().empty()) {
-
-            for (std::list<std::string>::iterator it = myWhitelist.begin();
-                 it != myWhitelist.end(); ++it) {
-
-              /* We don't check for filename equality here because
-               * filenames might actually be full paths. Instead we
-               * check that the actual filename ends in the filename
-               * specified in the list. */
-              if (instFilename.str().length() >= it->length()) {
-
-                if (instFilename.str().compare(
-                        instFilename.str().length() - it->length(),
-                        it->length(), *it) == 0) {
-
-                  instrumentBlock = true;
-                  break;
-
-                }
-
-              }
-
-            }
-
-          }
-
-        }
-
-#else
-        if (!Loc.isUnknown()) {
-
-          DILocation cDILoc(Loc.getAsMDNode(C));
-
-          unsigned int instLine = cDILoc.getLineNumber();
-          StringRef    instFilename = cDILoc.getFilename();
-
-          (void)instLine;
-
-          /* Continue only if we know where we actually are */
-          if (!instFilename.str().empty()) {
-
-            for (std::list<std::string>::iterator it = myWhitelist.begin();
-                 it != myWhitelist.end(); ++it) {
-
-              /* We don't check for filename equality here because
-               * filenames might actually be full paths. Instead we
-               * check that the actual filename ends in the filename
-               * specified in the list. */
-              if (instFilename.str().length() >= it->length()) {
-
-                if (instFilename.str().compare(
-                        instFilename.str().length() - it->length(),
-                        it->length(), *it) == 0) {
-
-                  instrumentBlock = true;
-                  break;
-
-                }
-
-              }
-
-            }
-
-          }
-
-        }
-
-#endif
-
-        /* Either we couldn't figure out our location or the location is
-         * not whitelisted, so we skip instrumentation. */
-        if (!instrumentBlock) continue;
-
-      }
 
       for (auto &IN : BB) {
 
@@ -335,20 +211,24 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           }
 
           // not literal? maybe global or local variable
-          if (!(HasStr1 ^ HasStr2)) {
+          if (!(HasStr1 || HasStr2)) {
 
             auto *Ptr = dyn_cast<ConstantExpr>(Str2P);
             if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
 
               if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
-                if (auto *Array =
-                        dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+                if (Var->hasInitializer()) {
 
-                  HasStr2 = true;
-                  Str2 = Array->getAsString();
-                  valueMap[Str2P] = new std::string(Str2.str());
-                  // fprintf(stderr, "glo2 %s\n", Str2.str().c_str());
+                  if (auto *Array =
+                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+
+                    HasStr2 = true;
+                    Str2 = Array->getAsString();
+                    valueMap[Str2P] = new std::string(Str2.str());
+                    fprintf(stderr, "glo2 %s\n", Str2.str().c_str());
+
+                  }
 
                 }
 
@@ -363,13 +243,17 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
-                  if (auto *Array =
-                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+                  if (Var->hasInitializer()) {
 
-                    HasStr1 = true;
-                    Str1 = Array->getAsString();
-                    valueMap[Str1P] = new std::string(Str1.str());
-                    // fprintf(stderr, "glo1 %s\n", Str1.str().c_str());
+                    if (auto *Array = dyn_cast<ConstantDataArray>(
+                            Var->getInitializer())) {
+
+                      HasStr1 = true;
+                      Str1 = Array->getAsString();
+                      valueMap[Str1P] = new std::string(Str1.str());
+                      // fprintf(stderr, "glo1 %s\n", Str1.str().c_str());
+
+                    }
 
                   }
 
@@ -384,13 +268,13 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
             }
 
-            if ((HasStr1 ^ HasStr2)) indirect = true;
+            if ((HasStr1 || HasStr2)) indirect = true;
 
           }
 
           if (isIntMemcpy) continue;
 
-          if (!(HasStr1 ^ HasStr2)) {
+          if (!(HasStr1 || HasStr2)) {
 
             // do we have a saved local variable initialization?
             std::string *val = valueMap[Str1P];
@@ -418,7 +302,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           }
 
           /* handle cases of one string is const, one string is variable */
-          if (!(HasStr1 ^ HasStr2)) continue;
+          if (!(HasStr1 || HasStr2)) continue;
 
           if (isMemcmp || isStrncmp || isStrncasecmp) {
 
@@ -483,7 +367,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     }
 
-    if (!(HasStr1 ^ HasStr2)) {
+    if (!(HasStr1 || HasStr2)) {
 
       // do we have a saved local or global variable initialization?
       std::string *val = valueMap[Str1P];
@@ -510,13 +394,13 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
       TmpConstStr = Str1.str();
       VarStr = Str2P;
-      constLen = isMemcmp ? sizedLen : GetStringLength(Str1P);
+      constLen = isMemcmp ? sizedLen : TmpConstStr.length();
 
     } else {
 
       TmpConstStr = Str2.str();
       VarStr = Str1P;
-      constLen = isMemcmp ? sizedLen : GetStringLength(Str2P);
+      constLen = isMemcmp ? sizedLen : TmpConstStr.length();
 
     }
 
@@ -524,9 +408,14 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
      * the StringRef (in comparison to std::string a StringRef has built-in
      * runtime bounds checking, which makes debugging easier) */
     TmpConstStr.append("\0", 1);
+    if (!sizedLen) constLen++;
     ConstStr = StringRef(TmpConstStr);
-
-    if (isSizedcmp && constLen > sizedLen) { constLen = sizedLen; }
+    // fprintf(stderr, "issized: %d, const > sized ? %u > %u\n", isSizedcmp,
+    // constLen, sizedLen);
+    if (isSizedcmp && constLen > sizedLen && sizedLen) constLen = sizedLen;
+    if (constLen > TmpConstStr.length()) constLen = TmpConstStr.length();
+    if (!constLen) constLen = TmpConstStr.length();
+    if (!constLen) continue;
 
     if (!be_quiet)
       errs() << callInst->getCalledFunction()->getName() << ": len " << constLen

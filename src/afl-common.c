@@ -64,13 +64,15 @@ char *afl_environment_variables[] = {
     "AFL_LD_PRELOAD", "AFL_LD_VERBOSE", "AFL_LLVM_CMPLOG", "AFL_LLVM_INSTRIM",
     "AFL_LLVM_CTX", "AFL_LLVM_INSTRUMENT", "AFL_LLVM_INSTRIM_LOOPHEAD",
     "AFL_LLVM_LTO_AUTODICTIONARY", "AFL_LLVM_AUTODICTIONARY",
-    "AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK", "AFL_LLVM_LAF_SPLIT_COMPARES",
-    "AFL_LLVM_LAF_SPLIT_COMPARES_BITW", "AFL_LLVM_LAF_SPLIT_FLOATS",
-    "AFL_LLVM_LAF_SPLIT_SWITCHES", "AFL_LLVM_LAF_TRANSFORM_COMPARES",
-    "AFL_LLVM_NGRAM_SIZE", "AFL_NGRAM_SIZE", "AFL_LLVM_NOT_ZERO",
-    "AFL_LLVM_WHITELIST", "AFL_NO_AFFINITY", "AFL_LLVM_LTO_STARTID",
-    "AFL_LLVM_LTO_DONTWRITEID", "AFL_NO_ARITH", "AFL_NO_BUILTIN",
-    "AFL_NO_CPU_RED", "AFL_NO_FORKSRV", "AFL_NO_UI", "AFL_NO_PYTHON",
+    "AFL_LLVM_SKIPSINGLEBLOCK", "AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK",
+    "AFL_LLVM_LAF_SPLIT_COMPARES", "AFL_LLVM_LAF_SPLIT_COMPARES_BITW",
+    "AFL_LLVM_LAF_SPLIT_FLOATS", "AFL_LLVM_LAF_SPLIT_SWITCHES",
+    "AFL_LLVM_LAF_TRANSFORM_COMPARES", "AFL_LLVM_MAP_ADDR",
+    "AFL_LLVM_MAP_DYNAMIC", "AFL_LLVM_NGRAM_SIZE", "AFL_NGRAM_SIZE",
+    "AFL_LLVM_NOT_ZERO", "AFL_LLVM_WHITELIST", "AFL_LLVM_SKIP_NEVERZERO",
+    "AFL_NO_AFFINITY", "AFL_LLVM_LTO_STARTID", "AFL_LLVM_LTO_DONTWRITEID",
+    "AFL_NO_ARITH", "AFL_NO_BUILTIN", "AFL_NO_CPU_RED", "AFL_NO_FORKSRV",
+    "AFL_NO_UI", "AFL_NO_PYTHON", "AFL_UNTRACER_FILE",
     "AFL_NO_X86",  // not really an env but we dont want to warn on it
     "AFL_MAP_SIZE", "AFL_MAPSIZE", "AFL_PATH", "AFL_PERFORMANCE_FILE",
     //"AFL_PERSISTENT", // not implemented anymore, so warn additionally
@@ -917,7 +919,7 @@ u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
 
 }
 
-u32 get_map_size() {
+u32 get_map_size(void) {
 
   uint32_t map_size = MAP_SIZE;
   char *   ptr;
@@ -927,7 +929,8 @@ u32 get_map_size() {
     map_size = atoi(ptr);
     if (map_size < 8 || map_size > (1 << 29)) {
 
-      FATAL("illegal AFL_MAP_SIZE %u, must be between 2^3 and 2^30", map_size);
+      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 8,
+            1 << 29);
 
     }
 

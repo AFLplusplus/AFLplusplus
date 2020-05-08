@@ -66,7 +66,6 @@ static list_t shm_list = {.element_prealloc_count = 0};
 
 void afl_shm_deinit(sharedmem_t *shm) {
 
-  // TODO: clang reports a potential UAF in this function/makro(?)
   list_remove(&shm_list, shm);
 
 #ifdef USEMMAP
@@ -128,12 +127,12 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size, unsigned char dumb_mode) {
   }
 
   /* map the shared memory segment to the address space of the process */
-  shm->map = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-                  map_size->g_shm_fd, 0);
-  if (map_size->map == MAP_FAILED) {
+  shm->map =
+      mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm->g_shm_fd, 0);
+  if (shm->map == MAP_FAILED) {
 
-    close(map_size->g_shm_fd);
-    map_size->g_shm_fd = -1;
+    close(shm->g_shm_fd);
+    shm->g_shm_fd = -1;
     PFATAL("mmap() failed");
 
   }

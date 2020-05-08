@@ -37,7 +37,7 @@
 #include <sys/param.h>
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) && !defined(__ANDROID__)
 #include <unistd.h>
 #include <sys/syscall.h>
 #ifdef __NR_getrandom
@@ -183,6 +183,9 @@ static void *__dislocator_alloc(size_t len) {
   else
     rlen = len;
 
+  /* We will also store buffer length and a canary below the actual buffer, so
+     let's add 8 bytes for that. */
+
   tlen = (1 + PG_COUNT(rlen + 8)) * PAGE_SIZE;
   flags = MAP_PRIVATE | MAP_ANONYMOUS;
   fd = -1;
@@ -199,9 +202,6 @@ static void *__dislocator_alloc(size_t len) {
 #else
   (void)sp;
 #endif
-
-  /* We will also store buffer length and a canary below the actual buffer, so
-     let's add 8 bytes for that. */
 
   ret = (u8 *)mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
 #if defined(USEHUGEPAGE)
@@ -295,10 +295,6 @@ void *calloc(size_t elem_len, size_t elem_cnt) {
   return ret;
 
 }
-
-/* TODO: add a wrapper for posix_memalign, otherwise apps who use it,
-   will fail when freeing the memory.
-*/
 
 /* The wrapper for malloc(). Roughly the same, also clobbers the returned
    memory (unlike calloc(), malloc() is not guaranteed to return zeroed
@@ -465,6 +461,18 @@ void *reallocarray(void *ptr, size_t elem_len, size_t elem_cnt) {
   }
 
   return ret;
+
+}
+
+#if !defined(__ANDROID__)
+size_t malloc_usable_size(void *ptr) {
+
+#else
+size_t malloc_usable_size(const void *ptr) {
+
+#endif
+
+  return ptr ? PTR_L(ptr) : 0;
 
 }
 

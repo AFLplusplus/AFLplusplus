@@ -721,7 +721,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #else
 
       snprintf(fn, PATH_MAX, "%s/crashes/id_%06llu_%02u", afl->out_dir,
-               afl->unique_crashes, afl->kill_signal);
+               afl->unique_crashes, afl->last_kill_signal);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 

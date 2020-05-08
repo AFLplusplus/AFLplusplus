@@ -6,6 +6,8 @@ This version requires a current llvm 11 compiled from the github master.
 
 1. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
    coverage than anything else that is out there in the AFL world
+  1a. Set AFL_LLVM_INSTRUMENT=CFG if you want the InsTrimLTO version
+      (recommended)
 
 2. You can use it together with llvm_mode: laf-intel and whitelisting
    features and can be combined with cmplog/Redqueen
@@ -41,7 +43,7 @@ and many dead ends until we got to this:
    -fsanitize=coverage edge coverage mode :)
 
 The result:
- * 10-20% speed gain compared to llvm_mode
+ * 10-25% speed gain compared to llvm_mode
  * guaranteed non-colliding edge coverage :-)
  * The compile time especially for libraries can be longer
 
@@ -65,7 +67,7 @@ $ cd build
 $ cmake -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra;compiler-rt;libclc;libcxx;libcxxabi;libunwind;lld' -DCMAKE_BUILD_TYPE=Release -DLLVM_BINUTILS_INCDIR=/usr/include/ ../llvm/
 $ make -j $(nproc)
 $ export PATH=`pwd`/bin:$PATH
-$ export LLVM_CONFIG=`pwd`/bin/llcm-config
+$ export LLVM_CONFIG=`pwd`/bin/llvm-config
 $ cd /path/to/AFLplusplus/
 $ make
 $ cd llvm_mode
@@ -80,11 +82,13 @@ Just use afl-clang-lto like you did with afl-clang-fast or afl-gcc.
 
 Also whitelisting (AFL_LLVM_WHITELIST -> [README.whitelist.md](README.whitelist.md)) and
 laf-intel/compcov (AFL_LLVM_LAF_* -> [README.laf-intel.md](README.laf-intel.md)) work.
-Instrim does not - but we can not really use it anyway for our approach.
+InsTrim (control flow graph instrumentation) is supported and recommended!
+  (set `AFL_LLVM_INSTRUMENT=CFG`)
 
 Example:
 ```
-CC=afl-clang-lto CXX=afl-clang-lto++ ./configure
+CC=afl-clang-lto CXX=afl-clang-lto++ RANLIB=llvm-ranlib AR=llvm-ar ./configure
+export AFL_LLVM_INSTRUMENT=CFG
 make
 ```
 
@@ -94,6 +98,17 @@ Setting `AFL_LLVM_LTO_AUTODICTIONARY` will generate a dictionary in the
 target binary based on string compare and memory compare functions.
 afl-fuzz will automatically get these transmitted when starting to fuzz.
 This improves coverage on a lot of targets.
+
+## Fixed memory map
+
+To speed up fuzzing, the shared memory map is hard set to a specific address,
+by default 0x10000. In most cases this will work without any problems.
+On unusual operating systems/processors/kernels or weird libraries this might
+fail so to change the fixed address at compile time set
+AFL_LLVM_MAP_ADDR with a better value (a value of 0 or empty sets the map address
+to be dynamic - the original afl way, which is slower).
+AFL_LLVM_MAP_DYNAMIC can be set so the shared memory address is dynamic (which
+is safer but also slower).
 
 ## Potential issues
 
@@ -110,12 +125,22 @@ Solution:
 ```
 AR=llvm-ar RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto++ ./configure --disable-shared
 ```
-and on some target you have to to AR=/RANLIB= even for make as the configure script does not save it ...
+and on some target you have to to AR=/RANLIB= even for make as the configure script does not save it.
+Other targets ignore environment variables and need the parameters set via
+`./configure --cc=... --cxx= --ranlib= ...` etc. (I am looking at you ffmpeg!).
 
 ### compiling programs still fail
 
 afl-clang-lto is still work in progress.
-Please report issues at:
+
+Known issues:
+  * Anything that llvm11 cannot compile, afl-clang-lto can not compile either - obviously
+  * Anything that does not compile with LTO, afl-clang-lto can not compile either - obviously
+
+Hence if building a target with afl-clang-lto fails try to build it with llvm11
+and LTO enabled (`CC=clang-11` `CXX=clang++-11` `CFLAGS=-flto=full` and
+`CXXFLAGS=-flto=full`).
+If this succeeeds then there is an issue with afl-clang-lto. Please report at
 [https://github.com/AFLplusplus/AFLplusplus/issues/226](https://github.com/AFLplusplus/AFLplusplus/issues/226)
 
 ## Upcoming Work

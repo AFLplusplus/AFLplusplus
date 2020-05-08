@@ -30,13 +30,37 @@
 
 #include "cmplog.h"
 
+#ifdef PROFILING
+u64 time_spent_working = 0;
+#endif
+
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
 fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
                                   u32 timeout) {
 
+#ifdef PROFILING
+  static u64      time_spent_start = 0;
+  struct timespec spec;
+  if (time_spent_start) {
+
+    u64 current;
+    clock_gettime(CLOCK_REALTIME, &spec);
+    current = (spec.tv_sec * 1000000000) + spec.tv_nsec;
+    time_spent_working += (current - time_spent_start);
+
+  }
+
+#endif
+
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
+
+#ifdef PROFILING
+  clock_gettime(CLOCK_REALTIME, &spec);
+  time_spent_start = (spec.tv_sec * 1000000000) + spec.tv_nsec;
+#endif
+
   // TODO: Don't classify for faults?
   classify_counts(fsrv);
   return res;
@@ -213,6 +237,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   if (q->exec_cksum) {
 
     memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
+    u8 hnb = has_new_bits(afl, afl->virgin_bits);
+    if (hnb > new_bits) { new_bits = hnb; }
 
   }
 
@@ -246,11 +272,10 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     }
 
     cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+    u8 hnb = has_new_bits(afl, afl->virgin_bits);
+    if (hnb > new_bits) { new_bits = hnb; }
 
     if (q->exec_cksum != cksum) {
-
-      u8 hnb = has_new_bits(afl, afl->virgin_bits);
-      if (hnb > new_bits) { new_bits = hnb; }
 
       if (q->exec_cksum) {
 

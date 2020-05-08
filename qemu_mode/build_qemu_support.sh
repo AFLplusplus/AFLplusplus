@@ -163,6 +163,8 @@ fi
 
 cd qemu-$VERSION || exit 1
 
+echo Building for CPU target $CPU_TARGET
+
 echo "[*] Applying patches..."
 
 patch -p1 <../patches/elfload.diff || exit 1
@@ -188,6 +190,7 @@ echo "[+] Patching done."
 
 if [ "$STATIC" = "1" ]; then
 
+  echo Building STATIC binary
   ./configure --extra-cflags="-O3 -ggdb -DAFL_QEMU_STATIC_BUILD=1" \
      --disable-bsd-user --disable-guest-agent --disable-strip --disable-werror \
 	  --disable-gcrypt --disable-debug-info --disable-debug-tcg --disable-tcg-interpreter \

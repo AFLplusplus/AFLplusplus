@@ -1,14 +1,9 @@
 /*
-   american fuzzy lop++ - LLVM-mode instrumentation pass
-   ---------------------------------------------------
+   american fuzzy lop++ - LLVM LTO instrumentation pass
+   ----------------------------------------------------
 
-   Written by Laszlo Szekeres <lszekeres@google.com> and
-              Michal Zalewski
+   Written by Marc Heuse <mh@mh-sec.de>
 
-   LLVM integration design comes from Laszlo Szekeres. C bits copied-and-pasted
-   from afl-as.c are Michal's fault.
-
-   Copyright 2015, 2016 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,9 +12,7 @@
 
      http://www.apache.org/licenses/LICENSE-2.0
 
-   This library is plugged into LLVM when invoking clang through afl-clang-fast.
-   It tells the compiler to add code roughly equivalent to the bits discussed
-   in ../afl-as.h.
+   This library is plugged into LLVM when invoking clang through afl-clang-lto.
 
  */
 
@@ -31,11 +24,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+#include <sys/time.h>
 
 #include <list>
 #include <string>
 #include <fstream>
-#include <sys/time.h>
+#include <set>
 
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
@@ -55,7 +50,7 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Pass.h"
 
-#include <set>
+#include "afl-llvm-common.h"
 
 using namespace llvm;
 
@@ -76,6 +71,8 @@ class AFLLTOPass : public ModulePass {
         FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is not between 0 and %d\n",
               ptr, MAP_SIZE - 1);
 
+    skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
+
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -86,74 +83,14 @@ class AFLLTOPass : public ModulePass {
 
   }
 
-  // Calculate the number of average collisions that would occur if all
-  // location IDs would be assigned randomly (like normal afl/afl++).
-  // This uses the "balls in bins" algorithm.
-  unsigned long long int calculateCollisions(uint32_t edges) {
-
-    double                 bins = MAP_SIZE;
-    double                 balls = edges;
-    double                 step1 = 1 - (1 / bins);
-    double                 step2 = pow(step1, balls);
-    double                 step3 = bins * step2;
-    double                 step4 = round(step3);
-    unsigned long long int empty = step4;
-    unsigned long long int collisions = edges - (MAP_SIZE - empty);
-    return collisions;
-
-  }
-
-  // Get the internal llvm name of a basic block
-  // This is an ugly debug support so it is commented out :-)
-  /*
-    static char *getBBName(const BasicBlock *BB) {
-
-      static char *name;
-
-      if (!BB->getName().empty()) {
-
-        name = strdup(BB->getName().str().c_str());
-        return name;
-
-      }
-
-      std::string        Str;
-      raw_string_ostream OS(Str);
-
-      BB->printAsOperand(OS, false);
-
-      name = strdup(OS.str().c_str());
-
-      return name;
-
-    }
-
-  */
-
-  static bool isBlacklisted(const Function *F) {
-
-    static const char *Blacklist[] = {
-
-        "asan.",  "llvm.", "sancov.",   "__ubsan_handle_", "ign.",
-        "__afl_", "_fini", "__libc_csu"
-
-    };
-
-    for (auto const &BlacklistFunc : Blacklist) {
-
-      if (F->getName().startswith(BlacklistFunc)) { return true; }
-
-    }
-
-    return false;
-
-  }
-
   bool runOnModule(Module &M) override;
 
  protected:
   int      afl_global_id = 1, debug = 0, autodictionary = 0;
+  uint32_t function_minimum_size = 1;
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, total_instr = 0;
+  uint64_t map_addr = 0x10000;
+  char *   skip_nozero = NULL;
 
 };
 
@@ -165,11 +102,11 @@ bool AFLLTOPass::runOnModule(Module &M) {
   std::vector<std::string>         dictionary;
   std::vector<CallInst *>          calls;
   DenseMap<Value *, std::string *> valueMap;
+  char *                           ptr;
 
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
-
-  if (getenv("AFL_DEBUG")) debug = 1;
+  IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
 
   /* Show a banner */
 
@@ -186,12 +123,65 @@ bool AFLLTOPass::runOnModule(Module &M) {
       getenv("AFL_LLVM_LTO_AUTODICTIONARY"))
     autodictionary = 1;
 
-  /* Get globals for the SHM region and the previous location. Note that
-     __afl_prev_loc is thread-local. */
+  if (getenv("AFL_LLVM_MAP_DYNAMIC")) map_addr = 0;
 
-  GlobalVariable *AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                         GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+  if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") ||
+      getenv("AFL_LLVM_SKIPSINGLEBLOCK"))
+    function_minimum_size = 2;
+
+  if ((ptr = getenv("AFL_LLVM_MAP_ADDR"))) {
+
+    uint64_t val;
+    if (!*ptr || !strcmp(ptr, "0") || !strcmp(ptr, "0x0")) {
+
+      map_addr = 0;
+
+    } else if (map_addr == 0) {
+
+      FATAL(
+          "AFL_LLVM_MAP_ADDR and AFL_LLVM_MAP_DYNAMIC cannot be used together");
+
+    } else if (strncmp(ptr, "0x", 2) != 0) {
+
+      map_addr = 0x10000;  // the default
+
+    } else {
+
+      val = strtoull(ptr, NULL, 16);
+      if (val < 0x100 || val > 0xffffffff00000000) {
+
+        FATAL(
+            "AFL_LLVM_MAP_ADDR must be a value between 0x100 and "
+            "0xffffffff00000000");
+
+      }
+
+      map_addr = val;
+
+    }
+
+  }
+
+  if (debug) { fprintf(stderr, "map address is %lu\n", map_addr); }
+
+  /* Get/set the globals for the SHM region. */
+
+  GlobalVariable *AFLMapPtr = NULL;
+  Value *         MapPtrFixed = NULL;
+
+  if (!map_addr) {
+
+    AFLMapPtr =
+        new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+                           GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+
+  } else {
+
+    ConstantInt *MapAddr = ConstantInt::get(Int64Ty, map_addr);
+    MapPtrFixed =
+        ConstantExpr::getIntToPtr(MapAddr, PointerType::getUnqual(Int8Ty));
+
+  }
 
   ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
   ConstantInt *One = ConstantInt::get(Int8Ty, 1);
@@ -202,7 +192,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   for (auto &F : M) {
 
-    if (F.size() < 2) continue;
+    // fprintf(stderr, "DEBUG: Function %s\n", F.getName().str().c_str());
+
+    if (F.size() < function_minimum_size) continue;
     if (isBlacklisted(&F)) continue;
 
     std::vector<BasicBlock *> InsBlocks;
@@ -339,11 +331,15 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
-                  if (auto *Array =
-                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+                  if (Var->hasInitializer()) {
 
-                    HasStr2 = true;
-                    Str2 = Array->getAsString().str();
+                    if (auto *Array = dyn_cast<ConstantDataArray>(
+                            Var->getInitializer())) {
+
+                      HasStr2 = true;
+                      Str2 = Array->getAsString().str();
+
+                    }
 
                   }
 
@@ -411,11 +407,15 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
 
-                  if (auto *Array =
-                          dyn_cast<ConstantDataArray>(Var->getInitializer())) {
+                  if (Var->hasInitializer()) {
 
-                    HasStr1 = true;
-                    Str1 = Array->getAsString().str();
+                    if (auto *Array = dyn_cast<ConstantDataArray>(
+                            Var->getInitializer())) {
+
+                      HasStr1 = true;
+                      Str1 = Array->getAsString().str();
+
+                    }
 
                   }
 
@@ -579,10 +579,20 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           /* Load SHM pointer */
 
-          LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-          MapPtr->setMetadata(M.getMDKindID("nosanitize"),
-                              MDNode::get(C, None));
-          Value *MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+          Value *MapPtrIdx;
+
+          if (map_addr) {
+
+            MapPtrIdx = IRB.CreateGEP(MapPtrFixed, CurLoc);
+
+          } else {
+
+            LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+            MapPtr->setMetadata(M.getMDKindID("nosanitize"),
+                                MDNode::get(C, None));
+            MapPtrIdx = IRB.CreateGEP(MapPtr, CurLoc);
+
+          }
 
           /* Update bitmap */
 
@@ -592,9 +602,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           Value *Incr = IRB.CreateAdd(Counter, One);
 
-          auto cf = IRB.CreateICmpEQ(Incr, Zero);
-          auto carry = IRB.CreateZExt(cf, Int8Ty);
-          Incr = IRB.CreateAdd(Incr, carry);
+          if (skip_nozero) {
+
+            auto cf = IRB.CreateICmpEQ(Incr, Zero);
+            auto carry = IRB.CreateZExt(cf, Int8Ty);
+            Incr = IRB.CreateAdd(Incr, carry);
+
+          }
+
           IRB.CreateStore(Incr, MapPtrIdx)
               ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
@@ -612,7 +627,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   // save highest location ID to global variable
   // do this after each function to fail faster
-  if (!be_quiet && afl_global_id > MAP_SIZE) {
+  if (!be_quiet && afl_global_id > MAP_SIZE &&
+      afl_global_id > FS_OPT_MAX_MAPSIZE) {
 
     uint32_t pow2map = 1, map = afl_global_id;
     while ((map = map >> 1))
@@ -627,7 +643,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-  if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL || dictionary.size()) {
+  if (!getenv("AFL_LLVM_LTO_DONTWRITEID") || dictionary.size() || map_addr) {
 
     // yes we could create our own function, insert it into ctors ...
     // but this would be a pain in the butt ... so we use afl-llvm-rt-lto.o
@@ -656,24 +672,29 @@ bool AFLLTOPass::runOnModule(Module &M) {
     BasicBlock::iterator IP = bb->getFirstInsertionPt();
     IRBuilder<>          IRB(&(*IP));
 
+    if (map_addr) {
+
+      GlobalVariable *AFLMapAddrFixed = new GlobalVariable(
+          M, Int64Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_map_addr");
+      ConstantInt *MapAddr = ConstantInt::get(Int64Ty, map_addr);
+      StoreInst *  StoreMapAddr = IRB.CreateStore(MapAddr, AFLMapAddrFixed);
+      StoreMapAddr->setMetadata(M.getMDKindID("nosanitize"),
+                                MDNode::get(C, None));
+
+    }
+
     if (getenv("AFL_LLVM_LTO_DONTWRITEID") == NULL) {
 
       uint32_t write_loc = afl_global_id;
 
       if (afl_global_id % 8) write_loc = (((afl_global_id + 8) >> 3) << 3);
 
-      if (write_loc <= MAP_SIZE && write_loc <= 0x800000) {
-
-        GlobalVariable *AFLFinalLoc = new GlobalVariable(
-            M, Int32Ty, true, GlobalValue::ExternalLinkage, 0,
-            "__afl_final_loc", 0, GlobalVariable::GeneralDynamicTLSModel, 0,
-            false);
-        ConstantInt *const_loc = ConstantInt::get(Int32Ty, write_loc);
-        StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
-        StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
-                                   MDNode::get(C, None));
-
-      }
+      GlobalVariable *AFLFinalLoc = new GlobalVariable(
+          M, Int32Ty, true, GlobalValue::ExternalLinkage, 0, "__afl_final_loc");
+      ConstantInt *const_loc = ConstantInt::get(Int32Ty, write_loc);
+      StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
+      StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
+                                 MDNode::get(C, None));
 
     }
 
@@ -718,10 +739,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         }
 
-        GlobalVariable *AFLDictionaryLen = new GlobalVariable(
-            M, Int32Ty, false, GlobalValue::ExternalLinkage, 0,
-            "__afl_dictionary_len", 0, GlobalVariable::GeneralDynamicTLSModel,
-            0, false);
+        GlobalVariable *AFLDictionaryLen =
+            new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage,
+                               0, "__afl_dictionary_len");
         ConstantInt *const_len = ConstantInt::get(Int32Ty, offset);
         StoreInst *StoreDictLen = IRB.CreateStore(const_len, AFLDictionaryLen);
         StoreDictLen->setMetadata(M.getMDKindID("nosanitize"),
@@ -732,8 +752,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
             M, ArrayTy, true, GlobalValue::ExternalLinkage,
             ConstantDataArray::get(C,
                                    *(new ArrayRef<char>((char *)ptr, offset))),
-            "__afl_internal_dictionary", 0,
-            GlobalVariable::GeneralDynamicTLSModel, 0, false);
+            "__afl_internal_dictionary");
         AFLInternalDictionary->setInitializer(ConstantDataArray::get(
             C, *(new ArrayRef<char>((char *)ptr, offset))));
         AFLInternalDictionary->setConstant(true);

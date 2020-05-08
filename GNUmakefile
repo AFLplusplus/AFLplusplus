@@ -52,10 +52,26 @@ endif
 
 ifneq "$(shell uname)" "Darwin"
  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-	CFLAGS_OPT = -march=native
+	CFLAGS_OPT += -march=native
  endif
  # OS X does not like _FORTIFY_SOURCE=2
  CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+endif
+
+ifdef STATIC
+  $(info Compiling static version of binaries)
+  # Disable python for static compilation to simplify things
+  PYTHON_OK=0
+  PYFLAGS=
+
+  CFLAGS_OPT += -static
+  LDFLAGS += -lm -lpthread -lz -lutil
+endif
+
+ifdef PROFILING
+  $(info Compiling with profiling information, for analysis: gprof ./afl-fuzz gmon.out > prof.txt)
+  CFLAGS_OPT += -pg -DPROFILING=1
+  LDFLAGS += -pg
 endif
 
 ifneq "$(shell uname -m)" "x86_64"
@@ -88,24 +104,50 @@ ifneq "$(shell command -v python3m 2>/dev/null)" ""
   endif
 endif
 
-ifneq "$(shell command -v python3 2>/dev/null)" ""
-  ifneq "$(shell command -v python3-config 2>/dev/null)" ""
-    PYTHON_INCLUDE  ?= $(shell python3-config --includes)
-    PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
-    # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
-    ifeq "$(shell python3-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
-      PYTHON_LIB      ?= $(shell python3-config --libs --embed --ldflags)
-    else
-      PYTHON_LIB      ?= $(shell python3-config --ldflags)
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python3 2>/dev/null)" ""
+    ifneq "$(shell command -v python3-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python3-config --includes)
+      PYTHON_VERSION  ?= $(strip $(shell python3 --version 2>&1))
+      # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
+      ifeq "$(shell python3-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
+        PYTHON_LIB      ?= $(shell python3-config --libs --embed --ldflags)
+      else
+        PYTHON_LIB      ?= $(shell python3-config --ldflags)
+      endif
     endif
   endif
 endif
 
-ifneq "$(shell command -v python 2>/dev/null)" ""
-  ifneq "$(shell command -v python-config 2>/dev/null)" ""
-    PYTHON_INCLUDE  ?= $(shell python-config --includes)
-    PYTHON_LIB      ?= $(shell python-config --ldflags)
-    PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python 2>/dev/null)" ""
+    ifneq "$(shell command -v python-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python-config --includes)
+      PYTHON_LIB      ?= $(shell python-config --ldflags)
+      PYTHON_VERSION  ?= $(strip $(shell python --version 2>&1))
+    endif
+  endif
+endif
+
+# Old Ubuntu and others dont have python/python3-config so we hardcode 3.7
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python3.7 2>/dev/null)" ""
+    ifneq "$(shell command -v python3.7-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python3.7-config --includes)
+      PYTHON_LIB      ?= $(shell python3.7-config --ldflags)
+      PYTHON_VERSION  ?= $(strip $(shell python3.7 --version 2>&1))
+    endif
+  endif
+endif
+
+# Old Ubuntu and others dont have python/python2-config so we hardcode 2.7
+ifeq "$(PYTHON_INCLUDE)" ""
+  ifneq "$(shell command -v python2.7 2>/dev/null)" ""
+    ifneq "$(shell command -v python2.7-config 2>/dev/null)" ""
+      PYTHON_INCLUDE  ?= $(shell python2.7-config --includes)
+      PYTHON_LIB      ?= $(shell python2.7-config --ldflags)
+      PYTHON_VERSION  ?= $(strip $(shell python2.7 --version 2>&1))
+    endif
   endif
 endif
 
@@ -116,23 +158,23 @@ else
 endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
-  LDFLAGS  += -ldl
+  LDFLAGS += -ldl
 endif
 
 ifneq "$(findstring FreeBSD, $(shell uname))" ""
-  CFLAGS += -pthread
-  LDFLAGS  += -lpthread
+  CFLAGS  += -pthread
+  LDFLAGS += -lpthread
 endif
 
 ifneq "$(findstring NetBSD, $(shell uname))" ""
-  CFLAGS += -pthread
-  LDFLAGS  += -lpthread
+  CFLAGS  += -pthread
+  LDFLAGS += -lpthread
 endif
 
 ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
-  TEST_CC   = afl-gcc
+  TEST_CC  = afl-gcc
 else
-  TEST_CC   = afl-clang
+  TEST_CC  = afl-clang
 endif
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
@@ -158,29 +200,13 @@ ifeq "$(shell svn proplist . 2>/dev/null && echo 1 || echo 0)" "1"
   IN_REPO=1
 endif
 
-ifdef STATIC
-  $(info Compiling static version of binaries)
-  # Disable python for static compilation to simplify things
-  PYTHON_OK=0
-  PYFLAGS=
-
-  CFLAGS += -static
-  LDFLAGS += -lm -lpthread -lz -lutil
-endif
-
 ASAN_CFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
-ASAN_LDFLAGS+=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
+ASAN_LDFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
 
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
   CFLAGS+=$(ASAN_CFLAGS)
   LDFLAGS+=$(ASAN_LDFLAGS)
-endif
-
-ifdef PROFILING
-  $(info Compiling profiling version of binaries)
-  CFLAGS+=-pg
-  LDFLAGS+=-pg
 endif
 
 ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
@@ -281,7 +307,7 @@ test_python:
 else
 
 test_python:
-	@echo "[-] You seem to need to install the package python3-dev or python2-dev (and perhaps python[23]-apt), but it is optional so we continue"
+	@echo "[-] You seem to need to install the package python3-dev, python2-dev or python-dev (and perhaps python[23]-apt), but it is optional so we continue"
 
 endif
 
@@ -315,7 +341,7 @@ src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.
 afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o | test_x86
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
-afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
+afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
 
 afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
@@ -333,27 +359,27 @@ document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/
 	$(CC) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
 
 test/unittests/unit_maybe_alloc.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_maybe_alloc.c $(AFL_FUZZ_FILES)
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
 
 test/unittests/unit_preallocable.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_preallocable.c $(AFL_FUZZ_FILES)
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
 
 unit_maybe_alloc: test/unittests/unit_maybe_alloc.o
-	$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	@$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_maybe_alloc
 
 test/unittests/unit_list.o : $(COMM_HDR) include/list.h test/unittests/unit_list.c $(AFL_FUZZ_FILES)
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
 
 unit_list: test/unittests/unit_list.o
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_list.o -o test/unittests/unit_list  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_list.o -o test/unittests/unit_list  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_list
 
 test/unittests/preallocable.o : $(COMM_HDR) include/afl-prealloc.h test/unittests/preallocable.c $(AFL_FUZZ_FILES)
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CFLAGS_FLTO) -c test/unittests/preallocable.c -o test/unittests/preallocable.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CFLAGS_FLTO) -c test/unittests/preallocable.c -o test/unittests/preallocable.o
 
 unit_preallocable: test/unittests/unit_preallocable.o
-	$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_preallocable
 
 unit_clean:
@@ -419,6 +445,7 @@ clean:
 	-$(MAKE) -C gcc_plugin clean
 	$(MAKE) -C libdislocator clean
 	$(MAKE) -C libtokencap clean
+	$(MAKE) -C examples/afl_network_proxy clean
 	$(MAKE) -C examples/socket_fuzzing clean
 	$(MAKE) -C examples/argv_fuzzing clean
 	$(MAKE) -C qemu_mode/unsigaction clean
@@ -426,7 +453,7 @@ clean:
 	$(MAKE) -C src/third_party/libradamsa/ clean
 	rm -rf qemu_mode/qemu-3.1.1
 ifeq "$(IN_REPO)" "1"
-	$(MAKE) -C unicorn_mode/unicornafl clean || true
+	test -d unicorn_mode/unicornafl && $(MAKE) -C unicorn_mode/unicornafl clean || true
 else
 	rm -rf qemu_mode/qemu-3.1.1.tar.xz
 	rm -rf unicorn_mode/unicornafl
@@ -435,13 +462,14 @@ endif
 deepclean:	clean
 	rm -rf qemu_mode/qemu-3.1.1.tar.xz
 	rm -rf unicorn_mode/unicornafl
-	git reset --hard || true
+	git reset --hard >/dev/null 2>&1 || true
 
 distrib: all radamsa
 	-$(MAKE) -C llvm_mode
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
+	$(MAKE) -C examples/afl_network_proxy
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	cd qemu_mode && sh ./build_qemu_support.sh
@@ -450,6 +478,7 @@ distrib: all radamsa
 binary-only: all radamsa
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
+	$(MAKE) -C examples/afl_network_proxy
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	cd qemu_mode && sh ./build_qemu_support.sh
@@ -460,6 +489,9 @@ source-only: all radamsa
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
+	#$(MAKE) -C examples/afl_network_proxy
+	#$(MAKE) -C examples/socket_fuzzing
+	#$(MAKE) -C examples/argv_fuzzing
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
@@ -495,6 +527,7 @@ install: all $(MANPAGES)
 	if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
 	if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
 	if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
+	if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
 
 	set -e; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-g++
 	set -e; if [ -f afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi

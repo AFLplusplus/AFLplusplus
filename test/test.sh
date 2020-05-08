@@ -81,7 +81,7 @@ test `uname -s` = 'Darwin' -o `uname -s` = 'FreeBSD' && {
 } || {
   AFL_GCC=afl-gcc
 }
-command -v gcc || AFL_GCC=afl-clang
+command -v gcc >/dev/null 2>&1 || AFL_GCC=afl-clang
 
 SYS=`uname -m`
 
@@ -802,7 +802,6 @@ test -e ../afl-qemu-trace && {
           echo CUT------------------------------------------------------------------CUT
           $ECHO "$RED[!] afl-fuzz is not working correctly with persistent qemu_mode"
           CODE=1
-          exit 1
         }
         rm -rf in out errors
       } || {
@@ -951,8 +950,15 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
   test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
     unset AFL_CC
     # Compile the vulnerable program
-    ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
-    ../afl-clang-fast -o test-custom-mutators test-multiple-mutators.c > /dev/null 2>&1
+    test -e ../afl-clang-fast && {
+      ../afl-clang-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+    } || {
+      test -e ../afl-gcc-fast && {
+        ../afl-gcc-fast -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+      } || {
+        ../afl-gcc -o test-custom-mutator test-custom-mutator.c > /dev/null 2>&1
+      }
+    }
     # Compile the custom mutator
     make -C ../examples/custom_mutators libexamplemutator.so > /dev/null 2>&1
     test -e test-custom-mutator -a -e ${CUSTOM_MUTATOR_PATH}/libexamplemutator.so && {

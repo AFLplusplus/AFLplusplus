@@ -10,6 +10,25 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.64d (develop):
+  - afl-fuzz:
+     - AFL_MAP_SIZE was not working correctly
+     - better python detection
+     - an old, old bug in afl that would show negative stability in rare
+       circumstances is now hopefully fixed
+  - llvm_mode:
+     - afl-clang-fast/lto now do not skip single block functions. This
+       behaviour can be reactivated with AFL_LLVM_SKIPSINGLEBLOCK
+     - if LLVM 11 is installed the posix shm_open+mmap is used and a fixed
+       address for the shared memory map is used as this increases the
+       fuzzing speed
+     - InsTrim now has an LTO version! :-) That is the best and fastest mode!
+     - fixes to LTO mode if instrumented edges > MAP_SIZE
+     - CTX and NGRAM can now be used together
+     - CTX and NGRAM are now also supported in CFG/INSTRIM mode
+     - AFL_LLVM_LAF_TRANSFORM_COMPARES could crash, fixed
+     - added AFL_LLVM_SKIP_NEVERZERO to skip the never zero coverage counter
+       implementation. For targets with few or no loops or heavily called
+       functions. Gives a small performance boost.
   - qemu_mode:
     - add information on PIE/PIC load addresses for 32 bit
     - better dependency checks
@@ -17,7 +36,16 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - better dependency checks
   - unicorn_mode:
     - better submodule handling
+  - afl-showmap: fix for -Q mode
+  - added examples/afl_network_proxy which allows to fuzz a target over the
+    network (not fuzzing tcp/ip services but running afl-fuzz on one system
+    and the target being on an embedded device)
+  - added examples/afl_untracer which does a binary-only fuzzing with the
+    modifications done in memory (intel32/64 and aarch64 support)
+  - added examples/afl_proxy which can be easily used to fuzz and instrument
+    non-standard things
   - all:
+    - forkserver communication now also used for error reporting
     - fix 32 bit build options
     - make clean now leaves qemu-3.1.1.tar.xz and the unicornafl directory
       intact if in a git/svn checkout - unless "deepclean" is used

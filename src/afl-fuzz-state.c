@@ -71,7 +71,7 @@ static void init_mopt_globals(afl_state_t *afl) {
 /* A global pointer to all instances is needed (for now) for signals to arrive
  */
 
-list_t afl_states = {.element_prealloc_count = 0};
+static list_t afl_states = {.element_prealloc_count = 0};
 
 /* Initializes an afl_state_t. */
 
@@ -81,7 +81,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   and out_size are NULL/0 by default. */
   memset(afl, 0, sizeof(afl_state_t));
 
-  if (!map_size) { afl->shm.map_size = MAP_SIZE; }
+  afl->shm.map_size = map_size ? map_size : MAP_SIZE;
 
   afl->w_init = 0.9;
   afl->w_end = 0.3;
@@ -395,6 +395,37 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->map_tmp_buf);
 
   list_remove(&afl_states, afl);
+
+}
+
+void afl_states_stop(void) {
+
+  /* We may be inside a signal handler.
+   Set flags first, send kill signals to child proceses later. */
+  LIST_FOREACH(&afl_states, afl_state_t, {
+
+    el->stop_soon = 1;
+
+  });
+
+  LIST_FOREACH(&afl_states, afl_state_t, {
+
+    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, SIGKILL);
+    if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, SIGKILL);
+
+  });
+
+}
+
+void afl_states_clear_screen(void) {
+
+  LIST_FOREACH(&afl_states, afl_state_t, { el->clear_screen = 1; });
+
+}
+
+void afl_states_request_skip(void) {
+
+  LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
 
 }
 

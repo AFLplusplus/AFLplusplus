@@ -617,11 +617,6 @@ typedef struct afl_state {
 
 } afl_state_t;
 
-/* A global pointer to all instances is needed (for now) for signals to arrive
- */
-
-extern list_t afl_states;
-
 struct custom_mutator {
 
   const char *name;
@@ -805,6 +800,14 @@ struct custom_mutator {
 
 void afl_state_init(afl_state_t *, uint32_t map_size);
 void afl_state_deinit(afl_state_t *);
+
+/* Set stop_soon flag on all childs, kill all childs */
+void afl_states_stop(void);
+/* Set clear_screen flag on all states */
+void afl_states_clear_screen(void);
+/* Sets the skip flag on all states */
+void afl_states_request_skip(void);
+
 void read_afl_environment(afl_state_t *, char **);
 
 /**** Prototypes ****/

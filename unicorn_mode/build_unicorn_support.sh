@@ -107,7 +107,7 @@ for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 
 done
 
-if ! type $EASY_INSTALL > /dev/null; then
+if ! command -v $EASY_INSTALL >/dev/null; then
 
   # work around for installs with executable easy_install
   EASY_INSTALL_FOUND=0
@@ -123,7 +123,7 @@ if ! type $EASY_INSTALL > /dev/null; then
 
     fi
   done
-  if [ '!' $EASY_INSTALL_FOUND ]; then
+  if [ "0" = $EASY_INSTALL_FOUND ]; then
 
     echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
     PREREQ_NOTFOUND=1
@@ -182,7 +182,8 @@ echo "[+] Configuration complete."
 echo "[*] Attempting to build unicornafl (fingers crossed!)..."
 
 $MAKECMD clean  # make doesn't seem to work for unicorn
-UNICORN_QEMU_FLAGS="--python=$PYTHONBIN" $MAKECMD -j$CORES || exit 1
+# Fixed to 1 core for now as there is a race condition in the makefile
+$MAKECMD -j1 || exit 1
 
 echo "[+] Build process successful!"
 
@@ -208,9 +209,9 @@ cd ../samples/simple || exit 1
 
 # Run afl-showmap on the sample application. If anything comes out then it must have worked!
 unset AFL_INST_RATIO
-echo 0 | ../../../afl-showmap -U -m none -t 2000 -q -o .test-instr0 -- $PYTHONBIN simple_test_harness.py ./sample_inputs/sample1.bin || exit 1
+echo 0 | ../../../afl-showmap -U -m none -t 2000 -q -o ./.test-instr0 -- $PYTHONBIN ./simple_test_harness.py ./sample_inputs/sample1.bin || exit 1
 
-if [ -s .test-instr0 ]
+if [ -s ./.test-instr0 ]
 then
 
   echo "[+] Instrumentation tests passed. "
@@ -226,6 +227,6 @@ else
 
 fi
 
-rm -f .test-instr0
+rm -f ./.test-instr0
 
 exit $RETVAL

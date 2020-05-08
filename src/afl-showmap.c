@@ -157,6 +157,8 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
   u8 cco = !!getenv("AFL_CMIN_CRASHES_ONLY"),
      caa = !!getenv("AFL_CMIN_ALLOW_ANY");
 
+  if (!outfile) { FATAL("Output filename not set (Bug in AFL++?)"); }
+
   if (!strncmp(outfile, "/dev/", 5)) {
 
     fd = open(outfile, O_WRONLY);
@@ -712,7 +714,6 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'Q':
 
         if (fsrv->qemu_mode) { FATAL("Multiple -Q options not supported"); }
-        if (!mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_QEMU; }
 
         fsrv->qemu_mode = 1;
         break;
@@ -720,7 +721,6 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'U':
 
         if (unicorn_mode) { FATAL("Multiple -U options not supported"); }
-        if (!mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
 
         unicorn_mode = 1;
         break;
@@ -730,8 +730,6 @@ int main(int argc, char **argv_orig, char **envp) {
         if (use_wine) { FATAL("Multiple -W options not supported"); }
         fsrv->qemu_mode = 1;
         use_wine = 1;
-
-        if (!mem_limit_given) { fsrv->mem_limit = 0; }
 
         break;
 
@@ -770,6 +768,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (optind == argc || !out_file) { usage(argv[0]); }
 
+  if (fsrv->qemu_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_QEMU; }
+  if (unicorn_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
+
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
@@ -798,12 +799,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  for (i = optind; i < argc; i++) {
-
-    if (strcmp(argv[i], "@@") == 0) { arg_offset = i; }
-
-  }
-
   if (fsrv->qemu_mode) {
 
     if (use_wine) {
@@ -821,6 +816,14 @@ int main(int argc, char **argv_orig, char **envp) {
   } else {
 
     use_argv = argv + optind;
+
+  }
+
+  i = 0;
+  while (use_argv[i] != NULL && !arg_offset) {
+
+    if (strcmp(use_argv[i], "@@") == 0) { arg_offset = i; }
+    i++;
 
   }
 
@@ -868,10 +871,9 @@ int main(int argc, char **argv_orig, char **envp) {
     fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
 
-    if (arg_offset && argv[arg_offset] != stdin_file) {
+    if (arg_offset && use_argv[arg_offset] != stdin_file) {
 
-      ck_free(argv[arg_offset]);
-      argv[arg_offset] = strdup(stdin_file);
+      use_argv[arg_offset] = strdup(stdin_file);
 
     }
 
@@ -886,8 +888,6 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       SAYF("\n");
-      SAYF(cMGN "[D]" cRST " %d - %d = %d, %s\n", arg_offset, optind,
-           arg_offset - optind, infile);
 
     }
 

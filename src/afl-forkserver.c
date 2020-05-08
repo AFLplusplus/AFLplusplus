@@ -53,7 +53,7 @@
 
 /* Describe integer as memory size. */
 
-list_t fsrv_list = {.element_prealloc_count = 0};
+static list_t fsrv_list = {.element_prealloc_count = 0};
 
 static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
@@ -67,7 +67,6 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
   // this structure needs default so we initialize it if this was not done
   // already
-
   fsrv->out_fd = -1;
   fsrv->out_dir_fd = -1;
   fsrv->dev_null_fd = -1;
@@ -83,7 +82,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
   /* exec related stuff */
   fsrv->child_pid = -1;
-  fsrv->map_size = MAP_SIZE;
+  fsrv->map_size = get_map_size();
   fsrv->use_fauxsrv = 0;
   fsrv->last_run_timed_out = 0;
 
@@ -196,6 +195,44 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
     /* Relay wait status to AFL pipe, then loop back. */
 
     if (write(FORKSRV_FD + 1, &status, 4) != 4) { exit(0); }
+
+  }
+
+}
+
+/* Report on the error received via the forkserver controller and exit */
+static void report_error_and_exit(int error) {
+
+  switch (error) {
+
+    case FS_ERROR_MAP_SIZE:
+      FATAL(
+          "AFL_MAP_SIZE is not set and fuzzing target reports that the "
+          "required size is very large. Solution: Run the fuzzing target "
+          "stand-alone with the environment variable AFL_DEBUG=1 set and set "
+          "the value for __afl_final_loc in the AFL_MAP_SIZE environment "
+          "variable for afl-fuzz.");
+      break;
+    case FS_ERROR_MAP_ADDR:
+      FATAL(
+          "the fuzzing target reports that hardcoded map address might be the "
+          "reason the mmap of the shared memory failed. Solution: recompile "
+          "the target with either afl-clang-lto and the environment variable "
+          "AFL_LLVM_MAP_DYNAMIC set or recompile with afl-clang-fast.");
+      break;
+    case FS_ERROR_SHM_OPEN:
+      FATAL("the fuzzing target reports that the shm_open() call failed.");
+      break;
+    case FS_ERROR_SHMAT:
+      FATAL("the fuzzing target reports that the shmat() call failed.");
+      break;
+    case FS_ERROR_MMAP:
+      FATAL(
+          "the fuzzing target reports that the mmap() call to the share memory "
+          "failed.");
+      break;
+    default:
+      FATAL("unknown error code %u from fuzzing target!", error);
 
   }
 
@@ -400,6 +437,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!be_quiet) { OKF("All right - fork server is up."); }
 
+    if ((status & FS_OPT_ERROR) == FS_OPT_ERROR)
+      report_error_and_exit(FS_OPT_GET_ERROR(status));
+
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
 
       if (!be_quiet && getenv("AFL_DEBUG")) {
@@ -434,9 +474,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
           FATAL(
               "Target's coverage map size of %u is larger than the one this "
-              "afl++ is set with (%u) (change MAP_SIZE_POW2 in config.h and "
-              "recompile or set AFL_MAP_SIZE)\n",
-              tmp_map_size, fsrv->map_size);
+              "afl++ is set with (%u). Either set AFL_MAP_SIZE=%u and restart "
+              " afl-fuzz, or change MAP_SIZE_POW2 in config.h and recompile "
+              "afl-fuzz",
+              tmp_map_size, fsrv->map_size, tmp_map_size);
 
         }
 
@@ -749,8 +790,6 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   s32 res;
   u32 exec_ms;
 
-  int status = 0;
-
   /* After this memset, fsrv->trace_bits[] are effectively volatile, so we
      must prevent any earlier operations from venturing into that
      territory. */
@@ -780,7 +819,8 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   if (fsrv->child_pid <= 0) { FATAL("Fork server is misbehaving (OOM?)"); }
 
-  exec_ms = read_timed(fsrv->fsrv_st_fd, &status, 4, timeout, stop_soon_p);
+  exec_ms = read_timed(fsrv->fsrv_st_fd, &fsrv->child_status, 4, timeout,
+                       stop_soon_p);
 
   if (exec_ms > timeout) {
 
@@ -789,7 +829,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
     kill(fsrv->child_pid, SIGKILL);
     fsrv->last_run_timed_out = 1;
-    if (read(fsrv->fsrv_st_fd, &status, 4) < 4) { exec_ms = 0; }
+    if (read(fsrv->fsrv_st_fd, &fsrv->child_status, 4) < 4) { exec_ms = 0; }
 
   }
 
@@ -821,7 +861,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-  if (!WIFSTOPPED(status)) { fsrv->child_pid = 0; }
+  if (!WIFSTOPPED(fsrv->child_status)) { fsrv->child_pid = 0; }
 
   fsrv->total_execs++;
 
@@ -833,9 +873,9 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   /* Report outcome to caller. */
 
-  if (WIFSIGNALED(status) && !*stop_soon_p) {
+  if (WIFSIGNALED(fsrv->child_status) && !*stop_soon_p) {
 
-    fsrv->last_kill_signal = WTERMSIG(status);
+    fsrv->last_kill_signal = WTERMSIG(fsrv->child_status);
 
     if (fsrv->last_run_timed_out && fsrv->last_kill_signal == SIGKILL) {
 
@@ -850,7 +890,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   /* A somewhat nasty hack for MSAN, which doesn't support abort_on_error and
      must use a special exit code. */
 
-  if (fsrv->uses_asan && WEXITSTATUS(status) == MSAN_ERROR) {
+  if (fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) {
 
     fsrv->last_kill_signal = 0;
     return FSRV_RUN_CRASH;

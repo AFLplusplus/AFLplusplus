@@ -85,7 +85,7 @@
 
   (3) partially via AFL_CODE_START/AFL_CODE_END
 
-  (4) Only for LLVM >= 9 and not all targets compile
+  (4) Only for LLVM >= 11 and not all targets compile
 
   (5) upcoming, development in the branch
 
@@ -137,7 +137,7 @@ afl++ has many build options.
 The easiest is to build and install everything:
 
 ```shell
-$ sudo apt install build-essential libtool-bin python3 automake bison libglib2.0-dev libpixman-1-dev clang python-setuptools
+$ sudo apt install build-essential libtool-bin python3 automake flex bison libglib2.0-dev libpixman-1-dev clang python-setuptools llvm
 $ make distrib
 $ sudo make install
 ```
