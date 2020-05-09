@@ -72,7 +72,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       "start_time        : %llu\n"
       "last_update       : %llu\n"
       "run_time          : %llu\n"
-      "fuzzer_pid        : %d\n"
+      "fuzzer_pid        : %u\n"
       "cycles_done       : %llu\n"
       "cycles_wo_finds   : %llu\n"
       "execs_done        : %llu\n"
@@ -106,7 +106,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       "target_mode       : %s%s%s%s%s%s%s%s\n"
       "command_line      : %s\n",
       afl->start_time / 1000, cur_time / 1000,
-      (cur_time - afl->start_time) / 1000, getpid(),
+      (cur_time - afl->start_time) / 1000, (u32)getpid(),
       afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
       afl->fsrv.total_execs,
       afl->fsrv.total_execs /

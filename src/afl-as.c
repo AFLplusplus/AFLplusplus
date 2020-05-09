@@ -233,7 +233,7 @@ static void edit_params(int argc, char **argv) {
   }
 
   modified_file =
-      alloc_printf("%s/.afl-%u-%u.s", tmp_dir, getpid(), (u32)time(NULL));
+      alloc_printf("%s/.afl-%u-%u.s", tmp_dir, (u32)getpid(), (u32)time(NULL));
 
 wrap_things_up:
 
