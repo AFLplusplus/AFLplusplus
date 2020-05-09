@@ -28,15 +28,15 @@
 
 struct custom_mutator *load_custom_mutator(afl_state_t *, const char *);
 #ifdef USE_PYTHON
-struct custom_mutator * load_custom_mutator_py(afl_state_t *, char *);
+struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 #endif
 
 void setup_custom_mutators(afl_state_t *afl) {
 
   /* Try mutator library first */
-  struct custom_mutator * mutator;
-  u8 *                   fn = getenv("AFL_CUSTOM_MUTATOR_LIBRARY");
-  u32 prev_mutator_count = 0;
+  struct custom_mutator *mutator;
+  u8 *                   fn = afl->afl_env.afl_custom_mutator_library;
+  u32                    prev_mutator_count = 0;
 
   if (fn) {
 
@@ -44,9 +44,9 @@ void setup_custom_mutators(afl_state_t *afl) {
       FATAL(
           "MOpt and custom mutator are mutually exclusive. We accept pull "
           "requests that integrates MOpt with the optional mutators "
-          "(custom/radamsa/redquenn/...).");
+          "(custom/radamsa/redqueen/...).");
 
-    u8 *fn_token = (u8 *)strsep((char **)&fn, ";");
+    u8 *fn_token = (u8 *)strsep((char **)&fn, ";:,");
 
     if (likely(!fn_token)) {
 
@@ -58,14 +58,22 @@ void setup_custom_mutators(afl_state_t *afl) {
 
       while (fn_token) {
 
-        prev_mutator_count = afl->custom_mutators_count;
-        mutator = load_custom_mutator(afl, fn_token);
-        list_append(&afl->custom_mutator_list, mutator);
-        afl->custom_mutators_count++;
-        if (prev_mutator_count > afl->custom_mutators_count) FATAL("Maximum Custom Mutator count reached.");
-        fn_token = (u8 *)strsep((char **)&fn, ";");
+        if (*fn_token) {  // strsep can be empty if ";;"
+
+          if (afl->not_on_tty && afl->debug)
+            SAYF("[Custom] Processing: %s\n", fn_token);
+          prev_mutator_count = afl->custom_mutators_count;
+          mutator = load_custom_mutator(afl, fn_token);
+          list_append(&afl->custom_mutator_list, mutator);
+          afl->custom_mutators_count++;
+          if (prev_mutator_count > afl->custom_mutators_count)
+            FATAL("Maximum Custom Mutator count reached.");
+          fn_token = (u8 *)strsep((char **)&fn, ";:,");
+
+        }
 
       }
+
     }
 
   }
@@ -85,7 +93,7 @@ void setup_custom_mutators(afl_state_t *afl) {
 
     }
 
-    struct custom_mutator * mutator = load_custom_mutator_py(afl, module_name);
+    struct custom_mutator *mutator = load_custom_mutator_py(afl, module_name);
     afl->custom_mutators_count++;
     list_append(&afl->custom_mutator_list, mutator);
 
@@ -113,14 +121,16 @@ void destroy_custom_mutators(afl_state_t *afl) {
       if (el->dh) dlclose(el->dh);
 
       if (el->pre_save_buf) {
+
         ck_free(el->pre_save_buf);
         el->pre_save_buf = NULL;
         el->pre_save_size = 0;
+
       }
 
       ck_free(el);
 
-    } );
+    });
 
   }
 
@@ -212,17 +222,18 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   /* Initialize the custom mutator */
   if (mutator->afl_custom_init)
-    mutator->data = 
-      mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
+    mutator->data = mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
 
   mutator->stacked_custom = (mutator && mutator->afl_custom_havoc_mutation);
-  mutator->stacked_custom_prob = 6; // like one of the default mutations in havoc
+  mutator->stacked_custom_prob =
+      6;  // like one of the default mutations in havoc
 
   return mutator;
 
 }
 
-u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf, struct custom_mutator *mutator) {
+u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
+                    struct custom_mutator *mutator) {
 
   u8  needs_write = 0, fault = 0;
   u32 trim_exec = 0;
@@ -235,8 +246,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf, struct 
 
   /* Initialize trimming in the custom mutator */
   afl->stage_cur = 0;
-  afl->stage_max =
-      mutator->afl_custom_init_trim(mutator->data, in_buf, q->len);
+  afl->stage_max = mutator->afl_custom_init_trim(mutator->data, in_buf, q->len);
   if (unlikely(afl->stage_max) < 0) {
 
     FATAL("custom_init_trim error ret: %d", afl->stage_max);
@@ -299,8 +309,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf, struct 
       }
 
       /* Tell the custom mutator that the trimming was successful */
-      afl->stage_cur =
-          mutator->afl_custom_post_trim(mutator->data, 1);
+      afl->stage_cur = mutator->afl_custom_post_trim(mutator->data, 1);
 
       if (afl->not_on_tty && afl->debug) {
 
@@ -312,8 +321,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf, struct 
     } else {
 
       /* Tell the custom mutator that the trimming was unsuccessful */
-      afl->stage_cur =
-          mutator->afl_custom_post_trim(mutator->data, 0);
+      afl->stage_cur = mutator->afl_custom_post_trim(mutator->data, 0);
       if (unlikely(afl->stage_cur < 0)) {
 
         FATAL("Error ret in custom_post_trim: %d", afl->stage_cur);

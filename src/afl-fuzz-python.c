@@ -295,9 +295,10 @@ void deinit_py(void *py_mutator) {
 
 }
 
-struct custom_mutator * load_custom_mutator_py(afl_state_t *afl, char *module_name) {
+struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
+                                              char *       module_name) {
 
-  struct custom_mutator * mutator;
+  struct custom_mutator *mutator;
 
   mutator = ck_alloc(sizeof(struct custom_mutator));
   mutator->pre_save_buf = NULL;
@@ -313,17 +314,9 @@ struct custom_mutator * load_custom_mutator_py(afl_state_t *afl, char *module_na
 
   PyObject **py_functions = py_mutator->py_functions;
 
-  if (py_functions[PY_FUNC_INIT]) {
+  if (py_functions[PY_FUNC_INIT]) { mutator->afl_custom_init = unsupported; }
 
-    mutator->afl_custom_init = unsupported;
-
-  }
-
-  if (py_functions[PY_FUNC_DEINIT]) {
-
-    mutator->afl_custom_deinit = deinit_py;
-
-  }
+  if (py_functions[PY_FUNC_DEINIT]) { mutator->afl_custom_deinit = deinit_py; }
 
   /* "afl_custom_fuzz" should not be NULL, but the interface of Python mutator
      is quite different from the custom mutator. */
@@ -373,8 +366,6 @@ struct custom_mutator * load_custom_mutator_py(afl_state_t *afl, char *module_na
     mutator->afl_custom_queue_new_entry = queue_new_entry_py;
 
   }
-
-  
 
   OKF("Python mutator '%s' installed successfully.", module_name);
 

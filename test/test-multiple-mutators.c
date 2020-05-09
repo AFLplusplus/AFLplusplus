@@ -9,16 +9,16 @@
 #include <string.h>
 #include <unistd.h>
 
-int main(int argc, char ** argv)
-{
-    int a=0;
-    char s[16];
-    memset(s, 0, 16);
-    read(0, s, 0xa0);
+int main(int argc, char **argv) {
 
-    if ( s[17] != '\x00') {
-        abort();
-    }
+  int  a = 0;
+  char s[16];
+  memset(s, 0, 16);
+  read(0, s, 0xa0);
 
-    return 0;
+  if (s[17] != '\x00') { abort(); }
+
+  return 0;
+
 }
+

@@ -605,9 +605,9 @@ typedef struct afl_state {
   u8 *   in_scratch_buf;
   size_t in_scratch_size;
 
-  u8 *    ex_buf;
-  size_t  ex_size;
-  u32 custom_mutators_count;
+  u8 *   ex_buf;
+  size_t ex_size;
+  u32    custom_mutators_count;
 
   list_t custom_mutator_list;
 
@@ -623,8 +623,7 @@ struct custom_mutator {
   void *      dh;
   u8 *        pre_save_buf;
   size_t      pre_save_size;
-  u8  stacked_custom_prob,
-      stacked_custom;
+  u8          stacked_custom_prob, stacked_custom;
 
   void *data;                                    /* custom mutator data ptr */
 
@@ -815,13 +814,14 @@ void read_afl_environment(afl_state_t *, char **);
 /* Custom mutators */
 void setup_custom_mutators(afl_state_t *);
 void destroy_custom_mutators(afl_state_t *);
-u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf, struct custom_mutator * mutator);
+u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
+                      struct custom_mutator *mutator);
 
 /* Python */
 #ifdef USE_PYTHON
 
-struct custom_mutator * load_custom_mutator_py(afl_state_t *, char *);
-void finalize_py_module(void *);
+struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
+void                   finalize_py_module(void *);
 
 size_t pre_save_py(void *, u8 *, size_t, u8 **);
 s32    init_trim_py(void *, u8 *, size_t);

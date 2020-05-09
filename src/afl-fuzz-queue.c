@@ -144,16 +144,18 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-      if ( el->afl_custom_queue_new_entry) {
+      if (el->afl_custom_queue_new_entry) {
+
         u8 *fname_orig = NULL;
 
         /* At the initialization stage, queue_cur is NULL */
         if (afl->queue_cur) fname_orig = afl->queue_cur->fname;
 
         el->afl_custom_queue_new_entry(el->data, fname, fname_orig);
+
       }
 
-    } );
+    });
 
   }
 
