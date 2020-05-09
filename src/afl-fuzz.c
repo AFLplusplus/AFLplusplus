@@ -648,10 +648,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         afl->limit_time_puppet = limit_time_puppet2;
-
-        SAYF("limit_time_puppet %d\n", afl->limit_time_puppet);
         afl->swarm_now = 0;
-
         if (afl->limit_time_puppet == 0) { afl->key_puppet = 1; }
 
         int i;
