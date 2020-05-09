@@ -91,22 +91,22 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
   if (unlikely(afl->custom_mutators_count)) {
 
-    u8 *new_buf = NULL;
+    u8 *    new_buf = NULL;
     ssize_t new_size = len;
-    void * new_mem = mem;
+    void *  new_mem = mem;
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
       if (el->afl_custom_pre_save) {
-        new_size = el->afl_custom_pre_save(
-          el->data, new_mem, new_size, &new_buf
-        );
+
+        new_size =
+            el->afl_custom_pre_save(el->data, new_mem, new_size, &new_buf);
 
       }
 
       new_mem = new_buf;
 
-    } );
+    });
 
     if (unlikely(!new_buf && (new_size <= 0))) {
 
@@ -123,7 +123,6 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
       afl_fsrv_write_to_testcase(&afl->fsrv, mem, len);
 
     }
-
 
   } else {
 
@@ -535,21 +534,22 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   /* Custom mutator trimmer */
   if (afl->custom_mutators_count) {
 
-    u8 trimmed_case = 0;
+    u8   trimmed_case = 0;
     bool custom_trimmed = false;
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
       if (el->afl_custom_trim) {
-        
+
         trimmed_case = trim_case_custom(afl, q, in_buf, el);
         custom_trimmed = true;
+
       }
 
-    } );
+    });
 
     if (custom_trimmed) return trimmed_case;
-    
+
   }
 
   u8  needs_write = 0, fault = 0;

@@ -384,17 +384,21 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
 #else
 
-  if (unlikely(afl->custom_mutators_count )) {
+  if (unlikely(afl->custom_mutators_count)) {
 
     /* The custom mutator will decide to skip this test case or not. */
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-      if (el->afl_custom_queue_get && !el->afl_custom_queue_get(el->data, afl->queue_cur->fname)) {
+      if (el->afl_custom_queue_get &&
+          !el->afl_custom_queue_get(el->data, afl->queue_cur->fname)) {
+
         return 1;
+
       }
 
-    } );
+    });
+
   }
 
   if (likely(afl->pending_favored)) {
@@ -1660,13 +1664,14 @@ custom_mutator_stage:
 
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
-  LIST_FOREACH (&afl->custom_mutator_list, struct custom_mutator, {
+  LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-    if ( el->afl_custom_fuzz ) {
+    if (el->afl_custom_fuzz) {
 
       has_custom_fuzz = true;
 
-      for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
+      for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
+           ++afl->stage_cur) {
 
         struct queue_entry *target;
         u32                 tid;
@@ -1698,7 +1703,7 @@ custom_mutator_stage:
         /* Make sure that the target has a reasonable length. */
 
         while (target && (target->len < 2 || target == afl->queue_cur) &&
-              afl->queued_paths > 1) {
+               afl->queued_paths > 1) {
 
           target = target->next;
           ++afl->splicing_with;
@@ -1717,9 +1722,9 @@ custom_mutator_stage:
 
         u8 *mutated_buf = NULL;
 
-        size_t mutated_size = el->afl_custom_fuzz(
-            el->data, out_buf, len, &mutated_buf, new_buf, target->len,
-            max_seed_size);
+        size_t mutated_size =
+            el->afl_custom_fuzz(el->data, out_buf, len, &mutated_buf, new_buf,
+                                target->len, max_seed_size);
 
         if (unlikely(!mutated_buf)) {
 
@@ -1754,15 +1759,15 @@ custom_mutator_stage:
         }
 
         /* `(afl->)out_buf` may have been changed by the call to custom_fuzz */
-        /* TODO: Only do this when `mutated_buf` == `out_buf`? Branch vs Memcpy. */
+        /* TODO: Only do this when `mutated_buf` == `out_buf`? Branch vs Memcpy.
+         */
         memcpy(out_buf, in_buf, len);
 
       }
 
     }
 
-
-  } );
+  });
 
   if (!has_custom_fuzz) goto havoc_stage;
 
@@ -1827,14 +1832,15 @@ havoc_stage:
         if (el->stacked_custom_prob > 100) {
 
           FATAL(
-              "The probability returned by afl_custom_havoc_mutation_propability "
+              "The probability returned by "
+              "afl_custom_havoc_mutation_propability "
               "has to be in the range 0-100.");
 
         }
 
       }
-    
-    } );
+
+    });
 
   }
 
@@ -1850,10 +1856,11 @@ havoc_stage:
     for (i = 0; i < use_stacking; ++i) {
 
       if (afl->custom_mutators_count) {
-      
+
         LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-          if (el->stacked_custom && rand_below(afl, 100) < el->stacked_custom_prob) {
+          if (el->stacked_custom &&
+              rand_below(afl, 100) < el->stacked_custom_prob) {
 
             u8 *   custom_havoc_buf = NULL;
             size_t new_len = el->afl_custom_havoc_mutation(
@@ -1877,8 +1884,9 @@ havoc_stage:
             }
 
           }
-    
-        } );
+
+        });
+
       }
 
       switch (rand_below(
