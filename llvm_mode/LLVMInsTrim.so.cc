@@ -103,7 +103,6 @@ struct InsTrim : public ModulePass {
   bool runOnModule(Module &M) override {
 
     char be_quiet = 0;
-    int  ngram_size = 0;
 
     if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
@@ -144,6 +143,7 @@ struct InsTrim : public ModulePass {
     char *ctx_str = getenv("AFL_LLVM_CTX");
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
+    int  ngram_size = 0;
     /* Decide previous location vector size (must be a power of two) */
     VectorType *PrevLocTy;
 
@@ -341,6 +341,7 @@ struct InsTrim : public ModulePass {
           if (MS.find(&BB) == MS.end()) { continue; }
           IRBuilder<> IRB(&*BB.getFirstInsertionPt());
 
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
           if (ngram_size) {
 
             LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
@@ -357,7 +358,9 @@ struct InsTrim : public ModulePass {
                 ->setMetadata(M.getMDKindID("nosanitize"),
                               MDNode::get(C, None));
 
-          } else {
+          } else
+#endif
+          {
 
             IRB.CreateStore(ConstantInt::get(Int32Ty, genLabel()), AFLPrevLoc);
 
