@@ -25,7 +25,7 @@
 #define AFL_MAIN
 
 #ifdef __ANDROID__
-#  include "android-ashmem.h"
+#include "android-ashmem.h"
 #endif
 
 #include "config.h"
@@ -62,7 +62,7 @@
 #include <netdb.h>
 
 #ifdef USE_DEFLATE
-#  include <libdeflate.h>
+#include <libdeflate.h>
 struct libdeflate_compressor *  compressor;
 struct libdeflate_decompressor *decompressor;
 #endif

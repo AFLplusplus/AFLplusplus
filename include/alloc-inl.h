@@ -45,39 +45,40 @@
 
 /* User-facing macro to sprintf() to a dynamically allocated buffer. */
 
-#  define alloc_printf(_str...)                        \
-    ({                                                 \
-      u8 *_tmp;                                        \
-      s32 _len = snprintf(NULL, 0, _str);              \
-      if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
-      _tmp = ck_alloc(_len + 1);                       \
-      snprintf((char *)_tmp, _len + 1, _str);          \
-      _tmp;                                            \
-
-    })
+#define alloc_printf(_str...)                        \
+  ({                                                 \
+                                                     \
+    u8 *_tmp;                                        \
+    s32 _len = snprintf(NULL, 0, _str);              \
+    if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
+    _tmp = ck_alloc(_len + 1);                       \
+    snprintf((char *)_tmp, _len + 1, _str);          \
+    _tmp;                                            \
+                                                     \
+  })
 
 /* Macro to enforce allocation limits as a last-resort defense against
    integer overflows. */
 
-#  define ALLOC_CHECK_SIZE(_s)                                          \
-    do {                                                                \
-      if ((_s) > MAX_ALLOC) ABORT("Bad alloc request: %u bytes", (_s)); \
-                                                                        \
-
-    } while (0)
+#define ALLOC_CHECK_SIZE(_s)                                          \
+  do {                                                                \
+                                                                      \
+    if ((_s) > MAX_ALLOC) ABORT("Bad alloc request: %u bytes", (_s)); \
+                                                                      \
+  } while (0)
 
 /* Macro to check malloc() failures and the like. */
 
-#  define ALLOC_CHECK_RESULT(_r, _s)                                    \
-    do {                                                                \
-      if (!(_r)) ABORT("Out of memory: can't allocate %u bytes", (_s)); \
-                                                                        \
-
-    } while (0)
+#define ALLOC_CHECK_RESULT(_r, _s)                                    \
+  do {                                                                \
+                                                                      \
+    if (!(_r)) ABORT("Out of memory: can't allocate %u bytes", (_s)); \
+                                                                      \
+  } while (0)
 
 /* Allocator increments for ck_realloc_block(). */
 
-#  define ALLOC_BLK_INC 256
+#define ALLOC_BLK_INC 256
 
 /* Allocate a buffer, explicitly not zeroing it. Returns NULL for zero-sized
    requests. */
@@ -213,103 +214,112 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
 
 }
 
-/* In non-debug mode, we just do straightforward aliasing of the above functions
-   to user-visible names such as ck_alloc(). */
+/* In non-debug mode, we just do straightforward aliasing of the above
+   functions to user-visible names such as ck_alloc(). */
 
-#  define ck_alloc DFL_ck_alloc
-#  define ck_alloc_nozero DFL_ck_alloc_nozero
-#  define ck_realloc DFL_ck_realloc
-#  define ck_realloc_block DFL_ck_realloc_block
-#  define ck_strdup DFL_ck_strdup
-#  define ck_memdup DFL_ck_memdup
-#  define ck_memdup_str DFL_ck_memdup_str
-#  define ck_free DFL_ck_free
+#define ck_alloc DFL_ck_alloc
+#define ck_alloc_nozero DFL_ck_alloc_nozero
+#define ck_realloc DFL_ck_realloc
+#define ck_realloc_block DFL_ck_realloc_block
+#define ck_strdup DFL_ck_strdup
+#define ck_memdup DFL_ck_memdup
+#define ck_memdup_str DFL_ck_memdup_str
+#define ck_free DFL_ck_free
 
-#  define alloc_report()
+#define alloc_report()
 
 #else
 // This is the original alloc-inl of stock afl
 
 /* User-facing macro to sprintf() to a dynamically allocated buffer. */
 
-#  define alloc_printf(_str...)                        \
+#define alloc_printf(_str...) \
     ({                                                 \
+                                                       \
+                                                       \
       u8 *_tmp;                                        \
       s32 _len = snprintf(NULL, 0, _str);              \
       if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
       _tmp = ck_alloc(_len + 1);                       \
       snprintf((char *)_tmp, _len + 1, _str);          \
-      _tmp;                                            \
+      _tmp;
 
-    })
+})
 
 /* Macro to enforce allocation limits as a last-resort defense against
    integer overflows. */
+#define ALLOC_CHECK_SIZE(_s) \
+  do {                       \
+                             \
+    if ((_s) > MAX_ALLOC) ABORT("Bad alloc request: %u bytes", (_s));
 
-#  define ALLOC_CHECK_SIZE(_s)                                          \
-    do {                                                                \
-      if ((_s) > MAX_ALLOC) ABORT("Bad alloc request: %u bytes", (_s)); \
-                                                                        \
+}
 
-    } while (0)
+while (0)
 
 /* Macro to check malloc() failures and the like. */
 
-#  define ALLOC_CHECK_RESULT(_r, _s)                                    \
-    do {                                                                \
-      if (!(_r)) ABORT("Out of memory: can't allocate %u bytes", (_s)); \
-                                                                        \
+#define ALLOC_CHECK_RESULT(_r, _s) \
+  do {                             \
+                                   \
+    if (!(_r)) ABORT("Out of memory: can't allocate %u bytes", (_s));
 
-    } while (0)
+}
+
+while (0)
 
 /* Magic tokens used to mark used / freed chunks. */
 
-#  define ALLOC_MAGIC_C1 0xFF00FF00                   /* Used head (dword)  */
-#  define ALLOC_MAGIC_F 0xFE00FE00                    /* Freed head (dword) */
-#  define ALLOC_MAGIC_C2 0xF0                         /* Used tail (byte)   */
+#define ALLOC_MAGIC_C1 0xFF00FF00                     /* Used head (dword)  */
+#define ALLOC_MAGIC_F 0xFE00FE00                      /* Freed head (dword) */
+#define ALLOC_MAGIC_C2 0xF0                           /* Used tail (byte)   */
 
 /* Positions of guard tokens in relation to the user-visible pointer. */
 
-#  define ALLOC_C1(_ptr) (((u32 *)(_ptr))[-2])
-#  define ALLOC_S(_ptr) (((u32 *)(_ptr))[-1])
-#  define ALLOC_C2(_ptr) (((u8 *)(_ptr))[ALLOC_S(_ptr)])
+#define ALLOC_C1(_ptr) (((u32 *)(_ptr))[-2])
+#define ALLOC_S(_ptr) (((u32 *)(_ptr))[-1])
+#define ALLOC_C2(_ptr) (((u8 *)(_ptr))[ALLOC_S(_ptr)])
 
-#  define ALLOC_OFF_HEAD 8
-#  define ALLOC_OFF_TOTAL (ALLOC_OFF_HEAD + 1)
+#define ALLOC_OFF_HEAD 8
+#define ALLOC_OFF_TOTAL (ALLOC_OFF_HEAD + 1)
 
 /* Allocator increments for ck_realloc_block(). */
 
-#  define ALLOC_BLK_INC 256
+#define ALLOC_BLK_INC 256
 
 /* Sanity-checking macros for pointers. */
 
-#  define CHECK_PTR(_p)                            \
-    do {                                           \
-      if (_p) {                                    \
-        if (ALLOC_C1(_p) ^ ALLOC_MAGIC_C1) {       \
-          if (ALLOC_C1(_p) == ALLOC_MAGIC_F)       \
-            ABORT("Use after free.");              \
-          else                                     \
-            ABORT("Corrupted head alloc canary."); \
+#define CHECK_PTR(_p)                      \
+  do {                                     \
+                                           \
+    if (_p) {                              \
+                                           \
+      if (ALLOC_C1(_p) ^ ALLOC_MAGIC_C1) { \
+                                           \
+        if (ALLOC_C1(_p) == ALLOC_MAGIC_F) \
+          ABORT("Use after free.");        \
+        else                               \
+          ABORT("Corrupted head alloc canary.");
 
-        }                                          \
+}
 
-        if (ALLOC_C2(_p) ^ ALLOC_MAGIC_C2)         \
-          ABORT("Corrupted tail alloc canary.");   \
+if (ALLOC_C2(_p) ^ ALLOC_MAGIC_C2) ABORT("Corrupted tail alloc canary.");
 
-      }                                            \
+}
 
-                                                   \
+}
 
-    } while (0)
+while (0)
 
-#  define CHECK_PTR_EXPR(_p)  \
+#define CHECK_PTR_EXPR(_p) \
     ({                        \
+                              \
+                              \
       typeof(_p) _tmp = (_p); \
       CHECK_PTR(_tmp);        \
-      _tmp;                   \
+      _tmp;
 
-    })
+})
 
 /* Allocate a buffer, explicitly not zeroing it. Returns NULL for zero-sized
    requests. */
@@ -355,13 +365,12 @@ static inline void DFL_ck_free(void *mem) {
   if (!mem) return;
 
   CHECK_PTR(mem);
-
-#  ifdef DEBUG_BUILD
+#ifdef DEBUG_BUILD
 
   /* Catch pointer issues sooner. */
   memset(mem, 0xFF, ALLOC_S(mem));
 
-#  endif                                                     /* DEBUG_BUILD */
+#endif                                                       /* DEBUG_BUILD */
 
   ALLOC_C1(mem) = ALLOC_MAGIC_F;
 
@@ -389,9 +398,9 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
     CHECK_PTR(orig);
 
-#  ifndef DEBUG_BUILD
+#ifndef DEBUG_BUILD
     ALLOC_C1(orig) = ALLOC_MAGIC_F;
-#  endif                                                    /* !DEBUG_BUILD */
+#endif                                                      /* !DEBUG_BUILD */
 
     old_size = ALLOC_S(orig);
     orig -= ALLOC_OFF_HEAD;
@@ -402,12 +411,12 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
   ALLOC_CHECK_SIZE(size);
 
-#  ifndef DEBUG_BUILD
+#ifndef DEBUG_BUILD
 
   ret = realloc(orig, size + ALLOC_OFF_TOTAL);
   ALLOC_CHECK_RESULT(ret, size);
 
-#  else
+#else
 
   /* Catch pointer issues sooner: force relocation and make sure that the
      original buffer is wiped. */
@@ -426,7 +435,7 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
   }
 
-#  endif                                                   /* ^!DEBUG_BUILD */
+#endif                                                     /* ^!DEBUG_BUILD */
 
   ret += ALLOC_OFF_HEAD;
 
@@ -445,7 +454,7 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
 static inline void *DFL_ck_realloc_block(void *orig, u32 size) {
 
-#  ifndef DEBUG_BUILD
+#ifndef DEBUG_BUILD
 
   if (orig) {
 
@@ -457,7 +466,7 @@ static inline void *DFL_ck_realloc_block(void *orig, u32 size) {
 
   }
 
-#  endif                                                    /* !DEBUG_BUILD */
+#endif                                                      /* !DEBUG_BUILD */
 
   return DFL_ck_realloc(orig, size);
 
@@ -537,30 +546,30 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
 
 }
 
-#  ifndef DEBUG_BUILD
+#ifndef DEBUG_BUILD
 
-/* In non-debug mode, we just do straightforward aliasing of the above functions
-   to user-visible names such as ck_alloc(). */
+/* In non-debug mode, we just do straightforward aliasing of the above
+   functions to user-visible names such as ck_alloc(). */
 
-#    define ck_alloc DFL_ck_alloc
-#    define ck_alloc_nozero DFL_ck_alloc_nozero
-#    define ck_realloc DFL_ck_realloc
-#    define ck_realloc_block DFL_ck_realloc_block
-#    define ck_strdup DFL_ck_strdup
-#    define ck_memdup DFL_ck_memdup
-#    define ck_memdup_str DFL_ck_memdup_str
-#    define ck_free DFL_ck_free
+#define ck_alloc DFL_ck_alloc
+#define ck_alloc_nozero DFL_ck_alloc_nozero
+#define ck_realloc DFL_ck_realloc
+#define ck_realloc_block DFL_ck_realloc_block
+#define ck_strdup DFL_ck_strdup
+#define ck_memdup DFL_ck_memdup
+#define ck_memdup_str DFL_ck_memdup_str
+#define ck_free DFL_ck_free
 
-#    define alloc_report()
+#define alloc_report()
 
-#  else
+#else
 
-/* In debugging mode, we also track allocations to detect memory leaks, and the
-   flow goes through one more layer of indirection. */
+/* In debugging mode, we also track allocations to detect memory leaks, and
+   the flow goes through one more layer of indirection. */
 
 /* Alloc tracking data structures: */
 
-#    define ALLOC_BUCKETS 4096
+#define ALLOC_BUCKETS 4096
 
 struct TRK_obj {
 
@@ -570,25 +579,25 @@ struct TRK_obj {
 
 };
 
-#    ifdef AFL_MAIN
+#ifdef AFL_MAIN
 
 struct TRK_obj *TRK[ALLOC_BUCKETS];
 u32 TRK_cnt[ALLOC_BUCKETS];
 
-#      define alloc_report() TRK_report()
+#define alloc_report() TRK_report()
 
-#    else
+#else
 
 extern struct TRK_obj *TRK[ALLOC_BUCKETS];
 extern u32             TRK_cnt[ALLOC_BUCKETS];
 
-#      define alloc_report()
+#define alloc_report()
 
-#    endif                                                     /* ^AFL_MAIN */
+#endif                                                         /* ^AFL_MAIN */
 
 /* Bucket-assigning function for a given pointer: */
 
-#    define TRKH(_ptr) (((((u32)(_ptr)) >> 16) ^ ((u32)(_ptr))) % ALLOC_BUCKETS)
+#define TRKH(_ptr) (((((u32)(_ptr)) >> 16) ^ ((u32)(_ptr))) % ALLOC_BUCKETS)
 
 /* Add a new entry to the list of allocated objects. */
 
@@ -740,28 +749,27 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
 
 /* Aliasing user-facing names to tracking functions: */
 
-#    define ck_alloc(_p1) TRK_ck_alloc(_p1, __FILE__, __FUNCTION__, __LINE__)
+#define ck_alloc(_p1) TRK_ck_alloc(_p1, __FILE__, __FUNCTION__, __LINE__)
 
-#    define ck_alloc_nozero(_p1) \
-      TRK_ck_alloc(_p1, __FILE__, __FUNCTION__, __LINE__)
+#define ck_alloc_nozero(_p1) TRK_ck_alloc(_p1, __FILE__, __FUNCTION__, __LINE__)
 
-#    define ck_realloc(_p1, _p2) \
-      TRK_ck_realloc(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
+#define ck_realloc(_p1, _p2) \
+  TRK_ck_realloc(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
-#    define ck_realloc_block(_p1, _p2) \
-      TRK_ck_realloc_block(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
+#define ck_realloc_block(_p1, _p2) \
+  TRK_ck_realloc_block(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
-#    define ck_strdup(_p1) TRK_ck_strdup(_p1, __FILE__, __FUNCTION__, __LINE__)
+#define ck_strdup(_p1) TRK_ck_strdup(_p1, __FILE__, __FUNCTION__, __LINE__)
 
-#    define ck_memdup(_p1, _p2) \
-      TRK_ck_memdup(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
+#define ck_memdup(_p1, _p2) \
+  TRK_ck_memdup(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
-#    define ck_memdup_str(_p1, _p2) \
-      TRK_ck_memdup_str(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
+#define ck_memdup_str(_p1, _p2) \
+  TRK_ck_memdup_str(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
-#    define ck_free(_p1) TRK_ck_free(_p1, __FILE__, __FUNCTION__, __LINE__)
+#define ck_free(_p1) TRK_ck_free(_p1, __FILE__, __FUNCTION__, __LINE__)
 
-#  endif                                                   /* ^!DEBUG_BUILD */
+#endif                                                     /* ^!DEBUG_BUILD */
 
 #endif                                          /* _WANT_ORIGINAL_AFL_ALLOC */
 

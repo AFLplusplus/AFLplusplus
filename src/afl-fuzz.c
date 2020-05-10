@@ -853,7 +853,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-#  if defined(__SANITIZE_ADDRESS__)
+#if defined(__SANITIZE_ADDRESS__)
   if (afl->fsrv.mem_limit) {
 
     WARNF("in the ASAN build we disable all memory limits");
@@ -861,7 +861,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-#  endif
+#endif
 
   setup_signal_handlers();
   check_asan_opts();
@@ -1054,9 +1054,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   get_core_count(afl);
 
-#  ifdef HAVE_AFFINITY
+#ifdef HAVE_AFFINITY
   bind_to_free_cpu(afl);
-#  endif                                                   /* HAVE_AFFINITY */
+#endif                                                     /* HAVE_AFFINITY */
 
   check_crash_handling();
   check_cpu_governor(afl);
@@ -1352,12 +1352,12 @@ stop_fuzzing:
 
   }
 
-#  ifdef PROFILING
+#ifdef PROFILING
   SAYF(cYEL "[!] " cRST
             "Profiling information: %llu ms total work, %llu ns/run\n",
        time_spent_working / 1000000,
        time_spent_working / afl->fsrv.total_execs);
-#  endif
+#endif
 
   fclose(afl->fsrv.plot_file);
   destroy_queue(afl);

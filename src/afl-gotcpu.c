@@ -32,11 +32,11 @@
 
 #define AFL_MAIN
 #ifndef _GNU_SOURCE
-#  define _GNU_SOURCE
+#define _GNU_SOURCE
 #endif
 
 #ifdef __ANDROID__
-#  include "android-ashmem.h"
+#include "android-ashmem.h"
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,22 +55,22 @@
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
     defined(__APPLE__) || defined(__DragonFly__)
-#  define HAVE_AFFINITY 1
-#  if defined(__FreeBSD__) || defined(__DragonFly__)
-#    include <pthread.h>
-#    include <pthread_np.h>
-#    if defined(__FreeBSD__)
-#      include <sys/cpuset.h>
-#    endif
-#    define cpu_set_t cpuset_t
-#  elif defined(__NetBSD__)
-#    include <pthread.h>
-#    include <sched.h>
-#  elif defined(__APPLE__)
-#    include <pthread.h>
-#    include <mach/thread_act.h>
-#    include <mach/thread_policy.h>
-#  endif
+#define HAVE_AFFINITY 1
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+#include <pthread.h>
+#include <pthread_np.h>
+#if defined(__FreeBSD__)
+#include <sys/cpuset.h>
+#endif
+#define cpu_set_t cpuset_t
+#elif defined(__NetBSD__)
+#include <pthread.h>
+#include <sched.h>
+#elif defined(__APPLE__)
+#include <pthread.h>
+#include <mach/thread_act.h>
+#include <mach/thread_policy.h>
+#endif
 #endif               /* __linux__ || __FreeBSD__ || __NetBSD__ || __APPLE__ */
 
 /* Get CPU usage in microseconds. */
@@ -163,46 +163,46 @@ int main(int argc, char **argv) {
     if (!fr) {
 
       u32 util_perc;
-#  if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
       cpu_set_t c;
 
       CPU_ZERO(&c);
       CPU_SET(i, &c);
-#  elif defined(__NetBSD__)
+#elif defined(__NetBSD__)
       cpuset_t *c;
 
       c = cpuset_create();
       if (c == NULL) PFATAL("cpuset_create failed");
 
       cpuset_set(i, c);
-#  elif defined(__APPLE__)
+#elif defined(__APPLE__)
       thread_affinity_policy_data_t c = {i};
       thread_port_t native_thread = pthread_mach_thread_np(pthread_self());
       if (thread_policy_set(native_thread, THREAD_AFFINITY_POLICY,
                             (thread_policy_t)&c, 1) != KERN_SUCCESS)
         PFATAL("thread_policy_set failed");
-#  endif
+#endif
 
-#  if defined(__FreeBSD__) || defined(__DragonFly__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
       if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c))
         PFATAL("pthread_setaffinity_np failed");
-#  endif
+#endif
 
-#  if defined(__NetBSD__)
+#if defined(__NetBSD__)
       if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c))
         PFATAL("pthread_setaffinity_np failed");
 
       cpuset_destroy(c);
-#  endif
+#endif
 
-#  if defined(__linux__)
+#if defined(__linux__)
       if (sched_setaffinity(0, sizeof(c), &c)) {
 
         PFATAL("sched_setaffinity failed for cpu %d", i);
 
       }
 
-#  endif
+#endif
 
       util_perc = measure_preemption(CTEST_CORE_TRG_MS);
 
