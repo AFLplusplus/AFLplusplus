@@ -237,6 +237,7 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
     ({                                                 \
                                                        \
                                                        \
+                                                       \
       u8 *_tmp;                                        \
       s32 _len = snprintf(NULL, 0, _str);              \
       if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
@@ -313,6 +314,7 @@ while (0)
 
 #define CHECK_PTR_EXPR(_p) \
     ({                        \
+                              \
                               \
                               \
       typeof(_p) _tmp = (_p); \

@@ -45,26 +45,22 @@
   do {                                             \
                                                    \
     ssize_t rd = syscall(__NR_getrandom, p, l, 0); \
-    if (rd != l) DEBUGF("getrandom failed");
-
-}
-
-while (0)
+    if (rd != l) DEBUGF("getrandom failed");       \
+                                                   \
+  } while (0)
 
 #else
 #include <time.h>
-#define arc4random_buf(p, l) \
-  do {                       \
-                             \
-    srand(time(NULL));       \
-    u32 i;                   \
-    u8 *ptr = (u8 *)p;       \
-    for (i = 0; i < l; i++)  \
-      ptr[i] = rand() % INT_MAX;
-
-}
-
-while (0)
+#define arc4random_buf(p, l)     \
+  do {                           \
+                                 \
+    srand(time(NULL));           \
+    u32 i;                       \
+    u8 *ptr = (u8 *)p;           \
+    for (i = 0; i < l; i++)      \
+      ptr[i] = rand() % INT_MAX; \
+                                 \
+  } while (0)
 
 #endif
 #endif
@@ -74,13 +70,13 @@ while (0)
 
 #if __STDC_VERSION__ < 201112L || \
     (defined(__FreeBSD__) && __FreeBSD_version < 1200000)
-  // use this hack if not C11
-  typedef struct {
+// use this hack if not C11
+typedef struct {
 
-    long long   __ll;
-    long double __ld;
+  long long   __ll;
+  long double __ld;
 
-  } max_align_t;
+} max_align_t;
 
 #endif
 
@@ -96,7 +92,7 @@ while (0)
 
 #define SUPER_PAGE_SIZE 1 << 21
 
-  /* Error / message handling: */
+/* Error / message handling: */
 
 #define DEBUGF(_x...)                 \
   do {                                \
@@ -129,11 +125,11 @@ while (0)
                                         \
   } while (0)
 
-  /* Macro to count the number of pages needed to store a buffer: */
+/* Macro to count the number of pages needed to store a buffer: */
 
 #define PG_COUNT(_l) (((_l) + (PAGE_SIZE - 1)) / PAGE_SIZE)
 
-  /* Canary & clobber bytes: */
+/* Canary & clobber bytes: */
 
 #define ALLOC_CANARY 0xAACCAACC
 #define ALLOC_CLOBBER 0xCC
