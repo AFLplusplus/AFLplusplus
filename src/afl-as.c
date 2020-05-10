@@ -79,9 +79,9 @@ static u8 use_64bit = 1;
 
 static u8 use_64bit = 0;
 
-#  ifdef __APPLE__
-#    error "Sorry, 32-bit Apple platforms are not supported."
-#  endif                                                       /* __APPLE__ */
+#ifdef __APPLE__
+#error "Sorry, 32-bit Apple platforms are not supported."
+#endif                                                         /* __APPLE__ */
 
 #endif                                                     /* ^WORD_SIZE_64 */
 

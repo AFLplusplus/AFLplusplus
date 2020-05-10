@@ -27,7 +27,7 @@
 #define AFL_MAIN
 
 #ifdef __ANDROID__
-#  include "android-ashmem.h"
+#include "android-ashmem.h"
 #endif
 #include "config.h"
 #include "types.h"
@@ -56,8 +56,8 @@
 #include <sys/mman.h>
 
 #ifndef USEMMAP
-#  include <sys/ipc.h>
-#  include <sys/shm.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #endif
 
 static list_t shm_list = {.element_prealloc_count = 0};

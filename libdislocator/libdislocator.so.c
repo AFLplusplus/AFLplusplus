@@ -30,39 +30,43 @@
 #include <sys/mman.h>
 
 #ifdef __APPLE__
-#  include <mach/vm_statistics.h>
+#include <mach/vm_statistics.h>
 #endif
 
 #ifdef __FreeBSD__
-#  include <sys/param.h>
+#include <sys/param.h>
 #endif
 
 #if defined(__linux__) && !defined(__ANDROID__)
-#  include <unistd.h>
-#  include <sys/syscall.h>
-#  ifdef __NR_getrandom
-#    define arc4random_buf(p, l)                       \
-      do {                                             \
-        ssize_t rd = syscall(__NR_getrandom, p, l, 0); \
-        if (rd != l) DEBUGF("getrandom failed");       \
-                                                       \
+#include <unistd.h>
+#include <sys/syscall.h>
+#ifdef __NR_getrandom
+#define arc4random_buf(p, l)                       \
+  do {                                             \
+                                                   \
+    ssize_t rd = syscall(__NR_getrandom, p, l, 0); \
+    if (rd != l) DEBUGF("getrandom failed");
 
-      } while (0)
+}
 
-#  else
-#    include <time.h>
-#    define arc4random_buf(p, l)     \
-      do {                           \
-        srand(time(NULL));           \
-        u32 i;                       \
-        u8 *ptr = (u8 *)p;           \
-        for (i = 0; i < l; i++)      \
-          ptr[i] = rand() % INT_MAX; \
-                                     \
+while (0)
 
-      } while (0)
+#else
+#include <time.h>
+#define arc4random_buf(p, l) \
+  do {                       \
+                             \
+    srand(time(NULL));       \
+    u32 i;                   \
+    u8 *ptr = (u8 *)p;       \
+    for (i = 0; i < l; i++)  \
+      ptr[i] = rand() % INT_MAX;
 
-#  endif
+}
+
+while (0)
+
+#endif
 #endif
 
 #include "config.h"
@@ -70,29 +74,29 @@
 
 #if __STDC_VERSION__ < 201112L || \
     (defined(__FreeBSD__) && __FreeBSD_version < 1200000)
-// use this hack if not C11
-typedef struct {
+  // use this hack if not C11
+  typedef struct {
 
-  long long   __ll;
-  long double __ld;
+    long long   __ll;
+    long double __ld;
 
-} max_align_t;
+  } max_align_t;
 
 #endif
 
 #define ALLOC_ALIGN_SIZE (_Alignof(max_align_t))
 
 #ifndef PAGE_SIZE
-#  define PAGE_SIZE 4096
+#define PAGE_SIZE 4096
 #endif                                                        /* !PAGE_SIZE */
 
 #ifndef MAP_ANONYMOUS
-#  define MAP_ANONYMOUS MAP_ANON
+#define MAP_ANONYMOUS MAP_ANON
 #endif                                                    /* !MAP_ANONYMOUS */
 
 #define SUPER_PAGE_SIZE 1 << 21
 
-/* Error / message handling: */
+  /* Error / message handling: */
 
 #define DEBUGF(_x...)                 \
   do {                                \
@@ -125,11 +129,11 @@ typedef struct {
                                         \
   } while (0)
 
-/* Macro to count the number of pages needed to store a buffer: */
+  /* Macro to count the number of pages needed to store a buffer: */
 
 #define PG_COUNT(_l) (((_l) + (PAGE_SIZE - 1)) / PAGE_SIZE)
 
-/* Canary & clobber bytes: */
+  /* Canary & clobber bytes: */
 
 #define ALLOC_CANARY 0xAACCAACC
 #define ALLOC_CLOBBER 0xCC
@@ -148,8 +152,8 @@ static u8  alloc_verbose,               /* Additional debug messages        */
     align_allocations;                  /* Force alignment to sizeof(void*) */
 
 #if defined __OpenBSD__ || defined __APPLE__
-#  define __thread
-#  warning no thread support available
+#define __thread
+#warning no thread support available
 #endif
 static __thread size_t total_mem;       /* Currently allocated mem          */
 
@@ -192,13 +196,13 @@ static void *__dislocator_alloc(size_t len) {
 #if defined(USEHUGEPAGE)
   sp = (rlen >= SUPER_PAGE_SIZE && !(rlen % SUPER_PAGE_SIZE));
 
-#  if defined(__APPLE__)
+#if defined(__APPLE__)
   if (sp) fd = VM_FLAGS_SUPERPAGE_SIZE_2MB;
-#  elif defined(__linux__)
+#elif defined(__linux__)
   if (sp) flags |= MAP_HUGETLB;
-#  elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__)
   if (sp) flags |= MAP_ALIGNED_SUPER;
-#  endif
+#endif
 #else
   (void)sp;
 #endif
@@ -208,13 +212,13 @@ static void *__dislocator_alloc(size_t len) {
   /* We try one more time with regular call */
   if (ret == MAP_FAILED) {
 
-#  if defined(__APPLE__)
+#if defined(__APPLE__)
     fd = -1;
-#  elif defined(__linux__)
+#elif defined(__linux__)
     flags &= -MAP_HUGETLB;
-#  elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__)
     flags &= -MAP_ALIGNED_SUPER;
-#  endif
+#endif
     ret = (u8 *)mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
 
   }
