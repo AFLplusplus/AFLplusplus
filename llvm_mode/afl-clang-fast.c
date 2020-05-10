@@ -337,15 +337,17 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   // e.g. compiled download or compiled from github then it's ./lib directory
   // might not be in the search path. Add it if so.
   u8 *libdir = strdup(LLVM_LIBDIR);
-  if (strlen(libdir) && strncmp(libdir, "/usr", 4) &&
+  if (cpp_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
       strncmp(libdir, "/lib", 4)) {
 
     cc_params[cc_par_cnt++] = "-rpath";
     cc_params[cc_par_cnt++] = libdir;
 
-  } else
+  } else {
 
     free(libdir);
+
+  }
 
   /* Detect stray -v calls from ./configure scripts. */
 
