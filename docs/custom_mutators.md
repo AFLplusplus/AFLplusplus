@@ -213,12 +213,15 @@ For C/C++ mutator, the source code must be compiled as a shared object:
 ```bash
 gcc -shared -Wall -O3 example.c -o example.so
 ```
+Note that if you specify multiple custom mutators, the corresponding functions will
+be called in the order in which they are specified. e.g first `pre_save` function of
+`example_first.so` will be called and then that of `example_second.so`
 
 ### Run
 
 C/C++
 ```bash
-export AFL_CUSTOM_MUTATOR_LIBRARY=/full/path/to/example.so
+export AFL_CUSTOM_MUTATOR_LIBRARY="/full/path/to/example_first.so;/full/path/to/example_second.so"
 afl-fuzz /path/to/program
 ```
 
