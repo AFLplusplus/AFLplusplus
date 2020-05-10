@@ -25,11 +25,11 @@ typedef long double max_align_t;
 
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/CFG.h"
+#  include "llvm/IR/DebugInfo.h"
+#  include "llvm/IR/CFG.h"
 #else
-#include "llvm/DebugInfo.h"
-#include "llvm/Support/CFG.h"
+#  include "llvm/DebugInfo.h"
+#  include "llvm/Support/CFG.h"
 #endif
 
 char *                 getBBName(const llvm::BasicBlock *BB);

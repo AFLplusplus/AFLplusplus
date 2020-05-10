@@ -21,7 +21,7 @@
 */
 
 #ifdef __ANDROID__
-#include "android-ashmem.h"
+#  include "android-ashmem.h"
 #endif
 #include "config.h"
 #include "types.h"
@@ -43,7 +43,7 @@
 #include <sys/types.h>
 
 #ifdef __linux__
-#include "snapshot-inl.h"
+#  include "snapshot-inl.h"
 #endif
 
 /* This is a somewhat ugly hack for the experimental 'trace-pc-guard' mode.
@@ -53,7 +53,7 @@
 #define CONST_PRIO 5
 
 #ifndef MAP_FIXED_NOREPLACE
-#define MAP_FIXED_NOREPLACE MAP_FIXED
+#  define MAP_FIXED_NOREPLACE MAP_FIXED
 #endif
 
 #include <sys/mman.h>
@@ -822,15 +822,15 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2) {
 }
 
 #if defined(__APPLE__)
-#pragma weak __sanitizer_cov_trace_const_cmp1 = __cmplog_ins_hook1
-#pragma weak __sanitizer_cov_trace_const_cmp2 = __cmplog_ins_hook2
-#pragma weak __sanitizer_cov_trace_const_cmp4 = __cmplog_ins_hook4
-#pragma weak __sanitizer_cov_trace_const_cmp8 = __cmplog_ins_hook8
+#  pragma weak __sanitizer_cov_trace_const_cmp1 = __cmplog_ins_hook1
+#  pragma weak __sanitizer_cov_trace_const_cmp2 = __cmplog_ins_hook2
+#  pragma weak __sanitizer_cov_trace_const_cmp4 = __cmplog_ins_hook4
+#  pragma weak __sanitizer_cov_trace_const_cmp8 = __cmplog_ins_hook8
 
-#pragma weak __sanitizer_cov_trace_cmp1 = __cmplog_ins_hook1
-#pragma weak __sanitizer_cov_trace_cmp2 = __cmplog_ins_hook2
-#pragma weak __sanitizer_cov_trace_cmp4 = __cmplog_ins_hook4
-#pragma weak __sanitizer_cov_trace_cmp8 = __cmplog_ins_hook8
+#  pragma weak __sanitizer_cov_trace_cmp1 = __cmplog_ins_hook1
+#  pragma weak __sanitizer_cov_trace_cmp2 = __cmplog_ins_hook2
+#  pragma weak __sanitizer_cov_trace_cmp4 = __cmplog_ins_hook4
+#  pragma weak __sanitizer_cov_trace_cmp8 = __cmplog_ins_hook8
 #else
 void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2)
     __attribute__((alias("__cmplog_ins_hook1")));

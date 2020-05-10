@@ -15,7 +15,7 @@
 */
 
 #ifdef __ANDROID__
-#include "android-ashmem.h"
+#  include "android-ashmem.h"
 #endif
 #include "config.h"
 #include "types.h"
@@ -42,7 +42,7 @@
 #include <fcntl.h>
 
 #ifdef USE_DEFLATE
-#include <libdeflate.h>
+#  include <libdeflate.h>
 #endif
 
 u8 *__afl_area_ptr;
@@ -321,7 +321,7 @@ int main(int argc, char *argv[]) {
 
     // fprintf(stderr, "Sending testcase with len %u\n", *lenptr);
 #ifdef USE_DEFLATE
-#ifdef COMPRESS_TESTCASES
+#  ifdef COMPRESS_TESTCASES
     // we only compress the testcase if it does not fit in the TCP packet
     if (*lenptr > 1500 - 20 - 32 - 4) {
 
@@ -341,17 +341,17 @@ int main(int argc, char *argv[]) {
 
     } else {
 
-#endif
+#  endif
 #endif
       if (send(s, buf, *lenptr + 4, 0) != *lenptr + 4)
         PFATAL("sending test data failed");
 #ifdef USE_DEFLATE
-#ifdef COMPRESS_TESTCASES
+#  ifdef COMPRESS_TESTCASES
       // fprintf(stderr, "unCOMPRESS (%u)\n", *lenptr);
 
     }
 
-#endif
+#  endif
 #endif
 
     received = 0;
