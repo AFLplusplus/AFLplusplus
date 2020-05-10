@@ -249,23 +249,21 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
 
 /* Macro to enforce allocation limits as a last-resort defense against
    integer overflows. */
-#define ALLOC_CHECK_SIZE(_s) \
-  do {                       \
-                             \
-    if ((_s) > MAX_ALLOC) ABORT("Bad alloc request: %u bytes", (_s));
-
-}
-
-while (0)
+#define ALLOC_CHECK_SIZE(_s)                                          \
+  do {                                                                \
+                                                                      \
+    if ((_s) > MAX_ALLOC) ABORT("Bad alloc request: %u bytes", (_s)); \
+                                                                      \
+  } while (0)
 
 /* Macro to check malloc() failures and the like. */
 
-#define ALLOC_CHECK_RESULT(_r, _s) \
-  do {                             \
-                                   \
-    if (!(_r)) ABORT("Out of memory: can't allocate %u bytes", (_s));
-
-}
+#define ALLOC_CHECK_RESULT(_r, _s)                                    \
+  do {                                                                \
+                                                                      \
+    if (!(_r)) ABORT("Out of memory: can't allocate %u bytes", (_s)); \
+                                                                      \
+  }
 
 while (0)
 
@@ -290,38 +288,34 @@ while (0)
 
 /* Sanity-checking macros for pointers. */
 
-#define CHECK_PTR(_p)                      \
-  do {                                     \
-                                           \
-    if (_p) {                              \
-                                           \
-      if (ALLOC_C1(_p) ^ ALLOC_MAGIC_C1) { \
-                                           \
-        if (ALLOC_C1(_p) == ALLOC_MAGIC_F) \
-          ABORT("Use after free.");        \
-        else                               \
-          ABORT("Corrupted head alloc canary.");
+#define CHECK_PTR(_p)                            \
+  do {                                           \
+                                                 \
+    if (_p) {                                    \
+                                                 \
+      if (ALLOC_C1(_p) ^ ALLOC_MAGIC_C1) {       \
+                                                 \
+        if (ALLOC_C1(_p) == ALLOC_MAGIC_F)       \
+          ABORT("Use after free.");              \
+        else                                     \
+          ABORT("Corrupted head alloc canary."); \
+                                                 \
+      }                                          \
+      if (ALLOC_C2(_p) ^ ALLOC_MAGIC_C2)         \
+        ABORT("Corrupted tail alloc canary.");   \
+                                                 \
+    }                                            \
+                                                 \
+  } while (0)
 
-}
-
-if (ALLOC_C2(_p) ^ ALLOC_MAGIC_C2) ABORT("Corrupted tail alloc canary.");
-
-}
-
-}
-
-while (0)
-
-#define CHECK_PTR_EXPR(_p) \
-    ({                        \
-                              \
-                              \
-                              \
-      typeof(_p) _tmp = (_p); \
-      CHECK_PTR(_tmp);        \
-      _tmp;
-
-})
+#define CHECK_PTR_EXPR(_p)  \
+  ({                        \
+                            \
+    typeof(_p) _tmp = (_p); \
+    CHECK_PTR(_tmp);        \
+    _tmp;                   \
+                            \
+  })
 
 /* Allocate a buffer, explicitly not zeroing it. Returns NULL for zero-sized
    requests. */

@@ -1039,6 +1039,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       # Clean
       rm -rf in out errors
       rm -rf ${CUSTOM_MUTATOR_PATH}/__pycache__/
+      rm -f test-multiple-mutators
     } || {
       ls .
       ls ${CUSTOM_MUTATOR_PATH}
