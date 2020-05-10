@@ -81,22 +81,22 @@ typedef int32_t s32;
 typedef int64_t s64;
 
 #ifndef MIN
-#define MIN(a, b)           \
-  ({                        \
-                            \
-    __typeof__(a) _a = (a); \
-    __typeof__(b) _b = (b); \
-    _a < _b ? _a : _b;      \
-                            \
-  })
-#define MAX(a, b)           \
-  ({                        \
-                            \
-    __typeof__(a) _a = (a); \
-    __typeof__(b) _b = (b); \
-    _a > _b ? _a : _b;      \
-                            \
-  })
+#  define MIN(a, b) \
+    ({                        \
+      __typeof__(a) _a = (a); \
+      __typeof__(b) _b = (b); \
+      _a < _b ? _a : _b;
+
+})
+
+#  define MAX(a, b) \
+    ({                        \
+      __typeof__(a) _a = (a); \
+      __typeof__(b) _b = (b); \
+      _a > _b ? _a : _b;
+
+})
+
 #endif                                                              /* !MIN */
 
 #define SWAP16(_x)                    \
@@ -131,21 +131,21 @@ typedef int64_t s64;
   })
 
 #ifdef AFL_LLVM_PASS
-#if defined(__linux__) || !defined(__ANDROID__)
-#define AFL_SR(s) (srandom(s))
-#define AFL_R(x) (random() % (x))
+#  if defined(__linux__) || !defined(__ANDROID__)
+#    define AFL_SR(s) (srandom(s))
+#    define AFL_R(x) (random() % (x))
+#  else
+#    define AFL_SR(s) ((void)s)
+#    define AFL_R(x) (arc4random_uniform(x))
+#  endif
 #else
-#define AFL_SR(s) ((void)s)
-#define AFL_R(x) (arc4random_uniform(x))
-#endif
-#else
-#if defined(__linux__) || !defined(__ANDROID__)
-#define SR(s) (srandom(s))
-#define R(x) (random() % (x))
-#else
-#define SR(s) ((void)s)
-#define R(x) (arc4random_uniform(x))
-#endif
+#  if defined(__linux__) || !defined(__ANDROID__)
+#    define SR(s) (srandom(s))
+#    define R(x) (random() % (x))
+#  else
+#    define SR(s) ((void)s)
+#    define R(x) (arc4random_uniform(x))
+#  endif
 #endif                                                    /* ^AFL_LLVM_PASS */
 
 #define STRINGIFY_INTERNAL(x) #x
@@ -154,19 +154,19 @@ typedef int64_t s64;
 #define MEM_BARRIER() __asm__ volatile("" ::: "memory")
 
 #if __GNUC__ < 6
-#ifndef likely
-#define likely(_x) (_x)
-#endif
-#ifndef unlikely
-#define unlikely(_x) (_x)
-#endif
+#  ifndef likely
+#    define likely(_x) (_x)
+#  endif
+#  ifndef unlikely
+#    define unlikely(_x) (_x)
+#  endif
 #else
-#ifndef likely
-#define likely(_x) __builtin_expect(!!(_x), 1)
-#endif
-#ifndef unlikely
-#define unlikely(_x) __builtin_expect(!!(_x), 0)
-#endif
+#  ifndef likely
+#    define likely(_x) __builtin_expect(!!(_x), 1)
+#  endif
+#  ifndef unlikely
+#    define unlikely(_x) __builtin_expect(!!(_x), 0)
+#  endif
 #endif
 
 #endif                                                   /* ! _HAVE_TYPES_H */

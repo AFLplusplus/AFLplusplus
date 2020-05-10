@@ -35,7 +35,7 @@
 #include "afl-qemu-common.h"
 
 #ifndef AFL_QEMU_STATIC_BUILD
-#include <dlfcn.h>
+#  include <dlfcn.h>
 #endif
 
 /***************************

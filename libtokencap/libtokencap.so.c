@@ -21,7 +21,7 @@
  */
 
 #ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+#  define _GNU_SOURCE
 #endif
 #include <stdio.h>
 #include <string.h>
@@ -35,20 +35,20 @@
 
 #if !defined __linux__ && !defined __APPLE__ && !defined __FreeBSD__ && \
     !defined __OpenBSD__ && !defined __NetBSD__ && !defined __DragonFly__
-#error "Sorry, this library is unsupported in this platform for now!"
+#  error "Sorry, this library is unsupported in this platform for now!"
 #endif /* !__linux__ && !__APPLE__ && ! __FreeBSD__ && ! __OpenBSD__ && \
           !__NetBSD__*/
 
 #if defined __APPLE__
-#include <mach/vm_map.h>
-#include <mach/mach_init.h>
+#  include <mach/vm_map.h>
+#  include <mach/mach_init.h>
 #elif defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
-#include <sys/types.h>
-#include <sys/sysctl.h>
-#if !defined __NetBSD__
-#include <sys/user.h>
-#endif
-#include <sys/mman.h>
+#  include <sys/types.h>
+#  include <sys/sysctl.h>
+#  if !defined __NetBSD__
+#    include <sys/user.h>
+#  endif
+#  include <sys/mman.h>
 #endif
 
 #include <dlfcn.h>
@@ -154,25 +154,25 @@ static void __tokencap_load_mappings(void) {
 
 #elif defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
 
-#if defined   __FreeBSD__
+#  if defined   __FreeBSD__
   int    mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, __tokencap_pid};
-#elif defined __OpenBSD__
+#  elif defined __OpenBSD__
   int mib[] = {CTL_KERN, KERN_PROC_VMMAP, __tokencap_pid};
-#elif defined __NetBSD__
+#  elif defined __NetBSD__
   int mib[] = {CTL_VM, VM_PROC, VM_PROC_MAP, __tokencap_pid,
                sizeof(struct kinfo_vmentry)};
-#endif
+#  endif
   char * buf, *low, *high;
   size_t miblen = sizeof(mib) / sizeof(mib[0]);
   size_t len;
 
   if (sysctl(mib, miblen, NULL, &len, NULL, 0) == -1) return;
 
-#if defined __FreeBSD__ || defined __NetBSD__
+#  if defined __FreeBSD__ || defined __NetBSD__
   len = len * 4 / 3;
-#elif defined                      __OpenBSD__
+#  elif defined                      __OpenBSD__
   len -= len % sizeof(struct kinfo_vmentry);
-#endif
+#  endif
 
   buf = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
   if (buf == MAP_FAILED) return;
@@ -193,22 +193,22 @@ static void __tokencap_load_mappings(void) {
 
     struct kinfo_vmentry *region = (struct kinfo_vmentry *)low;
 
-#if defined __FreeBSD__ || defined __NetBSD__
+#  if defined __FreeBSD__ || defined __NetBSD__
 
-#if defined   __FreeBSD__
+#    if defined   __FreeBSD__
     size_t                size = region->kve_structsize;
 
     if (size == 0) break;
-#elif defined __NetBSD__
+#    elif defined __NetBSD__
     size_t size = sizeof(*region);
-#endif
+#    endif
 
     /* We go through the whole mapping of the process and track read-only
      * addresses */
     if ((region->kve_protection & KVME_PROT_READ) &&
         !(region->kve_protection & KVME_PROT_WRITE)) {
 
-#elif defined __OpenBSD__
+#  elif defined __OpenBSD__
 
     size_t size = sizeof(*region);
 
@@ -217,7 +217,7 @@ static void __tokencap_load_mappings(void) {
     if ((region->kve_protection & KVE_PROT_READ) &&
         !(region->kve_protection & KVE_PROT_WRITE)) {
 
-#endif
+#  endif
       __tokencap_ro[__tokencap_ro_cnt].st = (void *)region->kve_start;
       __tokencap_ro[__tokencap_ro_cnt].en = (void *)region->kve_end;
 

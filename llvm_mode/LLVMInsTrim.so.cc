@@ -12,13 +12,13 @@ typedef long double max_align_t;
 #include "llvm/ADT/DenseSet.h"
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
-#include "llvm/IR/CFG.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/IR/DebugInfo.h"
+#  include "llvm/IR/CFG.h"
+#  include "llvm/IR/Dominators.h"
+#  include "llvm/IR/DebugInfo.h"
 #else
-#include "llvm/Support/CFG.h"
-#include "llvm/Analysis/Dominators.h"
-#include "llvm/DebugInfo.h"
+#  include "llvm/Support/CFG.h"
+#  include "llvm/Analysis/Dominators.h"
+#  include "llvm/DebugInfo.h"
 #endif
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -97,7 +97,7 @@ struct InsTrim : public ModulePass {
 
 #if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
-#define AFL_HAVE_VECTOR_INTRINSICS 1
+#  define AFL_HAVE_VECTOR_INTRINSICS 1
 #endif
 
   bool runOnModule(Module &M) override {
@@ -137,13 +137,13 @@ struct InsTrim : public ModulePass {
         getenv("AFL_LLVM_SKIPSINGLEBLOCK"))
       function_minimum_size = 2;
 
-    unsigned PrevLocSize = 0;
-    char *   ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
+    unsigned int PrevLocSize = 0;
+    char *       ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
     if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
     char *ctx_str = getenv("AFL_LLVM_CTX");
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
-    int ngram_size = 0;
+    unsigned int ngram_size = 0;
     /* Decide previous location vector size (must be a power of two) */
     VectorType *PrevLocTy;
 
@@ -196,17 +196,17 @@ struct InsTrim : public ModulePass {
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
     if (ngram_size)
-#ifdef __ANDROID__
+#  ifdef __ANDROID__
       AFLPrevLoc = new GlobalVariable(
           M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
           /* Initializer */ nullptr, "__afl_prev_loc");
-#else
+#  else
       AFLPrevLoc = new GlobalVariable(
           M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
           /* Initializer */ nullptr, "__afl_prev_loc",
           /* InsertBefore */ nullptr, GlobalVariable::GeneralDynamicTLSModel,
           /* AddressSpace */ 0, /* IsExternallyInitialized */ false);
-#endif
+#  endif
     else
 #endif
 #ifdef __ANDROID__

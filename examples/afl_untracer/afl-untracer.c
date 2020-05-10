@@ -34,7 +34,7 @@
 #define _GNU_SOURCE
 
 #ifdef __ANDROID__
-#include "android-ashmem.h"
+#  include "android-ashmem.h"
 #endif
 #include "config.h"
 #include "types.h"
@@ -58,14 +58,14 @@
 #include <sys/types.h>
 
 #if defined(__linux__)
-#include <sys/ucontext.h>
+#  include <sys/ucontext.h>
 #elif defined(__APPLE__) && defined(__LP64__)
-#include <mach-o/dyld_images.h>
+#  include <mach-o/dyld_images.h>
 #elif defined(__FreeBSD__)
-#include <sys/sysctl.h>
-#include <sys/user.h>
+#  include <sys/sysctl.h>
+#  include <sys/user.h>
 #else
-#error "Unsupported platform"
+#  error "Unsupported platform"
 #endif
 
 #define MEMORY_MAP_DECREMENT 0x200000000000
@@ -446,15 +446,15 @@ static void __afl_end_testcase(int status) {
 }
 
 #ifdef __aarch64__
-#define SHADOW(addr)                                     \
-  ((uint64_t *)(((uintptr_t)addr & 0xfffffffffffffff8) - \
-                MEMORY_MAP_DECREMENT -                   \
-                ((uintptr_t)addr & 0x7) * 0x10000000000))
+#  define SHADOW(addr)                                     \
+    ((uint64_t *)(((uintptr_t)addr & 0xfffffffffffffff8) - \
+                  MEMORY_MAP_DECREMENT -                   \
+                  ((uintptr_t)addr & 0x7) * 0x10000000000))
 #else
-#define SHADOW(addr)                                     \
-  ((uint32_t *)(((uintptr_t)addr & 0xfffffffffffffffc) - \
-                MEMORY_MAP_DECREMENT -                   \
-                ((uintptr_t)addr & 0x3) * 0x10000000000))
+#  define SHADOW(addr)                                     \
+    ((uint32_t *)(((uintptr_t)addr & 0xfffffffffffffffc) - \
+                  MEMORY_MAP_DECREMENT -                   \
+                  ((uintptr_t)addr & 0x3) * 0x10000000000))
 #endif
 
 void setup_trap_instrumentation() {
@@ -583,7 +583,7 @@ void setup_trap_instrumentation() {
 #else
     // this will be ARM and AARCH64
     // for ARM we will need to identify if the code is in thumb or ARM
-#error "non x86_64/aarch64 not supported yet"
+#  error "non x86_64/aarch64 not supported yet"
     //__arm__:
     // linux thumb: 0xde01
     // linux arm: 0xe7f001f0
@@ -622,20 +622,20 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
   ctx->uc_mcontext->__ss.__rip -= 1;
   addr = ctx->uc_mcontext->__ss.__rip;
 #elif defined(__linux__)
-#if defined(__x86_64__) || defined(__i386__)
+#  if defined(__x86_64__) || defined(__i386__)
   ctx->uc_mcontext.gregs[REG_RIP] -= 1;
   addr = ctx->uc_mcontext.gregs[REG_RIP];
-#elif defined(__aarch64__)
+#  elif defined(__aarch64__)
   ctx->uc_mcontext.pc -= 4;
   addr = ctx->uc_mcontext.pc;
-#else
-#error "Unsupported processor"
-#endif
+#  else
+#    error "Unsupported processor"
+#  endif
 #elif defined(__FreeBSD__) && defined(__LP64__)
   ctx->uc_mcontext.mc_rip -= 1;
   addr = ctx->uc_mcontext.mc_rip;
 #else
-#error "Unsupported platform"
+#  error "Unsupported platform"
 #endif
 
   // fprintf(stderr, "TRAP at context addr = %lx, fault addr = %lx\n", addr,

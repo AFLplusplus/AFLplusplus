@@ -37,9 +37,9 @@ static void *unsupported(afl_state_t *afl, unsigned int seed) {
 
 /* sorry for this makro...
 it just fills in `&py_mutator->something_buf, &py_mutator->something_size`. */
-#define BUF_PARAMS(name)                              \
-  (void **)&((py_mutator_t *)py_mutator)->name##_buf, \
-      &((py_mutator_t *)py_mutator)->name##_size
+#  define BUF_PARAMS(name)                              \
+    (void **)&((py_mutator_t *)py_mutator)->name##_buf, \
+        &((py_mutator_t *)py_mutator)->name##_size
 
 static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
                       u8 *add_buf, size_t add_buf_size, size_t max_size) {
@@ -72,11 +72,11 @@ static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
   PyTuple_SetItem(py_args, 1, py_value);
 
   /* max_size */
-#if PY_MAJOR_VERSION >= 3
+#  if PY_MAJOR_VERSION >= 3
   py_value = PyLong_FromLong(max_size);
-#else
+#  else
   py_value = PyInt_FromLong(max_size);
-#endif
+#  endif
   if (!py_value) {
 
     Py_DECREF(py_args);
@@ -118,11 +118,11 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
 
   Py_Initialize();
 
-#if PY_MAJOR_VERSION >= 3
+#  if PY_MAJOR_VERSION >= 3
   PyObject *py_name = PyUnicode_FromString(module_name);
-#else
+#  else
   PyObject *py_name = PyString_FromString(module_name);
-#endif
+#  endif
 
   py->py_module = PyImport_Import(py_name);
   Py_DECREF(py_name);
@@ -243,11 +243,11 @@ static void init_py(afl_state_t *afl, py_mutator_t *py_mutator,
 
   /* Provide the init function a seed for the Python RNG */
   py_args = PyTuple_New(1);
-#if PY_MAJOR_VERSION >= 3
+#  if PY_MAJOR_VERSION >= 3
   py_value = PyLong_FromLong(seed);
-#else
+#  else
   py_value = PyInt_FromLong(seed);
-#endif
+#  endif
 
   if (!py_value) {
 
@@ -440,11 +440,11 @@ s32 init_trim_py(void *py_mutator, u8 *buf, size_t buf_size) {
 
   if (py_value != NULL) {
 
-#if PY_MAJOR_VERSION >= 3
+#  if PY_MAJOR_VERSION >= 3
     u32 retcnt = (u32)PyLong_AsLong(py_value);
-#else
+#  else
     u32 retcnt = PyInt_AsLong(py_value);
-#endif
+#  endif
     Py_DECREF(py_value);
     return retcnt;
 
@@ -479,11 +479,11 @@ s32 post_trim_py(void *py_mutator, u8 success) {
 
   if (py_value != NULL) {
 
-#if PY_MAJOR_VERSION >= 3
+#  if PY_MAJOR_VERSION >= 3
     u32 retcnt = (u32)PyLong_AsLong(py_value);
-#else
+#  else
     u32 retcnt = PyInt_AsLong(py_value);
-#endif
+#  endif
     Py_DECREF(py_value);
     return retcnt;
 
@@ -543,11 +543,11 @@ size_t havoc_mutation_py(void *py_mutator, u8 *buf, size_t buf_size,
   PyTuple_SetItem(py_args, 0, py_value);
 
   /* max_size */
-#if PY_MAJOR_VERSION >= 3
+#  if PY_MAJOR_VERSION >= 3
   py_value = PyLong_FromLong(max_size);
-#else
+#  else
   py_value = PyInt_FromLong(max_size);
-#endif
+#  endif
   if (!py_value) {
 
     Py_DECREF(py_args);
@@ -625,11 +625,11 @@ u8 queue_get_py(void *py_mutator, const u8 *filename) {
   py_args = PyTuple_New(1);
 
   // File name
-#if PY_MAJOR_VERSION >= 3
+#  if PY_MAJOR_VERSION >= 3
   py_value = PyUnicode_FromString(filename);
-#else
+#  else
   py_value = PyString_FromString(filename);
-#endif
+#  endif
   if (!py_value) {
 
     Py_DECREF(py_args);
@@ -675,11 +675,11 @@ void queue_new_entry_py(void *py_mutator, const u8 *filename_new_queue,
   py_args = PyTuple_New(2);
 
   // New queue
-#if PY_MAJOR_VERSION >= 3
+#  if PY_MAJOR_VERSION >= 3
   py_value = PyUnicode_FromString(filename_new_queue);
-#else
+#  else
   py_value = PyString_FromString(filename_new_queue);
-#endif
+#  endif
   if (!py_value) {
 
     Py_DECREF(py_args);
@@ -693,11 +693,11 @@ void queue_new_entry_py(void *py_mutator, const u8 *filename_new_queue,
   py_value = Py_None;
   if (filename_orig_queue) {
 
-#if PY_MAJOR_VERSION >= 3
+#  if PY_MAJOR_VERSION >= 3
     py_value = PyUnicode_FromString(filename_orig_queue);
-#else
+#  else
     py_value = PyString_FromString(filename_orig_queue);
-#endif
+#  endif
     if (!py_value) {
 
       Py_DECREF(py_args);
@@ -724,7 +724,7 @@ void queue_new_entry_py(void *py_mutator, const u8 *filename_new_queue,
 
 }
 
-#undef BUF_PARAMS
+#  undef BUF_PARAMS
 
 #endif                                                        /* USE_PYTHON */
 
