@@ -43,13 +43,13 @@ static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
-static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode;
-static u8 * lto_flag = AFL_CLANG_FLTO;
-static u8 * march_opt = CFLAGS_OPT;
-static u8   debug;
-static u8   cwd[4096];
-static u8   cmplog_mode;
-u8          use_stdin = 0;                                         /* dummy */
+static u8  instrument_mode, instrument_opt_mode, ngram_size, lto_mode, cpp_mode;
+static u8 *lto_flag = AFL_CLANG_FLTO;
+static u8 *march_opt = CFLAGS_OPT;
+static u8  debug;
+static u8  cwd[4096];
+static u8  cmplog_mode;
+u8         use_stdin = 0;                                          /* dummy */
 
 enum {
 
@@ -184,6 +184,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     else
       sprintf(llvm_fullpath, CLANGPP_BIN);
     cc_params[0] = alt_cxx && *alt_cxx ? alt_cxx : (u8 *)llvm_fullpath;
+    cpp_mode = 1;
 
   } else if (!strcmp(name, "afl-clang-fast") ||
 
@@ -205,12 +206,18 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  /* There are three ways to compile with afl-clang-fast. In the traditional
+  if (lto_mode && cpp_mode)
+    cc_params[cc_par_cnt++] = "-lc++";  // needed by fuzzbench, early
+
+  /* There are several ways to compile with afl-clang-fast. In the traditional
      mode, we use afl-llvm-pass.so, then there is libLLVMInsTrim.so which is
-     much faster but has less coverage. Finally there is the experimental
-     'trace-pc-guard' mode, we use native LLVM instrumentation callbacks
-     instead. For trace-pc-guard see:
+     faster and creates less map pollution.
+     Then there is the 'trace-pc-guard' mode, we use native LLVM
+     instrumentation callbacks instead. For trace-pc-guard see:
      http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards
+     The best instrumentatation is with the LTO modes, the classic and
+     InsTrimLTO, the latter is faster. The LTO modes are activated by using
+     afl-clang-lto(++)
    */
 
   // laf
@@ -325,6 +332,20 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   cc_params[cc_par_cnt++] = "-Qunused-arguments";
+
+  // in case LLVM is installed not via a package manager or "make install"
+  // e.g. compiled download or compiled from github then it's ./lib directory
+  // might not be in the search path. Add it if so.
+  u8 *libdir = strdup(LLVM_LIBDIR);
+  if (strlen(libdir) && strncmp(libdir, "/usr", 4) &&
+      strncmp(libdir, "/lib", 4)) {
+
+    cc_params[cc_par_cnt++] = "-rpath";
+    cc_params[cc_par_cnt++] = libdir;
+
+  } else
+
+    free(libdir);
 
   /* Detect stray -v calls from ./configure scripts. */
 
