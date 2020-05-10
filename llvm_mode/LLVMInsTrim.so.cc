@@ -143,7 +143,7 @@ struct InsTrim : public ModulePass {
     char *ctx_str = getenv("AFL_LLVM_CTX");
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
-    int  ngram_size = 0;
+    int ngram_size = 0;
     /* Decide previous location vector size (must be a power of two) */
     VectorType *PrevLocTy;
 
@@ -359,6 +359,7 @@ struct InsTrim : public ModulePass {
                               MDNode::get(C, None));
 
           } else
+
 #endif
           {
 
