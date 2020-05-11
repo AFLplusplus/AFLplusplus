@@ -276,7 +276,7 @@ library_list_t *find_library(char *name) {
 
 }
 
-/* for having an easy breakpoint after load the shared library */
+/* for having an easy breakpoint location after loading the shared library */
 // this seems to work for clang too. nice :) requires gcc 4.4+
 #pragma GCC push_options
 #pragma GCC optimize("O0")

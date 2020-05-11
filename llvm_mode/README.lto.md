@@ -145,15 +145,20 @@ Known issues:
 Hence if building a target with afl-clang-lto fails try to build it with llvm11
 and LTO enabled (`CC=clang-11` `CXX=clang++-11` `CFLAGS=-flto=full` and
 `CXXFLAGS=-flto=full`).
+
+An example that does not build with llvm 11 and LTO is ffmpeg.
+
 If this succeeeds then there is an issue with afl-clang-lto. Please report at
 [https://github.com/AFLplusplus/AFLplusplus/issues/226](https://github.com/AFLplusplus/AFLplusplus/issues/226)
 
 ### Target crashes immediately
 
-If the target is using early constructors (values smaller than 6) or have their
-own _init/.init functions and these are instrumented then the target will
-likely crash when started. This can be avoided by compiling with
+If the target is using early constructors (priority values smaller than 6)
+or have their own _init/.init functions and these are instrumented then the
+target will likely crash when started. This can be avoided by compiling with
 `AFL_LLVM_MAP_DYNAMIC=1` .
+
+This can e.g. happen with OpenSSL.
 
 ## Upcoming Work
 

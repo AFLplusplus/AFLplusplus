@@ -16,7 +16,7 @@ Supported is so far Intel (i386/x86_64) and AARCH64.
 ### Modify afl-untracer.c
 
 Read and modify afl-untracer.c then `make`.
-To adapt afl-untracer.c to your need read the header of the file and then
+To adapt afl-untracer.c to your needs, read the header of the file and then
 search and edit the `STEP 1`, `STEP 2` and `STEP 3` locations.
 
 ### Generate patches.txt file
@@ -25,7 +25,7 @@ To generate the `patches.txt` file for your target library use the
 `ida_get_patchpoints.py` script for IDA Pro or
 `ghidra_get_patchpoints.java` for Ghidra.
 
-The patches.txt file has to pointed to by `AFL_UNTRACER_FILE`.
+The patches.txt file has to be pointed to by `AFL_UNTRACER_FILE`.
 
 To easily run the scripts without needing to run the GUI with Ghidra:
 ```
