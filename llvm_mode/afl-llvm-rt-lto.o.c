@@ -11,6 +11,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 // to prevent the function from being removed
 unsigned char __afl_lto_mode = 0;
