@@ -16,6 +16,11 @@ This version requires a current llvm 11 compiled from the github master.
 
 4. AUTODICTIONARY feature! see below
 
+5. If any problems arise be sure to set `AR=llvm-ar RANLIB=llvm-ranlib` also
+   note that if that target uses _init functions or early constructors then
+   also set `AFL_LLVM_MAP_DYNAMIC=1` as your target will crash otherwise
+
+
 ## Introduction and problem description
 
 A big issue with how afl/afl++ works is that the basic block IDs that are
@@ -134,7 +139,7 @@ Other targets ignore environment variables and need the parameters set via
 afl-clang-lto is still work in progress.
 
 Known issues:
-  * Anything that llvm11 cannot compile, afl-clang-lto can not compile either - obviously
+  * Anything that llvm 11 cannot compile, afl-clang-lto can not compile either - obviously
   * Anything that does not compile with LTO, afl-clang-lto can not compile either - obviously
 
 Hence if building a target with afl-clang-lto fails try to build it with llvm11
@@ -142,6 +147,13 @@ and LTO enabled (`CC=clang-11` `CXX=clang++-11` `CFLAGS=-flto=full` and
 `CXXFLAGS=-flto=full`).
 If this succeeeds then there is an issue with afl-clang-lto. Please report at
 [https://github.com/AFLplusplus/AFLplusplus/issues/226](https://github.com/AFLplusplus/AFLplusplus/issues/226)
+
+### Target crashes immediately
+
+If the target is using early constructors (values smaller than 6) or have their
+own _init/.init functions and these are instrumented then the target will
+likely crash when started. This can be avoided by compiling with
+`AFL_LLVM_MAP_DYNAMIC=1` .
 
 ## Upcoming Work
 
