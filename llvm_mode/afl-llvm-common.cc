@@ -43,10 +43,29 @@ char *getBBName(const llvm::BasicBlock *BB) {
 /* Note: this blacklist check is also called in isInWhitelist() */
 bool isBlacklisted(const llvm::Function *F) {
 
+  // Starting from "LLVMFuzzer" these are functions used in libfuzzer based
+  // fuzzing campaign installations, e.g. oss-fuzz
+
   static const char *Blacklist[] = {
 
-      "asan.", "llvm.",      "sancov.", "__ubsan_handle_", "ign.", "__afl_",
-      "_fini", "__libc_csu", "__asan",  "__msan",          "msan."
+      "asan.",
+      "llvm.",
+      "sancov.",
+      "__ubsan_handle_",
+      "ign.",
+      "__afl_",
+      "_fini",
+      "__libc_csu",
+      "__asan",
+      "__msan",
+      "msan.",
+      "LLVMFuzzer",
+      "maybe_duplicate_stderr",
+      "discard_output",
+      "close_stdout",
+      "dup_and_close_stderr",
+      "maybe_close_fd_mask",
+      "ExecuteFilesOnyByOne"
 
   };
 
