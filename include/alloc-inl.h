@@ -233,19 +233,17 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
 
 /* User-facing macro to sprintf() to a dynamically allocated buffer. */
 
-#define alloc_printf(_str...) \
-    ({                                                 \
-                                                       \
-                                                       \
-                                                       \
-      u8 *_tmp;                                        \
-      s32 _len = snprintf(NULL, 0, _str);              \
-      if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
-      _tmp = ck_alloc(_len + 1);                       \
-      snprintf((char *)_tmp, _len + 1, _str);          \
-      _tmp;
-
-})
+#define alloc_printf(_str...)                        \
+  ({                                                 \
+                                                     \
+    u8 *_tmp;                                        \
+    s32 _len = snprintf(NULL, 0, _str);              \
+    if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
+    _tmp = ck_alloc(_len + 1);                       \
+    snprintf((char *)_tmp, _len + 1, _str);          \
+    _tmp;                                            \
+                                                     \
+  })
 
 /* Macro to enforce allocation limits as a last-resort defense against
    integer overflows. */
@@ -263,9 +261,7 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
                                                                       \
     if (!(_r)) ABORT("Out of memory: can't allocate %u bytes", (_s)); \
                                                                       \
-  }
-
-while (0)
+  } while (0)
 
 /* Magic tokens used to mark used / freed chunks. */
 

@@ -10,6 +10,8 @@
 
 */
 
+#include <stdio.h>
+
 // to prevent the function from being removed
 unsigned char __afl_lto_mode = 0;
 
@@ -17,6 +19,7 @@ unsigned char __afl_lto_mode = 0;
 
 __attribute__((constructor(0))) void __afl_auto_init_globals(void) {
 
+  if (getenv("AFL_DEBUG")) fprintf(stderr, "[__afl_auto_init_globals]\n");
   __afl_lto_mode = 1;
 
 }
