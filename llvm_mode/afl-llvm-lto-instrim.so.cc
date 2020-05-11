@@ -10,7 +10,8 @@
 
      http://www.apache.org/licenses/LICENSE-2.0
 
-   This library is plugged into LLVM when invoking clang through afl-clang-fast.
+   This library is plugged into LLVM when invoking clang through afl-clang-fast
+   or afl-clang-lto with AFL_LLVM_INSTRUMENT=CFG or =INSTRIM
 
  */
 
