@@ -135,7 +135,13 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
     u8 py_notrim = 0, py_idx;
     /* init, required */
     py_functions[PY_FUNC_INIT] = PyObject_GetAttrString(py_module, "init");
+    if (!py_functions[PY_FUNC_INIT])
+      FATAL("init function not found in python module");
     py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
+    if (!py_functions[PY_FUNC_FUZZ])
+      py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "mutate");
+    if (!py_functions[PY_FUNC_FUZZ])
+      WARNF("fuzz function not found in python module");
     py_functions[PY_FUNC_PRE_SAVE] =
         PyObject_GetAttrString(py_module, "pre_save");
     py_functions[PY_FUNC_INIT_TRIM] =
@@ -152,6 +158,8 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
     py_functions[PY_FUNC_QUEUE_NEW_ENTRY] =
         PyObject_GetAttrString(py_module, "queue_new_entry");
     py_functions[PY_FUNC_DEINIT] = PyObject_GetAttrString(py_module, "deinit");
+    if (!py_functions[PY_FUNC_DEINIT])
+      FATAL("deinit function not found in python module");
 
     for (py_idx = 0; py_idx < PY_FUNC_COUNT; ++py_idx) {
 

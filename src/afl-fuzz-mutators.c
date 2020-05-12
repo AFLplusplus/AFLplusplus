@@ -151,7 +151,7 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   /* Mutator */
   /* "afl_custom_init", optional for backward compatibility */
   mutator->afl_custom_init = dlsym(dh, "afl_custom_init");
-  if (!mutator->afl_custom_init) WARNF("Symbol 'afl_custom_init' not found.");
+  if (!mutator->afl_custom_init) FATAL("Symbol 'afl_custom_init' not found.");
 
   /* "afl_custom_fuzz" or "afl_custom_mutator", required */
   mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_fuzz");
@@ -162,13 +162,13 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
     mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_mutator");
     if (!mutator->afl_custom_fuzz)
-      FATAL("Symbol 'afl_custom_mutator' not found.");
+      WARNF("Symbol 'afl_custom_mutator' not found.");
 
   }
 
   /* "afl_custom_deinit", optional for backward compatibility */
   mutator->afl_custom_deinit = dlsym(dh, "afl_custom_deinit");
-  if (!mutator->afl_custom_deinit) WARNF("Symbol 'afl_custom_init' not found.");
+  if (!mutator->afl_custom_deinit) FATAL("Symbol 'afl_custom_init' not found.");
 
   /* "afl_custom_pre_save", optional */
   mutator->afl_custom_pre_save = dlsym(dh, "afl_custom_pre_save");
