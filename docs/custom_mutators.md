@@ -110,7 +110,7 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
     protobuf format which corresponds to a given grammar. In order to execute
     the target, the protobuf data must be converted to the plain-text format
     expected by the target. In such scenarios, the user can define the
-    `pre_save` function. This function is then transforms the data into the
+    `pre_save` function. This function is then transforming the data into the
     format expected by the API before executing the target.
 
 - `queue_new_entry` (optional):

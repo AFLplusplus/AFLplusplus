@@ -72,7 +72,7 @@ char *afl_environment_variables[] = {
     "AFL_LLVM_NOT_ZERO", "AFL_LLVM_WHITELIST", "AFL_LLVM_SKIP_NEVERZERO",
     "AFL_NO_AFFINITY", "AFL_LLVM_LTO_STARTID", "AFL_LLVM_LTO_DONTWRITEID",
     "AFL_NO_ARITH", "AFL_NO_BUILTIN", "AFL_NO_CPU_RED", "AFL_NO_FORKSRV",
-    "AFL_NO_UI", "AFL_NO_PYTHON", "AFL_UNTRACER_FILE",
+    "AFL_NO_UI", "AFL_NO_PYTHON", "AFL_UNTRACER_FILE", "AFL_LLVM_USE_TRACE_PC",
     "AFL_NO_X86",  // not really an env but we dont want to warn on it
     "AFL_MAP_SIZE", "AFL_MAPSIZE", "AFL_PATH", "AFL_PERFORMANCE_FILE",
     //"AFL_PERSISTENT", // not implemented anymore, so warn additionally
