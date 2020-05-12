@@ -883,7 +883,7 @@ test -d ../unicorn_mode/unicornafl && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
       # travis workaround
-      PY=`command -v python`
+      PY=`command -v python3 || command -v python`
       test "$PY" = "/opt/pyenv/shims/python" -a -x /usr/bin/python && PY=/usr/bin/python
       mkdir -p in
       echo 0 > in/in
@@ -942,11 +942,8 @@ test -d ../unicorn_mode/unicornafl && {
 
 $ECHO "$BLUE[*] Testing: custom mutator"
 test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
-  test `uname -s` = 'Darwin' && {
-    CUSTOM_MUTATOR_PATH=$( realpath ../examples/custom_mutators )
-  } || {
-    CUSTOM_MUTATOR_PATH=$( readlink -f ../examples/custom_mutators )
-  }
+  # normalize path
+  CUSTOM_MUTATOR_PATH=$(cd $(pwd)/../examples/custom_mutators;pwd)
   test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
     unset AFL_CC
     # Compile the vulnerable program for single mutator
