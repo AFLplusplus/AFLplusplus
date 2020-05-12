@@ -32,10 +32,11 @@ typedef long double max_align_t;
 #include "llvm/Support/CFG.h"
 #endif
 
-char *getBBName(const llvm::BasicBlock *BB);
-bool  isBlacklisted(const llvm::Function *F);
-void  initWhitelist();
-bool  isInWhitelist(llvm::Function *F);
+char *                 getBBName(const llvm::BasicBlock *BB);
+bool                   isBlacklisted(const llvm::Function *F);
+void                   initWhitelist();
+bool                   isInWhitelist(llvm::Function *F);
+unsigned long long int calculateCollisions(uint32_t edges);
 
 #endif
 

@@ -619,7 +619,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     }
 
-    out_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, getpid());
+    out_file = alloc_printf("%s/.afl-tmin-temp-%u", use_dir, (u32)getpid());
 
   }
 

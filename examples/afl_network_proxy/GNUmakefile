@@ -6,6 +6,8 @@ PROGRAMS = afl-network-client afl-network-server
 
 HASH=\#
 
+CFLAGS += -Wno-pointer-sign
+
 ifdef STATIC
   CFLAGS += -static
 endif

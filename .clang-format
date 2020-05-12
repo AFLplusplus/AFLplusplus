@@ -72,7 +72,6 @@ IncludeCategories:
     Priority:        3
 IncludeIsMainRegex: '([-_](test|unittest))?$'
 IndentCaseLabels: true
-IndentPPDirectives: None
 IndentWidth:     2
 IndentWrappedFunctionNames: false
 JavaScriptQuotes: Leave

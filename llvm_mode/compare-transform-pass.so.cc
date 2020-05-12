@@ -506,7 +506,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
 bool CompareTransform::runOnModule(Module &M) {
 
-  if (isatty(2) && getenv("AFL_QUIET") == NULL)
+  if ((isatty(2) && getenv("AFL_QUIET") == NULL) || getenv("AFL_DEBUG") != NULL)
     llvm::errs() << "Running compare-transform-pass by laf.intel@gmail.com, "
                     "extended by heiko@hexco.de\n";
   else

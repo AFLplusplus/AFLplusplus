@@ -6,6 +6,8 @@ This version requires a current llvm 11 compiled from the github master.
 
 1. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
    coverage than anything else that is out there in the AFL world
+  1a. Set AFL_LLVM_INSTRUMENT=CFG if you want the InsTrimLTO version
+      (recommended)
 
 2. You can use it together with llvm_mode: laf-intel and whitelisting
    features and can be combined with cmplog/Redqueen
@@ -13,6 +15,11 @@ This version requires a current llvm 11 compiled from the github master.
 3. It only works with llvm 11 (current github master state)
 
 4. AUTODICTIONARY feature! see below
+
+5. If any problems arise be sure to set `AR=llvm-ar RANLIB=llvm-ranlib` also
+   note that if that target uses _init functions or early constructors then
+   also set `AFL_LLVM_MAP_DYNAMIC=1` as your target will crash otherwise
+
 
 ## Introduction and problem description
 
@@ -41,7 +48,7 @@ and many dead ends until we got to this:
    -fsanitize=coverage edge coverage mode :)
 
 The result:
- * 10-20% speed gain compared to llvm_mode
+ * 10-25% speed gain compared to llvm_mode
  * guaranteed non-colliding edge coverage :-)
  * The compile time especially for libraries can be longer
 
@@ -80,11 +87,13 @@ Just use afl-clang-lto like you did with afl-clang-fast or afl-gcc.
 
 Also whitelisting (AFL_LLVM_WHITELIST -> [README.whitelist.md](README.whitelist.md)) and
 laf-intel/compcov (AFL_LLVM_LAF_* -> [README.laf-intel.md](README.laf-intel.md)) work.
-Instrim does not - but we can not really use it anyway for our approach.
+InsTrim (control flow graph instrumentation) is supported and recommended!
+  (set `AFL_LLVM_INSTRUMENT=CFG`)
 
 Example:
 ```
-CC=afl-clang-lto CXX=afl-clang-lto++ ./configure
+CC=afl-clang-lto CXX=afl-clang-lto++ RANLIB=llvm-ranlib AR=llvm-ar ./configure
+export AFL_LLVM_INSTRUMENT=CFG
 make
 ```
 
@@ -130,14 +139,26 @@ Other targets ignore environment variables and need the parameters set via
 afl-clang-lto is still work in progress.
 
 Known issues:
-  * Anything that llvm11 cannot compile, afl-clang-lto can not compile either - obviously
+  * Anything that llvm 11 cannot compile, afl-clang-lto can not compile either - obviously
   * Anything that does not compile with LTO, afl-clang-lto can not compile either - obviously
 
 Hence if building a target with afl-clang-lto fails try to build it with llvm11
 and LTO enabled (`CC=clang-11` `CXX=clang++-11` `CFLAGS=-flto=full` and
 `CXXFLAGS=-flto=full`).
+
+An example that does not build with llvm 11 and LTO is ffmpeg.
+
 If this succeeeds then there is an issue with afl-clang-lto. Please report at
 [https://github.com/AFLplusplus/AFLplusplus/issues/226](https://github.com/AFLplusplus/AFLplusplus/issues/226)
+
+### Target crashes immediately
+
+If the target is using early constructors (priority values smaller than 6)
+or have their own _init/.init functions and these are instrumented then the
+target will likely crash when started. This can be avoided by compiling with
+`AFL_LLVM_MAP_DYNAMIC=1` .
+
+This can e.g. happen with OpenSSL.
 
 ## Upcoming Work
 

@@ -142,6 +142,8 @@ static u8 run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
   }
 
+  return ret;
+
 }
 
 /* Handle Ctrl-C and the like. */
@@ -665,7 +667,7 @@ int main(int argc, char **argv_orig, char **envp) {
   while ((in_len = recv_testcase(s, (void **)&in_data, &max_len)) > 0) {
 
     // fprintf(stderr, "received %u\n", in_len);
-    run_target(fsrv, use_argv, in_data, in_len, 1);
+    (void)run_target(fsrv, use_argv, in_data, in_len, 1);
 
     memcpy(send_buf + 4, fsrv->trace_bits, fsrv->map_size);
 
