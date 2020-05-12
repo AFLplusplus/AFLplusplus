@@ -40,27 +40,27 @@
 #define PERSISTENT_DEFAULT_MAX_CNT 1000
 
 #ifdef CPU_NB_REGS
-#define AFL_REGS_NUM CPU_NB_REGS
+  #define AFL_REGS_NUM CPU_NB_REGS
 #elif TARGET_ARM
-#define AFL_REGS_NUM 32
+  #define AFL_REGS_NUM 32
 #elif TARGET_AARCH64
-#define AFL_REGS_NUM 32
+  #define AFL_REGS_NUM 32
 #else
-#define AFL_REGS_NUM 100
+  #define AFL_REGS_NUM 100
 #endif
 
 /* NeverZero */
 
 #if (defined(__x86_64__) || defined(__i386__)) && defined(AFL_QEMU_NOT_ZERO)
-#define INC_AFL_AREA(loc)           \
-  asm volatile(                     \
-      "incb (%0, %1, 1)\n"          \
-      "adcb $0, (%0, %1, 1)\n"      \
-      : /* no out */                \
-      : "r"(afl_area_ptr), "r"(loc) \
-      : "memory", "eax")
+  #define INC_AFL_AREA(loc)           \
+    asm volatile(                     \
+        "incb (%0, %1, 1)\n"          \
+        "adcb $0, (%0, %1, 1)\n"      \
+        : /* no out */                \
+        : "r"(afl_area_ptr), "r"(loc) \
+        : "memory", "eax")
 #else
-#define INC_AFL_AREA(loc) afl_area_ptr[loc]++
+  #define INC_AFL_AREA(loc) afl_area_ptr[loc]++
 #endif
 
 typedef void (*afl_persistent_hook_fn)(uint64_t *regs, uint64_t guest_base);

@@ -55,10 +55,10 @@
 /* clear helper macros AFL types pull in, which intervene with gcc-plugin
  * headers from GCC-8 */
 #ifdef likely
-#undef likely
+  #undef likely
 #endif
 #ifdef unlikely
-#undef unlikely
+  #undef unlikely
 #endif
 
 #include <stdio.h>
@@ -295,16 +295,16 @@ static unsigned int inline_instrument(function *fun) {
     update_stmt(g);
 
 #if 1
-#if 0
+  #if 0
 		tree addr = build2(ADDR_EXPR, map_type, map_ptr, area_off);
 		g = gimple_build_assign(map_ptr2, MODIFY_EXPR, addr);
 		gimple_seq_add_stmt(&seq, g); // map_ptr2 = map_ptr + area_off
 		update_stmt(g);
-#else
+  #else
     g = gimple_build_assign(map_ptr2, PLUS_EXPR, map_ptr, area_off);
     gimple_seq_add_stmt(&seq, g);  // map_ptr2 = map_ptr + area_off
     update_stmt(g);
-#endif
+  #endif
 
     // gimple_assign <mem_ref, _3, *p_6, NULL, NULL>
     tree tmp1 = create_tmp_var_raw(unsigned_char_type_node, "tmp1");

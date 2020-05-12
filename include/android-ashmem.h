@@ -28,27 +28,27 @@
 
 #ifdef __ANDROID__
 
-#include <fcntl.h>
-#include <linux/shm.h>
-#include <linux/ashmem.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
+  #include <fcntl.h>
+  #include <linux/shm.h>
+  #include <linux/ashmem.h>
+  #include <sys/ioctl.h>
+  #include <sys/mman.h>
 
-#if __ANDROID_API__ >= 26
-#define shmat bionic_shmat
-#define shmctl bionic_shmctl
-#define shmdt bionic_shmdt
-#define shmget bionic_shmget
-#endif
+  #if __ANDROID_API__ >= 26
+    #define shmat bionic_shmat
+    #define shmctl bionic_shmctl
+    #define shmdt bionic_shmdt
+    #define shmget bionic_shmget
+  #endif
 
-#include <sys/shm.h>
-#undef shmat
-#undef shmctl
-#undef shmdt
-#undef shmget
-#include <stdio.h>
+  #include <sys/shm.h>
+  #undef shmat
+  #undef shmctl
+  #undef shmdt
+  #undef shmget
+  #include <stdio.h>
 
-#define ASHMEM_DEVICE "/dev/ashmem"
+  #define ASHMEM_DEVICE "/dev/ashmem"
 
 static inline int shmctl(int __shmid, int __cmd, struct shmid_ds *__buf) {
 
