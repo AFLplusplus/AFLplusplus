@@ -21,6 +21,7 @@ COMMANDS = [
     b"GET",
     b"PUT",
     b"DEL",
+    b"AAAAAAAAAAAAAAAAA",
 ]
 
 
