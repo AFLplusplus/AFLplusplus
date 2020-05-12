@@ -252,7 +252,7 @@ help:
 	@echo "deepclean: cleans everything including downloads"
 	@echo "code-format: format the code, do this before you commit and send a PR please!"
 	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
-	@echo "unit: perform unit tests (based on cmocka)"
+	@echo "unit: perform unit tests (based on cmocka and GNU linker)"
 	@echo "document: creates afl-fuzz-document which will only do one run and save all manipulated inputs into out/queue/mutations"
 	@echo "help: shows these build options :-)"
 	@echo "=========================================="
@@ -385,7 +385,16 @@ unit_preallocable: test/unittests/unit_preallocable.o
 unit_clean:
 	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc test/unittests/*.o
 
+ifneq "$(shell uname)" "Darwin"
+
 unit: unit_maybe_alloc unit_preallocable unit_list unit_clean
+
+else
+
+unit:
+	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)
+
+endif
 
 code-format:
 	./.custom-format.py -i src/*.c
