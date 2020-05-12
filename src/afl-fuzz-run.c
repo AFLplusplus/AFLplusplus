@@ -191,7 +191,7 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
 u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
                   u32 handicap, u8 from_queue) {
 
-  u8 fault = 0, new_bits = 0, var_detected = 0,
+  u8 fault = 0, new_bits = 0, var_detected = 0, hnb = 0,
      first_run = (q->exec_cksum == 0);
 
   u64 start_us, stop_us;
@@ -236,7 +236,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   if (q->exec_cksum) {
 
     memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
-    u8 hnb = has_new_bits(afl, afl->virgin_bits);
+    hnb = has_new_bits(afl, afl->virgin_bits);
     if (hnb > new_bits) { new_bits = hnb; }
 
   }
@@ -271,10 +271,10 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     }
 
     cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-    u8 hnb = has_new_bits(afl, afl->virgin_bits);
-    if (hnb > new_bits) { new_bits = hnb; }
-
     if (q->exec_cksum != cksum) {
+
+      hnb = has_new_bits(afl, afl->virgin_bits);
+      if (hnb > new_bits) { new_bits = hnb; }
 
       if (q->exec_cksum) {
 
