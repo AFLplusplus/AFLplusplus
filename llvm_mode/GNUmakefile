@@ -45,7 +45,7 @@ LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//')
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 LLVM_LIBDIR = $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
 LLVM_STDCXX = gnu++11
-LLVM_APPLE = $(shell clang -v 2>&1 | grep -iq apple && echo 1 || echo 0)
+LLVM_APPLE_XCODE = $(shell clang -v 2>&1 | grep -q Apple && echo 1 || echo 0)
 LLVM_LTO   = 0
 
 ifeq "$(LLVMVER)" ""
@@ -75,7 +75,7 @@ ifeq "$(LLVM_LTO)" "0"
   $(info [+] llvm_mode detected llvm < 11, afl-clang-lto LTO will not be build.)
 endif
 
-ifeq "$(LLVM_APPLE)" "1"
+ifeq "$(LLVM_APPLE_XCODE)" "1"
   $(warning llvm_mode will not compile with Xcode clang...)
 endif
 
@@ -213,13 +213,15 @@ CXXFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
 override CXXFLAGS += -Wall -g -I ../include/ \
                      -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
-CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
+CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fpic $(CXXFLAGS)
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
 
 # User teor2345 reports that this is required to make things work on MacOS X.
 ifeq "$(shell uname)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
+else
+  CLANG_CFL += -Wl,-znodelete
 endif
 
 ifeq "$(shell uname)" "OpenBSD"
@@ -247,7 +249,7 @@ ifeq "$(LLVMVER)" ""
   NO_BUILD = 1
 endif
 
-ifneq "$(LLVM_UNSUPPORTED)$(LLVM_APPLE)" "00"
+ifneq "$(LLVM_UNSUPPORTED)$(LLVM_APPLE_XCODE)" "00"
   NO_BUILD = 1
 endif
 
@@ -279,7 +281,7 @@ no_build:
 
 test_deps:
 	@echo "[*] Checking for working 'llvm-config'..."
- ifneq "$(LLVM_APPLE)" "1"
+ ifneq "$(LLVM_APPLE_XCODE)" "1"
 	@type $(LLVM_CONFIG) >/dev/null 2>&1 || ( echo "[-] Oops, can't find 'llvm-config'. Install clang or set \$$LLVM_CONFIG or \$$PATH beforehand."; echo "    (Sometimes, the binary will be named llvm-config-3.5 or something like that.)"; exit 1 )
  endif
 	@echo "[*] Checking for working '$(CC)'..."
