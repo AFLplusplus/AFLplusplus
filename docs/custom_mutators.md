@@ -84,13 +84,16 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
 
 - `queue_get` (optional):
 
-    This method determines whether the fuzzer should fuzz the current queue
-    entry or not
+    This method determines whether the custom fuzzer should fuzz the current
+    queue entry or not
 
-- `fuzz` (required):
+- `fuzz` (optional):
 
     This method performs custom mutations on a given input. It also accepts an
     additional test case.
+    Note that this function is optional - but it makes sense to use it.
+    You would only skip this if `pre_send` is used to fix checksums etc.
+    so you are using it e.g. as a post processing library.
 
 - `havoc_mutation` and `havoc_mutation_probability` (optional):
 
@@ -113,6 +116,13 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
 - `queue_new_entry` (optional):
 
     This methods is called after adding a new test case to the queue.
+
+- `deinit`:
+
+    The last method to be called, deinitializing the state.
+
+Note that there are also three functions for trimming as described in the
+next section.
 
 ### Trimming Support
 
@@ -160,10 +170,8 @@ trimmed input. Here's a quick API description:
     In any case, this method must return the next trim iteration index (from 0
     to the maximum amount of steps you returned in `init_trim`).
 
-`deinit` the last method to be called, deinitializing the state.
-
-Omitting any of three methods will cause the trimming to be disabled and trigger
-a fallback to the builtin default trimming routine.
+Omitting any of three trimming methods will cause the trimming to be disabled
+and trigger a fallback to the builtin default trimming routine.
 
 ### Environment Variables
 
