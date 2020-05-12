@@ -31,14 +31,14 @@
 #define MESSAGES_TO_STDOUT
 
 #ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
+  #define _GNU_SOURCE 1
 #endif
 #ifndef _FILE_OFFSET_BITS
-#define _FILE_OFFSET_BITS 64
+  #define _FILE_OFFSET_BITS 64
 #endif
 
 #ifdef __ANDROID__
-#include "android-ashmem.h"
+  #include "android-ashmem.h"
 #endif
 
 #include "config.h"
@@ -76,7 +76,7 @@
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__NetBSD__) || defined(__DragonFly__)
-#include <sys/sysctl.h>
+  #include <sys/sysctl.h>
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 /* For systems that have sched_setaffinity; right now just Linux, but one
@@ -84,31 +84,31 @@
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
     defined(__DragonFly__)
-#define HAVE_AFFINITY 1
-#if defined(__FreeBSD__) || defined(__DragonFly__)
-#include <sys/param.h>
-#if defined(__FreeBSD__)
-#include <sys/cpuset.h>
-#endif
-#include <sys/user.h>
-#include <pthread.h>
-#include <pthread_np.h>
-#define cpu_set_t cpuset_t
-#elif defined(__NetBSD__)
-#include <pthread.h>
-#endif
+  #define HAVE_AFFINITY 1
+  #if defined(__FreeBSD__) || defined(__DragonFly__)
+    #include <sys/param.h>
+    #if defined(__FreeBSD__)
+      #include <sys/cpuset.h>
+    #endif
+    #include <sys/user.h>
+    #include <pthread.h>
+    #include <pthread_np.h>
+    #define cpu_set_t cpuset_t
+  #elif defined(__NetBSD__)
+    #include <pthread.h>
+  #endif
 #endif                                                         /* __linux__ */
 
 #ifdef __APPLE__
-#include <TargetConditionals.h>
+  #include <TargetConditionals.h>
 #endif
 
 #undef LIST_FOREACH                                 /* clashes with FreeBSD */
 #include "list.h"
 #ifndef SIMPLE_FILES
-#define CASE_PREFIX "id:"
+  #define CASE_PREFIX "id:"
 #else
-#define CASE_PREFIX "id_"
+  #define CASE_PREFIX "id_"
 #endif                                                    /* ^!SIMPLE_FILES */
 
 #define STAGE_BUF_SIZE (64)  /* usable size for stage name buf in afl_state */
@@ -231,30 +231,30 @@ enum {
 /* Python stuff */
 #ifdef USE_PYTHON
 
-// because Python sets stuff it should not ...
-#ifdef _POSIX_C_SOURCE
-#define _SAVE_POSIX_C_SOURCE _POSIX_C_SOURCE
-#undef _POSIX_C_SOURCE
-#endif
-#ifdef _XOPEN_SOURCE
-#define _SAVE_XOPEN_SOURCE _XOPEN_SOURCE
-#undef _XOPEN_SOURCE
-#endif
+  // because Python sets stuff it should not ...
+  #ifdef _POSIX_C_SOURCE
+    #define _SAVE_POSIX_C_SOURCE _POSIX_C_SOURCE
+    #undef _POSIX_C_SOURCE
+  #endif
+  #ifdef _XOPEN_SOURCE
+    #define _SAVE_XOPEN_SOURCE _XOPEN_SOURCE
+    #undef _XOPEN_SOURCE
+  #endif
 
-#include <Python.h>
+  #include <Python.h>
 
-#ifdef _SAVE_POSIX_C_SOURCE
-#ifdef _POSIX_C_SOURCE
-#undef _POSIX_C_SOURCE
-#endif
-#define _POSIX_C_SOURCE _SAVE_POSIX_C_SOURCE
-#endif
-#ifdef _SAVE_XOPEN_SOURCE
-#ifdef _XOPEN_SOURCE
-#undef _XOPEN_SOURCE
-#endif
-#define _XOPEN_SOURCE _SAVE_XOPEN_SOURCE
-#endif
+  #ifdef _SAVE_POSIX_C_SOURCE
+    #ifdef _POSIX_C_SOURCE
+      #undef _POSIX_C_SOURCE
+    #endif
+    #define _POSIX_C_SOURCE _SAVE_POSIX_C_SOURCE
+  #endif
+  #ifdef _SAVE_XOPEN_SOURCE
+    #ifdef _XOPEN_SOURCE
+      #undef _XOPEN_SOURCE
+    #endif
+    #define _XOPEN_SOURCE _SAVE_XOPEN_SOURCE
+  #endif
 
 enum {
 

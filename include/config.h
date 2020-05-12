@@ -49,7 +49,7 @@
 /* Comment out to disable fancy ANSI boxes and use poor man's 7-bit UI: */
 
 #ifndef ANDROID_DISABLE_FANCY  // Fancy boxes are ugly from adb
-#define FANCY_BOXES
+  #define FANCY_BOXES
 #endif
 
 /* Default timeout for fuzzed code (milliseconds). This is the upper bound,
@@ -63,20 +63,20 @@
 
 /* 64bit arch MACRO */
 #if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__))
-#define WORD_SIZE_64 1
+  #define WORD_SIZE_64 1
 #endif
 
 /* Default memory limit for child process (MB): */
 
 #ifndef __NetBSD__
-#ifndef WORD_SIZE_64
-#define MEM_LIMIT 25
-#else
-#define MEM_LIMIT 50
-#endif                                                    /* ^!WORD_SIZE_64 */
-#else  /* NetBSD's kernel needs more space for stack, see discussion for issue \
-          #165 */
-#define MEM_LIMIT 200
+  #ifndef WORD_SIZE_64
+    #define MEM_LIMIT 25
+  #else
+    #define MEM_LIMIT 50
+  #endif                                                  /* ^!WORD_SIZE_64 */
+#else /* NetBSD's kernel needs more space for stack, see discussion for issue \
+         #165 */
+  #define MEM_LIMIT 200
 #endif
 /* Default memory limit when running in QEMU mode (MB): */
 
@@ -395,9 +395,9 @@
 
 /* for *BSD: use ARC4RANDOM and save a file descriptor */
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-#ifndef HAVE_ARC4RANDOM
-#define HAVE_ARC4RANDOM 1
-#endif
+  #ifndef HAVE_ARC4RANDOM
+    #define HAVE_ARC4RANDOM 1
+  #endif
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 #endif                                                  /* ! _HAVE_CONFIG_H */
