@@ -103,7 +103,6 @@ struct InsTrim : public ModulePass {
   bool runOnModule(Module &M) override {
 
     char be_quiet = 0;
-    int  ngram_size = 0;
 
     if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
@@ -134,15 +133,17 @@ struct InsTrim : public ModulePass {
 
     }
 
-    if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") != NULL)
+    if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") ||
+        getenv("AFL_LLVM_SKIPSINGLEBLOCK"))
       function_minimum_size = 2;
 
-    unsigned PrevLocSize = 0;
-    char *   ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
+    unsigned int PrevLocSize = 0;
+    char *       ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
     if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
     char *ctx_str = getenv("AFL_LLVM_CTX");
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
+    unsigned int ngram_size = 0;
     /* Decide previous location vector size (must be a power of two) */
     VectorType *PrevLocTy;
 
@@ -340,6 +341,7 @@ struct InsTrim : public ModulePass {
           if (MS.find(&BB) == MS.end()) { continue; }
           IRBuilder<> IRB(&*BB.getFirstInsertionPt());
 
+#ifdef AFL_HAVE_VECTOR_INTRINSICS
           if (ngram_size) {
 
             LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
@@ -356,7 +358,10 @@ struct InsTrim : public ModulePass {
                 ->setMetadata(M.getMDKindID("nosanitize"),
                               MDNode::get(C, None));
 
-          } else {
+          } else
+
+#endif
+          {
 
             IRB.CreateStore(ConstantInt::get(Int32Ty, genLabel()), AFLPrevLoc);
 
@@ -394,7 +399,7 @@ struct InsTrim : public ModulePass {
               if ((callInst = dyn_cast<CallInst>(&IN))) {
 
                 Function *Callee = callInst->getCalledFunction();
-                if (!Callee || Callee->size() < 2)
+                if (!Callee || Callee->size() < function_minimum_size)
                   continue;
                 else {
 

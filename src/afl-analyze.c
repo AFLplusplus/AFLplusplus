@@ -723,7 +723,7 @@ static void set_up_environment(void) {
 
     }
 
-    prog_in = alloc_printf("%s/.afl-analyze-temp-%u", use_dir, getpid());
+    prog_in = alloc_printf("%s/.afl-analyze-temp-%u", use_dir, (u32)getpid());
 
   }
 

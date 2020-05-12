@@ -1,6 +1,6 @@
 # C Sample
 
-This shows a simple persistent harness for unicornafl in C
+This shows a simple persistent harness for unicornafl in C.
 In contrast to the normal c harness, this harness manually resets the unicorn state on each new input.
 Thanks to this, we can rerun the testcase in unicorn multiple times, without the need to fork again.
 
@@ -21,4 +21,4 @@ was built in case you want to rebuild it or recompile it for any reason.
 
 The pre-built binary (persistent_target_x86_64.bin) was built using -g -O0 in gcc.
 
-We then load the binary we execute the main function directly.
+We then load the binary and we execute the main function directly.

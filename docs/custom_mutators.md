@@ -16,6 +16,10 @@ fuzzing by using libraries that perform mutations according to a given grammar.
 
 The custom mutator is passed to `afl-fuzz` via the `AFL_CUSTOM_MUTATOR_LIBRARY`
 or `AFL_PYTHON_MODULE` environment variable, and must export a fuzz function.
+Now afl also supports multiple custom mutators which can be specified in the same `AFL_CUSTOM_MUTATOR_LIBRARY` environment variable like this.
+```bash
+export AFL_CUSTOM_MUTATOR_LIBRARY="full/path/to/mutator_first.so;full/path/to/mutator_second.so"
+```
 Please see [APIs](#2-apis) and [Usage](#3-usage) for detail.
 
 The custom mutation stage is set to be the first non-deterministic stage (right before the havoc stage).
@@ -209,12 +213,15 @@ For C/C++ mutator, the source code must be compiled as a shared object:
 ```bash
 gcc -shared -Wall -O3 example.c -o example.so
 ```
+Note that if you specify multiple custom mutators, the corresponding functions will
+be called in the order in which they are specified. e.g first `pre_save` function of
+`example_first.so` will be called and then that of `example_second.so`
 
 ### Run
 
 C/C++
 ```bash
-export AFL_CUSTOM_MUTATOR_LIBRARY=/full/path/to/example.so
+export AFL_CUSTOM_MUTATOR_LIBRARY="/full/path/to/example_first.so;/full/path/to/example_second.so"
 afl-fuzz /path/to/program
 ```
 

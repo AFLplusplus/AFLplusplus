@@ -70,8 +70,8 @@ def custom_format(filename):
     out = ""
     
     for line in src.split("\n"):
-        if line.startswith("#"):
-            if line.startswith("#define"):
+        if line.lstrip().startswith("#"):
+            if line[line.find("#")+1:].lstrip().startswith("define"):
                 in_define = True
         
         if "/*" in line and not line.strip().startswith("/*") and line.endswith("*/") and len(line) < (COLUMN_LIMIT-2):

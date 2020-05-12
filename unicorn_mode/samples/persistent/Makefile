@@ -17,9 +17,9 @@ CFLAGS += -Wall -Werror -I../../unicornafl/include
 
 LDFLAGS += -L$(LIBDIR) -lpthread -lm
 
-_LRT = $(_UNIQ)$(UNAME_S:Linux=)
-__LRT = $(_LRT:$(_UNIQ)=-lrt)
-LRT = $(__LRT:$(_UNIQ)=)
+_LRT = $(_UNIQ)$(UNAME_S)
+__LRT = $(_LRT:$(_UNIQ)Linux=-lrt)
+LRT = $(__LRT:$(_UNIQ)$(UNAME_S)=)
 
 LDFLAGS += $(LRT)
 
@@ -48,3 +48,6 @@ debug: harness-debug.o
 
 fuzz: harness
 	../../../afl-fuzz -m none -i sample_inputs -o out -- ./harness @@
+
+debugmake:
+	@echo UNAME_S=$(UNAME_S), _LRT=$(_LRT), __LRT=$(__LRT), LRT=$(LRT)

@@ -35,7 +35,7 @@
 #include "tcg.h"
 #include "tcg-op.h"
 
-#if TCG_TARGET_LONG_BITS == 64
+#if TCG_TARGET_REG_BITS == 64
 #define _DEFAULT_MO MO_64
 #else
 #define _DEFAULT_MO MO_32

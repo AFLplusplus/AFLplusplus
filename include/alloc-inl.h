@@ -214,8 +214,8 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
 
 }
 
-/* In non-debug mode, we just do straightforward aliasing of the above functions
-   to user-visible names such as ck_alloc(). */
+/* In non-debug mode, we just do straightforward aliasing of the above
+   functions to user-visible names such as ck_alloc(). */
 
 #define ck_alloc DFL_ck_alloc
 #define ck_alloc_nozero DFL_ck_alloc_nozero
@@ -247,7 +247,6 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
 
 /* Macro to enforce allocation limits as a last-resort defense against
    integer overflows. */
-
 #define ALLOC_CHECK_SIZE(_s)                                          \
   do {                                                                \
                                                                       \
@@ -358,7 +357,6 @@ static inline void DFL_ck_free(void *mem) {
   if (!mem) return;
 
   CHECK_PTR(mem);
-
 #ifdef DEBUG_BUILD
 
   /* Catch pointer issues sooner. */
@@ -542,8 +540,8 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
 
 #ifndef DEBUG_BUILD
 
-/* In non-debug mode, we just do straightforward aliasing of the above functions
-   to user-visible names such as ck_alloc(). */
+/* In non-debug mode, we just do straightforward aliasing of the above
+   functions to user-visible names such as ck_alloc(). */
 
 #define ck_alloc DFL_ck_alloc
 #define ck_alloc_nozero DFL_ck_alloc_nozero
@@ -558,8 +556,8 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
 
 #else
 
-/* In debugging mode, we also track allocations to detect memory leaks, and the
-   flow goes through one more layer of indirection. */
+/* In debugging mode, we also track allocations to detect memory leaks, and
+   the flow goes through one more layer of indirection. */
 
 /* Alloc tracking data structures: */
 

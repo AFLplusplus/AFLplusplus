@@ -89,6 +89,7 @@ typedef int64_t s64;
     _a < _b ? _a : _b;      \
                             \
   })
+
 #define MAX(a, b)           \
   ({                        \
                             \
@@ -97,6 +98,7 @@ typedef int64_t s64;
     _a > _b ? _a : _b;      \
                             \
   })
+
 #endif                                                              /* !MIN */
 
 #define SWAP16(_x)                    \
@@ -154,8 +156,12 @@ typedef int64_t s64;
 #define MEM_BARRIER() __asm__ volatile("" ::: "memory")
 
 #if __GNUC__ < 6
+#ifndef likely
 #define likely(_x) (_x)
+#endif
+#ifndef unlikely
 #define unlikely(_x) (_x)
+#endif
 #else
 #ifndef likely
 #define likely(_x) __builtin_expect(!!(_x), 1)

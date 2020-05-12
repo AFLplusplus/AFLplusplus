@@ -43,8 +43,9 @@ LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^3\.
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[0-9]' && echo 1 || echo 0 )
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//')
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
+LLVM_LIBDIR = $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
 LLVM_STDCXX = gnu++11
-LLVM_APPLE = $(shell clang -v 2>&1 | grep -iq apple && echo 1 || echo 0)
+LLVM_APPLE_XCODE = $(shell clang -v 2>&1 | grep -q Apple && echo 1 || echo 0)
 LLVM_LTO   = 0
 
 ifeq "$(LLVMVER)" ""
@@ -74,7 +75,7 @@ ifeq "$(LLVM_LTO)" "0"
   $(info [+] llvm_mode detected llvm < 11, afl-clang-lto LTO will not be build.)
 endif
 
-ifeq "$(LLVM_APPLE)" "1"
+ifeq "$(LLVM_APPLE_XCODE)" "1"
   $(warning llvm_mode will not compile with Xcode clang...)
 endif
 
@@ -200,7 +201,8 @@ override CFLAGS += -Wall \
                -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
-               -DLLVM_VERSION=\"$(LLVMVER)\"  -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
+               -DLLVM_LIBDIR=\"$(LLVM_LIBDIR)\" -DLLVM_VERSION=\"$(LLVMVER)\" \
+               -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
                -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
                -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function
 ifdef AFL_TRACE_PC
@@ -211,13 +213,15 @@ CXXFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
 override CXXFLAGS += -Wall -g -I ../include/ \
                      -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
-CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -Wl,-znodelete -fno-rtti -fpic $(CXXFLAGS)
+CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fpic $(CXXFLAGS)
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
 
 # User teor2345 reports that this is required to make things work on MacOS X.
 ifeq "$(shell uname)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
+else
+  CLANG_CFL += -Wl,-znodelete
 endif
 
 ifeq "$(shell uname)" "OpenBSD"
@@ -238,14 +242,14 @@ ifeq "$(TEST_MMAP)" "1"
         LDFLAGS += -Wno-deprecated-declarations
 endif
 
-  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-lto-whitelist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
+  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-lto-whitelist.so ../afl-llvm-lto-instrumentation.so ../afl-llvm-lto-instrim.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
 ifeq "$(LLVMVER)" ""
   NO_BUILD = 1
 endif
 
-ifneq "$(LLVM_UNSUPPORTED)$(LLVM_APPLE)" "00"
+ifneq "$(LLVM_UNSUPPORTED)$(LLVM_APPLE_XCODE)" "00"
   NO_BUILD = 1
 endif
 
@@ -277,7 +281,7 @@ no_build:
 
 test_deps:
 	@echo "[*] Checking for working 'llvm-config'..."
- ifneq "$(LLVM_APPLE)" "1"
+ ifneq "$(LLVM_APPLE_XCODE)" "1"
 	@type $(LLVM_CONFIG) >/dev/null 2>&1 || ( echo "[-] Oops, can't find 'llvm-config'. Install clang or set \$$LLVM_CONFIG or \$$PATH beforehand."; echo "    (Sometimes, the binary will be named llvm-config-3.5 or something like that.)"; exit 1 )
  endif
 	@echo "[*] Checking for working '$(CC)'..."
@@ -296,7 +300,7 @@ afl-common.o: ../src/afl-common.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
 ../afl-clang-fast: afl-clang-fast.c afl-common.o | test_deps
-	$(CC) $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS) -DCFLAGS_OPT=\"$(CFLAGS_OPT)\"
+	$(CC) $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS) -DCFLAGS_OPT=\"$(CFLAGS_OPT)\" -Dxxx
 	ln -sf afl-clang-fast ../afl-clang-fast++
 ifneq "$(AFL_CLANG_FLTO)" ""
 ifeq "$(LLVM_LTO)" "1"
@@ -328,6 +332,11 @@ ifeq "$(LLVM_LTO)" "1"
 	$(CLANG_BIN) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto.o
 	@$(CLANG_BIN) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m64 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-64.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
 	@$(CLANG_BIN) $(CFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m32 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-32.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
+endif
+
+../afl-llvm-lto-instrim.so: afl-llvm-lto-instrim.so.cc afl-llvm-common.o
+ifeq "$(LLVM_LTO)" "1"
+	$(CXX) $(CLANG_CFL) -DLLVMInsTrim_EXPORTS -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL) afl-llvm-common.o
 endif
 
 # laf
@@ -373,7 +382,7 @@ all_done: test_build
 install: all
 	install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
 	if [ -f ../afl-clang-fast -a -f ../libLLVMInsTrim.so -a -f ../afl-llvm-rt.o ]; then set -e; install -m 755 ../afl-clang-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-fast++; install -m 755 ../libLLVMInsTrim.so ../afl-llvm-pass.so ../afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f ../afl-clang-lto ]; then set -e; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 ../afl-llvm-lto-instrumentation.so ../afl-llvm-rt-lto*.o ../afl-llvm-lto-whitelist.so $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f ../afl-clang-lto ]; then set -e; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 ../afl-llvm-lto-instrumentation.so ../afl-llvm-lto-instrim.so ../afl-llvm-rt-lto*.o ../afl-llvm-lto-whitelist.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../afl-llvm-rt-32.o ]; then set -e; install -m 755 ../afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../afl-llvm-rt-64.o ]; then set -e; install -m 755 ../afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../compare-transform-pass.so ]; then set -e; install -m 755 ../compare-transform-pass.so $${DESTDIR}$(HELPER_PATH); fi

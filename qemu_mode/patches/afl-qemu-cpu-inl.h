@@ -123,12 +123,11 @@ struct afl_chain {
 
 /* Some forward decls: */
 
-TranslationBlock *tb_htable_lookup(CPUState *, target_ulong, target_ulong,
-                                   uint32_t, uint32_t);
 static inline TranslationBlock *tb_find(CPUState *, TranslationBlock *, int,
                                         uint32_t);
 static inline void              tb_add_jump(TranslationBlock *tb, int n,
                                             TranslationBlock *tb_next);
+int                             open_self_maps(void *cpu_env, int fd);
 
 /*************************
  * ACTUAL IMPLEMENTATION *

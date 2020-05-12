@@ -27,6 +27,10 @@
 #include "cmplog.h"
 #include <limits.h>
 
+#ifdef PROFILING
+extern u64 time_spent_working;
+#endif
+
 static u8 *get_libradamsa_path(u8 *own_loc) {
 
   u8 *tmp, *cp, *rsl, *own_copy;
@@ -644,10 +648,7 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         afl->limit_time_puppet = limit_time_puppet2;
-
-        SAYF("limit_time_puppet %d\n", afl->limit_time_puppet);
         afl->swarm_now = 0;
-
         if (afl->limit_time_puppet == 0) { afl->key_puppet = 1; }
 
         int i;
@@ -1073,7 +1074,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   setup_dirs_fds(afl);
 
-  setup_custom_mutator(afl);
+  setup_custom_mutators(afl);
 
   setup_cmdline_file(afl, argv + optind);
 
@@ -1351,10 +1352,17 @@ stop_fuzzing:
 
   }
 
+#ifdef PROFILING
+  SAYF(cYEL "[!] " cRST
+            "Profiling information: %llu ms total work, %llu ns/run\n",
+       time_spent_working / 1000000,
+       time_spent_working / afl->fsrv.total_execs);
+#endif
+
   fclose(afl->fsrv.plot_file);
   destroy_queue(afl);
   destroy_extras(afl);
-  destroy_custom_mutator(afl);
+  destroy_custom_mutators(afl);
   afl_shm_deinit(&afl->shm);
   afl_fsrv_deinit(&afl->fsrv);
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
