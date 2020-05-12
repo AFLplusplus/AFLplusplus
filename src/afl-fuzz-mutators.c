@@ -117,7 +117,7 @@ void destroy_custom_mutators(afl_state_t *afl) {
     LIST_FOREACH_CLEAR(&afl->custom_mutator_list, struct custom_mutator, {
 
       if (!el->data) { FATAL("Deintializing NULL mutator"); }
-      el->afl_custom_deinit(el->data);
+      if (el->afl_custom_deinit) el->afl_custom_deinit(el->data);
       if (el->dh) dlclose(el->dh);
 
       if (el->pre_save_buf) {
@@ -166,32 +166,37 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   }
 
+  /* "afl_custom_deinit", optional for backward compatibility */
+  mutator->afl_custom_deinit = dlsym(dh, "afl_custom_deinit");
+  if (!mutator->afl_custom_deinit) WARNF("Symbol 'afl_custom_init' not found.");
+
   /* "afl_custom_pre_save", optional */
   mutator->afl_custom_pre_save = dlsym(dh, "afl_custom_pre_save");
   if (!mutator->afl_custom_pre_save)
-    WARNF("Symbol 'afl_custom_pre_save' not found.");
+    ACTF("optional symbol 'afl_custom_pre_save' not found.");
 
   u8 notrim = 0;
   /* "afl_custom_init_trim", optional */
   mutator->afl_custom_init_trim = dlsym(dh, "afl_custom_init_trim");
   if (!mutator->afl_custom_init_trim)
-    WARNF("Symbol 'afl_custom_init_trim' not found.");
+    ACTF("optional symbol 'afl_custom_init_trim' not found.");
 
   /* "afl_custom_trim", optional */
   mutator->afl_custom_trim = dlsym(dh, "afl_custom_trim");
-  if (!mutator->afl_custom_trim) WARNF("Symbol 'afl_custom_trim' not found.");
+  if (!mutator->afl_custom_trim)
+    ACTF("optional symbol 'afl_custom_trim' not found.");
 
   /* "afl_custom_post_trim", optional */
   mutator->afl_custom_post_trim = dlsym(dh, "afl_custom_post_trim");
   if (!mutator->afl_custom_post_trim)
-    WARNF("Symbol 'afl_custom_post_trim' not found.");
+    ACTF("optional symbol 'afl_custom_post_trim' not found.");
 
   if (notrim) {
 
     mutator->afl_custom_init_trim = NULL;
     mutator->afl_custom_trim = NULL;
     mutator->afl_custom_post_trim = NULL;
-    WARNF(
+    ACTF(
         "Custom mutator does not implement all three trim APIs, standard "
         "trimming will be used.");
 
@@ -200,23 +205,23 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   /* "afl_custom_havoc_mutation", optional */
   mutator->afl_custom_havoc_mutation = dlsym(dh, "afl_custom_havoc_mutation");
   if (!mutator->afl_custom_havoc_mutation)
-    WARNF("Symbol 'afl_custom_havoc_mutation' not found.");
+    ACTF("optional symbol 'afl_custom_havoc_mutation' not found.");
 
   /* "afl_custom_havoc_mutation", optional */
   mutator->afl_custom_havoc_mutation_probability =
       dlsym(dh, "afl_custom_havoc_mutation_probability");
   if (!mutator->afl_custom_havoc_mutation_probability)
-    WARNF("Symbol 'afl_custom_havoc_mutation_probability' not found.");
+    ACTF("optional symbol 'afl_custom_havoc_mutation_probability' not found.");
 
   /* "afl_custom_queue_get", optional */
   mutator->afl_custom_queue_get = dlsym(dh, "afl_custom_queue_get");
   if (!mutator->afl_custom_queue_get)
-    WARNF("Symbol 'afl_custom_queue_get' not found.");
+    ACTF("optional symbol 'afl_custom_queue_get' not found.");
 
   /* "afl_custom_queue_new_entry", optional */
   mutator->afl_custom_queue_new_entry = dlsym(dh, "afl_custom_queue_new_entry");
   if (!mutator->afl_custom_queue_new_entry)
-    WARNF("Symbol 'afl_custom_queue_new_entry' not found");
+    ACTF("optional symbol 'afl_custom_queue_new_entry' not found");
 
   OKF("Custom mutator '%s' installed successfully.", fn);
 

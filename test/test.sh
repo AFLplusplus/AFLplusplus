@@ -970,16 +970,17 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       }
     }
     # Compile the custom mutator
-    make -C ../examples/custom_mutators libexamplemutator.so > /dev/null 2>&1
-    test -e test-custom-mutator -a -e ${CUSTOM_MUTATOR_PATH}/libexamplemutator.so && {
+    cc -D_FIXED_CHAR=0x41 -g -fPIC -shared -I../include ../examples/custom_mutators/simple_example.c -o libexamplemutator.so > /dev/null 2>&1
+    cc -D_FIXED_CHAR=0x42 -g -fPIC -shared -I../include ../examples/custom_mutators/simple_example.c -o libexamplemutator2.so > /dev/null 2>&1
+    test -e test-custom-mutator -a -e ./libexamplemutator.so && {
       # Create input directory
       mkdir -p in
       echo "00000" > in/in
 
       # Run afl-fuzz w/ the C mutator
-      $ECHO "$GREY[*] running afl-fuzz for the C mutator, this will take approx 10 seconds"
+      $ECHO "$GREY[*] running afl-fuzz for the C mutator, this will take approx 5 seconds"
       {
-        AFL_CUSTOM_MUTATOR_LIBRARY=${CUSTOM_MUTATOR_PATH}/libexamplemutator.so ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
+        AFL_CUSTOM_MUTATOR_LIBRARY=./libexamplemutator.so AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V1 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
       } >>errors 2>&1
 
       # Check results
@@ -996,10 +997,10 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       # Clean
       rm -rf out errors
 
-      #Run afl-fuzz w/ multiple C mutators
-      $ECHO "$GREY[*] running afl-fuzz with multiple custom C mutators, this will take approx 20 seconds"
+      # Run afl-fuzz w/ multiple C mutators
+      $ECHO "$GREY[*] running afl-fuzz with multiple custom C mutators, this will take approx 5 seconds"
       {
-        AFL_CUSTOM_MUTATOR_LIBRARY="${CUSTOM_MUTATOR_PATH}/libexamplemutator.so;${CUSTOM_MUTATOR_PATH}/libexamplemutator.so" ../afl-fuzz -V20 -m ${MEM_LIMIT} -i in -o out -- ./test-multiple-mutators >>errors 2>&1
+        AFL_CUSTOM_MUTATOR_LIBRARY="./libexamplemutator.so;./libexamplemutator2.so" AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V1 -m ${MEM_LIMIT} -i in -o out -- ./test-multiple-mutators >>errors 2>&1
       } >>errors 2>&1
 
       test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
@@ -1016,11 +1017,11 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       rm -rf out errors 
 
       # Run afl-fuzz w/ the Python mutator
-      $ECHO "$GREY[*] running afl-fuzz for the Python mutator, this will take approx 10 seconds"
+      $ECHO "$GREY[*] running afl-fuzz for the Python mutator, this will take approx 5 seconds"
       {
         export PYTHONPATH=${CUSTOM_MUTATOR_PATH}
         export AFL_PYTHON_MODULE=example
-        ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
+        AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V5 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
         unset PYTHONPATH
         unset AFL_PYTHON_MODULE
       } >>errors 2>&1
@@ -1039,7 +1040,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       # Clean
       rm -rf in out errors
       rm -rf ${CUSTOM_MUTATOR_PATH}/__pycache__/
-      rm -f test-multiple-mutators
+      rm -f test-multiple-mutators test-custom-mutator libexamplemutator.so libexamplemutator2.so
     } || {
       ls .
       ls ${CUSTOM_MUTATOR_PATH}
