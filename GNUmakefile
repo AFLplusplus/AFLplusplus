@@ -211,9 +211,9 @@ ifeq "$(shell echo 'int main() { return 0;}' | $(CC) $(CFLAGS) -fsanitize=addres
 endif
 
 ifdef ASAN_BUILD
-        $(info Compiling ASAN version of binaries)
-        CFLAGS+=$(ASAN_CFLAGS)
-        LDFLAGS+=$(ASAN_LDFLAGS)
+  $(info Compiling ASAN version of binaries)
+  CFLAGS+=$(ASAN_CFLAGS)
+  LDFLAGS+=$(ASAN_LDFLAGS)
 endif
 
 ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
