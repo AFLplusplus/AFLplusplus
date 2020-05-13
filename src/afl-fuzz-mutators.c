@@ -108,6 +108,8 @@ void setup_custom_mutators(afl_state_t *afl) {
 
 #endif
 
+  if (afl->post_library_mutator) list_append(&afl->custom_mutator_list, afl->post_library_mutator);
+
 }
 
 void destroy_custom_mutators(afl_state_t *afl) {
@@ -120,11 +122,11 @@ void destroy_custom_mutators(afl_state_t *afl) {
       if (el->afl_custom_deinit) el->afl_custom_deinit(el->data);
       if (el->dh) dlclose(el->dh);
 
-      if (el->pre_save_buf) {
+      if (el->post_process_buf) {
 
-        ck_free(el->pre_save_buf);
-        el->pre_save_buf = NULL;
-        el->pre_save_size = 0;
+        ck_free(el->post_process_buf);
+        el->post_process_buf = NULL;
+        el->post_process_size = 0;
 
       }
 
@@ -170,10 +172,10 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   mutator->afl_custom_deinit = dlsym(dh, "afl_custom_deinit");
   if (!mutator->afl_custom_deinit) FATAL("Symbol 'afl_custom_init' not found.");
 
-  /* "afl_custom_pre_save", optional */
-  mutator->afl_custom_pre_save = dlsym(dh, "afl_custom_pre_save");
-  if (!mutator->afl_custom_pre_save)
-    ACTF("optional symbol 'afl_custom_pre_save' not found.");
+  /* "afl_custom_post_process", optional */
+  mutator->afl_custom_post_process = dlsym(dh, "afl_custom_post_process");
+  if (!mutator->afl_custom_post_process)
+    ACTF("optional symbol 'afl_custom_post_process' not found.");
 
   u8 notrim = 0;
   /* "afl_custom_init_trim", optional */

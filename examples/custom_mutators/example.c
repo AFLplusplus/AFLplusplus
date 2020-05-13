@@ -38,7 +38,7 @@ typedef struct my_mutator {
   BUF_VAR(u8, data);
   BUF_VAR(u8, havoc);
   BUF_VAR(u8, trim);
-  BUF_VAR(u8, pre_save);
+  BUF_VAR(u8, post_process);
 
 } my_mutator_t;
 
@@ -139,11 +139,11 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
  * @return Size of the output buffer after processing or the needed amount.
  *     A return of 0 indicates an error.
  */
-size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
+size_t afl_custom_post_process(my_mutator_t *data, uint8_t *buf, size_t buf_size,
                            uint8_t **out_buf) {
 
-  uint8_t *pre_save_buf = maybe_grow(BUF_PARAMS(data, pre_save), buf_size + 5);
-  if (!pre_save_buf) {
+  uint8_t *post_process_buf = maybe_grow(BUF_PARAMS(data, post_process), buf_size + 5);
+  if (!post_process_buf) {
 
     perror("custom mutator realloc failed.");
     *out_buf = NULL;
@@ -151,14 +151,14 @@ size_t afl_custom_pre_save(my_mutator_t *data, uint8_t *buf, size_t buf_size,
 
   }
 
-  memcpy(pre_save_buf + 5, buf, buf_size);
-  pre_save_buf[0] = 'A';
-  pre_save_buf[1] = 'F';
-  pre_save_buf[2] = 'L';
-  pre_save_buf[3] = '+';
-  pre_save_buf[4] = '+';
+  memcpy(post_process_buf + 5, buf, buf_size);
+  post_process_buf[0] = 'A';
+  post_process_buf[1] = 'F';
+  post_process_buf[2] = 'L';
+  post_process_buf[3] = '+';
+  post_process_buf[4] = '+';
 
-  *out_buf = pre_save_buf;
+  *out_buf = post_process_buf;
 
   return buf_size + 5;
 
@@ -364,7 +364,7 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
  */
 void afl_custom_deinit(my_mutator_t *data) {
 
-  free(data->pre_save_buf);
+  free(data->post_process_buf);
   free(data->havoc_buf);
   free(data->data_buf);
   free(data->fuzz_buf);

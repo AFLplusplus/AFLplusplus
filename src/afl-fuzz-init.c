@@ -297,12 +297,16 @@ void setup_post(afl_state_t *afl) {
   dh = dlopen(fn, RTLD_NOW);
   if (!dh) { FATAL("%s", dlerror()); }
 
-  afl->post_handler = dlsym(dh, "afl_postprocess");
-  if (!afl->post_handler) { FATAL("Symbol 'afl_postprocess' not found."); }
-  afl->post_init = dlsym(dh, "afl_postprocess_init");
-  if (!afl->post_init) { FATAL("Symbol 'afl_postprocess_init' not found."); }
-  afl->post_deinit = dlsym(dh, "afl_postprocess_deinit");
-  if (!afl->post_deinit) {
+  struct custom_mutator * mutator;
+  mutator = ck_alloc(sizeof(struct custom_mutator));
+  memset(mutator, 0, sizeof(struct custom_mutator));
+
+  mutator->afl_custom_post_process = dlsym(dh, "afl_postprocess");
+  if (!mutator->afl_custom_post_process) { FATAL("Symbol 'afl_postprocess' not found."); }
+  mutator->afl_custom_init = dlsym(dh, "afl_postprocess_init");
+  if (!mutator->afl_custom_init) { FATAL("Symbol 'afl_postprocess_init' not found."); }
+  mutator->afl_custom_deinit = dlsym(dh, "afl_postprocess_deinit");
+  if (!mutator->afl_custom_post_process) {
 
     FATAL("Symbol 'afl_postprocess_deinit' not found.");
 
@@ -310,16 +314,10 @@ void setup_post(afl_state_t *afl) {
 
   /* Do a quick test. It's better to segfault now than later =) */
 
-  u8 *post_buf = NULL;
-  afl->post_data = afl->post_init(afl);
-  if (!afl->post_data) { FATAL("Could not initialize post handler."); }
+  mutator->data = mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
+  if (!mutator->data) { FATAL("Could not initialize post handler."); }
 
-  size_t post_len = afl->post_handler(afl->post_data, tbuf, tlen, &post_buf);
-  if (!post_len || !post_buf) {
-
-    SAYF("Empty return in test post handler for buf=\"hello\\0\".");
-
-  }
+  afl->post_library_mutator = mutator;
 
   OKF("Postprocessor installed successfully.");
 
