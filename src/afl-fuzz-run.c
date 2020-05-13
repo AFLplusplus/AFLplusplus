@@ -401,6 +401,20 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }
 
+    /*
+        // a slave only syncs from a master, a master syncs from everyone
+        if (likely(afl->is_slave)) {
+
+          u8 x = alloc_printf("%s/%s/is_master", afl->sync_dir, sd_ent->d_name);
+          int res = access(x, F_OK);
+          free(x);
+          if (res != 0)
+            continue;
+
+        }
+
+    */
+
     /* Skip anything that doesn't have a queue/ subdirectory. */
 
     qd_path = alloc_printf("%s/%s/queue", afl->sync_dir, sd_ent->d_name);
