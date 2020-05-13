@@ -260,7 +260,7 @@ enum {
 
   /* 00 */ PY_FUNC_INIT,
   /* 01 */ PY_FUNC_FUZZ,
-  /* 02 */ PY_FUNC_post_process,
+  /* 02 */ PY_FUNC_POST_PROCESS,
   /* 03 */ PY_FUNC_INIT_TRIM,
   /* 04 */ PY_FUNC_POST_TRIM,
   /* 05 */ PY_FUNC_TRIM,

@@ -318,13 +318,6 @@ void setup_post(afl_state_t *afl) {
   mutator->data = mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
   if (!mutator->data) { FATAL("Could not initialize post handler."); }
 
-  size_t post_len = mutator->afl_custom_post_process(mutator->data, tbuf, tlen, &post_buf);
-  if (!post_len || !post_buf) {
-
-    SAYF("Empty return in test post handler for buf=\"hello\\0\".");
-
-  }
-
   afl->post_library_mutator = mutator;
 
   OKF("Postprocessor installed successfully.");
