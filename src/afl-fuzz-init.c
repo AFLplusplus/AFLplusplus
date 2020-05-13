@@ -311,21 +311,16 @@ void setup_post(afl_state_t *afl) {
   mutator->afl_custom_init = dlsym(dh, "afl_postprocess_init");
   if (!mutator->afl_custom_init) {
 
-    FATAL("Symbol 'afl_postprocess_init' not found.");
+    WARNF("optional symbol 'afl_postprocess_init' not found.");
 
   }
 
   mutator->afl_custom_deinit = dlsym(dh, "afl_postprocess_deinit");
   if (!mutator->afl_custom_post_process) {
 
-    FATAL("Symbol 'afl_postprocess_deinit' not found.");
+    WARNF("optional symbol 'afl_postprocess_deinit' not found.");
 
   }
-
-  /* Do a quick test. It's better to segfault now than later =) */
-
-  mutator->data = mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
-  if (!mutator->data) { FATAL("Could not initialize post handler."); }
 
   afl->post_library_mutator = mutator;
 
