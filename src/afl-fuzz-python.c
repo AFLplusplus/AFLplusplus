@@ -142,8 +142,8 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "mutate");
     if (!py_functions[PY_FUNC_FUZZ])
       WARNF("fuzz function not found in python module");
-    py_functions[PY_FUNC_PRE_SAVE] =
-        PyObject_GetAttrString(py_module, "pre_save");
+    py_functions[PY_FUNC_post_process] =
+        PyObject_GetAttrString(py_module, "post_process");
     py_functions[PY_FUNC_INIT_TRIM] =
         PyObject_GetAttrString(py_module, "init_trim");
     py_functions[PY_FUNC_POST_TRIM] =
@@ -165,9 +165,9 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
 
       if (!py_functions[py_idx] || !PyCallable_Check(py_functions[py_idx])) {
 
-        if (py_idx == PY_FUNC_PRE_SAVE) {
+        if (py_idx == PY_FUNC_post_process) {
 
-          // Implenting the pre_save API is optional for now
+          // Implenting the post_process API is optional for now
           if (PyErr_Occurred()) { PyErr_Print(); }
 
         } else if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
@@ -309,8 +309,8 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
   struct custom_mutator *mutator;
 
   mutator = ck_alloc(sizeof(struct custom_mutator));
-  mutator->pre_save_buf = NULL;
-  mutator->pre_save_size = 0;
+  mutator->post_process_buf = NULL;
+  mutator->post_process_size = 0;
 
   mutator->name = module_name;
   ACTF("Loading Python mutator library from '%s'...", module_name);
@@ -330,9 +330,9 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
      is quite different from the custom mutator. */
   mutator->afl_custom_fuzz = fuzz_py;
 
-  if (py_functions[PY_FUNC_PRE_SAVE]) {
+  if (py_functions[PY_FUNC_post_process]) {
 
-    mutator->afl_custom_pre_save = pre_save_py;
+    mutator->afl_custom_post_process = post_process_py;
 
   }
 
@@ -384,7 +384,7 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
 
 }
 
-size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
+size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
 
   size_t        py_out_buf_size;
   PyObject *    py_args, *py_value;
@@ -395,14 +395,14 @@ size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
   if (!py_value) {
 
     Py_DECREF(py_args);
-    FATAL("Failed to convert arguments in custom pre_save");
+    FATAL("Failed to convert arguments in custom post_process");
 
   }
 
   PyTuple_SetItem(py_args, 0, py_value);
 
   py_value = PyObject_CallObject(
-      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_PRE_SAVE], py_args);
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_post_process], py_args);
 
   Py_DECREF(py_args);
 
@@ -410,18 +410,18 @@ size_t pre_save_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
 
     py_out_buf_size = PyByteArray_Size(py_value);
 
-    ck_maybe_grow(BUF_PARAMS(pre_save), py_out_buf_size);
+    ck_maybe_grow(BUF_PARAMS(post_process), py_out_buf_size);
 
-    memcpy(py->pre_save_buf, PyByteArray_AsString(py_value), py_out_buf_size);
+    memcpy(py->post_process_buf, PyByteArray_AsString(py_value), py_out_buf_size);
     Py_DECREF(py_value);
 
-    *out_buf = py->pre_save_buf;
+    *out_buf = py->post_process_buf;
     return py_out_buf_size;
 
   } else {
 
     PyErr_Print();
-    FATAL("Python custom mutator: pre_save call failed.");
+    FATAL("Python custom mutator: post_process call failed.");
 
   }
 

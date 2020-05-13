@@ -260,7 +260,7 @@ enum {
 
   /* 00 */ PY_FUNC_INIT,
   /* 01 */ PY_FUNC_FUZZ,
-  /* 02 */ PY_FUNC_PRE_SAVE,
+  /* 02 */ PY_FUNC_post_process,
   /* 03 */ PY_FUNC_INIT_TRIM,
   /* 04 */ PY_FUNC_POST_TRIM,
   /* 05 */ PY_FUNC_TRIM,
@@ -283,8 +283,8 @@ typedef struct py_mutator {
   u8 *   fuzz_buf;
   size_t fuzz_size;
 
-  u8 *   pre_save_buf;
-  size_t pre_save_size;
+  u8 *   post_process_buf;
+  size_t post_process_size;
 
   u8 *   trim_buf;
   size_t trim_size;
@@ -545,11 +545,9 @@ typedef struct afl_state {
   struct extra_data *a_extras;          /* Automatically selected extras    */
   u32                a_extras_cnt;      /* Total number of tokens available */
 
-  /* afl_postprocess API */
-  void *(*post_init)(struct afl_state *afl);
-  size_t (*post_handler)(void *data, u8 *buf, u32 len, u8 **out_buf);
-  void *(*post_deinit)(void *data);
-  void *post_data;
+  /* afl_postprocess API - Now supported via custom mutators */
+
+  struct custom_mutator * post_library_mutator;
 
   /* CmpLog */
 
@@ -623,8 +621,8 @@ struct custom_mutator {
 
   const char *name;
   void *      dh;
-  u8 *        pre_save_buf;
-  size_t      pre_save_size;
+  u8 *        post_process_buf;
+  size_t      post_process_size;
   u8          stacked_custom_prob, stacked_custom;
 
   void *data;                                    /* custom mutator data ptr */
@@ -675,7 +673,7 @@ struct custom_mutator {
    *     It can chose to alter buf in-place, if the space is large enough.
    * @return Size of the output buffer.
    */
-  size_t (*afl_custom_pre_save)(void *data, u8 *buf, size_t buf_size,
+  size_t (*afl_custom_post_process)(void *data, u8 *buf, size_t buf_size,
                                 u8 **out_buf);
 
   /**
@@ -825,7 +823,7 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 void                   finalize_py_module(void *);
 
-size_t pre_save_py(void *, u8 *, size_t, u8 **);
+size_t post_process_py(void *, u8 *, size_t, u8 **);
 s32    init_trim_py(void *, u8 *, size_t);
 s32    post_trim_py(void *, u8);
 size_t trim_py(void *, u8 **);

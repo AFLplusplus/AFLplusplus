@@ -51,17 +51,6 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
 
-  if (afl->post_handler) {
-
-    u8 *post_buf = NULL;
-
-    size_t post_len =
-        afl->post_handler(afl->post_data, out_buf, len, &post_buf);
-    if (!post_buf || !post_len) { return 0; }
-    out_buf = post_buf;
-    len = post_len;
-
-  }
 
   write_to_testcase(afl, out_buf, len);
 
