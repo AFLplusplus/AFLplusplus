@@ -407,7 +407,9 @@ typedef struct afl_state {
       no_unlink,                        /* do not unlink cur_input          */
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
-      python_only;                      /* Python-only mode                 */
+      python_only,                      /* Python-only mode                 */
+      is_master,                        /* if this is a master              */
+      is_slave;                         /* if this is a slave               */
 
   u32 stats_update_freq;                /* Stats update frequency (execs)   */
 
@@ -418,7 +420,6 @@ typedef struct afl_state {
   size_t (*radamsa_mutate_ptr)(u8 *, size_t, u8 *, size_t, u32);
 
   u8 skip_deterministic,                /* Skip deterministic stages?       */
-      force_deterministic,              /* Force deterministic stages?      */
       use_splicing,                     /* Recombine input files?           */
       dumb_mode,                        /* Run in non-instrumented mode?    */
       score_changed,                    /* Scoring for favorites changed?   */
@@ -547,7 +548,7 @@ typedef struct afl_state {
 
   /* afl_postprocess API - Now supported via custom mutators */
 
-  struct custom_mutator * post_library_mutator;
+  struct custom_mutator *post_library_mutator;
 
   /* CmpLog */
 
@@ -674,7 +675,7 @@ struct custom_mutator {
    * @return Size of the output buffer.
    */
   size_t (*afl_custom_post_process)(void *data, u8 *buf, size_t buf_size,
-                                u8 **out_buf);
+                                    u8 **out_buf);
 
   /**
    * This method is called at the start of each trimming operation and receives

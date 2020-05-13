@@ -297,14 +297,24 @@ void setup_post(afl_state_t *afl) {
   dh = dlopen(fn, RTLD_NOW);
   if (!dh) { FATAL("%s", dlerror()); }
 
-  struct custom_mutator * mutator;
+  struct custom_mutator *mutator;
   mutator = ck_alloc(sizeof(struct custom_mutator));
   memset(mutator, 0, sizeof(struct custom_mutator));
 
   mutator->afl_custom_post_process = dlsym(dh, "afl_postprocess");
-  if (!mutator->afl_custom_post_process) { FATAL("Symbol 'afl_postprocess' not found."); }
+  if (!mutator->afl_custom_post_process) {
+
+    FATAL("Symbol 'afl_postprocess' not found.");
+
+  }
+
   mutator->afl_custom_init = dlsym(dh, "afl_postprocess_init");
-  if (!mutator->afl_custom_init) { FATAL("Symbol 'afl_postprocess_init' not found."); }
+  if (!mutator->afl_custom_init) {
+
+    FATAL("Symbol 'afl_postprocess_init' not found.");
+
+  }
+
   mutator->afl_custom_deinit = dlsym(dh, "afl_postprocess_deinit");
   if (!mutator->afl_custom_post_process) {
 
@@ -1373,6 +1383,17 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   }
 
+/*
+  if (afl->is_master) {
+
+    u8 *x = alloc_printf("%s/is_master", afl->sync_dir);
+    int fd = open(x, O_CREAT | O_RDWR, 0644);
+    if (fd < 0) FATAL("cannot create %s", x);
+    close(fd);
+
+  }
+*/
+
   if (mkdir(afl->out_dir, 0700)) {
 
     if (errno != EEXIST) { PFATAL("Unable to create '%s'", afl->out_dir); }
@@ -1861,14 +1882,6 @@ void fix_up_sync(afl_state_t *afl) {
 
   if (afl->dumb_mode) { FATAL("-S / -M and -n are mutually exclusive"); }
 
-  if (afl->skip_deterministic) {
-
-    if (afl->force_deterministic) { FATAL("use -S instead of -M -d"); }
-    // else
-    //  FATAL("-S already implies -d");
-
-  }
-
   while (*x) {
 
     if (!isalnum(*x) && *x != '_' && *x != '-') {
@@ -1887,13 +1900,6 @@ void fix_up_sync(afl_state_t *afl) {
 
   afl->sync_dir = afl->out_dir;
   afl->out_dir = x;
-
-  if (!afl->force_deterministic) {
-
-    afl->skip_deterministic = 1;
-    afl->use_splicing = 1;
-
-  }
 
 }
 
