@@ -323,9 +323,8 @@ typedef struct afl_env_vars {
       afl_bench_until_crash, afl_debug_child_output, afl_autoresume,
       afl_cal_fast;
 
-  u8 *afl_tmpdir, *afl_post_library, *afl_custom_mutator_library,
-      *afl_python_module, *afl_path, *afl_hang_tmout, *afl_skip_crashes,
-      *afl_preload;
+  u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
+      *afl_hang_tmout, *afl_skip_crashes, *afl_preload;
 
 } afl_env_vars_t;
 

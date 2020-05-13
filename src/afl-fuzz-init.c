@@ -280,54 +280,6 @@ cpuset_destroy(c);
 
 #endif                                                     /* HAVE_AFFINITY */
 
-/* Load postprocessor, if available. */
-
-void setup_post(afl_state_t *afl) {
-
-  void *dh;
-  u8 *  fn = afl->afl_env.afl_post_library;
-  u8    tbuf[6];
-  u32   tlen = 6;
-  strncpy(tbuf, "hello", tlen);
-
-  if (!fn) { return; }
-
-  ACTF("Loading postprocessor from '%s'...", fn);
-
-  dh = dlopen(fn, RTLD_NOW);
-  if (!dh) { FATAL("%s", dlerror()); }
-
-  struct custom_mutator *mutator;
-  mutator = ck_alloc(sizeof(struct custom_mutator));
-  memset(mutator, 0, sizeof(struct custom_mutator));
-
-  mutator->afl_custom_post_process = dlsym(dh, "afl_postprocess");
-  if (!mutator->afl_custom_post_process) {
-
-    FATAL("Symbol 'afl_postprocess' not found.");
-
-  }
-
-  mutator->afl_custom_init = dlsym(dh, "afl_postprocess_init");
-  if (!mutator->afl_custom_init) {
-
-    WARNF("optional symbol 'afl_postprocess_init' not found.");
-
-  }
-
-  mutator->afl_custom_deinit = dlsym(dh, "afl_postprocess_deinit");
-  if (!mutator->afl_custom_post_process) {
-
-    WARNF("optional symbol 'afl_postprocess_deinit' not found.");
-
-  }
-
-  afl->post_library_mutator = mutator;
-
-  OKF("Postprocessor installed successfully.");
-
-}
-
 /* Shuffle an array of pointers. Might be slightly biased. */
 
 static void shuffle_ptrs(afl_state_t *afl, void **ptrs, u32 cnt) {
