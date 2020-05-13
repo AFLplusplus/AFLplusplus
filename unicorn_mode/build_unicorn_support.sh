@@ -65,7 +65,7 @@ if [ ! -f "../afl-showmap" ]; then
 
 fi
 
-PYTHONBIN=`command -v python3 || command -v python || echo python`
+PYTHONBIN=`command -v python || command -v python3 || command -v python2 || echo python`
 MAKECMD=make
 EASY_INSTALL='easy_install'
 TARCMD=tar
