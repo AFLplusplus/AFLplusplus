@@ -142,7 +142,7 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "mutate");
     if (!py_functions[PY_FUNC_FUZZ])
       WARNF("fuzz function not found in python module");
-    py_functions[PY_FUNC_post_process] =
+    py_functions[PY_FUNC_POST_PROCESS] =
         PyObject_GetAttrString(py_module, "post_process");
     py_functions[PY_FUNC_INIT_TRIM] =
         PyObject_GetAttrString(py_module, "init_trim");
@@ -165,7 +165,7 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
 
       if (!py_functions[py_idx] || !PyCallable_Check(py_functions[py_idx])) {
 
-        if (py_idx == PY_FUNC_post_process) {
+        if (py_idx == PY_FUNC_POST_PROCESS) {
 
           // Implenting the post_process API is optional for now
           if (PyErr_Occurred()) { PyErr_Print(); }
@@ -330,7 +330,7 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
      is quite different from the custom mutator. */
   mutator->afl_custom_fuzz = fuzz_py;
 
-  if (py_functions[PY_FUNC_post_process]) {
+  if (py_functions[PY_FUNC_POST_PROCESS]) {
 
     mutator->afl_custom_post_process = post_process_py;
 
@@ -402,7 +402,7 @@ size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf)
   PyTuple_SetItem(py_args, 0, py_value);
 
   py_value = PyObject_CallObject(
-      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_post_process], py_args);
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_POST_PROCESS], py_args);
 
   Py_DECREF(py_args);
 
