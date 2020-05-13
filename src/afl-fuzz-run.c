@@ -97,10 +97,10 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-      if (el->afl_custom_pre_save) {
+      if (el->afl_custom_post_process) {
 
         new_size =
-            el->afl_custom_pre_save(el->data, new_mem, new_size, &new_buf);
+            el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
 
       }
 
@@ -110,7 +110,7 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
     if (unlikely(!new_buf && (new_size <= 0))) {
 
-      FATAL("Custom_pre_save failed (ret: %lu)", (long unsigned)new_size);
+      FATAL("Custom_post_process failed (ret: %lu)", (long unsigned)new_size);
 
     } else if (likely(new_buf)) {
 
@@ -119,7 +119,7 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
     } else {
 
-      /* custom mutators do not has a custom_pre_save function */
+      /* custom mutators do not has a custom_post_process function */
       afl_fsrv_write_to_testcase(&afl->fsrv, mem, len);
 
     }
@@ -689,18 +689,6 @@ abort_trimming:
 u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
-
-  if (afl->post_handler) {
-
-    u8 *post_buf = NULL;
-
-    size_t post_len =
-        afl->post_handler(afl->post_data, out_buf, len, &post_buf);
-    if (!post_buf || !post_len) { return 0; }
-    out_buf = post_buf;
-    len = post_len;
-
-  }
 
   write_to_testcase(afl, out_buf, len);
 
