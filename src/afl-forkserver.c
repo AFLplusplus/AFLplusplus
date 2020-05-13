@@ -676,12 +676,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   } else if (!fsrv->mem_limit) {
 
     SAYF("\n" cLRD "[-] " cRST
-         "Hmm, looks like the target binary terminated "
-         "before we could complete a\n"
-         "    handshake with the injected code. Perhaps there is a horrible "
-         "bug in the\n"
-         "    fuzzer. Poke <afl-users@googlegroups.com> for troubleshooting "
-         "tips.\n");
+         "Hmm, looks like the target binary terminated before we could"
+         "complete a handshake with the injected code.\n"
+         "If the target was compiled with afl-clang-lto then recompiling with"
+         "AFL_LLVM_MAP_DYNAMIC might solve your problem.\n"
+         "Otherwise there is a horrible bug in the fuzzer.\n"
+         "Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
   } else {
 
@@ -707,6 +707,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         "      Tip: you can use http://jwilk.net/software/recidivm to quickly\n"
         "      estimate the required amount of virtual memory for the "
         "binary.\n\n"
+
+        "    - the target was compiled with afl-clang-lto and a constructor "
+        "was\n"
+        "      instrumented, recompiling with AFL_LLVM_MAP_DYNAMIC might solve "
+        "your\n"
+        "      problem\n\n"
 
         "    - Less likely, there is a horrible bug in the fuzzer. If other "
         "options\n"
