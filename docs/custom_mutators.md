@@ -33,7 +33,7 @@ C/C++:
 ```c
 void *afl_custom_init(afl_t *afl, unsigned int seed);
 size_t afl_custom_fuzz(void *data, uint8_t *buf, size_t buf_size, u8 **out_buf, uint8_t *add_buf, size_t add_buf_size, size_t max_size);
-size_t afl_custom_pre_save(void *data, uint8_t *buf, size_t buf_size, uint8_t **out_buf);
+size_t afl_custom_post_process(void *data, uint8_t *buf, size_t buf_size, uint8_t **out_buf);
 int32_t afl_custom_init_trim(void *data, uint8_t *buf, size_t buf_size);
 size_t afl_custom_trim(void *data, uint8_t **out_buf);
 int32_t afl_custom_post_trim(void *data, int success) {
@@ -51,7 +51,7 @@ def init(seed):
 def fuzz(buf, add_buf, max_size):
     return mutated_out
 
-def pre_save(buf):
+def post_process(buf):
     return out_buf
 
 def init_trim(buf):
@@ -92,7 +92,7 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
     This method performs custom mutations on a given input. It also accepts an
     additional test case.
     Note that this function is optional - but it makes sense to use it.
-    You would only skip this if `pre_send` is used to fix checksums etc.
+    You would only skip this if `post_process` is used to fix checksums etc.
     so you are using it e.g. as a post processing library.
 
 - `havoc_mutation` and `havoc_mutation_probability` (optional):
@@ -102,7 +102,7 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
     `havoc_mutation_probability`, returns the probability that `havoc_mutation`
     is called in havoc. By default, it is 6%.
 
-- `pre_save` (optional):
+- `post_process` (optional):
 
     For some cases, the format of the mutated data returned from the custom
     mutator is not suitable to directly execute the target with this input.
@@ -110,7 +110,7 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
     protobuf format which corresponds to a given grammar. In order to execute
     the target, the protobuf data must be converted to the plain-text format
     expected by the target. In such scenarios, the user can define the
-    `pre_save` function. This function is then transforming the data into the
+    `post_process` function. This function is then transforming the data into the
     format expected by the API before executing the target.
 
 - `queue_new_entry` (optional):
@@ -222,7 +222,7 @@ For C/C++ mutator, the source code must be compiled as a shared object:
 gcc -shared -Wall -O3 example.c -o example.so
 ```
 Note that if you specify multiple custom mutators, the corresponding functions will
-be called in the order in which they are specified. e.g first `pre_save` function of
+be called in the order in which they are specified. e.g first `post_process` function of
 `example_first.so` will be called and then that of `example_second.so`
 
 ### Run
