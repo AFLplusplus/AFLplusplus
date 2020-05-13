@@ -89,6 +89,11 @@ override CFLAGS += -Wall -g -Wno-pointer-sign -Wmissing-declarations\
 			  -I include/ -Werror -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
+ifeq "$(shell uname -s)" "OpenBSD"
+  override CFLAGS  += -I /usr/local/include/
+  LDFLAGS += -L /usr/local/lib/
+endif
+
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
 ifneq "$(shell command -v python3m 2>/dev/null)" ""
@@ -200,13 +205,15 @@ ifeq "$(shell svn proplist . 2>/dev/null && echo 1 || echo 0)" "1"
   IN_REPO=1
 endif
 
-ASAN_CFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
-ASAN_LDFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
+ifeq "$(shell echo 'int main() { return 0;}' | $(CC) $(CFLAGS) -fsanitize=address -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
+	ASAN_CFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
+	ASAN_LDFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
+endif
 
 ifdef ASAN_BUILD
-  $(info Compiling ASAN version of binaries)
-  CFLAGS+=$(ASAN_CFLAGS)
-  LDFLAGS+=$(ASAN_LDFLAGS)
+	$(info Compiling ASAN version of binaries)
+	CFLAGS+=$(ASAN_CFLAGS)
+	LDFLAGS+=$(ASAN_LDFLAGS)
 endif
 
 ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
