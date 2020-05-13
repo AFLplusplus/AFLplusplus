@@ -83,7 +83,7 @@ typedef struct post_state {
 
 } post_state_t;
 
-void *afl_postprocess_init(void *afl, unsigned int seed{
+void *afl_postprocess_init(void *afl, unsigned int seed) {
 
   post_state_t *state = malloc(sizeof(post_state_t));
   if (!state) {
