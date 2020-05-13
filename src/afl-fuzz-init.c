@@ -314,7 +314,6 @@ void setup_post(afl_state_t *afl) {
 
   /* Do a quick test. It's better to segfault now than later =) */
 
-  u8 *post_buf = NULL;
   mutator->data = mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
   if (!mutator->data) { FATAL("Could not initialize post handler."); }
 
