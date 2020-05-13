@@ -65,7 +65,7 @@ if [ ! -f "../afl-showmap" ]; then
 
 fi
 
-PYTHONBIN=python
+PYTHONBIN=`command -v python3 || command -v python || echo python`
 MAKECMD=make
 EASY_INSTALL='easy_install'
 TARCMD=tar
@@ -111,7 +111,7 @@ if ! command -v $EASY_INSTALL >/dev/null; then
 
   # work around for installs with executable easy_install
   EASY_INSTALL_FOUND=0
-  MYPYTHONPATH=`python -v </dev/null 2>&1 >/dev/null | sed -n -e '/^# \/.*\/os.py/{ s/.*matches //; s/os.py$//; p}'`
+  MYPYTHONPATH=`${PYTHONBIN} -v </dev/null 2>&1 >/dev/null | sed -n -e '/^# \/.*\/os.py/{ s/.*matches //; s/os.py$//; p;}'`
   for PATHCANDIDATE in \
         "dist-packages/" \
         "site-packages/"
