@@ -139,10 +139,11 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
  * @return Size of the output buffer after processing or the needed amount.
  *     A return of 0 indicates an error.
  */
-size_t afl_custom_post_process(my_mutator_t *data, uint8_t *buf, size_t buf_size,
-                           uint8_t **out_buf) {
+size_t afl_custom_post_process(my_mutator_t *data, uint8_t *buf,
+                               size_t buf_size, uint8_t **out_buf) {
 
-  uint8_t *post_process_buf = maybe_grow(BUF_PARAMS(data, post_process), buf_size + 5);
+  uint8_t *post_process_buf =
+      maybe_grow(BUF_PARAMS(data, post_process), buf_size + 5);
   if (!post_process_buf) {
 
     perror("custom mutator realloc failed.");

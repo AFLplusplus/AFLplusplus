@@ -390,7 +390,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        afl->force_deterministic = 1;
+        afl->is_master = 1;
 
       }
 
@@ -400,6 +400,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
+        afl->is_slave = 1;
+        afl->skip_deterministic = 1;
+        afl->use_splicing = 1;
         break;
 
       case 'f':                                              /* target file */
@@ -499,12 +502,6 @@ int main(int argc, char **argv_orig, char **envp) {
       break;
 
       case 'd':                                       /* skip deterministic */
-
-        if (afl->skip_deterministic) {
-
-          FATAL("Multiple -d options not supported");
-
-        }
 
         afl->skip_deterministic = 1;
         afl->use_splicing = 1;
@@ -794,8 +791,7 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
-  if (afl->sync_id && afl->force_deterministic &&
-      afl->afl_env.afl_custom_mutator_only) {
+  if (afl->sync_id && afl->is_master && afl->afl_env.afl_custom_mutator_only) {
 
     WARNF(
         "Using -M master with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "

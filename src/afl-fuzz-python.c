@@ -384,7 +384,8 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
 
 }
 
-size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf) {
+size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size,
+                       u8 **out_buf) {
 
   size_t        py_out_buf_size;
   PyObject *    py_args, *py_value;
@@ -402,7 +403,8 @@ size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf)
   PyTuple_SetItem(py_args, 0, py_value);
 
   py_value = PyObject_CallObject(
-      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_POST_PROCESS], py_args);
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_POST_PROCESS],
+      py_args);
 
   Py_DECREF(py_args);
 
@@ -412,7 +414,8 @@ size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf)
 
     ck_maybe_grow(BUF_PARAMS(post_process), py_out_buf_size);
 
-    memcpy(py->post_process_buf, PyByteArray_AsString(py_value), py_out_buf_size);
+    memcpy(py->post_process_buf, PyByteArray_AsString(py_value),
+           py_out_buf_size);
     Py_DECREF(py_value);
 
     *out_buf = py->post_process_buf;
