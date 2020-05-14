@@ -106,28 +106,20 @@ for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
   fi
 
 done
-set -x
-ls -lRa /opt/pyenv
-ls -lRa ~/.local
+
 # some python version should be available now
 PYTHONS="`command -v python3` `command -v python` `command -v python2`"
 EASY_INSTALL_FOUND=0
 for PYTHON in $PYTHONS ; do
 
-  # work around for installs with executable easy_install
-  MYPYTHONPATH=`${PYTHON} -v </dev/null 2>&1 >/dev/null | sed -n -e '/^# \/.*\/os.py/{ s/.*matches //; s/os.py$//; p;}'`
-  for PATHCANDIDATE in \
-        "dist-packages/" \
-        "site-packages/"
-  do
-    if [ -e "${MYPYTHONPATH}/${PATHCANDIDATE}/easy_install.py" ] ; then
+  # slow, but should work
+  if $PYTHON -c "help('modules');" 2>/dev/null | grep -q easy_install ; then
 
-      EASY_INSTALL_FOUND=1
-      PYTHONBIN=$PYTHON
-      break
+    EASY_INSTALL_FOUND=1
+    PYTHONBIN=$PYTHON
+    break
 
-    fi
-  done
+  fi
 
 done
 if [ "0" = $EASY_INSTALL_FOUND ]; then
@@ -136,7 +128,7 @@ if [ "0" = $EASY_INSTALL_FOUND ]; then
   PREREQ_NOTFOUND=1
 
 fi
-set +x
+
 if echo "$CC" | grep -qF /afl-; then
 
   echo "[-] Error: do not use afl-gcc or afl-clang to compile this tool."
