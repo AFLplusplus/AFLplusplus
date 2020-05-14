@@ -63,7 +63,7 @@ if [ ! -f "../afl-showmap" ]; then
 fi
 
 PREREQ_NOTFOUND=
-for i in libtool wget python automake autoconf sha384sum bison flex iconv patch pkg-config; do
+for i in libtool wget automake autoconf sha384sum bison flex iconv patch pkg-config; do
 
   T=`command -v "$i" 2>/dev/null`
 
@@ -75,6 +75,18 @@ for i in libtool wget python automake autoconf sha384sum bison flex iconv patch 
   fi
 
 done
+
+PYTHON_TEMP_SYMLINK=0
+if ! command -v python 1>/dev/null; then
+  if command -v python3 1>/dev/null; then
+    echo "[*] 'python' not found. 'python3' was found. Creating temporary symlink."
+    update-alternatives --install /usr/bin/python python "$(command -v python3)" 0 1>/dev/null
+    PYTHON_TEMP_SYMLINK=1
+  else
+    echo "[-] Error: 'python' not found, please install using 'sudo apt install python3'."
+    PREREQ_NOTFOUND=1
+  fi
+fi
 
 if [ ! -d "/usr/include/glib-2.0/" -a ! -d "/usr/local/include/glib-2.0/" ]; then
 
@@ -279,6 +291,12 @@ echo "[+] Building libcompcov ..."
 make -C libcompcov && echo "[+] libcompcov ready"
 echo "[+] Building unsigaction ..."
 make -C unsigaction && echo "[+] unsigaction ready"
+
+if [ "PYTHON_TEMP_SYMLINK" = "1" ]; then
+  echo "[*] Removing temporary symlink for 'python'"
+  update-alternatives --remove python /usr/bin/python
+fi
+
 echo "[+] All done for qemu_mode, enjoy!"
 
 exit 0
