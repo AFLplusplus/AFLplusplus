@@ -105,7 +105,7 @@ for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 done
 
 if ! $PYTHONBIN -c "import setuptools" 2>/dev/null; then
-  echo "[-] Error: Python setuptools not found. Run 'sudo apt-get install python3-setuptools'."
+  echo "[-] Error: Python setuptools not found. Install setuptools for '$PYTHONBIN', i.e. '$PYTHONBIN -m pip install setuptools'."
   PREREQ_NOTFOUND=1
 fi
 
