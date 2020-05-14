@@ -886,20 +886,13 @@ test -d ../unicorn_mode/unicornafl && {
       EASY_INSTALL_FOUND=0
       for PYTHON in $PYTHONS ; do
 
-        # work around for installs with executable easy_install
-        MYPYTHONPATH=`${PYTHON} -v </dev/null 2>&1 >/dev/null | sed -n -e '/^# \/.*\/os.py/{ s/.*matches //; s/os.py$//; p;}'`
-        for PATHCANDIDATE in \
-           "dist-packages/" \
-           "site-packages/"
-        do
-          if [ -e "${MYPYTHONPATH}/${PATHCANDIDATE}/easy_install.py" ] ; then
+        if $PYTHON -c "help('modules');" 2>/dev/null | grep -q easy_install ; then
 
             EASY_INSTALL_FOUND=1
             PY=$PYTHON
             break
 
-          fi
-        done
+        fi
 
       done
       if [ "0" = $EASY_INSTALL_FOUND ]; then
