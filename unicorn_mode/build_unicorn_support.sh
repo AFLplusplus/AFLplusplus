@@ -109,7 +109,7 @@ PYTHONS="`command -v python3` `command -v python` `command -v python2`"
 EASY_INSTALL_FOUND=0
 for PYTHON in $PYTHONS ; do
 
-  if $PYTHON -c "help('$EASY_INSTALL');" </dev/null | grep -q module ; then
+  if $PYTHON -c "import setuptools" ; then
 
     EASY_INSTALL_FOUND=1
     PYTHONBIN=$PYTHON
