@@ -1996,7 +1996,11 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->unicorn_mode) { return; }
+  if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->unicorn_mode) {
+
+    return;
+
+  }
 
   /* Check for blatant user errors. */
 
