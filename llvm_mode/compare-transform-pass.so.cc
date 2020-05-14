@@ -25,7 +25,6 @@
 #include "llvm/Config/llvm-config.h"
 
 #include "llvm/ADT/Statistic.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"

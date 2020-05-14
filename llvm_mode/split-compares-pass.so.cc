@@ -27,7 +27,6 @@
 #include "llvm/Config/llvm-config.h"
 
 #include "llvm/Pass.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
