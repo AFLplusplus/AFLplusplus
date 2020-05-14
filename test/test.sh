@@ -886,7 +886,7 @@ test -d ../unicorn_mode/unicornafl && {
       EASY_INSTALL_FOUND=0
       for PYTHON in $PYTHONS ; do
 
-        if $PYTHON -c "help('modules');" 2>/dev/null | grep -q easy_install ; then
+        if $PYTHON -c "help('easy_install');" </dev/null | grep -q module ; then
 
             EASY_INSTALL_FOUND=1
             PY=$PYTHON

@@ -112,8 +112,7 @@ PYTHONS="`command -v python3` `command -v python` `command -v python2`"
 EASY_INSTALL_FOUND=0
 for PYTHON in $PYTHONS ; do
 
-  # slow, but should work
-  if $PYTHON -c "help('modules');" 2>/dev/null | grep -q easy_install ; then
+  if $PYTHON -c "help('$EASY_INSTALL');" </dev/null | grep -q module ; then
 
     EASY_INSTALL_FOUND=1
     PYTHONBIN=$PYTHON
