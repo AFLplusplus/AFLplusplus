@@ -65,7 +65,7 @@ if [ ! -f "../afl-showmap" ]; then
 
 fi
 
-PYTHONBIN=python
+PYTHONBIN=python3
 MAKECMD=make
 EASY_INSTALL='easy_install'
 TARCMD=tar
@@ -77,14 +77,12 @@ fi
 if [ "$PLT" = "Darwin" ]; then
   CORES=`sysctl -n hw.ncpu`
   TARCMD=tar
-  PYTHONBIN=python3
 fi
 
 if [ "$PLT" = "FreeBSD" ]; then
   MAKECMD=gmake
   CORES=`sysctl -n hw.ncpu`
   TARCMD=gtar
-  PYTHONBIN=python3
 fi
 
 if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
