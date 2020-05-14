@@ -203,10 +203,10 @@ ifdef NO_PYTHON
 endif
 
 IN_REPO=0
-ifeq "$(shell command -v git && git status >/dev/null 2>&1 && echo 1 || echo 0)" "1"
+ifeq "$(shell command -v git >/dev/null && git status >/dev/null 2>&1 && echo 1 || echo 0)" "1"
   IN_REPO=1
 endif
-ifeq "$(shell command -v svn && svn proplist . 2>/dev/null && echo 1 || echo 0)" "1"
+ifeq "$(shell command -v svn >/dev/null && svn proplist . 2>/dev/null && echo 1 || echo 0)" "1"
   IN_REPO=1
 endif
 
