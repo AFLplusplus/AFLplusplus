@@ -16,6 +16,7 @@ RUN apt-get update && apt-get -y install \
     flex \
     git \
     python2.7 python2.7-dev \
+    python3-setuptools \
     libtool \
     libglib2.0-dev \
     python-setuptools \
