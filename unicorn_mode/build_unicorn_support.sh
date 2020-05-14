@@ -120,7 +120,7 @@ for PYTHON in $PYTHONS ; do
 done
 if [ "0" = $EASY_INSTALL_FOUND ]; then
 
-  echo "[-] Error: Python setup-tools not found. Run `sudo apt-get install python-setuptools`, or install python3-setuptools, or run `python -m ensurepip`, or create a virtualenv, or ..."
+  echo "[-] Error: Python setup-tools not found. Run `sudo apt-get install python-setuptools`, or install python3-setuptools, or run `$PYTHONBIN -m ensurepip`, or create a virtualenv, or ..."
   PREREQ_NOTFOUND=1
 
 fi
