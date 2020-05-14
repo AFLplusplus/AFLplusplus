@@ -106,7 +106,7 @@ for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
   fi
 
 done
-
+set -x
 # some python version should be available now
 PYTHONS="`command -v python3` `command -v python` `command -v python2`"
 EASY_INSTALL_FOUND=0
@@ -134,7 +134,7 @@ if [ "0" = $EASY_INSTALL_FOUND ]; then
   PREREQ_NOTFOUND=1
 
 fi
-
+set +x
 if echo "$CC" | grep -qF /afl-; then
 
   echo "[-] Error: do not use afl-gcc or afl-clang to compile this tool."
