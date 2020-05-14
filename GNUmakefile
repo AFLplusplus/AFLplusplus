@@ -94,6 +94,11 @@ ifeq "$(shell uname -s)" "OpenBSD"
   LDFLAGS += -L /usr/local/lib/
 endif
 
+ifeq "$(shell uname -s)" "NetBSD"
+  override CFLAGS  += -I /usr/pkg/include/
+  LDFLAGS += -L /usr/pkg/lib/
+endif
+
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
 ifneq "$(shell command -v python3m 2>/dev/null)" ""
@@ -198,10 +203,10 @@ ifdef NO_PYTHON
 endif
 
 IN_REPO=0
-ifeq "$(shell git status >/dev/null 2>&1 && echo 1 || echo 0)" "1"
+ifeq "$(shell command -v git && git status >/dev/null 2>&1 && echo 1 || echo 0)" "1"
   IN_REPO=1
 endif
-ifeq "$(shell svn proplist . 2>/dev/null && echo 1 || echo 0)" "1"
+ifeq "$(shell command -v svn && svn proplist . 2>/dev/null && echo 1 || echo 0)" "1"
   IN_REPO=1
 endif
 
