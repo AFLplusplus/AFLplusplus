@@ -8,6 +8,7 @@
 #
 FROM ubuntu:focal
 LABEL "about"="travis image 4"
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get -y install \
     automake \
     bison \
@@ -23,7 +24,7 @@ RUN apt-get update && apt-get -y install \
     wget \
     ca-certificates \
     libpixman-1-dev \
-    gcc-7 gcc-7-plugin-dev libc++-7-dev \
+    gcc-9 gcc-9-plugin-dev libc++-9-dev \
     findutils \
     libcmocka-dev \
     joe nano vim locate \
