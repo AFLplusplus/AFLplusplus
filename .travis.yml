@@ -10,6 +10,9 @@ branches:
 matrix:
   include:
   - os: linux
+    dist: focal
+    env: NAME="focal-amd64" MODERN="yes" GCC="9"
+  - os: linux
     dist: bionic
     env: NAME="bionic-amd64" MODERN="yes" GCC="7"
   - os: linux
