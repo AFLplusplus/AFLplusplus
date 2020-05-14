@@ -107,6 +107,7 @@ for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 
 done
 set -x
+ls -lR ~/.local
 # some python version should be available now
 PYTHONS="`command -v python3` `command -v python` `command -v python2`"
 EASY_INSTALL_FOUND=0
