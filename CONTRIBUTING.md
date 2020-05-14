@@ -20,3 +20,8 @@ No camel case at all and use the AFL's macros wherever possible
 Remember that AFLplusplus has to build and run on many platforms, so
 generalize your Makefiles (or your patches to our pre-existing Makefiles)
 to be as much generic as possible.
+
+
+# Local testing
+
+To try
