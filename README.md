@@ -137,7 +137,7 @@ afl++ has many build options.
 The easiest is to build and install everything:
 
 ```shell
-$ sudo apt install build-essential libtool-bin python3 automake flex bison libglib2.0-dev libpixman-1-dev clang python3-setuptools llvm
+$ sudo apt install build-essential libtool-bin python3-dev automake flex bison libglib2.0-dev libpixman-1-dev clang python3-setuptools llvm wget
 $ make distrib
 $ sudo make install
 ```
