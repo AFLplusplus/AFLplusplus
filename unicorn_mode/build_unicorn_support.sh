@@ -67,7 +67,6 @@ fi
 
 PYTHONBIN=`command -v python3 || command -v python || command -v python2 || echo python3`
 MAKECMD=make
-EASY_INSTALL='easy_install'
 TARCMD=tar
 
 if [ "$PLT" = "Linux" ]; then
@@ -123,7 +122,7 @@ for PYTHON in $PYTHONS ; do
 done
 if [ "0" = $EASY_INSTALL_FOUND ]; then
 
-  echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
+  echo "[-] Error: Python setup-tools not found. Run `sudo apt-get install python-setuptools`, or install python3-setuptools, or run `python -m ensurepip`, or create a virtualenv, or ..."
   PREREQ_NOTFOUND=1
 
 fi
