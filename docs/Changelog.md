@@ -31,14 +31,13 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - added AFL_LLVM_SKIP_NEVERZERO to skip the never zero coverage counter
        implementation. For targets with few or no loops or heavily called
        functions. Gives a small performance boost.
-  - unicorn_mode:
-    - validate_crash_callback can now count non-crashing inputs as crash as well
   - qemu_mode:
     - add information on PIE/PIC load addresses for 32 bit
     - better dependency checks
   - gcc_plugin:
     - better dependency checks
   - unicorn_mode:
+    - validate_crash_callback can now count non-crashing inputs as crash as well
     - better submodule handling
   - afl-showmap: fix for -Q mode
   - added examples/afl_network_proxy which allows to fuzz a target over the
