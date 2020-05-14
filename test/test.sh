@@ -882,8 +882,35 @@ $ECHO "$BLUE[*] Testing: unicorn_mode"
 test -d ../unicorn_mode/unicornafl && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
+      # some python version should be available now
+      PYTHONS="`command -v python3` `command -v python` `command -v python2`"
+      EASY_INSTALL_FOUND=0
+      for PYTHON in $PYTHONS ; do
+
+        # work around for installs with executable easy_install
+        MYPYTHONPATH=`${PYTHON} -v </dev/null 2>&1 >/dev/null | sed -n -e '/^# \/.*\/os.py/{ s/.*matches //; s/os.py$//; p;}'`
+        for PATHCANDIDATE in \
+           "dist-packages/" \
+           "site-packages/"
+        do
+          if [ -e "${MYPYTHONPATH}/${PATHCANDIDATE}/easy_install.py" ] ; then
+
+            EASY_INSTALL_FOUND=1
+            PY=$PYTHON
+            break
+
+          fi
+        done
+
+      done
+      if [ "0" = $EASY_INSTALL_FOUND ]; then
+
+        echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
+        PREREQ_NOTFOUND=1
+
+      fi
+
       # travis workaround
-      PY=`command -v python3 || command -v python`
       test "$PY" = "/opt/pyenv/shims/python" -a -x /usr/bin/python && PY=/usr/bin/python
       mkdir -p in
       echo 0 > in/in
