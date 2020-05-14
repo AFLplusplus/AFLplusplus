@@ -56,13 +56,6 @@ functionality is now available as the "persistent" feature described in
 
 http://llvm.org/docs/LibFuzzer.html
 
-## AFL fixup shim (Ben Nagy)
-
-Allows AFL_POST_LIBRARY postprocessors to be written in arbitrary languages
-that don't have C / .so bindings. Includes examples in Go.
-
-https://github.com/bnagy/aflfix
-
 ## TriforceAFL (Tim Newsham and Jesse Hertz)
 
 Leverages QEMU full system emulation mode to allow AFL to target operating
