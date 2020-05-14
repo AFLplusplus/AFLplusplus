@@ -844,14 +844,14 @@ int main(int argc, char **argv, char **envp) {
         "\nafl-clang-fast specific environment variables:\n"
         "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
         "AFL_LLVM_INSTRUMENT: set instrumentation mode: DEFAULT, CFG "
-        "(INSTRIM), LTO, CTX, NGRAM-2 ... NGRAM-16\n"
+        "(INSTRIM), PCGUARD, LTO, CTX, NGRAM-2 ... NGRAM-16\n"
         " You can also use the old environment variables instead:"
-        "  AFL_LLVM_CTX: use context sensitive coverage\n"
         "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
-        "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage\n"
         "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
         "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed (sub "
-        "option to INSTRIM)\n");
+        "option to INSTRIM)\n"
+        "  AFL_LLVM_CTX: use context sensitive coverage\n"
+        "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage\n");
 
 #ifdef AFL_CLANG_FLTO
     SAYF(

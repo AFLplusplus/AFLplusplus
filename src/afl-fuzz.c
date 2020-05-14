@@ -187,7 +187,6 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
       "AFL_NO_UI: switch status screen off\n"
       "AFL_PATH: path to AFL support binaries\n"
-      "AFL_POST_LIBRARY: postprocess generated test cases before use as target input\n"
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
       "AFL_QUIET: suppress forkserver status messages\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
@@ -1059,8 +1058,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->dumb_mode);
-
-  setup_post(afl);
 
   if (!afl->in_bitmap) { memset(afl->virgin_bits, 255, afl->fsrv.map_size); }
   memset(afl->virgin_tmout, 255, afl->fsrv.map_size);

@@ -310,9 +310,8 @@ checks or alter some of the more exotic semantics of the tool:
     else. This makes the "own finds" counter in the UI more accurate.
     Beyond counter aesthetics, not much else should change.
 
-  - Setting AFL_POST_LIBRARY allows you to configure a postprocessor for
-    mutated files - say, to fix up checksums. See examples/post_library/
-    for more.
+  - Note that AFL_POST_LIBRARY is deprecated, use AFL_CUSTOM_MUTATOR_LIBRARY
+    instead (see below).
 
   - Setting AFL_CUSTOM_MUTATOR_LIBRARY to a shared library with
     afl_custom_fuzz() creates additional mutations through this library.
