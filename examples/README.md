@@ -2,7 +2,15 @@
 
 Here's a quick overview of the stuff you can find in this directory:
 
-  - custom_mutators      - example custom mutators in python an c
+  - afl_network_proxy    - fuzz a target over the network: afl-fuzz on
+                           a host, target on an embedded system.
+
+  - afl_proxy            - skeleton file example to show how to fuzz
+                           something where you gather coverage data via
+                           different means, e.g. hw debugger
+
+  - afl_untracer         - fuzz binary-only libraries much faster but with
+                           less coverage than qemu_mode
 
   - argv_fuzzing         - a simple wrapper to allow cmdline to be fuzzed
                            (e.g., to test setuid programs).
@@ -23,6 +31,9 @@ Here's a quick overview of the stuff you can find in this directory:
   - crash_triage         - a very rudimentary example of how to annotate crashes
                            with additional gdb metadata.
 
+  - custom_mutators      - examples for the afl++ custom mutator interface in
+                           C and Python
+
   - distributed_fuzzing  - a sample script for synchronizing fuzzer instances
                            across multiple machines (see parallel_fuzzing.md).
 
@@ -30,8 +41,6 @@ Here's a quick overview of the stuff you can find in this directory:
 
   - persistent_demo      - an example of how to use the LLVM persistent process
                            mode to speed up certain fuzzing jobs.
-
-  - post_library         - an example of how to build postprocessors for AFL.
 
   - socket_fuzzing       - a LD_PRELOAD library 'redirects' a socket to stdin
                            for fuzzing access with afl++

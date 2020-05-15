@@ -14,6 +14,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - -S slaves now only sync from the master to increase performance,
        the -M master stilly syncs from everyone. Added checks that exactly
        one master is present
+  - added former post_library examples to examples/custom_mutators/
 
 
 ### Version ++2.65c (release):
