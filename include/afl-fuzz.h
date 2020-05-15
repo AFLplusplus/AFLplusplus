@@ -547,8 +547,6 @@ typedef struct afl_state {
 
   /* afl_postprocess API - Now supported via custom mutators */
 
-  struct custom_mutator *post_library_mutator;
-
   /* CmpLog */
 
   char *           cmplog_binary;

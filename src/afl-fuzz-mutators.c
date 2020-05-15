@@ -108,9 +108,6 @@ void setup_custom_mutators(afl_state_t *afl) {
 
 #endif
 
-  if (afl->post_library_mutator)
-    list_append(&afl->custom_mutator_list, afl->post_library_mutator);
-
 }
 
 void destroy_custom_mutators(afl_state_t *afl) {
