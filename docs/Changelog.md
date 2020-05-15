@@ -9,6 +9,10 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++2.6d (dev)
+  - ...
+
+
 ### Version ++2.65c (release):
   - afl-fuzz:
      - AFL_MAP_SIZE was not working correctly
