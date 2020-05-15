@@ -89,13 +89,23 @@ override CFLAGS += -Wall -g -Wno-pointer-sign -Wmissing-declarations\
 			  -I include/ -Werror -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
+ifeq "$(shell uname -s)" "OpenBSD"
+  override CFLAGS  += -I /usr/local/include/
+  LDFLAGS += -L /usr/local/lib/
+endif
+
+ifeq "$(shell uname -s)" "NetBSD"
+  override CFLAGS  += -I /usr/pkg/include/
+  LDFLAGS += -L /usr/pkg/lib/
+endif
+
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
 ifneq "$(shell command -v python3m 2>/dev/null)" ""
   ifneq "$(shell command -v python3m-config 2>/dev/null)" ""
     PYTHON_INCLUDE  ?= $(shell python3m-config --includes)
     PYTHON_VERSION  ?= $(strip $(shell python3m --version 2>&1))
-    # Starting with python3.8, we need to pass the `embed` flag. Earier versions didn't know this flag.
+    # Starting with python3.8, we need to pass the `embed` flag. Earlier versions didn't know this flag.
     ifeq "$(shell python3m-config --embed --libs 2>/dev/null | grep -q lpython && echo 1 )" "1"
       PYTHON_LIB      ?= $(shell python3m-config --libs --embed --ldflags)
     else
@@ -193,15 +203,17 @@ ifdef NO_PYTHON
 endif
 
 IN_REPO=0
-ifeq "$(shell git status >/dev/null 2>&1 && echo 1 || echo 0)" "1"
+ifeq "$(shell command -v git >/dev/null && git status >/dev/null 2>&1 && echo 1 || echo 0)" "1"
   IN_REPO=1
 endif
-ifeq "$(shell svn proplist . 2>/dev/null && echo 1 || echo 0)" "1"
+ifeq "$(shell command -v svn >/dev/null && svn proplist . 2>/dev/null && echo 1 || echo 0)" "1"
   IN_REPO=1
 endif
 
-ASAN_CFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
-ASAN_LDFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
+ifeq "$(shell echo 'int main() { return 0;}' | $(CC) $(CFLAGS) -fsanitize=address -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
+	ASAN_CFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
+	ASAN_LDFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
+endif
 
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
@@ -252,7 +264,7 @@ help:
 	@echo "deepclean: cleans everything including downloads"
 	@echo "code-format: format the code, do this before you commit and send a PR please!"
 	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
-	@echo "unit: perform unit tests (based on cmocka)"
+	@echo "unit: perform unit tests (based on cmocka and GNU linker)"
 	@echo "document: creates afl-fuzz-document which will only do one run and save all manipulated inputs into out/queue/mutations"
 	@echo "help: shows these build options :-)"
 	@echo "=========================================="
@@ -385,7 +397,16 @@ unit_preallocable: test/unittests/unit_preallocable.o
 unit_clean:
 	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc test/unittests/*.o
 
+ifneq "$(shell uname)" "Darwin"
+
 unit: unit_maybe_alloc unit_preallocable unit_list unit_clean
+
+else
+
+unit:
+	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)
+
+endif
 
 code-format:
 	./.custom-format.py -i src/*.c
@@ -439,7 +460,7 @@ all_done: test_build
 .NOTPARALLEL: clean all
 
 clean:
-	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable
+	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-*
 	rm -rf out_dir qemu_mode/qemu-3.1.1 *.dSYM */*.dSYM
 	-$(MAKE) -C llvm_mode clean
 	-$(MAKE) -C gcc_plugin clean

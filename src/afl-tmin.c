@@ -30,7 +30,7 @@
 #define AFL_MAIN
 
 #ifdef __ANDROID__
-#include "android-ashmem.h"
+  #include "android-ashmem.h"
 #endif
 
 #include "config.h"

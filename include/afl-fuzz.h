@@ -31,14 +31,14 @@
 #define MESSAGES_TO_STDOUT
 
 #ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
+  #define _GNU_SOURCE 1
 #endif
 #ifndef _FILE_OFFSET_BITS
-#define _FILE_OFFSET_BITS 64
+  #define _FILE_OFFSET_BITS 64
 #endif
 
 #ifdef __ANDROID__
-#include "android-ashmem.h"
+  #include "android-ashmem.h"
 #endif
 
 #include "config.h"
@@ -76,7 +76,7 @@
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__NetBSD__) || defined(__DragonFly__)
-#include <sys/sysctl.h>
+  #include <sys/sysctl.h>
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
 /* For systems that have sched_setaffinity; right now just Linux, but one
@@ -84,31 +84,31 @@
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
     defined(__DragonFly__)
-#define HAVE_AFFINITY 1
-#if defined(__FreeBSD__) || defined(__DragonFly__)
-#include <sys/param.h>
-#if defined(__FreeBSD__)
-#include <sys/cpuset.h>
-#endif
-#include <sys/user.h>
-#include <pthread.h>
-#include <pthread_np.h>
-#define cpu_set_t cpuset_t
-#elif defined(__NetBSD__)
-#include <pthread.h>
-#endif
+  #define HAVE_AFFINITY 1
+  #if defined(__FreeBSD__) || defined(__DragonFly__)
+    #include <sys/param.h>
+    #if defined(__FreeBSD__)
+      #include <sys/cpuset.h>
+    #endif
+    #include <sys/user.h>
+    #include <pthread.h>
+    #include <pthread_np.h>
+    #define cpu_set_t cpuset_t
+  #elif defined(__NetBSD__)
+    #include <pthread.h>
+  #endif
 #endif                                                         /* __linux__ */
 
 #ifdef __APPLE__
-#include <TargetConditionals.h>
+  #include <TargetConditionals.h>
 #endif
 
 #undef LIST_FOREACH                                 /* clashes with FreeBSD */
 #include "list.h"
 #ifndef SIMPLE_FILES
-#define CASE_PREFIX "id:"
+  #define CASE_PREFIX "id:"
 #else
-#define CASE_PREFIX "id_"
+  #define CASE_PREFIX "id_"
 #endif                                                    /* ^!SIMPLE_FILES */
 
 #define STAGE_BUF_SIZE (64)  /* usable size for stage name buf in afl_state */
@@ -231,36 +231,36 @@ enum {
 /* Python stuff */
 #ifdef USE_PYTHON
 
-// because Python sets stuff it should not ...
-#ifdef _POSIX_C_SOURCE
-#define _SAVE_POSIX_C_SOURCE _POSIX_C_SOURCE
-#undef _POSIX_C_SOURCE
-#endif
-#ifdef _XOPEN_SOURCE
-#define _SAVE_XOPEN_SOURCE _XOPEN_SOURCE
-#undef _XOPEN_SOURCE
-#endif
+  // because Python sets stuff it should not ...
+  #ifdef _POSIX_C_SOURCE
+    #define _SAVE_POSIX_C_SOURCE _POSIX_C_SOURCE
+    #undef _POSIX_C_SOURCE
+  #endif
+  #ifdef _XOPEN_SOURCE
+    #define _SAVE_XOPEN_SOURCE _XOPEN_SOURCE
+    #undef _XOPEN_SOURCE
+  #endif
 
-#include <Python.h>
+  #include <Python.h>
 
-#ifdef _SAVE_POSIX_C_SOURCE
-#ifdef _POSIX_C_SOURCE
-#undef _POSIX_C_SOURCE
-#endif
-#define _POSIX_C_SOURCE _SAVE_POSIX_C_SOURCE
-#endif
-#ifdef _SAVE_XOPEN_SOURCE
-#ifdef _XOPEN_SOURCE
-#undef _XOPEN_SOURCE
-#endif
-#define _XOPEN_SOURCE _SAVE_XOPEN_SOURCE
-#endif
+  #ifdef _SAVE_POSIX_C_SOURCE
+    #ifdef _POSIX_C_SOURCE
+      #undef _POSIX_C_SOURCE
+    #endif
+    #define _POSIX_C_SOURCE _SAVE_POSIX_C_SOURCE
+  #endif
+  #ifdef _SAVE_XOPEN_SOURCE
+    #ifdef _XOPEN_SOURCE
+      #undef _XOPEN_SOURCE
+    #endif
+    #define _XOPEN_SOURCE _SAVE_XOPEN_SOURCE
+  #endif
 
 enum {
 
   /* 00 */ PY_FUNC_INIT,
   /* 01 */ PY_FUNC_FUZZ,
-  /* 02 */ PY_FUNC_PRE_SAVE,
+  /* 02 */ PY_FUNC_POST_PROCESS,
   /* 03 */ PY_FUNC_INIT_TRIM,
   /* 04 */ PY_FUNC_POST_TRIM,
   /* 05 */ PY_FUNC_TRIM,
@@ -283,8 +283,8 @@ typedef struct py_mutator {
   u8 *   fuzz_buf;
   size_t fuzz_size;
 
-  u8 *   pre_save_buf;
-  size_t pre_save_size;
+  u8 *   post_process_buf;
+  size_t post_process_size;
 
   u8 *   trim_buf;
   size_t trim_size;
@@ -323,9 +323,8 @@ typedef struct afl_env_vars {
       afl_bench_until_crash, afl_debug_child_output, afl_autoresume,
       afl_cal_fast;
 
-  u8 *afl_tmpdir, *afl_post_library, *afl_custom_mutator_library,
-      *afl_python_module, *afl_path, *afl_hang_tmout, *afl_skip_crashes,
-      *afl_preload;
+  u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
+      *afl_hang_tmout, *afl_skip_crashes, *afl_preload;
 
 } afl_env_vars_t;
 
@@ -407,7 +406,9 @@ typedef struct afl_state {
       no_unlink,                        /* do not unlink cur_input          */
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
-      python_only;                      /* Python-only mode                 */
+      python_only,                      /* Python-only mode                 */
+      is_master,                        /* if this is a master              */
+      is_slave;                         /* if this is a slave               */
 
   u32 stats_update_freq;                /* Stats update frequency (execs)   */
 
@@ -418,7 +419,6 @@ typedef struct afl_state {
   size_t (*radamsa_mutate_ptr)(u8 *, size_t, u8 *, size_t, u32);
 
   u8 skip_deterministic,                /* Skip deterministic stages?       */
-      force_deterministic,              /* Force deterministic stages?      */
       use_splicing,                     /* Recombine input files?           */
       dumb_mode,                        /* Run in non-instrumented mode?    */
       score_changed,                    /* Scoring for favorites changed?   */
@@ -545,11 +545,9 @@ typedef struct afl_state {
   struct extra_data *a_extras;          /* Automatically selected extras    */
   u32                a_extras_cnt;      /* Total number of tokens available */
 
-  /* afl_postprocess API */
-  void *(*post_init)(struct afl_state *afl);
-  size_t (*post_handler)(void *data, u8 *buf, u32 len, u8 **out_buf);
-  void *(*post_deinit)(void *data);
-  void *post_data;
+  /* afl_postprocess API - Now supported via custom mutators */
+
+  struct custom_mutator *post_library_mutator;
 
   /* CmpLog */
 
@@ -623,8 +621,8 @@ struct custom_mutator {
 
   const char *name;
   void *      dh;
-  u8 *        pre_save_buf;
-  size_t      pre_save_size;
+  u8 *        post_process_buf;
+  size_t      post_process_size;
   u8          stacked_custom_prob, stacked_custom;
 
   void *data;                                    /* custom mutator data ptr */
@@ -675,8 +673,8 @@ struct custom_mutator {
    *     It can chose to alter buf in-place, if the space is large enough.
    * @return Size of the output buffer.
    */
-  size_t (*afl_custom_pre_save)(void *data, u8 *buf, size_t buf_size,
-                                u8 **out_buf);
+  size_t (*afl_custom_post_process)(void *data, u8 *buf, size_t buf_size,
+                                    u8 **out_buf);
 
   /**
    * This method is called at the start of each trimming operation and receives
@@ -825,7 +823,7 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 void                   finalize_py_module(void *);
 
-size_t pre_save_py(void *, u8 *, size_t, u8 **);
+size_t post_process_py(void *, u8 *, size_t, u8 **);
 s32    init_trim_py(void *, u8 *, size_t);
 s32    post_trim_py(void *, u8);
 size_t trim_py(void *, u8 **);

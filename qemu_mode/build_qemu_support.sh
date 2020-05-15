@@ -63,7 +63,7 @@ if [ ! -f "../afl-showmap" ]; then
 fi
 
 PREREQ_NOTFOUND=
-for i in libtool wget python automake autoconf sha384sum bison flex iconv patch pkg-config; do
+for i in libtool wget automake autoconf sha384sum bison flex iconv patch pkg-config; do
 
   T=`command -v "$i" 2>/dev/null`
 
@@ -75,6 +75,14 @@ for i in libtool wget python automake autoconf sha384sum bison flex iconv patch 
   fi
 
 done
+
+PYTHONBIN=`command -v python3 || command -v python || command -v python2`
+
+if [ "$PYTHONBIN" = "" ]; then
+  echo "[-] Error: 'python' not found, please install using 'sudo apt install python3'."
+  PREREQ_NOTFOUND=1
+fi
+
 
 if [ ! -d "/usr/include/glib-2.0/" -a ! -d "/usr/local/include/glib-2.0/" ]; then
 
@@ -202,16 +210,17 @@ if [ "$STATIC" = "1" ]; then
 	  --disable-libusb --disable-usb-redir --disable-vde --disable-vhost-net --disable-virglrenderer \
 	  --disable-virtfs --disable-vnc --disable-vte --disable-xen --disable-xen-pci-passthrough --disable-xfsctl \
 	  --enable-linux-user --disable-system --disable-blobs --disable-tools --enable-capstone=internal \
-	  --target-list="${CPU_TARGET}-linux-user" --static --disable-pie --cross-prefix=$CROSS_PREFIX || exit 1
+	  --target-list="${CPU_TARGET}-linux-user" --static --disable-pie --cross-prefix=$CROSS_PREFIX --python="$PYTHONBIN" \
+	  || exit 1
 
 else
 
   # --enable-pie seems to give a couple of exec's a second performance
   # improvement, much to my surprise. Not sure how universal this is..
-  
+
   ./configure --disable-system \
     --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --enable-capstone=internal \
-    --target-list="${CPU_TARGET}-linux-user" --enable-pie $CROSS_PREFIX || exit 1
+    --target-list="${CPU_TARGET}-linux-user" --enable-pie $CROSS_PREFIX --python="$PYTHONBIN" || exit 1
 
 fi
 
@@ -279,6 +288,7 @@ echo "[+] Building libcompcov ..."
 make -C libcompcov && echo "[+] libcompcov ready"
 echo "[+] Building unsigaction ..."
 make -C unsigaction && echo "[+] unsigaction ready"
+
 echo "[+] All done for qemu_mode, enjoy!"
 
 exit 0

@@ -27,7 +27,6 @@
 #include "llvm/Config/llvm-config.h"
 
 #include "llvm/Pass.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -37,12 +36,12 @@
 #include "llvm/IR/IRBuilder.h"
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
-#include "llvm/IR/Verifier.h"
-#include "llvm/IR/DebugInfo.h"
+  #include "llvm/IR/Verifier.h"
+  #include "llvm/IR/DebugInfo.h"
 #else
-#include "llvm/Analysis/Verifier.h"
-#include "llvm/DebugInfo.h"
-#define nullptr 0
+  #include "llvm/Analysis/Verifier.h"
+  #include "llvm/DebugInfo.h"
+  #define nullptr 0
 #endif
 
 using namespace llvm;

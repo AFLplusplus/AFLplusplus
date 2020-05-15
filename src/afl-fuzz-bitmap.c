@@ -442,7 +442,7 @@ u8 *describe_op(afl_state_t *afl, u8 hnb) {
       sprintf(ret + strlen(ret), "+%06d", afl->splicing_with);
 
     }
-    
+
     sprintf(ret + strlen(ret), ",time:%llu", get_cur_time() - afl->start_time);
 
     sprintf(ret + strlen(ret), ",op:%s", afl->stage_short);

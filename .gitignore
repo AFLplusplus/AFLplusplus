@@ -48,3 +48,5 @@ core\.*
 test/unittests/unit_maybe_alloc
 test/unittests/unit_preallocable
 test/unittests/unit_list
+examples/afl_network_proxy/afl-network-server
+examples/afl_network_proxy/afl-network-client
