@@ -33,11 +33,11 @@
 
 void bind_to_free_cpu(afl_state_t *afl) {
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
+  #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   cpu_set_t c;
-#elif defined(__NetBSD__)
+  #elif defined(__NetBSD__)
   cpuset_t *         c;
-#endif
+  #endif
 
   u8  cpu_used[4096] = {0};
   u32 i;
@@ -51,7 +51,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   }
 
-#if defined(__linux__)
+  #if defined(__linux__)
   DIR *          d;
   struct dirent *de;
   d = opendir("/proc");
@@ -112,7 +112,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
   }
 
   closedir(d);
-#elif defined(__FreeBSD__) || defined(__DragonFly__)
+  #elif defined(__FreeBSD__) || defined(__DragonFly__)
   struct kinfo_proc *procs;
   size_t             nprocs;
   size_t             proccount;
@@ -133,7 +133,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   for (i = 0; i < proccount; i++) {
 
-#if defined(__FreeBSD__)
+    #if defined(__FreeBSD__)
     if (!strcmp(procs[i].ki_comm, "idle")) continue;
 
     // fix when ki_oncpu = -1
@@ -143,16 +143,16 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     if (oncpu != -1 && oncpu < sizeof(cpu_used) && procs[i].ki_pctcpu > 60)
       cpu_used[oncpu] = 1;
-#elif defined(__DragonFly__)
+    #elif defined(__DragonFly__)
     if (procs[i].kp_lwp.kl_cpuid < sizeof(cpu_used) &&
         procs[i].kp_lwp.kl_pctcpu > 10)
       cpu_used[procs[i].kp_lwp.kl_cpuid] = 1;
-#endif
+    #endif
 
   }
 
   ck_free(procs);
-#elif defined(__NetBSD__)
+  #elif defined(__NetBSD__)
   struct kinfo_proc2 *procs;
   size_t              nprocs;
   size_t              proccount;
@@ -181,15 +181,15 @@ void bind_to_free_cpu(afl_state_t *afl) {
   }
 
   ck_free(procs);
-#else
-#warning \
-    "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/AFLplusplus/AFLplusplus"
-#endif
+  #else
+    #warning \
+        "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/AFLplusplus/AFLplusplus"
+  #endif
 
   size_t cpu_start = 0;
 
   try:
-#ifndef __ANDROID__
+  #ifndef __ANDROID__
     for (i = cpu_start; i < afl->cpu_core_count; i++) {
 
       if (!cpu_used[i]) { break; }
@@ -198,12 +198,12 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   if (i == afl->cpu_core_count) {
 
-#else
+  #else
     for (i = afl->cpu_core_count - cpu_start - 1; i > -1; i--)
       if (!cpu_used[i]) break;
   if (i == -1) {
 
-#endif
+  #endif
 
     SAYF("\n" cLRD "[-] " cRST
          "Uh-oh, looks like all %d CPU cores on your system are allocated to\n"
@@ -221,16 +221,16 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   afl->cpu_aff = i;
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
+  #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   CPU_ZERO(&c);
   CPU_SET(i, &c);
-#elif defined(__NetBSD__)
+  #elif defined(__NetBSD__)
   c = cpuset_create();
   if (c == NULL) PFATAL("cpuset_create failed");
   cpuset_set(i, c);
-#endif
+  #endif
 
-#if defined(__linux__)
+  #if defined(__linux__)
   if (sched_setaffinity(0, sizeof(c), &c)) {
 
     if (cpu_start == afl->cpu_core_count) {
@@ -246,7 +246,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   }
 
-#elif defined(__FreeBSD__) || defined(__DragonFly__)
+  #elif defined(__FreeBSD__) || defined(__DragonFly__)
   if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c)) {
 
     if (cpu_start == afl->cpu_core_count)
@@ -258,7 +258,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   }
 
-#elif defined(__NetBSD__)
+  #elif defined(__NetBSD__)
 if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
 
   if (cpu_start == afl->cpu_core_count)
@@ -271,59 +271,14 @@ if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
 }
 
 cpuset_destroy(c);
-#else
-// this will need something for other platforms
-// TODO: Solaris/Illumos has processor_bind ... might worth a try
-#endif
+  #else
+  // this will need something for other platforms
+  // TODO: Solaris/Illumos has processor_bind ... might worth a try
+  #endif
 
 }
 
 #endif                                                     /* HAVE_AFFINITY */
-
-/* Load postprocessor, if available. */
-
-void setup_post(afl_state_t *afl) {
-
-  void *dh;
-  u8 *  fn = afl->afl_env.afl_post_library;
-  u8    tbuf[6];
-  u32   tlen = 6;
-  strncpy(tbuf, "hello", tlen);
-
-  if (!fn) { return; }
-
-  ACTF("Loading postprocessor from '%s'...", fn);
-
-  dh = dlopen(fn, RTLD_NOW);
-  if (!dh) { FATAL("%s", dlerror()); }
-
-  afl->post_handler = dlsym(dh, "afl_postprocess");
-  if (!afl->post_handler) { FATAL("Symbol 'afl_postprocess' not found."); }
-  afl->post_init = dlsym(dh, "afl_postprocess_init");
-  if (!afl->post_init) { FATAL("Symbol 'afl_postprocess_init' not found."); }
-  afl->post_deinit = dlsym(dh, "afl_postprocess_deinit");
-  if (!afl->post_deinit) {
-
-    FATAL("Symbol 'afl_postprocess_deinit' not found.");
-
-  }
-
-  /* Do a quick test. It's better to segfault now than later =) */
-
-  u8 *post_buf = NULL;
-  afl->post_data = afl->post_init(afl);
-  if (!afl->post_data) { FATAL("Could not initialize post handler."); }
-
-  size_t post_len = afl->post_handler(afl->post_data, tbuf, tlen, &post_buf);
-  if (!post_len || !post_buf) {
-
-    SAYF("Empty return in test post handler for buf=\"hello\\0\".");
-
-  }
-
-  OKF("Postprocessor installed successfully.");
-
-}
 
 /* Shuffle an array of pointers. Might be slightly biased. */
 
@@ -1375,6 +1330,19 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   }
 
+  /*
+    if (afl->is_master) {
+
+      u8 *x = alloc_printf("%s/%s/is_master", afl->sync_dir, afl->sync_id);
+      int fd = open(x, O_CREAT | O_RDWR, 0644);
+      if (fd < 0) FATAL("cannot create %s", x);
+      free(x);
+      close(fd);
+
+    }
+
+  */
+
   if (mkdir(afl->out_dir, 0700)) {
 
     if (errno != EEXIST) { PFATAL("Unable to create '%s'", afl->out_dir); }
@@ -1565,7 +1533,7 @@ void check_crash_handling(void) {
      until I get a box to test the code. So, for now, we check for crash
      reporting the awful way. */
 
-#if !TARGET_OS_IPHONE
+  #if !TARGET_OS_IPHONE
   if (system("launchctl list 2>/dev/null | grep -q '\\.ReportCrash$'")) return;
 
   SAYF(
@@ -1583,7 +1551,7 @@ void check_crash_handling(void) {
       "    launchctl unload -w ${SL}/LaunchAgents/${PL}.plist\n"
       "    sudo launchctl unload -w ${SL}/LaunchDaemons/${PL}.Root.plist\n");
 
-#endif
+  #endif
   if (!get_afl_env("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES"))
     FATAL("Crash reporter detected");
 
@@ -1778,26 +1746,26 @@ void get_core_count(afl_state_t *afl) {
 
   /* On *BSD systems, we can just use a sysctl to get the number of CPUs. */
 
-#ifdef __APPLE__
+  #ifdef __APPLE__
 
   if (sysctlbyname("hw.logicalcpu", &afl->cpu_core_count, &s, NULL, 0) < 0)
     return;
 
-#else
+  #else
 
   int s_name[2] = {CTL_HW, HW_NCPU};
 
   if (sysctl(s_name, 2, &afl->cpu_core_count, &s, NULL, 0) < 0) return;
 
-#endif                                                        /* ^__APPLE__ */
+  #endif                                                      /* ^__APPLE__ */
 
 #else
 
-#ifdef HAVE_AFFINITY
+  #ifdef HAVE_AFFINITY
 
   afl->cpu_core_count = sysconf(_SC_NPROCESSORS_ONLN);
 
-#else
+  #else
 
   FILE *f = fopen("/proc/stat", "r");
   u8    tmp[1024];
@@ -1809,7 +1777,7 @@ void get_core_count(afl_state_t *afl) {
 
   fclose(f);
 
-#endif                                                    /* ^HAVE_AFFINITY */
+  #endif                                                  /* ^HAVE_AFFINITY */
 
 #endif                        /* ^(__APPLE__ || __FreeBSD__ || __OpenBSD__) */
 
@@ -1863,14 +1831,6 @@ void fix_up_sync(afl_state_t *afl) {
 
   if (afl->dumb_mode) { FATAL("-S / -M and -n are mutually exclusive"); }
 
-  if (afl->skip_deterministic) {
-
-    if (afl->force_deterministic) { FATAL("use -S instead of -M -d"); }
-    // else
-    //  FATAL("-S already implies -d");
-
-  }
-
   while (*x) {
 
     if (!isalnum(*x) && *x != '_' && *x != '-') {
@@ -1889,13 +1849,6 @@ void fix_up_sync(afl_state_t *afl) {
 
   afl->sync_dir = afl->out_dir;
   afl->out_dir = x;
-
-  if (!afl->force_deterministic) {
-
-    afl->skip_deterministic = 1;
-    afl->use_splicing = 1;
-
-  }
 
 }
 
@@ -2043,7 +1996,11 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if (afl->afl_env.afl_skip_bin_check || afl->use_wine) { return; }
+  if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->unicorn_mode) {
+
+    return;
+
+  }
 
   /* Check for blatant user errors. */
 
@@ -2102,12 +2059,12 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
 #else
 
-#if !defined(__arm__) && !defined(__arm64__)
+  #if !defined(__arm__) && !defined(__arm64__)
   if ((f_data[0] != 0xCF || f_data[1] != 0xFA || f_data[2] != 0xED) &&
       (f_data[0] != 0xCA || f_data[1] != 0xFE || f_data[2] != 0xBA))
     FATAL("Program '%s' is not a 64-bit or universal Mach-O binary",
           afl->fsrv.target_path);
-#endif
+  #endif
 
 #endif                                                       /* ^!__APPLE__ */
 

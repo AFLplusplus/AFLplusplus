@@ -4,9 +4,9 @@
 
   ![Travis State](https://api.travis-ci.com/AFLplusplus/AFLplusplus.svg?branch=master)
 
-  Release Version: [2.64c](https://github.com/AFLplusplus/AFLplusplus/releases)
+  Release Version: [2.65c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-  Github Version: 2.64d
+  Github Version: 2.65d
 
   includes all necessary/interesting changes from Google's afl 2.56b
 
@@ -137,7 +137,7 @@ afl++ has many build options.
 The easiest is to build and install everything:
 
 ```shell
-$ sudo apt install build-essential libtool-bin python3 automake flex bison libglib2.0-dev libpixman-1-dev clang python-setuptools llvm
+$ sudo apt install build-essential libtool-bin python3-dev automake flex bison libglib2.0-dev libpixman-1-dev clang python3-setuptools llvm
 $ make distrib
 $ sudo make install
 ```
@@ -672,8 +672,9 @@ Here are some of the most important caveats for AFL:
 
     To work around this, you can comment out the relevant checks (see
     examples/libpng_no_checksum/ for inspiration); if this is not possible,
-    you can also write a postprocessor, as explained in
-    examples/post_library/ (with AFL_POST_LIBRARY)
+    you can also write a postprocessor, one of the hooks of custom mutators.
+    See [docs/custom_mutators.md](docs/custom_mutators.md) on how to use
+    `AFL_CUSTOM_MUTATOR_LIBRARY`
 
   - There are some unfortunate trade-offs with ASAN and 64-bit binaries. This
     isn't due to any specific fault of afl-fuzz; see [docs/notes_for_asan.md](docs/notes_for_asan.md)

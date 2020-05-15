@@ -65,9 +65,8 @@ if [ ! -f "../afl-showmap" ]; then
 
 fi
 
-PYTHONBIN=python
+PYTHONBIN=`command -v python3 || command -v python || command -v python2 || echo python3`
 MAKECMD=make
-EASY_INSTALL='easy_install'
 TARCMD=tar
 
 if [ "$PLT" = "Linux" ]; then
@@ -77,14 +76,12 @@ fi
 if [ "$PLT" = "Darwin" ]; then
   CORES=`sysctl -n hw.ncpu`
   TARCMD=tar
-  PYTHONBIN=python3
 fi
 
 if [ "$PLT" = "FreeBSD" ]; then
   MAKECMD=gmake
   CORES=`sysctl -n hw.ncpu`
   TARCMD=gtar
-  PYTHONBIN=python3
 fi
 
 if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
@@ -107,28 +104,24 @@ for i in $PYTHONBIN automake autoconf git $MAKECMD $TARCMD; do
 
 done
 
-if ! command -v $EASY_INSTALL >/dev/null; then
+# some python version should be available now
+PYTHONS="`command -v python3` `command -v python` `command -v python2`"
+EASY_INSTALL_FOUND=0
+for PYTHON in $PYTHONS ; do
 
-  # work around for installs with executable easy_install
-  EASY_INSTALL_FOUND=0
-  MYPYTHONPATH=`python -v </dev/null 2>&1 >/dev/null | sed -n -e '/^# \/.*\/os.py/{ s/.*matches //; s/os.py$//; p}'`
-  for PATHCANDIDATE in \
-        "dist-packages/" \
-        "site-packages/"
-  do
-    if [ -e "${MYPYTHONPATH}/${PATHCANDIDATE}/easy_install.py" ] ; then
+  if $PYTHON -c "import setuptools" ; then
 
-      EASY_INSTALL_FOUND=1
-      break
-
-    fi
-  done
-  if [ "0" = $EASY_INSTALL_FOUND ]; then
-
-    echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
-    PREREQ_NOTFOUND=1
+    EASY_INSTALL_FOUND=1
+    PYTHONBIN=$PYTHON
+    break
 
   fi
+
+done
+if [ "0" = $EASY_INSTALL_FOUND ]; then
+
+  echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools', or install python3-setuptools, or run '$PYTHONBIN -m ensurepip', or create a virtualenv, or ..."
+  PREREQ_NOTFOUND=1
 
 fi
 

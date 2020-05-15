@@ -2,17 +2,17 @@
 
 ## Roadmap 2.65+
 
- - InsTrim mode for LTO solution
+ - sync_fuzzers(): only masters sync from all, slaves only sync from master
+   (@andrea: be careful, often people run all slaves)
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - random crc32 HASH_CONST per run? because with 65536 paths we have collisions
  - namespace for targets? e.g. network
  - libradamsa as a custom module?
+ - focal for travis
 
 ## Further down the road
 
 afl-fuzz:
- - sync_fuzzers(): only masters sync from all, slaves only sync from master
-   (@andrea: be careful, often people run all slaves)
  - ascii_only mode for mutation output - or use a custom mutator for this?
  - setting min_len/max_len/start_offset/end_offset limits for mutation output
 

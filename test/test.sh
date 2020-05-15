@@ -60,7 +60,6 @@ unset AFL_QEMU_PERSISTENT_GPR
 unset AFL_QEMU_PERSISTENT_RET
 unset AFL_QEMU_PERSISTENT_HOOK
 unset AFL_QEMU_PERSISTENT_CNT
-unset AFL_POST_LIBRARY
 unset AFL_CUSTOM_MUTATOR_LIBRARY
 unset AFL_PYTHON_MODULE
 unset AFL_PRELOAD
@@ -339,23 +338,28 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   rm -f test-instr.plain
 
   # now for the special llvm_mode things
-  AFL_LLVM_INSTRIM=1 AFL_LLVM_INSTRIM_LOOPHEAD=1 ../afl-clang-fast -o test-instr.instrim ../test-instr.c > /dev/null 2>test.out
-  test -e test-instr.instrim && {
-    TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.instrim 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 2 -a "$TUPLES" -lt 5 && {
-      $ECHO "$GREEN[+] llvm_mode InsTrim reported $TUPLES instrumented locations which is fine"
+  test -e ../libLLVMInsTrim.so && {
+    AFL_LLVM_INSTRIM=1 AFL_LLVM_INSTRIM_LOOPHEAD=1 ../afl-clang-fast -o test-instr.instrim ../test-instr.c > /dev/null 2>test.out
+    test -e test-instr.instrim && {
+      TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.instrim 2>&1 | grep Captur | awk '{print$3}'`
+      test "$TUPLES" -gt 2 -a "$TUPLES" -lt 5 && {
+        $ECHO "$GREEN[+] llvm_mode InsTrim reported $TUPLES instrumented locations which is fine"
+      } || {
+        $ECHO "$RED[!] llvm_mode InsTrim instrumentation produces weird numbers: $TUPLES"
+        CODE=1
+      }
+      rm -f test-instr.instrim test.out
     } || {
-      $ECHO "$RED[!] llvm_mode InsTrim instrumentation produces weird numbers: $TUPLES"
+      $ECHO "$RED[!] llvm_mode InsTrim compilation failed"
       CODE=1
     }
-    rm -f test-instr.instrim test.out
   } || {
-    $ECHO "$RED[!] llvm_mode InsTrim compilation failed"
-    CODE=1
+    $ECHO "$YELLOW[-] llvm_mode InsTrim not compiled, cannot test"
+    INCOMPLETE=1
   }
   AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
   test -e test-compcov.compcov && {
-    grep -Eq " [ 12][0-9][0-9] location| [3-9][0-9] location" test.out && {
+    grep --binary-files=text -Eq " [ 12][0-9][0-9] location| [3-9][0-9] location" test.out && {
       $ECHO "$GREEN[+] llvm_mode laf-intel/compcov feature works correctly"
     } || {
       $ECHO "$RED[!] llvm_mode laf-intel/compcov feature failed"
@@ -882,8 +886,28 @@ $ECHO "$BLUE[*] Testing: unicorn_mode"
 test -d ../unicorn_mode/unicornafl && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
+      # some python version should be available now
+      PYTHONS="`command -v python3` `command -v python` `command -v python2`"
+      EASY_INSTALL_FOUND=0
+      for PYTHON in $PYTHONS ; do
+
+        if $PYTHON -c "help('easy_install');" </dev/null | grep -q module ; then
+
+            EASY_INSTALL_FOUND=1
+            PY=$PYTHON
+            break
+
+        fi
+
+      done
+      if [ "0" = $EASY_INSTALL_FOUND ]; then
+
+        echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
+        PREREQ_NOTFOUND=1
+
+      fi
+
       # travis workaround
-      PY=`command -v python`
       test "$PY" = "/opt/pyenv/shims/python" -a -x /usr/bin/python && PY=/usr/bin/python
       mkdir -p in
       echo 0 > in/in
@@ -942,11 +966,8 @@ test -d ../unicorn_mode/unicornafl && {
 
 $ECHO "$BLUE[*] Testing: custom mutator"
 test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
-  test `uname -s` = 'Darwin' && {
-    CUSTOM_MUTATOR_PATH=$( realpath ../examples/custom_mutators )
-  } || {
-    CUSTOM_MUTATOR_PATH=$( readlink -f ../examples/custom_mutators )
-  }
+  # normalize path
+  CUSTOM_MUTATOR_PATH=$(cd $(pwd)/../examples/custom_mutators;pwd)
   test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUSTOM_MUTATOR_PATH}/example.py && {
     unset AFL_CC
     # Compile the vulnerable program for single mutator
@@ -970,16 +991,17 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       }
     }
     # Compile the custom mutator
-    make -C ../examples/custom_mutators libexamplemutator.so > /dev/null 2>&1
-    test -e test-custom-mutator -a -e ${CUSTOM_MUTATOR_PATH}/libexamplemutator.so && {
+    cc -D_FIXED_CHAR=0x41 -g -fPIC -shared -I../include ../examples/custom_mutators/simple_example.c -o libexamplemutator.so > /dev/null 2>&1
+    cc -D_FIXED_CHAR=0x42 -g -fPIC -shared -I../include ../examples/custom_mutators/simple_example.c -o libexamplemutator2.so > /dev/null 2>&1
+    test -e test-custom-mutator -a -e ./libexamplemutator.so && {
       # Create input directory
       mkdir -p in
       echo "00000" > in/in
 
       # Run afl-fuzz w/ the C mutator
-      $ECHO "$GREY[*] running afl-fuzz for the C mutator, this will take approx 10 seconds"
+      $ECHO "$GREY[*] running afl-fuzz for the C mutator, this will take approx 5 seconds"
       {
-        AFL_CUSTOM_MUTATOR_LIBRARY=${CUSTOM_MUTATOR_PATH}/libexamplemutator.so ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
+        AFL_CUSTOM_MUTATOR_LIBRARY=./libexamplemutator.so AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V1 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
       } >>errors 2>&1
 
       # Check results
@@ -996,10 +1018,10 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       # Clean
       rm -rf out errors
 
-      #Run afl-fuzz w/ multiple C mutators
-      $ECHO "$GREY[*] running afl-fuzz with multiple custom C mutators, this will take approx 20 seconds"
+      # Run afl-fuzz w/ multiple C mutators
+      $ECHO "$GREY[*] running afl-fuzz with multiple custom C mutators, this will take approx 5 seconds"
       {
-        AFL_CUSTOM_MUTATOR_LIBRARY="${CUSTOM_MUTATOR_PATH}/libexamplemutator.so;${CUSTOM_MUTATOR_PATH}/libexamplemutator.so" ../afl-fuzz -V20 -m ${MEM_LIMIT} -i in -o out -- ./test-multiple-mutators >>errors 2>&1
+        AFL_CUSTOM_MUTATOR_LIBRARY="./libexamplemutator.so;./libexamplemutator2.so" AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V1 -m ${MEM_LIMIT} -i in -o out -- ./test-multiple-mutators >>errors 2>&1
       } >>errors 2>&1
 
       test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
@@ -1016,11 +1038,11 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       rm -rf out errors 
 
       # Run afl-fuzz w/ the Python mutator
-      $ECHO "$GREY[*] running afl-fuzz for the Python mutator, this will take approx 10 seconds"
+      $ECHO "$GREY[*] running afl-fuzz for the Python mutator, this will take approx 5 seconds"
       {
         export PYTHONPATH=${CUSTOM_MUTATOR_PATH}
         export AFL_PYTHON_MODULE=example
-        ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
+        AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V5 -m ${MEM_LIMIT} -i in -o out -- ./test-custom-mutator >>errors 2>&1
         unset PYTHONPATH
         unset AFL_PYTHON_MODULE
       } >>errors 2>&1
@@ -1039,7 +1061,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       # Clean
       rm -rf in out errors
       rm -rf ${CUSTOM_MUTATOR_PATH}/__pycache__/
-      rm -f test-multiple-mutators
+      rm -f test-multiple-mutators test-custom-mutator libexamplemutator.so libexamplemutator2.so
     } || {
       ls .
       ls ${CUSTOM_MUTATOR_PATH}

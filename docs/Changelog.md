@@ -9,12 +9,14 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-### Version ++2.64d (develop):
+### Version ++2.65c (release):
   - afl-fuzz:
      - AFL_MAP_SIZE was not working correctly
      - better python detection
      - an old, old bug in afl that would show negative stability in rare
        circumstances is now hopefully fixed
+     - AFL_POST_LIBRARY was deprecated, use AFL_CUSTOM_MUTATOR_LIBRARY
+       instead (see docs/custom_mutators.md)
   - llvm_mode:
      - afl-clang-fast/lto now do not skip single block functions. This
        behaviour can be reactivated with AFL_LLVM_SKIPSINGLEBLOCK
@@ -35,6 +37,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - gcc_plugin:
     - better dependency checks
   - unicorn_mode:
+    - validate_crash_callback can now count non-crashing inputs as crash as well
     - better submodule handling
   - afl-showmap: fix for -Q mode
   - added examples/afl_network_proxy which allows to fuzz a target over the

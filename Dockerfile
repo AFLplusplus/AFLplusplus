@@ -1,4 +1,4 @@
-FROM ubuntu:eoan
+FROM ubuntu
 MAINTAINER David Carlier <devnexen@gmail.com>
 LABEL "about"="AFLplusplus docker image"
 RUN apt-get update && apt-get -y install \
@@ -10,8 +10,10 @@ RUN apt-get update && apt-get -y install \
     clang-9 \
     flex \
     git \
-    python3.7 \
-    python3.7-dev \
+    python3 \
+    python3-dev \
+    python3-setuptools \
+    python-is-python3 \
     gcc-9 \
     gcc-9-plugin-dev \
     gcc-9-multilib \
@@ -20,8 +22,6 @@ RUN apt-get update && apt-get -y install \
     libtool-bin \
     libglib2.0-dev \
     llvm-9-dev \
-    python-setuptools \
-    python2.7-dev \
     wget \
     ca-certificates \
     libpixman-1-dev \

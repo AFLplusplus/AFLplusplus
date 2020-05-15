@@ -54,11 +54,11 @@ typedef long double max_align_t;
 
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/CFG.h"
+  #include "llvm/IR/DebugInfo.h"
+  #include "llvm/IR/CFG.h"
 #else
-#include "llvm/DebugInfo.h"
-#include "llvm/Support/CFG.h"
+  #include "llvm/DebugInfo.h"
+  #include "llvm/Support/CFG.h"
 #endif
 
 #include "afl-llvm-common.h"
@@ -115,7 +115,7 @@ uint64_t PowerOf2Ceil(unsigned in) {
 /* #if LLVM_VERSION_STRING >= "4.0.1" */
 #if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
-#define AFL_HAVE_VECTOR_INTRINSICS 1
+  #define AFL_HAVE_VECTOR_INTRINSICS 1
 #endif
 bool AFLCoverage::runOnModule(Module &M) {
 
@@ -211,8 +211,15 @@ bool AFLCoverage::runOnModule(Module &M) {
   else
 #else
   if (ngram_size_str)
-    FATAL("Sorry, NGRAM branch coverage is not supported with llvm version %s!",
-          LLVM_VERSION_STRING);
+#ifndef LLVM_VERSION_PATCH
+    FATAL("Sorry, NGRAM branch coverage is not supported with llvm version %d.%d.%d!",
+          LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR,
+          0);
+#else
+    FATAL("Sorry, NGRAM branch coverage is not supported with llvm version %d.%d.%d!",
+          LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR,
+          LLVM_VERSION_PATCH);
+#endif
 #endif
     PrevLocSize = 1;
 
@@ -242,17 +249,17 @@ bool AFLCoverage::runOnModule(Module &M) {
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   if (ngram_size)
-#ifdef __ANDROID__
+  #ifdef __ANDROID__
     AFLPrevLoc = new GlobalVariable(
         M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
         /* Initializer */ nullptr, "__afl_prev_loc");
-#else
+  #else
     AFLPrevLoc = new GlobalVariable(
         M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
         /* Initializer */ nullptr, "__afl_prev_loc",
         /* InsertBefore */ nullptr, GlobalVariable::GeneralDynamicTLSModel,
         /* AddressSpace */ 0, /* IsExternallyInitialized */ false);
-#endif
+  #endif
   else
 #endif
 #ifdef __ANDROID__

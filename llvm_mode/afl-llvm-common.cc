@@ -33,7 +33,10 @@ char *getBBName(const llvm::BasicBlock *BB) {
   std::string        Str;
   raw_string_ostream OS(Str);
 
+#if LLVM_VERSION_MAJOR >= 4 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
   BB->printAsOperand(OS, false);
+#endif
   name = strdup(OS.str().c_str());
   return name;
 
@@ -171,7 +174,7 @@ bool isInWhitelist(llvm::Function *F) {
 #else
   if (!Loc.isUnknown()) {
 
-    DILocation cDILoc(Loc.getAsMDNode(C));
+    DILocation cDILoc(Loc.getAsMDNode(F->getContext()));
 
     unsigned int instLine = cDILoc.getLineNumber();
     StringRef    instFilename = cDILoc.getFilename();

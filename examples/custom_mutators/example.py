@@ -21,6 +21,7 @@ COMMANDS = [
     b"GET",
     b"PUT",
     b"DEL",
+    b"AAAAAAAAAAAAAAAAA",
 ]
 
 
@@ -119,7 +120,7 @@ def fuzz(buf, add_buf, max_size):
 #
 #     return next_index
 #
-# def pre_save(buf):
+# def post_process(buf):
 #     '''
 #     Called just before the execution to write the test case in the format
 #     expected by the target
