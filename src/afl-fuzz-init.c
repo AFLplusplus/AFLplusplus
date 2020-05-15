@@ -1315,6 +1315,36 @@ dir_cleanup_failed:
 
 }
 
+/* If this is a -S slave, ensure a -M master is running */
+
+int check_master_exists(afl_state_t *afl) {
+
+  DIR *          sd;
+  struct dirent *sd_ent;
+  u8 *           fn;
+  sd = opendir(afl->sync_dir);
+  if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
+  while ((sd_ent = readdir(sd))) {
+
+    /* Skip dot files and our own output directory. */
+
+    if (sd_ent->d_name[0] == '.' || !strcmp(afl->sync_id, sd_ent->d_name)) {
+
+      continue;
+
+    }
+
+    fn = alloc_printf("%s/%s/is_master", afl->sync_dir, sd_ent->d_name);
+    int res = access(fn, F_OK);
+    free(fn);
+    if (res == 0) return 1;
+
+  }
+
+  return 0;
+
+}
+
 /* Prepare output directories and fds. */
 
 void setup_dirs_fds(afl_state_t *afl) {
@@ -1330,18 +1360,15 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   }
 
-  /*
-    if (afl->is_master) {
+  if (afl->is_master) {
 
-      u8 *x = alloc_printf("%s/%s/is_master", afl->sync_dir, afl->sync_id);
-      int fd = open(x, O_CREAT | O_RDWR, 0644);
-      if (fd < 0) FATAL("cannot create %s", x);
-      free(x);
-      close(fd);
+    u8 *x = alloc_printf("%s/%s/is_master", afl->sync_dir, afl->sync_id);
+    int fd = open(x, O_CREAT | O_RDWR, 0644);
+    if (fd < 0) FATAL("cannot create %s", x);
+    free(x);
+    close(fd);
 
-    }
-
-  */
+  }
 
   if (mkdir(afl->out_dir, 0700)) {
 
