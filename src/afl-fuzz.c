@@ -1065,7 +1065,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
   init_count_class16();
 
+  if (afl->is_master && check_master_exists(afl) == 1) {
+
+    WARNF("It is wasteful to run more than one master!");
+
+  }
+
   setup_dirs_fds(afl);
+
+  if (afl->is_slave && check_master_exists(afl) == 0) {
+
+    WARNF("no -M master found. You need to run one master!");
+    sleep(5);
+
+  }
 
   setup_custom_mutators(afl);
 

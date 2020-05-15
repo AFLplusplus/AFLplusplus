@@ -9,8 +9,11 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-### Version ++2.6d (dev)
-  - ...
+### Version ++2.65d (dev)
+  - afl-fuzz:
+     - -S slaves now only sync from the master to increase performance,
+       the -M master stilly syncs from everyone. Added checks that exactly
+       one master is present
 
 
 ### Version ++2.65c (release):

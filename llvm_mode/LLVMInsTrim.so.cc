@@ -160,21 +160,23 @@ struct InsTrim : public ModulePass {
     else
 #else
     if (ngram_size_str)
-#ifdef LLVM_VERSION_STRING
+  #ifdef LLVM_VERSION_STRING
       FATAL(
           "Sorry, NGRAM branch coverage is not supported with llvm version %s!",
           LLVM_VERSION_STRING);
-#else
-#ifndef LLVM_VERSION_PATCH
+  #else
+    #ifndef LLVM_VERSION_PATCH
       FATAL(
-          "Sorry, NGRAM branch coverage is not supported with llvm version %d.%d.%d!",
+          "Sorry, NGRAM branch coverage is not supported with llvm version "
+          "%d.%d.%d!",
           LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, 0);
-#else
+    #else
       FATAL(
-          "Sorry, NGRAM branch coverage is not supported with llvm version %d.%d.%d!",
+          "Sorry, NGRAM branch coverage is not supported with llvm version "
+          "%d.%d.%d!",
           LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERISON_PATCH);
-#endif
-#endif
+    #endif
+  #endif
 #endif
       PrevLocSize = 1;
 

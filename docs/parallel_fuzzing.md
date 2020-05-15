@@ -57,12 +57,14 @@ Each fuzzer will keep its state in a separate subdirectory, like so:
 Each instance will also periodically rescan the top-level sync directory
 for any test cases found by other fuzzers - and will incorporate them into
 its own fuzzing when they are deemed interesting enough.
+For performance reasons only -M masters sync the queue with everyone, the
+-S slaves will only sync from the master.
 
 The difference between the -M and -S modes is that the master instance will
 still perform deterministic checks; while the secondary instances will
-proceed straight to random tweaks. If you don't want to do deterministic
-fuzzing at all, it's OK to run all instances with -S. With very slow or complex
-targets, or when running heavily parallelized jobs, this is usually a good plan.
+proceed straight to random tweaks.
+
+Note that you must always have one -M master instance!
 
 Note that running multiple -M instances is wasteful, although there is an
 experimental support for parallelizing the deterministic checks. To leverage
