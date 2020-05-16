@@ -89,6 +89,11 @@ override CFLAGS += -Wall -g -Wno-pointer-sign -Wmissing-declarations\
 			  -I include/ -Werror -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
+ifeq "$(shell uname -s)" "FreeBSD"
+  override CFLAGS  += -I /usr/local/include/
+  LDFLAGS += -L /usr/local/lib/
+endif
+
 ifeq "$(shell uname -s)" "OpenBSD"
   override CFLAGS  += -I /usr/local/include/
   LDFLAGS += -L /usr/local/lib/
