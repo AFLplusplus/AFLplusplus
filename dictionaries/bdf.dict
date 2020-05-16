@@ -1,0 +1,30 @@
+# https://en.wikipedia.org/wiki/Glyph_Bitmap_Distribution_Format
+# https://www.adobe.com/content/dam/acom/en/devnet/font/pdfs/5005.BDF_Spec.pdf
+
+"STARTFONT"
+"COMMENT"
+"CONTENTVERSION"
+"FONT"
+"SIZE"
+"FONTBOUNDINGBOX"
+"METRICSSET"
+"SWIDTH"
+"DWIDTH"
+"SWIDTH1"
+"DWIDTH1"
+"VVECTOR"
+"STARTPROPERTIES"
+"ENDPROPERTIES"
+"CHARS"
+"STARTCHAR"
+"ENCODING"
+"BBX"
+"BITMAP"
+"ENDCHAR"
+"ENDFONT"
+
+# misc
+"255"
+"-1"
+"0"
+"2.1"

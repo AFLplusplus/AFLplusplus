@@ -1,0 +1,14 @@
+# http://www.wikicreole.org/wiki/Creole1.0
+
+bold="**"
+italic="//"
+heading="=="
+link1="[[a|b]]"
+link2="[[a:b]]"
+hr="----"
+img=" {{a|b}}"
+table_heading="|=a |=b |"
+raw="{{{a}}}"
+escape="~"
+placeholder="<<<x>>>"
+line_break="\\\\"

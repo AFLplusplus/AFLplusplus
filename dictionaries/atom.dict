@@ -1,0 +1,33 @@
+# https://validator.w3.org/feed/docs/atom.html
+# https://tools.ietf.org/html/rfc4287
+
+"<?xml version='1.0' encoding='utf-8'?>"
+"<feed xmlns='http://www.w3.org/2005/Atom'>"
+
+"<alternate>"
+"<author>"
+"<category>"
+"<content>"
+"<contributor>"
+"<email>"
+"<entry>"
+"<feed>"
+"<first>"
+"<generator>"
+"<icon>"
+"<id>"
+"<last>"
+"<link>"
+"<logo>"
+"<modified/>
+"<name>"
+"<next>"
+"<previous>"
+"<published>"
+"<rights>"
+"<source>"
+"<subtitle>"
+"<summary>"
+"<title>"
+"<updated>"
+"<uri>"

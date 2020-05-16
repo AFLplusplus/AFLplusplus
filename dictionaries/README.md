@@ -8,6 +8,9 @@ grammar of some of the more verbose data formats or languages. The basic
 principle behind the operation of fuzzer dictionaries is outlined in section 10
 of the "main" README.md for the project.
 
+These sets were done by Michal Zalewski, various contributors, and imported
+from oss-fuzz, go-fuzz and libfuzzer.
+
 Custom dictionaries can be added at will. They should consist of a
 reasonably-sized set of rudimentary syntax units that the fuzzer will then try
 to clobber together in various ways. Snippets between 2 and 16 bytes are

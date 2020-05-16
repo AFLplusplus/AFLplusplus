@@ -1,0 +1,73 @@
+# https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
+
+
+# Defines byteorder and endianess
+byte_order="\xFE\xFF"
+
+# Reorder the display of text for RTL reading
+right_to_left="\x20\x2E"
+
+# Mongolian Vowel Separator: invisible and has the whitespace property
+invisible_separator="\x18\x03"
+
+# Invisible zero-width character.
+word_join="\x20\x60"
+
+# Reserved code point
+reserved="\xfe\xfe"
+
+# Invalid code point
+invalid1="\xff\xff"
+invalid2="\x01\xff\xff"
+invalid3="\xfdd0"
+
+# unassigned code point
+unassigned="\x0f\xed"
+
+# illegal low half-surrogate
+illegal_low="\xde\xad"
+
+# illegal high half-surrogate
+illegal_high="\xda\xad"
+
+# private use area code usbed by apple for its logo
+apple="\xf8\xff"
+
+# hostname normalization
+fullwidth_solidus="\xff\x0f"
+
+# numerical mapping and a value
+bold_eight="\x01\xd7\xd6"
+
+# # U+00DF normalizes to "ss" during IDNA2003's mapping phase,
+# different from its IDNA2008 mapping. See http://www.unicode.org/reports/tr46/
+weird="\x00\xdf"
+
+# U+FDFD expands by 11x (UTF-8) and 18x (UTF-16) under NFKC/NFKC
+expansion="\xfd\xfd"
+
+# U+0390 expands by 3x (UTF-8) under NFD
+expansion2="\x03\x90"
+
+# U+1F82 expands by 4x (UTF-16) under NFD
+expansion3= "\x1F\x82"
+
+# U+FB2C expands by 3x (UTF-16) under NFC
+expansion4="\xFB\x2C"
+
+# Lowecaser expansion: https://twitter.com/jifa/status/625776454479970304
+low_exp1="\x02\x3a"
+low_exp2="\x02\x3e"
+low_exp3="\x00\xdf"
+low_exp4="\x1e\x9e"
+
+# Null byte
+null="\x00\x00"
+"\xfc\x80\x80\x80\x80\x80"
+"fc\x80\x80\x80\x80\xaf"
+
+# Confusing new lines
+"\x00\x1b"
+"\x00\x85"
+"\x20\x28"
+"\x20\x29"
