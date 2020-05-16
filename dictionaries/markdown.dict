@@ -1,0 +1,28 @@
+strike="~~"
+list="2."
+link="[a]("
+link_without_ref="[a]["
+image="![b]("
+bold="**"
+separator="---"
+title="# "
+fence="```"
+link_bottom="[a]:"
+link_inline="<http://"
+link_bottom_title="[1]: http://a.com"
+checklist="- [x"
+toc="[TOC]"
+highlight_rst=":::python"
+
+
+# GFM - https://github.github.com/gfm/
+"| ---"
+leaf1="***"
+leaf2="___"
+code_hl="```html"
+task="- [ ]"
+
+
+# Extended syntax: https://www.markdownguide.org/extended-syntax/
+footnote="[^a]"
+title_id="#a {#b}"

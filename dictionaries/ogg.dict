@@ -1,0 +1,36 @@
+# https://xiph.org/vorbis/doc/Vorbis_I_spec.html
+
+header="OggS"
+
+# Codecs
+"BBCD\x00"
+"\x7fFLAC"
+"\x80theora"
+"\x01vorbis"
+"CELT    "
+"CMML\x00\x00\x00\x00"
+"\x8bJNG\x0d\x0a\x1a\x0a"
+"\x80kate\x00\x00\x00"
+"OggMIDI\x00"
+"\x8aMNG\x0d\x0a\x1a\x0a"
+"PCM     "
+"\x89PNG\x0d\x0a\x1a\x0a"
+"Speex   "
+"YUV4MPEG"
+
+# Metadata
+"TITLE="
+"VERSION="
+"ALBUM="
+"TRACKNUMBER="
+"ARTIST="
+"PERFORMER="
+"COPYRIGHT="
+"LICENSE="
+"ORGANIZATION="
+"DESCRIPTION="
+"GENRE="
+"DATE="
+"LOCATION="
+"CONTACT="
+"ISRC="
