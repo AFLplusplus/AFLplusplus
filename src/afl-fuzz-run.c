@@ -367,31 +367,6 @@ abort_calibration:
 
 }
 
-/* this is a memstr() function where the needle has a fixed length */
-
-static u8 *next_entry(u8 *entry, u8 *file_list, u32 file_list_len) {
-
-  register int i;
-
-  for (i = 0; i < file_list_len - 9; i++)
-    if (memcmp(file_list + i, entry, 9) == 0) return (file_list + i);
-
-  return NULL;
-
-}
-
-/* Generate next entry to search for in the saved directory listing.
-   Dirty hack: only use sprintf if the new number ends in a 0, otherwise
-   we can be cheap and just increase the least significant byte */
-static void update_entry(u8 *entry, u32 next_accept) {
-
-  if (next_accept % 10 == 0)
-    sprintf(entry + 3, "%06u", next_accept);
-  else
-    entry[8] += 1;
-
-}
-
 /* Grab interesting test cases from other fuzzers. */
 
 void sync_fuzzers(afl_state_t *afl) {
@@ -404,8 +379,7 @@ void sync_fuzzers(afl_state_t *afl) {
   DIR *          sd;
   struct dirent *sd_ent;
   u32            sync_cnt = 0;
-  u8 *           file_list, path[PATH_MAX], entry[12] = {0};
-  size_t         file_list_size = 0;
+  u8             path[PATH_MAX];
 
   sd = opendir(afl->sync_dir);
   if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
@@ -416,15 +390,11 @@ void sync_fuzzers(afl_state_t *afl) {
   /* Look at the entries created for every other fuzzer in the sync directory.
    */
 
-  file_list =
-      ck_maybe_grow((void **)&file_list, &file_list_size, 65536);
-
   while ((sd_ent = readdir(sd))) {
 
-    DIR *          qd;
-    struct dirent *qd_ent;
-    u8 *           qd_path, *qd_synced_path, *next_fn;
-    u32            min_accept = 0, next_accept, file_list_len = 0;
+    DIR *qd;
+    u8 * qd_path, *qd_synced_path;
+    u32  min_accept = 0, next_min_accept;
 
     s32 id_fd;
 
@@ -450,7 +420,12 @@ void sync_fuzzers(afl_state_t *afl) {
 
     qd_path = alloc_printf("%s/%s/queue", afl->sync_dir, sd_ent->d_name);
 
-    if (!(qd = opendir(qd_path))) {
+    struct dirent **namelist;
+    int             n, m = 0, o;
+
+    n = scandir(qd_path, &namelist, NULL, alphasort);
+
+    if (n < 1) {
 
       ck_free(qd_path);
       continue;
@@ -472,6 +447,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }
 
+    next_min_accept = min_accept;
+
     /* Show stats */
 
     snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "sync %u", ++sync_cnt);
@@ -480,52 +457,41 @@ void sync_fuzzers(afl_state_t *afl) {
     afl->stage_cur = 0;
     afl->stage_max = 0;
 
-    /* Read the filelist to memory */
-
-    while ((qd_ent = readdir(qd))) {
-
-      if (qd_ent->d_name[0] == '.') { continue; }
-
-      if (file_list_len + PATH_MAX >= file_list_size)
-        file_list = ck_maybe_grow((void **)&file_list, &file_list_size,
-                                  file_list_size + PATH_MAX + 16384);
-
-      u32 fn_len = strlen(qd_ent->d_name) + 1;  // with null
-
-      memcpy(file_list + file_list_len, qd_ent->d_name, fn_len);
-      file_list_len += fn_len;
-
-    }
-
-    if (!file_list_len) continue;
-
-    next_accept = min_accept;
-    sprintf(entry, "id:%06u", next_accept);
-
     /* For every file queued by this fuzzer, parse ID and see if we have
        looked at it before; exec a test case if not. */
 
+    u8 entry[12];
+    sprintf(entry, "id:%06u", next_min_accept);
+    while (m < n)
+      if (memcmp(namelist[m]->d_name, entry, 9))
+        m++;
+      else
+        break;
 
-    while ((next_fn = next_entry(entry, file_list, file_list_len))) {
+    if (m >= n)  // nothing new
+      continue;
+
+    o = n - 1;
+
+    // we run backwards because this way we will import less - resulting
+    // in less queue entries and faster imports
+    while (o >= m) {
 
       s32         fd;
       struct stat st;
 
-      /* OK, sounds like a new one. Let's give it a try. */
-
-      next_accept++;
-      update_entry(entry, next_accept);
-
-      afl->syncing_case = next_accept;
-      sprintf(path, "%s/%s", qd_path, next_fn);
+      sprintf(path, "%s/%s", qd_path, namelist[o]->d_name);
+      afl->syncing_case = next_min_accept;
+      next_min_accept++;
+      o--;
 
       /* Allow this to fail in case the other fuzzer is resuming or so... */
 
       fd = open(path, O_RDONLY);
 
-      if (fd < 0) { WARNF("open failed for %s", path); continue; }
+      if (fd < 0) { continue; }
 
-      if (fstat(fd, &st)) { WARNF("fstat failed for %s", path); continue; }
+      if (fstat(fd, &st)) { WARNF("fstat() failed"); }
 
       /* Ignore zero-sized or oversized files. */
 
@@ -548,11 +514,13 @@ void sync_fuzzers(afl_state_t *afl) {
         afl->syncing_party = sd_ent->d_name;
         afl->queued_imported +=
             save_if_interesting(afl, mem, st.st_size, fault);
+
         afl->syncing_party = 0;
 
         munmap(mem, st.st_size);
 
-        if (!(afl->stage_cur++ % afl->stats_update_freq)) { show_stats(afl); }
+        // if (!(afl->stage_cur++ % afl->stats_update_freq)) { show_stats(afl);
+        // }
 
       }
 
@@ -560,23 +528,26 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }
 
-    ck_write(id_fd, &next_accept, sizeof(u32), qd_synced_path);
+    ck_write(id_fd, &next_min_accept, sizeof(u32), qd_synced_path);
 
   close_sync:
     close(id_fd);
     closedir(qd);
     ck_free(qd_path);
     ck_free(qd_synced_path);
+    if (n > 0)
+      for (m = 0; m < n; m++)
+        free(namelist[m]);
+    free(namelist);
 
   }
 
-  ck_free(file_list);
   closedir(sd);
 
   clock_gettime(CLOCK_REALTIME, &spec);
   profile_end = (spec.tv_sec * 1000000000) + spec.tv_nsec;
-  sprintf(path, "echo %016llu >> /tmp/profile.out",
-          profile_end - profile_start);
+  sprintf(path, "echo %016llu %u >> /tmp/profile.out",
+          profile_end - profile_start, afl->queued_imported);
   if (system(path) != 0) WARNF("system");
 
 }
