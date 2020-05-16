@@ -373,8 +373,8 @@ static u8 *next_entry(u8 *entry, u8 *file_list, u32 file_list_len) {
 
   register int i;
 
-  for (i = 0; i < file_list_len - 6; i++)
-    if (memcmp(file_list + i, entry, 6) == 0) return (file_list + i);
+  for (i = 0; i < file_list_len - 9; i++)
+    if (memcmp(file_list + i, entry, 9) == 0) return (file_list + i);
 
   return NULL;
 
@@ -386,9 +386,9 @@ static u8 *next_entry(u8 *entry, u8 *file_list, u32 file_list_len) {
 static void update_entry(u8 *entry, u32 next_accept) {
 
   if (next_accept % 10 == 0)
-    sprintf(entry, "%06u", next_accept);
+    sprintf(entry + 3, "%06u", next_accept);
   else
-    entry[5] += 1;
+    entry[8] += 1;
 
 }
 
@@ -404,8 +404,8 @@ void sync_fuzzers(afl_state_t *afl) {
   DIR *          sd;
   struct dirent *sd_ent;
   u32            sync_cnt = 0;
-  u8 *           file_list, path[PATH_MAX], entry[8] = {0};
-  size_t         file_list_size = 65536;
+  u8 *           file_list, path[PATH_MAX], entry[12] = {0};
+  size_t         file_list_size = 0;
 
   sd = opendir(afl->sync_dir);
   if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
@@ -417,7 +417,7 @@ void sync_fuzzers(afl_state_t *afl) {
    */
 
   file_list =
-      ck_maybe_grow((void **)&file_list, &file_list_size, file_list_size);
+      ck_maybe_grow((void **)&file_list, &file_list_size, 65536);
 
   while ((sd_ent = readdir(sd))) {
 
@@ -500,10 +500,11 @@ void sync_fuzzers(afl_state_t *afl) {
     if (!file_list_len) continue;
 
     next_accept = min_accept;
-    sprintf(entry, "%06u", next_accept);
+    sprintf(entry, "id:%06u", next_accept);
 
     /* For every file queued by this fuzzer, parse ID and see if we have
        looked at it before; exec a test case if not. */
+
 
     while ((next_fn = next_entry(entry, file_list, file_list_len))) {
 
@@ -512,6 +513,9 @@ void sync_fuzzers(afl_state_t *afl) {
 
       /* OK, sounds like a new one. Let's give it a try. */
 
+      next_accept++;
+      update_entry(entry, next_accept);
+
       afl->syncing_case = next_accept;
       sprintf(path, "%s/%s", qd_path, next_fn);
 
@@ -519,9 +523,9 @@ void sync_fuzzers(afl_state_t *afl) {
 
       fd = open(path, O_RDONLY);
 
-      if (fd < 0) { continue; }
+      if (fd < 0) { WARNF("open failed for %s", path); continue; }
 
-      if (fstat(fd, &st)) { continue; }
+      if (fstat(fd, &st)) { WARNF("fstat failed for %s", path); continue; }
 
       /* Ignore zero-sized or oversized files. */
 
@@ -553,8 +557,6 @@ void sync_fuzzers(afl_state_t *afl) {
       }
 
       close(fd);
-      next_accept++;
-      update_entry(entry, next_accept);
 
     }
 
