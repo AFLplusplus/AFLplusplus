@@ -1315,15 +1315,18 @@ dir_cleanup_failed:
 
 }
 
-/* If this is a -S slave, ensure a -M master is running */
+/* If this is a -S slave, ensure a -M master is running, if a master is
+   running when another master is started then warn */
 
 int check_master_exists(afl_state_t *afl) {
 
   DIR *          sd;
   struct dirent *sd_ent;
   u8 *           fn;
+
   sd = opendir(afl->sync_dir);
-  if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
+  if (!sd) { return 0; }
+
   while ((sd_ent = readdir(sd))) {
 
     /* Skip dot files and our own output directory. */
