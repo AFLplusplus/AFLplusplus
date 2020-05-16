@@ -1363,16 +1363,6 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   }
 
-  if (afl->is_master) {
-
-    u8 *x = alloc_printf("%s/%s/is_master", afl->sync_dir, afl->sync_id);
-    int fd = open(x, O_CREAT | O_RDWR, 0644);
-    if (fd < 0) FATAL("cannot create %s", x);
-    free(x);
-    close(fd);
-
-  }
-
   if (mkdir(afl->out_dir, 0700)) {
 
     if (errno != EEXIST) { PFATAL("Unable to create '%s'", afl->out_dir); }
@@ -1399,6 +1389,16 @@ void setup_dirs_fds(afl_state_t *afl) {
     }
 
 #endif                                                            /* !__sun */
+
+  }
+
+  if (afl->is_master) {
+
+    u8 *x = alloc_printf("%s/is_master", afl->out_dir);
+    int fd = open(x, O_CREAT | O_RDWR, 0644);
+    if (fd < 0) FATAL("cannot create %s", x);
+    free(x);
+    close(fd);
 
   }
 
