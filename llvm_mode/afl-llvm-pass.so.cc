@@ -366,6 +366,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       // cur_loc++;
       cur_loc = AFL_R(map_size);
 
+      bool single_block_loop = false;
+
 /* There is a problem with Ubuntu 18.04 and llvm 6.0 (see issue #63).
    The inline function successors() is not inlined and also not found at runtime
    :-( As I am unable to detect Ubuntu18.04 heree, the next best thing is to
@@ -381,6 +383,9 @@ bool AFLCoverage::runOnModule(Module &M) {
            ++PI) {
 
         BasicBlock *Pred = *PI;
+
+        if (Pred == &BB)
+            single_block_loop = true;
 
         int count = 0;
         if (more_than_one == -1) more_than_one = 0;
@@ -424,7 +429,15 @@ bool AFLCoverage::runOnModule(Module &M) {
         continue;
 
       }
-
+#else
+      // we can still detect single_block_loops using a separate scan
+      for(pred_iterator PI = pred_begin(&BB), E = pred_end(&BB); PI != E;
+          ++PI) {
+        if (*PI == &BB) {
+            single_block_loop = true;
+            break;
+        }
+      }
 #endif
 
       ConstantInt *CurLoc;
@@ -459,6 +472,9 @@ bool AFLCoverage::runOnModule(Module &M) {
             IRB.CreateZExt(IRB.CreateXor(PrevLocTrans, PrevCtx), Int32Ty);
       else
         PrevLocTrans = IRB.CreateZExt(PrevLocTrans, IRB.getInt32Ty());
+
+      if (single_block_loop)
+        PrevLocTrans = IRB.CreateLShr(PrevLocTrans, 1);
 
       /* Load SHM pointer */
 
