@@ -1067,7 +1067,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->is_master && check_master_exists(afl) == 1) {
 
-    WARNF("It is wasteful to run more than one master!");
+    WARNF("it is wasteful to run more than one master!");
+    sleep(1);
 
   }
 
