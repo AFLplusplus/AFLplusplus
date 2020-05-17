@@ -32,7 +32,7 @@ ifeq "$(shell uname)" "OpenBSD"
   LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
   HAS_OPT = $(shell test -x $(BIN_PATH)/opt && echo 0 || echo 1)
   ifeq "$(HAS_OPT)" "1"
-    $(error llvm_mode needs a complete llvm installation (versions 3.8.0 up to 11) -> e.g. "pkg_add llvm-7.0.1p9")
+    $(error llvm_mode needs a complete llvm installation (versions 3.4 up to 11) -> e.g. "pkg_add llvm-7.0.1p9")
   endif
 else
   LLVM_CONFIG ?= llvm-config
@@ -53,7 +53,7 @@ ifeq "$(LLVMVER)" ""
 endif
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
-  $(warning llvm_mode only supports llvm versions 3.8.0 up to 11)
+  $(warning llvm_mode only supports llvm versions 3.4 up to 11)
 endif
 
 ifeq "$(LLVM_MAJOR)" "9"
