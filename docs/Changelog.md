@@ -16,6 +16,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        one master is present
   - added lots of dictionaries from oss-fuzz, go-fuzz and Jakub Wilk
   - added former post_library examples to examples/custom_mutators/
+  - llvm_mode:
+    - lowered minimum required llvm version to 3.4 (except LLVMInsTrim,
+      which needs 3.8.0)
 
 
 ### Version ++2.65c (release):
