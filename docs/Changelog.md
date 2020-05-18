@@ -14,6 +14,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - -S slaves now only sync from the master to increase performance,
        the -M master stilly syncs from everyone. Added checks that exactly
        one master is present
+  - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
+    the same second
   - added lots of dictionaries from oss-fuzz, go-fuzz and Jakub Wilk
   - added former post_library examples to examples/custom_mutators/
   - llvm_mode:
