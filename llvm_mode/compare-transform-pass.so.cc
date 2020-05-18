@@ -304,17 +304,24 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           if (!(HasStr1 || HasStr2)) continue;
 
           if (isMemcmp || isStrncmp || isStrncasecmp) {
-
             /* check if third operand is a constant integer
              * strlen("constStr") and sizeof() are treated as constant */
             Value *      op2 = callInst->getArgOperand(2);
             ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
-            if (!ilen) continue;
-            /* final precaution: if size of compare is larger than constant
-             * string skip it*/
-            uint64_t literalLength = HasStr1 ? Str1.size() : Str2.size();
-            if (literalLength + 1 < ilen->getZExtValue()) continue;
+            if (ilen) {
+              uint64_t len = ilen->getZExtValue();
+              // if len is zero this is a pointless call but allow real
+              // implementation to worry about that
+              if (!len) continue;
 
+              if (isMemcmp) {
+                // if size of compare is larger than constant string this is
+                // likely a bug but allow real implementation to worry about
+                // that
+                uint64_t literalLength = HasStr1 ? Str1.size() : Str2.size();
+                if (literalLength + 1 < ilen->getZExtValue()) continue;
+              }
+            } else continue;
           }
 
           calls.push_back(callInst);
@@ -341,7 +348,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     Value *     VarStr;
     bool        HasStr1 = getConstantStringInfo(Str1P, Str1);
     bool        HasStr2 = getConstantStringInfo(Str2P, Str2);
-    uint64_t    constLen, sizedLen;
+    uint64_t    constStrLen, constSizedLen, unrollLen;
     bool        isMemcmp =
         !callInst->getCalledFunction()->getName().compare(StringRef("memcmp"));
     bool isSizedcmp = isMemcmp ||
@@ -349,22 +356,11 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                           StringRef("strncmp")) ||
                       !callInst->getCalledFunction()->getName().compare(
                           StringRef("strncasecmp"));
+    bool isConstSized = isSizedcmp && isa<ConstantInt>(callInst->getArgOperand(2));
     bool isCaseInsensitive = !callInst->getCalledFunction()->getName().compare(
                                  StringRef("strcasecmp")) ||
                              !callInst->getCalledFunction()->getName().compare(
                                  StringRef("strncasecmp"));
-
-    if (isSizedcmp) {
-
-      Value *      op2 = callInst->getArgOperand(2);
-      ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
-      sizedLen = ilen->getZExtValue();
-
-    } else {
-
-      sizedLen = 0;
-
-    }
 
     if (!(HasStr1 || HasStr2)) {
 
@@ -389,35 +385,46 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     }
 
+    if (isConstSized) {
+
+      Value *      op2 = callInst->getArgOperand(2);
+      constSizedLen = dyn_cast<ConstantInt>(op2)->getZExtValue();
+
+    }
+
     if (HasStr1) {
 
       TmpConstStr = Str1.str();
       VarStr = Str2P;
-      constLen = isMemcmp ? sizedLen : TmpConstStr.length();
 
     } else {
 
       TmpConstStr = Str2.str();
       VarStr = Str1P;
-      constLen = isMemcmp ? sizedLen : TmpConstStr.length();
 
     }
 
-    /* properly handle zero terminated C strings by adding the terminating 0 to
-     * the StringRef (in comparison to std::string a StringRef has built-in
-     * runtime bounds checking, which makes debugging easier) */
+    // add null termination character implicit in c strings
     TmpConstStr.append("\0", 1);
-    if (!sizedLen) constLen++;
+
+    // in the unusual case the const str has embedded null
+    // characters, the string comparison functions should terminate
+    // at the first null
+    if (!isMemcmp)
+      TmpConstStr.assign(TmpConstStr, 0, TmpConstStr.find('\0') + 1);
+
+    constStrLen = TmpConstStr.length();
+    // prefer use of StringRef (in comparison to std::string a StringRef has
+    // built-in runtime bounds checking, which makes debugging easier)
     ConstStr = StringRef(TmpConstStr);
-    // fprintf(stderr, "issized: %d, const > sized ? %u > %u\n", isSizedcmp,
-    // constLen, sizedLen);
-    if (isSizedcmp && constLen > sizedLen && sizedLen) constLen = sizedLen;
-    if (constLen > TmpConstStr.length()) constLen = TmpConstStr.length();
-    if (!constLen) constLen = TmpConstStr.length();
-    if (!constLen) continue;
+
+    if (isConstSized)
+      unrollLen = constSizedLen < constStrLen ? constSizedLen : constStrLen;
+    else
+      unrollLen = constStrLen;
 
     if (!be_quiet)
-      errs() << callInst->getCalledFunction()->getName() << ": len " << constLen
+      errs() << callInst->getCalledFunction()->getName() << ": len " << unrollLen
              << ": " << ConstStr << "\n";
 
     /* split before the call instruction */
@@ -426,7 +433,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     BasicBlock *next_bb =
         BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
     BranchInst::Create(end_bb, next_bb);
-    PHINode *PN = PHINode::Create(Int32Ty, constLen + 1, "cmp_phi");
+    PHINode *PN = PHINode::Create(Int32Ty, unrollLen + 1, "cmp_phi");
 
 #if LLVM_VERSION_MAJOR < 8
     TerminatorInst *term = bb->getTerminator();
@@ -436,7 +443,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     BranchInst::Create(next_bb, bb);
     term->eraseFromParent();
 
-    for (uint64_t i = 0; i < constLen; i++) {
+    for (uint64_t i = 0; i < unrollLen; i++) {
 
       BasicBlock *  cur_bb = next_bb;
       unsigned char c;
@@ -473,7 +480,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       Value *sext = IRB.CreateSExt(isub, Int32Ty);
       PN->addIncoming(sext, cur_bb);
 
-      if (i < constLen - 1) {
+      if (i < unrollLen - 1) {
 
         next_bb =
             BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
