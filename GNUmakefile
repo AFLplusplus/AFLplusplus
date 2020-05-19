@@ -94,6 +94,11 @@ ifeq "$(shell uname -s)" "FreeBSD"
   LDFLAGS += -L /usr/local/lib/
 endif
 
+ifeq "$(shell uname -s)" "DragonFly"
+  override CFLAGS  += -I /usr/local/include/
+  LDFLAGS += -L /usr/local/lib/
+endif
+
 ifeq "$(shell uname -s)" "OpenBSD"
   override CFLAGS  += -I /usr/local/include/
   LDFLAGS += -L /usr/local/lib/
