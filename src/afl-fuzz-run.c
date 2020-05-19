@@ -414,6 +414,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
           afl->is_master = 0;
           sprintf(qd_path, "%s/is_master", afl->out_dir);
+          unlink(qd_path);
 
         }
 
