@@ -373,7 +373,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
   DIR *          sd;
   struct dirent *sd_ent;
-  u32            sync_cnt = 0;
+  u32            sync_cnt = 0, synced = 0, entries = 0;
 
   sd = opendir(afl->sync_dir);
   if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
@@ -388,7 +388,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
     DIR *          qd;
     struct dirent *qd_ent;
-    u8 *           qd_path, *qd_synced_path;
+    u8             qd_synced_path[PATH_MAX], qd_path[PATH_MAX];
     u32            min_accept = 0, next_min_accept;
 
     s32 id_fd;
@@ -401,31 +401,41 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }
 
+    entries++;
+
     // a slave only syncs from a master, a master syncs from everyone
     if (likely(afl->is_slave)) {
 
-      u8 *x = alloc_printf("%s/%s/is_master", afl->sync_dir, sd_ent->d_name);
-      int res = access(x, F_OK);
-      free(x);
-      if (likely(res != 0)) continue;
+      sprintf(qd_path, "%s/%s/is_master", afl->sync_dir, sd_ent->d_name);
+      int res = access(qd_path, F_OK);
+      if (unlikely(afl->is_master)) {  // an elected temporary master
+
+        if (likely(res == 0)) {  // there is another master? downgrade.
+
+          afl->is_master = 0;
+          sprintf(qd_path, "%s/is_master", afl->out_dir);
+
+        }
+
+      } else {
+
+        if (likely(res != 0)) { continue; }
+
+      }
 
     }
+
+    synced++;
 
     /* Skip anything that doesn't have a queue/ subdirectory. */
 
-    qd_path = alloc_printf("%s/%s/queue", afl->sync_dir, sd_ent->d_name);
+    sprintf(qd_path, "%s/%s/queue", afl->sync_dir, sd_ent->d_name);
 
-    if (!(qd = opendir(qd_path))) {
-
-      ck_free(qd_path);
-      continue;
-
-    }
+    if (!(qd = opendir(qd_path))) { continue; }
 
     /* Retrieve the ID of the last seen test case. */
 
-    qd_synced_path =
-        alloc_printf("%s/.synced/%s", afl->out_dir, sd_ent->d_name);
+    sprintf(qd_synced_path, "%s/.synced/%s", afl->out_dir, sd_ent->d_name);
 
     id_fd = open(qd_synced_path, O_RDWR | O_CREAT, 0600);
 
@@ -452,7 +462,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
     while ((qd_ent = readdir(qd))) {
 
-      u8 *        path;
+      u8          path[PATH_MAX];
       s32         fd;
       struct stat st;
 
@@ -472,18 +482,13 @@ void sync_fuzzers(afl_state_t *afl) {
 
       }
 
-      path = alloc_printf("%s/%s", qd_path, qd_ent->d_name);
+      alloc_printf(path, "%s/%s", qd_path, qd_ent->d_name);
 
       /* Allow this to fail in case the other fuzzer is resuming or so... */
 
       fd = open(path, O_RDONLY);
 
-      if (fd < 0) {
-
-        ck_free(path);
-        continue;
-
-      }
+      if (fd < 0) { continue; }
 
       if (fstat(fd, &st)) { PFATAL("fstat() failed"); }
 
@@ -516,7 +521,6 @@ void sync_fuzzers(afl_state_t *afl) {
 
       }
 
-      ck_free(path);
       close(fd);
 
     }
@@ -526,12 +530,25 @@ void sync_fuzzers(afl_state_t *afl) {
   close_sync:
     close(id_fd);
     closedir(qd);
-    ck_free(qd_path);
-    ck_free(qd_synced_path);
 
   }
 
   closedir(sd);
+
+  // If we are a slave and no master was found to sync then become the master
+  if (unlikely(synced == 0) && likely(entries) && likely(afl->is_slave)) {
+
+    // there is a small race condition here that another slave runs at the same
+    // time. If so, the first temporary master running again will demote
+    // themselves so this is not an issue
+
+    u8 path[PATH_MAX];
+    afl->is_master = 1;
+    sprintf(path, "%s/is_master", afl->out_dir);
+    int fd = open(path, O_CREAT | O_RDWR, 0644);
+    if (fd >= 0) { close(fd); }
+
+  }
 
 }
 
