@@ -14,13 +14,15 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - -S slaves now only sync from the master to increase performance,
        the -M master stilly syncs from everyone. Added checks that exactly
        one master is present
+  - llvm_mode:
+    - lowered minimum required llvm version to 3.4 (except LLVMInsTrim,
+      which needs 3.8.0)
   - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
     the same second
   - added lots of dictionaries from oss-fuzz, go-fuzz and Jakub Wilk
   - added former post_library examples to examples/custom_mutators/
-  - llvm_mode:
-    - lowered minimum required llvm version to 3.4 (except LLVMInsTrim,
-      which needs 3.8.0)
+  - Dockerfile upgraded to Ubuntu 20.04 Focal and installing llvm 11 and gcc 10
+    so afl-clang-lto can be build
 
 
 ### Version ++2.65c (release):
