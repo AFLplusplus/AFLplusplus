@@ -392,9 +392,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
   while ((sd_ent = readdir(sd))) {
 
-    DIR *qd;
-    u8 * qd_path, *qd_synced_path;
-    u32  min_accept = 0, next_min_accept;
+    u8 *qd_path, *qd_synced_path;
+    u32 min_accept = 0, next_min_accept;
 
     s32 id_fd;
 
@@ -421,7 +420,7 @@ void sync_fuzzers(afl_state_t *afl) {
     qd_path = alloc_printf("%s/%s/queue", afl->sync_dir, sd_ent->d_name);
 
     struct dirent **namelist;
-    int             n, m = 0, o;
+    int             m = 0, n, o;
 
     n = scandir(qd_path, &namelist, NULL, alphasort);
 
@@ -462,14 +461,21 @@ void sync_fuzzers(afl_state_t *afl) {
 
     u8 entry[12];
     sprintf(entry, "id:%06u", next_min_accept);
-    while (m < n)
-      if (memcmp(namelist[m]->d_name, entry, 9))
+    while (m < n) {
+
+      if (memcmp(namelist[m]->d_name, entry, 9)) {
+
         m++;
-      else
+
+      } else {
+
         break;
 
-    if (m >= n)  // nothing new
-      continue;
+      }
+
+    }
+
+    if (m >= n) { continue; }  // nothing new
 
     o = n - 1;
 
@@ -519,9 +525,6 @@ void sync_fuzzers(afl_state_t *afl) {
 
         munmap(mem, st.st_size);
 
-        // if (!(afl->stage_cur++ % afl->stats_update_freq)) { show_stats(afl);
-        // }
-
       }
 
       close(fd);
@@ -532,7 +535,6 @@ void sync_fuzzers(afl_state_t *afl) {
 
   close_sync:
     close(id_fd);
-    closedir(qd);
     ck_free(qd_path);
     ck_free(qd_synced_path);
     if (n > 0)
