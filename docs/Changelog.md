@@ -14,6 +14,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - -S slaves now only sync from the master to increase performance,
        the -M master stilly syncs from everyone. Added checks that exactly
        one master is present
+     - If no master is present at sync time one slave automatically becomes
+       a temporary master until a real master shows up
   - llvm_mode:
     - lowered minimum required llvm version to 3.4 (except LLVMInsTrim,
       which needs 3.8.0)
