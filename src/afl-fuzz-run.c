@@ -374,6 +374,7 @@ void sync_fuzzers(afl_state_t *afl) {
   DIR *          sd;
   struct dirent *sd_ent;
   u32            sync_cnt = 0, synced = 0, entries = 0;
+  u8             path[PATH_MAX];
 
   sd = opendir(afl->sync_dir);
   if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
@@ -386,10 +387,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
   while ((sd_ent = readdir(sd))) {
 
-    DIR *          qd;
-    struct dirent *qd_ent;
-    u8             qd_synced_path[PATH_MAX], qd_path[PATH_MAX];
-    u32            min_accept = 0, next_min_accept;
+    u8  qd_synced_path[PATH_MAX], qd_path[PATH_MAX];
+    u32 min_accept = 0, next_min_accept;
 
     s32 id_fd;
 
@@ -432,7 +431,17 @@ void sync_fuzzers(afl_state_t *afl) {
 
     sprintf(qd_path, "%s/%s/queue", afl->sync_dir, sd_ent->d_name);
 
-    if (!(qd = opendir(qd_path))) { continue; }
+    struct dirent **namelist = NULL;
+    int             m = 0, n, o;
+
+    n = scandir(qd_path, &namelist, NULL, alphasort);
+
+    if (n < 1) {
+
+      if (namelist) free(namelist);
+      continue;
+
+    }
 
     /* Retrieve the ID of the last seen test case. */
 
@@ -461,29 +470,34 @@ void sync_fuzzers(afl_state_t *afl) {
     /* For every file queued by this fuzzer, parse ID and see if we have
        looked at it before; exec a test case if not. */
 
-    while ((qd_ent = readdir(qd))) {
+    u8 entry[12];
+    sprintf(entry, "id:%06u", next_min_accept);
+    while (m < n) {
 
-      u8          path[PATH_MAX];
+      if (memcmp(namelist[m]->d_name, entry, 9)) {
+
+        m++;
+
+      } else {
+
+        break;
+
+      }
+
+    }
+
+    if (m >= n) { goto close_sync; }  // nothing new
+    o = n - 1;
+
+    while (o >= m) {
+
       s32         fd;
       struct stat st;
 
-      if (qd_ent->d_name[0] == '.' ||
-          sscanf(qd_ent->d_name, CASE_PREFIX "%06u", &afl->syncing_case) != 1 ||
-          afl->syncing_case < min_accept) {
-
-        continue;
-
-      }
-
-      /* OK, sounds like a new one. Let's give it a try. */
-
-      if (afl->syncing_case >= next_min_accept) {
-
-        next_min_accept = afl->syncing_case + 1;
-
-      }
-
-      alloc_printf(path, "%s/%s", qd_path, qd_ent->d_name);
+      sprintf(path, "%s/%s", qd_path, namelist[o]->d_name);
+      afl->syncing_case = next_min_accept;
+      next_min_accept++;
+      o--;
 
       /* Allow this to fail in case the other fuzzer is resuming or so... */
 
@@ -491,7 +505,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
       if (fd < 0) { continue; }
 
-      if (fstat(fd, &st)) { PFATAL("fstat() failed"); }
+      if (fstat(fd, &st)) { WARNF("fstat() failed"); }
 
       /* Ignore zero-sized or oversized files. */
 
@@ -518,8 +532,6 @@ void sync_fuzzers(afl_state_t *afl) {
 
         munmap(mem, st.st_size);
 
-        if (!(afl->stage_cur++ % afl->stats_update_freq)) { show_stats(afl); }
-
       }
 
       close(fd);
@@ -530,7 +542,10 @@ void sync_fuzzers(afl_state_t *afl) {
 
   close_sync:
     close(id_fd);
-    closedir(qd);
+    if (n > 0)
+      for (m = 0; m < n; m++)
+        free(namelist[m]);
+    free(namelist);
 
   }
 
