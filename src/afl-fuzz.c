@@ -1366,6 +1366,14 @@ stop_fuzzing:
        time_spent_working / afl->fsrv.total_execs);
   #endif
 
+  if (afl->is_master) {
+
+    u8 path[PATH_MAX];
+    sprintf(path, "%s/is_master", afl->out_dir);
+    unlink(path);
+
+  }
+
   fclose(afl->fsrv.plot_file);
   destroy_queue(afl);
   destroy_extras(afl);
