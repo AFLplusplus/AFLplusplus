@@ -6,7 +6,7 @@
  - random crc32 HASH_CONST per run? because with 65536 paths we have collisions
  - namespace for targets? e.g. network
  - libradamsa as a custom module?
- - focal for travis
+ - learn from honggfuzz
 
 ## Further down the road
 
