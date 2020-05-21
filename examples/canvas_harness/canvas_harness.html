@@ -115,6 +115,7 @@ function count_image() {
     ctx.drawImage(this, 0, 0, 64, 64);
   } catch (e) { }
 
+  image.crossOrigin = "anonymous"; 
   this.imgdata = c.toDataURL();
 
   if (loaded == USE_IMAGES) check_results();
