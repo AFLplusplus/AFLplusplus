@@ -584,9 +584,12 @@ int main(int argc, char **argv, char **envp) {
 
     be_quiet = 1;
 
-#ifdef USE_TRACE_PC
-  instrument_mode = INSTRUMENT_PCGUARD;
+#ifndef USE_TRACE_PC
+  if (getenv("AFL_LLVM_WHITELIST"))
+    instrument_mode = INSTRUMENT_AFL;
+  else
 #endif
+    instrument_mode = INSTRUMENT_PCGUARD;
 
   if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
       getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
@@ -780,6 +783,9 @@ int main(int argc, char **argv, char **envp) {
         "AFL_LLVM_NOT_ZERO and AFL_LLVM_SKIP_NEVERZERO can not be set "
         "together");
 
+  if (instrument_mode == INSTRUMENT_PCGUARD && getenv("AFL_LLVM_WHITELIST"))
+    WARNF("Instrumentation type PCGUARD does not support AFL_LLVM_WHITELIST!");
+
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
     if (!lto_mode)
@@ -843,12 +849,13 @@ int main(int argc, char **argv, char **envp) {
     SAYF(
         "\nafl-clang-fast specific environment variables:\n"
         "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
-        "AFL_LLVM_INSTRUMENT: set instrumentation mode: DEFAULT, CFG "
-        "(INSTRIM), PCGUARD, LTO, CTX, NGRAM-2 ... NGRAM-16\n"
-        " You can also use the old environment variables instead:"
-        "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
+        "AFL_LLVM_INSTRUMENT: set instrumentation mode: AFL, CFG "
+        "(INSTRIM), PCGUARD [DEFAULT], LTO, CTX, NGRAM-2 ... NGRAM-16\n"
+        " You can also use the old environment variables instead:\n"
+        "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation "
+        "[DEFAULT]\n"
         "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
-        "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed (sub "
+        "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed ("
         "option to INSTRIM)\n"
         "  AFL_LLVM_CTX: use context sensitive coverage\n"
         "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage\n");
