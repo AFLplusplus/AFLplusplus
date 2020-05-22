@@ -358,7 +358,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$YELLOW[-] llvm_mode InsTrim not compiled, cannot test"
     INCOMPLETE=1
   }
-  AFL_LLVM_INSTRUMENT=CFG
+  AFL_LLVM_INSTRUMENT=AFL
   AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
   test -e test-compcov.compcov && {
     grep --binary-files=text -Eq " [ 12][0-9][0-9] location| [3-9][0-9] location" test.out && {
