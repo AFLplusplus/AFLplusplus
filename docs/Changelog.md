@@ -24,6 +24,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - lowered minimum required llvm version to 3.4 (except LLVMInsTrim,
       which needs 3.8.0)
     - small change to cmplog to make it work with current llvm 11-dev
+    - added AFL_LLVM_LAF_ALL, sets all laf-intel settings
   - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
     the same second
   - added lots of dictionaries from oss-fuzz, go-fuzz and Jakub Wilk

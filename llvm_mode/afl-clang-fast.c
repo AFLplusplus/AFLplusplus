@@ -829,14 +829,14 @@ int main(int argc, char **argv, char **envp) {
         "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
         "AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
         "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
-        "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to "
-        "cascaded "
-        "comp.\n"
+        "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
         "AFL_LLVM_LAF_SPLIT_SWITCHES: casc. comp. in 'switch'\n"
         " to cascaded comparisons\n"
+        "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to "
+        "cascaded comp.\n"
         "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
         "function calls\n"
-        "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
+        "AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
         "AFL_LLVM_WHITELIST: enable whitelisting (selective "
         "instrumentation)\n"
         "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
@@ -924,6 +924,15 @@ int main(int argc, char **argv, char **envp) {
   }
 
   check_environment_vars(envp);
+
+  if (getenv("AFL_LLVM_LAF_ALL")) {
+
+    setenv("AFL_LLVM_LAF_SPLIT_SWITCHES", "1", 1);
+    setenv("AFL_LLVM_LAF_SPLIT_COMPARES", "1", 1);
+    setenv("AFL_LLVM_LAF_SPLIT_FLOATS", "1", 1);
+    setenv("AFL_LLVM_LAF_TRANSFORM_COMPARES", "1", 1);
+
+  }
 
   cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG");
   if (!be_quiet && cmplog_mode)
