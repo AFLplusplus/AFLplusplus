@@ -352,6 +352,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       rm -f test-instr.instrim test.out
     } || {
       $ECHO "$RED[!] llvm_mode InsTrim compilation failed"
+    AFL_LLVM_INSTRIM=1 AFL_LLVM_INSTRIM_LOOPHEAD=1 ../afl-clang-fast -o test-instr.instrim ../test-instr.c
       CODE=1
     }
   } || {
