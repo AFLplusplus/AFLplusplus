@@ -190,12 +190,17 @@ Then there are a few specific features that are only available in llvm_mode:
     to allow afl-fuzz to find otherwise rather impossible paths. It is not
     restricted to Intel CPUs ;-)
 
-    - Setting AFL_LLVM_LAF_SPLIT_SWITCHES will split switch()es
-
     - Setting AFL_LLVM_LAF_TRANSFORM_COMPARES will split string compare functions
+
+    - Setting AFL_LLVM_LAF_SPLIT_SWITCHES will split switch()es
 
     - Setting AFL_LLVM_LAF_SPLIT_COMPARES will split all floating point and
       64, 32 and 16 bit integer CMP instructions
+
+    - Setting AFL_LLVM_LAF_SPLIT_FLOATS will split floating points, needs
+      AFL_LLVM_LAF_SPLIT_COMPARES to be set
+
+    - Setting AFL_LLVM_LAF_ALL sets all of the above
 
     See llvm_mode/README.laf-intel.md for more information.
 
