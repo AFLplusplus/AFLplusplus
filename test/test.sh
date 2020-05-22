@@ -340,7 +340,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
 
   # now for the special llvm_mode things
   test -e ../libLLVMInsTrim.so && {
-    AFL_LLVM_INSTRIM=1 AFL_LLVM_INSTRIM_LOOPHEAD=1 ../afl-clang-fast -o test-instr.instrim ../test-instr.c > /dev/null 2>test.out
+    AFL_LLVM_INSTRUMENT=CFG AFL_LLVM_INSTRIM_LOOPHEAD=1 ../afl-clang-fast -o test-instr.instrim ../test-instr.c > /dev/null 2>test.out
     test -e test-instr.instrim && {
       TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.instrim 2>&1 | grep Captur | awk '{print$3}'`
       test "$TUPLES" -gt 2 -a "$TUPLES" -lt 5 && {
@@ -352,13 +352,13 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       rm -f test-instr.instrim test.out
     } || {
       $ECHO "$RED[!] llvm_mode InsTrim compilation failed"
-    AFL_LLVM_INSTRIM=1 AFL_LLVM_INSTRIM_LOOPHEAD=1 ../afl-clang-fast -o test-instr.instrim ../test-instr.c
       CODE=1
     }
   } || {
     $ECHO "$YELLOW[-] llvm_mode InsTrim not compiled, cannot test"
     INCOMPLETE=1
   }
+  AFL_LLVM_INSTRUMENT=CFG
   AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
   test -e test-compcov.compcov && {
     grep --binary-files=text -Eq " [ 12][0-9][0-9] location| [3-9][0-9] location" test.out && {
