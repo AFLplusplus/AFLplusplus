@@ -53,22 +53,22 @@ u8         use_stdin = 0;                                          /* dummy */
 
 enum {
 
-  INSTRUMENT_CLASSIC = 0,
-  INSTRUMENT_AFL = 0,
-  INSTRUMENT_DEFAULT = 0,
-  INSTRUMENT_PCGUARD = 1,
-  INSTRUMENT_INSTRIM = 2,
-  INSTRUMENT_CFG = 2,
-  INSTRUMENT_LTO = 3,
-  INSTRUMENT_OPT_CTX = 4,
-  INSTRUMENT_OPT_NGRAM = 8
+  INSTURMENT_DEFAULT = 0,
+  INSTRUMENT_CLASSIC = 1,
+  INSTRUMENT_AFL = 1,
+  INSTRUMENT_PCGUARD = 2,
+  INSTRUMENT_INSTRIM = 3,
+  INSTRUMENT_CFG = 3,
+  INSTRUMENT_LTO = 4,
+  INSTRUMENT_OPT_CTX = 8,
+  INSTRUMENT_OPT_NGRAM = 16
 
 };
 
-char instrument_mode_string[10][16] = {
+char instrument_mode_string[18][18] = {
 
-    "CLASSIC", "PCGUARD", "CFG",   "LTO", "CTX", "",
-    "",        "",        "NGRAM", ""
+    "DEFAULT", "CLASSIC", "PCGUARD", "CFG", "LTO", "", "",      "", "CTX", "",
+    "",        "",        "",        "",    "",    "", "NGRAM", ""
 
 };
 
@@ -584,13 +584,6 @@ int main(int argc, char **argv, char **envp) {
 
     be_quiet = 1;
 
-#ifndef USE_TRACE_PC
-  if (getenv("AFL_LLVM_WHITELIST"))
-    instrument_mode = INSTRUMENT_AFL;
-  else
-#endif
-    instrument_mode = INSTRUMENT_PCGUARD;
-
   if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
       getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
 
@@ -632,12 +625,11 @@ int main(int argc, char **argv, char **envp) {
 
     while (ptr) {
 
-      if (strncasecmp(ptr, "default", strlen("default")) == 0 ||
-          strncasecmp(ptr, "afl", strlen("afl")) == 0 ||
+      if (strncasecmp(ptr, "afl", strlen("afl")) == 0 ||
           strncasecmp(ptr, "classic", strlen("classic")) == 0) {
 
-        if (!instrument_mode || instrument_mode == INSTRUMENT_DEFAULT)
-          instrument_mode = INSTRUMENT_DEFAULT;
+        if (!instrument_mode || instrument_mode == INSTRUMENT_AFL)
+          instrument_mode = INSTRUMENT_AFL;
         else
           FATAL("main instrumentation mode already set with %s",
                 instrument_mode_string[instrument_mode]);
@@ -740,6 +732,17 @@ int main(int argc, char **argv, char **envp) {
               instrument_mode_string[instrument_mode]);
 
     }
+
+  }
+
+  if (instrument_mode == 0) {
+
+#ifndef USE_TRACE_PC
+    if (getenv("AFL_LLVM_WHITELIST"))
+      instrument_mode = INSTRUMENT_AFL;
+    else
+#endif
+      instrument_mode = INSTRUMENT_PCGUARD;
 
   }
 
