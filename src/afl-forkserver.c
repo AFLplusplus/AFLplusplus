@@ -679,7 +679,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
          "Hmm, looks like the target binary terminated before we could"
          "complete a handshake with the injected code.\n"
          "If the target was compiled with afl-clang-lto then recompiling with"
-         "AFL_LLVM_MAP_DYNAMIC might solve your problem.\n"
+         " AFL_LLVM_MAP_DYNAMIC might solve your problem.\n"
          "Otherwise there is a horrible bug in the fuzzer.\n"
          "Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 

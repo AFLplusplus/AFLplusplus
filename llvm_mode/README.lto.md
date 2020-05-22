@@ -6,8 +6,6 @@ This version requires a current llvm 11 compiled from the github master.
 
 1. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
    coverage than anything else that is out there in the AFL world
-  1a. Set AFL_LLVM_INSTRUMENT=CFG if you want the InsTrimLTO version
-      (recommended)
 
 2. You can use it together with llvm_mode: laf-intel and whitelisting
    features and can be combined with cmplog/Redqueen
@@ -20,6 +18,8 @@ This version requires a current llvm 11 compiled from the github master.
    note that if that target uses _init functions or early constructors then
    also set `AFL_LLVM_MAP_DYNAMIC=1` as your target will crash otherwise
 
+6. If you get the error `error: Invalid record` at link time you must decide
+   between LTO or cmplog/laf-intel
 
 ## Introduction and problem description
 
@@ -133,6 +133,13 @@ AR=llvm-ar RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto++ ./configure -
 and on some target you have to to AR=/RANLIB= even for make as the configure script does not save it.
 Other targets ignore environment variables and need the parameters set via
 `./configure --cc=... --cxx= --ranlib= ...` etc. (I am looking at you ffmpeg!).
+
+### error: Invalid record
+
+This error only occurs if cmplog or laf-intel were activated.
+If you see the error `error: Invalid record` at link time then an
+instrumentation went wrong. You now must choose, either use afl-clang-fast
+and keep cmplog/laf-intel, or drop cmplog/laf-intel and keep using afl-clang-lto.
 
 ### compiling programs still fail
 
