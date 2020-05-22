@@ -23,6 +23,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       feature is used.
     - lowered minimum required llvm version to 3.4 (except LLVMInsTrim,
       which needs 3.8.0)
+    - small change to cmplog to make it work with current llvm 11-dev
   - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
     the same second
   - added lots of dictionaries from oss-fuzz, go-fuzz and Jakub Wilk

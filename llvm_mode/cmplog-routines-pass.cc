@@ -93,16 +93,17 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   std::vector<CallInst *> calls;
   LLVMContext &           C = M.getContext();
 
-  Type *       VoidTy = Type::getVoidTy(C);
-  PointerType *VoidPtrTy = PointerType::get(VoidTy, 0);
+  Type *VoidTy = Type::getVoidTy(C);
+  // PointerType *VoidPtrTy = PointerType::get(VoidTy, 0);
+  IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
+  PointerType *i8PtrTy = PointerType::get(Int8Ty, 0);
 
 #if LLVM_VERSION_MAJOR < 9
   Constant *
 #else
   FunctionCallee
 #endif
-      c = M.getOrInsertFunction("__cmplog_rtn_hook", VoidTy, VoidPtrTy,
-                                VoidPtrTy
+      c = M.getOrInsertFunction("__cmplog_rtn_hook", VoidTy, i8PtrTy, i8PtrTy
 #if LLVM_VERSION_MAJOR < 5
                                 ,
                                 NULL

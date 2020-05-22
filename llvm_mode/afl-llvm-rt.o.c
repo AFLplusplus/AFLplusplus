@@ -892,7 +892,7 @@ static int area_is_mapped(void *ptr, size_t len) {
 
 }
 
-void __cmplog_rtn_hook(void *ptr1, void *ptr2) {
+void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   if (!__afl_cmp_map) return;
 
