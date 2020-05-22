@@ -68,6 +68,7 @@ unset LD_PRELOAD
 rm -rf in in2 out
 
 export ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:abort_on_error=1:symbolize=0
+export AFL_LLVM_INSTRUMENT=AFL
 
 # on OpenBSD we need to work with llvm from /usr/local/bin
 test -e /usr/local/bin/opt && {
