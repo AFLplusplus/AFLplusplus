@@ -50,7 +50,8 @@ and many dead ends until we got to this:
 The result:
  * 10-25% speed gain compared to llvm_mode
  * guaranteed non-colliding edge coverage :-)
- * The compile time especially for libraries can be longer
+ * The compile time especially for binaries to an instrumented library can be
+   much longer
 
 Example build output from a libtiff build:
 ```
@@ -61,8 +62,30 @@ AUTODICTIONARY: 11 strings found
 [+] Instrumented 12071 locations with no collisions (on average 1046 collisions would be in afl-gcc/afl-clang-fast) (non-hardened mode).
 ```
 
-## Building llvm 11
+## Getting llvm 11
 
+### Installing llvm 11
+Installing the llvm snapshot builds is easy and mostly painless:
+
+In the follow line change `NAME` for your Debian or Ubuntu release name
+(e.g. buster, focal, eon, etc.):
+```
+echo deb http://apt.llvm.org/NAME/ llvm-toolchain-NAME NAME >> /etc/apt/sources.list
+```
+then add the pgp key of llvm and install the packages:
+```
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - 
+apt-get update && apt-get upgrade -y
+apt-get install -y clang-11 clang-tools-11 libc++1-11 libc++-11-dev \
+    libc++abi1-11 libc++abi-11-dev libclang1-11 libclang-11-dev \
+    libclang-common-11-dev libclang-cpp11 libclang-cpp11-dev liblld-11 \
+    liblld-11-dev liblldb-11 liblldb-11-dev libllvm11 libomp-11-dev \
+    libomp5-11 lld-11 lldb-11 llvm-11 llvm-11-dev llvm-11-runtime llvm-11-tools
+```
+
+### Building llvm 11
+
+Building llvm from github takes quite some long time and is not painless:
 ```
 $ sudo apt install binutils-dev  # this is *essential*!
 $ git clone https://github.com/llvm/llvm-project
