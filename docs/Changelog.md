@@ -17,6 +17,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - If no master is present at a sync one slave automatically becomes
        a temporary master until a real master shows up
   - llvm_mode:
+    - the default instrumentation is now PCGUARD, as it is faster and provides
+      better coverage. The original afl instrumentation can be set via
+      AFL_LLVM_INSTRUMENT=AFL. This is automatically done when the WHITELIST
+      feature is used.
     - lowered minimum required llvm version to 3.4 (except LLVMInsTrim,
       which needs 3.8.0)
   - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
