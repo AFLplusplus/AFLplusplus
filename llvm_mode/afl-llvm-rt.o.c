@@ -63,8 +63,14 @@
    is used for instrumentation output before __afl_map_shm() has a chance to
    run. It will end up as .comm, so it shouldn't be too wasteful. */
 
+#if MAP_SIZE <= 65536
+  #define MAP_INITIAL_SIZE 256000
+#else
+  #define MAP_INITIAL_SIZE MAP_SIZE
+#endif
+
 #ifdef AFL_REAL_LD
-u8 __afl_area_initial[256000];
+u8 __afl_area_initial[MAP_INITIAL_SIZE];
 #else
 u8                  __afl_area_initial[MAP_SIZE];
 #endif
