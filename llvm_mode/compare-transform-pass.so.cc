@@ -321,7 +321,10 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                 uint64_t literalLength = HasStr1 ? Str1.size() : Str2.size();
                 if (literalLength + 1 < ilen->getZExtValue()) continue;
               }
-            } else continue;
+            } else if (isMemcmp)
+              // this *may* supply a len greater than the constant string at
+              // runtime so similarly we don't want to have to handle that
+              continue;
           }
 
           calls.push_back(callInst);
@@ -356,7 +359,8 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                           StringRef("strncmp")) ||
                       !callInst->getCalledFunction()->getName().compare(
                           StringRef("strncasecmp"));
-    bool isConstSized = isSizedcmp && isa<ConstantInt>(callInst->getArgOperand(2));
+    Value *sizedValue = isSizedcmp ? callInst->getArgOperand(2) : NULL;
+    bool isConstSized = sizedValue && isa<ConstantInt>(sizedValue);
     bool isCaseInsensitive = !callInst->getCalledFunction()->getName().compare(
                                  StringRef("strcasecmp")) ||
                              !callInst->getCalledFunction()->getName().compare(
@@ -387,8 +391,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     if (isConstSized) {
 
-      Value *      op2 = callInst->getArgOperand(2);
-      constSizedLen = dyn_cast<ConstantInt>(op2)->getZExtValue();
+      constSizedLen = dyn_cast<ConstantInt>(sizedValue)->getZExtValue();
 
     }
 
@@ -424,71 +427,95 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       unrollLen = constStrLen;
 
     if (!be_quiet)
-      errs() << callInst->getCalledFunction()->getName() << ": len " << unrollLen
+      errs() << callInst->getCalledFunction()->getName() << ": unroll len " << unrollLen
+             << ((isSizedcmp && !isConstSized) ? ", variable n" : "")
              << ": " << ConstStr << "\n";
 
     /* split before the call instruction */
     BasicBlock *bb = callInst->getParent();
     BasicBlock *end_bb = bb->splitBasicBlock(BasicBlock::iterator(callInst));
-    BasicBlock *next_bb =
+
+    BasicBlock *next_lenchk_bb = NULL;
+    if (isSizedcmp && !isConstSized) {
+      next_lenchk_bb = BasicBlock::Create(C, "len_check", end_bb->getParent(), end_bb);
+      BranchInst::Create(end_bb, next_lenchk_bb);
+    }
+    BasicBlock *next_cmp_bb =
         BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
-    BranchInst::Create(end_bb, next_bb);
-    PHINode *PN = PHINode::Create(Int32Ty, unrollLen + 1, "cmp_phi");
+    BranchInst::Create(end_bb, next_cmp_bb);
+    PHINode *PN = PHINode::Create(Int32Ty, (next_lenchk_bb ? 2 : 1) * unrollLen + 1, "cmp_phi");
+
 
 #if LLVM_VERSION_MAJOR < 8
     TerminatorInst *term = bb->getTerminator();
 #else
     Instruction *term = bb->getTerminator();
 #endif
-    BranchInst::Create(next_bb, bb);
+    BranchInst::Create(next_lenchk_bb ? next_lenchk_bb : next_cmp_bb, bb);
     term->eraseFromParent();
 
     for (uint64_t i = 0; i < unrollLen; i++) {
 
-      BasicBlock *  cur_bb = next_bb;
+      BasicBlock *cur_cmp_bb = next_cmp_bb, *cur_lenchk_bb = next_lenchk_bb;
       unsigned char c;
+
+      if (cur_lenchk_bb) {
+
+        IRBuilder<> cur_lenchk_IRB(&*(cur_lenchk_bb->getFirstInsertionPt()));
+        Value *icmp = cur_lenchk_IRB.CreateICmpEQ(
+          sizedValue, ConstantInt::get(Int64Ty, i));
+        cur_lenchk_IRB.CreateCondBr(icmp, end_bb, cur_cmp_bb);
+        cur_lenchk_bb->getTerminator()->eraseFromParent();
+
+        PN->addIncoming(ConstantInt::get(Int32Ty, 0), cur_lenchk_bb);
+
+      }
 
       if (isCaseInsensitive)
         c = (unsigned char)(tolower((int)ConstStr[i]) & 0xff);
       else
         c = (unsigned char)ConstStr[i];
 
-      BasicBlock::iterator IP = next_bb->getFirstInsertionPt();
-      IRBuilder<>          IRB(&*IP);
+      IRBuilder<> cur_cmp_IRB(&*(cur_cmp_bb->getFirstInsertionPt()));
 
       Value *v = ConstantInt::get(Int64Ty, i);
-      Value *ele = IRB.CreateInBoundsGEP(VarStr, v, "empty");
-      Value *load = IRB.CreateLoad(ele);
+      Value *ele = cur_cmp_IRB.CreateInBoundsGEP(VarStr, v, "empty");
+      Value *load = cur_cmp_IRB.CreateLoad(ele);
 
       if (isCaseInsensitive) {
 
         // load >= 'A' && load <= 'Z' ? load | 0x020 : load
-        load = IRB.CreateZExt(load, Int32Ty);
+        load = cur_cmp_IRB.CreateZExt(load, Int32Ty);
         std::vector<Value *> args;
         args.push_back(load);
-        load = IRB.CreateCall(tolowerFn, args, "tmp");
-        load = IRB.CreateTrunc(load, Int8Ty);
+        load = cur_cmp_IRB.CreateCall(tolowerFn, args, "tmp");
+        load = cur_cmp_IRB.CreateTrunc(load, Int8Ty);
 
       }
 
       Value *isub;
       if (HasStr1)
-        isub = IRB.CreateSub(ConstantInt::get(Int8Ty, c), load);
+        isub = cur_cmp_IRB.CreateSub(ConstantInt::get(Int8Ty, c), load);
       else
-        isub = IRB.CreateSub(load, ConstantInt::get(Int8Ty, c));
+        isub = cur_cmp_IRB.CreateSub(load, ConstantInt::get(Int8Ty, c));
 
-      Value *sext = IRB.CreateSExt(isub, Int32Ty);
-      PN->addIncoming(sext, cur_bb);
+      Value *sext = cur_cmp_IRB.CreateSExt(isub, Int32Ty);
+      PN->addIncoming(sext, cur_cmp_bb);
 
       if (i < unrollLen - 1) {
 
-        next_bb =
-            BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
-        BranchInst::Create(end_bb, next_bb);
+        if (cur_lenchk_bb) {
+          next_lenchk_bb = BasicBlock::Create(C, "len_check", end_bb->getParent(), end_bb);
+          BranchInst::Create(end_bb, next_lenchk_bb);
+        }
 
-        Value *icmp = IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
-        IRB.CreateCondBr(icmp, next_bb, end_bb);
-        cur_bb->getTerminator()->eraseFromParent();
+        next_cmp_bb =
+            BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
+        BranchInst::Create(end_bb, next_cmp_bb);
+
+        Value *icmp = cur_cmp_IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
+        cur_cmp_IRB.CreateCondBr(icmp, next_lenchk_bb ? next_lenchk_bb : next_cmp_bb, end_bb);
+        cur_cmp_bb->getTerminator()->eraseFromParent();
 
       } else {
 
