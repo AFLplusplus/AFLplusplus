@@ -438,9 +438,13 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     for (uint64_t i = 0; i < constLen; i++) {
 
-      BasicBlock *cur_bb = next_bb;
+      BasicBlock *  cur_bb = next_bb;
+      unsigned char c;
 
-      char c = isCaseInsensitive ? tolower(ConstStr[i]) : ConstStr[i];
+      if (isCaseInsensitive)
+        c = (unsigned char)(tolower((int)ConstStr[i]) & 0xff);
+      else
+        c = (unsigned char)ConstStr[i];
 
       BasicBlock::iterator IP = next_bb->getFirstInsertionPt();
       IRBuilder<>          IRB(&*IP);
@@ -448,9 +452,11 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       Value *v = ConstantInt::get(Int64Ty, i);
       Value *ele = IRB.CreateInBoundsGEP(VarStr, v, "empty");
       Value *load = IRB.CreateLoad(ele);
+
       if (isCaseInsensitive) {
 
         // load >= 'A' && load <= 'Z' ? load | 0x020 : load
+        load = IRB.CreateZExt(load, Int32Ty);
         std::vector<Value *> args;
         args.push_back(load);
         load = IRB.CreateCall(tolowerFn, args, "tmp");
