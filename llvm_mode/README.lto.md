@@ -190,11 +190,6 @@ target will likely crash when started. This can be avoided by compiling with
 
 This can e.g. happen with OpenSSL.
 
-## Upcoming Work
-
-1. Currently the LTO whitelist feature does not allow to instrument main,
-   start and init functions
-
 ## History
 
 This was originally envisioned by hexcoder- in Summer 2019, however we saw no

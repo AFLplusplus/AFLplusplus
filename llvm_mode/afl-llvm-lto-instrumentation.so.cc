@@ -197,6 +197,17 @@ bool AFLLTOPass::runOnModule(Module &M) {
     if (F.size() < function_minimum_size) continue;
     if (isBlacklisted(&F)) continue;
 
+    // whitelist check
+    AttributeList Attrs = F.getAttributes();
+    if (Attrs.hasAttribute(-1, StringRef("skipinstrument"))) {
+
+      if (debug)
+        fprintf(stderr, "DEBUG: Function %s is not whitelisted\n",
+                F.getName().str().c_str());
+      continue;
+
+    }
+
     std::vector<BasicBlock *> InsBlocks;
 
     if (autodictionary) {
