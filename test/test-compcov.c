@@ -39,6 +39,8 @@ int main(int argc, char **argv) {
     printf("short local var memcmp works!\n");
   else if (memcmp(global_cmpval, input, sizeof(global_cmpval)) == 0)
     printf("global var memcmp works!\n");
+  else if (strncasecmp("-h", input, 2) == 0)
+    printf("this is not the help you are looking for\n");
   else
     printf("I do not know your string\n");
 

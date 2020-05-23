@@ -27,6 +27,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_LLVM_LAF_ALL, sets all laf-intel settings
     - LTO whitelist functionality rewritten, now main, _init etc functions
       need not to be whitelisted anymore
+    - fixed crash in compare-transform-pass when strcasemp/strncasecmp was
+      tried to be instrumented
   - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
     the same second
   - added lots of dictionaries from oss-fuzz, go-fuzz and Jakub Wilk

@@ -220,6 +220,20 @@ static void edit_params(u32 argc, char **argv, char **envp) {
      afl-clang-lto(++)
    */
 
+  if (lto_mode) {
+
+    if (getenv("AFL_LLVM_WHITELIST") != NULL) {
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-llvm-lto-whitelist.so", obj_path);
+
+    }
+
+  }
+
   // laf
   if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
 
@@ -288,16 +302,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   if (lto_mode) {
-
-    if (getenv("AFL_LLVM_WHITELIST") != NULL) {
-
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/afl-llvm-lto-whitelist.so", obj_path);
-
-    }
 
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
