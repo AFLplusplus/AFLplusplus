@@ -164,8 +164,10 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     IRB.SetInsertPoint(callInst);
 
     std::vector<Value *> args;
-    args.push_back(v1P);
-    args.push_back(v2P);
+    Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
 
     IRB.CreateCall(cmplogHookFn, args, "tmp");
 
