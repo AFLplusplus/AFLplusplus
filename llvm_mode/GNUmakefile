@@ -355,15 +355,15 @@ endif
 	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
 
 ../afl-llvm-rt.o: afl-llvm-rt.o.c | test_deps
-	$(CC) $(CFLAGS) -Wno-unused-result -fPIC -c $< -o $@
+	$(CLANG_BIN) $(CFLAGS) -Wno-unused-result -fPIC -c $< -o $@
 
 ../afl-llvm-rt-32.o: afl-llvm-rt.o.c | test_deps
 	@printf "[*] Building 32-bit variant of the runtime (-m32)... "
-	@$(CC) $(CFLAGS) -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CC_SAVE) $(CFLAGS) -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 ../afl-llvm-rt-64.o: afl-llvm-rt.o.c | test_deps
 	@printf "[*] Building 64-bit variant of the runtime (-m64)... "
-	@$(CC) $(CFLAGS) -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CC_SAVE) $(CFLAGS) -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
