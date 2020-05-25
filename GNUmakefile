@@ -55,7 +55,7 @@ ifneq "$(shell uname)" "Darwin"
 	CFLAGS_OPT += -march=native
  endif
  # OS X does not like _FORTIFY_SOURCE=2
- CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+# CFLAGS_OPT += -D_FORTIFY_SOURCE=2
 endif
 
 ifdef STATIC
