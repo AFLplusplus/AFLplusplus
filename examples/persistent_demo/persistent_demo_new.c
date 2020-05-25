@@ -28,39 +28,46 @@
 #include <signal.h>
 #include <string.h>
 
+__AFL_FUZZ_INIT();
+
+unsigned int crc32_for_byte(unsigned int r) {
+
+  for (int j = 0; j < 8; ++j)
+    r = (r & 1 ? 0 : (unsigned int)0xEDB88320L) ^ r >> 1;
+  return r ^ (unsigned int)0xFF000000L;
+
+}
+
+unsigned int crc32(unsigned char *data, unsigned int n_bytes) {
+
+  static unsigned char table[0x100];
+  unsigned int         crc = 0;
+  if (!*table)
+    for (unsigned int i = 0; i < 0x100; ++i)
+      table[i] = crc32_for_byte(i);
+  for (unsigned int i = 0; i < n_bytes; ++i)
+    crc = table[(unsigned char)crc ^ (data)[i]] ^ crc >> 8;
+  return crc;
+
+}
+
 /* Main entry point. */
 
 int main(int argc, char **argv) {
 
-  ssize_t len;                               /* how much input did we read? */
-  char buf[100]; /* Example-only buffer, you'd replace it with other global or
-                    local variables appropriate for your use case. */
+  ssize_t        len;                        /* how much input did we read? */
+  unsigned char *buf;                        /* test case buffer pointer    */
 
   /* The number passed to __AFL_LOOP() controls the maximum number of
      iterations before the loop exits and the program is allowed to
      terminate normally. This limits the impact of accidental memory leaks
      and similar hiccups. */
 
+  buf = __AFL_FUZZ_TESTCASE_BUF;
+
   while (__AFL_LOOP(1000)) {
 
-    /*** PLACEHOLDER CODE ***/
-
-    /* STEP 1: Fully re-initialize all critical variables. In our example, this
-               involves zeroing buf[], our input buffer. */
-
-    memset(buf, 0, 100);
-
-    /* STEP 2: Read input data. When reading from stdin, no special preparation
-               is required. When reading from a named file, you need to close
-               the old descriptor and reopen the file first!
-
-               Beware of reading from buffered FILE* objects such as stdin. Use
-               raw file descriptors or call fopen() / fdopen() in every pass. */
-
-    len = read(0, buf, 100);
-
-    /* STEP 3: This is where we'd call the tested library on the read data.
-               We just have some trivial inline code that faults on 'foo!'. */
+    len = __AFL_FUZZ_TESTCASE_LEN;
 
     /* do we have enough data? */
     if (len < 8) return 0;
@@ -80,7 +87,7 @@ int main(int argc, char **argv) {
             if (buf[4] == '!') {
 
               printf("five\n");
-              if (buf[5] == '!') {
+              if (buf[6] == '!') {
 
                 printf("six\n");
                 abort();

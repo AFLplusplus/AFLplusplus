@@ -442,7 +442,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
 
-      if (!be_quiet && getenv("AFL_DEBUG")) {
+      if (getenv("AFL_DEBUG")) {
 
         ACTF("Extended forkserver functions received (%08x).", status);
 
@@ -452,6 +452,28 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         fsrv->snapshot = 1;
         if (!be_quiet) { ACTF("Using SNAPSHOT feature."); }
+
+      }
+
+      if ((status & FS_OPT_SHDMEM_FUZZ) == FS_OPT_SHDMEM_FUZZ) {
+
+        if (fsrv->support_shdmen_fuzz) {
+
+          fsrv->use_shdmen_fuzz = 1;
+          if (!be_quiet) { ACTF("Using SHARED MEMORY FUZZING feature."); }
+
+          if ((status & FS_OPT_AUTODICT) == 0) {
+
+            u32 send_status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
+            if (write(fsrv->fsrv_ctl_fd, &send_status, 4) != 4) {
+
+              FATAL("Writing to forkserver failed.");
+
+            }
+
+          }
+
+        }
 
       }
 
@@ -490,7 +512,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         if (fsrv->function_ptr == NULL || fsrv->function_opt == NULL) {
 
           // this is not afl-fuzz - we deny and return
-          status = (0xffffffff ^ (FS_OPT_ENABLED | FS_OPT_AUTODICT));
+          if (fsrv->use_shdmen_fuzz)
+            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
+          else
+            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
           if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
 
             FATAL("Writing to forkserver failed.");
@@ -749,39 +774,48 @@ static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
-  s32 fd = fsrv->out_fd;
+  if (fsrv->shdmem_fuzz) {
 
-  if (fsrv->out_file) {
+    memcpy(fsrv->shdmem_fuzz, buf, len);
+    fsrv->shdmem_fuzz_len = len;
 
-    if (fsrv->no_unlink) {
+  } else {
 
-      fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    s32 fd = fsrv->out_fd;
+
+    if (fsrv->out_file) {
+
+      if (fsrv->no_unlink) {
+
+        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+      } else {
+
+        unlink(fsrv->out_file);                           /* Ignore errors. */
+        fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+
+      }
+
+      if (fd < 0) { PFATAL("Unable to create '%s'", fsrv->out_file); }
 
     } else {
 
-      unlink(fsrv->out_file);                             /* Ignore errors. */
-      fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, 0600);
+      lseek(fd, 0, SEEK_SET);
 
     }
 
-    if (fd < 0) { PFATAL("Unable to create '%s'", fsrv->out_file); }
+    ck_write(fd, buf, len, fsrv->out_file);
 
-  } else {
+    if (!fsrv->out_file) {
 
-    lseek(fd, 0, SEEK_SET);
+      if (ftruncate(fd, len)) { PFATAL("ftruncate() failed"); }
+      lseek(fd, 0, SEEK_SET);
 
-  }
+    } else {
 
-  ck_write(fd, buf, len, fsrv->out_file);
+      close(fd);
 
-  if (!fsrv->out_file) {
-
-    if (ftruncate(fd, len)) { PFATAL("ftruncate() failed"); }
-    lseek(fd, 0, SEEK_SET);
-
-  } else {
-
-    close(fd);
+    }
 
   }
 
@@ -795,6 +829,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   s32 res;
   u32 exec_ms;
+  u32 write_value = fsrv->last_run_timed_out;
 
   /* After this memset, fsrv->trace_bits[] are effectively volatile, so we
      must prevent any earlier operations from venturing into that
@@ -804,10 +839,12 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   MEM_BARRIER();
 
+  if (fsrv->shdmem_fuzz_len) write_value += (fsrv->shdmem_fuzz_len << 8);
+
   /* we have the fork server (or faux server) up and running
   First, tell it if the previous run timed out. */
 
-  if ((res = write(fsrv->fsrv_ctl_fd, &fsrv->last_run_timed_out, 4)) != 4) {
+  if ((res = write(fsrv->fsrv_ctl_fd, &write_value, 4)) != 4) {
 
     if (*stop_soon_p) { return 0; }
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");

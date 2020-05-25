@@ -1379,6 +1379,14 @@ stop_fuzzing:
   destroy_extras(afl);
   destroy_custom_mutators(afl);
   afl_shm_deinit(&afl->shm);
+
+  if (afl->shm_fuzz) {
+
+    afl_shm_deinit(afl->shm_fuzz);
+    free(afl->shm_fuzz);
+
+  }
+
   afl_fsrv_deinit(&afl->fsrv);
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
   ck_free(afl->fsrv.target_path);
