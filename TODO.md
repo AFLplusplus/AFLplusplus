@@ -7,6 +7,8 @@
  - namespace for targets? e.g. network
  - libradamsa as a custom module?
  - learn from honggfuzz
+ - for persistent mode, have a functionality that transports the test case
+   via shared memory (and the int write to the FD from afl-fuzz is the size)
 
 ## Further down the road
 
