@@ -490,6 +490,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
    */
 
   cc_params[cc_par_cnt++] =
+      "-D__AFL_FUZZ_INIT()="
+      "int __afl_sharedmem_fuzzing = 1;"
+      "extern unsigned int __afl_fuzz_len;"
+      "extern unsigned char *__afl_fuzz_ptr;";
+  cc_params[cc_par_cnt++] = "-D__AFL_FUZZ_TESTCASE_BUF=__afl_fuzz_ptr";
+  cc_params[cc_par_cnt++] = "-D__AFL_FUZZ_TESTCASE_LEN=__afl_fuzz_len";
+
+  cc_params[cc_par_cnt++] =
       "-D__AFL_LOOP(_A)="
       "({ static volatile char *_B __attribute__((used)); "
       " _B = (char*)\"" PERSIST_SIG

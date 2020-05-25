@@ -231,6 +231,16 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                    afl->afl_env.afl_debug_child_output);
 
+    if (afl->fsrv.support_shdmen_fuzz && !afl->fsrv.use_shdmen_fuzz) {
+
+      afl_shm_deinit(afl->shm_fuzz);
+      free(afl->shm_fuzz);
+      afl->shm_fuzz = NULL;
+      afl->fsrv.support_shdmen_fuzz = 0;
+      afl->fsrv.shdmem_fuzz = NULL;
+
+    }
+
   }
 
   if (q->exec_cksum) {

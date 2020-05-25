@@ -43,10 +43,11 @@ typedef uint32_t u32;
 #define FS_ERROR_MMAP 16
 
 /* Reporting options */
-#define FS_OPT_ENABLED 0x8f000001
+#define FS_OPT_ENABLED 0x80000001
 #define FS_OPT_MAPSIZE 0x40000000
 #define FS_OPT_SNAPSHOT 0x20000000
 #define FS_OPT_AUTODICT 0x10000000
+#define FS_OPT_SHDMEM_FUZZ 0x01000000
 // FS_OPT_MAX_MAPSIZE is 8388608 = 0x800000 = 2^23 = 1 << 22
 #define FS_OPT_MAX_MAPSIZE ((0x00fffffe >> 1) + 1)
 #define FS_OPT_GET_MAPSIZE(x) (((x & 0x00fffffe) >> 1) + 1)
