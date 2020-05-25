@@ -14,8 +14,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     (instead of via files/stdin)
   - afl-fuzz:
      - -S slaves now only sync from the master to increase performance,
-       the -M master stilly syncs from everyone. Added checks that exactly
-       one master is present and warn otherwise
+       the -M master still syncs from everyone. Added checks that ensure
+       exactly one master is present and warn otherwise
      - If no master is present at a sync one slave automatically becomes
        a temporary master until a real master shows up
   - llvm_mode:
@@ -29,7 +29,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_LLVM_LAF_ALL, sets all laf-intel settings
     - LTO whitelist functionality rewritten, now main, _init etc functions
       need not to be whitelisted anymore
-    - fixed crash in compare-transform-pass when strcasemp/strncasecmp was
+    - fixed crash in compare-transform-pass when strcasecmp/strncasecmp was
       tried to be instrumented with LTO
     - fixed crash in cmplog with LTO
   - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
