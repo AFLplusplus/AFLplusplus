@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
                We just have some trivial inline code that faults on 'foo!'. */
 
     /* do we have enough data? */
-    if (len < 8) return 0;
+    if (len < 8) continue;
 
     if (buf[0] == 'f') {
 

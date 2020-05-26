@@ -32,8 +32,7 @@ main() {
   while (__AFL_LOOP(10000)) {
 
     int len = __AFL_FUZZ_TESTCASE_LEN;
-
-    if (len < 8) return 0;  // check for a required/useful minimum input length
+    if (len < 8) continue;  // check for a required/useful minimum input length
 
     /* Setup function call, e.g. struct target *tmp = libtarget_init() */
     /* Call function to be fuzzed, e.g.: */
