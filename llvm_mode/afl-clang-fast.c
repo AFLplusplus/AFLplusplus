@@ -45,11 +45,11 @@ static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
 static u8  instrument_mode, instrument_opt_mode, ngram_size, lto_mode, cpp_mode;
 static u8 *lto_flag = AFL_CLANG_FLTO;
-static u8 *march_opt = CFLAGS_OPT;
 static u8  debug;
 static u8  cwd[4096];
 static u8  cmplog_mode;
 u8         use_stdin = 0;                                          /* dummy */
+// static u8 *march_opt = CFLAGS_OPT;
 
 enum {
 
@@ -335,7 +335,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  //cc_params[cc_par_cnt++] = "-Qunused-arguments";
+  // cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
   // in case LLVM is installed not via a package manager or "make install"
   // e.g. compiled download or compiled from github then it's ./lib directory
@@ -440,7 +440,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-g";
     cc_params[cc_par_cnt++] = "-O3";
     cc_params[cc_par_cnt++] = "-funroll-loops";
-    //if (strlen(march_opt) > 1 && march_opt[0] == '-')
+    // if (strlen(march_opt) > 1 && march_opt[0] == '-')
     //  cc_params[cc_par_cnt++] = march_opt;
 
   }
@@ -493,9 +493,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "-D__AFL_FUZZ_INIT()="
       "int __afl_sharedmem_fuzzing = 1;"
       "extern unsigned int __afl_fuzz_len;"
-      "extern unsigned char *__afl_fuzz_ptr;";
-  cc_params[cc_par_cnt++] = "-D__AFL_FUZZ_TESTCASE_BUF=__afl_fuzz_ptr";
-  cc_params[cc_par_cnt++] = "-D__AFL_FUZZ_TESTCASE_LEN=__afl_fuzz_len";
+      "extern unsigned char *__afl_fuzz_ptr;"
+      "unsigned char *__afl_fuzz_alt_ptr;";
+  cc_params[cc_par_cnt++] =
+      "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
+      "(__afl_fuzz_alt_ptr = malloc(1 * 1024 * 1024)))";
+  cc_params[cc_par_cnt++] =
+      "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? __afl_fuzz_len : read(0, "
+      "__afl_fuzz_alt_ptr, 1 * 1024 * 1024))";
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_LOOP(_A)="

@@ -35,7 +35,7 @@ Once this implementation is shown to be sufficiently robust and portable, it
 will probably replace afl-clang. For now, it can be built separately and
 co-exists with the original code.
 
-The idea and much of the implementation comes from Laszlo Szekeres.
+The idea and much of the intial implementation came from Laszlo Szekeres.
 
 ## 2a) How to use this - short
 
@@ -55,6 +55,8 @@ LLVM_CONFIG=llvm-config-7 REAL_CC=gcc REAL_CXX=g++ make
 ```
 It is highly recommended to use the newest clang version you can put your
 hands on :)
+
+Then look at [README.persistent_mode.md](README.persistent_mode.md).
 
 ## 2b) How to use this - long
 
@@ -159,96 +161,13 @@ See [README.snapshot](README.snapshot.md)
 This is an early-stage mechanism, so field reports are welcome. You can send bug
 reports to <afl-users@googlegroups.com>.
 
-## 6) Bonus feature #1: deferred initialization
+## 6) deferred initialization, persistent mode, shared memory fuzzing
 
-AFL tries to optimize performance by executing the targeted binary just once,
-stopping it just before main(), and then cloning this "master" process to get
-a steady supply of targets to fuzz.
+This is the most powerful and effective fuzzing you can do.
+Please see [README.persistent_mode.md](README.persistent_mode.md) for a
+full explanation.
 
-Although this approach eliminates much of the OS-, linker- and libc-level
-costs of executing the program, it does not always help with binaries that
-perform other time-consuming initialization steps - say, parsing a large config
-file before getting to the fuzzed data.
-
-In such cases, it's beneficial to initialize the forkserver a bit later, once
-most of the initialization work is already done, but before the binary attempts
-to read the fuzzed input and parse it; in some cases, this can offer a 10x+
-performance gain. You can implement delayed initialization in LLVM mode in a
-fairly simple way.
-
-First, find a suitable location in the code where the delayed cloning can 
-take place. This needs to be done with *extreme* care to avoid breaking the
-binary. In particular, the program will probably malfunction if you select
-a location after:
-
-  - The creation of any vital threads or child processes - since the forkserver
-    can't clone them easily.
-
-  - The initialization of timers via setitimer() or equivalent calls.
-
-  - The creation of temporary files, network sockets, offset-sensitive file
-    descriptors, and similar shared-state resources - but only provided that
-    their state meaningfully influences the behavior of the program later on.
-
-  - Any access to the fuzzed input, including reading the metadata about its
-    size.
-
-With the location selected, add this code in the appropriate spot:
-
-```c
-#ifdef __AFL_HAVE_MANUAL_CONTROL
-  __AFL_INIT();
-#endif
-```
-
-You don't need the #ifdef guards, but including them ensures that the program
-will keep working normally when compiled with a tool other than afl-clang-fast.
-
-Finally, recompile the program with afl-clang-fast (afl-gcc or afl-clang will
-*not* generate a deferred-initialization binary) - and you should be all set!
-
-## 7) Bonus feature #2: persistent mode
-
-Some libraries provide APIs that are stateless, or whose state can be reset in
-between processing different input files. When such a reset is performed, a
-single long-lived process can be reused to try out multiple test cases,
-eliminating the need for repeated fork() calls and the associated OS overhead.
-
-The basic structure of the program that does this would be:
-
-```c
-  while (__AFL_LOOP(1000)) {
-
-    /* Read input data. */
-    /* Call library code to be fuzzed. */
-    /* Reset state. */
-
-  }
-
-  /* Exit normally */
-```
-
-The numerical value specified within the loop controls the maximum number
-of iterations before AFL will restart the process from scratch. This minimizes
-the impact of memory leaks and similar glitches; 1000 is a good starting point,
-and going much higher increases the likelihood of hiccups without giving you
-any real performance benefits.
-
-A more detailed template is shown in ../examples/persistent_demo/.
-Similarly to the previous mode, the feature works only with afl-clang-fast; #ifdef
-guards can be used to suppress it when using other compilers.
-
-Note that as with the previous mode, the feature is easy to misuse; if you
-do not fully reset the critical state, you may end up with false positives or
-waste a whole lot of CPU power doing nothing useful at all. Be particularly
-wary of memory leaks and of the state of file descriptors.
-
-PS. Because there are task switches still involved, the mode isn't as fast as
-"pure" in-process fuzzing offered, say, by LLVM's LibFuzzer; but it is a lot
-faster than the normal fork() model, and compared to in-process fuzzing,
-should be a lot more robust.
-
-## 8) Bonus feature #3: 'trace-pc-guard' mode
+## 7) Bonus feature: 'trace-pc-guard' mode
 
 LLVM is shipping with a built-in execution tracing feature
 that provides AFL with the necessary tracing data without the need to
@@ -260,11 +179,8 @@ If you have not an outdated compiler and want to give it a try, build
 targets this way:
 
 ```
- libtarget-1.0 $ AFL_LLVM_USE_TRACE_PC=1  make
+$ AFL_LLVM_INSTRUMENT=PCGUARD  make
 ```
 
-Note that this mode is about 20% slower than "vanilla" afl-clang-fast,
-and about 5-10% slower than afl-clang. This is likely because the
-instrumentation is not inlined, and instead involves a function call.
-On systems that support it, compiling your target with -flto can help
-a bit.
+Note that this us currently the default, as it is the best mode.
+If you have llvm 11 and compiled afl-clang-lto - this is the only better mode.
