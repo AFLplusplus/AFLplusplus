@@ -30,27 +30,6 @@
 
 __AFL_FUZZ_INIT();
 
-unsigned int crc32_for_byte(unsigned int r) {
-
-  for (int j = 0; j < 8; ++j)
-    r = (r & 1 ? 0 : (unsigned int)0xEDB88320L) ^ r >> 1;
-  return r ^ (unsigned int)0xFF000000L;
-
-}
-
-unsigned int crc32(unsigned char *data, unsigned int n_bytes) {
-
-  static unsigned char table[0x100];
-  unsigned int         crc = 0;
-  if (!*table)
-    for (unsigned int i = 0; i < 0x100; ++i)
-      table[i] = crc32_for_byte(i);
-  for (unsigned int i = 0; i < n_bytes; ++i)
-    crc = table[(unsigned char)crc ^ (data)[i]] ^ crc >> 8;
-  return crc;
-
-}
-
 /* Main entry point. */
 
 int main(int argc, char **argv) {
@@ -70,7 +49,7 @@ int main(int argc, char **argv) {
     len = __AFL_FUZZ_TESTCASE_LEN;
 
     /* do we have enough data? */
-    if (len < 8) return 0;
+    if (len < 8) continue;
 
     if (buf[0] == 'f') {
 
