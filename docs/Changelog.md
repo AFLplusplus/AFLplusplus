@@ -10,8 +10,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.65d (dev)
-  - initial support for persistent mode shared memory testcase handover
-    (instead of via files/stdin)
+  - persistent mode shared memory testcase handover (instead of via
+    files/stdin) - x2 performance increase!
   - afl-fuzz:
      - -S slaves now only sync from the master to increase performance,
        the -M master still syncs from everyone. Added checks that ensure
