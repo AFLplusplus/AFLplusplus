@@ -9,6 +9,7 @@
  - learn from honggfuzz
  - for persistent mode, have a functionality that transports the test case
    via shared memory (and the int write to the FD from afl-fuzz is the size)
+ - CPU affinity for many cores?
 
 ## Further down the road
 

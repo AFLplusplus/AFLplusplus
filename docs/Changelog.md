@@ -32,6 +32,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fixed crash in compare-transform-pass when strcasecmp/strncasecmp was
       tried to be instrumented with LTO
     - fixed crash in cmplog with LTO
+  - slightly better performance compilation options for afl++ and targets
   - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
     the same second
   - added lots of dictionaries from oss-fuzz, go-fuzz and Jakub Wilk

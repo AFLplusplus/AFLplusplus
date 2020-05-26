@@ -1,2 +1,2 @@
 all:
-	@echo please use GNU make, thanks!
+	@gmake all || echo please install GNUmake
