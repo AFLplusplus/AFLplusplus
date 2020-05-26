@@ -160,9 +160,9 @@ endif
 
 # After we set CC/CXX we can start makefile magic tests
 
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-	CFLAGS_OPT = -march=native
-endif
+#ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+#	CFLAGS_OPT = -march=native
+#endif
 
 ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
         AFL_CLANG_FLTO ?= -flto=full
@@ -196,8 +196,7 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=`com
 endif
 endif
 
-CFLAGS          ?= -O3 -funroll-loops
-# -D_FORTIFY_SOURCE=2
+CFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
 override CFLAGS += -Wall \
                -g -Wno-pointer-sign -I ../include/ \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
@@ -210,8 +209,7 @@ ifdef AFL_TRACE_PC
   $(info Compile option AFL_TRACE_PC is deprecated, just set AFL_LLVM_INSTRUMENT=PCGUARD to activate when compiling targets )
 endif
 
-CXXFLAGS          ?= -O3 -funroll-loops
-# -D_FORTIFY_SOURCE=2
+CXXFLAGS          ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
 override CXXFLAGS += -Wall -g -I ../include/ \
                      -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 

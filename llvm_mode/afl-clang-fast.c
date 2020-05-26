@@ -335,7 +335,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  cc_params[cc_par_cnt++] = "-Qunused-arguments";
+  //cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
   // in case LLVM is installed not via a package manager or "make install"
   // e.g. compiled download or compiled from github then it's ./lib directory
@@ -440,8 +440,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-g";
     cc_params[cc_par_cnt++] = "-O3";
     cc_params[cc_par_cnt++] = "-funroll-loops";
-    if (strlen(march_opt) > 1 && march_opt[0] == '-')
-      cc_params[cc_par_cnt++] = march_opt;
+    //if (strlen(march_opt) > 1 && march_opt[0] == '-')
+    //  cc_params[cc_par_cnt++] = march_opt;
 
   }
 

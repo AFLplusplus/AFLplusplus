@@ -789,12 +789,12 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   u32 inst_ratio = 100;
-  u8 *x;
+  char *x;
 
   if (start == stop || *start) return;
 
   x = getenv("AFL_INST_RATIO");
-  if (x) inst_ratio = atoi(x);
+  if (x) inst_ratio = (u32)atoi(x);
 
   if (!inst_ratio || inst_ratio > 100) {
 
