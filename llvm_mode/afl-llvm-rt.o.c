@@ -519,7 +519,7 @@ static void __afl_start_snapshots(void) {
 static void __afl_start_forkserver(void) {
 
 #ifdef __linux__
-  if (!is_persistent && !__afl_cmp_map && !getenv("AFL_NO_SNAPSHOT") &&
+  if (/*!is_persistent &&*/ !__afl_cmp_map && !getenv("AFL_NO_SNAPSHOT") &&
       afl_snapshot_init() >= 0) {
 
     __afl_start_snapshots();

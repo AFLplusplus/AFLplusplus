@@ -31,6 +31,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fixed crash in compare-transform-pass when strcasecmp/strncasecmp was
       tried to be instrumented with LTO
     - fixed crash in cmplog with LTO
+    - enable snapshot lkm also for persistent mode
   - persistent mode shared memory testcase handover (instead of via
     files/stdin) - 10-100% performance increase
   - General support for 64 bit PowerPC, RiscV, Sparc etc.

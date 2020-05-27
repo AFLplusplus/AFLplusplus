@@ -206,6 +206,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
+  cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+
   if (lto_mode && cpp_mode)
     cc_params[cc_par_cnt++] = "-lc++";  // needed by fuzzbench, early
 
