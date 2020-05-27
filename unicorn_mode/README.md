@@ -29,8 +29,8 @@ Once that completes successfully you need to build and add in the Unicorn Mode
 features:
 
 ```
-$ cd unicorn_mode
-$ ./build_unicorn_support.sh
+cd unicorn_mode
+./build_unicorn_support.sh
 ```
 
 NOTE: This script checks out a Unicorn Engine fork as submodule that has been tested 
@@ -71,7 +71,7 @@ Once you have all those things ready to go you just need to run afl-fuzz in
 'unicorn-mode' by passing in the '-U' flag:
 
 ```
-$ afl-fuzz -U -m none -i /path/to/inputs -o /path/to/results -- ./test_harness @@
+afl-fuzz -U -m none -i /path/to/inputs -o /path/to/results -- ./test_harness @@
 ```
 
 The normal afl-fuzz command line format applies to everything here. Refer to

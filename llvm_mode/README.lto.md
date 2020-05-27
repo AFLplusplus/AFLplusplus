@@ -84,21 +84,21 @@ apt-get install -y clang-11 clang-tools-11 libc++1-11 libc++-11-dev \
 
 Building llvm from github takes quite some long time and is not painless:
 ```
-$ sudo apt install binutils-dev  # this is *essential*!
-$ git clone https://github.com/llvm/llvm-project
-$ cd llvm-project
-$ mkdir build
-$ cd build
-$ cmake -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra;compiler-rt;libclc;libcxx;libcxxabi;libunwind;lld' -DCMAKE_BUILD_TYPE=Release -DLLVM_BINUTILS_INCDIR=/usr/include/ ../llvm/
-$ make -j $(nproc)
-$ export PATH=`pwd`/bin:$PATH
-$ export LLVM_CONFIG=`pwd`/bin/llvm-config
-$ cd /path/to/AFLplusplus/
-$ make
-$ cd llvm_mode
-$ make
-$ cd ..
-$ make install
+sudo apt install binutils-dev  # this is *essential*!
+git clone https://github.com/llvm/llvm-project
+cd llvm-project
+mkdir build
+cd build
+cmake -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra;compiler-rt;libclc;libcxx;libcxxabi;libunwind;lld' -DCMAKE_BUILD_TYPE=Release -DLLVM_BINUTILS_INCDIR=/usr/include/ ../llvm/
+make -j $(nproc)
+export PATH=`pwd`/bin:$PATH
+export LLVM_CONFIG=`pwd`/bin/llvm-config
+cd /path/to/AFLplusplus/
+make
+cd llvm_mode
+make
+cd ..
+make install
 ```
 
 ## How to use afl-clang-lto

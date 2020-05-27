@@ -40,14 +40,14 @@ for every instance - say, "fuzzer01", "fuzzer02", etc.
 Run the first one ("master", -M) like this:
 
 ```
-$ ./afl-fuzz -i testcase_dir -o sync_dir -M fuzzer01 [...other stuff...]
+./afl-fuzz -i testcase_dir -o sync_dir -M fuzzer01 [...other stuff...]
 ```
 
 ...and then, start up secondary (-S) instances like this:
 
 ```
-$ ./afl-fuzz -i testcase_dir -o sync_dir -S fuzzer02 [...other stuff...]
-$ ./afl-fuzz -i testcase_dir -o sync_dir -S fuzzer03 [...other stuff...]
+./afl-fuzz -i testcase_dir -o sync_dir -S fuzzer02 [...other stuff...]
+./afl-fuzz -i testcase_dir -o sync_dir -S fuzzer03 [...other stuff...]
 ```
 
 Each fuzzer will keep its state in a separate subdirectory, like so:
@@ -71,9 +71,9 @@ experimental support for parallelizing the deterministic checks. To leverage
 that, you need to create -M instances like so:
 
 ```
-$ ./afl-fuzz -i testcase_dir -o sync_dir -M masterA:1/3 [...]
-$ ./afl-fuzz -i testcase_dir -o sync_dir -M masterB:2/3 [...]
-$ ./afl-fuzz -i testcase_dir -o sync_dir -M masterC:3/3 [...]
+./afl-fuzz -i testcase_dir -o sync_dir -M masterA:1/3 [...]
+./afl-fuzz -i testcase_dir -o sync_dir -M masterB:2/3 [...]
+./afl-fuzz -i testcase_dir -o sync_dir -M masterC:3/3 [...]
 ```
 
 ...where the first value after ':' is the sequential ID of a particular master
@@ -91,9 +91,9 @@ must use a separate temporary file; otherwise, things will go south. One safe
 example may be:
 
 ```
-$ ./afl-fuzz [...] -S fuzzer10 -f file10.txt ./fuzzed/binary @@
-$ ./afl-fuzz [...] -S fuzzer11 -f file11.txt ./fuzzed/binary @@
-$ ./afl-fuzz [...] -S fuzzer12 -f file12.txt ./fuzzed/binary @@
+./afl-fuzz [...] -S fuzzer10 -f file10.txt ./fuzzed/binary @@
+./afl-fuzz [...] -S fuzzer11 -f file11.txt ./fuzzed/binary @@
+./afl-fuzz [...] -S fuzzer12 -f file12.txt ./fuzzed/binary @@
 ```
 
 This is not a concern if you use @@ without -f and let afl-fuzz come up with the

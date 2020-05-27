@@ -29,7 +29,7 @@ Run `afl-network-server` with your target with the -m and -t values you need.
 Important is the -i parameter which is the TCP port to listen on.
 e.g.:
 ```
-$ afl-network-server -i 1111 -m 25M -t 1000 -- /bin/target -f @@
+afl-network-server -i 1111 -m 25M -t 1000 -- /bin/target -f @@
 ```
 
 ### on the (afl-fuzz) master
@@ -38,7 +38,7 @@ Just run afl-fuzz with your normal options, however the target should be
 `afl-network-client` with the IP and PORT of the `afl-network-server` and
 increase the -t value:
 ```
-$ afl-fuzz -i in -o out -t 2000+ -- afl-network-client TARGET-IP 1111
+afl-fuzz -i in -o out -t 2000+ -- afl-network-client TARGET-IP 1111
 ```
 Note the '+' on the -t parameter value. The afl-network-server will take
 care of proper timeouts hence afl-fuzz should not. The '+' increases the
