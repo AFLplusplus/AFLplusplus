@@ -64,13 +64,10 @@ typedef uint32_t u32;
    'unsigned long long' in <bits/types.h>, so everything checks out.
 
    But on 64-bit systems, it is #ifdef'ed in the same file as 'unsigned long'.
-   Now, it only happens in circumstances where the type happens to have the
-   expected bit width, *but* the compiler does not know that... and complains
-   about 'unsigned long' being unsafe to pass to %llu.
 
  */
 
-#if defined(__x86_64__) || defined(__aarch64__)
+#ifdef __LP64__
 typedef unsigned long long u64;
 #else
 typedef uint64_t u64;
