@@ -69,7 +69,7 @@ typedef uint32_t u32;
 
  */
 
-#if defined(__x86_64__) || defined(__aarch64__)
+#if defined(__x86_64__) || defined(__aarch64__) || defined(__powerpc64__)
 typedef unsigned long long u64;
 #else
 typedef uint64_t u64;
