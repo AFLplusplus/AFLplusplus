@@ -16,6 +16,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        exactly one master is present and warn otherwise
      - If no master is present at a sync one slave automatically becomes
        a temporary master until a real master shows up
+     - fix/update to MOpt (thanks to arnow117)
   - llvm_mode:
     - the default instrumentation is now PCGUARD, as it is faster and provides
       better coverage. The original afl instrumentation can be set via
