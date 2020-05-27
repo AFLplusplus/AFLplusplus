@@ -179,7 +179,7 @@ If you have not an outdated compiler and want to give it a try, build
 targets this way:
 
 ```
-$ AFL_LLVM_INSTRUMENT=PCGUARD  make
+AFL_LLVM_INSTRUMENT=PCGUARD  make
 ```
 
 Note that this us currently the default, as it is the best mode.
