@@ -10,8 +10,6 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.65d (dev)
-  - persistent mode shared memory testcase handover (instead of via
-    files/stdin) - x2 performance increase!
   - afl-fuzz:
      - -S slaves now only sync from the master to increase performance,
        the -M master still syncs from everyone. Added checks that ensure
@@ -32,6 +30,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fixed crash in compare-transform-pass when strcasecmp/strncasecmp was
       tried to be instrumented with LTO
     - fixed crash in cmplog with LTO
+  - persistent mode shared memory testcase handover (instead of via
+    files/stdin) - 10-100% performance increase
+  - General support for 64 bit PowerPC, RiscV, Sparc etc.
   - slightly better performance compilation options for afl++ and targets
   - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
     the same second
