@@ -52,7 +52,7 @@ ARG LLVM_CONFIG=llvm-config-11
 
 RUN git clone https://github.com/AFLplusplus/AFLplusplus
 
-RUN cd AFLplusplus && export REAL_CXX=g++ && make distrib && \
-    make install && cd .. && make clean
+RUN cd AFLplusplus && export REAL_CXX=g++-10 && make distrib && \
+    make install && make clean
 
 ENV AFL_SKIP_CPUFREQ=1
