@@ -4251,7 +4251,7 @@ pacemaker_fuzzing:
               afl->queued_paths + afl->unique_crashes - temp_total_found;
           afl->total_puppet_find = afl->total_puppet_find + temp_temp_puppet;
 
-          if (MOpt_globals.is_pilot_mode){
+          if (MOpt_globals.is_pilot_mode) {
 
             for (i = 0; i < operator_num; ++i) {
 
@@ -4265,13 +4265,14 @@ pacemaker_fuzzing:
 
           } else {
 
-          	for (i = 0; i < operator_num; i++) {
+            for (i = 0; i < operator_num; i++) {
 
-							if (afl->core_operator_cycles_puppet_v2[i] > afl->core_operator_cycles_puppet_v3[i])
+              if (afl->core_operator_cycles_puppet_v2[i] >
+                  afl->core_operator_cycles_puppet_v3[i])
 
-								afl->core_operator_finds_puppet_v2[i] += temp_temp_puppet;
+                afl->core_operator_finds_puppet_v2[i] += temp_temp_puppet;
 
-				    }
+            }
 
           }
 
@@ -4545,14 +4546,15 @@ pacemaker_fuzzing:
 
         } else {
 
-					for (i = 0; i < operator_num; i++)
-					{
+          for (i = 0; i < operator_num; i++) {
 
-						afl->core_operator_finds_puppet[i] = afl->core_operator_finds_puppet_v2[i];
-						afl->core_operator_cycles_puppet[i] = afl->core_operator_cycles_puppet_v2[i];
-						temp_stage_finds_puppet += afl->core_operator_finds_puppet[i];
-            
-					}
+            afl->core_operator_finds_puppet[i] =
+                afl->core_operator_finds_puppet_v2[i];
+            afl->core_operator_cycles_puppet[i] =
+                afl->core_operator_cycles_puppet_v2[i];
+            temp_stage_finds_puppet += afl->core_operator_finds_puppet[i];
+
+          }
 
           afl->key_module = 2;
 
