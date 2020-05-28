@@ -503,7 +503,7 @@ distrib: all radamsa
 	$(MAKE) -C examples/afl_network_proxy
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
-	cd qemu_mode && sh ./build_qemu_support.sh
+	-cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && sh ./build_unicorn_support.sh
 
 binary-only: all radamsa
@@ -512,7 +512,7 @@ binary-only: all radamsa
 	$(MAKE) -C examples/afl_network_proxy
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
-	cd qemu_mode && sh ./build_qemu_support.sh
+	-cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && sh ./build_unicorn_support.sh
 
 source-only: all radamsa
