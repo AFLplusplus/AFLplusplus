@@ -91,7 +91,7 @@ override CFLAGS += -Wall -g -Wno-pointer-sign -Wmissing-declarations\
 
 ifeq "$(shell uname -s)" "OpenBSD"
   override CFLAGS  += -I /usr/local/include/
-  LDFLAGS += -L /usr/local/lib/
+  LDFLAGS += -Wl,-z,notext -L /usr/local/lib/
 endif
 
 ifeq "$(shell uname -s)" "NetBSD"
