@@ -20,9 +20,19 @@ int main(int argc, char **argv) {
   }
 
   if (strcmp(input, "LIBTOKENCAP") == 0)
-    printf("your string was libtokencap\n");
+    printf("your string was LIBTOKENCAP\n");
   else if (strcmp(input, "BUGMENOT") == 0)
-    printf("your string was bugmenot\n");
+    printf("your string was BUGMENOT\n");
+  else if (strncmp(input, "BANANA", 3) == 0)
+    printf("your string started with BAN\n");
+  else if (strcmp(input, "APRI\0COT") == 0)
+    printf("your string was APRI\n");
+  else if (strcasecmp(input, "Kiwi") == 0)
+    printf("your string was Kiwi\n");
+  else if (strncasecmp(input, "avocado", 9) == 0)
+    printf("your string was avocado\n");
+  else if (strncasecmp(input, "Grapes", argc > 2 ? atoi(argv[2]) : 3) == 0)
+    printf("your string was a prefix of Grapes\n");
   else if (strcmp(input, "BUFFEROVERFLOW") == 0) {
 
     buf = (char *)malloc(16);
