@@ -133,7 +133,15 @@ For everyone who wants to contribute (and send pull requests) please read
 
 ## Building and installing afl++
 
-afl++ has many build options.
+An easy way to install afl++ with everything compiled is available via docker:
+```shell
+docker pull aflplusplus/aflplusplus
+docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
+```
+This container is automatically generated when a push to master happens.
+You will find your target source code in /src in the container.
+
+If you want to build afl++ yourself you have many options.
 The easiest is to build and install everything:
 
 ```shell

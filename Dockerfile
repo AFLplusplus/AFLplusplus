@@ -11,8 +11,8 @@ LABEL "about"="AFLplusplus docker image"
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get -y install \
-    --no-install-suggests --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get -y install --no-install-suggests --no-install-recommends \
     automake \
     bison flex \
     build-essential \
@@ -21,7 +21,7 @@ RUN apt-get update && apt-get -y install \
     libtool libtool-bin \
     libglib2.0-dev \
     wget vim jupp nano \
-    apt-utils apt-transport-https ca-certificates gnupg \
+    apt-utils apt-transport-https ca-certificates gnupg dialog \
     libpixman-1-dev
 
 RUN echo deb http://apt.llvm.org/focal/ llvm-toolchain-focal main >> /etc/apt/sources.list && \
@@ -33,7 +33,7 @@ RUN echo deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main 
 RUN apt-get update && apt-get upgrade -y
 
 RUN apt-get install -y gcc-10 g++-10 gcc-10-plugin-dev gcc-10-multilib \
-    libc++-10-dev gdb
+    libc++-10-dev gdb lcov
 
 RUN apt-get install -y clang-11 clang-tools-11 libc++1-11 libc++-11-dev \
     libc++abi1-11 libc++abi-11-dev libclang1-11 libclang-11-dev \
@@ -44,15 +44,19 @@ RUN apt-get install -y clang-11 clang-tools-11 libc++1-11 libc++-11-dev \
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 0
 RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 0
 
-RUN rm -rf /var/lib/apt/lists/*
+RUN rm -rf /var/cache/apt/archives/*
 
 ARG CC=gcc-10
 ARG CXX=g++-10
 ARG LLVM_CONFIG=llvm-config-11
 
 RUN git clone https://github.com/AFLplusplus/AFLplusplus
-
 RUN cd AFLplusplus && export REAL_CXX=g++-10 && make distrib && \
     make install && make clean
+
+RUN git clone https://github.com/vanhauser-thc/afl-cov afl-cov
+RUN cd afl-cov && make install
+
+RUN echo 'alias joe="jupp --wordwrap"' >> ~/.bashrc
 
 ENV AFL_SKIP_CPUFREQ=1
