@@ -42,7 +42,7 @@
 #ifdef CPU_NB_REGS
   #define AFL_REGS_NUM CPU_NB_REGS
 #elif TARGET_ARM
-  #define AFL_REGS_NUM 32
+  #define AFL_REGS_NUM 16
 #elif TARGET_AARCH64
   #define AFL_REGS_NUM 32
 #else
