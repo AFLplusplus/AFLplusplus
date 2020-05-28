@@ -54,24 +54,7 @@ typedef uint32_t u32;
 #define FS_OPT_SET_MAPSIZE(x) \
   (x <= 1 || x > FS_OPT_MAX_MAPSIZE ? 0 : ((x - 1) << 1))
 
-/*
-
-   Ugh. There is an unintended compiler / glibc #include glitch caused by
-   combining the u64 type an %llu in format strings, necessitating a workaround.
-
-   In essence, the compiler is always looking for 'unsigned long long' for %llu.
-   On 32-bit systems, the u64 type (aliased to uint64_t) is expanded to
-   'unsigned long long' in <bits/types.h>, so everything checks out.
-
-   But on 64-bit systems, it is #ifdef'ed in the same file as 'unsigned long'.
-
- */
-
-#ifdef __LP64__
 typedef unsigned long long u64;
-#else
-typedef uint64_t u64;
-#endif                                                       /* ^__x86_64__ */
 
 typedef int8_t  s8;
 typedef int16_t s16;
