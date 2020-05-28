@@ -1,0 +1,13 @@
+- name: Login to docker hub
+  uses: actions-hub/docker/login@master
+  env:
+    DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+    DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+- name: Build :latest
+  run: docker build -t aflplusplus:latest .
+
+- name: Push to docker hub :latest
+  uses: actions-hub/docker@master
+  with:
+    args: push aflplusplus:latest
