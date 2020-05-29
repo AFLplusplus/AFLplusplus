@@ -2,6 +2,7 @@
 .test2
 *.o
 *.so
+*.pyc
 afl-analyze
 afl-as
 afl-clang
