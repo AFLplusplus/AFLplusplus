@@ -75,31 +75,5 @@ required anymore (and might hurt performance and crash detection, so better not
 use -g).
 
 ## 4) UNIX-style filename pattern matching
-By default you need to add all the files you want to whitelist to the file
-specified by AFL_LLVM_WHITELIST. By setting the env variable
-AFL_LLVM_WHITELIST_FNMATCH, afl++ allows use of wildcards and other
-matching features available through `fnmatch` (we use `fnmatch` with no flags
-set). Note that setting AFL_LLVM_WHITELIST_FNMATCH might
-break backwards-compatibility with existing whitelists, since it does not match
-on the end of the file entry anymore, but rather matches on the full filename
-path.
-
-The behavior should be the same if you prepend `*/` to every line.
-
-For example, the entry:
-```
-*/a*.cpp
-```
-
-Would now match:
-```
-feature_a/a1.cpp
-feature_a/a2.cpp
-```
-
-But
-```
-a*.cpp
-```
-
-Would not match any of the files in the previous example.
+You can add UNIX-style pattern matching in the whitelist entries. See `man
+fnmatch` for the syntax. We do not set any of the `fnmatch` flags.
