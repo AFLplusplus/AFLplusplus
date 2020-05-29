@@ -73,3 +73,32 @@ For old LLVM versions this feature might require to be compiled with debug
 information (-g), however at least from llvm version 6.0 onwards this is not
 required anymore (and might hurt performance and crash detection, so better not
 use -g).
+
+## 4) UNIX-style file name pattern matching
+By default you need to add all the files you want to whitelist to the file
+specified by AFL_LLVM_WHITELIST. By setting the env variable
+AFL_LLVM_WHITELIST_FNMATCH,  afl++ will allows use of wildcards and other
+matching features available through `fnmatch` (we use `fnmatch` with no flags
+set). Note that setting AFL_LLVM_WHITELIST_FNMATCH might
+break backwards-compatibility, since it does not match on the end of the file
+entry anymore, but rather matches on the full filename path.
+
+The behavior should be the same if you prepend `*/` to every line.
+
+For example, the entry:
+```
+*/a*.cpp
+```
+
+Would now match:
+```
+feature_a/a1.cpp
+feature_a/a2.cpp
+```
+
+But
+```
+a*.cpp
+```
+
+Would not match any of the files in the previous example.
