@@ -89,7 +89,7 @@
 
   (5) upcoming, development in the branch
 
-  (6) not compatible with LTO and InsTrim and needs at least LLVM >= 4.1
+  (6) not compatible with LTO instrumentation and needs at least LLVM >= 4.1
 
   So all in all this is the best-of afl that is currently out there :-)
 
