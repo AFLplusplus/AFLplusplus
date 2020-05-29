@@ -1,0 +1,16 @@
+
+#
+# AFL dictionary for fuzzing Perl
+# --------------------------------
+#
+# Created by @RandomDhiraj
+#
+
+"<:crlf"
+"fwrite()"
+"fread()"
+":raw:utf8"
+":raw:eol(LF)"
+"Perl_invert()"
+":raw:eol(CRLF)"
+"Perl_PerlIO_eof()"
