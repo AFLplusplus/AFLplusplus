@@ -32,7 +32,7 @@ ifeq "$(shell uname)" "OpenBSD"
   LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
   HAS_OPT = $(shell test -x $(BIN_PATH)/opt && echo 0 || echo 1)
   ifeq "$(HAS_OPT)" "1"
-    $(error llvm_mode needs a complete llvm installation (versions 3.8.0 up to 11) -> e.g. "pkg_add llvm-7.0.1p9")
+    $(error llvm_mode needs a complete llvm installation (versions 3.4 up to 11) -> e.g. "pkg_add llvm-7.0.1p9")
   endif
 else
   LLVM_CONFIG ?= llvm-config
@@ -53,7 +53,7 @@ ifeq "$(LLVMVER)" ""
 endif
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
-  $(warning llvm_mode only supports llvm versions 3.8.0 up to 11)
+  $(warning llvm_mode only supports llvm versions 3.4 up to 11)
 endif
 
 ifeq "$(LLVM_MAJOR)" "9"
@@ -160,9 +160,9 @@ endif
 
 # After we set CC/CXX we can start makefile magic tests
 
-ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-	CFLAGS_OPT = -march=native
-endif
+#ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+#	CFLAGS_OPT = -march=native
+#endif
 
 ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
         AFL_CLANG_FLTO ?= -flto=full
@@ -355,15 +355,15 @@ endif
 	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
 
 ../afl-llvm-rt.o: afl-llvm-rt.o.c | test_deps
-	$(CC) $(CFLAGS) -Wno-unused-result -fPIC -c $< -o $@
+	$(CLANG_BIN) $(CFLAGS) -Wno-unused-result -fPIC -c $< -o $@
 
 ../afl-llvm-rt-32.o: afl-llvm-rt.o.c | test_deps
 	@printf "[*] Building 32-bit variant of the runtime (-m32)... "
-	@$(CC) $(CFLAGS) -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CC_SAVE) $(CFLAGS) -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 ../afl-llvm-rt-64.o: afl-llvm-rt.o.c | test_deps
 	@printf "[*] Building 64-bit variant of the runtime (-m64)... "
-	@$(CC) $(CFLAGS) -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CC_SAVE) $(CFLAGS) -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."

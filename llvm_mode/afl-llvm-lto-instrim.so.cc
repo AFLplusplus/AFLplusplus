@@ -561,6 +561,17 @@ struct InsTrimLTO : public ModulePass {
       if (F.size() < function_minimum_size) continue;
       if (isBlacklisted(&F)) continue;
 
+      // whitelist check
+      AttributeList Attrs = F.getAttributes();
+      if (Attrs.hasAttribute(-1, StringRef("skipinstrument"))) {
+
+        if (debug)
+          fprintf(stderr, "DEBUG: Function %s is not whitelisted\n",
+                  F.getName().str().c_str());
+        continue;
+
+      }
+
       std::unordered_set<BasicBlock *> MS;
       if (!MarkSetOpt) {
 

@@ -211,15 +211,17 @@ bool AFLCoverage::runOnModule(Module &M) {
   else
 #else
   if (ngram_size_str)
-#ifndef LLVM_VERSION_PATCH
-    FATAL("Sorry, NGRAM branch coverage is not supported with llvm version %d.%d.%d!",
-          LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR,
-          0);
-#else
-    FATAL("Sorry, NGRAM branch coverage is not supported with llvm version %d.%d.%d!",
-          LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR,
-          LLVM_VERSION_PATCH);
-#endif
+  #ifndef LLVM_VERSION_PATCH
+    FATAL(
+        "Sorry, NGRAM branch coverage is not supported with llvm version "
+        "%d.%d.%d!",
+        LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, 0);
+  #else
+    FATAL(
+        "Sorry, NGRAM branch coverage is not supported with llvm version "
+        "%d.%d.%d!",
+        LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH);
+  #endif
 #endif
     PrevLocSize = 1;
 

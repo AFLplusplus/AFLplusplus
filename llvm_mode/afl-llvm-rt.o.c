@@ -63,13 +63,21 @@
    is used for instrumentation output before __afl_map_shm() has a chance to
    run. It will end up as .comm, so it shouldn't be too wasteful. */
 
+#if MAP_SIZE <= 65536
+  #define MAP_INITIAL_SIZE 256000
+#else
+  #define MAP_INITIAL_SIZE MAP_SIZE
+#endif
+
 #ifdef AFL_REAL_LD
-u8 __afl_area_initial[256000];
+u8 __afl_area_initial[MAP_INITIAL_SIZE];
 #else
 u8                  __afl_area_initial[MAP_SIZE];
 #endif
 u8 *__afl_area_ptr = __afl_area_initial;
 u8 *__afl_dictionary;
+u8 *__afl_fuzz_ptr;
+u32 __afl_fuzz_len;
 
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
@@ -86,6 +94,8 @@ __thread u32        __afl_prev_ctx;
 __thread u32        __afl_cmp_counter;
 #endif
 
+int __afl_sharedmem_fuzzing __attribute__((weak));
+
 struct cmp_map *__afl_cmp_map;
 
 /* Running in persistent mode? */
@@ -100,6 +110,59 @@ void send_forkserver_error(int error) {
   if (!error || error > 0xffff) return;
   status = (FS_OPT_ERROR | FS_OPT_SET_ERROR(error));
   if (write(FORKSRV_FD + 1, (char *)&status, 4) != 4) return;
+
+}
+
+/* SHM fuzzing setup. */
+
+static void __afl_map_shm_fuzz() {
+
+  char *id_str = getenv(SHM_FUZZ_ENV_VAR);
+
+  if (id_str) {
+
+#ifdef USEMMAP
+    const char *   shm_file_path = id_str;
+    int            shm_fd = -1;
+    unsigned char *shm_base = NULL;
+
+    /* create the shared memory segment as if it was a file */
+    shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
+    if (shm_fd == -1) {
+
+      fprintf(stderr, "shm_open() failed for fuzz\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(1);
+
+    }
+
+    __afl_fuzz_ptr = mmap(0, MAX_FILE, PROT_READ, MAP_SHARED, shm_fd, 0);
+
+#else
+    u32 shm_id = atoi(id_str);
+
+    __afl_fuzz_ptr = shmat(shm_id, NULL, 0);
+
+#endif
+
+    /* Whooooops. */
+
+    if (__afl_fuzz_ptr == (void *)-1) {
+
+      fprintf(stderr, "Error: could not access fuzzing shared memory\n");
+      exit(1);
+
+    }
+
+    if (getenv("AFL_DEBUG"))
+      fprintf(stderr, "DEBUG: successfully got fuzzing shared memory\n");
+
+  } else {
+
+    fprintf(stderr, "Error: variable for fuzzing shared memory is not set\n");
+    exit(1);
+
+  }
 
 }
 
@@ -304,16 +367,24 @@ static void __afl_start_snapshots(void) {
      assume we're not running in forkserver mode and just execute program. */
 
   status |= (FS_OPT_ENABLED | FS_OPT_SNAPSHOT);
+  if (__afl_sharedmem_fuzzing != 0) status |= FS_OPT_SHDMEM_FUZZ;
   if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
     status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
-  if (__afl_dictionary_len > 0 && __afl_dictionary) status |= FS_OPT_AUTODICT;
+  if (__afl_dictionary_len && __afl_dictionary) status |= FS_OPT_AUTODICT;
   memcpy(tmp, &status, 4);
 
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
 
-  if (__afl_dictionary_len > 0 && __afl_dictionary) {
+  if (__afl_sharedmem_fuzzing || (__afl_dictionary_len && __afl_dictionary)) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
+
+    if ((was_killed & (0xffffffff & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ))) ==
+        (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) {
+
+      __afl_map_shm_fuzz();
+
+    }
 
     if ((was_killed & (FS_OPT_ENABLED | FS_OPT_AUTODICT)) ==
         (FS_OPT_ENABLED | FS_OPT_AUTODICT)) {
@@ -351,7 +422,7 @@ static void __afl_start_snapshots(void) {
 
       // uh this forkserver master does not understand extended option passing
       // or does not want the dictionary
-      already_read_first = 1;
+      if (!__afl_fuzz_ptr) already_read_first = 1;
 
     }
 
@@ -371,6 +442,9 @@ static void __afl_start_snapshots(void) {
       if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
 
     }
+
+    __afl_fuzz_len = (was_killed >> 8);
+    was_killed = (was_killed & 0xff);
 
     /* If we stopped the child in persistent mode, but there was a race
        condition and afl-fuzz already issued SIGKILL, write off the old
@@ -445,7 +519,7 @@ static void __afl_start_snapshots(void) {
 static void __afl_start_forkserver(void) {
 
 #ifdef __linux__
-  if (!is_persistent && !__afl_cmp_map && !getenv("AFL_NO_SNAPSHOT") &&
+  if (/*!is_persistent &&*/ !__afl_cmp_map && !getenv("AFL_NO_SNAPSHOT") &&
       afl_snapshot_init() >= 0) {
 
     __afl_start_snapshots();
@@ -467,7 +541,8 @@ static void __afl_start_forkserver(void) {
 
   if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
     status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
-  if (__afl_dictionary_len > 0 && __afl_dictionary) status |= FS_OPT_AUTODICT;
+  if (__afl_dictionary_len && __afl_dictionary) status |= FS_OPT_AUTODICT;
+  if (__afl_sharedmem_fuzzing != 0) status |= FS_OPT_SHDMEM_FUZZ;
   if (status) status |= (FS_OPT_ENABLED);
   memcpy(tmp, &status, 4);
 
@@ -476,9 +551,16 @@ static void __afl_start_forkserver(void) {
 
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
 
-  if (__afl_dictionary_len > 0 && __afl_dictionary) {
+  if (__afl_sharedmem_fuzzing || (__afl_dictionary_len && __afl_dictionary)) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
+
+    if ((was_killed & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) ==
+        (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) {
+
+      __afl_map_shm_fuzz();
+
+    }
 
     if ((was_killed & (FS_OPT_ENABLED | FS_OPT_AUTODICT)) ==
         (FS_OPT_ENABLED | FS_OPT_AUTODICT)) {
@@ -516,7 +598,7 @@ static void __afl_start_forkserver(void) {
 
       // uh this forkserver master does not understand extended option passing
       // or does not want the dictionary
-      already_read_first = 1;
+      if (!__afl_fuzz_ptr) already_read_first = 1;
 
     }
 
@@ -537,6 +619,9 @@ static void __afl_start_forkserver(void) {
       if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
 
     }
+
+    __afl_fuzz_len = (was_killed >> 8);
+    was_killed = (was_killed & 0xff);
 
     /* If we stopped the child in persistent mode, but there was a race
        condition and afl-fuzz already issued SIGKILL, write off the old
@@ -703,13 +788,13 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
 void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
-  u32 inst_ratio = 100;
-  u8 *x;
+  u32   inst_ratio = 100;
+  char *x;
 
   if (start == stop || *start) return;
 
   x = getenv("AFL_INST_RATIO");
-  if (x) inst_ratio = atoi(x);
+  if (x) inst_ratio = (u32)atoi(x);
 
   if (!inst_ratio || inst_ratio > 100) {
 
@@ -892,7 +977,7 @@ static int area_is_mapped(void *ptr, size_t len) {
 
 }
 
-void __cmplog_rtn_hook(void *ptr1, void *ptr2) {
+void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   if (!__afl_cmp_map) return;
 

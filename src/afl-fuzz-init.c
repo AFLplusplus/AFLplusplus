@@ -1315,6 +1315,39 @@ dir_cleanup_failed:
 
 }
 
+/* If this is a -S slave, ensure a -M master is running, if a master is
+   running when another master is started then warn */
+
+int check_master_exists(afl_state_t *afl) {
+
+  DIR *          sd;
+  struct dirent *sd_ent;
+  u8 *           fn;
+
+  sd = opendir(afl->sync_dir);
+  if (!sd) { return 0; }
+
+  while ((sd_ent = readdir(sd))) {
+
+    /* Skip dot files and our own output directory. */
+
+    if (sd_ent->d_name[0] == '.' || !strcmp(afl->sync_id, sd_ent->d_name)) {
+
+      continue;
+
+    }
+
+    fn = alloc_printf("%s/%s/is_master", afl->sync_dir, sd_ent->d_name);
+    int res = access(fn, F_OK);
+    free(fn);
+    if (res == 0) return 1;
+
+  }
+
+  return 0;
+
+}
+
 /* Prepare output directories and fds. */
 
 void setup_dirs_fds(afl_state_t *afl) {
@@ -1329,19 +1362,6 @@ void setup_dirs_fds(afl_state_t *afl) {
     PFATAL("Unable to create '%s'", afl->sync_dir);
 
   }
-
-  /*
-    if (afl->is_master) {
-
-      u8 *x = alloc_printf("%s/%s/is_master", afl->sync_dir, afl->sync_id);
-      int fd = open(x, O_CREAT | O_RDWR, 0644);
-      if (fd < 0) FATAL("cannot create %s", x);
-      free(x);
-      close(fd);
-
-    }
-
-  */
 
   if (mkdir(afl->out_dir, 0700)) {
 
@@ -1369,6 +1389,16 @@ void setup_dirs_fds(afl_state_t *afl) {
     }
 
 #endif                                                            /* !__sun */
+
+  }
+
+  if (afl->is_master) {
+
+    u8 *x = alloc_printf("%s/is_master", afl->out_dir);
+    int fd = open(x, O_CREAT | O_RDWR, 0644);
+    if (fd < 0) FATAL("cannot create %s", x);
+    free(x);
+    close(fd);
 
   }
 
@@ -2123,6 +2153,30 @@ void check_binary(afl_state_t *afl, u8 *fname) {
     OKF(cPIN "Persistent mode binary detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
     afl->persistent_mode = 1;
+    // do not fail if we can not get the fuzzing shared mem
+    if ((afl->shm_fuzz = calloc(1, sizeof(sharedmem_t)))) {
+
+      // we need to set the dumb mode to not overwrite the SHM_ENV_VAR
+      if ((afl->fsrv.shdmem_fuzz = afl_shm_init(afl->shm_fuzz, MAX_FILE, 1))) {
+
+#ifdef USEMMAP
+        setenv(SHM_FUZZ_ENV_VAR, afl->shm_fuzz->g_shm_file_path, 1);
+#else
+        u8 *shm_str;
+        shm_str = alloc_printf("%d", afl->shm_fuzz->shm_id);
+        setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
+        ck_free(shm_str);
+#endif
+        afl->fsrv.support_shdmen_fuzz = 1;
+
+      } else {
+
+        free(afl->shm_fuzz);
+        afl->shm_fuzz = NULL;
+
+      }
+
+    }
 
   } else if (getenv("AFL_PERSISTENT")) {
 

@@ -342,6 +342,7 @@ typedef struct afl_state {
 
   afl_forkserver_t fsrv;
   sharedmem_t      shm;
+  sharedmem_t *    shm_fuzz;
   afl_env_vars_t   afl_env;
 
   char **argv;                                            /* argv if needed */
@@ -546,8 +547,6 @@ typedef struct afl_state {
   u32                a_extras_cnt;      /* Total number of tokens available */
 
   /* afl_postprocess API - Now supported via custom mutators */
-
-  struct custom_mutator *post_library_mutator;
 
   /* CmpLog */
 
@@ -913,6 +912,7 @@ u32    find_start_position(afl_state_t *);
 void   find_timeout(afl_state_t *);
 double get_runnable_processes(void);
 void   nuke_resume_dir(afl_state_t *);
+int    check_master_exists(afl_state_t *);
 void   setup_dirs_fds(afl_state_t *);
 void   setup_cmdline_file(afl_state_t *, char **);
 void   setup_stdio_file(afl_state_t *);

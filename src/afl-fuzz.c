@@ -1065,7 +1065,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   init_count_class16();
 
+  if (afl->is_master && check_master_exists(afl) == 1) {
+
+    WARNF("it is wasteful to run more than one master!");
+    sleep(1);
+
+  }
+
   setup_dirs_fds(afl);
+
+  if (afl->is_slave && check_master_exists(afl) == 0) {
+
+    WARNF("no -M master found. You need to run one master!");
+    sleep(5);
+
+  }
 
   setup_custom_mutators(afl);
 
@@ -1352,11 +1366,27 @@ stop_fuzzing:
        time_spent_working / afl->fsrv.total_execs);
   #endif
 
+  if (afl->is_master) {
+
+    u8 path[PATH_MAX];
+    sprintf(path, "%s/is_master", afl->out_dir);
+    unlink(path);
+
+  }
+
   fclose(afl->fsrv.plot_file);
   destroy_queue(afl);
   destroy_extras(afl);
   destroy_custom_mutators(afl);
   afl_shm_deinit(&afl->shm);
+
+  if (afl->shm_fuzz) {
+
+    afl_shm_deinit(afl->shm_fuzz);
+    free(afl->shm_fuzz);
+
+  }
+
   afl_fsrv_deinit(&afl->fsrv);
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
   ck_free(afl->fsrv.target_path);

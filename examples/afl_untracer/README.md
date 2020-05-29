@@ -29,8 +29,8 @@ The patches.txt file has to be pointed to by `AFL_UNTRACER_FILE`.
 
 To easily run the scripts without needing to run the GUI with Ghidra:
 ```
-$ /opt/ghidra/support/analyzeHeadless /tmp/ tmp$$ -import libtestinstr.so -postscript ./ghidra_get_patchpoints.java
-$ rm -rf /tmp/tmp$$
+/opt/ghidra/support/analyzeHeadless /tmp/ tmp$$ -import libtestinstr.so -postscript ./ghidra_get_patchpoints.java
+rm -rf /tmp/tmp$$
 ```
 
 ### Fuzzing

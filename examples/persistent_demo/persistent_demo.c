@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
                We just have some trivial inline code that faults on 'foo!'. */
 
     /* do we have enough data? */
-    if (len < 4) return 0;
+    if (len < 8) continue;
 
     if (buf[0] == 'f') {
 
@@ -77,7 +77,17 @@ int main(int argc, char **argv) {
           if (buf[3] == '!') {
 
             printf("four\n");
-            abort();
+            if (buf[4] == '!') {
+
+              printf("five\n");
+              if (buf[5] == '!') {
+
+                printf("six\n");
+                abort();
+
+              }
+
+            }
 
           }
 

@@ -73,9 +73,17 @@ typedef struct afl_forkserver {
 
   u8 last_kill_signal;                  /* Signal that killed the child     */
 
+  u8 use_shdmen_fuzz;                   /* use shared mem for test cases    */
+
+  u8 support_shdmen_fuzz;               /* set by afl-fuzz                  */
+
   u8 use_fauxsrv;                       /* Fauxsrv for non-forking targets? */
 
   u8 qemu_mode;                         /* if running in qemu mode or not   */
+
+  u32 shdmem_fuzz_len;                   /* length of the fuzzing test case */
+
+  u8 *shdmem_fuzz;                      /* allocated memory for fuzzing     */
 
   char *cmplog_binary;                  /* the name of the cmplog binary    */
 

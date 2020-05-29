@@ -10,8 +10,9 @@ how to hit the ground running:
    If testing a network service, modify it to run in the foreground and read
    from stdin. When fuzzing a format that uses checksums, comment out the
    checksum verification code, too.
-   If this is not possible (e.g. in -Q(emu) mode) then use AFL_POST_LIBRARY
-   to calculate the values with your own library.
+
+   If this is not possible (e.g. in -Q(emu) mode) then use
+   AFL_CUSTOM_MUTATOR_LIBRARY to calculate the values with your own library.
 
    The program must crash properly when a fault is encountered. Watch out for
    custom SIGSEGV or SIGABRT handlers and background processes. For tips on

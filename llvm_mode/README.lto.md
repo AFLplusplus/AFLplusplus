@@ -6,8 +6,6 @@ This version requires a current llvm 11 compiled from the github master.
 
 1. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
    coverage than anything else that is out there in the AFL world
-  1a. Set AFL_LLVM_INSTRUMENT=CFG if you want the InsTrimLTO version
-      (recommended)
 
 2. You can use it together with llvm_mode: laf-intel and whitelisting
    features and can be combined with cmplog/Redqueen
@@ -19,7 +17,6 @@ This version requires a current llvm 11 compiled from the github master.
 5. If any problems arise be sure to set `AR=llvm-ar RANLIB=llvm-ranlib` also
    note that if that target uses _init functions or early constructors then
    also set `AFL_LLVM_MAP_DYNAMIC=1` as your target will crash otherwise
-
 
 ## Introduction and problem description
 
@@ -50,7 +47,8 @@ and many dead ends until we got to this:
 The result:
  * 10-25% speed gain compared to llvm_mode
  * guaranteed non-colliding edge coverage :-)
- * The compile time especially for libraries can be longer
+ * The compile time especially for binaries to an instrumented library can be
+   much longer
 
 Example build output from a libtiff build:
 ```
@@ -61,24 +59,46 @@ AUTODICTIONARY: 11 strings found
 [+] Instrumented 12071 locations with no collisions (on average 1046 collisions would be in afl-gcc/afl-clang-fast) (non-hardened mode).
 ```
 
-## Building llvm 11
+## Getting llvm 11
 
+### Installing llvm 11
+Installing the llvm snapshot builds is easy and mostly painless:
+
+In the follow line change `NAME` for your Debian or Ubuntu release name
+(e.g. buster, focal, eon, etc.):
 ```
-$ sudo apt install binutils-dev  # this is *essential*!
-$ git clone https://github.com/llvm/llvm-project
-$ cd llvm-project
-$ mkdir build
-$ cd build
-$ cmake -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra;compiler-rt;libclc;libcxx;libcxxabi;libunwind;lld' -DCMAKE_BUILD_TYPE=Release -DLLVM_BINUTILS_INCDIR=/usr/include/ ../llvm/
-$ make -j $(nproc)
-$ export PATH=`pwd`/bin:$PATH
-$ export LLVM_CONFIG=`pwd`/bin/llvm-config
-$ cd /path/to/AFLplusplus/
-$ make
-$ cd llvm_mode
-$ make
-$ cd ..
-$ make install
+echo deb http://apt.llvm.org/NAME/ llvm-toolchain-NAME NAME >> /etc/apt/sources.list
+```
+then add the pgp key of llvm and install the packages:
+```
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - 
+apt-get update && apt-get upgrade -y
+apt-get install -y clang-11 clang-tools-11 libc++1-11 libc++-11-dev \
+    libc++abi1-11 libc++abi-11-dev libclang1-11 libclang-11-dev \
+    libclang-common-11-dev libclang-cpp11 libclang-cpp11-dev liblld-11 \
+    liblld-11-dev liblldb-11 liblldb-11-dev libllvm11 libomp-11-dev \
+    libomp5-11 lld-11 lldb-11 llvm-11 llvm-11-dev llvm-11-runtime llvm-11-tools
+```
+
+### Building llvm 11
+
+Building llvm from github takes quite some long time and is not painless:
+```
+sudo apt install binutils-dev  # this is *essential*!
+git clone https://github.com/llvm/llvm-project
+cd llvm-project
+mkdir build
+cd build
+cmake -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra;compiler-rt;libclc;libcxx;libcxxabi;libunwind;lld' -DCMAKE_BUILD_TYPE=Release -DLLVM_BINUTILS_INCDIR=/usr/include/ ../llvm/
+make -j $(nproc)
+export PATH=`pwd`/bin:$PATH
+export LLVM_CONFIG=`pwd`/bin/llvm-config
+cd /path/to/AFLplusplus/
+make
+cd llvm_mode
+make
+cd ..
+make install
 ```
 
 ## How to use afl-clang-lto
@@ -159,11 +179,6 @@ target will likely crash when started. This can be avoided by compiling with
 `AFL_LLVM_MAP_DYNAMIC=1` .
 
 This can e.g. happen with OpenSSL.
-
-## Upcoming Work
-
-1. Currently the LTO whitelist feature does not allow to instrument main,
-   start and init functions
 
 ## History
 

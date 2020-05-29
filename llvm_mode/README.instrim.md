@@ -6,6 +6,7 @@ InsTrim: Lightweight Instrumentation for Coverage-guided Fuzzing
 
 InsTrim uses CFG and markers to instrument just what is necessary in the
 binary in llvm_mode. It is about 10-15% faster without disadvantages.
+It requires at least llvm version 3.8.0.
 
 ## Usage
 

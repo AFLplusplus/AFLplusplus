@@ -133,13 +133,21 @@ For everyone who wants to contribute (and send pull requests) please read
 
 ## Building and installing afl++
 
-afl++ has many build options.
+An easy way to install afl++ with everything compiled is available via docker:
+```shell
+docker pull aflplusplus/aflplusplus
+docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
+```
+This container is automatically generated when a push to master happens.
+You will find your target source code in /src in the container.
+
+If you want to build afl++ yourself you have many options.
 The easiest is to build and install everything:
 
 ```shell
-$ sudo apt install build-essential libtool-bin python3-dev automake flex bison libglib2.0-dev libpixman-1-dev clang python3-setuptools llvm
-$ make distrib
-$ sudo make install
+sudo apt install build-essential libtool-bin python3-dev automake flex bison libglib2.0-dev libpixman-1-dev clang python3-setuptools llvm
+make distrib
+sudo make install
 ```
 
 Note that "make distrib" also builds llvm_mode, qemu_mode, unicorn_mode and
@@ -148,7 +156,7 @@ using at least llvm_mode is highly recommended for much better results -
 hence in this case
 
 ```shell
-$ make source-only
+make source-only
 ```
 is what you should choose.
 
@@ -171,7 +179,7 @@ These build targets exist:
 afl++ binaries by passing the STATIC=1 argument to make:
 
 ```shell
-$ make all STATIC=1
+make all STATIC=1
 ```
 
 These build options exist:
@@ -191,8 +199,8 @@ Hence at least gcc-9 and especially llvm-9 should be the compilers of choice.
 If your distribution does not have them, you can use the Dockerfile:
 
 ```shell
-$ cd AFLplusplus
-$ sudo docker build -t aflplusplus .
+cd AFLplusplus
+sudo docker build -t aflplusplus .
 ```
 
 
@@ -267,7 +275,7 @@ superior to blind fuzzing or coverage-only tools.
 PLEASE NOTE: llvm_mode compilation with afl-clang-fast/afl-clang-fast++
 instead of afl-gcc/afl-g++ is much faster and has many cool features.
 See llvm_mode/ - however few code does not compile with llvm.
-We support llvm versions 3.8.0 to 11.
+We support llvm versions 3.4 to 11.
 
 When source code is available, instrumentation can be injected by a companion
 tool that works as a drop-in replacement for gcc or clang in any standard build
@@ -281,8 +289,8 @@ The correct way to recompile the target program may vary depending on the
 specifics of the build process, but a nearly-universal approach would be:
 
 ```shell
-$ CC=/path/to/afl/afl-gcc ./configure
-$ make clean all
+CC=/path/to/afl/afl-gcc ./configure
+make clean all
 ```
 
 For C++ programs, you'd would also want to set `CXX=/path/to/afl/afl-g++`.
@@ -290,7 +298,7 @@ For C++ programs, you'd would also want to set `CXX=/path/to/afl/afl-g++`.
 The clang wrappers (afl-clang and afl-clang++) can be used in the same way;
 clang users may also opt to leverage a higher-performance instrumentation mode,
 as described in [llvm_mode/README.md](llvm_mode/README.md).
-Clang/LLVM has a much better performance and works with LLVM version 3.8.0 to 11.
+Clang/LLVM has a much better performance and works with LLVM version 3.4 to 11.
 
 Using the LAF Intel performance enhancements are also recommended, see 
 [llvm_mode/README.laf-intel.md](llvm_mode/README.laf-intel.md)
@@ -306,7 +314,7 @@ runtime (usually by setting `LD_LIBRARY_PATH`). The simplest option is a static
 build, usually possible via:
 
 ```shell
-$ CC=/path/to/afl/afl-gcc ./configure --disable-shared
+CC=/path/to/afl/afl-gcc ./configure --disable-shared
 ```
 
 Setting `AFL_HARDEN=1` when calling 'make' will cause the CC wrapper to
@@ -328,8 +336,8 @@ QEMU is a project separate from AFL, but you can conveniently build the
 feature by doing:
 
 ```shell
-$ cd qemu_mode
-$ ./build_qemu_support.sh
+cd qemu_mode
+./build_qemu_support.sh
 ```
 
 For additional instructions and caveats, see [qemu_mode/README.md](qemu_mode/README.md).
@@ -423,7 +431,7 @@ store its findings, plus a path to the binary to test.
 For target binaries that accept input directly from stdin, the usual syntax is:
 
 ```shell
-$ ./afl-fuzz -i testcase_dir -o findings_dir /path/to/program [...params...]
+./afl-fuzz -i testcase_dir -o findings_dir /path/to/program [...params...]
 ```
 
 For programs that take input from a file, use '@@' to mark the location in
@@ -431,7 +439,7 @@ the target's command line where the input file name should be placed. The
 fuzzer will substitute this for you:
 
 ```shell
-$ ./afl-fuzz -i testcase_dir -o findings_dir /path/to/program @@
+./afl-fuzz -i testcase_dir -o findings_dir /path/to/program @@
 ```
 
 You can also use the -f option to have the mutated data written to a specific
@@ -494,8 +502,8 @@ When you can't reproduce a crash found by afl-fuzz, the most likely cause is
 that you are not setting the same memory limit as used by the tool. Try:
 
 ```shell
-$ LIMIT_MB=50
-$ ( ulimit -Sv $[LIMIT_MB << 10]; /path/to/tested_binary ... )
+LIMIT_MB=50
+( ulimit -Sv $[LIMIT_MB << 10]; /path/to/tested_binary ... )
 ```
 
 Change LIMIT_MB to match the -m parameter passed to afl-fuzz. On OpenBSD,
@@ -504,7 +512,7 @@ also change -Sv to -Sd.
 Any existing output directory can be also used to resume aborted jobs; try:
 
 ```shell
-$ ./afl-fuzz -i- -o existing_output_dir [...etc...]
+./afl-fuzz -i- -o existing_output_dir [...etc...]
 ```
 
 If you have gnuplot installed, you can also generate some pretty graphs for any
@@ -586,7 +594,7 @@ Oh, one more thing: for test case minimization, give afl-tmin a try. The tool
 can be operated in a very simple way:
 
 ```shell
-$ ./afl-tmin -i test_case -o minimized_result -- /path/to/program [...]
+./afl-tmin -i test_case -o minimized_result -- /path/to/program [...]
 ```
 
 The tool works with crashing and non-crashing test cases alike. In the crash
