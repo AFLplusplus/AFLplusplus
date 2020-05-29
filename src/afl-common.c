@@ -885,9 +885,9 @@ u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
   timeout.tv_usec = (timeout_ms % 1000) * 1000;
 
   size_t read_total = 0;
-  size_t len_read = 0;
+  ssize_t len_read = 0;
 
-  while (len_read < len) {
+  while (read_total < len) {
 
     /* set exceptfds as well to return when a child exited/closed the pipe. */
     int sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
@@ -905,8 +905,8 @@ u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
 
     }
 
-    len_read = read(fd, ((u8 *)buf) + len_read, len - len_read);
-    if (!len_read) { return 0; }
+    len_read = read(fd, ((u8 *)buf) + read_total, len - read_total);
+    if (len_read <= 0) { return 0; }
     read_total += len_read;
 
   }
