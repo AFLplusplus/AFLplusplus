@@ -147,29 +147,19 @@ bool isInWhitelist(llvm::Function *F) {
     /* Continue only if we know where we actually are */
     if (!instFilename.str().empty()) {
 
-      char *enable_fnmatch = getenv("AFL_LLVM_WHITELIST_FNMATCH");
-
       for (std::list<std::string>::iterator it = myWhitelist.begin();
            it != myWhitelist.end(); ++it) {
 
         /* We don't check for filename equality here because
          * filenames might actually be full paths. Instead we
          * check that the actual filename ends in the filename
-         * specified in the list. Enable UNIX-style pattern
-         * matching if AFL_LLVM_WHITELIST_FNMATCH is set */
+         * specified in the list. We also allow UNIX-style pattern
+         * matching */
 
         if (instFilename.str().length() >= it->length()) {
 
-          if (enable_fnmatch &&
-              fnmatch((*it).c_str(), instFilename.str().c_str(), 0) == 0) {
-
-            return true;
-
-          } else if (!enable_fnmatch &&
-
-                     instFilename.str().compare(
-                         instFilename.str().length() - it->length(),
-                         it->length(), *it) == 0) {
+          if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
+              0) {
 
             return true;
 
@@ -195,29 +185,19 @@ bool isInWhitelist(llvm::Function *F) {
     /* Continue only if we know where we actually are */
     if (!instFilename.str().empty()) {
 
-      char *enable_fnmatch = getenv("AFL_LLVM_WHITELIST_FNMATCH");
-
       for (std::list<std::string>::iterator it = myWhitelist.begin();
            it != myWhitelist.end(); ++it) {
 
         /* We don't check for filename equality here because
          * filenames might actually be full paths. Instead we
          * check that the actual filename ends in the filename
-         * specified in the list. Enable UNIX-style pattern
-         * matching if AFL_LLVM_WHITELIST_FNMATCH is set */
+         * specified in the list. We also allow UNIX-style pattern
+         * matching */
 
         if (instFilename.str().length() >= it->length()) {
 
-          if (enable_fnmatch &&
-              fnmatch((*it).c_str(), instFilename.str().c_str(), 0) == 0) {
-
-            return true;
-
-          } else if (!enable_fnmatch &&
-
-                     instFilename.str().compare(
-                         instFilename.str().length() - it->length(),
-                         it->length(), *it) == 0) {
+          if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
+              0) {
 
             return true;
 
