@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <fnmatch.h>
 
 #include <list>
 #include <string>
@@ -155,9 +156,8 @@ bool isInWhitelist(llvm::Function *F) {
          * specified in the list. */
         if (instFilename.str().length() >= it->length()) {
 
-          if (instFilename.str().compare(
-                  instFilename.str().length() - it->length(), it->length(),
-                  *it) == 0) {
+          if (fnmatch((*it).c_str(),
+                      instFilename.str().c_str(), FNM_PATHNAME) == 0) {
 
             return true;
 
