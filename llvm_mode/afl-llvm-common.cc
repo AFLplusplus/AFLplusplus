@@ -159,13 +159,20 @@ bool isInWhitelist(llvm::Function *F) {
          * matching if AFL_LLVM_WHITELIST_FNMATCH is set */
 
         if (instFilename.str().length() >= it->length()) {
-          if (enable_fnmatch  && fnmatch((*it).c_str(),
-                instFilename.str().c_str(), 0) == 0) {
+
+          if (enable_fnmatch &&
+              fnmatch((*it).c_str(), instFilename.str().c_str(), 0) == 0) {
+
             return true;
-          } else if (!enable_fnmatch && instFilename.str().compare(
-                       instFilename.str().length() - it->length(),
-                       it->length(), *it) == 0) {
+
+          } else if (!enable_fnmatch &&
+
+                     instFilename.str().compare(
+                         instFilename.str().length() - it->length(),
+                         it->length(), *it) == 0) {
+
             return true;
+
           }
 
         }
@@ -200,13 +207,20 @@ bool isInWhitelist(llvm::Function *F) {
          * matching if AFL_LLVM_WHITELIST_FNMATCH is set */
 
         if (instFilename.str().length() >= it->length()) {
-          if (enable_fnmatch  && fnmatch((*it).c_str(),
-                instFilename.str().c_str(), 0) == 0) {
+
+          if (enable_fnmatch &&
+              fnmatch((*it).c_str(), instFilename.str().c_str(), 0) == 0) {
+
             return true;
-          } else if (!enable_fnmatch && instFilename.str().compare(
-                       instFilename.str().length() - it->length(),
-                       it->length(), *it) == 0) {
+
+          } else if (!enable_fnmatch &&
+
+                     instFilename.str().compare(
+                         instFilename.str().length() - it->length(),
+                         it->length(), *it) == 0) {
+
             return true;
+
           }
 
         }
