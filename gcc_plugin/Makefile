@@ -35,11 +35,11 @@ CFLAGS = -Wall -I../include -Wno-pointer-sign \
                -DGCC_VERSION=\"$(GCCVER)\" -DGCC_BINDIR=\"$(GCCBINDIR)\" \
                -Wno-unused-function
 
-CXXFLAGS    ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=2
+CXXFLAGS    = -O3 -g -funroll-loops -D_FORTIFY_SOURCE=2
 CXXEFLAGS   = $(CXXFLAGS) -Wall
 
-CC          ?= gcc
-CXX         ?= g++
+CC          = gcc
+CXX         = g++
 
 MYCC=$(CC:clang=gcc)
 MYCXX=$(CXX:clang++=g++)
@@ -50,7 +50,9 @@ PLUGIN_FLAGS = -fPIC -fno-rtti -I"$(PLUGIN_PATH)/include"
 HASH=\#
 
 GCCVER    = $(shell $(MYCC) --version 2>/dev/null | awk 'NR == 1 {print $$NF}')
+GCCVER:sh= gcc --version 2>/dev/null | awk 'NR == 1 {print $$NF}'
 GCCBINDIR = $(shell dirname `command -v $(MYCC)` 2>/dev/null )
+GCCBINDIR:sh= dirname `command -v $(MYCC)` 2>/dev/null
 
 _SHMAT_OK= $(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(MYCC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )
 _SHMAT_OK:sh= echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(MYCC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2
@@ -70,7 +72,7 @@ LDFLAGS += $(LDFLAGS_ADD)
 
 PROGS        = ../afl-gcc-pass.so ../afl-gcc-fast ../afl-gcc-rt.o
 
-all: test_shm test_deps $(PROGS) afl-gcc-fast.8 test_build all_done
+all: test_shm test_deps $(PROGS) ../afl-gcc-fast.8 test_build all_done
 
 debug:
 	@echo _SHMAT_OK = $(_SHMAT_OK)
@@ -101,24 +103,24 @@ test_deps:
 afl-common.o: ../src/afl-common.c
 	$(MYCC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
-../afl-gcc-fast: afl-gcc-fast.c afl-common.o | test_deps
-	$(MYCC) -DAFL_GCC_CC=\"$(MYCC)\" -DAFL_GCC_CXX=\"$(MYCXX)\" $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS)
+../afl-gcc-fast: afl-gcc-fast.c afl-common.o
+	$(MYCC) -DAFL_GCC_CC=\"$(MYCC)\" -DAFL_GCC_CXX=\"$(MYCXX)\" $(CFLAGS) afl-gcc-fast.c afl-common.o -o $@ $(LDFLAGS)
 	ln -sf afl-gcc-fast ../afl-g++-fast
 
-../afl-gcc-pass.so: afl-gcc-pass.so.cc | test_deps
-	$(MYCXX) $(CXXEFLAGS) $(PLUGIN_FLAGS) -shared $< -o $@
+../afl-gcc-pass.so: afl-gcc-pass.so.cc
+	$(MYCXX) $(CXXEFLAGS) $(PLUGIN_FLAGS) -shared afl-gcc-pass.so.cc -o $@
 
-../afl-gcc-rt.o: afl-gcc-rt.o.c | test_deps
-	$(MYCC) $(CFLAGS) -fPIC -c $< -o $@
+../afl-gcc-rt.o: afl-gcc-rt.o.c
+	$(MYCC) $(CFLAGS) -fPIC -c afl-gcc-rt.o.c -o $@
 
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
-	unset AFL_USE_ASAN AFL_USE_MSAN; AFL_QUIET=1 AFL_INST_RATIO=100 AFL_PATH=. AFL_CC=$(CC) ../afl-gcc-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
+	@unset AFL_USE_ASAN AFL_USE_MSAN; AFL_QUIET=1 AFL_INST_RATIO=100 AFL_PATH=. AFL_CC=$(CC) ../afl-gcc-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
 #	unset AFL_USE_ASAN AFL_USE_MSAN;             AFL_INST_RATIO=100 AFL_PATH=. AFL_CC=$(CC) ../afl-gcc-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
-	ASAN_OPTIONS=detect_leaks=0 ../afl-showmap -m none -q -o .test-instr0 ./test-instr </dev/null
-	echo 1 | ASAN_OPTIONS=detect_leaks=0 ../afl-showmap -m none -q -o .test-instr1 ./test-instr
+	@ASAN_OPTIONS=detect_leaks=0 ../afl-showmap -m none -q -o .test-instr0 ./test-instr </dev/null
+	@ASAN_OPTIONS=detect_leaks=0 echo 1 | ../afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
-	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
+	@trap 'rm .test-instr0 .test-instr1' 0;if cmp -s .test-instr0 .test-instr1; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
 	@echo "[+] All right, the instrumentation seems to be working!"
 
 all_done: test_build
@@ -126,8 +128,7 @@ all_done: test_build
 
 .NOTPARALLEL: clean
 
-VPATH = ..
-%.8: %
+../afl-gcc-fast.8: ../afl-gcc-fast
 	@echo .TH $* 8 `date "+%Y-%m-%d"` "afl++" > ../$@
 	@echo .SH NAME >> ../$@
 	@echo .B $* >> ../$@

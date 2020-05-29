@@ -45,30 +45,30 @@ static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
 static u8  instrument_mode, instrument_opt_mode, ngram_size, lto_mode, cpp_mode;
 static u8 *lto_flag = AFL_CLANG_FLTO;
-static u8 *march_opt = CFLAGS_OPT;
 static u8  debug;
 static u8  cwd[4096];
 static u8  cmplog_mode;
 u8         use_stdin = 0;                                          /* dummy */
+// static u8 *march_opt = CFLAGS_OPT;
 
 enum {
 
-  INSTRUMENT_CLASSIC = 0,
-  INSTRUMENT_AFL = 0,
-  INSTRUMENT_DEFAULT = 0,
-  INSTRUMENT_PCGUARD = 1,
-  INSTRUMENT_INSTRIM = 2,
-  INSTRUMENT_CFG = 2,
-  INSTRUMENT_LTO = 3,
-  INSTRUMENT_OPT_CTX = 4,
-  INSTRUMENT_OPT_NGRAM = 8
+  INSTURMENT_DEFAULT = 0,
+  INSTRUMENT_CLASSIC = 1,
+  INSTRUMENT_AFL = 1,
+  INSTRUMENT_PCGUARD = 2,
+  INSTRUMENT_INSTRIM = 3,
+  INSTRUMENT_CFG = 3,
+  INSTRUMENT_LTO = 4,
+  INSTRUMENT_OPT_CTX = 8,
+  INSTRUMENT_OPT_NGRAM = 16
 
 };
 
-char instrument_mode_string[10][16] = {
+char instrument_mode_string[18][18] = {
 
-    "CLASSIC", "PCGUARD", "CFG",   "LTO", "CTX", "",
-    "",        "",        "NGRAM", ""
+    "DEFAULT", "CLASSIC", "PCGUARD", "CFG", "LTO", "", "",      "", "CTX", "",
+    "",        "",        "",        "",    "",    "", "NGRAM", ""
 
 };
 
@@ -206,6 +206,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
+  cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+
   if (lto_mode && cpp_mode)
     cc_params[cc_par_cnt++] = "-lc++";  // needed by fuzzbench, early
 
@@ -219,6 +221,20 @@ static void edit_params(u32 argc, char **argv, char **envp) {
      InsTrimLTO, the latter is faster. The LTO modes are activated by using
      afl-clang-lto(++)
    */
+
+  if (lto_mode) {
+
+    if (getenv("AFL_LLVM_WHITELIST") != NULL) {
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-llvm-lto-whitelist.so", obj_path);
+
+    }
+
+  }
 
   // laf
   if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
@@ -289,16 +305,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (lto_mode) {
 
-    if (getenv("AFL_LLVM_WHITELIST") != NULL) {
-
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/afl-llvm-lto-whitelist.so", obj_path);
-
-    }
-
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
     if (instrument_mode == INSTRUMENT_CFG)
@@ -331,7 +337,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  cc_params[cc_par_cnt++] = "-Qunused-arguments";
+  // cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
   // in case LLVM is installed not via a package manager or "make install"
   // e.g. compiled download or compiled from github then it's ./lib directory
@@ -436,8 +442,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-g";
     cc_params[cc_par_cnt++] = "-O3";
     cc_params[cc_par_cnt++] = "-funroll-loops";
-    if (strlen(march_opt) > 1 && march_opt[0] == '-')
-      cc_params[cc_par_cnt++] = march_opt;
+    // if (strlen(march_opt) > 1 && march_opt[0] == '-')
+    //  cc_params[cc_par_cnt++] = march_opt;
 
   }
 
@@ -484,6 +490,19 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         __asm__ aliasing trick.
 
    */
+
+  cc_params[cc_par_cnt++] =
+      "-D__AFL_FUZZ_INIT()="
+      "int __afl_sharedmem_fuzzing = 1;"
+      "extern unsigned int __afl_fuzz_len;"
+      "extern unsigned char *__afl_fuzz_ptr;"
+      "unsigned char *__afl_fuzz_alt_ptr;";
+  cc_params[cc_par_cnt++] =
+      "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
+      "(__afl_fuzz_alt_ptr = malloc(1 * 1024 * 1024)))";
+  cc_params[cc_par_cnt++] =
+      "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? __afl_fuzz_len : read(0, "
+      "__afl_fuzz_alt_ptr, 1 * 1024 * 1024))";
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_LOOP(_A)="
@@ -584,10 +603,6 @@ int main(int argc, char **argv, char **envp) {
 
     be_quiet = 1;
 
-#ifdef USE_TRACE_PC
-  instrument_mode = INSTRUMENT_PCGUARD;
-#endif
-
   if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
       getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
 
@@ -629,12 +644,11 @@ int main(int argc, char **argv, char **envp) {
 
     while (ptr) {
 
-      if (strncasecmp(ptr, "default", strlen("default")) == 0 ||
-          strncasecmp(ptr, "afl", strlen("afl")) == 0 ||
+      if (strncasecmp(ptr, "afl", strlen("afl")) == 0 ||
           strncasecmp(ptr, "classic", strlen("classic")) == 0) {
 
-        if (!instrument_mode || instrument_mode == INSTRUMENT_DEFAULT)
-          instrument_mode = INSTRUMENT_DEFAULT;
+        if (!instrument_mode || instrument_mode == INSTRUMENT_AFL)
+          instrument_mode = INSTRUMENT_AFL;
         else
           FATAL("main instrumentation mode already set with %s",
                 instrument_mode_string[instrument_mode]);
@@ -740,6 +754,17 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+  if (instrument_mode == 0) {
+
+#ifndef USE_TRACE_PC
+    if (getenv("AFL_LLVM_WHITELIST"))
+      instrument_mode = INSTRUMENT_AFL;
+    else
+#endif
+      instrument_mode = INSTRUMENT_PCGUARD;
+
+  }
+
   if (instrument_opt_mode && lto_mode)
     FATAL(
         "CTX and NGRAM can not be used in LTO mode (and would make LTO "
@@ -779,6 +804,9 @@ int main(int argc, char **argv, char **envp) {
     FATAL(
         "AFL_LLVM_NOT_ZERO and AFL_LLVM_SKIP_NEVERZERO can not be set "
         "together");
+
+  if (instrument_mode == INSTRUMENT_PCGUARD && getenv("AFL_LLVM_WHITELIST"))
+    WARNF("Instrumentation type PCGUARD does not support AFL_LLVM_WHITELIST!");
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -820,14 +848,14 @@ int main(int argc, char **argv, char **envp) {
         "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
         "AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
         "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
-        "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to "
-        "cascaded "
-        "comp.\n"
+        "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
         "AFL_LLVM_LAF_SPLIT_SWITCHES: casc. comp. in 'switch'\n"
         " to cascaded comparisons\n"
+        "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to "
+        "cascaded comp.\n"
         "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
         "function calls\n"
-        "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
+        "AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
         "AFL_LLVM_WHITELIST: enable whitelisting (selective "
         "instrumentation)\n"
         "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
@@ -843,12 +871,13 @@ int main(int argc, char **argv, char **envp) {
     SAYF(
         "\nafl-clang-fast specific environment variables:\n"
         "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
-        "AFL_LLVM_INSTRUMENT: set instrumentation mode: DEFAULT, CFG "
-        "(INSTRIM), PCGUARD, LTO, CTX, NGRAM-2 ... NGRAM-16\n"
-        " You can also use the old environment variables instead:"
-        "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
+        "AFL_LLVM_INSTRUMENT: set instrumentation mode: AFL, CFG "
+        "(INSTRIM), PCGUARD [DEFAULT], LTO, CTX, NGRAM-2 ... NGRAM-16\n"
+        " You can also use the old environment variables instead:\n"
+        "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation "
+        "[DEFAULT]\n"
         "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
-        "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed (sub "
+        "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed ("
         "option to INSTRIM)\n"
         "  AFL_LLVM_CTX: use context sensitive coverage\n"
         "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage\n");
@@ -914,6 +943,15 @@ int main(int argc, char **argv, char **envp) {
   }
 
   check_environment_vars(envp);
+
+  if (getenv("AFL_LLVM_LAF_ALL")) {
+
+    setenv("AFL_LLVM_LAF_SPLIT_SWITCHES", "1", 1);
+    setenv("AFL_LLVM_LAF_SPLIT_COMPARES", "1", 1);
+    setenv("AFL_LLVM_LAF_SPLIT_FLOATS", "1", 1);
+    setenv("AFL_LLVM_LAF_TRANSFORM_COMPARES", "1", 1);
+
+  }
 
   cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG");
   if (!be_quiet && cmplog_mode)

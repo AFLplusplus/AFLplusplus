@@ -51,9 +51,9 @@ endif
 endif
 
 ifneq "$(shell uname)" "Darwin"
- ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-	CFLAGS_OPT += -march=native
- endif
+ #ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ #	CFLAGS_OPT += -march=native
+ #endif
  # OS X does not like _FORTIFY_SOURCE=2
  CFLAGS_OPT += -D_FORTIFY_SOURCE=2
 endif
@@ -88,6 +88,16 @@ CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
 override CFLAGS += -Wall -g -Wno-pointer-sign -Wmissing-declarations\
 			  -I include/ -Werror -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
+
+ifeq "$(shell uname -s)" "FreeBSD"
+  override CFLAGS  += -I /usr/local/include/
+  LDFLAGS += -L /usr/local/lib/
+endif
+
+ifeq "$(shell uname -s)" "DragonFly"
+  override CFLAGS  += -I /usr/local/include/
+  LDFLAGS += -L /usr/local/lib/
+endif
 
 ifeq "$(shell uname -s)" "OpenBSD"
   override CFLAGS  += -I /usr/local/include/
@@ -493,7 +503,7 @@ distrib: all radamsa
 	$(MAKE) -C examples/afl_network_proxy
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
-	cd qemu_mode && sh ./build_qemu_support.sh
+	-cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && sh ./build_unicorn_support.sh
 
 binary-only: all radamsa
@@ -502,7 +512,7 @@ binary-only: all radamsa
 	$(MAKE) -C examples/afl_network_proxy
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
-	cd qemu_mode && sh ./build_qemu_support.sh
+	-cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && sh ./build_unicorn_support.sh
 
 source-only: all radamsa

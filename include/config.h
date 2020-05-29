@@ -28,7 +28,7 @@
 /* Version string: */
 
 // c = release, d = volatile github dev, e = experimental branch
-#define VERSION "++2.65c"
+#define VERSION "++2.65d"
 
 /******************************************************
  *                                                    *
@@ -303,6 +303,10 @@
 /* Environment variable used to pass SHM ID to the called program. */
 
 #define SHM_ENV_VAR "__AFL_SHM_ID"
+
+/* Environment variable used to pass SHM FUZZ ID to the called program. */
+
+#define SHM_FUZZ_ENV_VAR "__AFL_SHM_FUZZ_ID"
 
 /* Other less interesting, internal-only variables. */
 

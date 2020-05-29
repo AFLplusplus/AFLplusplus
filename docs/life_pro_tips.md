@@ -82,8 +82,8 @@ You can find a simple solution in examples/argv_fuzzing.
 
 ## Attacking a format that uses checksums? 
 
-Remove the checksum-checking code or
-use a postprocessor! See examples/post_library/ for more.
+Remove the checksum-checking code or use a postprocessor!
+See examples/custom_mutators/ for more.
 
 ## Dealing with a very slow target or hoping for instant results? 
 

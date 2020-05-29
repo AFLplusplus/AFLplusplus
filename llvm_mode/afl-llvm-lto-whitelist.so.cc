@@ -122,64 +122,65 @@ bool AFLwhitelist::runOnModule(Module &M) {
 
   for (auto &F : M) {
 
+    if (F.size() < 1) continue;
+    // fprintf(stderr, "F:%s\n", F.getName().str().c_str());
     if (isBlacklisted(&F)) continue;
 
-    for (auto &BB : F) {
+    BasicBlock::iterator IP = F.getEntryBlock().getFirstInsertionPt();
+    IRBuilder<>          IRB(&(*IP));
 
-      BasicBlock::iterator IP = BB.getFirstInsertionPt();
-      IRBuilder<>          IRB(&(*IP));
+    if (!myWhitelist.empty()) {
 
-      if (!myWhitelist.empty()) {
+      bool instrumentFunction = false;
 
-        bool instrumentBlock = false;
+      /* Get the current location using debug information.
+       * For now, just instrument the block if we are not able
+       * to determine our location. */
+      DebugLoc Loc = IP->getDebugLoc();
+      if (Loc) {
 
-        /* Get the current location using debug information.
-         * For now, just instrument the block if we are not able
-         * to determine our location. */
-        DebugLoc Loc = IP->getDebugLoc();
-        if (Loc) {
+        DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
 
-          DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
+        unsigned int instLine = cDILoc->getLine();
+        StringRef    instFilename = cDILoc->getFilename();
 
-          unsigned int instLine = cDILoc->getLine();
-          StringRef    instFilename = cDILoc->getFilename();
+        if (instFilename.str().empty()) {
 
-          if (instFilename.str().empty()) {
+          /* If the original location is empty, try using the inlined location
+           */
+          DILocation *oDILoc = cDILoc->getInlinedAt();
+          if (oDILoc) {
 
-            /* If the original location is empty, try using the inlined location
-             */
-            DILocation *oDILoc = cDILoc->getInlinedAt();
-            if (oDILoc) {
-
-              instFilename = oDILoc->getFilename();
-              instLine = oDILoc->getLine();
-
-            }
+            instFilename = oDILoc->getFilename();
+            instLine = oDILoc->getLine();
 
           }
 
-          (void)instLine;
+        }
 
-          /* Continue only if we know where we actually are */
-          if (!instFilename.str().empty()) {
+        (void)instLine;
 
-            for (std::list<std::string>::iterator it = myWhitelist.begin();
-                 it != myWhitelist.end(); ++it) {
+        if (debug)
+          SAYF(cMGN "[D] " cRST "function %s is in file %s\n",
+               F.getName().str().c_str(), instFilename.str().c_str());
+        /* Continue only if we know where we actually are */
+        if (!instFilename.str().empty()) {
 
-              /* We don't check for filename equality here because
-               * filenames might actually be full paths. Instead we
-               * check that the actual filename ends in the filename
-               * specified in the list. */
-              if (instFilename.str().length() >= it->length()) {
+          for (std::list<std::string>::iterator it = myWhitelist.begin();
+               it != myWhitelist.end(); ++it) {
 
-                if (instFilename.str().compare(
-                        instFilename.str().length() - it->length(),
-                        it->length(), *it) == 0) {
+            /* We don't check for filename equality here because
+             * filenames might actually be full paths. Instead we
+             * check that the actual filename ends in the filename
+             * specified in the list. */
+            if (instFilename.str().length() >= it->length()) {
 
-                  instrumentBlock = true;
-                  break;
+              if (instFilename.str().compare(
+                      instFilename.str().length() - it->length(), it->length(),
+                      *it) == 0) {
 
-                }
+                instrumentFunction = true;
+                break;
 
               }
 
@@ -189,43 +190,35 @@ bool AFLwhitelist::runOnModule(Module &M) {
 
         }
 
-        /* Either we couldn't figure out our location or the location is
-         * not whitelisted, so we skip instrumentation.
-         * We do this by renaming the function. */
-        if (!instrumentBlock) {
+      }
 
-          if (F.getName().compare("main") == 0 ||
-              F.getName().compare("start") == 0 ||
-              F.getName().compare("_start") == 0 ||
-              F.getName().compare("init") == 0 ||
-              F.getName().compare("_init") == 0) {
+      /* Either we couldn't figure out our location or the location is
+       * not whitelisted, so we skip instrumentation.
+       * We do this by renaming the function. */
+      if (instrumentFunction == true) {
 
-            // We do not honor be_quiet for this one
-            WARNF("Cannot ignore functions main/init/start");
-
-          } else {
-
-            // StringRef newName = StringRef("ign.") + F.getName();
-            if (debug)
-              SAYF(cMGN "[D] " cRST "renamed %s to ign.%s\n",
-                   F.getName().str().c_str(), F.getName().str().c_str());
-            Function *_F(&F);
-            _F->setName("ign." + F.getName());
-
-          }
-
-        } else if (debug)
-
+        if (debug)
           SAYF(cMGN "[D] " cRST "function %s is in whitelist\n",
                F.getName().str().c_str());
 
       } else {
 
-        PFATAL("Whitelist is empty");
+        if (debug)
+          SAYF(cMGN "[D] " cRST "function %s is NOT in whitelist\n",
+               F.getName().str().c_str());
+
+        auto &        Ctx = F.getContext();
+        AttributeList Attrs = F.getAttributes();
+        AttrBuilder   NewAttrs;
+        NewAttrs.addAttribute("skipinstrument");
+        F.setAttributes(
+            Attrs.addAttributes(Ctx, AttributeList::FunctionIndex, NewAttrs));
 
       }
 
-      break;
+    } else {
+
+      PFATAL("Whitelist is empty");
 
     }
 

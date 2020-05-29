@@ -147,8 +147,8 @@ non-instrumented binary with the same optimization flags that are normally
 injected by afl-gcc, and make sure that the bits to be tested are statically
 linked into the binary. A common way to do this would be:
 
-$ CFLAGS="-O3 -funroll-loops" ./configure --disable-shared
-$ make clean all
+CFLAGS="-O3 -funroll-loops" ./configure --disable-shared
+make clean all
 
 Comparative measurements of execution speed or instrumentation coverage will be
 fairly meaningless if the optimization levels or instrumentation scopes don't
@@ -157,7 +157,7 @@ match.
 ## 10) Gotchas, feedback, bugs
 
 If you need to fix up checksums or do other cleanup on mutated test cases, see
-examples/post_library/ for a viable solution.
+examples/custom_mutators/ for a viable solution.
 
 Do not mix QEMU mode with ASAN, MSAN, or the likes; QEMU doesn't appreciate
 the "shadow VM" trick employed by the sanitizers and will probably just

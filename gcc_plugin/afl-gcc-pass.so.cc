@@ -49,7 +49,7 @@
 
 #define BUILD_INLINE_INST
 
-#include "../config.h"
+#include "../include/config.h"
 #include "../include/debug.h"
 
 /* clear helper macros AFL types pull in, which intervene with gcc-plugin
@@ -502,7 +502,7 @@ int plugin_is_GPL_compatible = 1;
 
 static struct plugin_info afl_plugin_info = {
 
-    .version = "20191015",
+    .version = "20200519",
     .help = "AFL++ gcc plugin\n",
 
 };
@@ -528,7 +528,7 @@ int plugin_init(struct plugin_name_args *  plugin_info,
 
   if (!plugin_default_version_check(version, &gcc_version)) {
 
-    FATAL(G_("Incompatible gcc/plugin versions!"));
+    FATAL(G_("Incompatible gcc/plugin versions! Expected GCC %d.%d"), GCCPLUGIN_VERSION_MAJOR, GCCPLUGIN_VERSION_MINOR);
 
   }
 

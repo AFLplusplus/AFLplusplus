@@ -2,13 +2,14 @@
 
 ## Roadmap 2.65+
 
- - sync_fuzzers(): only masters sync from all, slaves only sync from master
-   (@andrea: be careful, often people run all slaves)
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - random crc32 HASH_CONST per run? because with 65536 paths we have collisions
  - namespace for targets? e.g. network
  - libradamsa as a custom module?
- - focal for travis
+ - learn from honggfuzz
+ - for persistent mode, have a functionality that transports the test case
+   via shared memory (and the int write to the FD from afl-fuzz is the size)
+ - CPU affinity for many cores?
 
 ## Further down the road
 

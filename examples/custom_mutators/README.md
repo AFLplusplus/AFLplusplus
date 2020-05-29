@@ -15,6 +15,10 @@ example.c - this is a simple example written in C and should be compiled to a
 example.py - this is the template you can use, the functions are there but they
            are empty
 
+post_library_gif.so.c - fix a fuzz input to ensure it is valid for GIF
+
+post_library_png.so.c - fix a fuzz input to ensure it is valid for PNG
+
 simple-chunk-replace.py - this is a simple example where chunks are replaced
 
 common.py - this can be used for common functions and helpers.

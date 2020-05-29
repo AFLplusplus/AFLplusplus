@@ -304,17 +304,27 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           if (!(HasStr1 || HasStr2)) continue;
 
           if (isMemcmp || isStrncmp || isStrncasecmp) {
-
             /* check if third operand is a constant integer
              * strlen("constStr") and sizeof() are treated as constant */
             Value *      op2 = callInst->getArgOperand(2);
             ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
-            if (!ilen) continue;
-            /* final precaution: if size of compare is larger than constant
-             * string skip it*/
-            uint64_t literalLength = HasStr1 ? Str1.size() : Str2.size();
-            if (literalLength + 1 < ilen->getZExtValue()) continue;
+            if (ilen) {
+              uint64_t len = ilen->getZExtValue();
+              // if len is zero this is a pointless call but allow real
+              // implementation to worry about that
+              if (!len) continue;
 
+              if (isMemcmp) {
+                // if size of compare is larger than constant string this is
+                // likely a bug but allow real implementation to worry about
+                // that
+                uint64_t literalLength = HasStr1 ? Str1.size() : Str2.size();
+                if (literalLength + 1 < ilen->getZExtValue()) continue;
+              }
+            } else if (isMemcmp)
+              // this *may* supply a len greater than the constant string at
+              // runtime so similarly we don't want to have to handle that
+              continue;
           }
 
           calls.push_back(callInst);
@@ -341,7 +351,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     Value *     VarStr;
     bool        HasStr1 = getConstantStringInfo(Str1P, Str1);
     bool        HasStr2 = getConstantStringInfo(Str2P, Str2);
-    uint64_t    constLen, sizedLen;
+    uint64_t    constStrLen, constSizedLen, unrollLen;
     bool        isMemcmp =
         !callInst->getCalledFunction()->getName().compare(StringRef("memcmp"));
     bool isSizedcmp = isMemcmp ||
@@ -349,22 +359,12 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                           StringRef("strncmp")) ||
                       !callInst->getCalledFunction()->getName().compare(
                           StringRef("strncasecmp"));
+    Value *sizedValue = isSizedcmp ? callInst->getArgOperand(2) : NULL;
+    bool isConstSized = sizedValue && isa<ConstantInt>(sizedValue);
     bool isCaseInsensitive = !callInst->getCalledFunction()->getName().compare(
                                  StringRef("strcasecmp")) ||
                              !callInst->getCalledFunction()->getName().compare(
                                  StringRef("strncasecmp"));
-
-    if (isSizedcmp) {
-
-      Value *      op2 = callInst->getArgOperand(2);
-      ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
-      sizedLen = ilen->getZExtValue();
-
-    } else {
-
-      sizedLen = 0;
-
-    }
 
     if (!(HasStr1 || HasStr2)) {
 
@@ -389,93 +389,133 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     }
 
+    if (isConstSized) {
+
+      constSizedLen = dyn_cast<ConstantInt>(sizedValue)->getZExtValue();
+
+    }
+
     if (HasStr1) {
 
       TmpConstStr = Str1.str();
       VarStr = Str2P;
-      constLen = isMemcmp ? sizedLen : TmpConstStr.length();
 
     } else {
 
       TmpConstStr = Str2.str();
       VarStr = Str1P;
-      constLen = isMemcmp ? sizedLen : TmpConstStr.length();
 
     }
 
-    /* properly handle zero terminated C strings by adding the terminating 0 to
-     * the StringRef (in comparison to std::string a StringRef has built-in
-     * runtime bounds checking, which makes debugging easier) */
+    // add null termination character implicit in c strings
     TmpConstStr.append("\0", 1);
-    if (!sizedLen) constLen++;
+
+    // in the unusual case the const str has embedded null
+    // characters, the string comparison functions should terminate
+    // at the first null
+    if (!isMemcmp)
+      TmpConstStr.assign(TmpConstStr, 0, TmpConstStr.find('\0') + 1);
+
+    constStrLen = TmpConstStr.length();
+    // prefer use of StringRef (in comparison to std::string a StringRef has
+    // built-in runtime bounds checking, which makes debugging easier)
     ConstStr = StringRef(TmpConstStr);
-    // fprintf(stderr, "issized: %d, const > sized ? %u > %u\n", isSizedcmp,
-    // constLen, sizedLen);
-    if (isSizedcmp && constLen > sizedLen && sizedLen) constLen = sizedLen;
-    if (constLen > TmpConstStr.length()) constLen = TmpConstStr.length();
-    if (!constLen) constLen = TmpConstStr.length();
-    if (!constLen) continue;
+
+    if (isConstSized)
+      unrollLen = constSizedLen < constStrLen ? constSizedLen : constStrLen;
+    else
+      unrollLen = constStrLen;
 
     if (!be_quiet)
-      errs() << callInst->getCalledFunction()->getName() << ": len " << constLen
+      errs() << callInst->getCalledFunction()->getName() << ": unroll len " << unrollLen
+             << ((isSizedcmp && !isConstSized) ? ", variable n" : "")
              << ": " << ConstStr << "\n";
 
     /* split before the call instruction */
     BasicBlock *bb = callInst->getParent();
     BasicBlock *end_bb = bb->splitBasicBlock(BasicBlock::iterator(callInst));
-    BasicBlock *next_bb =
+
+    BasicBlock *next_lenchk_bb = NULL;
+    if (isSizedcmp && !isConstSized) {
+      next_lenchk_bb = BasicBlock::Create(C, "len_check", end_bb->getParent(), end_bb);
+      BranchInst::Create(end_bb, next_lenchk_bb);
+    }
+    BasicBlock *next_cmp_bb =
         BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
-    BranchInst::Create(end_bb, next_bb);
-    PHINode *PN = PHINode::Create(Int32Ty, constLen + 1, "cmp_phi");
+    BranchInst::Create(end_bb, next_cmp_bb);
+    PHINode *PN = PHINode::Create(Int32Ty, (next_lenchk_bb ? 2 : 1) * unrollLen + 1, "cmp_phi");
+
 
 #if LLVM_VERSION_MAJOR < 8
     TerminatorInst *term = bb->getTerminator();
 #else
     Instruction *term = bb->getTerminator();
 #endif
-    BranchInst::Create(next_bb, bb);
+    BranchInst::Create(next_lenchk_bb ? next_lenchk_bb : next_cmp_bb, bb);
     term->eraseFromParent();
 
-    for (uint64_t i = 0; i < constLen; i++) {
+    for (uint64_t i = 0; i < unrollLen; i++) {
 
-      BasicBlock *cur_bb = next_bb;
+      BasicBlock *cur_cmp_bb = next_cmp_bb, *cur_lenchk_bb = next_lenchk_bb;
+      unsigned char c;
 
-      char c = isCaseInsensitive ? tolower(ConstStr[i]) : ConstStr[i];
+      if (cur_lenchk_bb) {
 
-      BasicBlock::iterator IP = next_bb->getFirstInsertionPt();
-      IRBuilder<>          IRB(&*IP);
+        IRBuilder<> cur_lenchk_IRB(&*(cur_lenchk_bb->getFirstInsertionPt()));
+        Value *icmp = cur_lenchk_IRB.CreateICmpEQ(
+          sizedValue, ConstantInt::get(Int64Ty, i));
+        cur_lenchk_IRB.CreateCondBr(icmp, end_bb, cur_cmp_bb);
+        cur_lenchk_bb->getTerminator()->eraseFromParent();
+
+        PN->addIncoming(ConstantInt::get(Int32Ty, 0), cur_lenchk_bb);
+
+      }
+
+      if (isCaseInsensitive)
+        c = (unsigned char)(tolower((int)ConstStr[i]) & 0xff);
+      else
+        c = (unsigned char)ConstStr[i];
+
+      IRBuilder<> cur_cmp_IRB(&*(cur_cmp_bb->getFirstInsertionPt()));
 
       Value *v = ConstantInt::get(Int64Ty, i);
-      Value *ele = IRB.CreateInBoundsGEP(VarStr, v, "empty");
-      Value *load = IRB.CreateLoad(ele);
+      Value *ele = cur_cmp_IRB.CreateInBoundsGEP(VarStr, v, "empty");
+      Value *load = cur_cmp_IRB.CreateLoad(ele);
+
       if (isCaseInsensitive) {
 
         // load >= 'A' && load <= 'Z' ? load | 0x020 : load
+        load = cur_cmp_IRB.CreateZExt(load, Int32Ty);
         std::vector<Value *> args;
         args.push_back(load);
-        load = IRB.CreateCall(tolowerFn, args, "tmp");
-        load = IRB.CreateTrunc(load, Int8Ty);
+        load = cur_cmp_IRB.CreateCall(tolowerFn, args, "tmp");
+        load = cur_cmp_IRB.CreateTrunc(load, Int8Ty);
 
       }
 
       Value *isub;
       if (HasStr1)
-        isub = IRB.CreateSub(ConstantInt::get(Int8Ty, c), load);
+        isub = cur_cmp_IRB.CreateSub(ConstantInt::get(Int8Ty, c), load);
       else
-        isub = IRB.CreateSub(load, ConstantInt::get(Int8Ty, c));
+        isub = cur_cmp_IRB.CreateSub(load, ConstantInt::get(Int8Ty, c));
 
-      Value *sext = IRB.CreateSExt(isub, Int32Ty);
-      PN->addIncoming(sext, cur_bb);
+      Value *sext = cur_cmp_IRB.CreateSExt(isub, Int32Ty);
+      PN->addIncoming(sext, cur_cmp_bb);
 
-      if (i < constLen - 1) {
+      if (i < unrollLen - 1) {
 
-        next_bb =
+        if (cur_lenchk_bb) {
+          next_lenchk_bb = BasicBlock::Create(C, "len_check", end_bb->getParent(), end_bb);
+          BranchInst::Create(end_bb, next_lenchk_bb);
+        }
+
+        next_cmp_bb =
             BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
-        BranchInst::Create(end_bb, next_bb);
+        BranchInst::Create(end_bb, next_cmp_bb);
 
-        Value *icmp = IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
-        IRB.CreateCondBr(icmp, next_bb, end_bb);
-        cur_bb->getTerminator()->eraseFromParent();
+        Value *icmp = cur_cmp_IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
+        cur_cmp_IRB.CreateCondBr(icmp, next_lenchk_bb ? next_lenchk_bb : next_cmp_bb, end_bb);
+        cur_cmp_bb->getTerminator()->eraseFromParent();
 
       } else {
 

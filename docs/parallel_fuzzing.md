@@ -40,14 +40,14 @@ for every instance - say, "fuzzer01", "fuzzer02", etc.
 Run the first one ("master", -M) like this:
 
 ```
-$ ./afl-fuzz -i testcase_dir -o sync_dir -M fuzzer01 [...other stuff...]
+./afl-fuzz -i testcase_dir -o sync_dir -M fuzzer01 [...other stuff...]
 ```
 
 ...and then, start up secondary (-S) instances like this:
 
 ```
-$ ./afl-fuzz -i testcase_dir -o sync_dir -S fuzzer02 [...other stuff...]
-$ ./afl-fuzz -i testcase_dir -o sync_dir -S fuzzer03 [...other stuff...]
+./afl-fuzz -i testcase_dir -o sync_dir -S fuzzer02 [...other stuff...]
+./afl-fuzz -i testcase_dir -o sync_dir -S fuzzer03 [...other stuff...]
 ```
 
 Each fuzzer will keep its state in a separate subdirectory, like so:
@@ -57,21 +57,23 @@ Each fuzzer will keep its state in a separate subdirectory, like so:
 Each instance will also periodically rescan the top-level sync directory
 for any test cases found by other fuzzers - and will incorporate them into
 its own fuzzing when they are deemed interesting enough.
+For performance reasons only -M masters sync the queue with everyone, the
+-S slaves will only sync from the master.
 
 The difference between the -M and -S modes is that the master instance will
 still perform deterministic checks; while the secondary instances will
-proceed straight to random tweaks. If you don't want to do deterministic
-fuzzing at all, it's OK to run all instances with -S. With very slow or complex
-targets, or when running heavily parallelized jobs, this is usually a good plan.
+proceed straight to random tweaks.
+
+Note that you must always have one -M master instance!
 
 Note that running multiple -M instances is wasteful, although there is an
 experimental support for parallelizing the deterministic checks. To leverage
 that, you need to create -M instances like so:
 
 ```
-$ ./afl-fuzz -i testcase_dir -o sync_dir -M masterA:1/3 [...]
-$ ./afl-fuzz -i testcase_dir -o sync_dir -M masterB:2/3 [...]
-$ ./afl-fuzz -i testcase_dir -o sync_dir -M masterC:3/3 [...]
+./afl-fuzz -i testcase_dir -o sync_dir -M masterA:1/3 [...]
+./afl-fuzz -i testcase_dir -o sync_dir -M masterB:2/3 [...]
+./afl-fuzz -i testcase_dir -o sync_dir -M masterC:3/3 [...]
 ```
 
 ...where the first value after ':' is the sequential ID of a particular master
@@ -89,9 +91,9 @@ must use a separate temporary file; otherwise, things will go south. One safe
 example may be:
 
 ```
-$ ./afl-fuzz [...] -S fuzzer10 -f file10.txt ./fuzzed/binary @@
-$ ./afl-fuzz [...] -S fuzzer11 -f file11.txt ./fuzzed/binary @@
-$ ./afl-fuzz [...] -S fuzzer12 -f file12.txt ./fuzzed/binary @@
+./afl-fuzz [...] -S fuzzer10 -f file10.txt ./fuzzed/binary @@
+./afl-fuzz [...] -S fuzzer11 -f file11.txt ./fuzzed/binary @@
+./afl-fuzz [...] -S fuzzer12 -f file12.txt ./fuzzed/binary @@
 ```
 
 This is not a concern if you use @@ without -f and let afl-fuzz come up with the

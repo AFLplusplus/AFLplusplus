@@ -1,6 +1,6 @@
 all:
 	@echo trying to use GNU make...
-	@gmake all
+	@gmake all || echo please install GNUmake
 
 source-only:
 	@gmake source-only

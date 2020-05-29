@@ -17,7 +17,7 @@ You can start using the fuzzer without installation, but it is also possible to
 install it with:
 
 ```bash
-make install
+sudo make install
 ```
 
 There are no special dependencies to speak of; you will need GNU make and a
@@ -46,7 +46,7 @@ please install it first. As on Linux, you can use the fuzzer itself without
 installation, or install it with:
 
 ```
-gmake install
+sudo gmake install
 ```
 
 Keep in mind that if you are using csh as your shell, the syntax of some of the

@@ -232,8 +232,8 @@ static void edit_params(int argc, char **argv) {
 
   }
 
-  modified_file =
-      alloc_printf("%s/.afl-%u-%u.s", tmp_dir, (u32)getpid(), (u32)time(NULL));
+  modified_file = alloc_printf("%s/.afl-%u-%u-%u.s", tmp_dir, (u32)getpid(),
+                               (u32)time(NULL), (u32)random());
 
 wrap_things_up:
 
@@ -531,7 +531,7 @@ static void add_instrumentation(void) {
 int main(int argc, char **argv) {
 
   s32 pid;
-  u32 rand_seed;
+  u32 rand_seed, i, j;
   int status;
   u8 *inst_ratio_str = getenv("AFL_INST_RATIO");
 
@@ -590,6 +590,10 @@ int main(int argc, char **argv) {
   gettimeofday(&tv, &tz);
 
   rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
+  // in fast systems where pids can repeat in the same seconds we need this
+  for (i = 1; i < argc; i++)
+    for (j = 0; j < strlen(argv[i]); j++)
+      rand_seed += argv[i][j];
 
   srandom(rand_seed);
 

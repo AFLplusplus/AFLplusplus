@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
 
   }
 
-  if ((interface = index(argv[1], '%')) != NULL) *interface++ = 0;
+  if ((interface = strchr(argv[1], '%')) != NULL) *interface++ = 0;
 
   if (argc > 3)
     if ((max_len = atoi(argv[3])) < 0)

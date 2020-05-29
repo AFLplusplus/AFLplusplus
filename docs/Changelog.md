@@ -9,6 +9,41 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++2.65d (dev)
+  - afl-fuzz:
+     - -S slaves now only sync from the master to increase performance,
+       the -M master still syncs from everyone. Added checks that ensure
+       exactly one master is present and warn otherwise
+     - If no master is present at a sync one slave automatically becomes
+       a temporary master until a real master shows up
+     - fix/update to MOpt (thanks to arnow117)
+  - llvm_mode:
+    - the default instrumentation is now PCGUARD, as it is faster and provides
+      better coverage. The original afl instrumentation can be set via
+      AFL_LLVM_INSTRUMENT=AFL. This is automatically done when the WHITELIST
+      feature is used.
+    - lowered minimum required llvm version to 3.4 (except LLVMInsTrim,
+      which needs 3.8.0)
+    - small change to cmplog to make it work with current llvm 11-dev
+    - added AFL_LLVM_LAF_ALL, sets all laf-intel settings
+    - LTO whitelist functionality rewritten, now main, _init etc functions
+      need not to be whitelisted anymore
+    - fixed crash in compare-transform-pass when strcasecmp/strncasecmp was
+      tried to be instrumented with LTO
+    - fixed crash in cmplog with LTO
+    - enable snapshot lkm also for persistent mode
+  - persistent mode shared memory testcase handover (instead of via
+    files/stdin) - 10-100% performance increase
+  - General support for 64 bit PowerPC, RiscV, Sparc etc.
+  - slightly better performance compilation options for afl++ and targets
+  - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
+    the same second
+  - added lots of dictionaries from oss-fuzz, go-fuzz and Jakub Wilk
+  - added former post_library examples to examples/custom_mutators/
+  - Dockerfile upgraded to Ubuntu 20.04 Focal and installing llvm 11 and gcc 10
+    so afl-clang-lto can be build
+
+
 ### Version ++2.65c (release):
   - afl-fuzz:
      - AFL_MAP_SIZE was not working correctly
