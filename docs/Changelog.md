@@ -24,6 +24,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       feature is used.
     - lowered minimum required llvm version to 3.4 (except LLVMInsTrim,
       which needs 3.8.0)
+    - WHITELIST feature now supports wildcards (thanks to sirmc)
     - small change to cmplog to make it work with current llvm 11-dev
     - added AFL_LLVM_LAF_ALL, sets all laf-intel settings
     - LTO whitelist functionality rewritten, now main, _init etc functions
