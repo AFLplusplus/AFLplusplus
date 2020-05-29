@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <fnmatch.h>
 
 #include <list>
 #include <string>
@@ -152,12 +153,13 @@ bool isInWhitelist(llvm::Function *F) {
         /* We don't check for filename equality here because
          * filenames might actually be full paths. Instead we
          * check that the actual filename ends in the filename
-         * specified in the list. */
+         * specified in the list. We also allow UNIX-style pattern
+         * matching */
+
         if (instFilename.str().length() >= it->length()) {
 
-          if (instFilename.str().compare(
-                  instFilename.str().length() - it->length(), it->length(),
-                  *it) == 0) {
+          if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
+              0) {
 
             return true;
 
@@ -189,12 +191,13 @@ bool isInWhitelist(llvm::Function *F) {
         /* We don't check for filename equality here because
          * filenames might actually be full paths. Instead we
          * check that the actual filename ends in the filename
-         * specified in the list. */
+         * specified in the list. We also allow UNIX-style pattern
+         * matching */
+
         if (instFilename.str().length() >= it->length()) {
 
-          if (instFilename.str().compare(
-                  instFilename.str().length() - it->length(), it->length(),
-                  *it) == 0) {
+          if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
+              0) {
 
             return true;
 

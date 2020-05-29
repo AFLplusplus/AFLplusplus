@@ -73,3 +73,7 @@ For old LLVM versions this feature might require to be compiled with debug
 information (-g), however at least from llvm version 6.0 onwards this is not
 required anymore (and might hurt performance and crash detection, so better not
 use -g).
+
+## 4) UNIX-style filename pattern matching
+You can add UNIX-style pattern matching in the whitelist entries. See `man
+fnmatch` for the syntax. We do not set any of the `fnmatch` flags.
