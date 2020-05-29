@@ -304,27 +304,34 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           if (!(HasStr1 || HasStr2)) continue;
 
           if (isMemcmp || isStrncmp || isStrncasecmp) {
+
             /* check if third operand is a constant integer
              * strlen("constStr") and sizeof() are treated as constant */
             Value *      op2 = callInst->getArgOperand(2);
             ConstantInt *ilen = dyn_cast<ConstantInt>(op2);
             if (ilen) {
+
               uint64_t len = ilen->getZExtValue();
               // if len is zero this is a pointless call but allow real
               // implementation to worry about that
               if (!len) continue;
 
               if (isMemcmp) {
+
                 // if size of compare is larger than constant string this is
                 // likely a bug but allow real implementation to worry about
                 // that
                 uint64_t literalLength = HasStr1 ? Str1.size() : Str2.size();
                 if (literalLength + 1 < ilen->getZExtValue()) continue;
+
               }
+
             } else if (isMemcmp)
+
               // this *may* supply a len greater than the constant string at
               // runtime so similarly we don't want to have to handle that
               continue;
+
           }
 
           calls.push_back(callInst);
@@ -360,7 +367,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
                       !callInst->getCalledFunction()->getName().compare(
                           StringRef("strncasecmp"));
     Value *sizedValue = isSizedcmp ? callInst->getArgOperand(2) : NULL;
-    bool isConstSized = sizedValue && isa<ConstantInt>(sizedValue);
+    bool   isConstSized = sizedValue && isa<ConstantInt>(sizedValue);
     bool isCaseInsensitive = !callInst->getCalledFunction()->getName().compare(
                                  StringRef("strcasecmp")) ||
                              !callInst->getCalledFunction()->getName().compare(
@@ -427,9 +434,10 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       unrollLen = constStrLen;
 
     if (!be_quiet)
-      errs() << callInst->getCalledFunction()->getName() << ": unroll len " << unrollLen
-             << ((isSizedcmp && !isConstSized) ? ", variable n" : "")
-             << ": " << ConstStr << "\n";
+      errs() << callInst->getCalledFunction()->getName() << ": unroll len "
+             << unrollLen
+             << ((isSizedcmp && !isConstSized) ? ", variable n" : "") << ": "
+             << ConstStr << "\n";
 
     /* split before the call instruction */
     BasicBlock *bb = callInst->getParent();
@@ -437,14 +445,18 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     BasicBlock *next_lenchk_bb = NULL;
     if (isSizedcmp && !isConstSized) {
-      next_lenchk_bb = BasicBlock::Create(C, "len_check", end_bb->getParent(), end_bb);
+
+      next_lenchk_bb =
+          BasicBlock::Create(C, "len_check", end_bb->getParent(), end_bb);
       BranchInst::Create(end_bb, next_lenchk_bb);
+
     }
+
     BasicBlock *next_cmp_bb =
         BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
     BranchInst::Create(end_bb, next_cmp_bb);
-    PHINode *PN = PHINode::Create(Int32Ty, (next_lenchk_bb ? 2 : 1) * unrollLen + 1, "cmp_phi");
-
+    PHINode *PN = PHINode::Create(
+        Int32Ty, (next_lenchk_bb ? 2 : 1) * unrollLen + 1, "cmp_phi");
 
 #if LLVM_VERSION_MAJOR < 8
     TerminatorInst *term = bb->getTerminator();
@@ -456,14 +468,14 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     for (uint64_t i = 0; i < unrollLen; i++) {
 
-      BasicBlock *cur_cmp_bb = next_cmp_bb, *cur_lenchk_bb = next_lenchk_bb;
+      BasicBlock *  cur_cmp_bb = next_cmp_bb, *cur_lenchk_bb = next_lenchk_bb;
       unsigned char c;
 
       if (cur_lenchk_bb) {
 
         IRBuilder<> cur_lenchk_IRB(&*(cur_lenchk_bb->getFirstInsertionPt()));
-        Value *icmp = cur_lenchk_IRB.CreateICmpEQ(
-          sizedValue, ConstantInt::get(Int64Ty, i));
+        Value *     icmp = cur_lenchk_IRB.CreateICmpEQ(sizedValue,
+                                                  ConstantInt::get(Int64Ty, i));
         cur_lenchk_IRB.CreateCondBr(icmp, end_bb, cur_cmp_bb);
         cur_lenchk_bb->getTerminator()->eraseFromParent();
 
@@ -505,16 +517,21 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       if (i < unrollLen - 1) {
 
         if (cur_lenchk_bb) {
-          next_lenchk_bb = BasicBlock::Create(C, "len_check", end_bb->getParent(), end_bb);
+
+          next_lenchk_bb =
+              BasicBlock::Create(C, "len_check", end_bb->getParent(), end_bb);
           BranchInst::Create(end_bb, next_lenchk_bb);
+
         }
 
         next_cmp_bb =
             BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
         BranchInst::Create(end_bb, next_cmp_bb);
 
-        Value *icmp = cur_cmp_IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
-        cur_cmp_IRB.CreateCondBr(icmp, next_lenchk_bb ? next_lenchk_bb : next_cmp_bb, end_bb);
+        Value *icmp =
+            cur_cmp_IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
+        cur_cmp_IRB.CreateCondBr(
+            icmp, next_lenchk_bb ? next_lenchk_bb : next_cmp_bb, end_bb);
         cur_cmp_bb->getTerminator()->eraseFromParent();
 
       } else {
