@@ -401,8 +401,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   fsrv->fsrv_ctl_fd = ctl_pipe[1];
   fsrv->fsrv_st_fd = st_pipe[0];
 
-  set_nonblocking(fsrv->fsrv_st_fd);
-
   /* Wait for the fork server to come up, but don't wait too long. */
 
   rlen = 0;
@@ -857,6 +855,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
 
+    if (*stop_soon_p) { return 0; }
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
