@@ -880,6 +880,7 @@ void set_nonblocking(int fd) {
 
 }
 
+
 /* Wrapper for select() and read(), reading exactly len bytes.
   Should be called on non-blocking fds.
   Returns the time passed to read.
@@ -894,24 +895,24 @@ u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
   FD_ZERO(&readfds);
   FD_SET(fd, &readfds);
 
-  size_t  read_total = 0;
+  size_t read_total = 0;
   ssize_t len_read = 0;
 
-#if defined(__linux__)
-  timeout.tv_sec = (timeout_ms / 1000);
-  timeout.tv_usec = (timeout_ms % 1000) * 1000;
-#else
-  u64 time_start = get_cur_time_us();
-#endif
+  #if defined(__linux__)
+    timeout.tv_sec = (timeout_ms / 1000);
+    timeout.tv_usec = (timeout_ms % 1000) * 1000;
+  #else
+    u64 time_start = get_cur_time_us();
+  #endif
 
   while (read_total < len) {
 
-#if !defined(__linux__)
-    u64 time_current = get_cur_time_us();
-    u64 timeout_current = timeout_ms - (time_current - time_start);
-    timeout.tv_sec = (timeout_current / 1000);
-    timeout.tv_usec = (timeout_current % 1000) * 1000;
-#endif
+    #if !defined(__linux__)
+      u64 time_current = get_cur_time_us();
+      u64 timeout_current = timeout_ms - (time_current - time_start);
+      timeout.tv_sec = (timeout_current / 1000);
+      timeout.tv_usec = (timeout_current % 1000) * 1000;
+    #endif
 
     /* set exceptfds as well to return when a child exited/closed the pipe. */
     int sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
@@ -935,13 +936,13 @@ u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
 
   }
 
-#if defined(__linux__)
-  s32 exec_ms =
+  #if defined(__linux__)
+    s32 exec_ms =
       MIN(timeout_ms,
           ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
-#else
-  u32 exec_ms = get_cur_time_us() - time_start;
-#endif
+  #else
+    u32 exec_ms = get_cur_time_us() - time_start;
+  #endif
 
   return exec_ms > 0 ? exec_ms
                      : 1;  // at least 1 milli must have passed (0 is an error)
