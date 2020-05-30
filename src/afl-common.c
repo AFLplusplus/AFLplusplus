@@ -869,53 +869,51 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
 }
 
-/* Wrapper for select() and read(), reading exactly len bytes.
+/* Wrapper for select() and read(), reading len bytes.
+  Assumes that all bytes are available on read!
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
 u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
                volatile u8 *stop_soon_p) {
 
-  struct timeval timeout;
   fd_set         readfds;
   FD_ZERO(&readfds);
   FD_SET(fd, &readfds);
+  struct timeval timeout;
 
   timeout.tv_sec = (timeout_ms / 1000);
   timeout.tv_usec = (timeout_ms % 1000) * 1000;
+#if !defined(__linux__)
+  u64 read_start = get_cur_time_us();
+#endif
 
-  size_t read_total = 0;
-  ssize_t len_read = 0;
+  /* set exceptfds as well to return when a child exited/closed the pipe. */
+  int sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
 
-  while (read_total < len) {
+  if (!sret) {
 
-    /* set exceptfds as well to return when a child exited/closed the pipe. */
-    int sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
+    return timeout_ms + 1;
 
-    if (!sret) {
+  } else if (sret < 0) {
 
-      // printf("Timeout in sret.");
-      return timeout_ms + 1;
-
-    } else if (sret < 0) {
-
-      /* Retry select for all signals other than than ctrl+c */
-      if (errno == EINTR && !*stop_soon_p) { continue; }
-      return 0;
-
-    }
-
-    len_read = read(fd, ((u8 *)buf) + read_total, len - read_total);
-    if (len_read <= 0) { return 0; }
-    read_total += len_read;
+    return 0;
 
   }
 
-  s32 exec_ms =
+  ssize_t len_read = read(fd, ((u8 *)buf), len);
+  if (len_read < len) { return 0; }
+
+#if defined(__linux__)
+  u32 exec_ms =
       MIN(timeout_ms,
           ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
-  return exec_ms > 0 ? exec_ms
-                     : 1;  // at least 1 milli must have passed (0 is an error)
+#else
+  u32 exec_ms = get_cur_time_us() - read_start;
+#endif
+
+  // ensure to report 1 ms has passed (0 is an error)
+  return exec_ms > 0 ? exec_ms : 1;
 
 }
 
