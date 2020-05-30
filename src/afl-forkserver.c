@@ -119,6 +119,54 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
 }
 
+/* Wrapper for select() and read(), reading a 32 bit var.
+  Returns the time passed to read.
+  If the wait times out, returns timeout_ms + 1;
+  Returns 0 if an error occurred (fd closed, signal, ...); */
+static u32 read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
+                          volatile u8 *stop_soon_p) {
+
+  fd_set readfds;
+  FD_ZERO(&readfds);
+  FD_SET(fd, &readfds);
+  struct timeval timeout;
+  size_t         len = 4;
+
+  timeout.tv_sec = (timeout_ms / 1000);
+  timeout.tv_usec = (timeout_ms % 1000) * 1000;
+#if !defined(__linux__)
+  u64 read_start = get_cur_time_us();
+#endif
+
+  /* set exceptfds as well to return when a child exited/closed the pipe. */
+  int sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
+
+  if (!sret) {
+
+    return timeout_ms + 1;
+
+  } else if (sret < 0) {
+
+    return 0;
+
+  }
+
+  ssize_t len_read = read(fd, ((u8 *)buf), len);
+  if (len_read < len) { return 0; }
+
+#if defined(__linux__)
+  u32 exec_ms =
+      MIN(timeout_ms,
+          ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
+#else
+  u32 exec_ms = MIN(timeout_ms, get_cur_time_us() - read_start);
+#endif
+
+  // ensure to report 1 ms has passed (0 is an error)
+  return exec_ms > 0 ? exec_ms : 1;
+
+}
+
 /* Internal forkserver for dumb_mode=1 and non-forkserver mode runs.
   It execvs for each fork, forwarding exit codes and child pids to afl. */
 
@@ -250,7 +298,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output) {
 
   int st_pipe[2], ctl_pipe[2];
-  int status;
+  s32 status;
   s32 rlen;
 
   if (!be_quiet) { ACTF("Spinning up the fork server..."); }
@@ -406,8 +454,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   rlen = 0;
   if (fsrv->exec_tmout) {
 
-    u32 time = read_timed(fsrv->fsrv_st_fd, &status, 4,
-                          fsrv->exec_tmout * FORK_WAIT_MULT, stop_soon_p);
+    u32 time = read_s32_timed(fsrv->fsrv_st_fd, &status,
+                              fsrv->exec_tmout * FORK_WAIT_MULT, stop_soon_p);
 
     if (!time) {
 
@@ -862,8 +910,8 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   if (fsrv->child_pid <= 0) { FATAL("Fork server is misbehaving (OOM?)"); }
 
-  exec_ms = read_timed(fsrv->fsrv_st_fd, &fsrv->child_status, 4, timeout,
-                       stop_soon_p);
+  exec_ms = read_s32_timed(fsrv->fsrv_st_fd, &fsrv->child_status, timeout,
+                           stop_soon_p);
 
   if (exec_ms > timeout) {
 
