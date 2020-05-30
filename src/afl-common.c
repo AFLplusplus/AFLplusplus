@@ -869,54 +869,7 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
 }
 
-/* Wrapper for select() and read(), reading len bytes.
-  Assumes that all bytes are available on read!
-  Returns the time passed to read.
-  If the wait times out, returns timeout_ms + 1;
-  Returns 0 if an error occurred (fd closed, signal, ...); */
-u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
-               volatile u8 *stop_soon_p) {
-
-  fd_set         readfds;
-  FD_ZERO(&readfds);
-  FD_SET(fd, &readfds);
-  struct timeval timeout;
-
-  timeout.tv_sec = (timeout_ms / 1000);
-  timeout.tv_usec = (timeout_ms % 1000) * 1000;
-#if !defined(__linux__)
-  u64 read_start = get_cur_time_us();
-#endif
-
-  /* set exceptfds as well to return when a child exited/closed the pipe. */
-  int sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
-
-  if (!sret) {
-
-    return timeout_ms + 1;
-
-  } else if (sret < 0) {
-
-    return 0;
-
-  }
-
-  ssize_t len_read = read(fd, ((u8 *)buf), len);
-  if (len_read < len) { return 0; }
-
-#if defined(__linux__)
-  u32 exec_ms =
-      MIN(timeout_ms,
-          ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
-#else
-  u32 exec_ms = get_cur_time_us() - read_start;
-#endif
-
-  // ensure to report 1 ms has passed (0 is an error)
-  return exec_ms > 0 ? exec_ms : 1;
-
-}
-
+/* Reads the map size from ENV */
 u32 get_map_size(void) {
 
   uint32_t map_size = MAP_SIZE;
