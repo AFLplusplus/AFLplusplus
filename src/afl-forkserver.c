@@ -454,8 +454,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   rlen = 0;
   if (fsrv->exec_tmout) {
 
-    u32 time_ms = read_s32_timed(fsrv->fsrv_st_fd, &status,
-                              fsrv->exec_tmout * FORK_WAIT_MULT, stop_soon_p);
+    u32 time_ms =
+        read_s32_timed(fsrv->fsrv_st_fd, &status,
+                       fsrv->exec_tmout * FORK_WAIT_MULT, stop_soon_p);
 
     if (!time_ms) {
 
