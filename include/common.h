@@ -107,9 +107,6 @@ u8 *u_stringify_mem_size(u8 *buf, u64 val);
 
 u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms);
 
-/* Sets a filedescriptor to non-blocking mode (for read_timed) */
-void set_nonblocking(int fd);
-
 /* Wrapper for select() and read(), reading exactly len bytes.
   Returns the time passed to read.
   stop_soon should point to a variable indicating ctrl+c was pressed.
