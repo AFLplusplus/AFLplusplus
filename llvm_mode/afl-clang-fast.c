@@ -176,7 +176,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           "Using afl-clang-lto is not possible because Makefile magic did not "
           "identify the correct -flto flag");
 
-  if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
+  if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++") ||
+      !strcmp(name, "afl-clang++")) {
 
     u8 *alt_cxx = getenv("AFL_CXX");
     if (USE_BINDIR)
@@ -188,7 +189,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   } else if (!strcmp(name, "afl-clang-fast") ||
 
-             !strcmp(name, "afl-clang-lto")) {
+             !strcmp(name, "afl-clang-lto") || !strcmp(name, "afl-clang")) {
 
     u8 *alt_cc = getenv("AFL_CC");
     if (USE_BINDIR)
