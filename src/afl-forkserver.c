@@ -855,11 +855,8 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   fsrv->last_run_timed_out = 0;
 
-  res = read_timed(fsrv->fsrv_st_fd, &fsrv->child_pid, 4, timeout, stop_soon_p);
+  if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
 
-  if (res < 0 || res > timeout) {
-
-    if (*stop_soon_p) { return 0; }
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
