@@ -444,7 +444,8 @@ typedef struct afl_state {
       deferred_mode,                    /* Deferred forkserver mode?        */
       fixed_seed,                       /* do not reseed                    */
       fast_cal,                         /* Try to calibrate faster?         */
-      disable_trim;                     /* Never trim in fuzz_one           */
+      disable_trim,                     /* Never trim in fuzz_one           */
+      shmem_testcase_mode;              /* If sharedmem testcases are used  */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
@@ -805,6 +806,9 @@ void afl_states_stop(void);
 void afl_states_clear_screen(void);
 /* Sets the skip flag on all states */
 void afl_states_request_skip(void);
+
+/* Setup shmem for testcase delivery */
+void setup_testcase_shmem(afl_state_t *afl);
 
 void read_afl_environment(afl_state_t *, char **);
 

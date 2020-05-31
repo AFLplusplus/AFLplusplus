@@ -572,6 +572,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->unicorn_mode) { FATAL("Multiple -U options not supported"); }
         afl->unicorn_mode = 1;
+        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_UNICORN; }
 
@@ -1177,6 +1178,12 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   check_binary(afl, argv[optind]);
+
+  if (afl->shmem_testcase_mode) {
+
+    setup_testcase_shmem(afl);
+
+  }
 
   afl->start_time = get_cur_time();
 

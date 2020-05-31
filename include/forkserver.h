@@ -81,9 +81,9 @@ typedef struct afl_forkserver {
 
   u8 qemu_mode;                         /* if running in qemu mode or not   */
 
-  u32 shdmem_fuzz_len;                   /* length of the fuzzing test case */
+  u32 shmem_fuzz_len;                    /* length of the fuzzing test case */
 
-  u8 *shdmem_fuzz;                      /* allocated memory for fuzzing     */
+  u8 *shmem_fuzz;                       /* allocated memory for fuzzing     */
 
   char *cmplog_binary;                  /* the name of the cmplog binary    */
 

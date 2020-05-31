@@ -103,7 +103,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       "afl_banner        : %s\n"
       "afl_version       : " VERSION
       "\n"
-      "target_mode       : %s%s%s%s%s%s%s%s\n"
+      "target_mode       : %s%s%s%s%s%s%s%s%s\n"
       "command_line      : %s\n",
       afl->start_time / 1000, cur_time / 1000,
       (cur_time - afl->start_time) / 1000, (u32)getpid(),
@@ -128,6 +128,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       afl->dumb_mode ? " dumb " : "", afl->no_forkserver ? "no_fsrv " : "",
       afl->crash_mode ? "crash " : "",
       afl->persistent_mode ? "persistent " : "",
+      afl->shmem_testcase_mode ? "shmem_testcase " : "",
       afl->deferred_mode ? "deferred " : "",
       (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->dumb_mode ||
        afl->no_forkserver || afl->crash_mode || afl->persistent_mode ||

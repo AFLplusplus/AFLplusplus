@@ -1949,6 +1949,36 @@ static void handle_skipreq(int sig) {
 
 }
 
+
+/* Setup shared map for fuzzing with input via sharedmem */
+
+void setup_testcase_shmem(afl_state_t *afl) {
+
+  afl->shm_fuzz = ck_alloc(sizeof(sharedmem_t));
+
+  // we need to set the dumb mode to not overwrite the SHM_ENV_VAR
+  if ((afl->fsrv.shmem_fuzz = afl_shm_init(afl->shm_fuzz, MAX_FILE, 1))) {
+
+#ifdef USEMMAP
+    setenv(SHM_FUZZ_ENV_VAR, afl->shm_fuzz->g_shm_file_path, 1);
+#else
+    u8 *shm_str;
+    shm_str = alloc_printf("%d", afl->shm_fuzz->shm_id);
+    setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
+    ck_free(shm_str);
+#endif
+    afl->fsrv.support_shdmen_fuzz = 1;
+
+  } else {
+
+    ck_free(afl->shm_fuzz);
+    afl->shm_fuzz = NULL;
+
+  }
+
+}
+
+
 /* Do a PATH search and find target binary to see that it exists and
    isn't a shell script - a common and painful mistake. We also check for
    a valid ELF header and for evidence of AFL instrumentation. */
@@ -2153,30 +2183,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
     OKF(cPIN "Persistent mode binary detected.");
     setenv(PERSIST_ENV_VAR, "1", 1);
     afl->persistent_mode = 1;
-    // do not fail if we can not get the fuzzing shared mem
-    if ((afl->shm_fuzz = calloc(1, sizeof(sharedmem_t)))) {
 
-      // we need to set the dumb mode to not overwrite the SHM_ENV_VAR
-      if ((afl->fsrv.shdmem_fuzz = afl_shm_init(afl->shm_fuzz, MAX_FILE, 1))) {
-
-#ifdef USEMMAP
-        setenv(SHM_FUZZ_ENV_VAR, afl->shm_fuzz->g_shm_file_path, 1);
-#else
-        u8 *shm_str;
-        shm_str = alloc_printf("%d", afl->shm_fuzz->shm_id);
-        setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
-        ck_free(shm_str);
-#endif
-        afl->fsrv.support_shdmen_fuzz = 1;
-
-      } else {
-
-        free(afl->shm_fuzz);
-        afl->shm_fuzz = NULL;
-
-      }
-
-    }
+    afl->shmem_testcase_mode = 1;
 
   } else if (getenv("AFL_PERSISTENT")) {
 

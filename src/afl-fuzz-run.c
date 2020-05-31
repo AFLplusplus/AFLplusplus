@@ -237,7 +237,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
       free(afl->shm_fuzz);
       afl->shm_fuzz = NULL;
       afl->fsrv.support_shdmen_fuzz = 0;
-      afl->fsrv.shdmem_fuzz = NULL;
+      afl->fsrv.shmem_fuzz = NULL;
 
     }
 
