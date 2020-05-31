@@ -286,7 +286,7 @@ static void report_error_and_exit(int error) {
 
 }
 
-/* Spins up fork server (instrumented mode only). The idea is explained here:
+/* Spins up fork server. The idea is explained here:
 
    http://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
 
@@ -305,7 +305,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (fsrv->use_fauxsrv) {
 
-    /* TODO: Come up with sone nice way to initalize this all */
+    /* TODO: Come up with sone nice way to initialize this all */
 
     if (fsrv->init_child_func != fsrv_exec_child) {
 
@@ -823,10 +823,10 @@ static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
-  if (fsrv->shdmem_fuzz) {
+  if (fsrv->shmem_fuzz) {
 
-    memcpy(fsrv->shdmem_fuzz, buf, len);
-    fsrv->shdmem_fuzz_len = len;
+    memcpy(fsrv->shmem_fuzz, buf, len);
+    fsrv->shmem_fuzz_len = len;
 
   } else {
 
@@ -888,7 +888,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   MEM_BARRIER();
 
-  if (fsrv->shdmem_fuzz_len) write_value += (fsrv->shdmem_fuzz_len << 8);
+  if (fsrv->shmem_fuzz_len) write_value += (fsrv->shmem_fuzz_len << 8);
 
   /* we have the fork server (or faux server) up and running
   First, tell it if the previous run timed out. */
