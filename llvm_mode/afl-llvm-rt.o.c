@@ -74,11 +74,11 @@ u8 __afl_area_initial[MAP_INITIAL_SIZE];
 #else
 u8                  __afl_area_initial[MAP_SIZE];
 #endif
-u8 *__afl_area_ptr = __afl_area_initial;
-u8 *__afl_dictionary;
-u8 *__afl_fuzz_ptr;
-u32 __afl_fuzz_len;
-u32 __afl_fuzz_len_dummy;
+u8 * __afl_area_ptr = __afl_area_initial;
+u8 * __afl_dictionary;
+u8 * __afl_fuzz_ptr;
+u32  __afl_fuzz_len;
+u32  __afl_fuzz_len_dummy;
 u32 *__afl_fuzz_len_shmem = &__afl_fuzz_len_dummy;
 
 u32 __afl_final_loc;
@@ -165,8 +165,9 @@ static void __afl_map_shm_fuzz() {
     exit(1);
 
   }
-  
-   __afl_fuzz_len_shmem = (u32*) mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+  __afl_fuzz_len_shmem = (u32 *)mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE,
+                                     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
 }
 
@@ -450,22 +451,31 @@ static void __afl_start_snapshots(void) {
     *__afl_fuzz_len_shmem = __afl_fuzz_len = (was_killed >> 8);
     was_killed = (was_killed & 0xff);
 
-#ifdef _AFL_DOCUMENT_MUTATIONS
+  #ifdef _AFL_DOCUMENT_MUTATIONS
     if (__afl_fuzz_ptr) {
+
       static uint32_t counter = 0;
-      char fn[32];
+      char            fn[32];
       sprintf(fn, "%09u:forkserver", counter);
       s32 fd_doc = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
       if (fd_doc >= 0) {
+
         if (write(fd_doc, __afl_fuzz_ptr, __afl_fuzz_len) != __afl_fuzz_len) {
+
           fprintf(stderr, "write of mutation file failed: %s\n", fn);
           unlink(fn);
+
         }
+
         close(fd_doc);
+
       }
+
       counter++;
+
     }
-#endif
+
+  #endif
 
     /* If we stopped the child in persistent mode, but there was a race
        condition and afl-fuzz already issued SIGKILL, write off the old
@@ -646,19 +656,28 @@ static void __afl_start_forkserver(void) {
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
     if (__afl_fuzz_ptr) {
+
       static uint32_t counter = 0;
-      char fn[32];
+      char            fn[32];
       sprintf(fn, "%09u:forkserver", counter);
       s32 fd_doc = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
       if (fd_doc >= 0) {
+
         if (write(fd_doc, __afl_fuzz_ptr, __afl_fuzz_len) != __afl_fuzz_len) {
+
           fprintf(stderr, "write of mutation file failed: %s\n", fn);
           unlink(fn);
+
         }
+
         close(fd_doc);
+
       }
+
       counter++;
+
     }
+
 #endif
 
     /* If we stopped the child in persistent mode, but there was a race
