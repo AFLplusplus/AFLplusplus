@@ -267,8 +267,8 @@ int main(int argc, char **argv) {
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
   // on the first execution of LLVMFuzzerTestOneInput is ignored.
-  //uint8_t dummy_input[1] = {0};
-  //LLVMFuzzerTestOneInput(dummy_input, 1);
+  uint8_t dummy_input[1] = {0};
+  LLVMFuzzerTestOneInput(dummy_input, 1);
 
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {
