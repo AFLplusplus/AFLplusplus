@@ -24,34 +24,41 @@ int main(int argc, char **argv) {
 
   __AFL_INIT();
   unsigned char *buf = __AFL_FUZZ_TESTCASE_BUF;
-  
-  while(__AFL_LOOP(2147483647)) {
-  
+
+  while (__AFL_LOOP(2147483647)) {
+
     unsigned int len = __AFL_FUZZ_TESTCASE_LEN;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
     static unsigned int counter = 0;
-    char fn[32];
+    char                fn[32];
     sprintf(fn, "%09u:test-instr", counter);
     int fd_doc = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
     if (fd_doc >= 0) {
+
       if (write(fd_doc, __afl_fuzz_ptr, __afl_fuzz_len) != __afl_fuzz_len) {
+
         fprintf(stderr, "write of mutation file failed: %s\n", fn);
         unlink(fn);
+
       }
+
       close(fd_doc);
+
     }
+
     counter++;
 #endif
 
     if (!len) continue;
-  
+
     if (buf[0] == '0')
       printf("Looks like a zero to me!\n");
     else if (buf[0] == '1')
       printf("Pretty sure that is a one!\n");
     else
       printf("Neither one or zero? How quaint!\n");
+
   }
 
   return 0;
