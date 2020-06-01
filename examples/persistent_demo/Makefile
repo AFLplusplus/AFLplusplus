@@ -4,7 +4,7 @@ all:
 	afl-clang-fast -o test-instr test-instr.c
 
 document:
-	afl-clang-fast -D_AFL_DOCUMENT_MUTATIONS -o test-instr test-instr.c
+	AFL_DONT_OPTIMIZE=1 afl-clang-fast -D_AFL_DOCUMENT_MUTATIONS -o test-instr test-instr.c
 
 clean:
 	rm -f persistent_demo persistent_demo_new test-instr
