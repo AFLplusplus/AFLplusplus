@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
     int fd_doc = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
     if (fd_doc >= 0) {
 
-      if (write(fd_doc, __afl_fuzz_ptr, __afl_fuzz_len) != __afl_fuzz_len) {
+      if (write(fd_doc, buf, len) != __afl_fuzz_len) {
 
         fprintf(stderr, "write of mutation file failed: %s\n", fn);
         unlink(fn);
