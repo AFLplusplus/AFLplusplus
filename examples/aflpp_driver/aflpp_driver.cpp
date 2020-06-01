@@ -262,13 +262,13 @@ int main(int argc, char **argv) {
 
   assert(N > 0);
 
-  // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
-  // on the first execution of LLVMFuzzerTestOneInput is ignored.
-  uint8_t dummy_input[1] = {0};
-  LLVMFuzzerTestOneInput(dummy_input, 1);
-
 //  if (!getenv("AFL_DRIVER_DONT_DEFER"))
   __afl_manual_init();
+
+  // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
+  // on the first execution of LLVMFuzzerTestOneInput is ignored.
+  //uint8_t dummy_input[1] = {0};
+  //LLVMFuzzerTestOneInput(dummy_input, 1);
 
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {
