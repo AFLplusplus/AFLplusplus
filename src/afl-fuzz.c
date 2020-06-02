@@ -1179,11 +1179,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   check_binary(afl, argv[optind]);
 
-  if (afl->shmem_testcase_mode) {
-
-    setup_testcase_shmem(afl);
-
-  }
+  if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
 
   afl->start_time = get_cur_time();
 
