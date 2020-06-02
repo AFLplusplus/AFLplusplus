@@ -68,7 +68,7 @@ static void hook_code(uc_engine *uc, uint64_t address, uint32_t size, void *user
 
 /*
 The sample uses strlen, since we don't have a loader or libc, we'll fake it.
-We know the strlen will return the lenght of argv[1] that we just planted.
+We know the strlen will return the length of argv[1] that we just planted.
 It will be a lot faster than an actual strlen for this specific purpose.
 */
 static void hook_strlen(uc_engine *uc, uint64_t address, uint32_t size, void *user_data) {
@@ -86,7 +86,7 @@ static void hook_strlen(uc_engine *uc, uint64_t address, uint32_t size, void *us
 static uint64_t pad(uint64_t size) {
     if (size % ALIGNMENT == 0) return size;
     return ((size / ALIGNMENT) + 1) * ALIGNMENT;
-} 
+}
 
 /* returns the filesize in bytes, -1 or error. */
 static off_t afl_mmap_file(char *filename, char **buf_ptr) {
@@ -100,9 +100,9 @@ static off_t afl_mmap_file(char *filename, char **buf_ptr) {
 
     off_t in_len = st.st_size;
     if (in_len == -1) {
-	/* This can only ever happen on 32 bit if the file is exactly 4gb. */
-	fprintf(stderr, "Filesize of %s too large\n", filename);
-	goto exit;
+    /* This can only ever happen on 32 bit if the file is exactly 4gb. */
+    fprintf(stderr, "Filesize of %s too large\n", filename);
+    goto exit;
     }
 
     *buf_ptr = mmap(0, in_len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
@@ -117,10 +117,10 @@ exit:
 
 /* Place the input at the right spot inside unicorn */
 static bool place_input_callback(
-    uc_engine *uc, 
-    char *input, 
-    size_t input_len, 
-    uint32_t persistent_round, 
+    uc_engine *uc,
+    char *input,
+    size_t input_len,
+    uint32_t persistent_round,
     void *data
 ){
     // printf("Placing input with len %ld to %x\n", input_len, DATA_ADDRESS);
@@ -134,7 +134,7 @@ static bool place_input_callback(
     // Set up the function parameters accordingly RSI, RDI (see calling convention/disassembly)
     uc_reg_write(uc, UC_X86_REG_RSI, &INPUT_LOCATION); // argv
     uc_reg_write(uc, UC_X86_REG_RDI, &EMULATED_ARGC);  // argc == 2
-   
+
     // We need a valid c string, make sure it never goes out of bounds.
     input[input_len-1] = '\0';
     // Write the testcase to unicorn.
@@ -188,13 +188,13 @@ int main(int argc, char **argv, char **envp) {
         return -2;
     }
     if (len == 0) {
-	fprintf(stderr, "File at '%s' is empty\n", BINARY_FILE);
-	return -3;
+    fprintf(stderr, "File at '%s' is empty\n", BINARY_FILE);
+    return -3;
     }
 
     // Map memory.
     mem_map_checked(uc, BASE_ADDRESS, len, UC_PROT_ALL);
-    printf("Len: %lx", len);
+    printf("Len: %lx\n", len);
     fflush(stdout);
 
     // write machine code to be emulated to memory
@@ -209,7 +209,7 @@ int main(int argc, char **argv, char **envp) {
     uint64_t start_address = CODE_ADDRESS;      // address of entry point of main()
     uint64_t end_address = END_ADDRESS; // Address of last instruction in main()
     uc_reg_write(uc, UC_X86_REG_RIP, &start_address); // address of entry point of main()
-    
+
     // Setup the Stack
     mem_map_checked(uc, STACK_ADDRESS - STACK_SIZE, STACK_SIZE, UC_PROT_READ | UC_PROT_WRITE);
     uint64_t stack_val = STACK_ADDRESS;
@@ -219,7 +219,7 @@ int main(int argc, char **argv, char **envp) {
     // reserve some space for our input data
     mem_map_checked(uc, INPUT_LOCATION, INPUT_SIZE_MAX, UC_PROT_READ);
 
-    // build a "dummy" argv with lenth 2 at 0x10000: 
+    // build a "dummy" argv with lenth 2 at 0x10000:
     // 0x10000 argv[0]  NULL
     // 0x10008 argv[1]  (char *)0x10016 --. points to the next offset.
     // 0x10016 argv[1][0], ...          <-^ contains the acutal input data. (INPUT_LOCATION + INPUT_OFFSET)
@@ -264,6 +264,6 @@ int main(int argc, char **argv, char **envp) {
             break;
         default:
             break;
-    } 
+    }
     return 0;
 }
