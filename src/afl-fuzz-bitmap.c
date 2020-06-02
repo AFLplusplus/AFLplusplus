@@ -623,14 +623,14 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       /* Timeouts are not very interesting, but we're still obliged to keep
          a handful of samples. We use the presence of new bits in the
-         hang-specific bitmap as a signal of uniqueness. In "dumb" mode, we
-         just keep everything. */
+         hang-specific bitmap as a signal of uniqueness. In "non-instrumented"
+         mode, we just keep everything. */
 
       ++afl->total_tmouts;
 
       if (afl->unique_hangs >= KEEP_UNIQUE_HANG) { return keeping; }
 
-      if (likely(!afl->dumb_mode)) {
+      if (likely(!afl->non_instrumented_mode)) {
 
 #ifdef WORD_SIZE_64
         simplify_trace(afl, (u64 *)afl->fsrv.trace_bits);
@@ -698,7 +698,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (afl->unique_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
 
-      if (likely(!afl->dumb_mode)) {
+      if (likely(!afl->non_instrumented_mode)) {
 
 #ifdef WORD_SIZE_64
         simplify_trace(afl, (u64 *)afl->fsrv.trace_bits);

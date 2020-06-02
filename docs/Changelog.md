@@ -11,11 +11,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++2.65d (dev)
   - afl-fuzz:
-     - -S slaves now only sync from the master to increase performance,
-       the -M master still syncs from everyone. Added checks that ensure
-       exactly one master is present and warn otherwise
-     - If no master is present at a sync one slave automatically becomes
-       a temporary master until a real master shows up
+     - -S secondary nodes now only sync from the main node to increase performance,
+       the -M main node still syncs from everyone. Added checks that ensure
+       exactly one main node is present and warn otherwise
+     - If no main node is present at a sync one secondary node automatically becomes
+       a temporary main node until a real main nodes shows up
      - fix/update to MOpt (thanks to arnow117)
   - llvm_mode:
     - the default instrumentation is now PCGUARD, as it is faster and provides
@@ -912,7 +912,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Switched from exit() to _exit() in injected code to avoid snafus with
     destructors in C++ code. Spotted by sunblate.
 
-  - Made a change to avoid spuriously setting __AFL_SHM_ID when 
+  - Made a change to avoid spuriously setting __AFL_SHM_ID when
     AFL_DUMB_FORKSRV is set in conjunction with -n. Spotted by Jakub Wilk.
 
 ### Version 1.94b:

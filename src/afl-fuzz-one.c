@@ -415,7 +415,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     }
 
-  } else if (!afl->dumb_mode && !afl->queue_cur->favored &&
+  } else if (!afl->non_instrumented_mode && !afl->queue_cur->favored &&
 
              afl->queued_paths > 10) {
 
@@ -512,7 +512,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * TRIMMING *
    ************/
 
-  if (!afl->dumb_mode && !afl->queue_cur->trim_done && !afl->disable_trim) {
+  if (!afl->non_instrumented_mode && !afl->queue_cur->trim_done && !afl->disable_trim) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
@@ -577,10 +577,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
   }
 
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
-     for this master instance. */
+     for this main instance. */
 
-  if (afl->master_max &&
-      (afl->queue_cur->exec_cksum % afl->master_max) != afl->master_id - 1) {
+  if (afl->main_node_max &&
+      (afl->queue_cur->exec_cksum % afl->main_node_max) != afl->main_node_id - 1) {
 
     goto custom_mutator_stage;
 
@@ -650,7 +650,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
       */
 
-    if (!afl->dumb_mode && (afl->stage_cur & 7) == 7) {
+    if (!afl->non_instrumented_mode && (afl->stage_cur & 7) == 7) {
 
       u32 cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
@@ -822,10 +822,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
       u32 cksum;
 
-      /* If in dumb mode or if the file is very short, just flag everything
-         without wasting time on checksums. */
+      /* If in non-instrumented mode or if the file is very short, just flag
+         everything without wasting time on checksums. */
 
-      if (!afl->dumb_mode && len >= EFF_MIN_LEN) {
+      if (!afl->non_instrumented_mode && len >= EFF_MIN_LEN) {
 
         cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
@@ -2568,7 +2568,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     }
 
-  } else if (!afl->dumb_mode && !afl->queue_cur->favored &&
+  } else if (!afl->non_instrumented_mode && !afl->queue_cur->favored &&
 
              afl->queued_paths > 10) {
 
@@ -2660,7 +2660,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
    * TRIMMING *
    ************/
 
-  if (!afl->dumb_mode && !afl->queue_cur->trim_done) {
+  if (!afl->non_instrumented_mode && !afl->queue_cur->trim_done) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
@@ -2730,10 +2730,10 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   }
 
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
-     for this master instance. */
+     for this main instance. */
 
-  if (afl->master_max &&
-      (afl->queue_cur->exec_cksum % afl->master_max) != afl->master_id - 1) {
+  if (afl->main_node_max &&
+      (afl->queue_cur->exec_cksum % afl->main_node_max) != afl->main_node_id - 1) {
 
     goto havoc_stage;
 
@@ -2803,7 +2803,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
       */
 
-    if (!afl->dumb_mode && (afl->stage_cur & 7) == 7) {
+    if (!afl->non_instrumented_mode && (afl->stage_cur & 7) == 7) {
 
       u32 cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
@@ -2975,10 +2975,10 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
       u32 cksum;
 
-      /* If in dumb mode or if the file is very short, just flag everything
+      /* If in non-instrumented mode or if the file is very short, just flag everything
          without wasting time on checksums. */
 
-      if (!afl->dumb_mode && len >= EFF_MIN_LEN) {
+      if (!afl->non_instrumented_mode && len >= EFF_MIN_LEN) {
 
         cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 

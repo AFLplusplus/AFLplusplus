@@ -130,7 +130,7 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "  -N            - do not unlink the fuzzing input file (only for "
       "devices etc.!)\n"
       "  -d            - quick & dirty mode (skips deterministic steps)\n"
-      "  -n            - fuzz without instrumentation (dumb mode)\n"
+      "  -n            - fuzz without instrumentation (non-instrumented mode)\n"
       "  -x dir        - optional fuzzer dictionary (see README.md, its really "
       "good!)\n\n"
 
@@ -379,17 +379,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
           *c = 0;
 
-          if (sscanf(c + 1, "%u/%u", &afl->master_id, &afl->master_max) != 2 ||
-              !afl->master_id || !afl->master_max ||
-              afl->master_id > afl->master_max || afl->master_max > 1000000) {
+          if (sscanf(c + 1, "%u/%u", &afl->main_node_id, &afl->main_node_max) != 2 ||
+              !afl->main_node_id || !afl->main_node_max ||
+              afl->main_node_id > afl->main_node_max || afl->main_node_max > 1000000) {
 
-            FATAL("Bogus master ID passed to -M");
+            FATAL("Bogus main node ID passed to -M");
 
           }
 
         }
 
-        afl->is_master = 1;
+        afl->is_main_node = 1;
 
       }
 
@@ -399,7 +399,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
-        afl->is_slave = 1;
+        afl->is_secondary_node = 1;
         afl->skip_deterministic = 1;
         afl->use_splicing = 1;
         break;
@@ -533,14 +533,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'n':                                                /* dumb mode */
 
-        if (afl->dumb_mode) { FATAL("Multiple -n options not supported"); }
+        if (afl->non_instrumented_mode) { FATAL("Multiple -n options not supported"); }
         if (afl->afl_env.afl_dumb_forksrv) {
 
-          afl->dumb_mode = 2;
+          afl->non_instrumented_mode = 2;
 
         } else {
 
-          afl->dumb_mode = 1;
+          afl->non_instrumented_mode = 1;
 
         }
 
@@ -791,10 +791,10 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
-  if (afl->sync_id && afl->is_master && afl->afl_env.afl_custom_mutator_only) {
+  if (afl->sync_id && afl->is_main_node && afl->afl_env.afl_custom_mutator_only) {
 
     WARNF(
-        "Using -M master with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "
+        "Using -M main node with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "
         "result in no deterministic mutations being done!");
 
   }
@@ -872,7 +872,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->dumb_mode) {
+  if (afl->non_instrumented_mode) {
 
     if (afl->crash_mode) { FATAL("-C and -n are mutually exclusive"); }
     if (afl->fsrv.qemu_mode) { FATAL("-Q and -n are mutually exclusive"); }
@@ -955,13 +955,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->dumb_mode == 2 && afl->no_forkserver) {
+  if (afl->non_instrumented_mode == 2 && afl->no_forkserver) {
 
     FATAL("AFL_DUMB_FORKSRV and AFL_NO_FORKSRV are mutually exclusive");
 
   }
 
-  afl->fsrv.use_fauxsrv = afl->dumb_mode == 1 || afl->no_forkserver;
+  afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
 
   if (getenv("LD_PRELOAD")) {
 
@@ -1058,7 +1058,7 @@ int main(int argc, char **argv_orig, char **envp) {
   check_cpu_governor(afl);
 
   afl->fsrv.trace_bits =
-      afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->dumb_mode);
+      afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
   if (!afl->in_bitmap) { memset(afl->virgin_bits, 255, afl->fsrv.map_size); }
   memset(afl->virgin_tmout, 255, afl->fsrv.map_size);
@@ -1066,7 +1066,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   init_count_class16();
 
-  if (afl->is_master && check_master_exists(afl) == 1) {
+  if (afl->is_main_node && check_main_node_exists(afl) == 1) {
 
     WARNF("it is wasteful to run more than one master!");
     sleep(1);
@@ -1075,9 +1075,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   setup_dirs_fds(afl);
 
-  if (afl->is_slave && check_master_exists(afl) == 0) {
+  if (afl->is_secondary_node && check_main_node_exists(afl) == 0) {
 
-    WARNF("no -M master found. You need to run one master!");
+    WARNF("no -M main node found. You need to run one main instance!");
     sleep(5);
 
   }
@@ -1369,10 +1369,10 @@ stop_fuzzing:
        time_spent_working / afl->fsrv.total_execs);
   #endif
 
-  if (afl->is_master) {
+  if (afl->is_main_node) {
 
     u8 path[PATH_MAX];
-    sprintf(path, "%s/is_master", afl->out_dir);
+    sprintf(path, "%s/is_main_node", afl->out_dir);
     unlink(path);
 
   }

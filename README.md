@@ -381,10 +381,10 @@ The available schedules are:
  - rare (experimental)
 
 In parallel mode (-M/-S, several instances with the shared queue), we suggest to
-run the master using the explore or fast schedule (-p explore) and the slaves
-with a combination of cut-off-exponential (-p coe), exponential (-p fast),
+run the main node using the explore or fast schedule (-p explore) and the secondary
+nodes with a combination of cut-off-exponential (-p coe), exponential (-p fast),
 explore (-p explore) and mmopt (-p mmopt) schedules. If a schedule does
-not perform well for a target, restart the slave with a different schedule.
+not perform well for a target, restart the secondary nodes with a different schedule.
 
 In single mode, using -p fast is usually slightly more beneficial than the
 default explore mode.

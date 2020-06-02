@@ -253,7 +253,7 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
        "binaries that are\n"
        "    instrumented at compile time with afl-gcc. It is also possible to "
        "use it as a\n"
-       "    traditional \"dumb\" fuzzer by specifying '-n' in the command "
+       "    traditional non-instrumented fuzzer by specifying '-n' in the command "
        "line.\n");
 
   FATAL("Failed to locate 'afl-qemu-trace'.");
@@ -353,7 +353,7 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
        "binaries that are\n"
        "    instrumented at compile time with afl-gcc. It is also possible to "
        "use it as a\n"
-       "    traditional \"dumb\" fuzzer by specifying '-n' in the command "
+       "    traditional non-instrumented fuzzer by specifying '-n' in the command "
        "line.\n",
        ncp);
 

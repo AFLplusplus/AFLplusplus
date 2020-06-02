@@ -425,7 +425,7 @@ static void __afl_start_snapshots(void) {
 
     } else {
 
-      // uh this forkserver master does not understand extended option passing
+      // uh this forkserver does not understand extended option passing
       // or does not want the dictionary
       if (!__afl_fuzz_ptr) already_read_first = 1;
 
@@ -627,7 +627,7 @@ static void __afl_start_forkserver(void) {
 
     } else {
 
-      // uh this forkserver master does not understand extended option passing
+      // uh this forkserver does not understand extended option passing
       // or does not want the dictionary
       if (!__afl_fuzz_ptr) already_read_first = 1;
 
