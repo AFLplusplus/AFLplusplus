@@ -842,7 +842,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    /* randamsa_init installs some signal hadlers, call it before
+    /* radamsa_init installs some signal handlers, call it before
        setup_signal_handlers so that AFL++ can then replace those signal
        handlers */
     radamsa_init_ptr();
@@ -1390,7 +1390,7 @@ stop_fuzzing:
   if (afl->shm_fuzz) {
 
     afl_shm_deinit(afl->shm_fuzz);
-    free(afl->shm_fuzz);
+    ck_free(afl->shm_fuzz);
 
   }
 

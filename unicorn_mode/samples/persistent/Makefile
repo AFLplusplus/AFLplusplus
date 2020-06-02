@@ -44,7 +44,7 @@ harness: harness.o
 	${MYCC} -L${LIBDIR} harness.o ../../unicornafl/libunicornafl.a $(LDFLAGS) -o $@
 
 debug: harness-debug.o
-	${MYCC} -L${LIBDIR} harness.o ../../unicornafl/libunicornafl.a $(LDFLAGS) -o harness-debug
+	${MYCC} -L${LIBDIR} harness-debug.o ../../unicornafl/libunicornafl.a $(LDFLAGS) -o harness-debug
 
 fuzz: harness
 	../../../afl-fuzz -m none -i sample_inputs -o out -- ./harness @@
