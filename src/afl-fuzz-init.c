@@ -1949,7 +1949,6 @@ static void handle_skipreq(int sig) {
 
 }
 
-
 /* Setup shared map for fuzzing with input via sharedmem */
 
 void setup_testcase_shmem(afl_state_t *afl) {
@@ -1977,7 +1976,6 @@ void setup_testcase_shmem(afl_state_t *afl) {
   }
 
 }
-
 
 /* Do a PATH search and find target binary to see that it exists and
    isn't a shell script - a common and painful mistake. We also check for
