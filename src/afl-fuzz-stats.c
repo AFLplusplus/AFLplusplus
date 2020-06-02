@@ -125,12 +125,13 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 #endif
       t_bytes, afl->var_byte_count, afl->use_banner,
       afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
-      afl->dumb_mode ? " dumb " : "", afl->no_forkserver ? "no_fsrv " : "",
+      afl->non_instrumented_mode ? " non_instrumented " : "",
+      afl->no_forkserver ? "no_fsrv " : "",
       afl->crash_mode ? "crash " : "",
       afl->persistent_mode ? "persistent " : "",
       afl->shmem_testcase_mode ? "shmem_testcase " : "",
       afl->deferred_mode ? "deferred " : "",
-      (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->dumb_mode ||
+      (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->non_instrumented_mode ||
        afl->no_forkserver || afl->crash_mode || afl->persistent_mode ||
        afl->deferred_mode)
           ? ""
@@ -327,7 +328,7 @@ void show_stats(afl_state_t *afl) {
 
   /* Honor AFL_EXIT_WHEN_DONE and AFL_BENCH_UNTIL_CRASH. */
 
-  if (!afl->dumb_mode && afl->cycles_wo_finds > 100 &&
+  if (!afl->non_instrumented_mode && afl->cycles_wo_finds > 100 &&
       !afl->pending_not_fuzzed && afl->afl_env.afl_exit_when_done) {
 
     afl->stop_soon = 2;
@@ -415,7 +416,7 @@ void show_stats(afl_state_t *afl) {
        " process timing " bSTG bH30 bH5 bH bHB bH bSTOP cCYA
        " overall results " bSTG bH2 bH2                 bRT "\n");
 
-  if (afl->dumb_mode) {
+  if (afl->non_instrumented_mode) {
 
     strcpy(tmp, cRST);
 
@@ -461,7 +462,7 @@ void show_stats(afl_state_t *afl) {
   /* We want to warn people about not seeing new paths after a full cycle,
      except when resuming fuzzing or running in non-instrumented mode. */
 
-  if (!afl->dumb_mode &&
+  if (!afl->non_instrumented_mode &&
       (afl->last_path_time || afl->resuming_fuzz || afl->queue_cycle == 1 ||
        afl->in_bitmap || afl->crash_mode)) {
 
@@ -470,7 +471,7 @@ void show_stats(afl_state_t *afl) {
 
   } else {
 
-    if (afl->dumb_mode) {
+    if (afl->non_instrumented_mode) {
 
       SAYF(bV bSTOP "   last new path : " cPIN "n/a" cRST
                     " (non-instrumented mode)       ");
@@ -526,7 +527,7 @@ void show_stats(afl_state_t *afl) {
 
   SAYF("    map density : %s%-21s" bSTG bV "\n",
        t_byte_ratio > 70 ? cLRD
-                         : ((t_bytes < 200 && !afl->dumb_mode) ? cPIN : cRST),
+                         : ((t_bytes < 200 && !afl->non_instrumented_mode) ? cPIN : cRST),
        tmp);
 
   sprintf(tmp, "%s (%0.02f%%)", u_stringify_int(IB(0), afl->cur_skipped_paths),
@@ -1021,10 +1022,10 @@ void show_init_stats(afl_state_t *afl) {
 
   }
 
-  /* In dumb mode, re-running every timing out test case with a generous time
+  /* In non-instrumented mode, re-running every timing out test case with a generous time
      limit is very expensive, so let's select a more conservative default. */
 
-  if (afl->dumb_mode && !(afl->afl_env.afl_hang_tmout)) {
+  if (afl->non_instrumented_mode && !(afl->afl_env.afl_hang_tmout)) {
 
     afl->hang_tmout = MIN(EXEC_TIMEOUT, afl->fsrv.exec_tmout * 2 + 100);
 

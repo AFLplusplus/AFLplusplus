@@ -167,7 +167,7 @@ static u32 read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
 
 }
 
-/* Internal forkserver for dumb_mode=1 and non-forkserver mode runs.
+/* Internal forkserver for non_instrumented_mode=1 and non-forkserver mode runs.
   It execvs for each fork, forwarding exit codes and child pids to afl. */
 
 static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {

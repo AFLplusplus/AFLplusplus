@@ -408,8 +408,8 @@ typedef struct afl_state {
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
       python_only,                      /* Python-only mode                 */
-      is_master,                        /* if this is a master              */
-      is_slave;                         /* if this is a slave               */
+      is_main_node,                     /* if this is the main node         */
+      is_secondary_node;                /* if this is a secondary instance  */
 
   u32 stats_update_freq;                /* Stats update frequency (execs)   */
 
@@ -421,7 +421,7 @@ typedef struct afl_state {
 
   u8 skip_deterministic,                /* Skip deterministic stages?       */
       use_splicing,                     /* Recombine input files?           */
-      dumb_mode,                        /* Run in non-instrumented mode?    */
+      non_instrumented_mode,            /* Run in non-instrumented mode?    */
       score_changed,                    /* Scoring for favorites changed?   */
       resuming_fuzz,                    /* Resuming an older fuzzing job?   */
       timeout_given,                    /* Specific timeout given?          */
@@ -503,7 +503,7 @@ typedef struct afl_state {
   s32 stage_cur, stage_max;             /* Stage progression                */
   s32 splicing_with;                    /* Splicing with which test case?   */
 
-  u32 master_id, master_max;            /* Master instance job splitting    */
+  u32 main_node_id, main_node_max;      /*   Main instance job splitting    */
 
   u32 syncing_case;                     /* Syncing with case #...           */
 
@@ -916,7 +916,7 @@ u32    find_start_position(afl_state_t *);
 void   find_timeout(afl_state_t *);
 double get_runnable_processes(void);
 void   nuke_resume_dir(afl_state_t *);
-int    check_master_exists(afl_state_t *);
+int    check_main_node_exists(afl_state_t *);
 void   setup_dirs_fds(afl_state_t *);
 void   setup_cmdline_file(afl_state_t *, char **);
 void   setup_stdio_file(afl_state_t *);

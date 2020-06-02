@@ -4,7 +4,7 @@
   it allows for very fast and coverage guided fuzzing.
 
   However, if there is only the binary program and no source code available,
-  then standard `afl-fuzz -n` (dumb mode) is not effective.
+  then standard `afl-fuzz -n` (non-instrumented mode) is not effective.
 
   The following is a description of how these binaries can be fuzzed with afl++
 

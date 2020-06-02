@@ -1315,10 +1315,10 @@ dir_cleanup_failed:
 
 }
 
-/* If this is a -S slave, ensure a -M master is running, if a master is
-   running when another master is started then warn */
+/* If this is a -S secondary node, ensure a -M main node is running,
+  if a main node is running when another main is started, then warn */
 
-int check_master_exists(afl_state_t *afl) {
+int check_main_node_exists(afl_state_t *afl) {
 
   DIR *          sd;
   struct dirent *sd_ent;
@@ -1337,7 +1337,7 @@ int check_master_exists(afl_state_t *afl) {
 
     }
 
-    fn = alloc_printf("%s/%s/is_master", afl->sync_dir, sd_ent->d_name);
+    fn = alloc_printf("%s/%s/is_main_node", afl->sync_dir, sd_ent->d_name);
     int res = access(fn, F_OK);
     free(fn);
     if (res == 0) return 1;
@@ -1392,9 +1392,9 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   }
 
-  if (afl->is_master) {
+  if (afl->is_main_node) {
 
-    u8 *x = alloc_printf("%s/is_master", afl->out_dir);
+    u8 *x = alloc_printf("%s/is_main_node", afl->out_dir);
     int fd = open(x, O_CREAT | O_RDWR, 0644);
     if (fd < 0) FATAL("cannot create %s", x);
     free(x);
@@ -1859,7 +1859,7 @@ void fix_up_sync(afl_state_t *afl) {
 
   u8 *x = afl->sync_id;
 
-  if (afl->dumb_mode) { FATAL("-S / -M and -n are mutually exclusive"); }
+  if (afl->non_instrumented_mode) { FATAL("-S / -M and -n are mutually exclusive"); }
 
   while (*x) {
 
@@ -1955,7 +1955,7 @@ void setup_testcase_shmem(afl_state_t *afl) {
 
   afl->shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
-  // we need to set the dumb mode to not overwrite the SHM_ENV_VAR
+  // we need to set the non-instrumented mode to not overwrite the SHM_ENV_VAR
   if ((afl->fsrv.shmem_fuzz = afl_shm_init(afl->shm_fuzz, MAX_FILE, 1))) {
 
 #ifdef USEMMAP
@@ -2126,7 +2126,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
 #endif                                                       /* ^!__APPLE__ */
 
-  if (!afl->fsrv.qemu_mode && !afl->unicorn_mode && !afl->dumb_mode &&
+  if (!afl->fsrv.qemu_mode && !afl->unicorn_mode && !afl->non_instrumented_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
@@ -2143,8 +2143,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
          "    mode support. Consult the README.md for tips on how to enable "
          "this.\n"
 
-         "    (It is also possible to use afl-fuzz as a traditional, \"dumb\" "
-         "fuzzer.\n"
+         "    (It is also possible to use afl-fuzz as a traditional, "
+         "non-instrumented fuzzer.\n"
          "    For that, you can use the -n option - but expect much worse "
          "results.)\n",
          doc_path);

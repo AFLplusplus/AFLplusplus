@@ -13,12 +13,12 @@ In fact, if you rely on just a single job on a multi-core system, you will
 be underutilizing the hardware. So, parallelization is usually the right
 way to go.
 
-When targeting multiple unrelated binaries or using the tool in "dumb" (-n)
-mode, it is perfectly fine to just start up several fully separate instances
-of afl-fuzz. The picture gets more complicated when you want to have multiple
-fuzzers hammering a common target: if a hard-to-hit but interesting test case
-is synthesized by one fuzzer, the remaining instances will not be able to use
-that input to guide their work.
+When targeting multiple unrelated binaries or using the tool in
+"non-instrumented" (-n) mode, it is perfectly fine to just start up several
+fully separate instances of afl-fuzz. The picture gets more complicated when
+you want to have multiple fuzzers hammering a common target: if a hard-to-hit
+but interesting test case is synthesized by one fuzzer, the remaining instances
+will not be able to use that input to guide their work.
 
 To help with this problem, afl-fuzz offers a simple way to synchronize test
 cases on the fly.
@@ -37,7 +37,7 @@ system, simply create a new, empty output directory ("sync dir") that will be
 shared by all the instances of afl-fuzz; and then come up with a naming scheme
 for every instance - say, "fuzzer01", "fuzzer02", etc. 
 
-Run the first one ("master", -M) like this:
+Run the first one ("main node", -M) like this:
 
 ```
 ./afl-fuzz -i testcase_dir -o sync_dir -M fuzzer01 [...other stuff...]
@@ -57,26 +57,26 @@ Each fuzzer will keep its state in a separate subdirectory, like so:
 Each instance will also periodically rescan the top-level sync directory
 for any test cases found by other fuzzers - and will incorporate them into
 its own fuzzing when they are deemed interesting enough.
-For performance reasons only -M masters sync the queue with everyone, the
--S slaves will only sync from the master.
+For performance reasons only -M main node syncs the queue with everyone, the
+-S secondary nodes will only sync from the main node.
 
-The difference between the -M and -S modes is that the master instance will
+The difference between the -M and -S modes is that the main instance will
 still perform deterministic checks; while the secondary instances will
 proceed straight to random tweaks.
 
-Note that you must always have one -M master instance!
+Note that you must always have one -M main instance!
 
 Note that running multiple -M instances is wasteful, although there is an
 experimental support for parallelizing the deterministic checks. To leverage
 that, you need to create -M instances like so:
 
 ```
-./afl-fuzz -i testcase_dir -o sync_dir -M masterA:1/3 [...]
-./afl-fuzz -i testcase_dir -o sync_dir -M masterB:2/3 [...]
-./afl-fuzz -i testcase_dir -o sync_dir -M masterC:3/3 [...]
+./afl-fuzz -i testcase_dir -o sync_dir -M mainA:1/3 [...]
+./afl-fuzz -i testcase_dir -o sync_dir -M mainB:2/3 [...]
+./afl-fuzz -i testcase_dir -o sync_dir -M mainC:3/3 [...]
 ```
 
-...where the first value after ':' is the sequential ID of a particular master
+...where the first value after ':' is the sequential ID of a particular main
 instance (starting at 1), and the second value is the total number of fuzzers to
 distribute the deterministic fuzzing across. Note that if you boot up fewer
 fuzzers than indicated by the second number passed to -M, you may end up with
@@ -168,7 +168,7 @@ to keep in mind:
     This arrangement would allow test interesting cases to propagate across
     the fleet without having to copy every fuzzer queue to every single host.
 
-  - You do not want a "master" instance of afl-fuzz on every system; you should
+  - You do not want a "main" instance of afl-fuzz on every system; you should
     run them all with -S, and just designate a single process somewhere within
     the fleet to run with -M.
 
@@ -185,10 +185,10 @@ also basic machine-readable information always written to the fuzzer_stats file
 in the output directory. Locally, that information can be interpreted with
 afl-whatsup.
 
-In principle, you can use the status screen of the master (-M) instance to
+In principle, you can use the status screen of the main (-M) instance to
 monitor the overall fuzzing progress and decide when to stop. In this
 mode, the most important signal is just that no new paths are being found
-for a longer while. If you do not have a master instance, just pick any
+for a longer while. If you do not have a main instance, just pick any
 single secondary instance to watch and go by that.
 
 You can also rely on that instance's output directory to collect the
@@ -197,7 +197,7 @@ within the fleet. Secondary (-S) instances do not require any special
 monitoring, other than just making sure that they are up.
 
 Keep in mind that crashing inputs are *not* automatically propagated to the
-master instance, so you may still want to monitor for crashes fleet-wide
+main instance, so you may still want to monitor for crashes fleet-wide
 from within your synchronization or health checking scripts (see afl-whatsup).
 
 ## 5) Asymmetric setups
