@@ -63,7 +63,10 @@
   #define INC_AFL_AREA(loc) afl_area_ptr[loc]++
 #endif
 
-typedef void (*afl_persistent_hook_fn)(uint64_t *regs, uint64_t guest_base);
+typedef void (*afl_persistent_hook_fn)(uint64_t *regs,
+                                       uint64_t guest_base,
+                                       uint8_t* input_buf,
+                                       uint32_t input_buf_len);
 
 /* Declared in afl-qemu-cpu-inl.h */
 
@@ -80,6 +83,10 @@ extern unsigned char  persistent_first_pass;
 extern unsigned char  persistent_save_gpr;
 extern uint64_t       persistent_saved_gpr[AFL_REGS_NUM];
 extern int            persisent_retaddr_offset;
+
+extern u8 *shared_buf;
+extern u32 shared_buf_len;
+extern u8 sharedmem_fuzzing;
 
 extern afl_persistent_hook_fn afl_persistent_hook_ptr;
 
