@@ -1972,7 +1972,7 @@ void setup_testcase_shmem(afl_state_t *afl) {
     ck_free(shm_str);
 #endif
     afl->fsrv.support_shmem_fuzz = 1;
-    afl->fsrv.shmem_fuzz = (u8 *)(afl->fsrv.shmem_fuzz + sizeof(int));
+    afl->fsrv.shmem_fuzz = (u8 *)(afl->fsrv.shmem_fuzz_len + sizeof(int));
 
   } else {
 
