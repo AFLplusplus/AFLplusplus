@@ -166,8 +166,7 @@ static void __afl_map_shm_fuzz() {
 
   }
 
-  __afl_fuzz_len_shmem = (u32 *)mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE,
-                                     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  __afl_fuzz_len_shmem = (u32 *)(__afl_fuzz_ptr + MAX_FILE);
 
 }
 
@@ -448,9 +447,6 @@ static void __afl_start_snapshots(void) {
 
     }
 
-    *__afl_fuzz_len_shmem = __afl_fuzz_len = (was_killed >> 8);
-    was_killed = (was_killed & 0xff);
-
   #ifdef _AFL_DOCUMENT_MUTATIONS
     if (__afl_fuzz_ptr) {
 
@@ -650,9 +646,6 @@ static void __afl_start_forkserver(void) {
       if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
 
     }
-
-    *__afl_fuzz_len_shmem = __afl_fuzz_len = (was_killed >> 8);
-    was_killed = (was_killed & 0xff);
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
     if (__afl_fuzz_ptr) {

@@ -1960,7 +1960,8 @@ void setup_testcase_shmem(afl_state_t *afl) {
   afl->shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
   // we need to set the non-instrumented mode to not overwrite the SHM_ENV_VAR
-  if ((afl->fsrv.shmem_fuzz = afl_shm_init(afl->shm_fuzz, MAX_FILE, 1))) {
+  if ((afl->fsrv.shmem_fuzz =
+           afl_shm_init(afl->shm_fuzz, MAX_FILE + sizeof(int), 1))) {
 
 #ifdef USEMMAP
     setenv(SHM_FUZZ_ENV_VAR, afl->shm_fuzz->g_shm_file_path, 1);
@@ -1970,7 +1971,8 @@ void setup_testcase_shmem(afl_state_t *afl) {
     setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
     ck_free(shm_str);
 #endif
-    afl->fsrv.support_shdmen_fuzz = 1;
+    afl->fsrv.support_shmem_fuzz = 1;
+    afl->fsrv.shmem_fuzz_len = (u32 *)(afl->fsrv.shmem_fuzz + MAX_FILE);
 
   } else {
 
