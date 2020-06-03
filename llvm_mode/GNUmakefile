@@ -226,6 +226,10 @@ endif
 
 ifeq "$(shell uname)" "OpenBSD"
   CLANG_LFL += `$(LLVM_CONFIG) --libdir`/libLLVM.so
+  CLANG_CFL += -mno-retpoline
+  CFLAGS += -mno-retpoline
+  # Needed for unwind symbols
+  LDFLAGS += -lc++abi
 endif
 
 ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
