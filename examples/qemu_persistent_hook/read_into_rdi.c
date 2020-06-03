@@ -36,7 +36,7 @@ enum {
 };
 
 void afl_persistent_hook(uint64_t *regs, uint64_t guest_base,
-                         uint8_t* input_buf, uint32_t input_len) {
+                         uint8_t *input_buf, uint32_t input_len) {
 
   // In this example the register RDI is pointing to the memory location
   // of the target buffer, and the length of the input is in RSI.
@@ -44,16 +44,17 @@ void afl_persistent_hook(uint64_t *regs, uint64_t guest_base,
 
   printf("placing input into %p\n", regs[R_EDI]);
 
-  if (input_len > 1024)
-    input_len = 1024;
-  memcpy(g2h(regs[R_EDI]), input_buf, input_len); 
+  if (input_len > 1024) input_len = 1024;
+  memcpy(g2h(regs[R_EDI]), input_buf, input_len);
   regs[R_ESI] = input_len;
 
 }
 
 int afl_persistent_hook_init(void) {
 
-  // 1 for shared memory input (faster), 0 for normal input (you have to use read(), input_buf will be NULL)
+  // 1 for shared memory input (faster), 0 for normal input (you have to use
+  // read(), input_buf will be NULL)
   return 1;
 
 }
+

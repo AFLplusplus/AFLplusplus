@@ -512,7 +512,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * TRIMMING *
    ************/
 
-  if (!afl->non_instrumented_mode && !afl->queue_cur->trim_done && !afl->disable_trim) {
+  if (!afl->non_instrumented_mode && !afl->queue_cur->trim_done &&
+      !afl->disable_trim) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
@@ -579,8 +580,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
      for this main instance. */
 
-  if (afl->main_node_max &&
-      (afl->queue_cur->exec_cksum % afl->main_node_max) != afl->main_node_id - 1) {
+  if (afl->main_node_max && (afl->queue_cur->exec_cksum % afl->main_node_max) !=
+                                afl->main_node_id - 1) {
 
     goto custom_mutator_stage;
 
@@ -2732,8 +2733,8 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
      for this main instance. */
 
-  if (afl->main_node_max &&
-      (afl->queue_cur->exec_cksum % afl->main_node_max) != afl->main_node_id - 1) {
+  if (afl->main_node_max && (afl->queue_cur->exec_cksum % afl->main_node_max) !=
+                                afl->main_node_id - 1) {
 
     goto havoc_stage;
 
@@ -2975,8 +2976,8 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
       u32 cksum;
 
-      /* If in non-instrumented mode or if the file is very short, just flag everything
-         without wasting time on checksums. */
+      /* If in non-instrumented mode or if the file is very short, just flag
+         everything without wasting time on checksums. */
 
       if (!afl->non_instrumented_mode && len >= EFF_MIN_LEN) {
 
