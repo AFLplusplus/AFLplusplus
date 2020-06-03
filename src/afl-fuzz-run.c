@@ -562,10 +562,11 @@ void sync_fuzzers(afl_state_t *afl) {
   closedir(sd);
 
   // If we are a secondary and no main was found to sync then become the main
-  if (unlikely(synced == 0) && likely(entries) && likely(afl->is_secondary_node)) {
+  if (unlikely(synced == 0) && likely(entries) &&
+      likely(afl->is_secondary_node)) {
 
-    // there is a small race condition here that another secondary runs at the same
-    // time. If so, the first temporary main node running again will demote
+    // there is a small race condition here that another secondary runs at the
+    // same time. If so, the first temporary main node running again will demote
     // themselves so this is not an issue
 
     u8 path[PATH_MAX];
