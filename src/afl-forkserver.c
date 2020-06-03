@@ -506,7 +506,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if ((status & FS_OPT_SHDMEM_FUZZ) == FS_OPT_SHDMEM_FUZZ) {
 
-        if (fsrv->support_shdmen_fuzz) {
+        if (fsrv->support_shmem_fuzz) {
 
           fsrv->use_shdmen_fuzz = 1;
           if (!be_quiet) { ACTF("Using SHARED MEMORY FUZZING feature."); }
@@ -832,7 +832,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
   if (fsrv->shmem_fuzz) {
 
     memcpy(fsrv->shmem_fuzz, buf, len);
-    fsrv->shmem_fuzz_len = len;
+    *fsrv->shmem_fuzz_len = len;
 
   } else {
 
@@ -893,8 +893,6 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   memset(fsrv->trace_bits, 0, fsrv->map_size);
 
   MEM_BARRIER();
-
-  if (fsrv->shmem_fuzz_len) write_value += (fsrv->shmem_fuzz_len << 8);
 
   /* we have the fork server (or faux server) up and running
   First, tell it if the previous run timed out. */

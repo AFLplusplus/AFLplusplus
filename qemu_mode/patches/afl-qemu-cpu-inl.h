@@ -83,9 +83,9 @@ unsigned char persistent_save_gpr;
 uint64_t      persistent_saved_gpr[AFL_REGS_NUM];
 int           persisent_retaddr_offset;
 
-u8 *shared_buf;
-u32 shared_buf_len;
-u8  sharedmem_fuzzing;
+u8 * shared_buf;
+u32 *shared_buf_len;
+u8   sharedmem_fuzzing;
 
 afl_persistent_hook_fn afl_persistent_hook_ptr;
 
@@ -148,6 +148,7 @@ static void afl_map_shm_fuzz(void) {
 
     u32 shm_id = atoi(id_str);
     shared_buf = shmat(shm_id, NULL, 0);
+    shared_buf_len = (u32 *)(shared_buf + MAX_FILE);
 
     /* Whooooops. */
 
@@ -376,9 +377,6 @@ void afl_forkserver(CPUState *cpu) {
     /* Whoops, parent dead? */
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) exit(2);
-
-    shared_buf_len = (was_killed >> 8);
-    was_killed = (was_killed & 0xff);
 
     /* If we stopped the child in persistent mode, but there was a race
        condition and afl-fuzz already issued SIGKILL, write off the old

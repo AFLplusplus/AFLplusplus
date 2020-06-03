@@ -75,13 +75,13 @@ typedef struct afl_forkserver {
 
   u8 use_shdmen_fuzz;                   /* use shared mem for test cases    */
 
-  u8 support_shdmen_fuzz;               /* set by afl-fuzz                  */
+  u8 support_shmem_fuzz;                /* set by afl-fuzz                  */
 
   u8 use_fauxsrv;                       /* Fauxsrv for non-forking targets? */
 
   u8 qemu_mode;                         /* if running in qemu mode or not   */
 
-  u32 shmem_fuzz_len;                    /* length of the fuzzing test case */
+  u32 *shmem_fuzz_len;                  /* length of the fuzzing test case  */
 
   u8 *shmem_fuzz;                       /* allocated memory for fuzzing     */
 

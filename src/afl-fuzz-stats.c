@@ -138,6 +138,20 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       afl->orig_cmdline);
   /* ignore errors */
 
+  if (afl->debug) {
+
+    fprintf(f, "virgin_bytes     :");
+    for (uint32_t i = 0; i < afl->fsrv.map_size; i++)
+      if (afl->virgin_bits[i] != 0xff)
+        fprintf(f, " %d[%02x]", i, afl->virgin_bits[i]);
+    fprintf(f, "\n");
+    fprintf(f, "var_bytes        :");
+    for (uint32_t i = 0; i < afl->fsrv.map_size; i++)
+      if (afl->var_bytes[i]) fprintf(f, " %d", i);
+    fprintf(f, "\n");
+
+  }
+
   fclose(f);
 
 }
