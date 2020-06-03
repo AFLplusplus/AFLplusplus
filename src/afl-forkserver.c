@@ -524,7 +524,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         } else {
 
-          FATAL("Target requested sharedmem fuzzing, but we failed to enable it.");
+          FATAL(
+              "Target requested sharedmem fuzzing, but we failed to enable "
+              "it.");
 
         }
 

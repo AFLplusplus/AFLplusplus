@@ -126,8 +126,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       t_bytes, afl->var_byte_count, afl->use_banner,
       afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
       afl->non_instrumented_mode ? " non_instrumented " : "",
-      afl->no_forkserver ? "no_fsrv " : "",
-      afl->crash_mode ? "crash " : "",
+      afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",
       afl->persistent_mode ? "persistent " : "",
       afl->shmem_testcase_mode ? "shmem_testcase " : "",
       afl->deferred_mode ? "deferred " : "",
@@ -526,8 +525,9 @@ void show_stats(afl_state_t *afl) {
           t_byte_ratio);
 
   SAYF("    map density : %s%-21s" bSTG bV "\n",
-       t_byte_ratio > 70 ? cLRD
-                         : ((t_bytes < 200 && !afl->non_instrumented_mode) ? cPIN : cRST),
+       t_byte_ratio > 70
+           ? cLRD
+           : ((t_bytes < 200 && !afl->non_instrumented_mode) ? cPIN : cRST),
        tmp);
 
   sprintf(tmp, "%s (%0.02f%%)", u_stringify_int(IB(0), afl->cur_skipped_paths),
@@ -1022,7 +1022,8 @@ void show_init_stats(afl_state_t *afl) {
 
   }
 
-  /* In non-instrumented mode, re-running every timing out test case with a generous time
+  /* In non-instrumented mode, re-running every timing out test case with a
+     generous time
      limit is very expensive, so let's select a more conservative default. */
 
   if (afl->non_instrumented_mode && !(afl->afl_env.afl_hang_tmout)) {

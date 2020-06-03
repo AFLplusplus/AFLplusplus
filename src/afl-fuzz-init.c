@@ -1859,7 +1859,11 @@ void fix_up_sync(afl_state_t *afl) {
 
   u8 *x = afl->sync_id;
 
-  if (afl->non_instrumented_mode) { FATAL("-S / -M and -n are mutually exclusive"); }
+  if (afl->non_instrumented_mode) {
+
+    FATAL("-S / -M and -n are mutually exclusive");
+
+  }
 
   while (*x) {
 
@@ -2126,7 +2130,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
 #endif                                                       /* ^!__APPLE__ */
 
-  if (!afl->fsrv.qemu_mode && !afl->unicorn_mode && !afl->non_instrumented_mode &&
+  if (!afl->fsrv.qemu_mode && !afl->unicorn_mode &&
+      !afl->non_instrumented_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
