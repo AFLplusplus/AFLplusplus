@@ -379,9 +379,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
           *c = 0;
 
-          if (sscanf(c + 1, "%u/%u", &afl->main_node_id, &afl->main_node_max) != 2 ||
+          if (sscanf(c + 1, "%u/%u", &afl->main_node_id, &afl->main_node_max) !=
+                  2 ||
               !afl->main_node_id || !afl->main_node_max ||
-              afl->main_node_id > afl->main_node_max || afl->main_node_max > 1000000) {
+              afl->main_node_id > afl->main_node_max ||
+              afl->main_node_max > 1000000) {
 
             FATAL("Bogus main node ID passed to -M");
 
@@ -533,7 +535,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'n':                                                /* dumb mode */
 
-        if (afl->non_instrumented_mode) { FATAL("Multiple -n options not supported"); }
+        if (afl->non_instrumented_mode) {
+
+          FATAL("Multiple -n options not supported");
+
+        }
+
         if (afl->afl_env.afl_dumb_forksrv) {
 
           afl->non_instrumented_mode = 2;
@@ -793,10 +800,12 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
-  if (afl->sync_id && afl->is_main_node && afl->afl_env.afl_custom_mutator_only) {
+  if (afl->sync_id && afl->is_main_node &&
+      afl->afl_env.afl_custom_mutator_only) {
 
     WARNF(
-        "Using -M main node with the AFL_CUSTOM_MUTATOR_ONLY mutator options will "
+        "Using -M main node with the AFL_CUSTOM_MUTATOR_ONLY mutator options "
+        "will "
         "result in no deterministic mutations being done!");
 
   }

@@ -85,7 +85,7 @@ int           persisent_retaddr_offset;
 
 u8 *shared_buf;
 u32 shared_buf_len;
-u8 sharedmem_fuzzing;
+u8  sharedmem_fuzzing;
 
 afl_persistent_hook_fn afl_persistent_hook_ptr;
 
@@ -163,7 +163,8 @@ static void afl_map_shm_fuzz(void) {
 
   } else {
 
-    fprintf(stderr, "[AFL] ERROR:  variable for fuzzing shared memory is not set\n");
+    fprintf(stderr,
+            "[AFL] ERROR:  variable for fuzzing shared memory is not set\n");
     exit(1);
 
   }
@@ -282,9 +283,9 @@ void afl_setup(void) {
       exit(1);
 
     }
-    
-    int (*afl_persistent_hook_init_ptr)(void) = dlsym(plib,
-                                                    "afl_persistent_hook_init");
+
+    int (*afl_persistent_hook_init_ptr)(void) =
+        dlsym(plib, "afl_persistent_hook_init");
     if (afl_persistent_hook_init_ptr)
       sharedmem_fuzzing = afl_persistent_hook_init_ptr();
 
@@ -302,7 +303,7 @@ void afl_setup(void) {
 #endif
 
   }
-  
+
   if (getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"))
     persisent_retaddr_offset =
         strtoll(getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"), NULL, 0);
@@ -318,7 +319,7 @@ void afl_setup(void) {
 
 void afl_forkserver(CPUState *cpu) {
 
-  //u32           map_size = 0;
+  // u32           map_size = 0;
   unsigned char tmp[4] = {0};
 
   if (forkserver_installed == 1) return;
@@ -331,8 +332,8 @@ void afl_forkserver(CPUState *cpu) {
   pid_t child_pid;
   int   t_fd[2];
   u8    child_stopped = 0;
-  u32 was_killed;
-  int status;
+  u32   was_killed;
+  int   status;
 
   // with the max ID value
   if (MAP_SIZE <= FS_OPT_MAX_MAPSIZE)
@@ -349,7 +350,7 @@ void afl_forkserver(CPUState *cpu) {
   afl_forksrv_pid = getpid();
 
   int first_run = 1;
-  
+
   if (sharedmem_fuzzing) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) exit(2);
@@ -358,11 +359,12 @@ void afl_forkserver(CPUState *cpu) {
         (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ))
       afl_map_shm_fuzz();
     else {
-    
-      fprintf(stderr, "[AFL] ERROR: afl-fuzz is old and does not support"
-                      " shmem input");
+
+      fprintf(stderr,
+              "[AFL] ERROR: afl-fuzz is old and does not support"
+              " shmem input");
       exit(1);
-    
+
     }
 
   }
@@ -374,7 +376,7 @@ void afl_forkserver(CPUState *cpu) {
     /* Whoops, parent dead? */
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) exit(2);
-    
+
     shared_buf_len = (was_killed >> 8);
     was_killed = (was_killed & 0xff);
 
@@ -458,7 +460,6 @@ void afl_forkserver(CPUState *cpu) {
   }
 
 }
-
 
 /* A simplified persistent mode handler, used as explained in
  * llvm_mode/README.md. */

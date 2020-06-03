@@ -17,8 +17,8 @@ void afl_qemu_driver_stdin_input(void) {
 }
 
 int main(int argc, char **argv) {
-  if (LLVMFuzzerInitialize)
-    LLVMFuzzerInitialize(&argc, &argv);
+
+  if (LLVMFuzzerInitialize) LLVMFuzzerInitialize(&argc, &argv);
   // Do any other expensive one-time initialization here.
 
   if (getenv("AFL_QEMU_DRIVER_NO_HOOK")) {
@@ -33,4 +33,6 @@ int main(int argc, char **argv) {
   }
   
   return 0;
+
 }
+
