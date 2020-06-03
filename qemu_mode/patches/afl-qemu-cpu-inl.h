@@ -83,6 +83,10 @@ unsigned char persistent_save_gpr;
 uint64_t      persistent_saved_gpr[AFL_REGS_NUM];
 int           persisent_retaddr_offset;
 
+u8 *shared_buf;
+u32 shared_buf_len;
+u8 sharedmem_fuzzing;
+
 afl_persistent_hook_fn afl_persistent_hook_ptr;
 
 /* Instrumentation ratio: */
@@ -128,12 +132,43 @@ static inline TranslationBlock *tb_find(CPUState *, TranslationBlock *, int,
 static inline void              tb_add_jump(TranslationBlock *tb, int n,
                                             TranslationBlock *tb_next);
 int                             open_self_maps(void *cpu_env, int fd);
+static void                     afl_map_shm_fuzz(void);
 
 /*************************
  * ACTUAL IMPLEMENTATION *
  *************************/
 
 /* Set up SHM region and initialize other stuff. */
+
+static void afl_map_shm_fuzz(void) {
+
+  char *id_str = getenv(SHM_FUZZ_ENV_VAR);
+
+  if (id_str) {
+
+    u32 shm_id = atoi(id_str);
+    shared_buf = shmat(shm_id, NULL, 0);
+
+    /* Whooooops. */
+
+    if (shared_buf == (void *)-1) {
+
+      fprintf(stderr, "[AFL] ERROR:  could not access fuzzing shared memory\n");
+      exit(1);
+
+    }
+
+    if (getenv("AFL_DEBUG"))
+      fprintf(stderr, "[AFL] DEBUG: successfully got fuzzing shared memory\n");
+
+  } else {
+
+    fprintf(stderr, "[AFL] ERROR:  variable for fuzzing shared memory is not set\n");
+    exit(1);
+
+  }
+
+}
 
 void afl_setup(void) {
 
@@ -247,6 +282,11 @@ void afl_setup(void) {
       exit(1);
 
     }
+    
+    int (*afl_persistent_hook_init_ptr)(void) = dlsym(plib,
+                                                    "afl_persistent_hook_init");
+    if (afl_persistent_hook_init_ptr)
+      sharedmem_fuzzing = afl_persistent_hook_init_ptr();
 
     afl_persistent_hook_ptr = dlsym(plib, "afl_persistent_hook");
     if (!afl_persistent_hook_ptr) {
@@ -262,7 +302,7 @@ void afl_setup(void) {
 #endif
 
   }
-
+  
   if (getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"))
     persisent_retaddr_offset =
         strtoll(getenv("AFL_QEMU_PERSISTENT_RETADDR_OFFSET"), NULL, 0);
@@ -278,7 +318,7 @@ void afl_setup(void) {
 
 void afl_forkserver(CPUState *cpu) {
 
-  u32           map_size = 0;
+  //u32           map_size = 0;
   unsigned char tmp[4] = {0};
 
   if (forkserver_installed == 1) return;
@@ -291,15 +331,15 @@ void afl_forkserver(CPUState *cpu) {
   pid_t child_pid;
   int   t_fd[2];
   u8    child_stopped = 0;
+  u32 was_killed;
+  int status;
 
-  // if in the future qemu has non-collding coverage then switch MAP_SIZE
   // with the max ID value
-  if (MAP_SIZE <= 0x800000) {
-
-    map_size = (FS_OPT_ENABLED | FS_OPT_MAPSIZE | FS_OPT_SET_MAPSIZE(MAP_SIZE));
-    memcpy(tmp, &map_size, 4);
-
-  }
+  if (MAP_SIZE <= FS_OPT_MAX_MAPSIZE)
+    status |= (FS_OPT_SET_MAPSIZE(MAP_SIZE) | FS_OPT_MAPSIZE);
+  if (sharedmem_fuzzing != 0) status |= FS_OPT_SHDMEM_FUZZ;
+  if (status) status |= (FS_OPT_ENABLED);
+  memcpy(tmp, &status, 4);
 
   /* Tell the parent that we're alive. If the parent doesn't want
      to talk, assume that we're not running in forkserver mode. */
@@ -309,17 +349,34 @@ void afl_forkserver(CPUState *cpu) {
   afl_forksrv_pid = getpid();
 
   int first_run = 1;
+  
+  if (sharedmem_fuzzing) {
+
+    if (read(FORKSRV_FD, &was_killed, 4) != 4) exit(2);
+
+    if ((was_killed & (0xffffffff & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ))) ==
+        (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ))
+      afl_map_shm_fuzz();
+    else {
+    
+      fprintf(stderr, "[AFL] ERROR: afl-fuzz is old and does not support"
+                      " shmem input");
+      exit(1);
+    
+    }
+
+  }
 
   /* All right, let's await orders... */
 
   while (1) {
 
-    int status;
-    u32 was_killed;
-
     /* Whoops, parent dead? */
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) exit(2);
+    
+    shared_buf_len = (was_killed >> 8);
+    was_killed = (was_killed & 0xff);
 
     /* If we stopped the child in persistent mode, but there was a race
        condition and afl-fuzz already issued SIGKILL, write off the old
@@ -401,6 +458,7 @@ void afl_forkserver(CPUState *cpu) {
   }
 
 }
+
 
 /* A simplified persistent mode handler, used as explained in
  * llvm_mode/README.md. */

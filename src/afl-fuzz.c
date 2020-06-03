@@ -556,6 +556,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->fsrv.qemu_mode) { FATAL("Multiple -Q options not supported"); }
         afl->fsrv.qemu_mode = 1;
+        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_QEMU; }
 
@@ -583,6 +584,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->use_wine) { FATAL("Multiple -W options not supported"); }
         afl->fsrv.qemu_mode = 1;
         afl->use_wine = 1;
+        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = 0; }
 
