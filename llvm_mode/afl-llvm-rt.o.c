@@ -138,18 +138,19 @@ static void __afl_map_shm_fuzz() {
 
     }
 
-    __afl_fuzz_ptr = mmap(0, MAX_FILE, PROT_READ, MAP_SHARED, shm_fd, 0);
+    __afl_fuzz_len_shmem =
+        (u32 *)mmap(0, MAX_FILE, PROT_READ, MAP_SHARED, shm_fd, 0);
 
 #else
     u32 shm_id = atoi(id_str);
 
-    __afl_fuzz_ptr = shmat(shm_id, NULL, 0);
+    __afl_fuzz_len_shmem = (u32 *)shmat(shm_id, NULL, 0);
 
 #endif
 
     /* Whooooops. */
 
-    if (__afl_fuzz_ptr == (void *)-1) {
+    if (__afl_fuzz_len_shmem == (void *)-1) {
 
       fprintf(stderr, "Error: could not access fuzzing shared memory\n");
       exit(1);
@@ -166,7 +167,7 @@ static void __afl_map_shm_fuzz() {
 
   }
 
-  __afl_fuzz_len_shmem = (u32 *)(__afl_fuzz_ptr + MAX_FILE);
+  __afl_fuzz_ptr = (u8 *)(__afl_fuzz_len_shmem + sizeof(int));
 
 }
 
