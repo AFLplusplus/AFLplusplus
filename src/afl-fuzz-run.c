@@ -27,6 +27,7 @@
 #include "afl-fuzz.h"
 #include <sys/time.h>
 #include <signal.h>
+#include <limits.h>
 
 #include "cmplog.h"
 
