@@ -147,8 +147,8 @@ static void afl_map_shm_fuzz(void) {
   if (id_str) {
 
     u32 shm_id = atoi(id_str);
-    shared_buf = shmat(shm_id, NULL, 0);
-    shared_buf_len = (u32 *)(shared_buf + MAX_FILE);
+    shared_buf_len = (u32 *)shmat(shm_id, NULL, 0);
+    shared_buf = (u8 *)(shared_buf_len + sizeof(int));
 
     /* Whooooops. */
 
