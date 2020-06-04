@@ -101,6 +101,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->exec_tmout = from->exec_tmout;
   fsrv_to->mem_limit = from->mem_limit;
   fsrv_to->map_size = from->map_size;
+  fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
 
 #ifndef HAVE_ARC4RANDOM
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
@@ -435,6 +436,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
        falling through. */
 
     *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
+    fprintf(stderr, "Error: execv to target failed\n");
     exit(0);
 
   }
@@ -508,7 +510,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         if (fsrv->support_shmem_fuzz) {
 
-          fsrv->use_shdmen_fuzz = 1;
+          fsrv->use_shmem_fuzz = 1;
           if (!be_quiet) { ACTF("Using SHARED MEMORY FUZZING feature."); }
 
           if ((status & FS_OPT_AUTODICT) == 0) {
@@ -567,7 +569,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         if (fsrv->function_ptr == NULL || fsrv->function_opt == NULL) {
 
           // this is not afl-fuzz - we deny and return
-          if (fsrv->use_shdmen_fuzz)
+          if (fsrv->use_shmem_fuzz)
             status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
           else
             status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
