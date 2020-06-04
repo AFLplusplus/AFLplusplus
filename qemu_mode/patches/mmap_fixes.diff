@@ -1,0 +1,165 @@
+diff --git a/exec.c b/exec.c
+index df5571e..d484098 100644
+--- a/exec.c
++++ b/exec.c
+@@ -2457,7 +2457,7 @@ void qemu_ram_remap(ram_addr_t addr, ram_addr_t length)
+                     area = mmap(vaddr, length, PROT_READ | PROT_WRITE,
+                                 flags, -1, 0);
+                 }
+-                if (area != vaddr) {
++                if (area == MAP_FAILED || area != vaddr) {
+                     error_report("Could not remap addr: "
+                                  RAM_ADDR_FMT "@" RAM_ADDR_FMT "",
+                                  length, addr);
+diff --git a/linux-user/mmap.c b/linux-user/mmap.c
+index 41e0983..0a8b8e5 100644
+--- a/linux-user/mmap.c
++++ b/linux-user/mmap.c
+@@ -612,9 +612,13 @@ static void mmap_reserve(abi_ulong start, abi_ulong size)
+             real_end -= qemu_host_page_size;
+     }
+     if (real_start != real_end) {
+-        mmap(g2h(real_start), real_end - real_start, PROT_NONE,
++        void *p = mmap(g2h(real_start), real_end - real_start, PROT_NONE,
+                  MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE | MAP_NORESERVE,
+                  -1, 0);
++        if (p == MAP_FAILED) {
++            perror("mmap_reserve: cannot mmap");
++            exit(-1);
++        }
+     }
+ }
+ 
+diff --git a/roms/SLOF/tools/sloffs.c b/roms/SLOF/tools/sloffs.c
+index 9a1eace..10366f0 100644
+--- a/roms/SLOF/tools/sloffs.c
++++ b/roms/SLOF/tools/sloffs.c
+@@ -308,6 +308,10 @@ sloffs_append(const int file, const char *name, const char *dest)
+ 
+ 	fstat(fd, &stat);
+ 	append = mmap(NULL, stat.st_size, PROT_READ, MAP_SHARED, fd, 0);
++	if (append == MAP_FAILED) {
++		perror("sloffs_append: cannot mmap for read");
++		exit(1);
++	}
+ 	header = sloffs_header(file);
+ 
+ 	if (!header)
+@@ -331,6 +335,10 @@ sloffs_append(const int file, const char *name, const char *dest)
+ 	write(out, "", 1);
+ 	write_start = mmap(NULL, new_len, PROT_READ | PROT_WRITE,
+ 			   MAP_SHARED, out, 0);
++	if (write_start == MAP_FAILED) {
++		perror("sloffs_append: cannot mmap for read/write");
++		exit(1);
++	}
+ 
+ 	memset(write_start, 0, new_len);
+ 	memset(&new_file, 0, sizeof(struct sloffs));
+diff --git a/roms/skiboot/core/test/run-trace.c b/roms/skiboot/core/test/run-trace.c
+index 9801688..236b51d 100644
+--- a/roms/skiboot/core/test/run-trace.c
++++ b/roms/skiboot/core/test/run-trace.c
+@@ -178,6 +178,10 @@ static void test_parallel(void)
+ 	i = (CPUS*len + getpagesize()-1)&~(getpagesize()-1);
+ 	p = mmap(NULL, i, PROT_READ|PROT_WRITE,
+ 		 MAP_ANONYMOUS|MAP_SHARED, -1, 0);
++	if (p == MAP_FAILED) {
++		perror("test_parallel: cannot mmap");
++		exit(-1);
++	}
+ 
+ 	for (i = 0; i < CPUS; i++) {
+ 		fake_cpus[i].trace = p + i * len;
+diff --git a/roms/skiboot/external/ffspart/ffspart.c b/roms/skiboot/external/ffspart/ffspart.c
+index 7703477..efbbd5b 100644
+--- a/roms/skiboot/external/ffspart/ffspart.c
++++ b/roms/skiboot/external/ffspart/ffspart.c
+@@ -379,7 +379,7 @@ int main(int argc, char *argv[])
+ 			}
+ 
+ 			data_ptr = mmap(NULL, pactual, PROT_READ, MAP_SHARED, data_fd, 0);
+-			if (!data_ptr) {
++			if (data_ptr == MAP_FAILED) {
+ 				fprintf(stderr, "Couldn't mmap data file for partition '%s': %s\n",
+ 						name, strerror(errno));
+ 				rc = -1;
+diff --git a/roms/skiboot/extract-gcov.c b/roms/skiboot/extract-gcov.c
+index 3d31d1b..ebc03e6 100644
+--- a/roms/skiboot/extract-gcov.c
++++ b/roms/skiboot/extract-gcov.c
+@@ -229,7 +229,11 @@ int main(int argc, char *argv[])
+ 	}
+ 
+ 	addr = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+-	assert(addr != NULL);
++	assert(addr != MAP_FAILED);
++	if (addr == MAP_FAILED) {
++		perror("main: cannot mmap");
++		exit(-1);
++	}
+ 	skiboot_dump_size = sb.st_size;
+ 
+ 	printf("Skiboot memory dump %p - %p\n",
+diff --git a/roms/skiboot/libstb/create-container.c b/roms/skiboot/libstb/create-container.c
+index 5cf80a0..64699ad 100644
+--- a/roms/skiboot/libstb/create-container.c
++++ b/roms/skiboot/libstb/create-container.c
+@@ -96,7 +96,11 @@ void getSigRaw(ecc_signature_t *sigraw, char *inFile)
+ 	assert(r==0);
+ 
+ 	infile = mmap(NULL, s.st_size, PROT_READ, MAP_PRIVATE, fdin, 0);
+-	assert(infile);
++	assert(infile != MAP_FAILED);
++	if (infile == MAP_FAILED) {
++		perror("getSigRaw: cannot mmap");
++		exit(-1);
++	}
+ 
+ 	signature = d2i_ECDSA_SIG(NULL, (const unsigned char **) &infile, 7 + 2*EC_COORDBYTES);
+ 
+@@ -356,7 +360,11 @@ int main(int argc, char* argv[])
+ 	r = fstat(fdin, &s);
+ 	assert(r==0);
+ 	infile = mmap(NULL, s.st_size, PROT_READ, MAP_PRIVATE, fdin, 0);
+-	assert(infile);
++	assert(infile != MAP_FAILED);
++	if (infile == MAP_FAILED) {
++		perror("main: cannot mmap");
++		exit(-1);
++	}
+ 	fdout = open(params.imagefn, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ 	assert(fdout > 0);
+ 
+diff --git a/tests/tcg/multiarch/test-mmap.c b/tests/tcg/multiarch/test-mmap.c
+index 11d0e77..14f5919 100644
+--- a/tests/tcg/multiarch/test-mmap.c
++++ b/tests/tcg/multiarch/test-mmap.c
+@@ -203,6 +203,7 @@ void check_aligned_anonymous_fixed_mmaps(void)
+ 		p1 = mmap(addr, pagesize, PROT_READ, 
+ 			  MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+ 			  -1, 0);
++		fail_unless (p1 != MAP_FAILED);
+ 		/* Make sure we get pages aligned with the pagesize. 
+ 		   The target expects this.  */
+ 		p = (uintptr_t) p1;
+@@ -234,6 +235,7 @@ void check_aligned_anonymous_fixed_mmaps_collide_with_host(void)
+ 		p1 = mmap(addr, pagesize, PROT_READ | PROT_WRITE, 
+ 			  MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+ 			  -1, 0);
++		fail_unless (p1 != MAP_FAILED);
+ 		/* Make sure we get pages aligned with the pagesize. 
+ 		   The target expects this.  */
+ 		p = (uintptr_t) p1;
+@@ -401,6 +403,10 @@ void check_file_fixed_mmaps(void)
+ 		p4 = mmap(addr + pagesize * 3, pagesize, PROT_READ, 
+ 			  MAP_PRIVATE | MAP_FIXED,
+ 			  test_fd, pagesize * 3);
++		fail_unless (p1 != MAP_FAILED);
++		fail_unless (p2 != MAP_FAILED);
++		fail_unless (p3 != MAP_FAILED);
++		fail_unless (p4 != MAP_FAILED);
+ 
+ 		/* Make sure we get pages aligned with the pagesize. 
+ 		   The target expects this.  */
+
