@@ -246,7 +246,7 @@ int main(int argc, char **argv_orig, char **envp) {
   u64    prev_queued = 0;
   u32    sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
   u8 *   extras_dir = 0;
-  u8     mem_limit_given = 0, exit_1 = 0;
+  u8     mem_limit_given = 0, exit_1 = 0, debug = 0;
   char **use_argv;
 
   struct timeval  tv;
@@ -257,10 +257,11 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
   if (!afl) { FATAL("Could not create afl state"); }
 
-  if (get_afl_env("AFL_DEBUG")) { afl->debug = 1; }
+  if (get_afl_env("AFL_DEBUG")) { debug = afl->debug = 1; }
 
   map_size = get_map_size();
   afl_state_init(afl, map_size);
+  afl->debug = debug;
   afl_fsrv_init(&afl->fsrv);
 
   read_afl_environment(afl, envp);
