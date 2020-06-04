@@ -90,7 +90,7 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 #endif
 
 int __afl_sharedmem_fuzzing = 1;
-extern unsigned int __afl_fuzz_len;
+extern unsigned int *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
@@ -272,9 +272,9 @@ int main(int argc, char **argv) {
 
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {
-    if (__afl_fuzz_len) {
+    if (*__afl_fuzz_len) {
       num_runs++;
-      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, __afl_fuzz_len);
+      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, *__afl_fuzz_len);
     }
   }
   Printf("%s: successfully executed %d input(s)\n", argv[0], num_runs);
