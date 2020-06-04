@@ -18,7 +18,7 @@ libAFLDriver.a:	aflpp_driver.o
 	ar ru libAFLDriver.a aflpp_driver.o
 
 aflpp_qemu_driver.o:	aflpp_qemu_driver.c
-	$(LLVM_BINDIR)clang $(FLAGS) -funroll-loops -c aflpp_qemu_driver.c
+	$(LLVM_BINDIR)clang $(FLAGS) -O0 -funroll-loops -c aflpp_qemu_driver.c
 
 libAFLQemuDriver.a:	aflpp_qemu_driver.o
 	ar ru libAFLQemuDriver.a aflpp_qemu_driver.o

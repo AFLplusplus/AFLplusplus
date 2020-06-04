@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
 
   } else {
 
-    uint8_t dummy_input[1] = {0};
+    uint8_t dummy_input[1024000] = {0};
     LLVMFuzzerTestOneInput(dummy_input, 1);
 
   }
