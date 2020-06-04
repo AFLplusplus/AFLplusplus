@@ -22,6 +22,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       better coverage. The original afl instrumentation can be set via
       AFL_LLVM_INSTRUMENT=AFL. This is automatically done when the WHITELIST
       feature is used.
+    - some targets want a ld variant for LD that is not gcc/clang but ld, added
+      afl-ld-lto to solve this
     - lowered minimum required llvm version to 3.4 (except LLVMInsTrim,
       which needs 3.8.0)
     - WHITELIST feature now supports wildcards (thanks to sirmc)
