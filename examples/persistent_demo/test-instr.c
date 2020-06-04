@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
     counter++;
 #endif
 
-    fprintf(stderr, "len: %u\n", len);
+    // fprintf(stderr, "len: %u\n", len);
 
     if (!len) continue;
 
