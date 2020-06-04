@@ -68,7 +68,7 @@ endif
 ifeq "$(LLVM_MAJOR)" "11"
   $(info [+] llvm_mode detected llvm 11, enabling afl-clang-lto LTO implementation)
   LLVM_LTO = 1
-  TEST_MMAP = 1
+  #TEST_MMAP = 1
 endif
 
 ifeq "$(LLVM_LTO)" "0"
@@ -236,7 +236,7 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
         SHMAT_OK=1
 else
         SHMAT_OK=0
-        CFLAGS+=-DUSEMMAP=1
+        #CFLAGS+=-DUSEMMAP=1
         LDFLAGS += -Wno-deprecated-declarations
 endif
 

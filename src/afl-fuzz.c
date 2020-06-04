@@ -792,6 +792,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (!mem_limit_given && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
+
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
@@ -1228,6 +1230,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
     afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                    afl->afl_env.afl_debug_child_output);
+    OKF("Cmplog forkserver successfully started");
 
   }
 

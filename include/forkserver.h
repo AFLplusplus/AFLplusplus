@@ -73,7 +73,7 @@ typedef struct afl_forkserver {
 
   u8 last_kill_signal;                  /* Signal that killed the child     */
 
-  u8 use_shdmen_fuzz;                   /* use shared mem for test cases    */
+  u8 use_shmem_fuzz;                    /* use shared mem for test cases    */
 
   u8 support_shmem_fuzz;                /* set by afl-fuzz                  */
 

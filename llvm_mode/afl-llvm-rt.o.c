@@ -311,6 +311,10 @@ static void __afl_map_shm(void) {
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
+  if (getenv("AFL_DEBUG"))
+    fprintf(stderr, "DEBUG: cmplog id_str %s\n",
+            id_str == NULL ? "<null>" : id_str);
+
   if (id_str) {
 
 #ifdef USEMMAP
