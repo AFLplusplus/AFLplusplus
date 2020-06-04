@@ -276,7 +276,7 @@ static void report_error_and_exit(int error) {
       break;
     case FS_ERROR_MMAP:
       FATAL(
-          "the fuzzing target reports that the mmap() call to the share memory "
+          "the fuzzing target reports that the mmap() call to the shared memory "
           "failed.");
       break;
     default:
