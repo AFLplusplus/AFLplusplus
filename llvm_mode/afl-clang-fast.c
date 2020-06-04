@@ -495,14 +495,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_INIT()="
       "int __afl_sharedmem_fuzzing = 1;"
-      "extern unsigned int __afl_fuzz_len;"
+      "extern unsigned int *__afl_fuzz_len;"
       "extern unsigned char *__afl_fuzz_ptr;"
       "unsigned char *__afl_fuzz_alt_ptr;";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
       "(__afl_fuzz_alt_ptr = malloc(1 * 1024 * 1024)))";
   cc_params[cc_par_cnt++] =
-      "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? __afl_fuzz_len : read(0, "
+      "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? *__afl_fuzz_len : read(0, "
       "__afl_fuzz_alt_ptr, 1 * 1024 * 1024))";
 
   cc_params[cc_par_cnt++] =

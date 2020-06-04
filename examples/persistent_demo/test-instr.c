@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
   __AFL_INIT();
   unsigned char *buf = __AFL_FUZZ_TESTCASE_BUF;
 
-  while (__AFL_LOOP(2147483647)) {
+  while (__AFL_LOOP(2147483647)) {  // MAX_INT if you have 100% stability
 
     unsigned int len = __AFL_FUZZ_TESTCASE_LEN;
 
@@ -49,6 +49,8 @@ int main(int argc, char **argv) {
 
     counter++;
 #endif
+
+    fprintf(stderr, "len: %u\n", len);
 
     if (!len) continue;
 

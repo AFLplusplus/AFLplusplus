@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
   __AFL_INIT();
   buf = __AFL_FUZZ_TESTCASE_BUF;
 
-  while (__AFL_LOOP(1000)) {
+  while (__AFL_LOOP(1000)) {  // increase if you have good stability
 
     len = __AFL_FUZZ_TESTCASE_LEN;
 
