@@ -334,7 +334,7 @@ void afl_forkserver(CPUState *cpu) {
   int   t_fd[2];
   u8    child_stopped = 0;
   u32   was_killed;
-  int   status;
+  int   status = 0;
 
   // with the max ID value
   if (MAP_SIZE <= FS_OPT_MAX_MAPSIZE)
