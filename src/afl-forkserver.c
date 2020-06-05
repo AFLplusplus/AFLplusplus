@@ -277,8 +277,8 @@ static void report_error_and_exit(int error) {
       break;
     case FS_ERROR_MMAP:
       FATAL(
-          "the fuzzing target reports that the mmap() call to the shared memory "
-          "failed.");
+          "the fuzzing target reports that the mmap() call to the shared "
+          "memory failed.");
       break;
     default:
       FATAL("unknown error code %u from fuzzing target!", error);
@@ -488,16 +488,16 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!be_quiet) { OKF("All right - fork server is up."); }
 
+    if (getenv("AFL_DEBUG")) {
+
+      ACTF("Extended forkserver functions received (%08x).", status);
+
+    }
+
     if ((status & FS_OPT_ERROR) == FS_OPT_ERROR)
       report_error_and_exit(FS_OPT_GET_ERROR(status));
 
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
-
-      if (getenv("AFL_DEBUG")) {
-
-        ACTF("Extended forkserver functions received (%08x).", status);
-
-      }
 
       if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
 
