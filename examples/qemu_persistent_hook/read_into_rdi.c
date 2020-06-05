@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
 #define g2h(x) ((void *)((unsigned long)(x) + guest_base))
 #define h2g(x) ((uint64_t)(x)-guest_base)
