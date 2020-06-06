@@ -246,7 +246,8 @@ int main(int argc, char **argv) {
     LLVMFuzzerInitialize(&argc, &argv);
   // Do any other expensive one-time initialization here.
 
-  int N = 1000;
+  uint8_t dummy_input[1] = {0};
+  int N = 100000;
   if (argc == 2 && argv[1][0] == '-')
       N = atoi(argv[1] + 1);
   else if(argc == 2 && (N = atoi(argv[1])) > 0)
@@ -267,11 +268,13 @@ int main(int argc, char **argv) {
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
   // on the first execution of LLVMFuzzerTestOneInput is ignored.
-  uint8_t dummy_input[1] = {0};
   LLVMFuzzerTestOneInput(dummy_input, 1);
 
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {
+#ifdef _DEBUG
+    fprintf(stderr, "len: %u\n", *__afl_fuzz_len);
+#endif
     if (*__afl_fuzz_len) {
       num_runs++;
       LLVMFuzzerTestOneInput(__afl_fuzz_ptr, *__afl_fuzz_len);
