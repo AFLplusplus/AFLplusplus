@@ -192,7 +192,7 @@ static const u8 *main_payload_32 =
 #ifdef SKIP_COUNTS
   "  orb  $1, (%edx, %edi, 1)\n"
 #else
-  "  incb (%edx, %edi, 1)\n"
+  "  addb $1, (%edx, %edi, 1)\n"
   "  adcb $0, (%edx, %edi, 1)\n" // never zero counter implementation. slightly better path discovery and little performance impact
 #endif                                                      /* ^SKIP_COUNTS */
   "\n"
@@ -447,7 +447,7 @@ static const u8 *main_payload_64 =
 #ifdef SKIP_COUNTS
   "  orb  $1, (%rdx, %rcx, 1)\n"
 #else
-  "  incb (%rdx, %rcx, 1)\n"
+  "  addb $1, (%rdx, %rcx, 1)\n"
   "  adcb $0, (%rdx, %rcx, 1)\n" // never zero counter implementation. slightly better path discovery and little performance impact
 #endif                                                      /* ^SKIP_COUNTS */
   "\n"
