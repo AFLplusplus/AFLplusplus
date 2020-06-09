@@ -503,10 +503,11 @@ __attribute__((constructor)) void __dislocator_init(void) {
 
 /* NetBSD fault handler specific api subset */
 
-void (* esetfunc(void (*fn)(int, const char *, ...)))(int, const char *, ...)
-{
+void (*esetfunc(void (*fn)(int, const char *, ...)))(int, const char *, ...) {
+
   /* Might not be meaningful to implement; upper calls already report errors */
   return NULL;
+
 }
 
 void *emalloc(size_t len) {
@@ -526,3 +527,4 @@ void *erealloc(void *ptr, size_t len) {
   return realloc(ptr, len);
 
 }
+

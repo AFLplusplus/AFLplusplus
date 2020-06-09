@@ -160,7 +160,9 @@ static void __afl_map_shm_fuzz() {
     __afl_fuzz_ptr = (u8 *)(map + sizeof(u32));
 
     if (getenv("AFL_DEBUG")) {
+
       fprintf(stderr, "DEBUG: successfully got fuzzing shared memory\n");
+
     }
 
   } else {

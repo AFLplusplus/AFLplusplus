@@ -1975,7 +1975,7 @@ void setup_testcase_shmem(afl_state_t *afl) {
   afl->fsrv.shmem_fuzz_len = (u32 *)map;
   afl->fsrv.shmem_fuzz = map + sizeof(u32);
 
- }
+}
 
 /* Do a PATH search and find target binary to see that it exists and
    isn't a shell script - a common and painful mistake. We also check for
