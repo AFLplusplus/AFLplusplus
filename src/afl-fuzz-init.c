@@ -1960,28 +1960,22 @@ void setup_testcase_shmem(afl_state_t *afl) {
   afl->shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
   // we need to set the non-instrumented mode to not overwrite the SHM_ENV_VAR
-  if ((afl->fsrv.shmem_fuzz_len =
-           (u32 *)afl_shm_init(afl->shm_fuzz, MAX_FILE + sizeof(int), 1))) {
+  u8 *map = afl_shm_init(afl->shm_fuzz, MAX_FILE + sizeof(u32), 1);
+
+  if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 
 #ifdef USEMMAP
-    setenv(SHM_FUZZ_ENV_VAR, afl->shm_fuzz->g_shm_file_path, 1);
+  setenv(SHM_FUZZ_ENV_VAR, afl->shm_fuzz->g_shm_file_path, 1);
 #else
-    u8 *shm_str;
-    shm_str = alloc_printf("%d", afl->shm_fuzz->shm_id);
-    setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
-    ck_free(shm_str);
+  u8 *shm_str = alloc_printf("%d", afl->shm_fuzz->shm_id);
+  setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
+  ck_free(shm_str);
 #endif
-    afl->fsrv.support_shmem_fuzz = 1;
-    afl->fsrv.shmem_fuzz = (u8 *)(afl->fsrv.shmem_fuzz_len + sizeof(int));
+  afl->fsrv.support_shmem_fuzz = 1;
+  afl->fsrv.shmem_fuzz_len = (u32 *)map;
+  afl->fsrv.shmem_fuzz = map + sizeof(u32);
 
-  } else {
-
-    ck_free(afl->shm_fuzz);
-    afl->shm_fuzz = NULL;
-
-  }
-
-}
+ }
 
 /* Do a PATH search and find target binary to see that it exists and
    isn't a shell script - a common and painful mistake. We also check for

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-""" 
+"""
    Simple test harness for AFL's Unicorn Mode.
 
    This loads the compcov_target.bin binary (precompiled as MIPS code) into
@@ -11,7 +11,7 @@
    Run under AFL as follows:
 
    $ cd <afl_path>/unicorn_mode/samples/simple/
-   $ ../../../afl-fuzz -U -m none -i ./sample_inputs -o ./output -- python compcov_test_harness.py @@ 
+   $ AFL_COMPCOV_LEVEL=2 ../../../afl-fuzz -U -m none -i ./sample_inputs -o ./output -- python compcov_test_harness.py @@
 """
 
 import argparse
@@ -42,22 +42,22 @@ try:
             print("    Instr: {:#016x}:\t{}\t{}".format(address, cs_mnemonic, cs_opstr))
 except ImportError:
     def unicorn_debug_instruction(uc, address, size, user_data):
-        print("    Instr: addr=0x{0:016x}, size=0x{1:016x}".format(address, size))    
+        print("    Instr: addr=0x{0:016x}, size=0x{1:016x}".format(address, size))
 
 def unicorn_debug_block(uc, address, size, user_data):
     print("Basic Block: addr=0x{0:016x}, size=0x{1:016x}".format(address, size))
-    
+
 def unicorn_debug_mem_access(uc, access, address, size, value, user_data):
     if access == UC_MEM_WRITE:
         print("        >>> Write: addr=0x{0:016x} size={1} data=0x{2:016x}".format(address, size, value))
     else:
-        print("        >>> Read: addr=0x{0:016x} size={1}".format(address, size))    
+        print("        >>> Read: addr=0x{0:016x} size={1}".format(address, size))
 
 def unicorn_debug_mem_invalid_access(uc, access, address, size, value, user_data):
     if access == UC_MEM_WRITE_UNMAPPED:
         print("        >>> INVALID Write: addr=0x{0:016x} size={1} data=0x{2:016x}".format(address, size, value))
     else:
-        print("        >>> INVALID Read: addr=0x{0:016x} size={1}".format(address, size))   
+        print("        >>> INVALID Read: addr=0x{0:016x} size={1}".format(address, size))
 
 def main():
 
