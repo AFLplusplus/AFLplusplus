@@ -38,7 +38,7 @@ harness.o: harness.c ../../unicornafl/include/unicorn/*.h
 	${MYCC} ${CFLAGS} -O3 -c harness.c
 
 harness-debug.o: harness.c ../../unicornafl/include/unicorn/*.h
-	${MYCC} ${CFLAGS} -g -c harness.c -o $@
+	${MYCC} ${CFLAGS} -DAFL_DEBUG=1 -g -c harness.c -o $@
 
 harness: harness.o
 	${MYCC} -L${LIBDIR} harness.o ../../unicornafl/libunicornafl.a $(LDFLAGS) -o $@

@@ -147,20 +147,22 @@ static void afl_map_shm_fuzz(void) {
   if (id_str) {
 
     u32 shm_id = atoi(id_str);
-    shared_buf_len = (u32 *)shmat(shm_id, NULL, 0);
-    shared_buf = (u8 *)(shared_buf_len + sizeof(int));
-
+    u8 *map = (u8 *)shmat(shm_id, NULL, 0);
     /* Whooooops. */
 
-    if (shared_buf == (void *)-1) {
+    if (!map || map == (void *)-1) {
 
-      fprintf(stderr, "[AFL] ERROR:  could not access fuzzing shared memory\n");
+      perror("[AFL] ERROR: could not access fuzzing shared memory");
       exit(1);
 
     }
 
-    if (getenv("AFL_DEBUG"))
+    shared_buf_len = (u32 *)map;
+    shared_buf = map + sizeof(u32);
+
+    if (getenv("AFL_DEBUG")) {
       fprintf(stderr, "[AFL] DEBUG: successfully got fuzzing shared memory\n");
+    }
 
   } else {
 

@@ -129,6 +129,16 @@ static bool place_input_callback(
         return false;
     }
 
+#if defined(AFL_DEBUG)
+    printf("[d] harness: input len=%ld, [ ", input_len);
+    int i = 0;
+    for (i = 0; i < input_len && i < 16; i++) {
+        printf("0x%02x ", (unsigned char) input[i]);
+    }
+    if (input_len > 16) printf("... ");
+    printf("]\n");
+#endif
+
     // For persistent mode, we have to set up stack and memory each time.
     uc_reg_write(uc, UC_X86_REG_RIP, &CODE_ADDRESS); // Set the instruction pointer back
     // Set up the function parameters accordingly RSI, RDI (see calling convention/disassembly)
