@@ -144,10 +144,12 @@ static u32 read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
 
   if (!sret) {
 
+    *buf = -1;
     return timeout_ms + 1;
 
   } else if (sret < 0) {
 
+    *buf = -1;
     return 0;
 
   }
