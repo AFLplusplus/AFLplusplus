@@ -231,7 +231,7 @@ static int stricmp(char const *a, char const *b) {
   for (;; ++a, ++b) {
 
     int d;
-    d = tolower(*a) - tolower(*b);
+    d = tolower((int)*a) - tolower((int)*b);
     if (d != 0 || !*a) { return d; }
 
   }
