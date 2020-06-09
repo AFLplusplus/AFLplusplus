@@ -923,17 +923,36 @@ test -d ../unicorn_mode/unicornafl && {
 
       fi
 
+
+      cd ../unicorn_mode/samples/persistent
+      make >>errors 2>&1
+      $ECHO "$GREY[*] running afl-fuzz for unicorn_mode (persistent), this will take approx 25 seconds"
+      AFL_DEBUG_CHILD_OUTPUT=1 ../../../afl-fuzz -m none -V25 -U -i sample_inputs -o out -d -- ./harness @@ >>errors 2>&1
+      test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode (persistent)"
+      } || {
+        echo CUT------------------------------------------------------------------CUT
+        cat errors
+        echo CUT------------------------------------------------------------------CUT
+        $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode (persistent)"
+        CODE=1
+      }
+
+      rm -rf out errors >/dev/null
+      make clean >/dev/null
+      cd ../../../test
+
       # travis workaround
       test "$PY" = "/opt/pyenv/shims/python" -a -x /usr/bin/python && PY=/usr/bin/python
       mkdir -p in
       echo 0 > in/in
       $ECHO "$GREY[*] Using python binary $PY"
       if ! $PY -c 'import unicornafl' 2>/dev/null ; then
-        $ECHO "$YELLOW[-] we cannot test unicorn_mode because it is not present"
+        $ECHO "$YELLOW[-] we cannot test unicorn_mode for python because it is not present"
         INCOMPLETE=1
       else
       {
-        $ECHO "$GREY[*] running afl-fuzz for unicorn_mode, this will take approx 25 seconds"
+        $ECHO "$GREY[*] running afl-fuzz for unicorn_mode in python, this will take approx 25 seconds"
         {
           ../afl-fuzz -m ${MEM_LIMIT} -V25 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/simple/simple_test_harness.py @@ >>errors 2>&1
         } >>errors 2>&1

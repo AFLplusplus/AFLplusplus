@@ -38,13 +38,13 @@ harness.o: harness.c ../../unicornafl/include/unicorn/*.h
 	${MYCC} ${CFLAGS} -O3 -c harness.c
 
 harness-debug.o: harness.c ../../unicornafl/include/unicorn/*.h
-	${MYCC} ${CFLAGS} -g -c harness.c -o $@
+	${MYCC} ${CFLAGS} -DAFL_DEBUG=1 -g -c harness.c -o $@
 
 harness: harness.o
 	${MYCC} -L${LIBDIR} harness.o ../../unicornafl/libunicornafl.a $(LDFLAGS) -o $@
 
 debug: harness-debug.o
-	${MYCC} -L${LIBDIR} harness.o ../../unicornafl/libunicornafl.a $(LDFLAGS) -o harness-debug
+	${MYCC} -L${LIBDIR} harness-debug.o ../../unicornafl/libunicornafl.a $(LDFLAGS) -o harness-debug
 
 fuzz: harness
 	../../../afl-fuzz -m none -i sample_inputs -o out -- ./harness @@

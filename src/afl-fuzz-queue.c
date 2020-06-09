@@ -303,7 +303,7 @@ void cull_queue(afl_state_t *afl) {
   u32                 i;
   u8 *                temp_v = afl->map_tmp_buf;
 
-  if (afl->dumb_mode || !afl->score_changed) { return; }
+  if (afl->non_instrumented_mode || !afl->score_changed) { return; }
 
   afl->score_changed = 0;
 

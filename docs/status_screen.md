@@ -33,7 +33,7 @@ The top line shows you which mode afl-fuzz is running in
 (normal: "american fuzy lop", crash exploration mode: "peruvian rabbit mode")
 and the version of afl++.
 Next to the version is the banner, which, if not set with -T by hand, will
-either show the binary name being fuzzed, or the -M/-S master/slave name for
+either show the binary name being fuzzed, or the -M/-S main/secondary name for
 parallel fuzzing.
 Finally, the last item is the power schedule mode being run (default: explore).
 
@@ -404,7 +404,7 @@ directory. This includes:
   - `var_byte_count`    - how many edges are non-deterministic
   - `afl_banner`        - banner text (e.g. the target name)
   - `afl_version`       - the version of afl used
-  - `target_mode`       - default, persistent, qemu, unicorn, dumb
+  - `target_mode`       - default, persistent, qemu, unicorn, non-instrumented
   - `command_line`      - full command line used for the fuzzing session
 
 Most of these map directly to the UI elements discussed earlier on.

@@ -408,8 +408,8 @@ typedef struct afl_state {
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
       python_only,                      /* Python-only mode                 */
-      is_master,                        /* if this is a master              */
-      is_slave;                         /* if this is a slave               */
+      is_main_node,                     /* if this is the main node         */
+      is_secondary_node;                /* if this is a secondary instance  */
 
   u32 stats_update_freq;                /* Stats update frequency (execs)   */
 
@@ -421,7 +421,7 @@ typedef struct afl_state {
 
   u8 skip_deterministic,                /* Skip deterministic stages?       */
       use_splicing,                     /* Recombine input files?           */
-      dumb_mode,                        /* Run in non-instrumented mode?    */
+      non_instrumented_mode,            /* Run in non-instrumented mode?    */
       score_changed,                    /* Scoring for favorites changed?   */
       resuming_fuzz,                    /* Resuming an older fuzzing job?   */
       timeout_given,                    /* Specific timeout given?          */
@@ -444,7 +444,8 @@ typedef struct afl_state {
       deferred_mode,                    /* Deferred forkserver mode?        */
       fixed_seed,                       /* do not reseed                    */
       fast_cal,                         /* Try to calibrate faster?         */
-      disable_trim;                     /* Never trim in fuzz_one           */
+      disable_trim,                     /* Never trim in fuzz_one           */
+      shmem_testcase_mode;              /* If sharedmem testcases are used  */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
@@ -502,7 +503,7 @@ typedef struct afl_state {
   s32 stage_cur, stage_max;             /* Stage progression                */
   s32 splicing_with;                    /* Splicing with which test case?   */
 
-  u32 master_id, master_max;            /* Master instance job splitting    */
+  u32 main_node_id, main_node_max;      /*   Main instance job splitting    */
 
   u32 syncing_case;                     /* Syncing with case #...           */
 
@@ -806,6 +807,9 @@ void afl_states_clear_screen(void);
 /* Sets the skip flag on all states */
 void afl_states_request_skip(void);
 
+/* Setup shmem for testcase delivery */
+void setup_testcase_shmem(afl_state_t *afl);
+
 void read_afl_environment(afl_state_t *, char **);
 
 /**** Prototypes ****/
@@ -912,7 +916,7 @@ u32    find_start_position(afl_state_t *);
 void   find_timeout(afl_state_t *);
 double get_runnable_processes(void);
 void   nuke_resume_dir(afl_state_t *);
-int    check_master_exists(afl_state_t *);
+int    check_main_node_exists(afl_state_t *);
 void   setup_dirs_fds(afl_state_t *);
 void   setup_cmdline_file(afl_state_t *, char **);
 void   setup_stdio_file(afl_state_t *);

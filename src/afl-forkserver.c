@@ -101,6 +101,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->exec_tmout = from->exec_tmout;
   fsrv_to->mem_limit = from->mem_limit;
   fsrv_to->map_size = from->map_size;
+  fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
 
 #ifndef HAVE_ARC4RANDOM
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
@@ -119,7 +120,57 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
 }
 
-/* Internal forkserver for dumb_mode=1 and non-forkserver mode runs.
+/* Wrapper for select() and read(), reading a 32 bit var.
+  Returns the time passed to read.
+  If the wait times out, returns timeout_ms + 1;
+  Returns 0 if an error occurred (fd closed, signal, ...); */
+static u32 read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
+                          volatile u8 *stop_soon_p) {
+
+  fd_set readfds;
+  FD_ZERO(&readfds);
+  FD_SET(fd, &readfds);
+  struct timeval timeout;
+  size_t         len = 4;
+
+  timeout.tv_sec = (timeout_ms / 1000);
+  timeout.tv_usec = (timeout_ms % 1000) * 1000;
+#if !defined(__linux__)
+  u64 read_start = get_cur_time_us();
+#endif
+
+  /* set exceptfds as well to return when a child exited/closed the pipe. */
+  int sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
+
+  if (!sret) {
+
+    *buf = -1;
+    return timeout_ms + 1;
+
+  } else if (sret < 0) {
+
+    *buf = -1;
+    return 0;
+
+  }
+
+  ssize_t len_read = read(fd, ((u8 *)buf), len);
+  if (len_read < len) { return 0; }
+
+#if defined(__linux__)
+  u32 exec_ms =
+      MIN(timeout_ms,
+          ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
+#else
+  u32 exec_ms = MIN(timeout_ms, get_cur_time_us() - read_start);
+#endif
+
+  // ensure to report 1 ms has passed (0 is an error)
+  return exec_ms > 0 ? exec_ms : 1;
+
+}
+
+/* Internal forkserver for non_instrumented_mode=1 and non-forkserver mode runs.
   It execvs for each fork, forwarding exit codes and child pids to afl. */
 
 static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
@@ -228,8 +279,8 @@ static void report_error_and_exit(int error) {
       break;
     case FS_ERROR_MMAP:
       FATAL(
-          "the fuzzing target reports that the mmap() call to the share memory "
-          "failed.");
+          "the fuzzing target reports that the mmap() call to the shared "
+          "memory failed.");
       break;
     default:
       FATAL("unknown error code %u from fuzzing target!", error);
@@ -238,7 +289,7 @@ static void report_error_and_exit(int error) {
 
 }
 
-/* Spins up fork server (instrumented mode only). The idea is explained here:
+/* Spins up fork server. The idea is explained here:
 
    http://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
 
@@ -250,14 +301,14 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output) {
 
   int st_pipe[2], ctl_pipe[2];
-  int status;
+  s32 status;
   s32 rlen;
 
   if (!be_quiet) { ACTF("Spinning up the fork server..."); }
 
   if (fsrv->use_fauxsrv) {
 
-    /* TODO: Come up with sone nice way to initalize this all */
+    /* TODO: Come up with sone nice way to initialize this all */
 
     if (fsrv->init_child_func != fsrv_exec_child) {
 
@@ -387,6 +438,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
        falling through. */
 
     *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
+    fprintf(stderr, "Error: execv to target failed\n");
     exit(0);
 
   }
@@ -406,14 +458,15 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   rlen = 0;
   if (fsrv->exec_tmout) {
 
-    u32 time = read_timed(fsrv->fsrv_st_fd, &status, 4,
-                          fsrv->exec_tmout * FORK_WAIT_MULT, stop_soon_p);
+    u32 time_ms =
+        read_s32_timed(fsrv->fsrv_st_fd, &status,
+                       fsrv->exec_tmout * FORK_WAIT_MULT, stop_soon_p);
 
-    if (!time) {
+    if (!time_ms) {
 
       kill(fsrv->fsrv_pid, SIGKILL);
 
-    } else if (time > fsrv->exec_tmout * FORK_WAIT_MULT) {
+    } else if (time_ms > fsrv->exec_tmout * FORK_WAIT_MULT) {
 
       fsrv->last_run_timed_out = 1;
       kill(fsrv->fsrv_pid, SIGKILL);
@@ -437,16 +490,16 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!be_quiet) { OKF("All right - fork server is up."); }
 
+    if (getenv("AFL_DEBUG")) {
+
+      ACTF("Extended forkserver functions received (%08x).", status);
+
+    }
+
     if ((status & FS_OPT_ERROR) == FS_OPT_ERROR)
       report_error_and_exit(FS_OPT_GET_ERROR(status));
 
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
-
-      if (getenv("AFL_DEBUG")) {
-
-        ACTF("Extended forkserver functions received (%08x).", status);
-
-      }
 
       if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
 
@@ -457,9 +510,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if ((status & FS_OPT_SHDMEM_FUZZ) == FS_OPT_SHDMEM_FUZZ) {
 
-        if (fsrv->support_shdmen_fuzz) {
+        if (fsrv->support_shmem_fuzz) {
 
-          fsrv->use_shdmen_fuzz = 1;
+          fsrv->use_shmem_fuzz = 1;
           if (!be_quiet) { ACTF("Using SHARED MEMORY FUZZING feature."); }
 
           if ((status & FS_OPT_AUTODICT) == 0) {
@@ -472,6 +525,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
             }
 
           }
+
+        } else {
+
+          FATAL(
+              "Target requested sharedmem fuzzing, but we failed to enable "
+              "it.");
 
         }
 
@@ -512,7 +571,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         if (fsrv->function_ptr == NULL || fsrv->function_opt == NULL) {
 
           // this is not afl-fuzz - we deny and return
-          if (fsrv->use_shdmen_fuzz)
+          if (fsrv->use_shmem_fuzz)
             status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
           else
             status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
@@ -774,10 +833,12 @@ static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
 void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
-  if (fsrv->shdmem_fuzz) {
+  if (fsrv->shmem_fuzz) {
 
-    memcpy(fsrv->shdmem_fuzz, buf, len);
-    fsrv->shdmem_fuzz_len = len;
+    *fsrv->shmem_fuzz_len = len;
+    memcpy(fsrv->shmem_fuzz, buf, len);
+    // printf("test case len: %u [0]:0x%02x\n", *fsrv->shmem_fuzz_len, buf[0]);
+    // fflush(stdout);
 
   } else {
 
@@ -839,8 +900,6 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   MEM_BARRIER();
 
-  if (fsrv->shdmem_fuzz_len) write_value += (fsrv->shdmem_fuzz_len << 8);
-
   /* we have the fork server (or faux server) up and running
   First, tell it if the previous run timed out. */
 
@@ -862,8 +921,8 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   if (fsrv->child_pid <= 0) { FATAL("Fork server is misbehaving (OOM?)"); }
 
-  exec_ms = read_timed(fsrv->fsrv_st_fd, &fsrv->child_status, 4, timeout,
-                       stop_soon_p);
+  exec_ms = read_s32_timed(fsrv->fsrv_st_fd, &fsrv->child_status, timeout,
+                           stop_soon_p);
 
   if (exec_ms > timeout) {
 

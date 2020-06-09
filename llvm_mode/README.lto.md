@@ -14,9 +14,11 @@ This version requires a current llvm 11 compiled from the github master.
 
 4. AUTODICTIONARY feature! see below
 
-5. If any problems arise be sure to set `AR=llvm-ar RANLIB=llvm-ranlib` also
-   note that if that target uses _init functions or early constructors then
-   also set `AFL_LLVM_MAP_DYNAMIC=1` as your target will crash otherwise
+5. If any problems arise be sure to set `AR=llvm-ar RANLIB=llvm-ranlib`.
+   Some targets might need `LD=afl-clang-lto` and others `LD=afl-ld-lto`.
+
+6. If a target uses _init functions or early constructors then additionally
+   set `AFL_LLVM_MAP_DYNAMIC=1` as your target will crash otherwise!
 
 ## Introduction and problem description
 
@@ -61,7 +63,8 @@ AUTODICTIONARY: 11 strings found
 
 ## Getting llvm 11
 
-### Installing llvm 11
+### Installing llvm 11 from the llvm repository
+
 Installing the llvm snapshot builds is easy and mostly painless:
 
 In the follow line change `NAME` for your Debian or Ubuntu release name
@@ -80,7 +83,7 @@ apt-get install -y clang-11 clang-tools-11 libc++1-11 libc++-11-dev \
     libomp5-11 lld-11 lldb-11 llvm-11 llvm-11-dev llvm-11-runtime llvm-11-tools
 ```
 
-### Building llvm 11
+### Building llvm 11 yourself
 
 Building llvm from github takes quite some long time and is not painless:
 ```
@@ -117,6 +120,9 @@ export AFL_LLVM_INSTRUMENT=CFG
 make
 ```
 
+NOTE: some targets also need to set the linker, try both `afl-clang-lto` and
+`afl-ld-lto` for this for `LD=` for `configure`.
+
 ## AUTODICTIONARY feature
 
 Setting `AFL_LLVM_LTO_AUTODICTIONARY` will generate a dictionary in the
@@ -134,6 +140,51 @@ AFL_LLVM_MAP_ADDR with a better value (a value of 0 or empty sets the map addres
 to be dynamic - the original afl way, which is slower).
 AFL_LLVM_MAP_DYNAMIC can be set so the shared memory address is dynamic (which
 is safer but also slower).
+
+## Solving difficult targets
+
+Some targets are difficult because the configure script does unusual stuff that
+is unexpected for afl. See the next chapter `Potential issues` how to solve
+these.
+
+An example of a hard to solve target is ffmpeg. Here is how to successfully
+instrument it:
+
+1. Get and extract the current ffmpeg and change to it's directory
+
+2. Running configure with --cc=clang fails and various other items will fail
+   when compiling, so we have to trick configure:
+
+```
+./configure --enable-lto --disable-shared
+```
+
+3. Now the configuration is done - and we edit the settings in `./ffbuild/config.mak`
+   (-: the original line, +: what to change it into):
+```
+-CC=gcc
++CC=afl-clang-lto
+-CXX=g++
++CXX=afl-clang-lto++
+-AS=gcc
++AS=llvm-as
+-LD=gcc
++LD=afl-clang-lto++
+-DEPCC=gcc
++DEPCC=afl-clang-lto
+-DEPAS=gcc
++DEPAS=afl-clang-lto++
+-AR=ar
++AR=llvm-ar
+-AR_CMD=ar
++AR_CMD=llvm-ar
+-NM_CMD=nm -g
++NM_CMD=llvm-nm -g
+-RANLIB=ranlib -D
++RANLIB=llvm-ranlib -D
+```
+
+4. Then type make, wait for a long time and you are done :)
 
 ## Potential issues
 
@@ -154,6 +205,16 @@ and on some target you have to to AR=/RANLIB= even for make as the configure scr
 Other targets ignore environment variables and need the parameters set via
 `./configure --cc=... --cxx= --ranlib= ...` etc. (I am looking at you ffmpeg!).
 
+
+If you see this message
+```
+assembler command failed ...
+```
+then try setting `llvm-as` for configure:
+```
+AS=llvm-as  ...
+```
+
 ### compiling programs still fail
 
 afl-clang-lto is still work in progress.
@@ -166,10 +227,11 @@ Hence if building a target with afl-clang-lto fails try to build it with llvm11
 and LTO enabled (`CC=clang-11` `CXX=clang++-11` `CFLAGS=-flto=full` and
 `CXXFLAGS=-flto=full`).
 
-An example that does not build with llvm 11 and LTO is ffmpeg.
-
 If this succeeeds then there is an issue with afl-clang-lto. Please report at
 [https://github.com/AFLplusplus/AFLplusplus/issues/226](https://github.com/AFLplusplus/AFLplusplus/issues/226)
+
+Even some targets where clang-11 fails can be build if the fail is just in
+`./configure`, see `Solving difficult targets` above.
 
 ### Target crashes immediately
 

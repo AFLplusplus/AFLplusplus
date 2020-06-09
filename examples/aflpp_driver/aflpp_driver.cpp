@@ -90,7 +90,7 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 #endif
 
 int __afl_sharedmem_fuzzing = 1;
-extern unsigned int __afl_fuzz_len;
+extern unsigned int *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
@@ -246,35 +246,38 @@ int main(int argc, char **argv) {
     LLVMFuzzerInitialize(&argc, &argv);
   // Do any other expensive one-time initialization here.
 
-  int N = 1000;
+  uint8_t dummy_input[1] = {0};
+  int N = 100000;
   if (argc == 2 && argv[1][0] == '-')
       N = atoi(argv[1] + 1);
   else if(argc == 2 && (N = atoi(argv[1])) > 0)
       Printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
   else if (argc > 1) {
-    if (!getenv("AFL_DRIVER_DONT_DEFER")) {
+//    if (!getenv("AFL_DRIVER_DONT_DEFER")) {
       __afl_sharedmem_fuzzing = 0;
       __afl_manual_init();
-    }
+//    }
     return ExecuteFilesOnyByOne(argc, argv);
     exit(0);
   }
 
   assert(N > 0);
 
-  if (!getenv("AFL_DRIVER_DONT_DEFER"))
-    __afl_manual_init();
+//  if (!getenv("AFL_DRIVER_DONT_DEFER"))
+  __afl_manual_init();
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
   // on the first execution of LLVMFuzzerTestOneInput is ignored.
-  uint8_t dummy_input[1] = {0};
   LLVMFuzzerTestOneInput(dummy_input, 1);
 
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {
-    if (__afl_fuzz_len > 0) {
+#ifdef _DEBUG
+    fprintf(stderr, "len: %u\n", *__afl_fuzz_len);
+#endif
+    if (*__afl_fuzz_len) {
       num_runs++;
-      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, __afl_fuzz_len);
+      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, *__afl_fuzz_len);
     }
   }
   Printf("%s: successfully executed %d input(s)\n", argv[0], num_runs);

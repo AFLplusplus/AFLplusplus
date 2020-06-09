@@ -161,7 +161,8 @@ static void log_x86_sp_content(void) {
 
 static void callback_to_persistent_hook(void) {
 
-  afl_persistent_hook_ptr(persistent_saved_gpr, guest_base);
+  afl_persistent_hook_ptr(persistent_saved_gpr, guest_base, shared_buf,
+                          *shared_buf_len);
 
 }
 

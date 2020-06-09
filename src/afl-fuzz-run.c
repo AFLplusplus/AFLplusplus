@@ -27,6 +27,7 @@
 #include "afl-fuzz.h"
 #include <sys/time.h>
 #include <signal.h>
+#include <limits.h>
 
 #include "cmplog.h"
 
@@ -231,13 +232,13 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                    afl->afl_env.afl_debug_child_output);
 
-    if (afl->fsrv.support_shdmen_fuzz && !afl->fsrv.use_shdmen_fuzz) {
+    if (afl->fsrv.support_shmem_fuzz && !afl->fsrv.use_shmem_fuzz) {
 
       afl_shm_deinit(afl->shm_fuzz);
-      free(afl->shm_fuzz);
+      ck_free(afl->shm_fuzz);
       afl->shm_fuzz = NULL;
-      afl->fsrv.support_shdmen_fuzz = 0;
-      afl->fsrv.shdmem_fuzz = NULL;
+      afl->fsrv.support_shmem_fuzz = 0;
+      afl->fsrv.shmem_fuzz = NULL;
 
     }
 
@@ -272,7 +273,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     if (afl->stop_soon || fault != afl->crash_mode) { goto abort_calibration; }
 
-    if (!afl->dumb_mode && !afl->stage_cur &&
+    if (!afl->non_instrumented_mode && !afl->stage_cur &&
         !count_bytes(afl, afl->fsrv.trace_bits)) {
 
       fault = FSRV_RUN_NOINST;
@@ -337,7 +338,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
      parent. This is a non-critical problem, but something to warn the user
      about. */
 
-  if (!afl->dumb_mode && first_run && !fault && !new_bits) {
+  if (!afl->non_instrumented_mode && first_run && !fault && !new_bits) {
 
     fault = FSRV_RUN_NOBITS;
 
@@ -412,17 +413,17 @@ void sync_fuzzers(afl_state_t *afl) {
 
     entries++;
 
-    // a slave only syncs from a master, a master syncs from everyone
-    if (likely(afl->is_slave)) {
+    // secondary nodes only syncs from main, the main node syncs from everyone
+    if (likely(afl->is_secondary_node)) {
 
-      sprintf(qd_path, "%s/%s/is_master", afl->sync_dir, sd_ent->d_name);
+      sprintf(qd_path, "%s/%s/is_main_node", afl->sync_dir, sd_ent->d_name);
       int res = access(qd_path, F_OK);
-      if (unlikely(afl->is_master)) {  // an elected temporary master
+      if (unlikely(afl->is_main_node)) {  // an elected temporary main node
 
-        if (likely(res == 0)) {  // there is another master? downgrade.
+        if (likely(res == 0)) {  // there is another main node? downgrade.
 
-          afl->is_master = 0;
-          sprintf(qd_path, "%s/is_master", afl->out_dir);
+          afl->is_main_node = 0;
+          sprintf(qd_path, "%s/is_main_node", afl->out_dir);
           unlink(qd_path);
 
         }
@@ -561,16 +562,17 @@ void sync_fuzzers(afl_state_t *afl) {
 
   closedir(sd);
 
-  // If we are a slave and no master was found to sync then become the master
-  if (unlikely(synced == 0) && likely(entries) && likely(afl->is_slave)) {
+  // If we are a secondary and no main was found to sync then become the main
+  if (unlikely(synced == 0) && likely(entries) &&
+      likely(afl->is_secondary_node)) {
 
-    // there is a small race condition here that another slave runs at the same
-    // time. If so, the first temporary master running again will demote
+    // there is a small race condition here that another secondary runs at the
+    // same time. If so, the first temporary main node running again will demote
     // themselves so this is not an issue
 
     u8 path[PATH_MAX];
-    afl->is_master = 1;
-    sprintf(path, "%s/is_master", afl->out_dir);
+    afl->is_main_node = 1;
+    sprintf(path, "%s/is_main_node", afl->out_dir);
     int fd = open(path, O_CREAT | O_RDWR, 0644);
     if (fd >= 0) { close(fd); }
 

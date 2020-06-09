@@ -74,10 +74,11 @@ u8 __afl_area_initial[MAP_INITIAL_SIZE];
 #else
 u8                  __afl_area_initial[MAP_SIZE];
 #endif
-u8 *__afl_area_ptr = __afl_area_initial;
-u8 *__afl_dictionary;
-u8 *__afl_fuzz_ptr;
-u32 __afl_fuzz_len;
+u8 * __afl_area_ptr = __afl_area_initial;
+u8 * __afl_dictionary;
+u8 * __afl_fuzz_ptr;
+u32  __afl_fuzz_len_dummy;
+u32 *__afl_fuzz_len = &__afl_fuzz_len_dummy;
 
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
@@ -121,6 +122,8 @@ static void __afl_map_shm_fuzz() {
 
   if (id_str) {
 
+    u8 *map = NULL;
+
 #ifdef USEMMAP
     const char *   shm_file_path = id_str;
     int            shm_fd = -1;
@@ -136,26 +139,31 @@ static void __afl_map_shm_fuzz() {
 
     }
 
-    __afl_fuzz_ptr = mmap(0, MAX_FILE, PROT_READ, MAP_SHARED, shm_fd, 0);
+    map = (u8 *)mmap(0, MAX_FILE, PROT_READ, MAP_SHARED, shm_fd, 0);
 
 #else
     u32 shm_id = atoi(id_str);
-
-    __afl_fuzz_ptr = shmat(shm_id, NULL, 0);
+    map = (u8 *)shmat(shm_id, NULL, 0);
 
 #endif
 
     /* Whooooops. */
 
-    if (__afl_fuzz_ptr == (void *)-1) {
+    if (!map || map == (void *)-1) {
 
-      fprintf(stderr, "Error: could not access fuzzing shared memory\n");
+      perror("Could not access fuzzign shared memory");
       exit(1);
 
     }
 
-    if (getenv("AFL_DEBUG"))
+    __afl_fuzz_len = (u32 *)map;
+    __afl_fuzz_ptr = (u8 *)(map + sizeof(u32));
+
+    if (getenv("AFL_DEBUG")) {
+
       fprintf(stderr, "DEBUG: successfully got fuzzing shared memory\n");
+
+    }
 
   } else {
 
@@ -308,6 +316,10 @@ static void __afl_map_shm(void) {
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
+  if (getenv("AFL_DEBUG"))
+    fprintf(stderr, "DEBUG: cmplog id_str %s\n",
+            id_str == NULL ? "<null>" : id_str);
+
   if (id_str) {
 
 #ifdef USEMMAP
@@ -420,7 +432,7 @@ static void __afl_start_snapshots(void) {
 
     } else {
 
-      // uh this forkserver master does not understand extended option passing
+      // uh this forkserver does not understand extended option passing
       // or does not want the dictionary
       if (!__afl_fuzz_ptr) already_read_first = 1;
 
@@ -443,8 +455,31 @@ static void __afl_start_snapshots(void) {
 
     }
 
-    __afl_fuzz_len = (was_killed >> 8);
-    was_killed = (was_killed & 0xff);
+  #ifdef _AFL_DOCUMENT_MUTATIONS
+    if (__afl_fuzz_ptr) {
+
+      static uint32_t counter = 0;
+      char            fn[32];
+      sprintf(fn, "%09u:forkserver", counter);
+      s32 fd_doc = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+      if (fd_doc >= 0) {
+
+        if (write(fd_doc, __afl_fuzz_ptr, *__afl_fuzz_len) != *__afl_fuzz_len) {
+
+          fprintf(stderr, "write of mutation file failed: %s\n", fn);
+          unlink(fn);
+
+        }
+
+        close(fd_doc);
+
+      }
+
+      counter++;
+
+    }
+
+  #endif
 
     /* If we stopped the child in persistent mode, but there was a race
        condition and afl-fuzz already issued SIGKILL, write off the old
@@ -596,7 +631,7 @@ static void __afl_start_forkserver(void) {
 
     } else {
 
-      // uh this forkserver master does not understand extended option passing
+      // uh this forkserver does not understand extended option passing
       // or does not want the dictionary
       if (!__afl_fuzz_ptr) already_read_first = 1;
 
@@ -620,8 +655,31 @@ static void __afl_start_forkserver(void) {
 
     }
 
-    __afl_fuzz_len = (was_killed >> 8);
-    was_killed = (was_killed & 0xff);
+#ifdef _AFL_DOCUMENT_MUTATIONS
+    if (__afl_fuzz_ptr) {
+
+      static uint32_t counter = 0;
+      char            fn[32];
+      sprintf(fn, "%09u:forkserver", counter);
+      s32 fd_doc = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+      if (fd_doc >= 0) {
+
+        if (write(fd_doc, __afl_fuzz_ptr, *__afl_fuzz_len) != *__afl_fuzz_len) {
+
+          fprintf(stderr, "write of mutation file failed: %s\n", fn);
+          unlink(fn);
+
+        }
+
+        close(fd_doc);
+
+      }
+
+      counter++;
+
+    }
+
+#endif
 
     /* If we stopped the child in persistent mode, but there was a race
        condition and afl-fuzz already issued SIGKILL, write off the old

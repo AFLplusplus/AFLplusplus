@@ -100,7 +100,7 @@ ifeq "$(shell uname -s)" "DragonFly"
 endif
 
 ifeq "$(shell uname -s)" "OpenBSD"
-  override CFLAGS  += -I /usr/local/include/
+  override CFLAGS  += -I /usr/local/include/ -mno-retpoline
   LDFLAGS += -Wl,-z,notext -L /usr/local/lib/
 endif
 
