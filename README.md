@@ -62,7 +62,7 @@
 
   * LLVM mode Ngram coverage by Adrian Herrera [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
 
-  A more thorough list is available in the PATCHES file.
+  A more thorough list is available in the [PATCHES](docs/PATCHES.md) file.
 
   | Feature/Instrumentation | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
   | ----------------------- |:-------:|:---------:|:----------:|:----------------:|:------------:|
@@ -134,6 +134,8 @@ For everyone who wants to contribute (and send pull requests) please read
 ## Building and installing afl++
 
 An easy way to install afl++ with everything compiled is available via docker:
+You can use the [Dockerfile](Dockerfile) (which has gcc-10 and clang-11 -
+hence afl-clang-lto is available!) or just pull directly from the docker hub:
 ```shell
 docker pull aflplusplus/aflplusplus
 docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
@@ -149,6 +151,8 @@ sudo apt install build-essential libtool-bin python3-dev automake flex bison lib
 make distrib
 sudo make install
 ```
+It is recommended to install the newest available gcc and clang and llvm-dev
+possible in your distribution!
 
 Note that "make distrib" also builds llvm_mode, qemu_mode, unicorn_mode and
 more. If you just want plain afl then do "make all", however compiling and
@@ -192,17 +196,6 @@ These build options exist:
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)
 
 e.g.: make ASAN_BUILD=1
-
-
-Note that afl++ is faster and better the newer the compilers used are.
-Hence at least gcc-9 and especially llvm-9 should be the compilers of choice.
-If your distribution does not have them, you can use the Dockerfile:
-
-```shell
-cd AFLplusplus
-sudo docker build -t aflplusplus .
-```
-
 
 ## Challenges of guided fuzzing
 
@@ -388,10 +381,10 @@ The available schedules are:
  - rare (experimental)
 
 In parallel mode (-M/-S, several instances with the shared queue), we suggest to
-run the master using the explore or fast schedule (-p explore) and the slaves
-with a combination of cut-off-exponential (-p coe), exponential (-p fast),
+run the main node using the explore or fast schedule (-p explore) and the secondary
+nodes with a combination of cut-off-exponential (-p coe), exponential (-p fast),
 explore (-p explore) and mmopt (-p mmopt) schedules. If a schedule does
-not perform well for a target, restart the slave with a different schedule.
+not perform well for a target, restart the secondary nodes with a different schedule.
 
 In single mode, using -p fast is usually slightly more beneficial than the
 default explore mode.

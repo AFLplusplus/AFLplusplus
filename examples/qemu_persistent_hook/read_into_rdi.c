@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
 #define g2h(x) ((void *)((unsigned long)(x) + guest_base))
 #define h2g(x) ((uint64_t)(x)-guest_base)
@@ -35,16 +36,26 @@ enum {
 
 };
 
-void afl_persistent_hook(uint64_t *regs, uint64_t guest_base) {
+void afl_persistent_hook(uint64_t *regs, uint64_t guest_base,
+                         uint8_t *input_buf, uint32_t input_len) {
 
   // In this example the register RDI is pointing to the memory location
   // of the target buffer, and the length of the input is in RSI.
   // This can be seen with a debugger, e.g. gdb (and "disass main")
 
-  printf("reading into %p\n", regs[R_EDI]);
-  size_t r = read(0, g2h(regs[R_EDI]), 1024);
-  regs[R_ESI] = r;
-  printf("read %ld bytes\n", r);
+  printf("placing input into %p\n", regs[R_EDI]);
+
+  if (input_len > 1024) input_len = 1024;
+  memcpy(g2h(regs[R_EDI]), input_buf, input_len);
+  regs[R_ESI] = input_len;
+
+}
+
+int afl_persistent_hook_init(void) {
+
+  // 1 for shared memory input (faster), 0 for normal input (you have to use
+  // read(), input_buf will be NULL)
+  return 1;
 
 }
 

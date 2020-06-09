@@ -215,7 +215,7 @@ void HELPER(afl_cmplog_rtn)(CPUArchState *env) {
 
 #else
 
-  // dumb code to make it compile
+  // stupid code to make it compile
   void *ptr1 = NULL;
   void *ptr2 = NULL;
   return;

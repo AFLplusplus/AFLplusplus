@@ -11,7 +11,37 @@ index 7cccf3eb..195875af 100644
  /* from personality.h */
  
  /*
-@@ -1522,6 +1524,8 @@ int load_elf_binary(struct linux_binprm * bprm, struct target_pt_regs * regs,
+@@ -737,9 +739,13 @@ static void padzero(abi_ulong elf_bss, abi_ulong last_bss)
+             end_addr1 = REAL_HOST_PAGE_ALIGN(elf_bss);
+             end_addr = HOST_PAGE_ALIGN(elf_bss);
+             if (end_addr1 < end_addr) {
+-                mmap((void *)g2h(end_addr1), end_addr - end_addr1,
++                void *p = mmap((void *)g2h(end_addr1), end_addr - end_addr1,
+                      PROT_READ|PROT_WRITE|PROT_EXEC,
+                      MAP_FIXED|MAP_PRIVATE|MAP_ANON, -1, 0);
++                if (p == MAP_FAILED) {
++                    perror("padzero: cannot mmap");
++                    exit(-1);
++                }
+             }
+         }
+ 
+@@ -979,9 +985,13 @@ static abi_ulong load_elf_interp(struct elfhdr * interp_elf_ex,
+ 
+         /* Map the last of the bss segment */
+         if (last_bss > elf_bss) {
+-            target_mmap(elf_bss, last_bss-elf_bss,
++            void *p = target_mmap(elf_bss, last_bss-elf_bss,
+                         PROT_READ|PROT_WRITE|PROT_EXEC,
+                         MAP_FIXED|MAP_PRIVATE|MAP_ANON, -1, 0);
++            if (p == MAP_FAILED) {
++                perror("load_elf_interp: cannot mmap");
++                exit(-1);
++            }
+         }
+         free(elf_phdata);
+ 
+@@ -1522,6 +1532,8 @@ int load_elf_binary(struct linux_binprm * bprm, struct target_pt_regs * regs,
      info->start_data = start_data;
      info->end_data = end_data;
      info->start_stack = bprm->p;
@@ -20,7 +50,17 @@ index 7cccf3eb..195875af 100644
  
      /* Calling set_brk effectively mmaps the pages that we need for the bss and break
         sections */
-@@ -1549,6 +1553,20 @@ int load_elf_binary(struct linux_binprm * bprm, struct target_pt_regs * regs,
+@@ -1544,11 +1556,29 @@ int load_elf_binary(struct linux_binprm * bprm, struct target_pt_regs * regs,
+                and some applications "depend" upon this behavior.
+                Since we do not have the power to recompile these, we
+                emulate the SVr4 behavior.  Sigh.  */
+-            target_mmap(0, qemu_host_page_size, PROT_READ | PROT_EXEC,
++            void *p = target_mmap(0, qemu_host_page_size, PROT_READ | PROT_EXEC,
+                                       MAP_FIXED | MAP_PRIVATE, -1, 0);
++            if (p == MAP_FAILED) {
++                perror("load_elf_binary: cannot mmap");
++                exit(-1);
++            }
      }
  
      info->entry = elf_entry;

@@ -61,8 +61,9 @@ char *afl_environment_variables[] = {
     "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES", "AFL_IMPORT_FIRST",
     "AFL_INST_LIBS", "AFL_INST_RATIO", "AFL_KEEP_TRACES", "AFL_KEEP_ASSEMBLY",
     "AFL_LD_HARD_FAIL", "AFL_LD_LIMIT_MB", "AFL_LD_NO_CALLOC_OVER",
-    "AFL_LD_PRELOAD", "AFL_LD_VERBOSE", "AFL_LLVM_CMPLOG", "AFL_LLVM_INSTRIM",
-    "AFL_LLVM_CTX", "AFL_LLVM_INSTRUMENT", "AFL_LLVM_INSTRIM_LOOPHEAD",
+    "AFL_LD_PASSTHROUGH", "AFL_REAL_LD", "AFL_LD_PRELOAD", "AFL_LD_VERBOSE",
+    "AFL_LLVM_CMPLOG", "AFL_LLVM_INSTRIM", "AFL_LLVM_CTX",
+    "AFL_LLVM_INSTRUMENT", "AFL_LLVM_INSTRIM_LOOPHEAD",
     "AFL_LLVM_LTO_AUTODICTIONARY", "AFL_LLVM_AUTODICTIONARY",
     "AFL_LLVM_SKIPSINGLEBLOCK", "AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK",
     "AFL_LLVM_LAF_SPLIT_COMPARES", "AFL_LLVM_LAF_SPLIT_COMPARES_BITW",
@@ -253,7 +254,8 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
        "binaries that are\n"
        "    instrumented at compile time with afl-gcc. It is also possible to "
        "use it as a\n"
-       "    traditional \"dumb\" fuzzer by specifying '-n' in the command "
+       "    traditional non-instrumented fuzzer by specifying '-n' in the "
+       "command "
        "line.\n");
 
   FATAL("Failed to locate 'afl-qemu-trace'.");
@@ -353,7 +355,8 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
        "binaries that are\n"
        "    instrumented at compile time with afl-gcc. It is also possible to "
        "use it as a\n"
-       "    traditional \"dumb\" fuzzer by specifying '-n' in the command "
+       "    traditional non-instrumented fuzzer by specifying '-n' in the "
+       "command "
        "line.\n",
        ncp);
 
@@ -869,56 +872,7 @@ u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
 }
 
-/* Wrapper for select() and read(), reading exactly len bytes.
-  Returns the time passed to read.
-  If the wait times out, returns timeout_ms + 1;
-  Returns 0 if an error occurred (fd closed, signal, ...); */
-u32 read_timed(s32 fd, void *buf, size_t len, u32 timeout_ms,
-               volatile u8 *stop_soon_p) {
-
-  struct timeval timeout;
-  fd_set         readfds;
-  FD_ZERO(&readfds);
-  FD_SET(fd, &readfds);
-
-  timeout.tv_sec = (timeout_ms / 1000);
-  timeout.tv_usec = (timeout_ms % 1000) * 1000;
-
-  size_t read_total = 0;
-  size_t len_read = 0;
-
-  while (len_read < len) {
-
-    /* set exceptfds as well to return when a child exited/closed the pipe. */
-    int sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
-
-    if (!sret) {
-
-      // printf("Timeout in sret.");
-      return timeout_ms + 1;
-
-    } else if (sret < 0) {
-
-      /* Retry select for all signals other than than ctrl+c */
-      if (errno == EINTR && !*stop_soon_p) { continue; }
-      return 0;
-
-    }
-
-    len_read = read(fd, ((u8 *)buf) + len_read, len - len_read);
-    if (!len_read) { return 0; }
-    read_total += len_read;
-
-  }
-
-  s32 exec_ms =
-      MIN(timeout_ms,
-          ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
-  return exec_ms > 0 ? exec_ms
-                     : 1;  // at least 1 milli must have passed (0 is an error)
-
-}
-
+/* Reads the map size from ENV */
 u32 get_map_size(void) {
 
   uint32_t map_size = MAP_SIZE;

@@ -55,7 +55,7 @@ The speed increase is usually x10 to x20.
 ## 3) deferred initialization
 
 AFL tries to optimize performance by executing the targeted binary just once,
-stopping it just before main(), and then cloning this "master" process to get
+stopping it just before main(), and then cloning this "main" process to get
 a steady supply of targets to fuzz.
 
 Although this approach eliminates much of the OS-, linker- and libc-level

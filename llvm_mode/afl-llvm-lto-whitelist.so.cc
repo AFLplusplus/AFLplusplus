@@ -36,6 +36,7 @@
 #include <string>
 #include <fstream>
 #include <sys/time.h>
+#include <fnmatch.h>
 
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/BasicBlock.h"
@@ -175,9 +176,8 @@ bool AFLwhitelist::runOnModule(Module &M) {
              * specified in the list. */
             if (instFilename.str().length() >= it->length()) {
 
-              if (instFilename.str().compare(
-                      instFilename.str().length() - it->length(), it->length(),
-                      *it) == 0) {
+              if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
+                  0) {
 
                 instrumentFunction = true;
                 break;

@@ -176,7 +176,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           "Using afl-clang-lto is not possible because Makefile magic did not "
           "identify the correct -flto flag");
 
-  if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++")) {
+  if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++") ||
+      !strcmp(name, "afl-clang++")) {
 
     u8 *alt_cxx = getenv("AFL_CXX");
     if (USE_BINDIR)
@@ -188,7 +189,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   } else if (!strcmp(name, "afl-clang-fast") ||
 
-             !strcmp(name, "afl-clang-lto")) {
+             !strcmp(name, "afl-clang-lto") || !strcmp(name, "afl-clang")) {
 
     u8 *alt_cc = getenv("AFL_CC");
     if (USE_BINDIR)
@@ -494,14 +495,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_INIT()="
       "int __afl_sharedmem_fuzzing = 1;"
-      "extern unsigned int __afl_fuzz_len;"
+      "extern unsigned int *__afl_fuzz_len;"
       "extern unsigned char *__afl_fuzz_ptr;"
       "unsigned char *__afl_fuzz_alt_ptr;";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
       "(__afl_fuzz_alt_ptr = malloc(1 * 1024 * 1024)))";
   cc_params[cc_par_cnt++] =
-      "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? __afl_fuzz_len : read(0, "
+      "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? *__afl_fuzz_len : read(0, "
       "__afl_fuzz_alt_ptr, 1 * 1024 * 1024))";
 
   cc_params[cc_par_cnt++] =

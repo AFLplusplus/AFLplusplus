@@ -41,6 +41,7 @@ int main(int argc, char **argv) {
      terminate normally. This limits the impact of accidental memory leaks
      and similar hiccups. */
 
+  __AFL_INIT();
   while (__AFL_LOOP(1000)) {
 
     /*** PLACEHOLDER CODE ***/
