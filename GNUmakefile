@@ -58,6 +58,11 @@ ifneq "$(shell uname)" "Darwin"
  CFLAGS_OPT += -D_FORTIFY_SOURCE=2
 endif
 
+ifeq "$(shell uname)" "SunOS"
+ CFLAGS_OPT += -Wno-format-truncation
+ LDFLAGS=-lkstat
+endif
+
 ifdef STATIC
   $(info Compiling static version of binaries)
   # Disable python for static compilation to simplify things

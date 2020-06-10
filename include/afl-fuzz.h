@@ -83,7 +83,7 @@
    can hope... */
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
-    defined(__DragonFly__)
+    defined(__DragonFly__) || defined(__sun)
   #define HAVE_AFFINITY 1
   #if defined(__FreeBSD__) || defined(__DragonFly__)
     #include <sys/param.h>
@@ -96,6 +96,11 @@
     #define cpu_set_t cpuset_t
   #elif defined(__NetBSD__)
     #include <pthread.h>
+  #elif defined(__sun)
+    #include <sys/types.h>
+    #include <kstat.h>
+    #include <sys/sysinfo.h>
+    #include <sys/pset.h>
   #endif
 #endif                                                         /* __linux__ */
 
