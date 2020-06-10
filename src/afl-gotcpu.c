@@ -54,7 +54,7 @@
 #include "common.h"
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
-    defined(__APPLE__) || defined(__DragonFly__)
+    defined(__APPLE__) || defined(__DragonFly__) || defined(__sun)
   #define HAVE_AFFINITY 1
   #if defined(__FreeBSD__) || defined(__DragonFly__)
     #include <pthread.h>
@@ -70,6 +70,8 @@
     #include <pthread.h>
     #include <mach/thread_act.h>
     #include <mach/thread_policy.h>
+  #elif defined(__sun)
+    #include <sys/pset.h>
   #endif
 #endif               /* __linux__ || __FreeBSD__ || __NetBSD__ || __APPLE__ */
 
@@ -181,6 +183,12 @@ int main(int argc, char **argv) {
       if (thread_policy_set(native_thread, THREAD_AFFINITY_POLICY,
                             (thread_policy_t)&c, 1) != KERN_SUCCESS)
         PFATAL("thread_policy_set failed");
+  #elif defined(__sun)
+      psetid_t c;
+
+      if (pset_create(&c)) PFATAL("pset_create failed");
+
+      if (pset_assign(c, i, NULL)) PFATAL("pset_assign failed");
   #endif
 
   #if defined(__FreeBSD__) || defined(__DragonFly__)
@@ -193,6 +201,13 @@ int main(int argc, char **argv) {
         PFATAL("pthread_setaffinity_np failed");
 
       cpuset_destroy(c);
+  #endif
+
+  #if defined(__sun)
+      if (pset_bind(c, P_PID, getpid(), NULL))
+        PFATAL("pset_bind failed");
+
+      pset_destroy(c);
   #endif
 
   #if defined(__linux__)
