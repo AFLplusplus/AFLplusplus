@@ -124,7 +124,12 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 #else
       (unsigned long int)(rus.ru_maxrss >> 10),
 #endif
-      afl->cpu_aff, t_bytes, afl->var_byte_count, afl->use_banner,
+#ifdef HAVE_AFFINITY
+      afl->cpu_aff, 
+#else
+      -1,
+#endif
+      t_bytes, afl->var_byte_count, afl->use_banner,
       afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
       afl->non_instrumented_mode ? " non_instrumented " : "",
       afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",
