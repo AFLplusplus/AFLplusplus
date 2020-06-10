@@ -902,6 +902,9 @@ $ECHO "$BLUE[*] Testing: unicorn_mode"
 test -d ../unicorn_mode/unicornafl && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
+      # We want to see python errors etc. in logs, in case something doesn't work
+      export AFL_DEBUG_CHILD_OUTPUT=1
+
       # some python version should be available now
       PYTHONS="`command -v python3` `command -v python` `command -v python2`"
       EASY_INSTALL_FOUND=0
@@ -988,6 +991,9 @@ test -d ../unicorn_mode/unicornafl && {
         rm -rf in out errors
       }
       fi
+
+      unset AFL_DEBUG_CHILD_OUTPUT
+
     }
   } || {
     $ECHO "$RED[!] missing sample binaries in unicorn_mode/samples/ - what is going on??"
