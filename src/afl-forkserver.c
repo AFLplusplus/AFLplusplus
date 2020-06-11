@@ -837,8 +837,8 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     *fsrv->shmem_fuzz_len = len;
     memcpy(fsrv->shmem_fuzz, buf, len);
-    // printf("test case len: %u [0]:0x%02x\n", *fsrv->shmem_fuzz_len, buf[0]);
-    // fflush(stdout);
+    // fprintf(stderr, "FS crc: %08x len: %u\n", hash32(fsrv->shmem_fuzz,
+    // *fsrv->shmem_fuzz_len, 0xa5b35705), *fsrv->shmem_fuzz_len);
 
   } else {
 

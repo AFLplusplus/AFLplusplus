@@ -18,7 +18,7 @@ libAFLDriver.a:	aflpp_driver.o
 	ar ru libAFLDriver.a aflpp_driver.o
 
 debug:
-	$(LLVM_BINDIR)clang++ -D_DEBUG=\"1\" $(FLAGS) -stdlib=libc++ -funroll-loops -std=c++11 -c aflpp_driver.cpp
+	$(LLVM_BINDIR)clang++ -I../../include -D_DEBUG=\"1\" $(FLAGS) -stdlib=libc++ -funroll-loops -std=c++11 -c aflpp_driver.cpp
 	ar ru libAFLDriver.a aflpp_driver.o
 	
 

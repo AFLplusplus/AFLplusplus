@@ -125,7 +125,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       (unsigned long int)(rus.ru_maxrss >> 10),
 #endif
 #ifdef HAVE_AFFINITY
-      afl->cpu_aff, 
+      afl->cpu_aff,
 #else
       -1,
 #endif
