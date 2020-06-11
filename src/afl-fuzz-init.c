@@ -38,7 +38,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
   #elif defined(__NetBSD__)
   cpuset_t *         c;
   #elif defined(__sun)
-  psetid_t c;
+  psetid_t            c;
   #endif
 
   u8  cpu_used[4096] = {0};
@@ -185,10 +185,10 @@ void bind_to_free_cpu(afl_state_t *afl) {
   ck_free(procs);
   #elif defined(__sun)
   kstat_named_t *n;
-  kstat_ctl_t *m;
-  kstat_t *k;
-  cpu_stat_t cs;
-  u32 ncpus;
+  kstat_ctl_t *  m;
+  kstat_t *      k;
+  cpu_stat_t     cs;
+  u32            ncpus;
 
   m = kstat_open();
 
@@ -213,10 +213,9 @@ void bind_to_free_cpu(afl_state_t *afl) {
   n = kstat_data_lookup(k, "ncpus");
   ncpus = n->value.i32;
 
-  if (ncpus > sizeof(cpu_used))
-	  ncpus = sizeof(cpu_used);
+  if (ncpus > sizeof(cpu_used)) ncpus = sizeof(cpu_used);
 
-  for (i = 0; i < ncpus; i ++) {
+  for (i = 0; i < ncpus; i++) {
 
     k = kstat_lookup(m, "cpu_stat", i, NULL);
     if (kstat_read(m, k, &cs)) {
@@ -226,8 +225,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     }
 
-    if (cs.cpu_sysinfo.cpu[CPU_IDLE] > 0)
-      continue;
+    if (cs.cpu_sysinfo.cpu[CPU_IDLE] > 0) continue;
 
     if (cs.cpu_sysinfo.cpu[CPU_USER] > 0 || cs.cpu_sysinfo.cpu[CPU_KERNEL] > 0)
       cpu_used[i] = 1;
@@ -283,8 +281,8 @@ void bind_to_free_cpu(afl_state_t *afl) {
   if (c == NULL) PFATAL("cpuset_create failed");
   cpuset_set(i, c);
   #elif defined(__sun)
-  pset_create(&c);
-  if (pset_assign(c, i, NULL)) PFATAL("pset_assign failed");
+pset_create(&c);
+if (pset_assign(c, i, NULL)) PFATAL("pset_assign failed");
   #endif
 
   #if defined(__linux__)
@@ -316,31 +314,31 @@ void bind_to_free_cpu(afl_state_t *afl) {
   }
 
   #elif defined(__NetBSD__)
-  if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
+if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
 
-    if (cpu_start == afl->cpu_core_count)
-      PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
-    WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
-    cpu_start++;
-    goto try
+  if (cpu_start == afl->cpu_core_count)
+    PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
+  WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
+  cpu_start++;
+  goto try
     ;
 
-  }
+}
 
-  cpuset_destroy(c);
+cpuset_destroy(c);
   #elif defined(__sun)
-  if (pset_bind(c, P_PID, getpid(), NULL)) {
+if (pset_bind(c, P_PID, getpid(), NULL)) {
 
-    if (cpu_start == afl->cpu_core_count)
-      PFATAL("pset_bind failed for cpu %d, exit", i);
-    WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
-    cpu_start++;
-    goto try
-      ;
+  if (cpu_start == afl->cpu_core_count)
+    PFATAL("pset_bind failed for cpu %d, exit", i);
+  WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
+  cpu_start++;
+  goto try
+    ;
 
-  }
+}
 
-  pset_destroy(c);
+pset_destroy(c);
   #else
   // this will need something for other platforms
   // TODO: Solaris/Illumos has processor_bind ... might worth a try

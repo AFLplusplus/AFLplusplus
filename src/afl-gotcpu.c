@@ -204,8 +204,7 @@ int main(int argc, char **argv) {
   #endif
 
   #if defined(__sun)
-      if (pset_bind(c, P_PID, getpid(), NULL))
-        PFATAL("pset_bind failed");
+      if (pset_bind(c, P_PID, getpid(), NULL)) PFATAL("pset_bind failed");
 
       pset_destroy(c);
   #endif
