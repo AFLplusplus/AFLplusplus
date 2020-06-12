@@ -16,6 +16,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        exactly one main node is present and warn otherwise
      - If no main node is present at a sync one secondary node automatically becomes
        a temporary main node until a real main nodes shows up
+     - switched murmur2 hashing and random() for xxh3 and xoshiro256**, giving up to 5.5% speed
+       increase
      - fix/update to MOpt (thanks to arnow117)
      - added MOpt dictionary support from repo
   - llvm_mode:

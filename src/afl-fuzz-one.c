@@ -364,8 +364,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   s32 len, fd, temp_len, i, j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
-  u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0;
-  u32 splice_cycle = 0, perf_score = 100, orig_perf, prev_cksum, eff_cnt = 1;
+  u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, prev_cksum;
+  u32 splice_cycle = 0, perf_score = 100, orig_perf, eff_cnt = 1;
 
   u8 ret_val = 1, doing_det = 0;
 
@@ -653,7 +653,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (!afl->non_instrumented_mode && (afl->stage_cur & 7) == 7) {
 
-      u32 cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       if (afl->stage_cur == afl->stage_max - 1 && cksum == prev_cksum) {
 
@@ -821,14 +821,14 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (!eff_map[EFF_APOS(afl->stage_cur)]) {
 
-      u32 cksum;
+      u64 cksum;
 
       /* If in non-instrumented mode or if the file is very short, just flag
          everything without wasting time on checksums. */
 
       if (!afl->non_instrumented_mode && len >= EFF_MIN_LEN) {
 
-        cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+        cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       } else {
 
@@ -2539,8 +2539,8 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   s32 len, fd, temp_len, i, j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
-  u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, cur_ms_lv;
-  u32 splice_cycle = 0, perf_score = 100, orig_perf, prev_cksum, eff_cnt = 1;
+  u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, cur_ms_lv, prev_cksum;
+  u32 splice_cycle = 0, perf_score = 100, orig_perf, eff_cnt = 1;
 
   u8 ret_val = 1, doing_det = 0;
 
@@ -2806,7 +2806,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     if (!afl->non_instrumented_mode && (afl->stage_cur & 7) == 7) {
 
-      u32 cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       if (afl->stage_cur == afl->stage_max - 1 && cksum == prev_cksum) {
 
@@ -2974,14 +2974,14 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     if (!eff_map[EFF_APOS(afl->stage_cur)]) {
 
-      u32 cksum;
+      u64 cksum;
 
       /* If in non-instrumented mode or if the file is very short, just flag
          everything without wasting time on checksums. */
 
       if (!afl->non_instrumented_mode && len >= EFF_MIN_LEN) {
 
-        cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+        cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       } else {
 

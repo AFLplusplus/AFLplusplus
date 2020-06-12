@@ -256,7 +256,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
-    u32 cksum;
+    u64 cksum;
 
     if (!first_run && !(afl->stage_cur % afl->stats_update_freq)) {
 
@@ -281,7 +281,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     }
 
-    cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+    cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
     if (q->exec_cksum != cksum) {
 
       hnb = has_new_bits(afl, afl->virgin_bits);
@@ -646,7 +646,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     while (remove_pos < q->len) {
 
       u32 trim_avail = MIN(remove_len, q->len - remove_pos);
-      u32 cksum;
+      u64 cksum;
 
       write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
 
@@ -658,7 +658,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       /* Note that we don't keep track of crashes or hangs here; maybe TODO?
        */
 
-      cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       /* If the deletion had no impact on the trace, make it permanent. This
          isn't perfect for variable-path inputs, but we're just making a

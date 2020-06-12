@@ -819,8 +819,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  srandom((u32)afl->init_seed);
-  srand((u32)afl->init_seed);  // in case it is a different implementation
+  if (afl->init_seed) {
+    afl->rand_seed[0] = afl->init_seed;
+    afl->rand_seed[1] = afl->init_seed ^ 0x1234567890abcdef;
+    afl->rand_seed[2] = afl->init_seed & 0x0123456789abcdef;
+    afl->rand_seed[3] = afl->init_seed | 0x01abcde43f567908;
+  }
+  //srandom((u32)afl->init_seed);
+  //srand((u32)afl->init_seed);  // in case it is a different implementation
 
   if (afl->use_radamsa) {
 

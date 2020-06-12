@@ -222,7 +222,7 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
   int                     status = 0;
 
   s32 prog_in_fd;
-  u32 cksum;
+  u64 cksum;
 
   memset(trace_bits, 0, map_size);
   MEM_BARRIER();
@@ -321,7 +321,7 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   }
 
-  cksum = hash32(trace_bits, map_size, HASH_CONST);
+  cksum = hash64(trace_bits, map_size, HASH_CONST);
 
   /* We don't actually care if the target is crashing or not,
      except that when it does, the checksum should be different. */
