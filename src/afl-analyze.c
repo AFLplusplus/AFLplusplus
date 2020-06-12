@@ -66,10 +66,11 @@ static u8 *in_file,                    /* Analyzer input test case          */
 static u8 *in_data;                    /* Input data for analysis           */
 
 static u32 in_len,                     /* Input data length                 */
-    orig_cksum,                        /* Original checksum                 */
     total_execs,                       /* Total number of execs             */
     exec_hangs,                        /* Total number of hangs             */
     exec_tmout = EXEC_TIMEOUT;         /* Exec timeout (ms)                 */
+
+static u64 orig_cksum;                 /* Original checksum                 */
 
 static u64 mem_limit = MEM_LIMIT;      /* Memory limit (MB)                 */
 

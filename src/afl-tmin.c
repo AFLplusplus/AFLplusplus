@@ -67,11 +67,12 @@ static u8 *in_file,                    /* Minimizer input test case         */
 static u8 *in_data;                    /* Input data for trimming           */
 
 static u32 in_len,                     /* Input data length                 */
-    orig_cksum,                        /* Original checksum                 */
     missed_hangs,                      /* Misses due to hangs               */
     missed_crashes,                    /* Misses due to crashes             */
     missed_paths,                      /* Misses due to exec path diffs     */
     map_size = MAP_SIZE;
+
+static u64 orig_cksum;                 /* Original checksum                 */
 
 static u8 crash_mode,                  /* Crash-centric mode?               */
     hang_mode,                         /* Minimize as long as it hangs      */

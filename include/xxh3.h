@@ -350,6 +350,7 @@
         (outHi) = vget_high_u32(vreinterpretq_u32_u64(in));                                        \
                                                                                                    \
       } while (0)
+
   #else
     #define XXH_SPLIT_IN_PLACE(in, outLo, outHi) \
       do {                                       \
@@ -358,6 +359,7 @@
         (outHi) = vshrn_n_u64((in), 32);         \
                                                  \
       } while (0)
+
   #endif
 #endif                                            /* XXH_VECTOR == XXH_NEON */
 
@@ -1638,7 +1640,7 @@ XXH_FORCE_INLINE void XXH3_accumulate_512_vsx(void *XXH_RESTRICT       acc,
 
     } else {                                            /* XXH3_acc_128bits */
 
-             /* swap high and low halves */
+        /* swap high and low halves */
   #ifdef __s390x__
       xxh_u64x2 const data_swapped = vec_permi(data_vec, data_vec, 2);
   #else
