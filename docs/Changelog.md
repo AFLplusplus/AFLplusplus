@@ -17,6 +17,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - If no main node is present at a sync one secondary node automatically becomes
        a temporary main node until a real main nodes shows up
      - fix/update to MOpt (thanks to arnow117)
+     - added MOpt dictionary support from repo
   - llvm_mode:
     - the default instrumentation is now PCGUARD, as it is faster and provides
       better coverage. The original afl instrumentation can be set via

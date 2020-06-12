@@ -3806,6 +3806,191 @@ skip_extras:
 havoc_stage:
 pacemaker_fuzzing:
 
+  if (afl->key_puppet == 1) {
+
+    double select_bool = ((double)(random() % 10000) * 0.0001);
+    if (select_bool < 0.001) {
+
+      /********************
+       * DICTIONARY STUFF *
+       ********************/
+
+      if (!afl->extras_cnt) goto skip_puppet_extras;
+
+      /* Overwrite with user-supplied extras. */
+
+      afl->stage_name = "user extras (over)";
+      afl->stage_short = "ext_UO";
+      afl->stage_cur = 0;
+      afl->stage_max = afl->extras_cnt * len;
+
+      afl->stage_val_type = STAGE_VAL_NONE;
+
+      orig_hit_cnt = new_hit_cnt;
+
+      for (i = 0; i < len; i++) {
+
+        u32 last_len = 0;
+
+        afl->stage_cur_byte = i;
+
+        /* Extras are sorted by size, from smallest to largest. This means
+           that we don't have to worry about restoring the buffer in
+           between writes at a particular offset determined by the outer
+           loop. */
+
+        for (j = 0; j < afl->extras_cnt; j++) {
+
+          /* Skip extras probabilistically if extras_cnt > MAX_DET_EXTRAS. Also
+             skip them if there's no room to insert the payload, if the token
+             is redundant, or if its entire span has no bytes set in the
+             effector map. */
+
+          if ((afl->extras_cnt > MAX_DET_EXTRAS &&
+               rand_below(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
+              afl->extras[j].len > len - i ||
+              !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
+              !memchr(eff_map + EFF_APOS(i), 1,
+                      EFF_SPAN_ALEN(i, afl->extras[j].len))) {
+
+            afl->stage_max--;
+            continue;
+
+          }
+
+          last_len = afl->extras[j].len;
+          memcpy(out_buf + i, afl->extras[j].data, last_len);
+
+          if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+
+          afl->stage_cur++;
+
+        }
+
+        /* Restore all the clobbered memory. */
+        memcpy(out_buf + i, in_buf + i, last_len);
+
+      }
+
+      new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+
+      afl->stage_finds[STAGE_EXTRAS_UO] += new_hit_cnt - orig_hit_cnt;
+      afl->stage_cycles[STAGE_EXTRAS_UO] += afl->stage_max;
+
+      /* Insertion of user-supplied extras. */
+
+      afl->stage_name = "user extras (insert)";
+      afl->stage_short = "ext_UI";
+      afl->stage_cur = 0;
+      afl->stage_max = afl->extras_cnt * len;
+
+      orig_hit_cnt = new_hit_cnt;
+
+      ex_tmp = ck_alloc(len + MAX_DICT_FILE);
+
+      for (i = 0; i <= len; i++) {
+
+        afl->stage_cur_byte = i;
+
+        for (j = 0; j < afl->extras_cnt; j++) {
+
+          if (len + afl->extras[j].len > MAX_FILE) {
+
+            afl->stage_max--;
+            continue;
+
+          }
+
+          /* Insert token */
+          memcpy(ex_tmp + i, afl->extras[j].data, afl->extras[j].len);
+
+          /* Copy tail */
+          memcpy(ex_tmp + i + afl->extras[j].len, out_buf + i, len - i);
+
+          if (common_fuzz_stuff(afl, ex_tmp, len + afl->extras[j].len)) {
+
+            ck_free(ex_tmp);
+            goto abandon_entry;
+
+          }
+
+          afl->stage_cur++;
+
+        }
+
+        /* Copy head */
+        ex_tmp[i] = out_buf[i];
+
+      }
+
+      ck_free(ex_tmp);
+
+      new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+
+      afl->stage_finds[STAGE_EXTRAS_UI] += new_hit_cnt - orig_hit_cnt;
+      afl->stage_cycles[STAGE_EXTRAS_UI] += afl->stage_max;
+
+    skip_puppet_extras:
+
+      if (!afl->a_extras_cnt) goto skip_extras_v2;
+
+      afl->stage_name = "auto afl->extras (over)";
+      afl->stage_short = "ext_AO";
+      afl->stage_cur = 0;
+      afl->stage_max = MIN(afl->a_extras_cnt, USE_AUTO_EXTRAS) * len;
+
+      afl->stage_val_type = STAGE_VAL_NONE;
+
+      orig_hit_cnt = new_hit_cnt;
+
+      for (i = 0; i < len; i++) {
+
+        u32 last_len = 0;
+
+        afl->stage_cur_byte = i;
+
+        for (j = 0; j < MIN(afl->a_extras_cnt, USE_AUTO_EXTRAS); j++) {
+
+          /* See the comment in the earlier code; afl->extras are sorted by
+           * size. */
+
+          if (afl->a_extras[j].len > len - i ||
+              !memcmp(afl->a_extras[j].data, out_buf + i,
+                      afl->a_extras[j].len) ||
+              !memchr(eff_map + EFF_APOS(i), 1,
+                      EFF_SPAN_ALEN(i, afl->a_extras[j].len))) {
+
+            afl->stage_max--;
+            continue;
+
+          }
+
+          last_len = afl->a_extras[j].len;
+          memcpy(out_buf + i, afl->a_extras[j].data, last_len);
+
+          if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
+
+          afl->stage_cur++;
+
+        }
+
+        /* Restore all the clobbered memory. */
+        memcpy(out_buf + i, in_buf + i, last_len);
+
+      }
+
+      new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+
+      afl->stage_finds[STAGE_EXTRAS_AO] += new_hit_cnt - orig_hit_cnt;
+      afl->stage_cycles[STAGE_EXTRAS_AO] += afl->stage_max;
+
+    skip_extras_v2:
+      new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+
+    }
+
+  }
+
   afl->stage_cur_byte = -1;
 
   /* The havoc stage mutation code is also invoked when splicing files; if the
