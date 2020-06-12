@@ -18,6 +18,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        a temporary main node until a real main nodes shows up
      - switched murmur2 hashing and random() for xxh3 and xoshiro256**, giving up to 5.5% speed
        increase
+     - Resizing the window does not crash afl-fuzz anymore
      - fix/update to MOpt (thanks to arnow117)
      - added MOpt dictionary support from repo
   - llvm_mode:
