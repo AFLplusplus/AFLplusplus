@@ -1371,7 +1371,9 @@ static xxh_u32 XXH32_avalanche(xxh_u32 h32) {
 
 static xxh_u32 XXH32_finalize(xxh_u32 h32, const xxh_u8 *ptr, size_t len,
                               XXH_alignment align) {
-\
+
+  /* dummy comment */
+
   #define XXH_PROCESS1                           \
     do {                                         \
                                                  \
@@ -1978,7 +1980,9 @@ static xxh_u64 XXH64_avalanche(xxh_u64 h64) {
 
 static xxh_u64 XXH64_finalize(xxh_u64 h64, const xxh_u8 *ptr, size_t len,
                               XXH_alignment align) {
-\
+
+    /* dummy comment */
+
     #define XXH_PROCESS1_64                        \
       do {                                         \
                                                    \
