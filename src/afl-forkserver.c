@@ -132,7 +132,8 @@ static u32 read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
   FD_ZERO(&readfds);
   FD_SET(fd, &readfds);
   struct timeval timeout;
-  size_t         len = 4;
+  int            sret;
+  ssize_t        len_read;
 
   timeout.tv_sec = (timeout_ms / 1000);
   timeout.tv_usec = (timeout_ms % 1000) * 1000;
@@ -141,33 +142,52 @@ static u32 read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
 #endif
 
   /* set exceptfds as well to return when a child exited/closed the pipe. */
-  int sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
+restart_select:
+  sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
 
-  if (!sret) {
+  if (likely(sret > 0)) {
+
+  restart_read:
+    len_read = read(fd, (u8 *)buf, 4);
+
+    if (likely(len_read == 4)) {  // for speed we put this first
+
+#if defined(__linux__)
+      u32 exec_ms = MIN(
+          timeout_ms,
+          ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
+#else
+      u32 exec_ms = MIN(timeout_ms, get_cur_time_us() - read_start);
+#endif
+
+      // ensure to report 1 ms has passed (0 is an error)
+      return exec_ms > 0 ? exec_ms : 1;
+
+    } else if (unlikely(len_read == -1 && errno == EINTR)) {
+
+      goto restart_read;
+
+    } else if (unlikely(len_read < 4)) {
+
+      return 0;
+
+    }
+
+  } else if (unlikely(!sret)) {
 
     *buf = -1;
     return timeout_ms + 1;
 
-  } else if (sret < 0) {
+  } else if (unlikely(sret < 0)) {
+
+    if (likely(errno == EINTR)) goto restart_select;
 
     *buf = -1;
     return 0;
 
   }
 
-  ssize_t len_read = read(fd, ((u8 *)buf), len);
-  if (len_read < len) { return 0; }
-
-#if defined(__linux__)
-  u32 exec_ms =
-      MIN(timeout_ms,
-          ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
-#else
-  u32 exec_ms = MIN(timeout_ms, get_cur_time_us() - read_start);
-#endif
-
-  // ensure to report 1 ms has passed (0 is an error)
-  return exec_ms > 0 ? exec_ms : 1;
+  return 0;  // not reached
 
 }
 
