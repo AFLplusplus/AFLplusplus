@@ -300,7 +300,7 @@ static u8 tmin_run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
   if (ret == FSRV_RUN_NOINST) { FATAL("Binary not instrumented?"); }
 
-  u32 cksum = hash32(fsrv->trace_bits, fsrv->map_size, HASH_CONST);
+  u64 cksum = hash64(fsrv->trace_bits, fsrv->map_size, HASH_CONST);
 
   if (first_run) { orig_cksum = cksum; }
 

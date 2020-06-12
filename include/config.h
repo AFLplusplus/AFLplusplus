@@ -293,7 +293,7 @@
 
 /* Call count interval between reseeding the libc PRNG from /dev/urandom: */
 
-#define RESEED_RNG 10000
+#define RESEED_RNG 100000
 
 /* Maximum line length passed from GCC to 'as' and used for parsing
    configuration files: */

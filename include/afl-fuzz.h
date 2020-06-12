@@ -139,13 +139,13 @@ struct queue_entry {
       fully_colorized;                  /* Do not run redqueen stage again  */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
-      fuzz_level,                       /* Number of fuzzing iterations     */
-      exec_cksum;                       /* Checksum of the execution trace  */
+      fuzz_level;                       /* Number of fuzzing iterations     */
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
-      n_fuzz,                          /* Number of fuzz, does not overflow */
-      depth;                            /* Path depth                       */
+      n_fuzz,                           /* Number of fuzz, does not overflow*/
+      depth,                            /* Path depth                       */
+      exec_cksum;                       /* Checksum of the execution trace  */
 
   u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
@@ -520,11 +520,11 @@ typedef struct afl_state {
   u64 stage_finds[32],                  /* Patterns found per fuzz stage    */
       stage_cycles[32];                 /* Execs per fuzz stage             */
 
-#ifndef HAVE_ARC4RANDOM
+  //#ifndef HAVE_ARC4RANDOM
   u32 rand_cnt;                         /* Random number counter            */
-#endif
+                //#endif
 
-  u32 rand_seed[2];
+  u64 rand_seed[4];
   s64 init_seed;
 
   u64 total_cal_us,                     /* Total calibration time (us)      */
@@ -942,7 +942,10 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
-                        u32 exec_cksum);
+                        u64 exec_cksum);
+
+/* xoshiro256** */
+uint64_t rand_next(afl_state_t *afl);
 
 /**** Inline routines ****/
 
@@ -951,24 +954,25 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
 
 static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
-#ifdef HAVE_ARC4RANDOM
-  if (unlikely(afl->fixed_seed)) { return random() % limit; }
+  //#ifdef HAVE_ARC4RANDOM
+  //  if (unlikely(afl->fixed_seed)) { return random() % limit; }
 
   /* The boundary not being necessarily a power of 2,
      we need to ensure the result uniformity. */
-  return arc4random_uniform(limit);
-#else
+  //  return arc4random_uniform(limit);
+  //#else
   if (unlikely(!afl->rand_cnt--) && likely(!afl->fixed_seed)) {
 
     ck_read(afl->fsrv.dev_urandom_fd, &afl->rand_seed, sizeof(afl->rand_seed),
             "/dev/urandom");
-    srandom(afl->rand_seed[0]);
+    // srandom(afl->rand_seed[0]);
     afl->rand_cnt = (RESEED_RNG / 2) + (afl->rand_seed[1] % RESEED_RNG);
 
   }
 
-  return random() % limit;
-#endif
+  // return random() % limit;
+  return rand_next(afl) % limit;
+  //#endif
 
 }
 
