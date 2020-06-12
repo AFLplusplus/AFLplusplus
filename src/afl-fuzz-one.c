@@ -364,7 +364,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   s32 len, fd, temp_len, i, j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
-  u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt;
+  u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0;
   u32 splice_cycle = 0, perf_score = 100, orig_perf, prev_cksum, eff_cnt = 1;
 
   u8 ret_val = 1, doing_det = 0;
@@ -2539,7 +2539,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   s32 len, fd, temp_len, i, j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
-  u64 havoc_queued, orig_hit_cnt, new_hit_cnt, cur_ms_lv;
+  u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, cur_ms_lv;
   u32 splice_cycle = 0, perf_score = 100, orig_perf, prev_cksum, eff_cnt = 1;
 
   u8 ret_val = 1, doing_det = 0;
