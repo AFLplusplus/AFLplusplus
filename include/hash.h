@@ -35,7 +35,7 @@ u64 hash64(const void *key, u32 len, u64 seed);
 
 #if 0
 
-The following code is disabled because xxh3 with a 32 bit resukt is 30% faster
+The following code is disabled because xxh3 is 30% faster
 
   #ifdef __x86_64__
 
