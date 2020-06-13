@@ -148,7 +148,8 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
 
     if (tail_len) {
 
-      memcpy(afl->fsrv.shmem_fuzz + skip_at, (u8*)mem + skip_at + skip_len, tail_len);
+      memcpy(afl->fsrv.shmem_fuzz + skip_at, (u8 *)mem + skip_at + skip_len,
+             tail_len);
 
     }
 
