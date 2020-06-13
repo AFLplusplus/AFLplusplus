@@ -142,7 +142,34 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
   s32 fd = afl->fsrv.out_fd;
   u32 tail_len = len - skip_at - skip_len;
 
-  if (afl->fsrv.out_file) {
+  if (afl->fsrv.shmem_fuzz) {
+
+    if (skip_at) { memcpy(afl->fsrv.shmem_fuzz, mem, skip_at); }
+
+    if (tail_len) {
+
+      memcpy(afl->fsrv.shmem_fuzz + skip_at, (u8*)mem + skip_at + skip_len, tail_len);
+
+    }
+
+    *afl->fsrv.shmem_fuzz_len = len - skip_len;
+
+#ifdef _DEBUG
+    fprintf(stderr, "FS crc: %08x len: %u\n",
+            hash64(fsrv->shmem_fuzz, *fsrv->shmem_fuzz_len, 0xa5b35705),
+            *fsrv->shmem_fuzz_len);
+    fprintf(stderr, "SHM :");
+    for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+      fprintf(stderr, "%02x", fsrv->shmem_fuzz[i]);
+    fprintf(stderr, "\nORIG:");
+    for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+      fprintf(stderr, "%02x", buf[i]);
+    fprintf(stderr, "\n");
+#endif
+
+    return;
+
+  } else if (afl->fsrv.out_file) {
 
     if (afl->no_unlink) {
 
