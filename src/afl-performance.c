@@ -1,10 +1,11 @@
-/*  Written in 2019 by David Blackman and Sebastiano Vigna (vigna@acm.org)
+/*
+   Written in 2019 by David Blackman and Sebastiano Vigna (vigna@acm.org)
 
-To the extent possible under law, the author has dedicated all copyright
-and related and neighboring rights to this software to the public domain
-worldwide. This software is distributed without any warranty.
+   To the extent possible under law, the author has dedicated all copyright
+   and related and neighboring rights to this software to the public domain
+   worldwide. This software is distributed without any warranty.
 
-See <http://creativecommons.org/publicdomain/zero/1.0/>.
+   See <http://creativecommons.org/publicdomain/zero/1.0/>.
 
    This is xoshiro256++ 1.0, one of our all-purpose, rock-solid generators.
    It has excellent (sub-ns) speed, a state (256 bits) that is large
@@ -15,12 +16,16 @@ See <http://creativecommons.org/publicdomain/zero/1.0/>.
 
    The state must be seeded so that it is not everywhere zero. If you have
    a 64-bit seed, we suggest to seed a splitmix64 generator and use its
-   output to fill s. */
+   output to fill s[].
+*/
 
 #include <stdint.h>
 #include "afl-fuzz.h"
 #include "types.h"
 #include "xxh3.h"
+
+/* we use xoshiro256** instead of rand/random because it is 10x faster and has
+   better randomness properties. */
 
 static inline uint64_t rotl(const uint64_t x, int k) {
 
@@ -121,6 +126,9 @@ void long_jump(afl_state_t *afl) {
   afl->rand_seed[3] = s3;
 
 }
+
+/* we switch from afl's murmur implementation to xxh3 as it is 30% faster -
+   and get 64 bit hashes instead of just 32 bit. Less collisions! :-) */
 
 u32 hash32(const void *key, u32 len, u32 seed) {
 
