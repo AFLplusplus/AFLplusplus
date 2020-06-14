@@ -19,6 +19,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - switched murmur2 hashing and random() for xxh3 and xoshiro256**,
        resulting in an up to 5.5% speed increase
      - Resizing the window does not crash afl-fuzz anymore
+     - Ensure that the targets are killed on exit
      - fix/update to MOpt (thanks to arnow117)
      - added MOpt dictionary support from repo
   - llvm_mode:

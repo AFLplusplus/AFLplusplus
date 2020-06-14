@@ -31,6 +31,23 @@
 extern u64 time_spent_working;
 #endif
 
+static void at_exit() {
+
+  int i;
+  char *ptr = getenv("__AFL_TARGET_PID1");
+
+  if (ptr && *ptr && (i = atoi(ptr)) > 0)
+    kill(i, SIGKILL);
+
+  ptr = getenv("__AFL_TARGET_PID2");
+
+  if (ptr && *ptr && (i = atoi(ptr)) > 0)
+    kill(i, SIGKILL);
+
+  // anything else? shared memory?
+
+}
+
 static u8 *get_libradamsa_path(u8 *own_loc) {
 
   u8 *tmp, *cp, *rsl, *own_copy;
@@ -1242,6 +1259,8 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Cmplog forkserver successfully started");
 
   }
+  
+  atexit(at_exit);
 
   perform_dry_run(afl);
 
