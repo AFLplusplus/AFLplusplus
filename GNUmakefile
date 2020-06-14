@@ -119,6 +119,13 @@ ifeq "$(shell uname -s)" "NetBSD"
   LDFLAGS += -L /usr/pkg/lib/
 endif
 
+ifeq "$(shell uname -s)" "Haiku"
+  SHMAT_OK=0
+  override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fpic
+  LDFLAGS+=-Wno-deprecated-declarations -lgnu
+  SPECIAL_PERFORMANCE += -DUSEMMAP=1
+endif
+
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
 
 ifneq "$(shell command -v python3m 2>/dev/null)" ""
