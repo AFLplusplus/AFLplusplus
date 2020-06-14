@@ -466,6 +466,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   /* PARENT PROCESS */
 
+  char pid_buf[16];
+  sprintf(pid_buf, "%d", fsrv->fsrv_pid);
+  if (fsrv->cmplog_binary)
+    setenv("__AFL_TARGET_PID2", pid_buf, 1);
+  else
+    setenv("__AFL_TARGET_PID1", pid_buf, 1);
+
   /* Close the unneeded endpoints. */
 
   close(ctl_pipe[0]);
