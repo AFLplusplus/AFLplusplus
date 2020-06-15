@@ -33,16 +33,14 @@ extern u64 time_spent_working;
 
 static void at_exit() {
 
-  int i;
+  int   i;
   char *ptr = getenv("__AFL_TARGET_PID1");
 
-  if (ptr && *ptr && (i = atoi(ptr)) > 0)
-    kill(i, SIGKILL);
+  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
 
   ptr = getenv("__AFL_TARGET_PID2");
 
-  if (ptr && *ptr && (i = atoi(ptr)) > 0)
-    kill(i, SIGKILL);
+  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
 
   // anything else? shared memory?
 
@@ -1259,7 +1257,7 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Cmplog forkserver successfully started");
 
   }
-  
+
   atexit(at_exit);
 
   perform_dry_run(afl);

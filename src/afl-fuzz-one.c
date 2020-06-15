@@ -3852,7 +3852,7 @@ pacemaker_fuzzing:
               afl->extras[j].len > len - i ||
               !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
               (eff_map && !memchr(eff_map + EFF_APOS(i), 1,
-                      EFF_SPAN_ALEN(i, afl->extras[j].len)))) {
+                                  EFF_SPAN_ALEN(i, afl->extras[j].len)))) {
 
             afl->stage_max--;
             continue;
@@ -3960,7 +3960,7 @@ pacemaker_fuzzing:
               !memcmp(afl->a_extras[j].data, out_buf + i,
                       afl->a_extras[j].len) ||
               (eff_map && !memchr(eff_map + EFF_APOS(i), 1,
-                      EFF_SPAN_ALEN(i, afl->a_extras[j].len)))) {
+                                  EFF_SPAN_ALEN(i, afl->a_extras[j].len)))) {
 
             afl->stage_max--;
             continue;
@@ -3986,7 +3986,7 @@ pacemaker_fuzzing:
       afl->stage_finds[STAGE_EXTRAS_AO] += new_hit_cnt - orig_hit_cnt;
       afl->stage_cycles[STAGE_EXTRAS_AO] += afl->stage_max;
 
-    // AFLpp: Never read: skip_extras_v2:
+      // AFLpp: Never read: skip_extras_v2:
       // new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
     }
