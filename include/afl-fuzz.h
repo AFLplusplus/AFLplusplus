@@ -223,13 +223,13 @@ enum {
 enum {
 
   /* 00 */ EXPLORE, /* AFL default, Exploration-based constant schedule */
-  /* 01 */ FAST,    /* Exponential schedule             */
-  /* 02 */ COE,     /* Cut-Off Exponential schedule     */
-  /* 03 */ LIN,     /* Linear schedule                  */
-  /* 04 */ QUAD,    /* Quadratic schedule               */
-  /* 05 */ EXPLOIT, /* AFL's exploitation-based const.  */
-  /* 06 */ MMOPT,   /* Modified MOPT schedule           */
-  /* 07 */ RARE,    /* Rare edges                       */
+  /* 01 */ EXPLOIT, /* AFL's exploitation-based const.  */
+  /* 02 */ FAST,    /* Exponential schedule             */
+  /* 03 */ COE,     /* Cut-Off Exponential schedule     */
+  /* 04 */ LIN,     /* Linear schedule                  */
+  /* 05 */ QUAD,    /* Quadratic schedule               */
+  /* 06 */ RARE,    /* Rare edges                       */
+  /* 07 */ MMOPT,   /* Modified MOPT schedule           */
 
   POWER_SCHEDULES_NUM
 
