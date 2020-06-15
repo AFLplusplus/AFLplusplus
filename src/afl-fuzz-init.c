@@ -1541,10 +1541,8 @@ void setup_dirs_fds(afl_state_t *afl) {
   afl->fsrv.dev_null_fd = open("/dev/null", O_RDWR);
   if (afl->fsrv.dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
 
-#ifndef HAVE_ARC4RANDOM
   afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
   if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
-#endif
 
   /* Gnuplot output file. */
 

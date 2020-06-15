@@ -47,9 +47,8 @@ typedef struct afl_forkserver {
       out_dir_fd;                       /* FD of the lock file              */
 
   s32 out_fd,                           /* Persistent fd for fsrv->out_file */
-#ifndef HAVE_ARC4RANDOM
       dev_urandom_fd,                   /* Persistent fd for /dev/urandom   */
-#endif
+
       dev_null_fd,                      /* Persistent fd for /dev/null      */
       fsrv_ctl_fd,                      /* Fork server control pipe (write) */
       fsrv_st_fd;                       /* Fork server status pipe (read)   */

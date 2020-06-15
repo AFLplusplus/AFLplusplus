@@ -71,9 +71,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->out_fd = -1;
   fsrv->out_dir_fd = -1;
   fsrv->dev_null_fd = -1;
-#ifndef HAVE_ARC4RANDOM
   fsrv->dev_urandom_fd = -1;
-#endif
+
   /* Settings */
   fsrv->use_stdin = 1;
   fsrv->no_unlink = 0;
@@ -104,9 +103,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->map_size = from->map_size;
   fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
 
-#ifndef HAVE_ARC4RANDOM
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
-#endif
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
@@ -421,9 +418,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     close(fsrv->out_dir_fd);
     close(fsrv->dev_null_fd);
-#ifndef HAVE_ARC4RANDOM
     close(fsrv->dev_urandom_fd);
-#endif
+
     if (fsrv->plot_file != NULL) { fclose(fsrv->plot_file); }
 
     /* This should improve performance a bit, since it stops the linker from
