@@ -132,7 +132,7 @@ void long_jump(afl_state_t *afl) {
 
 u32 inline hash32(const void *key, u32 len, u32 seed) {
 
-  return (u32) XXH64(key, len, seed);
+  return (u32)XXH64(key, len, seed);
 
 }
 
