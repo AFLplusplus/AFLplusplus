@@ -180,7 +180,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum) {
   while (ranges) {
 
     rng = ranges;
-    ranges = ranges->next;
+    ranges = rng->next;
     ck_free(rng);
     rng = NULL;
 
@@ -224,7 +224,7 @@ checksum_fail:
   while (ranges) {
 
     rng = ranges;
-    ranges = ranges->next;
+    ranges = rng->next;
     ck_free(rng);
     rng = NULL;
 

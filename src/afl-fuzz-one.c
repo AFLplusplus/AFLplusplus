@@ -3846,12 +3846,13 @@ pacemaker_fuzzing:
              is redundant, or if its entire span has no bytes set in the
              effector map. */
 
+          /* AFLpp: in puppet mode, eff_map is 0. */
           if ((afl->extras_cnt > MAX_DET_EXTRAS &&
                rand_below(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
               afl->extras[j].len > len - i ||
               !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
-              !memchr(eff_map + EFF_APOS(i), 1,
-                      EFF_SPAN_ALEN(i, afl->extras[j].len))) {
+              (eff_map && !memchr(eff_map + EFF_APOS(i), 1,
+                      EFF_SPAN_ALEN(i, afl->extras[j].len)))) {
 
             afl->stage_max--;
             continue;
@@ -3954,11 +3955,12 @@ pacemaker_fuzzing:
           /* See the comment in the earlier code; afl->extras are sorted by
            * size. */
 
+          /* AFLpp: in puppet mode, eff_map is 0. */
           if (afl->a_extras[j].len > len - i ||
               !memcmp(afl->a_extras[j].data, out_buf + i,
                       afl->a_extras[j].len) ||
-              !memchr(eff_map + EFF_APOS(i), 1,
-                      EFF_SPAN_ALEN(i, afl->a_extras[j].len))) {
+              (eff_map && !memchr(eff_map + EFF_APOS(i), 1,
+                      EFF_SPAN_ALEN(i, afl->a_extras[j].len)))) {
 
             afl->stage_max--;
             continue;
@@ -3984,12 +3986,14 @@ pacemaker_fuzzing:
       afl->stage_finds[STAGE_EXTRAS_AO] += new_hit_cnt - orig_hit_cnt;
       afl->stage_cycles[STAGE_EXTRAS_AO] += afl->stage_max;
 
-    skip_extras_v2:
-      new_hit_cnt = afl->queued_paths + afl->unique_crashes;
+    // AFLpp: Never read: skip_extras_v2:
+      // new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
     }
 
   }
+
+skip_extras_v2:
 
   afl->stage_cur_byte = -1;
 
