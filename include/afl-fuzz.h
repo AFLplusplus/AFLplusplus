@@ -204,7 +204,7 @@ enum {
 
 };
 
-#define operator_num 16
+#define operator_num 18
 #define swarm_num 5
 #define period_core 500000
 
@@ -218,6 +218,8 @@ enum {
 #define STAGE_DELETEBYTE 13
 #define STAGE_Clone75 14
 #define STAGE_OverWrite75 15
+#define STAGE_OverWriteExtra 16
+#define STAGE_InsertExtra 17
 #define period_pilot 50000
 
 enum {

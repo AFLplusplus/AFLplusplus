@@ -29,10 +29,14 @@
 
 static int select_algorithm(afl_state_t *afl) {
 
-  int i_puppet, j_puppet;
+  int i_puppet, j_puppet = 0, operator_number = operator_num;
 
-  double sele = ((double)(rand_below(afl, 10000)) * 0.0001);
-  j_puppet = 0;
+  if (!afl->extras_cnt && !afl->a_extras_cnt) operator_number -= 2;
+
+  double range_sele =
+      (double)afl->probability_now[afl->swarm_now][operator_number - 1];
+  double sele = ((double)(rand_below(afl, 10000) * 0.0001 * range_sele));
+
   for (i_puppet = 0; i_puppet < operator_num; ++i_puppet) {
 
     if (unlikely(i_puppet == 0)) {
@@ -52,8 +56,10 @@ static int select_algorithm(afl_state_t *afl) {
 
   }
 
-  if (j_puppet == 1 &&
-      sele < afl->probability_now[afl->swarm_now][i_puppet - 1]) {
+  if ((j_puppet == 1 &&
+       sele < afl->probability_now[afl->swarm_now][i_puppet - 1]) ||
+      (i_puppet + 1 < operator_num &&
+       sele > afl->probability_now[afl->swarm_now][i_puppet + 1])) {
 
     FATAL("error select_algorithm");
 
@@ -566,10 +572,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
 
-  if (likely(afl->queue_cur->passed_det) || likely(afl->skip_deterministic)
-      || likely(perf_score <
-         (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100 ?
-          afl->queue_cur->depth * 30 : afl->havoc_max_mult * 100))) {
+  if (likely(afl->queue_cur->passed_det) || likely(afl->skip_deterministic) ||
+      likely(perf_score <
+             (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
+                  ? afl->queue_cur->depth * 30
+                  : afl->havoc_max_mult * 100))) {
 
     goto custom_mutator_stage;
 
@@ -2228,7 +2235,7 @@ havoc_stage:
         case 16: {
 
           u32 use_extra, extra_len, insert_at = rand_below(afl, temp_len + 1);
-          u8 *new_buf;
+          u8 *ptr;
 
           /* Insert an extra. Do the same dice-rolling stuff as for the
              previous case. */
@@ -2237,44 +2244,27 @@ havoc_stage:
 
             use_extra = rand_below(afl, afl->a_extras_cnt);
             extra_len = afl->a_extras[use_extra].len;
-
-            if (temp_len + extra_len >= MAX_FILE) { break; }
-
-            new_buf =
-                ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + extra_len);
-
-            /* Head */
-            memcpy(new_buf, out_buf, insert_at);
-
-            /* Inserted part */
-            memcpy(new_buf + insert_at, afl->a_extras[use_extra].data,
-                   extra_len);
+            ptr = afl->a_extras[use_extra].data;
 
           } else {
 
             use_extra = rand_below(afl, afl->extras_cnt);
             extra_len = afl->extras[use_extra].len;
-
-            if (temp_len + extra_len >= MAX_FILE) { break; }
-
-            new_buf =
-                ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + extra_len);
-
-            /* Head */
-            memcpy(new_buf, out_buf, insert_at);
-
-            /* Inserted part */
-            memcpy(new_buf + insert_at, afl->extras[use_extra].data, extra_len);
+            ptr = afl->extras[use_extra].data;
 
           }
 
-          /* Tail */
-          memcpy(new_buf + insert_at + extra_len, out_buf + insert_at,
-                 temp_len - insert_at);
+          if (temp_len + extra_len >= MAX_FILE) { break; }
 
-          swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
-          out_buf = new_buf;
-          new_buf = NULL;
+          out_buf = ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
+
+          /* Tail */
+          memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
+                  temp_len - insert_at);
+
+          /* Inserted part */
+          memcpy(out_buf + insert_at, ptr, extra_len);
+
           temp_len += extra_len;
 
           break;
@@ -3804,195 +3794,6 @@ skip_extras:
 havoc_stage:
 pacemaker_fuzzing:
 
-  if (afl->key_puppet == 1) {
-
-    double select_bool = ((double)(random() % 10000) * 0.0001);
-    if (select_bool < 0.001) {
-
-      /********************
-       * DICTIONARY STUFF *
-       ********************/
-
-      if (!afl->extras_cnt) goto skip_puppet_extras;
-
-      /* Overwrite with user-supplied extras. */
-
-      afl->stage_name = "user extras (over)";
-      afl->stage_short = "ext_UO";
-      afl->stage_cur = 0;
-      afl->stage_max = afl->extras_cnt * len;
-
-      afl->stage_val_type = STAGE_VAL_NONE;
-
-      orig_hit_cnt = new_hit_cnt;
-
-      for (i = 0; i < len; i++) {
-
-        u32 last_len = 0;
-
-        afl->stage_cur_byte = i;
-
-        /* Extras are sorted by size, from smallest to largest. This means
-           that we don't have to worry about restoring the buffer in
-           between writes at a particular offset determined by the outer
-           loop. */
-
-        for (j = 0; j < afl->extras_cnt; j++) {
-
-          /* Skip extras probabilistically if extras_cnt > MAX_DET_EXTRAS. Also
-             skip them if there's no room to insert the payload, if the token
-             is redundant, or if its entire span has no bytes set in the
-             effector map. */
-
-          /* AFLpp: in puppet mode, eff_map is 0. */
-          if ((afl->extras_cnt > MAX_DET_EXTRAS &&
-               rand_below(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
-              afl->extras[j].len > len - i ||
-              !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
-              (eff_map && !memchr(eff_map + EFF_APOS(i), 1,
-                                  EFF_SPAN_ALEN(i, afl->extras[j].len)))) {
-
-            afl->stage_max--;
-            continue;
-
-          }
-
-          last_len = afl->extras[j].len;
-          memcpy(out_buf + i, afl->extras[j].data, last_len);
-
-          if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
-
-          afl->stage_cur++;
-
-        }
-
-        /* Restore all the clobbered memory. */
-        memcpy(out_buf + i, in_buf + i, last_len);
-
-      }
-
-      new_hit_cnt = afl->queued_paths + afl->unique_crashes;
-
-      afl->stage_finds[STAGE_EXTRAS_UO] += new_hit_cnt - orig_hit_cnt;
-      afl->stage_cycles[STAGE_EXTRAS_UO] += afl->stage_max;
-
-      /* Insertion of user-supplied extras. */
-
-      afl->stage_name = "user extras (insert)";
-      afl->stage_short = "ext_UI";
-      afl->stage_cur = 0;
-      afl->stage_max = afl->extras_cnt * len;
-
-      orig_hit_cnt = new_hit_cnt;
-
-      ex_tmp = ck_alloc(len + MAX_DICT_FILE);
-
-      for (i = 0; i <= len; i++) {
-
-        afl->stage_cur_byte = i;
-
-        for (j = 0; j < afl->extras_cnt; j++) {
-
-          if (len + afl->extras[j].len > MAX_FILE) {
-
-            afl->stage_max--;
-            continue;
-
-          }
-
-          /* Insert token */
-          memcpy(ex_tmp + i, afl->extras[j].data, afl->extras[j].len);
-
-          /* Copy tail */
-          memcpy(ex_tmp + i + afl->extras[j].len, out_buf + i, len - i);
-
-          if (common_fuzz_stuff(afl, ex_tmp, len + afl->extras[j].len)) {
-
-            ck_free(ex_tmp);
-            goto abandon_entry;
-
-          }
-
-          afl->stage_cur++;
-
-        }
-
-        /* Copy head */
-        ex_tmp[i] = out_buf[i];
-
-      }
-
-      ck_free(ex_tmp);
-
-      new_hit_cnt = afl->queued_paths + afl->unique_crashes;
-
-      afl->stage_finds[STAGE_EXTRAS_UI] += new_hit_cnt - orig_hit_cnt;
-      afl->stage_cycles[STAGE_EXTRAS_UI] += afl->stage_max;
-
-    skip_puppet_extras:
-
-      if (!afl->a_extras_cnt) goto skip_extras_v2;
-
-      afl->stage_name = "auto afl->extras (over)";
-      afl->stage_short = "ext_AO";
-      afl->stage_cur = 0;
-      afl->stage_max = MIN(afl->a_extras_cnt, USE_AUTO_EXTRAS) * len;
-
-      afl->stage_val_type = STAGE_VAL_NONE;
-
-      orig_hit_cnt = new_hit_cnt;
-
-      for (i = 0; i < len; i++) {
-
-        u32 last_len = 0;
-
-        afl->stage_cur_byte = i;
-
-        for (j = 0; j < MIN(afl->a_extras_cnt, USE_AUTO_EXTRAS); j++) {
-
-          /* See the comment in the earlier code; afl->extras are sorted by
-           * size. */
-
-          /* AFLpp: in puppet mode, eff_map is 0. */
-          if (afl->a_extras[j].len > len - i ||
-              !memcmp(afl->a_extras[j].data, out_buf + i,
-                      afl->a_extras[j].len) ||
-              (eff_map && !memchr(eff_map + EFF_APOS(i), 1,
-                                  EFF_SPAN_ALEN(i, afl->a_extras[j].len)))) {
-
-            afl->stage_max--;
-            continue;
-
-          }
-
-          last_len = afl->a_extras[j].len;
-          memcpy(out_buf + i, afl->a_extras[j].data, last_len);
-
-          if (common_fuzz_stuff(afl, out_buf, len)) goto abandon_entry;
-
-          afl->stage_cur++;
-
-        }
-
-        /* Restore all the clobbered memory. */
-        memcpy(out_buf + i, in_buf + i, last_len);
-
-      }
-
-      new_hit_cnt = afl->queued_paths + afl->unique_crashes;
-
-      afl->stage_finds[STAGE_EXTRAS_AO] += new_hit_cnt - orig_hit_cnt;
-      afl->stage_cycles[STAGE_EXTRAS_AO] += afl->stage_max;
-
-      // AFLpp: Never read: skip_extras_v2:
-      // new_hit_cnt = afl->queued_paths + afl->unique_crashes;
-
-    }
-
-  }
-
-skip_extras_v2:
-
   afl->stage_cur_byte = -1;
 
   /* The havoc stage mutation code is also invoked when splicing files; if the
@@ -4394,6 +4195,94 @@ skip_extras_v2:
               break;
 
             }                                                    /* case 15 */
+
+              /* Values 16 and 17 can be selected only if there are any extras
+                 present in the dictionaries. */
+
+            case 16: {
+
+              /* Overwrite bytes with an extra. */
+
+              if (!afl->extras_cnt ||
+                  (afl->a_extras_cnt && rand_below(afl, 2))) {
+
+                /* No user-specified extras or odds in our favor. Let's use an
+                  auto-detected one. */
+
+                u32 use_extra = rand_below(afl, afl->a_extras_cnt);
+                u32 extra_len = afl->a_extras[use_extra].len;
+
+                if (extra_len > temp_len) break;
+
+                u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
+                memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
+                       extra_len);
+
+              } else {
+
+                /* No auto extras or odds in our favor. Use the dictionary. */
+
+                u32 use_extra = rand_below(afl, afl->extras_cnt);
+                u32 extra_len = afl->extras[use_extra].len;
+
+                if (extra_len > temp_len) break;
+
+                u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
+                memcpy(out_buf + insert_at, afl->extras[use_extra].data,
+                       extra_len);
+
+              }
+
+              afl->stage_cycles_puppet_v2[afl->swarm_now]
+                                         [STAGE_OverWriteExtra] += 1;
+
+              break;
+
+            }
+
+              /* Insert an extra. */
+
+            case 17: {
+
+              u32 use_extra, extra_len,
+                  insert_at = rand_below(afl, temp_len + 1);
+              u8 *ptr;
+
+              /* Insert an extra. Do the same dice-rolling stuff as for the
+                previous case. */
+
+              if (!afl->extras_cnt ||
+                  (afl->a_extras_cnt && rand_below(afl, 2))) {
+
+                use_extra = rand_below(afl, afl->a_extras_cnt);
+                extra_len = afl->a_extras[use_extra].len;
+                ptr = afl->a_extras[use_extra].data;
+
+              } else {
+
+                use_extra = rand_below(afl, afl->extras_cnt);
+                extra_len = afl->extras[use_extra].len;
+                ptr = afl->extras[use_extra].data;
+
+              }
+
+              if (temp_len + extra_len >= MAX_FILE) break;
+
+              out_buf = ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
+
+              /* Tail */
+              memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
+                      temp_len - insert_at);
+
+              /* Inserted part */
+              memcpy(out_buf + insert_at, ptr, extra_len);
+
+              temp_len += extra_len;
+              afl->stage_cycles_puppet_v2[afl->swarm_now][STAGE_InsertExtra] +=
+                  1;
+              break;
+
+            }
 
           }                                    /* switch select_algorithm() */
 
