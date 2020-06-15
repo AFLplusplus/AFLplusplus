@@ -124,11 +124,11 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       afl->last_hang_time / 1000, afl->fsrv.total_execs - afl->last_crash_execs,
       afl->fsrv.exec_tmout, afl->slowest_exec_ms,
 #ifndef __HAIKU__
-#ifdef __APPLE__
+  #ifdef __APPLE__
       (unsigned long int)(rus.ru_maxrss >> 20),
-#else
+  #else
       (unsigned long int)(rus.ru_maxrss >> 10),
-#endif
+  #endif
 #else
       -1UL,
 #endif
