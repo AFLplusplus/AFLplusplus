@@ -566,12 +566,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
 
-  if (afl->skip_deterministic ||
-      ((!afl->queue_cur->passed_det) &&
-       perf_score < (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
-                         ? afl->queue_cur->depth * 30
-                         : afl->havoc_max_mult * 100)) ||
-      afl->queue_cur->passed_det) {
+  if (likely(afl->queue_cur->passed_det) || likely(afl->skip_deterministic)
+      || likely(perf_score <
+         (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100 ?
+          afl->queue_cur->depth * 30 : afl->havoc_max_mult * 100))) {
 
     goto custom_mutator_stage;
 
