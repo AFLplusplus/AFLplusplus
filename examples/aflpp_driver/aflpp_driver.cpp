@@ -230,8 +230,6 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-  unsigned char in_buf[1024000];
-  size_t in_buf_len;
   Printf(
       "======================= INFO =========================\n"
       "This binary is built for AFL-fuzz.\n"
@@ -287,9 +285,7 @@ int main(int argc, char **argv) {
 #endif
     if (*__afl_fuzz_len) {
       num_runs++;
-      in_buf_len = *__afl_fuzz_len;
-      memcpy(in_buf, __afl_fuzz_ptr, in_buf_len);
-      LLVMFuzzerTestOneInput(in_buf, in_buf_len);
+      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, *__afl_fuzz_len);
     }
   }
   Printf("%s: successfully executed %d input(s)\n", argv[0], num_runs);

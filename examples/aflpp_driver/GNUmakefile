@@ -7,7 +7,7 @@ ifneq "" "$(LLVM_BINDIR)"
   LLVM_BINDIR := $(LLVM_BINDIR)/
 endif
 
-FLAGS=-O2 -funroll-loops
+FLAGS=-O3 -funroll-loops
 
 all:	libAFLDriver.a libAFLQemuDriver.a aflpp_qemu_driver_hook.so
 
