@@ -158,4 +158,6 @@ int main(int argc, char **argv) {
     //return cmocka_run_group_tests (tests, setup, teardown);
     __real_exit( cmocka_run_group_tests (tests, NULL, NULL) );
 
+    // fake return for dumb compilers
+    return 0;
 }
