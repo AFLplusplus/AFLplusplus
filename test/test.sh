@@ -1121,7 +1121,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
 
 $ECHO "$BLUE[*] Execution cmocka Unit-Tests $GREY"
 unset AFL_CC
-make -C .. unit || "$CODE" = "1"
+make -C .. unit || CODE=1 INCOMPLETE=1 :
 
 $ECHO "$GREY[*] all test cases completed.$RESET"
 test "$INCOMPLETE" = "0" && $ECHO "$GREEN[+] all test cases executed"
