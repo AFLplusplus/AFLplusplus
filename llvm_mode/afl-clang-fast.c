@@ -757,12 +757,14 @@ int main(int argc, char **argv, char **envp) {
 
   if (instrument_mode == 0) {
 
-#ifndef USE_TRACE_PC
-    if (getenv("AFL_LLVM_WHITELIST"))
-      instrument_mode = INSTRUMENT_AFL;
-    else
+#if LLVM_VERSION_MAJOR <= 6
+    instrument_mode = INSTRUMENT_AFL;
+#else
+  if (getenv("AFL_LLVM_WHITELIST"))
+    instrument_mode = INSTRUMENT_AFL;
+  else
+    instrument_mode = INSTRUMENT_PCGUARD;
 #endif
-      instrument_mode = INSTRUMENT_PCGUARD;
 
   }
 
