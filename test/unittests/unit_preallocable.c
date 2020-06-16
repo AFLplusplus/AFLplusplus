@@ -109,6 +109,6 @@ int main(int argc, char **argv) {
 	};
 
     //return cmocka_run_group_tests (tests, setup, teardown);
-    return cmocka_run_group_tests (tests, NULL, NULL);
+    __real_exit( cmocka_run_group_tests (tests, NULL, NULL) );
 
 }
