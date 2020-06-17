@@ -32,7 +32,7 @@ s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 
 char *power_names[POWER_SCHEDULES_NUM] = {
 
-    "explore", "fast", "coe", "lin", "quad", "exploit", "mmopt", "rare"};
+    "explore", "exploit", "fast", "coe", "lin", "quad", "rare", "mmopt"};
 
 /* Initialize MOpt "globals" for this afl state */
 
