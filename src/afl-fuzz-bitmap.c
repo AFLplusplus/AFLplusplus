@@ -542,23 +542,31 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   u8  hnb = '\0';
   s32 fd;
   u8  keeping = 0, res;
+  u64 cksum = 0;
 
   u8 fn[PATH_MAX];
 
   /* Update path frequency. */
-  u32 cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-  struct queue_entry *q = afl->queue;
-  while (q) {
+  /* Generating a hash on every input is super expensive. Bad idea and should
+     only be used for special schedules */
+  if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
-    if (q->exec_cksum == cksum) {
+    cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-      q->n_fuzz = q->n_fuzz + 1;
-      break;
+    struct queue_entry *q = afl->queue;
+    while (q) {
+
+      if (q->exec_cksum == cksum) {
+
+        q->n_fuzz = q->n_fuzz + 1;
+        break;
+
+      }
+
+      q = q->next;
 
     }
-
-    q = q->next;
 
   }
 
@@ -595,7 +603,11 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     }
 
-    afl->queue_top->exec_cksum = cksum;
+    if (cksum)
+      afl->queue_top->exec_cksum = cksum;
+    else
+      afl->queue_top->exec_cksum =
+          hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */

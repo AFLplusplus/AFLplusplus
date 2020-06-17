@@ -11,21 +11,27 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++2.65d (dev)
   - afl-fuzz:
-     - -S secondary nodes now only sync from the main node to increase performance,
-       the -M main node still syncs from everyone. Added checks that ensure
-       exactly one main node is present and warn otherwise
-     - If no main node is present at a sync one secondary node automatically becomes
-       a temporary main node until a real main nodes shows up
+     - -S secondary nodes now only sync from the main node to increase
+       performance, the -M main node still syncs from everyone. Added checks
+       that ensure exactly one main node is present and warn otherwise
+     - If no main node is present at a sync one secondary node automatically
+       becomes a temporary main node until a real main nodes shows up
+     - Fixed a mayor performance issue we inherited from AFLfast
+     - switched murmur2 hashing and random() for xxh3 and xoshiro256**,
+       resulting in an up to 5.5% speed increase
+     - Resizing the window does not crash afl-fuzz anymore
+     - Ensure that the targets are killed on exit
      - fix/update to MOpt (thanks to arnow117)
+     - added MOpt dictionary support from repo
   - llvm_mode:
-    - the default instrumentation is now PCGUARD, as it is faster and provides
-      better coverage. The original afl instrumentation can be set via
-      AFL_LLVM_INSTRUMENT=AFL. This is automatically done when the WHITELIST
-      feature is used.
-    - some targets want a ld variant for LD that is not gcc/clang but ld, added
-      afl-ld-lto to solve this
-    - lowered minimum required llvm version to 3.4 (except LLVMInsTrim,
-      which needs 3.8.0)
+    - the default instrumentation is now PCGUARD if the llvm version is >= 7,
+      as it is faster and provides better coverage. The original afl
+      instrumentation can be set via AFL_LLVM_INSTRUMENT=AFL. This is
+      automatically done when the WHITELIST feature is used. 
+    - some targets want a ld variant for LD that is not gcc/clang but ld,
+      added afl-ld-lto to solve this
+    - lowered minimum required llvm version to 3.4 (except LLVMInsTrim, which
+      needs 3.8.0)
     - WHITELIST feature now supports wildcards (thanks to sirmc)
     - small change to cmplog to make it work with current llvm 11-dev
     - added AFL_LLVM_LAF_ALL, sets all laf-intel settings
@@ -37,6 +43,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - enable snapshot lkm also for persistent mode
   - Unicornafl
     - Added powerPC support from unicorn/next
+    - rust bindings!
   - persistent mode shared memory testcase handover (instead of via
     files/stdin) - 10-100% performance increase
   - General support for 64 bit PowerPC, RiscV, Sparc etc.
@@ -45,8 +52,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     the same second
   - added lots of dictionaries from oss-fuzz, go-fuzz and Jakub Wilk
   - added former post_library examples to examples/custom_mutators/
-  - Dockerfile upgraded to Ubuntu 20.04 Focal and installing llvm 11 and gcc 10
-    so afl-clang-lto can be build
+  - Dockerfile upgraded to Ubuntu 20.04 Focal and installing llvm 11 and
+    gcc 10 so afl-clang-lto can be build
 
 
 ### Version ++2.65c (release):

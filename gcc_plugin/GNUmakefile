@@ -61,12 +61,14 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 else
 	SHMAT_OK=0
 	CFLAGS+=-DUSEMMAP=1
-	LDFLAGS += -lrt
 endif
 
 ifeq "$(TEST_MMAP)" "1"
 	SHMAT_OK=0
 	CFLAGS+=-DUSEMMAP=1
+endif
+
+ifneq "$(shell uname -s)" "Haiku"
 	LDFLAGS += -lrt
 endif
 

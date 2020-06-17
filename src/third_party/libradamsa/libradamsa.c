@@ -2413,9 +2413,12 @@ static word prim_sys(word op, word a, word b, word c) {
 #endif
                                                                            O_DSYNC, O_EXCL,
             O_NOCTTY, O_NOFOLLOW, O_NONBLOCK, O_RSYNC, O_SYNC, O_TRUNC, O_TTY_INIT, O_ACCMODE,
-            FD_CLOEXEC, F_DUPFD, F_DUPFD_CLOEXEC, F_GETFD, F_SETFD, F_GETFL, F_SETFL, F_GETOWN,
-            F_SETOWN, F_GETLK, F_SETLK, F_SETLKW, F_RDLCK, F_UNLCK, F_WRLCK, CLOCK_MONOTONIC,
-            CLOCK_PROCESS_CPUTIME_ID, CLOCK_REALTIME, CLOCK_THREAD_CPUTIME_ID
+            FD_CLOEXEC, F_DUPFD, F_DUPFD_CLOEXEC, F_GETFD, F_SETFD, F_GETFL, F_SETFL,
+            F_GETLK, F_SETLK, F_SETLKW, F_RDLCK, F_UNLCK, F_WRLCK, CLOCK_MONOTONIC,
+            CLOCK_PROCESS_CPUTIME_ID, CLOCK_REALTIME, CLOCK_THREAD_CPUTIME_ID,
+#if !defined __HAIKU__
+            F_GETOWN, F_SETOWN
+#endif
          };
          return onum(sysconst[immval(a) % (sizeof sysconst / W)], 0); }
       case 9: /* return process variables */

@@ -54,7 +54,9 @@
 
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/shm.h>
+#ifndef USEMMAP
+  #include <sys/shm.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -67,11 +69,12 @@ static u8 *in_file,                    /* Minimizer input test case         */
 static u8 *in_data;                    /* Input data for trimming           */
 
 static u32 in_len,                     /* Input data length                 */
-    orig_cksum,                        /* Original checksum                 */
     missed_hangs,                      /* Misses due to hangs               */
     missed_crashes,                    /* Misses due to crashes             */
     missed_paths,                      /* Misses due to exec path diffs     */
     map_size = MAP_SIZE;
+
+static u64 orig_cksum;                 /* Original checksum                 */
 
 static u8 crash_mode,                  /* Crash-centric mode?               */
     hang_mode,                         /* Minimize as long as it hangs      */
@@ -300,7 +303,7 @@ static u8 tmin_run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
   if (ret == FSRV_RUN_NOINST) { FATAL("Binary not instrumented?"); }
 
-  u32 cksum = hash32(fsrv->trace_bits, fsrv->map_size, HASH_CONST);
+  u64 cksum = hash64(fsrv->trace_bits, fsrv->map_size, HASH_CONST);
 
   if (first_run) { orig_cksum = cksum; }
 

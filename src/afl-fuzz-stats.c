@@ -31,7 +31,9 @@
 void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
                       double eps) {
 
+#ifndef __HAIKU__
   struct rusage rus;
+#endif
 
   unsigned long long int cur_time = get_cur_time();
   u8                     fn[PATH_MAX];
@@ -65,7 +67,9 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
   }
 
+#ifndef __HAIKU__
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
+#endif
 
   fprintf(
       f,
@@ -119,12 +123,21 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       afl->last_path_time / 1000, afl->last_crash_time / 1000,
       afl->last_hang_time / 1000, afl->fsrv.total_execs - afl->last_crash_execs,
       afl->fsrv.exec_tmout, afl->slowest_exec_ms,
-#ifdef __APPLE__
+#ifndef __HAIKU__
+  #ifdef __APPLE__
       (unsigned long int)(rus.ru_maxrss >> 20),
-#else
+  #else
       (unsigned long int)(rus.ru_maxrss >> 10),
+  #endif
+#else
+      -1UL,
 #endif
-      afl->cpu_aff, t_bytes, afl->var_byte_count, afl->use_banner,
+#ifdef HAVE_AFFINITY
+      afl->cpu_aff,
+#else
+      -1,
+#endif
+      t_bytes, afl->var_byte_count, afl->use_banner,
       afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
       afl->non_instrumented_mode ? " non_instrumented " : "",
       afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",

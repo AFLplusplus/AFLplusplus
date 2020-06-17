@@ -464,7 +464,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-#ifdef USEMMAP
+#if defined(USEMMAP) && !defined(__HAIKU__)
   cc_params[cc_par_cnt++] = "-lrt";
 #endif
 
@@ -500,7 +500,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "unsigned char *__afl_fuzz_alt_ptr;";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
-      "(__afl_fuzz_alt_ptr = malloc(1 * 1024 * 1024)))";
+      "(__afl_fuzz_alt_ptr = (unsigned char *) malloc(1 * 1024 * 1024)))";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? *__afl_fuzz_len : read(0, "
       "__afl_fuzz_alt_ptr, 1 * 1024 * 1024))";
@@ -757,12 +757,14 @@ int main(int argc, char **argv, char **envp) {
 
   if (instrument_mode == 0) {
 
-#ifndef USE_TRACE_PC
-    if (getenv("AFL_LLVM_WHITELIST"))
-      instrument_mode = INSTRUMENT_AFL;
-    else
+#if LLVM_VERSION_MAJOR <= 6
+    instrument_mode = INSTRUMENT_AFL;
+#else
+  if (getenv("AFL_LLVM_WHITELIST"))
+    instrument_mode = INSTRUMENT_AFL;
+  else
+    instrument_mode = INSTRUMENT_PCGUARD;
 #endif
-      instrument_mode = INSTRUMENT_PCGUARD;
 
   }
 
