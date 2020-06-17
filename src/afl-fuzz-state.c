@@ -124,9 +124,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   afl->stats_update_freq = 1;
 
-#ifndef HAVE_ARC4RANDOM
   afl->fsrv.dev_urandom_fd = -1;
-#endif
   afl->fsrv.dev_null_fd = -1;
 
   afl->fsrv.child_pid = -1;

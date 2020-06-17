@@ -357,7 +357,7 @@ int strcasecmp(const char *str1, const char *str2) {
 
   while (1) {
 
-    const unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
+    const unsigned char c1 = tolower((int)*str1), c2 = tolower((int)*str2);
 
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
     if (!c1) return 0;
@@ -381,7 +381,7 @@ int strncasecmp(const char *str1, const char *str2, size_t len) {
 
   while (len--) {
 
-    const unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
+    const unsigned char c1 = tolower((int)*str1), c2 = tolower((int)*str2);
 
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
     if (!c1) return 0;
@@ -495,7 +495,7 @@ char *strcasestr(const char *haystack, const char *needle) {
     const char *n = needle;
     const char *h = haystack;
 
-    while (*n && *h && tolower(*n) == tolower(*h))
+    while (*n && *h && tolower((int)*n) == tolower((int)*h))
       n++, h++;
 
     if (!*n) return (char *)haystack;

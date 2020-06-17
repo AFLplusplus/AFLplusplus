@@ -31,6 +31,21 @@
 extern u64 time_spent_working;
 #endif
 
+static void at_exit() {
+
+  int   i;
+  char *ptr = getenv("__AFL_TARGET_PID1");
+
+  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
+
+  ptr = getenv("__AFL_TARGET_PID2");
+
+  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
+
+  // anything else? shared memory?
+
+}
+
 static u8 *get_libradamsa_path(u8 *own_loc) {
 
   u8 *tmp, *cp, *rsl, *own_copy;
@@ -231,7 +246,7 @@ static int stricmp(char const *a, char const *b) {
   for (;; ++a, ++b) {
 
     int d;
-    d = tolower(*a) - tolower(*b);
+    d = tolower((int)*a) - tolower((int)*b);
     if (d != 0 || !*a) { return d; }
 
   }
@@ -819,8 +834,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  srandom((u32)afl->init_seed);
-  srand((u32)afl->init_seed);  // in case it is a different implementation
+  if (afl->init_seed) {
+
+    afl->rand_seed[0] = afl->init_seed;
+    afl->rand_seed[1] = afl->init_seed ^ 0x1234567890abcdef;
+    afl->rand_seed[2] = afl->init_seed & 0x0123456789abcdef;
+    afl->rand_seed[3] = afl->init_seed | 0x01abcde43f567908;
+
+  }
+
+  // srandom((u32)afl->init_seed);
+  // srand((u32)afl->init_seed);  // in case it is a different implementation
 
   if (afl->use_radamsa) {
 
@@ -1233,6 +1257,8 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Cmplog forkserver successfully started");
 
   }
+
+  atexit(at_exit);
 
   perform_dry_run(afl);
 

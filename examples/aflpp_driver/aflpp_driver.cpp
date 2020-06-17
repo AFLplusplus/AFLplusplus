@@ -54,6 +54,10 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 #include <iostream>
 #include <vector>
 
+#ifdef _DEBUG
+#include "hash.h"
+#endif
+
 // Platform detection. Copied from FuzzerInternal.h
 #ifdef __linux__
 #define LIBFUZZER_LINUX 1
@@ -273,7 +277,11 @@ int main(int argc, char **argv) {
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {
 #ifdef _DEBUG
-    fprintf(stderr, "len: %u\n", *__afl_fuzz_len);
+    fprintf(stderr, "CLIENT crc: %08x len: %u\n", hash32(__afl_fuzz_ptr, *__afl_fuzz_len, 0xa5b35705), *__afl_fuzz_len);
+    fprintf(stderr, "RECV:");
+    for (int i = 0; i < *__afl_fuzz_len; i++)
+      fprintf(stderr, "%02x", __afl_fuzz_ptr[i]);
+    fprintf(stderr,"\n");
 #endif
     if (*__afl_fuzz_len) {
       num_runs++;
