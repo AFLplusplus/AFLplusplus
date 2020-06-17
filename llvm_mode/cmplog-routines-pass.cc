@@ -169,7 +169,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     args.push_back(v1Pcasted);
     args.push_back(v2Pcasted);
 
-    IRB.CreateCall(cmplogHookFn, args, "tmp");
+    IRB.CreateCall(cmplogHookFn, args);
 
     // errs() << callInst->getCalledFunction()->getName() << "\n";
 

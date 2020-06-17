@@ -237,16 +237,16 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
     switch (max_size) {
 
       case 8:
-        IRB.CreateCall(cmplogHookIns1, args, "tmp");
+        IRB.CreateCall(cmplogHookIns1, args);
         break;
       case 16:
-        IRB.CreateCall(cmplogHookIns2, args, "tmp");
+        IRB.CreateCall(cmplogHookIns2, args);
         break;
       case 32:
-        IRB.CreateCall(cmplogHookIns4, args, "tmp");
+        IRB.CreateCall(cmplogHookIns4, args);
         break;
       case 64:
-        IRB.CreateCall(cmplogHookIns8, args, "tmp");
+        IRB.CreateCall(cmplogHookIns8, args);
         break;
       default:
         break;
