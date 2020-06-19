@@ -39,6 +39,8 @@
 #include <limits.h>
 #include <assert.h>
 
+#include "llvm/Config/llvm-config.h"
+
 static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
@@ -760,10 +762,10 @@ int main(int argc, char **argv, char **envp) {
 #if LLVM_VERSION_MAJOR <= 6
     instrument_mode = INSTRUMENT_AFL;
 #else
-  if (getenv("AFL_LLVM_WHITELIST"))
-    instrument_mode = INSTRUMENT_AFL;
-  else
-    instrument_mode = INSTRUMENT_PCGUARD;
+    if (getenv("AFL_LLVM_WHITELIST"))
+      instrument_mode = INSTRUMENT_AFL;
+    else
+      instrument_mode = INSTRUMENT_PCGUARD;
 #endif
 
   }
