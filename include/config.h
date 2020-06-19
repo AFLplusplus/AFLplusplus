@@ -397,6 +397,5 @@
 
 // #define IGNORE_FINDS
 
-
 #endif                                                  /* ! _HAVE_CONFIG_H */
 
