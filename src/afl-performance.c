@@ -33,10 +33,12 @@ static inline uint64_t rotl(const uint64_t x, int k) {
 
 }
 
-uint64_t rand_next(afl_state_t *afl) {
+uint32_t rand_next(afl_state_t *afl) {
 
-  const uint64_t result =
-      rotl(afl->rand_seed[0] + afl->rand_seed[3], 23) + afl->rand_seed[0];
+  const uint32_t result =
+      (uint32_t)rotl(afl->rand_seed[0] + afl->rand_seed[3], 23) +
+      afl->rand_seed[0];
+  //  const uint32_t result = (uint32_t) rotl(afl->rand_seed[1] * 5, 7) * 9;
 
   const uint64_t t = afl->rand_seed[1] << 17;
 
@@ -49,7 +51,7 @@ uint64_t rand_next(afl_state_t *afl) {
 
   afl->rand_seed[3] = rotl(afl->rand_seed[3], 45);
 
-  return result;
+  return (uint32_t)result;
 
 }
 
