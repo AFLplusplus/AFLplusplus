@@ -15,6 +15,10 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
+get_abs_path() {
+  echo $(cd "`dirname "$1"`" && pwd)/"`basename "$1"`"
+}
+
 echo "progress plotting utility for afl-fuzz by Michal Zalewski"
 echo
 
@@ -40,12 +44,15 @@ _EOF_
 
 fi
 
+inputdir=`get_abs_path "$1"`
+outputdir=`get_abs_path "$2"`
+
 if [ "$AFL_ALLOW_TMP" = "" ]; then
 
-  echo "$1" | grep -qE '^(/var)?/tmp/'
+  echo "$inputdir" | grep -qE '^(/var)?/tmp/'
   T1="$?"
 
-  echo "$2" | grep -qE '^(/var)?/tmp/'
+  echo "$outputdir" | grep -qE '^(/var)?/tmp/'
   T2="$?"
 
   if [ "$T1" = "0" -o "$T2" = "0" ]; then
@@ -57,14 +64,14 @@ if [ "$AFL_ALLOW_TMP" = "" ]; then
 
 fi
 
-if [ ! -f "$1/plot_data" ]; then
+if [ ! -f "$inputdir/plot_data" ]; then
 
   echo "[-] Error: input directory is not valid (missing 'plot_data')." 1>&2
   exit 1
 
 fi
 
-BANNER="`cat "$1/fuzzer_stats" | grep '^afl_banner ' | cut -d: -f2- | cut -b2-`"
+BANNER="`cat "$inputdir/fuzzer_stats" | grep '^afl_banner ' | cut -d: -f2- | cut -b2-`"
 
 test "$BANNER" = "" && BANNER="(none)"
 
@@ -77,17 +84,17 @@ if [ "$GNUPLOT" = "" ]; then
 
 fi
 
-mkdir "$2" 2>/dev/null
+mkdir "$outputdir" 2>/dev/null
 
-if [ ! -d "$2" ]; then
+if [ ! -d "$outputdir" ]; then
 
   echo "[-] Error: unable to create the output directory - pick another location." 1>&2
   exit 1
 
 fi
 
-rm -f "$2/high_freq.png" "$2/low_freq.png" "$2/exec_speed.png"
-mv -f "$2/index.html" "$2/index.html.orig" 2>/dev/null
+rm -f "$outputdir/high_freq.png" "$outputdir/low_freq.png" "$outputdir/exec_speed.png"
+mv -f "$outputdir/index.html" "$outputdir/index.html.orig" 2>/dev/null
 
 echo "[*] Generating plots..."
 
@@ -96,7 +103,7 @@ echo "[*] Generating plots..."
 cat <<_EOF_
 set terminal png truecolor enhanced size 1000,300 butt
 
-set output '$2/high_freq.png'
+set output '$outputdir/high_freq.png'
 
 set xdata time
 set timefmt '%s'
@@ -114,31 +121,31 @@ set key outside
 set autoscale xfixmin
 set autoscale xfixmax
 
-plot '$1/plot_data' using 1:4 with filledcurve x1 title 'total paths' linecolor rgb '#000000' fillstyle transparent solid 0.2 noborder, \\
+plot '$inputdir/plot_data' using 1:4 with filledcurve x1 title 'total paths' linecolor rgb '#000000' fillstyle transparent solid 0.2 noborder, \\
      '' using 1:3 with filledcurve x1 title 'current path' linecolor rgb '#f0f0f0' fillstyle transparent solid 0.5 noborder, \\
      '' using 1:5 with lines title 'pending paths' linecolor rgb '#0090ff' linewidth 3, \\
      '' using 1:6 with lines title 'pending favs' linecolor rgb '#c00080' linewidth 3, \\
      '' using 1:2 with lines title 'cycles done' linecolor rgb '#c000f0' linewidth 3
 
 set terminal png truecolor enhanced size 1000,200 butt
-set output '$2/low_freq.png'
+set output '$outputdir/low_freq.png'
 
-plot '$1/plot_data' using 1:8 with filledcurve x1 title '' linecolor rgb '#c00080' fillstyle transparent solid 0.2 noborder, \\
+plot '$inputdir/plot_data' using 1:8 with filledcurve x1 title '' linecolor rgb '#c00080' fillstyle transparent solid 0.2 noborder, \\
      '' using 1:8 with lines title ' uniq crashes' linecolor rgb '#c00080' linewidth 3, \\
      '' using 1:9 with lines title 'uniq hangs' linecolor rgb '#c000f0' linewidth 3, \\
      '' using 1:10 with lines title 'levels' linecolor rgb '#0090ff' linewidth 3
 
 set terminal png truecolor enhanced size 1000,200 butt
-set output '$2/exec_speed.png'
+set output '$outputdir/exec_speed.png'
 
-plot '$1/plot_data' using 1:11 with filledcurve x1 title '' linecolor rgb '#0090ff' fillstyle transparent solid 0.2 noborder, \\
-     '$1/plot_data' using 1:11 with lines title '    execs/sec' linecolor rgb '#0090ff' linewidth 3 smooth bezier;
+plot '$inputdir/plot_data' using 1:11 with filledcurve x1 title '' linecolor rgb '#0090ff' fillstyle transparent solid 0.2 noborder, \\
+     '$inputdir/plot_data' using 1:11 with lines title '    execs/sec' linecolor rgb '#0090ff' linewidth 3 smooth bezier;
 
 _EOF_
 
 ) | gnuplot 
 
-if [ ! -s "$2/exec_speed.png" ]; then
+if [ ! -s "$outputdir/exec_speed.png" ]; then
 
   echo "[-] Error: something went wrong! Perhaps you have an ancient version of gnuplot?" 1>&2
   exit 1
@@ -147,10 +154,10 @@ fi
 
 echo "[*] Generating index.html..."
 
-cat >"$2/index.html" <<_EOF_
+cat >"$outputdir/index.html" <<_EOF_
 <table style="font-family: 'Trebuchet MS', 'Tahoma', 'Arial', 'Helvetica'">
 <tr><td style="width: 18ex"><b>Banner:</b></td><td>$BANNER</td></tr>
-<tr><td><b>Directory:</b></td><td>$1</td></tr>
+<tr><td><b>Directory:</b></td><td>$inputdir</td></tr>
 <tr><td><b>Generated on:</b></td><td>`date`</td></tr>
 </table>
 <p>
@@ -164,8 +171,8 @@ _EOF_
 # served by Apache or other HTTP daemon. Since the plots aren't horribly
 # sensitive, this seems like a reasonable trade-off.
 
-chmod 755 "$2"
-chmod 644 "$2/high_freq.png" "$2/low_freq.png" "$2/exec_speed.png" "$2/index.html"
+chmod 755 "$outputdir"
+chmod 644 "$outputdir/high_freq.png" "$outputdir/low_freq.png" "$outputdir/exec_speed.png" "$outputdir/index.html"
 
 echo "[+] All done - enjoy your charts!"
 
