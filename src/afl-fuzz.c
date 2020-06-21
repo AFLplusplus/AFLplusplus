@@ -823,8 +823,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     WARNF(
         "Using -M main node with the AFL_CUSTOM_MUTATOR_ONLY mutator options "
-        "will "
-        "result in no deterministic mutations being done!");
+        "will result in no deterministic mutations being done!");
 
   }
 
@@ -836,10 +835,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->init_seed) {
 
-    afl->rand_seed[0] = afl->init_seed;
-    afl->rand_seed[1] = afl->init_seed ^ 0x1234567890abcdef;
-    afl->rand_seed[2] = afl->init_seed & 0x0123456789abcdef;
-    afl->rand_seed[3] = afl->init_seed | 0x01abcde43f567908;
+    afl->rand_seed[0] =
+        hash64((void *)&afl->init_seed, sizeof(u32), HASH_CONST);
+    afl->rand_seed[1] = afl->rand_seed[0] ^ 0x1234567890abcdef;
+    afl->rand_seed[2] = afl->rand_seed[0] & 0x0123456789abcdef;
+    afl->rand_seed[3] = afl->rand_seed[0] | 0x01abcde43f567908;
 
   }
 
