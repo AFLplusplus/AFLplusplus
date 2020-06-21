@@ -833,18 +833,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->init_seed) {
-
-    afl->rand_seed[0] =
-        hash64((void *)&afl->init_seed, sizeof(u32), HASH_CONST);
-    afl->rand_seed[1] = afl->rand_seed[0] ^ 0x1234567890abcdef;
-    afl->rand_seed[2] = afl->rand_seed[0] & 0x0123456789abcdef;
-    afl->rand_seed[3] = afl->rand_seed[0] | 0x01abcde43f567908;
-
-  }
-
-  // srandom((u32)afl->init_seed);
-  // srand((u32)afl->init_seed);  // in case it is a different implementation
+  afl->rand_seed[0] = hash64((void *)&afl->init_seed, sizeof(u32), HASH_CONST);
+  afl->rand_seed[1] = afl->rand_seed[0] ^ 0x1234567890abcdef;
+  afl->rand_seed[2] = afl->rand_seed[0] & 0x0123456789abcdef;
+  afl->rand_seed[3] = afl->rand_seed[0] | 0x01abcde43f567908;
 
   if (afl->use_radamsa) {
 
