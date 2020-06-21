@@ -20,7 +20,8 @@ MAN_PATH    ?= $(PREFIX)/man/man8
 
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
-CFLAGS      ?= -O3 -funroll-loops -I ../../include/
+CFLAGS      ?= -O3 -funroll-loops
+CFLAGS      += -I ../../include/
 CFLAGS      += -Wall -Wno-unused-result -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign
 LDFLAGS     += -ldl
 
