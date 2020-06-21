@@ -524,7 +524,7 @@ distrib: all radamsa
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
-	cd unicorn_mode && sh ./build_unicorn_support.sh
+	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
 binary-only: all radamsa
 	$(MAKE) -C libdislocator
@@ -533,7 +533,7 @@ binary-only: all radamsa
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
-	cd unicorn_mode && sh ./build_unicorn_support.sh
+	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
 source-only: all radamsa
 	-$(MAKE) -C llvm_mode
