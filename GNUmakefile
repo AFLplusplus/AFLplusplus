@@ -96,7 +96,7 @@ endif
 
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
 override CFLAGS += -Wall -g -Wno-pointer-sign -Wmissing-declarations\
-			  -I include/ -Werror -DAFL_PATH=\"$(HELPER_PATH)\" \
+			  -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
 ifeq "$(shell uname -s)" "FreeBSD"
