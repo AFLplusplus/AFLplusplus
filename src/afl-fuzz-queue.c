@@ -107,7 +107,7 @@ static u8 check_if_text(struct queue_entry *q) {
 
   if (q->len < AFL_TXT_MIN_LEN) return 0;
 
-  u8  buf[MAX_FILE];
+  u8  buf[MAX_FILE], bom[3] = {0xef, 0xbb, 0xbf};
   s32 fd, len = q->len, offset = 0, ascii = 0, utf8 = 0, comp;
 
   if ((fd = open(q->fname, O_RDONLY)) < 0) return 0;
@@ -189,17 +189,27 @@ static u8 check_if_text(struct queue_entry *q) {
 
     }
 
+    // handle utf8 bom
+    if (buf[offset + 0] == bom[0] && buf[offset + 1] == bom[1] &&
+        buf[offset + 2] == bom[2]) {
+
+      offset += 3;
+      utf8++;
+      comp -= 2;
+      continue;
+
+    }
+
     offset++;
 
   }
 
   u32 percent_utf8 = (utf8 * 100) / comp;
   u32 percent_ascii = (ascii * 100) / len;
-  
+
   if (percent_utf8 >= percent_ascii && percent_utf8 >= AFL_TXT_MIN_PERCENT)
     return 2;
-  if (percent_ascii >= AFL_TXT_MIN_PERCENT)
-    return 1;
+  if (percent_ascii >= AFL_TXT_MIN_PERCENT) return 1;
   return 0;
 
 }

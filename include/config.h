@@ -419,7 +419,7 @@
 
 /* Maximum mutations on a string */
 
-#define AFL_TXT_STRING_MAX_MUTATIONS 8
+#define AFL_TXT_STRING_MAX_MUTATIONS 6
 
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

@@ -760,10 +760,10 @@ int main(int argc, char **argv, char **envp) {
 #if LLVM_VERSION_MAJOR <= 6
     instrument_mode = INSTRUMENT_AFL;
 #else
-  if (getenv("AFL_LLVM_WHITELIST"))
-    instrument_mode = INSTRUMENT_AFL;
-  else
-    instrument_mode = INSTRUMENT_PCGUARD;
+    if (getenv("AFL_LLVM_WHITELIST"))
+      instrument_mode = INSTRUMENT_AFL;
+    else
+      instrument_mode = INSTRUMENT_PCGUARD;
 #endif
 
   }
