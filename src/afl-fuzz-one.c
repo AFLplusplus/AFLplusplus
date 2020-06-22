@@ -2458,7 +2458,7 @@ radamsa_stage:
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     u32 new_len = afl->radamsa_mutate_ptr(save_buf, len, new_buf, max_len,
-                                          get_rand_seed(afl));
+                                          rand_get_seed(afl));
 
     if (new_len) {
 
