@@ -134,7 +134,6 @@ Environment variables used:
 AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
 AFL_PATH: path for the afl-showmap binary
 AFL_SKIP_BIN_CHECK: skip check for target binary
-AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp
 _EOF_
   exit 1
 fi
@@ -142,29 +141,29 @@ fi
 # Do a sanity check to discourage the use of /tmp, since we can't really
 # handle this safely from a shell script.
 
-if [ "$AFL_ALLOW_TMP" = "" ]; then
-
-  echo "$IN_DIR" | grep -qE '^(/var)?/tmp/'
-  T1="$?"
-
-  echo "$TARGET_BIN" | grep -qE '^(/var)?/tmp/'
-  T2="$?"
-
-  echo "$OUT_DIR" | grep -qE '^(/var)?/tmp/'
-  T3="$?"
-
-  echo "$STDIN_FILE" | grep -qE '^(/var)?/tmp/'
-  T4="$?"
-
-  echo "$PWD" | grep -qE '^(/var)?/tmp/'
-  T5="$?"
-
-  if [ "$T1" = "0" -o "$T2" = "0" -o "$T3" = "0" -o "$T4" = "0" -o "$T5" = "0" ]; then
-    echo "[-] Error: do not use this script in /tmp or /var/tmp." 1>&2
-    exit 1
-  fi
-
-fi
+#if [ "$AFL_ALLOW_TMP" = "" ]; then
+#
+#  echo "$IN_DIR" | grep -qE '^(/var)?/tmp/'
+#  T1="$?"
+#
+#  echo "$TARGET_BIN" | grep -qE '^(/var)?/tmp/'
+#  T2="$?"
+#
+#  echo "$OUT_DIR" | grep -qE '^(/var)?/tmp/'
+#  T3="$?"
+#
+#  echo "$STDIN_FILE" | grep -qE '^(/var)?/tmp/'
+#  T4="$?"
+#
+#  echo "$PWD" | grep -qE '^(/var)?/tmp/'
+#  T5="$?"
+#
+#  if [ "$T1" = "0" -o "$T2" = "0" -o "$T3" = "0" -o "$T4" = "0" -o "$T5" = "0" ]; then
+#    echo "[-] Error: do not use this script in /tmp or /var/tmp." 1>&2
+#    exit 1
+#  fi
+#
+#fi
 
 # If @@ is specified, but there's no -f, let's come up with a temporary input
 # file name.
