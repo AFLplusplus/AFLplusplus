@@ -408,13 +408,14 @@ static u32 delim_replace(u8 **out_buf, s32 *temp_len, size_t pos,
   u8 *ldelim_start = strnstr(*out_buf + pos, ldelim, *temp_len - pos);
 
   if (ldelim_start != NULL) {
-  
-    u32 max = (end_buf - ldelim_start - 1 > AFL_TXT_STRING_MAX_LEN ? AFL_TXT_STRING_MAX_LEN : end_buf - ldelim_start - 1);
+
+    u32 max = (end_buf - ldelim_start - 1 > AFL_TXT_STRING_MAX_LEN
+                   ? AFL_TXT_STRING_MAX_LEN
+                   : end_buf - ldelim_start - 1);
 
     if (max > 0) {
 
-      u8 *rdelim_end =
-          strnstr(ldelim_start + 1, rdelim, max);
+      u8 *rdelim_end = strnstr(ldelim_start + 1, rdelim, max);
 
       if (rdelim_end != NULL) {
 
@@ -566,14 +567,21 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
 
   for (u32 i = 0; i < mutations; i++) {
 
-    if (temp_len < AFL_TXT_MIN_LEN) { return 0; }
+    if (temp_len < AFL_TXT_MIN_LEN) {
+
+      if (yes)
+        return 1;
+      else
+        return 0;
+
+    }
 
     pos = rand_below(afl, temp_len - 1);
-    int choice = rand_below(afl, 72);
+    int choice = rand_below(afl, 76);
     switch (choice) {
 
-      case 0:                                /* Semantic statement deletion */
-        yes += string_replace(out_buf, &temp_len, pos, "\n", "\nif (0==1)\n");
+      case 0:
+        yes += string_replace(out_buf, &temp_len, pos, "*", " ");
         break;
       case 1:
         yes += string_replace(out_buf, &temp_len, pos, "(", "(!");
@@ -675,10 +683,10 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
         yes += string_replace(out_buf, &temp_len, pos, "%", "+");
         break;
       case 34:
-        yes += string_replace(out_buf, &temp_len, pos, "\n", "\nbreak;\n");
+        yes += string_replace(out_buf, &temp_len, pos, "->", ".");
         break;
       case 35:
-        yes += string_replace(out_buf, &temp_len, pos, "\n", "\ncontinue;\n");
+        yes += string_replace(out_buf, &temp_len, pos, ".", "->");
         break;
       case 36:
         yes += string_replace(out_buf, &temp_len, pos, "0", "1");
@@ -693,7 +701,7 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
         yes += string_replace(out_buf, &temp_len, pos, "while", "if");
         break;
       case 40:
-        yes += string_replace(out_buf, &temp_len, pos, "\n", "\nwhile(1==1)\n");
+        yes += string_replace(out_buf, &temp_len, pos, "!", " ");
         break;
       case 41:
         yes += string_replace(out_buf, &temp_len, pos, "&&", "||");
@@ -731,65 +739,74 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
       case 52:
         yes += string_replace(out_buf, &temp_len, pos, "(", "\"");
         break;
-      case 53:  /* Remove a semicolon delimited statement after a semicolon */
+      case 53:
+        yes += string_replace(out_buf, &temp_len, pos, "\n", " ");
+        break;
+      case 54:
+        yes += string_replace(out_buf, &temp_len, pos, "\n", ";");
+        break;
+      case 55:
+        yes += string_replace(out_buf, &temp_len, pos, "\n", "<");
+        break;
+      case 56:  /* Remove a semicolon delimited statement after a semicolon */
         yes += delim_replace(out_buf, &temp_len, pos, ";", ";", ";");
         break;
-      case 54: /* Remove a semicolon delimited statement after a left curly
+      case 57: /* Remove a semicolon delimited statement after a left curly
                   brace */
         yes += delim_replace(out_buf, &temp_len, pos, "}", ";", "}");
         break;
-      case 55:                            /* Remove a curly brace construct */
+      case 58:                            /* Remove a curly brace construct */
         yes += delim_replace(out_buf, &temp_len, pos, "{", "}", "");
         break;
-      case 56:         /* Replace a curly brace construct with an empty one */
+      case 59:         /* Replace a curly brace construct with an empty one */
         yes += delim_replace(out_buf, &temp_len, pos, "{", "}", "{}");
         break;
-      case 57:
+      case 60:
         yes += delim_swap(out_buf, &temp_len, pos, ";", ";", ";");
         break;
-      case 58:
+      case 61:
         yes += delim_swap(out_buf, &temp_len, pos, "}", ";", ";");
         break;
-      case 59:                        /* Swap comma delimited things case 1 */
+      case 62:                        /* Swap comma delimited things case 1 */
         yes += delim_swap(out_buf, &temp_len, pos, "(", ",", ")");
         break;
-      case 60:                        /* Swap comma delimited things case 2 */
+      case 63:                        /* Swap comma delimited things case 2 */
         yes += delim_swap(out_buf, &temp_len, pos, "(", ",", ",");
         break;
-      case 61:                        /* Swap comma delimited things case 3 */
+      case 64:                        /* Swap comma delimited things case 3 */
         yes += delim_swap(out_buf, &temp_len, pos, ",", ",", ",");
         break;
-      case 62:                        /* Swap comma delimited things case 4 */
+      case 65:                        /* Swap comma delimited things case 4 */
         yes += delim_swap(out_buf, &temp_len, pos, ",", ",", ")");
         break;
-      case 63:                                        /* Just delete a line */
+      case 66:                                        /* Just delete a line */
         yes += delim_replace(out_buf, &temp_len, pos, "\n", "\n", "");
         break;
-      case 64:                      /* Delete something like "const" case 1 */
+      case 67:                      /* Delete something like "const" case 1 */
         yes += delim_replace(out_buf, &temp_len, pos, " ", " ", "");
         break;
-      case 65:                      /* Delete something like "const" case 2 */
+      case 68:                      /* Delete something like "const" case 2 */
         yes += delim_replace(out_buf, &temp_len, pos, "\n", " ", "");
         break;
-      case 66:                      /* Delete something like "const" case 3 */
+      case 69:                      /* Delete something like "const" case 3 */
         yes += delim_replace(out_buf, &temp_len, pos, "(", " ", "");
         break;
-      case 67:                        /* Swap space delimited things case 1 */
+      case 70:                        /* Swap space delimited things case 1 */
         yes += delim_swap(out_buf, &temp_len, pos, " ", " ", " ");
         break;
-      case 68:                        /* Swap space delimited things case 2 */
+      case 71:                        /* Swap space delimited things case 2 */
         yes += delim_swap(out_buf, &temp_len, pos, " ", " ", ")");
         break;
-      case 69:                        /* Swap space delimited things case 3 */
+      case 72:                        /* Swap space delimited things case 3 */
         yes += delim_swap(out_buf, &temp_len, pos, "(", " ", " ");
         break;
-      case 70:                        /* Swap space delimited things case 4 */
+      case 73:                        /* Swap space delimited things case 4 */
         yes += delim_swap(out_buf, &temp_len, pos, "(", " ", ")");
         break;
-      case 71:                           /* Duplicate a single line of code */
+      case 74:                           /* Duplicate a single line of code */
         yes += delim_replace(out_buf, &temp_len, pos, "\n", "\n", NULL);
         break;
-      case 72:  /* Duplicate a construct (most often, a non-nested for loop */
+      case 75:  /* Duplicate a construct (most often, a non-nested for loop */
         yes += delim_replace(out_buf, &temp_len, pos, "\n", "}", NULL);
         break;
 
@@ -2720,10 +2737,11 @@ havoc_stage:
             // ascii mutations
             if (text_mutation(afl, &out_buf, &temp_len) == 0) goto retry_havoc;
 
-//#ifdef _AFL_DOCUMENT_MUTATIONS
-//            fprintf(stderr, "MUTATED: %s/mutations/%09u:*\n", afl->out_dir,
-//                    afl->document_counter);
-//#endif
+            //#ifdef _AFL_DOCUMENT_MUTATIONS
+            //            fprintf(stderr, "MUTATED: %s/mutations/%09u:*\n",
+            //            afl->out_dir,
+            //                    afl->document_counter);
+            //#endif
 
           }
 
