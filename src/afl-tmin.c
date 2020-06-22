@@ -802,6 +802,17 @@ static void usage(u8 *argv0) {
 
 }
 
+static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
+                                 sharedmem_t *     shm_fuzz) {
+
+  afl_shm_deinit(shm_fuzz);
+  fsrv->support_shmem_fuzz = 0;
+  fsrv->shmem_fuzz = NULL;
+  ck_free(shm_fuzz);
+  return NULL;
+
+}
+
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
@@ -1052,10 +1063,27 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF("\n");
 
+  sharedmem_t *shm_fuzz = ck_alloc(sizeof(sharedmem_t));
+  u8 *         map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
+#ifdef USEMMAP
+  setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
+#else
+  u8 *shm_str = alloc_printf("%d", shm_fuzz->shm_id);
+  setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
+  ck_free(shm_str);
+#endif
+  fsrv->support_shmem_fuzz = 1;
+  fsrv->shmem_fuzz_len = (u32 *)map;
+  fsrv->shmem_fuzz = map + sizeof(u32);
+
   read_initial_file();
 
   afl_fsrv_start(fsrv, use_argv, &stop_soon,
                  get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
+
+  if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
+    shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        fsrv->mem_limit, fsrv->exec_tmout, edges_only ? ", edges only" : "");
@@ -1111,6 +1139,7 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("We're done here. Have a nice day!\n");
 
   afl_shm_deinit(&shm);
+  if (fsrv->use_shmem_fuzz) shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
   afl_fsrv_deinit(fsrv);
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
   if (mask_bitmap) { ck_free(mask_bitmap); }
