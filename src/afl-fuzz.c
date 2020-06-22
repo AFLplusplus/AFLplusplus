@@ -289,7 +289,7 @@ int main(int argc, char **argv_orig, char **envp) {
   doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
 
   gettimeofday(&tv, &tz);
-  afl->init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
+  rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
 
   while ((opt = getopt(argc, argv,
                        "+c:i:I:o:f:m:t:T:dnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) >
@@ -311,7 +311,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 's': {
 
-        afl->init_seed = strtoul(optarg, 0L, 10);
+        rand_set_seed(afl, strtoul(optarg, 0L, 10));
         afl->fixed_seed = 1;
         break;
 
@@ -832,11 +832,6 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Running with fixed seed: %u", (u32)afl->init_seed);
 
   }
-
-  afl->rand_seed[0] = hash64((void *)&afl->init_seed, sizeof(u32), HASH_CONST);
-  afl->rand_seed[1] = afl->rand_seed[0] ^ 0x1234567890abcdef;
-  afl->rand_seed[2] = afl->rand_seed[0] & 0x0123456789abcdef;
-  afl->rand_seed[3] = afl->rand_seed[0] | 0x01abcde43f567908;
 
   if (afl->use_radamsa) {
 

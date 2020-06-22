@@ -49,6 +49,7 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
+#include "hash.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -971,12 +972,15 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
 }
 
-static inline u32 get_rand_seed(afl_state_t *afl) {
+static inline s64 rand_get_seed(afl_state_t *afl) {
 
-  if (unlikely(afl->fixed_seed)) { return (u32)afl->init_seed; }
+  if (unlikely(afl->fixed_seed)) { return afl->init_seed; }
   return afl->rand_seed[0];
 
 }
+
+/* initialize randomness with a given seed. Can be called again at any time. */
+void rand_set_seed(afl_state_t *afl, s64 init_seed);
 
 /* Find first power of two greater or equal to val (assuming val under
    2^63). */
