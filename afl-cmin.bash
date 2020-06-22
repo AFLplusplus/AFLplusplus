@@ -245,7 +245,7 @@ if [ ! "$STDIN_FILE" = "" ]; then
 fi
 
 if [ "$AFL_PATH" = "" ]; then
-  SHOWMAP="${0%/afl-cmin}/afl-showmap"
+  SHOWMAP="${0%/afl-cmin.bash}/afl-showmap"
 else
   SHOWMAP="$AFL_PATH/afl-showmap"
 fi

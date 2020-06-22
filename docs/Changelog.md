@@ -48,6 +48,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - persistent mode shared memory testcase handover (instead of via
     files/stdin) - 10-100% performance increase
   - General support for 64 bit PowerPC, RiscV, Sparc etc.
+  - fix afl-cmin.bash
   - slightly better performance compilation options for afl++ and targets
   - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
     the same second
