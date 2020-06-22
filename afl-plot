@@ -35,9 +35,6 @@ an empty directory where this tool can write the resulting plots to.
 
 The program will put index.html and three PNG images in the output directory;
 you should be able to view it with any web browser of your choice.
-
-Environment variables used:
-AFL_ALLOW_TMP: allow /var/tmp or /tmp for input and output directories
 _EOF_
 
   exit 1
@@ -47,22 +44,22 @@ fi
 inputdir=`get_abs_path "$1"`
 outputdir=`get_abs_path "$2"`
 
-if [ "$AFL_ALLOW_TMP" = "" ]; then
-
-  echo "$inputdir" | grep -qE '^(/var)?/tmp/'
-  T1="$?"
-
-  echo "$outputdir" | grep -qE '^(/var)?/tmp/'
-  T2="$?"
-
-  if [ "$T1" = "0" -o "$T2" = "0" ]; then
-
-    echo "[-] Error: this script shouldn't be used with shared /tmp directories." 1>&2
-    exit 1
-
-  fi
-
-fi
+#if [ "$AFL_ALLOW_TMP" = "" ]; then
+#
+#  echo "$inputdir" | grep -qE '^(/var)?/tmp/'
+#  T1="$?"
+#
+#  echo "$outputdir" | grep -qE '^(/var)?/tmp/'
+#  T2="$?"
+#
+#  if [ "$T1" = "0" -o "$T2" = "0" ]; then
+#
+#    echo "[-] Error: this script shouldn't be used with shared /tmp directories." 1>&2
+#    exit 1
+#
+#  fi
+#
+#fi
 
 if [ ! -f "$inputdir/plot_data" ]; then
 

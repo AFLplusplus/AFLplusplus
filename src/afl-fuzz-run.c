@@ -533,7 +533,7 @@ void sync_fuzzers(afl_state_t *afl) {
       s32         fd;
       struct stat st;
 
-      snprintf(path, sizeof (path), "%s/%s", qd_path, namelist[o]->d_name);
+      snprintf(path, sizeof(path), "%s/%s", qd_path, namelist[o]->d_name);
       afl->syncing_case = next_min_accept;
       next_min_accept++;
       o--;
