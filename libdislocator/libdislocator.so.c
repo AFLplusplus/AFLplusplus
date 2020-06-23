@@ -37,10 +37,12 @@
   #include <sys/param.h>
 #endif
 
-#if defined(__linux__) && !defined(__ANDROID__)
+#if (defined(__linux__) && !defined(__ANDROID__)) || defined(__HAIKU__)
   #include <unistd.h>
-  #include <sys/syscall.h>
-  #include <malloc.h>
+  #ifdef __linux__
+   #include <sys/syscall.h>
+   #include <malloc.h>
+  #endif
   #ifdef __NR_getrandom
     #define arc4random_buf(p, l)                       \
       do {                                             \
