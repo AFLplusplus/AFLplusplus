@@ -31,6 +31,21 @@
 extern u64 time_spent_working;
 #endif
 
+static void at_exit() {
+
+  int   i;
+  char *ptr = getenv("__AFL_TARGET_PID1");
+
+  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
+
+  ptr = getenv("__AFL_TARGET_PID2");
+
+  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
+
+  // anything else? shared memory?
+
+}
+
 static u8 *get_libradamsa_path(u8 *own_loc) {
 
   u8 *tmp, *cp, *rsl, *own_copy;
@@ -274,7 +289,7 @@ int main(int argc, char **argv_orig, char **envp) {
   doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
 
   gettimeofday(&tv, &tz);
-  afl->init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
+  rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
 
   while ((opt = getopt(argc, argv,
                        "+c:i:I:o:f:m:t:T:dnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) >
@@ -296,7 +311,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 's': {
 
-        afl->init_seed = strtoul(optarg, 0L, 10);
+        rand_set_seed(afl, strtoul(optarg, 0L, 10));
         afl->fixed_seed = 1;
         break;
 
@@ -808,8 +823,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     WARNF(
         "Using -M main node with the AFL_CUSTOM_MUTATOR_ONLY mutator options "
-        "will "
-        "result in no deterministic mutations being done!");
+        "will result in no deterministic mutations being done!");
 
   }
 
@@ -818,9 +832,6 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Running with fixed seed: %u", (u32)afl->init_seed);
 
   }
-
-  srandom((u32)afl->init_seed);
-  srand((u32)afl->init_seed);  // in case it is a different implementation
 
   if (afl->use_radamsa) {
 
@@ -1233,6 +1244,8 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Cmplog forkserver successfully started");
 
   }
+
+  atexit(at_exit);
 
   perform_dry_run(afl);
 

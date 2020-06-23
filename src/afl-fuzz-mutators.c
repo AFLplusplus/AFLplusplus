@@ -272,7 +272,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
     sprintf(afl->stage_name_buf, "ptrim %s",
             u_stringify_int(val_buf, trim_exec));
 
-    u32 cksum;
+    u64 cksum;
 
     size_t retlen = mutator->afl_custom_trim(mutator->data, &retbuf);
 
@@ -295,7 +295,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
 
-    cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+    cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
     if (cksum == q->exec_cksum) {
 

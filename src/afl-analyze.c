@@ -51,7 +51,9 @@
 
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/shm.h>
+#ifndef USEMMAP
+  #include <sys/shm.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -66,10 +68,11 @@ static u8 *in_file,                    /* Analyzer input test case          */
 static u8 *in_data;                    /* Input data for analysis           */
 
 static u32 in_len,                     /* Input data length                 */
-    orig_cksum,                        /* Original checksum                 */
     total_execs,                       /* Total number of execs             */
     exec_hangs,                        /* Total number of hangs             */
     exec_tmout = EXEC_TIMEOUT;         /* Exec timeout (ms)                 */
+
+static u64 orig_cksum;                 /* Original checksum                 */
 
 static u64 mem_limit = MEM_LIMIT;      /* Memory limit (MB)                 */
 
@@ -222,7 +225,7 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
   int                     status = 0;
 
   s32 prog_in_fd;
-  u32 cksum;
+  u64 cksum;
 
   memset(trace_bits, 0, map_size);
   MEM_BARRIER();
@@ -321,7 +324,7 @@ static u32 analyze_run_target(char **argv, u8 *mem, u32 len, u8 first_run) {
 
   }
 
-  cksum = hash32(trace_bits, map_size, HASH_CONST);
+  cksum = hash64(trace_bits, map_size, HASH_CONST);
 
   /* We don't actually care if the target is crashing or not,
      except that when it does, the checksum should be different. */

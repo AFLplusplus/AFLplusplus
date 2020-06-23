@@ -54,7 +54,9 @@
 
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/shm.h>
+#ifndef USEMMAP
+  #include <sys/shm.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -67,11 +69,12 @@ static u8 *in_file,                    /* Minimizer input test case         */
 static u8 *in_data;                    /* Input data for trimming           */
 
 static u32 in_len,                     /* Input data length                 */
-    orig_cksum,                        /* Original checksum                 */
     missed_hangs,                      /* Misses due to hangs               */
     missed_crashes,                    /* Misses due to crashes             */
     missed_paths,                      /* Misses due to exec path diffs     */
     map_size = MAP_SIZE;
+
+static u64 orig_cksum;                 /* Original checksum                 */
 
 static u8 crash_mode,                  /* Crash-centric mode?               */
     hang_mode,                         /* Minimize as long as it hangs      */
@@ -300,7 +303,7 @@ static u8 tmin_run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
   if (ret == FSRV_RUN_NOINST) { FATAL("Binary not instrumented?"); }
 
-  u32 cksum = hash32(fsrv->trace_bits, fsrv->map_size, HASH_CONST);
+  u64 cksum = hash64(fsrv->trace_bits, fsrv->map_size, HASH_CONST);
 
   if (first_run) { orig_cksum = cksum; }
 
@@ -799,6 +802,17 @@ static void usage(u8 *argv0) {
 
 }
 
+static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
+                                 sharedmem_t *     shm_fuzz) {
+
+  afl_shm_deinit(shm_fuzz);
+  fsrv->support_shmem_fuzz = 0;
+  fsrv->shmem_fuzz = NULL;
+  ck_free(shm_fuzz);
+  return NULL;
+
+}
+
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
@@ -1049,10 +1063,27 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF("\n");
 
+  sharedmem_t *shm_fuzz = ck_alloc(sizeof(sharedmem_t));
+  u8 *         map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
+#ifdef USEMMAP
+  setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
+#else
+  u8 *shm_str = alloc_printf("%d", shm_fuzz->shm_id);
+  setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
+  ck_free(shm_str);
+#endif
+  fsrv->support_shmem_fuzz = 1;
+  fsrv->shmem_fuzz_len = (u32 *)map;
+  fsrv->shmem_fuzz = map + sizeof(u32);
+
   read_initial_file();
 
   afl_fsrv_start(fsrv, use_argv, &stop_soon,
                  get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
+
+  if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
+    shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        fsrv->mem_limit, fsrv->exec_tmout, edges_only ? ", edges only" : "");
@@ -1108,6 +1139,7 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("We're done here. Have a nice day!\n");
 
   afl_shm_deinit(&shm);
+  if (fsrv->use_shmem_fuzz) shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
   afl_fsrv_deinit(fsrv);
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
   if (mask_bitmap) { ck_free(mask_bitmap); }

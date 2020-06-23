@@ -139,7 +139,8 @@ static void __afl_map_shm_fuzz() {
 
     }
 
-    map = (u8 *)mmap(0, MAX_FILE, PROT_READ, MAP_SHARED, shm_fd, 0);
+    map =
+        (u8 *)mmap(0, MAX_FILE + sizeof(u32), PROT_READ, MAP_SHARED, shm_fd, 0);
 
 #else
     u32 shm_id = atoi(id_str);
@@ -157,7 +158,7 @@ static void __afl_map_shm_fuzz() {
     }
 
     __afl_fuzz_len = (u32 *)map;
-    __afl_fuzz_ptr = (u8 *)(map + sizeof(u32));
+    __afl_fuzz_ptr = map + sizeof(u32);
 
     if (getenv("AFL_DEBUG")) {
 

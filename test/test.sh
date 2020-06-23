@@ -86,7 +86,7 @@ export AFL_LLVM_INSTRUMENT=AFL
 
 # on OpenBSD we need to work with llvm from /usr/local/bin
 test -e /usr/local/bin/opt && {
-  export PATH=/usr/local/bin:${PATH}
+  export PATH="/usr/local/bin:${PATH}"
 }
 # on MacOS X we prefer afl-clang over afl-gcc, because
 # afl-gcc does not work there
@@ -108,7 +108,7 @@ RESET="\\033[0m"
 
 MEM_LIMIT=none
 
-export PATH=$PATH:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+export PATH="${PATH}:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 
 $ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
 
@@ -1127,7 +1127,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
 
 $ECHO "$BLUE[*] Execution cmocka Unit-Tests $GREY"
 unset AFL_CC
-make -C .. unit || "$CODE" = "1"
+make -C .. unit || CODE=1 INCOMPLETE=1 :
 
 $ECHO "$GREY[*] all test cases completed.$RESET"
 test "$INCOMPLETE" = "0" && $ECHO "$GREEN[+] all test cases executed"

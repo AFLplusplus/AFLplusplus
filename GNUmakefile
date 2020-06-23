@@ -50,12 +50,22 @@ else
 endif
 endif
 
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -fno-move-loop-invariants -fdisable-tree-cunrolli -x c - -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+	SPECIAL_PERFORMANCE += -fno-move-loop-invariants -fdisable-tree-cunrolli
+endif
+
 ifneq "$(shell uname)" "Darwin"
- #ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
- #	CFLAGS_OPT += -march=native
- #endif
+ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ 	#CFLAGS_OPT += -march=native
+ 	SPECIAL_PERFORMANCE += -march=native
+ endif
  # OS X does not like _FORTIFY_SOURCE=2
  CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+endif
+
+ifeq "$(shell uname)" "SunOS"
+ CFLAGS_OPT += -Wno-format-truncation
+ LDFLAGS=-lkstat
 endif
 
 ifdef STATIC
@@ -86,7 +96,7 @@ endif
 
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
 override CFLAGS += -Wall -g -Wno-pointer-sign -Wmissing-declarations\
-			  -I include/ -Werror -DAFL_PATH=\"$(HELPER_PATH)\" \
+			  -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
 ifeq "$(shell uname -s)" "FreeBSD"
@@ -107,6 +117,13 @@ endif
 ifeq "$(shell uname -s)" "NetBSD"
   override CFLAGS  += -I /usr/pkg/include/
   LDFLAGS += -L /usr/pkg/lib/
+endif
+
+ifeq "$(shell uname -s)" "Haiku"
+  SHMAT_OK=0
+  override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fpic
+  LDFLAGS+=-Wno-deprecated-declarations -lgnu
+  SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif
 
 AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
@@ -345,6 +362,9 @@ afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
 
+src/afl-performance.o : $(COMM_HDR) src/afl-performance.c include/hash.h
+	$(CC) -Iinclude $(SPECIAL_PERFORMANCE) -O3 -fno-unroll-loops -c src/afl-performance.c -o src/afl-performance.o
+
 src/afl-common.o : $(COMM_HDR) src/afl-common.c include/common.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-common.c -o src/afl-common.o
 
@@ -360,35 +380,46 @@ radamsa: src/third_party/libradamsa/libradamsa.so
 src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.c src/third_party/libradamsa/radamsa.h
 	$(MAKE) -C src/third_party/libradamsa/ CFLAGS="$(CFLAGS)"
 
-afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(PYFLAGS) $(LDFLAGS)
+afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
 
-afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
+afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(LDFLAGS)
 
-afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o -o $@ $(LDFLAGS)
+afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o -o $@ $(LDFLAGS)
 
 afl-gotcpu: src/afl-gotcpu.c src/afl-common.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o -o $@ $(LDFLAGS)
 
 
 # document all mutations and only do one run (use with only one input file!)
-document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o | test_x86
-	$(CC) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
+document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
+	$(CC) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
 
 test/unittests/unit_maybe_alloc.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_maybe_alloc.c $(AFL_FUZZ_FILES)
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
 
-test/unittests/unit_preallocable.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_preallocable.c $(AFL_FUZZ_FILES)
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
-
 unit_maybe_alloc: test/unittests/unit_maybe_alloc.o
 	@$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_maybe_alloc
+
+test/unittests/unit_hash.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_hash.c $(AFL_FUZZ_FILES) src/afl-performance.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_hash.c -o test/unittests/unit_hash.o
+
+unit_hash: test/unittests/unit_hash.o src/afl-performance.o
+	@$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_hash $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	./test/unittests/unit_hash
+
+test/unittests/unit_rand.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_rand.c $(AFL_FUZZ_FILES) src/afl-performance.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_rand.c -o test/unittests/unit_rand.o
+
+unit_rand: test/unittests/unit_rand.o src/afl-common.o src/afl-performance.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_rand  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	./test/unittests/unit_rand
 
 test/unittests/unit_list.o : $(COMM_HDR) include/list.h test/unittests/unit_list.c $(AFL_FUZZ_FILES)
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
@@ -397,8 +428,8 @@ unit_list: test/unittests/unit_list.o
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_list.o -o test/unittests/unit_list  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_list
 
-test/unittests/preallocable.o : $(COMM_HDR) include/afl-prealloc.h test/unittests/preallocable.c $(AFL_FUZZ_FILES)
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CFLAGS_FLTO) -c test/unittests/preallocable.c -o test/unittests/preallocable.o
+test/unittests/unit_preallocable.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_preallocable.c $(AFL_FUZZ_FILES)
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
 
 unit_preallocable: test/unittests/unit_preallocable.o
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
@@ -409,7 +440,7 @@ unit_clean:
 
 ifneq "$(shell uname)" "Darwin"
 
-unit: unit_maybe_alloc unit_preallocable unit_list unit_clean
+unit: unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash
 
 else
 
@@ -504,7 +535,7 @@ distrib: all radamsa
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
-	cd unicorn_mode && sh ./build_unicorn_support.sh
+	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
 binary-only: all radamsa
 	$(MAKE) -C libdislocator
@@ -513,7 +544,7 @@ binary-only: all radamsa
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
-	cd unicorn_mode && sh ./build_unicorn_support.sh
+	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
 source-only: all radamsa
 	-$(MAKE) -C llvm_mode
