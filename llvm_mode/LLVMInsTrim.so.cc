@@ -103,6 +103,7 @@ struct InsTrim : public ModulePass {
   bool runOnModule(Module &M) override {
 
     char be_quiet = 0;
+    setvbuf(stdout, NULL, _IONBF, 0);
 
     if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 

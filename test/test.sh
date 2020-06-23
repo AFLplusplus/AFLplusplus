@@ -459,24 +459,23 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
   }
   rm -f test-instr.plain
 
-# Disabled whitelist until I have a different solution -mh
-#  echo foobar.c > whitelist.txt
-#  AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-lto -o test-compcov test-compcov.c > test.out 2>&1
-#  test -e test-compcov && {
-#    grep -q "No instrumentation targets found" test.out && {
-#      $ECHO "$GREEN[+] llvm_mode LTO whitelist feature works correctly"
-#    } || {
-#      $ECHO "$RED[!] llvm_mode LTO whitelist feature failed"
-#      CODE=1
-#    }
-#  } || {
-#    $ECHO "$RED[!] llvm_mode LTO whitelist feature compilation failed"
-#    CODE=1
-#  }
-#  rm -f test-compcov test.out whitelist.txt
+  echo foobar.c > whitelist.txt
+  AFL_DEBUG=1 AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-lto -o test-compcov test-compcov.c > test.out 2>&1
+  test -e test-compcov && {
+    grep -q "No instrumentation targets found" test.out && {
+      $ECHO "$GREEN[+] llvm_mode LTO whitelist feature works correctly"
+    } || {
+      $ECHO "$RED[!] llvm_mode LTO whitelist feature failed"
+      CODE=1
+    }
+  } || {
+    $ECHO "$RED[!] llvm_mode LTO whitelist feature compilation failed"
+    CODE=1
+  }
+  rm -f test-compcov test.out whitelist.txt
   ../afl-clang-lto -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
-    echo foo | ../afl-showmap -o /dev/null -q -r ./test-persistent && {
+    echo foo | ../afl-showmap -m none -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] llvm_mode LTO persistent mode feature works correctly"
     } || {
       $ECHO "$RED[!] llvm_mode LTO persistent mode feature failed to work"
