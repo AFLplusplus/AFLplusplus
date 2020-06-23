@@ -500,7 +500,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
         load = cur_cmp_IRB.CreateZExt(load, Int32Ty);
         std::vector<Value *> args;
         args.push_back(load);
-        load = cur_cmp_IRB.CreateCall(tolowerFn, args, "tmp");
+        load = cur_cmp_IRB.CreateCall(tolowerFn, args);
         load = cur_cmp_IRB.CreateTrunc(load, Int8Ty);
 
       }

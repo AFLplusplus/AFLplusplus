@@ -37,6 +37,8 @@ void bind_to_free_cpu(afl_state_t *afl) {
   cpu_set_t c;
   #elif defined(__NetBSD__)
   cpuset_t *         c;
+  #elif defined(__sun)
+  psetid_t            c;
   #endif
 
   u8  cpu_used[4096] = {0};
@@ -181,6 +183,56 @@ void bind_to_free_cpu(afl_state_t *afl) {
   }
 
   ck_free(procs);
+  #elif defined(__sun)
+  kstat_named_t *n;
+  kstat_ctl_t *  m;
+  kstat_t *      k;
+  cpu_stat_t     cs;
+  u32            ncpus;
+
+  m = kstat_open();
+
+  if (!m) FATAL("kstat_open failed");
+
+  k = kstat_lookup(m, "unix", 0, "system_misc");
+
+  if (!k) {
+
+    kstat_close(m);
+    return;
+
+  }
+
+  if (kstat_read(m, k, NULL)) {
+
+    kstat_close(m);
+    return;
+
+  }
+
+  n = kstat_data_lookup(k, "ncpus");
+  ncpus = n->value.i32;
+
+  if (ncpus > sizeof(cpu_used)) ncpus = sizeof(cpu_used);
+
+  for (i = 0; i < ncpus; i++) {
+
+    k = kstat_lookup(m, "cpu_stat", i, NULL);
+    if (kstat_read(m, k, &cs)) {
+
+      kstat_close(m);
+      return;
+
+    }
+
+    if (cs.cpu_sysinfo.cpu[CPU_IDLE] > 0) continue;
+
+    if (cs.cpu_sysinfo.cpu[CPU_USER] > 0 || cs.cpu_sysinfo.cpu[CPU_KERNEL] > 0)
+      cpu_used[i] = 1;
+
+  }
+
+  kstat_close(m);
   #else
     #warning \
         "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/AFLplusplus/AFLplusplus"
@@ -189,7 +241,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
   size_t cpu_start = 0;
 
   try:
-  #ifndef __ANDROID__
+  #if !defined(__ANDROID__)
     for (i = cpu_start; i < afl->cpu_core_count; i++) {
 
       if (!cpu_used[i]) { break; }
@@ -228,6 +280,9 @@ void bind_to_free_cpu(afl_state_t *afl) {
   c = cpuset_create();
   if (c == NULL) PFATAL("cpuset_create failed");
   cpuset_set(i, c);
+  #elif defined(__sun)
+pset_create(&c);
+if (pset_assign(c, i, NULL)) PFATAL("pset_assign failed");
   #endif
 
   #if defined(__linux__)
@@ -271,6 +326,19 @@ if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
 }
 
 cpuset_destroy(c);
+  #elif defined(__sun)
+if (pset_bind(c, P_PID, getpid(), NULL)) {
+
+  if (cpu_start == afl->cpu_core_count)
+    PFATAL("pset_bind failed for cpu %d, exit", i);
+  WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
+  cpu_start++;
+  goto try
+    ;
+
+}
+
+pset_destroy(c);
   #else
   // this will need something for other platforms
   // TODO: Solaris/Illumos has processor_bind ... might worth a try
@@ -1473,10 +1541,8 @@ void setup_dirs_fds(afl_state_t *afl) {
   afl->fsrv.dev_null_fd = open("/dev/null", O_RDWR);
   if (afl->fsrv.dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
 
-#ifndef HAVE_ARC4RANDOM
   afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
   if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
-#endif
 
   /* Gnuplot output file. */
 
@@ -2062,14 +2128,17 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   /* Check for blatant user errors. */
 
-  if ((!strncmp(afl->fsrv.target_path, "/tmp/", 5) &&
-       !strchr(afl->fsrv.target_path + 5, '/')) ||
-      (!strncmp(afl->fsrv.target_path, "/var/tmp/", 9) &&
-       !strchr(afl->fsrv.target_path + 9, '/'))) {
+  /*  disabled. not a real-worl scenario where this is a problem.
+    if ((!strncmp(afl->fsrv.target_path, "/tmp/", 5) &&
+         !strchr(afl->fsrv.target_path + 5, '/')) ||
+        (!strncmp(afl->fsrv.target_path, "/var/tmp/", 9) &&
+         !strchr(afl->fsrv.target_path + 9, '/'))) {
 
-    FATAL("Please don't keep binaries in /tmp or /var/tmp");
+      FATAL("Please don't keep binaries in /tmp or /var/tmp");
 
-  }
+    }
+
+  */
 
   fd = open(afl->fsrv.target_path, O_RDONLY);
 

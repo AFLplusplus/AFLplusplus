@@ -89,11 +89,11 @@ static struct range *pop_biggest_range(struct range **ranges) {
 
 }
 
-static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u32 *cksum) {
+static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u64 *cksum) {
 
   if (unlikely(common_fuzz_stuff(afl, buf, len))) { return 1; }
 
-  *cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+  *cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
   return 0;
 
 }
@@ -109,7 +109,7 @@ static void rand_replace(afl_state_t *afl, u8 *buf, u32 len) {
 
 }
 
-static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
+static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum) {
 
   struct range *ranges = add_range(NULL, 0, len);
   u8 *          backup = ck_alloc_nozero(len);
@@ -137,7 +137,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
       memcpy(backup, buf + rng->start, s);
       rand_replace(afl, buf + rng->start, s);
 
-      u32 cksum;
+      u64 cksum;
       u64 start_us = get_cur_time_us();
       if (unlikely(get_exec_checksum(afl, buf, len, &cksum))) {
 
@@ -180,7 +180,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u32 exec_cksum) {
   while (ranges) {
 
     rng = ranges;
-    ranges = ranges->next;
+    ranges = rng->next;
     ck_free(rng);
     rng = NULL;
 
@@ -224,7 +224,7 @@ checksum_fail:
   while (ranges) {
 
     rng = ranges;
-    ranges = ranges->next;
+    ranges = rng->next;
     ck_free(rng);
     rng = NULL;
 
@@ -695,7 +695,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
 // afl->queue_cur->exec_cksum
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
-                        u32 exec_cksum) {
+                        u64 exec_cksum) {
 
   u8 r = 1;
   if (afl->orig_cmp_map == NULL) {

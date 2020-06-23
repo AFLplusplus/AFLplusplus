@@ -56,7 +56,9 @@
 
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/shm.h>
+#ifndef USEMMAP
+  #include <sys/shm.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -557,10 +559,21 @@ static void usage(u8 *argv0) {
       "size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_QUIET: do not print extra informational output",
+      "AFL_QUIET: do not print extra informational output\n",
       argv0, MEM_LIMIT, doc_path);
 
   exit(1);
+
+}
+
+static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
+                                 sharedmem_t *     shm_fuzz) {
+
+  afl_shm_deinit(shm_fuzz);
+  fsrv->support_shmem_fuzz = 0;
+  fsrv->shmem_fuzz = NULL;
+  ck_free(shm_fuzz);
+  return NULL;
 
 }
 
@@ -773,6 +786,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   check_environment_vars(envp);
 
+  if (getenv("AFL_DEBUG")) {
+
+    SAYF(cMGN "[D]" cRST);
+    for (i = 0; i < argc; i++)
+      SAYF(" %s", argv[i]);
+    SAYF("\n");
+
+  }
+
+  //  if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
+
   sharedmem_t shm = {0};
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   setup_signal_handlers();
@@ -826,6 +850,20 @@ int main(int argc, char **argv_orig, char **envp) {
     i++;
 
   }
+
+  sharedmem_t *shm_fuzz = ck_alloc(sizeof(sharedmem_t));
+  u8 *         map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
+#ifdef USEMMAP
+  setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
+#else
+  u8 *shm_str = alloc_printf("%d", shm_fuzz->shm_id);
+  setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
+  ck_free(shm_str);
+#endif
+  fsrv->support_shmem_fuzz = 1;
+  fsrv->shmem_fuzz_len = (u32 *)map;
+  fsrv->shmem_fuzz = map + sizeof(u32);
 
   if (in_dir) {
 
@@ -894,6 +932,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl_fsrv_start(fsrv, use_argv, &stop_soon,
                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
+
+    if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
+      shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
     while (done == 0 && (dir_ent = readdir(dir_in))) {
 
@@ -964,7 +1005,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
 
+  if (fsrv->use_shmem_fuzz) shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
+
   afl_fsrv_deinit(fsrv);
+
   if (stdin_file) { ck_free(stdin_file); }
 
   argv_cpy_free(argv);
