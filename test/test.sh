@@ -23,7 +23,7 @@ else
 fi
 
 test_compcov_binary_functionality() {
-  RUN="../afl-showmap -o /dev/null -- $1"
+  RUN="../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- $1"
   $RUN 'LIBTOKENCAP' | grep 'your string was LIBTOKENCAP' \
     && $RUN 'BUGMENOT' | grep 'your string was BUGMENOT' \
     && $RUN 'BANANA' | grep 'your string started with BAN' \
