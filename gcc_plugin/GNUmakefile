@@ -29,7 +29,7 @@ MAN_PATH    ?= $(PREFIX)/man/man8
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
 CFLAGS      ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=2
-CFLAGS = -Wall -I../include -Wno-pointer-sign \
+CFLAGS      += -Wall -I../include -Wno-pointer-sign \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DGCC_VERSION=\"$(GCCVER)\" -DGCC_BINDIR=\"$(GCCBINDIR)\" \
                -Wno-unused-function
