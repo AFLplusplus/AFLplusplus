@@ -1347,7 +1347,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (!skipped_fuzz && !afl->stop_soon && afl->sync_id) {
 
-      if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+      if (unlikely(afl->is_main_node)) {
+
+        if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 2))) { sync_fuzzers(afl); }
+
+      } else {
+
+        if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+
+      }
 
     }
 
