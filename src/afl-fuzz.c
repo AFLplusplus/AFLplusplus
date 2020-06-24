@@ -159,7 +159,9 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
 
       "Other stuff:\n"
       "  -T text       - text banner to show on the screen\n"
-      "  -M / -S id    - distributed mode (see docs/parallel_fuzzing.md)\n"
+      "  -M/-S id      - distributed mode (see docs/parallel_fuzzing.md)\n"
+      "                  use -D to force -S secondary to perform deterministic "
+      "fuzzing\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
       "  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap "
@@ -292,7 +294,7 @@ int main(int argc, char **argv_orig, char **envp) {
   rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
 
   while ((opt = getopt(argc, argv,
-                       "+c:i:I:o:f:m:t:T:dnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) >
+                       "+c:i:I:o:f:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) >
          0) {
 
     switch (opt) {
@@ -517,6 +519,11 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       break;
+
+      case 'D':                                    /* enforce deterministic */
+
+        afl->skip_deterministic = 0;
+        break;
 
       case 'd':                                       /* skip deterministic */
 
@@ -1093,7 +1100,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->is_main_node && check_main_node_exists(afl) == 1) {
 
-    WARNF("it is wasteful to run more than one master!");
+    WARNF("it is wasteful to run more than one main node!");
     sleep(1);
 
   }
