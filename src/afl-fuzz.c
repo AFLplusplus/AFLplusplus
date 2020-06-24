@@ -384,7 +384,7 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->out_dir = optarg;
         break;
 
-      case 'M': {                                         /* master sync ID */
+      case 'M': {                                           /* main sync ID */
 
         u8 *c;
 
@@ -413,7 +413,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       break;
 
-      case 'S':
+      case 'S':                                        /* secondary sync id */
 
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);

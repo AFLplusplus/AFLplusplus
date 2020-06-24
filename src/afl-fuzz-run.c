@@ -466,6 +466,12 @@ void sync_fuzzers(afl_state_t *afl) {
 
     synced++;
 
+    /* document the attempt to sync to this instance */
+
+    sprintf(qd_synced_path, "%s/.synced/%s.last", afl->out_dir, sd_ent->d_name);
+    id_fd = open(qd_synced_path, O_RDWR | O_CREAT | O_TRUNC, 0600);
+    if (id_fd >= 0) close(id_fd);
+
     /* Skip anything that doesn't have a queue/ subdirectory. */
 
     sprintf(qd_path, "%s/%s/queue", afl->sync_dir, sd_ent->d_name);
@@ -490,13 +496,12 @@ void sync_fuzzers(afl_state_t *afl) {
 
     if (id_fd < 0) { PFATAL("Unable to create '%s'", qd_synced_path); }
 
-    if (read(id_fd, &min_accept, sizeof(u32)) > 0) {
+    if (read(id_fd, &min_accept, sizeof(u32)) == sizeof(u32)) {
 
+      next_min_accept = min_accept;
       lseek(id_fd, 0, SEEK_SET);
 
     }
-
-    next_min_accept = min_accept;
 
     /* Show stats */
 
