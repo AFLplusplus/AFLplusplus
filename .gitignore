@@ -18,6 +18,7 @@ afl-gcc-fast
 afl-g++-fast
 afl-gotcpu
 afl-ld
+afl-ld-lto
 afl-qemu-trace
 afl-showmap
 afl-tmin

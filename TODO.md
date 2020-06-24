@@ -15,6 +15,9 @@ afl-fuzz:
  - ascii_only mode for mutation output - or use a custom mutator for this?
  - setting min_len/max_len/start_offset/end_offset limits for mutation output
 
+llvm_mode:
+ - LTO - imitate sancov
+
 gcc_plugin:
  - (wait for submission then decide)
  - laf-intel
