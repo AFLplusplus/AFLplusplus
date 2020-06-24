@@ -14,6 +14,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - -S secondary nodes now only sync from the main node to increase
        performance, the -M main node still syncs from everyone. Added checks
        that ensure exactly one main node is present and warn otherwise
+     - Add -D after -S to force a secondary to perform deterministic fuzzing
      - If no main node is present at a sync one secondary node automatically
        becomes a temporary main node until a real main nodes shows up
      - Fixed a mayor performance issue we inherited from AFLfast
