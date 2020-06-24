@@ -46,6 +46,7 @@ ld
 qemu_mode/qemu-*
 unicorn_mode/samples/*/\.test-*
 unicorn_mode/samples/*/output/
+unicorn_mode/unicornafl
 core\.*
 test/unittests/unit_maybe_alloc
 test/unittests/unit_preallocable
