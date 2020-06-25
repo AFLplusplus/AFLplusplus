@@ -233,6 +233,7 @@ enum {
   /* 05 */ QUAD,    /* Quadratic schedule               */
   /* 06 */ RARE,    /* Rare edges                       */
   /* 07 */ MMOPT,   /* Modified MOPT schedule           */
+  /* 08 */ SEEK,    /* EXPLORE that ignores timings     */
 
   POWER_SCHEDULES_NUM
 
