@@ -194,7 +194,7 @@ void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
                afl->plot_prev_uc == afl->unique_crashes &&
                afl->plot_prev_uh == afl->unique_hangs &&
                afl->plot_prev_md == afl->max_depth) ||
-      unlikely(!afl->queue_cycle)) {
+      unlikely(!afl->queue_cycle) || unlikely(get_cur_time() - afl->start_time <= 60)) {
 
     return;
 
