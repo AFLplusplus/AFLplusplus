@@ -49,6 +49,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Unicornafl
     - Added powerPC support from unicorn/next
     - rust bindings!
+  - ensure shmem is released on errors
   - we moved radamsa to be a custom mutator in ./custom_mutators/. It is not
     compiled by default anymore.
   - allow running in /tmp (only unsafe with umask 0)

@@ -82,10 +82,15 @@ static u8 quiet_mode,                  /* Hide non-essential messages?      */
     raw_instr_output,                  /* Do not apply AFL filters          */
     cmin_mode,                         /* Generate output in afl-cmin mode? */
     binary_mode,                       /* Write output as a binary map      */
-    keep_cores;                        /* Allow coredumps?                  */
+    keep_cores,                        /* Allow coredumps?                  */
+    remove_shm = 1;                    /* remove shmem?                     */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
+
+static sharedmem_t       shm;
+static afl_forkserver_t *fsrv;
+static sharedmem_t *     shm_fuzz;
 
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
@@ -141,11 +146,31 @@ static void classify_counts(afl_forkserver_t *fsrv) {
 
 }
 
+static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
+                                 sharedmem_t *     shm_fuzz) {
+
+  afl_shm_deinit(shm_fuzz);
+  fsrv->support_shmem_fuzz = 0;
+  fsrv->shmem_fuzz = NULL;
+  ck_free(shm_fuzz);
+  return NULL;
+
+}
+
 /* Get rid of temp files (atexit handler). */
 
 static void at_exit_handler(void) {
 
   if (stdin_file) { unlink(stdin_file); }
+
+  if (remove_shm) {
+
+    if (shm.map) afl_shm_deinit(&shm);
+    if (fsrv->use_shmem_fuzz) deinit_shmem(fsrv, shm_fuzz);
+
+  }
+
+  afl_fsrv_killall();
 
 }
 
@@ -566,17 +591,6 @@ static void usage(u8 *argv0) {
 
 }
 
-static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
-                                 sharedmem_t *     shm_fuzz) {
-
-  afl_shm_deinit(shm_fuzz);
-  fsrv->support_shmem_fuzz = 0;
-  fsrv->shmem_fuzz = NULL;
-  ck_free(shm_fuzz);
-  return NULL;
-
-}
-
 /* Main entry point */
 
 int main(int argc, char **argv_orig, char **envp) {
@@ -590,8 +604,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   char **argv = argv_cpy_dup(argc, argv_orig);
 
-  afl_forkserver_t  fsrv_var = {0};
-  afl_forkserver_t *fsrv = &fsrv_var;
+  afl_forkserver_t fsrv_var = {0};
+  fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
   map_size = get_map_size();
   fsrv->map_size = map_size;
@@ -797,7 +811,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   //  if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
 
-  sharedmem_t shm = {0};
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   setup_signal_handlers();
 
@@ -851,8 +864,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  sharedmem_t *shm_fuzz = ck_alloc(sizeof(sharedmem_t));
-  u8 *         map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  shm_fuzz = ck_alloc(sizeof(sharedmem_t));
+  u8 *map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
@@ -999,13 +1012,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  remove_shm = 0;
   afl_shm_deinit(&shm);
+  if (fsrv->use_shmem_fuzz) shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
   u32 ret = child_crashed * 2 + fsrv->last_run_timed_out;
 
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
-
-  if (fsrv->use_shmem_fuzz) shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
   afl_fsrv_deinit(fsrv);
 
