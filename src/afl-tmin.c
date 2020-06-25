@@ -116,6 +116,7 @@ static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
 
   afl_shm_deinit(shm_fuzz);
   fsrv->support_shmem_fuzz = 0;
+  fsrv->shmem_fuzz_len = NULL;
   fsrv->shmem_fuzz = NULL;
   ck_free(shm_fuzz);
   return NULL;
@@ -1036,6 +1037,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   check_environment_vars(envp);
 
+  /* initialize cmplog_mode */
+  shm.cmplog_mode = 0;
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
   atexit(at_exit_handler);
@@ -1078,6 +1081,9 @@ int main(int argc, char **argv_orig, char **envp) {
   SAYF("\n");
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
+
+  /* initialize cmplog_mode */
+  shm_fuzz->cmplog_mode = 0;
   u8 *map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
 #ifdef USEMMAP
