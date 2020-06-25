@@ -44,7 +44,7 @@ void setup_custom_mutators(afl_state_t *afl) {
       FATAL(
           "MOpt and custom mutator are mutually exclusive. We accept pull "
           "requests that integrates MOpt with the optional mutators "
-          "(custom/radamsa/redqueen/...).");
+          "(custom/redqueen/...).");
 
     u8 *fn_token = (u8 *)strsep((char **)&fn, ";:,");
 
@@ -89,7 +89,7 @@ void setup_custom_mutators(afl_state_t *afl) {
       FATAL(
           "MOpt and Python mutator are mutually exclusive. We accept pull "
           "requests that integrates MOpt with the optional mutators "
-          "(custom/radamsa/redqueen/...).");
+          "(custom/redqueen/...).");
 
     }
 
