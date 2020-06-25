@@ -24,6 +24,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - Ensure that the targets are killed on exit
      - fix/update to MOpt (thanks to arnow117)
      - added MOpt dictionary support from repo
+     - added experimental SEEK power schedule. It is EXPLORE with ignoring
+       the runtime and less focus on the length of the test case
   - llvm_mode:
     - the default instrumentation is now PCGUARD if the llvm version is >= 7,
       as it is faster and provides better coverage. The original afl

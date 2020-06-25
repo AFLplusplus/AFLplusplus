@@ -115,12 +115,13 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "  -o dir        - output directory for fuzzer findings\n\n"
 
       "Execution control settings:\n"
-      "  -p schedule   - power schedules recompute a seed's performance "
-      "score.\n"
-      "                  <explore(default), fast, coe, lin, quad, exploit, "
-      "mmopt, rare>\n"
+      "  -p schedule   - power schedules compute a seed's performance score. "
+      "<explore\n"
+      "                  (default), fast, coe, lin, quad, exploit, mmopt, "
+      "rare, seek>\n"
       "                  see docs/power_schedules.md\n"
-      "  -f file       - location read by the fuzzed program (stdin)\n"
+      "  -f file       - location read by the fuzzed program (default: stdin "
+      "or @@)\n"
       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
       "  -m megs       - memory limit for child process (%d MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
@@ -146,7 +147,7 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "devices etc.!)\n"
       "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (non-instrumented mode)\n"
-      "  -x dir        - optional fuzzer dictionary (see README.md, its really "
+      "  -x dict_file  - optional fuzzer dictionary (see README.md, its really "
       "good!)\n\n"
 
       "Testing settings:\n"
@@ -164,11 +165,11 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "fuzzing\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
-      "  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap "
-      "file\n"
+      //"  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap
+      //" "file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
-      "  -e ext        - file extension for the temporarily generated test "
-      "case\n\n",
+      "  -e ext        - file extension for the fuzz test case case (if "
+      "needed)\n\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
   if (more_help > 1) {
@@ -348,6 +349,10 @@ int main(int argc, char **argv_orig, char **envp) {
         } else if (!stricmp(optarg, "rare")) {
 
           afl->schedule = RARE;
+
+        } else if (!stricmp(optarg, "seek")) {
+
+          afl->schedule = SEEK;
 
         } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "default") ||
 
@@ -953,6 +958,9 @@ int main(int argc, char **argv_orig, char **envp) {
       break;
     case RARE:
       OKF("Using rare edge focus power schedule (RARE)");
+      break;
+    case SEEK:
+      OKF("Using seek power schedule (SEEK)");
       break;
     case EXPLORE:
       OKF("Using exploration-based constant power schedule (EXPLORE, default)");
