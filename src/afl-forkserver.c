@@ -569,7 +569,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         if (unlikely(tmp_map_size % 8)) {
 
           // should not happen
-          WARNF("Target reported non-aligned map size of %ud", tmp_map_size);
+          WARNF("Target reported non-aligned map size of %u", tmp_map_size);
           tmp_map_size = (((tmp_map_size + 8) >> 3) << 3);
 
         }

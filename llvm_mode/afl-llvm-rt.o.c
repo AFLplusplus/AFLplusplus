@@ -183,6 +183,9 @@ static void __afl_map_shm(void) {
 
   if (__afl_final_loc) {
 
+    if (__afl_final_loc % 8)
+      __afl_final_loc = (((__afl_final_loc + 7) >> 3) << 3);
+
     __afl_map_size = __afl_final_loc;
     if (__afl_final_loc > MAP_SIZE) {
 
@@ -871,7 +874,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   while (start < stop) {
 
     if (R(100) < inst_ratio)
-      *start = R(MAP_SIZE - 1) + 1;
+      *start = ++__afl_final_loc;
     else
       *start = 0;
 
