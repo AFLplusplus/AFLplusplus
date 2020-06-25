@@ -199,12 +199,12 @@ ifneq "$(filter Linux GNU%,$(shell uname))" ""
 endif
 
 ifneq "$(findstring FreeBSD, $(shell uname))" ""
-  CFLAGS  += -pthread
+  override CFLAGS  += -pthread
   LDFLAGS += -lpthread
 endif
 
 ifneq "$(findstring NetBSD, $(shell uname))" ""
-  CFLAGS  += -pthread
+  override CFLAGS  += -pthread
   LDFLAGS += -lpthread
 endif
 
@@ -244,7 +244,7 @@ endif
 
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
-  CFLAGS+=$(ASAN_CFLAGS)
+  override CFLAGS+=$(ASAN_CFLAGS)
   LDFLAGS+=$(ASAN_LDFLAGS)
 endif
 
@@ -252,14 +252,15 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 	SHMAT_OK=1
 else
 	SHMAT_OK=0
-	CFLAGS+=-DUSEMMAP=1
+	override CFLAGS+=-DUSEMMAP=1
 	LDFLAGS+=-Wno-deprecated-declarations
 endif
 
-ifeq "$(TEST_MMAP)" "1"
+ifdef TEST_MMAP
 	SHMAT_OK=0
-	CFLAGS+=-DUSEMMAP=1
-	LDFLAGS+=-Wno-deprecated-declarations
+	override CFLAGS += -DUSEMMAP=1
+	LDFLAGS += -Wno-deprecated-declarations
+else
 endif
 
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
