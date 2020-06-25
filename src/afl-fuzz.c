@@ -46,63 +46,6 @@ static void at_exit() {
 
 }
 
-static u8 *get_libradamsa_path(u8 *own_loc) {
-
-  u8 *tmp, *cp, *rsl, *own_copy;
-
-  tmp = getenv("AFL_PATH");
-
-  if (tmp) {
-
-    cp = alloc_printf("%s/libradamsa.so", tmp);
-
-    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", cp); }
-
-    return cp;
-
-  }
-
-  own_copy = ck_strdup(own_loc);
-  rsl = strrchr(own_copy, '/');
-
-  if (rsl) {
-
-    *rsl = 0;
-
-    cp = alloc_printf("%s/libradamsa.so", own_copy);
-    ck_free(own_copy);
-
-    if (!access(cp, X_OK)) { return cp; }
-
-  } else {
-
-    ck_free(own_copy);
-
-  }
-
-  if (!access(AFL_PATH "/libradamsa.so", X_OK)) {
-
-    return ck_strdup(AFL_PATH "/libradamsa.so");
-
-  }
-
-  if (!access(BIN_PATH "/libradamsa.so", X_OK)) {
-
-    return ck_strdup(BIN_PATH "/libradamsa.so");
-
-  }
-
-  SAYF(
-      "\n" cLRD "[-] " cRST
-      "Oops, unable to find the 'libradamsa.so' binary. The binary must be "
-      "built\n"
-      "    separately using 'make radamsa'. If you already have the binary "
-      "installed,\n    you may need to specify AFL_PATH in the environment.\n");
-
-  FATAL("Failed to locate 'libradamsa.so'.");
-
-}
-
 /* Display usage hints. */
 
 static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
@@ -130,8 +73,6 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "mode)\n\n"
 
       "Mutator settings:\n"
-      "  -R[R]         - add Radamsa as mutator, add another -R to exclusivly "
-      "run it\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths). 0 = "
@@ -794,15 +735,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'R':
 
-        if (afl->use_radamsa) {
-
-          afl->use_radamsa = 2;
-
-        } else {
-
-          afl->use_radamsa = 1;
-
-        }
+        FATAL(
+            "Radamsa is now a custom mutator, please use that "
+            "(custom_mutators/radamsa/).");
 
         break;
 
@@ -842,47 +777,6 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->fixed_seed) {
 
     OKF("Running with fixed seed: %u", (u32)afl->init_seed);
-
-  }
-
-  if (afl->use_radamsa) {
-
-    if (afl->limit_time_sig > 0) {
-
-      FATAL(
-          "MOpt and Radamsa are mutually exclusive unless you specify -L -1. "
-          "We accept pull requests that integrates MOpt with the optional "
-          "mutators (custom/radamsa/redqueen/...).");
-
-    }
-
-    if (afl->limit_time_sig && afl->use_radamsa > 1) {
-
-      FATAL("Radamsa in radamsa-only mode can not run together with -L");
-
-    }
-
-    OKF("Using Radamsa add-on");
-
-    u8 *  libradamsa_path = get_libradamsa_path(argv[0]);
-    void *handle = dlopen(libradamsa_path, RTLD_NOW);
-    ck_free(libradamsa_path);
-
-    if (!handle) { FATAL("Failed to dlopen() libradamsa"); }
-
-    void (*radamsa_init_ptr)(void) = dlsym(handle, "radamsa_init");
-    afl->radamsa_mutate_ptr = dlsym(handle, "radamsa");
-
-    if (!radamsa_init_ptr || !afl->radamsa_mutate_ptr) {
-
-      FATAL("Failed to dlsym() libradamsa");
-
-    }
-
-    /* radamsa_init installs some signal handlers, call it before
-       setup_signal_handlers so that AFL++ can then replace those signal
-       handlers */
-    radamsa_init_ptr();
 
   }
 

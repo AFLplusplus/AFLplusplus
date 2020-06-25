@@ -746,15 +746,13 @@ void show_stats(afl_state_t *afl) {
        afl->sync_id ? u_stringify_int(IB(0), afl->queued_imported)
                     : (u8 *)"n/a");
 
-  sprintf(tmp, "%s/%s, %s/%s, %s/%s",
+  sprintf(tmp, "%s/%s, %s/%s",
           u_stringify_int(IB(0), afl->stage_finds[STAGE_HAVOC]),
           u_stringify_int(IB(2), afl->stage_cycles[STAGE_HAVOC]),
           u_stringify_int(IB(3), afl->stage_finds[STAGE_SPLICE]),
-          u_stringify_int(IB(4), afl->stage_cycles[STAGE_SPLICE]),
-          u_stringify_int(IB(5), afl->stage_finds[STAGE_RADAMSA]),
-          u_stringify_int(IB(6), afl->stage_cycles[STAGE_RADAMSA]));
+          u_stringify_int(IB(4), afl->stage_cycles[STAGE_SPLICE]));
 
-  SAYF(bV bSTOP "   havoc/rad : " cRST "%-36s " bSTG bV bSTOP, tmp);
+  SAYF(bV bSTOP "havoc/splice : " cRST "%-36s " bSTG bV bSTOP, tmp);
 
   if (t_bytes) {
 
@@ -835,18 +833,19 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  if (afl->custom_mutators_count) {
+  // if (afl->custom_mutators_count) {
 
-    sprintf(tmp, "%s/%s",
-            u_stringify_int(IB(0), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
-            u_stringify_int(IB(1), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]));
-    SAYF(bV bSTOP " custom mut. : " cRST "%-36s " bSTG bV RESET_G1, tmp);
+  //
+  //  sprintf(tmp, "%s/%s",
+  //          u_stringify_int(IB(0), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
+  //          u_stringify_int(IB(1), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]));
+  //  SAYF(bV bSTOP " custom mut. : " cRST "%-36s " bSTG bV RESET_G1, tmp);
+  //
+  //} else {
 
-  } else {
+  SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bV RESET_G1, tmp);
 
-    SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bV RESET_G1, tmp);
-
-  }
+  //}
 
   /* Provide some CPU utilization stats. */
 

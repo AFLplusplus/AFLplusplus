@@ -637,43 +637,43 @@ test -e ../libdislocator.so && {
   INCOMPLETE=1
 }
 rm -f test-compcov
-test -e ../libradamsa.so && {
-  # on FreeBSD need to set AFL_CC
-  test `uname -s` = 'FreeBSD' && {
-    if type clang >/dev/null; then
-      export AFL_CC=`command -v clang`
-    else
-      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
-    fi
-  }
-  test -e test-instr.plain || ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
-  test -e test-instr.plain || ../afl-gcc-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
-  test -e test-instr.plain || ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
-  test -e test-instr.plain && {
-    mkdir -p in
-    printf 1 > in/in
-    $ECHO "$GREY[*] running afl-fuzz with radamsa, this will take approx 10 seconds"
-    {
-      ../afl-fuzz -RR -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain
-    } >>errors 2>&1
-    test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
-      $ECHO "$GREEN[+] libradamsa performs good - and very slow - mutations"
-    } || {
-      echo CUT------------------------------------------------------------------CUT
-      cat errors
-      echo CUT------------------------------------------------------------------CUT
-      $ECHO "$RED[!] libradamsa failed"
-      CODE=1
-    }
-    rm -rf in out errors test-instr.plain
-  } || {
-    $ECHO "$YELLOW[-] compilation of test target failed, cannot test libradamsa"
-    INCOMPLETE=1
-  }
-} || {
-  $ECHO "$YELLOW[-] libradamsa is not compiled, cannot test"
-  INCOMPLETE=1
-}
+#test -e ../libradamsa.so && {
+#  # on FreeBSD need to set AFL_CC
+#  test `uname -s` = 'FreeBSD' && {
+#    if type clang >/dev/null; then
+#      export AFL_CC=`command -v clang`
+#    else
+#      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
+#    fi
+#  }
+#  test -e test-instr.plain || ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+#  test -e test-instr.plain || ../afl-gcc-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+#  test -e test-instr.plain || ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+#  test -e test-instr.plain && {
+#    mkdir -p in
+#    printf 1 > in/in
+#    $ECHO "$GREY[*] running afl-fuzz with radamsa, this will take approx 10 seconds"
+#    {
+#      ../afl-fuzz -RR -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain
+#    } >>errors 2>&1
+#    test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
+#      $ECHO "$GREEN[+] libradamsa performs good - and very slow - mutations"
+#    } || {
+#      echo CUT------------------------------------------------------------------CUT
+#      cat errors
+#      echo CUT------------------------------------------------------------------CUT
+#      $ECHO "$RED[!] libradamsa failed"
+#      CODE=1
+#    }
+#    rm -rf in out errors test-instr.plain
+#  } || {
+#    $ECHO "$YELLOW[-] compilation of test target failed, cannot test libradamsa"
+#    INCOMPLETE=1
+#  }
+#} || {
+#  $ECHO "$YELLOW[-] libradamsa is not compiled, cannot test"
+#  INCOMPLETE=1
+#}
 
 test -z "$AFL_CC" && {
   if type gcc >/dev/null; then

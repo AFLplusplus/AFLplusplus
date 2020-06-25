@@ -47,7 +47,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Unicornafl
     - Added powerPC support from unicorn/next
     - rust bindings!
-  - Allow running in /tmp (only unsafe with umask 0)
+  - we moved radamsa to be a custom mutator in ./custom_mutators/. It is not
+    compiled by default anymore.
+  - allow running in /tmp (only unsafe with umask 0)
   - persistent mode shared memory testcase handover (instead of via
     files/stdin) - 10-100% performance increase
   - General support for 64 bit PowerPC, RiscV, Sparc etc.
