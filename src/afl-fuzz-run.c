@@ -423,7 +423,7 @@ void sync_fuzzers(afl_state_t *afl) {
   while ((sd_ent = readdir(sd))) {
 
     u8  qd_synced_path[PATH_MAX], qd_path[PATH_MAX];
-    u32 min_accept = 0, next_min_accept;
+    u32 min_accept = 0, next_min_accept = 0;
 
     s32 id_fd;
 
