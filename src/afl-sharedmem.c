@@ -101,7 +101,7 @@ void afl_shm_deinit(sharedmem_t *shm) {
 u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
                  unsigned char non_instrumented_mode) {
 
-  shm->map_size = map_size;
+  shm->map_size = 0;
 
   shm->map = NULL;
 
@@ -153,7 +153,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   u8 *shm_str;
 
   shm->shm_id = shmget(IPC_PRIVATE, map_size, IPC_CREAT | IPC_EXCL | 0600);
-
   if (shm->shm_id < 0) { PFATAL("shmget() failed"); }
 
   if (shm->cmplog_mode) {
@@ -204,6 +203,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
 #endif
 
+  shm->map_size = map_size;
   list_append(&shm_list, shm);
 
   return shm->map;
