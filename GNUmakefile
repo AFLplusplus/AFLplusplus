@@ -260,7 +260,6 @@ ifdef TEST_MMAP
 	SHMAT_OK=0
 	override CFLAGS += -DUSEMMAP=1
 	LDFLAGS += -Wno-deprecated-declarations -lrt
-$(info LDFLAGS=$(LDFLAGS))
 endif
 
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
