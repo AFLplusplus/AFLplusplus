@@ -4,9 +4,7 @@
 
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - namespace for targets? e.g. network
- - libradamsa as a custom module?
  - learn from honggfuzz (mutations, maybe ptrace?)
- - mutations from compiler fuzzer, e.g. https://github.com/agroce/afl-compiler-fuzzer/blob/2758cbfa32621ddfee5c8da6adf59a9531367263/afl-fuzz.c#L5077
  - CPU affinity for many cores? There seems to be an issue > 96 cores
 
 ## Further down the road
