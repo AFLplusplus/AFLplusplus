@@ -26,6 +26,13 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 #include <limits.h>
+#ifndef USEMMAP
+  #include <sys/mman.h>
+  #include <sys/stat.h>
+  #include <fcntl.h>
+  #include <sys/ipc.h>
+  #include <sys/shm.h>
+#endif
 
 #ifdef PROFILING
 extern u64 time_spent_working;
@@ -34,6 +41,7 @@ extern u64 time_spent_working;
 static void at_exit() {
 
   int   i;
+  char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
   char *ptr = getenv("__AFL_TARGET_PID1");
 
   if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
@@ -42,7 +50,28 @@ static void at_exit() {
 
   if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
 
-  // anything else? shared memory?
+  i = 0;
+  while (list[i] != NULL) {
+
+    ptr = getenv(list[i]);
+
+    if (ptr && *ptr) {
+
+#ifdef USEMMAP
+
+      shm_unlink(ptr);
+
+#else
+
+      shmctl(atoi(ptr), IPC_RMID, NULL);
+
+#endif
+
+    }
+
+    i++;
+
+  }
 
 }
 
@@ -991,6 +1020,8 @@ int main(int argc, char **argv_orig, char **envp) {
   check_crash_handling();
   check_cpu_governor(afl);
 
+  atexit(at_exit);
+
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
@@ -1153,8 +1184,6 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Cmplog forkserver successfully started");
 
   }
-
-  atexit(at_exit);
 
   perform_dry_run(afl);
 
@@ -1326,10 +1355,13 @@ stop_fuzzing:
   destroy_queue(afl);
   destroy_extras(afl);
   destroy_custom_mutators(afl);
+  unsetenv(SHM_ENV_VAR);
+  unsetenv(CMPLOG_SHM_ENV_VAR);
   afl_shm_deinit(&afl->shm);
 
   if (afl->shm_fuzz) {
 
+    unsetenv(SHM_FUZZ_ENV_VAR);
     afl_shm_deinit(afl->shm_fuzz);
     ck_free(afl->shm_fuzz);
 

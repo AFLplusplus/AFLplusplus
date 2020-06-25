@@ -122,7 +122,7 @@ endif
 ifeq "$(shell uname -s)" "Haiku"
   SHMAT_OK=0
   override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fPIC
-  LDFLAGS+=-Wno-deprecated-declarations -lgnu
+  LDFLAGS += -Wno-deprecated-declarations -lgnu
   SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif
 
@@ -253,14 +253,14 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 else
 	SHMAT_OK=0
 	override CFLAGS+=-DUSEMMAP=1
-	LDFLAGS+=-Wno-deprecated-declarations
+	LDFLAGS += -Wno-deprecated-declarations -lrt
 endif
 
 ifdef TEST_MMAP
 	SHMAT_OK=0
 	override CFLAGS += -DUSEMMAP=1
-	LDFLAGS += -Wno-deprecated-declarations
-else
+	LDFLAGS += -Wno-deprecated-declarations -lrt
+$(info LDFLAGS=$(LDFLAGS))
 endif
 
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
