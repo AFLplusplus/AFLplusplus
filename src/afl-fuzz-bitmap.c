@@ -559,7 +559,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (q->exec_cksum == cksum) {
 
-        q->n_fuzz = q->n_fuzz + 1;
+        ++q->n_fuzz;
         break;
 
       }
