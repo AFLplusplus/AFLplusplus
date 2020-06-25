@@ -286,12 +286,6 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     u64 cksum;
 
-    if (!first_run && !(afl->stage_cur % afl->stats_update_freq)) {
-
-      show_stats(afl);
-
-    }
-
     write_to_testcase(afl, use_mem, q->len);
 
     fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
@@ -373,6 +367,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   }
 
 abort_calibration:
+
+  if (q->cal_failed) { q->exec_cksum = 0; }
 
   if (new_bits == 2 && !q->has_new_cov) {
 
@@ -466,6 +462,12 @@ void sync_fuzzers(afl_state_t *afl) {
 
     synced++;
 
+    /* document the attempt to sync to this instance */
+
+    sprintf(qd_synced_path, "%s/.synced/%s.last", afl->out_dir, sd_ent->d_name);
+    id_fd = open(qd_synced_path, O_RDWR | O_CREAT | O_TRUNC, 0600);
+    if (id_fd >= 0) close(id_fd);
+
     /* Skip anything that doesn't have a queue/ subdirectory. */
 
     sprintf(qd_path, "%s/%s/queue", afl->sync_dir, sd_ent->d_name);
@@ -490,13 +492,12 @@ void sync_fuzzers(afl_state_t *afl) {
 
     if (id_fd < 0) { PFATAL("Unable to create '%s'", qd_synced_path); }
 
-    if (read(id_fd, &min_accept, sizeof(u32)) > 0) {
+    if (read(id_fd, &min_accept, sizeof(u32)) == sizeof(u32)) {
 
+      next_min_accept = min_accept;
       lseek(id_fd, 0, SEEK_SET);
 
     }
-
-    next_min_accept = min_accept;
 
     /* Show stats */
 

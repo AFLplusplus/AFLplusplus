@@ -33,7 +33,7 @@
 #include "../types.h"
 #include "../config.h"
 
-#if !defined __linux__ && !defined __APPLE__ && !defined __FreeBSD__ && \
+#if !defined __linux__ && !defined __APPLE__ && !defined __FreeBSD__ &&      \
     !defined __OpenBSD__ && !defined __NetBSD__ && !defined __DragonFly__ && \
     !defined(__HAIKU__)
   #error "Sorry, this library is unsupported in this platform for now!"
@@ -233,18 +233,19 @@ static void __tokencap_load_mappings(void) {
   }
 
   munmap(buf, len);
-  #elif defined __HAIKU__
+#elif defined __HAIKU__
   image_info ii;
-  int32_t group = 0;
+  int32_t    group = 0;
 
   while (get_next_image_info(0, &group, &ii) == B_OK) {
 
-    __tokencap_ro[__tokencap_ro_cnt].st = ii.text; 
-    __tokencap_ro[__tokencap_ro_cnt].en = ((char *)ii.text) + ii.text_size; 
+    __tokencap_ro[__tokencap_ro_cnt].st = ii.text;
+    __tokencap_ro[__tokencap_ro_cnt].en = ((char *)ii.text) + ii.text_size;
 
-      if (++__tokencap_ro_cnt == MAX_MAPPINGS) break;
+    if (++__tokencap_ro_cnt == MAX_MAPPINGS) break;
 
   }
+
 #endif
 
 }

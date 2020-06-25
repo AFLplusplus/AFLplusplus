@@ -201,8 +201,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
   else
     fuzz_p2 = q->fuzz_level;
 
-  if (unlikely(afl->schedule == MMOPT || afl->schedule == RARE) ||
-      unlikely(afl->fixed_seed)) {
+  if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
 
     fav_factor = q->len << 2;
 
@@ -228,8 +227,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         else
           top_rated_fuzz_p2 = afl->top_rated[i]->fuzz_level;
 
-        if (unlikely(afl->schedule == MMOPT || afl->schedule == RARE) ||
-            unlikely(afl->fixed_seed)) {
+        if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
 
           top_rated_fav_factor = afl->top_rated[i]->len << 2;
 
@@ -250,8 +248,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
         }
 
-        if (unlikely(afl->schedule == MMOPT || afl->schedule == RARE) ||
-            unlikely(afl->fixed_seed)) {
+        if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
 
           if (fav_factor > afl->top_rated[i]->len << 2) { continue; }
 
@@ -396,8 +393,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   // Longer execution time means longer work on the input, the deeper in
   // coverage, the better the fuzzing, right? -mh
 
-  if (afl->schedule != MMOPT && afl->schedule != RARE &&
-      likely(!afl->fixed_seed)) {
+  if (afl->schedule >= RARE && likely(!afl->fixed_seed)) {
 
     if (q->exec_us * 0.1 > avg_exec_us) {
 
@@ -507,6 +503,9 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   switch (afl->schedule) {
 
     case EXPLORE:
+      break;
+
+    case SEEK:
       break;
 
     case EXPLOIT:

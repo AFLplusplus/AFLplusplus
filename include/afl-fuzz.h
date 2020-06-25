@@ -188,10 +188,11 @@ enum {
   /* 15 */ STAGE_HAVOC,
   /* 16 */ STAGE_SPLICE,
   /* 17 */ STAGE_PYTHON,
-  /* 18 */ STAGE_RADAMSA,
-  /* 19 */ STAGE_CUSTOM_MUTATOR,
-  /* 20 */ STAGE_COLORIZATION,
-  /* 21 */ STAGE_ITS,
+  /* 18 */ STAGE_CUSTOM_MUTATOR,
+  /* 19 */ STAGE_COLORIZATION,
+  /* 20 */ STAGE_ITS,
+
+  STAGE_NUM_MAX
 
 };
 
@@ -233,6 +234,7 @@ enum {
   /* 05 */ QUAD,    /* Quadratic schedule               */
   /* 06 */ RARE,    /* Rare edges                       */
   /* 07 */ MMOPT,   /* Modified MOPT schedule           */
+  /* 08 */ SEEK,    /* EXPLORE that ignores timings     */
 
   POWER_SCHEDULES_NUM
 
@@ -425,9 +427,6 @@ typedef struct afl_state {
 
   u8 schedule;                          /* Power schedule (default: EXPLORE)*/
   u8 havoc_max_mult;
-
-  u8 use_radamsa;
-  size_t (*radamsa_mutate_ptr)(u8 *, size_t, u8 *, size_t, u32);
 
   u8 skip_deterministic,                /* Skip deterministic stages?       */
       use_splicing,                     /* Recombine input files?           */

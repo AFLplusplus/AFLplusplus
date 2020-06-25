@@ -36,7 +36,8 @@ static inline uint64_t rotl(const uint64_t x, int k) {
 void rand_set_seed(afl_state_t *afl, s64 init_seed) {
 
   afl->init_seed = init_seed;
-  afl->rand_seed[0] = hash64((void *)&afl->init_seed, sizeof(afl->init_seed), HASH_CONST);
+  afl->rand_seed[0] =
+      hash64((void *)&afl->init_seed, sizeof(afl->init_seed), HASH_CONST);
   afl->rand_seed[1] = afl->rand_seed[0] ^ 0x1234567890abcdef;
   afl->rand_seed[2] = afl->rand_seed[0] & 0x0123456789abcdef;
   afl->rand_seed[3] = afl->rand_seed[0] | 0x01abcde43f567908;
