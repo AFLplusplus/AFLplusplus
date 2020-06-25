@@ -113,6 +113,8 @@ struct InsTrimLTO : public ModulePass {
     char  be_quiet = 0;
     char *ptr;
 
+    setvbuf(stdout, NULL, _IONBF, 0);
+
     if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
       SAYF(cCYA "InsTrimLTO" VERSION cRST

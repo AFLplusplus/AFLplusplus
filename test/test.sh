@@ -23,7 +23,7 @@ else
 fi
 
 test_compcov_binary_functionality() {
-  RUN="../afl-showmap -o /dev/null -- $1"
+  RUN="../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- $1"
   $RUN 'LIBTOKENCAP' | grep 'your string was LIBTOKENCAP' \
     && $RUN 'BUGMENOT' | grep 'your string was BUGMENOT' \
     && $RUN 'BANANA' | grep 'your string started with BAN' \
@@ -459,24 +459,23 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
   }
   rm -f test-instr.plain
 
-# Disabled whitelist until I have a different solution -mh
-#  echo foobar.c > whitelist.txt
-#  AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-lto -o test-compcov test-compcov.c > test.out 2>&1
-#  test -e test-compcov && {
-#    grep -q "No instrumentation targets found" test.out && {
-#      $ECHO "$GREEN[+] llvm_mode LTO whitelist feature works correctly"
-#    } || {
-#      $ECHO "$RED[!] llvm_mode LTO whitelist feature failed"
-#      CODE=1
-#    }
-#  } || {
-#    $ECHO "$RED[!] llvm_mode LTO whitelist feature compilation failed"
-#    CODE=1
-#  }
-#  rm -f test-compcov test.out whitelist.txt
+  echo foobar.c > whitelist.txt
+  AFL_DEBUG=1 AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-lto -o test-compcov test-compcov.c > test.out 2>&1
+  test -e test-compcov && {
+    grep -q "No instrumentation targets found" test.out && {
+      $ECHO "$GREEN[+] llvm_mode LTO whitelist feature works correctly"
+    } || {
+      $ECHO "$RED[!] llvm_mode LTO whitelist feature failed"
+      CODE=1
+    }
+  } || {
+    $ECHO "$RED[!] llvm_mode LTO whitelist feature compilation failed"
+    CODE=1
+  }
+  rm -f test-compcov test.out whitelist.txt
   ../afl-clang-lto -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
-    echo foo | ../afl-showmap -o /dev/null -q -r ./test-persistent && {
+    echo foo | ../afl-showmap -m none -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] llvm_mode LTO persistent mode feature works correctly"
     } || {
       $ECHO "$RED[!] llvm_mode LTO persistent mode feature failed to work"
@@ -638,43 +637,43 @@ test -e ../libdislocator.so && {
   INCOMPLETE=1
 }
 rm -f test-compcov
-test -e ../libradamsa.so && {
-  # on FreeBSD need to set AFL_CC
-  test `uname -s` = 'FreeBSD' && {
-    if type clang >/dev/null; then
-      export AFL_CC=`command -v clang`
-    else
-      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
-    fi
-  }
-  test -e test-instr.plain || ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
-  test -e test-instr.plain || ../afl-gcc-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
-  test -e test-instr.plain || ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
-  test -e test-instr.plain && {
-    mkdir -p in
-    printf 1 > in/in
-    $ECHO "$GREY[*] running afl-fuzz with radamsa, this will take approx 10 seconds"
-    {
-      ../afl-fuzz -RR -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain
-    } >>errors 2>&1
-    test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
-      $ECHO "$GREEN[+] libradamsa performs good - and very slow - mutations"
-    } || {
-      echo CUT------------------------------------------------------------------CUT
-      cat errors
-      echo CUT------------------------------------------------------------------CUT
-      $ECHO "$RED[!] libradamsa failed"
-      CODE=1
-    }
-    rm -rf in out errors test-instr.plain
-  } || {
-    $ECHO "$YELLOW[-] compilation of test target failed, cannot test libradamsa"
-    INCOMPLETE=1
-  }
-} || {
-  $ECHO "$YELLOW[-] libradamsa is not compiled, cannot test"
-  INCOMPLETE=1
-}
+#test -e ../libradamsa.so && {
+#  # on FreeBSD need to set AFL_CC
+#  test `uname -s` = 'FreeBSD' && {
+#    if type clang >/dev/null; then
+#      export AFL_CC=`command -v clang`
+#    else
+#      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
+#    fi
+#  }
+#  test -e test-instr.plain || ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+#  test -e test-instr.plain || ../afl-gcc-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+#  test -e test-instr.plain || ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+#  test -e test-instr.plain && {
+#    mkdir -p in
+#    printf 1 > in/in
+#    $ECHO "$GREY[*] running afl-fuzz with radamsa, this will take approx 10 seconds"
+#    {
+#      ../afl-fuzz -RR -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain
+#    } >>errors 2>&1
+#    test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
+#      $ECHO "$GREEN[+] libradamsa performs good - and very slow - mutations"
+#    } || {
+#      echo CUT------------------------------------------------------------------CUT
+#      cat errors
+#      echo CUT------------------------------------------------------------------CUT
+#      $ECHO "$RED[!] libradamsa failed"
+#      CODE=1
+#    }
+#    rm -rf in out errors test-instr.plain
+#  } || {
+#    $ECHO "$YELLOW[-] compilation of test target failed, cannot test libradamsa"
+#    INCOMPLETE=1
+#  }
+#} || {
+#  $ECHO "$YELLOW[-] libradamsa is not compiled, cannot test"
+#  INCOMPLETE=1
+#}
 
 test -z "$AFL_CC" && {
   if type gcc >/dev/null; then

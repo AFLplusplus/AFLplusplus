@@ -121,7 +121,7 @@ endif
 
 ifeq "$(shell uname -s)" "Haiku"
   SHMAT_OK=0
-  override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fpic
+  override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fPIC
   LDFLAGS+=-Wno-deprecated-declarations -lgnu
   SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif
@@ -282,8 +282,8 @@ help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
 	@echo "all: just the main afl++ binaries"
-	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap, radamsa"
-	@echo "source-only: everything for source code fuzzing: llvm_mode, gcc_plugin, libdislocator, libtokencap, radamsa"
+	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap"
+	@echo "source-only: everything for source code fuzzing: llvm_mode, gcc_plugin, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"
 	@echo "install: installs everything you have compiled with the build option above"
@@ -311,6 +311,8 @@ ifndef AFL_NO_X86
 test_x86:
 	@echo "[*] Checking for the default compiler cc..."
 	@type $(CC) >/dev/null || ( echo; echo "Oops, looks like there is no compiler '"$(CC)"' in your path."; echo; echo "Don't panic! You can restart with '"$(_)" CC=<yourCcompiler>'."; echo; exit 1 )
+	@echo "[*] Testing the PATH environment variable..."
+	@test "$${PATH}" != "$${PATH#.:}" && { echo "Please remove current directory '.' from PATH to avoid recursion of 'as', thanks!"; echo; exit 1; } || :
 	@echo "[*] Checking for the ability to compile x86 code..."
 	@echo 'main() { __asm__("xorb %al, %al"); }' | $(CC) $(CFLAGS) -w -x c - -o .test1 || ( echo; echo "Oops, looks like your compiler can't generate x86 code."; echo; echo "Don't panic! You can use the LLVM or QEMU mode, but see docs/INSTALL first."; echo "(To ignore this error, set AFL_NO_X86=1 and try again.)"; echo; exit 1 )
 	@rm -f .test1
@@ -373,12 +375,6 @@ src/afl-forkserver.o : $(COMM_HDR) src/afl-forkserver.c include/forkserver.h
 
 src/afl-sharedmem.o : $(COMM_HDR) src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
-
-radamsa: src/third_party/libradamsa/libradamsa.so
-	cp src/third_party/libradamsa/libradamsa.so .
-
-src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.c src/third_party/libradamsa/radamsa.h
-	$(MAKE) -C src/third_party/libradamsa/ CFLAGS="$(CFLAGS)"
 
 afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
@@ -460,6 +456,8 @@ code-format:
 	./.custom-format.py -i gcc_plugin/*.c
 	#./.custom-format.py -i gcc_plugin/*.h
 	./.custom-format.py -i gcc_plugin/*.cc
+	./.custom-format.py -i custom_mutators/*/*.c
+	./.custom-format.py -i custom_mutators/*/*.h
 	./.custom-format.py -i examples/*/*.c
 	./.custom-format.py -i examples/*/*.h
 	./.custom-format.py -i test/*.c
@@ -512,7 +510,6 @@ clean:
 	$(MAKE) -C examples/argv_fuzzing clean
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
-	$(MAKE) -C src/third_party/libradamsa/ clean
 	rm -rf qemu_mode/qemu-3.1.1
 ifeq "$(IN_REPO)" "1"
 	test -d unicorn_mode/unicornafl && $(MAKE) -C unicorn_mode/unicornafl clean || true
@@ -526,7 +523,7 @@ deepclean:	clean
 	rm -rf unicorn_mode/unicornafl
 	git reset --hard >/dev/null 2>&1 || true
 
-distrib: all radamsa
+distrib: all
 	-$(MAKE) -C llvm_mode
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
@@ -537,7 +534,7 @@ distrib: all radamsa
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
-binary-only: all radamsa
+binary-only: all
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
 	$(MAKE) -C examples/afl_network_proxy
@@ -546,7 +543,7 @@ binary-only: all radamsa
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
-source-only: all radamsa
+source-only: all
 	-$(MAKE) -C llvm_mode
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
@@ -585,7 +582,6 @@ install: all $(MANPAGES)
 	if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f libradamsa.so ]; then set -e; install -m 755 libradamsa.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
 	if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
 	if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
