@@ -494,6 +494,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
 
+      afl->queue_cur->exec_cksum = 0;
+
       res =
           calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
@@ -2566,6 +2568,8 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     u8 res = FSRV_RUN_TMOUT;
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
+
+      afl->queue_cur->exec_cksum = 0;
 
       res =
           calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);

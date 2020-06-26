@@ -369,8 +369,6 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
 abort_calibration:
 
-  if (q->cal_failed) { q->exec_cksum = 0; }
-
   if (new_bits == 2 && !q->has_new_cov) {
 
     q->has_new_cov = 1;
