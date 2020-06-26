@@ -262,7 +262,7 @@
                                                                            \
   } while (0)
 
-/* Die with FAULT() or PFAULT() depending on the value of res (used to
+/* Die with FATAL() or PFATAL() depending on the value of res (used to
    interpret different failure modes for read(), write(), etc). */
 
 #define RPFATAL(res, x...) \
