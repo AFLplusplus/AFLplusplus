@@ -38,6 +38,8 @@ typedef struct sharedmem {
   /* ================ Proteas ================ */
   int  g_shm_fd;
   char g_shm_file_path[L_tmpnam];
+  int  cmplog_g_shm_fd;
+  char cmplog_g_shm_file_path[L_tmpnam];
 /* ========================================= */
 #else
   s32 shm_id;                          /* ID of the SHM region              */
