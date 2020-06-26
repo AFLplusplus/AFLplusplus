@@ -68,7 +68,7 @@ if [ ! -f "$inputdir/plot_data" ]; then
 
 fi
 
-BANNER="`cat "$inputdir/fuzzer_stats" | grep '^afl_banner ' | cut -d: -f2- | cut -b2-`"
+BANNER="`cat "$inputdir/fuzzer_stats" 2> /dev/null | grep '^afl_banner ' | cut -d: -f2- | cut -b2-`"
 
 test "$BANNER" = "" && BANNER="(none)"
 
