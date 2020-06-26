@@ -85,6 +85,38 @@ void afl_shm_deinit(sharedmem_t *shm) {
 
   }
 
+  if (shm->g_shm_file_path[0]) {
+
+    shm_unlink(shm->g_shm_file_path);
+    shm->g_shm_file_path[0] = 0;
+
+  }
+
+  if (shm->cmplog_mode) {
+
+    if (shm->cmp_map != NULL) {
+
+      munmap(shm->cmp_map, shm->map_size);
+      shm->map = NULL;
+
+    }
+
+    if (shm->cmplog_g_shm_fd != -1) {
+
+      close(shm->cmplog_g_shm_fd);
+      shm->cmplog_g_shm_fd = -1;
+
+    }
+
+    if (shm->cmplog_g_shm_file_path[0]) {
+
+      shm_unlink(shm->cmplog_g_shm_file_path);
+      shm->cmplog_g_shm_file_path[0] = 0;
+
+    }
+
+  }
+
 #else
   shmctl(shm->shm_id, IPC_RMID, NULL);
   if (shm->cmplog_mode) { shmctl(shm->cmplog_shm_id, IPC_RMID, NULL); }
@@ -104,10 +136,12 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   shm->map_size = 0;
 
   shm->map = NULL;
+  shm->cmp_map = NULL;
 
 #ifdef USEMMAP
 
   shm->g_shm_fd = -1;
+  shm->cmplog_g_shm_fd = -1;
 
   /* ======
   generate random file name for multi instance
@@ -136,6 +170,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
     close(shm->g_shm_fd);
     shm->g_shm_fd = -1;
+    shm_unlink(shm->g_shm_file_path);
+    shm->g_shm_file_path[0] = 0;
     PFATAL("mmap() failed");
 
   }
@@ -148,6 +184,49 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   if (!non_instrumented_mode) setenv(SHM_ENV_VAR, shm->g_shm_file_path, 1);
 
   if (shm->map == (void *)-1 || !shm->map) PFATAL("mmap() failed");
+
+  if (shm->cmplog_mode) {
+
+    snprintf(shm->cmplog_g_shm_file_path, L_tmpnam, "/afl_cmplog_%d_%ld",
+             getpid(), random());
+
+    /* create the shared memory segment as if it was a file */
+    shm->cmplog_g_shm_fd =
+        shm_open(shm->cmplog_g_shm_file_path, O_CREAT | O_RDWR | O_EXCL, 0600);
+    if (shm->cmplog_g_shm_fd == -1) { PFATAL("shm_open() failed"); }
+
+    /* configure the size of the shared memory segment */
+    if (ftruncate(shm->cmplog_g_shm_fd, map_size)) {
+
+      PFATAL("setup_shm(): cmplog ftruncate() failed");
+
+    }
+
+    /* map the shared memory segment to the address space of the process */
+    shm->cmp_map = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+                        shm->cmplog_g_shm_fd, 0);
+    if (shm->map == MAP_FAILED) {
+
+      close(shm->cmplog_g_shm_fd);
+      shm->cmplog_g_shm_fd = -1;
+      shm_unlink(shm->cmplog_g_shm_file_path);
+      shm->cmplog_g_shm_file_path[0] = 0;
+      PFATAL("mmap() failed");
+
+    }
+
+    /* If somebody is asking us to fuzz instrumented binaries in
+       non-instrumented mode, we don't want them to detect instrumentation,
+       since we won't be sending fork server commands. This should be replaced
+       with better auto-detection later on, perhaps? */
+
+    if (!non_instrumented_mode)
+      setenv(CMPLOG_SHM_ENV_VAR, shm->cmplog_g_shm_file_path, 1);
+
+    if (shm->cmp_map == (void *)-1 || !shm->cmp_map)
+      PFATAL("cmplog mmap() failed");
+
+  }
 
 #else
   u8 *shm_str;
