@@ -9,4 +9,4 @@ Use with e.g.
 
 and add `AFL_CUSTOM_MUTATOR_ONLY=1` if you only want to use the custom mutator.
 
-Multiple custom mutators can be used by seperating their paths with `:` in the environment variable.
+Multiple custom mutators can be used by separating their paths with `:` in the environment variable.
