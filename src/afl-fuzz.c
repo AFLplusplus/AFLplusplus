@@ -138,7 +138,7 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       //"  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap
       //" "file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
-      "  -e ext        - file extension for the fuzz test case case (if "
+      "  -e ext        - file extension for the fuzz test input file (if "
       "needed)\n\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
