@@ -69,10 +69,11 @@ ifeq "$(shell uname)" "SunOS"
 endif
 
 ifdef STATIC
-  $(info Compiling static version of binaries)
+  $(info Compiling static version of binaries, disabling python though)
   # Disable python for static compilation to simplify things
   PYTHON_OK=0
   PYFLAGS=
+  PYTHON_INCLUDE=/
 
   CFLAGS_OPT += -static
   LDFLAGS += -lm -lpthread -lz -lutil
