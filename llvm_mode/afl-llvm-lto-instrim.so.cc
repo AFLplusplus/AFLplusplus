@@ -110,8 +110,9 @@ struct InsTrimLTO : public ModulePass {
 
   bool runOnModule(Module &M) override {
 
-    char  be_quiet = 0;
-    char *ptr;
+    char     be_quiet = 0;
+    char *   ptr;
+    uint32_t locations = 0, functions = 0;
 
     setvbuf(stdout, NULL, _IONBF, 0);
 
@@ -563,6 +564,8 @@ struct InsTrimLTO : public ModulePass {
       if (F.size() < function_minimum_size) continue;
       if (isBlacklisted(&F)) continue;
 
+      functions++;
+
       // whitelist check
       AttributeList Attrs = F.getAttributes();
       if (Attrs.hasAttribute(-1, StringRef("skipinstrument"))) {
@@ -659,6 +662,7 @@ struct InsTrimLTO : public ModulePass {
         if (PI == PE) {
 
           L = ConstantInt::get(Int32Ty, afl_global_id++);
+          locations++;
 
         } else {
 
@@ -670,6 +674,7 @@ struct InsTrimLTO : public ModulePass {
             auto        It = PredMap.insert({PBB, afl_global_id++});
             unsigned    Label = It.first->second;
             PN->addIncoming(ConstantInt::get(Int32Ty, Label), PBB);
+            locations++;
 
           }
 
@@ -887,7 +892,7 @@ struct InsTrimLTO : public ModulePass {
           for (BasicBlock *Succ : successors(Pred))
             if (Succ != NULL) count++;
 
-          if (count > 1) return true;
+          if (count > 1) would_instrument = true;
 
         }
 
@@ -912,11 +917,12 @@ struct InsTrimLTO : public ModulePass {
                  getenv("AFL_USE_MSAN") ? ", MSAN" : "",
                  getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                  getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-        OKF("Instrumented %u locations (%llu, %llu) with no collisions (on "
+        OKF("Instrumented %u locations for %u edges in %u functions (%llu, "
+            "%llu) with no collisions (on "
             "average %llu collisions would be in afl-gcc/afl-clang-fast for %u "
             "edges) (%s mode).",
-            inst_blocks, total_rs, total_hs, calculateCollisions(edges), edges,
-            modeline);
+            inst_blocks, locations, functions, total_rs, total_hs,
+            calculateCollisions(edges), edges, modeline);
 
       }
 
