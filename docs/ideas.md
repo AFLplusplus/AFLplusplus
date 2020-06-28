@@ -28,7 +28,7 @@ Mentor: andreafioraldi
 ## perf-fuzz Linux Kernel Module
 
 Expand on [snapshot LKM](https://github.com/AFLplusplus/AFL-Snapshot-LKM)
-To make it thread safe, can snapshot several processes at aonce and increase
+To make it thread safe, can snapshot several processes at once and increase
 overall performance.
 
 Mentor: any
