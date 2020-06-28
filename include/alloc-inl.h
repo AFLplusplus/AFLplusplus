@@ -170,10 +170,10 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
   size = strlen((char *)str) + 1;
 
   ALLOC_CHECK_SIZE(size);
-  ret = (u8*) malloc(size);
+  ret = (u8 *)malloc(size);
   ALLOC_CHECK_RESULT(ret, size);
 
-  return (u8*)memcpy(ret, str, size);
+  return (u8 *)memcpy(ret, str, size);
 
 }
 
@@ -204,7 +204,7 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
   if (!mem || !size) { return NULL; }
 
   ALLOC_CHECK_SIZE(size);
-  ret = (u8*) malloc(size + 1);
+  ret = (u8 *)malloc(size + 1);
   ALLOC_CHECK_RESULT(ret, size);
 
   memcpy(ret, mem, size);

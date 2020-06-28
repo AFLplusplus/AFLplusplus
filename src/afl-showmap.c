@@ -985,10 +985,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (read_file(infile)) {
 
-        if (wait_for_gdb) { 
+        if (wait_for_gdb) {
+
           fprintf(stderr, "exec: gdb -p %d\n", fsrv->child_pid);
           fprintf(stderr, "exec: kill -CONT %d\n", getpid());
           kill(0, SIGSTOP);
+
         }
 
         showmap_run_target_forkserver(fsrv, use_argv, in_data, in_len);
