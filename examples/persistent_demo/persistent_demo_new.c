@@ -49,8 +49,12 @@ int main(int argc, char **argv) {
 
     len = __AFL_FUZZ_TESTCASE_LEN;
 
+    fprintf(stderr, "input: %zd \"%s\"\n", len, buf);
+
     /* do we have enough data? */
     if (len < 8) continue;
+
+    if (strcmp((char *)buf, "thisisateststring") == 0) printf("teststring\n");
 
     if (buf[0] == 'f') {
 

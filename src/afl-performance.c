@@ -143,8 +143,10 @@ void long_jump(afl_state_t *afl) {
 
 #ifdef _DEBUG
 u32 hash32(u8 *key, u32 len, u32 seed) {
+
 #else
 u32 inline hash32(u8 *key, u32 len, u32 seed) {
+
 #endif
 
   return (u32)XXH64(key, len, seed);
@@ -153,8 +155,10 @@ u32 inline hash32(u8 *key, u32 len, u32 seed) {
 
 #ifdef _DEBUG
 u64 hash64(u8 *key, u32 len, u64 seed) {
+
 #else
 u64 inline hash64(u8 *key, u32 len, u64 seed) {
+
 #endif
 
   return XXH64(key, len, seed);

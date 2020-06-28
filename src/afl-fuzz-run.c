@@ -156,16 +156,22 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
     *afl->fsrv.shmem_fuzz_len = len - skip_len;
 
 #ifdef _DEBUG
-    fprintf(stderr, "FS crc: %08x len: %u\n",
-            hash64(fsrv->shmem_fuzz, *fsrv->shmem_fuzz_len, 0xa5b35705),
-            *fsrv->shmem_fuzz_len);
-    fprintf(stderr, "SHM :");
-    for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
-      fprintf(stderr, "%02x", fsrv->shmem_fuzz[i]);
-    fprintf(stderr, "\nORIG:");
-    for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
-      fprintf(stderr, "%02x", buf[i]);
-    fprintf(stderr, "\n");
+    if (afl->debug) {
+
+      fprintf(
+          stderr, "FS crc: %16llx len: %u\n",
+          hash64(afl->fsrv.shmem_fuzz, *afl->fsrv.shmem_fuzz_len, 0xa5b35705),
+          *afl->fsrv.shmem_fuzz_len);
+      fprintf(stderr, "SHM :");
+      for (int i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
+        fprintf(stderr, "%02x", afl->fsrv.shmem_fuzz[i]);
+      fprintf(stderr, "\nORIG:");
+      for (int i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
+        fprintf(stderr, "%02x", (u8)((u8 *)mem)[i]);
+      fprintf(stderr, "\n");
+
+    }
+
 #endif
 
     return;
