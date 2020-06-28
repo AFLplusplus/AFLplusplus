@@ -41,7 +41,7 @@ The following code is disabled because xxh3 is 30% faster
 
     #define ROL64(_x, _r) ((((u64)(_x)) << (_r)) | (((u64)(_x)) >> (64 - (_r))))
 
-static inline u32 hash32(const void *key, u32 len, u32 seed) {
+static inline u32 hash32(u8 *key, u32 len, u32 seed) {
 
   const u64 *data = (u64 *)key;
   u64        h1 = seed ^ len;

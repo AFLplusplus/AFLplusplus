@@ -141,7 +141,11 @@ void long_jump(afl_state_t *afl) {
 /* we switch from afl's murmur implementation to xxh3 as it is 30% faster -
    and get 64 bit hashes instead of just 32 bit. Less collisions! :-) */
 
-u32 inline hash32(void *key, u32 len, u32 seed) {
+#ifdef _DEBUG
+u32 hash32(u8 *key, u32 len, u32 seed) {
+#else
+u32 inline hash32(u8 *key, u32 len, u32 seed) {
+#endif
 
   return (u32)XXH64(key, len, seed);
 
