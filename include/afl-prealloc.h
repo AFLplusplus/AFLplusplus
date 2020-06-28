@@ -60,7 +60,7 @@ typedef enum prealloc_status {
                                                                                \
     if ((prealloc_counter) >= (prealloc_size)) {                               \
                                                                                \
-      el_ptr = malloc(sizeof(*el_ptr));                                        \
+      el_ptr = (element_t *) malloc(sizeof(*el_ptr));                                        \
       if (!el_ptr) { FATAL("error in list.h -> out of memory for element!"); } \
       el_ptr->pre_status = PRE_STATUS_MALLOC;                                  \
                                                                                \

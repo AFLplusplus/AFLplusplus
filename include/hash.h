@@ -30,8 +30,8 @@
 
 #include "types.h"
 
-u32 hash32(const void *key, u32 len, u32 seed);
-u64 hash64(const void *key, u32 len, u64 seed);
+u32 hash32(u8 *key, u32 len, u32 seed);
+u64 hash64(u8 *key, u32 len, u64 seed);
 
 #if 0
 
