@@ -6,7 +6,7 @@ for future AFL++ versions.
 For GSOC2020 interested students please see
 [https://github.com/AFLplusplus/AFLplusplus/issues/208](https://github.com/AFLplusplus/AFLplusplus/issues/208)
 
-## Flexible Grammar Mutator
+## Flexible Grammar Mutator (currently in development)
 
 Currently, AFL++'s mutation does not have deeper knowledge about the fuzzed
 binary, apart from feedback, even though the developer may have insights
@@ -25,41 +25,21 @@ various results.
 
 Mentor: andreafioraldi 
 
-## Expand on the MOpt mutator
-
-Work on the MOpt mutator that is already in AFL++.
-
-This is an excellent mutations scheduler based on Particle Swarm
-Optimization but the current implementation schedule only the mutations
-that were present on AFL.
-
-AFL++ added a lot of optional mutators like the Input-2-State one based
-on Redqueen, the Radamsa mutator, the Custom mutator (the user can define
-its own mutator) and the work is to generalize MOpt for all the current
-and future mutators.
-
-Mentor: vanhauser-thc or andreafioraldi
-
 ## perf-fuzz Linux Kernel Module
 
-Either Port the patch to the upcoming Ubuntu LTS 20.04 default kernel
-and provide a qemu-kvm image or find a different userspace snapshot
-solution that has a good performance and is reliable, e.g. with docker.
-[perf-fuzz](https://gts3.org/assets/papers/2017/xu:os-fuzz.pdf)
-The perf-fuzz kernel can be found at [https://github.com/sslab-gatech/perf-fuzz](https://github.com/sslab-gatech/perf-fuzz)
-There also is/was a FreeBSD project at [https://github.com/veracode-research/freebsd-perf-fuzz](https://github.com/veracode-research/freebsd-perf-fuzz)
-
-This enables snapshot fuzzing on Linux with an incredible performance!
+Expand on [snapshot LKM](https://github.com/AFLplusplus/AFL-Snapshot-LKM)
+To make it thread safe, can snapshot several processes at aonce and increase
+overall performance.
 
 Mentor: any
-Idea/Issue tracker: [https://github.com/AFLplusplus/AFLplusplus/issues/248](https://github.com/AFLplusplus/AFLplusplus/issues/248)
 
-## QEMU 4-based Instrumentation
+## QEMU 5-based Instrumentation
 
 First tests to use QEMU 4 for binary-only AFL++ showed that caching behavior
 changed, which vastly decreases fuzzing speeds.
 
-This is the cause why, right now, we cannot switch to QEMU 4.2.
+In this task test if QEMU 5 performs better and port the afl++ QEMU 3.1
+patches to QEMU 5.
 
 Understanding the current instrumentation and fixing the current caching
 issues will be needed.
@@ -86,7 +66,7 @@ Either improve a single mutator thorugh learning of many different bugs
 
 Mentor: domenukk
 
-## Reengineer `afl-fuzz` as Thread Safe, Embeddable Library
+## Reengineer `afl-fuzz` as Thread Safe, Embeddable Library (currently in development)
 
 Right now, afl-fuzz is single threaded, cannot safely be embedded in tools,
 and not multi-threaded. It makes use of a large number of globals, must always
