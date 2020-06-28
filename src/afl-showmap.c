@@ -890,9 +890,12 @@ int main(int argc, char **argv_orig, char **envp) {
     struct dirent *dir_ent;
     int            done = 0;
     u8             infile[PATH_MAX], outfile[PATH_MAX];
+    u8             wait_for_gdb = 0;
 #if !defined(DT_REG)
     struct stat statbuf;
 #endif
+
+    if (getenv("AFL_DEBUG_GDB")) wait_for_gdb = 1;
 
     fsrv->dev_null_fd = open("/dev/null", O_RDWR);
     if (fsrv->dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
@@ -981,6 +984,12 @@ int main(int argc, char **argv_orig, char **envp) {
       snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
 
       if (read_file(infile)) {
+
+        if (wait_for_gdb) { 
+          fprintf(stderr, "exec: gdb -p %d\n", fsrv->child_pid);
+          fprintf(stderr, "exec: kill -CONT %d\n", getpid());
+          kill(0, SIGSTOP);
+        }
 
         showmap_run_target_forkserver(fsrv, use_argv, in_data, in_len);
         ck_free(in_data);
