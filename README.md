@@ -371,14 +371,15 @@ therefore may increase the code coverage.
 
 The available schedules are:
  
- - explore (default)
- - fast
- - coe
- - quad
- - lin
- - exploit
- - mmopt (experimental)
- - rare (experimental)
+ - explore (default, original AFL)
+ - exploit (original AFL)
+ - fast (AFLfast)
+ - coe (AFLfast)
+ - quad (AFLfast)
+ - lin (AFLfast)
+ - rare (afl++ experimental)
+ - mmopt (afl++ experimental)
+ - seek (afl++ experimental)
 
 In parallel mode (-M/-S, several instances with the shared queue), we suggest to
 run the main node using the explore or fast schedule (-p explore) and the secondary
