@@ -395,7 +395,7 @@ static void __afl_start_snapshots(void) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
 
-    if ((was_killed & (0xffffffff & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ))) ==
+    if ((was_killed & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) ==
         (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) {
 
       __afl_map_shm_fuzz();
