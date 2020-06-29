@@ -525,6 +525,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
 
+      // workaround for recent afl++ versions
+      if ((status & FS_OPT_OLD_AFLPP_WORKAROUND) == FS_OPT_OLD_AFLPP_WORKAROUND)
+        status = (status & 0xf0ffffff);
+
       if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
 
         fsrv->snapshot = 1;
