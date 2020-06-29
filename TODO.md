@@ -3,13 +3,9 @@
 ## Roadmap 2.65+
 
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
- - random crc32 HASH_CONST per run? because with 65536 paths we have collisions
  - namespace for targets? e.g. network
- - libradamsa as a custom module?
- - learn from honggfuzz
- - for persistent mode, have a functionality that transports the test case
-   via shared memory (and the int write to the FD from afl-fuzz is the size)
- - CPU affinity for many cores?
+ - learn from honggfuzz (mutations, maybe ptrace?)
+ - CPU affinity for many cores? There seems to be an issue > 96 cores
 
 ## Further down the road
 
@@ -18,9 +14,10 @@ afl-fuzz:
  - setting min_len/max_len/start_offset/end_offset limits for mutation output
 
 llvm_mode:
- - better whitelist solution for LTO
+ - LTO - imitate sancov
 
 gcc_plugin:
+ - (wait for submission then decide)
  - laf-intel
  - better instrumentation (seems to be better with gcc-9+)
 

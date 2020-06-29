@@ -39,6 +39,8 @@
 #include <limits.h>
 #include <assert.h>
 
+#include "llvm/Config/llvm-config.h"
+
 static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
@@ -464,7 +466,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-#ifdef USEMMAP
+#if defined(USEMMAP) && !defined(__HAIKU__)
   cc_params[cc_par_cnt++] = "-lrt";
 #endif
 
@@ -500,7 +502,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "unsigned char *__afl_fuzz_alt_ptr;";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
-      "(__afl_fuzz_alt_ptr = malloc(1 * 1024 * 1024)))";
+      "(__afl_fuzz_alt_ptr = (unsigned char *) malloc(1 * 1024 * 1024)))";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? *__afl_fuzz_len : read(0, "
       "__afl_fuzz_alt_ptr, 1 * 1024 * 1024))";
@@ -757,12 +759,14 @@ int main(int argc, char **argv, char **envp) {
 
   if (instrument_mode == 0) {
 
-#ifndef USE_TRACE_PC
+#if LLVM_VERSION_MAJOR <= 6
+    instrument_mode = INSTRUMENT_AFL;
+#else
     if (getenv("AFL_LLVM_WHITELIST"))
       instrument_mode = INSTRUMENT_AFL;
     else
-#endif
       instrument_mode = INSTRUMENT_PCGUARD;
+#endif
 
   }
 

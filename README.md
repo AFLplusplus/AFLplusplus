@@ -54,7 +54,7 @@
   
   * Win32 PE binary-only fuzzing with QEMU and Wine
 
-  * Radamsa mutator (enable with `-R` to add or `-RR` to run it exclusively).
+  * Radamsa mutator (as a custom mutator).
 
   * QBDI mode to fuzz android native libraries via QBDI framework
 
@@ -167,8 +167,8 @@ is what you should choose.
 These build targets exist:
 
 * all: just the main afl++ binaries
-* binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap, radamsa
-* source-only: everything for source code fuzzing: llvm_mode, libdislocator, libtokencap, radamsa
+* binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap
+* source-only: everything for source code fuzzing: llvm_mode, libdislocator, libtokencap
 * distrib: everything (for both binary-only and source code fuzzing)
 * man: creates simple man pages from the help option of the programs
 * install: installs everything you have compiled with the build options above
@@ -371,14 +371,15 @@ therefore may increase the code coverage.
 
 The available schedules are:
  
- - explore (default)
- - fast
- - coe
- - quad
- - lin
- - exploit
- - mmopt (experimental)
- - rare (experimental)
+ - explore (default, original AFL)
+ - exploit (original AFL)
+ - fast (AFLfast)
+ - coe (AFLfast)
+ - quad (AFLfast)
+ - lin (AFLfast)
+ - rare (afl++ experimental)
+ - mmopt (afl++ experimental)
+ - seek (afl++ experimental)
 
 In parallel mode (-M/-S, several instances with the shared queue), we suggest to
 run the main node using the explore or fast schedule (-p explore) and the secondary

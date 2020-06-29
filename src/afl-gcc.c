@@ -335,7 +335,7 @@ static void edit_params(u32 argc, char **argv) {
 
   }
 
-#ifdef USEMMAP
+#if defined(USEMMAP) && !defined(__HAIKU__)
   cc_params[cc_par_cnt++] = "-lrt";
 #endif
 

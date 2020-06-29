@@ -1,0 +1,124 @@
+# from https://github.com/antonio-morales/Fuzzing/Dictionaries/FTP/Example.dict.txt
+#Parameters
+#tls = {0,1,2,3}
+
+#Input1
+"user"
+"pass"
+"syst"
+"acct"
+"feat"
+"noop"
+"help"
+"stat"
+"stru"
+"adat"
+"site"
+
+#Input2
+"mkd"
+"cwd"
+"pwd"
+"cdup"
+
+#Input3
+"port"
+"list"
+"mlst"
+"nlst"
+"mlsd"
+
+#Input4
+"rmd"
+
+#Input5
+"stor"
+
+#Input6
+"retr"
+
+#Input7
+"dele"
+
+#Input8
+"pasv"
+
+#Input9
+"epsv"
+
+#Input10
+"type"
+"size"
+
+#Input11
+"mode"
+
+#Input12
+"rnfr"
+"rnto"
+
+#Input13
+"appe"
+
+#Input14
+"allo"
+"quit"
+
+#Input15
+"connect"
+
+#Input16
+"esta"
+"estp"
+
+#Input17
+"mdtm"
+"opts"
+"eprt"
+
+#Input18
+"mfmt"
+"pret"
+"stou"
+"rest"
+
+
+#-------------------------------------
+"\x00"
+"\x0d\x0a"
+"\x0d"
+"\x0a"
+"-"
+"-a "
+"-C "
+"-d "
+"-F "
+"-l "
+"-r "
+"-R "
+"-S "
+"-t"
+" "
+"fuzzing"
+"test"
+"teste"
+".txt"
+"test.txt"
+" UTC"
+"C"
+"E"
+"P"
+"S"
+"abor"
+
+#ifdef WITH_TLS
+"pbsz"
+"auth"
+"prot"
+"ccc"
+
+#ifdef DEBUG
+"xdbg"
+
+# ifdef WITH_DIRALIASES
+"alias"

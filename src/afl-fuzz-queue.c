@@ -194,10 +194,14 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
   u32 i;
   u64 fav_factor;
-  u64 fuzz_p2 = next_pow2(q->n_fuzz);
+  u64 fuzz_p2;
 
-  if (afl->schedule == MMOPT || afl->schedule == RARE ||
-      unlikely(afl->fixed_seed)) {
+  if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE))
+    fuzz_p2 = next_pow2(q->n_fuzz);
+  else
+    fuzz_p2 = q->fuzz_level;
+
+  if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
 
     fav_factor = q->len << 2;
 
@@ -217,10 +221,13 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
         /* Faster-executing or smaller test cases are favored. */
         u64 top_rated_fav_factor;
-        u64 top_rated_fuzz_p2 = next_pow2(afl->top_rated[i]->n_fuzz);
+        u64 top_rated_fuzz_p2;
+        if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE))
+          top_rated_fuzz_p2 = next_pow2(afl->top_rated[i]->n_fuzz);
+        else
+          top_rated_fuzz_p2 = afl->top_rated[i]->fuzz_level;
 
-        if (afl->schedule == MMOPT || afl->schedule == RARE ||
-            unlikely(afl->fixed_seed)) {
+        if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
 
           top_rated_fav_factor = afl->top_rated[i]->len << 2;
 
@@ -241,8 +248,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
         }
 
-        if (afl->schedule == MMOPT || afl->schedule == RARE ||
-            unlikely(afl->fixed_seed)) {
+        if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
 
           if (fav_factor > afl->top_rated[i]->len << 2) { continue; }
 
@@ -387,8 +393,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   // Longer execution time means longer work on the input, the deeper in
   // coverage, the better the fuzzing, right? -mh
 
-  if (afl->schedule != MMOPT && afl->schedule != RARE &&
-      likely(!afl->fixed_seed)) {
+  if (afl->schedule >= RARE && likely(!afl->fixed_seed)) {
 
     if (q->exec_us * 0.1 > avg_exec_us) {
 
@@ -500,6 +505,9 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
     case EXPLORE:
       break;
 
+    case SEEK:
+      break;
+
     case EXPLOIT:
       factor = MAX_FACTOR;
       break;
@@ -593,9 +601,12 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  if (factor > MAX_FACTOR) { factor = MAX_FACTOR; }
+  if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
-  perf_score *= factor / POWER_BETA;
+    if (factor > MAX_FACTOR) { factor = MAX_FACTOR; }
+    perf_score *= factor / POWER_BETA;
+
+  }
 
   // MOpt mode
   if (afl->limit_time_sig != 0 && afl->max_depth - q->depth < 3) {

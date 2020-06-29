@@ -56,7 +56,9 @@
 
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/shm.h>
+#ifndef USEMMAP
+  #include <sys/shm.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -80,10 +82,15 @@ static u8 quiet_mode,                  /* Hide non-essential messages?      */
     raw_instr_output,                  /* Do not apply AFL filters          */
     cmin_mode,                         /* Generate output in afl-cmin mode? */
     binary_mode,                       /* Write output as a binary map      */
-    keep_cores;                        /* Allow coredumps?                  */
+    keep_cores,                        /* Allow coredumps?                  */
+    remove_shm = 1;                    /* remove shmem?                     */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
+
+static sharedmem_t       shm;
+static afl_forkserver_t *fsrv;
+static sharedmem_t *     shm_fuzz;
 
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
@@ -139,11 +146,32 @@ static void classify_counts(afl_forkserver_t *fsrv) {
 
 }
 
+static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
+                                 sharedmem_t *     shm_fuzz) {
+
+  afl_shm_deinit(shm_fuzz);
+  fsrv->support_shmem_fuzz = 0;
+  fsrv->shmem_fuzz_len = NULL;
+  fsrv->shmem_fuzz = NULL;
+  ck_free(shm_fuzz);
+  return NULL;
+
+}
+
 /* Get rid of temp files (atexit handler). */
 
 static void at_exit_handler(void) {
 
   if (stdin_file) { unlink(stdin_file); }
+
+  if (remove_shm) {
+
+    if (shm.map) afl_shm_deinit(&shm);
+    if (fsrv->use_shmem_fuzz) deinit_shmem(fsrv, shm_fuzz);
+
+  }
+
+  afl_fsrv_killall();
 
 }
 
@@ -557,7 +585,7 @@ static void usage(u8 *argv0) {
       "size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_QUIET: do not print extra informational output",
+      "AFL_QUIET: do not print extra informational output\n",
       argv0, MEM_LIMIT, doc_path);
 
   exit(1);
@@ -577,8 +605,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   char **argv = argv_cpy_dup(argc, argv_orig);
 
-  afl_forkserver_t  fsrv_var = {0};
-  afl_forkserver_t *fsrv = &fsrv_var;
+  afl_forkserver_t fsrv_var = {0};
+  fsrv = &fsrv_var;
   afl_fsrv_init(fsrv);
   map_size = get_map_size();
   fsrv->map_size = map_size;
@@ -773,7 +801,19 @@ int main(int argc, char **argv_orig, char **envp) {
 
   check_environment_vars(envp);
 
-  sharedmem_t shm = {0};
+  if (getenv("AFL_DEBUG")) {
+
+    SAYF(cMGN "[D]" cRST);
+    for (i = 0; i < argc; i++)
+      SAYF(" %s", argv[i]);
+    SAYF("\n");
+
+  }
+
+  //  if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
+
+  /* initialize cmplog_mode */
+  shm.cmplog_mode = 0;
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
   setup_signal_handlers();
 
@@ -827,15 +867,35 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  shm_fuzz = ck_alloc(sizeof(sharedmem_t));
+
+  /* initialize cmplog_mode */
+  shm_fuzz->cmplog_mode = 0;
+  u8 *map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
+#ifdef USEMMAP
+  setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
+#else
+  u8 *shm_str = alloc_printf("%d", shm_fuzz->shm_id);
+  setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
+  ck_free(shm_str);
+#endif
+  fsrv->support_shmem_fuzz = 1;
+  fsrv->shmem_fuzz_len = (u32 *)map;
+  fsrv->shmem_fuzz = map + sizeof(u32);
+
   if (in_dir) {
 
     DIR *          dir_in, *dir_out;
     struct dirent *dir_ent;
     int            done = 0;
     u8             infile[PATH_MAX], outfile[PATH_MAX];
+    u8             wait_for_gdb = 0;
 #if !defined(DT_REG)
     struct stat statbuf;
 #endif
+
+    if (getenv("AFL_DEBUG_GDB")) wait_for_gdb = 1;
 
     fsrv->dev_null_fd = open("/dev/null", O_RDWR);
     if (fsrv->dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
@@ -895,6 +955,9 @@ int main(int argc, char **argv_orig, char **envp) {
     afl_fsrv_start(fsrv, use_argv, &stop_soon,
                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
 
+    if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
+      shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
+
     while (done == 0 && (dir_ent = readdir(dir_in))) {
 
       if (dir_ent->d_name[0] == '.') {
@@ -922,6 +985,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (read_file(infile)) {
 
+        if (wait_for_gdb) {
+
+          fprintf(stderr, "exec: gdb -p %d\n", fsrv->child_pid);
+          fprintf(stderr, "exec: kill -CONT %d\n", getpid());
+          kill(0, SIGSTOP);
+
+        }
+
         showmap_run_target_forkserver(fsrv, use_argv, in_data, in_len);
         ck_free(in_data);
         tcnt = write_results_to_file(fsrv, outfile);
@@ -936,6 +1007,9 @@ int main(int argc, char **argv_orig, char **envp) {
     if (dir_out) { closedir(dir_out); }
 
   } else {
+
+    if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
+      shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
     showmap_run_target(fsrv, use_argv);
     tcnt = write_results_to_file(fsrv, out_file);
@@ -958,13 +1032,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  remove_shm = 0;
   afl_shm_deinit(&shm);
+  if (fsrv->use_shmem_fuzz) shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
   u32 ret = child_crashed * 2 + fsrv->last_run_timed_out;
 
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
 
   afl_fsrv_deinit(fsrv);
+
   if (stdin_file) { ck_free(stdin_file); }
 
   argv_cpy_free(argv);

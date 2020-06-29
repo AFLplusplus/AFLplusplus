@@ -49,6 +49,7 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
+#include "hash.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -66,7 +67,9 @@
 
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/shm.h>
+#ifndef USEMMAP
+  #include <sys/shm.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -83,7 +86,7 @@
    can hope... */
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
-    defined(__DragonFly__)
+    defined(__DragonFly__) || defined(__sun)
   #define HAVE_AFFINITY 1
   #if defined(__FreeBSD__) || defined(__DragonFly__)
     #include <sys/param.h>
@@ -96,6 +99,11 @@
     #define cpu_set_t cpuset_t
   #elif defined(__NetBSD__)
     #include <pthread.h>
+  #elif defined(__sun)
+    #include <sys/types.h>
+    #include <kstat.h>
+    #include <sys/sysinfo.h>
+    #include <sys/pset.h>
   #endif
 #endif                                                         /* __linux__ */
 
@@ -134,13 +142,13 @@ struct queue_entry {
       fully_colorized;                  /* Do not run redqueen stage again  */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
-      fuzz_level,                       /* Number of fuzzing iterations     */
-      exec_cksum;                       /* Checksum of the execution trace  */
+      fuzz_level;                       /* Number of fuzzing iterations     */
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
-      n_fuzz,                          /* Number of fuzz, does not overflow */
-      depth;                            /* Path depth                       */
+      n_fuzz,                           /* Number of fuzz, does not overflow*/
+      depth,                            /* Path depth                       */
+      exec_cksum;                       /* Checksum of the execution trace  */
 
   u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
@@ -180,10 +188,11 @@ enum {
   /* 15 */ STAGE_HAVOC,
   /* 16 */ STAGE_SPLICE,
   /* 17 */ STAGE_PYTHON,
-  /* 18 */ STAGE_RADAMSA,
-  /* 19 */ STAGE_CUSTOM_MUTATOR,
-  /* 20 */ STAGE_COLORIZATION,
-  /* 21 */ STAGE_ITS,
+  /* 18 */ STAGE_CUSTOM_MUTATOR,
+  /* 19 */ STAGE_COLORIZATION,
+  /* 20 */ STAGE_ITS,
+
+  STAGE_NUM_MAX
 
 };
 
@@ -197,7 +206,7 @@ enum {
 
 };
 
-#define operator_num 16
+#define operator_num 18
 #define swarm_num 5
 #define period_core 500000
 
@@ -211,18 +220,21 @@ enum {
 #define STAGE_DELETEBYTE 13
 #define STAGE_Clone75 14
 #define STAGE_OverWrite75 15
+#define STAGE_OverWriteExtra 16
+#define STAGE_InsertExtra 17
 #define period_pilot 50000
 
 enum {
 
   /* 00 */ EXPLORE, /* AFL default, Exploration-based constant schedule */
-  /* 01 */ FAST,    /* Exponential schedule             */
-  /* 02 */ COE,     /* Cut-Off Exponential schedule     */
-  /* 03 */ LIN,     /* Linear schedule                  */
-  /* 04 */ QUAD,    /* Quadratic schedule               */
-  /* 05 */ EXPLOIT, /* AFL's exploitation-based const.  */
-  /* 06 */ MMOPT,   /* Modified MOPT schedule           */
-  /* 07 */ RARE,    /* Rare edges                       */
+  /* 01 */ EXPLOIT, /* AFL's exploitation-based const.  */
+  /* 02 */ FAST,    /* Exponential schedule             */
+  /* 03 */ COE,     /* Cut-Off Exponential schedule     */
+  /* 04 */ LIN,     /* Linear schedule                  */
+  /* 05 */ QUAD,    /* Quadratic schedule               */
+  /* 06 */ RARE,    /* Rare edges                       */
+  /* 07 */ MMOPT,   /* Modified MOPT schedule           */
+  /* 08 */ SEEK,    /* EXPLORE that ignores timings     */
 
   POWER_SCHEDULES_NUM
 
@@ -416,9 +428,6 @@ typedef struct afl_state {
   u8 schedule;                          /* Power schedule (default: EXPLORE)*/
   u8 havoc_max_mult;
 
-  u8 use_radamsa;
-  size_t (*radamsa_mutate_ptr)(u8 *, size_t, u8 *, size_t, u32);
-
   u8 skip_deterministic,                /* Skip deterministic stages?       */
       use_splicing,                     /* Recombine input files?           */
       non_instrumented_mode,            /* Run in non-instrumented mode?    */
@@ -515,11 +524,9 @@ typedef struct afl_state {
   u64 stage_finds[32],                  /* Patterns found per fuzz stage    */
       stage_cycles[32];                 /* Execs per fuzz stage             */
 
-#ifndef HAVE_ARC4RANDOM
   u32 rand_cnt;                         /* Random number counter            */
-#endif
 
-  u32 rand_seed[2];
+  u64 rand_seed[4];
   s64 init_seed;
 
   u64 total_cal_us,                     /* Total calibration time (us)      */
@@ -937,7 +944,10 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
-                        u32 exec_cksum);
+                        u64 exec_cksum);
+
+/* xoshiro256** */
+uint64_t rand_next(afl_state_t *afl);
 
 /**** Inline routines ****/
 
@@ -946,33 +956,30 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
 
 static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
-#ifdef HAVE_ARC4RANDOM
-  if (unlikely(afl->fixed_seed)) { return random() % limit; }
-
   /* The boundary not being necessarily a power of 2,
      we need to ensure the result uniformity. */
-  return arc4random_uniform(limit);
-#else
   if (unlikely(!afl->rand_cnt--) && likely(!afl->fixed_seed)) {
 
     ck_read(afl->fsrv.dev_urandom_fd, &afl->rand_seed, sizeof(afl->rand_seed),
             "/dev/urandom");
-    srandom(afl->rand_seed[0]);
+    // srandom(afl->rand_seed[0]);
     afl->rand_cnt = (RESEED_RNG / 2) + (afl->rand_seed[1] % RESEED_RNG);
 
   }
 
-  return random() % limit;
-#endif
+  return rand_next(afl) % limit;
 
 }
 
-static inline u32 get_rand_seed(afl_state_t *afl) {
+static inline s64 rand_get_seed(afl_state_t *afl) {
 
-  if (unlikely(afl->fixed_seed)) { return (u32)afl->init_seed; }
+  if (unlikely(afl->fixed_seed)) { return afl->init_seed; }
   return afl->rand_seed[0];
 
 }
+
+/* initialize randomness with a given seed. Can be called again at any time. */
+void rand_set_seed(afl_state_t *afl, s64 init_seed);
 
 /* Find first power of two greater or equal to val (assuming val under
    2^63). */

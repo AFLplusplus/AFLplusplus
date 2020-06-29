@@ -32,6 +32,7 @@
 #include "common.h"
 #include "list.h"
 #include "forkserver.h"
+#include "hash.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -70,9 +71,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->out_fd = -1;
   fsrv->out_dir_fd = -1;
   fsrv->dev_null_fd = -1;
-#ifndef HAVE_ARC4RANDOM
   fsrv->dev_urandom_fd = -1;
-#endif
+
   /* Settings */
   fsrv->use_stdin = 1;
   fsrv->no_unlink = 0;
@@ -103,9 +103,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->map_size = from->map_size;
   fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
 
-#ifndef HAVE_ARC4RANDOM
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
-#endif
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
@@ -131,7 +129,8 @@ static u32 read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
   FD_ZERO(&readfds);
   FD_SET(fd, &readfds);
   struct timeval timeout;
-  size_t         len = 4;
+  int            sret;
+  ssize_t        len_read;
 
   timeout.tv_sec = (timeout_ms / 1000);
   timeout.tv_usec = (timeout_ms % 1000) * 1000;
@@ -140,33 +139,52 @@ static u32 read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
 #endif
 
   /* set exceptfds as well to return when a child exited/closed the pipe. */
-  int sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
+restart_select:
+  sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
 
-  if (!sret) {
+  if (likely(sret > 0)) {
+
+  restart_read:
+    len_read = read(fd, (u8 *)buf, 4);
+
+    if (likely(len_read == 4)) {  // for speed we put this first
+
+#if defined(__linux__)
+      u32 exec_ms = MIN(
+          timeout_ms,
+          ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
+#else
+      u32 exec_ms = MIN(timeout_ms, get_cur_time_us() - read_start);
+#endif
+
+      // ensure to report 1 ms has passed (0 is an error)
+      return exec_ms > 0 ? exec_ms : 1;
+
+    } else if (unlikely(len_read == -1 && errno == EINTR)) {
+
+      goto restart_read;
+
+    } else if (unlikely(len_read < 4)) {
+
+      return 0;
+
+    }
+
+  } else if (unlikely(!sret)) {
 
     *buf = -1;
     return timeout_ms + 1;
 
-  } else if (sret < 0) {
+  } else if (unlikely(sret < 0)) {
+
+    if (likely(errno == EINTR)) goto restart_select;
 
     *buf = -1;
     return 0;
 
   }
 
-  ssize_t len_read = read(fd, ((u8 *)buf), len);
-  if (len_read < len) { return 0; }
-
-#if defined(__linux__)
-  u32 exec_ms =
-      MIN(timeout_ms,
-          ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
-#else
-  u32 exec_ms = MIN(timeout_ms, get_cur_time_us() - read_start);
-#endif
-
-  // ensure to report 1 ms has passed (0 is an error)
-  return exec_ms > 0 ? exec_ms : 1;
+  return 0;  // not reached
 
 }
 
@@ -400,9 +418,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     close(fsrv->out_dir_fd);
     close(fsrv->dev_null_fd);
-#ifndef HAVE_ARC4RANDOM
     close(fsrv->dev_urandom_fd);
-#endif
+
     if (fsrv->plot_file != NULL) { fclose(fsrv->plot_file); }
 
     /* This should improve performance a bit, since it stops the linker from
@@ -444,6 +461,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   }
 
   /* PARENT PROCESS */
+
+  char pid_buf[16];
+  sprintf(pid_buf, "%d", fsrv->fsrv_pid);
+  if (fsrv->cmplog_binary)
+    setenv("__AFL_TARGET_PID2", pid_buf, 1);
+  else
+    setenv("__AFL_TARGET_PID1", pid_buf, 1);
 
   /* Close the unneeded endpoints. */
 
@@ -545,7 +569,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         if (unlikely(tmp_map_size % 8)) {
 
           // should not happen
-          WARNF("Target reported non-aligned map size of %ud", tmp_map_size);
+          WARNF("Target reported non-aligned map size of %u", tmp_map_size);
           tmp_map_size = (((tmp_map_size + 8) >> 3) << 3);
 
         }
@@ -572,9 +596,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
           // this is not afl-fuzz - we deny and return
           if (fsrv->use_shmem_fuzz)
-            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
+            status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
           else
-            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
+            status = (FS_OPT_ENABLED);
           if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
 
             FATAL("Writing to forkserver failed.");
@@ -586,7 +610,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         }
 
         if (!be_quiet) { ACTF("Using AUTODICT feature."); }
-        status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
+
+        if (fsrv->use_shmem_fuzz)
+          status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
+        else
+          status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
+
         if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
 
           FATAL("Writing to forkserver failed.");
@@ -837,8 +866,23 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     *fsrv->shmem_fuzz_len = len;
     memcpy(fsrv->shmem_fuzz, buf, len);
-    // printf("test case len: %u [0]:0x%02x\n", *fsrv->shmem_fuzz_len, buf[0]);
-    // fflush(stdout);
+#ifdef _DEBUG
+    if (getenv("AFL_DEBUG")) {
+
+      fprintf(stderr, "FS crc: %016llx len: %u\n",
+              hash64(fsrv->shmem_fuzz, *fsrv->shmem_fuzz_len, 0xa5b35705),
+              *fsrv->shmem_fuzz_len);
+      fprintf(stderr, "SHM :");
+      for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+        fprintf(stderr, "%02x", fsrv->shmem_fuzz[i]);
+      fprintf(stderr, "\nORIG:");
+      for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+        fprintf(stderr, "%02x", buf[i]);
+      fprintf(stderr, "\n");
+
+    }
+
+#endif
 
   } else {
 

@@ -142,7 +142,41 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
   s32 fd = afl->fsrv.out_fd;
   u32 tail_len = len - skip_at - skip_len;
 
-  if (afl->fsrv.out_file) {
+  if (afl->fsrv.shmem_fuzz) {
+
+    if (skip_at) { memcpy(afl->fsrv.shmem_fuzz, mem, skip_at); }
+
+    if (tail_len) {
+
+      memcpy(afl->fsrv.shmem_fuzz + skip_at, (u8 *)mem + skip_at + skip_len,
+             tail_len);
+
+    }
+
+    *afl->fsrv.shmem_fuzz_len = len - skip_len;
+
+#ifdef _DEBUG
+    if (afl->debug) {
+
+      fprintf(
+          stderr, "FS crc: %16llx len: %u\n",
+          hash64(afl->fsrv.shmem_fuzz, *afl->fsrv.shmem_fuzz_len, 0xa5b35705),
+          *afl->fsrv.shmem_fuzz_len);
+      fprintf(stderr, "SHM :");
+      for (int i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
+        fprintf(stderr, "%02x", afl->fsrv.shmem_fuzz[i]);
+      fprintf(stderr, "\nORIG:");
+      for (int i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
+        fprintf(stderr, "%02x", (u8)((u8 *)mem)[i]);
+      fprintf(stderr, "\n");
+
+    }
+
+#endif
+
+    return;
+
+  } else if (afl->fsrv.out_file) {
 
     if (afl->no_unlink) {
 
@@ -234,6 +268,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     if (afl->fsrv.support_shmem_fuzz && !afl->fsrv.use_shmem_fuzz) {
 
+      unsetenv(SHM_FUZZ_ENV_VAR);
       afl_shm_deinit(afl->shm_fuzz);
       ck_free(afl->shm_fuzz);
       afl->shm_fuzz = NULL;
@@ -256,13 +291,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
-    u32 cksum;
-
-    if (!first_run && !(afl->stage_cur % afl->stats_update_freq)) {
-
-      show_stats(afl);
-
-    }
+    u64 cksum;
 
     write_to_testcase(afl, use_mem, q->len);
 
@@ -281,7 +310,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     }
 
-    cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+    cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
     if (q->exec_cksum != cksum) {
 
       hnb = has_new_bits(afl, afl->virgin_bits);
@@ -385,7 +414,7 @@ void sync_fuzzers(afl_state_t *afl) {
   DIR *          sd;
   struct dirent *sd_ent;
   u32            sync_cnt = 0, synced = 0, entries = 0;
-  u8             path[PATH_MAX];
+  u8             path[PATH_MAX + 256];
 
   sd = opendir(afl->sync_dir);
   if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
@@ -399,7 +428,7 @@ void sync_fuzzers(afl_state_t *afl) {
   while ((sd_ent = readdir(sd))) {
 
     u8  qd_synced_path[PATH_MAX], qd_path[PATH_MAX];
-    u32 min_accept = 0, next_min_accept;
+    u32 min_accept = 0, next_min_accept = 0;
 
     s32 id_fd;
 
@@ -438,6 +467,12 @@ void sync_fuzzers(afl_state_t *afl) {
 
     synced++;
 
+    /* document the attempt to sync to this instance */
+
+    sprintf(qd_synced_path, "%s/.synced/%s.last", afl->out_dir, sd_ent->d_name);
+    id_fd = open(qd_synced_path, O_RDWR | O_CREAT | O_TRUNC, 0600);
+    if (id_fd >= 0) close(id_fd);
+
     /* Skip anything that doesn't have a queue/ subdirectory. */
 
     sprintf(qd_path, "%s/%s/queue", afl->sync_dir, sd_ent->d_name);
@@ -462,13 +497,12 @@ void sync_fuzzers(afl_state_t *afl) {
 
     if (id_fd < 0) { PFATAL("Unable to create '%s'", qd_synced_path); }
 
-    if (read(id_fd, &min_accept, sizeof(u32)) > 0) {
+    if (read(id_fd, &min_accept, sizeof(u32)) == sizeof(u32)) {
 
+      next_min_accept = min_accept;
       lseek(id_fd, 0, SEEK_SET);
 
     }
-
-    next_min_accept = min_accept;
 
     /* Show stats */
 
@@ -505,7 +539,7 @@ void sync_fuzzers(afl_state_t *afl) {
       s32         fd;
       struct stat st;
 
-      sprintf(path, "%s/%s", qd_path, namelist[o]->d_name);
+      snprintf(path, sizeof(path), "%s/%s", qd_path, namelist[o]->d_name);
       afl->syncing_case = next_min_accept;
       next_min_accept++;
       o--;
@@ -646,7 +680,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     while (remove_pos < q->len) {
 
       u32 trim_avail = MIN(remove_len, q->len - remove_pos);
-      u32 cksum;
+      u64 cksum;
 
       write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
 
@@ -658,7 +692,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       /* Note that we don't keep track of crashes or hangs here; maybe TODO?
        */
 
-      cksum = hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       /* If the deletion had no impact on the trace, make it permanent. This
          isn't perfect for variable-path inputs, but we're just making a
