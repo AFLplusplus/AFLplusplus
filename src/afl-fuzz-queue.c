@@ -24,7 +24,6 @@
 
 #include "afl-fuzz.h"
 #include <limits.h>
-#include <ctype.h>
 
 /* Mark deterministic checks as done for a particular queue entry. We use the
    .state file to avoid repeating deterministic fuzzing when resuming aborted
@@ -101,119 +100,6 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
 }
 
-/* check if ascii or UTF-8 */
-
-static u8 check_if_text(struct queue_entry *q) {
-
-  if (q->len < AFL_TXT_MIN_LEN) return 0;
-
-  u8  buf[MAX_FILE], bom[3] = {0xef, 0xbb, 0xbf};
-  s32 fd, len = q->len, offset = 0, ascii = 0, utf8 = 0, comp;
-
-  if ((fd = open(q->fname, O_RDONLY)) < 0) return 0;
-  if ((comp = read(fd, buf, len)) != len) return 0;
-  close(fd);
-
-  while (offset < len) {
-
-    // ASCII: <= 0x7F to allow ASCII control characters
-    if ((buf[offset + 0] == 0x09 || buf[offset + 0] == 0x0A ||
-         buf[offset + 0] == 0x0D ||
-         (0x20 <= buf[offset + 0] && buf[offset + 0] <= 0x7E))) {
-
-      offset++;
-      utf8++;
-      ascii++;
-      continue;
-
-    }
-
-    if (isascii((int)buf[offset]) || isprint((int)buf[offset])) {
-
-      ascii++;
-      // we continue though as it can also be a valid utf8
-
-    }
-
-    // non-overlong 2-byte
-    if (((0xC2 <= buf[offset + 0] && buf[offset + 0] <= 0xDF) &&
-         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF))) {
-
-      offset += 2;
-      utf8++;
-      comp--;
-      continue;
-
-    }
-
-    // excluding overlongs
-    if ((buf[offset + 0] == 0xE0 &&
-         (0xA0 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
-         (0x80 <= buf[offset + 2] &&
-          buf[offset + 2] <= 0xBF)) ||  // straight 3-byte
-        (((0xE1 <= buf[offset + 0] && buf[offset + 0] <= 0xEC) ||
-          buf[offset + 0] == 0xEE || buf[offset + 0] == 0xEF) &&
-         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
-         (0x80 <= buf[offset + 2] &&
-          buf[offset + 2] <= 0xBF)) ||  // excluding surrogates
-        (buf[offset + 0] == 0xED &&
-         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0x9F) &&
-         (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF))) {
-
-      offset += 3;
-      utf8++;
-      comp -= 2;
-      continue;
-
-    }
-
-    // planes 1-3
-    if ((buf[offset + 0] == 0xF0 &&
-         (0x90 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
-         (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
-         (0x80 <= buf[offset + 3] &&
-          buf[offset + 3] <= 0xBF)) ||  // planes 4-15
-        ((0xF1 <= buf[offset + 0] && buf[offset + 0] <= 0xF3) &&
-         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
-         (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
-         (0x80 <= buf[offset + 3] && buf[offset + 3] <= 0xBF)) ||  // plane 16
-        (buf[offset + 0] == 0xF4 &&
-         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0x8F) &&
-         (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
-         (0x80 <= buf[offset + 3] && buf[offset + 3] <= 0xBF))) {
-
-      offset += 4;
-      utf8++;
-      comp -= 3;
-      continue;
-
-    }
-
-    // handle utf8 bom
-    if (buf[offset + 0] == bom[0] && buf[offset + 1] == bom[1] &&
-        buf[offset + 2] == bom[2]) {
-
-      offset += 3;
-      utf8++;
-      comp -= 2;
-      continue;
-
-    }
-
-    offset++;
-
-  }
-
-  u32 percent_utf8 = (utf8 * 100) / comp;
-  u32 percent_ascii = (ascii * 100) / len;
-
-  if (percent_utf8 >= percent_ascii && percent_utf8 >= AFL_TXT_MIN_PERCENT)
-    return 2;
-  if (percent_ascii >= AFL_TXT_MIN_PERCENT) return 1;
-  return 0;
-
-}
-
 /* Append new test case to the queue. */
 
 void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
@@ -272,8 +158,6 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
     });
 
   }
-
-  q->is_ascii = check_if_text(q);
 
 }
 
