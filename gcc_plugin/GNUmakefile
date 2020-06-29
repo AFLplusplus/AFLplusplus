@@ -28,11 +28,12 @@ MAN_PATH    ?= $(PREFIX)/man/man8
 
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
-CFLAGS      ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=2
-CFLAGS = -Wall -I../include -Wno-pointer-sign \
-               -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
-               -DGCC_VERSION=\"$(GCCVER)\" -DGCC_BINDIR=\"$(GCCBINDIR)\" \
-               -Wno-unused-function
+CFLAGS          ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=2
+CFLAGS_SAFE     := -Wall -I../include -Wno-pointer-sign \
+                   -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
+                   -DGCC_VERSION=\"$(GCCVER)\" -DGCC_BINDIR=\"$(GCCBINDIR)\" \
+                   -Wno-unused-function
+override CFLAGS += $(CFLAGS_SAFE)
 
 CXXFLAGS    ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=2
 CXXEFLAGS   := $(CXXFLAGS) -Wall
@@ -60,13 +61,15 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 	SHMAT_OK=1
 else
 	SHMAT_OK=0
-	CFLAGS+=-DUSEMMAP=1
-	LDFLAGS += -lrt
+	override CFLAGS += -DUSEMMAP=1
 endif
 
 ifeq "$(TEST_MMAP)" "1"
 	SHMAT_OK=0
-	CFLAGS+=-DUSEMMAP=1
+	override CFLAGS += -DUSEMMAP=1
+endif
+
+ifneq "$(shell uname -s)" "Haiku"
 	LDFLAGS += -lrt
 endif
 
@@ -111,7 +114,7 @@ afl-common.o: ../src/afl-common.c
 	$(CXX) $(CXXEFLAGS) $(PLUGIN_FLAGS) -shared $< -o $@
 
 ../afl-gcc-rt.o: afl-gcc-rt.o.c | test_deps
-	$(CC) $(CFLAGS) -fPIC -c $< -o $@
+	$(CC) $(CFLAGS_SAFE) -fPIC -c $< -o $@
 
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."

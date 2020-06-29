@@ -23,7 +23,7 @@ else
 fi
 
 test_compcov_binary_functionality() {
-  RUN="../afl-showmap -o /dev/null -- $1"
+  RUN="../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- $1"
   $RUN 'LIBTOKENCAP' | grep 'your string was LIBTOKENCAP' \
     && $RUN 'BUGMENOT' | grep 'your string was BUGMENOT' \
     && $RUN 'BANANA' | grep 'your string started with BAN' \
@@ -86,7 +86,7 @@ export AFL_LLVM_INSTRUMENT=AFL
 
 # on OpenBSD we need to work with llvm from /usr/local/bin
 test -e /usr/local/bin/opt && {
-  export PATH=/usr/local/bin:${PATH}
+  export PATH="/usr/local/bin:${PATH}"
 }
 # on MacOS X we prefer afl-clang over afl-gcc, because
 # afl-gcc does not work there
@@ -108,7 +108,7 @@ RESET="\\033[0m"
 
 MEM_LIMIT=none
 
-export PATH=$PATH:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+export PATH="${PATH}:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 
 $ECHO "${RESET}${GREY}[*] starting afl++ test framework ..."
 
@@ -459,24 +459,23 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
   }
   rm -f test-instr.plain
 
-# Disabled whitelist until I have a different solution -mh
-#  echo foobar.c > whitelist.txt
-#  AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-lto -o test-compcov test-compcov.c > test.out 2>&1
-#  test -e test-compcov && {
-#    grep -q "No instrumentation targets found" test.out && {
-#      $ECHO "$GREEN[+] llvm_mode LTO whitelist feature works correctly"
-#    } || {
-#      $ECHO "$RED[!] llvm_mode LTO whitelist feature failed"
-#      CODE=1
-#    }
-#  } || {
-#    $ECHO "$RED[!] llvm_mode LTO whitelist feature compilation failed"
-#    CODE=1
-#  }
-#  rm -f test-compcov test.out whitelist.txt
+  echo foobar.c > whitelist.txt
+  AFL_DEBUG=1 AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-lto -o test-compcov test-compcov.c > test.out 2>&1
+  test -e test-compcov && {
+    grep -q "No instrumentation targets found" test.out && {
+      $ECHO "$GREEN[+] llvm_mode LTO whitelist feature works correctly"
+    } || {
+      $ECHO "$RED[!] llvm_mode LTO whitelist feature failed"
+      CODE=1
+    }
+  } || {
+    $ECHO "$RED[!] llvm_mode LTO whitelist feature compilation failed"
+    CODE=1
+  }
+  rm -f test-compcov test.out whitelist.txt
   ../afl-clang-lto -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
-    echo foo | ../afl-showmap -o /dev/null -q -r ./test-persistent && {
+    echo foo | ../afl-showmap -m none -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] llvm_mode LTO persistent mode feature works correctly"
     } || {
       $ECHO "$RED[!] llvm_mode LTO persistent mode feature failed to work"
@@ -638,43 +637,43 @@ test -e ../libdislocator.so && {
   INCOMPLETE=1
 }
 rm -f test-compcov
-test -e ../libradamsa.so && {
-  # on FreeBSD need to set AFL_CC
-  test `uname -s` = 'FreeBSD' && {
-    if type clang >/dev/null; then
-      export AFL_CC=`command -v clang`
-    else
-      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
-    fi
-  }
-  test -e test-instr.plain || ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
-  test -e test-instr.plain || ../afl-gcc-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
-  test -e test-instr.plain || ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
-  test -e test-instr.plain && {
-    mkdir -p in
-    printf 1 > in/in
-    $ECHO "$GREY[*] running afl-fuzz with radamsa, this will take approx 10 seconds"
-    {
-      ../afl-fuzz -RR -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain
-    } >>errors 2>&1
-    test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
-      $ECHO "$GREEN[+] libradamsa performs good - and very slow - mutations"
-    } || {
-      echo CUT------------------------------------------------------------------CUT
-      cat errors
-      echo CUT------------------------------------------------------------------CUT
-      $ECHO "$RED[!] libradamsa failed"
-      CODE=1
-    }
-    rm -rf in out errors test-instr.plain
-  } || {
-    $ECHO "$YELLOW[-] compilation of test target failed, cannot test libradamsa"
-    INCOMPLETE=1
-  }
-} || {
-  $ECHO "$YELLOW[-] libradamsa is not compiled, cannot test"
-  INCOMPLETE=1
-}
+#test -e ../libradamsa.so && {
+#  # on FreeBSD need to set AFL_CC
+#  test `uname -s` = 'FreeBSD' && {
+#    if type clang >/dev/null; then
+#      export AFL_CC=`command -v clang`
+#    else
+#      export AFL_CC=`$LLVM_CONFIG --bindir`/clang
+#    fi
+#  }
+#  test -e test-instr.plain || ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+#  test -e test-instr.plain || ../afl-gcc-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+#  test -e test-instr.plain || ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+#  test -e test-instr.plain && {
+#    mkdir -p in
+#    printf 1 > in/in
+#    $ECHO "$GREY[*] running afl-fuzz with radamsa, this will take approx 10 seconds"
+#    {
+#      ../afl-fuzz -RR -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain
+#    } >>errors 2>&1
+#    test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
+#      $ECHO "$GREEN[+] libradamsa performs good - and very slow - mutations"
+#    } || {
+#      echo CUT------------------------------------------------------------------CUT
+#      cat errors
+#      echo CUT------------------------------------------------------------------CUT
+#      $ECHO "$RED[!] libradamsa failed"
+#      CODE=1
+#    }
+#    rm -rf in out errors test-instr.plain
+#  } || {
+#    $ECHO "$YELLOW[-] compilation of test target failed, cannot test libradamsa"
+#    INCOMPLETE=1
+#  }
+#} || {
+#  $ECHO "$YELLOW[-] libradamsa is not compiled, cannot test"
+#  INCOMPLETE=1
+#}
 
 test -z "$AFL_CC" && {
   if type gcc >/dev/null; then
@@ -902,6 +901,9 @@ $ECHO "$BLUE[*] Testing: unicorn_mode"
 test -d ../unicorn_mode/unicornafl && {
   test -e ../unicorn_mode/samples/simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
+      # We want to see python errors etc. in logs, in case something doesn't work
+      export AFL_DEBUG_CHILD_OUTPUT=1
+
       # some python version should be available now
       PYTHONS="`command -v python3` `command -v python` `command -v python2`"
       EASY_INSTALL_FOUND=0
@@ -988,6 +990,9 @@ test -d ../unicorn_mode/unicornafl && {
         rm -rf in out errors
       }
       fi
+
+      unset AFL_DEBUG_CHILD_OUTPUT
+
     }
   } || {
     $ECHO "$RED[!] missing sample binaries in unicorn_mode/samples/ - what is going on??"
@@ -1121,7 +1126,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
 
 $ECHO "$BLUE[*] Execution cmocka Unit-Tests $GREY"
 unset AFL_CC
-make -C .. unit || "$CODE" = "1"
+make -C .. unit || CODE=1 INCOMPLETE=1 :
 
 $ECHO "$GREY[*] all test cases completed.$RESET"
 test "$INCOMPLETE" = "0" && $ECHO "$GREEN[+] all test cases executed"

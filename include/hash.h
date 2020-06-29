@@ -30,11 +30,18 @@
 
 #include "types.h"
 
-#ifdef __x86_64__
+u32 hash32(u8 *key, u32 len, u32 seed);
+u64 hash64(u8 *key, u32 len, u64 seed);
 
-  #define ROL64(_x, _r) ((((u64)(_x)) << (_r)) | (((u64)(_x)) >> (64 - (_r))))
+#if 0
 
-static inline u32 hash32(const void *key, u32 len, u32 seed) {
+The following code is disabled because xxh3 is 30% faster
+
+  #ifdef __x86_64__
+
+    #define ROL64(_x, _r) ((((u64)(_x)) << (_r)) | (((u64)(_x)) >> (64 - (_r))))
+
+static inline u32 hash32(u8 *key, u32 len, u32 seed) {
 
   const u64 *data = (u64 *)key;
   u64        h1 = seed ^ len;
@@ -65,9 +72,9 @@ static inline u32 hash32(const void *key, u32 len, u32 seed) {
 
 }
 
-#else
+  #else
 
-  #define ROL32(_x, _r) ((((u32)(_x)) << (_r)) | (((u32)(_x)) >> (32 - (_r))))
+    #define ROL32(_x, _r) ((((u32)(_x)) << (_r)) | (((u32)(_x)) >> (32 - (_r))))
 
 static inline u32 hash32(const void *key, u32 len, u32 seed) {
 
@@ -100,7 +107,8 @@ static inline u32 hash32(const void *key, u32 len, u32 seed) {
 
 }
 
-#endif                                                       /* ^__x86_64__ */
+  #endif                                                     /* ^__x86_64__ */
+#endif
 
 #endif                                                     /* !_HAVE_HASH_H */
 

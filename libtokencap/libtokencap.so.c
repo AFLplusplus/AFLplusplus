@@ -33,8 +33,9 @@
 #include "../types.h"
 #include "../config.h"
 
-#if !defined __linux__ && !defined __APPLE__ && !defined __FreeBSD__ && \
-    !defined __OpenBSD__ && !defined __NetBSD__ && !defined __DragonFly__
+#if !defined __linux__ && !defined __APPLE__ && !defined __FreeBSD__ &&      \
+    !defined __OpenBSD__ && !defined __NetBSD__ && !defined __DragonFly__ && \
+    !defined(__HAIKU__)
   #error "Sorry, this library is unsupported in this platform for now!"
 #endif /* !__linux__ && !__APPLE__ && ! __FreeBSD__ && ! __OpenBSD__ && \
           !__NetBSD__*/
@@ -49,6 +50,8 @@
     #include <sys/user.h>
   #endif
   #include <sys/mman.h>
+#elif defined __HAIKU__
+  #include <kernel/image.h>
 #endif
 
 #include <dlfcn.h>
@@ -230,6 +233,19 @@ static void __tokencap_load_mappings(void) {
   }
 
   munmap(buf, len);
+#elif defined __HAIKU__
+  image_info ii;
+  int32_t    group = 0;
+
+  while (get_next_image_info(0, &group, &ii) == B_OK) {
+
+    __tokencap_ro[__tokencap_ro_cnt].st = ii.text;
+    __tokencap_ro[__tokencap_ro_cnt].en = ((char *)ii.text) + ii.text_size;
+
+    if (++__tokencap_ro_cnt == MAX_MAPPINGS) break;
+
+  }
+
 #endif
 
 }
@@ -357,7 +373,7 @@ int strcasecmp(const char *str1, const char *str2) {
 
   while (1) {
 
-    const unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
+    const unsigned char c1 = tolower((int)*str1), c2 = tolower((int)*str2);
 
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
     if (!c1) return 0;
@@ -381,7 +397,7 @@ int strncasecmp(const char *str1, const char *str2, size_t len) {
 
   while (len--) {
 
-    const unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
+    const unsigned char c1 = tolower((int)*str1), c2 = tolower((int)*str2);
 
     if (c1 != c2) return (c1 > c2) ? 1 : -1;
     if (!c1) return 0;
@@ -495,7 +511,7 @@ char *strcasestr(const char *haystack, const char *needle) {
     const char *n = needle;
     const char *h = haystack;
 
-    while (*n && *h && tolower(*n) == tolower(*h))
+    while (*n && *h && tolower((int)*n) == tolower((int)*h))
       n++, h++;
 
     if (!*n) return (char *)haystack;

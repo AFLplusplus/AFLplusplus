@@ -139,7 +139,8 @@ static void __afl_map_shm_fuzz() {
 
     }
 
-    map = (u8 *)mmap(0, MAX_FILE, PROT_READ, MAP_SHARED, shm_fd, 0);
+    map =
+        (u8 *)mmap(0, MAX_FILE + sizeof(u32), PROT_READ, MAP_SHARED, shm_fd, 0);
 
 #else
     u32 shm_id = atoi(id_str);
@@ -157,7 +158,7 @@ static void __afl_map_shm_fuzz() {
     }
 
     __afl_fuzz_len = (u32 *)map;
-    __afl_fuzz_ptr = (u8 *)(map + sizeof(u32));
+    __afl_fuzz_ptr = map + sizeof(u32);
 
     if (getenv("AFL_DEBUG")) {
 
@@ -181,6 +182,9 @@ static void __afl_map_shm(void) {
   char *id_str = getenv(SHM_ENV_VAR);
 
   if (__afl_final_loc) {
+
+    if (__afl_final_loc % 8)
+      __afl_final_loc = (((__afl_final_loc + 7) >> 3) << 3);
 
     __afl_map_size = __afl_final_loc;
     if (__afl_final_loc > MAP_SIZE) {
@@ -391,7 +395,10 @@ static void __afl_start_snapshots(void) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
 
-    if ((was_killed & (0xffffffff & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ))) ==
+    if (getenv("AFL_DEBUG"))
+      fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
+
+    if ((was_killed & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) ==
         (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) {
 
       __afl_map_shm_fuzz();
@@ -589,6 +596,9 @@ static void __afl_start_forkserver(void) {
   if (__afl_sharedmem_fuzzing || (__afl_dictionary_len && __afl_dictionary)) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
+
+    if (getenv("AFL_DEBUG"))
+      fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
 
     if ((was_killed & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) ==
         (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) {
@@ -870,7 +880,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   while (start < stop) {
 
     if (R(100) < inst_ratio)
-      *start = R(MAP_SIZE - 1) + 1;
+      *start = ++__afl_final_loc;
     else
       *start = 0;
 

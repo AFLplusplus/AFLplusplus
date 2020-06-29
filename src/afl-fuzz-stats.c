@@ -31,7 +31,9 @@
 void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
                       double eps) {
 
+#ifndef __HAIKU__
   struct rusage rus;
+#endif
 
   unsigned long long int cur_time = get_cur_time();
   u8                     fn[PATH_MAX];
@@ -65,7 +67,9 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
   }
 
+#ifndef __HAIKU__
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
+#endif
 
   fprintf(
       f,
@@ -119,12 +123,21 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       afl->last_path_time / 1000, afl->last_crash_time / 1000,
       afl->last_hang_time / 1000, afl->fsrv.total_execs - afl->last_crash_execs,
       afl->fsrv.exec_tmout, afl->slowest_exec_ms,
-#ifdef __APPLE__
+#ifndef __HAIKU__
+  #ifdef __APPLE__
       (unsigned long int)(rus.ru_maxrss >> 20),
-#else
+  #else
       (unsigned long int)(rus.ru_maxrss >> 10),
+  #endif
+#else
+      -1UL,
 #endif
-      afl->cpu_aff, t_bytes, afl->var_byte_count, afl->use_banner,
+#ifdef HAVE_AFFINITY
+      afl->cpu_aff,
+#else
+      -1,
+#endif
+      t_bytes, afl->var_byte_count, afl->use_banner,
       afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
       afl->non_instrumented_mode ? " non_instrumented " : "",
       afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",
@@ -181,7 +194,8 @@ void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
                afl->plot_prev_uc == afl->unique_crashes &&
                afl->plot_prev_uh == afl->unique_hangs &&
                afl->plot_prev_md == afl->max_depth) ||
-      unlikely(!afl->queue_cycle)) {
+      unlikely(!afl->queue_cycle) ||
+      unlikely(get_cur_time() - afl->start_time <= 60)) {
 
     return;
 
@@ -732,15 +746,13 @@ void show_stats(afl_state_t *afl) {
        afl->sync_id ? u_stringify_int(IB(0), afl->queued_imported)
                     : (u8 *)"n/a");
 
-  sprintf(tmp, "%s/%s, %s/%s, %s/%s",
+  sprintf(tmp, "%s/%s, %s/%s",
           u_stringify_int(IB(0), afl->stage_finds[STAGE_HAVOC]),
           u_stringify_int(IB(2), afl->stage_cycles[STAGE_HAVOC]),
           u_stringify_int(IB(3), afl->stage_finds[STAGE_SPLICE]),
-          u_stringify_int(IB(4), afl->stage_cycles[STAGE_SPLICE]),
-          u_stringify_int(IB(5), afl->stage_finds[STAGE_RADAMSA]),
-          u_stringify_int(IB(6), afl->stage_cycles[STAGE_RADAMSA]));
+          u_stringify_int(IB(4), afl->stage_cycles[STAGE_SPLICE]));
 
-  SAYF(bV bSTOP "   havoc/rad : " cRST "%-36s " bSTG bV bSTOP, tmp);
+  SAYF(bV bSTOP "havoc/splice : " cRST "%-36s " bSTG bV bSTOP, tmp);
 
   if (t_bytes) {
 
@@ -821,18 +833,19 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  if (afl->custom_mutators_count) {
+  // if (afl->custom_mutators_count) {
 
-    sprintf(tmp, "%s/%s",
-            u_stringify_int(IB(0), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
-            u_stringify_int(IB(1), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]));
-    SAYF(bV bSTOP " custom mut. : " cRST "%-36s " bSTG bV RESET_G1, tmp);
+  //
+  //  sprintf(tmp, "%s/%s",
+  //          u_stringify_int(IB(0), afl->stage_finds[STAGE_CUSTOM_MUTATOR]),
+  //          u_stringify_int(IB(1), afl->stage_cycles[STAGE_CUSTOM_MUTATOR]));
+  //  SAYF(bV bSTOP " custom mut. : " cRST "%-36s " bSTG bV RESET_G1, tmp);
+  //
+  //} else {
 
-  } else {
+  SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bV RESET_G1, tmp);
 
-    SAYF(bV bSTOP "        trim : " cRST "%-36s " bSTG bV RESET_G1, tmp);
-
-  }
+  //}
 
   /* Provide some CPU utilization stats. */
 

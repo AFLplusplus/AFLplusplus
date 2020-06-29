@@ -21,6 +21,7 @@ We find that AFL's exploitation-based constant schedule assigns **too much energ
 | `-p exploit` (AFL) | ![LIN](http://latex.codecogs.com/gif.latex?p%28i%29%20%3D%20%5Calpha%28i%29) |
 | `-p mmopt` | Experimental: `explore` with no weighting to runtime and increased weighting on the last 5 queue entries |
 | `-p rare` | Experimental: `rare` puts focus on queue entries that hit rare edges |
+| `-p seek` | Experimental: `seek` is EXPLORE but ignoring the runtime of the queue input and less focus on the size |
 where *α(i)* is the performance score that AFL uses to compute for the seed input *i*, *β(i)>1* is a constant, *s(i)* is the number of times that seed *i* has been chosen from the queue, *f(i)* is the number of generated inputs that exercise the same path as seed *i*, and *μ* is the average number of generated inputs exercising a path.
   
 More details can be found in the paper that was accepted at the [23rd ACM Conference on Computer and Communications Security (CCS'16)](https://www.sigsac.org/ccs/CCS2016/accepted-papers/).

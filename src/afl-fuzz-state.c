@@ -30,9 +30,9 @@ s8  interesting_8[] = {INTERESTING_8};
 s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
 s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 
-char *power_names[POWER_SCHEDULES_NUM] = {
-
-    "explore", "fast", "coe", "lin", "quad", "exploit", "mmopt", "rare"};
+char *power_names[POWER_SCHEDULES_NUM] = {"explore", "exploit", "fast",
+                                          "coe",     "lin",     "quad",
+                                          "rare",    "mmopt",   "seek"};
 
 /* Initialize MOpt "globals" for this afl state */
 
@@ -124,9 +124,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   afl->stats_update_freq = 1;
 
-#ifndef HAVE_ARC4RANDOM
   afl->fsrv.dev_urandom_fd = -1;
-#endif
   afl->fsrv.dev_null_fd = -1;
 
   afl->fsrv.child_pid = -1;

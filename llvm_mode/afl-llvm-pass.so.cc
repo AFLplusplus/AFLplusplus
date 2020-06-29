@@ -140,6 +140,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   /* Show a banner */
 
   char be_quiet = 0;
+  setvbuf(stdout, NULL, _IONBF, 0);
 
   if (getenv("AFL_DEBUG")) debug = 1;
 
