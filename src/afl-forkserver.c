@@ -525,6 +525,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if ((status & FS_OPT_ENABLED) == FS_OPT_ENABLED) {
 
+      // workaround for recent afl++ versions
+      if ((status & FS_OPT_OLD_AFLPP_WORKAROUND) == FS_OPT_OLD_AFLPP_WORKAROUND)
+        status = (status & 0xf0ffffff);
+
       if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
 
         fsrv->snapshot = 1;
@@ -569,7 +573,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         if (unlikely(tmp_map_size % 8)) {
 
           // should not happen
-          WARNF("Target reported non-aligned map size of %ud", tmp_map_size);
+          WARNF("Target reported non-aligned map size of %u", tmp_map_size);
           tmp_map_size = (((tmp_map_size + 8) >> 3) << 3);
 
         }
@@ -596,9 +600,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
           // this is not afl-fuzz - we deny and return
           if (fsrv->use_shmem_fuzz)
-            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
+            status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
           else
-            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
+            status = (FS_OPT_ENABLED);
           if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
 
             FATAL("Writing to forkserver failed.");
@@ -610,7 +614,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         }
 
         if (!be_quiet) { ACTF("Using AUTODICT feature."); }
-        status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
+
+        if (fsrv->use_shmem_fuzz)
+          status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
+        else
+          status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
+
         if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
 
           FATAL("Writing to forkserver failed.");
@@ -862,16 +871,21 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
     *fsrv->shmem_fuzz_len = len;
     memcpy(fsrv->shmem_fuzz, buf, len);
 #ifdef _DEBUG
-    fprintf(stderr, "FS crc: %08x len: %u\n",
-            hash64(fsrv->shmem_fuzz, *fsrv->shmem_fuzz_len, 0xa5b35705),
-            *fsrv->shmem_fuzz_len);
-    fprintf(stderr, "SHM :");
-    for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
-      fprintf(stderr, "%02x", fsrv->shmem_fuzz[i]);
-    fprintf(stderr, "\nORIG:");
-    for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
-      fprintf(stderr, "%02x", buf[i]);
-    fprintf(stderr, "\n");
+    if (getenv("AFL_DEBUG")) {
+
+      fprintf(stderr, "FS crc: %016llx len: %u\n",
+              hash64(fsrv->shmem_fuzz, *fsrv->shmem_fuzz_len, 0xa5b35705),
+              *fsrv->shmem_fuzz_len);
+      fprintf(stderr, "SHM :");
+      for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+        fprintf(stderr, "%02x", fsrv->shmem_fuzz[i]);
+      fprintf(stderr, "\nORIG:");
+      for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+        fprintf(stderr, "%02x", buf[i]);
+      fprintf(stderr, "\n");
+
+    }
+
 #endif
 
   } else {

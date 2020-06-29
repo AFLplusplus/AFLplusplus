@@ -26,6 +26,13 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 #include <limits.h>
+#ifndef USEMMAP
+  #include <sys/mman.h>
+  #include <sys/stat.h>
+  #include <fcntl.h>
+  #include <sys/ipc.h>
+  #include <sys/shm.h>
+#endif
 
 #ifdef PROFILING
 extern u64 time_spent_working;
@@ -34,6 +41,7 @@ extern u64 time_spent_working;
 static void at_exit() {
 
   int   i;
+  char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
   char *ptr = getenv("__AFL_TARGET_PID1");
 
   if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
@@ -42,64 +50,28 @@ static void at_exit() {
 
   if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
 
-  // anything else? shared memory?
+  i = 0;
+  while (list[i] != NULL) {
 
-}
+    ptr = getenv(list[i]);
 
-static u8 *get_libradamsa_path(u8 *own_loc) {
+    if (ptr && *ptr) {
 
-  u8 *tmp, *cp, *rsl, *own_copy;
+#ifdef USEMMAP
 
-  tmp = getenv("AFL_PATH");
+      shm_unlink(ptr);
 
-  if (tmp) {
+#else
 
-    cp = alloc_printf("%s/libradamsa.so", tmp);
+      shmctl(atoi(ptr), IPC_RMID, NULL);
 
-    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", cp); }
+#endif
 
-    return cp;
+    }
 
-  }
-
-  own_copy = ck_strdup(own_loc);
-  rsl = strrchr(own_copy, '/');
-
-  if (rsl) {
-
-    *rsl = 0;
-
-    cp = alloc_printf("%s/libradamsa.so", own_copy);
-    ck_free(own_copy);
-
-    if (!access(cp, X_OK)) { return cp; }
-
-  } else {
-
-    ck_free(own_copy);
+    i++;
 
   }
-
-  if (!access(AFL_PATH "/libradamsa.so", X_OK)) {
-
-    return ck_strdup(AFL_PATH "/libradamsa.so");
-
-  }
-
-  if (!access(BIN_PATH "/libradamsa.so", X_OK)) {
-
-    return ck_strdup(BIN_PATH "/libradamsa.so");
-
-  }
-
-  SAYF(
-      "\n" cLRD "[-] " cRST
-      "Oops, unable to find the 'libradamsa.so' binary. The binary must be "
-      "built\n"
-      "    separately using 'make radamsa'. If you already have the binary "
-      "installed,\n    you may need to specify AFL_PATH in the environment.\n");
-
-  FATAL("Failed to locate 'libradamsa.so'.");
 
 }
 
@@ -115,12 +87,13 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "  -o dir        - output directory for fuzzer findings\n\n"
 
       "Execution control settings:\n"
-      "  -p schedule   - power schedules recompute a seed's performance "
-      "score.\n"
-      "                  <explore(default), fast, coe, lin, quad, exploit, "
-      "mmopt, rare>\n"
+      "  -p schedule   - power schedules compute a seed's performance score. "
+      "<explore\n"
+      "                  (default), fast, coe, lin, quad, exploit, mmopt, "
+      "rare, seek>\n"
       "                  see docs/power_schedules.md\n"
-      "  -f file       - location read by the fuzzed program (stdin)\n"
+      "  -f file       - location read by the fuzzed program (default: stdin "
+      "or @@)\n"
       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
       "  -m megs       - memory limit for child process (%d MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
@@ -129,8 +102,6 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "mode)\n\n"
 
       "Mutator settings:\n"
-      "  -R[R]         - add Radamsa as mutator, add another -R to exclusivly "
-      "run it\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths). 0 = "
@@ -146,7 +117,7 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "devices etc.!)\n"
       "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (non-instrumented mode)\n"
-      "  -x dir        - optional fuzzer dictionary (see README.md, its really "
+      "  -x dict_file  - optional fuzzer dictionary (see README.md, its really "
       "good!)\n\n"
 
       "Testing settings:\n"
@@ -159,14 +130,16 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
 
       "Other stuff:\n"
       "  -T text       - text banner to show on the screen\n"
-      "  -M / -S id    - distributed mode (see docs/parallel_fuzzing.md)\n"
+      "  -M/-S id      - distributed mode (see docs/parallel_fuzzing.md)\n"
+      "                  use -D to force -S secondary to perform deterministic "
+      "fuzzing\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
-      "  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap "
-      "file\n"
+      //"  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap
+      //" "file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
-      "  -e ext        - file extension for the temporarily generated test "
-      "case\n\n",
+      "  -e ext        - file extension for the fuzz test input file (if "
+      "needed)\n\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT);
 
   if (more_help > 1) {
@@ -289,10 +262,10 @@ int main(int argc, char **argv_orig, char **envp) {
   doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
 
   gettimeofday(&tv, &tz);
-  afl->init_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
+  rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
 
   while ((opt = getopt(argc, argv,
-                       "+c:i:I:o:f:m:t:T:dnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) >
+                       "+c:i:I:o:f:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) >
          0) {
 
     switch (opt) {
@@ -311,7 +284,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 's': {
 
-        afl->init_seed = strtoul(optarg, 0L, 10);
+        rand_set_seed(afl, strtoul(optarg, 0L, 10));
         afl->fixed_seed = 1;
         break;
 
@@ -346,6 +319,10 @@ int main(int argc, char **argv_orig, char **envp) {
         } else if (!stricmp(optarg, "rare")) {
 
           afl->schedule = RARE;
+
+        } else if (!stricmp(optarg, "seek")) {
+
+          afl->schedule = SEEK;
 
         } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "default") ||
 
@@ -384,7 +361,7 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->out_dir = optarg;
         break;
 
-      case 'M': {                                         /* master sync ID */
+      case 'M': {                                           /* main sync ID */
 
         u8 *c;
 
@@ -413,7 +390,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       break;
 
-      case 'S':
+      case 'S':                                        /* secondary sync id */
 
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
@@ -517,6 +494,11 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       break;
+
+      case 'D':                                    /* enforce deterministic */
+
+        afl->skip_deterministic = 0;
+        break;
 
       case 'd':                                       /* skip deterministic */
 
@@ -782,15 +764,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'R':
 
-        if (afl->use_radamsa) {
-
-          afl->use_radamsa = 2;
-
-        } else {
-
-          afl->use_radamsa = 1;
-
-        }
+        FATAL(
+            "Radamsa is now a custom mutator, please use that "
+            "(custom_mutators/radamsa/).");
 
         break;
 
@@ -823,67 +799,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
     WARNF(
         "Using -M main node with the AFL_CUSTOM_MUTATOR_ONLY mutator options "
-        "will "
-        "result in no deterministic mutations being done!");
+        "will result in no deterministic mutations being done!");
 
   }
 
   if (afl->fixed_seed) {
 
     OKF("Running with fixed seed: %u", (u32)afl->init_seed);
-
-  }
-
-  if (afl->init_seed) {
-
-    afl->rand_seed[0] = afl->init_seed;
-    afl->rand_seed[1] = afl->init_seed ^ 0x1234567890abcdef;
-    afl->rand_seed[2] = afl->init_seed & 0x0123456789abcdef;
-    afl->rand_seed[3] = afl->init_seed | 0x01abcde43f567908;
-
-  }
-
-  // srandom((u32)afl->init_seed);
-  // srand((u32)afl->init_seed);  // in case it is a different implementation
-
-  if (afl->use_radamsa) {
-
-    if (afl->limit_time_sig > 0) {
-
-      FATAL(
-          "MOpt and Radamsa are mutually exclusive unless you specify -L -1. "
-          "We accept pull requests that integrates MOpt with the optional "
-          "mutators (custom/radamsa/redqueen/...).");
-
-    }
-
-    if (afl->limit_time_sig && afl->use_radamsa > 1) {
-
-      FATAL("Radamsa in radamsa-only mode can not run together with -L");
-
-    }
-
-    OKF("Using Radamsa add-on");
-
-    u8 *  libradamsa_path = get_libradamsa_path(argv[0]);
-    void *handle = dlopen(libradamsa_path, RTLD_NOW);
-    ck_free(libradamsa_path);
-
-    if (!handle) { FATAL("Failed to dlopen() libradamsa"); }
-
-    void (*radamsa_init_ptr)(void) = dlsym(handle, "radamsa_init");
-    afl->radamsa_mutate_ptr = dlsym(handle, "radamsa");
-
-    if (!radamsa_init_ptr || !afl->radamsa_mutate_ptr) {
-
-      FATAL("Failed to dlsym() libradamsa");
-
-    }
-
-    /* radamsa_init installs some signal handlers, call it before
-       setup_signal_handlers so that AFL++ can then replace those signal
-       handlers */
-    radamsa_init_ptr();
 
   }
 
@@ -959,6 +881,9 @@ int main(int argc, char **argv_orig, char **envp) {
       break;
     case RARE:
       OKF("Using rare edge focus power schedule (RARE)");
+      break;
+    case SEEK:
+      OKF("Using seek power schedule (SEEK)");
       break;
     case EXPLORE:
       OKF("Using exploration-based constant power schedule (EXPLORE, default)");
@@ -1095,6 +1020,8 @@ int main(int argc, char **argv_orig, char **envp) {
   check_crash_handling();
   check_cpu_governor(afl);
 
+  atexit(at_exit);
+
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
@@ -1106,7 +1033,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->is_main_node && check_main_node_exists(afl) == 1) {
 
-    WARNF("it is wasteful to run more than one master!");
+    WARNF("it is wasteful to run more than one main node!");
     sleep(1);
 
   }
@@ -1258,8 +1185,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  atexit(at_exit);
-
   perform_dry_run(afl);
 
   cull_queue(afl);
@@ -1353,7 +1278,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (!skipped_fuzz && !afl->stop_soon && afl->sync_id) {
 
-      if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+      if (unlikely(afl->is_main_node)) {
+
+        if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 2))) { sync_fuzzers(afl); }
+
+      } else {
+
+        if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+
+      }
 
     }
 
@@ -1422,10 +1355,13 @@ stop_fuzzing:
   destroy_queue(afl);
   destroy_extras(afl);
   destroy_custom_mutators(afl);
+  unsetenv(SHM_ENV_VAR);
+  unsetenv(CMPLOG_SHM_ENV_VAR);
   afl_shm_deinit(&afl->shm);
 
   if (afl->shm_fuzz) {
 
+    unsetenv(SHM_FUZZ_ENV_VAR);
     afl_shm_deinit(afl->shm_fuzz);
     ck_free(afl->shm_fuzz);
 

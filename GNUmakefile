@@ -69,10 +69,11 @@ ifeq "$(shell uname)" "SunOS"
 endif
 
 ifdef STATIC
-  $(info Compiling static version of binaries)
+  $(info Compiling static version of binaries, disabling python though)
   # Disable python for static compilation to simplify things
   PYTHON_OK=0
   PYFLAGS=
+  PYTHON_INCLUDE=/
 
   CFLAGS_OPT += -static
   LDFLAGS += -lm -lpthread -lz -lutil
@@ -96,7 +97,7 @@ endif
 
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
 override CFLAGS += -Wall -g -Wno-pointer-sign -Wmissing-declarations\
-			  -I include/ -Werror -DAFL_PATH=\"$(HELPER_PATH)\" \
+			  -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
 ifeq "$(shell uname -s)" "FreeBSD"
@@ -121,8 +122,8 @@ endif
 
 ifeq "$(shell uname -s)" "Haiku"
   SHMAT_OK=0
-  override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fpic
-  LDFLAGS+=-Wno-deprecated-declarations -lgnu
+  override CFLAGS  += -DUSEMMAP=1 -Wno-error=format -fPIC
+  LDFLAGS += -Wno-deprecated-declarations -lgnu
   SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif
 
@@ -199,12 +200,12 @@ ifneq "$(filter Linux GNU%,$(shell uname))" ""
 endif
 
 ifneq "$(findstring FreeBSD, $(shell uname))" ""
-  CFLAGS  += -pthread
+  override CFLAGS  += -pthread
   LDFLAGS += -lpthread
 endif
 
 ifneq "$(findstring NetBSD, $(shell uname))" ""
-  CFLAGS  += -pthread
+  override CFLAGS  += -pthread
   LDFLAGS += -lpthread
 endif
 
@@ -244,7 +245,7 @@ endif
 
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
-  CFLAGS+=$(ASAN_CFLAGS)
+  override CFLAGS+=$(ASAN_CFLAGS)
   LDFLAGS+=$(ASAN_LDFLAGS)
 endif
 
@@ -252,14 +253,14 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 	SHMAT_OK=1
 else
 	SHMAT_OK=0
-	CFLAGS+=-DUSEMMAP=1
-	LDFLAGS+=-Wno-deprecated-declarations
+	override CFLAGS+=-DUSEMMAP=1
+	LDFLAGS += -Wno-deprecated-declarations -lrt
 endif
 
-ifeq "$(TEST_MMAP)" "1"
+ifdef TEST_MMAP
 	SHMAT_OK=0
-	CFLAGS+=-DUSEMMAP=1
-	LDFLAGS+=-Wno-deprecated-declarations
+	override CFLAGS += -DUSEMMAP=1
+	LDFLAGS += -Wno-deprecated-declarations -lrt
 endif
 
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
@@ -282,8 +283,8 @@ help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
 	@echo "all: just the main afl++ binaries"
-	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap, radamsa"
-	@echo "source-only: everything for source code fuzzing: llvm_mode, gcc_plugin, libdislocator, libtokencap, radamsa"
+	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap"
+	@echo "source-only: everything for source code fuzzing: llvm_mode, gcc_plugin, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"
 	@echo "install: installs everything you have compiled with the build option above"
@@ -311,6 +312,8 @@ ifndef AFL_NO_X86
 test_x86:
 	@echo "[*] Checking for the default compiler cc..."
 	@type $(CC) >/dev/null || ( echo; echo "Oops, looks like there is no compiler '"$(CC)"' in your path."; echo; echo "Don't panic! You can restart with '"$(_)" CC=<yourCcompiler>'."; echo; exit 1 )
+	@echo "[*] Testing the PATH environment variable..."
+	@test "$${PATH}" != "$${PATH#.:}" && { echo "Please remove current directory '.' from PATH to avoid recursion of 'as', thanks!"; echo; exit 1; } || :
 	@echo "[*] Checking for the ability to compile x86 code..."
 	@echo 'main() { __asm__("xorb %al, %al"); }' | $(CC) $(CFLAGS) -w -x c - -o .test1 || ( echo; echo "Oops, looks like your compiler can't generate x86 code."; echo; echo "Don't panic! You can use the LLVM or QEMU mode, but see docs/INSTALL first."; echo "(To ignore this error, set AFL_NO_X86=1 and try again.)"; echo; exit 1 )
 	@rm -f .test1
@@ -374,12 +377,6 @@ src/afl-forkserver.o : $(COMM_HDR) src/afl-forkserver.c include/forkserver.h
 src/afl-sharedmem.o : $(COMM_HDR) src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
-radamsa: src/third_party/libradamsa/libradamsa.so
-	cp src/third_party/libradamsa/libradamsa.so .
-
-src/third_party/libradamsa/libradamsa.so: src/third_party/libradamsa/libradamsa.c src/third_party/libradamsa/radamsa.h
-	$(MAKE) -C src/third_party/libradamsa/ CFLAGS="$(CFLAGS)"
-
 afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
@@ -397,18 +394,29 @@ afl-gotcpu: src/afl-gotcpu.c src/afl-common.o $(COMM_HDR) | test_x86
 
 
 # document all mutations and only do one run (use with only one input file!)
-document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
-	$(CC) -g -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
+document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-performance.o | test_x86
+	$(CC) -D_DEBUG=\"1\" -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
 
 test/unittests/unit_maybe_alloc.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_maybe_alloc.c $(AFL_FUZZ_FILES)
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
 
-test/unittests/unit_preallocable.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_preallocable.c $(AFL_FUZZ_FILES)
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
-
 unit_maybe_alloc: test/unittests/unit_maybe_alloc.o
 	@$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_maybe_alloc
+
+test/unittests/unit_hash.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_hash.c $(AFL_FUZZ_FILES) src/afl-performance.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_hash.c -o test/unittests/unit_hash.o
+
+unit_hash: test/unittests/unit_hash.o src/afl-performance.o
+	@$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_hash $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	./test/unittests/unit_hash
+
+test/unittests/unit_rand.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_rand.c $(AFL_FUZZ_FILES) src/afl-performance.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_rand.c -o test/unittests/unit_rand.o
+
+unit_rand: test/unittests/unit_rand.o src/afl-common.o src/afl-performance.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_rand  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	./test/unittests/unit_rand
 
 test/unittests/unit_list.o : $(COMM_HDR) include/list.h test/unittests/unit_list.c $(AFL_FUZZ_FILES)
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
@@ -417,8 +425,8 @@ unit_list: test/unittests/unit_list.o
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_list.o -o test/unittests/unit_list  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_list
 
-test/unittests/preallocable.o : $(COMM_HDR) include/afl-prealloc.h test/unittests/preallocable.c $(AFL_FUZZ_FILES)
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CFLAGS_FLTO) -c test/unittests/preallocable.c -o test/unittests/preallocable.o
+test/unittests/unit_preallocable.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_preallocable.c $(AFL_FUZZ_FILES)
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
 
 unit_preallocable: test/unittests/unit_preallocable.o
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
@@ -429,7 +437,7 @@ unit_clean:
 
 ifneq "$(shell uname)" "Darwin"
 
-unit: unit_maybe_alloc unit_preallocable unit_list unit_clean
+unit: unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash
 
 else
 
@@ -449,6 +457,8 @@ code-format:
 	./.custom-format.py -i gcc_plugin/*.c
 	#./.custom-format.py -i gcc_plugin/*.h
 	./.custom-format.py -i gcc_plugin/*.cc
+	./.custom-format.py -i custom_mutators/*/*.c
+	./.custom-format.py -i custom_mutators/*/*.h
 	./.custom-format.py -i examples/*/*.c
 	./.custom-format.py -i examples/*/*.h
 	./.custom-format.py -i test/*.c
@@ -501,7 +511,6 @@ clean:
 	$(MAKE) -C examples/argv_fuzzing clean
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
-	$(MAKE) -C src/third_party/libradamsa/ clean
 	rm -rf qemu_mode/qemu-3.1.1
 ifeq "$(IN_REPO)" "1"
 	test -d unicorn_mode/unicornafl && $(MAKE) -C unicorn_mode/unicornafl clean || true
@@ -515,7 +524,7 @@ deepclean:	clean
 	rm -rf unicorn_mode/unicornafl
 	git reset --hard >/dev/null 2>&1 || true
 
-distrib: all radamsa
+distrib: all
 	-$(MAKE) -C llvm_mode
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
@@ -524,18 +533,18 @@ distrib: all radamsa
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
-	cd unicorn_mode && sh ./build_unicorn_support.sh
+	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
-binary-only: all radamsa
+binary-only: all
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
 	$(MAKE) -C examples/afl_network_proxy
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
-	cd unicorn_mode && sh ./build_unicorn_support.sh
+	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
-source-only: all radamsa
+source-only: all
 	-$(MAKE) -C llvm_mode
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
@@ -574,7 +583,6 @@ install: all $(MANPAGES)
 	if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f libradamsa.so ]; then set -e; install -m 755 libradamsa.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
 	if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
 	if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi

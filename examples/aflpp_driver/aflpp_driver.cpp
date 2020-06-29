@@ -277,7 +277,7 @@ int main(int argc, char **argv) {
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {
 #ifdef _DEBUG
-    fprintf(stderr, "CLIENT crc: %08x len: %u\n", hash32(__afl_fuzz_ptr, *__afl_fuzz_len, 0xa5b35705), *__afl_fuzz_len);
+    fprintf(stderr, "CLIENT crc: %016llx len: %u\n", hash64(__afl_fuzz_ptr, *__afl_fuzz_len, 0xa5b35705), *__afl_fuzz_len);
     fprintf(stderr, "RECV:");
     for (int i = 0; i < *__afl_fuzz_len; i++)
       fprintf(stderr, "%02x", __afl_fuzz_ptr[i]);

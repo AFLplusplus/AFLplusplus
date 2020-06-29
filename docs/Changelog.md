@@ -14,6 +14,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - -S secondary nodes now only sync from the main node to increase
        performance, the -M main node still syncs from everyone. Added checks
        that ensure exactly one main node is present and warn otherwise
+     - Add -D after -S to force a secondary to perform deterministic fuzzing
      - If no main node is present at a sync one secondary node automatically
        becomes a temporary main node until a real main nodes shows up
      - Fixed a mayor performance issue we inherited from AFLfast
@@ -23,11 +24,15 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - Ensure that the targets are killed on exit
      - fix/update to MOpt (thanks to arnow117)
      - added MOpt dictionary support from repo
+     - added experimental SEEK power schedule. It is EXPLORE with ignoring
+       the runtime and less focus on the length of the test case
   - llvm_mode:
     - the default instrumentation is now PCGUARD if the llvm version is >= 7,
       as it is faster and provides better coverage. The original afl
       instrumentation can be set via AFL_LLVM_INSTRUMENT=AFL. This is
       automatically done when the WHITELIST feature is used. 
+    - PCGUARD mode is now even better because we made it collision free - plus
+      it has a fixed map size, so it is also faster! :)
     - some targets want a ld variant for LD that is not gcc/clang but ld,
       added afl-ld-lto to solve this
     - lowered minimum required llvm version to 3.4 (except LLVMInsTrim, which
@@ -44,9 +49,15 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - Unicornafl
     - Added powerPC support from unicorn/next
     - rust bindings!
+  - CMPLOG/Redqueen now also works for MMAP sharedmem
+  - ensure shmem is released on errors
+  - we moved radamsa to be a custom mutator in ./custom_mutators/. It is not
+    compiled by default anymore.
+  - allow running in /tmp (only unsafe with umask 0)
   - persistent mode shared memory testcase handover (instead of via
     files/stdin) - 10-100% performance increase
   - General support for 64 bit PowerPC, RiscV, Sparc etc.
+  - fix afl-cmin.bash
   - slightly better performance compilation options for afl++ and targets
   - fixed afl-gcc/afl-as that could break on fast systems reusing pids in
     the same second
