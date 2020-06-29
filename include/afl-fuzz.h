@@ -139,7 +139,8 @@ struct queue_entry {
       var_behavior,                     /* Variable behavior?               */
       favored,                          /* Currently favored?               */
       fs_redundant,                     /* Marked as redundant in the fs?   */
-      fully_colorized;                  /* Do not run redqueen stage again  */
+      fully_colorized,                  /* Do not run redqueen stage again  */
+      is_ascii;                         /* Is the input just ascii text?    */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
       fuzz_level;                       /* Number of fuzzing iterations     */
@@ -947,7 +948,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
                         u64 exec_cksum);
 
 /* xoshiro256** */
-uint64_t rand_next(afl_state_t *afl);
+uint32_t rand_next(afl_state_t *afl);
 
 /**** Inline routines ****/
 
@@ -967,7 +968,7 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
   }
 
-  return rand_next(afl) % limit;
+  return (rand_next(afl) % limit);
 
 }
 
