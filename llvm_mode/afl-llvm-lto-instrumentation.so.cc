@@ -109,6 +109,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
 
   /* Show a banner */
+  setvbuf(stdout, NULL, _IONBF, 0);
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
@@ -162,7 +163,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-  if (debug) { fprintf(stderr, "map address is %lu\n", map_addr); }
+  if (debug) { fprintf(stderr, "map address is 0x%lx\n", map_addr); }
 
   /* Get/set the globals for the SHM region. */
 

@@ -953,6 +953,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
 
+      afl->queue_cur->exec_cksum = 0;
+
       res =
           calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
@@ -1012,8 +1014,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
   orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
   if (unlikely(perf_score == 0)) { goto abandon_entry; }
-
-  if (unlikely(afl->use_radamsa > 1)) { goto radamsa_stage; }
 
   if (afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized) {
 
@@ -2144,6 +2144,7 @@ custom_mutator_stage:
 
       retry_external_pick:
         /* Pick a random other queue entry for passing to external API */
+
         do {
 
           tid = rand_below(afl, afl->queued_paths);
@@ -2168,7 +2169,7 @@ custom_mutator_stage:
         /* Make sure that the target has a reasonable length. */
 
         while (target && (target->len < 2 || target == afl->queue_cur) &&
-               afl->queued_paths > 1) {
+               afl->queued_paths > 3) {
 
           target = target->next;
           ++afl->splicing_with;
@@ -2900,63 +2901,6 @@ retry_splicing:
 #endif                                                     /* !IGNORE_FINDS */
 
   ret_val = 0;
-  goto radamsa_stage;
-
-radamsa_stage:
-
-  if (likely(!afl->use_radamsa || !afl->radamsa_mutate_ptr)) {
-
-    goto abandon_entry;
-
-  }
-
-  afl->stage_name = "radamsa";
-  afl->stage_short = "radamsa";
-  afl->stage_max = (HAVOC_CYCLES * perf_score / afl->havoc_div / 100)
-                   << afl->use_radamsa;
-
-  if (afl->stage_max < HAVOC_MIN) { afl->stage_max = HAVOC_MIN; }
-
-  orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
-
-  /* Read the additional testcase.
-  We'll reuse in_scratch, as it is free at this point.
-  */
-  u8 *save_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), len);
-  memcpy(save_buf, out_buf, len);
-
-  u32 max_len = len + choose_block_len(afl, HAVOC_BLK_XL);
-  u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), max_len);
-  u8 *tmp_buf;
-
-  for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
-
-    u32 new_len = afl->radamsa_mutate_ptr(save_buf, len, new_buf, max_len,
-                                          get_rand_seed(afl));
-
-    if (new_len) {
-
-      temp_len = new_len;
-      tmp_buf = new_buf;
-
-    } else {
-
-      tmp_buf = save_buf;  // nope but I dont care
-      temp_len = len;
-
-    }
-
-    if (common_fuzz_stuff(afl, tmp_buf, temp_len)) { goto abandon_entry; }
-
-  }
-
-  new_hit_cnt = afl->queued_paths + afl->unique_crashes;
-
-  afl->stage_finds[STAGE_RADAMSA] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_RADAMSA] += afl->stage_max;
-
-  ret_val = 0;
-  goto abandon_entry;
 
 /* we are through with this queue entry - for this iteration */
 abandon_entry:
@@ -3098,6 +3042,8 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     u8 res = FSRV_RUN_TMOUT;
 
     if (afl->queue_cur->cal_failed < CAL_CHANCES) {
+
+      afl->queue_cur->exec_cksum = 0;
 
       res =
           calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);

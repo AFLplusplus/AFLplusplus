@@ -1049,6 +1049,9 @@ int main(int argc, char **argv, char **envp) {
   check_environment_vars(envp);
 
   sharedmem_t shm = {0};
+
+  /* initialize cmplog_mode */
+  shm.cmplog_mode = 0;
   trace_bits = afl_shm_init(&shm, map_size, 0);
   atexit(at_exit_handler);
   setup_signal_handlers();
