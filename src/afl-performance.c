@@ -44,12 +44,10 @@ void rand_set_seed(afl_state_t *afl, s64 init_seed) {
 
 }
 
-uint32_t rand_next(afl_state_t *afl) {
+uint64_t rand_next(afl_state_t *afl) {
 
-  const uint32_t result =
-      (uint32_t)rotl(afl->rand_seed[0] + afl->rand_seed[3], 23) +
-      afl->rand_seed[0];
-  //  const uint32_t result = (uint32_t) rotl(afl->rand_seed[1] * 5, 7) * 9;
+  const uint64_t result =
+      rotl(afl->rand_seed[0] + afl->rand_seed[3], 23) + afl->rand_seed[0];
 
   const uint64_t t = afl->rand_seed[1] << 17;
 
@@ -62,7 +60,7 @@ uint32_t rand_next(afl_state_t *afl) {
 
   afl->rand_seed[3] = rotl(afl->rand_seed[3], 45);
 
-  return (uint32_t)result;
+  return result;
 
 }
 
