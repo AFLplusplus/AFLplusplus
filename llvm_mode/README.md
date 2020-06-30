@@ -108,8 +108,8 @@ directory.
 Several options are present to make llvm_mode faster or help it rearrange
 the code to make afl-fuzz path discovery easier.
 
-If you need just to instrument specific parts of the code, you can whitelist
-which C/C++ files to actually instrument. See [README.whitelist](README.whitelist.md)
+If you need just to instrument specific parts of the code, you can the instrument file list
+which C/C++ files to actually instrument. See [README.instrument_file](README.instrument_file.md)
 
 For splitting memcmp, strncmp, etc. please see [README.laf-intel](README.laf-intel.md)
 

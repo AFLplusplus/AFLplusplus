@@ -18,7 +18,7 @@
 
 using namespace llvm;
 
-static std::list<std::string> myWhitelist;
+static std::list<std::string> myInstrumentList;
 
 char *getBBName(const llvm::BasicBlock *BB) {
 
@@ -44,7 +44,7 @@ char *getBBName(const llvm::BasicBlock *BB) {
 }
 
 /* Function that we never instrument or analyze */
-/* Note: this ignore check is also called in isInWhitelist() */
+/* Note: this ignore check is also called in isInInstrumentList() */
 bool isIgnoreFunction(const llvm::Function *F) {
 
   // Starting from "LLVMFuzzer" these are functions used in libfuzzer based
@@ -83,19 +83,22 @@ bool isIgnoreFunction(const llvm::Function *F) {
 
 }
 
-void initWhitelist() {
+void initInstrumentList() {
 
-  char *instWhiteListFilename = getenv("AFL_LLVM_WHITELIST");
-  if (instWhiteListFilename) {
+  char *instrumentListFilename = getenv("AFL_LLVM_INSTRUMENT_FILE");
+  if (!instrumentListFilename)
+    instrumentListFilename = getenv("AFL_LLVM_WHITELIST");
+  if (instrumentListFilename) {
 
     std::string   line;
     std::ifstream fileStream;
-    fileStream.open(instWhiteListFilename);
-    if (!fileStream) report_fatal_error("Unable to open AFL_LLVM_WHITELIST");
+    fileStream.open(instrumentListFilename);
+    if (!fileStream)
+      report_fatal_error("Unable to open AFL_LLVM_INSTRUMENT_FILE");
     getline(fileStream, line);
     while (fileStream) {
 
-      myWhitelist.push_back(line);
+      myInstrumentList.push_back(line);
       getline(fileStream, line);
 
     }
@@ -104,14 +107,14 @@ void initWhitelist() {
 
 }
 
-bool isInWhitelist(llvm::Function *F) {
+bool isInInstrumentList(llvm::Function *F) {
 
   // is this a function with code? If it is external we dont instrument it
-  // anyway and cant be in the whitelist. Or if it is ignored.
+  // anyway and cant be in the the instrument file list. Or if it is ignored.
   if (!F->size() || isIgnoreFunction(F)) return false;
 
-  // if we do not have a whitelist return true
-  if (myWhitelist.empty()) return true;
+  // if we do not have a the instrument file list return true
+  if (myInstrumentList.empty()) return true;
 
   // let's try to get the filename for the function
   auto                 bb = &F->getEntryBlock();
@@ -147,8 +150,8 @@ bool isInWhitelist(llvm::Function *F) {
     /* Continue only if we know where we actually are */
     if (!instFilename.str().empty()) {
 
-      for (std::list<std::string>::iterator it = myWhitelist.begin();
-           it != myWhitelist.end(); ++it) {
+      for (std::list<std::string>::iterator it = myInstrumentList.begin();
+           it != myInstrumentList.end(); ++it) {
 
         /* We don't check for filename equality here because
          * filenames might actually be full paths. Instead we
@@ -185,8 +188,8 @@ bool isInWhitelist(llvm::Function *F) {
     /* Continue only if we know where we actually are */
     if (!instFilename.str().empty()) {
 
-      for (std::list<std::string>::iterator it = myWhitelist.begin();
-           it != myWhitelist.end(); ++it) {
+      for (std::list<std::string>::iterator it = myInstrumentList.begin();
+           it != myInstrumentList.end(); ++it) {
 
         /* We don't check for filename equality here because
          * filenames might actually be full paths. Instead we
@@ -215,7 +218,7 @@ bool isInWhitelist(llvm::Function *F) {
   else {
 
     // we could not find out the location. in this case we say it is not
-    // in the whitelist
+    // in the the instrument file list
 
     return false;
 

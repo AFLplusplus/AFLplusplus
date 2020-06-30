@@ -59,7 +59,7 @@ class CmpLogRoutines : public ModulePass {
   static char ID;
   CmpLogRoutines() : ModulePass(ID) {
 
-    initWhitelist();
+    initInstrumentList();
 
   }
 
@@ -118,7 +118,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
 
-    if (!isInWhitelist(&F)) continue;
+    if (!isInInstrumentList(&F)) continue;
 
     for (auto &BB : F) {
 

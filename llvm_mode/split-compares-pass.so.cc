@@ -55,7 +55,7 @@ class SplitComparesTransform : public ModulePass {
   static char ID;
   SplitComparesTransform() : ModulePass(ID) {
 
-    initWhitelist();
+    initInstrumentList();
 
   }
 
@@ -102,7 +102,7 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
    * all integer comparisons with >= and <= predicates to the icomps vector */
   for (auto &F : M) {
 
-    if (!isInWhitelist(&F)) continue;
+    if (!isInInstrumentList(&F)) continue;
 
     for (auto &BB : F) {
 
