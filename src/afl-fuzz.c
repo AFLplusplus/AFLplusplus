@@ -1280,7 +1280,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (unlikely(afl->is_main_node)) {
 
-        if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 2))) { sync_fuzzers(afl); }
+        if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) { sync_fuzzers(afl); }
 
       } else {
 
