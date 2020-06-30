@@ -2,7 +2,7 @@
 // There are some TODOs in this file:
 //   - fix instrumentation via external call
 //   - fix inline instrumentation
-//   - implement whitelist feature
+//   - implement instrument list feature
 //   - dont instrument blocks that are uninteresting
 //   - implement neverZero
 //
@@ -95,7 +95,7 @@
 static int                    be_quiet = 0;
 static unsigned int           inst_ratio = 100;
 static bool                   inst_ext = true;
-static std::list<std::string> myWhitelist;
+static std::list<std::string> myInstrumentList;
 
 static unsigned int ext_call_instrument(function *fun) {
 
@@ -414,7 +414,7 @@ class afl_pass : public gimple_opt_pass {
 
   unsigned int execute(function *fun) override {
 
-    if (!myWhitelist.empty()) {
+    if (!myInstrumentList.empty()) {
 
       bool         instrumentBlock = false;
       std::string  instFilename;
@@ -436,8 +436,8 @@ class afl_pass : public gimple_opt_pass {
         /* Continue only if we know where we actually are */
         if (!instFilename.empty()) {
 
-          for (std::list<std::string>::iterator it = myWhitelist.begin();
-               it != myWhitelist.end(); ++it) {
+          for (std::list<std::string>::iterator it = myInstrumentList.begin();
+               it != myInstrumentList.end(); ++it) {
 
             /* We don't check for filename equality here because
              * filenames might actually be full paths. Instead we
@@ -462,13 +462,14 @@ class afl_pass : public gimple_opt_pass {
       }
 
       /* Either we couldn't figure out our location or the location is
-       * not whitelisted, so we skip instrumentation. */
+       * not in the instrument list, so we skip instrumentation. */
       if (!instrumentBlock) {
 
         if (!be_quiet) {
 
           if (!instFilename.empty())
-            SAYF(cYEL "[!] " cBRI "Not in whitelist, skipping %s line %u...\n",
+            SAYF(cYEL "[!] " cBRI
+                      "Not in instrument list, skipping %s line %u...\n",
                  instFilename.c_str(), instLine);
           else
             SAYF(cYEL "[!] " cBRI "No filename information found, skipping it");
@@ -562,26 +563,32 @@ int plugin_init(struct plugin_name_args *  plugin_info,
 
   }
 
-  char *instWhiteListFilename = getenv("AFL_GCC_WHITELIST");
-  if (instWhiteListFilename) {
+  char *instInstrumentListFilename = getenv("AFL_GCC_INSTRUMENT_FILE");
+  if (!instInstrumentListFilename)
+    instInstrumentListFilename = getenv("AFL_GCC_WHITELIST");
+  if (instInstrumentListFilename) {
 
     std::string   line;
     std::ifstream fileStream;
-    fileStream.open(instWhiteListFilename);
-    if (!fileStream) PFATAL("Unable to open AFL_GCC_WHITELIST");
+    fileStream.open(instInstrumentListFilename);
+    if (!fileStream) PFATAL("Unable to open AFL_GCC_INSTRUMENT_FILE");
     getline(fileStream, line);
     while (fileStream) {
 
-      myWhitelist.push_back(line);
+      myInstrumentList.push_back(line);
       getline(fileStream, line);
 
     }
 
-  } else if (!be_quiet && getenv("AFL_LLVM_WHITELIST"))
+  } else if (!be_quiet && (getenv("AFL_LLVM_WHITELIST") ||
+
+                           getenv("AFL_LLVM_INSTRUMENT_FILE"))) {
 
     SAYF(cYEL "[-] " cRST
-              "AFL_LLVM_WHITELIST environment variable detected - did you mean "
-              "AFL_GCC_WHITELIST?\n");
+              "AFL_LLVM_INSTRUMENT_FILE environment variable detected - did "
+              "you mean AFL_GCC_INSTRUMENT_FILE?\n");
+
+  }
 
   /* Go go gadget */
   register_callback(plugin_info->base_name, PLUGIN_INFO, NULL,

@@ -59,7 +59,7 @@ class CmpLogInstructions : public ModulePass {
   static char ID;
   CmpLogInstructions() : ModulePass(ID) {
 
-    initWhitelist();
+    initInstrumentList();
 
   }
 
@@ -170,7 +170,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
 
-    if (!isInWhitelist(&F)) continue;
+    if (!isInInstrumentList(&F)) continue;
 
     for (auto &BB : F) {
 

@@ -74,7 +74,7 @@ class AFLCoverage : public ModulePass {
   static char ID;
   AFLCoverage() : ModulePass(ID) {
 
-    initWhitelist();
+    initInstrumentList();
 
   }
 
@@ -307,7 +307,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       fprintf(stderr, "FUNCTION: %s (%zu)\n", F.getName().str().c_str(),
               F.size());
 
-    if (!isInWhitelist(&F)) continue;
+    if (!isInInstrumentList(&F)) continue;
 
     if (F.size() < function_minimum_size) continue;
 

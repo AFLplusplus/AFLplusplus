@@ -562,16 +562,17 @@ struct InsTrimLTO : public ModulePass {
 
       // if the function below our minimum size skip it (1 or 2)
       if (F.size() < function_minimum_size) continue;
-      if (isBlacklisted(&F)) continue;
+      if (isIgnoreFunction(&F)) continue;
 
       functions++;
 
-      // whitelist check
+      // the instrument file list check
       AttributeList Attrs = F.getAttributes();
       if (Attrs.hasAttribute(-1, StringRef("skipinstrument"))) {
 
         if (debug)
-          fprintf(stderr, "DEBUG: Function %s is not whitelisted\n",
+          fprintf(stderr,
+                  "DEBUG: Function %s is not the instrument file listed\n",
                   F.getName().str().c_str());
         continue;
 
