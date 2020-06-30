@@ -44,13 +44,13 @@ char *getBBName(const llvm::BasicBlock *BB) {
 }
 
 /* Function that we never instrument or analyze */
-/* Note: this blacklist check is also called in isInWhitelist() */
-bool isBlacklisted(const llvm::Function *F) {
+/* Note: this ignore check is also called in isInWhitelist() */
+bool isIgnoreFunction(const llvm::Function *F) {
 
   // Starting from "LLVMFuzzer" these are functions used in libfuzzer based
   // fuzzing campaign installations, e.g. oss-fuzz
 
-  static const char *Blacklist[] = {
+  static const char *ignoreList[] = {
 
       "asan.",
       "llvm.",
@@ -73,9 +73,9 @@ bool isBlacklisted(const llvm::Function *F) {
 
   };
 
-  for (auto const &BlacklistFunc : Blacklist) {
+  for (auto const &ignoreListFunc : ignoreList) {
 
-    if (F->getName().startswith(BlacklistFunc)) { return true; }
+    if (F->getName().startswith(ignoreListFunc)) { return true; }
 
   }
 
@@ -107,8 +107,8 @@ void initWhitelist() {
 bool isInWhitelist(llvm::Function *F) {
 
   // is this a function with code? If it is external we dont instrument it
-  // anyway and cant be in the whitelist. Or if it is blacklisted.
-  if (!F->size() || isBlacklisted(F)) return false;
+  // anyway and cant be in the whitelist. Or if it is ignored.
+  if (!F->size() || isIgnoreFunction(F)) return false;
 
   // if we do not have a whitelist return true
   if (myWhitelist.empty()) return true;

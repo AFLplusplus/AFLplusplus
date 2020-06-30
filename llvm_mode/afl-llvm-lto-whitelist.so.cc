@@ -126,7 +126,7 @@ bool AFLwhitelist::runOnModule(Module &M) {
 
     if (F.size() < 1) continue;
     // fprintf(stderr, "F:%s\n", F.getName().str().c_str());
-    if (isBlacklisted(&F)) continue;
+    if (isIgnoreFunction(&F)) continue;
 
     BasicBlock::iterator IP = F.getEntryBlock().getFirstInsertionPt();
     IRBuilder<>          IRB(&(*IP));

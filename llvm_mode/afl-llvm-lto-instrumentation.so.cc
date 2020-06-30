@@ -196,7 +196,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
     // fprintf(stderr, "DEBUG: Function %s\n", F.getName().str().c_str());
 
     if (F.size() < function_minimum_size) continue;
-    if (isBlacklisted(&F)) continue;
+    if (isIgnoreFunction(&F)) continue;
 
     // whitelist check
     AttributeList Attrs = F.getAttributes();
