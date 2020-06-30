@@ -198,12 +198,13 @@ bool AFLLTOPass::runOnModule(Module &M) {
     if (F.size() < function_minimum_size) continue;
     if (isIgnoreFunction(&F)) continue;
 
-    // whitelist check
+    // the instrument file list check
     AttributeList Attrs = F.getAttributes();
     if (Attrs.hasAttribute(-1, StringRef("skipinstrument"))) {
 
       if (debug)
-        fprintf(stderr, "DEBUG: Function %s is not whitelisted\n",
+        fprintf(stderr,
+                "DEBUG: Function %s is not the instrument file listed\n",
                 F.getName().str().c_str());
       continue;
 

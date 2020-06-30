@@ -28,7 +28,7 @@ afl-qemu-optimize-map.diff		by mh(at)mh-sec(dot)de
 + AFLfast additions (github.com/mboehme/aflfast) were incorporated.
 + Qemu 3.1 upgrade with enhancement patches (github.com/andreafioraldi/afl)
 + Python mutator modules support (github.com/choller/afl)
-+ Whitelisting in LLVM mode (github.com/choller/afl)
++ Instrument file list in LLVM mode (github.com/choller/afl)
 + forkserver patch for afl-tmin (github.com/nccgroup/TriforceAFL)
 
 

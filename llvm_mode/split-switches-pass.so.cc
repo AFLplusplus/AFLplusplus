@@ -60,7 +60,7 @@ class SplitSwitchesTransform : public ModulePass {
   static char ID;
   SplitSwitchesTransform() : ModulePass(ID) {
 
-    initWhitelist();
+    initInstrumentList();
 
   }
 
@@ -312,7 +312,7 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
    * all switches to switches vector for later processing */
   for (auto &F : M) {
 
-    if (!isInWhitelist(&F)) continue;
+    if (!isInInstrumentList(&F)) continue;
 
     for (auto &BB : F) {
 

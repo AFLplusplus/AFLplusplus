@@ -790,8 +790,8 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
   OKF("Power schedules from github.com/mboehme/aflfast");
-  OKF("Python Mutator and llvm_mode whitelisting from github.com/choller/afl");
-  OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
+  OKF("Python Mutator and llvm_mode instrument file list from "
+      "github.com/choller/afl");
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
   if (afl->sync_id && afl->is_main_node &&
