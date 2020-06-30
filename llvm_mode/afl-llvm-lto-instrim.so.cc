@@ -562,7 +562,7 @@ struct InsTrimLTO : public ModulePass {
 
       // if the function below our minimum size skip it (1 or 2)
       if (F.size() < function_minimum_size) continue;
-      if (isBlacklisted(&F)) continue;
+      if (isIgnoreFunction(&F)) continue;
 
       functions++;
 
