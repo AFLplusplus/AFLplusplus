@@ -7,7 +7,7 @@ This version requires a current llvm 11 compiled from the github master.
 1. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
    coverage than anything else that is out there in the AFL world
 
-2. You can use it together with llvm_mode: laf-intel and whitelisting
+2. You can use it together with llvm_mode: laf-intel and the instrument file listing
    features and can be combined with cmplog/Redqueen
 
 3. It only works with llvm 11 (current github master state)
@@ -108,7 +108,7 @@ make install
 
 Just use afl-clang-lto like you did with afl-clang-fast or afl-gcc.
 
-Also whitelisting (AFL_LLVM_WHITELIST -> [README.whitelist.md](README.whitelist.md)) and
+Also the instrument file listing (AFL_LLVM_INSTRUMENT_FILE -> [README.instrument_file.md](README.instrument_file.md)) and
 laf-intel/compcov (AFL_LLVM_LAF_* -> [README.laf-intel.md](README.laf-intel.md)) work.
 InsTrim (control flow graph instrumentation) is supported and recommended!
   (set `AFL_LLVM_INSTRUMENT=CFG`)

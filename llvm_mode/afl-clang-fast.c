@@ -227,13 +227,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (lto_mode) {
 
-    if (getenv("AFL_LLVM_WHITELIST") != NULL) {
+    if (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
+        getenv("AFL_LLVM_WHITELIST")) {
 
       cc_params[cc_par_cnt++] = "-Xclang";
       cc_params[cc_par_cnt++] = "-load";
       cc_params[cc_par_cnt++] = "-Xclang";
       cc_params[cc_par_cnt++] =
-          alloc_printf("%s/afl-llvm-lto-whitelist.so", obj_path);
+          alloc_printf("%s/afl-llvm-lto-instrumentlist.so", obj_path);
 
     }
 
@@ -762,7 +763,7 @@ int main(int argc, char **argv, char **envp) {
 #if LLVM_VERSION_MAJOR <= 6
     instrument_mode = INSTRUMENT_AFL;
 #else
-    if (getenv("AFL_LLVM_WHITELIST"))
+    if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST"))
       instrument_mode = INSTRUMENT_AFL;
     else
       instrument_mode = INSTRUMENT_PCGUARD;
@@ -810,8 +811,11 @@ int main(int argc, char **argv, char **envp) {
         "AFL_LLVM_NOT_ZERO and AFL_LLVM_SKIP_NEVERZERO can not be set "
         "together");
 
-  if (instrument_mode == INSTRUMENT_PCGUARD && getenv("AFL_LLVM_WHITELIST"))
-    WARNF("Instrumentation type PCGUARD does not support AFL_LLVM_WHITELIST!");
+  if (instrument_mode == INSTRUMENT_PCGUARD &&
+      (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST")))
+    WARNF(
+        "Instrumentation type PCGUARD does not support "
+        "AFL_LLVM_INSTRUMENT_FILE!");
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -861,7 +865,8 @@ int main(int argc, char **argv, char **envp) {
         "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
         "function calls\n"
         "AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
-        "AFL_LLVM_WHITELIST: enable whitelisting (selective "
+        "AFL_LLVM_INSTRUMENT_FILE: enable the instrument file listing "
+        "(selective "
         "instrumentation)\n"
         "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
         "AFL_PATH: path to instrumenting pass and runtime "

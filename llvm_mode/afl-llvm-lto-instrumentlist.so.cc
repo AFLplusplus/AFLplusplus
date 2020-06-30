@@ -53,27 +53,30 @@ using namespace llvm;
 
 namespace {
 
-class AFLwhitelist : public ModulePass {
+class AFLcheckIfInstrument : public ModulePass {
 
  public:
   static char ID;
-  AFLwhitelist() : ModulePass(ID) {
+  AFLcheckIfInstrument() : ModulePass(ID) {
 
     int entries = 0;
 
     if (getenv("AFL_DEBUG")) debug = 1;
 
-    char *instWhiteListFilename = getenv("AFL_LLVM_WHITELIST");
-    if (instWhiteListFilename) {
+    char *instrumentListFilename = getenv("AFL_LLVM_INSTRUMENT_FILE");
+    if (!instrumentListFilename)
+      instrumentListFilename = getenv("AFL_LLVM_WHITELIST");
+    if (instrumentListFilename) {
 
       std::string   line;
       std::ifstream fileStream;
-      fileStream.open(instWhiteListFilename);
-      if (!fileStream) report_fatal_error("Unable to open AFL_LLVM_WHITELIST");
+      fileStream.open(instrumentListFilename);
+      if (!fileStream)
+        report_fatal_error("Unable to open AFL_LLVM_INSTRUMENT_FILE");
       getline(fileStream, line);
       while (fileStream) {
 
-        myWhitelist.push_back(line);
+        myInstrumentList.push_back(line);
         getline(fileStream, line);
         entries++;
 
@@ -81,11 +84,14 @@ class AFLwhitelist : public ModulePass {
 
     } else
 
-      PFATAL("afl-llvm-lto-whitelist.so loaded without AFL_LLVM_WHITELIST?!");
+      PFATAL(
+          "afl-llvm-lto-instrumentlist.so loaded without "
+          "AFL_LLVM_INSTRUMENT_FILE?!");
 
     if (debug)
-      SAYF(cMGN "[D] " cRST "loaded whitelist %s with %d entries\n",
-           instWhiteListFilename, entries);
+      SAYF(cMGN "[D] " cRST
+                "loaded the instrument file list %s with %d entries\n",
+           instrumentListFilename, entries);
 
   }
 
@@ -97,16 +103,16 @@ class AFLwhitelist : public ModulePass {
   // }
 
  protected:
-  std::list<std::string> myWhitelist;
+  std::list<std::string> myInstrumentList;
   int                    debug = 0;
 
 };
 
 }  // namespace
 
-char AFLwhitelist::ID = 0;
+char AFLcheckIfInstrument::ID = 0;
 
-bool AFLwhitelist::runOnModule(Module &M) {
+bool AFLcheckIfInstrument::runOnModule(Module &M) {
 
   /* Show a banner */
 
@@ -115,7 +121,7 @@ bool AFLwhitelist::runOnModule(Module &M) {
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
-    SAYF(cCYA "afl-llvm-lto-whitelist" VERSION cRST
+    SAYF(cCYA "afl-llvm-lto-instrumentlist" VERSION cRST
               " by Marc \"vanHauser\" Heuse <mh@mh-sec.de>\n");
 
   } else if (getenv("AFL_QUIET"))
@@ -126,12 +132,12 @@ bool AFLwhitelist::runOnModule(Module &M) {
 
     if (F.size() < 1) continue;
     // fprintf(stderr, "F:%s\n", F.getName().str().c_str());
-    if (isBlacklisted(&F)) continue;
+    if (isIgnoreFunction(&F)) continue;
 
     BasicBlock::iterator IP = F.getEntryBlock().getFirstInsertionPt();
     IRBuilder<>          IRB(&(*IP));
 
-    if (!myWhitelist.empty()) {
+    if (!myInstrumentList.empty()) {
 
       bool instrumentFunction = false;
 
@@ -168,8 +174,8 @@ bool AFLwhitelist::runOnModule(Module &M) {
         /* Continue only if we know where we actually are */
         if (!instFilename.str().empty()) {
 
-          for (std::list<std::string>::iterator it = myWhitelist.begin();
-               it != myWhitelist.end(); ++it) {
+          for (std::list<std::string>::iterator it = myInstrumentList.begin();
+               it != myInstrumentList.end(); ++it) {
 
             /* We don't check for filename equality here because
              * filenames might actually be full paths. Instead we
@@ -194,18 +200,19 @@ bool AFLwhitelist::runOnModule(Module &M) {
       }
 
       /* Either we couldn't figure out our location or the location is
-       * not whitelisted, so we skip instrumentation.
+       * not the instrument file listed, so we skip instrumentation.
        * We do this by renaming the function. */
       if (instrumentFunction == true) {
 
         if (debug)
-          SAYF(cMGN "[D] " cRST "function %s is in whitelist\n",
+          SAYF(cMGN "[D] " cRST "function %s is in the instrument file list\n",
                F.getName().str().c_str());
 
       } else {
 
         if (debug)
-          SAYF(cMGN "[D] " cRST "function %s is NOT in whitelist\n",
+          SAYF(cMGN "[D] " cRST
+                    "function %s is NOT in the instrument file list\n",
                F.getName().str().c_str());
 
         auto &        Ctx = F.getContext();
@@ -219,7 +226,7 @@ bool AFLwhitelist::runOnModule(Module &M) {
 
     } else {
 
-      PFATAL("Whitelist is empty");
+      PFATAL("InstrumentList is empty");
 
     }
 
@@ -229,16 +236,18 @@ bool AFLwhitelist::runOnModule(Module &M) {
 
 }
 
-static void registerAFLwhitelistpass(const PassManagerBuilder &,
-                                     legacy::PassManagerBase &PM) {
+static void registerAFLcheckIfInstrumentpass(const PassManagerBuilder &,
+                                             legacy::PassManagerBase &PM) {
 
-  PM.add(new AFLwhitelist());
+  PM.add(new AFLcheckIfInstrument());
 
 }
 
-static RegisterStandardPasses RegisterAFLwhitelistpass(
-    PassManagerBuilder::EP_ModuleOptimizerEarly, registerAFLwhitelistpass);
+static RegisterStandardPasses RegisterAFLcheckIfInstrumentpass(
+    PassManagerBuilder::EP_ModuleOptimizerEarly,
+    registerAFLcheckIfInstrumentpass);
 
-static RegisterStandardPasses RegisterAFLwhitelistpass0(
-    PassManagerBuilder::EP_EnabledOnOptLevel0, registerAFLwhitelistpass);
+static RegisterStandardPasses RegisterAFLcheckIfInstrumentpass0(
+    PassManagerBuilder::EP_EnabledOnOptLevel0,
+    registerAFLcheckIfInstrumentpass);
 

@@ -204,14 +204,14 @@ Then there are a few specific features that are only available in llvm_mode:
 
     See llvm_mode/README.laf-intel.md for more information.
 
-### WHITELIST
+### INSTRUMENT_FILE
 
     This feature allows selectively instrumentation of the source
 
-    - Setting AFL_LLVM_WHITELIST with a filename will only instrument those
+    - Setting AFL_LLVM_INSTRUMENT_FILE with a filename will only instrument those
       files that match the names listed in this file.
 
-    See llvm_mode/README.whitelist.md for more information.
+    See llvm_mode/README.instrument_file.md for more information.
 
 ### NOT_ZERO
 
@@ -236,14 +236,14 @@ Then there are a few specific features that are only available in llvm_mode:
 
 Then there are a few specific features that are only available in the gcc_plugin:
 
-### WHITELIST
+### INSTRUMENT_FILE
 
     This feature allows selective instrumentation of the source
 
-    - Setting AFL_GCC_WHITELIST with a filename will only instrument those
+    - Setting AFL_GCC_INSTRUMENT_FILE with a filename will only instrument those
       files that match the names listed in this file (one filename per line).
 
-    See gcc_plugin/README.whitelist.md for more information.
+    See gcc_plugin/README.instrument_file.md for more information.
 
 ## 3) Settings for afl-fuzz
 

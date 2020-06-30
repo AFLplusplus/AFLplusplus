@@ -33,9 +33,9 @@ typedef long double max_align_t;
 #endif
 
 char *                 getBBName(const llvm::BasicBlock *BB);
-bool                   isBlacklisted(const llvm::Function *F);
-void                   initWhitelist();
-bool                   isInWhitelist(llvm::Function *F);
+bool                   isIgnoreFunction(const llvm::Function *F);
+void                   initInstrumentList();
+bool                   isInInstrumentList(llvm::Function *F);
 unsigned long long int calculateCollisions(uint32_t edges);
 
 #endif
