@@ -47,7 +47,7 @@ project/feature_b/b1.cpp
 project/feature_b/b2.cpp
 ```
 
-and you only want to test feature_a, then create a instrument file list file containing:
+and you only want to test feature_a, then create a the instrument file list file containing:
 
 ```
 feature_a/a1.cpp
@@ -64,8 +64,8 @@ a2.cpp
 but it might lead to files being unwantedly instrumented if the same filename
 exists somewhere else in the project directories.
 
-The created instrument file list file is then set to AFL_LLVM_INSTRUMENT_FILE when you compile
-your program. For each file that didn't match the instrument file list, the compiler will
+The created the instrument file list file is then set to AFL_LLVM_INSTRUMENT_FILE when you compile
+your program. For each file that didn't match the the instrument file list, the compiler will
 issue a warning at the end stating that no blocks were instrumented. If you
 didn't intend to instrument that file, then you can safely ignore that warning.
 
@@ -75,5 +75,5 @@ required anymore (and might hurt performance and crash detection, so better not
 use -g).
 
 ## 4) UNIX-style filename pattern matching
-You can add UNIX-style pattern matching in the instrument file list entries. See `man
+You can add UNIX-style pattern matching in the the instrument file list entries. See `man
 fnmatch` for the syntax. We do not set any of the `fnmatch` flags.

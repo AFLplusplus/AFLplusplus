@@ -253,7 +253,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     the original script is still present as afl-cmin.bash
   - afl-showmap: -i dir option now allows processing multiple inputs using the
      forkserver. This is for enhanced speed in afl-cmin.
-  - added ignore and instrument_file list function check in all modules of llvm_mode
+  - added blacklist and instrument_filesing function check in all modules of llvm_mode
   - added fix from Debian project to compile libdislocator and libtokencap
   - libdislocator: AFL_ALIGNED_ALLOC to force size alignment to max_align_t
 
@@ -308,7 +308,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     performance loss of ~10%
   - added test/test-performance.sh script
   - (re)added gcc_plugin, fast inline instrumentation is not yet finished,
-    however it includes the instrument_files listing and persistance feature! by hexcoder-
+    however it includes the instrument_filesing and persistance feature! by hexcoder-
   - gcc_plugin tests added to testing framework
 
 
@@ -396,7 +396,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - more cpu power for afl-system-config
   - added forkserver patch to afl-tmin, makes it much faster (originally from
     github.com/nccgroup/TriforceAFL)
-  - added instrument_files support for llvm_mode via AFL_LLVM_INSTRUMENT_FILE to allow
+  - added instrument_files support for llvm_mode via AFL_LLVM_WHITELIST to allow
     only to instrument what is actually interesting. Gives more speed and less
     map pollution (originally by choller@mozilla)
   - added Python Module mutator support, python2.7-dev is autodetected.
