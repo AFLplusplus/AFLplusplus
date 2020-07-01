@@ -34,18 +34,18 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - the default instrumentation is now PCGUARD if the llvm version is >= 7,
       as it is faster and provides better coverage. The original afl
       instrumentation can be set via AFL_LLVM_INSTRUMENT=AFL. This is
-      automatically done when the WHITELIST feature is used. 
+      automatically done when the instrument_file list feature is used. 
     - PCGUARD mode is now even better because we made it collision free - plus
       it has a fixed map size, so it is also faster! :)
     - some targets want a ld variant for LD that is not gcc/clang but ld,
       added afl-ld-lto to solve this
     - lowered minimum required llvm version to 3.4 (except LLVMInsTrim, which
       needs 3.8.0)
-    - WHITELIST feature now supports wildcards (thanks to sirmc)
+    - instrument_file list feature now supports wildcards (thanks to sirmc)
     - small change to cmplog to make it work with current llvm 11-dev
     - added AFL_LLVM_LAF_ALL, sets all laf-intel settings
     - LTO instrument_files functionality rewritten, now main, _init etc functions
-      need not to be instrument_filesed anymore
+      need not to be listed anymore
     - fixed crash in compare-transform-pass when strcasecmp/strncasecmp was
       tried to be instrumented with LTO
     - fixed crash in cmplog with LTO
@@ -253,7 +253,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     the original script is still present as afl-cmin.bash
   - afl-showmap: -i dir option now allows processing multiple inputs using the
      forkserver. This is for enhanced speed in afl-cmin.
-  - added blacklist and instrument_filesing function check in all modules of llvm_mode
+  - added ignore and instrument_file list function check in all modules of llvm_mode
   - added fix from Debian project to compile libdislocator and libtokencap
   - libdislocator: AFL_ALIGNED_ALLOC to force size alignment to max_align_t
 
@@ -308,7 +308,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     performance loss of ~10%
   - added test/test-performance.sh script
   - (re)added gcc_plugin, fast inline instrumentation is not yet finished,
-    however it includes the instrument_filesing and persistance feature! by hexcoder-
+    however it includes the instrument_files listing and persistance feature! by hexcoder-
   - gcc_plugin tests added to testing framework
 
 
@@ -396,7 +396,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - more cpu power for afl-system-config
   - added forkserver patch to afl-tmin, makes it much faster (originally from
     github.com/nccgroup/TriforceAFL)
-  - added instrument_files support for llvm_mode via AFL_LLVM_WHITELIST to allow
+  - added instrument_files support for llvm_mode via AFL_LLVM_INSTRUMENT_FILE to allow
     only to instrument what is actually interesting. Gives more speed and less
     map pollution (originally by choller@mozilla)
   - added Python Module mutator support, python2.7-dev is autodetected.
