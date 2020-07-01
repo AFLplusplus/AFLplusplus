@@ -204,7 +204,7 @@ int main(int argc, char **argv, char **envp) {
 
     // Map memory.
     mem_map_checked(uc, BASE_ADDRESS, len, UC_PROT_ALL);
-    printf("Len: %lx\n", len);
+    /* printf("Len: %lx\n", len); */
     fflush(stdout);
 
     // write machine code to be emulated to memory
