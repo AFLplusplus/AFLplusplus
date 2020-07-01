@@ -54,7 +54,7 @@ feature_a/a1.cpp
 feature_a/a2.cpp
 ```
 
-However if the the instrument file list file contains only this, it works as well:
+However if the instrument file list file contains only this, it works as well:
 
 ```
 a1.cpp

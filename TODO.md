@@ -1,6 +1,6 @@
 # TODO list for AFL++
 
-## Roadmap 2.65+
+## Roadmap 2.66+
 
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - namespace for targets? e.g. network
