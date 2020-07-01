@@ -46,50 +46,6 @@ u8  be_quiet = 0;
 u8 *doc_path = "";
 u8  last_intr = 0;
 
-char *afl_environment_variables[] = {
-
-    "AFL_ALIGNED_ALLOC", "AFL_ALLOW_TMP", "AFL_ANALYZE_HEX", "AFL_AS",
-    "AFL_AUTORESUME", "AFL_AS_FORCE_INSTRUMENT", "AFL_BENCH_JUST_ONE",
-    "AFL_BENCH_UNTIL_CRASH", "AFL_CAL_FAST", "AFL_CC", "AFL_CMIN_ALLOW_ANY",
-    "AFL_CMIN_CRASHES_ONLY", "AFL_CODE_END", "AFL_CODE_START",
-    "AFL_COMPCOV_BINNAME", "AFL_COMPCOV_LEVEL", "AFL_CUSTOM_MUTATOR_LIBRARY",
-    "AFL_CUSTOM_MUTATOR_ONLY", "AFL_CXX", "AFL_DEBUG", "AFL_DEBUG_CHILD_OUTPUT",
-    "AFL_DEBUG_GDB",
-    //"AFL_DEFER_FORKSRV", // not implemented anymore, so warn additionally
-    "AFL_DISABLE_TRIM", "AFL_DONT_OPTIMIZE", "AFL_DUMB_FORKSRV",
-    "AFL_ENTRYPOINT", "AFL_EXIT_WHEN_DONE", "AFL_FAST_CAL", "AFL_FORCE_UI",
-    "AFL_GCC_INSTRUMENT_FILE", "AFL_GCJ", "AFL_HANG_TMOUT", "AFL_HARDEN",
-    "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES", "AFL_IMPORT_FIRST",
-    "AFL_INST_LIBS", "AFL_INST_RATIO", "AFL_KEEP_TRACES", "AFL_KEEP_ASSEMBLY",
-    "AFL_LD_HARD_FAIL", "AFL_LD_LIMIT_MB", "AFL_LD_NO_CALLOC_OVER",
-    "AFL_LD_PASSTHROUGH", "AFL_REAL_LD", "AFL_LD_PRELOAD", "AFL_LD_VERBOSE",
-    "AFL_LLVM_CMPLOG", "AFL_LLVM_INSTRIM", "AFL_LLVM_CTX",
-    "AFL_LLVM_INSTRUMENT", "AFL_LLVM_INSTRIM_LOOPHEAD",
-    "AFL_LLVM_LTO_AUTODICTIONARY", "AFL_LLVM_AUTODICTIONARY",
-    "AFL_LLVM_SKIPSINGLEBLOCK", "AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK",
-    "AFL_LLVM_LAF_SPLIT_COMPARES", "AFL_LLVM_LAF_SPLIT_COMPARES_BITW",
-    "AFL_LLVM_LAF_SPLIT_FLOATS", "AFL_LLVM_LAF_SPLIT_SWITCHES",
-    "AFL_LLVM_LAF_ALL", "AFL_LLVM_LAF_TRANSFORM_COMPARES", "AFL_LLVM_MAP_ADDR",
-    "AFL_LLVM_MAP_DYNAMIC", "AFL_LLVM_NGRAM_SIZE", "AFL_NGRAM_SIZE",
-    "AFL_LLVM_NOT_ZERO", "AFL_LLVM_INSTRUMENT_FILE", "AFL_LLVM_SKIP_NEVERZERO",
-    "AFL_NO_AFFINITY", "AFL_LLVM_LTO_STARTID", "AFL_LLVM_LTO_DONTWRITEID",
-    "AFL_NO_ARITH", "AFL_NO_BUILTIN", "AFL_NO_CPU_RED", "AFL_NO_FORKSRV",
-    "AFL_NO_UI", "AFL_NO_PYTHON", "AFL_UNTRACER_FILE", "AFL_LLVM_USE_TRACE_PC",
-    "AFL_NO_X86",  // not really an env but we dont want to warn on it
-    "AFL_MAP_SIZE", "AFL_MAPSIZE", "AFL_PATH", "AFL_PERFORMANCE_FILE",
-    //"AFL_PERSISTENT", // not implemented anymore, so warn additionally
-    "AFL_PRELOAD", "AFL_PYTHON_MODULE", "AFL_QEMU_COMPCOV",
-    "AFL_QEMU_COMPCOV_DEBUG", "AFL_QEMU_DEBUG_MAPS", "AFL_QEMU_DISABLE_CACHE",
-    "AFL_QEMU_PERSISTENT_ADDR", "AFL_QEMU_PERSISTENT_CNT",
-    "AFL_QEMU_PERSISTENT_GPR", "AFL_QEMU_PERSISTENT_HOOK",
-    "AFL_QEMU_PERSISTENT_RET", "AFL_QEMU_PERSISTENT_RETADDR_OFFSET",
-    "AFL_QUIET", "AFL_RANDOM_ALLOC_CANARY", "AFL_REAL_PATH",
-    "AFL_SHUFFLE_QUEUE", "AFL_SKIP_BIN_CHECK", "AFL_SKIP_CPUFREQ",
-    "AFL_SKIP_CRASHES", "AFL_TMIN_EXACT", "AFL_TMPDIR", "AFL_TOKEN_FILE",
-    "AFL_TRACE_PC", "AFL_USE_ASAN", "AFL_USE_MSAN", "AFL_USE_TRACE_PC",
-    "AFL_USE_UBSAN", "AFL_USE_CFISAN", "AFL_WINE_PATH", "AFL_NO_SNAPSHOT",
-    NULL};
-
 void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
   u32 i = 0;
@@ -449,14 +405,14 @@ void check_environment_vars(char **envp) {
 
   if (be_quiet) { return; }
 
-  int   index = 0, found = 0;
+  int   index = 0, issue_detected = 0;
   char *env, *val;
   while ((env = envp[index++]) != NULL) {
 
     if (strncmp(env, "ALF_", 4) == 0) {
 
       WARNF("Potentially mistyped AFL environment variable: %s", env);
-      found++;
+      issue_detected = 1;
 
     } else if (strncmp(env, "AFL_", 4) == 0) {
 
@@ -474,8 +430,30 @@ void check_environment_vars(char **envp) {
                 "AFL environment variable %s defined but is empty, this can "
                 "lead to unexpected consequences",
                 afl_environment_variables[i]);
+            issue_detected = 1;
 
           }
+
+        } else {
+
+          i++;
+
+        }
+
+      }
+
+      i = 0;
+      while (match == 0 && afl_environment_deprecated[i] != NULL) {
+
+        if (strncmp(env, afl_environment_deprecated[i],
+                    strlen(afl_environment_deprecated[i])) == 0 &&
+            env[strlen(afl_environment_deprecated[i])] == '=') {
+
+          match = 1;
+
+          WARNF("AFL environment variable %s is deprecated!",
+                afl_environment_deprecated[i]);
+          issue_detected = 1;
 
         } else {
 
@@ -488,7 +466,7 @@ void check_environment_vars(char **envp) {
       if (match == 0) {
 
         WARNF("Mistyped AFL environment variable: %s", env);
-        found++;
+        issue_detected = 1;
 
       }
 
@@ -496,7 +474,7 @@ void check_environment_vars(char **envp) {
 
   }
 
-  if (found) { sleep(2); }
+  if (issue_detected) { sleep(2); }
 
 }
 
