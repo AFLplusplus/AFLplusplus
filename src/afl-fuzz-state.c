@@ -164,14 +164,14 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
 void read_afl_environment(afl_state_t *afl, char **envp) {
 
-  int   index = 0, found = 0;
+  int   index = 0, issue_detected = 0;
   char *env;
   while ((env = envp[index++]) != NULL) {
 
     if (strncmp(env, "ALF_", 4) == 0) {
 
       WARNF("Potentially mistyped AFL environment variable: %s", env);
-      found++;
+      issue_detected = 1;
 
     } else if (strncmp(env, "AFL_", 4) == 0) {
 
@@ -307,15 +307,6 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_tmpdir =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
-          } else if (!strncmp(env, "AFL_POST_LIBRARY",
-
-                              afl_environment_variable_len)) {
-
-            FATAL(
-                "AFL_POST_LIBRARY is deprecated, use "
-                "AFL_CUSTOM_MUTATOR_LIBRARY instead, see "
-                "docs/custom_mutators.md");
-
           } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_LIBRARY",
 
                               afl_environment_variable_len)) {
@@ -352,10 +343,48 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
       }
 
+      i = 0;
+      while (match == 0 && afl_environment_variables[i] != NULL) {
+
+        if (strncmp(env, afl_environment_variables[i],
+                    strlen(afl_environment_variables[i])) == 0 &&
+            env[strlen(afl_environment_variables[i])] == '=') {
+
+          match = 1;
+
+        } else {
+
+          i++;
+
+        }
+
+      }
+
+      i = 0;
+      while (match == 0 && afl_environment_deprecated[i] != NULL) {
+
+        if (strncmp(env, afl_environment_deprecated[i],
+                    strlen(afl_environment_deprecated[i])) == 0 &&
+            env[strlen(afl_environment_deprecated[i])] == '=') {
+
+          match = 1;
+
+          WARNF("AFL environment variable %s is deprecated!",
+                afl_environment_deprecated[i]);
+          issue_detected = 1;
+
+        } else {
+
+          i++;
+
+        }
+
+      }
+
       if (match == 0) {
 
         WARNF("Mistyped AFL environment variable: %s", env);
-        found++;
+        issue_detected = 1;
 
       }
 
@@ -363,7 +392,7 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
   }
 
-  if (found) { sleep(2); }
+  if (issue_detected) { sleep(2); }
 
 }
 
