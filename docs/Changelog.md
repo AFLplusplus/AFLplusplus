@@ -14,6 +14,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - renamed master/slave to main/secondary
   - renamed blacklist/whitelist to ignorelist/instrumentlist ->
     AFL_LLVM_INSTRUMENT_FILE and AFL_GCC_INSTRUMENT_FILE
+  - warn on deprecated environment variables
   - afl-fuzz:
      - -S secondary nodes now only sync from the main node to increase
        performance, the -M main node still syncs from everyone. Added checks
