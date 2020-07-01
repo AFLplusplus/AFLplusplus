@@ -4,9 +4,9 @@
 
   ![Travis State](https://api.travis-ci.com/AFLplusplus/AFLplusplus.svg?branch=stable)
 
-  Release Version: [2.65c](https://github.com/AFLplusplus/AFLplusplus/releases)
+  Release Version: [2.66c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-  Github Version: 2.65d
+  Github Version: 2.66d
 
   includes all necessary/interesting changes from Google's afl 2.56b
 
