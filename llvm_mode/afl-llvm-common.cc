@@ -110,10 +110,10 @@ void initInstrumentList() {
 bool isInInstrumentList(llvm::Function *F) {
 
   // is this a function with code? If it is external we dont instrument it
-  // anyway and cant be in the the instrument file list. Or if it is ignored.
+  // anyway and cant be in the instrument file list. Or if it is ignored.
   if (!F->size() || isIgnoreFunction(F)) return false;
 
-  // if we do not have a the instrument file list return true
+  // if we do not have any instrument file list entries return true
   if (myInstrumentList.empty()) return true;
 
   // let's try to get the filename for the function
@@ -218,7 +218,7 @@ bool isInInstrumentList(llvm::Function *F) {
   else {
 
     // we could not find out the location. in this case we say it is not
-    // in the the instrument file list
+    // in the instrument file list
 
     return false;
 
