@@ -435,7 +435,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
   u32 fails;
   u8  found_one = 0;
 
-  /* loop cmps are useless, detect and ignore them */
+  /* loop cmps are useless, detect and ignores them */
   u64 s_v0, s_v1;
   u8  s_v0_fixed = 1, s_v1_fixed = 1;
   u8  s_v0_inc = 1, s_v1_inc = 1;
@@ -743,7 +743,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
              afl->pass_stats[k].faileds ||
          afl->pass_stats[k].total == 0xff)) {
 
-      afl->shm.cmp_map->headers[k].hits = 0;  // ignore this cmp
+      afl->shm.cmp_map->headers[k].hits = 0;  // ignores this cmp
 
     }
 
