@@ -200,7 +200,7 @@ bool AFLcheckIfInstrument::runOnModule(Module &M) {
       }
 
       /* Either we couldn't figure out our location or the location is
-       * not the instrument file listed, so we skip instrumentation.
+       * not listed in the instrument file list, so we skip instrumentation.
        * We do this by renaming the function. */
       if (instrumentFunction == true) {
 
