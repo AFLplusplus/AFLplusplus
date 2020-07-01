@@ -9,6 +9,10 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++2.66d (devel)
+  - ... ?
+
+
 ### Version ++2.66c (release)
   - renamed the main branch on Github to "stable"
   - renamed master/slave to main/secondary
