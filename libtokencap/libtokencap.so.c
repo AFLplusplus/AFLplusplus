@@ -273,7 +273,7 @@ static void __tokencap_load_mappings(void) {
 
   }
 
-  for (c = map; c++; r -= sizeof(prmap_t)) {
+  for (c = map; r > 0; c++ , r -= sizeof(prmap_t)) {
 
     __tokencap_ro[__tokencap_ro_cnt].st = c->pr_vaddr;
     __tokencap_ro[__tokencap_ro_cnt].en = c->pr_vaddr + c->pr_size;
