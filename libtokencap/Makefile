@@ -35,13 +35,14 @@ _UNIQ=_QINU_
  _____OS_DL =  $(____OS_DL:$(_UNIQ)$(UNAME_S)=)
 ______OS_DL = $(_____OS_DL:$(_UNIQ)="-ldl")
 
-    _OS_TARGET = $(____OS_DL:$(_UNIQ)FreeBSD=$(_UNIQ))
-   __OS_TARGET =    $(_OS_TARGET:$(_UNIQ)OpenBSD=$(_UNIQ))
-  ___OS_TARGET =   $(__OS_TARGET:$(_UNIQ)NetBSD=$(_UNIQ))
- ____OS_TARGET =  $(___OS_TARGET:$(_UNIQ)Haiku=$(_UNIQ))
-_____OS_TARGET = $(___OS_TARGET:$(_UNIQ)$(UNAME_S)=)
+     _OS_TARGET = $(____OS_DL:$(_UNIQ)FreeBSD=$(_UNIQ))
+    __OS_TARGET =     $(_OS_TARGET:$(_UNIQ)OpenBSD=$(_UNIQ))
+   ___OS_TARGET =    $(__OS_TARGET:$(_UNIQ)NetBSD=$(_UNIQ))
+  ____OS_TARGET =   $(___OS_TARGET:$(_UNIQ)Haiku=$(_UNIQ))
+ _____OS_TARGET =  $(____OS_TARGET:$(_UNIQ)SunOS=$(_UNIQ))
+______OS_TARGET =  $(____OS_TARGET:$(_UNIQ)$(UNAME_S)=)
 
-TARGETS       = $(____OS_TARGET:$(_UNIQ)=libtokencap.so)
+TARGETS       =  $(_____OS_TARGET:$(_UNIQ)=libtokencap.so)
 
 LDFLAGS     += $(______OS_DL)
 
