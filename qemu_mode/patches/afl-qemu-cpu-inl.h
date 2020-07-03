@@ -348,6 +348,7 @@ void afl_forkserver(CPUState *cpu) {
   // with the max ID value
   if (MAP_SIZE <= FS_OPT_MAX_MAPSIZE)
     status |= (FS_OPT_SET_MAPSIZE(MAP_SIZE) | FS_OPT_MAPSIZE);
+  status |= FS_OPT_VARIADIC_MAP;
   if (sharedmem_fuzzing != 0) status |= FS_OPT_SHDMEM_FUZZ;
   if (status) status |= (FS_OPT_ENABLED);
   if (getenv("AFL_DEBUG"))

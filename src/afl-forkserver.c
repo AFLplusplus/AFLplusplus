@@ -621,6 +621,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       
       if ((status & FS_OPT_VARIADIC_MAP) == FS_OPT_VARIADIC_MAP) {
         
+        ACTF("Using variadic map size.");
         fsrv->variadic_map_size = 1; 
         
       }
