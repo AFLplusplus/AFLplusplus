@@ -636,8 +636,8 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
           if (c.edge_id && ((afl_start_code < tb->pc && afl_end_code > tb->pc) || (afl_start_code < last_tb->pc && afl_end_code > last_tb->pc))) {
 
             mmap_lock();
-            afl_edges_counter = c.edge_id;
-            TranslationBlock *tb_edge = afl_gen_edge(cpu, afl_edges_counter);
+            afl_edges_counter = c.edge_id +1;
+            TranslationBlock *tb_edge = afl_gen_edge(cpu, c.edge_id);
             mmap_unlock();
 
             tb_add_jump(last_tb, c.tb_exit, tb_edge);
