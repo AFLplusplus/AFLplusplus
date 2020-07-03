@@ -618,6 +618,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         fsrv->map_size = tmp_map_size;
 
       }
+      
+      if ((status & FS_OPT_VARIADIC_MAP) == FS_OPT_VARIADIC_MAP) {
+        
+        fsrv->variadic_map_size = 1; 
+        
+      }
 
       if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
 
@@ -1045,6 +1051,11 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
      behave very normally and do not have to be treated as volatile. */
 
   MEM_BARRIER();
+  
+  if (fsrv->variadic_map_size) {
+    fsrv->map_size = *(unsigned*)fsrv->trace_bits;
+    *(unsigned*)fsrv->trace_bits = 0;
+  }
 
   /* Report outcome to caller. */
 

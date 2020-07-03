@@ -91,7 +91,7 @@ u8   sharedmem_fuzzing;
 
 afl_persistent_hook_fn afl_persistent_hook_ptr;
 
-unsigned long afl_edges_counter;
+unsigned long afl_edges_counter = sizeof(unsigned);
 
 /* Instrumentation ratio: */
 
@@ -357,6 +357,8 @@ void afl_forkserver(CPUState *cpu) {
   /* Tell the parent that we're alive. If the parent doesn't want
      to talk, assume that we're not running in forkserver mode. */
 
+  *(unsigned*)afl_area_ptr = ((afl_edges_counter + 7) & (-8));
+
   if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
 
   afl_forksrv_pid = getpid();
@@ -463,6 +465,8 @@ void afl_forkserver(CPUState *cpu) {
     }
 
     first_run = 0;
+    
+    *(unsigned*)afl_area_ptr = ((afl_edges_counter + 7) & (-8));
 
     if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(7);
 
