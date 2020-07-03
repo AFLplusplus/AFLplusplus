@@ -1,21 +1,13 @@
 diff --git a/accel/tcg/translate-all.c b/accel/tcg/translate-all.c
-index 639f0b27..21a45494 100644
+index 639f0b27..8fa235ec 100644
 --- a/accel/tcg/translate-all.c
 +++ b/accel/tcg/translate-all.c
-@@ -59,6 +59,8 @@
- #include "exec/log.h"
- #include "sysemu/cpus.h"
+@@ -1667,6 +1667,8 @@ tb_link_page(TranslationBlock *tb, tb_page_addr_t phys_pc,
+     return tb;
+ }
  
 +#include "../patches/afl-qemu-translate-inl.h"
 +
- /* #define DEBUG_TB_INVALIDATE */
- /* #define DEBUG_TB_FLUSH */
- /* make various TB consistency checks */
-@@ -1721,6 +1723,7 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
-     tcg_func_start(tcg_ctx);
- 
-     tcg_ctx->cpu = ENV_GET_CPU(env);
-+    afl_gen_trace(pc);
-     gen_intermediate_code(cpu, tb);
-     tcg_ctx->cpu = NULL;
- 
+ /* Called with mmap_lock held for user mode emulation.  */
+ TranslationBlock *tb_gen_code(CPUState *cpu,
+                               target_ulong pc, target_ulong cs_base,

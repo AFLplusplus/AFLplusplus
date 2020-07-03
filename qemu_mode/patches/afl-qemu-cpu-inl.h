@@ -31,8 +31,10 @@
 
  */
 
-#include <sys/shm.h>
 #include "afl-qemu-common.h"
+#include "tcg-op.h"
+
+#include <sys/shm.h>
 
 #ifndef AFL_QEMU_STATIC_BUILD
   #include <dlfcn.h>
@@ -89,6 +91,8 @@ u8   sharedmem_fuzzing;
 
 afl_persistent_hook_fn afl_persistent_hook_ptr;
 
+unsigned long afl_edges_counter;
+
 /* Instrumentation ratio: */
 
 unsigned int afl_inst_rms = MAP_SIZE;         /* Exported for afl_gen_trace */
@@ -97,7 +101,7 @@ unsigned int afl_inst_rms = MAP_SIZE;         /* Exported for afl_gen_trace */
 
 static void afl_wait_tsl(CPUState *, int);
 static void afl_request_tsl(target_ulong, target_ulong, uint32_t, uint32_t,
-                            TranslationBlock *, int);
+                            TranslationBlock *, int, unsigned long);
 
 /* Data structures passed around by the translate handlers: */
 
@@ -122,6 +126,7 @@ struct afl_chain {
   struct afl_tb last_tb;
   uint32_t      cf_mask;
   int           tb_exit;
+  unsigned long edge_id;
 
 };
 
@@ -534,7 +539,7 @@ void afl_persistent_loop(void) {
 
 static void afl_request_tsl(target_ulong pc, target_ulong cb, uint32_t flags,
                             uint32_t cf_mask, TranslationBlock *last_tb,
-                            int tb_exit) {
+                            int tb_exit, unsigned long edge_id) {
 
   if (disable_caching) return;
 
@@ -559,6 +564,7 @@ static void afl_request_tsl(target_ulong pc, target_ulong cb, uint32_t flags,
     c.last_tb.flags = last_tb->flags;
     c.cf_mask = cf_mask;
     c.tb_exit = tb_exit;
+    c.edge_id = edge_id;
 
     if (write(TSL_FD, &c, sizeof(struct afl_chain)) != sizeof(struct afl_chain))
       return;
@@ -620,7 +626,22 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
 
         last_tb = tb_htable_lookup(cpu, c.last_tb.pc, c.last_tb.cs_base,
                                    c.last_tb.flags, c.cf_mask);
-        if (last_tb) { tb_add_jump(last_tb, c.tb_exit, tb); }
+        if (last_tb) {
+        
+          if (c.edge_id && ((afl_start_code < tb->pc && afl_end_code > tb->pc) || (afl_start_code < last_tb->pc && afl_end_code > last_tb->pc))) {
+
+            mmap_lock();
+            afl_edges_counter = c.edge_id;
+            TranslationBlock *tb_edge = afl_gen_edge(cpu, afl_edges_counter);
+            mmap_unlock();
+
+            tb_add_jump(last_tb, c.tb_exit, tb_edge);
+            tb_add_jump(tb_edge, 0, tb);
+
+          } else
+            tb_add_jump(last_tb, c.tb_exit, tb);
+
+        }
 
       }
 
@@ -631,4 +652,3 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
   close(fd);
 
 }
-
