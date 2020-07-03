@@ -701,15 +701,38 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
   setenv("ASAN_OPTIONS",
          "abort_on_error=1:"
          "detect_leaks=0:"
+         "allocator_may_return_null=1:"
          "symbolize=0:"
-         "allocator_may_return_null=1",
+         "handle_segv=0:"
+         "handle_sigbus=0:"
+         "handle_abort=0:"
+         "handle_sigfpe=0:"
+         "handle_sigill=0",
+         0);
+
+  setenv("UBSAN_OPTIONS",
+         "halt_on_error=1:"
+         "abort_on_error=1:"
+         "malloc_context_size=0:"
+         "allocator_may_return_null=1:"
+         "symbolize=0:"
+         "handle_segv=0:"
+         "handle_sigbus=0:"
+         "handle_abort=0:"
+         "handle_sigfpe=0:"
+         "handle_sigill=0",
          0);
 
   setenv("MSAN_OPTIONS", "exit_code=" STRINGIFY(MSAN_ERROR) ":"
-                         "symbolize=0:"
                          "abort_on_error=1:"
+                         "msan_track_origins=0"
                          "allocator_may_return_null=1:"
-                         "msan_track_origins=0", 0);
+                         "symbolize=0:"
+                         "handle_segv=0:"
+                         "handle_sigbus=0:"
+                         "handle_abort=0:"
+                         "handle_sigfpe=0:"
+                         "handle_sigill=0", 0);
 
   if (get_afl_env("AFL_PRELOAD")) {
 
