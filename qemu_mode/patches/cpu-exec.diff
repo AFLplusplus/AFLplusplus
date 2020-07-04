@@ -37,7 +37,7 @@ index 870027d4..a164388a 100644
 +            ((afl_start_code < tb->pc && afl_end_code > tb->pc) ||
 +            (afl_start_code < last_tb->pc && afl_end_code > last_tb->pc))) {
 +            mmap_lock();
-+            edge_id = afl_edges_counter++;
++            edge_id = ++afl_edges_counter;
 +            TranslationBlock *edge = afl_gen_edge(cpu, edge_id);
 +            mmap_unlock();
 +

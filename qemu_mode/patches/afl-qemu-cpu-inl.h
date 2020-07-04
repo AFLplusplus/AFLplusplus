@@ -467,7 +467,7 @@ void afl_forkserver(CPUState *cpu) {
 
     first_run = 0;
     
-    *(unsigned*)afl_area_ptr = ((afl_edges_counter + 7) & (-8));
+    *(unsigned*)afl_area_ptr = ((afl_edges_counter + 8) & (-8));
 
     if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(7);
 
@@ -636,7 +636,7 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
           if (c.edge_id && ((afl_start_code < tb->pc && afl_end_code > tb->pc) || (afl_start_code < last_tb->pc && afl_end_code > last_tb->pc))) {
 
             mmap_lock();
-            afl_edges_counter = c.edge_id +1;
+            afl_edges_counter = MAX(c.edge_id, afl_edges_counter);
             TranslationBlock *tb_edge = afl_gen_edge(cpu, c.edge_id);
             mmap_unlock();
 
