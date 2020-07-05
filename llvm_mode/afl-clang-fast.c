@@ -660,7 +660,7 @@ int main(int argc, char **argv, char **envp) {
       }
 
       if (strncasecmp(ptr, "pc-guard", strlen("pc-guard")) == 0 ||
-          strncasecmp(ptr, "pcguard", strlen("pcgard")) == 0) {
+          strncasecmp(ptr, "pcguard", strlen("pcguard")) == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_PCGUARD)
           instrument_mode = INSTRUMENT_PCGUARD;
