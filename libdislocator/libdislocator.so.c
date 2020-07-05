@@ -166,7 +166,7 @@ static u32          alloc_canary;
 
 static void *__dislocator_alloc(size_t len) {
 
-  u8 *   ret;
+  u8 *   ret, *base;
   size_t tlen;
   int    flags, fd, sp;
 
@@ -189,6 +189,7 @@ static void *__dislocator_alloc(size_t len) {
   /* We will also store buffer length and a canary below the actual buffer, so
      let's add 8 bytes for that. */
 
+  base = NULL;
   tlen = (1 + PG_COUNT(rlen + 8)) * PAGE_SIZE;
   flags = MAP_PRIVATE | MAP_ANONYMOUS;
   fd = -1;
@@ -201,12 +202,19 @@ static void *__dislocator_alloc(size_t len) {
   if (sp) flags |= MAP_HUGETLB;
   #elif defined(__FreeBSD__)
   if (sp) flags |= MAP_ALIGNED_SUPER;
+  #elif defined(__sun)
+  if (sp) {
+
+    base = (void *)(caddr_t)(1<<21);
+    flags |= MAP_ALIGN;
+
+  }
   #endif
 #else
   (void)sp;
 #endif
 
-  ret = (u8 *)mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
+  ret = (u8 *)mmap(base, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
 #if defined(USEHUGEPAGE)
   /* We try one more time with regular call */
   if (ret == MAP_FAILED) {
@@ -217,6 +225,8 @@ static void *__dislocator_alloc(size_t len) {
     flags &= -MAP_HUGETLB;
   #elif defined(__FreeBSD__)
     flags &= -MAP_ALIGNED_SUPER;
+  #elif defined(__sun)
+    flags &= -MAP_ALIGN;
   #endif
     ret = (u8 *)mmap(NULL, tlen, PROT_READ | PROT_WRITE, flags, fd, 0);
 
