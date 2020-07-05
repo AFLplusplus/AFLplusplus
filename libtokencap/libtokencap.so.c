@@ -254,10 +254,10 @@ static void __tokencap_load_mappings(void) {
 
 #elif defined __sun
   prmap_t *c, *map;
-  char path[PATH_MAX];
-  ssize_t r;
-  size_t hint;
-  int fd;
+  char     path[PATH_MAX];
+  ssize_t  r;
+  size_t   hint;
+  int      fd;
 
   snprintf(path, sizeof(path), "/proc/%ld/map", getpid());
   fd = open(path, O_RDONLY);
@@ -266,14 +266,14 @@ static void __tokencap_load_mappings(void) {
 
   __tokencap_ro_loaded = 1;
 
-  for (; (r = pread(fd, map, hint, 0)) == hint; ) {
-    
-    hint <<= 1;	  
+  for (; (r = pread(fd, map, hint, 0)) == hint;) {
+
+    hint <<= 1;
     map = realloc(map, hint);
 
   }
 
-  for (c = map; r > 0; c++ , r -= sizeof(prmap_t)) {
+  for (c = map; r > 0; c++, r -= sizeof(prmap_t)) {
 
     __tokencap_ro[__tokencap_ro_cnt].st = c->pr_vaddr;
     __tokencap_ro[__tokencap_ro_cnt].en = c->pr_vaddr + c->pr_size;
