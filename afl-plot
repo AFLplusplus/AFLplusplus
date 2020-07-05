@@ -68,6 +68,15 @@ if [ ! -f "$inputdir/plot_data" ]; then
 
 fi
 
+LINES=`cat "$inputdir/plot_data" | wc -l`
+
+if [ "$LINES" -lt 3 ]; then
+
+  echo "[-] Error: plot_data carries too little data, let it run longer." 1>&2
+  exit 1
+
+fi
+
 BANNER="`cat "$inputdir/fuzzer_stats" 2> /dev/null | grep '^afl_banner ' | cut -d: -f2- | cut -b2-`"
 
 test "$BANNER" = "" && BANNER="(none)"
