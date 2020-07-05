@@ -53,11 +53,11 @@
 #define CONST_PRIO 5
 
 #ifndef MAP_FIXED_NOREPLACE
-# ifdef MAP_EXCL
-   #define MAP_FIXED_NOREPLACE MAP_EXCL|MAP_FIXED
-#else
-   #define MAP_FIXED_NOREPLACE MAP_FIXED
-# endif
+  #ifdef MAP_EXCL
+    #define MAP_FIXED_NOREPLACE MAP_EXCL | MAP_FIXED
+  #else
+    #define MAP_FIXED_NOREPLACE MAP_FIXED
+  #endif
 #endif
 
 #include <sys/mman.h>

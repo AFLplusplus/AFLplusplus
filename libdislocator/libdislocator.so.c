@@ -205,10 +205,11 @@ static void *__dislocator_alloc(size_t len) {
   #elif defined(__sun)
   if (sp) {
 
-    base = (void *)(caddr_t)(1<<21);
+    base = (void *)(caddr_t)(1 << 21);
     flags |= MAP_ALIGN;
 
   }
+
   #endif
 #else
   (void)sp;
