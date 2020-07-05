@@ -87,11 +87,11 @@
 "PU_TWIPS"
 
 # headers and gooters
-"\headerr"
-"\headerf"
-"\footerl"
-"\footerr"
-"\footerf"
+"\\headerr"
+"\\headerf"
+"\\footerl"
+"\\footerr"
+"\\footerf"
 
 # misc
 "\\chftn"
