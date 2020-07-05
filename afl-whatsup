@@ -20,7 +20,7 @@
 
 echo "$0 status check tool for afl-fuzz by Michal Zalewski"
 echo
-test "$1" = "-h" && {
+test "$1" = "-h" -o "$1" = "-hh" && {
   echo $0 [-s] output_directory
   echo
   echo Options:
