@@ -379,7 +379,7 @@ int main(int argc, char **argv, char **envp) {
 
     u32 map_size = atoi(ptr);
     if (map_size != MAP_SIZE)
-      WARN("AFL_MAP_SIZE is not supported by afl-gcc-fast");
+      WARNF("AFL_MAP_SIZE is not supported by afl-gcc-fast");
 
   }
 
