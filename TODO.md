@@ -21,6 +21,11 @@ gcc_plugin:
  - laf-intel
  - better instrumentation (seems to be better with gcc-9+)
 
+better documentation:
+ - flow graph
+ - short intro
+ - faq (how to increase stability, speed, many parallel ...)
+
 qemu_mode:
  - update to 5.x (if the performance bug if gone)
  - non colliding instrumentation

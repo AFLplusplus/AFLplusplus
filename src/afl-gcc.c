@@ -465,7 +465,7 @@ int main(int argc, char **argv) {
     u32 map_size = atoi(ptr);
     if (map_size != MAP_SIZE) {
 
-      FATAL("AFL_MAP_SIZE is not supported by afl-gcc");
+      WARN("AFL_MAP_SIZE is not supported by afl-gcc");
 
     }
 
