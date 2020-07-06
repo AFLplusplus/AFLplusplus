@@ -939,7 +939,7 @@ int main(int argc, char **argv, char **envp) {
 
     u32 map_size = atoi(ptr2);
     if (map_size != MAP_SIZE)
-      FATAL("AFL_MAP_SIZE is not supported by afl-clang-fast");
+      WARN("AFL_MAP_SIZE is not supported by afl-clang-fast");
 
   }
 
