@@ -640,7 +640,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
     BranchInst::Create(end_bb, signequal_bb);
 
-    /* create a new bb which is executed if exponents are equal */
+    /* create a new bb which is executed if exponents are satisfying the compare */
     BasicBlock *middle_bb =
         BasicBlock::Create(C, "injected", end_bb->getParent(), end_bb);
 
@@ -711,7 +711,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
       case CmpInst::FCMP_UGT:
         Instruction *icmp_exponent;
         icmp_exponent =
-            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, m_e0, m_e1);
+            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGE, m_e0, m_e1);
         signequal_bb->getInstList().insert(
             BasicBlock::iterator(signequal_bb->getTerminator()), icmp_exponent);
         icmp_exponent_result =
@@ -720,7 +720,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
       case CmpInst::FCMP_OLT:
       case CmpInst::FCMP_ULT:
         icmp_exponent =
-            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT, m_e0, m_e1);
+            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULE, m_e0, m_e1);
         signequal_bb->getInstList().insert(
             BasicBlock::iterator(signequal_bb->getTerminator()), icmp_exponent);
         icmp_exponent_result =
@@ -738,7 +738,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     {
 
       auto term = signequal_bb->getTerminator();
-      /* if the exponents are different do a fraction cmp */
+      /* if the exponents are satifying the compare do a fraction cmp in middle_bb */
       BranchInst::Create(middle_bb, end_bb, icmp_exponent_result, signequal_bb);
       term->eraseFromParent();
 
