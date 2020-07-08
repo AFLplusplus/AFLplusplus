@@ -42,19 +42,21 @@ static void at_exit() {
 
   int   i;
   char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
-  char *ptr = getenv("__AFL_TARGET_PID1");
+  char *ptr;
 
+  ptr = getenv(CPU_AFFINITY_ENV_VAR);
+  if (ptr && *ptr) unlink(ptr);
+
+  ptr = getenv("__AFL_TARGET_PID1");
   if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
 
   ptr = getenv("__AFL_TARGET_PID2");
-
   if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
 
   i = 0;
   while (list[i] != NULL) {
 
     ptr = getenv(list[i]);
-
     if (ptr && *ptr) {
 
 #ifdef USEMMAP
@@ -1011,16 +1013,18 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  check_crash_handling();
+  check_cpu_governor(afl);
+
   get_core_count(afl);
+
+  atexit(at_exit);
+
+  setup_dirs_fds(afl);
 
   #ifdef HAVE_AFFINITY
   bind_to_free_cpu(afl);
   #endif                                                   /* HAVE_AFFINITY */
-
-  check_crash_handling();
-  check_cpu_governor(afl);
-
-  atexit(at_exit);
 
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
@@ -1038,12 +1042,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  setup_dirs_fds(afl);
-
   if (afl->is_secondary_node && check_main_node_exists(afl) == 0) {
 
     WARNF("no -M main node found. You need to run one main instance!");
-    sleep(5);
+    sleep(3);
 
   }
 

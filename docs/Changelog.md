@@ -10,7 +10,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.66d (devel)
-  - ... ?
+  - afl-fuzz:
+     - eliminated CPU affinity race condition for -S/-M runs
+  - small fixes to afl-plot, afl-whatsup and man page creation
 
 
 ### Version ++2.66c (release)
