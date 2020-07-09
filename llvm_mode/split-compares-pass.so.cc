@@ -640,7 +640,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
     BranchInst::Create(end_bb, signequal_bb);
 
-    /* create a new bb which is executed if exponents are satisfying the compare */
+    /* create a new bb which is executed if exponents are satisfying the compare
+     */
     BasicBlock *middle_bb =
         BasicBlock::Create(C, "injected", end_bb->getParent(), end_bb);
 
@@ -738,7 +739,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     {
 
       auto term = signequal_bb->getTerminator();
-      /* if the exponents are satifying the compare do a fraction cmp in middle_bb */
+      /* if the exponents are satifying the compare do a fraction cmp in
+       * middle_bb */
       BranchInst::Create(middle_bb, end_bb, icmp_exponent_result, signequal_bb);
       term->eraseFromParent();
 
