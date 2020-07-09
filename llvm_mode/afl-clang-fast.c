@@ -378,6 +378,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
       continue;
+      
+    if (lto_mode && !strncmp(cur, "-fuse-ld=", 9))
+      continue;
 
     cc_params[cc_par_cnt++] = cur;
 
