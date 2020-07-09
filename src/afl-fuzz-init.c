@@ -398,7 +398,7 @@ if (pset_bind(c, P_PID, getpid(), NULL)) {
 
   if (cpu_start == afl->cpu_core_count)
     PFATAL("pset_bind failed for cpu %d, exit", i);
-  WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
+  WARNF("pset_bind failed to CPU %d, trying next CPU", i);
   cpu_start++;
   goto try
     ;
