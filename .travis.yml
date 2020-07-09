@@ -51,6 +51,7 @@ script:
   - gcc -v
   - clang -v
   - sudo -E ./afl-system-config
+  - free ; sysctl -a|grep -i shm ; ipcs -m -l ; ipcs -m
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then export LLVM_CONFIG=`pwd`/"$NAME" ; make source-only ASAN_BUILD=1 ; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" -a "$TRAVIS_CPU_ARCH" = "amd64" ]; then make distrib ASAN_BUILD=1 ; fi
   - if [ "$TRAVIS_CPU_ARCH" = "arm64" ] ; then echo DEBUG ; find / -name llvm-config.h 2>/dev/null; apt-cache search clang | grep clang- ; apt-cache search llvm | grep llvm- ; dpkg -l | egrep 'clang|llvm'; echo DEBUG ; export LLVM_CONFIG=llvm-config-6.0 ; make ASAN_BUILD=1 ; cd qemu_mode && sh ./build_qemu_support.sh ; cd .. ; fi
