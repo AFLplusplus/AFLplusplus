@@ -5,7 +5,7 @@
 # has focal has gcc-10 but not g++-10 ...
 #
 
-FROM ubuntu:20.04
+FROM ubuntu:20.04 AS aflplusplus
 MAINTAINER afl++ team <afl@aflplus.plus>
 LABEL "about"="AFLplusplus docker image"
 
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get upgrade -y && \
     python3 python3-dev python3-setuptools python-is-python3 \
     libtool libtool-bin \
     libglib2.0-dev \
-    wget vim jupp nano \
+    wget vim jupp nano bash-completion \
     apt-utils apt-transport-https ca-certificates gnupg dialog \
     libpixman-1-dev
 
@@ -46,17 +46,15 @@ RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 0
 
 RUN rm -rf /var/cache/apt/archives/*
 
-ARG CC=gcc-10
-ARG CXX=g++-10
-ARG LLVM_CONFIG=llvm-config-11
+ENV LLVM_CONFIG=llvm-config-11
+ENV AFL_SKIP_CPUFREQ=1
 
-RUN git clone https://github.com/AFLplusplus/AFLplusplus
-RUN cd AFLplusplus && export REAL_CXX=g++-10 && make distrib && \
-    make install && make clean
+RUN git clone https://github.com/AFLplusplus/AFLplusplus /AFLplusplus
+RUN cd /AFLplusplus && export REAL_CXX=g++-10 && export CC=gcc-10 && \
+    export CXX=g++-10 && make distrib && make install && make clean
 
-RUN git clone https://github.com/vanhauser-thc/afl-cov afl-cov
-RUN cd afl-cov && make install
+RUN git clone https://github.com/vanhauser-thc/afl-cov /afl-cov
+RUN cd /afl-cov && make install
 
 RUN echo 'alias joe="jupp --wordwrap"' >> ~/.bashrc
 
-ENV AFL_SKIP_CPUFREQ=1
