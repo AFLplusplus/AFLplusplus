@@ -86,7 +86,7 @@ class AFLLTOPass : public ModulePass {
   bool runOnModule(Module &M) override;
 
  protected:
-  int      afl_global_id = 1, debug = 0, autodictionary = 0;
+  int      afl_global_id = 1, debug = 0, autodictionary = 1;
   uint32_t function_minimum_size = 1;
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, total_instr = 0;
   uint64_t map_addr = 0x10000;
@@ -119,10 +119,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
   } else
 
     be_quiet = 1;
-
-  if (getenv("AFL_LLVM_AUTODICTIONARY") ||
-      getenv("AFL_LLVM_LTO_AUTODICTIONARY"))
-    autodictionary = 1;
 
   if (getenv("AFL_LLVM_MAP_DYNAMIC")) map_addr = 0;
 

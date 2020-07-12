@@ -311,12 +311,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
-    if (instrument_mode == INSTRUMENT_CFG)
-      cc_params[cc_par_cnt++] =
-          alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-lto-instrim.so", obj_path);
-    else
-      cc_params[cc_par_cnt++] = alloc_printf(
-          "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
+    /*
+        The current LTO instrim mode is not good, so we disable it
+        if (instrument_mode == INSTRUMENT_CFG)
+          cc_params[cc_par_cnt++] =
+              alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-lto-instrim.so",
+       obj_path); else
+    */
+    cc_params[cc_par_cnt++] = alloc_printf(
+        "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
     cc_params[cc_par_cnt++] = lto_flag;
 
   } else {
@@ -378,9 +381,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
       continue;
-      
-    if (lto_mode && !strncmp(cur, "-fuse-ld=", 9))
-      continue;
+
+    if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
 
     cc_params[cc_par_cnt++] = cur;
 
