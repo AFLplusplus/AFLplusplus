@@ -12,6 +12,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++2.66d (devel)
   - afl-fuzz:
      - eliminated CPU affinity race condition for -S/-M runs
+  - llvm_mode:
+     - fix for laf-intel float splitting
+     - LTO: autodictionary mode is a default
+     - LTO: instrim instrumentation disabled, only classic support used
+            as it is always better
   - small fixes to afl-plot, afl-whatsup and man page creation
 
 
