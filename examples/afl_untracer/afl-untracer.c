@@ -56,6 +56,7 @@
 #include <sys/shm.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/personality.h>
 
 #if defined(__linux__)
   #include <sys/ucontext.h>
@@ -395,7 +396,7 @@ static void __afl_map_shm(void) {
 }
 
 /* Fork server logic. */
-static void __afl_start_forkserver(void) {
+inline static void __afl_start_forkserver(void) {
 
   u8  tmp[4] = {0, 0, 0, 0};
   u32 status = 0;
@@ -411,7 +412,7 @@ static void __afl_start_forkserver(void) {
 
 }
 
-static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
+inline static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
 
   s32 status;
 
@@ -437,7 +438,7 @@ static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
 
 }
 
-static void __afl_end_testcase(int status) {
+inline static void __afl_end_testcase(int status) {
 
   if (write(FORKSRV_FD + 1, &status, 4) != 4) do_exit = 1;
   // fprintf(stderr, "write2 %d\n", do_exit);
@@ -673,6 +674,8 @@ static void *(*o_function)(u8 *buf, int len);
 /* the MAIN function */
 int main(int argc, char *argv[]) {
 
+  (void) personality(ADDR_NO_RANDOMIZE); // disable ASLR
+
   pid = getpid();
   if (getenv("AFL_DEBUG")) debug = 1;
 
@@ -706,6 +709,9 @@ int main(int argc, char *argv[]) {
 
   while (1) {
 
+    // instead of fork() we could also use the snapshot lkm or do our own mini
+    // snapshot feature like in https://github.com/marcinguy/fuzzer
+    // -> snapshot.c
     if ((pid = fork()) == -1) PFATAL("fork failed");
 
     if (pid) {
@@ -738,6 +744,9 @@ int main(int argc, char *argv[]) {
 
 }
 
+#ifndef _DEBUG
+inline 
+#endif
 static void fuzz() {
 
   // STEP 3: call the function to fuzz, also the functions you might
@@ -753,4 +762,3 @@ static void fuzz() {
   // END STEP 3
 
 }
-
