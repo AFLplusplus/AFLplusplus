@@ -393,7 +393,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     {
       AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -V16 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
+    test -n "$( ls out/crashes/id:* 2>/dev/null )" && {
       $ECHO "$GREEN[+] llvm_mode laf-intel floatingpoint splitting feature works correctly"
     } || {
       $ECHO "$RED[!] llvm_mode laf-intel floatingpoint splitting feature failed"
