@@ -32,6 +32,7 @@ To easily run the scripts without needing to run the GUI with Ghidra:
 /opt/ghidra/support/analyzeHeadless /tmp/ tmp$$ -import libtestinstr.so -postscript ./ghidra_get_patchpoints.java
 rm -rf /tmp/tmp$$
 ```
+The file is created at `~/Desktop/patches.txt`
 
 ### Fuzzing
 

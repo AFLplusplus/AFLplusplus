@@ -13,7 +13,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz:
      - eliminated CPU affinity race condition for -S/-M runs
   - llvm_mode:
-     - fix for laf-intel float splitting
+     - fixes for laf-intel float splitting (thanks to mark-griffin for
+       reporting)
      - LTO: autodictionary mode is a default
      - LTO: instrim instrumentation disabled, only classic support used
             as it is always better

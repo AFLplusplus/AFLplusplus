@@ -74,6 +74,9 @@
 
 // STEP 1:
 
+/* here you need to specify the parameter for the target function */
+static void *(*o_function)(u8 *buf, int len);
+
 /* use stdin (1) or a file on the commandline (0) */
 static u32 use_stdin = 1;
 
@@ -668,13 +671,10 @@ static void sigtrap_handler(int signum, siginfo_t *si, void *context) {
 
 }
 
-/* here you need to specify the parameter for the target function */
-static void *(*o_function)(u8 *buf, int len);
-
 /* the MAIN function */
 int main(int argc, char *argv[]) {
 
-  (void) personality(ADDR_NO_RANDOMIZE); // disable ASLR
+  (void)personality(ADDR_NO_RANDOMIZE);  // disable ASLR
 
   pid = getpid();
   if (getenv("AFL_DEBUG")) debug = 1;
@@ -745,9 +745,10 @@ int main(int argc, char *argv[]) {
 }
 
 #ifndef _DEBUG
-inline 
+inline
 #endif
-static void fuzz() {
+    static void
+    fuzz() {
 
   // STEP 3: call the function to fuzz, also the functions you might
   //         need to call to prepare the function and - important! -
@@ -762,3 +763,4 @@ static void fuzz() {
   // END STEP 3
 
 }
+
