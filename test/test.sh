@@ -389,9 +389,9 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   test -e test-floatingpoint && {
     mkdir -p in
     echo 0 > in/in
-    $ECHO "$GREY[*] running afl-fuzz with floating point splitting, this will take max. 16 seconds"
+    $ECHO "$GREY[*] running afl-fuzz with floating point splitting, this will take max. 30 seconds"
     {
-      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -V16 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -V30 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
     } >>errors 2>&1
     test -n "$( ls out/crashes/id:* 2>/dev/null )" && {
       $ECHO "$GREEN[+] llvm_mode laf-intel floatingpoint splitting feature works correctly"
