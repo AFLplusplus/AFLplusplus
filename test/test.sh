@@ -372,8 +372,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$YELLOW[-] llvm_mode InsTrim not compiled, cannot test"
     INCOMPLETE=1
   }
-  AFL_LLVM_INSTRUMENT=AFL
-  AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
+  AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
   test -e test-compcov.compcov && test_compcov_binary_functionality ./test-compcov.compcov && {
     grep --binary-files=text -Eq " [ 123][0-9][0-9] location| [3-9][0-9] location" test.out && {
       $ECHO "$GREEN[+] llvm_mode laf-intel/compcov feature works correctly"
@@ -386,6 +385,25 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-compcov.compcov test.out
+  AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 AFL_LLVM_LAF_SPLIT_FLOATS=1 ../afl-clang-fast -o test-floatingpoint test-floatingpoint.c > test.out 2>&1
+  test -e test-floatingpoint && {
+    mkdir -p in
+    echo 0 > in/in
+    $ECHO "$GREY[*] running afl-fuzz with floating point splitting, this will take max. 16 seconds"
+    {
+      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -V16 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
+    } >>errors 2>&1
+    test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
+      $ECHO "$GREEN[+] llvm_mode laf-intel floatingpoint splitting feature works correctly"
+    } || {
+      $ECHO "$RED[!] llvm_mode laf-intel floatingpoint splitting feature failed"
+      CODE=1
+    }
+  } || {
+    $ECHO "$RED[!] llvm_mode laf-intel floatingpoint splitting feature compilation failed"
+    CODE=1
+  }
+  rm -f test-floatingpoint test.out in/in
   echo foobar.c > instrumentlist.txt
   AFL_DEBUG=1 AFL_LLVM_INSTRUMENT_FILE=instrumentlist.txt ../afl-clang-fast -o test-compcov test-compcov.c > test.out 2>&1
   test -e test-compcov && test_compcov_binary_functionality ./test-compcov && {
