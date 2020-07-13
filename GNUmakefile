@@ -65,7 +65,7 @@ endif
 
 ifeq "$(shell uname)" "SunOS"
  CFLAGS_OPT += -Wno-format-truncation
- LDFLAGS=-lkstat
+ LDFLAGS=-lkstat -lrt
 endif
 
 ifdef STATIC
@@ -196,7 +196,7 @@ else
 endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
-  LDFLAGS += -ldl
+  LDFLAGS += -ldl -lrt
 endif
 
 ifneq "$(findstring FreeBSD, $(shell uname))" ""
@@ -254,13 +254,13 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 else
 	SHMAT_OK=0
 	override CFLAGS+=-DUSEMMAP=1
-	LDFLAGS += -Wno-deprecated-declarations -lrt
+	LDFLAGS += -Wno-deprecated-declarations
 endif
 
 ifdef TEST_MMAP
 	SHMAT_OK=0
 	override CFLAGS += -DUSEMMAP=1
-	LDFLAGS += -Wno-deprecated-declarations -lrt
+	LDFLAGS += -Wno-deprecated-declarations
 endif
 
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
