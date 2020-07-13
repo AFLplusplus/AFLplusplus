@@ -1263,8 +1263,6 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
     if (enableFPSplit) {
 
-      simplifyFPCompares(M);
-
       errs() << "Split-floatingpoint-compare-pass: " << splitFPCompares(M)
              << " FP comparisons splitted\n";
 
@@ -1273,6 +1271,8 @@ bool SplitComparesTransform::runOnModule(Module &M) {
   } else
 
     be_quiet = 1;
+
+  if (enableFPSplit) simplifyFPCompares(M);
 
   simplifyCompares(M);
 
