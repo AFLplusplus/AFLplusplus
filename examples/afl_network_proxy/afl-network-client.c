@@ -35,7 +35,7 @@
 #include <arpa/inet.h>
 #include <sys/mman.h>
 #ifndef USEMMAP
-#include <sys/shm.h>
+  #include <sys/shm.h>
 #endif
 #include <sys/wait.h>
 #include <sys/types.h>
