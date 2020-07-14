@@ -266,6 +266,8 @@ int main(int argc, char **argv_orig, char **envp) {
   gettimeofday(&tv, &tz);
   rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
 
+  afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
+
   while ((opt = getopt(argc, argv,
                        "+c:i:I:o:f:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) >
          0) {
@@ -563,7 +565,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->fsrv.qemu_mode) { FATAL("Multiple -Q options not supported"); }
         afl->fsrv.qemu_mode = 1;
-        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_QEMU; }
 
@@ -580,7 +581,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->unicorn_mode) { FATAL("Multiple -U options not supported"); }
         afl->unicorn_mode = 1;
-        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_UNICORN; }
 
@@ -591,7 +591,6 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->use_wine) { FATAL("Multiple -W options not supported"); }
         afl->fsrv.qemu_mode = 1;
         afl->use_wine = 1;
-        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = 0; }
 
