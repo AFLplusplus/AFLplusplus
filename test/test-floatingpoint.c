@@ -3,7 +3,7 @@
 
 int main(void) {
 
-  long double magic;
+  float magic;
 
   ssize_t bytes_read = read(STDIN_FILENO, &magic, sizeof(magic));
   if (bytes_read < (ssize_t)sizeof(magic)) { return 1; }
