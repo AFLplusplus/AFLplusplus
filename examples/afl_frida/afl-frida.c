@@ -39,6 +39,7 @@
 
 #ifndef __APPLE__
   #include <sys/wait.h>
+  #include <sys/personality.h>
 #endif
 
 
@@ -216,6 +217,10 @@ static int enumerate_ranges(const GumRangeDetails *details,
 
 int main() {
 
+#ifndef __APPLE__
+  (void)personality(ADDR_NO_RANDOMIZE);  // disable ASLR
+#endif
+
   // STEP 2: load the library you want to fuzz and lookup the functions,
   //         inclusive of the cleanup functions.
   //         If there is just one function, then there is nothing to change
@@ -264,6 +269,9 @@ int main() {
 
   GumEventSink *event_sink = gum_fake_event_sink_new();
 
+  // to ensure that the signatures are not optimized out
+  memcpy(__afl_area_ptr, (void*)AFL_PERSISTENT, sizeof(AFL_PERSISTENT) + 1);
+  memcpy(__afl_area_ptr + 32, (void*)AFL_DEFER_FORKSVR, sizeof(AFL_DEFER_FORKSVR) + 1);
   __afl_manual_init();
 
   //

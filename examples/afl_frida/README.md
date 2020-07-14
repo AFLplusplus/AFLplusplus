@@ -24,14 +24,10 @@ afl-fuzz -i in -o out -- ./afl-frida
 ```
 (or even remote via afl-network-proxy).
 
-### Testing and debugging
+# Speed and stability
 
-For testing/debugging you can try:
-```
-make DEBUG=1
-AFL_DEBUG=1 gdb ./afl-frida
-```
-and then you can easily set breakpoints to "breakpoint" and "fuzz".
+The speed is very good, about x12 of fork() qemu_mode.
+However the stability is low. Reason is currently unknown.
 
 # Background
 
