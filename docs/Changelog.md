@@ -18,6 +18,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - LTO: autodictionary mode is a default
      - LTO: instrim instrumentation disabled, only classic support used
             as it is always better
+  - added afl-frida gum solution to examples/afl_frida (mostly imported
+    from https://github.com/meme/hotwax/)
   - small fixes to afl-plot, afl-whatsup and man page creation
 
 
