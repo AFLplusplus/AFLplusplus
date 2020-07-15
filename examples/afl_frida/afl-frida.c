@@ -126,8 +126,8 @@ static volatile char AFL_DEFER_FORKSVR[] = "##SIG_AFL_DEFER_FORKSRV##";
 void                 __afl_manual_init();
 
 // Because we do our own logging.
-extern uint8_t *__afl_area_ptr;
- static __thread guint64 previous_pc;
+extern uint8_t *        __afl_area_ptr;
+static __thread guint64 previous_pc;
 
 // Frida stuff below.
 typedef struct {
