@@ -39,7 +39,7 @@ The file is created at `~/Desktop/patches.txt`
 Example (after modifying afl-untracer.c to your needs, compiling and creating
 patches.txt):
 ```
-AFL_UNTRACER_FILE=./patches.txt afl-fuzz -i in -o out -- ./afl-untracer
+LD_LIBRARY_PATH=/path/to/target/library AFL_UNTRACER_FILE=./patches.txt afl-fuzz -i in -o out -- ./afl-untracer
 ```
 (or even remote via afl-network-proxy).
 
