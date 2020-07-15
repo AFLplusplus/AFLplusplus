@@ -1,8 +1,10 @@
 .test
 .test2
+.sync_tmp
 *.o
 *.so
 *.pyc
+*.dSYM
 afl-analyze
 afl-as
 afl-clang
@@ -55,3 +57,5 @@ test/unittests/unit_rand
 test/unittests/unit_hash
 examples/afl_network_proxy/afl-network-server
 examples/afl_network_proxy/afl-network-client
+in
+out

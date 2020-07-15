@@ -132,6 +132,9 @@ static void edit_params(u32 argc, char **argv) {
 
     name = argv[0];
 
+    /* This should never happen but fixes a scan-build warning */
+    if (!name) { FATAL("Empty argv set"); }
+
   } else {
 
     ++name;
