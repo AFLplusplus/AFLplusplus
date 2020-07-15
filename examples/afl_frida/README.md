@@ -20,7 +20,7 @@ search and edit the `STEP 1`, `STEP 2` and `STEP 3` locations.
 
 Example (after modifying afl-frida.c to your needs and compile it):
 ```
-afl-fuzz -i in -o out -- ./afl-frida
+LD_LIBRARY_PATH=/path/to/the/target/library afl-fuzz -i in -o out -- ./afl-frida
 ```
 (or even remote via afl-network-proxy).
 
