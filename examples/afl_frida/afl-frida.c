@@ -127,6 +127,7 @@ void                 __afl_manual_init();
 
 // Because we do our own logging.
 extern uint8_t *__afl_area_ptr;
+ static __thread guint64 previous_pc;
 
 // Frida stuff below.
 typedef struct {
@@ -138,9 +139,7 @@ typedef struct {
 
 inline static void afl_maybe_log(guint64 current_pc) {
 
-  static __thread guint64 previous_pc;
-
-  // fprintf(stderr, "PC: %p\n", current_pc);
+  // fprintf(stderr, "PC: %p ^ %p\n", current_pc, previous_pc);
 
   current_pc = (current_pc >> 4) ^ (current_pc << 8);
   current_pc &= MAP_SIZE - 1;
@@ -501,6 +500,8 @@ int main() {
   gum_stalker_follow_me(stalker, transformer, event_sink);
 
   while (__afl_persistent_loop(UINT32_MAX) != 0) {
+
+    previous_pc = 0;  // Required!
 
 #ifdef _DEBUG
     fprintf(stderr, "CLIENT crc: %016llx len: %u\n", hash64(__afl_fuzz_ptr, *__a
