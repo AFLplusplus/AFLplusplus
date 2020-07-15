@@ -177,6 +177,9 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum) {
   afl->stage_cycles[STAGE_COLORIZATION] += afl->stage_cur;
   ck_free(backup);
 
+  ck_free(rng);
+  rng = NULL;
+
   while (ranges) {
 
     rng = ranges;
@@ -185,10 +188,6 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum) {
     rng = NULL;
 
   }
-
-  ck_free(rng);
-  rng = NULL;
-
   // save the input with the high entropy
 
   if (needs_write) {
