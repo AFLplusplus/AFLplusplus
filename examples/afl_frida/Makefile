@@ -11,7 +11,7 @@ libfrida-gum.a:
 	@exit 1
 	
 afl-frida:	afl-frida.c libfrida-gum.a
-	$(CC) -g $(OPT) -o afl-frida -I. -fpermissive -fPIC afl-frida.c ../../afl-llvm-rt.o libfrida-gum.a -ldl -lresolv -pthread
+	$(CC) -g $(OPT) -o afl-frida -Wno-format -Wno-pointer-sign -I. -fpermissive -fPIC afl-frida.c ../../afl-llvm-rt.o libfrida-gum.a -ldl -lresolv -pthread
 
 libtestinstr.so:        libtestinstr.c
 	$(CC) -g -O0 -fPIC -o libtestinstr.so -shared libtestinstr.c
