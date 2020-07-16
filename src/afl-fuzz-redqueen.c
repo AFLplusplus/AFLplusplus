@@ -188,6 +188,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum) {
     rng = NULL;
 
   }
+
   // save the input with the high entropy
 
   if (needs_write) {
