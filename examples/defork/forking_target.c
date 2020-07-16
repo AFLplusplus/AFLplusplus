@@ -37,10 +37,12 @@ int main(int argc, char **argv) {
 
   } else {
 
-    printf("We are in the parent - defork didn't work! :( (pid=%d)\n", (int) pid);
+    printf("We are in the parent - defork didn't work! :( (pid=%d)\n",
+           (int)pid);
 
   }
 
   return 0;
 
 }
+

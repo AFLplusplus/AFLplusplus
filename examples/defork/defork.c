@@ -37,8 +37,6 @@ __attribute__((constructor)) void preeny_fork_orig() {
 
 pid_t fork(void) {
 
-  printf("called fork. forked state is %d\n", (int) forked);
-  fflush(stdout);
   /* If we forked before, or if we're in the child (pid==0),
     we don't want to fork anymore, else, we are still in the forkserver.
     The forkserver parent needs to fork infinite times, each child should never
