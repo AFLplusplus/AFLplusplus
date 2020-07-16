@@ -83,7 +83,7 @@ typedef struct post_state {
 
 } post_state_t;
 
-void *afl afl_custom_init(void *afl) {
+void *afl_custom_init(void *afl) {
 
   post_state_t *state = malloc(sizeof(post_state_t));
   if (!state) {
