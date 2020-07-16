@@ -546,6 +546,10 @@ typedef struct afl_state {
       *queue_top,                       /* Top of the list                  */
       *q_prev100;                       /* Previous 100 marker              */
 
+  // growing buf
+  struct queue_entry **queue_buf;
+  size_t queue_size;
+
   struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
 
   struct extra_data *extras;            /* Extra tokens to fuzz with        */
