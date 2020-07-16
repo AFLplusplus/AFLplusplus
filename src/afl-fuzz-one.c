@@ -1897,7 +1897,7 @@ havoc_stage:
       }
 
       switch (rand_below(
-          afl, 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
+          afl, 16 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
 
         case 0:
 
@@ -2191,11 +2191,101 @@ havoc_stage:
           break;
 
         }
+        
+        case 15: {
+
+          /* Overwrite bytes with a randomly selected chunk from another
+             testcase or insert that chunk. */
+
+          if (afl->queued_paths < 2) break;
+
+          /* Pick a random queue entry and seek to it. */
+
+          u32 tid;
+          do
+            tid = rand_below(afl, afl->queued_paths);
+          while (tid == afl->current_entry);
+
+          struct queue_entry* target = afl->queue_buf[tid];
+
+          /* Make sure that the target has a reasonable length. */
+
+          while (target && (target->len < 2 || target == afl->queue_cur))
+            target = target->next;
+
+          if (!target) break;
+
+          /* Read the testcase into a new buffer. */
+
+          fd = open(target->fname, O_RDONLY);
+
+          if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
+
+          u32 new_len = target->len;
+          u8 * new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), new_len);
+
+          ck_read(fd, new_buf, new_len, target->fname);
+
+          close(fd);
+
+          u8 overwrite = 0;
+          if (temp_len >= 2 && rand_below(afl, 2))
+            overwrite = 1;
+          else if (temp_len + HAVOC_BLK_XL >= MAX_FILE) {
+            if (temp_len >= 2) overwrite = 1;
+            else break;
+          }
+
+          if (overwrite) {
+
+            u32 copy_from, copy_to, copy_len;
+
+            copy_len = choose_block_len(afl, new_len - 1);
+            if (copy_len > temp_len) copy_len = temp_len;
+
+            copy_from = rand_below(afl, new_len - copy_len + 1);
+            copy_to = rand_below(afl, temp_len - copy_len + 1);
+
+            memmove(out_buf + copy_to, new_buf + copy_from, copy_len);
+
+          } else {
+          
+            u32 clone_from, clone_to, clone_len;
+            
+            clone_len = choose_block_len(afl, new_len);
+            clone_from = rand_below(afl, new_len - clone_len + 1);
+          
+            clone_to = rand_below(afl, temp_len);
+
+            u8 * temp_buf =
+                ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+
+            /* Head */
+
+            memcpy(temp_buf, out_buf, clone_to);
+
+            /* Inserted part */
+
+            memcpy(temp_buf + clone_to, new_buf + clone_from, clone_len);
+
+            /* Tail */
+            memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
+                   temp_len - clone_to);
+
+            swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
+            out_buf = temp_buf;
+            temp_len += clone_len;
+          
+          }
+
+          break;
+
+        }
 
           /* Values 15 and 16 can be selected only if there are any extras
              present in the dictionaries. */
 
-        case 15: {
+        case 16: {
 
           /* Overwrite bytes with an extra. */
 
@@ -2233,7 +2323,7 @@ havoc_stage:
 
         }
 
-        case 16: {
+        case 17: {
 
           u32 use_extra, extra_len, insert_at = rand_below(afl, temp_len + 1);
           u8 *ptr;
@@ -2357,20 +2447,7 @@ retry_splicing:
     } while (tid == afl->current_entry);
 
     afl->splicing_with = tid;
-    target = afl->queue;
-
-    while (tid >= 100) {
-
-      target = target->next_100;
-      tid -= 100;
-
-    }
-
-    while (tid--) {
-
-      target = target->next;
-
-    }
+    target = afl->queue_buf[tid];
 
     /* Make sure that the target has a reasonable length. */
 

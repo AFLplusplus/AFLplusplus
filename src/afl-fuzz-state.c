@@ -405,6 +405,7 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->pass_stats) { ck_free(afl->pass_stats); }
   if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
 
+  if (afl->queue_buf) { free(afl->queue_buf); }
   if (afl->out_buf) { free(afl->out_buf); }
   if (afl->out_scratch_buf) { free(afl->out_scratch_buf); }
   if (afl->eff_buf) { free(afl->eff_buf); }
