@@ -1,0 +1,2 @@
+//add antlr-4.7-complete.jar to classpath
+>java org.antlr.v4.Tool -o E:\xml\ -visitor -no-listener -Dlanguage=Cpp E:\xml\XMLParser.g4
