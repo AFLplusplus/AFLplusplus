@@ -31,4 +31,4 @@ However the stability is low. Reason is currently unknown.
 
 # Background
 
-This code ist copied for a larger part from https://github.com/meme/hotwax 
+This code is copied for a larger part from https://github.com/meme/hotwax
