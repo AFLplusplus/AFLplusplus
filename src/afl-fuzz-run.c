@@ -142,18 +142,58 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
   s32 fd = afl->fsrv.out_fd;
   u32 tail_len = len - skip_at - skip_len;
 
+  /* We first copy the mem into a new memory region removing the gaps
+    and then carry out any post-processing work on them. Then copy them out to
+    shared-mem or write to file */
+
+  void *mem_trimmed =
+      ck_alloc(skip_at + tail_len +
+               1);  // 1 extra size allocated to remove chance of overflow
+
+  if (skip_at) { memcpy(mem_trimmed, mem, skip_at); }
+
+  if (tail_len) {
+
+    memcpy(mem_trimmed + skip_at, (u8 *)mem + skip_at + skip_len, tail_len);
+
+  }
+
+  ssize_t new_size = skip_at + tail_len;
+  void *  new_mem = mem_trimmed;
+  u8 *    new_buf = NULL;
+
+  if (unlikely(afl->custom_mutators_count)) {
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_post_process) {
+
+        new_size =
+            el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
+
+      }
+
+      new_mem = new_buf;
+
+    });
+
+  }
+
   if (afl->fsrv.shmem_fuzz) {
 
-    if (skip_at) { memcpy(afl->fsrv.shmem_fuzz, mem, skip_at); }
+    if ((new_buf)) {
 
-    if (tail_len) {
-
-      memcpy(afl->fsrv.shmem_fuzz + skip_at, (u8 *)mem + skip_at + skip_len,
-             tail_len);
+      memcpy(afl->fsrv.shmem_fuzz, new_buf, new_size);
 
     }
 
-    *afl->fsrv.shmem_fuzz_len = len - skip_len;
+    else {
+
+      memcpy(afl->fsrv.shmem_fuzz, mem_trimmed, new_size);
+
+    }
+
+    *afl->fsrv.shmem_fuzz_len = new_size;
 
 #ifdef _DEBUG
     if (afl->debug) {
@@ -197,18 +237,19 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
 
   }
 
-  if (skip_at) { ck_write(fd, mem, skip_at, afl->fsrv.out_file); }
+  if (new_buf) {
 
-  u8 *memu8 = mem;
-  if (tail_len) {
+    ck_write(fd, new_buf, new_size, afl->fsrv.out_file);
 
-    ck_write(fd, memu8 + skip_at + skip_len, tail_len, afl->fsrv.out_file);
+  } else {
+
+    ck_write(fd, mem_trimmed, new_size, afl->fsrv.out_file);
 
   }
 
   if (!afl->fsrv.out_file) {
 
-    if (ftruncate(fd, len - skip_len)) { PFATAL("ftruncate() failed"); }
+    if (ftruncate(fd, new_size)) { PFATAL("ftruncate() failed"); }
     lseek(fd, 0, SEEK_SET);
 
   } else {
