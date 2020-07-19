@@ -109,7 +109,7 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
     });
 
-    if (unlikely(!new_buf && (new_size < 0))) {
+    if (unlikely(!new_buf && (new_size <= 0))) {
 
       FATAL("Custom_post_process failed (ret: %lu)", (long unsigned)new_size);
 
