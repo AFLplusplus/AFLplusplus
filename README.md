@@ -358,7 +358,7 @@ Here are some good writeups to show how to effectively use AFL++:
 
 If you are interested in fuzzing structured data (where you define what the
 structure is), these links have you covered:
- * Superion for afl++: [https://github.com/am06/superion-mutator](https://github.com/am06/superion-mutator)
+ * Superion for afl++: [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
  * libprotobuf raw: [https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator](https://github.com/bruce30262/libprotobuf-mutator_fuzzing_learning/tree/master/4_libprotobuf_aflpp_custom_mutator)
  * libprotobuf for old afl++ API: [https://github.com/thebabush/afl-libprotobuf-mutator](https://github.com/thebabush/afl-libprotobuf-mutator)
 

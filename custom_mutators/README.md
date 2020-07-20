@@ -17,7 +17,7 @@ Multiple custom mutators can be used by separating their paths with `:` in the e
 
 Adrian Tiron ported the Superion grammar fuzzer to afl++, it is WIP and
 requires cmake (among other things):
-[https://github.com/am06/superion-mutator](https://github.com/am06/superion-mutator)
+[https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
 
 ## Protobuf
 
