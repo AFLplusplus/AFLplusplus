@@ -334,7 +334,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     } else {
 
-unsuccessful_trimming:
+    unsuccessful_trimming:
 
       /* Tell the custom mutator that the trimming was unsuccessful */
       afl->stage_cur = mutator->afl_custom_post_trim(mutator->data, 0);
