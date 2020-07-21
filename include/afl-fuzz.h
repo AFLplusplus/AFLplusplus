@@ -139,7 +139,8 @@ struct queue_entry {
       var_behavior,                     /* Variable behavior?               */
       favored,                          /* Currently favored?               */
       fs_redundant,                     /* Marked as redundant in the fs?   */
-      fully_colorized;                  /* Do not run redqueen stage again  */
+      fully_colorized,                  /* Do not run redqueen stage again  */
+      is_ascii;                         /* Is the input just ascii text?    */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
       fuzz_level;                       /* Number of fuzzing iterations     */
@@ -333,7 +334,7 @@ typedef struct afl_env_vars {
       afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child_output, afl_autoresume,
-      afl_cal_fast;
+      afl_cal_fast, afl_cycle_schedules;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_skip_crashes, *afl_preload;
@@ -454,7 +455,9 @@ typedef struct afl_state {
       fixed_seed,                       /* do not reseed                    */
       fast_cal,                         /* Try to calibrate faster?         */
       disable_trim,                     /* Never trim in fuzz_one           */
-      shmem_testcase_mode;              /* If sharedmem testcases are used  */
+      shmem_testcase_mode,              /* If sharedmem testcases are used  */
+      expand_havoc,                /* perform expensive havoc after no find */
+      cycle_schedules;                  /* cycle power schedules ?          */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
@@ -548,7 +551,7 @@ typedef struct afl_state {
 
   // growing buf
   struct queue_entry **queue_buf;
-  size_t queue_size;
+  size_t               queue_size;
 
   struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
 
