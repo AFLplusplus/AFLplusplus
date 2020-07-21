@@ -455,7 +455,7 @@ code-format:
 	./.custom-format.py -i llvm_mode/*.h
 	./.custom-format.py -i llvm_mode/*.cc
 	./.custom-format.py -i gcc_plugin/*.c
-	#./.custom-format.py -i gcc_plugin/*.h
+	@#./.custom-format.py -i gcc_plugin/*.h
 	./.custom-format.py -i gcc_plugin/*.cc
 	./.custom-format.py -i custom_mutators/*/*.c
 	./.custom-format.py -i custom_mutators/*/*.h

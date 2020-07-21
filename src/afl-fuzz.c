@@ -1252,11 +1252,42 @@ int main(int argc, char **argv_orig, char **envp) {
       /* If we had a full queue cycle with no new finds, try
          recombination strategies next. */
 
-      if (afl->queued_paths == prev_queued) {
+      if (afl->queued_paths == prev_queued &&
+          (get_cur_time() - afl->start_time) >= 3600) {
 
         if (afl->use_splicing) {
 
           ++afl->cycles_wo_finds;
+          switch (afl->expand_havoc) {
+
+            case 0:
+              afl->expand_havoc = 1;
+              break;
+            case 1:
+              if (afl->limit_time_sig == 0) {
+
+                afl->limit_time_sig = -1;
+                afl->limit_time_puppet = 0;
+
+              }
+
+              afl->expand_havoc = 2;
+              break;
+            case 2:
+              afl->cycle_schedules = 1;
+              afl->expand_havoc = 3;
+              break;
+            case 3:
+              // nothing else currently
+              break;
+
+          }
+
+          if (afl->expand_havoc) {
+
+          } else
+
+            afl->expand_havoc = 1;
 
         } else {
 
@@ -1267,6 +1298,53 @@ int main(int argc, char **argv_orig, char **envp) {
       } else {
 
         afl->cycles_wo_finds = 0;
+
+      }
+
+      if (afl->cycle_schedules) {
+
+        /* we cannot mix non-AFLfast schedules with others */
+
+        switch (afl->schedule) {
+
+          case EXPLORE:
+            afl->schedule = EXPLOIT;
+            break;
+          case EXPLOIT:
+            afl->schedule = MMOPT;
+            break;
+          case MMOPT:
+            afl->schedule = SEEK;
+            break;
+          case SEEK:
+            afl->schedule = EXPLORE;
+            break;
+          case FAST:
+            afl->schedule = COE;
+            break;
+          case COE:
+            afl->schedule = LIN;
+            break;
+          case LIN:
+            afl->schedule = QUAD;
+            break;
+          case QUAD:
+            afl->schedule = RARE;
+            break;
+          case RARE:
+            afl->schedule = FAST;
+            break;
+
+        }
+
+        struct queue_entry *q = afl->queue;
+        // we must recalculate the scores of all queue entries
+        while (q) {
+
+          update_bitmap_score(afl, q);
+          q = q->next;
+
+        }
 
       }
 

@@ -34,6 +34,7 @@ static char *afl_environment_variables[] = {
     "AFL_CUSTOM_MUTATOR_LIBRARY",
     "AFL_CUSTOM_MUTATOR_ONLY",
     "AFL_CXX",
+    "AFL_CYCLE_SCHEDULES",
     "AFL_DEBUG",
     "AFL_DEBUG_CHILD_OUTPUT",
     "AFL_DEBUG_GDB",
