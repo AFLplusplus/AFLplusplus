@@ -282,9 +282,23 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     } else if (unlikely(retlen > orig_len)) {
 
-      FATAL(
-          "Trimmed data returned by custom mutator is larger than original "
-          "data");
+      /* Do not exit the fuzzer, even if the trimmed data returned by the custom
+         mutator is larger than the original data. For some use cases, like the
+         grammar mutator, the definition of "size" may have different meanings.
+         For example, the trimming function in a grammar mutator aims at
+         reducing the objects in a grammar structure, but does not guarantee to
+         generate a smaller binary buffer.
+
+         Thus, we allow the custom mutator to generate the trimmed data that is
+         larger than the original data. */
+
+      if (afl->not_on_tty && afl->debug) {
+
+        WARNF(
+            "Trimmed data returned by custom mutator is larger than original "
+            "data");
+
+      }
 
     } else if (unlikely(retlen == 0)) {
 
