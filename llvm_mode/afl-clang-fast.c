@@ -768,9 +768,19 @@ int main(int argc, char **argv, char **envp) {
 #if LLVM_VERSION_MAJOR <= 6
     instrument_mode = INSTRUMENT_AFL;
 #else
-    if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST"))
+    if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST")) {
+
       instrument_mode = INSTRUMENT_AFL;
-    else
+      WARNF(
+          "switching to classic instrumentation because "
+          "AFL_LLVM_INSTRUMENT_FILE does not work with PCGUARD. Use "
+          "-fsanitize-coverage-allowlist=allowlist.txt if you want to use "
+          "PCGUARD. See "
+          "https://clang.llvm.org/docs/"
+          "SanitizerCoverage.html#partially-disabling-instrumentation");
+
+    } else
+
       instrument_mode = INSTRUMENT_PCGUARD;
 #endif
 
@@ -818,9 +828,12 @@ int main(int argc, char **argv, char **envp) {
 
   if (instrument_mode == INSTRUMENT_PCGUARD &&
       (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST")))
-    WARNF(
+    FATAL(
         "Instrumentation type PCGUARD does not support "
-        "AFL_LLVM_INSTRUMENT_FILE!");
+        "AFL_LLVM_INSTRUMENT_FILE! Use "
+        "-fsanitize-coverage-allowlist=allowlist.txt instead, see "
+        "https://clang.llvm.org/docs/"
+        "SanitizerCoverage.html#partially-disabling-instrumentation");
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 

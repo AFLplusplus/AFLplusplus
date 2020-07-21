@@ -36,7 +36,7 @@ size_t afl_custom_fuzz(void *data, uint8_t *buf, size_t buf_size, u8 **out_buf, 
 size_t afl_custom_post_process(void *data, uint8_t *buf, size_t buf_size, uint8_t **out_buf);
 int32_t afl_custom_init_trim(void *data, uint8_t *buf, size_t buf_size);
 size_t afl_custom_trim(void *data, uint8_t **out_buf);
-int32_t afl_custom_post_trim(void *data, int success) {
+int32_t afl_custom_post_trim(void *data, int success);
 size_t afl_custom_havoc_mutation(void *data, u8 *buf, size_t buf_size, u8 **out_buf, size_t max_size);
 uint8_t afl_custom_havoc_mutation_probability(void *data);
 uint8_t afl_custom_queue_get(void *data, const uint8_t *filename);

@@ -1048,6 +1048,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  #ifdef RAND_TEST_VALUES
+  u32 counter;
+  for (counter = 0; counter < 100000; counter++)
+    printf("DEBUG: rand %06d is %u\n", counter, rand_below(afl, 65536));
+  #endif
+
   setup_custom_mutators(afl);
 
   setup_cmdline_file(afl, argv + optind);
