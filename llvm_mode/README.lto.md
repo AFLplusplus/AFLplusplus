@@ -125,10 +125,9 @@ NOTE: some targets also need to set the linker, try both `afl-clang-lto` and
 
 ## AUTODICTIONARY feature
 
-Setting `AFL_LLVM_LTO_AUTODICTIONARY` will generate a dictionary in the
-target binary based on string compare and memory compare functions.
-afl-fuzz will automatically get these transmitted when starting to fuzz.
-This improves coverage on a lot of targets.
+While compiling, automatically a dictionary based on string comparisons is
+generated put into the target binary. This dictionary is transfered to afl-fuzz
+on start. This improves coverage statistically by 5-10% :)
 
 ## Fixed memory map
 
@@ -146,6 +145,8 @@ is safer but also slower).
 Some targets are difficult because the configure script does unusual stuff that
 is unexpected for afl. See the next chapter `Potential issues` how to solve
 these.
+
+### Example: ffmpeg
 
 An example of a hard to solve target is ffmpeg. Here is how to successfully
 instrument it:
@@ -185,6 +186,31 @@ instrument it:
 ```
 
 4. Then type make, wait for a long time and you are done :)
+
+### Example: WebKit jsc
+
+Building jsc is difficult as the build script has bugs.
+
+1. checkout Webkit: 
+```
+svn checkout https://svn.webkit.org/repository/webkit/trunk WebKit
+cd WebKit
+```
+
+2. Fix the build environment:
+```
+mkdir -p WebKitBuild/Release
+cd WebKitBuild/Release
+ln -s ../../../../../usr/bin/llvm-ar-11 llvm-ar-11
+ln -s ../../../../../usr/bin/llvm-ranlib-11 llvm-ranlib-11
+cd ../..
+```
+
+3. Build :)
+
+```
+Tools/Scripts/build-jsc --jsc-only --cli --cmakeargs="-DCMAKE_AR='llvm-ar-11' -DCMAKE_RANLIB='llvm-ranlib-11' -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_CC_FLAGS='-O3 -lrt' -DCMAKE_CXX_FLAGS='-O3 -lrt' -DIMPORTED_LOCATION='/lib/x86_64-linux-gnu/' -DCMAKE_CC=afl-clang-lto -DCMAKE_CXX=afl-clang-lto++ -DENABLE_STATIC_JSC=ON"
+```
 
 ## Potential issues
 
