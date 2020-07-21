@@ -227,13 +227,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (lto_mode) {
 
-    if (getenv("AFL_LLVM_WHITELIST") != NULL) {
+    if (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
+        getenv("AFL_LLVM_WHITELIST")) {
 
       cc_params[cc_par_cnt++] = "-Xclang";
       cc_params[cc_par_cnt++] = "-load";
       cc_params[cc_par_cnt++] = "-Xclang";
       cc_params[cc_par_cnt++] =
-          alloc_printf("%s/afl-llvm-lto-whitelist.so", obj_path);
+          alloc_printf("%s/afl-llvm-lto-instrumentlist.so", obj_path);
 
     }
 
@@ -310,12 +311,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
-    if (instrument_mode == INSTRUMENT_CFG)
-      cc_params[cc_par_cnt++] =
-          alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-lto-instrim.so", obj_path);
-    else
-      cc_params[cc_par_cnt++] = alloc_printf(
-          "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
+    /*
+        The current LTO instrim mode is not good, so we disable it
+        if (instrument_mode == INSTRUMENT_CFG)
+          cc_params[cc_par_cnt++] =
+              alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-lto-instrim.so",
+       obj_path); else
+    */
+    cc_params[cc_par_cnt++] = alloc_printf(
+        "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
     cc_params[cc_par_cnt++] = lto_flag;
 
   } else {
@@ -377,6 +381,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
       continue;
+
+    if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
 
     cc_params[cc_par_cnt++] = cur;
 
@@ -659,7 +665,7 @@ int main(int argc, char **argv, char **envp) {
       }
 
       if (strncasecmp(ptr, "pc-guard", strlen("pc-guard")) == 0 ||
-          strncasecmp(ptr, "pcguard", strlen("pcgard")) == 0) {
+          strncasecmp(ptr, "pcguard", strlen("pcguard")) == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_PCGUARD)
           instrument_mode = INSTRUMENT_PCGUARD;
@@ -762,7 +768,7 @@ int main(int argc, char **argv, char **envp) {
 #if LLVM_VERSION_MAJOR <= 6
     instrument_mode = INSTRUMENT_AFL;
 #else
-    if (getenv("AFL_LLVM_WHITELIST"))
+    if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST"))
       instrument_mode = INSTRUMENT_AFL;
     else
       instrument_mode = INSTRUMENT_PCGUARD;
@@ -810,8 +816,11 @@ int main(int argc, char **argv, char **envp) {
         "AFL_LLVM_NOT_ZERO and AFL_LLVM_SKIP_NEVERZERO can not be set "
         "together");
 
-  if (instrument_mode == INSTRUMENT_PCGUARD && getenv("AFL_LLVM_WHITELIST"))
-    WARNF("Instrumentation type PCGUARD does not support AFL_LLVM_WHITELIST!");
+  if (instrument_mode == INSTRUMENT_PCGUARD &&
+      (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST")))
+    WARNF(
+        "Instrumentation type PCGUARD does not support "
+        "AFL_LLVM_INSTRUMENT_FILE!");
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -861,7 +870,8 @@ int main(int argc, char **argv, char **envp) {
         "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
         "function calls\n"
         "AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
-        "AFL_LLVM_WHITELIST: enable whitelisting (selective "
+        "AFL_LLVM_INSTRUMENT_FILE: enable the instrument file listing "
+        "(selective "
         "instrumentation)\n"
         "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
         "AFL_PATH: path to instrumenting pass and runtime "
@@ -934,7 +944,7 @@ int main(int argc, char **argv, char **envp) {
 
     u32 map_size = atoi(ptr2);
     if (map_size != MAP_SIZE)
-      FATAL("AFL_MAP_SIZE is not supported by afl-clang-fast");
+      WARNF("AFL_MAP_SIZE is not supported by afl-clang-fast");
 
   }
 

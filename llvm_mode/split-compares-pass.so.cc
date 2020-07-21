@@ -55,7 +55,7 @@ class SplitComparesTransform : public ModulePass {
   static char ID;
   SplitComparesTransform() : ModulePass(ID) {
 
-    initWhitelist();
+    initInstrumentList();
 
   }
 
@@ -80,6 +80,7 @@ class SplitComparesTransform : public ModulePass {
   size_t splitIntCompares(Module &M, unsigned bitw);
   size_t splitFPCompares(Module &M);
   bool   simplifyCompares(Module &M);
+  bool   simplifyFPCompares(Module &M);
   bool   simplifyIntSignedness(Module &M);
   size_t nextPowerOfTwo(size_t in);
 
@@ -89,12 +90,11 @@ class SplitComparesTransform : public ModulePass {
 
 char SplitComparesTransform::ID = 0;
 
-/* This function splits ICMP instructions with xGE or xLE predicates into two
- * ICMP instructions with predicate xGT or xLT and EQ */
-bool SplitComparesTransform::simplifyCompares(Module &M) {
+/* This function splits FCMP instructions with xGE or xLE predicates into two
+ * FCMP instructions with predicate xGT or xLT and EQ */
+bool SplitComparesTransform::simplifyFPCompares(Module &M) {
 
   LLVMContext &              C = M.getContext();
-  std::vector<Instruction *> icomps;
   std::vector<Instruction *> fcomps;
   IntegerType *              Int1Ty = IntegerType::getInt1Ty(C);
 
@@ -102,7 +102,7 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
    * all integer comparisons with >= and <= predicates to the icomps vector */
   for (auto &F : M) {
 
-    if (!isInWhitelist(&F)) continue;
+    if (!isInInstrumentList(&F)) continue;
 
     for (auto &BB : F) {
 
@@ -111,24 +111,6 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
         CmpInst *selectcmpInst = nullptr;
 
         if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
-
-          if (selectcmpInst->getPredicate() == CmpInst::ICMP_UGE ||
-              selectcmpInst->getPredicate() == CmpInst::ICMP_SGE ||
-              selectcmpInst->getPredicate() == CmpInst::ICMP_ULE ||
-              selectcmpInst->getPredicate() == CmpInst::ICMP_SLE) {
-
-            auto op0 = selectcmpInst->getOperand(0);
-            auto op1 = selectcmpInst->getOperand(1);
-
-            IntegerType *intTyOp0 = dyn_cast<IntegerType>(op0->getType());
-            IntegerType *intTyOp1 = dyn_cast<IntegerType>(op1->getType());
-
-            /* this is probably not needed but we do it anyway */
-            if (!intTyOp0 || !intTyOp1) { continue; }
-
-            icomps.push_back(selectcmpInst);
-
-          }
 
           if (enableFPSplit &&
               (selectcmpInst->getPredicate() == CmpInst::FCMP_OGE ||
@@ -159,7 +141,135 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
 
   }
 
-  if (!icomps.size() && !fcomps.size()) { return false; }
+  if (!fcomps.size()) { return false; }
+
+  /* transform for floating point */
+  for (auto &FcmpInst : fcomps) {
+
+    BasicBlock *bb = FcmpInst->getParent();
+
+    auto op0 = FcmpInst->getOperand(0);
+    auto op1 = FcmpInst->getOperand(1);
+
+    /* find out what the new predicate is going to be */
+    auto               pred = dyn_cast<CmpInst>(FcmpInst)->getPredicate();
+    CmpInst::Predicate new_pred;
+    switch (pred) {
+
+      case CmpInst::FCMP_UGE:
+        new_pred = CmpInst::FCMP_UGT;
+        break;
+      case CmpInst::FCMP_OGE:
+        new_pred = CmpInst::FCMP_OGT;
+        break;
+      case CmpInst::FCMP_ULE:
+        new_pred = CmpInst::FCMP_ULT;
+        break;
+      case CmpInst::FCMP_OLE:
+        new_pred = CmpInst::FCMP_OLT;
+        break;
+      default:  // keep the compiler happy
+        continue;
+
+    }
+
+    /* split before the fcmp instruction */
+    BasicBlock *end_bb = bb->splitBasicBlock(BasicBlock::iterator(FcmpInst));
+
+    /* the old bb now contains a unconditional jump to the new one (end_bb)
+     * we need to delete it later */
+
+    /* create the FCMP instruction with new_pred and add it to the old basic
+     * block bb it is now at the position where the old FcmpInst was */
+    Instruction *fcmp_np;
+    fcmp_np = CmpInst::Create(Instruction::FCmp, new_pred, op0, op1);
+    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()),
+                             fcmp_np);
+
+    /* create a new basic block which holds the new EQ fcmp */
+    Instruction *fcmp_eq;
+    /* insert middle_bb before end_bb */
+    BasicBlock *middle_bb =
+        BasicBlock::Create(C, "injected", end_bb->getParent(), end_bb);
+    fcmp_eq = CmpInst::Create(Instruction::FCmp, CmpInst::FCMP_OEQ, op0, op1);
+    middle_bb->getInstList().push_back(fcmp_eq);
+    /* add an unconditional branch to the end of middle_bb with destination
+     * end_bb */
+    BranchInst::Create(end_bb, middle_bb);
+
+    /* replace the uncond branch with a conditional one, which depends on the
+     * new_pred fcmp. True goes to end, false to the middle (injected) bb */
+    auto term = bb->getTerminator();
+    BranchInst::Create(end_bb, middle_bb, fcmp_np, bb);
+    term->eraseFromParent();
+
+    /* replace the old FcmpInst (which is the first inst in end_bb) with a PHI
+     * inst to wire up the loose ends */
+    PHINode *PN = PHINode::Create(Int1Ty, 2, "");
+    /* the first result depends on the outcome of fcmp_eq */
+    PN->addIncoming(fcmp_eq, middle_bb);
+    /* if the source was the original bb we know that the fcmp_np yielded true
+     * hence we can hardcode this value */
+    PN->addIncoming(ConstantInt::get(Int1Ty, 1), bb);
+    /* replace the old FcmpInst with our new and shiny PHI inst */
+    BasicBlock::iterator ii(FcmpInst);
+    ReplaceInstWithInst(FcmpInst->getParent()->getInstList(), ii, PN);
+
+  }
+
+  return true;
+
+}
+
+/* This function splits ICMP instructions with xGE or xLE predicates into two
+ * ICMP instructions with predicate xGT or xLT and EQ */
+bool SplitComparesTransform::simplifyCompares(Module &M) {
+
+  LLVMContext &              C = M.getContext();
+  std::vector<Instruction *> icomps;
+  IntegerType *              Int1Ty = IntegerType::getInt1Ty(C);
+
+  /* iterate over all functions, bbs and instruction and add
+   * all integer comparisons with >= and <= predicates to the icomps vector */
+  for (auto &F : M) {
+
+    if (!isInInstrumentList(&F)) continue;
+
+    for (auto &BB : F) {
+
+      for (auto &IN : BB) {
+
+        CmpInst *selectcmpInst = nullptr;
+
+        if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
+
+          if (selectcmpInst->getPredicate() == CmpInst::ICMP_UGE ||
+              selectcmpInst->getPredicate() == CmpInst::ICMP_SGE ||
+              selectcmpInst->getPredicate() == CmpInst::ICMP_ULE ||
+              selectcmpInst->getPredicate() == CmpInst::ICMP_SLE) {
+
+            auto op0 = selectcmpInst->getOperand(0);
+            auto op1 = selectcmpInst->getOperand(1);
+
+            IntegerType *intTyOp0 = dyn_cast<IntegerType>(op0->getType());
+            IntegerType *intTyOp1 = dyn_cast<IntegerType>(op1->getType());
+
+            /* this is probably not needed but we do it anyway */
+            if (!intTyOp0 || !intTyOp1) { continue; }
+
+            icomps.push_back(selectcmpInst);
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+  if (!icomps.size()) { return false; }
 
   for (auto &IcmpInst : icomps) {
 
@@ -231,80 +341,6 @@ bool SplitComparesTransform::simplifyCompares(Module &M) {
     /* replace the old IcmpInst with our new and shiny PHI inst */
     BasicBlock::iterator ii(IcmpInst);
     ReplaceInstWithInst(IcmpInst->getParent()->getInstList(), ii, PN);
-
-  }
-
-  /* now for floating point */
-  for (auto &FcmpInst : fcomps) {
-
-    BasicBlock *bb = FcmpInst->getParent();
-
-    auto op0 = FcmpInst->getOperand(0);
-    auto op1 = FcmpInst->getOperand(1);
-
-    /* find out what the new predicate is going to be */
-    auto               pred = dyn_cast<CmpInst>(FcmpInst)->getPredicate();
-    CmpInst::Predicate new_pred;
-    switch (pred) {
-
-      case CmpInst::FCMP_UGE:
-        new_pred = CmpInst::FCMP_UGT;
-        break;
-      case CmpInst::FCMP_OGE:
-        new_pred = CmpInst::FCMP_OGT;
-        break;
-      case CmpInst::FCMP_ULE:
-        new_pred = CmpInst::FCMP_ULT;
-        break;
-      case CmpInst::FCMP_OLE:
-        new_pred = CmpInst::FCMP_OLT;
-        break;
-      default:  // keep the compiler happy
-        continue;
-
-    }
-
-    /* split before the icmp instruction */
-    BasicBlock *end_bb = bb->splitBasicBlock(BasicBlock::iterator(FcmpInst));
-
-    /* the old bb now contains a unconditional jump to the new one (end_bb)
-     * we need to delete it later */
-
-    /* create the ICMP instruction with new_pred and add it to the old basic
-     * block bb it is now at the position where the old IcmpInst was */
-    Instruction *fcmp_np;
-    fcmp_np = CmpInst::Create(Instruction::FCmp, new_pred, op0, op1);
-    bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()),
-                             fcmp_np);
-
-    /* create a new basic block which holds the new EQ fcmp */
-    Instruction *fcmp_eq;
-    /* insert middle_bb before end_bb */
-    BasicBlock *middle_bb =
-        BasicBlock::Create(C, "injected", end_bb->getParent(), end_bb);
-    fcmp_eq = CmpInst::Create(Instruction::FCmp, CmpInst::FCMP_OEQ, op0, op1);
-    middle_bb->getInstList().push_back(fcmp_eq);
-    /* add an unconditional branch to the end of middle_bb with destination
-     * end_bb */
-    BranchInst::Create(end_bb, middle_bb);
-
-    /* replace the uncond branch with a conditional one, which depends on the
-     * new_pred icmp. True goes to end, false to the middle (injected) bb */
-    auto term = bb->getTerminator();
-    BranchInst::Create(end_bb, middle_bb, fcmp_np, bb);
-    term->eraseFromParent();
-
-    /* replace the old IcmpInst (which is the first inst in end_bb) with a PHI
-     * inst to wire up the loose ends */
-    PHINode *PN = PHINode::Create(Int1Ty, 2, "");
-    /* the first result depends on the outcome of icmp_eq */
-    PN->addIncoming(fcmp_eq, middle_bb);
-    /* if the source was the original bb we know that the icmp_np yielded true
-     * hence we can hardcode this value */
-    PN->addIncoming(ConstantInt::get(Int1Ty, 1), bb);
-    /* replace the old IcmpInst with our new and shiny PHI inst */
-    BasicBlock::iterator ii(FcmpInst);
-    ReplaceInstWithInst(FcmpInst->getParent()->getInstList(), ii, PN);
 
   }
 
@@ -640,7 +676,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
     BranchInst::Create(end_bb, signequal_bb);
 
-    /* create a new bb which is executed if exponents are equal */
+    /* create a new bb which is executed if exponents are satisfying the compare
+     */
     BasicBlock *middle_bb =
         BasicBlock::Create(C, "injected", end_bb->getParent(), end_bb);
 
@@ -695,7 +732,9 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     }
 
     /* compare the exponents of the operands */
+    Instruction *icmp_exponents_equal;
     Instruction *icmp_exponent_result;
+    BasicBlock * signequal2_bb = signequal_bb;
     switch (FcmpInst->getPredicate()) {
 
       case CmpInst::FCMP_OEQ:
@@ -707,22 +746,60 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
         icmp_exponent_result =
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_NE, m_e0, m_e1);
         break;
+      /* compare the exponents of the operands (signs are equal)
+       * if exponents are equal -> proceed to mantissa comparison
+       * else get result depending on sign
+       */
       case CmpInst::FCMP_OGT:
       case CmpInst::FCMP_UGT:
         Instruction *icmp_exponent;
+        icmp_exponents_equal =
+            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, m_e0, m_e1);
+        signequal_bb->getInstList().insert(
+            BasicBlock::iterator(signequal_bb->getTerminator()),
+            icmp_exponents_equal);
+
+        // shortcut for unequal exponents
+        signequal2_bb = signequal_bb->splitBasicBlock(
+            BasicBlock::iterator(signequal_bb->getTerminator()));
+
+        /* if the exponents are equal goto middle_bb else to signequal2_bb */
+        term = signequal_bb->getTerminator();
+        BranchInst::Create(middle_bb, signequal2_bb, icmp_exponents_equal,
+                           signequal_bb);
+        term->eraseFromParent();
+
         icmp_exponent =
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, m_e0, m_e1);
-        signequal_bb->getInstList().insert(
-            BasicBlock::iterator(signequal_bb->getTerminator()), icmp_exponent);
+        signequal2_bb->getInstList().insert(
+            BasicBlock::iterator(signequal2_bb->getTerminator()),
+            icmp_exponent);
         icmp_exponent_result =
             BinaryOperator::Create(Instruction::Xor, icmp_exponent, t_s0);
         break;
       case CmpInst::FCMP_OLT:
       case CmpInst::FCMP_ULT:
+        icmp_exponents_equal =
+            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, m_e0, m_e1);
+        signequal_bb->getInstList().insert(
+            BasicBlock::iterator(signequal_bb->getTerminator()),
+            icmp_exponents_equal);
+
+        // shortcut for unequal exponents
+        signequal2_bb = signequal_bb->splitBasicBlock(
+            BasicBlock::iterator(signequal_bb->getTerminator()));
+
+        /* if the exponents are equal goto middle_bb else to signequal2_bb */
+        term = signequal_bb->getTerminator();
+        BranchInst::Create(middle_bb, signequal2_bb, icmp_exponents_equal,
+                           signequal_bb);
+        term->eraseFromParent();
+
         icmp_exponent =
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT, m_e0, m_e1);
-        signequal_bb->getInstList().insert(
-            BasicBlock::iterator(signequal_bb->getTerminator()), icmp_exponent);
+        signequal2_bb->getInstList().insert(
+            BasicBlock::iterator(signequal2_bb->getTerminator()),
+            icmp_exponent);
         icmp_exponent_result =
             BinaryOperator::Create(Instruction::Xor, icmp_exponent, t_s0);
         break;
@@ -731,15 +808,40 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
     }
 
-    signequal_bb->getInstList().insert(
-        BasicBlock::iterator(signequal_bb->getTerminator()),
+    signequal2_bb->getInstList().insert(
+        BasicBlock::iterator(signequal2_bb->getTerminator()),
         icmp_exponent_result);
 
     {
 
-      auto term = signequal_bb->getTerminator();
-      /* if the exponents are different do a fraction cmp */
-      BranchInst::Create(middle_bb, end_bb, icmp_exponent_result, signequal_bb);
+      term = signequal2_bb->getTerminator();
+
+      switch (FcmpInst->getPredicate()) {
+
+        case CmpInst::FCMP_OEQ:
+          /* if the exponents are satifying the compare do a fraction cmp in
+           * middle_bb */
+          BranchInst::Create(middle_bb, end_bb, icmp_exponent_result,
+                             signequal2_bb);
+          break;
+        case CmpInst::FCMP_ONE:
+        case CmpInst::FCMP_UNE:
+          /* if the exponents are satifying the compare do a fraction cmp in
+           * middle_bb */
+          BranchInst::Create(end_bb, middle_bb, icmp_exponent_result,
+                             signequal2_bb);
+          break;
+        case CmpInst::FCMP_OGT:
+        case CmpInst::FCMP_UGT:
+        case CmpInst::FCMP_OLT:
+        case CmpInst::FCMP_ULT:
+          BranchInst::Create(end_bb, signequal2_bb);
+          break;
+        default:
+          continue;
+
+      }
+
       term->eraseFromParent();
 
     }
@@ -800,43 +902,81 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
     /* compare the fractions of the operands */
     Instruction *icmp_fraction_result;
+    Instruction *icmp_fraction_result2;
+    BasicBlock * middle2_bb = middle_bb;
+    PHINode *    PN2 = nullptr;
     switch (FcmpInst->getPredicate()) {
 
       case CmpInst::FCMP_OEQ:
         icmp_fraction_result =
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, t_f0, t_f1);
+        middle2_bb->getInstList().insert(
+            BasicBlock::iterator(middle2_bb->getTerminator()),
+            icmp_fraction_result);
+
         break;
       case CmpInst::FCMP_UNE:
       case CmpInst::FCMP_ONE:
         icmp_fraction_result =
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_NE, t_f0, t_f1);
+        middle2_bb->getInstList().insert(
+            BasicBlock::iterator(middle2_bb->getTerminator()),
+            icmp_fraction_result);
+
         break;
       case CmpInst::FCMP_OGT:
       case CmpInst::FCMP_UGT:
-        Instruction *icmp_fraction;
-        icmp_fraction =
-            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, t_f0, t_f1);
-        middle_bb->getInstList().insert(
-            BasicBlock::iterator(middle_bb->getTerminator()), icmp_fraction);
-        icmp_fraction_result =
-            BinaryOperator::Create(Instruction::Xor, icmp_fraction, t_s0);
-        break;
       case CmpInst::FCMP_OLT:
-      case CmpInst::FCMP_ULT:
-        icmp_fraction =
-            CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT, t_f0, t_f1);
-        middle_bb->getInstList().insert(
-            BasicBlock::iterator(middle_bb->getTerminator()), icmp_fraction);
-        icmp_fraction_result =
-            BinaryOperator::Create(Instruction::Xor, icmp_fraction, t_s0);
-        break;
+      case CmpInst::FCMP_ULT: {
+
+        middle2_bb = middle_bb->splitBasicBlock(
+            BasicBlock::iterator(middle_bb->getTerminator()));
+
+        BasicBlock *negative_bb = BasicBlock::Create(
+            C, "negative_value", middle2_bb->getParent(), middle2_bb);
+        BasicBlock *positive_bb = BasicBlock::Create(
+            C, "positive_value", negative_bb->getParent(), negative_bb);
+
+        if (FcmpInst->getPredicate() == CmpInst::FCMP_OGT ||
+            FcmpInst->getPredicate() == CmpInst::FCMP_UGT) {
+
+          negative_bb->getInstList().push_back(
+              icmp_fraction_result = CmpInst::Create(
+                  Instruction::ICmp, CmpInst::ICMP_ULT, t_f0, t_f1));
+          positive_bb->getInstList().push_back(
+              icmp_fraction_result2 = CmpInst::Create(
+                  Instruction::ICmp, CmpInst::ICMP_UGT, t_f0, t_f1));
+
+        } else {
+
+          negative_bb->getInstList().push_back(
+              icmp_fraction_result = CmpInst::Create(
+                  Instruction::ICmp, CmpInst::ICMP_UGT, t_f0, t_f1));
+          positive_bb->getInstList().push_back(
+              icmp_fraction_result2 = CmpInst::Create(
+                  Instruction::ICmp, CmpInst::ICMP_ULT, t_f0, t_f1));
+
+        }
+
+        BranchInst::Create(middle2_bb, negative_bb);
+        BranchInst::Create(middle2_bb, positive_bb);
+
+        term = middle_bb->getTerminator();
+        BranchInst::Create(negative_bb, positive_bb, t_s0, middle_bb);
+        term->eraseFromParent();
+
+        PN2 = PHINode::Create(Int1Ty, 2, "");
+        PN2->addIncoming(icmp_fraction_result, negative_bb);
+        PN2->addIncoming(icmp_fraction_result2, positive_bb);
+        middle2_bb->getInstList().insert(
+            BasicBlock::iterator(middle2_bb->getTerminator()), PN2);
+
+      } break;
+
       default:
         continue;
 
     }
-
-    middle_bb->getInstList().insert(
-        BasicBlock::iterator(middle_bb->getTerminator()), icmp_fraction_result);
 
     PHINode *PN = PHINode::Create(Int1Ty, 3, "");
 
@@ -849,7 +989,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
         /* unequal exponents cannot be equal values, too */
         PN->addIncoming(ConstantInt::get(Int1Ty, 0), signequal_bb);
         /* fractions comparison */
-        PN->addIncoming(icmp_fraction_result, middle_bb);
+        PN->addIncoming(icmp_fraction_result, middle2_bb);
         break;
       case CmpInst::FCMP_ONE:
       case CmpInst::FCMP_UNE:
@@ -857,25 +997,25 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
         /* goto true branch */
         PN->addIncoming(ConstantInt::get(Int1Ty, 1), bb);
         /* unequal exponents are unequal values, too */
-        PN->addIncoming(ConstantInt::get(Int1Ty, 1), signequal_bb);
+        PN->addIncoming(icmp_exponent_result, signequal_bb);
         /* fractions comparison */
-        PN->addIncoming(icmp_fraction_result, middle_bb);
+        PN->addIncoming(icmp_fraction_result, middle2_bb);
         break;
       case CmpInst::FCMP_OGT:
       case CmpInst::FCMP_UGT:
         /* if op1 is negative goto true branch,
            else go on comparing */
         PN->addIncoming(t_s1, bb);
-        PN->addIncoming(icmp_exponent_result, signequal_bb);
-        PN->addIncoming(icmp_fraction_result, middle_bb);
+        PN->addIncoming(icmp_exponent_result, signequal2_bb);
+        PN->addIncoming(PN2, middle2_bb);
         break;
       case CmpInst::FCMP_OLT:
       case CmpInst::FCMP_ULT:
         /* if op0 is negative goto true branch,
            else go on comparing */
         PN->addIncoming(t_s0, bb);
-        PN->addIncoming(icmp_exponent_result, signequal_bb);
-        PN->addIncoming(icmp_fraction_result, middle_bb);
+        PN->addIncoming(icmp_exponent_result, signequal2_bb);
+        PN->addIncoming(PN2, middle2_bb);
         break;
       default:
         continue;
@@ -1115,23 +1255,28 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
   enableFPSplit = getenv("AFL_LLVM_LAF_SPLIT_FLOATS") != NULL;
 
-  simplifyCompares(M);
-
-  simplifyIntSignedness(M);
-
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) ||
       getenv("AFL_DEBUG") != NULL) {
 
     errs() << "Split-compare-pass by laf.intel@gmail.com, extended by "
               "heiko@hexco.de\n";
 
-    if (enableFPSplit)
+    if (enableFPSplit) {
+
       errs() << "Split-floatingpoint-compare-pass: " << splitFPCompares(M)
              << " FP comparisons splitted\n";
+
+    }
 
   } else
 
     be_quiet = 1;
+
+  if (enableFPSplit) simplifyFPCompares(M);
+
+  simplifyCompares(M);
+
+  simplifyIntSignedness(M);
 
   switch (bitw) {
 

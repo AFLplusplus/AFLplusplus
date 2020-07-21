@@ -306,47 +306,47 @@ int main(int argc, char **argv, char **envp) {
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
-    printf(
-        cCYA
-        "afl-gcc-fast" VERSION cRST
-        " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n"
-        "\n"
-        "afl-gcc-fast [options]\n"
-        "\n"
-        "This is a helper application for afl-fuzz. It serves as a drop-in "
-        "replacement\n"
-        "for gcc, letting you recompile third-party code with the required "
-        "runtime\n"
-        "instrumentation. A common use pattern would be one of the "
-        "following:\n\n"
+    printf(cCYA
+           "afl-gcc-fast" VERSION cRST
+           " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n"
+           "\n"
+           "afl-gcc-fast [options]\n"
+           "\n"
+           "This is a helper application for afl-fuzz. It serves as a drop-in "
+           "replacement\n"
+           "for gcc, letting you recompile third-party code with the required "
+           "runtime\n"
+           "instrumentation. A common use pattern would be one of the "
+           "following:\n\n"
 
-        "  CC=%s/afl-gcc-fast ./configure\n"
-        "  CXX=%s/afl-g++-fast ./configure\n\n"
+           "  CC=%s/afl-gcc-fast ./configure\n"
+           "  CXX=%s/afl-g++-fast ./configure\n\n"
 
-        "In contrast to the traditional afl-gcc tool, this version is "
-        "implemented as\n"
-        "a GCC plugin and tends to offer improved performance with slow "
-        "programs\n"
-        "(similarly to the LLVM plugin used by afl-clang-fast).\n\n"
+           "In contrast to the traditional afl-gcc tool, this version is "
+           "implemented as\n"
+           "a GCC plugin and tends to offer improved performance with slow "
+           "programs\n"
+           "(similarly to the LLVM plugin used by afl-clang-fast).\n\n"
 
-        "Environment variables used:\n"
-        "AFL_CC: path to the C compiler to use\n"
-        "AFL_CXX: path to the C++ compiler to use\n"
-        "AFL_PATH: path to instrumenting pass and runtime (afl-gcc-rt.*o)\n"
-        "AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
-        "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
-        "AFL_INST_RATIO: percentage of branches to instrument\n"
-        "AFL_QUIET: suppress verbose output\n"
-        "AFL_DEBUG: enable developer debugging output\n"
-        "AFL_HARDEN: adds code hardening to catch memory bugs\n"
-        "AFL_USE_ASAN: activate address sanitizer\n"
-        "AFL_USE_MSAN: activate memory sanitizer\n"
-        "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
-        "AFL_GCC_WHITELIST: enable whitelisting (selective instrumentation)\n"
+           "Environment variables used:\n"
+           "AFL_CC: path to the C compiler to use\n"
+           "AFL_CXX: path to the C++ compiler to use\n"
+           "AFL_PATH: path to instrumenting pass and runtime (afl-gcc-rt.*o)\n"
+           "AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
+           "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
+           "AFL_INST_RATIO: percentage of branches to instrument\n"
+           "AFL_QUIET: suppress verbose output\n"
+           "AFL_DEBUG: enable developer debugging output\n"
+           "AFL_HARDEN: adds code hardening to catch memory bugs\n"
+           "AFL_USE_ASAN: activate address sanitizer\n"
+           "AFL_USE_MSAN: activate memory sanitizer\n"
+           "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
+           "AFL_GCC_INSTRUMENT_FILE: enable selective instrumentation by "
+           "filename\n"
 
-        "\nafl-gcc-fast was built for gcc %s with the gcc binary path of "
-        "\"%s\".\n\n",
-        BIN_PATH, BIN_PATH, GCC_VERSION, GCC_BINDIR);
+           "\nafl-gcc-fast was built for gcc %s with the gcc binary path of "
+           "\"%s\".\n\n",
+           BIN_PATH, BIN_PATH, GCC_VERSION, GCC_BINDIR);
 
     exit(1);
 
@@ -357,12 +357,15 @@ int main(int argc, char **argv, char **envp) {
     SAYF(cCYA "afl-gcc-fast" VERSION cRST
               " initially by <aseipp@pobox.com>, maintainer: hexcoder-\n");
 
-    if (getenv("AFL_GCC_WHITELIST") == NULL) {
+    if (getenv("AFL_GCC_INSTRUMENT_FILE") == NULL &&
+        getenv("AFL_GCC_WHITELIST") == NULL) {
 
-      SAYF(cYEL "Warning:" cRST
-                " using afl-gcc-fast without using AFL_GCC_WHITELIST currently "
-                "produces worse results than afl-gcc. Even better, use "
-                "llvm_mode for now.\n");
+      SAYF(
+          cYEL
+          "Warning:" cRST
+          " using afl-gcc-fast without using AFL_GCC_INSTRUMENT_FILE currently "
+          "produces worse results than afl-gcc. Even better, use "
+          "llvm_mode for now.\n");
 
     }
 
@@ -376,7 +379,7 @@ int main(int argc, char **argv, char **envp) {
 
     u32 map_size = atoi(ptr);
     if (map_size != MAP_SIZE)
-      FATAL("AFL_MAP_SIZE is not supported by afl-gcc-fast");
+      WARNF("AFL_MAP_SIZE is not supported by afl-gcc-fast");
 
   }
 

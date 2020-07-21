@@ -58,7 +58,7 @@ class CompareTransform : public ModulePass {
   static char ID;
   CompareTransform() : ModulePass(ID) {
 
-    initWhitelist();
+    initInstrumentList();
 
   }
 
@@ -124,7 +124,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
    * strcmp/memcmp/strncmp/strcasecmp/strncasecmp */
   for (auto &F : M) {
 
-    if (!isInWhitelist(&F)) continue;
+    if (!isInInstrumentList(&F)) continue;
 
     for (auto &BB : F) {
 
@@ -474,8 +474,8 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       if (cur_lenchk_bb) {
 
         IRBuilder<> cur_lenchk_IRB(&*(cur_lenchk_bb->getFirstInsertionPt()));
-        Value *     icmp = cur_lenchk_IRB.CreateICmpEQ(sizedValue,
-                                                  ConstantInt::get(Int64Ty, i));
+        Value *     icmp = cur_lenchk_IRB.CreateICmpEQ(
+            sizedValue, ConstantInt::get(sizedValue->getType(), i));
         cur_lenchk_IRB.CreateCondBr(icmp, end_bb, cur_cmp_bb);
         cur_lenchk_bb->getTerminator()->eraseFromParent();
 

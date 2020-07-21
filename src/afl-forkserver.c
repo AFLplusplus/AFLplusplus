@@ -434,7 +434,27 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "detect_leaks=0:"
            "malloc_context_size=0:"
            "symbolize=0:"
-           "allocator_may_return_null=1",
+           "allocator_may_return_null=1:"
+           "handle_segv=0:"
+           "handle_sigbus=0:"
+           "handle_abort=0:"
+           "handle_sigfpe=0:"
+           "handle_sigill=0",
+           0);
+
+    /* Set sane defaults for UBSAN if nothing else specified. */
+
+    setenv("UBSAN_OPTIONS",
+           "halt_on_error=1:"
+           "abort_on_error=1:"
+           "malloc_context_size=0:"
+           "allocator_may_return_null=1:"
+           "symbolize=0:"
+           "handle_segv=0:"
+           "handle_sigbus=0:"
+           "handle_abort=0:"
+           "handle_sigfpe=0:"
+           "handle_sigill=0",
            0);
 
     /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
@@ -446,7 +466,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "abort_on_error=1:"
            "malloc_context_size=0:"
            "allocator_may_return_null=1:"
-           "msan_track_origins=0",
+           "msan_track_origins=0:"
+           "handle_segv=0:"
+           "handle_sigbus=0:"
+           "handle_abort=0:"
+           "handle_sigfpe=0:"
+           "handle_sigill=0",
            0);
 
     fsrv->init_child_func(fsrv, argv);

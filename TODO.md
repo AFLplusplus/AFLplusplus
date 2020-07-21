@@ -1,6 +1,6 @@
 # TODO list for AFL++
 
-## Roadmap 2.65+
+## Roadmap 2.66+
 
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - namespace for targets? e.g. network
@@ -20,6 +20,11 @@ gcc_plugin:
  - (wait for submission then decide)
  - laf-intel
  - better instrumentation (seems to be better with gcc-9+)
+
+better documentation:
+ - flow graph
+ - short intro
+ - faq (how to increase stability, speed, many parallel ...)
 
 qemu_mode:
  - update to 5.x (if the performance bug if gone)
