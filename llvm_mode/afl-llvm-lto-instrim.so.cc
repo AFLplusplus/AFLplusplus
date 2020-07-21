@@ -73,7 +73,7 @@ struct InsTrimLTO : public ModulePass {
  protected:
   uint32_t function_minimum_size = 1;
   char *   skip_nozero = NULL;
-  int      afl_global_id = 1, debug = 0, autodictionary = 0;
+  int      afl_global_id = 1, debug = 0, autodictionary = 1;
   uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0;
   uint64_t map_addr = 0x10000;
 
@@ -126,10 +126,6 @@ struct InsTrimLTO : public ModulePass {
       be_quiet = 1;
 
     /* Process environment variables */
-
-    if (getenv("AFL_LLVM_AUTODICTIONARY") ||
-        getenv("AFL_LLVM_LTO_AUTODICTIONARY"))
-      autodictionary = 1;
 
     if (getenv("AFL_LLVM_MAP_DYNAMIC")) map_addr = 0;
 
@@ -562,16 +558,17 @@ struct InsTrimLTO : public ModulePass {
 
       // if the function below our minimum size skip it (1 or 2)
       if (F.size() < function_minimum_size) continue;
-      if (isBlacklisted(&F)) continue;
+      if (isIgnoreFunction(&F)) continue;
 
       functions++;
 
-      // whitelist check
+      // the instrument file list check
       AttributeList Attrs = F.getAttributes();
       if (Attrs.hasAttribute(-1, StringRef("skipinstrument"))) {
 
         if (debug)
-          fprintf(stderr, "DEBUG: Function %s is not whitelisted\n",
+          fprintf(stderr,
+                  "DEBUG: Function %s is not the instrument file listed\n",
                   F.getName().str().c_str());
         continue;
 

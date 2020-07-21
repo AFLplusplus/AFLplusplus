@@ -62,8 +62,8 @@ unset AFL_USE_UBSAN
 unset AFL_TMPDIR
 unset AFL_CC
 unset AFL_PRELOAD
-unset AFL_GCC_WHITELIST
-unset AFL_LLVM_WHITELIST
+unset AFL_GCC_INSTRUMENT_FILE
+unset AFL_LLVM_INSTRUMENT_FILE
 unset AFL_LLVM_INSTRIM
 unset AFL_LLVM_LAF_SPLIT_SWITCHES
 unset AFL_LLVM_LAF_TRANSFORM_COMPARES
@@ -372,8 +372,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$YELLOW[-] llvm_mode InsTrim not compiled, cannot test"
     INCOMPLETE=1
   }
-  AFL_LLVM_INSTRUMENT=AFL
-  AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
+  AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
   test -e test-compcov.compcov && test_compcov_binary_functionality ./test-compcov.compcov && {
     grep --binary-files=text -Eq " [ 123][0-9][0-9] location| [3-9][0-9] location" test.out && {
       $ECHO "$GREEN[+] llvm_mode laf-intel/compcov feature works correctly"
@@ -386,20 +385,39 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-compcov.compcov test.out
-  echo foobar.c > whitelist.txt
-  AFL_DEBUG=1 AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-fast -o test-compcov test-compcov.c > test.out 2>&1
-  test -e test-compcov && test_compcov_binary_functionality ./test-compcov && {
-    grep -q "No instrumentation targets found" test.out && {
-      $ECHO "$GREEN[+] llvm_mode whitelist feature works correctly"
+  AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 AFL_LLVM_LAF_SPLIT_FLOATS=1 ../afl-clang-fast -o test-floatingpoint test-floatingpoint.c > test.out 2>&1
+  test -e test-floatingpoint && {
+    mkdir -p in
+    echo ZZ > in/in
+    $ECHO "$GREY[*] running afl-fuzz with floating point splitting, this will take max. 30 seconds"
+    {
+      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -s1 -V30 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
+    } >>errors 2>&1
+    test -n "$( ls out/crashes/id:* 2>/dev/null )" && {
+      $ECHO "$GREEN[+] llvm_mode laf-intel floatingpoint splitting feature works correctly"
     } || {
-      $ECHO "$RED[!] llvm_mode whitelist feature failed"
+      $ECHO "$RED[!] llvm_mode laf-intel floatingpoint splitting feature failed"
       CODE=1
     }
   } || {
-    $ECHO "$RED[!] llvm_mode whitelist feature compilation failed"
+    $ECHO "$RED[!] llvm_mode laf-intel floatingpoint splitting feature compilation failed"
     CODE=1
   }
-  rm -f test-compcov test.out whitelist.txt
+  rm -f test-floatingpoint test.out in/in
+  echo foobar.c > instrumentlist.txt
+  AFL_DEBUG=1 AFL_LLVM_INSTRUMENT_FILE=instrumentlist.txt ../afl-clang-fast -o test-compcov test-compcov.c > test.out 2>&1
+  test -e test-compcov && test_compcov_binary_functionality ./test-compcov && {
+    grep -q "No instrumentation targets found" test.out && {
+      $ECHO "$GREEN[+] llvm_mode instrumentlist feature works correctly"
+    } || {
+      $ECHO "$RED[!] llvm_mode instrumentlist feature failed"
+      CODE=1
+    }
+  } || {
+    $ECHO "$RED[!] llvm_mode instrumentlist feature compilation failed"
+    CODE=1
+  }
+  rm -f test-compcov test.out instrumentlist.txt
   ../afl-clang-fast -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {
@@ -459,20 +477,20 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
   }
   rm -f test-instr.plain
 
-  echo foobar.c > whitelist.txt
-  AFL_DEBUG=1 AFL_LLVM_WHITELIST=whitelist.txt ../afl-clang-lto -o test-compcov test-compcov.c > test.out 2>&1
+  echo foobar.c > instrumentlist.txt
+  AFL_DEBUG=1 AFL_LLVM_INSTRUMENT_FILE=instrumentlist.txt ../afl-clang-lto -o test-compcov test-compcov.c > test.out 2>&1
   test -e test-compcov && {
     grep -q "No instrumentation targets found" test.out && {
-      $ECHO "$GREEN[+] llvm_mode LTO whitelist feature works correctly"
+      $ECHO "$GREEN[+] llvm_mode LTO instrumentlist feature works correctly"
     } || {
-      $ECHO "$RED[!] llvm_mode LTO whitelist feature failed"
+      $ECHO "$RED[!] llvm_mode LTO instrumentlist feature failed"
       CODE=1
     }
   } || {
-    $ECHO "$RED[!] llvm_mode LTO whitelist feature compilation failed"
+    $ECHO "$RED[!] llvm_mode LTO instrumentlist feature compilation failed"
     CODE=1
   }
-  rm -f test-compcov test.out whitelist.txt
+  rm -f test-compcov test.out instrumentlist.txt
   ../afl-clang-lto -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | ../afl-showmap -m none -o /dev/null -q -r ./test-persistent && {
@@ -569,20 +587,20 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   rm -f test-instr.plain.gccpi
 
   # now for the special gcc_plugin things
-  echo foobar.c > whitelist.txt
-  AFL_GCC_WHITELIST=whitelist.txt ../afl-gcc-fast -o test-compcov test-compcov.c > /dev/null 2>&1
+  echo foobar.c > instrumentlist.txt
+  AFL_GCC_INSTRUMENT_FILE=instrumentlist.txt ../afl-gcc-fast -o test-compcov test-compcov.c > /dev/null 2>&1
   test -e test-compcov && test_compcov_binary_functionality ./test-compcov && {
     echo 1 | ../afl-showmap -m ${MEM_LIMIT} -o - -r -- ./test-compcov 2>&1 | grep -q "Captured 1 tuples" && {
-      $ECHO "$GREEN[+] gcc_plugin whitelist feature works correctly"
+      $ECHO "$GREEN[+] gcc_plugin instrumentlist feature works correctly"
     } || {
-      $ECHO "$RED[!] gcc_plugin whitelist feature failed"
+      $ECHO "$RED[!] gcc_plugin instrumentlist feature failed"
       CODE=1
     }
   } || {
-    $ECHO "$RED[!] gcc_plugin whitelist feature compilation failed"
+    $ECHO "$RED[!] gcc_plugin instrumentlist feature compilation failed"
     CODE=1
   }
-  rm -f test-compcov test.out whitelist.txt
+  rm -f test-compcov test.out instrumentlist.txt
   ../afl-gcc-fast -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {

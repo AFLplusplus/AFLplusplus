@@ -70,8 +70,13 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 ifneq "$(shell uname -s)" "Haiku"
-	LDFLAGS += -lrt
+  LDFLAGS += -lrt
 endif
+
+ifeq "$(shell uname -s)" "SunOS"
+  PLUGIN_FLAGS += -I/usr/include/gmp
+endif
+
 
 PROGS        = ../afl-gcc-fast ../afl-gcc-pass.so ../afl-gcc-rt.o
 
@@ -156,7 +161,7 @@ install: all
 	install -m 755 ../afl-gcc-fast $${DESTDIR}$(BIN_PATH)
 	install -m 755 ../afl-gcc-pass.so ../afl-gcc-rt.o $${DESTDIR}$(HELPER_PATH)
 	install -m 644 -T README.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
-	install -m 644 -T README.whitelist.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.whitelist.md
+	install -m 644 -T README.instrument_file.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.instrument_file.md
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 .test2

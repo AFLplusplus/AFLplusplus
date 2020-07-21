@@ -2,11 +2,11 @@
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">
 
-  ![Travis State](https://api.travis-ci.com/AFLplusplus/AFLplusplus.svg?branch=master)
+  ![Travis State](https://api.travis-ci.com/AFLplusplus/AFLplusplus.svg?branch=stable)
 
-  Release Version: [2.65c](https://github.com/AFLplusplus/AFLplusplus/releases)
+  Release Version: [2.66c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-  Github Version: 2.65d
+  Github Version: 2.66d
 
   includes all necessary/interesting changes from Google's afl 2.56b
 
@@ -40,7 +40,7 @@
 
   * InsTrim, a very effective CFG llvm_mode instrumentation implementation for large targets: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
 
-  * C. Holler's afl-fuzz Python mutator module and llvm_mode whitelist support: [https://github.com/choller/afl](https://github.com/choller/afl)
+  * C. Holler's afl-fuzz Python mutator module and llvm_mode instrument file support: [https://github.com/choller/afl](https://github.com/choller/afl)
 
   * Custom mutator by a library (instead of Python) by kyakdan
 
@@ -70,7 +70,7 @@
   | Persistent mode         |         |     x     |     x      | x86[_64]/arm[64] |       x      |
   | LAF-Intel / CompCov     |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
   | CmpLog                  |         |     x     |            | x86[_64]/arm[64] |              |
-  | Whitelist               |         |     x     |     x      |        (x)(3)    |              |
+  | Instrument file list    |         |     x     |     x      |        (x)(3)    |              |
   | Non-colliding coverage  |         |     x(4)  |            |        (x)(5)    |              |
   | InsTrim                 |         |     x     |            |                  |              |
   | Ngram prev_loc coverage |         |     x(6)  |            |                  |              |
@@ -297,7 +297,7 @@ Using the LAF Intel performance enhancements are also recommended, see
 [llvm_mode/README.laf-intel.md](llvm_mode/README.laf-intel.md)
 
 Using partial instrumentation is also recommended, see
-[llvm_mode/README.whitelist.md](llvm_mode/README.whitelist.md)
+[llvm_mode/README.instrument_file.md](llvm_mode/README.instrument_file.md)
 
 When testing libraries, you need to find or write a simple program that reads
 data from stdin or from a file and passes it to the tested library. In such a

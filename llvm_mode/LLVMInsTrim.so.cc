@@ -74,7 +74,7 @@ struct InsTrim : public ModulePass {
 
   InsTrim() : ModulePass(ID), generator(0) {
 
-    initWhitelist();
+    initInstrumentList();
 
   }
 
@@ -271,7 +271,7 @@ struct InsTrim : public ModulePass {
 
       }
 
-      if (!isInWhitelist(&F)) continue;
+      if (!isInInstrumentList(&F)) continue;
 
       // if the function below our minimum size skip it (1 or 2)
       if (F.size() < function_minimum_size) { continue; }

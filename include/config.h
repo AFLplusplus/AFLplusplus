@@ -28,7 +28,7 @@
 /* Version string: */
 
 // c = release, d = volatile github dev, e = experimental branch
-#define VERSION "++2.65d"
+#define VERSION "++2.66d"
 
 /******************************************************
  *                                                    *
@@ -234,7 +234,7 @@
 
 /* Sync interval (every n havoc cycles): */
 
-#define SYNC_INTERVAL 5
+#define SYNC_INTERVAL 8
 
 /* Output directory reuse grace period (minutes): */
 
@@ -293,7 +293,7 @@
 
 /* Call count interval between reseeding the libc PRNG from /dev/urandom: */
 
-#define RESEED_RNG 256000
+#define RESEED_RNG 100000
 
 /* Maximum line length passed from GCC to 'as' and used for parsing
    configuration files: */
@@ -380,6 +380,10 @@
 
 #define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
 
+/* CPU Affinity lockfile env var */
+
+#define CPU_AFFINITY_ENV_VAR "__AFL_LOCKFILE"
+
 /* Uncomment this to use inferior block-coverage-based instrumentation. Note
    that you need to recompile the target binary for this to have any effect: */
 
@@ -396,30 +400,6 @@
    measuring coverage that could be attained by a "dumb" fuzzing algorithm: */
 
 // #define IGNORE_FINDS
-
-/* Text mutations */
-
-/* What is the minimum length of a queue input to be evaluated for "is_ascii"?
- */
-
-#define AFL_TXT_MIN_LEN 12
-
-/* What is the minimum percentage of ascii characters present to be classifed
-   as "is_ascii"? */
-
-#define AFL_TXT_MIN_PERCENT 95
-
-/* How often to perform ASCII mutations 0 = disable, 1-8 are good values */
-
-#define AFL_TXT_BIAS 8
-
-/* Maximum length of a string to tamper with */
-
-#define AFL_TXT_STRING_MAX_LEN 1024
-
-/* Maximum mutations on a string */
-
-#define AFL_TXT_STRING_MAX_MUTATIONS 6
 
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

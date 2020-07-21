@@ -32,12 +32,12 @@ subdirectory. There is nothing specifically to do :)
 
 In order to build with partial instrumentation, you need to build with
 afl-gcc-fast and afl-g++-fast respectively. The only required change is
-that you need to set the environment variable AFL_GCC_WHITELIST when calling
+that you need to set the environment variable AFL_GCC_INSTRUMENT_FILE when calling
 the compiler.
 
 The environment variable must point to a file containing all the filenames
 that should be instrumented. For matching, the filename that is being compiled
-must end in the filename entry contained in this whitelist (to avoid breaking
+must end in the filename entry contained in this instrument list (to avoid breaking
 the matching when absolute paths are used during compilation).
 
 For example if your source tree looks like this:
@@ -50,14 +50,14 @@ project/feature_b/b1.cpp
 project/feature_b/b2.cpp
 ```
 
-and you only want to test feature_a, then create a whitelist file containing:
+and you only want to test feature_a, then create a instrument list file containing:
 
 ```
 feature_a/a1.cpp
 feature_a/a2.cpp
 ```
 
-However if the whitelist file contains only this, it works as well:
+However if the instrument list file contains only this, it works as well:
 
 ```
 a1.cpp
@@ -67,7 +67,7 @@ a2.cpp
 but it might lead to files being unwantedly instrumented if the same filename
 exists somewhere else in the project directories.
 
-The created whitelist file is then set to AFL_GCC_WHITELIST when you compile
-your program. For each file that didn't match the whitelist, the compiler will
+The created instrument list file is then set to AFL_GCC_INSTRUMENT_FILE when you compile
+your program. For each file that didn't match the instrument list, the compiler will
 issue a warning at the end stating that no blocks were instrumented. If you
 didn't intend to instrument that file, then you can safely ignore that warning.

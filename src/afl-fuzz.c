@@ -42,19 +42,21 @@ static void at_exit() {
 
   int   i;
   char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
-  char *ptr = getenv("__AFL_TARGET_PID1");
+  char *ptr;
 
+  ptr = getenv(CPU_AFFINITY_ENV_VAR);
+  if (ptr && *ptr) unlink(ptr);
+
+  ptr = getenv("__AFL_TARGET_PID1");
   if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
 
   ptr = getenv("__AFL_TARGET_PID2");
-
   if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
 
   i = 0;
   while (list[i] != NULL) {
 
     ptr = getenv(list[i]);
-
     if (ptr && *ptr) {
 
 #ifdef USEMMAP
@@ -263,6 +265,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   gettimeofday(&tv, &tz);
   rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
+
+  afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
   while ((opt = getopt(argc, argv,
                        "+c:i:I:o:f:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) >
@@ -561,7 +565,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->fsrv.qemu_mode) { FATAL("Multiple -Q options not supported"); }
         afl->fsrv.qemu_mode = 1;
-        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_QEMU; }
 
@@ -578,7 +581,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->unicorn_mode) { FATAL("Multiple -U options not supported"); }
         afl->unicorn_mode = 1;
-        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_UNICORN; }
 
@@ -589,7 +591,6 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->use_wine) { FATAL("Multiple -W options not supported"); }
         afl->fsrv.qemu_mode = 1;
         afl->use_wine = 1;
-        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = 0; }
 
@@ -790,8 +791,8 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
   OKF("Power schedules from github.com/mboehme/aflfast");
-  OKF("Python Mutator and llvm_mode whitelisting from github.com/choller/afl");
-  OKF("afl-tmin fork server patch from github.com/nccgroup/TriforceAFL");
+  OKF("Python Mutator and llvm_mode instrument file list from "
+      "github.com/choller/afl");
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
   if (afl->sync_id && afl->is_main_node &&
@@ -1011,16 +1012,18 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  check_crash_handling();
+  check_cpu_governor(afl);
+
   get_core_count(afl);
+
+  atexit(at_exit);
+
+  setup_dirs_fds(afl);
 
   #ifdef HAVE_AFFINITY
   bind_to_free_cpu(afl);
   #endif                                                   /* HAVE_AFFINITY */
-
-  check_crash_handling();
-  check_cpu_governor(afl);
-
-  atexit(at_exit);
 
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
@@ -1038,12 +1041,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  setup_dirs_fds(afl);
-
   if (afl->is_secondary_node && check_main_node_exists(afl) == 0) {
 
     WARNF("no -M main node found. You need to run one main instance!");
-    sleep(5);
+    sleep(3);
 
   }
 
@@ -1280,7 +1281,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (unlikely(afl->is_main_node)) {
 
-        if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 2))) { sync_fuzzers(afl); }
+        if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) { sync_fuzzers(afl); }
 
       } else {
 
