@@ -68,7 +68,12 @@ else:
 argv = sys.argv[1:]
 for i in range(len(argv)):
     if ".cur_input" in argv[i]:
-        argv[i] = subprocess.run([os.path.join(os.path.dirname(wine_path), "winepath"), "--windows", argv[i]], universal_newlines=True, stdout=subprocess.PIPE).stdout
+        # Get the Wine translated path using the winepath tool
+        arg_translated = subprocess.run([os.path.join(os.path.dirname(wine_path), "winepath"), "--windows", argv[i]], universal_newlines=True, stdout=subprocess.PIPE).stdout
+        # Remove the spurious LF at the end of the path
+        if len(arg_translated) > 0 and arg_translated[-1] == '\n':
+            arg_translated = arg_translated[:-1]
+        argv[i] = arg_translated
         break
 
 print("[afl-wine-trace] exec:", " ".join([qemu_path, wine_path] + argv))
