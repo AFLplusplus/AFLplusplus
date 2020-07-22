@@ -802,6 +802,8 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
         for (u32 j = pos; j < temp_len; ++j) {
           if (isdigit(new_buf[j])) {
           
+            new_buf[temp_len] = 0; // should be safe thanks to the initial grow
+          
             u8* endptr;
             unsigned long long num = strtoull(new_buf +j, (char**)&endptr, 0);
             
@@ -839,19 +841,20 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
             size_t num_len = snprintf(NULL, 0, fmt, num);
             size_t old_len = endptr - (new_buf +j);
             if (num_len < old_len) {
-              memmove(new_buf +j +num_len, endptr, temp_len - (endptr - new_buf));
+              memmove(new_buf +j +num_len, new_buf +j +old_len, temp_len - (j + old_len));
               snprintf(new_buf +j, num_len, fmt, num);
               temp_len -= old_len - num_len;
             } else if (num_len == old_len) {
               snprintf(new_buf +j, num_len, fmt, num);
             } else {
-              new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + (num_len - old_len));
-              memmove(new_buf +j +num_len, endptr, temp_len - (endptr - new_buf));
+              new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + (num_len - old_len) + AFL_TXT_STRING_MAX_MUTATIONS +1);
+              memmove(new_buf +j +num_len, new_buf +j +old_len, temp_len - (j + old_len));
               snprintf(new_buf +j, num_len, fmt, num);
               temp_len += num_len - old_len;
             }
 
             yes += 1;
+            break;
           
           }
         }
@@ -859,7 +862,7 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
       }
 
     }
-
+    
   }
 
   if (yes == 0 || temp_len <= 0) { return 0; }
@@ -867,7 +870,7 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
   swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
   *out_buf = new_buf;
   *orig_temp_len = temp_len;
-
+  
   return 1;
 
 }
