@@ -564,238 +564,299 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
   u32 pos, yes = 0,
            mutations = rand_below(afl, AFL_TXT_STRING_MAX_MUTATIONS) + 1;
   u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
-                              *orig_temp_len + AFL_TXT_STRING_MAX_MUTATIONS);
+                              *orig_temp_len + AFL_TXT_STRING_MAX_MUTATIONS +1);
   temp_len = *orig_temp_len;
   memcpy(new_buf, *out_buf, temp_len);
+  new_buf[temp_len] = 0;
 
   for (u32 i = 0; i < mutations; i++) {
 
     if (temp_len < AFL_TXT_MIN_LEN) { return 0; }
 
     pos = rand_below(afl, temp_len - 1);
-    int choice = rand_below(afl, 72);
+    int choice = rand_below(afl, 80);
     switch (choice) {
 
       case 0:                                /* Semantic statement deletion */
-        yes += string_replace(out_buf, &temp_len, pos, "\n", "#");
+        yes += string_replace(&new_buf, &temp_len, pos, "\n", "#");
         break;
       case 1:
-        yes += string_replace(out_buf, &temp_len, pos, "(", "(!");
+        yes += string_replace(&new_buf, &temp_len, pos, "(", "(!");
         break;
       case 2:
-        yes += string_replace(out_buf, &temp_len, pos, "==", "!=");
+        yes += string_replace(&new_buf, &temp_len, pos, "==", "!=");
         break;
       case 3:
-        yes += string_replace(out_buf, &temp_len, pos, "!=", "==");
+        yes += string_replace(&new_buf, &temp_len, pos, "!=", "==");
         break;
       case 4:
-        yes += string_replace(out_buf, &temp_len, pos, "==", "<");
+        yes += string_replace(&new_buf, &temp_len, pos, "==", "<");
         break;
       case 5:
-        yes += string_replace(out_buf, &temp_len, pos, "<", "==");
+        yes += string_replace(&new_buf, &temp_len, pos, "<", "==");
         break;
       case 6:
-        yes += string_replace(out_buf, &temp_len, pos, "==", ">");
+        yes += string_replace(&new_buf, &temp_len, pos, "==", ">");
         break;
       case 7:
-        yes += string_replace(out_buf, &temp_len, pos, ">", "==");
+        yes += string_replace(&new_buf, &temp_len, pos, ">", "==");
         break;
       case 8:
-        yes += string_replace(out_buf, &temp_len, pos, "=", "<");
+        yes += string_replace(&new_buf, &temp_len, pos, "=", "<");
         break;
       case 9:
-        yes += string_replace(out_buf, &temp_len, pos, "=", ">");
+        yes += string_replace(&new_buf, &temp_len, pos, "=", ">");
         break;
       case 10:
-        yes += string_replace(out_buf, &temp_len, pos, "<", ">");
+        yes += string_replace(&new_buf, &temp_len, pos, "<", ">");
         break;
       case 11:
-        yes += string_replace(out_buf, &temp_len, pos, ">", "<");
+        yes += string_replace(&new_buf, &temp_len, pos, ">", "<");
         break;
       case 12:
-        yes += string_replace(out_buf, &temp_len, pos, "++", "--");
+        yes += string_replace(&new_buf, &temp_len, pos, "++", "--");
         break;
       case 13:
-        yes += string_replace(out_buf, &temp_len, pos, "--", "++");
+        yes += string_replace(&new_buf, &temp_len, pos, "--", "++");
         break;
       case 14:
-        yes += string_replace(out_buf, &temp_len, pos, "+", "-");
+        yes += string_replace(&new_buf, &temp_len, pos, "+", "-");
         break;
       case 15:
-        yes += string_replace(out_buf, &temp_len, pos, "+", "*");
+        yes += string_replace(&new_buf, &temp_len, pos, "+", "*");
         break;
       case 16:
-        yes += string_replace(out_buf, &temp_len, pos, "+", "/");
+        yes += string_replace(&new_buf, &temp_len, pos, "+", "/");
         break;
       case 17:
-        yes += string_replace(out_buf, &temp_len, pos, "+", "%");
+        yes += string_replace(&new_buf, &temp_len, pos, "+", "%");
         break;
       case 18:
-        yes += string_replace(out_buf, &temp_len, pos, "*", "-");
+        yes += string_replace(&new_buf, &temp_len, pos, "*", "-");
         break;
       case 19:
-        yes += string_replace(out_buf, &temp_len, pos, "*", "+");
+        yes += string_replace(&new_buf, &temp_len, pos, "*", "+");
         break;
       case 20:
-        yes += string_replace(out_buf, &temp_len, pos, "*", "/");
+        yes += string_replace(&new_buf, &temp_len, pos, "*", "/");
         break;
       case 21:
-        yes += string_replace(out_buf, &temp_len, pos, "*", "%");
+        yes += string_replace(&new_buf, &temp_len, pos, "*", "%");
         break;
       case 22:
-        yes += string_replace(out_buf, &temp_len, pos, "-", "+");
+        yes += string_replace(&new_buf, &temp_len, pos, "-", "+");
         break;
       case 23:
-        yes += string_replace(out_buf, &temp_len, pos, "-", "*");
+        yes += string_replace(&new_buf, &temp_len, pos, "-", "*");
         break;
       case 24:
-        yes += string_replace(out_buf, &temp_len, pos, "-", "/");
+        yes += string_replace(&new_buf, &temp_len, pos, "-", "/");
         break;
       case 25:
-        yes += string_replace(out_buf, &temp_len, pos, "-", "%");
+        yes += string_replace(&new_buf, &temp_len, pos, "-", "%");
         break;
       case 26:
-        yes += string_replace(out_buf, &temp_len, pos, "/", "-");
+        yes += string_replace(&new_buf, &temp_len, pos, "/", "-");
         break;
       case 27:
-        yes += string_replace(out_buf, &temp_len, pos, "/", "*");
+        yes += string_replace(&new_buf, &temp_len, pos, "/", "*");
         break;
       case 28:
-        yes += string_replace(out_buf, &temp_len, pos, "/", "+");
+        yes += string_replace(&new_buf, &temp_len, pos, "/", "+");
         break;
       case 29:
-        yes += string_replace(out_buf, &temp_len, pos, "/", "%");
+        yes += string_replace(&new_buf, &temp_len, pos, "/", "%");
         break;
       case 30:
-        yes += string_replace(out_buf, &temp_len, pos, "%", "-");
+        yes += string_replace(&new_buf, &temp_len, pos, "%", "-");
         break;
       case 31:
-        yes += string_replace(out_buf, &temp_len, pos, "%", "*");
+        yes += string_replace(&new_buf, &temp_len, pos, "%", "*");
         break;
       case 32:
-        yes += string_replace(out_buf, &temp_len, pos, "%", "/");
+        yes += string_replace(&new_buf, &temp_len, pos, "%", "/");
         break;
       case 33:
-        yes += string_replace(out_buf, &temp_len, pos, "%", "+");
+        yes += string_replace(&new_buf, &temp_len, pos, "%", "+");
         break;
       case 34:
-        yes += string_replace(out_buf, &temp_len, pos, " ", "|");
+        yes += string_replace(&new_buf, &temp_len, pos, " ", "|");
         break;
       case 35:
-        yes += string_replace(out_buf, &temp_len, pos, " ", "$");
+        yes += string_replace(&new_buf, &temp_len, pos, " ", "$");
         break;
       case 36:
-        yes += string_replace(out_buf, &temp_len, pos, "0", "1");
+        yes += string_replace(&new_buf, &temp_len, pos, "0", "1");
         break;
       case 37:
-        yes += string_replace(out_buf, &temp_len, pos, "1", "0");
+        yes += string_replace(&new_buf, &temp_len, pos, "1", "0");
         break;
       case 38:
-        yes += string_replace(out_buf, &temp_len, pos, " ", "`");
+        yes += string_replace(&new_buf, &temp_len, pos, " ", "`");
         break;
       case 39:
-        yes += string_replace(out_buf, &temp_len, pos, " ", "\"");
+        yes += string_replace(&new_buf, &temp_len, pos, " ", "\"");
         break;
       case 40:
-        yes += string_replace(out_buf, &temp_len, pos, ";", " ");
+        yes += string_replace(&new_buf, &temp_len, pos, ";", " ");
         break;
       case 41:
-        yes += string_replace(out_buf, &temp_len, pos, "&&", "||");
+        yes += string_replace(&new_buf, &temp_len, pos, "&&", "||");
         break;
       case 42:
-        yes += string_replace(out_buf, &temp_len, pos, "||", "&&");
+        yes += string_replace(&new_buf, &temp_len, pos, "||", "&&");
         break;
       case 43:
-        yes += string_replace(out_buf, &temp_len, pos, "!", "");
+        yes += string_replace(&new_buf, &temp_len, pos, "!", "");
         break;
       case 44:
-        yes += string_replace(out_buf, &temp_len, pos, "==", "=");
+        yes += string_replace(&new_buf, &temp_len, pos, "==", "=");
         break;
       case 45:
-        yes += string_replace(out_buf, &temp_len, pos, "--", "");
+        yes += string_replace(&new_buf, &temp_len, pos, "--", "");
         break;
       case 46:
-        yes += string_replace(out_buf, &temp_len, pos, "<<", "<");
+        yes += string_replace(&new_buf, &temp_len, pos, "<<", "<");
         break;
       case 47:
-        yes += string_replace(out_buf, &temp_len, pos, ">>", ">");
+        yes += string_replace(&new_buf, &temp_len, pos, ">>", ">");
         break;
       case 48:
-        yes += string_replace(out_buf, &temp_len, pos, "<", "<<");
+        yes += string_replace(&new_buf, &temp_len, pos, "<", "<<");
         break;
       case 49:
-        yes += string_replace(out_buf, &temp_len, pos, ">", ">>");
+        yes += string_replace(&new_buf, &temp_len, pos, ">", ">>");
         break;
       case 50:
-        yes += string_replace(out_buf, &temp_len, pos, "\"", "'");
+        yes += string_replace(&new_buf, &temp_len, pos, "\"", "'");
         break;
       case 51:
-        yes += string_replace(out_buf, &temp_len, pos, "'", "\"");
+        yes += string_replace(&new_buf, &temp_len, pos, "'", "\"");
         break;
       case 52:
-        yes += string_replace(out_buf, &temp_len, pos, "(", "\"");
+        yes += string_replace(&new_buf, &temp_len, pos, "(", "\"");
         break;
       case 53:  /* Remove a semicolon delimited statement after a semicolon */
-        yes += delim_replace(out_buf, &temp_len, pos, ";", ";", ";");
+        yes += delim_replace(&new_buf, &temp_len, pos, ";", ";", ";");
         break;
       case 54: /* Remove a semicolon delimited statement after a left curly
                   brace */
-        yes += delim_replace(out_buf, &temp_len, pos, "}", ";", "}");
+        yes += delim_replace(&new_buf, &temp_len, pos, "}", ";", "}");
         break;
       case 55:                            /* Remove a curly brace construct */
-        yes += delim_replace(out_buf, &temp_len, pos, "{", "}", "");
+        yes += delim_replace(&new_buf, &temp_len, pos, "{", "}", "");
         break;
       case 56:         /* Replace a curly brace construct with an empty one */
-        yes += delim_replace(out_buf, &temp_len, pos, "{", "}", "{}");
+        yes += delim_replace(&new_buf, &temp_len, pos, "{", "}", "{}");
         break;
       case 57:
-        yes += delim_swap(out_buf, &temp_len, pos, ";", ";", ";");
+        yes += delim_swap(&new_buf, &temp_len, pos, ";", ";", ";");
         break;
       case 58:
-        yes += delim_swap(out_buf, &temp_len, pos, "}", ";", ";");
+        yes += delim_swap(&new_buf, &temp_len, pos, "}", ";", ";");
         break;
       case 59:                        /* Swap comma delimited things case 1 */
-        yes += delim_swap(out_buf, &temp_len, pos, "(", ",", ")");
+        yes += delim_swap(&new_buf, &temp_len, pos, "(", ",", ")");
         break;
       case 60:                        /* Swap comma delimited things case 2 */
-        yes += delim_swap(out_buf, &temp_len, pos, "(", ",", ",");
+        yes += delim_swap(&new_buf, &temp_len, pos, "(", ",", ",");
         break;
       case 61:                        /* Swap comma delimited things case 3 */
-        yes += delim_swap(out_buf, &temp_len, pos, ",", ",", ",");
+        yes += delim_swap(&new_buf, &temp_len, pos, ",", ",", ",");
         break;
       case 62:                        /* Swap comma delimited things case 4 */
-        yes += delim_swap(out_buf, &temp_len, pos, ",", ",", ")");
+        yes += delim_swap(&new_buf, &temp_len, pos, ",", ",", ")");
         break;
       case 63:                                        /* Just delete a line */
-        yes += delim_replace(out_buf, &temp_len, pos, "\n", "\n", "");
+        yes += delim_replace(&new_buf, &temp_len, pos, "\n", "\n", "");
         break;
       case 64:                      /* Delete something like "const" case 1 */
-        yes += delim_replace(out_buf, &temp_len, pos, " ", " ", "");
+        yes += delim_replace(&new_buf, &temp_len, pos, " ", " ", "");
         break;
       case 65:                      /* Delete something like "const" case 2 */
-        yes += delim_replace(out_buf, &temp_len, pos, "\n", " ", "");
+        yes += delim_replace(&new_buf, &temp_len, pos, "\n", " ", "");
         break;
       case 66:                      /* Delete something like "const" case 3 */
-        yes += delim_replace(out_buf, &temp_len, pos, "(", " ", "");
+        yes += delim_replace(&new_buf, &temp_len, pos, "(", " ", "");
         break;
       case 67:                        /* Swap space delimited things case 1 */
-        yes += delim_swap(out_buf, &temp_len, pos, " ", " ", " ");
+        yes += delim_swap(&new_buf, &temp_len, pos, " ", " ", " ");
         break;
       case 68:                        /* Swap space delimited things case 2 */
-        yes += delim_swap(out_buf, &temp_len, pos, " ", " ", ")");
+        yes += delim_swap(&new_buf, &temp_len, pos, " ", " ", ")");
         break;
       case 69:                        /* Swap space delimited things case 3 */
-        yes += delim_swap(out_buf, &temp_len, pos, "(", " ", " ");
+        yes += delim_swap(&new_buf, &temp_len, pos, "(", " ", " ");
         break;
       case 70:                        /* Swap space delimited things case 4 */
-        yes += delim_swap(out_buf, &temp_len, pos, "(", " ", ")");
+        yes += delim_swap(&new_buf, &temp_len, pos, "(", " ", ")");
         break;
       case 71:                           /* Duplicate a single line of code */
-        yes += delim_replace(out_buf, &temp_len, pos, "\n", "\n", NULL);
+        yes += delim_replace(&new_buf, &temp_len, pos, "\n", "\n", NULL);
         break;
       case 72:  /* Duplicate a construct (most often, a non-nested for loop */
-        yes += delim_replace(out_buf, &temp_len, pos, "\n", "}", NULL);
+        yes += delim_replace(&new_buf, &temp_len, pos, "\n", "}", NULL);
         break;
+      default: {
+      
+        for (u32 j = pos; j < temp_len; ++j) {
+          if (isdigit(new_buf[j])) {
+          
+            u8* endptr;
+            unsigned long long num = strtoull(new_buf +j, (char**)&endptr, 0);
+            
+            switch (rand_below(afl, 8)) {
+              case 0:
+                num = rand_below(afl, INT_MAX);
+                break;
+              case 1:
+                num = rand_next(afl);
+                break;
+              case 2:
+                num += 1 + rand_below(afl, 255);
+                break;
+              case 3:
+                num -= 1 + rand_below(afl, 255);
+                break;
+              case 4:
+                num *= 1 + rand_below(afl, 255);
+                break;
+              case 5:
+                num /= 1 + rand_below(afl, 255);
+                break;
+              case 6:
+                num /= 1 + rand_below(afl, 255);
+                break;
+              case 7:
+                num = ~num;
+                break;
+            }
+            
+            const char* fmt = "%llu";
+            if (rand_below(afl, 5) == 0) // add - sign with 1/5 probability
+              fmt = "-%llu";
+            
+            size_t num_len = snprintf(NULL, 0, fmt, num);
+            size_t old_len = endptr - (new_buf +j);
+            if (num_len < old_len) {
+              memmove(new_buf +j +num_len, endptr, temp_len - (endptr - new_buf));
+              snprintf(new_buf +j, num_len, fmt, num);
+              temp_len -= old_len - num_len;
+            } else if (num_len == old_len) {
+              snprintf(new_buf +j, num_len, fmt, num);
+            } else {
+              new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + (num_len - old_len));
+              memmove(new_buf +j +num_len, endptr, temp_len - (endptr - new_buf));
+              snprintf(new_buf +j, num_len, fmt, num);
+              temp_len += num_len - old_len;
+            }
+
+            yes += 1;
+          
+          }
+        }
+      
+      }
 
     }
 
