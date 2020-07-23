@@ -1,0 +1,15 @@
+
+CFLAGS = -O3 -funroll-loops -fPIC -Wl,-Bsymbolic
+
+all: honggfuzz.so
+
+honggfuzz.so:	honggfuzz.c input.h mangle.c ../../src/afl-performance.c
+	$(CC) $(CFLAGS) -I../../include -I. -shared -o honggfuzz.so honggfuzz.c mangle.c ../../src/afl-performance.c
+
+update:
+	wget --unlink https://github.com/google/honggfuzz/raw/master/mangle.c
+	wget --unlink https://github.com/google/honggfuzz/raw/master/mangle.h
+	wget --unlink https://github.com/google/honggfuzz/raw/master/honggfuzz.h
+
+clean:
+	rm -f *.o *~ *.so core

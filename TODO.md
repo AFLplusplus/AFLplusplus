@@ -2,6 +2,7 @@
 
 ## Roadmap 2.67+
 
+ - -i - + foreign fuzzer sync support: scandir with time sort
  - pre_save custom module example to save away test cases
  - expand on AFL_LLVM_INSTRUMENT_FILE to also support sancov allowlist format
  - allow to sync against honggfuzz and libfuzzer
