@@ -142,34 +142,54 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
   s32 fd = afl->fsrv.out_fd;
   u32 tail_len = len - skip_at - skip_len;
 
-  /* We first copy the mem into a new memory region removing the gaps
-    and then carry out any post-processing work on them. Then copy them out to
-    shared-mem or write to file */
-
-  void *mem_trimmed =
-      ck_alloc(skip_at + tail_len +
-               1);  // 1 extra size allocated to remove chance of overflow
-
-  if (skip_at) { memcpy(mem_trimmed, mem, skip_at); }
-
-  if (tail_len) {
-
-    memcpy(mem_trimmed + skip_at, (u8 *)mem + skip_at + skip_len, tail_len);
-
-  }
+  /*
+  This memory is used to carry out the post_processing(if present) after copying
+  the testcase by removing the gaps
+  */
+  u8 mem_trimmed[skip_at + tail_len +
+                 1];  // 1 extra size to remove chance of overflow
 
   ssize_t new_size = skip_at + tail_len;
-  void *  new_mem = mem_trimmed;
+  void *  new_mem = mem;
   u8 *    new_buf = NULL;
 
+  bool post_process_skipped = true;
+
   if (unlikely(afl->custom_mutators_count)) {
+
+    new_mem = mem_trimmed;
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
       if (el->afl_custom_post_process) {
 
+        // We copy into the mem_trimmed only if we actually have custom mutators
+        // *with* post_processing installed
+
+        if (post_process_skipped) {
+
+          if (skip_at) { memcpy(mem_trimmed, (u8 *)mem, skip_at); }
+
+          if (tail_len) {
+
+            memcpy(mem_trimmed + skip_at, (u8 *)mem + skip_at + skip_len,
+                   tail_len);
+
+          }
+
+          post_process_skipped = false;
+
+        }
+
         new_size =
             el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
+
+        if (unlikely(!new_buf && (new_size <= 0))) {
+
+          FATAL("Custom_post_process failed (ret: %lu)",
+                (long unsigned)new_size);
+
+        }
 
       }
 
@@ -181,7 +201,9 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
 
   if (afl->fsrv.shmem_fuzz) {
 
-    if ((new_buf)) {
+    if (!post_process_skipped) {
+
+      // If we did post_processing, copy directly from the new_buf bufer
 
       memcpy(afl->fsrv.shmem_fuzz, new_buf, new_size);
 
@@ -189,7 +211,9 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
 
     else {
 
-      memcpy(afl->fsrv.shmem_fuzz, mem_trimmed, new_size);
+      memcpy(afl->fsrv.shmem_fuzz, mem, skip_at);
+
+      memcpy(afl->fsrv.shmem_fuzz, mem + skip_at + skip_len, tail_len);
 
     }
 
@@ -237,13 +261,15 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
 
   }
 
-  if (new_buf) {
+  if (!post_process_skipped) {
 
     ck_write(fd, new_buf, new_size, afl->fsrv.out_file);
 
   } else {
 
-    ck_write(fd, mem_trimmed, new_size, afl->fsrv.out_file);
+    ck_write(fd, mem, skip_at, afl->fsrv.out_file);
+
+    ck_write(fd, mem + skip_at + skip_len, tail_len, afl->fsrv.out_file);
 
   }
 
