@@ -24,6 +24,7 @@
 
  */
 
+#include <limits.h>
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
