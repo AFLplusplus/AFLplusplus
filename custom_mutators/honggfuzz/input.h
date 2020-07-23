@@ -86,7 +86,7 @@ static inline size_t input_getRandomInputAsBuf(run_t *run, const uint8_t **buf) 
 static inline void input_setSize(run_t* run, size_t sz) {
   run->dynfile->size = sz;
 }
-static inline uint8_t util_turnToPrintable(uint8_t* buf, size_t sz) {
+static inline void util_turnToPrintable(uint8_t* buf, size_t sz) {
   for (size_t i = 0; i < sz; i++)
     buf[i] = buf[i] % 95 + 32;
 }
