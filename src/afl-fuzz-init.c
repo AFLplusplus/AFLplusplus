@@ -466,7 +466,7 @@ void read_testcases(afl_state_t *afl) {
   ACTF("Scanning '%s'...", afl->in_dir);
 
   /* We use scandir() + alphasort() rather than readdir() because otherwise,
-     the ordering  of test cases would vary somewhat randomly and would be
+     the ordering of test cases would vary somewhat randomly and would be
      difficult to control. */
 
   nl_cnt = scandir(afl->in_dir, &nl, NULL, alphasort);
@@ -527,9 +527,10 @@ void read_testcases(afl_state_t *afl) {
 
     if (st.st_size > MAX_FILE) {
 
-      FATAL("Test case '%s' is too big (%s, limit is %s)", fn2,
+      WARNF("Test case '%s' is too big (%s, limit is %s), skipping", fn2,
             stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
             stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
+      continue;
 
     }
 
