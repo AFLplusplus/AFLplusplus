@@ -2,6 +2,8 @@
 
 ## Roadmap 2.67+
 
+ - pre_save custom module example to save away test cases
+ - expand on AFL_LLVM_INSTRUMENT_FILE to also support sancov allowlist format
  - allow to sync against honggfuzz and libfuzzer
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - namespace for targets? e.g. network
