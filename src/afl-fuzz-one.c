@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include <string.h>
+#include <limits.h>
 
 static u8 *strnstr(const u8 *s, const u8 *find, size_t slen);
 static u32 string_replace(u8 **out_buf, s32 *temp_len, u32 pos, u8 *from,
