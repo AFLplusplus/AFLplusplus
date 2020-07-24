@@ -559,13 +559,25 @@ static u32 string_replace(u8 **out_buf, s32 *temp_len, u32 pos, u8 *from,
 /* Returns 1 if a mutant was generated and placed in out_buf, 0 if none
  * generated. */
 
+static const uint8_t text_mutation_special_chars[] = {
+
+    '\t', '\n', '\r', ' ', '!', '"', '$', '%', '&', '\'', '(', ')', '*',
+    '+',  ',',  '-',  '.', '/', ':', ';', '<', '=', '>',  '?', '@', '[',
+    '\\', ']',  '^',  '_', '`', '{', '|', '}', '~', ' '  // space is here twice
+
+};
+
 static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
+
+  if (*orig_temp_len < AFL_TXT_MIN_LEN) { return 0; }
 
   s32 temp_len;
   u32 pos, yes = 0,
-           mutations = rand_below(afl, AFL_TXT_STRING_MAX_MUTATIONS) + 1;
-  u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
-                              *orig_temp_len + AFL_TXT_STRING_MAX_MUTATIONS +1);
+           mutations = rand_below(afl, AFL_TXT_STRING_MAX_MUTATIONS) + 16;
+  u8 *new_buf =
+      ck_maybe_grow(BUF_PARAMS(out_scratch),
+                    *orig_temp_len + AFL_TXT_STRING_MAX_MUTATIONS + 16);
+  u8 fromc[2] = {0, 0}, toc[2] = {0, 0};
   temp_len = *orig_temp_len;
   memcpy(new_buf, *out_buf, temp_len);
   new_buf[temp_len] = 0;
@@ -575,8 +587,11 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
     if (temp_len < AFL_TXT_MIN_LEN) { return 0; }
 
     pos = rand_below(afl, temp_len - 1);
-    int choice = rand_below(afl, 80);
+    int choice = rand_below(afl, 100);
+
     switch (choice) {
+
+      /* 50% -> fixed replacements */
 
       case 0:                                /* Semantic statement deletion */
         yes += string_replace(&new_buf, &temp_len, pos, "\n", "#");
@@ -624,246 +639,240 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
         yes += string_replace(&new_buf, &temp_len, pos, "+", "-");
         break;
       case 15:
-        yes += string_replace(&new_buf, &temp_len, pos, "+", "*");
-        break;
-      case 16:
-        yes += string_replace(&new_buf, &temp_len, pos, "+", "/");
-        break;
-      case 17:
-        yes += string_replace(&new_buf, &temp_len, pos, "+", "%");
-        break;
-      case 18:
-        yes += string_replace(&new_buf, &temp_len, pos, "*", "-");
-        break;
-      case 19:
-        yes += string_replace(&new_buf, &temp_len, pos, "*", "+");
-        break;
-      case 20:
-        yes += string_replace(&new_buf, &temp_len, pos, "*", "/");
-        break;
-      case 21:
-        yes += string_replace(&new_buf, &temp_len, pos, "*", "%");
-        break;
-      case 22:
         yes += string_replace(&new_buf, &temp_len, pos, "-", "+");
         break;
-      case 23:
-        yes += string_replace(&new_buf, &temp_len, pos, "-", "*");
-        break;
-      case 24:
-        yes += string_replace(&new_buf, &temp_len, pos, "-", "/");
-        break;
-      case 25:
-        yes += string_replace(&new_buf, &temp_len, pos, "-", "%");
-        break;
-      case 26:
-        yes += string_replace(&new_buf, &temp_len, pos, "/", "-");
-        break;
-      case 27:
-        yes += string_replace(&new_buf, &temp_len, pos, "/", "*");
-        break;
-      case 28:
-        yes += string_replace(&new_buf, &temp_len, pos, "/", "+");
-        break;
-      case 29:
-        yes += string_replace(&new_buf, &temp_len, pos, "/", "%");
-        break;
-      case 30:
-        yes += string_replace(&new_buf, &temp_len, pos, "%", "-");
-        break;
-      case 31:
-        yes += string_replace(&new_buf, &temp_len, pos, "%", "*");
-        break;
-      case 32:
-        yes += string_replace(&new_buf, &temp_len, pos, "%", "/");
-        break;
-      case 33:
-        yes += string_replace(&new_buf, &temp_len, pos, "%", "+");
-        break;
-      case 34:
-        yes += string_replace(&new_buf, &temp_len, pos, " ", "|");
-        break;
-      case 35:
-        yes += string_replace(&new_buf, &temp_len, pos, " ", "$");
-        break;
-      case 36:
+      case 16:
         yes += string_replace(&new_buf, &temp_len, pos, "0", "1");
         break;
-      case 37:
+      case 17:
         yes += string_replace(&new_buf, &temp_len, pos, "1", "0");
         break;
-      case 38:
-        yes += string_replace(&new_buf, &temp_len, pos, " ", "`");
-        break;
-      case 39:
-        yes += string_replace(&new_buf, &temp_len, pos, " ", "\"");
-        break;
-      case 40:
-        yes += string_replace(&new_buf, &temp_len, pos, ";", " ");
-        break;
-      case 41:
+      case 18:
         yes += string_replace(&new_buf, &temp_len, pos, "&&", "||");
         break;
-      case 42:
+      case 19:
         yes += string_replace(&new_buf, &temp_len, pos, "||", "&&");
         break;
-      case 43:
+      case 20:
         yes += string_replace(&new_buf, &temp_len, pos, "!", "");
         break;
-      case 44:
+      case 21:
         yes += string_replace(&new_buf, &temp_len, pos, "==", "=");
         break;
-      case 45:
+      case 22:
+        yes += string_replace(&new_buf, &temp_len, pos, "=", "==");
+        break;
+      case 23:
         yes += string_replace(&new_buf, &temp_len, pos, "--", "");
         break;
-      case 46:
+      case 24:
         yes += string_replace(&new_buf, &temp_len, pos, "<<", "<");
         break;
-      case 47:
+      case 25:
         yes += string_replace(&new_buf, &temp_len, pos, ">>", ">");
         break;
-      case 48:
+      case 26:
         yes += string_replace(&new_buf, &temp_len, pos, "<", "<<");
         break;
-      case 49:
+      case 27:
         yes += string_replace(&new_buf, &temp_len, pos, ">", ">>");
         break;
-      case 50:
-        yes += string_replace(&new_buf, &temp_len, pos, "\"", "'");
-        break;
-      case 51:
+      case 28:
         yes += string_replace(&new_buf, &temp_len, pos, "'", "\"");
         break;
-      case 52:
-        yes += string_replace(&new_buf, &temp_len, pos, "(", "\"");
+      case 29:
+        yes += string_replace(&new_buf, &temp_len, pos, "\"", "'");
         break;
-      case 53:  /* Remove a semicolon delimited statement after a semicolon */
+      case 30:  /* Remove a semicolon delimited statement after a semicolon */
         yes += delim_replace(&new_buf, &temp_len, pos, ";", ";", ";");
         break;
-      case 54: /* Remove a semicolon delimited statement after a left curly
+      case 31: /* Remove a semicolon delimited statement after a left curly
                   brace */
         yes += delim_replace(&new_buf, &temp_len, pos, "}", ";", "}");
         break;
-      case 55:                            /* Remove a curly brace construct */
+      case 32:                            /* Remove a curly brace construct */
         yes += delim_replace(&new_buf, &temp_len, pos, "{", "}", "");
         break;
-      case 56:         /* Replace a curly brace construct with an empty one */
+      case 33:         /* Replace a curly brace construct with an empty one */
         yes += delim_replace(&new_buf, &temp_len, pos, "{", "}", "{}");
         break;
-      case 57:
+      case 34:
         yes += delim_swap(&new_buf, &temp_len, pos, ";", ";", ";");
         break;
-      case 58:
+      case 35:
         yes += delim_swap(&new_buf, &temp_len, pos, "}", ";", ";");
         break;
-      case 59:                        /* Swap comma delimited things case 1 */
+      case 36:                        /* Swap comma delimited things case 1 */
         yes += delim_swap(&new_buf, &temp_len, pos, "(", ",", ")");
         break;
-      case 60:                        /* Swap comma delimited things case 2 */
+      case 37:                        /* Swap comma delimited things case 2 */
         yes += delim_swap(&new_buf, &temp_len, pos, "(", ",", ",");
         break;
-      case 61:                        /* Swap comma delimited things case 3 */
+      case 38:                        /* Swap comma delimited things case 3 */
         yes += delim_swap(&new_buf, &temp_len, pos, ",", ",", ",");
         break;
-      case 62:                        /* Swap comma delimited things case 4 */
+      case 39:                        /* Swap comma delimited things case 4 */
         yes += delim_swap(&new_buf, &temp_len, pos, ",", ",", ")");
         break;
-      case 63:                                        /* Just delete a line */
+      case 40:                                        /* Just delete a line */
         yes += delim_replace(&new_buf, &temp_len, pos, "\n", "\n", "");
         break;
-      case 64:                      /* Delete something like "const" case 1 */
+      case 41:                      /* Delete something like "const" case 1 */
         yes += delim_replace(&new_buf, &temp_len, pos, " ", " ", "");
         break;
-      case 65:                      /* Delete something like "const" case 2 */
+      case 42:                      /* Delete something like "const" case 2 */
         yes += delim_replace(&new_buf, &temp_len, pos, "\n", " ", "");
         break;
-      case 66:                      /* Delete something like "const" case 3 */
+      case 43:                      /* Delete something like "const" case 3 */
         yes += delim_replace(&new_buf, &temp_len, pos, "(", " ", "");
         break;
-      case 67:                        /* Swap space delimited things case 1 */
+      case 44:                        /* Swap space delimited things case 1 */
         yes += delim_swap(&new_buf, &temp_len, pos, " ", " ", " ");
         break;
-      case 68:                        /* Swap space delimited things case 2 */
+      case 45:                        /* Swap space delimited things case 2 */
         yes += delim_swap(&new_buf, &temp_len, pos, " ", " ", ")");
         break;
-      case 69:                        /* Swap space delimited things case 3 */
+      case 46:                        /* Swap space delimited things case 3 */
         yes += delim_swap(&new_buf, &temp_len, pos, "(", " ", " ");
         break;
-      case 70:                        /* Swap space delimited things case 4 */
+      case 47:                        /* Swap space delimited things case 4 */
         yes += delim_swap(&new_buf, &temp_len, pos, "(", " ", ")");
         break;
-      case 71:                           /* Duplicate a single line of code */
+      case 48:                           /* Duplicate a single line of code */
         yes += delim_replace(&new_buf, &temp_len, pos, "\n", "\n", NULL);
         break;
-      case 72:  /* Duplicate a construct (most often, a non-nested for loop */
+      case 49:  /* Duplicate a construct (most often, a non-nested for loop */
         yes += delim_replace(&new_buf, &temp_len, pos, "\n", "}", NULL);
         break;
       default: {
-      
-        for (u32 j = pos; j < temp_len; ++j) {
-          if (isdigit(new_buf[j])) {
-          
-            new_buf[temp_len] = 0; // should be safe thanks to the initial grow
-          
-            u8* endptr;
-            unsigned long long num = strtoull(new_buf +j, (char**)&endptr, 0);
-            
-            switch (rand_below(afl, 8)) {
-              case 0:
-                num = rand_below(afl, INT_MAX);
-                break;
-              case 1:
-                num = rand_next(afl);
-                break;
-              case 2:
-                num += 1 + rand_below(afl, 255);
-                break;
-              case 3:
-                num -= 1 + rand_below(afl, 255);
-                break;
-              case 4:
-                num *= 1 + rand_below(afl, 255);
-                break;
-              case 5:
-                num /= 1 + rand_below(afl, 255);
-                break;
-              case 6:
-                num /= 1 + rand_below(afl, 255);
-                break;
-              case 7:
-                num = ~num;
-                break;
-            }
-            
-            const char* fmt = "%llu";
-            if (rand_below(afl, 5) == 0) // add - sign with 1/5 probability
-              fmt = "-%llu";
-            
-            size_t num_len = snprintf(NULL, 0, fmt, num);
-            size_t old_len = endptr - (new_buf +j);
-            if (num_len < old_len) {
-              memmove(new_buf +j +num_len, new_buf +j +old_len, temp_len - (j + old_len));
-              snprintf(new_buf +j, num_len, fmt, num);
-              temp_len -= old_len - num_len;
-            } else if (num_len == old_len) {
-              snprintf(new_buf +j, num_len, fmt, num);
-            } else {
-              new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + (num_len - old_len) + AFL_TXT_STRING_MAX_MUTATIONS +1);
-              memmove(new_buf +j +num_len, new_buf +j +old_len, temp_len - (j + old_len));
-              snprintf(new_buf +j, num_len, fmt, num);
-              temp_len += num_len - old_len;
+
+        /* 10% is transforming ascii numbers */
+
+        if (choice < 60) {
+
+          for (u32 j = pos; j < temp_len; ++j) {
+
+            if (isdigit(new_buf[j])) {
+
+              new_buf[temp_len] =
+                  0;  // should be safe thanks to the initial grow
+
+              u8 *               endptr;
+              unsigned long long num =
+                  strtoull(new_buf + j, (char **)&endptr, 0);
+
+              switch (rand_below(afl, 8)) {
+
+                case 0:
+                  num = rand_below(afl, INT_MAX);
+                  break;
+                case 1:
+                  num = rand_next(afl);
+                  break;
+                case 2:
+                  num += 1 + rand_below(afl, 255);
+                  break;
+                case 3:
+                  num -= 1 + rand_below(afl, 255);
+                  break;
+                case 4:
+                  num *= 1 + rand_below(afl, 255);
+                  break;
+                case 5:
+                  num /= 1 + rand_below(afl, 255);
+                  break;
+                case 6:
+                  num /= 1 + rand_below(afl, 255);
+                  break;
+                case 7:
+                  num = ~num;
+                  break;
+
+              }
+
+              const char *fmt = "%llu";
+              if (rand_below(afl, 5) == 0)  // add - sign with 1/5 probability
+                fmt = "-%llu";
+
+              size_t num_len = snprintf(NULL, 0, fmt, num);
+              size_t old_len = endptr - (new_buf + j);
+              if (num_len < old_len) {
+
+                memmove(new_buf + j + num_len, new_buf + j + old_len,
+                        temp_len - (j + old_len));
+                snprintf(new_buf + j, num_len, fmt, num);
+                temp_len -= old_len - num_len;
+
+              } else if (num_len == old_len) {
+
+                snprintf(new_buf + j, num_len, fmt, num);
+
+              } else {
+
+                new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
+                                        temp_len + (num_len - old_len) +
+                                            AFL_TXT_STRING_MAX_MUTATIONS + 1);
+                memmove(new_buf + j + num_len, new_buf + j + old_len,
+                        temp_len - (j + old_len));
+                snprintf(new_buf + j, num_len, fmt, num);
+                temp_len += num_len - old_len;
+
+              }
+
+              yes += 1;
+              break;
+
             }
 
-            yes += 1;
-            break;
-          
           }
+
+        } else if (choice < 90) {
+
+          /* 30% is special character transform */
+
+          fromc[0] = text_mutation_special_chars[rand_below(
+              afl, sizeof(text_mutation_special_chars))];
+
+          do {
+
+            toc[0] = text_mutation_special_chars[rand_below(
+                afl, sizeof(text_mutation_special_chars))];
+
+          } while (toc[0] == fromc[0]);
+
+          yes += string_replace(&new_buf, &temp_len, pos, fromc, toc);
+          break;
+
+        } else {
+
+          /* 10% is random text character transform */
+
+          u32 iter, cnt, loc, prev_loc = temp_len;
+          if (temp_len > 32) {
+
+            cnt = 1 + rand_below(afl, 5);
+
+          } else {
+
+            cnt = rand_below(afl, 2);
+
+          }
+
+          for (iter = 0; iter <= cnt; iter++) {
+
+            while ((loc = rand_below(afl, temp_len)) == prev_loc)
+              ;
+            new_buf[loc] = 32 + rand_below(afl, 'z' - ' ' + 1);
+            prev_loc = loc;
+
+          }
+
         }
-      
+
       }
 
     }
-    
+
   }
 
   if (yes == 0 || temp_len <= 0) { return 0; }
@@ -871,7 +880,7 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
   swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
   *out_buf = new_buf;
   *orig_temp_len = temp_len;
-  
+
   return 1;
 
 }

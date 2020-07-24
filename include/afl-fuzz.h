@@ -334,7 +334,7 @@ typedef struct afl_env_vars {
       afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child_output, afl_autoresume,
-      afl_cal_fast, afl_cycle_schedules;
+      afl_cal_fast, afl_cycle_schedules, afl_expand_havoc;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_skip_crashes, *afl_preload;
