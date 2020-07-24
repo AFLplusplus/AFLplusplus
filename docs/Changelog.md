@@ -11,6 +11,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++2.66d (devel)
   - afl-fuzz:
+     - added -F option to allow -M main fuzzers to sync to foreign fuzzers,
+       e.g. honggfuzz or libfuzzer
      - eliminated CPU affinity race condition for -S/-M runs
   - llvm_mode:
      - fixes for laf-intel float splitting (thanks to mark-griffin for

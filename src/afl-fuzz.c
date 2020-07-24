@@ -131,10 +131,13 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "executions.\n\n"
 
       "Other stuff:\n"
-      "  -T text       - text banner to show on the screen\n"
       "  -M/-S id      - distributed mode (see docs/parallel_fuzzing.md)\n"
       "                  use -D to force -S secondary to perform deterministic "
       "fuzzing\n"
+      "  -F path       - sync to a foreign fuzzer queue directory (requires "
+      "-M, can\n"
+      "                  be specified up to %u times)\n"
+      "  -T text       - text banner to show on the screen\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
       //"  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap
@@ -142,7 +145,7 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
       "  -e ext        - file extension for the fuzz test input file (if "
       "needed)\n\n",
-      argv0, EXEC_TIMEOUT, MEM_LIMIT);
+      argv0, EXEC_TIMEOUT, MEM_LIMIT, FOREIGN_SYNCS_MAX);
 
   if (more_help > 1) {
 
@@ -401,6 +404,19 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->is_secondary_node = 1;
         afl->skip_deterministic = 1;
         afl->use_splicing = 1;
+        break;
+
+      case 'F':                                         /* foreign sync dir */
+
+        if (!afl->is_main_node)
+          FATAL(
+              "Option -F can only be specified after the -M option for the "
+              "main fuzzer of a fuzzing campaign");
+        if (afl->foreign_sync_cnt >= FOREIGN_SYNCS_MAX)
+          FATAL("Maximum %u entried of -F option can be specified",
+                FOREIGN_SYNCS_MAX);
+        afl->foreign_syncs[afl->foreign_sync_cnt].dir = optarg;
+        afl->foreign_sync_cnt++;
         break;
 
       case 'f':                                              /* target file */
@@ -1059,6 +1075,8 @@ int main(int argc, char **argv_orig, char **envp) {
   setup_cmdline_file(afl, argv + optind);
 
   read_testcases(afl);
+  // read_foreign_testcases(afl, 1); for the moment dont do this
+
   load_auto(afl);
 
   pivot_inputs(afl);
