@@ -366,9 +366,9 @@ If you find other good ones, please send them to us :-)
 
 ## Power schedules
 
-The power schedules were copied from Marcel Böhme's excellent AFLfast
-implementation and expand on the ability to discover new paths and
-therefore may increase the code coverage.
+The power schedules were copied from Marcel Böhme's AFLfast implementation and
+measure differently which queue entries to prefer and therefore may find
+different paths faster for large queues.
 
 The available schedules are:
  
@@ -382,16 +382,10 @@ The available schedules are:
  - mmopt (afl++ experimental)
  - seek (afl++ experimental)
 
-In parallel mode (-M/-S, several instances with the shared queue), we suggest to
-run the main node using the explore or fast schedule (-p explore) and the secondary
-nodes with a combination of cut-off-exponential (-p coe), exponential (-p fast),
-explore (-p explore) and mmopt (-p mmopt) schedules. If a schedule does
-not perform well for a target, restart the secondary nodes with a different schedule.
-
-In single mode, using -p fast is usually slightly more beneficial than the
-default explore mode.
-(We don't want to change the default behavior of afl, so "fast" has not been
-made the default mode).
+In parallel mode (-M/-S, several instances with the shared queue), we suggest
+to run the main node using the default explore schedule (`-p explore`) and the
+secondary nodes with different schedules. If a schedule does not perform well
+for a target, restart the secondary nodes with a different schedule.
 
 More details can be found in the paper published at the 23rd ACM Conference on
 Computer and Communications Security [CCS'16](https://www.sigsac.org/ccs/CCS2016/accepted-papers/)

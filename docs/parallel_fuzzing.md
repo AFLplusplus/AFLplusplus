@@ -99,7 +99,15 @@ example may be:
 This is not a concern if you use @@ without -f and let afl-fuzz come up with the
 file name.
 
-## 3) Multi-system parallelization
+## 3) Syncing with non-afl fuzzers or independant instances
+
+A -M main node can be told with the `-F other_fuzzer_queue_directory` option
+to sync results from other fuzzers, e.g. libfuzzer or honggfuzz.
+
+Only the specified directory will by synced into afl, not subdirectories.
+The specified directories do not need to exist yet at the start of afl.
+
+## 4) Multi-system parallelization
 
 The basic operating principle for multi-system parallelization is similar to
 the mechanism explained in section 2. The key difference is that you need to
@@ -176,7 +184,7 @@ It is *not* advisable to skip the synchronization script and run the fuzzers
 directly on a network filesystem; unexpected latency and unkillable processes
 in I/O wait state can mess things up.
 
-## 4) Remote monitoring and data collection
+## 5) Remote monitoring and data collection
 
 You can use screen, nohup, tmux, or something equivalent to run remote
 instances of afl-fuzz. If you redirect the program's output to a file, it will
@@ -200,7 +208,7 @@ Keep in mind that crashing inputs are *not* automatically propagated to the
 main instance, so you may still want to monitor for crashes fleet-wide
 from within your synchronization or health checking scripts (see afl-whatsup).
 
-## 5) Asymmetric setups
+## 6) Asymmetric setups
 
 It is perhaps worth noting that all of the following is permitted:
 
