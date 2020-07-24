@@ -6,7 +6,7 @@
 
 ## 1) Introduction
 
-! llvm_mode works with llvm versions 3.4 up to 11 !
+! llvm_mode works with llvm versions 3.4 up to 12 !
 
 The code in this directory allows you to instrument programs for AFL using
 true compiler-level instrumentation, instead of the more crude
@@ -183,4 +183,4 @@ AFL_LLVM_INSTRUMENT=PCGUARD  make
 ```
 
 Note that this us currently the default, as it is the best mode.
-If you have llvm 11 and compiled afl-clang-lto - this is the only better mode.
+If you have llvm 11+ and compiled afl-clang-lto - this is the only better mode.

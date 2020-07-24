@@ -15,6 +15,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        e.g. honggfuzz or libfuzzer
      - eliminated CPU affinity race condition for -S/-M runs
   - llvm_mode:
+     - now supports llvm 12!
      - fixes for laf-intel float splitting (thanks to mark-griffin for
        reporting)
      - LTO: autodictionary mode is a default
