@@ -264,49 +264,53 @@ static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 }
 
 static long long strntoll(const char *str, size_t sz, char **end, int base) {
-	char buf[64];
-	long long ret;
-	const char *beg = str;
 
-	for (; beg && sz && *beg == ' '; beg++, sz--)
-		;
+  char        buf[64];
+  long long   ret;
+  const char *beg = str;
 
-	if (!sz || sz >= sizeof(buf)) {
-		if (end)
-			*end = (char *)str;
-		return 0;
-	}
+  for (; beg && sz && *beg == ' '; beg++, sz--)
+    ;
 
-	memcpy(buf, beg, sz);
-	buf[sz] = '\0';
-	ret = strtoll(buf, end, base);
-	if (ret == LLONG_MIN || ret == LLONG_MAX)
-		return ret;
-	if (end)
-		*end = (char *)beg + (*end - buf);
-	return ret;
+  if (!sz || sz >= sizeof(buf)) {
+
+    if (end) *end = (char *)str;
+    return 0;
+
+  }
+
+  memcpy(buf, beg, sz);
+  buf[sz] = '\0';
+  ret = strtoll(buf, end, base);
+  if (ret == LLONG_MIN || ret == LLONG_MAX) return ret;
+  if (end) *end = (char *)beg + (*end - buf);
+  return ret;
+
 }
 
-static unsigned long long strntoull(const char *str, size_t sz, char **end, int base) {
-	char buf[64];
-	unsigned long long ret;
-	const char *beg = str;
+static unsigned long long strntoull(const char *str, size_t sz, char **end,
+                                    int base) {
 
-	for (; beg && sz && *beg == ' '; beg++, sz--)
-		;
+  char               buf[64];
+  unsigned long long ret;
+  const char *       beg = str;
 
-	if (!sz || sz >= sizeof(buf)) {
-		if (end)
-			*end = (char *)str;
-		return 0;
-	}
+  for (; beg && sz && *beg == ' '; beg++, sz--)
+    ;
 
-	memcpy(buf, beg, sz);
-	buf[sz] = '\0';
-	ret = strtoull(buf, end, base);
-	if (end)
-		*end = (char *)beg + (*end - buf);
-	return ret;
+  if (!sz || sz >= sizeof(buf)) {
+
+    if (end) *end = (char *)str;
+    return 0;
+
+  }
+
+  memcpy(buf, beg, sz);
+  buf[sz] = '\0';
+  ret = strtoull(buf, end, base);
+  if (end) *end = (char *)beg + (*end - buf);
+  return ret;
+
 }
 
 #define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
@@ -328,49 +332,51 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   u32 its_len = len - idx;
   // *status = 0;
 
-  u8 *endptr;
-  u8 use_num = 0, use_unum = 0;
+  u8 *               endptr;
+  u8                 use_num = 0, use_unum = 0;
   unsigned long long unum;
-  long long num;
+  long long          num;
   if (afl->queue_cur->is_ascii) {
-  
+
     endptr = buf_8;
-    num = strntoll(buf_8, len - idx, (char**)&endptr, 0);
+    num = strntoll(buf_8, len - idx, (char **)&endptr, 0);
     if (endptr == buf_8) {
-      unum = strntoull(buf_8, len - idx, (char**)&endptr, 0);
-      if (endptr == buf_8)
-        use_unum = 1;
+
+      unum = strntoull(buf_8, len - idx, (char **)&endptr, 0);
+      if (endptr == buf_8) use_unum = 1;
+
     } else
+
       use_num = 1;
-  
+
   }
-  
+
   if (use_num && num == pattern) {
-    
+
     size_t old_len = endptr - buf_8;
     size_t num_len = snprintf(NULL, 0, "%lld", num);
-    
-    u8* new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), len + num_len);
+
+    u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), len + num_len);
     memcpy(new_buf, buf, idx);
-    
-    snprintf(new_buf +idx, num_len, "%lld", num);
-    memcpy(new_buf +idx +num_len, buf_8 + old_len, len - idx - old_len);
-    
+
+    snprintf(new_buf + idx, num_len, "%lld", num);
+    memcpy(new_buf + idx + num_len, buf_8 + old_len, len - idx - old_len);
+
     if (unlikely(its_fuzz(afl, new_buf, len, status))) { return 1; }
-  
+
   } else if (use_unum && unum == pattern) {
-  
+
     size_t old_len = endptr - buf_8;
     size_t num_len = snprintf(NULL, 0, "%llu", unum);
-  
-    u8* new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), len + num_len);
+
+    u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), len + num_len);
     memcpy(new_buf, buf, idx);
-    
-    snprintf(new_buf +idx, num_len, "%llu", unum);
-    memcpy(new_buf +idx +num_len, buf_8 + old_len, len - idx - old_len);
-    
+
+    snprintf(new_buf + idx, num_len, "%llu", unum);
+    memcpy(new_buf + idx + num_len, buf_8 + old_len, len - idx - old_len);
+
     if (unlikely(its_fuzz(afl, new_buf, len, status))) { return 1; }
-  
+
   }
 
   if (SHAPE_BYTES(h->shape) >= 8 && *status != 1) {
@@ -382,7 +388,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       *buf_64 = pattern;
 
     }
-    
+
     // reverse encoding
     if (do_reverse && *status != 1) {
 

@@ -1275,7 +1275,7 @@ int main(int argc, char **argv_orig, char **envp) {
               afl->expand_havoc = 2;
               break;
             case 2:
-              //afl->cycle_schedules = 1;
+              // afl->cycle_schedules = 1;
               afl->expand_havoc = 3;
               break;
             case 3:
