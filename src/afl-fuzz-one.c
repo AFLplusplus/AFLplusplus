@@ -746,9 +746,9 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
         break;
       default: {
 
-        /* 10% is transforming ascii numbers */
+        /* 5% is transforming ascii numbers */
 
-        if (choice < 60) {
+        if (choice < 55) {
 
           for (u32 j = pos; j < temp_len; ++j) {
 
@@ -826,7 +826,7 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
 
           }
 
-        } else if (choice < 90) {
+        } else if (choice < 85) {
 
           /* 30% is special character transform */
 
@@ -845,7 +845,7 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
 
         } else {
 
-          /* 10% is random text character transform */
+          /* 15% is random text character transform */
 
           u32 iter, cnt, loc, prev_loc = temp_len;
           if (temp_len > 32) {
