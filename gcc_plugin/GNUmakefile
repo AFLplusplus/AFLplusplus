@@ -70,11 +70,13 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 ifneq "$(shell uname -s)" "Haiku"
-  LDFLAGS += -lrt
+  	LDFLAGS += -lrt
+else
+	CFLAGS_SAFE += -DUSEMMAP=1
 endif
 
 ifeq "$(shell uname -s)" "SunOS"
-  PLUGIN_FLAGS += -I/usr/include/gmp
+  	PLUGIN_FLAGS += -I/usr/include/gmp
 endif
 
 
