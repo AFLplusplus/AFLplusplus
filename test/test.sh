@@ -385,13 +385,13 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-compcov.compcov test.out
-  AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_NO_UI=1 AFL_LLVM_LAF_ALL=1 ../afl-clang-fast -o test-floatingpoint test-floatingpoint.c > test.out 2>&1
+  AFL_LLVM_INSTRUMENT=AFL AFL_LLVM_LAF_ALL=1 ../afl-clang-fast -o test-floatingpoint test-floatingpoint.c > test.out 2>&1
   test -e test-floatingpoint && {
     mkdir -p in
     echo ZZ > in/in
     $ECHO "$GREY[*] running afl-fuzz with floating point splitting, this will take max. 30 seconds"
     {
-      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -s 123 -V30 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_UI=1 ../afl-fuzz -s 123 -V30 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
     } >>errors 2>&1
     test -n "$( ls out/crashes/id:* 2>/dev/null )" && {
       $ECHO "$GREEN[+] llvm_mode laf-intel floatingpoint splitting feature works correctly"
