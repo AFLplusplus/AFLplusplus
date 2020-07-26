@@ -581,6 +581,10 @@ typedef struct afl_state {
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
 
+  unsigned long long int last_avg_exec_update;
+  u32                    last_avg_execs;
+  float                  last_avg_execs_saved;
+
 /* foreign sync */
 #define FOREIGN_SYNCS_MAX 32
   u8                  foreign_sync_cnt;
