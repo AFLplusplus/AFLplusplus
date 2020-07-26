@@ -28,9 +28,10 @@
   2. [How to compile and install afl++](#building-and-installing-afl)
   3. [How to fuzz a target](#how-to-fuzz-with-afl)
   4. [Fuzzing binary-only targets](#fuzzing-binary-only-targets)
-  5. [Branches](#branches)
-  6. [Want to help?](#help-wanted)
-  7. [Detailed help and description of afl++](#challenges-of-guided-fuzzing)
+  5. [Good examples and writeups of afl++ usages](#good-examples-and-writeups)
+  6. [Branches](#branches)
+  7. [Want to help?](#help-wanted)
+  8. [Detailed help and description of afl++](#challenges-of-guided-fuzzing)
 
 ## Important features of afl++
 
