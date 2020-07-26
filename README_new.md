@@ -24,9 +24,9 @@
 
 ## Contents
 
-  1. [Features](#important-features-of-afl++)
-  2. [How to compile and install afl++](#building-and-installing-afl++)
-  3. [How to fuzz a target](#how-to-fuzz-with-afl++)
+  1. [Features](#important-features-of-afl)
+  2. [How to compile and install afl++](#building-and-installing-afl)
+  3. [How to fuzz a target](#how-to-fuzz-with-afl)
   4. [Fuzzing binary-only targets](#fuzzing-binary-only-targets)
   5. [Branches](#branches)
   6. [Want to help?](#help-wanted)
