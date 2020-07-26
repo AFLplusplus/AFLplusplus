@@ -27,9 +27,9 @@
 #include <string.h>
 #include <limits.h>
 
-static u8 *strnstr(const u8 *s, const u8 *find, size_t slen);
+/* static u8 *strnstr(const u8 *s, const u8 *find, size_t slen);
 static u32 string_replace(u8 **out_buf, s32 *temp_len, u32 pos, u8 *from,
-                          u8 *to);
+                          u8 *to); */
 
 /* MOpt */
 
@@ -370,6 +370,7 @@ static void locate_diffs(u8 *ptr1, u8 *ptr2, u32 len, s32 *first, s32 *last) {
 
 #define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
 
+#if 0
 /* search a string */
 
 static u8 *strnstr(const u8 *s, const u8 *find, size_t slen) {
@@ -591,7 +592,7 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
 
     switch (choice) {
 
-      /* 50% -> fixed replacements */
+        /* 50% -> fixed replacements */
 
       case 0:                                /* Semantic statement deletion */
         yes += string_replace(&new_buf, &temp_len, pos, "\n", "#");
@@ -884,6 +885,8 @@ static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
   return 1;
 
 }
+
+#endif                                                              /* if 0 */
 
 /* Take the current entry from the queue, fuzz it for a while. This
    function is a tad too long... returns 0 if fuzzed successfully, 1 if
@@ -2384,8 +2387,8 @@ havoc_stage:
     /* add expensive havoc cases here, they are activated after a full
        cycle without finds happened */
 
-    r_max = 16 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0) +
-            (afl->queue_cur->is_ascii ? AFL_TXT_BIAS : 0);
+    r_max = 16 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
+    /* + (afl->queue_cur->is_ascii ? AFL_TXT_BIAS : 0); */
 
   } else {
 
@@ -2435,7 +2438,7 @@ havoc_stage:
 
       }
 
-    retry_havoc:
+      // retry_havoc:
 
       switch ((r = rand_below(afl, r_max))) {
 
@@ -2818,116 +2821,120 @@ havoc_stage:
 
             }
 
-          } else
+          } else {
 
-            switch (r) {
+            /*
+                        switch (r) {
 
-              case 15:  // fall through
-              case 17: {
+                          case 15:  // fall through
+                          case 16:
+                          case 17: {*/
 
-                /* Overwrite bytes with a randomly selected chunk from another
-                   testcase or insert that chunk. */
+            /* Overwrite bytes with a randomly selected chunk from another
+               testcase or insert that chunk. */
 
-                if (afl->queued_paths < 2) break;
+            if (afl->queued_paths < 4) break;
 
-                /* Pick a random queue entry and seek to it. */
+            /* Pick a random queue entry and seek to it. */
 
-                u32 tid;
-                do
-                  tid = rand_below(afl, afl->queued_paths);
-                while (tid == afl->current_entry);
+            u32 tid;
+            do
+              tid = rand_below(afl, afl->queued_paths);
+            while (tid == afl->current_entry);
 
-                struct queue_entry *target = afl->queue_buf[tid];
+            struct queue_entry *target = afl->queue_buf[tid];
 
-                /* Make sure that the target has a reasonable length. */
+            /* Make sure that the target has a reasonable length. */
 
-                while (target && (target->len < 2 || target == afl->queue_cur))
-                  target = target->next;
+            while (target && (target->len < 2 || target == afl->queue_cur))
+              target = target->next;
 
-                if (!target) break;
+            if (!target) break;
 
-                /* Read the testcase into a new buffer. */
+            /* Read the testcase into a new buffer. */
 
-                fd = open(target->fname, O_RDONLY);
+            fd = open(target->fname, O_RDONLY);
 
-                if (unlikely(fd < 0)) {
+            if (unlikely(fd < 0)) {
 
-                  PFATAL("Unable to open '%s'", target->fname);
+              PFATAL("Unable to open '%s'", target->fname);
 
-                }
+            }
 
-                u32 new_len = target->len;
-                u8 *new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), new_len);
+            u32 new_len = target->len;
+            u8 *new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), new_len);
 
-                ck_read(fd, new_buf, new_len, target->fname);
+            ck_read(fd, new_buf, new_len, target->fname);
 
-                close(fd);
+            close(fd);
 
-                u8 overwrite = 0;
-                if (temp_len >= 2 && rand_below(afl, 2))
-                  overwrite = 1;
-                else if (temp_len + HAVOC_BLK_XL >= MAX_FILE) {
+            u8 overwrite = 0;
+            if (temp_len >= 2 && rand_below(afl, 2))
+              overwrite = 1;
+            else if (temp_len + HAVOC_BLK_XL >= MAX_FILE) {
 
-                  if (temp_len >= 2)
-                    overwrite = 1;
-                  else
-                    break;
-
-                }
-
-                if (overwrite) {
-
-                  u32 copy_from, copy_to, copy_len;
-
-                  copy_len = choose_block_len(afl, new_len - 1);
-                  if (copy_len > temp_len) copy_len = temp_len;
-
-                  copy_from = rand_below(afl, new_len - copy_len + 1);
-                  copy_to = rand_below(afl, temp_len - copy_len + 1);
-
-                  memmove(out_buf + copy_to, new_buf + copy_from, copy_len);
-
-                } else {
-
-                  u32 clone_from, clone_to, clone_len;
-
-                  clone_len = choose_block_len(afl, new_len);
-                  clone_from = rand_below(afl, new_len - clone_len + 1);
-
-                  clone_to = rand_below(afl, temp_len);
-
-                  u8 *temp_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
-                                               temp_len + clone_len);
-
-                  /* Head */
-
-                  memcpy(temp_buf, out_buf, clone_to);
-
-                  /* Inserted part */
-
-                  memcpy(temp_buf + clone_to, new_buf + clone_from, clone_len);
-
-                  /* Tail */
-                  memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
-                         temp_len - clone_to);
-
-                  swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
-                  out_buf = temp_buf;
-                  temp_len += clone_len;
-
-                }
-
+              if (temp_len >= 2)
+                overwrite = 1;
+              else
                 break;
 
-              }
+            }
 
-              default:
+            if (overwrite) {
 
-                // perform ascii mutations
-                if (text_mutation(afl, &out_buf, &temp_len) == 0)
-                  goto retry_havoc;
+              u32 copy_from, copy_to, copy_len;
 
-            }  // end default: switch(r)
+              copy_len = choose_block_len(afl, new_len - 1);
+              if (copy_len > temp_len) copy_len = temp_len;
+
+              copy_from = rand_below(afl, new_len - copy_len + 1);
+              copy_to = rand_below(afl, temp_len - copy_len + 1);
+
+              memmove(out_buf + copy_to, new_buf + copy_from, copy_len);
+
+            } else {
+
+              u32 clone_from, clone_to, clone_len;
+
+              clone_len = choose_block_len(afl, new_len);
+              clone_from = rand_below(afl, new_len - clone_len + 1);
+
+              clone_to = rand_below(afl, temp_len);
+
+              u8 *temp_buf =
+                  ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+
+              /* Head */
+
+              memcpy(temp_buf, out_buf, clone_to);
+
+              /* Inserted part */
+
+              memcpy(temp_buf + clone_to, new_buf + clone_from, clone_len);
+
+              /* Tail */
+              memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
+                     temp_len - clone_to);
+
+              swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
+              out_buf = temp_buf;
+              temp_len += clone_len;
+
+            }
+
+            break;
+
+          }
+
+          /*              default:
+
+                          // perform ascii mutations
+                          if (text_mutation(afl, &out_buf, &temp_len) == 0)
+                            goto retry_havoc;
+
+                      }  // end default: switch(r)
+
+          */
 
       }
 
