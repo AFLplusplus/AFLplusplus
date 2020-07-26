@@ -168,7 +168,7 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   /* "afl_custom_deinit", optional for backward compatibility */
   mutator->afl_custom_deinit = dlsym(dh, "afl_custom_deinit");
-  if (!mutator->afl_custom_deinit) FATAL("Symbol 'afl_custom_init' not found.");
+  if (!mutator->afl_custom_deinit) FATAL("Symbol 'afl_custom_deinit' not found.");
 
   /* "afl_custom_post_process", optional */
   mutator->afl_custom_post_process = dlsym(dh, "afl_custom_post_process");
