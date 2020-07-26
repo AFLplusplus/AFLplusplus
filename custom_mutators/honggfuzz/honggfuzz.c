@@ -68,6 +68,8 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
                                 const uint8_t *filename_new_queue,
                                 const uint8_t *filename_orig_queue) {
 
+  if (run.global->mutate.dictionaryCnt >= 1024) return;
+
   while (data->extras_cnt < data->afl->extras_cnt &&
          run.global->mutate.dictionaryCnt < 1024) {
 
@@ -81,7 +83,7 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
 
   }
 
-  while (data->extras_cnt < data->afl->a_extras_cnt &&
+  while (data->a_extras_cnt < data->afl->a_extras_cnt &&
          run.global->mutate.dictionaryCnt < 1024) {
 
     memcpy(run.global->mutate.dictionary[run.global->mutate.dictionaryCnt].val,
