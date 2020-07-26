@@ -11,22 +11,32 @@
   Repository: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
   afl++ is maintained by:
-    * Marc "van Hauser" Heuse <mh@mh-sec.de>,
-    * Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>,
-    * Andrea Fioraldi <andreafioraldi@gmail.com> and
-    * Dominik Maier <mail@dmnk.co>.
+
+  * Marc "van Hauser" Heuse <mh@mh-sec.de>,
+  * Heiko "hexcoder-" Eißfeldt <heiko.eissfeldt@hexco.de>,
+  * Andrea Fioraldi <andreafioraldi@gmail.com> and
+  * Dominik Maier <mail@dmnk.co>.
 
   Originally developed by Michal "lcamtuf" Zalewski.
 
-  Note that although afl now has a Google afl repository [https://github.com/Google/afl](https://github.com/Google/afl),
-  it is unlikely to receive any notable enhancements: [https://twitter.com/Dor3s/status/1154737061787660288](https://twitter.com/Dor3s/status/1154737061787660288)
-  includes all necessary/interesting changes from Google's afl 2.57b
+  afl++ is superiour to Google's afl in any way - more speed, more and better
+  mutations, more and better instrumentation, etc. etc.
 
-## The enhancements compared to the original stock afl
+## Contents
 
-  Among other changes afl++ has a more performant llvm_mode, supports
-  llvm up to version 12, QEMU 3.1 with more speed and features,
-  better *BSD, Solaris and Android support and much, much, much more.
+  1. [Features](#important-features-of-afl++)
+  2. [How to compile and install afl++](#building-and-installing-afl++)
+  3. [How to fuzz a target](#how-to-fuzz-with-afl++)
+  4. [Fuzzing binary-only targets](#fuzzing-binary-only-targets)
+  5. [Branches](#branches)
+  6. [Want to help?](#help-wanted)
+  7. [Detailed help and description of afl++](#challenges-of-guided-fuzzing)
+
+## Important features of afl++
+
+  afl++ supports llvm up to version 12, very fast binary fuzzing with QEMU 3.1
+  with laf-intel and redqueen, unicorn mode, gcc plugin, full *BSD, Solaris and
+  Android support and much, much, much more.
 
   | Feature/Instrumentation | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
   | ----------------------- |:-------:|:---------:|:----------:|:----------------:|:------------:|
@@ -114,7 +124,7 @@
 
   For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab.
 
-## Google Summer of Code 2020 (and any other students and enthusiast developers)
+## Help wanted
 
 We are happy to be part of [Google Summer of Code 2020](https://summerofcode.withgoogle.com/organizations/5100744400699392/)! :-)
 
@@ -632,7 +642,7 @@ PS. ASAN users are advised to review [docs/notes_for_asan.md](docs/notes_for_asa
 file for important caveats.
 
 
-## Instrumenting binary-only apps
+## Fuzzing binary-only targets
 
 When source code is *NOT* available, the fuzzer offers experimental support for
 fast, on-the-fly instrumentation of black-box binaries. This is accomplished
