@@ -514,6 +514,8 @@ static void __afl_start_snapshots(void) {
 
       if (!child_pid) {
 
+        (void)nice(-20);
+
         signal(SIGCHLD, old_sigchld_handler);
 
         close(FORKSRV_FD);
@@ -716,6 +718,8 @@ static void __afl_start_forkserver(void) {
       /* In child process: close fds, resume execution. */
 
       if (!child_pid) {
+
+        (void)nice(-20);
 
         signal(SIGCHLD, old_sigchld_handler);
 
