@@ -429,7 +429,8 @@ to be used in fuzzing! :-)
 
 In this final step we fuzz the target.
 There are not that many useful options to run the target - unless you want to
-use many CPU cores for the fuzzing, which will make the fuzzing much more useful.
+use many CPU cores/threads for the fuzzing, which will make the fuzzing much
+more useful.
 
 If you just use one CPU for fuzzing, then you are fuzzing just for fun and not
 seriously :-)
@@ -470,15 +471,15 @@ is:
 
 All labels are explained in [docs/status_screen.md](docs/status_screen.md)
 
-#### b) Using multiple cores
+#### b) Using multiple cores/threads
 
-If you want to seriously fuzz then use as many cores as possible to fuzz your
-target.
+If you want to seriously fuzz then use as many cores/threads as possible to
+fuzz your target.
 
 On the same machine - due to the nature how afl++ works - there is a maximum
-number of CPU cores that are useful, more and the overall performance degrades
-instead. This value depends on the target and the limit is between 24 and 64
-cores per machine.
+number of CPU cores/threads that are useful, more and the overall performance
+degrades instead. This value depends on the target and the limit is between 48
+and 96 cores/threads per machine.
 
 There should be one main fuzzer (`-M main` option) and as many secondary
 fuzzers (eg `-S variant1`) as you cores that you use.
