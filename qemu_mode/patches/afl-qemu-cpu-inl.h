@@ -620,7 +620,8 @@ static void afl_wait_tsl(CPUState *cpu, int fd) {
 
         last_tb = tb_htable_lookup(cpu, c.last_tb.pc, c.last_tb.cs_base,
                                    c.last_tb.flags, c.cf_mask);
-        if (last_tb) { tb_add_jump(last_tb, c.tb_exit, tb); }
+#define TB_JMP_RESET_OFFSET_INVALID 0xffff
+        if (last_tb && (last_tb->jmp_reset_offset[c.tb_exit] != TB_JMP_RESET_OFFSET_INVALID)) { tb_add_jump(last_tb, c.tb_exit, tb); }
 
       }
 
