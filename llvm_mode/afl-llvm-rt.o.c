@@ -514,7 +514,7 @@ static void __afl_start_snapshots(void) {
 
       if (!child_pid) {
 
-        (void)nice(-20);
+        //(void)nice(-20);  // does not seem to improve
 
         signal(SIGCHLD, old_sigchld_handler);
 
