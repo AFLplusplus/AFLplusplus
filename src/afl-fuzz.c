@@ -1234,6 +1234,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  (void)nice(-20);
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
 
