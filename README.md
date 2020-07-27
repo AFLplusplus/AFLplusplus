@@ -55,53 +55,34 @@
 
   neverZero:
 
-  (1) default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
-
-  (2) GCC creates non-performant code, hence it is disabled in gcc_plugin
-
-  (3) partially via AFL_CODE_START/AFL_CODE_END
-
-  (4) with pcguard mode and LTO mode for LLVM >= 11
-
-  (5) upcoming, development in the branch
-
-  (6) not compatible with LTO instrumentation and needs at least LLVM >= 4.1
-  
-  (7) only in LTO mode with LLVM >= 11
+  1. default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
+  2. GCC creates non-performant code, hence it is disabled in gcc_plugin
+  3. partially via AFL_CODE_START/AFL_CODE_END
+  4. with pcguard mode and LTO mode for LLVM >= 11
+  5. upcoming, development in the branch
+  6. not compatible with LTO instrumentation and needs at least LLVM >= 4.1
+  7. only in LTO mode with LLVM >= 11
 
   Among others, the following features and patches have been integrated:
 
   * NeverZero patch for afl-gcc, llvm_mode, qemu_mode and unicorn_mode which prevents a wrapping map value to zero, increases coverage
-  
   * Persistent mode and deferred forkserver for qemu_mode
-  
   * Unicorn mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
-
   * The new CmpLog instrumentation for LLVM and QEMU inspired by [Redqueen](https://www.syssec.ruhr-uni-bochum.de/media/emma/veroeffentlichungen/2018/12/17/NDSS19-Redqueen.pdf)
-
   * Win32 PE binary-only fuzzing with QEMU and Wine
-
   * AFLfast's power schedules by Marcel Böhme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
-
   * The MOpt mutator: [https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)
-
   * LLVM mode Ngram coverage by Adrian Herrera [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
-
   * InsTrim, an effective CFG llvm_mode instrumentation implementation for large targets: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
-
   * C. Holler's afl-fuzz Python mutator module and llvm_mode instrument file support: [https://github.com/choller/afl](https://github.com/choller/afl)
-
   * Custom mutator by a library (instead of Python) by kyakdan
-
   * LAF-Intel/CompCov support for llvm_mode, qemu_mode and unicorn_mode (with enhanced capabilities)
-
   * Radamsa and hongfuzz mutators (as custom mutators).
-
   * QBDI mode to fuzz android native libraries via QBDI framework
 
   A more thorough list is available in the [PATCHES](docs/PATCHES.md) file.
 
-  So all in all this is the best-of afl that is currently out there :-)
+  So all in all this is the best-of afl that is out there :-)
 
   For new versions and additional information, check out:
   [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
@@ -273,6 +254,13 @@ anything below 9 is not recommended.
     v
    use afl-gcc and afl-g++
 ```
+
+Clickable README links for the chosen compiler:
+
+  * [afl-clang-lto](llvm/README.lto.md)
+  * [afl-clang-fast](llvm/README.md)
+  * [afl-gcc-fast](gcc_plugin/README.md)
+  * afl-gcc has nt README as it has no features
 
 #### b) Selecting instrumentation options
 
@@ -478,7 +466,8 @@ afl-fuzz never stops fuzzing. To terminate afl++ simply press Control-C.
 When you start afl-fuzz you will see a user interface that shows what the status
 is:
 ![docs/screenshot.png](docs/screenshot.png)
-All the entries are explained in [docs/status_screen.md](docs/status_screen.md)
+
+All labels are explained in [docs/status_screen.md](docs/status_screen.md)
 
 #### b) Using multiple cores
 
@@ -517,6 +506,7 @@ Examples are e.g.:
  * [AFLsmart](https://github.com/aflsmart/aflsmart)
  * [FairFuzz](https://github.com/carolemieux/afl-rb)
  * [Neuzz](https://github.com/Dongdongshe/neuzz)
+
 A long list can be found at [https://github.com/Microsvuln/Awesome-AFL](https://github.com/Microsvuln/Awesome-AFL)
 
 However you can also sync afl++ with honggfuzz, libfuzzer, entropic, etc.
@@ -540,7 +530,7 @@ The `paths found` value is a bad indicator how good the coverage is.
 It is better to check out the exact lines of code that have been reached -
 and which have not been found so far.
 
-An "easy" helper script for this is [afl-cov](https://github.com/vanhauser-thc/afl-cov),
+An "easy" helper script for this is [https://github.com/vanhauser-thc/afl-cov](https://github.com/vanhauser-thc/afl-cov),
 just follow the README of that seperate project.
 
 If you see that an important area or a feature has not been covered so far then
