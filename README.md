@@ -342,6 +342,9 @@ described in [llvm/README.lto.md](llvm/README.lto.md)
 For `configure` build systems this is usually done by:
 `mkdir build; cd build; CC=afl-clang-fast CXX=afl-clang-fast++ cmake ..`
 
+Some cmake scripts require something like `-DCMAKE_CC=... -DCMAKE_CXX=...`
+or `-DCMAKE_C_COMPILER=... DCMAKE_CPP_COMPILER=...` instead.
+
 Note that if you using the (better) afl-clang-lto compiler you also have to
 AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as it is
 described in [llvm/README.lto.md](llvm/README.lto.md)
