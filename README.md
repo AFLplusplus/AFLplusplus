@@ -53,8 +53,6 @@
   | Auto dictionary         |         |     x(7)  |            |                  |              |
   | Snapshot LKM support    |         |     x     |            |        (x)(5)    |              |
 
-  neverZero:
-
   1. default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
   3. partially via AFL_CODE_START/AFL_CODE_END
@@ -260,7 +258,7 @@ Clickable README links for the chosen compiler:
   * [afl-clang-lto](llvm/README.lto.md)
   * [afl-clang-fast](llvm/README.md)
   * [afl-gcc-fast](gcc_plugin/README.md)
-  * afl-gcc has nt README as it has no features
+  * afl-gcc has no README as it has no features
 
 #### b) Selecting instrumentation options
 
