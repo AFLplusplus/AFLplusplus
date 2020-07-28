@@ -563,6 +563,9 @@ others, e.g. custom mutator modules, sync to very different fuzzers, etc.
 
 ### The End
 
+Check out the [docs/FAQ](docs/FAQ.md) if it maybe answers your question (that
+you might not even have known you had ;-) ).
+
 This is basically all you need to know to professionally run fuzzing campaigns.
 If you want to know more, the rest of this README and the tons of texts in
 [docs/](docs/) will have you covered.

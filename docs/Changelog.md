@@ -25,6 +25,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - added afl-frida gum solution to examples/afl_frida (mostly imported
     from https://github.com/meme/hotwax/)
   - small fixes to afl-plot, afl-whatsup and man page creation
+  - new README, added FAQ
 
 
 ### Version ++2.66c (release)
