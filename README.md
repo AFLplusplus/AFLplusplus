@@ -95,7 +95,7 @@
 
   The following branches exist:
 
-  * [master/trunk](https://github.com/AFLplusplus/AFLplusplus/) : stable state of afl++ - it is synced from dev from time to
+  * [stable/trunk](https://github.com/AFLplusplus/AFLplusplus/) : stable state of afl++ - it is synced from dev from time to
     time when we are satisfied with it's stability
   * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev) : development state of afl++ - bleeding edge and you might catch a
     checkout which does not compile or has a bug. *We only accept PRs in dev!!*
@@ -144,7 +144,7 @@ It is recommended to install the newest available gcc, clang and llvm-dev
 possible in your distribution!
 
 Note that "make distrib" also builds llvm_mode, qemu_mode, unicorn_mode and
-more. If you just want plain afl then do "make all", however compiling and
+more. If you just want plain afl++ then do "make all", however compiling and
 using at least llvm_mode is highly recommended for much better results -
 hence in this case
 
@@ -351,9 +351,9 @@ described in [llvm/README.lto.md](llvm/README.lto.md)
 
 ##### other build systems or if configure/cmake didn't work
 
-Sometimes cmake and configure do not pick up the afl compiler, or the ranlib/ar
-that is needed - because this was just not foreseen by the developer of the
-target. Or they have non-standard options. Figure out if there is a 
+Sometimes cmake and configure do not pick up the afl++ compiler, or the
+ranlib/ar that is needed - because this was just not foreseen by the developer
+of the target. Or they have non-standard options. Figure out if there is a 
 non-standard way to set this, otherwise set the build normally and edit the
 generated build environment afterwards by hand to point to the right compiler
 (and/or ranlib and ar).
@@ -456,12 +456,23 @@ If you need to stop and re-start the fuzzing, use the same command line option
 and switch the input directory with a dash (`-`):
 `afl-fuzz -i - -o output -- bin/target -d @@`
 
+Note that afl-fuzz enforces memory limits to prevent the system to run out
+of memory. By default this is 50MB for a process. If this is too little for
+the target (which can can usually see that afl-fuzz bails with the message
+that it could not connect to the forkserver), then you can increase this
+with the `-m` option, the value is in MB. To disable any memory limits
+(beware!) set `-m 0` - which is usually required for ASAN compiled targets.
+
 Adding a dictionary helpful. See the [dictionaries/](dictionaries/) if
 something is already included for your data format, and tell afl-fuzz to load
 that dictionary by adding `-x dicationaries/FORMAT.dict`. With afl-clang-lto
 you have an autodictionary generation for which you need to do nothing except
 to use afl-clang-lto as the compiler. You also have the option to generate
 a dictionary yourself, see [libtokencap/README.md](libtokencap/README.md)
+
+afl-fuzz has a variety of options that help to workaround target quirks like
+specific locations for the input file (`-f`), not performing deterministic
+fuzzing (`-d`) and many more. Check out `afl-fuzz -h`.
 
 afl-fuzz never stops fuzzing. To terminate afl++ simply press Control-C.
 
@@ -500,8 +511,8 @@ All other secondaries should be:
    which you can set with e.g. `-p seek`
 
 You can also use different fuzzers.
-If you are afl-spinoffs or afl conforming, then just use the same -o directory
-and give it a unique `-S` name.
+If you are using afl spinoffs or afl conforming fuzzers, then just use the
+same -o directory and give it a unique `-S` name.
 Examples are e.g.:
  * [Angora](https://github.com/AngoraFuzzer/Angora)
  * [Untracer](https://github.com/FoRTE-Research/UnTracer-AFL)
@@ -663,8 +674,7 @@ All these methods are extremely promising in experimental settings, but tend
 to suffer from reliability and performance problems in practical uses - and
 currently do not offer a viable alternative to "dumb" fuzzing techniques.
 
-
-## The afl-fuzz approach
+## Background: The afl-fuzz approach
 
 American Fuzzy Lop is a brute-force fuzzer coupled with an exceedingly simple
 but rock-solid instrumentation-guided genetic algorithm. It uses a modified
@@ -702,88 +712,7 @@ closed-source tools.
 The fuzzer is thoroughly tested to deliver out-of-the-box performance far
 superior to blind fuzzing or coverage-only tools.
 
-## Instrumenting programs for use with AFL
-
-PLEASE NOTE: llvm_mode compilation with afl-clang-fast/afl-clang-fast++
-instead of afl-gcc/afl-g++ is much faster and has many cool features.
-See llvm_mode/ - however few code does not compile with llvm.
-We support llvm versions 3.4 to 12.
-
-When source code is available, instrumentation can be injected by a companion
-tool that works as a drop-in replacement for gcc or clang in any standard build
-process for third-party code.
-
-The instrumentation has a fairly modest performance impact; in conjunction with
-other optimizations implemented by afl-fuzz, most programs can be fuzzed as fast
-or even faster than possible with traditional tools.
-
-The correct way to recompile the target program may vary depending on the
-specifics of the build process, but a nearly-universal approach would be:
-
-```shell
-CC=/path/to/afl/afl-gcc ./configure
-make clean all
-```
-
-For C++ programs, you'd would also want to set `CXX=/path/to/afl/afl-g++`.
-
-The clang wrappers (afl-clang and afl-clang++) can be used in the same way;
-clang users may also opt to leverage a higher-performance instrumentation mode,
-as described in [llvm_mode/README.md](llvm_mode/README.md).
-Clang/LLVM has a much better performance and works with LLVM version 3.4 to 12.
-
-Using the LAF Intel performance enhancements are also recommended, see 
-[llvm_mode/README.laf-intel.md](llvm_mode/README.laf-intel.md)
-
-Using partial instrumentation is also recommended, see
-[llvm_mode/README.instrument_file.md](llvm_mode/README.instrument_file.md)
-
-When testing libraries, you need to find or write a simple program that reads
-data from stdin or from a file and passes it to the tested library. In such a
-case, it is essential to link this executable against a static version of the
-instrumented library or to make sure that the correct .so file is loaded at
-runtime (usually by setting `LD_LIBRARY_PATH`). The simplest option is a static
-build, usually possible via:
-
-```shell
-CC=/path/to/afl/afl-gcc ./configure --disable-shared
-```
-
-Setting `AFL_HARDEN=1` when calling 'make' will cause the CC wrapper to
-automatically enable code hardening options that make it easier to detect
-simple memory bugs. Libdislocator, a helper library included with AFL (see
-[libdislocator/README.md](libdislocator/README.md)) can help uncover heap corruption issues, too.
-
-PS. ASAN users are advised to review [docs/notes_for_asan.md](docs/notes_for_asan.md)
-file for important caveats.
-
-## Power schedules
-
-The power schedules were copied from Marcel Böhme's AFLfast implementation and
-measure differently which queue entries to prefer and therefore may find
-different paths faster for large queues.
-
-The available schedules are:
- 
- - explore (default, original AFL)
- - exploit (original AFL)
- - fast (AFLfast)
- - coe (AFLfast)
- - quad (AFLfast)
- - lin (AFLfast)
- - rare (afl++ experimental)
- - mmopt (afl++ experimental)
- - seek (afl++ experimental)
-
-In parallel mode (-M/-S, several instances with the shared queue), we suggest
-to run the main node using the default explore schedule (`-p explore`) and the
-secondary nodes with different schedules. If a schedule does not perform well
-for a target, restart the secondary nodes with a different schedule.
-
-More details can be found in the paper published at the 23rd ACM Conference on
-Computer and Communications Security [CCS'16](https://www.sigsac.org/ccs/CCS2016/accepted-papers/)
-
-## Choosing initial test cases
+## Help: Choosing initial test cases
 
 To operate correctly, the fuzzer requires one or more starting file that
 contains a good example of the input data normally expected by the targeted
@@ -803,45 +732,7 @@ PS. If a large corpus of data is available for screening, you may want to use
 the afl-cmin utility to identify a subset of functionally distinct files that
 exercise different code paths in the target binary.
 
-
-## Fuzzing binaries
-
-The fuzzing process itself is carried out by the afl-fuzz utility. This program
-requires a read-only directory with initial test cases, a separate place to
-store its findings, plus a path to the binary to test.
-
-For target binaries that accept input directly from stdin, the usual syntax is:
-
-```shell
-./afl-fuzz -i testcase_dir -o findings_dir /path/to/program [...params...]
-```
-
-For programs that take input from a file, use '@@' to mark the location in
-the target's command line where the input file name should be placed. The
-fuzzer will substitute this for you:
-
-```shell
-./afl-fuzz -i testcase_dir -o findings_dir /path/to/program @@
-```
-
-You can also use the -f option to have the mutated data written to a specific
-file. This is useful if the program expects a particular file extension or so.
-
-Non-instrumented binaries can be fuzzed in the QEMU mode (add -Q in the command
-line) or in a traditional, blind-fuzzer mode (specify -n).
-
-You can use -t and -m to override the default timeout and memory limit for the
-executed process; rare examples of targets that may need these settings touched
-include compilers and video decoders.
-
-Tips for optimizing fuzzing performance are discussed in [perf_tips.md](docs/perf_tips.md).
-
-Note that afl-fuzz starts by performing an array of deterministic fuzzing
-steps, which can take several days, but tend to produce neat test cases. If you
-want quick & dirty results right away - akin to zzuf and other traditional
-fuzzers - add the -d option to the command line.
-
-## Interpreting output
+## Help: Interpreting output
 
 See the [docs/status_screen.md](docs/status_screen.md) file for information on
 how to interpret the displayed stats and monitor the health of the process. Be
@@ -901,53 +792,7 @@ If you have gnuplot installed, you can also generate some pretty graphs for any
 active fuzzing task using afl-plot. For an example of how this looks like,
 see [http://lcamtuf.coredump.cx/afl/plot/](http://lcamtuf.coredump.cx/afl/plot/).
 
-## Parallelized fuzzing
-
-Every instance of afl-fuzz takes up roughly one core. This means that on
-multi-core systems, parallelization is necessary to fully utilize the hardware.
-For tips on how to fuzz a common target on multiple cores or multiple networked
-machines, please refer to [docs/parallel_fuzzing.md](docs/parallel_fuzzing.md).
-
-The parallel fuzzing mode also offers a simple way for interfacing AFL to other
-fuzzers, to symbolic or concolic execution engines, and so forth; again, see the
-last section of [docs/parallel_fuzzing.md](docs/parallel_fuzzing.md) for tips.
-
-## Fuzzer dictionaries
-
-By default, afl-fuzz mutation engine is optimized for compact data formats -
-say, images, multimedia, compressed data, regular expression syntax, or shell
-scripts. It is somewhat less suited for languages with particularly verbose and
-redundant verbiage - notably including HTML, SQL, or JavaScript.
-
-To avoid the hassle of building syntax-aware tools, afl-fuzz provides a way to
-seed the fuzzing process with an optional dictionary of language keywords,
-magic headers, or other special tokens associated with the targeted data type
--- and use that to reconstruct the underlying grammar on the go:
-
-  [http://lcamtuf.blogspot.com/2015/01/afl-fuzz-making-up-grammar-with.html](http://lcamtuf.blogspot.com/2015/01/afl-fuzz-making-up-grammar-with.html)
-
-To use this feature, you first need to create a dictionary in one of the two
-formats discussed in [dictionaries/README.md](dictionaries/README.md);
-and then point the fuzzer to it via the -x option in the command line.
-
-(Several common dictionaries are already provided in that subdirectory, too.)
-
-There is no way to provide more structured descriptions of the underlying
-syntax, but the fuzzer will likely figure out some of this based on the
-instrumentation feedback alone. This actually works in practice, say:
-
-  [http://lcamtuf.blogspot.com/2015/04/finding-bugs-in-sqlite-easy-way.html](http://lcamtuf.blogspot.com/2015/04/finding-bugs-in-sqlite-easy-way.html)
-
-PS. Even when no explicit dictionary is given, afl-fuzz will try to extract
-existing syntax tokens in the input corpus by watching the instrumentation
-very closely during deterministic byte flips. This works for some types of
-parsers and grammars but isn't nearly as good as the -x mode.
-
-If a dictionary is really hard to come by, another option is to let AFL run
-for a while and then use the token capture library that comes as a companion
-utility with AFL. For that, see [libtokencap/README.md](libtokencap/README.tokencap.md).
-
-## Crash triage
+## Help: Crash triage
 
 The coverage-based grouping of crashes usually produces a small data set that
 can be quickly triaged manually or with a very simple GDB or Valgrind script.
@@ -981,13 +826,13 @@ can be operated in a very simple way:
 
 The tool works with crashing and non-crashing test cases alike. In the crash
 mode, it will happily accept instrumented and non-instrumented binaries. In the
-non-crashing mode, the minimizer relies on standard AFL instrumentation to make
+non-crashing mode, the minimizer relies on standard afl++ instrumentation to make
 the file simpler without altering the execution path.
 
 The minimizer accepts the -m, -t, -f and @@ syntax in a manner compatible with
 afl-fuzz.
 
-Another recent addition to AFL is the afl-analyze tool. It takes an input
+Another tool in afl++ is the afl-analyze tool. It takes an input
 file, attempts to sequentially flip bytes, and observes the behavior of the
 tested program. It then color-codes the input based on which sections appear to
 be critical, and which are not; while not bulletproof, it can often offer quick
@@ -1015,7 +860,8 @@ found by modifying the target programs to call abort() when say:
 Implementing these or similar sanity checks usually takes very little time;
 if you are the maintainer of a particular package, you can make this code
 conditional with `#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION` (a flag also
-shared with libfuzzer) or `#ifdef __AFL_COMPILER` (this one is just for AFL).
+shared with libfuzzer and honggfuzz) or `#ifdef __AFL_COMPILER` (this one is
+just for AFL).
 
 ## Common-sense risks
 
@@ -1029,7 +875,7 @@ tasks, fuzzing may put a strain on your hardware and on the OS. In particular:
     for something to blow up.
 
   - Targeted programs may end up erratically grabbing gigabytes of memory or
-    filling up disk space with junk files. AFL tries to enforce basic memory
+    filling up disk space with junk files. afl++ tries to enforce basic memory
     limits, but can't prevent each and every possible mishap. The bottom line
     is that you shouldn't be fuzzing on systems where the prospect of data loss
     is not an acceptable risk.
@@ -1050,7 +896,7 @@ tasks, fuzzing may put a strain on your hardware and on the OS. In particular:
 
 Here are some of the most important caveats for AFL:
 
-  - AFL detects faults by checking for the first spawned process dying due to
+  - afl++ detects faults by checking for the first spawned process dying due to
     a signal (SIGSEGV, SIGABRT, etc). Programs that install custom handlers for
     these signals may need to have the relevant code commented out. In the same
     vein, faults in child processes spawned by the fuzzed target may evade
@@ -1078,9 +924,6 @@ Here are some of the most important caveats for AFL:
 
     Some useful tips for modifying network-based services can be also found at:
     [https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop](https://www.fastly.com/blog/how-to-fuzz-server-american-fuzzy-lop)
-
-  - AFL doesn't output human-readable coverage data. If you want to monitor
-    coverage, use afl-cov from Michael Rash: [https://github.com/mrash/afl-cov](https://github.com/mrash/afl-cov)
 
   - Occasionally, sentient machines rise against their creators. If this
     happens to you, please consult [http://lcamtuf.coredump.cx/prep/](http://lcamtuf.coredump.cx/prep/).
@@ -1146,6 +989,6 @@ Thank you!
 Questions? Concerns? Bug reports? The contributors can be reached via
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
-There is also a mailing list for the afl project; to join, send a mail to
-<afl-users+subscribe@googlegroups.com>. Or, if you prefer to browse
-archives first, try: [https://groups.google.com/group/afl-users](https://groups.google.com/group/afl-users)
+There is also a mailing list for the afl/afl++ project; to join, send a mail to
+<afl-users+subscribe@googlegroups.com>. Or, if you prefer to browse archives
+first, try: [https://groups.google.com/group/afl-users](https://groups.google.com/group/afl-users)
