@@ -144,12 +144,12 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
 
   /*
   This memory is used to carry out the post_processing(if present) after copying
-  the testcase by removing the gaps
+  the testcase by removing the gaps. This can break though
   */
-  u8 mem_trimmed[skip_at + tail_len +
+  u8 mem_trimmed[len - skip_len +
                  1];  // 1 extra size to remove chance of overflow
 
-  ssize_t new_size = skip_at + tail_len;
+  ssize_t new_size = len - skip_len;
   void *  new_mem = mem;
   u8 *    new_buf = NULL;
 
