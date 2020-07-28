@@ -157,7 +157,7 @@ instrument it:
    when compiling, so we have to trick configure:
 
 ```
-./configure --enable-lto --disable-shared
+./configure --enable-lto --disable-shared --disable-inline-asm
 ```
 
 3. Now the configuration is done - and we edit the settings in `./ffbuild/config.mak`
