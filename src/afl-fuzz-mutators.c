@@ -40,7 +40,7 @@ void setup_custom_mutators(afl_state_t *afl) {
 
   if (fn) {
 
-    if (afl->limit_time_sig)
+    if (afl->limit_time_sig && afl->limit_time_sig != -1)
       FATAL(
           "MOpt and custom mutator are mutually exclusive. We accept pull "
           "requests that integrates MOpt with the optional mutators "
