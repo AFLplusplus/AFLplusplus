@@ -521,7 +521,12 @@ static void __afl_start_snapshots(void) {
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
 
-        if (!afl_snapshot_take(AFL_SNAPSHOT_MMAP | AFL_SNAPSHOT_FDS | AFL_SNAPSHOT_REGS | AFL_SNAPSHOT_EXIT)) { raise(SIGSTOP); }
+        if (!afl_snapshot_take(AFL_SNAPSHOT_MMAP | AFL_SNAPSHOT_FDS |
+                               AFL_SNAPSHOT_REGS | AFL_SNAPSHOT_EXIT)) {
+
+          raise(SIGSTOP);
+
+        }
 
         __afl_area_ptr[0] = 1;
         memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
