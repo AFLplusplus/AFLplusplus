@@ -2,17 +2,13 @@
 
 ## Roadmap 2.67+
 
- - -i - + foreign fuzzer sync support: scandir with time sort
  - expand on AFL_LLVM_INSTRUMENT_FILE to also support sancov allowlist format
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
- - namespace for targets? e.g. network
- - learn from honggfuzz (mutations, maybe ptrace?)
  - CPU affinity for many cores? There seems to be an issue > 96 cores
 
 ## Further down the road
 
 afl-fuzz:
- - ascii_only mode for mutation output - or use a custom mutator for this?
  - setting min_len/max_len/start_offset/end_offset limits for mutation output
 
 llvm_mode:
