@@ -719,7 +719,7 @@ static void __afl_start_forkserver(void) {
 
       if (!child_pid) {
 
-        (void)nice(-20);
+        //(void)nice(-20);
 
         signal(SIGCHLD, old_sigchld_handler);
 
