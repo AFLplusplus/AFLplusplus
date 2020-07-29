@@ -14,6 +14,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - added -F option to allow -M main fuzzers to sync to foreign fuzzers,
        e.g. honggfuzz or libfuzzer
      - eliminated CPU affinity race condition for -S/-M runs
+     - expanded havoc mode added, on no cycle finds add extra splicing and
+       MOpt into the mix
   - llvm_mode:
      - now supports llvm 12!
      - fixes for laf-intel float splitting (thanks to mark-griffin for
@@ -21,7 +23,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - LTO: autodictionary mode is a default
      - LTO: instrim instrumentation disabled, only classic support used
             as it is always better
-  - added honggfuzz mangle as a custom mutator in custom_mutators/honggfuzz :)
+  - added honggfuzz mangle as a custom mutator in custom_mutators/honggfuzz
   - added afl-frida gum solution to examples/afl_frida (mostly imported
     from https://github.com/meme/hotwax/)
   - small fixes to afl-plot, afl-whatsup and man page creation
