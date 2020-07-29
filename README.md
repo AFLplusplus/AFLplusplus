@@ -436,6 +436,9 @@ more useful.
 If you just use one CPU for fuzzing, then you are fuzzing just for fun and not
 seriously :-)
 
+Pro tip: load the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) before start afl-fuzz as this improves
+performance by a x2 speed increase!
+
 #### a) running afl-fuzz
 
 Before to do even a test run of afl-fuzz execute `sudo afl-system-config` (on
@@ -561,6 +564,15 @@ Basically if no new path is found for a long time (e.g. for a day or a week)
 then you can expect that your fuzzing won't be fruitful anymore.
 However often this just means that you should switch out secondaries for
 others, e.g. custom mutator modules, sync to very different fuzzers, etc.
+
+#### f) improve the speed!
+
+ * Use [persistent mode](llvm_mode/README.persistent_mode.md) (x2-x20 speed increase)
+ * Use the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) (x2 speed increase)
+ * If you do not use shmem persistent mode, use `AFL_TMPDIR` to point the input file on a tempfs location, see [docs/env_variables.md](docs/env_variables.md)
+ * Improve kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure)
+ * Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem
+ * Use your cores! [3.b) Using multiple cores/threads](#b-using-multiple-coresthreads)
 
 ### The End
 
