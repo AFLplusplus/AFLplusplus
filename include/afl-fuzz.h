@@ -348,6 +348,13 @@ struct afl_pass_stat {
 
 };
 
+struct foreign_sync {
+
+  u8 *   dir;
+  time_t ctime;
+
+};
+
 typedef struct afl_state {
 
   /* Position of this state in the global states list */
@@ -580,6 +587,15 @@ typedef struct afl_state {
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
+
+  unsigned long long int last_avg_exec_update;
+  u32                    last_avg_execs;
+  float                  last_avg_execs_saved;
+
+/* foreign sync */
+#define FOREIGN_SYNCS_MAX 32
+  u8                  foreign_sync_cnt;
+  struct foreign_sync foreign_syncs[FOREIGN_SYNCS_MAX];
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   u8  do_document;
@@ -944,6 +960,7 @@ void   fix_up_banner(afl_state_t *, u8 *);
 void   check_if_tty(afl_state_t *);
 void   setup_signal_handlers(void);
 void   save_cmdline(afl_state_t *, u32, char **);
+void   read_foreign_testcases(afl_state_t *, int);
 
 /* CmpLog */
 

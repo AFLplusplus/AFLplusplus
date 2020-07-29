@@ -2,7 +2,7 @@
 
 ## TLDR;
 
-This version requires a current llvm 11 compiled from the github master.
+This version requires a current llvm 11+ compiled from the github master.
 
 1. Use afl-clang-lto/afl-clang-lto++ because it is faster and gives better
    coverage than anything else that is out there in the AFL world
@@ -10,7 +10,7 @@ This version requires a current llvm 11 compiled from the github master.
 2. You can use it together with llvm_mode: laf-intel and the instrument file listing
    features and can be combined with cmplog/Redqueen
 
-3. It only works with llvm 11 (current github master state)
+3. It only works with llvm 11+
 
 4. AUTODICTIONARY feature! see below
 
@@ -61,9 +61,9 @@ AUTODICTIONARY: 11 strings found
 [+] Instrumented 12071 locations with no collisions (on average 1046 collisions would be in afl-gcc/afl-clang-fast) (non-hardened mode).
 ```
 
-## Getting llvm 11
+## Getting llvm 11+
 
-### Installing llvm 11 from the llvm repository
+### Installing llvm from the llvm repository (version 11)
 
 Installing the llvm snapshot builds is easy and mostly painless:
 
@@ -83,7 +83,7 @@ apt-get install -y clang-11 clang-tools-11 libc++1-11 libc++-11-dev \
     libomp5-11 lld-11 lldb-11 llvm-11 llvm-11-dev llvm-11-runtime llvm-11-tools
 ```
 
-### Building llvm 11 yourself
+### Building llvm yourself (version 12)
 
 Building llvm from github takes quite some long time and is not painless:
 ```
@@ -157,7 +157,7 @@ instrument it:
    when compiling, so we have to trick configure:
 
 ```
-./configure --enable-lto --disable-shared
+./configure --enable-lto --disable-shared --disable-inline-asm
 ```
 
 3. Now the configuration is done - and we edit the settings in `./ffbuild/config.mak`
@@ -201,15 +201,15 @@ cd WebKit
 ```
 mkdir -p WebKitBuild/Release
 cd WebKitBuild/Release
-ln -s ../../../../../usr/bin/llvm-ar-11 llvm-ar-11
-ln -s ../../../../../usr/bin/llvm-ranlib-11 llvm-ranlib-11
+ln -s ../../../../../usr/bin/llvm-ar-12 llvm-ar-12
+ln -s ../../../../../usr/bin/llvm-ranlib-12 llvm-ranlib-12
 cd ../..
 ```
 
 3. Build :)
 
 ```
-Tools/Scripts/build-jsc --jsc-only --cli --cmakeargs="-DCMAKE_AR='llvm-ar-11' -DCMAKE_RANLIB='llvm-ranlib-11' -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_CC_FLAGS='-O3 -lrt' -DCMAKE_CXX_FLAGS='-O3 -lrt' -DIMPORTED_LOCATION='/lib/x86_64-linux-gnu/' -DCMAKE_CC=afl-clang-lto -DCMAKE_CXX=afl-clang-lto++ -DENABLE_STATIC_JSC=ON"
+Tools/Scripts/build-jsc --jsc-only --cli --cmakeargs="-DCMAKE_AR='llvm-ar-12' -DCMAKE_RANLIB='llvm-ranlib-12' -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_CC_FLAGS='-O3 -lrt' -DCMAKE_CXX_FLAGS='-O3 -lrt' -DIMPORTED_LOCATION='/lib/x86_64-linux-gnu/' -DCMAKE_CC=afl-clang-lto -DCMAKE_CXX=afl-clang-lto++ -DENABLE_STATIC_JSC=ON"
 ```
 
 ## Potential issues
@@ -246,17 +246,17 @@ AS=llvm-as  ...
 afl-clang-lto is still work in progress.
 
 Known issues:
-  * Anything that llvm 11 cannot compile, afl-clang-lto can not compile either - obviously
+  * Anything that llvm 11+ cannot compile, afl-clang-lto can not compile either - obviously
   * Anything that does not compile with LTO, afl-clang-lto can not compile either - obviously
 
-Hence if building a target with afl-clang-lto fails try to build it with llvm11
-and LTO enabled (`CC=clang-11` `CXX=clang++-11` `CFLAGS=-flto=full` and
+Hence if building a target with afl-clang-lto fails try to build it with llvm12
+and LTO enabled (`CC=clang-12` `CXX=clang++-12` `CFLAGS=-flto=full` and
 `CXXFLAGS=-flto=full`).
 
 If this succeeeds then there is an issue with afl-clang-lto. Please report at
 [https://github.com/AFLplusplus/AFLplusplus/issues/226](https://github.com/AFLplusplus/AFLplusplus/issues/226)
 
-Even some targets where clang-11 fails can be build if the fail is just in
+Even some targets where clang-12 fails can be build if the fail is just in
 `./configure`, see `Solving difficult targets` above.
 
 ### Target crashes immediately
@@ -296,7 +296,7 @@ Still more problems came up though as this only works without bugs from
 llvm 9 onwards, and with high optimization the link optimization ruins
 the instrumented control flow graph.
 
-This is all now fixed with llvm 11. The llvm's own linker is now able to
+This is all now fixed with llvm 11+. The llvm's own linker is now able to
 load passes and this bypasses all problems we had.
 
 Happy end :)

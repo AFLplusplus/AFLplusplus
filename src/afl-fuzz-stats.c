@@ -39,7 +39,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
   u8                     fn[PATH_MAX];
   s32                    fd;
   FILE *                 f;
-  uint32_t               t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
+  u32                    t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
 
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
 
@@ -67,6 +67,17 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
   }
 
+  if ((unlikely(!afl->last_avg_exec_update ||
+                cur_time - afl->last_avg_exec_update >= 60000))) {
+
+    afl->last_avg_execs_saved =
+        (float)(1000 * (afl->fsrv.total_execs - afl->last_avg_execs)) /
+        (float)(cur_time - afl->last_avg_exec_update);
+    afl->last_avg_execs = afl->fsrv.total_execs;
+    afl->last_avg_exec_update = cur_time;
+
+  }
+
 #ifndef __HAIKU__
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
 #endif
@@ -81,7 +92,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       "cycles_wo_finds   : %llu\n"
       "execs_done        : %llu\n"
       "execs_per_sec     : %0.02f\n"
-      //          "real_execs_per_sec: %0.02f\n"  // damn the name is too long
+      "execs_ps_last_min : %0.02f\n"
       "paths_total       : %u\n"
       "paths_favored     : %u\n"
       "paths_found       : %u\n"
@@ -117,6 +128,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       afl->fsrv.total_execs,
       afl->fsrv.total_execs /
           ((double)(get_cur_time() - afl->start_time) / 1000),
+      afl->last_avg_execs_saved,
       afl->queued_paths, afl->queued_favored, afl->queued_discovered,
       afl->queued_imported, afl->max_depth, afl->current_entry,
       afl->pending_favored, afl->pending_not_fuzzed, afl->queued_variable,
@@ -126,17 +138,17 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
       afl->fsrv.exec_tmout, afl->slowest_exec_ms,
 #ifndef __HAIKU__
   #ifdef __APPLE__
-      (unsigned long int)(rus.ru_maxrss >> 20),
+          (unsigned long int)(rus.ru_maxrss >> 20),
   #else
-      (unsigned long int)(rus.ru_maxrss >> 10),
+          (unsigned long int)(rus.ru_maxrss >> 10),
   #endif
 #else
-      -1UL,
+          -1UL,
 #endif
 #ifdef HAVE_AFFINITY
-      afl->cpu_aff,
+          afl->cpu_aff,
 #else
-      -1,
+          -1,
 #endif
       t_bytes, afl->var_byte_count, afl->expand_havoc, afl->use_banner,
       afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
