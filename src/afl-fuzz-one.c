@@ -24,6 +24,12 @@
  */
 
 #include "afl-fuzz.h"
+#include <string.h>
+#include <limits.h>
+
+/* static u8 *strnstr(const u8 *s, const u8 *find, size_t slen);
+static u32 string_replace(u8 **out_buf, s32 *temp_len, u32 pos, u8 *from,
+                          u8 *to); */
 
 /* MOpt */
 
@@ -361,6 +367,526 @@ static void locate_diffs(u8 *ptr1, u8 *ptr2, u32 len, s32 *first, s32 *last) {
 }
 
 #endif                                                     /* !IGNORE_FINDS */
+
+#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
+
+#if 0
+/* search a string */
+
+static u8 *strnstr(const u8 *s, const u8 *find, size_t slen) {
+
+  char   c, sc;
+  size_t len;
+
+  if ((c = *find++) != '\0') {
+
+    len = strlen(find);
+    do {
+
+      do {
+
+        if (slen-- < 1 || (sc = *s++) == '\0') return (NULL);
+
+      } while (sc != c);
+
+      if (len > slen) return (NULL);
+
+    } while (strncmp(s, find, len) != 0);
+
+    s--;
+
+  }
+
+  return ((u8 *)s);
+
+}
+
+/* replace between deliminators, if rep == NULL, then we will duplicate the
+ * target */
+
+static u32 delim_replace(u8 **out_buf, s32 *temp_len, size_t pos,
+                         const u8 *ldelim, const u8 *rdelim, u8 *rep) {
+
+  u8 *end_buf = *out_buf + *temp_len;
+  u8 *ldelim_start = strnstr(*out_buf + pos, ldelim, *temp_len - pos);
+
+  if (ldelim_start != NULL) {
+
+    u32 max = (end_buf - ldelim_start - 1 > AFL_TXT_STRING_MAX_LEN
+                   ? AFL_TXT_STRING_MAX_LEN
+                   : end_buf - ldelim_start - 1);
+
+    if (max > 0) {
+
+      u8 *rdelim_end = strnstr(ldelim_start + 1, rdelim, max);
+
+      if (rdelim_end != NULL) {
+
+        u32 rep_len, delim_space_len = rdelim_end - ldelim_start - 1, xtra = 0;
+
+        if (rep != NULL) {
+
+          rep_len = (u32)strlen(rep);
+
+        } else {  // NULL? then we copy the value in between the delimiters
+
+          rep_len = delim_space_len;
+          delim_space_len = 0;
+          rep = ldelim_start + 1;
+          xtra = rep_len;
+
+        }
+
+        if (rep_len != delim_space_len) {
+
+          memmove(ldelim_start + rep_len + xtra + 1, rdelim_end,
+                  *temp_len - (rdelim_end - *out_buf));
+
+        }
+
+        memcpy(ldelim_start + 1, rep, rep_len);
+        *temp_len = (*temp_len - delim_space_len + rep_len);
+
+        return 1;
+
+      }
+
+    }
+
+  }
+
+  return 0;
+
+}
+
+static u32 delim_swap(u8 **out_buf, s32 *temp_len, size_t pos, const u8 *ldelim,
+                      const u8 *mdelim, const u8 *rdelim) {
+
+  u8 *out_buf_end = *out_buf + *temp_len;
+  u32 max = (*temp_len - pos > AFL_TXT_STRING_MAX_LEN ? AFL_TXT_STRING_MAX_LEN
+                                                      : *temp_len - pos);
+  u8 *ldelim_start = strnstr(*out_buf + pos, ldelim, max);
+
+  if (ldelim_start != NULL) {
+
+    max = (out_buf_end - ldelim_start - 1 > AFL_TXT_STRING_MAX_LEN
+               ? AFL_TXT_STRING_MAX_LEN
+               : out_buf_end - ldelim_start - 1);
+    if (max > 1) {
+
+      u8 *mdelim_pos = strnstr(ldelim_start + 1, mdelim, max);
+
+      if (mdelim_pos != NULL) {
+
+        max = (out_buf_end - mdelim_pos - 1 > AFL_TXT_STRING_MAX_LEN
+                   ? AFL_TXT_STRING_MAX_LEN
+                   : out_buf_end - mdelim_pos - 1);
+        if (max > 0) {
+
+          u8 *rdelim_end = strnstr(mdelim + 1, rdelim, max);
+
+          if (rdelim_end != NULL) {
+
+            u32 first_len = mdelim_pos - ldelim_start - 1;
+            u32 second_len = rdelim_end - mdelim_pos - 1;
+            u8  scratch[AFL_TXT_STRING_MAX_LEN];
+
+            memcpy(scratch, ldelim_start + 1, first_len);
+
+            if (first_len != second_len) {
+
+              memmove(ldelim_start + second_len + 1, mdelim_pos,
+                      out_buf_end - mdelim_pos);
+
+            }
+
+            memcpy(ldelim_start + 1, mdelim_pos + 1, second_len);
+
+            if (first_len != second_len) {
+
+              memmove(mdelim_pos + first_len + 1, rdelim_end,
+                      out_buf_end - rdelim_end);
+
+            }
+
+            memcpy(mdelim_pos + 1, scratch, first_len);
+
+            return 1;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+  return 0;
+
+}
+
+/* replace a string */
+
+static u32 string_replace(u8 **out_buf, s32 *temp_len, u32 pos, u8 *from,
+                          u8 *to) {
+
+  u8 *start = strnstr(*out_buf + pos, from, *temp_len - pos);
+
+  if (start) {
+
+    u32 from_len = strlen(from);
+    u32 to_len = strlen(to);
+
+    if (from_len != to_len) {
+
+      memmove(start + to_len, start + from_len,
+              *temp_len - from_len - (start - *out_buf));
+
+    }
+
+    memcpy(start, to, to_len);
+    *temp_len = (*temp_len - from_len + to_len);
+
+    return 1;
+
+  }
+
+  return 0;
+
+}
+
+/* Returns 1 if a mutant was generated and placed in out_buf, 0 if none
+ * generated. */
+
+static const uint8_t text_mutation_special_chars[] = {
+
+    '\t', '\n', '\r', ' ', '!', '"', '$', '%', '&', '\'', '(', ')', '*',
+    '+',  ',',  '-',  '.', '/', ':', ';', '<', '=', '>',  '?', '@', '[',
+    '\\', ']',  '^',  '_', '`', '{', '|', '}', '~', ' '  // space is here twice
+
+};
+
+static int text_mutation(afl_state_t *afl, u8 **out_buf, s32 *orig_temp_len) {
+
+  if (*orig_temp_len < AFL_TXT_MIN_LEN) { return 0; }
+
+  s32 temp_len;
+  u32 pos, yes = 0,
+           mutations = rand_below(afl, AFL_TXT_STRING_MAX_MUTATIONS) + 16;
+  u8 *new_buf =
+      ck_maybe_grow(BUF_PARAMS(out_scratch),
+                    *orig_temp_len + AFL_TXT_STRING_MAX_MUTATIONS + 16);
+  u8 fromc[2] = {0, 0}, toc[2] = {0, 0};
+  temp_len = *orig_temp_len;
+  memcpy(new_buf, *out_buf, temp_len);
+  new_buf[temp_len] = 0;
+
+  for (u32 i = 0; i < mutations; i++) {
+
+    if (temp_len < AFL_TXT_MIN_LEN) { return 0; }
+
+    pos = rand_below(afl, temp_len - 1);
+    int choice = rand_below(afl, 100);
+
+    switch (choice) {
+
+        /* 50% -> fixed replacements */
+
+      case 0:                                /* Semantic statement deletion */
+        yes += string_replace(&new_buf, &temp_len, pos, "\n", "#");
+        break;
+      case 1:
+        yes += string_replace(&new_buf, &temp_len, pos, "(", "(!");
+        break;
+      case 2:
+        yes += string_replace(&new_buf, &temp_len, pos, "==", "!=");
+        break;
+      case 3:
+        yes += string_replace(&new_buf, &temp_len, pos, "!=", "==");
+        break;
+      case 4:
+        yes += string_replace(&new_buf, &temp_len, pos, "==", "<");
+        break;
+      case 5:
+        yes += string_replace(&new_buf, &temp_len, pos, "<", "==");
+        break;
+      case 6:
+        yes += string_replace(&new_buf, &temp_len, pos, "==", ">");
+        break;
+      case 7:
+        yes += string_replace(&new_buf, &temp_len, pos, ">", "==");
+        break;
+      case 8:
+        yes += string_replace(&new_buf, &temp_len, pos, "=", "<");
+        break;
+      case 9:
+        yes += string_replace(&new_buf, &temp_len, pos, "=", ">");
+        break;
+      case 10:
+        yes += string_replace(&new_buf, &temp_len, pos, "<", ">");
+        break;
+      case 11:
+        yes += string_replace(&new_buf, &temp_len, pos, ">", "<");
+        break;
+      case 12:
+        yes += string_replace(&new_buf, &temp_len, pos, "++", "--");
+        break;
+      case 13:
+        yes += string_replace(&new_buf, &temp_len, pos, "--", "++");
+        break;
+      case 14:
+        yes += string_replace(&new_buf, &temp_len, pos, "+", "-");
+        break;
+      case 15:
+        yes += string_replace(&new_buf, &temp_len, pos, "-", "+");
+        break;
+      case 16:
+        yes += string_replace(&new_buf, &temp_len, pos, "0", "1");
+        break;
+      case 17:
+        yes += string_replace(&new_buf, &temp_len, pos, "1", "0");
+        break;
+      case 18:
+        yes += string_replace(&new_buf, &temp_len, pos, "&&", "||");
+        break;
+      case 19:
+        yes += string_replace(&new_buf, &temp_len, pos, "||", "&&");
+        break;
+      case 20:
+        yes += string_replace(&new_buf, &temp_len, pos, "!", "");
+        break;
+      case 21:
+        yes += string_replace(&new_buf, &temp_len, pos, "==", "=");
+        break;
+      case 22:
+        yes += string_replace(&new_buf, &temp_len, pos, "=", "==");
+        break;
+      case 23:
+        yes += string_replace(&new_buf, &temp_len, pos, "--", "");
+        break;
+      case 24:
+        yes += string_replace(&new_buf, &temp_len, pos, "<<", "<");
+        break;
+      case 25:
+        yes += string_replace(&new_buf, &temp_len, pos, ">>", ">");
+        break;
+      case 26:
+        yes += string_replace(&new_buf, &temp_len, pos, "<", "<<");
+        break;
+      case 27:
+        yes += string_replace(&new_buf, &temp_len, pos, ">", ">>");
+        break;
+      case 28:
+        yes += string_replace(&new_buf, &temp_len, pos, "'", "\"");
+        break;
+      case 29:
+        yes += string_replace(&new_buf, &temp_len, pos, "\"", "'");
+        break;
+      case 30:  /* Remove a semicolon delimited statement after a semicolon */
+        yes += delim_replace(&new_buf, &temp_len, pos, ";", ";", ";");
+        break;
+      case 31: /* Remove a semicolon delimited statement after a left curly
+                  brace */
+        yes += delim_replace(&new_buf, &temp_len, pos, "}", ";", "}");
+        break;
+      case 32:                            /* Remove a curly brace construct */
+        yes += delim_replace(&new_buf, &temp_len, pos, "{", "}", "");
+        break;
+      case 33:         /* Replace a curly brace construct with an empty one */
+        yes += delim_replace(&new_buf, &temp_len, pos, "{", "}", "{}");
+        break;
+      case 34:
+        yes += delim_swap(&new_buf, &temp_len, pos, ";", ";", ";");
+        break;
+      case 35:
+        yes += delim_swap(&new_buf, &temp_len, pos, "}", ";", ";");
+        break;
+      case 36:                        /* Swap comma delimited things case 1 */
+        yes += delim_swap(&new_buf, &temp_len, pos, "(", ",", ")");
+        break;
+      case 37:                        /* Swap comma delimited things case 2 */
+        yes += delim_swap(&new_buf, &temp_len, pos, "(", ",", ",");
+        break;
+      case 38:                        /* Swap comma delimited things case 3 */
+        yes += delim_swap(&new_buf, &temp_len, pos, ",", ",", ",");
+        break;
+      case 39:                        /* Swap comma delimited things case 4 */
+        yes += delim_swap(&new_buf, &temp_len, pos, ",", ",", ")");
+        break;
+      case 40:                                        /* Just delete a line */
+        yes += delim_replace(&new_buf, &temp_len, pos, "\n", "\n", "");
+        break;
+      case 41:                      /* Delete something like "const" case 1 */
+        yes += delim_replace(&new_buf, &temp_len, pos, " ", " ", "");
+        break;
+      case 42:                      /* Delete something like "const" case 2 */
+        yes += delim_replace(&new_buf, &temp_len, pos, "\n", " ", "");
+        break;
+      case 43:                      /* Delete something like "const" case 3 */
+        yes += delim_replace(&new_buf, &temp_len, pos, "(", " ", "");
+        break;
+      case 44:                        /* Swap space delimited things case 1 */
+        yes += delim_swap(&new_buf, &temp_len, pos, " ", " ", " ");
+        break;
+      case 45:                        /* Swap space delimited things case 2 */
+        yes += delim_swap(&new_buf, &temp_len, pos, " ", " ", ")");
+        break;
+      case 46:                        /* Swap space delimited things case 3 */
+        yes += delim_swap(&new_buf, &temp_len, pos, "(", " ", " ");
+        break;
+      case 47:                        /* Swap space delimited things case 4 */
+        yes += delim_swap(&new_buf, &temp_len, pos, "(", " ", ")");
+        break;
+      case 48:                           /* Duplicate a single line of code */
+        yes += delim_replace(&new_buf, &temp_len, pos, "\n", "\n", NULL);
+        break;
+      case 49:  /* Duplicate a construct (most often, a non-nested for loop */
+        yes += delim_replace(&new_buf, &temp_len, pos, "\n", "}", NULL);
+        break;
+      default: {
+
+        /* 5% is transforming ascii numbers */
+
+        if (choice < 55) {
+
+          for (u32 j = pos; j < temp_len; ++j) {
+
+            if (isdigit(new_buf[j])) {
+
+              new_buf[temp_len] =
+                  0;  // should be safe thanks to the initial grow
+
+              u8 *               endptr;
+              unsigned long long num =
+                  strtoull(new_buf + j, (char **)&endptr, 0);
+
+              switch (rand_below(afl, 8)) {
+
+                case 0:
+                  num = rand_below(afl, INT_MAX);
+                  break;
+                case 1:
+                  num = rand_next(afl);
+                  break;
+                case 2:
+                  num += 1 + rand_below(afl, 255);
+                  break;
+                case 3:
+                  num -= 1 + rand_below(afl, 255);
+                  break;
+                case 4:
+                  num *= 1 + rand_below(afl, 255);
+                  break;
+                case 5:
+                  num /= 1 + rand_below(afl, 255);
+                  break;
+                case 6:
+                  num /= 1 + rand_below(afl, 255);
+                  break;
+                case 7:
+                  num = ~num;
+                  break;
+
+              }
+
+              const char *fmt = "%llu";
+              if (rand_below(afl, 5) == 0)  // add - sign with 1/5 probability
+                fmt = "-%llu";
+
+              size_t num_len = snprintf(NULL, 0, fmt, num);
+              size_t old_len = endptr - (new_buf + j);
+              if (num_len < old_len) {
+
+                memmove(new_buf + j + num_len, new_buf + j + old_len,
+                        temp_len - (j + old_len));
+                snprintf(new_buf + j, num_len, fmt, num);
+                temp_len -= old_len - num_len;
+
+              } else if (num_len == old_len) {
+
+                snprintf(new_buf + j, num_len, fmt, num);
+
+              } else {
+
+                new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
+                                        temp_len + (num_len - old_len) +
+                                            AFL_TXT_STRING_MAX_MUTATIONS + 1);
+                memmove(new_buf + j + num_len, new_buf + j + old_len,
+                        temp_len - (j + old_len));
+                snprintf(new_buf + j, num_len, fmt, num);
+                temp_len += num_len - old_len;
+
+              }
+
+              yes += 1;
+              break;
+
+            }
+
+          }
+
+        } else if (choice < 85) {
+
+          /* 30% is special character transform */
+
+          fromc[0] = text_mutation_special_chars[rand_below(
+              afl, sizeof(text_mutation_special_chars))];
+
+          do {
+
+            toc[0] = text_mutation_special_chars[rand_below(
+                afl, sizeof(text_mutation_special_chars))];
+
+          } while (toc[0] == fromc[0]);
+
+          yes += string_replace(&new_buf, &temp_len, pos, fromc, toc);
+          break;
+
+        } else {
+
+          /* 15% is random text character transform */
+
+          u32 iter, cnt, loc, prev_loc = temp_len;
+          if (temp_len > 32) {
+
+            cnt = 1 + rand_below(afl, 5);
+
+          } else {
+
+            cnt = rand_below(afl, 2);
+
+          }
+
+          for (iter = 0; iter <= cnt; iter++) {
+
+            while ((loc = rand_below(afl, temp_len)) == prev_loc)
+              ;
+            new_buf[loc] = 32 + rand_below(afl, 'z' - ' ' + 1);
+            prev_loc = loc;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+  if (yes == 0 || temp_len <= 0) { return 0; }
+
+  swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
+  *out_buf = new_buf;
+  *orig_temp_len = temp_len;
+
+  return 1;
+
+}
+
+#endif                                                              /* if 0 */
 
 /* Take the current entry from the queue, fuzz it for a while. This
    function is a tad too long... returns 0 if fuzzed successfully, 1 if
@@ -1854,6 +2380,22 @@ havoc_stage:
   /* We essentially just do several thousand runs (depending on perf_score)
      where we take the input file and make random stacked tweaks. */
 
+  u32 r_max, r;
+
+  if (unlikely(afl->expand_havoc)) {
+
+    /* add expensive havoc cases here, they are activated after a full
+       cycle without finds happened */
+
+    r_max = 16 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
+    /* + (afl->queue_cur->is_ascii ? AFL_TXT_BIAS : 0); */
+
+  } else {
+
+    r_max = 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
+
+  }
+
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     u32 use_stacking = 1 << (1 + rand_below(afl, HAVOC_STACK_POW2));
@@ -1896,8 +2438,9 @@ havoc_stage:
 
       }
 
-      switch (rand_below(
-          afl, 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
+      // retry_havoc:
+
+      switch ((r = rand_below(afl, r_max))) {
 
         case 0:
 
@@ -2192,85 +2735,206 @@ havoc_stage:
 
         }
 
-          /* Values 15 and 16 can be selected only if there are any extras
-             present in the dictionaries. */
+        default:
 
-        case 15: {
+          if (likely(r <= 16 && (afl->extras_cnt || afl->a_extras_cnt))) {
 
-          /* Overwrite bytes with an extra. */
+            /* Values 15 and 16 can be selected only if there are any extras
+               present in the dictionaries. */
 
-          if (!afl->extras_cnt || (afl->a_extras_cnt && rand_below(afl, 2))) {
+            if (r == 15) {
 
-            /* No user-specified extras or odds in our favor. Let's use an
-               auto-detected one. */
+              /* Overwrite bytes with an extra. */
 
-            u32 use_extra = rand_below(afl, afl->a_extras_cnt);
-            u32 extra_len = afl->a_extras[use_extra].len;
-            u32 insert_at;
+              if (!afl->extras_cnt ||
+                  (afl->a_extras_cnt && rand_below(afl, 2))) {
 
-            if (extra_len > temp_len) { break; }
+                /* No user-specified extras or odds in our favor. Let's use an
+                   auto-detected one. */
 
-            insert_at = rand_below(afl, temp_len - extra_len + 1);
-            memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
-                   extra_len);
+                u32 use_extra = rand_below(afl, afl->a_extras_cnt);
+                u32 extra_len = afl->a_extras[use_extra].len;
+                u32 insert_at;
+
+                if (extra_len > temp_len) { break; }
+
+                insert_at = rand_below(afl, temp_len - extra_len + 1);
+                memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
+                       extra_len);
+
+              } else {
+
+                /* No auto extras or odds in our favor. Use the dictionary. */
+
+                u32 use_extra = rand_below(afl, afl->extras_cnt);
+                u32 extra_len = afl->extras[use_extra].len;
+                u32 insert_at;
+
+                if (extra_len > temp_len) { break; }
+
+                insert_at = rand_below(afl, temp_len - extra_len + 1);
+                memcpy(out_buf + insert_at, afl->extras[use_extra].data,
+                       extra_len);
+
+              }
+
+              break;
+
+            } else {  // case 16
+
+              u32 use_extra, extra_len,
+                  insert_at = rand_below(afl, temp_len + 1);
+              u8 *ptr;
+
+              /* Insert an extra. Do the same dice-rolling stuff as for the
+                 previous case. */
+
+              if (!afl->extras_cnt ||
+                  (afl->a_extras_cnt && rand_below(afl, 2))) {
+
+                use_extra = rand_below(afl, afl->a_extras_cnt);
+                extra_len = afl->a_extras[use_extra].len;
+                ptr = afl->a_extras[use_extra].data;
+
+              } else {
+
+                use_extra = rand_below(afl, afl->extras_cnt);
+                extra_len = afl->extras[use_extra].len;
+                ptr = afl->extras[use_extra].data;
+
+              }
+
+              if (temp_len + extra_len >= MAX_FILE) { break; }
+
+              out_buf = ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
+
+              /* Tail */
+              memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
+                      temp_len - insert_at);
+
+              /* Inserted part */
+              memcpy(out_buf + insert_at, ptr, extra_len);
+
+              temp_len += extra_len;
+
+              break;
+
+            }
 
           } else {
 
-            /* No auto extras or odds in our favor. Use the dictionary. */
+            /*
+                        switch (r) {
 
-            u32 use_extra = rand_below(afl, afl->extras_cnt);
-            u32 extra_len = afl->extras[use_extra].len;
-            u32 insert_at;
+                          case 15:  // fall through
+                          case 16:
+                          case 17: {*/
 
-            if (extra_len > temp_len) { break; }
+            /* Overwrite bytes with a randomly selected chunk from another
+               testcase or insert that chunk. */
 
-            insert_at = rand_below(afl, temp_len - extra_len + 1);
-            memcpy(out_buf + insert_at, afl->extras[use_extra].data, extra_len);
+            if (afl->queued_paths < 4) break;
+
+            /* Pick a random queue entry and seek to it. */
+
+            u32 tid;
+            do
+              tid = rand_below(afl, afl->queued_paths);
+            while (tid == afl->current_entry);
+
+            struct queue_entry *target = afl->queue_buf[tid];
+
+            /* Make sure that the target has a reasonable length. */
+
+            while (target && (target->len < 2 || target == afl->queue_cur))
+              target = target->next;
+
+            if (!target) break;
+
+            /* Read the testcase into a new buffer. */
+
+            fd = open(target->fname, O_RDONLY);
+
+            if (unlikely(fd < 0)) {
+
+              PFATAL("Unable to open '%s'", target->fname);
+
+            }
+
+            u32 new_len = target->len;
+            u8 *new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), new_len);
+
+            ck_read(fd, new_buf, new_len, target->fname);
+
+            close(fd);
+
+            u8 overwrite = 0;
+            if (temp_len >= 2 && rand_below(afl, 2))
+              overwrite = 1;
+            else if (temp_len + HAVOC_BLK_XL >= MAX_FILE) {
+
+              if (temp_len >= 2)
+                overwrite = 1;
+              else
+                break;
+
+            }
+
+            if (overwrite) {
+
+              u32 copy_from, copy_to, copy_len;
+
+              copy_len = choose_block_len(afl, new_len - 1);
+              if (copy_len > temp_len) copy_len = temp_len;
+
+              copy_from = rand_below(afl, new_len - copy_len + 1);
+              copy_to = rand_below(afl, temp_len - copy_len + 1);
+
+              memmove(out_buf + copy_to, new_buf + copy_from, copy_len);
+
+            } else {
+
+              u32 clone_from, clone_to, clone_len;
+
+              clone_len = choose_block_len(afl, new_len);
+              clone_from = rand_below(afl, new_len - clone_len + 1);
+
+              clone_to = rand_below(afl, temp_len);
+
+              u8 *temp_buf =
+                  ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+
+              /* Head */
+
+              memcpy(temp_buf, out_buf, clone_to);
+
+              /* Inserted part */
+
+              memcpy(temp_buf + clone_to, new_buf + clone_from, clone_len);
+
+              /* Tail */
+              memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
+                     temp_len - clone_to);
+
+              swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
+              out_buf = temp_buf;
+              temp_len += clone_len;
+
+            }
+
+            break;
 
           }
 
-          break;
+          /*              default:
 
-        }
+                          // perform ascii mutations
+                          if (text_mutation(afl, &out_buf, &temp_len) == 0)
+                            goto retry_havoc;
 
-        case 16: {
+                      }  // end default: switch(r)
 
-          u32 use_extra, extra_len, insert_at = rand_below(afl, temp_len + 1);
-          u8 *ptr;
-
-          /* Insert an extra. Do the same dice-rolling stuff as for the
-             previous case. */
-
-          if (!afl->extras_cnt || (afl->a_extras_cnt && rand_below(afl, 2))) {
-
-            use_extra = rand_below(afl, afl->a_extras_cnt);
-            extra_len = afl->a_extras[use_extra].len;
-            ptr = afl->a_extras[use_extra].data;
-
-          } else {
-
-            use_extra = rand_below(afl, afl->extras_cnt);
-            extra_len = afl->extras[use_extra].len;
-            ptr = afl->extras[use_extra].data;
-
-          }
-
-          if (temp_len + extra_len >= MAX_FILE) { break; }
-
-          out_buf = ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
-
-          /* Tail */
-          memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
-                  temp_len - insert_at);
-
-          /* Inserted part */
-          memcpy(out_buf + insert_at, ptr, extra_len);
-
-          temp_len += extra_len;
-
-          break;
-
-        }
+          */
 
       }
 
@@ -2357,20 +3021,7 @@ retry_splicing:
     } while (tid == afl->current_entry);
 
     afl->splicing_with = tid;
-    target = afl->queue;
-
-    while (tid >= 100) {
-
-      target = target->next_100;
-      tid -= 100;
-
-    }
-
-    while (tid--) {
-
-      target = target->next;
-
-    }
+    target = afl->queue_buf[tid];
 
     /* Make sure that the target has a reasonable length. */
 
@@ -4750,7 +5401,7 @@ u8 fuzz_one(afl_state_t *afl) {
 
   return (key_val_lv_1 | key_val_lv_2);
 
-#undef BUF_PARAMS
-
 }
+
+#undef BUF_PARAMS
 
