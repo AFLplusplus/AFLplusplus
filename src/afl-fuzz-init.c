@@ -438,6 +438,159 @@ static void shuffle_ptrs(afl_state_t *afl, void **ptrs, u32 cnt) {
 
 }
 
+/* Read all testcases from foreign input directories, then queue them for
+   testing. Called at startup and at sync intervals.
+   Does not descend into subdirectories! */
+
+void read_foreign_testcases(afl_state_t *afl, int first) {
+
+  if (!afl->foreign_sync_cnt) return;
+
+  struct dirent **nl;
+  s32             nl_cnt;
+  u32             i, iter;
+
+  u8 val_buf[2][STRINGIFY_VAL_SIZE_MAX];
+
+  for (iter = 0; iter < afl->foreign_sync_cnt; iter++) {
+
+    if (afl->foreign_syncs[iter].dir != NULL &&
+        afl->foreign_syncs[iter].dir[0] != 0) {
+
+      if (first) ACTF("Scanning '%s'...", afl->foreign_syncs[iter].dir);
+      time_t ctime_max = 0;
+
+      /* We use scandir() + alphasort() rather than readdir() because otherwise,
+         the ordering of test cases would vary somewhat randomly and would be
+         difficult to control. */
+
+      nl_cnt = scandir(afl->foreign_syncs[iter].dir, &nl, NULL, NULL);
+
+      if (nl_cnt < 0) {
+
+        if (first) {
+
+          WARNF("Unable to open directory '%s'", afl->foreign_syncs[iter].dir);
+          sleep(1);
+
+        }
+
+        continue;
+
+      }
+
+      if (nl_cnt == 0) {
+
+        if (first)
+          WARNF("directory %s is currently empty",
+                afl->foreign_syncs[iter].dir);
+        continue;
+
+      }
+
+      /* Show stats */
+
+      snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "foreign sync %u", iter);
+
+      afl->stage_name = afl->stage_name_buf;
+      afl->stage_cur = 0;
+      afl->stage_max = 0;
+
+      for (i = 0; i < nl_cnt; ++i) {
+
+        struct stat st;
+
+        u8 *fn2 =
+            alloc_printf("%s/%s", afl->foreign_syncs[iter].dir, nl[i]->d_name);
+
+        free(nl[i]);                                         /* not tracked */
+
+        if (unlikely(lstat(fn2, &st) || access(fn2, R_OK))) {
+
+          if (first) PFATAL("Unable to access '%s'", fn2);
+          continue;
+
+        }
+
+        /* we detect new files by their ctime */
+        if (likely(st.st_ctime <= afl->foreign_syncs[iter].ctime)) {
+
+          ck_free(fn2);
+          continue;
+
+        }
+
+        /* This also takes care of . and .. */
+
+        if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
+
+          ck_free(fn2);
+          continue;
+
+        }
+
+        if (st.st_size > MAX_FILE) {
+
+          if (first)
+            WARNF(
+                "Test case '%s' is too big (%s, limit is %s), skipping", fn2,
+                stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
+                stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
+          ck_free(fn2);
+          continue;
+
+        }
+
+        // lets do not use add_to_queue(afl, fn2, st.st_size, 0);
+        // as this could add duplicates of the startup input corpus
+
+        int fd = open(fn2, O_RDONLY);
+        if (fd < 0) {
+
+          ck_free(fn2);
+          continue;
+
+        }
+
+        u8  fault;
+        u8 *mem = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+
+        if (mem == MAP_FAILED) {
+
+          ck_free(fn2);
+          continue;
+
+        }
+
+        write_to_testcase(afl, mem, st.st_size);
+        fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+        afl->syncing_party = "foreign";
+        afl->queued_imported +=
+            save_if_interesting(afl, mem, st.st_size, fault);
+        afl->syncing_party = 0;
+        munmap(mem, st.st_size);
+        close(fd);
+
+        if (st.st_ctime > ctime_max) ctime_max = st.st_ctime;
+
+      }
+
+      afl->foreign_syncs[iter].ctime = ctime_max;
+      free(nl);                                              /* not tracked */
+
+    }
+
+  }
+
+  if (first) {
+
+    afl->last_path_time = 0;
+    afl->queued_at_start = afl->queued_paths;
+
+  }
+
+}
+
 /* Read all testcases from the input directory, then queue them for testing.
    Called at startup. */
 
@@ -466,7 +619,7 @@ void read_testcases(afl_state_t *afl) {
   ACTF("Scanning '%s'...", afl->in_dir);
 
   /* We use scandir() + alphasort() rather than readdir() because otherwise,
-     the ordering  of test cases would vary somewhat randomly and would be
+     the ordering of test cases would vary somewhat randomly and would be
      difficult to control. */
 
   nl_cnt = scandir(afl->in_dir, &nl, NULL, alphasort);
@@ -527,9 +680,11 @@ void read_testcases(afl_state_t *afl) {
 
     if (st.st_size > MAX_FILE) {
 
-      FATAL("Test case '%s' is too big (%s, limit is %s)", fn2,
+      WARNF("Test case '%s' is too big (%s, limit is %s), skipping", fn2,
             stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
             stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
+      ck_free(fn2);
+      continue;
 
     }
 
