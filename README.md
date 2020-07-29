@@ -272,11 +272,12 @@ afl-clang-lto:
    To use this set the following environment variable before compiling the
    target: `export AFL_LLVM_LAF_ALL=1`
    You can read more about this in [llvm/README.laf-intel.md](llvm/README.laf-intel.md)
- * A different technique is to instrument the target so that any compare values
-   in the target are sent to afl++ which then tries to put this value into the
-   fuzzing data at different locations. This technique is very fast and good -
-   if the target does not transform input data before comparison. Therefore
-   technique is called `input to state` or `redqueen`.
+ * A different technique (and usually a bit better than laf-intel) is to
+   instrument the target so that any compare values in the target are sent to
+   afl++ which then tries to put this value into the fuzzing data at different
+   locations. This technique is very fast and good - if the target does not
+   transform input data before comparison. Therefore this technique is called
+   `input to state` or `redqueen`.
    If you want to use this technique, then you have to compile the target
    twice, once specifically with/for this mode.
    You can read more about this in [llvm_mode/README.cmplog.md](llvm_mode/README.cmplog.md)

@@ -95,7 +95,7 @@ static int afl_snapshot_take(int config) {
 
 }
 
-static int afl_snapshot_take(void) {
+static int afl_snapshot_do(void) {
 
   return ioctl(afl_snapshot_dev_fd, AFL_SNAPSHOT_IOCTL_DO);
 
