@@ -233,7 +233,7 @@ anything below 9 is not recommended.
 | clang/clang++ 11+ is available | --> use afl-clang-lto and afl-clang-lto++
 +--------------------------------+     see [llvm/README.lto.md](llvm/README.lto.md)
     |
-    | if not, or if the target fails with with afl-clang-lto/++
+    | if not, or if the target fails with afl-clang-lto/++
     |
     v
 +---------------------------------+
