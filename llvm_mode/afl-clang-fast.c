@@ -268,7 +268,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES")) {
+  if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
+      getenv("AFL_LLVM_LAF_SPLIT_FLOATS")) {
 
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
