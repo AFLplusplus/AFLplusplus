@@ -401,5 +401,28 @@
 
 // #define IGNORE_FINDS
 
+/* Text mutations */
+
+/* Minimum length of a queue input to be evaluated for "is_ascii"? */
+
+#define AFL_TXT_MIN_LEN 12
+
+/* What is the minimum percentage of ascii characters present to be classifed
+   as "is_ascii"? */
+
+#define AFL_TXT_MIN_PERCENT 94
+
+/* How often to perform ASCII mutations 0 = disable, 1-8 are good values */
+
+#define AFL_TXT_BIAS 6
+
+/* Maximum length of a string to tamper with */
+
+#define AFL_TXT_STRING_MAX_LEN 1024
+
+/* Maximum mutations on a string */
+
+#define AFL_TXT_STRING_MAX_MUTATIONS 6
+
 #endif                                                  /* ! _HAVE_CONFIG_H */
 
