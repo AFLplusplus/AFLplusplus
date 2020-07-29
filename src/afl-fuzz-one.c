@@ -1866,7 +1866,6 @@ havoc_stage:
        cycle without finds happened */
 
     r_max = 16 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
-    /* + (afl->queue_cur->is_ascii ? AFL_TXT_BIAS : 0); */
 
   } else {
 
@@ -1915,8 +1914,6 @@ havoc_stage:
         });
 
       }
-
-      // retry_havoc:
 
       switch ((r = rand_below(afl, r_max))) {
 

@@ -268,7 +268,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   }
 
-  q->is_ascii = check_if_text(q);
+  /* only redqueen currently uses is_ascii */
+  if (afl->shm.cmplog_mode) q->is_ascii = check_if_text(q);
 
 }
 
