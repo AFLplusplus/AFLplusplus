@@ -319,6 +319,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
                               u8 *orig_buf, u8 *buf, u32 len, u8 do_reverse,
                               u8 *status) {
 
+  if (!buf) { FATAL("BUG: buf was NULL. Please report this.\n"); }
+
   u64 *buf_64 = (u64 *)&buf[idx];
   u32 *buf_32 = (u32 *)&buf[idx];
   u16 *buf_16 = (u16 *)&buf[idx];
