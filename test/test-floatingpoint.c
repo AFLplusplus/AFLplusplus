@@ -15,7 +15,7 @@ int main(void) {
   while (__AFL_LOOP(INT_MAX)) {
 
     int len = __AFL_FUZZ_TESTCASE_LEN;
-    if (len != sizeof(float)) return 1;
+    if (len < sizeof(float)) return 1;
 
     /* 15 + 1/2                      = 15.5  */
     /* 15 + 1/2 + 1/8                = 15.625  */
