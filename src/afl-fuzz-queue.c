@@ -139,7 +139,8 @@ static u8 check_if_text(struct queue_entry *q) {
 
     // non-overlong 2-byte
     if (((0xC2 <= buf[offset + 0] && buf[offset + 0] <= 0xDF) &&
-         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF))) {
+         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF)) &&
+        len - offset > 1) {
 
       offset += 2;
       utf8++;
@@ -149,18 +150,19 @@ static u8 check_if_text(struct queue_entry *q) {
     }
 
     // excluding overlongs
-    if ((buf[offset + 0] == 0xE0 &&
-         (0xA0 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
-         (0x80 <= buf[offset + 2] &&
-          buf[offset + 2] <= 0xBF)) ||  // straight 3-byte
-        (((0xE1 <= buf[offset + 0] && buf[offset + 0] <= 0xEC) ||
-          buf[offset + 0] == 0xEE || buf[offset + 0] == 0xEF) &&
-         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
-         (0x80 <= buf[offset + 2] &&
-          buf[offset + 2] <= 0xBF)) ||  // excluding surrogates
-        (buf[offset + 0] == 0xED &&
-         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0x9F) &&
-         (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF))) {
+    if ((len - offset > 2) &&
+        ((buf[offset + 0] == 0xE0 &&
+          (0xA0 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
+          (0x80 <= buf[offset + 2] &&
+           buf[offset + 2] <= 0xBF)) ||  // straight 3-byte
+         (((0xE1 <= buf[offset + 0] && buf[offset + 0] <= 0xEC) ||
+           buf[offset + 0] == 0xEE || buf[offset + 0] == 0xEF) &&
+          (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
+          (0x80 <= buf[offset + 2] &&
+           buf[offset + 2] <= 0xBF)) ||  // excluding surrogates
+         (buf[offset + 0] == 0xED &&
+          (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0x9F) &&
+          (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF)))) {
 
       offset += 3;
       utf8++;
@@ -170,19 +172,20 @@ static u8 check_if_text(struct queue_entry *q) {
     }
 
     // planes 1-3
-    if ((buf[offset + 0] == 0xF0 &&
-         (0x90 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
-         (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
-         (0x80 <= buf[offset + 3] &&
-          buf[offset + 3] <= 0xBF)) ||  // planes 4-15
-        ((0xF1 <= buf[offset + 0] && buf[offset + 0] <= 0xF3) &&
-         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
-         (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
-         (0x80 <= buf[offset + 3] && buf[offset + 3] <= 0xBF)) ||  // plane 16
-        (buf[offset + 0] == 0xF4 &&
-         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0x8F) &&
-         (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
-         (0x80 <= buf[offset + 3] && buf[offset + 3] <= 0xBF))) {
+    if ((len - offset > 3) &&
+        ((buf[offset + 0] == 0xF0 &&
+          (0x90 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
+          (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
+          (0x80 <= buf[offset + 3] &&
+           buf[offset + 3] <= 0xBF)) ||  // planes 4-15
+         ((0xF1 <= buf[offset + 0] && buf[offset + 0] <= 0xF3) &&
+          (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF) &&
+          (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
+          (0x80 <= buf[offset + 3] && buf[offset + 3] <= 0xBF)) ||  // plane 16
+         (buf[offset + 0] == 0xF4 &&
+          (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0x8F) &&
+          (0x80 <= buf[offset + 2] && buf[offset + 2] <= 0xBF) &&
+          (0x80 <= buf[offset + 3] && buf[offset + 3] <= 0xBF)))) {
 
       offset += 4;
       utf8++;
