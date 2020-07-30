@@ -185,7 +185,7 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
         new_size =
             el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
 
-        if (unlikely(!new_buf && (new_size <= 0))) {
+        if (unlikely(!new_buf || (new_size <= 0))) {
 
           FATAL("Custom_post_process failed (ret: %lu)",
                 (long unsigned)new_size);
