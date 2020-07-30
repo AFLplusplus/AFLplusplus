@@ -389,7 +389,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-compcov.compcov test.out
-  AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_FLOATS=1 ../afl-clang-fast -o test-floatingpoint test-floatingpoint.c
+  AFL_LLVM_INSTRUMENT=AFL AFL_LLVM_LAF_SPLIT_FLOATS=1 ../afl-clang-fast -o test-floatingpoint test-floatingpoint.c >errors
   test -e test-floatingpoint && {
     mkdir -p in
     echo ZZZZ > in/in
