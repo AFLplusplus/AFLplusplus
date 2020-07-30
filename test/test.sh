@@ -7,6 +7,10 @@ test -z "" 2>/dev/null || { echo Error: test command not found ; exit 1 ; }
 GREP=`type grep > /dev/null 2>&1 && echo OK`
 test "$GREP" = OK || { echo Error: grep command not found ; exit 1 ; }
 echo foobar | grep -qE 'asd|oob' 2>/dev/null || { echo Error: grep command does not support -q and/or -E option ; exit 1 ; }
+test -e ./test.sh || cd $(dirname $0) || exit 1
+test -e ./test.sh || { echo Error: you must be in the test/ directory ; exit 1 ; }
+export AFL_PATH=`pwd`/..
+
 echo 1 > test.1
 echo 1 > test.2
 OK=OK
@@ -202,7 +206,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     rm -f in2/in*
     export AFL_QUIET=1
     if command -v bash >/dev/null ; then {
-      AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
+      ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
       CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
         *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
@@ -326,7 +330,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       rm -f in2/in*
       export AFL_QUIET=1
       if type bash >/dev/null ; then {
-        AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
+        ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
         CNT=`ls in2/* 2>/dev/null | wc -l`
         case "$CNT" in
           *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
@@ -385,7 +389,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-compcov.compcov test.out
-  AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_ALL=1 ../afl-clang-fast -o test-floatingpoint test-floatingpoint.c
+  AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_FLOATS=1 ../afl-clang-fast -o test-floatingpoint test-floatingpoint.c
   test -e test-floatingpoint && {
     mkdir -p in
     echo ZZZZ > in/in
