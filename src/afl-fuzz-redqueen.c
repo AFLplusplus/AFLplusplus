@@ -269,8 +269,7 @@ static long long strntoll(const char *str, size_t sz, char **end, int base) {
   long long   ret;
   const char *beg = str;
 
-  for (; beg && sz && *beg == ' '; beg++, sz--)
-    ;
+  for (; beg && sz && *beg == ' '; beg++, sz--) {};
 
   if (!sz || sz >= sizeof(buf)) {
 
