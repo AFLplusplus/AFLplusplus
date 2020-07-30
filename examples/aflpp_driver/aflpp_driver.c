@@ -111,10 +111,6 @@ int __afl_persistent_loop(unsigned int);
 static volatile char AFL_DEFER_FORKSVR[] = "##SIG_AFL_DEFER_FORKSRV##";
 void __afl_manual_init();
 
-// Input buffer.
-static const size_t kMaxAflInputSize = 1 << 20;
-static uint8_t AflInputBuf[kMaxAflInputSize];
-
 // Use this optionally defined function to output sanitizer messages even if
 // user asks to close stderr.
 __attribute__((weak)) void __sanitizer_set_report_fd(void *);
@@ -181,14 +177,6 @@ static void dup_and_close_stderr() {
   discard_output(output_fileno);
 }
 
-static void Printf(const char *Fmt, ...) {
-  va_list ap;
-  va_start(ap, Fmt);
-  vfprintf(output_file, Fmt, ap);
-  va_end(ap);
-  fflush(output_file);
-}
-
 // Close stdout and/or stderr if user asks for it.
 static void maybe_close_fd_mask() {
   char *fd_mask_str = getenv("AFL_DRIVER_CLOSE_FD_MASK");
@@ -226,7 +214,7 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-  Printf(
+  printf(
       "======================= INFO =========================\n"
       "This binary is built for AFL-fuzz.\n"
       "To run the target function on individual input(s) execute this:\n"
@@ -255,7 +243,7 @@ int main(int argc, char **argv) {
   if (argc == 2 && argv[1][0] == '-')
       N = atoi(argv[1] + 1);
   else if(argc == 2 && (N = atoi(argv[1])) > 0)
-      Printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
+      printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
   else if (argc > 1) {
 //    if (!getenv("AFL_DRIVER_DONT_DEFER")) {
       __afl_sharedmem_fuzzing = 0;
@@ -288,5 +276,5 @@ int main(int argc, char **argv) {
       LLVMFuzzerTestOneInput(__afl_fuzz_ptr, *__afl_fuzz_len);
     }
   }
-  Printf("%s: successfully executed %d input(s)\n", argv[0], num_runs);
+  printf("%s: successfully executed %d input(s)\n", argv[0], num_runs);
 }
