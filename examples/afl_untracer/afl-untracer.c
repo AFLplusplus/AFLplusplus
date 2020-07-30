@@ -115,10 +115,10 @@ static library_list_t liblist[MAX_LIB_COUNT];
 static u32            liblist_cnt;
 
 static void sigtrap_handler(int signum, siginfo_t *si, void *context);
-static void fuzz();
+static void fuzz(void);
 
 /* read the library information */
-void read_library_information() {
+void read_library_information(void) {
 
 #if defined(__linux__)
   FILE *f;
@@ -284,7 +284,7 @@ library_list_t *find_library(char *name) {
 // this seems to work for clang too. nice :) requires gcc 4.4+
 #pragma GCC push_options
 #pragma GCC optimize("O0")
-void        breakpoint() {
+void        breakpoint(void) {
 
   if (debug) fprintf(stderr, "Breakpoint function \"breakpoint\" reached.\n");
 
@@ -461,7 +461,7 @@ inline static void __afl_end_testcase(int status) {
                   ((uintptr_t)addr & 0x3) * 0x10000000000))
 #endif
 
-void setup_trap_instrumentation() {
+void setup_trap_instrumentation(void) {
 
   library_list_t *lib_base = NULL;
   size_t          lib_size = 0;
@@ -748,7 +748,7 @@ int main(int argc, char *argv[]) {
 inline
 #endif
     static void
-    fuzz() {
+    fuzz(void) {
 
   // STEP 3: call the function to fuzz, also the functions you might
   //         need to call to prepare the function and - important! -
