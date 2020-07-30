@@ -545,7 +545,8 @@ typedef struct afl_state {
   u64 total_bitmap_size,                /* Total bit count for all bitmaps  */
       total_bitmap_entries;             /* Number of bitmaps counted        */
 
-  s32 cpu_core_count;                   /* CPU core count                   */
+  s32 cpu_core_count,                   /* CPU core count                   */
+      cpu_to_bind;                      /* bind to specific CPU             */
 
 #ifdef HAVE_AFFINITY
   s32 cpu_aff;                          /* Selected CPU core                */

@@ -15,6 +15,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz:
      - added -F option to allow -M main fuzzers to sync to foreign fuzzers,
        e.g. honggfuzz or libfuzzer
+     - added -b option to bind to a specific CPU
      - eliminated CPU affinity race condition for -S/-M runs
      - expanded havoc mode added, on no cycle finds add extra splicing and
        MOpt into the mix
