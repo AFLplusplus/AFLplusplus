@@ -49,10 +49,12 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
-#include <fstream>
-#include <iostream>
-#include <vector>
+#include "config.h"
 
 #ifdef _DEBUG
 #include "hash.h"
@@ -98,20 +100,16 @@ extern unsigned int *__afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
-extern "C" {
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
 __attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
-}
 
 // Notify AFL about persistent mode.
 static volatile char AFL_PERSISTENT[] = "##SIG_AFL_PERSISTENT##";
-extern "C" int __afl_persistent_loop(unsigned int);
-static volatile char suppress_warning2 = AFL_PERSISTENT[0];
+int __afl_persistent_loop(unsigned int);
 
 // Notify AFL about deferred forkserver.
 static volatile char AFL_DEFER_FORKSVR[] = "##SIG_AFL_DEFER_FORKSRV##";
-extern "C" void __afl_manual_init();
-static volatile char suppress_warning1 = AFL_DEFER_FORKSVR[0];
+void __afl_manual_init();
 
 // Input buffer.
 static const size_t kMaxAflInputSize = 1 << 20;
@@ -119,11 +117,11 @@ static uint8_t AflInputBuf[kMaxAflInputSize];
 
 // Use this optionally defined function to output sanitizer messages even if
 // user asks to close stderr.
-__attribute__((weak)) extern "C" void __sanitizer_set_report_fd(void *);
+__attribute__((weak)) void __sanitizer_set_report_fd(void *);
 
 // Keep track of where stderr content is being written to, so that
 // dup_and_close_stderr can use the correct one.
-static FILE *output_file = stderr;
+static FILE *output_file;
 
 // Experimental feature to use afl_driver without AFL's deferred mode.
 // Needs to run before __afl_auto_init.
@@ -179,7 +177,7 @@ static void dup_and_close_stderr() {
     abort();
   if (!__sanitizer_set_report_fd)
     return;
-  __sanitizer_set_report_fd(reinterpret_cast<void *>(output_fd));
+  __sanitizer_set_report_fd((void*)output_fd);
   discard_output(output_fileno);
 }
 
@@ -205,27 +203,25 @@ static void maybe_close_fd_mask() {
 
 // Define LLVMFuzzerMutate to avoid link failures for targets that use it
 // with libFuzzer's LLVMFuzzerCustomMutator.
-extern "C" size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size, size_t MaxSize) {
-  assert(false && "LLVMFuzzerMutate should not be called from afl_driver");
+size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size, size_t MaxSize) {
+  //assert(false && "LLVMFuzzerMutate should not be called from afl_driver");
   return 0;
 }
 
 // Execute any files provided as parameters.
 static int ExecuteFilesOnyByOne(int argc, char **argv) {
+  unsigned char *buf = malloc(MAX_FILE);
   for (int i = 1; i < argc; i++) {
-    std::ifstream in(argv[i], std::ios::binary);
-    in.seekg(0, in.end);
-    size_t length = in.tellg();
-    in.seekg (0, in.beg);
-    std::cout << "Reading " << length << " bytes from " << argv[i] << std::endl;
-    // Allocate exactly length bytes so that we reliably catch buffer overflows.
-    std::vector<char> bytes(length);
-    in.read(bytes.data(), bytes.size());
-    assert(in);
-    LLVMFuzzerTestOneInput(reinterpret_cast<const uint8_t *>(bytes.data()),
-                           bytes.size());
-    std::cout << "Execution successful" << std::endl;
+    int fd = open(argv[i], O_RDONLY);
+    if (fd == -1) continue;
+    ssize_t length = read(fd, buf, MAX_FILE);
+    if (length > 0) {
+      printf("Reading %zu bytes from %s\n", length, argv[i]);
+      LLVMFuzzerTestOneInput(buf, length);
+      printf("Execution successful.\n");
+    }
   }
+  free(buf);
   return 0;
 }
 
@@ -244,14 +240,18 @@ int main(int argc, char **argv) {
       "======================================================\n",
           argv[0], argv[0], argv[0]);
 
+  output_file = stderr;
   maybe_duplicate_stderr();
   maybe_close_fd_mask();
   if (LLVMFuzzerInitialize)
     LLVMFuzzerInitialize(&argc, &argv);
+
   // Do any other expensive one-time initialization here.
 
-  uint8_t dummy_input[1] = {0};
-  int N = 100000;
+  uint8_t dummy_input[64] = {0};
+  memcpy(dummy_input, (void*)AFL_PERSISTENT, sizeof(AFL_PERSISTENT));
+  memcpy(dummy_input + 32, (void*)AFL_DEFER_FORKSVR, sizeof(AFL_DEFER_FORKSVR));
+  int N = INT_MAX;
   if (argc == 2 && argv[1][0] == '-')
       N = atoi(argv[1] + 1);
   else if(argc == 2 && (N = atoi(argv[1])) > 0)
