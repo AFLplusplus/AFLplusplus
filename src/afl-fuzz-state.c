@@ -94,6 +94,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->havoc_div = 1;                   /* Cycle count divisor for havoc    */
   afl->stage_name = "init";             /* Name of the current fuzz stage   */
   afl->splicing_with = -1;              /* Splicing with which test case?   */
+  afl->cpu_to_bind = -1;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */

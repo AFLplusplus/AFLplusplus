@@ -53,6 +53,13 @@ void bind_to_free_cpu(afl_state_t *afl) {
   u8  cpu_used[4096] = {0}, lockfile[PATH_MAX] = "";
   u32 i;
 
+  if (afl->cpu_to_bind != -1) {
+
+    i = afl->cpu_to_bind;
+    goto set_cpu;
+
+  }
+
   if (afl->sync_id) {
 
     s32 lockfd, first = 1;
@@ -295,20 +302,23 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   try:
 
+    if (afl->cpu_to_bind != -1)
+      FATAL("bind to CPU #%d failed!", afl->cpu_to_bind);
+
   #if !defined(__ANDROID__)
 
-    for (i = cpu_start; i < afl->cpu_core_count; i++) {
+  for (i = cpu_start; i < afl->cpu_core_count; i++) {
 
-      if (!cpu_used[i]) { break; }
+    if (!cpu_used[i]) { break; }
 
-    }
+  }
 
   if (i == afl->cpu_core_count) {
 
   #else
 
-    for (i = afl->cpu_core_count - cpu_start - 1; i > -1; i--)
-      if (!cpu_used[i]) break;
+  for (i = afl->cpu_core_count - cpu_start - 1; i > -1; i--)
+    if (!cpu_used[i]) break;
   if (i == -1) {
 
   #endif
@@ -326,6 +336,8 @@ void bind_to_free_cpu(afl_state_t *afl) {
   }
 
   OKF("Found a free CPU core, try binding to #%u.", i);
+
+set_cpu:
 
   afl->cpu_aff = i;
 
