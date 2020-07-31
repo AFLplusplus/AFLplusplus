@@ -776,7 +776,7 @@ int main(int argc, char **argv, char **envp) {
           "switching to classic instrumentation because "
           "AFL_LLVM_INSTRUMENT_FILE does not work with PCGUARD. Use "
           "-fsanitize-coverage-allowlist=allowlist.txt if you want to use "
-          "PCGUARD. See "
+          "PCGUARD. Requires llvm 12+. See "
           "https://clang.llvm.org/docs/"
           "SanitizerCoverage.html#partially-disabling-instrumentation");
 
@@ -832,7 +832,8 @@ int main(int argc, char **argv, char **envp) {
     FATAL(
         "Instrumentation type PCGUARD does not support "
         "AFL_LLVM_INSTRUMENT_FILE! Use "
-        "-fsanitize-coverage-allowlist=allowlist.txt instead, see "
+        "-fsanitize-coverage-allowlist=allowlist.txt instead (requires llvm "
+        "12+), see "
         "https://clang.llvm.org/docs/"
         "SanitizerCoverage.html#partially-disabling-instrumentation");
 
