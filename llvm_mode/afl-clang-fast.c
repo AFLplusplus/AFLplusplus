@@ -890,6 +890,8 @@ int main(int argc, char **argv, char **envp) {
         "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
         "AFL_PATH: path to instrumenting pass and runtime "
         "(afl-llvm-rt.*o)\n"
+        "AFL_LLVM_DOCUMENT_IDS: document edge IDs given to which function (LTO "
+        "only)\n"
         "AFL_QUIET: suppress verbose output\n"
         "AFL_USE_ASAN: activate address sanitizer\n"
         "AFL_USE_CFISAN: activate control flow sanitizer\n"

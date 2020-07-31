@@ -103,6 +103,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
   std::vector<CallInst *>          calls;
   DenseMap<Value *, std::string *> valueMap;
   char *                           ptr;
+  FILE *                           documentFile = NULL;
 
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
@@ -119,6 +120,13 @@ bool AFLLTOPass::runOnModule(Module &M) {
   } else
 
     be_quiet = 1;
+
+  if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
+
+    if ((documentFile = fopen(ptr, "a")) == NULL)
+      WARNF("Cannot access document file %s", ptr);
+
+  }
 
   if (getenv("AFL_LLVM_MAP_DYNAMIC")) map_addr = 0;
 
@@ -579,6 +587,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           }
 
+          if (documentFile) {
+
+            fprintf(documentFile, "%s %u\n",
+                    origBB->getParent()->getName().str().c_str(),
+                    afl_global_id);
+
+          }
+
           BasicBlock::iterator IP = newBB->getFirstInsertionPt();
           IRBuilder<>          IRB(&(*IP));
 
@@ -631,6 +647,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
       } while (i > 0);
 
     }
+
+    if (documentFile) fclose(documentFile);
 
   }
 
