@@ -50,6 +50,7 @@ before_install:
 script:
   - gcc -v
   - clang -v
+  - sudo -E ./afl-system-config
   - sudo sysctl -w kernel.shmmax=10000000000
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then export LLVM_CONFIG=`pwd`/"$NAME" ; make source-only ASAN_BUILD=1 ; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" -a "$TRAVIS_CPU_ARCH" = "amd64" ]; then make distrib ASAN_BUILD=1 ; fi
