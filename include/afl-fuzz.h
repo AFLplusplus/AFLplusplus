@@ -82,6 +82,11 @@
   #include <sys/sysctl.h>
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
+#if defined(__HAIKU__)
+  #include <kernel/OS.h>
+  #include <kernel/scheduler.h>
+#endif
+
 /* For systems that have sched_setaffinity; right now just Linux, but one
    can hope... */
 
