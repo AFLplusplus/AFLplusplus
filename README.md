@@ -279,7 +279,8 @@ afl-clang-lto:
    transform input data before comparison. Therefore this technique is called
    `input to state` or `redqueen`.
    If you want to use this technique, then you have to compile the target
-   twice, once specifically with/for this mode.
+   twice, once specifically with/for this mode, and pass this binary to afl-fuzz
+   via the `-c` parameter.
    You can read more about this in [llvm_mode/README.cmplog.md](llvm_mode/README.cmplog.md)
 
 If you use afl-clang-fast, afl-clang-lto or afl-gcc-fast you have the option to
