@@ -50,7 +50,7 @@ static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
   #elif defined(__NetBSD__)
 
   c = cpuset_create();
-  if (c == NULL) {PFATAL("cpuset_create failed");}
+  if (c == NULL) { PFATAL("cpuset_create failed"); }
   cpuset_set(cpuid, c);
 
   #elif defined(__sun)
@@ -72,8 +72,8 @@ static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
 
   if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
 
-      cpuset_destroy(c);
-      return 0;
+    cpuset_destroy(c);
+    return 0;
 
   }
 
@@ -86,7 +86,7 @@ static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
 
     pset_destroy(c);
     return 0;
-    
+
   }
 
   pset_destroy(c);
@@ -103,20 +103,21 @@ static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
 
 }
 
-
 /* Build a list of processes bound to specific cores. Returns -1 if nothing
    can be found. Assumes an upper bound of 4k CPUs. */
 
 void bind_to_free_cpu(afl_state_t *afl) {
 
   u8  cpu_used[4096] = {0};
-  u8 lockfile[PATH_MAX] = "";
+  u8  lockfile[PATH_MAX] = "";
   u32 i;
 
   if (afl->afl_env.afl_no_affinity) {
 
     if (afl->cpu_to_bind != -1) {
+
       FATAL("-b and AFL_NO_AFFINITY are mututally exclusive.");
+
     }
 
     WARNF("Not binding to a CPU core (AFL_NO_AFFINITY set).");
@@ -127,8 +128,14 @@ void bind_to_free_cpu(afl_state_t *afl) {
   if (afl->cpu_to_bind != -1) {
 
     if (!bind_cpu(afl, afl->cpu_to_bind)) {
-      FATAL("Could not bind to requested CPU %d! Make sure you passed a valid -b.", afl->cpu_to_bind);
+
+      FATAL(
+          "Could not bind to requested CPU %d! Make sure you passed a valid "
+          "-b.",
+          afl->cpu_to_bind);
+
     }
+
     return;
 
   }
@@ -379,21 +386,23 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   for (i = cpu_start; i < afl->cpu_core_count; i++) {
 
-#else
+  #else
 
   /* for some reason Android goes backwards */
 
   for (i = afl->cpu_core_count - 1; i > -1; i--) {
 
-#endif
+  #endif
 
     if (!cpu_used[i]) { continue; }
 
     OKF("Found a free CPU core, try binding to #%u.", i);
 
     if (bind_cpu(afl, i)) {
+
       /* Success :) */
       break;
+
     }
 
     WARNF("setaffinity failed to CPU %d, trying next CPU", i);
@@ -402,8 +411,9 @@ void bind_to_free_cpu(afl_state_t *afl) {
   }
 
   if (lockfile[0]) unlink(lockfile);
-  
+
   if (i == afl->cpu_core_count || i == -1) {
+
     SAYF("\n" cLRD "[-] " cRST
          "Uh-oh, looks like all %d CPU cores on your system are allocated to\n"
          "    other instances of afl-fuzz (or similar CPU-locked tasks). "
@@ -415,6 +425,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
     FATAL("No more free CPU cores");
 
   }
+
 }
 
 #endif                                                     /* HAVE_AFFINITY */
