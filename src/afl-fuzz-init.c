@@ -28,10 +28,11 @@
 
 #ifdef HAVE_AFFINITY
 
-/* Build a list of processes bound to specific cores. Returns -1 if nothing
-   can be found. Assumes an upper bound of 4k CPUs. */
+/* bind process to a specific cpu. Returns 0 on failure. */
 
-void bind_to_free_cpu(afl_state_t *afl) {
+static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
+
+  u8 success = 0;
 
   #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   cpu_set_t c;
@@ -41,24 +42,124 @@ void bind_to_free_cpu(afl_state_t *afl) {
   psetid_t c;
   #endif
 
-  if (afl->cpu_core_count < 2) { return; }
+  afl->cpu_aff = cpuid;
+
+  #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
+
+  CPU_ZERO(&c);
+  CPU_SET(cpuid, &c);
+
+  #elif defined(__NetBSD__)
+
+  c = cpuset_create();
+  if (c == NULL) PFATAL("cpuset_create failed");
+  cpuset_set(cpuid, c);
+
+  #elif defined(__sun)
+
+  pset_create(&c);
+  if (pset_assign(c, cpuid, NULL)) PFATAL("pset_assign failed");
+
+  #endif
+
+  #if defined(__linux__)
+
+  if (sched_setaffinity(0, sizeof(c), &c)) {
+
+    if (cpuid >= afl->cpu_core_count) {
+
+      PFATAL("sched_setaffinity failed for CPU %d, exit", cpuid);
+
+    }
+    goto cleanup;
+
+  }
+
+  #elif defined(__FreeBSD__) || defined(__DragonFly__)
+
+  if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c)) {
+
+    if (cpu_start == afl->cpu_core_count)
+      PFATAL("pthread_setaffinity failed for cpu %d, exit", cpuid);
+    WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", cpuid);
+    cpu_start++;
+    goto cleanup;
+
+  }
+
+  #elif defined(__NetBSD__)
+
+if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
+
+  if (cpu_start == afl->cpu_core_count)
+    PFATAL("pthread_setaffinity failed for cpu %d, exit", cpuid);
+  WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", cpuid);
+  cpu_start++;
+  goto cleanup;
+
+}
+
+cpuset_destroy(c);
+
+  #elif defined(__sun)
+
+if (pset_bind(c, P_PID, getpid(), NULL)) {
+
+  if (cpu_start == afl->cpu_core_count) {
+    PFATAL("pset_bind failed for cpu %d, exit", cpuid);
+  }
+  WARNF("pset_bind failed to CPU %d, trying next CPU", cpuid);
+  cpu_start++;
+  goto cleanup;
+  
+}
+
+pset_destroy(c);
+
+  #else
+
+  // this will need something for other platforms
+  // TODO: Solaris/Illumos has processor_bind ... might worth a try
+
+  #endif
+
+}
+cleanup:
+
+return success;
+}
+
+
+/* Build a list of processes bound to specific cores. Returns -1 if nothing
+   can be found. Assumes an upper bound of 4k CPUs. */
+
+void bind_to_free_cpu(afl_state_t *afl) {
+
+  u8  cpu_used[4096] = {0};
+  u8 lockfile[PATH_MAX] = "";
+  u32 i;
 
   if (afl->afl_env.afl_no_affinity) {
+
+    if (afl->cpu_to_bind != -1) {
+      FATAL("-b and AFL_NO_AFFINITY are mututally exclusive.");
+    }
 
     WARNF("Not binding to a CPU core (AFL_NO_AFFINITY set).");
     return;
 
   }
 
-  u8  cpu_used[4096] = {0}, lockfile[PATH_MAX] = "";
-  u32 i;
-
   if (afl->cpu_to_bind != -1) {
 
-    i = afl->cpu_to_bind;
-    goto set_cpu;
+    if (!bind_cpu(afl, afl->cpu_to_bind)) {
+      FATAL("Could not bind to requested CPU %d! Make sure you passed a valid -b.");
+    }
+    return;
 
   }
+
+  if (afl->cpu_core_count < 2) { return; }
 
   if (afl->sync_id) {
 
@@ -299,11 +400,13 @@ void bind_to_free_cpu(afl_state_t *afl) {
   #endif
 
   size_t cpu_start = 0;
+  u8 bound = 0;
 
-  try:
+  while (!bound) {
 
-    if (afl->cpu_to_bind != -1)
+    if (afl->cpu_to_bind != -1) {
       FATAL("bind to CPU #%d failed!", afl->cpu_to_bind);
+    }
 
   #if !defined(__ANDROID__)
 
@@ -317,8 +420,9 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   #else
 
-  for (i = afl->cpu_core_count - cpu_start - 1; i > -1; i--)
-    if (!cpu_used[i]) break;
+  for (i = afl->cpu_core_count - cpu_start - 1; i > -1; i--) {
+    if (!cpu_used[i]) { break; }
+  }
   if (i == -1) {
 
   #endif
@@ -337,98 +441,17 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   OKF("Found a free CPU core, try binding to #%u.", i);
 
-set_cpu:
-
-  afl->cpu_aff = i;
-
-  #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
-
-  CPU_ZERO(&c);
-  CPU_SET(i, &c);
-
-  #elif defined(__NetBSD__)
-
-  c = cpuset_create();
-  if (c == NULL) PFATAL("cpuset_create failed");
-  cpuset_set(i, c);
-
-  #elif defined(__sun)
-
-pset_create(&c);
-if (pset_assign(c, i, NULL)) PFATAL("pset_assign failed");
-
-  #endif
-
-  #if defined(__linux__)
-
-  if (sched_setaffinity(0, sizeof(c), &c)) {
-
-    if (cpu_start == afl->cpu_core_count) {
-
-      PFATAL("sched_setaffinity failed for CPU %d, exit", i);
-
-    }
-
+  bound = bind_cpu(afl, i);
+  if (!bound) {
     WARNF("sched_setaffinity failed to CPU %d, trying next CPU", i);
     cpu_start++;
-    goto try
-      ;
-
   }
 
-  #elif defined(__FreeBSD__) || defined(__DragonFly__)
-
-  if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c)) {
-
-    if (cpu_start == afl->cpu_core_count)
-      PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
-    WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
-    cpu_start++;
-    goto try
-      ;
-
   }
-
-  #elif defined(__NetBSD__)
-
-if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
-
-  if (cpu_start == afl->cpu_core_count)
-    PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
-  WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
-  cpu_start++;
-  goto try
-    ;
-
-}
-
-cpuset_destroy(c);
-
-  #elif defined(__sun)
-
-if (pset_bind(c, P_PID, getpid(), NULL)) {
-
-  if (cpu_start == afl->cpu_core_count)
-    PFATAL("pset_bind failed for cpu %d, exit", i);
-  WARNF("pset_bind failed to CPU %d, trying next CPU", i);
-  cpu_start++;
-  goto try
-    ;
-
-}
-
-pset_destroy(c);
-
-  #else
-
-  // this will need something for other platforms
-  // TODO: Solaris/Illumos has processor_bind ... might worth a try
-
-  #endif
 
   if (lockfile[0]) unlink(lockfile);
   // we leave the environment variable to ensure a cleanup for other processes
-
+  
 }
 
 #endif                                                     /* HAVE_AFFINITY */
