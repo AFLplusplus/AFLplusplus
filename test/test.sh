@@ -10,7 +10,6 @@ echo foobar | grep -qE 'asd|oob' 2>/dev/null || { echo Error: grep command does 
 test -e ./test.sh || cd $(dirname $0) || exit 1
 test -e ./test.sh || { echo Error: you must be in the test/ directory ; exit 1 ; }
 export AFL_PATH=`pwd`/..
-export AFL_NO_AFFINITY=1
 
 echo 1 > test.1
 echo 1 > test.2
