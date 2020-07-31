@@ -95,12 +95,13 @@ afl-clang-fast PCGUARD and afl-clang-lto LTO instrumentation!
 
   2. Second step: Find the responsible function.
 
-     a) For LTO instrumented binaries just disassemble or decompile the target
-        and look which edge is writing to that edge ID. Ghidra is a good tool
-        for this: [https://ghidra-sre.org/](https://ghidra-sre.org/)
+     a) For LTO instrumented binaries this can be documented during compile
+        time, just set `export AFL_LLVM_DOCUMENT_IDS=/path/to/afile`.
+        This file will have one assigned edge ID and the corresponding function
+        per line.
 
-     b) For PCGUARD instrumented binaries it is more difficult. Here you can
-        either modify the __sanitizer_cov_trace_pc_guard function in
+     b) For PCGUARD instrumented binaries it is much more difficult. Here you
+        can either modify the __sanitizer_cov_trace_pc_guard function in
         llvm_mode/afl-llvm-rt.o.c to write a backtrace to a file if the ID in
         __afl_area_ptr[*guard] is one of the unstable edge IDs. Then recompile
         and reinstall llvm_mode and rebuild your target. Run the recompiled
@@ -121,4 +122,3 @@ afl-clang-fast PCGUARD and afl-clang-lto LTO instrumentation!
   4. Fourth step: recompile the target
 
      Recompile, fuzz it, be happy :)
-

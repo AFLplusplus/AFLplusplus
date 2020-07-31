@@ -26,6 +26,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - LTO: autodictionary mode is a default
      - LTO: instrim instrumentation disabled, only classic support used
             as it is always better
+     - LTO: env var AFL_LLVM_DOCUMENT_IDS=file will document which edge ID
+            was given to which function during compilation
      - setting AFL_LLVM_LAF_SPLIT_FLOATS now activates
        AFL_LLVM_LAF_SPLIT_COMPARES
   - added honggfuzz mangle as a custom mutator in custom_mutators/honggfuzz

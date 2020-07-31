@@ -140,6 +140,12 @@ to be dynamic - the original afl way, which is slower).
 AFL_LLVM_MAP_DYNAMIC can be set so the shared memory address is dynamic (which
 is safer but also slower).
 
+## Document edge IDs
+
+Setting `export AFL_LLVM_DOCUMENT_IDS=file` will document to a file which edge
+ID was given to which function. This helps to identify functions with variable
+bytes or which functions were touched by an input.
+
 ## Solving difficult targets
 
 Some targets are difficult because the configure script does unusual stuff that
