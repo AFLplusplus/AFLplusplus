@@ -117,7 +117,8 @@ afl-clang-fast PCGUARD and afl-clang-lto LTO instrumentation!
      remove from instrumentation.
 
      Simply follow this document on how to do this: [llvm_mode/README.instrument_file.md](llvm_mode/README.instrument_file.md)
-     If PCGUARD is used, then you need to follow this guide: [http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation](http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation)
+     If PCGUARD is used, then you need to follow this guide (needs llvm 12+!):
+     [http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation](http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation)
 
   4. Fourth step: recompile the target
 

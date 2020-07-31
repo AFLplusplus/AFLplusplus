@@ -18,6 +18,8 @@ For this purpose, I have added a "partial instrumentation" support to the LLVM
 mode of AFLFuzz that allows you to specify on a source file level which files
 should be compiled with or without instrumentation.
 
+Note: When using PCGUARD mode - and have llvm 12+ - you can use this instead:
+https://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation
 
 ## 2) Building the LLVM module
 
