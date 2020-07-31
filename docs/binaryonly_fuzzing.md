@@ -15,9 +15,9 @@
   high enough. Otherwise try retrowrite, afl-dyninst and if these
   fail too then standard qemu_mode with AFL_ENTRYPOINT to where you need it.
 
-  If your a target is library use examples/afl_frida/.
+  If your target is a library use examples/afl_frida/.
 
-  If your target is non-linux then use unicorn_mode/
+  If your target is non-linux then use unicorn_mode/.
 
 
 ## QEMU
