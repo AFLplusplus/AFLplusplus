@@ -24,7 +24,7 @@ RUN apt-get update && apt-get upgrade -y && \
     apt-utils apt-transport-https ca-certificates gnupg dialog \
     libpixman-1-dev
 
-RUN echo deb http://apt.llvm.org/focal/ llvm-toolchain-focal main >> /etc/apt/sources.list && \
+RUN echo deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main >> /etc/apt/sources.list && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - 
   
 RUN echo deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main >> /etc/apt/sources.list && \
