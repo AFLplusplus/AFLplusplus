@@ -76,7 +76,7 @@
   * Custom mutator by a library (instead of Python) by kyakdan
   * LAF-Intel/CompCov support for llvm_mode, qemu_mode and unicorn_mode (with enhanced capabilities)
   * Radamsa and hongfuzz mutators (as custom mutators).
-  * QBDI mode to fuzz android native libraries via QuarkslaB's [QBDI](https://github.com/QBDI/QBDI) framework
+  * QBDI mode to fuzz android native libraries via Quarkslab's [QBDI](https://github.com/QBDI/QBDI) framework
 
   A more thorough list is available in the [PATCHES](docs/PATCHES.md) file.
 
@@ -129,7 +129,7 @@ hence afl-clang-lto is available!) or just pull directly from the docker hub:
 docker pull aflplusplus/aflplusplus
 docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
 ```
-This image is automatically generated when a push to the master repo happens.
+This image is automatically generated when a push to the stable repo happens.
 You will find your target source code in /src in the container.
 
 If you want to build afl++ yourself you have many options.
@@ -453,17 +453,19 @@ option. Otherwise create a new directory and create a file with any content
 as test data in there.
 
 If you do not want anything special, the defaults are already usually best,
-hence all you need (from the example in 2a ??? XXX Linkify):
+hence all you need is to specify the seed input directory with the result of
+step [2. Collect inputs](#a)a-collect-inputs)):
 `afl-fuzz -i input -o output -- bin/target -d @@`
 Note that the directory specified with -o will be created if it does not exist.
 
-If you need to stop and re-start the fuzzing, use the same command line option
-and switch the input directory with a dash (`-`):
+If you need to stop and re-start the fuzzing, use the same command line options
+(or even change them by selecting a different power schedule or another
+mutation mode!) and switch the input directory with a dash (`-`):
 `afl-fuzz -i - -o output -- bin/target -d @@`
 
 Note that afl-fuzz enforces memory limits to prevent the system to run out
 of memory. By default this is 50MB for a process. If this is too little for
-the target (which can can usually see that afl-fuzz bails with the message
+the target (which you can usually see by afl-fuzz bailing with the message
 that it could not connect to the forkserver), then you can increase this
 with the `-m` option, the value is in MB. To disable any memory limits
 (beware!) set `-m 0` - which is usually required for ASAN compiled targets.
@@ -507,10 +509,10 @@ For every secondary fuzzer there should be a variation, e.g.:
    activated (`export AFL_USE_ASAN=1 ; export AFL_USE_UBSAN=1 ;
    export AFL_USE_CFISAN=1 ; `
  * one should fuzz the target with CMPLOG/redqueen (see above)
- * At least 1-2 should fuzz a target compiled with laf-intel/COMPCOV (see above).
+ * one to three should fuzz a target compiled with laf-intel/COMPCOV (see above).
 
 All other secondaries should be used like this:
- * 1/2 with MOpt option enabled: `-L 0`
+ * A third to a half with the MOpt mutator enabled: `-L 0`
  * run with a different power schedule, available are:
    `explore (default), fast, coe, lin, quad, exploit, mmopt, rare, seek`
    which you can set with e.g. `-p seek`
@@ -529,7 +531,7 @@ A long list can be found at [https://github.com/Microsvuln/Awesome-AFL](https://
 
 However you can also sync afl++ with honggfuzz, libfuzzer, entropic, etc.
 Just show the main fuzzer (-M) with the `-F` option where the queue
-directory of these other fuzzers is, e.g. `-F /src/target/honggfuzz`.
+directory of a different fuzzer is, e.g. `-F /src/target/honggfuzz`.
 
 #### c) The status of the fuzz campaign
 
@@ -569,10 +571,10 @@ others, e.g. custom mutator modules, sync to very different fuzzers, etc.
 #### f) Improve the speed!
 
  * Use [persistent mode](llvm_mode/README.persistent_mode.md) (x2-x20 speed increase)
- * Use the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) (x2 speed increase)
  * If you do not use shmem persistent mode, use `AFL_TMPDIR` to point the input file on a tempfs location, see [docs/env_variables.md](docs/env_variables.md)
- * Improve kernel performance on Linux: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure)
- * Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem
+ * Linux: Use the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) (x2 speed increase)
+ * Linux: Improve kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure)
+ * Linux: Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem
  * Use your cores! [3.b) Using multiple cores/threads](#b-using-multiple-coresthreads)
 
 ### The End

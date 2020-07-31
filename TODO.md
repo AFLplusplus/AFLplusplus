@@ -10,9 +10,11 @@
 
 afl-fuzz:
  - setting min_len/max_len/start_offset/end_offset limits for mutation output
+ - add __sanitizer_cov_trace_cmp* support via shmem
 
 llvm_mode:
  - LTO - imitate sancov
+ - add __sanitizer_cov_trace_cmp* support
 
 gcc_plugin:
  - (wait for submission then decide)
