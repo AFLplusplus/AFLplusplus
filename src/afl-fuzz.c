@@ -1057,6 +1057,11 @@ int main(int argc, char **argv_orig, char **envp) {
   bind_to_free_cpu(afl);
   #endif                                                   /* HAVE_AFFINITY */
 
+  #ifdef __HAIKU__
+  /* Prioritizes performance over power saving */
+  set_scheduler_mode(SCHEDULER_MODE_LOW_LATENCY);
+  #endif
+
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
