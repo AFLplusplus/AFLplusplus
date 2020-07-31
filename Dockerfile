@@ -49,12 +49,14 @@ RUN rm -rf /var/cache/apt/archives/*
 ENV LLVM_CONFIG=llvm-config-11
 ENV AFL_SKIP_CPUFREQ=1
 
-RUN git clone https://github.com/AFLplusplus/AFLplusplus /AFLplusplus
-RUN cd /AFLplusplus && export REAL_CXX=g++-10 && export CC=gcc-10 && \
-    export CXX=g++-10 && make distrib && make install && make clean
-
 RUN git clone https://github.com/vanhauser-thc/afl-cov /afl-cov
 RUN cd /afl-cov && make install
+
+COPY . /AFLplusplus
+WORKDIR /AFLplusplus
+
+RUN export REAL_CXX=g++-10 && export CC=gcc-10 && \
+    export CXX=g++-10 && make clean && make distrib && make install && make clean
 
 RUN echo 'alias joe="jupp --wordwrap"' >> ~/.bashrc
 
