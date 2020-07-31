@@ -308,20 +308,23 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
          unsuccessful trimming and skip it, instead of aborting the trimming. */
 
       ++afl->trim_execs;
-      goto unsuccessful_trimming;
 
     }
 
-    write_to_testcase(afl, retbuf, retlen);
+    if (likely(retlen)) {
 
-    fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-    ++afl->trim_execs;
+      write_to_testcase(afl, retbuf, retlen);
 
-    if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
+      fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+      ++afl->trim_execs;
 
-    cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
 
-    if (cksum == q->exec_cksum) {
+      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+    }
+
+    if (likely(retlen && cksum == q->exec_cksum)) {
 
       q->len = retlen;
       memcpy(in_buf, retbuf, retlen);
@@ -348,8 +351,6 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
       }
 
     } else {
-
-    unsuccessful_trimming:
 
       /* Tell the custom mutator that the trimming was unsuccessful */
       afl->stage_cur = mutator->afl_custom_post_trim(mutator->data, 0);
