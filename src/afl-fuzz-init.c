@@ -394,7 +394,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   #endif
 
-    if (!cpu_used[i]) { continue; }
+    if (cpu_used[i]) { continue; }
 
     OKF("Found a free CPU core, try binding to #%u.", i);
 
