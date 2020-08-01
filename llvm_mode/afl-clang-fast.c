@@ -162,6 +162,7 @@ static void find_obj(u8 *argv0) {
 static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8  fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0;
+  u8  have_pic = 0, have_s = 0, have_c = 0, have_shared = 0;
   u8 *name;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
@@ -360,6 +361,23 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   } else {
 
     free(libdir);
+
+  }
+
+  u32 idx;
+  if (lto_mode && argc > 1) {
+
+    for (idx = 1; idx < argc; idx++) {
+
+      if (!strncmp(argv[idx], "-shared", 7)) have_shared = 1;
+      if (!strcmp(argv[idx], "-S")) have_s = 1;
+      if (!strcmp(argv[idx], "-c")) have_c = 1;
+      if (!strncasecmp(argv[idx], "-fpic", 5)) have_pic = 1;
+
+    }
+
+    if (!have_pic) cc_params[cc_par_cnt++] = "-fPIC";
+    if (!have_shared && (have_s || have_c)) cc_params[cc_par_cnt++] = "-shared";
 
   }
 
