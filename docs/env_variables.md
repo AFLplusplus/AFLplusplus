@@ -262,6 +262,9 @@ checks or alter some of the more exotic semantics of the tool:
     the target. This must be equal or larger than the size the target was
     compiled with.
 
+  - Setting AFL_DISABLE_TRIM tells afl-fuzz to no trim test cases. This is
+    usually a bad idea!
+
   - Setting AFL_NO_AFFINITY disables attempts to bind to a specific CPU core
     on Linux systems. This slows things down, but lets you run more instances
     of afl-fuzz than would be prudent (if you really want to).
