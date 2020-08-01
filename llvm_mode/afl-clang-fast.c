@@ -377,7 +377,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
     if (!have_pic) cc_params[cc_par_cnt++] = "-fPIC";
-    if (!have_shared && (have_s || have_c)) cc_params[cc_par_cnt++] = "-shared";
+    // if (!have_shared && (have_s || have_c)) cc_params[cc_par_cnt++] = "-shared";
 
   }
 
