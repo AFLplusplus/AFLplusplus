@@ -701,7 +701,7 @@ struct InsTrimLTO : public ModulePass {
 
         Value *Incr = IRB.CreateAdd(Counter, One);
 
-        if (skip_nozero) {
+        if (skip_nozero == NULL) {
 
           auto cf = IRB.CreateICmpEQ(Incr, Zero);
           auto carry = IRB.CreateZExt(cf, Int8Ty);
