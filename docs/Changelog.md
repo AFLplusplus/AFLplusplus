@@ -28,6 +28,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
             as it is always better
      - LTO: env var AFL_LLVM_DOCUMENT_IDS=file will document which edge ID
             was given to which function during compilation
+     - LTO: single block functions were not implemented by default, fixed
+     - LTO: AFL_LLVM_SKIP_NEVERZERO behaviour was inversed, fixed
      - setting AFL_LLVM_LAF_SPLIT_FLOATS now activates
        AFL_LLVM_LAF_SPLIT_COMPARES
   - added honggfuzz mangle as a custom mutator in custom_mutators/honggfuzz

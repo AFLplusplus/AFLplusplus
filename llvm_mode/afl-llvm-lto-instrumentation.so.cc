@@ -130,9 +130,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   if (getenv("AFL_LLVM_MAP_DYNAMIC")) map_addr = 0;
 
-  if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") ||
-      getenv("AFL_LLVM_SKIPSINGLEBLOCK"))
-    function_minimum_size = 2;
+  if (getenv("AFL_LLVM_SKIPSINGLEBLOCK")) function_minimum_size = 2;
 
   if ((ptr = getenv("AFL_LLVM_MAP_ADDR"))) {
 
@@ -540,6 +538,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       uint32_t succ = 0;
 
+      if (F.size() == 1) InsBlocks.push_back(&BB);
+
       for (succ_iterator SI = succ_begin(&BB), SE = succ_end(&BB); SI != SE;
            ++SI)
         if ((*SI)->size() > 0) succ++;
@@ -558,9 +558,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
       do {
 
         --i;
+        BasicBlock *              newBB;
         BasicBlock *              origBB = &(*InsBlocks[i]);
         std::vector<BasicBlock *> Successors;
         Instruction *             TI = origBB->getTerminator();
+        uint32_t                  fs = origBB->getParent()->size();
+        uint32_t                  countto;
 
         for (succ_iterator SI = succ_begin(origBB), SE = succ_end(origBB);
              SI != SE; ++SI) {
@@ -570,15 +573,25 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         }
 
-        if (TI == NULL || TI->getNumSuccessors() < 2) continue;
+        if (fs == 1) {
+
+          newBB = origBB;
+          countto = 1;
+
+        } else {
+
+          if (TI == NULL || TI->getNumSuccessors() < 2) continue;
+          countto = Successors.size();
+
+        }
 
         // if (Successors.size() != TI->getNumSuccessors())
         //  FATAL("Different successor numbers %lu <-> %u\n", Successors.size(),
         //        TI->getNumSuccessors());
 
-        for (uint32_t j = 0; j < Successors.size(); j++) {
+        for (uint32_t j = 0; j < countto; j++) {
 
-          BasicBlock *newBB = llvm::SplitEdge(origBB, Successors[j]);
+          if (fs != 1) newBB = llvm::SplitEdge(origBB, Successors[j]);
 
           if (!newBB) {
 
@@ -589,8 +602,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           if (documentFile) {
 
-            fprintf(documentFile, "%s %u\n",
-                    origBB->getParent()->getName().str().c_str(),
+            fprintf(documentFile, "%s %u\n", F.getName().str().c_str(),
                     afl_global_id);
 
           }
@@ -627,7 +639,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           Value *Incr = IRB.CreateAdd(Counter, One);
 
-          if (skip_nozero) {
+          if (skip_nozero == NULL) {
 
             auto cf = IRB.CreateICmpEQ(Incr, Zero);
             auto carry = IRB.CreateZExt(cf, Int8Ty);
