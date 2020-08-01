@@ -524,13 +524,12 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "int __afl_sharedmem_fuzzing = 1;"
       "extern unsigned int *__afl_fuzz_len;"
       "extern unsigned char *__afl_fuzz_ptr;"
-      "unsigned char *__afl_fuzz_alt_ptr;";
+      "unsigned char __afl_fuzz_alt[1024000];"
+      "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;";
   cc_params[cc_par_cnt++] =
-      "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
-      "(__afl_fuzz_alt_ptr = (unsigned char *) malloc(1 * 1024 * 1024)))";
+      "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : __afl_fuzz_alt_ptr)";
   cc_params[cc_par_cnt++] =
-      "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? *__afl_fuzz_len : read(0, "
-      "__afl_fuzz_alt_ptr, 1 * 1024 * 1024))";
+      "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? *__afl_fuzz_len : (*__afl_fuzz_len = read(0, __afl_fuzz_alt_ptr, 1024000)) == 0xffffffff ? 0 : *__afl_fuzz_len)";
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_LOOP(_A)="
