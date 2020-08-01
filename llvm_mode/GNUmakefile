@@ -183,18 +183,24 @@ ifeq "$(LLVM_LTO)" "1"
       ifneq "$(shell readlink $(LLVM_BINDIR)/ld.lld 2>&1)" ""
         AFL_REAL_LD = $(LLVM_BINDIR)/ld.lld
       else
-        $(warn ld.lld not found, can not enable LTO mode)
+        $(warn ld.lld not found, cannot enable LTO mode)
         LLVM_LTO = 0
       endif
     endif
+  else
+    $(warn -flto is not working (LLVMgold.so not found?), cannot enable LTO mode)
+    LLVM_LTO = 0
   endif
 endif
 
 AFL_CLANG_FUSELD=
-ifneq "$(AFL_CLANG_FLTO)" ""
-ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=`command -v ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-  AFL_CLANG_FUSELD=1
-endif
+ifeq "$(LLVM_LTO)" "1"
+  ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=`command -v ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+    AFL_CLANG_FUSELD=1
+  else
+    $(warn -fuse-ld is not working, cannot enable LTO mode)
+    LLVM_LTO = 0
+  endif
 endif
 
 CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
