@@ -14,6 +14,8 @@
 #include <fstream>
 
 #include <llvm/Support/raw_ostream.h>
+
+#define IS_EXTERN extern
 #include "afl-llvm-common.h"
 
 using namespace llvm;
@@ -88,6 +90,7 @@ void initInstrumentList() {
   char *instrumentListFilename = getenv("AFL_LLVM_INSTRUMENT_FILE");
   if (!instrumentListFilename)
     instrumentListFilename = getenv("AFL_LLVM_WHITELIST");
+
   if (instrumentListFilename) {
 
     std::string   line;
@@ -104,6 +107,10 @@ void initInstrumentList() {
     }
 
   }
+
+  if (debug)
+    SAYF(cMGN "[D] " cRST "loaded instrument list with %zu entries\n",
+         myInstrumentList.size());
 
 }
 
@@ -145,8 +152,6 @@ bool isInInstrumentList(llvm::Function *F) {
 
     }
 
-    (void)instLine;
-
     /* Continue only if we know where we actually are */
     if (!instFilename.str().empty()) {
 
@@ -164,6 +169,10 @@ bool isInInstrumentList(llvm::Function *F) {
           if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
               0) {
 
+            if (debug)
+              SAYF(cMGN "[D] " cRST
+                        "Function %s is in the list (%s), instrumenting ... \n",
+                   F->getName().str().c_str(), instFilename.str().c_str());
             return true;
 
           }
@@ -219,12 +228,15 @@ bool isInInstrumentList(llvm::Function *F) {
 
     // we could not find out the location. in this case we say it is not
     // in the the instrument file list
-
+    if (!be_quiet)
+      WARNF(
+          "No debug information found for function %s, will not be "
+          "instrumented (recompile with -g -O[1-3]).",
+          F->getName().str().c_str());
     return false;
 
   }
 
-  //
   return false;
 
 }

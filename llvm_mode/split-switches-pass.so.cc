@@ -91,9 +91,6 @@ class SplitSwitchesTransform : public ModulePass {
 
   typedef std::vector<CaseExpr> CaseVector;
 
- protected:
-  int be_quiet = 0;
-
  private:
   bool        splitSwitches(Module &M);
   bool        transformCmps(Module &M, const bool processStrcmp,

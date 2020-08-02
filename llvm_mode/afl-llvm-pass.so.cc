@@ -82,7 +82,6 @@ class AFLCoverage : public ModulePass {
 
  protected:
   uint32_t ngram_size = 0;
-  uint32_t debug = 0;
   uint32_t map_size = MAP_SIZE;
   uint32_t function_minimum_size = 1;
   char *   ctx_str = NULL, *skip_nozero = NULL;
@@ -139,7 +138,6 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   /* Show a banner */
 
-  char be_quiet = 0;
   setvbuf(stdout, NULL, _IONBF, 0);
 
   if (getenv("AFL_DEBUG")) debug = 1;

@@ -75,9 +75,6 @@ class CompareTransform : public ModulePass {
 
   }
 
- protected:
-  int be_quiet = 0;
-
  private:
   bool transformCmps(Module &M, const bool processStrcmp,
                      const bool processMemcmp, const bool processStrncmp,

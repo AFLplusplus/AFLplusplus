@@ -86,9 +86,9 @@ class AFLLTOPass : public ModulePass {
   bool runOnModule(Module &M) override;
 
  protected:
-  int      afl_global_id = 1, debug = 0, autodictionary = 1;
+  int      afl_global_id = 1, autodictionary = 1;
   uint32_t function_minimum_size = 1;
-  uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0, total_instr = 0;
+  uint32_t inst_blocks = 0, inst_funcs = 0, total_instr = 0;
   uint64_t map_addr = 0x10000;
   char *   skip_nozero = NULL;
 
@@ -207,7 +207,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
       if (debug)
         fprintf(stderr,
                 "DEBUG: Function %s is not in a source file that was specified "
-                "in the instrument file list\n", F.getName().str().c_str());
+                "in the instrument file list\n",
+                F.getName().str().c_str());
       continue;
 
     }

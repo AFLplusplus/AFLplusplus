@@ -639,6 +639,10 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+  if ((getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST")) &&
+      getenv("AFL_DONT_OPTIMIZE"))
+    FATAL("AFL_LLVM_INSTRUMENT_FILE and AFL_DONT_OPTIMIZE cannot be combined");
+
   if (getenv("AFL_LLVM_INSTRIM") || getenv("INSTRIM") ||
       getenv("INSTRIM_LIB")) {
 

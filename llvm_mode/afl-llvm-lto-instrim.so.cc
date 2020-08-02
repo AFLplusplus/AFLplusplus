@@ -73,8 +73,8 @@ struct InsTrimLTO : public ModulePass {
  protected:
   uint32_t function_minimum_size = 1;
   char *   skip_nozero = NULL;
-  int      afl_global_id = 1, debug = 0, autodictionary = 1;
-  uint32_t be_quiet = 0, inst_blocks = 0, inst_funcs = 0;
+  int      afl_global_id = 1, autodictionary = 1;
+  uint32_t inst_blocks = 0, inst_funcs = 0;
   uint64_t map_addr = 0x10000;
 
  public:
