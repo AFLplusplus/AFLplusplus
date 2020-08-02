@@ -206,8 +206,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       if (debug)
         fprintf(stderr,
-                "DEBUG: Function %s is not the instrument file listed\n",
-                F.getName().str().c_str());
+                "DEBUG: Function %s is not in a source file that was specified "
+                "in the instrument file list\n", F.getName().str().c_str());
       continue;
 
     }
@@ -660,9 +660,10 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     }
 
-    if (documentFile) fclose(documentFile);
-
   }
+
+  if (documentFile) fclose(documentFile);
+  documentFile = NULL;
 
   // save highest location ID to global variable
   // do this after each function to fail faster
