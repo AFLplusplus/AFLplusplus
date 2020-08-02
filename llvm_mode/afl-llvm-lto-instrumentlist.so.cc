@@ -164,38 +164,54 @@ bool AFLcheckIfInstrument::runOnModule(Module &M) {
 
           }
 
+          if (instFilename.str().empty()) {
+
+            if (!be_quiet)
+              WARNF(
+                  "Function %s has no source file name information and will "
+                  "not be instrumented.",
+                  F.getName().str().c_str());
+            continue;
+
+          }
+
         }
 
-        (void)instLine;
+        //(void)instLine;
 
+        fprintf(stderr, "xxx %s %s\n", F.getName().str().c_str(),
+                instFilename.str().c_str());
         if (debug)
           SAYF(cMGN "[D] " cRST "function %s is in file %s\n",
                F.getName().str().c_str(), instFilename.str().c_str());
-        /* Continue only if we know where we actually are */
-        if (!instFilename.str().empty()) {
 
-          for (std::list<std::string>::iterator it = myInstrumentList.begin();
-               it != myInstrumentList.end(); ++it) {
+        for (std::list<std::string>::iterator it = myInstrumentList.begin();
+             it != myInstrumentList.end(); ++it) {
 
-            /* We don't check for filename equality here because
-             * filenames might actually be full paths. Instead we
-             * check that the actual filename ends in the filename
-             * specified in the list. */
-            if (instFilename.str().length() >= it->length()) {
+          /* We don't check for filename equality here because
+           * filenames might actually be full paths. Instead we
+           * check that the actual filename ends in the filename
+           * specified in the list. */
+          if (instFilename.str().length() >= it->length()) {
 
-              if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
-                  0) {
+            if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
+                0) {
 
-                instrumentFunction = true;
-                break;
-
-              }
+              instrumentFunction = true;
+              break;
 
             }
 
           }
 
         }
+
+      } else {
+
+        if (!be_quiet)
+          WARNF("No debug information found for function %s, recompile with -g",
+                F.getName().str().c_str());
+        continue;
 
       }
 
