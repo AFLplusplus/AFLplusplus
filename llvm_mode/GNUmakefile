@@ -57,13 +57,22 @@ ifeq "$(LLVM_UNSUPPORTED)" "1"
   $(warning llvm_mode only supports llvm versions 3.4 up to 12)
 endif
 
+LLVM_TOO_OLD=1
+
 ifeq "$(LLVM_MAJOR)" "9"
   $(info [+] llvm_mode detected llvm 9, enabling neverZero implementation)
+  LLVM_TOO_OLD=0
 endif
 
 ifeq "$(LLVM_NEW_API)" "1"
   $(info [+] llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
   LLVM_STDCXX = c++14
+  LLVM_TOO_OLD=0
+endif
+
+ifeq "$(LLVM_TOO_OLD)" "1"
+  $(info [!] llvm_mode detected an old version of llvm, upgrade to at least 9 or preferable 11!)
+  $(shell sleep 1)
 endif
 
 ifeq "$(LLVM_HAVE_LTO)" "1"
