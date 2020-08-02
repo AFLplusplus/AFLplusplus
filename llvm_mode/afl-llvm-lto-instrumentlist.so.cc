@@ -104,7 +104,6 @@ class AFLcheckIfInstrument : public ModulePass {
 
  protected:
   std::list<std::string> myInstrumentList;
-  int                    debug = 0;
 
 };
 
@@ -116,7 +115,6 @@ bool AFLcheckIfInstrument::runOnModule(Module &M) {
 
   /* Show a banner */
 
-  char be_quiet = 0;
   setvbuf(stdout, NULL, _IONBF, 0);
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
@@ -209,8 +207,10 @@ bool AFLcheckIfInstrument::runOnModule(Module &M) {
       } else {
 
         if (!be_quiet)
-          WARNF("No debug information found for function %s, recompile with -g",
-                F.getName().str().c_str());
+          WARNF(
+              "No debug information found for function %s, recompile with -g "
+              "-O[1-3]",
+              F.getName().str().c_str());
         continue;
 
       }

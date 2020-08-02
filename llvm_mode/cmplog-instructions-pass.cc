@@ -76,9 +76,6 @@ class CmpLogInstructions : public ModulePass {
 
   }
 
- protected:
-  int be_quiet = 0;
-
  private:
   bool hookInstrs(Module &M);
 

@@ -38,5 +38,14 @@ void                   initInstrumentList();
 bool                   isInInstrumentList(llvm::Function *F);
 unsigned long long int calculateCollisions(uint32_t edges);
 
+#ifndef IS_EXTERN
+  #define IS_EXTERN
+#endif
+
+IS_EXTERN int debug;
+IS_EXTERN int be_quiet;
+
+#undef IS_EXTERN
+
 #endif
 
