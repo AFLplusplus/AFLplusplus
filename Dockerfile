@@ -5,7 +5,7 @@
 # has focal has gcc-10 but not g++-10 ...
 #
 
-FROM ubuntu:20.04
+FROM ubuntu:20.04 AS aflplusplus
 MAINTAINER afl++ team <afl@aflplus.plus>
 LABEL "about"="AFLplusplus docker image"
 
@@ -20,11 +20,11 @@ RUN apt-get update && apt-get upgrade -y && \
     python3 python3-dev python3-setuptools python-is-python3 \
     libtool libtool-bin \
     libglib2.0-dev \
-    wget vim jupp nano \
+    wget vim jupp nano bash-completion \
     apt-utils apt-transport-https ca-certificates gnupg dialog \
     libpixman-1-dev
 
-RUN echo deb http://apt.llvm.org/focal/ llvm-toolchain-focal main >> /etc/apt/sources.list && \
+RUN echo deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main >> /etc/apt/sources.list && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - 
   
 RUN echo deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main >> /etc/apt/sources.list && \
@@ -46,17 +46,19 @@ RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 0
 
 RUN rm -rf /var/cache/apt/archives/*
 
-ARG CC=gcc-10
-ARG CXX=g++-10
-ARG LLVM_CONFIG=llvm-config-11
+ENV LLVM_CONFIG=llvm-config-11
+ENV AFL_SKIP_CPUFREQ=1
 
-RUN git clone https://github.com/AFLplusplus/AFLplusplus
-RUN cd AFLplusplus && export REAL_CXX=g++-10 && make distrib && \
-    make install && make clean
+RUN git clone https://github.com/vanhauser-thc/afl-cov /afl-cov
+RUN cd /afl-cov && make install && cd ..
 
-RUN git clone https://github.com/vanhauser-thc/afl-cov afl-cov
-RUN cd afl-cov && make install
+COPY . /AFLplusplus
+WORKDIR /AFLplusplus
+
+RUN export REAL_CXX=g++-10 && export CC=gcc-10 && \
+    export CXX=g++-10 && make clean && \
+    make distrib && make install && make clean
 
 RUN echo 'alias joe="jupp --wordwrap"' >> ~/.bashrc
-
-ENV AFL_SKIP_CPUFREQ=1
+RUN echo 'export PS1="[afl++]$PS1"' >> ~/.bashrc
+ENV IS_DOCKER="1"

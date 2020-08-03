@@ -28,49 +28,163 @@
 
 #ifdef HAVE_AFFINITY
 
+/* bind process to a specific cpu. Returns 0 on failure. */
+
+static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
+
+  #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
+  cpu_set_t c;
+  #elif defined(__NetBSD__)
+  cpuset_t *c;
+  #elif defined(__sun)
+  psetid_t c;
+  #endif
+
+  afl->cpu_aff = cpuid;
+
+  #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
+
+  CPU_ZERO(&c);
+  CPU_SET(cpuid, &c);
+
+  #elif defined(__NetBSD__)
+
+  c = cpuset_create();
+  if (c == NULL) { PFATAL("cpuset_create failed"); }
+  cpuset_set(cpuid, c);
+
+  #elif defined(__sun)
+
+  pset_create(&c);
+  if (pset_assign(c, cpuid, NULL)) { PFATAL("pset_assign failed"); }
+
+  #endif
+
+  #if defined(__linux__)
+
+  return (sched_setaffinity(0, sizeof(c), &c) == 0);
+
+  #elif defined(__FreeBSD__) || defined(__DragonFly__)
+
+  return (pthread_setaffinity_np(pthread_self(), sizeof(c), &c) == 0);
+
+  #elif defined(__NetBSD__)
+
+  if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
+
+    cpuset_destroy(c);
+    return 0;
+
+  }
+
+  cpuset_destroy(c);
+  return 1;
+
+  #elif defined(__sun)
+
+  if (pset_bind(c, P_PID, getpid(), NULL)) {
+
+    pset_destroy(c);
+    return 0;
+
+  }
+
+  pset_destroy(c);
+  return 1;
+
+  #else
+
+  // this will need something for other platforms
+  // TODO: Solaris/Illumos has processor_bind ... might worth a try
+  WARNF("Cannot bind to CPU yet on this platform.");
+  return 1;
+
+  #endif
+
+}
+
 /* Build a list of processes bound to specific cores. Returns -1 if nothing
    can be found. Assumes an upper bound of 4k CPUs. */
 
 void bind_to_free_cpu(afl_state_t *afl) {
 
-  #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
-  cpu_set_t c;
-  #elif defined(__NetBSD__)
-  cpuset_t *         c;
-  #elif defined(__sun)
-  psetid_t            c;
-  #endif
-
   u8  cpu_used[4096] = {0};
+  u8  lockfile[PATH_MAX] = "";
   u32 i;
 
-  if (afl->cpu_core_count < 2) { return; }
-
   if (afl->afl_env.afl_no_affinity) {
+
+    if (afl->cpu_to_bind != -1) {
+
+      FATAL("-b and AFL_NO_AFFINITY are mututally exclusive.");
+
+    }
 
     WARNF("Not binding to a CPU core (AFL_NO_AFFINITY set).");
     return;
 
   }
 
+  if (afl->cpu_to_bind != -1) {
+
+    if (!bind_cpu(afl, afl->cpu_to_bind)) {
+
+      FATAL(
+          "Could not bind to requested CPU %d! Make sure you passed a valid "
+          "-b.",
+          afl->cpu_to_bind);
+
+    }
+
+    return;
+
+  }
+
+  if (afl->cpu_core_count < 2) { return; }
+
+  if (afl->sync_id) {
+
+    s32 lockfd, first = 1;
+
+    snprintf(lockfile, sizeof(lockfile), "%s/.affinity_lock", afl->sync_dir);
+    setenv(CPU_AFFINITY_ENV_VAR, lockfile, 1);
+
+    do {
+
+      if ((lockfd = open(lockfile, O_RDWR | O_CREAT | O_EXCL, 0600)) < 0) {
+
+        if (first) {
+
+          WARNF("CPU affinity lock file present, waiting ...");
+          first = 0;
+
+        }
+
+        usleep(1000);
+
+      }
+
+    } while (lockfd < 0);
+
+    close(lockfd);
+
+  }
+
   #if defined(__linux__)
+
   DIR *          d;
   struct dirent *de;
   d = opendir("/proc");
 
   if (!d) {
 
+    if (lockfile[0]) unlink(lockfile);
     WARNF("Unable to access /proc - can't scan for free CPU cores.");
     return;
 
   }
 
   ACTF("Checking CPU core loadout...");
-
-  /* Introduce some jitter, in case multiple AFL tasks are doing the same
-     thing at the same time... */
-
-  usleep(R(1000) * 250);
 
   /* Scan all /proc/<pid>/status entries, checking for Cpus_allowed_list.
      Flag all processes bound to a specific CPU using cpu_used[]. This will
@@ -114,20 +228,29 @@ void bind_to_free_cpu(afl_state_t *afl) {
   }
 
   closedir(d);
+
   #elif defined(__FreeBSD__) || defined(__DragonFly__)
+
   struct kinfo_proc *procs;
   size_t             nprocs;
   size_t             proccount;
   int                s_name[] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
   size_t             s_name_l = sizeof(s_name) / sizeof(s_name[0]);
 
-  if (sysctl(s_name, s_name_l, NULL, &nprocs, NULL, 0) != 0) return;
+  if (sysctl(s_name, s_name_l, NULL, &nprocs, NULL, 0) != 0) {
+
+    if (lockfile[0]) unlink(lockfile);
+    return;
+
+  }
+
   proccount = nprocs / sizeof(*procs);
   nprocs = nprocs * 4 / 3;
 
   procs = ck_alloc(nprocs);
   if (sysctl(s_name, s_name_l, procs, &nprocs, NULL, 0) != 0) {
 
+    if (lockfile[0]) unlink(lockfile);
     ck_free(procs);
     return;
 
@@ -136,6 +259,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
   for (i = 0; i < proccount; i++) {
 
     #if defined(__FreeBSD__)
+
     if (!strcmp(procs[i].ki_comm, "idle")) continue;
 
     // fix when ki_oncpu = -1
@@ -145,16 +269,21 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     if (oncpu != -1 && oncpu < sizeof(cpu_used) && procs[i].ki_pctcpu > 60)
       cpu_used[oncpu] = 1;
+
     #elif defined(__DragonFly__)
+
     if (procs[i].kp_lwp.kl_cpuid < sizeof(cpu_used) &&
         procs[i].kp_lwp.kl_pctcpu > 10)
       cpu_used[procs[i].kp_lwp.kl_cpuid] = 1;
+
     #endif
 
   }
 
   ck_free(procs);
+
   #elif defined(__NetBSD__)
+
   struct kinfo_proc2 *procs;
   size_t              nprocs;
   size_t              proccount;
@@ -163,13 +292,20 @@ void bind_to_free_cpu(afl_state_t *afl) {
       CTL_KERN, KERN_PROC2, KERN_PROC_ALL, 0, sizeof(struct kinfo_proc2), 0};
   size_t s_name_l = sizeof(s_name) / sizeof(s_name[0]);
 
-  if (sysctl(s_name, s_name_l, NULL, &nprocs, NULL, 0) != 0) return;
+  if (sysctl(s_name, s_name_l, NULL, &nprocs, NULL, 0) != 0) {
+
+    if (lockfile[0]) unlink(lockfile);
+    return;
+
+  }
+
   proccount = nprocs / sizeof(struct kinfo_proc2);
   procs = ck_alloc(nprocs * sizeof(struct kinfo_proc2));
   s_name[5] = proccount;
 
   if (sysctl(s_name, s_name_l, procs, &nprocs, NULL, 0) != 0) {
 
+    if (lockfile[0]) unlink(lockfile);
     ck_free(procs);
     return;
 
@@ -183,7 +319,9 @@ void bind_to_free_cpu(afl_state_t *afl) {
   }
 
   ck_free(procs);
+
   #elif defined(__sun)
+
   kstat_named_t *n;
   kstat_ctl_t *  m;
   kstat_t *      k;
@@ -198,6 +336,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   if (!k) {
 
+    if (lockfile[0]) unlink(lockfile);
     kstat_close(m);
     return;
 
@@ -205,6 +344,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   if (kstat_read(m, k, NULL)) {
 
+    if (lockfile[0]) unlink(lockfile);
     kstat_close(m);
     return;
 
@@ -220,6 +360,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
     k = kstat_lookup(m, "cpu_stat", i, NULL);
     if (kstat_read(m, k, &cs)) {
 
+      if (lockfile[0]) unlink(lockfile);
       kstat_close(m);
       return;
 
@@ -233,6 +374,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
   }
 
   kstat_close(m);
+
   #else
     #warning \
         "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/AFLplusplus/AFLplusplus"
@@ -240,22 +382,37 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   size_t cpu_start = 0;
 
-  try:
   #if !defined(__ANDROID__)
-    for (i = cpu_start; i < afl->cpu_core_count; i++) {
 
-      if (!cpu_used[i]) { break; }
+  for (i = cpu_start; i < afl->cpu_core_count; i++) {
+
+  #else
+
+  /* for some reason Android goes backwards */
+
+  for (i = afl->cpu_core_count - 1; i > -1; i--) {
+
+  #endif
+
+    if (cpu_used[i]) { continue; }
+
+    OKF("Found a free CPU core, try binding to #%u.", i);
+
+    if (bind_cpu(afl, i)) {
+
+      /* Success :) */
+      break;
 
     }
 
-  if (i == afl->cpu_core_count) {
+    WARNF("setaffinity failed to CPU %d, trying next CPU", i);
+    cpu_start++;
 
-  #else
-    for (i = afl->cpu_core_count - cpu_start - 1; i > -1; i--)
-      if (!cpu_used[i]) break;
-  if (i == -1) {
+  }
 
-  #endif
+  if (lockfile[0]) unlink(lockfile);
+
+  if (i == afl->cpu_core_count || i == -1) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Uh-oh, looks like all %d CPU cores on your system are allocated to\n"
@@ -268,81 +425,6 @@ void bind_to_free_cpu(afl_state_t *afl) {
     FATAL("No more free CPU cores");
 
   }
-
-  OKF("Found a free CPU core, try binding to #%u.", i);
-
-  afl->cpu_aff = i;
-
-  #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
-  CPU_ZERO(&c);
-  CPU_SET(i, &c);
-  #elif defined(__NetBSD__)
-  c = cpuset_create();
-  if (c == NULL) PFATAL("cpuset_create failed");
-  cpuset_set(i, c);
-  #elif defined(__sun)
-pset_create(&c);
-if (pset_assign(c, i, NULL)) PFATAL("pset_assign failed");
-  #endif
-
-  #if defined(__linux__)
-  if (sched_setaffinity(0, sizeof(c), &c)) {
-
-    if (cpu_start == afl->cpu_core_count) {
-
-      PFATAL("sched_setaffinity failed for CPU %d, exit", i);
-
-    }
-
-    WARNF("sched_setaffinity failed to CPU %d, trying next CPU", i);
-    cpu_start++;
-    goto try
-      ;
-
-  }
-
-  #elif defined(__FreeBSD__) || defined(__DragonFly__)
-  if (pthread_setaffinity_np(pthread_self(), sizeof(c), &c)) {
-
-    if (cpu_start == afl->cpu_core_count)
-      PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
-    WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
-    cpu_start++;
-    goto try
-      ;
-
-  }
-
-  #elif defined(__NetBSD__)
-if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
-
-  if (cpu_start == afl->cpu_core_count)
-    PFATAL("pthread_setaffinity failed for cpu %d, exit", i);
-  WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
-  cpu_start++;
-  goto try
-    ;
-
-}
-
-cpuset_destroy(c);
-  #elif defined(__sun)
-if (pset_bind(c, P_PID, getpid(), NULL)) {
-
-  if (cpu_start == afl->cpu_core_count)
-    PFATAL("pset_bind failed for cpu %d, exit", i);
-  WARNF("pthread_setaffinity failed to CPU %d, trying next CPU", i);
-  cpu_start++;
-  goto try
-    ;
-
-}
-
-pset_destroy(c);
-  #else
-  // this will need something for other platforms
-  // TODO: Solaris/Illumos has processor_bind ... might worth a try
-  #endif
 
 }
 
@@ -360,6 +442,159 @@ static void shuffle_ptrs(afl_state_t *afl, void **ptrs, u32 cnt) {
     void *s = ptrs[i];
     ptrs[i] = ptrs[j];
     ptrs[j] = s;
+
+  }
+
+}
+
+/* Read all testcases from foreign input directories, then queue them for
+   testing. Called at startup and at sync intervals.
+   Does not descend into subdirectories! */
+
+void read_foreign_testcases(afl_state_t *afl, int first) {
+
+  if (!afl->foreign_sync_cnt) return;
+
+  struct dirent **nl;
+  s32             nl_cnt;
+  u32             i, iter;
+
+  u8 val_buf[2][STRINGIFY_VAL_SIZE_MAX];
+
+  for (iter = 0; iter < afl->foreign_sync_cnt; iter++) {
+
+    if (afl->foreign_syncs[iter].dir != NULL &&
+        afl->foreign_syncs[iter].dir[0] != 0) {
+
+      if (first) ACTF("Scanning '%s'...", afl->foreign_syncs[iter].dir);
+      time_t ctime_max = 0;
+
+      /* We use scandir() + alphasort() rather than readdir() because otherwise,
+         the ordering of test cases would vary somewhat randomly and would be
+         difficult to control. */
+
+      nl_cnt = scandir(afl->foreign_syncs[iter].dir, &nl, NULL, NULL);
+
+      if (nl_cnt < 0) {
+
+        if (first) {
+
+          WARNF("Unable to open directory '%s'", afl->foreign_syncs[iter].dir);
+          sleep(1);
+
+        }
+
+        continue;
+
+      }
+
+      if (nl_cnt == 0) {
+
+        if (first)
+          WARNF("directory %s is currently empty",
+                afl->foreign_syncs[iter].dir);
+        continue;
+
+      }
+
+      /* Show stats */
+
+      snprintf(afl->stage_name_buf, STAGE_BUF_SIZE, "foreign sync %u", iter);
+
+      afl->stage_name = afl->stage_name_buf;
+      afl->stage_cur = 0;
+      afl->stage_max = 0;
+
+      for (i = 0; i < nl_cnt; ++i) {
+
+        struct stat st;
+
+        u8 *fn2 =
+            alloc_printf("%s/%s", afl->foreign_syncs[iter].dir, nl[i]->d_name);
+
+        free(nl[i]);                                         /* not tracked */
+
+        if (unlikely(lstat(fn2, &st) || access(fn2, R_OK))) {
+
+          if (first) PFATAL("Unable to access '%s'", fn2);
+          continue;
+
+        }
+
+        /* we detect new files by their ctime */
+        if (likely(st.st_ctime <= afl->foreign_syncs[iter].ctime)) {
+
+          ck_free(fn2);
+          continue;
+
+        }
+
+        /* This also takes care of . and .. */
+
+        if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
+
+          ck_free(fn2);
+          continue;
+
+        }
+
+        if (st.st_size > MAX_FILE) {
+
+          if (first)
+            WARNF(
+                "Test case '%s' is too big (%s, limit is %s), skipping", fn2,
+                stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
+                stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
+          ck_free(fn2);
+          continue;
+
+        }
+
+        // lets do not use add_to_queue(afl, fn2, st.st_size, 0);
+        // as this could add duplicates of the startup input corpus
+
+        int fd = open(fn2, O_RDONLY);
+        if (fd < 0) {
+
+          ck_free(fn2);
+          continue;
+
+        }
+
+        u8  fault;
+        u8 *mem = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+
+        if (mem == MAP_FAILED) {
+
+          ck_free(fn2);
+          continue;
+
+        }
+
+        write_to_testcase(afl, mem, st.st_size);
+        fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+        afl->syncing_party = "foreign";
+        afl->queued_imported +=
+            save_if_interesting(afl, mem, st.st_size, fault);
+        afl->syncing_party = 0;
+        munmap(mem, st.st_size);
+        close(fd);
+
+        if (st.st_ctime > ctime_max) ctime_max = st.st_ctime;
+
+      }
+
+      afl->foreign_syncs[iter].ctime = ctime_max;
+      free(nl);                                              /* not tracked */
+
+    }
+
+  }
+
+  if (first) {
+
+    afl->last_path_time = 0;
+    afl->queued_at_start = afl->queued_paths;
 
   }
 
@@ -393,7 +628,7 @@ void read_testcases(afl_state_t *afl) {
   ACTF("Scanning '%s'...", afl->in_dir);
 
   /* We use scandir() + alphasort() rather than readdir() because otherwise,
-     the ordering  of test cases would vary somewhat randomly and would be
+     the ordering of test cases would vary somewhat randomly and would be
      difficult to control. */
 
   nl_cnt = scandir(afl->in_dir, &nl, NULL, alphasort);
@@ -454,9 +689,11 @@ void read_testcases(afl_state_t *afl) {
 
     if (st.st_size > MAX_FILE) {
 
-      FATAL("Test case '%s' is too big (%s, limit is %s)", fn2,
+      WARNF("Test case '%s' is too big (%s, limit is %s), skipping", fn2,
             stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
             stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
+      ck_free(fn2);
+      continue;
 
     }
 

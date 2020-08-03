@@ -94,6 +94,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->havoc_div = 1;                   /* Cycle count divisor for havoc    */
   afl->stage_name = "init";             /* Name of the current fuzz stage   */
   afl->splicing_with = -1;              /* Splicing with which test case?   */
+  afl->cpu_to_bind = -1;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
@@ -293,6 +294,20 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_autoresume =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_CYCLE_SCHEDULES",
+
+                              afl_environment_variable_len)) {
+
+            afl->cycle_schedules = afl->afl_env.afl_cycle_schedules =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_EXPAND_HAVOC_NOW",
+
+                              afl_environment_variable_len)) {
+
+            afl->expand_havoc = afl->afl_env.afl_expand_havoc =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_CAL_FAST",
 
                               afl_environment_variable_len)) {
@@ -405,6 +420,7 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->pass_stats) { ck_free(afl->pass_stats); }
   if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
 
+  if (afl->queue_buf) { free(afl->queue_buf); }
   if (afl->out_buf) { free(afl->out_buf); }
   if (afl->out_scratch_buf) { free(afl->out_scratch_buf); }
   if (afl->eff_buf) { free(afl->eff_buf); }

@@ -1,8 +1,15 @@
 .test
 .test2
+.sync_tmp
 *.o
 *.so
 *.pyc
+*.dSYM
+as
+ld
+in
+out
+core*
 afl-analyze
 afl-as
 afl-clang
@@ -41,13 +48,10 @@ afl-system-config.8
 afl-tmin.8
 afl-whatsup.8
 qemu_mode/libcompcov/compcovtest
-as
-ld
 qemu_mode/qemu-*
 unicorn_mode/samples/*/\.test-*
 unicorn_mode/samples/*/output/
 unicorn_mode/unicornafl
-core\.*
 test/unittests/unit_maybe_alloc
 test/unittests/unit_preallocable
 test/unittests/unit_list
@@ -55,3 +59,7 @@ test/unittests/unit_rand
 test/unittests/unit_hash
 examples/afl_network_proxy/afl-network-server
 examples/afl_network_proxy/afl-network-client
+examples/afl_frida/afl-frida
+examples/afl_frida/libtestinstr.so
+examples/afl_frida/frida-gum-example.c
+examples/afl_frida/frida-gum.h

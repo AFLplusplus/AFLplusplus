@@ -53,7 +53,11 @@
 #define CONST_PRIO 5
 
 #ifndef MAP_FIXED_NOREPLACE
-  #define MAP_FIXED_NOREPLACE MAP_FIXED
+  #ifdef MAP_EXCL
+    #define MAP_FIXED_NOREPLACE MAP_EXCL | MAP_FIXED
+  #else
+    #define MAP_FIXED_NOREPLACE MAP_FIXED
+  #endif
 #endif
 
 #include <sys/mman.h>
@@ -510,12 +514,19 @@ static void __afl_start_snapshots(void) {
 
       if (!child_pid) {
 
+        //(void)nice(-20);  // does not seem to improve
+
         signal(SIGCHLD, old_sigchld_handler);
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
 
-        if (!afl_snapshot_do()) { raise(SIGSTOP); }
+        if (!afl_snapshot_take(AFL_SNAPSHOT_MMAP | AFL_SNAPSHOT_FDS |
+                               AFL_SNAPSHOT_REGS | AFL_SNAPSHOT_EXIT)) {
+
+          raise(SIGSTOP);
+
+        }
 
         __afl_area_ptr[0] = 1;
         memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
@@ -713,6 +724,8 @@ static void __afl_start_forkserver(void) {
 
       if (!child_pid) {
 
+        //(void)nice(-20);
+
         signal(SIGCHLD, old_sigchld_handler);
 
         close(FORKSRV_FD);
@@ -845,6 +858,35 @@ __attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
    edge (as opposed to every basic block). */
 
 void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
+
+  // For stability analysis, if you want to know to which function unstable
+  // edge IDs belong to - uncomment, recompile+install llvm_mode, recompile
+  // the target. libunwind and libbacktrace are better solutions.
+  // Set AFL_DEBUG_CHILD_OUTPUT=1 and run afl-fuzz with 2>file to capture
+  // the backtrace output
+  /*
+  uint32_t unstable[] = { ... unstable edge IDs };
+  uint32_t idx;
+  char bt[1024];
+  for (idx = 0; i < sizeof(unstable)/sizeof(uint32_t); i++) {
+
+    if (unstable[idx] == __afl_area_ptr[*guard]) {
+
+      int bt_size = backtrace(bt, 256);
+      if (bt_size > 0) {
+
+        char **bt_syms = backtrace_symbols(bt, bt_size);
+        if (bt_syms)
+          fprintf(stderr, "DEBUG: edge=%u caller=%s\n", unstable[idx],
+  bt_syms[0]);
+
+      }
+
+    }
+
+  }
+
+  */
 
   __afl_area_ptr[*guard]++;
 

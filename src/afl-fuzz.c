@@ -42,19 +42,21 @@ static void at_exit() {
 
   int   i;
   char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
-  char *ptr = getenv("__AFL_TARGET_PID1");
+  char *ptr;
 
+  ptr = getenv(CPU_AFFINITY_ENV_VAR);
+  if (ptr && *ptr) unlink(ptr);
+
+  ptr = getenv("__AFL_TARGET_PID1");
   if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
 
   ptr = getenv("__AFL_TARGET_PID2");
-
   if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
 
   i = 0;
   while (list[i] != NULL) {
 
     ptr = getenv(list[i]);
-
     if (ptr && *ptr) {
 
 #ifdef USEMMAP
@@ -129,18 +131,23 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "executions.\n\n"
 
       "Other stuff:\n"
-      "  -T text       - text banner to show on the screen\n"
       "  -M/-S id      - distributed mode (see docs/parallel_fuzzing.md)\n"
       "                  use -D to force -S secondary to perform deterministic "
       "fuzzing\n"
+      "  -F path       - sync to a foreign fuzzer queue directory (requires "
+      "-M, can\n"
+      "                  be specified up to %u times)\n"
+      "  -T text       - text banner to show on the screen\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
       //"  -B bitmap.txt - mutate a specific test case, use the out/fuzz_bitmap
       //" "file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
+      "  -b cpu_id     - bind the fuzzing process to the specified CPU core "
+      "(0-...)\n"
       "  -e ext        - file extension for the fuzz test input file (if "
       "needed)\n\n",
-      argv0, EXEC_TIMEOUT, MEM_LIMIT);
+      argv0, EXEC_TIMEOUT, MEM_LIMIT, FOREIGN_SYNCS_MAX);
 
   if (more_help > 1) {
 
@@ -156,11 +163,13 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
       "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
       "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
+      "AFL_CYCLE_SCHEDULES: after completing a cycle, switch to a different -p schedule\n"
       "AFL_DEBUG: extra debugging output for Python mode trimming\n"
       "AFL_DEBUG_CHILD_OUTPUT: do not suppress stdout/stderr from target\n"
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
+      "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60 minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
@@ -264,15 +273,28 @@ int main(int argc, char **argv_orig, char **envp) {
   gettimeofday(&tv, &tz);
   rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
 
-  while ((opt = getopt(argc, argv,
-                       "+c:i:I:o:f:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) >
-         0) {
+  afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
+
+  while ((opt = getopt(
+              argc, argv,
+              "+b:c:i:I:o:f:F:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) > 0) {
 
     switch (opt) {
 
       case 'I':
         afl->infoexec = optarg;
         break;
+
+      case 'b': {                                          /* bind CPU core */
+
+        if (afl->cpu_to_bind != -1) FATAL("Multiple -b options not supported");
+
+        if (sscanf(optarg, "%u", &afl->cpu_to_bind) < 0 || optarg[0] == '-')
+          FATAL("Bad syntax used for -b");
+
+        break;
+
+      }
 
       case 'c': {
 
@@ -397,6 +419,19 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->is_secondary_node = 1;
         afl->skip_deterministic = 1;
         afl->use_splicing = 1;
+        break;
+
+      case 'F':                                         /* foreign sync dir */
+
+        if (!afl->is_main_node)
+          FATAL(
+              "Option -F can only be specified after the -M option for the "
+              "main fuzzer of a fuzzing campaign");
+        if (afl->foreign_sync_cnt >= FOREIGN_SYNCS_MAX)
+          FATAL("Maximum %u entried of -F option can be specified",
+                FOREIGN_SYNCS_MAX);
+        afl->foreign_syncs[afl->foreign_sync_cnt].dir = optarg;
+        afl->foreign_sync_cnt++;
         break;
 
       case 'f':                                              /* target file */
@@ -561,7 +596,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->fsrv.qemu_mode) { FATAL("Multiple -Q options not supported"); }
         afl->fsrv.qemu_mode = 1;
-        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_QEMU; }
 
@@ -578,7 +612,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->unicorn_mode) { FATAL("Multiple -U options not supported"); }
         afl->unicorn_mode = 1;
-        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_UNICORN; }
 
@@ -589,7 +622,6 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->use_wine) { FATAL("Multiple -W options not supported"); }
         afl->fsrv.qemu_mode = 1;
         afl->use_wine = 1;
-        afl->shmem_testcase_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = 0; }
 
@@ -899,6 +931,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (get_afl_env("AFL_NO_ARITH")) { afl->no_arith = 1; }
   if (get_afl_env("AFL_SHUFFLE_QUEUE")) { afl->shuffle_queue = 1; }
   if (get_afl_env("AFL_FAST_CAL")) { afl->fast_cal = 1; }
+  if (get_afl_env("AFL_EXPAND_HAVOC_NOW")) { afl->expand_havoc = 1; }
 
   if (afl->afl_env.afl_autoresume) {
 
@@ -1011,16 +1044,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  check_crash_handling();
+  check_cpu_governor(afl);
+
   get_core_count(afl);
+
+  atexit(at_exit);
+
+  setup_dirs_fds(afl);
 
   #ifdef HAVE_AFFINITY
   bind_to_free_cpu(afl);
   #endif                                                   /* HAVE_AFFINITY */
 
-  check_crash_handling();
-  check_cpu_governor(afl);
-
-  atexit(at_exit);
+  #ifdef __HAIKU__
+  /* Prioritizes performance over power saving */
+  set_scheduler_mode(SCHEDULER_MODE_LOW_LATENCY);
+  #endif
 
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
@@ -1038,20 +1078,26 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  setup_dirs_fds(afl);
-
   if (afl->is_secondary_node && check_main_node_exists(afl) == 0) {
 
     WARNF("no -M main node found. You need to run one main instance!");
-    sleep(5);
+    sleep(3);
 
   }
+
+  #ifdef RAND_TEST_VALUES
+  u32 counter;
+  for (counter = 0; counter < 100000; counter++)
+    printf("DEBUG: rand %06d is %u\n", counter, rand_below(afl, 65536));
+  #endif
 
   setup_custom_mutators(afl);
 
   setup_cmdline_file(afl, argv + optind);
 
   read_testcases(afl);
+  // read_foreign_testcases(afl, 1); for the moment dont do this
+
   load_auto(afl);
 
   pivot_inputs(afl);
@@ -1209,6 +1255,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  // (void)nice(-20);  // does not improve the speed
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
 
@@ -1245,11 +1292,43 @@ int main(int argc, char **argv_orig, char **envp) {
       /* If we had a full queue cycle with no new finds, try
          recombination strategies next. */
 
-      if (afl->queued_paths == prev_queued) {
+      if (afl->queued_paths == prev_queued &&
+          (get_cur_time() - afl->start_time) >= 3600) {
 
         if (afl->use_splicing) {
 
           ++afl->cycles_wo_finds;
+          switch (afl->expand_havoc) {
+
+            case 0:
+              afl->expand_havoc = 1;
+              break;
+            case 1:
+              if (afl->limit_time_sig == 0 && !afl->custom_only &&
+                  !afl->python_only) {
+
+                afl->limit_time_sig = -1;
+                afl->limit_time_puppet = 0;
+
+              }
+
+              afl->expand_havoc = 2;
+              break;
+            case 2:
+              // afl->cycle_schedules = 1;
+              afl->expand_havoc = 3;
+              break;
+            case 3:
+              // nothing else currently
+              break;
+
+          }
+
+          if (afl->expand_havoc) {
+
+          } else
+
+            afl->expand_havoc = 1;
 
         } else {
 
@@ -1260,6 +1339,53 @@ int main(int argc, char **argv_orig, char **envp) {
       } else {
 
         afl->cycles_wo_finds = 0;
+
+      }
+
+      if (afl->cycle_schedules) {
+
+        /* we cannot mix non-AFLfast schedules with others */
+
+        switch (afl->schedule) {
+
+          case EXPLORE:
+            afl->schedule = EXPLOIT;
+            break;
+          case EXPLOIT:
+            afl->schedule = MMOPT;
+            break;
+          case MMOPT:
+            afl->schedule = SEEK;
+            break;
+          case SEEK:
+            afl->schedule = EXPLORE;
+            break;
+          case FAST:
+            afl->schedule = COE;
+            break;
+          case COE:
+            afl->schedule = LIN;
+            break;
+          case LIN:
+            afl->schedule = QUAD;
+            break;
+          case QUAD:
+            afl->schedule = RARE;
+            break;
+          case RARE:
+            afl->schedule = FAST;
+            break;
+
+        }
+
+        struct queue_entry *q = afl->queue;
+        // we must recalculate the scores of all queue entries
+        while (q) {
+
+          update_bitmap_score(afl, q);
+          q = q->next;
+
+        }
 
       }
 

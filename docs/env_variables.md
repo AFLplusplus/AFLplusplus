@@ -121,18 +121,16 @@ Then there are a few specific features that are only available in llvm_mode:
     built if LLVM 11 or newer is used.
 
    - AFL_LLVM_INSTRUMENT=CFG will use Control Flow Graph instrumentation.
-     (recommended)
-
-   - AFL_LLVM_LTO_AUTODICTIONARY will generate a dictionary in the target
-     binary based on string compare and memory compare functions.
-     afl-fuzz will automatically get these transmitted when starting to
-     fuzz.
+     (not recommended!)
 
     None of the following options are necessary to be used and are rather for
     manual use (which only ever the author of this LTO implementation will use).
     These are used if several seperated instrumentation are performed which
     are then later combined.
 
+   - AFL_LLVM_DOCUMENT_IDS=file will document to a file which edge ID was given
+     to which function. This helps to identify functions with variable bytes
+     or which functions were touched by an input.
    - AFL_LLVM_MAP_ADDR sets the fixed map address to a different address than
      the default 0x10000. A value of 0 or empty sets the map address to be
      dynamic (the original afl way, which is slower)
@@ -254,15 +252,6 @@ checks or alter some of the more exotic semantics of the tool:
     useful if you can't change the defaults (e.g., no root access to the
     system) and are OK with some performance loss.
 
-  - Setting AFL_NO_FORKSRV disables the forkserver optimization, reverting to
-    fork + execve() call for every tested input. This is useful mostly when
-    working with unruly libraries that create threads or do other crazy
-    things when initializing (before the instrumentation has a chance to run).
-
-    Note that this setting inhibits some of the user-friendly diagnostics
-    normally done when starting up the forkserver and causes a pretty
-    significant performance drop.
-
   - AFL_EXIT_WHEN_DONE causes afl-fuzz to terminate when all existing paths
     have been fuzzed and there were no new finds for a while. This would be
     normally indicated by the cycle counter in the UI turning green. May be
@@ -272,6 +261,9 @@ checks or alter some of the more exotic semantics of the tool:
     afl-tmin and afl-analyze create to gather instrumentation data from
     the target. This must be equal or larger than the size the target was
     compiled with.
+
+  - Setting AFL_DISABLE_TRIM tells afl-fuzz to no trim test cases. This is
+    usually a bad idea!
 
   - Setting AFL_NO_AFFINITY disables attempts to bind to a specific CPU core
     on Linux systems. This slows things down, but lets you run more instances
@@ -338,6 +330,13 @@ checks or alter some of the more exotic semantics of the tool:
 
   - In QEMU mode (-Q), AFL_PATH will be searched for afl-qemu-trace.
 
+  - Setting AFL_CYCLE_SCHEDULES will switch to a different schedule everytime
+    a cycle is finished.
+
+  - Setting AFL_EXPAND_HAVOC_NOW will start in the extended havoc mode that
+    includes costly mutations. afl-fuzz automatically enables this mode when
+    deemed useful otherwise.
+
   - Setting AFL_PRELOAD causes AFL to set LD_PRELOAD for the target binary
     without disrupting the afl-fuzz process itself. This is useful, among other
     things, for bootstrapping libdislocator.so.
@@ -364,6 +363,15 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting AFL_AUTORESUME will resume a fuzz run (same as providing `-i -`)
     for an existing out folder, even if a different `-i` was provided.
     Without this setting, afl-fuzz will refuse execution for a long-fuzzed out dir.
+
+  - Setting AFL_NO_FORKSRV disables the forkserver optimization, reverting to
+    fork + execve() call for every tested input. This is useful mostly when
+    working with unruly libraries that create threads or do other crazy
+    things when initializing (before the instrumentation has a chance to run).
+
+    Note that this setting inhibits some of the user-friendly diagnostics
+    normally done when starting up the forkserver and causes a pretty
+    significant performance drop.
 
   - Outdated environment variables that are that not supported anymore:
     AFL_DEFER_FORKSRV

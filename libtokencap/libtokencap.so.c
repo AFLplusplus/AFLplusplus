@@ -35,7 +35,7 @@
 
 #if !defined __linux__ && !defined __APPLE__ && !defined __FreeBSD__ &&      \
     !defined __OpenBSD__ && !defined __NetBSD__ && !defined __DragonFly__ && \
-    !defined(__HAIKU__)
+    !defined(__HAIKU__) && !defined(__sun)
   #error "Sorry, this library is unsupported in this platform for now!"
 #endif /* !__linux__ && !__APPLE__ && ! __FreeBSD__ && ! __OpenBSD__ && \
           !__NetBSD__*/
@@ -52,6 +52,10 @@
   #include <sys/mman.h>
 #elif defined __HAIKU__
   #include <kernel/image.h>
+#elif defined __sun
+  /* For map addresses the old struct is enough */
+  #include <sys/procfs.h>
+  #include <limits.h>
 #endif
 
 #include <dlfcn.h>
@@ -237,6 +241,8 @@ static void __tokencap_load_mappings(void) {
   image_info ii;
   int32_t    group = 0;
 
+  __tokencap_ro_loaded = 1;
+
   while (get_next_image_info(0, &group, &ii) == B_OK) {
 
     __tokencap_ro[__tokencap_ro_cnt].st = ii.text;
@@ -246,6 +252,38 @@ static void __tokencap_load_mappings(void) {
 
   }
 
+#elif defined __sun
+  prmap_t *c, *map;
+  char     path[PATH_MAX];
+  ssize_t  r;
+  size_t   hint;
+  int      fd;
+
+  snprintf(path, sizeof(path), "/proc/%ld/map", getpid());
+  fd = open(path, O_RDONLY);
+  hint = (1 << 20);
+  map = malloc(hint);
+
+  __tokencap_ro_loaded = 1;
+
+  for (; (r = pread(fd, map, hint, 0)) == hint;) {
+
+    hint <<= 1;
+    map = realloc(map, hint);
+
+  }
+
+  for (c = map; r > 0; c++, r -= sizeof(prmap_t)) {
+
+    __tokencap_ro[__tokencap_ro_cnt].st = c->pr_vaddr;
+    __tokencap_ro[__tokencap_ro_cnt].en = c->pr_vaddr + c->pr_size;
+
+    if (++__tokencap_ro_cnt == MAX_MAPPINGS) break;
+
+  }
+
+  free(map);
+  close(fd);
 #endif
 
 }

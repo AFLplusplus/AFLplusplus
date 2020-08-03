@@ -35,8 +35,8 @@ bit_width may be 64, 32 or 16.
 A new experimental feature is splitting floating point comparisons into a
 series of sign, exponent and mantissa comparisons followed by splitting each
 of them into 8 bit comparisons when necessary.
-It is activated with the `AFL_LLVM_LAF_SPLIT_FLOATS` setting, available only
-when `AFL_LLVM_LAF_SPLIT_COMPARES` is set.
+It is activated with the `AFL_LLVM_LAF_SPLIT_FLOATS` setting.
+Note that setting this automatically activates `AFL_LLVM_LAF_SPLIT_COMPARES`
 
 You can also set `AFL_LLVM_LAF_ALL` and have all of the above enabled :-)
 

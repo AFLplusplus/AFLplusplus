@@ -82,6 +82,11 @@
   #include <sys/sysctl.h>
 #endif                           /* __APPLE__ || __FreeBSD__ || __OpenBSD__ */
 
+#if defined(__HAIKU__)
+  #include <kernel/OS.h>
+  #include <kernel/scheduler.h>
+#endif
+
 /* For systems that have sched_setaffinity; right now just Linux, but one
    can hope... */
 
@@ -139,7 +144,8 @@ struct queue_entry {
       var_behavior,                     /* Variable behavior?               */
       favored,                          /* Currently favored?               */
       fs_redundant,                     /* Marked as redundant in the fs?   */
-      fully_colorized;                  /* Do not run redqueen stage again  */
+      fully_colorized,                  /* Do not run redqueen stage again  */
+      is_ascii;                         /* Is the input just ascii text?    */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
       fuzz_level;                       /* Number of fuzzing iterations     */
@@ -333,7 +339,7 @@ typedef struct afl_env_vars {
       afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child_output, afl_autoresume,
-      afl_cal_fast;
+      afl_cal_fast, afl_cycle_schedules, afl_expand_havoc;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_skip_crashes, *afl_preload;
@@ -344,6 +350,13 @@ struct afl_pass_stat {
 
   u8 total;
   u8 faileds;
+
+};
+
+struct foreign_sync {
+
+  u8 *   dir;
+  time_t ctime;
 
 };
 
@@ -454,7 +467,9 @@ typedef struct afl_state {
       fixed_seed,                       /* do not reseed                    */
       fast_cal,                         /* Try to calibrate faster?         */
       disable_trim,                     /* Never trim in fuzz_one           */
-      shmem_testcase_mode;              /* If sharedmem testcases are used  */
+      shmem_testcase_mode,              /* If sharedmem testcases are used  */
+      expand_havoc,                /* perform expensive havoc after no find */
+      cycle_schedules;                  /* cycle power schedules ?          */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
@@ -535,7 +550,8 @@ typedef struct afl_state {
   u64 total_bitmap_size,                /* Total bit count for all bitmaps  */
       total_bitmap_entries;             /* Number of bitmaps counted        */
 
-  s32 cpu_core_count;                   /* CPU core count                   */
+  s32 cpu_core_count,                   /* CPU core count                   */
+      cpu_to_bind;                      /* bind to specific CPU             */
 
 #ifdef HAVE_AFFINITY
   s32 cpu_aff;                          /* Selected CPU core                */
@@ -545,6 +561,10 @@ typedef struct afl_state {
       *queue_cur,                       /* Current offset within the queue  */
       *queue_top,                       /* Top of the list                  */
       *q_prev100;                       /* Previous 100 marker              */
+
+  // growing buf
+  struct queue_entry **queue_buf;
+  size_t               queue_size;
 
   struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
 
@@ -573,6 +593,15 @@ typedef struct afl_state {
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
+
+  unsigned long long int last_avg_exec_update;
+  u32                    last_avg_execs;
+  float                  last_avg_execs_saved;
+
+/* foreign sync */
+#define FOREIGN_SYNCS_MAX 32
+  u8                  foreign_sync_cnt;
+  struct foreign_sync foreign_syncs[FOREIGN_SYNCS_MAX];
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   u8  do_document;
@@ -937,6 +966,7 @@ void   fix_up_banner(afl_state_t *, u8 *);
 void   check_if_tty(afl_state_t *);
 void   setup_signal_handlers(void);
 void   save_cmdline(afl_state_t *, u32, char **);
+void   read_foreign_testcases(afl_state_t *, int);
 
 /* CmpLog */
 

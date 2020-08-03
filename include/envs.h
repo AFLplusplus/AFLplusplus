@@ -34,6 +34,7 @@ static char *afl_environment_variables[] = {
     "AFL_CUSTOM_MUTATOR_LIBRARY",
     "AFL_CUSTOM_MUTATOR_ONLY",
     "AFL_CXX",
+    "AFL_CYCLE_SCHEDULES",
     "AFL_DEBUG",
     "AFL_DEBUG_CHILD_OUTPUT",
     "AFL_DEBUG_GDB",
@@ -64,6 +65,7 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_CMPLOG",
     "AFL_LLVM_INSTRIM",
     "AFL_LLVM_CTX",
+    "AFL_LLVM_DOCUMENT_IDS",
     "AFL_LLVM_INSTRUMENT",
     "AFL_LLVM_INSTRIM_LOOPHEAD",
     "AFL_LLVM_LTO_AUTODICTIONARY",
@@ -129,6 +131,7 @@ static char *afl_environment_variables[] = {
     "AFL_USE_CFISAN",
     "AFL_WINE_PATH",
     "AFL_NO_SNAPSHOT",
+    "AFL_EXPAND_HAVOC_NOW",
     NULL
 
 };

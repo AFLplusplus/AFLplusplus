@@ -134,6 +134,8 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
 }
 
+#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
+
 /* The same, but with an adjustable gap. Used for trimming. */
 
 static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
@@ -142,18 +144,81 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
   s32 fd = afl->fsrv.out_fd;
   u32 tail_len = len - skip_at - skip_len;
 
+  /*
+  This memory is used to carry out the post_processing(if present) after copying
+  the testcase by removing the gaps. This can break though
+  */
+  u8 *mem_trimmed = ck_maybe_grow(BUF_PARAMS(out_scratch), len - skip_len + 1);
+
+  ssize_t new_size = len - skip_len;
+  void *  new_mem = mem;
+  u8 *    new_buf = NULL;
+
+  bool post_process_skipped = true;
+
+  if (unlikely(afl->custom_mutators_count)) {
+
+    new_mem = mem_trimmed;
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_post_process) {
+
+        // We copy into the mem_trimmed only if we actually have custom mutators
+        // *with* post_processing installed
+
+        if (post_process_skipped) {
+
+          if (skip_at) { memcpy(mem_trimmed, (u8 *)mem, skip_at); }
+
+          if (tail_len) {
+
+            memcpy(mem_trimmed + skip_at, (u8 *)mem + skip_at + skip_len,
+                   tail_len);
+
+          }
+
+          post_process_skipped = false;
+
+        }
+
+        new_size =
+            el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
+
+        if (unlikely(!new_buf || (new_size <= 0))) {
+
+          FATAL("Custom_post_process failed (ret: %lu)",
+                (long unsigned)new_size);
+
+        }
+
+      }
+
+      new_mem = new_buf;
+
+    });
+
+  }
+
   if (afl->fsrv.shmem_fuzz) {
 
-    if (skip_at) { memcpy(afl->fsrv.shmem_fuzz, mem, skip_at); }
+    if (!post_process_skipped) {
 
-    if (tail_len) {
+      // If we did post_processing, copy directly from the new_buf bufer
 
-      memcpy(afl->fsrv.shmem_fuzz + skip_at, (u8 *)mem + skip_at + skip_len,
-             tail_len);
+      memcpy(afl->fsrv.shmem_fuzz, new_buf, new_size);
 
     }
 
-    *afl->fsrv.shmem_fuzz_len = len - skip_len;
+    else {
+
+      memcpy(afl->fsrv.shmem_fuzz, mem, skip_at);
+
+      memcpy(afl->fsrv.shmem_fuzz, mem + skip_at + skip_len, tail_len);
+
+    }
+
+    *afl->fsrv.shmem_fuzz_len = new_size;
 
 #ifdef _DEBUG
     if (afl->debug) {
@@ -197,18 +262,21 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
 
   }
 
-  if (skip_at) { ck_write(fd, mem, skip_at, afl->fsrv.out_file); }
+  if (!post_process_skipped) {
 
-  u8 *memu8 = mem;
-  if (tail_len) {
+    ck_write(fd, new_buf, new_size, afl->fsrv.out_file);
 
-    ck_write(fd, memu8 + skip_at + skip_len, tail_len, afl->fsrv.out_file);
+  } else {
+
+    ck_write(fd, mem, skip_at, afl->fsrv.out_file);
+
+    ck_write(fd, mem + skip_at + skip_len, tail_len, afl->fsrv.out_file);
 
   }
 
   if (!afl->fsrv.out_file) {
 
-    if (ftruncate(fd, len - skip_len)) { PFATAL("ftruncate() failed"); }
+    if (ftruncate(fd, new_size)) { PFATAL("ftruncate() failed"); }
     lseek(fd, 0, SEEK_SET);
 
   } else {
@@ -218,6 +286,8 @@ static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
   }
 
 }
+
+#undef BUF_PARAMS
 
 /* Calibrate a new test case. This is done when processing the input directory
    to warn about flaky or otherwise problematic test cases early on; and when
@@ -611,6 +681,8 @@ void sync_fuzzers(afl_state_t *afl) {
     if (fd >= 0) { close(fd); }
 
   }
+
+  if (afl->foreign_sync_cnt) read_foreign_testcases(afl, 0);
 
 }
 

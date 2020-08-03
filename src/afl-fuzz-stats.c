@@ -39,7 +39,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
   u8                     fn[PATH_MAX];
   s32                    fd;
   FILE *                 f;
-  uint32_t               t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
+  u32                    t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
 
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
 
@@ -67,89 +67,102 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
   }
 
+  if ((unlikely(!afl->last_avg_exec_update ||
+                cur_time - afl->last_avg_exec_update >= 60000))) {
+
+    afl->last_avg_execs_saved =
+        (float)(1000 * (afl->fsrv.total_execs - afl->last_avg_execs)) /
+        (float)(cur_time - afl->last_avg_exec_update);
+    afl->last_avg_execs = afl->fsrv.total_execs;
+    afl->last_avg_exec_update = cur_time;
+
+  }
+
 #ifndef __HAIKU__
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
 #endif
 
-  fprintf(
-      f,
-      "start_time        : %llu\n"
-      "last_update       : %llu\n"
-      "run_time          : %llu\n"
-      "fuzzer_pid        : %u\n"
-      "cycles_done       : %llu\n"
-      "cycles_wo_finds   : %llu\n"
-      "execs_done        : %llu\n"
-      "execs_per_sec     : %0.02f\n"
-      //          "real_execs_per_sec: %0.02f\n"  // damn the name is too long
-      "paths_total       : %u\n"
-      "paths_favored     : %u\n"
-      "paths_found       : %u\n"
-      "paths_imported    : %u\n"
-      "max_depth         : %u\n"
-      "cur_path          : %u\n"        /* Must match find_start_position() */
-      "pending_favs      : %u\n"
-      "pending_total     : %u\n"
-      "variable_paths    : %u\n"
-      "stability         : %0.02f%%\n"
-      "bitmap_cvg        : %0.02f%%\n"
-      "unique_crashes    : %llu\n"
-      "unique_hangs      : %llu\n"
-      "last_path         : %llu\n"
-      "last_crash        : %llu\n"
-      "last_hang         : %llu\n"
-      "execs_since_crash : %llu\n"
-      "exec_timeout      : %u\n"
-      "slowest_exec_ms   : %u\n"
-      "peak_rss_mb       : %lu\n"
-      "cpu_affinity      : %d\n"
-      "edges_found       : %u\n"
-      "var_byte_count    : %u\n"
-      "afl_banner        : %s\n"
-      "afl_version       : " VERSION
-      "\n"
-      "target_mode       : %s%s%s%s%s%s%s%s%s\n"
-      "command_line      : %s\n",
-      afl->start_time / 1000, cur_time / 1000,
-      (cur_time - afl->start_time) / 1000, (u32)getpid(),
-      afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
-      afl->fsrv.total_execs,
-      afl->fsrv.total_execs /
-          ((double)(get_cur_time() - afl->start_time) / 1000),
-      afl->queued_paths, afl->queued_favored, afl->queued_discovered,
-      afl->queued_imported, afl->max_depth, afl->current_entry,
-      afl->pending_favored, afl->pending_not_fuzzed, afl->queued_variable,
-      stability, bitmap_cvg, afl->unique_crashes, afl->unique_hangs,
-      afl->last_path_time / 1000, afl->last_crash_time / 1000,
-      afl->last_hang_time / 1000, afl->fsrv.total_execs - afl->last_crash_execs,
-      afl->fsrv.exec_tmout, afl->slowest_exec_ms,
+  fprintf(f,
+          "start_time        : %llu\n"
+          "last_update       : %llu\n"
+          "run_time          : %llu\n"
+          "fuzzer_pid        : %u\n"
+          "cycles_done       : %llu\n"
+          "cycles_wo_finds   : %llu\n"
+          "execs_done        : %llu\n"
+          "execs_per_sec     : %0.02f\n"
+          "execs_ps_last_min : %0.02f\n"
+          "paths_total       : %u\n"
+          "paths_favored     : %u\n"
+          "paths_found       : %u\n"
+          "paths_imported    : %u\n"
+          "max_depth         : %u\n"
+          "cur_path          : %u\n"    /* Must match find_start_position() */
+          "pending_favs      : %u\n"
+          "pending_total     : %u\n"
+          "variable_paths    : %u\n"
+          "stability         : %0.02f%%\n"
+          "bitmap_cvg        : %0.02f%%\n"
+          "unique_crashes    : %llu\n"
+          "unique_hangs      : %llu\n"
+          "last_path         : %llu\n"
+          "last_crash        : %llu\n"
+          "last_hang         : %llu\n"
+          "execs_since_crash : %llu\n"
+          "exec_timeout      : %u\n"
+          "slowest_exec_ms   : %u\n"
+          "peak_rss_mb       : %lu\n"
+          "cpu_affinity      : %d\n"
+          "edges_found       : %u\n"
+          "var_byte_count    : %u\n"
+          "havoc_expansion   : %u\n"
+          "afl_banner        : %s\n"
+          "afl_version       : " VERSION
+          "\n"
+          "target_mode       : %s%s%s%s%s%s%s%s%s\n"
+          "command_line      : %s\n",
+          afl->start_time / 1000, cur_time / 1000,
+          (cur_time - afl->start_time) / 1000, (u32)getpid(),
+          afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
+          afl->fsrv.total_execs,
+          afl->fsrv.total_execs /
+              ((double)(get_cur_time() - afl->start_time) / 1000),
+          afl->last_avg_execs_saved, afl->queued_paths, afl->queued_favored,
+          afl->queued_discovered, afl->queued_imported, afl->max_depth,
+          afl->current_entry, afl->pending_favored, afl->pending_not_fuzzed,
+          afl->queued_variable, stability, bitmap_cvg, afl->unique_crashes,
+          afl->unique_hangs, afl->last_path_time / 1000,
+          afl->last_crash_time / 1000, afl->last_hang_time / 1000,
+          afl->fsrv.total_execs - afl->last_crash_execs, afl->fsrv.exec_tmout,
+          afl->slowest_exec_ms,
 #ifndef __HAIKU__
   #ifdef __APPLE__
-      (unsigned long int)(rus.ru_maxrss >> 20),
+          (unsigned long int)(rus.ru_maxrss >> 20),
   #else
-      (unsigned long int)(rus.ru_maxrss >> 10),
+          (unsigned long int)(rus.ru_maxrss >> 10),
   #endif
 #else
-      -1UL,
+          -1UL,
 #endif
 #ifdef HAVE_AFFINITY
-      afl->cpu_aff,
+          afl->cpu_aff,
 #else
-      -1,
+          -1,
 #endif
-      t_bytes, afl->var_byte_count, afl->use_banner,
-      afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
-      afl->non_instrumented_mode ? " non_instrumented " : "",
-      afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",
-      afl->persistent_mode ? "persistent " : "",
-      afl->shmem_testcase_mode ? "shmem_testcase " : "",
-      afl->deferred_mode ? "deferred " : "",
-      (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->non_instrumented_mode ||
-       afl->no_forkserver || afl->crash_mode || afl->persistent_mode ||
-       afl->deferred_mode)
-          ? ""
-          : "default",
-      afl->orig_cmdline);
+          t_bytes, afl->var_byte_count, afl->expand_havoc, afl->use_banner,
+          afl->unicorn_mode ? "unicorn" : "",
+          afl->fsrv.qemu_mode ? "qemu " : "",
+          afl->non_instrumented_mode ? " non_instrumented " : "",
+          afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",
+          afl->persistent_mode ? "persistent " : "",
+          afl->shmem_testcase_mode ? "shmem_testcase " : "",
+          afl->deferred_mode ? "deferred " : "",
+          (afl->unicorn_mode || afl->fsrv.qemu_mode ||
+           afl->non_instrumented_mode || afl->no_forkserver ||
+           afl->crash_mode || afl->persistent_mode || afl->deferred_mode)
+              ? ""
+              : "default",
+          afl->orig_cmdline);
   /* ignore errors */
 
   if (afl->debug) {

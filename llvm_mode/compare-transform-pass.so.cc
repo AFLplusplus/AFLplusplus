@@ -75,9 +75,6 @@ class CompareTransform : public ModulePass {
 
   }
 
- protected:
-  int be_quiet = 0;
-
  private:
   bool transformCmps(Module &M, const bool processStrcmp,
                      const bool processMemcmp, const bool processStrncmp,
@@ -358,7 +355,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     Value *     VarStr;
     bool        HasStr1 = getConstantStringInfo(Str1P, Str1);
     bool        HasStr2 = getConstantStringInfo(Str2P, Str2);
-    uint64_t    constStrLen, constSizedLen, unrollLen;
+    uint64_t    constStrLen, unrollLen, constSizedLen = 0;
     bool        isMemcmp =
         !callInst->getCalledFunction()->getName().compare(StringRef("memcmp"));
     bool isSizedcmp = isMemcmp ||
@@ -474,8 +471,8 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       if (cur_lenchk_bb) {
 
         IRBuilder<> cur_lenchk_IRB(&*(cur_lenchk_bb->getFirstInsertionPt()));
-        Value *     icmp = cur_lenchk_IRB.CreateICmpEQ(sizedValue,
-                                                  ConstantInt::get(Int64Ty, i));
+        Value *     icmp = cur_lenchk_IRB.CreateICmpEQ(
+            sizedValue, ConstantInt::get(sizedValue->getType(), i));
         cur_lenchk_IRB.CreateCondBr(icmp, end_bb, cur_cmp_bb);
         cur_lenchk_bb->getTerminator()->eraseFromParent();
 
