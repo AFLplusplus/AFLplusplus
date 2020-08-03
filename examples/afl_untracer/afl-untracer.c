@@ -437,6 +437,8 @@ inline static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
   if (write(FORKSRV_FD + 1, &pid, 4) != 4) do_exit = 1;
   // fprintf(stderr, "write1 %d\n", do_exit);
 
+   __afl_area_ptr[0] = 1;  // put something in the map
+
   return status;
 
 }
