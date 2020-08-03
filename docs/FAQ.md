@@ -103,10 +103,11 @@ afl-clang-fast PCGUARD and afl-clang-lto LTO instrumentation!
      b) For PCGUARD instrumented binaries it is much more difficult. Here you
         can either modify the __sanitizer_cov_trace_pc_guard function in
         llvm_mode/afl-llvm-rt.o.c to write a backtrace to a file if the ID in
-        __afl_area_ptr[*guard] is one of the unstable edge IDs. Then recompile
-        and reinstall llvm_mode and rebuild your target. Run the recompiled
-	target with afl-fuzz for a while and then check the file that you
-        wrote with the backtrace information.
+        __afl_area_ptr[*guard] is one of the unstable edge IDs.
+        (Example code is already there).
+        Then recompile and reinstall llvm_mode and rebuild your target.
+        Run the recompiled target with afl-fuzz for a while and then check the
+        file that you wrote with the backtrace information.
         Alternatively you can use `gdb` to hook __sanitizer_cov_trace_pc_guard_init
         on start, check to which memory address the edge ID value is written
         and set a write breakpoint to that address (`watch 0x.....`).

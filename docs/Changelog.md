@@ -19,6 +19,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - eliminated CPU affinity race condition for -S/-M runs
      - expanded havoc mode added, on no cycle finds add extra splicing and
        MOpt into the mix
+     - fixed a bug in redqueen for strings
   - llvm_mode:
      - now supports llvm 12!
      - fixes for laf-intel float splitting (thanks to mark-griffin for
