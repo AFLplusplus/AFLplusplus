@@ -255,12 +255,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (getenv("LAF_TRANSFORM_COMPARES") ||
       getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
 
-    if (!be_quiet && getenv("AFL_LLVM_LTO_AUTODICTIONARY") && lto_mode)
-      WARNF(
-          "using AFL_LLVM_LAF_TRANSFORM_COMPARES together with "
-          "AFL_LLVM_LTO_AUTODICTIONARY makes no sense. Use only "
-          "AFL_LLVM_LTO_AUTODICTIONARY.");
-
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
@@ -472,9 +466,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
-      getenv("LAF_TRANSFORM_COMPARES") ||
-      (lto_mode && (getenv("AFL_LLVM_LTO_AUTODICTIONARY") ||
-                    getenv("AFL_LLVM_AUTODICTIONARY")))) {
+      getenv("LAF_TRANSFORM_COMPARES") || lto_mode) {
 
     cc_params[cc_par_cnt++] = "-fno-builtin-strcmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-strncmp";
