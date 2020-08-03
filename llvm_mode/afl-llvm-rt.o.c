@@ -859,26 +859,34 @@ __attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
 
 void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
- // For stability analysis, if you want to know to which function unstable
- // edge IDs belong to - uncomment, recompile+install llvm_mode, recompile
- // the target. libunwind and libbacktrace are better solutions.
- // Set AFL_DEBUG_CHILD_OUTPUT=1 and run afl-fuzz with 2>file to capture
- // the backtrace output
- /*
- uint32_t unstable[] = { ... unstable edge IDs };
- uint32_t idx;
- char bt[1024];
- for (idx = 0; i < sizeof(unstable)/sizeof(uint32_t); i++) {
-   if (unstable[idx] == __afl_area_ptr[*guard]) {
-     int bt_size = backtrace(bt, 256);
-     if (bt_size > 0) {
-       char **bt_syms = backtrace_symbols(bt, bt_size);
-       if (bt_syms)
-         fprintf(stderr, "DEBUG: edge=%u caller=%s\n", unstable[idx], bt_syms[0]);
-     }
-   }
- }
- */
+  // For stability analysis, if you want to know to which function unstable
+  // edge IDs belong to - uncomment, recompile+install llvm_mode, recompile
+  // the target. libunwind and libbacktrace are better solutions.
+  // Set AFL_DEBUG_CHILD_OUTPUT=1 and run afl-fuzz with 2>file to capture
+  // the backtrace output
+  /*
+  uint32_t unstable[] = { ... unstable edge IDs };
+  uint32_t idx;
+  char bt[1024];
+  for (idx = 0; i < sizeof(unstable)/sizeof(uint32_t); i++) {
+
+    if (unstable[idx] == __afl_area_ptr[*guard]) {
+
+      int bt_size = backtrace(bt, 256);
+      if (bt_size > 0) {
+
+        char **bt_syms = backtrace_symbols(bt, bt_size);
+        if (bt_syms)
+          fprintf(stderr, "DEBUG: edge=%u caller=%s\n", unstable[idx],
+  bt_syms[0]);
+
+      }
+
+    }
+
+  }
+
+  */
 
   __afl_area_ptr[*guard]++;
 
