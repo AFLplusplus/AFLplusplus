@@ -56,8 +56,10 @@ endif
 
 ifneq "$(shell uname)" "Darwin"
  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+   ifndef SOURCE_DATE_EPOCH
  	#CFLAGS_OPT += -march=native
  	SPECIAL_PERFORMANCE += -march=native
+   endif
  endif
  # OS X does not like _FORTIFY_SOURCE=2
  CFLAGS_OPT += -D_FORTIFY_SOURCE=2
@@ -65,7 +67,7 @@ endif
 
 ifeq "$(shell uname)" "SunOS"
  CFLAGS_OPT += -Wno-format-truncation
- LDFLAGS=-lkstat
+ LDFLAGS=-lkstat -lrt
 endif
 
 ifdef STATIC
@@ -96,7 +98,7 @@ ifneq "$(shell uname -m)" "x86_64"
 endif
 
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
-override CFLAGS += -Wall -g -Wno-pointer-sign -Wmissing-declarations\
+override CFLAGS += -Wall -g -Wno-pointer-sign \
 			  -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
@@ -196,7 +198,7 @@ else
 endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
-  LDFLAGS += -ldl
+  LDFLAGS += -ldl -lrt
 endif
 
 ifneq "$(findstring FreeBSD, $(shell uname))" ""
@@ -254,13 +256,13 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 else
 	SHMAT_OK=0
 	override CFLAGS+=-DUSEMMAP=1
-	LDFLAGS += -Wno-deprecated-declarations -lrt
+	LDFLAGS += -Wno-deprecated-declarations
 endif
 
 ifdef TEST_MMAP
 	SHMAT_OK=0
 	override CFLAGS += -DUSEMMAP=1
-	LDFLAGS += -Wno-deprecated-declarations -lrt
+	LDFLAGS += -Wno-deprecated-declarations
 endif
 
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
@@ -455,10 +457,10 @@ code-format:
 	./.custom-format.py -i llvm_mode/*.h
 	./.custom-format.py -i llvm_mode/*.cc
 	./.custom-format.py -i gcc_plugin/*.c
-	#./.custom-format.py -i gcc_plugin/*.h
+	@#./.custom-format.py -i gcc_plugin/*.h
 	./.custom-format.py -i gcc_plugin/*.cc
 	./.custom-format.py -i custom_mutators/*/*.c
-	./.custom-format.py -i custom_mutators/*/*.h
+	@#./.custom-format.py -i custom_mutators/*/*.h # destroys input.h :-(
 	./.custom-format.py -i examples/*/*.c
 	./.custom-format.py -i examples/*/*.h
 	./.custom-format.py -i test/*.c

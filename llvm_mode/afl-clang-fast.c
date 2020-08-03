@@ -162,6 +162,7 @@ static void find_obj(u8 *argv0) {
 static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8  fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0;
+  u8  have_pic = 0;
   u8 *name;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
@@ -268,7 +269,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES")) {
+  if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
+      getenv("AFL_LLVM_LAF_SPLIT_FLOATS")) {
 
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
@@ -311,12 +313,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
-    if (instrument_mode == INSTRUMENT_CFG)
-      cc_params[cc_par_cnt++] =
-          alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-lto-instrim.so", obj_path);
-    else
-      cc_params[cc_par_cnt++] = alloc_printf(
-          "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
+    /*
+        The current LTO instrim mode is not good, so we disable it
+        if (instrument_mode == INSTRUMENT_CFG)
+          cc_params[cc_par_cnt++] =
+              alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-lto-instrim.so",
+       obj_path); else
+    */
+    cc_params[cc_par_cnt++] = alloc_printf(
+        "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
     cc_params[cc_par_cnt++] = lto_flag;
 
   } else {
@@ -359,6 +364,19 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
+  u32 idx;
+  if (lto_mode && argc > 1) {
+
+    for (idx = 1; idx < argc; idx++) {
+
+      if (!strncasecmp(argv[idx], "-fpic", 5)) have_pic = 1;
+
+    }
+
+    if (!have_pic) cc_params[cc_par_cnt++] = "-fPIC";
+
+  }
+
   /* Detect stray -v calls from ./configure scripts. */
 
   while (--argc) {
@@ -378,6 +396,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
       continue;
+
+    if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
 
     cc_params[cc_par_cnt++] = cur;
 
@@ -500,13 +520,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "int __afl_sharedmem_fuzzing = 1;"
       "extern unsigned int *__afl_fuzz_len;"
       "extern unsigned char *__afl_fuzz_ptr;"
-      "unsigned char *__afl_fuzz_alt_ptr;";
+      "unsigned char __afl_fuzz_alt[1024000];"
+      "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
-      "(__afl_fuzz_alt_ptr = (unsigned char *) malloc(1 * 1024 * 1024)))";
+      "__afl_fuzz_alt_ptr)";
   cc_params[cc_par_cnt++] =
-      "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? *__afl_fuzz_len : read(0, "
-      "__afl_fuzz_alt_ptr, 1 * 1024 * 1024))";
+      "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? *__afl_fuzz_len : "
+      "(*__afl_fuzz_len = read(0, __afl_fuzz_alt_ptr, 1024000)) == 0xffffffff "
+      "? 0 : *__afl_fuzz_len)";
 
   cc_params[cc_par_cnt++] =
       "-D__AFL_LOOP(_A)="
@@ -617,6 +639,10 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+  if ((getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST")) &&
+      getenv("AFL_DONT_OPTIMIZE"))
+    FATAL("AFL_LLVM_INSTRUMENT_FILE and AFL_DONT_OPTIMIZE cannot be combined");
+
   if (getenv("AFL_LLVM_INSTRIM") || getenv("INSTRIM") ||
       getenv("INSTRIM_LIB")) {
 
@@ -660,7 +686,7 @@ int main(int argc, char **argv, char **envp) {
       }
 
       if (strncasecmp(ptr, "pc-guard", strlen("pc-guard")) == 0 ||
-          strncasecmp(ptr, "pcguard", strlen("pcgard")) == 0) {
+          strncasecmp(ptr, "pcguard", strlen("pcguard")) == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_PCGUARD)
           instrument_mode = INSTRUMENT_PCGUARD;
@@ -763,9 +789,19 @@ int main(int argc, char **argv, char **envp) {
 #if LLVM_VERSION_MAJOR <= 6
     instrument_mode = INSTRUMENT_AFL;
 #else
-    if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST"))
+    if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST")) {
+
       instrument_mode = INSTRUMENT_AFL;
-    else
+      WARNF(
+          "switching to classic instrumentation because "
+          "AFL_LLVM_INSTRUMENT_FILE does not work with PCGUARD. Use "
+          "-fsanitize-coverage-allowlist=allowlist.txt if you want to use "
+          "PCGUARD. Requires llvm 12+. See "
+          "https://clang.llvm.org/docs/"
+          "SanitizerCoverage.html#partially-disabling-instrumentation");
+
+    } else
+
       instrument_mode = INSTRUMENT_PCGUARD;
 #endif
 
@@ -813,9 +849,13 @@ int main(int argc, char **argv, char **envp) {
 
   if (instrument_mode == INSTRUMENT_PCGUARD &&
       (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST")))
-    WARNF(
+    FATAL(
         "Instrumentation type PCGUARD does not support "
-        "AFL_LLVM_INSTRUMENT_FILE!");
+        "AFL_LLVM_INSTRUMENT_FILE! Use "
+        "-fsanitize-coverage-allowlist=allowlist.txt instead (requires llvm "
+        "12+), see "
+        "https://clang.llvm.org/docs/"
+        "SanitizerCoverage.html#partially-disabling-instrumentation");
 
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
 
@@ -871,6 +911,8 @@ int main(int argc, char **argv, char **envp) {
         "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
         "AFL_PATH: path to instrumenting pass and runtime "
         "(afl-llvm-rt.*o)\n"
+        "AFL_LLVM_DOCUMENT_IDS: document edge IDs given to which function (LTO "
+        "only)\n"
         "AFL_QUIET: suppress verbose output\n"
         "AFL_USE_ASAN: activate address sanitizer\n"
         "AFL_USE_CFISAN: activate control flow sanitizer\n"
@@ -939,7 +981,7 @@ int main(int argc, char **argv, char **envp) {
 
     u32 map_size = atoi(ptr2);
     if (map_size != MAP_SIZE)
-      FATAL("AFL_MAP_SIZE is not supported by afl-clang-fast");
+      WARNF("AFL_MAP_SIZE is not supported by afl-clang-fast");
 
   }
 

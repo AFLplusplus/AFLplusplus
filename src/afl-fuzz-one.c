@@ -24,6 +24,8 @@
  */
 
 #include "afl-fuzz.h"
+#include <string.h>
+#include <limits.h>
 
 /* MOpt */
 
@@ -361,6 +363,8 @@ static void locate_diffs(u8 *ptr1, u8 *ptr2, u32 len, s32 *first, s32 *last) {
 }
 
 #endif                                                     /* !IGNORE_FINDS */
+
+#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
 
 /* Take the current entry from the queue, fuzz it for a while. This
    function is a tad too long... returns 0 if fuzzed successfully, 1 if
@@ -1854,6 +1858,21 @@ havoc_stage:
   /* We essentially just do several thousand runs (depending on perf_score)
      where we take the input file and make random stacked tweaks. */
 
+  u32 r_max, r;
+
+  if (unlikely(afl->expand_havoc)) {
+
+    /* add expensive havoc cases here, they are activated after a full
+       cycle without finds happened */
+
+    r_max = 16 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
+
+  } else {
+
+    r_max = 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
+
+  }
+
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     u32 use_stacking = 1 << (1 + rand_below(afl, HAVOC_STACK_POW2));
@@ -1896,8 +1915,7 @@ havoc_stage:
 
       }
 
-      switch (rand_below(
-          afl, 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0))) {
+      switch ((r = rand_below(afl, r_max))) {
 
         case 0:
 
@@ -2192,85 +2210,198 @@ havoc_stage:
 
         }
 
-          /* Values 15 and 16 can be selected only if there are any extras
-             present in the dictionaries. */
+        default:
 
-        case 15: {
+          if (likely(r <= 16 && (afl->extras_cnt || afl->a_extras_cnt))) {
 
-          /* Overwrite bytes with an extra. */
+            /* Values 15 and 16 can be selected only if there are any extras
+               present in the dictionaries. */
 
-          if (!afl->extras_cnt || (afl->a_extras_cnt && rand_below(afl, 2))) {
+            if (r == 15) {
 
-            /* No user-specified extras or odds in our favor. Let's use an
-               auto-detected one. */
+              /* Overwrite bytes with an extra. */
 
-            u32 use_extra = rand_below(afl, afl->a_extras_cnt);
-            u32 extra_len = afl->a_extras[use_extra].len;
-            u32 insert_at;
+              if (!afl->extras_cnt ||
+                  (afl->a_extras_cnt && rand_below(afl, 2))) {
 
-            if (extra_len > temp_len) { break; }
+                /* No user-specified extras or odds in our favor. Let's use an
+                   auto-detected one. */
 
-            insert_at = rand_below(afl, temp_len - extra_len + 1);
-            memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
-                   extra_len);
+                u32 use_extra = rand_below(afl, afl->a_extras_cnt);
+                u32 extra_len = afl->a_extras[use_extra].len;
+                u32 insert_at;
+
+                if (extra_len > temp_len) { break; }
+
+                insert_at = rand_below(afl, temp_len - extra_len + 1);
+                memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
+                       extra_len);
+
+              } else {
+
+                /* No auto extras or odds in our favor. Use the dictionary. */
+
+                u32 use_extra = rand_below(afl, afl->extras_cnt);
+                u32 extra_len = afl->extras[use_extra].len;
+                u32 insert_at;
+
+                if (extra_len > temp_len) { break; }
+
+                insert_at = rand_below(afl, temp_len - extra_len + 1);
+                memcpy(out_buf + insert_at, afl->extras[use_extra].data,
+                       extra_len);
+
+              }
+
+              break;
+
+            } else {  // case 16
+
+              u32 use_extra, extra_len,
+                  insert_at = rand_below(afl, temp_len + 1);
+              u8 *ptr;
+
+              /* Insert an extra. Do the same dice-rolling stuff as for the
+                 previous case. */
+
+              if (!afl->extras_cnt ||
+                  (afl->a_extras_cnt && rand_below(afl, 2))) {
+
+                use_extra = rand_below(afl, afl->a_extras_cnt);
+                extra_len = afl->a_extras[use_extra].len;
+                ptr = afl->a_extras[use_extra].data;
+
+              } else {
+
+                use_extra = rand_below(afl, afl->extras_cnt);
+                extra_len = afl->extras[use_extra].len;
+                ptr = afl->extras[use_extra].data;
+
+              }
+
+              if (temp_len + extra_len >= MAX_FILE) { break; }
+
+              out_buf = ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
+
+              /* Tail */
+              memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
+                      temp_len - insert_at);
+
+              /* Inserted part */
+              memcpy(out_buf + insert_at, ptr, extra_len);
+
+              temp_len += extra_len;
+
+              break;
+
+            }
 
           } else {
 
-            /* No auto extras or odds in our favor. Use the dictionary. */
+            /*
+                        switch (r) {
 
-            u32 use_extra = rand_below(afl, afl->extras_cnt);
-            u32 extra_len = afl->extras[use_extra].len;
-            u32 insert_at;
+                          case 15:  // fall through
+                          case 16:
+                          case 17: {*/
 
-            if (extra_len > temp_len) { break; }
+            /* Overwrite bytes with a randomly selected chunk from another
+               testcase or insert that chunk. */
 
-            insert_at = rand_below(afl, temp_len - extra_len + 1);
-            memcpy(out_buf + insert_at, afl->extras[use_extra].data, extra_len);
+            if (afl->queued_paths < 4) break;
+
+            /* Pick a random queue entry and seek to it. */
+
+            u32 tid;
+            do
+              tid = rand_below(afl, afl->queued_paths);
+            while (tid == afl->current_entry);
+
+            struct queue_entry *target = afl->queue_buf[tid];
+
+            /* Make sure that the target has a reasonable length. */
+
+            while (target && (target->len < 2 || target == afl->queue_cur))
+              target = target->next;
+
+            if (!target) break;
+
+            /* Read the testcase into a new buffer. */
+
+            fd = open(target->fname, O_RDONLY);
+
+            if (unlikely(fd < 0)) {
+
+              PFATAL("Unable to open '%s'", target->fname);
+
+            }
+
+            u32 new_len = target->len;
+            u8 *new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), new_len);
+
+            ck_read(fd, new_buf, new_len, target->fname);
+
+            close(fd);
+
+            u8 overwrite = 0;
+            if (temp_len >= 2 && rand_below(afl, 2))
+              overwrite = 1;
+            else if (temp_len + HAVOC_BLK_XL >= MAX_FILE) {
+
+              if (temp_len >= 2)
+                overwrite = 1;
+              else
+                break;
+
+            }
+
+            if (overwrite) {
+
+              u32 copy_from, copy_to, copy_len;
+
+              copy_len = choose_block_len(afl, new_len - 1);
+              if (copy_len > temp_len) copy_len = temp_len;
+
+              copy_from = rand_below(afl, new_len - copy_len + 1);
+              copy_to = rand_below(afl, temp_len - copy_len + 1);
+
+              memmove(out_buf + copy_to, new_buf + copy_from, copy_len);
+
+            } else {
+
+              u32 clone_from, clone_to, clone_len;
+
+              clone_len = choose_block_len(afl, new_len);
+              clone_from = rand_below(afl, new_len - clone_len + 1);
+
+              clone_to = rand_below(afl, temp_len);
+
+              u8 *temp_buf =
+                  ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+
+              /* Head */
+
+              memcpy(temp_buf, out_buf, clone_to);
+
+              /* Inserted part */
+
+              memcpy(temp_buf + clone_to, new_buf + clone_from, clone_len);
+
+              /* Tail */
+              memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
+                     temp_len - clone_to);
+
+              swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
+              out_buf = temp_buf;
+              temp_len += clone_len;
+
+            }
+
+            break;
 
           }
 
-          break;
-
-        }
-
-        case 16: {
-
-          u32 use_extra, extra_len, insert_at = rand_below(afl, temp_len + 1);
-          u8 *ptr;
-
-          /* Insert an extra. Do the same dice-rolling stuff as for the
-             previous case. */
-
-          if (!afl->extras_cnt || (afl->a_extras_cnt && rand_below(afl, 2))) {
-
-            use_extra = rand_below(afl, afl->a_extras_cnt);
-            extra_len = afl->a_extras[use_extra].len;
-            ptr = afl->a_extras[use_extra].data;
-
-          } else {
-
-            use_extra = rand_below(afl, afl->extras_cnt);
-            extra_len = afl->extras[use_extra].len;
-            ptr = afl->extras[use_extra].data;
-
-          }
-
-          if (temp_len + extra_len >= MAX_FILE) { break; }
-
-          out_buf = ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
-
-          /* Tail */
-          memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
-                  temp_len - insert_at);
-
-          /* Inserted part */
-          memcpy(out_buf + insert_at, ptr, extra_len);
-
-          temp_len += extra_len;
-
-          break;
-
-        }
+          // end of default:
 
       }
 
@@ -2357,20 +2488,7 @@ retry_splicing:
     } while (tid == afl->current_entry);
 
     afl->splicing_with = tid;
-    target = afl->queue;
-
-    while (tid >= 100) {
-
-      target = target->next_100;
-      tid -= 100;
-
-    }
-
-    while (tid--) {
-
-      target = target->next;
-
-    }
+    target = afl->queue_buf[tid];
 
     /* Make sure that the target has a reasonable length. */
 
@@ -4750,7 +4868,7 @@ u8 fuzz_one(afl_state_t *afl) {
 
   return (key_val_lv_1 | key_val_lv_2);
 
-#undef BUF_PARAMS
-
 }
+
+#undef BUF_PARAMS
 

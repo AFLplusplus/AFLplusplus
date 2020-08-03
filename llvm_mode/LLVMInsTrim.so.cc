@@ -56,7 +56,6 @@ struct InsTrim : public ModulePass {
 
  protected:
   uint32_t function_minimum_size = 1;
-  uint32_t debug = 0;
   char *   skip_nozero = NULL;
 
  private:
@@ -102,7 +101,6 @@ struct InsTrim : public ModulePass {
 
   bool runOnModule(Module &M) override {
 
-    char be_quiet = 0;
     setvbuf(stdout, NULL, _IONBF, 0);
 
     if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {

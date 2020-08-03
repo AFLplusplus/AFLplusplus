@@ -8,11 +8,16 @@
 
   The following is a description of how these binaries can be fuzzed with afl++
 
+
 ## TL;DR:
 
   qemu_mode in persistent mode is the fastest - if the stability is
   high enough. Otherwise try retrowrite, afl-dyninst and if these
   fail too then standard qemu_mode with AFL_ENTRYPOINT to where you need it.
+
+  If your target is a library use examples/afl_frida/.
+
+  If your target is non-linux then use unicorn_mode/.
 
 
 ## QEMU
@@ -55,6 +60,20 @@
   Unicorn. For further information, check out [unicorn_mode/README.md](../unicorn_mode/README.md).
 
   As it is included in afl++ this needs no URL.
+
+
+## AFL FRIDA
+
+   If you want to fuzz a binary-only shared library then you can fuzz it with
+   frida-gum via examples/afl_frida/, you will have to write a harness to
+   call the target function in the library, use afl-frida.c as a template.
+
+
+## AFL UNTRACER
+
+   If you want to fuzz a binary-only shared library then you can fuzz it with
+   examples/afl_untracer/, use afl-untracer.c as a template.
+   It is slower than AFL FRIDA (see above).
 
 
 ## DYNINST

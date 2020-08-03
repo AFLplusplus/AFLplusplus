@@ -32,15 +32,16 @@ ifeq "$(shell uname)" "OpenBSD"
   LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
   HAS_OPT = $(shell test -x $(BIN_PATH)/opt && echo 0 || echo 1)
   ifeq "$(HAS_OPT)" "1"
-    $(error llvm_mode needs a complete llvm installation (versions 3.4 up to 11) -> e.g. "pkg_add llvm-7.0.1p9")
+    $(error llvm_mode needs a complete llvm installation (versions 3.4 up to 12) -> e.g. "pkg_add llvm-7.0.1p9")
   endif
 else
   LLVM_CONFIG ?= llvm-config
 endif
 
 LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' )
-LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^3\.[0-3]|^1[2-9]' && echo 1 || echo 0 )
+LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^3\.[0-3]|^19' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[0-9]' && echo 1 || echo 0 )
+LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]' && echo 1 || echo 0 )
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//')
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 LLVM_LIBDIR = $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
@@ -53,20 +54,29 @@ ifeq "$(LLVMVER)" ""
 endif
 
 ifeq "$(LLVM_UNSUPPORTED)" "1"
-  $(warning llvm_mode only supports llvm versions 3.4 up to 11)
+  $(warning llvm_mode only supports llvm versions 3.4 up to 12)
 endif
+
+LLVM_TOO_OLD=1
 
 ifeq "$(LLVM_MAJOR)" "9"
   $(info [+] llvm_mode detected llvm 9, enabling neverZero implementation)
+  LLVM_TOO_OLD=0
 endif
 
 ifeq "$(LLVM_NEW_API)" "1"
   $(info [+] llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
   LLVM_STDCXX = c++14
+  LLVM_TOO_OLD=0
 endif
 
-ifeq "$(LLVM_MAJOR)" "11"
-  $(info [+] llvm_mode detected llvm 11, enabling afl-clang-lto LTO implementation)
+ifeq "$(LLVM_TOO_OLD)" "1"
+  $(info [!] llvm_mode detected an old version of llvm, upgrade to at least 9 or preferable 11!)
+  $(shell sleep 1)
+endif
+
+ifeq "$(LLVM_HAVE_LTO)" "1"
+  $(info [+] llvm_mode detected llvm 11+, enabling afl-clang-lto LTO implementation)
   LLVM_LTO = 1
   #TEST_MMAP = 1
 endif
@@ -182,18 +192,24 @@ ifeq "$(LLVM_LTO)" "1"
       ifneq "$(shell readlink $(LLVM_BINDIR)/ld.lld 2>&1)" ""
         AFL_REAL_LD = $(LLVM_BINDIR)/ld.lld
       else
-        $(warn ld.lld not found, can not enable LTO mode)
+        $(warn ld.lld not found, cannot enable LTO mode)
         LLVM_LTO = 0
       endif
     endif
+  else
+    $(warn -flto is not working (LLVMgold.so not found?), cannot enable LTO mode)
+    LLVM_LTO = 0
   endif
 endif
 
 AFL_CLANG_FUSELD=
-ifneq "$(AFL_CLANG_FLTO)" ""
-ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=`command -v ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-  AFL_CLANG_FUSELD=1
-endif
+ifeq "$(LLVM_LTO)" "1"
+  ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=`command -v ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+    AFL_CLANG_FUSELD=1
+  else
+    $(warn -fuse-ld is not working, cannot enable LTO mode)
+    LLVM_LTO = 0
+  endif
 endif
 
 CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2

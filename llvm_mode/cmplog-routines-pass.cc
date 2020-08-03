@@ -76,9 +76,6 @@ class CmpLogRoutines : public ModulePass {
 
   }
 
- protected:
-  int be_quiet = 0;
-
  private:
   bool hookRtns(Module &M);
 

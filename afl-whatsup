@@ -20,7 +20,7 @@
 
 echo "$0 status check tool for afl-fuzz by Michal Zalewski"
 echo
-test "$1" = "-h" && {
+test "$1" = "-h" -o "$1" = "-hh" && {
   echo $0 [-s] output_directory
   echo
   echo Options:
@@ -162,7 +162,8 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
 
   ALIVE_CNT=$((ALIVE_CNT + 1))
 
-  EXEC_SEC=$((execs_done / RUN_UNIX))
+  EXEC_SEC=0
+  test -z "$RUN_UNIX" -o "$RUN_UNIX" = 0 || EXEC_SEC=$((execs_done / RUN_UNIX))
   PATH_PERC=$((cur_path * 100 / paths_total))
 
   TOTAL_TIME=$((TOTAL_TIME + RUN_UNIX))
@@ -184,7 +185,9 @@ for i in `find . -maxdepth 2 -iname fuzzer_stats | sort`; do
       echo "  ${RED}timeout_ratio $TIMEOUT_PERC%${NC}"
     fi
 
-    if [ $EXEC_SEC -lt 100 ]; then
+    if [ $EXEC_SEC -eq 0 ]; then
+      echo "  ${YELLOW}no data yet, 0 execs/sec${NC}"
+    elif [ $EXEC_SEC -lt 100 ]; then
       echo "  ${RED}slow execution, $EXEC_SEC execs/sec${NC}"
     fi
 

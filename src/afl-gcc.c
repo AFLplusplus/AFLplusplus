@@ -132,6 +132,9 @@ static void edit_params(u32 argc, char **argv) {
 
     name = argv[0];
 
+    /* This should never happen but fixes a scan-build warning */
+    if (!name) { FATAL("Empty argv set"); }
+
   } else {
 
     ++name;
@@ -465,7 +468,7 @@ int main(int argc, char **argv) {
     u32 map_size = atoi(ptr);
     if (map_size != MAP_SIZE) {
 
-      FATAL("AFL_MAP_SIZE is not supported by afl-gcc");
+      WARNF("AFL_MAP_SIZE is not supported by afl-gcc");
 
     }
 

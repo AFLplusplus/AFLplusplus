@@ -1,5 +1,7 @@
 # How to submit a Pull Request to AFLplusplus
 
+All contributions (pull requests) must be made against our `dev` branch.
+
 Each modified source file, before merging, must be formatted.
 
 ```
@@ -18,5 +20,5 @@ No camel case at all and use the AFL's macros wherever possible
 (e.g. WARNF, FATAL, MAP_SIZE, ...).
 
 Remember that AFLplusplus has to build and run on many platforms, so
-generalize your Makefiles (or your patches to our pre-existing Makefiles)
-to be as much generic as possible.
+generalize your Makefiles/GNUmakefile (or your patches to our pre-existing
+Makefiles) to be as much generic as possible.

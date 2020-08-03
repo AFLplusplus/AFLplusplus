@@ -7,6 +7,10 @@ test -z "" 2>/dev/null || { echo Error: test command not found ; exit 1 ; }
 GREP=`type grep > /dev/null 2>&1 && echo OK`
 test "$GREP" = OK || { echo Error: grep command not found ; exit 1 ; }
 echo foobar | grep -qE 'asd|oob' 2>/dev/null || { echo Error: grep command does not support -q and/or -E option ; exit 1 ; }
+test -e ./test.sh || cd $(dirname $0) || exit 1
+test -e ./test.sh || { echo Error: you must be in the test/ directory ; exit 1 ; }
+export AFL_PATH=`pwd`/..
+
 echo 1 > test.1
 echo 1 > test.2
 OK=OK
@@ -202,7 +206,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     rm -f in2/in*
     export AFL_QUIET=1
     if command -v bash >/dev/null ; then {
-      AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
+      ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
       CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
         *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
@@ -326,7 +330,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       rm -f in2/in*
       export AFL_QUIET=1
       if type bash >/dev/null ; then {
-        AFL_PATH=`pwd`/.. ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
+        ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
         CNT=`ls in2/* 2>/dev/null | wc -l`
         case "$CNT" in
           *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
@@ -372,8 +376,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$YELLOW[-] llvm_mode InsTrim not compiled, cannot test"
     INCOMPLETE=1
   }
-  AFL_LLVM_INSTRUMENT=AFL
-  AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
+  AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
   test -e test-compcov.compcov && test_compcov_binary_functionality ./test-compcov.compcov && {
     grep --binary-files=text -Eq " [ 123][0-9][0-9] location| [3-9][0-9] location" test.out && {
       $ECHO "$GREEN[+] llvm_mode laf-intel/compcov feature works correctly"
@@ -386,6 +389,26 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-compcov.compcov test.out
+  AFL_LLVM_INSTRUMENT=AFL AFL_LLVM_LAF_SPLIT_FLOATS=1 ../afl-clang-fast -o test-floatingpoint test-floatingpoint.c >errors 2>&1
+  test -e test-floatingpoint && {
+    mkdir -p in
+    echo ZZZZ > in/in
+    $ECHO "$GREY[*] running afl-fuzz with floating point splitting, this will take max. 30 seconds"
+    {
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_UI=1 ../afl-fuzz -s 1 -V30 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
+    } >>errors 2>&1
+    test -n "$( ls out/crashes/id:* 2>/dev/null )" && {
+      $ECHO "$GREEN[+] llvm_mode laf-intel floatingpoint splitting feature works correctly"
+    } || {
+      cat errors
+      $ECHO "$RED[!] llvm_mode laf-intel floatingpoint splitting feature failed"
+      CODE=1
+    }
+  } || {
+    $ECHO "$RED[!] llvm_mode laf-intel floatingpoint splitting feature compilation failed"
+    CODE=1
+  }
+  rm -f test-floatingpoint test.out in/in
   echo foobar.c > instrumentlist.txt
   AFL_DEBUG=1 AFL_LLVM_INSTRUMENT_FILE=instrumentlist.txt ../afl-clang-fast -o test-compcov test-compcov.c > test.out 2>&1
   test -e test-compcov && test_compcov_binary_functionality ./test-compcov && {
@@ -400,6 +423,28 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-compcov test.out instrumentlist.txt
+  AFL_LLVM_CMPLOG=1 ../afl-clang-fast -o test-cmplog test-cmplog.c > /dev/null 2>&1
+  test -e test-cmplog && {
+    $ECHO "$GREY[*] running afl-fuzz for llvm_mode cmplog, this will take approx 10 seconds"
+    {
+      mkdir -p in
+      echo 0000000000000000000000000 > in/in
+      ../afl-fuzz -m none -V10 -i in -o out -c./test-cmplog -- ./test-cmplog >>errors 2>&1
+    } >>errors 2>&1
+    test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {
+      $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode cmplog"
+    } || {
+      echo CUT------------------------------------------------------------------CUT
+      cat errors
+      echo CUT------------------------------------------------------------------CUT
+      $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode cmplog"
+      CODE=1
+    }
+  } || {
+    $ECHO "$YELLOW[-] we cannot test llvm_mode cmplog because it is not present"
+    INCOMPLETE=1
+  }
+  rm -rf errors test-cmplog in
   ../afl-clang-fast -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {

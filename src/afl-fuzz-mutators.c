@@ -40,7 +40,7 @@ void setup_custom_mutators(afl_state_t *afl) {
 
   if (fn) {
 
-    if (afl->limit_time_sig)
+    if (afl->limit_time_sig && afl->limit_time_sig != -1)
       FATAL(
           "MOpt and custom mutator are mutually exclusive. We accept pull "
           "requests that integrates MOpt with the optional mutators "
@@ -168,7 +168,8 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   /* "afl_custom_deinit", optional for backward compatibility */
   mutator->afl_custom_deinit = dlsym(dh, "afl_custom_deinit");
-  if (!mutator->afl_custom_deinit) FATAL("Symbol 'afl_custom_init' not found.");
+  if (!mutator->afl_custom_deinit)
+    FATAL("Symbol 'afl_custom_deinit' not found.");
 
   /* "afl_custom_post_process", optional */
   mutator->afl_custom_post_process = dlsym(dh, "afl_custom_post_process");
@@ -282,22 +283,48 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     } else if (unlikely(retlen > orig_len)) {
 
-      FATAL(
-          "Trimmed data returned by custom mutator is larger than original "
-          "data");
+      /* Do not exit the fuzzer, even if the trimmed data returned by the custom
+         mutator is larger than the original data. For some use cases, like the
+         grammar mutator, the definition of "size" may have different meanings.
+         For example, the trimming function in a grammar mutator aims at
+         reducing the objects in a grammar structure, but does not guarantee to
+         generate a smaller binary buffer.
+
+         Thus, we allow the custom mutator to generate the trimmed data that is
+         larger than the original data. */
+
+      if (afl->not_on_tty && afl->debug) {
+
+        WARNF(
+            "Trimmed data returned by custom mutator is larger than original "
+            "data");
+
+      }
+
+    } else if (unlikely(retlen == 0)) {
+
+      /* Do not run the empty test case on the target. To keep the custom
+         trimming function running, we simply treat the empty test case as an
+         unsuccessful trimming and skip it, instead of aborting the trimming. */
+
+      ++afl->trim_execs;
 
     }
 
-    write_to_testcase(afl, retbuf, retlen);
+    if (likely(retlen)) {
 
-    fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-    ++afl->trim_execs;
+      write_to_testcase(afl, retbuf, retlen);
 
-    if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
+      fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+      ++afl->trim_execs;
 
-    cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
 
-    if (cksum == q->exec_cksum) {
+      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+    }
+
+    if (likely(retlen && cksum == q->exec_cksum)) {
 
       q->len = retlen;
       memcpy(in_buf, retbuf, retlen);
