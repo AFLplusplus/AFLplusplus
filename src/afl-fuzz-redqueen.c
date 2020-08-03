@@ -673,14 +673,15 @@ static u8 rtn_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   for (i = 0; i < its_len; ++i) {
 
-    if (pattern[idx + i] != buf[idx + i] ||
-        o_pattern[idx + i] != orig_buf[idx + i] || *status == 1) {
+    if (pattern[i] != buf[idx + i] ||
+        o_pattern[i] != orig_buf[idx + i] || *status == 1) {
 
       break;
 
     }
 
-    buf[idx + i] = repl[idx + i];
+    buf[idx + i] = repl[i];
+    
     if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
 
   }
@@ -726,7 +727,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
     }
 
     for (idx = 0; idx < len && fails < 8; ++idx) {
-
+    
       if (unlikely(rtn_extend_encoding(afl, h, o->v0, o->v1, orig_o->v0, idx,
                                        orig_buf, buf, len, &status))) {
 
