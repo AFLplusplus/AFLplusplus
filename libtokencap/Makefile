@@ -43,7 +43,7 @@ ______OS_TARGET = $(_____OS_TARGET:$(_UNIQ)$(UNAME_S)=)
 
 TARGETS       =  $(______OS_TARGET:$(_UNIQ)=libtokencap.so)
 
-LDFLAGS     += $(______OS_DL)
+LDFLAGS     += $(_____OS_DL)
 
 #ifeq "$(shell uname)" "Linux"
 #  TARGETS = libtokencap.so
