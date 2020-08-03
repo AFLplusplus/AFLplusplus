@@ -490,9 +490,13 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       if (nl_cnt == 0) {
 
-        if (first)
+        if (first) {
+
           WARNF("directory %s is currently empty",
                 afl->foreign_syncs[iter].dir);
+
+        }
+
         continue;
 
       }
@@ -540,11 +544,15 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
         if (st.st_size > MAX_FILE) {
 
-          if (first)
+          if (first) {
+
             WARNF(
                 "Test case '%s' is too big (%s, limit is %s), skipping", fn2,
                 stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
                 stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
+
+          }
+
           ck_free(fn2);
           continue;
 
