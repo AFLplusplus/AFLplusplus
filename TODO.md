@@ -30,3 +30,15 @@ qemu_mode:
    persistent mode
  - add/implement AFL_QEMU_INST_LIBLIST and AFL_QEMU_NOINST_PROGRAM
  - add/implement AFL_QEMU_INST_REGIONS as a list of _START/_END addresses
+
+## Ideas
+
+ - LTO/sancov: write current edge to prev_loc and use that information when
+   using cmplog or __sanitizer_cov_trace_cmp*. maybe we can deduct by follow
+   up edge numbers that both following cmp paths have been found and then
+   disable working on this edge id
+
+ - new tancov: use some lightweight taint analysis to see which parts of a
+   new queue entry is accessed and only fuzz these bytes - or better, only
+   fuzz those bytes that are newly in coverage compared to the queue entry
+   the new one is based on
