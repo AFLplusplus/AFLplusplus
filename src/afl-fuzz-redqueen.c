@@ -673,14 +673,15 @@ static u8 rtn_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   for (i = 0; i < its_len; ++i) {
 
-    if (pattern[idx + i] != buf[idx + i] ||
-        o_pattern[idx + i] != orig_buf[idx + i] || *status == 1) {
+    if (pattern[i] != buf[idx + i] || o_pattern[i] != orig_buf[idx + i] ||
+        *status == 1) {
 
       break;
 
     }
 
-    buf[idx + i] = repl[idx + i];
+    buf[idx + i] = repl[i];
+
     if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
 
   }
