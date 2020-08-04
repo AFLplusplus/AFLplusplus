@@ -108,15 +108,12 @@ make install
 
 Just use afl-clang-lto like you did with afl-clang-fast or afl-gcc.
 
-Also the instrument file listing (AFL_LLVM_INSTRUMENT_FILE -> [README.instrument_file.md](README.instrument_file.md)) and
+Also the instrument file listing (AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST -> [README.instrument_list.md](README.instrument_list.md)) and
 laf-intel/compcov (AFL_LLVM_LAF_* -> [README.laf-intel.md](README.laf-intel.md)) work.
-InsTrim (control flow graph instrumentation) is supported and recommended!
-  (set `AFL_LLVM_INSTRUMENT=CFG`)
 
 Example:
 ```
 CC=afl-clang-lto CXX=afl-clang-lto++ RANLIB=llvm-ranlib AR=llvm-ar ./configure
-export AFL_LLVM_INSTRUMENT=CFG
 make
 ```
 

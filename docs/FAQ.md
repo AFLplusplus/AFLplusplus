@@ -117,7 +117,7 @@ afl-clang-fast PCGUARD and afl-clang-lto LTO instrumentation!
      Identify which source code files contain the functions that you need to
      remove from instrumentation.
 
-     Simply follow this document on how to do this: [llvm_mode/README.instrument_file.md](llvm_mode/README.instrument_file.md)
+     Simply follow this document on how to do this: [llvm_mode/README.instrument_list.md](llvm_mode/README.instrument_list.md)
      If PCGUARD is used, then you need to follow this guide (needs llvm 12+!):
      [http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation](http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation)
 

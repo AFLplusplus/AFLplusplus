@@ -59,39 +59,9 @@ class AFLcheckIfInstrument : public ModulePass {
   static char ID;
   AFLcheckIfInstrument() : ModulePass(ID) {
 
-    int entries = 0;
-
     if (getenv("AFL_DEBUG")) debug = 1;
 
-    char *instrumentListFilename = getenv("AFL_LLVM_INSTRUMENT_FILE");
-    if (!instrumentListFilename)
-      instrumentListFilename = getenv("AFL_LLVM_WHITELIST");
-    if (instrumentListFilename) {
-
-      std::string   line;
-      std::ifstream fileStream;
-      fileStream.open(instrumentListFilename);
-      if (!fileStream)
-        report_fatal_error("Unable to open AFL_LLVM_INSTRUMENT_FILE");
-      getline(fileStream, line);
-      while (fileStream) {
-
-        myInstrumentList.push_back(line);
-        getline(fileStream, line);
-        entries++;
-
-      }
-
-    } else
-
-      PFATAL(
-          "afl-llvm-lto-instrumentlist.so loaded without "
-          "AFL_LLVM_INSTRUMENT_FILE?!");
-
-    if (debug)
-      SAYF(cMGN "[D] " cRST
-                "loaded the instrument file list %s with %d entries\n",
-           instrumentListFilename, entries);
+    initInstrumentList();
 
   }
 
@@ -129,120 +99,28 @@ bool AFLcheckIfInstrument::runOnModule(Module &M) {
   for (auto &F : M) {
 
     if (F.size() < 1) continue;
+
     // fprintf(stderr, "F:%s\n", F.getName().str().c_str());
-    if (isIgnoreFunction(&F)) continue;
 
-    BasicBlock::iterator IP = F.getEntryBlock().getFirstInsertionPt();
-    IRBuilder<>          IRB(&(*IP));
+    if (isInInstrumentList(&F)) {
 
-    if (!myInstrumentList.empty()) {
-
-      bool instrumentFunction = false;
-
-      /* Get the current location using debug information.
-       * For now, just instrument the block if we are not able
-       * to determine our location. */
-      DebugLoc Loc = IP->getDebugLoc();
-      if (Loc) {
-
-        DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
-
-        unsigned int instLine = cDILoc->getLine();
-        StringRef    instFilename = cDILoc->getFilename();
-
-        if (instFilename.str().empty()) {
-
-          /* If the original location is empty, try using the inlined location
-           */
-          DILocation *oDILoc = cDILoc->getInlinedAt();
-          if (oDILoc) {
-
-            instFilename = oDILoc->getFilename();
-            instLine = oDILoc->getLine();
-
-          }
-
-          if (instFilename.str().empty()) {
-
-            if (!be_quiet)
-              WARNF(
-                  "Function %s has no source file name information and will "
-                  "not be instrumented.",
-                  F.getName().str().c_str());
-            continue;
-
-          }
-
-        }
-
-        //(void)instLine;
-
-        fprintf(stderr, "xxx %s %s\n", F.getName().str().c_str(),
-                instFilename.str().c_str());
-        if (debug)
-          SAYF(cMGN "[D] " cRST "function %s is in file %s\n",
-               F.getName().str().c_str(), instFilename.str().c_str());
-
-        for (std::list<std::string>::iterator it = myInstrumentList.begin();
-             it != myInstrumentList.end(); ++it) {
-
-          /* We don't check for filename equality here because
-           * filenames might actually be full paths. Instead we
-           * check that the actual filename ends in the filename
-           * specified in the list. */
-          if (instFilename.str().length() >= it->length()) {
-
-            if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
-                0) {
-
-              instrumentFunction = true;
-              break;
-
-            }
-
-          }
-
-        }
-
-      } else {
-
-        if (!be_quiet)
-          WARNF(
-              "No debug information found for function %s, recompile with -g "
-              "-O[1-3]",
-              F.getName().str().c_str());
-        continue;
-
-      }
-
-      /* Either we couldn't figure out our location or the location is
-       * not the instrument file listed, so we skip instrumentation.
-       * We do this by renaming the function. */
-      if (instrumentFunction == true) {
-
-        if (debug)
-          SAYF(cMGN "[D] " cRST "function %s is in the instrument file list\n",
-               F.getName().str().c_str());
-
-      } else {
-
-        if (debug)
-          SAYF(cMGN "[D] " cRST
-                    "function %s is NOT in the instrument file list\n",
-               F.getName().str().c_str());
-
-        auto &        Ctx = F.getContext();
-        AttributeList Attrs = F.getAttributes();
-        AttrBuilder   NewAttrs;
-        NewAttrs.addAttribute("skipinstrument");
-        F.setAttributes(
-            Attrs.addAttributes(Ctx, AttributeList::FunctionIndex, NewAttrs));
-
-      }
+      if (debug)
+        SAYF(cMGN "[D] " cRST "function %s is in the instrument file list\n",
+             F.getName().str().c_str());
 
     } else {
 
-      PFATAL("InstrumentList is empty");
+      if (debug)
+        SAYF(cMGN "[D] " cRST
+                  "function %s is NOT in the instrument file list\n",
+             F.getName().str().c_str());
+
+      auto &        Ctx = F.getContext();
+      AttributeList Attrs = F.getAttributes();
+      AttrBuilder   NewAttrs;
+      NewAttrs.addAttribute("skipinstrument");
+      F.setAttributes(
+          Attrs.addAttributes(Ctx, AttributeList::FunctionIndex, NewAttrs));
 
     }
 

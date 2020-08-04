@@ -2,7 +2,6 @@
 
 ## Roadmap 2.67+
 
- - expand on AFL_LLVM_INSTRUMENT_FILE to also support sancov allowlist format
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - CPU affinity for many cores? There seems to be an issue > 96 cores
 
