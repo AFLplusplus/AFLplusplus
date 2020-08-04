@@ -246,7 +246,7 @@ anything below 9 is not recommended.
  +--------------------------------+
  | if you want to instrument only | -> use afl-gcc-fast and afl-gcc-fast++
  | parts of the target            |    see [gcc_plugin/README.md](gcc_plugin/README.md) and
- +--------------------------------+    [gcc_plugin/README.instrument_file.md](gcc_plugin/README.instrument_file.md)
+ +--------------------------------+    [gcc_plugin/README.instrument_list.md](gcc_plugin/README.instrument_list.md)
     |
     | if not, or if you do not have a gcc with plugin support
     |
@@ -290,12 +290,18 @@ selectively only instrument parts of the target that you are interested in:
    create a file with all the filenames of the source code that should be
    instrumented.
    For afl-clang-lto and afl-gcc-fast - or afl-clang-fast if either the clang
-   version is < 7 or the CLASSIC instrumentation is used - just put one
-   filename per line, no directory information necessary, and set
-   `export AFL_LLVM_INSTRUMENT_FILE=yourfile.txt`
-   see [llvm_mode/README.instrument_file.md](llvm_mode/README.instrument_file.md)
+   version is below 7 or the CLASSIC instrumentation is used - just put one
+   filename or function per line (no directory information necessary for
+   filenames9, and either set `export AFL_LLVM_ALLOWLIST=allowlist.txt` **or**
+   `export AFL_LLVM_DENYLIST=denylist.txt` - depending on if you want per
+   default to instrument unless noted (DENYLIST) or not perform instrumentation
+   unless requested (ALLOWLIST).
+   **NOTE:** In optimization functions might be inlined and then not match!
+   see [llvm_mode/README.instrument_list.md](llvm_mode/README.instrument_list.md)
    For afl-clang-fast > 6.0 or if PCGUARD instrumentation is used then use the
    llvm sancov allow-list feature: [http://clang.llvm.org/docs/SanitizerCoverage.html](http://clang.llvm.org/docs/SanitizerCoverage.html)
+   The llvm sancov format works with the allowlist/denylist feature of afl++
+   however afl++ is more flexible in the format.
 
 There are many more options and modes available however these are most of the
 time less effective. See:

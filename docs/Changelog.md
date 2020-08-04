@@ -22,6 +22,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - fixed a bug in redqueen for strings
   - llvm_mode:
      - now supports llvm 12!
+     - support for AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST (previous
+       AFL_LLVM_WHITELIST and AFL_LLVM_INSTRUMENT_FILE are deprecated and
+       are matched to AFL_LLVM_ALLOWLIST). The format is compatible to llvm
+       sancov, and also supports function matching!
      - fixes for laf-intel float splitting (thanks to mark-griffin for
        reporting)
      - LTO: autodictionary mode is a default

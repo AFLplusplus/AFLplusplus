@@ -67,7 +67,7 @@ to get to the important parts in the code.
 
 If you are only interested in specific parts of the code being fuzzed, you can
 instrument_files the files that are actually relevant. This improves the speed and
-accuracy of afl. See llvm_mode/README.instrument_file.md
+accuracy of afl. See llvm_mode/README.instrument_list.md
 
 Also use the InsTrim mode on larger binaries, this improves performance and
 coverage a lot.
