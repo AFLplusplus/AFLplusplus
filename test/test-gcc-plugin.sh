@@ -1,6 +1,6 @@
 #!/bin/sh
 
-source ./test-pre.sh
+. ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: gcc_plugin"
 test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
@@ -113,4 +113,4 @@ test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
   INCOMPLETE=1
 }
 
-source ./test-post.sh
+. ./test-post.sh

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-source ./test-pre.sh
+. ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: custom mutator"
 test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
@@ -122,4 +122,4 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
   INCOMPLETE=1
 }
 
-source ./test-post.sh
+. ./test-post.sh

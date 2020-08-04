@@ -1,6 +1,6 @@
 #!/bin/sh
 
-source ./test-pre.sh
+. ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" -o "$SYS" = "i386" && {
@@ -122,4 +122,4 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
  $ECHO "$YELLOW[-] not an intel platform, cannot test afl-gcc"
 }
 
-source ./test-post.sh
+. ./test-post.sh

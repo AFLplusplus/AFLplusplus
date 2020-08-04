@@ -1,6 +1,6 @@
 #!/bin/sh
 
-source ./test-pre.sh
+. ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: LTO llvm_mode"
 test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
@@ -75,4 +75,4 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
   INCOMPLETE=1
 }
 
-source ./test-post.sh
+. ./test-post.sh

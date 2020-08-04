@@ -1,6 +1,6 @@
 #!/bin/sh
 
-source ./test-pre.sh
+. ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: llvm_mode, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
@@ -227,4 +227,4 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   INCOMPLETE=1
 }
 
-source ./test-post.sh
+. ./test-post.sh
