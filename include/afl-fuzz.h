@@ -1001,6 +1001,30 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
 }
 
+/* we prefer lower range values here */
+/* this is only called with normal havoc, not MOpt, to have an equalizer for
+   expand havoc mode */
+static inline u32 rand_below_datalen(afl_state_t *afl, u32 limit) {
+
+  switch (rand_below(afl, 3)) {
+
+    case 2:
+      return (rand_below(afl, limit) % rand_below(afl, limit)) %
+             rand_below(afl, limit);
+      break;
+    case 1:
+      return rand_below(afl, limit) % rand_below(afl, limit);
+      break;
+    case 0:
+      return rand_below(afl, limit);
+      break;
+
+  }
+
+  return 1;  // cannot be reached
+
+}
+
 static inline s64 rand_get_seed(afl_state_t *afl) {
 
   if (unlikely(afl->fixed_seed)) { return afl->init_seed; }
