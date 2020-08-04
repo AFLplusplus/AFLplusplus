@@ -270,7 +270,7 @@ all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 man:    $(MANPAGES)
 
 tests:	source-only
-	@cd test ; ./test.sh
+	@cd test ; ./test-all.sh
 	@rm -f test/errors
 
 performance-tests:	performance-test
