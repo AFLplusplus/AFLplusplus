@@ -197,7 +197,7 @@ ifeq "$(LLVM_LTO)" "1"
       endif
     endif
   else
-    $(warn -flto is not working (LLVMgold.so not found?), cannot enable LTO mode)
+    $(warn clang option -flto is not working - maybe LLVMgold.so not found - cannot enable LTO mode)
     LLVM_LTO = 0
   endif
 endif
