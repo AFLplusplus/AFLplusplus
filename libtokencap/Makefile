@@ -28,23 +28,22 @@ UNAME_S =$(shell uname -s)# GNU make
 UNAME_S:sh=uname -s       # BSD make
 _UNIQ=_QINU_
 
-     _OS_DL = $(_UNIQ)$(UNAME_S)
-    __OS_DL =     $(_OS_DL:$(_UNIQ)Linux=$(_UNIQ))
-   ___OS_DL =    $(__OS_DL:$(_UNIQ)Darwin=$(_UNIQ))
-  ____OS_DL =   $(___OS_DL:$(_UNIQ)DragonFly=$(_UNIQ))
- _____OS_DL =  $(____OS_DL:$(_UNIQ)$(UNAME_S)=)
-______OS_DL = $(_____OS_DL:$(_UNIQ)="-ldl")
+    _OS_DL = $(_UNIQ)$(UNAME_S)
+   __OS_DL =     $(_OS_DL:$(_UNIQ)Linux=$(_UNIQ))
+  ___OS_DL =    $(__OS_DL:$(_UNIQ)Darwin=$(_UNIQ))
+ ____OS_DL =   $(___OS_DL:$(_UNIQ)$(UNAME_S)=)
+_____OS_DL =  $(____OS_DL:$(_UNIQ)="-ldl")
 
-     _OS_TARGET = $(____OS_DL:$(_UNIQ)FreeBSD=$(_UNIQ))
+     _OS_TARGET = $(___OS_DL:$(_UNIQ)FreeBSD=$(_UNIQ))
     __OS_TARGET =     $(_OS_TARGET:$(_UNIQ)OpenBSD=$(_UNIQ))
    ___OS_TARGET =    $(__OS_TARGET:$(_UNIQ)NetBSD=$(_UNIQ))
   ____OS_TARGET =   $(___OS_TARGET:$(_UNIQ)Haiku=$(_UNIQ))
  _____OS_TARGET =  $(____OS_TARGET:$(_UNIQ)SunOS=$(_UNIQ))
-______OS_TARGET =  $(____OS_TARGET:$(_UNIQ)$(UNAME_S)=)
+______OS_TARGET = $(_____OS_TARGET:$(_UNIQ)$(UNAME_S)=)
 
-TARGETS       =  $(_____OS_TARGET:$(_UNIQ)=libtokencap.so)
+TARGETS       =  $(______OS_TARGET:$(_UNIQ)=libtokencap.so)
 
-LDFLAGS     += $(______OS_DL)
+LDFLAGS     += $(_____OS_DL)
 
 #ifeq "$(shell uname)" "Linux"
 #  TARGETS = libtokencap.so
