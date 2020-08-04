@@ -86,7 +86,7 @@ class AFLLTOPass : public ModulePass {
   bool runOnModule(Module &M) override;
 
  protected:
-  int      afl_global_id = 1, autodictionary = 1;
+  int      afl_global_id = 1, autodictionary = 0;
   uint32_t function_minimum_size = 1;
   uint32_t inst_blocks = 0, inst_funcs = 0, total_instr = 0;
   uint64_t map_addr = 0x10000;
@@ -104,6 +104,11 @@ bool AFLLTOPass::runOnModule(Module &M) {
   DenseMap<Value *, std::string *> valueMap;
   char *                           ptr;
   FILE *                           documentFile = NULL;
+
+  srand((unsigned int)time(NULL));
+
+  unsigned long long int moduleID =
+      (((unsigned long long int)(rand() & 0xffffffff)) << 32) | getpid();
 
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
@@ -127,6 +132,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
       WARNF("Cannot access document file %s", ptr);
 
   }
+
+  if (getenv("AFL_LLVM_LTO_AUTODICTIONARY")) autodictionary = 1;
 
   if (getenv("AFL_LLVM_MAP_DYNAMIC")) map_addr = 0;
 
@@ -189,13 +196,32 @@ bool AFLLTOPass::runOnModule(Module &M) {
   ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
   ConstantInt *One = ConstantInt::get(Int8Ty, 1);
 
+  /* This dumps all inialized global strings - might be useful in the future
+  for (auto G=M.getGlobalList().begin(); G!=M.getGlobalList().end(); G++) {
+
+    GlobalVariable &GV=*G;
+    if (!GV.getName().str().empty()) {
+
+      fprintf(stderr, "Global Variable: %s", GV.getName().str().c_str());
+      if (GV.hasInitializer())
+        if (auto *Val = dyn_cast<ConstantDataArray>(GV.getInitializer()))
+          fprintf(stderr, " Value: \"%s\"", Val->getAsString().str().c_str());
+      fprintf(stderr, "\n");
+
+    }
+
+  }
+
+  */
+
   /* Instrument all the things! */
 
   int inst_blocks = 0;
 
   for (auto &F : M) {
 
-    // fprintf(stderr, "DEBUG: Function %s\n", F.getName().str().c_str());
+    // fprintf(stderr, "DEBUG: Module %s Function %s\n",
+    // M.getName().str().c_str(), F.getName().str().c_str());
 
     if (F.size() < function_minimum_size) continue;
     if (isIgnoreFunction(&F)) continue;
@@ -603,8 +629,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           if (documentFile) {
 
-            fprintf(documentFile, "%s %u\n", F.getName().str().c_str(),
-                    afl_global_id);
+            fprintf(documentFile, "ModuleID=%llu Function=%s edgeID=%u\n",
+                    moduleID, F.getName().str().c_str(), afl_global_id);
 
           }
 

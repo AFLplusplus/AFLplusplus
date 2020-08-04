@@ -255,12 +255,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (getenv("LAF_TRANSFORM_COMPARES") ||
       getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
 
-    if (!be_quiet && getenv("AFL_LLVM_LTO_AUTODICTIONARY") && lto_mode)
-      WARNF(
-          "using AFL_LLVM_LAF_TRANSFORM_COMPARES together with "
-          "AFL_LLVM_LTO_AUTODICTIONARY makes no sense. Use only "
-          "AFL_LLVM_LTO_AUTODICTIONARY.");
-
     cc_params[cc_par_cnt++] = "-Xclang";
     cc_params[cc_par_cnt++] = "-load";
     cc_params[cc_par_cnt++] = "-Xclang";
@@ -310,6 +304,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   if (lto_mode) {
+
+    if (cmplog_mode)
+      unsetenv("AFL_LLVM_LTO_AUTODICTIONARY");
+    else
+      setenv("AFL_LLVM_LTO_AUTODICTIONARY", "1", 1);
 
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
@@ -398,6 +397,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       continue;
 
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
+    if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
 
     cc_params[cc_par_cnt++] = cur;
 
@@ -472,9 +472,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
-      getenv("LAF_TRANSFORM_COMPARES") ||
-      (lto_mode && (getenv("AFL_LLVM_LTO_AUTODICTIONARY") ||
-                    getenv("AFL_LLVM_AUTODICTIONARY")))) {
+      getenv("LAF_TRANSFORM_COMPARES") || lto_mode) {
 
     cc_params[cc_par_cnt++] = "-fno-builtin-strcmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-strncmp";
