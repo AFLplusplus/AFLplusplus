@@ -305,6 +305,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (lto_mode) {
 
+    if (cmplog_mode)
+      unsetenv("AFL_LLVM_LTO_AUTODICTIONARY");
+    else
+      setenv("AFL_LLVM_LTO_AUTODICTIONARY", "1", 1);
+
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
     /*
@@ -392,6 +397,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       continue;
 
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
+    if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
 
     cc_params[cc_par_cnt++] = cur;
 
