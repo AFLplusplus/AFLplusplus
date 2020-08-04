@@ -86,7 +86,7 @@ class AFLLTOPass : public ModulePass {
   bool runOnModule(Module &M) override;
 
  protected:
-  int      afl_global_id = 1, autodictionary = 1;
+  int      afl_global_id = 1, autodictionary = 0;
   uint32_t function_minimum_size = 1;
   uint32_t inst_blocks = 0, inst_funcs = 0, total_instr = 0;
   uint64_t map_addr = 0x10000;
@@ -132,6 +132,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
       WARNF("Cannot access document file %s", ptr);
 
   }
+
+  if (getenv("AFL_LLVM_LTO_AUTODICTIONARY")) autodictionary = 1;
 
   if (getenv("AFL_LLVM_MAP_DYNAMIC")) map_addr = 0;
 
