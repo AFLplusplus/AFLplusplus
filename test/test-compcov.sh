@@ -1,6 +1,6 @@
 #!/bin/sh
 
-source ./test-pre.sh
+. ./test-pre.sh
 
 test -z "$AFL_CC" && unset AFL_CC
 
@@ -48,4 +48,4 @@ test -z "$AFL_CC" && {
   fi
 }
 
-source ./test-post.sh
+. ./test-post.sh

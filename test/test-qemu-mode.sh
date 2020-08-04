@@ -1,6 +1,6 @@
 #!/bin/sh
 
-source ./test-pre.sh
+. ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: qemu_mode"
 test -e ../afl-qemu-trace && {
@@ -214,4 +214,4 @@ test -e ../afl-qemu-trace && {
   INCOMPLETE=1
 }
 
-source ./test-post.sh
+. ./test-post.sh

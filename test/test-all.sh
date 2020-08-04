@@ -1,23 +1,23 @@
 #!/bin/sh
 
-source ./test-pre.sh
+. ./test-pre.sh
 
-source ./test-basic.sh
+. ./test-basic.sh
 
-source ./test-llvm.sh
+. ./test-llvm.sh
 
-source ./test-llvm-lto.sh
+. ./test-llvm-lto.sh
 
-source ./test-gcc-plugin.sh
+. ./test-gcc-plugin.sh
 
-source ./test-compcov.sh
+. ./test-compcov.sh
 
-source ./test-qemu-mode.sh
+. ./test-qemu-mode.sh
 
-source ./test-unicorn-mode.sh
+. ./test-unicorn-mode.sh
 
-source ./test-custom-mutators.sh
+. ./test-custom-mutators.sh
 
-source ./test-unittests.sh
+. ./test-unittests.sh
 
-source ./test-post.sh
+. ./test-post.sh

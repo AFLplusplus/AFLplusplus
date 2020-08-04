@@ -1,6 +1,6 @@
 #!/bin/sh
 
-source ./test-pre.sh
+. ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: unicorn_mode"
 test -d ../unicorn_mode/unicornafl -a -e ../unicorn_mode/unicornafl/samples/shellcode && {
@@ -109,4 +109,4 @@ test -d ../unicorn_mode/unicornafl -a -e ../unicorn_mode/unicornafl/samples/shel
   INCOMPLETE=1
 }
 
-source ./test-post.sh
+. ./test-post.sh
