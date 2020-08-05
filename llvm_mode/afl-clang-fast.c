@@ -568,18 +568,12 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
   
-  if (preprocessor_only || shared_linking) {
+  if (preprocessor_only) {
     /* In the preprocessor_only case (-E), we are not actually compiling at
        all but requesting the compiler to output preprocessed sources only.
        We must not add the runtime in this case because the compiler will
        simply output its binary content back on stdout, breaking any build
-       systems that rely on a separate source preprocessing step.
-       The shared_linking case (-shared) is more complex. This flag should
-       only be passed when linking a shared object. When loading such a shared
-       object into a binary that has also been built with AFL, two AFL runtimes
-       will exist side-by-side. This is only a problem in the dynamic loading
-       case because for static linking, the compiler can de-duplicate the
-       runtime. We must hence avoid attaching the runtime to shared objects. */
+       systems that rely on a separate source preprocessing step. */
     cc_params[cc_par_cnt] = NULL;
     return;
 
