@@ -161,8 +161,8 @@ static void find_obj(u8 *argv0) {
 
 static void edit_params(u32 argc, char **argv, char **envp) {
 
-  u8  fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0,
-      preprocessor_only = 0;
+  u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0,
+     preprocessor_only = 0;
   u8  have_pic = 0;
   u8 *name;
 
@@ -400,7 +400,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
-    
+
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
 
     cc_params[cc_par_cnt++] = cur;
@@ -566,8 +566,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "none";
 
   }
-  
+
   if (preprocessor_only) {
+
     /* In the preprocessor_only case (-E), we are not actually compiling at
        all but requesting the compiler to output preprocessed sources only.
        We must not add the runtime in this case because the compiler will
@@ -575,6 +576,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
        systems that rely on a separate source preprocessing step. */
     cc_params[cc_par_cnt] = NULL;
     return;
+
   }
 
 #ifndef __ANDROID__
