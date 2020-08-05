@@ -162,7 +162,7 @@ static void find_obj(u8 *argv0) {
 static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8  fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0,
-      preprocessor_only = 0;
+      shared_linking = 0, preprocessor_only = 0;
   u8  have_pic = 0;
   u8 *name;
 
@@ -402,6 +402,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
     
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
+    if (!strcmp(cur, "-shared")) shared_linking = 1;
 
     cc_params[cc_par_cnt++] = cur;
 
@@ -567,12 +568,18 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
   
-  if (preprocessor_only) {
+  if (preprocessor_only || shared_linking) {
     /* In the preprocessor_only case (-E), we are not actually compiling at
        all but requesting the compiler to output preprocessed sources only.
        We must not add the runtime in this case because the compiler will
        simply output its binary content back on stdout, breaking any build
-       systems that rely on a separate source preprocessing step. */
+       systems that rely on a separate source preprocessing step.
+       The shared_linking case (-shared) is more complex. This flag should
+       only be passed when linking a shared object. When loading such a shared
+       object into a binary that has also been built with AFL, two AFL runtimes
+       will exist side-by-side. This is only a problem in the dynamic loading
+       case because for static linking, the compiler can de-duplicate the
+       runtime. We must hence avoid attaching the runtime to shared objects. */
     cc_params[cc_par_cnt] = NULL;
     return;
   }
@@ -618,6 +625,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       break;
 
   }
+
+  if (!shared_linking)
+    cc_params[cc_par_cnt++] = alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
+
 
 #endif
 
