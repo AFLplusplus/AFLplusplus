@@ -39,19 +39,19 @@
   with laf-intel and redqueen, unicorn mode, gcc plugin, full *BSD, Solaris and
   Android support and much, much, much more.
 
-  | Feature/Instrumentation | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
-  | ----------------------- |:-------:|:---------:|:----------:|:----------------:|:------------:|
-  | NeverZero               |    x    |     x(1)  |      (2)   |         x        |       x      |
-  | Persistent mode         |         |     x     |     x      | x86[_64]/arm[64] |       x      |
-  | LAF-Intel / CompCov     |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
-  | CmpLog                  |         |     x     |            | x86[_64]/arm[64] |              |
-  | Instrument file list    |         |     x     |     x      |        (x)(3)    |              |
-  | Non-colliding coverage  |         |     x(4)  |            |        (x)(5)    |              |
-  | InsTrim                 |         |     x     |            |                  |              |
-  | Ngram prev_loc coverage |         |     x(6)  |            |                  |              |
-  | Context coverage        |         |     x     |            |                  |              |
-  | Auto dictionary         |         |     x(7)  |            |                  |              |
-  | Snapshot LKM support    |         |     x     |            |        (x)(5)    |              |
+  | Feature/Instrumentation  | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
+  | ------------------------ |:-------:|:---------:|:----------:|:----------------:|:------------:|
+  | NeverZero                |    x    |     x(1)  |      (2)   |         x        |       x      |
+  | Persistent mode          |         |     x     |     x      | x86[_64]/arm[64] |       x      |
+  | LAF-Intel / CompCov      |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
+  | CmpLog                   |         |     x     |            | x86[_64]/arm[64] |              |
+  | Selective instrumentation|         |     x     |     x      |        (x)(3)    |              |
+  | Non-colliding coverage   |         |     x(4)  |            |        (x)(5)    |              |
+  | InsTrim                  |         |     x     |            |                  |              |
+  | Ngram prev_loc coverage  |         |     x(6)  |            |                  |              |
+  | Context coverage         |         |     x     |            |                  |              |
+  | Auto dictionary          |         |     x(7)  |            |                  |              |
+  | Snapshot LKM support     |         |     x     |            |        (x)(5)    |              |
 
   1. default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
@@ -72,7 +72,7 @@
   * The MOpt mutator: [https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)
   * LLVM mode Ngram coverage by Adrian Herrera [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
   * InsTrim, an effective CFG llvm_mode instrumentation implementation for large targets: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
-  * C. Holler's afl-fuzz Python mutator module and llvm_mode instrument file support: [https://github.com/choller/afl](https://github.com/choller/afl)
+  * C. Holler's afl-fuzz Python mutator module: [https://github.com/choller/afl](https://github.com/choller/afl)
   * Custom mutator by a library (instead of Python) by kyakdan
   * LAF-Intel/CompCov support for llvm_mode, qemu_mode and unicorn_mode (with enhanced capabilities)
   * Radamsa and hongfuzz mutators (as custom mutators).
