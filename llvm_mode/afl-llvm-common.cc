@@ -60,7 +60,7 @@ bool isIgnoreFunction(const llvm::Function *F) {
       "asan.",
       "llvm.",
       "sancov.",
-      "__ubsan_handle_",
+      "__ubsan_",
       "ign.",
       "__afl_",
       "_fini",

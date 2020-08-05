@@ -31,6 +31,7 @@ RUN apt-get update && apt-get -y install \
 
 ENV AFL_NO_UI=1
 ENV AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+ENV LLVM_CONFIG=llvm-config-6.0
 
 RUN cd / && \
     git clone https://github.com/AFLplusplus/AFLplusplus && \
