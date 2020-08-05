@@ -876,9 +876,13 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
       if (bt_size > 0) {
 
         char **bt_syms = backtrace_symbols(bt, bt_size);
-        if (bt_syms)
+        if (bt_syms) {
+
           fprintf(stderr, "DEBUG: edge=%u caller=%s\n", unstable[idx],
   bt_syms[0]);
+          free(bt_syms);
+
+        }
 
       }
 
