@@ -986,7 +986,7 @@ uint64_t rand_next(afl_state_t *afl);
 
 static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
-  if (limit <= 1) return 0; 
+  if (limit <= 1) return 0;
 
   /* The boundary not being necessarily a power of 2,
      we need to ensure the result uniformity. */
@@ -1008,7 +1008,7 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
    expand havoc mode */
 static inline u32 rand_below_datalen(afl_state_t *afl, u32 limit) {
 
-  if (limit <= 1) return 0; 
+  if (limit <= 1) return 0;
 
   switch (rand_below(afl, 3)) {
 
