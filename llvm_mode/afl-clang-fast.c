@@ -400,7 +400,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
-    
+
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
 
@@ -582,6 +582,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
        runtime. We must hence avoid attaching the runtime to shared objects. */
     cc_params[cc_par_cnt] = NULL;
     return;
+
   }
 
 #ifndef __ANDROID__

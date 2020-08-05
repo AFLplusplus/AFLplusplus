@@ -819,16 +819,27 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
       fd = open(q->fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
+      if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
+
+      u32 written = 0;
+      while (written < q->len) {
+
+        ssize_t result = write(fd, in_buf, q->len - written);
+        if (result > 0) written += result;
+
+      }
+
     } else {
 
       unlink(q->fname);                                    /* ignore errors */
       fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
+      if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
+
+      ck_write(fd, in_buf, q->len, q->fname);
+
     }
 
-    if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
-
-    ck_write(fd, in_buf, q->len, q->fname);
     close(fd);
 
     memcpy(afl->fsrv.trace_bits, afl->clean_trace, afl->fsrv.map_size);
