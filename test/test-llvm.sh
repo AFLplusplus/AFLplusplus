@@ -25,7 +25,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       } || {
         $ECHO "$GREEN[+] llvm_mode instrumentation present and working correctly"
         TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 7 && {
+        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 8 && {
           $ECHO "$GREEN[+] llvm_mode run reported $TUPLES instrumented locations which is fine"
         } || {
           $ECHO "$RED[!] llvm_mode instrumentation produces weird numbers: $TUPLES"
