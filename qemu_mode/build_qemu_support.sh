@@ -176,6 +176,7 @@ echo Building for CPU target $CPU_TARGET
 echo "[*] Applying patches..."
 
 patch -p1 <../patches/elfload.diff || exit 1
+patch -p1 <../patches/mips-fpu.diff || exit 1
 patch -p1 <../patches/bsd-elfload.diff || exit 1
 patch -p1 <../patches/cpu-exec.diff || exit 1
 patch -p1 <../patches/syscall.diff || exit 1
