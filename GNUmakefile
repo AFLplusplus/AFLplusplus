@@ -551,9 +551,9 @@ source-only: all
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
-	#$(MAKE) -C examples/afl_network_proxy
-	#$(MAKE) -C examples/socket_fuzzing
-	#$(MAKE) -C examples/argv_fuzzing
+	@#$(MAKE) -C examples/afl_network_proxy
+	@#$(MAKE) -C examples/socket_fuzzing
+	@#$(MAKE) -C examples/argv_fuzzing
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
