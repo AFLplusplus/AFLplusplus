@@ -246,15 +246,21 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
 }
 
+__attribute__((constructor(10))) void __afl_protect(void) {
+  __afl_area_ptr = (unsigned char*) mmap((void *)0x10000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
+             MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if ((uint64_t)__afl_area_ptr == -1)
+    __afl_area_ptr = (unsigned char*) mmap((void *)0x10000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
+             MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if ((uint64_t)__afl_area_ptr == -1)
+    __afl_area_ptr = (unsigned char*) mmap(NULL, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
+             MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+}
+
+
 int main(int argc, char **argv) {
 
-  uint8_t *dummy = (uint8_t*) mmap((void *)0x1000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
-             MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  if ((uint64_t)dummy == -1)
-    dummy = (uint8_t*) mmap(0, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
-             MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  __afl_area_ptr = dummy;
-  fprintf(stderr, "dummy: %p\n", __afl_area_ptr);
+  fprintf(stderr, "dummy map is at %p\n", __afl_area_ptr);
 
   printf(
       "======================= INFO =========================\n"
@@ -292,7 +298,7 @@ int main(int argc, char **argv) {
     //    if (!getenv("AFL_DRIVER_DONT_DEFER")) {
 
     __afl_sharedmem_fuzzing = 0;
-    munmap(dummy, MAX_DUMMY_SIZE);
+    munmap(__afl_area_ptr, MAX_DUMMY_SIZE);
     __afl_manual_init();
     //    }
     return ExecuteFilesOnyByOne(argc, argv);
@@ -303,7 +309,7 @@ int main(int argc, char **argv) {
   assert(N > 0);
 
   //  if (!getenv("AFL_DRIVER_DONT_DEFER"))
-  munmap(dummy, MAX_DUMMY_SIZE);
+  munmap(__afl_area_ptr, MAX_DUMMY_SIZE);
   __afl_manual_init();
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
