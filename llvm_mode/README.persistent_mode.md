@@ -115,6 +115,32 @@ will keep working normally when compiled with a tool other than afl-clang-fast.
 Finally, recompile the program with afl-clang-fast (afl-gcc or afl-clang will
 *not* generate a deferred-initialization binary) - and you should be all set!
 
+*NOTE:* In the code between `main` and `__AFL_INIT()` should not be any code
+run that is instrumented - otherwise a crash might occure.
+In case this is useful (e.g. for expensive one time initialization) you can
+try to do the following:
+
+Add after the includes:
+```
+extern unsigned char *__afl_area_ptr;
+#define MAX_DUMMY_SIZE 256000
+
+__attribute__((constructor(10))) void __afl_protect(void) {
+#ifdef MAP_FIXED_NOREPLACE
+  __afl_area_ptr = (unsigned char*) mmap((void *)0x10000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE, MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if ((uint64_t)__afl_area_ptr == -1)
+#endif
+    __afl_area_ptr = (unsigned char*) mmap((void *)0x10000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if ((uint64_t)__afl_area_ptr == -1)
+    __afl_area_ptr = (unsigned char*) mmap(NULL, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+}
+
+```
+and just before `__AFL_INIT()`:
+```
+  munmap(__afl_area_ptr, MAX_DUMMY_SIZE);
+```
+
 ## 4) persistent mode
 
 Some libraries provide APIs that are stateless, or whose state can be reset in
