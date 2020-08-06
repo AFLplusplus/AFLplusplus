@@ -56,6 +56,7 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 #include "config.h"
 
@@ -101,6 +102,7 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 int                   __afl_sharedmem_fuzzing = 1;
 extern unsigned int * __afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
+extern unsigned char *__afl_area_ptr;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
@@ -240,6 +242,10 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
 int main(int argc, char **argv) {
 
+  uint8_t *dummy = (uint8_t*) mmap((void *)0x1000,250000, PROT_READ | PROT_WRITE,
+             MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  __afl_area_ptr = dummy;
+
   printf(
       "======================= INFO =========================\n"
       "This binary is built for AFL-fuzz.\n"
@@ -275,6 +281,7 @@ int main(int argc, char **argv) {
     //    if (!getenv("AFL_DRIVER_DONT_DEFER")) {
 
     __afl_sharedmem_fuzzing = 0;
+    munmap(dummy, 256000);
     __afl_manual_init();
     //    }
     return ExecuteFilesOnyByOne(argc, argv);
@@ -285,6 +292,7 @@ int main(int argc, char **argv) {
   assert(N > 0);
 
   //  if (!getenv("AFL_DRIVER_DONT_DEFER"))
+  munmap(dummy, 256000);
   __afl_manual_init();
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
