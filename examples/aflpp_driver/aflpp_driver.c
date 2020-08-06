@@ -246,10 +246,10 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
 int main(int argc, char **argv) {
 
-  uint8_t *dummy = (uint8_t*) mmap((void *)0x1000,250000, PROT_READ | PROT_WRITE,
+  uint8_t *dummy = (uint8_t*) mmap((void *)0x1000, 256000, PROT_READ | PROT_WRITE,
              MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   if ((uint64_t)dummy == -1)
-    dummy = (uint8_t*) mmap((void *)0x1000,250000, PROT_READ | PROT_WRITE,
+    dummy = (uint8_t*) mmap(0, 256000, PROT_READ | PROT_WRITE,
              MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   __afl_area_ptr = dummy;
   fprintf(stderr, "dummy: %p\n", __afl_area_ptr);
