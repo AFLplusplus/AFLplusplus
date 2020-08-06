@@ -59,6 +59,7 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 #include <sys/mman.h>
 
 #include "config.h"
+#include "cmplog.h"
 
 #ifdef _DEBUG
   #include "hash.h"
@@ -109,6 +110,7 @@ int                   __afl_sharedmem_fuzzing = 1;
 extern unsigned int * __afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 extern unsigned char *__afl_area_ptr;
+extern struct cmp_map *__afl_cmp_map;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
@@ -255,6 +257,7 @@ __attribute__((constructor(10))) void __afl_protect(void) {
   if ((uint64_t)__afl_area_ptr == -1)
     __afl_area_ptr = (unsigned char*) mmap(NULL, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
              MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  __afl_cmp_map = (struct cmp_map *) __afl_area_ptr;
 }
 
 
