@@ -1056,6 +1056,8 @@ void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2)
 
 void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
+  if (!__afl_cmp_map) return;
+
   for (uint64_t i = 0; i < cases[0]; i++) {
 
     uintptr_t k = (uintptr_t)__builtin_return_address(0) + i;
