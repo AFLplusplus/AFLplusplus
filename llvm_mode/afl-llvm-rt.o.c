@@ -101,7 +101,7 @@ __thread u32        __afl_cmp_counter;
 
 int __afl_sharedmem_fuzzing __attribute__((weak));
 
-struct cmp_map *__afl_cmp_map = (struct cmp_map *) __afl_area_initial;
+struct cmp_map *__afl_cmp_map = (struct cmp_map *)__afl_area_initial;
 
 /* Running in persistent mode? */
 

@@ -66,7 +66,7 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 #endif
 
 #ifndef MAP_FIXED_NOREPLACE
-#define MAP_FIXED_NOREPLACE	0x100000
+  #define MAP_FIXED_NOREPLACE 0x100000
 #endif
 
 #define MAX_DUMMY_SIZE 256000
@@ -106,10 +106,10 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
   #error "Support for your platform has not been implemented"
 #endif
 
-int                   __afl_sharedmem_fuzzing = 1;
-extern unsigned int * __afl_fuzz_len;
-extern unsigned char *__afl_fuzz_ptr;
-extern unsigned char *__afl_area_ptr;
+int                    __afl_sharedmem_fuzzing = 1;
+extern unsigned int *  __afl_fuzz_len;
+extern unsigned char * __afl_fuzz_ptr;
+extern unsigned char * __afl_area_ptr;
 extern struct cmp_map *__afl_cmp_map;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
@@ -249,17 +249,21 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 }
 
 __attribute__((constructor(10))) void __afl_protect(void) {
-  __afl_area_ptr = (unsigned char*) mmap((void *)0x10000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
-             MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  if ((uint64_t)__afl_area_ptr == -1)
-    __afl_area_ptr = (unsigned char*) mmap((void *)0x10000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
-             MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  if ((uint64_t)__afl_area_ptr == -1)
-    __afl_area_ptr = (unsigned char*) mmap(NULL, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
-             MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  __afl_cmp_map = (struct cmp_map *) __afl_area_ptr;
-}
 
+  __afl_area_ptr = (unsigned char *)mmap(
+      (void *)0x10000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
+      MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if ((uint64_t)__afl_area_ptr == -1)
+    __afl_area_ptr = (unsigned char *)mmap((void *)0x10000, MAX_DUMMY_SIZE,
+                                           PROT_READ | PROT_WRITE,
+                                           MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if ((uint64_t)__afl_area_ptr == -1)
+    __afl_area_ptr =
+        (unsigned char *)mmap(NULL, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
+                              MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  __afl_cmp_map = (struct cmp_map *)__afl_area_ptr;
+
+}
 
 int main(int argc, char **argv) {
 
@@ -272,7 +276,8 @@ int main(int argc, char **argv) {
       "  %s INPUT_FILE1 [INPUT_FILE2 ... ]\n"
       "To fuzz with afl-fuzz execute this:\n"
       "  afl-fuzz [afl-flags] -- %s [-N]\n"
-      "afl-fuzz will run N iterations before re-spawning the process (default: 1000)\n"
+      "afl-fuzz will run N iterations before re-spawning the process (default: "
+      "1000)\n"
       "======================================================\n",
       argv[0], argv[0]);
 
@@ -280,9 +285,11 @@ int main(int argc, char **argv) {
   maybe_duplicate_stderr();
   maybe_close_fd_mask();
   if (LLVMFuzzerInitialize) {
+
     fprintf(stderr, "Running LLVMFuzzerInitialize ...\n");
     LLVMFuzzerInitialize(&argc, &argv);
     fprintf(stderr, "continue...\n");
+
   }
 
   // Do any other expensive one-time initialization here.
