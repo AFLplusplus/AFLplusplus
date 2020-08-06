@@ -248,27 +248,32 @@ int main(int argc, char **argv) {
 
   uint8_t *dummy = (uint8_t*) mmap((void *)0x1000,250000, PROT_READ | PROT_WRITE,
              MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if ((uint64_t)dummy == -1)
+    dummy = (uint8_t*) mmap((void *)0x1000,250000, PROT_READ | PROT_WRITE,
+             MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   __afl_area_ptr = dummy;
   fprintf(stderr, "dummy: %p\n", __afl_area_ptr);
 
   printf(
       "======================= INFO =========================\n"
-      "This binary is built for AFL-fuzz.\n"
+      "This binary is built for afl++.\n"
       "To run the target function on individual input(s) execute this:\n"
-      "  %s < INPUT_FILE\n"
-      "or\n"
       "  %s INPUT_FILE1 [INPUT_FILE2 ... ]\n"
       "To fuzz with afl-fuzz execute this:\n"
-      "  afl-fuzz [afl-flags] %s [-N]\n"
+      "  afl-fuzz [afl-flags] -- %s [-N]\n"
       "afl-fuzz will run N iterations before "
       "re-spawning the process (default: 1000)\n"
       "======================================================\n",
-      argv[0], argv[0], argv[0]);
+      argv[0], argv[0]);
 
   output_file = stderr;
   maybe_duplicate_stderr();
   maybe_close_fd_mask();
-  if (LLVMFuzzerInitialize) LLVMFuzzerInitialize(&argc, &argv);
+  if (LLVMFuzzerInitialize) {
+    fprintf(stderr, "Running LLVMFuzzerInitialize ...\n");
+    LLVMFuzzerInitialize(&argc, &argv);
+    fprintf(stderr, "continue...\n");
+  }
 
   // Do any other expensive one-time initialization here.
 
