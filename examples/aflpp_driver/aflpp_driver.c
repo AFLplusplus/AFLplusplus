@@ -68,6 +68,8 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 #define MAP_FIXED_NOREPLACE	0x100000
 #endif
 
+#define MAX_DUMMY_SIZE 256000
+
 // Platform detection. Copied from FuzzerInternal.h
 #ifdef __linux__
   #define LIBFUZZER_LINUX 1
@@ -246,10 +248,10 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
 int main(int argc, char **argv) {
 
-  uint8_t *dummy = (uint8_t*) mmap((void *)0x1000, 256000, PROT_READ | PROT_WRITE,
+  uint8_t *dummy = (uint8_t*) mmap((void *)0x1000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
              MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   if ((uint64_t)dummy == -1)
-    dummy = (uint8_t*) mmap(0, 256000, PROT_READ | PROT_WRITE,
+    dummy = (uint8_t*) mmap(0, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
              MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   __afl_area_ptr = dummy;
   fprintf(stderr, "dummy: %p\n", __afl_area_ptr);
@@ -261,8 +263,7 @@ int main(int argc, char **argv) {
       "  %s INPUT_FILE1 [INPUT_FILE2 ... ]\n"
       "To fuzz with afl-fuzz execute this:\n"
       "  afl-fuzz [afl-flags] -- %s [-N]\n"
-      "afl-fuzz will run N iterations before "
-      "re-spawning the process (default: 1000)\n"
+      "afl-fuzz will run N iterations before re-spawning the process (default: 1000)\n"
       "======================================================\n",
       argv[0], argv[0]);
 
@@ -291,7 +292,7 @@ int main(int argc, char **argv) {
     //    if (!getenv("AFL_DRIVER_DONT_DEFER")) {
 
     __afl_sharedmem_fuzzing = 0;
-    munmap(dummy, 256000);
+    munmap(dummy, MAX_DUMMY_SIZE);
     __afl_manual_init();
     //    }
     return ExecuteFilesOnyByOne(argc, argv);
@@ -302,7 +303,7 @@ int main(int argc, char **argv) {
   assert(N > 0);
 
   //  if (!getenv("AFL_DRIVER_DONT_DEFER"))
-  munmap(dummy, 256000);
+  munmap(dummy, MAX_DUMMY_SIZE);
   __afl_manual_init();
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
