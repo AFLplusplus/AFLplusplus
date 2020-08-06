@@ -64,6 +64,10 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
   #include "hash.h"
 #endif
 
+#ifndef MAP_FIXED_NOREPLACE
+#define MAP_FIXED_NOREPLACE	0x100000
+#endif
+
 // Platform detection. Copied from FuzzerInternal.h
 #ifdef __linux__
   #define LIBFUZZER_LINUX 1
@@ -245,6 +249,7 @@ int main(int argc, char **argv) {
   uint8_t *dummy = (uint8_t*) mmap((void *)0x1000,250000, PROT_READ | PROT_WRITE,
              MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   __afl_area_ptr = dummy;
+  fprintf(stderr, "dummy: %p\n", __afl_area_ptr);
 
   printf(
       "======================= INFO =========================\n"
