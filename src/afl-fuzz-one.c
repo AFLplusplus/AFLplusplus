@@ -4454,7 +4454,8 @@ pacemaker_fuzzing:
 
     retry_splicing_puppet:
 
-      if (afl->use_splicing && splice_cycle++ < (u32)afl->SPLICE_CYCLES_puppet &&
+      if (afl->use_splicing &&
+          splice_cycle++ < (u32)afl->SPLICE_CYCLES_puppet &&
           afl->queued_paths > 1 && afl->queue_cur->len > 1) {
 
         struct queue_entry *target;
@@ -4524,7 +4525,8 @@ pacemaker_fuzzing:
            the last differing byte. Bail out if the difference is just a single
            byte or so. */
 
-        locate_diffs(in_buf, new_buf, MIN(len, (s32)target->len), &f_diff, &l_diff);
+        locate_diffs(in_buf, new_buf, MIN(len, (s32)target->len), &f_diff,
+                     &l_diff);
 
         if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) {
 

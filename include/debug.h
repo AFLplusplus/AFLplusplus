@@ -281,7 +281,7 @@
 #define ck_write(fd, buf, len, fn)                            \
   do {                                                        \
                                                               \
-    s32 _len = (s32)(len);                                         \
+    s32 _len = (s32)(len);                                    \
     s32 _res = write(fd, buf, _len);                          \
     if (_res != _len) RPFATAL(_res, "Short write to %s", fn); \
                                                               \
@@ -290,7 +290,7 @@
 #define ck_read(fd, buf, len, fn)                              \
   do {                                                         \
                                                                \
-    s32 _len = (s32)(len);                                          \
+    s32 _len = (s32)(len);                                     \
     s32 _res = read(fd, buf, _len);                            \
     if (_res != _len) RPFATAL(_res, "Short read from %s", fn); \
                                                                \
