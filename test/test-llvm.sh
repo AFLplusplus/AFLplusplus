@@ -172,7 +172,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$RED[!] llvm_mode laf-intel floatingpoint splitting feature compilation failed"
     CODE=1
   }
-  rm -f test-floatingpoint test.out in/in errors
+  rm -f test-floatingpoint test.out in/in errors core.*
   echo foobar.c > instrumentlist.txt
   AFL_DEBUG=1 AFL_LLVM_INSTRUMENT_FILE=instrumentlist.txt ../afl-clang-fast -o test-compcov test-compcov.c > test.out 2>&1
   test -e test-compcov && test_compcov_binary_functionality ./test-compcov && {
@@ -208,7 +208,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$YELLOW[-] we cannot test llvm_mode cmplog because it is not present"
     INCOMPLETE=1
   }
-  rm -rf errors test-cmplog in
+  rm -rf errors test-cmplog in core.*
   ../afl-clang-fast -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {

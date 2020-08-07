@@ -10,7 +10,7 @@
 
 . ./test-gcc-plugin.sh
 
-. ./test-compcov.sh
+. ./test-libextensions.sh
 
 . ./test-qemu-mode.sh
 

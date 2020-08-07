@@ -54,7 +54,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       }
 
       # Clean
-      rm -rf out errors
+      rm -rf out errors core.*
 
       # Run afl-fuzz w/ multiple C mutators
       $ECHO "$GREY[*] running afl-fuzz with multiple custom C mutators, this will take approx 5 seconds"
@@ -73,7 +73,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       }
 
       # Clean
-      rm -rf out errors 
+      rm -rf out errors core.*
 
       # Run afl-fuzz w/ the Python mutator
       $ECHO "$GREY[*] running afl-fuzz for the Python mutator, this will take approx 5 seconds"
@@ -97,7 +97,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       }
 
       # Clean
-      rm -rf in out errors
+      rm -rf in out errors core.*
       rm -rf ${CUSTOM_MUTATOR_PATH}/__pycache__/
       rm -f test-multiple-mutators test-custom-mutator libexamplemutator.so libexamplemutator2.so
     } || {
