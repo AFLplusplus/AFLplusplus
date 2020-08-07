@@ -384,7 +384,7 @@ static void show_legend(void) {
 
 /* Interpret and report a pattern in the input file. */
 
-static void dump_hex(u8 *buf, u32 len, u8 *b_data) {
+static void dump_hex(u32 len, u8 *b_data) {
 
   u32 i;
 
@@ -678,7 +678,7 @@ static void analyze(char **argv) {
 
   }
 
-  dump_hex(in_data, in_len, b_data);
+  dump_hex(in_len, b_data);
 
   SAYF("\n");
 
@@ -700,6 +700,7 @@ static void analyze(char **argv) {
 
 static void handle_stop_sig(int sig) {
 
+  (void)sig;
   stop_soon = 1;
 
   if (child_pid > 0) { kill(child_pid, SIGKILL); }

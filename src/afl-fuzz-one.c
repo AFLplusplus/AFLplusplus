@@ -77,7 +77,7 @@ static int select_algorithm(afl_state_t *afl) {
 static u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
   u32 min_value, max_value;
-  u32 rlim = MIN(afl->queue_cycle, 3);
+  u32 rlim = MIN(afl->queue_cycle, (u32)3);
 
   if (unlikely(!afl->run_over10m)) { rlim = 1; }
 
@@ -292,7 +292,7 @@ static u8 could_be_interest(u32 old_val, u32 new_val, u8 blen, u8 check_le) {
 
   /* See if two-byte insertions over old_val could give us new_val. */
 
-  for (i = 0; i < blen - 1; ++i) {
+  for (i = 0; (s32)i < blen - 1; ++i) {
 
     for (j = 0; j < sizeof(interesting_16) / 2; ++j) {
 
@@ -372,7 +372,9 @@ static void locate_diffs(u8 *ptr1, u8 *ptr2, u32 len, s32 *first, s32 *last) {
 
 u8 fuzz_one_original(afl_state_t *afl) {
 
-  s32 len, fd, temp_len, i, j;
+  s32 len, fd, temp_len;
+  u32 j;
+  u32 i;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
   u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, prev_cksum;
   u32 splice_cycle = 0, perf_score = 100, orig_perf, eff_cnt = 1;
@@ -862,7 +864,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
      whole thing as worth fuzzing, since we wouldn't be saving much time
      anyway. */
 
-  if (eff_cnt != EFF_ALEN(len) &&
+  if (eff_cnt != (u32)EFF_ALEN(len) &&
       eff_cnt * 100 / EFF_ALEN(len) > EFF_MAX_PERC) {
 
     memset(eff_map, 1, EFF_ALEN(len));
@@ -893,7 +895,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 1; ++i) {
+  for (i = 0; (s32)i < len - 1; ++i) {
 
     /* Let's consult the effector map... */
 
@@ -931,7 +933,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 3; ++i) {
+  for (i = 0; (s32)i < len - 3; ++i) {
 
     /* Let's consult the effector map... */
     if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)] &&
@@ -977,7 +979,7 @@ skip_bitflip:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len; ++i) {
+  for (i = 0; i < (u32)len; ++i) {
 
     u8 orig = out_buf[i];
 
@@ -1051,7 +1053,7 @@ skip_bitflip:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 1; ++i) {
+  for (i = 0; i < (u32)len - 1; ++i) {
 
     u16 orig = *(u16 *)(out_buf + i);
 
@@ -1161,7 +1163,7 @@ skip_bitflip:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 3; ++i) {
+  for (i = 0; i < (u32)len - 3; ++i) {
 
     u32 orig = *(u32 *)(out_buf + i);
 
@@ -1202,7 +1204,7 @@ skip_bitflip:
 
       }
 
-      if ((orig & 0xffff) < j && !could_be_bitflip(r2)) {
+      if ((orig & 0xffff) < (u32)j && !could_be_bitflip(r2)) {
 
         afl->stage_cur_val = -j;
         *(u32 *)(out_buf + i) = orig - j;
@@ -1234,7 +1236,7 @@ skip_bitflip:
 
       }
 
-      if ((SWAP32(orig) & 0xffff) < j && !could_be_bitflip(r4)) {
+      if ((SWAP32(orig) & 0xffff) < (u32)j && !could_be_bitflip(r4)) {
 
         afl->stage_cur_val = -j;
         *(u32 *)(out_buf + i) = SWAP32(SWAP32(orig) - j);
@@ -1276,7 +1278,7 @@ skip_arith:
 
   /* Setting 8-bit integers. */
 
-  for (i = 0; i < len; ++i) {
+  for (i = 0; i < (u32)len; ++i) {
 
     u8 orig = out_buf[i];
 
@@ -1291,7 +1293,7 @@ skip_arith:
 
     afl->stage_cur_byte = i;
 
-    for (j = 0; j < sizeof(interesting_8); ++j) {
+    for (j = 0; j < (u32)sizeof(interesting_8); ++j) {
 
       /* Skip if the value could be a product of bitflips or arithmetics. */
 
@@ -1331,7 +1333,7 @@ skip_arith:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 1; ++i) {
+  for (i = 0; (s32)i < len - 1; ++i) {
 
     u16 orig = *(u16 *)(out_buf + i);
 
@@ -1409,7 +1411,7 @@ skip_arith:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 3; i++) {
+  for (i = 0; (s32)i < len - 3; i++) {
 
     u32 orig = *(u32 *)(out_buf + i);
 
@@ -1496,7 +1498,7 @@ skip_interest:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len; ++i) {
+  for (i = 0; i < (u32)len; ++i) {
 
     u32 last_len = 0;
 
@@ -1556,7 +1558,7 @@ skip_interest:
 
   ex_tmp = ck_maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE);
 
-  for (i = 0; i <= len; ++i) {
+  for (i = 0; i <= (u32)len; ++i) {
 
     afl->stage_cur_byte = i;
 
@@ -1602,19 +1604,20 @@ skip_user_extras:
   afl->stage_name = "auto extras (over)";
   afl->stage_short = "ext_AO";
   afl->stage_cur = 0;
-  afl->stage_max = MIN(afl->a_extras_cnt, USE_AUTO_EXTRAS) * len;
+  afl->stage_max = MIN(afl->a_extras_cnt, (u32)USE_AUTO_EXTRAS) * len;
 
   afl->stage_val_type = STAGE_VAL_NONE;
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len; ++i) {
+  for (i = 0; i < (u32)len; ++i) {
 
     u32 last_len = 0;
 
     afl->stage_cur_byte = i;
 
-    for (j = 0; j < MIN(afl->a_extras_cnt, USE_AUTO_EXTRAS); ++j) {
+    u32 min_extra_len = MIN(afl->a_extras_cnt, (u32)USE_AUTO_EXTRAS);
+    for (j = 0; j < min_extra_len; ++j) {
 
       /* See the comment in the earlier code; extras are sorted by size. */
 
@@ -2231,7 +2234,7 @@ havoc_stage:
                 u32 extra_len = afl->a_extras[use_extra].len;
                 u32 insert_at;
 
-                if (extra_len > temp_len) { break; }
+                if ((s32)extra_len > temp_len) { break; }
 
                 insert_at = rand_below(afl, temp_len - extra_len + 1);
                 memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
@@ -2245,7 +2248,7 @@ havoc_stage:
                 u32 extra_len = afl->extras[use_extra].len;
                 u32 insert_at;
 
-                if (extra_len > temp_len) { break; }
+                if ((s32)extra_len > temp_len) { break; }
 
                 insert_at = rand_below(afl, temp_len - extra_len + 1);
                 memcpy(out_buf + insert_at, afl->extras[use_extra].data,
@@ -2360,7 +2363,7 @@ havoc_stage:
               u32 copy_from, copy_to, copy_len;
 
               copy_len = choose_block_len(afl, new_len - 1);
-              if (copy_len > temp_len) copy_len = temp_len;
+              if ((s32)copy_len > temp_len) copy_len = temp_len;
 
               copy_from = rand_below(afl, new_len - copy_len + 1);
               copy_to = rand_below(afl, temp_len - copy_len + 1);
@@ -2517,7 +2520,7 @@ retry_splicing:
        the last differing byte. Bail out if the difference is just a single
        byte or so. */
 
-    locate_diffs(in_buf, new_buf, MIN(len, target->len), &f_diff, &l_diff);
+    locate_diffs(in_buf, new_buf, MIN(len, (s64)target->len), &f_diff, &l_diff);
 
     if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) { goto retry_splicing; }
 
@@ -2587,7 +2590,9 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   }
 
-  s32 len, fd, temp_len, i, j;
+  s32 len, fd, temp_len;
+  u32 i;
+  u32 j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
   u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, cur_ms_lv, prev_cksum;
   u32 splice_cycle = 0, perf_score = 100, orig_perf, eff_cnt = 1;
@@ -2761,9 +2766,9 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   cur_ms_lv = get_cur_time();
   if (!(afl->key_puppet == 0 &&
-        ((cur_ms_lv - afl->last_path_time < afl->limit_time_puppet) ||
+        ((cur_ms_lv - afl->last_path_time < (u32)afl->limit_time_puppet) ||
          (afl->last_crash_time != 0 &&
-          cur_ms_lv - afl->last_crash_time < afl->limit_time_puppet) ||
+          cur_ms_lv - afl->last_crash_time < (u32)afl->limit_time_puppet) ||
          afl->last_path_time == 0))) {
 
     afl->key_puppet = 1;
@@ -3058,7 +3063,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
      whole thing as worth fuzzing, since we wouldn't be saving much time
      anyway. */
 
-  if (eff_cnt != EFF_ALEN(len) &&
+  if (eff_cnt != (u32)EFF_ALEN(len) &&
       eff_cnt * 100 / EFF_ALEN(len) > EFF_MAX_PERC) {
 
     memset(eff_map, 1, EFF_ALEN(len));
@@ -3089,7 +3094,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 1; ++i) {
+  for (i = 0; (s32)i < len - 1; ++i) {
 
     /* Let's consult the effector map... */
 
@@ -3127,7 +3132,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 3; ++i) {
+  for (i = 0; (s32)i < len - 3; ++i) {
 
     /* Let's consult the effector map... */
     if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)] &&
@@ -3173,7 +3178,7 @@ skip_bitflip:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len; ++i) {
+  for (i = 0; i < (u32)len; ++i) {
 
     u8 orig = out_buf[i];
 
@@ -3247,7 +3252,7 @@ skip_bitflip:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 1; ++i) {
+  for (i = 0; (s32)i < len - 1; ++i) {
 
     u16 orig = *(u16 *)(out_buf + i);
 
@@ -3357,7 +3362,7 @@ skip_bitflip:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 3; ++i) {
+  for (i = 0; (s32)i < len - 3; ++i) {
 
     u32 orig = *(u32 *)(out_buf + i);
 
@@ -3472,7 +3477,7 @@ skip_arith:
 
   /* Setting 8-bit integers. */
 
-  for (i = 0; i < len; ++i) {
+  for (i = 0; i < (u32)len; ++i) {
 
     u8 orig = out_buf[i];
 
@@ -3527,7 +3532,7 @@ skip_arith:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 1; ++i) {
+  for (i = 0; (s32)i < len - 1; ++i) {
 
     u16 orig = *(u16 *)(out_buf + i);
 
@@ -3605,7 +3610,7 @@ skip_arith:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len - 3; ++i) {
+  for (i = 0; (s32)i < len - 3; ++i) {
 
     u32 orig = *(u32 *)(out_buf + i);
 
@@ -3692,7 +3697,7 @@ skip_interest:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len; ++i) {
+  for (i = 0; i < (u32)len; ++i) {
 
     u32 last_len = 0;
 
@@ -3752,7 +3757,7 @@ skip_interest:
 
   ex_tmp = ck_maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE);
 
-  for (i = 0; i <= len; ++i) {
+  for (i = 0; i <= (u32)len; ++i) {
 
     afl->stage_cur_byte = i;
 
@@ -3798,23 +3803,23 @@ skip_user_extras:
   afl->stage_name = "auto extras (over)";
   afl->stage_short = "ext_AO";
   afl->stage_cur = 0;
-  afl->stage_max = MIN(afl->a_extras_cnt, USE_AUTO_EXTRAS) * len;
+  afl->stage_max = MIN(afl->a_extras_cnt, (u32)USE_AUTO_EXTRAS) * len;
 
   afl->stage_val_type = STAGE_VAL_NONE;
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; i < len; ++i) {
+  for (i = 0; i < (u32)len; ++i) {
 
     u32 last_len = 0;
 
     afl->stage_cur_byte = i;
 
-    for (j = 0; j < MIN(afl->a_extras_cnt, USE_AUTO_EXTRAS); ++j) {
+    for (j = 0; j < MIN(afl->a_extras_cnt, (u32)USE_AUTO_EXTRAS); ++j) {
 
       /* See the comment in the earlier code; extras are sorted by size. */
 
-      if (afl->a_extras[j].len > len - i ||
+      if ((s32)(afl->a_extras[j].len) > (s32)(len - i) ||
           !memcmp(afl->a_extras[j].data, out_buf + i, afl->a_extras[j].len) ||
           !memchr(eff_map + EFF_APOS(i), 1,
                   EFF_SPAN_ALEN(i, afl->a_extras[j].len))) {
@@ -4276,7 +4281,7 @@ pacemaker_fuzzing:
                 u32 use_extra = rand_below(afl, afl->a_extras_cnt);
                 u32 extra_len = afl->a_extras[use_extra].len;
 
-                if (extra_len > temp_len) break;
+                if (extra_len > (u32)temp_len) break;
 
                 u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
                 memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
@@ -4289,7 +4294,7 @@ pacemaker_fuzzing:
                 u32 use_extra = rand_below(afl, afl->extras_cnt);
                 u32 extra_len = afl->extras[use_extra].len;
 
-                if (extra_len > temp_len) break;
+                if (extra_len > (u32)temp_len) break;
 
                 u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
                 memcpy(out_buf + insert_at, afl->extras[use_extra].data,
@@ -4449,7 +4454,7 @@ pacemaker_fuzzing:
 
     retry_splicing_puppet:
 
-      if (afl->use_splicing && splice_cycle++ < afl->SPLICE_CYCLES_puppet &&
+      if (afl->use_splicing && splice_cycle++ < (u32)afl->SPLICE_CYCLES_puppet &&
           afl->queued_paths > 1 && afl->queue_cur->len > 1) {
 
         struct queue_entry *target;
@@ -4519,7 +4524,7 @@ pacemaker_fuzzing:
            the last differing byte. Bail out if the difference is just a single
            byte or so. */
 
-        locate_diffs(in_buf, new_buf, MIN(len, target->len), &f_diff, &l_diff);
+        locate_diffs(in_buf, new_buf, MIN(len, (s32)target->len), &f_diff, &l_diff);
 
         if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) {
 
@@ -4551,7 +4556,7 @@ pacemaker_fuzzing:
     abandon_entry:
     abandon_entry_puppet:
 
-      if (splice_cycle >= afl->SPLICE_CYCLES_puppet) {
+      if ((s64)splice_cycle >= afl->SPLICE_CYCLES_puppet) {
 
         afl->SPLICE_CYCLES_puppet =
             (rand_below(
