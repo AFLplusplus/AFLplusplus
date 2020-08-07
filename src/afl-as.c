@@ -136,7 +136,7 @@ static void edit_params(int argc, char **argv) {
 
   as_params[argc] = 0;
 
-  for (i = 1; i < argc - 1; i++) {
+  for (i = 1; (s32)i < argc - 1; i++) {
 
     if (!strcmp(argv[i], "--64")) {
 
@@ -591,7 +591,7 @@ int main(int argc, char **argv) {
 
   rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
   // in fast systems where pids can repeat in the same seconds we need this
-  for (i = 1; i < argc; i++)
+  for (i = 1; (s32)i < argc; i++)
     for (j = 0; j < strlen(argv[i]); j++)
       rand_seed += argv[i][j];
 

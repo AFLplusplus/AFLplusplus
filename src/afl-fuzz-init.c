@@ -110,7 +110,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   u8  cpu_used[4096] = {0};
   u8  lockfile[PATH_MAX] = "";
-  u32 i;
+  s32 i;
 
   if (afl->afl_env.afl_no_affinity) {
 
@@ -509,7 +509,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
       afl->stage_cur = 0;
       afl->stage_max = 0;
 
-      for (i = 0; i < nl_cnt; ++i) {
+      for (i = 0; i < (u32)nl_cnt; ++i) {
 
         struct stat st;
 
@@ -667,7 +667,7 @@ void read_testcases(afl_state_t *afl) {
 
   }
 
-  for (i = 0; i < nl_cnt; ++i) {
+  for (i = 0; i < (u32)nl_cnt; ++i) {
 
     struct stat st;
 
@@ -2147,7 +2147,7 @@ void get_core_count(afl_state_t *afl) {
 
         WARNF("System under apparent load, performance may be spotty.");
 
-      } else if (cur_runnable + 1 <= afl->cpu_core_count) {
+      } else if ((s64)cur_runnable + 1 <= (s64)afl->cpu_core_count) {
 
         OKF("Try parallel jobs - see %s/parallel_fuzzing.md.", doc_path);
 
@@ -2201,6 +2201,7 @@ void fix_up_sync(afl_state_t *afl) {
 
 static void handle_resize(int sig) {
 
+  (void)sig;
   afl_states_clear_screen();
 
 }
@@ -2252,6 +2253,7 @@ void check_asan_opts(void) {
 
 static void handle_stop_sig(int sig) {
 
+  (void)sig;
   afl_states_stop();
 
 }
@@ -2260,6 +2262,7 @@ static void handle_stop_sig(int sig) {
 
 static void handle_skipreq(int sig) {
 
+  (void)sig;
   afl_states_request_skip();
 
 }

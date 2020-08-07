@@ -256,8 +256,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
 /* Execute target application. */
 
-static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, char **argv,
-                                          u8 *mem, u32 len) {
+static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem, u32 len) {
 
   afl_fsrv_write_to_testcase(fsrv, mem, len);
 
@@ -444,6 +443,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
 static void handle_stop_sig(int sig) {
 
+  (void)sig;
   stop_soon = 1;
   afl_fsrv_killall();
 
@@ -1016,7 +1016,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        showmap_run_target_forkserver(fsrv, use_argv, in_data, in_len);
+        showmap_run_target_forkserver(fsrv, in_data, in_len);
         ck_free(in_data);
         tcnt = write_results_to_file(fsrv, outfile);
 

@@ -890,12 +890,12 @@ void show_stats(afl_state_t *afl) {
     if (afl->cpu_aff >= 0) {
 
       SAYF("%s" cGRA "[cpu%03u:%s%3u%%" cGRA "]\r" cRST, spacing,
-           MIN(afl->cpu_aff, 999), cpu_color, MIN(cur_utilization, 999));
+           MIN(afl->cpu_aff, 999), cpu_color, MIN(cur_utilization, (u32)999));
 
     } else {
 
       SAYF("%s" cGRA "   [cpu:%s%3u%%" cGRA "]\r" cRST, spacing, cpu_color,
-           MIN(cur_utilization, 999));
+           MIN(cur_utilization, (u32)999));
 
     }
 
@@ -1081,7 +1081,7 @@ void show_init_stats(afl_state_t *afl) {
 
   if (afl->non_instrumented_mode && !(afl->afl_env.afl_hang_tmout)) {
 
-    afl->hang_tmout = MIN(EXEC_TIMEOUT, afl->fsrv.exec_tmout * 2 + 100);
+    afl->hang_tmout = MIN((u32)EXEC_TIMEOUT, afl->fsrv.exec_tmout * 2 + 100);
 
   }
 

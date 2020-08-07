@@ -79,7 +79,7 @@ static void at_exit() {
 
 /* Display usage hints. */
 
-static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
+static void usage(u8 *argv0, int more_help) {
 
   SAYF(
       "\n%s [ options ] -- /path/to/fuzzed_app [ ... ]\n\n"
@@ -677,7 +677,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
 
-        if (limit_time_puppet2 < afl->limit_time_puppet) {
+        if ((s32)limit_time_puppet2 < afl->limit_time_puppet) {
 
           FATAL("limit_time overflow");
 
@@ -811,7 +811,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (optind == argc || !afl->in_dir || !afl->out_dir || show_help) {
 
-    usage(afl, argv[0], show_help);
+    usage(argv[0], show_help);
 
   }
 
