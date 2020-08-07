@@ -120,6 +120,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
  }
 } || {
  $ECHO "$YELLOW[-] not an intel platform, cannot test afl-gcc"
+ INCOMPLETE=1
 }
 
 . ./test-post.sh
