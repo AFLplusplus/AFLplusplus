@@ -115,8 +115,8 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "                  if using QEMU, just use -c 0.\n\n"
 
       "Fuzzing behavior settings:\n"
-      "  -N            - do not unlink the fuzzing input file (only for "
-      "devices etc.!)\n"
+      "  -N            - do not unlink the fuzzing input file (for devices "
+      "etc.)\n"
       "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (non-instrumented mode)\n"
       "  -x dict_file  - optional fuzzer dictionary (see README.md, its really "
