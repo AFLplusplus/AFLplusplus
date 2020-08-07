@@ -115,7 +115,7 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
     if (*lptr == '@') {
 
       ++lptr;
-      if (atoi(lptr) > dict_level) { continue; }
+      if (atoi(lptr) > (s32)dict_level) { continue; }
       while (isdigit(*lptr)) {
 
         ++lptr;
@@ -402,7 +402,7 @@ void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
 
     while (i--) {
 
-      if (*((u32 *)mem) == interesting_32[i] ||
+      if (*((u32 *)mem) == (u32)interesting_32[i] ||
           *((u32 *)mem) == SWAP32(interesting_32[i])) {
 
         return;
@@ -480,7 +480,7 @@ sort_a_extras:
 
   /* Then, sort the top USE_AUTO_EXTRAS entries by size. */
 
-  qsort(afl->a_extras, MIN(USE_AUTO_EXTRAS, afl->a_extras_cnt),
+  qsort(afl->a_extras, MIN((u32)USE_AUTO_EXTRAS, afl->a_extras_cnt),
         sizeof(struct extra_data), compare_extras_len);
 
 }
@@ -494,7 +494,7 @@ void save_auto(afl_state_t *afl) {
   if (!afl->auto_changed) { return; }
   afl->auto_changed = 0;
 
-  for (i = 0; i < MIN(USE_AUTO_EXTRAS, afl->a_extras_cnt); ++i) {
+  for (i = 0; i < MIN((u32)USE_AUTO_EXTRAS, afl->a_extras_cnt); ++i) {
 
     u8 *fn =
         alloc_printf("%s/queue/.state/auto_extras/auto_%06u", afl->out_dir, i);

@@ -184,9 +184,7 @@ static void __afl_map_shm_fuzz() {
 static void __afl_map_shm(void) {
 
   // we we are not running in afl ensure the map exists
-  fprintf(stderr, "Was: %p\n", __afl_area_ptr);
   if (!__afl_area_ptr) __afl_area_ptr = __afl_area_initial;
-  fprintf(stderr, "Is: %p\n", __afl_area_ptr);
 
   char *id_str = getenv(SHM_ENV_VAR);
 

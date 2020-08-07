@@ -352,7 +352,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  if (use_num && num == pattern) {
+  if (use_num && (u64)num == pattern) {
 
     size_t old_len = endptr - buf_8;
     size_t num_len = snprintf(NULL, 0, "%lld", num);
@@ -659,12 +659,12 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
 }
 
-static u8 rtn_extend_encoding(afl_state_t *afl, struct cmp_header *h,
-                              u8 *pattern, u8 *repl, u8 *o_pattern, u32 idx,
-                              u8 *orig_buf, u8 *buf, u32 len, u8 *status) {
+static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
+                              u8 *o_pattern, u32 idx, u8 *orig_buf, u8 *buf,
+                              u32 len, u8 *status) {
 
   u32 i;
-  u32 its_len = MIN(32, len - idx);
+  u32 its_len = MIN((u32)32, len - idx);
 
   u8 save[32];
   memcpy(save, &buf[idx], its_len);
@@ -728,7 +728,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
     for (idx = 0; idx < len && fails < 8; ++idx) {
 
-      if (unlikely(rtn_extend_encoding(afl, h, o->v0, o->v1, orig_o->v0, idx,
+      if (unlikely(rtn_extend_encoding(afl, o->v0, o->v1, orig_o->v0, idx,
                                        orig_buf, buf, len, &status))) {
 
         return 1;
@@ -745,7 +745,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
       }
 
-      if (unlikely(rtn_extend_encoding(afl, h, o->v1, o->v0, orig_o->v1, idx,
+      if (unlikely(rtn_extend_encoding(afl, o->v1, o->v0, orig_o->v1, idx,
                                        orig_buf, buf, len, &status))) {
 
         return 1;
@@ -853,12 +853,13 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
 
     if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
 
-      afl->stage_max += MIN((u32)afl->shm.cmp_map->headers[k].hits, CMP_MAP_H);
+      afl->stage_max +=
+          MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)CMP_MAP_H);
 
     } else {
 
       afl->stage_max +=
-          MIN((u32)afl->shm.cmp_map->headers[k].hits, CMP_MAP_RTN_H);
+          MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)CMP_MAP_RTN_H);
 
     }
 
