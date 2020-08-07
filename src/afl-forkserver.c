@@ -145,6 +145,13 @@ restart_select:
   if (likely(sret > 0)) {
 
   restart_read:
+    if (*stop_soon_p) {
+
+      // Early return - the user wants to quit.
+      return 0;
+
+    }
+
     len_read = read(fd, (u8 *)buf, 4);
 
     if (likely(len_read == 4)) {  // for speed we put this first
@@ -691,7 +698,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         }
 
         offset = 0;
-        while (offset < status && (u8)dict[offset] + offset < status) {
+        while (offset < (u32)status &&
+               (u8)dict[offset] + offset < (u32)status) {
 
           fsrv->function_ptr(fsrv->function_opt, dict + offset + 1,
                              (u8)dict[offset]);

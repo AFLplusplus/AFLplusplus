@@ -28,6 +28,7 @@ void __wrap_exit(int status);
 extern void exit(int status);
 extern void __real_exit(int status);
 void __wrap_exit(int status) {
+    (void) status;
     assert(0);
 }
 
@@ -35,8 +36,9 @@ int __wrap_printf(const char *format, ...);
 /* ignore all printfs */
 #undef printf
 extern int printf(const char *format, ...);
-extern int __real_printf(const char *format, ...);
+//extern int __real_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...) {
+    (void)format;
     return 1;
 }
 
@@ -51,6 +53,7 @@ static int setup(void **state) {
 */
 
 static void test_null_allocs(void **state) {
+    (void)state;
 
     void *buf = NULL;
     size_t size = 0;
@@ -62,6 +65,7 @@ static void test_null_allocs(void **state) {
 }
 
 static void test_nonpow2_size(void **state) {
+    (void)state;
 
     char *buf = ck_alloc(150);
     size_t size = 150;
@@ -75,6 +79,7 @@ static void test_nonpow2_size(void **state) {
 }
 
 static void test_zero_size(void **state) {
+    (void)state;
 
     char *buf = NULL;
     size_t size = 0;
@@ -95,6 +100,7 @@ static void test_zero_size(void **state) {
 }
 
 static void test_unchanged_size(void **state) {
+    (void)state;
 
     void *buf = ck_alloc(100);
     size_t size = 100;
@@ -107,6 +113,7 @@ static void test_unchanged_size(void **state) {
 }
 
 static void test_grow_multiple(void **state) {
+    (void)state;
 
     char *buf = NULL;
     size_t size = 0;
@@ -146,6 +153,8 @@ static int teardown(void **state) {
 */
 
 int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
 
 	const struct CMUnitTest tests[] = {
 		cmocka_unit_test(test_null_allocs),
