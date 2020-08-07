@@ -71,7 +71,7 @@ must be mangled to match!
 
 afl++ is intelligent to identify if an entry is a filename or a function.
 However if you want to be sure (and compliant to the sancov allow/blocklist
-format), you can file entries like this:
+format), you can specify source file entries like this:
 ```
 src: *malloc.c
 ```

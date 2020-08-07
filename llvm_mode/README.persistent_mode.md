@@ -125,7 +125,7 @@ Add after the includes:
 extern unsigned char *__afl_area_ptr;
 #define MAX_DUMMY_SIZE 256000
 
-__attribute__((constructor(10))) void __afl_protect(void) {
+__attribute__((constructor(1))) void __afl_protect(void) {
 #ifdef MAP_FIXED_NOREPLACE
   __afl_area_ptr = (unsigned char*) mmap((void *)0x10000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE, MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   if ((uint64_t)__afl_area_ptr == -1)
@@ -139,6 +139,7 @@ __attribute__((constructor(10))) void __afl_protect(void) {
 and just before `__AFL_INIT()`:
 ```
   munmap(__afl_area_ptr, MAX_DUMMY_SIZE);
+  __afl_area_ptr = NULL;
 ```
 
 ## 4) persistent mode
