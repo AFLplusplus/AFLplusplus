@@ -37,6 +37,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - LTO: AFL_LLVM_SKIP_NEVERZERO behaviour was inversed, fixed
      - setting AFL_LLVM_LAF_SPLIT_FLOATS now activates
        AFL_LLVM_LAF_SPLIT_COMPARES
+     - support for -E and -shared compilation runs
   - added honggfuzz mangle as a custom mutator in custom_mutators/honggfuzz
   - added afl-frida gum solution to examples/afl_frida (mostly imported
     from https://github.com/meme/hotwax/)
