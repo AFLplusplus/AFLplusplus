@@ -193,9 +193,9 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     {
       mkdir -p in
       echo 0000000000000000000000000 > in/in
-      ../afl-fuzz -m none -V10 -i in -o out -c./test-cmplog -- ./test-cmplog >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -m none -V60 -i in -o out -c./test-cmplog -- ./test-cmplog >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {
+    test -n "$( ls out/crashes/id:000000* out/hangs/id:000000* 2>/dev/null )" & {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode cmplog"
     } || {
       echo CUT------------------------------------------------------------------CUT
