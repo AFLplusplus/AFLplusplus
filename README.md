@@ -41,7 +41,7 @@
 
   | Feature/Instrumentation | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
   | ----------------------- |:-------:|:---------:|:----------:|:----------------:|:------------:|
-  | NeverZero               |    x    |     x(1)  |      (2)   |         x        |       x      |
+  | NeverZero               | x86[_64]|     x(1)  |      (2)   |         x        |       x      |
   | Persistent mode         |         |     x     |     x      | x86[_64]/arm[64] |       x      |
   | LAF-Intel / CompCov     |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
   | CmpLog                  |         |     x     |            | x86[_64]/arm[64] |              |
