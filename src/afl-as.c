@@ -407,7 +407,7 @@ static void add_instrumentation(void) {
 
     if (line[0] == '\t') {
 
-      if (line[1] == 'j' && line[2] != 'm' && R(100) < inst_ratio) {
+      if (line[1] == 'j' && line[2] != 'm' && R(100) < (long)inst_ratio) {
 
         fprintf(outf, use_64bit ? trampoline_fmt_64 : trampoline_fmt_32,
                 R(MAP_SIZE));
@@ -449,7 +449,7 @@ static void add_instrumentation(void) {
         /* Apple: L<num> / LBB<num> */
 
         if ((isdigit(line[1]) || (clang_mode && !strncmp(line, "LBB", 3))) &&
-            R(100) < inst_ratio) {
+            R(100) < (long)inst_ratio) {
 
 #else
 
@@ -457,7 +457,7 @@ static void add_instrumentation(void) {
 
         if ((isdigit(line[2]) ||
              (clang_mode && !strncmp(line + 1, "LBB", 3))) &&
-            R(100) < inst_ratio) {
+            R(100) < (long)inst_ratio) {
 
 #endif                                                         /* __APPLE__ */
 

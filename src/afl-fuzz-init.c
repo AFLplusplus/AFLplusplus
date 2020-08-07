@@ -762,7 +762,7 @@ void perform_dry_run(afl_state_t *afl) {
 
     use_mem = ck_alloc_nozero(q->len);
 
-    if (read(fd, use_mem, q->len) != q->len) {
+    if (read(fd, use_mem, q->len) != (ssize_t)q->len) {
 
       FATAL("Short read from '%s'", q->fname);
 
