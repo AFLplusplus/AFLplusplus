@@ -1,4 +1,9 @@
-# production ready custom mutators
+# Custom Mutators
+
+Custom mutators enhance and alter the mutation strategies of afl++.
+For further information and documentation on how to write your own, read [the docs](../docs/custom_mutators.md).
+
+## Production-Ready Custom Mutators
 
 This directory holds ready to use custom mutators.
 Just type "make" in the individual subdirectories.
@@ -11,15 +16,15 @@ and add `AFL_CUSTOM_MUTATOR_ONLY=1` if you only want to use the custom mutator.
 
 Multiple custom mutators can be used by separating their paths with `:` in the environment variable.
 
-# Other custom mutators
+## 3rd Party Custom Mutators
 
-## Superion port
+### Superion Mutators
 
 Adrian Tiron ported the Superion grammar fuzzer to afl++, it is WIP and
 requires cmake (among other things):
 [https://github.com/adrian-rt/superion-mutator](https://github.com/adrian-rt/superion-mutator)
 
-## Protobuf
+### libprotobuf Mutators
 
 There are two WIP protobuf projects, that require work to be working though:
 
