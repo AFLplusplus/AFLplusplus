@@ -1683,6 +1683,8 @@ custom_mutator_stage:
 
       has_custom_fuzz = true;
 
+      afl->stage_short = el->name_short;
+
       for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
            ++afl->stage_cur) {
 
