@@ -79,6 +79,8 @@ typedef struct afl_forkserver {
   u8 use_fauxsrv;                       /* Fauxsrv for non-forking targets? */
 
   u8 qemu_mode;                         /* if running in qemu mode or not   */
+  
+  u8 taint_mode;                        /* if running taint analysis or not */
 
   u32 *shmem_fuzz_len;                  /* length of the fuzzing test case  */
 

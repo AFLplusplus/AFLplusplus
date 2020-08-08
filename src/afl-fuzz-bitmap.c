@@ -177,6 +177,38 @@ u32 count_bits(afl_state_t *afl, u8 *mem) {
 
 }
 
+u32 count_bits_len(afl_state_t *afl, u8 *mem, u32 len) {
+
+  u32 *ptr = (u32 *)mem;
+  u32  i = (len >> 2);
+  u32  ret = 0;
+
+  if (len % 4) i++;
+
+  while (i--) {
+
+    u32 v = *(ptr++);
+
+    /* This gets called on the inverse, virgin bitmap; optimize for sparse
+       data. */
+
+    if (v == 0xffffffff) {
+
+      ret += 32;
+      continue;
+
+    }
+
+    v -= ((v >> 1) & 0x55555555);
+    v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
+    ret += (((v + (v >> 4)) & 0xF0F0F0F) * 0x01010101) >> 24;
+
+  }
+
+  return ret;
+
+}
+
 /* Count the number of bytes set in the bitmap. Called fairly sporadically,
    mostly to update the status screen or calibrate and examine confirmed
    new paths. */

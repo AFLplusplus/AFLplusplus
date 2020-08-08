@@ -138,6 +138,7 @@ void argv_cpy_free(char **argv) {
 
 }
 
+
 /* Rewrite argv for QEMU. */
 
 char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {

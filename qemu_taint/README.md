@@ -18,7 +18,7 @@ Only touched bytes are then fuzzed by afl-fuzz
 
 ## How to use
 
-Add the -T flag to afl-fuzz
+Add the -A flag to afl-fuzz
 
 ## Caveats
 
