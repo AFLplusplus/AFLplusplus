@@ -481,7 +481,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "handle_sigill=0",
            0);
 
-fprintf(stderr, "init %p\n", fsrv->init_child_func);
     fsrv->init_child_func(fsrv, argv);
 
     /* Use a distinctive bitmap signature to tell the parent about execv()
@@ -497,19 +496,19 @@ fprintf(stderr, "init %p\n", fsrv->init_child_func);
 
   char pid_buf[16];
   sprintf(pid_buf, "%d", fsrv->fsrv_pid);
-  
+
   if (fsrv->qemu_mode == 2) {
 
     setenv("__AFL_TARGET_PID3", pid_buf, 1);
 
   } else if (fsrv->cmplog_binary) {
-  
+
     setenv("__AFL_TARGET_PID2", pid_buf, 1);
-  
+
   } else {
-  
+
     setenv("__AFL_TARGET_PID1", pid_buf, 1);
-  
+
   }
 
   /* Close the unneeded endpoints. */

@@ -371,7 +371,7 @@ typedef struct afl_state {
   afl_env_vars_t   afl_env;
 
   char **argv;                                            /* argv if needed */
-  
+
   char **argv_taint;                                 /* argv for taint mode */
 
   /* MOpt:

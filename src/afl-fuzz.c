@@ -92,7 +92,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -o dir        - output directory for fuzzer findings\n\n"
 
       "Execution control settings:\n"
-      "  -A            - use first level taint analysis (see qemu_taint/README.md)\n"
+      "  -A            - use first level taint analysis (see "
+      "qemu_taint/README.md)\n"
       "  -p schedule   - power schedules compute a seed's performance score. "
       "<explore\n"
       "                  (default), fast, coe, lin, quad, exploit, mmopt, "
@@ -1247,7 +1248,7 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Cmplog forkserver successfully started");
 
   }
-  
+
   if (afl->fsrv.taint_mode) {
 
     ACTF("Spawning qemu_taint forkserver");
@@ -1256,11 +1257,21 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->taint_fsrv.trace_bits = afl->fsrv.trace_bits;
     ck_free(afl->taint_fsrv.target_path);
     afl->taint_fsrv.target_path = ck_strdup(afl->fsrv.target_path);
-    afl->argv_taint = get_qemu_argv(argv[0], &afl->taint_fsrv.target_path,
-                                    argc - optind, argv + optind);
-    u32 len = strlen(afl->taint_fsrv.target_path);
-    strcpy(afl->taint_fsrv.target_path + len - 5, "taint");
-    strcpy((afl->argv_taint[0]) + len - 5, "taint");
+    afl->argv_taint = ck_alloc(sizeof(char *) * (argc + 4 - optind));
+    afl->argv_taint[0] = find_binary_own_loc("afl-qemu-taint", argv[0]);
+    if (!afl->argv_taint[0])
+      FATAL(
+          "Cannot find 'afl-qemu-taint', read qemu_taint/README.md on how to "
+          "build it.");
+    u32 idx = optind - 1, offset = 0;
+    do {
+
+      idx++;
+      offset++;
+      afl->argv_taint[offset] = argv[idx];
+
+    } while (argv[idx] != NULL);
+
     if (afl->fsrv.use_stdin)
       unsetenv("AFL_TAINT_INPUT");
     else
