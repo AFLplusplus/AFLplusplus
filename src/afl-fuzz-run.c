@@ -471,6 +471,19 @@ abort_calibration:
   afl->stage_cur = old_sc;
   afl->stage_max = old_sm;
 
+  /* if taint mode was selected, run the taint */
+  
+  if (afl->fsrv.taint_mode) {
+    write_to_testcase(afl, use_mem, q->len);
+    if (afl_fsrv_run_target(&afl->taint_fsrv, use_tmout, &afl->stop_soon) == 0) {
+      u32 len = q->len / 8;
+      if (q->len % 8) len++;
+      u32 bits = count_bits_len(afl, afl->taint_fsrv.trace_bits, len);
+      if (afl->debug) fprintf(stderr, "Debug: tainted bytes: %u\n", bits);
+
+    }
+  }
+
   if (!first_run) { show_stats(afl); }
 
   return fault;

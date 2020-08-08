@@ -371,6 +371,8 @@ typedef struct afl_state {
   afl_env_vars_t   afl_env;
 
   char **argv;                                            /* argv if needed */
+  
+  char **argv_taint;                                 /* argv for taint mode */
 
   /* MOpt:
     Lots of globals, but mostly for the status UI and other things where it
@@ -580,6 +582,9 @@ typedef struct afl_state {
 
   char *           cmplog_binary;
   afl_forkserver_t cmplog_fsrv;     /* cmplog has its own little forkserver */
+
+  /* Taint mode */
+  afl_forkserver_t taint_fsrv;  /* taint mode has its own little forkserver */
 
   /* Custom mutators */
   struct custom_mutator *mutator;
@@ -889,6 +894,7 @@ u32  calculate_score(afl_state_t *, struct queue_entry *);
 
 void write_bitmap(afl_state_t *);
 u32  count_bits(afl_state_t *, u8 *);
+u32  count_bits_len(afl_state_t *, u8 *, u32);
 u32  count_bytes(afl_state_t *, u8 *);
 u32  count_non_255_bytes(afl_state_t *, u8 *);
 #ifdef WORD_SIZE_64

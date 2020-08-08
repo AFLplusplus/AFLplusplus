@@ -53,6 +53,9 @@ static void at_exit() {
   ptr = getenv("__AFL_TARGET_PID2");
   if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
 
+  ptr = getenv("__AFL_TARGET_PID3");
+  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
+
   i = 0;
   while (list[i] != NULL) {
 
@@ -89,6 +92,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -o dir        - output directory for fuzzer findings\n\n"
 
       "Execution control settings:\n"
+      "  -A            - use first level taint analysis (see qemu_taint/README.md)\n"
       "  -p schedule   - power schedules compute a seed's performance score. "
       "<explore\n"
       "                  (default), fast, coe, lin, quad, exploit, mmopt, "
@@ -277,9 +281,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+b:c:i:I:o:f:F:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) > 0) {
+              "+b:c:i:I:o:f:F:m:t:T:dDnCB:S:M:x:QANUWe:p:s:V:E:L:hRP:")) > 0) {
 
     switch (opt) {
+
+      case 'A':
+        afl->fsrv.taint_mode = 1;
+        if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_QEMU; }
+        break;
 
       case 'I':
         afl->infoexec = optarg;
@@ -485,7 +494,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (!optarg) { FATAL("Wrong usage of -m"); }
 
-        if (!strcmp(optarg, "none")) {
+        if (!strcmp(optarg, "none") || !strcmp(optarg, "0")) {
 
           afl->fsrv.mem_limit = 0;
           break;
@@ -815,6 +824,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->fsrv.taint_mode && afl->fsrv.map_size < (MAX_FILE / 8) + 1) {
+
+    afl->shm.map_size = (MAX_FILE / 8);
+    if (MAX_FILE % 8) afl->shm.map_size++;
+    afl->fsrv.map_size = afl->shm.map_size;
+
+  }
+
   if (!mem_limit_given && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
@@ -869,6 +886,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (afl->crash_mode) { FATAL("-C and -n are mutually exclusive"); }
     if (afl->fsrv.qemu_mode) { FATAL("-Q and -n are mutually exclusive"); }
     if (afl->unicorn_mode) { FATAL("-U and -n are mutually exclusive"); }
+    if (afl->fsrv.taint_mode) { FATAL("-A and -n are mutually exclusive"); }
 
   }
 
@@ -969,7 +987,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->afl_env.afl_preload) {
 
-    if (afl->fsrv.qemu_mode) {
+    if (afl->fsrv.qemu_mode || afl->fsrv.taint_mode) {
 
       u8 *qemu_preload = getenv("QEMU_SET_ENV");
       u8 *afl_preload = getenv("AFL_PRELOAD");
@@ -1220,7 +1238,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     ACTF("Spawning cmplog forkserver");
     afl_fsrv_init_dup(&afl->cmplog_fsrv, &afl->fsrv);
-    // TODO: this is semi-nice
     afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
@@ -1228,6 +1245,29 @@ int main(int argc, char **argv_orig, char **envp) {
     afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                    afl->afl_env.afl_debug_child_output);
     OKF("Cmplog forkserver successfully started");
+
+  }
+  
+  if (afl->fsrv.taint_mode) {
+
+    ACTF("Spawning qemu_taint forkserver");
+    afl_fsrv_init_dup(&afl->taint_fsrv, &afl->fsrv);
+    afl->taint_fsrv.qemu_mode = 2;
+    afl->taint_fsrv.trace_bits = afl->fsrv.trace_bits;
+    ck_free(afl->taint_fsrv.target_path);
+    afl->taint_fsrv.target_path = ck_strdup(afl->fsrv.target_path);
+    afl->argv_taint = get_qemu_argv(argv[0], &afl->taint_fsrv.target_path,
+                                    argc - optind, argv + optind);
+    u32 len = strlen(afl->taint_fsrv.target_path);
+    strcpy(afl->taint_fsrv.target_path + len - 5, "taint");
+    strcpy((afl->argv_taint[0]) + len - 5, "taint");
+    if (afl->fsrv.use_stdin)
+      unsetenv("AFL_TAINT_INPUT");
+    else
+      setenv("AFL_TAINT_INPUT", afl->fsrv.out_file, 1);
+    afl_fsrv_start(&afl->taint_fsrv, afl->argv_taint, &afl->stop_soon,
+                   afl->afl_env.afl_debug_child_output);
+    OKF("Taint forkserver successfully started");
 
   }
 
@@ -1493,8 +1533,11 @@ stop_fuzzing:
 
   }
 
+  if (afl->cmplog_binary) afl_fsrv_deinit(&afl->cmplog_fsrv);
+  if (afl->fsrv.taint_mode) afl_fsrv_deinit(&afl->taint_fsrv);
   afl_fsrv_deinit(&afl->fsrv);
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
+  if (afl->argv_taint) { ck_free(afl->argv_taint); }
   ck_free(afl->fsrv.target_path);
   ck_free(afl->fsrv.out_file);
   ck_free(afl->sync_id);
