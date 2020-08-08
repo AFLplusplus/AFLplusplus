@@ -656,6 +656,7 @@ typedef struct afl_state {
 struct custom_mutator {
 
   const char *name;
+  char *      name_short;
   void *      dh;
   u8 *        post_process_buf;
   size_t      post_process_size;
