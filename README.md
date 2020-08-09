@@ -1,12 +1,20 @@
 # qemu_taint variant.
 
-CAVEATS:
+## HOWTO
+
+cd qemu_taint && ./build_qemu_taint.sh
+
+afl-fuzz -A ...
+
+## CAVEATS
 
  * shmem persistent mode does not work
  * custom mutators? dunno if they work or not
  * MOpt works but totally ignores the taint information
  * not tested with qemu_mode
  * if all seed entries are fully touched it might not work
+
+## THE TAINT
 
 taint can be seen in out/taint/
 
