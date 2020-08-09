@@ -235,6 +235,29 @@ u32 count_bytes(afl_state_t *afl, u8 *mem) {
 
 }
 
+u32 count_bytes_len(afl_state_t *afl, u8 *mem, u32 len) {
+
+  u32 *ptr = (u32 *)mem;
+  u32  i = (len >> 2);
+  u32  ret = 0;
+
+  while (i--) {
+
+    u32 v = *(ptr++);
+
+    if (!v) { continue; }
+    if (v & 0x000000ff) { ++ret; }
+    if (v & 0x0000ff00) { ++ret; }
+    if (v & 0x00ff0000) { ++ret; }
+    if (v & 0xff000000) { ++ret; }
+
+  }
+
+  return ret;
+
+}
+
+
 /* Count the number of non-255 bytes set in the bitmap. Used strictly for the
    status screen, several calls per second or so. */
 
