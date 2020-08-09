@@ -118,6 +118,9 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
   if (q->fname_taint) {
 
+    u8 *save = ck_maybe_grow(BUF_PARAMS(out_scratch), afl->fsrv.map_size);
+    memcpy(save, afl->taint_fsrv.trace_bits, afl->fsrv.map_size);
+
     afl->taint_fsrv.map_size = plen;  // speed :)
     write_to_testcase(afl, mem, len);
     if (afl_fsrv_run_target(&afl->taint_fsrv, afl->fsrv.exec_tmout,
@@ -214,6 +217,8 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
     }
 
+    memcpy(afl->taint_fsrv.trace_bits, save, afl->fsrv.map_size);
+
   }
 
   if (!bytes) {
@@ -226,11 +231,6 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
       q->fname_taint = NULL;
 
     }
-
-  } else {
-
-    if (q->taint_bytes_all && !q->taint_bytes_new)
-      q->taint_bytes_new = q->taint_bytes_all;
 
   }
 

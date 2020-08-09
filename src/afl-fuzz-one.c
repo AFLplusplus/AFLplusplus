@@ -458,26 +458,31 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  if (unlikely(afl->fsrv.taint_mode && (afl->queue_cycle % 3))) {
+  u32 tmp_val;
+
+  if (unlikely(afl->fsrv.taint_mode &&
+               (tmp_val = (afl->queue_cycle % 3)) != 1)) {
 
     if (unlikely(afl->queue_cur->cal_failed)) goto abandon_entry;
+    if (tmp_val == 1 && !afl->queue_cur->taint_bytes_all) goto abandon_entry;
+    if (tmp_val == 2 && !afl->queue_cur->taint_bytes_new) goto abandon_entry;
 
     u32 dst = 0, i;
+    temp_len = len = afl->queue_cur->len;
 
     fd = open(afl->queue_cur->fname, O_RDONLY);
     afl->taint_src = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     if (fd < 0 || (size_t)afl->taint_src == -1)
       FATAL("unable to open '%s'", afl->queue_cur->fname);
     close(fd);
+    afl->taint_needs_splode = 1;
 
-    switch (afl->queue_cycle % 3) {
+    switch (tmp_val) {
 
-      case 0:  // do nothing, but cannot happen -> else
+      case 1:  // do nothing, but cannot happen -> else
         break;
 
-      case 1:  // fuzz only tainted bytes
-        if (!afl->queue_cur->taint_bytes_all) goto abandon_entry;
-        afl->taint_needs_splode = 1;
+      case 2:  // fuzz only tainted bytes
 
         fd = open(afl->taint_input_file, O_RDONLY);
         len = afl->taint_len = afl->queue_cur->taint_bytes_all;
@@ -499,9 +504,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
         break;
 
-      case 2:  // fuzz only newly tainted bytes
-        if (!afl->queue_cur->taint_bytes_new) goto abandon_entry;
-        afl->taint_needs_splode = 1;
+      case 0:  // fuzz only newly tainted bytes
 
         fd = open(afl->taint_input_file, O_RDONLY);
         len = afl->taint_len = afl->queue_cur->taint_bytes_new;
@@ -515,7 +518,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
         fd = open(fn, O_RDWR);
         afl->taint_map = mmap(0, afl->queue_cur->len, PROT_READ | PROT_WRITE,
                               MAP_PRIVATE, fd, 0);
-        if (fd < 0 || (size_t)in_buf == -1) FATAL("unable to open '%s'", fn);
+        if (fd < 0 || (size_t)in_buf == -1)
+          FATAL("unable to open '%s' for %u bytes", fn, len);
         close(fd);
         ck_free(fn);
 
@@ -525,8 +529,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
         break;
 
     }
-
-    goto havoc_stage;  // we let the normal cycles do deterministic mode - if
 
   } else {
 
@@ -652,6 +654,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
+
+  if (afl->taint_needs_splode) goto havoc_stage;
 
   if (likely(afl->queue_cur->passed_det) || likely(afl->skip_deterministic) ||
       likely(perf_score <

@@ -961,7 +961,8 @@ void perform_dry_run(afl_state_t *afl) {
     }
 
     /* perform taint gathering on the input seed */
-    perform_taint_run(afl, q, q->fname, use_mem, q->len);
+    if (afl->fsrv.taint_mode)
+      perform_taint_run(afl, q, q->fname, use_mem, q->len);
 
     q = q->next;
 
@@ -1505,6 +1506,11 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 
     fn = alloc_printf("%s/taint", afl->out_dir);
     mkdir(fn, 0755);  // ignore errors
+
+    u8 *fn2 = alloc_printf("%s/taint/.input", afl->out_dir);
+    unlink(fn2);  // ignore errors
+    ck_free(fn2);
+
     if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
     ck_free(fn);
 
