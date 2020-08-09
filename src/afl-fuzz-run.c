@@ -863,6 +863,8 @@ abort_trimming:
 
 }
 
+#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
+
 /* Write a modified test case, run program, process results. Handle
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
@@ -870,6 +872,27 @@ abort_trimming:
 u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
+
+  if (unlikely(afl->taint_needs_splode)) {
+
+    s32 new_len = afl->queue_cur->len + len - afl->taint_len;
+    if (new_len < 4) new_len = 4;
+    u8 *new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), new_len);
+
+    u32 i, taint = 0;
+    for (i = 0; i < new_len; i++) {
+
+      if (afl->taint_map[i] || i > afl->queue_cur->len)
+        new_buf[i] = out_buf[taint++];
+      else
+        new_buf[i] = afl->taint_src[i];
+
+    }
+
+    out_buf = new_buf;
+    len = new_len;
+
+  }
 
   write_to_testcase(afl, out_buf, len);
 
@@ -917,4 +940,6 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   return 0;
 
 }
+
+#undef BUF_PARAMS
 

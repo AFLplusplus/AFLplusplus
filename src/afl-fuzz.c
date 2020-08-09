@@ -1260,12 +1260,15 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->fsrv.taint_mode) {
 
     ACTF("Spawning qemu_taint forkserver");
+
     u8 *disable = getenv("AFL_DISABLE_LLVM_INSTRUMENTATION");
     setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0);
+
     afl_fsrv_init_dup(&afl->taint_fsrv, &afl->fsrv);
     afl->taint_fsrv.qemu_mode = 2;
     afl->taint_fsrv.taint_mode = 1;
     afl->taint_fsrv.trace_bits = afl->fsrv.trace_bits;
+
     ck_free(afl->taint_fsrv.target_path);
     afl->argv_taint = ck_alloc(sizeof(char *) * (argc + 4 - optind));
     afl->taint_fsrv.target_path =
@@ -1290,7 +1293,16 @@ int main(int argc, char **argv_orig, char **envp) {
       setenv("AFL_TAINT_INPUT", afl->fsrv.out_file, 1);
     afl_fsrv_start(&afl->taint_fsrv, afl->argv_taint, &afl->stop_soon,
                    afl->afl_env.afl_debug_child_output);
+
+    afl->taint_input_file = alloc_printf("%s/taint/.input", afl->out_dir);
+    int fd = open(afl->taint_input_file, O_CREAT | O_TRUNC | O_RDWR, 0644);
+    if (fd < 0)
+      FATAL("Cannot create taint inpu file '%s'", afl->taint_input_file);
+    lseek(fd, MAX_FILE, SEEK_SET);
+    ck_write(fd, "\0", 1, afl->taint_input_file);
+
     if (!disable) unsetenv("AFL_DISABLE_LLVM_INSTRUMENTATION");
+
     OKF("Taint forkserver successfully started");
 
   }

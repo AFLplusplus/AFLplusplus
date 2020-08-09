@@ -430,7 +430,9 @@ typedef struct afl_state {
       *in_bitmap,                       /* Input bitmap                     */
       *file_extension,                  /* File extension                   */
       *orig_cmdline,                    /* Original command line            */
-      *infoexec;                       /* Command to execute on a new crash */
+      *infoexec,                       /* Command to execute on a new crash */
+      *taint_input_file,                /* fuzz_input_one input file        */
+      *taint_src, *taint_map;
 
   u32 hang_tmout;                       /* Timeout used for hang det (ms)   */
 
@@ -441,7 +443,8 @@ typedef struct afl_state {
       custom_only,                      /* Custom mutator only mode         */
       python_only,                      /* Python-only mode                 */
       is_main_node,                     /* if this is the main node         */
-      is_secondary_node;                /* if this is a secondary instance  */
+      is_secondary_node,                /* if this is a secondary instance  */
+      taint_needs_splode;               /* explode fuzz input               */
 
   u32 stats_update_freq;                /* Stats update frequency (execs)   */
 
@@ -502,7 +505,8 @@ typedef struct afl_state {
       useless_at_start,                 /* Number of useless starting paths */
       var_byte_count,                   /* Bitmap bytes with var behavior   */
       current_entry,                    /* Current queue entry ID           */
-      havoc_div;                        /* Cycle count divisor for havoc    */
+      havoc_div,                        /* Cycle count divisor for havoc    */
+      taint_len;
 
   u64 total_crashes,                    /* Total number of crashes          */
       unique_crashes,                   /* Crashes with unique signatures   */
