@@ -257,7 +257,6 @@ u32 count_bytes_len(afl_state_t *afl, u8 *mem, u32 len) {
 
 }
 
-
 /* Count the number of non-255 bytes set in the bitmap. Used strictly for the
    status screen, several calls per second or so. */
 
