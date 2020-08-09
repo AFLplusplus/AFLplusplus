@@ -458,27 +458,102 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  /* Map the test case into memory. */
+  if (unlikely(afl->fsrv.taint_mode && (afl->queue_cycle % 3))) {
 
-  fd = open(afl->queue_cur->fname, O_RDONLY);
+    if (unlikely(afl->queue_cur->cal_failed)) goto abandon_entry;
 
-  if (unlikely(fd < 0)) {
+    u32 dst = 0, i;
 
-    PFATAL("Unable to open '%s'", afl->queue_cur->fname);
+    fd = open(afl->queue_cur->fname, O_RDONLY);
+    afl->taint_src = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    if (fd < 0 || (size_t)afl->taint_src == -1)
+      FATAL("unable to open '%s'", afl->queue_cur->fname);
+    close(fd);
+
+    switch (afl->queue_cycle % 3) {
+
+      case 0:  // do nothing, but cannot happen -> else
+        break;
+
+      case 1:  // fuzz only tainted bytes
+        if (!afl->queue_cur->taint_bytes_all) goto abandon_entry;
+        afl->taint_needs_splode = 1;
+
+        fd = open(afl->taint_input_file, O_RDONLY);
+        len = afl->taint_len = afl->queue_cur->taint_bytes_all;
+        orig_in = in_buf =
+            mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+        if (fd < 0 || (size_t)in_buf == -1)
+          FATAL("unable to open '%s'", afl->taint_input_file);
+        close(fd);
+
+        fd = open(afl->queue_cur->fname_taint, O_RDWR);
+        afl->taint_map = mmap(0, afl->queue_cur->len, PROT_READ | PROT_WRITE,
+                              MAP_PRIVATE, fd, 0);
+        if (fd < 0 || (size_t)in_buf == -1)
+          FATAL("unable to open '%s'", afl->queue_cur->fname_taint);
+        close(fd);
+
+        for (i = 0; i < afl->queue_cur->len && dst < len; i++)
+          if (afl->taint_map[i]) in_buf[dst++] = afl->taint_src[i];
+
+        break;
+
+      case 2:  // fuzz only newly tainted bytes
+        if (!afl->queue_cur->taint_bytes_new) goto abandon_entry;
+        afl->taint_needs_splode = 1;
+
+        fd = open(afl->taint_input_file, O_RDONLY);
+        len = afl->taint_len = afl->queue_cur->taint_bytes_new;
+        orig_in = in_buf =
+            mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+        if (fd < 0 || (size_t)in_buf == -1)
+          FATAL("unable to open '%s'", afl->taint_input_file);
+        close(fd);
+
+        u8 *fn = alloc_printf("%s.new", afl->queue_cur->fname_taint);
+        fd = open(fn, O_RDWR);
+        afl->taint_map = mmap(0, afl->queue_cur->len, PROT_READ | PROT_WRITE,
+                              MAP_PRIVATE, fd, 0);
+        if (fd < 0 || (size_t)in_buf == -1) FATAL("unable to open '%s'", fn);
+        close(fd);
+        ck_free(fn);
+
+        for (i = 0; i < afl->queue_cur->len && dst < len; i++)
+          if (afl->taint_map[i]) in_buf[dst++] = afl->taint_src[i];
+
+        break;
+
+    }
+
+    goto havoc_stage;  // we let the normal cycles do deterministic mode - if
+
+  } else {
+
+    /* Map the test case into memory. */
+    afl->taint_needs_splode = 0;
+
+    fd = open(afl->queue_cur->fname, O_RDONLY);
+
+    if (unlikely(fd < 0)) {
+
+      PFATAL("Unable to open '%s'", afl->queue_cur->fname);
+
+    }
+
+    len = afl->queue_cur->len;
+
+    orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+
+    if (unlikely(orig_in == MAP_FAILED)) {
+
+      PFATAL("Unable to mmap '%s' with len %d", afl->queue_cur->fname, len);
+
+    }
+
+    close(fd);
 
   }
-
-  len = afl->queue_cur->len;
-
-  orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-
-  if (unlikely(orig_in == MAP_FAILED)) {
-
-    PFATAL("Unable to mmap '%s' with len %d", afl->queue_cur->fname, len);
-
-  }
-
-  close(fd);
 
   /* We could mmap() out_buf as MAP_PRIVATE, but we end up clobbering every
      single byte anyway, so it wouldn't give us any performance or memory usage
@@ -527,7 +602,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
    ************/
 
   if (!afl->non_instrumented_mode && !afl->queue_cur->trim_done &&
-      !afl->disable_trim) {
+      !afl->disable_trim && !afl->taint_needs_splode) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
@@ -2568,7 +2643,17 @@ abandon_entry:
 
   ++afl->queue_cur->fuzz_level;
 
-  munmap(orig_in, afl->queue_cur->len);
+  if (afl->taint_needs_splode) {
+
+    munmap(afl->taint_src, afl->queue_cur->len);
+    munmap(orig_in, afl->taint_len);
+    munmap(afl->taint_map, afl->queue_cur->len);
+
+  } else {
+
+    munmap(orig_in, afl->queue_cur->len);
+
+  }
 
   return ret_val;
 
