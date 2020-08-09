@@ -479,10 +479,11 @@ abort_calibration:
     if (afl_fsrv_run_target(&afl->taint_fsrv, use_tmout, &afl->stop_soon) ==
         0) {
 
-      u32 len = q->len / 8;
-      if (q->len % 8) len++;
-      u32 bits = count_bits_len(afl, afl->taint_fsrv.trace_bits, len);
-      if (afl->debug) fprintf(stderr, "Debug: tainted bytes: %u\n", bits);
+      u32 len = q->len;
+      if (len % 4)
+        len = len + 4 - (q->len % 4);
+      u32 bytes = count_bytes_len(afl, afl->taint_fsrv.trace_bits, len);
+      if (afl->debug) fprintf(stderr, "Debug: tainted bytes: %u\n", bytes);
 
     }
 

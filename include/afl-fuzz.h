@@ -896,6 +896,7 @@ void write_bitmap(afl_state_t *);
 u32  count_bits(afl_state_t *, u8 *);
 u32  count_bits_len(afl_state_t *, u8 *, u32);
 u32  count_bytes(afl_state_t *, u8 *);
+u32  count_bytes_len(afl_state_t *, u8 *, u32);
 u32  count_non_255_bytes(afl_state_t *, u8 *);
 #ifdef WORD_SIZE_64
 void simplify_trace(afl_state_t *, u64 *);

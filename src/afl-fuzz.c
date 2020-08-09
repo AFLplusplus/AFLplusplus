@@ -825,11 +825,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->fsrv.taint_mode && afl->fsrv.map_size < (MAX_FILE / 8) + 1) {
+  if (afl->fsrv.taint_mode && afl->fsrv.map_size < MAX_FILE) {
 
-    afl->shm.map_size = (MAX_FILE / 8);
-    if (MAX_FILE % 8) afl->shm.map_size++;
-    afl->fsrv.map_size = afl->shm.map_size;
+    afl->fsrv.map_size = afl->shm.map_size = MAX_FILE;
 
   }
 
