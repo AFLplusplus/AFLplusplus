@@ -648,7 +648,7 @@ u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
-    add_to_queue(afl, queue_fn, len, 0);
+    add_to_queue(afl, queue_fn, mem, len, afl->queue_top, 0);
 
     if (hnb == 2) {
 
