@@ -349,7 +349,9 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   }
 
-  if (q->exec_cksum) {
+  if (unlikely(afl->fsrv.taint_mode))
+    q->exec_cksum = 0;
+  else if (q->exec_cksum) {
 
     memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
     hnb = has_new_bits(afl, afl->virgin_bits);
