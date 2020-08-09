@@ -480,10 +480,10 @@ abort_calibration:
         0) {
 
       u32 len = q->len;
-      if (len % 4)
-        len = len + 4 - (q->len % 4);
+      if (len % 4) len = len + 4 - (q->len % 4);
       u32 bytes = count_bytes_len(afl, afl->taint_fsrv.trace_bits, len);
-      if (afl->debug) fprintf(stderr, "Debug: tainted bytes: %u\n", bytes);
+      if (afl->debug)
+        fprintf(stderr, "Debug: tainted %u out of %u bytes\n", bytes, q->len);
 
     }
 

@@ -262,7 +262,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (get_afl_env("AFL_DEBUG")) { debug = afl->debug = 1; }
 
   map_size = get_map_size();
-  afl_state_init(afl, map_size);
+  afl_state_init_1(afl, map_size);
   afl->debug = debug;
   afl_fsrv_init(&afl->fsrv);
 
@@ -827,9 +827,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->fsrv.taint_mode && afl->fsrv.map_size < MAX_FILE) {
 
-    afl->fsrv.map_size = afl->shm.map_size = MAX_FILE;
+    map_size = afl->fsrv.map_size = afl->shm.map_size = MAX_FILE;
 
   }
+
+  afl_state_init_2(afl, map_size);
 
   if (!mem_limit_given && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
