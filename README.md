@@ -1,3 +1,24 @@
+# qemu_taint variant.
+
+CAVEATS:
+
+ * shmem persistent mode does not work
+ * custom mutators? dunno if they work or not
+ * MOpt works but totally ignores the taint information
+ * not tested with qemu_mode
+ * if all seed entries are fully touched it might not work
+
+taint can be seen in out/taint/
+
+the id:000 mirrors the out/queue entry, except the content it 0x00 for
+untainted bytes and '!' for tainted bytes.
+If a file has new tainted bytes compared to from which previous entry it
+was created then there is a id:000[...].new file where the new bytes are
+marked '!'.
+
+the mutation switches between fuzzing all tainted bytes in one cycle and
+only new bytes in the other cycle.
+
 # American Fuzzy Lop plus plus (afl++)
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">
