@@ -133,8 +133,10 @@ extern s32
 
 struct queue_entry {
 
-  u8 *fname;                            /* File name for the test case      */
-  u32 len;                              /* Input length                     */
+  u8 *                fname;            /* File name for the test case      */
+  u8 *                fname_taint;      /* File name for taint data         */
+  u32                 len;              /* Input length                     */
+  struct queue_entry *prev;             /* previous queue entry, if any     */
 
   u8 cal_failed,                        /* Calibration failed?              */
       trim_done,                        /* Trimmed?                         */
@@ -148,7 +150,10 @@ struct queue_entry {
       is_ascii;                         /* Is the input just ascii text?    */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
-      fuzz_level;                       /* Number of fuzzing iterations     */
+      fuzz_level,                       /* Number of fuzzing iterations     */
+      taint_bytes_all,                  /* Number of tainted bytes          */
+      taint_bytes_new,                  /* Number of new tainted bytes      */
+      taint_bytes_highest;              /* highest offset in input          */
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
@@ -885,7 +890,7 @@ void   deinit_py(void *);
 void mark_as_det_done(afl_state_t *, struct queue_entry *);
 void mark_as_variable(afl_state_t *, struct queue_entry *);
 void mark_as_redundant(afl_state_t *, struct queue_entry *, u8);
-void add_to_queue(afl_state_t *, u8 *, u32, u8);
+void add_to_queue(afl_state_t *, u8 *, u8 *, u32, struct queue_entry *, u8);
 void destroy_queue(afl_state_t *);
 void update_bitmap_score(afl_state_t *, struct queue_entry *);
 void cull_queue(afl_state_t *);
@@ -975,6 +980,8 @@ void   check_if_tty(afl_state_t *);
 void   setup_signal_handlers(void);
 void   save_cmdline(afl_state_t *, u32, char **);
 void   read_foreign_testcases(afl_state_t *, int);
+void   perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
+                         u8 *mem, u32 len);
 
 /* CmpLog */
 

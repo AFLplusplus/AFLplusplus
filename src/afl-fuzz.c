@@ -244,9 +244,10 @@ static int stricmp(char const *a, char const *b) {
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  s32    opt;
-  u64    prev_queued = 0;
-  u32    sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
+  s32 opt;
+  u64 prev_queued = 0;
+  u32 sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE,
+      real_map_size = 0;
   u8 *   extras_dir = 0;
   u8     mem_limit_given = 0, exit_1 = 0, debug = 0;
   char **use_argv;
@@ -827,6 +828,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->fsrv.taint_mode && afl->fsrv.map_size < MAX_FILE) {
 
+    real_map_size = map_size;
     map_size = afl->fsrv.map_size = afl->shm.map_size = MAX_FILE;
 
   }
@@ -840,8 +842,7 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
   OKF("Power schedules from github.com/mboehme/aflfast");
-  OKF("Python Mutator and llvm_mode instrument file list from "
-      "github.com/choller/afl");
+  OKF("Python Mutator from github.com/choller/afl");
   OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
   if (afl->sync_id && afl->is_main_node &&
@@ -1088,6 +1089,13 @@ int main(int argc, char **argv_orig, char **envp) {
   memset(afl->virgin_tmout, 255, afl->fsrv.map_size);
   memset(afl->virgin_crash, 255, afl->fsrv.map_size);
 
+  if (map_size != real_map_size) {
+
+    afl->fsrv.map_size = real_map_size;
+    if (afl->cmplog_binary) afl->cmplog_fsrv.map_size;
+
+  }
+
   init_count_class16();
 
   if (afl->is_main_node && check_main_node_exists(afl) == 1) {
@@ -1252,12 +1260,16 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->fsrv.taint_mode) {
 
     ACTF("Spawning qemu_taint forkserver");
+    u8 *disable = getenv("AFL_DISABLE_LLVM_INSTRUMENTATION");
+    setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0);
     afl_fsrv_init_dup(&afl->taint_fsrv, &afl->fsrv);
     afl->taint_fsrv.qemu_mode = 2;
+    afl->taint_fsrv.taint_mode = 1;
     afl->taint_fsrv.trace_bits = afl->fsrv.trace_bits;
     ck_free(afl->taint_fsrv.target_path);
-    afl->taint_fsrv.target_path = ck_strdup(afl->fsrv.target_path);
     afl->argv_taint = ck_alloc(sizeof(char *) * (argc + 4 - optind));
+    afl->taint_fsrv.target_path =
+        find_binary_own_loc("afl-qemu-taint", argv[0]);
     afl->argv_taint[0] = find_binary_own_loc("afl-qemu-taint", argv[0]);
     if (!afl->argv_taint[0])
       FATAL(
@@ -1278,6 +1290,7 @@ int main(int argc, char **argv_orig, char **envp) {
       setenv("AFL_TAINT_INPUT", afl->fsrv.out_file, 1);
     afl_fsrv_start(&afl->taint_fsrv, afl->argv_taint, &afl->stop_soon,
                    afl->afl_env.afl_debug_child_output);
+    if (!disable) unsetenv("AFL_DISABLE_LLVM_INSTRUMENTATION");
     OKF("Taint forkserver successfully started");
 
   }

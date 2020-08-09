@@ -933,7 +933,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
   } else {
 
-    s32 fd = fsrv->out_fd;
+    s32 fd;
 
     if (fsrv->out_file) {
 
@@ -952,6 +952,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     } else {
 
+      fd = fsrv->out_fd;
       lseek(fd, 0, SEEK_SET);
 
     }

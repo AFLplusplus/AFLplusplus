@@ -471,24 +471,6 @@ abort_calibration:
   afl->stage_cur = old_sc;
   afl->stage_max = old_sm;
 
-  /* if taint mode was selected, run the taint */
-
-  if (afl->fsrv.taint_mode) {
-
-    write_to_testcase(afl, use_mem, q->len);
-    if (afl_fsrv_run_target(&afl->taint_fsrv, use_tmout, &afl->stop_soon) ==
-        0) {
-
-      u32 len = q->len;
-      if (len % 4) len = len + 4 - (q->len % 4);
-      u32 bytes = count_bytes_len(afl, afl->taint_fsrv.trace_bits, len);
-      if (afl->debug)
-        fprintf(stderr, "Debug: tainted %u out of %u bytes\n", bytes, q->len);
-
-    }
-
-  }
-
   if (!first_run) { show_stats(afl); }
 
   return fault;
@@ -770,55 +752,64 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     while (remove_pos < q->len) {
 
       u32 trim_avail = MIN(remove_len, q->len - remove_pos);
-      u64 cksum;
 
-      write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
+      if (likely((!q->taint_bytes_highest) ||
+                 (q->len - trim_avail > q->taint_bytes_highest))) {
 
-      fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-      ++afl->trim_execs;
+        u64 cksum;
 
-      if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
+        write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
 
-      /* Note that we don't keep track of crashes or hangs here; maybe TODO?
-       */
+        fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+        ++afl->trim_execs;
 
-      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+        if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
 
-      /* If the deletion had no impact on the trace, make it permanent. This
-         isn't perfect for variable-path inputs, but we're just making a
-         best-effort pass, so it's not a big deal if we end up with false
-         negatives every now and then. */
+        /* Note that we don't keep track of crashes or hangs here; maybe TODO?
+         */
 
-      if (cksum == q->exec_cksum) {
+        cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-        u32 move_tail = q->len - remove_pos - trim_avail;
+        /* If the deletion had no impact on the trace, make it permanent. This
+           isn't perfect for variable-path inputs, but we're just making a
+           best-effort pass, so it's not a big deal if we end up with false
+           negatives every now and then. */
 
-        q->len -= trim_avail;
-        len_p2 = next_pow2(q->len);
+        if (cksum == q->exec_cksum) {
 
-        memmove(in_buf + remove_pos, in_buf + remove_pos + trim_avail,
-                move_tail);
+          u32 move_tail = q->len - remove_pos - trim_avail;
 
-        /* Let's save a clean trace, which will be needed by
-           update_bitmap_score once we're done with the trimming stuff. */
+          q->len -= trim_avail;
+          len_p2 = next_pow2(q->len);
 
-        if (!needs_write) {
+          memmove(in_buf + remove_pos, in_buf + remove_pos + trim_avail,
+                  move_tail);
 
-          needs_write = 1;
-          memcpy(afl->clean_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
+          /* Let's save a clean trace, which will be needed by
+             update_bitmap_score once we're done with the trimming stuff. */
+
+          if (!needs_write) {
+
+            needs_write = 1;
+            memcpy(afl->clean_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
+
+          }
+
+        } else {
+
+          remove_pos += remove_len;
 
         }
+
+        /* Since this can be slow, update the screen every now and then. */
+        if (!(trim_exec++ % afl->stats_update_freq)) { show_stats(afl); }
+        ++afl->stage_cur;
 
       } else {
 
         remove_pos += remove_len;
 
       }
-
-      /* Since this can be slow, update the screen every now and then. */
-
-      if (!(trim_exec++ % afl->stats_update_freq)) { show_stats(afl); }
-      ++afl->stage_cur;
 
     }
 

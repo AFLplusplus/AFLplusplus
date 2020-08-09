@@ -103,6 +103,139 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
 }
 
+void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
+                       u8 *mem, u32 len) {
+
+  u8 *                ptr, *fn = fname;
+  u32                 bytes = 0, plen = len;
+  s32                 fd = -1;
+  struct queue_entry *prev = q->prev;
+
+  if (plen % 4) plen = plen + 4 - (len % 4);
+
+  if ((ptr = strrchr(fname, '/')) != NULL) fn = ptr + 1;
+  q->fname_taint = alloc_printf("%s/taint/%s", afl->out_dir, fn);
+
+  if (q->fname_taint) {
+
+    afl->taint_fsrv.map_size = plen;  // speed :)
+    write_to_testcase(afl, mem, len);
+    if (afl_fsrv_run_target(&afl->taint_fsrv, afl->fsrv.exec_tmout,
+                            &afl->stop_soon) == 0) {
+
+      bytes = count_bytes_len(afl, afl->taint_fsrv.trace_bits, plen);
+      if (afl->debug)
+        fprintf(stderr, "Debug: tainted %u out of %u bytes\n", bytes, len);
+
+      if (bytes) {
+
+        s32 i = len;
+        while (i > 0 && !afl->taint_fsrv.trace_bits[i - 1])
+          i--;
+        q->taint_bytes_highest = i;
+
+      }
+
+    }
+
+    if (((bytes * 100) / len) < 90) {
+
+      // we only use the taint havoc mode if the entry has less than 90% of
+      // overall tainted bytes
+      q->taint_bytes_all = bytes;
+
+      // save the bytes away
+      int w = open(q->fname_taint, O_CREAT | O_WRONLY, 0644);
+      if (w >= 0) {
+
+        ck_write(w, afl->taint_fsrv.trace_bits, plen, q->fname_taint);
+        close(w);
+
+      } else {
+
+        FATAL("could not create %s", q->fname_taint);
+        bytes = 0;
+
+      }
+
+      if (bytes && prev && prev->taint_bytes_all) {
+
+        // check if there are new bytes in the taint vs the previous
+        int r = open(prev->fname_taint, O_RDONLY);
+
+        if (r >= 0) {
+
+          u8 *bufr = mmap(0, prev->len, PROT_READ, MAP_PRIVATE, r, 0);
+
+          if ((size_t)bufr != -1) {
+
+            u32 i;
+            u8 *tmp = ck_maybe_grow(BUF_PARAMS(in_scratch), plen);
+            memset(tmp, 0, plen);
+
+            for (i = 0; i < len; i++)
+              if (afl->taint_fsrv.trace_bits[i] && (i >= prev->len || !bufr[i]))
+                tmp[i] = 1;
+
+            q->taint_bytes_new = count_bytes_len(afl, tmp, plen);
+
+            if (q->taint_bytes_new) {
+
+              u8 *fnw = alloc_printf("%s.new", q->fname_taint);
+              int w = open(fnw, O_CREAT | O_WRONLY, 0644);
+              if (w >= 0) {
+
+                ck_write(w, tmp, plen, fnw);
+                close(w);
+
+              } else {
+
+                q->taint_bytes_new = 0;
+
+              }
+
+              ck_free(fnw);
+
+            }
+
+            munmap(bufr, prev->len);
+
+          }
+
+          close(r);
+
+        }
+
+      }
+
+    } else {
+
+      bytes = 0;
+
+    }
+
+  }
+
+  if (!bytes) {
+
+    q->taint_bytes_highest = q->taint_bytes_all = q->taint_bytes_new = 0;
+
+    if (q->fname_taint) {
+
+      ck_free(q->fname_taint);
+      q->fname_taint = NULL;
+
+    }
+
+  } else {
+
+    if (q->taint_bytes_all && !q->taint_bytes_new)
+      q->taint_bytes_new = q->taint_bytes_all;
+
+  }
+
+}
+
 /* check if ascii or UTF-8 */
 
 static u8 check_if_text(struct queue_entry *q) {
@@ -212,10 +345,12 @@ static u8 check_if_text(struct queue_entry *q) {
 
 /* Append new test case to the queue. */
 
-void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
+void add_to_queue(afl_state_t *afl, u8 *fname, u8 *mem, u32 len,
+                  struct queue_entry *prev_q, u8 passed_det) {
 
   struct queue_entry *q = ck_alloc(sizeof(struct queue_entry));
 
+  q->prev = prev_q;
   q->fname = fname;
   q->len = len;
   q->depth = afl->cur_depth + 1;
@@ -254,6 +389,17 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   afl->last_path_time = get_cur_time();
 
+  /* trigger the tain gathering if this is not a dry run */
+  if (afl->fsrv.taint_mode && mem) {
+
+    perform_taint_run(afl, q, fname, mem, len);
+
+  }
+
+  /* only redqueen currently uses is_ascii */
+  if (afl->shm.cmplog_mode) q->is_ascii = check_if_text(q);
+
+  /* run custom mutators afl_custom_queue_new_entry() */
   if (afl->custom_mutators_count) {
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
@@ -272,9 +418,6 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
     });
 
   }
-
-  /* only redqueen currently uses is_ascii */
-  if (afl->shm.cmplog_mode) q->is_ascii = check_if_text(q);
 
 }
 

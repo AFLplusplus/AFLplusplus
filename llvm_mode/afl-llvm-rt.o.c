@@ -831,6 +831,16 @@ void __afl_manual_init(void) {
 
   static u8 init_done;
 
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
+
+    init_done = 1;
+    if (getenv("AFL_DEBUG"))
+      fprintf(stderr,
+              "DEBUG: disabled instrumenation because of "
+              "AFL_DISABLE_LLVM_INSTRUMENTATION\n");
+
+  }
+
   if (!init_done) {
 
     __afl_map_shm();
