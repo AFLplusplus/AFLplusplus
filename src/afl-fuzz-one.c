@@ -458,16 +458,17 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  u32 tmp_val;
+  u32 tmp_val = 0;
 
-  if (unlikely(afl->fsrv.taint_mode &&
-               (tmp_val = (afl->queue_cycle % 3)) != 1)) {
+  if (unlikely(afl->fsrv.taint_mode)) {
 
+    tmp_val = afl->queue_cycle % 2;
     ret_val = 0;
 
     if (unlikely(afl->queue_cur->cal_failed)) goto abandon_entry;
+    if (unlikely(!afl->queue_cur->passed_det) && !tmp_val) goto abandon_entry;
     if (tmp_val == 1 && !afl->queue_cur->taint_bytes_all) goto abandon_entry;
-    if (tmp_val == 2 && !afl->queue_cur->taint_bytes_new) goto abandon_entry;
+    if (tmp_val == 0 && !afl->queue_cur->taint_bytes_new) goto abandon_entry;
 
     ret_val = 1;
 
@@ -483,10 +484,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     switch (tmp_val) {
 
-      case 1:  // do nothing, but cannot happen -> else
-        break;
-
-      case 2:  // fuzz only tainted bytes
+      case 1:  // fuzz only tainted bytes
 
         fd = open(afl->taint_input_file, O_RDONLY);
         temp_len = len = afl->taint_len = afl->queue_cur->taint_bytes_all;
@@ -536,8 +534,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   } else {
 
-    /* Map the test case into memory. */
     afl->taint_needs_splode = 0;
+
+    /* Map the test case into memory. */
 
     fd = open(afl->queue_cur->fname, O_RDONLY);
 
@@ -565,7 +564,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
      single byte anyway, so it wouldn't give us any performance or memory usage
      benefits. */
 
-  out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
+  out_buf = ck_maybe_grow(BUF_PARAMS(out), len + 4096);
 
   afl->subseq_tmouts = 0;
 
@@ -575,7 +574,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * CALIBRATION (only if failed earlier on) *
    *******************************************/
 
-  if (unlikely(afl->queue_cur->cal_failed)) {
+  if (unlikely(afl->queue_cur->cal_failed &&
+               (!afl->taint_needs_splode || tmp_val == 1))) {
 
     u8 res = FSRV_RUN_TMOUT;
 
@@ -658,9 +658,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
-
-  // custom mutators would not work, deterministic is done -> so havoc!
-  if (afl->taint_needs_splode) goto havoc_stage;
 
   if (likely(afl->queue_cur->passed_det) || likely(afl->skip_deterministic) ||
       likely(perf_score <
@@ -1640,7 +1637,7 @@ skip_interest:
 
   orig_hit_cnt = new_hit_cnt;
 
-  ex_tmp = ck_maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE);
+  ex_tmp = ck_maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE + 4096);
 
   for (i = 0; i <= (u32)len; ++i) {
 
@@ -1814,7 +1811,7 @@ custom_mutator_stage:
         fd = open(target->fname, O_RDONLY);
         if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
 
-        new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), target->len);
+        new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), target->len + 4096);
         ck_read(fd, new_buf, target->len, target->fname);
         close(fd);
 
@@ -1989,7 +1986,7 @@ havoc_stage:
               temp_len = new_len;
               if (out_buf != custom_havoc_buf) {
 
-                ck_maybe_grow(BUF_PARAMS(out), temp_len);
+                ck_maybe_grow(BUF_PARAMS(out), temp_len + 4096);
                 memcpy(out_buf, custom_havoc_buf, temp_len);
 
               }
@@ -2237,8 +2234,8 @@ havoc_stage:
 
             clone_to = rand_below(afl, temp_len);
 
-            new_buf =
-                ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+            new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
+                                    temp_len + clone_len + 4096);
 
             /* Head */
 
@@ -2303,10 +2300,18 @@ havoc_stage:
 
             if (copy_from != copy_to) {
 
-              if (unlikely(afl->taint_needs_splode))
+              if (unlikely(afl->taint_needs_splode)) {
+
+                if (copy_to > temp_len) copy_to = rand_below(afl, temp_len);
+
+                // fprintf(stderr, "\nout_buf %p + copy_to %u, src %p + %u,
+                // copy_len %u -- len %u\n", out_buf , copy_to, afl->taint_src ,
+                // copy_from, copy_len, afl->taint_len, afl->queue_cur->len);
                 memmove(out_buf + copy_to, afl->taint_src + copy_from,
                         copy_len);
-              else
+
+              } else
+
                 memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
 
             }
@@ -2395,7 +2400,8 @@ havoc_stage:
 
               if (temp_len + extra_len >= MAX_FILE) { break; }
 
-              out_buf = ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
+              out_buf =
+                  ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len + 4096);
 
               /* Tail */
               memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
@@ -2490,8 +2496,8 @@ havoc_stage:
 
               clone_to = rand_below(afl, temp_len);
 
-              u8 *temp_buf =
-                  ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+              u8 *temp_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
+                                           temp_len + clone_len + 4096);
 
               /* Head */
 
@@ -2526,7 +2532,7 @@ havoc_stage:
     /* out_buf might have been mangled a bit, so let's restore it to its
        original size and shape. */
 
-    out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
+    out_buf = ck_maybe_grow(BUF_PARAMS(out), len + 4096);
     temp_len = len;
     memcpy(out_buf, in_buf, len);
 
@@ -2653,7 +2659,7 @@ retry_splicing:
     swap_bufs(BUF_PARAMS(in), BUF_PARAMS(in_scratch));
     in_buf = new_buf;
 
-    out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
+    out_buf = ck_maybe_grow(BUF_PARAMS(out), len + 4096);
     memcpy(out_buf, in_buf, len);
 
     goto custom_mutator_stage;
