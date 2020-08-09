@@ -106,9 +106,6 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
   #error "Support for your platform has not been implemented"
 #endif
 
-int                   __afl_sharedmem_fuzzing = 1;
-extern unsigned int * __afl_fuzz_len;
-extern unsigned char *__afl_fuzz_ptr;
 extern unsigned char *__afl_area_ptr;
 // extern struct cmp_map *__afl_cmp_map;
 
@@ -269,6 +266,7 @@ __attribute__((constructor(1))) void __afl_protect(void) {
 int main(int argc, char **argv) {
 
   fprintf(stderr, "dummy map is at %p\n", __afl_area_ptr);
+  unsigned char buf[1024000];
 
   printf(
       "======================= INFO =========================\n"
@@ -306,7 +304,6 @@ int main(int argc, char **argv) {
     printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
   else if (argc > 1) {
 
-    __afl_sharedmem_fuzzing = 0;
     munmap(__afl_area_ptr, MAX_DUMMY_SIZE);  // we need to free 0x10000
     __afl_area_ptr = NULL;
     __afl_manual_init();
@@ -328,25 +325,17 @@ int main(int argc, char **argv) {
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {
 
-#ifdef _DEBUG
-    fprintf(stderr, "CLIENT crc: %016llx len: %u\n",
-            hash64(__afl_fuzz_ptr, *__afl_fuzz_len, 0xa5b35705),
-            *__afl_fuzz_len);
-    fprintf(stderr, "RECV:");
-    for (int i = 0; i < *__afl_fuzz_len; i++)
-      fprintf(stderr, "%02x", __afl_fuzz_ptr[i]);
-    fprintf(stderr, "\n");
-#endif
-    if (*__afl_fuzz_len) {
+    ssize_t n = read(0, buf, sizeof(buf));
 
-      num_runs++;
-      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, *__afl_fuzz_len);
+    if (n > 0) {
+
+      LLVMFuzzerTestOneInput(buf, n);
 
     }
 
   }
 
-  printf("%s: successfully executed %d input(s)\n", argv[0], num_runs);
+  printf("%s: successfully executed input(s)\n", argv[0]);
 
 }
 
