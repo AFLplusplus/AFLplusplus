@@ -467,8 +467,8 @@ void read_bitmap(u8 *fname, u8 *map, size_t len) {
 
 u64 get_cur_time(void) {
 
-  struct timeval  tv;
-  struct timezone tz;
+  static struct timeval  tv;
+  static struct timezone tz;
 
   gettimeofday(&tv, &tz);
 
