@@ -885,7 +885,7 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
     u32 i, taint = 0;
     for (i = 0; i < new_len; i++) {
 
-      if (i > afl->taint_len || afl->taint_map[i] || i > afl->queue_cur->len)
+      if (i >= afl->taint_len || i >= afl->queue_cur->len || afl->taint_map[i])
         new_buf[i] = out_buf[taint++];
       else
         new_buf[i] = afl->taint_src[i];

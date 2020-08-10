@@ -1305,6 +1305,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
     OKF("Taint forkserver successfully started");
 
+    const rlim_t kStackSize = 64L * 1024L * 1024L;   // min stack size = 64 Mb
+    struct rlimit rl;
+    rl.rlim_cur = kStackSize;
+    if (getrlimit(RLIMIT_STACK, &rl) != 0)
+      WARNF("Setting a higher stack size failed!");
+
 #define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
     u8 *tmp1 = ck_maybe_grow(BUF_PARAMS(eff), MAX_FILE + 4096);
     u8 *tmp2 = ck_maybe_grow(BUF_PARAMS(ex), MAX_FILE + 4096);
@@ -1312,7 +1318,6 @@ int main(int argc, char **argv_orig, char **envp) {
     u8 *tmp4 = ck_maybe_grow(BUF_PARAMS(out), MAX_FILE + 4096);
     u8 *tmp5 = ck_maybe_grow(BUF_PARAMS(out_scratch), MAX_FILE + 4096);
 #undef BUF_PARAMS
-
     if (!tmp1 || !tmp2 || !tmp3 || !tmp4 || !tmp5)
       FATAL("memory issues. me hungry, feed me!");
 
