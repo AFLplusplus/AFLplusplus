@@ -28,15 +28,6 @@
 #include "types.h"
 #include "config.h"
 
-/* __FUNCTION__ is non-iso */
-#ifndef __FUNCTION__
-  #ifdef __func__
-    #define __FUNCTION__ __func__
-  #else
-    #define __FUNCTION__ "unknown_func"
-  #endif
-#endif
-
 /*******************
  * Terminal colors *
  *******************/
@@ -232,7 +223,7 @@
                                                                              \
     SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                                \
          "\n[-] PROGRAM ABORT : " cRST   x);                                   \
-    SAYF(cLRD "\n         Location : " cRST "%s(), %s:%u\n\n", __FUNCTION__, \
+    SAYF(cLRD "\n         Location : " cRST "%s(), %s:%u\n\n", __func__, \
          __FILE__, __LINE__);                                                \
     exit(1);                                                                 \
                                                                              \
@@ -245,7 +236,7 @@
                                                                              \
     SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                                \
          "\n[-] PROGRAM ABORT : " cRST   x);                                   \
-    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n\n", __FUNCTION__, \
+    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n\n", __func__, \
          __FILE__, __LINE__);                                                \
     abort();                                                                 \
                                                                              \
@@ -259,7 +250,7 @@
     fflush(stdout);                                                        \
     SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                              \
          "\n[-]  SYSTEM ERROR : " cRST   x);                                 \
-    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n", __FUNCTION__, \
+    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n", __func__, \
          __FILE__, __LINE__);                                              \
     SAYF(cLRD "       OS message : " cRST "%s\n", strerror(errno));        \
     exit(1);                                                               \
