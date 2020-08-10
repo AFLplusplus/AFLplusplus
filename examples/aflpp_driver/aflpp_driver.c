@@ -118,6 +118,8 @@ int                  __afl_persistent_loop(unsigned int);
 static volatile char AFL_DEFER_FORKSVR[] = "##SIG_AFL_DEFER_FORKSRV##";
 void                 __afl_manual_init();
 
+extern unsigned int *__afl_area_ptr;
+
 // Use this optionally defined function to output sanitizer messages even if
 // user asks to close stderr.
 __attribute__((weak)) void __sanitizer_set_report_fd(void *);
