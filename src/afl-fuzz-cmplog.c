@@ -29,10 +29,6 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-typedef struct cmplog_data {
-
-} cmplog_data_t;
-
 void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   setenv("___AFL_EINS_ZWEI_POLIZEI___", "1", 1);

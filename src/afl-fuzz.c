@@ -289,8 +289,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->cpu_to_bind != -1) FATAL("Multiple -b options not supported");
 
-        if (sscanf(optarg, "%u", &afl->cpu_to_bind) < 0 || optarg[0] == '-')
+        if (sscanf(optarg, "%d", &afl->cpu_to_bind) < 0) {
           FATAL("Bad syntax used for -b");
+        }
 
         break;
 
