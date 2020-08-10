@@ -1381,7 +1381,7 @@ int main(int argc, char **argv_orig, char **envp) {
               break;
             case 1:
               if (afl->limit_time_sig == 0 && !afl->custom_only &&
-                  !afl->python_only) {
+                  !afl->python_only && !afl->fsrv.taint_mode) {
 
                 afl->limit_time_sig = -1;
                 afl->limit_time_puppet = 0;
