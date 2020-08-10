@@ -879,12 +879,13 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
     s32 new_len = afl->queue_cur->len + len - afl->taint_len;
     if (new_len < 4) new_len = 4;
+    if (new_len > MAX_FILE) new_len = MAX_FILE;
     u8 *new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), new_len);
 
     u32 i, taint = 0;
     for (i = 0; i < new_len; i++) {
 
-      if (afl->taint_map[i] || i > afl->queue_cur->len)
+      if (i > afl->taint_len || afl->taint_map[i] || i > afl->queue_cur->len)
         new_buf[i] = out_buf[taint++];
       else
         new_buf[i] = afl->taint_src[i];
