@@ -106,6 +106,10 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
   #error "Support for your platform has not been implemented"
 #endif
 
+int                   __afl_sharedmem_fuzzing = 0;
+extern unsigned char *__afl_area_ptr;
+// extern struct cmp_map *__afl_cmp_map;
+
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
 __attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
@@ -117,8 +121,6 @@ int                  __afl_persistent_loop(unsigned int);
 // Notify AFL about deferred forkserver.
 static volatile char AFL_DEFER_FORKSVR[] = "##SIG_AFL_DEFER_FORKSRV##";
 void                 __afl_manual_init();
-
-extern unsigned int *__afl_area_ptr;
 
 // Use this optionally defined function to output sanitizer messages even if
 // user asks to close stderr.
@@ -247,14 +249,24 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 __attribute__((constructor(1))) void __afl_protect(void) {
 
   setenv("__AFL_DEFER_FORKSRV", "1", 1);
+  __afl_area_ptr = (unsigned char *)mmap(
+      (void *)0x10000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
+      MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if ((uint64_t)__afl_area_ptr == -1)
+    __afl_area_ptr = (unsigned char *)mmap((void *)0x10000, MAX_DUMMY_SIZE,
+                                           PROT_READ | PROT_WRITE,
+                                           MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if ((uint64_t)__afl_area_ptr == -1)
+    __afl_area_ptr =
+        (unsigned char *)mmap(NULL, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
+                              MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  // __afl_cmp_map = (struct cmp_map *)__afl_area_ptr;
 
 }
 
 int main(int argc, char **argv) {
 
-  unsigned char buf[1024000];
-
-  printf("__afl_area_ptr is at %p\n", __afl_area_ptr);
+  fprintf(stderr, "dummy map is at %p\n", __afl_area_ptr);
 
   printf(
       "======================= INFO =========================\n"
@@ -282,6 +294,7 @@ int main(int argc, char **argv) {
   // Do any other expensive one-time initialization here.
 
   uint8_t dummy_input[64] = {0};
+  uint8_t buf[1024000];
   memcpy(dummy_input, (void *)AFL_PERSISTENT, sizeof(AFL_PERSISTENT));
   memcpy(dummy_input + 32, (void *)AFL_DEFER_FORKSVR,
          sizeof(AFL_DEFER_FORKSVR));
@@ -292,6 +305,9 @@ int main(int argc, char **argv) {
     printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
   else if (argc > 1) {
 
+    __afl_sharedmem_fuzzing = 0;
+    munmap(__afl_area_ptr, MAX_DUMMY_SIZE);  // we need to free 0x10000
+    __afl_area_ptr = NULL;
     __afl_manual_init();
     return ExecuteFilesOnyByOne(argc, argv);
 
@@ -299,9 +315,12 @@ int main(int argc, char **argv) {
 
   assert(N > 0);
 
-  //  if (!getenv("AFL_DRIVER_DONT_DEFER"))
-  __afl_manual_init();
-  fprintf(stderr, "__afl_area_ptr is now at %p\n", __afl_area_ptr);
+  if (!getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
+    munmap(__afl_area_ptr, MAX_DUMMY_SIZE);
+    __afl_area_ptr = NULL;
+    __afl_manual_init();
+  }
+  fprintf(stderr, "dummy map is now at %p\n", __afl_area_ptr);
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
   // on the first execution of LLVMFuzzerTestOneInput is ignored.
@@ -310,11 +329,11 @@ int main(int argc, char **argv) {
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {
 
-    ssize_t n = read(0, buf, sizeof(buf));
+    ssize_t r = read(0, buf, sizeof(buf));
 
-    if (n > 0) {
+    if (r > 0) {
 
-      LLVMFuzzerTestOneInput(buf, n);
+      LLVMFuzzerTestOneInput(buf, r);
 
     }
 
