@@ -178,7 +178,7 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
             for (i = 0; i < len; i++)
               if (afl->taint_fsrv.trace_bits[i] && (i >= prev->len || !bufr[i]))
-                tmp[i] = 1;
+                tmp[i] = '!';
 
             q->taint_bytes_new = count_bytes_len(afl, tmp, plen);
 
