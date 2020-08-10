@@ -252,6 +252,8 @@ int main(int argc, char **argv) {
 
   unsigned char buf[1024000];
 
+  printf("__afl_area_ptr is at %p\n", __afl_area_ptr);
+
   printf(
       "======================= INFO =========================\n"
       "This binary is built for afl++.\n"
@@ -297,6 +299,7 @@ int main(int argc, char **argv) {
 
   //  if (!getenv("AFL_DRIVER_DONT_DEFER"))
   __afl_manual_init();
+  fprintf(stderr, "__afl_area_ptr is now at %p\n", __afl_area_ptr);
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
   // on the first execution of LLVMFuzzerTestOneInput is ignored.
