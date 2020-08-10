@@ -8,6 +8,8 @@ afl-fuzz -A ...
 
 ## CAVEATS
 
+ * segfaults ~10-15 minutes in ...
+
  * shmem persistent mode does not work
  * custom mutators? dunno if they work or not
  * MOpt works but totally ignores the taint information
