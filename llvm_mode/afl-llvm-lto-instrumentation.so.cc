@@ -219,20 +219,29 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     */
 
-  if (map_addr)
-    for (GlobalIFunc &IF : M.ifuncs()) {
+  std::vector<std::string> module_block_list;
 
-      // No clue how to follow these up and find the resolver function.
-      // If we would know that resolver function name we could just skip
-      // instrumenting it and everything would be fine :-(
-      // StringRef ifunc_name = IF.getName();
-      // Constant *r = IF.getResolver();
-      FATAL(
-          "Target uses ifunc attribute for %s, fixed map cannot be used, "
-          "remove AFL_LLVM_MAP_ADDR",
-          IF.getName().str().c_str());
+  if (map_addr) {
+
+    for (GlobalIFunc &IF : M.ifuncs()) {
+    
+      StringRef ifunc_name = IF.getName();
+      Constant *r = IF.getResolver();
+      StringRef r_name = cast<Function>(r->getOperand(0))->getName();
+      if (!be_quiet)
+        fprintf(stderr, "Found an ifunc with name %s that  points to resolver function %s, we cannot instrument this, putting it into a block list.\n",
+                ifunc_name.str().c_str(), r_name.str().c_str());
+
+      module_block_list.push_back(r_name.str());
 
     }
+
+    // next up: ctors run before __afl_init()
+    
+    // TODO
+
+
+  }
 
   /* Instrument all the things! */
 
@@ -249,6 +258,24 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     if (F.size() < function_minimum_size) continue;
     if (isIgnoreFunction(&F)) continue;
+
+    if (module_block_list.size()) {
+    
+      for (auto bname : module_block_list) {
+
+        std::string fname = F.getName().str();
+
+        if (fname.compare(bname) == 0) {
+        
+          if (!be_quiet)
+            WARNF("Skipping instrumentation of ifunc resolver function %s",
+                  fname.c_str());
+        
+        }
+      
+      }
+    
+    }
 
     // the instrument file list check
     AttributeList Attrs = F.getAttributes();
