@@ -564,7 +564,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
      single byte anyway, so it wouldn't give us any performance or memory usage
      benefits. */
 
-  out_buf = ck_maybe_grow(BUF_PARAMS(out), len + 4096);
+  out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
 
   afl->subseq_tmouts = 0;
 
@@ -1637,7 +1637,7 @@ skip_interest:
 
   orig_hit_cnt = new_hit_cnt;
 
-  ex_tmp = ck_maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE + 4096);
+  ex_tmp = ck_maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE);
 
   for (i = 0; i <= (u32)len; ++i) {
 
@@ -1811,7 +1811,7 @@ custom_mutator_stage:
         fd = open(target->fname, O_RDONLY);
         if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
 
-        new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), target->len + 4096);
+        new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), target->len);
         ck_read(fd, new_buf, target->len, target->fname);
         close(fd);
 
@@ -1986,7 +1986,7 @@ havoc_stage:
               temp_len = new_len;
               if (out_buf != custom_havoc_buf) {
 
-                ck_maybe_grow(BUF_PARAMS(out), temp_len + 4096);
+                ck_maybe_grow(BUF_PARAMS(out), temp_len);
                 memcpy(out_buf, custom_havoc_buf, temp_len);
 
               }
@@ -2235,7 +2235,7 @@ havoc_stage:
             clone_to = rand_below(afl, temp_len);
 
             new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
-                                    temp_len + clone_len + 4096);
+                                    temp_len + clone_len);
 
             /* Head */
 
@@ -2402,7 +2402,7 @@ havoc_stage:
               if (temp_len + extra_len >= MAX_FILE) { break; }
 
               out_buf =
-                  ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len + 4096);
+                  ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
 
               /* Tail */
               memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
@@ -2498,7 +2498,7 @@ havoc_stage:
               clone_to = rand_below(afl, temp_len);
 
               u8 *temp_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
-                                           temp_len + clone_len + 4096);
+                                           temp_len + clone_len);
 
               /* Head */
 
@@ -2533,7 +2533,7 @@ havoc_stage:
     /* out_buf might have been mangled a bit, so let's restore it to its
        original size and shape. */
 
-    out_buf = ck_maybe_grow(BUF_PARAMS(out), len + 4096);
+    out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
     temp_len = len;
     memcpy(out_buf, in_buf, len);
 
@@ -2660,7 +2660,7 @@ retry_splicing:
     swap_bufs(BUF_PARAMS(in), BUF_PARAMS(in_scratch));
     in_buf = new_buf;
 
-    out_buf = ck_maybe_grow(BUF_PARAMS(out), len + 4096);
+    out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
     memcpy(out_buf, in_buf, len);
 
     goto custom_mutator_stage;

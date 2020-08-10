@@ -1305,6 +1305,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
     OKF("Taint forkserver successfully started");
 
+#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
+    u8 *tmp1 = ck_maybe_grow(BUF_PARAMS(eff), MAX_FILE + 4096);
+    u8 *tmp2 = ck_maybe_grow(BUF_PARAMS(ex), MAX_FILE + 4096);
+    u8 *tmp3 = ck_maybe_grow(BUF_PARAMS(in_scratch), MAX_FILE + 4096);
+    u8 *tmp4 = ck_maybe_grow(BUF_PARAMS(out), MAX_FILE + 4096);
+    u8 *tmp5 = ck_maybe_grow(BUF_PARAMS(out_scratch), MAX_FILE + 4096);
+#undef BUF_PARAMS
+
+    if (!tmp1 || !tmp2 || !tmp3 || !tmp4 || !tmp5)
+      FATAL("memory issues. me hungry, feed me!");
+
   }
 
   perform_dry_run(afl);
