@@ -266,7 +266,7 @@ __attribute__((constructor(1))) void __afl_protect(void) {
 
 int main(int argc, char **argv) {
 
-  fprintf(stderr, "dummy map is at %p\n", __afl_area_ptr);
+  fprintf(stderr, "map is at %p\n", __afl_area_ptr);
 
   printf(
       "======================= INFO =========================\n"
@@ -305,10 +305,11 @@ int main(int argc, char **argv) {
     printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
   else if (argc > 1) {
 
-    __afl_sharedmem_fuzzing = 0;
-    munmap(__afl_area_ptr, MAX_DUMMY_SIZE);  // we need to free 0x10000
-    __afl_area_ptr = NULL;
-    __afl_manual_init();
+    if (!getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
+      munmap(__afl_area_ptr, MAX_DUMMY_SIZE);  // we need to free 0x10000
+      __afl_area_ptr = NULL;
+      __afl_manual_init();
+    }
     return ExecuteFilesOnyByOne(argc, argv);
 
   }
@@ -318,9 +319,10 @@ int main(int argc, char **argv) {
   if (!getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
     munmap(__afl_area_ptr, MAX_DUMMY_SIZE);
     __afl_area_ptr = NULL;
-    __afl_manual_init();
+    fprintf(stderr, "performing manual init\n");
+  __afl_manual_init();
   }
-  fprintf(stderr, "dummy map is now at %p\n", __afl_area_ptr);
+  fprintf(stderr, "map is now at %p\n", __afl_area_ptr);
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
   // on the first execution of LLVMFuzzerTestOneInput is ignored.

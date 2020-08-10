@@ -834,6 +834,11 @@ void __afl_manual_init(void) {
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
 
     init_done = 1;
+    is_persistent = 0;
+    __afl_sharedmem_fuzzing = 0;
+    if (__afl_area_ptr == NULL)
+      __afl_area_ptr = __afl_area_initial;
+    
     if (getenv("AFL_DEBUG"))
       fprintf(stderr,
               "DEBUG: disabled instrumenation because of "
@@ -854,6 +859,8 @@ void __afl_manual_init(void) {
 /* Proper initialization routine. */
 
 __attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
+
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
 
   is_persistent = !!getenv(PERSIST_ENV_VAR);
 
