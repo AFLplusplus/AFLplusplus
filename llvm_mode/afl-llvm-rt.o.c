@@ -838,7 +838,6 @@ void __afl_manual_init(void) {
       fprintf(stderr,
               "DEBUG: disabled instrumenation because of "
               "AFL_DISABLE_LLVM_INSTRUMENTATION\n");
-    __afl_area_ptr = __afl_area_initial;
 
   }
 
