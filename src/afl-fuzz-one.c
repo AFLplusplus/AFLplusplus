@@ -2295,6 +2295,7 @@ havoc_stage:
           }
 
           copy_to = rand_below(afl, temp_len - copy_len + 1);
+          if (unlikely(copy_to > temp_len)) copy_to = rand_below(afl, temp_len);
 
           if (rand_below(afl, 4)) {
 
