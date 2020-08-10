@@ -49,6 +49,7 @@
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Pass.h"
+#include "llvm/IR/Constants.h"
 
 #include "afl-llvm-common.h"
 
@@ -135,7 +136,10 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   if (getenv("AFL_LLVM_LTO_AUTODICTIONARY")) autodictionary = 1;
 
-  if (getenv("AFL_LLVM_MAP_DYNAMIC")) map_addr = 0;
+  // we make this the default as the fixed map has problems with
+  // defered forkserver, early constructors, ifuncs and maybe more
+  /*if (getenv("AFL_LLVM_MAP_DYNAMIC"))*/
+  map_addr = 0;
 
   if (getenv("AFL_LLVM_SKIPSINGLEBLOCK")) function_minimum_size = 2;
 
@@ -196,7 +200,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
   ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
   ConstantInt *One = ConstantInt::get(Int8Ty, 1);
 
-  /* This dumps all inialized global strings - might be useful in the future
+  // This dumps all inialized global strings - might be useful in the future
+  /*
   for (auto G=M.getGlobalList().begin(); G!=M.getGlobalList().end(); G++) {
 
     GlobalVariable &GV=*G;
@@ -212,7 +217,21 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-  */
+    */
+
+  if (map_addr)
+    for (GlobalIFunc &IF : M.ifuncs()) {
+
+      // No clue how to follow these up and find the resolver function.
+      // If we would know that resolver function name we could just skip
+      // instrumenting it and everything would be fine :-(
+      // StringRef ifunc_name = IF.getName();
+      // Constant *r = IF.getResolver();
+      FATAL(
+          "Target uses ifunc attribute, dynamic map cannot be used, remove "
+          "AFL_LLVM_MAP_DYNAMIC");
+
+    }
 
   /* Instrument all the things! */
 
@@ -220,8 +239,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   for (auto &F : M) {
 
-    // fprintf(stderr, "DEBUG: Module %s Function %s\n",
-    // M.getName().str().c_str(), F.getName().str().c_str());
+    /*For debugging
+    AttributeSet X = F.getAttributes().getFnAttributes();
+    fprintf(stderr, "DEBUG: Module %s Function %s attributes %u\n",
+      M.getName().str().c_str(), F.getName().str().c_str(),
+      X.getNumAttributes());
+    */
 
     if (F.size() < function_minimum_size) continue;
     if (isIgnoreFunction(&F)) continue;

@@ -17,9 +17,6 @@ This version requires a current llvm 11+ compiled from the github master.
 5. If any problems arise be sure to set `AR=llvm-ar RANLIB=llvm-ranlib`.
    Some targets might need `LD=afl-clang-lto` and others `LD=afl-ld-lto`.
 
-6. If a target uses _init functions or early constructors then additionally
-   set `AFL_LLVM_MAP_DYNAMIC=1` as your target will crash otherwise!
-
 ## Introduction and problem description
 
 A big issue with how afl/afl++ works is that the basic block IDs that are
@@ -128,14 +125,14 @@ on start. This improves coverage statistically by 5-10% :)
 
 ## Fixed memory map
 
-To speed up fuzzing, the shared memory map is hard set to a specific address,
-by default 0x10000. In most cases this will work without any problems.
+To speed up fuzzing, it is possible to set a fixed shared memory map.
+Recommened is the value 0x10000.
+In most cases this will work without any problems. However if a target uses
+early constructors, ifuncs or a deferred forkserver this can crash the target.
 On unusual operating systems/processors/kernels or weird libraries this might
 fail so to change the fixed address at compile time set
 AFL_LLVM_MAP_ADDR with a better value (a value of 0 or empty sets the map address
 to be dynamic - the original afl way, which is slower).
-AFL_LLVM_MAP_DYNAMIC can be set so the shared memory address is dynamic (which
-is safer but also slower).
 
 ## Document edge IDs
 
@@ -261,15 +258,6 @@ If this succeeeds then there is an issue with afl-clang-lto. Please report at
 
 Even some targets where clang-12 fails can be build if the fail is just in
 `./configure`, see `Solving difficult targets` above.
-
-### Target crashes immediately
-
-If the target is using early constructors (priority values smaller than 6)
-or have their own _init/.init functions and these are instrumented then the
-target will likely crash when started. This can be avoided by compiling with
-`AFL_LLVM_MAP_DYNAMIC=1` .
-
-This can e.g. happen with OpenSSL.
 
 ## History
 
