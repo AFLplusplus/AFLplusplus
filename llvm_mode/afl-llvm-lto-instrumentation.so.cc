@@ -228,8 +228,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
       // StringRef ifunc_name = IF.getName();
       // Constant *r = IF.getResolver();
       FATAL(
-          "Target uses ifunc attribute, dynamic map cannot be used, remove "
-          "AFL_LLVM_MAP_DYNAMIC");
+          "Target uses ifunc attribute for %s, fixed map cannot be used, "
+          "remove AFL_LLVM_MAP_ADDR",
+          IF.getName().str().c_str());
 
     }
 
