@@ -2236,8 +2236,8 @@ havoc_stage:
 
             clone_to = rand_below(afl, temp_len);
 
-            new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
-                                    temp_len + clone_len);
+            new_buf =
+                ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
 
             /* Head */
 
@@ -2403,8 +2403,7 @@ havoc_stage:
 
               if (temp_len + extra_len >= MAX_FILE) { break; }
 
-              out_buf =
-                  ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
+              out_buf = ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
 
               /* Tail */
               memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
@@ -2499,8 +2498,8 @@ havoc_stage:
 
               clone_to = rand_below(afl, temp_len);
 
-              u8 *temp_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
-                                           temp_len + clone_len);
+              u8 *temp_buf =
+                  ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
 
               /* Head */
 

@@ -138,7 +138,7 @@ void argv_cpy_free(char **argv) {
 
 }
 
-u8 *find_binary_own_loc(u8 *fname, u8 *own_loc) {
+u8 *find_afl_binary(u8 *fname, u8 *own_loc) {
 
   u8 *tmp, *rsl, *own_copy, *cp;
 
@@ -154,21 +154,25 @@ u8 *find_binary_own_loc(u8 *fname, u8 *own_loc) {
 
   }
 
-  own_copy = ck_strdup(own_loc);
-  rsl = strrchr(own_copy, '/');
+  if (own_loc) {
 
-  if (rsl) {
+    own_copy = ck_strdup(own_loc);
+    rsl = strrchr(own_copy, '/');
 
-    *rsl = 0;
+    if (rsl) {
 
-    cp = alloc_printf("%s/%s", own_copy, fname);
-    ck_free(own_copy);
+      *rsl = 0;
 
-    if (!access(cp, X_OK)) { return cp; }
+      cp = alloc_printf("%s/%s", own_copy, fname);
+      ck_free(own_copy);
 
-  } else {
+      if (!access(cp, X_OK)) { return cp; }
 
-    ck_free(own_copy);
+    } else {
+
+      ck_free(own_copy);
+
+    }
 
   }
 
@@ -196,7 +200,7 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
 
-  cp = find_binary_own_loc("afl-qemu-trace", own_loc);
+  cp = find_afl_binary("afl-qemu-trace", own_loc);
 
   if (cp) {
 
@@ -241,12 +245,12 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
 
-  cp = find_binary_own_loc("afl-qemu-trace", own_loc);
+  cp = find_afl_binary("afl-qemu-trace", own_loc);
 
   if (cp) {
 
     ck_free(cp);
-    cp = find_binary_own_loc("afl-wine-trace", own_loc);
+    cp = find_afl_binary("afl-wine-trace", own_loc);
 
     if (cp) {
 

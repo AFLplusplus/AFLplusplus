@@ -306,10 +306,13 @@ int main(int argc, char **argv) {
   else if (argc > 1) {
 
     if (!getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
+
       munmap(__afl_area_ptr, MAX_DUMMY_SIZE);  // we need to free 0x10000
       __afl_area_ptr = NULL;
       __afl_manual_init();
+
     }
+
     return ExecuteFilesOnyByOne(argc, argv);
 
   }
@@ -317,11 +320,14 @@ int main(int argc, char **argv) {
   assert(N > 0);
 
   if (!getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
+
     munmap(__afl_area_ptr, MAX_DUMMY_SIZE);
     __afl_area_ptr = NULL;
     fprintf(stderr, "performing manual init\n");
-  __afl_manual_init();
+    __afl_manual_init();
+
   }
+
   fprintf(stderr, "map is now at %p\n", __afl_area_ptr);
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
@@ -333,11 +339,7 @@ int main(int argc, char **argv) {
 
     ssize_t r = read(0, buf, sizeof(buf));
 
-    if (r > 0) {
-
-      LLVMFuzzerTestOneInput(buf, r);
-
-    }
+    if (r > 0) { LLVMFuzzerTestOneInput(buf, r); }
 
   }
 
