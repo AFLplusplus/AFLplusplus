@@ -2342,7 +2342,7 @@ havoc_stage:
             }
 
             /* Tail */
-            memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
+            memmove(new_buf + clone_to + clone_len, out_buf + clone_to,
                    temp_len - clone_to);
 
             swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));

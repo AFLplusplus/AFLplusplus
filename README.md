@@ -1,5 +1,7 @@
 # qemu_taint variant.
 
+UPDATE: **WORKS NOW** **PLEASE TEST** **:-)**
+
 ## HOWTO
 
 cd qemu_taint && ./build_qemu_taint.sh
@@ -8,13 +10,13 @@ afl-fuzz -A ...
 
 ## CAVEATS
 
- * segfaults ~10-15 minutes in ...
-
- * shmem persistent mode does not work
- * custom mutators? dunno if they work or not
- * MOpt works but totally ignores the taint information
+ * llvm shmem persistent mode does not and can not not work
+ * MOpt works but totally ignores the taint information, so disabled here
+ * custom mutators? dunno if they work or not. depends on how they work.
  * not tested with qemu_mode
- * if all seed entries are fully touched it might not work
+ * there are several debug checks to ensure the data is fine which slows down
+   fuzzing, if the beta experiment runs fine these will be improved and it
+   will result in quite a speed gain.
 
 ## THE TAINT
 
