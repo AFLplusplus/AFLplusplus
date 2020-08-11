@@ -218,43 +218,43 @@
 
 /* Die with a verbose non-OS fatal error message. */
 
-#define FATAL(x...)                                                          \
-  do {                                                                       \
-                                                                             \
-    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                                \
-         "\n[-] PROGRAM ABORT : " cRST   x);                                   \
+#define FATAL(x...)                                                      \
+  do {                                                                   \
+                                                                         \
+    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                            \
+         "\n[-] PROGRAM ABORT : " cRST   x);                               \
     SAYF(cLRD "\n         Location : " cRST "%s(), %s:%u\n\n", __func__, \
-         __FILE__, __LINE__);                                                \
-    exit(1);                                                                 \
-                                                                             \
+         __FILE__, __LINE__);                                            \
+    exit(1);                                                             \
+                                                                         \
   } while (0)
 
 /* Die by calling abort() to provide a core dump. */
 
-#define ABORT(x...)                                                          \
-  do {                                                                       \
-                                                                             \
-    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                                \
-         "\n[-] PROGRAM ABORT : " cRST   x);                                   \
+#define ABORT(x...)                                                      \
+  do {                                                                   \
+                                                                         \
+    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                            \
+         "\n[-] PROGRAM ABORT : " cRST   x);                               \
     SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n\n", __func__, \
-         __FILE__, __LINE__);                                                \
-    abort();                                                                 \
-                                                                             \
+         __FILE__, __LINE__);                                            \
+    abort();                                                             \
+                                                                         \
   } while (0)
 
 /* Die while also including the output of perror(). */
 
-#define PFATAL(x...)                                                       \
-  do {                                                                     \
-                                                                           \
-    fflush(stdout);                                                        \
-    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                              \
-         "\n[-]  SYSTEM ERROR : " cRST   x);                                 \
+#define PFATAL(x...)                                                   \
+  do {                                                                 \
+                                                                       \
+    fflush(stdout);                                                    \
+    SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                          \
+         "\n[-]  SYSTEM ERROR : " cRST   x);                             \
     SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n", __func__, \
-         __FILE__, __LINE__);                                              \
-    SAYF(cLRD "       OS message : " cRST "%s\n", strerror(errno));        \
-    exit(1);                                                               \
-                                                                           \
+         __FILE__, __LINE__);                                          \
+    SAYF(cLRD "       OS message : " cRST "%s\n", strerror(errno));    \
+    exit(1);                                                           \
+                                                                       \
   } while (0)
 
 /* Die with FATAL() or PFATAL() depending on the value of res (used to
