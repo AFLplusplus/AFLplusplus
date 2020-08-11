@@ -472,12 +472,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     ret_val = 1;
 
-    u32 dst = 0, i;
+    s32 dst = 0, i;
     temp_len = len = afl->queue_cur->len;
 
     fd = open(afl->queue_cur->fname, O_RDONLY);
     afl->taint_src = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-    if (fd < 0 || (size_t)afl->taint_src == -1)
+    if (fd < 0 || (ssize_t)afl->taint_src == -1)
       FATAL("unable to open '%s'", afl->queue_cur->fname);
     close(fd);
     afl->taint_needs_splode = 1;
@@ -490,18 +490,18 @@ u8 fuzz_one_original(afl_state_t *afl) {
         temp_len = len = afl->taint_len = afl->queue_cur->taint_bytes_all;
         orig_in = in_buf =
             mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-        if (fd < 0 || (size_t)in_buf == -1)
+        if (fd < 0 || (ssize_t)in_buf == -1)
           FATAL("unable to open '%s'", afl->taint_input_file);
         close(fd);
 
         fd = open(afl->queue_cur->fname_taint, O_RDWR);
         afl->taint_map = mmap(0, afl->queue_cur->len, PROT_READ | PROT_WRITE,
                               MAP_PRIVATE, fd, 0);
-        if (fd < 0 || (size_t)in_buf == -1)
+        if (fd < 0 || (ssize_t)in_buf == -1)
           FATAL("unable to open '%s'", afl->queue_cur->fname_taint);
         close(fd);
 
-        for (i = 0; i < afl->queue_cur->len && dst < len; i++)
+        for (i = 0; i < (s32)afl->queue_cur->len && dst < len; i++)
           if (afl->taint_map[i]) in_buf[dst++] = afl->taint_src[i];
 
         break;
@@ -512,7 +512,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
         temp_len = len = afl->taint_len = afl->queue_cur->taint_bytes_new;
         orig_in = in_buf =
             mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-        if (fd < 0 || (size_t)in_buf == -1)
+        if (fd < 0 || (ssize_t)in_buf == -1)
           FATAL("unable to open '%s'", afl->taint_input_file);
         close(fd);
 
@@ -520,12 +520,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
         fd = open(fn, O_RDWR);
         afl->taint_map = mmap(0, afl->queue_cur->len, PROT_READ | PROT_WRITE,
                               MAP_PRIVATE, fd, 0);
-        if (fd < 0 || (size_t)in_buf == -1)
+        if (fd < 0 || (ssize_t)in_buf == -1)
           FATAL("unable to open '%s' for %u bytes", fn, len);
         close(fd);
         ck_free(fn);
 
-        for (i = 0; i < afl->queue_cur->len && dst < len; i++)
+        for (i = 0; i < (s32)afl->queue_cur->len && dst < len; i++)
           if (afl->taint_map[i]) in_buf[dst++] = afl->taint_src[i];
 
         break;
@@ -2297,7 +2297,8 @@ havoc_stage:
           }
 
           copy_to = rand_below(afl, temp_len - copy_len + 1);
-          if (unlikely(copy_to > temp_len)) copy_to = rand_below(afl, temp_len);
+          if (unlikely(copy_to > (u32)temp_len))
+            copy_to = rand_below(afl, temp_len);
 
           if (rand_below(afl, 4)) {
 
@@ -2305,7 +2306,8 @@ havoc_stage:
 
               if (unlikely(afl->taint_needs_splode)) {
 
-                if (copy_to > temp_len) copy_to = rand_below(afl, temp_len);
+                if (copy_to > (u32)temp_len)
+                  copy_to = rand_below(afl, temp_len);
 
                 // fprintf(stderr, "\nout_buf %p + copy_to %u, src %p + %u,
                 // copy_len %u -- len %u\n", out_buf , copy_to, afl->taint_src ,
