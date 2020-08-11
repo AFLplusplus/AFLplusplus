@@ -1274,9 +1274,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
     ck_free(afl->taint_fsrv.target_path);
     afl->argv_taint = ck_alloc(sizeof(char *) * (argc + 4 - optind));
-    afl->taint_fsrv.target_path =
-        find_binary_own_loc("afl-qemu-taint", argv[0]);
-    afl->argv_taint[0] = find_binary_own_loc("afl-qemu-taint", argv[0]);
+    afl->taint_fsrv.target_path = find_afl_binary("afl-qemu-taint", argv[0]);
+    afl->argv_taint[0] = find_afl_binary("afl-qemu-taint", argv[0]);
     if (!afl->argv_taint[0])
       FATAL(
           "Cannot find 'afl-qemu-taint', read qemu_taint/README.md on how to "
@@ -1308,19 +1307,19 @@ int main(int argc, char **argv_orig, char **envp) {
 
     OKF("Taint forkserver successfully started");
 
-    const rlim_t kStackSize = 256L * 1024L * 1024L;   // min stack size = 256 Mb
+    const rlim_t  kStackSize = 256L * 1024L * 1024L;  // min stack size = 256 Mb
     struct rlimit rl;
     rl.rlim_cur = kStackSize;
     if (getrlimit(RLIMIT_STACK, &rl) != 0)
       WARNF("Setting a higher stack size failed!");
 
-#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
+  #define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
     u8 *tmp1 = ck_maybe_grow(BUF_PARAMS(eff), MAX_FILE + 4096);
     u8 *tmp2 = ck_maybe_grow(BUF_PARAMS(ex), MAX_FILE + 4096);
     u8 *tmp3 = ck_maybe_grow(BUF_PARAMS(in_scratch), MAX_FILE + 4096);
     u8 *tmp4 = ck_maybe_grow(BUF_PARAMS(out), MAX_FILE + 4096);
     u8 *tmp5 = ck_maybe_grow(BUF_PARAMS(out_scratch), MAX_FILE + 4096);
-#undef BUF_PARAMS
+  #undef BUF_PARAMS
     if (!tmp1 || !tmp2 || !tmp3 || !tmp4 || !tmp5)
       FATAL("memory issues. me hungry, feed me!");
 

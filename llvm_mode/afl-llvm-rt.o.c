@@ -847,9 +847,8 @@ void __afl_manual_init(void) {
     init_done = 1;
     is_persistent = 0;
     __afl_sharedmem_fuzzing = 0;
-    if (__afl_area_ptr == NULL)
-      __afl_area_ptr = __afl_area_initial;
-    
+    if (__afl_area_ptr == NULL) __afl_area_ptr = __afl_area_initial;
+
     if (getenv("AFL_DEBUG"))
       fprintf(stderr,
               "DEBUG: disabled instrumenation because of "
@@ -886,7 +885,7 @@ __attribute__((constructor(0))) void __afl_auto_early(void) {
 
   is_persistent = !!getenv(PERSIST_ENV_VAR);
 
-    __afl_map_shm();
+  __afl_map_shm();
 
 }
 
