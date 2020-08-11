@@ -245,6 +245,8 @@ u32 count_bytes_len(afl_state_t *afl, u8 *mem, u32 len) {
 
   (void)(afl);
 
+  if (len % 4) i++;
+
   while (i--) {
 
     u32 v = *(ptr++);

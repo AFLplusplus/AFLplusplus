@@ -125,42 +125,64 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
     if (afl_fsrv_run_target(&afl->taint_fsrv, afl->fsrv.exec_tmout,
                             &afl->stop_soon) == 0) {
 
-      bytes = count_bytes_len(afl, afl->taint_fsrv.trace_bits, plen);
+      bytes = q->taint_bytes_all =
+          count_bytes_len(afl, afl->taint_fsrv.trace_bits, plen);
       if (afl->debug)
         fprintf(stderr, "Debug: tainted %u out of %u bytes\n", bytes, len);
 
-      if (bytes) {
+      /* DEBUG FIXME TODO XXX */
+      u32 i;
+      for (i = 0; i < len; i++) {
 
-        s32 i = len;
-        while (i > 0 && !afl->taint_fsrv.trace_bits[i - 1])
-          i--;
-        q->taint_bytes_highest = i;
+        if (afl->taint_fsrv.trace_bits[i] &&
+            afl->taint_fsrv.trace_bits[i] != '!')
+          FATAL("invalid taint map value %02x at pos %d",
+                afl->taint_fsrv.trace_bits[i], i);
 
       }
 
+      if (len < plen)
+        for (i = len; i < plen; i++) {
+
+          if (afl->taint_fsrv.trace_bits[i])
+            FATAL("invalid taint map value %02x in padding at pos %d",
+                  afl->taint_fsrv.trace_bits[i], i);
+
+        }
+
     }
 
-    if (((bytes * 100) / len) < 90) {
-
-      // we only use the taint havoc mode if the entry has less than 90% of
-      // overall tainted bytes
-      q->taint_bytes_all = bytes;
+    // if all is tainted we do not need to write taint data away
+    if (bytes && bytes < len) {
 
       // save the bytes away
       int w = open(q->fname_taint, O_CREAT | O_WRONLY, 0644);
       if (w >= 0) {
 
-        ck_write(w, afl->taint_fsrv.trace_bits, plen, q->fname_taint);
+        ck_write(w, afl->taint_fsrv.trace_bits, len, q->fname_taint);
         close(w);
+
+        // find the highest tainted offset in the input (for trim opt)
+        s32 i = len;
+        while (i > 0 && !afl->taint_fsrv.trace_bits[i - 1])
+          i--;
+        q->taint_bytes_highest = i;
+
+        afl->taint_count++;
 
       } else {
 
         FATAL("could not create %s", q->fname_taint);
-        bytes = 0;
+        q->taint_bytes_all = bytes = 0;
 
       }
 
-      if (bytes && prev && prev->taint_bytes_all) {
+      // it is possible that there is no main taint file - if the whole file
+      // is tainted - but a .new taint file if it had new tainted bytes
+
+      // check if there is a previous queue entry and if it had taint
+      if (bytes && prev && prev->taint_bytes_all &&
+          prev->taint_bytes_all < prev->len) {
 
         // check if there are new bytes in the taint vs the previous
         int r = open(prev->fname_taint, O_RDONLY);
@@ -181,22 +203,34 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
             q->taint_bytes_new = count_bytes_len(afl, tmp, plen);
 
+            if (afl->debug)
+              fprintf(stderr, "Debug: %u new taint out of %u bytes\n", bytes,
+                      len);
+
             if (q->taint_bytes_new) {
 
               u8 *fnw = alloc_printf("%s.new", q->fname_taint);
-              int w = open(fnw, O_CREAT | O_WRONLY, 0644);
-              if (w >= 0) {
+              if (fnw) {
 
-                ck_write(w, tmp, plen, fnw);
-                close(w);
+                int w = open(fnw, O_CREAT | O_WRONLY, 0644);
+                if (w >= 0) {
+
+                  ck_write(w, tmp, plen, fnw);
+                  close(w);
+
+                } else {
+
+                  q->taint_bytes_new = 0;
+
+                }
+
+                ck_free(fnw);
 
               } else {
 
                 q->taint_bytes_new = 0;
 
               }
-
-              ck_free(fnw);
 
             }
 
@@ -209,10 +243,6 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
         }
 
       }
-
-    } else {
-
-      bytes = 0;
 
     }
 
