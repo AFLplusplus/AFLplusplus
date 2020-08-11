@@ -293,8 +293,8 @@ static void report_error_and_exit(int error) {
       FATAL(
           "the fuzzing target reports that hardcoded map address might be the "
           "reason the mmap of the shared memory failed. Solution: recompile "
-          "the target with either afl-clang-lto and the environment variable "
-          "AFL_LLVM_MAP_DYNAMIC set or recompile with afl-clang-fast.");
+          "the target with either afl-clang-lto and do not set "
+          "AFL_LLVM_MAP_ADDR or recompile with afl-clang-fast.");
       break;
     case FS_ERROR_SHM_OPEN:
       FATAL("the fuzzing target reports that the shm_open() call failed.");
@@ -838,8 +838,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     SAYF("\n" cLRD "[-] " cRST
          "Hmm, looks like the target binary terminated before we could"
          " complete a handshake with the injected code.\n"
-         "If the target was compiled with afl-clang-lto then recompiling with"
-         " AFL_LLVM_MAP_DYNAMIC might solve your problem.\n"
+         "If the target was compiled with afl-clang-lto and AFL_LLVM_MAP_ADDR"
+         " then recompiling without this parameter.\n"
          "Otherwise there is a horrible bug in the fuzzer.\n"
          "Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
@@ -870,9 +870,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         "    - the target was compiled with afl-clang-lto and a constructor "
         "was\n"
-        "      instrumented, recompiling with AFL_LLVM_MAP_DYNAMIC might solve "
-        "your\n"
-        "      problem\n\n"
+        "      instrumented, recompiling without AFL_LLVM_MAP_ADDR might solve "
+        "your problem\n\n"
 
         "    - Less likely, there is a horrible bug in the fuzzer. If other "
         "options\n"

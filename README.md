@@ -71,18 +71,18 @@ only new bytes in the other cycle.
   Android support and much, much, much more.
 
   | Feature/Instrumentation  | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
-  | ------------------------ |:-------:|:---------:|:----------:|:----------------:|:------------:|
-  | NeverZero                |    x    |     x(1)  |      (2)   |         x        |       x      |
-  | Persistent mode          |         |     x     |     x      | x86[_64]/arm[64] |       x      |
+  | -------------------------|:-------:|:---------:|:----------:|:----------------:|:------------:|
+  | NeverZero                | x86[_64]|     x(1)  |      (2)   |         x        |       x      |
+  | Persistent Mode          |         |     x     |     x      | x86[_64]/arm[64] |       x      |
   | LAF-Intel / CompCov      |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
   | CmpLog                   |         |     x     |            | x86[_64]/arm[64] |              |
-  | Selective instrumentation|         |     x     |     x      |        (x)(3)    |              |
-  | Non-colliding coverage   |         |     x(4)  |            |        (x)(5)    |              |
+  | Selective Instrumentation|         |     x     |     x      |        (x)(3)    |              |
+  | Non-Colliding Coverage   |         |     x(4)  |            |        (x)(5)    |              |
   | InsTrim                  |         |     x     |            |                  |              |
-  | Ngram prev_loc coverage  |         |     x(6)  |            |                  |              |
-  | Context coverage         |         |     x     |            |                  |              |
-  | Auto dictionary          |         |     x(7)  |            |                  |              |
-  | Snapshot LKM support     |         |     x     |            |        (x)(5)    |              |
+  | Ngram prev_loc Coverage  |         |     x(6)  |            |                  |              |
+  | Context Coverage         |         |     x     |            |                  |              |
+  | Auto Dictionary          |         |     x(7)  |            |                  |              |
+  | Snapshot LKM Support     |         |     x     |            |        (x)(5)    |              |
 
   1. default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
