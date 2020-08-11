@@ -497,7 +497,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   char pid_buf[16];
   sprintf(pid_buf, "%d", fsrv->fsrv_pid);
 
-  if (fsrv->qemu_mode == 2) {
+  if (fsrv->taint_mode) {
 
     setenv("__AFL_TARGET_PID3", pid_buf, 1);
 

@@ -220,6 +220,7 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
                 } else {
 
+                  FATAL("count not create '%s'", fnw);
                   q->taint_bytes_new = 0;
 
                 }
@@ -419,7 +420,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u8 *mem, u32 len,
   afl->last_path_time = get_cur_time();
 
   /* trigger the tain gathering if this is not a dry run */
-  if (afl->fsrv.taint_mode && mem) {
+  if (afl->taint_mode && mem) {
 
     perform_taint_run(afl, q, fname, mem, len);
 

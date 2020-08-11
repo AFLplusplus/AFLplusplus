@@ -961,7 +961,7 @@ void perform_dry_run(afl_state_t *afl) {
     }
 
     /* perform taint gathering on the input seed */
-    if (afl->fsrv.taint_mode)
+    if (afl->taint_mode)
       perform_taint_run(afl, q, q->fname, use_mem, q->len);
 
     q = q->next;
@@ -1502,7 +1502,7 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
-  if (afl->fsrv.taint_mode) {
+  if (afl->taint_mode) {
 
     fn = alloc_printf("%s/taint", afl->out_dir);
     mkdir(fn, 0755);  // ignore errors
@@ -1745,7 +1745,7 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   /* Taint directory if taint_mode. */
 
-  if (afl->fsrv.taint_mode) {
+  if (afl->taint_mode) {
 
     tmp = alloc_printf("%s/taint", afl->out_dir);
     if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }

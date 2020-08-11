@@ -349,7 +349,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   }
 
-  if (unlikely(afl->fsrv.taint_mode))
+  if (unlikely(afl->taint_mode))
     q->exec_cksum = 0;
   else if (q->exec_cksum) {
 
