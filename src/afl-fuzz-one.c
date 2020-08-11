@@ -460,7 +460,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   u32 tmp_val = 0;
 
-  if (unlikely(afl->fsrv.taint_mode)) {
+  if (unlikely(afl->taint_mode)) {
 
     tmp_val = afl->queue_cycle % 2;
     ret_val = 0;

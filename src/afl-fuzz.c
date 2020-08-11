@@ -288,7 +288,7 @@ int main(int argc, char **argv_orig, char **envp) {
     switch (opt) {
 
       case 'A':
-        afl->fsrv.taint_mode = 1;
+        afl->taint_mode = 1;
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_QEMU; }
         break;
 
@@ -829,10 +829,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->fsrv.taint_mode && afl->fsrv.map_size < MAX_FILE) {
+  if (afl->taint_mode && afl->fsrv.map_size < MAX_FILE) {
 
     real_map_size = map_size;
-    map_size = afl->fsrv.map_size = afl->shm.map_size = MAX_FILE;
+    map_size = MAX_FILE;
 
   }
 
@@ -891,9 +891,12 @@ int main(int argc, char **argv_orig, char **envp) {
     if (afl->crash_mode) { FATAL("-C and -n are mutually exclusive"); }
     if (afl->fsrv.qemu_mode) { FATAL("-Q and -n are mutually exclusive"); }
     if (afl->unicorn_mode) { FATAL("-U and -n are mutually exclusive"); }
-    if (afl->fsrv.taint_mode) { FATAL("-A and -n are mutually exclusive"); }
+    if (afl->taint_mode) { FATAL("-A and -n are mutually exclusive"); }
 
   }
+  
+  if (afl->limit_time_sig != 0 && afl->taint_mode) { FATAL("-A and -L are mutually exclusive"); }
+  if (afl->unicorn_mode != 0 && afl->taint_mode) { FATAL("-A and -U are mutually exclusive"); }
 
   if (get_afl_env("AFL_DISABLE_TRIM")) { afl->disable_trim = 1; }
 
@@ -992,7 +995,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->afl_env.afl_preload) {
 
-    if (afl->fsrv.qemu_mode || afl->fsrv.taint_mode) {
+    if (afl->fsrv.qemu_mode || afl->taint_mode) {
 
       u8 *qemu_preload = getenv("QEMU_SET_ENV");
       u8 *afl_preload = getenv("AFL_PRELOAD");
@@ -1088,16 +1091,16 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
-  if (!afl->in_bitmap) { memset(afl->virgin_bits, 255, afl->fsrv.map_size); }
-  memset(afl->virgin_tmout, 255, afl->fsrv.map_size);
-  memset(afl->virgin_crash, 255, afl->fsrv.map_size);
-
-  if (map_size != real_map_size) {
+  if (real_map_size && map_size != real_map_size) {
 
     afl->fsrv.map_size = real_map_size;
     if (afl->cmplog_binary) afl->cmplog_fsrv.map_size = real_map_size;
 
   }
+
+  if (!afl->in_bitmap) { memset(afl->virgin_bits, 255, afl->fsrv.map_size); }
+  memset(afl->virgin_tmout, 255, afl->fsrv.map_size);
+  memset(afl->virgin_crash, 255, afl->fsrv.map_size);
 
   init_count_class16();
 
@@ -1260,7 +1263,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->fsrv.taint_mode) {
+  if (afl->taint_mode) {
 
     ACTF("Spawning qemu_taint forkserver");
 
@@ -1268,7 +1271,6 @@ int main(int argc, char **argv_orig, char **envp) {
     setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0);
 
     afl_fsrv_init_dup(&afl->taint_fsrv, &afl->fsrv);
-    afl->taint_fsrv.qemu_mode = 2;
     afl->taint_fsrv.taint_mode = 1;
     afl->taint_fsrv.trace_bits = afl->fsrv.trace_bits;
 
@@ -1399,7 +1401,7 @@ int main(int argc, char **argv_orig, char **envp) {
               break;
             case 1:
               if (afl->limit_time_sig == 0 && !afl->custom_only &&
-                  !afl->python_only && !afl->fsrv.taint_mode) {
+                  !afl->python_only && !afl->taint_mode) {
 
                 afl->limit_time_sig = -1;
                 afl->limit_time_puppet = 0;
@@ -1588,7 +1590,7 @@ stop_fuzzing:
   }
 
   if (afl->cmplog_binary) afl_fsrv_deinit(&afl->cmplog_fsrv);
-  if (afl->fsrv.taint_mode) afl_fsrv_deinit(&afl->taint_fsrv);
+  if (afl->taint_mode) afl_fsrv_deinit(&afl->taint_fsrv);
   afl_fsrv_deinit(&afl->fsrv);
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
   if (afl->argv_taint) { ck_free(afl->argv_taint); }
