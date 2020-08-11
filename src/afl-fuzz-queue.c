@@ -108,7 +108,6 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
   u8 *                ptr, *fn = fname;
   u32                 bytes = 0, plen = len;
-  s32                 fd = -1;
   struct queue_entry *prev = q->prev;
 
   if (plen % 4) plen = plen + 4 - (len % 4);
@@ -170,7 +169,7 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
           u8 *bufr = mmap(0, prev->len, PROT_READ, MAP_PRIVATE, r, 0);
 
-          if ((size_t)bufr != -1) {
+          if ((ssize_t)bufr != -1) {
 
             u32 i;
             u8 *tmp = ck_maybe_grow(BUF_PARAMS(in_scratch), plen);

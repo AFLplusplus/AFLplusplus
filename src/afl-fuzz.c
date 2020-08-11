@@ -1095,7 +1095,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (map_size != real_map_size) {
 
     afl->fsrv.map_size = real_map_size;
-    if (afl->cmplog_binary) afl->cmplog_fsrv.map_size;
+    if (afl->cmplog_binary) afl->cmplog_fsrv.map_size = real_map_size;
 
   }
 
