@@ -496,10 +496,20 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   char pid_buf[16];
   sprintf(pid_buf, "%d", fsrv->fsrv_pid);
-  if (fsrv->cmplog_binary)
+
+  if (fsrv->taint_mode) {
+
+    setenv("__AFL_TARGET_PID3", pid_buf, 1);
+
+  } else if (fsrv->cmplog_binary) {
+
     setenv("__AFL_TARGET_PID2", pid_buf, 1);
-  else
+
+  } else {
+
     setenv("__AFL_TARGET_PID1", pid_buf, 1);
+
+  }
 
   /* Close the unneeded endpoints. */
 
@@ -922,7 +932,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
   } else {
 
-    s32 fd = fsrv->out_fd;
+    s32 fd;
 
     if (fsrv->out_file) {
 
@@ -941,6 +951,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     } else {
 
+      fd = fsrv->out_fd;
       lseek(fd, 0, SEEK_SET);
 
     }

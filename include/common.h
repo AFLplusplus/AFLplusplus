@@ -55,6 +55,7 @@ extern u8 *doc_path;                    /* path to documentation dir        */
    @returns the path, allocating the string */
 
 u8 *find_binary(u8 *fname);
+u8 *find_afl_binary(u8 *fname, u8 *own_loc);
 
 /* Read a bitmap from file fname to memory
    This is for the -B option again. */
