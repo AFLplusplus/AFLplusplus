@@ -122,7 +122,7 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
     afl->taint_fsrv.map_size = plen;  // speed :)
     write_to_testcase(afl, mem, len);
-    if (afl_fsrv_run_target(&afl->taint_fsrv, afl->fsrv.exec_tmout,
+    if (afl_fsrv_run_target(&afl->taint_fsrv, afl->fsrv.exec_tmout * 4,
                             &afl->stop_soon) == 0) {
 
       bytes = q->taint_bytes_all =

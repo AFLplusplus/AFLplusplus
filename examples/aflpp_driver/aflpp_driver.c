@@ -107,8 +107,6 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 #endif
 
 int                   __afl_sharedmem_fuzzing = 0;
-extern unsigned char *__afl_area_ptr;
-// extern struct cmp_map *__afl_cmp_map;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
@@ -246,27 +244,7 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
 }
 
-__attribute__((constructor(1))) void __afl_protect(void) {
-
-  setenv("__AFL_DEFER_FORKSRV", "1", 1);
-  __afl_area_ptr = (unsigned char *)mmap(
-      (void *)0x10000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
-      MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  if ((uint64_t)__afl_area_ptr == -1)
-    __afl_area_ptr = (unsigned char *)mmap((void *)0x10000, MAX_DUMMY_SIZE,
-                                           PROT_READ | PROT_WRITE,
-                                           MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  if ((uint64_t)__afl_area_ptr == -1)
-    __afl_area_ptr =
-        (unsigned char *)mmap(NULL, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
-                              MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  // __afl_cmp_map = (struct cmp_map *)__afl_area_ptr;
-
-}
-
 int main(int argc, char **argv) {
-
-  fprintf(stderr, "map is at %p\n", __afl_area_ptr);
 
   printf(
       "======================= INFO =========================\n"
@@ -307,8 +285,6 @@ int main(int argc, char **argv) {
 
     if (!getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
 
-      munmap(__afl_area_ptr, MAX_DUMMY_SIZE);  // we need to free 0x10000
-      __afl_area_ptr = NULL;
       __afl_manual_init();
 
     }
@@ -321,14 +297,10 @@ int main(int argc, char **argv) {
 
   if (!getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
 
-    munmap(__afl_area_ptr, MAX_DUMMY_SIZE);
-    __afl_area_ptr = NULL;
     fprintf(stderr, "performing manual init\n");
     __afl_manual_init();
 
   }
-
-  fprintf(stderr, "map is now at %p\n", __afl_area_ptr);
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
   // on the first execution of LLVMFuzzerTestOneInput is ignored.

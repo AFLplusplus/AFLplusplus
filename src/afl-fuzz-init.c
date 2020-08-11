@@ -771,9 +771,13 @@ void perform_dry_run(afl_state_t *afl) {
     close(fd);
 
     res = calibrate_case(afl, q, use_mem, 0, 1);
-    ck_free(use_mem);
 
-    if (afl->stop_soon) { return; }
+    if (afl->stop_soon) {
+
+      ck_free(use_mem);
+      return;
+
+    }
 
     if (res == afl->crash_mode || res == FSRV_RUN_NOBITS) {
 
@@ -962,6 +966,7 @@ void perform_dry_run(afl_state_t *afl) {
 
     /* perform taint gathering on the input seed */
     if (afl->taint_mode) perform_taint_run(afl, q, q->fname, use_mem, q->len);
+    ck_free(use_mem);
 
     q = q->next;
 
