@@ -961,8 +961,7 @@ void perform_dry_run(afl_state_t *afl) {
     }
 
     /* perform taint gathering on the input seed */
-    if (afl->taint_mode)
-      perform_taint_run(afl, q, q->fname, use_mem, q->len);
+    if (afl->taint_mode) perform_taint_run(afl, q, q->fname, use_mem, q->len);
 
     q = q->next;
 

@@ -444,7 +444,8 @@ typedef struct afl_state {
       python_only,                      /* Python-only mode                 */
       is_main_node,                     /* if this is the main node         */
       is_secondary_node,                /* if this is a secondary instance  */
-      taint_needs_splode;               /* explode fuzz input               */
+      taint_needs_splode,               /* explode fuzz input               */
+      taint_mode;
 
   u32 stats_update_freq;                /* Stats update frequency (execs)   */
 

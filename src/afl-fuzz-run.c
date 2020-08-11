@@ -878,9 +878,11 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   if (unlikely(afl->taint_needs_splode)) {
 
     s32 new_len = afl->queue_cur->len + len - afl->taint_len;
-    if (new_len < 4) new_len = 4;
-    if (new_len > MAX_FILE) new_len = MAX_FILE;
-    u8 *new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), new_len);
+    if (new_len < 4)
+      new_len = 4;
+    else if (new_len > MAX_FILE)
+      new_len = MAX_FILE;
+    u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), new_len);
 
     u32 i, taint = 0;
     for (i = 0; i < (u32)new_len; i++) {
@@ -891,6 +893,8 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
         new_buf[i] = afl->taint_src[i];
 
     }
+
+    swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
 
     out_buf = new_buf;
     len = new_len;

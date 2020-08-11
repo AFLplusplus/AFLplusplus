@@ -420,11 +420,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u8 *mem, u32 len,
   afl->last_path_time = get_cur_time();
 
   /* trigger the tain gathering if this is not a dry run */
-  if (afl->taint_mode && mem) {
-
-    perform_taint_run(afl, q, fname, mem, len);
-
-  }
+  if (afl->taint_mode && mem) { perform_taint_run(afl, q, fname, mem, len); }
 
   /* only redqueen currently uses is_ascii */
   if (afl->shm.cmplog_mode) q->is_ascii = check_if_text(q);
