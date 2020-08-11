@@ -35,6 +35,8 @@
 #include <string.h>
 #include <assert.h>
 #include <stdint.h>
+#include <stddef.h>
+#include <limits.h>
 #include <errno.h>
 
 #include <sys/mman.h>
@@ -840,9 +842,22 @@ void __afl_manual_init(void) {
 
   static u8 init_done;
 
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
+
+    init_done = 1;
+    is_persistent = 0;
+    __afl_sharedmem_fuzzing = 0;
+    if (__afl_area_ptr == NULL) __afl_area_ptr = __afl_area_initial;
+
+    if (getenv("AFL_DEBUG"))
+      fprintf(stderr,
+              "DEBUG: disabled instrumenation because of "
+              "AFL_DISABLE_LLVM_INSTRUMENTATION\n");
+
+  }
+
   if (!init_done) {
 
-    __afl_map_shm();
     __afl_start_forkserver();
     init_done = 1;
 
@@ -850,15 +865,27 @@ void __afl_manual_init(void) {
 
 }
 
-/* Proper initialization routine. */
+/* Initialization of the forkserver - latest possible */
 
-__attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
+__attribute__((constructor())) void __afl_auto_init(void) {
 
-  is_persistent = !!getenv(PERSIST_ENV_VAR);
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
 
   if (getenv(DEFER_ENV_VAR)) return;
 
   __afl_manual_init();
+
+}
+
+/* Initialization of the shmem - earliest possible because of LTO fixed mem. */
+
+__attribute__((constructor(0))) void __afl_auto_early(void) {
+
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
+
+  is_persistent = !!getenv(PERSIST_ENV_VAR);
+
+  __afl_map_shm();
 
 }
 
