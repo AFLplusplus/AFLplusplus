@@ -98,7 +98,7 @@ ifneq "$(shell uname -m)" "x86_64"
 endif
 
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
-override CFLAGS += -g -Wno-pointer-sign \
+override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wpointer-arith \
 			  -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
@@ -198,6 +198,7 @@ else
 endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
+  override CFLAGS += -D_FORTIFY_SOURCE=2
   LDFLAGS += -ldl -lrt
 endif
 

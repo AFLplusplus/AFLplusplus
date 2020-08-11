@@ -329,9 +329,12 @@ static void __afl_map_shm(void) {
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
-  if (getenv("AFL_DEBUG"))
+  if (getenv("AFL_DEBUG")) {
+
     fprintf(stderr, "DEBUG: cmplog id_str %s\n",
             id_str == NULL ? "<null>" : id_str);
+
+  }
 
   if (id_str) {
 
@@ -404,8 +407,11 @@ static void __afl_start_snapshots(void) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
 
-    if (getenv("AFL_DEBUG"))
+    if (getenv("AFL_DEBUG")) {
+
       fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
+
+    }
 
     if ((was_killed & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) ==
         (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) {
@@ -613,8 +619,11 @@ static void __afl_start_forkserver(void) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
 
-    if (getenv("AFL_DEBUG"))
+    if (getenv("AFL_DEBUG")) {
+
       fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
+
+    }
 
     if ((was_killed & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) ==
         (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) {
@@ -936,8 +945,12 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   u32   inst_ratio = 100;
   char *x;
 
-  fprintf(stderr, "Running __sanitizer_cov_trace_pc_guard_init: %p-%p\n", start,
-          stop);
+  if (getenv("AFL_DEBUG")) {
+
+    fprintf(stderr, "Running __sanitizer_cov_trace_pc_guard_init: %p-%p\n",
+            start, stop);
+
+  }
 
   if (start == stop || *start) return;
 

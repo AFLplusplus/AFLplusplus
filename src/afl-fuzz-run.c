@@ -138,7 +138,7 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
 /* The same, but with an adjustable gap. Used for trimming. */
 
-static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
+static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
                            u32 skip_len) {
 
   s32 fd = afl->fsrv.out_fd;
