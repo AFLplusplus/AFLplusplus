@@ -116,6 +116,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
           "edges_found       : %u\n"
           "var_byte_count    : %u\n"
           "havoc_expansion   : %u\n"
+          "tainted_inputs    : %u\n"
           "afl_banner        : %s\n"
           "afl_version       : " VERSION
           "\n"
@@ -149,8 +150,8 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 #else
           -1,
 #endif
-          t_bytes, afl->var_byte_count, afl->expand_havoc, afl->use_banner,
-          afl->unicorn_mode ? "unicorn" : "",
+          t_bytes, afl->var_byte_count, afl->expand_havoc, afl->taint_count,
+          afl->use_banner, afl->unicorn_mode ? "unicorn" : "",
           afl->fsrv.qemu_mode ? "qemu " : "",
           afl->non_instrumented_mode ? " non_instrumented " : "",
           afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",

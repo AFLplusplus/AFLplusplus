@@ -506,7 +506,7 @@ typedef struct afl_state {
       var_byte_count,                   /* Bitmap bytes with var behavior   */
       current_entry,                    /* Current queue entry ID           */
       havoc_div,                        /* Cycle count divisor for havoc    */
-      taint_len;
+      taint_len, taint_count;
 
   u64 total_crashes,                    /* Total number of crashes          */
       unique_crashes,                   /* Crashes with unique signatures   */
