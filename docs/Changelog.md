@@ -26,6 +26,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
        AFL_LLVM_WHITELIST and AFL_LLVM_INSTRUMENT_FILE are deprecated and
        are matched to AFL_LLVM_ALLOWLIST). The format is compatible to llvm
        sancov, and also supports function matching!
+     - added nozero counting to trace-pc/pcgard
      - fixes for laf-intel float splitting (thanks to mark-griffin for
        reporting)
      - LTO: switch default to the dynamic memory map, set AFL_LLVM_MAP_ADDR

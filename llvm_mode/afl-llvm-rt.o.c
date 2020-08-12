@@ -904,7 +904,7 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
   */
 
-  __afl_area_ptr[*guard]++;
+  __afl_area_ptr[*guard] = __afl_area_ptr[*guard] + 1 + (__afl_area_ptr[*guard] == 255 ? 1 : 0);
 
 }
 
