@@ -478,7 +478,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     s32 dst = 0, i;
     temp_len = len = afl->queue_cur->len;
-    s32 j = 0;  // tmp
+    // s32 j = 0;  // tmp
 
     fd = open(afl->queue_cur->fname, O_RDONLY);
     afl->taint_src = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
@@ -514,36 +514,45 @@ u8 fuzz_one_original(afl_state_t *afl) {
         fd = open(afl->queue_cur->fname_taint, O_RDONLY);
         afl->taint_map = mmap(0, afl->queue_cur->len, PROT_READ | PROT_WRITE,
                               MAP_PRIVATE, fd, 0);
-        if (fd < 0 || (ssize_t)in_buf == -1)
-          FATAL("unable to open '%s'", afl->queue_cur->fname_taint);
+        if (fd < 0) {
+
+          afl->queue_cur->taint_bytes_all = 0;
+          goto abandon_entry;
+
+        }
+
+        if ((ssize_t)afl->taint_map == -1)
+          FATAL("unable to mmap '%s'", afl->queue_cur->fname_taint);
         close(fd);
 
         for (i = 0; i < (s32)afl->queue_cur->len && dst < len; i++)
           if (afl->taint_map[i]) in_buf[dst++] = afl->taint_src[i];
 
         // FIXME DEBUG TODO XXX
-        for (i = 0; i < (s32)afl->queue_cur->len; i++) {
+        /*
+                for (i = 0; i < (s32)afl->queue_cur->len; i++) {
 
-          switch (afl->taint_map[i]) {
+                  switch (afl->taint_map[i]) {
 
-            case 0x0:
-              break;
-            case '!':
-              j++;
-              break;
-            default:
-              FATAL(
-                  "invalid taint map entry byte 0x%02x at position %d "
-                  "(passed_det:%d)\n",
-                  afl->taint_map[i], i, afl->queue_cur->passed_det);
+                    case 0x0:
+                      break;
+                    case '!':
+                      j++;
+                      break;
+                    default:
+                      FATAL(
+                          "invalid taint map entry byte 0x%02x at position %d "
+                          "(passed_det:%d)\n",
+                          afl->taint_map[i], i, afl->queue_cur->passed_det);
 
-          }
+                  }
 
-        }
+                }
 
-        if (j != len)
-          FATAL("different taint values in map vs in queue (%d != %d)", j, len);
-
+                if (j != len)
+                  FATAL("different taint values in map vs in queue (%d != %d)",
+           j, len);
+        */
         break;
 
       case 0:  // fuzz only newly tainted bytes
@@ -554,7 +563,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
             mmap(0, len >= MAX_FILE - 65536 ? MAX_FILE : len + 65536,
                  PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
         if (fd < 0 || (ssize_t)in_buf == -1)
-          FATAL("unable to open '%s'", afl->taint_input_file);
+          FATAL("unable to open '%s' for %u bytes", afl->taint_input_file, len);
         close(fd);
 
         u8 *fn = alloc_printf("%s.new", afl->queue_cur->fname_taint);
@@ -562,8 +571,15 @@ u8 fuzz_one_original(afl_state_t *afl) {
         fd = open(fn, O_RDWR);
         afl->taint_map = mmap(0, afl->queue_cur->len, PROT_READ | PROT_WRITE,
                               MAP_PRIVATE, fd, 0);
-        if (fd < 0 || (ssize_t)in_buf == -1)
-          FATAL("unable to open '%s' for %u bytes", fn, len);
+        if (fd < 0) {
+
+          ck_free(fn);
+          afl->queue_cur->taint_bytes_new = 0;
+          goto abandon_entry;
+
+        }
+
+        if ((ssize_t)afl->taint_map == -1) FATAL("unable to mmap '%s'", fn);
         close(fd);
         ck_free(fn);
 
@@ -571,28 +587,30 @@ u8 fuzz_one_original(afl_state_t *afl) {
           if (afl->taint_map[i]) in_buf[dst++] = afl->taint_src[i];
 
         // FIXME DEBUG TODO XXX
-        for (i = 0; i < (s32)afl->queue_cur->len; i++) {
+        /*
+                for (i = 0; i < (s32)afl->queue_cur->len; i++) {
 
-          switch (afl->taint_map[i]) {
+                  switch (afl->taint_map[i]) {
 
-            case 0x0:
-              break;
-            case '!':
-              j++;
-              break;
-            default:
-              FATAL(
-                  "invalid taint map entry byte 0x%02x at position %d "
-                  "(passed_det:%d)\n",
-                  afl->taint_map[i], i, afl->queue_cur->passed_det);
+                    case 0x0:
+                      break;
+                    case '!':
+                      j++;
+                      break;
+                    default:
+                      FATAL(
+                          "invalid taint map entry byte 0x%02x at position %d "
+                          "(passed_det:%d)\n",
+                          afl->taint_map[i], i, afl->queue_cur->passed_det);
 
-          }
+                  }
 
-        }
+                }
 
-        if (j != len)
-          FATAL("different taint values in map vs in queue (%d != %d)", j, len);
-
+                if (j != len)
+                  FATAL("different taint values in map vs in queue (%d != %d)",
+           j, len);
+        */
         break;
 
     }
@@ -2343,7 +2361,7 @@ havoc_stage:
 
             /* Tail */
             memmove(new_buf + clone_to + clone_len, out_buf + clone_to,
-                   temp_len - clone_to);
+                    temp_len - clone_to);
 
             swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
             out_buf = new_buf;

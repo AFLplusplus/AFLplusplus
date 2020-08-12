@@ -106,6 +106,8 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
                        u8 *mem, u32 len) {
 
+  if (q->len < 16) return;
+
   u8 *                ptr, *fn = fname;
   u32                 bytes = 0, plen = len;
   struct queue_entry *prev = q->prev;
@@ -131,26 +133,31 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
         fprintf(stderr, "Debug: tainted %u out of %u bytes\n", bytes, len);
 
       /* DEBUG FIXME TODO XXX */
-      u32 i;
-      for (i = 0; i < len; i++) {
+      /*
+            u32 i;
+            for (i = 0; i < len; i++) {
 
-        if (afl->taint_fsrv.trace_bits[i] &&
-            afl->taint_fsrv.trace_bits[i] != '!')
-          FATAL("invalid taint map value %02x at pos %d",
-                afl->taint_fsrv.trace_bits[i], i);
+              if (afl->taint_fsrv.trace_bits[i] &&
+                  afl->taint_fsrv.trace_bits[i] != '!')
+                FATAL("invalid taint map value %02x at pos %d",
+                      afl->taint_fsrv.trace_bits[i], i);
 
-      }
+            }
 
-      if (len < plen)
-        for (i = len; i < plen; i++) {
+            if (len < plen)
+              for (i = len; i < plen; i++) {
 
-          if (afl->taint_fsrv.trace_bits[i])
-            FATAL("invalid taint map value %02x in padding at pos %d",
-                  afl->taint_fsrv.trace_bits[i], i);
+                if (afl->taint_fsrv.trace_bits[i])
+                  FATAL("invalid taint map value %02x in padding at pos %d",
+                        afl->taint_fsrv.trace_bits[i], i);
 
-        }
+              }
+
+      */
 
     }
+
+    if (((bytes * 100) / len) >= 90) bytes = len;
 
     // if all is tainted we do not need to write taint data away
     if (bytes && bytes < len) {

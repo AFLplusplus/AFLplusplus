@@ -106,7 +106,7 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
   #error "Support for your platform has not been implemented"
 #endif
 
-int                   __afl_sharedmem_fuzzing = 0;
+int __afl_sharedmem_fuzzing = 0;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
@@ -283,11 +283,7 @@ int main(int argc, char **argv) {
     printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
   else if (argc > 1) {
 
-    if (!getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
-
-      __afl_manual_init();
-
-    }
+    if (!getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) { __afl_manual_init(); }
 
     return ExecuteFilesOnyByOne(argc, argv);
 
