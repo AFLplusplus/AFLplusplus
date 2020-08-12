@@ -217,79 +217,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-    */
+  */
 
-  std::vector<std::string> module_block_list;
-
-  if (map_addr) {
-
-    for (GlobalIFunc &IF : M.ifuncs()) {
-
-      StringRef ifunc_name = IF.getName();
-      Constant *r = IF.getResolver();
-      StringRef r_name = cast<Function>(r->getOperand(0))->getName();
-      if (!be_quiet)
-        fprintf(stderr,
-                "Warning: Found an ifunc with name %s that points to resolver "
-                "function %s, we cannot instrument this, putting it into a "
-                "block list.\n",
-                ifunc_name.str().c_str(), r_name.str().c_str());
-      module_block_list.push_back(r_name.str());
-
-    }
-
-    GlobalVariable *GV = M.getNamedGlobal("llvm.global_ctors");
-    if (GV && !GV->isDeclaration() && !GV->hasLocalLinkage()) {
-
-      ConstantArray *InitList = dyn_cast<ConstantArray>(GV->getInitializer());
-
-      if (InitList) {
-
-        for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
-
-          if (ConstantStruct *CS =
-                  dyn_cast<ConstantStruct>(InitList->getOperand(i))) {
-
-            if (CS->getNumOperands() >= 2) {
-
-              if (CS->getOperand(1)->isNullValue())
-                break;  // Found a null terminator, stop here.
-
-              ConstantInt *CI = dyn_cast<ConstantInt>(CS->getOperand(0));
-              int          Priority = CI ? CI->getSExtValue() : 0;
-
-              Constant *FP = CS->getOperand(1);
-              if (ConstantExpr *CE = dyn_cast<ConstantExpr>(FP))
-                if (CE->isCast()) FP = CE->getOperand(0);
-              if (Function *F = dyn_cast<Function>(FP)) {
-
-                if (!F->isDeclaration() &&
-                    strncmp(F->getName().str().c_str(), "__afl", 5) != 0 &&
-                    Priority <= 5) {
-
-                  if (!be_quiet)
-                    fprintf(stderr,
-                            "Warning: Found constructor function %s with prio "
-                            "%u, we cannot instrument this, putting it into a "
-                            "block list.\n",
-                            F->getName().str().c_str(), Priority);
-                  module_block_list.push_back(F->getName().str());
-
-                }
-
-              }
-
-            }
-
-          }
-
-        }
-
-      }
-
-    }
-
-  }
+  scanForDangerousFunctions(&M);
 
   /* Instrument all the things! */
 
@@ -306,26 +236,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     if (F.size() < function_minimum_size) continue;
     if (isIgnoreFunction(&F)) continue;
-
-    if (module_block_list.size()) {
-
-      for (auto bname : module_block_list) {
-
-        std::string fname = F.getName().str();
-
-        if (fname.compare(bname) == 0) {
-
-          if (!be_quiet)
-            WARNF(
-                "Skipping instrumentation of dangerous early running function "
-                "%s",
-                fname.c_str());
-
-        }
-
-      }
-
-    }
 
     // the instrument file list check
     AttributeList Attrs = F.getAttributes();

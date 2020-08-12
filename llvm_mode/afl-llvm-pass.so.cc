@@ -297,6 +297,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   /* Instrument all the things! */
 
   int inst_blocks = 0;
+  scanForDangerousFunctions(&M);
 
   for (auto &F : M) {
 

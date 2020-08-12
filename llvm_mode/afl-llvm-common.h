@@ -37,6 +37,7 @@ bool                   isIgnoreFunction(const llvm::Function *F);
 void                   initInstrumentList();
 bool                   isInInstrumentList(llvm::Function *F);
 unsigned long long int calculateCollisions(uint32_t edges);
+void                   scanForDangerousFunctions(llvm::Module *M);
 
 #ifndef IS_EXTERN
   #define IS_EXTERN
