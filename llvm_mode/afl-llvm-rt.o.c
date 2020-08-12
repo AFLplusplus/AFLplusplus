@@ -42,6 +42,8 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
+#include "llvm/Config/llvm-config.h"
+
 #ifdef __linux__
   #include "snapshot-inl.h"
 #endif
@@ -903,7 +905,8 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
   }
 
   */
-#if LLVM_VERSION_MAJOR < 9
+
+#if (LLVM_VERSION_MAJOR < 9)
 
   __afl_area_ptr[*guard]++;
 
