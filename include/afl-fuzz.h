@@ -656,6 +656,7 @@ typedef struct afl_state {
 struct custom_mutator {
 
   const char *name;
+  char *      name_short;
   void *      dh;
   u8 *        post_process_buf;
   size_t      post_process_size;
@@ -986,6 +987,8 @@ uint64_t rand_next(afl_state_t *afl);
 
 static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
+  if (limit <= 1) return 0;
+
   /* The boundary not being necessarily a power of 2,
      we need to ensure the result uniformity. */
   if (unlikely(!afl->rand_cnt--) && likely(!afl->fixed_seed)) {
@@ -998,6 +1001,32 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
   }
 
   return rand_next(afl) % limit;
+
+}
+
+/* we prefer lower range values here */
+/* this is only called with normal havoc, not MOpt, to have an equalizer for
+   expand havoc mode */
+static inline u32 rand_below_datalen(afl_state_t *afl, u32 limit) {
+
+  if (limit <= 1) return 0;
+
+  switch (rand_below(afl, 3)) {
+
+    case 2:
+      return (rand_below(afl, limit) % (1 + rand_below(afl, limit - 1))) %
+             (1 + rand_below(afl, limit - 1));
+      break;
+    case 1:
+      return rand_below(afl, limit) % (1 + rand_below(afl, limit - 1));
+      break;
+    case 0:
+      return rand_below(afl, limit);
+      break;
+
+  }
+
+  return 1;  // cannot be reached
 
 }
 

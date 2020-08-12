@@ -98,7 +98,7 @@ ifneq "$(shell uname -m)" "x86_64"
 endif
 
 CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
-override CFLAGS += -Wall -g -Wno-pointer-sign \
+override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wpointer-arith \
 			  -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 
@@ -198,6 +198,7 @@ else
 endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
+  override CFLAGS += -D_FORTIFY_SOURCE=2
   LDFLAGS += -ldl -lrt
 endif
 
@@ -270,7 +271,7 @@ all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 man:    $(MANPAGES)
 
 tests:	source-only
-	@cd test ; ./test.sh
+	@cd test ; ./test-all.sh
 	@rm -f test/errors
 
 performance-tests:	performance-test
@@ -551,9 +552,9 @@ source-only: all
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
-	#$(MAKE) -C examples/afl_network_proxy
-	#$(MAKE) -C examples/socket_fuzzing
-	#$(MAKE) -C examples/argv_fuzzing
+	@#$(MAKE) -C examples/afl_network_proxy
+	@#$(MAKE) -C examples/socket_fuzzing
+	@#$(MAKE) -C examples/argv_fuzzing
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@

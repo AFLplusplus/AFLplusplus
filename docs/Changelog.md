@@ -22,8 +22,16 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - fixed a bug in redqueen for strings
   - llvm_mode:
      - now supports llvm 12!
+     - support for AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST (previous
+       AFL_LLVM_WHITELIST and AFL_LLVM_INSTRUMENT_FILE are deprecated and
+       are matched to AFL_LLVM_ALLOWLIST). The format is compatible to llvm
+       sancov, and also supports function matching!
+     - added neverzero counting to trace-pc/pcgard
      - fixes for laf-intel float splitting (thanks to mark-griffin for
        reporting)
+     - LTO: switch default to the dynamic memory map, set AFL_LLVM_MAP_ADDR
+            for a fixed map address (eg. 0x10000)
+     - LTO: skipping ctors and ifuncs in fix map address instrumentation
      - LTO: autodictionary mode is a default
      - LTO: instrim instrumentation disabled, only classic support used
             as it is always better
@@ -33,6 +41,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - LTO: AFL_LLVM_SKIP_NEVERZERO behaviour was inversed, fixed
      - setting AFL_LLVM_LAF_SPLIT_FLOATS now activates
        AFL_LLVM_LAF_SPLIT_COMPARES
+     - support for -E and -shared compilation runs
   - added honggfuzz mangle as a custom mutator in custom_mutators/honggfuzz
   - added afl-frida gum solution to examples/afl_frida (mostly imported
     from https://github.com/meme/hotwax/)

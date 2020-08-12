@@ -112,8 +112,10 @@ static u8 check_if_text(struct queue_entry *q) {
   u8  buf[MAX_FILE];
   s32 fd, len = q->len, offset = 0, ascii = 0, utf8 = 0, comp;
 
+  if (len >= MAX_FILE) len = MAX_FILE - 1;
   if ((fd = open(q->fname, O_RDONLY)) < 0) return 0;
   if ((comp = read(fd, buf, len)) != len) return 0;
+  buf[len] = 0;
   close(fd);
 
   while (offset < len) {

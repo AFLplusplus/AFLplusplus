@@ -27,23 +27,26 @@ extern void mock_assert(const int result, const char* const expression,
     (compile with `--wrap=exit`) */
 extern void exit(int status);
 extern void __real_exit(int status);
-void __wrap_exit(int status);
+//void __wrap_exit(int status);
 void __wrap_exit(int status) {
+    (void)status;
     assert(0);
 }
 
 /* ignore all printfs */
 #undef printf
 extern int printf(const char *format, ...);
-extern int __real_printf(const char *format, ...);
+//extern int __real_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...) {
+    (void)format;
     return 1;
 }
 
 static list_t testlist = {.element_prealloc_count = 0};
 
 static void test_contains(void **state) {
+    (void)state;
 
     u32 one = 1;
     u32 two = 2;
@@ -56,6 +59,7 @@ static void test_contains(void **state) {
 }
 
 static void test_foreach(void **state) {
+    (void)state;
 
     u32 one = 1;
     u32 two = 2;
@@ -75,6 +79,7 @@ static void test_foreach(void **state) {
 }
 
 static void test_long_list(void **state) {
+    (void)state;
 
     u32 result1 = 0;
     u32 result2 = 0;
@@ -118,6 +123,8 @@ static void test_long_list(void **state) {
 }
 
 int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
 
 	const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_contains),

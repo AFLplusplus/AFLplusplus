@@ -38,7 +38,7 @@ u64 time_spent_working = 0;
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
+fsrv_run_result_t __attribute__ ((hot)) fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
                                   u32 timeout) {
 
 #ifdef PROFILING
@@ -72,7 +72,7 @@ fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
    old file is unlinked and a new one is created. Otherwise, afl->fsrv.out_fd is
    rewound and truncated. */
 
-void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
+void __attribute__ ((hot)) write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   s32  doc_fd;
@@ -138,7 +138,7 @@ void write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
 /* The same, but with an adjustable gap. Used for trimming. */
 
-static void write_with_gap(afl_state_t *afl, void *mem, u32 len, u32 skip_at,
+static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
                            u32 skip_len) {
 
   s32 fd = afl->fsrv.out_fd;
@@ -733,12 +733,12 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
   len_p2 = next_pow2(q->len);
 
-  remove_len = MAX(len_p2 / TRIM_START_STEPS, TRIM_MIN_BYTES);
+  remove_len = MAX(len_p2 / TRIM_START_STEPS, (u32)TRIM_MIN_BYTES);
 
   /* Continue until the number of steps gets too high or the stepover
      gets too small. */
 
-  while (remove_len >= MAX(len_p2 / TRIM_END_STEPS, TRIM_MIN_BYTES)) {
+  while (remove_len >= MAX(len_p2 / TRIM_END_STEPS, (u32)TRIM_MIN_BYTES)) {
 
     u32 remove_pos = remove_len;
 
@@ -819,16 +819,27 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
       fd = open(q->fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
+      if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
+
+      u32 written = 0;
+      while (written < q->len) {
+
+        ssize_t result = write(fd, in_buf, q->len - written);
+        if (result > 0) written += result;
+
+      }
+
     } else {
 
       unlink(q->fname);                                    /* ignore errors */
       fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
 
+      if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
+
+      ck_write(fd, in_buf, q->len, q->fname);
+
     }
 
-    if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
-
-    ck_write(fd, in_buf, q->len, q->fname);
     close(fd);
 
     memcpy(afl->fsrv.trace_bits, afl->clean_trace, afl->fsrv.map_size);
@@ -847,7 +858,7 @@ abort_trimming:
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
 
-u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
+u8 __attribute__ ((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
 

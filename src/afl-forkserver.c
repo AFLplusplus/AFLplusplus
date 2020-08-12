@@ -122,7 +122,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
-static u32 read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
+static u32 __attribute__ ((hot)) read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
                           volatile u8 *stop_soon_p) {
 
   fd_set readfds;
@@ -145,6 +145,13 @@ restart_select:
   if (likely(sret > 0)) {
 
   restart_read:
+    if (*stop_soon_p) {
+
+      // Early return - the user wants to quit.
+      return 0;
+
+    }
+
     len_read = read(fd, (u8 *)buf, 4);
 
     if (likely(len_read == 4)) {  // for speed we put this first
@@ -286,8 +293,8 @@ static void report_error_and_exit(int error) {
       FATAL(
           "the fuzzing target reports that hardcoded map address might be the "
           "reason the mmap of the shared memory failed. Solution: recompile "
-          "the target with either afl-clang-lto and the environment variable "
-          "AFL_LLVM_MAP_DYNAMIC set or recompile with afl-clang-fast.");
+          "the target with either afl-clang-lto and do not set "
+          "AFL_LLVM_MAP_ADDR or recompile with afl-clang-fast.");
       break;
     case FS_ERROR_SHM_OPEN:
       FATAL("the fuzzing target reports that the shm_open() call failed.");
@@ -315,7 +322,7 @@ static void report_error_and_exit(int error) {
    cloning a stopped child. So, we just execute once, and then send commands
    through a pipe. The other part of this logic is in afl-as.h / llvm_mode */
 
-void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
+void __attribute__ ((hot)) afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output) {
 
   int st_pipe[2], ctl_pipe[2];
@@ -691,7 +698,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         }
 
         offset = 0;
-        while (offset < status && (u8)dict[offset] + offset < status) {
+        while (offset < (u32)status &&
+               (u8)dict[offset] + offset < (u32)status) {
 
           fsrv->function_ptr(fsrv->function_opt, dict + offset + 1,
                              (u8)dict[offset]);
@@ -820,8 +828,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     SAYF("\n" cLRD "[-] " cRST
          "Hmm, looks like the target binary terminated before we could"
          " complete a handshake with the injected code.\n"
-         "If the target was compiled with afl-clang-lto then recompiling with"
-         " AFL_LLVM_MAP_DYNAMIC might solve your problem.\n"
+         "If the target was compiled with afl-clang-lto and AFL_LLVM_MAP_ADDR"
+         " then recompiling without this parameter.\n"
          "Otherwise there is a horrible bug in the fuzzer.\n"
          "Poke <afl-users@googlegroups.com> for troubleshooting tips.\n");
 
@@ -852,9 +860,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         "    - the target was compiled with afl-clang-lto and a constructor "
         "was\n"
-        "      instrumented, recompiling with AFL_LLVM_MAP_DYNAMIC might solve "
-        "your\n"
-        "      problem\n\n"
+        "      instrumented, recompiling without AFL_LLVM_MAP_ADDR might solve "
+        "your problem\n\n"
 
         "    - Less likely, there is a horrible bug in the fuzzer. If other "
         "options\n"

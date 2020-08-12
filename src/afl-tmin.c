@@ -250,7 +250,7 @@ static s32 write_to_file(u8 *path, u8 *mem, u32 len) {
 /* Execute target application. Returns 0 if the changes are a dud, or
    1 if they should be kept. */
 
-static u8 tmin_run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
+static u8 tmin_run_target(afl_forkserver_t *fsrv, u8 *mem, u32 len,
                           u8 first_run) {
 
   afl_fsrv_write_to_testcase(fsrv, mem, len);
@@ -342,7 +342,7 @@ static u8 tmin_run_target(afl_forkserver_t *fsrv, char **argv, u8 *mem, u32 len,
 
 /* Actually minimize! */
 
-static void minimize(afl_forkserver_t *fsrv, char **argv) {
+static void minimize(afl_forkserver_t *fsrv) {
 
   static u32 alpha_map[256];
 
@@ -380,7 +380,7 @@ static void minimize(afl_forkserver_t *fsrv, char **argv) {
       memset(tmp_buf + set_pos, '0', use_len);
 
       u8 res;
-      res = tmin_run_target(fsrv, argv, tmp_buf, in_len, 0);
+      res = tmin_run_target(fsrv, tmp_buf, in_len, 0);
 
       if (res) {
 
@@ -453,7 +453,7 @@ next_del_blksize:
     /* Tail */
     memcpy(tmp_buf + del_pos, in_data + del_pos + del_len, tail_len);
 
-    res = tmin_run_target(fsrv, argv, tmp_buf, del_pos + tail_len, 0);
+    res = tmin_run_target(fsrv, tmp_buf, del_pos + tail_len, 0);
 
     if (res) {
 
@@ -524,7 +524,7 @@ next_del_blksize:
 
     }
 
-    res = tmin_run_target(fsrv, argv, tmp_buf, in_len, 0);
+    res = tmin_run_target(fsrv, tmp_buf, in_len, 0);
 
     if (res) {
 
@@ -560,7 +560,7 @@ next_del_blksize:
     if (orig == '0') { continue; }
     tmp_buf[i] = '0';
 
-    res = tmin_run_target(fsrv, argv, tmp_buf, in_len, 0);
+    res = tmin_run_target(fsrv, tmp_buf, in_len, 0);
 
     if (res) {
 
@@ -623,6 +623,7 @@ finalize_all:
 
 static void handle_stop_sig(int sig) {
 
+  (void)sig;
   stop_soon = 1;
   afl_fsrv_killall();
 
@@ -1131,7 +1132,7 @@ int main(int argc, char **argv_orig, char **envp) {
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        fsrv->mem_limit, fsrv->exec_tmout, edges_only ? ", edges only" : "");
 
-  tmin_run_target(fsrv, use_argv, in_data, in_len, 1);
+  tmin_run_target(fsrv, in_data, in_len, 1);
 
   if (hang_mode && !fsrv->last_run_timed_out) {
 
@@ -1169,7 +1170,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  minimize(fsrv, use_argv);
+  minimize(fsrv);
 
   ACTF("Writing output to '%s'...", output_file);
 

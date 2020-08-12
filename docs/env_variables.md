@@ -202,14 +202,15 @@ Then there are a few specific features that are only available in llvm_mode:
 
     See llvm_mode/README.laf-intel.md for more information.
 
-### INSTRUMENT_FILE
+### INSTRUMENT LIST (selectively instrument files and functions)
 
     This feature allows selectively instrumentation of the source
 
-    - Setting AFL_LLVM_INSTRUMENT_FILE with a filename will only instrument those
-      files that match the names listed in this file.
+    - Setting AFL_LLVM_ALLOWLIST or AFL_LLVM_DENYLIST with a filenames and/or
+      function will only instrument (or skip) those files that match the names
+      listed in the specified file.
 
-    See llvm_mode/README.instrument_file.md for more information.
+    See llvm_mode/README.instrument_list.md for more information.
 
 ### NOT_ZERO
 
@@ -241,7 +242,7 @@ Then there are a few specific features that are only available in the gcc_plugin
     - Setting AFL_GCC_INSTRUMENT_FILE with a filename will only instrument those
       files that match the names listed in this file (one filename per line).
 
-    See gcc_plugin/README.instrument_file.md for more information.
+    See gcc_plugin/README.instrument_list.md for more information.
 
 ## 3) Settings for afl-fuzz
 

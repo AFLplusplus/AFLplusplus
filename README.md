@@ -39,19 +39,19 @@
   with laf-intel and redqueen, unicorn mode, gcc plugin, full *BSD, Solaris and
   Android support and much, much, much more.
 
-  | Feature/Instrumentation | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
-  | ----------------------- |:-------:|:---------:|:----------:|:----------------:|:------------:|
-  | NeverZero               | x86[_64]|     x(1)  |      (2)   |         x        |       x      |
-  | Persistent mode         |         |     x     |     x      | x86[_64]/arm[64] |       x      |
-  | LAF-Intel / CompCov     |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
-  | CmpLog                  |         |     x     |            | x86[_64]/arm[64] |              |
-  | Instrument file list    |         |     x     |     x      |        (x)(3)    |              |
-  | Non-colliding coverage  |         |     x(4)  |            |        (x)(5)    |              |
-  | InsTrim                 |         |     x     |            |                  |              |
-  | Ngram prev_loc coverage |         |     x(6)  |            |                  |              |
-  | Context coverage        |         |     x     |            |                  |              |
-  | Auto dictionary         |         |     x(7)  |            |                  |              |
-  | Snapshot LKM support    |         |     x     |            |        (x)(5)    |              |
+  | Feature/Instrumentation  | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
+  | -------------------------|:-------:|:---------:|:----------:|:----------------:|:------------:|
+  | NeverZero                | x86[_64]|     x(1)  |      (2)   |         x        |       x      |
+  | Persistent Mode          |         |     x     |     x      | x86[_64]/arm[64] |       x      |
+  | LAF-Intel / CompCov      |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
+  | CmpLog                   |         |     x     |            | x86[_64]/arm[64] |              |
+  | Selective Instrumentation|         |     x     |     x      |        (x)(3)    |              |
+  | Non-Colliding Coverage   |         |     x(4)  |            |        (x)(5)    |              |
+  | InsTrim                  |         |     x     |            |                  |              |
+  | Ngram prev_loc Coverage  |         |     x(6)  |            |                  |              |
+  | Context Coverage         |         |     x     |            |                  |              |
+  | Auto Dictionary          |         |     x(7)  |            |                  |              |
+  | Snapshot LKM Support     |         |     x     |            |        (x)(5)    |              |
 
   1. default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
@@ -64,21 +64,20 @@
   Among others, the following features and patches have been integrated:
 
   * NeverZero patch for afl-gcc, llvm_mode, qemu_mode and unicorn_mode which prevents a wrapping map value to zero, increases coverage
-  * Persistent mode and deferred forkserver for qemu_mode
+  * Persistent mode, deferred forkserver and in-memory fuzzing for qemu_mode
   * Unicorn mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
   * The new CmpLog instrumentation for LLVM and QEMU inspired by [Redqueen](https://www.syssec.ruhr-uni-bochum.de/media/emma/veroeffentlichungen/2018/12/17/NDSS19-Redqueen.pdf)
   * Win32 PE binary-only fuzzing with QEMU and Wine
   * AFLfast's power schedules by Marcel Böhme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
   * The MOpt mutator: [https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)
   * LLVM mode Ngram coverage by Adrian Herrera [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
-  * InsTrim, an effective CFG llvm_mode instrumentation implementation for large targets: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
-  * C. Holler's afl-fuzz Python mutator module and llvm_mode instrument file support: [https://github.com/choller/afl](https://github.com/choller/afl)
+  * InsTrim, a CFG llvm_mode instrumentation implementation: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
+  * C. Holler's afl-fuzz Python mutator module: [https://github.com/choller/afl](https://github.com/choller/afl)
   * Custom mutator by a library (instead of Python) by kyakdan
   * LAF-Intel/CompCov support for llvm_mode, qemu_mode and unicorn_mode (with enhanced capabilities)
   * Radamsa and hongfuzz mutators (as custom mutators).
   * QBDI mode to fuzz android native libraries via Quarkslab's [QBDI](https://github.com/QBDI/QBDI) framework
-
-  A more thorough list is available in the [PATCHES](docs/PATCHES.md) file.
+  * Frida and ptrace mode to fuzz binary-only libraries, etc.
 
   So all in all this is the best-of afl that is out there :-)
 
@@ -195,6 +194,7 @@ Here are some good writeups to show how to effectively use AFL++:
  * [https://securitylab.github.com/research/fuzzing-challenges-solutions-1](https://securitylab.github.com/research/fuzzing-challenges-solutions-1)
  * [https://securitylab.github.com/research/fuzzing-software-2](https://securitylab.github.com/research/fuzzing-software-2)
  * [https://securitylab.github.com/research/fuzzing-sockets-FTP](https://securitylab.github.com/research/fuzzing-sockets-FTP)
+ * [https://securitylab.github.com/research/fuzzing-sockets-FreeRDP](https://securitylab.github.com/research/fuzzing-sockets-FreeRDP)
 
 If you are interested in fuzzing structured data (where you define what the
 structure is), these links have you covered:
@@ -246,7 +246,7 @@ anything below 9 is not recommended.
  +--------------------------------+
  | if you want to instrument only | -> use afl-gcc-fast and afl-gcc-fast++
  | parts of the target            |    see [gcc_plugin/README.md](gcc_plugin/README.md) and
- +--------------------------------+    [gcc_plugin/README.instrument_file.md](gcc_plugin/README.instrument_file.md)
+ +--------------------------------+    [gcc_plugin/README.instrument_list.md](gcc_plugin/README.instrument_list.md)
     |
     | if not, or if you do not have a gcc with plugin support
     |
@@ -272,15 +272,17 @@ afl-clang-lto:
    To use this set the following environment variable before compiling the
    target: `export AFL_LLVM_LAF_ALL=1`
    You can read more about this in [llvm/README.laf-intel.md](llvm/README.laf-intel.md)
- * A different technique (and usually a bit better than laf-intel) is to
+ * A different technique (and usually a better than laf-intel) is to
    instrument the target so that any compare values in the target are sent to
-   afl++ which then tries to put this value into the fuzzing data at different
+   afl++ which then tries to put these values into the fuzzing data at different
    locations. This technique is very fast and good - if the target does not
    transform input data before comparison. Therefore this technique is called
    `input to state` or `redqueen`.
    If you want to use this technique, then you have to compile the target
    twice, once specifically with/for this mode, and pass this binary to afl-fuzz
    via the `-c` parameter.
+   Not that you can compile also just a cmplog binary and use that for both
+   however there will a performance penality.
    You can read more about this in [llvm_mode/README.cmplog.md](llvm_mode/README.cmplog.md)
 
 If you use afl-clang-fast, afl-clang-lto or afl-gcc-fast you have the option to
@@ -290,24 +292,33 @@ selectively only instrument parts of the target that you are interested in:
    create a file with all the filenames of the source code that should be
    instrumented.
    For afl-clang-lto and afl-gcc-fast - or afl-clang-fast if either the clang
-   version is < 7 or the CLASSIC instrumentation is used - just put one
-   filename per line, no directory information necessary, and set
-   `export AFL_LLVM_INSTRUMENT_FILE=yourfile.txt`
-   see [llvm_mode/README.instrument_file.md](llvm_mode/README.instrument_file.md)
+   version is below 7 or the CLASSIC instrumentation is used - just put one
+   filename or function per line (no directory information necessary for
+   filenames9, and either set `export AFL_LLVM_ALLOWLIST=allowlist.txt` **or**
+   `export AFL_LLVM_DENYLIST=denylist.txt` - depending on if you want per
+   default to instrument unless noted (DENYLIST) or not perform instrumentation
+   unless requested (ALLOWLIST).
+   **NOTE:** In optimization functions might be inlined and then not match!
+   see [llvm_mode/README.instrument_list.md](llvm_mode/README.instrument_list.md)
    For afl-clang-fast > 6.0 or if PCGUARD instrumentation is used then use the
    llvm sancov allow-list feature: [http://clang.llvm.org/docs/SanitizerCoverage.html](http://clang.llvm.org/docs/SanitizerCoverage.html)
+   The llvm sancov format works with the allowlist/denylist feature of afl++
+   however afl++ is more flexible in the format.
 
 There are many more options and modes available however these are most of the
 time less effective. See:
  * [llvm_mode/README.ctx.md](llvm_mode/README.ctx.md)
  * [llvm_mode/README.ngram.md](llvm_mode/README.ngram.md)
  * [llvm_mode/README.instrim.md](llvm_mode/README.instrim.md)
+
+afl++ employs never zero counting in its bitmap. You can read more about this
+here:
  * [llvm_mode/README.neverzero.md](llvm_mode/README.neverzero.md)
 
 #### c) Modify the target
 
 If the target has features that makes fuzzing more difficult, e.g.
-checksums, HMAC etc. then modify the source code so that this is
+checksums, HMAC, etc. then modify the source code so that this is
 removed.
 This can even be done for productional source code be eliminating
 these checks within this specific defines:
@@ -382,6 +393,7 @@ As you fuzz the target with mutated input, having as diverse inputs for the
 target as possible improves the efficiency a lot.
 
 #### a) Collect inputs
+
 Try to gather valid inputs for the target from wherever you can. E.g. if it is
 the PNG picture format try to find as many png files as possible, e.g. from
 reported bugs, test suites, random downloads from the internet, unit test
@@ -430,23 +442,24 @@ to be used in fuzzing! :-)
 ### 3. Fuzzing the target
 
 In this final step we fuzz the target.
-There are not that many useful options to run the target - unless you want to
-use many CPU cores/threads for the fuzzing, which will make the fuzzing much
+There are not that many important options to run the target - unless you want
+to use many CPU cores/threads for the fuzzing, which will make the fuzzing much
 more useful.
 
 If you just use one CPU for fuzzing, then you are fuzzing just for fun and not
 seriously :-)
 
 Pro tip: load the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) 
-before the start of afl-fuzz as this improves performance by a x2 speed increase!
+before the start of afl-fuzz as this improves performance by a x2 speed increase
+(less if you use a persistent mode harness)!
 
 #### a) Running afl-fuzz
 
 Before to do even a test run of afl-fuzz execute `sudo afl-system-config` (on
 the host if you execute afl-fuzz in a docker container). This reconfigures the
 system for optimal speed - which afl-fuzz checks and bails otherwise.
-Set `export AFL_SKIP_CPUFREQ=1` for afl-fuzz to skip this check if you cannot run
-afl-system-config with root privileges on the host for whatever reason.
+Set `export AFL_SKIP_CPUFREQ=1` for afl-fuzz to skip this check if you cannot
+run afl-system-config with root privileges on the host for whatever reason.
 
 If you have an input corpus from step 2 then specify this directory with the `-i`
 option. Otherwise create a new directory and create a file with any content
@@ -468,7 +481,7 @@ of memory. By default this is 50MB for a process. If this is too little for
 the target (which you can usually see by afl-fuzz bailing with the message
 that it could not connect to the forkserver), then you can increase this
 with the `-m` option, the value is in MB. To disable any memory limits
-(beware!) set `-m 0` - which is usually required for ASAN compiled targets.
+(beware!) set `-m none` - which is usually required for ASAN compiled targets.
 
 Adding a dictionary is helpful. See the [dictionaries/](dictionaries/) if
 something is already included for your data format, and tell afl-fuzz to load
@@ -529,7 +542,7 @@ Examples are:
 
 A long list can be found at [https://github.com/Microsvuln/Awesome-AFL](https://github.com/Microsvuln/Awesome-AFL)
 
-However you can also sync afl++ with honggfuzz, libfuzzer, entropic, etc.
+However you can also sync afl++ with honggfuzz, libfuzzer with -entropic, etc.
 Just show the main fuzzer (-M) with the `-F` option where the queue
 directory of a different fuzzer is, e.g. `-F /src/target/honggfuzz`.
 
@@ -547,7 +560,14 @@ To have only the summary use the `-s` switch e.g.: `afl-whatsup -s output/`
 #### d) Checking the coverage of the fuzzing
 
 The `paths found` value is a bad indicator how good the coverage is.
-It is better to check out the exact lines of code that have been reached -
+
+A better indicator - if you use default llvm instrumentation with at least
+version 9 - to use `afl-showmap` on the target with all inputs of the
+queue/ directory one after another and collecting the found edge IDs (`-o N.out`),
+removing the counters of the edge IDs, making them unique - and there you have
+the total number of found instrumented edges.
+
+It is even better to check out the exact lines of code that have been reached -
 and which have not been found so far.
 
 An "easy" helper script for this is [https://github.com/vanhauser-thc/afl-cov](https://github.com/vanhauser-thc/afl-cov),
@@ -567,6 +587,10 @@ Basically if no new path is found for a long time (e.g. for a day or a week)
 then you can expect that your fuzzing won't be fruitful anymore.
 However often this just means that you should switch out secondaries for
 others, e.g. custom mutator modules, sync to very different fuzzers, etc.
+
+Keep the queue/ directory (for future fuzzings of the same or similar targets)
+and use them to seed other good fuzzers like libfuzzer with the -entropic
+switch or honggfuzz.
 
 #### f) Improve the speed!
 

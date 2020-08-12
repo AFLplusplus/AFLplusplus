@@ -30,6 +30,9 @@
 
 static void *unsupported(afl_state_t *afl, unsigned int seed) {
 
+  (void)afl;
+  (void)seed;
+
   FATAL("Python Mutator cannot be called twice yet");
   return NULL;
 
@@ -110,6 +113,8 @@ static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
 }
 
 static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
+
+  (void)afl;
 
   if (!module_name) { return NULL; }
 
@@ -246,6 +251,8 @@ void finalize_py_module(void *py_mutator) {
 
 static void init_py(afl_state_t *afl, py_mutator_t *py_mutator,
                     unsigned int seed) {
+
+  (void)afl;
 
   PyObject *py_args, *py_value;
 
