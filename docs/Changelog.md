@@ -29,9 +29,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - added neverzero counting to trace-pc/pcgard
      - fixes for laf-intel float splitting (thanks to mark-griffin for
        reporting)
+     - skipping ctors and ifuncs for instrumentation
      - LTO: switch default to the dynamic memory map, set AFL_LLVM_MAP_ADDR
             for a fixed map address (eg. 0x10000)
-     - LTO: skipping ctors and ifuncs in fix map address instrumentation
      - LTO: autodictionary mode is a default
      - LTO: instrim instrumentation disabled, only classic support used
             as it is always better

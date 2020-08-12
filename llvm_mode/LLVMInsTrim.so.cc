@@ -256,6 +256,8 @@ struct InsTrim : public ModulePass {
     u64 total_rs = 0;
     u64 total_hs = 0;
 
+    scanForDangerousFunctions(&M);
+
     for (Function &F : M) {
 
       if (debug) {

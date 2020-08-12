@@ -58,6 +58,8 @@ static list_t fsrv_list = {.element_prealloc_count = 0};
 
 static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
+  if (fsrv->qemu_mode) setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0);
+
   execv(fsrv->target_path, argv);
 
 }
@@ -122,8 +124,8 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
-static u32 __attribute__ ((hot)) read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
-                          volatile u8 *stop_soon_p) {
+static u32 __attribute__((hot))
+read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms, volatile u8 *stop_soon_p) {
 
   fd_set readfds;
   FD_ZERO(&readfds);
@@ -322,8 +324,9 @@ static void report_error_and_exit(int error) {
    cloning a stopped child. So, we just execute once, and then send commands
    through a pipe. The other part of this logic is in afl-as.h / llvm_mode */
 
-void __attribute__ ((hot)) afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
-                    volatile u8 *stop_soon_p, u8 debug_child_output) {
+void __attribute__((hot))
+afl_fsrv_start(afl_forkserver_t *fsrv, char **argv, volatile u8 *stop_soon_p,
+               u8 debug_child_output) {
 
   int st_pipe[2], ctl_pipe[2];
   s32 status;
