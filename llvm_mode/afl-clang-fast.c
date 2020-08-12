@@ -161,7 +161,8 @@ static void find_obj(u8 *argv0) {
 
 static void edit_params(u32 argc, char **argv, char **envp) {
 
-  u8  fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0;
+  u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
+     preprocessor_only = 0;
   u8  have_pic = 0;
   u8 *name;
 
@@ -229,7 +230,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (lto_mode) {
 
     if (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
-        getenv("AFL_LLVM_WHITELIST")) {
+        getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
+        getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")) {
 
       cc_params[cc_par_cnt++] = "-Xclang";
       cc_params[cc_par_cnt++] = "-load";
@@ -399,6 +401,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
 
+    if (!strcmp(cur, "-E")) preprocessor_only = 1;
+    if (!strcmp(cur, "-shared")) shared_linking = 1;
+
     cc_params[cc_par_cnt++] = cur;
 
   }
@@ -563,6 +568,18 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
+  if (preprocessor_only) {
+
+    /* In the preprocessor_only case (-E), we are not actually compiling at
+       all but requesting the compiler to output preprocessed sources only.
+       We must not add the runtime in this case because the compiler will
+       simply output its binary content back on stdout, breaking any build
+       systems that rely on a separate source preprocessing step. */
+    cc_params[cc_par_cnt] = NULL;
+    return;
+
+  }
+
 #ifndef __ANDROID__
   switch (bit_mode) {
 
@@ -605,6 +622,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
+  if (!shared_linking)
+    cc_params[cc_par_cnt++] =
+        alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
+
 #endif
 
   cc_params[cc_par_cnt] = NULL;
@@ -637,9 +658,13 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if ((getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST")) &&
+  if ((getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
+       getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
+       getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")) &&
       getenv("AFL_DONT_OPTIMIZE"))
-    FATAL("AFL_LLVM_INSTRUMENT_FILE and AFL_DONT_OPTIMIZE cannot be combined");
+    WARNF(
+        "AFL_LLVM_ALLOWLIST/DENYLIST and AFL_DONT_OPTIMIZE cannot be combined "
+        "for file matching, only function matching!");
 
   if (getenv("AFL_LLVM_INSTRIM") || getenv("INSTRIM") ||
       getenv("INSTRIM_LIB")) {
@@ -787,15 +812,17 @@ int main(int argc, char **argv, char **envp) {
 #if LLVM_VERSION_MAJOR <= 6
     instrument_mode = INSTRUMENT_AFL;
 #else
-    if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST")) {
+    if (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
+        getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
+        getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")) {
 
       instrument_mode = INSTRUMENT_AFL;
       WARNF(
           "switching to classic instrumentation because "
-          "AFL_LLVM_INSTRUMENT_FILE does not work with PCGUARD. Use "
-          "-fsanitize-coverage-allowlist=allowlist.txt if you want to use "
-          "PCGUARD. Requires llvm 12+. See "
-          "https://clang.llvm.org/docs/"
+          "AFL_LLVM_ALLOWLIST/DENYLIST does not work with PCGUARD. Use "
+          "-fsanitize-coverage-allowlist=allowlist.txt or "
+          "-fsanitize-coverage-blocklist=denylist.txt if you want to use "
+          "PCGUARD. Requires llvm 12+. See https://clang.llvm.org/docs/ "
           "SanitizerCoverage.html#partially-disabling-instrumentation");
 
     } else
@@ -846,11 +873,14 @@ int main(int argc, char **argv, char **envp) {
         "together");
 
   if (instrument_mode == INSTRUMENT_PCGUARD &&
-      (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST")))
+      (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
+       getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
+       getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")))
     FATAL(
         "Instrumentation type PCGUARD does not support "
-        "AFL_LLVM_INSTRUMENT_FILE! Use "
-        "-fsanitize-coverage-allowlist=allowlist.txt instead (requires llvm "
+        "AFL_LLVM_ALLOWLIST/DENYLIST! Use "
+        "-fsanitize-coverage-allowlist=allowlist.txt or "
+        "-fsanitize-coverage-blocklist=denylist.txt instead (requires llvm "
         "12+), see "
         "https://clang.llvm.org/docs/"
         "SanitizerCoverage.html#partially-disabling-instrumentation");

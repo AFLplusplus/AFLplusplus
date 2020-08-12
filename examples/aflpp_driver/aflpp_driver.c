@@ -56,12 +56,20 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 #include "config.h"
+#include "cmplog.h"
 
 #ifdef _DEBUG
   #include "hash.h"
 #endif
+
+#ifndef MAP_FIXED_NOREPLACE
+  #define MAP_FIXED_NOREPLACE 0x100000
+#endif
+
+#define MAX_DUMMY_SIZE 256000
 
 // Platform detection. Copied from FuzzerInternal.h
 #ifdef __linux__
@@ -101,6 +109,8 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 int                   __afl_sharedmem_fuzzing = 1;
 extern unsigned int * __afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
+extern unsigned char *__afl_area_ptr;
+// extern struct cmp_map *__afl_cmp_map;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
@@ -238,26 +248,50 @@ static int ExecuteFilesOnyByOne(int argc, char **argv) {
 
 }
 
+__attribute__((constructor(1))) void __afl_protect(void) {
+
+  setenv("__AFL_DEFER_FORKSRV", "1", 1);
+  __afl_area_ptr = (unsigned char *)mmap(
+      (void *)0x10000, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
+      MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if ((uint64_t)__afl_area_ptr == -1)
+    __afl_area_ptr = (unsigned char *)mmap((void *)0x10000, MAX_DUMMY_SIZE,
+                                           PROT_READ | PROT_WRITE,
+                                           MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if ((uint64_t)__afl_area_ptr == -1)
+    __afl_area_ptr =
+        (unsigned char *)mmap(NULL, MAX_DUMMY_SIZE, PROT_READ | PROT_WRITE,
+                              MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  // __afl_cmp_map = (struct cmp_map *)__afl_area_ptr;
+
+}
+
 int main(int argc, char **argv) {
+
+  fprintf(stderr, "dummy map is at %p\n", __afl_area_ptr);
 
   printf(
       "======================= INFO =========================\n"
-      "This binary is built for AFL-fuzz.\n"
+      "This binary is built for afl++.\n"
       "To run the target function on individual input(s) execute this:\n"
-      "  %s < INPUT_FILE\n"
-      "or\n"
       "  %s INPUT_FILE1 [INPUT_FILE2 ... ]\n"
       "To fuzz with afl-fuzz execute this:\n"
-      "  afl-fuzz [afl-flags] %s [-N]\n"
-      "afl-fuzz will run N iterations before "
-      "re-spawning the process (default: 1000)\n"
+      "  afl-fuzz [afl-flags] -- %s [-N]\n"
+      "afl-fuzz will run N iterations before re-spawning the process (default: "
+      "1000)\n"
       "======================================================\n",
-      argv[0], argv[0], argv[0]);
+      argv[0], argv[0]);
 
   output_file = stderr;
   maybe_duplicate_stderr();
   maybe_close_fd_mask();
-  if (LLVMFuzzerInitialize) LLVMFuzzerInitialize(&argc, &argv);
+  if (LLVMFuzzerInitialize) {
+
+    fprintf(stderr, "Running LLVMFuzzerInitialize ...\n");
+    LLVMFuzzerInitialize(&argc, &argv);
+    fprintf(stderr, "continue...\n");
+
+  }
 
   // Do any other expensive one-time initialization here.
 
@@ -272,19 +306,19 @@ int main(int argc, char **argv) {
     printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
   else if (argc > 1) {
 
-    //    if (!getenv("AFL_DRIVER_DONT_DEFER")) {
-
     __afl_sharedmem_fuzzing = 0;
+    munmap(__afl_area_ptr, MAX_DUMMY_SIZE);  // we need to free 0x10000
+    __afl_area_ptr = NULL;
     __afl_manual_init();
-    //    }
     return ExecuteFilesOnyByOne(argc, argv);
-    exit(0);
 
   }
 
   assert(N > 0);
 
   //  if (!getenv("AFL_DRIVER_DONT_DEFER"))
+  munmap(__afl_area_ptr, MAX_DUMMY_SIZE);
+  __afl_area_ptr = NULL;
   __afl_manual_init();
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization

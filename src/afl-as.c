@@ -136,7 +136,7 @@ static void edit_params(int argc, char **argv) {
 
   as_params[argc] = 0;
 
-  for (i = 1; i < argc - 1; i++) {
+  for (i = 1; (s32)i < argc - 1; i++) {
 
     if (!strcmp(argv[i], "--64")) {
 
@@ -407,7 +407,7 @@ static void add_instrumentation(void) {
 
     if (line[0] == '\t') {
 
-      if (line[1] == 'j' && line[2] != 'm' && R(100) < inst_ratio) {
+      if (line[1] == 'j' && line[2] != 'm' && R(100) < (long)inst_ratio) {
 
         fprintf(outf, use_64bit ? trampoline_fmt_64 : trampoline_fmt_32,
                 R(MAP_SIZE));
@@ -449,7 +449,7 @@ static void add_instrumentation(void) {
         /* Apple: L<num> / LBB<num> */
 
         if ((isdigit(line[1]) || (clang_mode && !strncmp(line, "LBB", 3))) &&
-            R(100) < inst_ratio) {
+            R(100) < (long)inst_ratio) {
 
 #else
 
@@ -457,7 +457,7 @@ static void add_instrumentation(void) {
 
         if ((isdigit(line[2]) ||
              (clang_mode && !strncmp(line + 1, "LBB", 3))) &&
-            R(100) < inst_ratio) {
+            R(100) < (long)inst_ratio) {
 
 #endif                                                         /* __APPLE__ */
 
@@ -591,7 +591,7 @@ int main(int argc, char **argv) {
 
   rand_seed = tv.tv_sec ^ tv.tv_usec ^ getpid();
   // in fast systems where pids can repeat in the same seconds we need this
-  for (i = 1; i < argc; i++)
+  for (i = 1; (s32)i < argc; i++)
     for (j = 0; j < strlen(argv[i]); j++)
       rand_seed += argv[i][j];
 

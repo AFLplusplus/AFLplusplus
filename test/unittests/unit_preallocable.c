@@ -29,6 +29,7 @@ extern void exit(int status);
 extern void __real_exit(int status);
 void __wrap_exit(int status);
 void __wrap_exit(int status) {
+    (void)status;
     assert(0);
 }
 
@@ -36,8 +37,9 @@ void __wrap_exit(int status) {
 #undef printf
 extern int printf(const char *format, ...);
 extern int __real_printf(const char *format, ...);
-int __wrap_printf(const char *format, ...);
+//int __wrap_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...) {
+    (void)format;
     return 1;
 }
 
@@ -51,9 +53,10 @@ typedef struct prealloc_me
 
 #define PREALLOCED_BUF_SIZE (64)
 prealloc_me_t prealloc_me_buf[PREALLOCED_BUF_SIZE];
-size_t prealloc_me_size = 0;
+s32 prealloc_me_size = 0;
 
 static void test_alloc_free(void **state) {
+    (void)state;
 
     prealloc_me_t *prealloced = NULL;
     PRE_ALLOC(prealloced, prealloc_me_buf, PREALLOCED_BUF_SIZE, prealloc_me_size);
@@ -63,6 +66,7 @@ static void test_alloc_free(void **state) {
 }
 
 static void test_prealloc_overflow(void **state) {
+    (void)state;
 
     u32 i = 0;
     prealloc_me_t *prealloced[PREALLOCED_BUF_SIZE + 10];
@@ -102,6 +106,8 @@ static void test_prealloc_overflow(void **state) {
 }
 
 int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
 
 	const struct CMUnitTest tests[] = {
 		cmocka_unit_test(test_alloc_free),

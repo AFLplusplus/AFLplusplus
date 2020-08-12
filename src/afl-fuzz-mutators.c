@@ -142,6 +142,7 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   struct custom_mutator *mutator = ck_alloc(sizeof(struct custom_mutator));
 
   mutator->name = fn;
+  mutator->name_short = strrchr(fn, '/') + 1;
   ACTF("Loading custom mutator library from '%s'...", fn);
 
   dh = dlopen(fn, RTLD_NOW);

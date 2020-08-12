@@ -79,7 +79,7 @@ static void at_exit() {
 
 /* Display usage hints. */
 
-static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
+static void usage(u8 *argv0, int more_help) {
 
   SAYF(
       "\n%s [ options ] -- /path/to/fuzzed_app [ ... ]\n\n"
@@ -115,8 +115,8 @@ static void usage(afl_state_t *afl, u8 *argv0, int more_help) {
       "                  if using QEMU, just use -c 0.\n\n"
 
       "Fuzzing behavior settings:\n"
-      "  -N            - do not unlink the fuzzing input file (only for "
-      "devices etc.!)\n"
+      "  -N            - do not unlink the fuzzing input file (for devices "
+      "etc.)\n"
       "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (non-instrumented mode)\n"
       "  -x dict_file  - optional fuzzer dictionary (see README.md, its really "
@@ -289,8 +289,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->cpu_to_bind != -1) FATAL("Multiple -b options not supported");
 
-        if (sscanf(optarg, "%u", &afl->cpu_to_bind) < 0 || optarg[0] == '-')
+        if (sscanf(optarg, "%d", &afl->cpu_to_bind) < 0) {
+
           FATAL("Bad syntax used for -b");
+
+        }
 
         break;
 
@@ -677,7 +680,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
 
-        if (limit_time_puppet2 < afl->limit_time_puppet) {
+        if ((s32)limit_time_puppet2 < afl->limit_time_puppet) {
 
           FATAL("limit_time overflow");
 
@@ -811,7 +814,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (optind == argc || !afl->in_dir || !afl->out_dir || show_help) {
 
-    usage(afl, argv[0], show_help);
+    usage(argv[0], show_help);
 
   }
 

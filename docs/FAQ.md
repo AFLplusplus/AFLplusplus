@@ -112,12 +112,13 @@ afl-clang-fast PCGUARD and afl-clang-lto LTO instrumentation!
         on start, check to which memory address the edge ID value is written
         and set a write breakpoint to that address (`watch 0x.....`).
 
-  3. Third step: create a text file with the filenames
+  3. Third step: create a text file with the filenames/functions
 
      Identify which source code files contain the functions that you need to
-     remove from instrumentation.
+     remove from instrumentation, or just specify the functions you want to
+     skip instrumenting. Note that optimization might inline functions!
 
-     Simply follow this document on how to do this: [llvm_mode/README.instrument_file.md](llvm_mode/README.instrument_file.md)
+     Simply follow this document on how to do this: [llvm_mode/README.instrument_list.md](llvm_mode/README.instrument_list.md)
      If PCGUARD is used, then you need to follow this guide (needs llvm 12+!):
      [http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation](http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation)
 

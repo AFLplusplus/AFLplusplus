@@ -42,6 +42,8 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
+#include "llvm/Config/llvm-config.h"
+
 #ifdef __linux__
   #include "snapshot-inl.h"
 #endif
@@ -182,6 +184,9 @@ static void __afl_map_shm_fuzz() {
 /* SHM setup. */
 
 static void __afl_map_shm(void) {
+
+  // we we are not running in afl ensure the map exists
+  if (!__afl_area_ptr) __afl_area_ptr = __afl_area_initial;
 
   char *id_str = getenv(SHM_ENV_VAR);
 
@@ -324,9 +329,12 @@ static void __afl_map_shm(void) {
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
-  if (getenv("AFL_DEBUG"))
+  if (getenv("AFL_DEBUG")) {
+
     fprintf(stderr, "DEBUG: cmplog id_str %s\n",
             id_str == NULL ? "<null>" : id_str);
+
+  }
 
   if (id_str) {
 
@@ -399,8 +407,11 @@ static void __afl_start_snapshots(void) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
 
-    if (getenv("AFL_DEBUG"))
+    if (getenv("AFL_DEBUG")) {
+
       fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
+
+    }
 
     if ((was_killed & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) ==
         (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) {
@@ -608,8 +619,11 @@ static void __afl_start_forkserver(void) {
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) _exit(1);
 
-    if (getenv("AFL_DEBUG"))
+    if (getenv("AFL_DEBUG")) {
+
       fprintf(stderr, "target forkserver recv: %08x\n", was_killed);
+
+    }
 
     if ((was_killed & (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) ==
         (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ)) {
@@ -892,7 +906,15 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
   */
 
+#if (LLVM_VERSION_MAJOR < 9)
+
   __afl_area_ptr[*guard]++;
+
+#else
+
+  __afl_area_ptr[*guard] = __afl_area_ptr[*guard] + 1 + (__afl_area_ptr[*guard] == 255 ? 1 : 0);
+
+#endif
 
 }
 
@@ -904,6 +926,13 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   u32   inst_ratio = 100;
   char *x;
+
+  if (getenv("AFL_DEBUG")) {
+
+    fprintf(stderr, "Running __sanitizer_cov_trace_pc_guard_init: %p-%p\n",
+            start, stop);
+
+  }
 
   if (start == stop || *start) return;
 
@@ -940,7 +969,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
 void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2) {
 
-  if (!__afl_cmp_map) return;
+  if (unlikely(!__afl_cmp_map)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
@@ -963,7 +992,7 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2) {
 
 void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2) {
 
-  if (!__afl_cmp_map) return;
+  if (unlikely(!__afl_cmp_map)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
@@ -984,7 +1013,7 @@ void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2) {
 
 void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2) {
 
-  if (!__afl_cmp_map) return;
+  if (unlikely(!__afl_cmp_map)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
@@ -1005,7 +1034,7 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2) {
 
 void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2) {
 
-  if (!__afl_cmp_map) return;
+  if (unlikely(!__afl_cmp_map)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
@@ -1056,6 +1085,8 @@ void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2)
 
 void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
+  if (unlikely(!__afl_cmp_map)) return;
+
   for (uint64_t i = 0; i < cases[0]; i++) {
 
     uintptr_t k = (uintptr_t)__builtin_return_address(0) + i;
@@ -1093,7 +1124,7 @@ static int area_is_mapped(void *ptr, size_t len) {
 
 void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
-  if (!__afl_cmp_map) return;
+  if (unlikely(!__afl_cmp_map)) return;
 
   if (!area_is_mapped(ptr1, 32) || !area_is_mapped(ptr2, 32)) return;
 

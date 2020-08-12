@@ -30,6 +30,7 @@ extern void exit(int status);
 extern void __real_exit(int status);
 void __wrap_exit(int status);
 void __wrap_exit(int status) {
+    (void)status;
     assert(0);
 }
 
@@ -39,11 +40,13 @@ extern int printf(const char *format, ...);
 extern int __real_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...);
 int __wrap_printf(const char *format, ...) {
+    (void)format;
     return 1;
 }
 
 /* Rand with 0 seed would broke in the past */
 static void test_hash(void **state) {
+    (void)state;
 
     char bitmap[64] = {0};
     u64 hash0 = hash64(bitmap, sizeof(bitmap), 0xa5b35705);
@@ -62,6 +65,8 @@ static void test_hash(void **state) {
 }
 
 int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
 
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_hash)
