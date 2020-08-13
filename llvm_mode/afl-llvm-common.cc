@@ -260,6 +260,8 @@ void scanForDangerousFunctions(llvm::Module *M) {
 
   if (!M) return;
 
+#if LLVM_VERSION_MAJOR >= 4
+
   for (GlobalIFunc &IF : M->ifuncs()) {
 
     StringRef ifunc_name = IF.getName();
@@ -324,6 +326,8 @@ void scanForDangerousFunctions(llvm::Module *M) {
     }
 
   }
+
+#endif
 
 }
 

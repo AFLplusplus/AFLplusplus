@@ -94,7 +94,7 @@ struct InsTrim : public ModulePass {
 
   }
 
-#if LLVM_VERSION_MAJOR >= 4 || \
+#if LLVM_VERSION_MAJOR > 4 || \
     (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
   #define AFL_HAVE_VECTOR_INTRINSICS 1
 #endif

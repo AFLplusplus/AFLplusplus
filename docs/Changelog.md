@@ -29,6 +29,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - added neverzero counting to trace-pc/pcgard
      - fixes for laf-intel float splitting (thanks to mark-griffin for
        reporting)
+     - fixes for llvm 4.0
      - skipping ctors and ifuncs for instrumentation
      - LTO: switch default to the dynamic memory map, set AFL_LLVM_MAP_ADDR
             for a fixed map address (eg. 0x10000)

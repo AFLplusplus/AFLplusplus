@@ -112,7 +112,7 @@ uint64_t PowerOf2Ceil(unsigned in) {
 #endif
 
 /* #if LLVM_VERSION_STRING >= "4.0.1" */
-#if LLVM_VERSION_MAJOR >= 4 || \
+#if LLVM_VERSION_MAJOR > 4 || \
     (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
   #define AFL_HAVE_VECTOR_INTRINSICS 1
 #endif
