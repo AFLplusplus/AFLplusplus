@@ -284,7 +284,9 @@ static RegisterStandardPasses RegisterCmpLogInstructionsPass(
 static RegisterStandardPasses RegisterCmpLogInstructionsPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerCmpLogInstructionsPass);
 
+#if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCmpLogInstructionsPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
     registerCmpLogInstructionsPass);
+#endif
 
