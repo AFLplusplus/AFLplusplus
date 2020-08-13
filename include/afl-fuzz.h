@@ -608,8 +608,6 @@ typedef struct afl_state {
   u32 document_counter;
 #endif
 
-  void *maybe_add_auto;
-
   /* statistics file */
   double last_bitmap_cvg, last_stability, last_eps;
 
@@ -911,7 +909,7 @@ u8 has_new_bits(afl_state_t *, u8 *);
 
 void load_extras_file(afl_state_t *, u8 *, u32 *, u32 *, u32);
 void load_extras(afl_state_t *, u8 *);
-void maybe_add_auto(void *, u8 *, u32);
+void maybe_add_auto(afl_state_t *, u8 *, u32);
 void save_auto(afl_state_t *);
 void load_auto(afl_state_t *);
 void destroy_extras(afl_state_t *);

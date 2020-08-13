@@ -89,9 +89,9 @@ typedef struct afl_forkserver {
   /* Function to kick off the forkserver child */
   void (*init_child_func)(struct afl_forkserver *fsrv, char **argv);
 
-  u8 *function_opt;                     /* for autodictionary: afl ptr      */
+  u8 *afl_ptr;                     /* for autodictionary: afl ptr      */
 
-  void (*function_ptr)(void *afl_tmp, u8 *mem, u32 len);
+  void (*autodict_func)(void *afl_ptr, u8 *mem, u32 len);
 
 } afl_forkserver_t;
 
