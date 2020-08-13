@@ -114,7 +114,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->fsrv.map_size = map_size;
   // afl_state_t is not available in forkserver.c
   afl->fsrv.afl_ptr = (void *)afl;
-  afl->fsrv.autodict_func = (void (*)(void *, u8 *, u32))&maybe_add_auto;
+  afl->fsrv.autodict_func = (void (*)(void *, u8 *, u32)) & maybe_add_auto;
 
   afl->cal_cycles = CAL_CYCLES;
   afl->cal_cycles_long = CAL_CYCLES_LONG;

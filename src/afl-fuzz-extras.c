@@ -357,7 +357,7 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
 
 void maybe_add_auto(afl_state_t *afl, u8 *mem, u32 len) {
 
-  u32          i;
+  u32 i;
 
   /* Allow users to specify that they don't want auto dictionaries. */
 
