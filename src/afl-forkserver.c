@@ -324,8 +324,8 @@ static void report_error_and_exit(int error) {
    cloning a stopped child. So, we just execute once, and then send commands
    through a pipe. The other part of this logic is in afl-as.h / llvm_mode */
 
-void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv, volatile u8 *stop_soon_p,
-               u8 debug_child_output) {
+void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
+                    volatile u8 *stop_soon_p, u8 debug_child_output) {
 
   int st_pipe[2], ctl_pipe[2];
   s32 status;
@@ -642,6 +642,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv, volatile u8 *stop_soon_
             status = (FS_OPT_ENABLED);
 
           }
+
           if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
 
             FATAL("Writing to forkserver failed.");
@@ -658,7 +659,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv, volatile u8 *stop_soon_
 
           status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
 
-        } else { 
+        } else {
 
           status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
 
@@ -715,7 +716,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv, volatile u8 *stop_soon_
                (u8)dict[offset] + offset < (u32)status) {
 
           fsrv->autodict_func(fsrv->afl_ptr, dict + offset + 1,
-                             (u8)dict[offset]);
+                              (u8)dict[offset]);
           offset += (1 + dict[offset]);
           count++;
 
