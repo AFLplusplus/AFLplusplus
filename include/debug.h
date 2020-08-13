@@ -282,13 +282,14 @@
                                                               \
   } while (0)
 
-#define ck_read(fd, buf, len, fn)                              \
-  do {                                                         \
-                                                               \
-    s32 _len = (s32)(len);                                     \
-    s32 _res = read(fd, buf, _len);                            \
-    if (_res != _len) RPFATAL(_res, "Short read from %s", fn); \
-                                                               \
+#define ck_read(fd, buf, len, fn)                                  \
+  do {                                                             \
+                                                                   \
+    s32 _len = (s32)(len);                                         \
+    s32 _res = read(fd, buf, _len);                                \
+    if (_res != _len) RPFATAL(_res, "Short read from %s, %d < %d", \
+                              fn, _res, (s32)_len);                \
+                                                                   \
   } while (0)
 
 #endif                                                   /* ! _HAVE_DEBUG_H */
