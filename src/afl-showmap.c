@@ -963,7 +963,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     // if a queue subdirectory exists switch to that
     u8 *dn = alloc_printf("%s/queue", in_dir);
-    if ((dir_in = opendir(in_dir))) {
+    if ((dir_in = opendir(dn)) != NULL) {
 
       closedir(dir_in);
       in_dir = dn;

@@ -371,8 +371,12 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (instrument_mode == INSTRUMENT_PCGUARD) {
 
+#if LLVM_VERSION_MAJOR >= 4
       cc_params[cc_par_cnt++] =
           "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
+#else
+      FATAL("pcguard instrumentation requires llvm 4.0.1+");
+#endif
 
     } else {
 
