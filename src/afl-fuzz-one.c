@@ -477,9 +477,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     // special case: all or nothing tainted. in this case we act like
     // nothing is special. this is not the taint you are looking for ...
-    if (tmp_val == 1 && (!afl->queue_cur->taint_bytes_all || afl->queue_cur->taint_bytes_all == afl->queue_cur->len))
+    if (tmp_val == 1 &&
+        (!afl->queue_cur->taint_bytes_all ||
+         afl->queue_cur->taint_bytes_all == afl->queue_cur->len))
       afl->taint_needs_splode = 0;
-    
+
   }
 
   if (unlikely(afl->taint_needs_splode)) {

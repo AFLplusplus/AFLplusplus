@@ -281,13 +281,16 @@ static u8 check_if_text(struct queue_entry *q) {
 
   s32 fd, len = q->len, offset = 0, ascii = 0, utf8 = 0, comp;
 
-#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
-  u8 *buf = ck_maybe_grow(BUF_PARAMS(in_scratch), q->len + 32);
-#undef BUF_PARAMS
-
   if (len >= MAX_FILE) len = MAX_FILE - 1;
   if ((fd = open(q->fname, O_RDONLY)) < 0) return 0;
-  if ((comp = read(fd, buf, len)) != len) return 0;
+  u8 *buf = ck_alloc(q->len + 32);
+  if ((comp = read(fd, buf, len)) != len) {
+
+    ck_free(buf);
+    return 0;
+
+  }
+
   buf[len] = 0;
   close(fd);
 
@@ -372,6 +375,8 @@ static u8 check_if_text(struct queue_entry *q) {
     offset++;
 
   }
+
+  ck_free(buf);
 
   u32 percent_utf8 = (utf8 * 100) / comp;
   u32 percent_ascii = (ascii * 100) / len;
