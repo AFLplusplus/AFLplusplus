@@ -178,6 +178,7 @@ These build options exist:
 
 * STATIC - compile AFL++ static
 * ASAN_BUILD - compiles with memory sanitizer for debug purposes
+* DEBUG - no optimization, -ggdb3, all warnings and -Werror
 * PROFILING - compile with profiling information (gprof)
 * NO_PYTHON - disable python support
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
@@ -509,8 +510,8 @@ fuzz your target.
 
 On the same machine - due to the design of how afl++ works - there is a maximum
 number of CPU cores/threads that are useful, use more and the overall performance
-degrades instead. This value depends on the target and the limit is between 48
-and 96 cores/threads per machine.
+degrades instead. This value depends on the target, and the limit is between 32
+and 64 cores/threads per machine.
 
 There should be one main fuzzer (`-M main` option) and as many secondary
 fuzzers (eg `-S variant1`) as you have cores that you use.
@@ -562,11 +563,18 @@ To have only the summary use the `-s` switch e.g.: `afl-whatsup -s output/`
 The `paths found` value is a bad indicator how good the coverage is.
 
 A better indicator - if you use default llvm instrumentation with at least
-version 9 - to use `afl-showmap` on the target with all inputs of the
-queue/ directory one after another and collecting the found edge IDs (`-o N.out`),
-removing the counters of the edge IDs, making them unique - and there you have
-the total number of found instrumented edges.
-
+version 9 - is to use `afl-showmap` with the collect coverage option `-C` on
+the output directory:
+```
+$ afl-showmap -C -i out -o /dev/null -- ./target -params @@
+...
+[*] Using SHARED MEMORY FUZZING feature.
+[*] Target map size: 9960
+[+] Processed 7849 input files.
+[+] Captured 4331 tuples (highest value 255, total values 67130596) in '/dev/nul
+l'.
+[+] A coverage of 4331 edges were achieved out of 9960 existing (43.48%) with 7849 input files.
+```
 It is even better to check out the exact lines of code that have been reached -
 and which have not been found so far.
 
@@ -579,6 +587,11 @@ that fuzzing campaign with that seed as input, let it run for a few minutes,
 then terminate it. The main node will pick it up and make it available to the
 other secondary nodes over time. Set `export AFL_NO_AFFINITY=1` if you have no
 free core.
+
+Note that you in nearly all cases you can never reach full coverage. A lot of
+functionality is usually behind options that were not activated or fuzz e.g.
+if you fuzz a library to convert image formats and your target is the png to
+tiff API then you will not touch any of the other library APIs and features.
 
 #### e) How long to fuzz a target?
 

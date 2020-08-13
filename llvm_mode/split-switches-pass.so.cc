@@ -439,3 +439,7 @@ static RegisterStandardPasses RegisterSplitSwitchesTransPass(
 static RegisterStandardPasses RegisterSplitSwitchesTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerSplitSwitchesTransPass);
 
+static RegisterStandardPasses RegisterSplitSwitchesTransPassLTO(
+    PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
+    registerSplitSwitchesTransPass);
+

@@ -4,7 +4,6 @@
 
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - CPU affinity for many cores? There seems to be an issue > 96 cores
- - feature for afl-showmap to generate the coverage for all queue entries
  - afl-plot to support multiple plot_data
 
 ## Further down the road

@@ -204,3 +204,7 @@ static RegisterStandardPasses RegisterCmpLogRoutinesPass(
 static RegisterStandardPasses RegisterCmpLogRoutinesPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerCmpLogRoutinesPass);
 
+static RegisterStandardPasses RegisterCmpLogRoutinesPassLTO(
+    PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
+    registerCmpLogRoutinesPass);
+

@@ -1342,3 +1342,7 @@ static RegisterStandardPasses RegisterSplitComparesPass(
 static RegisterStandardPasses RegisterSplitComparesTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerSplitComparesPass);
 
+static RegisterStandardPasses RegisterSplitComparesTransPassLTO(
+    PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
+    registerSplitComparesPass);
+
