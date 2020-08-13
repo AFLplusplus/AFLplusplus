@@ -176,44 +176,6 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
   return (u8 *)memcpy(ret, str, size);
 
 }
-
-/* Create a buffer with a copy of a memory block. Returns NULL for zero-sized
-   or NULL inputs. */
-
-static inline void *DFL_ck_memdup(void *mem, u32 size) {
-
-  void *ret;
-
-  if (!mem || !size) { return NULL; }
-
-  ALLOC_CHECK_SIZE(size);
-  ret = malloc(size);
-  ALLOC_CHECK_RESULT(ret, size);
-
-  return memcpy(ret, mem, size);
-
-}
-
-/* Create a buffer with a block of text, appending a NUL terminator at the end.
-   Returns NULL for zero-sized or NULL inputs. */
-
-static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
-
-  u8 *ret;
-
-  if (!mem || !size) { return NULL; }
-
-  ALLOC_CHECK_SIZE(size);
-  ret = (u8 *)malloc(size + 1);
-  ALLOC_CHECK_RESULT(ret, size);
-
-  memcpy(ret, mem, size);
-  ret[size] = 0;
-
-  return ret;
-
-}
-
   /* In non-debug mode, we just do straightforward aliasing of the above
      functions to user-visible names such as ck_alloc(). */
 
@@ -222,8 +184,6 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
   #define ck_realloc DFL_ck_realloc
   #define ck_realloc_block DFL_ck_realloc_block
   #define ck_strdup DFL_ck_strdup
-  #define ck_memdup DFL_ck_memdup
-  #define ck_memdup_str DFL_ck_memdup_str
   #define ck_free DFL_ck_free
 
   #define alloc_report()
@@ -489,55 +449,6 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
 
 }
 
-/* Create a buffer with a copy of a memory block. Returns NULL for zero-sized
-   or NULL inputs. */
-
-static inline void *DFL_ck_memdup(void *mem, u32 size) {
-
-  void *ret;
-
-  if (!mem || !size) return NULL;
-
-  ALLOC_CHECK_SIZE(size);
-  ret = malloc(size + ALLOC_OFF_TOTAL);
-  ALLOC_CHECK_RESULT(ret, size);
-
-  ret += ALLOC_OFF_HEAD;
-
-  ALLOC_C1(ret) = ALLOC_MAGIC_C1;
-  ALLOC_S(ret) = size;
-  ALLOC_C2(ret) = ALLOC_MAGIC_C2;
-
-  return memcpy(ret, mem, size);
-
-}
-
-/* Create a buffer with a block of text, appending a NUL terminator at the end.
-   Returns NULL for zero-sized or NULL inputs. */
-
-static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
-
-  u8 *ret;
-
-  if (!mem || !size) return NULL;
-
-  ALLOC_CHECK_SIZE(size);
-  ret = malloc(size + ALLOC_OFF_TOTAL + 1);
-  ALLOC_CHECK_RESULT(ret, size);
-
-  ret += ALLOC_OFF_HEAD;
-
-  ALLOC_C1(ret) = ALLOC_MAGIC_C1;
-  ALLOC_S(ret) = size;
-  ALLOC_C2(ret) = ALLOC_MAGIC_C2;
-
-  memcpy(ret, mem, size);
-  ret[size] = 0;
-
-  return ret;
-
-}
-
   #ifndef DEBUG_BUILD
 
     /* In non-debug mode, we just do straightforward aliasing of the above
@@ -548,8 +459,6 @@ static inline u8 *DFL_ck_memdup_str(u8 *mem, u32 size) {
     #define ck_realloc DFL_ck_realloc
     #define ck_realloc_block DFL_ck_realloc_block
     #define ck_strdup DFL_ck_strdup
-    #define ck_memdup DFL_ck_memdup
-    #define ck_memdup_str DFL_ck_memdup_str
     #define ck_free DFL_ck_free
 
     #define alloc_report()
@@ -713,24 +622,6 @@ static inline void *TRK_ck_strdup(u8 *str, const char *file, const char *func,
 
 }
 
-static inline void *TRK_ck_memdup(void *mem, u32 size, const char *file,
-                                  const char *func, u32 line) {
-
-  void *ret = DFL_ck_memdup(mem, size);
-  TRK_alloc_buf(ret, file, func, line);
-  return ret;
-
-}
-
-static inline void *TRK_ck_memdup_str(void *mem, u32 size, const char *file,
-                                      const char *func, u32 line) {
-
-  void *ret = DFL_ck_memdup_str(mem, size);
-  TRK_alloc_buf(ret, file, func, line);
-  return ret;
-
-}
-
 static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
                                u32 line) {
 
@@ -753,12 +644,6 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
       TRK_ck_realloc_block(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
     #define ck_strdup(_p1) TRK_ck_strdup(_p1, __FILE__, __FUNCTION__, __LINE__)
-
-    #define ck_memdup(_p1, _p2) \
-      TRK_ck_memdup(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
-
-    #define ck_memdup_str(_p1, _p2) \
-      TRK_ck_memdup_str(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
     #define ck_free(_p1) TRK_ck_free(_p1, __FILE__, __FUNCTION__, __LINE__)
 
