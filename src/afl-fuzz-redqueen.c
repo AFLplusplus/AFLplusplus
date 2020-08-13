@@ -500,7 +500,7 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
   }
 
-  maybe_add_auto((u8 *)afl, (u8 *)&v, shape);
+  maybe_add_auto(afl, (u8 *)&v, shape);
 
   u64 rev;
   switch (shape) {
@@ -509,15 +509,15 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
       break;
     case 2:
       rev = SWAP16((u16)v);
-      maybe_add_auto((u8 *)afl, (u8 *)&rev, shape);
+      maybe_add_auto(afl, (u8 *)&rev, shape);
       break;
     case 4:
       rev = SWAP32((u32)v);
-      maybe_add_auto((u8 *)afl, (u8 *)&rev, shape);
+      maybe_add_auto(afl, (u8 *)&rev, shape);
       break;
     case 8:
       rev = SWAP64(v);
-      maybe_add_auto((u8 *)afl, (u8 *)&rev, shape);
+      maybe_add_auto(afl, (u8 *)&rev, shape);
       break;
 
   }
@@ -772,8 +772,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
       if (afl->pass_stats[key].total == 0) {
 
-        maybe_add_auto((u8 *)afl, o->v0, SHAPE_BYTES(h->shape));
-        maybe_add_auto((u8 *)afl, o->v1, SHAPE_BYTES(h->shape));
+        maybe_add_auto(afl, o->v0, SHAPE_BYTES(h->shape));
+        maybe_add_auto(afl, o->v1, SHAPE_BYTES(h->shape));
 
       }
 

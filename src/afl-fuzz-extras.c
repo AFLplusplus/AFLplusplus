@@ -354,13 +354,9 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
 }
 
 /* Maybe add automatic extra. */
-/* Ugly hack: afl state is transfered as u8* because we import data via
-   afl-forkserver.c - which is shared with other afl tools that do not
-   have the afl state struct */
 
-void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
+void maybe_add_auto(afl_state_t *afl, u8 *mem, u32 len) {
 
-  afl_state_t *afl = (afl_state_t *)afl_tmp;
   u32          i;
 
   /* Allow users to specify that they don't want auto dictionaries. */
@@ -544,7 +540,7 @@ void load_auto(afl_state_t *afl) {
 
     if (len >= MIN_AUTO_EXTRA && len <= MAX_AUTO_EXTRA) {
 
-      maybe_add_auto((u8 *)afl, tmp, len);
+      maybe_add_auto(afl, tmp, len);
 
     }
 

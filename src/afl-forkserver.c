@@ -324,8 +324,7 @@ static void report_error_and_exit(int error) {
    cloning a stopped child. So, we just execute once, and then send commands
    through a pipe. The other part of this logic is in afl-as.h / llvm_mode */
 
-void __attribute__((hot))
-afl_fsrv_start(afl_forkserver_t *fsrv, char **argv, volatile u8 *stop_soon_p,
+void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv, volatile u8 *stop_soon_p,
                u8 debug_child_output) {
 
   int st_pipe[2], ctl_pipe[2];
@@ -631,13 +630,18 @@ afl_fsrv_start(afl_forkserver_t *fsrv, char **argv, volatile u8 *stop_soon_p,
 
       if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
 
-        if (fsrv->function_ptr == NULL || fsrv->function_opt == NULL) {
+        if (fsrv->autodict_func == NULL || fsrv->afl_ptr == NULL) {
 
           // this is not afl-fuzz - we deny and return
-          if (fsrv->use_shmem_fuzz)
+          if (fsrv->use_shmem_fuzz) {
+
             status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
-          else
+
+          } else {
+
             status = (FS_OPT_ENABLED);
+
+          }
           if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
 
             FATAL("Writing to forkserver failed.");
@@ -650,10 +654,15 @@ afl_fsrv_start(afl_forkserver_t *fsrv, char **argv, volatile u8 *stop_soon_p,
 
         if (!be_quiet) { ACTF("Using AUTODICT feature."); }
 
-        if (fsrv->use_shmem_fuzz)
+        if (fsrv->use_shmem_fuzz) {
+
           status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
-        else
+
+        } else { 
+
           status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
+
+        }
 
         if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
 
@@ -673,7 +682,8 @@ afl_fsrv_start(afl_forkserver_t *fsrv, char **argv, volatile u8 *stop_soon_p,
 
         }
 
-        u32 len = status, offset = 0, count = 0;
+        u32 offset = 0, count = 0;
+        u32 len = status;
         u8 *dict = ck_alloc(len);
         if (dict == NULL) {
 
@@ -704,7 +714,7 @@ afl_fsrv_start(afl_forkserver_t *fsrv, char **argv, volatile u8 *stop_soon_p,
         while (offset < (u32)status &&
                (u8)dict[offset] + offset < (u32)status) {
 
-          fsrv->function_ptr(fsrv->function_opt, dict + offset + 1,
+          fsrv->autodict_func(fsrv->afl_ptr, dict + offset + 1,
                              (u8)dict[offset]);
           offset += (1 + dict[offset]);
           count++;
