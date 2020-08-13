@@ -279,8 +279,11 @@ static u8 check_if_text(struct queue_entry *q) {
 
   if (q->len < AFL_TXT_MIN_LEN) return 0;
 
-  u8  buf[MAX_FILE];
   s32 fd, len = q->len, offset = 0, ascii = 0, utf8 = 0, comp;
+
+#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
+  u8 *buf = ck_maybe_grow(BUF_PARAMS(in_scratch), q->len + 32);
+#undef BUF_PARAMS
 
   if (len >= MAX_FILE) len = MAX_FILE - 1;
   if ((fd = open(q->fname, O_RDONLY)) < 0) return 0;
