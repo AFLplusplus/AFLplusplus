@@ -853,7 +853,7 @@ void __afl_manual_init(void) {
 
     if (getenv("AFL_DEBUG"))
       fprintf(stderr,
-              "DEBUG: disabled instrumenation because of "
+              "DEBUG: disabled instrumentation because of "
               "AFL_DISABLE_LLVM_INSTRUMENTATION\n");
 
   }
@@ -901,7 +901,7 @@ __attribute__((constructor(0))) void __afl_auto_early(void) {
 void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
   // For stability analysis, if you want to know to which function unstable
-  // edge IDs belong to - uncomment, recompile+install llvm_mode, recompile
+  // edge IDs belong - uncomment, recompile+install llvm_mode, recompile
   // the target. libunwind and libbacktrace are better solutions.
   // Set AFL_DEBUG_CHILD_OUTPUT=1 and run afl-fuzz with 2>file to capture
   // the backtrace output

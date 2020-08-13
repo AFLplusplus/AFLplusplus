@@ -331,8 +331,8 @@ bool isInInstrumentList(llvm::Function *F) {
 
   bool return_default = true;
 
-  // is this a function with code? If it is external we dont instrument it
-  // anyway and cant be in the the instrument file list. Or if it is ignored.
+  // is this a function with code? If it is external we don't instrument it
+  // anyway and it can't be in the instrument file list. Or if it is it is ignored.
   if (!F->size() || isIgnoreFunction(F)) return false;
 
   if (!denyListFiles.empty() || !denyListFunctions.empty()) {
@@ -476,7 +476,7 @@ bool isInInstrumentList(llvm::Function *F) {
       else {
 
         // we could not find out the location. in this case we say it is not
-        // in the the instrument file list
+        // in the instrument file list
         if (!be_quiet)
           WARNF(
               "No debug information found for function %s, will be "
@@ -489,7 +489,7 @@ bool isInInstrumentList(llvm::Function *F) {
 
   }
 
-  // if we do not have a the instrument file list return true
+  // if we do not have a instrument file list return true
   if (!allowListFiles.empty() || !allowListFunctions.empty()) {
 
     return_default = false;
@@ -632,8 +632,8 @@ bool isInInstrumentList(llvm::Function *F) {
 #endif
       else {
 
-        // we could not find out the location. in this case we say it is not
-        // in the the instrument file list
+        // we could not find out the location. In this case we say it is not
+        // in the instrument file list
         if (!be_quiet)
           WARNF(
               "No debug information found for function %s, will not be "
