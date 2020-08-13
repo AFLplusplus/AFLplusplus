@@ -151,7 +151,8 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum) {
       /* Discard if the mutations change the paths or if it is too decremental
         in speed */
       if (cksum != exec_cksum ||
-          (stop_us - start_us > 2 * afl->queue_cur->exec_us) && likely(!afl->fixed_seed)) {
+          ((stop_us - start_us > 2 * afl->queue_cur->exec_us) &&
+           likely(!afl->fixed_seed))) {
 
         ranges = add_range(ranges, rng->start, rng->start + s / 2);
         ranges = add_range(ranges, rng->start + s / 2 + 1, rng->end);
