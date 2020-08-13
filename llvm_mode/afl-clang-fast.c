@@ -246,33 +246,60 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   // laf
   if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
 
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] = "-load";
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] =
-        alloc_printf("%s/split-switches-pass.so", obj_path);
+    if (lto_mode) {
+
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
+
+    } else {
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/split-switches-pass.so", obj_path);
+
+    }
 
   }
 
   if (getenv("LAF_TRANSFORM_COMPARES") ||
       getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
 
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] = "-load";
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] =
-        alloc_printf("%s/compare-transform-pass.so", obj_path);
+    if (lto_mode) {
+
+      cc_params[cc_par_cnt++] = alloc_printf(
+          "-Wl,-mllvm=-load=%s/compare-transform-pass.so", obj_path);
+
+    } else {
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/compare-transform-pass.so", obj_path);
+
+    }
 
   }
 
   if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
       getenv("AFL_LLVM_LAF_SPLIT_FLOATS")) {
 
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] = "-load";
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] =
-        alloc_printf("%s/split-compares-pass.so", obj_path);
+    if (lto_mode) {
+
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/split-compares-pass.so", obj_path);
+
+    } else {
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/split-compares-pass.so", obj_path);
+
+    }
 
   }
 
@@ -282,24 +309,37 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   unsetenv("AFL_LD_CALLER");
   if (cmplog_mode) {
 
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] = "-load";
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] =
-        alloc_printf("%s/cmplog-routines-pass.so", obj_path);
+    if (lto_mode) {
 
-    // reuse split switches from laf
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] = "-load";
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] =
-        alloc_printf("%s/split-switches-pass.so", obj_path);
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/cmplog-routines-pass.so", obj_path);
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
+      cc_params[cc_par_cnt++] = alloc_printf(
+          "-Wl,-mllvm=-load=%s/cmplog-instructions-pass.so", obj_path);
 
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] = "-load";
-    cc_params[cc_par_cnt++] = "-Xclang";
-    cc_params[cc_par_cnt++] =
-        alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
+    } else {
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/cmplog-routines-pass.so", obj_path);
+
+      // reuse split switches from laf
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/split-switches-pass.so", obj_path);
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
+
+    }
 
     cc_params[cc_par_cnt++] = "-fno-inline";
 
@@ -314,6 +354,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
+
     /*
         The current LTO instrim mode is not good, so we disable it
         if (instrument_mode == INSTRUMENT_CFG)
@@ -321,6 +362,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
               alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-lto-instrim.so",
        obj_path); else
     */
+
     cc_params[cc_par_cnt++] = alloc_printf(
         "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
     cc_params[cc_par_cnt++] = lto_flag;
