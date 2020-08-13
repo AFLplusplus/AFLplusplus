@@ -19,7 +19,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - eliminated CPU affinity race condition for -S/-M runs
      - expanded havoc mode added, on no cycle finds add extra splicing and
        MOpt into the mix
-     - fixed a bug in redqueen for strings
+     - fixed a bug in redqueen for strings and made deterministic with -s
   - llvm_mode:
      - now supports llvm 12!
      - support for AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST (previous
