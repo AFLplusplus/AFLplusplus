@@ -459,7 +459,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
   }
 
   u32 tmp_val = 0;
-
   if (unlikely(afl->taint_mode)) {
 
     tmp_val = afl->queue_cycle % 2;  // starts with 1
@@ -476,6 +475,15 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     ret_val = 1;
 
+    // special case: all or nothing tainted. in this case we act like
+    // nothing is special. this is not the taint you are looking for ...
+    if (tmp_val == 1 && (!afl->queue_cur->taint_bytes_all || afl->queue_cur->taint_bytes_all == afl->queue_cur->len))
+      afl->taint_needs_splode = 0;
+    
+  }
+
+  if (unlikely(afl->taint_needs_splode)) {
+
     s32 dst = 0, i;
     temp_len = len = afl->queue_cur->len;
     // s32 j = 0;  // tmp
@@ -490,17 +498,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
     switch (tmp_val) {
 
       case 1:  // fuzz only tainted bytes
-
-        // special case: all or nothing tainted. in this case we act like
-        // nothing is special. this is not the taint you are looking for ...
-        if (!afl->queue_cur->taint_bytes_all ||
-            afl->queue_cur->taint_bytes_all == (u32)len) {
-
-          orig_in = in_buf = afl->taint_src;
-          afl->taint_needs_splode = 0;
-          break;
-
-        }
 
         fd = open(afl->taint_input_file, O_RDONLY);
         temp_len = len = afl->taint_len = afl->queue_cur->taint_bytes_all;
