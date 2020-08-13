@@ -387,7 +387,8 @@ bool isInInstrumentList(llvm::Function *F) {
   bool return_default = true;
 
   // is this a function with code? If it is external we don't instrument it
-  // anyway and it can't be in the instrument file list. Or if it is it is ignored.
+  // anyway and it can't be in the instrument file list. Or if it is it is
+  // ignored.
   if (!F->size() || isIgnoreFunction(F)) return false;
 
   if (!denyListFiles.empty() || !denyListFunctions.empty()) {

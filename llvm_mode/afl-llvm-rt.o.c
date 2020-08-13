@@ -64,6 +64,8 @@
   #endif
 #endif
 
+#define CTOR_PRIO 3
+
 #include <sys/mman.h>
 #include <fcntl.h>
 
@@ -881,7 +883,7 @@ __attribute__((constructor())) void __afl_auto_init(void) {
 
 /* Initialization of the shmem - earliest possible because of LTO fixed mem. */
 
-__attribute__((constructor(0))) void __afl_auto_early(void) {
+__attribute__((constructor(CTOR_PRIO))) void __afl_auto_early(void) {
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
 
