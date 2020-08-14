@@ -683,17 +683,22 @@ struct maybe_grow_buf {
 
 #define SIZE_OFFSET offsetof(struct maybe_grow_buf, buf)
 
+/* Returs the container element to this ptr */
+static inline struct maybe_grow_buf *maybe_grow_buf(void *buf) {
+
+  return (struct maybe_grow_buf *)((u8 *)buf - SIZE_OFFSET);
+
+}
+
 /* Returs the current size of this allocated chunk (without the size_t needed to store this info
   The size will be >= to the last size_needed passed to maybe_grow */
 static inline size_t maybe_grow_bufsize(void *buf) {
 
   if (!buf) { return 0; }
   // The size is stored one size_t to the left of the ptr given to the user
-  return ((struct maybe_grow_buf *)((u8 *)buf - SIZE_OFFSET))->size;
+  return maybe_grow_buf(buf)->size;
 
 }
-
-
 
 /* This function makes sure *size is > size_needed after call.
  It will realloc *buf otherwise.
@@ -710,7 +715,7 @@ static inline void *maybe_grow(void **buf, size_t size_needed) {
   if (likely(*buf)) {
 
     /* the size is always stored at buf - 1*size_t */
-    new_buf = (struct maybe_grow_buf *) (((u8 *)*buf) - SIZE_OFFSET);
+    new_buf = maybe_grow_buf(*buf);
     size = new_buf->size;
 
   }
@@ -745,8 +750,7 @@ static inline void maybe_grow_free(void *buf) {
   
   if (buf) {
 
-    void *buf_container = (((u8 *)buf) - SIZE_OFFSET);
-    free(buf_container);
+    free(maybe_grow_buf(buf));
 
   }
 
