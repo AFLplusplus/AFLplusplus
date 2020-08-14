@@ -3,9 +3,11 @@
 ## Contents
 
   1. [How to improve the fuzzing speed?](#how-to-improve-the-fuzzing-speed)
-  2. [What is an edge?](#what-is-an-edge)
-  3. [Why is my stability below 100%?](#why-is-my-stability-below-100)
-  4. [How can I improve the stability value](#how-can-i-improve-the-stability-value)
+  2. [How do I fuzz a network service?](#how-to-fuzz-a-network-service)
+  3. [How do I fuzz a GUI program?](#how-to-fuzz-a-gui-program)
+  4. [What is an edge?](#what-is-an-edge)
+  5. [Why is my stability below 100%?](#why-is-my-stability-below-100)
+  6. [How can I improve the stability value](#how-can-i-improve-the-stability-value)
 
 If you find an interesting or important question missing, submit it via
 [https://github.com/AFLplusplus/AFLplusplus/issues](https://github.com/AFLplusplus/AFLplusplus/issues)
@@ -19,6 +21,43 @@ If you find an interesting or important question missing, submit it via
   5. Improve kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure)
   6. Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem
   7. Use your cores! [README.md:3.b) Using multiple cores/threads](../README.md#b-using-multiple-coresthreads)
+
+## How do I fuzz a network service?
+
+The short answer is - you cannot, at least "out of the box".
+
+Using network has a slow-down of x10-20 on the fuzzing speed, does not scale,
+and finally usually it is more than one initial data packet but a back-and-forth
+which is totally unsupported by most coverage aware fuzzers.
+
+The established method to fuzz network services is to modify the source code
+to read from a file or stdin (fd 0) (or even faster via shared memory, combine
+this with persistent mode [llvm_mode/README.persistent_mode.md](llvm_mode/README.persistent_mode.md)
+and you have a performance gain of x10 instead of a performance loss of over
+x10 - that is a x100 difference!
+
+If modifying the source is not an option (e.g. because you only have a binary
+and perform binary fuzzing) you can also use a shared library with AFL_PRELOAD
+to emulate the network. This is also much faster than network would be.
+See [examples/socket_fuzzing/](../examples/socket_fuzzing/)
+
+There is an outdated afl++ branch that implements networking if you are
+desperate though: [https://github.com/AFLplusplus/AFLplusplus/tree/networking](https://github.com/AFLplusplus/AFLplusplus/tree/networking) - 
+however a better option is AFLnet ([https://github.com/aflnet/aflnet](https://github.com/aflnet/aflnet))
+which allows you to define network state with different type of data packets.
+
+## How do I fuzz a GUI program?
+
+If the GUI program can read the fuzz data from a file (via the command line,
+a fixed location or via an environment variable) without needing any user
+interaction then then yes.
+
+Otherwise it is not possible without modifying the source code - which is a
+very good idea anyway as the GUI functionality is a huge CPU/time overhead
+for the fuzzing.
+
+So create a new `main()` that just reads the test case and calls the
+functionality for processing the input that the GUI program is using.
 
 ## What is an "edge"
 
