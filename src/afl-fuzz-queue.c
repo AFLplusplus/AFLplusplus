@@ -157,7 +157,7 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
     }
 
-    if (((bytes * 100) / len) >= 90) bytes = len;
+    if (((bytes * 100) / len) > 85) bytes = len;
 
     // if all is tainted we do not need to write taint data away
     if (bytes && bytes < len) {
