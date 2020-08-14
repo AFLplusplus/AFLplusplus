@@ -674,16 +674,6 @@ static inline size_t next_pow2(size_t in) {
 
 }
 
-/* Returs the current size of this allocated chunk (without the size_t needed to store this info
-  The size will be >= to the last size_needed passed to maybe_grow */
-static inline size_t maybe_grow_bufsize(void **buf) {
-
-  if (!buf) { return 0; }
-  // The size is stored one size_t to the left of the ptr given to the user
-  return ((size_t *)*buf)[-1];
-
-}
-
 struct maybe_grow_buf {
 
   size_t size;
@@ -692,6 +682,18 @@ struct maybe_grow_buf {
 };
 
 #define SIZE_OFFSET offsetof(struct maybe_grow_buf, buf)
+
+/* Returs the current size of this allocated chunk (without the size_t needed to store this info
+  The size will be >= to the last size_needed passed to maybe_grow */
+static inline size_t maybe_grow_bufsize(void *buf) {
+
+  if (!buf) { return 0; }
+  // The size is stored one size_t to the left of the ptr given to the user
+  return ((struct maybe_grow_buf *)((u8 *)buf - SIZE_OFFSET))->size;
+
+}
+
+
 
 /* This function makes sure *size is > size_needed after call.
  It will realloc *buf otherwise.

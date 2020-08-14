@@ -388,7 +388,7 @@ int recv_testcase(int s, void **buf) {
       received += ret;
     if (received != clen) FATAL("did not receive compressed information");
     if (libdeflate_deflate_decompress(decompressor, buf2, clen, (char *)*buf,
-                                      size,
+                                      maybe_grow_bufsize(buf2),
                                       &received) != LIBDEFLATE_SUCCESS)
       FATAL("decompression failed");
       // fprintf(stderr, "DECOMPRESS (%u->%u):\n", clen, received);

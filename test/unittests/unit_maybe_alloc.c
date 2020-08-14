@@ -77,7 +77,7 @@ static void test_null_allocs(void **state) {
     void *buf = NULL;
     void *ptr = maybe_grow(VOID_BUF, 100);
     if (unlikely(!buf)) { PFATAL("alloc"); }
-    size_t size = maybe_grow_bufsize(VOID_BUF);
+    size_t size = maybe_grow_bufsize(buf);
     assert_true(buf == ptr);
     assert_true(size >= 100);
     maybe_grow_free(ptr);
@@ -93,7 +93,7 @@ static void test_nonpow2_size(void **state) {
 
     char *ptr = maybe_grow(VOID_BUF, 160);
     if (unlikely(!ptr)) { PFATAL("alloc"); }
-    size_t size = maybe_grow_bufsize(VOID_BUF);
+    size_t size = maybe_grow_bufsize(buf);
     assert_ptr_equal(buf, ptr);
     assert_true(size >= 160);
     assert_true(buf[140] == '5');
@@ -115,7 +115,7 @@ static void test_zero_size(void **state) {
 
     char *ptr = maybe_grow(VOID_BUF, 100);
     if (unlikely(!ptr)) { PFATAL("alloc"); }
-    size = maybe_grow_bufsize(VOID_BUF);
+    size = maybe_grow_bufsize(buf);
     assert_non_null(ptr);
     assert_ptr_equal(buf, ptr);
     assert_true(size >= 100);
@@ -148,7 +148,7 @@ static void test_grow_multiple(void **state) {
 
     char *ptr = maybe_grow(VOID_BUF, 100);
     if (unlikely(!ptr)) { PFATAL("alloc"); }
-    size = maybe_grow_bufsize(VOID_BUF);
+    size = maybe_grow_bufsize(ptr);
     assert_ptr_equal(ptr, buf);
     assert_true(size >= 100);
     assert_int_equal(size, next_pow2(size));
@@ -156,7 +156,7 @@ static void test_grow_multiple(void **state) {
 
     ptr = (char *)maybe_grow(VOID_BUF, 1000);
     if (unlikely(!ptr)) { PFATAL("alloc"); }
-    size = maybe_grow_bufsize(VOID_BUF);
+    size = maybe_grow_bufsize(ptr);
     assert_ptr_equal(ptr, buf);
     assert_true(size >= 100);
     assert_int_equal(size, next_pow2(size));
@@ -164,7 +164,7 @@ static void test_grow_multiple(void **state) {
 
     ptr = (char *)maybe_grow(VOID_BUF, 10000);
     if (unlikely(!ptr)) { PFATAL("alloc"); }
-    size = maybe_grow_bufsize(VOID_BUF);
+    size = maybe_grow_bufsize(ptr);
     assert_ptr_equal(ptr, buf);
     assert_true(size >= 10000);
     assert_int_equal(size, next_pow2(size));
