@@ -54,8 +54,6 @@
    Basically, we need to make sure that the forkserver is initialized after
    the LLVM-generated runtime initialization pass, not before. */
 
-#define CONST_PRIO 5
-
 #ifndef MAP_FIXED_NOREPLACE
   #ifdef MAP_EXCL
     #define MAP_FIXED_NOREPLACE MAP_EXCL | MAP_FIXED
@@ -74,12 +72,12 @@
    run. It will end up as .comm, so it shouldn't be too wasteful. */
 
 #if MAP_SIZE <= 65536
-  #define MAP_INITIAL_SIZE 512000
+  #define MAP_INITIAL_SIZE 256000
 #else
   #define MAP_INITIAL_SIZE MAP_SIZE
 #endif
 
-u8 __afl_area_initial[MAP_INITIAL_SIZE];
+u8   __afl_area_initial[MAP_INITIAL_SIZE];
 u8 * __afl_area_ptr = __afl_area_initial;
 u8 * __afl_dictionary;
 u8 * __afl_fuzz_ptr;
@@ -186,11 +184,20 @@ static void __afl_map_shm_fuzz() {
 static void __afl_map_shm(void) {
 
   // we we are not running in afl ensure the map exists
-  if (!__afl_area_ptr) __afl_area_ptr = __afl_area_initial;
+  if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_initial; }
 
   char *id_str = getenv(SHM_ENV_VAR);
 
   if (__afl_final_loc) {
+
+    if (__afl_area_ptr && __afl_final_loc &&
+        __afl_final_loc > MAP_INITIAL_SIZE &&
+        __afl_area_ptr != __afl_area_initial) {
+
+      munmap(__afl_area_ptr, __afl_final_loc);
+      __afl_area_ptr = __afl_area_initial;
+
+    }
 
     if (__afl_final_loc % 8)
       __afl_final_loc = (((__afl_final_loc + 7) >> 3) << 3);
@@ -886,6 +893,24 @@ __attribute__((constructor(CTOR_PRIO))) void __afl_auto_early(void) {
   is_persistent = !!getenv(PERSIST_ENV_VAR);
 
   __afl_map_shm();
+
+}
+
+/* preset __afl_area_ptr */
+
+__attribute__((constructor(0))) void __afl_auto_first(void) {
+
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
+  u8 *ptr;
+
+  if (__afl_final_loc > MAP_INITIAL_SIZE) {
+
+    ptr = (u8 *)mmap(NULL, __afl_final_loc, PROT_READ | PROT_WRITE, MAP_PRIVATE,
+                     -1, 0);
+
+    if (ptr && (ssize_t)ptr != -1) { __afl_area_ptr = ptr; }
+
+  }
 
 }
 
