@@ -352,7 +352,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     else
       setenv("AFL_LLVM_LTO_AUTODICTIONARY", "1", 1);
 
+#ifdef AFL_CLANG_LDPATH
+    u8 *ld_ptr = strrchr(AFL_REAL_LD, '/');
+    if (!ld_ptr) ld_ptr = "ld.lld";
+    cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_ptr);
+    cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", AFL_REAL_LD);
+#else
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
+#endif
+
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
 
     /*
@@ -1013,6 +1021,8 @@ int main(int argc, char **argv, char **envp) {
         "\nafl-clang-lto specific environment variables:\n"
         "AFL_LLVM_MAP_ADDR: use a fixed coverage map address (speed), e.g. "
         "0x10000\n"
+        "AFL_LLVM_DOCUMENT_IDS: write all edge IDs and the corresponding "
+        "functions they are in into this file\n"
         "AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
         "global var\n"
         "AFL_LLVM_LTO_STARTID: from which ID to start counting from for a "
