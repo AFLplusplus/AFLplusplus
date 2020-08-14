@@ -77,10 +77,6 @@
                                                                         \
     } while (0)
 
-  /* Allocator increments for ck_realloc_block(). */
-
-  #define ALLOC_BLK_INC 256
-
 /* Allocate a buffer, explicitly not zeroing it. Returns NULL for zero-sized
    requests. */
 
@@ -150,15 +146,6 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
 }
 
-/* Re-allocate a buffer with ALLOC_BLK_INC increments (used to speed up
-   repeated small reallocs without complicating the user code). */
-
-static inline void *DFL_ck_realloc_block(void *orig, u32 size) {
-
-  return DFL_ck_realloc(orig, size);
-
-}
-
 /* Create a buffer with a copy of a string. Returns NULL for NULL inputs. */
 
 static inline u8 *DFL_ck_strdup(u8 *str) {
@@ -184,7 +171,6 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
   #define ck_alloc DFL_ck_alloc
   #define ck_alloc_nozero DFL_ck_alloc_nozero
   #define ck_realloc DFL_ck_realloc
-  #define ck_realloc_block DFL_ck_realloc_block
   #define ck_strdup DFL_ck_strdup
   #define ck_free DFL_ck_free
 
@@ -239,10 +225,6 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
 
   #define ALLOC_OFF_HEAD 8
   #define ALLOC_OFF_TOTAL (ALLOC_OFF_HEAD + 1)
-
-  /* Allocator increments for ck_realloc_block(). */
-
-  #define ALLOC_BLK_INC 256
 
   /* Sanity-checking macros for pointers. */
 
@@ -403,28 +385,6 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
 }
 
-/* Re-allocate a buffer with ALLOC_BLK_INC increments (used to speed up
-   repeated small reallocs without complicating the user code). */
-
-static inline void *DFL_ck_realloc_block(void *orig, u32 size) {
-
-  #ifndef DEBUG_BUILD
-
-  if (orig) {
-
-    CHECK_PTR(orig);
-
-    if (ALLOC_S(orig) >= size) return orig;
-
-    size += ALLOC_BLK_INC;
-
-  }
-
-  #endif                                                    /* !DEBUG_BUILD */
-
-  return DFL_ck_realloc(orig, size);
-
-}
 
 /* Create a buffer with a copy of a string. Returns NULL for NULL inputs. */
 
@@ -459,7 +419,6 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
     #define ck_alloc DFL_ck_alloc
     #define ck_alloc_nozero DFL_ck_alloc_nozero
     #define ck_realloc DFL_ck_realloc
-    #define ck_realloc_block DFL_ck_realloc_block
     #define ck_strdup DFL_ck_strdup
     #define ck_free DFL_ck_free
 
@@ -529,7 +488,7 @@ static inline void TRK_alloc_buf(void *ptr, const char *file, const char *func,
 
   /* No space available - allocate more. */
 
-  TRK[bucket] = DFL_ck_realloc_block(
+  TRK[bucket] = DFL_ck_realloc(
       TRK[bucket], (TRK_cnt[bucket] + 1) * sizeof(struct TRK_obj));
 
   TRK[bucket][i].ptr = ptr;
@@ -605,16 +564,6 @@ static inline void *TRK_ck_realloc(void *orig, u32 size, const char *file,
 
 }
 
-static inline void *TRK_ck_realloc_block(void *orig, u32 size, const char *file,
-                                         const char *func, u32 line) {
-
-  void *ret = DFL_ck_realloc_block(orig, size);
-  TRK_free_buf(orig, file, func, line);
-  TRK_alloc_buf(ret, file, func, line);
-  return ret;
-
-}
-
 static inline void *TRK_ck_strdup(u8 *str, const char *file, const char *func,
                                   u32 line) {
 
@@ -641,9 +590,6 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
 
     #define ck_realloc(_p1, _p2) \
       TRK_ck_realloc(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
-
-    #define ck_realloc_block(_p1, _p2) \
-      TRK_ck_realloc_block(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
     #define ck_strdup(_p1) TRK_ck_strdup(_p1, __FILE__, __FUNCTION__, __LINE__)
 
