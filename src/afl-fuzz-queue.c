@@ -106,6 +106,8 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
                        u8 *mem, u32 len) {
 
+  if (q->len < 16) return;
+
   u8 *                ptr, *fn = fname;
   u32                 bytes = 0, plen = len;
   struct queue_entry *prev = q->prev;
@@ -131,26 +133,31 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
         fprintf(stderr, "Debug: tainted %u out of %u bytes\n", bytes, len);
 
       /* DEBUG FIXME TODO XXX */
-      u32 i;
-      for (i = 0; i < len; i++) {
+      /*
+            u32 i;
+            for (i = 0; i < len; i++) {
 
-        if (afl->taint_fsrv.trace_bits[i] &&
-            afl->taint_fsrv.trace_bits[i] != '!')
-          FATAL("invalid taint map value %02x at pos %d",
-                afl->taint_fsrv.trace_bits[i], i);
+              if (afl->taint_fsrv.trace_bits[i] &&
+                  afl->taint_fsrv.trace_bits[i] != '!')
+                FATAL("invalid taint map value %02x at pos %d",
+                      afl->taint_fsrv.trace_bits[i], i);
 
-      }
+            }
 
-      if (len < plen)
-        for (i = len; i < plen; i++) {
+            if (len < plen)
+              for (i = len; i < plen; i++) {
 
-          if (afl->taint_fsrv.trace_bits[i])
-            FATAL("invalid taint map value %02x in padding at pos %d",
-                  afl->taint_fsrv.trace_bits[i], i);
+                if (afl->taint_fsrv.trace_bits[i])
+                  FATAL("invalid taint map value %02x in padding at pos %d",
+                        afl->taint_fsrv.trace_bits[i], i);
 
-        }
+              }
+
+      */
 
     }
+
+    if (((bytes * 100) / len) > 85) bytes = len;
 
     // if all is tainted we do not need to write taint data away
     if (bytes && bytes < len) {
@@ -272,12 +279,18 @@ static u8 check_if_text(struct queue_entry *q) {
 
   if (q->len < AFL_TXT_MIN_LEN) return 0;
 
-  u8  buf[MAX_FILE];
   s32 fd, len = q->len, offset = 0, ascii = 0, utf8 = 0, comp;
 
   if (len >= MAX_FILE) len = MAX_FILE - 1;
   if ((fd = open(q->fname, O_RDONLY)) < 0) return 0;
-  if ((comp = read(fd, buf, len)) != len) return 0;
+  u8 *buf = ck_alloc(q->len + 32);
+  if ((comp = read(fd, buf, len)) != len) {
+
+    ck_free(buf);
+    return 0;
+
+  }
+
   buf[len] = 0;
   close(fd);
 
@@ -362,6 +375,8 @@ static u8 check_if_text(struct queue_entry *q) {
     offset++;
 
   }
+
+  ck_free(buf);
 
   u32 percent_utf8 = (utf8 * 100) / comp;
   u32 percent_ascii = (ascii * 100) / len;

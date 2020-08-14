@@ -1318,7 +1318,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     OKF("Taint forkserver successfully started");
 
-    const rlim_t  kStackSize = 128L * 1024L * 1024L;  // min stack size = 128 Mb
+    const rlim_t  kStackSize = 16L * 1024L * 1024L;  // min stack size = 16 Mb
     struct rlimit rl;
     rl.rlim_cur = kStackSize;
     if (getrlimit(RLIMIT_STACK, &rl) != 0)
