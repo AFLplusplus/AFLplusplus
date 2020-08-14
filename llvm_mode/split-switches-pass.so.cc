@@ -439,3 +439,9 @@ static RegisterStandardPasses RegisterSplitSwitchesTransPass(
 static RegisterStandardPasses RegisterSplitSwitchesTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerSplitSwitchesTransPass);
 
+#if LLVM_VERSION_MAJOR >= 11
+static RegisterStandardPasses RegisterSplitSwitchesTransPassLTO(
+    PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
+    registerSplitSwitchesTransPass);
+#endif
+

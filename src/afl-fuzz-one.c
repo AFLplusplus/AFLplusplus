@@ -841,7 +841,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 
@@ -852,7 +852,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 
@@ -3108,7 +3108,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 
@@ -3119,7 +3119,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 

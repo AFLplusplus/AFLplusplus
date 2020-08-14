@@ -68,9 +68,11 @@ static char *stdin_file;               /* stdin file                        */
 static u8 *in_dir = NULL,              /* input folder                      */
     *out_file = NULL, *at_file = NULL;        /* Substitution string for @@ */
 
-static u8 *in_data;                    /* Input data                        */
+static u8 *in_data,                    /* Input data                        */
+    *coverage_map;                     /* Coverage map                      */
 
-static u32 total, highest;             /* tuple content information         */
+static u64 total;                      /* tuple content information         */
+static u32 tcnt, highest;              /* tuple content information         */
 
 static u32 in_len,                     /* Input data length                 */
     arg_offset;                        /* Total number of execs             */
@@ -83,7 +85,8 @@ static u8 quiet_mode,                  /* Hide non-essential messages?      */
     cmin_mode,                         /* Generate output in afl-cmin mode? */
     binary_mode,                       /* Write output as a binary map      */
     keep_cores,                        /* Allow coredumps?                  */
-    remove_shm = 1;                    /* remove shmem?                     */
+    remove_shm = 1,                    /* remove shmem?                     */
+    collect_coverage;                  /* collect coverage                  */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
@@ -172,6 +175,25 @@ static void at_exit_handler(void) {
   }
 
   afl_fsrv_killall();
+
+}
+
+/* Analyze results. */
+
+static void analyze_results(afl_forkserver_t *fsrv) {
+
+  u32 i;
+  for (i = 0; i < map_size; i++) {
+
+    if (fsrv->trace_bits[i]) {
+
+      total += fsrv->trace_bits[i];
+      if (fsrv->trace_bits[i] > highest) highest = fsrv->trace_bits[i];
+      if (!coverage_map[i]) { coverage_map[i] = 1; }
+
+    }
+
+  }
 
 }
 
@@ -588,9 +610,14 @@ static void usage(u8 *argv0) {
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n\n"
       "Other settings:\n"
-      "  -i dir        - process all files in this directory, -o must be a "
+      "  -i dir        - process all files in this directory, must be combined "
+      "with -o.\n"
+      "                  With -C, -o is a file, without -C it must be a "
       "directory\n"
       "                  and each bitmap will be written there individually.\n"
+      "  -C            - collect coverage, writes all edges to -o and gives a "
+      "summary\n"
+      "                  Must be combined with -i.\n"
       "  -q            - sink program's output and don't show messages\n"
       "  -e            - show edge coverage only, ignore hit counts\n"
       "  -r            - show real tuple values instead of AFL filter values\n"
@@ -624,7 +651,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt, i;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
-  u32    tcnt = 0;
   char **use_argv;
 
   char **argv = argv_cpy_dup(argc, argv_orig);
@@ -639,9 +665,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = 1; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqZQUWbcrh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZQUWbcrh")) > 0) {
 
     switch (opt) {
+
+      case 'C':
+        collect_coverage = 1;
+        break;
 
       case 'i':
         if (in_dir) { FATAL("Multiple -i options not supported"); }
@@ -820,6 +850,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (optind == argc || !out_file) { usage(argv[0]); }
 
+  if (in_dir) {
+
+    if (!out_file && !collect_coverage)
+      FATAL("for -i you need to specify either -C and/or -o");
+
+  }
+
   if (fsrv->qemu_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_QEMU; }
   if (unicorn_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
 
@@ -910,7 +947,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (in_dir) {
 
-    DIR *          dir_in, *dir_out;
+    DIR *          dir_in, *dir_out = NULL;
     struct dirent *dir_ent;
     int            done = 0;
     u8             infile[PATH_MAX], outfile[PATH_MAX];
@@ -924,19 +961,42 @@ int main(int argc, char **argv_orig, char **envp) {
     fsrv->dev_null_fd = open("/dev/null", O_RDWR);
     if (fsrv->dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
 
+    // if a queue subdirectory exists switch to that
+    u8 *dn = alloc_printf("%s/queue", in_dir);
+    if ((dir_in = opendir(dn)) != NULL) {
+
+      closedir(dir_in);
+      in_dir = dn;
+
+    } else
+
+      ck_free(dn);
+    if (!be_quiet) ACTF("Reading from directory '%s'...", in_dir);
+
     if (!(dir_in = opendir(in_dir))) {
 
       PFATAL("cannot open directory %s", in_dir);
 
     }
 
-    if (!(dir_out = opendir(out_file))) {
+    if (!collect_coverage) {
 
-      if (mkdir(out_file, 0700)) {
+      if (!(dir_out = opendir(out_file))) {
 
-        PFATAL("cannot create output directory %s", out_file);
+        if (mkdir(out_file, 0700)) {
+
+          PFATAL("cannot create output directory %s", out_file);
+
+        }
 
       }
+
+    } else {
+
+      if ((coverage_map = (u8 *)malloc(map_size)) == NULL)
+        FATAL("coult not grab memory");
+      edges_only = 0;
+      raw_instr_output = 1;
 
     }
 
@@ -978,6 +1038,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl_fsrv_start(fsrv, use_argv, &stop_soon,
                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
+    map_size = fsrv->map_size;
 
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
@@ -1005,7 +1066,8 @@ int main(int argc, char **argv_orig, char **envp) {
       if (-1 == stat(infile, &statbuf) || !S_ISREG(statbuf.st_mode)) continue;
 #endif
 
-      snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
+      if (!collect_coverage)
+        snprintf(outfile, sizeof(outfile), "%s/%s", out_file, dir_ent->d_name);
 
       if (read_file(infile)) {
 
@@ -1019,7 +1081,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
         showmap_run_target_forkserver(fsrv, in_data, in_len);
         ck_free(in_data);
-        tcnt = write_results_to_file(fsrv, outfile);
+        if (collect_coverage)
+          analyze_results(fsrv);
+        else
+          tcnt = write_results_to_file(fsrv, outfile);
 
       }
 
@@ -1029,6 +1094,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
     closedir(dir_in);
     if (dir_out) { closedir(dir_out); }
+
+    if (collect_coverage) {
+
+      memcpy(fsrv->trace_bits, coverage_map, map_size);
+      tcnt = write_results_to_file(fsrv, out_file);
+
+    }
 
   } else {
 
@@ -1043,8 +1115,14 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!quiet_mode) {
 
     if (!tcnt) { FATAL("No instrumentation detected" cRST); }
-    OKF("Captured %u tuples (highest value %u, total values %u) in '%s'." cRST,
+    OKF("Captured %u tuples (highest value %u, total values %llu) in "
+        "'%s'." cRST,
         tcnt, highest, total, out_file);
+    if (collect_coverage)
+      OKF("A coverage of %u edges were achieved out of %u existing (%.02f%%) "
+          "with %llu input files.",
+          tcnt, map_size, ((float)tcnt * 100) / (float)map_size,
+          fsrv->total_execs);
 
   }
 

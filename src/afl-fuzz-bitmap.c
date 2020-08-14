@@ -57,7 +57,7 @@ void write_bitmap(afl_state_t *afl) {
    This function is called after every exec() on a fairly large buffer, so
    it needs to be fast. We do this in 32-bit and 64-bit flavors. */
 
-u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
+u8 __attribute__((hot)) has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
 #ifdef WORD_SIZE_64
 
@@ -407,7 +407,7 @@ void init_count_class16(void) {
 
 #ifdef WORD_SIZE_64
 
-void classify_counts(afl_forkserver_t *fsrv) {
+void __attribute__((hot)) classify_counts(afl_forkserver_t *fsrv) {
 
   u64 *mem = (u64 *)fsrv->trace_bits;
 
@@ -436,7 +436,7 @@ void classify_counts(afl_forkserver_t *fsrv) {
 
 #else
 
-void classify_counts(afl_forkserver_t *fsrv) {
+void __attribute__((hot)) classify_counts(afl_forkserver_t *fsrv) {
 
   u32 *mem = (u32 *)fsrv->trace_bits;
 
@@ -594,7 +594,8 @@ static void write_crash_readme(afl_state_t *afl) {
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
 
-u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
+u8 __attribute__((hot))
+save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
   if (unlikely(len == 0)) { return 0; }
 

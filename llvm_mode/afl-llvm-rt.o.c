@@ -44,6 +44,8 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
+#include "llvm/Config/llvm-config.h"
+
 #ifdef __linux__
   #include "snapshot-inl.h"
 #endif
@@ -52,8 +54,6 @@
    Basically, we need to make sure that the forkserver is initialized after
    the LLVM-generated runtime initialization pass, not before. */
 
-#define CONST_PRIO 5
-
 #ifndef MAP_FIXED_NOREPLACE
   #ifdef MAP_EXCL
     #define MAP_FIXED_NOREPLACE MAP_EXCL | MAP_FIXED
@@ -61,6 +61,8 @@
     #define MAP_FIXED_NOREPLACE MAP_FIXED
   #endif
 #endif
+
+#define CTOR_PRIO 3
 
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -75,11 +77,7 @@
   #define MAP_INITIAL_SIZE MAP_SIZE
 #endif
 
-#ifdef AFL_REAL_LD
-u8 __afl_area_initial[MAP_INITIAL_SIZE];
-#else
-u8                  __afl_area_initial[MAP_SIZE];
-#endif
+u8   __afl_area_initial[MAP_INITIAL_SIZE];
 u8 * __afl_area_ptr = __afl_area_initial;
 u8 * __afl_dictionary;
 u8 * __afl_fuzz_ptr;
@@ -186,11 +184,20 @@ static void __afl_map_shm_fuzz() {
 static void __afl_map_shm(void) {
 
   // we we are not running in afl ensure the map exists
-  if (!__afl_area_ptr) __afl_area_ptr = __afl_area_initial;
+  if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_initial; }
 
   char *id_str = getenv(SHM_ENV_VAR);
 
   if (__afl_final_loc) {
+
+    if (__afl_area_ptr && __afl_final_loc &&
+        __afl_final_loc > MAP_INITIAL_SIZE &&
+        __afl_area_ptr != __afl_area_initial) {
+
+      munmap(__afl_area_ptr, __afl_final_loc);
+      __afl_area_ptr = __afl_area_initial;
+
+    }
 
     if (__afl_final_loc % 8)
       __afl_final_loc = (((__afl_final_loc + 7) >> 3) << 3);
@@ -851,7 +858,7 @@ void __afl_manual_init(void) {
 
     if (getenv("AFL_DEBUG"))
       fprintf(stderr,
-              "DEBUG: disabled instrumenation because of "
+              "DEBUG: disabled instrumentation because of "
               "AFL_DISABLE_LLVM_INSTRUMENTATION\n");
 
   }
@@ -879,13 +886,31 @@ __attribute__((constructor())) void __afl_auto_init(void) {
 
 /* Initialization of the shmem - earliest possible because of LTO fixed mem. */
 
-__attribute__((constructor(0))) void __afl_auto_early(void) {
+__attribute__((constructor(CTOR_PRIO))) void __afl_auto_early(void) {
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
 
   is_persistent = !!getenv(PERSIST_ENV_VAR);
 
   __afl_map_shm();
+
+}
+
+/* preset __afl_area_ptr */
+
+__attribute__((constructor(0))) void __afl_auto_first(void) {
+
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
+  u8 *ptr;
+
+  if (__afl_final_loc > MAP_INITIAL_SIZE) {
+
+    ptr = (u8 *)mmap(NULL, __afl_final_loc, PROT_READ | PROT_WRITE, MAP_PRIVATE,
+                     -1, 0);
+
+    if (ptr && (ssize_t)ptr != -1) { __afl_area_ptr = ptr; }
+
+  }
 
 }
 
@@ -899,7 +924,7 @@ __attribute__((constructor(0))) void __afl_auto_early(void) {
 void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
   // For stability analysis, if you want to know to which function unstable
-  // edge IDs belong to - uncomment, recompile+install llvm_mode, recompile
+  // edge IDs belong - uncomment, recompile+install llvm_mode, recompile
   // the target. libunwind and libbacktrace are better solutions.
   // Set AFL_DEBUG_CHILD_OUTPUT=1 and run afl-fuzz with 2>file to capture
   // the backtrace output
@@ -931,7 +956,16 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
   */
 
+#if (LLVM_VERSION_MAJOR < 9)
+
   __afl_area_ptr[*guard]++;
+
+#else
+
+  __afl_area_ptr[*guard] =
+      __afl_area_ptr[*guard] + 1 + (__afl_area_ptr[*guard] == 255 ? 1 : 0);
+
+#endif
 
 }
 
