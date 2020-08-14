@@ -150,7 +150,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       map_addr = 0;
 
-    } else if (map_addr == 0) {
+    } else if (getenv("AFL_LLVM_MAP_DYNAMIC")) {
 
       FATAL(
           "AFL_LLVM_MAP_ADDR and AFL_LLVM_MAP_DYNAMIC cannot be used together");
