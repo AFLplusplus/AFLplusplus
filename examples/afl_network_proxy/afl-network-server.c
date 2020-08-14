@@ -357,7 +357,7 @@ int recv_testcase(int s, void **buf) {
 
   if ((size & 0xff000000) != 0xff000000) {
 
-    *buf = maybe_grow(buf, size);
+    *buf = maybe_grow((void **)&buf, size);
     if (unlikely(!buf)) {PFATAL("Alloc");}
     received = 0;
     // fprintf(stderr, "unCOMPRESS (%u)\n", size);
@@ -370,7 +370,7 @@ int recv_testcase(int s, void **buf) {
 #ifdef USE_DEFLATE
     u32 clen;
     size -= 0xff000000;
-    *buf = maybe_grow(buf, size);
+    *buf = maybe_grow((void **)&buf, size);
     if (unlikely(!buf)) {PFATAL("Alloc");}
     received = 0;
     while (received < 4 &&
