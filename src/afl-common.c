@@ -138,59 +138,12 @@ void argv_cpy_free(char **argv) {
 
 }
 
-u8 *find_afl_binary(u8 *fname, u8 *own_loc) {
-
-  u8 *tmp, *rsl, *own_copy, *cp;
-
-  tmp = getenv("AFL_PATH");
-
-  if (tmp) {
-
-    cp = alloc_printf("%s/%s", tmp, fname);
-
-    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
-
-    return cp;
-
-  }
-
-  if (own_loc) {
-
-    own_copy = ck_strdup(own_loc);
-    rsl = strrchr(own_copy, '/');
-
-    if (rsl) {
-
-      *rsl = 0;
-
-      cp = alloc_printf("%s/%s", own_copy, fname);
-      ck_free(own_copy);
-
-      if (!access(cp, X_OK)) { return cp; }
-
-    } else {
-
-      ck_free(own_copy);
-
-    }
-
-  }
-
-  cp = alloc_printf("%s/%s", BIN_PATH, fname);
-  if (!access(cp, X_OK)) { return cp; }
-
-  ck_free(cp);
-
-  return NULL;
-
-}
-
 /* Rewrite argv for QEMU. */
 
 char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   char **new_argv = ck_alloc(sizeof(char *) * (argc + 4));
-  u8 *   cp = NULL;
+  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
 
   memcpy(&new_argv[3], &argv[1], (int)(sizeof(char *)) * (argc - 1));
   new_argv[argc - 1] = NULL;
@@ -200,11 +153,47 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
 
-  cp = find_afl_binary("afl-qemu-trace", own_loc);
+  tmp = getenv("AFL_PATH");
 
-  if (cp) {
+  if (tmp) {
+
+    cp = alloc_printf("%s/afl-qemu-trace", tmp);
+
+    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
 
     *target_path_p = new_argv[0] = cp;
+    return new_argv;
+
+  }
+
+  own_copy = ck_strdup(own_loc);
+  rsl = strrchr(own_copy, '/');
+
+  if (rsl) {
+
+    *rsl = 0;
+
+    cp = alloc_printf("%s/afl-qemu-trace", own_copy);
+    ck_free(own_copy);
+
+    if (!access(cp, X_OK)) {
+
+      *target_path_p = new_argv[0] = cp;
+      return new_argv;
+
+    }
+
+  } else {
+
+    ck_free(own_copy);
+
+  }
+
+  if (!access(BIN_PATH "/afl-qemu-trace", X_OK)) {
+
+    if (cp) { ck_free(cp); }
+    *target_path_p = new_argv[0] = ck_strdup(BIN_PATH "/afl-qemu-trace");
+
     return new_argv;
 
   }
@@ -236,7 +225,7 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   char **new_argv = ck_alloc(sizeof(char *) * (argc + 3));
-  u8 *   cp = NULL;
+  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
 
   memcpy(&new_argv[2], &argv[1], (int)(sizeof(char *)) * (argc - 1));
   new_argv[argc - 1] = NULL;
@@ -245,16 +234,66 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
 
-  cp = find_afl_binary("afl-qemu-trace", own_loc);
+  tmp = getenv("AFL_PATH");
 
-  if (cp) {
+  if (tmp) {
+
+    cp = alloc_printf("%s/afl-qemu-trace", tmp);
+
+    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
 
     ck_free(cp);
-    cp = find_afl_binary("afl-wine-trace", own_loc);
 
-    if (cp) {
+    cp = alloc_printf("%s/afl-wine-trace", tmp);
 
-      *target_path_p = new_argv[0] = cp;
+    if (access(cp, X_OK)) { FATAL("Unable to find '%s'", tmp); }
+
+    *target_path_p = new_argv[0] = cp;
+    return new_argv;
+
+  }
+
+  own_copy = ck_strdup(own_loc);
+  rsl = strrchr(own_copy, '/');
+
+  if (rsl) {
+
+    *rsl = 0;
+
+    cp = alloc_printf("%s/afl-qemu-trace", own_copy);
+
+    if (cp && !access(cp, X_OK)) {
+
+      ck_free(cp);
+
+      cp = alloc_printf("%s/afl-wine-trace", own_copy);
+
+      if (!access(cp, X_OK)) {
+
+        *target_path_p = new_argv[0] = cp;
+        return new_argv;
+
+      }
+
+    }
+
+    ck_free(own_copy);
+
+  } else {
+
+    ck_free(own_copy);
+
+  }
+
+  u8 *ncp = BIN_PATH "/afl-qemu-trace";
+
+  if (!access(ncp, X_OK)) {
+
+    ncp = BIN_PATH "/afl-wine-trace";
+
+    if (!access(ncp, X_OK)) {
+
+      *target_path_p = new_argv[0] = ck_strdup(ncp);
       return new_argv;
 
     }
@@ -262,21 +301,25 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
   }
 
   SAYF("\n" cLRD "[-] " cRST
-       "Oops, unable to find the afl-qemu-trace and afl-wine-trace binaries.\n"
-       "The afl-qemu-trace binary must be built separately by following the "
-       "instructions\n"
-       "in qemu_mode/README.md. If you already have the binary installed, you "
-       "may need\n"
-       "to specify the location via AFL_PATH in the environment.\n\n"
+       "Oops, unable to find the '%s' binary. The binary must be "
+       "built\n"
+       "    separately by following the instructions in "
+       "qemu_mode/README.md. "
+       "If you\n"
+       "    already have the binary installed, you may need to specify "
+       "AFL_PATH in the\n"
+       "    environment.\n\n"
+
        "    Of course, even without QEMU, afl-fuzz can still work with "
        "binaries that are\n"
        "    instrumented at compile time with afl-gcc. It is also possible to "
        "use it as a\n"
        "    traditional non-instrumented fuzzer by specifying '-n' in the "
        "command "
-       "line.\n");
+       "line.\n",
+       ncp);
 
-  FATAL("Failed to locate 'afl-qemu-trace' and 'afl-wine-trace'.");
+  FATAL("Failed to locate '%s'.", ncp);
 
 }
 

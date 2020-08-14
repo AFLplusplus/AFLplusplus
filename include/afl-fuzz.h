@@ -133,10 +133,8 @@ extern s32
 
 struct queue_entry {
 
-  u8 *                fname;            /* File name for the test case      */
-  u8 *                fname_taint;      /* File name for taint data         */
-  u32                 len;              /* Input length                     */
-  struct queue_entry *prev;             /* previous queue entry, if any     */
+  u8 *fname;                            /* File name for the test case      */
+  u32 len;                              /* Input length                     */
 
   u8 cal_failed,                        /* Calibration failed?              */
       trim_done,                        /* Trimmed?                         */
@@ -150,10 +148,7 @@ struct queue_entry {
       is_ascii;                         /* Is the input just ascii text?    */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
-      fuzz_level,                       /* Number of fuzzing iterations     */
-      taint_bytes_all,                  /* Number of tainted bytes          */
-      taint_bytes_new,                  /* Number of new tainted bytes      */
-      taint_bytes_highest;              /* highest offset in input          */
+      fuzz_level;                       /* Number of fuzzing iterations     */
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
@@ -385,8 +380,6 @@ typedef struct afl_state {
 
   char **argv;                                            /* argv if needed */
 
-  char **argv_taint;                                 /* argv for taint mode */
-
   /* MOpt:
     Lots of globals, but mostly for the status UI and other things where it
     really makes no sense to haul them around as function parameters. */
@@ -438,9 +431,7 @@ typedef struct afl_state {
       *in_bitmap,                       /* Input bitmap                     */
       *file_extension,                  /* File extension                   */
       *orig_cmdline,                    /* Original command line            */
-      *infoexec,                       /* Command to execute on a new crash */
-      *taint_input_file,                /* fuzz_input_one input file        */
-      *taint_src, *taint_map;
+      *infoexec;                       /* Command to execute on a new crash */
 
   u32 hang_tmout;                       /* Timeout used for hang det (ms)   */
 
@@ -451,9 +442,7 @@ typedef struct afl_state {
       custom_only,                      /* Custom mutator only mode         */
       python_only,                      /* Python-only mode                 */
       is_main_node,                     /* if this is the main node         */
-      is_secondary_node,                /* if this is a secondary instance  */
-      taint_needs_splode,               /* explode fuzz input               */
-      taint_mode;
+      is_secondary_node;                /* if this is a secondary instance  */
 
   u32 stats_update_freq;                /* Stats update frequency (execs)   */
 
@@ -514,8 +503,7 @@ typedef struct afl_state {
       useless_at_start,                 /* Number of useless starting paths */
       var_byte_count,                   /* Bitmap bytes with var behavior   */
       current_entry,                    /* Current queue entry ID           */
-      havoc_div,                        /* Cycle count divisor for havoc    */
-      taint_len, taint_count;
+      havoc_div;                        /* Cycle count divisor for havoc    */
 
   u64 total_crashes,                    /* Total number of crashes          */
       unique_crashes,                   /* Crashes with unique signatures   */
@@ -601,9 +589,6 @@ typedef struct afl_state {
 
   char *           cmplog_binary;
   afl_forkserver_t cmplog_fsrv;     /* cmplog has its own little forkserver */
-
-  /* Taint mode */
-  afl_forkserver_t taint_fsrv;  /* taint mode has its own little forkserver */
 
   /* Custom mutators */
   struct custom_mutator *mutator;
@@ -856,8 +841,7 @@ struct custom_mutator {
 
 };
 
-void afl_state_init_1(afl_state_t *, uint32_t map_size);
-void afl_state_init_2(afl_state_t *, uint32_t map_size);
+void afl_state_init(afl_state_t *, uint32_t map_size);
 void afl_state_deinit(afl_state_t *);
 
 /* Set stop_soon flag on all childs, kill all childs */
@@ -903,7 +887,7 @@ void   deinit_py(void *);
 void mark_as_det_done(afl_state_t *, struct queue_entry *);
 void mark_as_variable(afl_state_t *, struct queue_entry *);
 void mark_as_redundant(afl_state_t *, struct queue_entry *, u8);
-void add_to_queue(afl_state_t *, u8 *, u8 *, u32, struct queue_entry *, u8);
+void add_to_queue(afl_state_t *, u8 *, u32, u8);
 void destroy_queue(afl_state_t *);
 void update_bitmap_score(afl_state_t *, struct queue_entry *);
 void cull_queue(afl_state_t *);
@@ -913,9 +897,7 @@ u32  calculate_score(afl_state_t *, struct queue_entry *);
 
 void write_bitmap(afl_state_t *);
 u32  count_bits(afl_state_t *, u8 *);
-u32  count_bits_len(afl_state_t *, u8 *, u32);
 u32  count_bytes(afl_state_t *, u8 *);
-u32  count_bytes_len(afl_state_t *, u8 *, u32);
 u32  count_non_255_bytes(afl_state_t *, u8 *);
 #ifdef WORD_SIZE_64
 void simplify_trace(afl_state_t *, u64 *);
@@ -993,8 +975,6 @@ void   check_if_tty(afl_state_t *);
 void   setup_signal_handlers(void);
 void   save_cmdline(afl_state_t *, u32, char **);
 void   read_foreign_testcases(afl_state_t *, int);
-void   perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
-                         u8 *mem, u32 len);
 
 /* CmpLog */
 

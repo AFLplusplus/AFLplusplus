@@ -521,7 +521,6 @@ clean:
 	$(MAKE) -C examples/argv_fuzzing clean
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
-	test -d qemu_taint/qemu && { cd qemu_taint ; ./clean.sh ; }
 	rm -rf qemu_mode/qemu-3.1.1
 ifeq "$(IN_REPO)" "1"
 	test -d unicorn_mode/unicornafl && $(MAKE) -C unicorn_mode/unicornafl clean || true
@@ -532,7 +531,6 @@ endif
 
 deepclean:	clean
 	rm -rf qemu_mode/qemu-3.1.1.tar.xz
-	rm -rf qemu_taint/qemu
 	rm -rf unicorn_mode/unicornafl
 	git reset --hard >/dev/null 2>&1 || true
 
@@ -590,7 +588,6 @@ install: all $(MANPAGES)
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
 	rm -f $${DESTDIR}$(BIN_PATH)/afl-as
 	if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
-	if [ -f afl-qemu-taint ]; then install -m 755 afl-qemu-taint $${DESTDIR}$(BIN_PATH); fi
 	if [ -f afl-gcc-fast ]; then set e; install -m 755 afl-gcc-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast; install -m 755 afl-gcc-pass.so afl-gcc-rt.o $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f afl-clang-fast ]; then $(MAKE) -C llvm_mode install; fi
 	if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi

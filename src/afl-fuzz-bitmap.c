@@ -177,40 +177,6 @@ u32 count_bits(afl_state_t *afl, u8 *mem) {
 
 }
 
-u32 count_bits_len(afl_state_t *afl, u8 *mem, u32 len) {
-
-  u32 *ptr = (u32 *)mem;
-  u32  i = (len >> 2);
-  u32  ret = 0;
-
-  (void)(afl);
-
-  if (len % 4) i++;
-
-  while (i--) {
-
-    u32 v = *(ptr++);
-
-    /* This gets called on the inverse, virgin bitmap; optimize for sparse
-       data. */
-
-    if (v == 0xffffffff) {
-
-      ret += 32;
-      continue;
-
-    }
-
-    v -= ((v >> 1) & 0x55555555);
-    v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
-    ret += (((v + (v >> 4)) & 0xF0F0F0F) * 0x01010101) >> 24;
-
-  }
-
-  return ret;
-
-}
-
 /* Count the number of bytes set in the bitmap. Called fairly sporadically,
    mostly to update the status screen or calibrate and examine confirmed
    new paths. */
@@ -220,32 +186,6 @@ u32 count_bytes(afl_state_t *afl, u8 *mem) {
   u32 *ptr = (u32 *)mem;
   u32  i = (afl->fsrv.map_size >> 2);
   u32  ret = 0;
-
-  while (i--) {
-
-    u32 v = *(ptr++);
-
-    if (!v) { continue; }
-    if (v & 0x000000ff) { ++ret; }
-    if (v & 0x0000ff00) { ++ret; }
-    if (v & 0x00ff0000) { ++ret; }
-    if (v & 0xff000000) { ++ret; }
-
-  }
-
-  return ret;
-
-}
-
-u32 count_bytes_len(afl_state_t *afl, u8 *mem, u32 len) {
-
-  u32 *ptr = (u32 *)mem;
-  u32  i = (len >> 2);
-  u32  ret = 0;
-
-  (void)(afl);
-
-  if (len % 4) i++;
 
   while (i--) {
 
@@ -655,7 +595,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
-    add_to_queue(afl, queue_fn, mem, len, afl->queue_top, 0);
+    add_to_queue(afl, queue_fn, len, 0);
 
     if (hnb == 2) {
 

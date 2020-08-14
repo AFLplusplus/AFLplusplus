@@ -712,7 +712,7 @@ void read_testcases(afl_state_t *afl) {
 
     if (!access(dfn, F_OK)) { passed_det = 1; }
 
-    add_to_queue(afl, fn2, NULL, st.st_size, NULL, passed_det);
+    add_to_queue(afl, fn2, st.st_size, passed_det);
 
   }
 
@@ -771,13 +771,9 @@ void perform_dry_run(afl_state_t *afl) {
     close(fd);
 
     res = calibrate_case(afl, q, use_mem, 0, 1);
+    ck_free(use_mem);
 
-    if (afl->stop_soon) {
-
-      ck_free(use_mem);
-      return;
-
-    }
+    if (afl->stop_soon) { return; }
 
     if (res == afl->crash_mode || res == FSRV_RUN_NOBITS) {
 
@@ -963,10 +959,6 @@ void perform_dry_run(afl_state_t *afl) {
       WARNF("Instrumentation output varies across runs.");
 
     }
-
-    /* perform taint gathering on the input seed */
-    if (afl->taint_mode) perform_taint_run(afl, q, q->fname, use_mem, q->len);
-    ck_free(use_mem);
 
     q = q->next;
 
@@ -1446,10 +1438,6 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 
     u8 *orig_q = alloc_printf("%s/queue", afl->out_dir);
 
-    u8 *fnt = alloc_printf("%s/taint", afl->out_dir);
-    mkdir(fnt, 0755);  // ignore errors
-    ck_free(fnt);
-
     afl->in_dir = alloc_printf("%s/_resume", afl->out_dir);
 
     rename(orig_q, afl->in_dir);                           /* Ignore errors */
@@ -1505,20 +1493,6 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   fn = alloc_printf("%s/queue", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
   ck_free(fn);
-
-  if (afl->taint_mode) {
-
-    fn = alloc_printf("%s/taint", afl->out_dir);
-    mkdir(fn, 0755);  // ignore errors
-
-    u8 *fn2 = alloc_printf("%s/taint/.input", afl->out_dir);
-    unlink(fn2);  // ignore errors
-    ck_free(fn2);
-
-    if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
-    ck_free(fn);
-
-  }
 
   /* All right, let's do <afl->out_dir>/crashes/id:* and
    * <afl->out_dir>/hangs/id:*. */
@@ -1746,16 +1720,6 @@ void setup_dirs_fds(afl_state_t *afl) {
   tmp = alloc_printf("%s/queue", afl->out_dir);
   if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
-
-  /* Taint directory if taint_mode. */
-
-  if (afl->taint_mode) {
-
-    tmp = alloc_printf("%s/taint", afl->out_dir);
-    if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
-    ck_free(tmp);
-
-  }
 
   /* Top-level directory for queue metadata used for session
      resume and related tasks. */
