@@ -490,8 +490,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     temp_len = len = afl->queue_cur->len;
     // s32 j = 0;  // tmp
 
+    //if (afl->queue_cur->len < 4) len = 4;
+    //else len = afl->queue_cur->len;
+
     fd = open(afl->queue_cur->fname, O_RDONLY);
-    afl->taint_src = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    afl->taint_src = mmap(0, len < 4 ? 4 : len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     if (fd < 0 || (ssize_t)afl->taint_src == -1)
       FATAL("unable to open '%s'", afl->queue_cur->fname);
     close(fd);
@@ -628,7 +631,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     len = afl->queue_cur->len;
 
-    orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    //if (afl->queue_cur->len < 4) len = 4;
+    //else len = afl->queue_cur->len;
+
+    orig_in = in_buf = mmap(0, len < 4 ? 4 : len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 
     if (unlikely(orig_in == MAP_FAILED)) {
 
