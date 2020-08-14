@@ -875,7 +875,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         "    - the target was compiled with afl-clang-lto and a constructor "
         "was\n"
         "      instrumented, recompiling without AFL_LLVM_MAP_ADDR might solve "
-        "your problem\n\n"
+        "your \n"
+        "      problem\n\n"
 
         "    - Less likely, there is a horrible bug in the fuzzer. If other "
         "options\n"

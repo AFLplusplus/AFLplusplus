@@ -1011,7 +1011,8 @@ int main(int argc, char **argv, char **envp) {
 #ifdef AFL_CLANG_FLTO
     SAYF(
         "\nafl-clang-lto specific environment variables:\n"
-        "AFL_LLVM_MAP_ADDR: use a fixed coverage map address (speed), e.g. 0x10000\n"
+        "AFL_LLVM_MAP_ADDR: use a fixed coverage map address (speed), e.g. "
+        "0x10000\n"
         "AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
         "global var\n"
         "AFL_LLVM_LTO_STARTID: from which ID to start counting from for a "
