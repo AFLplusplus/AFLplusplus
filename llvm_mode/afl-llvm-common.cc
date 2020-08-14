@@ -260,7 +260,8 @@ void scanForDangerousFunctions(llvm::Module *M) {
 
   if (!M) return;
 
-#if LLVM_VERSION_MAJOR >= 4
+#if LLVM_VERSION_MAJOR > 3 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 9)
 
   for (GlobalIFunc &IF : M->ifuncs()) {
 
@@ -345,20 +346,14 @@ static std::string getSourceName(llvm::Function *F) {
 
     DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
 
-    unsigned int instLine = cDILoc->getLine();
-    StringRef    instFilename = cDILoc->getFilename();
+    StringRef instFilename = cDILoc->getFilename();
 
     if (instFilename.str().empty()) {
 
       /* If the original location is empty, try using the inlined location
        */
       DILocation *oDILoc = cDILoc->getInlinedAt();
-      if (oDILoc) {
-
-        instFilename = oDILoc->getFilename();
-        instLine = oDILoc->getLine();
-
-      }
+      if (oDILoc) { instFilename = oDILoc->getFilename(); }
 
     }
 
@@ -371,10 +366,8 @@ static std::string getSourceName(llvm::Function *F) {
 
     DILocation cDILoc(Loc.getAsMDNode(F->getContext()));
 
-    unsigned int instLine = cDILoc.getLineNumber();
-    StringRef    instFilename = cDILoc.getFilename();
+    StringRef instFilename = cDILoc.getFilename();
 
-    (void)instLine;
     /* Continue only if we know where we actually are */
     return instFilename.str();
 

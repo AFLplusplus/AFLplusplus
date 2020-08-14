@@ -278,7 +278,7 @@ int main(int argc, char **argv) {
 
   if (debug) {
 
-    (void)getcwd(thecwd, sizeof(thecwd));
+    if (getcwd(thecwd, sizeof(thecwd)) != 0) strcpy(thecwd, ".");
 
     SAYF(cMGN "[D] " cRST "cd \"%s\";", thecwd);
     for (i = 0; i < argc; i++)

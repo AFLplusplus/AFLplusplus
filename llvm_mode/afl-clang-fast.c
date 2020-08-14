@@ -379,7 +379,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (instrument_mode == INSTRUMENT_PCGUARD) {
 
-#if LLVM_VERSION_MAJOR >= 4
+#if LLVM_VERSION_MAJOR > 4 ||   \
+    (LLVM_VERSION_MAJOR == 4 && \
+     (LLVM_VERSION_MINOR > 0 || LLVM_VERSION_PATCH >= 1))
       cc_params[cc_par_cnt++] =
           "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
 #else

@@ -241,7 +241,7 @@ endif
 ifneq "$(LLVM_CONFIG)" ""
   CLANG_CFL += -I$(shell dirname $(LLVM_CONFIG))/../include
 endif
-CLANG_CPPFL  = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC $(CXXFLAGS)
+CLANG_CPPFL  = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC $(CXXFLAGS) -Wno-deprecated-declarations
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
 
