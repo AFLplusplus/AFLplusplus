@@ -632,18 +632,18 @@ typedef struct afl_state {
 
   /*needed for afl_fuzz_one */
   // TODO: see which we can reuse
-  u8 *   out_buf;
+  u8 *out_buf;
 
-  u8 *   out_scratch_buf;
+  u8 *out_scratch_buf;
 
-  u8 *   eff_buf;
+  u8 *eff_buf;
 
-  u8 *   in_buf;
+  u8 *in_buf;
 
-  u8 *   in_scratch_buf;
+  u8 *in_scratch_buf;
 
-  u8 *   ex_buf;
-  u32    custom_mutators_count;
+  u8 *ex_buf;
+  u32 custom_mutators_count;
 
   list_t custom_mutator_list;
 

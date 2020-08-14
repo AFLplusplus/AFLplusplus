@@ -384,7 +384,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
   u8  a_collect[MAX_AUTO_EXTRA];
   u32 a_len = 0;
 
-
 #ifdef IGNORE_FINDS
 
   /* In IGNORE_FINDS mode, skip any entries that weren't in the
@@ -2148,8 +2147,7 @@ havoc_stage:
 
             clone_to = rand_below(afl, temp_len);
 
-            new_buf =
-                maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+            new_buf = maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
             if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
             /* Head */
@@ -4208,8 +4206,8 @@ pacemaker_fuzzing:
 
                 clone_to = rand_below(afl, temp_len);
 
-                new_buf = maybe_grow(BUF_PARAMS(out_scratch),
-                                        temp_len + clone_len);
+                new_buf =
+                    maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
                 if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
                 /* Head */

@@ -73,8 +73,8 @@ static u8 *in_file,                    /* Minimizer input test case         */
 static u8 *in_data;                    /* Input data for trimming           */
 static u8 *buf2;
 
-static s32    in_len;
-static u32    map_size = MAP_SIZE;
+static s32 in_len;
+static u32 map_size = MAP_SIZE;
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
@@ -358,7 +358,7 @@ int recv_testcase(int s, void **buf) {
   if ((size & 0xff000000) != 0xff000000) {
 
     *buf = maybe_grow((void **)&buf, size);
-    if (unlikely(!buf)) {PFATAL("Alloc");}
+    if (unlikely(!buf)) { PFATAL("Alloc"); }
     received = 0;
     // fprintf(stderr, "unCOMPRESS (%u)\n", size);
     while (received < size &&
@@ -371,7 +371,7 @@ int recv_testcase(int s, void **buf) {
     u32 clen;
     size -= 0xff000000;
     *buf = maybe_grow((void **)&buf, size);
-    if (unlikely(!buf)) {PFATAL("Alloc");}
+    if (unlikely(!buf)) { PFATAL("Alloc"); }
     received = 0;
     while (received < 4 &&
            (ret = recv(s, &clen + received, 4 - received, 0)) > 0)
@@ -381,7 +381,7 @@ int recv_testcase(int s, void **buf) {
     if (clen < 1)
       FATAL("did not receive valid compressed len information: %u", clen);
     buf2 = maybe_grow((void **)&buf2, clen);
-    if (unlikely(!buf2)) {PFATAL("Alloc");}
+    if (unlikely(!buf2)) { PFATAL("Alloc"); }
     received = 0;
     while (received < clen &&
            (ret = recv(s, buf2 + received, clen - received, 0)) > 0)
@@ -570,7 +570,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
   in_data = maybe_grow((void **)&in_data, 65536);
-  if (unlikely(!in_data)) {PFATAL("Alloc");}
+  if (unlikely(!in_data)) { PFATAL("Alloc"); }
 
   atexit(at_exit_handler);
   setup_signal_handlers();
@@ -708,7 +708,6 @@ int main(int argc, char **argv_orig, char **envp) {
 #endif
 
   argv_cpy_free(argv);
-
 
   exit(0);
 

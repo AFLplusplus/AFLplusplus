@@ -40,8 +40,7 @@ static void *unsupported(afl_state_t *afl, unsigned int seed) {
 
   /* sorry for this makro...
   it just fills in `&py_mutator->something_buf, &py_mutator->something_size`. */
-  #define BUF_PARAMS(name)                              \
-    (void **)&((py_mutator_t *)py_mutator)->name##_buf  \
+  #define BUF_PARAMS(name) (void **)&((py_mutator_t *)py_mutator)->name##_buf
 
 static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
                       u8 *add_buf, size_t add_buf_size, size_t max_size) {

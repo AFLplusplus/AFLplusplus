@@ -385,7 +385,6 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
 }
 
-
 /* Create a buffer with a copy of a string. Returns NULL for NULL inputs. */
 
 static inline u8 *DFL_ck_strdup(u8 *str) {
@@ -488,8 +487,8 @@ static inline void TRK_alloc_buf(void *ptr, const char *file, const char *func,
 
   /* No space available - allocate more. */
 
-  TRK[bucket] = DFL_ck_realloc(
-      TRK[bucket], (TRK_cnt[bucket] + 1) * sizeof(struct TRK_obj));
+  TRK[bucket] = DFL_ck_realloc(TRK[bucket],
+                               (TRK_cnt[bucket] + 1) * sizeof(struct TRK_obj));
 
   TRK[bucket][i].ptr = ptr;
   TRK[bucket][i].file = (char *)file;
@@ -623,7 +622,7 @@ static inline size_t next_pow2(size_t in) {
 struct maybe_grow_buf {
 
   size_t size;
-  u8 buf[0];
+  u8     buf[0];
 
 };
 
@@ -636,8 +635,9 @@ static inline struct maybe_grow_buf *maybe_grow_buf(void *buf) {
 
 }
 
-/* Returs the current size of this allocated chunk (without the size_t needed to store this info
-  The size will be >= to the last size_needed passed to maybe_grow */
+/* Returs the current size of this allocated chunk (without the size_t needed to
+  store this info The size will be >= to the last size_needed passed to
+  maybe_grow */
 static inline size_t maybe_grow_bufsize(void *buf) {
 
   if (!buf) { return 0; }
@@ -655,7 +655,7 @@ static inline size_t maybe_grow_bufsize(void *buf) {
  */
 static inline void *maybe_grow(void **buf, size_t size_needed) {
 
-  size_t size = 0;
+  size_t                 size = 0;
   struct maybe_grow_buf *new_buf = NULL;
 
   if (likely(*buf)) {
@@ -682,9 +682,12 @@ static inline void *maybe_grow(void **buf, size_t size_needed) {
 
   /* alloc */
   new_buf = realloc(new_buf, next_size);
-  if (unlikely(!new_buf)) { 
+  if (unlikely(!new_buf)) {
+
     *buf = NULL;
-    return NULL; }
+    return NULL;
+
+  }
 
   new_buf->size = next_size;
   *buf = (void *)(new_buf->buf);
@@ -693,22 +696,17 @@ static inline void *maybe_grow(void **buf, size_t size_needed) {
 }
 
 static inline void maybe_grow_free(void *buf) {
-  
-  if (buf) {
 
-    free(maybe_grow_buf(buf));
-
-  }
+  if (buf) { free(maybe_grow_buf(buf)); }
 
 }
 
 #undef SIZE_OFFSET
 
-
 /* Swaps buf1 ptr and buf2 ptr, as well as their sizes */
 static inline void swap_bufs(void **buf1, void **buf2) {
 
-  void * scratch_buf = *buf1;
+  void *scratch_buf = *buf1;
   *buf1 = *buf2;
   *buf2 = scratch_buf;
 
