@@ -74,16 +74,12 @@
    run. It will end up as .comm, so it shouldn't be too wasteful. */
 
 #if MAP_SIZE <= 65536
-  #define MAP_INITIAL_SIZE 256000
+  #define MAP_INITIAL_SIZE 512000
 #else
   #define MAP_INITIAL_SIZE MAP_SIZE
 #endif
 
-#ifdef AFL_REAL_LD
 u8 __afl_area_initial[MAP_INITIAL_SIZE];
-#else
-u8                  __afl_area_initial[MAP_SIZE];
-#endif
 u8 * __afl_area_ptr = __afl_area_initial;
 u8 * __afl_dictionary;
 u8 * __afl_fuzz_ptr;
