@@ -1,3 +1,36 @@
+# qemu_taint variant.
+
+UPDATE: **WORKS NOW** **PLEASE TEST** **:-)**
+
+## HOWTO
+
+cd qemu_taint && ./build_qemu_taint.sh
+
+afl-fuzz -A ...
+
+## CAVEATS
+
+ * llvm shmem persistent mode does not and can not not work
+ * MOpt works but totally ignores the taint information, so disabled here
+ * custom mutators? dunno if they work or not. depends on how they work.
+ * not tested with qemu_mode
+ * there are several debug checks to ensure the data is fine which slows down
+   fuzzing, if the beta experiment runs fine these will be improved and it
+   will result in quite a speed gain.
+
+## THE TAINT
+
+taint can be seen in out/taint/
+
+the id:000 mirrors the out/queue entry, except the content it 0x00 for
+untainted bytes and '!' for tainted bytes.
+If a file has new tainted bytes compared to from which previous entry it
+was created then there is a id:000[...].new file where the new bytes are
+marked '!'.
+
+the mutation switches between fuzzing all tainted bytes in one cycle and
+only new bytes in the other cycle.
+
 # American Fuzzy Lop plus plus (afl++)
 
   <img align="right" src="https://raw.githubusercontent.com/andreafioraldi/AFLplusplus-website/master/static/logo_256x256.png" alt="AFL++ Logo">
