@@ -352,7 +352,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     else
       setenv("AFL_LLVM_LTO_AUTODICTIONARY", "1", 1);
 
-#ifdef AFL_CLANG_LDPATH
+#if defined(AFL_CLANG_LDPATH) && LLVM_VERSION_MAJOR >= 12
     u8 *ld_ptr = strrchr(AFL_REAL_LD, '/');
     if (!ld_ptr) ld_ptr = "ld.lld";
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_ptr);
