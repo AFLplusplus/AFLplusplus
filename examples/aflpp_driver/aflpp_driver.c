@@ -106,7 +106,10 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
   #error "Support for your platform has not been implemented"
 #endif
 
-int                   __afl_sharedmem_fuzzing = 0;
+int                   __afl_sharedmem_fuzzing = 1;
+extern unsigned int * __afl_fuzz_len;
+extern unsigned char *__afl_fuzz_ptr;
+// extern struct cmp_map *__afl_cmp_map;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
@@ -272,7 +275,6 @@ int main(int argc, char **argv) {
   // Do any other expensive one-time initialization here.
 
   uint8_t dummy_input[64] = {0};
-  uint8_t buf[1024000];
   memcpy(dummy_input, (void *)AFL_PERSISTENT, sizeof(AFL_PERSISTENT));
   memcpy(dummy_input + 32, (void *)AFL_DEFER_FORKSVR,
          sizeof(AFL_DEFER_FORKSVR));
@@ -283,24 +285,16 @@ int main(int argc, char **argv) {
     printf("WARNING: using the deprecated call style `%s %d`\n", argv[0], N);
   else if (argc > 1) {
 
-    if (!getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
-
-      __afl_manual_init();
-
-    }
-
+    __afl_sharedmem_fuzzing = 0;
+    __afl_manual_init();
     return ExecuteFilesOnyByOne(argc, argv);
 
   }
 
   assert(N > 0);
 
-  if (!getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
-
-    fprintf(stderr, "performing manual init\n");
-    __afl_manual_init();
-
-  }
+  //  if (!getenv("AFL_DRIVER_DONT_DEFER"))
+  __afl_manual_init();
 
   // Call LLVMFuzzerTestOneInput here so that coverage caused by initialization
   // on the first execution of LLVMFuzzerTestOneInput is ignored.
@@ -309,13 +303,25 @@ int main(int argc, char **argv) {
   int num_runs = 0;
   while (__afl_persistent_loop(N)) {
 
-    ssize_t r = read(0, buf, sizeof(buf));
+#ifdef _DEBUG
+    fprintf(stderr, "CLIENT crc: %016llx len: %u\n",
+            hash64(__afl_fuzz_ptr, *__afl_fuzz_len, 0xa5b35705),
+            *__afl_fuzz_len);
+    fprintf(stderr, "RECV:");
+    for (int i = 0; i < *__afl_fuzz_len; i++)
+      fprintf(stderr, "%02x", __afl_fuzz_ptr[i]);
+    fprintf(stderr, "\n");
+#endif
+    if (*__afl_fuzz_len) {
 
-    if (r > 0) { LLVMFuzzerTestOneInput(buf, r); }
+      num_runs++;
+      LLVMFuzzerTestOneInput(__afl_fuzz_ptr, *__afl_fuzz_len);
+
+    }
 
   }
 
-  printf("%s: successfully executed input(s)\n", argv[0]);
+  printf("%s: successfully executed %d input(s)\n", argv[0], num_runs);
 
 }
 

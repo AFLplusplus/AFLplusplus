@@ -350,9 +350,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   }
 
-  if (unlikely(afl->taint_mode))
-    q->exec_cksum = 0;
-  else if (q->exec_cksum) {
+  if (q->exec_cksum) {
 
     memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
     hnb = has_new_bits(afl, afl->virgin_bits);
@@ -755,64 +753,55 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     while (remove_pos < q->len) {
 
       u32 trim_avail = MIN(remove_len, q->len - remove_pos);
+      u64 cksum;
 
-      if (likely((!q->taint_bytes_highest) ||
-                 (q->len - trim_avail > q->taint_bytes_highest))) {
+      write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
 
-        u64 cksum;
+      fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+      ++afl->trim_execs;
 
-        write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
+      if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
 
-        fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-        ++afl->trim_execs;
+      /* Note that we don't keep track of crashes or hangs here; maybe TODO?
+       */
 
-        if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
+      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-        /* Note that we don't keep track of crashes or hangs here; maybe TODO?
-         */
+      /* If the deletion had no impact on the trace, make it permanent. This
+         isn't perfect for variable-path inputs, but we're just making a
+         best-effort pass, so it's not a big deal if we end up with false
+         negatives every now and then. */
 
-        cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+      if (cksum == q->exec_cksum) {
 
-        /* If the deletion had no impact on the trace, make it permanent. This
-           isn't perfect for variable-path inputs, but we're just making a
-           best-effort pass, so it's not a big deal if we end up with false
-           negatives every now and then. */
+        u32 move_tail = q->len - remove_pos - trim_avail;
 
-        if (cksum == q->exec_cksum) {
+        q->len -= trim_avail;
+        len_p2 = next_pow2(q->len);
 
-          u32 move_tail = q->len - remove_pos - trim_avail;
+        memmove(in_buf + remove_pos, in_buf + remove_pos + trim_avail,
+                move_tail);
 
-          q->len -= trim_avail;
-          len_p2 = next_pow2(q->len);
+        /* Let's save a clean trace, which will be needed by
+           update_bitmap_score once we're done with the trimming stuff. */
 
-          memmove(in_buf + remove_pos, in_buf + remove_pos + trim_avail,
-                  move_tail);
+        if (!needs_write) {
 
-          /* Let's save a clean trace, which will be needed by
-             update_bitmap_score once we're done with the trimming stuff. */
-
-          if (!needs_write) {
-
-            needs_write = 1;
-            memcpy(afl->clean_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
-
-          }
-
-        } else {
-
-          remove_pos += remove_len;
+          needs_write = 1;
+          memcpy(afl->clean_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
 
         }
-
-        /* Since this can be slow, update the screen every now and then. */
-        if (!(trim_exec++ % afl->stats_update_freq)) { show_stats(afl); }
-        ++afl->stage_cur;
 
       } else {
 
         remove_pos += remove_len;
 
       }
+
+      /* Since this can be slow, update the screen every now and then. */
+
+      if (!(trim_exec++ % afl->stats_update_freq)) { show_stats(afl); }
+      ++afl->stage_cur;
 
     }
 
@@ -866,8 +855,6 @@ abort_trimming:
 
 }
 
-#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
-
 /* Write a modified test case, run program, process results. Handle
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
@@ -876,32 +863,6 @@ u8 __attribute__((hot))
 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
-
-  if (unlikely(afl->taint_needs_splode)) {
-
-    s32 new_len = afl->queue_cur->len + len - afl->taint_len;
-    if (new_len < 4)
-      new_len = 4;
-    else if (new_len > MAX_FILE)
-      new_len = MAX_FILE;
-    u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), new_len);
-
-    u32 i, taint = 0;
-    for (i = 0; i < (u32)new_len; i++) {
-
-      if (i >= afl->taint_len || i >= afl->queue_cur->len || afl->taint_map[i])
-        new_buf[i] = out_buf[taint++];
-      else
-        new_buf[i] = afl->taint_src[i];
-
-    }
-
-    swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
-
-    out_buf = new_buf;
-    len = new_len;
-
-  }
 
   write_to_testcase(afl, out_buf, len);
 
@@ -949,6 +910,4 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   return 0;
 
 }
-
-#undef BUF_PARAMS
 

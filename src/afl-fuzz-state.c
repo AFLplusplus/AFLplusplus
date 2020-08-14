@@ -75,7 +75,7 @@ static list_t afl_states = {.element_prealloc_count = 0};
 
 /* Initializes an afl_state_t. */
 
-void afl_state_init_1(afl_state_t *afl, uint32_t map_size) {
+void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   /* thanks to this memset, growing vars like out_buf
   and out_size are NULL/0 by default. */
@@ -99,6 +99,16 @@ void afl_state_init_1(afl_state_t *afl, uint32_t map_size) {
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
 #endif                                                     /* HAVE_AFFINITY */
+
+  afl->virgin_bits = ck_alloc(map_size);
+  afl->virgin_tmout = ck_alloc(map_size);
+  afl->virgin_crash = ck_alloc(map_size);
+  afl->var_bytes = ck_alloc(map_size);
+  afl->top_rated = ck_alloc(map_size * sizeof(void *));
+  afl->clean_trace = ck_alloc(map_size);
+  afl->clean_trace_custom = ck_alloc(map_size);
+  afl->first_trace = ck_alloc(map_size);
+  afl->map_tmp_buf = ck_alloc(map_size);
 
   afl->fsrv.use_stdin = 1;
   afl->fsrv.map_size = map_size;
@@ -148,24 +158,6 @@ void afl_state_init_1(afl_state_t *afl, uint32_t map_size) {
   init_mopt_globals(afl);
 
   list_append(&afl_states, afl);
-
-}
-
-void afl_state_init_2(afl_state_t *afl, uint32_t map_size) {
-
-  afl->shm.map_size = map_size ? map_size : MAP_SIZE;
-
-  afl->virgin_bits = ck_alloc(map_size);
-  afl->virgin_tmout = ck_alloc(map_size);
-  afl->virgin_crash = ck_alloc(map_size);
-  afl->var_bytes = ck_alloc(map_size);
-  afl->top_rated = ck_alloc(map_size * sizeof(void *));
-  afl->clean_trace = ck_alloc(map_size);
-  afl->clean_trace_custom = ck_alloc(map_size);
-  afl->first_trace = ck_alloc(map_size);
-  afl->map_tmp_buf = ck_alloc(map_size);
-
-  afl->fsrv.map_size = map_size;
 
 }
 
