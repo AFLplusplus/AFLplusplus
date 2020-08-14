@@ -596,7 +596,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
       do {
 
         --i;
-        BasicBlock *              newBB;
+        BasicBlock *              newBB = NULL;
         BasicBlock *              origBB = &(*InsBlocks[i]);
         std::vector<BasicBlock *> Successors;
         Instruction *             TI = origBB->getTerminator();
