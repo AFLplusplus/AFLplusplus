@@ -174,7 +174,7 @@ struct extra_data {
 
 struct auto_extra_data {
 
-  u8  data[MAX_AUTO_EXTRA];                             /* Dictionary token data            */
+  u8  data[MAX_AUTO_EXTRA];             /* Dictionary token data            */
   u32 len;                              /* Dictionary token length          */
   u32 hit_cnt;                          /* Use count in the corpus          */
 
@@ -579,8 +579,9 @@ typedef struct afl_state {
   struct extra_data *extras;            /* Extra tokens to fuzz with        */
   u32                extras_cnt;        /* Total number of tokens read      */
 
-  struct auto_extra_data  a_extras[MAX_AUTO_EXTRAS];          /* Automatically selected extras    */
-  u32                     a_extras_cnt;      /* Total number of tokens available */
+  struct auto_extra_data
+      a_extras[MAX_AUTO_EXTRAS];        /* Automatically selected extras    */
+  u32 a_extras_cnt;                     /* Total number of tokens available */
 
   /* afl_postprocess API - Now supported via custom mutators */
 

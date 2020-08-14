@@ -28,7 +28,8 @@
 /* helper function for auto_extras qsort */
 static int compare_auto_extras_len(const void *ae1, const void *ae2) {
 
-  return ((struct auto_extra_data *)ae1)->len - ((struct auto_extra_data *)ae2)->len;
+  return ((struct auto_extra_data *)ae1)->len -
+         ((struct auto_extra_data *)ae2)->len;
 
 }
 
@@ -36,7 +37,8 @@ static int compare_auto_extras_len(const void *ae1, const void *ae2) {
 
 static int compare_auto_extras_use_d(const void *ae1, const void *ae2) {
 
-  return ((struct auto_extra_data *)ae2)->hit_cnt - ((struct auto_extra_data *)ae1)->hit_cnt;
+  return ((struct auto_extra_data *)ae2)->hit_cnt -
+         ((struct auto_extra_data *)ae1)->hit_cnt;
 
 }
 

@@ -176,6 +176,7 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
   return (u8 *)memcpy(ret, str, size);
 
 }
+
   /* In non-debug mode, we just do straightforward aliasing of the above
      functions to user-visible names such as ck_alloc(). */
 

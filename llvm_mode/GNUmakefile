@@ -206,6 +206,10 @@ AFL_CLANG_FUSELD=
 ifeq "$(LLVM_LTO)" "1"
   ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=`command -v ld` -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
     AFL_CLANG_FUSELD=1
+    $(info echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=ld.lld --ld-path=$(LLVM_BINDIR)/ld.lld -o .test )
+    ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -fuse-ld=ld.lld --ld-path=$(LLVM_BINDIR)/ld.lld -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+      AFL_CLANG_LDPATH=1
+    endif
   else
     $(warn -fuse-ld is not working, cannot enable LTO mode)
     LLVM_LTO = 0
@@ -218,7 +222,9 @@ CFLAGS_SAFE     := -Wall -g -Wno-pointer-sign -I ../include/ \
                    -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
                    -DLLVM_LIBDIR=\"$(LLVM_LIBDIR)\" -DLLVM_VERSION=\"$(LLVMVER)\" \
                    -DAFL_CLANG_FLTO=\"$(AFL_CLANG_FLTO)\" \
-                   -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
+                   -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" \
+                   -DAFL_CLANG_LDPATH=\"$(AFL_CLANG_LDPATH)\" \
+                   -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
                    -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function
 override CFLAGS += $(CFLAGS_SAFE)
 
