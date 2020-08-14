@@ -364,7 +364,7 @@ static void locate_diffs(u8 *ptr1, u8 *ptr2, u32 len, s32 *first, s32 *last) {
 
 #endif                                                     /* !IGNORE_FINDS */
 
-#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
+#define BUF_PARAMS(name) (void **)&afl->name##_buf
 
 /* Take the current entry from the queue, fuzz it for a while. This
    function is a tad too long... returns 0 if fuzzed successfully, 1 if
@@ -384,8 +384,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
   u8  a_collect[MAX_AUTO_EXTRA];
   u32 a_len = 0;
 
-/* Not pretty, but saves a lot of writing */
-#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
 
 #ifdef IGNORE_FINDS
 
@@ -484,7 +482,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
      single byte anyway, so it wouldn't give us any performance or memory usage
      benefits. */
 
-  out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
+  out_buf = maybe_grow(BUF_PARAMS(out), len);
+  if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
   afl->subseq_tmouts = 0;
 
@@ -799,7 +798,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* Initialize effector map for the next step (see comments below). Always
      flag first and last byte as doing something. */
 
-  eff_map = ck_maybe_grow(BUF_PARAMS(eff), EFF_ALEN(len));
+  eff_map = maybe_grow(BUF_PARAMS(eff), EFF_ALEN(len));
+  if (unlikely(!eff_map)) { PFATAL("alloc"); }
   eff_map[0] = 1;
 
   if (EFF_APOS(len - 1) != 0) {
@@ -1556,7 +1556,8 @@ skip_interest:
 
   orig_hit_cnt = new_hit_cnt;
 
-  ex_tmp = ck_maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE);
+  ex_tmp = maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE);
+  if (unlikely(!ex_tmp)) { PFATAL("alloc"); }
 
   for (i = 0; i <= (u32)len; ++i) {
 
@@ -1732,7 +1733,8 @@ custom_mutator_stage:
         fd = open(target->fname, O_RDONLY);
         if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
 
-        new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), target->len);
+        new_buf = maybe_grow(BUF_PARAMS(out_scratch), target->len);
+        if (unlikely(!new_buf)) { PFATAL("alloc"); }
         ck_read(fd, new_buf, target->len, target->fname);
         close(fd);
 
@@ -1907,7 +1909,8 @@ havoc_stage:
               temp_len = new_len;
               if (out_buf != custom_havoc_buf) {
 
-                ck_maybe_grow(BUF_PARAMS(out), temp_len);
+                maybe_grow(BUF_PARAMS(out), temp_len);
+                if (unlikely(!afl->out_buf)) { PFATAL("alloc"); }
                 memcpy(out_buf, custom_havoc_buf, temp_len);
 
               }
@@ -2146,7 +2149,8 @@ havoc_stage:
             clone_to = rand_below(afl, temp_len);
 
             new_buf =
-                ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+                maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+            if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
             /* Head */
 
@@ -2286,7 +2290,8 @@ havoc_stage:
 
               if (temp_len + extra_len >= MAX_FILE) { break; }
 
-              out_buf = ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
+              out_buf = maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
+              if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
               /* Tail */
               memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
@@ -2342,7 +2347,8 @@ havoc_stage:
             }
 
             u32 new_len = target->len;
-            u8 *new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), new_len);
+            u8 *new_buf = maybe_grow(BUF_PARAMS(in_scratch), new_len);
+            if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
             ck_read(fd, new_buf, new_len, target->fname);
 
@@ -2382,7 +2388,8 @@ havoc_stage:
               clone_to = rand_below(afl, temp_len);
 
               u8 *temp_buf =
-                  ck_maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+                  maybe_grow(BUF_PARAMS(out_scratch), temp_len + clone_len);
+              if (unlikely(!temp_buf)) { PFATAL("alloc"); }
 
               /* Head */
 
@@ -2417,7 +2424,8 @@ havoc_stage:
     /* out_buf might have been mangled a bit, so let's restore it to its
        original size and shape. */
 
-    out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
+    out_buf = maybe_grow(BUF_PARAMS(out), len);
+    if (unlikely(!out_buf)) { PFATAL("alloc"); }
     temp_len = len;
     memcpy(out_buf, in_buf, len);
 
@@ -2512,7 +2520,8 @@ retry_splicing:
 
     if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
 
-    new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), target->len);
+    new_buf = maybe_grow(BUF_PARAMS(in_scratch), target->len);
+    if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
     ck_read(fd, new_buf, target->len, target->fname);
 
@@ -2537,7 +2546,8 @@ retry_splicing:
     swap_bufs(BUF_PARAMS(in), BUF_PARAMS(in_scratch));
     in_buf = new_buf;
 
-    out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
+    out_buf = maybe_grow(BUF_PARAMS(out), len);
+    if (unlikely(!out_buf)) { PFATAL("alloc"); }
     memcpy(out_buf, in_buf, len);
 
     goto custom_mutator_stage;
@@ -2678,7 +2688,8 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
      single byte anyway, so it wouldn't give us any performance or memory usage
      benefits. */
 
-  out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
+  out_buf = maybe_grow(BUF_PARAMS(out), len);
+  if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
   afl->subseq_tmouts = 0;
 
@@ -3000,7 +3011,8 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   /* Initialize effector map for the next step (see comments below). Always
          flag first and last byte as doing something. */
 
-  eff_map = ck_maybe_grow(BUF_PARAMS(eff), EFF_ALEN(len));
+  eff_map = maybe_grow(BUF_PARAMS(eff), EFF_ALEN(len));
+  if (unlikely(!eff_map)) { PFATAL("alloc"); }
   eff_map[0] = 1;
 
   if (EFF_APOS(len - 1) != 0) {
@@ -3757,7 +3769,8 @@ skip_interest:
 
   orig_hit_cnt = new_hit_cnt;
 
-  ex_tmp = ck_maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE);
+  ex_tmp = maybe_grow(BUF_PARAMS(ex), len + MAX_DICT_FILE);
+  if (unlikely(!ex_tmp)) { PFATAL("alloc"); }
 
   for (i = 0; i <= (u32)len; ++i) {
 
@@ -4195,8 +4208,9 @@ pacemaker_fuzzing:
 
                 clone_to = rand_below(afl, temp_len);
 
-                new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
+                new_buf = maybe_grow(BUF_PARAMS(out_scratch),
                                         temp_len + clone_len);
+                if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
                 /* Head */
 
@@ -4339,7 +4353,8 @@ pacemaker_fuzzing:
 
               if (temp_len + extra_len >= MAX_FILE) break;
 
-              out_buf = ck_maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
+              out_buf = maybe_grow(BUF_PARAMS(out), temp_len + extra_len);
+              if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
               /* Tail */
               memmove(out_buf + insert_at + extra_len, out_buf + insert_at,
@@ -4372,7 +4387,8 @@ pacemaker_fuzzing:
         /* out_buf might have been mangled a bit, so let's restore it to its
            original size and shape. */
 
-        out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
+        out_buf = maybe_grow(BUF_PARAMS(out), len);
+        if (unlikely(!out_buf)) { PFATAL("alloc"); }
         temp_len = len;
         memcpy(out_buf, in_buf, len);
 
@@ -4517,7 +4533,8 @@ pacemaker_fuzzing:
 
         if (fd < 0) { PFATAL("Unable to open '%s'", target->fname); }
 
-        new_buf = ck_maybe_grow(BUF_PARAMS(in_scratch), target->len);
+        new_buf = maybe_grow(BUF_PARAMS(in_scratch), target->len);
+        if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
         ck_read(fd, new_buf, target->len, target->fname);
 
@@ -4546,7 +4563,8 @@ pacemaker_fuzzing:
         memcpy(new_buf, in_buf, split_at);
         swap_bufs(BUF_PARAMS(in), BUF_PARAMS(in_scratch));
         in_buf = new_buf;
-        out_buf = ck_maybe_grow(BUF_PARAMS(out), len);
+        out_buf = maybe_grow(BUF_PARAMS(out), len);
+        if (unlikely(!out_buf)) { PFATAL("alloc"); }
         memcpy(out_buf, in_buf, len);
 
         goto havoc_stage_puppet;

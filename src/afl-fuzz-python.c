@@ -41,8 +41,7 @@ static void *unsupported(afl_state_t *afl, unsigned int seed) {
   /* sorry for this makro...
   it just fills in `&py_mutator->something_buf, &py_mutator->something_size`. */
   #define BUF_PARAMS(name)                              \
-    (void **)&((py_mutator_t *)py_mutator)->name##_buf, \
-        &((py_mutator_t *)py_mutator)->name##_size
+    (void **)&((py_mutator_t *)py_mutator)->name##_buf  \
 
 static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
                       u8 *add_buf, size_t add_buf_size, size_t max_size) {
@@ -97,7 +96,8 @@ static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
 
     mutated_size = PyByteArray_Size(py_value);
 
-    *out_buf = ck_maybe_grow(BUF_PARAMS(fuzz), mutated_size);
+    *out_buf = maybe_grow(BUF_PARAMS(fuzz), mutated_size);
+    if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
     memcpy(*out_buf, PyByteArray_AsString(py_value), mutated_size);
     Py_DECREF(py_value);
@@ -317,7 +317,6 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
 
   mutator = ck_alloc(sizeof(struct custom_mutator));
   mutator->post_process_buf = NULL;
-  mutator->post_process_size = 0;
 
   mutator->name = module_name;
   ACTF("Loading Python mutator library from '%s'...", module_name);
@@ -419,7 +418,11 @@ size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size,
 
     py_out_buf_size = PyByteArray_Size(py_value);
 
-    ck_maybe_grow(BUF_PARAMS(post_process), py_out_buf_size);
+    if (unlikely(!maybe_grow(BUF_PARAMS(post_process), py_out_buf_size))) {
+
+      PFATAL("alloc");
+
+    }
 
     memcpy(py->post_process_buf, PyByteArray_AsString(py_value),
            py_out_buf_size);
@@ -527,7 +530,8 @@ size_t trim_py(void *py_mutator, u8 **out_buf) {
   if (py_value != NULL) {
 
     ret = PyByteArray_Size(py_value);
-    *out_buf = ck_maybe_grow(BUF_PARAMS(trim), ret);
+    *out_buf = maybe_grow(BUF_PARAMS(trim), ret);
+    if (unlikely(!out_buf)) { PFATAL("alloc"); }
     memcpy(*out_buf, PyByteArray_AsString(py_value), ret);
     Py_DECREF(py_value);
 
@@ -592,7 +596,8 @@ size_t havoc_mutation_py(void *py_mutator, u8 *buf, size_t buf_size,
     } else {
 
       /* A new buf is needed... */
-      *out_buf = ck_maybe_grow(BUF_PARAMS(havoc), mutated_size);
+      *out_buf = maybe_grow(BUF_PARAMS(havoc), mutated_size);
+      if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
     }
 

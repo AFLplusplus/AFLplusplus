@@ -572,7 +572,6 @@ typedef struct afl_state {
 
   // growing buf
   struct queue_entry **queue_buf;
-  size_t               queue_size;
 
   struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
 
@@ -634,22 +633,16 @@ typedef struct afl_state {
   /*needed for afl_fuzz_one */
   // TODO: see which we can reuse
   u8 *   out_buf;
-  size_t out_size;
 
   u8 *   out_scratch_buf;
-  size_t out_scratch_size;
 
   u8 *   eff_buf;
-  size_t eff_size;
 
   u8 *   in_buf;
-  size_t in_size;
 
   u8 *   in_scratch_buf;
-  size_t in_scratch_size;
 
   u8 *   ex_buf;
-  size_t ex_size;
   u32    custom_mutators_count;
 
   list_t custom_mutator_list;
@@ -666,7 +659,6 @@ struct custom_mutator {
   char *      name_short;
   void *      dh;
   u8 *        post_process_buf;
-  size_t      post_process_size;
   u8          stacked_custom_prob, stacked_custom;
 
   void *data;                                    /* custom mutator data ptr */

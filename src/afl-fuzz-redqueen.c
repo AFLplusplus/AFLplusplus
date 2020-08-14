@@ -313,8 +313,6 @@ static unsigned long long strntoull(const char *str, size_t sz, char **end,
 
 }
 
-#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
-
 static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
                               u64 pattern, u64 repl, u64 o_pattern, u32 idx,
                               u8 *orig_buf, u8 *buf, u32 len, u8 do_reverse,
@@ -358,7 +356,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     size_t old_len = endptr - buf_8;
     size_t num_len = snprintf(NULL, 0, "%lld", num);
 
-    u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), len + num_len);
+    u8 *new_buf = maybe_grow((void **)&afl->out_scratch_buf, len + num_len);
+    if (unlikely(!new_buf)) { PFATAL("alloc"); }
     memcpy(new_buf, buf, idx);
 
     snprintf(new_buf + idx, num_len, "%lld", num);
@@ -371,7 +370,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     size_t old_len = endptr - buf_8;
     size_t num_len = snprintf(NULL, 0, "%llu", unum);
 
-    u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch), len + num_len);
+    u8 *new_buf = maybe_grow((void **)&afl->out_scratch_buf, len + num_len);
+    if (unlikely(!new_buf)) { PFATAL("alloc"); }
     memcpy(new_buf, buf, idx);
 
     snprintf(new_buf + idx, num_len, "%llu", unum);

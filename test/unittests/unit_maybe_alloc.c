@@ -42,7 +42,26 @@ int __wrap_printf(const char *format, ...) {
     return 1;
 }
 
-#define BUF_PARAMS (void **)&buf, &size
+#define VOID_BUF (void **)&buf
+
+#define SIZE_OFFSET offsetof(struct maybe_grow_buf, buf)
+
+static void *create_fake_maybe_grow_of(size_t size) {
+
+    size += SIZE_OFFSET;
+
+    // fake a realloc buf
+    
+    struct maybe_grow_buf *buf = malloc(size);
+    if (!buf) {
+        perror("Could not allocate fake buf");
+        return NULL;
+    }
+    buf->size = size; // The size
+    void *actual_buf = (void *)(buf->buf);
+    return actual_buf;
+
+}
 
 /*
 static int setup(void **state) {
@@ -56,25 +75,29 @@ static void test_null_allocs(void **state) {
     (void)state;
 
     void *buf = NULL;
-    size_t size = 0;
-    void *ptr = ck_maybe_grow(BUF_PARAMS, 100);
+    void *ptr = maybe_grow(VOID_BUF, 100);
+    if (unlikely(!buf)) { PFATAL("alloc"); }
+    size_t size = maybe_grow_bufsize(VOID_BUF);
     assert_true(buf == ptr);
     assert_true(size >= 100);
-    ck_free(ptr);
+    maybe_grow_free(ptr);
 
 }
 
 static void test_nonpow2_size(void **state) {
     (void)state;
 
-    char *buf = ck_alloc(150);
-    size_t size = 150;
+    char *buf = create_fake_maybe_grow_of(150);
+
     buf[140] = '5';
-    char *ptr = ck_maybe_grow(BUF_PARAMS, 160);
+
+    char *ptr = maybe_grow(VOID_BUF, 160);
+    if (unlikely(!ptr)) { PFATAL("alloc"); }
+    size_t size = maybe_grow_bufsize(VOID_BUF);
     assert_ptr_equal(buf, ptr);
     assert_true(size >= 160);
     assert_true(buf[140] == '5');
-    ck_free(ptr);
+    maybe_grow_free(ptr);
 
 }
 
@@ -83,32 +106,37 @@ static void test_zero_size(void **state) {
 
     char *buf = NULL;
     size_t size = 0;
-    assert_non_null(maybe_grow(BUF_PARAMS, 0));
-    free(buf);
+    char *new_buf = maybe_grow(VOID_BUF, 0);
+    assert_non_null(new_buf);
+    assert_ptr_equal(buf, new_buf);
+    maybe_grow_free(buf);
     buf = NULL;
     size = 0;
 
-    char *ptr = ck_maybe_grow(BUF_PARAMS, 100);
+    char *ptr = maybe_grow(VOID_BUF, 100);
+    if (unlikely(!ptr)) { PFATAL("alloc"); }
+    size = maybe_grow_bufsize(VOID_BUF);
     assert_non_null(ptr);
     assert_ptr_equal(buf, ptr);
     assert_true(size >= 100);
 
-    expect_assert_failure(ck_maybe_grow(BUF_PARAMS, 0));
-
-    ck_free(ptr);
+    maybe_grow_free(ptr);
 
 }
+
 
 static void test_unchanged_size(void **state) {
     (void)state;
 
-    void *buf = ck_alloc(100);
-    size_t size = 100;
-    void *buf_before = buf;
-    void *buf_after = ck_maybe_grow(BUF_PARAMS, 100);
-    assert_ptr_equal(buf, buf_after);
+    // fake a realloc buf
+    void *actual_buf = create_fake_maybe_grow_of(100);
+
+    void *buf_before = actual_buf;
+    void *buf_after = maybe_grow(&actual_buf, 100);
+    if (unlikely(!buf_after)) { PFATAL("alloc"); }
+    assert_ptr_equal(actual_buf, buf_after);
     assert_ptr_equal(buf_after, buf_before);
-    ck_free(buf);
+    maybe_grow_free(buf_after);
 
 }
 
@@ -118,19 +146,25 @@ static void test_grow_multiple(void **state) {
     char *buf = NULL;
     size_t size = 0;
 
-    char *ptr = ck_maybe_grow(BUF_PARAMS, 100);
+    char *ptr = maybe_grow(VOID_BUF, 100);
+    if (unlikely(!ptr)) { PFATAL("alloc"); }
+    size = maybe_grow_bufsize(VOID_BUF);
     assert_ptr_equal(ptr, buf);
     assert_true(size >= 100);
     assert_int_equal(size, next_pow2(size));
     buf[50] = '5';
 
-    ptr = (char *)ck_maybe_grow(BUF_PARAMS, 1000);
+    ptr = (char *)maybe_grow(VOID_BUF, 1000);
+    if (unlikely(!ptr)) { PFATAL("alloc"); }
+    size = maybe_grow_bufsize(VOID_BUF);
     assert_ptr_equal(ptr, buf);
     assert_true(size >= 100);
     assert_int_equal(size, next_pow2(size));
     buf[500] = '5';
 
-    ptr = (char *)ck_maybe_grow(BUF_PARAMS, 10000);
+    ptr = (char *)maybe_grow(VOID_BUF, 10000);
+    if (unlikely(!ptr)) { PFATAL("alloc"); }
+    size = maybe_grow_bufsize(VOID_BUF);
     assert_ptr_equal(ptr, buf);
     assert_true(size >= 10000);
     assert_int_equal(size, next_pow2(size));
@@ -140,7 +174,7 @@ static void test_grow_multiple(void **state) {
     assert_int_equal(buf[500], '5');
     assert_int_equal(buf[5000], '5');
 
-    ck_free(buf);
+    maybe_grow_free(buf);
 
 }
 

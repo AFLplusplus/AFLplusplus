@@ -75,7 +75,6 @@ static u8 *buf2;
 
 static s32    in_len;
 static u32    map_size = MAP_SIZE;
-static size_t buf2_len;
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
@@ -272,7 +271,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
       setenv("QEMU_SET_ENV", buf, 1);
 
-      ck_free(buf);
+      maybe_grow_free(buf);
 
     } else {
 
@@ -343,7 +342,7 @@ static void usage(u8 *argv0) {
 
 }
 
-int recv_testcase(int s, void **buf, size_t *max_len) {
+int recv_testcase(int s, void **buf) {
 
   u32    size;
   s32    ret;
@@ -358,7 +357,8 @@ int recv_testcase(int s, void **buf, size_t *max_len) {
 
   if ((size & 0xff000000) != 0xff000000) {
 
-    *buf = ck_maybe_grow(buf, max_len, size);
+    *buf = maybe_grow(buf, size);
+    if (unlikely(!buf)) {PFATAL("Alloc");}
     received = 0;
     // fprintf(stderr, "unCOMPRESS (%u)\n", size);
     while (received < size &&
@@ -370,7 +370,8 @@ int recv_testcase(int s, void **buf, size_t *max_len) {
 #ifdef USE_DEFLATE
     u32 clen;
     size -= 0xff000000;
-    *buf = ck_maybe_grow(buf, max_len, size);
+    *buf = maybe_grow(buf, size);
+    if (unlikely(!buf)) {PFATAL("Alloc");}
     received = 0;
     while (received < 4 &&
            (ret = recv(s, &clen + received, 4 - received, 0)) > 0)
@@ -379,14 +380,15 @@ int recv_testcase(int s, void **buf, size_t *max_len) {
     // fprintf(stderr, "received clen information of %d\n", clen);
     if (clen < 1)
       FATAL("did not receive valid compressed len information: %u", clen);
-    buf2 = ck_maybe_grow((void **)&buf2, &buf2_len, clen);
+    buf2 = maybe_grow((void **)&buf2, clen);
+    if (unlikely(!buf2)) {PFATAL("Alloc");}
     received = 0;
     while (received < clen &&
            (ret = recv(s, buf2 + received, clen - received, 0)) > 0)
       received += ret;
     if (received != clen) FATAL("did not receive compressed information");
     if (libdeflate_deflate_decompress(decompressor, buf2, clen, (char *)*buf,
-                                      *max_len,
+                                      size,
                                       &received) != LIBDEFLATE_SUCCESS)
       FATAL("decompression failed");
       // fprintf(stderr, "DECOMPRESS (%u->%u):\n", clen, received);
@@ -413,7 +415,6 @@ int recv_testcase(int s, void **buf, size_t *max_len) {
 int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt, s, sock, on = 1, port = -1;
-  size_t max_len = 0;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   char **use_argv;
   struct sockaddr_in6 serveraddr, clientaddr;
@@ -568,7 +569,8 @@ int main(int argc, char **argv_orig, char **envp) {
   sharedmem_t shm = {0};
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
-  in_data = ck_maybe_grow((void **)&in_data, &max_len, 65536);
+  in_data = maybe_grow((void **)&in_data, 65536);
+  if (unlikely(!in_data)) {PFATAL("Alloc");}
 
   atexit(at_exit_handler);
   setup_signal_handlers();
@@ -639,7 +641,8 @@ int main(int argc, char **argv_orig, char **envp) {
 #ifdef USE_DEFLATE
   compressor = libdeflate_alloc_compressor(1);
   decompressor = libdeflate_alloc_decompressor();
-  buf2 = ck_maybe_grow((void **)&buf2, &buf2_len, map_size + 16);
+  buf2 = maybe_grow((void **)&buf2, map_size + 16);
+  if (unlikely(!buf2)) { PFATAL("alloc"); }
   lenptr = (u32 *)(buf2 + 4);
   fprintf(stderr, "Compiled with compression support\n");
 #endif
@@ -664,7 +667,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
 #endif
 
-  while ((in_len = recv_testcase(s, (void **)&in_data, &max_len)) > 0) {
+  while ((in_len = recv_testcase(s, (void **)&in_data)) > 0) {
 
     // fprintf(stderr, "received %u\n", in_len);
     (void)run_target(fsrv, use_argv, in_data, in_len, 1);
@@ -697,14 +700,15 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_shm_deinit(&shm);
   afl_fsrv_deinit(fsrv);
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
-  if (in_data) { ck_free(in_data); }
+  maybe_grow_free(in_data);
 #if USE_DEFLATE
-  if (buf2) { ck_free(buf2); }
+  maybe_grow_free(buf2);
   libdeflate_free_compressor(compressor);
   libdeflate_free_decompressor(decompressor);
 #endif
 
   argv_cpy_free(argv);
+
 
   exit(0);
 

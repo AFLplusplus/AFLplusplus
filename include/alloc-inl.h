@@ -30,12 +30,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 
 #include "config.h"
 #include "types.h"
 #include "debug.h"
 
-/* Initial size used for ck_maybe_grow */
+/* Initial size used for maybe_grow */
 #define INITIAL_GROWTH_SIZE (64)
 
 // Be careful! _WANT_ORIGINAL_AFL_ALLOC is not compatible with custom mutators
@@ -673,6 +674,25 @@ static inline size_t next_pow2(size_t in) {
 
 }
 
+/* Returs the current size of this allocated chunk (without the size_t needed to store this info
+  The size will be >= to the last size_needed passed to maybe_grow */
+static inline size_t maybe_grow_bufsize(void **buf) {
+
+  if (!buf) { return 0; }
+  // The size is stored one size_t to the left of the ptr given to the user
+  return ((size_t *)*buf)[-1];
+
+}
+
+struct maybe_grow_buf {
+
+  size_t size;
+  u8 buf[0];
+
+};
+
+#define SIZE_OFFSET offsetof(struct maybe_grow_buf, buf)
+
 /* This function makes sure *size is > size_needed after call.
  It will realloc *buf otherwise.
  *size will grow exponentially as per:
@@ -680,10 +700,23 @@ static inline size_t next_pow2(size_t in) {
  Will return NULL and free *buf if size_needed is <1 or realloc failed.
  @return For convenience, this function returns *buf.
  */
-static inline void *maybe_grow(void **buf, size_t *size, size_t size_needed) {
+static inline void *maybe_grow(void **buf, size_t size_needed) {
+
+  size_t size = 0;
+  struct maybe_grow_buf *new_buf = NULL;
+
+  if (likely(*buf)) {
+
+    /* the size is always stored at buf - 1*size_t */
+    new_buf = (struct maybe_grow_buf *) (((u8 *)*buf) - SIZE_OFFSET);
+    size = new_buf->size;
+
+  }
+
+  size_needed += SIZE_OFFSET;
 
   /* No need to realloc */
-  if (likely(size_needed && *size >= size_needed)) { return *buf; }
+  if (likely(size >= size_needed)) { return *buf; }
 
   /* No initial size was set */
   if (size_needed < INITIAL_GROWTH_SIZE) { size_needed = INITIAL_GROWTH_SIZE; }
@@ -695,56 +728,37 @@ static inline void *maybe_grow(void **buf, size_t *size, size_t size_needed) {
   if (!next_size) { next_size = size_needed; }
 
   /* alloc */
-  *buf = realloc(*buf, next_size);
-  *size = *buf ? next_size : 0;
+  new_buf = realloc(new_buf, next_size);
+  if (unlikely(!new_buf)) { 
+    *buf = NULL;
+    return NULL; }
 
+  new_buf->size = next_size;
+  *buf = (void *)(new_buf->buf);
   return *buf;
 
 }
 
-/* This function makes sure *size is > size_needed after call.
- It will realloc *buf otherwise.
- *size will grow exponentially as per:
- https://blog.mozilla.org/nnethercote/2014/11/04/please-grow-your-buffers-exponentially/
- Will FATAL if size_needed is <1.
- @return For convenience, this function returns *buf.
- */
-static inline void *ck_maybe_grow(void **buf, size_t *size,
-                                  size_t size_needed) {
+static inline void maybe_grow_free(void *buf) {
+  
+  if (buf) {
 
-  /* Oops. found a bug? */
-  if (unlikely(size_needed < 1)) { FATAL("cannot grow to non-positive size"); }
+    void *buf_container = (((u8 *)buf) - SIZE_OFFSET);
+    free(buf_container);
 
-  /* No need to realloc */
-  if (likely(*size >= size_needed)) { return *buf; }
-
-  /* No initial size was set */
-  if (size_needed < INITIAL_GROWTH_SIZE) { size_needed = INITIAL_GROWTH_SIZE; }
-
-  /* grow exponentially */
-  size_t next_size = next_pow2(size_needed);
-
-  /* handle overflow */
-  if (!next_size) { next_size = size_needed; }
-
-  /* alloc */
-  *buf = ck_realloc(*buf, next_size);
-  *size = next_size;
-
-  return *buf;
+  }
 
 }
+
+#undef SIZE_OFFSET
+
 
 /* Swaps buf1 ptr and buf2 ptr, as well as their sizes */
-static inline void swap_bufs(void **buf1, size_t *size1, void **buf2,
-                             size_t *size2) {
+static inline void swap_bufs(void **buf1, void **buf2) {
 
   void * scratch_buf = *buf1;
-  size_t scratch_size = *size1;
   *buf1 = *buf2;
-  *size1 = *size2;
   *buf2 = scratch_buf;
-  *size2 = scratch_size;
 
 }
 
