@@ -458,7 +458,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  u32 tmp_val = 0;
+  u32 tmp_val = 0, taint_finds, taint_execs;
+
   if (unlikely(afl->taint_mode)) {
 
     tmp_val = afl->queue_cycle % 2;  // starts with 1
@@ -476,6 +477,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
       ret_val = 1;
       afl->taint_needs_splode = 1;
+      taint_finds = afl->queued_paths + afl->unique_crashes;
+      taint_execs = afl->fsrv.total_execs;
 
     }
 
@@ -773,8 +776,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
 
-  if (likely(afl->queue_cur->passed_det) || likely(afl->skip_deterministic) ||
-      likely(perf_score <
+  if (likely(afl->queue_cur->passed_det) || likely(!afl->taint_needs_splode && afl->skip_deterministic) ||
+      likely(!afl->taint_needs_splode && perf_score <
              (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
                   ? afl->queue_cur->depth * 30
                   : afl->havoc_max_mult * 100))) {
@@ -2806,6 +2809,14 @@ retry_splicing:
 abandon_entry:
 
   afl->splicing_with = -1;
+
+  if (afl->taint_needs_splode) {
+
+    afl->stage_finds[STAGE_PYTHON] += (afl->queued_paths + afl->unique_crashes - taint_finds);
+    afl->stage_cycles[STAGE_PYTHON] += (afl->fsrv.total_execs - taint_execs);
+    afl->stage_cycles[STAGE_CUSTOM_MUTATOR]++;
+  
+  }
 
   /* Update afl->pending_not_fuzzed count if we made it through the calibration
      cycle and have not seen this entry before. */
