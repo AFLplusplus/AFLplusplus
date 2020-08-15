@@ -35,6 +35,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - skipping ctors and ifuncs for instrumentation
      - LTO: switch default to the dynamic memory map, set AFL_LLVM_MAP_ADDR
             for a fixed map address (eg. 0x10000)
+     - LTO: improved stability for persistent mode, no other instrumentation
+            has that advantage
      - LTO: laf-intel and redqueen/cmplog are now applied at link time
             to prevent llvm optimizing away the splits
      - LTO: autodictionary mode is a default
