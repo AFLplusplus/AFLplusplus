@@ -862,6 +862,12 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 abort_trimming:
 
   afl->bytes_trim_out += q->len;
+  if (unlikely(afl->taint_mode)) {
+    if (q->taint_bytes_all > q->len) q->taint_bytes_all = q->len;
+    if (q->taint_bytes_new > q->len) afl->taint_len = q->taint_bytes_new = q->len;
+    if (q->taint_bytes_highest > q->len) q->taint_bytes_highest = q->len;
+    afl->taint_len = q->len;
+  }
   return fault;
 
 }

@@ -678,7 +678,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * CALIBRATION (only if failed earlier on) *
    *******************************************/
 
-  if (unlikely(afl->queue_cur->cal_failed)) {
+  if (unlikely(afl->queue_cur->cal_failed && !afl->taint_needs_splode)) {
 
     u8 res = FSRV_RUN_TMOUT;
 
@@ -740,6 +740,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
+//fprintf(stderr, "%p[%u] %p[%u] %u (%p %p)\n", out_buf, afl->out_size, in_buf, afl->in_size, len, afl->out_buf, afl->in_buf);
   memcpy(out_buf, in_buf, len);
 
   /*********************
@@ -750,9 +751,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (unlikely(perf_score == 0)) { goto abandon_entry; }
 
-  if (afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized) {
+  if (unlikely(afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized && !afl->taint_needs_splode)) {
 
     int res;
+/*
     if (unlikely(afl->taint_needs_splode)) {
 
       len = afl->queue_cur->len;
@@ -764,12 +766,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
       res = 1;
 
     } else {
-
+*/
       res = input_to_state_stage(afl, in_buf, out_buf, len,
                                  afl->queue_cur->exec_cksum);
-
+/*
     }
-
+*/
     if (unlikely(res)) { goto abandon_entry; }
 
   }
@@ -2299,7 +2301,7 @@ havoc_stage:
           out_buf[rand_below(afl, temp_len)] ^= 1 + rand_below(afl, 255);
           break;
 
-        case 11 ... 12: {
+        case 11: {
 
           /* Delete bytes. We're making this a bit more likely
              than insertion (the next option) in hopes of keeping
@@ -2324,7 +2326,7 @@ havoc_stage:
 
         }
 
-        case 13:
+        case 12 ... 13:
 
           if (temp_len + HAVOC_BLK_XL < MAX_FILE) {
 
@@ -2435,7 +2437,7 @@ havoc_stage:
 
                   u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
                                               copy_to + copy_len);
-                  memcpy(new_buf, in_buf, copy_to);
+                  memcpy(new_buf, out_buf, copy_to);
                   memcpy(new_buf + copy_to, afl->taint_src + copy_from,
                          copy_len);
                   swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
