@@ -107,6 +107,10 @@ struct cmp_map *__afl_cmp_map;
 
 static u8 is_persistent;
 
+/* Are we in sancov mode? */
+
+static u8 _is_sancov;
+
 /* Error reporting to forkserver controller */
 
 void send_forkserver_error(int error) {
@@ -190,19 +194,10 @@ static void __afl_map_shm(void) {
 
   if (__afl_final_loc) {
 
-    if (__afl_area_ptr && __afl_final_loc &&
-        __afl_final_loc > MAP_INITIAL_SIZE &&
-        __afl_area_ptr != __afl_area_initial) {
-
-      munmap(__afl_area_ptr, __afl_final_loc);
-      __afl_area_ptr = __afl_area_initial;
-
-    }
-
     if (__afl_final_loc % 8)
       __afl_final_loc = (((__afl_final_loc + 7) >> 3) << 3);
-
     __afl_map_size = __afl_final_loc;
+
     if (__afl_final_loc > MAP_SIZE) {
 
       char *ptr;
@@ -212,10 +207,12 @@ static void __afl_map_shm(void) {
 
         if (__afl_final_loc > FS_OPT_MAX_MAPSIZE) {
 
-          fprintf(stderr,
-                  "Error: AFL++ tools *require* to set AFL_MAP_SIZE to %u to "
-                  "be able to run this instrumented program!\n",
-                  __afl_final_loc);
+          if (!getenv("AFL_QUIET"))
+            fprintf(stderr,
+                    "Error: AFL++ tools *require* to set AFL_MAP_SIZE to %u "
+                    "to be able to run this instrumented program!\n",
+                    __afl_final_loc);
+
           if (id_str) {
 
             send_forkserver_error(FS_ERROR_MAP_SIZE);
@@ -225,10 +222,11 @@ static void __afl_map_shm(void) {
 
         } else {
 
-          fprintf(stderr,
-                  "Warning: AFL++ tools will need to set AFL_MAP_SIZE to %u to "
-                  "be able to run this instrumented program!\n",
-                  __afl_final_loc);
+          if (!getenv("AFL_QUIET"))
+            fprintf(stderr,
+                    "Warning: AFL++ tools will need to set AFL_MAP_SIZE to %u "
+                    "to be able to run this instrumented program!\n",
+                    __afl_final_loc);
 
         }
 
@@ -250,6 +248,13 @@ static void __afl_map_shm(void) {
             __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
 
   if (id_str) {
+
+    if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial) {
+
+      free(__afl_area_ptr);
+      __afl_area_ptr = __afl_area_initial;
+
+    }
 
 #ifdef USEMMAP
     const char *   shm_file_path = id_str;
@@ -331,6 +336,14 @@ static void __afl_map_shm(void) {
       exit(1);
 
     }
+
+  } else if (_is_sancov && __afl_area_ptr != __afl_area_initial) {
+
+    free(__afl_area_ptr);
+    __afl_area_ptr = NULL;
+    if (__afl_final_loc > MAP_INITIAL_SIZE)
+      __afl_area_ptr = malloc(__afl_final_loc);
+    if (!__afl_area_ptr) __afl_area_ptr = __afl_area_initial;
 
   }
 
@@ -904,8 +917,7 @@ __attribute__((constructor(0))) void __afl_auto_first(void) {
   u8 *ptr;
   u32 get_size = __afl_final_loc ? __afl_final_loc : 1024000;
 
-  ptr = (u8 *)mmap(NULL, __afl_final_loc, PROT_READ | PROT_WRITE, MAP_PRIVATE,
-                   -1, 0);
+  ptr = (u8 *)malloc(get_size);
   if (ptr && (ssize_t)ptr != -1) { __afl_area_ptr = ptr; }
 
 }
@@ -973,6 +985,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   u32   inst_ratio = 100;
   char *x;
+
+  _is_sancov = 1;
 
   if (getenv("AFL_DEBUG")) {
 
