@@ -526,8 +526,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * TRIMMING *
    ************/
 
-  if (!afl->non_instrumented_mode && !afl->queue_cur->trim_done &&
-      !afl->disable_trim) {
+  if (unlikely(!afl->non_instrumented_mode && !afl->queue_cur->trim_done &&
+               !afl->disable_trim)) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
@@ -562,7 +562,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (unlikely(perf_score == 0)) { goto abandon_entry; }
 
-  if (afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized) {
+  if (unlikely(afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized)) {
 
     if (input_to_state_stage(afl, in_buf, out_buf, len,
                              afl->queue_cur->exec_cksum)) {
@@ -591,8 +591,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
      for this main instance. */
 
-  if (afl->main_node_max && (afl->queue_cur->exec_cksum % afl->main_node_max) !=
-                                afl->main_node_id - 1) {
+  if (unlikely(afl->main_node_max &&
+               (afl->queue_cur->exec_cksum % afl->main_node_max) !=
+                   afl->main_node_id - 1)) {
 
     goto custom_mutator_stage;
 
@@ -2753,7 +2754,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
-  if (afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized) {
+  if (unlikely(afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized)) {
 
     if (input_to_state_stage(afl, in_buf, out_buf, len,
                              afl->queue_cur->exec_cksum)) {
