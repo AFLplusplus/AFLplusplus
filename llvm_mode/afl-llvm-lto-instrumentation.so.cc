@@ -103,6 +103,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
   std::vector<std::string>         dictionary;
   std::vector<CallInst *>          calls;
   DenseMap<Value *, std::string *> valueMap;
+  std::vector<BasicBlock *>        BlockList;
   char *                           ptr;
   FILE *                           documentFile = NULL;
 
@@ -309,6 +310,24 @@ bool AFLLTOPass::runOnModule(Module &M) {
             isStrcasecmp &= !FuncName.compare("strcasecmp");
             isStrncasecmp &= !FuncName.compare("strncasecmp");
             isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
+
+            /* we do something different here, putting this BB and the
+               successors in a block map */
+            if (!FuncName.compare("__afl_persistent_loop")) {
+
+              BlockList.push_back(&BB);
+              /*
+                            for (succ_iterator SI = succ_begin(&BB), SE =
+                 succ_end(&BB); SI != SE; ++SI) {
+
+                              BasicBlock *succ = *SI;
+                              BlockList.push_back(succ);
+
+                            }
+
+              */
+
+            }
 
             if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
                 !isStrncasecmp && !isIntMemcpy)
@@ -602,6 +621,28 @@ bool AFLLTOPass::runOnModule(Module &M) {
         Instruction *             TI = origBB->getTerminator();
         uint32_t                  fs = origBB->getParent()->size();
         uint32_t                  countto;
+
+        if (BlockList.size()) {
+
+          int skip = 0;
+          for (uint32_t k = 0; k < BlockList.size(); k++) {
+
+            if (origBB == BlockList[k]) {
+
+              if (debug)
+                fprintf(
+                    stderr,
+                    "DEBUG: Function %s skipping BB with/after __afl_loop\n",
+                    F.getName().str().c_str());
+              skip = 1;
+
+            }
+
+          }
+
+          if (skip) continue;
+
+        }
 
         for (succ_iterator SI = succ_begin(origBB), SE = succ_end(origBB);
              SI != SE; ++SI) {
