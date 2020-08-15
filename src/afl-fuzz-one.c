@@ -95,7 +95,7 @@ static u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
     default:
 
-      if (rand_below(afl, 10)) {
+      if (likely(rand_below(afl, 10))) {
 
         min_value = HAVOC_BLK_MEDIUM;
         max_value = HAVOC_BLK_LARGE;
@@ -421,7 +421,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (((afl->queue_cur->was_fuzzed > 0 || afl->queue_cur->fuzz_level > 0) ||
          !afl->queue_cur->favored) &&
-        rand_below(afl, 100) < SKIP_TO_NEW_PROB) {
+        likely(rand_below(afl, 100) < SKIP_TO_NEW_PROB)) {
 
       return 1;
 
@@ -438,11 +438,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     if (afl->queue_cycle > 1 &&
         (afl->queue_cur->fuzz_level == 0 || afl->queue_cur->was_fuzzed)) {
 
-      if (rand_below(afl, 100) < SKIP_NFAV_NEW_PROB) { return 1; }
+      if (likely(rand_below(afl, 100) < SKIP_NFAV_NEW_PROB)) { return 1; }
 
     } else {
 
-      if (rand_below(afl, 100) < SKIP_NFAV_OLD_PROB) { return 1; }
+      if (likely(rand_below(afl, 100) < SKIP_NFAV_OLD_PROB)) { return 1; }
 
     }
 
@@ -2132,7 +2132,7 @@ havoc_stage:
             u32 clone_from, clone_to, clone_len;
             u8 *new_buf;
 
-            if (actually_clone) {
+            if (likely(actually_clone)) {
 
               clone_len = choose_block_len(afl, temp_len);
               clone_from = rand_below(afl, temp_len - clone_len + 1);
@@ -2155,7 +2155,7 @@ havoc_stage:
 
             /* Inserted part */
 
-            if (actually_clone) {
+            if (likely(actually_clone)) {
 
               memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
 
@@ -2195,7 +2195,7 @@ havoc_stage:
           copy_from = rand_below(afl, temp_len - copy_len + 1);
           copy_to = rand_below(afl, temp_len - copy_len + 1);
 
-          if (rand_below(afl, 4)) {
+          if (likely(rand_below(afl, 4))) {
 
             if (copy_from != copy_to) {
 
