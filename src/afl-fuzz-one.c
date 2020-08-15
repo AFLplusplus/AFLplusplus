@@ -2638,8 +2638,12 @@ havoc_stage:
               memcpy(temp_buf + clone_to, new_buf + clone_from, clone_len);
 
               /* Tail */
-              memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
-                     temp_len - clone_to);
+              if (unlikely(afl->taint_needs_splode))
+                memmove(temp_buf + clone_to + clone_len, out_buf + clone_to,
+                       temp_len - clone_to);
+              else
+                memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
+                       temp_len - clone_to);
 
               swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
               out_buf = temp_buf;
@@ -2814,7 +2818,7 @@ abandon_entry:
 
     afl->stage_finds[STAGE_PYTHON] += (afl->queued_paths + afl->unique_crashes - taint_finds);
     afl->stage_cycles[STAGE_PYTHON] += (afl->fsrv.total_execs - taint_execs);
-    afl->stage_cycles[STAGE_CUSTOM_MUTATOR]++;
+    afl->stage_finds[STAGE_CUSTOM_MUTATOR]++;
   
   }
 

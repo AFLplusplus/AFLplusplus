@@ -248,6 +248,7 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
                   ck_write(w, tmp, plen, fnw);
                   close(w);
                   afl->taint_count++;
+                  afl->stage_cycles[STAGE_CUSTOM_MUTATOR]++;
 
                 } else {
 
