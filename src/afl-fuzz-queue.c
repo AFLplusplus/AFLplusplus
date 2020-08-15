@@ -157,10 +157,10 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
     }
 
-    if (((bytes * 100) / len) > 85) bytes = len;
+    // if (((bytes * 100) / len) > 85) bytes = len;
 
     // if all is tainted we do not need to write taint data away
-    if (bytes && bytes < len) {
+    if (bytes) {
 
       // save the bytes away
       int w = open(q->fname_taint, O_CREAT | O_WRONLY, 0644);
@@ -175,7 +175,7 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
           i--;
         q->taint_bytes_highest = i;
 
-        afl->taint_count++;
+        // afl->taint_count++;
 
       } else {
 
@@ -214,6 +214,29 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
               fprintf(stderr, "Debug: %u new taint out of %u bytes\n", bytes,
                       len);
 
+            switch (q->taint_bytes_new) {
+
+              case 0:
+                break;
+              case 1:
+                if (len <= 64) q->taint_bytes_new = 0;
+                break;
+              case 2:
+                if (len <= 32) q->taint_bytes_new = 0;
+                break;
+              case 3:
+                if (len <= 16) q->taint_bytes_new = 0;
+                break;
+              case 4:
+                if (len <= 8) q->taint_bytes_new = 0;
+                break;
+              default:
+                if (((q->taint_bytes_new * 100) / len) >= 50)
+                  q->taint_bytes_new = 0;
+                break;
+
+            }
+
             if (q->taint_bytes_new) {
 
               u8 *fnw = alloc_printf("%s.new", q->fname_taint);
@@ -224,10 +247,43 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
                   ck_write(w, tmp, plen, fnw);
                   close(w);
+                  afl->taint_count++;
 
                 } else {
 
                   FATAL("count not create '%s'", fnw);
+                  q->taint_bytes_new = 0;
+
+                }
+
+                u8 *fnwdata = alloc_printf("%s.new.data", fnw);
+                if (fnwdata) {
+
+                  u8 *data = ck_maybe_grow(BUF_PARAMS(out_scratch), plen);
+                  if ((ssize_t)data == -1) FATAL("maybegrow failed");
+
+                  u32 j = 0;
+                  for (i = 0; i < len && j < q->taint_bytes_new; i++)
+                    if (tmp[i] == '!') data[j++] = mem[i];
+                  memset(data + q->taint_bytes_new, 0, 4);
+
+                  int w = open(fnwdata, O_CREAT | O_WRONLY, 0644);
+                  if (w >= 0) {
+
+                    ck_write(w, data, q->taint_bytes_new + 4, fnw);
+                    close(w);
+
+                  } else {
+
+                    FATAL("count not create '%s'", fnwdata);
+                    q->taint_bytes_new = 0;
+
+                  }
+
+                  ck_free(fnwdata);
+
+                } else {
+
                   q->taint_bytes_new = 0;
 
                 }
