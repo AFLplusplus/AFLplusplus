@@ -12,6 +12,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++2.66d (devel)
   - Support for improved afl++ snapshot module:
     https://github.com/AFLplusplus/AFL-Snapshot-LKM
+  - Due to the instrumentation needing more memory, the initial memory sizes
+    for -m have been increased
   - afl-fuzz:
      - added -F option to allow -M main fuzzers to sync to foreign fuzzers,
        e.g. honggfuzz or libfuzzer
