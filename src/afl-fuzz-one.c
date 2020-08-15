@@ -490,11 +490,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
     temp_len = len = afl->queue_cur->len;
     // s32 j = 0;  // tmp
 
-    //if (afl->queue_cur->len < 4) len = 4;
-    //else len = afl->queue_cur->len;
+    // if (afl->queue_cur->len < 4) len = 4;
+    // else len = afl->queue_cur->len;
 
     fd = open(afl->queue_cur->fname, O_RDONLY);
-    afl->taint_src = mmap(0, len < 4 ? 4 : len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    afl->taint_src =
+        mmap(0, len < 4 ? 4 : len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     if (fd < 0 || (ssize_t)afl->taint_src == -1)
       FATAL("unable to open '%s'", afl->queue_cur->fname);
     close(fd);
@@ -580,15 +581,16 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     u8 *fndata = alloc_printf("%s.data", fn);
     fd = open(fndata, O_RDONLY);
-/*
-    if (fd < 0) {
+    /*
+        if (fd < 0) {
 
-      ck_free(fn);
-      afl->queue_cur->taint_bytes_new = 0;
-      goto abandon_entry;
+          ck_free(fn);
+          afl->queue_cur->taint_bytes_new = 0;
+          goto abandon_entry;
 
-    }
-*/
+        }
+
+    */
     temp_len = len = afl->taint_len = afl->queue_cur->taint_bytes_new;
     orig_in = in_buf =
         mmap(0, len + 4, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
@@ -646,10 +648,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     len = afl->queue_cur->len;
 
-    //if (afl->queue_cur->len < 4) len = 4;
-    //else len = afl->queue_cur->len;
+    // if (afl->queue_cur->len < 4) len = 4;
+    // else len = afl->queue_cur->len;
 
-    orig_in = in_buf = mmap(0, len < 4 ? 4 : len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    orig_in = in_buf =
+        mmap(0, len < 4 ? 4 : len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 
     if (unlikely(orig_in == MAP_FAILED)) {
 
@@ -776,11 +779,13 @@ u8 fuzz_one_original(afl_state_t *afl) {
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
 
-  if (likely(afl->queue_cur->passed_det) || likely(!afl->taint_needs_splode && afl->skip_deterministic) ||
-      likely(!afl->taint_needs_splode && perf_score <
-             (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
-                  ? afl->queue_cur->depth * 30
-                  : afl->havoc_max_mult * 100))) {
+  if (likely(afl->queue_cur->passed_det) ||
+      likely(!afl->taint_needs_splode && afl->skip_deterministic) ||
+      likely(!afl->taint_needs_splode &&
+             perf_score <
+                 (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
+                      ? afl->queue_cur->depth * 30
+                      : afl->havoc_max_mult * 100))) {
 
     goto custom_mutator_stage;
 
@@ -2640,7 +2645,7 @@ havoc_stage:
               /* Tail */
               if (unlikely(afl->taint_needs_splode))
                 memmove(temp_buf + clone_to + clone_len, out_buf + clone_to,
-                       temp_len - clone_to);
+                        temp_len - clone_to);
               else
                 memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
                        temp_len - clone_to);
@@ -2816,10 +2821,11 @@ abandon_entry:
 
   if (afl->taint_needs_splode) {
 
-    afl->stage_finds[STAGE_PYTHON] += (afl->queued_paths + afl->unique_crashes - taint_finds);
+    afl->stage_finds[STAGE_PYTHON] +=
+        (afl->queued_paths + afl->unique_crashes - taint_finds);
     afl->stage_cycles[STAGE_PYTHON] += (afl->fsrv.total_execs - taint_execs);
     afl->stage_finds[STAGE_CUSTOM_MUTATOR]++;
-  
+
   }
 
   /* Update afl->pending_not_fuzzed count if we made it through the calibration
