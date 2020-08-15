@@ -256,7 +256,7 @@ void perform_taint_run(afl_state_t *afl, struct queue_entry *q, u8 *fname,
 
                 }
 
-                u8 *fnwdata = alloc_printf("%s.new.data", fnw);
+                u8 *fnwdata = alloc_printf("%s.data", fnw);
                 if (fnwdata) {
 
                   u8 *data = ck_maybe_grow(BUF_PARAMS(out_scratch), plen);
