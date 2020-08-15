@@ -109,7 +109,6 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 int                   __afl_sharedmem_fuzzing = 1;
 extern unsigned int * __afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
-// extern struct cmp_map *__afl_cmp_map;
 
 // libFuzzer interface is thin, so we don't include any libFuzzer headers.
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);

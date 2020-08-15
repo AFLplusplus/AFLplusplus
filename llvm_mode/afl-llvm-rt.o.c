@@ -902,15 +902,11 @@ __attribute__((constructor(0))) void __afl_auto_first(void) {
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
   u8 *ptr;
+  u32 get_size = __afl_final_loc ? __afl_final_loc : 1024000;
 
-  if (__afl_final_loc > MAP_INITIAL_SIZE) {
-
-    ptr = (u8 *)mmap(NULL, __afl_final_loc, PROT_READ | PROT_WRITE, MAP_PRIVATE,
-                     -1, 0);
-
-    if (ptr && (ssize_t)ptr != -1) { __afl_area_ptr = ptr; }
-
-  }
+  ptr = (u8 *)mmap(NULL, __afl_final_loc, PROT_READ | PROT_WRITE, MAP_PRIVATE,
+                   -1, 0);
+  if (ptr && (ssize_t)ptr != -1) { __afl_area_ptr = ptr; }
 
 }
 
