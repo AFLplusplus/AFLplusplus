@@ -595,6 +595,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     ck_free(fndata);
     ck_free(fn);
+    afl->taint_runs++;
 
     // FIXME DEBUG TODO XXX
     /*
