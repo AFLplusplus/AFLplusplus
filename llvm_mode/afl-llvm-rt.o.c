@@ -242,16 +242,21 @@ static void __afl_map_shm(void) {
 
   if (getenv("AFL_DEBUG"))
     fprintf(stderr,
-            "DEBUG: id_str %s, __afl_map_addr 0x%llx, MAP_SIZE %u, "
-            "__afl_final_loc %u, max_size_forkserver %u/0x%x\n",
-            id_str == NULL ? "<null>" : id_str, __afl_map_addr, MAP_SIZE,
-            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+            "DEBUG: id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
+            "__afl_map_addr 0x%llx, MAP_SIZE %u, __afl_final_loc %u, "
+            "max_size_forkserver %u/0x%x\n",
+            id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
+            __afl_area_initial, __afl_map_addr, MAP_SIZE, __afl_final_loc,
+            FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
 
   if (id_str) {
 
     if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial) {
 
-      free(__afl_area_ptr);
+      if (__afl_map_addr)
+        munmap((void *)__afl_map_addr, __afl_final_loc);
+      else
+        free(__afl_area_ptr);
       __afl_area_ptr = __afl_area_initial;
 
     }
@@ -324,11 +329,13 @@ static void __afl_map_shm(void) {
 
     __afl_area_ptr[0] = 1;
 
-  } else if (__afl_map_addr) {
+  } else if (__afl_map_addr &&
+             (!__afl_area_ptr || __afl_area_ptr == __afl_area_initial)) {
 
     __afl_area_ptr =
         mmap((void *)__afl_map_addr, __afl_map_size, PROT_READ | PROT_WRITE,
              MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
     if (__afl_area_ptr == MAP_FAILED) {
 
       fprintf(stderr, "can not aquire mmap for address %p\n",
@@ -901,24 +908,50 @@ __attribute__((constructor())) void __afl_auto_init(void) {
 
 __attribute__((constructor(CTOR_PRIO))) void __afl_auto_early(void) {
 
-  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
-
   is_persistent = !!getenv(PERSIST_ENV_VAR);
+
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
 
   __afl_map_shm();
 
 }
 
-/* preset __afl_area_ptr */
+/* preset __afl_area_ptr #2 */
+
+__attribute__((constructor(1))) void __afl_auto_second(void) {
+
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
+  u8 *ptr;
+
+  if (__afl_final_loc) {
+
+    if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial)
+      free(__afl_area_ptr);
+
+    if (__afl_map_addr)
+      ptr = (u8 *)mmap((void *)__afl_map_addr, __afl_final_loc,
+                       PROT_READ | PROT_WRITE,
+                       MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    else
+      ptr = (u8 *)malloc(__afl_final_loc);
+
+    if (ptr && (ssize_t)ptr != -1) __afl_area_ptr = ptr;
+
+  }
+
+}
+
+/* preset __afl_area_ptr #1 - at constructor level 0 global variables have
+   not been set */
 
 __attribute__((constructor(0))) void __afl_auto_first(void) {
 
   if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
   u8 *ptr;
-  u32 get_size = __afl_final_loc ? __afl_final_loc : 1024000;
 
-  ptr = (u8 *)malloc(get_size);
-  if (ptr && (ssize_t)ptr != -1) { __afl_area_ptr = ptr; }
+  ptr = (u8 *)malloc(1024000);
+
+  if (ptr && (ssize_t)ptr != -1) __afl_area_ptr = ptr;
 
 }
 
