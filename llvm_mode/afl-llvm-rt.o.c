@@ -329,8 +329,9 @@ static void __afl_map_shm(void) {
 
     __afl_area_ptr[0] = 1;
 
-  } else if (__afl_map_addr &&
-             (!__afl_area_ptr || __afl_area_ptr == __afl_area_initial)) {
+  } else if ((!__afl_area_ptr || __afl_area_ptr == __afl_area_initial) &&
+
+             __afl_map_addr) {
 
     __afl_area_ptr =
         mmap((void *)__afl_map_addr, __afl_map_size, PROT_READ | PROT_WRITE,
