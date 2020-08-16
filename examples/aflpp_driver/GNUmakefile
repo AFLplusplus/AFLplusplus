@@ -16,6 +16,7 @@ aflpp_driver.o:	aflpp_driver.c
 
 libAFLDriver.a:	aflpp_driver.o
 	ar ru libAFLDriver.a aflpp_driver.o
+	cp -vf libAFLDriver.a ../../
 
 debug:
 	$(LLVM_BINDIR)clang -Wno-deprecated -I../../include $(CFLAGS) -D_DEBUG=\"1\" -c -o afl-performance.o ../../src/afl-performance.c
@@ -29,6 +30,7 @@ aflpp_qemu_driver.o:	aflpp_qemu_driver.c
 
 libAFLQemuDriver.a:	aflpp_qemu_driver.o
 	ar ru libAFLQemuDriver.a aflpp_qemu_driver.o
+	cp -vf libAFLQemuDriver.a ../../
 
 aflpp_qemu_driver_hook.so:	aflpp_qemu_driver_hook.o
 	$(LLVM_BINDIR)clang -shared aflpp_qemu_driver_hook.o -o aflpp_qemu_driver_hook.so
