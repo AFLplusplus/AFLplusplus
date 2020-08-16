@@ -37,6 +37,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
             for a fixed map address (eg. 0x10000)
      - LTO: improved stability for persistent mode, no other instrumentation
             has that advantage
+     - LTO: fixed autodict for long strings
      - LTO: laf-intel and redqueen/cmplog are now applied at link time
             to prevent llvm optimizing away the splits
      - LTO: autodictionary mode is a default

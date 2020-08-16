@@ -291,14 +291,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           if ((callInst = dyn_cast<CallInst>(&IN))) {
 
-            bool    isStrcmp = true;
-            bool    isMemcmp = true;
-            bool    isStrncmp = true;
-            bool    isStrcasecmp = true;
-            bool    isStrncasecmp = true;
-            bool    isIntMemcpy = true;
-            bool    addedNull = false;
-            uint8_t optLen = 0;
+            bool   isStrcmp = true;
+            bool   isMemcmp = true;
+            bool   isStrncmp = true;
+            bool   isStrcasecmp = true;
+            bool   isStrncasecmp = true;
+            bool   isIntMemcpy = true;
+            bool   addedNull = false;
+            size_t optLen = 0;
 
             Function *Callee = callInst->getCalledFunction();
             if (!Callee) continue;
@@ -546,17 +546,26 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
             // add null byte if this is a string compare function and a null
             // was not already added
-            if (addedNull == false && !isMemcmp) {
+            if (!isMemcmp) {
 
-              thestring.append("\0", 1);  // add null byte
-              optLen++;
+              if (addedNull == false) {
+
+                thestring.append("\0", 1);  // add null byte
+                optLen++;
+
+              }
+
+              // ensure we do not have garbage
+              size_t offset = thestring.find('\0', 0);
+              if (offset + 1 < optLen) optLen = offset + 1;
+              thestring = thestring.substr(0, optLen);
 
             }
 
             if (!be_quiet) {
 
               std::string outstring;
-              fprintf(stderr, "%s: length %u/%u \"", FuncName.c_str(), optLen,
+              fprintf(stderr, "%s: length %zu/%zu \"", FuncName.c_str(), optLen,
                       (unsigned int)thestring.length());
               for (uint8_t i = 0; i < thestring.length(); i++) {
 
