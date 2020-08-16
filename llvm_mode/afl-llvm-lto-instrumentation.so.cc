@@ -566,7 +566,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
               std::string outstring;
               fprintf(stderr, "%s: length %zu/%zu \"", FuncName.c_str(), optLen,
-                      (unsigned int)thestring.length());
+                      thestring.length());
               for (uint8_t i = 0; i < thestring.length(); i++) {
 
                 uint8_t c = thestring[i];
