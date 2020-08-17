@@ -227,12 +227,12 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
 }
 
-static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len, u8 *dir) {
+static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
+                                  u8 *dir) {
 
   u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
 
-  if (!afl->extras_cnt) { 
-    FATAL("No usable files in '%s'", dir); }
+  if (!afl->extras_cnt) { FATAL("No usable files in '%s'", dir); }
 
   qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
         compare_extras_len);
@@ -256,8 +256,6 @@ static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len, u8
   }
 
 }
-
-
 
 /* Read extras from the extras directory and sort them by size. */
 
@@ -379,22 +377,18 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   if (len > MAX_DICT_FILE) {
 
-    FATAL(
-        "Extra '%.*s' is too big (%s, limit is %s)", (int)len, mem,
-        stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), len),
-        stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+    FATAL("Extra '%.*s' is too big (%s, limit is %s)", (int)len, mem,
+          stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), len),
+          stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
 
   } else if (len > 32) {
 
-    WARNF(
-      "Extra '%.*s' is pretty large, consider trimming.", (int)len, mem
-    );
+    WARNF("Extra '%.*s' is pretty large, consider trimming.", (int)len, mem);
 
   }
 
-  afl->extras =
-      afl_realloc((void **)&afl->extras,
-                  (afl->extras_cnt + 1) * sizeof(struct extra_data));
+  afl->extras = afl_realloc((void **)&afl->extras,
+                            (afl->extras_cnt + 1) * sizeof(struct extra_data));
   if (unlikely(!afl->extras)) { PFATAL("alloc"); }
 
   afl->extras[afl->extras_cnt].data = ck_alloc(len);
@@ -410,7 +404,7 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
   /* We only want to print this once */
 
   if (afl->extras_cnt == MAX_DET_EXTRAS + 1) {
-    
+
     WARNF("More than %d tokens - will use them probabilistically.",
           MAX_DET_EXTRAS);
 

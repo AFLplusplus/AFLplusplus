@@ -22,6 +22,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - expanded havoc mode added, on no cycle finds add extra splicing and
        MOpt into the mix
      - fixed a bug in redqueen for strings and made deterministic with -s
+     - Compiletime autodictionary fixes
   - llvm_mode:
      - now supports llvm 12!
      - support for AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST (previous
