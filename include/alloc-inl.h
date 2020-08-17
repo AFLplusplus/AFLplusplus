@@ -603,11 +603,12 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
 */
 static inline size_t next_pow2(size_t in) {
 
-  if (in == 0 || in > (size_t)-1) {
-
-    return 0;                  /* avoid undefined behaviour under-/overflow */
-
-  }
+  // Commented this out as this behavior doesn't change, according to unittests
+  // if (in == 0 || in > (size_t)-1) {
+  //
+  //   return 0;                  /* avoid undefined behaviour under-/overflow */
+  //
+  // }
 
   size_t out = in - 1;
   out |= out >> 1;
@@ -626,7 +627,7 @@ struct maybe_grow_buf {
 
 };
 
-#define SIZE_OFFSET offsetof(struct maybe_grow_buf, buf)
+#define SIZE_OFFSET (offsetof(struct maybe_grow_buf, buf))
 
 /* Returs the container element to this ptr */
 static inline struct maybe_grow_buf *maybe_grow_buf(void *buf) {
@@ -655,30 +656,38 @@ static inline size_t maybe_grow_bufsize(void *buf) {
  */
 static inline void *maybe_grow(void **buf, size_t size_needed) {
 
-  size_t                 size = 0;
   struct maybe_grow_buf *new_buf = NULL;
+
+  size_t current_size = 0;
+  size_t next_size = 0;
 
   if (likely(*buf)) {
 
     /* the size is always stored at buf - 1*size_t */
     new_buf = maybe_grow_buf(*buf);
-    size = new_buf->size;
+    current_size = new_buf->size;
 
   }
 
   size_needed += SIZE_OFFSET;
 
   /* No need to realloc */
-  if (likely(size >= size_needed)) { return *buf; }
+  if (likely(current_size >= size_needed)) { return *buf; }
 
   /* No initial size was set */
-  if (size_needed < INITIAL_GROWTH_SIZE) { size_needed = INITIAL_GROWTH_SIZE; }
+  if (size_needed < INITIAL_GROWTH_SIZE) { 
 
-  /* grow exponentially */
-  size_t next_size = next_pow2(size_needed);
+    next_size = INITIAL_GROWTH_SIZE;
 
-  /* handle overflow and zero size_needed */
-  if (!next_size) { next_size = size_needed; }
+  } else {
+
+    /* grow exponentially */
+    next_size = next_pow2(size_needed);
+
+    /* handle overflow: fall back to the original size_needed */
+    if (unlikely(!next_size)) { next_size = size_needed; }
+
+  }
 
   /* alloc */
   new_buf = realloc(new_buf, next_size);

@@ -71,6 +71,28 @@ static int setup(void **state) {
 }
 */
 
+static void test_pow2(void **state) {
+    (void)state;
+
+    assert_int_equal(next_pow2(64), 64);
+    assert_int_equal(next_pow2(63), 64);
+    assert_int_not_equal(next_pow2(65), 65);
+    assert_int_equal(next_pow2(0x100), 0x100);
+    assert_int_equal(next_pow2(0x180), 0x200);
+    assert_int_equal(next_pow2(108), 0x80);
+    assert_int_equal(next_pow2(0), 0);
+    assert_int_equal(next_pow2(1), 1);
+    assert_int_equal(next_pow2(2), 2);
+    assert_int_equal(next_pow2(3), 4);
+    assert_int_equal(next_pow2(0xFFFFFF), 0x1000000);
+    assert_int_equal(next_pow2(0xFFFFFFF), 0x10000000);
+    assert_int_equal(next_pow2(0xFFFFFF0), 0x10000000);
+    assert_int_equal(next_pow2(SIZE_MAX), 0);
+    assert_int_equal(next_pow2(-1), 0);
+    assert_int_equal(next_pow2(-2), 0);
+
+}
+
 static void test_null_allocs(void **state) {
     (void)state;
 
@@ -191,6 +213,7 @@ int main(int argc, char **argv) {
     (void)argv;
 
 	const struct CMUnitTest tests[] = {
+		cmocka_unit_test(test_pow2),
 		cmocka_unit_test(test_null_allocs),
 		cmocka_unit_test(test_nonpow2_size),
 		cmocka_unit_test(test_zero_size),
