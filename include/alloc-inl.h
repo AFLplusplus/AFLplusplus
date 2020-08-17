@@ -36,7 +36,7 @@
 #include "types.h"
 #include "debug.h"
 
-/* Initial size used for maybe_grow */
+/* Initial size used for afl_realloc */
 #define INITIAL_GROWTH_SIZE (64)
 
 // Be careful! _WANT_ORIGINAL_AFL_ALLOC is not compatible with custom mutators
@@ -605,8 +605,10 @@ static inline size_t next_pow2(size_t in) {
 
   // Commented this out as this behavior doesn't change, according to unittests
   // if (in == 0 || in > (size_t)-1) {
+
   //
-  //   return 0;                  /* avoid undefined behaviour under-/overflow */
+  //   return 0;                  /* avoid undefined behaviour under-/overflow
+  //   */
   //
   // }
 
@@ -620,30 +622,32 @@ static inline size_t next_pow2(size_t in) {
 
 }
 
-struct maybe_grow_buf {
+/* AFL alloc buffer, the struct is here so we don't need to do fancy ptr
+ * arithmetics */
+struct afl_alloc_buf {
 
-  size_t size;
-  u8     buf[0];
+  /* The complete allocated size, including the header of len
+   * AFL_ALLOC_SIZE_OFFSET */
+  size_t complete_size;
+  /* ptr to the first element of the actual buffer */
+  u8 buf[0];
 
 };
 
-#define SIZE_OFFSET (offsetof(struct maybe_grow_buf, buf))
+#define AFL_ALLOC_SIZE_OFFSET (offsetof(struct afl_alloc_buf, buf))
 
 /* Returs the container element to this ptr */
-static inline struct maybe_grow_buf *maybe_grow_buf(void *buf) {
+static inline struct afl_alloc_buf *afl_alloc_bufptr(void *buf) {
 
-  return (struct maybe_grow_buf *)((u8 *)buf - SIZE_OFFSET);
+  return (struct afl_alloc_buf *)((u8 *)buf - AFL_ALLOC_SIZE_OFFSET);
 
 }
 
-/* Returs the current size of this allocated chunk (without the size_t needed to
-  store this info The size will be >= to the last size_needed passed to
-  maybe_grow */
-static inline size_t maybe_grow_bufsize(void *buf) {
+/* Gets the maximum size of the buf contents (ptr->complete_size -
+ * AFL_ALLOC_SIZE_OFFSET) */
+static inline size_t afl_alloc_bufsize(void *buf) {
 
-  if (!buf) { return 0; }
-  // The size is stored one size_t to the left of the ptr given to the user
-  return maybe_grow_buf(buf)->size;
+  return afl_alloc_bufptr(buf)->complete_size - AFL_ALLOC_SIZE_OFFSET;
 
 }
 
@@ -654,9 +658,9 @@ static inline size_t maybe_grow_bufsize(void *buf) {
  Will return NULL and free *buf if size_needed is <1 or realloc failed.
  @return For convenience, this function returns *buf.
  */
-static inline void *maybe_grow(void **buf, size_t size_needed) {
+static inline void *afl_realloc(void **buf, size_t size_needed) {
 
-  struct maybe_grow_buf *new_buf = NULL;
+  struct afl_alloc_buf *new_buf = NULL;
 
   size_t current_size = 0;
   size_t next_size = 0;
@@ -664,18 +668,18 @@ static inline void *maybe_grow(void **buf, size_t size_needed) {
   if (likely(*buf)) {
 
     /* the size is always stored at buf - 1*size_t */
-    new_buf = maybe_grow_buf(*buf);
-    current_size = new_buf->size;
+    new_buf = afl_alloc_bufptr(*buf);
+    current_size = new_buf->complete_size;
 
   }
 
-  size_needed += SIZE_OFFSET;
+  size_needed += AFL_ALLOC_SIZE_OFFSET;
 
   /* No need to realloc */
   if (likely(current_size >= size_needed)) { return *buf; }
 
   /* No initial size was set */
-  if (size_needed < INITIAL_GROWTH_SIZE) { 
+  if (size_needed < INITIAL_GROWTH_SIZE) {
 
     next_size = INITIAL_GROWTH_SIZE;
 
@@ -698,22 +702,20 @@ static inline void *maybe_grow(void **buf, size_t size_needed) {
 
   }
 
-  new_buf->size = next_size;
+  new_buf->complete_size = next_size;
   *buf = (void *)(new_buf->buf);
   return *buf;
 
 }
 
-static inline void maybe_grow_free(void *buf) {
+static inline void afl_free(void *buf) {
 
-  if (buf) { free(maybe_grow_buf(buf)); }
+  if (buf) { free(afl_alloc_bufptr(buf)); }
 
 }
 
-#undef SIZE_OFFSET
-
 /* Swaps buf1 ptr and buf2 ptr, as well as their sizes */
-static inline void swap_bufs(void **buf1, void **buf2) {
+static inline void afl_swap_bufs(void **buf1, void **buf2) {
 
   void *scratch_buf = *buf1;
   *buf1 = *buf2;

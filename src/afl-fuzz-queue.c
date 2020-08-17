@@ -248,7 +248,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   }
 
-  struct queue_entry **queue_buf = maybe_grow(
+  struct queue_entry **queue_buf = afl_realloc(
       BUF_PARAMS(queue), afl->queued_paths * sizeof(struct queue_entry *));
   if (unlikely(!queue_buf)) { PFATAL("alloc"); }
   queue_buf[afl->queued_paths - 1] = q;

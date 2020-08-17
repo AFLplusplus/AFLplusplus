@@ -271,7 +271,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
       setenv("QEMU_SET_ENV", buf, 1);
 
-      maybe_grow_free(buf);
+      afl_free(buf);
 
     } else {
 
@@ -357,7 +357,7 @@ int recv_testcase(int s, void **buf) {
 
   if ((size & 0xff000000) != 0xff000000) {
 
-    *buf = maybe_grow((void **)&buf, size);
+    *buf = afl_realloc((void **)&buf, size);
     if (unlikely(!buf)) { PFATAL("Alloc"); }
     received = 0;
     // fprintf(stderr, "unCOMPRESS (%u)\n", size);
@@ -370,7 +370,7 @@ int recv_testcase(int s, void **buf) {
 #ifdef USE_DEFLATE
     u32 clen;
     size -= 0xff000000;
-    *buf = maybe_grow((void **)&buf, size);
+    *buf = afl_realloc((void **)&buf, size);
     if (unlikely(!buf)) { PFATAL("Alloc"); }
     received = 0;
     while (received < 4 &&
@@ -380,15 +380,15 @@ int recv_testcase(int s, void **buf) {
     // fprintf(stderr, "received clen information of %d\n", clen);
     if (clen < 1)
       FATAL("did not receive valid compressed len information: %u", clen);
-    buf2 = maybe_grow((void **)&buf2, clen);
+    buf2 = afl_realloc((void **)&buf2, clen);
     if (unlikely(!buf2)) { PFATAL("Alloc"); }
     received = 0;
     while (received < clen &&
            (ret = recv(s, buf2 + received, clen - received, 0)) > 0)
       received += ret;
     if (received != clen) FATAL("did not receive compressed information");
-    if (libdeflate_deflate_decompress(decompressor, buf2, clen, (char *)*buf, size,
-                                      &received) != LIBDEFLATE_SUCCESS)
+    if (libdeflate_deflate_decompress(decompressor, buf2, clen, (char *)*buf,
+                                      size, &received) != LIBDEFLATE_SUCCESS)
       FATAL("decompression failed");
       // fprintf(stderr, "DECOMPRESS (%u->%u):\n", clen, received);
       // for (u32 i = 0; i < clen; i++) fprintf(stderr, "%02x", buf2[i]);
@@ -568,7 +568,7 @@ int main(int argc, char **argv_orig, char **envp) {
   sharedmem_t shm = {0};
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
-  in_data = maybe_grow((void **)&in_data, 65536);
+  in_data = afl_realloc((void **)&in_data, 65536);
   if (unlikely(!in_data)) { PFATAL("Alloc"); }
 
   atexit(at_exit_handler);
@@ -640,7 +640,7 @@ int main(int argc, char **argv_orig, char **envp) {
 #ifdef USE_DEFLATE
   compressor = libdeflate_alloc_compressor(1);
   decompressor = libdeflate_alloc_decompressor();
-  buf2 = maybe_grow((void **)&buf2, map_size + 16);
+  buf2 = afl_realloc((void **)&buf2, map_size + 16);
   if (unlikely(!buf2)) { PFATAL("alloc"); }
   lenptr = (u32 *)(buf2 + 4);
   fprintf(stderr, "Compiled with compression support\n");
@@ -699,9 +699,9 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_shm_deinit(&shm);
   afl_fsrv_deinit(fsrv);
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
-  maybe_grow_free(in_data);
+  afl_free(in_data);
 #if USE_DEFLATE
-  maybe_grow_free(buf2);
+  afl_free(buf2);
   libdeflate_free_compressor(compressor);
   libdeflate_free_decompressor(decompressor);
 #endif

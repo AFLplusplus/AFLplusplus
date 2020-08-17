@@ -95,7 +95,7 @@ static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
 
     mutated_size = PyByteArray_Size(py_value);
 
-    *out_buf = maybe_grow(BUF_PARAMS(fuzz), mutated_size);
+    *out_buf = afl_realloc(BUF_PARAMS(fuzz), mutated_size);
     if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
     memcpy(*out_buf, PyByteArray_AsString(py_value), mutated_size);
@@ -417,7 +417,7 @@ size_t post_process_py(void *py_mutator, u8 *buf, size_t buf_size,
 
     py_out_buf_size = PyByteArray_Size(py_value);
 
-    if (unlikely(!maybe_grow(BUF_PARAMS(post_process), py_out_buf_size))) {
+    if (unlikely(!afl_realloc(BUF_PARAMS(post_process), py_out_buf_size))) {
 
       PFATAL("alloc");
 
@@ -529,7 +529,7 @@ size_t trim_py(void *py_mutator, u8 **out_buf) {
   if (py_value != NULL) {
 
     ret = PyByteArray_Size(py_value);
-    *out_buf = maybe_grow(BUF_PARAMS(trim), ret);
+    *out_buf = afl_realloc(BUF_PARAMS(trim), ret);
     if (unlikely(!out_buf)) { PFATAL("alloc"); }
     memcpy(*out_buf, PyByteArray_AsString(py_value), ret);
     Py_DECREF(py_value);
@@ -595,7 +595,7 @@ size_t havoc_mutation_py(void *py_mutator, u8 *buf, size_t buf_size,
     } else {
 
       /* A new buf is needed... */
-      *out_buf = maybe_grow(BUF_PARAMS(havoc), mutated_size);
+      *out_buf = afl_realloc(BUF_PARAMS(havoc), mutated_size);
       if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
     }

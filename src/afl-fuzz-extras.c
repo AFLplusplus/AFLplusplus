@@ -152,8 +152,9 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
     /* Okay, let's allocate memory and copy data between "...", handling
        \xNN escaping, \\, and \". */
 
-    afl->extras = maybe_grow((void **)&afl->extras,
-                             (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    afl->extras =
+        afl_realloc((void **)&afl->extras,
+                    (afl->extras_cnt + 1) * sizeof(struct extra_data));
     if (unlikely(!afl->extras)) { PFATAL("alloc"); }
 
     wptr = afl->extras[afl->extras_cnt].data = ck_alloc(rptr - lptr);
@@ -297,8 +298,9 @@ void load_extras(afl_state_t *afl, u8 *dir) {
     if (min_len > st.st_size) { min_len = st.st_size; }
     if (max_len < st.st_size) { max_len = st.st_size; }
 
-    afl->extras = maybe_grow((void **)&afl->extras,
-                             (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    afl->extras =
+        afl_realloc((void **)&afl->extras,
+                    (afl->extras_cnt + 1) * sizeof(struct extra_data));
     if (unlikely(!afl->extras)) { PFATAL("alloc"); }
 
     afl->extras[afl->extras_cnt].data = ck_alloc(st.st_size);

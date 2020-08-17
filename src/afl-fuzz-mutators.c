@@ -122,7 +122,7 @@ void destroy_custom_mutators(afl_state_t *afl) {
 
       if (el->post_process_buf) {
 
-        maybe_grow_free(el->post_process_buf);
+        afl_free(el->post_process_buf);
         el->post_process_buf = NULL;
 
       }

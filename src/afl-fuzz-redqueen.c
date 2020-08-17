@@ -356,7 +356,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     size_t old_len = endptr - buf_8;
     size_t num_len = snprintf(NULL, 0, "%lld", num);
 
-    u8 *new_buf = maybe_grow((void **)&afl->out_scratch_buf, len + num_len);
+    u8 *new_buf = afl_realloc((void **)&afl->out_scratch_buf, len + num_len);
     if (unlikely(!new_buf)) { PFATAL("alloc"); }
     memcpy(new_buf, buf, idx);
 
@@ -370,7 +370,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     size_t old_len = endptr - buf_8;
     size_t num_len = snprintf(NULL, 0, "%llu", unum);
 
-    u8 *new_buf = maybe_grow((void **)&afl->out_scratch_buf, len + num_len);
+    u8 *new_buf = afl_realloc((void **)&afl->out_scratch_buf, len + num_len);
     if (unlikely(!new_buf)) { PFATAL("alloc"); }
     memcpy(new_buf, buf, idx);
 
