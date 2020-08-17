@@ -421,13 +421,13 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->pass_stats) { ck_free(afl->pass_stats); }
   if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
 
-  if (afl->queue_buf) { free(afl->queue_buf); }
-  if (afl->out_buf) { free(afl->out_buf); }
-  if (afl->out_scratch_buf) { free(afl->out_scratch_buf); }
-  if (afl->eff_buf) { free(afl->eff_buf); }
-  if (afl->in_buf) { free(afl->in_buf); }
-  if (afl->in_scratch_buf) { free(afl->in_scratch_buf); }
-  if (afl->ex_buf) { free(afl->ex_buf); }
+  afl_free(afl->queue_buf);
+  afl_free(afl->out_buf);
+  afl_free(afl->out_scratch_buf);
+  afl_free(afl->eff_buf);
+  afl_free(afl->in_buf);
+  afl_free(afl->in_scratch_buf);
+  afl_free(afl->ex_buf);
 
   ck_free(afl->virgin_bits);
   ck_free(afl->virgin_tmout);

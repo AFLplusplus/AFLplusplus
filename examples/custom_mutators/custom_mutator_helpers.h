@@ -324,8 +324,8 @@ static inline void *maybe_grow(void **buf, size_t *size, size_t size_needed) {
 }
 
 /* Swaps buf1 ptr and buf2 ptr, as well as their sizes */
-static inline void swap_bufs(void **buf1, size_t *size1, void **buf2,
-                             size_t *size2) {
+static inline void afl_swap_bufs(void **buf1, size_t *size1, void **buf2,
+                                 size_t *size2) {
 
   void * scratch_buf = *buf1;
   size_t scratch_size = *size1;
