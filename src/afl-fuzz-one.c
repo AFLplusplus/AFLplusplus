@@ -364,8 +364,6 @@ static void locate_diffs(u8 *ptr1, u8 *ptr2, u32 len, s32 *first, s32 *last) {
 
 #endif                                                     /* !IGNORE_FINDS */
 
-#define BUF_PARAMS(name) (void **)&afl->name##_buf
-
 /* Take the current entry from the queue, fuzz it for a while. This
    function is a tad too long... returns 0 if fuzzed successfully, 1 if
    skipped or bailed out. */
@@ -481,7 +479,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
      single byte anyway, so it wouldn't give us any performance or memory usage
      benefits. */
 
-  out_buf = afl_realloc(BUF_PARAMS(out), len);
+  out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
   if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
   afl->subseq_tmouts = 0;
@@ -797,7 +795,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* Initialize effector map for the next step (see comments below). Always
      flag first and last byte as doing something. */
 
-  eff_map = afl_realloc(BUF_PARAMS(eff), EFF_ALEN(len));
+  eff_map = afl_realloc(AFL_BUF_PARAM(eff), EFF_ALEN(len));
   if (unlikely(!eff_map)) { PFATAL("alloc"); }
   eff_map[0] = 1;
 
@@ -1555,7 +1553,7 @@ skip_interest:
 
   orig_hit_cnt = new_hit_cnt;
 
-  ex_tmp = afl_realloc(BUF_PARAMS(ex), len + MAX_DICT_FILE);
+  ex_tmp = afl_realloc(AFL_BUF_PARAM(ex), len + MAX_DICT_FILE);
   if (unlikely(!ex_tmp)) { PFATAL("alloc"); }
 
   for (i = 0; i <= (u32)len; ++i) {
@@ -1732,7 +1730,7 @@ custom_mutator_stage:
         fd = open(target->fname, O_RDONLY);
         if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
 
-        new_buf = afl_realloc(BUF_PARAMS(out_scratch), target->len);
+        new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), target->len);
         if (unlikely(!new_buf)) { PFATAL("alloc"); }
         ck_read(fd, new_buf, target->len, target->fname);
         close(fd);
@@ -1908,7 +1906,7 @@ havoc_stage:
               temp_len = new_len;
               if (out_buf != custom_havoc_buf) {
 
-                afl_realloc(BUF_PARAMS(out), temp_len);
+                afl_realloc(AFL_BUF_PARAM(out), temp_len);
                 if (unlikely(!afl->out_buf)) { PFATAL("alloc"); }
                 memcpy(out_buf, custom_havoc_buf, temp_len);
 
@@ -2148,7 +2146,7 @@ havoc_stage:
             clone_to = rand_below(afl, temp_len);
 
             new_buf =
-                afl_realloc(BUF_PARAMS(out_scratch), temp_len + clone_len);
+                afl_realloc(AFL_BUF_PARAM(out_scratch), temp_len + clone_len);
             if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
             /* Head */
@@ -2174,7 +2172,7 @@ havoc_stage:
             memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
                    temp_len - clone_to);
 
-            afl_swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
+            afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
             out_buf = new_buf;
             new_buf = NULL;
             temp_len += clone_len;
@@ -2289,7 +2287,7 @@ havoc_stage:
 
               if (temp_len + extra_len >= MAX_FILE) { break; }
 
-              out_buf = afl_realloc(BUF_PARAMS(out), temp_len + extra_len);
+              out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len + extra_len);
               if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
               /* Tail */
@@ -2346,7 +2344,7 @@ havoc_stage:
             }
 
             u32 new_len = target->len;
-            u8 *new_buf = afl_realloc(BUF_PARAMS(in_scratch), new_len);
+            u8 *new_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), new_len);
             if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
             ck_read(fd, new_buf, new_len, target->fname);
@@ -2387,7 +2385,7 @@ havoc_stage:
               clone_to = rand_below(afl, temp_len);
 
               u8 *temp_buf =
-                  afl_realloc(BUF_PARAMS(out_scratch), temp_len + clone_len);
+                  afl_realloc(AFL_BUF_PARAM(out_scratch), temp_len + clone_len);
               if (unlikely(!temp_buf)) { PFATAL("alloc"); }
 
               /* Head */
@@ -2402,7 +2400,7 @@ havoc_stage:
               memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
                      temp_len - clone_to);
 
-              afl_swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
+              afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
               out_buf = temp_buf;
               temp_len += clone_len;
 
@@ -2423,7 +2421,7 @@ havoc_stage:
     /* out_buf might have been mangled a bit, so let's restore it to its
        original size and shape. */
 
-    out_buf = afl_realloc(BUF_PARAMS(out), len);
+    out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
     if (unlikely(!out_buf)) { PFATAL("alloc"); }
     temp_len = len;
     memcpy(out_buf, in_buf, len);
@@ -2519,7 +2517,7 @@ retry_splicing:
 
     if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
 
-    new_buf = afl_realloc(BUF_PARAMS(in_scratch), target->len);
+    new_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), target->len);
     if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
     ck_read(fd, new_buf, target->len, target->fname);
@@ -2542,10 +2540,10 @@ retry_splicing:
 
     len = target->len;
     memcpy(new_buf, in_buf, split_at);
-    afl_swap_bufs(BUF_PARAMS(in), BUF_PARAMS(in_scratch));
+    afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
     in_buf = new_buf;
 
-    out_buf = afl_realloc(BUF_PARAMS(out), len);
+    out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
     if (unlikely(!out_buf)) { PFATAL("alloc"); }
     memcpy(out_buf, in_buf, len);
 
@@ -2687,7 +2685,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
      single byte anyway, so it wouldn't give us any performance or memory usage
      benefits. */
 
-  out_buf = afl_realloc(BUF_PARAMS(out), len);
+  out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
   if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
   afl->subseq_tmouts = 0;
@@ -3010,7 +3008,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   /* Initialize effector map for the next step (see comments below). Always
          flag first and last byte as doing something. */
 
-  eff_map = afl_realloc(BUF_PARAMS(eff), EFF_ALEN(len));
+  eff_map = afl_realloc(AFL_BUF_PARAM(eff), EFF_ALEN(len));
   if (unlikely(!eff_map)) { PFATAL("alloc"); }
   eff_map[0] = 1;
 
@@ -3768,7 +3766,7 @@ skip_interest:
 
   orig_hit_cnt = new_hit_cnt;
 
-  ex_tmp = afl_realloc(BUF_PARAMS(ex), len + MAX_DICT_FILE);
+  ex_tmp = afl_realloc(AFL_BUF_PARAM(ex), len + MAX_DICT_FILE);
   if (unlikely(!ex_tmp)) { PFATAL("alloc"); }
 
   for (i = 0; i <= (u32)len; ++i) {
@@ -4207,8 +4205,8 @@ pacemaker_fuzzing:
 
                 clone_to = rand_below(afl, temp_len);
 
-                new_buf =
-                    afl_realloc(BUF_PARAMS(out_scratch), temp_len + clone_len);
+                new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch),
+                                      temp_len + clone_len);
                 if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
                 /* Head */
@@ -4235,7 +4233,7 @@ pacemaker_fuzzing:
                 memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
                        temp_len - clone_to);
 
-                afl_swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
+                afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
                 out_buf = new_buf;
                 temp_len += clone_len;
                 MOpt_globals.cycles_v2[STAGE_Clone75] += 1;
@@ -4352,7 +4350,7 @@ pacemaker_fuzzing:
 
               if (temp_len + extra_len >= MAX_FILE) break;
 
-              out_buf = afl_realloc(BUF_PARAMS(out), temp_len + extra_len);
+              out_buf = afl_realloc(AFL_BUF_PARAM(out), temp_len + extra_len);
               if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
               /* Tail */
@@ -4386,7 +4384,7 @@ pacemaker_fuzzing:
         /* out_buf might have been mangled a bit, so let's restore it to its
            original size and shape. */
 
-        out_buf = afl_realloc(BUF_PARAMS(out), len);
+        out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
         if (unlikely(!out_buf)) { PFATAL("alloc"); }
         temp_len = len;
         memcpy(out_buf, in_buf, len);
@@ -4532,7 +4530,7 @@ pacemaker_fuzzing:
 
         if (fd < 0) { PFATAL("Unable to open '%s'", target->fname); }
 
-        new_buf = afl_realloc(BUF_PARAMS(in_scratch), target->len);
+        new_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), target->len);
         if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
         ck_read(fd, new_buf, target->len, target->fname);
@@ -4560,9 +4558,9 @@ pacemaker_fuzzing:
 
         len = target->len;
         memcpy(new_buf, in_buf, split_at);
-        afl_swap_bufs(BUF_PARAMS(in), BUF_PARAMS(in_scratch));
+        afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
         in_buf = new_buf;
-        out_buf = afl_realloc(BUF_PARAMS(out), len);
+        out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
         if (unlikely(!out_buf)) { PFATAL("alloc"); }
         memcpy(out_buf, in_buf, len);
 
@@ -4895,6 +4893,4 @@ u8 fuzz_one(afl_state_t *afl) {
   return (key_val_lv_1 | key_val_lv_2);
 
 }
-
-#undef BUF_PARAMS
 

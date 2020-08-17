@@ -126,6 +126,9 @@
 
 #define STAGE_BUF_SIZE (64)  /* usable size for stage name buf in afl_state */
 
+// Little helper to access the ptr to afl->##name_buf - for use in afl_realloc.
+#define AFL_BUF_PARAM(name) ((void **)&afl->name##_buf)
+
 extern s8  interesting_8[INTERESTING_8_LEN];
 extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
 extern s32
