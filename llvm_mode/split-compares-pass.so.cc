@@ -1342,3 +1342,9 @@ static RegisterStandardPasses RegisterSplitComparesPass(
 static RegisterStandardPasses RegisterSplitComparesTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerSplitComparesPass);
 
+#if LLVM_VERSION_MAJOR >= 11
+static RegisterStandardPasses RegisterSplitComparesTransPassLTO(
+    PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
+    registerSplitComparesPass);
+#endif
+

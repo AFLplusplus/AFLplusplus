@@ -94,7 +94,7 @@ struct InsTrim : public ModulePass {
 
   }
 
-#if LLVM_VERSION_MAJOR >= 4 || \
+#if LLVM_VERSION_MAJOR > 4 || \
     (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
   #define AFL_HAVE_VECTOR_INTRINSICS 1
 #endif
@@ -144,7 +144,7 @@ struct InsTrim : public ModulePass {
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
     unsigned int ngram_size = 0;
     /* Decide previous location vector size (must be a power of two) */
-    VectorType *PrevLocTy;
+    VectorType *PrevLocTy = NULL;
 
     if (ngram_size_str)
       if (sscanf(ngram_size_str, "%u", &ngram_size) != 1 || ngram_size < 2 ||
@@ -194,7 +194,7 @@ struct InsTrim : public ModulePass {
         new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
                            GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
     GlobalVariable *AFLPrevLoc;
-    GlobalVariable *AFLContext;
+    GlobalVariable *AFLContext = NULL;
     LoadInst *      PrevCtx = NULL;  // for CTX sensitive coverage
 
     if (ctx_str)
@@ -255,6 +255,8 @@ struct InsTrim : public ModulePass {
 
     u64 total_rs = 0;
     u64 total_hs = 0;
+
+    scanForDangerousFunctions(&M);
 
     for (Function &F : M) {
 

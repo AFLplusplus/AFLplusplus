@@ -172,6 +172,14 @@ struct extra_data {
 
 };
 
+struct auto_extra_data {
+
+  u8  data[MAX_AUTO_EXTRA];             /* Dictionary token data            */
+  u32 len;                              /* Dictionary token length          */
+  u32 hit_cnt;                          /* Use count in the corpus          */
+
+};
+
 /* Fuzzing stages */
 
 enum {
@@ -571,8 +579,9 @@ typedef struct afl_state {
   struct extra_data *extras;            /* Extra tokens to fuzz with        */
   u32                extras_cnt;        /* Total number of tokens read      */
 
-  struct extra_data *a_extras;          /* Automatically selected extras    */
-  u32                a_extras_cnt;      /* Total number of tokens available */
+  struct auto_extra_data
+      a_extras[MAX_AUTO_EXTRAS];        /* Automatically selected extras    */
+  u32 a_extras_cnt;                     /* Total number of tokens available */
 
   /* afl_postprocess API - Now supported via custom mutators */
 
@@ -607,8 +616,6 @@ typedef struct afl_state {
   u8  do_document;
   u32 document_counter;
 #endif
-
-  void *maybe_add_auto;
 
   /* statistics file */
   double last_bitmap_cvg, last_stability, last_eps;
@@ -911,7 +918,7 @@ u8 has_new_bits(afl_state_t *, u8 *);
 
 void load_extras_file(afl_state_t *, u8 *, u32 *, u32 *, u32);
 void load_extras(afl_state_t *, u8 *);
-void maybe_add_auto(void *, u8 *, u32);
+void maybe_add_auto(afl_state_t *, u8 *, u32);
 void save_auto(afl_state_t *);
 void load_auto(afl_state_t *);
 void destroy_extras(afl_state_t *);

@@ -25,23 +25,28 @@
 
 #include "afl-fuzz.h"
 
-/* Helper function for load_extras. */
+/* helper function for auto_extras qsort */
+static int compare_auto_extras_len(const void *ae1, const void *ae2) {
 
-static int compare_extras_len(const void *p1, const void *p2) {
-
-  struct extra_data *e1 = (struct extra_data *)p1,
-                    *e2 = (struct extra_data *)p2;
-
-  return e1->len - e2->len;
+  return ((struct auto_extra_data *)ae1)->len -
+         ((struct auto_extra_data *)ae2)->len;
 
 }
 
-static int compare_extras_use_d(const void *p1, const void *p2) {
+/* descending order */
 
-  struct extra_data *e1 = (struct extra_data *)p1,
-                    *e2 = (struct extra_data *)p2;
+static int compare_auto_extras_use_d(const void *ae1, const void *ae2) {
 
-  return e2->hit_cnt - e1->hit_cnt;
+  return ((struct auto_extra_data *)ae2)->hit_cnt -
+         ((struct auto_extra_data *)ae1)->hit_cnt;
+
+}
+
+/* Helper function for load_extras. */
+
+static int compare_extras_len(const void *e1, const void *e2) {
+
+  return ((struct extra_data *)e1)->len - ((struct extra_data *)e2)->len;
 
 }
 
@@ -354,14 +359,10 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
 }
 
 /* Maybe add automatic extra. */
-/* Ugly hack: afl state is transfered as u8* because we import data via
-   afl-forkserver.c - which is shared with other afl tools that do not
-   have the afl state struct */
 
-void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
+void maybe_add_auto(afl_state_t *afl, u8 *mem, u32 len) {
 
-  afl_state_t *afl = (afl_state_t *)afl_tmp;
-  u32          i;
+  u32 i;
 
   /* Allow users to specify that they don't want auto dictionaries. */
 
@@ -375,7 +376,7 @@ void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
 
   }
 
-  if (i == len) { return; }
+  if (i == len || unlikely(len > MAX_AUTO_EXTRA)) { return; }
 
   /* Reject builtin interesting values. */
 
@@ -452,10 +453,7 @@ void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
 
   if (afl->a_extras_cnt < MAX_AUTO_EXTRAS) {
 
-    afl->a_extras = ck_realloc_block(
-        afl->a_extras, (afl->a_extras_cnt + 1) * sizeof(struct extra_data));
-
-    afl->a_extras[afl->a_extras_cnt].data = ck_memdup(mem, len);
+    memcpy(afl->a_extras[afl->a_extras_cnt].data, mem, len);
     afl->a_extras[afl->a_extras_cnt].len = len;
     ++afl->a_extras_cnt;
 
@@ -463,9 +461,7 @@ void maybe_add_auto(void *afl_tmp, u8 *mem, u32 len) {
 
     i = MAX_AUTO_EXTRAS / 2 + rand_below(afl, (MAX_AUTO_EXTRAS + 1) / 2);
 
-    ck_free(afl->a_extras[i].data);
-
-    afl->a_extras[i].data = ck_memdup(mem, len);
+    memcpy(afl->a_extras[i].data, mem, len);
     afl->a_extras[i].len = len;
     afl->a_extras[i].hit_cnt = 0;
 
@@ -475,13 +471,13 @@ sort_a_extras:
 
   /* First, sort all auto extras by use count, descending order. */
 
-  qsort(afl->a_extras, afl->a_extras_cnt, sizeof(struct extra_data),
-        compare_extras_use_d);
+  qsort(afl->a_extras, afl->a_extras_cnt, sizeof(struct auto_extra_data),
+        compare_auto_extras_use_d);
 
   /* Then, sort the top USE_AUTO_EXTRAS entries by size. */
 
   qsort(afl->a_extras, MIN((u32)USE_AUTO_EXTRAS, afl->a_extras_cnt),
-        sizeof(struct extra_data), compare_extras_len);
+        sizeof(struct auto_extra_data), compare_auto_extras_len);
 
 }
 
@@ -544,7 +540,7 @@ void load_auto(afl_state_t *afl) {
 
     if (len >= MIN_AUTO_EXTRA && len <= MAX_AUTO_EXTRA) {
 
-      maybe_add_auto((u8 *)afl, tmp, len);
+      maybe_add_auto(afl, tmp, len);
 
     }
 
@@ -578,14 +574,6 @@ void destroy_extras(afl_state_t *afl) {
   }
 
   ck_free(afl->extras);
-
-  for (i = 0; i < afl->a_extras_cnt; ++i) {
-
-    ck_free(afl->a_extras[i].data);
-
-  }
-
-  ck_free(afl->a_extras);
 
 }
 

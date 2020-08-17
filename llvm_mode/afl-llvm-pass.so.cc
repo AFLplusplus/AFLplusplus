@@ -112,7 +112,7 @@ uint64_t PowerOf2Ceil(unsigned in) {
 #endif
 
 /* #if LLVM_VERSION_STRING >= "4.0.1" */
-#if LLVM_VERSION_MAJOR >= 4 || \
+#if LLVM_VERSION_MAJOR > 4 || \
     (LLVM_VERSION_MAJOR == 4 && LLVM_VERSION_PATCH >= 1)
   #define AFL_HAVE_VECTOR_INTRINSICS 1
 #endif
@@ -194,7 +194,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   /* Decide previous location vector size (must be a power of two) */
-  VectorType *PrevLocTy;
+  VectorType *PrevLocTy = NULL;
 
   if (ngram_size_str)
     if (sscanf(ngram_size_str, "%u", &ngram_size) != 1 || ngram_size < 2 ||
@@ -236,7 +236,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
   GlobalVariable *AFLPrevLoc;
-  GlobalVariable *AFLContext;
+  GlobalVariable *AFLContext = NULL;
 
   if (ctx_str)
 #ifdef __ANDROID__
@@ -292,11 +292,12 @@ bool AFLCoverage::runOnModule(Module &M) {
   ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
   ConstantInt *One = ConstantInt::get(Int8Ty, 1);
 
-  LoadInst *PrevCtx;  // CTX sensitive coverage
+  LoadInst *PrevCtx = NULL;  // CTX sensitive coverage
 
   /* Instrument all the things! */
 
   int inst_blocks = 0;
+  scanForDangerousFunctions(&M);
 
   for (auto &F : M) {
 

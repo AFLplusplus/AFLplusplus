@@ -4,6 +4,7 @@
 # They may set an error code with $CODE=1
 # If tests are incomplete, they may set $INCOMPLETE=1
 
+AFL_TEST_COUNT=$((AFL_TEST_COUNT+1))
 AFL_TEST_DEPTH=$((AFL_TEST_DEPTH+1))
 
 if [ $AFL_TEST_DEPTH = 1 ]; then

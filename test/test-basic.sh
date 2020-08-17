@@ -99,8 +99,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
             ;;
         esac
     } else {
-      $ECHO "$YELLOW[-] no bash available, cannot test afl-cmin.bash"
-      INCOMPLETE=1
+      $ECHO "$GRAY[*] no bash available, cannot test afl-cmin.bash"
     }
     fi
     ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
@@ -119,8 +118,9 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
   INCOMPLETE=1
  }
 } || {
- $ECHO "$YELLOW[-] not an intel platform, cannot test afl-gcc"
+ $ECHO "$GREY[[*] not an intel platform, skipped tests of afl-gcc"
  #this is not incomplete as this feature doesnt exist, so all good
+ AFL_TEST_COUNT=$((AFL_TEST_COUNT-1))
 }
 
 . ./test-post.sh

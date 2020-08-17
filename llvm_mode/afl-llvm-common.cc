@@ -67,8 +67,11 @@ bool isIgnoreFunction(const llvm::Function *F) {
       "__libc_csu",
       "__asan",
       "__msan",
+      "__cmplog",
+      "__sancov",
       "msan.",
       "LLVMFuzzer",
+      "__decide_deferred",
       "maybe_duplicate_stderr",
       "discard_output",
       "close_stdout",
@@ -253,38 +256,67 @@ void initInstrumentList() {
 
 }
 
-bool isInInstrumentList(llvm::Function *F) {
+void scanForDangerousFunctions(llvm::Module *M) {
 
-  // is this a function with code? If it is external we dont instrument it
-  // anyway and cant be in the the instrument file list. Or if it is ignored.
-  if (!F->size() || isIgnoreFunction(F)) return false;
+  if (!M) return;
 
-  // if we do not have a the instrument file list return true
-  if (!allowListFiles.empty() || !allowListFunctions.empty()) {
+#if LLVM_VERSION_MAJOR > 3 || \
+    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 9)
 
-    if (!allowListFunctions.empty()) {
+  for (GlobalIFunc &IF : M->ifuncs()) {
 
-      std::string instFunction = F->getName().str();
+    StringRef ifunc_name = IF.getName();
+    Constant *r = IF.getResolver();
+    StringRef r_name = cast<Function>(r->getOperand(0))->getName();
+    if (!be_quiet)
+      fprintf(stderr,
+              "Info: Found an ifunc with name %s that points to resolver "
+              "function %s, we will not instrument this, putting it into the "
+              "block list.\n",
+              ifunc_name.str().c_str(), r_name.str().c_str());
+    denyListFunctions.push_back(r_name.str());
 
-      for (std::list<std::string>::iterator it = allowListFunctions.begin();
-           it != allowListFunctions.end(); ++it) {
+  }
 
-        /* We don't check for filename equality here because
-         * filenames might actually be full paths. Instead we
-         * check that the actual filename ends in the filename
-         * specified in the list. We also allow UNIX-style pattern
-         * matching */
+  GlobalVariable *GV = M->getNamedGlobal("llvm.global_ctors");
+  if (GV && !GV->isDeclaration() && !GV->hasLocalLinkage()) {
 
-        if (instFunction.length() >= it->length()) {
+    ConstantArray *InitList = dyn_cast<ConstantArray>(GV->getInitializer());
 
-          if (fnmatch(("*" + *it).c_str(), instFunction.c_str(), 0) == 0) {
+    if (InitList) {
 
-            if (debug)
-              SAYF(cMGN "[D] " cRST
-                        "Function %s is in the allow function list, "
-                        "instrumenting ... \n",
-                   instFunction.c_str());
-            return true;
+      for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
+
+        if (ConstantStruct *CS =
+                dyn_cast<ConstantStruct>(InitList->getOperand(i))) {
+
+          if (CS->getNumOperands() >= 2) {
+
+            if (CS->getOperand(1)->isNullValue())
+              break;  // Found a null terminator, stop here.
+
+            ConstantInt *CI = dyn_cast<ConstantInt>(CS->getOperand(0));
+            int          Priority = CI ? CI->getSExtValue() : 0;
+
+            Constant *FP = CS->getOperand(1);
+            if (ConstantExpr *CE = dyn_cast<ConstantExpr>(FP))
+              if (CE->isCast()) FP = CE->getOperand(0);
+            if (Function *F = dyn_cast<Function>(FP)) {
+
+              if (!F->isDeclaration() &&
+                  strncmp(F->getName().str().c_str(), "__afl", 5) != 0) {
+
+                if (!be_quiet)
+                  fprintf(stderr,
+                          "Info: Found constructor function %s with prio "
+                          "%u, we will not instrument this, putting it into a "
+                          "block list.\n",
+                          F->getName().str().c_str(), Priority);
+                denyListFunctions.push_back(F->getName().str());
+
+              }
+
+            }
 
           }
 
@@ -294,130 +326,67 @@ bool isInInstrumentList(llvm::Function *F) {
 
     }
 
-    if (!allowListFiles.empty()) {
+  }
 
-      // let's try to get the filename for the function
-      auto                 bb = &F->getEntryBlock();
-      BasicBlock::iterator IP = bb->getFirstInsertionPt();
-      IRBuilder<>          IRB(&(*IP));
-      DebugLoc             Loc = IP->getDebugLoc();
+#endif
+
+}
+
+static std::string getSourceName(llvm::Function *F) {
+
+  // let's try to get the filename for the function
+  auto                 bb = &F->getEntryBlock();
+  BasicBlock::iterator IP = bb->getFirstInsertionPt();
+  IRBuilder<>          IRB(&(*IP));
+  DebugLoc             Loc = IP->getDebugLoc();
 
 #if LLVM_VERSION_MAJOR >= 4 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
-      if (Loc) {
+  if (Loc) {
 
-        DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
+    DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
 
-        unsigned int instLine = cDILoc->getLine();
-        StringRef    instFilename = cDILoc->getFilename();
+    StringRef instFilename = cDILoc->getFilename();
 
-        if (instFilename.str().empty()) {
+    if (instFilename.str().empty()) {
 
-          /* If the original location is empty, try using the inlined location
-           */
-          DILocation *oDILoc = cDILoc->getInlinedAt();
-          if (oDILoc) {
-
-            instFilename = oDILoc->getFilename();
-            instLine = oDILoc->getLine();
-
-          }
-
-        }
-
-        /* Continue only if we know where we actually are */
-        if (!instFilename.str().empty()) {
-
-          for (std::list<std::string>::iterator it = allowListFiles.begin();
-               it != allowListFiles.end(); ++it) {
-
-            /* We don't check for filename equality here because
-             * filenames might actually be full paths. Instead we
-             * check that the actual filename ends in the filename
-             * specified in the list. We also allow UNIX-style pattern
-             * matching */
-
-            if (instFilename.str().length() >= it->length()) {
-
-              if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
-                  0) {
-
-                if (debug)
-                  SAYF(cMGN "[D] " cRST
-                            "Function %s is in the allowlist (%s), "
-                            "instrumenting ... \n",
-                       F->getName().str().c_str(), instFilename.str().c_str());
-                return true;
-
-              }
-
-            }
-
-          }
-
-        }
-
-      }
+      /* If the original location is empty, try using the inlined location
+       */
+      DILocation *oDILoc = cDILoc->getInlinedAt();
+      if (oDILoc) { instFilename = oDILoc->getFilename(); }
 
     }
 
-#else
-      if (!Loc.isUnknown()) {
-
-        DILocation cDILoc(Loc.getAsMDNode(F->getContext()));
-
-        unsigned int instLine = cDILoc.getLineNumber();
-        StringRef    instFilename = cDILoc.getFilename();
-
-        (void)instLine;
-        /* Continue only if we know where we actually are */
-        if (!instFilename.str().empty()) {
-
-          for (std::list<std::string>::iterator it = allowListFiles.begin();
-               it != allowListFiles.end(); ++it) {
-
-            /* We don't check for filename equality here because
-             * filenames might actually be full paths. Instead we
-             * check that the actual filename ends in the filename
-             * specified in the list. We also allow UNIX-style pattern
-             * matching */
-
-            if (instFilename.str().length() >= it->length()) {
-
-              if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
-                  0) {
-
-                return true;
-
-              }
-
-            }
-
-          }
-
-        }
-
-      }
-
-    }
-
-#endif
-    else {
-
-      // we could not find out the location. in this case we say it is not
-      // in the the instrument file list
-      if (!be_quiet)
-        WARNF(
-            "No debug information found for function %s, will not be "
-            "instrumented (recompile with -g -O[1-3]).",
-            F->getName().str().c_str());
-      return false;
-
-    }
-
-    return false;
+    return instFilename.str();
 
   }
+
+#else
+  if (!Loc.isUnknown()) {
+
+    DILocation cDILoc(Loc.getAsMDNode(F->getContext()));
+
+    StringRef instFilename = cDILoc.getFilename();
+
+    /* Continue only if we know where we actually are */
+    return instFilename.str();
+
+  }
+
+#endif
+
+  return std::string("");
+
+}
+
+bool isInInstrumentList(llvm::Function *F) {
+
+  bool return_default = true;
+
+  // is this a function with code? If it is external we don't instrument it
+  // anyway and it can't be in the instrument file list. Or if it is it is
+  // ignored.
+  if (!F->size() || isIgnoreFunction(F)) return false;
 
   if (!denyListFiles.empty() || !denyListFunctions.empty()) {
 
@@ -455,60 +424,24 @@ bool isInInstrumentList(llvm::Function *F) {
 
     if (!denyListFiles.empty()) {
 
-      // let's try to get the filename for the function
-      auto                 bb = &F->getEntryBlock();
-      BasicBlock::iterator IP = bb->getFirstInsertionPt();
-      IRBuilder<>          IRB(&(*IP));
-      DebugLoc             Loc = IP->getDebugLoc();
+      std::string source_file = getSourceName(F);
 
-#if LLVM_VERSION_MAJOR >= 4 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
-      if (Loc) {
+      if (!source_file.empty()) {
 
-        DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
+        for (std::list<std::string>::iterator it = denyListFiles.begin();
+             it != denyListFiles.end(); ++it) {
 
-        unsigned int instLine = cDILoc->getLine();
-        StringRef    instFilename = cDILoc->getFilename();
+          /* We don't check for filename equality here because
+           * filenames might actually be full paths. Instead we
+           * check that the actual filename ends in the filename
+           * specified in the list. We also allow UNIX-style pattern
+           * matching */
 
-        if (instFilename.str().empty()) {
+          if (source_file.length() >= it->length()) {
 
-          /* If the original location is empty, try using the inlined location
-           */
-          DILocation *oDILoc = cDILoc->getInlinedAt();
-          if (oDILoc) {
+            if (fnmatch(("*" + *it).c_str(), source_file.c_str(), 0) == 0) {
 
-            instFilename = oDILoc->getFilename();
-            instLine = oDILoc->getLine();
-
-          }
-
-        }
-
-        /* Continue only if we know where we actually are */
-        if (!instFilename.str().empty()) {
-
-          for (std::list<std::string>::iterator it = denyListFiles.begin();
-               it != denyListFiles.end(); ++it) {
-
-            /* We don't check for filename equality here because
-             * filenames might actually be full paths. Instead we
-             * check that the actual filename ends in the filename
-             * specified in the list. We also allow UNIX-style pattern
-             * matching */
-
-            if (instFilename.str().length() >= it->length()) {
-
-              if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
-                  0) {
-
-                if (debug)
-                  SAYF(cMGN "[D] " cRST
-                            "Function %s is in the denylist (%s), not "
-                            "instrumenting ... \n",
-                       F->getName().str().c_str(), instFilename.str().c_str());
-                return false;
-
-              }
+              return false;
 
             }
 
@@ -516,69 +449,109 @@ bool isInInstrumentList(llvm::Function *F) {
 
         }
 
-      }
+      } else {
 
-    }
-
-#else
-      if (!Loc.isUnknown()) {
-
-        DILocation cDILoc(Loc.getAsMDNode(F->getContext()));
-
-        unsigned int instLine = cDILoc.getLineNumber();
-        StringRef instFilename = cDILoc.getFilename();
-
-        (void)instLine;
-        /* Continue only if we know where we actually are */
-        if (!instFilename.str().empty()) {
-
-          for (std::list<std::string>::iterator it = denyListFiles.begin();
-               it != denyListFiles.end(); ++it) {
-
-            /* We don't check for filename equality here because
-             * filenames might actually be full paths. Instead we
-             * check that the actual filename ends in the filename
-             * specified in the list. We also allow UNIX-style pattern
-             * matching */
-
-            if (instFilename.str().length() >= it->length()) {
-
-              if (fnmatch(("*" + *it).c_str(), instFilename.str().c_str(), 0) ==
-                  0) {
-
-                return false;
-
-              }
-
-            }
-
-          }
-
-        }
+        // we could not find out the location. in this case we say it is not
+        // in the instrument file list
+        if (!be_quiet)
+          WARNF(
+              "No debug information found for function %s, will be "
+              "instrumented (recompile with -g -O[1-3]).",
+              F->getName().str().c_str());
 
       }
 
     }
-
-#endif
-    else {
-
-      // we could not find out the location. in this case we say it is not
-      // in the the instrument file list
-      if (!be_quiet)
-        WARNF(
-            "No debug information found for function %s, will be "
-            "instrumented (recompile with -g -O[1-3]).",
-            F->getName().str().c_str());
-      return true;
-
-    }
-
-    return true;
 
   }
 
-  return true;  // not reached
+  // if we do not have a instrument file list return true
+  if (!allowListFiles.empty() || !allowListFunctions.empty()) {
+
+    return_default = false;
+
+    if (!allowListFunctions.empty()) {
+
+      std::string instFunction = F->getName().str();
+
+      for (std::list<std::string>::iterator it = allowListFunctions.begin();
+           it != allowListFunctions.end(); ++it) {
+
+        /* We don't check for filename equality here because
+         * filenames might actually be full paths. Instead we
+         * check that the actual filename ends in the filename
+         * specified in the list. We also allow UNIX-style pattern
+         * matching */
+
+        if (instFunction.length() >= it->length()) {
+
+          if (fnmatch(("*" + *it).c_str(), instFunction.c_str(), 0) == 0) {
+
+            if (debug)
+              SAYF(cMGN "[D] " cRST
+                        "Function %s is in the allow function list, "
+                        "instrumenting ... \n",
+                   instFunction.c_str());
+            return true;
+
+          }
+
+        }
+
+      }
+
+    }
+
+    if (!allowListFiles.empty()) {
+
+      std::string source_file = getSourceName(F);
+
+      if (!source_file.empty()) {
+
+        for (std::list<std::string>::iterator it = allowListFiles.begin();
+             it != allowListFiles.end(); ++it) {
+
+          /* We don't check for filename equality here because
+           * filenames might actually be full paths. Instead we
+           * check that the actual filename ends in the filename
+           * specified in the list. We also allow UNIX-style pattern
+           * matching */
+
+          if (source_file.length() >= it->length()) {
+
+            if (fnmatch(("*" + *it).c_str(), source_file.c_str(), 0) == 0) {
+
+              if (debug)
+                SAYF(cMGN "[D] " cRST
+                          "Function %s is in the allowlist (%s), "
+                          "instrumenting ... \n",
+                     F->getName().str().c_str(), source_file.c_str());
+              return true;
+
+            }
+
+          }
+
+        }
+
+      } else {
+
+        // we could not find out the location. In this case we say it is not
+        // in the instrument file list
+        if (!be_quiet)
+          WARNF(
+              "No debug information found for function %s, will not be "
+              "instrumented (recompile with -g -O[1-3]).",
+              F->getName().str().c_str());
+        return false;
+
+      }
+
+    }
+
+  }
+
+  return return_default;
 
 }
 
