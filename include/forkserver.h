@@ -91,7 +91,7 @@ typedef struct afl_forkserver {
 
   u8 *afl_ptr;                          /* for autodictionary: afl ptr      */
 
-  void (*autodict_func)(void *afl_ptr, u8 *mem, u32 len);
+  void (*add_extra_func)(void *afl_ptr, u8 *mem, u32 len);
 
 } afl_forkserver_t;
 
