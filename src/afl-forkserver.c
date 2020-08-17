@@ -716,7 +716,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                (u8)dict[offset] + offset < (u32)status) {
 
           fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
-                              (u8)dict[offset]);
+                               (u8)dict[offset]);
           offset += (1 + dict[offset]);
           count++;
 
