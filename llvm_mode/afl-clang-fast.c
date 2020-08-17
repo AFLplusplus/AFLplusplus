@@ -363,16 +363,13 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
 
-    /*
-        The current LTO instrim mode is not good, so we disable it
-        if (instrument_mode == INSTRUMENT_CFG)
-          cc_params[cc_par_cnt++] =
-              alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-lto-instrim.so",
-       obj_path); else
-    */
+    if (instrument_mode == INSTRUMENT_CFG)
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
+    else
 
-    cc_params[cc_par_cnt++] = alloc_printf(
-        "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
+      cc_params[cc_par_cnt++] = alloc_printf(
+          "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
     cc_params[cc_par_cnt++] = lto_flag;
 
   } else {
