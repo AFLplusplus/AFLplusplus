@@ -12,6 +12,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++2.66d (devel)
   - Support for improved afl++ snapshot module:
     https://github.com/AFLplusplus/AFL-Snapshot-LKM
+  - Due to the instrumentation needing more memory, the initial memory sizes
+    for -m have been increased
   - afl-fuzz:
      - added -F option to allow -M main fuzzers to sync to foreign fuzzers,
        e.g. honggfuzz or libfuzzer
@@ -19,7 +21,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - eliminated CPU affinity race condition for -S/-M runs
      - expanded havoc mode added, on no cycle finds add extra splicing and
        MOpt into the mix
-     - fixed a bug in redqueen for strings
+     - fixed a bug in redqueen for strings and made deterministic with -s
   - llvm_mode:
      - now supports llvm 12!
      - support for AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST (previous
@@ -29,9 +31,15 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - added neverzero counting to trace-pc/pcgard
      - fixes for laf-intel float splitting (thanks to mark-griffin for
        reporting)
+     - fixes for llvm 4.0
+     - skipping ctors and ifuncs for instrumentation
      - LTO: switch default to the dynamic memory map, set AFL_LLVM_MAP_ADDR
             for a fixed map address (eg. 0x10000)
-     - LTO: skipping ctors and ifuncs in fix map address instrumentation
+     - LTO: improved stability for persistent mode, no other instrumentation
+            has that advantage
+     - LTO: fixed autodict for long strings
+     - LTO: laf-intel and redqueen/cmplog are now applied at link time
+            to prevent llvm optimizing away the splits
      - LTO: autodictionary mode is a default
      - LTO: instrim instrumentation disabled, only classic support used
             as it is always better

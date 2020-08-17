@@ -103,6 +103,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
   std::vector<std::string>         dictionary;
   std::vector<CallInst *>          calls;
   DenseMap<Value *, std::string *> valueMap;
+  std::vector<BasicBlock *>        BlockList;
   char *                           ptr;
   FILE *                           documentFile = NULL;
 
@@ -150,7 +151,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       map_addr = 0;
 
-    } else if (map_addr == 0) {
+    } else if (getenv("AFL_LLVM_MAP_DYNAMIC")) {
 
       FATAL(
           "AFL_LLVM_MAP_ADDR and AFL_LLVM_MAP_DYNAMIC cannot be used together");
@@ -217,79 +218,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
   }
 
-    */
+  */
 
-  std::vector<std::string> module_block_list;
-
-  if (map_addr) {
-
-    for (GlobalIFunc &IF : M.ifuncs()) {
-
-      StringRef ifunc_name = IF.getName();
-      Constant *r = IF.getResolver();
-      StringRef r_name = cast<Function>(r->getOperand(0))->getName();
-      if (!be_quiet)
-        fprintf(stderr,
-                "Warning: Found an ifunc with name %s that points to resolver "
-                "function %s, we cannot instrument this, putting it into a "
-                "block list.\n",
-                ifunc_name.str().c_str(), r_name.str().c_str());
-      module_block_list.push_back(r_name.str());
-
-    }
-
-    GlobalVariable *GV = M.getNamedGlobal("llvm.global_ctors");
-    if (GV && !GV->isDeclaration() && !GV->hasLocalLinkage()) {
-
-      ConstantArray *InitList = dyn_cast<ConstantArray>(GV->getInitializer());
-
-      if (InitList) {
-
-        for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
-
-          if (ConstantStruct *CS =
-                  dyn_cast<ConstantStruct>(InitList->getOperand(i))) {
-
-            if (CS->getNumOperands() >= 2) {
-
-              if (CS->getOperand(1)->isNullValue())
-                break;  // Found a null terminator, stop here.
-
-              ConstantInt *CI = dyn_cast<ConstantInt>(CS->getOperand(0));
-              int          Priority = CI ? CI->getSExtValue() : 0;
-
-              Constant *FP = CS->getOperand(1);
-              if (ConstantExpr *CE = dyn_cast<ConstantExpr>(FP))
-                if (CE->isCast()) FP = CE->getOperand(0);
-              if (Function *F = dyn_cast<Function>(FP)) {
-
-                if (!F->isDeclaration() &&
-                    strncmp(F->getName().str().c_str(), "__afl", 5) != 0 &&
-                    Priority <= 5) {
-
-                  if (!be_quiet)
-                    fprintf(stderr,
-                            "Warning: Found constructor function %s with prio "
-                            "%u, we cannot instrument this, putting it into a "
-                            "block list.\n",
-                            F->getName().str().c_str(), Priority);
-                  module_block_list.push_back(F->getName().str());
-
-                }
-
-              }
-
-            }
-
-          }
-
-        }
-
-      }
-
-    }
-
-  }
+  scanForDangerousFunctions(&M);
 
   /* Instrument all the things! */
 
@@ -306,26 +237,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     if (F.size() < function_minimum_size) continue;
     if (isIgnoreFunction(&F)) continue;
-
-    if (module_block_list.size()) {
-
-      for (auto bname : module_block_list) {
-
-        std::string fname = F.getName().str();
-
-        if (fname.compare(bname) == 0) {
-
-          if (!be_quiet)
-            WARNF(
-                "Skipping instrumentation of dangerous early running function "
-                "%s",
-                fname.c_str());
-
-        }
-
-      }
-
-    }
 
     // the instrument file list check
     AttributeList Attrs = F.getAttributes();
@@ -380,14 +291,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           if ((callInst = dyn_cast<CallInst>(&IN))) {
 
-            bool    isStrcmp = true;
-            bool    isMemcmp = true;
-            bool    isStrncmp = true;
-            bool    isStrcasecmp = true;
-            bool    isStrncasecmp = true;
-            bool    isIntMemcpy = true;
-            bool    addedNull = false;
-            uint8_t optLen = 0;
+            bool   isStrcmp = true;
+            bool   isMemcmp = true;
+            bool   isStrncmp = true;
+            bool   isStrcasecmp = true;
+            bool   isStrncasecmp = true;
+            bool   isIntMemcpy = true;
+            bool   addedNull = false;
+            size_t optLen = 0;
 
             Function *Callee = callInst->getCalledFunction();
             if (!Callee) continue;
@@ -399,6 +310,24 @@ bool AFLLTOPass::runOnModule(Module &M) {
             isStrcasecmp &= !FuncName.compare("strcasecmp");
             isStrncasecmp &= !FuncName.compare("strncasecmp");
             isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
+
+            /* we do something different here, putting this BB and the
+               successors in a block map */
+            if (!FuncName.compare("__afl_persistent_loop")) {
+
+              BlockList.push_back(&BB);
+              /*
+                            for (succ_iterator SI = succ_begin(&BB), SE =
+                 succ_end(&BB); SI != SE; ++SI) {
+
+                              BasicBlock *succ = *SI;
+                              BlockList.push_back(succ);
+
+                            }
+
+              */
+
+            }
 
             if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
                 !isStrncasecmp && !isIntMemcpy)
@@ -617,18 +546,27 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
             // add null byte if this is a string compare function and a null
             // was not already added
-            if (addedNull == false && !isMemcmp) {
+            if (!isMemcmp) {
 
-              thestring.append("\0", 1);  // add null byte
-              optLen++;
+              if (addedNull == false) {
+
+                thestring.append("\0", 1);  // add null byte
+                optLen++;
+
+              }
+
+              // ensure we do not have garbage
+              size_t offset = thestring.find('\0', 0);
+              if (offset + 1 < optLen) optLen = offset + 1;
+              thestring = thestring.substr(0, optLen);
 
             }
 
             if (!be_quiet) {
 
               std::string outstring;
-              fprintf(stderr, "%s: length %u/%u \"", FuncName.c_str(), optLen,
-                      (unsigned int)thestring.length());
+              fprintf(stderr, "%s: length %zu/%zu \"", FuncName.c_str(), optLen,
+                      thestring.length());
               for (uint8_t i = 0; i < thestring.length(); i++) {
 
                 uint8_t c = thestring[i];
@@ -686,12 +624,34 @@ bool AFLLTOPass::runOnModule(Module &M) {
       do {
 
         --i;
-        BasicBlock *              newBB;
+        BasicBlock *              newBB = NULL;
         BasicBlock *              origBB = &(*InsBlocks[i]);
         std::vector<BasicBlock *> Successors;
         Instruction *             TI = origBB->getTerminator();
         uint32_t                  fs = origBB->getParent()->size();
         uint32_t                  countto;
+
+        if (BlockList.size()) {
+
+          int skip = 0;
+          for (uint32_t k = 0; k < BlockList.size(); k++) {
+
+            if (origBB == BlockList[k]) {
+
+              if (debug)
+                fprintf(
+                    stderr,
+                    "DEBUG: Function %s skipping BB with/after __afl_loop\n",
+                    F.getName().str().c_str());
+              skip = 1;
+
+            }
+
+          }
+
+          if (skip) continue;
+
+        }
 
         for (succ_iterator SI = succ_begin(origBB), SE = succ_end(origBB);
              SI != SE; ++SI) {

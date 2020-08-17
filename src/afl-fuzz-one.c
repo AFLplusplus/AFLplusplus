@@ -95,7 +95,7 @@ static u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
     default:
 
-      if (rand_below(afl, 10)) {
+      if (likely(rand_below(afl, 10))) {
 
         min_value = HAVOC_BLK_MEDIUM;
         max_value = HAVOC_BLK_LARGE;
@@ -421,7 +421,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (((afl->queue_cur->was_fuzzed > 0 || afl->queue_cur->fuzz_level > 0) ||
          !afl->queue_cur->favored) &&
-        rand_below(afl, 100) < SKIP_TO_NEW_PROB) {
+        likely(rand_below(afl, 100) < SKIP_TO_NEW_PROB)) {
 
       return 1;
 
@@ -438,11 +438,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     if (afl->queue_cycle > 1 &&
         (afl->queue_cur->fuzz_level == 0 || afl->queue_cur->was_fuzzed)) {
 
-      if (rand_below(afl, 100) < SKIP_NFAV_NEW_PROB) { return 1; }
+      if (likely(rand_below(afl, 100) < SKIP_NFAV_NEW_PROB)) { return 1; }
 
     } else {
 
-      if (rand_below(afl, 100) < SKIP_NFAV_OLD_PROB) { return 1; }
+      if (likely(rand_below(afl, 100) < SKIP_NFAV_OLD_PROB)) { return 1; }
 
     }
 
@@ -526,8 +526,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * TRIMMING *
    ************/
 
-  if (!afl->non_instrumented_mode && !afl->queue_cur->trim_done &&
-      !afl->disable_trim) {
+  if (unlikely(!afl->non_instrumented_mode && !afl->queue_cur->trim_done &&
+               !afl->disable_trim)) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
@@ -562,7 +562,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (unlikely(perf_score == 0)) { goto abandon_entry; }
 
-  if (afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized) {
+  if (unlikely(afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized)) {
 
     if (input_to_state_stage(afl, in_buf, out_buf, len,
                              afl->queue_cur->exec_cksum)) {
@@ -591,8 +591,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
   /* Skip deterministic fuzzing if exec path checksum puts this out of scope
      for this main instance. */
 
-  if (afl->main_node_max && (afl->queue_cur->exec_cksum % afl->main_node_max) !=
-                                afl->main_node_id - 1) {
+  if (unlikely(afl->main_node_max &&
+               (afl->queue_cur->exec_cksum % afl->main_node_max) !=
+                   afl->main_node_id - 1)) {
 
     goto custom_mutator_stage;
 
@@ -681,7 +682,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 
@@ -692,7 +693,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 
@@ -2131,7 +2132,7 @@ havoc_stage:
             u32 clone_from, clone_to, clone_len;
             u8 *new_buf;
 
-            if (actually_clone) {
+            if (likely(actually_clone)) {
 
               clone_len = choose_block_len(afl, temp_len);
               clone_from = rand_below(afl, temp_len - clone_len + 1);
@@ -2154,7 +2155,7 @@ havoc_stage:
 
             /* Inserted part */
 
-            if (actually_clone) {
+            if (likely(actually_clone)) {
 
               memcpy(new_buf + clone_to, out_buf + clone_from, clone_len);
 
@@ -2194,7 +2195,7 @@ havoc_stage:
           copy_from = rand_below(afl, temp_len - copy_len + 1);
           copy_to = rand_below(afl, temp_len - copy_len + 1);
 
-          if (rand_below(afl, 4)) {
+          if (likely(rand_below(afl, 4))) {
 
             if (copy_from != copy_to) {
 
@@ -2753,7 +2754,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
-  if (afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized) {
+  if (unlikely(afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized)) {
 
     if (input_to_state_stage(afl, in_buf, out_buf, len,
                              afl->queue_cur->exec_cksum)) {
@@ -2882,7 +2883,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 
@@ -2893,7 +2894,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 

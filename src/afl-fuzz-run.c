@@ -38,8 +38,8 @@ u64 time_spent_working = 0;
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
-fsrv_run_result_t __attribute__ ((hot)) fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
-                                  u32 timeout) {
+fsrv_run_result_t __attribute__((hot))
+fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
 #ifdef PROFILING
   static u64      time_spent_start = 0;
@@ -72,7 +72,8 @@ fsrv_run_result_t __attribute__ ((hot)) fuzz_run_target(afl_state_t *afl, afl_fo
    old file is unlinked and a new one is created. Otherwise, afl->fsrv.out_fd is
    rewound and truncated. */
 
-void __attribute__ ((hot)) write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
+void __attribute__((hot))
+write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   s32  doc_fd;
@@ -858,7 +859,8 @@ abort_trimming:
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
 
-u8 __attribute__ ((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
+u8 __attribute__((hot))
+common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   u8 fault;
 

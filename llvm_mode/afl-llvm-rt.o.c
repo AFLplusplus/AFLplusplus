@@ -35,6 +35,8 @@
 #include <string.h>
 #include <assert.h>
 #include <stdint.h>
+#include <stddef.h>
+#include <limits.h>
 #include <errno.h>
 
 #include <sys/mman.h>
@@ -52,8 +54,6 @@
    Basically, we need to make sure that the forkserver is initialized after
    the LLVM-generated runtime initialization pass, not before. */
 
-#define CONST_PRIO 5
-
 #ifndef MAP_FIXED_NOREPLACE
   #ifdef MAP_EXCL
     #define MAP_FIXED_NOREPLACE MAP_EXCL | MAP_FIXED
@@ -61,6 +61,8 @@
     #define MAP_FIXED_NOREPLACE MAP_FIXED
   #endif
 #endif
+
+#define CTOR_PRIO 3
 
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -75,11 +77,7 @@
   #define MAP_INITIAL_SIZE MAP_SIZE
 #endif
 
-#ifdef AFL_REAL_LD
-u8 __afl_area_initial[MAP_INITIAL_SIZE];
-#else
-u8                  __afl_area_initial[MAP_SIZE];
-#endif
+u8   __afl_area_initial[MAP_INITIAL_SIZE];
 u8 * __afl_area_ptr = __afl_area_initial;
 u8 * __afl_dictionary;
 u8 * __afl_fuzz_ptr;
@@ -108,6 +106,10 @@ struct cmp_map *__afl_cmp_map;
 /* Running in persistent mode? */
 
 static u8 is_persistent;
+
+/* Are we in sancov mode? */
+
+static u8 _is_sancov;
 
 /* Error reporting to forkserver controller */
 
@@ -186,7 +188,7 @@ static void __afl_map_shm_fuzz() {
 static void __afl_map_shm(void) {
 
   // we we are not running in afl ensure the map exists
-  if (!__afl_area_ptr) __afl_area_ptr = __afl_area_initial;
+  if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_initial; }
 
   char *id_str = getenv(SHM_ENV_VAR);
 
@@ -194,8 +196,8 @@ static void __afl_map_shm(void) {
 
     if (__afl_final_loc % 8)
       __afl_final_loc = (((__afl_final_loc + 7) >> 3) << 3);
-
     __afl_map_size = __afl_final_loc;
+
     if (__afl_final_loc > MAP_SIZE) {
 
       char *ptr;
@@ -205,10 +207,12 @@ static void __afl_map_shm(void) {
 
         if (__afl_final_loc > FS_OPT_MAX_MAPSIZE) {
 
-          fprintf(stderr,
-                  "Error: AFL++ tools *require* to set AFL_MAP_SIZE to %u to "
-                  "be able to run this instrumented program!\n",
-                  __afl_final_loc);
+          if (!getenv("AFL_QUIET"))
+            fprintf(stderr,
+                    "Error: AFL++ tools *require* to set AFL_MAP_SIZE to %u "
+                    "to be able to run this instrumented program!\n",
+                    __afl_final_loc);
+
           if (id_str) {
 
             send_forkserver_error(FS_ERROR_MAP_SIZE);
@@ -218,10 +222,11 @@ static void __afl_map_shm(void) {
 
         } else {
 
-          fprintf(stderr,
-                  "Warning: AFL++ tools will need to set AFL_MAP_SIZE to %u to "
-                  "be able to run this instrumented program!\n",
-                  __afl_final_loc);
+          if (!getenv("AFL_QUIET"))
+            fprintf(stderr,
+                    "Warning: AFL++ tools will need to set AFL_MAP_SIZE to %u "
+                    "to be able to run this instrumented program!\n",
+                    __afl_final_loc);
 
         }
 
@@ -237,12 +242,24 @@ static void __afl_map_shm(void) {
 
   if (getenv("AFL_DEBUG"))
     fprintf(stderr,
-            "DEBUG: id_str %s, __afl_map_addr 0x%llx, MAP_SIZE %u, "
-            "__afl_final_loc %u, max_size_forkserver %u/0x%x\n",
-            id_str == NULL ? "<null>" : id_str, __afl_map_addr, MAP_SIZE,
-            __afl_final_loc, FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
+            "DEBUG: id_str %s, __afl_area_ptr %p, __afl_area_initial %p, "
+            "__afl_map_addr 0x%llx, MAP_SIZE %u, __afl_final_loc %u, "
+            "max_size_forkserver %u/0x%x\n",
+            id_str == NULL ? "<null>" : id_str, __afl_area_ptr,
+            __afl_area_initial, __afl_map_addr, MAP_SIZE, __afl_final_loc,
+            FS_OPT_MAX_MAPSIZE, FS_OPT_MAX_MAPSIZE);
 
   if (id_str) {
+
+    if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial) {
+
+      if (__afl_map_addr)
+        munmap((void *)__afl_map_addr, __afl_final_loc);
+      else
+        free(__afl_area_ptr);
+      __afl_area_ptr = __afl_area_initial;
+
+    }
 
 #ifdef USEMMAP
     const char *   shm_file_path = id_str;
@@ -312,11 +329,14 @@ static void __afl_map_shm(void) {
 
     __afl_area_ptr[0] = 1;
 
-  } else if (__afl_map_addr) {
+  } else if ((!__afl_area_ptr || __afl_area_ptr == __afl_area_initial) &&
+
+             __afl_map_addr) {
 
     __afl_area_ptr =
         mmap((void *)__afl_map_addr, __afl_map_size, PROT_READ | PROT_WRITE,
              MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
     if (__afl_area_ptr == MAP_FAILED) {
 
       fprintf(stderr, "can not aquire mmap for address %p\n",
@@ -324,6 +344,14 @@ static void __afl_map_shm(void) {
       exit(1);
 
     }
+
+  } else if (_is_sancov && __afl_area_ptr != __afl_area_initial) {
+
+    free(__afl_area_ptr);
+    __afl_area_ptr = NULL;
+    if (__afl_final_loc > MAP_INITIAL_SIZE)
+      __afl_area_ptr = malloc(__afl_final_loc);
+    if (!__afl_area_ptr) __afl_area_ptr = __afl_area_initial;
 
   }
 
@@ -842,9 +870,22 @@ void __afl_manual_init(void) {
 
   static u8 init_done;
 
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) {
+
+    init_done = 1;
+    is_persistent = 0;
+    __afl_sharedmem_fuzzing = 0;
+    if (__afl_area_ptr == NULL) __afl_area_ptr = __afl_area_initial;
+
+    if (getenv("AFL_DEBUG"))
+      fprintf(stderr,
+              "DEBUG: disabled instrumentation because of "
+              "AFL_DISABLE_LLVM_INSTRUMENTATION\n");
+
+  }
+
   if (!init_done) {
 
-    __afl_map_shm();
     __afl_start_forkserver();
     init_done = 1;
 
@@ -852,15 +893,66 @@ void __afl_manual_init(void) {
 
 }
 
-/* Proper initialization routine. */
+/* Initialization of the forkserver - latest possible */
 
-__attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
+__attribute__((constructor())) void __afl_auto_init(void) {
 
-  is_persistent = !!getenv(PERSIST_ENV_VAR);
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
 
   if (getenv(DEFER_ENV_VAR)) return;
 
   __afl_manual_init();
+
+}
+
+/* Initialization of the shmem - earliest possible because of LTO fixed mem. */
+
+__attribute__((constructor(CTOR_PRIO))) void __afl_auto_early(void) {
+
+  is_persistent = !!getenv(PERSIST_ENV_VAR);
+
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
+
+  __afl_map_shm();
+
+}
+
+/* preset __afl_area_ptr #2 */
+
+__attribute__((constructor(1))) void __afl_auto_second(void) {
+
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
+  u8 *ptr;
+
+  if (__afl_final_loc) {
+
+    if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial)
+      free(__afl_area_ptr);
+
+    if (__afl_map_addr)
+      ptr = (u8 *)mmap((void *)__afl_map_addr, __afl_final_loc,
+                       PROT_READ | PROT_WRITE,
+                       MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    else
+      ptr = (u8 *)malloc(__afl_final_loc);
+
+    if (ptr && (ssize_t)ptr != -1) __afl_area_ptr = ptr;
+
+  }
+
+}
+
+/* preset __afl_area_ptr #1 - at constructor level 0 global variables have
+   not been set */
+
+__attribute__((constructor(0))) void __afl_auto_first(void) {
+
+  if (getenv("AFL_DISABLE_LLVM_INSTRUMENTATION")) return;
+  u8 *ptr;
+
+  ptr = (u8 *)malloc(1024000);
+
+  if (ptr && (ssize_t)ptr != -1) __afl_area_ptr = ptr;
 
 }
 
@@ -874,7 +966,7 @@ __attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
 void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
   // For stability analysis, if you want to know to which function unstable
-  // edge IDs belong to - uncomment, recompile+install llvm_mode, recompile
+  // edge IDs belong - uncomment, recompile+install llvm_mode, recompile
   // the target. libunwind and libbacktrace are better solutions.
   // Set AFL_DEBUG_CHILD_OUTPUT=1 and run afl-fuzz with 2>file to capture
   // the backtrace output
@@ -912,7 +1004,8 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
 #else
 
-  __afl_area_ptr[*guard] = __afl_area_ptr[*guard] + 1 + (__afl_area_ptr[*guard] == 255 ? 1 : 0);
+  __afl_area_ptr[*guard] =
+      __afl_area_ptr[*guard] + 1 + (__afl_area_ptr[*guard] == 255 ? 1 : 0);
 
 #endif
 
@@ -926,6 +1019,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   u32   inst_ratio = 100;
   char *x;
+
+  _is_sancov = 1;
 
   if (getenv("AFL_DEBUG")) {
 
