@@ -30,12 +30,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 
 #include "config.h"
 #include "types.h"
 #include "debug.h"
 
-/* Initial size used for ck_maybe_grow */
+/* Initial size used for afl_realloc */
 #define INITIAL_GROWTH_SIZE (64)
 
 // Be careful! _WANT_ORIGINAL_AFL_ALLOC is not compatible with custom mutators
@@ -75,10 +76,6 @@
       if (!(_r)) ABORT("Out of memory: can't allocate %u bytes", (_s)); \
                                                                         \
     } while (0)
-
-  /* Allocator increments for ck_realloc_block(). */
-
-  #define ALLOC_BLK_INC 256
 
 /* Allocate a buffer, explicitly not zeroing it. Returns NULL for zero-sized
    requests. */
@@ -149,15 +146,6 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
 }
 
-/* Re-allocate a buffer with ALLOC_BLK_INC increments (used to speed up
-   repeated small reallocs without complicating the user code). */
-
-static inline void *DFL_ck_realloc_block(void *orig, u32 size) {
-
-  return DFL_ck_realloc(orig, size);
-
-}
-
 /* Create a buffer with a copy of a string. Returns NULL for NULL inputs. */
 
 static inline u8 *DFL_ck_strdup(u8 *str) {
@@ -183,7 +171,6 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
   #define ck_alloc DFL_ck_alloc
   #define ck_alloc_nozero DFL_ck_alloc_nozero
   #define ck_realloc DFL_ck_realloc
-  #define ck_realloc_block DFL_ck_realloc_block
   #define ck_strdup DFL_ck_strdup
   #define ck_free DFL_ck_free
 
@@ -238,10 +225,6 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
 
   #define ALLOC_OFF_HEAD 8
   #define ALLOC_OFF_TOTAL (ALLOC_OFF_HEAD + 1)
-
-  /* Allocator increments for ck_realloc_block(). */
-
-  #define ALLOC_BLK_INC 256
 
   /* Sanity-checking macros for pointers. */
 
@@ -402,29 +385,6 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
 }
 
-/* Re-allocate a buffer with ALLOC_BLK_INC increments (used to speed up
-   repeated small reallocs without complicating the user code). */
-
-static inline void *DFL_ck_realloc_block(void *orig, u32 size) {
-
-  #ifndef DEBUG_BUILD
-
-  if (orig) {
-
-    CHECK_PTR(orig);
-
-    if (ALLOC_S(orig) >= size) return orig;
-
-    size += ALLOC_BLK_INC;
-
-  }
-
-  #endif                                                    /* !DEBUG_BUILD */
-
-  return DFL_ck_realloc(orig, size);
-
-}
-
 /* Create a buffer with a copy of a string. Returns NULL for NULL inputs. */
 
 static inline u8 *DFL_ck_strdup(u8 *str) {
@@ -458,7 +418,6 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
     #define ck_alloc DFL_ck_alloc
     #define ck_alloc_nozero DFL_ck_alloc_nozero
     #define ck_realloc DFL_ck_realloc
-    #define ck_realloc_block DFL_ck_realloc_block
     #define ck_strdup DFL_ck_strdup
     #define ck_free DFL_ck_free
 
@@ -528,8 +487,8 @@ static inline void TRK_alloc_buf(void *ptr, const char *file, const char *func,
 
   /* No space available - allocate more. */
 
-  TRK[bucket] = DFL_ck_realloc_block(
-      TRK[bucket], (TRK_cnt[bucket] + 1) * sizeof(struct TRK_obj));
+  TRK[bucket] = DFL_ck_realloc(TRK[bucket],
+                               (TRK_cnt[bucket] + 1) * sizeof(struct TRK_obj));
 
   TRK[bucket][i].ptr = ptr;
   TRK[bucket][i].file = (char *)file;
@@ -604,16 +563,6 @@ static inline void *TRK_ck_realloc(void *orig, u32 size, const char *file,
 
 }
 
-static inline void *TRK_ck_realloc_block(void *orig, u32 size, const char *file,
-                                         const char *func, u32 line) {
-
-  void *ret = DFL_ck_realloc_block(orig, size);
-  TRK_free_buf(orig, file, func, line);
-  TRK_alloc_buf(ret, file, func, line);
-  return ret;
-
-}
-
 static inline void *TRK_ck_strdup(u8 *str, const char *file, const char *func,
                                   u32 line) {
 
@@ -641,9 +590,6 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
     #define ck_realloc(_p1, _p2) \
       TRK_ck_realloc(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
 
-    #define ck_realloc_block(_p1, _p2) \
-      TRK_ck_realloc_block(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
-
     #define ck_strdup(_p1) TRK_ck_strdup(_p1, __FILE__, __FUNCTION__, __LINE__)
 
     #define ck_free(_p1) TRK_ck_free(_p1, __FILE__, __FUNCTION__, __LINE__)
@@ -657,11 +603,14 @@ static inline void TRK_ck_free(void *ptr, const char *file, const char *func,
 */
 static inline size_t next_pow2(size_t in) {
 
-  if (in == 0 || in > (size_t)-1) {
+  // Commented this out as this behavior doesn't change, according to unittests
+  // if (in == 0 || in > (size_t)-1) {
 
-    return 0;                  /* avoid undefined behaviour under-/overflow */
-
-  }
+  //
+  //   return 0;                  /* avoid undefined behaviour under-/overflow
+  //   */
+  //
+  // }
 
   size_t out = in - 1;
   out |= out >> 1;
@@ -673,6 +622,35 @@ static inline size_t next_pow2(size_t in) {
 
 }
 
+/* AFL alloc buffer, the struct is here so we don't need to do fancy ptr
+ * arithmetics */
+struct afl_alloc_buf {
+
+  /* The complete allocated size, including the header of len
+   * AFL_ALLOC_SIZE_OFFSET */
+  size_t complete_size;
+  /* ptr to the first element of the actual buffer */
+  u8 buf[0];
+
+};
+
+#define AFL_ALLOC_SIZE_OFFSET (offsetof(struct afl_alloc_buf, buf))
+
+/* Returs the container element to this ptr */
+static inline struct afl_alloc_buf *afl_alloc_bufptr(void *buf) {
+
+  return (struct afl_alloc_buf *)((u8 *)buf - AFL_ALLOC_SIZE_OFFSET);
+
+}
+
+/* Gets the maximum size of the buf contents (ptr->complete_size -
+ * AFL_ALLOC_SIZE_OFFSET) */
+static inline size_t afl_alloc_bufsize(void *buf) {
+
+  return afl_alloc_bufptr(buf)->complete_size - AFL_ALLOC_SIZE_OFFSET;
+
+}
+
 /* This function makes sure *size is > size_needed after call.
  It will realloc *buf otherwise.
  *size will grow exponentially as per:
@@ -680,71 +658,68 @@ static inline size_t next_pow2(size_t in) {
  Will return NULL and free *buf if size_needed is <1 or realloc failed.
  @return For convenience, this function returns *buf.
  */
-static inline void *maybe_grow(void **buf, size_t *size, size_t size_needed) {
+static inline void *afl_realloc(void **buf, size_t size_needed) {
+
+  struct afl_alloc_buf *new_buf = NULL;
+
+  size_t current_size = 0;
+  size_t next_size = 0;
+
+  if (likely(*buf)) {
+
+    /* the size is always stored at buf - 1*size_t */
+    new_buf = afl_alloc_bufptr(*buf);
+    current_size = new_buf->complete_size;
+
+  }
+
+  size_needed += AFL_ALLOC_SIZE_OFFSET;
 
   /* No need to realloc */
-  if (likely(size_needed && *size >= size_needed)) { return *buf; }
+  if (likely(current_size >= size_needed)) { return *buf; }
 
   /* No initial size was set */
-  if (size_needed < INITIAL_GROWTH_SIZE) { size_needed = INITIAL_GROWTH_SIZE; }
+  if (size_needed < INITIAL_GROWTH_SIZE) {
 
-  /* grow exponentially */
-  size_t next_size = next_pow2(size_needed);
+    next_size = INITIAL_GROWTH_SIZE;
 
-  /* handle overflow and zero size_needed */
-  if (!next_size) { next_size = size_needed; }
+  } else {
+
+    /* grow exponentially */
+    next_size = next_pow2(size_needed);
+
+    /* handle overflow: fall back to the original size_needed */
+    if (unlikely(!next_size)) { next_size = size_needed; }
+
+  }
 
   /* alloc */
-  *buf = realloc(*buf, next_size);
-  *size = *buf ? next_size : 0;
+  new_buf = realloc(new_buf, next_size);
+  if (unlikely(!new_buf)) {
 
+    *buf = NULL;
+    return NULL;
+
+  }
+
+  new_buf->complete_size = next_size;
+  *buf = (void *)(new_buf->buf);
   return *buf;
 
 }
 
-/* This function makes sure *size is > size_needed after call.
- It will realloc *buf otherwise.
- *size will grow exponentially as per:
- https://blog.mozilla.org/nnethercote/2014/11/04/please-grow-your-buffers-exponentially/
- Will FATAL if size_needed is <1.
- @return For convenience, this function returns *buf.
- */
-static inline void *ck_maybe_grow(void **buf, size_t *size,
-                                  size_t size_needed) {
+static inline void afl_free(void *buf) {
 
-  /* Oops. found a bug? */
-  if (unlikely(size_needed < 1)) { FATAL("cannot grow to non-positive size"); }
-
-  /* No need to realloc */
-  if (likely(*size >= size_needed)) { return *buf; }
-
-  /* No initial size was set */
-  if (size_needed < INITIAL_GROWTH_SIZE) { size_needed = INITIAL_GROWTH_SIZE; }
-
-  /* grow exponentially */
-  size_t next_size = next_pow2(size_needed);
-
-  /* handle overflow */
-  if (!next_size) { next_size = size_needed; }
-
-  /* alloc */
-  *buf = ck_realloc(*buf, next_size);
-  *size = next_size;
-
-  return *buf;
+  if (buf) { free(afl_alloc_bufptr(buf)); }
 
 }
 
 /* Swaps buf1 ptr and buf2 ptr, as well as their sizes */
-static inline void swap_bufs(void **buf1, size_t *size1, void **buf2,
-                             size_t *size2) {
+static inline void afl_swap_bufs(void **buf1, void **buf2) {
 
-  void * scratch_buf = *buf1;
-  size_t scratch_size = *size1;
+  void *scratch_buf = *buf1;
   *buf1 = *buf2;
-  *size1 = *size2;
   *buf2 = scratch_buf;
-  *size2 = scratch_size;
 
 }
 
