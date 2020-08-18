@@ -9,7 +9,7 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-### Version ++2.66d (devel)
+### Version ++2.67c (release)
   - Support for improved afl++ snapshot module:
     https://github.com/AFLplusplus/AFL-Snapshot-LKM
   - Due to the instrumentation needing more memory, the initial memory sizes
@@ -24,11 +24,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - fixed a bug in redqueen for strings and made deterministic with -s
      - Compiletime autodictionary fixes
   - llvm_mode:
-     - now supports llvm 12!
+     - now supports llvm 12
      - support for AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST (previous
        AFL_LLVM_WHITELIST and AFL_LLVM_INSTRUMENT_FILE are deprecated and
        are matched to AFL_LLVM_ALLOWLIST). The format is compatible to llvm
-       sancov, and also supports function matching!
+       sancov, and also supports function matching :)
      - added neverzero counting to trace-pc/pcgard
      - fixes for laf-intel float splitting (thanks to mark-griffin for
        reporting)
@@ -41,7 +41,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - LTO: fixed autodict for long strings
      - LTO: laf-intel and redqueen/cmplog are now applied at link time
             to prevent llvm optimizing away the splits
-     - LTO: autodictionary mode is a default
+     - LTO: autodictionary mode is a fixed default now
      - LTO: instrim instrumentation disabled, only classic support used
             as it is always better
      - LTO: env var AFL_LLVM_DOCUMENT_IDS=file will document which edge ID
