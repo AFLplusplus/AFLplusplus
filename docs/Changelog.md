@@ -9,6 +9,10 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++2.67d (develop)
+  - Fix for auto dictionary not to throw out a -x dictionary
+
+
 ### Version ++2.67c (release)
   - Support for improved afl++ snapshot module:
     https://github.com/AFLplusplus/AFL-Snapshot-LKM
