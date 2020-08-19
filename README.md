@@ -19,7 +19,7 @@
 
   Originally developed by Michał "lcamtuf" Zalewski.
 
-  afl++ is a superiour fork to Google's afl - more speed, more and better
+  afl++ is a superior fork to Google's afl - more speed, more and better
   mutations, more and better instrumentation, custom module support, etc.
 
 ## Contents
@@ -75,7 +75,7 @@
   * C. Holler's afl-fuzz Python mutator module: [https://github.com/choller/afl](https://github.com/choller/afl)
   * Custom mutator by a library (instead of Python) by kyakdan
   * LAF-Intel/CompCov support for llvm_mode, qemu_mode and unicorn_mode (with enhanced capabilities)
-  * Radamsa and hongfuzz mutators (as custom mutators).
+  * Radamsa and honggfuzz mutators (as custom mutators).
   * QBDI mode to fuzz android native libraries via Quarkslab's [QBDI](https://github.com/QBDI/QBDI) framework
   * Frida and ptrace mode to fuzz binary-only libraries, etc.
 
@@ -95,7 +95,7 @@
   The following branches exist:
 
   * [stable/trunk](https://github.com/AFLplusplus/AFLplusplus/) : stable state of afl++ - it is synced from dev from time to
-    time when we are satisfied with it's stability
+    time when we are satisfied with its stability
   * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev) : development state of afl++ - bleeding edge and you might catch a
     checkout which does not compile or has a bug. *We only accept PRs in dev!!*
   * (any other) : experimental branches to work on specific features or testing
@@ -210,7 +210,7 @@ If you find other good ones, please send them to us :-)
 The following describes how to fuzz with a target if source code is available.
 If you have a binary-only target please skip to [#Instrumenting binary-only apps](#Instrumenting binary-only apps)
 
-Fuzzing source code is a three step process.
+Fuzzing source code is a three-step process.
 
 1. compile the target with a special compiler that prepares the target to be
    fuzzed efficiently. This step is called "instrumenting a target".
@@ -318,7 +318,7 @@ here:
 
 #### c) Modify the target
 
-If the target has features that makes fuzzing more difficult, e.g.
+If the target has features that make fuzzing more difficult, e.g.
 checksums, HMAC, etc. then modify the source code so that this is
 removed.
 This can even be done for productional source code be eliminating
@@ -579,7 +579,7 @@ It is even better to check out the exact lines of code that have been reached -
 and which have not been found so far.
 
 An "easy" helper script for this is [https://github.com/vanhauser-thc/afl-cov](https://github.com/vanhauser-thc/afl-cov),
-just follow the README of that seperate project.
+just follow the README of that separate project.
 
 If you see that an important area or a feature has not been covered so far then
 try to find an input that is able to reach that and start a new secondary in
@@ -661,7 +661,7 @@ on-the-fly instrumentation of black-box binaries.
 
 ### QEMU
 
-For linux programs and it's libraries this is accomplished with a version of
+For linux programs and its libraries this is accomplished with a version of
 QEMU running in the lesser-known "user space emulation" mode.
 QEMU is a project separate from AFL, but you can conveniently build the
 feature by doing:
@@ -684,7 +684,7 @@ For non-Linux binaries you can use afl++'s unicorn mode which can emulate
 anything you want - for the price of speed and the user writing scripts.
 See [unicorn_mode](unicorn_mode/README.md).
 
-It can be easily build by:
+It can be easily built by:
 ```shell
 cd unicorn_mode
 ./build_unicorn_support.sh
