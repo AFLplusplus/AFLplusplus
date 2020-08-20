@@ -10,6 +10,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.67d (develop)
+  - Further llvm 12 support (fast moving target like afl++ :-) )
   - Fix for auto dictionary not to throw out a -x dictionary
 
 

@@ -978,8 +978,11 @@ int main(int argc, char **argv, char **envp) {
         "AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
         "AFL_HARDEN: adds code hardening to catch memory bugs\n"
         "AFL_INST_RATIO: percentage of branches to instrument\n"
+#if LLVM_VERSION_MAJOR < 9
         "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+#else
         "AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
+#endif
         "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
         "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
         "AFL_LLVM_LAF_SPLIT_SWITCHES: casc. comp. in 'switch'\n"
