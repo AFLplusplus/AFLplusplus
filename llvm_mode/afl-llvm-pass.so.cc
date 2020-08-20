@@ -182,10 +182,6 @@ bool AFLCoverage::runOnModule(Module &M) {
 #endif
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
 
-  if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") ||
-      getenv("AFL_LLVM_SKIPSINGLEBLOCK"))
-    function_minimum_size = 2;
-
   unsigned PrevLocSize = 0;
 
   char *ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
