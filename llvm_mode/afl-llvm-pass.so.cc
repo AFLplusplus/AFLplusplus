@@ -225,8 +225,14 @@ bool AFLCoverage::runOnModule(Module &M) {
     PrevLocSize = 1;
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
-  uint64_t PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
-  if (ngram_size) PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize);
+  int PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
+  if (ngram_size)
+    PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize
+  #if LLVM_VERSION_MAJOR >= 12
+                                ,
+                                false
+  #endif
+    );
 #endif
 
   /* Get globals for the SHM region and the previous location. Note that

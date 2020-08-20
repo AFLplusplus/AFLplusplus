@@ -1047,6 +1047,10 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
   // (catchswitch blocks).
   if (BB->getFirstInsertionPt() == BB->end()) return false;
 
+  // Special afl++
+  if (!Options.NoPrune && &F.getEntryBlock() == BB && &F.size() > 1)
+    return false;
+
   if (Options.NoPrune || &F.getEntryBlock() == BB) return true;
 
   if (Options.CoverageType == SanitizerCoverageOptions::SCK_Function &&
