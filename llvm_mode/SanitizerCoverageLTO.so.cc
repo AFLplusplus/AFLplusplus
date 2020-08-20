@@ -1,15 +1,4 @@
-//===-- SanitizerCoverageLTO.cpp - coverage instrumentation for sanitizers
-//---===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===-------------------------------------------------------------------------===//
-//
-// Coverage instrumentation done on LLVM IR level, works with Sanitizers.
-//
-//===-------------------------------------------------------------------------===//
+/* SanitizeCoverage.cpp ported to afl++ LTO :-) */
 
 #define AFL_LLVM_PASS
 
@@ -61,7 +50,6 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-//#include "llvm/PassAnalysisSupport.h"
 
 #include "config.h"
 #include "debug.h"
@@ -235,7 +223,7 @@ class ModuleSanitizerCoverage {
 
   SanitizerCoverageOptions Options;
 
-  // AFL++ START
+  // afl++ START
   const SpecialCaseList *          Allowlist;
   const SpecialCaseList *          Blocklist;
   uint32_t                         autodictionary = 1;
@@ -255,8 +243,8 @@ class ModuleSanitizerCoverage {
   Module *                         Mo;
   GlobalVariable *                 AFLMapPtr;
   Value *                          MapPtrFixed;
-  ;
-  // AFL++ END
+  FILE *                           documentFile;
+  // afl++ END
 
 };
 
@@ -410,7 +398,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
   Int8Ty = IRB.getInt8Ty();
   Int1Ty = IRB.getInt1Ty();
 
-  /* AFL++ START */
+  /* afl++ START */
   char *       ptr;
   LLVMContext &Ctx = M.getContext();
   Ct = &Ctx;
@@ -420,6 +408,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
   /* Show a banner */
   setvbuf(stdout, NULL, _IONBF, 0);
+  if (getenv("AFL_DEBUG")) debug = 1;
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
@@ -429,6 +418,19 @@ bool ModuleSanitizerCoverage::instrumentModule(
   } else
 
     be_quiet = 1;
+
+  skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
+
+  if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL)
+    if ((afl_global_id = atoi(ptr)) < 0)
+      FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is negative\n", ptr);
+
+  if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
+
+    if ((documentFile = fopen(ptr, "a")) == NULL)
+      WARNF("Cannot access document file %s", ptr);
+
+  }
 
   // we make this the default as the fixed map has problems with
   // defered forkserver, early constructors, ifuncs and maybe more
@@ -810,7 +812,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
   }
 
-  // AFL++ END
+  // afl++ END
 
   SanCovTracePCIndir =
       M.getOrInsertFunction(SanCovTracePCIndirName, VoidTy, IntptrTy);
@@ -834,7 +836,14 @@ bool ModuleSanitizerCoverage::instrumentModule(
   for (auto &F : M)
     instrumentFunction(F, DTCallback, PDTCallback);
 
-  // AFL++ START
+  // afl++ START
+  if (documentFile) {
+
+    fclose(documentFile);
+    documentFile = NULL;
+
+  }
+
   if (!getenv("AFL_LLVM_LTO_DONTWRITEID") || dictionary.size() || map_addr) {
 
     // yes we could create our own function, insert it into ctors ...
@@ -990,7 +999,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
   }
 
-  // AFL++ END
+  // afl++ END
 
   // We don't reference these arrays directly in any of our runtime functions,
   // so we need to prevent them from being dead stripped.
@@ -1047,9 +1056,10 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
   // (catchswitch blocks).
   if (BB->getFirstInsertionPt() == BB->end()) return false;
 
-  // Special afl++
-  if (!Options.NoPrune && &F.getEntryBlock() == BB && &F.size() > 1)
+  // afl++ START
+  if (!Options.NoPrune && &F.getEntryBlock() == BB && F.size() > 1)
     return false;
+  // afl++ END
 
   if (Options.NoPrune || &F.getEntryBlock() == BB) return true;
 
@@ -1090,10 +1100,10 @@ void ModuleSanitizerCoverage::instrumentFunction(
     return;
   if (Blocklist && Blocklist->inSection("coverage", "fun", F.getName())) return;
 
-  // AFL++ START
+  // afl++ START
   if (!F.size()) return;
   if (isIgnoreFunction(&F)) return;
-  // AFL++ END
+  // afl++ END
 
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)
     SplitAllCriticalEdges(
@@ -1210,7 +1220,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
   CreateFunctionLocalArrays(F, AllBlocks);
   for (size_t i = 0, N = AllBlocks.size(); i < N; i++) {
 
-    // AFL++ START
+    // afl++ START
     if (BlockList.size()) {
 
       int skip = 0;
@@ -1232,7 +1242,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
     }
 
-    // AFL++ END
+    // afl++ END
 
     InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
 
@@ -1300,7 +1310,16 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
   if (Options.TracePCGuard) {
 
-    // AFL++ START
+    // afl++ START
+
+    if (documentFile) {
+
+      unsigned long long int moduleID =
+          (((unsigned long long int)(rand() & 0xffffffff)) << 32) | getpid();
+      fprintf(documentFile, "ModuleID=%llu Function=%s edgeID=%u\n", moduleID,
+              F.getName().str().c_str(), afl_global_id);
+
+    }
 
     /* Set the ID of the inserted basic block */
 
@@ -1344,7 +1363,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     // done :)
 
     inst++;
-    // AFL++ END
+    // afl++ END
 
     /*
     XXXXXXXXXXXXXXXXXXX
