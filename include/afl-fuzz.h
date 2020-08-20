@@ -126,6 +126,9 @@
 
 #define STAGE_BUF_SIZE (64)  /* usable size for stage name buf in afl_state */
 
+// Little helper to access the ptr to afl->##name_buf - for use in afl_realloc.
+#define AFL_BUF_PARAM(name) ((void **)&afl->name##_buf)
+
 extern s8  interesting_8[INTERESTING_8_LEN];
 extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
 extern s32
@@ -572,7 +575,6 @@ typedef struct afl_state {
 
   // growing buf
   struct queue_entry **queue_buf;
-  size_t               queue_size;
 
   struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
 
@@ -633,24 +635,18 @@ typedef struct afl_state {
 
   /*needed for afl_fuzz_one */
   // TODO: see which we can reuse
-  u8 *   out_buf;
-  size_t out_size;
+  u8 *out_buf;
 
-  u8 *   out_scratch_buf;
-  size_t out_scratch_size;
+  u8 *out_scratch_buf;
 
-  u8 *   eff_buf;
-  size_t eff_size;
+  u8 *eff_buf;
 
-  u8 *   in_buf;
-  size_t in_size;
+  u8 *in_buf;
 
-  u8 *   in_scratch_buf;
-  size_t in_scratch_size;
+  u8 *in_scratch_buf;
 
-  u8 *   ex_buf;
-  size_t ex_size;
-  u32    custom_mutators_count;
+  u8 *ex_buf;
+  u32 custom_mutators_count;
 
   list_t custom_mutator_list;
 
@@ -666,7 +662,6 @@ struct custom_mutator {
   char *      name_short;
   void *      dh;
   u8 *        post_process_buf;
-  size_t      post_process_size;
   u8          stacked_custom_prob, stacked_custom;
 
   void *data;                                    /* custom mutator data ptr */
@@ -918,6 +913,7 @@ u8 has_new_bits(afl_state_t *, u8 *);
 
 void load_extras_file(afl_state_t *, u8 *, u32 *, u32 *, u32);
 void load_extras(afl_state_t *, u8 *);
+void add_extra(afl_state_t *afl, u8 *mem, u32 len);
 void maybe_add_auto(afl_state_t *, u8 *, u32);
 void save_auto(afl_state_t *);
 void load_auto(afl_state_t *);

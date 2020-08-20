@@ -152,8 +152,10 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
     /* Okay, let's allocate memory and copy data between "...", handling
        \xNN escaping, \\, and \". */
 
-    afl->extras = ck_realloc_block(
-        afl->extras, (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    afl->extras =
+        afl_realloc((void **)&afl->extras,
+                    (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    if (unlikely(!afl->extras)) { PFATAL("alloc"); }
 
     wptr = afl->extras[afl->extras_cnt].data = ck_alloc(rptr - lptr);
 
@@ -225,6 +227,36 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
 }
 
+static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
+                                  u8 *dir) {
+
+  u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
+
+  if (!afl->extras_cnt) { FATAL("No usable files in '%s'", dir); }
+
+  qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
+        compare_extras_len);
+
+  OKF("Loaded %u extra tokens, size range %s to %s.", afl->extras_cnt,
+      stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), min_len),
+      stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), max_len));
+
+  if (max_len > 32) {
+
+    WARNF("Some tokens are relatively large (%s) - consider trimming.",
+          stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), max_len));
+
+  }
+
+  if (afl->extras_cnt > MAX_DET_EXTRAS) {
+
+    WARNF("More than %d tokens - will use them probabilistically.",
+          MAX_DET_EXTRAS);
+
+  }
+
+}
+
 /* Read extras from the extras directory and sort them by size. */
 
 void load_extras(afl_state_t *afl, u8 *dir) {
@@ -254,7 +286,8 @@ void load_extras(afl_state_t *afl, u8 *dir) {
     if (errno == ENOTDIR) {
 
       load_extras_file(afl, dir, &min_len, &max_len, dict_level);
-      goto check_and_sort;
+      extras_check_and_sort(afl, min_len, max_len, dir);
+      return;
 
     }
 
@@ -296,8 +329,10 @@ void load_extras(afl_state_t *afl, u8 *dir) {
     if (min_len > st.st_size) { min_len = st.st_size; }
     if (max_len < st.st_size) { max_len = st.st_size; }
 
-    afl->extras = ck_realloc_block(
-        afl->extras, (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    afl->extras =
+        afl_realloc((void **)&afl->extras,
+                    (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    if (unlikely(!afl->extras)) { PFATAL("alloc"); }
 
     afl->extras[afl->extras_cnt].data = ck_alloc(st.st_size);
     afl->extras[afl->extras_cnt].len = st.st_size;
@@ -317,30 +352,7 @@ void load_extras(afl_state_t *afl, u8 *dir) {
 
   closedir(d);
 
-check_and_sort:
-
-  if (!afl->extras_cnt) { FATAL("No usable files in '%s'", dir); }
-
-  qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
-        compare_extras_len);
-
-  OKF("Loaded %u extra tokens, size range %s to %s.", afl->extras_cnt,
-      stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), min_len),
-      stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), max_len));
-
-  if (max_len > 32) {
-
-    WARNF("Some tokens are relatively large (%s) - consider trimming.",
-          stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), max_len));
-
-  }
-
-  if (afl->extras_cnt > MAX_DET_EXTRAS) {
-
-    WARNF("More than %d tokens - will use them probabilistically.",
-          MAX_DET_EXTRAS);
-
-  }
+  extras_check_and_sort(afl, min_len, max_len, dir);
 
 }
 
@@ -355,6 +367,48 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
   }
 
   return 0;
+
+}
+
+/* Adds a new extra / dict entry. */
+void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
+
+  u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
+
+  if (len > MAX_DICT_FILE) {
+
+    FATAL("Extra '%.*s' is too big (%s, limit is %s)", (int)len, mem,
+          stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), len),
+          stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+
+  } else if (len > 32) {
+
+    WARNF("Extra '%.*s' is pretty large, consider trimming.", (int)len, mem);
+
+  }
+
+  afl->extras = afl_realloc((void **)&afl->extras,
+                            (afl->extras_cnt + 1) * sizeof(struct extra_data));
+  if (unlikely(!afl->extras)) { PFATAL("alloc"); }
+
+  afl->extras[afl->extras_cnt].data = ck_alloc(len);
+  afl->extras[afl->extras_cnt].len = len;
+
+  memcpy(afl->extras[afl->extras_cnt].data, mem, len);
+
+  afl->extras_cnt++;
+
+  qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
+        compare_extras_len);
+
+  /* We only want to print this once */
+
+  if (afl->extras_cnt == MAX_DET_EXTRAS + 1) {
+
+    WARNF("More than %d tokens - will use them probabilistically.",
+          MAX_DET_EXTRAS);
+
+  }
 
 }
 

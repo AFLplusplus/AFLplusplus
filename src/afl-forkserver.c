@@ -630,7 +630,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
 
-        if (fsrv->autodict_func == NULL || fsrv->afl_ptr == NULL) {
+        if (fsrv->add_extra_func == NULL || fsrv->afl_ptr == NULL) {
 
           // this is not afl-fuzz - we deny and return
           if (fsrv->use_shmem_fuzz) {
@@ -715,8 +715,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         while (offset < (u32)status &&
                (u8)dict[offset] + offset < (u32)status) {
 
-          fsrv->autodict_func(fsrv->afl_ptr, dict + offset + 1,
-                              (u8)dict[offset]);
+          fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
+                               (u8)dict[offset]);
           offset += (1 + dict[offset]);
           count++;
 
