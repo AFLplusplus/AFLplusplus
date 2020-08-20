@@ -135,8 +135,6 @@ write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
 
 }
 
-#define BUF_PARAMS(name) (void **)&afl->name##_buf, &afl->name##_size
-
 /* The same, but with an adjustable gap. Used for trimming. */
 
 static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
@@ -149,7 +147,8 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
   This memory is used to carry out the post_processing(if present) after copying
   the testcase by removing the gaps. This can break though
   */
-  u8 *mem_trimmed = ck_maybe_grow(BUF_PARAMS(out_scratch), len - skip_len + 1);
+  u8 *mem_trimmed = afl_realloc(AFL_BUF_PARAM(out_scratch), len - skip_len + 1);
+  if (unlikely(!mem_trimmed)) { PFATAL("alloc"); }
 
   ssize_t new_size = len - skip_len;
   void *  new_mem = mem;
@@ -287,8 +286,6 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
   }
 
 }
-
-#undef BUF_PARAMS
 
 /* Calibrate a new test case. This is done when processing the input directory
    to warn about flaky or otherwise problematic test cases early on; and when

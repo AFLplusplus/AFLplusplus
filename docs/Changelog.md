@@ -9,6 +9,11 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++2.67d (develop)
+  - Further llvm 12 support (fast moving target like afl++ :-) )
+  - Fix for auto dictionary not to throw out a -x dictionary
+
+
 ### Version ++2.67c (release)
   - Support for improved afl++ snapshot module:
     https://github.com/AFLplusplus/AFL-Snapshot-LKM
@@ -22,6 +27,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
      - expanded havoc mode added, on no cycle finds add extra splicing and
        MOpt into the mix
      - fixed a bug in redqueen for strings and made deterministic with -s
+     - Compiletime autodictionary fixes
   - llvm_mode:
      - now supports llvm 12
      - support for AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST (previous
