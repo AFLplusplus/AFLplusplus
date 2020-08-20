@@ -181,10 +181,16 @@ struct InsTrim : public ModulePass {
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
     // IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
-    uint64_t     PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
+    int          PrevLocVecSize = PowerOf2Ceil(PrevLocSize);
     IntegerType *IntLocTy =
         IntegerType::getIntNTy(C, sizeof(PREV_LOC_T) * CHAR_BIT);
-    if (ngram_size) PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize);
+    if (ngram_size)
+      PrevLocTy = VectorType::get(IntLocTy, PrevLocVecSize
+  #if LLVM_VERSION_MAJOR >= 12
+                                  ,
+                                  false
+  #endif
+      );
 #endif
 
     /* Get globals for the SHM region and the previous location. Note that
