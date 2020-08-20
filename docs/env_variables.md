@@ -83,17 +83,12 @@ tools make fairly broad use of environmental variables:
 The native instrumentation helpers (llvm_mode and gcc_plugin) accept a subset
 of the settings discussed in section #1, with the exception of:
 
-    - Setting AFL_LLVM_SKIPSINGLEBLOCK=1 will skip instrumenting
-      functions with a single basic block. This is useful for most C and
-      some C++ targets. This works for all instrumentation modes.
-
   - AFL_AS, since this toolchain does not directly invoke GNU as.
 
   - TMPDIR and AFL_KEEP_ASSEMBLY, since no temporary assembly files are
     created.
 
-  - AFL_INST_RATIO, as we switched for instrim instrumentation which
-    is more effective but makes not much sense together with this option.
+  - AFL_INST_RATIO, as we by default collision free instrumentation is used.
 
 Then there are a few specific features that are only available in llvm_mode:
 
@@ -121,7 +116,8 @@ Then there are a few specific features that are only available in llvm_mode:
     built if LLVM 11 or newer is used.
 
    - AFL_LLVM_INSTRUMENT=CFG will use Control Flow Graph instrumentation.
-     (not recommended!)
+     (not recommended for afl-clang-fast, default for afl-clang-lto as there
+      it is a different and better kind of instrumentation.)
 
     None of the following options are necessary to be used and are rather for
     manual use (which only ever the author of this LTO implementation will use).
