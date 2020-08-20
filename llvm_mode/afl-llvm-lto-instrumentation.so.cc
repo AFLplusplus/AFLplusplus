@@ -621,7 +621,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
         int skip = 0;
         for (uint32_t k = 0; k < BlockList.size(); k++) {
 
-          if (origBB == BlockList[k]) {
+          if (&BB == BlockList[k]) {
 
             if (debug)
               fprintf(stderr,
