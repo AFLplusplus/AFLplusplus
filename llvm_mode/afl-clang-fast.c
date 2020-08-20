@@ -347,11 +347,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (lto_mode) {
 
-    if (cmplog_mode)
-      unsetenv("AFL_LLVM_LTO_AUTODICTIONARY");
-    else
-      setenv("AFL_LLVM_LTO_AUTODICTIONARY", "1", 1);
-
 #if defined(AFL_CLANG_LDPATH) && LLVM_VERSION_MAJOR >= 12
     u8 *ld_ptr = strrchr(AFL_REAL_LD, '/');
     if (!ld_ptr) ld_ptr = "ld.lld";
@@ -753,7 +748,13 @@ int main(int argc, char **argv, char **envp) {
       if (strncasecmp(ptr, "afl", strlen("afl")) == 0 ||
           strncasecmp(ptr, "classic", strlen("classic")) == 0) {
 
-        if (!instrument_mode || instrument_mode == INSTRUMENT_AFL)
+        if (instrument_mode == INSTRUMENT_LTO) {
+
+          instrument_mode = INSTRUMENT_CLASSIC;
+          lto_mode = 1;
+
+        } else if (!instrument_mode || instrument_mode == INSTRUMENT_AFL)
+
           instrument_mode = INSTRUMENT_AFL;
         else
           FATAL("main instrumentation mode already set with %s",
@@ -845,7 +846,7 @@ int main(int argc, char **argv, char **envp) {
       callname = "afl-clang-lto";
       if (!instrument_mode) {
 
-        instrument_mode = INSTRUMENT_LTO;
+        instrument_mode = INSTRUMENT_CFG;
         ptr = instrument_mode_string[instrument_mode];
 
       }

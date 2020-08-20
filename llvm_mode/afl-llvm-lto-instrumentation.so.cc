@@ -128,6 +128,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     be_quiet = 1;
 
+  if (getenv("AFL_LLVM_CMPLOG")) autodictionary = 0;
+
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
     if ((documentFile = fopen(ptr, "a")) == NULL)
@@ -141,8 +143,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
   // defered forkserver, early constructors, ifuncs and maybe more
   /*if (getenv("AFL_LLVM_MAP_DYNAMIC"))*/
   map_addr = 0;
-
-  if (getenv("AFL_LLVM_SKIPSINGLEBLOCK")) function_minimum_size = 2;
 
   if ((ptr = getenv("AFL_LLVM_MAP_ADDR"))) {
 

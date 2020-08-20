@@ -132,10 +132,6 @@ struct InsTrim : public ModulePass {
 
     }
 
-    if (getenv("AFL_LLVM_INSTRIM_SKIPSINGLEBLOCK") ||
-        getenv("AFL_LLVM_SKIPSINGLEBLOCK"))
-      function_minimum_size = 2;
-
     unsigned int PrevLocSize = 0;
     char *       ngram_size_str = getenv("AFL_LLVM_NGRAM_SIZE");
     if (!ngram_size_str) ngram_size_str = getenv("AFL_NGRAM_SIZE");
