@@ -97,7 +97,13 @@ ifneq "$(shell uname -m)" "x86_64"
  endif
 endif
 
-CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
+ifdef DEBUG
+  $(info Compiling DEBUG version of binaries)
+  CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror
+else
+  CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
+endif
+
 override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wpointer-arith \
 			  -I include/ -DAFL_PATH=\"$(HELPER_PATH)\" \
 			  -DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
@@ -305,6 +311,7 @@ help:
 	@echo "=========================================="
 	@echo STATIC - compile AFL++ static
 	@echo ASAN_BUILD - compiles with memory sanitizer for debug purposes
+	@echo DEBUG - no optimization, -ggdb3, all warnings and -Werror
 	@echo PROFILING - compile afl-fuzz with profiling information
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
 	@echo "=========================================="

@@ -458,121 +458,130 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  u32 tmp_val = 0;
+  u32 tmp_val = 0, taint_finds, taint_execs;
+
   if (unlikely(afl->taint_mode)) {
 
     tmp_val = afl->queue_cycle % 2;  // starts with 1
-    ret_val = 0;
+    afl->taint_needs_splode = 0;
 
-    if (unlikely(afl->queue_cur->cal_failed && !tmp_val)) goto abandon_entry;
-    if (unlikely(!afl->skip_deterministic && !afl->queue_cur->passed_det &&
-                 !tmp_val))
-      goto abandon_entry;
-    if ((!afl->queue_cur->taint_bytes_new ||
-         afl->queue_cur->taint_bytes_new == afl->queue_cur->len) &&
-        !tmp_val)
-      goto abandon_entry;
+    if (!tmp_val) {  // sole fuzz tainted new bytes
 
-    ret_val = 1;
+      ret_val = 0;
+      if (likely(!afl->queue_cur->taint_bytes_new ||
+                 afl->queue_cur->taint_bytes_new == afl->queue_cur->len))
+        goto abandon_entry;
+      if (unlikely(afl->queue_cur->cal_failed)) goto abandon_entry;
+      if (unlikely(!afl->skip_deterministic && !afl->queue_cur->passed_det))
+        goto abandon_entry;
 
-    // special case: all or nothing tainted. in this case we act like
-    // nothing is special. this is not the taint you are looking for ...
-    if (tmp_val == 1 &&
-        (!afl->queue_cur->taint_bytes_all ||
-         afl->queue_cur->taint_bytes_all == afl->queue_cur->len))
-      afl->taint_needs_splode = 0;
+      ret_val = 1;
+      afl->taint_needs_splode = 1;
+      taint_finds = afl->queued_paths + afl->unique_crashes;
+      taint_execs = afl->fsrv.total_execs;
+
+    }
 
   }
 
   if (unlikely(afl->taint_needs_splode)) {
 
-    s32 dst = 0, i;
+    // s32 dst = 0, i;
     temp_len = len = afl->queue_cur->len;
     // s32 j = 0;  // tmp
 
-    //if (afl->queue_cur->len < 4) len = 4;
-    //else len = afl->queue_cur->len;
+    // if (afl->queue_cur->len < 4) len = 4;
+    // else len = afl->queue_cur->len;
 
     fd = open(afl->queue_cur->fname, O_RDONLY);
-    afl->taint_src = mmap(0, len < 4 ? 4 : len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    afl->taint_src =
+        mmap(0, len < 4 ? 4 : len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     if (fd < 0 || (ssize_t)afl->taint_src == -1)
       FATAL("unable to open '%s'", afl->queue_cur->fname);
     close(fd);
-    afl->taint_needs_splode = 1;
 
-    switch (tmp_val) {
+    /*
+        afl->taint_needs_splode = 1;
 
-      case 1:  // fuzz only tainted bytes
+        switch (tmp_val) {
 
-        fd = open(afl->taint_input_file, O_RDONLY);
-        temp_len = len = afl->taint_len = afl->queue_cur->taint_bytes_all;
-        orig_in = in_buf =
-            mmap(0, len >= MAX_FILE - 65536 ? MAX_FILE : len + 65536,
-                 PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-        if (fd < 0 || (ssize_t)in_buf == -1)
-          FATAL("unable to open '%s'", afl->taint_input_file);
-        close(fd);
+          case 1:  // fuzz only tainted bytes
 
-        fd = open(afl->queue_cur->fname_taint, O_RDONLY);
-        afl->taint_map = mmap(0, afl->queue_cur->len, PROT_READ | PROT_WRITE,
-                              MAP_PRIVATE, fd, 0);
-        if (fd < 0) {
+            fd = open(afl->taint_input_file, O_RDONLY);
+            temp_len = len = afl->taint_len = afl->queue_cur->taint_bytes_all;
+            orig_in = in_buf =
+                mmap(0, len >= MAX_FILE - 65536 ? MAX_FILE : len + 65536,
+                     PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+            if (fd < 0 || (ssize_t)in_buf == -1)
+              FATAL("unable to open '%s'", afl->taint_input_file);
+            close(fd);
 
-          afl->queue_cur->taint_bytes_all = 0;
-          goto abandon_entry;
+            fd = open(afl->queue_cur->fname_taint, O_RDONLY);
+            afl->taint_map = mmap(0, afl->queue_cur->len, PROT_READ |
+       PROT_WRITE, MAP_PRIVATE, fd, 0); if (fd < 0) {
 
-        }
+              afl->queue_cur->taint_bytes_all = 0;
+              goto abandon_entry;
 
-        if ((ssize_t)afl->taint_map == -1)
-          FATAL("unable to mmap '%s'", afl->queue_cur->fname_taint);
-        close(fd);
+            }
 
-        for (i = 0; i < (s32)afl->queue_cur->len && dst < len; i++)
-          if (afl->taint_map[i]) in_buf[dst++] = afl->taint_src[i];
+            if ((ssize_t)afl->taint_map == -1)
+              FATAL("unable to mmap '%s'", afl->queue_cur->fname_taint);
+            close(fd);
 
-        // FIXME DEBUG TODO XXX
-        /*
-                for (i = 0; i < (s32)afl->queue_cur->len; i++) {
+            for (i = 0; i < (s32)afl->queue_cur->len && dst < len; i++)
+              if (afl->taint_map[i]) in_buf[dst++] = afl->taint_src[i];
 
-                  switch (afl->taint_map[i]) {
+            // FIXME DEBUG TODO XXX
+            / *
+                    for (i = 0; i < (s32)afl->queue_cur->len; i++) {
 
-                    case 0x0:
-                      break;
-                    case '!':
-                      j++;
-                      break;
-                    default:
-                      FATAL(
-                          "invalid taint map entry byte 0x%02x at position %d "
-                          "(passed_det:%d)\n",
-                          afl->taint_map[i], i, afl->queue_cur->passed_det);
+                      switch (afl->taint_map[i]) {
 
-                  }
+                        case 0x0:
+                          break;
+                        case '!':
+                          j++;
+                          break;
+                        default:
+                          FATAL(
+                              "invalid taint map entry byte 0x%02x at position
+       %d "
+                              "(passed_det:%d)\n",
+                              afl->taint_map[i], i, afl->queue_cur->passed_det);
 
-                }
+                      }
 
-                if (j != len)
-                  FATAL("different taint values in map vs in queue (%d != %d)",
-           j, len);
-        */
-        break;
+                    }
 
-      case 0:  // fuzz only newly tainted bytes
+                    if (j != len)
+                      FATAL("different taint values in map vs in queue (%d !=
+       %d)", j, len);
+            * /
+            break;
 
-        fd = open(afl->taint_input_file, O_RDONLY);
-        temp_len = len = afl->taint_len = afl->queue_cur->taint_bytes_new;
-        orig_in = in_buf =
-            mmap(0, len >= MAX_FILE - 65536 ? MAX_FILE : len + 65536,
-                 PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-        if (fd < 0 || (ssize_t)in_buf == -1)
-          FATAL("unable to open '%s' for %u bytes", afl->taint_input_file, len);
-        close(fd);
+          case 0:  // fuzz only newly tainted bytes
+    */
 
-        u8 *fn = alloc_printf("%s.new", afl->queue_cur->fname_taint);
-        if (!fn) FATAL("OOM");
-        fd = open(fn, O_RDWR);
-        afl->taint_map = mmap(0, afl->queue_cur->len, PROT_READ | PROT_WRITE,
-                              MAP_PRIVATE, fd, 0);
+    u8 *fn = alloc_printf("%s.new", afl->queue_cur->fname_taint);
+    if (!fn) FATAL("OOM");
+    fd = open(fn, O_RDWR);
+    afl->taint_map = mmap(0, afl->queue_cur->len, PROT_READ | PROT_WRITE,
+                          MAP_PRIVATE, fd, 0);
+    if (fd < 0) {
+
+      ck_free(fn);
+      afl->queue_cur->taint_bytes_new = 0;
+      goto abandon_entry;
+
+    }
+
+    if ((ssize_t)afl->taint_map == -1) FATAL("unable to mmap '%s'", fn);
+    close(fd);
+
+    u8 *fndata = alloc_printf("%s.data", fn);
+    fd = open(fndata, O_RDONLY);
+    /*
         if (fd < 0) {
 
           ck_free(fn);
@@ -581,41 +590,49 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
         }
 
-        if ((ssize_t)afl->taint_map == -1) FATAL("unable to mmap '%s'", fn);
-        close(fd);
-        ck_free(fn);
+    */
+    temp_len = len = afl->taint_len = afl->queue_cur->taint_bytes_new;
+    orig_in = in_buf =
+        mmap(0, len + 4, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    if (fd < 0 || (ssize_t)in_buf == -1)
+      FATAL("unable to open '%s' for %u bytes", fndata, len);
+    close(fd);
 
-        for (i = 0; i < (s32)afl->queue_cur->len && dst < len; i++)
-          if (afl->taint_map[i]) in_buf[dst++] = afl->taint_src[i];
+    ck_free(fndata);
+    ck_free(fn);
+    afl->taint_runs++;
 
-        // FIXME DEBUG TODO XXX
-        /*
-                for (i = 0; i < (s32)afl->queue_cur->len; i++) {
+    // FIXME DEBUG TODO XXX
+    /*
+            for (i = 0; i < (s32)afl->queue_cur->len; i++) {
 
-                  switch (afl->taint_map[i]) {
+              switch (afl->taint_map[i]) {
 
-                    case 0x0:
-                      break;
-                    case '!':
-                      j++;
-                      break;
-                    default:
-                      FATAL(
-                          "invalid taint map entry byte 0x%02x at position %d "
-                          "(passed_det:%d)\n",
-                          afl->taint_map[i], i, afl->queue_cur->passed_det);
+                case 0x0:
+                  break;
+                case '!':
+                  j++;
+                  break;
+                default:
+                  FATAL(
+                      "invalid taint map entry byte 0x%02x at position %d "
+                      "(passed_det:%d)\n",
+                      afl->taint_map[i], i, afl->queue_cur->passed_det);
 
-                  }
+              }
 
-                }
+            }
 
-                if (j != len)
-                  FATAL("different taint values in map vs in queue (%d != %d)",
-           j, len);
-        */
-        break;
+            if (j != len)
+              FATAL("different taint values in map vs in queue (%d != %d)",
+       j, len);
+    */
+    /*
+            break;
 
-    }
+        }
+
+    */
 
   } else {
 
@@ -631,10 +648,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     len = afl->queue_cur->len;
 
-    //if (afl->queue_cur->len < 4) len = 4;
-    //else len = afl->queue_cur->len;
+    // if (afl->queue_cur->len < 4) len = 4;
+    // else len = afl->queue_cur->len;
 
-    orig_in = in_buf = mmap(0, len < 4 ? 4 : len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    orig_in = in_buf =
+        mmap(0, len < 4 ? 4 : len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 
     if (unlikely(orig_in == MAP_FAILED)) {
 
@@ -660,7 +678,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * CALIBRATION (only if failed earlier on) *
    *******************************************/
 
-  if (unlikely(afl->queue_cur->cal_failed)) {
+  if (unlikely(afl->queue_cur->cal_failed && !afl->taint_needs_splode)) {
 
     u8 res = FSRV_RUN_TMOUT;
 
@@ -722,6 +740,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
+//fprintf(stderr, "%p[%u] %p[%u] %u (%p %p)\n", out_buf, afl->out_size, in_buf, afl->in_size, len, afl->out_buf, afl->in_buf);
   memcpy(out_buf, in_buf, len);
 
   /*********************
@@ -732,9 +751,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (unlikely(perf_score == 0)) { goto abandon_entry; }
 
-  if (afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized) {
+  if (unlikely(afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized && !afl->taint_needs_splode)) {
 
     int res;
+/*
     if (unlikely(afl->taint_needs_splode)) {
 
       len = afl->queue_cur->len;
@@ -746,12 +766,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
       res = 1;
 
     } else {
-
+*/
       res = input_to_state_stage(afl, in_buf, out_buf, len,
                                  afl->queue_cur->exec_cksum);
-
+/*
     }
-
+*/
     if (unlikely(res)) { goto abandon_entry; }
 
   }
@@ -761,11 +781,13 @@ u8 fuzz_one_original(afl_state_t *afl) {
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
 
-  if (likely(afl->queue_cur->passed_det) || likely(afl->skip_deterministic) ||
-      likely(perf_score <
-             (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
-                  ? afl->queue_cur->depth * 30
-                  : afl->havoc_max_mult * 100))) {
+  if (likely(afl->queue_cur->passed_det) ||
+      likely(!afl->taint_needs_splode && afl->skip_deterministic) ||
+      likely(!afl->taint_needs_splode &&
+             perf_score <
+                 (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
+                      ? afl->queue_cur->depth * 30
+                      : afl->havoc_max_mult * 100))) {
 
     goto custom_mutator_stage;
 
@@ -864,7 +886,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 
@@ -875,7 +897,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 
@@ -2279,7 +2301,7 @@ havoc_stage:
           out_buf[rand_below(afl, temp_len)] ^= 1 + rand_below(afl, 255);
           break;
 
-        case 11 ... 12: {
+        case 11: {
 
           /* Delete bytes. We're making this a bit more likely
              than insertion (the next option) in hopes of keeping
@@ -2304,7 +2326,7 @@ havoc_stage:
 
         }
 
-        case 13:
+        case 12 ... 13:
 
           if (temp_len + HAVOC_BLK_XL < MAX_FILE) {
 
@@ -2415,7 +2437,7 @@ havoc_stage:
 
                   u8 *new_buf = ck_maybe_grow(BUF_PARAMS(out_scratch),
                                               copy_to + copy_len);
-                  memcpy(new_buf, in_buf, copy_to);
+                  memcpy(new_buf, out_buf, copy_to);
                   memcpy(new_buf + copy_to, afl->taint_src + copy_from,
                          copy_len);
                   swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
@@ -2623,8 +2645,12 @@ havoc_stage:
               memcpy(temp_buf + clone_to, new_buf + clone_from, clone_len);
 
               /* Tail */
-              memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
-                     temp_len - clone_to);
+              if (unlikely(afl->taint_needs_splode))
+                memmove(temp_buf + clone_to + clone_len, out_buf + clone_to,
+                        temp_len - clone_to);
+              else
+                memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
+                       temp_len - clone_to);
 
               swap_bufs(BUF_PARAMS(out), BUF_PARAMS(out_scratch));
               out_buf = temp_buf;
@@ -2794,6 +2820,15 @@ retry_splicing:
 abandon_entry:
 
   afl->splicing_with = -1;
+
+  if (afl->taint_needs_splode) {
+
+    afl->stage_finds[STAGE_PYTHON] +=
+        (afl->queued_paths + afl->unique_crashes - taint_finds);
+    afl->stage_cycles[STAGE_PYTHON] += (afl->fsrv.total_execs - taint_execs);
+    afl->stage_finds[STAGE_CUSTOM_MUTATOR]++;
+
+  }
 
   /* Update afl->pending_not_fuzzed count if we made it through the calibration
      cycle and have not seen this entry before. */
@@ -3131,7 +3166,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 
@@ -3142,7 +3177,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
         if (a_len >= MIN_AUTO_EXTRA && a_len <= MAX_AUTO_EXTRA) {
 
-          maybe_add_auto((u8 *)afl, a_collect, a_len);
+          maybe_add_auto(afl, a_collect, a_len);
 
         }
 

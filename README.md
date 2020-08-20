@@ -97,21 +97,20 @@ only new bytes in the other cycle.
   Among others, the following features and patches have been integrated:
 
   * NeverZero patch for afl-gcc, llvm_mode, qemu_mode and unicorn_mode which prevents a wrapping map value to zero, increases coverage
-  * Persistent mode and deferred forkserver for qemu_mode
+  * Persistent mode, deferred forkserver and in-memory fuzzing for qemu_mode
   * Unicorn mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
   * The new CmpLog instrumentation for LLVM and QEMU inspired by [Redqueen](https://www.syssec.ruhr-uni-bochum.de/media/emma/veroeffentlichungen/2018/12/17/NDSS19-Redqueen.pdf)
   * Win32 PE binary-only fuzzing with QEMU and Wine
   * AFLfast's power schedules by Marcel Böhme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
   * The MOpt mutator: [https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)
   * LLVM mode Ngram coverage by Adrian Herrera [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
-  * InsTrim, an effective CFG llvm_mode instrumentation implementation for large targets: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
+  * InsTrim, a CFG llvm_mode instrumentation implementation: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
   * C. Holler's afl-fuzz Python mutator module: [https://github.com/choller/afl](https://github.com/choller/afl)
   * Custom mutator by a library (instead of Python) by kyakdan
   * LAF-Intel/CompCov support for llvm_mode, qemu_mode and unicorn_mode (with enhanced capabilities)
   * Radamsa and hongfuzz mutators (as custom mutators).
   * QBDI mode to fuzz android native libraries via Quarkslab's [QBDI](https://github.com/QBDI/QBDI) framework
-
-  A more thorough list is available in the [PATCHES](docs/PATCHES.md) file.
+  * Frida and ptrace mode to fuzz binary-only libraries, etc.
 
   So all in all this is the best-of afl that is out there :-)
 
@@ -212,6 +211,7 @@ These build options exist:
 
 * STATIC - compile AFL++ static
 * ASAN_BUILD - compiles with memory sanitizer for debug purposes
+* DEBUG - no optimization, -ggdb3, all warnings and -Werror
 * PROFILING - compile with profiling information (gprof)
 * NO_PYTHON - disable python support
 * AFL_NO_X86 - if compiling on non-intel/amd platforms
@@ -228,6 +228,7 @@ Here are some good writeups to show how to effectively use AFL++:
  * [https://securitylab.github.com/research/fuzzing-challenges-solutions-1](https://securitylab.github.com/research/fuzzing-challenges-solutions-1)
  * [https://securitylab.github.com/research/fuzzing-software-2](https://securitylab.github.com/research/fuzzing-software-2)
  * [https://securitylab.github.com/research/fuzzing-sockets-FTP](https://securitylab.github.com/research/fuzzing-sockets-FTP)
+ * [https://securitylab.github.com/research/fuzzing-sockets-FreeRDP](https://securitylab.github.com/research/fuzzing-sockets-FreeRDP)
 
 If you are interested in fuzzing structured data (where you define what the
 structure is), these links have you covered:
@@ -305,15 +306,17 @@ afl-clang-lto:
    To use this set the following environment variable before compiling the
    target: `export AFL_LLVM_LAF_ALL=1`
    You can read more about this in [llvm/README.laf-intel.md](llvm/README.laf-intel.md)
- * A different technique (and usually a bit better than laf-intel) is to
+ * A different technique (and usually a better than laf-intel) is to
    instrument the target so that any compare values in the target are sent to
-   afl++ which then tries to put this value into the fuzzing data at different
+   afl++ which then tries to put these values into the fuzzing data at different
    locations. This technique is very fast and good - if the target does not
    transform input data before comparison. Therefore this technique is called
    `input to state` or `redqueen`.
    If you want to use this technique, then you have to compile the target
    twice, once specifically with/for this mode, and pass this binary to afl-fuzz
    via the `-c` parameter.
+   Not that you can compile also just a cmplog binary and use that for both
+   however there will a performance penality.
    You can read more about this in [llvm_mode/README.cmplog.md](llvm_mode/README.cmplog.md)
 
 If you use afl-clang-fast, afl-clang-lto or afl-gcc-fast you have the option to
@@ -341,12 +344,15 @@ time less effective. See:
  * [llvm_mode/README.ctx.md](llvm_mode/README.ctx.md)
  * [llvm_mode/README.ngram.md](llvm_mode/README.ngram.md)
  * [llvm_mode/README.instrim.md](llvm_mode/README.instrim.md)
+
+afl++ employs never zero counting in its bitmap. You can read more about this
+here:
  * [llvm_mode/README.neverzero.md](llvm_mode/README.neverzero.md)
 
 #### c) Modify the target
 
 If the target has features that makes fuzzing more difficult, e.g.
-checksums, HMAC etc. then modify the source code so that this is
+checksums, HMAC, etc. then modify the source code so that this is
 removed.
 This can even be done for productional source code be eliminating
 these checks within this specific defines:
@@ -421,6 +427,7 @@ As you fuzz the target with mutated input, having as diverse inputs for the
 target as possible improves the efficiency a lot.
 
 #### a) Collect inputs
+
 Try to gather valid inputs for the target from wherever you can. E.g. if it is
 the PNG picture format try to find as many png files as possible, e.g. from
 reported bugs, test suites, random downloads from the internet, unit test
@@ -469,23 +476,24 @@ to be used in fuzzing! :-)
 ### 3. Fuzzing the target
 
 In this final step we fuzz the target.
-There are not that many useful options to run the target - unless you want to
-use many CPU cores/threads for the fuzzing, which will make the fuzzing much
+There are not that many important options to run the target - unless you want
+to use many CPU cores/threads for the fuzzing, which will make the fuzzing much
 more useful.
 
 If you just use one CPU for fuzzing, then you are fuzzing just for fun and not
 seriously :-)
 
 Pro tip: load the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) 
-before the start of afl-fuzz as this improves performance by a x2 speed increase!
+before the start of afl-fuzz as this improves performance by a x2 speed increase
+(less if you use a persistent mode harness)!
 
 #### a) Running afl-fuzz
 
 Before to do even a test run of afl-fuzz execute `sudo afl-system-config` (on
 the host if you execute afl-fuzz in a docker container). This reconfigures the
 system for optimal speed - which afl-fuzz checks and bails otherwise.
-Set `export AFL_SKIP_CPUFREQ=1` for afl-fuzz to skip this check if you cannot run
-afl-system-config with root privileges on the host for whatever reason.
+Set `export AFL_SKIP_CPUFREQ=1` for afl-fuzz to skip this check if you cannot
+run afl-system-config with root privileges on the host for whatever reason.
 
 If you have an input corpus from step 2 then specify this directory with the `-i`
 option. Otherwise create a new directory and create a file with any content
@@ -507,7 +515,7 @@ of memory. By default this is 50MB for a process. If this is too little for
 the target (which you can usually see by afl-fuzz bailing with the message
 that it could not connect to the forkserver), then you can increase this
 with the `-m` option, the value is in MB. To disable any memory limits
-(beware!) set `-m 0` - which is usually required for ASAN compiled targets.
+(beware!) set `-m none` - which is usually required for ASAN compiled targets.
 
 Adding a dictionary is helpful. See the [dictionaries/](dictionaries/) if
 something is already included for your data format, and tell afl-fuzz to load
@@ -535,8 +543,8 @@ fuzz your target.
 
 On the same machine - due to the design of how afl++ works - there is a maximum
 number of CPU cores/threads that are useful, use more and the overall performance
-degrades instead. This value depends on the target and the limit is between 48
-and 96 cores/threads per machine.
+degrades instead. This value depends on the target, and the limit is between 32
+and 64 cores/threads per machine.
 
 There should be one main fuzzer (`-M main` option) and as many secondary
 fuzzers (eg `-S variant1`) as you have cores that you use.
@@ -568,7 +576,7 @@ Examples are:
 
 A long list can be found at [https://github.com/Microsvuln/Awesome-AFL](https://github.com/Microsvuln/Awesome-AFL)
 
-However you can also sync afl++ with honggfuzz, libfuzzer, entropic, etc.
+However you can also sync afl++ with honggfuzz, libfuzzer with -entropic, etc.
 Just show the main fuzzer (-M) with the `-F` option where the queue
 directory of a different fuzzer is, e.g. `-F /src/target/honggfuzz`.
 
@@ -586,7 +594,21 @@ To have only the summary use the `-s` switch e.g.: `afl-whatsup -s output/`
 #### d) Checking the coverage of the fuzzing
 
 The `paths found` value is a bad indicator how good the coverage is.
-It is better to check out the exact lines of code that have been reached -
+
+A better indicator - if you use default llvm instrumentation with at least
+version 9 - is to use `afl-showmap` with the collect coverage option `-C` on
+the output directory:
+```
+$ afl-showmap -C -i out -o /dev/null -- ./target -params @@
+...
+[*] Using SHARED MEMORY FUZZING feature.
+[*] Target map size: 9960
+[+] Processed 7849 input files.
+[+] Captured 4331 tuples (highest value 255, total values 67130596) in '/dev/nul
+l'.
+[+] A coverage of 4331 edges were achieved out of 9960 existing (43.48%) with 7849 input files.
+```
+It is even better to check out the exact lines of code that have been reached -
 and which have not been found so far.
 
 An "easy" helper script for this is [https://github.com/vanhauser-thc/afl-cov](https://github.com/vanhauser-thc/afl-cov),
@@ -599,6 +621,11 @@ then terminate it. The main node will pick it up and make it available to the
 other secondary nodes over time. Set `export AFL_NO_AFFINITY=1` if you have no
 free core.
 
+Note that you in nearly all cases you can never reach full coverage. A lot of
+functionality is usually behind options that were not activated or fuzz e.g.
+if you fuzz a library to convert image formats and your target is the png to
+tiff API then you will not touch any of the other library APIs and features.
+
 #### e) How long to fuzz a target?
 
 This is a difficult question.
@@ -606,6 +633,10 @@ Basically if no new path is found for a long time (e.g. for a day or a week)
 then you can expect that your fuzzing won't be fruitful anymore.
 However often this just means that you should switch out secondaries for
 others, e.g. custom mutator modules, sync to very different fuzzers, etc.
+
+Keep the queue/ directory (for future fuzzings of the same or similar targets)
+and use them to seed other good fuzzers like libfuzzer with the -entropic
+switch or honggfuzz.
 
 #### f) Improve the speed!
 

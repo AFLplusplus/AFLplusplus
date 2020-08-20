@@ -137,7 +137,6 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           bool isStrcasecmp = processStrcasecmp;
           bool isStrncasecmp = processStrncasecmp;
           bool isIntMemcpy = true;
-          bool indirect = false;
 
           Function *Callee = callInst->getCalledFunction();
           if (!Callee) continue;
@@ -264,8 +263,6 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
             }
 
-            if ((HasStr1 || HasStr2)) indirect = true;
-
           }
 
           if (isIntMemcpy) continue;
@@ -278,7 +275,6 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
               Str1 = StringRef(*val);
               HasStr1 = true;
-              indirect = true;
               // fprintf(stderr, "loaded1 %s\n", Str1.str().c_str());
 
             } else {
@@ -288,7 +284,6 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
                 Str2 = StringRef(*val);
                 HasStr2 = true;
-                indirect = true;
                 // fprintf(stderr, "loaded2 %s\n", Str2.str().c_str());
 
               }
@@ -584,4 +579,9 @@ static RegisterStandardPasses RegisterCompTransPass(
 
 static RegisterStandardPasses RegisterCompTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerCompTransPass);
+
+#if LLVM_VERSION_MAJOR >= 11
+static RegisterStandardPasses RegisterCompTransPassLTO(
+    PassManagerBuilder::EP_FullLinkTimeOptimizationLast, registerCompTransPass);
+#endif
 
