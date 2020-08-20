@@ -1,7 +1,5 @@
 # qemu_taint variant.
 
-UPDATE: **WORKS NOW** **PLEASE TEST** **:-)**
-
 ## HOWTO
 
 cd qemu_taint && ./build_qemu_taint.sh
@@ -10,13 +8,15 @@ afl-fuzz -A ...
 
 ## CAVEATS
 
- * llvm shmem persistent mode does not and can not not work
+** Tests have shown that taint is rarely helping, in approx 20-30% of cases
+and there only slightly, hence this is not further followed-up **
+
+**There is still a bug somewhere which can crash afl-fuzz :-(**
+
+ * llvm shmem persistent mode does not and cannot work
  * MOpt works but totally ignores the taint information, so disabled here
  * custom mutators? dunno if they work or not. depends on how they work.
  * not tested with qemu_mode
- * there are several debug checks to ensure the data is fine which slows down
-   fuzzing, if the beta experiment runs fine these will be improved and it
-   will result in quite a speed gain.
 
 ## THE TAINT
 
