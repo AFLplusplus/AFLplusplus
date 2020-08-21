@@ -627,7 +627,7 @@ void destroy_extras(afl_state_t *afl) {
 
   }
 
-  ck_free(afl->extras);
+  afl_free(afl->extras);
 
 }
 
