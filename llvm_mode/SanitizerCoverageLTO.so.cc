@@ -1330,7 +1330,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
   if (Options.TracePCGuard) {
 
     // afl++ START
-    ++afl_global_id
+    ++afl_global_id;
 
     if (documentFile) {
 
