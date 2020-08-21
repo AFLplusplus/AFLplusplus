@@ -274,7 +274,7 @@ ifeq "$(TEST_MMAP)" "1"
         LDFLAGS += -Wno-deprecated-declarations
 endif
 
-  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-ld-lto ../afl-llvm-lto-instrumentlist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so ../SanitizerCoverageLTO.so
+PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-ld-lto ../afl-llvm-lto-instrumentlist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so ../SanitizerCoverageLTO.so
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
 ifeq "$(LLVMVER)" ""
@@ -364,7 +364,9 @@ ifeq "$(LLVM_LTO)" "1"
 endif
 
 ../SanitizerCoverageLTO.so: SanitizerCoverageLTO.so.cc
+ifeq "$(LLVM_LTO)" "1"
 	$(CXX) $(CLANG_CPPFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
+endif
 
 ../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc afl-llvm-common.o
 ifeq "$(LLVM_LTO)" "1"
