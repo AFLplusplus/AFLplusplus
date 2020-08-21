@@ -165,16 +165,17 @@ class ModuleSanitizerCoverage {
 
  public:
   ModuleSanitizerCoverage(
-      const SanitizerCoverageOptions &Options = SanitizerCoverageOptions()) 
-       : Options(OverrideFromCL(Options)) {
+      const SanitizerCoverageOptions &Options = SanitizerCoverageOptions())
+      : Options(OverrideFromCL(Options)) {
 
-      /* ,
-      const SpecialCaseList *         Allowlist = nullptr,
-      const SpecialCaseList *         Blocklist = nullptr)
-        ,
-        Allowlist(Allowlist),
-        Blocklist(Blocklist) {
-      */
+    /* ,
+    const SpecialCaseList *         Allowlist = nullptr,
+    const SpecialCaseList *         Blocklist = nullptr)
+      ,
+      Allowlist(Allowlist),
+      Blocklist(Blocklist) {
+
+    */
 
   }
 
@@ -228,8 +229,8 @@ class ModuleSanitizerCoverage {
   SanitizerCoverageOptions Options;
 
   // afl++ START
-  //const SpecialCaseList *          Allowlist;
-  //const SpecialCaseList *          Blocklist;
+  // const SpecialCaseList *          Allowlist;
+  // const SpecialCaseList *          Blocklist;
   uint32_t                         autodictionary = 1;
   uint32_t                         inst = 0;
   uint32_t                         afl_global_id = 0;
@@ -271,19 +272,20 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 
   ModuleSanitizerCoverageLegacyPass(
       const SanitizerCoverageOptions &Options = SanitizerCoverageOptions())
-       : ModulePass(ID), Options(Options) {
-/* ,
-      const std::vector<std::string> &AllowlistFiles =
-          std::vector<std::string>(),
-      const std::vector<std::string> &BlocklistFiles =
-          std::vector<std::string>())
-    if (AllowlistFiles.size() > 0)
-      Allowlist = SpecialCaseList::createOrDie(AllowlistFiles,
-                                               *vfs::getRealFileSystem());
-    if (BlocklistFiles.size() > 0)
-      Blocklist = SpecialCaseList::createOrDie(BlocklistFiles,
-                                               *vfs::getRealFileSystem());
-*/
+      : ModulePass(ID), Options(Options) {
+
+    /* ,
+          const std::vector<std::string> &AllowlistFiles =
+              std::vector<std::string>(),
+          const std::vector<std::string> &BlocklistFiles =
+              std::vector<std::string>())
+        if (AllowlistFiles.size() > 0)
+          Allowlist = SpecialCaseList::createOrDie(AllowlistFiles,
+                                                   *vfs::getRealFileSystem());
+        if (BlocklistFiles.size() > 0)
+          Blocklist = SpecialCaseList::createOrDie(BlocklistFiles,
+                                                   *vfs::getRealFileSystem());
+    */
     initializeModuleSanitizerCoverageLegacyPassPass(
         *PassRegistry::getPassRegistry());
 
@@ -313,8 +315,8 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
  private:
   SanitizerCoverageOptions Options;
 
-  //std::unique_ptr<SpecialCaseList> Allowlist;
-  //std::unique_ptr<SpecialCaseList> Blocklist;
+  // std::unique_ptr<SpecialCaseList> Allowlist;
+  // std::unique_ptr<SpecialCaseList> Blocklist;
 
 };
 
@@ -324,7 +326,7 @@ PreservedAnalyses ModuleSanitizerCoveragePass::run(Module &               M,
                                                    ModuleAnalysisManager &MAM) {
 
   ModuleSanitizerCoverage ModuleSancov(Options);
-  //Allowlist.get(), Blocklist.get());
+  // Allowlist.get(), Blocklist.get());
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto  DTCallback = [&FAM](Function &F) -> const DominatorTree * {
 
@@ -374,14 +376,14 @@ bool ModuleSanitizerCoverage::instrumentModule(
     Module &M, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
   if (Options.CoverageType == SanitizerCoverageOptions::SCK_None) return false;
-/*
-  if (Allowlist &&
-      !Allowlist->inSection("coverage", "src", M.getSourceFileName()))
-    return false;
-  if (Blocklist &&
-      Blocklist->inSection("coverage", "src", M.getSourceFileName()))
-    return false;
-*/
+  /*
+    if (Allowlist &&
+        !Allowlist->inSection("coverage", "src", M.getSourceFileName()))
+      return false;
+    if (Blocklist &&
+        Blocklist->inSection("coverage", "src", M.getSourceFileName()))
+      return false;
+  */
   BlockList.clear();
   valueMap.clear();
   dictionary.clear();
@@ -1108,9 +1110,10 @@ void ModuleSanitizerCoverage::instrumentFunction(
   if (F.hasPersonalityFn() &&
       isAsynchronousEHPersonality(classifyEHPersonality(F.getPersonalityFn())))
     return;
-  //if (Allowlist && !Allowlist->inSection("coverage", "fun", F.getName()))
+  // if (Allowlist && !Allowlist->inSection("coverage", "fun", F.getName()))
   //  return;
-  // if (Blocklist && Blocklist->inSection("coverage", "fun", F.getName())) return;
+  // if (Blocklist && Blocklist->inSection("coverage", "fun", F.getName()))
+  // return;
 
   // afl++ START
   if (!F.size()) return;
@@ -1471,7 +1474,8 @@ INITIALIZE_PASS_END(ModuleSanitizerCoverageLegacyPass, "sancov",
                     false)
 
 ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
-    const SanitizerCoverageOptions &Options, const std::vector<std::string> &AllowlistFiles,
+    const SanitizerCoverageOptions &Options,
+    const std::vector<std::string> &AllowlistFiles,
     const std::vector<std::string> &BlocklistFiles) {
 
   return new ModuleSanitizerCoverageLegacyPass(Options);
