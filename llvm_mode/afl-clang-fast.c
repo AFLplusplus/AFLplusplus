@@ -852,7 +852,8 @@ int main(int argc, char **argv, char **envp) {
       }
 
     } else if (instrument_mode == INSTRUMENT_LTO ||
-        instrument_mode == INSTRUMENT_CLASSIC) {
+
+               instrument_mode == INSTRUMENT_CLASSIC) {
 
       lto_mode = 1;
       callname = "afl-clang-lto";
