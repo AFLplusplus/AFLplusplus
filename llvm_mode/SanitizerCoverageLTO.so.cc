@@ -165,12 +165,16 @@ class ModuleSanitizerCoverage {
 
  public:
   ModuleSanitizerCoverage(
-      const SanitizerCoverageOptions &Options = SanitizerCoverageOptions(),
+      const SanitizerCoverageOptions &Options = SanitizerCoverageOptions()) 
+       : Options(OverrideFromCL(Options)) {
+
+      /* ,
       const SpecialCaseList *         Allowlist = nullptr,
       const SpecialCaseList *         Blocklist = nullptr)
-      : Options(OverrideFromCL(Options)),
+        ,
         Allowlist(Allowlist),
         Blocklist(Blocklist) {
+      */
 
   }
 
@@ -224,26 +228,26 @@ class ModuleSanitizerCoverage {
   SanitizerCoverageOptions Options;
 
   // afl++ START
-  const SpecialCaseList *          Allowlist;
-  const SpecialCaseList *          Blocklist;
+  //const SpecialCaseList *          Allowlist;
+  //const SpecialCaseList *          Blocklist;
   uint32_t                         autodictionary = 1;
   uint32_t                         inst = 0;
   uint32_t                         afl_global_id = 0;
   uint64_t                         map_addr = 0;
-  char *                           skip_nozero;
+  char *                           skip_nozero = NULL;
   std::vector<BasicBlock *>        BlockList;
   DenseMap<Value *, std::string *> valueMap;
   std::vector<std::string>         dictionary;
-  IntegerType *                    Int8Tyi;
-  IntegerType *                    Int32Tyi;
-  IntegerType *                    Int64Tyi;
-  ConstantInt *                    Zero;
-  ConstantInt *                    One;
-  LLVMContext *                    Ct;
-  Module *                         Mo;
-  GlobalVariable *                 AFLMapPtr;
-  Value *                          MapPtrFixed;
-  FILE *                           documentFile;
+  IntegerType *                    Int8Tyi = NULL;
+  IntegerType *                    Int32Tyi = NULL;
+  IntegerType *                    Int64Tyi = NULL;
+  ConstantInt *                    Zero = NULL;
+  ConstantInt *                    One = NULL;
+  LLVMContext *                    Ct = NULL;
+  Module *                         Mo = NULL;
+  GlobalVariable *                 AFLMapPtr = NULL;
+  Value *                          MapPtrFixed = NULL;
+  FILE *                           documentFile = NULL;
   // afl++ END
 
 };
@@ -266,19 +270,20 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
   }
 
   ModuleSanitizerCoverageLegacyPass(
-      const SanitizerCoverageOptions &Options = SanitizerCoverageOptions(),
+      const SanitizerCoverageOptions &Options = SanitizerCoverageOptions())
+       : ModulePass(ID), Options(Options) {
+/* ,
       const std::vector<std::string> &AllowlistFiles =
           std::vector<std::string>(),
       const std::vector<std::string> &BlocklistFiles =
           std::vector<std::string>())
-      : ModulePass(ID), Options(Options) {
-
     if (AllowlistFiles.size() > 0)
       Allowlist = SpecialCaseList::createOrDie(AllowlistFiles,
                                                *vfs::getRealFileSystem());
     if (BlocklistFiles.size() > 0)
       Blocklist = SpecialCaseList::createOrDie(BlocklistFiles,
                                                *vfs::getRealFileSystem());
+*/
     initializeModuleSanitizerCoverageLegacyPassPass(
         *PassRegistry::getPassRegistry());
 
@@ -286,8 +291,8 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 
   bool runOnModule(Module &M) override {
 
-    ModuleSanitizerCoverage ModuleSancov(Options, Allowlist.get(),
-                                         Blocklist.get());
+    ModuleSanitizerCoverage ModuleSancov(Options);
+    // , Allowlist.get(), Blocklist.get());
     auto DTCallback = [this](Function &F) -> const DominatorTree * {
 
       return &this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
@@ -308,8 +313,8 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
  private:
   SanitizerCoverageOptions Options;
 
-  std::unique_ptr<SpecialCaseList> Allowlist;
-  std::unique_ptr<SpecialCaseList> Blocklist;
+  //std::unique_ptr<SpecialCaseList> Allowlist;
+  //std::unique_ptr<SpecialCaseList> Blocklist;
 
 };
 
@@ -318,8 +323,8 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
 PreservedAnalyses ModuleSanitizerCoveragePass::run(Module &               M,
                                                    ModuleAnalysisManager &MAM) {
 
-  ModuleSanitizerCoverage ModuleSancov(Options, Allowlist.get(),
-                                       Blocklist.get());
+  ModuleSanitizerCoverage ModuleSancov(Options);
+  //Allowlist.get(), Blocklist.get());
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto  DTCallback = [&FAM](Function &F) -> const DominatorTree * {
 
@@ -369,12 +374,17 @@ bool ModuleSanitizerCoverage::instrumentModule(
     Module &M, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
   if (Options.CoverageType == SanitizerCoverageOptions::SCK_None) return false;
+/*
   if (Allowlist &&
       !Allowlist->inSection("coverage", "src", M.getSourceFileName()))
     return false;
   if (Blocklist &&
       Blocklist->inSection("coverage", "src", M.getSourceFileName()))
     return false;
+*/
+  BlockList.clear();
+  valueMap.clear();
+  dictionary.clear();
   C = &(M.getContext());
   DL = &M.getDataLayout();
   CurModule = &M;
@@ -1098,9 +1108,9 @@ void ModuleSanitizerCoverage::instrumentFunction(
   if (F.hasPersonalityFn() &&
       isAsynchronousEHPersonality(classifyEHPersonality(F.getPersonalityFn())))
     return;
-  if (Allowlist && !Allowlist->inSection("coverage", "fun", F.getName()))
-    return;
-  if (Blocklist && Blocklist->inSection("coverage", "fun", F.getName())) return;
+  //if (Allowlist && !Allowlist->inSection("coverage", "fun", F.getName()))
+  //  return;
+  // if (Blocklist && Blocklist->inSection("coverage", "fun", F.getName())) return;
 
   // afl++ START
   if (!F.size()) return;
@@ -1306,7 +1316,11 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
   if (Options.TracePC) {
 
     IRB.CreateCall(SanCovTracePC)
+#if LLVM_VERSION_MAJOR < 12
+        ->cannotMerge();  // gets the PC using GET_CALLER_PC.
+#else
         ->setCannotMerge();  // gets the PC using GET_CALLER_PC.
+#endif
 
   }
 
@@ -1457,12 +1471,11 @@ INITIALIZE_PASS_END(ModuleSanitizerCoverageLegacyPass, "sancov",
                     false)
 
 ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
-    const SanitizerCoverageOptions &Options,
-    const std::vector<std::string> &AllowlistFiles,
+    const SanitizerCoverageOptions &Options, const std::vector<std::string> &AllowlistFiles,
     const std::vector<std::string> &BlocklistFiles) {
 
-  return new ModuleSanitizerCoverageLegacyPass(Options, AllowlistFiles,
-                                               BlocklistFiles);
+  return new ModuleSanitizerCoverageLegacyPass(Options);
+  //, AllowlistFiles, BlocklistFiles);
 
 }
 
