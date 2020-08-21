@@ -13,6 +13,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz:
     - Fix for auto dictionary entries found during fuzzing to not throw out
       a -x dictionary
+    - added total execs done to plot file
   - llvm_mode:
     - Ported SanCov to LTO, and made it the default for LTO. better
       instrumentation locations
