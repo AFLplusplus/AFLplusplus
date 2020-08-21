@@ -13,13 +13,10 @@ afl-fuzz:
  - add __sanitizer_cov_trace_cmp* support via shmem
 
 llvm_mode:
- - LTO - imitate sancov
  - add __sanitizer_cov_trace_cmp* support
 
 gcc_plugin:
  - (wait for submission then decide)
- - laf-intel
- - better instrumentation (seems to be better with gcc-9+)
 
 qemu_mode:
  - update to 5.x (if the performance bug is gone)
@@ -36,9 +33,9 @@ qemu_mode:
  - LTO/sancov: write current edge to prev_loc and use that information when
    using cmplog or __sanitizer_cov_trace_cmp*. maybe we can deduct by follow
    up edge numbers that both following cmp paths have been found and then
-   disable working on this edge id
+   disable working on this edge id -> cmplog_intelligence branch
 
  - new tancov: use some lightweight taint analysis to see which parts of a
    new queue entry is accessed and only fuzz these bytes - or better, only
    fuzz those bytes that are newly in coverage compared to the queue entry
-   the new one is based on
+   the new one is based on -> taint branch, not useful :-(

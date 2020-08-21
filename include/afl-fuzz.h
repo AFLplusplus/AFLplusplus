@@ -624,7 +624,7 @@ typedef struct afl_state {
 
   /* plot file saves from last run */
   u32 plot_prev_qp, plot_prev_pf, plot_prev_pnf, plot_prev_ce, plot_prev_md;
-  u64 plot_prev_qc, plot_prev_uc, plot_prev_uh;
+  u64 plot_prev_qc, plot_prev_uc, plot_prev_uh, plot_prev_ed;
 
   u64 stats_last_stats_ms, stats_last_plot_ms, stats_last_ms, stats_last_execs;
   double stats_avg_exec;

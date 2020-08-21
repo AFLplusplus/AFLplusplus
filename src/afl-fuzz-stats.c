@@ -206,7 +206,8 @@ void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
                afl->plot_prev_qc == afl->queue_cycle &&
                afl->plot_prev_uc == afl->unique_crashes &&
                afl->plot_prev_uh == afl->unique_hangs &&
-               afl->plot_prev_md == afl->max_depth) ||
+               afl->plot_prev_md == afl->max_depth &&
+               afl->plot_prev_ed == afl->fsrv.total_execs) ||
       unlikely(!afl->queue_cycle) ||
       unlikely(get_cur_time() - afl->start_time <= 60)) {
 
@@ -222,6 +223,7 @@ void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
   afl->plot_prev_uc = afl->unique_crashes;
   afl->plot_prev_uh = afl->unique_hangs;
   afl->plot_prev_md = afl->max_depth;
+  afl->plot_prev_ed = afl->fsrv.total_execs;
 
   /* Fields in the file:
 
@@ -229,12 +231,13 @@ void maybe_update_plot_file(afl_state_t *afl, double bitmap_cvg, double eps) {
      favored_not_fuzzed, afl->unique_crashes, afl->unique_hangs, afl->max_depth,
      execs_per_sec */
 
-  fprintf(afl->fsrv.plot_file,
-          "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f\n",
-          get_cur_time() / 1000, afl->queue_cycle - 1, afl->current_entry,
-          afl->queued_paths, afl->pending_not_fuzzed, afl->pending_favored,
-          bitmap_cvg, afl->unique_crashes, afl->unique_hangs, afl->max_depth,
-          eps);                                            /* ignore errors */
+  fprintf(
+      afl->fsrv.plot_file,
+      "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu\n",
+      get_cur_time() / 1000, afl->queue_cycle - 1, afl->current_entry,
+      afl->queued_paths, afl->pending_not_fuzzed, afl->pending_favored,
+      bitmap_cvg, afl->unique_crashes, afl->unique_hangs, afl->max_depth, eps,
+      afl->plot_prev_ed);                                  /* ignore errors */
 
   fflush(afl->fsrv.plot_file);
 

@@ -347,11 +347,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (lto_mode) {
 
-    if (cmplog_mode)
-      unsetenv("AFL_LLVM_LTO_AUTODICTIONARY");
-    else
-      setenv("AFL_LLVM_LTO_AUTODICTIONARY", "1", 1);
-
 #if defined(AFL_CLANG_LDPATH) && LLVM_VERSION_MAJOR >= 12
     u8 *ld_ptr = strrchr(AFL_REAL_LD, '/');
     if (!ld_ptr) ld_ptr = "ld.lld";
@@ -363,16 +358,13 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
 
-    /*
-        The current LTO instrim mode is not good, so we disable it
-        if (instrument_mode == INSTRUMENT_CFG)
-          cc_params[cc_par_cnt++] =
-              alloc_printf("-Wl,-mllvm=-load=%s/afl-llvm-lto-instrim.so",
-       obj_path); else
-    */
+    if (instrument_mode == INSTRUMENT_CFG)
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
+    else
 
-    cc_params[cc_par_cnt++] = alloc_printf(
-        "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
+      cc_params[cc_par_cnt++] = alloc_printf(
+          "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
     cc_params[cc_par_cnt++] = lto_flag;
 
   } else {
@@ -756,7 +748,13 @@ int main(int argc, char **argv, char **envp) {
       if (strncasecmp(ptr, "afl", strlen("afl")) == 0 ||
           strncasecmp(ptr, "classic", strlen("classic")) == 0) {
 
-        if (!instrument_mode || instrument_mode == INSTRUMENT_AFL)
+        if (instrument_mode == INSTRUMENT_LTO) {
+
+          instrument_mode = INSTRUMENT_CLASSIC;
+          lto_mode = 1;
+
+        } else if (!instrument_mode || instrument_mode == INSTRUMENT_AFL)
+
           instrument_mode = INSTRUMENT_AFL;
         else
           FATAL("main instrumentation mode already set with %s",
@@ -848,10 +846,17 @@ int main(int argc, char **argv, char **envp) {
       callname = "afl-clang-lto";
       if (!instrument_mode) {
 
-        instrument_mode = INSTRUMENT_LTO;
+        instrument_mode = INSTRUMENT_CFG;
         ptr = instrument_mode_string[instrument_mode];
 
       }
+
+    } else if (instrument_mode == INSTRUMENT_LTO ||
+
+               instrument_mode == INSTRUMENT_CLASSIC) {
+
+      lto_mode = 1;
+      callname = "afl-clang-lto";
 
     } else {
 
@@ -992,9 +997,8 @@ int main(int argc, char **argv, char **envp) {
         "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
         "function calls\n"
         "AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
-        "AFL_LLVM_INSTRUMENT_FILE: enable the instrument file listing "
-        "(selective "
-        "instrumentation)\n"
+        "AFL_LLVM_INSTRUMENT_ALLOW/AFL_LLVM_INSTRUMENT_DENY: enable instrument"
+        "allow/deny listing (selective instrumentation)\n"
         "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
         "AFL_PATH: path to instrumenting pass and runtime "
         "(afl-llvm-rt.*o)\n"

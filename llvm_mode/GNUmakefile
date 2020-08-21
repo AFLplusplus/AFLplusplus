@@ -274,7 +274,7 @@ ifeq "$(TEST_MMAP)" "1"
         LDFLAGS += -Wno-deprecated-declarations
 endif
 
-  PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-ld-lto ../afl-llvm-lto-instrumentlist.so ../afl-llvm-lto-instrumentation.so ../afl-llvm-lto-instrim.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so
+PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-ld-lto ../afl-llvm-lto-instrumentlist.so ../afl-llvm-lto-instrumentation.so ../libLLVMInsTrim.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../compare-transform-pass.so ../split-compares-pass.so ../split-switches-pass.so ../cmplog-routines-pass.so ../cmplog-instructions-pass.so ../SanitizerCoverageLTO.so
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
 ifeq "$(LLVMVER)" ""
@@ -363,17 +363,17 @@ ifeq "$(LLVM_LTO)" "1"
 	$(CC) $(CFLAGS) $< -o $@
 endif
 
+../SanitizerCoverageLTO.so: SanitizerCoverageLTO.so.cc
+ifeq "$(LLVM_LTO)" "1"
+	$(CXX) $(CLANG_CPPFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
+endif
+
 ../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc afl-llvm-common.o
 ifeq "$(LLVM_LTO)" "1"
 	$(CXX) $(CLANG_CPPFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
 	$(CLANG_BIN) $(CFLAGS_SAFE) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto.o
 	@$(CLANG_BIN) $(CFLAGS_SAFE) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m64 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-64.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
 	@$(CLANG_BIN) $(CFLAGS_SAFE) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m32 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-32.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
-endif
-
-../afl-llvm-lto-instrim.so: afl-llvm-lto-instrim.so.cc afl-llvm-common.o
-ifeq "$(LLVM_LTO)" "1"
-	$(CXX) $(CLANG_CPPFL) -DLLVMInsTrim_EXPORTS -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL) afl-llvm-common.o
 endif
 
 # laf
@@ -424,7 +424,7 @@ all_done: test_build
 install: all
 	install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
 	if [ -f ../afl-clang-fast -a -f ../libLLVMInsTrim.so -a -f ../afl-llvm-rt.o ]; then set -e; install -m 755 ../afl-clang-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-fast++; install -m 755 ../libLLVMInsTrim.so ../afl-llvm-pass.so ../afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f ../afl-clang-lto ]; then set -e; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 ../afl-llvm-lto-instrumentation.so ../afl-llvm-lto-instrim.so ../afl-llvm-rt-lto*.o ../afl-llvm-lto-instrumentlist.so $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f ../afl-clang-lto ]; then set -e; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang-lto++; install -m 755 ../afl-llvm-lto-instrumentation.so ../afl-llvm-rt-lto*.o ../afl-llvm-lto-instrumentlist.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../afl-ld-lto ]; then set -e; install -m 755 ../afl-ld-lto $${DESTDIR}$(BIN_PATH); fi
 	if [ -f ../afl-llvm-rt-32.o ]; then set -e; install -m 755 ../afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../afl-llvm-rt-64.o ]; then set -e; install -m 755 ../afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH); fi
@@ -432,6 +432,7 @@ install: all
 	if [ -f ../split-compares-pass.so ]; then set -e; install -m 755 ../split-compares-pass.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../split-switches-pass.so ]; then set -e; install -m 755 ../split-switches-pass.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../cmplog-instructions-pass.so ]; then set -e; install -m 755 ../cmplog-*-pass.so $${DESTDIR}$(HELPER_PATH); fi
+	if [ -f ../SanitizerCoverageLTO.so ]; then set -e; install -m 755 ../SanitizerCoverageLTO.so $${DESTDIR}$(HELPER_PATH); fi
 	set -e; install -m 644 ../dynamic_list.txt $${DESTDIR}$(HELPER_PATH)
 	set -e; if [ -f ../afl-clang-fast ] ; then ln -sf ../afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ../afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf ../afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ../afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
 	install -m 644 README.*.md $${DESTDIR}$(DOC_PATH)/
