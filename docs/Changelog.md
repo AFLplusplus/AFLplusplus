@@ -10,8 +10,15 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.67d (develop)
-  - Further llvm 12 support (fast moving target like afl++ :-) )
-  - Fix for auto dictionary not to throw out a -x dictionary
+  - afl-fuzz:
+    - Fix for auto dictionary entries found during fuzzing to not throw out
+      a -x dictionary
+    - added total execs done to plot file
+  - llvm_mode:
+    - Ported SanCov to LTO, and made it the default for LTO. better
+      instrumentation locations
+    - Further llvm 12 support (fast moving target like afl++ :-) )
+    - deprecated LLVM SKIPSINGLEBLOCK env environment
 
 
 ### Version ++2.67c (release)

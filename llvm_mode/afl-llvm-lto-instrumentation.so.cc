@@ -128,6 +128,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     be_quiet = 1;
 
+  if (getenv("AFL_LLVM_CMPLOG")) autodictionary = 0;
+
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
     if ((documentFile = fopen(ptr, "a")) == NULL)
@@ -141,8 +143,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
   // defered forkserver, early constructors, ifuncs and maybe more
   /*if (getenv("AFL_LLVM_MAP_DYNAMIC"))*/
   map_addr = 0;
-
-  if (getenv("AFL_LLVM_SKIPSINGLEBLOCK")) function_minimum_size = 2;
 
   if ((ptr = getenv("AFL_LLVM_MAP_ADDR"))) {
 
@@ -602,16 +602,40 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     for (auto &BB : F) {
 
+      if (F.size() == 1) {
+
+        InsBlocks.push_back(&BB);
+        continue;
+
+      }
+
       uint32_t succ = 0;
-
-      if (F.size() == 1) InsBlocks.push_back(&BB);
-
       for (succ_iterator SI = succ_begin(&BB), SE = succ_end(&BB); SI != SE;
            ++SI)
         if ((*SI)->size() > 0) succ++;
-
       if (succ < 2)  // no need to instrument
         continue;
+
+      if (BlockList.size()) {
+
+        int skip = 0;
+        for (uint32_t k = 0; k < BlockList.size(); k++) {
+
+          if (&BB == BlockList[k]) {
+
+            if (debug)
+              fprintf(stderr,
+                      "DEBUG: Function %s skipping BB with/after __afl_loop\n",
+                      F.getName().str().c_str());
+            skip = 1;
+
+          }
+
+        }
+
+        if (skip) continue;
+
+      }
 
       InsBlocks.push_back(&BB);
 
@@ -630,28 +654,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
         Instruction *             TI = origBB->getTerminator();
         uint32_t                  fs = origBB->getParent()->size();
         uint32_t                  countto;
-
-        if (BlockList.size()) {
-
-          int skip = 0;
-          for (uint32_t k = 0; k < BlockList.size(); k++) {
-
-            if (origBB == BlockList[k]) {
-
-              if (debug)
-                fprintf(
-                    stderr,
-                    "DEBUG: Function %s skipping BB with/after __afl_loop\n",
-                    F.getName().str().c_str());
-              skip = 1;
-
-            }
-
-          }
-
-          if (skip) continue;
-
-        }
 
         for (succ_iterator SI = succ_begin(origBB), SE = succ_end(origBB);
              SI != SE; ++SI) {
