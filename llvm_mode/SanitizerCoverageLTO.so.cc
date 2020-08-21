@@ -1330,6 +1330,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
   if (Options.TracePCGuard) {
 
     // afl++ START
+    ++afl_global_id
 
     if (documentFile) {
 
@@ -1342,7 +1343,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
     /* Set the ID of the inserted basic block */
 
-    ConstantInt *CurLoc = ConstantInt::get(Int32Tyi, ++afl_global_id);
+    ConstantInt *CurLoc = ConstantInt::get(Int32Tyi, afl_global_id);
 
     /* Load SHM pointer */
 
