@@ -146,7 +146,9 @@ static void usage(u8 *argv0, int more_help) {
       "  -b cpu_id     - bind the fuzzing process to the specified CPU core "
       "(0-...)\n"
       "  -e ext        - file extension for the fuzz test input file (if "
-      "needed)\n\n",
+      "needed)\n"
+	  "  -g max        - maximum number of user-specified dictionary tokens "
+      "to use in deterministic steps\n\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT, FOREIGN_SYNCS_MAX);
 
   if (more_help > 1) {
@@ -277,7 +279,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+b:c:i:I:o:f:F:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) > 0) {
+              "+b:c:i:I:o:f:F:m:t:T:dDnCB:S:M:x:QNUWe:g:p:s:V:E:L:hRP:")) > 0) {
 
     switch (opt) {
 
@@ -368,6 +370,18 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->file_extension) { FATAL("Multiple -e options not supported"); }
 
         afl->file_extension = optarg;
+
+        break;
+
+      case 'g':
+
+        if (afl->max_dict_entries != MAX_DET_EXTRAS) { FATAL("Multiple -g options not supported"); }
+
+        if (sscanf(optarg, "%d", &afl->max_dict_entries) < 0) {
+
+          FATAL("Bad syntax used for -g");
+
+        }
 
         break;
 

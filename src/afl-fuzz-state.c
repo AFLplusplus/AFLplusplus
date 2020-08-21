@@ -124,6 +124,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   afl->fsrv.mem_limit = MEM_LIMIT;
 
+  afl->max_dict_entries = MAX_DET_EXTRAS;
+
   afl->stats_update_freq = 1;
 
   afl->fsrv.dev_urandom_fd = -1;
