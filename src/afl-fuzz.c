@@ -173,6 +173,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
+      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
@@ -968,6 +969,22 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->max_det_extras = MAX_DET_EXTRAS;
 
   }
+
+  if (afl->afl_env.afl_forksrv_init_tmout) {
+
+    afl->fsrv.init_tmout  = atoi(afl->afl_env.afl_forksrv_init_tmout);
+    if (!afl->fsrv.init_tmout) {
+
+      FATAL("Invalid value of AFL_FORKSRV_INIT_TMOUT");
+
+    }
+
+  } else {
+
+    afl->fsrv.init_tmout = afl->fsrv.exec_tmout * FORK_WAIT_MULT;
+
+  }
+
 
   if (afl->non_instrumented_mode == 2 && afl->no_forkserver) {
 

@@ -353,7 +353,8 @@ typedef struct afl_env_vars {
       afl_cal_fast, afl_cycle_schedules, afl_expand_havoc;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
-      *afl_hang_tmout, *afl_skip_crashes, *afl_preload, *afl_max_det_extras;
+      *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
+      *afl_max_det_extras;
 
 } afl_env_vars_t;
 

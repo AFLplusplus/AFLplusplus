@@ -48,6 +48,7 @@ static char *afl_environment_variables[] = {
     "AFL_GCC_INSTRUMENT_FILE",
     "AFL_GCJ",
     "AFL_HANG_TMOUT",
+    "AFL_FORKSRV_INIT_TMOUT",
     "AFL_HARDEN",
     "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES",
     "AFL_IMPORT_FIRST",
