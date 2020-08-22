@@ -80,7 +80,7 @@ tools make fairly broad use of environmental variables:
 
 ## 2) Settings for afl-clang-fast / afl-clang-fast++ / afl-gcc-fast / afl-g++-fast
 
-The native instrumentation helpers (llvm_mode and gcc_plugin) accept a subset
+The native instrumentation helpers (instrumentation and gcc_plugin) accept a subset
 of the settings discussed in section #1, with the exception of:
 
   - AFL_AS, since this toolchain does not directly invoke GNU as.
@@ -90,7 +90,7 @@ of the settings discussed in section #1, with the exception of:
 
   - AFL_INST_RATIO, as we by default collision free instrumentation is used.
 
-Then there are a few specific features that are only available in llvm_mode:
+Then there are a few specific features that are only available in instrumentation:
 
 ### Select the instrumentation mode
 
@@ -136,7 +136,7 @@ Then there are a few specific features that are only available in llvm_mode:
    - AFL_LLVM_LTO_DONTWRITEID prevents that the highest location ID written
      into the instrumentation is set in a global variable
 
-    See llvm_mode/README.LTO.md for more information.
+    See instrumentation/README.LTO.md for more information.
 
 ### INSTRIM
 
@@ -154,7 +154,7 @@ Then there are a few specific features that are only available in llvm_mode:
       afl-fuzz will only be able to see the path the loop took, but not how
       many times it was called (unless it is a complex loop).
 
-    See llvm_mode/README.instrim.md
+    See instrumentation/README.instrim.md
 
 ### NGRAM
 
@@ -165,7 +165,7 @@ Then there are a few specific features that are only available in llvm_mode:
       config.h to at least 18 and maybe up to 20 for this as otherwise too
       many map collisions occur.
 
-    See llvm_mode/README.ctx.md
+    See instrumentation/README.ctx.md
 
 ### CTX
 
@@ -176,7 +176,7 @@ Then there are a few specific features that are only available in llvm_mode:
       config.h to at least 18 and maybe up to 20 for this as otherwise too
       many map collisions occur.
 
-    See llvm_mode/README.ngram.md
+    See instrumentation/README.ngram.md
 
 ### LAF-INTEL
 
@@ -196,7 +196,7 @@ Then there are a few specific features that are only available in llvm_mode:
 
     - Setting AFL_LLVM_LAF_ALL sets all of the above
 
-    See llvm_mode/README.laf-intel.md for more information.
+    See instrumentation/README.laf-intel.md for more information.
 
 ### INSTRUMENT LIST (selectively instrument files and functions)
 
@@ -206,7 +206,7 @@ Then there are a few specific features that are only available in llvm_mode:
       function will only instrument (or skip) those files that match the names
       listed in the specified file.
 
-    See llvm_mode/README.instrument_list.md for more information.
+    See instrumentation/README.instrument_list.md for more information.
 
 ### NOT_ZERO
 
@@ -220,14 +220,14 @@ Then there are a few specific features that are only available in llvm_mode:
       test. If the target performs only few loops then this will give a
       small performance boost.
 
-    See llvm_mode/README.neverzero.md
+    See instrumentation/README.neverzero.md
 
 ### CMPLOG
 
     - Setting AFL_LLVM_CMPLOG=1 during compilation will tell afl-clang-fast to
-      produce a CmpLog binary. See llvm_mode/README.cmplog.md
+      produce a CmpLog binary. See instrumentation/README.cmplog.md
 
-    See llvm_mode/README.neverzero.md
+    See instrumentation/README.neverzero.md
 
 Then there are a few specific features that are only available in the gcc_plugin:
 

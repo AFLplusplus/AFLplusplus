@@ -37,8 +37,8 @@ e.g. [Fuzzbench Report](https://www.fuzzbench.com/reports/2020-08-03/index.html)
 
 ## How to improve the fuzzing speed
 
-  1. use [llvm_mode](docs/llvm_mode/README.md): afl-clang-lto (llvm >= 11) or afl-clang-fast (llvm >= 9 recommended)
-  2. Use [persistent mode](llvm_mode/README.persistent_mode.md) (x2-x20 speed increase)
+  1. use [instrumentation](docs/README.llvm.md): afl-clang-lto (llvm >= 11) or afl-clang-fast (llvm >= 9 recommended)
+  2. Use [persistent mode](instrumentation/README.persistent_mode.md) (x2-x20 speed increase)
   3. Use the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) (x2 speed increase)
   4. If you do not use shmem persistent mode, use `AFL_TMPDIR` to point the input file on a tempfs location, see [docs/env_variables.md](docs/env_variables.md)
   5. Improve kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure)
@@ -55,7 +55,7 @@ which is totally unsupported by most coverage aware fuzzers.
 
 The established method to fuzz network services is to modify the source code
 to read from a file or stdin (fd 0) (or even faster via shared memory, combine
-this with persistent mode [llvm_mode/README.persistent_mode.md](llvm_mode/README.persistent_mode.md)
+this with persistent mode [instrumentation/README.persistent_mode.md](instrumentation/README.persistent_mode.md)
 and you have a performance gain of x10 instead of a performance loss of over
 x10 - that is a x100 difference!
 
@@ -180,10 +180,10 @@ afl-clang-fast PCGUARD and afl-clang-lto LTO instrumentation.
 
      b) For PCGUARD instrumented binaries it is much more difficult. Here you
         can either modify the __sanitizer_cov_trace_pc_guard function in
-        llvm_mode/afl-llvm-rt.o.c to write a backtrace to a file if the ID in
+        instrumentation/afl-llvm-rt.o.c to write a backtrace to a file if the ID in
         __afl_area_ptr[*guard] is one of the unstable edge IDs.
         (Example code is already there).
-        Then recompile and reinstall llvm_mode and rebuild your target.
+        Then recompile and reinstall instrumentation and rebuild your target.
         Run the recompiled target with afl-fuzz for a while and then check the
         file that you wrote with the backtrace information.
         Alternatively you can use `gdb` to hook __sanitizer_cov_trace_pc_guard_init
@@ -200,7 +200,7 @@ afl-clang-fast PCGUARD and afl-clang-lto LTO instrumentation.
      remove from instrumentation, or just specify the functions you want to
      skip instrumenting. Note that optimization might inline functions!
 
-     Simply follow this document on how to do this: [llvm_mode/README.instrument_list.md](llvm_mode/README.instrument_list.md)
+     Simply follow this document on how to do this: [instrumentation/README.instrument_list.md](instrumentation/README.instrument_list.md)
      If PCGUARD is used, then you need to follow this guide (needs llvm 12+!):
      [http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation](http://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation)
 

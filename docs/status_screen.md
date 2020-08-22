@@ -324,7 +324,7 @@ there are several things to look at:
   - Multiple threads executing at once in semi-random order. This is harmless
     when the 'stability' metric stays over 90% or so, but can become an issue
     if not. Here's what to try:
-    * Use afl-clang-fast from [llvm_mode](../llvm_mode/) - it uses a thread-local tracking
+    * Use afl-clang-fast from [instrumentation](../instrumentation/) - it uses a thread-local tracking
       model that is less prone to concurrency issues,
     * See if the target can be compiled or run without threads. Common
       `./configure` options include `--without-threads`, `--disable-pthreads`, or

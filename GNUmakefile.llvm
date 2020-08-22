@@ -216,7 +216,7 @@ ifeq "$(LLVM_LTO)" "1"
 endif
 
 CFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
-CFLAGS_SAFE     := -Wall -g -Wno-pointer-sign -I ./include/ \
+CFLAGS_SAFE     := -Wall -g -Wno-pointer-sign -I ./include/ -I ./instrumentation/ \
                    -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                    -DLLVM_BINDIR=\"$(LLVM_BINDIR)\" -DVERSION=\"$(VERSION)\" \
                    -DLLVM_LIBDIR=\"$(LLVM_LIBDIR)\" -DLLVM_VERSION=\"$(LLVMVER)\" \
@@ -239,7 +239,7 @@ ifneq "$(shell $(LLVM_CONFIG) --includedir) 2> /dev/null" ""
   CLANG_CFL  = -I$(shell $(LLVM_CONFIG) --includedir)
 endif
 ifneq "$(LLVM_CONFIG)" ""
-  CLANG_CFL += -I$(shell dirname $(LLVM_CONFIG))/./include
+  CLANG_CFL += -I$(shell dirname $(LLVM_CONFIG))/../include
 endif
 CLANG_CPPFL  = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC $(CXXFLAGS) -Wno-deprecated-declarations
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
@@ -328,12 +328,14 @@ endif
 	@test -f ./afl-showmap || ( echo "[-] Oops, can't find './afl-showmap'. Be sure to compile AFL first."; exit 1 )
 	@echo "[+] All set and ready to build."
 
-afl-common.o: ./src/afl-common.c
+instrumentation/afl-common.o: ./src/afl-common.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
-./afl-cc: afl-cc.c afl-common.o | test_deps
-	$(CC) $(CLANG_CFL) $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS) -DCFLAGS_OPT=\"$(CFLAGS_OPT)\"
+./afl-cc: src/afl-cc.c instrumentation/afl-common.o | test_deps
+	$(CC) $(CLANG_CFL) $(CFLAGS) $< instrumentation/afl-common.o -o $@ $(LDFLAGS) -DCFLAGS_OPT=\"$(CFLAGS_OPT)\"
 	ln -sf afl-cc ./afl-cc++
+	ln -sf afl-cc ./afl-clang-fast
+	ln -sf afl-cc ./afl-clang-fast++
 ifneq "$(AFL_CLANG_FLTO)" ""
 ifeq "$(LLVM_LTO)" "1"
 	ln -sf afl-cc ./afl-clang-lto
@@ -353,7 +355,7 @@ instrumentation/afl-llvm-common.o: instrumentation/afl-llvm-common.cc instrument
 ifeq "$(LLVM_MIN_4_0_1)" "0"
 	$(info [!] N-gram branch coverage instrumentation is not available for llvm version $(LLVMVER))
 endif
-	$(CXX) $(CLANG_CPPFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
+	$(CXX) $(CLANG_CPPFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 ./afl-llvm-lto-instrumentlist.so: instrumentation/afl-llvm-lto-instrumentlist.so.cc instrumentation/afl-llvm-common.o
 ifeq "$(LLVM_LTO)" "1"

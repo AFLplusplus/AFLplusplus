@@ -24,7 +24,7 @@ more flexibility.
 
 ## 2) Building the LLVM module
 
-The new code is part of the existing afl++ LLVM module in the llvm_mode/
+The new code is part of the existing afl++ LLVM module in the instrumentation/
 subdirectory. There is nothing specifically to do :)
 
 ## 3) How to use the partial instrumentation mode

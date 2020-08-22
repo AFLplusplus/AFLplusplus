@@ -39,7 +39,7 @@
   with laf-intel and redqueen, unicorn mode, gcc plugin, full *BSD, Solaris and
   Android support and much, much, much more.
 
-  | Feature/Instrumentation  | afl-gcc | llvm_mode | gcc_plugin | qemu_mode        | unicorn_mode |
+  | Feature/Instrumentation  | afl-gcc | instrumentation | gcc_plugin | qemu_mode        | unicorn_mode |
   | -------------------------|:-------:|:---------:|:----------:|:----------------:|:------------:|
   | NeverZero                | x86[_64]|     x(1)  |      (2)   |         x        |       x      |
   | Persistent Mode          |         |     x     |     x      | x86[_64]/arm[64] |       x      |
@@ -63,7 +63,7 @@
 
   Among others, the following features and patches have been integrated:
 
-  * NeverZero patch for afl-gcc, llvm_mode, qemu_mode and unicorn_mode which prevents a wrapping map value to zero, increases coverage
+  * NeverZero patch for afl-gcc, instrumentation, qemu_mode and unicorn_mode which prevents a wrapping map value to zero, increases coverage
   * Persistent mode, deferred forkserver and in-memory fuzzing for qemu_mode
   * Unicorn mode which allows fuzzing of binaries from completely different platforms (integration provided by domenukk)
   * The new CmpLog instrumentation for LLVM and QEMU inspired by [Redqueen](https://www.syssec.ruhr-uni-bochum.de/media/emma/veroeffentlichungen/2018/12/17/NDSS19-Redqueen.pdf)
@@ -71,10 +71,10 @@
   * AFLfast's power schedules by Marcel Böhme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
   * The MOpt mutator: [https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)
   * LLVM mode Ngram coverage by Adrian Herrera [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
-  * InsTrim, a CFG llvm_mode instrumentation implementation: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
+  * InsTrim, a CFG instrumentation instrumentation implementation: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
   * C. Holler's afl-fuzz Python mutator module: [https://github.com/choller/afl](https://github.com/choller/afl)
   * Custom mutator by a library (instead of Python) by kyakdan
-  * LAF-Intel/CompCov support for llvm_mode, qemu_mode and unicorn_mode (with enhanced capabilities)
+  * LAF-Intel/CompCov support for instrumentation, qemu_mode and unicorn_mode (with enhanced capabilities)
   * Radamsa and honggfuzz mutators (as custom mutators).
   * QBDI mode to fuzz android native libraries via Quarkslab's [QBDI](https://github.com/QBDI/QBDI) framework
   * Frida and ptrace mode to fuzz binary-only libraries, etc.
@@ -142,9 +142,9 @@ sudo make install
 It is recommended to install the newest available gcc, clang and llvm-dev
 possible in your distribution!
 
-Note that "make distrib" also builds llvm_mode, qemu_mode, unicorn_mode and
+Note that "make distrib" also builds instrumentation, qemu_mode, unicorn_mode and
 more. If you just want plain afl++ then do "make all", however compiling and
-using at least llvm_mode is highly recommended for much better results -
+using at least instrumentation is highly recommended for much better results -
 hence in this case
 
 ```shell
@@ -156,7 +156,7 @@ These build targets exist:
 
 * all: just the main afl++ binaries
 * binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap
-* source-only: everything for source code fuzzing: llvm_mode, libdislocator, libtokencap
+* source-only: everything for source code fuzzing: instrumentation, libdislocator, libtokencap
 * distrib: everything (for both binary-only and source code fuzzing)
 * man: creates simple man pages from the help option of the programs
 * install: installs everything you have compiled with the build options above
@@ -284,7 +284,7 @@ afl-clang-lto:
    via the `-c` parameter.
    Not that you can compile also just a cmplog binary and use that for both
    however there will a performance penality.
-   You can read more about this in [llvm_mode/README.cmplog.md](llvm_mode/README.cmplog.md)
+   You can read more about this in [instrumentation/README.cmplog.md](instrumentation/README.cmplog.md)
 
 If you use afl-clang-fast, afl-clang-lto or afl-gcc-fast you have the option to
 selectively only instrument parts of the target that you are interested in:
@@ -300,7 +300,7 @@ selectively only instrument parts of the target that you are interested in:
    default to instrument unless noted (DENYLIST) or not perform instrumentation
    unless requested (ALLOWLIST).
    **NOTE:** In optimization functions might be inlined and then not match!
-   see [llvm_mode/README.instrument_list.md](llvm_mode/README.instrument_list.md)
+   see [instrumentation/README.instrument_list.md](instrumentation/README.instrument_list.md)
    For afl-clang-fast > 6.0 or if PCGUARD instrumentation is used then use the
    llvm sancov allow-list feature: [http://clang.llvm.org/docs/SanitizerCoverage.html](http://clang.llvm.org/docs/SanitizerCoverage.html)
    The llvm sancov format works with the allowlist/denylist feature of afl++
@@ -308,13 +308,13 @@ selectively only instrument parts of the target that you are interested in:
 
 There are many more options and modes available however these are most of the
 time less effective. See:
- * [llvm_mode/README.ctx.md](llvm_mode/README.ctx.md)
- * [llvm_mode/README.ngram.md](llvm_mode/README.ngram.md)
- * [llvm_mode/README.instrim.md](llvm_mode/README.instrim.md)
+ * [instrumentation/README.ctx.md](instrumentation/README.ctx.md)
+ * [instrumentation/README.ngram.md](instrumentation/README.ngram.md)
+ * [instrumentation/README.instrim.md](instrumentation/README.instrim.md)
 
 afl++ employs never zero counting in its bitmap. You can read more about this
 here:
- * [llvm_mode/README.neverzero.md](llvm_mode/README.neverzero.md)
+ * [instrumentation/README.neverzero.md](instrumentation/README.neverzero.md)
 
 #### c) Modify the target
 
@@ -383,7 +383,7 @@ This requires the usage of afl-clang-lto or afl-clang-fast.
 This is the so-called `persistent mode`, which is much, much faster but
 requires that you code a source file that is specifically calling the target
 functions that you want to fuzz, plus a few specific afl++ functions around
-it. See [llvm_mode/README.persistent_mode.md](llvm_mode/README.persistent_mode.md) for details.
+it. See [instrumentation/README.persistent_mode.md](instrumentation/README.persistent_mode.md) for details.
 
 Basically if you do not fuzz a target in persistent mode then you are just
 doing it for a hobby and not professionally :-)
@@ -607,7 +607,7 @@ switch or honggfuzz.
 
 #### f) Improve the speed!
 
- * Use [persistent mode](llvm_mode/README.persistent_mode.md) (x2-x20 speed increase)
+ * Use [persistent mode](instrumentation/README.persistent_mode.md) (x2-x20 speed increase)
  * If you do not use shmem persistent mode, use `AFL_TMPDIR` to point the input file on a tempfs location, see [docs/env_variables.md](docs/env_variables.md)
  * Linux: Use the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) (x2 speed increase)
  * Linux: Improve kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure)
