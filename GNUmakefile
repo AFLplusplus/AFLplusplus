@@ -272,7 +272,10 @@ ifdef TEST_MMAP
 	LDFLAGS += -Wno-deprecated-declarations
 endif
 
-all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
+all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm test_build all_done
+
+llvm:
+	$(MAKE) -f GNUmakefile.llvm
 
 man:    $(MANPAGES)
 
@@ -293,7 +296,7 @@ help:
 	@echo "=========================================="
 	@echo "all: just the main afl++ binaries"
 	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap"
-	@echo "source-only: everything for source code fuzzing: llvm_mode, gcc_plugin, libdislocator, libtokencap"
+	@echo "source-only: everything for source code fuzzing: gcc_plugin, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"
 	@echo "install: installs everything you have compiled with the build option above"
@@ -461,9 +464,8 @@ code-format:
 	./.custom-format.py -i include/*.h
 	./.custom-format.py -i libdislocator/*.c
 	./.custom-format.py -i libtokencap/*.c
-	./.custom-format.py -i llvm_mode/*.c
-	./.custom-format.py -i llvm_mode/*.h
-	./.custom-format.py -i llvm_mode/*.cc
+	./.custom-format.py -i instrumentation/*.h
+	./.custom-format.py -i instrumentation/*.cc
 	./.custom-format.py -i gcc_plugin/*.c
 	@#./.custom-format.py -i gcc_plugin/*.h
 	./.custom-format.py -i gcc_plugin/*.cc
@@ -502,7 +504,6 @@ endif
 
 
 all_done: test_build
-	@if [ ! "`type clang 2>/dev/null`" = "" ]; then echo "[+] LLVM users: see llvm_mode/README.md for a faster alternative to afl-gcc."; fi
 	@echo "[+] All done! Be sure to review the README.md - it's pretty short and useful."
 	@if [ "`uname`" = "Darwin" ]; then printf "\nWARNING: Fuzzing on MacOS X is slow because of the unusually high overhead of\nfork() on this OS. Consider using Linux or *BSD. You can also use VirtualBox\n(virtualbox.org) to put AFL inside a Linux or *BSD VM.\n\n"; fi
 	@! tty <&1 >/dev/null || printf "\033[0;30mNOTE: If you can read this, your terminal probably uses white background.\nThis will make the UI hard to read. See docs/status_screen.md for advice.\033[0m\n" 2>/dev/null
@@ -512,7 +513,7 @@ all_done: test_build
 clean:
 	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-*
 	rm -rf out_dir qemu_mode/qemu-3.1.1 *.dSYM */*.dSYM
-	-$(MAKE) -C llvm_mode clean
+	-$(MAKE) -f GNUmakefile.llvm clean
 	-$(MAKE) -C gcc_plugin clean
 	$(MAKE) -C libdislocator clean
 	$(MAKE) -C libtokencap clean
@@ -535,7 +536,7 @@ deepclean:	clean
 	git reset --hard >/dev/null 2>&1 || true
 
 distrib: all
-	-$(MAKE) -C llvm_mode
+	-$(MAKE) -f GNUmakefile.llvm
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
@@ -555,7 +556,7 @@ binary-only: all
 	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
 source-only: all
-	-$(MAKE) -C llvm_mode
+	-$(MAKE) -f GNUmakefile.llvm
 	-$(MAKE) -C gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
@@ -589,7 +590,6 @@ install: all $(MANPAGES)
 	rm -f $${DESTDIR}$(BIN_PATH)/afl-as
 	if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
 	if [ -f afl-gcc-fast ]; then set e; install -m 755 afl-gcc-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast; install -m 755 afl-gcc-pass.so afl-gcc-rt.o $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f afl-clang-fast ]; then $(MAKE) -C llvm_mode install; fi
 	if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
@@ -597,6 +597,7 @@ install: all $(MANPAGES)
 	if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
 	if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
 	if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
+	$(MAKE) -f GNUmakefile.llvm install
 	if [ -f libAFLDriver.a ]; then install -m 644 libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libAFLQemuDriver.a ]; then install -m 644 libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
 
