@@ -115,7 +115,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->out_file = NULL;
 
   fsrv_to->init_child_func = fsrv_exec_child;
-  //Note: do not copy ->add_extra_func
+  // Note: do not copy ->add_extra_func
 
   list_append(&fsrv_list, fsrv_to);
 

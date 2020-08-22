@@ -1509,13 +1509,13 @@ skip_interest:
 
     for (j = 0; j < afl->extras_cnt; ++j) {
 
-      /* Skip extras probabilistically if afl->extras_cnt > MAX_DET_EXTRAS. Also
-         skip them if there's no room to insert the payload, if the token
+      /* Skip extras probabilistically if afl->extras_cnt > AFL_MAX_DET_EXTRAS.
+         Also skip them if there's no room to insert the payload, if the token
          is redundant, or if its entire span has no bytes set in the effector
          map. */
 
-      if ((afl->extras_cnt > MAX_DET_EXTRAS &&
-           rand_below(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
+      if ((afl->extras_cnt > afl->max_det_extras &&
+           rand_below(afl, afl->extras_cnt) >= afl->max_det_extras) ||
           afl->extras[j].len > len - i ||
           !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
           !memchr(eff_map + EFF_APOS(i), 1,
@@ -3722,13 +3722,13 @@ skip_interest:
 
     for (j = 0; j < afl->extras_cnt; ++j) {
 
-      /* Skip extras probabilistically if afl->extras_cnt > MAX_DET_EXTRAS. Also
-         skip them if there's no room to insert the payload, if the token
+      /* Skip extras probabilistically if afl->extras_cnt > AFL_MAX_DET_EXTRAS.
+         Also skip them if there's no room to insert the payload, if the token
          is redundant, or if its entire span has no bytes set in the effector
          map. */
 
-      if ((afl->extras_cnt > MAX_DET_EXTRAS &&
-           rand_below(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
+      if ((afl->extras_cnt > afl->max_det_extras &&
+           rand_below(afl, afl->extras_cnt) >= afl->max_det_extras) ||
           afl->extras[j].len > len - i ||
           !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
           !memchr(eff_map + EFF_APOS(i), 1,
