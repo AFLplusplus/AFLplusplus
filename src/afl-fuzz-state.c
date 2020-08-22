@@ -349,6 +349,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_preload =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
+          } else if (!strncmp(env, "AFL_MAX_DET_EXTRAS",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_max_det_extras =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
           }
 
         } else {

@@ -102,6 +102,7 @@ static char *afl_environment_variables[] = {
     "AFL_NO_X86",  // not really an env but we dont want to warn on it
     "AFL_MAP_SIZE",
     "AFL_MAPSIZE",
+    "AFL_MAX_DET_EXTRAS",
     "AFL_PATH",
     "AFL_PERFORMANCE_FILE",
     "AFL_PRELOAD",

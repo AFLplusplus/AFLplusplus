@@ -177,6 +177,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
+      "AFL_MAX_DET_EXTRAS: if the dict/extras file contains more tokens than this threshold,\n"
+      "                    the tokens will sometimes be skipped during fuzzing.\n"
       "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
       "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
       "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
@@ -949,8 +951,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->afl_env.afl_hang_tmout) {
 
-    afl->hang_tmout = atoi(afl->afl_env.afl_hang_tmout);
-    if (!afl->hang_tmout) { FATAL("Invalid value of AFL_HANG_TMOUT"); }
+    s32 hang_tmout = atoi(afl->afl_env.afl_hang_tmout);
+    if (hang_tmout < 1) { FATAL("Invalid value for AFL_HANG_TMOUT"); }
+    afl->hang_tmout = (u32)hang_tmout;
+
+  }
+
+  if (afl->afl_env.afl_max_det_extras) {
+
+    s32 max_det_extras = atoi(afl->afl_env.afl_max_det_extras);
+    if (max_det_extras < 1) { FATAL("Invalid value for AFL_MAX_DET_EXTRAS"); }
+    afl->max_det_extras = (u32)max_det_extras;
+
+  } else {
+
+    afl->max_det_extras = MAX_DET_EXTRAS;
 
   }
 

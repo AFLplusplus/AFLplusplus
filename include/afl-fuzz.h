@@ -353,7 +353,7 @@ typedef struct afl_env_vars {
       afl_cal_fast, afl_cycle_schedules, afl_expand_havoc;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
-      *afl_hang_tmout, *afl_skip_crashes, *afl_preload;
+      *afl_hang_tmout, *afl_skip_crashes, *afl_preload, *afl_max_det_extras;
 
 } afl_env_vars_t;
 
@@ -506,7 +506,8 @@ typedef struct afl_state {
       useless_at_start,                 /* Number of useless starting paths */
       var_byte_count,                   /* Bitmap bytes with var behavior   */
       current_entry,                    /* Current queue entry ID           */
-      havoc_div;                        /* Cycle count divisor for havoc    */
+      havoc_div,                        /* Cycle count divisor for havoc    */
+      max_det_extras;                   /* deterministic extra count (dicts)*/
 
   u64 total_crashes,                    /* Total number of crashes          */
       unique_crashes,                   /* Crashes with unique signatures   */
