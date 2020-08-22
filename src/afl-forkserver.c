@@ -101,6 +101,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->out_fd = from->out_fd;
   fsrv_to->dev_null_fd = from->dev_null_fd;
   fsrv_to->exec_tmout = from->exec_tmout;
+  fsrv_to->init_tmout = from->init_tmout;
   fsrv_to->mem_limit = from->mem_limit;
   fsrv_to->map_size = from->map_size;
   fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;

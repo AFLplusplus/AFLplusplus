@@ -972,7 +972,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->afl_env.afl_forksrv_init_tmout) {
 
-    afl->fsrv.init_tmout  = atoi(afl->afl_env.afl_forksrv_init_tmout);
+    afl->fsrv.init_tmout = atoi(afl->afl_env.afl_forksrv_init_tmout);
     if (!afl->fsrv.init_tmout) {
 
       FATAL("Invalid value of AFL_FORKSRV_INIT_TMOUT");
