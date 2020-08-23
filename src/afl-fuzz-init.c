@@ -547,14 +547,11 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
           if (first) {
 
             WARNF(
-                "Test case '%s' is too big (%s, limit is %s), skipping", fn2,
+                "Test case '%s' is very big (%s, should be below %s)", fn2,
                 stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
                 stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
 
           }
-
-          ck_free(fn2);
-          continue;
 
         }
 
@@ -697,11 +694,11 @@ void read_testcases(afl_state_t *afl) {
 
     if (st.st_size > MAX_FILE) {
 
-      WARNF("Test case '%s' is too big (%s, limit is %s), skipping", fn2,
+      WARNF("Test case '%s' is very big (%s, try to be below %s)", fn2,
             stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
             stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
       ck_free(fn2);
-      continue;
+      //continue;
 
     }
 
