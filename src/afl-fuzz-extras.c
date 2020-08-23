@@ -250,7 +250,7 @@ static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
 
   if (afl->extras_cnt > afl->max_det_extras) {
 
-    WARNF("More than %d tokens - will use them probabilistically.",
+    OKF("More than %d tokens - will use them probabilistically.",
           afl->max_det_extras);
 
   }
@@ -370,7 +370,7 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
 
 }
 
-/* Adds a new extra / dict entry. */
+/* Adds a new extra / dict entry. Used for LTO autodict. */
 void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
@@ -405,7 +405,7 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   if (afl->extras_cnt == afl->max_det_extras + 1) {
 
-    WARNF("More than %d tokens - will use them probabilistically.",
+    OKF("More than %d tokens - will use them probabilistically.",
           afl->max_det_extras);
 
   }
