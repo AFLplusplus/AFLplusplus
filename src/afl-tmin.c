@@ -1103,14 +1103,17 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   SAYF("\n");
-  
+
   if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
 
     s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
     if (forksrv_init_tmout < 1) {
+
       FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
+
     }
-    fsrv->init_tmout = (u32) forksrv_init_tmout;
+
+    fsrv->init_tmout = (u32)forksrv_init_tmout;
 
   }
 
