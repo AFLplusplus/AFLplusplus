@@ -79,6 +79,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->use_stdin = 1;
   fsrv->no_unlink = 0;
   fsrv->exec_tmout = EXEC_TIMEOUT;
+  fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
 
