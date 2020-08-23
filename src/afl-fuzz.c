@@ -985,7 +985,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-
   if (afl->non_instrumented_mode == 2 && afl->no_forkserver) {
 
     FATAL("AFL_DUMB_FORKSRV and AFL_NO_FORKSRV are mutually exclusive");
