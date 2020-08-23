@@ -3,6 +3,7 @@
 .sync_tmp
 *.o
 *.so
+*.swp
 *.pyc
 *.dSYM
 as

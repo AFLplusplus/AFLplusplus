@@ -79,6 +79,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->use_stdin = 1;
   fsrv->no_unlink = 0;
   fsrv->exec_tmout = EXEC_TIMEOUT;
+  fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
 
@@ -101,6 +102,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->out_fd = from->out_fd;
   fsrv_to->dev_null_fd = from->dev_null_fd;
   fsrv_to->exec_tmout = from->exec_tmout;
+  fsrv_to->init_tmout = from->init_tmout;
   fsrv_to->mem_limit = from->mem_limit;
   fsrv_to->map_size = from->map_size;
   fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
@@ -519,13 +521,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     u32 time_ms =
         read_s32_timed(fsrv->fsrv_st_fd, &status,
-                       fsrv->exec_tmout * FORK_WAIT_MULT, stop_soon_p);
+                       fsrv->init_tmout, stop_soon_p);
 
     if (!time_ms) {
 
       kill(fsrv->fsrv_pid, SIGKILL);
 
-    } else if (time_ms > fsrv->exec_tmout * FORK_WAIT_MULT) {
+    } else if (time_ms > fsrv->init_tmout) {
 
       fsrv->last_run_timed_out = 1;
       kill(fsrv->fsrv_pid, SIGKILL);
