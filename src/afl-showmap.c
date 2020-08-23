@@ -1036,6 +1036,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+    if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
+
+      s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
+      if (forksrv_init_tmout < 1) {
+        FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
+      }
+      fsrv->init_tmout = (u32) forksrv_init_tmout;
+
+    }
+
     afl_fsrv_start(fsrv, use_argv, &stop_soon,
                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
     map_size = fsrv->map_size;
