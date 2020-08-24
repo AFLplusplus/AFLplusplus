@@ -1841,24 +1841,21 @@ void setup_cmdline_file(afl_state_t *afl, char **argv) {
 
 void setup_stdio_file(afl_state_t *afl) {
 
-  u8 *fn;
   if (afl->file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
+    afl->fsrv.out_file = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", afl->tmp_dir);
+    afl->fsrv.out_file = alloc_printf("%s/.cur_input", afl->tmp_dir);
 
   }
 
-  unlink(fn);                                              /* Ignore errors */
+  unlink(afl->fsrv.out_file);                                              /* Ignore errors */
 
-  afl->fsrv.out_fd = open(fn, O_RDWR | O_CREAT | O_EXCL, 0600);
+  afl->fsrv.out_fd = open(afl->fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (afl->fsrv.out_fd < 0) { PFATAL("Unable to create '%s'", fn); }
-
-  ck_free(fn);
+  if (afl->fsrv.out_fd < 0) { PFATAL("Unable to create '%s'", afl->fsrv.out_file); }
 
 }
 
