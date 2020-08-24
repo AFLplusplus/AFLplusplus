@@ -288,7 +288,6 @@ enum {
 enum {
 
   /* 00 */ PY_FUNC_INIT,
-  /* 01 */ PY_FUNC_FUZZ_COUNT,
   /* 01 */ PY_FUNC_FUZZ,
   /* 02 */ PY_FUNC_POST_PROCESS,
   /* 03 */ PY_FUNC_INIT_TRIM,
@@ -299,6 +298,7 @@ enum {
   /* 08 */ PY_FUNC_QUEUE_GET,
   /* 09 */ PY_FUNC_QUEUE_NEW_ENTRY,
   /* 10 */ PY_FUNC_DEINIT,
+  /* 11 */ PY_FUNC_FUZZ_COUNT,
   PY_FUNC_COUNT
 
 };

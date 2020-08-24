@@ -144,6 +144,7 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
     py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
     if (!py_functions[PY_FUNC_FUZZ])
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "mutate");
+    py_functions[PY_FUNC_FUZZ_COUNT] = PyObject_GetAttrString(py_module, "fuzz_count");
     if (!py_functions[PY_FUNC_FUZZ])
       WARNF("fuzz function not found in python module");
     py_functions[PY_FUNC_POST_PROCESS] =
@@ -187,7 +188,7 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
           // Implenting the havoc and queue API is optional for now
           if (PyErr_Occurred()) { PyErr_Print(); }
 
-        } else {
+        } else if (py_idx != PY_FUNC_FUZZ_COUNT) {
 
           if (PyErr_Occurred()) { PyErr_Print(); }
           fprintf(stderr,
