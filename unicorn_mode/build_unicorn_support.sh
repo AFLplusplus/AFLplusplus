@@ -70,6 +70,11 @@ MAKECMD=make
 TARCMD=tar
 
 if [ "$PLT" = "Linux" ]; then
+  MUSL=`ldd --version 2>&1 | head -n 1 | cut -f 1 -d " "`
+  if [ "musl" = $MUSL ]; then
+  	echo "[-] Error: Unicorn instrumentation is unsupported with the musl's libc."
+  	exit 1
+  fi
   CORES=`nproc`
 fi
 
