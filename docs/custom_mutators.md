@@ -32,6 +32,7 @@ performed with the custom mutator.
 C/C++:
 ```c
 void *afl_custom_init(afl_t *afl, unsigned int seed);
+uint32_t afl_custom_fuzz_count(void *data, const u8 *buf, size_t buf_size);
 size_t afl_custom_fuzz(void *data, uint8_t *buf, size_t buf_size, u8 **out_buf, uint8_t *add_buf, size_t add_buf_size, size_t max_size);
 size_t afl_custom_post_process(void *data, uint8_t *buf, size_t buf_size, uint8_t **out_buf);
 int32_t afl_custom_init_trim(void *data, uint8_t *buf, size_t buf_size);
@@ -48,6 +49,9 @@ Python:
 ```python
 def init(seed):
     pass
+
+def fuzz_count(buf, add_buf, max_size):
+    return cnt
 
 def fuzz(buf, add_buf, max_size):
     return mutated_out
@@ -87,6 +91,11 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
 
     This method determines whether the custom fuzzer should fuzz the current
     queue entry or not
+
+- `fuzz_count` (optional):
+
+    This method can be used to instruct afl-fuzz how often to perform a fuzz
+    attempt on this input data.
 
 - `fuzz` (optional):
 

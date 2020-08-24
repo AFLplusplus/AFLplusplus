@@ -634,7 +634,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         if (fsrv->add_extra_func == NULL || fsrv->afl_ptr == NULL) {
 
-          // this is not afl-fuzz - we deny and return
+          // this is not afl-fuzz - or it is cmplog - we deny and return
           if (fsrv->use_shmem_fuzz) {
 
             status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
