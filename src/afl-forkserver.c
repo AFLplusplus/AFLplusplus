@@ -917,7 +917,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     s32 fd = fsrv->out_fd;
 
-    if (fsrv->out_file) {
+    if (!fsrv->use_stdin) {
 
       if (fsrv->no_unlink) {
 
@@ -940,7 +940,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     ck_write(fd, buf, len, fsrv->out_file);
 
-    if (!fsrv->out_file) {
+    if (fsrv->use_stdin) {
 
       if (ftruncate(fd, len)) { PFATAL("ftruncate() failed"); }
       lseek(fd, 0, SEEK_SET);
