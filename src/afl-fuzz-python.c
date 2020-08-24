@@ -144,7 +144,8 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
     py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
     if (!py_functions[PY_FUNC_FUZZ])
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "mutate");
-    py_functions[PY_FUNC_FUZZ_COUNT] = PyObject_GetAttrString(py_module, "fuzz_count");
+    py_functions[PY_FUNC_FUZZ_COUNT] =
+        PyObject_GetAttrString(py_module, "fuzz_count");
     if (!py_functions[PY_FUNC_FUZZ])
       WARNF("fuzz function not found in python module");
     py_functions[PY_FUNC_POST_PROCESS] =
@@ -170,27 +171,20 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
 
       if (!py_functions[py_idx] || !PyCallable_Check(py_functions[py_idx])) {
 
-        if (py_idx == PY_FUNC_POST_PROCESS) {
-
-          // Implenting the post_process API is optional for now
-          if (PyErr_Occurred()) { PyErr_Print(); }
-
-        } else if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
+        if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
 
           // Implementing the trim API is optional for now
           if (PyErr_Occurred()) { PyErr_Print(); }
           py_notrim = 1;
 
-        } else if ((py_idx >= PY_FUNC_HAVOC_MUTATION) &&
+        } else if (py_idx >= PY_OPTIONAL) {
 
-                   (py_idx <= PY_FUNC_QUEUE_NEW_ENTRY)) {
-
-          // Implenting the havoc and queue API is optional for now
-          if (PyErr_Occurred()) { PyErr_Print(); }
-
-        } else if (py_idx != PY_FUNC_FUZZ_COUNT) {
+          // Only _init and _deinit are not optional currently
 
           if (PyErr_Occurred()) { PyErr_Print(); }
+
+        } else {
+
           fprintf(stderr,
                   "Cannot find/call function with index %d in external "
                   "Python module.\n",
