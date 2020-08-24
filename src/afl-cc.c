@@ -39,18 +39,19 @@
 #include <limits.h>
 #include <assert.h>
 
-#include "llvm/Config/llvm-config.h"
-
 static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
-static u8  instrument_mode, instrument_opt_mode, ngram_size, lto_mode, cpp_mode;
+static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode,
+    compiler_mode, plusplus_mode;
+static u8  have_gcc, have_llvm, have_gcc_plugin, have_lto;
+static u8  selected_gcc, selected_lto, selected_gcc_plugin, selected_llvm;
 static u8 *lto_flag = AFL_CLANG_FLTO;
 static u8  debug;
 static u8  cwd[4096];
 static u8  cmplog_mode;
-u8         use_stdin = 0;                                          /* dummy */
+u8         use_stdin;                                              /* dummy */
 // static u8 *march_opt = CFLAGS_OPT;
 
 enum {
@@ -74,11 +75,101 @@ char instrument_mode_string[18][18] = {
 
 };
 
+enum {
+
+  UNSET = 0,
+  LTO = 1,
+  LLVM = 2,
+  GCC_PLUGIN = 3,
+  GCC = 4
+
+};
+
+char compiler_mode_string[6][12] = {
+
+    "UNSET", "LLVM-LTO", "LLVM", "GCC-PLUGIN",
+    "GCC",   ""
+
+};
+
 u8 *getthecwd() {
 
   static u8 fail[] = "";
   if (getcwd(cwd, sizeof(cwd)) == NULL) return fail;
   return cwd;
+
+}
+
+/* Try to find the runtime libraries. If that fails, abort. */
+
+static u8 *find_object(u8 *obj, u8 *argv0) {
+
+  u8 *afl_path = getenv("AFL_PATH");
+  u8 *slash = NULL, *tmp;
+
+  if (afl_path) {
+
+#ifdef __ANDROID__
+    tmp = alloc_printf("%s/%s", afl_path, obj);
+#else
+    tmp = alloc_printf("%s/%s", afl_path, obj);
+#endif
+
+    if (!access(tmp, R_OK)) {
+
+      obj_path = afl_path;
+      return tmp;
+
+    }
+
+    ck_free(tmp);
+
+  }
+
+  if (argv0) slash = strrchr(argv0, '/');
+
+  if (slash) {
+
+    u8 *dir;
+
+    *slash = 0;
+    dir = ck_strdup(argv0);
+    *slash = '/';
+
+#ifdef __ANDROID__
+    tmp = alloc_printf("%s/%s", dir, obj);
+#else
+    tmp = alloc_printf("%s/%s", dir, obj);
+#endif
+
+    if (!access(tmp, R_OK)) {
+
+      obj_path = dir;
+      return tmp;
+
+    }
+
+    ck_free(tmp);
+    ck_free(dir);
+
+  }
+
+  tmp = alloc_printf("%s/%s", AFL_PATH, obj);
+#ifdef __ANDROID__
+  if (!access(tmp, R_OK)) {
+
+#else
+  if (!access(tmp, R_OK)) {
+
+#endif
+
+    obj_path = AFL_PATH;
+    return tmp;
+
+  }
+
+  ck_free(tmp);
+  return NULL;
 
 }
 
@@ -174,58 +265,88 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   else
     ++name;
 
-  if (lto_mode)
+  if (lto_mode) {
+
     if (lto_flag[0] != '-')
       FATAL(
           "Using afl-clang-lto is not possible because Makefile magic did not "
           "identify the correct -flto flag");
+    else
+      compiler_mode = LTO;
 
-  if (!strcmp(name, "afl-clang-fast++") || !strcmp(name, "afl-clang-lto++") ||
-      !strcmp(name, "afl-clang++")) {
+  }
+
+  if (!compiler_mode) {
+
+    // lto is not a default because outside of afl-cc RANLIB and AR have to
+    // be set to llvm versions so this would work
+    if (have_llvm)
+      compiler_mode = LLVM;
+    else if (have_gcc_plugin)
+      compiler_mode = GCC_PLUGIN;
+    else if (have_gcc)
+      compiler_mode = GCC;
+    else
+      FATAL("no compiler mode available");
+
+  }
+
+  if (plusplus_mode) {
 
     u8 *alt_cxx = getenv("AFL_CXX");
-    if (USE_BINDIR)
-      snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang++", LLVM_BINDIR);
-    else
-      sprintf(llvm_fullpath, CLANGPP_BIN);
-    cc_params[0] = alt_cxx && *alt_cxx ? alt_cxx : (u8 *)llvm_fullpath;
-    cpp_mode = 1;
 
-  } else if (!strcmp(name, "afl-clang-fast") ||
+    if (!alt_cxx) {
 
-             !strcmp(name, "afl-clang-lto") || !strcmp(name, "afl-clang")) {
+      if (compiler_mode >= GCC_PLUGIN) {
 
-    u8 *alt_cc = getenv("AFL_CC");
-    if (USE_BINDIR)
-      snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang", LLVM_BINDIR);
-    else
-      sprintf(llvm_fullpath, CLANG_BIN);
-    cc_params[0] = alt_cc && *alt_cc ? alt_cc : (u8 *)llvm_fullpath;
+        alt_cxx = "g++";
+
+      } else {
+
+        if (USE_BINDIR)
+          snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang++",
+                   LLVM_BINDIR);
+        else
+          snprintf(llvm_fullpath, sizeof(llvm_fullpath), CLANGPP_BIN);
+        alt_cxx = llvm_fullpath;
+
+      }
+
+    }
+
+    cc_params[0] = alt_cxx;
 
   } else {
 
-    fprintf(stderr, "Name of the binary: %s\n", argv[0]);
-    FATAL(
-        "Name of the binary is not a known name, expected afl-clang-fast(++) "
-        "or afl-clang-lto(++)");
+    u8 *alt_cc = getenv("AFL_CC");
+
+    if (!alt_cc) {
+
+      if (compiler_mode >= GCC_PLUGIN) {
+
+        alt_cc = "gcc";
+
+      } else {
+
+        if (USE_BINDIR)
+          snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang",
+                   LLVM_BINDIR);
+        else
+          snprintf(llvm_fullpath, sizeof(llvm_fullpath), CLANGPP_BIN);
+        alt_cc = llvm_fullpath;
+
+      }
+
+    }
+
+    cc_params[0] = alt_cc;
 
   }
 
   cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
 
-  if (lto_mode && cpp_mode)
+  if (lto_mode && plusplus_mode)
     cc_params[cc_par_cnt++] = "-lc++";  // needed by fuzzbench, early
-
-  /* There are several ways to compile with afl-clang-fast. In the traditional
-     mode, we use afl-llvm-pass.so, then there is libLLVMInsTrim.so which is
-     faster and creates less map pollution.
-     Then there is the 'trace-pc-guard' mode, we use native LLVM
-     instrumentation callbacks instead. For trace-pc-guard see:
-     http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards
-     The best instrumentatation is with the LTO modes, the classic and
-     InsTrimLTO, the latter is faster. The LTO modes are activated by using
-     afl-clang-lto(++)
-   */
 
   if (lto_mode) {
 
@@ -347,7 +468,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (lto_mode) {
 
-#if defined(AFL_CLANG_LDPATH) && LLVM_VERSION_MAJOR >= 12
+#if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
     u8 *ld_ptr = strrchr(AFL_REAL_LD, '/');
     if (!ld_ptr) ld_ptr = "ld.lld";
     cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_ptr);
@@ -371,9 +492,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (instrument_mode == INSTRUMENT_PCGUARD) {
 
-#if LLVM_VERSION_MAJOR > 4 ||   \
-    (LLVM_VERSION_MAJOR == 4 && \
-     (LLVM_VERSION_MINOR > 0 || LLVM_VERSION_PATCH >= 1))
+#if LLVM_MAJOR >= 4
       cc_params[cc_par_cnt++] =
           "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
 #else
@@ -401,7 +520,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   // e.g. compiled download or compiled from github then it's ./lib directory
   // might not be in the search path. Add it if so.
   u8 *libdir = strdup(LLVM_LIBDIR);
-  if (cpp_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
+  if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
       strncmp(libdir, "/lib", 4)) {
 
     cc_params[cc_par_cnt++] = "-rpath";
@@ -685,7 +804,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 int main(int argc, char **argv, char **envp) {
 
   int   i;
-  char *callname = "afl-clang-fast", *ptr = NULL;
+  char *callname = argv[0], *ptr = NULL;
 
   if (getenv("AFL_DEBUG")) {
 
@@ -695,6 +814,64 @@ int main(int argc, char **argv, char **envp) {
   } else if (getenv("AFL_QUIET"))
 
     be_quiet = 1;
+
+  if ((ptr = strrchr(callname, '/')) != NULL) callname = ptr + 1;
+
+  check_environment_vars(envp);
+
+  if ((ptr = find_object("as", argv[0])) != NULL) {
+
+    have_gcc = 1;
+    ck_free(ptr);
+
+  }
+
+  if ((ptr = find_object("SanitizerCoverageLTO.so", argv[0])) != NULL) {
+
+    have_lto = 1;
+    ck_free(ptr);
+
+  }
+
+  if ((ptr = find_object("cmplog-routines-pass.so", argv[0])) != NULL) {
+
+    have_llvm = 1;
+    ck_free(ptr);
+
+  }
+
+  if ((ptr = find_object("afl-gcc-pass.so", argv[0])) != NULL) {
+
+    have_gcc_plugin = 1;
+    ck_free(ptr);
+
+  }
+
+  if (strncmp(callname, "afl-clang-fast", 14) == 0) {
+
+    selected_llvm = 1;
+    compiler_mode = LLVM;
+
+  } else if (strncmp(callname, "afl-clang-lto", 13) == 0) {
+
+    selected_lto = 1;
+    compiler_mode = LTO;
+
+  } else if (strncmp(callname, "afl-gcc-fast", 12) == 0) {
+
+    selected_gcc_plugin = 1;
+    compiler_mode = GCC_PLUGIN;
+
+  } else if (strncmp(callname, "afl-gcc", 7) == 0) {
+
+    selected_gcc = 1;
+    compiler_mode = GCC;
+
+  }
+
+  if (strlen(callname) > 2 &&
+      strncmp(callname + strlen(callname) - 2, "++", 2) == 0)
+    plusplus_mode = 1;
 
   if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
       getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
@@ -837,13 +1014,159 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (strstr(argv[0], "afl-clang-lto") != NULL) {
+  if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
+
+    char *fp;
+    fp = realpath(argv[0], NULL);
+
+    printf("afl-cc" VERSION
+           " by Michal Zalewski, lszekeres@google.com, and Marc Heuse\n");
+
+    SAYF(
+        "\n"
+        "%s[++] [options]\n"
+        "\n"
+        "This is a helper application for afl-fuzz. It serves as a drop-in "
+        "replacement\n"
+        "for gcc and clang, letting you recompile third-party code with the "
+        "required\n"
+        "runtime instrumentation. A common use pattern would be one of the "
+        "following:\n\n"
+
+        "  CC=%s CXX=%s ./configure --disable-shared\n\n",
+        callname, fp, fp);
+
+    SAYF(
+        "Modes:\n"
+        "  llvm LTO instrumentation:   %s%s\n"
+        "      PCGUARD                     DEFAULT\n"
+        "      CLASSIC\n"
+        "  llvm instrumentation:       %s%s\n"
+        "      PCGUARD                     %s\n"
+        "      CLASSIC                     %s\n"
+        "        - NORMAL\n"
+        "        - CTX\n"
+        "        - NGRAM2-16\n"
+        "      INSTRIM\n"
+        "        - NORMAL\n"
+        "        - CTX\n"
+        "        - NGRAM2-16\n"
+        "  gcc intrumentation:         %s%s\n"
+        "    CLASSIC                       DEFAULT\n"
+        "  simple gcc instrumentation: %s%s\n"
+        "    CLASSIC                       DEFAULT\n\n",
+        have_lto ? "AVAILABLE" : "unavailable", selected_lto ? " SELECTED" : "",
+        have_llvm ? "AVAILABLE" : "unavailable",
+        selected_llvm ? " SELECTED" : "", LLVM_MAJOR > 6 ? "DEFAULT" : "",
+        LLVM_MAJOR > 6 ? "" : "DEFAULT",
+        have_gcc_plugin ? "AVAILABLE" : "unavailable",
+        selected_gcc_plugin ? " SELECTED" : "",
+        have_gcc ? "AVAILABLE" : "unavailable",
+        selected_gcc ? " SELECTED" : "");
+
+    if (argc < 2 || strncmp(argv[1], "-hh", 3)) {
+
+      SAYF(
+          "To see all environment variables for the configuration of afl-cc "
+          "use \"-hh\".\n");
+
+    } else {
+
+      SAYF(
+          "Environment variables used:\n"
+          "  AFL_CC: path to the C compiler to use\n"
+          "  AFL_CXX: path to the C++ compiler to use\n"
+          "  AFL_DEBUG: enable developer debugging output\n"
+          "  AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
+          "  AFL_HARDEN: adds code hardening to catch memory bugs\n"
+          "  AFL_INST_RATIO: percentage of branches to instrument\n"
+#if LLVM_MAJOR < 9
+          "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+#else
+          "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
+#endif
+          "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
+          "  AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
+          "  AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
+          "  AFL_LLVM_LAF_SPLIT_SWITCHES: cascaded comparisons on switches\n"
+          "  AFL_LLVM_LAF_SPLIT_FLOATS: cascaded comparisons on floats\n"
+          "  AFL_LLVM_LAF_TRANSFORM_COMPARES: cascade comparisons for string "
+          "functions\n"
+          "  AFL_LLVM_INSTRUMENT_ALLOW/AFL_LLVM_INSTRUMENT_DENY: enable "
+          "instrument allow/\n"
+          "    deny listing (selective instrumentation)\n"
+          "  AFL_NO_BUILTIN: no builtins for string compare functions (for "
+          "libtokencap.so)\n"
+          "  AFL_PATH: path to instrumenting pass and runtime  "
+          "(afl-llvm-rt.*o)\n"
+          "  AFL_LLVM_DOCUMENT_IDS: document edge IDs given to which function "
+          "(LTO only)\n"
+          "  AFL_QUIET: suppress verbose output\n"
+          "  AFL_USE_ASAN: activate address sanitizer\n"
+          "  AFL_USE_CFISAN: activate control flow sanitizer\n"
+          "  AFL_USE_MSAN: activate memory sanitizer\n"
+          "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n",
+          callname, BIN_PATH, BIN_PATH);
+
+      SAYF(
+          "\nLLVM/LTO/afl-clang-fast/afl-clang-lto specific environment "
+          "variables:\n"
+          "  AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
+          "  AFL_LLVM_INSTRUMENT: set instrumentation mode: CLASSIC, INSTRIM, "
+          "PCGUARD, LTO, CTX, NGRAM-2 ... NGRAM-16\n"
+          " You can also use the old environment variables instead:\n"
+          "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
+          "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
+          "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed "
+          "(option to INSTRIM)\n"
+          "  AFL_LLVM_CTX: use context sensitive coverage (for CLASSIC and "
+          "INSTRIM)\n"
+          "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage (for "
+          "CLASSIC and INSTRIM)\n");
+
+#ifdef AFL_CLANG_FLTO
+      SAYF(
+          "\nLTO/afl-clang-lto specific environment variables:\n"
+          "AFL_LLVM_MAP_ADDR: use a fixed coverage map address (speed), e.g. "
+          "0x10000\n"
+          "AFL_LLVM_DOCUMENT_IDS: write all edge IDs and the corresponding "
+          "functions they are in into this file\n"
+          "AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
+          "global var\n"
+          "AFL_LLVM_LTO_STARTID: from which ID to start counting from for a "
+          "bb\n"
+          "AFL_REAL_LD: use this lld linker instead of the compiled in path\n"
+          "\nafl-clang-lto was built with linker target \"%s\" and LTO flags "
+          "\"%s\"\n"
+          "If anything fails - be sure to read README.lto.md!\n",
+          AFL_REAL_LD, AFL_CLANG_FLTO);
+#endif
+
+    }
+
+    SAYF(
+        "For any information on the available instrumentations and options "
+        "please \n"
+        "consult the README.md, especially section 3.1 about instrumenting "
+        "targets.\n\n");
+
+    SAYF(
+        "\naflc-cc was built for llvm %d with the llvm binary path "
+        "of \"%s\".\n",
+        LLVM_MAJOR, LLVM_BINDIR);
+
+    SAYF("\n");
+
+    exit(1);
+
+  }
+
+  if (selected_lto) {
 
     if (instrument_mode == 0 || instrument_mode == INSTRUMENT_LTO ||
         instrument_mode == INSTRUMENT_CFG) {
 
       lto_mode = 1;
-      callname = "afl-clang-lto";
       if (!instrument_mode) {
 
         instrument_mode = INSTRUMENT_CFG;
@@ -856,7 +1179,6 @@ int main(int argc, char **argv, char **envp) {
                instrument_mode == INSTRUMENT_CLASSIC) {
 
       lto_mode = 1;
-      callname = "afl-clang-lto";
 
     } else {
 
@@ -870,7 +1192,7 @@ int main(int argc, char **argv, char **envp) {
 
   if (instrument_mode == 0) {
 
-#if LLVM_VERSION_MAJOR <= 6
+#if LLVM_MAJOR <= 6
     instrument_mode = INSTRUMENT_AFL;
 #else
     if (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
@@ -946,115 +1268,9 @@ int main(int argc, char **argv, char **envp) {
         "https://clang.llvm.org/docs/"
         "SanitizerCoverage.html#partially-disabling-instrumentation");
 
-  if (argc < 2 || strcmp(argv[1], "-h") == 0) {
+  if ((isatty(2) && !be_quiet) ||
 
-    if (!lto_mode)
-      printf("afl-clang-fast" VERSION " by <lszekeres@google.com> in %s mode\n",
-             ptr);
-    else
-      printf("afl-clang-lto" VERSION
-             "  by Marc \"vanHauser\" Heuse <mh@mh-sec.de> in %s mode\n",
-             ptr);
-
-    SAYF(
-        "\n"
-        "%s[++] [options]\n"
-        "\n"
-        "This is a helper application for afl-fuzz. It serves as a drop-in "
-        "replacement\n"
-        "for clang, letting you recompile third-party code with the "
-        "required "
-        "runtime\n"
-        "instrumentation. A common use pattern would be one of the "
-        "following:\n\n"
-
-        "  CC=%s/afl-clang-fast ./configure\n"
-        "  CXX=%s/afl-clang-fast++ ./configure\n\n"
-
-        "In contrast to the traditional afl-clang tool, this version is "
-        "implemented as\n"
-        "an LLVM pass and tends to offer improved performance with slow "
-        "programs.\n\n"
-
-        "Environment variables used:\n"
-        "AFL_CC: path to the C compiler to use\n"
-        "AFL_CXX: path to the C++ compiler to use\n"
-        "AFL_DEBUG: enable developer debugging output\n"
-        "AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
-        "AFL_HARDEN: adds code hardening to catch memory bugs\n"
-        "AFL_INST_RATIO: percentage of branches to instrument\n"
-#if LLVM_VERSION_MAJOR < 9
-        "AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
-#else
-        "AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
-#endif
-        "AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
-        "AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
-        "AFL_LLVM_LAF_SPLIT_SWITCHES: casc. comp. in 'switch'\n"
-        " to cascaded comparisons\n"
-        "AFL_LLVM_LAF_SPLIT_FLOATS: transform floating point comp. to "
-        "cascaded comp.\n"
-        "AFL_LLVM_LAF_TRANSFORM_COMPARES: transform library comparison "
-        "function calls\n"
-        "AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
-        "AFL_LLVM_INSTRUMENT_ALLOW/AFL_LLVM_INSTRUMENT_DENY: enable instrument"
-        "allow/deny listing (selective instrumentation)\n"
-        "AFL_NO_BUILTIN: compile for use with libtokencap.so\n"
-        "AFL_PATH: path to instrumenting pass and runtime "
-        "(afl-llvm-rt.*o)\n"
-        "AFL_LLVM_DOCUMENT_IDS: document edge IDs given to which function (LTO "
-        "only)\n"
-        "AFL_QUIET: suppress verbose output\n"
-        "AFL_USE_ASAN: activate address sanitizer\n"
-        "AFL_USE_CFISAN: activate control flow sanitizer\n"
-        "AFL_USE_MSAN: activate memory sanitizer\n"
-        "AFL_USE_UBSAN: activate undefined behaviour sanitizer\n",
-        callname, BIN_PATH, BIN_PATH);
-
-    SAYF(
-        "\nafl-clang-fast specific environment variables:\n"
-        "AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
-        "AFL_LLVM_INSTRUMENT: set instrumentation mode: AFL, CFG "
-        "(INSTRIM), PCGUARD [DEFAULT], LTO, CTX, NGRAM-2 ... NGRAM-16\n"
-        " You can also use the old environment variables instead:\n"
-        "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation "
-        "[DEFAULT]\n"
-        "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
-        "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed ("
-        "option to INSTRIM)\n"
-        "  AFL_LLVM_CTX: use context sensitive coverage\n"
-        "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage\n");
-
-#ifdef AFL_CLANG_FLTO
-    SAYF(
-        "\nafl-clang-lto specific environment variables:\n"
-        "AFL_LLVM_MAP_ADDR: use a fixed coverage map address (speed), e.g. "
-        "0x10000\n"
-        "AFL_LLVM_DOCUMENT_IDS: write all edge IDs and the corresponding "
-        "functions they are in into this file\n"
-        "AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
-        "global var\n"
-        "AFL_LLVM_LTO_STARTID: from which ID to start counting from for a "
-        "bb\n"
-        "AFL_REAL_LD: use this lld linker instead of the compiled in path\n"
-        "\nafl-clang-lto was built with linker target \"%s\" and LTO flags "
-        "\"%s\"\n"
-        "If anything fails - be sure to read README.lto.md!\n",
-        AFL_REAL_LD, AFL_CLANG_FLTO);
-#endif
-
-    SAYF(
-        "\nafl-clang-fast was built for llvm %s with the llvm binary path "
-        "of \"%s\".\n",
-        LLVM_VERSION, LLVM_BINDIR);
-
-    SAYF("\n");
-
-    exit(1);
-
-  } else if ((isatty(2) && !be_quiet) ||
-
-             getenv("AFL_DEBUG") != NULL) {
+      getenv("AFL_DEBUG") != NULL) {
 
     if (!lto_mode)
 
@@ -1088,8 +1304,6 @@ int main(int argc, char **argv, char **envp) {
     SAYF("\n");
 
   }
-
-  check_environment_vars(envp);
 
   if (getenv("AFL_LLVM_LAF_ALL")) {
 
