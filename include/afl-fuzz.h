@@ -288,6 +288,7 @@ enum {
 enum {
 
   /* 00 */ PY_FUNC_INIT,
+  /* 01 */ PY_FUNC_FUZZ_COUNT,
   /* 01 */ PY_FUNC_FUZZ,
   /* 02 */ PY_FUNC_POST_PROCESS,
   /* 03 */ PY_FUNC_INIT_TRIM,
@@ -680,6 +681,24 @@ struct custom_mutator {
   void *(*afl_custom_init)(afl_state_t *afl, unsigned int seed);
 
   /**
+   * This method is called just before fuzzing a queue entry with the custom
+   * mutator, and receives the initial buffer. It should return the number of
+   * fuzzes to perform.
+   *
+   * A value of 0 means no fuzzing of this queue entry.
+   *
+   * The function is now allowed to change the data.
+   *
+   * (Optional)
+   *
+   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param buf Buffer containing the test case
+   * @param buf_size Size of the test case
+   * @return The amount of fuzzes to perform on this queue entry, 0 = skip
+   */
+  u32 (*afl_custom_fuzz_count)(void *data, const u8 *buf, size_t buf_size);
+
+  /**
    * Perform custom mutations on a given input
    *
    * (Optional for now. Required in the future)
@@ -867,6 +886,7 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 void                   finalize_py_module(void *);
 
+u32    fuzz_count_py(void *, const u8 *, size_t);
 size_t post_process_py(void *, u8 *, size_t, u8 **);
 s32    init_trim_py(void *, u8 *, size_t);
 s32    post_trim_py(void *, u8);

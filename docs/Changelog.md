@@ -18,6 +18,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       dict entries without recompiling.
     - AFL_FORKSRV_INIT_TMOUT env variable added to control the time to wait for
       the forkserver to come up without the need to increase the overall timeout.
+  - custom mutators:
+    - added afl_custom_fuzz_count/fuzz_count function to allow specifying the 
+      number of fuzz attempts for custom_fuzz
   - llvm_mode:
     - Ported SanCov to LTO, and made it the default for LTO. better
       instrumentation locations

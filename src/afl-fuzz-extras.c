@@ -251,7 +251,7 @@ static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
   if (afl->extras_cnt > afl->max_det_extras) {
 
     OKF("More than %d tokens - will use them probabilistically.",
-          afl->max_det_extras);
+        afl->max_det_extras);
 
   }
 
@@ -406,7 +406,7 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
   if (afl->extras_cnt == afl->max_det_extras + 1) {
 
     OKF("More than %d tokens - will use them probabilistically.",
-          afl->max_det_extras);
+        afl->max_det_extras);
 
   }
 
