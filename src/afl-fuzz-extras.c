@@ -319,8 +319,8 @@ void load_extras(afl_state_t *afl, u8 *dir) {
 
     if (st.st_size > MAX_DICT_FILE) {
 
-      FATAL(
-          "Extra '%s' is too big (%s, limit is %s)", fn,
+      WARNF(
+          "Extra '%s' is very big (%s, limit is %s)", fn,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), st.st_size),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
 
@@ -377,7 +377,7 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   if (len > MAX_DICT_FILE) {
 
-    FATAL("Extra '%.*s' is too big (%s, limit is %s)", (int)len, mem,
+    WARNF("Extra '%.*s' is very big (%s, limit is %s)", (int)len, mem,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), len),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
 
