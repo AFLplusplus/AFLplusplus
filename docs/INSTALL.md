@@ -52,7 +52,7 @@ sudo gmake install
 Keep in mind that if you are using csh as your shell, the syntax of some of the
 shell commands given in the README.md and other docs will be different.
 
-The `llvm_mode` requires a dynamically linked, fully-operational installation of
+The `llvm` requires a dynamically linked, fully-operational installation of
 clang. At least on FreeBSD, the clang binaries are static and do not include
 some of the essential tools, so if you want to make it work, you may need to
 follow the instructions in README.llvm.md.
@@ -97,7 +97,7 @@ and definitely don't look POSIX-compliant. This means two things:
 User emulation mode of QEMU does not appear to be supported on MacOS X, so
 black-box instrumentation mode (`-Q`) will not work.
 
-The llvm_mode requires a fully-operational installation of clang. The one that
+The llvm instrumentation requires a fully-operational installation of clang. The one that
 comes with Xcode is missing some of the essential headers and helper tools.
 See README.llvm.md for advice on how to build the compiler from scratch.
 
@@ -113,11 +113,8 @@ leverage two other options:
     fuzzing cross-platform binaries. It's slower and more fragile, but
     can be used even when you don't have the source for the tested app.
 
-If you're not sure what you need, you need the LLVM mode. To get it, try:
-
-```bash
-AFL_NO_X86=1 gmake && gmake -C llvm_mode
-```
+If you're not sure what you need, you need the LLVM mode, which is built by
+default.
 
 ...and compile your target program with afl-clang-fast or afl-clang-fast++
 instead of the traditional afl-gcc or afl-clang wrappers.

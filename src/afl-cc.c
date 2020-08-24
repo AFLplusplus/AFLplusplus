@@ -1,11 +1,8 @@
 /*
-   american fuzzy lop++ - LLVM-mode wrapper for clang
-   ------------------------------------------------
+   american fuzzy lop++ - compiler instrumentation wrapper
+   -------------------------------------------------------
 
-   Written by Laszlo Szekeres <lszekeres@google.com> and
-              Michal Zalewski
-
-   LLVM integration design comes from Laszlo Szekeres.
+   Written by Michal Zalewski, Laszlo Szekeres and Marc Heuse
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -15,10 +12,6 @@
    You may obtain a copy of the License at:
 
      http://www.apache.org/licenses/LICENSE-2.0
-
-   This program is a drop-in replacement for clang, similar in most respects
-   to ../afl-gcc. It tries to figure out compilation mode, adds a bunch
-   of flags, and then calls the real compiler.
 
  */
 
@@ -47,7 +40,7 @@ static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode,
     compiler_mode, plusplus_mode;
 static u8  have_gcc, have_llvm, have_gcc_plugin, have_lto;
 static u8  selected_gcc, selected_lto, selected_gcc_plugin, selected_llvm;
-static u8 *lto_flag = AFL_CLANG_FLTO;
+static u8 *lto_flag = AFL_CLANG_FLTO, *argvnull;
 static u8  debug;
 static u8  cwd[4096];
 static u8  cmplog_mode;
@@ -185,7 +178,7 @@ static void find_obj(u8 *argv0) {
 #ifdef __ANDROID__
     tmp = alloc_printf("%s/afl-llvm-rt.so", afl_path);
 #else
-    tmp = alloc_printf("%s/afl-llvm-rt.o", afl_path);
+    tmp = alloc_printf("%s/afl-compiler-rt.o", afl_path);
 #endif
 
     if (!access(tmp, R_OK)) {
@@ -213,7 +206,7 @@ static void find_obj(u8 *argv0) {
 #ifdef __ANDROID__
     tmp = alloc_printf("%s/afl-llvm-rt.so", dir);
 #else
-    tmp = alloc_printf("%s/afl-llvm-rt.o", dir);
+    tmp = alloc_printf("%s/afl-compiler-rt.o", dir);
 #endif
 
     if (!access(tmp, R_OK)) {
@@ -233,7 +226,7 @@ static void find_obj(u8 *argv0) {
   if (!access(AFL_PATH "/afl-llvm-rt.so", R_OK)) {
 
 #else
-  if (!access(AFL_PATH "/afl-llvm-rt.o", R_OK)) {
+  if (!access(AFL_PATH "/afl-compiler-rt.o", R_OK)) {
 
 #endif
 
@@ -243,7 +236,7 @@ static void find_obj(u8 *argv0) {
   }
 
   FATAL(
-      "Unable to find 'afl-llvm-rt.o' or 'afl-llvm-pass.so'. Please set "
+      "Unable to find 'afl-compiler-rt.o' or 'afl-llvm-pass.so'. Please set "
       "AFL_PATH");
 
 }
@@ -343,205 +336,225 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+  if (compiler_mode == GCC) {
 
-  if (lto_mode && plusplus_mode)
-    cc_params[cc_par_cnt++] = "-lc++";  // needed by fuzzbench, early
-
-  if (lto_mode) {
-
-    if (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
-        getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
-        getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")) {
-
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/afl-llvm-lto-instrumentlist.so", obj_path);
-
-    }
+    cc_params[cc_par_cnt++] = "-B";
+    cc_params[cc_par_cnt++] = obj_path;
 
   }
 
-  // laf
-  if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
+  if (compiler_mode == GCC_PLUGIN) {
+
+    char *fplugin_arg =
+        alloc_printf("-fplugin=%s", find_object("afl-gcc-pass.so", argvnull));
+    cc_params[cc_par_cnt++] = fplugin_arg;
+
+  }
+
+  if (compiler_mode == LLVM || compiler_mode == LTO) {
+
+    cc_params[cc_par_cnt++] = "-Wno-unused-command-line-argument";
+
+    if (lto_mode && plusplus_mode)
+      cc_params[cc_par_cnt++] = "-lc++";  // needed by fuzzbench, early
 
     if (lto_mode) {
 
-      cc_params[cc_par_cnt++] =
-          alloc_printf("-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
+      if (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
+          getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
+          getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")) {
 
-    } else {
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/afl-llvm-lto-instrumentlist.so", obj_path);
 
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/split-switches-pass.so", obj_path);
+      }
 
     }
 
-  }
+    // laf
+    if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
 
-  if (getenv("LAF_TRANSFORM_COMPARES") ||
-      getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
+      if (lto_mode) {
+
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
+
+      } else {
+
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/split-switches-pass.so", obj_path);
+
+      }
+
+    }
+
+    if (getenv("LAF_TRANSFORM_COMPARES") ||
+        getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
+
+      if (lto_mode) {
+
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/compare-transform-pass.so", obj_path);
+
+      } else {
+
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/compare-transform-pass.so", obj_path);
+
+      }
+
+    }
+
+    if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
+        getenv("AFL_LLVM_LAF_SPLIT_FLOATS")) {
+
+      if (lto_mode) {
+
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/split-compares-pass.so", obj_path);
+
+      } else {
+
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/split-compares-pass.so", obj_path);
+
+      }
+
+    }
+
+    // /laf
+
+    unsetenv("AFL_LD");
+    unsetenv("AFL_LD_CALLER");
+    if (cmplog_mode) {
+
+      if (lto_mode) {
+
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/cmplog-routines-pass.so", obj_path);
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/cmplog-instructions-pass.so", obj_path);
+
+      } else {
+
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/cmplog-routines-pass.so", obj_path);
+
+        // reuse split switches from laf
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/split-switches-pass.so", obj_path);
+
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
+
+      }
+
+      cc_params[cc_par_cnt++] = "-fno-inline";
+
+    }
 
     if (lto_mode) {
-
-      cc_params[cc_par_cnt++] = alloc_printf(
-          "-Wl,-mllvm=-load=%s/compare-transform-pass.so", obj_path);
-
-    } else {
-
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/compare-transform-pass.so", obj_path);
-
-    }
-
-  }
-
-  if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
-      getenv("AFL_LLVM_LAF_SPLIT_FLOATS")) {
-
-    if (lto_mode) {
-
-      cc_params[cc_par_cnt++] =
-          alloc_printf("-Wl,-mllvm=-load=%s/split-compares-pass.so", obj_path);
-
-    } else {
-
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/split-compares-pass.so", obj_path);
-
-    }
-
-  }
-
-  // /laf
-
-  unsetenv("AFL_LD");
-  unsetenv("AFL_LD_CALLER");
-  if (cmplog_mode) {
-
-    if (lto_mode) {
-
-      cc_params[cc_par_cnt++] =
-          alloc_printf("-Wl,-mllvm=-load=%s/cmplog-routines-pass.so", obj_path);
-      cc_params[cc_par_cnt++] =
-          alloc_printf("-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
-      cc_params[cc_par_cnt++] = alloc_printf(
-          "-Wl,-mllvm=-load=%s/cmplog-instructions-pass.so", obj_path);
-
-    } else {
-
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/cmplog-routines-pass.so", obj_path);
-
-      // reuse split switches from laf
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/split-switches-pass.so", obj_path);
-
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] =
-          alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
-
-    }
-
-    cc_params[cc_par_cnt++] = "-fno-inline";
-
-  }
-
-  if (lto_mode) {
 
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
-    u8 *ld_ptr = strrchr(AFL_REAL_LD, '/');
-    if (!ld_ptr) ld_ptr = "ld.lld";
-    cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_ptr);
-    cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", AFL_REAL_LD);
+      u8 *ld_ptr = strrchr(AFL_REAL_LD, '/');
+      if (!ld_ptr) ld_ptr = "ld.lld";
+      cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_ptr);
+      cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", AFL_REAL_LD);
 #else
-    cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
+      cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
 #endif
 
-    cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
+      cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
 
-    if (instrument_mode == INSTRUMENT_CFG)
-      cc_params[cc_par_cnt++] =
-          alloc_printf("-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
-    else
+      if (instrument_mode == INSTRUMENT_CFG)
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
+      else
 
-      cc_params[cc_par_cnt++] = alloc_printf(
-          "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
-    cc_params[cc_par_cnt++] = lto_flag;
-
-  } else {
-
-    if (instrument_mode == INSTRUMENT_PCGUARD) {
-
-#if LLVM_MAJOR >= 4
-      cc_params[cc_par_cnt++] =
-          "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
-#else
-      FATAL("pcguard instrumentation requires llvm 4.0.1+");
-#endif
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/afl-llvm-lto-instrumentation.so", obj_path);
+      cc_params[cc_par_cnt++] = lto_flag;
 
     } else {
 
-      cc_params[cc_par_cnt++] = "-Xclang";
-      cc_params[cc_par_cnt++] = "-load";
-      cc_params[cc_par_cnt++] = "-Xclang";
-      if (instrument_mode == INSTRUMENT_CFG)
+      if (instrument_mode == INSTRUMENT_PCGUARD) {
+
+#if LLVM_MAJOR >= 4
         cc_params[cc_par_cnt++] =
-            alloc_printf("%s/libLLVMInsTrim.so", obj_path);
-      else
-        cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+            "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
+#else
+        FATAL("pcguard instrumentation requires llvm 4.0.1+");
+#endif
+
+      } else {
+
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        if (instrument_mode == INSTRUMENT_CFG)
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/libLLVMInsTrim.so", obj_path);
+        else
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-pass.so", obj_path);
+
+      }
 
     }
 
-  }
+    // cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
-  // cc_params[cc_par_cnt++] = "-Qunused-arguments";
+    // in case LLVM is installed not via a package manager or "make install"
+    // e.g. compiled download or compiled from github then it's ./lib directory
+    // might not be in the search path. Add it if so.
+    u8 *libdir = strdup(LLVM_LIBDIR);
+    if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
+        strncmp(libdir, "/lib", 4)) {
 
-  // in case LLVM is installed not via a package manager or "make install"
-  // e.g. compiled download or compiled from github then it's ./lib directory
-  // might not be in the search path. Add it if so.
-  u8 *libdir = strdup(LLVM_LIBDIR);
-  if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
-      strncmp(libdir, "/lib", 4)) {
+      cc_params[cc_par_cnt++] = "-rpath";
+      cc_params[cc_par_cnt++] = libdir;
 
-    cc_params[cc_par_cnt++] = "-rpath";
-    cc_params[cc_par_cnt++] = libdir;
+    } else {
 
-  } else {
-
-    free(libdir);
-
-  }
-
-  u32 idx;
-  if (lto_mode && argc > 1) {
-
-    for (idx = 1; idx < argc; idx++) {
-
-      if (!strncasecmp(argv[idx], "-fpic", 5)) have_pic = 1;
+      free(libdir);
 
     }
 
-    if (!have_pic) cc_params[cc_par_cnt++] = "-fPIC";
+    u32 idx;
+    if (lto_mode && argc > 1) {
+
+      for (idx = 1; idx < argc; idx++) {
+
+        if (!strncasecmp(argv[idx], "-fpic", 5)) have_pic = 1;
+
+      }
+
+      if (!have_pic) cc_params[cc_par_cnt++] = "-fPIC";
+
+    }
 
   }
 
@@ -748,50 +761,58 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
 #ifndef __ANDROID__
-  switch (bit_mode) {
 
-    case 0:
-      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt.o", obj_path);
-      if (lto_mode)
+  if (compiler_mode != GCC) {
+
+    switch (bit_mode) {
+
+      case 0:
         cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-llvm-rt-lto.o", obj_path);
-      break;
+            alloc_printf("%s/afl-compiler-rt.o", obj_path);
+        if (lto_mode)
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-rt-lto.o", obj_path);
+        break;
 
-    case 32:
-      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-32.o", obj_path);
-      if (access(cc_params[cc_par_cnt - 1], R_OK))
-        FATAL("-m32 is not supported by your compiler");
-      if (lto_mode) {
-
+      case 32:
         cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-llvm-rt-lto-32.o", obj_path);
+            alloc_printf("%s/afl-compiler-rt-32.o", obj_path);
         if (access(cc_params[cc_par_cnt - 1], R_OK))
           FATAL("-m32 is not supported by your compiler");
+        if (lto_mode) {
 
-      }
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-rt-lto-32.o", obj_path);
+          if (access(cc_params[cc_par_cnt - 1], R_OK))
+            FATAL("-m32 is not supported by your compiler");
 
-      break;
+        }
 
-    case 64:
-      cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-rt-64.o", obj_path);
-      if (access(cc_params[cc_par_cnt - 1], R_OK))
-        FATAL("-m64 is not supported by your compiler");
-      if (lto_mode) {
+        break;
 
+      case 64:
         cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-llvm-rt-lto-64.o", obj_path);
+            alloc_printf("%s/afl-compiler-rt-64.o", obj_path);
         if (access(cc_params[cc_par_cnt - 1], R_OK))
           FATAL("-m64 is not supported by your compiler");
+        if (lto_mode) {
 
-      }
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/afl-llvm-rt-lto-64.o", obj_path);
+          if (access(cc_params[cc_par_cnt - 1], R_OK))
+            FATAL("-m64 is not supported by your compiler");
 
-      break;
+        }
+
+        break;
+
+    }
+
+    if (!shared_linking)
+      cc_params[cc_par_cnt++] =
+          alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
 
   }
-
-  if (!shared_linking)
-    cc_params[cc_par_cnt++] =
-        alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
 
 #endif
 
@@ -816,7 +837,7 @@ int main(int argc, char **argv, char **envp) {
     be_quiet = 1;
 
   if ((ptr = strrchr(callname, '/')) != NULL) callname = ptr + 1;
-
+  argvnull = (u8 *)argv[0];
   check_environment_vars(envp);
 
   if ((ptr = find_object("as", argv[0])) != NULL) {
@@ -857,12 +878,16 @@ int main(int argc, char **argv, char **envp) {
     selected_lto = 1;
     compiler_mode = LTO;
 
-  } else if (strncmp(callname, "afl-gcc-fast", 12) == 0) {
+  } else if (strncmp(callname, "afl-gcc-fast", 12) == 0 ||
+
+             strncmp(callname, "afl-g++-fast", 12) == 0) {
 
     selected_gcc_plugin = 1;
     compiler_mode = GCC_PLUGIN;
 
-  } else if (strncmp(callname, "afl-gcc", 7) == 0) {
+  } else if (strncmp(callname, "afl-gcc", 7) == 0 ||
+
+             strncmp(callname, "afl-g++", 7) == 0) {
 
     selected_gcc = 1;
     compiler_mode = GCC;
@@ -870,7 +895,8 @@ int main(int argc, char **argv, char **envp) {
   }
 
   if (strlen(callname) > 2 &&
-      strncmp(callname + strlen(callname) - 2, "++", 2) == 0)
+      (strncmp(callname + strlen(callname) - 2, "++", 2) == 0 ||
+       strstr(callname, "-g++") != NULL))
     plusplus_mode = 1;
 
   if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
@@ -1020,7 +1046,7 @@ int main(int argc, char **argv, char **envp) {
     fp = realpath(argv[0], NULL);
 
     printf("afl-cc" VERSION
-           " by Michal Zalewski, lszekeres@google.com, and Marc Heuse\n");
+           " by Michal Zalewski, Laszlo Szekeres and Marc Heuse\n");
 
     SAYF(
         "\n"
@@ -1151,7 +1177,7 @@ int main(int argc, char **argv, char **envp) {
         "targets.\n\n");
 
     SAYF(
-        "\naflc-cc was built for llvm %d with the llvm binary path "
+        "afl-cc was built for llvm %d with the llvm binary path "
         "of \"%s\".\n",
         LLVM_MAJOR, LLVM_BINDIR);
 
@@ -1190,7 +1216,7 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (instrument_mode == 0) {
+  if (instrument_mode == 0 && compiler_mode < GCC_PLUGIN) {
 
 #if LLVM_MAJOR <= 6
     instrument_mode = INSTRUMENT_AFL;
@@ -1215,27 +1241,28 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (instrument_opt_mode && lto_mode)
-    FATAL(
-        "CTX and NGRAM can not be used in LTO mode (and would make LTO "
-        "useless)");
+  if (instrument_opt_mode && compiler_mode != LLVM)
+    FATAL("CTX and NGRAM can only be used in LLVM mode");
 
   if (!instrument_opt_mode) {
 
     if (lto_mode && instrument_mode == INSTRUMENT_CFG)
-      ptr = alloc_printf("InsTrimLTO");
+      instrument_mode = INSTRUMENT_PCGUARD;
+    ptr = instrument_mode_string[instrument_mode];
+
+  } else {
+
+    if (instrument_opt_mode == INSTRUMENT_OPT_CTX)
+
+      ptr = alloc_printf("%s + CTX", instrument_mode_string[instrument_mode]);
+    else if (instrument_opt_mode == INSTRUMENT_OPT_NGRAM)
+      ptr = alloc_printf("%s + NGRAM-%u",
+                         instrument_mode_string[instrument_mode], ngram_size);
     else
-      ptr = instrument_mode_string[instrument_mode];
+      ptr = alloc_printf("%s + CTX + NGRAM-%u",
+                         instrument_mode_string[instrument_mode], ngram_size);
 
-  } else if (instrument_opt_mode == INSTRUMENT_OPT_CTX)
-
-    ptr = alloc_printf("%s + CTX", instrument_mode_string[instrument_mode]);
-  else if (instrument_opt_mode == INSTRUMENT_OPT_NGRAM)
-    ptr = alloc_printf("%s + NGRAM-%u", instrument_mode_string[instrument_mode],
-                       ngram_size);
-  else
-    ptr = alloc_printf("%s + CTX + NGRAM-%u",
-                       instrument_mode_string[instrument_mode], ngram_size);
+  }
 
 #ifndef AFL_CLANG_FLTO
   if (lto_mode)
@@ -1268,21 +1295,12 @@ int main(int argc, char **argv, char **envp) {
         "https://clang.llvm.org/docs/"
         "SanitizerCoverage.html#partially-disabling-instrumentation");
 
-  if ((isatty(2) && !be_quiet) ||
+  if ((isatty(2) && !be_quiet) || debug) {
 
-      getenv("AFL_DEBUG") != NULL) {
-
-    if (!lto_mode)
-
-      SAYF(cCYA "afl-clang-fast" VERSION cRST
-                " by <lszekeres@google.com> in %s mode\n",
-           ptr);
-
-    else
-
-      SAYF(cCYA "afl-clang-lto" VERSION cRST
-                " by Marc \"vanHauser\" Heuse <mh@mh-sec.de> in mode %s\n",
-           ptr);
+    SAYF(cCYA
+         "afl-cc " VERSION cRST
+         " by Michal Zalewski, Laszlo Szekeres and Marc Heuse in mode %s\n",
+         ptr);
 
   }
 

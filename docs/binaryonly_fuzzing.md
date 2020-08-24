@@ -117,7 +117,7 @@
 ## MCSEMA
 
   Theoretically you can also decompile to llvm IR with mcsema, and then
-  use llvm_mode to instrument the binary.
+  use llvm mode to instrument the binary.
   Good luck with that.
 
   [https://github.com/lifting-bits/mcsema](https://github.com/lifting-bits/mcsema)

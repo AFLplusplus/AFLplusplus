@@ -1,11 +1,6 @@
 /*
-   american fuzzy lop++ - LLVM instrumentation bootstrap
-   ---------------------------------------------------
-
-   Written by Laszlo Szekeres <lszekeres@google.com> and
-              Michal Zalewski
-
-   LLVM integration design comes from Laszlo Szekeres.
+   american fuzzy lop++ - instrumentation bootstrap
+   ------------------------------------------------
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -16,7 +11,6 @@
 
      http://www.apache.org/licenses/LICENSE-2.0
 
-   This code is the rewrite of afl-as.h's main_payload.
 
 */
 
@@ -110,6 +104,22 @@ static u8 is_persistent;
 /* Are we in sancov mode? */
 
 static u8 _is_sancov;
+
+/* Uninspired gcc plugin instrumentation */
+
+void __afl_trace(const u32 x) {
+
+#if 1                                      /* enable for neverZero feature. */
+  __afl_area_ptr[__afl_prev_loc[0] ^ x] +=
+      1 + ((u8)(1 + __afl_area_ptr[__afl_prev_loc[0] ^ x]) == 0);
+#else
+  ++__afl_area_ptr[__afl_prev_loc[0] ^ x];
+#endif
+
+  __afl_prev_loc[0] = (x >> 1);
+  return;
+
+}
 
 /* Error reporting to forkserver controller */
 

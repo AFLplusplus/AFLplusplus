@@ -31,7 +31,7 @@ VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f
 
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
-PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
+PROGS       = afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
 SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
 ASAN_OPTIONS=detect_leaks=0
@@ -218,11 +218,7 @@ ifneq "$(findstring NetBSD, $(shell uname))" ""
   LDFLAGS += -lpthread
 endif
 
-ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
-  TEST_CC  = afl-gcc
-else
-  TEST_CC  = afl-clang
-endif
+TEST_CC  = afl-gcc
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
 
@@ -272,10 +268,13 @@ ifdef TEST_MMAP
 	LDFLAGS += -Wno-deprecated-declarations
 endif
 
-all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm test_build all_done
+all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_build all_done
 
 llvm:
 	$(MAKE) -f GNUmakefile.llvm
+
+gcc:
+	$(MAKE) -f GNUmakefile.gcc_plugin
 
 man:    $(MANPAGES)
 
@@ -370,10 +369,6 @@ endif
 ready:
 	@echo "[+] Everything seems to be working, ready to compile."
 
-afl-gcc: src/afl-gcc.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
-	set -e; for i in afl-g++ afl-clang afl-clang++; do ln -sf afl-gcc $$i; done
-
 afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
@@ -466,9 +461,7 @@ code-format:
 	./.custom-format.py -i libtokencap/*.c
 	./.custom-format.py -i instrumentation/*.h
 	./.custom-format.py -i instrumentation/*.cc
-	./.custom-format.py -i gcc_plugin/*.c
-	@#./.custom-format.py -i gcc_plugin/*.h
-	./.custom-format.py -i gcc_plugin/*.cc
+	./.custom-format.py -i instrumentation/*.c
 	./.custom-format.py -i custom_mutators/*/*.c
 	@#./.custom-format.py -i custom_mutators/*/*.h # destroys input.h :-(
 	./.custom-format.py -i examples/*/*.c
@@ -486,7 +479,7 @@ code-format:
 
 ifndef AFL_NO_X86
 
-test_build: afl-gcc afl-as afl-showmap
+test_build: afl-cc afl-as afl-showmap
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
 	@unset AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_DEBUG=1 AFL_INST_RATIO=100 AFL_PATH=. ./$(TEST_CC) $(CFLAGS) test-instr.c -o test-instr $(LDFLAGS) 2>&1 | grep 'afl-as' >/dev/null || (echo "Oops, afl-as did not get called from "$(TEST_CC)". This is normally achieved by "$(CC)" honoring the -B option."; exit 1 )
 	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
@@ -497,7 +490,7 @@ test_build: afl-gcc afl-as afl-showmap
 
 else
 
-test_build: afl-gcc afl-as afl-showmap
+test_build: afl-cc afl-as afl-showmap
 	@echo "[!] Note: skipping build tests (you may need to use LLVM or QEMU mode)."
 
 endif
@@ -514,7 +507,7 @@ clean:
 	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-*
 	rm -rf out_dir qemu_mode/qemu-3.1.1 *.dSYM */*.dSYM
 	-$(MAKE) -f GNUmakefile.llvm clean
-	-$(MAKE) -C gcc_plugin clean
+	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	$(MAKE) -C libdislocator clean
 	$(MAKE) -C libtokencap clean
 	$(MAKE) -C examples/afl_network_proxy clean
@@ -537,7 +530,7 @@ deepclean:	clean
 
 distrib: all
 	-$(MAKE) -f GNUmakefile.llvm
-	-$(MAKE) -C gcc_plugin
+	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
 	$(MAKE) -C examples/afl_network_proxy
@@ -557,7 +550,7 @@ binary-only: all
 
 source-only: all
 	-$(MAKE) -f GNUmakefile.llvm
-	-$(MAKE) -C gcc_plugin
+	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
 	@#$(MAKE) -C examples/afl_network_proxy
@@ -598,11 +591,13 @@ install: all $(MANPAGES)
 	if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
 	if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
 	$(MAKE) -f GNUmakefile.llvm install
+	$(MAKE) -f GNUmakefile.gcc_plugin install
 	if [ -f libAFLDriver.a ]; then install -m 644 libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libAFLQemuDriver.a ]; then install -m 644 libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
 
-	set -e; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-g++
-	set -e; if [ -f afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
+	set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
+	set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
+	set -e; if [ -e afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
 
 	mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
 	install -m0644 *.8 ${DESTDIR}$(MAN_PATH)

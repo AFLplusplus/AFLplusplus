@@ -232,22 +232,22 @@ anything below 9 is not recommended.
 ```
 +--------------------------------+
 | clang/clang++ 11+ is available | --> use afl-clang-lto and afl-clang-lto++
-+--------------------------------+     see [llvm/README.lto.md](llvm/README.lto.md)
++--------------------------------+     see [instrumentation/README.lto.md](instrumentation/README.lto.md)
     |
     | if not, or if the target fails with afl-clang-lto/++
     |
     v
 +---------------------------------+
 | clang/clang++ 3.3+ is available | --> use afl-clang-fast and afl-clang-fast++
-+---------------------------------+     see [llvm/README.md](llvm/README.md)
++---------------------------------+     see [instrumentation/README.md](instrumentation/README.md)
     |
     | if not, or if the target fails with afl-clang-fast/++
     |
     v
  +--------------------------------+
  | if you want to instrument only | -> use afl-gcc-fast and afl-gcc-fast++
- | parts of the target            |    see [gcc_plugin/README.md](gcc_plugin/README.md) and
- +--------------------------------+    [gcc_plugin/README.instrument_list.md](gcc_plugin/README.instrument_list.md)
+ | parts of the target            |    see [instrumentation/README.gcc_plugin.md](instrumentation/README.gcc_plugin.md) and
+ +--------------------------------+    [instrumentation/README.instrument_list.md](instrumentation/README.instrument_list.md)
     |
     | if not, or if you do not have a gcc with plugin support
     |
@@ -257,9 +257,9 @@ anything below 9 is not recommended.
 
 Clickable README links for the chosen compiler:
 
-  * [afl-clang-lto](llvm/README.lto.md)
-  * [afl-clang-fast](llvm/README.md)
-  * [afl-gcc-fast](gcc_plugin/README.md)
+  * [afl-clang-lto](instrumentation/README.lto.md)
+  * [afl-clang-fast](instrumentation/README.md)
+  * [afl-gcc-fast](instrumentation/README.gcc_plugin.md)
   * afl-gcc has no README as it has no features
 
 #### b) Selecting instrumentation options
@@ -272,7 +272,7 @@ afl-clang-lto:
    and large input corpus. This technique is called laf-intel or COMPCOV.
    To use this set the following environment variable before compiling the
    target: `export AFL_LLVM_LAF_ALL=1`
-   You can read more about this in [llvm/README.laf-intel.md](llvm/README.laf-intel.md)
+   You can read more about this in [instrumentation/README.laf-intel.md](instrumentation/README.laf-intel.md)
  * A different technique (and usually a better than laf-intel) is to
    instrument the target so that any compare values in the target are sent to
    afl++ which then tries to put these values into the fuzzing data at different
@@ -350,7 +350,7 @@ For `configure` build systems this is usually done by:
 
 Note that if you are using the (better) afl-clang-lto compiler you also have to
 set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as it is
-described in [llvm/README.lto.md](llvm/README.lto.md)
+described in [instrumentation/README.lto.md](instrumentation/README.lto.md)
 
 ##### cmake
 
@@ -362,7 +362,7 @@ or `-DCMAKE_C_COMPILER=... DCMAKE_CPP_COMPILER=...` instead.
 
 Note that if you are using the (better) afl-clang-lto compiler you also have to
 set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as it is
-described in [llvm/README.lto.md](llvm/README.lto.md)
+described in [instrumentation/README.lto.md](instrumentation/README.lto.md)
 
 ##### other build systems or if configure/cmake didn't work
 
