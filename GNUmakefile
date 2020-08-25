@@ -271,10 +271,10 @@ endif
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_build all_done
 
 llvm:
-	$(MAKE) -f GNUmakefile.llvm
+	-$(MAKE) -f GNUmakefile.llvm
 
 gcc:
-	$(MAKE) -f GNUmakefile.gcc_plugin
+	-$(MAKE) -f GNUmakefile.gcc_plugin
 
 man:    $(MANPAGES)
 
@@ -590,8 +590,8 @@ install: all $(MANPAGES)
 	if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
 	if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
 	if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
-	$(MAKE) -f GNUmakefile.llvm install
-	$(MAKE) -f GNUmakefile.gcc_plugin install
+	-$(MAKE) -f GNUmakefile.llvm install
+	-$(MAKE) -f GNUmakefile.gcc_plugin install
 	if [ -f libAFLDriver.a ]; then install -m 644 libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f libAFLQemuDriver.a ]; then install -m 644 libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
 
