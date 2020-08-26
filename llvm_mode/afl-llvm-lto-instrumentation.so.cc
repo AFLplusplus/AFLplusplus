@@ -381,6 +381,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
             bool HasStr2 = getConstantStringInfo(Str2P, TmpStr);
             if (TmpStr.empty())
               HasStr2 = false;
+              (void) HasStr2 /* never read */
             else
               Str2 = TmpStr.str();
 
