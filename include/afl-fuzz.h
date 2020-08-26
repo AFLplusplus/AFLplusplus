@@ -1031,7 +1031,7 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
   u64 unbiased_rnd; 
   do {
     unbiased_rnd = rand_next(afl);
-  } while (unbiased_rnd >= (UINT64_MAX - (UINT64_MAX % limit)));
+  } while (unlikely(unbiased_rnd >= (UINT64_MAX - (UINT64_MAX % limit))));
   return unbiased_rnd % limit;
 
 }
