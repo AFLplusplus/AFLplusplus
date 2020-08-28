@@ -33,7 +33,7 @@ VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f
 
 PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
 SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
-MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
+MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8 afl-g++.8
 ASAN_OPTIONS=detect_leaks=0
 
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
@@ -566,7 +566,8 @@ source-only: all
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
 	@echo .SH NAME >> $@
-	@echo .B $* >> $@
+	@echo -n ".B $* \- " >> $@
+	@./$* -h 2>&1 | head -n 1 | sed -e "s/$$(printf '\e')[^m]*m//g" >> $@
 	@echo >> $@
 	@echo .SH SYNOPSIS >> $@
 	@./$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> $@
