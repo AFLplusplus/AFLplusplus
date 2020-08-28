@@ -24,7 +24,7 @@ HELPER_PATH ?= $(PREFIX)/lib/afl
 BIN_PATH    ?= $(PREFIX)/bin
 DOC_PATH    ?= $(PREFIX)/share/doc/afl
 MISC_PATH   ?= $(PREFIX)/share/afl
-MAN_PATH    ?= $(PREFIX)/man/man8
+MAN_PATH    ?= $(PREFIX)/share/man/man8
 
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
