@@ -115,18 +115,18 @@ make
 ```
 
 NOTE: some targets also need to set the linker, try both `afl-clang-lto` and
-`afl-ld-lto` for this for `LD=` for `configure`.
+`afl-ld-lto` for `LD=` before `configure`.
 
 ## AUTODICTIONARY feature
 
-While compiling, automatically a dictionary based on string comparisons is
-generated put into the target binary. This dictionary is transfered to afl-fuzz
+While compiling, a dictionary based on string comparisons is automatically
+generated and put into the target binary. This dictionary is transfered to afl-fuzz
 on start. This improves coverage statistically by 5-10% :)
 
 ## Fixed memory map
 
 To speed up fuzzing, it is possible to set a fixed shared memory map.
-Recommened is the value 0x10000.
+Recommended is the value 0x10000.
 In most cases this will work without any problems. However if a target uses
 early constructors, ifuncs or a deferred forkserver this can crash the target.
 On unusual operating systems/processors/kernels or weird libraries this might
@@ -136,14 +136,14 @@ to be dynamic - the original afl way, which is slower).
 
 ## Document edge IDs
 
-Setting `export AFL_LLVM_DOCUMENT_IDS=file` will document to a file which edge
+Setting `export AFL_LLVM_DOCUMENT_IDS=file` will document in a file which edge
 ID was given to which function. This helps to identify functions with variable
 bytes or which functions were touched by an input.
 
 ## Solving difficult targets
 
 Some targets are difficult because the configure script does unusual stuff that
-is unexpected for afl. See the next chapter `Potential issues` how to solve
+is unexpected for afl. See the next chapter `Potential issues` for how to solve
 these.
 
 ### Example: ffmpeg
@@ -221,13 +221,13 @@ If you see this message:
 /bin/ld: libfoo.a: error adding symbols: archive has no index; run ranlib to add one
 ```
 This is because usually gnu gcc ranlib is being called which cannot deal with clang LTO files.
-The solution is simple: when you ./configure you have also have to set RANLIB=llvm-ranlib and AR=llvm-ar
+The solution is simple: when you ./configure you also have to set RANLIB=llvm-ranlib and AR=llvm-ar
 
 Solution:
 ```
 AR=llvm-ar RANLIB=llvm-ranlib CC=afl-clang-lto CXX=afl-clang-lto++ ./configure --disable-shared
 ```
-and on some target you have to to AR=/RANLIB= even for make as the configure script does not save it.
+and on some targets you have to set AR=/RANLIB= even for make as the configure script does not save it.
 Other targets ignore environment variables and need the parameters set via
 `./configure --cc=... --cxx= --ranlib= ...` etc. (I am looking at you ffmpeg!).
 
@@ -246,8 +246,8 @@ AS=llvm-as  ...
 afl-clang-lto is still work in progress.
 
 Known issues:
-  * Anything that llvm 11+ cannot compile, afl-clang-lto can not compile either - obviously
-  * Anything that does not compile with LTO, afl-clang-lto can not compile either - obviously
+  * Anything that llvm 11+ cannot compile, afl-clang-lto cannot compile either - obviously
+  * Anything that does not compile with LTO, afl-clang-lto cannot compile either - obviously
 
 Hence if building a target with afl-clang-lto fails try to build it with llvm12
 and LTO enabled (`CC=clang-12` `CXX=clang++-12` `CFLAGS=-flto=full` and
@@ -267,14 +267,14 @@ for this in the PassManager: EP_FullLinkTimeOptimizationLast
 ("Fun" info - nobody knows what this is doing. And the developer who
 implemented this didn't respond to emails.)
 
-In December came then the idea to implement this as a pass that is run via
+In December then came the idea to implement this as a pass that is run via
 the llvm "opt" program, which is performed via an own linker that afterwards
 calls the real linker.
 This was first implemented in January and work ... kinda.
-The LTO time instrumentation worked, however the "how" the basic blocks were
+The LTO time instrumentation worked, however "how" the basic blocks were
 instrumented was a problem, as reducing duplicates turned out to be very,
 very difficult with a program that has so many paths and therefore so many
-dependencies. At lot of strategies were implemented - and failed.
+dependencies. A lot of strategies were implemented - and failed.
 And then sat solvers were tried, but with over 10.000 variables that turned
 out to be a dead-end too.
 
