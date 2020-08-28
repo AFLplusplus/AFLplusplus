@@ -442,7 +442,8 @@ vpath  % ..
 %.8: %
 	@echo .TH $* 8 `date "+%Y-%m-%d"` "afl++" > ../$@
 	@echo .SH NAME >> ../$@
-	@echo .B $* >> ../$@
+	@echo -n ".B $* \- " >> ../$@
+	@./$* -h 2>&1 | head -n 1 | sed -e "s/$$(printf '\e')[^m]*m//g" >> ../$@
 	@echo >> ../$@
 	@echo .SH SYNOPSIS >> ../$@
 	@../$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> ../$@
