@@ -224,7 +224,8 @@ CFLAGS_SAFE     := -Wall -g -Wno-pointer-sign -I ../include/ \
                    -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" \
                    -DAFL_CLANG_LDPATH=\"$(AFL_CLANG_LDPATH)\" \
                    -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
-                   -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function
+                   -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function \
+                   -fdebug-prefix-map="$(CURDIR)=llvm_mode"
 override CFLAGS += $(CFLAGS_SAFE)
 
 ifdef AFL_TRACE_PC
