@@ -206,9 +206,9 @@ in I/O wait state can mess things up.
 You can use screen, nohup, tmux, or something equivalent to run remote
 instances of afl-fuzz. If you redirect the program's output to a file, it will
 automatically switch from a fancy UI to more limited status reports. There is
-also basic machine-readable information always written to the fuzzer_stats file
-in the output directory. Locally, that information can be interpreted with
-afl-whatsup.
+also basic machine-readable information which is always written to the
+fuzzer_stats file in the output directory. Locally, that information can be
+interpreted with afl-whatsup.
 
 In principle, you can use the status screen of the main (-M) instance to
 monitor the overall fuzzing progress and decide when to stop. In this
