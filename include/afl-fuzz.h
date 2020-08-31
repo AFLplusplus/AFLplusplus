@@ -288,16 +288,19 @@ enum {
 enum {
 
   /* 00 */ PY_FUNC_INIT,
-  /* 01 */ PY_FUNC_FUZZ,
-  /* 02 */ PY_FUNC_POST_PROCESS,
-  /* 03 */ PY_FUNC_INIT_TRIM,
-  /* 04 */ PY_FUNC_POST_TRIM,
-  /* 05 */ PY_FUNC_TRIM,
-  /* 06 */ PY_FUNC_HAVOC_MUTATION,
-  /* 07 */ PY_FUNC_HAVOC_MUTATION_PROBABILITY,
-  /* 08 */ PY_FUNC_QUEUE_GET,
-  /* 09 */ PY_FUNC_QUEUE_NEW_ENTRY,
-  /* 10 */ PY_FUNC_DEINIT,
+  /* 01 */ PY_FUNC_DEINIT,
+  /* FROM HERE ON BELOW ALL ARE OPTIONAL */
+  /* 02 */ PY_OPTIONAL = 2,
+  /* 02 */ PY_FUNC_FUZZ = 2,
+  /* 03 */ PY_FUNC_FUZZ_COUNT,
+  /* 04 */ PY_FUNC_POST_PROCESS,
+  /* 05 */ PY_FUNC_INIT_TRIM,
+  /* 06 */ PY_FUNC_POST_TRIM,
+  /* 07 */ PY_FUNC_TRIM,
+  /* 08 */ PY_FUNC_HAVOC_MUTATION,
+  /* 09 */ PY_FUNC_HAVOC_MUTATION_PROBABILITY,
+  /* 10 */ PY_FUNC_QUEUE_GET,
+  /* 11 */ PY_FUNC_QUEUE_NEW_ENTRY,
   PY_FUNC_COUNT
 
 };
@@ -353,7 +356,8 @@ typedef struct afl_env_vars {
       afl_cal_fast, afl_cycle_schedules, afl_expand_havoc;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
-      *afl_hang_tmout, *afl_skip_crashes, *afl_preload;
+      *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
+      *afl_max_det_extras;
 
 } afl_env_vars_t;
 
@@ -506,7 +510,8 @@ typedef struct afl_state {
       useless_at_start,                 /* Number of useless starting paths */
       var_byte_count,                   /* Bitmap bytes with var behavior   */
       current_entry,                    /* Current queue entry ID           */
-      havoc_div;                        /* Cycle count divisor for havoc    */
+      havoc_div,                        /* Cycle count divisor for havoc    */
+      max_det_extras;                   /* deterministic extra count (dicts)*/
 
   u64 total_crashes,                    /* Total number of crashes          */
       unique_crashes,                   /* Crashes with unique signatures   */
@@ -676,6 +681,24 @@ struct custom_mutator {
    * @return pointer to internal data or NULL on error
    */
   void *(*afl_custom_init)(afl_state_t *afl, unsigned int seed);
+
+  /**
+   * This method is called just before fuzzing a queue entry with the custom
+   * mutator, and receives the initial buffer. It should return the number of
+   * fuzzes to perform.
+   *
+   * A value of 0 means no fuzzing of this queue entry.
+   *
+   * The function is now allowed to change the data.
+   *
+   * (Optional)
+   *
+   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param buf Buffer containing the test case
+   * @param buf_size Size of the test case
+   * @return The amount of fuzzes to perform on this queue entry, 0 = skip
+   */
+  u32 (*afl_custom_fuzz_count)(void *data, const u8 *buf, size_t buf_size);
 
   /**
    * Perform custom mutations on a given input
@@ -865,6 +888,7 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 void                   finalize_py_module(void *);
 
+u32    fuzz_count_py(void *, const u8 *, size_t);
 size_t post_process_py(void *, u8 *, size_t, u8 **);
 s32    init_trim_py(void *, u8 *, size_t);
 s32    post_trim_py(void *, u8);
@@ -1003,7 +1027,18 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
   }
 
-  return rand_next(afl) % limit;
+  /* Modulo is biased - we don't want our fuzzing to be biased so let's do it
+   right. See:
+   https://stackoverflow.com/questions/10984974/why-do-people-say-there-is-modulo-bias-when-using-a-random-number-generator
+   */
+  u64 unbiased_rnd;
+  do {
+
+    unbiased_rnd = rand_next(afl);
+
+  } while (unlikely(unbiased_rnd >= (UINT64_MAX - (UINT64_MAX % limit))));
+
+  return unbiased_rnd % limit;
 
 }
 

@@ -166,6 +166,11 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   }
 
+  /* "afl_custom_fuzz_count", optional */
+  mutator->afl_custom_fuzz_count = dlsym(dh, "afl_custom_fuzz_count");
+  if (!mutator->afl_custom_fuzz_count)
+    ACTF("optional symbol 'afl_custom_fuzz_count' not found.");
+
   /* "afl_custom_deinit", optional for backward compatibility */
   mutator->afl_custom_deinit = dlsym(dh, "afl_custom_deinit");
   if (!mutator->afl_custom_deinit)

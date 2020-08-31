@@ -87,7 +87,7 @@ class AFLLTOPass : public ModulePass {
   bool runOnModule(Module &M) override;
 
  protected:
-  int      afl_global_id = 1, autodictionary = 0;
+  int      afl_global_id = 1, autodictionary = 1;
   uint32_t function_minimum_size = 1;
   uint32_t inst_blocks = 0, inst_funcs = 0, total_instr = 0;
   uint64_t map_addr = 0x10000;
@@ -128,16 +128,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     be_quiet = 1;
 
-  if (getenv("AFL_LLVM_CMPLOG")) autodictionary = 0;
-
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
     if ((documentFile = fopen(ptr, "a")) == NULL)
       WARNF("Cannot access document file %s", ptr);
 
   }
-
-  if (getenv("AFL_LLVM_LTO_AUTODICTIONARY")) autodictionary = 1;
 
   // we make this the default as the fixed map has problems with
   // defered forkserver, early constructors, ifuncs and maybe more
@@ -378,15 +374,28 @@ bool AFLLTOPass::runOnModule(Module &M) {
             std::string Str1, Str2;
             StringRef   TmpStr;
             bool        HasStr1 = getConstantStringInfo(Str1P, TmpStr);
-            if (TmpStr.empty())
+            if (TmpStr.empty()) {
+
               HasStr1 = false;
-            else
+
+            } else {
+
+              HasStr1 = true;
               Str1 = TmpStr.str();
+
+            }
+
             bool HasStr2 = getConstantStringInfo(Str2P, TmpStr);
-            if (TmpStr.empty())
+            if (TmpStr.empty()) {
+
               HasStr2 = false;
-            else
+
+            } else {
+
+              HasStr2 = true;
               Str2 = TmpStr.str();
+
+            }
 
             if (debug)
               fprintf(stderr, "F:%s %p(%s)->\"%s\"(%s) %p(%s)->\"%s\"(%s)\n",

@@ -56,6 +56,7 @@ typedef struct afl_forkserver {
   u8 no_unlink;                         /* do not unlink cur_input          */
 
   u32 exec_tmout;                       /* Configurable exec timeout (ms)   */
+  u32 init_tmout;                       /* Configurable init timeout (ms)   */
   u32 map_size;                         /* map size used by the target      */
   u32 snapshot;                         /* is snapshot feature used         */
   u64 mem_limit;                        /* Memory cap for child (MB)        */

@@ -437,8 +437,6 @@ bool ModuleSanitizerCoverage::instrumentModule(
     if ((afl_global_id = atoi(ptr)) < 0)
       FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is negative\n", ptr);
 
-  if (getenv("AFL_LLVM_CMPLOG")) autodictionary = 0;
-
   if ((ptr = getenv("AFL_LLVM_DOCUMENT_IDS")) != NULL) {
 
     if ((documentFile = fopen(ptr, "a")) == NULL)

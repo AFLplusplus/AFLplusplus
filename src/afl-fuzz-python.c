@@ -144,6 +144,8 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
     py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
     if (!py_functions[PY_FUNC_FUZZ])
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "mutate");
+    py_functions[PY_FUNC_FUZZ_COUNT] =
+        PyObject_GetAttrString(py_module, "fuzz_count");
     if (!py_functions[PY_FUNC_FUZZ])
       WARNF("fuzz function not found in python module");
     py_functions[PY_FUNC_POST_PROCESS] =
@@ -169,27 +171,20 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
 
       if (!py_functions[py_idx] || !PyCallable_Check(py_functions[py_idx])) {
 
-        if (py_idx == PY_FUNC_POST_PROCESS) {
-
-          // Implenting the post_process API is optional for now
-          if (PyErr_Occurred()) { PyErr_Print(); }
-
-        } else if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
+        if (py_idx >= PY_FUNC_INIT_TRIM && py_idx <= PY_FUNC_TRIM) {
 
           // Implementing the trim API is optional for now
           if (PyErr_Occurred()) { PyErr_Print(); }
           py_notrim = 1;
 
-        } else if ((py_idx >= PY_FUNC_HAVOC_MUTATION) &&
+        } else if (py_idx >= PY_OPTIONAL) {
 
-                   (py_idx <= PY_FUNC_QUEUE_NEW_ENTRY)) {
+          // Only _init and _deinit are not optional currently
 
-          // Implenting the havoc and queue API is optional for now
           if (PyErr_Occurred()) { PyErr_Print(); }
 
         } else {
 
-          if (PyErr_Occurred()) { PyErr_Print(); }
           fprintf(stderr,
                   "Cannot find/call function with index %d in external "
                   "Python module.\n",
@@ -347,6 +342,12 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
 
   }
 
+  if (py_functions[PY_FUNC_FUZZ_COUNT]) {
+
+    mutator->afl_custom_fuzz_count = fuzz_count_py;
+
+  }
+
   if (py_functions[PY_FUNC_POST_TRIM]) {
 
     mutator->afl_custom_post_trim = post_trim_py;
@@ -456,6 +457,44 @@ s32 init_trim_py(void *py_mutator, u8 *buf, size_t buf_size) {
 
   py_value = PyObject_CallObject(
       ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_INIT_TRIM], py_args);
+  Py_DECREF(py_args);
+
+  if (py_value != NULL) {
+
+  #if PY_MAJOR_VERSION >= 3
+    u32 retcnt = (u32)PyLong_AsLong(py_value);
+  #else
+    u32 retcnt = PyInt_AsLong(py_value);
+  #endif
+    Py_DECREF(py_value);
+    return retcnt;
+
+  } else {
+
+    PyErr_Print();
+    FATAL("Call failed");
+
+  }
+
+}
+
+u32 fuzz_count_py(void *py_mutator, const u8 *buf, size_t buf_size) {
+
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(1);
+  py_value = PyByteArray_FromStringAndSize(buf, buf_size);
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+
+  }
+
+  PyTuple_SetItem(py_args, 0, py_value);
+
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_FUZZ_COUNT], py_args);
   Py_DECREF(py_args);
 
   if (py_value != NULL) {
