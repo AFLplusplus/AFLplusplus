@@ -74,6 +74,7 @@ static u8 *in_data;                    /* Input data for trimming           */
 static u8 *buf2;
 
 static s32 in_len;
+static s32 buf2_len;
 static u32 map_size = MAP_SIZE;
 
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
@@ -381,6 +382,7 @@ int recv_testcase(int s, void **buf) {
     if (clen < 1)
       FATAL("did not receive valid compressed len information: %u", clen);
     buf2 = afl_realloc((void **)&buf2, clen);
+    buf2_len = clen;
     if (unlikely(!buf2)) { PFATAL("Alloc"); }
     received = 0;
     while (received < clen &&
@@ -641,6 +643,7 @@ int main(int argc, char **argv_orig, char **envp) {
   compressor = libdeflate_alloc_compressor(1);
   decompressor = libdeflate_alloc_decompressor();
   buf2 = afl_realloc((void **)&buf2, map_size + 16);
+  buf2_len = map_size + 16;
   if (unlikely(!buf2)) { PFATAL("alloc"); }
   lenptr = (u32 *)(buf2 + 4);
   fprintf(stderr, "Compiled with compression support\n");
