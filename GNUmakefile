@@ -280,7 +280,7 @@ endif
 
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 
-man:    $(MANPAGES)
+man:    afl-gcc all $(MANPAGES)
 
 tests:	source-only
 	@cd test ; ./test-all.sh
