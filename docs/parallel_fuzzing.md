@@ -195,7 +195,7 @@ to keep in mind:
   - Syncing is only necessary for the main nodes on a system. It is possible
     to run main-less with only secondaries. However then you need to find out
     which secondary took over the temporary role to be the main node. Look for
-    the `is_main` file in the fuzzer directories, eg. `sync-dir/hostname-*/is_main`
+    the `is_main_node` file in the fuzzer directories, eg. `sync-dir/hostname-*/is_main_node`
 
 It is *not* advisable to skip the synchronization script and run the fuzzers
 directly on a network filesystem; unexpected latency and unkillable processes
