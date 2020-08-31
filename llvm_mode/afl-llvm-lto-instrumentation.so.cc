@@ -374,16 +374,28 @@ bool AFLLTOPass::runOnModule(Module &M) {
             std::string Str1, Str2;
             StringRef   TmpStr;
             bool        HasStr1 = getConstantStringInfo(Str1P, TmpStr);
-            if (TmpStr.empty())
+            if (TmpStr.empty()) {
+
               HasStr1 = false;
-            else
+
+            } else {
+
+              HasStr1 = true;
               Str1 = TmpStr.str();
+
+            }
+
             bool HasStr2 = getConstantStringInfo(Str2P, TmpStr);
-            if (TmpStr.empty())
+            if (TmpStr.empty()) {
+
               HasStr2 = false;
-              (void) HasStr2 /* never read */
-            else
+
+            } else {
+
+              HasStr2 = true;
               Str2 = TmpStr.str();
+
+            }
 
             if (debug)
               fprintf(stderr, "F:%s %p(%s)->\"%s\"(%s) %p(%s)->\"%s\"(%s)\n",

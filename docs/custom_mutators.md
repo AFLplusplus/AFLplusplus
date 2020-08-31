@@ -94,8 +94,11 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
 
 - `fuzz_count` (optional):
 
-    This method can be used to instruct afl-fuzz how often to perform a fuzz
-    attempt on this input data.
+    When a queue entry is selected to be fuzzed, afl-fuzz selects the number
+    of fuzzing attempts with this input based on a few factors.
+    If however the custom mutator wants to set this number instead on how often
+    it is called for a specific queue entry, use this function.
+    This function in mostly useful if **not** `AFL_CUSTOM_MUTATOR_ONLY` is used.
 
 - `fuzz` (optional):
 

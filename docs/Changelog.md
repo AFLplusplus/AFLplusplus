@@ -10,6 +10,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.67d (develop)
+  - a few QOL changes for Apple and its outdated gmake
   - afl-fuzz:
     - Fix for auto dictionary entries found during fuzzing to not throw out
       a -x dictionary
@@ -18,6 +19,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       dict entries without recompiling.
     - AFL_FORKSRV_INIT_TMOUT env variable added to control the time to wait for
       the forkserver to come up without the need to increase the overall timeout.
+    - bugfix for cmplog that results in a heap overflow based on target data
+      (thanks to the magma team for reporting!)
   - custom mutators:
     - added afl_custom_fuzz_count/fuzz_count function to allow specifying the 
       number of fuzz attempts for custom_fuzz
@@ -416,7 +419,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - big code refactoring:
     * all includes are now in include/
     * all afl sources are now in src/ - see src/README.md
-    * afl-fuzz was splitted up in various individual files for including
+    * afl-fuzz was split up in various individual files for including
       functionality in other programs (e.g. forkserver, memory map, etc.)
       for better readability.
     * new code indention everywhere
