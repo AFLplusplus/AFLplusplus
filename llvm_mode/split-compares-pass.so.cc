@@ -1272,7 +1272,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
     if (!be_quiet) {
 
       errs() << "Split-floatingpoint-compare-pass: " << count
-             << " FP comparisons splitted\n";
+             << " FP comparisons split\n";
 
     }
 
@@ -1290,7 +1290,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
       count = splitIntCompares(M, bitw);
       if (!be_quiet)
         errs() << "Split-integer-compare-pass " << bitw << "bit: " << count
-               << " splitted\n";
+               << " split\n";
 
       bitw >>= 1;
 #if LLVM_VERSION_MAJOR > 3 || \
@@ -1301,7 +1301,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
       count = splitIntCompares(M, bitw);
       if (!be_quiet)
         errs() << "Split-integer-compare-pass " << bitw << "bit: " << count
-               << " splitted\n";
+               << " split\n";
 
       bitw >>= 1;
 #if LLVM_VERSION_MAJOR > 3 || \
@@ -1312,7 +1312,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
       count = splitIntCompares(M, bitw);
       if (!be_quiet)
         errs() << "Split-integer-compare-pass " << bitw << "bit: " << count
-               << " splitted\n";
+               << " split\n";
 
       bitw >>= 1;
       break;

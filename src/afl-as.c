@@ -152,7 +152,7 @@ static void edit_params(int argc, char **argv) {
 
     /* The Apple case is a bit different... */
 
-    if (!strcmp(argv[i], "-arch") && i + 1 < argc) {
+    if (!strcmp(argv[i], "-arch") && i + 1 < (u32)argc) {
 
       if (!strcmp(argv[i + 1], "x86_64"))
         use_64bit = 1;
