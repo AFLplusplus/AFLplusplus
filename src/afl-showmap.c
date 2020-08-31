@@ -636,9 +636,10 @@ static void usage(u8 *argv0) {
       "size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_QUIET: do not print extra informational output\n",
+      "AFL_QUIET: do not print extra informational output\n"
       "AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the target to come up, initially\n"
-      argv0, MEM_LIMIT, doc_path);
+
+      ,argv0, MEM_LIMIT, doc_path);
 
   exit(1);
 
