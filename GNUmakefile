@@ -31,9 +31,9 @@ VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f
 
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
-PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
+PROGS       = afl-gcc afl-g++ afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
 SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
-MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8 afl-g++.8
+MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
 
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
@@ -282,7 +282,7 @@ all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 man:    afl-gcc all $(MANPAGES)
 
 # dummy to get `make man` to compile on mac os
-afl-g++.8:
+afl-g++.8: afl-g++
 
 tests:	source-only
 	@cd test ; ./test-all.sh
@@ -374,6 +374,8 @@ endif
 
 ready:
 	@echo "[+] Everything seems to be working, ready to compile."
+
+afl-g++: afl-gcc
 
 afl-gcc: src/afl-gcc.c $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(CPPFLAGS) src/$@.c -o $@ $(LDFLAGS)
