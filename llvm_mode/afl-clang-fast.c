@@ -670,11 +670,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-#ifndef __APPLE__
+  #ifndef __APPLE__
   if (!shared_linking)
     cc_params[cc_par_cnt++] =
         alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
-#endif
+  #endif
 
 #endif
 
