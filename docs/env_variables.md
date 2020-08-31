@@ -369,13 +369,6 @@ checks or alter some of the more exotic semantics of the tool:
     for an existing out folder, even if a different `-i` was provided.
     Without this setting, afl-fuzz will refuse execution for a long-fuzzed out dir.
 
-  - Setting AFL_MAX_DET_EXRAS will change the threshold at what number of elements
-    in the `-x` dictionary and LTO autodict (combined) the probabilistic mode will
-    kick off. In probabilistic mode, not all dictionary entries will be used all
-    the times for fuzzing mutations in order not to slow down fuzzing.
-    The default count is `200` elements. So for the 200 + 1st element, there is a
-    1 in 201 chance, that one of the dictionary entries will not be used directly.
-
   - Setting AFL_NO_FORKSRV disables the forkserver optimization, reverting to
     fork + execve() call for every tested input. This is useful mostly when
     working with unruly libraries that create threads or do other crazy
