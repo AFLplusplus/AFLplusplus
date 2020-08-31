@@ -72,6 +72,7 @@ static u8 *in_file,                    /* Minimizer input test case         */
 
 static u8 *in_data;                    /* Input data for trimming           */
 static u8 *buf2;
+static s32 buf2_len;
 
 static s32 in_len;
 static u32 map_size = MAP_SIZE;
