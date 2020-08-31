@@ -282,7 +282,6 @@ static long long strntoll(const char *str, size_t sz, char **end, int base) {
   memcpy(buf, beg, sz);
   buf[sz] = '\0';
   ret = strtoll(buf, end, base);
-  if (ret == LLONG_MIN || ret == LLONG_MAX) return ret;
   if (end) *end = (char *)beg + (*end - buf);
   return ret;
 
