@@ -384,6 +384,16 @@ checks or alter some of the more exotic semantics of the tool:
     Note that this setting inhibits some of the user-friendly diagnostics
     normally done when starting up the forkserver and causes a pretty
     significant performance drop.
+  
+  - Setting AFL_MAX_DET_EXTRAS changes the count of dictionary enties/extras
+    (default 200), after which the entries will be used probabilistically.
+    So, if the dict/extras file (`-x`) contains more tokens than this threshold,
+    not all of the tokens will be used in each fuzzing step, every time.
+    Instead, there is a chance that the entry will be skipped during fuzzing.
+    This makes sure that the fuzzer doesn't spend all its time only inserting
+    the extras, but will still do other mutations. However, it decreases the
+    likelyhood for each token to be inserted, before the next queue entrie is fuzzed.
+    Either way, all tokens will be used eventually, in a longer fuzzing campaign.
 
   - Outdated environment variables that are that not supported anymore:
     AFL_DEFER_FORKSRV

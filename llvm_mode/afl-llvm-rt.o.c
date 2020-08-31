@@ -339,7 +339,7 @@ static void __afl_map_shm(void) {
 
     if (__afl_area_ptr == MAP_FAILED) {
 
-      fprintf(stderr, "can not aquire mmap for address %p\n",
+      fprintf(stderr, "can not acquire mmap for address %p\n",
               (void *)__afl_map_addr);
       exit(1);
 

@@ -344,13 +344,10 @@ static std::string getSourceName(llvm::Function *F) {
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 7)
   if (Loc) {
 
+    StringRef   instFilename;
     DILocation *cDILoc = dyn_cast<DILocation>(Loc.getAsMDNode());
 
-    if (!cDILoc) {
-      FATAL("DebugLoc is no DILocation");
-    }
-
-    StringRef instFilename = cDILoc->getFilename();
+    if (cDILoc) { instFilename = cDILoc->getFilename(); }
 
     if (instFilename.str().empty()) {
 
