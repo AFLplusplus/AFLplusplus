@@ -256,18 +256,18 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   }
 
-  for (i = 0; i < proccount; i++) {
+  for (i = 0; i < (s32)proccount; i++) {
 
     #if defined(__FreeBSD__)
 
     if (!strcmp(procs[i].ki_comm, "idle")) continue;
 
     // fix when ki_oncpu = -1
-    int oncpu;
+    s32 oncpu;
     oncpu = procs[i].ki_oncpu;
     if (oncpu == -1) oncpu = procs[i].ki_lastcpu;
 
-    if (oncpu != -1 && oncpu < sizeof(cpu_used) && procs[i].ki_pctcpu > 60)
+    if (oncpu != -1 && oncpu < (s32)sizeof(cpu_used) && procs[i].ki_pctcpu > 60)
       cpu_used[oncpu] = 1;
 
     #elif defined(__DragonFly__)
