@@ -28,6 +28,8 @@ MAN_PATH    ?= $(PREFIX)/share/man/man8
 
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
+BUILD_DATE  ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u "+%Y-%m-%d")
+
 ifeq "$(shell uname)" "OpenBSD"
   LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
   HAS_OPT = $(shell test -x $(BIN_PATH)/opt && echo 0 || echo 1)
@@ -441,10 +443,10 @@ install: all
 
 vpath  % ..
 %.8: %
-	@echo .TH $* 8 `date "+%Y-%m-%d"` "afl++" > ../$@
+	@echo .TH $* 8 $(BUILD_DATE) "afl++" > ../$@
 	@echo .SH NAME >> ../$@
 	@echo -n ".B $* \- " >> ../$@
-	@./$* -h 2>&1 | head -n 1 | sed -e "s/$$(printf '\e')[^m]*m//g" >> ../$@
+	@../$* -h 2>&1 | head -n 1 | sed -e "s/$$(printf '\e')[^m]*m//g" >> ../$@
 	@echo >> ../$@
 	@echo .SH SYNOPSIS >> ../$@
 	@../$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> ../$@
