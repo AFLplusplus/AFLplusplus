@@ -39,8 +39,11 @@ FUZZ_USER=bob
 # Directory to synchronize
 SYNC_DIR='/home/bob/sync_dir'
 
-# Interval (seconds) between sync attempts
-SYNC_INTERVAL=$((30 * 60))
+# We only capture -M main nodes, set the name to your chosen nameing scheme
+MAIN_NAME='main'
+
+# Interval (seconds) between sync attempts (eg one hour)
+SYNC_INTERVAL=$((60 * 60))
 
 if [ "$AFL_ALLOW_TMP" = "" ]; then
 
@@ -63,7 +66,7 @@ while :; do
     echo "[*] Retrieving data from ${host}.${FUZZ_DOMAIN}..."
 
     ssh -o 'passwordauthentication no' ${FUZZ_USER}@${host}.$FUZZ_DOMAIN \
-      "cd '$SYNC_DIR' && tar -czf - ${host}_*/[qf]*" >".sync_tmp/${host}.tgz"
+      "cd '$SYNC_DIR' && tar -czf - ${host}_${MAIN_NAME}*/" > ".sync_tmp/${host}.tgz"
 
   done
 
@@ -80,7 +83,7 @@ while :; do
       echo "    Sending fuzzer data from ${src_host}.${FUZZ_DOMAIN}..."
 
       ssh -o 'passwordauthentication no' ${FUZZ_USER}@$dst_host \
-        "cd '$SYNC_DIR' && tar -xkzf -" <".sync_tmp/${src_host}.tgz"
+        "cd '$SYNC_DIR' && tar -xkzf - " < ".sync_tmp/${src_host}.tgz"
 
     done
 
