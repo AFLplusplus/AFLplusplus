@@ -846,6 +846,7 @@ static void usage(u8 *argv0) {
       "              the target was compiled for\n"
       "AFL_PRELOAD:  LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TMIN_EXACT: require execution paths to match for crashing inputs\n"
+      "AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the target to come up, initially\n"
 
       , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
