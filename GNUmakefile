@@ -34,7 +34,6 @@ VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f
 PROGS       = afl-gcc afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
 SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8 afl-g++.8
-ASAN_OPTIONS=detect_leaks=0
 
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
@@ -281,6 +280,9 @@ endif
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 
 man:    afl-gcc all $(MANPAGES)
+
+# dummy to get `make man` to compile on mac os
+afl-g++.8:
 
 tests:	source-only
 	@cd test ; ./test-all.sh
