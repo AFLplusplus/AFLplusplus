@@ -191,7 +191,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_QUIET: suppress forkserver status messages\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
-      "AFL_SKIP_BIN_CHECK: skip the check, if the target is an excutable\n"
+      "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
       "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"

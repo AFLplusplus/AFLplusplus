@@ -1767,19 +1767,23 @@ custom_mutator_stage:
 
             }
 
-            /* If we're finding new stuff, let's run for a bit longer, limits
-              permitting. */
+            if (!el->afl_custom_fuzz_count) {
 
-            if (afl->queued_paths != havoc_queued) {
+              /* If we're finding new stuff, let's run for a bit longer, limits
+                permitting. */
 
-              if (perf_score <= afl->havoc_max_mult * 100) {
+              if (afl->queued_paths != havoc_queued) {
 
-                afl->stage_max *= 2;
-                perf_score *= 2;
+                if (perf_score <= afl->havoc_max_mult * 100) {
+
+                  afl->stage_max *= 2;
+                  perf_score *= 2;
+
+                }
+
+                havoc_queued = afl->queued_paths;
 
               }
-
-              havoc_queued = afl->queued_paths;
 
             }
 

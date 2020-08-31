@@ -416,7 +416,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - big code refactoring:
     * all includes are now in include/
     * all afl sources are now in src/ - see src/README.md
-    * afl-fuzz was splitted up in various individual files for including
+    * afl-fuzz was split up in various individual files for including
       functionality in other programs (e.g. forkserver, memory map, etc.)
       for better readability.
     * new code indention everywhere
