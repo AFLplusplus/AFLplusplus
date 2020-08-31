@@ -10,6 +10,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.67d (develop)
+  - a few QOL changes for Apple and its outdated gmake
   - afl-fuzz:
     - Fix for auto dictionary entries found during fuzzing to not throw out
       a -x dictionary
