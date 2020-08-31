@@ -39,7 +39,7 @@ FUZZ_USER=bob
 # Directory to synchronize
 SYNC_DIR='/home/bob/sync_dir'
 
-# We only capture -M main nodes, set the name to your chosen nameing scheme
+# We only capture -M main nodes, set the name to your chosen naming scheme
 MAIN_NAME='main'
 
 # Interval (seconds) between sync attempts (eg one hour)
