@@ -146,7 +146,7 @@ write a simple script that performs two actions:
     ```sh
     for srchost in `cat HOSTLIST`; do
       for dsthost in `cat HOSTLIST`; do
-        test "$s" = "$d" && continue
+        test "$srchost" = "$dsthost" && continue
         ssh user@$srchost 'tar -kxzf -' < $dsthost.tgz
       done
     done
