@@ -573,7 +573,7 @@ source-only: all
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
 	@echo .SH NAME >> $@
-	@echo -n ".B $* \- " >> $@
+	@printf "%s" ".B $* \- " >> $@
 	@./$* -h 2>&1 | head -n 1 | sed -e "s/$$(printf '\e')[^m]*m//g" >> $@
 	@echo >> $@
 	@echo .SH SYNOPSIS >> $@
