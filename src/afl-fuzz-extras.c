@@ -248,10 +248,10 @@ static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
 
   }
 
-  if (afl->extras_cnt > MAX_DET_EXTRAS) {
+  if (afl->extras_cnt > afl->max_det_extras) {
 
-    WARNF("More than %d tokens - will use them probabilistically.",
-          MAX_DET_EXTRAS);
+    OKF("More than %d tokens - will use them probabilistically.",
+        afl->max_det_extras);
 
   }
 
@@ -319,8 +319,8 @@ void load_extras(afl_state_t *afl, u8 *dir) {
 
     if (st.st_size > MAX_DICT_FILE) {
 
-      FATAL(
-          "Extra '%s' is too big (%s, limit is %s)", fn,
+      WARNF(
+          "Extra '%s' is very big (%s, limit is %s)", fn,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), st.st_size),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
 
@@ -370,14 +370,14 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
 
 }
 
-/* Adds a new extra / dict entry. */
+/* Adds a new extra / dict entry. Used for LTO autodict. */
 void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
 
   if (len > MAX_DICT_FILE) {
 
-    FATAL("Extra '%.*s' is too big (%s, limit is %s)", (int)len, mem,
+    WARNF("Extra '%.*s' is very big (%s, limit is %s)", (int)len, mem,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), len),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
 
@@ -403,10 +403,10 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   /* We only want to print this once */
 
-  if (afl->extras_cnt == MAX_DET_EXTRAS + 1) {
+  if (afl->extras_cnt == afl->max_det_extras + 1) {
 
-    WARNF("More than %d tokens - will use them probabilistically.",
-          MAX_DET_EXTRAS);
+    OKF("More than %d tokens - will use them probabilistically.",
+        afl->max_det_extras);
 
   }
 

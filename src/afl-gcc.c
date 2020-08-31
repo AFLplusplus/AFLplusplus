@@ -415,7 +415,7 @@ int main(int argc, char **argv) {
       "AFL_KEEP_ASSEMBLY: leave instrumented assembly files\n"
       "AFL_AS_FORCE_INSTRUMENT: force instrumentation for asm sources\n";
 
-  if (argc == 2 && strcmp(argv[1], "-h") == 0) {
+  if (argc == 2 && strncmp(argv[1], "-h", 2) == 0) {
 
     printf("afl-cc" VERSION " by Michal Zalewski\n\n");
     printf("%s \n\n", argv[0]);

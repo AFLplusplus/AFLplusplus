@@ -243,7 +243,7 @@ struct InsTrim : public ModulePass {
     for (unsigned I = 0; I < PrevLocSize - 1; ++I)
       PrevLocShuffle.push_back(ConstantInt::get(Int32Ty, I));
 
-    for (unsigned I = PrevLocSize; I < PrevLocVecSize; ++I)
+    for (int I = PrevLocSize; I < PrevLocVecSize; ++I)
       PrevLocShuffle.push_back(ConstantInt::get(Int32Ty, PrevLocSize));
 
     Constant *PrevLocShuffleMask = ConstantVector::get(PrevLocShuffle);

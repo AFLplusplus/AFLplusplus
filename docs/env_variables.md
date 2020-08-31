@@ -10,8 +10,8 @@
 Because they can't directly accept command-line options, the compile-time
 tools make fairly broad use of environmental variables:
 
-  - Most afl tools do not print any ouput if stout/stderr are redirected.
-    If you want to have the output into a file then set the AFL_DEBUG
+  - Most afl tools do not print any output if stdout/stderr are redirected.
+    If you want to save the output in a file then set the AFL_DEBUG
     environment variable.
     This is sadly necessary for various build processes which fail otherwise.
 
@@ -44,7 +44,7 @@ tools make fairly broad use of environmental variables:
     you instrument hand-written assembly when compiling clang code by plugging
     a normalizer into the chain. (There is no equivalent feature for GCC.)
 
-  - Setting AFL_INST_RATIO to a percentage between 0 and 100% controls the
+  - Setting AFL_INST_RATIO to a percentage between 0% and 100% controls the
     probability of instrumenting every branch. This is (very rarely) useful
     when dealing with exceptionally complex programs that saturate the output
     bitmap. Examples include v8, ffmpeg, and perl.
@@ -88,7 +88,7 @@ of the settings discussed in section #1, with the exception of:
   - TMPDIR and AFL_KEEP_ASSEMBLY, since no temporary assembly files are
     created.
 
-  - AFL_INST_RATIO, as we by default collision free instrumentation is used.
+  - AFL_INST_RATIO, as we by default use collision free instrumentation.
 
 Then there are a few specific features that are only available in llvm_mode:
 
@@ -121,7 +121,7 @@ Then there are a few specific features that are only available in llvm_mode:
 
     None of the following options are necessary to be used and are rather for
     manual use (which only ever the author of this LTO implementation will use).
-    These are used if several seperated instrumentation are performed which
+    These are used if several seperated instrumentations are performed which
     are then later combined.
 
    - AFL_LLVM_DOCUMENT_IDS=file will document to a file which edge ID was given
@@ -200,7 +200,7 @@ Then there are a few specific features that are only available in llvm_mode:
 
 ### INSTRUMENT LIST (selectively instrument files and functions)
 
-    This feature allows selectively instrumentation of the source
+    This feature allows selective instrumentation of the source
 
     - Setting AFL_LLVM_ALLOWLIST or AFL_LLVM_DENYLIST with a filenames and/or
       function will only instrument (or skip) those files that match the names
@@ -277,6 +277,14 @@ checks or alter some of the more exotic semantics of the tool:
     down can be useful if you are very concerned about slow inputs, or if you
     don't want AFL to spend too much time classifying that stuff and just
     rapidly put all timeouts in that bin.
+
+  - Setting AFL_FORKSRV_INIT_TMOUT allows yout to specify a different timeout
+    to wait for the forkserver to spin up. The default is the `-t` value times
+    `FORK_WAIT_MULT` from `config.h` (usually 10), so for a `-t 100`, the
+    default would wait `1000` milis. Setting a different time here is useful
+    if the target has a very slow startup time, for example when doing
+    full-system fuzzing or emulation, but you don't want the actual runs
+    to wait too long for timeouts.
 
   - AFL_NO_ARITH causes AFL to skip most of the deterministic arithmetics.
     This can be useful to speed up the fuzzing of text-based file formats.
@@ -369,6 +377,16 @@ checks or alter some of the more exotic semantics of the tool:
     Note that this setting inhibits some of the user-friendly diagnostics
     normally done when starting up the forkserver and causes a pretty
     significant performance drop.
+  
+  - Setting AFL_MAX_DET_EXTRAS changes the count of dictionary entries/extras
+    (default 200), after which the entries will be used probabilistically.
+    So, if the dict/extras file (`-x`) contains more tokens than this threshold,
+    not all of the tokens will be used in each fuzzing step, every time.
+    Instead, there is a chance that the entry will be skipped during fuzzing.
+    This makes sure that the fuzzer doesn't spend all its time only inserting
+    the extras, but will still do other mutations. However, it decreases the
+    likelihood for each token to be inserted, before the next queue entry is fuzzed.
+    Either way, all tokens will be used eventually, in a longer fuzzing campaign.
 
   - Outdated environment variables that are that not supported anymore:
     AFL_DEFER_FORKSRV

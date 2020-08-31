@@ -1509,13 +1509,13 @@ skip_interest:
 
     for (j = 0; j < afl->extras_cnt; ++j) {
 
-      /* Skip extras probabilistically if afl->extras_cnt > MAX_DET_EXTRAS. Also
-         skip them if there's no room to insert the payload, if the token
+      /* Skip extras probabilistically if afl->extras_cnt > AFL_MAX_DET_EXTRAS.
+         Also skip them if there's no room to insert the payload, if the token
          is redundant, or if its entire span has no bytes set in the effector
          map. */
 
-      if ((afl->extras_cnt > MAX_DET_EXTRAS &&
-           rand_below(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
+      if ((afl->extras_cnt > afl->max_det_extras &&
+           rand_below(afl, afl->extras_cnt) >= afl->max_det_extras) ||
           afl->extras[j].len > len - i ||
           !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
           !memchr(eff_map + EFF_APOS(i), 1,
@@ -1672,7 +1672,7 @@ custom_mutator_stage:
 
   if (afl->stage_max < HAVOC_MIN) { afl->stage_max = HAVOC_MIN; }
 
-  const u32 max_seed_size = MAX_FILE;
+  const u32 max_seed_size = MAX_FILE, saved_max = afl->stage_max;
 
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -1680,104 +1680,123 @@ custom_mutator_stage:
 
     if (el->afl_custom_fuzz) {
 
+      if (el->afl_custom_fuzz_count)
+        afl->stage_max = el->afl_custom_fuzz_count(el->data, out_buf, len);
+      else
+        afl->stage_max = saved_max;
+
       has_custom_fuzz = true;
 
       afl->stage_short = el->name_short;
 
-      for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
-           ++afl->stage_cur) {
+      if (afl->stage_max) {
 
-        struct queue_entry *target;
-        u32                 tid;
-        u8 *                new_buf;
+        for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
+             ++afl->stage_cur) {
 
-      retry_external_pick:
-        /* Pick a random other queue entry for passing to external API */
+          struct queue_entry *target;
+          u32                 tid;
+          u8 *                new_buf;
 
-        do {
+        retry_external_pick:
+          /* Pick a random other queue entry for passing to external API */
 
-          tid = rand_below(afl, afl->queued_paths);
+          do {
 
-        } while (tid == afl->current_entry && afl->queued_paths > 1);
+            tid = rand_below(afl, afl->queued_paths);
 
-        target = afl->queue;
+          } while (tid == afl->current_entry && afl->queued_paths > 1);
 
-        while (tid >= 100) {
+          target = afl->queue;
 
-          target = target->next_100;
-          tid -= 100;
+          while (tid >= 100) {
 
-        }
-
-        while (tid--) {
-
-          target = target->next;
-
-        }
-
-        /* Make sure that the target has a reasonable length. */
-
-        while (target && (target->len < 2 || target == afl->queue_cur) &&
-               afl->queued_paths > 3) {
-
-          target = target->next;
-          ++afl->splicing_with;
-
-        }
-
-        if (!target) { goto retry_external_pick; }
-
-        /* Read the additional testcase into a new buffer. */
-        fd = open(target->fname, O_RDONLY);
-        if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
-
-        new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), target->len);
-        if (unlikely(!new_buf)) { PFATAL("alloc"); }
-        ck_read(fd, new_buf, target->len, target->fname);
-        close(fd);
-
-        u8 *mutated_buf = NULL;
-
-        size_t mutated_size =
-            el->afl_custom_fuzz(el->data, out_buf, len, &mutated_buf, new_buf,
-                                target->len, max_seed_size);
-
-        if (unlikely(!mutated_buf)) {
-
-          FATAL("Error in custom_fuzz. Size returned: %zd", mutated_size);
-
-        }
-
-        if (mutated_size > 0) {
-
-          if (common_fuzz_stuff(afl, mutated_buf, (u32)mutated_size)) {
-
-            goto abandon_entry;
+            target = target->next_100;
+            tid -= 100;
 
           }
 
-          /* If we're finding new stuff, let's run for a bit longer, limits
-            permitting. */
+          while (tid--) {
 
-          if (afl->queued_paths != havoc_queued) {
+            target = target->next;
 
-            if (perf_score <= afl->havoc_max_mult * 100) {
+          }
 
-              afl->stage_max *= 2;
-              perf_score *= 2;
+          /* Make sure that the target has a reasonable length. */
+
+          while (target && (target->len < 2 || target == afl->queue_cur) &&
+                 afl->queued_paths > 3) {
+
+            target = target->next;
+            ++afl->splicing_with;
+
+          }
+
+          if (!target) { goto retry_external_pick; }
+
+          /* Read the additional testcase into a new buffer. */
+          fd = open(target->fname, O_RDONLY);
+          if (unlikely(fd < 0)) {
+
+            PFATAL("Unable to open '%s'", target->fname);
+
+          }
+
+          new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), target->len);
+          if (unlikely(!new_buf)) { PFATAL("alloc"); }
+          ck_read(fd, new_buf, target->len, target->fname);
+          close(fd);
+
+          u8 *mutated_buf = NULL;
+
+          size_t mutated_size =
+              el->afl_custom_fuzz(el->data, out_buf, len, &mutated_buf, new_buf,
+                                  target->len, max_seed_size);
+
+          if (unlikely(!mutated_buf)) {
+
+            FATAL("Error in custom_fuzz. Size returned: %zd", mutated_size);
+
+          }
+
+          if (mutated_size > 0) {
+
+            if (common_fuzz_stuff(afl, mutated_buf, (u32)mutated_size)) {
+
+              goto abandon_entry;
 
             }
 
-            havoc_queued = afl->queued_paths;
+            if (!el->afl_custom_fuzz_count) {
+
+              /* If we're finding new stuff, let's run for a bit longer, limits
+                permitting. */
+
+              if (afl->queued_paths != havoc_queued) {
+
+                if (perf_score <= afl->havoc_max_mult * 100) {
+
+                  afl->stage_max *= 2;
+                  perf_score *= 2;
+
+                }
+
+                havoc_queued = afl->queued_paths;
+
+              }
+
+            }
 
           }
 
-        }
+          /* `(afl->)out_buf` may have been changed by the call to custom_fuzz
+           */
+          /* TODO: Only do this when `mutated_buf` == `out_buf`? Branch vs
+           * Memcpy.
+           */
+          memcpy(out_buf, in_buf, len);
 
-        /* `(afl->)out_buf` may have been changed by the call to custom_fuzz */
-        /* TODO: Only do this when `mutated_buf` == `out_buf`? Branch vs Memcpy.
-         */
-        memcpy(out_buf, in_buf, len);
+        }
 
       }
 
@@ -3722,13 +3741,13 @@ skip_interest:
 
     for (j = 0; j < afl->extras_cnt; ++j) {
 
-      /* Skip extras probabilistically if afl->extras_cnt > MAX_DET_EXTRAS. Also
-         skip them if there's no room to insert the payload, if the token
+      /* Skip extras probabilistically if afl->extras_cnt > AFL_MAX_DET_EXTRAS.
+         Also skip them if there's no room to insert the payload, if the token
          is redundant, or if its entire span has no bytes set in the effector
          map. */
 
-      if ((afl->extras_cnt > MAX_DET_EXTRAS &&
-           rand_below(afl, afl->extras_cnt) >= MAX_DET_EXTRAS) ||
+      if ((afl->extras_cnt > afl->max_det_extras &&
+           rand_below(afl, afl->extras_cnt) >= afl->max_det_extras) ||
           afl->extras[j].len > len - i ||
           !memcmp(afl->extras[j].data, out_buf + i, afl->extras[j].len) ||
           !memchr(eff_map + EFF_APOS(i), 1,

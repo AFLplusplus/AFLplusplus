@@ -79,6 +79,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->use_stdin = 1;
   fsrv->no_unlink = 0;
   fsrv->exec_tmout = EXEC_TIMEOUT;
+  fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
 
@@ -101,6 +102,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->out_fd = from->out_fd;
   fsrv_to->dev_null_fd = from->dev_null_fd;
   fsrv_to->exec_tmout = from->exec_tmout;
+  fsrv_to->init_tmout = from->init_tmout;
   fsrv_to->mem_limit = from->mem_limit;
   fsrv_to->map_size = from->map_size;
   fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
@@ -115,6 +117,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->out_file = NULL;
 
   fsrv_to->init_child_func = fsrv_exec_child;
+  // Note: do not copy ->add_extra_func
 
   list_append(&fsrv_list, fsrv_to);
 
@@ -516,15 +519,14 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   rlen = 0;
   if (fsrv->exec_tmout) {
 
-    u32 time_ms =
-        read_s32_timed(fsrv->fsrv_st_fd, &status,
-                       fsrv->exec_tmout * FORK_WAIT_MULT, stop_soon_p);
+    u32 time_ms = read_s32_timed(fsrv->fsrv_st_fd, &status, fsrv->init_tmout,
+                                 stop_soon_p);
 
     if (!time_ms) {
 
       kill(fsrv->fsrv_pid, SIGKILL);
 
-    } else if (time_ms > fsrv->exec_tmout * FORK_WAIT_MULT) {
+    } else if (time_ms > fsrv->init_tmout) {
 
       fsrv->last_run_timed_out = 1;
       kill(fsrv->fsrv_pid, SIGKILL);
@@ -632,7 +634,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         if (fsrv->add_extra_func == NULL || fsrv->afl_ptr == NULL) {
 
-          // this is not afl-fuzz - we deny and return
+          // this is not afl-fuzz - or it is cmplog - we deny and return
           if (fsrv->use_shmem_fuzz) {
 
             status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
@@ -939,7 +941,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     s32 fd = fsrv->out_fd;
 
-    if (fsrv->out_file) {
+    if (!fsrv->use_stdin) {
 
       if (fsrv->no_unlink) {
 
@@ -962,7 +964,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     ck_write(fd, buf, len, fsrv->out_file);
 
-    if (!fsrv->out_file) {
+    if (fsrv->use_stdin) {
 
       if (ftruncate(fd, len)) { PFATAL("ftruncate() failed"); }
       lseek(fd, 0, SEEK_SET);

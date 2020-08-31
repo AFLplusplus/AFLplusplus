@@ -636,6 +636,8 @@ static void usage(u8 *argv0) {
       "size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during "
+      "startup (in milliseconds)\n"
       "AFL_QUIET: do not print extra informational output\n",
       argv0, MEM_LIMIT, doc_path);
 
@@ -1033,6 +1035,19 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       SAYF("\n");
+
+    }
+
+    if (getenv("AFL_FORKSRV_INIT_TMOUT")) {
+
+      s32 forksrv_init_tmout = atoi(getenv("AFL_FORKSRV_INIT_TMOUT"));
+      if (forksrv_init_tmout < 1) {
+
+        FATAL("Bad value specified for AFL_FORKSRV_INIT_TMOUT");
+
+      }
+
+      fsrv->init_tmout = (u32)forksrv_init_tmout;
 
     }
 

@@ -173,10 +173,14 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
+      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
+      "AFL_MAX_DET_EXTRAS: if more entries are in the dictionary list than this value\n"
+      "                    then they are randomly selected instead all of them being\n"
+      "                    used. Defaults to 200.\n"
       "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
       "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
       "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
@@ -188,7 +192,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_QUIET: suppress forkserver status messages\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_SHUFFLE_QUEUE: reorder the input queue randomly on startup\n"
-      "AFL_SKIP_BIN_CHECK: skip the check, if the target is an excutable\n"
+      "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
       "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
@@ -949,8 +953,36 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->afl_env.afl_hang_tmout) {
 
-    afl->hang_tmout = atoi(afl->afl_env.afl_hang_tmout);
-    if (!afl->hang_tmout) { FATAL("Invalid value of AFL_HANG_TMOUT"); }
+    s32 hang_tmout = atoi(afl->afl_env.afl_hang_tmout);
+    if (hang_tmout < 1) { FATAL("Invalid value for AFL_HANG_TMOUT"); }
+    afl->hang_tmout = (u32)hang_tmout;
+
+  }
+
+  if (afl->afl_env.afl_max_det_extras) {
+
+    s32 max_det_extras = atoi(afl->afl_env.afl_max_det_extras);
+    if (max_det_extras < 1) { FATAL("Invalid value for AFL_MAX_DET_EXTRAS"); }
+    afl->max_det_extras = (u32)max_det_extras;
+
+  } else {
+
+    afl->max_det_extras = MAX_DET_EXTRAS;
+
+  }
+
+  if (afl->afl_env.afl_forksrv_init_tmout) {
+
+    afl->fsrv.init_tmout = atoi(afl->afl_env.afl_forksrv_init_tmout);
+    if (!afl->fsrv.init_tmout) {
+
+      FATAL("Invalid value of AFL_FORKSRV_INIT_TMOUT");
+
+    }
+
+  } else {
+
+    afl->fsrv.init_tmout = afl->fsrv.exec_tmout * FORK_WAIT_MULT;
 
   }
 

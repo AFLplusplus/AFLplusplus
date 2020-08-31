@@ -256,18 +256,18 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   }
 
-  for (i = 0; i < proccount; i++) {
+  for (i = 0; i < (s32)proccount; i++) {
 
     #if defined(__FreeBSD__)
 
     if (!strcmp(procs[i].ki_comm, "idle")) continue;
 
     // fix when ki_oncpu = -1
-    int oncpu;
+    s32 oncpu;
     oncpu = procs[i].ki_oncpu;
     if (oncpu == -1) oncpu = procs[i].ki_lastcpu;
 
-    if (oncpu != -1 && oncpu < sizeof(cpu_used) && procs[i].ki_pctcpu > 60)
+    if (oncpu != -1 && oncpu < (s32)sizeof(cpu_used) && procs[i].ki_pctcpu > 60)
       cpu_used[oncpu] = 1;
 
     #elif defined(__DragonFly__)
@@ -1841,24 +1841,26 @@ void setup_cmdline_file(afl_state_t *afl, char **argv) {
 
 void setup_stdio_file(afl_state_t *afl) {
 
-  u8 *fn;
   if (afl->file_extension) {
 
-    fn = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
+    afl->fsrv.out_file =
+        alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
 
   } else {
 
-    fn = alloc_printf("%s/.cur_input", afl->tmp_dir);
+    afl->fsrv.out_file = alloc_printf("%s/.cur_input", afl->tmp_dir);
 
   }
 
-  unlink(fn);                                              /* Ignore errors */
+  unlink(afl->fsrv.out_file);                              /* Ignore errors */
 
-  afl->fsrv.out_fd = open(fn, O_RDWR | O_CREAT | O_EXCL, 0600);
+  afl->fsrv.out_fd = open(afl->fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (afl->fsrv.out_fd < 0) { PFATAL("Unable to create '%s'", fn); }
+  if (afl->fsrv.out_fd < 0) {
 
-  ck_free(fn);
+    PFATAL("Unable to create '%s'", afl->fsrv.out_file);
+
+  }
 
 }
 

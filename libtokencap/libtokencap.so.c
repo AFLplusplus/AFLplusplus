@@ -275,8 +275,8 @@ static void __tokencap_load_mappings(void) {
 
   for (c = map; r > 0; c++, r -= sizeof(prmap_t)) {
 
-    __tokencap_ro[__tokencap_ro_cnt].st = c->pr_vaddr;
-    __tokencap_ro[__tokencap_ro_cnt].en = c->pr_vaddr + c->pr_size;
+    __tokencap_ro[__tokencap_ro_cnt].st = (void *)c->pr_vaddr;
+    __tokencap_ro[__tokencap_ro_cnt].en = (void *)(c->pr_vaddr + c->pr_size);
 
     if (++__tokencap_ro_cnt == MAX_MAPPINGS) break;
 
