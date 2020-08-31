@@ -1027,7 +1027,9 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
   }
 
-  /* Modulo is biased - we don't want our fuzzing to be biased so let's do it right. */
+  /* Modulo is biased - we don't want our fuzzing to be biased so let's do it right, see
+  https://stackoverflow.com/questions/10984974/why-do-people-say-there-is-modulo-bias-when-using-a-random-number-generator
+  */
   u64 unbiased_rnd; 
   do {
     unbiased_rnd = rand_next(afl);
