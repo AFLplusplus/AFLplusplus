@@ -379,11 +379,9 @@ bool AFLLTOPass::runOnModule(Module &M) {
             else
               Str1 = TmpStr.str();
             bool HasStr2 = getConstantStringInfo(Str2P, TmpStr);
-            if (TmpStr.empty())
-              HasStr2 = false;
-              (void) HasStr2 /* never read */
-            else
-              Str2 = TmpStr.str();
+            if (TmpStr.empty()) HasStr2 = false;
+            (void)HasStr2                                     /* never read */
+                else Str2 = TmpStr.str();
 
             if (debug)
               fprintf(stderr, "F:%s %p(%s)->\"%s\"(%s) %p(%s)->\"%s\"(%s)\n",

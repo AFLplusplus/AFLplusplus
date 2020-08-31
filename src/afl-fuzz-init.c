@@ -1843,7 +1843,8 @@ void setup_stdio_file(afl_state_t *afl) {
 
   if (afl->file_extension) {
 
-    afl->fsrv.out_file = alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
+    afl->fsrv.out_file =
+        alloc_printf("%s/.cur_input.%s", afl->tmp_dir, afl->file_extension);
 
   } else {
 
@@ -1851,11 +1852,15 @@ void setup_stdio_file(afl_state_t *afl) {
 
   }
 
-  unlink(afl->fsrv.out_file);                                              /* Ignore errors */
+  unlink(afl->fsrv.out_file);                              /* Ignore errors */
 
   afl->fsrv.out_fd = open(afl->fsrv.out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
 
-  if (afl->fsrv.out_fd < 0) { PFATAL("Unable to create '%s'", afl->fsrv.out_file); }
+  if (afl->fsrv.out_fd < 0) {
+
+    PFATAL("Unable to create '%s'", afl->fsrv.out_file);
+
+  }
 
 }
 

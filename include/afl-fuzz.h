@@ -1027,11 +1027,15 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
   }
 
-  /* Modulo is biased - we don't want our fuzzing to be biased so let's do it right. */
-  u64 unbiased_rnd; 
+  /* Modulo is biased - we don't want our fuzzing to be biased so let's do it
+   * right. */
+  u64 unbiased_rnd;
   do {
+
     unbiased_rnd = rand_next(afl);
+
   } while (unlikely(unbiased_rnd >= (UINT64_MAX - (UINT64_MAX % limit))));
+
   return unbiased_rnd % limit;
 
 }
