@@ -281,9 +281,6 @@ all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
 
 man:    afl-gcc all $(MANPAGES)
 
-# dummy to get `make man` to compile on mac os
-afl-g++.8: afl-g++
-
 tests:	source-only
 	@cd test ; ./test-all.sh
 	@rm -f test/errors
