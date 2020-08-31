@@ -111,21 +111,21 @@ test_deps:
 	@echo "[+] All set and ready to build."
 
 afl-common.o: ../src/afl-common.c
-	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ $(LDFLAGS)
 
 ../afl-gcc-fast: afl-gcc-fast.c afl-common.o | test_deps
-	$(CC) -DAFL_GCC_CC=\"$(CC)\" -DAFL_GCC_CXX=\"$(CXX)\" $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS)
+	$(CC) -DAFL_GCC_CC=\"$(CC)\" -DAFL_GCC_CXX=\"$(CXX)\" $(CFLAGS) $(CPPFLAGS) $< afl-common.o -o $@ $(LDFLAGS)
 	ln -sf afl-gcc-fast ../afl-g++-fast
 
 ../afl-gcc-pass.so: afl-gcc-pass.so.cc | test_deps
 	$(CXX) $(CXXEFLAGS) $(PLUGIN_FLAGS) -shared $< -o $@
 
 ../afl-gcc-rt.o: afl-gcc-rt.o.c | test_deps
-	$(CC) $(CFLAGS_SAFE) -fPIC -c $< -o $@
+	$(CC) $(CFLAGS_SAFE) $(CPPFLAGS) -fPIC -c $< -o $@
 
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
-	unset AFL_USE_ASAN AFL_USE_MSAN; AFL_QUIET=1 AFL_INST_RATIO=100 AFL_PATH=. AFL_CC=$(CC) ../afl-gcc-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
+	unset AFL_USE_ASAN AFL_USE_MSAN; AFL_QUIET=1 AFL_INST_RATIO=100 AFL_PATH=. AFL_CC=$(CC) ../afl-gcc-fast $(CFLAGS) $(CPPFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
 #	unset AFL_USE_ASAN AFL_USE_MSAN;             AFL_INST_RATIO=100 AFL_PATH=. AFL_CC=$(CC) ../afl-gcc-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
 	ASAN_OPTIONS=detect_leaks=0 ../afl-showmap -m none -q -o .test-instr0 ./test-instr </dev/null
 	echo 1 | ASAN_OPTIONS=detect_leaks=0 ../afl-showmap -m none -q -o .test-instr1 ./test-instr

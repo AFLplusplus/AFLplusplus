@@ -70,7 +70,7 @@ all: $(TARGETS)
 
 VPATH = ..
 libtokencap.so: libtokencap.so.c ../config.h
-	$(CC) $(CFLAGS) -shared -fPIC $< -o ../$@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -shared -fPIC $< -o ../$@ $(LDFLAGS)
 
 .NOTPARALLEL: clean
 
