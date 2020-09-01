@@ -158,8 +158,7 @@ install: all
 	install -m 755 ./afl-gcc-fast $${DESTDIR}$(BIN_PATH)
 	ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast
 	install -m 755 ./afl-gcc-pass.so $${DESTDIR}$(HELPER_PATH)
-	install -m 644 -T README.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
-	install -m 644 -T README.instrument_list.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.instrument_file.md
+	install -m 644 -T instrumentation/README.gcc_plugin.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 .test2

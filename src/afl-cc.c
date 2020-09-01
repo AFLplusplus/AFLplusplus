@@ -1046,7 +1046,7 @@ int main(int argc, char **argv, char **envp) {
     fp = realpath(argv[0], NULL);
 
     printf("afl-cc" VERSION
-           " by Michal Zalewski, Laszlo Szekeres and Marc Heuse\n");
+           " by Michal Zalewski, Laszlo Szekeres, Marc Heuse\n");
 
     SAYF(
         "\n"
@@ -1299,7 +1299,7 @@ int main(int argc, char **argv, char **envp) {
 
     SAYF(cCYA
          "afl-cc " VERSION cRST
-         " by Michal Zalewski, Laszlo Szekeres and Marc Heuse in mode %s\n",
+         " by Michal Zalewski, Laszlo Szekeres, Marc Heuse - mode: %s\n",
          ptr);
 
   }
