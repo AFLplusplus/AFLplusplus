@@ -82,7 +82,7 @@ endif
 
 PROGS        = ./afl-gcc-pass.so
 
-all: test_shm test_deps $(PROGS) afl-gcc-fast.8 test_build all_done
+all: test_shm test_deps $(PROGS) test_build all_done
 
 ifeq "$(SHMAT_OK)" "1"
 
@@ -114,6 +114,10 @@ afl-common.o: ./src/afl-common.c
 
 ./afl-gcc-pass.so: instrumentation/afl-gcc-pass.so.cc | test_deps
 	$(CXX) $(CXXEFLAGS) $(PLUGIN_FLAGS) -shared $< -o $@
+	ln -sf afl-cc afl-gcc-fast
+	ln -sf afl-cc afl-g++-fast
+	ln -sf afl-cc.8 afl-gcc-fast.8
+	ln -sf afl-cc.8 afl-g++-fast.8
 
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
@@ -152,7 +156,7 @@ vpath  % ..
 
 install: all
 	install -m 755 ./afl-gcc-fast $${DESTDIR}$(BIN_PATH)
-        ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast
+	ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast
 	install -m 755 ./afl-gcc-pass.so $${DESTDIR}$(HELPER_PATH)
 	install -m 644 -T README.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
 	install -m 644 -T README.instrument_list.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.instrument_file.md
