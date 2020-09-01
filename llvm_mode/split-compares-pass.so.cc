@@ -356,6 +356,8 @@ bool SplitComparesTransform::simplifyIntSignedness(Module &M) {
    * all signed compares to icomps vector */
   for (auto &F : M) {
 
+    if (!isInInstrumentList(&F)) continue;
+
     for (auto &BB : F) {
 
       for (auto &IN : BB) {
@@ -541,6 +543,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
   /* get all EQ, NE, GT, and LT fcmps. if the other two
    * functions were executed only these four predicates should exist */
   for (auto &F : M) {
+
+    if (!isInInstrumentList(&F)) continue;
 
     for (auto &BB : F) {
 
@@ -1051,6 +1055,8 @@ size_t SplitComparesTransform::splitIntCompares(Module &M, unsigned bitw) {
    * functions simplifyCompares() and simplifyIntSignedness()
    * were executed only these four predicates should exist */
   for (auto &F : M) {
+
+    if (!isInInstrumentList(&F)) continue;
 
     for (auto &BB : F) {
 
