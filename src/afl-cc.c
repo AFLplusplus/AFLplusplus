@@ -1077,7 +1077,7 @@ int main(int argc, char **argv, char **envp) {
         "        - NORMAL\n"
         "        - CTX\n"
         "        - NGRAM2-16\n"
-        "  gcc intrumentation:         %s%s\n"
+        "  gcc instrumentation:        %s%s\n"
         "    CLASSIC                       DEFAULT\n"
         "  simple gcc instrumentation: %s%s\n"
         "    CLASSIC                       DEFAULT\n\n",
