@@ -16,7 +16,7 @@
 PREFIX      ?= /usr/local
 HELPER_PATH  = $(PREFIX)/lib/afl
 DOC_PATH    ?= $(PREFIX)/share/doc/afl
-MAN_PATH    ?= $(PREFIX)/man/man8
+MAN_PATH    ?= $(PREFIX)/share/man/man8
 
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
@@ -70,7 +70,7 @@ all: $(TARGETS)
 
 VPATH = ..
 libtokencap.so: libtokencap.so.c ../config.h
-	$(CC) $(CFLAGS) -shared -fPIC $< -o ../$@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -shared -fPIC $< -o ../$@ $(LDFLAGS)
 
 .NOTPARALLEL: clean
 

@@ -1,6 +1,7 @@
 .test
 .test2
 .sync_tmp
+.vscode
 *.o
 *.so
 *.swp
@@ -11,6 +12,7 @@ ld
 in
 out
 core*
+compile_commands.json
 afl-analyze
 afl-as
 afl-clang
@@ -40,6 +42,7 @@ afl-cmin.8
 afl-cmin.bash.8
 afl-fuzz.8
 afl-gcc.8
+afl-g++.8
 afl-gcc-fast.8
 afl-g++-fast.8
 afl-gotcpu.8

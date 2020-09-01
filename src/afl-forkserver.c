@@ -240,6 +240,17 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
     if (!child_pid) {  // New child
 
+      close(fsrv->out_dir_fd);
+      close(fsrv->dev_null_fd);
+      close(fsrv->dev_urandom_fd);
+
+      if (fsrv->plot_file != NULL) {
+
+        fclose(fsrv->plot_file);
+        fsrv->plot_file = NULL;
+
+      }
+
       signal(SIGCHLD, old_sigchld_handler);
       // FORKSRV_FD is for communication with AFL, we don't need it in the
       // child.
@@ -360,12 +371,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   if (!fsrv->fsrv_pid) {
 
     /* CHILD PROCESS */
-
     struct rlimit r;
 
     /* Umpf. On OpenBSD, the default fd limit for root users is set to
        soft 128. Let's try to fix that... */
-
     if (!getrlimit(RLIMIT_NOFILE, &r) && r.rlim_cur < FORKSRV_FD + 2) {
 
       r.rlim_cur = FORKSRV_FD + 2;
@@ -432,7 +441,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     close(fsrv->dev_null_fd);
     close(fsrv->dev_urandom_fd);
 
-    if (fsrv->plot_file != NULL) { fclose(fsrv->plot_file); }
+    if (fsrv->plot_file != NULL) {
+
+      fclose(fsrv->plot_file);
+      fsrv->plot_file = NULL;
+
+    }
 
     /* This should improve performance a bit, since it stops the linker from
        doing extra work post-fork(). */
