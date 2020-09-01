@@ -3,6 +3,22 @@
 Custom mutators enhance and alter the mutation strategies of afl++.
 For further information and documentation on how to write your own, read [the docs](../docs/custom_mutators.md).
 
+## The afl++ Grammar Mutator
+
+If you use git to clone afl++, then the following will incorporate our
+excellent grammar custom mutator:
+```
+git submodule init
+git submodule update
+```
+
+otherwise just checkout the repository here with either
+`git clone https://github.com/AFLplusplus/Grammar-Mutator` or
+`svn co https://github.com/AFLplusplus/Grammar-Mutator`.
+
+Read the [Grammar-Mutator/README.md](Grammar-Mutator/README.md) on how to use
+it.
+
 ## Production-Ready Custom Mutators
 
 This directory holds ready to use custom mutators.

@@ -530,7 +530,7 @@ clean:
 	$(MAKE) -C qemu_mode/libcompcov clean
 	rm -rf qemu_mode/qemu-3.1.1
 ifeq "$(IN_REPO)" "1"
-	test -d unicorn_mode/unicornafl && $(MAKE) -C unicorn_mode/unicornafl clean || true
+	test -e unicorn_mode/unicornafl/Makefile && $(MAKE) -C unicorn_mode/unicornafl clean || true
 else
 	rm -rf qemu_mode/qemu-3.1.1.tar.xz
 	rm -rf unicorn_mode/unicornafl
@@ -573,7 +573,7 @@ source-only: all
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
 	@echo .SH NAME >> $@
-	@echo -n ".B $* \- " >> $@
+	@printf "%s" ".B $* \- " >> $@
 	@./$* -h 2>&1 | head -n 1 | sed -e "s/$$(printf '\e')[^m]*m//g" >> $@
 	@echo >> $@
 	@echo .SH SYNOPSIS >> $@
