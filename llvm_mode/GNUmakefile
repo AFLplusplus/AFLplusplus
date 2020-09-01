@@ -24,9 +24,11 @@ HELPER_PATH ?= $(PREFIX)/lib/afl
 BIN_PATH    ?= $(PREFIX)/bin
 DOC_PATH    ?= $(PREFIX)/share/doc/afl
 MISC_PATH   ?= $(PREFIX)/share/afl
-MAN_PATH    ?= $(PREFIX)/man/man8
+MAN_PATH    ?= $(PREFIX)/share/man/man8
 
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
+
+BUILD_DATE  ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u "+%Y-%m-%d")
 
 ifeq "$(shell uname)" "OpenBSD"
   LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
@@ -224,7 +226,8 @@ CFLAGS_SAFE     := -Wall -g -Wno-pointer-sign -I ../include/ \
                    -DAFL_REAL_LD=\"$(AFL_REAL_LD)\" \
                    -DAFL_CLANG_LDPATH=\"$(AFL_CLANG_LDPATH)\" \
                    -DAFL_CLANG_FUSELD=\"$(AFL_CLANG_FUSELD)\" \
-                   -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function
+                   -DCLANG_BIN=\"$(CLANG_BIN)\" -DCLANGPP_BIN=\"$(CLANGPP_BIN)\" -DUSE_BINDIR=$(USE_BINDIR) -Wno-unused-function \
+                   -fdebug-prefix-map="$(CURDIR)=llvm_mode"
 override CFLAGS += $(CFLAGS_SAFE)
 
 ifdef AFL_TRACE_PC
@@ -329,10 +332,10 @@ endif
 	@echo "[+] All set and ready to build."
 
 afl-common.o: ../src/afl-common.c
-	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ $(LDFLAGS)
 
 ../afl-clang-fast: afl-clang-fast.c afl-common.o | test_deps
-	$(CC) $(CLANG_CFL) $(CFLAGS) $< afl-common.o -o $@ $(LDFLAGS) -DCFLAGS_OPT=\"$(CFLAGS_OPT)\"
+	$(CC) $(CLANG_CFL) $(CFLAGS) $(CPPFLAGS) $< afl-common.o -o $@ $(LDFLAGS) -DCFLAGS_OPT=\"$(CFLAGS_OPT)\"
 	ln -sf afl-clang-fast ../afl-clang-fast++
 ifneq "$(AFL_CLANG_FLTO)" ""
 ifeq "$(LLVM_LTO)" "1"
@@ -342,7 +345,7 @@ endif
 endif
 
 afl-llvm-common.o: afl-llvm-common.cc afl-llvm-common.h
-	$(CXX) $(CFLAGS) `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC -std=$(LLVM_STDCXX) -c $< -o $@ 
+	$(CXX) $(CFLAGS) $(CPPFLAGS) `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fPIC -std=$(LLVM_STDCXX) -c $< -o $@ 
 
 ../libLLVMInsTrim.so: LLVMInsTrim.so.cc MarkNodes.cc afl-llvm-common.o | test_deps
 	-$(CXX) $(CLANG_CPPFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< MarkNodes.cc -o $@ $(CLANG_LFL) afl-llvm-common.o
@@ -360,7 +363,7 @@ endif
 
 ../afl-ld-lto: afl-ld-lto.c
 ifeq "$(LLVM_LTO)" "1"
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -o $@
 endif
 
 ../SanitizerCoverageLTO.so: SanitizerCoverageLTO.so.cc
@@ -371,9 +374,9 @@ endif
 ../afl-llvm-lto-instrumentation.so: afl-llvm-lto-instrumentation.so.cc afl-llvm-common.o
 ifeq "$(LLVM_LTO)" "1"
 	$(CXX) $(CLANG_CPPFL) -Wno-writable-strings -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
-	$(CLANG_BIN) $(CFLAGS_SAFE) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto.o
-	@$(CLANG_BIN) $(CFLAGS_SAFE) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m64 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-64.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
-	@$(CLANG_BIN) $(CFLAGS_SAFE) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m32 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-32.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
+	$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto.o
+	@$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m64 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-64.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
+	@$(CLANG_BIN) $(CFLAGS_SAFE) $(CPPFLAGS) -Wno-unused-result -O0 $(AFL_CLANG_FLTO) -m32 -fPIC -c afl-llvm-rt-lto.o.c -o ../afl-llvm-rt-lto-32.o 2>/dev/null; if [ "$$?" = "0" ]; then : ; fi
 endif
 
 # laf
@@ -392,20 +395,20 @@ endif
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) afl-llvm-common.o
 
 document:
-	$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CLANG_CFL) -O3 -Wno-unused-result -fPIC -c afl-llvm-rt.o.c -o ../afl-llvm-rt.o
-	@$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CLANG_CFL) -O3 -Wno-unused-result -m32 -fPIC -c afl-llvm-rt.o.c -o ../afl-llvm-rt-32.o 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
-	@$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CLANG_CFL) -O3 -Wno-unused-result -m64 -fPIC -c afl-llvm-rt.o.c -o ../afl-llvm-rt-64.o 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -fPIC -c afl-llvm-rt.o.c -o ../afl-llvm-rt.o
+	@$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -m32 -fPIC -c afl-llvm-rt.o.c -o ../afl-llvm-rt-32.o 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -m64 -fPIC -c afl-llvm-rt.o.c -o ../afl-llvm-rt-64.o 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 ../afl-llvm-rt.o: afl-llvm-rt.o.c | test_deps
-	$(CLANG_BIN) $(CLANG_CFL) $(CFLAGS_SAFE) -O3 -Wno-unused-result -fPIC -c $< -o $@
+	$(CLANG_BIN) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -fPIC -c $< -o $@
 
 ../afl-llvm-rt-32.o: afl-llvm-rt.o.c | test_deps
 	@printf "[*] Building 32-bit variant of the runtime (-m32)... "
-	@$(CLANG_BIN) $(CLANG_CFL) $(CFLAGS_SAFE) -O3 -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CLANG_BIN) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 ../afl-llvm-rt-64.o: afl-llvm-rt.o.c | test_deps
 	@printf "[*] Building 64-bit variant of the runtime (-m64)... "
-	@$(CLANG_BIN) $(CLANG_CFL) $(CFLAGS_SAFE) -O3 -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CLANG_BIN) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
@@ -434,15 +437,16 @@ install: all
 	if [ -f ../cmplog-instructions-pass.so ]; then set -e; install -m 755 ../cmplog-*-pass.so $${DESTDIR}$(HELPER_PATH); fi
 	if [ -f ../SanitizerCoverageLTO.so ]; then set -e; install -m 755 ../SanitizerCoverageLTO.so $${DESTDIR}$(HELPER_PATH); fi
 	set -e; install -m 644 ../dynamic_list.txt $${DESTDIR}$(HELPER_PATH)
-	set -e; if [ -f ../afl-clang-fast ] ; then ln -sf ../afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ../afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf ../afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ../afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
+	set -e; if [ -f ../afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
 	install -m 644 README.*.md $${DESTDIR}$(DOC_PATH)/
-	install -m 644 -T README.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.md
+	install -m 644 README.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.md
 
 vpath  % ..
 %.8: %
-	@echo .TH $* 8 `date "+%Y-%m-%d"` "afl++" > ../$@
+	@echo .TH $* 8 $(BUILD_DATE) "afl++" > ../$@
 	@echo .SH NAME >> ../$@
-	@echo .B $* >> ../$@
+	@echo -n ".B $* \- " >> ../$@
+	@../$* -h 2>&1 | head -n 1 | sed -e "s/$$(printf '\e')[^m]*m//g" >> ../$@
 	@echo >> ../$@
 	@echo .SH SYNOPSIS >> ../$@
 	@../$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> ../$@

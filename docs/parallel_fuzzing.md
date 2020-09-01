@@ -10,8 +10,8 @@ n-core system, you can almost always run around n concurrent fuzzing jobs with
 virtually no performance hit (you can use the afl-gotcpu tool to make sure).
 
 In fact, if you rely on just a single job on a multi-core system, you will
-be underutilizing the hardware. So, parallelization is usually the right
-way to go.
+be underutilizing the hardware. So, parallelization is always the right way to
+go.
 
 When targeting multiple unrelated binaries or using the tool in
 "non-instrumented" (-n) mode, it is perfectly fine to just start up several
@@ -65,22 +65,7 @@ still perform deterministic checks; while the secondary instances will
 proceed straight to random tweaks.
 
 Note that you must always have one -M main instance!
-
-Note that running multiple -M instances is wasteful, although there is an
-experimental support for parallelizing the deterministic checks. To leverage
-that, you need to create -M instances like so:
-
-```
-./afl-fuzz -i testcase_dir -o sync_dir -M mainA:1/3 [...]
-./afl-fuzz -i testcase_dir -o sync_dir -M mainB:2/3 [...]
-./afl-fuzz -i testcase_dir -o sync_dir -M mainC:3/3 [...]
-```
-
-...where the first value after ':' is the sequential ID of a particular main
-instance (starting at 1), and the second value is the total number of fuzzers to
-distribute the deterministic fuzzing across. Note that if you boot up fewer
-fuzzers than indicated by the second number passed to -M, you may end up with
-poor coverage.
+Running multiple -M instances is wasteful!
 
 You can also monitor the progress of your jobs from the command line with the
 provided afl-whatsup tool. When the instances are no longer finding new paths,
@@ -99,61 +84,88 @@ example may be:
 This is not a concern if you use @@ without -f and let afl-fuzz come up with the
 file name.
 
-## 3) Syncing with non-afl fuzzers or independant instances
+## 3) Multiple -M mains
+
+
+There is support for parallelizing the deterministic checks.
+This is only needed where
+ 
+ 1. many new paths are found fast over a long time and it looks unlikely that
+    main node will ever catch up, and
+ 2. deterministic fuzzing is actively helping path discovery (you can see this
+    in the main node for the first for lines in the "fuzzing strategy yields"
+    section. If the ration `found/attemps` is high, then it is effective. It
+    most commonly isn't.)
+
+Only if both are true it is beneficial to have more than one main.
+You can leverage this by creating -M instances like so:
+
+```
+./afl-fuzz -i testcase_dir -o sync_dir -M mainA:1/3 [...]
+./afl-fuzz -i testcase_dir -o sync_dir -M mainB:2/3 [...]
+./afl-fuzz -i testcase_dir -o sync_dir -M mainC:3/3 [...]
+```
+
+... where the first value after ':' is the sequential ID of a particular main
+instance (starting at 1), and the second value is the total number of fuzzers to
+distribute the deterministic fuzzing across. Note that if you boot up fewer
+fuzzers than indicated by the second number passed to -M, you may end up with
+poor coverage.
+
+## 4) Syncing with non-afl fuzzers or independant instances
 
 A -M main node can be told with the `-F other_fuzzer_queue_directory` option
 to sync results from other fuzzers, e.g. libfuzzer or honggfuzz.
 
 Only the specified directory will by synced into afl, not subdirectories.
-The specified directories do not need to exist yet at the start of afl.
+The specified directory does not need to exist yet at the start of afl.
 
-## 4) Multi-system parallelization
+The `-F` option can be passed to the main node several times.
+
+## 5) Multi-system parallelization
 
 The basic operating principle for multi-system parallelization is similar to
 the mechanism explained in section 2. The key difference is that you need to
 write a simple script that performs two actions:
 
   - Uses SSH with authorized_keys to connect to every machine and retrieve
-    a tar archive of the /path/to/sync_dir/<fuzzer_id>/queue/ directories for
-    every <fuzzer_id> local to the machine. It's best to use a naming scheme
-    that includes host name in the fuzzer ID, so that you can do something
-    like:
+    a tar archive of the /path/to/sync_dir/<main_node(s)> directory local to
+    the machine.
+    It is best to use a naming scheme that includes host name and it's being
+    a main node (e.g. main1, main2) in the fuzzer ID, so that you can do
+    something like:
 
     ```sh
-    for s in {1..10}; do
-      ssh user@host${s} "tar -czf - sync/host${s}_fuzzid*/[qf]*" >host${s}.tgz
+    for host in `cat HOSTLIST`; do
+      ssh user@$host "tar -czf - sync/$host_main*/" > $host.tgz
     done
     ```
 
   - Distributes and unpacks these files on all the remaining machines, e.g.:
 
     ```sh
-    for s in {1..10}; do
-      for d in {1..10}; do
-        test "$s" = "$d" && continue
-        ssh user@host${d} 'tar -kxzf -' <host${s}.tgz
+    for srchost in `cat HOSTLIST`; do
+      for dsthost in `cat HOSTLIST`; do
+        test "$srchost" = "$dsthost" && continue
+        ssh user@$srchost 'tar -kxzf -' < $dsthost.tgz
       done
     done
     ```
 
-There is an example of such a script in examples/distributed_fuzzing/;
-you can also find a more featured, experimental tool developed by
-Martijn Bogaard at:
+There is an example of such a script in examples/distributed_fuzzing/.
 
-  https://github.com/MartijnB/disfuzz-afl
+There are other (older) more featured, experimental tools:
+  * https://github.com/richo/roving
+  * https://github.com/MartijnB/disfuzz-afl
 
-Another client-server implementation from Richo Healey is:
-
-  https://github.com/richo/roving
-
-Note that these third-party tools are unsafe to run on systems exposed to the
-Internet or to untrusted users.
+However these do not support syncing just main nodes (yet).
 
 When developing custom test case sync code, there are several optimizations
 to keep in mind:
 
   - The synchronization does not have to happen very often; running the
-    task every 30 minutes or so may be perfectly fine.
+    task every 60 minutes or even less often at later fuzzing stages is
+    fine
 
   - There is no need to synchronize crashes/ or hangs/; you only need to
     copy over queue/* (and ideally, also fuzzer_stats).
@@ -179,19 +191,24 @@ to keep in mind:
   - You do not want a "main" instance of afl-fuzz on every system; you should
     run them all with -S, and just designate a single process somewhere within
     the fleet to run with -M.
+    
+  - Syncing is only necessary for the main nodes on a system. It is possible
+    to run main-less with only secondaries. However then you need to find out
+    which secondary took over the temporary role to be the main node. Look for
+    the `is_main_node` file in the fuzzer directories, eg. `sync-dir/hostname-*/is_main_node`
 
 It is *not* advisable to skip the synchronization script and run the fuzzers
 directly on a network filesystem; unexpected latency and unkillable processes
 in I/O wait state can mess things up.
 
-## 5) Remote monitoring and data collection
+## 6) Remote monitoring and data collection
 
 You can use screen, nohup, tmux, or something equivalent to run remote
 instances of afl-fuzz. If you redirect the program's output to a file, it will
 automatically switch from a fancy UI to more limited status reports. There is
-also basic machine-readable information always written to the fuzzer_stats file
-in the output directory. Locally, that information can be interpreted with
-afl-whatsup.
+also basic machine-readable information which is always written to the
+fuzzer_stats file in the output directory. Locally, that information can be
+interpreted with afl-whatsup.
 
 In principle, you can use the status screen of the main (-M) instance to
 monitor the overall fuzzing progress and decide when to stop. In this
@@ -208,7 +225,7 @@ Keep in mind that crashing inputs are *not* automatically propagated to the
 main instance, so you may still want to monitor for crashes fleet-wide
 from within your synchronization or health checking scripts (see afl-whatsup).
 
-## 6) Asymmetric setups
+## 7) Asymmetric setups
 
 It is perhaps worth noting that all of the following is permitted:
 
@@ -224,7 +241,7 @@ It is perhaps worth noting that all of the following is permitted:
     the discovered test cases can have synergistic effects and improve the
     overall coverage.
 
-    (In this case, running one -M instance per each binary is a good plan.)
+    (In this case, running one -M instance per target is necessary.)
 
   - Having some of the fuzzers invoke the binary in different ways.
     For example, 'djpeg' supports several DCT modes, configurable with

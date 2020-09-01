@@ -264,7 +264,8 @@ static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
 }
 
-static long long strntoll(const char *str, size_t sz, char **end, int base) {
+static int strntoll(const char *str, size_t sz, char **end, int base,
+                    long long *out) {
 
   char        buf[64];
   long long   ret;
@@ -272,24 +273,22 @@ static long long strntoll(const char *str, size_t sz, char **end, int base) {
 
   for (; beg && sz && *beg == ' '; beg++, sz--) {};
 
-  if (!sz || sz >= sizeof(buf)) {
-
-    if (end) *end = (char *)str;
-    return 0;
-
-  }
+  if (!sz) return 1;
+  if (sz >= sizeof(buf)) sz = sizeof(buf) - 1;
 
   memcpy(buf, beg, sz);
   buf[sz] = '\0';
   ret = strtoll(buf, end, base);
-  if (ret == LLONG_MIN || ret == LLONG_MAX) return ret;
+  if ((ret == LLONG_MIN || ret == LLONG_MAX) && errno == ERANGE) return 1;
   if (end) *end = (char *)beg + (*end - buf);
-  return ret;
+  *out = ret;
+
+  return 0;
 
 }
 
-static unsigned long long strntoull(const char *str, size_t sz, char **end,
-                                    int base) {
+static int strntoull(const char *str, size_t sz, char **end, int base,
+                     unsigned long long *out) {
 
   char               buf[64];
   unsigned long long ret;
@@ -298,18 +297,17 @@ static unsigned long long strntoull(const char *str, size_t sz, char **end,
   for (; beg && sz && *beg == ' '; beg++, sz--)
     ;
 
-  if (!sz || sz >= sizeof(buf)) {
-
-    if (end) *end = (char *)str;
-    return 0;
-
-  }
+  if (!sz) return 1;
+  if (sz >= sizeof(buf)) sz = sizeof(buf) - 1;
 
   memcpy(buf, beg, sz);
   buf[sz] = '\0';
   ret = strtoull(buf, end, base);
+  if (ret == ULLONG_MAX && errno == ERANGE) return 1;
   if (end) *end = (char *)beg + (*end - buf);
-  return ret;
+  *out = ret;
+
+  return 0;
 
 }
 
@@ -336,14 +334,14 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   u8                 use_num = 0, use_unum = 0;
   unsigned long long unum;
   long long          num;
+
   if (afl->queue_cur->is_ascii) {
 
     endptr = buf_8;
-    num = strntoll(buf_8, len - idx, (char **)&endptr, 0);
-    if (endptr == buf_8) {
+    if (strntoll(buf_8, len - idx, (char **)&endptr, 0, &num)) {
 
-      unum = strntoull(buf_8, len - idx, (char **)&endptr, 0);
-      if (endptr == buf_8) use_unum = 1;
+      if (!strntoull(buf_8, len - idx, (char **)&endptr, 0, &unum))
+        use_unum = 1;
 
     } else
 

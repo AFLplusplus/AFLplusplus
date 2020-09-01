@@ -670,9 +670,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
+  #ifndef __APPLE__
   if (!shared_linking)
     cc_params[cc_par_cnt++] =
         alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
+  #endif
 
 #endif
 
@@ -812,16 +814,24 @@ int main(int argc, char **argv, char **envp) {
 
         ptr += strlen("ngram");
         while (*ptr && (*ptr < '0' || *ptr > '9')) {
+
           ptr++;
+
         }
+
         if (!*ptr) {
+
           ptr = getenv("AFL_LLVM_NGRAM_SIZE");
           if (!ptr || !*ptr) {
+
             FATAL(
                 "you must set the NGRAM size with (e.g. for value 2) "
                 "AFL_LLVM_INSTRUMENT=ngram-2");
+
           }
+
         }
+
         ngram_size = atoi(ptr);
         if (ngram_size < 2 || ngram_size > NGRAM_SIZE_MAX)
           FATAL(

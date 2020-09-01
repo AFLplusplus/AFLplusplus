@@ -72,12 +72,12 @@ void jump(afl_state_t *afl) {
 
   static const uint64_t JUMP[] = {0x180ec6d33cfd0aba, 0xd5a61266f0c9392c,
                                   0xa9582618e03fc9aa, 0x39abdc4529b1661c};
-  int                   i, b;
+  size_t                i, b;
   uint64_t              s0 = 0;
   uint64_t              s1 = 0;
   uint64_t              s2 = 0;
   uint64_t              s3 = 0;
-  for (i = 0; i < sizeof JUMP / sizeof *JUMP; i++)
+  for (i = 0; i < (sizeof(JUMP) / sizeof(*JUMP)); i++)
     for (b = 0; b < 64; b++) {
 
       if (JUMP[i] & UINT64_C(1) << b) {
@@ -110,12 +110,12 @@ void long_jump(afl_state_t *afl) {
   static const uint64_t LONG_JUMP[] = {0x76e15d3efefdcbbf, 0xc5004e441c522fb3,
                                        0x77710069854ee241, 0x39109bb02acbe635};
 
-  int      i, b;
+  size_t   i, b;
   uint64_t s0 = 0;
   uint64_t s1 = 0;
   uint64_t s2 = 0;
   uint64_t s3 = 0;
-  for (i = 0; i < sizeof LONG_JUMP / sizeof *LONG_JUMP; i++)
+  for (i = 0; i < (sizeof(LONG_JUMP) / sizeof(*LONG_JUMP)); i++)
     for (b = 0; b < 64; b++) {
 
       if (LONG_JUMP[i] & UINT64_C(1) << b) {
@@ -145,7 +145,7 @@ void long_jump(afl_state_t *afl) {
 u32 hash32(u8 *key, u32 len, u32 seed) {
 
 #else
-u32 inline hash32(u8 *key, u32 len, u32 seed) {
+inline u32 hash32(u8 *key, u32 len, u32 seed) {
 
 #endif
 
@@ -157,7 +157,7 @@ u32 inline hash32(u8 *key, u32 len, u32 seed) {
 u64 hash64(u8 *key, u32 len, u64 seed) {
 
 #else
-u64 inline hash64(u8 *key, u32 len, u64 seed) {
+inline u64 hash64(u8 *key, u32 len, u64 seed) {
 
 #endif
 

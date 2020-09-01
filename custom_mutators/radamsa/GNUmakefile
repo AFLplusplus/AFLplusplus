@@ -15,14 +15,14 @@ libradamsa.a: libradamsa.c radamsa.h
 	@echo " ***************************************************************"
 	@echo " * Compiling libradamsa, wait some minutes (~3 on modern CPUs) *"
 	@echo " ***************************************************************"
-	$(CC) -fPIC $(CFLAGS) -I $(CUR_DIR) -o libradamsa.a -c libradamsa.c
+	$(CC) -fPIC $(CFLAGS) $(CPPFLAGS) -I $(CUR_DIR) -o libradamsa.a -c libradamsa.c
 
 radamsa-mutator.so: radamsa-mutator.c libradamsa.a
-	$(CC) $(CFLAGS) -g -I. -I../../include -shared -fPIC -c radamsa-mutator.c
-	$(CC) $(CFLAGS) -shared -fPIC -o radamsa-mutator.so radamsa-mutator.o libradamsa.a
+	$(CC) $(CFLAGS) $(CPPFLAGS) -g -I. -I../../include -shared -fPIC -c radamsa-mutator.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -shared -fPIC -o radamsa-mutator.so radamsa-mutator.o libradamsa.a
 
 test: libradamsa.a libradamsa-test.c
-	$(CC) $(CFLAGS) -I $(CUR_DIR) -o libradamsa-test libradamsa-test.c libradamsa.a
+	$(CC) $(CFLAGS) $(CPPFLAGS) -I $(CUR_DIR) -o libradamsa-test libradamsa-test.c libradamsa.a
 	./libradamsa-test libradamsa-test.c | grep "library test passed"
 	rm /tmp/libradamsa-*.fuzz
 

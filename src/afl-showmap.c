@@ -636,6 +636,8 @@ static void usage(u8 *argv0) {
       "size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during "
+      "startup (in milliseconds)\n"
       "AFL_QUIET: do not print extra informational output\n",
       argv0, MEM_LIMIT, doc_path);
 
