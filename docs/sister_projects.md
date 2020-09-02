@@ -52,7 +52,7 @@ options.
 Provides an evolutionary instrumentation-guided fuzzing harness that allows
 some programs to be fuzzed without the fork / execve overhead. (Similar
 functionality is now available as the "persistent" feature described in
-[the llvm_mode readme](../README.llvm.md))
+[the llvm_mode readme](../instrumentation/README.llvm.md))
 
 http://llvm.org/docs/LibFuzzer.html
 

@@ -51,7 +51,7 @@ a file.
 ## 3. Use LLVM instrumentation
 
 When fuzzing slow targets, you can gain 20-100% performance improvement by
-using the LLVM-based instrumentation mode described in [the instrumentation README](../README.llvm.md).
+using the LLVM-based instrumentation mode described in [the instrumentation README](../instrumentation/README.llvm.md).
 Note that this mode requires the use of clang and will not work with GCC.
 
 The LLVM mode also offers a "persistent", in-process fuzzing mode that can

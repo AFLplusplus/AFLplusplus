@@ -1,7 +1,7 @@
 # GCC-based instrumentation for afl-fuzz
 
   (See [../README.md](../README.md) for the general instruction manual.)
-  (See [../README.llvm.md](../README.llvm.md) for the LLVM-based instrumentation.)
+  (See [README.llvm.md](README.llvm.md) for the LLVM-based instrumentation.)
 
 !!! TODO items are:
 !!!  => inline instrumentation has to work!
