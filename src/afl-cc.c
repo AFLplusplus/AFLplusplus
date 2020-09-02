@@ -80,8 +80,8 @@ enum {
 
 char compiler_mode_string[6][12] = {
 
-    "UNSET", "LLVM-LTO", "LLVM", "GCC-PLUGIN",
-    "GCC",   ""
+    "AUTOSELECT", "LLVM-LTO", "LLVM", "GCC_PLUGIN",
+    "GCC",        ""
 
 };
 
@@ -279,6 +279,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       compiler_mode = GCC_PLUGIN;
     else if (have_gcc)
       compiler_mode = GCC;
+    else if (have_lto)
+      compiler_mode = LTO;
     else
       FATAL("no compiler mode available");
 
@@ -563,6 +565,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   while (--argc) {
 
     u8 *cur = *(++argv);
+
+    if (!strncmp(cur, "--afl", 5)) continue;
 
     if (!strcmp(cur, "-m32")) bit_mode = 32;
     if (!strcmp(cur, "armv7a-linux-androideabi")) bit_mode = 32;
@@ -894,6 +898,93 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+  if ((ptr = getenv("AFL_CC_COMPILER"))) {
+
+    if (compiler_mode) {
+
+      WARNF(
+          "\"AFL_CC_COMPILER\" is set but a specific compiler was already "
+          "selected by command line parameter or symlink, ignoring the "
+          "environment variable!");
+
+    } else {
+
+      if (strncasecmp(ptr, "LTO", 3) == 0) {
+
+        selected_lto = 1;
+        compiler_mode = LTO;
+
+      } else if (strncasecmp(ptr, "LLVM", 4) == 0) {
+
+        selected_llvm = 1;
+        compiler_mode = LLVM;
+
+      } else if (strncasecmp(ptr, "GCC_P", 5) == 0 ||
+
+                 strncasecmp(ptr, "GCC-P", 5) == 0 ||
+                 strncasecmp(ptr, "GCCP", 4) == 0) {
+
+        selected_gcc_plugin = 1;
+        compiler_mode = GCC_PLUGIN;
+
+      } else if (strcasecmp(ptr, "GCC") == 0) {
+
+        selected_gcc = 1;
+        compiler_mode = GCC;
+
+      } else
+
+        FATAL("Unknown AFL_CC_COMPILER mode: %s\n", ptr);
+
+    }
+
+  }
+
+  for (i = 1; i < argc; i++) {
+
+    if (strncmp(argv[i], "--afl", 5) == 0) {
+
+      if (compiler_mode)
+        WARNF(
+            "--afl-... compiler mode supersedes the AFL_CC_COMPILER and "
+            "symlink compiler selection!");
+
+      ptr = argv[i];
+      ptr += 5;
+      while (*ptr == '-')
+        ptr++;
+
+      if (strncasecmp(ptr, "LTO", 3) == 0) {
+
+        selected_lto = 1;
+        compiler_mode = LTO;
+
+      } else if (strncasecmp(ptr, "LLVM", 4) == 0) {
+
+        selected_llvm = 1;
+        compiler_mode = LLVM;
+
+      } else if (strncasecmp(ptr, "GCC_P", 5) == 0 ||
+
+                 strncasecmp(ptr, "GCC-P", 5) == 0 ||
+                 strncasecmp(ptr, "GCCP", 4) == 0) {
+
+        selected_gcc_plugin = 1;
+        compiler_mode = GCC_PLUGIN;
+
+      } else if (strcasecmp(ptr, "GCC") == 0) {
+
+        selected_gcc = 1;
+        compiler_mode = GCC;
+
+      } else
+
+        FATAL("Unknown --afl-... compiler mode: %s\n", argv[i]);
+
+    }
+
+  }
+
   if (strlen(callname) > 2 &&
       (strncmp(callname + strlen(callname) - 2, "++", 2) == 0 ||
        strstr(callname, "-g++") != NULL))
@@ -1050,7 +1141,7 @@ int main(int argc, char **argv, char **envp) {
 
     SAYF(
         "\n"
-        "%s[++] [options]\n"
+        "afl-cc/afl-c++ [options]\n"
         "\n"
         "This is a helper application for afl-fuzz. It serves as a drop-in "
         "replacement\n"
@@ -1060,16 +1151,16 @@ int main(int argc, char **argv, char **envp) {
         "following:\n\n"
 
         "  CC=%s CXX=%s ./configure --disable-shared\n\n",
-        callname, fp, fp);
+        fp, fp);
 
     SAYF(
-        "Modes:\n"
-        "  llvm LTO instrumentation:   %s%s\n"
-        "      PCGUARD                     DEFAULT\n"
+        "Modes: LTO, LLVM, GCC_PLUGIN, GCC\n"
+        "  [LTO] llvm LTO instrumentation:   %s%s\n"
+        "      PCGUARD                       DEFAULT\n"
         "      CLASSIC\n"
-        "  llvm instrumentation:       %s%s\n"
-        "      PCGUARD                     %s\n"
-        "      CLASSIC                     %s\n"
+        "  [LLVM] llvm instrumentation:      %s%s\n"
+        "      PCGUARD                       %s\n"
+        "      CLASSIC                       %s\n"
         "        - NORMAL\n"
         "        - CTX\n"
         "        - NGRAM2-16\n"
@@ -1077,18 +1168,30 @@ int main(int argc, char **argv, char **envp) {
         "        - NORMAL\n"
         "        - CTX\n"
         "        - NGRAM2-16\n"
-        "  gcc instrumentation:        %s%s\n"
-        "    CLASSIC                       DEFAULT\n"
-        "  simple gcc instrumentation: %s%s\n"
-        "    CLASSIC                       DEFAULT\n\n",
-        have_lto ? "AVAILABLE" : "unavailable", selected_lto ? " SELECTED" : "",
+        "  [GCC_PLUGIN] gcc instrumentation: %s%s\n"
+        "      CLASSIC                       DEFAULT\n"
+        "  [GCC] simple gcc instrumentation: %s%s\n"
+        "      CLASSIC                       DEFAULT\n\n",
+        have_lto ? "AVAILABLE" : "unavailable",
+        selected_lto ? " [SELECTED]" : "",
         have_llvm ? "AVAILABLE" : "unavailable",
-        selected_llvm ? " SELECTED" : "", LLVM_MAJOR > 6 ? "DEFAULT" : "",
+        selected_llvm ? " [SELECTED]" : "", LLVM_MAJOR > 6 ? "DEFAULT" : "",
         LLVM_MAJOR > 6 ? "" : "DEFAULT",
         have_gcc_plugin ? "AVAILABLE" : "unavailable",
         selected_gcc_plugin ? " SELECTED" : "",
         have_gcc ? "AVAILABLE" : "unavailable",
         selected_gcc ? " SELECTED" : "");
+
+    SAYF(
+        "To select the compiler mode use a symlink version (e.g. "
+        "afl-clang-fast), set\n"
+        "the environment variable AFL_CC_COMPILER to a mode (e.g. LLVM) or use "
+        "the\n"
+        "command line parameter --afl-MODE (e.g. --afl-llvm). If none is "
+        "selected,\n"
+        "afl-cc will select the best available (LLVM -> GCC_PLUGIN -> GCC). "
+        "The best is\n"
+        "LTO but this needs RANLIB and AR settings outside of afl-cc.\n\n");
 
     if (argc < 2 || strncmp(argv[1], "-hh", 3)) {
 
@@ -1299,8 +1402,8 @@ int main(int argc, char **argv, char **envp) {
 
     SAYF(cCYA
          "afl-cc " VERSION cRST
-         " by Michal Zalewski, Laszlo Szekeres, Marc Heuse - mode: %s\n",
-         ptr);
+         " by Michal Zalewski, Laszlo Szekeres, Marc Heuse - mode: %s-%s\n",
+         compiler_mode_string[compiler_mode], ptr);
 
   }
 
