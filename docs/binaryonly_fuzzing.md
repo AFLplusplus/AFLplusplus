@@ -104,7 +104,7 @@
 
 ## RETROWRITE
 
-  If you have an x86/x86_64 binary that still has it's symbols, is compiled
+  If you have an x86/x86_64 binary that still has its symbols, is compiled
   with position independant code (PIC/PIE) and does not use most of the C++
   features then the retrowrite solution might be for you.
   It decompiles to ASM files which can then be instrumented with afl-gcc.

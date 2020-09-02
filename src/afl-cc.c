@@ -520,7 +520,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     // cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
     // in case LLVM is installed not via a package manager or "make install"
-    // e.g. compiled download or compiled from github then it's ./lib directory
+    // e.g. compiled download or compiled from github then its ./lib directory
     // might not be in the search path. Add it if so.
     u8 *libdir = strdup(LLVM_LIBDIR);
     if (plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
