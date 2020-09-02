@@ -1186,7 +1186,7 @@ int main(int argc, char **argv, char **envp) {
         "      CLASSIC                       DEFAULT  no   yes     no   no  no "
         "    simple\n"
         "  [GCC] simple gcc instrumentation: %s%s\n"
-        "      CLASSIC                       DEFAULT  no   yes     no   no  no "
+        "      CLASSIC                       DEFAULT  no   no      no   no  no "
         "    no\n\n",
         have_lto ? "AVAILABLE" : "unavailable",
         compiler_mode == LTO ? " [SELECTED]" : "",
