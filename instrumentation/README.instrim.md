@@ -4,9 +4,12 @@ InsTrim: Lightweight Instrumentation for Coverage-guided Fuzzing
 
 ## Introduction
 
-InsTrim uses CFG and markers to instrument just what is necessary in the
-binary in llvm_mode. It is about 10-15% faster without disadvantages.
-It requires at least llvm version 3.8.0.
+InsTrim is the work of Chin-Chia Hsu, Che-Yu Wu, Hsu-Chun Hsiao and Shih-Kun Huang.
+
+It uses a CFG (call flow graph) and markers to instrument just what
+is necessary in the binary (ie less than llvm_mode). As a result the binary is
+about 10-15% faster compared to normal llvm_mode without disadvantages.
+It requires at least llvm version 3.8.0 to build.
 
 ## Usage
 
@@ -21,5 +24,6 @@ To enable this mode set `AFL_LLVM_INSTRIM_LOOPHEAD=1`.
 
 ## Background
 
-The paper: [InsTrim: Lightweight Instrumentation for Coverage-guided Fuzzing]
+The paper from Chin-Chia Hsu, Che-Yu Wu, Hsu-Chun Hsiao and Shih-Kun Huang:
+[InsTrim: Lightweight Instrumentation for Coverage-guided Fuzzing]
 (https://www.ndss-symposium.org/wp-content/uploads/2018/07/bar2018_14_Hsu_paper.pdf)
