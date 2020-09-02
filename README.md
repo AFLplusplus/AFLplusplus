@@ -272,8 +272,8 @@ You can select the mode for the afl-cc compiler by:
 MODE can be one of: LTO (afl-clang-lto*), LLVM (afl-clang-fast*), GCC_PLUGIN
 (afl-g*-fast) or GCC (afl-gcc/afl-g++).
 
-Because no afl specific command-line options are accepted
-(beside the --afl-MODE command), the compile-time tools make fairly broad use of environmental
+Because no afl specific command-line options are accepted (beside the
+--afl-MODE command), the compile-time tools make fairly broad use of environment
 variables, which can be listed with `afl-cc -hh` or by reading [docs/env_variables.md](docs/env_variables.md).
 
 #### b) Selecting instrumentation options
