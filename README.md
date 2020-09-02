@@ -104,7 +104,7 @@
 ## Help wanted
 
 We were happy to be part of [Google Summer of Code 2020](https://summerofcode.withgoogle.com/organizations/5100744400699392/)
-and we will try to participate again is 2021!
+and we will try to participate again in 2021!
 
 We have several ideas we would like to see in AFL++ to make it even better.
 However, we already work on so many things that we do not have the time for
@@ -131,7 +131,7 @@ This image is automatically generated when a push to the stable repo happens.
 You will find your target source code in /src in the container.
 
 If you want to build afl++ yourself you have many options.
-The easiest is to build and install everything:
+The easiest choice is to build and install everything:
 
 ```shell
 sudo apt install build-essential libtool-bin python3-dev automake flex bison libglib2.0-dev libpixman-1-dev clang python3-setuptools llvm
@@ -211,11 +211,11 @@ If you have a binary-only target please skip to [#Instrumenting binary-only apps
 
 Fuzzing source code is a three-step process.
 
-1. compile the target with a special compiler that prepares the target to be
+1. Compile the target with a special compiler that prepares the target to be
    fuzzed efficiently. This step is called "instrumenting a target".
 2. Prepare the fuzzing by selecting and optimizing the input corpus for the
    target.
-3. perform the fuzzing of the target by randomly mutating input and assessing
+3. Perform the fuzzing of the target by randomly mutating input and assessing
    if a generated input was processed in a new path in the target binary.
 
 ### 1. Instrumenting that target
@@ -269,12 +269,12 @@ You can select the mode for the afl-cc compiler by:
      afl-gcc-fast, afl-g++-fast
   3. using the environment variable AFL_CC_COMPILER with MODE
 
-MODE can one of LTO (afl-clang-lto*), LLVM (afl-clang-fast*), GCC_PLUGIN
+MODE can be one of: LTO (afl-clang-lto*), LLVM (afl-clang-fast*), GCC_PLUGIN
 (afl-g*-fast) or GCC (afl-gcc/afl-g++).
 
-Because beside the --afl-MODE command no afl specific command-line options
-are accepted, the compile-time tools make fairly broad use of environmental
-variables, which can be evaluated with `afl-cc -hh` or by reading [docs/env_variables.md](docs/env_variables.md)
+Because no afl specific command-line options are accepted
+(beside the --afl-MODE command), the compile-time tools make fairly broad use of environmental
+variables, which can be listed with `afl-cc -hh` or by reading [docs/env_variables.md](docs/env_variables.md).
 
 #### b) Selecting instrumentation options
 
@@ -286,7 +286,7 @@ The following options are available when you instrument with LTO mode (afl-clang
    To use this set the following environment variable before compiling the
    target: `export AFL_LLVM_LAF_ALL=1`
    You can read more about this in [instrumentation/README.laf-intel.md](instrumentation/README.laf-intel.md)
- * A different technique (and usually a better than laf-intel) is to
+ * A different technique (and usually a better one than laf-intel) is to
    instrument the target so that any compare values in the target are sent to
    afl++ which then tries to put these values into the fuzzing data at different
    locations. This technique is very fast and good - if the target does not
@@ -295,8 +295,8 @@ The following options are available when you instrument with LTO mode (afl-clang
    If you want to use this technique, then you have to compile the target
    twice, once specifically with/for this mode, and pass this binary to afl-fuzz
    via the `-c` parameter.
-   Not that you can compile also just a cmplog binary and use that for both
-   however there will a performance penality.
+   Note that you can compile also just a cmplog binary and use that for both
+   however there will be a performance penality.
    You can read more about this in [instrumentation/README.cmplog.md](instrumentation/README.cmplog.md)
 
 If you use LTO, LLVM or GCC_PLUGIN mode (afl-clang-fast/afl-clang-lto/afl-gcc-fast)
@@ -313,12 +313,12 @@ are interested in:
    `export AFL_LLVM_DENYLIST=denylist.txt` - depending on if you want per
    default to instrument unless noted (DENYLIST) or not perform instrumentation
    unless requested (ALLOWLIST).
-   **NOTE:** In optimization functions might be inlined and then not match!
-   see [instrumentation/README.instrument_list.md](instrumentation/README.instrument_list.md)
+   **NOTE:** During optimization functions might be inlined and then would not match!
+   See [instrumentation/README.instrument_list.md](instrumentation/README.instrument_list.md)
    For afl-clang-fast > 6.0 or if PCGUARD instrumentation is used then use the
    llvm sancov allow-list feature: [http://clang.llvm.org/docs/SanitizerCoverage.html](http://clang.llvm.org/docs/SanitizerCoverage.html)
    The llvm sancov format works with the allowlist/denylist feature of afl++
-   however afl++ is more flexible in the format.
+   however afl++'s format is more flexible.
 
 There are many more options and modes available however these are most of the
 time less effective. See:
@@ -326,7 +326,7 @@ time less effective. See:
  * [instrumentation/README.ngram.md](instrumentation/README.ngram.md)
  * [instrumentation/README.instrim.md](instrumentation/README.instrim.md)
 
-afl++ performs never zero counting in its bitmap. You can read more about this
+afl++ performs "never zero" counting in its bitmap. You can read more about this
 here:
  * [instrumentation/README.neverzero.md](instrumentation/README.neverzero.md)
 
@@ -335,7 +335,7 @@ here:
 If the target has features that make fuzzing more difficult, e.g.
 checksums, HMAC, etc. then modify the source code so that this is
 removed.
-This can even be done for productional source code be eliminating
+This can even be done for operational source code by eliminating
 these checks within this specific defines:
 
 ```
@@ -346,13 +346,15 @@ these checks within this specific defines:
 #endif
 ```
 
+All afl++ compilers will set this preprocessor definition automatically.
+
 #### d) Instrument the target
 
 In this step the target source code is compiled so that it can be fuzzed.
 
 Basically you have to tell the target build system that the selected afl++
 compiler is used. Also - if possible - you should always configure the
-build system that the target is compiled statically and not dynamically.
+build system such that the target is compiled statically and not dynamically.
 How to do this is described below.
 
 Then build the target. (Usually with `make`)
@@ -363,21 +365,21 @@ For `configure` build systems this is usually done by:
 `CC=afl-clang-fast CXX=afl-clang-fast++ ./configure --disable-shared`
 
 Note that if you are using the (better) afl-clang-lto compiler you also have to
-set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as it is
-described in [instrumentation/README.lto.md](instrumentation/README.lto.md)
+set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as is
+described in [instrumentation/README.lto.md](instrumentation/README.lto.md).
 
 ##### cmake
 
-For `configure` build systems this is usually done by:
+For `cmake` build systems this is usually done by:
 `mkdir build; cmake -DCMAKE_C_COMPILERC=afl-cc -DCMAKE_CXX_COMPILER=afl-c++ ..`
 
 Note that if you are using the (better) afl-clang-lto compiler you also have to
-set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as it is
-described in [instrumentation/README.lto.md](instrumentation/README.lto.md)
+set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as is
+described in [instrumentation/README.lto.md](instrumentation/README.lto.md).
 
 ##### meson
 
-For meson you have to set the afl compiler with the very first command!
+For meson you have to set the afl++ compiler with the very first command!
 `CC=afl-cc CXX=afl-c++ meson`
 
 ##### other build systems or if configure/cmake didn't work
@@ -386,7 +388,7 @@ Sometimes cmake and configure do not pick up the afl++ compiler, or the
 ranlib/ar that is needed - because this was just not foreseen by the developer
 of the target. Or they have non-standard options. Figure out if there is a 
 non-standard way to set this, otherwise set up the build normally and edit the
-generated build environment afterwards manually to point to the right compiler
+generated build environment afterwards manually to point it to the right compiler
 (and/or ranlib and ar).
 
 #### d) Better instrumentation
@@ -404,7 +406,7 @@ it. See [instrumentation/README.persistent_mode.md](instrumentation/README.persi
 Basically if you do not fuzz a target in persistent mode then you are just
 doing it for a hobby and not professionally :-)
 
-### 2. Preparing the fuzzing
+### 2. Preparing the fuzzing campaign
 
 As you fuzz the target with mutated input, having as diverse inputs for the
 target as possible improves the efficiency a lot.
@@ -417,7 +419,7 @@ reported bugs, test suites, random downloads from the internet, unit test
 case data - from all kind of PNG software.
 
 If the input format is not known, you can also modify a target program to write
-away normal data it receives and processes to a file and use these.
+normal data it receives and processes to a file and use these.
 
 #### b) Making the input corpus unique
 
@@ -431,7 +433,7 @@ the run afl-cmin like this:
 `afl-cmin -i INPUTS -o INPUTS_UNIQUE -- bin/target -d @@`
 Note that the INPUTFILE argument that the target program would read from has to be set as `@@`.
 
-If the target reads from stdin instead, just omit  the `@@` as this is the
+If the target reads from stdin instead, just omit the `@@` as this is the
 default.
 
 #### c) Minimizing all corpus files
@@ -448,7 +450,7 @@ for i in *; do
 done
 ```
 
-This can also be parallelized, e.g. with `parallel`
+This step can also be parallelized, e.g. with `parallel`
 
 #### Done!
 
@@ -472,7 +474,7 @@ before the start of afl-fuzz as this improves performance by a x2 speed increase
 
 #### a) Running afl-fuzz
 
-Before to do even a test run of afl-fuzz execute `sudo afl-system-config` (on
+Before you do even a test run of afl-fuzz execute `sudo afl-system-config` (on
 the host if you execute afl-fuzz in a docker container). This reconfigures the
 system for optimal speed - which afl-fuzz checks and bails otherwise.
 Set `export AFL_SKIP_CPUFREQ=1` for afl-fuzz to skip this check if you cannot
@@ -604,7 +606,7 @@ then terminate it. The main node will pick it up and make it available to the
 other secondary nodes over time. Set `export AFL_NO_AFFINITY=1` if you have no
 free core.
 
-Note that you in nearly all cases you can never reach full coverage. A lot of
+Note that you in nearly all cases can never reach full coverage. A lot of
 functionality is usually behind options that were not activated or fuzz e.g.
 if you fuzz a library to convert image formats and your target is the png to
 tiff API then you will not touch any of the other library APIs and features.
