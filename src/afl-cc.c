@@ -1334,8 +1334,13 @@ int main(int argc, char **argv, char **envp) {
     if (have_llvm)
       SAYF("afl-cc LLVM version %d with the the binary path \"%s\".\n",
            LLVM_MAJOR, LLVM_BINDIR);
+    if (have_lto || have_llvm) SAYF("\n");
 
-    SAYF("\n");
+    SAYF(
+        "Do not be overwhelmed :) afl-cc uses good defaults if no options are "
+        "selected.\n"
+        "Read the documentation for FEATURES though, all are good but few are "
+        "defaults.\n\n");
 
     exit(1);
 
