@@ -371,7 +371,7 @@ ready:
 
 afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
-	ln -sf afl-as as
+	@ln -sf afl-as as
 
 src/afl-performance.o : $(COMM_HDR) src/afl-performance.c include/hash.h
 	$(CC) -Iinclude $(SPECIAL_PERFORMANCE) -O3 -fno-unroll-loops -c src/afl-performance.c -o src/afl-performance.o
@@ -582,7 +582,7 @@ source-only: all
 	@echo Apache License Version 2.0, January 2004 >> $@
 
 install: all $(MANPAGES)
-	install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
+	@install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-as
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
@@ -598,9 +598,9 @@ install: all $(MANPAGES)
 	@if [ -f examples/aflpp_driver/libAFLQemuDriver.a ]; then install -m 644 examples/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	-$(MAKE) -f GNUmakefile.llvm install
 	-$(MAKE) -f GNUmakefile.gcc_plugin install
-	set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
-	set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
-	mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
+	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
+	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
+	@mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
 	install -m0644 *.8 ${DESTDIR}$(MAN_PATH)
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
 	ln -sf afl-as $${DESTDIR}$(HELPER_PATH)/as
