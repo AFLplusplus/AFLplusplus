@@ -39,7 +39,7 @@
   with laf-intel and redqueen, unicorn mode, gcc plugin, full *BSD, Solaris and
   Android support and much, much, much more.
 
-  | Feature/Instrumentation  | afl-gcc | instrumentation | gcc_plugin | qemu_mode        | unicorn_mode |
+  | Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | qemu_mode        | unicorn_mode |
   | -------------------------|:-------:|:---------:|:----------:|:----------------:|:------------:|
   | NeverZero                | x86[_64]|     x(1)  |      (2)   |         x        |       x      |
   | Persistent Mode          |         |     x     |     x      | x86[_64]/arm[64] |       x      |
@@ -47,9 +47,8 @@
   | CmpLog                   |         |     x     |            | x86[_64]/arm[64] |              |
   | Selective Instrumentation|         |     x     |     x      |        (x)(3)    |              |
   | Non-Colliding Coverage   |         |     x(4)  |            |        (x)(5)    |              |
-  | InsTrim                  |         |     x     |            |                  |              |
   | Ngram prev_loc Coverage  |         |     x(6)  |            |                  |              |
-  | Context Coverage         |         |     x     |            |                  |              |
+  | Context Coverage         |         |     x(6)  |            |                  |              |
   | Auto Dictionary          |         |     x(7)  |            |                  |              |
   | Snapshot LKM Support     |         |     x     |            |        (x)(5)    |              |
 
@@ -59,7 +58,7 @@
   4. with pcguard mode and LTO mode for LLVM >= 11
   5. upcoming, development in the branch
   6. not compatible with LTO instrumentation and needs at least LLVM >= 4.1
-  7. only in LTO mode with LLVM >= 11
+  7. automatic in LTO mode with LLVM >= 11, an extra pass for all LLVM version that writes to a file to use with afl-fuzz' `-x`
 
   Among others, the following features and patches have been integrated:
 
@@ -71,7 +70,6 @@
   * AFLfast's power schedules by Marcel Böhme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
   * The MOpt mutator: [https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)
   * LLVM mode Ngram coverage by Adrian Herrera [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
-  * InsTrim, a CFG instrumentation instrumentation implementation: [https://github.com/csienslab/instrim](https://github.com/csienslab/instrim)
   * C. Holler's afl-fuzz Python mutator module: [https://github.com/choller/afl](https://github.com/choller/afl)
   * Custom mutator by a library (instead of Python) by kyakdan
   * LAF-Intel/CompCov support for instrumentation, qemu_mode and unicorn_mode (with enhanced capabilities)
@@ -88,7 +86,7 @@
   send a mail to <afl-users+subscribe@googlegroups.com>.
 
   See [docs/QuickStartGuide.md](docs/QuickStartGuide.md) if you don't have time to
-  read this file.
+  read this file - however this is not recommended!
 
 ## Branches
 
@@ -105,13 +103,14 @@
 
 ## Help wanted
 
-We are happy to be part of [Google Summer of Code 2020](https://summerofcode.withgoogle.com/organizations/5100744400699392/)! :-)
+We were happy to be part of [Google Summer of Code 2020](https://summerofcode.withgoogle.com/organizations/5100744400699392/)
+and we will try to participate again is 2021!
 
 We have several ideas we would like to see in AFL++ to make it even better.
 However, we already work on so many things that we do not have the time for
 all the big ideas.
 
-This can be your way to support and contribute to AFL++ - extend it to
+This can be your way to support and contribute to AFL++ - extend it to do
 something cool.
 
 We have an idea list in [docs/ideas.md](docs/ideas.md).
@@ -223,7 +222,8 @@ Fuzzing source code is a three-step process.
 
 #### a) Selecting the best afl++ compiler for instrumenting the target
 
-afl++ comes with different compilers and instrumentation options.
+afl++ comes with a central compiler `afl-cc` that incorporates various different
+kinds of compiler targets and and instrumentation options.
 The following evaluation flow will help you to select the best possible.
 
 It is highly recommended to have the newest llvm version possible installed,
@@ -231,41 +231,54 @@ anything below 9 is not recommended.
 
 ```
 +--------------------------------+
-| clang/clang++ 11+ is available | --> use afl-clang-lto and afl-clang-lto++
+| clang/clang++ 11+ is available | --> use LTO mode (afl-clang-lto/afl-clang-lto++)
 +--------------------------------+     see [instrumentation/README.lto.md](instrumentation/README.lto.md)
     |
-    | if not, or if the target fails with afl-clang-lto/++
+    | if not, or if the target fails with LTO afl-clang-lto/++
     |
     v
 +---------------------------------+
-| clang/clang++ 3.3+ is available | --> use afl-clang-fast and afl-clang-fast++
+| clang/clang++ 3.3+ is available | --> use LLVM mode (afl-clang-fast/afl-clang-fast++)
 +---------------------------------+     see [instrumentation/README.md](instrumentation/README.md)
     |
-    | if not, or if the target fails with afl-clang-fast/++
+    | if not, or if the target fails with LLVM afl-clang-fast/++
     |
     v
  +--------------------------------+
- | if you want to instrument only | -> use afl-gcc-fast and afl-gcc-fast++
+ | if you want to instrument only | -> use GCC_PLUGIN mode (afl-gcc-fast/afl-g++-fast)
  | parts of the target            |    see [instrumentation/README.gcc_plugin.md](instrumentation/README.gcc_plugin.md) and
  +--------------------------------+    [instrumentation/README.instrument_list.md](instrumentation/README.instrument_list.md)
     |
     | if not, or if you do not have a gcc with plugin support
     |
     v
-   use afl-gcc and afl-g++ (or afl-clang and afl-clang++)
+   use GCC mode (afl-gcc/afl-g++) (or afl-clang/afl-clang++ for clang)
 ```
 
 Clickable README links for the chosen compiler:
 
-  * [afl-clang-lto](instrumentation/README.lto.md)
-  * [afl-clang-fast](instrumentation/README.md)
-  * [afl-gcc-fast](instrumentation/README.gcc_plugin.md)
-  * afl-gcc has no README as it has no features
+  * [LTO mode - afl-clang-lto](instrumentation/README.lto.md)
+  * [LLVM mode - afl-clang-fast](instrumentation/README.md)
+  * [GCC_PLUGIN mode - afl-gcc-fast](instrumentation/README.gcc_plugin.md)
+  * GCC mode (afl-gcc) has no README as it has no own features
+
+You can select the mode for the afl-cc compiler by:
+  1. passing --afl-MODE command line options to the compiler via CFLAGS/CXXFLAGS/CPPFLAGS
+  2. use a symlink to afl-cc: afl-gcc, afl-g++, afl-clang, afl-clang++,
+     afl-clang-fast, afl-clang-fast++, afl-clang-lto, afl-clang-lto++,
+     afl-gcc-fast, afl-g++-fast
+  3. using the environment variable AFL_CC_COMPILER with MODE
+
+MODE can one of LTO (afl-clang-lto*), LLVM (afl-clang-fast*), GCC_PLUGIN
+(afl-g*-fast) or GCC (afl-gcc/afl-g++).
+
+Because beside the --afl-MODE command no afl specific command-line options
+are accepted, the compile-time tools make fairly broad use of environmental
+variables, which can be evaluated with `afl-cc -hh` or by reading [docs/env_variables.md](docs/env_variables.md)
 
 #### b) Selecting instrumentation options
 
-The following options are available when you instrument with afl-clang-fast or
-afl-clang-lto:
+The following options are available when you instrument with LTO mode (afl-clang-fast/afl-clang-lto):
 
  * Splitting integer, string, float and switch comparisons so afl++ can easier
    solve these. This is an important option if you do not have a very good
@@ -286,8 +299,9 @@ afl-clang-lto:
    however there will a performance penality.
    You can read more about this in [instrumentation/README.cmplog.md](instrumentation/README.cmplog.md)
 
-If you use afl-clang-fast, afl-clang-lto or afl-gcc-fast you have the option to
-selectively only instrument parts of the target that you are interested in:
+If you use LTO, LLVM or GCC_PLUGIN mode (afl-clang-fast/afl-clang-lto/afl-gcc-fast)
+ you have the option to selectively only instrument parts of the target that you
+are interested in:
 
  * To instrument only those parts of the target that you are interested in
    create a file with all the filenames of the source code that should be
@@ -312,7 +326,7 @@ time less effective. See:
  * [instrumentation/README.ngram.md](instrumentation/README.ngram.md)
  * [instrumentation/README.instrim.md](instrumentation/README.instrim.md)
 
-afl++ employs never zero counting in its bitmap. You can read more about this
+afl++ performs never zero counting in its bitmap. You can read more about this
 here:
  * [instrumentation/README.neverzero.md](instrumentation/README.neverzero.md)
 
@@ -355,14 +369,16 @@ described in [instrumentation/README.lto.md](instrumentation/README.lto.md)
 ##### cmake
 
 For `configure` build systems this is usually done by:
-`mkdir build; cd build; CC=afl-clang-fast CXX=afl-clang-fast++ cmake ..`
-
-Some cmake scripts require something like `-DCMAKE_CC=... -DCMAKE_CXX=...`
-or `-DCMAKE_C_COMPILER=... DCMAKE_CPP_COMPILER=...` instead.
+`mkdir build; cmake -DCMAKE_C_COMPILERC=afl-cc -DCMAKE_CXX_COMPILER=afl-c++ ..`
 
 Note that if you are using the (better) afl-clang-lto compiler you also have to
 set AR to llvm-ar[-VERSION] and RANLIB to llvm-ranlib[-VERSION] - as it is
 described in [instrumentation/README.lto.md](instrumentation/README.lto.md)
+
+##### meson
+
+For meson you have to set the afl compiler with the very first command!
+`CC=afl-cc CXX=afl-c++ meson`
 
 ##### other build systems or if configure/cmake didn't work
 

@@ -1211,13 +1211,13 @@ int main(int argc, char **argv, char **envp) {
         "(instrumentation/README.instrim.md)\n\n");
 
     SAYF(
-        "Features: (see documentation link)\n"
+        "Features: (see documentation links)\n"
         "  NC:     non-colliding coverage [automatic] (that is an amazing "
         "thing!)\n"
         "          (instrumentation/README.lto.md)\n"
         "  PERSIST: persistent mode support [code] (huge speed increase!)\n"
         "          (instrumentation/README.persistent_mode.md)\n"
-        "  SNAP:   linux lkm snapshot module support\n"
+        "  SNAP:   linux lkm snapshot module support [automatic] (speed increase)\n"
         "          (https://github.com/AFLplusplus/AFL-Snapshot-LKM/)\n"
         "  DICT:   dictionary in the target [yes=automatic or llvm module pass]\n"
         "          (instrumentation/README.lto.md + instrumentation/README.llvm.md)\n"
