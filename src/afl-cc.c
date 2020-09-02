@@ -245,8 +245,7 @@ static void find_obj(u8 *argv0) {
 static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
-     preprocessor_only = 0;
-  u8  have_pic = 0;
+     preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0;
   u8 *name;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
@@ -476,20 +475,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       if (!*ld_path) ld_path = "ld.lld";
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
       cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", ld_path);
-/*
-      u8 *ld_ptr = strrchr(ld_path, '/');
-      if (!ld_ptr) {
-
-        cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=ld.lld");
-
-      } else {
-
-        ld_ptr++;
-        cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_ptr);
-
-      }
-
-*/
 #else
       cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_path);
 #endif
@@ -572,26 +557,26 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     u8 *cur = *(++argv);
 
     if (!strncmp(cur, "--afl", 5)) continue;
+    if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
+    if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
+    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
+      continue;
 
     if (!strcmp(cur, "-m32")) bit_mode = 32;
     if (!strcmp(cur, "armv7a-linux-androideabi")) bit_mode = 32;
     if (!strcmp(cur, "-m64")) bit_mode = 64;
-
-    if (!strcmp(cur, "-x")) x_set = 1;
 
     if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
       asan_set = 1;
 
     if (strstr(cur, "FORTIFY_SOURCE")) fortify_set = 1;
 
-    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
-      continue;
-
-    if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
-    if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
-
+    if (!strcmp(cur, "-x")) x_set = 1;
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
+
+    if (!strncmp(cur, "-O", 2)) have_o = 1;
+    if (!strncmp(cur, "-f", 2) && strstr(cur, "unroll-loop")) have_unroll = 1;
 
     cc_params[cc_par_cnt++] = cur;
 
@@ -658,8 +643,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (!getenv("AFL_DONT_OPTIMIZE")) {
 
     cc_params[cc_par_cnt++] = "-g";
-    cc_params[cc_par_cnt++] = "-O3";
-    cc_params[cc_par_cnt++] = "-funroll-loops";
+    if (!have_o) cc_params[cc_par_cnt++] = "-O3";
+    if (!have_unroll) cc_params[cc_par_cnt++] = "-funroll-loops";
     // if (strlen(march_opt) > 1 && march_opt[0] == '-')
     //  cc_params[cc_par_cnt++] = march_opt;
 

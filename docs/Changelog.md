@@ -9,6 +9,11 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+    - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz -x
+      dictionary of string comparisons found during compilation
+    - not overriding -Ox or -fno-unroll-loops anymore
+
+
 ### Version ++2.67d (develop)
   - afl-fuzz:
     - Fix for auto dictionary entries found during fuzzing to not throw out
