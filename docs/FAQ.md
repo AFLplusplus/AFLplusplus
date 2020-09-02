@@ -41,7 +41,7 @@ e.g. [Fuzzbench Report](https://www.fuzzbench.com/reports/2020-08-03/index.html)
   2. Use [persistent mode](llvm_mode/README.persistent_mode.md) (x2-x20 speed increase)
   3. Use the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) (x2 speed increase)
   4. If you do not use shmem persistent mode, use `AFL_TMPDIR` to put the input file directory on a tempfs location, see [docs/env_variables.md](docs/env_variables.md)
-  5. Improve Linux kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure)
+  5. Improve Linux kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system less secure)
   6. Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem
   7. Use your cores! [README.md:3.b) Using multiple cores/threads](../README.md#b-using-multiple-coresthreads)
 
@@ -51,10 +51,8 @@ The short answer is - you cannot, at least not "out of the box".
 
 Using a network channel is inadequate for several reasons:
 - it has a slow-down of x10-20 on the fuzzing speed
-- it does not scale to multiple connections,
-- instead of one initial data packet often a back-and-forth
-interplay of packets is needed for stateful protocols
-(which is totally unsupported by most coverage aware fuzzers).
+- it does not scale to fuzzing multiple instances easily,
+- instead of one initial data packet often a back-and-forth interplay of packets is needed for stateful protocols (which is totally unsupported by most coverage aware fuzzers).
 
 The established method to fuzz network services is to modify the source code
 to read from a file or stdin (fd 0) (or even faster via shared memory, combine
@@ -90,8 +88,8 @@ functionality for processing the input that the GUI program is using.
 A program contains `functions`, `functions` contain the compiled machine code.
 The compiled machine code in a `function` can be in a single or many `basic blocks`.
 A `basic block` is the largest possible number of subsequent machine code
-instructions that has exactly one entry (at the beginning) and runs linearly without
-branching or jumping to other addresses (except at the end).
+instructions that has exactly one entrypoint (which can be be entered by multiple other basic blocks)
+and runs linearly without branching or jumping to other addresses (except at the end).
 ```
 function() {
   A:
@@ -126,6 +124,7 @@ code example above):
               Block E
 ```
 Every line between two blocks is an `edge`.
+Note that a few basic block loop to itself, this too would be an edge.
 
 ## Why is my stability below 100%?
 
