@@ -1153,38 +1153,38 @@ int main(int argc, char **argv, char **envp) {
         "following:\n\n"
 
         "  CC=afl-cc CXX=afl-c++ ./configure --disable-shared\n"
-        "  cmake . -DCMAKE_C_COMPILERC=afl-cc -DCMAKE_CXX_COMPILER=afl-c++\n"
+        "  cmake -DCMAKE_C_COMPILERC=afl-cc -DCMAKE_CXX_COMPILER=afl-c++ .\n"
         "  CC=afl-cc CXX=afl-c++ meson\n\n");
 
     SAYF(
-        "                                    |----------------- FEATURES "
+        "                                     |---------------- FEATURES "
         "---------------|\n"
-        "MODES:                               NC   PERSIST SNAP DICT   LAF "
+        "MODES:                                NCC PERSIST SNAP DICT   LAF "
         "CMPLOG SELECT\n"
         "  [LTO] llvm LTO:          %s%s\n"
-        "      PCGUARD              DEFAULT   yes  yes     yes  yes    yes yes "
+        "      PCGUARD              DEFAULT    yes yes     yes  yes    yes yes "
         "   yes\n"
-        "      CLASSIC                        yes  yes     yes  yes    yes yes "
+        "      CLASSIC                         yes yes     yes  yes    yes yes "
         "   yes\n"
         "  [LLVM] llvm:             %s%s\n"
-        "      PCGUARD              %s   yes  yes     yes  yes  module yes    "
+        "      PCGUARD              %s    yes yes     yes  module yes yes    "
         "extern\n"
-        "      CLASSIC              %s   no   yes     yes  yes  module yes    "
+        "      CLASSIC              %s    no  yes     yes  module yes yes    "
         "yes\n"
         "        - NORMAL\n"
         "        - CTX\n"
-        "        - NGRAM2-16\n"
-        "      INSTRIM                        no   yes     yes  module yes yes "
+        "        - NGRAM-{2-16}\n"
+        "      INSTRIM                         no  yes     yes  module yes yes "
         "   yes\n"
         "        - NORMAL\n"
         "        - CTX\n"
         "        - NGRAM-{2-16}\n"
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
-        "      CLASSIC              DEFAULT   no   yes     no   no   no  no    "
-        " simple\n"
+        "      CLASSIC              DEFAULT    no  yes     yes  no     no  no  "
+        "   simple\n"
         "  [GCC] simple gcc:        %s%s\n"
-        "      CLASSIC              DEFAULT   no   no      no   no   no  no    "
-        " no\n\n",
+        "      CLASSIC              DEFAULT    no  no      no   no     no  no  "
+        "   no\n\n",
         have_lto ? "AVAILABLE" : "unavailable",
         compiler_mode == LTO ? " [SELECTED]" : "",
         have_llvm ? "AVAILABLE" : "unavailable",
@@ -1221,7 +1221,7 @@ int main(int argc, char **argv, char **envp) {
 
     SAYF(
         "Features: (see documentation links)\n"
-        "  NC:     non-colliding coverage [automatic] (that is an amazing "
+        "  NCC:    non-colliding coverage [automatic] (that is an amazing "
         "thing!)\n"
         "          (instrumentation/README.lto.md)\n"
         "  PERSIST: persistent mode support [code] (huge speed increase!)\n"
