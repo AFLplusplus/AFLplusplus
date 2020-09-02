@@ -1211,7 +1211,7 @@ int main(int argc, char **argv, char **envp) {
         "of afl-cc.\n\n");
 
     SAYF(
-        "Sub-Modes: (set via env AFL_LLVM_INSTRUMENT)\n"
+        "Sub-Modes: (set via env AFL_LLVM_INSTRUMENT, afl-cc selects the best available)\n"
         "  PCGUARD: Dominator tree instrumentation (best!) (README.llvm.md)\n"
         "  CLASSIC: decision target instrumentation (README.llvm.md)\n"
         "  CTX:     CLASSIC + callee context (instrumentation/README.ctx.md)\n"
