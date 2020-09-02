@@ -1157,8 +1157,9 @@ int main(int argc, char **argv, char **envp) {
         "runtime instrumentation. A common use pattern would be one of the "
         "following:\n\n"
 
-        "  CC=%s CXX=%s ./configure --disable-shared\n\n",
-        fp, fp);
+        "  CC=afl-cc CXX=afl-c++ ./configure --disable-shared\n"
+        "  cmake . -DCMAKE_C_COMPILERC=afl-cc -DCMAKE_CXX_COMPILER=afl-c++\n"
+        "  CC=afl-cc CXX=afl-c++ meson\n\n");
 
     SAYF(
         "Modes: LTO LLVM GCC_PLUGIN GCC     Features: NC   PERSIST DICT LAF "
