@@ -175,7 +175,7 @@ static void find_obj(u8 *argv0) {
   if (afl_path) {
 
 #ifdef __ANDROID__
-    tmp = alloc_printf("%s/afl-llvm-rt.so", afl_path);
+    tmp = alloc_printf("%s/afl-compiler-rt.so", afl_path);
 #else
     tmp = alloc_printf("%s/afl-compiler-rt.o", afl_path);
 #endif
@@ -203,7 +203,7 @@ static void find_obj(u8 *argv0) {
     *slash = '/';
 
 #ifdef __ANDROID__
-    tmp = alloc_printf("%s/afl-llvm-rt.so", dir);
+    tmp = alloc_printf("%s/afl-compiler-rt.so", dir);
 #else
     tmp = alloc_printf("%s/afl-compiler-rt.o", dir);
 #endif
@@ -222,7 +222,7 @@ static void find_obj(u8 *argv0) {
   }
 
 #ifdef __ANDROID__
-  if (!access(AFL_PATH "/afl-llvm-rt.so", R_OK)) {
+  if (!access(AFL_PATH "/afl-compiler-rt.so", R_OK)) {
 
 #else
   if (!access(AFL_PATH "/afl-compiler-rt.o", R_OK)) {
@@ -1258,7 +1258,7 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_NO_BUILTIN: no builtins for string compare functions (for "
           "libtokencap.so)\n"
           "  AFL_PATH: path to instrumenting pass and runtime  "
-          "(afl-llvm-rt.*o)\n"
+          "(afl-compiler-rt.*o)\n"
           "  AFL_LLVM_DOCUMENT_IDS: document edge IDs given to which function "
           "(LTO only)\n"
           "  AFL_QUIET: suppress verbose output\n"

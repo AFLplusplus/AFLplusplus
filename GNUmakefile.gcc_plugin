@@ -155,8 +155,8 @@ vpath  % ..
 	ln -sf afl-cc.8 ./afl-g++-fast.8
 
 install: all
-	install -m 755 ./afl-gcc-fast $${DESTDIR}$(BIN_PATH)
-	ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast
+	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc-fast
+	ln -sf afl-c++ $${DESTDIR}$(BIN_PATH)/afl-g++-fast
 	install -m 755 ./afl-gcc-pass.so $${DESTDIR}$(HELPER_PATH)
 	install -m 644 -T instrumentation/README.gcc_plugin.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
 

@@ -218,7 +218,7 @@ ifneq "$(findstring NetBSD, $(shell uname))" ""
   LDFLAGS += -lpthread
 endif
 
-TEST_CC  = afl-gcc
+TEST_CC = afl-gcc
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
 
