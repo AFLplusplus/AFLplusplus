@@ -462,13 +462,26 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (lto_mode) {
 
+      u8 *ld_path = strdup(AFL_REAL_LD);
+      if (!*ld_path) ld_path = "ld.lld";
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
-      u8 *ld_ptr = strrchr(AFL_REAL_LD, '/');
-      if (!ld_ptr) ld_ptr = "ld.lld";
-      cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_ptr);
-      cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", AFL_REAL_LD);
+      cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", ld_path);
+/*
+      u8 *ld_ptr = strrchr(ld_path, '/');
+      if (!ld_ptr) {
+
+        cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=ld.lld");
+
+      } else {
+
+        ld_ptr++;
+        cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_ptr);
+
+      }
+
+*/
 #else
-      cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
+      cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_path);
 #endif
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
@@ -1310,8 +1323,11 @@ int main(int argc, char **argv, char **envp) {
         "consult the README.md, especially section 3.1 about instrumenting "
         "targets.\n\n");
 
-    SAYF("afl-cc LLVM version %d with the the binary path \"%s\".\n",
-         LLVM_MAJOR, LLVM_BINDIR);
+    if (have_lto)
+      SAYF("afl-cc LTO with ld=%s %s\n", AFL_REAL_LD, AFL_CLANG_FLTO);
+    if (have_llvm)
+      SAYF("afl-cc LLVM version %d with the the binary path \"%s\".\n",
+           LLVM_MAJOR, LLVM_BINDIR);
 
     SAYF("\n");
 
