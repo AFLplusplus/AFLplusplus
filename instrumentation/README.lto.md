@@ -95,10 +95,7 @@ export PATH=`pwd`/bin:$PATH
 export LLVM_CONFIG=`pwd`/bin/llvm-config
 cd /path/to/AFLplusplus/
 make
-cd llvm_mode
-make
-cd ..
-make install
+sudo make install
 ```
 
 ## How to use afl-clang-lto
@@ -151,7 +148,7 @@ these.
 An example of a hard to solve target is ffmpeg. Here is how to successfully
 instrument it:
 
-1. Get and extract the current ffmpeg and change to it's directory
+1. Get and extract the current ffmpeg and change to its directory
 
 2. Running configure with --cc=clang fails and various other items will fail
    when compiling, so we have to trick configure:
