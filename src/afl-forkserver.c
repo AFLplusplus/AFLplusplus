@@ -251,6 +251,12 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
       }
 
+      // enable terminating on sigpipe in the childs
+      struct sigaction sa;
+      memset((char *)&sa, 0, sizeof(sa));
+      sa.sa_handler = SIG_DFL;
+      sigaction(SIGPIPE, &sa, NULL);
+
       signal(SIGCHLD, old_sigchld_handler);
       // FORKSRV_FD is for communication with AFL, we don't need it in the
       // child.
@@ -371,6 +377,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   if (!fsrv->fsrv_pid) {
 
     /* CHILD PROCESS */
+
+    // enable terminating on sigpipe in the childs
+    struct sigaction sa;
+    memset((char *)&sa, 0, sizeof(sa));
+    sa.sa_handler = SIG_DFL;
+    sigaction(SIGPIPE, &sa, NULL);
+
     struct rlimit r;
 
     /* Umpf. On OpenBSD, the default fd limit for root users is set to
