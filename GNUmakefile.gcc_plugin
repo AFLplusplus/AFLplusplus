@@ -24,7 +24,7 @@ PREFIX      ?= /usr/local
 HELPER_PATH ?= $(PREFIX)/lib/afl
 BIN_PATH    ?= $(PREFIX)/bin
 DOC_PATH    ?= $(PREFIX)/share/doc/afl
-MAN_PATH    ?= $(PREFIX)/man/man8
+MAN_PATH    ?= $(PREFIX)/share/man/man8
 
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ./config.h | cut -d '"' -f2)
 
@@ -110,7 +110,7 @@ test_deps:
 	@echo "[+] All set and ready to build."
 
 afl-common.o: ./src/afl-common.c
-	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ $(LDFLAGS)
 
 ./afl-gcc-pass.so: instrumentation/afl-gcc-pass.so.cc | test_deps
 	$(CXX) $(CXXEFLAGS) $(PLUGIN_FLAGS) -shared $< -o $@
@@ -121,7 +121,7 @@ afl-common.o: ./src/afl-common.c
 
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
-	unset AFL_USE_ASAN AFL_USE_MSAN; AFL_QUIET=1 AFL_INST_RATIO=100 AFL_PATH=. AFL_CC=$(CC) ./afl-gcc-fast $(CFLAGS) ./test-instr.c -o test-instr $(LDFLAGS)
+	unset AFL_USE_ASAN AFL_USE_MSAN; AFL_QUIET=1 AFL_INST_RATIO=100 AFL_PATH=. AFL_CC=$(CC) ./afl-gcc-fast $(CFLAGS) $(CPPFLAGS) ./test-instr.c -o test-instr $(LDFLAGS)
 	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr </dev/null
 	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
@@ -155,11 +155,11 @@ vpath  % ..
 	ln -sf afl-cc.8 ./afl-g++-fast.8
 
 install: all
-	install -m 755 ./afl-gcc-fast $${DESTDIR}$(BIN_PATH)
-	ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast
+	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc-fast
+	ln -sf afl-c++ $${DESTDIR}$(BIN_PATH)/afl-g++-fast
 	install -m 755 ./afl-gcc-pass.so $${DESTDIR}$(HELPER_PATH)
 	install -m 644 -T instrumentation/README.gcc_plugin.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 .test2
-	rm -f $(PROGS) afl-common.o ./afl-g++-fast ./afl-g*-fast.8
+	rm -f $(PROGS) afl-common.o ./afl-g++-fast ./afl-g*-fast.8 instrumentation/*.o

@@ -39,7 +39,6 @@ static u8   llvm_fullpath[PATH_MAX];
 static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode,
     compiler_mode, plusplus_mode;
 static u8  have_gcc, have_llvm, have_gcc_plugin, have_lto;
-static u8  selected_gcc, selected_lto, selected_gcc_plugin, selected_llvm;
 static u8 *lto_flag = AFL_CLANG_FLTO, *argvnull;
 static u8  debug;
 static u8  cwd[4096];
@@ -80,8 +79,8 @@ enum {
 
 char compiler_mode_string[6][12] = {
 
-    "UNSET", "LLVM-LTO", "LLVM", "GCC-PLUGIN",
-    "GCC",   ""
+    "AUTOSELECT", "LLVM-LTO", "LLVM", "GCC_PLUGIN",
+    "GCC",        ""
 
 };
 
@@ -176,7 +175,7 @@ static void find_obj(u8 *argv0) {
   if (afl_path) {
 
 #ifdef __ANDROID__
-    tmp = alloc_printf("%s/afl-llvm-rt.so", afl_path);
+    tmp = alloc_printf("%s/afl-compiler-rt.so", afl_path);
 #else
     tmp = alloc_printf("%s/afl-compiler-rt.o", afl_path);
 #endif
@@ -204,7 +203,7 @@ static void find_obj(u8 *argv0) {
     *slash = '/';
 
 #ifdef __ANDROID__
-    tmp = alloc_printf("%s/afl-llvm-rt.so", dir);
+    tmp = alloc_printf("%s/afl-compiler-rt.so", dir);
 #else
     tmp = alloc_printf("%s/afl-compiler-rt.o", dir);
 #endif
@@ -223,7 +222,7 @@ static void find_obj(u8 *argv0) {
   }
 
 #ifdef __ANDROID__
-  if (!access(AFL_PATH "/afl-llvm-rt.so", R_OK)) {
+  if (!access(AFL_PATH "/afl-compiler-rt.so", R_OK)) {
 
 #else
   if (!access(AFL_PATH "/afl-compiler-rt.o", R_OK)) {
@@ -246,8 +245,7 @@ static void find_obj(u8 *argv0) {
 static void edit_params(u32 argc, char **argv, char **envp) {
 
   u8 fortify_set = 0, asan_set = 0, x_set = 0, bit_mode = 0, shared_linking = 0,
-     preprocessor_only = 0;
-  u8  have_pic = 0;
+     preprocessor_only = 0, have_unroll = 0, have_o = 0, have_pic = 0;
   u8 *name;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8 *));
@@ -266,21 +264,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           "identify the correct -flto flag");
     else
       compiler_mode = LTO;
-
-  }
-
-  if (!compiler_mode) {
-
-    // lto is not a default because outside of afl-cc RANLIB and AR have to
-    // be set to llvm versions so this would work
-    if (have_llvm)
-      compiler_mode = LLVM;
-    else if (have_gcc_plugin)
-      compiler_mode = GCC_PLUGIN;
-    else if (have_gcc)
-      compiler_mode = GCC;
-    else
-      FATAL("no compiler mode available");
 
   }
 
@@ -371,6 +354,16 @@ static void edit_params(u32 argc, char **argv, char **envp) {
             alloc_printf("%s/afl-llvm-lto-instrumentlist.so", obj_path);
 
       }
+
+    }
+
+    if (getenv("AFL_LLVM_DICT2FILE")) {
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-llvm-dict2file.so", obj_path);
 
     }
 
@@ -478,13 +471,12 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     if (lto_mode) {
 
+      u8 *ld_path = strdup(AFL_REAL_LD);
+      if (!*ld_path) ld_path = "ld.lld";
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 12
-      u8 *ld_ptr = strrchr(AFL_REAL_LD, '/');
-      if (!ld_ptr) ld_ptr = "ld.lld";
-      cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_ptr);
-      cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", AFL_REAL_LD);
+      cc_params[cc_par_cnt++] = alloc_printf("--ld-path=%s", ld_path);
 #else
-      cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", AFL_REAL_LD);
+      cc_params[cc_par_cnt++] = alloc_printf("-fuse-ld=%s", ld_path);
 #endif
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
@@ -564,25 +556,27 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     u8 *cur = *(++argv);
 
+    if (!strncmp(cur, "--afl", 5)) continue;
+    if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
+    if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
+    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
+      continue;
+
     if (!strcmp(cur, "-m32")) bit_mode = 32;
     if (!strcmp(cur, "armv7a-linux-androideabi")) bit_mode = 32;
     if (!strcmp(cur, "-m64")) bit_mode = 64;
-
-    if (!strcmp(cur, "-x")) x_set = 1;
 
     if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
       asan_set = 1;
 
     if (strstr(cur, "FORTIFY_SOURCE")) fortify_set = 1;
 
-    if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
-      continue;
-
-    if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
-    if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
-
+    if (!strcmp(cur, "-x")) x_set = 1;
     if (!strcmp(cur, "-E")) preprocessor_only = 1;
     if (!strcmp(cur, "-shared")) shared_linking = 1;
+
+    if (!strncmp(cur, "-O", 2)) have_o = 1;
+    if (!strncmp(cur, "-f", 2) && strstr(cur, "unroll-loop")) have_unroll = 1;
 
     cc_params[cc_par_cnt++] = cur;
 
@@ -649,8 +643,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   if (!getenv("AFL_DONT_OPTIMIZE")) {
 
     cc_params[cc_par_cnt++] = "-g";
-    cc_params[cc_par_cnt++] = "-O3";
-    cc_params[cc_par_cnt++] = "-funroll-loops";
+    if (!have_o) cc_params[cc_par_cnt++] = "-O3";
+    if (!have_unroll) cc_params[cc_par_cnt++] = "-funroll-loops";
     // if (strlen(march_opt) > 1 && march_opt[0] == '-')
     //  cc_params[cc_par_cnt++] = march_opt;
 
@@ -808,9 +802,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+  #ifndef __APPLE__
     if (!shared_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
+  #endif
 
   }
 
@@ -870,27 +866,102 @@ int main(int argc, char **argv, char **envp) {
 
   if (strncmp(callname, "afl-clang-fast", 14) == 0) {
 
-    selected_llvm = 1;
     compiler_mode = LLVM;
 
   } else if (strncmp(callname, "afl-clang-lto", 13) == 0) {
 
-    selected_lto = 1;
     compiler_mode = LTO;
 
   } else if (strncmp(callname, "afl-gcc-fast", 12) == 0 ||
 
              strncmp(callname, "afl-g++-fast", 12) == 0) {
 
-    selected_gcc_plugin = 1;
     compiler_mode = GCC_PLUGIN;
 
   } else if (strncmp(callname, "afl-gcc", 7) == 0 ||
 
              strncmp(callname, "afl-g++", 7) == 0) {
 
-    selected_gcc = 1;
     compiler_mode = GCC;
+
+  }
+
+  if ((ptr = getenv("AFL_CC_COMPILER"))) {
+
+    if (compiler_mode) {
+
+      WARNF(
+          "\"AFL_CC_COMPILER\" is set but a specific compiler was already "
+          "selected by command line parameter or symlink, ignoring the "
+          "environment variable!");
+
+    } else {
+
+      if (strncasecmp(ptr, "LTO", 3) == 0) {
+
+        compiler_mode = LTO;
+
+      } else if (strncasecmp(ptr, "LLVM", 4) == 0) {
+
+        compiler_mode = LLVM;
+
+      } else if (strncasecmp(ptr, "GCC_P", 5) == 0 ||
+
+                 strncasecmp(ptr, "GCC-P", 5) == 0 ||
+                 strncasecmp(ptr, "GCCP", 4) == 0) {
+
+        compiler_mode = GCC_PLUGIN;
+
+      } else if (strcasecmp(ptr, "GCC") == 0) {
+
+        compiler_mode = GCC;
+
+      } else
+
+        FATAL("Unknown AFL_CC_COMPILER mode: %s\n", ptr);
+
+    }
+
+  }
+
+  for (i = 1; i < argc; i++) {
+
+    if (strncmp(argv[i], "--afl", 5) == 0) {
+
+      if (compiler_mode)
+        WARNF(
+            "--afl-... compiler mode supersedes the AFL_CC_COMPILER and "
+            "symlink compiler selection!");
+
+      ptr = argv[i];
+      ptr += 5;
+      while (*ptr == '-')
+        ptr++;
+
+      if (strncasecmp(ptr, "LTO", 3) == 0) {
+
+        compiler_mode = LTO;
+
+      } else if (strncasecmp(ptr, "LLVM", 4) == 0) {
+
+        compiler_mode = LLVM;
+
+      } else if (strncasecmp(ptr, "GCC_P", 5) == 0 ||
+
+                 strncasecmp(ptr, "GCC-P", 5) == 0 ||
+                 strncasecmp(ptr, "GCCP", 4) == 0) {
+
+        compiler_mode = GCC_PLUGIN;
+
+      } else if (strcasecmp(ptr, "GCC") == 0) {
+
+        compiler_mode = GCC;
+
+      } else
+
+        FATAL("Unknown --afl-... compiler mode: %s\n", argv[i]);
+
+    }
 
   }
 
@@ -1016,11 +1087,16 @@ int main(int argc, char **argv, char **envp) {
         ptr += strlen("ngram");
         while (*ptr && (*ptr < '0' || *ptr > '9'))
           ptr++;
-        if (!*ptr)
+
+        if (!*ptr) {
+
           if ((ptr = getenv("AFL_LLVM_NGRAM_SIZE")) != NULL)
             FATAL(
                 "you must set the NGRAM size with (e.g. for value 2) "
                 "AFL_LLVM_INSTRUMENT=ngram-2");
+
+        }
+
         ngram_size = atoi(ptr);
         if (ngram_size < 2 || ngram_size > NGRAM_SIZE_MAX)
           FATAL(
@@ -1040,6 +1116,23 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+  if (!compiler_mode) {
+
+    // lto is not a default because outside of afl-cc RANLIB and AR have to
+    // be set to llvm versions so this would work
+    if (have_llvm)
+      compiler_mode = LLVM;
+    else if (have_gcc_plugin)
+      compiler_mode = GCC_PLUGIN;
+    else if (have_gcc)
+      compiler_mode = GCC;
+    else if (have_lto)
+      compiler_mode = LTO;
+    else
+      FATAL("no compiler mode available");
+
+  }
+
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
 
     char *fp;
@@ -1050,7 +1143,7 @@ int main(int argc, char **argv, char **envp) {
 
     SAYF(
         "\n"
-        "%s[++] [options]\n"
+        "afl-cc/afl-c++ [options]\n"
         "\n"
         "This is a helper application for afl-fuzz. It serves as a drop-in "
         "replacement\n"
@@ -1059,36 +1152,87 @@ int main(int argc, char **argv, char **envp) {
         "runtime instrumentation. A common use pattern would be one of the "
         "following:\n\n"
 
-        "  CC=%s CXX=%s ./configure --disable-shared\n\n",
-        callname, fp, fp);
+        "  CC=afl-cc CXX=afl-c++ ./configure --disable-shared\n"
+        "  cmake . -DCMAKE_C_COMPILERC=afl-cc -DCMAKE_CXX_COMPILER=afl-c++\n"
+        "  CC=afl-cc CXX=afl-c++ meson\n\n");
+
+    SAYF(
+        "Modes: LTO LLVM GCC_PLUGIN GCC     Features: NC   PERSIST DICT LAF "
+        "CMPLOG SELECT\n"
+        "  [LTO] llvm LTO instrumentation:   %s%s\n"
+        "      PCGUARD                       DEFAULT  yes  yes     yes  yes "
+        "yes    yes\n"
+        "      CLASSIC                                yes  yes     yes  yes "
+        "yes    yes\n"
+        "  [LLVM] llvm instrumentation:      %s%s\n"
+        "      PCGUARD                       %s  yes  yes     no   yes yes    "
+        "extern\n"
+        "      CLASSIC                       %s  no   yes     no   yes yes    "
+        "yes\n"
+        "        - NORMAL\n"
+        "        - CTX\n"
+        "        - NGRAM2-16\n"
+        "      INSTRIM                                no   yes     no   yes "
+        "yes    yes\n"
+        "        - NORMAL\n"
+        "        - CTX\n"
+        "        - NGRAM-{2-16}\n"
+        "  [GCC_PLUGIN] gcc instrumentation: %s%s\n"
+        "      CLASSIC                       DEFAULT  no   yes     no   no  no "
+        "    simple\n"
+        "  [GCC] simple gcc instrumentation: %s%s\n"
+        "      CLASSIC                       DEFAULT  no   no      no   no  no "
+        "    no\n\n",
+        have_lto ? "AVAILABLE" : "unavailable",
+        compiler_mode == LTO ? " [SELECTED]" : "",
+        have_llvm ? "AVAILABLE" : "unavailable",
+        compiler_mode == LLVM ? " [SELECTED]" : "",
+        LLVM_MAJOR > 6 ? "DEFAULT" : "       ",
+        LLVM_MAJOR > 6 ? "       " : "DEFAULT",
+        have_gcc_plugin ? "AVAILABLE" : "unavailable",
+        compiler_mode == GCC_PLUGIN ? " SELECTED" : "",
+        have_gcc ? "AVAILABLE" : "unavailable",
+        compiler_mode == GCC ? " SELECTED" : "");
 
     SAYF(
         "Modes:\n"
-        "  llvm LTO instrumentation:   %s%s\n"
-        "      PCGUARD                     DEFAULT\n"
-        "      CLASSIC\n"
-        "  llvm instrumentation:       %s%s\n"
-        "      PCGUARD                     %s\n"
-        "      CLASSIC                     %s\n"
-        "        - NORMAL\n"
-        "        - CTX\n"
-        "        - NGRAM2-16\n"
-        "      INSTRIM\n"
-        "        - NORMAL\n"
-        "        - CTX\n"
-        "        - NGRAM2-16\n"
-        "  gcc intrumentation:         %s%s\n"
-        "    CLASSIC                       DEFAULT\n"
-        "  simple gcc instrumentation: %s%s\n"
-        "    CLASSIC                       DEFAULT\n\n",
-        have_lto ? "AVAILABLE" : "unavailable", selected_lto ? " SELECTED" : "",
-        have_llvm ? "AVAILABLE" : "unavailable",
-        selected_llvm ? " SELECTED" : "", LLVM_MAJOR > 6 ? "DEFAULT" : "",
-        LLVM_MAJOR > 6 ? "" : "DEFAULT",
-        have_gcc_plugin ? "AVAILABLE" : "unavailable",
-        selected_gcc_plugin ? " SELECTED" : "",
-        have_gcc ? "AVAILABLE" : "unavailable",
-        selected_gcc ? " SELECTED" : "");
+        "  To select the compiler mode use a symlink version (e.g. "
+        "afl-clang-fast), set\n"
+        "  the environment variable AFL_CC_COMPILER to a mode (e.g. LLVM) or "
+        "use the\n"
+        "  command line parameter --afl-MODE (e.g. --afl-llvm). If none is "
+        "selected,\n"
+        "  afl-cc will select the best available (LLVM -> GCC_PLUGIN -> GCC).\n"
+        "  The best is LTO but it often needs RANLIB and AR settings outside "
+        "of afl-cc.\n\n");
+
+    SAYF(
+        "Sub-Modes: (set via env AFL_LLVM_INSTRUMENT, afl-cc selects the best "
+        "available)\n"
+        "  PCGUARD: Dominator tree instrumentation (best!) (README.llvm.md)\n"
+        "  CLASSIC: decision target instrumentation (README.llvm.md)\n"
+        "  CTX:     CLASSIC + callee context (instrumentation/README.ctx.md)\n"
+        "  NGRAM-x: CLASSIC + previous path "
+        "((instrumentation/README.ngram.md)\n"
+        "  INSTRIM: Dominator tree (for LLVM <= 6.0) "
+        "(instrumentation/README.instrim.md)\n\n");
+
+    SAYF(
+        "Features: (see documentation link)\n"
+        "  NC:     non-colliding coverage [automatic] (that is an amazing "
+        "thing!)\n"
+        "          (instrumentation/README.lto.md)\n"
+        "  PERSIST: persistent mode support [code] (huge speed increase!)\n"
+        "          (instrumentation/README.persistent_mode.md)\n"
+        "  DICT:   auto-dictionary in the target [automatic]\n"
+        "          (instrumentation/README.lto.md)\n"
+        "  LAF:    comparison splitting [env] "
+        "(instrumentation/README.laf-intel.md)\n"
+        "  CMPLOG: input2state exploration [env] "
+        "(instrumentation/README.cmplog.md)\n"
+        "  SELECT: selective instrumentation (allow/deny) on filename or "
+        "function [env]\n"
+        "          (instrumentation/README.instrument_list.md)\n\n");
 
     if (argc < 2 || strncmp(argv[1], "-hh", 3)) {
 
@@ -1111,6 +1255,8 @@ int main(int argc, char **argv, char **envp) {
 #else
           "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
 #endif
+          "  AFL_LLVM_DICT2FILE: generate an afl dictionary based on found "
+          "comparisons\n"
           "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
           "  AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
           "  AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
@@ -1124,7 +1270,7 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_NO_BUILTIN: no builtins for string compare functions (for "
           "libtokencap.so)\n"
           "  AFL_PATH: path to instrumenting pass and runtime  "
-          "(afl-llvm-rt.*o)\n"
+          "(afl-compiler-rt.*o)\n"
           "  AFL_LLVM_DOCUMENT_IDS: document edge IDs given to which function "
           "(LTO only)\n"
           "  AFL_QUIET: suppress verbose output\n"
@@ -1176,10 +1322,11 @@ int main(int argc, char **argv, char **envp) {
         "consult the README.md, especially section 3.1 about instrumenting "
         "targets.\n\n");
 
-    SAYF(
-        "afl-cc was built for llvm %d with the llvm binary path "
-        "of \"%s\".\n",
-        LLVM_MAJOR, LLVM_BINDIR);
+    if (have_lto)
+      SAYF("afl-cc LTO with ld=%s %s\n", AFL_REAL_LD, AFL_CLANG_FLTO);
+    if (have_llvm)
+      SAYF("afl-cc LLVM version %d with the the binary path \"%s\".\n",
+           LLVM_MAJOR, LLVM_BINDIR);
 
     SAYF("\n");
 
@@ -1187,7 +1334,7 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (selected_lto) {
+  if (compiler_mode == LTO) {
 
     if (instrument_mode == 0 || instrument_mode == INSTRUMENT_LTO ||
         instrument_mode == INSTRUMENT_CFG) {
@@ -1295,16 +1442,20 @@ int main(int argc, char **argv, char **envp) {
         "https://clang.llvm.org/docs/"
         "SanitizerCoverage.html#partially-disabling-instrumentation");
 
+  u8 *ptr2;
+
+  if ((ptr2 = getenv("AFL_LLVM_DICT2FILE")) != NULL && *ptr2 != '/')
+    FATAL("AFL_LLVM_DICT2FILE must be set to an absolute file path");
+
   if ((isatty(2) && !be_quiet) || debug) {
 
     SAYF(cCYA
          "afl-cc " VERSION cRST
-         " by Michal Zalewski, Laszlo Szekeres, Marc Heuse - mode: %s\n",
-         ptr);
+         " by Michal Zalewski, Laszlo Szekeres, Marc Heuse - mode: %s-%s\n",
+         compiler_mode_string[compiler_mode], ptr);
 
   }
 
-  u8 *ptr2;
   if (!be_quiet && !lto_mode &&
       ((ptr2 = getenv("AFL_MAP_SIZE")) || (ptr2 = getenv("AFL_MAPSIZE")))) {
 

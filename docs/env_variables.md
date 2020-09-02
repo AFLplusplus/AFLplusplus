@@ -78,10 +78,14 @@ tools make fairly broad use of environmental variables:
   - Setting AFL_CAL_FAST will speed up the initial calibration, if the
     application is very slow
 
-## 2) Settings for afl-clang-fast / afl-clang-fast++ / afl-gcc-fast / afl-g++-fast
+## 2) Settings for LLVM: afl-clang-fast / afl-clang-fast++ / afl-gcc-fast / afl-g++-fast
 
 The native instrumentation helpers (instrumentation and gcc_plugin) accept a subset
 of the settings discussed in section #1, with the exception of:
+
+  - LLVM modes support `AFL_LLVM_DICT2FILE=/absolute/path/file.txt` which will
+    write all constant string comparisons  to this file to be used with
+    afl-fuzz' `-x` option.
 
   - AFL_AS, since this toolchain does not directly invoke GNU as.
 

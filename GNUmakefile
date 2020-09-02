@@ -218,7 +218,7 @@ ifneq "$(findstring NetBSD, $(shell uname))" ""
   LDFLAGS += -lpthread
 endif
 
-TEST_CC  = afl-gcc
+TEST_CC = afl-gcc
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
 
@@ -583,30 +583,25 @@ source-only: all
 
 install: all $(MANPAGES)
 	install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
-	rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh
+	@rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh
+	@rm -f $${DESTDIR}$(BIN_PATH)/afl-as
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
-	rm -f $${DESTDIR}$(BIN_PATH)/afl-as
-	if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
-	if [ -f afl-gcc-fast ]; then set e; install -m 755 afl-gcc-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast; install -m 755 afl-gcc-pass.so $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
-	if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
-	if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
-	if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
+	@if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
+	@if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
+	@if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
+	@if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
+	@if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
+	@if [ -f examples/aflpp_driver/libAFLDriver.a ]; then install -m 644 examples/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f examples/aflpp_driver/libAFLQemuDriver.a ]; then install -m 644 examples/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	-$(MAKE) -f GNUmakefile.llvm install
 	-$(MAKE) -f GNUmakefile.gcc_plugin install
-	if [ -f libAFLDriver.a ]; then install -m 644 libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f libAFLQemuDriver.a ]; then install -m 644 libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
-
 	set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
 	set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
-	set -e; if [ -e afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
-
 	mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
 	install -m0644 *.8 ${DESTDIR}$(MAN_PATH)
-
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
 	ln -sf afl-as $${DESTDIR}$(HELPER_PATH)/as
 	install -m 644 docs/*.md $${DESTDIR}$(DOC_PATH)
