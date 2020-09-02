@@ -184,3 +184,9 @@ AFL_LLVM_INSTRUMENT=PCGUARD  make
 
 Note that this us currently the default, as it is the best mode.
 If you have llvm 11+ and compiled afl-clang-lto - this is the only better mode.
+
+## 8) Bonus feature: 'dict2file' pass
+
+Just specify `AFL_LLVM_DICT2FILE=/absolute/path/file.txt` and during compilation
+all constant string compare parameters will be written to this file to be
+used with afl-fuzz' `-x` option.

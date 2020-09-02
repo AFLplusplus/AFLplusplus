@@ -358,6 +358,16 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+    if (getenv("AFL_LLVM_DICT2FILE")) {
+
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-llvm-dict2file.so", obj_path);
+
+    }
+
     // laf
     if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
 
@@ -1212,7 +1222,8 @@ int main(int argc, char **argv, char **envp) {
         "of afl-cc.\n\n");
 
     SAYF(
-        "Sub-Modes: (set via env AFL_LLVM_INSTRUMENT, afl-cc selects the best available)\n"
+        "Sub-Modes: (set via env AFL_LLVM_INSTRUMENT, afl-cc selects the best "
+        "available)\n"
         "  PCGUARD: Dominator tree instrumentation (best!) (README.llvm.md)\n"
         "  CLASSIC: decision target instrumentation (README.llvm.md)\n"
         "  CTX:     CLASSIC + callee context (instrumentation/README.ctx.md)\n"
@@ -1259,6 +1270,8 @@ int main(int argc, char **argv, char **envp) {
 #else
           "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
 #endif
+          "  AFL_LLVM_DICT2FILE: generate an afl dictionary based on found "
+          "comparisons\n"
           "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
           "  AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
           "  AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
@@ -1444,6 +1457,11 @@ int main(int argc, char **argv, char **envp) {
         "https://clang.llvm.org/docs/"
         "SanitizerCoverage.html#partially-disabling-instrumentation");
 
+  u8 *ptr2;
+
+  if ((ptr2 = getenv("AFL_LLVM_DICT2FILE")) != NULL && *ptr2 != '/')
+    FATAL("AFL_LLVM_DICT2FILE must be set to an absolute file path");
+
   if ((isatty(2) && !be_quiet) || debug) {
 
     SAYF(cCYA
@@ -1453,7 +1471,6 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  u8 *ptr2;
   if (!be_quiet && !lto_mode &&
       ((ptr2 = getenv("AFL_MAP_SIZE")) || (ptr2 = getenv("AFL_MAPSIZE")))) {
 
