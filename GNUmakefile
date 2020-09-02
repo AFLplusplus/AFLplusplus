@@ -268,28 +268,41 @@ ifdef TEST_MMAP
 	LDFLAGS += -Wno-deprecated-declarations
 endif
 
+.PHONY: all
 all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_build all_done
 
+.PHONY: llvm
 llvm:
 	-$(MAKE) -f GNUmakefile.llvm
+	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
 
+.PHONY: gcc_plugin
 gcc_plugin:
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 
+.PHONY: man
 man:    $(MANPAGES)
 
+.PHONY: test
+test:	tests
+
+.PHONY: tests
 tests:	source-only
 	@cd test ; ./test-all.sh
 	@rm -f test/errors
 
+.PHONY: performance-tests
 performance-tests:	performance-test
+.PHONY: test-performance
 test-performance:	performance-test
 
+.PHONY: performance-test
 performance-test:	source-only
 	@cd test ; ./test-performance.sh
 
 
 # hint: make targets are also listed in the top level README.md
+.PHONY: help
 help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
@@ -319,8 +332,8 @@ help:
 	@echo "=========================================="
 	@echo e.g.: make ASAN_BUILD=1
 
+.PHONY: test_x86
 ifndef AFL_NO_X86
-
 test_x86:
 	@echo "[*] Checking for the default compiler cc..."
 	@type $(CC) >/dev/null || ( echo; echo "Oops, looks like there is no compiler '"$(CC)"' in your path."; echo; echo "Don't panic! You can restart with '"$(_)" CC=<yourCcompiler>'."; echo; exit 1 )
@@ -329,43 +342,32 @@ test_x86:
 	@echo "[*] Checking for the ability to compile x86 code..."
 	@echo 'main() { __asm__("xorb %al, %al"); }' | $(CC) $(CFLAGS) -w -x c - -o .test1 || ( echo; echo "Oops, looks like your compiler can't generate x86 code."; echo; echo "Don't panic! You can use the LLVM or QEMU mode, but see docs/INSTALL first."; echo "(To ignore this error, set AFL_NO_X86=1 and try again.)"; echo; exit 1 )
 	@rm -f .test1
-
 else
-
 test_x86:
 	@echo "[!] Note: skipping x86 compilation checks (AFL_NO_X86 set)."
-
 endif
 
-
+.PHONY: test_shm
 ifeq "$(SHMAT_OK)" "1"
-
 test_shm:
 	@echo "[+] shmat seems to be working."
 	@rm -f .test2
-
 else
-
 test_shm:
 	@echo "[-] shmat seems not to be working, switching to mmap implementation"
-
 endif
 
-
+.PHONY: test_python
 ifeq "$(PYTHON_OK)" "1"
-
 test_python:
 	@rm -f .test 2> /dev/null
 	@echo "[+] $(PYTHON_VERSION) support seems to be working."
-
 else
-
 test_python:
 	@echo "[-] You seem to need to install the package python3-dev, python2-dev or python-dev (and perhaps python[23]-apt), but it is optional so we continue"
-
 endif
 
-
+.PHONY: ready
 ready:
 	@echo "[+] Everything seems to be working, ready to compile."
 
@@ -400,9 +402,11 @@ afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o src/afl-perf
 afl-gotcpu: src/afl-gotcpu.c src/afl-common.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o -o $@ $(LDFLAGS)
 
+.PHONY: document
+document:	afl-fuzz-document
 
 # document all mutations and only do one run (use with only one input file!)
-document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-performance.o | test_x86
+afl-fuzz-document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-performance.o | test_x86
 	$(CC) -D_DEBUG=\"1\" -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
 
 test/unittests/unit_maybe_alloc.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_maybe_alloc.c $(AFL_FUZZ_FILES)
@@ -440,20 +444,19 @@ unit_preallocable: test/unittests/unit_preallocable.o
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_preallocable
 
+.PHONY: unit_clean
 unit_clean:
 	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc test/unittests/*.o
 
+.PHONY: unit
 ifneq "$(shell uname)" "Darwin"
-
-unit: unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash
-
+unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash
 else
-
 unit:
 	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)
-
 endif
 
+.PHONY: code-format
 code-format:
 	./.custom-format.py -i src/*.c
 	./.custom-format.py -i include/*.h
@@ -477,8 +480,8 @@ code-format:
 	./.custom-format.py -i *.c
 
 
+.PHONY: test_build
 ifndef AFL_NO_X86
-
 test_build: afl-cc afl-as afl-showmap
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
 	@unset AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_DEBUG=1 AFL_INST_RATIO=100 AFL_PATH=. ./$(TEST_CC) $(CFLAGS) test-instr.c -o test-instr $(LDFLAGS) 2>&1 | grep 'afl-as' >/dev/null || (echo "Oops, afl-as did not get called from "$(TEST_CC)". This is normally achieved by "$(CC)" honoring the -B option."; exit 1 )
@@ -488,15 +491,12 @@ test_build: afl-cc afl-as afl-showmap
 	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
 	@echo
 	@echo "[+] All right, the instrumentation seems to be working!"
-
 else
-
 test_build: afl-cc afl-as afl-showmap
 	@echo "[!] Note: skipping build tests (you may need to use LLVM or QEMU mode)."
-
 endif
 
-
+.PHONY: all_done
 all_done: test_build
 	@test -e afl-cc && echo "[+] Main compiler 'afl-cc' successfully built!" || { echo "[-] Main compiler 'afl-cc' failed to built, set up a working build environment first!" ; exit 1 ; }
 	@test -e cmplog-instructions-pass.so && echo "[+] LLVM mode for 'afl-cc' successfully built!" || echo "[-] LLVM mode for 'afl-cc'  failed to built, likely you either have not llvm installed or you have not set LLVM_CONFIG pointing to e.g. llvm-config-11. See README.llvm.md how to do this. Highly recommended!"
@@ -508,6 +508,7 @@ all_done: test_build
 
 .NOTPARALLEL: clean all
 
+.PHONY: clean
 clean:
 	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++
 	rm -rf out_dir qemu_mode/qemu-3.1.1 *.dSYM */*.dSYM
@@ -528,11 +529,13 @@ else
 	rm -rf unicorn_mode/unicornafl
 endif
 
+.PHONY: deepclean
 deepclean:	clean
 	rm -rf qemu_mode/qemu-3.1.1.tar.xz
 	rm -rf unicorn_mode/unicornafl
 	git reset --hard >/dev/null 2>&1 || true
 
+.PHONY: distrib
 distrib: all
 	-$(MAKE) -f GNUmakefile.llvm
 	-$(MAKE) -f GNUmakefile.gcc_plugin
@@ -544,6 +547,7 @@ distrib: all
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
+.PHONY: binary-only
 binary-only: all
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
@@ -553,6 +557,7 @@ binary-only: all
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
+.PHONY: source-only
 source-only: all
 	-$(MAKE) -f GNUmakefile.llvm
 	-$(MAKE) -f GNUmakefile.gcc_plugin
@@ -581,6 +586,7 @@ source-only: all
 	@echo .SH LICENSE >> $@
 	@echo Apache License Version 2.0, January 2004 >> $@
 
+.PHONY: install
 install: all $(MANPAGES)
 	@install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh

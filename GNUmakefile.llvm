@@ -304,24 +304,24 @@ endif
 
 LLVM_MIN_4_0_1 = $(shell awk 'function tonum(ver, a) {split(ver,a,"."); return a[1]*1000000+a[2]*1000+a[3]} BEGIN { exit tonum(ARGV[1]) >= tonum(ARGV[2]) }' $(LLVMVER) 4.0.1; echo $$?)
 
+.PHONY: all
 all: $(TARGETS)
 
+.PHONY: test_shm
 ifeq "$(SHMAT_OK)" "1"
-
 test_shm:
 	@echo "[+] shmat seems to be working."
 	@rm -f .test2
-
 else
-
 test_shm:
 	@echo "[-] shmat seems not to be working, switching to mmap implementation"
-
 endif
 
+.PHONY: no_build
 no_build:
 	@printf "%b\\n" "\\033[0;31mPrerequisites are not met, skipping build llvm_mode\\033[0m"
 
+.PHONY: test_deps
 test_deps:
 	@echo "[*] Checking for working 'llvm-config'..."
  ifneq "$(LLVM_APPLE_XCODE)" "1"
@@ -411,6 +411,7 @@ endif
 afl-llvm-dict2file.so:	instrumentation/afl-llvm-dict2file.so.cc instrumentation/afl-llvm-common.o | test_deps
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
+.PHONY: document
 document:
 	$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -fPIC -c instrumentation/afl-compiler-rt.o.c -o ./afl-compiler-rt.o
 	@$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -m32 -fPIC -c instrumentation/afl-compiler-rt.o.c -o ./afl-compiler-rt-32.o 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
@@ -427,6 +428,7 @@ document:
 	@printf "[*] Building 64-bit variant of the runtime (-m64)... "
 	@$(CLANG_BIN) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
+.PHONY: test_build
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
 	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1 AFL_PATH=. AFL_LLVM_LAF_ALL=1 ./afl-cc $(CFLAGS) $(CPPFLAGS) ./test-instr.c -o test-instr $(LDFLAGS)
@@ -436,11 +438,13 @@ test_build: $(PROGS)
 	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
 	@echo "[+] All right, the instrumentation seems to be working!"
 
+.PHONY: all_done
 all_done: test_build
 	@echo "[+] All done! You can now use './afl-cc' to compile programs."
 
 .NOTPARALLEL: clean
 
+.PHONY: install
 install: all
 	@install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
 	@if [ -f ./afl-cc ]; then set -e; install -m 755 ./afl-cc $${DESTDIR}$(BIN_PATH); ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-c++; fi
@@ -453,8 +457,7 @@ install: all
 	@if [ -f ./compare-transform-pass.so ]; then set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-fast ; ln -sf ./afl-c++ $${DESTDIR}$(BIN_PATH)/afl-clang-fast++ ; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ./afl-c++ $${DESTDIR}$(BIN_PATH)/afl-clang++ ; fi
 	@if [ -f ./SanitizerCoverageLTO.so ]; then set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-lto ; ln -sf ./afl-c++ $${DESTDIR}$(BIN_PATH)/afl-clang-lto++ ; fi
 	set -e; install -m 644 ./dynamic_list.txt $${DESTDIR}$(HELPER_PATH)
-	install -m 644 README.*.md $${DESTDIR}$(DOC_PATH)/
-	install -m 644 -T README.md $${DESTDIR}$(DOC_PATH)/README.llvm_mode.md
+	install -m 644 instrumentation/README.*.md $${DESTDIR}$(DOC_PATH)/
 
 vpath  % ..
 %.8: %
@@ -487,6 +490,7 @@ ifeq "$(LLVM_LTO)" "1"
 endif
 endif
 
+.PHONY: clean
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* .test2 test-instr .test-instr0 .test-instr1 *.dwo
 	rm -f $(PROGS) afl-common.o ./afl-c++ ./afl-lto ./afl-lto++ ./afl-clang-lto* ./afl-clang-fast* ./afl-clang*.8 ./ld ./afl-ld ./afl-llvm-rt*.o instrumentation/*.o

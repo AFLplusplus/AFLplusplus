@@ -82,22 +82,20 @@ endif
 
 PROGS        = ./afl-gcc-pass.so
 
+.PHONY: all
 all: test_shm test_deps $(PROGS) test_build all_done
 
+.PHONY: test_shm
 ifeq "$(SHMAT_OK)" "1"
-
 test_shm:
 	@echo "[+] shmat seems to be working."
 	@rm -f .test2
-
 else
-
 test_shm:
 	@echo "[-] shmat seems not to be working, switching to mmap implementation"
-
 endif
 
-
+.PHONY: test_deps
 test_deps:
 	@echo "[*] Checking for working '$(CC)'..."
 	@type $(CC) >/dev/null 2>&1 || ( echo "[-] Oops, can't find '$(CC)'. Make sure that it's in your \$$PATH (or set \$$CC and \$$CXX)."; exit 1 )
@@ -119,6 +117,7 @@ afl-common.o: ./src/afl-common.c
 	ln -sf afl-cc.8 afl-gcc-fast.8
 	ln -sf afl-cc.8 afl-g++-fast.8
 
+.PHONY: test_build
 test_build: $(PROGS)
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
 	unset AFL_USE_ASAN AFL_USE_MSAN; AFL_QUIET=1 AFL_INST_RATIO=100 AFL_PATH=. AFL_CC=$(CC) ./afl-gcc-fast $(CFLAGS) $(CPPFLAGS) ./test-instr.c -o test-instr $(LDFLAGS)
@@ -128,6 +127,7 @@ test_build: $(PROGS)
 	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
 	@echo "[+] All right, the instrumentation seems to be working!"
 
+.PHONY: all_done
 all_done: test_build
 	@echo "[+] All done! You can now use './afl-gcc-fast' to compile programs."
 
@@ -154,12 +154,14 @@ vpath  % ..
 	@echo Apache License Version 2.0, January 2004 >> ./$@
 	ln -sf afl-cc.8 ./afl-g++-fast.8
 
+.PHONY: install
 install: all
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc-fast
 	ln -sf afl-c++ $${DESTDIR}$(BIN_PATH)/afl-g++-fast
 	install -m 755 ./afl-gcc-pass.so $${DESTDIR}$(HELPER_PATH)
 	install -m 644 -T instrumentation/README.gcc_plugin.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
 
+.PHONY: clean
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 .test2
 	rm -f $(PROGS) afl-common.o ./afl-g++-fast ./afl-g*-fast.8 instrumentation/*.o
