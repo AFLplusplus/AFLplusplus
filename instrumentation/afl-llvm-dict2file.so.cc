@@ -82,11 +82,47 @@ class AFLdict2filePass : public ModulePass {
 
 }  // namespace
 
+void dict2file(int fd, u8 *mem, u32 len) {
+
+  int  i, j;
+  char line[MAX_AUTO_EXTRA * 8], tmp[8];
+
+  strcpy(line, "\"");
+  j = 1;
+  for (i = 0; i < len; i++) {
+
+    if (isprint(mem[i])) {
+
+      line[j++] = mem[i];
+
+    } else {
+
+      if (i + 1 != len || mem[i] != 0) {
+
+        line[j] = 0;
+        sprintf(tmp, "\\x%02x", (u8)mem[i]);
+        strcat(line, tmp);
+        j = strlen(line);
+
+      }
+
+    }
+
+  }
+
+  line[j] = 0;
+  strcat(line, "\"\n");
+  if (write(fd, line, strlen(line)) <= 0)
+    PFATAL("Could not write to dictionary file");
+  fsync(fd);
+
+}
+
 bool AFLdict2filePass::runOnModule(Module &M) {
 
-  int                              found = 0, i, j, fd = 0;
-  char                             line[MAX_AUTO_EXTRA * 8], tmp[8], *ptr;
   DenseMap<Value *, std::string *> valueMap;
+  char *                           ptr;
+  int                              fd, found = 0;
 
   /* Show a banner */
   setvbuf(stdout, NULL, _IONBF, 0);
@@ -102,7 +138,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
   scanForDangerousFunctions(&M);
 
-  char *dictfile = ptr = getenv("AFL_LLVM_DICT2FILE");
+  ptr = getenv("AFL_LLVM_DICT2FILE");
 
   if (!ptr || *ptr != '/')
     FATAL("AFL_LLVM_DICT2FILE is not set to an absolute path: %s", ptr);
@@ -149,6 +185,30 @@ bool AFLdict2filePass::runOnModule(Module &M) {
       for (auto &IN : BB) {
 
         CallInst *callInst = nullptr;
+        CmpInst * cmpInst = nullptr;
+
+        if ((cmpInst = dyn_cast<CmpInst>(&IN))) {
+
+          Value *      op = cmpInst->getOperand(1);
+          ConstantInt *ilen = dyn_cast<ConstantInt>(op);
+
+          if (ilen) {
+
+            u64 val = ilen->getZExtValue();
+            u32 len = 0;
+            if (val > 0x10000 && val < 0xffffffff) len = 4;
+            if (val > 0x100000001 && val < 0xffffffffffffffff) len = 8;
+
+            if (len) {
+
+              dict2file(fd, (u8 *)&val, len);
+              found++;
+
+            }
+
+          }
+
+        }
 
         if ((callInst = dyn_cast<CallInst>(&IN))) {
 
@@ -443,36 +503,8 @@ bool AFLdict2filePass::runOnModule(Module &M) {
             continue;
 
           ptr = (char *)thestring.c_str();
-          strcpy(line, "\"");
-          j = 1;
-          for (i = 0; i < optLen; i++) {
 
-            if (isprint(ptr[i])) {
-
-              line[j++] = ptr[i];
-
-            } else {
-
-              if (i + 1 != optLen || ptr[i] != 0) {
-
-                line[j] = 0;
-                sprintf(tmp, "\\x%02x", (unsigned char)ptr[i]);
-                strcat(line, tmp);
-                j = strlen(line);
-
-              }
-
-            }
-
-          }
-
-          line[j] = 0;
-          strcat(line, "\"\n");
-          ssize_t rr;
-          if ((rr = write(fd, line, strlen(line))) <= 0)
-            PFATAL("Could not write to dictionary file '%s' (fd=%d, ret=%ld)",
-                   dictfile, fd, rr);
-          fsync(fd);
+          dict2file(fd, (u8 *)ptr, optLen);
           found++;
 
         }
