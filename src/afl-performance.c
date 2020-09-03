@@ -22,7 +22,10 @@
 #include <stdint.h>
 #include "afl-fuzz.h"
 #include "types.h"
-#include "xxh3.h"
+
+#define XXH_INLINE_ALL
+#include "xxhash.h"
+#undef XXH_INLINE_ALL
 
 /* we use xoshiro256** instead of rand/random because it is 10x faster and has
    better randomness properties. */
