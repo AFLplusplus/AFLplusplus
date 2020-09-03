@@ -9,10 +9,13 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+  - afl-fuzz
+    - reading testcases from -i now descends into subdirectories
+    - allow up to 4 -x command line options
+  - instrumentation
     - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz -x
       dictionary of string comparisons found during compilation
     - not overriding -Ox or -fno-unroll-loops anymore
-    - allow up to 4 -x command line options
 
 
 ### Version ++2.67d (develop)

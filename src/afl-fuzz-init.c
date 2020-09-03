@@ -611,37 +611,43 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 /* Read all testcases from the input directory, then queue them for testing.
    Called at startup. */
 
-void read_testcases(afl_state_t *afl) {
+void read_testcases(afl_state_t *afl, u8 *dir) {
 
   struct dirent **nl;
-  s32             nl_cnt;
+  s32             nl_cnt, subdirs = 1;
   u32             i;
   u8 *            fn1;
-
-  u8 val_buf[2][STRINGIFY_VAL_SIZE_MAX];
+  u8              val_buf[2][STRINGIFY_VAL_SIZE_MAX];
 
   /* Auto-detect non-in-place resumption attempts. */
 
-  fn1 = alloc_printf("%s/queue", afl->in_dir);
-  if (!access(fn1, F_OK)) {
+  if (dir == NULL) {
 
-    afl->in_dir = fn1;
+    fn1 = alloc_printf("%s/queue", afl->in_dir);
+    if (!access(fn1, F_OK)) {
 
-  } else {
+      afl->in_dir = fn1;
+      subdirs = 0;
 
-    ck_free(fn1);
+    } else {
+
+      ck_free(fn1);
+
+    }
+
+    dir = afl->in_dir;
 
   }
 
-  ACTF("Scanning '%s'...", afl->in_dir);
+  ACTF("Scanning '%s'...", dir);
 
   /* We use scandir() + alphasort() rather than readdir() because otherwise,
      the ordering of test cases would vary somewhat randomly and would be
      difficult to control. */
 
-  nl_cnt = scandir(afl->in_dir, &nl, NULL, alphasort);
+  nl_cnt = scandir(dir, &nl, NULL, alphasort);
 
-  if (nl_cnt < 0) {
+  if (nl_cnt < 0 && dir == NULL) {
 
     if (errno == ENOENT || errno == ENOTDIR) {
 
@@ -656,7 +662,7 @@ void read_testcases(afl_state_t *afl) {
 
     }
 
-    PFATAL("Unable to open '%s'", afl->in_dir);
+    PFATAL("Unable to open '%s'", dir);
 
   }
 
@@ -674,7 +680,7 @@ void read_testcases(afl_state_t *afl) {
     u8 dfn[PATH_MAX];
     snprintf(dfn, PATH_MAX, "%s/.state/deterministic_done/%s", afl->in_dir,
              nl[i]->d_name);
-    u8 *fn2 = alloc_printf("%s/%s", afl->in_dir, nl[i]->d_name);
+    u8 *fn2 = alloc_printf("%s/%s", dir, nl[i]->d_name);
 
     u8 passed_det = 0;
 
@@ -686,7 +692,16 @@ void read_testcases(afl_state_t *afl) {
 
     }
 
-    /* This also takes care of . and .. */
+    /* obviously we want to skip "descending" into . and .. directories,
+       however it is a good idea to skip also directories that start with
+       a dot */
+    if (subdirs && S_ISDIR(st.st_mode) && nl[i]->d_name[0] != '.') {
+
+      read_testcases(afl, fn2);
+      ck_free(fn2);
+      continue;
+
+    }
 
     if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
 

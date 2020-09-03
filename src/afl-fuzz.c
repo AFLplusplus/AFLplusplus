@@ -1103,7 +1103,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   setup_cmdline_file(afl, argv + optind);
 
-  read_testcases(afl);
+  read_testcases(afl, NULL);
   // read_foreign_testcases(afl, 1); for the moment dont do this
 
   load_auto(afl);

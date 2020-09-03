@@ -949,7 +949,7 @@ u8   fuzz_one(afl_state_t *);
 void bind_to_free_cpu(afl_state_t *);
 #endif
 void   setup_post(afl_state_t *);
-void   read_testcases(afl_state_t *);
+void   read_testcases(afl_state_t *, u8 *);
 void   perform_dry_run(afl_state_t *);
 void   pivot_inputs(afl_state_t *);
 u32    find_start_position(afl_state_t *);
