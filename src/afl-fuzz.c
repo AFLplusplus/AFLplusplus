@@ -119,8 +119,8 @@ static void usage(u8 *argv0, int more_help) {
       "etc.)\n"
       "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (non-instrumented mode)\n"
-      "  -x dict_file  - optional fuzzer dictionary (see README.md, its really "
-      "good!)\n\n"
+      "  -x dict_file  - fuzzer dictionary (see README.md, specify up to 4 "
+      "times)\n\n"
 
       "Testing settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
@@ -239,11 +239,11 @@ static int stricmp(char const *a, char const *b) {
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  s32    opt;
+  s32    opt, i;
   u64    prev_queued = 0;
   u32    sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
-  u8 *   extras_dir = 0;
-  u8     mem_limit_given = 0, exit_1 = 0, debug = 0;
+  u8 *   extras_dir[4];
+  u8     mem_limit_given = 0, exit_1 = 0, debug = 0, extras_dir_cnt = 0;
   char **use_argv;
 
   struct timeval  tv;
@@ -446,8 +446,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'x':                                               /* dictionary */
 
-        if (extras_dir) { FATAL("Multiple -x options not supported"); }
-        extras_dir = optarg;
+        if (extras_dir_cnt >= 4) {
+
+          FATAL("More than four -x options are not supported");
+
+        }
+
+        extras_dir[extras_dir_cnt++] = optarg;
         break;
 
       case 't': {                                                /* timeout */
@@ -1105,7 +1110,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   pivot_inputs(afl);
 
-  if (extras_dir) { load_extras(afl, extras_dir); }
+  if (extras_dir_cnt)
+    for (i = 0; i < extras_dir_cnt; i++)
+      load_extras(afl, extras_dir[i]);
 
   if (!afl->timeout_given) { find_timeout(afl); }
 
