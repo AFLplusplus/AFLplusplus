@@ -684,8 +684,6 @@ void read_testcases(afl_state_t *afl, u8 *dir) {
 
     u8 passed_det = 0;
 
-    free(nl[i]);                                             /* not tracked */
-
     if (lstat(fn2, &st) || access(fn2, R_OK)) {
 
       PFATAL("Unable to access '%s'", fn2);
@@ -697,11 +695,14 @@ void read_testcases(afl_state_t *afl, u8 *dir) {
        a dot */
     if (subdirs && S_ISDIR(st.st_mode) && nl[i]->d_name[0] != '.') {
 
+      free(nl[i]);                                           /* not tracked */
       read_testcases(afl, fn2);
       ck_free(fn2);
       continue;
 
     }
+
+    free(nl[i]);                                             /* not tracked */
 
     if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
 

@@ -469,7 +469,8 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           strcat(line, "\"\n");
           ssize_t rr;
           if ((rr = write(fd, line, strlen(line))) <= 0)
-            PFATAL("Could not write to dictionary file '%s' (fd=%d, ret=%ld)", dictfile, fd, rr);
+            PFATAL("Could not write to dictionary file '%s' (fd=%d, ret=%ld)",
+                   dictfile, fd, rr);
           fsync(fd);
           found++;
 
