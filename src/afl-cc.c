@@ -1303,7 +1303,7 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_USE_CFISAN: activate control flow sanitizer\n"
           "  AFL_USE_MSAN: activate memory sanitizer\n"
           "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n",
-          callname, BIN_PATH, BIN_PATH);
+          BIN_PATH, BIN_PATH);
 
       SAYF(
           "\nLLVM/LTO/afl-clang-fast/afl-clang-lto specific environment "
