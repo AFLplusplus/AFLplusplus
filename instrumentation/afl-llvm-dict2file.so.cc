@@ -545,7 +545,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           // is helping the fuzzer
           if (optLen != thestring.length()) optLen = thestring.length();
           if (optLen > MAX_AUTO_EXTRA) optLen = MAX_AUTO_EXTRA;
-          if (optLen < MIN_AUTO_EXTRA)  // too short? skip
+          if (optLen < 3)  // too short? skip
             continue;
 
           ptr = (char *)thestring.c_str();

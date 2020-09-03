@@ -195,13 +195,13 @@
    steps; past this point, the "extras/user" step will be still carried out,
    but with proportionally lower odds: */
 
-#define MAX_DET_EXTRAS 200
+#define MAX_DET_EXTRAS 256
 
 /* Maximum number of auto-extracted dictionary tokens to actually use in fuzzing
    (first value), and to keep in memory as candidates. The latter should be much
    higher than the former. */
 
-#define USE_AUTO_EXTRAS 128
+#define USE_AUTO_EXTRAS 256
 #define MAX_AUTO_EXTRAS (USE_AUTO_EXTRAS * 64)
 
 /* Scaling factor for the effector map used to skip some of the more
