@@ -444,7 +444,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
           ptr = (char *)thestring.c_str();
           strcpy(line, "\"");
-          j = 0;
+          j = 1;
           for (i = 0; i < optLen; i++) {
 
             if (isprint(ptr[i])) {
@@ -455,9 +455,10 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
               if (i + 1 != optLen || ptr[i] != 0) {
 
-fprintf(stderr, "%d of %d, offset %d, char 0x%02x\n", i, optLen, j, ptr[i]);
+fprintf(stderr, "%d of %d, offset %d, char 0x%02x\n", i, optLen, j, (unsigned char)ptr[i]);
                 line[j] = 0;
-                sprintf(tmp, "\\x%02x", ptr[i]);
+                sprintf(tmp, "\\x%02x", (unsigned char)ptr[i]);
+fprintf(stderr, "line:%s  tmp:%s\n", line, tmp);
                 strcat(line, tmp);
                 j = strlen(line);
 
