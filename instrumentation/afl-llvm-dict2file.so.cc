@@ -84,8 +84,9 @@ class AFLdict2filePass : public ModulePass {
 
 bool AFLdict2filePass::runOnModule(Module &M) {
 
-  int                              found = 0, i, j, fd;
+  int                              found = 0, i, j, fd = 0;
   char                             line[MAX_AUTO_EXTRA * 8], tmp[8], *ptr;
+  FILE *f;
   DenseMap<Value *, std::string *> valueMap;
 
   /* Show a banner */
@@ -107,7 +108,8 @@ bool AFLdict2filePass::runOnModule(Module &M) {
   if (!ptr || *ptr != '/')
     FATAL("AFL_LLVM_DICT2FILE is not set to an absolute path: %s", ptr);
 
-  if ((fd = open(ptr, O_WRONLY | O_APPEND | O_CREAT /*| O_DSYNC*/, 0644)) < 0)
+//  if ((fd = open(ptr, O_WRONLY | O_APPEND | O_CREAT /*| O_DSYNC*/, 0644)) < 0)
+  if ((f = fopen(ptr, "a")) == NULL)
     PFATAL("Could not open/create %s.", ptr);
 
   /* Instrument all the things! */
@@ -467,9 +469,12 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
           line[j] = 0;
           strcat(line, "\"\n");
-          if (write(fd, line, strlen(line)) <= 0)
-            PFATAL("Could not write to dictionary file '%s' (fd=%d)", dictfile, fd);
-          fsync(fd);
+          ssize_t rr;
+//          if ((rr = write(fd, line, strlen(line))) <= 0)
+          if ((rr = fwrite(line, 1, strlen(line), f)) <= 0)
+            PFATAL("Could not write to dictionary file '%s' (fd=%d, ret=%ld)", dictfile, fd, rr);
+          //fsync(fd);
+          fflush(f);
           found++;
 
         }
@@ -478,7 +483,8 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
     }
 
-    close(fd);
+//    close(fd);
+    fclose(f);
 
   }
 
