@@ -611,12 +611,12 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 /* Read all testcases from the input directory, then queue them for testing.
    Called at startup. */
 
-void read_testcases(afl_state_t *afl, u8 *dir) {
+void read_testcases(afl_state_t *afl, u8 *directory) {
 
   struct dirent **nl;
   s32             nl_cnt, subdirs = 1;
   u32             i;
-  u8 *            fn1;
+  u8 *            fn1, *dir = directory;
   u8              val_buf[2][STRINGIFY_VAL_SIZE_MAX];
 
   /* Auto-detect non-in-place resumption attempts. */
@@ -647,7 +647,7 @@ void read_testcases(afl_state_t *afl, u8 *dir) {
 
   nl_cnt = scandir(dir, &nl, NULL, alphasort);
 
-  if (nl_cnt < 0 && dir == NULL) {
+  if (nl_cnt < 0 && directory == NULL) {
 
     if (errno == ENOENT || errno == ENOTDIR) {
 
@@ -734,7 +734,7 @@ void read_testcases(afl_state_t *afl, u8 *dir) {
 
   free(nl);                                                  /* not tracked */
 
-  if (!afl->queued_paths) {
+  if (!afl->queued_paths && directory == NULL) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like there are no valid test cases in the input directory! The "
