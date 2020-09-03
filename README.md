@@ -36,6 +36,8 @@ behaviours:
     qemu_mode also got new options like snapshotting, instrumenting specific
     shared libraries, etc. and QEMU 5.1 supports more CPU targets so this is
     worth it.
+  * When instrumenting targets, afl-cc will not supersede optimizations. This
+    allows to fuzz targets as same as they are built for debug or release.
   * afl-fuzz' `-i` option now descends into subdirectories.
 
 ## Contents
