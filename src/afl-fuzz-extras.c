@@ -253,9 +253,9 @@ static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
   qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
         compare_extras_len);
 
-  OKF("Loaded %u extra tokens, size range %s to %s.", afl->extras_cnt,
-      stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), min_len),
-      stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), max_len));
+  ACTF("Loaded %u extra tokens, size range %s to %s.", afl->extras_cnt,
+       stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), min_len),
+       stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), max_len));
 
   if (max_len > 32) {
 
@@ -387,10 +387,67 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
 
 }
 
+/* Removes duplicates from the loaded extras. This can happen if multiple files
+   are loaded */
+
+void dedup_extras(afl_state_t *afl) {
+
+  if (afl->extras_cnt < 2) return;
+
+  u32 i, j, orig_cnt = afl->extras_cnt;
+
+  for (i = 0; i < afl->extras_cnt - 1; i++) {
+
+    for (j = i + 1; j < afl->extras_cnt; j++) {
+
+    restart_dedup:
+
+      // if the goto was used we could be at the end of the list
+      if (j >= afl->extras_cnt || afl->extras[i].len != afl->extras[j].len)
+        break;
+
+      if (memcmp(afl->extras[i].data, afl->extras[j].data,
+                 afl->extras[i].len) == 0) {
+
+        ck_free(afl->extras[j].data);
+        if (j + 1 < afl->extras_cnt)  // not at the end of the list?
+          memmove((char *)&afl->extras[j], (char *)&afl->extras[j + 1],
+                  (afl->extras_cnt - j - 1) * sizeof(struct extra_data));
+        afl->extras_cnt--;
+        goto restart_dedup;  // restart if several duplicates are in a row
+
+      }
+
+    }
+
+  }
+
+  if (afl->extras_cnt != orig_cnt)
+    afl->extras = afl_realloc((void **)&afl->extras,
+                              afl->extras_cnt * sizeof(struct extra_data));
+
+}
+
 /* Adds a new extra / dict entry. */
 void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
-  u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
+  u8  val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
+  u32 i, found = 0;
+
+  for (i = 0; i < afl->extras_cnt; i++) {
+
+    if (afl->extras[i].len == len) {
+
+      if (memcmp(afl->extras[i].data, mem, len) == 0) return;
+      found = 1;
+
+    } else {
+
+      if (found) break;
+
+    }
+
+  }
 
   if (len > MAX_DICT_FILE) {
 
@@ -627,7 +684,7 @@ void load_auto(afl_state_t *afl) {
 
   } else {
 
-    OKF("No auto-generated dictionary tokens to reuse.");
+    ACTF("No auto-generated dictionary tokens to reuse.");
 
   }
 

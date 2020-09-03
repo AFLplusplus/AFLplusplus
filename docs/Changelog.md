@@ -12,6 +12,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz
     - reading testcases from -i now descends into subdirectories
     - allow up to 4 -x command line options
+    - loaded extras now a duplicate protection
   - instrumentation
     - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz -x
       dictionary of string comparisons found during compilation

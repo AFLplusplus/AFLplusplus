@@ -829,10 +829,6 @@ int main(int argc, char **argv_orig, char **envp) {
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
-  OKF("Power schedules from github.com/mboehme/aflfast");
-  OKF("Python Mutator and llvm_mode instrument file list from "
-      "github.com/choller/afl");
-  OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
   if (afl->sync_id && afl->is_main_node &&
       afl->afl_env.afl_custom_mutator_only) {
@@ -1105,14 +1101,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_testcases(afl, NULL);
   // read_foreign_testcases(afl, 1); for the moment dont do this
+  OKF("Loaded a total of %u seeds.", afl->queued_paths);
 
   load_auto(afl);
 
   pivot_inputs(afl);
 
-  if (extras_dir_cnt)
+  if (extras_dir_cnt) {
+
     for (i = 0; i < extras_dir_cnt; i++)
       load_extras(afl, extras_dir[i]);
+
+    dedup_extras(afl);
+    OKF("Loaded a total of %u extras.", afl->extras_cnt);
+
+  }
 
   if (!afl->timeout_given) { find_timeout(afl); }
 
