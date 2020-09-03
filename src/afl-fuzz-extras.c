@@ -101,7 +101,8 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     if (rptr < lptr || *rptr != '"') {
 
-      FATAL("Malformed name=\"value\" pair in line %u.", cur_line);
+      WARNF("Malformed name=\"value\" pair in line %u.", cur_line);
+      continue;
 
     }
 
@@ -141,13 +142,19 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     if (*lptr != '"') {
 
-      FATAL("Malformed name=\"keyword\" pair in line %u.", cur_line);
+      WARNF("Malformed name=\"keyword\" pair in line %u.", cur_line);
+      continue;
 
     }
 
     ++lptr;
 
-    if (!*lptr) { FATAL("Empty keyword in line %u.", cur_line); }
+    if (!*lptr) {
+
+      WARNF("Empty keyword in line %u.", cur_line);
+      continue;
+
+    }
 
     /* Okay, let's allocate memory and copy data between "...", handling
        \xNN escaping, \\, and \". */
@@ -169,7 +176,9 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
         case 1 ... 31:
         case 128 ... 255:
-          FATAL("Non-printable characters in line %u.", cur_line);
+          WARNF("Non-printable characters in line %u.", cur_line);
+          continue;
+          break;
 
         case '\\':
 
@@ -185,7 +194,8 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
           if (*lptr != 'x' || !isxdigit(lptr[1]) || !isxdigit(lptr[2])) {
 
-            FATAL("Invalid escaping (not \\xNN) in line %u.", cur_line);
+            WARNF("Invalid escaping (not \\xNN) in line %u.", cur_line);
+            continue;
 
           }
 
@@ -209,10 +219,11 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     if (afl->extras[afl->extras_cnt].len > MAX_DICT_FILE) {
 
-      FATAL(
+      WARNF(
           "Keyword too big in line %u (%s, limit is %s)", cur_line,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), klen),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+      continue;
 
     }
 
@@ -324,10 +335,11 @@ void load_extras(afl_state_t *afl, u8 *dir) {
 
     if (st.st_size > MAX_DICT_FILE) {
 
-      FATAL(
+      WARNF(
           "Extra '%s' is too big (%s, limit is %s)", fn,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), st.st_size),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+      continue;
 
     }
 
@@ -382,9 +394,10 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   if (len > MAX_DICT_FILE) {
 
-    FATAL("Extra '%.*s' is too big (%s, limit is %s)", (int)len, mem,
+    WARNF("Extra '%.*s' is too big (%s, limit is %s)", (int)len, mem,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), len),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+    return;
 
   } else if (len > 32) {
 
