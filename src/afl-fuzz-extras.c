@@ -232,7 +232,12 @@ static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
 
   u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
 
-  if (!afl->extras_cnt) { FATAL("No usable files in '%s'", dir); }
+  if (!afl->extras_cnt) {
+
+    WARNF("No usable files in '%s'", dir);
+    return;
+
+  }
 
   qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
         compare_extras_len);

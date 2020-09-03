@@ -881,7 +881,9 @@ int main(int argc, char **argv, char **envp) {
 
     compiler_mode = LLVM;
 
-  } else if (strncmp(callname, "afl-clang-lto", 13) == 0) {
+  } else if (strncmp(callname, "afl-clang-lto", 13) == 0 ||
+
+             strncmp(callname, "afl-lto", 7) == 0) {
 
     compiler_mode = LTO;
 
