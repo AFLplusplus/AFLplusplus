@@ -39,6 +39,8 @@ behaviours:
   * When instrumenting targets, afl-cc will not supersede optimizations. This
     allows to fuzz targets as same as they are built for debug or release.
   * afl-fuzz' `-i` option now descends into subdirectories.
+  * afl-fuzz will skip over empty dictionaries and too large test cases instead
+    of failing.
 
 ## Contents
 

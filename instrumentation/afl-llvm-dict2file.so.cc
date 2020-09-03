@@ -102,12 +102,12 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
   scanForDangerousFunctions(&M);
 
-  ptr = getenv("AFL_LLVM_DICT2FILE");
+  char *dictfile = ptr = getenv("AFL_LLVM_DICT2FILE");
 
   if (!ptr || *ptr != '/')
-    FATAL("AFL_LLVM_DICT2FILE is not set to an absolute path.");
+    FATAL("AFL_LLVM_DICT2FILE is not set to an absolute path: %s", ptr);
 
-  if ((fd = open(ptr, O_WRONLY | O_APPEND | O_CREAT | O_DSYNC, 0644)) < 0)
+  if ((fd = open(ptr, O_WRONLY | O_APPEND | O_CREAT /*| O_DSYNC*/, 0644)) < 0)
     PFATAL("Could not open/create %s.", ptr);
 
   /* Instrument all the things! */
@@ -468,7 +468,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           line[j] = 0;
           strcat(line, "\"\n");
           if (write(fd, line, strlen(line)) <= 0)
-            PFATAL("Could not write to dictionary file.");
+            PFATAL("Could not write to dictionary file '%s'", dictfile);
           fsync(fd);
           found++;
 

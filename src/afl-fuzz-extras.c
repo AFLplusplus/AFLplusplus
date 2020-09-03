@@ -234,7 +234,7 @@ static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
 
   if (!afl->extras_cnt) {
 
-    WARNF("No usable files in '%s'", dir);
+    WARNF("No usable data in '%s'", dir);
     return;
 
   }
