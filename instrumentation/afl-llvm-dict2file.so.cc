@@ -84,7 +84,7 @@ class AFLdict2filePass : public ModulePass {
 
 void dict2file(int fd, u8 *mem, u32 len) {
 
-  int  i, j;
+  int  i, j, binary = 0;
   char line[MAX_AUTO_EXTRA * 8], tmp[8];
 
   strcpy(line, "\"");
@@ -97,7 +97,7 @@ void dict2file(int fd, u8 *mem, u32 len) {
 
     } else {
 
-      if (i + 1 != len || mem[i] != 0) {
+      if (i + 1 != len || mem[i] != 0 || binary || len == 4 || len == 8) {
 
         line[j] = 0;
         sprintf(tmp, "\\x%02x", (u8)mem[i]);
@@ -105,6 +105,8 @@ void dict2file(int fd, u8 *mem, u32 len) {
         j = strlen(line);
 
       }
+
+      binary = 1;
 
     }
 
@@ -115,6 +117,8 @@ void dict2file(int fd, u8 *mem, u32 len) {
   if (write(fd, line, strlen(line)) <= 0)
     PFATAL("Could not write to dictionary file");
   fsync(fd);
+
+  if (!be_quiet) fprintf(stderr, "Found dictionary token: %s", line);
 
 }
 
@@ -194,15 +198,76 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
           if (ilen) {
 
-            u64 val = ilen->getZExtValue();
+            u64 val2 = 0, val = ilen->getZExtValue();
             u32 len = 0;
             if (val > 0x10000 && val < 0xffffffff) len = 4;
             if (val > 0x100000001 && val < 0xffffffffffffffff) len = 8;
 
             if (len) {
 
+              auto c = cmpInst->getPredicate();
+
+              switch (c) {
+
+                case CmpInst::FCMP_OGT:  // fall through
+                case CmpInst::FCMP_OLE:  // fall through
+                case CmpInst::ICMP_SLE:  // fall through
+                case CmpInst::ICMP_SGT:
+
+                  // signed comparison and it is a negative constant
+                  if ((len == 4 && (val & 80000000)) ||
+                      (len == 8 && (val & 8000000000000000))) {
+
+                    if ((val & 0xffff) != 1) val2 = val - 1;
+                    break;
+
+                  }
+
+                  // fall through
+
+                case CmpInst::FCMP_UGT:  // fall through
+                case CmpInst::FCMP_ULE:  // fall through
+                case CmpInst::ICMP_UGT:  // fall through
+                case CmpInst::ICMP_ULE:
+                  if ((val & 0xffff) != 0xfffe) val2 = val + 1;
+                  break;
+
+                case CmpInst::FCMP_OLT:  // fall through
+                case CmpInst::FCMP_OGE:  // fall through
+                case CmpInst::ICMP_SLT:  // fall through
+                case CmpInst::ICMP_SGE:
+
+                  // signed comparison and it is a negative constant
+                  if ((len == 4 && (val & 80000000)) ||
+                      (len == 8 && (val & 8000000000000000))) {
+
+                    if ((val & 0xffff) != 1) val2 = val - 1;
+                    break;
+
+                  }
+
+                  // fall through
+
+                case CmpInst::FCMP_ULT:  // fall through
+                case CmpInst::FCMP_UGE:  // fall through
+                case CmpInst::ICMP_ULT:  // fall through
+                case CmpInst::ICMP_UGE:
+                  if ((val & 0xffff) != 1) val2 = val - 1;
+                  break;
+
+                default:
+                  val2 = 0;
+
+              }
+
               dict2file(fd, (u8 *)&val, len);
               found++;
+              if (val2) {
+
+                dict2file(fd, (u8 *)&val2, len);
+                found++;
+
+              }
 
             }
 
@@ -474,25 +539,6 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
           }
 
-          if (!be_quiet) {
-
-            std::string outstring;
-            fprintf(stderr, "%s: length %zu/%zu \"", FuncName.c_str(), optLen,
-                    thestring.length());
-            for (uint8_t i = 0; i < thestring.length(); i++) {
-
-              uint8_t c = thestring[i];
-              if (c <= 32 || c >= 127)
-                fprintf(stderr, "\\x%02x", c);
-              else
-                fprintf(stderr, "%c", c);
-
-            }
-
-            fprintf(stderr, "\"\n");
-
-          }
-
           // we take the longer string, even if the compare was to a
           // shorter part. Note that depending on the optimizer of the
           // compiler this can be wrong, but it is more likely that this
@@ -547,4 +593,7 @@ static RegisterPass<AFLdict2filePass> X("afl-dict2file",
 
 static RegisterStandardPasses RegisterAFLdict2filePass(
     PassManagerBuilder::EP_OptimizerLast, registerAFLdict2filePass);
+
+static RegisterStandardPasses RegisterAFLdict2filePass0(
+    PassManagerBuilder::EP_EnabledOnOptLevel0, registerAFLdict2filePass);
 
