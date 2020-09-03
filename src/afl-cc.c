@@ -32,6 +32,13 @@
 #include <limits.h>
 #include <assert.h>
 
+#if (LLVM_MAJOR - 0 == 0)
+  #undef LLVM_MAJOR
+#endif
+#if !defined(LLVM_MAJOR)
+  #define LLVM_MAJOR 0
+#endif
+
 static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
@@ -843,6 +850,8 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+#if (LLVM_MAJOR > 2)
+
   if ((ptr = find_object("SanitizerCoverageLTO.so", argv[0])) != NULL) {
 
     have_lto = 1;
@@ -857,12 +866,16 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+#endif
+
   if ((ptr = find_object("afl-gcc-pass.so", argv[0])) != NULL) {
 
     have_gcc_plugin = 1;
     ck_free(ptr);
 
   }
+
+#if (LLVM_MAJOR > 2)
 
   if (strncmp(callname, "afl-clang-fast", 14) == 0) {
 
@@ -872,9 +885,12 @@ int main(int argc, char **argv, char **envp) {
 
     compiler_mode = LTO;
 
-  } else if (strncmp(callname, "afl-gcc-fast", 12) == 0 ||
+  } else
 
-             strncmp(callname, "afl-g++-fast", 12) == 0) {
+#endif
+      if (strncmp(callname, "afl-gcc-fast", 12) == 0 ||
+
+          strncmp(callname, "afl-g++-fast", 12) == 0) {
 
     compiler_mode = GCC_PLUGIN;
 
@@ -1185,16 +1201,16 @@ int main(int argc, char **argv, char **envp) {
         "  [GCC] simple gcc:        %s%s\n"
         "      CLASSIC              DEFAULT    no  no      no   no     no  no  "
         "   no\n\n",
-        have_lto ? "AVAILABLE" : "unavailable",
+        have_lto ? "AVAILABLE" : "unavailable!",
         compiler_mode == LTO ? " [SELECTED]" : "",
-        have_llvm ? "AVAILABLE" : "unavailable",
+        have_llvm ? "AVAILABLE" : "unavailable!",
         compiler_mode == LLVM ? " [SELECTED]" : "",
         LLVM_MAJOR > 6 ? "DEFAULT" : "       ",
         LLVM_MAJOR > 6 ? "       " : "DEFAULT",
-        have_gcc_plugin ? "AVAILABLE" : "unavailable",
-        compiler_mode == GCC_PLUGIN ? " SELECTED" : "",
-        have_gcc ? "AVAILABLE" : "unavailable",
-        compiler_mode == GCC ? " SELECTED" : "");
+        have_gcc_plugin ? "AVAILABLE" : "unavailable!",
+        compiler_mode == GCC_PLUGIN ? " [SELECTED]" : "",
+        have_gcc ? "AVAILABLE" : "unavailable!",
+        compiler_mode == GCC ? " [SELECTED]" : "");
 
     SAYF(
         "Modes:\n"
@@ -1329,12 +1345,14 @@ int main(int argc, char **argv, char **envp) {
         "consult the README.md, especially section 3.1 about instrumenting "
         "targets.\n\n");
 
+#if (LLVM_MAJOR > 2)
     if (have_lto)
       SAYF("afl-cc LTO with ld=%s %s\n", AFL_REAL_LD, AFL_CLANG_FLTO);
     if (have_llvm)
       SAYF("afl-cc LLVM version %d with the the binary path \"%s\".\n",
            LLVM_MAJOR, LLVM_BINDIR);
     if (have_lto || have_llvm) SAYF("\n");
+#endif
 
     SAYF(
         "Do not be overwhelmed :) afl-cc uses good defaults if no options are "

@@ -22,6 +22,22 @@
   afl++ is a superior fork to Google's afl - more speed, more and better
   mutations, more and better instrumentation, custom module support, etc.
 
+## Major changes in afl++ 3.0
+
+With afl++ 3.0 we introduced changes that break some previous afl and afl++
+behaviours:
+
+  * There are no llvm_mode and gcc_plugin subdirectories anymore and there is
+    only one compiler: afl-cc. All previous compilers now symlink to this one
+    compiler. All instrumentation source code is now in the `instrumentation/`
+    folder.
+  * qemu_mode got upgraded to QEMU 5.1, but to be able to build this a current
+    ninja build tool version and python3 setuptools are required.
+    qemu_mode also got new options like snapshotting, instrumenting specific
+    shared libraries, etc. and QEMU 5.1 supports more CPU targets so this is
+    worth it.
+  * afl-fuzz' `-i` option now descends into subdirectories.
+
 ## Contents
 
   1. [Features](#important-features-of-afl)
