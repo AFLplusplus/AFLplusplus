@@ -281,15 +281,15 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
 void destroy_queue(afl_state_t *afl) {
 
-  struct queue_entry *q = afl->queue, *n;
+  struct queue_entry *q;
+  u32                 i;
 
-  while (q) {
+  for (i = 0; i < afl->queued_paths; i++) {
 
-    n = q->next;
+    q = afl->queue_buf[i];
     ck_free(q->fname);
     ck_free(q->trace_mini);
     ck_free(q);
-    q = n;
 
   }
 
