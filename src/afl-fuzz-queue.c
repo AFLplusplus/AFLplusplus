@@ -138,9 +138,9 @@ static u8 check_if_text(struct queue_entry *q) {
     }
 
     // non-overlong 2-byte
-    if (((0xC2 <= buf[offset + 0] && buf[offset + 0] <= 0xDF) &&
-         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF)) &&
-        len - offset > 1) {
+    if (len - offset > 1 &&
+        ((0xC2 <= buf[offset + 0] && buf[offset + 0] <= 0xDF) &&
+         (0x80 <= buf[offset + 1] && buf[offset + 1] <= 0xBF))) {
 
       offset += 2;
       utf8++;
