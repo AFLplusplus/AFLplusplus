@@ -1128,6 +1128,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   setup_custom_mutators(afl);
 
+  write_setup_file(afl, argc, argv);
+
   setup_cmdline_file(afl, argv + optind);
 
   read_testcases(afl);
@@ -1274,7 +1276,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   seek_to = find_start_position(afl);
 
-  write_fuzzer_config_file(afl);
   write_stats_file(afl, 0, 0, 0);
   maybe_update_plot_file(afl, 0, 0);
   save_auto(afl);
