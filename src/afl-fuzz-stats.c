@@ -35,12 +35,14 @@ void write_setup_file(afl_state_t *afl, int argc, char **argv) {
   u8    fn[PATH_MAX];
   snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
   FILE *f = create_ffile(fn);
+  u32 i;
 
   fprintf(f, "# environment variables:\n");
   u32 s_afl_env =
       sizeof(afl_environment_variables) / sizeof(afl_environment_variables[0]) -
       1;
-  for (u32 i = 0; i < s_afl_env; i++) {
+
+  for (i = 0; i < s_afl_env; i++) {
 
     if ((val = getenv(afl_environment_variables[i])) != NULL) {
 
