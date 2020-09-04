@@ -27,41 +27,20 @@
 #include "envs.h"
 #include <limits.h>
 
-/* Open file for writing */
-
-inline FILE *open_file(const char *fn) {
-
-  s32   fd;
-  FILE *f;
-
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-
-  if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
-
-  f = fdopen(fd, "w");
-
-  if (!f) { PFATAL("fdopen() failed"); }
-
-  return f;
-
-}
-
 /* Write fuzzer setup file */
 
-void write_fuzzer_config_file(afl_state_t *afl) {
-
-  u8    fn[PATH_MAX];
-  FILE *f;
-
-  snprintf(fn, PATH_MAX, "%s/fuzzer_config", afl->out_dir);
-  f = open_file(fn);
+void write_setup_file(afl_state_t *afl, int argc, char **argv) {
 
   char *val;
+  u8    fn[PATH_MAX];
+  snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
+  FILE *f = create_ffile(fn);
 
-  uint32_t s_afl_env =
+  fprintf(f, "# environment variables:\n");
+  u32 s_afl_env =
       sizeof(afl_environment_variables) / sizeof(afl_environment_variables[0]) -
       1;
-  for (uint32_t i = 0; i < s_afl_env; i++) {
+  for (u32 i = 0; i < s_afl_env; i++) {
 
     if ((val = getenv(afl_environment_variables[i])) != NULL) {
 
@@ -71,7 +50,34 @@ void write_fuzzer_config_file(afl_state_t *afl) {
 
   }
 
+  fprintf(f, "# command line:\n");
+
+  s32    i;
+  size_t j;
+  for (i = 0; i < argc; i++) {
+
+    if (i) fprintf(f, " ");
+    if (index(argv[i], '\'')) {
+
+      fprintf(f, "'");
+      for (j = 0; j < strlen(argv[i]); j++)
+        if (argv[i][j] == '\'')
+          fprintf(f, "'\"'\"'");
+        else
+          fprintf(f, "%c", argv[i][j]);
+      fprintf(f, "'");
+
+    } else {
+
+      fprintf(f, "'%s'", argv[i]);
+
+    }
+
+  }
+  fprintf(f, "\n");
+
   fclose(f);
+  (void)(afl_environment_deprecated);
 
 }
 
@@ -84,13 +90,13 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
   struct rusage rus;
 #endif
 
-  unsigned long long int cur_time = get_cur_time();
-  u32                    t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
-  u8                     fn[PATH_MAX];
-  FILE *                 f;
+  u64   cur_time = get_cur_time();
+  u32   t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
+  u8    fn[PATH_MAX];
+  FILE *f;
 
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
-  f = open_file(fn);
+  f = create_ffile(fn);
 
   /* Keep last values in case we're called from another context
      where exec/sec stats and such are not readily available. */
@@ -209,7 +215,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
   if (afl->debug) {
 
-    uint32_t i = 0;
+    u32 i = 0;
     fprintf(f, "virgin_bytes     :");
     for (i = 0; i < afl->fsrv.map_size; i++) {
 
