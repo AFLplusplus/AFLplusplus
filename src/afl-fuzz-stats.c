@@ -24,6 +24,7 @@
  */
 
 #include "afl-fuzz.h"
+#include "envs.h"
 #include <limits.h>
 
 /* Update stats file for unattended monitoring. */
@@ -163,11 +164,28 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
               ? ""
               : "default",
           afl->orig_cmdline);
+
+  char *   val;
+  uint32_t i = 0;
+  uint32_t s_afl_env =
+      sizeof(afl_environment_variables) / sizeof(afl_environment_variables[0]) -
+      1;
+
+  for (i = 0; i < s_afl_env; i++) {
+
+    if ((val = get_afl_env(afl_environment_variables[i])) != NULL) {
+
+      fprintf(f, "%-18.*s: %s\n", strlen(afl_environment_variables[i]),
+              afl_environment_variables[i], val);
+
+    }
+
+  }
+
   /* ignore errors */
 
   if (afl->debug) {
 
-    uint32_t i = 0;
     fprintf(f, "virgin_bytes     :");
     for (i = 0; i < afl->fsrv.map_size; i++) {
 
