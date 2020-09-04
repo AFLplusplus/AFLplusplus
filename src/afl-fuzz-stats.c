@@ -29,20 +29,20 @@
 
 /* Write fuzzer setup file */
 
-void write_setup_file(afl_state_t *afl, int argc, char **argv) {
+void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
   char *val;
   u8    fn[PATH_MAX];
   snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
   FILE *f = create_ffile(fn);
-  s32 i;
+  u32 i;
 
   fprintf(f, "# environment variables:\n");
-  s32 s_afl_env = (s32)
+  u32 s_afl_env =
       sizeof(afl_environment_variables) / sizeof(afl_environment_variables[0]) -
-      1;
+      1U;
 
-  for (i = 0; i < s_afl_env; i++) {
+  for (i = 0; i < s_afl_env; ++i) {
 
     if ((val = getenv(afl_environment_variables[i])) != NULL) {
 
@@ -55,7 +55,7 @@ void write_setup_file(afl_state_t *afl, int argc, char **argv) {
   fprintf(f, "# command line:\n");
 
   size_t j;
-  for (i = 0; i < argc; i++) {
+  for (i = 0; i < argc; ++i) {
 
     if (i) fprintf(f, " ");
     if (index(argv[i], '\'')) {
