@@ -48,39 +48,24 @@ FILE *open_file(const char *fn) {
 
 /* Write fuzzer setup file */
 
-void write_fuzzer_setup_file(afl_state_t *afl) {
+void write_fuzzer_config_file(afl_state_t *afl) {
 
   u8    fn[PATH_MAX];
   FILE *f;
 
-  snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
+  snprintf(fn, PATH_MAX, "%s/fuzzer_config", afl->out_dir);
   f = open_file(fn);
 
-  char *   val;
-  uint32_t i = 0;
+  char *val;
+
   uint32_t s_afl_env =
       sizeof(afl_environment_variables) / sizeof(afl_environment_variables[0]) -
       1;
-
-  uint32_t max_len = 0;
-  uint32_t cur_len = 0;
-  for (i = 0; i < s_afl_env; i++) {
+  for (uint32_t i = 0; i < s_afl_env; i++) {
 
     if ((val = getenv(afl_environment_variables[i])) != NULL) {
 
-      cur_len = strlen(afl_environment_variables[i]);
-      max_len = cur_len > max_len ? cur_len : max_len;
-
-    }
-
-  }
-
-  for (i = 0; i < s_afl_env; i++) {
-
-    if ((val = getenv(afl_environment_variables[i])) != NULL) {
-
-      fprintf(f, "%*.*s : %s\n", -max_len, strlen(afl_environment_variables[i]),
-              afl_environment_variables[i], val);
+      fprintf(f, "%s=%s\n", afl_environment_variables[i], val);
 
     }
 
