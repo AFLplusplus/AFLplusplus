@@ -10,22 +10,28 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++2.67d (develop)
+  - added the GSoC excellent afl++ grammar mutator by Shengtuo to our
+    custom_mutators/ (see custom_mutators/README.md) - or get it here:
+    https://github.com/AFLplusplus/Grammar-Mutator
   - a few QOL changes for Apple and its outdated gmake
   - afl-fuzz:
-    - Fix for auto dictionary entries found during fuzzing to not throw out
+    - fix for auto dictionary entries found during fuzzing to not throw out
       a -x dictionary
     - added total execs done to plot file
-    - AFL_MAX_DET_EXTRAS env variable added to control the amount of deterministic
-      dict entries without recompiling.
-    - AFL_FORKSRV_INIT_TMOUT env variable added to control the time to wait for
-      the forkserver to come up without the need to increase the overall timeout.
+    - AFL_MAX_DET_EXTRAS env variable added to control the amount of
+      deterministic dict entries without recompiling.
+    - AFL_FORKSRV_INIT_TMOUT env variable added to control the time to wait
+      for the forkserver to come up without the need to increase the overall
+      timeout.
     - bugfix for cmplog that results in a heap overflow based on target data
       (thanks to the magma team for reporting!)
+    - write fuzzing setup into out/fuzzer_setup (environment variables and
+      command line)
   - custom mutators:
-    - added afl_custom_fuzz_count/fuzz_count function to allow specifying the 
-      number of fuzz attempts for custom_fuzz
+    - added afl_custom_fuzz_count/fuzz_count function to allow specifying
+      the number of fuzz attempts for custom_fuzz
   - llvm_mode:
-    - Ported SanCov to LTO, and made it the default for LTO. better
+    - ported SanCov to LTO, and made it the default for LTO. better
       instrumentation locations
     - Further llvm 12 support (fast moving target like afl++ :-) )
     - deprecated LLVM SKIPSINGLEBLOCK env environment

@@ -99,7 +99,7 @@ fi
 fmt_duration()
 {
   DUR_STRING=
-  if [ $1 -eq 0 ]; then
+  if [ $1 -le 0 ]; then
     return 1
   fi
 
@@ -109,7 +109,11 @@ fmt_duration()
   local minutes=$(((duration / 60) % 60))
   local seconds=$((duration % 60))
 
-  if [ $days -gt 0 ]; then
+  if [ $duration -le 0 ]; then
+    DUR_STRING="0 seconds"
+  elif [ $duration -eq 1 ]; then
+    DUR_STRING="1 second"
+  elif [ $days -gt 0 ]; then
     DUR_STRING="$days days, $hours hours"
   elif [ $hours -gt 0 ]; then
     DUR_STRING="$hours hours, $minutes minutes"

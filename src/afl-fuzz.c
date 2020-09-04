@@ -1128,6 +1128,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   setup_custom_mutators(afl);
 
+  write_setup_file(afl, argc, argv);
+
   setup_cmdline_file(afl, argv + optind);
 
   read_testcases(afl);
