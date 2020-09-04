@@ -877,3 +877,36 @@ u32 get_map_size(void) {
 
 }
 
+/* Create a stream file */
+
+FILE *create_ffile(u8 *fn) {
+
+  s32   fd;
+  FILE *f;
+
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+  if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
+
+  f = fdopen(fd, "w");
+
+  if (!f) { PFATAL("fdopen() failed"); }
+
+  return f;
+
+}
+
+/* Create a file */
+
+s32 create_file(u8 *fn) {
+
+  s32 fd;
+
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+  if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
+
+  return fd;
+
+}
+

@@ -7,7 +7,6 @@
  - afl-plot to support multiple plot_data
  - afl_custom_fuzz_splice_optin()
  - intel-pt tracer
- - honor -O flags and -fno-unroll-loops in afl-cc
 
 ## Further down the road
 
@@ -22,7 +21,6 @@ gcc_plugin:
  - (wait for submission then decide)
 
 qemu_mode:
- - update to 5.x (if the performance bug is gone)
  - non colliding instrumentation
  - rename qemu specific envs to AFL_QEMU (AFL_ENTRYPOINT, AFL_CODE_START/END,
    AFL_COMPCOV_LEVEL?)

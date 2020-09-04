@@ -24,7 +24,63 @@
  */
 
 #include "afl-fuzz.h"
+#include "envs.h"
 #include <limits.h>
+
+/* Write fuzzer setup file */
+
+void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
+
+  char *val;
+  u8    fn[PATH_MAX];
+  snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
+  FILE *f = create_ffile(fn);
+  u32 i;
+
+  fprintf(f, "# environment variables:\n");
+  u32 s_afl_env = (u32)
+      sizeof(afl_environment_variables) / sizeof(afl_environment_variables[0]) -
+      1U;
+
+  for (i = 0; i < s_afl_env; ++i) {
+
+    if ((val = getenv(afl_environment_variables[i])) != NULL) {
+
+      fprintf(f, "%s=%s\n", afl_environment_variables[i], val);
+
+    }
+
+  }
+
+  fprintf(f, "# command line:\n");
+
+  size_t j;
+  for (i = 0; i < argc; ++i) {
+
+    if (i) fprintf(f, " ");
+    if (index(argv[i], '\'')) {
+
+      fprintf(f, "'");
+      for (j = 0; j < strlen(argv[i]); j++)
+        if (argv[i][j] == '\'')
+          fprintf(f, "'\"'\"'");
+        else
+          fprintf(f, "%c", argv[i][j]);
+      fprintf(f, "'");
+
+    } else {
+
+      fprintf(f, "'%s'", argv[i]);
+
+    }
+
+  }
+  fprintf(f, "\n");
+
+  fclose(f);
+  (void)(afl_environment_deprecated);
+
+}
 
 /* Update stats file for unattended monitoring. */
 
@@ -35,21 +91,13 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
   struct rusage rus;
 #endif
 
-  unsigned long long int cur_time = get_cur_time();
-  u8                     fn[PATH_MAX];
-  s32                    fd;
-  FILE *                 f;
-  u32                    t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
+  u64   cur_time = get_cur_time();
+  u32   t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
+  u8    fn[PATH_MAX];
+  FILE *f;
 
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
-
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-
-  if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
-
-  f = fdopen(fd, "w");
-
-  if (!f) { PFATAL("fdopen() failed"); }
+  f = create_ffile(fn);
 
   /* Keep last values in case we're called from another context
      where exec/sec stats and such are not readily available. */
@@ -163,11 +211,12 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
               ? ""
               : "default",
           afl->orig_cmdline);
+
   /* ignore errors */
 
   if (afl->debug) {
 
-    uint32_t i = 0;
+    u32 i = 0;
     fprintf(f, "virgin_bytes     :");
     for (i = 0; i < afl->fsrv.map_size; i++) {
 
