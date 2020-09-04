@@ -9,7 +9,7 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-### Version ++2.67d (develop)
+### Version ++2.68c (release)
   - added the GSoC excellent afl++ grammar mutator by Shengtuo to our
     custom_mutators/ (see custom_mutators/README.md) - or get it here:
     https://github.com/AFLplusplus/Grammar-Mutator
