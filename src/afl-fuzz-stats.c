@@ -38,7 +38,7 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
   u32 i;
 
   fprintf(f, "# environment variables:\n");
-  u32 s_afl_env =
+  u32 s_afl_env = (u32)
       sizeof(afl_environment_variables) / sizeof(afl_environment_variables[0]) -
       1U;
 
