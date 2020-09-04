@@ -27,6 +27,69 @@
 #include "envs.h"
 #include <limits.h>
 
+/* Open file for writing */
+
+FILE *open_file(const char *fn) {
+
+  s32   fd;
+  FILE *f;
+
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+
+  if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
+
+  f = fdopen(fd, "w");
+
+  if (!f) { PFATAL("fdopen() failed"); }
+
+  return f;
+
+}
+
+/* Write fuzzer setup file */
+
+void write_fuzzer_setup_file(afl_state_t *afl) {
+
+  u8    fn[PATH_MAX];
+  FILE *f;
+
+  snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
+  f = open_file(fn);
+
+  char *   val;
+  uint32_t i = 0;
+  uint32_t s_afl_env =
+      sizeof(afl_environment_variables) / sizeof(afl_environment_variables[0]) -
+      1;
+
+  uint32_t max_len = 0;
+  uint32_t cur_len = 0;
+  for (i = 0; i < s_afl_env; i++) {
+
+    if ((val = getenv(afl_environment_variables[i])) != NULL) {
+
+      cur_len = strlen(afl_environment_variables[i]);
+      max_len = cur_len > max_len ? cur_len : max_len;
+
+    }
+
+  }
+
+  for (i = 0; i < s_afl_env; i++) {
+
+    if ((val = getenv(afl_environment_variables[i])) != NULL) {
+
+      fprintf(f, "%*.*s : %s\n", -max_len, strlen(afl_environment_variables[i]),
+              afl_environment_variables[i], val);
+
+    }
+
+  }
+
+  fclose(f);
+
+}
+
 /* Update stats file for unattended monitoring. */
 
 void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
@@ -37,20 +100,12 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 #endif
 
   unsigned long long int cur_time = get_cur_time();
-  u8                     fn[PATH_MAX];
-  s32                    fd;
-  FILE *                 f;
   u32                    t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
+  u8                     fn[PATH_MAX];
+  FILE *                 f;
 
   snprintf(fn, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
-
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-
-  if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
-
-  f = fdopen(fd, "w");
-
-  if (!f) { PFATAL("fdopen() failed"); }
+  f = open_file(fn);
 
   /* Keep last values in case we're called from another context
      where exec/sec stats and such are not readily available. */
@@ -165,27 +220,11 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
               : "default",
           afl->orig_cmdline);
 
-  char *   val;
-  uint32_t i = 0;
-  uint32_t s_afl_env =
-      sizeof(afl_environment_variables) / sizeof(afl_environment_variables[0]) -
-      1;
-
-  for (i = 0; i < s_afl_env; i++) {
-
-    if ((val = get_afl_env(afl_environment_variables[i])) != NULL) {
-
-      fprintf(f, "%-18.*s: %s\n", strlen(afl_environment_variables[i]),
-              afl_environment_variables[i], val);
-
-    }
-
-  }
-
   /* ignore errors */
 
   if (afl->debug) {
 
+    uint32_t i = 0;
     fprintf(f, "virgin_bytes     :");
     for (i = 0; i < afl->fsrv.map_size; i++) {
 
