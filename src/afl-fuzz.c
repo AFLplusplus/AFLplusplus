@@ -1274,7 +1274,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   seek_to = find_start_position(afl);
 
-  write_fuzzer_setup_file(afl);
+  write_fuzzer_config_file(afl);
   write_stats_file(afl, 0, 0, 0);
   maybe_update_plot_file(afl, 0, 0);
   save_auto(afl);
