@@ -945,12 +945,11 @@ void destroy_extras(afl_state_t *);
 
 /* Stats */
 
-FILE *open_file(const char *);
-void  write_fuzzer_config_file(afl_state_t *);
-void  write_stats_file(afl_state_t *, double, double, double);
-void  maybe_update_plot_file(afl_state_t *, double, double);
-void  show_stats(afl_state_t *);
-void  show_init_stats(afl_state_t *);
+void write_fuzzer_config_file(afl_state_t *);
+void write_stats_file(afl_state_t *, double, double, double);
+void maybe_update_plot_file(afl_state_t *, double, double);
+void show_stats(afl_state_t *);
+void show_init_stats(afl_state_t *);
 
 /* Run */
 

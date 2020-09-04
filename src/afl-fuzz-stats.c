@@ -29,7 +29,7 @@
 
 /* Open file for writing */
 
-FILE *open_file(const char *fn) {
+inline FILE *open_file(const char *fn) {
 
   s32   fd;
   FILE *f;
