@@ -31,6 +31,7 @@
 #include <string>
 #include <fstream>
 #include <set>
+#include <iostream>
 
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
@@ -106,6 +107,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
   std::vector<BasicBlock *>        BlockList;
   char *                           ptr;
   FILE *                           documentFile = NULL;
+  size_t                           found = 0;
 
   srand((unsigned int)time(NULL));
 
@@ -284,6 +286,92 @@ bool AFLLTOPass::runOnModule(Module &M) {
         for (auto &IN : BB) {
 
           CallInst *callInst = nullptr;
+          CmpInst * cmpInst = nullptr;
+
+          if ((cmpInst = dyn_cast<CmpInst>(&IN))) {
+
+            Value *      op = cmpInst->getOperand(1);
+            ConstantInt *ilen = dyn_cast<ConstantInt>(op);
+
+            if (ilen) {
+
+              u64 val2 = 0, val = ilen->getZExtValue();
+              u32 len = 0;
+              if (val > 0x10000 && val < 0xffffffff) len = 4;
+              if (val > 0x100000001 && val < 0xffffffffffffffff) len = 8;
+
+              if (len) {
+
+                auto c = cmpInst->getPredicate();
+
+                switch (c) {
+
+                  case CmpInst::FCMP_OGT:  // fall through
+                  case CmpInst::FCMP_OLE:  // fall through
+                  case CmpInst::ICMP_SLE:  // fall through
+                  case CmpInst::ICMP_SGT:
+
+                    // signed comparison and it is a negative constant
+                    if ((len == 4 && (val & 80000000)) ||
+                        (len == 8 && (val & 8000000000000000))) {
+
+                      if ((val & 0xffff) != 1) val2 = val - 1;
+                      break;
+
+                    }
+
+                    // fall through
+
+                  case CmpInst::FCMP_UGT:  // fall through
+                  case CmpInst::FCMP_ULE:  // fall through
+                  case CmpInst::ICMP_UGT:  // fall through
+                  case CmpInst::ICMP_ULE:
+                    if ((val & 0xffff) != 0xfffe) val2 = val + 1;
+                    break;
+
+                  case CmpInst::FCMP_OLT:  // fall through
+                  case CmpInst::FCMP_OGE:  // fall through
+                  case CmpInst::ICMP_SLT:  // fall through
+                  case CmpInst::ICMP_SGE:
+
+                    // signed comparison and it is a negative constant
+                    if ((len == 4 && (val & 80000000)) ||
+                        (len == 8 && (val & 8000000000000000))) {
+
+                      if ((val & 0xffff) != 1) val2 = val - 1;
+                      break;
+
+                    }
+
+                    // fall through
+
+                  case CmpInst::FCMP_ULT:  // fall through
+                  case CmpInst::FCMP_UGE:  // fall through
+                  case CmpInst::ICMP_ULT:  // fall through
+                  case CmpInst::ICMP_UGE:
+                    if ((val & 0xffff) != 1) val2 = val - 1;
+                    break;
+
+                  default:
+                    val2 = 0;
+
+                }
+
+                dictionary.push_back(std::string((char *)&val, len));
+                found++;
+
+                if (val2) {
+
+                  dictionary.push_back(std::string((char *)&val2, len));
+                  found++;
+
+                }
+
+              }
+
+            }
+
+          }
 
           if ((callInst = dyn_cast<CallInst>(&IN))) {
 
@@ -841,6 +929,11 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
       size_t memlen = 0, count = 0, offset = 0;
       char * ptr;
+
+      // sort and unique the dictionary
+      std::sort(dictionary.begin(), dictionary.end());
+      auto last = std::unique(dictionary.begin(), dictionary.end());
+      dictionary.erase(last, dictionary.end());
 
       for (auto token : dictionary) {
 
