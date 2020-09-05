@@ -89,11 +89,10 @@ static void usage(u8 *argv0, int more_help) {
       "  -o dir        - output directory for fuzzer findings\n\n"
 
       "Execution control settings:\n"
-      "  -p schedule   - power schedules compute a seed's performance score. "
-      "<explore\n"
-      "                  (default), fast, coe, lin, quad, exploit, mmopt, "
-      "rare, seek>\n"
-      "                  see docs/power_schedules.md\n"
+      "  -p schedule   - power schedules compute a seed's performance score:\n"
+      "                  <seek (default), explore, rare, exploit, mmopt, coe, "
+      "fast,\n"
+      "                  lin, quad> -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
@@ -349,15 +348,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
           afl->schedule = RARE;
 
-        } else if (!stricmp(optarg, "seek")) {
-
-          afl->schedule = SEEK;
-
-        } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "default") ||
-
-                   !stricmp(optarg, "normal") || !stricmp(optarg, "afl")) {
+        } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "afl")) {
 
           afl->schedule = EXPLORE;
+
+        } else if (!stricmp(optarg, "seek") || !stricmp(optarg, "default") ||
+
+                   !stricmp(optarg, "normal")) {
+
+          afl->schedule = SEEK;
 
         } else {
 
