@@ -626,6 +626,7 @@ if (dir == NULL) {
   if (!access(fn1, F_OK)) {
 
     afl->in_dir = fn1;
+    subdirs = 0;
 
   } else {
 
@@ -1063,7 +1064,7 @@ restart_outer_cull_loop:
 
     }
 
-    afl->q_prev100 = afl->queue = afl->queue_top = afl->queue;
+    afl->queue = afl->queue_top = afl->queue;
 
   }
 

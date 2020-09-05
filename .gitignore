@@ -51,6 +51,12 @@ afl-showmap.8
 afl-system-config.8
 afl-tmin.8
 afl-whatsup.8
+afl-c++
+afl-cc
+afl-lto
+afl-lto++
+afl-lto++.8
+afl-lto.8
 qemu_mode/libcompcov/compcovtest
 qemu_mode/qemu-*
 unicorn_mode/samples/*/\.test-*
