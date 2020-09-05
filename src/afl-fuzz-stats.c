@@ -35,12 +35,12 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
   u8    fn[PATH_MAX];
   snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
   FILE *f = create_ffile(fn);
-  u32 i;
+  u32   i;
 
   fprintf(f, "# environment variables:\n");
-  u32 s_afl_env = (u32)
-      sizeof(afl_environment_variables) / sizeof(afl_environment_variables[0]) -
-      1U;
+  u32 s_afl_env = (u32)sizeof(afl_environment_variables) /
+                      sizeof(afl_environment_variables[0]) -
+                  1U;
 
   for (i = 0; i < s_afl_env; ++i) {
 
@@ -75,6 +75,7 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
     }
 
   }
+
   fprintf(f, "\n");
 
   fclose(f);
@@ -982,10 +983,9 @@ void show_stats(afl_state_t *afl) {
 void show_init_stats(afl_state_t *afl) {
 
   struct queue_entry *q = afl->queue;
-  u32                 min_bits = 0, max_bits = 0;
+  u32                 min_bits = 0, max_bits = 0, max_len = 0, count = 0;
   u64                 min_us = 0, max_us = 0;
   u64                 avg_us = 0;
-  u32                 max_len = 0;
 
   u8 val_bufs[4][STRINGIFY_VAL_SIZE_MAX];
 #define IB(i) val_bufs[(i)], sizeof(val_bufs[(i)])
@@ -1006,6 +1006,7 @@ void show_init_stats(afl_state_t *afl) {
 
     if (q->len > max_len) { max_len = q->len; }
 
+    ++count;
     q = q->next;
 
   }
@@ -1072,11 +1073,12 @@ void show_init_stats(afl_state_t *afl) {
   OKF("Here are some useful stats:\n\n"
 
       cGRA "    Test case count : " cRST
-      "%u favored, %u variable, %u total\n" cGRA "       Bitmap range : " cRST
+      "%u favored, %u variable, %u ignored, %u total\n" cGRA
+      "       Bitmap range : " cRST
       "%u to %u bits (average: %0.02f bits)\n" cGRA
       "        Exec timing : " cRST "%s to %s us (average: %s us)\n",
-      afl->queued_favored, afl->queued_variable, afl->queued_paths, min_bits,
-      max_bits,
+      afl->queued_favored, afl->queued_variable, afl->queued_paths - count,
+      afl->queued_paths, min_bits, max_bits,
       ((double)afl->total_bitmap_size) /
           (afl->total_bitmap_entries ? afl->total_bitmap_entries : 1),
       stringify_int(IB(0), min_us), stringify_int(IB(1), max_us),

@@ -4,11 +4,11 @@
 
 The most effective way is to fuzz in persistent mode, as the speed can easily
 be x10 or x20 times faster without any disadvanges.
-*All professionel fuzzing is using this mode.*
+*All professional fuzzing is using this mode.*
 
 This requires that the target can be called in a (or several) function(s),
-and that the state can be resetted so that multiple calls be be performed
-without memory leaking and former runs having no impact on following runs
+and that its state can be resetted so that multiple calls can be performed
+without resource leaks and former runs having no impact on following runs
 (this can be seen by the `stability` indicator in the `afl-fuzz` UI).
 
 Examples can be found in [examples/persistent_mode](../examples/persistent_mode).
@@ -67,7 +67,7 @@ add this just after the includes:
 #endif
 ```
 
-## 3) deferred initialization
+## 3) Deferred initialization
 
 AFL tries to optimize performance by executing the targeted binary just once,
 stopping it just before main(), and then cloning this "main" process to get
@@ -112,7 +112,7 @@ With the location selected, add this code in the appropriate spot:
 You don't need the #ifdef guards, but including them ensures that the program
 will keep working normally when compiled with a tool other than afl-clang-fast.
 
-Finally, recompile the program with afl-clang-fast (afl-gcc or afl-clang will
+Finally, recompile the program with afl-clang-fast/lto (afl-gcc or afl-clang will
 *not* generate a deferred-initialization binary) - and you should be all set!
 
 *NOTE:* In the code between `main` and `__AFL_INIT()` should not be any code
@@ -142,7 +142,7 @@ and just before `__AFL_INIT()`:
   __afl_area_ptr = NULL;
 ```
 
-## 4) persistent mode
+## 4) Persistent mode
 
 Some libraries provide APIs that are stateless, or whose state can be reset in
 between processing different input files. When such a reset is performed, a
@@ -183,7 +183,7 @@ PS. Because there are task switches still involved, the mode isn't as fast as
 faster than the normal fork() model, and compared to in-process fuzzing,
 should be a lot more robust.
 
-## 5) shared memory fuzzing
+## 5) Shared memory fuzzing
 
 You can speed up the fuzzing process even more by receiving the fuzzing data
 via shared memory instead of stdin or files.

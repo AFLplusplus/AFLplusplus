@@ -4,7 +4,7 @@
 
 This is an LLVM-based implementation of the context sensitive branch coverage.
 
-Basically every function gets it's own ID and that ID is combined with the
+Basically every function gets its own ID and that ID is combined with the
 edges of the called functions.
 
 So if both function A and function B call a function C, the coverage

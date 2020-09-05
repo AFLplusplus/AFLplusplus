@@ -1,8 +1,8 @@
 # Fast LLVM-based instrumentation for afl-fuzz
 
-  (See [../README](../README.md) for the general instruction manual.)
+  (See [../README.md](../README.md) for the general instruction manual.)
 
-  (See [../gcc_plugin/README](../gcc_plugin/README.md) for the GCC-based instrumentation.)
+  (See [README.gcc_plugon.md](../README.gcc_plugin.md) for the GCC-based instrumentation.)
 
 ## 1) Introduction
 
@@ -93,15 +93,16 @@ operating mode of AFL, e.g.:
 
 Be sure to also include CXX set to afl-clang-fast++ for C++ code.
 
+Note that afl-clang-fast/afl-clang-fast++ are just pointers to afl-cc.
+You can also use afl-cc/afl-c++ and instead direct it to use LLVM
+instrumentation by either setting `AFL_CC_COMPILER=LLVM` or pass the parameter
+`--afl-llvm` via CFLAGS/CXXFLAGS/CPPFLAGS.
+
 The tool honors roughly the same environmental variables as afl-gcc (see
 [docs/env_variables.md](../docs/env_variables.md)). This includes AFL_USE_ASAN,
 AFL_HARDEN, and AFL_DONT_OPTIMIZE. However AFL_INST_RATIO is not honored
-as it does not serve a good purpose with the more effective instrim CFG
-analysis.
-
-Note: if you want the LLVM helper to be installed on your system for all
-users, you need to build it before issuing 'make install' in the parent
-directory.
+as it does not serve a good purpose with the more effective PCGUARD, LTO and
+ instrim CFG analysis.
 
 ## 3) Options
 
@@ -109,9 +110,9 @@ Several options are present to make llvm_mode faster or help it rearrange
 the code to make afl-fuzz path discovery easier.
 
 If you need just to instrument specific parts of the code, you can the instrument file list
-which C/C++ files to actually instrument. See [README.instrument_list](README.instrument_list.md)
+which C/C++ files to actually instrument. See [README.instrument_list.md](README.instrument_list.md)
 
-For splitting memcmp, strncmp, etc. please see [README.laf-intel](README.laf-intel.md)
+For splitting memcmp, strncmp, etc. please see [README.laf-intel.md](README.laf-intel.md)
 
 Then there are different ways of instrumenting the target:
 
@@ -119,42 +120,42 @@ Then there are different ways of instrumenting the target:
 markers to just instrument what is needed. This increases speed by 10-15%
 without any disadvantages
 If you want to use this, set AFL_LLVM_INSTRUMENT=CFG or AFL_LLVM_INSTRIM=1
-See [README.instrim](README.instrim.md)
+See [README.instrim.md](README.instrim.md)
 
 2. An even better instrumentation strategy uses LTO and link time
 instrumentation. Note that not all targets can compile in this mode, however
 if it works it is the best option you can use.
 Simply use afl-clang-lto/afl-clang-lto++ to use this option.
-See [README.lto](README.lto.md)
+See [README.lto.md](README.lto.md)
 
 3. Alternativly you can choose a completely different coverage method:
 
 3a. N-GRAM coverage - which combines the previous visited edges with the
 current one. This explodes the map but on the other hand has proven to be
 effective for fuzzing.
-See [README.ngram](README.ngram.md)
+See [README.ngram.md](README.ngram.md)
 
 3b. Context sensitive coverage - which combines the visited edges with an
 individual caller ID (the function that called the current one)
-[README.ctx](README.ctx.md)
+[README.ctx.md](README.ctx.md)
 
 Then - additionally to one of the instrumentation options above - there is
 a very effective new instrumentation option called CmpLog as an alternative to
 laf-intel that allow AFL++ to apply mutations similar to Redqueen.
-See [README.cmplog](README.cmplog.md)
+See [README.cmplog.md](README.cmplog.md)
 
 Finally if your llvm version is 8 or lower, you can activate a mode that
 prevents that a counter overflow result in a 0 value. This is good for
 path discovery, but the llvm implementation for x86 for this functionality
 is not optimal and was only fixed in llvm 9.
 You can set this with AFL_LLVM_NOT_ZERO=1
-See [README.neverzero](README.neverzero.md)
+See [README.neverzero.md](README.neverzero.md)
 
 ## 4) Snapshot feature
 
 To speed up fuzzing you can use a linux loadable kernel module which enables
 a snapshot feature.
-See [README.snapshot](README.snapshot.md)
+See [README.snapshot.md](README.snapshot.md)
 
 ## 5) Gotchas, feedback, bugs
 
@@ -182,5 +183,12 @@ targets this way:
 AFL_LLVM_INSTRUMENT=PCGUARD  make
 ```
 
-Note that this us currently the default, as it is the best mode.
+Note that this us currently the default if you use LLVM >= 7, as it is the best
+mode. Recommended is LLVM >= 9.
 If you have llvm 11+ and compiled afl-clang-lto - this is the only better mode.
+
+## 8) Bonus feature: 'dict2file' pass
+
+Just specify `AFL_LLVM_DICT2FILE=/absolute/path/file.txt` and during compilation
+all constant string compare parameters will be written to this file to be
+used with afl-fuzz' `-x` option.

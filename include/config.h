@@ -28,7 +28,7 @@
 /* Version string: */
 
 // c = release, d = volatile github dev, e = experimental branch
-#define VERSION "++2.68c"
+#define VERSION "++3.00a"
 
 /******************************************************
  *                                                    *
@@ -195,7 +195,7 @@
    steps; past this point, the "extras/user" step will be still carried out,
    but with proportionally lower odds: */
 
-#define MAX_DET_EXTRAS 200
+#define MAX_DET_EXTRAS 256
 
 /* Maximum number of auto-extracted dictionary tokens to actually use in fuzzing
    (first value), and to keep in memory as candidates. The latter should be much

@@ -611,37 +611,43 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 /* Read all testcases from the input directory, then queue them for testing.
    Called at startup. */
 
-void read_testcases(afl_state_t *afl) {
+void read_testcases(afl_state_t *afl, u8 *directory) {
 
   struct dirent **nl;
-  s32             nl_cnt;
+  s32             nl_cnt, subdirs = 1;
   u32             i;
-  u8 *            fn1;
-
-  u8 val_buf[2][STRINGIFY_VAL_SIZE_MAX];
+  u8 *            fn1, *dir = directory;
+  u8              val_buf[2][STRINGIFY_VAL_SIZE_MAX];
 
   /* Auto-detect non-in-place resumption attempts. */
 
-  fn1 = alloc_printf("%s/queue", afl->in_dir);
-  if (!access(fn1, F_OK)) {
+  if (dir == NULL) {
 
-    afl->in_dir = fn1;
+    fn1 = alloc_printf("%s/queue", afl->in_dir);
+    if (!access(fn1, F_OK)) {
 
-  } else {
+      afl->in_dir = fn1;
+      subdirs = 0;
 
-    ck_free(fn1);
+    } else {
+
+      ck_free(fn1);
+
+    }
+
+    dir = afl->in_dir;
 
   }
 
-  ACTF("Scanning '%s'...", afl->in_dir);
+  ACTF("Scanning '%s'...", dir);
 
   /* We use scandir() + alphasort() rather than readdir() because otherwise,
      the ordering of test cases would vary somewhat randomly and would be
      difficult to control. */
 
-  nl_cnt = scandir(afl->in_dir, &nl, NULL, alphasort);
+  nl_cnt = scandir(dir, &nl, NULL, alphasort);
 
-  if (nl_cnt < 0) {
+  if (nl_cnt < 0 && directory == NULL) {
 
     if (errno == ENOENT || errno == ENOTDIR) {
 
@@ -656,7 +662,7 @@ void read_testcases(afl_state_t *afl) {
 
     }
 
-    PFATAL("Unable to open '%s'", afl->in_dir);
+    PFATAL("Unable to open '%s'", dir);
 
   }
 
@@ -674,11 +680,9 @@ void read_testcases(afl_state_t *afl) {
     u8 dfn[PATH_MAX];
     snprintf(dfn, PATH_MAX, "%s/.state/deterministic_done/%s", afl->in_dir,
              nl[i]->d_name);
-    u8 *fn2 = alloc_printf("%s/%s", afl->in_dir, nl[i]->d_name);
+    u8 *fn2 = alloc_printf("%s/%s", dir, nl[i]->d_name);
 
     u8 passed_det = 0;
-
-    free(nl[i]);                                             /* not tracked */
 
     if (lstat(fn2, &st) || access(fn2, R_OK)) {
 
@@ -686,7 +690,19 @@ void read_testcases(afl_state_t *afl) {
 
     }
 
-    /* This also takes care of . and .. */
+    /* obviously we want to skip "descending" into . and .. directories,
+       however it is a good idea to skip also directories that start with
+       a dot */
+    if (subdirs && S_ISDIR(st.st_mode) && nl[i]->d_name[0] != '.') {
+
+      free(nl[i]);                                           /* not tracked */
+      read_testcases(afl, fn2);
+      ck_free(fn2);
+      continue;
+
+    }
+
+    free(nl[i]);
 
     if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn2, "/README.txt")) {
 
@@ -718,7 +734,7 @@ void read_testcases(afl_state_t *afl) {
 
   free(nl);                                                  /* not tracked */
 
-  if (!afl->queued_paths) {
+  if (!afl->queued_paths && directory == NULL) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like there are no valid test cases in the input directory! The "
@@ -982,6 +998,76 @@ void perform_dry_run(afl_state_t *afl) {
       WARNF(cLRD "High percentage of rejected test cases, check settings!");
 
     }
+
+  }
+
+  /* Now we remove all entries from the queue that have a duplicate trace map */
+
+  q = afl->queue;
+  struct queue_entry *p, *prev = NULL;
+  int                 duplicates = 0;
+
+restart_outer_cull_loop:
+
+  while (q) {
+
+    if (q->cal_failed || !q->exec_cksum) continue;
+
+  restart_inner_cull_loop:
+
+    p = q->next;
+
+    while (p) {
+
+      if (!p->cal_failed && p->exec_cksum == q->exec_cksum) {
+
+        duplicates = 1;
+        --afl->pending_not_fuzzed;
+
+        // We do not remove any of the memory allocated because for
+        // splicing the data might still be interesting.
+        // We only decouple them from the linked list.
+        // This will result in some leaks at exit, but who cares.
+
+        // we keep the shorter file
+        if (p->len >= q->len) {
+
+          q->next = p->next;
+          goto restart_inner_cull_loop;
+
+        } else {
+
+          if (prev)
+            prev->next = q = p;
+          else
+            afl->queue = q = p;
+          goto restart_outer_cull_loop;
+
+        }
+
+      }
+
+      p = p->next;
+
+    }
+
+    prev = q;
+    q = q->next;
+
+  }
+
+  if (duplicates) {
+
+    afl->max_depth = 0;
+    q = afl->queue;
+    while (q) {
+
+      if (q->depth > afl->max_depth) afl->max_depth = q->depth;
+      q = q->next;
+
+    }
+
+    afl->queue = afl->queue_top = afl->queue;
 
   }
 

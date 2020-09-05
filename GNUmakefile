@@ -24,29 +24,30 @@ BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
 DOC_PATH    = $(PREFIX)/share/doc/afl
 MISC_PATH   = $(PREFIX)/share/afl
-MAN_PATH    = $(PREFIX)/share/man/man8
+MAN_PATH    = $(PREFIX)/man/man8
 
 PROGNAME    = afl
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
-PROGS       = afl-gcc afl-g++ afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
+PROGS       = afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
 SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
+ASAN_OPTIONS=detect_leaks=0
 
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
- ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
- else
-  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+else
+ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=thin
-  else
-   ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ else
+  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto
-   endif
   endif
  endif
+endif
 endif
 
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -fno-move-loop-invariants -fdisable-tree-cunrolli -x c - -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
@@ -61,10 +62,7 @@ ifneq "$(shell uname)" "Darwin"
    endif
  endif
  # OS X does not like _FORTIFY_SOURCE=2
- # _FORTIFY_SOURCE=2 does not like -O0
- ifndef DEBUG
-  CFLAGS_OPT += -D_FORTIFY_SOURCE=2
- endif
+ CFLAGS_OPT += -D_FORTIFY_SOURCE=2
 endif
 
 ifeq "$(shell uname)" "SunOS"
@@ -206,10 +204,7 @@ else
 endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
- # _FORTIFY_SOURCE=2 does not like -O0
- ifndef DEBUG
   override CFLAGS += -D_FORTIFY_SOURCE=2
- endif
   LDFLAGS += -ldl -lrt
 endif
 
@@ -223,11 +218,7 @@ ifneq "$(findstring NetBSD, $(shell uname))" ""
   LDFLAGS += -lpthread
 endif
 
-ifeq "$(findstring clang, $(shell $(CC) --version 2>/dev/null))" ""
-  TEST_CC  = afl-gcc
-else
-  TEST_CC  = afl-clang
-endif
+TEST_CC = afl-gcc
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
 
@@ -277,28 +268,47 @@ ifdef TEST_MMAP
 	LDFLAGS += -Wno-deprecated-declarations
 endif
 
-all:	test_x86 test_shm test_python ready $(PROGS) afl-as test_build all_done
+.PHONY: all
+all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_build all_done
 
-man:    afl-gcc all $(MANPAGES)
+.PHONY: llvm
+llvm:
+	-$(MAKE) -f GNUmakefile.llvm
+	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
 
+.PHONY: gcc_plugin
+gcc_plugin:
+	-$(MAKE) -f GNUmakefile.gcc_plugin
+
+.PHONY: man
+man:    $(MANPAGES)
+
+.PHONY: test
+test:	tests
+
+.PHONY: tests
 tests:	source-only
 	@cd test ; ./test-all.sh
 	@rm -f test/errors
 
+.PHONY: performance-tests
 performance-tests:	performance-test
+.PHONY: test-performance
 test-performance:	performance-test
 
+.PHONY: performance-test
 performance-test:	source-only
 	@cd test ; ./test-performance.sh
 
 
 # hint: make targets are also listed in the top level README.md
+.PHONY: help
 help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
 	@echo "all: just the main afl++ binaries"
 	@echo "binary-only: everything for binary-only fuzzing: qemu_mode, unicorn_mode, libdislocator, libtokencap"
-	@echo "source-only: everything for source code fuzzing: llvm_mode, gcc_plugin, libdislocator, libtokencap"
+	@echo "source-only: everything for source code fuzzing: gcc_plugin, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"
 	@echo "install: installs everything you have compiled with the build option above"
@@ -322,8 +332,8 @@ help:
 	@echo "=========================================="
 	@echo e.g.: make ASAN_BUILD=1
 
+.PHONY: test_x86
 ifndef AFL_NO_X86
-
 test_x86:
 	@echo "[*] Checking for the default compiler cc..."
 	@type $(CC) >/dev/null || ( echo; echo "Oops, looks like there is no compiler '"$(CC)"' in your path."; echo; echo "Don't panic! You can restart with '"$(_)" CC=<yourCcompiler>'."; echo; exit 1 )
@@ -332,148 +342,129 @@ test_x86:
 	@echo "[*] Checking for the ability to compile x86 code..."
 	@echo 'main() { __asm__("xorb %al, %al"); }' | $(CC) $(CFLAGS) -w -x c - -o .test1 || ( echo; echo "Oops, looks like your compiler can't generate x86 code."; echo; echo "Don't panic! You can use the LLVM or QEMU mode, but see docs/INSTALL first."; echo "(To ignore this error, set AFL_NO_X86=1 and try again.)"; echo; exit 1 )
 	@rm -f .test1
-
 else
-
 test_x86:
 	@echo "[!] Note: skipping x86 compilation checks (AFL_NO_X86 set)."
-
 endif
 
-
+.PHONY: test_shm
 ifeq "$(SHMAT_OK)" "1"
-
 test_shm:
 	@echo "[+] shmat seems to be working."
 	@rm -f .test2
-
 else
-
 test_shm:
 	@echo "[-] shmat seems not to be working, switching to mmap implementation"
-
 endif
 
-
+.PHONY: test_python
 ifeq "$(PYTHON_OK)" "1"
-
 test_python:
 	@rm -f .test 2> /dev/null
 	@echo "[+] $(PYTHON_VERSION) support seems to be working."
-
 else
-
 test_python:
 	@echo "[-] You seem to need to install the package python3-dev, python2-dev or python-dev (and perhaps python[23]-apt), but it is optional so we continue"
-
 endif
 
-
+.PHONY: ready
 ready:
 	@echo "[+] Everything seems to be working, ready to compile."
 
-afl-g++: afl-gcc
-
-afl-gcc: src/afl-gcc.c $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(CPPFLAGS) src/$@.c -o $@ $(LDFLAGS)
-	set -e; for i in afl-g++ afl-clang afl-clang++; do ln -sf afl-gcc $$i; done
-
 afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(CPPFLAGS) src/$@.c -o $@ $(LDFLAGS)
-	ln -sf afl-as as
+	$(CC) $(CFLAGS) src/$@.c -o $@ $(LDFLAGS)
+	@ln -sf afl-as as
 
 src/afl-performance.o : $(COMM_HDR) src/afl-performance.c include/hash.h
-	$(CC) $(CFLAGS) $(CPPFLAGS) -Iinclude $(SPECIAL_PERFORMANCE) -O3 -fno-unroll-loops -c src/afl-performance.c -o src/afl-performance.o
+	$(CC) -Iinclude $(SPECIAL_PERFORMANCE) -O3 -fno-unroll-loops -c src/afl-performance.c -o src/afl-performance.o
 
 src/afl-common.o : $(COMM_HDR) src/afl-common.c include/common.h
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(CPPFLAGS) -c src/afl-common.c -o src/afl-common.o
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-common.c -o src/afl-common.o
 
 src/afl-forkserver.o : $(COMM_HDR) src/afl-forkserver.c include/forkserver.h
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(CPPFLAGS) -c src/afl-forkserver.c -o src/afl-forkserver.o
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-forkserver.c -o src/afl-forkserver.o
 
 src/afl-sharedmem.o : $(COMM_HDR) src/afl-sharedmem.c include/sharedmem.h
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(CPPFLAGS) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
 afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) $(CPPFLAGS) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(CPPFLAGS) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
 
 afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(CPPFLAGS) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(LDFLAGS)
 
 afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(CPPFLAGS) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o -o $@ $(LDFLAGS)
 
 afl-gotcpu: src/afl-gotcpu.c src/afl-common.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(CPPFLAGS) src/$@.c src/afl-common.o -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o -o $@ $(LDFLAGS)
 
+.PHONY: document
+document:	afl-fuzz-document
 
 # document all mutations and only do one run (use with only one input file!)
-document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-performance.o | test_x86
-	$(CC) -D_DEBUG=\"1\" -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) $(CPPFLAGS) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
+afl-fuzz-document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-performance.o | test_x86
+	$(CC) -D_DEBUG=\"1\" -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
 
 test/unittests/unit_maybe_alloc.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_maybe_alloc.c $(AFL_FUZZ_FILES)
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CPPFLAGS) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_maybe_alloc.c -o test/unittests/unit_maybe_alloc.o
 
 unit_maybe_alloc: test/unittests/unit_maybe_alloc.o
-	@$(CC) $(CFLAGS) $(CPPFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	@$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_maybe_alloc.o -o test/unittests/unit_maybe_alloc $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_maybe_alloc
 
 test/unittests/unit_hash.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_hash.c $(AFL_FUZZ_FILES) src/afl-performance.o
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CPPFLAGS) -c test/unittests/unit_hash.c -o test/unittests/unit_hash.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_hash.c -o test/unittests/unit_hash.o
 
 unit_hash: test/unittests/unit_hash.o src/afl-performance.o
-	@$(CC) $(CFLAGS) $(CPPFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_hash $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	@$(CC) $(CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_hash $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_hash
 
 test/unittests/unit_rand.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_rand.c $(AFL_FUZZ_FILES) src/afl-performance.o
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CPPFLAGS) -c test/unittests/unit_rand.c -o test/unittests/unit_rand.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_rand.c -o test/unittests/unit_rand.o
 
 unit_rand: test/unittests/unit_rand.o src/afl-common.o src/afl-performance.o
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CPPFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_rand  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_rand  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_rand
 
 test/unittests/unit_list.o : $(COMM_HDR) include/list.h test/unittests/unit_list.c $(AFL_FUZZ_FILES)
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CPPFLAGS) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_list.c -o test/unittests/unit_list.o
 
 unit_list: test/unittests/unit_list.o
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CPPFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_list.o -o test/unittests/unit_list  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_list.o -o test/unittests/unit_list  $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_list
 
 test/unittests/unit_preallocable.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_preallocable.c $(AFL_FUZZ_FILES)
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CPPFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_preallocable.c -o test/unittests/unit_preallocable.o
 
 unit_preallocable: test/unittests/unit_preallocable.o
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) $(CPPFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf test/unittests/unit_preallocable.o -o test/unittests/unit_preallocable $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_preallocable
 
+.PHONY: unit_clean
 unit_clean:
 	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc test/unittests/*.o
 
+.PHONY: unit
 ifneq "$(shell uname)" "Darwin"
-
-unit: unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash
-
+unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash
 else
-
 unit:
 	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)
-
 endif
 
+.PHONY: code-format
 code-format:
 	./.custom-format.py -i src/*.c
 	./.custom-format.py -i include/*.h
 	./.custom-format.py -i libdislocator/*.c
 	./.custom-format.py -i libtokencap/*.c
-	./.custom-format.py -i llvm_mode/*.c
-	./.custom-format.py -i llvm_mode/*.h
-	./.custom-format.py -i llvm_mode/*.cc
-	./.custom-format.py -i gcc_plugin/*.c
-	@#./.custom-format.py -i gcc_plugin/*.h
-	./.custom-format.py -i gcc_plugin/*.cc
+	./.custom-format.py -i instrumentation/*.h
+	./.custom-format.py -i instrumentation/*.cc
+	./.custom-format.py -i instrumentation/*.c
 	./.custom-format.py -i custom_mutators/*/*.c
 	@#./.custom-format.py -i custom_mutators/*/*.h # destroys input.h :-(
 	./.custom-format.py -i examples/*/*.c
@@ -489,38 +480,40 @@ code-format:
 	./.custom-format.py -i *.c
 
 
+.PHONY: test_build
 ifndef AFL_NO_X86
-
-test_build: afl-gcc afl-as afl-showmap
+test_build: afl-cc afl-as afl-showmap
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
-	@unset AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_DEBUG=1 AFL_INST_RATIO=100 AFL_AS_FORCE_INSTRUMENT=1 AFL_PATH=. ./$(TEST_CC) $(CFLAGS) test-instr.c -o test-instr $(LDFLAGS) 2>&1 | grep 'afl-as' >/dev/null || (echo "Oops, afl-as did not get called from "$(TEST_CC)". This is normally achieved by "$(CC)" honoring the -B option."; exit 1 )
+	@unset AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_DEBUG=1 AFL_INST_RATIO=100 AFL_PATH=. ./$(TEST_CC) $(CFLAGS) test-instr.c -o test-instr $(LDFLAGS) 2>&1 | grep 'afl-as' >/dev/null || (echo "Oops, afl-as did not get called from "$(TEST_CC)". This is normally achieved by "$(CC)" honoring the -B option."; exit 1 )
 	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
 	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
 	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
+	@echo
 	@echo "[+] All right, the instrumentation seems to be working!"
-
 else
-
-test_build: afl-gcc afl-as afl-showmap
+test_build: afl-cc afl-as afl-showmap
 	@echo "[!] Note: skipping build tests (you may need to use LLVM or QEMU mode)."
-
 endif
 
-
+.PHONY: all_done
 all_done: test_build
-	@if [ ! "`type clang 2>/dev/null`" = "" ]; then echo "[+] LLVM users: see llvm_mode/README.md for a faster alternative to afl-gcc."; fi
+	@test -e afl-cc && echo "[+] Main compiler 'afl-cc' successfully built!" || { echo "[-] Main compiler 'afl-cc' failed to built, set up a working build environment first!" ; exit 1 ; }
+	@test -e cmplog-instructions-pass.so && echo "[+] LLVM mode for 'afl-cc' successfully built!" || echo "[-] LLVM mode for 'afl-cc'  failed to built, likely you either have not llvm installed or you have not set LLVM_CONFIG pointing to e.g. llvm-config-11. See instrumenation/README.llvm.md how to do this. Highly recommended!"
+	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode for 'afl-cc' successfully built!" || echo "[-] LLVM LTO mode for 'afl-cc'  failed to built, this would need LLVM 11+, see instrumentation/README.lto.md how to build it"
+	@test -e afl-gcc-pass.so && echo "[+] gcc_plugin for 'afl-cc' successfully built!" || echo "[-] gcc_plugin for 'afl-cc'  failed to built, unless you really need it that is fine - or read instrumentation/README.gcc_plugin.md how to build it"
 	@echo "[+] All done! Be sure to review the README.md - it's pretty short and useful."
 	@if [ "`uname`" = "Darwin" ]; then printf "\nWARNING: Fuzzing on MacOS X is slow because of the unusually high overhead of\nfork() on this OS. Consider using Linux or *BSD. You can also use VirtualBox\n(virtualbox.org) to put AFL inside a Linux or *BSD VM.\n\n"; fi
 	@! tty <&1 >/dev/null || printf "\033[0;30mNOTE: If you can read this, your terminal probably uses white background.\nThis will make the UI hard to read. See docs/status_screen.md for advice.\033[0m\n" 2>/dev/null
 
 .NOTPARALLEL: clean all
 
+.PHONY: clean
 clean:
-	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-gcc-rt.o afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-*
+	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++
 	rm -rf out_dir qemu_mode/qemu-3.1.1 *.dSYM */*.dSYM
-	-$(MAKE) -C llvm_mode clean
-	-$(MAKE) -C gcc_plugin clean
+	-$(MAKE) -f GNUmakefile.llvm clean
+	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	$(MAKE) -C libdislocator clean
 	$(MAKE) -C libtokencap clean
 	$(MAKE) -C examples/afl_network_proxy clean
@@ -530,20 +523,22 @@ clean:
 	$(MAKE) -C qemu_mode/libcompcov clean
 	rm -rf qemu_mode/qemu-3.1.1
 ifeq "$(IN_REPO)" "1"
-	test -e unicorn_mode/unicornafl/Makefile && $(MAKE) -C unicorn_mode/unicornafl clean || true
+	test -d unicorn_mode/unicornafl && $(MAKE) -C unicorn_mode/unicornafl clean || true
 else
 	rm -rf qemu_mode/qemu-3.1.1.tar.xz
 	rm -rf unicorn_mode/unicornafl
 endif
 
+.PHONY: deepclean
 deepclean:	clean
 	rm -rf qemu_mode/qemu-3.1.1.tar.xz
 	rm -rf unicorn_mode/unicornafl
-	git reset --hard >/dev/null 2>&1 || true
+	# NEVER EVER ACTIVATE THAT!!!!! git reset --hard >/dev/null 2>&1 || true
 
+.PHONY: distrib
 distrib: all
-	-$(MAKE) -C llvm_mode
-	-$(MAKE) -C gcc_plugin
+	-$(MAKE) -f GNUmakefile.llvm
+	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
 	$(MAKE) -C examples/afl_network_proxy
@@ -552,6 +547,7 @@ distrib: all
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
+.PHONY: binary-only
 binary-only: all
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
@@ -561,9 +557,10 @@ binary-only: all
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
+.PHONY: source-only
 source-only: all
-	-$(MAKE) -C llvm_mode
-	-$(MAKE) -C gcc_plugin
+	-$(MAKE) -f GNUmakefile.llvm
+	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
 	@#$(MAKE) -C examples/afl_network_proxy
@@ -573,8 +570,7 @@ source-only: all
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
 	@echo .SH NAME >> $@
-	@printf "%s" ".B $* \- " >> $@
-	@./$* -h 2>&1 | head -n 1 | sed -e "s/$$(printf '\e')[^m]*m//g" >> $@
+	@echo .B $* >> $@
 	@echo >> $@
 	@echo .SH SYNOPSIS >> $@
 	@./$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> $@
@@ -590,30 +586,29 @@ source-only: all
 	@echo .SH LICENSE >> $@
 	@echo Apache License Version 2.0, January 2004 >> $@
 
+.PHONY: install
 install: all $(MANPAGES)
-	install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
-	rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh
+	@install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
+	@rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh
+	@rm -f $${DESTDIR}$(BIN_PATH)/afl-as
+	@rm -f $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH)/afl-gcc-rt.o
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
-	rm -f $${DESTDIR}$(BIN_PATH)/afl-as
-	if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
-	if [ -f afl-gcc-fast ]; then set e; install -m 755 afl-gcc-fast $${DESTDIR}$(BIN_PATH); ln -sf afl-gcc-fast $${DESTDIR}$(BIN_PATH)/afl-g++-fast; install -m 755 afl-gcc-pass.so afl-gcc-rt.o $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f afl-clang-fast ]; then $(MAKE) -C llvm_mode install; fi
-	if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
-	if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
-	if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
-	if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
-	if [ -f libAFLDriver.a ]; then install -m 644 libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
-	if [ -f libAFLQemuDriver.a ]; then install -m 644 libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
-
-	set -e; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-g++
-	set -e; if [ -f afl-clang-fast ] ; then ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-clang-fast $${DESTDIR}$(BIN_PATH)/afl-clang++ ; else ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf afl-gcc $${DESTDIR}$(BIN_PATH)/afl-clang++; fi
-
-	mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
+	@if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
+	@if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
+	@if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
+	@if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
+	@if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
+	@if [ -f examples/aflpp_driver/libAFLDriver.a ]; then install -m 644 examples/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f examples/aflpp_driver/libAFLQemuDriver.a ]; then install -m 644 examples/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
+	-$(MAKE) -f GNUmakefile.llvm install
+	-$(MAKE) -f GNUmakefile.gcc_plugin install
+	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
+	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
+	@mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
 	install -m0644 *.8 ${DESTDIR}$(MAN_PATH)
-
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
 	ln -sf afl-as $${DESTDIR}$(HELPER_PATH)/as
 	install -m 644 docs/*.md $${DESTDIR}$(DOC_PATH)

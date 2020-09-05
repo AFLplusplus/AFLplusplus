@@ -2,8 +2,8 @@
 
 ## Usage
 
-In larger, complex or reiterative programs the counters that collect the edge
-coverage can easily fill up and wrap around.
+In larger, complex or reiterative programs the byte sized counters that collect
+the edge coverage can easily fill up and wrap around.
 This is not that much of an issue - unless by chance it wraps just to a value
 of zero when the program execution ends.
 In this case afl-fuzz is not able to see that the edge has been accessed and

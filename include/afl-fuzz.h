@@ -162,8 +162,7 @@ struct queue_entry {
   u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
 
-  struct queue_entry *next,             /* Next element, if any             */
-      *next_100;                        /* 100 elements ahead               */
+  struct queue_entry *next;             /* Next element, if any             */
 
 };
 
@@ -575,8 +574,7 @@ typedef struct afl_state {
 
   struct queue_entry *queue,            /* Fuzzing queue (linked list)      */
       *queue_cur,                       /* Current offset within the queue  */
-      *queue_top,                       /* Top of the list                  */
-      *q_prev100;                       /* Previous 100 marker              */
+      *queue_top;                       /* Top of the list                  */
 
   // growing buf
   struct queue_entry **queue_buf;
@@ -937,6 +935,7 @@ u8 has_new_bits(afl_state_t *, u8 *);
 
 void load_extras_file(afl_state_t *, u8 *, u32 *, u32 *, u32);
 void load_extras(afl_state_t *, u8 *);
+void dedup_extras(afl_state_t *);
 void add_extra(afl_state_t *afl, u8 *mem, u32 len);
 void maybe_add_auto(afl_state_t *, u8 *, u32);
 void save_auto(afl_state_t *);
@@ -974,7 +973,7 @@ u8   fuzz_one(afl_state_t *);
 void bind_to_free_cpu(afl_state_t *);
 #endif
 void   setup_post(afl_state_t *);
-void   read_testcases(afl_state_t *);
+void   read_testcases(afl_state_t *, u8 *);
 void   perform_dry_run(afl_state_t *);
 void   pivot_inputs(afl_state_t *);
 u32    find_start_position(afl_state_t *);
