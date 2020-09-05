@@ -1282,6 +1282,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   cull_queue(afl);
 
+  if (!afl->pending_not_fuzzed)
+    FATAL("We need at least on valid input seed that does not crash!");
+
   show_init_stats(afl);
 
   seek_to = find_start_position(afl);

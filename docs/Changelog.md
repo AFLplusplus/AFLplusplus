@@ -17,6 +17,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - reading testcases from -i now descends into subdirectories
     - allow up to 4 -x command line options
     - loaded extras now have a duplicate protection
+    - If test cases are too large we do a partial read on the maximum
+      supported size
+    - longer seeds with the same trace information will now be ignored
+      for fuzzing but still be used for splicing
   - instrumentation
     - not overriding -Ox or -fno-unroll-loops anymore
     - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz
