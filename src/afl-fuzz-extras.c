@@ -101,7 +101,8 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     if (rptr < lptr || *rptr != '"') {
 
-      FATAL("Malformed name=\"value\" pair in line %u.", cur_line);
+      WARNF("Malformed name=\"value\" pair in line %u.", cur_line);
+      continue;
 
     }
 
@@ -141,13 +142,19 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     if (*lptr != '"') {
 
-      FATAL("Malformed name=\"keyword\" pair in line %u.", cur_line);
+      WARNF("Malformed name=\"keyword\" pair in line %u.", cur_line);
+      continue;
 
     }
 
     ++lptr;
 
-    if (!*lptr) { FATAL("Empty keyword in line %u.", cur_line); }
+    if (!*lptr) {
+
+      WARNF("Empty keyword in line %u.", cur_line);
+      continue;
+
+    }
 
     /* Okay, let's allocate memory and copy data between "...", handling
        \xNN escaping, \\, and \". */
@@ -169,7 +176,9 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
         case 1 ... 31:
         case 128 ... 255:
-          FATAL("Non-printable characters in line %u.", cur_line);
+          WARNF("Non-printable characters in line %u.", cur_line);
+          continue;
+          break;
 
         case '\\':
 
@@ -185,7 +194,8 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
           if (*lptr != 'x' || !isxdigit(lptr[1]) || !isxdigit(lptr[2])) {
 
-            FATAL("Invalid escaping (not \\xNN) in line %u.", cur_line);
+            WARNF("Invalid escaping (not \\xNN) in line %u.", cur_line);
+            continue;
 
           }
 
@@ -209,10 +219,11 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     if (afl->extras[afl->extras_cnt].len > MAX_DICT_FILE) {
 
-      FATAL(
+      WARNF(
           "Keyword too big in line %u (%s, limit is %s)", cur_line,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), klen),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+      continue;
 
     }
 
@@ -232,14 +243,19 @@ static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
 
   u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
 
-  if (!afl->extras_cnt) { FATAL("No usable files in '%s'", dir); }
+  if (!afl->extras_cnt) {
+
+    WARNF("No usable data in '%s'", dir);
+    return;
+
+  }
 
   qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
         compare_extras_len);
 
-  OKF("Loaded %u extra tokens, size range %s to %s.", afl->extras_cnt,
-      stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), min_len),
-      stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), max_len));
+  ACTF("Loaded %u extra tokens, size range %s to %s.", afl->extras_cnt,
+       stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), min_len),
+       stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), max_len));
 
   if (max_len > 32) {
 
@@ -250,8 +266,8 @@ static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
 
   if (afl->extras_cnt > afl->max_det_extras) {
 
-    OKF("More than %d tokens - will use them probabilistically.",
-        afl->max_det_extras);
+    WARNF("More than %d tokens - will use them probabilistically.",
+          afl->max_det_extras);
 
   }
 
@@ -320,9 +336,10 @@ void load_extras(afl_state_t *afl, u8 *dir) {
     if (st.st_size > MAX_DICT_FILE) {
 
       WARNF(
-          "Extra '%s' is very big (%s, limit is %s)", fn,
+          "Extra '%s' is too big (%s, limit is %s)", fn,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), st.st_size),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+      continue;
 
     }
 
@@ -370,16 +387,74 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
 
 }
 
-/* Adds a new extra / dict entry. Used for LTO autodict. */
+/* Removes duplicates from the loaded extras. This can happen if multiple files
+   are loaded */
+
+void dedup_extras(afl_state_t *afl) {
+
+  if (afl->extras_cnt < 2) return;
+
+  u32 i, j, orig_cnt = afl->extras_cnt;
+
+  for (i = 0; i < afl->extras_cnt - 1; i++) {
+
+    for (j = i + 1; j < afl->extras_cnt; j++) {
+
+    restart_dedup:
+
+      // if the goto was used we could be at the end of the list
+      if (j >= afl->extras_cnt || afl->extras[i].len != afl->extras[j].len)
+        break;
+
+      if (memcmp(afl->extras[i].data, afl->extras[j].data,
+                 afl->extras[i].len) == 0) {
+
+        ck_free(afl->extras[j].data);
+        if (j + 1 < afl->extras_cnt)  // not at the end of the list?
+          memmove((char *)&afl->extras[j], (char *)&afl->extras[j + 1],
+                  (afl->extras_cnt - j - 1) * sizeof(struct extra_data));
+        afl->extras_cnt--;
+        goto restart_dedup;  // restart if several duplicates are in a row
+
+      }
+
+    }
+
+  }
+
+  if (afl->extras_cnt != orig_cnt)
+    afl->extras = afl_realloc((void **)&afl->extras,
+                              afl->extras_cnt * sizeof(struct extra_data));
+
+}
+
+/* Adds a new extra / dict entry. */
 void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
-  u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
+  u8  val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
+  u32 i, found = 0;
+
+  for (i = 0; i < afl->extras_cnt; i++) {
+
+    if (afl->extras[i].len == len) {
+
+      if (memcmp(afl->extras[i].data, mem, len) == 0) return;
+      found = 1;
+
+    } else {
+
+      if (found) break;
+
+    }
+
+  }
 
   if (len > MAX_DICT_FILE) {
 
-    WARNF("Extra '%.*s' is very big (%s, limit is %s)", (int)len, mem,
+    WARNF("Extra '%.*s' is too big (%s, limit is %s)", (int)len, mem,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), len),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+    return;
 
   } else if (len > 32) {
 
@@ -405,8 +480,8 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   if (afl->extras_cnt == afl->max_det_extras + 1) {
 
-    OKF("More than %d tokens - will use them probabilistically.",
-        afl->max_det_extras);
+    WARNF("More than %d tokens - will use them probabilistically.",
+          afl->max_det_extras);
 
   }
 
@@ -609,7 +684,7 @@ void load_auto(afl_state_t *afl) {
 
   } else {
 
-    OKF("No auto-generated dictionary tokens to reuse.");
+    ACTF("No auto-generated dictionary tokens to reuse.");
 
   }
 

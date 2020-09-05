@@ -162,8 +162,7 @@ struct queue_entry {
   u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
 
-  struct queue_entry *next,             /* Next element, if any             */
-      *next_100;                        /* 100 elements ahead               */
+  struct queue_entry *next;             /* Next element, if any             */
 
 };
 
@@ -575,8 +574,7 @@ typedef struct afl_state {
 
   struct queue_entry *queue,            /* Fuzzing queue (linked list)      */
       *queue_cur,                       /* Current offset within the queue  */
-      *queue_top,                       /* Top of the list                  */
-      *q_prev100;                       /* Previous 100 marker              */
+      *queue_top;                       /* Top of the list                  */
 
   // growing buf
   struct queue_entry **queue_buf;
