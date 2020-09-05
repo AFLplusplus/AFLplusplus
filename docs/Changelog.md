@@ -21,6 +21,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       supported size
     - longer seeds with the same trace information will now be ignored
       for fuzzing but still be used for splicing
+    - crashing seeds are now not prohibiting a run anymore but are
+      skipped. They are used for splicing though.
+    - set the default power schedule to the superiour "seek" schedule
   - instrumentation
     - not overriding -Ox or -fno-unroll-loops anymore
     - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz
