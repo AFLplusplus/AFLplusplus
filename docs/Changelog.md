@@ -18,9 +18,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - allow up to 4 -x command line options
     - loaded extras now have a duplicate protection
   - instrumentation
+    - not overriding -Ox or -fno-unroll-loops anymore
     - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz
       -x dictionary of string comparisons found during compilation
-    - not overriding -Ox or -fno-unroll-loops anymore
+    - LTO autodict now also collects interesting cmp comparisons
 
 
 ### Version ++2.68c (release)

@@ -533,7 +533,7 @@ endif
 deepclean:	clean
 	rm -rf qemu_mode/qemu-3.1.1.tar.xz
 	rm -rf unicorn_mode/unicornafl
-	# NEVER EVER ACTIVATE THAT!!!!! git reset --hard >/dev/null 2>&1 || true
+# NEVER EVER ACTIVATE THAT!!!!! git reset --hard >/dev/null 2>&1 || true
 
 .PHONY: distrib
 distrib: all
