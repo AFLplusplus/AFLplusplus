@@ -30,7 +30,7 @@ cp ./program ./program.cmplog
 
 ## Use
 
-AFL++ has the new -c option that can be used to specify a CmpLog binary (the second
+AFL++ has the new -c option that needs to be used to specify the CmpLog binary (the second
 build).
 
 For example:
@@ -39,4 +39,4 @@ For example:
 afl-fuzz -i input -o output -c ./program.cmplog -m none -- ./program.afl @@
 ```
 
-Be careful to use -m none because CmpLog maps a lot of pages.
+Be sure to use `-m none` because CmpLog can map a lot of pages.

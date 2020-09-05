@@ -1,11 +1,6 @@
 /*
-   american fuzzy lop++ - LLVM instrumentation bootstrap
-   ---------------------------------------------------
-
-   Written by Laszlo Szekeres <lszekeres@google.com> and
-              Michal Zalewski
-
-   LLVM integration design comes from Laszlo Szekeres.
+   american fuzzy lop++ - instrumentation bootstrap
+   ------------------------------------------------
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
@@ -16,7 +11,6 @@
 
      http://www.apache.org/licenses/LICENSE-2.0
 
-   This code is the rewrite of afl-as.h's main_payload.
 
 */
 
@@ -110,6 +104,22 @@ static u8 is_persistent;
 /* Are we in sancov mode? */
 
 static u8 _is_sancov;
+
+/* Uninspired gcc plugin instrumentation */
+
+void __afl_trace(const u32 x) {
+
+#if 1                                      /* enable for neverZero feature. */
+  __afl_area_ptr[__afl_prev_loc[0] ^ x] +=
+      1 + ((u8)(1 + __afl_area_ptr[__afl_prev_loc[0] ^ x]) == 0);
+#else
+  ++__afl_area_ptr[__afl_prev_loc[0] ^ x];
+#endif
+
+  __afl_prev_loc[0] = (x >> 1);
+  return;
+
+}
 
 /* Error reporting to forkserver controller */
 
@@ -808,7 +818,7 @@ static void __afl_start_forkserver(void) {
 }
 
 /* A simplified persistent mode handler, used as explained in
- * llvm_mode/README.md. */
+ * README.llvm.md. */
 
 int __afl_persistent_loop(unsigned int max_cnt) {
 
@@ -958,7 +968,7 @@ __attribute__((constructor(0))) void __afl_auto_first(void) {
 
 /* The following stuff deals with supporting -fsanitize-coverage=trace-pc-guard.
    It remains non-operational in the traditional, plugin-backed LLVM mode.
-   For more info about 'trace-pc-guard', see llvm_mode/README.md.
+   For more info about 'trace-pc-guard', see README.llvm.md.
 
    The first function (__sanitizer_cov_trace_pc_guard) is called back on every
    edge (as opposed to every basic block). */
