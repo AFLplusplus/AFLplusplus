@@ -713,11 +713,9 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
     if (st.st_size > MAX_FILE) {
 
-      WARNF("Test case '%s' is too big (%s, limit is %s), skipping", fn2,
+      WARNF("Test case '%s' is too big (%s, limit is %s), partial reading", fn2,
             stringify_mem_size(val_buf[0], sizeof(val_buf[0]), st.st_size),
             stringify_mem_size(val_buf[1], sizeof(val_buf[1]), MAX_FILE));
-      ck_free(fn2);
-      continue;
 
     }
 
@@ -728,7 +726,8 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
     if (!access(dfn, F_OK)) { passed_det = 1; }
 
-    add_to_queue(afl, fn2, st.st_size, passed_det);
+    add_to_queue(afl, fn2, st.st_size >= MAX_FILE ? MAX_FILE : st.st_size,
+                 passed_det);
 
   }
 
@@ -947,7 +946,31 @@ void perform_dry_run(afl_state_t *afl) {
 #undef MSG_ULIMIT_USAGE
 #undef MSG_FORK_ON_APPLE
 
-        FATAL("Test case '%s' results in a crash", fn);
+        WARNF("Test case '%s' results in a crash, skipping", fn);
+
+        /* Remove from fuzzing queue but keep for splicing */
+
+        struct queue_entry *p = afl->queue;
+        while (p && p->next != q)
+          p = p->next;
+
+        if (p)
+          p->next = q->next;
+        else
+          afl->queue = q->next;
+
+        --afl->pending_not_fuzzed;
+
+        afl->max_depth = 0;
+        p = afl->queue;
+        while (p) {
+
+          if (p->depth > afl->max_depth) afl->max_depth = p->depth;
+          p = p->next;
+
+        }
+
+        break;
 
       case FSRV_RUN_ERROR:
 
@@ -1067,7 +1090,7 @@ restart_outer_cull_loop:
 
     }
 
-    afl->queue = afl->queue_top = afl->queue;
+    afl->queue_top = afl->queue;
 
   }
 
