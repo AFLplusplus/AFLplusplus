@@ -9,6 +9,20 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++3.00a (develop)
+  - llvm_mode/ and gcc_plugin/ moved to instrumentation/
+  - all compilers combined to afl-cc which emulates the previous ones
+  - afl-llvm/gcc-rt.o merged into afl-compiler-rt.o
+  - afl-fuzz
+    - reading testcases from -i now descends into subdirectories
+    - allow up to 4 -x command line options
+    - loaded extras now have a duplicate protection
+  - instrumentation
+    - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz
+      -x dictionary of string comparisons found during compilation
+    - not overriding -Ox or -fno-unroll-loops anymore
+
+
 ### Version ++2.68c (release)
   - added the GSoC excellent afl++ grammar mutator by Shengtuo to our
     custom_mutators/ (see custom_mutators/README.md) - or get it here:

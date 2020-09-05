@@ -27,7 +27,7 @@ EOF
 # Build your target with -fsanitize-coverage=trace-pc-guard using fresh clang.
 clang -g -fsanitize-coverage=trace-pc-guard test_fuzzer.cc -c
 # Build afl-llvm-rt.o.c from the AFL distribution.
-clang -c -w $AFL_HOME/llvm_mode/afl-llvm-rt.o.c
+clang -c -w $AFL_HOME/instrumentation/afl-llvm-rt.o.c
 # Build this file, link it with afl-llvm-rt.o.o and the target code.
 clang++ afl_driver.cpp test_fuzzer.o afl-llvm-rt.o.o
 # Run AFL:
