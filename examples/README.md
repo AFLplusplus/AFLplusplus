@@ -47,7 +47,7 @@ Here's a quick overview of the stuff you can find in this directory:
 
 Note that the minimize_corpus.sh tool has graduated from the examples/
 directory and is now available as ../afl-cmin. The LLVM mode has likewise
-graduated to ../llvm_mode/*.
+graduated to ../instrumentation/*.
 
 Most of the tools in this directory are meant chiefly as examples that need to
 be tweaked for your specific needs. They come with some basic documentation,

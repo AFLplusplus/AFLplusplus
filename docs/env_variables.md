@@ -5,13 +5,25 @@
   users or for some types of custom fuzzing setups. See README.md for the general
   instruction manual.
 
-## 1) Settings for afl-gcc, afl-clang, and afl-as - and gcc_plugin afl-gcc-fast
+## 1) Settings for all compilers
 
-Because they can't directly accept command-line options, the compile-time
-tools make fairly broad use of environmental variables:
+Starting with afl++ 3.0 there is only one compiler: afl-cc
+To select the different instrumentation modes this can be done by
+  1. passing --afl-MODE command line options to the compiler
+  2. use a symlink to afl-cc: afl-gcc, afl-g++, afl-clang, afl-clang++,
+     afl-clang-fast, afl-clang-fast++, afl-clang-lto, afl-clang-lto++,
+     afl-gcc-fast, afl-g++-fast
+  3. using the environment variable AFL_CC_COMPILER with MODE
 
-  - Most afl tools do not print any output if stdout/stderr are redirected.
-    If you want to save the output in a file then set the AFL_DEBUG
+MODE can one of LTO (afl-clang-lto*), LLVM (afl-clang-fast*), GCC_PLUGIN
+(afl-g*-fast) or GCC (afl-gcc/afl-g++).
+
+Because beside the --afl-MODE command no afl specific command-line options
+are accepted, the compile-time tools make fairly broad use of environmental
+variables:
+
+  - Most afl tools do not print any ouput if stout/stderr are redirected.
+    If you want to have the output into a file then set the AFL_DEBUG
     environment variable.
     This is sadly necessary for various build processes which fail otherwise.
 
@@ -24,6 +36,8 @@ tools make fairly broad use of environmental variables:
     will cause problems in programs built with -Werror, simply because -O3
     enables more thorough code analysis and can spew out additional warnings.
     To disable optimizations, set AFL_DONT_OPTIMIZE.
+    However if -O... and/or -fno-unroll-loops are set, these are not
+    overriden.
 
   - Setting AFL_USE_ASAN automatically enables ASAN, provided that your
     compiler supports that. Note that fuzzing with ASAN is mildly challenging
@@ -44,7 +58,7 @@ tools make fairly broad use of environmental variables:
     you instrument hand-written assembly when compiling clang code by plugging
     a normalizer into the chain. (There is no equivalent feature for GCC.)
 
-  - Setting AFL_INST_RATIO to a percentage between 0% and 100% controls the
+  - Setting AFL_INST_RATIO to a percentage between 0 and 100% controls the
     probability of instrumenting every branch. This is (very rarely) useful
     when dealing with exceptionally complex programs that saturate the output
     bitmap. Examples include v8, ffmpeg, and perl.
@@ -55,18 +69,15 @@ tools make fairly broad use of environmental variables:
     Setting AFL_INST_RATIO to 0 is a valid choice. This will instrument only
     the transitions between function entry points, but not individual branches.
 
+    Note that this is an outdated variable. A few instances (e.g. afl-gcc)
+    still support these, but state-of-the-art (e.g. LLVM LTO and LLVM PCGUARD)
+    do not need this.
+
   - AFL_NO_BUILTIN causes the compiler to generate code suitable for use with
     libtokencap.so (but perhaps running a bit slower than without the flag).
 
   - TMPDIR is used by afl-as for temporary files; if this variable is not set,
     the tool defaults to /tmp.
-
-  - Setting AFL_KEEP_ASSEMBLY prevents afl-as from deleting instrumented
-    assembly files. Useful for troubleshooting problems or understanding how
-    the tool works. To get them in a predictable place, try something like:
-
-    mkdir assembly_here
-    TMPDIR=$PWD/assembly_here AFL_KEEP_ASSEMBLY=1 make clean all
 
   - If you are a weird person that wants to compile and instrument asm
     text files then use the AFL_AS_FORCE_INSTRUMENT variable:
@@ -78,19 +89,24 @@ tools make fairly broad use of environmental variables:
   - Setting AFL_CAL_FAST will speed up the initial calibration, if the
     application is very slow
 
-## 2) Settings for afl-clang-fast / afl-clang-fast++ / afl-gcc-fast / afl-g++-fast
+## 2) Settings for LLVM and LTO: afl-clang-fast / afl-clang-fast++ / afl-clang-lto / afl-clang-lto++
 
-The native instrumentation helpers (llvm_mode and gcc_plugin) accept a subset
+The native instrumentation helpers (instrumentation and gcc_plugin) accept a subset
 of the settings discussed in section #1, with the exception of:
+
+  - LLVM modes support `AFL_LLVM_DICT2FILE=/absolute/path/file.txt` which will
+    write all constant string comparisons  to this file to be used with
+    afl-fuzz' `-x` option.
 
   - AFL_AS, since this toolchain does not directly invoke GNU as.
 
   - TMPDIR and AFL_KEEP_ASSEMBLY, since no temporary assembly files are
     created.
 
-  - AFL_INST_RATIO, as we by default use collision free instrumentation.
+  - AFL_INST_RATIO, as we by default collision free instrumentation is used.
+    Not all passes support this option though as it is an outdated feature.
 
-Then there are a few specific features that are only available in llvm_mode:
+Then there are a few specific features that are only available in instrumentation:
 
 ### Select the instrumentation mode
 
@@ -121,7 +137,7 @@ Then there are a few specific features that are only available in llvm_mode:
 
     None of the following options are necessary to be used and are rather for
     manual use (which only ever the author of this LTO implementation will use).
-    These are used if several seperated instrumentations are performed which
+    These are used if several seperated instrumentation are performed which
     are then later combined.
 
    - AFL_LLVM_DOCUMENT_IDS=file will document to a file which edge ID was given
@@ -136,7 +152,7 @@ Then there are a few specific features that are only available in llvm_mode:
    - AFL_LLVM_LTO_DONTWRITEID prevents that the highest location ID written
      into the instrumentation is set in a global variable
 
-    See llvm_mode/README.LTO.md for more information.
+    See instrumentation/README.LTO.md for more information.
 
 ### INSTRIM
 
@@ -154,7 +170,7 @@ Then there are a few specific features that are only available in llvm_mode:
       afl-fuzz will only be able to see the path the loop took, but not how
       many times it was called (unless it is a complex loop).
 
-    See llvm_mode/README.instrim.md
+    See instrumentation/README.instrim.md
 
 ### NGRAM
 
@@ -165,7 +181,7 @@ Then there are a few specific features that are only available in llvm_mode:
       config.h to at least 18 and maybe up to 20 for this as otherwise too
       many map collisions occur.
 
-    See llvm_mode/README.ctx.md
+    See instrumentation/README.ctx.md
 
 ### CTX
 
@@ -176,7 +192,7 @@ Then there are a few specific features that are only available in llvm_mode:
       config.h to at least 18 and maybe up to 20 for this as otherwise too
       many map collisions occur.
 
-    See llvm_mode/README.ngram.md
+    See instrumentation/README.ngram.md
 
 ### LAF-INTEL
 
@@ -196,17 +212,17 @@ Then there are a few specific features that are only available in llvm_mode:
 
     - Setting AFL_LLVM_LAF_ALL sets all of the above
 
-    See llvm_mode/README.laf-intel.md for more information.
+    See instrumentation/README.laf-intel.md for more information.
 
 ### INSTRUMENT LIST (selectively instrument files and functions)
 
-    This feature allows selective instrumentation of the source
+    This feature allows selectively instrumentation of the source
 
     - Setting AFL_LLVM_ALLOWLIST or AFL_LLVM_DENYLIST with a filenames and/or
       function will only instrument (or skip) those files that match the names
       listed in the specified file.
 
-    See llvm_mode/README.instrument_list.md for more information.
+    See instrumentation/README.instrument_list.md for more information.
 
 ### NOT_ZERO
 
@@ -220,27 +236,34 @@ Then there are a few specific features that are only available in llvm_mode:
       test. If the target performs only few loops then this will give a
       small performance boost.
 
-    See llvm_mode/README.neverzero.md
+    See instrumentation/README.neverzero.md
 
 ### CMPLOG
 
     - Setting AFL_LLVM_CMPLOG=1 during compilation will tell afl-clang-fast to
-      produce a CmpLog binary. See llvm_mode/README.cmplog.md
+      produce a CmpLog binary. See instrumentation/README.cmplog.md
 
-    See llvm_mode/README.neverzero.md
+    See instrumentation/README.neverzero.md
 
-Then there are a few specific features that are only available in the gcc_plugin:
+## 3) Settings for GCC / GCC_PLUGIN modes
 
-### INSTRUMENT_FILE
+Then there are a few specific features that are only available in GCC and
+GCC_PLUGIN mode.
 
-    This feature allows selective instrumentation of the source
+  - Setting AFL_KEEP_ASSEMBLY prevents afl-as from deleting instrumented
+    assembly files. Useful for troubleshooting problems or understanding how
+    the tool works. (GCC mode only)
+    To get them in a predictable place, try something like:
 
-    - Setting AFL_GCC_INSTRUMENT_FILE with a filename will only instrument those
-      files that match the names listed in this file (one filename per line).
+    mkdir assembly_here
+    TMPDIR=$PWD/assembly_here AFL_KEEP_ASSEMBLY=1 make clean all
 
+  - Setting AFL_GCC_INSTRUMENT_FILE with a filename will only instrument those
+    files that match the names listed in this file (one filename per line).
     See gcc_plugin/README.instrument_list.md for more information.
+    (GCC_PLUGIN mode only)
 
-## 3) Settings for afl-fuzz
+## 4) Settings for afl-fuzz
 
 The main fuzzer binary accepts several options that disable a couple of sanity
 checks or alter some of the more exotic semantics of the tool:
@@ -277,14 +300,6 @@ checks or alter some of the more exotic semantics of the tool:
     down can be useful if you are very concerned about slow inputs, or if you
     don't want AFL to spend too much time classifying that stuff and just
     rapidly put all timeouts in that bin.
-
-  - Setting AFL_FORKSRV_INIT_TMOUT allows yout to specify a different timeout
-    to wait for the forkserver to spin up. The default is the `-t` value times
-    `FORK_WAIT_MULT` from `config.h` (usually 10), so for a `-t 100`, the
-    default would wait `1000` milis. Setting a different time here is useful
-    if the target has a very slow startup time, for example when doing
-    full-system fuzzing or emulation, but you don't want the actual runs
-    to wait too long for timeouts.
 
   - AFL_NO_ARITH causes AFL to skip most of the deterministic arithmetics.
     This can be useful to speed up the fuzzing of text-based file formats.
@@ -377,22 +392,12 @@ checks or alter some of the more exotic semantics of the tool:
     Note that this setting inhibits some of the user-friendly diagnostics
     normally done when starting up the forkserver and causes a pretty
     significant performance drop.
-  
-  - Setting AFL_MAX_DET_EXTRAS changes the count of dictionary entries/extras
-    (default 200), after which the entries will be used probabilistically.
-    So, if the dict/extras file (`-x`) contains more tokens than this threshold,
-    not all of the tokens will be used in each fuzzing step, every time.
-    Instead, there is a chance that the entry will be skipped during fuzzing.
-    This makes sure that the fuzzer doesn't spend all its time only inserting
-    the extras, but will still do other mutations. However, it decreases the
-    likelihood for each token to be inserted, before the next queue entry is fuzzed.
-    Either way, all tokens will be used eventually, in a longer fuzzing campaign.
 
   - Outdated environment variables that are that not supported anymore:
     AFL_DEFER_FORKSRV
     AFL_PERSISTENT
 
-## 4) Settings for afl-qemu-trace
+## 5) Settings for afl-qemu-trace
 
 The QEMU wrapper used to instrument binary-only code supports several settings:
 
@@ -446,7 +451,7 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     stack pointer in which QEMU can find the return address when `start addr` is
     hitted.
 
-## 5) Settings for afl-cmin
+## 6) Settings for afl-cmin
 
 The corpus minimization script offers very little customization:
 
@@ -472,12 +477,12 @@ to match when minimizing crashes. This will make minimization less useful, but
 may prevent the tool from "jumping" from one crashing condition to another in
 very buggy software. You probably want to combine it with the -e flag.
 
-## 7) Settings for afl-analyze
+## 8) Settings for afl-analyze
 
 You can set AFL_ANALYZE_HEX to get file offsets printed as hexadecimal instead
 of decimal.
 
-## 8) Settings for libdislocator
+## 9) Settings for libdislocator
 
 The library honors these environmental variables:
 
@@ -499,12 +504,12 @@ The library honors these environmental variables:
   - AFL_ALIGNED_ALLOC=1 will force the alignment of the allocation size to
     max_align_t to be compliant with the C standard.
 
-## 9) Settings for libtokencap
+## 10) Settings for libtokencap
 
 This library accepts AFL_TOKEN_FILE to indicate the location to which the
 discovered tokens should be written.
 
-## 10) Third-party variables set by afl-fuzz & other tools
+## 11) Third-party variables set by afl-fuzz & other tools
 
 Several variables are not directly interpreted by afl-fuzz, but are set to
 optimal values if not already present in the environment:
