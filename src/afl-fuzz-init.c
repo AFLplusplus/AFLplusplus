@@ -1001,6 +1001,76 @@ void perform_dry_run(afl_state_t *afl) {
 
   }
 
+  /* Now we remove all entries from the queue that have a duplicate trace map */
+
+  q = afl->queue;
+  struct queue_entry *p, *prev = NULL;
+  int                 duplicates = 0;
+
+restart_outer_cull_loop:
+
+  while (q) {
+
+    if (q->cal_failed || !q->exec_cksum) continue;
+
+  restart_inner_cull_loop:
+
+    p = q->next;
+
+    while (p) {
+
+      if (!p->cal_failed && p->exec_cksum == q->exec_cksum) {
+
+        duplicates = 1;
+        --afl->pending_not_fuzzed;
+
+        // We do not remove any of the memory allocated because for
+        // splicing the data might still be interesting.
+        // We only decouple them from the linked list.
+        // This will result in some leaks at exit, but who cares.
+
+        // we keep the shorter file
+        if (p->len >= q->len) {
+
+          q->next = p->next;
+          goto restart_inner_cull_loop;
+
+        } else {
+
+          if (prev)
+            prev->next = q = p;
+          else
+            afl->queue = q = p;
+          goto restart_outer_cull_loop;
+
+        }
+
+      }
+
+      p = p->next;
+
+    }
+
+    prev = q;
+    q = q->next;
+
+  }
+
+  if (duplicates) {
+
+    afl->max_depth = 0;
+    q = afl->queue;
+    while (q) {
+
+      if (q->depth > afl->max_depth) afl->max_depth = q->depth;
+      q = q->next;
+
+    }
+
+    afl->q_prev100 = afl->queue = afl->queue_top = afl->queue;
+
+  }
+
   OKF("All test cases processed.");
 
 }
