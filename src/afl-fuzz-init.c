@@ -617,24 +617,27 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
   s32             nl_cnt, subdirs = 1;
   u32             i;
   u8 *            fn1, *dir = directory;
-  u8 val_buf[2][STRINGIFY_VAL_SIZE_MAX];
+  u8              val_buf[2][STRINGIFY_VAL_SIZE_MAX];
 
   /* Auto-detect non-in-place resumption attempts. */
 
-if (dir == NULL) {
-  fn1 = alloc_printf("%s/queue", afl->in_dir);
-  if (!access(fn1, F_OK)) {
+  if (dir == NULL) {
 
-    afl->in_dir = fn1;
-    subdirs = 0;
+    fn1 = alloc_printf("%s/queue", afl->in_dir);
+    if (!access(fn1, F_OK)) {
 
-  } else {
+      afl->in_dir = fn1;
+      subdirs = 0;
 
-    ck_free(fn1);
+    } else {
+
+      ck_free(fn1);
+
+    }
+
+    dir = afl->in_dir;
 
   }
-  dir = afl->in_dir;
-}
 
   ACTF("Scanning '%s'...", dir);
 
