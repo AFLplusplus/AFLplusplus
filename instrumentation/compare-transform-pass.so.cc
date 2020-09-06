@@ -143,7 +143,8 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
           StringRef FuncName = Callee->getName();
           isStrcmp &= !FuncName.compare(StringRef("strcmp"));
-          isMemcmp &= !FuncName.compare(StringRef("memcmp"));
+          isMemcmp &= (!FuncName.compare(StringRef("memcmp")) ||
+                       !FuncName.compare(StringRef("bcmp")));
           isStrncmp &= !FuncName.compare(StringRef("strncmp"));
           isStrcasecmp &= !FuncName.compare(StringRef("strcasecmp"));
           isStrncasecmp &= !FuncName.compare(StringRef("strncasecmp"));
