@@ -197,8 +197,9 @@ class ModuleSanitizerCoverage {
   void CreateFunctionLocalArrays(Function &F, ArrayRef<BasicBlock *> AllBlocks);
   void InjectCoverageAtBlock(Function &F, BasicBlock &BB, size_t Idx,
                              bool IsLeafFunc = true);
-//  std::pair<Value *, Value *> CreateSecStartEnd(Module &M, const char *Section,
-//                                                Type *Ty);
+  //  std::pair<Value *, Value *> CreateSecStartEnd(Module &M, const char
+  //  *Section,
+  //                                                Type *Ty);
 
   void SetNoSanitizeMetadata(Instruction *I) {
 
@@ -207,9 +208,9 @@ class ModuleSanitizerCoverage {
 
   }
 
-  std::string    getSectionName(const std::string &Section) const;
-//  std::string    getSectionStart(const std::string &Section) const;
-//  std::string    getSectionEnd(const std::string &Section) const;
+  std::string getSectionName(const std::string &Section) const;
+  //  std::string    getSectionStart(const std::string &Section) const;
+  //  std::string    getSectionEnd(const std::string &Section) const;
   FunctionCallee SanCovTracePCIndir;
   FunctionCallee SanCovTracePC /*, SanCovTracePCGuard*/;
   Type *IntptrTy, *IntptrPtrTy, *Int64Ty, *Int64PtrTy, *Int32Ty, *Int32PtrTy,
@@ -374,6 +375,7 @@ std::pair<Value *, Value *> ModuleSanitizerCoverage::CreateSecStartEnd(
   return std::make_pair(IRB.CreatePointerCast(GEP, Ty), SecEndPtr);
 
 }
+
 */
 
 bool ModuleSanitizerCoverage::instrumentModule(
@@ -612,6 +614,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
             bool   isStrcasecmp = true;
             bool   isStrncasecmp = true;
             bool   isIntMemcpy = true;
+            bool   isStdString = true;
             bool   addedNull = false;
             size_t optLen = 0;
 
@@ -624,7 +627,13 @@ bool ModuleSanitizerCoverage::instrumentModule(
             isStrncmp &= !FuncName.compare("strncmp");
             isStrcasecmp &= !FuncName.compare("strcasecmp");
             isStrncasecmp &= !FuncName.compare("strncasecmp");
-            isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
+            isIntMemcpy &= (!FuncName.compare("llvm.memcpy.p0i8.p0i8.i64") ||
+                            !FuncName.compare("bcmp"));
+            isStdString &=
+                ((FuncName.find("basic_string") != std::string::npos &&
+                  FuncName.find("compare") != std::string::npos) ||
+                 (FuncName.find("basic_string") != std::string::npos &&
+                  FuncName.find("find") != std::string::npos));
 
             /* we do something different here, putting this BB and the
                successors in a block map */
@@ -642,7 +651,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
             }
 
             if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
-                !isStrncasecmp && !isIntMemcpy)
+                !isStrncasecmp && !isIntMemcpy && !isStdString)
               continue;
 
             /* Verify the strcmp/memcmp/strncmp/strcasecmp/strncasecmp function
@@ -676,9 +685,12 @@ bool ModuleSanitizerCoverage::instrumentModule(
                              FT->getParamType(0) ==
                                  IntegerType::getInt8PtrTy(M.getContext()) &&
                              FT->getParamType(2)->isIntegerTy();
+            isStdString &= FT->getNumParams() >= 2 &&
+                           FT->getParamType(0)->isPointerTy() &&
+                           FT->getParamType(1)->isPointerTy();
 
             if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
-                !isStrncasecmp && !isIntMemcpy)
+                !isStrncasecmp && !isIntMemcpy && !isStdString)
               continue;
 
             /* is a str{n,}{case,}cmp/memcmp, check if we have
@@ -1556,6 +1568,7 @@ std::string ModuleSanitizerCoverage::getSectionEnd(
   return "__stop___" + Section;
 
 }
+
 */
 
 char ModuleSanitizerCoverageLegacyPass::ID = 0;

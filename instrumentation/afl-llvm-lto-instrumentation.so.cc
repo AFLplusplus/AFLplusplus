@@ -381,6 +381,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
             bool   isStrcasecmp = true;
             bool   isStrncasecmp = true;
             bool   isIntMemcpy = true;
+            bool   isStdString = true;
             bool   addedNull = false;
             size_t optLen = 0;
 
@@ -393,7 +394,13 @@ bool AFLLTOPass::runOnModule(Module &M) {
             isStrncmp &= !FuncName.compare("strncmp");
             isStrcasecmp &= !FuncName.compare("strcasecmp");
             isStrncasecmp &= !FuncName.compare("strncasecmp");
-            isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
+            isIntMemcpy &= (!FuncName.compare("llvm.memcpy.p0i8.p0i8.i64") ||
+                            !FuncName.compare("bcmp"));
+            isStdString &=
+                ((FuncName.find("basic_string") != std::string::npos &&
+                  FuncName.find("compare") != std::string::npos) ||
+                 (FuncName.find("basic_string") != std::string::npos &&
+                  FuncName.find("find") != std::string::npos));
 
             /* we do something different here, putting this BB and the
                successors in a block map */
@@ -414,7 +421,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
             }
 
             if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
-                !isStrncasecmp && !isIntMemcpy)
+                !isStrncasecmp && !isIntMemcpy && !isStdString)
               continue;
 
             /* Verify the strcmp/memcmp/strncmp/strcasecmp/strncasecmp function
@@ -448,9 +455,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
                              FT->getParamType(0) ==
                                  IntegerType::getInt8PtrTy(M.getContext()) &&
                              FT->getParamType(2)->isIntegerTy();
+            isStdString &= FT->getNumParams() >= 2 &&
+                           FT->getParamType(0)->isPointerTy() &&
+                           FT->getParamType(1)->isPointerTy();
 
             if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
-                !isStrncasecmp && !isIntMemcpy)
+                !isStrncasecmp && !isIntMemcpy && !isStdString)
               continue;
 
             /* is a str{n,}{case,}cmp/memcmp, check if we have
