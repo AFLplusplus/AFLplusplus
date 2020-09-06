@@ -28,7 +28,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - not overriding -Ox or -fno-unroll-loops anymore
     - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz
       -x dictionary of string comparisons found during compilation
-    - LTO autodict now also collects interesting cmp comparisons
+    - LTO autodict now also collects interesting cmp comparisons,
+      std::string compare + find + ==, bcmp
 
 
 ### Version ++2.68c (release)
