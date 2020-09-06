@@ -197,8 +197,8 @@ class ModuleSanitizerCoverage {
   void CreateFunctionLocalArrays(Function &F, ArrayRef<BasicBlock *> AllBlocks);
   void InjectCoverageAtBlock(Function &F, BasicBlock &BB, size_t Idx,
                              bool IsLeafFunc = true);
-  std::pair<Value *, Value *> CreateSecStartEnd(Module &M, const char *Section,
-                                                Type *Ty);
+//  std::pair<Value *, Value *> CreateSecStartEnd(Module &M, const char *Section,
+//                                                Type *Ty);
 
   void SetNoSanitizeMetadata(Instruction *I) {
 
@@ -208,8 +208,8 @@ class ModuleSanitizerCoverage {
   }
 
   std::string    getSectionName(const std::string &Section) const;
-  std::string    getSectionStart(const std::string &Section) const;
-  std::string    getSectionEnd(const std::string &Section) const;
+//  std::string    getSectionStart(const std::string &Section) const;
+//  std::string    getSectionEnd(const std::string &Section) const;
   FunctionCallee SanCovTracePCIndir;
   FunctionCallee SanCovTracePC /*, SanCovTracePCGuard*/;
   Type *IntptrTy, *IntptrPtrTy, *Int64Ty, *Int64PtrTy, *Int32Ty, *Int32PtrTy,
@@ -349,6 +349,7 @@ PreservedAnalyses ModuleSanitizerCoveragePass::run(Module &               M,
 
 }
 
+/*
 std::pair<Value *, Value *> ModuleSanitizerCoverage::CreateSecStartEnd(
     Module &M, const char *Section, Type *Ty) {
 
@@ -373,6 +374,7 @@ std::pair<Value *, Value *> ModuleSanitizerCoverage::CreateSecStartEnd(
   return std::make_pair(IRB.CreatePointerCast(GEP, Ty), SecEndPtr);
 
 }
+*/
 
 bool ModuleSanitizerCoverage::instrumentModule(
     Module &M, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
@@ -1536,6 +1538,7 @@ std::string ModuleSanitizerCoverage::getSectionName(
 
 }
 
+/*
 std::string ModuleSanitizerCoverage::getSectionStart(
     const std::string &Section) const {
 
@@ -1553,6 +1556,7 @@ std::string ModuleSanitizerCoverage::getSectionEnd(
   return "__stop___" + Section;
 
 }
+*/
 
 char ModuleSanitizerCoverageLegacyPass::ID = 0;
 

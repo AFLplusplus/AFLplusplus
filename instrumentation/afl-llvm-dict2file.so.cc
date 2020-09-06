@@ -84,7 +84,7 @@ class AFLdict2filePass : public ModulePass {
 
 void dict2file(int fd, u8 *mem, u32 len) {
 
-  int  i, j, binary = 0;
+  u32  i, j, binary = 0;
   char line[MAX_AUTO_EXTRA * 8], tmp[8];
 
   strcpy(line, "\"");
