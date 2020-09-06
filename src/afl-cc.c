@@ -1153,9 +1153,6 @@ int main(int argc, char **argv, char **envp) {
 
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
 
-    char *fp;
-    fp = realpath(argv[0], NULL);
-
     printf("afl-cc" VERSION
            " by Michal Zalewski, Laszlo Szekeres, Marc Heuse\n");
 
@@ -1302,8 +1299,7 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_USE_ASAN: activate address sanitizer\n"
           "  AFL_USE_CFISAN: activate control flow sanitizer\n"
           "  AFL_USE_MSAN: activate memory sanitizer\n"
-          "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n",
-          BIN_PATH, BIN_PATH);
+          "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n");
 
       SAYF(
           "\nLLVM/LTO/afl-clang-fast/afl-clang-lto specific environment "
