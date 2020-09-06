@@ -390,12 +390,12 @@ bool AFLLTOPass::runOnModule(Module &M) {
             if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
             std::string FuncName = Callee->getName().str();
             isStrcmp &= !FuncName.compare("strcmp");
-            isMemcmp &= !FuncName.compare("memcmp");
+            isMemcmp &=
+                (!FuncName.compare("memcmp") || !FuncName.compare("bcmp"));
             isStrncmp &= !FuncName.compare("strncmp");
             isStrcasecmp &= !FuncName.compare("strcasecmp");
             isStrncasecmp &= !FuncName.compare("strncasecmp");
-            isIntMemcpy &= (!FuncName.compare("llvm.memcpy.p0i8.p0i8.i64") ||
-                            !FuncName.compare("bcmp"));
+            isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
             isStdString &=
                 ((FuncName.find("basic_string") != std::string::npos &&
                   FuncName.find("compare") != std::string::npos) ||
