@@ -1022,7 +1022,11 @@ void show_init_stats(afl_state_t *afl) {
 
   /* Let's keep things moving with slow binaries. */
 
-  if (avg_us > 50000) {
+  if (unlikely(afl->fixed_seed)) {
+
+    afl->havoc_div = 1;
+
+  } else if (avg_us > 50000) {
 
     afl->havoc_div = 10;                                /* 0-19 execs/sec   */
 
@@ -1093,7 +1097,11 @@ void show_init_stats(afl_state_t *afl) {
        random scheduler jitter is less likely to have any impact, and because
        our patience is wearing thin =) */
 
-    if (avg_us > 50000) {
+    if (unlikely(afl->fixed_seed)) {
+
+      afl->fsrv.exec_tmout = avg_us * 5 / 1000;
+
+    } else if (avg_us > 50000) {
 
       afl->fsrv.exec_tmout = avg_us * 2 / 1000;
 
