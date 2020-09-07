@@ -38,7 +38,9 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
+#if ! __GNUC__
 #include "llvm/Config/llvm-config.h"
+#endif
 
 #ifdef __linux__
   #include "snapshot-inl.h"
@@ -109,14 +111,22 @@ static u8 _is_sancov;
 
 void __afl_trace(const u32 x) {
 
+  PREV_LOC_T prev = __afl_prev_loc[0];
+  __afl_prev_loc[0] = (x >> 1);
+
+  u8 *p = &__afl_area_ptr[prev ^ x];
+
 #if 1                                      /* enable for neverZero feature. */
-  __afl_area_ptr[__afl_prev_loc[0] ^ x] +=
-      1 + ((u8)(1 + __afl_area_ptr[__afl_prev_loc[0] ^ x]) == 0);
+# if __GNUC__
+  u8 c = __builtin_add_overflow (*p, 1, p);
+  *p += c;
+# else
+  *p += 1 + ((u8)(1 + *p == 0);
+# endif
 #else
-  ++__afl_area_ptr[__afl_prev_loc[0] ^ x];
+  ++*p;
 #endif
 
-  __afl_prev_loc[0] = (x >> 1);
   return;
 
 }
