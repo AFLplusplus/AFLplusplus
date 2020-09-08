@@ -6,7 +6,6 @@ branches:
   only:
     - stable
     - dev
-    - llvm_merge
 
 matrix:
   include:

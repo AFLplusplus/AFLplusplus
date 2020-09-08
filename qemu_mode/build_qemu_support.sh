@@ -121,7 +121,7 @@ else
     CNT=1
     while [ '!' -d qemuafl -a "$CNT" -lt 4 ]; do
       echo "Trying to clone qemuafl (attempt $CNT/3)"
-      git clone https://github.com/AFLplusplus/qemuafl
+      git clone --depth 1 https://github.com/AFLplusplus/qemuafl
       CNT=`expr "$CNT" + 1`
     done
   }
