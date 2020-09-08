@@ -31,6 +31,8 @@ behaviours:
     only one compiler: afl-cc. All previous compilers now symlink to this one
     compiler. All instrumentation source code is now in the `instrumentation/`
     folder.
+  * The gcc_plugin was replaced with a new version submitted by AdaCore, that
+    supports more features, thank you!
   * qemu_mode got upgraded to QEMU 5.1, but to be able to build this a current
     ninja build tool version and python3 setuptools are required.
     qemu_mode also got new options like snapshotting, instrumenting specific
