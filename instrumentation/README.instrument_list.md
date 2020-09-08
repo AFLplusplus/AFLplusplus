@@ -1,8 +1,8 @@
 # Using afl++ with partial instrumentation
 
   This file describes how to selectively instrument only source files
-  or functions that are of interest to you using the LLVM instrumentation
-  provided by afl++.
+  or functions that are of interest to you using the LLVM and GCC_PLUGIN
+  instrumentation provided by afl++.
 
 ## 1) Description and purpose
 
@@ -22,10 +22,16 @@ https://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumen
 The llvm sancov list format is fully supported by afl++, however afl++ has
 more flexibility.
 
-## 2) Building the LLVM module
+## 2a) Building the LLVM module
 
 The new code is part of the existing afl++ LLVM module in the instrumentation/
 subdirectory. There is nothing specifically to do for the build :)
+
+## 2b) Building the GCC module
+
+The new code is part of the existing afl++ GCC_PLUGIN module in the
+instrumentation/ subdirectory. There is nothing specifically to do for
+the build :)
 
 ## 3) How to use the partial instrumentation mode
 
@@ -36,6 +42,9 @@ AFL_LLVM_ALLOWLIST or AFL_LLVM_DENYLIST set with a filename.
 
 That file should contain the file names or functions that are to be instrumented
 (AFL_LLVM_ALLOWLIST) or are specifically NOT to be instrumented (AFL_LLVM_DENYLIST).
+
+GCC_PLUGIN: you can use either AFL_LLVM_ALLOWLIST or AFL_GCC_ALLOWLIST (or the
+same for _DENYLIST), both work.
 
 For matching to succeed, the function/file name that is being compiled must end in the
 function/file name entry contained in this instrument file list. That is to avoid

@@ -1196,7 +1196,7 @@ int main(int argc, char **argv, char **envp) {
         "        - NGRAM-{2-16}\n"
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
         "      CLASSIC              DEFAULT    no  yes     yes  no     no  no  "
-        "   simple\n"
+        "   yes\n"
         "  [GCC] simple gcc:        %s%s\n"
         "      CLASSIC              DEFAULT    no  no      no   no     no  no  "
         "   no\n\n",
@@ -1270,75 +1270,88 @@ int main(int argc, char **argv, char **envp) {
           "  AFL_CXX: path to the C++ compiler to use\n"
           "  AFL_DEBUG: enable developer debugging output\n"
           "  AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
-          "  AFL_HARDEN: adds code hardening to catch memory bugs\n"
-          "  AFL_INST_RATIO: percentage of branches to instrument\n"
-#if LLVM_MAJOR < 9
-          "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
-#else
-          "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
-#endif
-          "  AFL_LLVM_DICT2FILE: generate an afl dictionary based on found "
-          "comparisons\n"
-          "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
-          "  AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
-          "  AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
-          "  AFL_LLVM_LAF_SPLIT_SWITCHES: cascaded comparisons on switches\n"
-          "  AFL_LLVM_LAF_SPLIT_FLOATS: cascaded comparisons on floats\n"
-          "  AFL_LLVM_LAF_TRANSFORM_COMPARES: cascade comparisons for string "
-          "functions\n"
-          "  AFL_LLVM_INSTRUMENT_ALLOW/AFL_LLVM_INSTRUMENT_DENY: enable "
-          "instrument allow/\n"
-          "    deny listing (selective instrumentation)\n"
           "  AFL_NO_BUILTIN: no builtins for string compare functions (for "
           "libtokencap.so)\n"
           "  AFL_PATH: path to instrumenting pass and runtime  "
           "(afl-compiler-rt.*o)\n"
-          "  AFL_LLVM_DOCUMENT_IDS: document edge IDs given to which function "
-          "(LTO only)\n"
+          "  AFL_INST_RATIO: percentage of branches to instrument\n"
           "  AFL_QUIET: suppress verbose output\n"
+          "  AFL_HARDEN: adds code hardening to catch memory bugs\n"
           "  AFL_USE_ASAN: activate address sanitizer\n"
           "  AFL_USE_CFISAN: activate control flow sanitizer\n"
           "  AFL_USE_MSAN: activate memory sanitizer\n"
           "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n");
 
-      SAYF(
-          "\nLLVM/LTO/afl-clang-fast/afl-clang-lto specific environment "
-          "variables:\n"
-          "  AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen mutator)\n"
-          "  AFL_LLVM_INSTRUMENT: set instrumentation mode: CLASSIC, INSTRIM, "
-          "PCGUARD, LTO, CTX, NGRAM-2 ... NGRAM-16\n"
-          " You can also use the old environment variables instead:\n"
-          "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
-          "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
-          "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed "
-          "(option to INSTRIM)\n"
-          "  AFL_LLVM_CTX: use context sensitive coverage (for CLASSIC and "
-          "INSTRIM)\n"
-          "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage (for "
-          "CLASSIC and INSTRIM)\n");
+      if (have_gcc_plugin)
+        SAYF(
+            "\nGCC Plugin-specific environment variables:\n"
+            "  AFL_GCC_OUT_OF_LINE: disable inlined instrumentation\n"
+            "  AFL_GCC_SKIP_NEVERZERO: do not skip zero on trace counters\n"
+            "  AFL_GCC_INSTRUMENT_FILE: enable selective instrumentation by "
+            "filename\n");
+
+      if (have_llvm)
+        SAYF(
+            "\nLLVM/LTO/afl-clang-fast/afl-clang-lto specific environment "
+            "variables:\n"
+#if LLVM_MAJOR < 9
+            "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+#else
+            "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
+#endif
+            "  AFL_LLVM_DICT2FILE: generate an afl dictionary based on found "
+            "comparisons\n"
+            "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
+            "  AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
+            "  AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
+            "  AFL_LLVM_LAF_SPLIT_SWITCHES: cascaded comparisons on switches\n"
+            "  AFL_LLVM_LAF_SPLIT_FLOATS: cascaded comparisons on floats\n"
+            "  AFL_LLVM_LAF_TRANSFORM_COMPARES: cascade comparisons for string "
+            "functions\n"
+            "  AFL_LLVM_INSTRUMENT_ALLOW/AFL_LLVM_INSTRUMENT_DENY: enable "
+            "instrument allow/\n"
+            "    deny listing (selective instrumentation)\n");
+
+      if (have_llvm)
+        SAYF(
+            "  AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen "
+            "mutator)\n"
+            "  AFL_LLVM_INSTRUMENT: set instrumentation mode:\n"
+            "    CLASSIC, INSTRIM, PCGUARD, LTO, CTX, NGRAM-2 ... NGRAM-16\n"
+            " You can also use the old environment variables instead:\n"
+            "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
+            "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
+            "  AFL_LLVM_INSTRIM_LOOPHEAD: optimize loop tracing for speed "
+            "(option to INSTRIM)\n"
+            "  AFL_LLVM_CTX: use context sensitive coverage (for CLASSIC and "
+            "INSTRIM)\n"
+            "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage (for "
+            "CLASSIC & INSTRIM)\n");
 
 #ifdef AFL_CLANG_FLTO
-      SAYF(
-          "\nLTO/afl-clang-lto specific environment variables:\n"
-          "AFL_LLVM_MAP_ADDR: use a fixed coverage map address (speed), e.g. "
-          "0x10000\n"
-          "AFL_LLVM_DOCUMENT_IDS: write all edge IDs and the corresponding "
-          "functions they are in into this file\n"
-          "AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
-          "global var\n"
-          "AFL_LLVM_LTO_STARTID: from which ID to start counting from for a "
-          "bb\n"
-          "AFL_REAL_LD: use this lld linker instead of the compiled in path\n"
-          "\nafl-clang-lto was built with linker target \"%s\" and LTO flags "
-          "\"%s\"\n"
-          "If anything fails - be sure to read README.lto.md!\n",
-          AFL_REAL_LD, AFL_CLANG_FLTO);
+      if (have_lto)
+        SAYF(
+            "\nLTO/afl-clang-lto specific environment variables:\n"
+            "  AFL_LLVM_MAP_ADDR: use a fixed coverage map address (speed), "
+            "e.g. "
+            "0x10000\n"
+            "  AFL_LLVM_DOCUMENT_IDS: write all edge IDs and the corresponding "
+            "functions\n"
+            "    into this file\n"
+            "  AFL_LLVM_LTO_DONTWRITEID: don't write the highest ID used to a "
+            "global var\n"
+            "  AFL_LLVM_LTO_STARTID: from which ID to start counting from for "
+            "a "
+            "bb\n"
+            "  AFL_REAL_LD: use this lld linker instead of the compiled in "
+            "path\n"
+            "If anything fails - be sure to read README.lto.md!\n");
 #endif
 
     }
 
     SAYF(
-        "For any information on the available instrumentations and options "
+        "\nFor any information on the available instrumentations and options "
         "please \n"
         "consult the README.md, especially section 3.1 about instrumenting "
         "targets.\n\n");

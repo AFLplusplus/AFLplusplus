@@ -1775,7 +1775,6 @@ int check_main_node_exists(afl_state_t *afl) {
 void setup_dirs_fds(afl_state_t *afl) {
 
   u8 *tmp;
-  s32 fd;
 
   ACTF("Setting up output directories...");
 
@@ -1901,7 +1900,7 @@ void setup_dirs_fds(afl_state_t *afl) {
   /* Gnuplot output file. */
 
   tmp = alloc_printf("%s/plot_data", afl->out_dir);
-  fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
+  int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0600);
   if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 

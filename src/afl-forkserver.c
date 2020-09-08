@@ -1043,11 +1043,11 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-  if (fsrv->child_pid <= 0) { 
-  
+  if (fsrv->child_pid <= 0) {
+
     if (*stop_soon_p) { return 0; }
     FATAL("Fork server is misbehaving (OOM?)");
-  
+
   }
 
   exec_ms = read_s32_timed(fsrv->fsrv_st_fd, &fsrv->child_status, timeout,
