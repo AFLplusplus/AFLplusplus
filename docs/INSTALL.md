@@ -28,6 +28,8 @@ If you are using clang, please review README.llvm.md; the LLVM
 integration mode can offer substantial performance gains compared to the
 traditional approach.
 
+Likewise, if you are using GCC, please review gcc_plugin/README.md.
+
 You may have to change several settings to get optimal results (most notably,
 disable crash reporting utilities and switch to a different CPU governor), but
 afl-fuzz will guide you through that if necessary.
@@ -157,7 +159,8 @@ instrumentation mode (`-Q`) will not work.
 ## 6. Everything else
 
 You're on your own. On POSIX-compliant systems, you may be able to compile and
-run the fuzzer; and the LLVM mode may offer a way to instrument non-x86 code.
+run the fuzzer; and the LLVM and GCC plugin modes may offer a way to instrument
+non-x86 code.
 
 The fuzzer will run on Windows in WSL only. It will not work under Cygwin on in the normal Windows world. It
 could be ported to the latter platform fairly easily, but it's a pretty bad
