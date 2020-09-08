@@ -470,7 +470,6 @@ code-format:
 	./.custom-format.py -i examples/*/*.c
 	./.custom-format.py -i examples/*/*.h
 	./.custom-format.py -i test/*.c
-	./.custom-format.py -i qemu_mode/patches/*.h
 	./.custom-format.py -i qemu_mode/libcompcov/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.cc
 	./.custom-format.py -i qemu_mode/libcompcov/*.h
@@ -510,8 +509,7 @@ all_done: test_build
 
 .PHONY: clean
 clean:
-	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++
-	rm -rf out_dir qemu_mode/qemu-3.1.1 *.dSYM */*.dSYM
+	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ test/unittests/unit_hash test/unittests/unit_rand
 	-$(MAKE) -f GNUmakefile.llvm clean
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	$(MAKE) -C libdislocator clean
@@ -521,18 +519,18 @@ clean:
 	$(MAKE) -C examples/argv_fuzzing clean
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
-	rm -rf qemu_mode/qemu-3.1.1
 ifeq "$(IN_REPO)" "1"
+	test -e qemu_mode/qemuafl/Makefile && $(MAKE) -C qemu_mode/qemuafl clean || true
 	test -e unicorn_mode/unicornafl/Makefile && $(MAKE) -C unicorn_mode/unicornafl clean || true
 else
-	rm -rf qemu_mode/qemu-3.1.1.tar.xz
+	rm -rf qemu_mode/qemuafl
 	rm -rf unicorn_mode/unicornafl
 endif
 
 .PHONY: deepclean
 deepclean:	clean
-	rm -rf qemu_mode/qemu-3.1.1.tar.xz
 	rm -rf unicorn_mode/unicornafl
+	rm -rf qemu_mode/qemuafl
 # NEVER EVER ACTIVATE THAT!!!!! git reset --hard >/dev/null 2>&1 || true
 
 .PHONY: distrib
@@ -541,11 +539,12 @@ distrib: all
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
+	$(MAKE) -C examples/aflpp_driver
 	$(MAKE) -C examples/afl_network_proxy
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
-	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
 .PHONY: binary-only
 binary-only: all
@@ -555,7 +554,7 @@ binary-only: all
 	$(MAKE) -C examples/socket_fuzzing
 	$(MAKE) -C examples/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
-	cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
 .PHONY: source-only
 source-only: all
@@ -563,9 +562,7 @@ source-only: all
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
-	@#$(MAKE) -C examples/afl_network_proxy
-	@#$(MAKE) -C examples/socket_fuzzing
-	@#$(MAKE) -C examples/argv_fuzzing
+	$(MAKE) -C examples/aflpp_driver
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
