@@ -29,7 +29,6 @@
 #define _AFL_CMPLOG_H
 
 #include "config.h"
-#include "forkserver.h"
 
 #define CMP_MAP_W 65536
 #define CMP_MAP_H 256
@@ -77,7 +76,8 @@ struct cmp_map {
 
 /* Execs the child */
 
-void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv);
+struct afl_forkserver;
+void cmplog_exec_child(struct afl_forkserver *fsrv, char **argv);
 
 #endif
 
