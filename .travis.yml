@@ -22,10 +22,10 @@ matrix:
   - os: linux
     dist: trusty
     env: NAME="trusty-amd64" MODERN="no" GCC="4.8"
-#  - os: linux # until travis can fix this!
-#    dist: xenial
-#    arch: arm64
-#    env: NAME="xenial-arm64" MODERN="no" GCC="5" EXTRA="libtool-bin clang-6.0" AFL_NO_X86="1" CPU_TARGET="aarch64"
+  - os: linux # until travis can fix this!
+    dist: xenial
+    arch: arm64
+    env: NAME="xenial-arm64" MODERN="no" GCC="5" EXTRA="libtool-bin clang-6.0" AFL_NO_X86="1" CPU_TARGET="aarch64"
 #  - os: osx
 #    osx_image: xcode11.2
 #    env: NAME="osx" HOMEBREW_NO_ANALYTICS="1" LINK="http://releases.llvm.org/9.0.0/" NAME="clang+llvm-9.0.0-x86_64-darwin-apple"

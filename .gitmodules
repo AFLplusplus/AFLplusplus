@@ -5,3 +5,6 @@
 [submodule "custom_mutators/Grammar-Mutator"]
 	path = custom_mutators/Grammar-Mutator
 	url = https://github.com/AFLplusplus/Grammar-Mutator
+[submodule "qemu_mode/qemuafl"]
+	path = qemu_mode/qemuafl
+	url = https://github.com/AFLplusplus/qemuafl.git
