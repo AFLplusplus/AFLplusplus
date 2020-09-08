@@ -25,6 +25,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       skipped. They are used for splicing though.
     - set the default power schedule to the superiour "seek" schedule
   - instrumentation
+    - We received an enhanced gcc_plugin module from AdaCore, thank you
+      very much!!
     - not overriding -Ox or -fno-unroll-loops anymore
     - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz
       -x dictionary of string comparisons found during compilation

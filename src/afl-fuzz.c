@@ -698,7 +698,7 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->swarm_now = 0;
         if (afl->limit_time_puppet == 0) { afl->key_puppet = 1; }
 
-        int i;
+        int j;
         int tmp_swarm = 0;
 
         if (afl->g_now > afl->g_max) { afl->g_now = 0; }
@@ -711,70 +711,70 @@ int main(int argc, char **argv_orig, char **envp) {
           double total_puppet_temp = 0.0;
           afl->swarm_fitness[tmp_swarm] = 0.0;
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->stage_finds_puppet[tmp_swarm][i] = 0;
-            afl->probability_now[tmp_swarm][i] = 0.0;
-            afl->x_now[tmp_swarm][i] =
+            afl->stage_finds_puppet[tmp_swarm][j] = 0;
+            afl->probability_now[tmp_swarm][j] = 0.0;
+            afl->x_now[tmp_swarm][j] =
                 ((double)(random() % 7000) * 0.0001 + 0.1);
-            total_puppet_temp += afl->x_now[tmp_swarm][i];
-            afl->v_now[tmp_swarm][i] = 0.1;
-            afl->L_best[tmp_swarm][i] = 0.5;
-            afl->G_best[i] = 0.5;
-            afl->eff_best[tmp_swarm][i] = 0.0;
+            total_puppet_temp += afl->x_now[tmp_swarm][j];
+            afl->v_now[tmp_swarm][j] = 0.1;
+            afl->L_best[tmp_swarm][j] = 0.5;
+            afl->G_best[j] = 0.5;
+            afl->eff_best[tmp_swarm][j] = 0.0;
 
           }
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->stage_cycles_puppet_v2[tmp_swarm][i] =
-                afl->stage_cycles_puppet[tmp_swarm][i];
-            afl->stage_finds_puppet_v2[tmp_swarm][i] =
-                afl->stage_finds_puppet[tmp_swarm][i];
-            afl->x_now[tmp_swarm][i] =
-                afl->x_now[tmp_swarm][i] / total_puppet_temp;
+            afl->stage_cycles_puppet_v2[tmp_swarm][j] =
+                afl->stage_cycles_puppet[tmp_swarm][j];
+            afl->stage_finds_puppet_v2[tmp_swarm][j] =
+                afl->stage_finds_puppet[tmp_swarm][j];
+            afl->x_now[tmp_swarm][j] =
+                afl->x_now[tmp_swarm][j] / total_puppet_temp;
 
           }
 
           double x_temp = 0.0;
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->probability_now[tmp_swarm][i] = 0.0;
-            afl->v_now[tmp_swarm][i] =
-                afl->w_now * afl->v_now[tmp_swarm][i] +
+            afl->probability_now[tmp_swarm][j] = 0.0;
+            afl->v_now[tmp_swarm][j] =
+                afl->w_now * afl->v_now[tmp_swarm][j] +
                 RAND_C *
-                    (afl->L_best[tmp_swarm][i] - afl->x_now[tmp_swarm][i]) +
-                RAND_C * (afl->G_best[i] - afl->x_now[tmp_swarm][i]);
+                    (afl->L_best[tmp_swarm][j] - afl->x_now[tmp_swarm][j]) +
+                RAND_C * (afl->G_best[j] - afl->x_now[tmp_swarm][j]);
 
-            afl->x_now[tmp_swarm][i] += afl->v_now[tmp_swarm][i];
+            afl->x_now[tmp_swarm][j] += afl->v_now[tmp_swarm][j];
 
-            if (afl->x_now[tmp_swarm][i] > v_max) {
+            if (afl->x_now[tmp_swarm][j] > v_max) {
 
-              afl->x_now[tmp_swarm][i] = v_max;
+              afl->x_now[tmp_swarm][j] = v_max;
 
-            } else if (afl->x_now[tmp_swarm][i] < v_min) {
+            } else if (afl->x_now[tmp_swarm][j] < v_min) {
 
-              afl->x_now[tmp_swarm][i] = v_min;
+              afl->x_now[tmp_swarm][j] = v_min;
 
             }
 
-            x_temp += afl->x_now[tmp_swarm][i];
+            x_temp += afl->x_now[tmp_swarm][j];
 
           }
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->x_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i] / x_temp;
-            if (likely(i != 0)) {
+            afl->x_now[tmp_swarm][j] = afl->x_now[tmp_swarm][j] / x_temp;
+            if (likely(j != 0)) {
 
-              afl->probability_now[tmp_swarm][i] =
-                  afl->probability_now[tmp_swarm][i - 1] +
-                  afl->x_now[tmp_swarm][i];
+              afl->probability_now[tmp_swarm][j] =
+                  afl->probability_now[tmp_swarm][j - 1] +
+                  afl->x_now[tmp_swarm][j];
 
             } else {
 
-              afl->probability_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i];
+              afl->probability_now[tmp_swarm][j] = afl->x_now[tmp_swarm][j];
 
             }
 
@@ -789,13 +789,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        for (i = 0; i < operator_num; ++i) {
+        for (j = 0; j < operator_num; ++j) {
 
-          afl->core_operator_finds_puppet[i] = 0;
-          afl->core_operator_finds_puppet_v2[i] = 0;
-          afl->core_operator_cycles_puppet[i] = 0;
-          afl->core_operator_cycles_puppet_v2[i] = 0;
-          afl->core_operator_cycles_puppet_v3[i] = 0;
+          afl->core_operator_finds_puppet[j] = 0;
+          afl->core_operator_finds_puppet_v2[j] = 0;
+          afl->core_operator_cycles_puppet[j] = 0;
+          afl->core_operator_cycles_puppet_v2[j] = 0;
+          afl->core_operator_cycles_puppet_v3[j] = 0;
 
         }
 
@@ -1010,10 +1010,10 @@ int main(int argc, char **argv_orig, char **envp) {
       u8 *afl_preload = getenv("AFL_PRELOAD");
       u8 *buf;
 
-      s32 i, afl_preload_size = strlen(afl_preload);
-      for (i = 0; i < afl_preload_size; ++i) {
+      s32 j, afl_preload_size = strlen(afl_preload);
+      for (j = 0; j < afl_preload_size; ++j) {
 
-        if (afl_preload[i] == ',') {
+        if (afl_preload[j] == ',') {
 
           PFATAL(
               "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
@@ -1188,10 +1188,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->fsrv.out_file) {
 
-    u32 i = optind + 1;
-    while (argv[i]) {
+    u32 j = optind + 1;
+    while (argv[j]) {
 
-      u8 *aa_loc = strstr(argv[i], "@@");
+      u8 *aa_loc = strstr(argv[j], "@@");
 
       if (aa_loc && !afl->fsrv.out_file) {
 
@@ -1214,7 +1214,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
-      ++i;
+      ++j;
 
     }
 
