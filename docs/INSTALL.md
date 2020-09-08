@@ -28,7 +28,7 @@ If you are using clang, please review README.llvm.md; the LLVM
 integration mode can offer substantial performance gains compared to the
 traditional approach.
 
-Likewise, if you are using GCC, please review gcc_plugin/README.md.
+Likewise, if you are using GCC, please review instrumentation/README.gcc_plugin.md.
 
 You may have to change several settings to get optimal results (most notably,
 disable crash reporting utilities and switch to a different CPU governor), but
