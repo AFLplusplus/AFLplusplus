@@ -1335,6 +1335,12 @@ int main(int argc, char **argv, char **envp) {
           AFL_REAL_LD, AFL_CLANG_FLTO);
 #endif
 
+      SAYF(
+          "\nGCC Plugin-specific environment variables:\n"
+           "AFL_GCC_OUT_OF_LINE: disable inlined instrumentation\n"
+           "AFL_GCC_SKIP_NEVERZERO: do not skip zero on trace counters\n"
+           "AFL_GCC_INSTRUMENT_FILE: enable selective instrumentation by "
+           "filename\n");
     }
 
     SAYF(
