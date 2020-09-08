@@ -38,8 +38,8 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
-#if ! __GNUC__
-#include "llvm/Config/llvm-config.h"
+#if !__GNUC__
+  #include "llvm/Config/llvm-config.h"
 #endif
 
 #ifdef __linux__
@@ -117,12 +117,12 @@ void __afl_trace(const u32 x) {
   u8 *p = &__afl_area_ptr[prev ^ x];
 
 #if 1                                      /* enable for neverZero feature. */
-# if __GNUC__
-  u8 c = __builtin_add_overflow (*p, 1, p);
+  #if __GNUC__
+  u8 c = __builtin_add_overflow(*p, 1, p);
   *p += c;
-# else
+  #else
   *p += 1 + ((u8)(1 + *p == 0);
-# endif
+  #endif
 #else
   ++*p;
 #endif
