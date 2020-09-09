@@ -32,6 +32,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       -x dictionary of string comparisons found during compilation
     - LTO autodict now also collects interesting cmp comparisons,
       std::string compare + find + ==, bcmp
+  - added a new custom mutator: symcc -> https://github.com/eurecom-s3/symcc/
 
 
 ### Version ++2.68c (release)
