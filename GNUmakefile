@@ -598,8 +598,8 @@ install: all $(MANPAGES)
 	@if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
 	@if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
 	@if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
-	@if [ -f examples/aflpp_driver/libAFLDriver.a ]; then install -m 644 examples/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
-	@if [ -f examples/aflpp_driver/libAFLQemuDriver.a ]; then install -m 644 examples/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f examples/aflpp_driver/libAFLDriver.a ]; then set -e; install -m 644 examples/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f examples/aflpp_driver/libAFLQemuDriver.a ]; then set -e; install -m 644 examples/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	-$(MAKE) -f GNUmakefile.llvm install
 	-$(MAKE) -f GNUmakefile.gcc_plugin install
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
