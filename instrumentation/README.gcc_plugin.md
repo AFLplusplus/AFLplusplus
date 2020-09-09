@@ -1,12 +1,7 @@
 # GCC-based instrumentation for afl-fuzz
 
-  (See [../README.md](../README.md) for the general instruction manual.)
-  (See [README.llvm.md](README.llvm.md) for the LLVM-based instrumentation.)
-
-!!! TODO items are:
-!!!  => inline instrumentation has to work!
-!!!
-
+See [../README.md](../README.md) for the general instruction manual.
+See [README.llvm.md](README.llvm.md) for the LLVM-based instrumentation.
 
 ## 1) Introduction
 
@@ -41,7 +36,7 @@ The idea and much of the implementation comes from Laszlo Szekeres.
 In order to leverage this mechanism, you need to have modern enough GCC
 (>= version 4.5.0) and the plugin headers installed on your system. That
 should be all you need. On Debian machines, these headers can be acquired by
-installing the `gcc-<VERSION>-plugin-dev` packages.
+installing the `gcc-VERSION-plugin-dev` packages.
 
 To build the instrumentation itself, type 'make'. This will generate binaries
 called afl-gcc-fast and afl-g++-fast in the parent directory. 
@@ -56,8 +51,8 @@ standard operating mode of AFL, e.g.:
 Be sure to also include CXX set to afl-g++-fast for C++ code.
 
 The tool honors roughly the same environmental variables as afl-gcc (see
-[env_variables.md](../docs/env_variables.md). This includes AFL_INST_RATIO, AFL_USE_ASAN,
-AFL_HARDEN, and AFL_DONT_OPTIMIZE.
+[env_variables.md](../docs/env_variables.md). This includes AFL_INST_RATIO,
+AFL_USE_ASAN, AFL_HARDEN, and AFL_DONT_OPTIMIZE.
 
 Note: if you want the GCC plugin to be installed on your system for all
 users, you need to build it before issuing 'make install' in the parent
@@ -66,7 +61,7 @@ directory.
 ## 3) Gotchas, feedback, bugs
 
 This is an early-stage mechanism, so field reports are welcome. You can send bug
-reports to <hexcoder-@github.com>.
+reports to afl@aflplus.plus
 
 ## 4) Bonus feature #1: deferred initialization
 
