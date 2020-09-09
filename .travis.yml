@@ -9,18 +9,18 @@ branches:
 
 matrix:
   include:
-#  - os: linux	# focal errors every run with a timeout while installing packages
-#    dist: focal
-#    env: NAME="focal-amd64" MODERN="yes" GCC="9"
+  - os: linux
+    dist: focal
+    env: NAME="focal-amd64" MODERN="yes" GCC="9"
   - os: linux
     dist: bionic
     env: NAME="bionic-amd64" MODERN="yes" GCC="7"
   - os: linux
     dist: xenial
     env: NAME="xenial-amd64" MODERN="no" GCC="5" EXTRA="libtool-bin clang-6.0"
-  - os: linux
-    dist: trusty
-    env: NAME="trusty-amd64" MODERN="no" GCC="4.8"
+#  - os: linux # disabled: fatal: unable to access 'https://git.qemu.org/git/capstone/': gnutls_handshake() failed: Handshake failed
+#    dist: trusty
+#    env: NAME="trusty-amd64" MODERN="no" GCC="4.8"
   - os: linux # until travis can fix this!
     dist: xenial
     arch: arm64
