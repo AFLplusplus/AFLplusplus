@@ -278,6 +278,10 @@ struct afl_pass : gimple_opt_pass {
 
         }
 
+        /* .map_ptr is initialized at the function entry point, if we
+           instrument any blocks, see below.  */
+
+        /* .entry = &map_ptr[.index]; */
         gimple *idx_map =
             gimple_build_assign(ntry, POINTER_PLUS_EXPR, map_ptr, indx);
         gimple_seq_add_stmt(&seq, idx_map);
@@ -288,10 +292,11 @@ struct afl_pass : gimple_opt_pass {
         if (blocks == 0)
           cntr = create_tmp_var(TREE_TYPE(memref), ".afl_edge_count");
 
+        /* Load the count from the entry.  */
         gimple *load_cntr = gimple_build_assign(cntr, memref);
         gimple_seq_add_stmt(&seq, load_cntr);
 
-        tree cntrb = cntr;
+        /* Prepare to add constant 1 to it.  */
         tree incrv = build_one_cst(TREE_TYPE(cntr));
 
         if (neverZero) {
@@ -306,6 +311,10 @@ struct afl_pass : gimple_opt_pass {
 
           }
 
+          /* Call the ADD_OVERFLOW builtin, to add 1 (in incrv) to
+             count.  The builtin yields a complex pair: the result of
+             the add in the real part, and the overflow flag in the
+             imaginary part, */
           auto_vec<tree> vargs(2);
           vargs.quick_push(cntr);
           vargs.quick_push(incrv);
@@ -314,14 +323,27 @@ struct afl_pass : gimple_opt_pass {
           gimple_call_set_lhs(add1_cntr, xaddc);
           gimple_seq_add_stmt(&seq, add1_cntr);
 
-          cntrb = build1(REALPART_EXPR, TREE_TYPE(cntr), xaddc);
-          incrv = build1(IMAGPART_EXPR, TREE_TYPE(xincr), xaddc);
+          /* Extract the real part into count.  */
+          tree    cntrb = build1(REALPART_EXPR, TREE_TYPE(cntr), xaddc);
+          gimple *xtrct_cntr = gimple_build_assign(cntr, cntrb);
+          gimple_seq_add_stmt(&seq, xtrct_cntr);
+
+          /* Extract the imaginary part into xincr.  */
+          tree    incrb = build1(IMAGPART_EXPR, TREE_TYPE(xincr), xaddc);
+          gimple *xtrct_xincr = gimple_build_assign(xincr, incrb);
+          gimple_seq_add_stmt(&seq, xtrct_xincr);
+
+          /* Arrange for the add below to use the overflow flag stored
+             in xincr.  */
+          incrv = xincr;
 
         }
 
-        gimple *incr_cntr = gimple_build_assign(cntr, PLUS_EXPR, cntrb, incrv);
+        /* Add the increment (1 or the overflow bit) to count.  */
+        gimple *incr_cntr = gimple_build_assign(cntr, PLUS_EXPR, cntr, incrv);
         gimple_seq_add_stmt(&seq, incr_cntr);
 
+        /* Store count in the map entry.  */
         gimple *store_cntr = gimple_build_assign(unshare_expr(memref), cntr);
         gimple_seq_add_stmt(&seq, store_cntr);
 
