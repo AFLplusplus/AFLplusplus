@@ -456,6 +456,10 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
         extras_dir[extras_dir_cnt++] = optarg;
+
+        if (afl->skip_deterministic) {
+            WARNF("Dictionary is not supported in non deterministic runs"); 
+        }
         break;
 
       case 't': {                                                /* timeout */
@@ -550,6 +554,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
         afl->skip_deterministic = 1;
         afl->use_splicing = 1;
+        if (extras_dir_cnt) { 
+            WARNF("Dictionary is not supported in non deterministic runs"); 
+        }
         break;
 
       case 'B':                                              /* load bitmap */
