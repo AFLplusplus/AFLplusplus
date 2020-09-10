@@ -41,7 +41,7 @@ behaviours:
   * When instrumenting targets, afl-cc will not supersede optimizations. This
     allows to fuzz targets as same as they are built for debug or release.
   * afl-fuzz' `-i` option now descends into subdirectories.
-  * afl-fuzz will skip over empty dictionaries and too large test cases instead
+  * afl-fuzz will skip over empty dictionaries and too-large test cases instead
     of failing.
 
 ## Contents
@@ -63,20 +63,20 @@ behaviours:
 
   | Feature/Instrumentation  | afl-gcc | llvm      | gcc_plugin | qemu_mode        | unicorn_mode |
   | -------------------------|:-------:|:---------:|:----------:|:----------------:|:------------:|
-  | NeverZero                | x86[_64]|     x(1)  |      (2)   |         x        |       x      |
+  | NeverZero                | x86[_64]|     x(1)  |     x      |         x        |       x      |
   | Persistent Mode          |         |     x     |     x      | x86[_64]/arm[64] |       x      |
   | LAF-Intel / CompCov      |         |     x     |            | x86[_64]/arm[64] | x86[_64]/arm |
   | CmpLog                   |         |     x     |            | x86[_64]/arm[64] |              |
-  | Selective Instrumentation|         |     x     |     x      |        (x)(3)    |              |
+  | Selective Instrumentation|         |     x     |     x      |         x        |              |
   | Non-Colliding Coverage   |         |     x(4)  |            |        (x)(5)    |              |
   | Ngram prev_loc Coverage  |         |     x(6)  |            |                  |              |
   | Context Coverage         |         |     x(6)  |            |                  |              |
   | Auto Dictionary          |         |     x(7)  |            |                  |              |
-  | Snapshot LKM Support     |         |     x     |            |        (x)(5)    |              |
+  | Snapshot LKM Support     |         |     x     |     x      |        (x)(5)    |              |
 
   1. default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
-  3. partially via AFL_CODE_START/AFL_CODE_END
+  3. (currently unassigned)
   4. with pcguard mode and LTO mode for LLVM >= 11
   5. upcoming, development in the branch
   6. not compatible with LTO instrumentation and needs at least LLVM >= 4.1
@@ -92,8 +92,6 @@ behaviours:
   * AFLfast's power schedules by Marcel Böhme: [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
   * The MOpt mutator: [https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)
   * LLVM mode Ngram coverage by Adrian Herrera [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
-  * C. Holler's afl-fuzz Python mutator module: [https://github.com/choller/afl](https://github.com/choller/afl)
-  * Custom mutator by a library (instead of Python) by kyakdan
   * LAF-Intel/CompCov support for instrumentation, qemu_mode and unicorn_mode (with enhanced capabilities)
   * Radamsa and honggfuzz mutators (as custom mutators).
   * QBDI mode to fuzz android native libraries via Quarkslab's [QBDI](https://github.com/QBDI/QBDI) framework

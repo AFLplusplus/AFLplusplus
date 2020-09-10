@@ -3,6 +3,13 @@
 See [../README.md](../README.md) for the general instruction manual.
 See [README.llvm.md](README.llvm.md) for the LLVM-based instrumentation.
 
+TLDR:
+  * `apt-get install gcc-VERSION-plugin-dev`
+  * `make`
+  * gcc and g++ must point to the gcc-VERSION you you have to set AFL_CC/AFL_CXX
+    to point to these!
+  * just use afl-gcc-fast/afl-g++-fast normally like you would afl-clang-fast
+
 ## 1) Introduction
 
 The code in this directory allows you to instrument programs for AFL using
@@ -40,8 +47,12 @@ installing the `gcc-VERSION-plugin-dev` packages.
 
 To build the instrumentation itself, type 'make'. This will generate binaries
 called afl-gcc-fast and afl-g++-fast in the parent directory. 
+
+The gcc and g++ compiler links have to point to gcc-VERSION - or set these
+by pointing the environment variables AFL_CC/AFL_CXX to them.
 If the CC/CXX have been overridden, those compilers will be used from
 those wrappers without using AFL_CXX/AFL_CC settings.
+
 Once this is done, you can instrument third-party code in a way similar to the
 standard operating mode of AFL, e.g.:
 
