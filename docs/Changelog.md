@@ -33,6 +33,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - LTO autodict now also collects interesting cmp comparisons,
       std::string compare + find + ==, bcmp
   - added a new custom mutator: symcc -> https://github.com/eurecom-s3/symcc/
+  - added a new custom mutator: libfuzzer that integrates libfuzzer mutations
+  - Our afl++ Grammar-Mutator is now better integrated into custom_mutators/
 
 
 ### Version ++2.68c (release)

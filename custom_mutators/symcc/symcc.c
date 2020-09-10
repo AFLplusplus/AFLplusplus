@@ -12,7 +12,8 @@ afl_state_t *afl_struct;
 #ifdef DEBUG
   #define DBG(x...) fprintf(stderr, x)
 #else
-  #define DBG(x...) {}
+  #define DBG(x...) \
+    {}
 #endif
 
 typedef struct my_mutator {
@@ -177,8 +178,8 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
                        size_t max_size) {
 
   struct dirent **nl;
-  int32_t i, done = 0, items = scandir(data->out_dir, &nl, NULL, NULL);
-  size_t  size = 0;
+  int32_t         i, done = 0, items = scandir(data->out_dir, &nl, NULL, NULL);
+  size_t          size = 0;
 
   if (items <= 0) return 0;
 

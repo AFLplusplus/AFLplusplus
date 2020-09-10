@@ -465,9 +465,9 @@ code-format:
 	./.custom-format.py -i instrumentation/*.h
 	./.custom-format.py -i instrumentation/*.cc
 	./.custom-format.py -i instrumentation/*.c
-	./.custom-format.py -i custom_mutators/*/*.c
+	./.custom-format.py -i custom_mutators/*/*.c*
 	@#./.custom-format.py -i custom_mutators/*/*.h # destroys input.h :-(
-	./.custom-format.py -i examples/*/*.c
+	./.custom-format.py -i examples/*/*.c*
 	./.custom-format.py -i examples/*/*.h
 	./.custom-format.py -i test/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.c
