@@ -379,6 +379,11 @@ How to do this is described below.
 
 Then build the target. (Usually with `make`)
 
+**NOTE**: sometimes configure and build systems are fickle and do not like
+stderr output (and think this means a test failure) - which is something
+afl++ like to do to show statistics. It is recommended to disable them via
+`export AFL_QUIET=1`.
+
 ##### configure
 
 For `configure` build systems this is usually done by:
