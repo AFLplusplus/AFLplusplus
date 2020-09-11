@@ -152,9 +152,19 @@
 #include <context.h>
 #include <tree.h>
 #include <gimplify.h>
+#include <basic-block.h>
+#include <tree-ssa-alias.h>
+#include <gimple-expr.h>
 #include <gimple.h>
 #include <gimple-iterator.h>
-#include <ssa.h>
+#include <stringpool.h>
+#include <gimple-ssa.h>
+#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) >= 60200 /* >= version 6.2.0 */
+#include <tree-vrp.h>
+#endif
+#include <tree-ssanames.h>
+#include <tree-phinodes.h>
+#include <ssa-iterators.h>
 
 #include <intl.h>
 
@@ -257,16 +267,16 @@ struct afl_pass : gimple_opt_pass {
         /* Load __afl_prev_loc to a temporary ploc.  */
         if (blocks == 0)
           ploc = create_tmp_var(TREE_TYPE(afl_prev_loc), ".afl_prev_loc");
-        gimple *load_loc = gimple_build_assign(ploc, afl_prev_loc);
+        auto load_loc = gimple_build_assign(ploc, afl_prev_loc);
         gimple_seq_add_stmt(&seq, load_loc);
 
         /* Compute the index into the map referenced by area_ptr
            that we're to update: indx = (sizetype) ploc ^ bid.  */
         if (blocks == 0) indx = create_tmp_var(TREE_TYPE(bidt), ".afl_index");
-        gimple *conv_ploc =
+        auto conv_ploc =
             gimple_build_assign(indx, fold_convert(TREE_TYPE(indx), ploc));
         gimple_seq_add_stmt(&seq, conv_ploc);
-        gimple *xor_loc = gimple_build_assign(indx, BIT_XOR_EXPR, indx, bidt);
+        auto xor_loc = gimple_build_assign(indx, BIT_XOR_EXPR, indx, bidt);
         gimple_seq_add_stmt(&seq, xor_loc);
 
         /* Compute the address of that map element.  */
@@ -282,7 +292,7 @@ struct afl_pass : gimple_opt_pass {
            instrument any blocks, see below.  */
 
         /* .entry = &map_ptr[.index]; */
-        gimple *idx_map =
+        auto idx_map =
             gimple_build_assign(ntry, POINTER_PLUS_EXPR, map_ptr, indx);
         gimple_seq_add_stmt(&seq, idx_map);
 
@@ -293,7 +303,7 @@ struct afl_pass : gimple_opt_pass {
           cntr = create_tmp_var(TREE_TYPE(memref), ".afl_edge_count");
 
         /* Load the count from the entry.  */
-        gimple *load_cntr = gimple_build_assign(cntr, memref);
+        auto load_cntr = gimple_build_assign(cntr, memref);
         gimple_seq_add_stmt(&seq, load_cntr);
 
         /* Prepare to add constant 1 to it.  */
@@ -325,12 +335,12 @@ struct afl_pass : gimple_opt_pass {
 
           /* Extract the real part into count.  */
           tree    cntrb = build1(REALPART_EXPR, TREE_TYPE(cntr), xaddc);
-          gimple *xtrct_cntr = gimple_build_assign(cntr, cntrb);
+          auto xtrct_cntr = gimple_build_assign(cntr, cntrb);
           gimple_seq_add_stmt(&seq, xtrct_cntr);
 
           /* Extract the imaginary part into xincr.  */
           tree    incrb = build1(IMAGPART_EXPR, TREE_TYPE(xincr), xaddc);
-          gimple *xtrct_xincr = gimple_build_assign(xincr, incrb);
+          auto xtrct_xincr = gimple_build_assign(xincr, incrb);
           gimple_seq_add_stmt(&seq, xtrct_xincr);
 
           /* Arrange for the add below to use the overflow flag stored
@@ -340,18 +350,18 @@ struct afl_pass : gimple_opt_pass {
         }
 
         /* Add the increment (1 or the overflow bit) to count.  */
-        gimple *incr_cntr = gimple_build_assign(cntr, PLUS_EXPR, cntr, incrv);
+        auto incr_cntr = gimple_build_assign(cntr, PLUS_EXPR, cntr, incrv);
         gimple_seq_add_stmt(&seq, incr_cntr);
 
         /* Store count in the map entry.  */
-        gimple *store_cntr = gimple_build_assign(unshare_expr(memref), cntr);
+        auto store_cntr = gimple_build_assign(unshare_expr(memref), cntr);
         gimple_seq_add_stmt(&seq, store_cntr);
 
         /* Store bid >> 1 in __afl_prev_loc.  */
-        gimple *shift_loc =
+        auto shift_loc =
             gimple_build_assign(ploc, build_int_cst(TREE_TYPE(ploc), bid >> 1));
         gimple_seq_add_stmt(&seq, shift_loc);
-        gimple *store_loc = gimple_build_assign(afl_prev_loc, ploc);
+        auto store_loc = gimple_build_assign(afl_prev_loc, ploc);
         gimple_seq_add_stmt(&seq, store_loc);
 
       }
@@ -376,7 +386,7 @@ struct afl_pass : gimple_opt_pass {
 
       /* Load afl_area_ptr into map_ptr.  We want to do this only
          once per function.  */
-      gimple *load_ptr = gimple_build_assign(map_ptr, map);
+      auto load_ptr = gimple_build_assign(map_ptr, map);
       gimple_seq_add_stmt(&seq, load_ptr);
 
       /* Insert it in the edge to the entry block.  We don't want to
