@@ -36,7 +36,7 @@ CFLAGS_SAFE     := -Wall -Iinclude -Wno-pointer-sign \
 override CFLAGS += $(CFLAGS_SAFE)
 
 CXXFLAGS    ?= -O3 -g -funroll-loops -D_FORTIFY_SOURCE=2
-CXXEFLAGS   := $(CXXFLAGS) -Wall
+CXXEFLAGS   := $(CXXFLAGS) -Wall -std=c++11
 
 CC          ?= gcc
 CXX         ?= g++
