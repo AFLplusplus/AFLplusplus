@@ -469,7 +469,8 @@ static void __afl_start_snapshots(void) {
     }
 
     if ((was_killed & (FS_OPT_ENABLED | FS_OPT_AUTODICT)) ==
-        (FS_OPT_ENABLED | FS_OPT_AUTODICT)) {
+            (FS_OPT_ENABLED | FS_OPT_AUTODICT) &&
+        __afl_dictionary_len && __afl_dictionary) {
 
       // great lets pass the dictionary through the forkserver FD
       u32 len = __afl_dictionary_len, offset = 0;
@@ -681,7 +682,8 @@ static void __afl_start_forkserver(void) {
     }
 
     if ((was_killed & (FS_OPT_ENABLED | FS_OPT_AUTODICT)) ==
-        (FS_OPT_ENABLED | FS_OPT_AUTODICT)) {
+            (FS_OPT_ENABLED | FS_OPT_AUTODICT) &&
+        __afl_dictionary_len && __afl_dictionary) {
 
       // great lets pass the dictionary through the forkserver FD
       u32 len = __afl_dictionary_len, offset = 0;

@@ -45,15 +45,16 @@ using namespace fuzzer;
   #endif  // LIBFUZZER_MSVC
 
 extern "C" {
-\
-  #define EXT_FUNC(NAME, RETURN_TYPE, FUNC_SIG, WARN)         \
-    RETURN_TYPE NAME##Def FUNC_SIG {                          \
-                                                              \
-      Printf("ERROR: Function \"%s\" not defined.\n", #NAME); \
-      exit(1);                                                \
-                                                              \
-    }                                                         \
-    EXTERNAL_FUNC(NAME, NAME##Def) RETURN_TYPE NAME FUNC_SIG
+
+#define EXT_FUNC(NAME, RETURN_TYPE, FUNC_SIG, WARN)
+    RETURN_TYPE NAME##Def FUNC_SIG {
+
+  Printf("ERROR: Function \"%s\" not defined.\n", #NAME);
+  exit(1);
+
+}
+
+EXTERNAL_FUNC(NAME, NAME##Def) RETURN_TYPE NAME FUNC_SIG
 
   #include "FuzzerExtFunctions.def"
 
@@ -80,8 +81,8 @@ namespace fuzzer {
 
 ExternalFunctions::ExternalFunctions() {
 \
-  #define EXT_FUNC(NAME, RETURN_TYPE, FUNC_SIG, WARN) \
-    this->NAME = GetFnPtr<decltype(::NAME)>(::NAME, ::NAME##Def, #NAME, WARN);
+  #define EXT_FUNC(NAME, RETURN_TYPE, FUNC_SIG, WARN) this->NAME =
+      GetFnPtr < decltype(::NAME)>(::NAME, ::NAME##Def, #NAME, WARN);
 
   #include "FuzzerExtFunctions.def"
 
