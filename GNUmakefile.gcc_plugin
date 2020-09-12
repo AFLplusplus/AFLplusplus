@@ -51,6 +51,11 @@ ifeq "clang++" "$(CXX)"
         CXX = g++
 endif
 
+ifeq "$(findstring Foundation,$(shell $(CC) --version))" ""
+        CC  = gcc
+        CXX = g++
+endif
+
 PLUGIN_FLAGS = -fPIC -fno-rtti -I"$(shell $(CC) -print-file-name=plugin)/include"
 HASH=\#
 
