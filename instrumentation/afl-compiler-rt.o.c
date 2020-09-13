@@ -34,7 +34,9 @@
 #include <errno.h>
 
 #include <sys/mman.h>
+#ifndef __HAIKU__
 #include <sys/shm.h>
+#endif
 #include <sys/wait.h>
 #include <sys/types.h>
 
