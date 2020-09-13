@@ -228,7 +228,7 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
   u8 *   tmp, *cp = NULL, *rsl, *own_copy;
 
   memcpy(&new_argv[2], &argv[1], (int)(sizeof(char *)) * (argc - 1));
-  new_argv[argc - 1] = NULL;
+  new_argv[argc + 2] = NULL;
 
   new_argv[1] = *target_path_p;
 
