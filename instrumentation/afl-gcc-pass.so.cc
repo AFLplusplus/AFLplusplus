@@ -159,8 +159,9 @@
 #include <gimple-iterator.h>
 #include <stringpool.h>
 #include <gimple-ssa.h>
-#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) >= 60200 /* >= version 6.2.0 */
-#include <tree-vrp.h>
+#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) >= \
+    60200                                               /* >= version 6.2.0 */
+  #include <tree-vrp.h>
 #endif
 #include <tree-ssanames.h>
 #include <tree-phinodes.h>
@@ -334,12 +335,12 @@ struct afl_pass : gimple_opt_pass {
           gimple_seq_add_stmt(&seq, add1_cntr);
 
           /* Extract the real part into count.  */
-          tree    cntrb = build1(REALPART_EXPR, TREE_TYPE(cntr), xaddc);
+          tree cntrb = build1(REALPART_EXPR, TREE_TYPE(cntr), xaddc);
           auto xtrct_cntr = gimple_build_assign(cntr, cntrb);
           gimple_seq_add_stmt(&seq, xtrct_cntr);
 
           /* Extract the imaginary part into xincr.  */
-          tree    incrb = build1(IMAGPART_EXPR, TREE_TYPE(xincr), xaddc);
+          tree incrb = build1(IMAGPART_EXPR, TREE_TYPE(xincr), xaddc);
           auto xtrct_xincr = gimple_build_assign(xincr, incrb);
           gimple_seq_add_stmt(&seq, xtrct_xincr);
 

@@ -46,8 +46,8 @@ using namespace fuzzer;
 
 extern "C" {
 
-#define EXT_FUNC(NAME, RETURN_TYPE, FUNC_SIG, WARN)
-    RETURN_TYPE NAME##Def FUNC_SIG {
+  #define EXT_FUNC(NAME, RETURN_TYPE, FUNC_SIG, WARN)
+RETURN_TYPE NAME##Def FUNC_SIG {
 
   Printf("ERROR: Function \"%s\" not defined.\n", #NAME);
   exit(1);
