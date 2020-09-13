@@ -1108,7 +1108,7 @@ int main(int argc, char **argv, char **envp) {
 
         if (!*ptr) {
 
-          if ((ptr = getenv("AFL_LLVM_NGRAM_SIZE")) != NULL)
+          if ((ptr = getenv("AFL_LLVM_NGRAM_SIZE")) == NULL)
             FATAL(
                 "you must set the NGRAM size with (e.g. for value 2) "
                 "AFL_LLVM_INSTRUMENT=ngram-2");
