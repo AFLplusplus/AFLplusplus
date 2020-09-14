@@ -175,10 +175,10 @@ endif
 # Now it can happen that CC points to clang - but there is no clang on the
 # system. Then we fall back to cc
 #
-ifeq "$(shell type $(CC)" ""
+ifeq "$(shell type $(CC))" ""
   CC = cc
 endif
-ifeq "$(shell type $(CXX)" ""
+ifeq "$(shell type $(CXX))" ""
   CXX = c++
 endif
 
