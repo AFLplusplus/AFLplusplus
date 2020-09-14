@@ -165,11 +165,23 @@ endif
 # old. For these we need to use gcc/g++, so if we find REAL_CC and REAL_CXX
 # variable we override the compiler variables here
 ifneq "$(REAL_CC)" ""
-CC         = $(REAL_CC)
+  CC  = $(REAL_CC)
 endif
 ifneq "$(REAL_CXX)" ""
-CXX        = $(REAL_CXX)
+  CXX = $(REAL_CXX)
 endif
+
+#
+# Now it can happen that CC points to clang - but there is no clang on the
+# system. Then we fall back to cc
+#
+ifeq "$(shell type $(CC)" ""
+  CC = cc
+endif
+ifeq "$(shell type $(CXX)" ""
+  CXX = c++
+endif
+
 
 # After we set CC/CXX we can start makefile magic tests
 
