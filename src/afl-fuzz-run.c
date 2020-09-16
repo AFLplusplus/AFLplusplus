@@ -901,7 +901,10 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
       afl->stage_cur + 1 == afl->stage_max) {
 
     show_stats(afl);
-
+    if(send_statsd_metric(afl)){
+      //Change me to something realistic; don't fail on connection / lookup fail for metrics...
+      exit(1);
+    }
   }
 
   return 0;

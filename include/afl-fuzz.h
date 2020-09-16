@@ -65,6 +65,8 @@
 #include <dlfcn.h>
 #include <sched.h>
 
+#include <netdb.h>
+
 #include <sys/wait.h>
 #include <sys/time.h>
 #ifndef USEMMAP
@@ -76,6 +78,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/file.h>
+#include <sys/types.h>
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__NetBSD__) || defined(__DragonFly__)
@@ -950,6 +953,12 @@ void write_stats_file(afl_state_t *, double, double, double);
 void maybe_update_plot_file(afl_state_t *, double, double);
 void show_stats(afl_state_t *);
 void show_init_stats(afl_state_t *);
+
+/* StatsD */
+
+int statsd_init(char *host, int port);
+int send_statsd_metric(afl_state_t *afl);
+void statsd_format_metric(afl_state_t *afl, char *buff, int bufflen);
 
 /* Run */
 
