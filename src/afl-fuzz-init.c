@@ -311,7 +311,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   }
 
-  for (i = 0; i < proccount; i++) {
+  for (i = 0; i < (s32)proccount; i++) {
 
     if (procs[i].p_cpuid < sizeof(cpu_used) && procs[i].p_pctcpu > 0)
       cpu_used[procs[i].p_cpuid] = 1;
@@ -2182,6 +2182,8 @@ void check_cpu_governor(afl_state_t *afl) {
        "drop.\n",
        min / 1024, max / 1024);
   FATAL("Suboptimal CPU scaling governor");
+#else
+  (void)afl;
 #endif
 
 }

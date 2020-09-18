@@ -116,9 +116,9 @@ ifeq "$(shell test -e $(CC) || echo 1 )" "1"
 endif
 # llvm-config --bindir may not providing a valid path, so ...
 ifeq "$(shell test -e $(CXX) || echo 1 )" "1"
-  # however we must ensure that this is not a "CC=gcc make"
+  # however we must ensure that this is not a "CXX=g++ make"
   ifeq "$(shell command -v $(CXX) 2> /dev/null)" ""
-    # we do not have a valid CC variable so we try alternatives
+    # we do not have a valid CXX variable so we try alternatives
     ifeq "$(shell test -e '$(BIN_DIR)/clang++' && echo 1)" "1"
       # we found one in the local install directory, lets use these
       CXX        = $(BIN_DIR)/clang++
@@ -175,10 +175,10 @@ endif
 # Now it can happen that CC points to clang - but there is no clang on the
 # system. Then we fall back to cc
 #
-ifeq "$(shell type $(CC))" ""
+ifeq "$(shell command -v $(CC) 2>/dev/null)" ""
   CC = cc
 endif
-ifeq "$(shell type $(CXX))" ""
+ifeq "$(shell command -v $(CXX) 2>/dev/null)" ""
   CXX = c++
 endif
 
@@ -476,7 +476,7 @@ vpath  % ..
 %.8: %
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > ./$@
 	@echo .SH NAME >> ./$@
-	@printf ".B $* \- " >> ../$@
+	@printf "%s" ".B $* \- " >> ../$@
 	@./$* -h 2>&1 | head -n 1 | sed -e "s/$$(printf '\e')[^m]*m//g" >> ../$@
 	@echo .B $* >> ./$@
 	@echo >> ./$@
