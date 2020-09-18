@@ -242,11 +242,11 @@ static int stricmp(char const *a, char const *b) {
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  s32    opt, i;
-  u64    prev_queued = 0;
-  u32    sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
-  u8 *   extras_dir[4];
-  u8     mem_limit_given = 0, exit_1 = 0, debug = 0, extras_dir_cnt = 0;
+  s32 opt, i;
+  u64 prev_queued = 0;
+  u32 sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
+  u8 *extras_dir[4];
+  u8 mem_limit_given = 0, exit_1 = 0, debug = 0, extras_dir_cnt = 0, have_p = 0;
   char **use_argv;
 
   struct timeval  tv;
@@ -363,6 +363,8 @@ int main(int argc, char **argv_orig, char **envp) {
           FATAL("Unknown -p power schedule");
 
         }
+
+        have_p = 1;
 
         break;
 
@@ -1364,7 +1366,7 @@ int main(int argc, char **argv_orig, char **envp) {
               afl->expand_havoc = 2;
               break;
             case 2:
-              // afl->cycle_schedules = 1;
+              if (!have_p) afl->schedule = EXPLOIT;
               afl->expand_havoc = 3;
               break;
             case 3:
