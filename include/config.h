@@ -109,12 +109,12 @@
 /* Maximum multiplier for the above (should be a power of two, beware
    of 32-bit int overflows): */
 
-#define HAVOC_MAX_MULT 16
+#define HAVOC_MAX_MULT 32
 #define HAVOC_MAX_MULT_MOPT 32
 
 /* Absolute minimum number of havoc cycles (after all adjustments): */
 
-#define HAVOC_MIN 16
+#define HAVOC_MIN 12
 
 /* Power Schedule Divisor */
 #define POWER_BETA 1
@@ -126,10 +126,10 @@
    n = random between 1 and HAVOC_STACK_POW2
    stacking = 2^n
 
-   In other words, the default (n = 7) produces 2, 4, 8, 16, 32, 64, or
-   128 stacked tweaks: */
+   In other words, the default (n = 6) produces 2, 4, 8, 16, 32, or 64
+   stacked tweaks: */
 
-#define HAVOC_STACK_POW2 7
+#define HAVOC_STACK_POW2 6
 
 /* Caps on block sizes for cloning and deletion operations. Each of these
    ranges has a 33% probability of getting picked, except for the first
