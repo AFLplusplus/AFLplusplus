@@ -710,7 +710,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+  if (unlikely(afl->schedule >= EXPLOIT && afl->schedule <= QUAD)) {
 
     if (factor > MAX_FACTOR) { factor = MAX_FACTOR; }
     perf_score *= factor / POWER_BETA;
