@@ -90,7 +90,7 @@ static void usage(u8 *argv0, int more_help) {
 
       "Execution control settings:\n"
       "  -p schedule   - power schedules compute a seed's performance score:\n"
-      "                  <seek (default), explore, rare, exploit, mmopt, coe, "
+      "                  <explore(default), rare, exploit, seek, mmopt, coe, "
       "fast,\n"
       "                  lin, quad> -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
@@ -246,7 +246,8 @@ int main(int argc, char **argv_orig, char **envp) {
   u64 prev_queued = 0;
   u32 sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
   u8 *extras_dir[4];
-  u8 mem_limit_given = 0, exit_1 = 0, debug = 0, extras_dir_cnt = 0/*, have_p = 0*/;
+  u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
+     extras_dir_cnt = 0 /*, have_p = 0*/;
   char **use_argv;
 
   struct timeval  tv;
@@ -364,7 +365,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        //have_p = 1;
+        // have_p = 1;
 
         break;
 
@@ -1366,7 +1367,7 @@ int main(int argc, char **argv_orig, char **envp) {
               afl->expand_havoc = 2;
               break;
             case 2:
-              //if (!have_p) afl->schedule = EXPLOIT;
+              // if (!have_p) afl->schedule = EXPLOIT;
               afl->expand_havoc = 3;
               break;
             case 3:
