@@ -1,7 +1,7 @@
 
 #CFLAGS = -O3 -funroll-loops -fPIC -fpermissive -std=c++11
 CFLAGS = -g -O0 -fPIC -fpermissive -std=c++11
-CC := clang++
+CC ?= clang++
 
 all: libfuzzer-mutator.so
 

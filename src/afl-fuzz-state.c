@@ -30,9 +30,9 @@ s8  interesting_8[] = {INTERESTING_8};
 s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
 s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 
-char *power_names[POWER_SCHEDULES_NUM] = {"explore", "exploit", "fast",
-                                          "coe",     "lin",     "quad",
-                                          "rare",    "mmopt",   "seek"};
+char *power_names[POWER_SCHEDULES_NUM] = {"explore", "mmopt", "exploit",
+                                          "fast",    "coe",   "lin",
+                                          "quad",    "rare",  "seek"};
 
 /* Initialize MOpt "globals" for this afl state */
 
@@ -87,7 +87,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->w_end = 0.3;
   afl->g_max = 5000;
   afl->period_pilot_tmp = 5000.0;
-  afl->schedule = SEEK;                   /* Power schedule (default: SEEK) */
+  afl->schedule = EXPLORE;             /* Power schedule (default: EXPLORE) */
   afl->havoc_max_mult = HAVOC_MAX_MULT;
 
   afl->clear_screen = 1;                /* Window resized?                  */
