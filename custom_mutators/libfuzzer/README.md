@@ -21,4 +21,4 @@ are done.
 
 > Original repository: https://github.com/llvm/llvm-project
 > Path: compiler-rt/lib/fuzzer/*.{h|cpp}
-> Source commit: d4b88ac1658d681e143482336cac27c6a74b8b24
+> Source commit: df3e903655e2499968fc7af64fb5fa52b2ee79bb
