@@ -1537,7 +1537,7 @@ int main(int argc, char **argv, char **envp) {
   if (debug) {
 
     SAYF(cMGN "[D]" cRST " cd '%s';", getthecwd());
-    for (i = 0; i < cc_par_cnt; i++)
+    for (i = 0; i < (s32)cc_par_cnt; i++)
       SAYF(" '%s'", cc_params[i]);
     SAYF("\n");
 
