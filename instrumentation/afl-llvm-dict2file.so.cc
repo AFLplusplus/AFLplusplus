@@ -195,6 +195,10 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           Value *      op = cmpInst->getOperand(1);
           ConstantInt *ilen = dyn_cast<ConstantInt>(op);
 
+          /* We skip > 64 bit integers. why? first because their value is
+             difficult to obtain, and second because clang does not support
+             literals > 64 bit (as of llvm 12) */
+
           if (ilen && ilen->uge(0xffffffffffffffff) == false) {
 
             u64 val2 = 0, val = ilen->getZExtValue();
