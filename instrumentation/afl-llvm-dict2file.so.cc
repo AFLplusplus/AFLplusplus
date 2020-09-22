@@ -195,7 +195,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
           Value *      op = cmpInst->getOperand(1);
           ConstantInt *ilen = dyn_cast<ConstantInt>(op);
 
-          if (ilen) {
+          if (ilen && ilen->uge(0xffffffffffffffff) == false) {
 
             u64 val2 = 0, val = ilen->getZExtValue();
             u32 len = 0;
