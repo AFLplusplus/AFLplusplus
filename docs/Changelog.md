@@ -33,6 +33,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - LTO autodict now also collects interesting cmp comparisons,
       std::string compare + find + ==, bcmp
     - fix crash in dict2file for integers > 64 bit
+  - unicornafl synced with upstream (arm64 fix, better rust bindings)
   - added a new custom mutator: symcc -> https://github.com/eurecom-s3/symcc/
   - added a new custom mutator: libfuzzer that integrates libfuzzer mutations
   - Our afl++ Grammar-Mutator is now better integrated into custom_mutators/
