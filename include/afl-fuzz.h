@@ -657,6 +657,9 @@ typedef struct afl_state {
    * they do not call another function */
   u8 *map_tmp_buf;
 
+  /* queue entries ready for splicing count (len > 1) */
+  u32 ready_for_splicing_count;
+
 } afl_state_t;
 
 struct custom_mutator {

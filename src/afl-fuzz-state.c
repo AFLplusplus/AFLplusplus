@@ -155,6 +155,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stats_last_execs = 0;
   afl->stats_avg_exec = -1;
 
+  afl->ready_for_splicing_count = 0;
+
   init_mopt_globals(afl);
 
   list_append(&afl_states, afl);
