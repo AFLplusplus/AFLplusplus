@@ -1699,6 +1699,9 @@ custom_mutator_stage:
           u8 *                new_buf = NULL;
           u32                 target_len = 0;
 
+          /* check if splicing is possible (if the only entry has len > 1
+           * check it is not current entry)
+           */
           if (afl->ready_for_splicing_count > 1 ||
               (afl->ready_for_splicing_count == 1 &&
                afl->queue_cur->len == 1)) {
@@ -2769,7 +2772,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     len = afl->queue_cur->len;
 
-    /* maybe current entry stop being ready for splicing */
+    /* maybe current entry is not ready for splicing anymore */
     if (old_len > 1 && afl->queue_cur->len == 1)
       afl->ready_for_splicing_count--;
 
