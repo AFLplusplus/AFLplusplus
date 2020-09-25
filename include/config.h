@@ -136,7 +136,7 @@
    two cycles where smaller blocks are favored: */
 
 #define HAVOC_BLK_SMALL 32
-#define HAVOC_BLK_MEDIUM  128
+#define HAVOC_BLK_MEDIUM 128
 #define HAVOC_BLK_LARGE 1500
 
 /* Extra-large blocks, selected very rarely (<5% of the time): */

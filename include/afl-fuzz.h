@@ -483,7 +483,7 @@ typedef struct afl_state {
       disable_trim,                     /* Never trim in fuzz_one           */
       shmem_testcase_mode,              /* If sharedmem testcases are used  */
       expand_havoc,                /* perform expensive havoc after no find */
-      cycle_schedules;                  /* cycle power schedules ?          */
+      cycle_schedules;                  /* cycle power schedules?           */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
@@ -657,7 +657,7 @@ typedef struct afl_state {
    * they do not call another function */
   u8 *map_tmp_buf;
 
-  /* queue entries ready for splicing count (len > 1) */
+  /* queue entries ready for splicing count (len > 4) */
   u32 ready_for_splicing_count;
 
 } afl_state_t;
