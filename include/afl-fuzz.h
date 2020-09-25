@@ -958,7 +958,7 @@ void show_init_stats(afl_state_t *);
 
 int statsd_init(char *host, int port);
 int send_statsd_metric(afl_state_t *afl);
-void statsd_format_metric(afl_state_t *afl, char *buff, int bufflen);
+int statsd_format_metric(afl_state_t *afl, char *formatted[], size_t *num_of_tags);
 
 /* Run */
 

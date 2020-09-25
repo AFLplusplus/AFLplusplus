@@ -9,6 +9,9 @@
 #include "afl-fuzz.h"
 
 
+#define MAX_STATSD_PACKET_SIZE 1024
+#define MAX_TAG_LEN 200
+
 int sock = 0;
 struct sockaddr_in server;
 int error = 0;
@@ -46,8 +49,21 @@ int send_statsd_metric(afl_state_t *afl){
     if (cur_ms - afl->stats_last_plot_ms < 1000) {
         return 0;
     }
+    
+    u16 port = 8125;
+    char* host = "127.0.0.1";
 
-    error = statsd_init("127.0.0.1", 12345);
+    char* port_env;
+    char* host_env;
+    if ((port_env = getenv("AFL_STATSD_PORT")) != NULL) {
+        port = atoi(port_env);
+    }
+    if ((host_env = getenv("AFL_STATSD_HOST")) != NULL) {
+        // sanitization check ?
+        host = host_env;
+    }
+    
+    error = statsd_init(host, port);
     if (error){
         perror("Failed to init statsd client. Aborting");
         return -1;
@@ -57,31 +73,55 @@ int send_statsd_metric(afl_state_t *afl){
         perror("sock");
         return -1;
     }
-    char buff[512];
-    statsd_format_metric(afl, buff, 512);
-
-    if (sendto(sock, buff, strlen(buff), 0, (struct sockaddr *) &server, sizeof(server)) == -1) {
-        perror("sendto");
-        return -1;
+    char *formatted[] = {};
+    size_t *num_of_tags = 0;
+    statsd_format_metric(afl, &formatted, num_of_tags);
+    for (size_t i = 0; i < &num_of_tags; i++){
+        printf("%ld\n", i);
+        printf("%s\n", formatted[i]);
+        if (sendto(sock, formatted[i], strlen(formatted[i]), 0, (struct sockaddr *) &server, sizeof(server)) == -1) {
+            perror("sendto");
+            return -1;
+        }
     }
+    
     close(sock);
     sock=0;
 
     return 0;
 }
 
+int statsd_format_metric(afl_state_t *afl, char *formatted[], size_t *num_of_tags){
 
-void statsd_format_metric(afl_state_t *afl, char *buff, int bufflen){
-    char *format = "fuzzing.afl.cycle_done:%llu|c\n"
-    "fuzzing.afl.total_path:%lu|c\n"
-    "fuzzing.afl.unique_crashes:%llu|c\n"
-    "fuzzing.afl.total_crashes:%llu|c\n"
-    "fuzzing.afl.unique_hangs:%llu|c\n";
-    snprintf(buff, bufflen, format,
+    char *tags = "key:value";
+    
+    *num_of_tags = 0; // reset
+
+    const char *metrics[] = {
+        "fuzzing.afl.cycle_done:%llu|g|#%s\n", 
+        "fuzzing.afl.total_path:%lu|g|#%s\n", 
+        "fuzzing.afl.unique_crashes:%llu|g|#%s\n",
+        "fuzzing.afl.total_crashes:%llu|g|#%s\n",
+        "fuzzing.afl.unique_hangs:%llu|g|#%s\n"
+    };
+
+    const int metricValues[] = {
         afl->queue_cycle,
         afl->queued_paths,
         afl->unique_crashes,
         afl->total_crashes,
         afl->unique_hangs
-    );
+    };
+
+    *num_of_tags = sizeof(metrics)/sizeof(metrics[0]);
+    
+    for (size_t i = 0; i < &num_of_tags; i++){
+        char *tmp = malloc(MAX_STATSD_PACKET_SIZE);
+        if(tmp == NULL){
+            return -1;
+        }
+        snprintf(tmp, MAX_STATSD_PACKET_SIZE, metrics[i], metricValues[i], tags);
+        formatted[i] = tmp;
+    }
+    return 0;   
 }

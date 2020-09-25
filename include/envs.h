@@ -129,6 +129,8 @@ static char *afl_environment_variables[] = {
     "AFL_SKIP_BIN_CHECK",
     "AFL_SKIP_CPUFREQ",
     "AFL_SKIP_CRASHES",
+    "AFL_STATSD_HOST",
+    "AFL_STATSD_PORT",
     "AFL_TMIN_EXACT",
     "AFL_TMPDIR",
     "AFL_TOKEN_FILE",
