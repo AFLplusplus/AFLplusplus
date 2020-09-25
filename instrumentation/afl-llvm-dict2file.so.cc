@@ -381,8 +381,8 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
           if (debug)
             fprintf(stderr, "F:%s %p(%s)->\"%s\"(%s) %p(%s)->\"%s\"(%s)\n",
-                    FuncName.c_str(), Str1P, Str1P->getName().str().c_str(),
-                    Str1.c_str(), HasStr1 == true ? "true" : "false", Str2P,
+                    FuncName.c_str(), (void*)Str1P, Str1P->getName().str().c_str(),
+                    Str1.c_str(), HasStr1 == true ? "true" : "false", (void*)Str2P,
                     Str2P->getName().str().c_str(), Str2.c_str(),
                     HasStr2 == true ? "true" : "false");
 
@@ -436,7 +436,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
               valueMap[Str1P] = new std::string(Str2);
 
               if (debug)
-                fprintf(stderr, "Saved: %s for %p\n", Str2.c_str(), Str1P);
+                fprintf(stderr, "Saved: %s for %p\n", Str2.c_str(), (void*)Str1P);
               continue;
 
             }
@@ -455,7 +455,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
               Str2 = *strng;
               HasStr2 = true;
               if (debug)
-                fprintf(stderr, "Filled2: %s for %p\n", strng->c_str(), Str2P);
+                fprintf(stderr, "Filled2: %s for %p\n", strng->c_str(), (void*)Str2P);
 
             }
 
@@ -497,7 +497,7 @@ bool AFLdict2filePass::runOnModule(Module &M) {
               Str1 = *strng;
               HasStr1 = true;
               if (debug)
-                fprintf(stderr, "Filled1: %s for %p\n", strng->c_str(), Str1P);
+                fprintf(stderr, "Filled1: %s for %p\n", strng->c_str(), (void*)Str1P);
 
             }
 
