@@ -95,6 +95,11 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stage_name = "init";             /* Name of the current fuzz stage   */
   afl->splicing_with = -1;              /* Splicing with which test case?   */
   afl->cpu_to_bind = -1;
+  afl->cal_cycles = CAL_CYCLES;
+  afl->cal_cycles_long = CAL_CYCLES_LONG;
+  afl->hang_tmout = EXEC_TIMEOUT;
+  afl->stats_update_freq = 1;
+  afl->stats_avg_exec = -1;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
@@ -115,47 +120,12 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   // afl_state_t is not available in forkserver.c
   afl->fsrv.afl_ptr = (void *)afl;
   afl->fsrv.add_extra_func = (void (*)(void *, u8 *, u32)) & add_extra;
-
-  afl->cal_cycles = CAL_CYCLES;
-  afl->cal_cycles_long = CAL_CYCLES_LONG;
-
   afl->fsrv.exec_tmout = EXEC_TIMEOUT;
-  afl->hang_tmout = EXEC_TIMEOUT;
-
   afl->fsrv.mem_limit = MEM_LIMIT;
-
-  afl->stats_update_freq = 1;
-
   afl->fsrv.dev_urandom_fd = -1;
   afl->fsrv.dev_null_fd = -1;
-
   afl->fsrv.child_pid = -1;
   afl->fsrv.out_dir_fd = -1;
-
-  afl->cmplog_prev_timed_out = 0;
-
-  /* statis file */
-  afl->last_bitmap_cvg = 0;
-  afl->last_stability = 0;
-  afl->last_eps = 0;
-
-  /* plot file saves from last run */
-  afl->plot_prev_qp = 0;
-  afl->plot_prev_pf = 0;
-  afl->plot_prev_pnf = 0;
-  afl->plot_prev_ce = 0;
-  afl->plot_prev_md = 0;
-  afl->plot_prev_qc = 0;
-  afl->plot_prev_uc = 0;
-  afl->plot_prev_uh = 0;
-
-  afl->stats_last_stats_ms = 0;
-  afl->stats_last_plot_ms = 0;
-  afl->stats_last_ms = 0;
-  afl->stats_last_execs = 0;
-  afl->stats_avg_exec = -1;
-
-  afl->ready_for_splicing_count = 0;
 
   init_mopt_globals(afl);
 
@@ -175,6 +145,14 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
     if (strncmp(env, "ALF_", 4) == 0) {
 
       WARNF("Potentially mistyped AFL environment variable: %s", env);
+      issue_detected = 1;
+
+    } else if (strncmp(env, "USE_", 4) == 0) {
+
+      WARNF(
+          "Potentially mistyped AFL environment variable: %s, did you mean "
+          "AFL_%s?",
+          env, env);
       issue_detected = 1;
 
     } else if (strncmp(env, "AFL_", 4) == 0) {

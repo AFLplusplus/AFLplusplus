@@ -1699,36 +1699,22 @@ custom_mutator_stage:
           u8 *                new_buf = NULL;
           u32                 target_len = 0;
 
-          /* check if splicing is possible (if the only entry has len > 1
-           * check it is not current entry)
-           */
-          if (afl->ready_for_splicing_count > 1 ||
-              (afl->ready_for_splicing_count == 1 &&
-               afl->queue_cur->len == 1)) {
+          /* check if splicing makes sense yet (enough entries) */
+          if (likely(afl->ready_for_splicing_count > 1)) {
 
-          retry_external_pick:
-            /* Pick a random other queue entry for passing to external API */
+            /* Pick a random other queue entry for passing to external API
+               that has the necessary length */
 
             do {
 
               tid = rand_below(afl, afl->queued_paths);
 
-            } while (tid == afl->current_entry && afl->queued_paths > 1);
+            } while (unlikely(tid == afl->current_entry &&
 
-            afl->splicing_with = tid;
+                              afl->queue_buf[tid]->len >= 4));
+
             target = afl->queue_buf[tid];
-
-            /* Make sure that the target has a reasonable length. */
-
-            while (target && (target->len < 2 || target == afl->queue_cur) &&
-                   afl->queued_paths > 2) {
-
-              target = target->next;
-              ++afl->splicing_with;
-
-            }
-
-            if (!target) { goto retry_external_pick; }
+            afl->splicing_with = tid;
 
             /* Read the additional testcase into a new buffer. */
             fd = open(target->fname, O_RDONLY);
@@ -2773,8 +2759,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     len = afl->queue_cur->len;
 
     /* maybe current entry is not ready for splicing anymore */
-    if (old_len > 1 && afl->queue_cur->len == 1)
-      afl->ready_for_splicing_count--;
+    if (unlikely(len <= 4 && old_len > 4)) afl->ready_for_splicing_count--;
 
   }
 

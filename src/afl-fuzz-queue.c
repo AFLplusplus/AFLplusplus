@@ -234,7 +234,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   }
 
-  if (q->len > 1) afl->ready_for_splicing_count++;
+  if (likely(q->len > 4)) afl->ready_for_splicing_count++;
 
   ++afl->queued_paths;
   ++afl->pending_not_fuzzed;
