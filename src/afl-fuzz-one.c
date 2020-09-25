@@ -1696,50 +1696,61 @@ custom_mutator_stage:
 
           struct queue_entry *target;
           u32                 tid;
-          u8 *                new_buf;
+          u8 *                new_buf = NULL;
+          u32                 target_len = 0;
 
-        retry_external_pick:
-          /* Pick a random other queue entry for passing to external API */
+          /* check if splicing is possible (if the only entry has len > 1
+           * check it is not current entry)
+           */
+          if (afl->ready_for_splicing_count > 1 ||
+              (afl->ready_for_splicing_count == 1 &&
+               afl->queue_cur->len == 1)) {
 
-          do {
+          retry_external_pick:
+            /* Pick a random other queue entry for passing to external API */
 
-            tid = rand_below(afl, afl->queued_paths);
+            do {
 
-          } while (tid == afl->current_entry && afl->queued_paths > 1);
+              tid = rand_below(afl, afl->queued_paths);
 
-          afl->splicing_with = tid;
-          target = afl->queue_buf[tid];
+            } while (tid == afl->current_entry && afl->queued_paths > 1);
 
-          /* Make sure that the target has a reasonable length. */
+            afl->splicing_with = tid;
+            target = afl->queue_buf[tid];
 
-          while (target && (target->len < 2 || target == afl->queue_cur) &&
-                 afl->queued_paths > 3) {
+            /* Make sure that the target has a reasonable length. */
 
-            target = target->next;
-            ++afl->splicing_with;
+            while (target && (target->len < 2 || target == afl->queue_cur) &&
+                   afl->queued_paths > 2) {
+
+              target = target->next;
+              ++afl->splicing_with;
+
+            }
+
+            if (!target) { goto retry_external_pick; }
+
+            /* Read the additional testcase into a new buffer. */
+            fd = open(target->fname, O_RDONLY);
+            if (unlikely(fd < 0)) {
+
+              PFATAL("Unable to open '%s'", target->fname);
+
+            }
+
+            new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), target->len);
+            if (unlikely(!new_buf)) { PFATAL("alloc"); }
+            ck_read(fd, new_buf, target->len, target->fname);
+            close(fd);
+            target_len = target->len;
 
           }
-
-          if (!target) { goto retry_external_pick; }
-
-          /* Read the additional testcase into a new buffer. */
-          fd = open(target->fname, O_RDONLY);
-          if (unlikely(fd < 0)) {
-
-            PFATAL("Unable to open '%s'", target->fname);
-
-          }
-
-          new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), target->len);
-          if (unlikely(!new_buf)) { PFATAL("alloc"); }
-          ck_read(fd, new_buf, target->len, target->fname);
-          close(fd);
 
           u8 *mutated_buf = NULL;
 
           size_t mutated_size =
               el->afl_custom_fuzz(el->data, out_buf, len, &mutated_buf, new_buf,
-                                  target->len, max_seed_size);
+                                  target_len, max_seed_size);
 
           if (unlikely(!mutated_buf)) {
 
@@ -2738,6 +2749,8 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   if (!afl->non_instrumented_mode && !afl->queue_cur->trim_done) {
 
+    u32 old_len = afl->queue_cur->len;
+
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
 
     if (res == FSRV_RUN_ERROR) {
@@ -2758,6 +2771,10 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     afl->queue_cur->trim_done = 1;
 
     len = afl->queue_cur->len;
+
+    /* maybe current entry is not ready for splicing anymore */
+    if (old_len > 1 && afl->queue_cur->len == 1)
+      afl->ready_for_splicing_count--;
 
   }
 
