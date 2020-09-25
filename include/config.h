@@ -126,17 +126,17 @@
    n = random between 1 and HAVOC_STACK_POW2
    stacking = 2^n
 
-   In other words, the default (n = 6) produces 2, 4, 8, 16, 32, or 64
+   In other words, the default (n = 4) produces 2, 4, 8, 16
    stacked tweaks: */
 
-#define HAVOC_STACK_POW2 6
+#define HAVOC_STACK_POW2 4
 
 /* Caps on block sizes for cloning and deletion operations. Each of these
    ranges has a 33% probability of getting picked, except for the first
    two cycles where smaller blocks are favored: */
 
 #define HAVOC_BLK_SMALL 32
-#define HAVOC_BLK_MEDIUM 128
+#define HAVOC_BLK_MEDIUM  128
 #define HAVOC_BLK_LARGE 1500
 
 /* Extra-large blocks, selected very rarely (<5% of the time): */
