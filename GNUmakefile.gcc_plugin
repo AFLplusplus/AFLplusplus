@@ -75,9 +75,17 @@ ifeq "$(TEST_MMAP)" "1"
 endif
 
 ifneq "$(shell uname -s)" "Haiku"
+ifneq "$(shell uname -s)" "OpenBSD"
   	LDFLAGS += -lrt
+endif
 else
 	CFLAGS_SAFE += -DUSEMMAP=1
+endif
+
+ifeq "$(shell uname -s)" "OpenBSD"
+    CC  = egcc
+    CXX = eg++
+    PLUGIN_FLAGS += -I/usr/local/include
 endif
 
 ifeq "$(shell uname -s)" "SunOS"
