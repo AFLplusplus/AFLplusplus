@@ -218,6 +218,11 @@ ifneq "$(findstring NetBSD, $(shell uname))" ""
   LDFLAGS += -lpthread
 endif
 
+ifneq "$(findstring OpenBSD, $(shell uname))" ""
+  override CFLAGS  += -pthread
+  LDFLAGS += -lpthread
+endif
+
 TEST_CC = afl-gcc
 
 COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h
