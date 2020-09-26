@@ -1078,6 +1078,7 @@ without feedback, bug reports, or patches from:
   Andrea Biondo                         Vincent Le Garrec
   Khaled Yakdan                         Kuang-che Wu
   Josephine Calliotte                   Konrad Welc
+  David Carlier
 ```
 
 Thank you!
