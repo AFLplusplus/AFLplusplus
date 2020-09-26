@@ -22,6 +22,9 @@
   afl++ is a superior fork to Google's afl - more speed, more and better
   mutations, more and better instrumentation, custom module support, etc.
 
+  If you want to use afl++ for you academic work, check the [papers page](https://aflplus.plus/papers/)
+  in the website.
+
 ## Major changes in afl++ 3.0
 
 With afl++ 3.0 we introduced changes that break some previous afl and afl++
