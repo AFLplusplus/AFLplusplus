@@ -443,6 +443,7 @@ typedef struct afl_state {
 
   u8 cal_cycles,                        /* Calibration cycles defaults      */
       cal_cycles_long,                  /* Calibration cycles defaults      */
+      havoc_stack_pow2,                 /* HAVOC_STACK_POW2                 */
       no_unlink,                        /* do not unlink cur_input          */
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
