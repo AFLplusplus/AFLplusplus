@@ -1368,9 +1368,14 @@ int main(int argc, char **argv_orig, char **envp) {
               break;
             case 2:
               // if (!have_p) afl->schedule = EXPLOIT;
+              afl->havoc_stack_pow2++;
               afl->expand_havoc = 3;
               break;
             case 3:
+              afl->havoc_stack_pow2++;
+              afl->expand_havoc = 4;
+              break;
+            case 4:
               // nothing else currently
               break;
 

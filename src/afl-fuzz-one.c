@@ -1884,7 +1884,7 @@ havoc_stage:
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
-    u32 use_stacking = 1 << (1 + rand_below(afl, HAVOC_STACK_POW2));
+    u32 use_stacking = 1 << (1 + rand_below(afl, afl->havoc_stack_pow2));
 
     afl->stage_cur_val = use_stacking;
 
@@ -3970,7 +3970,7 @@ pacemaker_fuzzing:
       for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
            ++afl->stage_cur) {
 
-        u32 use_stacking = 1 << (1 + rand_below(afl, HAVOC_STACK_POW2));
+        u32 use_stacking = 1 << (1 + rand_below(afl, afl->havoc_stack_pow2));
 
         afl->stage_cur_val = use_stacking;
 

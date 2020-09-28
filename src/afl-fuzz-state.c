@@ -95,6 +95,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stage_name = "init";             /* Name of the current fuzz stage   */
   afl->splicing_with = -1;              /* Splicing with which test case?   */
   afl->cpu_to_bind = -1;
+  afl->havoc_stack_pow2 = HAVOC_STACK_POW2;
   afl->cal_cycles = CAL_CYCLES;
   afl->cal_cycles_long = CAL_CYCLES_LONG;
   afl->hang_tmout = EXEC_TIMEOUT;
