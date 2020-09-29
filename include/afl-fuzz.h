@@ -155,7 +155,6 @@ struct queue_entry {
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
-      n_fuzz,                           /* Number of fuzz, does not overflow*/
       depth,                            /* Path depth                       */
       exec_cksum;                       /* Checksum of the execution trace  */
 
@@ -491,6 +490,9 @@ typedef struct afl_state {
       *virgin_crash;                    /* Bits we haven't seen in crashes  */
 
   u8 *var_bytes;                        /* Bytes that appear to be variable */
+
+  #define n_fuzz_size (1 << 21)
+  u32 *n_fuzz;
 
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */
       clear_screen;                     /* Window resized?                  */
