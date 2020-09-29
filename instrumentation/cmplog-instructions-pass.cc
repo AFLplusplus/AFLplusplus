@@ -210,7 +210,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   }
 
   if (!icomps.size()) return false;
-  if (!be_quiet) errs() << "Hooking " << icomps.size() << " cmp instructions\n";
+  // if (!be_quiet) errs() << "Hooking " << icomps.size() << " cmp
+  // instructions\n";
 
   for (auto &selectcmpInst : icomps) {
 
@@ -259,8 +260,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 bool CmpLogInstructions::runOnModule(Module &M) {
 
   if (getenv("AFL_QUIET") == NULL)
-    llvm::errs()
-        << "Running cmplog-instructions-pass by andreafioraldi@gmail.com\n";
+    printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
   else
     be_quiet = 1;
   hookInstrs(M);

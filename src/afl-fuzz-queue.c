@@ -308,9 +308,9 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
   u64 fuzz_p2;
 
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE))
-    fuzz_p2 = 0; // Skip the fuzz_p2 comparison 
+    fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
   else if (unlikely(afl->schedule == RARE))
-    fuzz_p2 = next_pow2(afl->n_fuzz[q->exec_cksum % n_fuzz_size]);
+    fuzz_p2 = next_pow2(afl->n_fuzz[q->n_fuzz_entry]);
   else
     fuzz_p2 = q->fuzz_level;
 
@@ -336,7 +336,8 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         u64 top_rated_fav_factor;
         u64 top_rated_fuzz_p2;
         if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE))
-          top_rated_fuzz_p2 = next_pow2(afl->n_fuzz[afl->top_rated[i]->exec_cksum % n_fuzz_size]);
+          top_rated_fuzz_p2 =
+              next_pow2(afl->n_fuzz[afl->top_rated[i]->n_fuzz_entry]);
         else
           top_rated_fuzz_p2 = afl->top_rated[i]->fuzz_level;
 
@@ -607,10 +608,9 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  u32 n_paths;
-  double factor = 1.0;
+  u32         n_paths;
+  double      factor = 1.0;
   long double fuzz_mu;
-
 
   switch (afl->schedule) {
 
@@ -634,7 +634,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       struct queue_entry *queue_it = afl->queue;
       while (queue_it) {
 
-        fuzz_mu += log2(afl->n_fuzz[q->exec_cksum % n_fuzz_size]);
+        fuzz_mu += log2(afl->n_fuzz[q->n_fuzz_entry]);
         n_paths++;
 
         queue_it = queue_it->next;
@@ -645,7 +645,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
       fuzz_mu = fuzz_mu / n_paths;
 
-      if (log2(afl->n_fuzz[q->exec_cksum % n_fuzz_size]) > fuzz_mu) {
+      if (log2(afl->n_fuzz[q->n_fuzz_entry]) > fuzz_mu) {
 
         /* Never skip favourites */
         if (!q->favored) factor = 0;
@@ -660,7 +660,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       // Don't modify unfuzzed seeds
       if (q->fuzz_level == 0) break;
 
-      switch ((u32)log2(afl->n_fuzz[q->exec_cksum % n_fuzz_size])) {
+      switch ((u32)log2(afl->n_fuzz[q->n_fuzz_entry])) {
 
         case 0 ... 1:
           factor = 4;
@@ -691,17 +691,17 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
       }
 
-      if (q->favored)
-        factor *= 1.15;
+      if (q->favored) factor *= 1.15;
 
       break;
 
     case LIN:
-      factor = q->fuzz_level / (afl->n_fuzz[q->exec_cksum % n_fuzz_size] + 1);
+      factor = q->fuzz_level / (afl->n_fuzz[q->n_fuzz_entry] + 1);
       break;
 
     case QUAD:
-      factor = q->fuzz_level * q->fuzz_level / (afl->n_fuzz[q->exec_cksum % n_fuzz_size] + 1);
+      factor =
+          q->fuzz_level * q->fuzz_level / (afl->n_fuzz[q->n_fuzz_entry] + 1);
       break;
 
     case MMOPT:
@@ -726,8 +726,8 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       perf_score += (q->tc_ref * 10);
       // the more often fuzz result paths are equal to this queue entry,
       // reduce its value
-      perf_score *=
-          (1 - (double)((double)afl->n_fuzz[q->exec_cksum % n_fuzz_size] / (double)afl->fsrv.total_execs));
+      perf_score *= (1 - (double)((double)afl->n_fuzz[q->n_fuzz_entry] /
+                                  (double)afl->fsrv.total_execs));
 
       break;
 

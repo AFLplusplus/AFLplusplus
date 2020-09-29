@@ -151,7 +151,8 @@ struct queue_entry {
       is_ascii;                         /* Is the input just ascii text?    */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
-      fuzz_level;                       /* Number of fuzzing iterations     */
+      fuzz_level,                       /* Number of fuzzing iterations     */
+      n_fuzz_entry;                     /* offset in n_fuzz                 */
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
@@ -491,7 +492,7 @@ typedef struct afl_state {
 
   u8 *var_bytes;                        /* Bytes that appear to be variable */
 
-  #define n_fuzz_size (1 << 21)
+#define N_FUZZ_SIZE (1 << 21)
   u32 *n_fuzz;
 
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */

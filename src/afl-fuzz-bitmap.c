@@ -556,8 +556,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
     /* Saturated increment */
-    if (afl->n_fuzz[cksum % n_fuzz_size] < 0xFFFFFFFF)
-      afl->n_fuzz[cksum % n_fuzz_size]++;
+    if (afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF)
+      afl->n_fuzz[cksum % N_FUZZ_SIZE]++;
 
   }
 
@@ -597,10 +597,15 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     if (cksum)
       afl->queue_top->exec_cksum = cksum;
     else
-      afl->queue_top->exec_cksum =
+      cksum = afl->queue_top->exec_cksum =
           hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-    afl->n_fuzz[cksum % n_fuzz_size] = 1;
+    if (afl->schedule >= FAST && afl->schedule <= RARE) {
+
+      afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
+      afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+
+    }
 
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */

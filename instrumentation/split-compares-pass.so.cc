@@ -1262,8 +1262,9 @@ bool SplitComparesTransform::runOnModule(Module &M) {
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) ||
       getenv("AFL_DEBUG") != NULL) {
 
-    errs() << "Split-compare-pass by laf.intel@gmail.com, extended by "
-              "heiko@hexco.de\n";
+    printf(
+        "Split-compare-pass by laf.intel@gmail.com, extended by "
+        "heiko@hexco.de\n");
 
   } else {
 
@@ -1275,13 +1276,15 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
     count = splitFPCompares(M);
 
-    if (!be_quiet) {
+    /*
+        if (!be_quiet) {
 
-      errs() << "Split-floatingpoint-compare-pass: " << count
-             << " FP comparisons split\n";
+          errs() << "Split-floatingpoint-compare-pass: " << count
+                 << " FP comparisons split\n";
 
-    }
+        }
 
+    */
     simplifyFPCompares(M);
 
   }
@@ -1294,10 +1297,12 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 
     case 64:
       count = splitIntCompares(M, bitw);
-      if (!be_quiet)
-        errs() << "Split-integer-compare-pass " << bitw << "bit: " << count
-               << " split\n";
-
+      /*
+            if (!be_quiet)
+              errs() << "Split-integer-compare-pass " << bitw << "bit: " <<
+         count
+                     << " split\n";
+      */
       bitw >>= 1;
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 7)
@@ -1305,10 +1310,12 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 #endif
     case 32:
       count = splitIntCompares(M, bitw);
-      if (!be_quiet)
-        errs() << "Split-integer-compare-pass " << bitw << "bit: " << count
-               << " split\n";
-
+      /*
+            if (!be_quiet)
+              errs() << "Split-integer-compare-pass " << bitw << "bit: " <<
+         count
+                     << " split\n";
+      */
       bitw >>= 1;
 #if LLVM_VERSION_MAJOR > 3 || \
     (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 7)
@@ -1316,15 +1323,17 @@ bool SplitComparesTransform::runOnModule(Module &M) {
 #endif
     case 16:
       count = splitIntCompares(M, bitw);
-      if (!be_quiet)
-        errs() << "Split-integer-compare-pass " << bitw << "bit: " << count
-               << " split\n";
-
+      /*
+            if (!be_quiet)
+              errs() << "Split-integer-compare-pass " << bitw << "bit: " <<
+         count
+                     << " split\n";
+      */
       bitw >>= 1;
       break;
 
     default:
-      if (!be_quiet) errs() << "NOT Running split-compare-pass \n";
+      // if (!be_quiet) errs() << "NOT Running split-compare-pass \n";
       return false;
       break;
 
