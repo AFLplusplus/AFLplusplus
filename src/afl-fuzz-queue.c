@@ -25,6 +25,7 @@
 #include "afl-fuzz.h"
 #include <limits.h>
 #include <ctype.h>
+#include <math.h>
 
 /* Mark deterministic checks as done for a particular queue entry. We use the
    .state file to avoid repeating deterministic fuzzing when resuming aborted
@@ -218,7 +219,6 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->len = len;
   q->depth = afl->cur_depth + 1;
   q->passed_det = passed_det;
-  q->n_fuzz = 1;
   q->trace_mini = NULL;
 
   if (q->depth > afl->max_depth) { afl->max_depth = q->depth; }
@@ -307,8 +307,10 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
   u64 fav_factor;
   u64 fuzz_p2;
 
-  if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE))
-    fuzz_p2 = next_pow2(q->n_fuzz);
+  if (unlikely(afl->schedule >= FAST && afl->schedule < RARE))
+    fuzz_p2 = 0; // Skip the fuzz_p2 comparison 
+  else if (unlikely(afl->schedule == RARE))
+    fuzz_p2 = next_pow2(afl->n_fuzz[q->exec_cksum % n_fuzz_size]);
   else
     fuzz_p2 = q->fuzz_level;
 
@@ -334,7 +336,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         u64 top_rated_fav_factor;
         u64 top_rated_fuzz_p2;
         if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE))
-          top_rated_fuzz_p2 = next_pow2(afl->top_rated[i]->n_fuzz);
+          top_rated_fuzz_p2 = next_pow2(afl->n_fuzz[afl->top_rated[i]->exec_cksum % n_fuzz_size]);
         else
           top_rated_fuzz_p2 = afl->top_rated[i]->fuzz_level;
 
@@ -605,11 +607,10 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  u64 fuzz = q->n_fuzz;
-  u64 fuzz_total;
+  u32 n_paths;
+  double factor = 1.0;
+  long double fuzz_mu;
 
-  u32 n_paths, fuzz_mu;
-  u32 factor = 1;
 
   switch (afl->schedule) {
 
@@ -624,60 +625,83 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       break;
 
     case COE:
-      fuzz_total = 0;
+      fuzz_mu = 0.0;
       n_paths = 0;
+
+      // Don't modify perf_score for unfuzzed seeds
+      if (q->fuzz_level == 0) break;
 
       struct queue_entry *queue_it = afl->queue;
       while (queue_it) {
 
-        fuzz_total += queue_it->n_fuzz;
+        fuzz_mu += log2(afl->n_fuzz[q->exec_cksum % n_fuzz_size]);
         n_paths++;
+
         queue_it = queue_it->next;
 
       }
 
       if (unlikely(!n_paths)) { FATAL("Queue state corrupt"); }
 
-      fuzz_mu = fuzz_total / n_paths;
-      if (fuzz <= fuzz_mu) {
+      fuzz_mu = fuzz_mu / n_paths;
 
-        if (q->fuzz_level < 16) {
+      if (log2(afl->n_fuzz[q->exec_cksum % n_fuzz_size]) > fuzz_mu) {
 
-          factor = ((u32)(1 << q->fuzz_level));
+        /* Never skip favourites */
+        if (!q->favored) factor = 0;
 
-        } else {
-
-          factor = MAX_FACTOR;
-
-        }
-
-      } else {
-
-        factor = 0;
+        break;
 
       }
 
-      break;
-
+    // Fall through
     case FAST:
-      if (q->fuzz_level < 16) {
 
-        factor = ((u32)(1 << q->fuzz_level)) / (fuzz == 0 ? 1 : fuzz);
+      // Don't modify unfuzzed seeds
+      if (q->fuzz_level == 0) break;
 
-      } else {
+      switch ((u32)log2(afl->n_fuzz[q->exec_cksum % n_fuzz_size])) {
 
-        factor = MAX_FACTOR / (fuzz == 0 ? 1 : next_pow2(fuzz));
+        case 0 ... 1:
+          factor = 4;
+          break;
+
+        case 2 ... 3:
+          factor = 3;
+          break;
+
+        case 4:
+          factor = 2;
+          break;
+
+        case 5:
+          break;
+
+        case 6:
+          if (!q->favored) factor = 0.8;
+          break;
+
+        case 7:
+          if (!q->favored) factor = 0.6;
+          break;
+
+        default:
+          if (!q->favored) factor = 0.4;
+          break;
 
       }
+
+      if (q->favored)
+        factor *= 1.15;
 
       break;
 
     case LIN:
-      factor = q->fuzz_level / (fuzz == 0 ? 1 : fuzz);
+      factor = q->fuzz_level / (afl->n_fuzz[q->exec_cksum % n_fuzz_size] + 1);
       break;
 
     case QUAD:
-      factor = q->fuzz_level * q->fuzz_level / (fuzz == 0 ? 1 : fuzz);
+      factor = q->fuzz_level * q->fuzz_level / (afl->n_fuzz[q->exec_cksum % n_fuzz_size] + 1);
       break;
 
     case MMOPT:
@@ -703,7 +727,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       // the more often fuzz result paths are equal to this queue entry,
       // reduce its value
       perf_score *=
-          (1 - (double)((double)q->n_fuzz / (double)afl->fsrv.total_execs));
+          (1 - (double)((double)afl->n_fuzz[q->exec_cksum % n_fuzz_size] / (double)afl->fsrv.total_execs));
 
       break;
 
@@ -724,7 +748,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
     perf_score *= 2;
 
-  } else if (perf_score < 1) {
+  } else if (afl->schedule != COE && perf_score < 1) {
 
     // Add a lower bound to AFLFast's energy assignment strategies
     perf_score = 1;

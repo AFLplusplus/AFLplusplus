@@ -729,6 +729,14 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
     add_to_queue(afl, fn2, st.st_size >= MAX_FILE ? MAX_FILE : st.st_size,
                  passed_det);
 
+    if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+
+      u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+      afl->n_fuzz[cksum % n_fuzz_size] = 1;
+
+    }
+
   }
 
   free(nl);                                                  /* not tracked */

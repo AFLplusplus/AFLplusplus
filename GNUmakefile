@@ -205,7 +205,7 @@ endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
   override CFLAGS += -D_FORTIFY_SOURCE=2
-  LDFLAGS += -ldl -lrt
+  LDFLAGS += -ldl -lrt -lm
 endif
 
 ifneq "$(findstring FreeBSD, $(shell uname))" ""

@@ -936,6 +936,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  /* Dynamically allocate memory for AFLFast schedules */
+  if (afl->schedule >= FAST && afl->schedule <= RARE) {
+
+    afl->n_fuzz = ck_alloc(n_fuzz_size * sizeof(u32));
+
+  }
+
   if (get_afl_env("AFL_NO_FORKSRV")) { afl->no_forkserver = 1; }
   if (get_afl_env("AFL_NO_CPU_RED")) { afl->no_cpu_meter_red = 1; }
   if (get_afl_env("AFL_NO_ARITH")) { afl->no_arith = 1; }

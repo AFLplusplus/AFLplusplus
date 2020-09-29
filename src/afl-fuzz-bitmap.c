@@ -555,19 +555,9 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-    struct queue_entry *q = afl->queue;
-    while (q) {
-
-      if (q->exec_cksum == cksum) {
-
-        ++q->n_fuzz;
-        break;
-
-      }
-
-      q = q->next;
-
-    }
+    /* Saturated increment */
+    if (afl->n_fuzz[cksum % n_fuzz_size] < 0xFFFFFFFF)
+      afl->n_fuzz[cksum % n_fuzz_size]++;
 
   }
 
@@ -609,6 +599,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     else
       afl->queue_top->exec_cksum =
           hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+    afl->n_fuzz[cksum % n_fuzz_size] = 1;
 
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
