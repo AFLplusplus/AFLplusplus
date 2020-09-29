@@ -149,9 +149,11 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   }
 
   if (!calls.size()) return false;
-  if (!be_quiet)
-    errs() << "Hooking " << calls.size()
-           << " calls with pointers as arguments\n";
+  /*
+    if (!be_quiet)
+      errs() << "Hooking " << calls.size()
+             << " calls with pointers as arguments\n";
+  */
 
   for (auto &callInst : calls) {
 
@@ -179,8 +181,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 bool CmpLogRoutines::runOnModule(Module &M) {
 
   if (getenv("AFL_QUIET") == NULL)
-    llvm::errs()
-        << "Running cmplog-routines-pass by andreafioraldi@gmail.com\n";
+    printf("Running cmplog-routines-pass by andreafioraldi@gmail.com\n");
   else
     be_quiet = 1;
   hookRtns(M);

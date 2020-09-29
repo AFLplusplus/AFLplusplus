@@ -339,8 +339,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
   if (!calls.size()) return false;
   if (!be_quiet)
-    errs() << "Replacing " << calls.size()
-           << " calls to strcmp/memcmp/strncmp/strcasecmp/strncasecmp\n";
+    printf(
+        "Replacing %lu calls to strcmp/memcmp/strncmp/strcasecmp/strncasecmp\n",
+        calls.size());
 
   for (auto &callInst : calls) {
 
@@ -426,11 +427,14 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     else
       unrollLen = constStrLen;
 
-    if (!be_quiet)
-      errs() << callInst->getCalledFunction()->getName() << ": unroll len "
-             << unrollLen
-             << ((isSizedcmp && !isConstSized) ? ", variable n" : "") << ": "
-             << ConstStr << "\n";
+    /*
+        if (!be_quiet)
+          errs() << callInst->getCalledFunction()->getName() << ": unroll len "
+                 << unrollLen
+                 << ((isSizedcmp && !isConstSized) ? ", variable n" : "") << ":
+       "
+                 << ConstStr << "\n";
+    */
 
     /* split before the call instruction */
     BasicBlock *bb = callInst->getParent();
@@ -556,10 +560,12 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 bool CompareTransform::runOnModule(Module &M) {
 
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) || getenv("AFL_DEBUG") != NULL)
-    llvm::errs() << "Running compare-transform-pass by laf.intel@gmail.com, "
-                    "extended by heiko@hexco.de\n";
+    printf(
+        "Running compare-transform-pass by laf.intel@gmail.com, extended by "
+        "heiko@hexco.de\n");
   else
     be_quiet = 1;
+
   transformCmps(M, true, true, true, true, true);
   verifyModule(M);
 
