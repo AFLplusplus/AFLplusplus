@@ -9,7 +9,7 @@
 #include "afl-fuzz.h"
 
 
-#define MAX_STATSD_PACKET_SIZE 1024
+#define MAX_STATSD_PACKET_SIZE 1400
 #define MAX_TAG_LEN 200
 
 int sock = 0;
@@ -56,6 +56,7 @@ int send_statsd_metric(afl_state_t *afl){
     char* port_env;
     char* host_env;
     if ((port_env = getenv("AFL_STATSD_PORT")) != NULL) {
+        // sanitization check ?
         port = atoi(port_env);
     }
     if ((host_env = getenv("AFL_STATSD_HOST")) != NULL) {
@@ -73,55 +74,44 @@ int send_statsd_metric(afl_state_t *afl){
         perror("sock");
         return -1;
     }
-    char *formatted[] = {};
-    size_t *num_of_tags = 0;
-    statsd_format_metric(afl, &formatted, num_of_tags);
-    for (size_t i = 0; i < &num_of_tags; i++){
-        printf("%ld\n", i);
-        printf("%s\n", formatted[i]);
-        if (sendto(sock, formatted[i], strlen(formatted[i]), 0, (struct sockaddr *) &server, sizeof(server)) == -1) {
-            perror("sendto");
-            return -1;
-        }
+
+    char buff[MAX_STATSD_PACKET_SIZE] = {0};
+
+    statsd_format_metric(afl, buff, MAX_STATSD_PACKET_SIZE);
+    if (sendto(sock, buff, MAX_STATSD_PACKET_SIZE, 0,
+               (struct sockaddr *)&server, sizeof(server)) == -1) {
+      perror("sendto");
+      return -1;
     }
-    
+
     close(sock);
     sock=0;
 
     return 0;
 }
 
-int statsd_format_metric(afl_state_t *afl, char *formatted[], size_t *num_of_tags){
+int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen){
+    /*
+    metric format:
+    <some.namespaced.name>:<value>|<type>|<tags>
+    tags format:
+    #key:value,key:value,key
+    */
+    char tags[MAX_TAG_LEN * 2] = {0};
+    snprintf(tags, MAX_TAG_LEN * 2,
+        "banner:%s,afl_version:%s",
+        afl->use_banner,
+        VERSION);
+    // Sends multiple metrics with one UDP Packet.
+    // bufflen will limit to the max safe size.
+    snprintf(buff, bufflen,
+        "fuzzing.afl.cycle_done:%llu|g|#%s\n"
+        "fuzzing.afl.total_path:%u|g|#%s\n"
+        "fuzzing.afl.unique_crashes:%llu|g|#%s\n"
+        "fuzzing.afl.total_crashes:%llu|g|#%s\n"
+        "fuzzing.afl.unique_hangs:%llu|g|#%s\n",
+        afl->queue_cycle, tags, afl->queued_paths, tags, afl->unique_crashes,
+        tags, afl->total_crashes, tags, afl->unique_hangs, tags);
 
-    char *tags = "key:value";
-    
-    *num_of_tags = 0; // reset
-
-    const char *metrics[] = {
-        "fuzzing.afl.cycle_done:%llu|g|#%s\n", 
-        "fuzzing.afl.total_path:%lu|g|#%s\n", 
-        "fuzzing.afl.unique_crashes:%llu|g|#%s\n",
-        "fuzzing.afl.total_crashes:%llu|g|#%s\n",
-        "fuzzing.afl.unique_hangs:%llu|g|#%s\n"
-    };
-
-    const int metricValues[] = {
-        afl->queue_cycle,
-        afl->queued_paths,
-        afl->unique_crashes,
-        afl->total_crashes,
-        afl->unique_hangs
-    };
-
-    *num_of_tags = sizeof(metrics)/sizeof(metrics[0]);
-    
-    for (size_t i = 0; i < &num_of_tags; i++){
-        char *tmp = malloc(MAX_STATSD_PACKET_SIZE);
-        if(tmp == NULL){
-            return -1;
-        }
-        snprintf(tmp, MAX_STATSD_PACKET_SIZE, metrics[i], metricValues[i], tags);
-        formatted[i] = tmp;
-    }
-    return 0;   
+    return 0;
 }
