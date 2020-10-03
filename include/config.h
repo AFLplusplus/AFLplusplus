@@ -41,6 +41,12 @@
 
 #define USE_COLOR
 
+/* Enable sending statistics over a StatsD daemon.
+Server config can be adjusted with AFL_STATSD_HOST and AFL_STATSD_PORT env var.
+*/
+
+#define USE_STATSD
+
 /* If you want to have the original afl internal memory corruption checks.
    Disabled by default for speed. it is better to use "make ASAN_BUILD=1". */
 
