@@ -92,7 +92,7 @@ int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen){
     /* Metric format:
     <some.namespaced.name>:<value>|<type>
     */
-    #ifdef USE_STATSD_TAGS
+    #ifdef USE_DOGSTATSD_TAGS
     /* Tags format: DogStatsD
     <some.namespaced.name>:<value>|<type>|#key:value,key:value,key
     */

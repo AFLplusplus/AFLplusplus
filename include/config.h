@@ -50,6 +50,9 @@ Server config can be adjusted with AFL_STATSD_HOST and AFL_STATSD_PORT env var.
 #define STATSD_DEFAULT_PORT 8125
 #define STATSD_DEFAULT_HOST "127.0.0.1"
 
+/* comment out to disable tags. */
+#define USE_DOGSTATSD_TAGS
+
 /* If you want to have the original afl internal memory corruption checks.
    Disabled by default for speed. it is better to use "make ASAN_BUILD=1". */
 
