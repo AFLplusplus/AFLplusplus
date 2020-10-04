@@ -13,11 +13,12 @@
 #define MAX_TAG_LEN 200
 #define METRIC_PREFIX "fuzzing"
 
-int sock = 0;
 struct sockaddr_in server;
 int error = 0;
+int statds_sock = 0;
 
 int statsd_socket_init(char *host, int port){
+    int sock;
     if((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
         perror("socket");
         exit(1);
@@ -42,72 +43,72 @@ int statsd_socket_init(char *host, int port){
     memcpy(&(server.sin_addr), &((struct sockaddr_in*)result->ai_addr)->sin_addr, sizeof(struct in_addr));
     freeaddrinfo(result);
 
-    return 0;
+    return sock;
 }
 
-int send_statsd_metric(afl_state_t *afl){
-    /* default port and host.
+int statsd_send_metric(afl_state_t *afl){
+    
+    char buff[MAX_STATSD_PACKET_SIZE] = {0};
+    /* Default port and host.
     Will be overwritten by AFL_STATSD_PORT and AFL_STATSD_HOST environment variable, if they exists.
-    */ 
-    u16 port = 8125;
-    char* host = "127.0.0.1";
+    */
+    u16 port = STATSD_DEFAULT_PORT;
+    char* host = STATSD_DEFAULT_HOST;
 
     char* port_env;
     char* host_env;
     if ((port_env = getenv("AFL_STATSD_PORT")) != NULL) {
-        // sanitization check ?
         port = atoi(port_env);
     }
     if ((host_env = getenv("AFL_STATSD_HOST")) != NULL) {
-        // sanitization check ?
         host = host_env;
     }
-    
-    error = statsd_socket_init(host, port);
-    if (error){
-        perror("Failed to init statsd client. Aborting");
-        return -1;
-    }
-    
-    if(!sock){
-        perror("sock");
-        return -1;
-    }
 
-    char buff[MAX_STATSD_PACKET_SIZE] = {0};
+    /* statds_sock is a global variable. We set it once in the beginning and reuse the socket.
+    If the sendto later fail, we reset it to 0 to be able to recreate it.
+    */
+    if(!statds_sock){
+        statds_sock = statsd_socket_init(host, port);
+        if(!statds_sock){
+            perror("Cannot create socket");
+            return -1;
+        }
+    }
 
     statsd_format_metric(afl, buff, MAX_STATSD_PACKET_SIZE);
-    if (sendto(sock, buff, strlen(buff), 0,
-               (struct sockaddr *)&server, sizeof(server)) == -1) {
-      perror("sendto");
-      return -1;
+    if (sendto(statds_sock, buff, strlen(buff), 0, (struct sockaddr *)&server, sizeof(server)) == -1) {
+        if(!close(statds_sock)){
+            perror("Cannot close socket");
+        }
+        statds_sock = 0;
+        perror("Cannot sendto");
+        return -1;
     }
-
-    close(sock);
-    sock=0;
 
     return 0;
 }
 
 int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen){
-    /*
-    metric format:
-    <some.namespaced.name>:<value>|<type>|<tags>
-    tags format:
+    /* Metric format:
+    <some.namespaced.name>:<value>|<type>
     */
     #ifdef USE_STATSD_TAGS
-    /* #key:value,key:value,key
+    /* Tags format: DogStatsD
+    <some.namespaced.name>:<value>|<type>|#key:value,key:value,key
     */
     char tags[MAX_TAG_LEN * 2] = {0};
     snprintf(tags, MAX_TAG_LEN * 2,
         "|#banner:%s,afl_version:%s",
         afl->use_banner,
         VERSION);
-    #else 
+    #else
+    /* No tags.
+    */
     char *tags = "";
     #endif
-    // Sends multiple metrics with one UDP Packet.
-    // bufflen will limit to the max safe size.
+    /* Sends multiple metrics with one UDP Packet.
+    bufflen will limit to the max safe size.
+    */
     snprintf(buff, bufflen,
         METRIC_PREFIX".cycle_done:%llu|g%s\n"
         METRIC_PREFIX".cycles_wo_finds:%llu|g%s\n"

@@ -423,8 +423,10 @@ void show_stats(afl_state_t *afl) {
   }
 
   #ifdef USE_STATSD
-  if (cur_ms - afl->stats_last_stats_ms > STATSD_UPDATE_SEC * 1000) {
-    if(send_statsd_metric(afl)){
+  if (cur_ms - afl->statsd_last_send_ms > STATSD_UPDATE_SEC * 1000) {
+    /* reset counter, even if send failed. */
+    afl->statsd_last_send_ms = cur_ms;
+    if(statsd_send_metric(afl)){
       WARNF("coundln't send statsd metric.");
     }
   }

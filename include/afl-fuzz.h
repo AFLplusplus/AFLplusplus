@@ -635,6 +635,8 @@ typedef struct afl_state {
   u64 plot_prev_qc, plot_prev_uc, plot_prev_uh, plot_prev_ed;
 
   u64 stats_last_stats_ms, stats_last_plot_ms, stats_last_ms, stats_last_execs;
+  // StatsD
+  u64 statsd_last_send_ms;
   double stats_avg_exec;
 
   u8 *clean_trace;
@@ -957,7 +959,7 @@ void show_init_stats(afl_state_t *);
 /* StatsD */
 
 int statsd_socket_init(char *host, int port);
-int send_statsd_metric(afl_state_t *afl);
+int statsd_send_metric(afl_state_t *afl);
 int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen);
 
 /* Run */
