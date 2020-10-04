@@ -956,7 +956,7 @@ void show_init_stats(afl_state_t *);
 
 /* StatsD */
 
-int statsd_init(char *host, int port);
+int statsd_socket_init(char *host, int port);
 int send_statsd_metric(afl_state_t *afl);
 int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen);
 

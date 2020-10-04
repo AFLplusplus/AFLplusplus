@@ -9,14 +9,15 @@
 #include "afl-fuzz.h"
 
 
-#define MAX_STATSD_PACKET_SIZE 1400
+#define MAX_STATSD_PACKET_SIZE 4096
 #define MAX_TAG_LEN 200
+#define METRIC_PREFIX "fuzzing"
 
 int sock = 0;
 struct sockaddr_in server;
 int error = 0;
 
-int statsd_init(char *host, int port){
+int statsd_socket_init(char *host, int port){
     if((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
         perror("socket");
         exit(1);
@@ -45,11 +46,9 @@ int statsd_init(char *host, int port){
 }
 
 int send_statsd_metric(afl_state_t *afl){
-    u64 cur_ms = get_cur_time();
-    if (cur_ms - afl->stats_last_plot_ms < 1000) {
-        return 0;
-    }
-    
+    /* default port and host.
+    Will be overwritten by AFL_STATSD_PORT and AFL_STATSD_HOST environment variable, if they exists.
+    */ 
     u16 port = 8125;
     char* host = "127.0.0.1";
 
@@ -64,7 +63,7 @@ int send_statsd_metric(afl_state_t *afl){
         host = host_env;
     }
     
-    error = statsd_init(host, port);
+    error = statsd_socket_init(host, port);
     if (error){
         perror("Failed to init statsd client. Aborting");
         return -1;
@@ -78,7 +77,7 @@ int send_statsd_metric(afl_state_t *afl){
     char buff[MAX_STATSD_PACKET_SIZE] = {0};
 
     statsd_format_metric(afl, buff, MAX_STATSD_PACKET_SIZE);
-    if (sendto(sock, buff, MAX_STATSD_PACKET_SIZE, 0,
+    if (sendto(sock, buff, strlen(buff), 0,
                (struct sockaddr *)&server, sizeof(server)) == -1) {
       perror("sendto");
       return -1;
@@ -95,23 +94,62 @@ int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen){
     metric format:
     <some.namespaced.name>:<value>|<type>|<tags>
     tags format:
-    #key:value,key:value,key
+    */
+    #ifdef USE_STATSD_TAGS
+    /* #key:value,key:value,key
     */
     char tags[MAX_TAG_LEN * 2] = {0};
     snprintf(tags, MAX_TAG_LEN * 2,
-        "banner:%s,afl_version:%s",
+        "|#banner:%s,afl_version:%s",
         afl->use_banner,
         VERSION);
+    #else 
+    char *tags = "";
+    #endif
     // Sends multiple metrics with one UDP Packet.
     // bufflen will limit to the max safe size.
     snprintf(buff, bufflen,
-        "fuzzing.afl.cycle_done:%llu|g|#%s\n"
-        "fuzzing.afl.total_path:%u|g|#%s\n"
-        "fuzzing.afl.unique_crashes:%llu|g|#%s\n"
-        "fuzzing.afl.total_crashes:%llu|g|#%s\n"
-        "fuzzing.afl.unique_hangs:%llu|g|#%s\n",
-        afl->queue_cycle, tags, afl->queued_paths, tags, afl->unique_crashes,
-        tags, afl->total_crashes, tags, afl->unique_hangs, tags);
+        METRIC_PREFIX".cycle_done:%llu|g%s\n"
+        METRIC_PREFIX".cycles_wo_finds:%llu|g%s\n"
+        METRIC_PREFIX".execs_done:%llu|g%s\n"
+        METRIC_PREFIX".execs_per_sec:%0.02f|g%s\n"
+        METRIC_PREFIX".paths_total:%u|g%s\n"
+        METRIC_PREFIX".paths_favored:%u|g%s\n"
+        METRIC_PREFIX".paths_found:%u|g%s\n"
+        METRIC_PREFIX".paths_imported:%u|g%s\n"
+        METRIC_PREFIX".max_depth:%u|g%s\n"
+        METRIC_PREFIX".cur_path:%u|g%s\n"
+        METRIC_PREFIX".pending_favs:%u|g%s\n"
+        METRIC_PREFIX".pending_total:%u|g%s\n"
+        METRIC_PREFIX".variable_paths:%u|g%s\n"
+        METRIC_PREFIX".unique_crashes:%llu|g%s\n"
+        METRIC_PREFIX".unique_hangs:%llu|g%s\n"
+        METRIC_PREFIX".total_crashes:%llu|g%s\n"
+        METRIC_PREFIX".slowest_exec_ms:%u|g%s\n"
+        METRIC_PREFIX".edges_found:%u|g%s\n"
+        METRIC_PREFIX".var_byte_count:%u|g%s\n"
+        METRIC_PREFIX".havoc_expansion:%u|g%s\n",
+        afl->queue_cycle ? (afl->queue_cycle - 1) : 0, tags,
+        afl->cycles_wo_finds, tags,
+        afl->fsrv.total_execs, tags,
+        afl->fsrv.total_execs / ((double)(get_cur_time() - afl->start_time) / 1000), tags,
+        afl->queued_paths, tags,
+        afl->queued_favored, tags,
+        afl->queued_discovered, tags,
+        afl->queued_imported, tags,
+        afl->max_depth, tags,
+        afl->current_entry, tags,
+        afl->pending_favored, tags,
+        afl->pending_not_fuzzed, tags,
+        afl->queued_variable, tags,
+        afl->unique_crashes, tags,
+        afl->unique_hangs, tags,
+        afl->total_crashes, tags,
+        afl->slowest_exec_ms, tags,
+        count_non_255_bytes(afl, afl->virgin_bits), tags,
+        afl->var_byte_count, tags,
+        afl->expand_havoc, tags
+        );
 
     return 0;
 }
