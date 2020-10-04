@@ -49,16 +49,16 @@ typedef struct prealloc_me
 
     u8 *content[128];
 
-} prealloc_me_t;
+} element_t;
 
 #define PREALLOCED_BUF_SIZE (64)
-prealloc_me_t prealloc_me_buf[PREALLOCED_BUF_SIZE];
+element_t prealloc_me_buf[PREALLOCED_BUF_SIZE];
 s32 prealloc_me_size = 0;
 
 static void test_alloc_free(void **state) {
     (void)state;
 
-    prealloc_me_t *prealloced = NULL;
+    element_t *prealloced = NULL;
     PRE_ALLOC(prealloced, prealloc_me_buf, PREALLOCED_BUF_SIZE, prealloc_me_size);
     assert_non_null(prealloced);
     PRE_FREE(prealloced, prealloc_me_size);
@@ -69,7 +69,7 @@ static void test_prealloc_overflow(void **state) {
     (void)state;
 
     u32 i = 0;
-    prealloc_me_t *prealloced[PREALLOCED_BUF_SIZE + 10];
+    element_t *prealloced[PREALLOCED_BUF_SIZE + 10];
 
     for (i = 0; i < PREALLOCED_BUF_SIZE + 10; i++) {
 

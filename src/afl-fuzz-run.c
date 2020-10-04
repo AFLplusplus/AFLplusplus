@@ -394,6 +394,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
               unlikely(afl->first_trace[i] != afl->fsrv.trace_bits[i])) {
 
             afl->var_bytes[i] = 1;
+            // ignore the variable edge by setting it to fully discovered
+            afl->virgin_bits[i] = 0;
 
           }
 

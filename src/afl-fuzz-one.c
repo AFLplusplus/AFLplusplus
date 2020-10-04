@@ -1707,20 +1707,8 @@ custom_mutator_stage:
 
           } while (tid == afl->current_entry && afl->queued_paths > 1);
 
-          target = afl->queue;
-
-          while (tid >= 100) {
-
-            target = target->next_100;
-            tid -= 100;
-
-          }
-
-          while (tid--) {
-
-            target = target->next;
-
-          }
+          afl->splicing_with = tid;
+          target = afl->queue_buf[tid];
 
           /* Make sure that the target has a reasonable length. */
 
@@ -4518,20 +4506,7 @@ pacemaker_fuzzing:
         } while (tid == afl->current_entry);
 
         afl->splicing_with = tid;
-        target = afl->queue;
-
-        while (tid >= 100) {
-
-          target = target->next_100;
-          tid -= 100;
-
-        }
-
-        while (tid--) {
-
-          target = target->next;
-
-        }
+        target = afl->queue_buf[tid];
 
         /* Make sure that the target has a reasonable length. */
 

@@ -12,9 +12,7 @@ git submodule init
 git submodule update
 ```
 
-otherwise just checkout the repository here with either
-`git clone https://github.com/AFLplusplus/Grammar-Mutator` or
-`svn co https://github.com/AFLplusplus/Grammar-Mutator`.
+otherwise just use the script: `grammar_mutator/build_grammar_mutator.sh`
 
 Read the [Grammar-Mutator/README.md](Grammar-Mutator/README.md) on how to use
 it.

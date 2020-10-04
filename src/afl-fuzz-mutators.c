@@ -93,9 +93,9 @@ void setup_custom_mutators(afl_state_t *afl) {
 
     }
 
-    struct custom_mutator *mutator = load_custom_mutator_py(afl, module_name);
+    struct custom_mutator *m = load_custom_mutator_py(afl, module_name);
     afl->custom_mutators_count++;
-    list_append(&afl->custom_mutator_list, mutator);
+    list_append(&afl->custom_mutator_list, m);
 
   }
 

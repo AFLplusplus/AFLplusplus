@@ -101,7 +101,7 @@ cc_binary_host {
   ],
 
   srcs: [
-    "llvm_mode/afl-clang-fast.c",
+    "src/afl-cc.c",
   ],
 }
 
@@ -119,7 +119,7 @@ cc_binary_host {
   ],
 
   srcs: [
-    "llvm_mode/afl-clang-fast.c",
+    "src/afl-cc.c",
   ],
 }
 
@@ -136,6 +136,6 @@ cc_library_static {
   ],
 
   srcs: [
-    "llvm_mode/afl-llvm-rt.o.c",
+    "instrumentation/afl-llvm-rt.o.c",
   ],
 }

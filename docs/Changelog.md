@@ -9,6 +9,34 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++3.00a (develop)
+  - llvm_mode/ and gcc_plugin/ moved to instrumentation/
+  - all compilers combined to afl-cc which emulates the previous ones
+  - afl-llvm/gcc-rt.o merged into afl-compiler-rt.o
+  - afl-fuzz
+    - reading testcases from -i now descends into subdirectories
+    - allow up to 4 -x command line options
+    - loaded extras now have a duplicate protection
+    - If test cases are too large we do a partial read on the maximum
+      supported size
+    - longer seeds with the same trace information will now be ignored
+      for fuzzing but still be used for splicing
+    - crashing seeds are now not prohibiting a run anymore but are
+      skipped. They are used for splicing though.
+    - set the default power schedule to the superiour "seek" schedule
+  - instrumentation
+    - We received an enhanced gcc_plugin module from AdaCore, thank you
+      very much!!
+    - not overriding -Ox or -fno-unroll-loops anymore
+    - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz
+      -x dictionary of string comparisons found during compilation
+    - LTO autodict now also collects interesting cmp comparisons,
+      std::string compare + find + ==, bcmp
+  - added a new custom mutator: symcc -> https://github.com/eurecom-s3/symcc/
+  - added a new custom mutator: libfuzzer that integrates libfuzzer mutations
+  - Our afl++ Grammar-Mutator is now better integrated into custom_mutators/
+
+
 ### Version ++2.68c (release)
   - added the GSoC excellent afl++ grammar mutator by Shengtuo to our
     custom_mutators/ (see custom_mutators/README.md) - or get it here:
