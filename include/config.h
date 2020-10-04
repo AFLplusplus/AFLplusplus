@@ -46,6 +46,7 @@ Server config can be adjusted with AFL_STATSD_HOST and AFL_STATSD_PORT env var.
 */
 
 #define USE_STATSD
+#define STATSD_UPDATE_SEC 1
 
 /* If you want to have the original afl internal memory corruption checks.
    Disabled by default for speed. it is better to use "make ASAN_BUILD=1". */
