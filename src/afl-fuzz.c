@@ -90,7 +90,7 @@ static void usage(u8 *argv0, int more_help) {
 
       "Execution control settings:\n"
       "  -p schedule   - power schedules compute a seed's performance score:\n"
-      "                  <explore(default), rare, exploit, seek, mmopt, coe, "
+      "                  <explore, rare, exploit, seek, mmopt, coe(default), "
       "fast,\n"
       "                  lin, quad> -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
@@ -928,7 +928,7 @@ int main(int argc, char **argv_orig, char **envp) {
       OKF("Using seek power schedule (SEEK)");
       break;
     case EXPLORE:
-      OKF("Using exploration-based constant power schedule (EXPLORE, default)");
+      OKF("Using exploration-based constant power schedule (EXPLORE)");
       break;
     default:
       FATAL("Unknown power schedule");
