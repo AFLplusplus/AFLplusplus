@@ -89,11 +89,10 @@ static void usage(u8 *argv0, int more_help) {
       "  -o dir        - output directory for fuzzer findings\n\n"
 
       "Execution control settings:\n"
-      "  -p schedule   - power schedules compute a seed's performance score. "
-      "<explore\n"
-      "                  (default), fast, coe, lin, quad, exploit, mmopt, "
-      "rare, seek>\n"
-      "                  see docs/power_schedules.md\n"
+      "  -p schedule   - power schedules compute a seed's performance score:\n"
+      "                  <seek (default), explore, rare, exploit, mmopt, coe, "
+      "fast,\n"
+      "                  lin, quad> -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
@@ -119,8 +118,8 @@ static void usage(u8 *argv0, int more_help) {
       "etc.)\n"
       "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (non-instrumented mode)\n"
-      "  -x dict_file  - optional fuzzer dictionary (see README.md, its really "
-      "good!)\n\n"
+      "  -x dict_file  - fuzzer dictionary (see README.md, specify up to 4 "
+      "times)\n\n"
 
       "Testing settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
@@ -243,11 +242,11 @@ static int stricmp(char const *a, char const *b) {
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  s32    opt;
-  u64    prev_queued = 0;
-  u32    sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
-  u8 *   extras_dir = 0;
-  u8     mem_limit_given = 0, exit_1 = 0, debug = 0;
+  s32 opt, i;
+  u64 prev_queued = 0;
+  u32 sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
+  u8 *extras_dir[4];
+  u8 mem_limit_given = 0, exit_1 = 0, debug = 0, extras_dir_cnt = 0, have_p = 0;
   char **use_argv;
 
   struct timeval  tv;
@@ -349,21 +348,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
           afl->schedule = RARE;
 
-        } else if (!stricmp(optarg, "seek")) {
-
-          afl->schedule = SEEK;
-
-        } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "default") ||
-
-                   !stricmp(optarg, "normal") || !stricmp(optarg, "afl")) {
+        } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "afl")) {
 
           afl->schedule = EXPLORE;
+
+        } else if (!stricmp(optarg, "seek") || !stricmp(optarg, "default") ||
+
+                   !stricmp(optarg, "normal")) {
+
+          afl->schedule = SEEK;
 
         } else {
 
           FATAL("Unknown -p power schedule");
 
         }
+
+        have_p = 1;
 
         break;
 
@@ -450,8 +451,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'x':                                               /* dictionary */
 
-        if (extras_dir) { FATAL("Multiple -x options not supported"); }
-        extras_dir = optarg;
+        if (extras_dir_cnt >= 4) {
+
+          FATAL("More than four -x options are not supported");
+
+        }
+
+        extras_dir[extras_dir_cnt++] = optarg;
         break;
 
       case 't': {                                                /* timeout */
@@ -694,7 +700,7 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->swarm_now = 0;
         if (afl->limit_time_puppet == 0) { afl->key_puppet = 1; }
 
-        int i;
+        int j;
         int tmp_swarm = 0;
 
         if (afl->g_now > afl->g_max) { afl->g_now = 0; }
@@ -707,70 +713,70 @@ int main(int argc, char **argv_orig, char **envp) {
           double total_puppet_temp = 0.0;
           afl->swarm_fitness[tmp_swarm] = 0.0;
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->stage_finds_puppet[tmp_swarm][i] = 0;
-            afl->probability_now[tmp_swarm][i] = 0.0;
-            afl->x_now[tmp_swarm][i] =
+            afl->stage_finds_puppet[tmp_swarm][j] = 0;
+            afl->probability_now[tmp_swarm][j] = 0.0;
+            afl->x_now[tmp_swarm][j] =
                 ((double)(random() % 7000) * 0.0001 + 0.1);
-            total_puppet_temp += afl->x_now[tmp_swarm][i];
-            afl->v_now[tmp_swarm][i] = 0.1;
-            afl->L_best[tmp_swarm][i] = 0.5;
-            afl->G_best[i] = 0.5;
-            afl->eff_best[tmp_swarm][i] = 0.0;
+            total_puppet_temp += afl->x_now[tmp_swarm][j];
+            afl->v_now[tmp_swarm][j] = 0.1;
+            afl->L_best[tmp_swarm][j] = 0.5;
+            afl->G_best[j] = 0.5;
+            afl->eff_best[tmp_swarm][j] = 0.0;
 
           }
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->stage_cycles_puppet_v2[tmp_swarm][i] =
-                afl->stage_cycles_puppet[tmp_swarm][i];
-            afl->stage_finds_puppet_v2[tmp_swarm][i] =
-                afl->stage_finds_puppet[tmp_swarm][i];
-            afl->x_now[tmp_swarm][i] =
-                afl->x_now[tmp_swarm][i] / total_puppet_temp;
+            afl->stage_cycles_puppet_v2[tmp_swarm][j] =
+                afl->stage_cycles_puppet[tmp_swarm][j];
+            afl->stage_finds_puppet_v2[tmp_swarm][j] =
+                afl->stage_finds_puppet[tmp_swarm][j];
+            afl->x_now[tmp_swarm][j] =
+                afl->x_now[tmp_swarm][j] / total_puppet_temp;
 
           }
 
           double x_temp = 0.0;
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->probability_now[tmp_swarm][i] = 0.0;
-            afl->v_now[tmp_swarm][i] =
-                afl->w_now * afl->v_now[tmp_swarm][i] +
+            afl->probability_now[tmp_swarm][j] = 0.0;
+            afl->v_now[tmp_swarm][j] =
+                afl->w_now * afl->v_now[tmp_swarm][j] +
                 RAND_C *
-                    (afl->L_best[tmp_swarm][i] - afl->x_now[tmp_swarm][i]) +
-                RAND_C * (afl->G_best[i] - afl->x_now[tmp_swarm][i]);
+                    (afl->L_best[tmp_swarm][j] - afl->x_now[tmp_swarm][j]) +
+                RAND_C * (afl->G_best[j] - afl->x_now[tmp_swarm][j]);
 
-            afl->x_now[tmp_swarm][i] += afl->v_now[tmp_swarm][i];
+            afl->x_now[tmp_swarm][j] += afl->v_now[tmp_swarm][j];
 
-            if (afl->x_now[tmp_swarm][i] > v_max) {
+            if (afl->x_now[tmp_swarm][j] > v_max) {
 
-              afl->x_now[tmp_swarm][i] = v_max;
+              afl->x_now[tmp_swarm][j] = v_max;
 
-            } else if (afl->x_now[tmp_swarm][i] < v_min) {
+            } else if (afl->x_now[tmp_swarm][j] < v_min) {
 
-              afl->x_now[tmp_swarm][i] = v_min;
+              afl->x_now[tmp_swarm][j] = v_min;
 
             }
 
-            x_temp += afl->x_now[tmp_swarm][i];
+            x_temp += afl->x_now[tmp_swarm][j];
 
           }
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->x_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i] / x_temp;
-            if (likely(i != 0)) {
+            afl->x_now[tmp_swarm][j] = afl->x_now[tmp_swarm][j] / x_temp;
+            if (likely(j != 0)) {
 
-              afl->probability_now[tmp_swarm][i] =
-                  afl->probability_now[tmp_swarm][i - 1] +
-                  afl->x_now[tmp_swarm][i];
+              afl->probability_now[tmp_swarm][j] =
+                  afl->probability_now[tmp_swarm][j - 1] +
+                  afl->x_now[tmp_swarm][j];
 
             } else {
 
-              afl->probability_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i];
+              afl->probability_now[tmp_swarm][j] = afl->x_now[tmp_swarm][j];
 
             }
 
@@ -785,13 +791,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        for (i = 0; i < operator_num; ++i) {
+        for (j = 0; j < operator_num; ++j) {
 
-          afl->core_operator_finds_puppet[i] = 0;
-          afl->core_operator_finds_puppet_v2[i] = 0;
-          afl->core_operator_cycles_puppet[i] = 0;
-          afl->core_operator_cycles_puppet_v2[i] = 0;
-          afl->core_operator_cycles_puppet_v3[i] = 0;
+          afl->core_operator_finds_puppet[j] = 0;
+          afl->core_operator_finds_puppet_v2[j] = 0;
+          afl->core_operator_cycles_puppet[j] = 0;
+          afl->core_operator_cycles_puppet_v2[j] = 0;
+          afl->core_operator_cycles_puppet_v3[j] = 0;
 
         }
 
@@ -828,10 +834,6 @@ int main(int argc, char **argv_orig, char **envp) {
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
-  OKF("Power schedules from github.com/mboehme/aflfast");
-  OKF("Python Mutator and llvm_mode instrument file list from "
-      "github.com/choller/afl");
-  OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
 
   if (afl->sync_id && afl->is_main_node &&
       afl->afl_env.afl_custom_mutator_only) {
@@ -1010,10 +1012,10 @@ int main(int argc, char **argv_orig, char **envp) {
       u8 *afl_preload = getenv("AFL_PRELOAD");
       u8 *buf;
 
-      s32 i, afl_preload_size = strlen(afl_preload);
-      for (i = 0; i < afl_preload_size; ++i) {
+      s32 j, afl_preload_size = strlen(afl_preload);
+      for (j = 0; j < afl_preload_size; ++j) {
 
-        if (afl_preload[i] == ',') {
+        if (afl_preload[j] == ',') {
 
           PFATAL(
               "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
@@ -1132,14 +1134,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
   setup_cmdline_file(afl, argv + optind);
 
-  read_testcases(afl);
+  read_testcases(afl, NULL);
   // read_foreign_testcases(afl, 1); for the moment dont do this
+  OKF("Loaded a total of %u seeds.", afl->queued_paths);
 
   load_auto(afl);
 
   pivot_inputs(afl);
 
-  if (extras_dir) { load_extras(afl, extras_dir); }
+  if (extras_dir_cnt) {
+
+    for (i = 0; i < extras_dir_cnt; i++)
+      load_extras(afl, extras_dir[i]);
+
+    dedup_extras(afl);
+    OKF("Loaded a total of %u extras.", afl->extras_cnt);
+
+  }
 
   if (!afl->timeout_given) { find_timeout(afl); }
 
@@ -1179,10 +1190,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->fsrv.out_file) {
 
-    u32 i = optind + 1;
-    while (argv[i]) {
+    u32 j = optind + 1;
+    while (argv[j]) {
 
-      u8 *aa_loc = strstr(argv[i], "@@");
+      u8 *aa_loc = strstr(argv[j], "@@");
 
       if (aa_loc && !afl->fsrv.out_file) {
 
@@ -1205,7 +1216,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
-      ++i;
+      ++j;
 
     }
 
@@ -1271,6 +1282,9 @@ int main(int argc, char **argv_orig, char **envp) {
   perform_dry_run(afl);
 
   cull_queue(afl);
+
+  if (!afl->pending_not_fuzzed)
+    FATAL("We need at least on valid input seed that does not crash!");
 
   show_init_stats(afl);
 
@@ -1352,7 +1366,7 @@ int main(int argc, char **argv_orig, char **envp) {
               afl->expand_havoc = 2;
               break;
             case 2:
-              // afl->cycle_schedules = 1;
+              if (!have_p) afl->schedule = EXPLOIT;
               afl->expand_havoc = 3;
               break;
             case 3:

@@ -3,7 +3,7 @@
 . ./test-pre.sh
 
 $ECHO "$BLUE[*] Testing: gcc_plugin"
-test -e ../afl-gcc-fast -a -e ../afl-gcc-rt.o && {
+test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
   SAVE_AFL_CC=${AFL_CC}
   export AFL_CC=`command -v gcc`
   ../afl-gcc-fast -o test-instr.plain.gccpi ../test-instr.c > /dev/null 2>&1
