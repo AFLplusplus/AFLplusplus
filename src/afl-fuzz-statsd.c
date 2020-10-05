@@ -60,10 +60,8 @@ int statsd_send_metric(afl_state_t *afl) {
   u16   port = STATSD_DEFAULT_PORT;
   char *host = STATSD_DEFAULT_HOST;
 
-  char *port_env;
-  char *host_env;
-  if ((port_env = getenv("AFL_STATSD_PORT")) != NULL) { port = atoi(port_env); }
-  if ((host_env = getenv("AFL_STATSD_HOST")) != NULL) { host = host_env; }
+  if (afl->afl_env.afl_statsd_port) { port = atoi(afl->afl_env.afl_statsd_port); }
+  if (afl->afl_env.afl_statsd_host) { host = afl->afl_env.afl_statsd_host; }
 
   /* statds_sock is a global variable. We set it once in the beginning and reuse
   the socket. If the sendto later fail, we reset it to 0 to be able to recreate

@@ -363,6 +363,19 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_forksrv_init_tmout =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
+          } else if (!strncmp(env, "AFL_STATSD_HOST",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd_host =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+          } else if (!strncmp(env, "AFL_STATSD_PORT",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd_port =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
           }
 
         } else {
