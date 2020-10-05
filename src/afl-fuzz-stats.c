@@ -955,7 +955,7 @@ void show_stats(afl_state_t *afl) {
 #else
 
     SAYF("%s" cGRA "   [cpu:%s%3u%%" cGRA "]\r" cRST, spacing, cpu_color,
-         MIN(cur_utilization, 999));
+         MIN(cur_utilization, (u32)999));
 
 #endif                                                    /* ^HAVE_AFFINITY */
 
