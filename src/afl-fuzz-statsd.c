@@ -13,6 +13,7 @@
 #define METRIC_PREFIX "fuzzing"
 
 int statsd_socket_init(afl_state_t *afl) {
+
   /* Default port and host.
   Will be overwritten by AFL_STATSD_PORT and AFL_STATSD_HOST environment
   variable, if they exists.
@@ -20,7 +21,12 @@ int statsd_socket_init(afl_state_t *afl) {
   u16   port = STATSD_DEFAULT_PORT;
   char *host = STATSD_DEFAULT_HOST;
 
-  if (afl->afl_env.afl_statsd_port) { port = atoi(afl->afl_env.afl_statsd_port); }
+  if (afl->afl_env.afl_statsd_port) {
+
+    port = atoi(afl->afl_env.afl_statsd_port);
+
+  }
+
   if (afl->afl_env.afl_statsd_host) { host = afl->afl_env.afl_statsd_host; }
 
   int sock;
@@ -47,7 +53,8 @@ int statsd_socket_init(afl_state_t *afl) {
 
   }
 
-  memcpy(&(afl->statsd_server.sin_addr), &((struct sockaddr_in *)result->ai_addr)->sin_addr,
+  memcpy(&(afl->statsd_server.sin_addr),
+         &((struct sockaddr_in *)result->ai_addr)->sin_addr,
          sizeof(struct in_addr));
   freeaddrinfo(result);
 
@@ -59,8 +66,9 @@ int statsd_send_metric(afl_state_t *afl) {
 
   char buff[MAX_STATSD_PACKET_SIZE] = {0};
 
-  /* afl->statsd_sock is set once in the initialisation of afl-fuzz and reused each time
-  If the sendto later fail, we reset it to 0 to be able to recreates it.
+  /* afl->statsd_sock is set once in the initialisation of afl-fuzz and reused
+  each time If the sendto later fail, we reset it to 0 to be able to recreates
+  it.
   */
   if (!afl->statsd_sock) {
 
@@ -75,7 +83,8 @@ int statsd_send_metric(afl_state_t *afl) {
   }
 
   statsd_format_metric(afl, buff, MAX_STATSD_PACKET_SIZE);
-  if (sendto(afl->statsd_sock, buff, strlen(buff), 0, (struct sockaddr *)&afl->statsd_server,
+  if (sendto(afl->statsd_sock, buff, strlen(buff), 0,
+             (struct sockaddr *)&afl->statsd_server,
              sizeof(afl->statsd_server)) == -1) {
 
     if (!close(afl->statsd_sock)) { perror("Cannot close socket"); }
