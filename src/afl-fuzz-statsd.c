@@ -12,47 +12,7 @@
 #define MAX_TAG_LEN 200
 #define METRIC_PREFIX "fuzzing"
 
-struct sockaddr_in server;
-int                error = 0;
-int                statds_sock = 0;
-
-int statsd_socket_init(char *host, int port) {
-
-  int sock;
-  if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-
-    FATAL("Failed to create socket");
-
-  }
-
-  memset(&server, 0, sizeof(server));
-  server.sin_family = AF_INET;
-  server.sin_port = htons(port);
-
-  struct addrinfo *result;
-  struct addrinfo  hints;
-
-  memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_DGRAM;
-
-  if ((error = getaddrinfo(host, NULL, &hints, &result))) {
-
-    FATAL("Fail to getaddrinfo");
-
-  }
-
-  memcpy(&(server.sin_addr), &((struct sockaddr_in *)result->ai_addr)->sin_addr,
-         sizeof(struct in_addr));
-  freeaddrinfo(result);
-
-  return sock;
-
-}
-
-int statsd_send_metric(afl_state_t *afl) {
-
-  char buff[MAX_STATSD_PACKET_SIZE] = {0};
+int statsd_socket_init(afl_state_t *afl) {
   /* Default port and host.
   Will be overwritten by AFL_STATSD_PORT and AFL_STATSD_HOST environment
   variable, if they exists.
@@ -63,14 +23,49 @@ int statsd_send_metric(afl_state_t *afl) {
   if (afl->afl_env.afl_statsd_port) { port = atoi(afl->afl_env.afl_statsd_port); }
   if (afl->afl_env.afl_statsd_host) { host = afl->afl_env.afl_statsd_host; }
 
-  /* statds_sock is a global variable. We set it once in the beginning and reuse
-  the socket. If the sendto later fail, we reset it to 0 to be able to recreate
-  it.
-  */
-  if (!statds_sock) {
+  int sock;
+  if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
 
-    statds_sock = statsd_socket_init(host, port);
-    if (!statds_sock) {
+    FATAL("Failed to create socket");
+
+  }
+
+  memset(&afl->statsd_server, 0, sizeof(afl->statsd_server));
+  afl->statsd_server.sin_family = AF_INET;
+  afl->statsd_server.sin_port = htons(port);
+
+  struct addrinfo *result;
+  struct addrinfo  hints;
+
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_DGRAM;
+
+  if ((getaddrinfo(host, NULL, &hints, &result))) {
+
+    FATAL("Fail to getaddrinfo");
+
+  }
+
+  memcpy(&(afl->statsd_server.sin_addr), &((struct sockaddr_in *)result->ai_addr)->sin_addr,
+         sizeof(struct in_addr));
+  freeaddrinfo(result);
+
+  return sock;
+
+}
+
+int statsd_send_metric(afl_state_t *afl) {
+
+  char buff[MAX_STATSD_PACKET_SIZE] = {0};
+
+  /* afl->statsd_sock is set once in the initialisation of afl-fuzz and reused each time
+  If the sendto later fail, we reset it to 0 to be able to recreates it.
+  */
+  if (!afl->statsd_sock) {
+
+    afl->statsd_sock = statsd_socket_init(afl);
+    if (!afl->statsd_sock) {
 
       WARNF("Cannot create socket");
       return -1;
@@ -80,11 +75,11 @@ int statsd_send_metric(afl_state_t *afl) {
   }
 
   statsd_format_metric(afl, buff, MAX_STATSD_PACKET_SIZE);
-  if (sendto(statds_sock, buff, strlen(buff), 0, (struct sockaddr *)&server,
-             sizeof(server)) == -1) {
+  if (sendto(afl->statsd_sock, buff, strlen(buff), 0, (struct sockaddr *)&afl->statsd_server,
+             sizeof(afl->statsd_server)) == -1) {
 
-    if (!close(statds_sock)) { perror("Cannot close socket"); }
-    statds_sock = 0;
+    if (!close(afl->statsd_sock)) { perror("Cannot close socket"); }
+    afl->statsd_sock = 0;
     WARNF("Cannot sendto");
     return -1;
 
