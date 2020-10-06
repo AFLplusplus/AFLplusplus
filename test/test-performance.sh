@@ -4,7 +4,7 @@
 # you can set the AFL_PERFORMANCE_FILE environment variable:
 FILE=$AFL_PERFORMANCE_FILE
 # otherwise we use ~/.afl_performance
-test -z "$FILE" && FILE=~/.afl_performance
+test -z "$FILE" && FILE=.afl_performance
 
 test -e $FILE || {
   echo Warning: This script measure the performance of afl++ and saves the result for future comparisons into $FILE
@@ -12,7 +12,11 @@ test -e $FILE || {
   read IN
 }
 
+test -e ./test-performance.sh || { echo Error: this script must be run from the directory in which it lies. ; exit 1 ; }
+
 export AFL_QUIET=1
+export AFL_PATH=`pwd`/..
+
 unset AFL_EXIT_WHEN_DONE
 unset AFL_SKIP_CPUFREQ
 unset AFL_DEBUG
@@ -36,8 +40,10 @@ test -e /usr/local/bin/opt && {
 # afl-gcc does not work there
 test `uname -s` = 'Darwin' -o `uname -s` = 'FreeBSD' && {
   AFL_GCC=afl-clang
+  CC=clang
 } || {
   AFL_GCC=afl-gcc
+  CC=gcc
 }
 
 ECHO="printf %b\\n"
@@ -57,9 +63,9 @@ RED="\\033[0;31m"
 YELLOW="\\033[1;93m"
 RESET="\\033[0m"
 
-MEM_LIMIT=150
+MEM_LIMIT=500
 
->> $FILE || { echo Error: can not write to $FILE ; exit 1 ; }
+touch $FILE || { echo Error: can not write to $FILE ; exit 1 ; }
 
 echo Warning: this script is setting performance parameters with afl-system-config
 sleep 1
@@ -144,7 +150,7 @@ test -e ../afl-gcc-fast -a -e ../afl-fuzz && {
 $ECHO "$BLUE[*] Testing: qemu_mode"
 QEMU=x
 test -e ../afl-qemu-trace -a -e ../afl-fuzz && {
-  cc -o test-instr.qemu ../test-instr.c > /dev/null 2>&1
+  $CC -o test-instr.qemu ../test-instr.c > /dev/null 2>&1
   test -e test-instr.qemu && {
     $ECHO "$GREEN[+] native compilation with cc succeeded"
     mkdir -p in
@@ -157,6 +163,7 @@ test -e ../afl-qemu-trace -a -e ../afl-fuzz && {
       QEMU=`grep execs_done out-qemu/fuzzer_stats | awk '{print$3}'`
     } || {
         echo CUT----------------------------------------------------------------
+        echo ../afl-fuzz -Q -V 30 -s 123 -m ${MEM_LIMIT} -i in -o out-qemu -- ./test-instr.qemu
         cat errors
         echo CUT----------------------------------------------------------------
       $ECHO "$RED[!] afl-fuzz is not working correctly with qemu_mode"

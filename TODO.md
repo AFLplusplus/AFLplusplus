@@ -1,12 +1,13 @@
 # TODO list for AFL++
 
-## Roadmap 2.68+
+## Roadmap 3.00+
 
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - CPU affinity for many cores? There seems to be an issue > 96 cores
  - afl-plot to support multiple plot_data
  - afl_custom_fuzz_splice_optin()
  - intel-pt tracer
+ - https://github.com/zyingp/desockmulti ?
 
 ## Further down the road
 
