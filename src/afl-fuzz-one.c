@@ -1710,8 +1710,10 @@ custom_mutator_stage:
                                   target_len, max_seed_size);
 
           if (new_buf) {
+
             queue_testcase_release(afl, target);
             new_buf = NULL;
+
           }
 
           if (unlikely(!mutated_buf)) {
@@ -2302,7 +2304,9 @@ havoc_stage:
 
             u32 tid;
             do {
+
               tid = rand_below(afl, afl->queued_paths);
+
             } while (tid == afl->current_entry);
 
             struct queue_entry *target = afl->queue_buf[tid];
@@ -2310,11 +2314,12 @@ havoc_stage:
             /* Make sure that the target has a reasonable length. */
 
             while (target && (target->len < 2 || target == afl->queue_cur)) {
+
               target = target->next;
+
             }
 
             if (!target) { break; }
-
 
             u32 new_len = target->len;
 
@@ -2323,16 +2328,21 @@ havoc_stage:
 
             u8 overwrite = 0;
             if (temp_len >= 2 && rand_below(afl, 2)) {
+
               overwrite = 1;
-            }
-            else if (temp_len + HAVOC_BLK_XL >= MAX_FILE) {
+
+            } else if (temp_len + HAVOC_BLK_XL >= MAX_FILE) {
 
               if (temp_len >= 2) {
+
                 overwrite = 1;
+
               } else {
+
                 queue_testcase_release(afl, target);
                 new_buf = NULL;
                 break;
+
               }
 
             }
@@ -2497,7 +2507,8 @@ retry_splicing:
        the last differing byte. Bail out if the difference is just a single
        byte or so. */
 
-    locate_diffs(in_buf, splice_buf, MIN(len, (s64)target->len), &f_diff, &l_diff);
+    locate_diffs(in_buf, splice_buf, MIN(len, (s64)target->len), &f_diff,
+                 &l_diff);
 
     if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) { goto retry_splicing; }
 
@@ -4503,7 +4514,8 @@ pacemaker_fuzzing:
 
         len = target->len;
         memcpy(new_buf, in_buf, split_at);
-        memcpy(new_buf + split_at, splicing_buf + split_at, target->len - split_at);
+        memcpy(new_buf + split_at, splicing_buf + split_at,
+               target->len - split_at);
         afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
         in_buf = new_buf;
         out_buf = afl_realloc(AFL_BUF_PARAM(out), len);

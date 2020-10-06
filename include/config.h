@@ -300,7 +300,8 @@ Decrease if RAM usage is high. */
 #define TESTCASE_CACHE_SIZE 2048
 
 #if TESTCASE_CACHE_SIZE < 4
-  #error "Dangerously low cache size: Set TESTCASE_CACHE_SIZE to 4 or more in config.h!
+  #error \
+      "Dangerously low cache size: Set TESTCASE_CACHE_SIZE to 4 or more in config.h!
 #endif
 
 /* Maximum line length passed from GCC to 'as' and used for parsing
