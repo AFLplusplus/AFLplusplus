@@ -642,6 +642,7 @@ typedef struct afl_state {
   char *             statsd_tags_flavor;
   char *             statsd_tags_format;
   char *             statsd_metric_format;
+  int                statsd_metric_format_type;
 
   double stats_avg_exec;
 
