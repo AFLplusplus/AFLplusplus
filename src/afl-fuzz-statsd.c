@@ -81,25 +81,32 @@
 
 void statsd_setup_format(afl_state_t *afl) {
 
-  if (strcmp(afl->afl_env.afl_statsd_tags_flavor, "dogstatsd") == 0) {
+  if (afl->afl_env.afl_statsd_tags_flavor &&
+      strcmp(afl->afl_env.afl_statsd_tags_flavor, "dogstatsd") == 0) {
 
     afl->statsd_tags_format = DOGSTATSD_TAGS_FORMAT;
     afl->statsd_metric_format = STATSD_TAGS_SUFFIX_METRICS;
     afl->statsd_metric_format_type = STATSD_TAGS_TYPE_SUFFIX;
 
-  } else if (strcmp(afl->afl_env.afl_statsd_tags_flavor, "librato") == 0) {
+  } else if (afl->afl_env.afl_statsd_tags_flavor &&
+
+             strcmp(afl->afl_env.afl_statsd_tags_flavor, "librato") == 0) {
 
     afl->statsd_tags_format = LIBRATO_TAGS_FORMAT;
     afl->statsd_metric_format = STATSD_TAGS_MID_METRICS;
     afl->statsd_metric_format_type = STATSD_TAGS_TYPE_MID;
 
-  } else if (strcmp(afl->afl_env.afl_statsd_tags_flavor, "influxdb") == 0) {
+  } else if (afl->afl_env.afl_statsd_tags_flavor &&
+
+             strcmp(afl->afl_env.afl_statsd_tags_flavor, "influxdb") == 0) {
 
     afl->statsd_tags_format = INFLUXDB_TAGS_FORMAT;
     afl->statsd_metric_format = STATSD_TAGS_MID_METRICS;
     afl->statsd_metric_format_type = STATSD_TAGS_TYPE_MID;
 
-  } else if (strcmp(afl->afl_env.afl_statsd_tags_flavor, "signalfx") == 0) {
+  } else if (afl->afl_env.afl_statsd_tags_flavor &&
+
+             strcmp(afl->afl_env.afl_statsd_tags_flavor, "signalfx") == 0) {
 
     afl->statsd_tags_format = SIGNALFX_TAGS_FORMAT;
     afl->statsd_metric_format = STATSD_TAGS_MID_METRICS;
@@ -207,8 +214,12 @@ int statsd_send_metric(afl_state_t *afl) {
 int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen) {
 
   char tags[MAX_TAG_LEN * 2] = {0};
-  snprintf(tags, MAX_TAG_LEN * 2, afl->statsd_tags_format, afl->use_banner,
-           VERSION);
+  if (afl->statsd_tags_format) {
+
+    snprintf(tags, MAX_TAG_LEN * 2, afl->statsd_tags_format, afl->use_banner,
+             VERSION);
+
+  }
 
   /* Sends multiple metrics with one UDP Packet.
   bufflen will limit to the max safe size.
