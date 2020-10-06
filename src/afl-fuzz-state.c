@@ -377,6 +377,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_statsd_port =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
+          } else if (!strncmp(env, "AFL_STATSD_TAGS_FLAVOR",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd_tags_flavor =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
           }
 
         } else {

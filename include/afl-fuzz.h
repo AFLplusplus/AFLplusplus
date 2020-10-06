@@ -359,7 +359,8 @@ typedef struct afl_env_vars {
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
-      *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port;
+      *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
+      *afl_statsd_tags_flavor;
 
 } afl_env_vars_t;
 
@@ -638,6 +639,9 @@ typedef struct afl_state {
   u64                statsd_last_send_ms;
   struct sockaddr_in statsd_server;
   int                statsd_sock;
+  char *             statsd_tags_flavor;
+  char *             statsd_tags_format;
+  char *             statsd_metric_format;
 
   double stats_avg_exec;
 
@@ -961,9 +965,10 @@ void show_init_stats(afl_state_t *);
 
 /* StatsD */
 
-int statsd_socket_init(afl_state_t *afl);
-int statsd_send_metric(afl_state_t *afl);
-int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen);
+void statsd_setup_format(afl_state_t *afl);
+int  statsd_socket_init(afl_state_t *afl);
+int  statsd_send_metric(afl_state_t *afl);
+int  statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen);
 
 /* Run */
 
