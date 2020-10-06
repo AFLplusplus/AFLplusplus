@@ -340,7 +340,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
   if (!calls.size()) return false;
   if (!be_quiet)
     printf(
-        "Replacing %lu calls to strcmp/memcmp/strncmp/strcasecmp/strncasecmp\n",
+        "Replacing %zu calls to strcmp/memcmp/strncmp/strcasecmp/strncasecmp\n",
         calls.size());
 
   for (auto &callInst : calls) {
