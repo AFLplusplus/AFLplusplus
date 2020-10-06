@@ -772,12 +772,13 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 inline void queue_testcase_release(afl_state_t *afl, struct queue_entry *q) {
 
   (void)afl;
-  q->testcase_refs--;
-  if (unlikely(q->testcase_refs < 0)) {
+  if (unlikely(q->testcase_refs == 0)) {
 
-    FATAL("Testcase refcount smaller than 0");
+    FATAL("Testcase refcount reduced past 0");
 
   }
+
+  q->testcase_refs--;
 
 }
 
