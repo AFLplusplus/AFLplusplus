@@ -12,6 +12,107 @@
 #define MAX_TAG_LEN 200
 #define METRIC_PREFIX "fuzzing"
 
+/* Tags format for metrics
+  DogStatsD:
+  metric.name:<value>|<type>|#key:value,key2:value2
+
+  InfluxDB
+  metric.name,key=value,key2=value2:<value>|<type>
+
+  Librato
+  metric.name#key=value,key2=value2:<value>|<type>
+
+  SignalFX
+  metric.name[key=value,key2=value2]:<value>|<type>
+
+*/
+
+// after the whole metric.
+#define DOGSTATSD_TAGS_FORMAT "|#banner:%s,afl_version:%s"
+
+// just after the metric name.
+#define LIBRATO_TAGS_FORMAT "#banner=%s,afl_version=%s"
+#define INFLUXDB_TAGS_FORMAT ",banner=%s,afl_version=%s"
+#define SIGNALFX_TAGS_FORMAT "[banner=%s,afl_version=%s]"
+
+// For DogstatsD
+#define STATSD_TAGS_AFTER_METRICS                                            \
+  METRIC_PREFIX                                                              \
+      ".cycle_done:%llu|g%s\n" METRIC_PREFIX                                 \
+      ".cycles_wo_finds:%llu|g%s\n" METRIC_PREFIX                            \
+      ".execs_done:%llu|g%s\n" METRIC_PREFIX                                 \
+      ".execs_per_sec:%0.02f|g%s\n" METRIC_PREFIX                            \
+      ".paths_total:%u|g%s\n" METRIC_PREFIX                                  \
+      ".paths_favored:%u|g%s\n" METRIC_PREFIX                                \
+      ".paths_found:%u|g%s\n" METRIC_PREFIX                                  \
+      ".paths_imported:%u|g%s\n" METRIC_PREFIX                               \
+      ".max_depth:%u|g%s\n" METRIC_PREFIX ".cur_path:%u|g%s\n" METRIC_PREFIX \
+      ".pending_favs:%u|g%s\n" METRIC_PREFIX                                 \
+      ".pending_total:%u|g%s\n" METRIC_PREFIX                                \
+      ".variable_paths:%u|g%s\n" METRIC_PREFIX                               \
+      ".unique_crashes:%llu|g%s\n" METRIC_PREFIX                             \
+      ".unique_hangs:%llu|g%s\n" METRIC_PREFIX                               \
+      ".total_crashes:%llu|g%s\n" METRIC_PREFIX                              \
+      ".slowest_exec_ms:%u|g%s\n" METRIC_PREFIX                              \
+      ".edges_found:%u|g%s\n" METRIC_PREFIX                                  \
+      ".var_byte_count:%u|g%s\n" METRIC_PREFIX ".havoc_expansion:%u|g%s\n"
+
+// For Librato, InfluxDB, SignalFX
+#define STATSD_TAGS_MID_METRICS                                              \
+  METRIC_PREFIX                                                              \
+      ".cycle_done%s:%llu|g\n" METRIC_PREFIX                                 \
+      ".cycles_wo_finds%s:%llu|g\n" METRIC_PREFIX                            \
+      ".execs_done%s:%llu|g\n" METRIC_PREFIX                                 \
+      ".execs_per_sec%s:%0.02f|g\n" METRIC_PREFIX                            \
+      ".paths_total%s:%u|g\n" METRIC_PREFIX                                  \
+      ".paths_favored%s:%u|g\n" METRIC_PREFIX                                \
+      ".paths_found%s:%u|g\n" METRIC_PREFIX                                  \
+      ".paths_imported%s:%u|g\n" METRIC_PREFIX                               \
+      ".max_depth%s:%u|g\n" METRIC_PREFIX ".cur_path%s:%u|g\n" METRIC_PREFIX \
+      ".pending_favs%s:%u|g\n" METRIC_PREFIX                                 \
+      ".pending_total%s:%u|g\n" METRIC_PREFIX                                \
+      ".variable_paths%s:%u|g\n" METRIC_PREFIX                               \
+      ".unique_crashes%s:%llu|g\n" METRIC_PREFIX                             \
+      ".unique_hangs%s:%llu|g\n" METRIC_PREFIX                               \
+      ".total_crashes%s:%llu|g\n" METRIC_PREFIX                              \
+      ".slowest_exec_ms%s:%u|g\n" METRIC_PREFIX                              \
+      ".edges_found%s:%u|g\n" METRIC_PREFIX                                  \
+      ".var_byte_count%s:%u|g\n" METRIC_PREFIX ".havoc_expansion%s:%u|g\n"
+
+void statsd_setup_format(afl_state_t *afl) {
+
+  if (strcmp(afl->afl_env.afl_statsd_tags_flavor, "dogstatsd") == 0) {
+
+    afl->statsd_tags_format = DOGSTATSD_TAGS_FORMAT;
+    afl->statsd_metric_format = STATSD_TAGS_AFTER_METRICS;
+
+  } else if (strcmp(afl->afl_env.afl_statsd_tags_flavor, "librato") == 0) {
+
+    afl->statsd_tags_format = LIBRATO_TAGS_FORMAT;
+    afl->statsd_metric_format = STATSD_TAGS_MID_METRICS;
+
+  } else if (strcmp(afl->afl_env.afl_statsd_tags_flavor, "influxdb") == 0) {
+
+    afl->statsd_tags_format = INFLUXDB_TAGS_FORMAT;
+    afl->statsd_metric_format = STATSD_TAGS_MID_METRICS;
+
+  } else if (strcmp(afl->afl_env.afl_statsd_tags_flavor, "signalfx") == 0) {
+
+    afl->statsd_tags_format = SIGNALFX_TAGS_FORMAT;
+    afl->statsd_metric_format = STATSD_TAGS_MID_METRICS;
+
+  } else {
+
+    // No tags at all.
+    afl->statsd_tags_format = "";
+    // Still need to pick a format. Doesn't change anything since if will be
+    // replaced by the empty string anyway.
+    afl->statsd_metric_format = STATSD_TAGS_MID_METRICS;
+
+  }
+
+}
+
 int statsd_socket_init(afl_state_t *afl) {
 
   /* Default port and host.
@@ -87,7 +188,7 @@ int statsd_send_metric(afl_state_t *afl) {
              (struct sockaddr *)&afl->statsd_server,
              sizeof(afl->statsd_server)) == -1) {
 
-    if (!close(afl->statsd_sock)) { perror("Cannot close socket"); }
+    if (!close(afl->statsd_sock)) { FATAL("Cannot close socket"); }
     afl->statsd_sock = 0;
     WARNF("Cannot sendto");
     return -1;
@@ -100,45 +201,14 @@ int statsd_send_metric(afl_state_t *afl) {
 
 int statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen) {
 
-/* Metric format:
-<some.namespaced.name>:<value>|<type>
-*/
-#ifdef USE_DOGSTATSD_TAGS
-  /* Tags format: DogStatsD
-  <some.namespaced.name>:<value>|<type>|#key:value,key:value,key
-  */
   char tags[MAX_TAG_LEN * 2] = {0};
-  snprintf(tags, MAX_TAG_LEN * 2, "|#banner:%s,afl_version:%s", afl->use_banner,
+  snprintf(tags, MAX_TAG_LEN * 2, afl->statsd_tags_format, afl->use_banner,
            VERSION);
-#else
-  /* No tags.
-   */
-  char *tags = "";
-#endif
+
   /* Sends multiple metrics with one UDP Packet.
   bufflen will limit to the max safe size.
   */
-  snprintf(buff, bufflen,
-           METRIC_PREFIX ".cycle_done:%llu|g%s\n" METRIC_PREFIX
-                         ".cycles_wo_finds:%llu|g%s\n" METRIC_PREFIX
-                         ".execs_done:%llu|g%s\n" METRIC_PREFIX
-                         ".execs_per_sec:%0.02f|g%s\n" METRIC_PREFIX
-                         ".paths_total:%u|g%s\n" METRIC_PREFIX
-                         ".paths_favored:%u|g%s\n" METRIC_PREFIX
-                         ".paths_found:%u|g%s\n" METRIC_PREFIX
-                         ".paths_imported:%u|g%s\n" METRIC_PREFIX
-                         ".max_depth:%u|g%s\n" METRIC_PREFIX
-                         ".cur_path:%u|g%s\n" METRIC_PREFIX
-                         ".pending_favs:%u|g%s\n" METRIC_PREFIX
-                         ".pending_total:%u|g%s\n" METRIC_PREFIX
-                         ".variable_paths:%u|g%s\n" METRIC_PREFIX
-                         ".unique_crashes:%llu|g%s\n" METRIC_PREFIX
-                         ".unique_hangs:%llu|g%s\n" METRIC_PREFIX
-                         ".total_crashes:%llu|g%s\n" METRIC_PREFIX
-                         ".slowest_exec_ms:%u|g%s\n" METRIC_PREFIX
-                         ".edges_found:%u|g%s\n" METRIC_PREFIX
-                         ".var_byte_count:%u|g%s\n" METRIC_PREFIX
-                         ".havoc_expansion:%u|g%s\n",
+  snprintf(buff, bufflen, afl->statsd_metric_format,
            afl->queue_cycle ? (afl->queue_cycle - 1) : 0, tags,
            afl->cycles_wo_finds, tags, afl->fsrv.total_execs, tags,
            afl->fsrv.total_execs /
