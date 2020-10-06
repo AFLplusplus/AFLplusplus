@@ -893,7 +893,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #ifdef USE_STATSD
   statsd_setup_format(afl);
-  statsd_socket_init(afl);
+
   #endif
 
   if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
