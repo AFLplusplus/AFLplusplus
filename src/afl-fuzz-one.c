@@ -4695,9 +4695,6 @@ pacemaker_fuzzing:
 
   }                                                                /* block */
 
-  queue_testcase_release(afl, afl->queue_cur);
-  orig_in = NULL;
-
   return ret_val;
 
 }

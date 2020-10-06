@@ -837,10 +837,17 @@ u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
   }
 
   q->testcase_refs++;
-  if (!q->testcase_buf) {
+  if (unlikely(!q->testcase_buf || !q->testcase_refs)) {
+    if (!q->testcase_buf) {
 
-    FATAL("Testcase buf is NULL, this should never happen");
+      FATAL("Testcase buf is NULL, this should never happen");
 
+    }
+    if (!q->testcase_refs) {
+
+      FATAL("Testcase ref overflow. Missing a testcase release somwhere?");
+
+    }
   }
 
   return q->testcase_buf;
