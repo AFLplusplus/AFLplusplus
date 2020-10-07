@@ -196,6 +196,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
       "AFL_STATSD_HOST: change default statsd host. (default 127.0.0.1)"
       "AFL_STATSD_PORT: change default statsd port (default: 8125)"
+      "AFL_STATSD_TAGS_FLAVOR: change default statsd tags format (default will disable tags)."
+      "                        Supported formats are: 'dogstatsd', 'librato', 'signalfx' and 'influxdb'"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
       //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
