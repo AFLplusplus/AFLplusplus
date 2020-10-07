@@ -1331,11 +1331,11 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->cur_skipped_paths = 0;
       afl->queue_cur = afl->queue;
 
-      while (seek_to) {
+      if (seek_to) {
 
-        ++afl->current_entry;
-        --seek_to;
-        afl->queue_cur = afl->queue_cur->next;
+        afl->current_entry = seek_to;
+        afl->queue_cur = afl->queue_buf[seek_to];
+        seek_to = 0;
 
       }
 
