@@ -194,7 +194,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
       "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
-      "AFL_STATSD_HOST: change default statsd host. (default 127.0.0.1)"
+      "AFL_STATSD: enables StatsD metrics collection"
+      "AFL_STATSD_HOST: change default statsd host (default 127.0.0.1)"
       "AFL_STATSD_PORT: change default statsd port (default: 8125)"
       "AFL_STATSD_TAGS_FLAVOR: change default statsd tags format (default will disable tags)."
       "                        Supported formats are: 'dogstatsd', 'librato', 'signalfx' and 'influxdb'"
@@ -893,10 +894,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  #ifdef USE_STATSD
-  statsd_setup_format(afl);
-
-  #endif
+  if (unlikely(afl->afl_env.afl_statsd == 1)) { statsd_setup_format(afl); }
 
   if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
 

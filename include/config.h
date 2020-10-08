@@ -41,11 +41,10 @@
 
 #define USE_COLOR
 
-/* Enable sending statistics over a StatsD daemon.
-Server config can be adjusted with AFL_STATSD_HOST and AFL_STATSD_PORT env var.
+/* StatsD config
+   Config can be adjusted via AFL_STATSD_HOST and AFL_STATSD_PORT environment
+   variable.
 */
-
-#define USE_STATSD
 #define STATSD_UPDATE_SEC 1
 #define STATSD_DEFAULT_PORT 8125
 #define STATSD_DEFAULT_HOST "127.0.0.1"
