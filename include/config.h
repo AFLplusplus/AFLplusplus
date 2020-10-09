@@ -66,25 +66,17 @@
   #define WORD_SIZE_64 1
 #endif
 
-/* Default memory limit for child process (MB): */
+/* Default memory limit for child process (MB) 0 = disabled : */
 
-#ifndef __NetBSD__
-  #ifndef WORD_SIZE_64
-    #define MEM_LIMIT 50
-  #else
-    #define MEM_LIMIT 75
-  #endif                                                  /* ^!WORD_SIZE_64 */
-#else /* NetBSD's kernel needs more space for stack, see discussion for issue \
-         #165 */
-  #define MEM_LIMIT 250
-#endif
-/* Default memory limit when running in QEMU mode (MB): */
+#define MEM_LIMIT 0
 
-#define MEM_LIMIT_QEMU 250
+/* Default memory limit when running in QEMU mode (MB) 0 = disabled : */
 
-/* Default memory limit when running in Unicorn mode (MB): */
+#define MEM_LIMIT_QEMU 0
 
-#define MEM_LIMIT_UNICORN 250
+/* Default memory limit when running in Unicorn mode (MB) 0 = disabled : */
+
+#define MEM_LIMIT_UNICORN 0
 
 /* Number of calibration cycles per every new test case (and for test
    cases that show variable behavior): */
