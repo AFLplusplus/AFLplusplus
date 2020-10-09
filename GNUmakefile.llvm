@@ -34,7 +34,7 @@ ifeq "$(shell uname)" "OpenBSD"
   LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
   HAS_OPT = $(shell test -x $(BIN_PATH)/opt && echo 0 || echo 1)
   ifeq "$(HAS_OPT)" "1"
-    $(error llvm_mode needs a complete llvm installation (versions 3.4 up to 12) -> e.g. "pkg_add llvm-7.0.1p9")
+    $(warn llvm_mode needs a complete llvm installation (versions 3.4 up to 12) -> e.g. "pkg_add llvm-7.0.1p9")
   endif
 else
   LLVM_CONFIG ?= llvm-config
@@ -354,7 +354,7 @@ endif
 instrumentation/afl-common.o: ./src/afl-common.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ $(LDFLAGS)
 
-./afl-cc: src/afl-cc.c instrumentation/afl-common.o | test_deps
+./afl-cc: src/afl-cc.c instrumentation/afl-common.o
 	$(CC) $(CLANG_CFL) $(CFLAGS) $(CPPFLAGS) $< instrumentation/afl-common.o -o $@ -DLLVM_MAJOR=$(LLVM_MAJOR) $(LDFLAGS) -DCFLAGS_OPT=\"$(CFLAGS_OPT)\"
 	@ln -sf afl-cc ./afl-c++
 	@ln -sf afl-cc ./afl-gcc
@@ -429,14 +429,14 @@ document:
 	@$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -m32 -fPIC -c instrumentation/afl-compiler-rt.o.c -o ./afl-compiler-rt-32.o 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 	@$(CLANG_BIN) -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS_SAFE) $(CPPFLAGS) $(CLANG_CFL) -O3 -Wno-unused-result -m64 -fPIC -c instrumentation/afl-compiler-rt.o.c -o ./afl-compiler-rt-64.o 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
-./afl-compiler-rt.o: instrumentation/afl-compiler-rt.o.c | test_deps
+./afl-compiler-rt.o: instrumentation/afl-compiler-rt.o.c
 	$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -fPIC -c $< -o $@
 
-./afl-compiler-rt-32.o: instrumentation/afl-compiler-rt.o.c | test_deps
+./afl-compiler-rt-32.o: instrumentation/afl-compiler-rt.o.c
 	@printf "[*] Building 32-bit variant of the runtime (-m32)... "
 	@$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; ln -sf afl-compiler-rt-32.o afl-llvm-rt-32.o; else echo "failed (that's fine)"; fi
 
-./afl-compiler-rt-64.o: instrumentation/afl-compiler-rt.o.c | test_deps
+./afl-compiler-rt-64.o: instrumentation/afl-compiler-rt.o.c
 	@printf "[*] Building 64-bit variant of the runtime (-m64)... "
 	@$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; ln -sf afl-compiler-rt-64.o afl-llvm-rt-64.o; else echo "failed (that's fine)"; fi
 
