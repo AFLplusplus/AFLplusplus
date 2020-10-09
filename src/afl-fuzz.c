@@ -894,7 +894,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (unlikely(afl->afl_env.afl_statsd == 1)) { statsd_setup_format(afl); }
+  if (unlikely(afl->afl_env.afl_statsd)) { statsd_setup_format(afl); }
 
   if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
 
