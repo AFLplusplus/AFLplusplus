@@ -14,6 +14,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - all compilers combined to afl-cc which emulates the previous ones
   - afl-llvm/gcc-rt.o merged into afl-compiler-rt.o
   - afl-fuzz
+    - memory limits are now disabled by default, set them with -m if required
     - Marcel Boehme submitted a patch that improves all AFFast schedules :)
     - reading testcases from -i now descends into subdirectories
     - allow up to 4 -x command line options
