@@ -423,7 +423,7 @@ void show_stats(afl_state_t *afl) {
 
   }
 
-  if (unlikely(afl->afl_env.afl_statsd == 1)) {
+  if (unlikely(afl->afl_env.afl_statsd)) {
 
     if (cur_ms - afl->statsd_last_send_ms > STATSD_UPDATE_SEC * 1000) {
 
