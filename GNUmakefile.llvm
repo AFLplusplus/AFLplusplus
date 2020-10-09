@@ -359,8 +359,6 @@ instrumentation/afl-common.o: ./src/afl-common.c
 	@ln -sf afl-cc ./afl-c++
 	@ln -sf afl-cc ./afl-gcc
 	@ln -sf afl-cc ./afl-g++
-	@ln -sf afl-cc ./afl-clang-fast
-	@ln -sf afl-cc ./afl-clang-fast++
 ifneq "$(AFL_CLANG_FLTO)" ""
 ifeq "$(LLVM_LTO)" "1"
 	@ln -sf afl-cc ./afl-clang-lto
@@ -381,6 +379,8 @@ ifeq "$(LLVM_MIN_4_0_1)" "0"
 	$(info [!] N-gram branch coverage instrumentation is not available for llvm version $(LLVMVER))
 endif
 	$(CXX) $(CLANG_CPPFL) -DLLVMInsTrim_EXPORTS -fno-rtti -fPIC -std=$(LLVM_STDCXX) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+	@ln -sf afl-cc ./afl-clang-fast
+	@ln -sf afl-cc ./afl-clang-fast++
 
 ./afl-llvm-lto-instrumentlist.so: instrumentation/afl-llvm-lto-instrumentlist.so.cc instrumentation/afl-llvm-common.o
 ifeq "$(LLVM_LTO)" "1"
