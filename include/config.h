@@ -297,7 +297,7 @@
 
 /* The amount of entries in the testcase cache, held in memory.
 Decrease if RAM usage is high. */
-#define TESTCASE_CACHE_SIZE 2048
+#define TESTCASE_CACHE_SIZE 3072
 
 #if TESTCASE_CACHE_SIZE < 4
   #error \
