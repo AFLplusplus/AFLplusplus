@@ -194,6 +194,11 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
       "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
+      "AFL_STATSD: enables StatsD metrics collection"
+      "AFL_STATSD_HOST: change default statsd host (default 127.0.0.1)"
+      "AFL_STATSD_PORT: change default statsd port (default: 8125)"
+      "AFL_STATSD_TAGS_FLAVOR: change default statsd tags format (default will disable tags)."
+      "                        Supported formats are: 'dogstatsd', 'librato', 'signalfx' and 'influxdb'"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
       //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
@@ -889,6 +894,8 @@ int main(int argc, char **argv_orig, char **envp) {
     FATAL("AFL_NO_UI and AFL_FORCE_UI are mutually exclusive");
 
   }
+
+  if (unlikely(afl->afl_env.afl_statsd)) { statsd_setup_format(afl); }
 
   if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
 

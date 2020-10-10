@@ -65,6 +65,8 @@
 #include <dlfcn.h>
 #include <sched.h>
 
+#include <netdb.h>
+
 #include <sys/wait.h>
 #include <sys/time.h>
 #ifndef USEMMAP
@@ -76,6 +78,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/file.h>
+#include <sys/types.h>
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__NetBSD__) || defined(__DragonFly__)
@@ -352,11 +355,12 @@ typedef struct afl_env_vars {
       afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child_output, afl_autoresume,
-      afl_cal_fast, afl_cycle_schedules, afl_expand_havoc;
+      afl_cal_fast, afl_cycle_schedules, afl_expand_havoc, afl_statsd;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
-      *afl_max_det_extras;
+      *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
+      *afl_statsd_tags_flavor;
 
 } afl_env_vars_t;
 
@@ -634,6 +638,16 @@ typedef struct afl_state {
   u64 plot_prev_qc, plot_prev_uc, plot_prev_uh, plot_prev_ed;
 
   u64 stats_last_stats_ms, stats_last_plot_ms, stats_last_ms, stats_last_execs;
+
+  /* StatsD */
+  u64                statsd_last_send_ms;
+  struct sockaddr_in statsd_server;
+  int                statsd_sock;
+  char *             statsd_tags_flavor;
+  char *             statsd_tags_format;
+  char *             statsd_metric_format;
+  int                statsd_metric_format_type;
+
   double stats_avg_exec;
 
   u8 *clean_trace;
@@ -956,6 +970,13 @@ void write_stats_file(afl_state_t *, double, double, double);
 void maybe_update_plot_file(afl_state_t *, double, double);
 void show_stats(afl_state_t *);
 void show_init_stats(afl_state_t *);
+
+/* StatsD */
+
+void statsd_setup_format(afl_state_t *afl);
+int  statsd_socket_init(afl_state_t *afl);
+int  statsd_send_metric(afl_state_t *afl);
+int  statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen);
 
 /* Run */
 
