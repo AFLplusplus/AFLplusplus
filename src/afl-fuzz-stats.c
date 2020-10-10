@@ -423,6 +423,18 @@ void show_stats(afl_state_t *afl) {
 
   }
 
+  if (unlikely(afl->afl_env.afl_statsd)) {
+
+    if (cur_ms - afl->statsd_last_send_ms > STATSD_UPDATE_SEC * 1000) {
+
+      /* reset counter, even if send failed. */
+      afl->statsd_last_send_ms = cur_ms;
+      if (statsd_send_metric(afl)) { WARNF("coundln't send statsd metric."); }
+
+    }
+
+  }
+
   /* Every now and then, write plot data. */
 
   if (cur_ms - afl->stats_last_plot_ms > PLOT_UPDATE_SEC * 1000) {
