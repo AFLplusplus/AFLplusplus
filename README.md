@@ -43,9 +43,13 @@ behaviours:
     worth it.
   * When instrumenting targets, afl-cc will not supersede optimizations. This
     allows to fuzz targets as same as they are built for debug or release.
-  * afl-fuzz' `-i` option now descends into subdirectories.
+  * afl-fuzz':
+    * `-i` option now descends into subdirectories.
+    * -m none is now default, set memory limits (in MB) with e.g. -m 250
+    * deterministic fuzzing is now disabled by default (unless using -M) and
+      can be enabled with -D
   * afl-fuzz will skip over empty dictionaries and too-large test cases instead
-    of failing.
+    of failing, and use them as a source for splicing mutations
 
 ## Contents
 

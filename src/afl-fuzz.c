@@ -103,6 +103,7 @@ static void usage(u8 *argv0, int more_help) {
       "mode)\n\n"
 
       "Mutator settings:\n"
+      "  -D            - enable deterministic fuzzing (once per queue entry)\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths). 0 = "
@@ -116,7 +117,6 @@ static void usage(u8 *argv0, int more_help) {
       "Fuzzing behavior settings:\n"
       "  -N            - do not unlink the fuzzing input file (for devices "
       "etc.)\n"
-      "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (non-instrumented mode)\n"
       "  -x dict_file  - fuzzer dictionary (see README.md, specify up to 4 "
       "times)\n\n"
@@ -136,6 +136,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
       "-M, can\n"
       "                  be specified up to %u times)\n"
+      "  -d            - skip deterministic fuzzing in -M mode\n"
       "  -T text       - text banner to show on the screen\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
@@ -403,6 +404,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
+        afl->skip_deterministic = 0;
 
         if ((c = strchr(afl->sync_id, ':'))) {
 
@@ -431,8 +433,6 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
         afl->is_secondary_node = 1;
-        afl->skip_deterministic = 1;
-        afl->use_splicing = 1;
         break;
 
       case 'F':                                         /* foreign sync dir */
@@ -557,7 +557,6 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'd':                                       /* skip deterministic */
 
         afl->skip_deterministic = 1;
-        afl->use_splicing = 1;
         break;
 
       case 'B':                                              /* load bitmap */
