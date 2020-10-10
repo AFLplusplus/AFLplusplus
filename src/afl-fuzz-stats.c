@@ -429,7 +429,7 @@ void show_stats(afl_state_t *afl) {
 
       /* reset counter, even if send failed. */
       afl->statsd_last_send_ms = cur_ms;
-      if (statsd_send_metric(afl)) { WARNF("coundln't send statsd metric."); }
+      if (statsd_send_metric(afl)) { WARNF("could not send statsd metric."); }
 
     }
 
