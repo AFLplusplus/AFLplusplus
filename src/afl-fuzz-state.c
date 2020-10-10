@@ -101,6 +101,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->hang_tmout = EXEC_TIMEOUT;
   afl->stats_update_freq = 1;
   afl->stats_avg_exec = -1;
+  afl->skip_deterministic = 1;
+  afl->use_splicing = 1;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */

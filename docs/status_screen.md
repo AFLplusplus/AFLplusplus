@@ -86,10 +86,7 @@ Every fuzzing session should be allowed to complete at least one cycle; and
 ideally, should run much longer than that.
 
 As noted earlier, the first pass can take a day or longer, so sit back and
-relax. If you want to get broader but more shallow coverage right away, try
-the `-d` option - it gives you a more familiar experience by skipping the
-deterministic fuzzing steps. It is, however, inferior to the standard mode in
-a couple of subtle ways.
+relax. 
 
 To help make the call on when to hit `Ctrl-C`, the cycle counter is color-coded.
 It is shown in magenta during the first pass, progresses to yellow if new finds
@@ -117,9 +114,6 @@ inputs it decided to ditch because they were persistently timing out.
 
 The "*" suffix sometimes shown in the first line means that the currently
 processed path is not "favored" (a property discussed later on).
-
-If you feel that the fuzzer is progressing too slowly, see the note about the
-`-d` option in this doc.
 
 ### Map coverage
 
