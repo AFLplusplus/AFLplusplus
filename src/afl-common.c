@@ -85,7 +85,6 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
         }
 
-        ck_free(argv[i]);
         argv[i] = n_arg;
 
       }
