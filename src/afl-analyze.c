@@ -922,11 +922,12 @@ static void usage(u8 *argv0) {
 
 /* Main entry point */
 
-int main(int argc, char **argv, char **envp) {
+int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   char **use_argv;
+  char **argv = argv_cpy_dup(argc, argv_orig);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 
