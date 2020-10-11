@@ -17,6 +17,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - memory limits are now disabled by default, set them with -m if required
     - deterministic fuzzing is now disabled by default and can be enabled with
       -D. It is still enabled by default for -M.
+    - a new seed selection was implemented that uses weighted randoms based on
+      a schedule performance score, which is much better that the previous
+      walk the whole queue approach. Select the old mode with -Z (auto enabled
+      with -M)
     - statsd support by Edznux, thanks a lot!
     - Marcel Boehme submitted a patch that improves all AFFast schedules :)
     - reading testcases from -i now descends into subdirectories

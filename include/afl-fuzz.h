@@ -151,7 +151,8 @@ struct queue_entry {
       favored,                          /* Currently favored?               */
       fs_redundant,                     /* Marked as redundant in the fs?   */
       fully_colorized,                  /* Do not run redqueen stage again  */
-      is_ascii;                         /* Is the input just ascii text?    */
+      is_ascii,                         /* Is the input just ascii text?    */
+      disabled;                         /* Is disabled from fuzz selection  */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
       fuzz_level,                       /* Number of fuzzing iterations     */
@@ -164,6 +165,8 @@ struct queue_entry {
 
   u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
+
+  double perf_score;                    /* performance score                */
 
   struct queue_entry *next;             /* Next element, if any             */
 
@@ -488,11 +491,16 @@ typedef struct afl_state {
       disable_trim,                     /* Never trim in fuzz_one           */
       shmem_testcase_mode,              /* If sharedmem testcases are used  */
       expand_havoc,                /* perform expensive havoc after no find */
-      cycle_schedules;                  /* cycle power schedules?           */
+      cycle_schedules,                  /* cycle power schedules?           */
+      old_seed_selection;               /* use vanilla afl seed selection   */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
       *virgin_crash;                    /* Bits we haven't seen in crashes  */
+
+  double *alias_probability;            /* alias weighted probabilities     */
+  u32 *   alias_table;                /* alias weighted random lookup table */
+  u32     active_paths;                 /* enabled entries in the queue     */
 
   u8 *var_bytes;                        /* Bytes that appear to be variable */
 
@@ -1009,6 +1017,8 @@ void   find_timeout(afl_state_t *);
 double get_runnable_processes(void);
 void   nuke_resume_dir(afl_state_t *);
 int    check_main_node_exists(afl_state_t *);
+u32    select_next_queue_entry(afl_state_t *afl);
+void   create_alias_table(afl_state_t *afl);
 void   setup_dirs_fds(afl_state_t *);
 void   setup_cmdline_file(afl_state_t *, char **);
 void   setup_stdio_file(afl_state_t *);
