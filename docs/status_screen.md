@@ -406,3 +406,27 @@ Most of these map directly to the UI elements discussed earlier on.
 On top of that, you can also find an entry called `plot_data`, containing a
 plottable history for most of these fields. If you have gnuplot installed, you
 can turn this into a nice progress report with the included `afl-plot` tool.
+
+
+### Addendum: Automatically send metrics with StatsD
+
+In a CI environment or when running multiple fuzzers, it can be tedious to
+log into each of them or deploy scripts to read the fuzzer statistics.
+Using `AFL_STATSD` (and the other related environment variables `AFL_STATSD_HOST`,
+`AFL_STATSD_PORT`, `AFL_STATSD_TAGS_FLAVOR`) you can automatically send metrics
+to your favorite StatsD server. Depending on your StatsD server you will be able
+to monitor, trigger alerts or perform actions based on these metrics (e.g: alert on
+slow exec/s for a new build, threshold of crashes, time since last crash > X, etc). 
+
+The selected metrics are a subset of all the metrics found in the status and in
+the plot file. The list is the following: `cycle_done`, `cycles_wo_finds`,
+`execs_done`,`execs_per_sec`, `paths_total`, `paths_favored`, `paths_found`,
+`paths_imported`, `max_depth`, `cur_path`, `pending_favs`, `pending_total`,
+`variable_paths`, `unique_crashes`, `unique_hangs`, `total_crashes`,
+`slowest_exec_ms`, `edges_found`, `var_byte_count`, `havoc_expansion`.
+Their definitions can be found in the addendum above.
+
+When using multiple fuzzer instances with StatsD it is *strongly* recommended to setup
+the flavor (AFL_STATSD_TAGS_FLAVOR) to match your StatsD server. This will allow you
+to see individual fuzzer performance, detect bad ones, see the progress of each
+strategy...
