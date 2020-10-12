@@ -47,7 +47,7 @@ void rand_set_seed(afl_state_t *afl, s64 init_seed) {
 
 }
 
-uint64_t rand_next(afl_state_t *afl) {
+inline uint64_t rand_next(afl_state_t *afl) {
 
   const uint64_t result =
       rotl(afl->rand_seed[0] + afl->rand_seed[3], 23) + afl->rand_seed[0];
@@ -64,6 +64,14 @@ uint64_t rand_next(afl_state_t *afl) {
   afl->rand_seed[3] = rotl(afl->rand_seed[3], 45);
 
   return result;
+
+}
+
+/* returns a double between 0.000000000 and 1.000000000 */
+
+inline double rand_next_percent(afl_state_t *afl) {
+
+  return (double)(((double)rand_next(afl)) / (double) 0xffffffffffffffff);
 
 }
 
