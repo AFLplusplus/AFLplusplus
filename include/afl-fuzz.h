@@ -1155,5 +1155,9 @@ u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q);
 /* Tell afl that this testcase may be evicted from the cache */
 void queue_testcase_release(afl_state_t *afl, struct queue_entry *q);
 
+/* If trimming changes the testcase size we have to reload it */
+void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
+                           u32 old_len);
+
 #endif
 

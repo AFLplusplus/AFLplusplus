@@ -906,6 +906,32 @@ inline void queue_testcase_release(afl_state_t *afl, struct queue_entry *q) {
 
 }
 
+void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
+                           u32 old_len) {
+
+  if (q->testcase_buf) {
+
+    munmap(q->testcase_buf, old_len);
+    int fd = open(q->fname, O_RDONLY);
+
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+
+    u32 len = q->len;
+    q->testcase_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+
+    if (unlikely(q->testcase_buf == MAP_FAILED)) {
+
+      PFATAL("Unable to mmap '%s' with len %d", q->fname, len);
+
+    }
+
+    close(fd);
+    afl->q_testcase_cache_size = afl->q_testcase_cache_size + q->len - old_len;
+
+  }
+
+}
+
 /* Returns the testcase buf from the file behind this queue entry.
   Increases the refcount. */
 u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
