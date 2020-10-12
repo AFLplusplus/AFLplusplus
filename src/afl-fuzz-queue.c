@@ -27,16 +27,21 @@
 #include <ctype.h>
 #include <math.h>
 
+/* select next queue entry based on alias algo - fast! */
+
 inline u32 select_next_queue_entry(afl_state_t *afl) {
 
-  u32 r = rand_below(afl, 0xffffffff);
-  u32 s = r % afl->queued_paths;
-  // fprintf(stderr, "select: r=%u s=%u ... r < prob[s]=%f ? s=%u :
-  // alias[%u]=%u\n", r, s, afl->alias_probability[s], s, s,
-  // afl->alias_table[s]);
-  return (r < afl->alias_probability[s] ? s : afl->alias_table[s]);
+  u32 s = rand_below(afl, afl->queued_paths);
+  double p = rand_next_percent(afl);
+  /*
+  fprintf(stderr, "select: p=%f s=%u ... p < prob[s]=%f ? s=%u : alias[%u]=%u"
+  " ==> %u\n", p, s, afl->alias_probability[s], s, s, afl->alias_table[s], p < afl->alias_probability[s] ? s : afl->alias_table[s]);
+  */
+  return (p < afl->alias_probability[s] ? s : afl->alias_table[s]);
 
 }
+
+/* create the alias table that allows weighted random selection - expensive */
 
 void create_alias_table(afl_state_t *afl) {
 
@@ -63,11 +68,6 @@ void create_alias_table(afl_state_t *afl) {
     if (!q->disabled) q->perf_score = calculate_score(afl, q);
 
     sum += q->perf_score;
-    /*
-        if (afl->debug)
-          fprintf(stderr, "entry %u: score=%f %s (sum: %f)\n", i, q->perf_score,
-                  q->disabled ? "disabled" : "", sum);
-    */
 
   }
 
@@ -110,41 +110,10 @@ void create_alias_table(afl_state_t *afl) {
     afl->alias_probability[S[--nS]] = 1;
 
   /*
-    if (afl->debug) {
-
-      fprintf(stderr, "  %-3s  %-3s  %-9s\n", "entry", "alias", "prob");
+      fprintf(stderr, "  %-3s  %-3s  %-9s  %-9s\n", "entry", "alias", "prob", "perf");
       for (u32 i = 0; i < n; ++i)
-        fprintf(stderr, "  %3i  %3i  %9.7f\n", i, afl->alias_table[i],
-                afl->alias_probability[i]);
-
-    }
-
-    int prob = 0;
-    fprintf(stderr, "Alias:");
-    for (i = 0; i < n; i++) {
-
-      fprintf(stderr, " [%u]=%u", i, afl->alias_table[i]);
-      if (afl->alias_table[i] >= n)
-        prob = i;
-
-    }
-
-    fprintf(stderr, "\n");
-
-    if (prob) {
-
-      fprintf(stderr, "PROBLEM! alias[%u] = %u\n", prob,
-    afl->alias_table[prob]);
-
-      for (i = 0; i < n; i++) {
-
-        struct queue_entry *q = afl->queue_buf[i];
-
-        fprintf(stderr, "%u: score=%f\n", i, q->perf_score);
-
-      }
-
-    }
+        fprintf(stderr, "  %3i  %3i  %9.7f  %9.7f\n", i, afl->alias_table[i],
+                afl->alias_probability[i], afl->queue_buf[i]->perf_score);
 
   */
 

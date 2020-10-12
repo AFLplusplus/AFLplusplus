@@ -1045,6 +1045,9 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
 /* xoshiro256** */
 uint64_t rand_next(afl_state_t *afl);
 
+/* probability between 0.0 and 1.0 */
+double rand_next_percent(afl_state_t *afl);
+
 /**** Inline routines ****/
 
 /* Generate a random number (from 0 to limit - 1). This may
