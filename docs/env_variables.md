@@ -393,6 +393,14 @@ checks or alter some of the more exotic semantics of the tool:
     normally done when starting up the forkserver and causes a pretty
     significant performance drop.
 
+  - Setting AFL_STATSD enable StatsD metrics collection.
+    By default AFL will send these metrics over UDP to 127.0.0.1:8125.
+    The host and port are configurable with AFL_STATSD_HOST and AFL_STATSD_PORT
+    respectively.
+    To get the most out of this, you should provide AFL_STATSD_TAGS_FLAVOR that
+    matches your StatsD server.
+    Available flavors are `dogstatsd`, `librato`, `signalfx` and `influxdb`.
+
   - Outdated environment variables that are that not supported anymore:
     AFL_DEFER_FORKSRV
     AFL_PERSISTENT
