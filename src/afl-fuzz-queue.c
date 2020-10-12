@@ -978,7 +978,7 @@ u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
     u32 len = q->len;
     q->testcase_buf = malloc(len);
 
-    if (unlikely(q->testcase_buf)) {
+    if (unlikely(!q->testcase_buf)) {
 
       PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
 
