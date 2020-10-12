@@ -249,7 +249,7 @@ static int stricmp(char const *a, char const *b) {
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  s32 opt, i;
+  s32 opt, i, auto_sync = 0;
   u64 prev_queued = 0;
   u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, map_size = MAP_SIZE;
   u8 *extras_dir[4];
@@ -847,7 +847,7 @@ int main(int argc, char **argv_orig, char **envp) {
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
-  OKF("NOTE: This is v3.x which changes several defaults and behaviours - see "
+  OKF("NOTE: This is v3.x which changes defaults and behaviours - see "
       "README.md");
 
   if (afl->sync_id && afl->is_main_node &&
@@ -879,6 +879,15 @@ int main(int argc, char **argv_orig, char **envp) {
   check_asan_opts();
 
   afl->power_name = power_names[afl->schedule];
+
+  if (!afl->sync_id) {
+
+    auto_sync = 1;
+    afl->sync_id = ck_strdup("default");
+    afl->is_secondary_node = 1;
+    OKF("no -M/-S set, autoconfiguring for \"-S %s\"", afl->sync_id);
+
+  }
 
   if (afl->sync_id) { fix_up_sync(afl); }
 
@@ -1137,18 +1146,14 @@ int main(int argc, char **argv_orig, char **envp) {
     WARNF("it is wasteful to run more than one main node!");
     sleep(1);
 
-  } else if (afl->is_secondary_node && check_main_node_exists(afl) == 0) {
+  } else if (!auto_sync && afl->is_secondary_node &&
+
+             check_main_node_exists(afl) == 0) {
 
     WARNF(
         "no -M main node found. It is recommended to run exactly one main "
         "instance.");
     sleep(1);
-
-  } else if (!afl->sync_id) {
-
-    afl->sync_id = "default";
-    afl->is_secondary_node = 1;
-    OKF("no -M/-S set, autoconfiguring for \"-S %s\"", afl->sync_id);
 
   }
 
@@ -1422,7 +1427,7 @@ int main(int argc, char **argv_orig, char **envp) {
               break;
             case 4:
               // if not in sync mode, enable deterministic mode?
-              // if (!afl->sync_dir) afl->skip_deterministic = 0;
+              // if (!afl->sync_id) afl->skip_deterministic = 0;
               afl->expand_havoc = 5;
               break;
             case 5:
