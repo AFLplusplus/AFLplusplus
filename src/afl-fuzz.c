@@ -411,8 +411,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
-        afl->skip_deterministic = 0; // force determinsitic fuzzing
-        afl->old_seed_selection = 1; // force old queue walking seed selection
+        afl->skip_deterministic = 0;  // force determinsitic fuzzing
+        afl->old_seed_selection = 1;  // force old queue walking seed selection
 
         if ((c = strchr(afl->sync_id, ':'))) {
 
@@ -847,6 +847,8 @@ int main(int argc, char **argv_orig, char **envp) {
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
+  OKF("NOTE: This is v3.x which changes several defaults and behaviours - see "
+      "README.md");
 
   if (afl->sync_id && afl->is_main_node &&
       afl->afl_env.afl_custom_mutator_only) {
@@ -1135,14 +1137,18 @@ int main(int argc, char **argv_orig, char **envp) {
     WARNF("it is wasteful to run more than one main node!");
     sleep(1);
 
-  }
-
-  if (afl->is_secondary_node && check_main_node_exists(afl) == 0) {
+  } else if (afl->is_secondary_node && check_main_node_exists(afl) == 0) {
 
     WARNF(
         "no -M main node found. It is recommended to run exactly one main "
         "instance.");
     sleep(1);
+
+  } else if (!afl->sync_id) {
+
+    afl->sync_id = "default";
+    afl->is_secondary_node = 1;
+    OKF("no -M/-S set, autoconfiguring for \"-S %s\"", afl->sync_id);
 
   }
 
