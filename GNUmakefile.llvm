@@ -472,12 +472,11 @@ install: all
 	set -e; install -m 644 ./dynamic_list.txt $${DESTDIR}$(HELPER_PATH)
 	install -m 644 instrumentation/README.*.md $${DESTDIR}$(DOC_PATH)/
 
-vpath  % ..
 %.8: %
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > ./$@
 	@echo .SH NAME >> ./$@
-	@printf "%s" ".B $* \- " >> ../$@
-	@./$* -h 2>&1 | head -n 1 | sed -e "s/$$(printf '\e')[^m]*m//g" >> ../$@
+	@printf "%s" ".B $* \- " >> ./$@
+	@./$* -h 2>&1 | head -n 1 | sed -e "s/$$(printf '\e')[^m]*m//g" >> ./$@
 	@echo .B $* >> ./$@
 	@echo >> ./$@
 	@echo .SH SYNOPSIS >> ./$@
