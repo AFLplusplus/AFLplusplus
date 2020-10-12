@@ -2312,34 +2312,15 @@ havoc_stage:
 
             } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
 
+            /* Get the testcase for splicing. */
             struct queue_entry *target = afl->queue_buf[tid];
-            u32 new_len = target->len;
+            u32                 new_len = target->len;
+            u8 *                new_buf = queue_testcase_take(afl, target);
 
-            /* Get the testcase contents for splicing. */
-            u8 *new_buf = queue_testcase_take(afl, target);
+            if ((temp_len >= 2 && rand_below(afl, 2)) ||
+                temp_len + HAVOC_BLK_XL >= MAX_FILE) {
 
-            u8 overwrite = 0;
-            if (temp_len >= 2 && rand_below(afl, 2)) {
-
-              overwrite = 1;
-
-            } else if (temp_len + HAVOC_BLK_XL >= MAX_FILE) {
-
-              if (temp_len >= 2) {
-
-                overwrite = 1;
-
-              } else {
-
-                queue_testcase_release(afl, target);
-                new_buf = NULL;
-                break;
-
-              }
-
-            }
-
-            if (overwrite) {
+              /* overwrite mode */
 
               u32 copy_from, copy_to, copy_len;
 
@@ -2353,15 +2334,16 @@ havoc_stage:
 
             } else {
 
+              /* insert mode */
+
               u32 clone_from, clone_to, clone_len;
 
               clone_len = choose_block_len(afl, new_len);
               clone_from = rand_below(afl, new_len - clone_len + 1);
+              clone_to = rand_below(afl, temp_len + 1);
 
-              clone_to = rand_below(afl, temp_len);
-
-              u8 *temp_buf =
-                  afl_realloc(AFL_BUF_PARAM(out_scratch), temp_len + clone_len);
+              u8 *temp_buf = afl_realloc(AFL_BUF_PARAM(out_scratch),
+                                         temp_len + clone_len + 1);
               if (unlikely(!temp_buf)) { PFATAL("alloc"); }
 
               /* Head */
@@ -2476,11 +2458,11 @@ retry_splicing:
 
     } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
 
+    /* Get the testcase */
     afl->splicing_with = tid;
     target = afl->queue_buf[tid];
-
-    /* Get the testcase buffer */
     u8 *splice_buf = queue_testcase_take(afl, target);
+
     new_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), target->len);
     if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
@@ -2513,9 +2495,6 @@ retry_splicing:
     splice_buf = NULL;
 
     goto custom_mutator_stage;
-    /* ???: While integrating Python module, the author decided to jump to
-       python stage, but the reason behind this is not clear.*/
-    // goto havoc_stage;
 
   }
 
