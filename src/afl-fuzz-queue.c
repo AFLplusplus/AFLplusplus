@@ -958,7 +958,7 @@ u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
                afl->q_testcase_cache[tid]->testcase_refs > 0);
 
       struct queue_entry *old_cached = afl->q_testcase_cache[tid];
-      munmap(old_cached->testcase_buf, old_cached->len);
+      free(old_cached->testcase_buf);
       old_cached->testcase_buf = NULL;
       afl->q_testcase_cache[tid] = NULL;
       afl->q_testcase_cache_size -= old_cached->len;
@@ -976,14 +976,15 @@ u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
     if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
 
     u32 len = q->len;
+    q->testcase_buf = malloc(len);
 
-    q->testcase_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    if (unlikely(q->testcase_buf)) {
 
-    if (unlikely(q->testcase_buf == MAP_FAILED)) {
-
-      PFATAL("Unable to mmap '%s' with len %d", q->fname, len);
+      PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
 
     }
+
+    ck_read(fd, q->testcase_buf, len, q->fname);
 
     close(fd);
 
