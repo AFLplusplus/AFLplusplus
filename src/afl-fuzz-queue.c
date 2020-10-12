@@ -343,6 +343,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->depth = afl->cur_depth + 1;
   q->passed_det = passed_det;
   q->trace_mini = NULL;
+  q->testcase_buf = NULL;
 
   if (q->depth > afl->max_depth) { afl->max_depth = q->depth; }
 
@@ -888,6 +889,92 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   }
 
   return perf_score;
+
+}
+
+/* Tell afl that this testcase may be evicted from the cache */
+inline void queue_testcase_release(afl_state_t *afl, struct queue_entry *q) {
+
+  (void)afl;
+  if (unlikely(q->testcase_refs == 0)) {
+
+    FATAL("Testcase refcount reduced past 0");
+
+  }
+
+  q->testcase_refs--;
+
+}
+
+/* Returns the testcase buf from the file behind this queue entry.
+  Increases the refcount. */
+u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
+
+  if (!q->testcase_buf) {
+
+    u32 tid = 0;
+    /* Buf not cached, let's do that now */
+
+    if (likely(afl->q_testcase_cache_count == TESTCASE_CACHE_SIZE)) {
+
+      /* Cache full. We neet to evict one to map one.
+      Get a random one which is not in use */
+      do {
+
+        tid = rand_below(afl, afl->q_testcase_cache_count);
+
+      } while (afl->q_testcase_cache[tid]->testcase_refs > 0);
+
+      struct queue_entry *old_cached = afl->q_testcase_cache[tid];
+      /* free the current buf from cache */
+      munmap(old_cached->testcase_buf, old_cached->len);
+      old_cached->testcase_buf = NULL;
+
+    } else {
+
+      tid = afl->q_testcase_cache_count;
+      afl->q_testcase_cache_count++;
+
+    }
+
+    /* Map the test case into memory. */
+
+    int fd = open(q->fname, O_RDONLY);
+
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+
+    u32 len = q->len;
+
+    q->testcase_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+
+    if (unlikely(q->testcase_buf == MAP_FAILED)) {
+
+      PFATAL("Unable to mmap '%s' with len %d", q->fname, len);
+
+    }
+
+    close(fd);
+
+    /* Register us as cached */
+    afl->q_testcase_cache[tid] = q;
+
+  }
+
+  q->testcase_refs++;
+  if (unlikely(!q->testcase_buf || !q->testcase_refs)) {
+    if (!q->testcase_buf) {
+
+      FATAL("Testcase buf is NULL, this should never happen");
+
+    }
+    if (!q->testcase_refs) {
+
+      FATAL("Testcase ref overflow. Missing a testcase release somwhere?");
+
+    }
+  }
+
+  return q->testcase_buf;
 
 }
 

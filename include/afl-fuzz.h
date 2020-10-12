@@ -168,6 +168,9 @@ struct queue_entry {
 
   double perf_score;                    /* performance score                */
 
+  u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
+  u32 testcase_refs;                    /* count of users of testcase buf   */
+
   struct queue_entry *next;             /* Next element, if any             */
 
 };
@@ -686,6 +689,12 @@ typedef struct afl_state {
   /* queue entries ready for splicing count (len > 4) */
   u32 ready_for_splicing_count;
 
+  /* How many queue entries currently have cached testcases */
+  u32 q_testcase_cache_count;
+  /* Refs to each queue entry with cached testcase (for eviction, if cache_count
+   * is too large) */
+  struct queue_entry *q_testcase_cache[TESTCASE_CACHE_SIZE];
+
 } afl_state_t;
 
 struct custom_mutator {
@@ -1131,6 +1140,13 @@ static inline u64 next_p2(u64 val) {
   return ret;
 
 }
+
+/* Returns the testcase buf from the file behind this queue entry.
+  Increases the refcount. */
+u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q);
+
+/* Tell afl that this testcase may be evicted from the cache */
+void queue_testcase_release(afl_state_t *afl, struct queue_entry *q);
 
 #endif
 

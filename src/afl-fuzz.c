@@ -1174,8 +1174,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (extras_dir_cnt) {
 
-    for (i = 0; i < extras_dir_cnt; i++)
+    for (i = 0; i < extras_dir_cnt; i++) {
+
       load_extras(afl, extras_dir[i]);
+
+    }
 
     dedup_extras(afl);
     OKF("Loaded a total of %u extras.", afl->extras_cnt);
