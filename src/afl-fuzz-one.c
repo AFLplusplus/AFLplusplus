@@ -1693,9 +1693,9 @@ custom_mutator_stage:
 
               tid = rand_below(afl, afl->queued_paths);
 
-            } while (unlikely(tid == afl->current_entry &&
+            } while (unlikely(tid == afl->current_entry ||
 
-                              afl->queue_buf[tid]->len >= 4));
+                              afl->queue_buf[tid]->len < 4));
 
             target = afl->queue_buf[tid];
             afl->splicing_with = tid;
@@ -1850,7 +1850,7 @@ havoc_stage:
 
   u32 r_max, r;
 
-  if (unlikely(afl->expand_havoc)) {
+  if (unlikely(afl->expand_havoc && afl->ready_for_splicing_count > 1)) {
 
     /* add expensive havoc cases here, they are activated after a full
        cycle without finds happened */
@@ -2310,20 +2310,9 @@ havoc_stage:
 
               tid = rand_below(afl, afl->queued_paths);
 
-            } while (tid == afl->current_entry);
+            } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
 
             struct queue_entry *target = afl->queue_buf[tid];
-
-            /* Make sure that the target has a reasonable length. */
-
-            while (target && (target->len < 2 || target == afl->queue_cur)) {
-
-              target = target->next;
-
-            }
-
-            if (!target) { break; }
-
             u32 new_len = target->len;
 
             /* Get the testcase contents for splicing. */
@@ -2462,7 +2451,7 @@ havoc_stage:
 retry_splicing:
 
   if (afl->use_splicing && splice_cycle++ < SPLICE_CYCLES &&
-      afl->queued_paths > 1 && afl->queue_cur->len > 1) {
+      afl->ready_for_splicing_count > 1 && afl->queue_cur->len >= 4) {
 
     struct queue_entry *target;
     u32                 tid, split_at;
@@ -2485,21 +2474,10 @@ retry_splicing:
 
       tid = rand_below(afl, afl->queued_paths);
 
-    } while (tid == afl->current_entry);
+    } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
 
     afl->splicing_with = tid;
     target = afl->queue_buf[tid];
-
-    /* Make sure that the target has a reasonable length. */
-
-    while (target && (target->len < 2 || target == afl->queue_cur)) {
-
-      target = target->next;
-      ++afl->splicing_with;
-
-    }
-
-    if (!target) { goto retry_splicing; }
 
     /* Get the testcase buffer */
     u8 *splice_buf = queue_testcase_take(afl, target);
@@ -4453,7 +4431,7 @@ pacemaker_fuzzing:
 
       if (afl->use_splicing &&
           splice_cycle++ < (u32)afl->SPLICE_CYCLES_puppet &&
-          afl->queued_paths > 1 && afl->queue_cur->len > 1) {
+          afl->ready_for_splicing_count > 1 && afl->queue_cur->len >= 4) {
 
         struct queue_entry *target;
         u32                 tid, split_at;
@@ -4477,21 +4455,10 @@ pacemaker_fuzzing:
 
           tid = rand_below(afl, afl->queued_paths);
 
-        } while (tid == afl->current_entry);
+        } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
 
         afl->splicing_with = tid;
         target = afl->queue_buf[tid];
-
-        /* Make sure that the target has a reasonable length. */
-
-        while (target && (target->len < 2 || target == afl->queue_cur)) {
-
-          target = target->next;
-          ++afl->splicing_with;
-
-        }
-
-        if (!target) { goto retry_splicing_puppet; }
 
         /* Read the testcase into a new buffer. */
         u8 *splicing_buf = queue_testcase_take(afl, target);
