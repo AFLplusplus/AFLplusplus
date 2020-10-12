@@ -27,6 +27,129 @@
 #include <ctype.h>
 #include <math.h>
 
+inline u32 select_next_queue_entry(afl_state_t *afl) {
+
+  u32 r = rand_below(afl, 0xffffffff);
+  u32 s = r % afl->queued_paths;
+  // fprintf(stderr, "select: r=%u s=%u ... r < prob[s]=%f ? s=%u :
+  // alias[%u]=%u\n", r, s, afl->alias_probability[s], s, s,
+  // afl->alias_table[s]);
+  return (r < afl->alias_probability[s] ? s : afl->alias_table[s]);
+
+}
+
+void create_alias_table(afl_state_t *afl) {
+
+  u32 n = afl->queued_paths, i = 0, a, g;
+
+  afl->alias_table =
+      (u32 *)afl_realloc((void **)&afl->alias_table, n * sizeof(u32));
+  afl->alias_probability = (double *)afl_realloc(
+      (void **)&afl->alias_probability, n * sizeof(double));
+  double *P = (double *)afl_realloc(AFL_BUF_PARAM(out), n * sizeof(double));
+  int *   S = (u32 *)afl_realloc(AFL_BUF_PARAM(out_scratch), n * sizeof(u32));
+  int *   L = (u32 *)afl_realloc(AFL_BUF_PARAM(in_scratch), n * sizeof(u32));
+
+  if (!P || !S || !L) FATAL("could not aquire memory for alias table");
+  memset((void *)afl->alias_table, 0, n * sizeof(u32));
+  memset((void *)afl->alias_probability, 0, n * sizeof(double));
+
+  double sum = 0;
+
+  for (i = 0; i < n; i++) {
+
+    struct queue_entry *q = afl->queue_buf[i];
+
+    if (!q->disabled) q->perf_score = calculate_score(afl, q);
+
+    sum += q->perf_score;
+    /*
+        if (afl->debug)
+          fprintf(stderr, "entry %u: score=%f %s (sum: %f)\n", i, q->perf_score,
+                  q->disabled ? "disabled" : "", sum);
+    */
+
+  }
+
+  for (i = 0; i < n; i++) {
+
+    struct queue_entry *q = afl->queue_buf[i];
+
+    P[i] = q->perf_score * n / sum;
+
+  }
+
+  int nS = 0, nL = 0, s;
+  for (s = (s32)n - 1; s >= 0; --s) {
+
+    if (P[s] < 1)
+      S[nS++] = s;
+    else
+      L[nL++] = s;
+
+  }
+
+  while (nS && nL) {
+
+    a = S[--nS];
+    g = L[--nL];
+    afl->alias_probability[a] = P[a];
+    afl->alias_table[a] = g;
+    P[g] = P[g] + P[a] - 1;
+    if (P[g] < 1)
+      S[nS++] = g;
+    else
+      L[nL++] = g;
+
+  }
+
+  while (nL)
+    afl->alias_probability[L[--nL]] = 1;
+
+  while (nS)
+    afl->alias_probability[S[--nS]] = 1;
+
+  /*
+    if (afl->debug) {
+
+      fprintf(stderr, "  %-3s  %-3s  %-9s\n", "entry", "alias", "prob");
+      for (u32 i = 0; i < n; ++i)
+        fprintf(stderr, "  %3i  %3i  %9.7f\n", i, afl->alias_table[i],
+                afl->alias_probability[i]);
+
+    }
+
+    int prob = 0;
+    fprintf(stderr, "Alias:");
+    for (i = 0; i < n; i++) {
+
+      fprintf(stderr, " [%u]=%u", i, afl->alias_table[i]);
+      if (afl->alias_table[i] >= n)
+        prob = i;
+
+    }
+
+    fprintf(stderr, "\n");
+
+    if (prob) {
+
+      fprintf(stderr, "PROBLEM! alias[%u] = %u\n", prob,
+    afl->alias_table[prob]);
+
+      for (i = 0; i < n; i++) {
+
+        struct queue_entry *q = afl->queue_buf[i];
+
+        fprintf(stderr, "%u: score=%f\n", i, q->perf_score);
+
+      }
+
+    }
+
+  */
+
+}
+
 /* Mark deterministic checks as done for a particular queue entry. We use the
    .state file to avoid repeating deterministic fuzzing when resuming aborted
    scans. */
@@ -238,6 +361,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   if (likely(q->len > 4)) afl->ready_for_splicing_count++;
 
   ++afl->queued_paths;
+  ++afl->active_paths;
   ++afl->pending_not_fuzzed;
 
   afl->cycles_wo_finds = 0;

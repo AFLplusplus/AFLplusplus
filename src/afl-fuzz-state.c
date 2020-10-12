@@ -87,7 +87,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->w_end = 0.3;
   afl->g_max = 5000;
   afl->period_pilot_tmp = 5000.0;
-  afl->schedule = COE;                     /* Power schedule (default: COE) */
+  afl->schedule = EXPLORE;             /* Power schedule (default: EXPLORE) */
   afl->havoc_max_mult = HAVOC_MAX_MULT;
 
   afl->clear_screen = 1;                /* Window resized?                  */
@@ -101,6 +101,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->hang_tmout = EXEC_TIMEOUT;
   afl->stats_update_freq = 1;
   afl->stats_avg_exec = -1;
+  afl->skip_deterministic = 1;
+  afl->use_splicing = 1;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
@@ -297,6 +299,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_cal_fast =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_STATSD",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_TMPDIR",
 
                               afl_environment_variable_len)) {
@@ -342,6 +351,27 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_forksrv_init_tmout =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_STATSD_HOST",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd_host =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_STATSD_PORT",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd_port =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_STATSD_TAGS_FLAVOR",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd_tags_flavor =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
           }

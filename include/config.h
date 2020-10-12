@@ -41,6 +41,14 @@
 
 #define USE_COLOR
 
+/* StatsD config
+   Config can be adjusted via AFL_STATSD_HOST and AFL_STATSD_PORT environment
+   variable.
+*/
+#define STATSD_UPDATE_SEC 1
+#define STATSD_DEFAULT_PORT 8125
+#define STATSD_DEFAULT_HOST "127.0.0.1"
+
 /* If you want to have the original afl internal memory corruption checks.
    Disabled by default for speed. it is better to use "make ASAN_BUILD=1". */
 
@@ -66,25 +74,17 @@
   #define WORD_SIZE_64 1
 #endif
 
-/* Default memory limit for child process (MB): */
+/* Default memory limit for child process (MB) 0 = disabled : */
 
-#ifndef __NetBSD__
-  #ifndef WORD_SIZE_64
-    #define MEM_LIMIT 50
-  #else
-    #define MEM_LIMIT 75
-  #endif                                                  /* ^!WORD_SIZE_64 */
-#else /* NetBSD's kernel needs more space for stack, see discussion for issue \
-         #165 */
-  #define MEM_LIMIT 250
-#endif
-/* Default memory limit when running in QEMU mode (MB): */
+#define MEM_LIMIT 0
 
-#define MEM_LIMIT_QEMU 250
+/* Default memory limit when running in QEMU mode (MB) 0 = disabled : */
 
-/* Default memory limit when running in Unicorn mode (MB): */
+#define MEM_LIMIT_QEMU 0
 
-#define MEM_LIMIT_UNICORN 250
+/* Default memory limit when running in Unicorn mode (MB) 0 = disabled : */
+
+#define MEM_LIMIT_UNICORN 0
 
 /* Number of calibration cycles per every new test case (and for test
    cases that show variable behavior): */
@@ -109,8 +109,8 @@
 /* Maximum multiplier for the above (should be a power of two, beware
    of 32-bit int overflows): */
 
-#define HAVOC_MAX_MULT 32
-#define HAVOC_MAX_MULT_MOPT 32
+#define HAVOC_MAX_MULT 64
+#define HAVOC_MAX_MULT_MOPT 64
 
 /* Absolute minimum number of havoc cycles (after all adjustments): */
 

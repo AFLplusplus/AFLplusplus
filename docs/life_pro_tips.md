@@ -85,6 +85,3 @@ You can find a simple solution in examples/argv_fuzzing.
 Remove the checksum-checking code or use a postprocessor!
 See examples/custom_mutators/ for more.
 
-## Dealing with a very slow target or hoping for instant results? 
-
-Specify `-d` when calling afl-fuzz!

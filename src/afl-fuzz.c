@@ -90,19 +90,20 @@ static void usage(u8 *argv0, int more_help) {
 
       "Execution control settings:\n"
       "  -p schedule   - power schedules compute a seed's performance score:\n"
-      "                  <explore, rare, exploit, seek, mmopt, coe(default), "
+      "                  <explore(default), rare, exploit, seek, mmopt, coe, "
       "fast,\n"
       "                  lin, quad> -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
-      "  -m megs       - memory limit for child process (%d MB)\n"
+      "  -m megs       - memory limit for child process (%d MB, 0 = no limit)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
       "mode)\n\n"
 
       "Mutator settings:\n"
+      "  -D            - enable deterministic fuzzing (once per queue entry)\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths). 0 = "
@@ -114,9 +115,10 @@ static void usage(u8 *argv0, int more_help) {
       "                  if using QEMU, just use -c 0.\n\n"
 
       "Fuzzing behavior settings:\n"
+      "  -Z            - sequential queue selection instead of weighted "
+      "random\n"
       "  -N            - do not unlink the fuzzing input file (for devices "
       "etc.)\n"
-      "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (non-instrumented mode)\n"
       "  -x dict_file  - fuzzer dictionary (see README.md, specify up to 4 "
       "times)\n\n"
@@ -131,11 +133,11 @@ static void usage(u8 *argv0, int more_help) {
 
       "Other stuff:\n"
       "  -M/-S id      - distributed mode (see docs/parallel_fuzzing.md)\n"
-      "                  use -D to force -S secondary to perform deterministic "
-      "fuzzing\n"
+      "                  -M auto-sets -D and -Z (use -d to disable -D)\n"
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
       "-M, can\n"
       "                  be specified up to %u times)\n"
+      "  -d            - skip deterministic fuzzing in -M mode\n"
       "  -T text       - text banner to show on the screen\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
@@ -194,6 +196,11 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
       "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
+      "AFL_STATSD: enables StatsD metrics collection"
+      "AFL_STATSD_HOST: change default statsd host (default 127.0.0.1)"
+      "AFL_STATSD_PORT: change default statsd port (default: 8125)"
+      "AFL_STATSD_TAGS_FLAVOR: change default statsd tags format (default will disable tags)."
+      "                        Supported formats are: 'dogstatsd', 'librato', 'signalfx' and 'influxdb'"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
       //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
@@ -244,7 +251,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32 opt, i;
   u64 prev_queued = 0;
-  u32 sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
+  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, map_size = MAP_SIZE;
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
      extras_dir_cnt = 0 /*, have_p = 0*/;
@@ -281,9 +288,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+b:c:i:I:o:f:F:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) > 0) {
+              "+b:c:i:I:o:f:F:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:Z")) > 0) {
 
     switch (opt) {
+
+      case 'Z':
+        afl->old_seed_selection = 1;
+        break;
 
       case 'I':
         afl->infoexec = optarg;
@@ -349,13 +360,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
           afl->schedule = RARE;
 
-        } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "afl")) {
+        } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "afl") ||
+
+                   !stricmp(optarg, "default") ||
+
+                   !stricmp(optarg, "normal")) {
 
           afl->schedule = EXPLORE;
 
-        } else if (!stricmp(optarg, "seek") || !stricmp(optarg, "default") ||
-
-                   !stricmp(optarg, "normal")) {
+        } else if (!stricmp(optarg, "seek")) {
 
           afl->schedule = SEEK;
 
@@ -398,6 +411,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
+        afl->skip_deterministic = 0;  // force determinsitic fuzzing
+        afl->old_seed_selection = 1;  // force old queue walking seed selection
 
         if ((c = strchr(afl->sync_id, ':'))) {
 
@@ -426,8 +441,6 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
         afl->is_secondary_node = 1;
-        afl->skip_deterministic = 1;
-        afl->use_splicing = 1;
         break;
 
       case 'F':                                         /* foreign sync dir */
@@ -552,7 +565,6 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'd':                                       /* skip deterministic */
 
         afl->skip_deterministic = 1;
-        afl->use_splicing = 1;
         break;
 
       case 'B':                                              /* load bitmap */
@@ -835,6 +847,8 @@ int main(int argc, char **argv_orig, char **envp) {
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
+  OKF("NOTE: This is v3.x which changes several defaults and behaviours - see "
+      "README.md");
 
   if (afl->sync_id && afl->is_main_node &&
       afl->afl_env.afl_custom_mutator_only) {
@@ -889,6 +903,8 @@ int main(int argc, char **argv_orig, char **envp) {
     FATAL("AFL_NO_UI and AFL_FORCE_UI are mutually exclusive");
 
   }
+
+  if (unlikely(afl->afl_env.afl_statsd)) { statsd_setup_format(afl); }
 
   if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
 
@@ -1121,12 +1137,18 @@ int main(int argc, char **argv_orig, char **envp) {
     WARNF("it is wasteful to run more than one main node!");
     sleep(1);
 
-  }
+  } else if (afl->is_secondary_node && check_main_node_exists(afl) == 0) {
 
-  if (afl->is_secondary_node && check_main_node_exists(afl) == 0) {
+    WARNF(
+        "no -M main node found. It is recommended to run exactly one main "
+        "instance.");
+    sleep(1);
 
-    WARNF("no -M main node found. You need to run one main instance!");
-    sleep(3);
+  } else if (!afl->sync_id) {
+
+    afl->sync_id = "default";
+    afl->is_secondary_node = 1;
+    OKF("no -M/-S set, autoconfiguring for \"-S %s\"", afl->sync_id);
 
   }
 
@@ -1299,7 +1321,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   show_init_stats(afl);
 
-  seek_to = find_start_position(afl);
+  if (unlikely(afl->old_seed_selection)) seek_to = find_start_position(afl);
 
   write_stats_file(afl, 0, 0, 0);
   maybe_update_plot_file(afl, 0, 0);
@@ -1321,28 +1343,37 @@ int main(int argc, char **argv_orig, char **envp) {
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
 
+  u32 runs_in_current_cycle = (u32)-1;
+  u32 prev_queued_paths = 0;
+
   while (1) {
 
     u8 skipped_fuzz;
 
     cull_queue(afl);
 
-    if (!afl->queue_cur) {
+    if (unlikely((!afl->old_seed_selection &&
+                  runs_in_current_cycle > afl->queued_paths) ||
+                 (afl->old_seed_selection && !afl->queue_cur))) {
 
       ++afl->queue_cycle;
-      afl->current_entry = 0;
+      runs_in_current_cycle = 0;
       afl->cur_skipped_paths = 0;
-      afl->queue_cur = afl->queue;
 
-      while (seek_to) {
+      if (unlikely(afl->old_seed_selection)) {
 
-        ++afl->current_entry;
-        --seek_to;
-        afl->queue_cur = afl->queue_cur->next;
+        afl->current_entry = 0;
+        afl->queue_cur = afl->queue;
+
+        if (unlikely(seek_to)) {
+
+          afl->current_entry = seek_to;
+          afl->queue_cur = afl->queue_buf[seek_to];
+          seek_to = 0;
+
+        }
 
       }
-
-      // show_stats(afl);
 
       if (unlikely(afl->not_on_tty)) {
 
@@ -1363,9 +1394,11 @@ int main(int argc, char **argv_orig, char **envp) {
           switch (afl->expand_havoc) {
 
             case 0:
+              // this adds extra splicing mutation options to havoc mode
               afl->expand_havoc = 1;
               break;
             case 1:
+              // add MOpt mutator
               if (afl->limit_time_sig == 0 && !afl->custom_only &&
                   !afl->python_only) {
 
@@ -1378,24 +1411,25 @@ int main(int argc, char **argv_orig, char **envp) {
               break;
             case 2:
               // if (!have_p) afl->schedule = EXPLOIT;
+              // increase havoc mutations per fuzz attempt
               afl->havoc_stack_pow2++;
               afl->expand_havoc = 3;
               break;
             case 3:
+              // further increase havoc mutations per fuzz attempt
               afl->havoc_stack_pow2++;
               afl->expand_havoc = 4;
               break;
             case 4:
+              // if not in sync mode, enable deterministic mode?
+              // if (!afl->sync_dir) afl->skip_deterministic = 0;
+              afl->expand_havoc = 5;
+              break;
+            case 5:
               // nothing else currently
               break;
 
           }
-
-          if (afl->expand_havoc) {
-
-          } else
-
-            afl->expand_havoc = 1;
 
         } else {
 
@@ -1467,6 +1501,22 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+    if (likely(!afl->old_seed_selection)) {
+
+      ++runs_in_current_cycle;
+      if (unlikely(prev_queued_paths < afl->queued_paths)) {
+
+        // we have new queue entries since the last run, recreate alias table
+        prev_queued_paths = afl->queued_paths;
+        create_alias_table(afl);
+
+      }
+
+      afl->current_entry = select_next_queue_entry(afl);
+      afl->queue_cur = afl->queue_buf[afl->current_entry];
+
+    }
+
     skipped_fuzz = fuzz_one(afl);
 
     if (!skipped_fuzz && !afl->stop_soon && afl->sync_id) {
@@ -1487,8 +1537,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (afl->stop_soon) { break; }
 
-    afl->queue_cur = afl->queue_cur->next;
-    ++afl->current_entry;
+    if (unlikely(afl->old_seed_selection)) {
+
+      afl->queue_cur = afl->queue_cur->next;
+      ++afl->current_entry;
+
+    }
 
   }
 

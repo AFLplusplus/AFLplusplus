@@ -1160,6 +1160,7 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_fsrv_deinit(fsrv);
 
   if (stdin_file) { ck_free(stdin_file); }
+  if (collect_coverage) { free(coverage_map); }
 
   argv_cpy_free(argv);
   if (fsrv->qemu_mode) { free(use_argv[2]); }

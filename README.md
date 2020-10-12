@@ -28,24 +28,30 @@
 ## Major changes in afl++ 3.0
 
 With afl++ 3.0 we introduced changes that break some previous afl and afl++
-behaviours:
+behaviours and defaults:
 
   * There are no llvm_mode and gcc_plugin subdirectories anymore and there is
     only one compiler: afl-cc. All previous compilers now symlink to this one
     compiler. All instrumentation source code is now in the `instrumentation/`
     folder.
-  * The gcc_plugin was replaced with a new version submitted by AdaCore, that
-    supports more features, thank you!
+  * The gcc_plugin was replaced with a new version submitted by AdaCore that
+    supports more features. thank you!
   * qemu_mode got upgraded to QEMU 5.1, but to be able to build this a current
     ninja build tool version and python3 setuptools are required.
     qemu_mode also got new options like snapshotting, instrumenting specific
-    shared libraries, etc. and QEMU 5.1 supports more CPU targets so this is
-    worth it.
+    shared libraries, etc. Additionally QEMU 5.1 supports more CPU targets so
+    this is really worth it.
   * When instrumenting targets, afl-cc will not supersede optimizations. This
     allows to fuzz targets as same as they are built for debug or release.
-  * afl-fuzz' `-i` option now descends into subdirectories.
-  * afl-fuzz will skip over empty dictionaries and too-large test cases instead
-    of failing.
+  * afl-fuzz:
+    * if neither -M or -S is specified, `-S default` is assumed, so more
+      fuzzers can easily be added later
+    * `-i` input directory option now descends into subdirectories. It also
+      does not fatal on crashes and too large files, instead it skips them
+      and uses them for splicing mutations
+    * -m none is now default, set memory limits (in MB) with e.g. -m 250
+    * deterministic fuzzing is now disabled by default (unless using -M) and
+      can be enabled with -D
 
 ## Contents
 
