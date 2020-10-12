@@ -1,4 +1,4 @@
-#!/bin/sh
+f#!/bin/sh
 
 . ./test-pre.sh
 
@@ -43,7 +43,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       } >>errors 2>&1
 
       # Check results
-      test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
+      test -n "$( ls out/default/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
         $ECHO "$GREEN[+] afl-fuzz is working correctly with the C mutator"
       } || {
         echo CUT------------------------------------------------------------------CUT
@@ -62,7 +62,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
         AFL_CUSTOM_MUTATOR_LIBRARY="./libexamplemutator.so;./libexamplemutator2.so" AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V1 -m ${MEM_LIMIT} -i in -o out -- ./test-multiple-mutators >>errors 2>&1
       } >>errors 2>&1
 
-      test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
+      test -n "$( ls out/default/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
         $ECHO "$GREEN[+] afl-fuzz is working correctly with multiple C mutators"
       } || {
         echo CUT------------------------------------------------------------------CUT
@@ -86,7 +86,7 @@ test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
       } >>errors 2>&1
 
       # Check results
-      test -n "$( ls out/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
+      test -n "$( ls out/default/crashes/id:000000* 2>/dev/null )" && {  # TODO: update here
         $ECHO "$GREEN[+] afl-fuzz is working correctly with the Python mutator"
       } || {
         echo CUT------------------------------------------------------------------CUT

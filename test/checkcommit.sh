@@ -34,7 +34,7 @@ time nice -n -20 ./afl-fuzz -i "$INDIR" -s 123 -o out-profile -- $CMDLINE 2>> $C
 STOP=`date +%s`
 echo $STOP >> $C.out
 echo RUNTIME: `expr $STOP - $START` >> $C.out
-cat out-profile/fuzzer_stats >> $C.out
+cat out-profile/default/fuzzer_stats >> $C.out
 gprof ./afl-fuzz gmon.out >> $C.out
 
 make clean >/dev/null 2>&1

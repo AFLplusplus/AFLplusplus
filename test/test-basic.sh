@@ -67,7 +67,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     {
       ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
+    test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
     } || {
       echo CUT------------------------------------------------------------------CUT

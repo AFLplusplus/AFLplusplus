@@ -66,7 +66,7 @@ test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
     {
       ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain.gccpi >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
+    test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with gcc_plugin"
     } || {
       echo CUT------------------------------------------------------------------CUT
