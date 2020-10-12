@@ -23,6 +23,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       with -M)
     - statsd support by Edznux, thanks a lot!
     - Marcel Boehme submitted a patch that improves all AFFast schedules :)
+    - not specifying -M or -S will now auto-set "-S default"
     - reading testcases from -i now descends into subdirectories
     - allow up to 4 -x command line options
     - loaded extras now have a duplicate protection
