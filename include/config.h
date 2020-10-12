@@ -295,13 +295,13 @@
 
 #define RESEED_RNG 100000
 
-/* The amount of entries in the testcase cache, held in memory.
-Decrease if RAM usage is high. */
-#define TESTCASE_CACHE_SIZE 3072
+/* The total size of testcases to cache, held in memory.
+   Decrease if RAM usage is high. */
+#define TESTCASE_CACHE_SIZE 2048000000
 
-#if TESTCASE_CACHE_SIZE < 4
+#if TESTCASE_CACHE_SIZE < 4 * MAX_FILE
   #error \
-      "Dangerously low cache size: Set TESTCASE_CACHE_SIZE to 4 or more in config.h!"
+      "Dangerously low cache size: Set TESTCASE_CACHE_SIZE to at least 4 * MAX_FILE"
 #endif
 
 /* Maximum line length passed from GCC to 'as' and used for parsing

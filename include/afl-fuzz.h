@@ -667,11 +667,18 @@ typedef struct afl_state {
   /* queue entries ready for splicing count (len > 4) */
   u32 ready_for_splicing_count;
 
+  /* How much current of the testcase cache is used so far */
+  u32 q_testcase_cache_size;
+
   /* How many queue entries currently have cached testcases */
   u32 q_testcase_cache_count;
+
+  /* highest cache count so far */
+  u32 q_testcase_max_cache_count;
+
   /* Refs to each queue entry with cached testcase (for eviction, if cache_count
    * is too large) */
-  struct queue_entry *q_testcase_cache[TESTCASE_CACHE_SIZE];
+  struct queue_entry *q_testcase_cache[TESTCASE_CACHE_SIZE / 128];
 
 } afl_state_t;
 
