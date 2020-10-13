@@ -87,8 +87,8 @@ test -e ../${AFL_GCC} -a -e ../afl-fuzz && {
     {
       ../afl-fuzz -V 30 -s 123 -m ${MEM_LIMIT} -i in -o out-gcc -- ./test-instr.plain
     } >>errors 2>&1
-    test -n "$( ls out-gcc/queue/id:000002* 2> /dev/null )" && {
-      GCC=`grep execs_done out-gcc/fuzzer_stats | awk '{print$3}'`
+    test -n "$( ls out-gcc/default/queue/id:000002* 2> /dev/null )" && {
+      GCC=`grep execs_done out-gcc/default/fuzzer_stats | awk '{print$3}'`
     } || {
         echo CUT----------------------------------------------------------------
         cat errors
@@ -111,8 +111,8 @@ test -e ../afl-clang-fast -a -e ../afl-fuzz && {
     {
       ../afl-fuzz -V 30 -s 123 -m ${MEM_LIMIT} -i in -o out-llvm -- ./test-instr.llvm
     } >>errors 2>&1
-    test -n "$( ls out-llvm/queue/id:000002* 2> /dev/null )" && {
-      LLVM=`grep execs_done out-llvm/fuzzer_stats | awk '{print$3}'`
+    test -n "$( ls out-llvm/default/queue/id:000002* 2> /dev/null )" && {
+      LLVM=`grep execs_done out-llvm/default/fuzzer_stats | awk '{print$3}'`
     } || {
         echo CUT----------------------------------------------------------------
         cat errors
@@ -135,8 +135,8 @@ test -e ../afl-gcc-fast -a -e ../afl-fuzz && {
     {
       ../afl-fuzz -V 30 -s 123 -m ${MEM_LIMIT} -i in -o out-gccp -- ./test-instr.gccp
     } >>errors 2>&1
-    test -n "$( ls out-gccp/queue/id:000002* 2> /dev/null )" && {
-      GCCP=`grep execs_done out-gccp/fuzzer_stats | awk '{print$3}'`
+    test -n "$( ls out-gccp/default/queue/id:000002* 2> /dev/null )" && {
+      GCCP=`grep execs_done out-gccp/default/fuzzer_stats | awk '{print$3}'`
     } || {
         echo CUT----------------------------------------------------------------
         cat errors
@@ -159,8 +159,8 @@ test -e ../afl-qemu-trace -a -e ../afl-fuzz && {
     {
       ../afl-fuzz -Q -V 30 -s 123 -m ${MEM_LIMIT} -i in -o out-qemu -- ./test-instr.qemu
     } >>errors 2>&1
-    test -n "$( ls out-qemu/queue/id:000002* 2> /dev/null )" && {
-      QEMU=`grep execs_done out-qemu/fuzzer_stats | awk '{print$3}'`
+    test -n "$( ls out-qemu/default/queue/id:000002* 2> /dev/null )" && {
+      QEMU=`grep execs_done out-qemu/default/fuzzer_stats | awk '{print$3}'`
     } || {
         echo CUT----------------------------------------------------------------
         echo ../afl-fuzz -Q -V 30 -s 123 -m ${MEM_LIMIT} -i in -o out-qemu -- ./test-instr.qemu

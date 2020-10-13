@@ -370,7 +370,7 @@ static void locate_diffs(u8 *ptr1, u8 *ptr2, u32 len, s32 *first, s32 *last) {
 
 u8 fuzz_one_original(afl_state_t *afl) {
 
-  s32 len, temp_len;
+  s32 len, fd, temp_len;
   u32 j;
   u32 i;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
@@ -455,6 +455,16 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
   len = afl->queue_cur->len;
+
+  orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+
+  if (unlikely(orig_in == MAP_FAILED)) {
+
+    PFATAL("Unable to mmap '%s' with len %d", afl->queue_cur->fname, len);
+
+  }
+
+  close(fd);
 
   /* We could mmap() out_buf as MAP_PRIVATE, but we end up clobbering every
      single byte anyway, so it wouldn't give us any performance or memory usage
@@ -1678,7 +1688,7 @@ custom_mutator_stage:
         for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
              ++afl->stage_cur) {
 
-          struct queue_entry *target = NULL;
+          struct queue_entry *target;
           u32                 tid;
           u8 *                new_buf = NULL;
           u32                 target_len = 0;
@@ -2296,8 +2306,6 @@ havoc_stage:
             /* Overwrite bytes with a randomly selected chunk from another
                testcase or insert that chunk. */
 
-            if (afl->queued_paths < 4) { break; }
-
             /* Pick a random queue entry and seek to it. */
 
             u32 tid;
@@ -2359,7 +2367,6 @@ havoc_stage:
 
             }
 
-            /* We don't need this splice testcase anymore */
             new_buf = NULL;
             break;
 
@@ -2455,17 +2462,13 @@ retry_splicing:
     /* Get the testcase */
     afl->splicing_with = tid;
     target = afl->queue_buf[tid];
-    u8 *splice_buf = queue_testcase_get(afl, target);
-
-    new_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), target->len);
-    if (unlikely(!new_buf)) { PFATAL("alloc"); }
+    new_buf = queue_testcase_get(afl, target);
 
     /* Find a suitable splicing location, somewhere between the first and
        the last differing byte. Bail out if the difference is just a single
        byte or so. */
 
-    locate_diffs(in_buf, splice_buf, MIN(len, (s64)target->len), &f_diff,
-                 &l_diff);
+    locate_diffs(in_buf, new_buf, MIN(len, (s64)target->len), &f_diff, &l_diff);
 
     if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) { goto retry_splicing; }
 
@@ -2477,15 +2480,12 @@ retry_splicing:
 
     len = target->len;
     memcpy(new_buf, in_buf, split_at);
-    memcpy(new_buf + split_at, splice_buf + split_at, target->len - split_at);
     afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
     in_buf = new_buf;
 
     out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
     if (unlikely(!out_buf)) { PFATAL("alloc"); }
     memcpy(out_buf, in_buf, len);
-
-    splice_buf = NULL;
 
     goto custom_mutator_stage;
 
@@ -2513,9 +2513,7 @@ abandon_entry:
   }
 
   ++afl->queue_cur->fuzz_level;
-
   orig_in = NULL;
-
   return ret_val;
 
 #undef FLIP_BIT
@@ -2536,7 +2534,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   }
 
-  s32 len, temp_len;
+  s32 len, fd, temp_len;
   u32 i;
   u32 j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
@@ -2603,16 +2601,9 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   /* Map the test case into memory. */
   orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
   len = afl->queue_cur->len;
-
-  /* We could mmap() out_buf as MAP_PRIVATE, but we end up clobbering every
-     single byte anyway, so it wouldn't give us any performance or memory usage
-     benefits. */
-
   out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
   if (unlikely(!out_buf)) { PFATAL("alloc"); }
-
   afl->subseq_tmouts = 0;
-
   afl->cur_depth = afl->queue_cur->depth;
 
   /*******************************************
@@ -4432,13 +4423,13 @@ pacemaker_fuzzing:
         target = afl->queue_buf[tid];
 
         /* Read the testcase into a new buffer. */
-        u8 *splicing_buf = queue_testcase_get(afl, target);
+        new_buf = queue_testcase_get(afl, target);
 
         /* Find a suitable splicin g location, somewhere between the first and
            the last differing byte. Bail out if the difference is just a single
            byte or so. */
 
-        locate_diffs(in_buf, splicing_buf, MIN(len, (s32)target->len), &f_diff,
+        locate_diffs(in_buf, new_buf, MIN(len, (s32)target->len), &f_diff,
                      &l_diff);
 
         if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) {
@@ -4446,8 +4437,6 @@ pacemaker_fuzzing:
           goto retry_splicing_puppet;
 
         }
-
-        new_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), target->len);
 
         /* Split somewhere between the first and last differing byte. */
 
@@ -4457,16 +4446,13 @@ pacemaker_fuzzing:
 
         len = target->len;
         memcpy(new_buf, in_buf, split_at);
-        memcpy(new_buf + split_at, splicing_buf + split_at,
-               target->len - split_at);
         afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
         in_buf = new_buf;
         out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
         if (unlikely(!out_buf)) { PFATAL("alloc"); }
         memcpy(out_buf, in_buf, len);
-
-        splicing_buf = NULL;
-
+        new_buf = NULL;
+        
         goto havoc_stage_puppet;
 
       }                                                  /* if splice_cycle */

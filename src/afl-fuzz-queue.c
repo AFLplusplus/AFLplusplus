@@ -27,6 +27,8 @@
 #include <ctype.h>
 #include <math.h>
 
+/* select next queue entry based on alias algo - fast! */
+
 inline u32 select_next_queue_entry(afl_state_t *afl) {
 
   u32    s = rand_below(afl, afl->queued_paths);
@@ -39,6 +41,8 @@ inline u32 select_next_queue_entry(afl_state_t *afl) {
   return (p < afl->alias_probability[s] ? s : afl->alias_table[s]);
 
 }
+
+/* create the alias table that allows weighted random selection - expensive */
 
 void create_alias_table(afl_state_t *afl) {
 
@@ -65,11 +69,6 @@ void create_alias_table(afl_state_t *afl) {
     if (!q->disabled) q->perf_score = calculate_score(afl, q);
 
     sum += q->perf_score;
-    /*
-        if (afl->debug)
-          fprintf(stderr, "entry %u: score=%f %s (sum: %f)\n", i, q->perf_score,
-                  q->disabled ? "disabled" : "", sum);
-    */
 
   }
 
@@ -112,41 +111,10 @@ void create_alias_table(afl_state_t *afl) {
     afl->alias_probability[S[--nS]] = 1;
 
   /*
-    if (afl->debug) {
-
-      fprintf(stderr, "  %-3s  %-3s  %-9s\n", "entry", "alias", "prob");
+      fprintf(stderr, "  %-3s  %-3s  %-9s  %-9s\n", "entry", "alias", "prob", "perf");
       for (u32 i = 0; i < n; ++i)
-        fprintf(stderr, "  %3i  %3i  %9.7f\n", i, afl->alias_table[i],
-                afl->alias_probability[i]);
-
-    }
-
-    int prob = 0;
-    fprintf(stderr, "Alias:");
-    for (i = 0; i < n; i++) {
-
-      fprintf(stderr, " [%u]=%u", i, afl->alias_table[i]);
-      if (afl->alias_table[i] >= n)
-        prob = i;
-
-    }
-
-    fprintf(stderr, "\n");
-
-    if (prob) {
-
-      fprintf(stderr, "PROBLEM! alias[%u] = %u\n", prob,
-    afl->alias_table[prob]);
-
-      for (i = 0; i < n; i++) {
-
-        struct queue_entry *q = afl->queue_buf[i];
-
-        fprintf(stderr, "%u: score=%f\n", i, q->perf_score);
-
-      }
-
-    }
+        fprintf(stderr, "  %3i  %3i  %9.7f  %9.7f\n", i, afl->alias_table[i],
+                afl->alias_probability[i], afl->queue_buf[i]->perf_score);
 
   */
 
@@ -345,7 +313,6 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->depth = afl->cur_depth + 1;
   q->passed_det = passed_det;
   q->trace_mini = NULL;
-  q->testcase_buf = NULL;
 
   if (q->depth > afl->max_depth) { afl->max_depth = q->depth; }
 
@@ -1021,4 +988,3 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
   return q->testcase_buf;
 
 }
-

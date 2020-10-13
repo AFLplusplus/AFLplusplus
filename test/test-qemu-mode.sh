@@ -14,9 +14,9 @@ test -e ../afl-qemu-trace && {
       {
         ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr >>errors 2>&1
       } >>errors 2>&1
-      test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
+      test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode"
-        RUNTIME=`grep execs_done out/fuzzer_stats | awk '{print$3}'`
+        RUNTIME=`grep execs_done out/default/fuzzer_stats | awk '{print$3}'`
       } || {
         echo CUT------------------------------------------------------------------CUT
         cat errors
@@ -42,9 +42,9 @@ test -e ../afl-qemu-trace && {
           unset AFL_ENTRYPOINT
         } >>errors 2>&1
       } >>errors 2>&1
-      test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
+      test -n "$( ls out/default/queue/id:000001* 2>/dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode AFL_ENTRYPOINT"
-        RUNTIME=`grep execs_done out/fuzzer_stats | awk '{print$3}'`
+        RUNTIME=`grep execs_done out/default/fuzzer_stats | awk '{print$3}'`
       } || {
         echo CUT------------------------------------------------------------------CUT
         cat errors
@@ -64,7 +64,7 @@ test -e ../afl-qemu-trace && {
             unset AFL_PRELOAD
             unset AFL_COMPCOV_LEVEL
           } >>errors 2>&1
-          test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
+          test -n "$( ls out/default/queue/id:000001* 2>/dev/null )" && {
             $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode compcov"
           } || {
             echo CUT------------------------------------------------------------------CUT
@@ -87,7 +87,7 @@ test -e ../afl-qemu-trace && {
         {
           ../afl-fuzz -m none -V10 -Q -c 0 -i in -o out -- ./test-compcov >>errors 2>&1
         } >>errors 2>&1
-        test -n "$( ls out/queue/id:000001* 2>/dev/null )" && {
+        test -n "$( ls out/default/queue/id:000001* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with qemu_mode cmplog"
         } || {
           echo CUT------------------------------------------------------------------CUT
@@ -119,9 +119,9 @@ test -e ../afl-qemu-trace && {
           ../afl-fuzz -m ${MEM_LIMIT} -V10 -Q -i in -o out -- ./test-instr
           unset AFL_QEMU_PERSISTENT_ADDR
         } >>errors 2>&1
-        test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
+        test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with persistent qemu_mode"
-          RUNTIMEP=`grep execs_done out/fuzzer_stats | awk '{print$3}'`
+          RUNTIMEP=`grep execs_done out/default/fuzzer_stats | awk '{print$3}'`
           test -n "$RUNTIME" -a -n "$RUNTIMEP" && {
             DIFF=`expr $RUNTIMEP / $RUNTIME`
             test "$DIFF" -gt 1 && { # must be at least twice as fast
