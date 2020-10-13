@@ -456,16 +456,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
   orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
   len = afl->queue_cur->len;
 
-  orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-
-  if (unlikely(orig_in == MAP_FAILED)) {
-
-    PFATAL("Unable to mmap '%s' with len %d", afl->queue_cur->fname, len);
-
-  }
-
-  close(fd);
-
   /* We could mmap() out_buf as MAP_PRIVATE, but we end up clobbering every
      single byte anyway, so it wouldn't give us any performance or memory usage
      benefits. */

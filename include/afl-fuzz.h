@@ -691,10 +691,10 @@ typedef struct afl_state {
   /* queue entries ready for splicing count (len > 4) */
   u32 ready_for_splicing_count;
 
-  /* How much current of the testcase cache is used so far */
+  /* This is the user specified maximum size to use for the testcase cache */
   u64 q_testcase_max_cache_size;
 
-  /* How much current of the testcase cache is used so far */
+  /* How much of the testcase cache is used so far */
   u64 q_testcase_cache_size;
 
   /* highest cache count so far */
