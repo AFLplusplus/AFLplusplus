@@ -31,17 +31,17 @@ performed with the custom mutator.
 
 C/C++:
 ```c
-void *afl_custom_init(afl_t *afl, unsigned int seed);
-uint32_t afl_custom_fuzz_count(void *data, const u8 *buf, size_t buf_size);
-size_t afl_custom_fuzz(void *data, uint8_t *buf, size_t buf_size, u8 **out_buf, uint8_t *add_buf, size_t add_buf_size, size_t max_size);
-size_t afl_custom_post_process(void *data, uint8_t *buf, size_t buf_size, uint8_t **out_buf);
-int32_t afl_custom_init_trim(void *data, uint8_t *buf, size_t buf_size);
-size_t afl_custom_trim(void *data, uint8_t **out_buf);
-int32_t afl_custom_post_trim(void *data, int success);
-size_t afl_custom_havoc_mutation(void *data, u8 *buf, size_t buf_size, u8 **out_buf, size_t max_size);
-uint8_t afl_custom_havoc_mutation_probability(void *data);
-uint8_t afl_custom_queue_get(void *data, const uint8_t *filename);
-void afl_custom_queue_new_entry(void *data, const uint8_t *filename_new_queue, const uint8_t *filename_orig_queue);
+void *afl_custom_init(afl_state_t *afl, unsigned int seed);
+unsigned int afl_custom_fuzz_count(void *data, const unsigned char *buf, size_t buf_size);
+size_t afl_custom_fuzz(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, unsigned char *add_buf, size_t add_buf_size, size_t max_size);
+size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf);
+int afl_custom_init_trim(void *data, unsigned char *buf, size_t buf_size);
+size_t afl_custom_trim(void *data, unsigned char **out_buf);
+int afl_custom_post_trim(void *data, unsigned char success);
+size_t afl_custom_havoc_mutation(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, size_t max_size);
+unsigned char afl_custom_havoc_mutation_probability(void *data);
+unsigned char afl_custom_queue_get(void *data, const unsigned char *filename);
+void afl_custom_queue_new_entry(void *data, const unsigned char *filename_new_queue, const unsigned int *filename_orig_queue);
 void afl_custom_deinit(void *data);
 ```
 
