@@ -29,11 +29,12 @@
 
 inline u32 select_next_queue_entry(afl_state_t *afl) {
 
-  u32 s = rand_below(afl, afl->queued_paths);
+  u32    s = rand_below(afl, afl->queued_paths);
   double p = rand_next_percent(afl);
   /*
   fprintf(stderr, "select: p=%f s=%u ... p < prob[s]=%f ? s=%u : alias[%u]=%u"
-  " ==> %u\n", p, s, afl->alias_probability[s], s, s, afl->alias_table[s], p < afl->alias_probability[s] ? s : afl->alias_table[s]);
+  " ==> %u\n", p, s, afl->alias_probability[s], s, s, afl->alias_table[s], p <
+  afl->alias_probability[s] ? s : afl->alias_table[s]);
   */
   return (p < afl->alias_probability[s] ? s : afl->alias_table[s]);
 
@@ -893,20 +894,6 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
 }
 
-/* Tell afl that this testcase may be evicted from the cache */
-inline void queue_testcase_release(afl_state_t *afl, struct queue_entry *q) {
-
-  (void)afl;
-  if (unlikely(q->testcase_refs == 0)) {
-
-    FATAL("Testcase refcount reduced past 0");
-
-  }
-
-  --q->testcase_refs;
-
-}
-
 void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
                            u32 old_len) {
 
@@ -935,16 +922,52 @@ void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
 
 /* Returns the testcase buf from the file behind this queue entry.
   Increases the refcount. */
-u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
+inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
+
+  u32 len = q->len;
+
+  /* first handle if no testcase cache is configured */
+
+  if (likely(!afl->q_testcase_cache_size)) {
+
+    u8 *buf;
+
+    if (q == afl->queue_cur) {
+
+      buf = afl_realloc((void **)&afl->testcase_buf, len);
+
+    } else {
+
+      buf = afl_realloc((void **)&afl->splicecase_buf, len);
+
+    }
+
+    if (unlikely(!buf)) {
+
+      PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
+
+    }
+
+    int fd = open(q->fname, O_RDONLY);
+
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+
+    ck_read(fd, buf, len, q->fname);
+    close(fd);
+    return buf;
+
+  }
+
+  /* now handle testcase cache */
 
   if (unlikely(!q->testcase_buf)) {
 
     /* Buf not cached, let's load it */
     u32 tid = 0;
 
-    while (unlikely(
-        afl->q_testcase_cache_size + q->len >= TESTCASE_CACHE_SIZE ||
-        afl->q_testcase_cache_count >= (TESTCASE_CACHE_SIZE / 128) - 1)) {
+    while (unlikely(afl->q_testcase_cache_size + len >=
+                        afl->q_testcase_max_cache_size ||
+                    afl->q_testcase_cache_count >= TESTCASE_ENTRIES - 1)) {
 
       /* Cache full. We neet to evict one to map one.
          Get a random one which is not in use */
@@ -955,7 +978,7 @@ u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
 
       } while (afl->q_testcase_cache[tid] == NULL ||
 
-               afl->q_testcase_cache[tid]->testcase_refs > 0);
+               afl->q_testcase_cache[tid] == afl->queue_cur);
 
       struct queue_entry *old_cached = afl->q_testcase_cache[tid];
       free(old_cached->testcase_buf);
@@ -966,7 +989,7 @@ u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
 
     }
 
-    while (afl->q_testcase_cache[tid] != NULL)
+    while (likely(afl->q_testcase_cache[tid] != NULL))
       ++tid;
 
     /* Map the test case into memory. */
@@ -975,7 +998,6 @@ u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
 
     if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
 
-    u32 len = q->len;
     q->testcase_buf = malloc(len);
 
     if (unlikely(!q->testcase_buf)) {
@@ -985,10 +1007,9 @@ u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
     }
 
     ck_read(fd, q->testcase_buf, len, q->fname);
-
     close(fd);
 
-    /* Register us as cached */
+    /* Register testcase as cached */
     afl->q_testcase_cache[tid] = q;
     afl->q_testcase_cache_size += q->len;
     ++afl->q_testcase_cache_count;
@@ -996,8 +1017,6 @@ u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q) {
       afl->q_testcase_max_cache_count = tid + 1;
 
   }
-
-  q->testcase_refs++;
 
   return q->testcase_buf;
 

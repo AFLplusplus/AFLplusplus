@@ -201,6 +201,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_PORT: change default statsd port (default: 8125)"
       "AFL_STATSD_TAGS_FLAVOR: change default statsd tags format (default will disable tags)."
       "                        Supported formats are: 'dogstatsd', 'librato', 'signalfx' and 'influxdb'"
+      "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)!\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
       //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
@@ -885,7 +886,7 @@ int main(int argc, char **argv_orig, char **envp) {
     auto_sync = 1;
     afl->sync_id = ck_strdup("default");
     afl->is_secondary_node = 1;
-    OKF("no -M/-S set, autoconfiguring for \"-S %s\"", afl->sync_id);
+    OKF("No -M/-S set, autoconfiguring for \"-S %s\"", afl->sync_id);
 
   }
 
@@ -1003,6 +1004,21 @@ int main(int argc, char **argv_orig, char **envp) {
   } else {
 
     afl->max_det_extras = MAX_DET_EXTRAS;
+
+  }
+
+  if (afl->afl_env.afl_testcache_size) {
+
+    afl->q_testcase_max_cache_size =
+        (u64)atoi(afl->afl_env.afl_testcache_size) * 1024000;
+    OKF("Enabled testcache with %llu MB",
+        afl->q_testcase_max_cache_size / 1024000);
+
+  } else {
+
+    ACTF(
+        "No testcache was configured. it is recommended to use a testcache, it "
+        "improves performance: set AFL_TESTCACHE_SIZE=(value in MB)");
 
   }
 

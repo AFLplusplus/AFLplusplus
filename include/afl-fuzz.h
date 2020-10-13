@@ -169,7 +169,6 @@ struct queue_entry {
   double perf_score;                    /* performance score                */
 
   u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
-  u32 testcase_refs;                    /* count of users of testcase buf   */
 
   struct queue_entry *next;             /* Next element, if any             */
 
@@ -366,7 +365,7 @@ typedef struct afl_env_vars {
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
-      *afl_statsd_tags_flavor;
+      *afl_statsd_tags_flavor, *afl_testcache_size;
 
 } afl_env_vars_t;
 
@@ -678,6 +677,9 @@ typedef struct afl_state {
   u8 *in_scratch_buf;
 
   u8 *ex_buf;
+
+  u8 *testcase_buf, *splicecase_buf;
+
   u32 custom_mutators_count;
 
   list_t custom_mutator_list;
@@ -690,17 +692,20 @@ typedef struct afl_state {
   u32 ready_for_splicing_count;
 
   /* How much current of the testcase cache is used so far */
-  u32 q_testcase_cache_size;
+  u64 q_testcase_max_cache_size;
 
-  /* How many queue entries currently have cached testcases */
-  u32 q_testcase_cache_count;
+  /* How much current of the testcase cache is used so far */
+  u64 q_testcase_cache_size;
 
   /* highest cache count so far */
   u32 q_testcase_max_cache_count;
 
+  /* How many queue entries currently have cached testcases */
+  u32 q_testcase_cache_count;
+
   /* Refs to each queue entry with cached testcase (for eviction, if cache_count
    * is too large) */
-  struct queue_entry *q_testcase_cache[TESTCASE_CACHE_SIZE / 128];
+  struct queue_entry *q_testcase_cache[TESTCASE_ENTRIES];
 
 } afl_state_t;
 
@@ -1153,10 +1158,7 @@ static inline u64 next_p2(u64 val) {
 
 /* Returns the testcase buf from the file behind this queue entry.
   Increases the refcount. */
-u8 *queue_testcase_take(afl_state_t *afl, struct queue_entry *q);
-
-/* Tell afl that this testcase may be evicted from the cache */
-void queue_testcase_release(afl_state_t *afl, struct queue_entry *q);
+u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q);
 
 /* If trimming changes the testcase size we have to reload it */
 void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,

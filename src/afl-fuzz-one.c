@@ -453,7 +453,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  orig_in = in_buf = queue_testcase_take(afl, afl->queue_cur);
+  orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
   len = afl->queue_cur->len;
 
   /* We could mmap() out_buf as MAP_PRIVATE, but we end up clobbering every
@@ -1701,7 +1701,7 @@ custom_mutator_stage:
             afl->splicing_with = tid;
 
             /* Read the additional testcase into a new buffer. */
-            new_buf = queue_testcase_take(afl, target);
+            new_buf = queue_testcase_get(afl, target);
             target_len = target->len;
 
           }
@@ -1712,12 +1712,7 @@ custom_mutator_stage:
               el->afl_custom_fuzz(el->data, out_buf, len, &mutated_buf, new_buf,
                                   target_len, max_seed_size);
 
-          if (new_buf) {
-
-            queue_testcase_release(afl, target);
-            new_buf = NULL;
-
-          }
+          if (new_buf) { new_buf = NULL; }
 
           if (unlikely(!mutated_buf)) {
 
@@ -2315,7 +2310,7 @@ havoc_stage:
             /* Get the testcase for splicing. */
             struct queue_entry *target = afl->queue_buf[tid];
             u32                 new_len = target->len;
-            u8 *                new_buf = queue_testcase_take(afl, target);
+            u8 *                new_buf = queue_testcase_get(afl, target);
 
             if ((temp_len >= 2 && rand_below(afl, 2)) ||
                 temp_len + HAVOC_BLK_XL >= MAX_FILE) {
@@ -2365,7 +2360,6 @@ havoc_stage:
             }
 
             /* We don't need this splice testcase anymore */
-            queue_testcase_release(afl, target);
             new_buf = NULL;
             break;
 
@@ -2461,7 +2455,7 @@ retry_splicing:
     /* Get the testcase */
     afl->splicing_with = tid;
     target = afl->queue_buf[tid];
-    u8 *splice_buf = queue_testcase_take(afl, target);
+    u8 *splice_buf = queue_testcase_get(afl, target);
 
     new_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), target->len);
     if (unlikely(!new_buf)) { PFATAL("alloc"); }
@@ -2491,7 +2485,6 @@ retry_splicing:
     if (unlikely(!out_buf)) { PFATAL("alloc"); }
     memcpy(out_buf, in_buf, len);
 
-    queue_testcase_release(afl, target);
     splice_buf = NULL;
 
     goto custom_mutator_stage;
@@ -2521,7 +2514,6 @@ abandon_entry:
 
   ++afl->queue_cur->fuzz_level;
 
-  queue_testcase_release(afl, afl->queue_cur);
   orig_in = NULL;
 
   return ret_val;
@@ -2609,7 +2601,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   }
 
   /* Map the test case into memory. */
-  orig_in = in_buf = queue_testcase_take(afl, afl->queue_cur);
+  orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
   len = afl->queue_cur->len;
 
   /* We could mmap() out_buf as MAP_PRIVATE, but we end up clobbering every
@@ -4440,7 +4432,7 @@ pacemaker_fuzzing:
         target = afl->queue_buf[tid];
 
         /* Read the testcase into a new buffer. */
-        u8 *splicing_buf = queue_testcase_take(afl, target);
+        u8 *splicing_buf = queue_testcase_get(afl, target);
 
         /* Find a suitable splicin g location, somewhere between the first and
            the last differing byte. Bail out if the difference is just a single
@@ -4451,7 +4443,6 @@ pacemaker_fuzzing:
 
         if (f_diff < 0 || l_diff < 2 || f_diff == l_diff) {
 
-          queue_testcase_release(afl, target);
           goto retry_splicing_puppet;
 
         }
@@ -4474,7 +4465,6 @@ pacemaker_fuzzing:
         if (unlikely(!out_buf)) { PFATAL("alloc"); }
         memcpy(out_buf, in_buf, len);
 
-        queue_testcase_release(afl, target);
         splicing_buf = NULL;
 
         goto havoc_stage_puppet;
@@ -4510,7 +4500,6 @@ pacemaker_fuzzing:
       //   if (afl->queue_cur->favored) --afl->pending_favored;
       // }
 
-      queue_testcase_release(afl, afl->queue_cur);
       orig_in = NULL;
 
       if (afl->key_puppet == 1) {
