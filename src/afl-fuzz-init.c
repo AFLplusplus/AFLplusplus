@@ -272,7 +272,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     #elif defined(__DragonFly__)
 
-    if (procs[i].kp_lwp.kl_cpuid < sizeof(cpu_used) &&
+    if (procs[i].kp_lwp.kl_cpuid < (s32)sizeof(cpu_used) &&
         procs[i].kp_lwp.kl_pctcpu > 10)
       cpu_used[procs[i].kp_lwp.kl_cpuid] = 1;
 
