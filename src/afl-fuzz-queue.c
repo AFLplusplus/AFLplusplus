@@ -903,7 +903,7 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
   /* first handle if no testcase cache is configured */
 
-  if (unlikely(!afl->q_testcase_cache_size)) {
+  if (unlikely(!afl->q_testcase_max_cache_size)) {
 
     u8 *buf;
 
