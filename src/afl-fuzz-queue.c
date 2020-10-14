@@ -872,7 +872,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
                            u32 old_len) {
 
-  if (q->testcase_buf) {
+  if (likely(q->testcase_buf)) {
 
     munmap(q->testcase_buf, old_len);
     int fd = open(q->fname, O_RDONLY);
@@ -903,7 +903,7 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
   /* first handle if no testcase cache is configured */
 
-  if (likely(!afl->q_testcase_cache_size)) {
+  if (unlikely(!afl->q_testcase_cache_size)) {
 
     u8 *buf;
 
@@ -933,7 +933,7 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  /* now handle testcase cache */
+  /* now handle the testcase cache */
 
   if (unlikely(!q->testcase_buf)) {
 
