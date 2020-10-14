@@ -52,6 +52,9 @@ behaviours and defaults:
     * -m none is now default, set memory limits (in MB) with e.g. -m 250
     * deterministic fuzzing is now disabled by default (unless using -M) and
       can be enabled with -D
+    * a caching of testcases can now be performed and can be enabled by
+      editing config.h for TESTCASE_CACHE or by specifying the env variable
+      `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500.
 
 ## Contents
 
@@ -555,7 +558,7 @@ is:
 
 All labels are explained in [docs/status_screen.md](docs/status_screen.md).
 
-#### b) Using multiple cores/threads
+#### b) Using multiple cores
 
 If you want to seriously fuzz then use as many cores/threads as possible to
 fuzz your target.
@@ -563,7 +566,12 @@ fuzz your target.
 On the same machine - due to the design of how afl++ works - there is a maximum
 number of CPU cores/threads that are useful, use more and the overall performance
 degrades instead. This value depends on the target, and the limit is between 32
-and 64 cores/threads per machine.
+and 64 cores per machine.
+
+If you have the RAM, it is highly recommended run the instances with a caching
+of the testcases. Depending on the average testcase size (and those found
+during fuzzing) and their number, a value between 50-500MB is recommended.
+You can set the cache size (in MB) by setting the environment variable `AFL_TESTCACHE_SIZE`.
 
 There should be one main fuzzer (`-M main` option) and as many secondary
 fuzzers (eg `-S variant1`) as you have cores that you use.

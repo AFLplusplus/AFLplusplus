@@ -282,6 +282,10 @@ checks or alter some of the more exotic semantics of the tool:
     the target. This must be equal or larger than the size the target was
     compiled with.
 
+  - AFL_TESTCACHE_SIZE allows you to overrider the define in config.h for
+    TESTCASE_CACHE. Recommended values are 50-250MB - or more if your
+    fuzzing finds a huge amount of paths for large inputs.
+
   - Setting AFL_DISABLE_TRIM tells afl-fuzz to no trim test cases. This is
     usually a bad idea!
 
