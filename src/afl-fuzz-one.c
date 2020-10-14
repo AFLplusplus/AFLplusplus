@@ -503,6 +503,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
                !afl->disable_trim)) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
+    orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
 
     if (unlikely(res == FSRV_RUN_ERROR)) {
 
@@ -2631,6 +2632,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     u32 old_len = afl->queue_cur->len;
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
+    orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
 
     if (res == FSRV_RUN_ERROR) {
 
