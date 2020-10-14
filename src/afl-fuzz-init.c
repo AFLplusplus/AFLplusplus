@@ -1045,7 +1045,7 @@ restart_outer_cull_loop:
 
   while (q) {
 
-    if (q->cal_failed || !q->exec_cksum) continue;
+    if (q->cal_failed || !q->exec_cksum) { goto next_entry; }
 
   restart_inner_cull_loop:
 
@@ -1089,6 +1089,8 @@ restart_outer_cull_loop:
       p = p->next;
 
     }
+
+  next_entry:
 
     prev = q;
     q = q->next;
