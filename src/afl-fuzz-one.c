@@ -2150,7 +2150,6 @@ havoc_stage:
 
             afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
             out_buf = new_buf;
-            new_buf = NULL;
             temp_len += clone_len;
 
           }
@@ -2352,7 +2351,6 @@ havoc_stage:
 
             }
 
-            new_buf = NULL;
             break;
 
           }
