@@ -56,7 +56,8 @@ ifeq "$(findstring Foundation,$(shell $(CC) --version))" ""
         CXX = g++
 endif
 
-PLUGIN_FLAGS = -fPIC -fno-rtti -I"$(shell $(CC) -print-file-name=plugin)/include"
+PLUGIN_BASE = "$(shell $(CC) -print-file-name=plugin)"
+PLUGIN_FLAGS = -fPIC -fno-rtti -I$(PLUGIN_BASE)/include -I$(PLUGIN_BASE)
 HASH=\#
 
 GCCVER    = $(shell $(CC) --version 2>/dev/null | awk 'NR == 1 {print $$NF}')
@@ -86,6 +87,10 @@ ifeq "$(shell uname -s)" "OpenBSD"
     CC  = egcc
     CXX = eg++
     PLUGIN_FLAGS += -I/usr/local/include
+endif
+
+ifeq "$(shell uname -s)" "DragonFly"
+  	PLUGIN_FLAGS += -I/usr/local/include
 endif
 
 ifeq "$(shell uname -s)" "SunOS"

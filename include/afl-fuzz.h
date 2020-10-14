@@ -66,6 +66,7 @@
 #include <sched.h>
 
 #include <netdb.h>
+#include <netinet/in.h>
 
 #include <sys/wait.h>
 #include <sys/time.h>
