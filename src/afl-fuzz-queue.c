@@ -56,7 +56,7 @@ void create_alias_table(afl_state_t *afl) {
   int *   S = (u32 *)afl_realloc(AFL_BUF_PARAM(out_scratch), n * sizeof(u32));
   int *   L = (u32 *)afl_realloc(AFL_BUF_PARAM(in_scratch), n * sizeof(u32));
 
-  if (!P || !S || !L) FATAL("could not aquire memory for alias table");
+  if (!P || !S || !L) { FATAL("could not aquire memory for alias table"); }
   memset((void *)afl->alias_table, 0, n * sizeof(u32));
   memset((void *)afl->alias_probability, 0, n * sizeof(double));
 
@@ -66,7 +66,7 @@ void create_alias_table(afl_state_t *afl) {
 
     struct queue_entry *q = afl->queue_buf[i];
 
-    if (!q->disabled) q->perf_score = calculate_score(afl, q);
+    if (!q->disabled) { q->perf_score = calculate_score(afl, q); }
 
     sum += q->perf_score;
 
@@ -75,18 +75,22 @@ void create_alias_table(afl_state_t *afl) {
   for (i = 0; i < n; i++) {
 
     struct queue_entry *q = afl->queue_buf[i];
-
-    P[i] = q->perf_score * n / sum;
+    P[i] = (q->perf_score * n) / sum;
 
   }
 
   int nS = 0, nL = 0, s;
   for (s = (s32)n - 1; s >= 0; --s) {
 
-    if (P[s] < 1)
+    if (P[s] < 1) {
+
       S[nS++] = s;
-    else
+
+    } else {
+
       L[nL++] = s;
+
+    }
 
   }
 
@@ -97,10 +101,15 @@ void create_alias_table(afl_state_t *afl) {
     afl->alias_probability[a] = P[a];
     afl->alias_table[a] = g;
     P[g] = P[g] + P[a] - 1;
-    if (P[g] < 1)
+    if (P[g] < 1) {
+
       S[nS++] = g;
-    else
+
+    } else {
+
       L[nL++] = g;
+
+    }
 
   }
 
@@ -111,10 +120,10 @@ void create_alias_table(afl_state_t *afl) {
     afl->alias_probability[S[--nS]] = 1;
 
   /*
-      fprintf(stderr, "  %-3s  %-3s  %-9s  %-9s\n", "entry", "alias", "prob", "perf");
-      for (u32 i = 0; i < n; ++i)
-        fprintf(stderr, "  %3i  %3i  %9.7f  %9.7f\n", i, afl->alias_table[i],
-                afl->alias_probability[i], afl->queue_buf[i]->perf_score);
+      fprintf(stderr, "  %-3s  %-3s  %-9s  %-9s\n", "entry", "alias", "prob",
+     "perf"); for (u32 i = 0; i < n; ++i) fprintf(stderr, "  %3i  %3i  %9.7f
+     %9.7f\n", i, afl->alias_table[i], afl->alias_probability[i],
+     afl->queue_buf[i]->perf_score);
 
   */
 
@@ -988,3 +997,4 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
   return q->testcase_buf;
 
 }
+

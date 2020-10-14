@@ -4436,7 +4436,7 @@ pacemaker_fuzzing:
         if (unlikely(!out_buf)) { PFATAL("alloc"); }
         memcpy(out_buf, in_buf, len);
         new_buf = NULL;
-        
+
         goto havoc_stage_puppet;
 
       }                                                  /* if splice_cycle */
