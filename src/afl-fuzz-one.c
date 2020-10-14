@@ -370,7 +370,7 @@ static void locate_diffs(u8 *ptr1, u8 *ptr2, u32 len, s32 *first, s32 *last) {
 
 u8 fuzz_one_original(afl_state_t *afl) {
 
-  s32 len, fd, temp_len;
+  s32 len, temp_len;
   u32 j;
   u32 i;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
@@ -453,31 +453,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  /* Map the test case into memory. */
-
-  fd = open(afl->queue_cur->fname, O_RDONLY);
-
-  if (unlikely(fd < 0)) {
-
-    PFATAL("Unable to open '%s'", afl->queue_cur->fname);
-
-  }
-
+  orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
   len = afl->queue_cur->len;
-
-  orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-
-  if (unlikely(orig_in == MAP_FAILED)) {
-
-    PFATAL("Unable to mmap '%s' with len %d", afl->queue_cur->fname, len);
-
-  }
-
-  close(fd);
-
-  /* We could mmap() out_buf as MAP_PRIVATE, but we end up clobbering every
-     single byte anyway, so it wouldn't give us any performance or memory usage
-     benefits. */
 
   out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
   if (unlikely(!out_buf)) { PFATAL("alloc"); }
@@ -526,6 +503,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
                !afl->disable_trim)) {
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
+    orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
 
     if (unlikely(res == FSRV_RUN_ERROR)) {
 
@@ -1720,17 +1698,7 @@ custom_mutator_stage:
             afl->splicing_with = tid;
 
             /* Read the additional testcase into a new buffer. */
-            fd = open(target->fname, O_RDONLY);
-            if (unlikely(fd < 0)) {
-
-              PFATAL("Unable to open '%s'", target->fname);
-
-            }
-
-            new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), target->len);
-            if (unlikely(!new_buf)) { PFATAL("alloc"); }
-            ck_read(fd, new_buf, target->len, target->fname);
-            close(fd);
+            new_buf = queue_testcase_get(afl, target);
             target_len = target->len;
 
           }
@@ -2182,7 +2150,6 @@ havoc_stage:
 
             afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
             out_buf = new_buf;
-            new_buf = NULL;
             temp_len += clone_len;
 
           }
@@ -2326,43 +2293,21 @@ havoc_stage:
             /* Pick a random queue entry and seek to it. */
 
             u32 tid;
-            do
+            do {
+
               tid = rand_below(afl, afl->queued_paths);
-            while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
 
+            } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
+
+            /* Get the testcase for splicing. */
             struct queue_entry *target = afl->queue_buf[tid];
+            u32                 new_len = target->len;
+            u8 *                new_buf = queue_testcase_get(afl, target);
 
-            /* Read the testcase into a new buffer. */
+            if ((temp_len >= 2 && rand_below(afl, 2)) ||
+                temp_len + HAVOC_BLK_XL >= MAX_FILE) {
 
-            fd = open(target->fname, O_RDONLY);
-
-            if (unlikely(fd < 0)) {
-
-              PFATAL("Unable to open '%s'", target->fname);
-
-            }
-
-            u32 new_len = target->len;
-            u8 *new_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), new_len);
-            if (unlikely(!new_buf)) { PFATAL("alloc"); }
-
-            ck_read(fd, new_buf, new_len, target->fname);
-
-            close(fd);
-
-            u8 overwrite = 0;
-            if (temp_len >= 2 && rand_below(afl, 2))
-              overwrite = 1;
-            else if (temp_len + HAVOC_BLK_XL >= MAX_FILE) {
-
-              if (temp_len >= 2)
-                overwrite = 1;
-              else
-                break;
-
-            }
-
-            if (overwrite) {
+              /* overwrite mode */
 
               u32 copy_from, copy_to, copy_len;
 
@@ -2376,15 +2321,16 @@ havoc_stage:
 
             } else {
 
+              /* insert mode */
+
               u32 clone_from, clone_to, clone_len;
 
               clone_len = choose_block_len(afl, new_len);
               clone_from = rand_below(afl, new_len - clone_len + 1);
+              clone_to = rand_below(afl, temp_len + 1);
 
-              clone_to = rand_below(afl, temp_len);
-
-              u8 *temp_buf =
-                  afl_realloc(AFL_BUF_PARAM(out_scratch), temp_len + clone_len);
+              u8 *temp_buf = afl_realloc(AFL_BUF_PARAM(out_scratch),
+                                         temp_len + clone_len + 1);
               if (unlikely(!temp_buf)) { PFATAL("alloc"); }
 
               /* Head */
@@ -2496,21 +2442,10 @@ retry_splicing:
 
     } while (tid == afl->current_entry || afl->queue_buf[tid]->len < 4);
 
+    /* Get the testcase */
     afl->splicing_with = tid;
     target = afl->queue_buf[tid];
-
-    /* Read the testcase into a new buffer. */
-
-    fd = open(target->fname, O_RDONLY);
-
-    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", target->fname); }
-
-    new_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), target->len);
-    if (unlikely(!new_buf)) { PFATAL("alloc"); }
-
-    ck_read(fd, new_buf, target->len, target->fname);
-
-    close(fd);
+    new_buf = queue_testcase_get(afl, target);
 
     /* Find a suitable splicing location, somewhere between the first and
        the last differing byte. Bail out if the difference is just a single
@@ -2527,18 +2462,16 @@ retry_splicing:
     /* Do the thing. */
 
     len = target->len;
-    memcpy(new_buf, in_buf, split_at);
-    afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
-    in_buf = new_buf;
+    afl->in_scratch_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), len);
+    memcpy(afl->in_scratch_buf, in_buf, split_at);
+    memcpy(afl->in_scratch_buf + split_at, new_buf, len - split_at);
+    in_buf = afl->in_scratch_buf;
 
     out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
     if (unlikely(!out_buf)) { PFATAL("alloc"); }
     memcpy(out_buf, in_buf, len);
 
     goto custom_mutator_stage;
-    /* ???: While integrating Python module, the author decided to jump to
-       python stage, but the reason behind this is not clear.*/
-    // goto havoc_stage;
 
   }
 
@@ -2564,9 +2497,7 @@ abandon_entry:
   }
 
   ++afl->queue_cur->fuzz_level;
-
-  munmap(orig_in, afl->queue_cur->len);
-
+  orig_in = NULL;
   return ret_val;
 
 #undef FLIP_BIT
@@ -2587,7 +2518,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
   }
 
-  s32 len, fd, temp_len;
+  s32 len, temp_len;
   u32 i;
   u32 j;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
@@ -2652,32 +2583,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   }
 
   /* Map the test case into memory. */
-
-  fd = open(afl->queue_cur->fname, O_RDONLY);
-
-  if (fd < 0) { PFATAL("Unable to open '%s'", afl->queue_cur->fname); }
-
+  orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
   len = afl->queue_cur->len;
-
-  orig_in = in_buf = mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-
-  if (orig_in == MAP_FAILED) {
-
-    PFATAL("Unable to mmap '%s'", afl->queue_cur->fname);
-
-  }
-
-  close(fd);
-
-  /* We could mmap() out_buf as MAP_PRIVATE, but we end up clobbering every
-     single byte anyway, so it wouldn't give us any performance or memory usage
-     benefits. */
-
   out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
   if (unlikely(!out_buf)) { PFATAL("alloc"); }
-
   afl->subseq_tmouts = 0;
-
   afl->cur_depth = afl->queue_cur->depth;
 
   /*******************************************
@@ -2721,6 +2631,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     u32 old_len = afl->queue_cur->len;
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
+    orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
 
     if (res == FSRV_RUN_ERROR) {
 
@@ -4497,17 +4408,7 @@ pacemaker_fuzzing:
         target = afl->queue_buf[tid];
 
         /* Read the testcase into a new buffer. */
-
-        fd = open(target->fname, O_RDONLY);
-
-        if (fd < 0) { PFATAL("Unable to open '%s'", target->fname); }
-
-        new_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), target->len);
-        if (unlikely(!new_buf)) { PFATAL("alloc"); }
-
-        ck_read(fd, new_buf, target->len, target->fname);
-
-        close(fd);
+        new_buf = queue_testcase_get(afl, target);
 
         /* Find a suitable splicin g location, somewhere between the first and
            the last differing byte. Bail out if the difference is just a single
@@ -4529,9 +4430,11 @@ pacemaker_fuzzing:
         /* Do the thing. */
 
         len = target->len;
-        memcpy(new_buf, in_buf, split_at);
-        afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
-        in_buf = new_buf;
+        afl->in_scratch_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), len);
+        memcpy(afl->in_scratch_buf, in_buf, split_at);
+        memcpy(afl->in_scratch_buf + split_at, new_buf, len - split_at);
+        in_buf = afl->in_scratch_buf;
+
         out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
         if (unlikely(!out_buf)) { PFATAL("alloc"); }
         memcpy(out_buf, in_buf, len);
@@ -4569,7 +4472,7 @@ pacemaker_fuzzing:
       //   if (afl->queue_cur->favored) --afl->pending_favored;
       // }
 
-      munmap(orig_in, afl->queue_cur->len);
+      orig_in = NULL;
 
       if (afl->key_puppet == 1) {
 
