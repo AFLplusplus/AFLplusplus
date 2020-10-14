@@ -711,7 +711,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     });
 
-    if (orig_len != q->len) queue_testcase_retake(afl, q, orig_len);
+    if (orig_len != q->len) { queue_testcase_retake(afl, q, orig_len); }
 
     if (custom_trimmed) return trimmed_case;
 
