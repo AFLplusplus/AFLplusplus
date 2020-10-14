@@ -200,8 +200,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_HOST: change default statsd host (default 127.0.0.1)\n"
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
-      "                        Supported formats are: 'dogstatsd', 'librato', 'signalfx'\n"
-      "                        and 'influxdb'\n"
+      "                        Supported formats are: 'dogstatsd', 'librato',\n"
+      "                        'signalfx' and 'influxdb'\n"
       "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
@@ -1012,14 +1012,25 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl->q_testcase_max_cache_size =
         (u64)atoi(afl->afl_env.afl_testcache_size) * 1024000;
-    OKF("Enabled testcache with %llu MB",
-        afl->q_testcase_max_cache_size / 1024000);
 
-  } else {
+  }
+
+  if (!afl->q_testcase_max_cache_size) {
 
     ACTF(
         "No testcache was configured. it is recommended to use a testcache, it "
         "improves performance: set AFL_TESTCACHE_SIZE=(value in MB)");
+
+  } else if (afl->q_testcase_max_cache_size < 2 * MAX_FILE) {
+
+    FATAL("AFL_TESTCACHE_SIZE must be set to %u or more, or 0 to disable",
+          (2 * MAX_FILE) % 1024000 ? 1 + ((2 * MAX_FILE) / 1024000)
+                                   : (2 * MAX_FILE) / 1024000);
+
+  } else {
+
+    OKF("Enabled testcache with %llu MB",
+        afl->q_testcase_max_cache_size / 1024000);
 
   }
 
