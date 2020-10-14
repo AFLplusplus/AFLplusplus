@@ -1164,5 +1164,9 @@ u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q);
 void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
                            u32 old_len);
 
+#if TESTCASE_CACHE == 1
+#error define of TESTCASE_CACHE must be zero or larger than 1
+#endif
+
 #endif
 
