@@ -692,6 +692,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
 u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
+  u32 orig_len = q->len;
+
   /* Custom mutator trimmer */
   if (afl->custom_mutators_count) {
 
@@ -708,6 +710,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       }
 
     });
+
+    if (orig_len != q->len) { queue_testcase_retake(afl, q, orig_len); }
 
     if (custom_trimmed) return trimmed_case;
 
@@ -841,6 +845,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     }
 
     close(fd);
+
+    if (orig_len != q->len) queue_testcase_retake(afl, q, orig_len);
 
     memcpy(afl->fsrv.trace_bits, afl->clean_trace, afl->fsrv.map_size);
     update_bitmap_score(afl, q);

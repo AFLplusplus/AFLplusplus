@@ -103,6 +103,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stats_avg_exec = -1;
   afl->skip_deterministic = 1;
   afl->use_splicing = 1;
+  afl->q_testcase_max_cache_size = TESTCASE_CACHE * 1024000;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
@@ -351,6 +352,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_forksrv_init_tmout =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_TESTCACHE_SIZE",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_testcache_size =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
           } else if (!strncmp(env, "AFL_STATSD_HOST",

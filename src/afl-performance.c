@@ -71,7 +71,7 @@ inline uint64_t rand_next(afl_state_t *afl) {
 
 inline double rand_next_percent(afl_state_t *afl) {
 
-  return (double)(((double)rand_next(afl)) / (double) 0xffffffffffffffff);
+  return (double)(((double)rand_next(afl)) / (double)0xffffffffffffffff);
 
 }
 

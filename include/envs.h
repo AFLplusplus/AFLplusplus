@@ -139,6 +139,7 @@ static char *afl_environment_variables[] = {
     "AFL_STATSD_HOST",
     "AFL_STATSD_PORT",
     "AFL_STATSD_TAGS_FLAVOR",
+    "AFL_TESTCACHE_SIZE",
     "AFL_TMIN_EXACT",
     "AFL_TMPDIR",
     "AFL_TOKEN_FILE",
