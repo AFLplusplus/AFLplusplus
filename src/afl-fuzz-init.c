@@ -272,7 +272,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     #elif defined(__DragonFly__)
 
-    if (procs[i].kp_lwp.kl_cpuid < sizeof(cpu_used) &&
+    if (procs[i].kp_lwp.kl_cpuid < (s32)sizeof(cpu_used) &&
         procs[i].kp_lwp.kl_pctcpu > 10)
       cpu_used[procs[i].kp_lwp.kl_cpuid] = 1;
 
@@ -1045,7 +1045,7 @@ restart_outer_cull_loop:
 
   while (q) {
 
-    if (q->cal_failed || !q->exec_cksum) continue;
+    if (q->cal_failed || !q->exec_cksum) { goto next_entry; }
 
   restart_inner_cull_loop:
 
@@ -1089,6 +1089,8 @@ restart_outer_cull_loop:
       p = p->next;
 
     }
+
+  next_entry:
 
     prev = q;
     q = q->next;

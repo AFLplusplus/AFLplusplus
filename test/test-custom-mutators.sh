@@ -1,4 +1,4 @@
-f#!/bin/sh
+#!/bin/sh
 
 . ./test-pre.sh
 
