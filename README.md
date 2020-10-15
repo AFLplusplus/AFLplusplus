@@ -1103,7 +1103,7 @@ Thank you!
 
 ## Cite
 
-If you use AFLplusplus in scientific work, consider citing [https://www.usenix.org/conference/woot20/presentation/fioraldi](our paper) presented at WOOT'20:
+If you use AFLplusplus in scientific work, consider citing [our paper](https://www.usenix.org/conference/woot20/presentation/fioraldi) presented at WOOT'20:
 ```
 @inproceedings {AFLplusplus-Woot20,
 	author = {Andrea Fioraldi and Dominik Maier and Heiko Ei{\ss}feldt and Marc Heuse},
