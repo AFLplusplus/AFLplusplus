@@ -870,8 +870,10 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
 }
 
-void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
-                           u32 old_len) {
+/* after a custom trim we need to reload the testcase from disk */
+
+inline void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
+                                  u32 old_len) {
 
   if (likely(q->testcase_buf)) {
 
@@ -879,9 +881,9 @@ void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
 
     if (len != old_len) {
 
-      afl->q_testcase_cache_size =
-          afl->q_testcase_cache_size + q->len - old_len;
+      afl->q_testcase_cache_size = afl->q_testcase_cache_size + len - old_len;
       q->testcase_buf = realloc(q->testcase_buf, len);
+
       if (unlikely(!q->testcase_buf)) {
 
         PFATAL("Unable to malloc '%s' with len %d", q->fname, len);
@@ -901,8 +903,35 @@ void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
 
 }
 
+/* after a normal trim we need to replace the testcase with the new data */
+
+inline void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q,
+                                      u8 *in, u32 len, u32 old_len) {
+
+  if (likely(q->testcase_buf)) {
+
+    if (len != old_len) {
+
+      afl->q_testcase_cache_size = afl->q_testcase_cache_size + len - old_len;
+      q->testcase_buf = realloc(q->testcase_buf, len);
+
+      if (unlikely(!q->testcase_buf)) {
+
+        PFATAL("Unable to malloc '%s' with len %d", q->fname, len);
+
+      }
+
+    }
+
+    memcpy(q->testcase_buf, in, len);
+
+  }
+
+}
+
 /* Returns the testcase buf from the file behind this queue entry.
   Increases the refcount. */
+
 inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
   u32 len = q->len;
@@ -913,7 +942,7 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
     u8 *buf;
 
-    if (q == afl->queue_cur) {
+    if (unlikely(q == afl->queue_cur)) {
 
       buf = afl_realloc((void **)&afl->testcase_buf, len);
 
