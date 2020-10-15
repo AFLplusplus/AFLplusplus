@@ -2465,6 +2465,7 @@ retry_splicing:
     afl->in_scratch_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), len);
     memcpy(afl->in_scratch_buf, in_buf, split_at);
     memcpy(afl->in_scratch_buf + split_at, new_buf, len - split_at);
+    afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
     in_buf = afl->in_scratch_buf;
 
     out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
