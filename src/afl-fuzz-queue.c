@@ -120,10 +120,11 @@ void create_alias_table(afl_state_t *afl) {
     afl->alias_probability[S[--nS]] = 1;
 
   /*
-  fprintf(stderr, "  entry  alias  probability  perf_score\n");
+  fprintf(stderr, "  entry  alias  probability  perf_score   filename\n");
   for (u32 i = 0; i < n; ++i)
-    fprintf(stderr, "  %5u  %5u  %11u  %0.9f\n", i, afl->alias_table[i],
-            afl->alias_probability[i], afl->queue_buf[i]->perf_score);
+    fprintf(stderr, "  %5u  %5u  %11u  %0.9f  %s\n", i, afl->alias_table[i],
+            afl->alias_probability[i], afl->queue_buf[i]->perf_score,
+            afl->queue_buf[i]->fname);
   */
 
 }
