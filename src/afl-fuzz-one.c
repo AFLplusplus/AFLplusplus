@@ -2148,6 +2148,7 @@ havoc_stage:
             memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
                    temp_len - clone_to);
 
+            out_buf = new_buf;
             afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
             temp_len += clone_len;
 
@@ -2344,6 +2345,7 @@ havoc_stage:
               memcpy(temp_buf + clone_to + clone_len, out_buf + clone_to,
                      temp_len - clone_to);
 
+              out_buf = temp_buf;
               afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
               temp_len += clone_len;
 
@@ -4139,6 +4141,7 @@ pacemaker_fuzzing:
                 memcpy(new_buf + clone_to + clone_len, out_buf + clone_to,
                        temp_len - clone_to);
 
+                out_buf = new_buf;
                 afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
                 temp_len += clone_len;
                 MOpt_globals.cycles_v2[STAGE_Clone75] += 1;
