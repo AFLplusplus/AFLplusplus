@@ -1011,7 +1011,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->afl_env.afl_testcache_size) {
 
     afl->q_testcase_max_cache_size =
-        (u64)atoi(afl->afl_env.afl_testcache_size) * 1024000;
+        (u64)atoi(afl->afl_env.afl_testcache_size) * 1048576;
 
   }
 
@@ -1024,8 +1024,8 @@ int main(int argc, char **argv_orig, char **envp) {
   } else if (afl->q_testcase_max_cache_size < 2 * MAX_FILE) {
 
     FATAL("AFL_TESTCACHE_SIZE must be set to %u or more, or 0 to disable",
-          (2 * MAX_FILE) % 1024000 ? 1 + ((2 * MAX_FILE) / 1024000)
-                                   : (2 * MAX_FILE) / 1024000);
+          (2 * MAX_FILE) % 1024000 == 0 ? (2 * MAX_FILE) / 1048576
+                                        : 1 + ((2 * MAX_FILE) / 1048576));
 
   } else {
 
