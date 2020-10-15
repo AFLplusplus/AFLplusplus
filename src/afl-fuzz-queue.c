@@ -875,22 +875,27 @@ void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
 
   if (likely(q->testcase_buf)) {
 
-    free(q->testcase_buf);
+    u32 len = q->len;
+
+    if (len != old_len) {
+
+      afl->q_testcase_cache_size =
+          afl->q_testcase_cache_size + q->len - old_len;
+      q->testcase_buf = realloc(q->testcase_buf, len);
+      if (unlikely(!q->testcase_buf)) {
+
+        PFATAL("Unable to malloc '%s' with len %d", q->fname, len);
+
+      }
+
+    }
+
     int fd = open(q->fname, O_RDONLY);
 
     if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
 
-    u32 len = q->len;
-    q->testcase_buf = malloc(len);
-
-    if (unlikely(!q->testcase_buf)) {
-
-      PFATAL("Unable to mmap '%s' with len %d", q->fname, len);
-
-    }
-
+    ck_read(fd, q->testcase_buf, len, q->fname);
     close(fd);
-    afl->q_testcase_cache_size = afl->q_testcase_cache_size + q->len - old_len;
 
   }
 
