@@ -1101,6 +1101,20 @@ without feedback, bug reports, or patches from:
 Thank you!
 (For people sending pull requests - please add yourself to this list :-)
 
+## Cite
+
+If you use AFLplusplus in scientific work, consider citing [https://www.usenix.org/conference/woot20/presentation/fioraldi](our paper) presented at WOOT'20:
+```
+@inproceedings {AFLplusplus-Woot20,
+	author = {Andrea Fioraldi and Dominik Maier and Heiko Ei{\ss}feldt and Marc Heuse},
+	title = {{AFL++}: Combining Incremental Steps of Fuzzing Research},
+	booktitle = {14th {USENIX} Workshop on Offensive Technologies ({WOOT} 20)},
+	year = {2020},
+	publisher = {{USENIX} Association},
+	month = aug,
+}
+```
+
 ## Contact
 
 Questions? Concerns? Bug reports? The contributors can be reached via
