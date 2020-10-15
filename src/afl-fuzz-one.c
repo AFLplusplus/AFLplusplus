@@ -2149,7 +2149,6 @@ havoc_stage:
                    temp_len - clone_to);
 
             afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
-            out_buf = new_buf;
             temp_len += clone_len;
 
           }
@@ -2346,7 +2345,6 @@ havoc_stage:
                      temp_len - clone_to);
 
               afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
-              out_buf = temp_buf;
               temp_len += clone_len;
 
             }
@@ -2465,8 +2463,8 @@ retry_splicing:
     afl->in_scratch_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), len);
     memcpy(afl->in_scratch_buf, in_buf, split_at);
     memcpy(afl->in_scratch_buf + split_at, new_buf, len - split_at);
-    afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
     in_buf = afl->in_scratch_buf;
+    afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
 
     out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
     if (unlikely(!out_buf)) { PFATAL("alloc"); }
@@ -4142,7 +4140,6 @@ pacemaker_fuzzing:
                        temp_len - clone_to);
 
                 afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
-                out_buf = new_buf;
                 temp_len += clone_len;
                 MOpt_globals.cycles_v2[STAGE_Clone75] += 1;
 
@@ -4434,8 +4431,8 @@ pacemaker_fuzzing:
         afl->in_scratch_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), len);
         memcpy(afl->in_scratch_buf, in_buf, split_at);
         memcpy(afl->in_scratch_buf + split_at, new_buf, len - split_at);
-        afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
         in_buf = afl->in_scratch_buf;
+        afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
 
         out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
         if (unlikely(!out_buf)) { PFATAL("alloc"); }
