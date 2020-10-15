@@ -31,11 +31,12 @@
 
 inline u32 select_next_queue_entry(afl_state_t *afl) {
 
-  u32 s = rand_below(afl, afl->queued_paths);
+  u32    s = rand_below(afl, afl->queued_paths);
   double p = rand_next_percent(afl);
   /*
   fprintf(stderr, "select: p=%f s=%u ... p < prob[s]=%f ? s=%u : alias[%u]=%u"
-  " ==> %u\n", p, s, afl->alias_probability[s], s, s, afl->alias_table[s], p < afl->alias_probability[s] ? s : afl->alias_table[s]);
+  " ==> %u\n", p, s, afl->alias_probability[s], s, s, afl->alias_table[s], p <
+  afl->alias_probability[s] ? s : afl->alias_table[s]);
   */
   return (p < afl->alias_probability[s] ? s : afl->alias_table[s]);
 
@@ -55,7 +56,7 @@ void create_alias_table(afl_state_t *afl) {
   int *   S = (u32 *)afl_realloc(AFL_BUF_PARAM(out_scratch), n * sizeof(u32));
   int *   L = (u32 *)afl_realloc(AFL_BUF_PARAM(in_scratch), n * sizeof(u32));
 
-  if (!P || !S || !L) FATAL("could not aquire memory for alias table");
+  if (!P || !S || !L) { FATAL("could not aquire memory for alias table"); }
   memset((void *)afl->alias_table, 0, n * sizeof(u32));
   memset((void *)afl->alias_probability, 0, n * sizeof(double));
 
@@ -65,7 +66,7 @@ void create_alias_table(afl_state_t *afl) {
 
     struct queue_entry *q = afl->queue_buf[i];
 
-    if (!q->disabled) q->perf_score = calculate_score(afl, q);
+    if (!q->disabled) { q->perf_score = calculate_score(afl, q); }
 
     sum += q->perf_score;
 
@@ -74,18 +75,22 @@ void create_alias_table(afl_state_t *afl) {
   for (i = 0; i < n; i++) {
 
     struct queue_entry *q = afl->queue_buf[i];
-
-    P[i] = q->perf_score * n / sum;
+    P[i] = (q->perf_score * n) / sum;
 
   }
 
   int nS = 0, nL = 0, s;
   for (s = (s32)n - 1; s >= 0; --s) {
 
-    if (P[s] < 1)
+    if (P[s] < 1) {
+
       S[nS++] = s;
-    else
+
+    } else {
+
       L[nL++] = s;
+
+    }
 
   }
 
@@ -96,10 +101,15 @@ void create_alias_table(afl_state_t *afl) {
     afl->alias_probability[a] = P[a];
     afl->alias_table[a] = g;
     P[g] = P[g] + P[a] - 1;
-    if (P[g] < 1)
+    if (P[g] < 1) {
+
       S[nS++] = g;
-    else
+
+    } else {
+
       L[nL++] = g;
+
+    }
 
   }
 
@@ -110,11 +120,11 @@ void create_alias_table(afl_state_t *afl) {
     afl->alias_probability[S[--nS]] = 1;
 
   /*
-      fprintf(stderr, "  %-3s  %-3s  %-9s  %-9s\n", "entry", "alias", "prob", "perf");
-      for (u32 i = 0; i < n; ++i)
-        fprintf(stderr, "  %3i  %3i  %9.7f  %9.7f\n", i, afl->alias_table[i],
-                afl->alias_probability[i], afl->queue_buf[i]->perf_score);
-
+  fprintf(stderr, "  entry  alias  probability  perf_score   filename\n");
+  for (u32 i = 0; i < n; ++i)
+    fprintf(stderr, "  %5u  %5u  %11u  %0.9f  %s\n", i, afl->alias_table[i],
+            afl->alias_probability[i], afl->queue_buf[i]->perf_score,
+            afl->queue_buf[i]->fname);
   */
 
 }
@@ -857,6 +867,168 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   }
 
   return perf_score;
+
+}
+
+/* after a custom trim we need to reload the testcase from disk */
+
+inline void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
+                                  u32 old_len) {
+
+  if (likely(q->testcase_buf)) {
+
+    u32 len = q->len;
+
+    if (len != old_len) {
+
+      afl->q_testcase_cache_size = afl->q_testcase_cache_size + len - old_len;
+      q->testcase_buf = realloc(q->testcase_buf, len);
+
+      if (unlikely(!q->testcase_buf)) {
+
+        PFATAL("Unable to malloc '%s' with len %d", q->fname, len);
+
+      }
+
+    }
+
+    int fd = open(q->fname, O_RDONLY);
+
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+
+    ck_read(fd, q->testcase_buf, len, q->fname);
+    close(fd);
+
+  }
+
+}
+
+/* after a normal trim we need to replace the testcase with the new data */
+
+inline void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q,
+                                      u8 *in, u32 len, u32 old_len) {
+
+  if (likely(q->testcase_buf)) {
+
+    if (len != old_len) {
+
+      afl->q_testcase_cache_size = afl->q_testcase_cache_size + len - old_len;
+      q->testcase_buf = realloc(q->testcase_buf, len);
+
+      if (unlikely(!q->testcase_buf)) {
+
+        PFATAL("Unable to malloc '%s' with len %d", q->fname, len);
+
+      }
+
+    }
+
+    memcpy(q->testcase_buf, in, len);
+
+  }
+
+}
+
+/* Returns the testcase buf from the file behind this queue entry.
+  Increases the refcount. */
+
+inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
+
+  u32 len = q->len;
+
+  /* first handle if no testcase cache is configured */
+
+  if (unlikely(!afl->q_testcase_max_cache_size)) {
+
+    u8 *buf;
+
+    if (unlikely(q == afl->queue_cur)) {
+
+      buf = afl_realloc((void **)&afl->testcase_buf, len);
+
+    } else {
+
+      buf = afl_realloc((void **)&afl->splicecase_buf, len);
+
+    }
+
+    if (unlikely(!buf)) {
+
+      PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
+
+    }
+
+    int fd = open(q->fname, O_RDONLY);
+
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+
+    ck_read(fd, buf, len, q->fname);
+    close(fd);
+    return buf;
+
+  }
+
+  /* now handle the testcase cache */
+
+  if (unlikely(!q->testcase_buf)) {
+
+    /* Buf not cached, let's load it */
+    u32 tid = 0;
+
+    while (unlikely(afl->q_testcase_cache_size + len >=
+                        afl->q_testcase_max_cache_size ||
+                    afl->q_testcase_cache_count >= TESTCASE_ENTRIES - 1)) {
+
+      /* Cache full. We neet to evict one to map one.
+         Get a random one which is not in use */
+
+      do {
+
+        tid = rand_below(afl, afl->q_testcase_max_cache_count);
+
+      } while (afl->q_testcase_cache[tid] == NULL ||
+
+               afl->q_testcase_cache[tid] == afl->queue_cur);
+
+      struct queue_entry *old_cached = afl->q_testcase_cache[tid];
+      free(old_cached->testcase_buf);
+      old_cached->testcase_buf = NULL;
+      afl->q_testcase_cache_size -= old_cached->len;
+      afl->q_testcase_cache[tid] = NULL;
+      --afl->q_testcase_cache_count;
+
+    }
+
+    while (likely(afl->q_testcase_cache[tid] != NULL))
+      ++tid;
+
+    /* Map the test case into memory. */
+
+    int fd = open(q->fname, O_RDONLY);
+
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+
+    q->testcase_buf = malloc(len);
+
+    if (unlikely(!q->testcase_buf)) {
+
+      PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
+
+    }
+
+    ck_read(fd, q->testcase_buf, len, q->fname);
+    close(fd);
+
+    /* Register testcase as cached */
+    afl->q_testcase_cache[tid] = q;
+    afl->q_testcase_cache_size += q->len;
+    ++afl->q_testcase_cache_count;
+    if (tid >= afl->q_testcase_max_cache_count)
+      afl->q_testcase_max_cache_count = tid + 1;
+
+  }
+
+  return q->testcase_buf;
 
 }
 
