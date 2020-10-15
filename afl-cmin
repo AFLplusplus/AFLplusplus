@@ -133,6 +133,8 @@ BEGIN {
 
   # defaults
   extra_par = ""
+  AFL_CMIN_CRASHES_ONLY = ""
+
   # process options
   Opterr = 1    # default is to diagnose
   Optind = 1    # skip ARGV[0]
@@ -169,7 +171,7 @@ BEGIN {
       continue
     } else 
     if (_go_c == "C") {
-      ENVIRON["AFL_CMIN_CRASHES_ONLY"] = 1
+      AFL_CMIN_CRASHES_ONLY = "AFL_CMIN_CRASHES_ONLY=1 "
       continue
     } else 
     if (_go_c == "e") {
@@ -365,10 +367,10 @@ BEGIN {
   print "[*] Testing the target binary..."
 
   if (!stdin_file) {
-    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"first_file"\"")
+    system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"first_file"\"")
   } else {
     system("cp "in_dir"/"first_file" "stdin_file)
-    system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+    system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
   }
 
   first_count = 0
@@ -399,10 +401,12 @@ BEGIN {
   cur = 0;
   if (!stdin_file) {
     print "    Processing "in_count" files (forkserver mode)..."
-    retval = system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
+#    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string
+    retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string)
   } else {
     print "    Processing "in_count" files (forkserver mode)..."
-    retval = system( "AFL_CMIN_ALLOW_ANY=1 \""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null")
+#    print AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null"
+    retval = system( AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"\" -Z "extra_par" -i \""in_dir"\" -- \""target_bin"\" "prog_args_string" </dev/null")
   }
 
   if (retval) {
