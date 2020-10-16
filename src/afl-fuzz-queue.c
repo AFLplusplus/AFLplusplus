@@ -1021,7 +1021,7 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
     /* Register testcase as cached */
     afl->q_testcase_cache[tid] = q;
-    afl->q_testcase_cache_size += q->len;
+    afl->q_testcase_cache_size += len;
     ++afl->q_testcase_cache_count;
     if (tid >= afl->q_testcase_max_cache_count)
       afl->q_testcase_max_cache_count = tid + 1;
@@ -1029,6 +1029,47 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
   }
 
   return q->testcase_buf;
+
+}
+
+/* Adds the new queue entry to the cache. */
+
+inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
+                                     u8 *mem) {
+
+  u32 len = q->len;
+
+  if (unlikely(afl->q_testcase_cache_size + len >=
+                   afl->q_testcase_max_cache_size ||
+               afl->q_testcase_cache_count >= TESTCASE_ENTRIES - 1)) {
+
+    return;
+
+  }
+
+  u32 tid = 0;
+
+  while (likely(afl->q_testcase_cache[tid] != NULL))
+    ++tid;
+
+  /* Map the test case into memory. */
+
+  q->testcase_buf = malloc(len);
+
+  if (unlikely(!q->testcase_buf)) {
+
+    PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
+
+  }
+
+  memcpy(q->testcase_buf, mem, len);
+
+  /* Register testcase as cached */
+  afl->q_testcase_cache[tid] = q;
+  afl->q_testcase_cache_size += len;
+  ++afl->q_testcase_cache_count;
+  if (tid >= afl->q_testcase_max_cache_count)
+    afl->q_testcase_max_cache_count = tid + 1;
 
 }
 

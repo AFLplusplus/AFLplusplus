@@ -1169,6 +1169,10 @@ void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
 void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q, u8 *in,
                                u32 len, u32 old_len);
 
+/* Add a new queue entry directly to the cache */
+
+void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q, u8 *mem);
+
 #if TESTCASE_CACHE == 1
   #error define of TESTCASE_CACHE must be zero or larger than 1
 #endif
