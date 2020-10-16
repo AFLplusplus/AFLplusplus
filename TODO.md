@@ -7,7 +7,6 @@
  - afl-plot to support multiple plot_data
  - afl_custom_fuzz_splice_optin()
  - intel-pt tracer
- - https://github.com/zyingp/desockmulti ?
 
 ## Further down the road
 
@@ -17,9 +16,6 @@ afl-fuzz:
 
 llvm_mode:
  - add __sanitizer_cov_trace_cmp* support
-
-gcc_plugin:
- - (wait for submission then decide)
 
 qemu_mode:
  - non colliding instrumentation
