@@ -742,8 +742,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'f':  // only in here to avoid a compiler warning for use_stdin
 
-        fsrv->use_stdin = 0;
         FATAL("Option -f is not supported in afl-showmap");
+        // currently not reached:
+        fsrv->use_stdin = 0;
+        fsrv->out_file = strdup(optarg);
 
         break;
 
@@ -1015,6 +1017,7 @@ int main(int argc, char **argv_orig, char **envp) {
         alloc_printf("%s/.afl-showmap-temp-%u", use_dir, (u32)getpid());
     unlink(stdin_file);
     atexit(at_exit_handler);
+    afl->fsrv.out_file = stdin_file;
     fsrv->out_fd = open(stdin_file, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
 
