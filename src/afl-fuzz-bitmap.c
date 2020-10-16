@@ -623,6 +623,12 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     ck_write(fd, mem, len, queue_fn);
     close(fd);
 
+    if (likely(afl->q_testcase_max_cache_size)) {
+
+      queue_testcase_store_mem(afl, afl->queue_top, mem);
+
+    }
+
     keeping = 1;
 
   }
