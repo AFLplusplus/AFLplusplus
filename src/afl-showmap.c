@@ -209,6 +209,13 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
   if (!outfile) { FATAL("Output filename not set (Bug in AFL++?)"); }
 
+  if (cmin_mode && (fsrv->last_run_timed_out
+      || (!caa && child_crashed != cco))) {
+
+     return ret;
+
+  }
+
   if (!strncmp(outfile, "/dev/", 5)) {
 
     fd = open(outfile, O_WRONLY);
@@ -255,9 +262,6 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
       if (cmin_mode) {
 
-        if (fsrv->last_run_timed_out) { break; }
-        if (!caa && child_crashed != cco) { break; }
-
         fprintf(f, "%u%u\n", fsrv->trace_bits[i], i);
 
       } else {
@@ -291,6 +295,37 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
   }
 
   classify_counts(fsrv);
+
+  if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
+
+  if (!fsrv->last_run_timed_out && !stop_soon && WIFSIGNALED(fsrv->child_status)) {
+
+    child_crashed = 1;
+
+  } else {
+
+    child_crashed = 0;
+
+  }
+
+  if (!quiet_mode) {
+
+    if (fsrv->last_run_timed_out) {
+
+      SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
+
+    } else if (stop_soon) {
+
+      SAYF(cLRD "\n+++ Program aborted by user +++\n" cRST);
+
+    } else if (child_crashed) {
+
+      SAYF(cLRD "\n+++ Program killed by signal %u +++\n" cRST,
+           WTERMSIG(fsrv->child_status));
+
+    }
+
+  }
 
   if (stop_soon) {
 
@@ -1156,8 +1191,17 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_shm_deinit(&shm);
   if (fsrv->use_shmem_fuzz) shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-  u32 ret = child_crashed * 2 + fsrv->last_run_timed_out;
+  u32 ret;
 
+  if (cmin_mode && !!getenv("AFL_CMIN_CRASHES_ONLY")) {
+
+    ret = fsrv->last_run_timed_out;
+
+  } else {
+
+    ret = child_crashed * 2 + fsrv->last_run_timed_out;
+
+  }
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
 
   afl_fsrv_deinit(fsrv);
