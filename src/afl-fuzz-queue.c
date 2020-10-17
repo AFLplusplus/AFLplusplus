@@ -996,6 +996,7 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
       afl->q_testcase_cache_size -= old_cached->len;
       afl->q_testcase_cache[tid] = NULL;
       --afl->q_testcase_cache_count;
+      ++afl->q_testcase_evictions;
 
     }
 
