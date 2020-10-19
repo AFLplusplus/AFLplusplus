@@ -179,9 +179,9 @@ void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
 
 void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
-  u8 fn[PATH_MAX];
+  if (likely(state == q->fs_redundant)) { return; }
 
-  if (state == q->fs_redundant) { return; }
+  u8 fn[PATH_MAX];
 
   q->fs_redundant = state;
 
@@ -521,12 +521,12 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
 void cull_queue(afl_state_t *afl) {
 
+  if (likely(!afl->score_changed || afl->non_instrumented_mode)) { return; }
+
   struct queue_entry *q;
   u32                 len = (afl->fsrv.map_size >> 3);
   u32                 i;
   u8 *                temp_v = afl->map_tmp_buf;
-
-  if (afl->non_instrumented_mode || !afl->score_changed) { return; }
 
   afl->score_changed = 0;
 

@@ -209,10 +209,10 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
   if (!outfile) { FATAL("Output filename not set (Bug in AFL++?)"); }
 
-  if (cmin_mode && (fsrv->last_run_timed_out
-      || (!caa && child_crashed != cco))) {
+  if (cmin_mode &&
+      (fsrv->last_run_timed_out || (!caa && child_crashed != cco))) {
 
-     return ret;
+    return ret;
 
   }
 
@@ -298,7 +298,8 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
 
-  if (!fsrv->last_run_timed_out && !stop_soon && WIFSIGNALED(fsrv->child_status)) {
+  if (!fsrv->last_run_timed_out && !stop_soon &&
+      WIFSIGNALED(fsrv->child_status)) {
 
     child_crashed = 1;
 
@@ -1202,6 +1203,7 @@ int main(int argc, char **argv_orig, char **envp) {
     ret = child_crashed * 2 + fsrv->last_run_timed_out;
 
   }
+
   if (fsrv->target_path) { ck_free(fsrv->target_path); }
 
   afl_fsrv_deinit(fsrv);
