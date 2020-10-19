@@ -1378,10 +1378,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   u32 runs_in_current_cycle = (u32)-1;
   u32 prev_queued_paths = 0;
+  u8  skipped_fuzz;
 
-  while (1) {
-
-    u8 skipped_fuzz;
+  while (likely(!afl->stop_soon)) {
 
     cull_queue(afl);
 
@@ -1418,8 +1417,8 @@ int main(int argc, char **argv_orig, char **envp) {
       /* If we had a full queue cycle with no new finds, try
          recombination strategies next. */
 
-      if (afl->queued_paths == prev_queued &&
-          (get_cur_time() - afl->start_time) >= 3600) {
+      if (unlikely(afl->queued_paths == prev_queued &&
+                   (get_cur_time() - afl->start_time) >= 3600)) {
 
         if (afl->use_splicing) {
 
@@ -1534,25 +1533,39 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (likely(!afl->old_seed_selection)) {
+    ++runs_in_current_cycle;
 
-      ++runs_in_current_cycle;
-      if (unlikely(prev_queued_paths < afl->queued_paths)) {
+    do {
 
-        // we have new queue entries since the last run, recreate alias table
-        prev_queued_paths = afl->queued_paths;
-        create_alias_table(afl);
+      if (likely(!afl->old_seed_selection)) {
+
+        if (unlikely(prev_queued_paths < afl->queued_paths)) {
+
+          // we have new queue entries since the last run, recreate alias table
+          prev_queued_paths = afl->queued_paths;
+          create_alias_table(afl);
+
+        }
+
+        afl->current_entry = select_next_queue_entry(afl);
+        afl->queue_cur = afl->queue_buf[afl->current_entry];
 
       }
 
-      afl->current_entry = select_next_queue_entry(afl);
-      afl->queue_cur = afl->queue_buf[afl->current_entry];
+      skipped_fuzz = fuzz_one(afl);
 
-    }
+      if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
 
-    skipped_fuzz = fuzz_one(afl);
+      if (unlikely(afl->old_seed_selection)) {
 
-    if (!skipped_fuzz && !afl->stop_soon && afl->sync_id) {
+        afl->queue_cur = afl->queue_cur->next;
+        ++afl->current_entry;
+
+      }
+
+    } while (skipped_fuzz && afl->queue_cur && !afl->stop_soon);
+
+    if (!afl->stop_soon && afl->sync_id) {
 
       if (unlikely(afl->is_main_node)) {
 
@@ -1563,17 +1576,6 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
 
       }
-
-    }
-
-    if (!afl->stop_soon && exit_1) { afl->stop_soon = 2; }
-
-    if (afl->stop_soon) { break; }
-
-    if (unlikely(afl->old_seed_selection)) {
-
-      afl->queue_cur = afl->queue_cur->next;
-      ++afl->current_entry;
 
     }
 

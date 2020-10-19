@@ -7,6 +7,7 @@
  - afl-plot to support multiple plot_data
  - afl_custom_fuzz_splice_optin()
  - intel-pt tracer
+ - own sancov for llvm 12
 
 ## Further down the road
 
