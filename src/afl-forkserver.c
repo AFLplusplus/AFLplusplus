@@ -140,7 +140,7 @@ read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms, volatile u8 *stop_soon_p) {
   timeout.tv_sec = (timeout_ms / 1000);
   timeout.tv_usec = (timeout_ms % 1000) * 1000;
 #if !defined(__linux__)
-  u64 read_start = get_cur_time_us();
+  u32 read_start = get_cur_time_us();
 #endif
 
   /* set exceptfds as well to return when a child exited/closed the pipe. */
@@ -166,7 +166,7 @@ restart_select:
           timeout_ms,
           ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
 #else
-      u32 exec_ms = MIN(timeout_ms, get_cur_time_us() - read_start);
+      u32 exec_ms = MIN(timeout_ms, (get_cur_time_us() - read_start) / 1000);
 #endif
 
       // ensure to report 1 ms has passed (0 is an error)
