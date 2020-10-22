@@ -210,9 +210,9 @@ static u8 check_if_text(struct queue_entry *q) {
 
   if (q->len < AFL_TXT_MIN_LEN) return 0;
 
-  u8  buf[MAX_FILE];
-  int fd;
-  u32 len = q->len, offset = 0, ascii = 0, utf8 = 0;
+  u8      buf[MAX_FILE];
+  int     fd;
+  u32     len = q->len, offset = 0, ascii = 0, utf8 = 0;
   ssize_t comp;
 
   if (len >= MAX_FILE) len = MAX_FILE - 1;
@@ -913,7 +913,7 @@ inline void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q,
 
   if (likely(q->testcase_buf)) {
 
-    if (len != old_len) {
+    if (likely(len != old_len)) {
 
       afl->q_testcase_cache_size = afl->q_testcase_cache_size + len - old_len;
       q->testcase_buf = realloc(q->testcase_buf, len);
@@ -976,17 +976,21 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
   if (unlikely(!q->testcase_buf)) {
 
     /* Buf not cached, let's load it */
-    u32 tid = 0;
+    u32 tid = afl->q_testcase_max_cache_count;
 
     while (unlikely(afl->q_testcase_cache_size + len >=
                         afl->q_testcase_max_cache_size ||
                     afl->q_testcase_cache_count >= TESTCASE_ENTRIES - 1)) {
 
-      /* Cache full. We neet to evict one to map one.
+      /* Cache full. We neet to evict one or more to map one.
          Get a random one which is not in use */
 
       do {
 
+        // if the cache (MB) is not enough for the queue then this gets
+        // undesirable because q_testcase_max_cache_count grows sometimes
+        // although the number of items in the cache will not change hence
+        // more and more loops
         tid = rand_below(afl, afl->q_testcase_max_cache_count);
 
       } while (afl->q_testcase_cache[tid] == NULL ||
@@ -1003,7 +1007,16 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
     }
 
-    while (likely(afl->q_testcase_cache[tid] != NULL))
+    if (tid >= TESTCASE_ENTRIES) {
+
+      // uh we were full, so now we have to search from start
+      tid = 0;
+
+    }
+
+    // we need this while loop in case there were ever previous evictions but
+    // not in this call.
+    while (unlikely(afl->q_testcase_cache[tid] != NULL))
       ++tid;
 
     /* Map the test case into memory. */
@@ -1047,6 +1060,7 @@ inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
                    afl->q_testcase_max_cache_size ||
                afl->q_testcase_cache_count >= TESTCASE_ENTRIES - 1)) {
 
+    // no space? will be loaded regularly later.
     return;
 
   }
