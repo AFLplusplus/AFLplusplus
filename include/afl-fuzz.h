@@ -704,7 +704,10 @@ typedef struct afl_state {
   /* How many queue entries currently have cached testcases */
   u32 q_testcase_cache_count;
 
-  /* How often did we evict from the cache */
+  /* the smallest id currently known free entry */
+  u32 q_testcase_smallest_free;
+
+  /* How often did we evict from the cache (for statistics only) */
   u32 q_testcase_evictions;
 
   /* Refs to each queue entry with cached testcase (for eviction, if cache_count
