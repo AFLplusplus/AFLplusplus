@@ -1004,13 +1004,15 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
       afl->q_testcase_cache[tid] = NULL;
       --afl->q_testcase_cache_count;
       ++afl->q_testcase_evictions;
+      if (tid < afl->q_testcase_smallest_free)
+        afl->q_testcase_smallest_free = tid;
 
     }
 
-    if (tid >= TESTCASE_ENTRIES) {
+    if (unlikely(tid >= TESTCASE_ENTRIES)) {
 
       // uh we were full, so now we have to search from start
-      tid = 0;
+      tid = afl->q_testcase_smallest_free;
 
     }
 
@@ -1042,6 +1044,8 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
     ++afl->q_testcase_cache_count;
     if (tid >= afl->q_testcase_max_cache_count)
       afl->q_testcase_max_cache_count = tid + 1;
+    if (tid == afl->q_testcase_smallest_free)
+      afl->q_testcase_smallest_free = tid + 1;
 
   }
 
