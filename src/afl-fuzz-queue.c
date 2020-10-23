@@ -985,6 +985,24 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
       /* Cache full. We neet to evict one or more to map one.
          Get a random one which is not in use */
 
+      if (unlikely(afl->q_testcase_cache_size + len >= afl->q_testcase_max_cache_size &&
+          (afl->q_testcase_cache_count < afl->q_testcase_max_cache_entries &&
+           afl->q_testcase_max_cache_count <
+               afl->q_testcase_max_cache_entries))) {
+
+        if (afl->q_testcase_max_cache_count > afl->q_testcase_cache_count) {
+
+          afl->q_testcase_max_cache_entries =
+              afl->q_testcase_max_cache_count + 1;
+
+        } else {
+
+          afl->q_testcase_max_cache_entries = afl->q_testcase_cache_count + 1;
+
+        }
+
+      }
+
       do {
 
         // if the cache (MB) is not enough for the queue then this gets
