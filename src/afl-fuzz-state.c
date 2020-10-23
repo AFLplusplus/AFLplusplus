@@ -104,7 +104,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->skip_deterministic = 1;
   afl->use_splicing = 1;
   afl->q_testcase_max_cache_size = TESTCASE_CACHE_SIZE * 1048576UL;
-  afl->q_testcase_max_cache_entries = 4096;
+  afl->q_testcase_max_cache_entries = 64 * 1024;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
