@@ -55,5 +55,5 @@ script:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then export LLVM_CONFIG=`pwd`/"$NAME" ; make source-only ASAN_BUILD=1 ; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" -a "$TRAVIS_CPU_ARCH" = "amd64" ]; then make distrib ASAN_BUILD=1 ; fi
   - if [ "$TRAVIS_CPU_ARCH" = "arm64" ] ; then export LLVM_CONFIG=llvm-config-6.0 ; make ASAN_BUILD=1 ; cd qemu_mode && sh ./build_qemu_support.sh ; cd .. ; fi
-  - make tests
+  - export ASAN_OPTIONS="abort_on_error=1:detect_leaks=0:symbolize=1" ; make tests
 #  - travis_terminate 0
