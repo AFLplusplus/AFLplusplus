@@ -295,14 +295,12 @@
 
 #define RESEED_RNG 100000
 
-/* The maximum number of testcases to cache */
-
-#define TESTCASE_ENTRIES 16384
-
 /* The default maximum testcase cache size in MB, 0 = disable.
-   A value between 50 and 250 is a good default value. */
+   A value between 50 and 250 is a good default value. Note that the
+   number of entries will be auto assigned if not specified via the
+   AFL_TESTCACHE_ENTRIES env variable */
 
-#define TESTCASE_CACHE 0
+#define TESTCASE_CACHE_SIZE 50
 
 /* Maximum line length passed from GCC to 'as' and used for parsing
    configuration files: */

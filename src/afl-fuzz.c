@@ -251,7 +251,7 @@ static int stricmp(char const *a, char const *b) {
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  s32 opt, i, auto_sync = 0;
+  s32 opt, i, auto_sync = 0, user_set_cache = 0;
   u64 prev_queued = 0;
   u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, map_size = MAP_SIZE;
   u8 *extras_dir[4];
@@ -1015,6 +1015,22 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->afl_env.afl_testcache_entries) {
+
+    afl->q_testcase_max_cache_entries =
+        (u32)atoi(afl->afl_env.afl_testcache_entries);
+
+    user_set_cache = 1;
+
+  }
+
+  if (!afl->afl_env.afl_testcache_size || !afl->afl_env.afl_testcache_entries) {
+
+    afl->afl_env.afl_testcache_entries = 0;
+    afl->afl_env.afl_testcache_size = 0;
+
+  }
+
   if (!afl->q_testcase_max_cache_size) {
 
     ACTF(
@@ -1347,6 +1363,52 @@ int main(int argc, char **argv_orig, char **envp) {
 
   perform_dry_run(afl);
 
+  if (!user_set_cache && afl->q_testcase_max_cache_size) {
+
+    /* The user defined not a fixed number of entries for the cache.
+       Hence we autodetect a good value. After the dry run inputs are
+       trimmed and we know the average and max size of the input seeds.
+       We use this information to set a fitting size to max entries
+       based on the cache size. */
+
+    struct queue_entry *q = afl->queue;
+    u64                 size = 0, count = 0, avg = 0, max = 0;
+
+    while (q) {
+
+      ++count;
+      size += q->len;
+      if (max < q->len) { max = q->len; }
+      q = q->next;
+
+    }
+
+    if (count) {
+
+      avg = size / count;
+      avg = ((avg + max) / 2) + 1;
+
+    }
+
+    if (avg < 10240) { avg = 10240; }
+
+    afl->q_testcase_max_cache_entries = afl->q_testcase_max_cache_size / avg;
+
+    if (afl->q_testcase_max_cache_entries > 32768)
+      afl->q_testcase_max_cache_entries = 32768;
+
+  }
+
+  if (afl->q_testcase_max_cache_entries) {
+
+    OKF("Setting %u maximum entries for the testcase cache",
+        afl->q_testcase_max_cache_entries);
+    afl->q_testcase_cache =
+        ck_alloc(afl->q_testcase_max_cache_entries * sizeof(size_t));
+    if (!afl->q_testcase_cache) { PFATAL("malloc failed for cache entries"); }
+
+  }
+
   cull_queue(afl);
 
   if (!afl->pending_not_fuzzed)
@@ -1366,8 +1428,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->not_on_tty) {
 
-    sleep(4);
-    afl->start_time += 4000;
+    sleep(1);
     if (afl->stop_soon) { goto stop_fuzzing; }
 
   }
@@ -1654,6 +1715,7 @@ stop_fuzzing:
   ck_free(afl->fsrv.target_path);
   ck_free(afl->fsrv.out_file);
   ck_free(afl->sync_id);
+  if (afl->q_testcase_cache) { ck_free(afl->q_testcase_cache); }
   afl_state_deinit(afl);
   free(afl);                                                 /* not tracked */
 

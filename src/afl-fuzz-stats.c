@@ -1028,7 +1028,7 @@ void show_init_stats(afl_state_t *afl) {
 
   }
 
-  SAYF("\n");
+  // SAYF("\n");
 
   if (avg_us > ((afl->fsrv.qemu_mode || afl->unicorn_mode) ? 50000 : 10000)) {
 

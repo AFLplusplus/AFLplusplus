@@ -366,7 +366,7 @@ typedef struct afl_env_vars {
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
-      *afl_statsd_tags_flavor, *afl_testcache_size;
+      *afl_statsd_tags_flavor, *afl_testcache_size, *afl_testcache_entries;
 
 } afl_env_vars_t;
 
@@ -695,6 +695,9 @@ typedef struct afl_state {
   /* This is the user specified maximum size to use for the testcase cache */
   u64 q_testcase_max_cache_size;
 
+  /* This is the user specified maximum entries in the testcase cache */
+  u32 q_testcase_max_cache_entries;
+
   /* How much of the testcase cache is used so far */
   u64 q_testcase_cache_size;
 
@@ -712,7 +715,7 @@ typedef struct afl_state {
 
   /* Refs to each queue entry with cached testcase (for eviction, if cache_count
    * is too large) */
-  struct queue_entry *q_testcase_cache[TESTCASE_ENTRIES];
+  struct queue_entry **q_testcase_cache;
 
 } afl_state_t;
 
