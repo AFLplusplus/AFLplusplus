@@ -978,9 +978,9 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
     /* Buf not cached, let's load it */
     u32 tid = afl->q_testcase_max_cache_count;
 
-    while (unlikely(afl->q_testcase_cache_size + len >=
-                        afl->q_testcase_max_cache_size ||
-                    afl->q_testcase_cache_count >= TESTCASE_ENTRIES - 1)) {
+    while (unlikely(
+        afl->q_testcase_cache_size + len >= afl->q_testcase_max_cache_size ||
+        afl->q_testcase_cache_count >= afl->q_testcase_max_cache_entries - 1)) {
 
       /* Cache full. We neet to evict one or more to map one.
          Get a random one which is not in use */
@@ -1009,7 +1009,7 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
     }
 
-    if (unlikely(tid >= TESTCASE_ENTRIES)) {
+    if (unlikely(tid >= afl->q_testcase_max_cache_entries)) {
 
       // uh we were full, so now we have to search from start
       tid = afl->q_testcase_smallest_free;
@@ -1062,7 +1062,8 @@ inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
 
   if (unlikely(afl->q_testcase_cache_size + len >=
                    afl->q_testcase_max_cache_size ||
-               afl->q_testcase_cache_count >= TESTCASE_ENTRIES - 1)) {
+               afl->q_testcase_cache_count >=
+                   afl->q_testcase_max_cache_entries - 1)) {
 
     // no space? will be loaded regularly later.
     return;
