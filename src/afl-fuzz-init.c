@@ -2338,9 +2338,11 @@ static void handle_resize(int sig) {
 
 /* Check ASAN options. */
 
-void check_asan_opts(void) {
+void check_asan_opts(afl_state_t *afl) {
 
   u8 *x = get_afl_env("ASAN_OPTIONS");
+
+  (void)(afl);
 
   if (x) {
 
@@ -2350,11 +2352,13 @@ void check_asan_opts(void) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
+#ifndef ASAN_BUILD
+    if (!afl->debug && !strstr(x, "symbolize=0")) {
 
       FATAL("Custom ASAN_OPTIONS set without symbolize=0 - please fix!");
 
     }
+#endif
 
   }
 

@@ -1057,7 +1057,7 @@ void   check_crash_handling(void);
 void   check_cpu_governor(afl_state_t *);
 void   get_core_count(afl_state_t *);
 void   fix_up_sync(afl_state_t *);
-void   check_asan_opts(void);
+void   check_asan_opts(afl_state_t *);
 void   check_binary(afl_state_t *, u8 *);
 void   fix_up_banner(afl_state_t *, u8 *);
 void   check_if_tty(afl_state_t *);

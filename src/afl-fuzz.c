@@ -878,7 +878,7 @@ int main(int argc, char **argv_orig, char **envp) {
   #endif
 
   setup_signal_handlers();
-  check_asan_opts();
+  check_asan_opts(afl);
 
   afl->power_name = power_names[afl->schedule];
 
