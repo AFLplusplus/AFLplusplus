@@ -914,20 +914,22 @@ inline void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q,
 
   if (likely(q->testcase_buf)) {
 
+    u32 is_same = in == q->testcase_buf;
+
     if (likely(len != old_len)) {
 
-      afl->q_testcase_cache_size = afl->q_testcase_cache_size + len - old_len;
-      q->testcase_buf = realloc(q->testcase_buf, len);
+      u8 *ptr = realloc(q->testcase_buf, len);
 
-      if (unlikely(!q->testcase_buf)) {
+      if (likely(ptr)) {
 
-        PFATAL("Unable to malloc '%s' with len %d", q->fname, len);
+        q->testcase_buf = ptr;
+        afl->q_testcase_cache_size = afl->q_testcase_cache_size + len - old_len;
 
       }
 
     }
 
-    memcpy(q->testcase_buf, in, len);
+    if (unlikely(!is_same)) { memcpy(q->testcase_buf, in, len); }
 
   }
 
@@ -986,10 +988,12 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
       /* Cache full. We neet to evict one or more to map one.
          Get a random one which is not in use */
 
-      if (unlikely(afl->q_testcase_cache_size + len >= afl->q_testcase_max_cache_size &&
-          (afl->q_testcase_cache_count < afl->q_testcase_max_cache_entries &&
-           afl->q_testcase_max_cache_count <
-               afl->q_testcase_max_cache_entries))) {
+      if (unlikely(afl->q_testcase_cache_size + len >=
+                       afl->q_testcase_max_cache_size &&
+                   (afl->q_testcase_cache_count <
+                        afl->q_testcase_max_cache_entries &&
+                    afl->q_testcase_max_cache_count <
+                        afl->q_testcase_max_cache_entries))) {
 
         if (afl->q_testcase_max_cache_count > afl->q_testcase_cache_count) {
 
