@@ -2358,6 +2358,7 @@ void check_asan_opts(afl_state_t *afl) {
       FATAL("Custom ASAN_OPTIONS set without symbolize=0 - please fix!");
 
     }
+
 #endif
 
   }
