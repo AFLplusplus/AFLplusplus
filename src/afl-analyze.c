@@ -743,11 +743,14 @@ static void set_up_environment(void) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
+#fndef ASAN_BUILD
+    if (!getenv("AFL_DEBUG") && !strstr(x, "symbolize=0")) {
 
       FATAL("Custom ASAN_OPTIONS set without symbolize=0 - please fix!");
 
     }
+
+#endif
 
   }
 
