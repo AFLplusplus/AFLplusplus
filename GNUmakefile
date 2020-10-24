@@ -36,6 +36,25 @@ SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
 ASAN_OPTIONS=detect_leaks=0
 
+ifdef ASAN_BUILD
+  $(info Compiling ASAN version of binaries)
+  override CFLAGS+=$(ASAN_CFLAGS)
+  LDFLAGS+=$(ASAN_LDFLAGS)
+endif
+ifdef UBSAN_BUILD
+  $(info Compiling UBSAN version of binaries)
+  override CFLAGS += -fsanitize=undefined -fno-omit-frame-pointer
+  override LDFLAGS += -fsanitize=undefined
+endif
+ifdef MSAN_BUILD
+  $(info Compiling MSAN version of binaries)
+  CC := clang
+  override CFLAGS += -fsanitize=memory -fno-omit-frame-pointer
+  override LDFLAGS += -fsanitize=memory
+endif
+
+
+
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
 ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
@@ -249,12 +268,6 @@ endif
 ifeq "$(shell echo 'int main() { return 0;}' | $(CC) $(CFLAGS) -fsanitize=address -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
 	ASAN_CFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer -DASAN_BUILD
 	ASAN_LDFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer
-endif
-
-ifdef ASAN_BUILD
-  $(info Compiling ASAN version of binaries)
-  override CFLAGS+=$(ASAN_CFLAGS)
-  LDFLAGS+=$(ASAN_LDFLAGS)
 endif
 
 ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
