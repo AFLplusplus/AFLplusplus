@@ -979,21 +979,23 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
   if (unlikely(!q->testcase_buf)) {
 
     /* Buf not cached, let's load it */
-    u32 tid = afl->q_testcase_max_cache_count;
+    u32        tid = afl->q_testcase_max_cache_count;
+    static u32 do_once = 0;  // because even threaded we would want this. WIP
 
     while (unlikely(
         afl->q_testcase_cache_size + len >= afl->q_testcase_max_cache_size ||
         afl->q_testcase_cache_count >= afl->q_testcase_max_cache_entries - 1)) {
 
-      /* Cache full. We neet to evict one or more to map one.
-         Get a random one which is not in use */
+      /* We want a max number of entries to the cache that we learn.
+         Very simple: once the cache is filled by size - that is the max. */
 
       if (unlikely(afl->q_testcase_cache_size + len >=
                        afl->q_testcase_max_cache_size &&
                    (afl->q_testcase_cache_count <
                         afl->q_testcase_max_cache_entries &&
                     afl->q_testcase_max_cache_count <
-                        afl->q_testcase_max_cache_entries))) {
+                        afl->q_testcase_max_cache_entries) &&
+                   !do_once)) {
 
         if (afl->q_testcase_max_cache_count > afl->q_testcase_cache_count) {
 
@@ -1006,7 +1008,18 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
         }
 
+        do_once = 1;
+        // release unneeded memory
+        u8 *ptr = ck_realloc(
+            afl->q_testcase_cache,
+            (afl->q_testcase_max_cache_entries + 1) * sizeof(size_t));
+
+        if (ptr) { afl->q_testcase_cache = (struct queue_entry **)ptr; }
+
       }
+
+      /* Cache full. We neet to evict one or more to map one.
+         Get a random one which is not in use */
 
       do {
 
@@ -1065,10 +1078,15 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
     afl->q_testcase_cache[tid] = q;
     afl->q_testcase_cache_size += len;
     ++afl->q_testcase_cache_count;
-    if (tid >= afl->q_testcase_max_cache_count)
+    if (likely(tid >= afl->q_testcase_max_cache_count)) {
+
       afl->q_testcase_max_cache_count = tid + 1;
-    if (tid == afl->q_testcase_smallest_free)
+
+    } else if (unlikely(tid == afl->q_testcase_smallest_free)) {
+
       afl->q_testcase_smallest_free = tid + 1;
+
+    }
 
   }
 
@@ -1093,9 +1111,21 @@ inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
 
   }
 
-  u32 tid = 0;
+  u32 tid;
 
-  while (likely(afl->q_testcase_cache[tid] != NULL))
+  if (unlikely(afl->q_testcase_max_cache_count >=
+               afl->q_testcase_max_cache_entries)) {
+
+    // uh we were full, so now we have to search from start
+    tid = afl->q_testcase_smallest_free;
+
+  } else {
+
+    tid = afl->q_testcase_max_cache_count;
+
+  }
+
+  while (unlikely(afl->q_testcase_cache[tid] != NULL))
     ++tid;
 
   /* Map the test case into memory. */
@@ -1114,8 +1144,16 @@ inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
   afl->q_testcase_cache[tid] = q;
   afl->q_testcase_cache_size += len;
   ++afl->q_testcase_cache_count;
-  if (tid >= afl->q_testcase_max_cache_count)
+
+  if (likely(tid >= afl->q_testcase_max_cache_count)) {
+
     afl->q_testcase_max_cache_count = tid + 1;
+
+  } else if (unlikely(tid == afl->q_testcase_smallest_free)) {
+
+    afl->q_testcase_smallest_free = tid + 1;
+
+  }
 
 }
 
