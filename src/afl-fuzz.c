@@ -224,6 +224,26 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled without python module support\n");
 #endif
 
+#ifdef ASAN_BUILD
+  SAYF("Compiled with ASAN_BUILD\n\n");
+#endif
+
+#ifdef NO_SPLICING
+  SAYF("Compiled with NO_SPLICING\n\n");
+#endif
+
+#ifdef PROFILING
+  SAYF("Compiled with PROFILING\n\n");
+#endif
+
+#ifdef _DEBUG
+  SAYF("Compiled with _DEBUG\n\n");
+#endif
+
+#ifdef _AFL_DOCUMENT_MUTATIONS
+  SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS\n\n");
+#endif
+
   SAYF("For additional help please consult %s/README.md\n\n", doc_path);
 
   exit(1);
@@ -1527,7 +1547,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
         } else {
 
+  #ifndef NO_SPLICING
           afl->use_splicing = 1;
+  #else
+          afl->use_splicing = 0;
+  #endif
 
         }
 
