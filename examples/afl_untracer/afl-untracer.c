@@ -284,7 +284,7 @@ library_list_t *find_library(char *name) {
 // this seems to work for clang too. nice :) requires gcc 4.4+
 #pragma GCC push_options
 #pragma GCC optimize("O0")
-void        breakpoint(void) {
+void breakpoint(void) {
 
   if (debug) fprintf(stderr, "Breakpoint function \"breakpoint\" reached.\n");
 

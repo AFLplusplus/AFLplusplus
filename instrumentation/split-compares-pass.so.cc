@@ -601,15 +601,12 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     if (op_size != op1->getType()->getPrimitiveSizeInBits()) { continue; }
 
     const unsigned int sizeInBits = op0->getType()->getPrimitiveSizeInBits();
-    const unsigned int precision =
-        sizeInBits == 32
-            ? 24
-            : sizeInBits == 64
-                  ? 53
-                  : sizeInBits == 128 ? 113
-                                      : sizeInBits == 16 ? 11
-                                                         /* sizeInBits == 80 */
-                                                         : 65;
+    const unsigned int precision = sizeInBits == 32    ? 24
+                                   : sizeInBits == 64  ? 53
+                                   : sizeInBits == 128 ? 113
+                                   : sizeInBits == 16  ? 11
+                                                      /* sizeInBits == 80 */
+                                                      : 65;
 
     const unsigned           shiftR_exponent = precision - 1;
     const unsigned long long mask_fraction =
