@@ -36,6 +36,10 @@ SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
 ASAN_OPTIONS=detect_leaks=0
 
+ifdef NO_SPLICING
+  override CFLAGS += -DNO_SPLICING
+endif
+
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
   override CFLAGS+=$(ASAN_CFLAGS)
@@ -344,7 +348,10 @@ help:
 	@echo ASAN_BUILD - compiles with memory sanitizer for debug purposes
 	@echo DEBUG - no optimization, -ggdb3, all warnings and -Werror
 	@echo PROFILING - compile afl-fuzz with profiling information
+	@echo NO_PYTHON - disable python support
+	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
+	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g. Debian)"
 	@echo "=========================================="
 	@echo e.g.: make ASAN_BUILD=1
 
