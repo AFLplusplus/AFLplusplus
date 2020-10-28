@@ -1154,7 +1154,7 @@ void show_init_stats(afl_state_t *afl) {
 
   } else {
 
-    OKF("-t option specified. We'll use an exec timeout of %s ms.", fsrv->exec_tmout);
+    OKF("-t option specified. We'll use an exec timeout of %s ms.", afl->fsrv.exec_tmout);
 
   }
 
