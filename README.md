@@ -1009,6 +1009,14 @@ tasks, fuzzing may put a strain on your hardware and on the OS. In particular:
     $ iostat -d 3 -x -k [...optional disk ID...]
 ```
 
+    Using the `AFL_TMPDIR` environment variable and a RAM-disk you can have the
+    heavy writing done in RAM to prevent the aforementioned wear and tear. For
+    example the following line will run a Docker container with all this preset:
+    
+    ```shell
+    # docker run -ti --mount type=tmpfs,destination=/ramdisk -e AFL_TMPDIR=/ramdisk aflplusplus/aflplusplus
+    ```
+
 ## Known limitations & areas for improvement
 
 Here are some of the most important caveats for AFL:
