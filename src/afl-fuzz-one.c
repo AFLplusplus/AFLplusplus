@@ -1884,16 +1884,22 @@ havoc_stage:
 
   u32 r_max, r;
 
+  r_max = 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
+
   if (unlikely(afl->expand_havoc)) {
 
     /* add expensive havoc cases here, they are activated after a full
        cycle without finds happened */
 
-    r_max = 16 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
+    r_max += 1;
 
-  } else {
+  }
+  
+  if (unlikely(get_cur_time() - afl->last_path_time > 5000)) {
 
-    r_max = 15 + ((afl->extras_cnt + afl->a_extras_cnt) ? 2 : 0);
+    /* add expensive havoc cases here if there is no findings in the last 5s */
+
+    r_max += 1;
 
   }
 
