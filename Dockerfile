@@ -62,5 +62,6 @@ RUN echo 'alias joe="jupp --wordwrap"' >> ~/.bashrc
 RUN echo 'export PS1="[afl++]$PS1"' >> ~/.bashrc
 ENV IS_DOCKER="1"
 
-COPY --from=aflplusplus/afl-dyninst /usr/local/lib/libdyninstAPI_RT.so /usr/local/lib/libdyninstAPI_RT.so
-COPY --from=aflplusplus/afl-dyninst /afl-dyninst/libAflDyninst.so /usr/local/lib/libAflDyninst.so
+# Disabled until we have the container ready
+#COPY --from=aflplusplus/afl-dyninst /usr/local/lib/libdyninstAPI_RT.so /usr/local/lib/libdyninstAPI_RT.so
+#COPY --from=aflplusplus/afl-dyninst /afl-dyninst/libAflDyninst.so /usr/local/lib/libAflDyninst.so
