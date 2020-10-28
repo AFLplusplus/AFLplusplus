@@ -45,8 +45,6 @@ RUN apt-get update && apt-get full-upgrade -y && \
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 0
 RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 0
 
-RUN rm -rf /var/cache/apt/archives/*
-
 ENV LLVM_CONFIG=llvm-config-11
 ENV AFL_SKIP_CPUFREQ=1
 
