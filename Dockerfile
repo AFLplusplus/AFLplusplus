@@ -22,7 +22,8 @@ RUN apt-get update && apt-get upgrade -y && \
     libglib2.0-dev \
     wget vim jupp nano bash-completion \
     apt-utils apt-transport-https ca-certificates gnupg dialog \
-    libpixman-1-dev
+    libpixman-1-dev \
+    gnuplot-nox
 
 RUN echo deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main >> /etc/apt/sources.list && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - 
