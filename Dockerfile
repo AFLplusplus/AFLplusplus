@@ -26,10 +26,10 @@ RUN apt-get update && \
     gnuplot-nox \
     && rm -rf /var/lib/apt/lists/*
 
-RUN echo deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main >> /etc/apt/sources.list && \
-    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - 
-  
-RUN echo deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main >> /etc/apt/sources.list && \
+RUN echo "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main" >> /etc/apt/sources.list && \
+    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+
+RUN echo "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main" >> /etc/apt/sources.list && \
     apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 1E9377A2BA9EF27F
 
 RUN apt-get update && apt-get full-upgrade -y && \
