@@ -6,7 +6,7 @@
 #
 
 FROM ubuntu:20.04 AS aflplusplus
-MAINTAINER afl++ team <afl@aflplus.plus>
+LABEL "maintainer"="afl++ team <afl@aflplus.plus>"
 LABEL "about"="AFLplusplus docker image"
 
 ARG DEBIAN_FRONTEND=noninteractive
