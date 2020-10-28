@@ -1152,6 +1152,10 @@ void show_init_stats(afl_state_t *afl) {
     ACTF("Applying timeout settings from resumed session (%u ms).",
          afl->fsrv.exec_tmout);
 
+  } else {
+
+    OKF("-t option specified. We'll use an exec timeout of %s ms.", afl->fsrv.exec_tmout);
+
   }
 
   /* In non-instrumented mode, re-running every timing out test case with a
