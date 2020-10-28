@@ -587,9 +587,10 @@ void sync_fuzzers(afl_state_t *afl) {
 
     u8 entry[12];
     sprintf(entry, "id:%06u", next_min_accept);
+
     while (m < n) {
 
-      if (memcmp(namelist[m]->d_name, entry, 9)) {
+      if (strcmp(namelist[m]->d_name, entry)) {
 
         m++;
 

@@ -1850,8 +1850,9 @@ havoc_stage:
     r_max += 1;
 
   }
-  
-  if (unlikely(get_cur_time() - afl->last_path_time > 5000)) {
+
+  if (unlikely(get_cur_time() - afl->last_path_time > 5000 &&
+               afl->ready_for_splicing_count > 1)) {
 
     /* add expensive havoc cases here if there is no findings in the last 5s */
 
