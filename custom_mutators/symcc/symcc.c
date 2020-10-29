@@ -172,7 +172,7 @@ uint32_t afl_custom_fuzz_count(my_mutator_t *data, const u8 *buf,
 
 }
 
-/* here we actualy just read the files generated from symcc */
+/* here we actually just read the files generated from symcc */
 size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
                        u8 **out_buf, uint8_t *add_buf, size_t add_buf_size,
                        size_t max_size) {
