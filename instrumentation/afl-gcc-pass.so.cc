@@ -408,7 +408,7 @@ struct afl_pass : gimple_opt_pass {
      predecessors.  */
   inline bool instrument_block_p(basic_block bb) {
 
-    if (R(100) >= inst_ratio) return false;
+    if (R(100) >= (long int)inst_ratio) return false;
 
     edge          e;
     edge_iterator ei;
