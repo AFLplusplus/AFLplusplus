@@ -1251,7 +1251,7 @@ size_t SplitComparesTransform::splitIntCompares(Module &M, unsigned bitw) {
 bool SplitComparesTransform::runOnModule(Module &M) {
 
   int    bitw = 64;
-  size_t count;
+  size_t count = 0;
 
   char *bitw_env = getenv("AFL_LLVM_LAF_SPLIT_COMPARES_BITW");
   if (!bitw_env) bitw_env = getenv("LAF_SPLIT_COMPARES_BITW");
@@ -1296,7 +1296,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
   switch (bitw) {
 
     case 64:
-      count = splitIntCompares(M, bitw);
+      count += splitIntCompares(M, bitw);
       /*
             if (!be_quiet)
               errs() << "Split-integer-compare-pass " << bitw << "bit: " <<
@@ -1309,7 +1309,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
       [[clang::fallthrough]]; /*FALLTHRU*/                   /* FALLTHROUGH */
 #endif
     case 32:
-      count = splitIntCompares(M, bitw);
+      count += splitIntCompares(M, bitw);
       /*
             if (!be_quiet)
               errs() << "Split-integer-compare-pass " << bitw << "bit: " <<
@@ -1322,7 +1322,7 @@ bool SplitComparesTransform::runOnModule(Module &M) {
       [[clang::fallthrough]]; /*FALLTHRU*/                   /* FALLTHROUGH */
 #endif
     case 16:
-      count = splitIntCompares(M, bitw);
+      count += splitIntCompares(M, bitw);
       /*
             if (!be_quiet)
               errs() << "Split-integer-compare-pass " << bitw << "bit: " <<

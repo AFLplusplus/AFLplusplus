@@ -451,8 +451,8 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   if (len > MAX_DICT_FILE) {
 
-    WARNF("Extra '%.*s' is too big (%s, limit is %s)", (int)len, mem,
-          stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), len),
+    WARNF("Extra '%.*s' is too big (%s, limit is %s), skipping file!", (int)len,
+          mem, stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), len),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
     return;
 
