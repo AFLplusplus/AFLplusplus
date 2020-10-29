@@ -6,7 +6,7 @@ just type `make` to build
 
 ```AFL_CUSTOM_MUTATOR_LIBRARY=custom_mutators/libfuzzer/libfuzzer-mutator.so afl-fuzz ...```
 
-Note that is is currently simple and is missing two features:
+Note that this is currently a simple implementation and it is missing two features:
   * Splicing ("Crossover")
   * Dictionary support
 
