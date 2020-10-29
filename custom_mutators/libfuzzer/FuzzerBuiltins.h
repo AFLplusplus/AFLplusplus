@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// Wrapper functions and marcos around builtin functions.
+// Wrapper functions and macros around builtin functions.
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_FUZZER_BUILTINS_H
