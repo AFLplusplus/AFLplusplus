@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// Wrapper functions and marcos that use intrinsics instead of builtin functions
+// Wrapper functions and macros that use intrinsics instead of builtin functions
 // which cannot be compiled by MSVC.
 //===----------------------------------------------------------------------===//
 
