@@ -197,7 +197,7 @@ static void dup_and_close_stderr() {
   FILE *new_output_file = fdopen(output_fd, "w");
   if (!new_output_file) abort();
   if (!__sanitizer_set_report_fd) return;
-  __sanitizer_set_report_fd((void *)output_fd);
+  __sanitizer_set_report_fd((void *)(long int)output_fd);
   discard_output(output_fileno);
 
 }
