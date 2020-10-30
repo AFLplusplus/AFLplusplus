@@ -469,8 +469,7 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   } else {
 
-    afl->extras = ck_alloc((void **)&afl->extras,
-                           (afl->extras_cnt + 1) * sizeof(struct extra_data));
+    afl->extras = ck_alloc((afl->extras_cnt + 1) * sizeof(struct extra_data));
 
   }
 
