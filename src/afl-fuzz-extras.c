@@ -462,7 +462,7 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   }
 
-  if (afl->extra) {
+  if (afl->extras) {
 
     afl->extras = ck_realloc((void **)&afl->extras,
                              (afl->extras_cnt + 1) * sizeof(struct extra_data));
