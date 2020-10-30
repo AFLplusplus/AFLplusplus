@@ -423,8 +423,8 @@ void dedup_extras(afl_state_t *afl) {
   }
 
   if (afl->extras_cnt != orig_cnt)
-    afl->extras = afl_realloc((void **)&afl->extras,
-                              afl->extras_cnt * sizeof(struct extra_data));
+    afl->extras = ck_realloc((void **)&afl->extras,
+                             afl->extras_cnt * sizeof(struct extra_data));
 
 }
 
@@ -462,8 +462,18 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   }
 
-  afl->extras = afl_realloc((void **)&afl->extras,
-                            (afl->extras_cnt + 1) * sizeof(struct extra_data));
+  if (afl->extra) {
+
+    afl->extras = ck_realloc((void **)&afl->extras,
+                             (afl->extras_cnt + 1) * sizeof(struct extra_data));
+
+  } else {
+
+    afl->extras = ck_alloc((void **)&afl->extras,
+                           (afl->extras_cnt + 1) * sizeof(struct extra_data));
+
+  }
+
   if (unlikely(!afl->extras)) { PFATAL("alloc"); }
 
   afl->extras[afl->extras_cnt].data = ck_alloc(len);
