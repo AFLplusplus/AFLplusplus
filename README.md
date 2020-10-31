@@ -700,14 +700,15 @@ Distributed execution:
  * [afl-in-the-cloud](https://github.com/abhisek/afl-in-the-cloud) - another script for running AFL in AWS.
 
 Deployment, management, monitoring, reporting
+ * [afl-utils](https://gitlab.com/rc0r/afl-utils) - a set of utilities for automatic processing/analysis of crashes and reducing the number of test cases.
  * [afl-other-arch](https://github.com/shellphish/afl-other-arch) - is a set of patches and scripts for easily adding support for various non-x86 architectures for AFL.
  * [afl-trivia](https://github.com/bnagy/afl-trivia) - a few small scripts to simplify the management of AFL.
  * [afl-monitor](https://github.com/reflare/afl-monitor) - a script for monitoring AFL.
  * [afl-manager](https://github.com/zx1340/afl-manager) - a web server on Python for managing multi-afl.
  * [afl-remote](https://github.com/block8437/afl-remote) - a web server for the remote management of AFL instances.
+ * [afl-extras](https://github.com/fekir/afl-extras) - shell scripts to parallelize afl-tmin, startup, and data collection.
 
 Crash processing
- * [afl-utils](https://gitlab.com/rc0r/afl-utils) - a set of utilities for automatic processing/analysis of crashes and reducing the number of test cases.
  * [afl-crash-analyzer](https://github.com/floyd-fuh/afl-crash-analyzer) - another crash analyzer for AFL.
  * [fuzzer-utils](https://github.com/ThePatrickStar/fuzzer-utils) - a set of scripts for the analysis of results.
  * [atriage](https://github.com/Ayrx/atriage) - a simple triage tool.
