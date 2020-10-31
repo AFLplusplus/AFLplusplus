@@ -40,6 +40,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - We received an enhanced gcc_plugin module from AdaCore, thank you
       very much!!
     - not overriding -Ox or -fno-unroll-loops anymore
+    - we now have our own trace-pc-guard implementation. It is the same as
+      -fsanitize-coverage=trace-pc-guard from llvm 12, but: it is a) inline
+      and b) works from llvm 10+ on :)
     - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz
       -x dictionary of string comparisons found during compilation
     - LTO autodict now also collects interesting cmp comparisons,
