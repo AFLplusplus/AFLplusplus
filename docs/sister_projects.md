@@ -119,9 +119,17 @@ Simplifies the triage of discovered crashes, start parallel instances, etc.
 
 https://github.com/rc0r/afl-utils
 
+### AFL crash analyzer (floyd)
+
 Another crash triage tool:
 
 https://github.com/floyd-fuh/afl-crash-analyzer
+
+###  afl-extras (fekir)
+
+Collect data, parallel afl-tmin, startup scripts.
+
+https://github.com/fekir/afl-extras
 
 ### afl-fuzzing-scripts (Tobias Ospelt)
 
