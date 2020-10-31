@@ -501,11 +501,22 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
-#if LLVM_MAJOR >= 4
+#if LLVM_MAJOR >= 10
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] =
-            "-fsanitize-coverage=trace-pc-guard";  // edge coverage by default
+            alloc_printf("%s/SanitizerCoveragePCGUARD.so", obj_path);
 #else
+  #if LLVM_MAJOR >= 4
+        if (!be_quiet)
+          SAYF(
+              "Using unoptimized trace-pc-guard, upgrade to llvm 10+ for "
+              "enhanced version.\n");
+        cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+  #else
         FATAL("pcguard instrumentation requires llvm 4.0.1+");
+  #endif
 #endif
 
       } else {
