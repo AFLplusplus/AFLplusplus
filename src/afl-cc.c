@@ -48,6 +48,7 @@
 static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
+static u8   clang_mode;                /* Invoked as afl-clang*?            */
 static u8   llvm_fullpath[PATH_MAX];
 static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode;
 static u8   compiler_mode, plusplus_mode, have_instr_env = 0;
@@ -288,7 +289,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (compiler_mode >= GCC_PLUGIN) {
 
-        alt_cxx = "g++";
+        if (compiler_mode == GCC) {
+
+          alt_cxx = clang_mode ? "clang++" : "g++";
+
+        } else {
+
+          alt_cxx = "g++";
+
+        }
 
       } else {
 
@@ -313,7 +322,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (compiler_mode >= GCC_PLUGIN) {
 
-        alt_cc = "gcc";
+        if (compiler_mode == GCC) {
+
+          alt_cc = clang_mode ? "clang" : "gcc";
+
+        } else {
+
+          alt_cc = "gcc";
+
+        }
 
       } else {
 
@@ -337,6 +354,11 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-B";
     cc_params[cc_par_cnt++] = obj_path;
 
+    if (clang_mode) {
+
+      cc_params[cc_par_cnt++] = "-no-integrated-as";
+
+    }
   }
 
   if (compiler_mode == GCC_PLUGIN) {
@@ -934,7 +956,9 @@ int main(int argc, char **argv, char **envp) {
 
   } else if (strncmp(callname, "afl-gcc", 7) == 0 ||
 
-             strncmp(callname, "afl-g++", 7) == 0) {
+             strncmp(callname, "afl-g++", 7) == 0 ||
+
+             strncmp(callname, "afl-clang", 9) == 0) {
 
     compiler_mode = GCC;
 
@@ -973,6 +997,19 @@ int main(int argc, char **argv, char **envp) {
       } else
 
         FATAL("Unknown AFL_CC_COMPILER mode: %s\n", ptr);
+
+    }
+
+  }
+
+
+  if (strncmp(callname, "afl-clang", 9) == 0) {
+
+    clang_mode = 1;
+
+    if (strncmp(callname, "afl-clang++", 11) == 0) {
+
+      plusplus_mode = 1;
 
     }
 
