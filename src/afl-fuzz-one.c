@@ -609,6 +609,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s FLIP_BIT1 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
+
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
@@ -718,6 +723,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
 
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s FLIP_BIT2 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
+
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
@@ -746,6 +756,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     FLIP_BIT(out_buf, afl->stage_cur + 1);
     FLIP_BIT(out_buf, afl->stage_cur + 2);
     FLIP_BIT(out_buf, afl->stage_cur + 3);
+
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s FLIP_BIT4 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
 
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
@@ -801,6 +816,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     afl->stage_cur_byte = afl->stage_cur;
 
     out_buf[afl->stage_cur] ^= 0xFF;
+
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s FLIP_BIT8 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
 
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
@@ -889,6 +909,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     *(u16 *)(out_buf + i) ^= 0xFFFF;
 
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s FLIP_BIT16 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
+
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
     ++afl->stage_cur;
 
@@ -926,6 +951,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
     afl->stage_cur_byte = i;
 
     *(u32 *)(out_buf + i) ^= 0xFFFFFFFF;
+
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s FLIP_BIT32 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
 
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
     ++afl->stage_cur;
@@ -985,6 +1015,11 @@ skip_bitflip:
         afl->stage_cur_val = j;
         out_buf[i] = orig + j;
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s ARITH8+ %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
+
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -1000,6 +1035,11 @@ skip_bitflip:
 
         afl->stage_cur_val = -j;
         out_buf[i] = orig - j;
+
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s ARITH8- %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
 
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
@@ -1065,6 +1105,11 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16 *)(out_buf + i) = orig + j;
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s ARITH16+ %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
+
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -1078,6 +1123,11 @@ skip_bitflip:
 
         afl->stage_cur_val = -j;
         *(u16 *)(out_buf + i) = orig - j;
+
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s ARITH16- %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
 
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
@@ -1097,6 +1147,11 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16 *)(out_buf + i) = SWAP16(SWAP16(orig) + j);
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s ARITH16+BE %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
+
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -1110,6 +1165,11 @@ skip_bitflip:
 
         afl->stage_cur_val = -j;
         *(u16 *)(out_buf + i) = SWAP16(SWAP16(orig) - j);
+
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s ARITH16-BE %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
 
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
@@ -1174,6 +1234,11 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32 *)(out_buf + i) = orig + j;
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s ARITH32+ %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
+
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -1187,6 +1252,11 @@ skip_bitflip:
 
         afl->stage_cur_val = -j;
         *(u32 *)(out_buf + i) = orig - j;
+
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s ARITH32- %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
 
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
@@ -1206,6 +1276,11 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32 *)(out_buf + i) = SWAP32(SWAP32(orig) + j);
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s ARITH32+BE %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
+
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -1219,6 +1294,11 @@ skip_bitflip:
 
         afl->stage_cur_val = -j;
         *(u32 *)(out_buf + i) = SWAP32(SWAP32(orig) - j);
+
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s ARITH32-BE %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
 
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
@@ -1287,6 +1367,11 @@ skip_arith:
       afl->stage_cur_val = interesting_8[j];
       out_buf[i] = interesting_8[j];
 
+#ifdef INTROSPECTION
+      snprintf(afl->mutation, sizeof(afl->mutation), "%s INTERESTING8 %u %u",
+               afl->queue_cur->fname, i, j);
+#endif
+
       if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
       out_buf[i] = orig;
@@ -1342,6 +1427,11 @@ skip_arith:
 
         *(u16 *)(out_buf + i) = interesting_16[j];
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s INTERESTING16 %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
+
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -1357,6 +1447,11 @@ skip_arith:
           !could_be_interest(orig, SWAP16(interesting_16[j]), 2, 1)) {
 
         afl->stage_val_type = STAGE_VAL_BE;
+
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation),
+                 "%s INTERESTING16BE %u %u", afl->queue_cur->fname, i, j);
+#endif
 
         *(u16 *)(out_buf + i) = SWAP16(interesting_16[j]);
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
@@ -1421,6 +1516,11 @@ skip_arith:
 
         *(u32 *)(out_buf + i) = interesting_32[j];
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s INTERESTING32 %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
+
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -1436,6 +1536,11 @@ skip_arith:
           !could_be_interest(orig, SWAP32(interesting_32[j]), 4, 1)) {
 
         afl->stage_val_type = STAGE_VAL_BE;
+
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation),
+                 "%s INTERESTING32BE %u %u", afl->queue_cur->fname, i, j);
+#endif
 
         *(u32 *)(out_buf + i) = SWAP32(interesting_32[j]);
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
@@ -1510,6 +1615,12 @@ skip_interest:
       last_len = afl->extras[j].len;
       memcpy(out_buf + i, afl->extras[j].data, last_len);
 
+#ifdef INTROSPECTION
+      snprintf(afl->mutation, sizeof(afl->mutation),
+               "%s EXTRAS overwrite %u %u:%s", afl->queue_cur->fname, i, j,
+               afl->extras[j].data);
+#endif
+
       if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
       ++afl->stage_cur;
@@ -1556,6 +1667,12 @@ skip_interest:
 
       /* Copy tail */
       memcpy(ex_tmp + i + afl->extras[j].len, out_buf + i, len - i);
+
+#ifdef INTROSPECTION
+      snprintf(afl->mutation, sizeof(afl->mutation),
+               "%s EXTRAS insert %u %u:%s", afl->queue_cur->fname, i, j,
+               afl->extras[j].data);
+#endif
 
       if (common_fuzz_stuff(afl, ex_tmp, len + afl->extras[j].len)) {
 
@@ -1613,6 +1730,12 @@ skip_user_extras:
 
       last_len = afl->a_extras[j].len;
       memcpy(out_buf + i, afl->a_extras[j].data, last_len);
+
+#ifdef INTROSPECTION
+      snprintf(afl->mutation, sizeof(afl->mutation),
+               "%s AUTO_EXTRAS overwrite %u %u:%s", afl->queue_cur->fname, i, j,
+               afl->a_extras[j].data);
+#endif
 
       if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
@@ -1675,7 +1798,7 @@ custom_mutator_stage:
         for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
              ++afl->stage_cur) {
 
-          struct queue_entry *target;
+          struct queue_entry *target = NULL;
           u32                 tid;
           u8 *                new_buf = NULL;
           u32                 target_len = 0;
@@ -1716,6 +1839,12 @@ custom_mutator_stage:
           }
 
           if (mutated_size > 0) {
+
+#ifdef INTROSPECTION
+            snprintf(afl->mutation, sizeof(afl->mutation), "%s CUSTOM %s",
+                     afl->queue_cur->fname,
+                     target != NULL ? (char *)target->fname : "none");
+#endif
 
             if (common_fuzz_stuff(afl, mutated_buf, (u32)mutated_size)) {
 
@@ -1866,6 +1995,11 @@ havoc_stage:
 
     afl->stage_cur_val = use_stacking;
 
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s HAVOC %u",
+             afl->queue_cur->fname, use_stacking);
+#endif
+
     for (i = 0; i < use_stacking; ++i) {
 
       if (afl->custom_mutators_count) {
@@ -1909,6 +2043,10 @@ havoc_stage:
 
           /* Flip a single bit somewhere. Spooky! */
 
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT1");
+          strcat(afl->mutation, afl->m_tmp);
+#endif
           FLIP_BIT(out_buf, rand_below(afl, temp_len << 3));
           break;
 
@@ -1916,6 +2054,10 @@ havoc_stage:
 
           /* Set byte to interesting value. */
 
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING8");
+          strcat(afl->mutation, afl->m_tmp);
+#endif
           out_buf[rand_below(afl, temp_len)] =
               interesting_8[rand_below(afl, sizeof(interesting_8))];
           break;
@@ -1928,11 +2070,19 @@ havoc_stage:
 
           if (rand_below(afl, 2)) {
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16");
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
                 interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)];
 
           } else {
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16BE");
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) = SWAP16(
                 interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)]);
 
@@ -1948,11 +2098,19 @@ havoc_stage:
 
           if (rand_below(afl, 2)) {
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32");
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
                 interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)];
 
           } else {
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32BE");
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) = SWAP32(
                 interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)]);
 
@@ -1964,6 +2122,10 @@ havoc_stage:
 
           /* Randomly subtract from byte. */
 
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH8-");
+          strcat(afl->mutation, afl->m_tmp);
+#endif
           out_buf[rand_below(afl, temp_len)] -= 1 + rand_below(afl, ARITH_MAX);
           break;
 
@@ -1971,6 +2133,10 @@ havoc_stage:
 
           /* Randomly add to byte. */
 
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH8+");
+          strcat(afl->mutation, afl->m_tmp);
+#endif
           out_buf[rand_below(afl, temp_len)] += 1 + rand_below(afl, ARITH_MAX);
           break;
 
@@ -1984,6 +2150,10 @@ havoc_stage:
 
             u32 pos = rand_below(afl, temp_len - 1);
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16-_%u", pos);
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u16 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
 
           } else {
@@ -1991,6 +2161,11 @@ havoc_stage:
             u32 pos = rand_below(afl, temp_len - 1);
             u16 num = 1 + rand_below(afl, ARITH_MAX);
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16-BE_%u_%u", pos,
+                     num);
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u16 *)(out_buf + pos) =
                 SWAP16(SWAP16(*(u16 *)(out_buf + pos)) - num);
 
@@ -2008,6 +2183,10 @@ havoc_stage:
 
             u32 pos = rand_below(afl, temp_len - 1);
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16+_%u", pos);
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u16 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
 
           } else {
@@ -2015,6 +2194,11 @@ havoc_stage:
             u32 pos = rand_below(afl, temp_len - 1);
             u16 num = 1 + rand_below(afl, ARITH_MAX);
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16+BE_%u_%u", pos,
+                     num);
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u16 *)(out_buf + pos) =
                 SWAP16(SWAP16(*(u16 *)(out_buf + pos)) + num);
 
@@ -2032,6 +2216,10 @@ havoc_stage:
 
             u32 pos = rand_below(afl, temp_len - 3);
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32-_%u", pos);
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u32 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
 
           } else {
@@ -2039,6 +2227,11 @@ havoc_stage:
             u32 pos = rand_below(afl, temp_len - 3);
             u32 num = 1 + rand_below(afl, ARITH_MAX);
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32-BE_%u_%u", pos,
+                     num);
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u32 *)(out_buf + pos) =
                 SWAP32(SWAP32(*(u32 *)(out_buf + pos)) - num);
 
@@ -2056,6 +2249,10 @@ havoc_stage:
 
             u32 pos = rand_below(afl, temp_len - 3);
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32+_%u", pos);
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u32 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
 
           } else {
@@ -2063,6 +2260,11 @@ havoc_stage:
             u32 pos = rand_below(afl, temp_len - 3);
             u32 num = 1 + rand_below(afl, ARITH_MAX);
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32+BE_%u_%u", pos,
+                     num);
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             *(u32 *)(out_buf + pos) =
                 SWAP32(SWAP32(*(u32 *)(out_buf + pos)) + num);
 
@@ -2076,6 +2278,10 @@ havoc_stage:
              why not. We use XOR with 1-255 to eliminate the
              possibility of a no-op. */
 
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " RAND8");
+          strcat(afl->mutation, afl->m_tmp);
+#endif
           out_buf[rand_below(afl, temp_len)] ^= 1 + rand_below(afl, 255);
           break;
 
@@ -2095,6 +2301,11 @@ havoc_stage:
 
           del_from = rand_below(afl, temp_len - del_len + 1);
 
+#ifdef INTROSPECTION
+          snprintf(afl->m_tmp, sizeof(afl->m_tmp), " DEL_%u_%u", del_from,
+                   del_len);
+          strcat(afl->mutation, afl->m_tmp);
+#endif
           memmove(out_buf + del_from, out_buf + del_from + del_len,
                   temp_len - del_from - del_len);
 
@@ -2128,6 +2339,12 @@ havoc_stage:
 
             clone_to = rand_below(afl, temp_len);
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp), " CLONE_%s_%u_%u_%u",
+                     actually_clone ? "clone" : "insert", clone_from, clone_to,
+                     clone_len);
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             new_buf =
                 afl_realloc(AFL_BUF_PARAM(out_scratch), temp_len + clone_len);
             if (unlikely(!new_buf)) { PFATAL("alloc"); }
@@ -2181,12 +2398,23 @@ havoc_stage:
 
             if (copy_from != copy_to) {
 
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                       " OVERWRITE_COPY_%u_%u_%u", copy_from, copy_to,
+                       copy_len);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
 
             }
 
           } else {
 
+#ifdef INTROSPECTION
+            snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                     " OVERWRITE_FIXED_%u_%u_%u", copy_from, copy_to, copy_len);
+            strcat(afl->mutation, afl->m_tmp);
+#endif
             memset(out_buf + copy_to,
                    rand_below(afl, 2) ? rand_below(afl, 256)
                                       : out_buf[rand_below(afl, temp_len)],
@@ -2222,6 +2450,12 @@ havoc_stage:
                 if ((s32)extra_len > temp_len) { break; }
 
                 insert_at = rand_below(afl, temp_len - extra_len + 1);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                         " AUTO_EXTRA_OVERWRITE_%u_%u_%s", insert_at, extra_len,
+                         afl->a_extras[use_extra].data);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
                        extra_len);
 
@@ -2236,6 +2470,12 @@ havoc_stage:
                 if ((s32)extra_len > temp_len) { break; }
 
                 insert_at = rand_below(afl, temp_len - extra_len + 1);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                         " EXTRA_OVERWRITE_%u_%u_%s", insert_at, extra_len,
+                         afl->a_extras[use_extra].data);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 memcpy(out_buf + insert_at, afl->extras[use_extra].data,
                        extra_len);
 
@@ -2258,12 +2498,23 @@ havoc_stage:
                 use_extra = rand_below(afl, afl->a_extras_cnt);
                 extra_len = afl->a_extras[use_extra].len;
                 ptr = afl->a_extras[use_extra].data;
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                         " AUTO_EXTRA_INSERT_%u_%u_%s", insert_at, extra_len,
+                         ptr);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
 
               } else {
 
                 use_extra = rand_below(afl, afl->extras_cnt);
                 extra_len = afl->extras[use_extra].len;
                 ptr = afl->extras[use_extra].data;
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                         " EXTRA_INSERT_%u_%u_%s", insert_at, extra_len, ptr);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
 
               }
 
@@ -2324,6 +2575,12 @@ havoc_stage:
               copy_from = rand_below(afl, new_len - copy_len + 1);
               copy_to = rand_below(afl, temp_len - copy_len + 1);
 
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                       " SPLICE_OVERWRITE_%u_%u_%u_%s", copy_from, copy_to,
+                       copy_len, target->fname);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               memmove(out_buf + copy_to, new_buf + copy_from, copy_len);
 
             } else {
@@ -2340,6 +2597,12 @@ havoc_stage:
                                          temp_len + clone_len + 1);
               if (unlikely(!temp_buf)) { PFATAL("alloc"); }
 
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                       " SPLICE_INSERT_%u_%u_%u_%s", clone_from, clone_to,
+                       clone_len, target->fname);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               /* Head */
 
               memcpy(temp_buf, out_buf, clone_to);
@@ -2755,6 +3018,10 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_FLIP_BIT1 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
@@ -2864,6 +3131,10 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
 
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_FLIP_BIT2 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
@@ -2893,6 +3164,10 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     FLIP_BIT(out_buf, afl->stage_cur + 2);
     FLIP_BIT(out_buf, afl->stage_cur + 3);
 
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_FLIP_BIT4 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
@@ -2948,6 +3223,10 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     out_buf[afl->stage_cur] ^= 0xFF;
 
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_FLIP_BIT8 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
     /* We also use this stage to pull off a simple trick: we identify
@@ -3035,6 +3314,10 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     *(u16 *)(out_buf + i) ^= 0xFFFF;
 
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_FLIP_BIT16 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
     ++afl->stage_cur;
 
@@ -3073,6 +3356,10 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     *(u32 *)(out_buf + i) ^= 0xFFFFFFFF;
 
+#ifdef INTROSPECTION
+    snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_FLIP_BIT32 %u",
+             afl->queue_cur->fname, afl->stage_cur);
+#endif
     if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
     ++afl->stage_cur;
 
@@ -3131,6 +3418,10 @@ skip_bitflip:
         afl->stage_cur_val = j;
         out_buf[i] = orig + j;
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_ARITH8+ %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3147,6 +3438,10 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         out_buf[i] = orig - j;
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_ARITH8- %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3211,6 +3506,10 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16 *)(out_buf + i) = orig + j;
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_ARITH16+ %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3225,6 +3524,10 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u16 *)(out_buf + i) = orig - j;
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_ARITH16- %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3243,6 +3546,10 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u16 *)(out_buf + i) = SWAP16(SWAP16(orig) + j);
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation),
+                 "%s MOPT_ARITH16+BE %u %u", afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3257,6 +3564,10 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u16 *)(out_buf + i) = SWAP16(SWAP16(orig) - j);
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation),
+                 "%s MOPT_ARITH16-BE %u %u", afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3320,6 +3631,10 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32 *)(out_buf + i) = orig + j;
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_ARITH32+ %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3334,6 +3649,10 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u32 *)(out_buf + i) = orig - j;
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_ARITH32- %u %u",
+                 afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3352,6 +3671,10 @@ skip_bitflip:
         afl->stage_cur_val = j;
         *(u32 *)(out_buf + i) = SWAP32(SWAP32(orig) + j);
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation),
+                 "%s MOPT_ARITH32+BE %u %u", afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3366,6 +3689,10 @@ skip_bitflip:
         afl->stage_cur_val = -j;
         *(u32 *)(out_buf + i) = SWAP32(SWAP32(orig) - j);
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation),
+                 "%s MOPT_ARITH32-BE %u %u", afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3433,6 +3760,10 @@ skip_arith:
       afl->stage_cur_val = interesting_8[j];
       out_buf[i] = interesting_8[j];
 
+#ifdef INTROSPECTION
+      snprintf(afl->mutation, sizeof(afl->mutation),
+               "%s MOPT_INTERESTING8 %u %u", afl->queue_cur->fname, i, j);
+#endif
       if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
       out_buf[i] = orig;
@@ -3488,6 +3819,10 @@ skip_arith:
 
         *(u16 *)(out_buf + i) = interesting_16[j];
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation),
+                 "%s MOPT_INTERESTING16 %u %u", afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3504,6 +3839,10 @@ skip_arith:
 
         afl->stage_val_type = STAGE_VAL_BE;
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation),
+                 "%s MOPT_INTERESTING16BE %u %u", afl->queue_cur->fname, i, j);
+#endif
         *(u16 *)(out_buf + i) = SWAP16(interesting_16[j]);
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
@@ -3567,6 +3906,10 @@ skip_arith:
 
         *(u32 *)(out_buf + i) = interesting_32[j];
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation),
+                 "%s MOPT_INTERESTING32 %u %u", afl->queue_cur->fname, i, j);
+#endif
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
 
@@ -3583,6 +3926,10 @@ skip_arith:
 
         afl->stage_val_type = STAGE_VAL_BE;
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation),
+                 "%s MOPT_INTERESTING32BE %u %u", afl->queue_cur->fname, i, j);
+#endif
         *(u32 *)(out_buf + i) = SWAP32(interesting_32[j]);
         if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
         ++afl->stage_cur;
@@ -3656,6 +4003,11 @@ skip_interest:
       last_len = afl->extras[j].len;
       memcpy(out_buf + i, afl->extras[j].data, last_len);
 
+#ifdef INTROSPECTION
+      snprintf(afl->mutation, sizeof(afl->mutation),
+               "%s MOPT_EXTRAS overwrite %u %u:%s", afl->queue_cur->fname, i, j,
+               afl->extras[j].data);
+#endif
       if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
       ++afl->stage_cur;
@@ -3703,6 +4055,11 @@ skip_interest:
       /* Copy tail */
       memcpy(ex_tmp + i + afl->extras[j].len, out_buf + i, len - i);
 
+#ifdef INTROSPECTION
+      snprintf(afl->mutation, sizeof(afl->mutation),
+               "%s MOPT_EXTRAS insert %u %u:%s", afl->queue_cur->fname, i, j,
+               afl->extras[j].data);
+#endif
       if (common_fuzz_stuff(afl, ex_tmp, len + afl->extras[j].len)) {
 
         goto abandon_entry;
@@ -3759,6 +4116,11 @@ skip_user_extras:
       last_len = afl->a_extras[j].len;
       memcpy(out_buf + i, afl->a_extras[j].data, last_len);
 
+#ifdef INTROSPECTION
+      snprintf(afl->mutation, sizeof(afl->mutation),
+               "%s MOPT_AUTO_EXTRAS overwrite %u %u:%s", afl->queue_cur->fname,
+               i, j, afl->a_extras[j].data);
+#endif
       if (common_fuzz_stuff(afl, out_buf, len)) { goto abandon_entry; }
 
       ++afl->stage_cur;
@@ -3885,6 +4247,11 @@ pacemaker_fuzzing:
 
         }
 
+#ifdef INTROSPECTION
+        snprintf(afl->mutation, sizeof(afl->mutation), "%s MOPT_HAVOC %u",
+                 afl->queue_cur->fname, use_stacking);
+#endif
+
         for (i = 0; i < use_stacking; ++i) {
 
           switch (select_algorithm(afl)) {
@@ -3893,6 +4260,10 @@ pacemaker_fuzzing:
               /* Flip a single bit somewhere. Spooky! */
               FLIP_BIT(out_buf, rand_below(afl, temp_len << 3));
               MOpt_globals.cycles_v2[STAGE_FLIP1] += 1;
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT1");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               break;
 
             case 1:
@@ -3901,6 +4272,10 @@ pacemaker_fuzzing:
               FLIP_BIT(out_buf, temp_len_puppet);
               FLIP_BIT(out_buf, temp_len_puppet + 1);
               MOpt_globals.cycles_v2[STAGE_FLIP2] += 1;
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT2");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               break;
 
             case 2:
@@ -3911,24 +4286,40 @@ pacemaker_fuzzing:
               FLIP_BIT(out_buf, temp_len_puppet + 2);
               FLIP_BIT(out_buf, temp_len_puppet + 3);
               MOpt_globals.cycles_v2[STAGE_FLIP4] += 1;
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT4");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               break;
 
             case 3:
               if (temp_len < 4) { break; }
               out_buf[rand_below(afl, temp_len)] ^= 0xFF;
               MOpt_globals.cycles_v2[STAGE_FLIP8] += 1;
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT8");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               break;
 
             case 4:
               if (temp_len < 8) { break; }
               *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) ^= 0xFFFF;
               MOpt_globals.cycles_v2[STAGE_FLIP16] += 1;
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT16");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               break;
 
             case 5:
               if (temp_len < 8) { break; }
               *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) ^= 0xFFFFFFFF;
               MOpt_globals.cycles_v2[STAGE_FLIP32] += 1;
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP_BIT32");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               break;
 
             case 6:
@@ -3937,6 +4328,10 @@ pacemaker_fuzzing:
               out_buf[rand_below(afl, temp_len)] +=
                   1 + rand_below(afl, ARITH_MAX);
               MOpt_globals.cycles_v2[STAGE_ARITH8] += 1;
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH+-");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               break;
 
             case 7:
@@ -3946,11 +4341,20 @@ pacemaker_fuzzing:
 
                 u32 pos = rand_below(afl, temp_len - 1);
                 *(u16 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16-%u", pos);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
 
               } else {
 
                 u32 pos = rand_below(afl, temp_len - 1);
                 u16 num = 1 + rand_below(afl, ARITH_MAX);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16BE-%u-%u",
+                         pos, num);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 *(u16 *)(out_buf + pos) =
                     SWAP16(SWAP16(*(u16 *)(out_buf + pos)) - num);
 
@@ -3960,12 +4364,21 @@ pacemaker_fuzzing:
               if (rand_below(afl, 2)) {
 
                 u32 pos = rand_below(afl, temp_len - 1);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16+%u", pos);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 *(u16 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
 
               } else {
 
                 u32 pos = rand_below(afl, temp_len - 1);
                 u16 num = 1 + rand_below(afl, ARITH_MAX);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH16BE+%u-%u",
+                         pos, num);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 *(u16 *)(out_buf + pos) =
                     SWAP16(SWAP16(*(u16 *)(out_buf + pos)) + num);
 
@@ -3980,12 +4393,21 @@ pacemaker_fuzzing:
               if (rand_below(afl, 2)) {
 
                 u32 pos = rand_below(afl, temp_len - 3);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32-%u", pos);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 *(u32 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
 
               } else {
 
                 u32 pos = rand_below(afl, temp_len - 3);
                 u32 num = 1 + rand_below(afl, ARITH_MAX);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32BE-%u-%u",
+                         pos, num);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 *(u32 *)(out_buf + pos) =
                     SWAP32(SWAP32(*(u32 *)(out_buf + pos)) - num);
 
@@ -3996,12 +4418,21 @@ pacemaker_fuzzing:
               if (rand_below(afl, 2)) {
 
                 u32 pos = rand_below(afl, temp_len - 3);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32+%u", pos);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 *(u32 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
 
               } else {
 
                 u32 pos = rand_below(afl, temp_len - 3);
                 u32 num = 1 + rand_below(afl, ARITH_MAX);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH32BE+%u-%u",
+                         pos, num);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 *(u32 *)(out_buf + pos) =
                     SWAP32(SWAP32(*(u32 *)(out_buf + pos)) + num);
 
@@ -4016,6 +4447,10 @@ pacemaker_fuzzing:
               out_buf[rand_below(afl, temp_len)] =
                   interesting_8[rand_below(afl, sizeof(interesting_8))];
               MOpt_globals.cycles_v2[STAGE_INTEREST8] += 1;
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING8");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               break;
 
             case 10:
@@ -4023,12 +4458,20 @@ pacemaker_fuzzing:
               if (temp_len < 8) { break; }
               if (rand_below(afl, 2)) {
 
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16");
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
                     interesting_16[rand_below(afl,
                                               sizeof(interesting_16) >> 1)];
 
               } else {
 
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16BE");
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
                     SWAP16(interesting_16[rand_below(
                         afl, sizeof(interesting_16) >> 1)]);
@@ -4045,12 +4488,20 @@ pacemaker_fuzzing:
 
               if (rand_below(afl, 2)) {
 
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32");
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
                     interesting_32[rand_below(afl,
                                               sizeof(interesting_32) >> 2)];
 
               } else {
 
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32BE");
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
                     SWAP32(interesting_32[rand_below(
                         afl, sizeof(interesting_32) >> 2)]);
@@ -4068,6 +4519,10 @@ pacemaker_fuzzing:
 
               out_buf[rand_below(afl, temp_len)] ^= 1 + rand_below(afl, 255);
               MOpt_globals.cycles_v2[STAGE_RANDOMBYTE] += 1;
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " RAND8");
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               break;
 
             case 13: {
@@ -4091,6 +4546,11 @@ pacemaker_fuzzing:
 
               temp_len -= del_len;
               MOpt_globals.cycles_v2[STAGE_DELETEBYTE] += 1;
+#ifdef INTROSPECTION
+              snprintf(afl->m_tmp, sizeof(afl->m_tmp), " DEL-%u%u", del_from,
+                       del_len);
+              strcat(afl->mutation, afl->m_tmp);
+#endif
               break;
 
             }
@@ -4120,6 +4580,12 @@ pacemaker_fuzzing:
 
                 clone_to = rand_below(afl, temp_len);
 
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp), " CLONE_%s_%u_%u_%u",
+                         actually_clone ? "clone" : "insert", clone_from,
+                         clone_to, clone_len);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch),
                                       temp_len + clone_len);
                 if (unlikely(!new_buf)) { PFATAL("alloc"); }
@@ -4175,12 +4641,24 @@ pacemaker_fuzzing:
 
                 if (copy_from != copy_to) {
 
+#ifdef INTROSPECTION
+                  snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                           " OVERWRITE_COPY_%u_%u_%u", copy_from, copy_to,
+                           copy_len);
+                  strcat(afl->mutation, afl->m_tmp);
+#endif
                   memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
 
                 }
 
               } else {
 
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                         " OVERWRITE_FIXED_%u_%u_%u", copy_from, copy_to,
+                         copy_len);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 memset(out_buf + copy_to,
                        rand_below(afl, 2) ? rand_below(afl, 256)
                                           : out_buf[rand_below(afl, temp_len)],
@@ -4212,6 +4690,12 @@ pacemaker_fuzzing:
                 if (extra_len > (u32)temp_len) break;
 
                 u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                         " AUTO_EXTRA_OVERWRITE_%u_%u_%s", insert_at, extra_len,
+                         afl->a_extras[use_extra].data);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
                        extra_len);
 
@@ -4225,6 +4709,12 @@ pacemaker_fuzzing:
                 if (extra_len > (u32)temp_len) break;
 
                 u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                         " EXTRA_OVERWRITE_%u_%u_%s", insert_at, extra_len,
+                         afl->a_extras[use_extra].data);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
                 memcpy(out_buf + insert_at, afl->extras[use_extra].data,
                        extra_len);
 
@@ -4254,12 +4744,23 @@ pacemaker_fuzzing:
                 use_extra = rand_below(afl, afl->a_extras_cnt);
                 extra_len = afl->a_extras[use_extra].len;
                 ptr = afl->a_extras[use_extra].data;
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                         " AUTO_EXTRA_INSERT_%u_%u_%s", insert_at, extra_len,
+                         ptr);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
 
               } else {
 
                 use_extra = rand_below(afl, afl->extras_cnt);
                 extra_len = afl->extras[use_extra].len;
                 ptr = afl->extras[use_extra].data;
+#ifdef INTROSPECTION
+                snprintf(afl->m_tmp, sizeof(afl->m_tmp),
+                         " EXTRA_INSERT_%u_%u_%s", insert_at, extra_len, ptr);
+                strcat(afl->mutation, afl->m_tmp);
+#endif
 
               }
 

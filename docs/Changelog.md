@@ -35,6 +35,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       skipped. They are used for splicing though.
     - set the default power schedule to the superiour "seek" schedule
     - added NO_SPLICING compile option and makefile define
+    - added INTROSPECTION make target that writes all mutations to
+      out/NAME/introspection.txt
     - print special compile time options used in help output
   - instrumentation
     - We received an enhanced gcc_plugin module from AdaCore, thank you

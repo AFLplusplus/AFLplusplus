@@ -211,6 +211,7 @@ These build options exist:
 * ASAN_BUILD - compiles with memory sanitizer for debug purposes
 * DEBUG - no optimization, -ggdb3, all warnings and -Werror
 * PROFILING - compile with profiling information (gprof)
+* INTROSPECTION - compile afl-fuzz with mutation introspection
 * NO_PYTHON - disable python support
 * NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 * AFL_NO_X86 - if compiling on non-intel/amd platforms

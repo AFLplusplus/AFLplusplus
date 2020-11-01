@@ -236,6 +236,10 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with PROFILING\n\n");
 #endif
 
+#ifdef INTROSPECTION
+  SAYF("Compiled with INTROSPECTION\n\n");
+#endif
+
 #ifdef _DEBUG
   SAYF("Compiled with _DEBUG\n\n");
 #endif
@@ -1461,6 +1465,19 @@ int main(int argc, char **argv_orig, char **envp) {
   u32 runs_in_current_cycle = (u32)-1;
   u32 prev_queued_paths = 0;
   u8  skipped_fuzz;
+
+  #ifdef INTROSPECTION
+  char ifn[4096];
+  snprintf(ifn, sizeof(ifn), "%s/introspection.txt", afl->out_dir);
+  if ((afl->introspection_file = fopen(ifn, "w")) == NULL) {
+
+    PFATAL("could not create '%s'", ifn);
+
+  }
+
+  setvbuf(afl->introspection_file, NULL, _IONBF, 0);
+  OKF("Writing mutation introspection to '%s'", ifn);
+  #endif
 
   while (likely(!afl->stop_soon)) {
 

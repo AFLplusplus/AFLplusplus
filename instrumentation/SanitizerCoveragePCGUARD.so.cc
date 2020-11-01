@@ -247,13 +247,13 @@ SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
   Options.CoverageType =
       SanitizerCoverageOptions::SCK_Edge;  // std::max(Options.CoverageType,
                                            // CLOpts.CoverageType);
-  Options.IndirectCalls = true;    // CLOpts.IndirectCalls;
-  Options.TraceCmp = false;        //|= ClCMPTracing;
-  Options.TraceDiv = false;        //|= ClDIVTracing;
-  Options.TraceGep = false;        //|= ClGEPTracing;
-  Options.TracePC = false;         //|= ClTracePC;
-  Options.TracePCGuard = true;     // |= ClTracePCGuard;
-  Options.Inline8bitCounters = 0;  //|= ClInline8bitCounters;
+  Options.IndirectCalls = true;            // CLOpts.IndirectCalls;
+  Options.TraceCmp = false;                //|= ClCMPTracing;
+  Options.TraceDiv = false;                //|= ClDIVTracing;
+  Options.TraceGep = false;                //|= ClGEPTracing;
+  Options.TracePC = false;                 //|= ClTracePC;
+  Options.TracePCGuard = true;             // |= ClTracePCGuard;
+  Options.Inline8bitCounters = 0;          //|= ClInline8bitCounters;
   // Options.InlineBoolFlag = 0; //|= ClInlineBoolFlag;
   Options.PCTable = false;     //|= ClCreatePCTable;
   Options.NoPrune = false;     //|= !ClPruneBlocks;
