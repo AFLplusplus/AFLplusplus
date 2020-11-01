@@ -587,6 +587,11 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     add_to_queue(afl, queue_fn, len, 0);
 
+#ifdef INTROSPECTION
+    fprintf(afl->introspection_file, "QUEUE %s = %s\n", afl->mutation,
+            afl->queue_top->fname);
+#endif
+
     if (hnb == 2) {
 
       afl->queue_top->has_new_cov = 1;
@@ -659,6 +664,9 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       }
 
       ++afl->unique_tmouts;
+#ifdef INTROSPECTION
+      fprintf(afl->introspection_file, "UNIQUE_TIMEOUT %s\n", afl->mutation);
+#endif
 
       /* Before saving, we make sure that it's a genuine hang by re-running
          the target with a more generous timeout (unless the default timeout
@@ -742,6 +750,9 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #endif                                                    /* ^!SIMPLE_FILES */
 
       ++afl->unique_crashes;
+#ifdef INTROSPECTION
+      fprintf(afl->introspection_file, "UNIQUE_CRASH %s\n", afl->mutation);
+#endif
       if (unlikely(afl->infoexec)) {
 
         // if the user wants to be informed on new crashes - do that

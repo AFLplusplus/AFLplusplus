@@ -110,6 +110,11 @@ ifdef PROFILING
   LDFLAGS += -pg
 endif
 
+ifdef INTROSPECTION
+  $(info Compiling with introspection documentation)
+  CFLAGS_OPT += -DINTROSPECTION=1
+endif
+
 ifneq "$(shell uname -m)" "x86_64"
  ifneq "$(patsubst i%86,i386,$(shell uname -m))" "i386"
   ifneq "$(shell uname -m)" "amd64"
@@ -348,6 +353,7 @@ help:
 	@echo ASAN_BUILD - compiles with memory sanitizer for debug purposes
 	@echo DEBUG - no optimization, -ggdb3, all warnings and -Werror
 	@echo PROFILING - compile afl-fuzz with profiling information
+	@echo INTROSPECTION - compile afl-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
 	@echo NO_SPLICING - disables splicing mutation in afl-fuzz, not recommended for normal fuzzing
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms

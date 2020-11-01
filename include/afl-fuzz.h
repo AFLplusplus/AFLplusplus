@@ -717,6 +717,12 @@ typedef struct afl_state {
    * is too large) */
   struct queue_entry **q_testcase_cache;
 
+#ifdef INTROSPECTION
+  char  mutation[8072];
+  char  m_tmp[4096];
+  FILE *introspection_file;
+#endif
+
 } afl_state_t;
 
 struct custom_mutator {
