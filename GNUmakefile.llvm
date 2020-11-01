@@ -361,6 +361,8 @@ instrumentation/afl-common.o: ./src/afl-common.c
 	@ln -sf afl-cc ./afl-c++
 	@ln -sf afl-cc ./afl-gcc
 	@ln -sf afl-cc ./afl-g++
+	@ln -sf afl-cc ./afl-clang
+	@ln -sf afl-cc ./afl-clang++
 	@ln -sf afl-cc ./afl-clang-fast
 	@ln -sf afl-cc ./afl-clang-fast++
 ifneq "$(AFL_CLANG_FLTO)" ""
