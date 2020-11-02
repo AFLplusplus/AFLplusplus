@@ -916,7 +916,7 @@ GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
   Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedSize()));
 #else
-  Array->setAlignment(8);  // cheating
+  Array->setAlignment(Align(4));  // cheating
 #endif
   GlobalsToAppendToUsed.push_back(Array);
   GlobalsToAppendToCompilerUsed.push_back(Array);
