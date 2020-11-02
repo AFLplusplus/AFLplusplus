@@ -3,8 +3,7 @@
 Compile the test binary and the library:
 
 ```
-gcc -no-pie test.c -o test
-gcc -fPIC -shared read_into_rdi.c -o read_into_rdi.so
+make
 ```
 
 Fuzz with:

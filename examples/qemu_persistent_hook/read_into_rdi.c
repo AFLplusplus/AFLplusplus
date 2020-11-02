@@ -15,11 +15,11 @@ void afl_persistent_hook(struct x86_64_regs *regs,
   // of the target buffer, and the length of the input is in RSI.
   // This can be seen with a debugger, e.g. gdb (and "disass main")
 
-  printf("Placing input into %p\n", regs->rdi);
+  printf("Placing input into 0x%lx\n", regs->rdi);
 
-  if (input_len > 1024) input_len = 1024;
-  memcpy(g2h(regs->rdi), input_buf, input_len);
-  regs->rsi = input_len;
+  if (input_buf_len > 1024) input_buf_len = 1024;
+  memcpy(g2h(regs->rdi), input_buf, input_buf_len);
+  regs->rsi = input_buf_len;
 
 #undef g2h
 #undef h2g
