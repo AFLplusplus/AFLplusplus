@@ -247,7 +247,7 @@ SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
   Options.CoverageType =
       SanitizerCoverageOptions::SCK_Edge;  // std::max(Options.CoverageType,
                                            // CLOpts.CoverageType);
-  Options.IndirectCalls = true;            // CLOpts.IndirectCalls;
+  Options.IndirectCalls = false;            // CLOpts.IndirectCalls;
   Options.TraceCmp = false;                //|= ClCMPTracing;
   Options.TraceDiv = false;                //|= ClDIVTracing;
   Options.TraceGep = false;                //|= ClGEPTracing;
