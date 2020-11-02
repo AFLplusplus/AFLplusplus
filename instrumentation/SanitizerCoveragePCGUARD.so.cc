@@ -913,7 +913,9 @@ GlobalVariable *ModuleSanitizerCoverage::CreateFunctionLocalArrayInSection(
             GetOrCreateFunctionComdat(F, TargetTriple, CurModuleUniqueId))
       Array->setComdat(Comdat);
   Array->setSection(getSectionName(Section));
+#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
   Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedSize()));
+#endif
   GlobalsToAppendToUsed.push_back(Array);
   GlobalsToAppendToCompilerUsed.push_back(Array);
   MDNode *MD = MDNode::get(F.getContext(), ValueAsMetadata::get(&F));
