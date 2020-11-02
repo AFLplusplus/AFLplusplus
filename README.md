@@ -52,9 +52,9 @@ behaviours and defaults:
     * -m none is now default, set memory limits (in MB) with e.g. -m 250
     * deterministic fuzzing is now disabled by default (unless using -M) and
       can be enabled with -D
-    * a caching of testcases can now be performed and can be enabled by
+    * a caching of testcases can now be performed and can be modified by
       editing config.h for TESTCASE_CACHE or by specifying the env variable
-      `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500.
+      `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500 (default: 50).
 
 ## Contents
 
