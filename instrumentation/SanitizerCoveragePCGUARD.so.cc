@@ -70,15 +70,17 @@ class ModuleSanitizerCoveragePass
     if (AllowlistFiles.size() > 0)
       Allowlist = SpecialCaseList::createOrDie(AllowlistFiles
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-                                               , *vfs::getRealFileSystem()
+                                               ,
+                                               *vfs::getRealFileSystem()
 #endif
-                                              );
+      );
     if (BlocklistFiles.size() > 0)
       Blocklist = SpecialCaseList::createOrDie(BlocklistFiles
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-                                               , *vfs::getRealFileSystem()
+                                               ,
+                                               *vfs::getRealFileSystem()
 #endif
-                                              );
+      );
 
   }
 
@@ -253,7 +255,7 @@ SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
   Options.CoverageType =
       SanitizerCoverageOptions::SCK_Edge;  // std::max(Options.CoverageType,
                                            // CLOpts.CoverageType);
-  Options.IndirectCalls = false;            // CLOpts.IndirectCalls;
+  Options.IndirectCalls = false;           // CLOpts.IndirectCalls;
   Options.TraceCmp = false;                //|= ClCMPTracing;
   Options.TraceDiv = false;                //|= ClDIVTracing;
   Options.TraceGep = false;                //|= ClGEPTracing;
@@ -379,15 +381,17 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
     if (AllowlistFiles.size() > 0)
       Allowlist = SpecialCaseList::createOrDie(AllowlistFiles
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-                                               , *vfs::getRealFileSystem()
+                                               ,
+                                               *vfs::getRealFileSystem()
 #endif
-                                              );
+      );
     if (BlocklistFiles.size() > 0)
       Blocklist = SpecialCaseList::createOrDie(BlocklistFiles
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-                                               , *vfs::getRealFileSystem()
+                                               ,
+                                               *vfs::getRealFileSystem()
 #endif
-                                              );
+      );
     initializeModuleSanitizerCoverageLegacyPassPass(
         *PassRegistry::getPassRegistry());
 
