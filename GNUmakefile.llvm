@@ -42,10 +42,10 @@ endif
 
 LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' )
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//' )
+LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed 's/git//' | sed 's/ .*//' )
 LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^3\.[0-3]|^19' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[0-9]' && echo 1 || echo 0 )
 LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]' && echo 1 || echo 0 )
-LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//')
 LLVM_BINDIR = $(shell $(LLVM_CONFIG) --bindir 2>/dev/null)
 LLVM_LIBDIR = $(shell $(LLVM_CONFIG) --libdir 2>/dev/null)
 LLVM_STDCXX = gnu++11
@@ -255,7 +255,8 @@ endif
 
 CXXFLAGS          ?= -O3 -funroll-loops -fPIC -D_FORTIFY_SOURCE=2
 override CXXFLAGS += -Wall -g -I ./include/ \
-                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
+                     -DVERSION=\"$(VERSION)\" -Wno-variadic-macros \
+                     -DLLVM_MINOR=$(LLVM_MINOR) -DLLVM_MAJOR=$(LLVM_MAJOR)
 
 ifneq "$(shell $(LLVM_CONFIG) --includedir) 2> /dev/null" ""
   CLANG_CFL  = -I$(shell $(LLVM_CONFIG) --includedir)
