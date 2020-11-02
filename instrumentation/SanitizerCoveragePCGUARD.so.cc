@@ -68,11 +68,17 @@ class ModuleSanitizerCoveragePass
       : Options(Options) {
 
     if (AllowlistFiles.size() > 0)
-      Allowlist = SpecialCaseList::createOrDie(AllowlistFiles,
-                                               *vfs::getRealFileSystem());
+      Allowlist = SpecialCaseList::createOrDie(AllowlistFiles
+#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+                                               , *vfs::getRealFileSystem()
+#endif
+                                              );
     if (BlocklistFiles.size() > 0)
-      Blocklist = SpecialCaseList::createOrDie(BlocklistFiles,
-                                               *vfs::getRealFileSystem());
+      Blocklist = SpecialCaseList::createOrDie(BlocklistFiles
+#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+                                               , *vfs::getRealFileSystem()
+#endif
+                                              );
 
   }
 
@@ -371,11 +377,17 @@ class ModuleSanitizerCoverageLegacyPass : public ModulePass {
       : ModulePass(ID), Options(Options) {
 
     if (AllowlistFiles.size() > 0)
-      Allowlist = SpecialCaseList::createOrDie(AllowlistFiles,
-                                               *vfs::getRealFileSystem());
+      Allowlist = SpecialCaseList::createOrDie(AllowlistFiles
+#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+                                               , *vfs::getRealFileSystem()
+#endif
+                                              );
     if (BlocklistFiles.size() > 0)
-      Blocklist = SpecialCaseList::createOrDie(BlocklistFiles,
-                                               *vfs::getRealFileSystem());
+      Blocklist = SpecialCaseList::createOrDie(BlocklistFiles
+#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+                                               , *vfs::getRealFileSystem()
+#endif
+                                              );
     initializeModuleSanitizerCoverageLegacyPassPass(
         *PassRegistry::getPassRegistry());
 
