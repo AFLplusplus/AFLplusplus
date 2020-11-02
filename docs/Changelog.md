@@ -21,11 +21,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       a schedule performance score, which is much better that the previous
       walk the whole queue approach. Select the old mode with -Z (auto enabled
       with -M)
-    - statsd support by Edznux, thanks a lot!
+    - rpc.statsd support by Edznux, thanks a lot!
     - Marcel Boehme submitted a patch that improves all AFFast schedules :)
     - not specifying -M or -S will now auto-set "-S default"
     - reading testcases from -i now descends into subdirectories
-    - allow up to 4 -x command line options
+    - allow up to 4 times the -x command line option
     - loaded extras now have a duplicate protection
     - If test cases are too large we do a partial read on the maximum
       supported size
@@ -33,7 +33,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       for fuzzing but still be used for splicing
     - crashing seeds are now not prohibiting a run anymore but are
       skipped. They are used for splicing though.
-    - set the default power schedule to the superiour "seek" schedule
+    - update MOpt for expanded havoc modes
     - added NO_SPLICING compile option and makefile define
     - added INTROSPECTION make target that writes all mutations to
       out/NAME/introspection.txt
