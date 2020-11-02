@@ -3,11 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
-void afl_persistent_hook(struct x86_64_regs *regs,
-                         uint64_t guest_base,
-                         uint8_t *input_buf,
-                         uint32_t input_buf_len) {
-
+void afl_persistent_hook(struct x86_64_regs *regs, uint64_t guest_base,
+                         uint8_t *input_buf, uint32_t input_buf_len) {
+\
 #define g2h(x) ((void *)((unsigned long)(x) + guest_base))
 #define h2g(x) ((uint64_t)(x)-guest_base)
 
@@ -33,3 +31,4 @@ int afl_persistent_hook_init(void) {
   return 1;
 
 }
+
