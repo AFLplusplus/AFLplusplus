@@ -18,10 +18,14 @@ The start of the persistent loop has to be set with AFL_QEMU_PERSISTENT_ADDR.
 
 This address can be the address of whatever instruction.
 Setting this address to the start of a function makes the usage simple.
-If the address is however within a function, either RET or OFFSET (see below
-in 2.2 and 2.3) have to be set.
+If the address is however within a function, either RET, OFFSET or EXITS
+(see below in 2.2, 2.3, 2.6) have to be set.
 This address (as well as the RET address, see below) has to be defined in
 hexadecimal with the 0x prefix or as a decimal value.
+
+If both RET and EXITS are not set, QEMU will assume that START points to a
+function and will patch the return address (on stack or in the link register)
+to return to START (like WinAFL).
 
 *Note:* If the target is compiled with position independant code (PIE/PIC)
 qemu loads these to a specific base address.
@@ -40,10 +44,6 @@ The RET address is the last instruction of the persistent loop.
 The emulator will emit a jump to START when translating the instruction at RET.
 It is optional, and only needed if the the return should not be
 at the end of the function to which the START address points into, but earlier.
-
-If it is not set, QEMU will assume that START points to a function and will
-patch the return address (on stack or in the link register) to return to START
-(like WinAFL).
 
 It is defined by setting AFL_QEMU_PERSISTENT_RET, and too 0x4000000000 has to
 be set if the target is position independant.
@@ -96,6 +96,32 @@ int main(int argc, char **argv) {
 If you don't save and restore the registers in x86_64, the paramteter argc
 will be lost at the second execution of the loop.
 
+### 2.5) Resetting the memory state
+
+This option restores the memory state using the AFL++ Snapshot LKM if loaded.
+Otherwise, all the writeable pages are restored.
+
+To enable this option, set AFL_QEMU_PERSISTENT_MEM=1.
+
+### 2.6) Reset on exit()
+
+The user can force QEMU to set the program counter to START instead of executing
+the exit_group syscall and exit the program.
+
+The env variable is AFL_QEMU_PERSISTENT_EXITS.
+
+### 2.7) Snapshot
+
+AFL_QEMU_SNAPSHOT=address is just a shugar env variable that is equivalent to
+the following set of variables:
+
+```
+AFL_QEMU_PERSISTENT_ADDR=address
+AFL_QEMU_PERSISTENT_GPR=1
+AFL_QEMU_PERSISTENT_MEM=1
+AFL_QEMU_PERSISTENT_EXITS=1
+```
+
 ## 3) Optional parameters
 
 ### 3.1) Loop counter value
@@ -125,10 +151,25 @@ AFL_QEMU_PERSISTENT_HOOK=/path/to/hook.so.
 The signature is:
 
 ```c
-void afl_persistent_hook(uint64_t* regs, uint64_t guest_base);
+void afl_persistent_hook(struct ARCH_regs *regs,
+                         uint64_t guest_base,
+                         uint8_t *input_buf,
+                         uint32_t input_buf_len);
 ```
 
+Where ARCH is one of x86, x86_64, arm or arm64.
+You have to include `path/to/qemuafl/qemuafl/api.h`.
+
 In this hook, you can inspect and change the saved GPR state at START.
+
+You can also initialize you data structures when QEMU loads the shared object
+with:
+
+`int afl_persistent_hook_init(void);`
+
+If this reoutine returns true, the shared mem fuzzing feature of AFL++ is used
+and so the input_buf variables of the hook becomes meaningful. Otherwise,
+you have to read the input from a file like stdin.
 
 An example that you can use with little modification for your target can
 be found here: [examples/qemu_persistent_hook](../examples/qemu_persistent_hook)

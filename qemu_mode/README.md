@@ -14,12 +14,12 @@ The usual performance cost is 2-5x, which is considerably better than
 seen so far in experiments with tools such as DynamoRIO and PIN.
 
 The idea and much of the initial implementation comes from Andrew Griffiths.
-The actual implementation on QEMU 3 (shipped with afl++) is from
+The actual implementation on current QEMU (shipped as qemuafl) is from
 Andrea Fioraldi. Special thanks to abiondo that re-enabled TCG chaining.
 
 ## 2) How to use
 
-The feature is implemented with a patch to QEMU 3.1.1. The simplest way
+The feature is implemented with a patched QEMU. The simplest way
 to build it is to run ./build_qemu_support.sh. The script will download,
 configure, and compile the QEMU binary for you.
 
@@ -58,7 +58,7 @@ directory.
 If you want to specify a different path for libraries (e.g. to run an arm64
 binary on x86_64) use QEMU_LD_PREFIX.
 
-## 3) Bonus feature #1: deferred initialization
+## 3) Deferred initialization
 
 As for LLVM mode (refer to its README.md for mode details) QEMU mode supports
 the deferred initialization.
@@ -68,7 +68,7 @@ to move the forkserver to a different part, e.g. just before the file is
 opened (e.g. way after command line parsing and config file loading, etc.)
 which can be a huge speed improvement.
 
-## 4) Bonus feature #2: persistent mode
+## 4) Persistent mode
 
 AFL++'s QEMU mode now supports also persistent mode for x86, x86_64, arm
 and aarch64 targets.
@@ -77,7 +77,20 @@ up - but worth the effort.
 
 Please see the extra documentation for it: [README.persistent.md](README.persistent.md)
 
-## 5) Bonus feature #3: CompareCoverage
+## 5) Snapshot mode
+
+As an extension to persistent mode, qemuafl can snapshot and restore the memory
+state and brk(). Details are in the persistent mode readme.
+
+The env var that enable the ready to use snapshot mode is AFL_QEMU_SNAPSHOT and
+take an hex address as value that is the snpashot entrypoint.
+
+Snapshpot mode can work restoring all the writeable pages, tipically slower than
+fork() mode but, opposed to fork(), it can scale better with multicore.
+If the AFL++ Snaphsot kernel module is loaded, qemuafl will use it and, in this
+case, the speed is better than fork() and also the scaling capabilities.
+
+## 6) CompareCoverage
 
 CompareCoverage is a sub-instrumentation with effects similar to laf-intel.
 
@@ -98,7 +111,7 @@ on the x86, x86_64, arm and aarch64 targets.
 
 Highly recommended.
 
-## 6) CMPLOG mode
+## 7) CMPLOG mode
 
 Another new feature is CMPLOG, which is based on the redqueen project.
 Here all immidiates in CMP instructions are learned and put into a dynamic
@@ -110,7 +123,7 @@ and aarch64.
 To enable it you must pass on the command line of afl-fuzz:
   -c /path/to/your/target
 
-## 7) Bonus feature #4: Wine mode
+## 8) Wine mode
 
 AFL++ QEMU can use Wine to fuzz WIn32 PE binaries. Use the -W flag of afl-fuzz.
 
@@ -118,7 +131,7 @@ Note that some binaries require user interaction with the GUI and must be patche
 
 For examples look [here](https://github.com/andreafioraldi/WineAFLplusplusDEMO).
 
-## 8) Notes on linking
+## 9) Notes on linking
 
 The feature is supported only on Linux. Supporting BSD may amount to porting
 the changes made to linux-user/elfload.c and applying them to
@@ -139,7 +152,7 @@ practice, this means two things:
 Setting AFL_INST_LIBS=1 can be used to circumvent the .text detection logic
 and instrument every basic block encountered.
 
-## 9) Benchmarking
+## 10) Benchmarking
 
 If you want to compare the performance of the QEMU instrumentation with that of
 afl-gcc compiled code against the same target, you need to build the
@@ -154,7 +167,7 @@ Comparative measurements of execution speed or instrumentation coverage will be
 fairly meaningless if the optimization levels or instrumentation scopes don't
 match.
 
-## 10) Gotchas, feedback, bugs
+## 11) Gotchas, feedback, bugs
 
 If you need to fix up checksums or do other cleanup on mutated test cases, see
 examples/custom_mutators/ for a viable solution.
@@ -175,7 +188,7 @@ with -march=core2, can help.
 Beyond that, this is an early-stage mechanism, so fields reports are welcome.
 You can send them to <afl-users@googlegroups.com>.
 
-## 11) Alternatives: static rewriting
+## 12) Alternatives: static rewriting
 
 Statically rewriting binaries just once, instead of attempting to translate
 them at run time, can be a faster alternative. That said, static rewriting is
