@@ -82,12 +82,12 @@ Please see the extra documentation for it: [README.persistent.md](README.persist
 As an extension to persistent mode, qemuafl can snapshot and restore the memory
 state and brk(). Details are in the persistent mode readme.
 
-The env var that enable the ready to use snapshot mode is AFL_QEMU_SNAPSHOT and
-takes a hex address as value that is the snpashot entrypoint.
+The env var that enables the ready to use snapshot mode is AFL_QEMU_SNAPSHOT and
+takes a hex address as a value that is the snapshot entrypoint.
 
-Snapshpot mode can work restoring all the writeable pages, that is tipically slower than
+Snapshot mode can work restoring all the writeable pages, that is typically slower than
 fork() mode but, on the other hand, it can scale better with multicore.
-If the AFL++ Snaphsot kernel module is loaded, qemuafl will use it and, in this
+If the AFL++ Snapshot kernel module is loaded, qemuafl will use it and, in this
 case, the speed is better than fork() and also the scaling capabilities.
 
 ## 6) Partial instrumentation
@@ -103,7 +103,7 @@ or a module name like module.so (that is matched in the mapped object filename).
 
 CompareCoverage is a sub-instrumentation with effects similar to laf-intel.
 
-The option that enables QEMU CompareCoverage is AFL_COMPCOV_LEVEL.
+The environment variable that enables QEMU CompareCoverage is AFL_COMPCOV_LEVEL.
 There is also ./libcompcov/ which implements CompareCoverage for *cmp functions
 (splitting memcmp, strncmp, etc. to make these conditions easier solvable by
 afl-fuzz).
@@ -123,7 +123,7 @@ Highly recommended.
 ## 8) CMPLOG mode
 
 Another new feature is CMPLOG, which is based on the redqueen project.
-Here all immidiates in CMP instructions are learned and put into a dynamic
+Here all immediates in CMP instructions are learned and put into a dynamic
 dictionary and applied to all locations in the input that reached that
 CMP, trying to solve and pass it.
 This is a very effective feature and it is available for x86, x86_64, arm
