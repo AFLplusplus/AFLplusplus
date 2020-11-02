@@ -656,6 +656,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
   unlink(out_file);
 
+  fsrv->out_file = out_file;
   fsrv->out_fd = open(out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
 
   if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
