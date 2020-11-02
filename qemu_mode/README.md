@@ -83,10 +83,10 @@ As an extension to persistent mode, qemuafl can snapshot and restore the memory
 state and brk(). Details are in the persistent mode readme.
 
 The env var that enable the ready to use snapshot mode is AFL_QEMU_SNAPSHOT and
-take an hex address as value that is the snpashot entrypoint.
+takes a hex address as value that is the snpashot entrypoint.
 
-Snapshpot mode can work restoring all the writeable pages, tipically slower than
-fork() mode but, opposed to fork(), it can scale better with multicore.
+Snapshpot mode can work restoring all the writeable pages, that is tipically slower than
+fork() mode but, on the other hand, it can scale better with multicore.
 If the AFL++ Snaphsot kernel module is loaded, qemuafl will use it and, in this
 case, the speed is better than fork() and also the scaling capabilities.
 
@@ -96,8 +96,8 @@ You can tell QEMU to instrument only a part of the address space.
 
 Just set AFL_QEMU_INST_RANGES=A,B,C...
 
-The format of the iterms in the list is either a range of addresses like 0x123-0x321
-or a module name like module.so (that is mathed in the mapped object filename).
+The format of the items in the list is either a range of addresses like 0x123-0x321
+or a module name like module.so (that is matched in the mapped object filename).
 
 ## 7) CompareCoverage
 
