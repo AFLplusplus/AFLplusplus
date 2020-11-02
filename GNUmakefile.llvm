@@ -40,9 +40,9 @@ else
   LLVM_CONFIG ?= llvm-config
 endif
 
-LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' )
+LLVMVER  = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/git//' | sed 's/svn//' )
 LLVM_MAJOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/\..*//' )
-LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed 's/git//' | sed 's/ .*//' )
+LLVM_MINOR = $(shell $(LLVM_CONFIG) --version 2>/dev/null | sed 's/.*\.//' | sed 's/git//' | sed 's/svn//' | sed 's/ .*//' )
 LLVM_UNSUPPORTED = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^3\.[0-3]|^19' && echo 1 || echo 0 )
 LLVM_NEW_API = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[0-9]' && echo 1 || echo 0 )
 LLVM_HAVE_LTO = $(shell $(LLVM_CONFIG) --version 2>/dev/null | egrep -q '^1[1-9]' && echo 1 || echo 0 )
