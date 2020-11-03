@@ -108,6 +108,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->out_file = from->out_file;
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
   fsrv_to->out_fd = from->out_fd;  // not sure this is a good idea
+  fsrv_to->no_unlink = from->no_unlink;
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
@@ -969,7 +970,7 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     if (!fsrv->use_stdin && fsrv->out_file) {
 
-      if (fsrv->no_unlink) {
+      if (unlikely(fsrv->no_unlink)) {
 
         fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
