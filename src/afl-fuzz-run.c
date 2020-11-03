@@ -243,7 +243,7 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 
   } else if (afl->fsrv.out_file) {
 
-    if (afl->no_unlink) {
+    if (unlikely(afl->no_unlink)) {
 
       fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
@@ -824,7 +824,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     s32 fd;
 
-    if (afl->no_unlink) {
+    if (unlikely(afl->no_unlink)) {
 
       fd = open(q->fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 

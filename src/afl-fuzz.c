@@ -656,7 +656,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'N':                                             /* Unicorn mode */
 
         if (afl->no_unlink) { FATAL("Multiple -N options not supported"); }
-        afl->no_unlink = 1;
+        afl->fsrv.no_unlink = afl->no_unlink = 1;
 
         break;
 
