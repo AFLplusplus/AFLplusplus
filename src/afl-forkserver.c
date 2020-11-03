@@ -983,10 +983,13 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
       if (fd < 0) { PFATAL("Unable to create '%s'", fsrv->out_file); }
 
-    } else if (unlikely(!fd)) {
+    } else if (unlikely(fd <= 0)) {
 
-      // We should never have stdin as fd here, 0 is likely unset.
-      FATAL("Nowhere to write output to (neither out_fd nor out_file set)");
+      // We should have a (non-stdin) fd at this point, else we got a problem.
+      FATAL(
+          "Nowhere to write output to (neither out_fd nor out_file set (fd is "
+          "%d))",
+          fd);
 
     } else {
 
