@@ -113,7 +113,16 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_pid = -1;
   fsrv_to->use_fauxsrv = 0;
   fsrv_to->last_run_timed_out = 0;
-  fsrv_to->out_fd = -1;
+
+  if (fsrv_to->use_stdin) {
+
+    fsrv_to->out_fd = 0;
+
+  } else {
+
+    fsrv_to->out_fd = -1;
+
+  }
 
   fsrv_to->init_child_func = fsrv_exec_child;
   // Note: do not copy ->add_extra_func
