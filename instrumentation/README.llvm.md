@@ -183,7 +183,7 @@ targets this way:
 AFL_LLVM_INSTRUMENT=PCGUARD  make
 ```
 
-Note that this us currently the default if you use LLVM >= 7, as it is the best
+Note that this is currently the default if you use LLVM >= 7, as it is the best
 mode. Recommended is LLVM >= 9.
 If you have llvm 11+ and compiled afl-clang-lto - this is the only better mode.
 
