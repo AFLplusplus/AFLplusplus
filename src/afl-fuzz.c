@@ -1064,13 +1064,13 @@ int main(int argc, char **argv_orig, char **envp) {
   } else if (afl->q_testcase_max_cache_size < 2 * MAX_FILE) {
 
     FATAL("AFL_TESTCACHE_SIZE must be set to %u or more, or 0 to disable",
-          (2 * MAX_FILE) % 1024000 == 0 ? (2 * MAX_FILE) / 1048576
+          (2 * MAX_FILE) % 1048576 == 0 ? (2 * MAX_FILE) / 1048576
                                         : 1 + ((2 * MAX_FILE) / 1048576));
 
   } else {
 
     OKF("Enabled testcache with %llu MB",
-        afl->q_testcase_max_cache_size / 1024000);
+        afl->q_testcase_max_cache_size / 1048576);
 
   }
 

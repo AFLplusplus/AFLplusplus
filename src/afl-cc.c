@@ -501,7 +501,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
-#if LLVM_MAJOR >= 10
+#if LLVM_MAJOR >= 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] = "-load";
         cc_params[cc_par_cnt++] = "-Xclang";
@@ -511,7 +511,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   #if LLVM_MAJOR >= 4
         if (!be_quiet)
           SAYF(
-              "Using unoptimized trace-pc-guard, upgrade to llvm 10+ for "
+              "Using unoptimized trace-pc-guard, upgrade to llvm 10.0.1+ for "
               "enhanced version.\n");
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
   #else
@@ -715,14 +715,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "int __afl_sharedmem_fuzzing = 1;"
       "extern unsigned int *__afl_fuzz_len;"
       "extern unsigned char *__afl_fuzz_ptr;"
-      "unsigned char __afl_fuzz_alt[1024000];"
+      "unsigned char __afl_fuzz_alt[1048576];"
       "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
       "__afl_fuzz_alt_ptr)";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_LEN=(__afl_fuzz_ptr ? *__afl_fuzz_len : "
-      "(*__afl_fuzz_len = read(0, __afl_fuzz_alt_ptr, 1024000)) == 0xffffffff "
+      "(*__afl_fuzz_len = read(0, __afl_fuzz_alt_ptr, 1048576)) == 0xffffffff "
       "? 0 : *__afl_fuzz_len)";
 
   cc_params[cc_par_cnt++] =
