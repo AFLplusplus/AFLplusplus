@@ -12,7 +12,7 @@ CFLAGS := -O3 -funroll-loops -g
 all:	libAFLDriver.a libAFLQemuDriver.a aflpp_qemu_driver_hook.so
 
 aflpp_driver.o:	aflpp_driver.c
-	$(LLVM_BINDIR)clang -I. -I../../include $(CFLAGS) -c aflpp_driver.c
+	-$(LLVM_BINDIR)clang -I. -I../../include $(CFLAGS) -c aflpp_driver.c
 
 libAFLDriver.a:	aflpp_driver.o
 	ar ru libAFLDriver.a aflpp_driver.o
