@@ -243,7 +243,7 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 
   } else if (afl->fsrv.out_file) {
 
-    if (afl->no_unlink) {
+    if (unlikely(afl->no_unlink)) {
 
       fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
@@ -394,6 +394,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
               unlikely(afl->first_trace[i] != afl->fsrv.trace_bits[i])) {
 
             afl->var_bytes[i] = 1;
+            // ignore the variable edge by setting it to fully discovered
+            afl->virgin_bits[i] = 0;
 
           }
 
@@ -585,9 +587,10 @@ void sync_fuzzers(afl_state_t *afl) {
 
     u8 entry[12];
     sprintf(entry, "id:%06u", next_min_accept);
+
     while (m < n) {
 
-      if (memcmp(namelist[m]->d_name, entry, 9)) {
+      if (strcmp(namelist[m]->d_name, entry)) {
 
         m++;
 
@@ -690,6 +693,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
 u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
+  u32 orig_len = q->len;
+
   /* Custom mutator trimmer */
   if (afl->custom_mutators_count) {
 
@@ -706,6 +711,12 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       }
 
     });
+
+    if (orig_len != q->len || custom_trimmed) {
+
+      queue_testcase_retake(afl, q, orig_len);
+
+    }
 
     if (custom_trimmed) return trimmed_case;
 
@@ -813,7 +824,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     s32 fd;
 
-    if (afl->no_unlink) {
+    if (unlikely(afl->no_unlink)) {
 
       fd = open(q->fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
@@ -839,6 +850,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     }
 
     close(fd);
+
+    queue_testcase_retake_mem(afl, q, in_buf, q->len, orig_len);
 
     memcpy(afl->fsrv.trace_bits, afl->clean_trace, afl->fsrv.map_size);
     update_bitmap_score(afl, q);

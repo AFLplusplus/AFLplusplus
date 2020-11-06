@@ -25,6 +25,109 @@
 #include "afl-fuzz.h"
 #include <limits.h>
 #include <ctype.h>
+#include <math.h>
+
+/* select next queue entry based on alias algo - fast! */
+
+inline u32 select_next_queue_entry(afl_state_t *afl) {
+
+  u32    s = rand_below(afl, afl->queued_paths);
+  double p = rand_next_percent(afl);
+  /*
+  fprintf(stderr, "select: p=%f s=%u ... p < prob[s]=%f ? s=%u : alias[%u]=%u"
+  " ==> %u\n", p, s, afl->alias_probability[s], s, s, afl->alias_table[s], p <
+  afl->alias_probability[s] ? s : afl->alias_table[s]);
+  */
+  return (p < afl->alias_probability[s] ? s : afl->alias_table[s]);
+
+}
+
+/* create the alias table that allows weighted random selection - expensive */
+
+void create_alias_table(afl_state_t *afl) {
+
+  u32 n = afl->queued_paths, i = 0, a, g;
+
+  afl->alias_table =
+      (u32 *)afl_realloc((void **)&afl->alias_table, n * sizeof(u32));
+  afl->alias_probability = (double *)afl_realloc(
+      (void **)&afl->alias_probability, n * sizeof(double));
+  double *P = (double *)afl_realloc(AFL_BUF_PARAM(out), n * sizeof(double));
+  int *   S = (u32 *)afl_realloc(AFL_BUF_PARAM(out_scratch), n * sizeof(u32));
+  int *   L = (u32 *)afl_realloc(AFL_BUF_PARAM(in_scratch), n * sizeof(u32));
+
+  if (!P || !S || !L) { FATAL("could not aquire memory for alias table"); }
+  memset((void *)afl->alias_table, 0, n * sizeof(u32));
+  memset((void *)afl->alias_probability, 0, n * sizeof(double));
+
+  double sum = 0;
+
+  for (i = 0; i < n; i++) {
+
+    struct queue_entry *q = afl->queue_buf[i];
+
+    if (!q->disabled) { q->perf_score = calculate_score(afl, q); }
+
+    sum += q->perf_score;
+
+  }
+
+  for (i = 0; i < n; i++) {
+
+    struct queue_entry *q = afl->queue_buf[i];
+    P[i] = (q->perf_score * n) / sum;
+
+  }
+
+  int nS = 0, nL = 0, s;
+  for (s = (s32)n - 1; s >= 0; --s) {
+
+    if (P[s] < 1) {
+
+      S[nS++] = s;
+
+    } else {
+
+      L[nL++] = s;
+
+    }
+
+  }
+
+  while (nS && nL) {
+
+    a = S[--nS];
+    g = L[--nL];
+    afl->alias_probability[a] = P[a];
+    afl->alias_table[a] = g;
+    P[g] = P[g] + P[a] - 1;
+    if (P[g] < 1) {
+
+      S[nS++] = g;
+
+    } else {
+
+      L[nL++] = g;
+
+    }
+
+  }
+
+  while (nL)
+    afl->alias_probability[L[--nL]] = 1;
+
+  while (nS)
+    afl->alias_probability[S[--nS]] = 1;
+
+  /*
+  fprintf(stderr, "  entry  alias  probability  perf_score   filename\n");
+  for (u32 i = 0; i < n; ++i)
+    fprintf(stderr, "  %5u  %5u  %11u  %0.9f  %s\n", i, afl->alias_table[i],
+            afl->alias_probability[i], afl->queue_buf[i]->perf_score,
+            afl->queue_buf[i]->fname);
+  */
+
+}
 
 /* Mark deterministic checks as done for a particular queue entry. We use the
    .state file to avoid repeating deterministic fuzzing when resuming aborted
@@ -76,9 +179,9 @@ void mark_as_variable(afl_state_t *afl, struct queue_entry *q) {
 
 void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
-  u8 fn[PATH_MAX];
+  if (likely(state == q->fs_redundant)) { return; }
 
-  if (state == q->fs_redundant) { return; }
+  u8 fn[PATH_MAX];
 
   q->fs_redundant = state;
 
@@ -107,14 +210,17 @@ static u8 check_if_text(struct queue_entry *q) {
 
   if (q->len < AFL_TXT_MIN_LEN) return 0;
 
-  u8  buf[MAX_FILE];
-  s32 fd, len = q->len, offset = 0, ascii = 0, utf8 = 0, comp;
+  u8      buf[MAX_FILE];
+  int     fd;
+  u32     len = q->len, offset = 0, ascii = 0, utf8 = 0;
+  ssize_t comp;
 
   if (len >= MAX_FILE) len = MAX_FILE - 1;
   if ((fd = open(q->fname, O_RDONLY)) < 0) return 0;
-  if ((comp = read(fd, buf, len)) != len) return 0;
-  buf[len] = 0;
+  comp = read(fd, buf, len);
   close(fd);
+  if (comp != (ssize_t)len) return 0;
+  buf[len] = 0;
 
   while (offset < len) {
 
@@ -218,8 +324,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->len = len;
   q->depth = afl->cur_depth + 1;
   q->passed_det = passed_det;
-  q->n_fuzz = 1;
   q->trace_mini = NULL;
+  q->testcase_buf = NULL;
 
   if (q->depth > afl->max_depth) { afl->max_depth = q->depth; }
 
@@ -230,21 +336,17 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   } else {
 
-    afl->q_prev100 = afl->queue = afl->queue_top = q;
+    afl->queue = afl->queue_top = q;
 
   }
 
+  if (likely(q->len > 4)) afl->ready_for_splicing_count++;
+
   ++afl->queued_paths;
+  ++afl->active_paths;
   ++afl->pending_not_fuzzed;
 
   afl->cycles_wo_finds = 0;
-
-  if (!(afl->queued_paths % 100)) {
-
-    afl->q_prev100->next_100 = q;
-    afl->q_prev100 = q;
-
-  }
 
   struct queue_entry **queue_buf = afl_realloc(
       AFL_BUF_PARAM(queue), afl->queued_paths * sizeof(struct queue_entry *));
@@ -281,15 +383,15 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
 void destroy_queue(afl_state_t *afl) {
 
-  struct queue_entry *q = afl->queue, *n;
+  struct queue_entry *q;
+  u32                 i;
 
-  while (q) {
+  for (i = 0; i < afl->queued_paths; i++) {
 
-    n = q->next;
+    q = afl->queue_buf[i];
     ck_free(q->fname);
     ck_free(q->trace_mini);
     ck_free(q);
-    q = n;
 
   }
 
@@ -312,8 +414,10 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
   u64 fav_factor;
   u64 fuzz_p2;
 
-  if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE))
-    fuzz_p2 = next_pow2(q->n_fuzz);
+  if (unlikely(afl->schedule >= FAST && afl->schedule < RARE))
+    fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
+  else if (unlikely(afl->schedule == RARE))
+    fuzz_p2 = next_pow2(afl->n_fuzz[q->n_fuzz_entry]);
   else
     fuzz_p2 = q->fuzz_level;
 
@@ -339,7 +443,8 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         u64 top_rated_fav_factor;
         u64 top_rated_fuzz_p2;
         if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE))
-          top_rated_fuzz_p2 = next_pow2(afl->top_rated[i]->n_fuzz);
+          top_rated_fuzz_p2 =
+              next_pow2(afl->n_fuzz[afl->top_rated[i]->n_fuzz_entry]);
         else
           top_rated_fuzz_p2 = afl->top_rated[i]->fuzz_level;
 
@@ -420,12 +525,12 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
 void cull_queue(afl_state_t *afl) {
 
+  if (likely(!afl->score_changed || afl->non_instrumented_mode)) { return; }
+
   struct queue_entry *q;
   u32                 len = (afl->fsrv.map_size >> 3);
   u32                 i;
   u8 *                temp_v = afl->map_tmp_buf;
-
-  if (afl->non_instrumented_mode || !afl->score_changed) { return; }
 
   afl->score_changed = 0;
 
@@ -509,7 +614,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   // Longer execution time means longer work on the input, the deeper in
   // coverage, the better the fuzzing, right? -mh
 
-  if (afl->schedule >= RARE && likely(!afl->fixed_seed)) {
+  if (likely(afl->schedule < RARE) && likely(!afl->fixed_seed)) {
 
     if (q->exec_us * 0.1 > avg_exec_us) {
 
@@ -610,11 +715,9 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  u64 fuzz = q->n_fuzz;
-  u64 fuzz_total;
-
-  u32 n_paths, fuzz_mu;
-  u32 factor = 1;
+  u32         n_paths;
+  double      factor = 1.0;
+  long double fuzz_mu;
 
   switch (afl->schedule) {
 
@@ -629,60 +732,83 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       break;
 
     case COE:
-      fuzz_total = 0;
+      fuzz_mu = 0.0;
       n_paths = 0;
+
+      // Don't modify perf_score for unfuzzed seeds
+      if (q->fuzz_level == 0) break;
 
       struct queue_entry *queue_it = afl->queue;
       while (queue_it) {
 
-        fuzz_total += queue_it->n_fuzz;
+        fuzz_mu += log2(afl->n_fuzz[q->n_fuzz_entry]);
         n_paths++;
+
         queue_it = queue_it->next;
 
       }
 
       if (unlikely(!n_paths)) { FATAL("Queue state corrupt"); }
 
-      fuzz_mu = fuzz_total / n_paths;
-      if (fuzz <= fuzz_mu) {
+      fuzz_mu = fuzz_mu / n_paths;
 
-        if (q->fuzz_level < 16) {
+      if (log2(afl->n_fuzz[q->n_fuzz_entry]) > fuzz_mu) {
 
-          factor = ((u32)(1 << q->fuzz_level));
+        /* Never skip favourites */
+        if (!q->favored) factor = 0;
 
-        } else {
-
-          factor = MAX_FACTOR;
-
-        }
-
-      } else {
-
-        factor = 0;
+        break;
 
       }
 
-      break;
-
+    // Fall through
     case FAST:
-      if (q->fuzz_level < 16) {
 
-        factor = ((u32)(1 << q->fuzz_level)) / (fuzz == 0 ? 1 : fuzz);
+      // Don't modify unfuzzed seeds
+      if (q->fuzz_level == 0) break;
 
-      } else {
+      switch ((u32)log2(afl->n_fuzz[q->n_fuzz_entry])) {
 
-        factor = MAX_FACTOR / (fuzz == 0 ? 1 : next_pow2(fuzz));
+        case 0 ... 1:
+          factor = 4;
+          break;
+
+        case 2 ... 3:
+          factor = 3;
+          break;
+
+        case 4:
+          factor = 2;
+          break;
+
+        case 5:
+          break;
+
+        case 6:
+          if (!q->favored) factor = 0.8;
+          break;
+
+        case 7:
+          if (!q->favored) factor = 0.6;
+          break;
+
+        default:
+          if (!q->favored) factor = 0.4;
+          break;
 
       }
+
+      if (q->favored) factor *= 1.15;
 
       break;
 
     case LIN:
-      factor = q->fuzz_level / (fuzz == 0 ? 1 : fuzz);
+      factor = q->fuzz_level / (afl->n_fuzz[q->n_fuzz_entry] + 1);
       break;
 
     case QUAD:
-      factor = q->fuzz_level * q->fuzz_level / (fuzz == 0 ? 1 : fuzz);
+      factor =
+          q->fuzz_level * q->fuzz_level / (afl->n_fuzz[q->n_fuzz_entry] + 1);
       break;
 
     case MMOPT:
@@ -707,8 +833,8 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       perf_score += (q->tc_ref * 10);
       // the more often fuzz result paths are equal to this queue entry,
       // reduce its value
-      perf_score *=
-          (1 - (double)((double)q->n_fuzz / (double)afl->fsrv.total_execs));
+      perf_score *= (1 - (double)((double)afl->n_fuzz[q->n_fuzz_entry] /
+                                  (double)afl->fsrv.total_execs));
 
       break;
 
@@ -717,7 +843,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+  if (unlikely(afl->schedule >= EXPLOIT && afl->schedule <= QUAD)) {
 
     if (factor > MAX_FACTOR) { factor = MAX_FACTOR; }
     perf_score *= factor / POWER_BETA;
@@ -729,7 +855,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
     perf_score *= 2;
 
-  } else if (perf_score < 1) {
+  } else if (afl->schedule != COE && perf_score < 1) {
 
     // Add a lower bound to AFLFast's energy assignment strategies
     perf_score = 1;
@@ -745,6 +871,289 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   }
 
   return perf_score;
+
+}
+
+/* after a custom trim we need to reload the testcase from disk */
+
+inline void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
+                                  u32 old_len) {
+
+  if (likely(q->testcase_buf)) {
+
+    u32 len = q->len;
+
+    if (len != old_len) {
+
+      afl->q_testcase_cache_size = afl->q_testcase_cache_size + len - old_len;
+      q->testcase_buf = realloc(q->testcase_buf, len);
+
+      if (unlikely(!q->testcase_buf)) {
+
+        PFATAL("Unable to malloc '%s' with len %d", q->fname, len);
+
+      }
+
+    }
+
+    int fd = open(q->fname, O_RDONLY);
+
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+
+    ck_read(fd, q->testcase_buf, len, q->fname);
+    close(fd);
+
+  }
+
+}
+
+/* after a normal trim we need to replace the testcase with the new data */
+
+inline void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q,
+                                      u8 *in, u32 len, u32 old_len) {
+
+  if (likely(q->testcase_buf)) {
+
+    u32 is_same = in == q->testcase_buf;
+
+    if (likely(len != old_len)) {
+
+      u8 *ptr = realloc(q->testcase_buf, len);
+
+      if (likely(ptr)) {
+
+        q->testcase_buf = ptr;
+        afl->q_testcase_cache_size = afl->q_testcase_cache_size + len - old_len;
+
+      }
+
+    }
+
+    if (unlikely(!is_same)) { memcpy(q->testcase_buf, in, len); }
+
+  }
+
+}
+
+/* Returns the testcase buf from the file behind this queue entry.
+  Increases the refcount. */
+
+inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
+
+  u32 len = q->len;
+
+  /* first handle if no testcase cache is configured */
+
+  if (unlikely(!afl->q_testcase_max_cache_size)) {
+
+    u8 *buf;
+
+    if (unlikely(q == afl->queue_cur)) {
+
+      buf = afl_realloc((void **)&afl->testcase_buf, len);
+
+    } else {
+
+      buf = afl_realloc((void **)&afl->splicecase_buf, len);
+
+    }
+
+    if (unlikely(!buf)) {
+
+      PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
+
+    }
+
+    int fd = open(q->fname, O_RDONLY);
+
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+
+    ck_read(fd, buf, len, q->fname);
+    close(fd);
+    return buf;
+
+  }
+
+  /* now handle the testcase cache */
+
+  if (unlikely(!q->testcase_buf)) {
+
+    /* Buf not cached, let's load it */
+    u32        tid = afl->q_testcase_max_cache_count;
+    static u32 do_once = 0;  // because even threaded we would want this. WIP
+
+    while (unlikely(
+        afl->q_testcase_cache_size + len >= afl->q_testcase_max_cache_size ||
+        afl->q_testcase_cache_count >= afl->q_testcase_max_cache_entries - 1)) {
+
+      /* We want a max number of entries to the cache that we learn.
+         Very simple: once the cache is filled by size - that is the max. */
+
+      if (unlikely(afl->q_testcase_cache_size + len >=
+                       afl->q_testcase_max_cache_size &&
+                   (afl->q_testcase_cache_count <
+                        afl->q_testcase_max_cache_entries &&
+                    afl->q_testcase_max_cache_count <
+                        afl->q_testcase_max_cache_entries) &&
+                   !do_once)) {
+
+        if (afl->q_testcase_max_cache_count > afl->q_testcase_cache_count) {
+
+          afl->q_testcase_max_cache_entries =
+              afl->q_testcase_max_cache_count + 1;
+
+        } else {
+
+          afl->q_testcase_max_cache_entries = afl->q_testcase_cache_count + 1;
+
+        }
+
+        do_once = 1;
+        // release unneeded memory
+        u8 *ptr = ck_realloc(
+            afl->q_testcase_cache,
+            (afl->q_testcase_max_cache_entries + 1) * sizeof(size_t));
+
+        if (ptr) { afl->q_testcase_cache = (struct queue_entry **)ptr; }
+
+      }
+
+      /* Cache full. We neet to evict one or more to map one.
+         Get a random one which is not in use */
+
+      do {
+
+        // if the cache (MB) is not enough for the queue then this gets
+        // undesirable because q_testcase_max_cache_count grows sometimes
+        // although the number of items in the cache will not change hence
+        // more and more loops
+        tid = rand_below(afl, afl->q_testcase_max_cache_count);
+
+      } while (afl->q_testcase_cache[tid] == NULL ||
+
+               afl->q_testcase_cache[tid] == afl->queue_cur);
+
+      struct queue_entry *old_cached = afl->q_testcase_cache[tid];
+      free(old_cached->testcase_buf);
+      old_cached->testcase_buf = NULL;
+      afl->q_testcase_cache_size -= old_cached->len;
+      afl->q_testcase_cache[tid] = NULL;
+      --afl->q_testcase_cache_count;
+      ++afl->q_testcase_evictions;
+      if (tid < afl->q_testcase_smallest_free)
+        afl->q_testcase_smallest_free = tid;
+
+    }
+
+    if (unlikely(tid >= afl->q_testcase_max_cache_entries)) {
+
+      // uh we were full, so now we have to search from start
+      tid = afl->q_testcase_smallest_free;
+
+    }
+
+    // we need this while loop in case there were ever previous evictions but
+    // not in this call.
+    while (unlikely(afl->q_testcase_cache[tid] != NULL))
+      ++tid;
+
+    /* Map the test case into memory. */
+
+    int fd = open(q->fname, O_RDONLY);
+
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+
+    q->testcase_buf = malloc(len);
+
+    if (unlikely(!q->testcase_buf)) {
+
+      PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
+
+    }
+
+    ck_read(fd, q->testcase_buf, len, q->fname);
+    close(fd);
+
+    /* Register testcase as cached */
+    afl->q_testcase_cache[tid] = q;
+    afl->q_testcase_cache_size += len;
+    ++afl->q_testcase_cache_count;
+    if (likely(tid >= afl->q_testcase_max_cache_count)) {
+
+      afl->q_testcase_max_cache_count = tid + 1;
+
+    } else if (unlikely(tid == afl->q_testcase_smallest_free)) {
+
+      afl->q_testcase_smallest_free = tid + 1;
+
+    }
+
+  }
+
+  return q->testcase_buf;
+
+}
+
+/* Adds the new queue entry to the cache. */
+
+inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
+                                     u8 *mem) {
+
+  u32 len = q->len;
+
+  if (unlikely(afl->q_testcase_cache_size + len >=
+                   afl->q_testcase_max_cache_size ||
+               afl->q_testcase_cache_count >=
+                   afl->q_testcase_max_cache_entries - 1)) {
+
+    // no space? will be loaded regularly later.
+    return;
+
+  }
+
+  u32 tid;
+
+  if (unlikely(afl->q_testcase_max_cache_count >=
+               afl->q_testcase_max_cache_entries)) {
+
+    // uh we were full, so now we have to search from start
+    tid = afl->q_testcase_smallest_free;
+
+  } else {
+
+    tid = afl->q_testcase_max_cache_count;
+
+  }
+
+  while (unlikely(afl->q_testcase_cache[tid] != NULL))
+    ++tid;
+
+  /* Map the test case into memory. */
+
+  q->testcase_buf = malloc(len);
+
+  if (unlikely(!q->testcase_buf)) {
+
+    PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
+
+  }
+
+  memcpy(q->testcase_buf, mem, len);
+
+  /* Register testcase as cached */
+  afl->q_testcase_cache[tid] = q;
+  afl->q_testcase_cache_size += len;
+  ++afl->q_testcase_cache_count;
+
+  if (likely(tid >= afl->q_testcase_max_cache_count)) {
+
+    afl->q_testcase_max_cache_count = tid + 1;
+
+  } else if (unlikely(tid == afl->q_testcase_smallest_free)) {
+
+    afl->q_testcase_smallest_free = tid + 1;
+
+  }
 
 }
 

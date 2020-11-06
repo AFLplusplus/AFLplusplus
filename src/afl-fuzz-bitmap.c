@@ -555,19 +555,9 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-    struct queue_entry *q = afl->queue;
-    while (q) {
-
-      if (q->exec_cksum == cksum) {
-
-        ++q->n_fuzz;
-        break;
-
-      }
-
-      q = q->next;
-
-    }
+    /* Saturated increment */
+    if (afl->n_fuzz[cksum % N_FUZZ_SIZE] < 0xFFFFFFFF)
+      afl->n_fuzz[cksum % N_FUZZ_SIZE]++;
 
   }
 
@@ -597,6 +587,11 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     add_to_queue(afl, queue_fn, len, 0);
 
+#ifdef INTROSPECTION
+    fprintf(afl->introspection_file, "QUEUE %s = %s\n", afl->mutation,
+            afl->queue_top->fname);
+#endif
+
     if (hnb == 2) {
 
       afl->queue_top->has_new_cov = 1;
@@ -607,8 +602,15 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     if (cksum)
       afl->queue_top->exec_cksum = cksum;
     else
-      afl->queue_top->exec_cksum =
+      cksum = afl->queue_top->exec_cksum =
           hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+    if (afl->schedule >= FAST && afl->schedule <= RARE) {
+
+      afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
+      afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+
+    }
 
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
@@ -625,6 +627,12 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", queue_fn); }
     ck_write(fd, mem, len, queue_fn);
     close(fd);
+
+    if (likely(afl->q_testcase_max_cache_size)) {
+
+      queue_testcase_store_mem(afl, afl->queue_top, mem);
+
+    }
 
     keeping = 1;
 
@@ -656,6 +664,9 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       }
 
       ++afl->unique_tmouts;
+#ifdef INTROSPECTION
+      fprintf(afl->introspection_file, "UNIQUE_TIMEOUT %s\n", afl->mutation);
+#endif
 
       /* Before saving, we make sure that it's a genuine hang by re-running
          the target with a more generous timeout (unless the default timeout
@@ -739,6 +750,9 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #endif                                                    /* ^!SIMPLE_FILES */
 
       ++afl->unique_crashes;
+#ifdef INTROSPECTION
+      fprintf(afl->introspection_file, "UNIQUE_CRASH %s\n", afl->mutation);
+#endif
       if (unlikely(afl->infoexec)) {
 
         // if the user wants to be informed on new crashes - do that

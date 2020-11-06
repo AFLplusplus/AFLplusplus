@@ -656,6 +656,7 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
   unlink(out_file);
 
+  fsrv->out_file = out_file;
   fsrv->out_fd = open(out_file, O_RDWR | O_CREAT | O_EXCL, 0600);
 
   if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", out_file); }
@@ -672,11 +673,14 @@ static void set_up_environment(afl_forkserver_t *fsrv) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
+#ifndef ASAN_BUILD
+    if (!getenv("AFL_DEBUG") && !strstr(x, "symbolize=0")) {
 
       FATAL("Custom ASAN_OPTIONS set without symbolize=0 - please fix!");
 
     }
+
+#endif
 
   }
 

@@ -89,21 +89,21 @@ static void usage(u8 *argv0, int more_help) {
       "  -o dir        - output directory for fuzzer findings\n\n"
 
       "Execution control settings:\n"
-      "  -p schedule   - power schedules compute a seed's performance score. "
-      "<explore\n"
-      "                  (default), fast, coe, lin, quad, exploit, mmopt, "
-      "rare, seek>\n"
-      "                  see docs/power_schedules.md\n"
+      "  -p schedule   - power schedules compute a seed's performance score:\n"
+      "                  <explore(default), rare, exploit, seek, mmopt, coe, "
+      "fast,\n"
+      "                  lin, quad> -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
       "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
-      "  -m megs       - memory limit for child process (%d MB)\n"
+      "  -m megs       - memory limit for child process (%d MB, 0 = no limit)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
       "mode)\n\n"
 
       "Mutator settings:\n"
+      "  -D            - enable deterministic fuzzing (once per queue entry)\n"
       "  -L minutes    - use MOpt(imize) mode and set the time limit for "
       "entering the\n"
       "                  pacemaker mode (minutes of no new paths). 0 = "
@@ -115,12 +115,13 @@ static void usage(u8 *argv0, int more_help) {
       "                  if using QEMU, just use -c 0.\n\n"
 
       "Fuzzing behavior settings:\n"
+      "  -Z            - sequential queue selection instead of weighted "
+      "random\n"
       "  -N            - do not unlink the fuzzing input file (for devices "
       "etc.)\n"
-      "  -d            - quick & dirty mode (skips deterministic steps)\n"
       "  -n            - fuzz without instrumentation (non-instrumented mode)\n"
-      "  -x dict_file  - optional fuzzer dictionary (see README.md, its really "
-      "good!)\n\n"
+      "  -x dict_file  - fuzzer dictionary (see README.md, specify up to 4 "
+      "times)\n\n"
 
       "Testing settings:\n"
       "  -s seed       - use a fixed seed for the RNG\n"
@@ -132,11 +133,11 @@ static void usage(u8 *argv0, int more_help) {
 
       "Other stuff:\n"
       "  -M/-S id      - distributed mode (see docs/parallel_fuzzing.md)\n"
-      "                  use -D to force -S secondary to perform deterministic "
-      "fuzzing\n"
+      "                  -M auto-sets -D and -Z (use -d to disable -D)\n"
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
       "-M, can\n"
       "                  be specified up to %u times)\n"
+      "  -d            - skip deterministic fuzzing in -M mode\n"
       "  -T text       - text banner to show on the screen\n"
       "  -I command    - execute this command/script when a new crash is "
       "found\n"
@@ -195,6 +196,13 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_SKIP_BIN_CHECK: skip the check, if the target is an executable\n"
       "AFL_SKIP_CPUFREQ: do not warn about variable cpu clocking\n"
       "AFL_SKIP_CRASHES: during initial dry run do not terminate for crashing inputs\n"
+      "AFL_STATSD: enables StatsD metrics collection\n"
+      "AFL_STATSD_HOST: change default statsd host (default 127.0.0.1)\n"
+      "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
+      "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
+      "                        Supported formats are: 'dogstatsd', 'librato',\n"
+      "                        'signalfx' and 'influxdb'\n"
+      "AFL_TESTCACHE_SIZE: use a cache for testcases, improves performance (in MB)\n"
       "AFL_TMPDIR: directory to use for input file generation (ramdisk recommended)\n"
       //"AFL_PERSISTENT: not supported anymore -> no effect, just a warning\n"
       //"AFL_DEFER_FORKSRV: not supported anymore -> no effect, just a warning\n"
@@ -214,6 +222,30 @@ static void usage(u8 *argv0, int more_help) {
        (char *)PYTHON_VERSION);
 #else
   SAYF("Compiled without python module support\n");
+#endif
+
+#ifdef ASAN_BUILD
+  SAYF("Compiled with ASAN_BUILD\n\n");
+#endif
+
+#ifdef NO_SPLICING
+  SAYF("Compiled with NO_SPLICING\n\n");
+#endif
+
+#ifdef PROFILING
+  SAYF("Compiled with PROFILING\n\n");
+#endif
+
+#ifdef INTROSPECTION
+  SAYF("Compiled with INTROSPECTION\n\n");
+#endif
+
+#ifdef _DEBUG
+  SAYF("Compiled with _DEBUG\n\n");
+#endif
+
+#ifdef _AFL_DOCUMENT_MUTATIONS
+  SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS\n\n");
 #endif
 
   SAYF("For additional help please consult %s/README.md\n\n", doc_path);
@@ -243,11 +275,12 @@ static int stricmp(char const *a, char const *b) {
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  s32    opt;
-  u64    prev_queued = 0;
-  u32    sync_interval_cnt = 0, seek_to, show_help = 0, map_size = MAP_SIZE;
-  u8 *   extras_dir = 0;
-  u8     mem_limit_given = 0, exit_1 = 0, debug = 0;
+  s32 opt, i, auto_sync = 0 /*, user_set_cache = 0*/;
+  u64 prev_queued = 0;
+  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, map_size = MAP_SIZE;
+  u8 *extras_dir[4];
+  u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
+     extras_dir_cnt = 0 /*, have_p = 0*/;
   char **use_argv;
 
   struct timeval  tv;
@@ -281,9 +314,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+b:c:i:I:o:f:F:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:")) > 0) {
+              "+b:c:i:I:o:f:F:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:Z")) > 0) {
 
     switch (opt) {
+
+      case 'Z':
+        afl->old_seed_selection = 1;
+        break;
 
       case 'I':
         afl->infoexec = optarg;
@@ -349,21 +386,25 @@ int main(int argc, char **argv_orig, char **envp) {
 
           afl->schedule = RARE;
 
+        } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "afl") ||
+
+                   !stricmp(optarg, "default") ||
+
+                   !stricmp(optarg, "normal")) {
+
+          afl->schedule = EXPLORE;
+
         } else if (!stricmp(optarg, "seek")) {
 
           afl->schedule = SEEK;
-
-        } else if (!stricmp(optarg, "explore") || !stricmp(optarg, "default") ||
-
-                   !stricmp(optarg, "normal") || !stricmp(optarg, "afl")) {
-
-          afl->schedule = EXPLORE;
 
         } else {
 
           FATAL("Unknown -p power schedule");
 
         }
+
+        // have_p = 1;
 
         break;
 
@@ -396,6 +437,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
+        afl->skip_deterministic = 0;  // force determinsitic fuzzing
+        afl->old_seed_selection = 1;  // force old queue walking seed selection
 
         if ((c = strchr(afl->sync_id, ':'))) {
 
@@ -424,8 +467,6 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
         afl->is_secondary_node = 1;
-        afl->skip_deterministic = 1;
-        afl->use_splicing = 1;
         break;
 
       case 'F':                                         /* foreign sync dir */
@@ -450,8 +491,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'x':                                               /* dictionary */
 
-        if (extras_dir) { FATAL("Multiple -x options not supported"); }
-        extras_dir = optarg;
+        if (extras_dir_cnt >= 4) {
+
+          FATAL("More than four -x options are not supported");
+
+        }
+
+        extras_dir[extras_dir_cnt++] = optarg;
         break;
 
       case 't': {                                                /* timeout */
@@ -545,7 +591,6 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'd':                                       /* skip deterministic */
 
         afl->skip_deterministic = 1;
-        afl->use_splicing = 1;
         break;
 
       case 'B':                                              /* load bitmap */
@@ -611,7 +656,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'N':                                             /* Unicorn mode */
 
         if (afl->no_unlink) { FATAL("Multiple -N options not supported"); }
-        afl->no_unlink = 1;
+        afl->fsrv.no_unlink = afl->no_unlink = 1;
 
         break;
 
@@ -694,7 +739,7 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->swarm_now = 0;
         if (afl->limit_time_puppet == 0) { afl->key_puppet = 1; }
 
-        int i;
+        int j;
         int tmp_swarm = 0;
 
         if (afl->g_now > afl->g_max) { afl->g_now = 0; }
@@ -707,70 +752,70 @@ int main(int argc, char **argv_orig, char **envp) {
           double total_puppet_temp = 0.0;
           afl->swarm_fitness[tmp_swarm] = 0.0;
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->stage_finds_puppet[tmp_swarm][i] = 0;
-            afl->probability_now[tmp_swarm][i] = 0.0;
-            afl->x_now[tmp_swarm][i] =
+            afl->stage_finds_puppet[tmp_swarm][j] = 0;
+            afl->probability_now[tmp_swarm][j] = 0.0;
+            afl->x_now[tmp_swarm][j] =
                 ((double)(random() % 7000) * 0.0001 + 0.1);
-            total_puppet_temp += afl->x_now[tmp_swarm][i];
-            afl->v_now[tmp_swarm][i] = 0.1;
-            afl->L_best[tmp_swarm][i] = 0.5;
-            afl->G_best[i] = 0.5;
-            afl->eff_best[tmp_swarm][i] = 0.0;
+            total_puppet_temp += afl->x_now[tmp_swarm][j];
+            afl->v_now[tmp_swarm][j] = 0.1;
+            afl->L_best[tmp_swarm][j] = 0.5;
+            afl->G_best[j] = 0.5;
+            afl->eff_best[tmp_swarm][j] = 0.0;
 
           }
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->stage_cycles_puppet_v2[tmp_swarm][i] =
-                afl->stage_cycles_puppet[tmp_swarm][i];
-            afl->stage_finds_puppet_v2[tmp_swarm][i] =
-                afl->stage_finds_puppet[tmp_swarm][i];
-            afl->x_now[tmp_swarm][i] =
-                afl->x_now[tmp_swarm][i] / total_puppet_temp;
+            afl->stage_cycles_puppet_v2[tmp_swarm][j] =
+                afl->stage_cycles_puppet[tmp_swarm][j];
+            afl->stage_finds_puppet_v2[tmp_swarm][j] =
+                afl->stage_finds_puppet[tmp_swarm][j];
+            afl->x_now[tmp_swarm][j] =
+                afl->x_now[tmp_swarm][j] / total_puppet_temp;
 
           }
 
           double x_temp = 0.0;
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->probability_now[tmp_swarm][i] = 0.0;
-            afl->v_now[tmp_swarm][i] =
-                afl->w_now * afl->v_now[tmp_swarm][i] +
+            afl->probability_now[tmp_swarm][j] = 0.0;
+            afl->v_now[tmp_swarm][j] =
+                afl->w_now * afl->v_now[tmp_swarm][j] +
                 RAND_C *
-                    (afl->L_best[tmp_swarm][i] - afl->x_now[tmp_swarm][i]) +
-                RAND_C * (afl->G_best[i] - afl->x_now[tmp_swarm][i]);
+                    (afl->L_best[tmp_swarm][j] - afl->x_now[tmp_swarm][j]) +
+                RAND_C * (afl->G_best[j] - afl->x_now[tmp_swarm][j]);
 
-            afl->x_now[tmp_swarm][i] += afl->v_now[tmp_swarm][i];
+            afl->x_now[tmp_swarm][j] += afl->v_now[tmp_swarm][j];
 
-            if (afl->x_now[tmp_swarm][i] > v_max) {
+            if (afl->x_now[tmp_swarm][j] > v_max) {
 
-              afl->x_now[tmp_swarm][i] = v_max;
+              afl->x_now[tmp_swarm][j] = v_max;
 
-            } else if (afl->x_now[tmp_swarm][i] < v_min) {
+            } else if (afl->x_now[tmp_swarm][j] < v_min) {
 
-              afl->x_now[tmp_swarm][i] = v_min;
+              afl->x_now[tmp_swarm][j] = v_min;
 
             }
 
-            x_temp += afl->x_now[tmp_swarm][i];
+            x_temp += afl->x_now[tmp_swarm][j];
 
           }
 
-          for (i = 0; i < operator_num; ++i) {
+          for (j = 0; j < operator_num; ++j) {
 
-            afl->x_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i] / x_temp;
-            if (likely(i != 0)) {
+            afl->x_now[tmp_swarm][j] = afl->x_now[tmp_swarm][j] / x_temp;
+            if (likely(j != 0)) {
 
-              afl->probability_now[tmp_swarm][i] =
-                  afl->probability_now[tmp_swarm][i - 1] +
-                  afl->x_now[tmp_swarm][i];
+              afl->probability_now[tmp_swarm][j] =
+                  afl->probability_now[tmp_swarm][j - 1] +
+                  afl->x_now[tmp_swarm][j];
 
             } else {
 
-              afl->probability_now[tmp_swarm][i] = afl->x_now[tmp_swarm][i];
+              afl->probability_now[tmp_swarm][j] = afl->x_now[tmp_swarm][j];
 
             }
 
@@ -785,13 +830,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        for (i = 0; i < operator_num; ++i) {
+        for (j = 0; j < operator_num; ++j) {
 
-          afl->core_operator_finds_puppet[i] = 0;
-          afl->core_operator_finds_puppet_v2[i] = 0;
-          afl->core_operator_cycles_puppet[i] = 0;
-          afl->core_operator_cycles_puppet_v2[i] = 0;
-          afl->core_operator_cycles_puppet_v3[i] = 0;
+          afl->core_operator_finds_puppet[j] = 0;
+          afl->core_operator_finds_puppet_v2[j] = 0;
+          afl->core_operator_cycles_puppet[j] = 0;
+          afl->core_operator_cycles_puppet_v2[j] = 0;
+          afl->core_operator_cycles_puppet_v3[j] = 0;
 
         }
 
@@ -828,10 +873,8 @@ int main(int argc, char **argv_orig, char **envp) {
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
       "https://github.com/AFLplusplus/AFLplusplus");
-  OKF("Power schedules from github.com/mboehme/aflfast");
-  OKF("Python Mutator and llvm_mode instrument file list from "
-      "github.com/choller/afl");
-  OKF("MOpt Mutator from github.com/puppet-meteor/MOpt-AFL");
+  OKF("NOTE: This is v3.x which changes defaults and behaviours - see "
+      "README.md");
 
   if (afl->sync_id && afl->is_main_node &&
       afl->afl_env.afl_custom_mutator_only) {
@@ -859,9 +902,18 @@ int main(int argc, char **argv_orig, char **envp) {
   #endif
 
   setup_signal_handlers();
-  check_asan_opts();
+  check_asan_opts(afl);
 
   afl->power_name = power_names[afl->schedule];
+
+  if (!afl->sync_id) {
+
+    auto_sync = 1;
+    afl->sync_id = ck_strdup("default");
+    afl->is_secondary_node = 1;
+    OKF("No -M/-S set, autoconfiguring for \"-S %s\"", afl->sync_id);
+
+  }
 
   if (afl->sync_id) { fix_up_sync(afl); }
 
@@ -886,6 +938,8 @@ int main(int argc, char **argv_orig, char **envp) {
     FATAL("AFL_NO_UI and AFL_FORCE_UI are mutually exclusive");
 
   }
+
+  if (unlikely(afl->afl_env.afl_statsd)) { statsd_setup_format(afl); }
 
   if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
 
@@ -925,11 +979,18 @@ int main(int argc, char **argv_orig, char **envp) {
       OKF("Using seek power schedule (SEEK)");
       break;
     case EXPLORE:
-      OKF("Using exploration-based constant power schedule (EXPLORE, default)");
+      OKF("Using exploration-based constant power schedule (EXPLORE)");
       break;
     default:
       FATAL("Unknown power schedule");
       break;
+
+  }
+
+  /* Dynamically allocate memory for AFLFast schedules */
+  if (afl->schedule >= FAST && afl->schedule <= RARE) {
+
+    afl->n_fuzz = ck_alloc(N_FUZZ_SIZE * sizeof(u32));
 
   }
 
@@ -968,6 +1029,48 @@ int main(int argc, char **argv_orig, char **envp) {
   } else {
 
     afl->max_det_extras = MAX_DET_EXTRAS;
+
+  }
+
+  if (afl->afl_env.afl_testcache_size) {
+
+    afl->q_testcase_max_cache_size =
+        (u64)atoi(afl->afl_env.afl_testcache_size) * 1048576;
+
+  }
+
+  if (afl->afl_env.afl_testcache_entries) {
+
+    afl->q_testcase_max_cache_entries =
+        (u32)atoi(afl->afl_env.afl_testcache_entries);
+
+    // user_set_cache = 1;
+
+  }
+
+  if (!afl->afl_env.afl_testcache_size || !afl->afl_env.afl_testcache_entries) {
+
+    afl->afl_env.afl_testcache_entries = 0;
+    afl->afl_env.afl_testcache_size = 0;
+
+  }
+
+  if (!afl->q_testcase_max_cache_size) {
+
+    ACTF(
+        "No testcache was configured. it is recommended to use a testcache, it "
+        "improves performance: set AFL_TESTCACHE_SIZE=(value in MB)");
+
+  } else if (afl->q_testcase_max_cache_size < 2 * MAX_FILE) {
+
+    FATAL("AFL_TESTCACHE_SIZE must be set to %u or more, or 0 to disable",
+          (2 * MAX_FILE) % 1048576 == 0 ? (2 * MAX_FILE) / 1048576
+                                        : 1 + ((2 * MAX_FILE) / 1048576));
+
+  } else {
+
+    OKF("Enabled testcache with %llu MB",
+        afl->q_testcase_max_cache_size / 1048576);
 
   }
 
@@ -1010,10 +1113,10 @@ int main(int argc, char **argv_orig, char **envp) {
       u8 *afl_preload = getenv("AFL_PRELOAD");
       u8 *buf;
 
-      s32 i, afl_preload_size = strlen(afl_preload);
-      for (i = 0; i < afl_preload_size; ++i) {
+      s32 j, afl_preload_size = strlen(afl_preload);
+      for (j = 0; j < afl_preload_size; ++j) {
 
-        if (afl_preload[i] == ',') {
+        if (afl_preload[j] == ',') {
 
           PFATAL(
               "Comma (',') is not allowed in AFL_PRELOAD when -Q is "
@@ -1111,12 +1214,14 @@ int main(int argc, char **argv_orig, char **envp) {
     WARNF("it is wasteful to run more than one main node!");
     sleep(1);
 
-  }
+  } else if (!auto_sync && afl->is_secondary_node &&
 
-  if (afl->is_secondary_node && check_main_node_exists(afl) == 0) {
+             check_main_node_exists(afl) == 0) {
 
-    WARNF("no -M main node found. You need to run one main instance!");
-    sleep(3);
+    WARNF(
+        "no -M main node found. It is recommended to run exactly one main "
+        "instance.");
+    sleep(1);
 
   }
 
@@ -1132,14 +1237,26 @@ int main(int argc, char **argv_orig, char **envp) {
 
   setup_cmdline_file(afl, argv + optind);
 
-  read_testcases(afl);
+  read_testcases(afl, NULL);
   // read_foreign_testcases(afl, 1); for the moment dont do this
+  OKF("Loaded a total of %u seeds.", afl->queued_paths);
 
   load_auto(afl);
 
   pivot_inputs(afl);
 
-  if (extras_dir) { load_extras(afl, extras_dir); }
+  if (extras_dir_cnt) {
+
+    for (i = 0; i < extras_dir_cnt; i++) {
+
+      load_extras(afl, extras_dir[i]);
+
+    }
+
+    dedup_extras(afl);
+    OKF("Loaded a total of %u extras.", afl->extras_cnt);
+
+  }
 
   if (!afl->timeout_given) { find_timeout(afl); }
 
@@ -1179,10 +1296,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->fsrv.out_file) {
 
-    u32 i = optind + 1;
-    while (argv[i]) {
+    u32 j = optind + 1;
+    while (argv[j]) {
 
-      u8 *aa_loc = strstr(argv[i], "@@");
+      u8 *aa_loc = strstr(argv[j], "@@");
 
       if (aa_loc && !afl->fsrv.out_file) {
 
@@ -1205,7 +1322,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
-      ++i;
+      ++j;
 
     }
 
@@ -1270,11 +1387,61 @@ int main(int argc, char **argv_orig, char **envp) {
 
   perform_dry_run(afl);
 
+  /*
+    if (!user_set_cache && afl->q_testcase_max_cache_size) {
+
+      / * The user defined not a fixed number of entries for the cache.
+         Hence we autodetect a good value. After the dry run inputs are
+         trimmed and we know the average and max size of the input seeds.
+         We use this information to set a fitting size to max entries
+         based on the cache size. * /
+
+      struct queue_entry *q = afl->queue;
+      u64                 size = 0, count = 0, avg = 0, max = 0;
+
+      while (q) {
+
+        ++count;
+        size += q->len;
+        if (max < q->len) { max = q->len; }
+        q = q->next;
+
+      }
+
+      if (count) {
+
+        avg = size / count;
+        avg = ((avg + max) / 2) + 1;
+
+      }
+
+      if (avg < 10240) { avg = 10240; }
+
+      afl->q_testcase_max_cache_entries = afl->q_testcase_max_cache_size / avg;
+
+      if (afl->q_testcase_max_cache_entries > 32768)
+        afl->q_testcase_max_cache_entries = 32768;
+
+    }
+
+  */
+
+  if (afl->q_testcase_max_cache_entries) {
+
+    afl->q_testcase_cache =
+        ck_alloc(afl->q_testcase_max_cache_entries * sizeof(size_t));
+    if (!afl->q_testcase_cache) { PFATAL("malloc failed for cache entries"); }
+
+  }
+
   cull_queue(afl);
+
+  if (!afl->pending_not_fuzzed)
+    FATAL("We need at least on valid input seed that does not crash!");
 
   show_init_stats(afl);
 
-  seek_to = find_start_position(afl);
+  if (unlikely(afl->old_seed_selection)) seek_to = find_start_position(afl);
 
   write_stats_file(afl, 0, 0, 0);
   maybe_update_plot_file(afl, 0, 0);
@@ -1286,8 +1453,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->not_on_tty) {
 
-    sleep(4);
-    afl->start_time += 4000;
+    sleep(1);
     if (afl->stop_soon) { goto stop_fuzzing; }
 
   }
@@ -1296,28 +1462,49 @@ int main(int argc, char **argv_orig, char **envp) {
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
 
-  while (1) {
+  u32 runs_in_current_cycle = (u32)-1;
+  u32 prev_queued_paths = 0;
+  u8  skipped_fuzz;
 
-    u8 skipped_fuzz;
+  #ifdef INTROSPECTION
+  char ifn[4096];
+  snprintf(ifn, sizeof(ifn), "%s/introspection.txt", afl->out_dir);
+  if ((afl->introspection_file = fopen(ifn, "w")) == NULL) {
+
+    PFATAL("could not create '%s'", ifn);
+
+  }
+
+  setvbuf(afl->introspection_file, NULL, _IONBF, 0);
+  OKF("Writing mutation introspection to '%s'", ifn);
+  #endif
+
+  while (likely(!afl->stop_soon)) {
 
     cull_queue(afl);
 
-    if (!afl->queue_cur) {
+    if (unlikely((!afl->old_seed_selection &&
+                  runs_in_current_cycle > afl->queued_paths) ||
+                 (afl->old_seed_selection && !afl->queue_cur))) {
 
       ++afl->queue_cycle;
-      afl->current_entry = 0;
+      runs_in_current_cycle = 0;
       afl->cur_skipped_paths = 0;
-      afl->queue_cur = afl->queue;
 
-      while (seek_to) {
+      if (unlikely(afl->old_seed_selection)) {
 
-        ++afl->current_entry;
-        --seek_to;
-        afl->queue_cur = afl->queue_cur->next;
+        afl->current_entry = 0;
+        afl->queue_cur = afl->queue;
+
+        if (unlikely(seek_to)) {
+
+          afl->current_entry = seek_to;
+          afl->queue_cur = afl->queue_buf[seek_to];
+          seek_to = 0;
+
+        }
 
       }
-
-      // show_stats(afl);
 
       if (unlikely(afl->not_on_tty)) {
 
@@ -1329,8 +1516,8 @@ int main(int argc, char **argv_orig, char **envp) {
       /* If we had a full queue cycle with no new finds, try
          recombination strategies next. */
 
-      if (afl->queued_paths == prev_queued &&
-          (get_cur_time() - afl->start_time) >= 3600) {
+      if (unlikely(afl->queued_paths == prev_queued &&
+                   (get_cur_time() - afl->start_time) >= 3600)) {
 
         if (afl->use_splicing) {
 
@@ -1338,9 +1525,11 @@ int main(int argc, char **argv_orig, char **envp) {
           switch (afl->expand_havoc) {
 
             case 0:
+              // this adds extra splicing mutation options to havoc mode
               afl->expand_havoc = 1;
               break;
             case 1:
+              // add MOpt mutator
               if (afl->limit_time_sig == 0 && !afl->custom_only &&
                   !afl->python_only) {
 
@@ -1352,24 +1541,34 @@ int main(int argc, char **argv_orig, char **envp) {
               afl->expand_havoc = 2;
               break;
             case 2:
-              // afl->cycle_schedules = 1;
+              // if (!have_p) afl->schedule = EXPLOIT;
+              // increase havoc mutations per fuzz attempt
+              afl->havoc_stack_pow2++;
               afl->expand_havoc = 3;
               break;
             case 3:
+              // further increase havoc mutations per fuzz attempt
+              afl->havoc_stack_pow2++;
+              afl->expand_havoc = 4;
+              break;
+            case 4:
+              // if not in sync mode, enable deterministic mode?
+              // if (!afl->sync_id) afl->skip_deterministic = 0;
+              afl->expand_havoc = 5;
+              break;
+            case 5:
               // nothing else currently
               break;
 
           }
 
-          if (afl->expand_havoc) {
-
-          } else
-
-            afl->expand_havoc = 1;
-
         } else {
 
+  #ifndef NO_SPLICING
           afl->use_splicing = 1;
+  #else
+          afl->use_splicing = 0;
+  #endif
 
         }
 
@@ -1437,9 +1636,39 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    skipped_fuzz = fuzz_one(afl);
+    ++runs_in_current_cycle;
 
-    if (!skipped_fuzz && !afl->stop_soon && afl->sync_id) {
+    do {
+
+      if (likely(!afl->old_seed_selection)) {
+
+        if (unlikely(prev_queued_paths < afl->queued_paths)) {
+
+          // we have new queue entries since the last run, recreate alias table
+          prev_queued_paths = afl->queued_paths;
+          create_alias_table(afl);
+
+        }
+
+        afl->current_entry = select_next_queue_entry(afl);
+        afl->queue_cur = afl->queue_buf[afl->current_entry];
+
+      }
+
+      skipped_fuzz = fuzz_one(afl);
+
+      if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
+
+      if (unlikely(afl->old_seed_selection)) {
+
+        afl->queue_cur = afl->queue_cur->next;
+        ++afl->current_entry;
+
+      }
+
+    } while (skipped_fuzz && afl->queue_cur && !afl->stop_soon);
+
+    if (!afl->stop_soon && afl->sync_id) {
 
       if (unlikely(afl->is_main_node)) {
 
@@ -1452,13 +1681,6 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
     }
-
-    if (!afl->stop_soon && exit_1) { afl->stop_soon = 2; }
-
-    if (afl->stop_soon) { break; }
-
-    afl->queue_cur = afl->queue_cur->next;
-    ++afl->current_entry;
 
   }
 
@@ -1535,6 +1757,7 @@ stop_fuzzing:
   ck_free(afl->fsrv.target_path);
   ck_free(afl->fsrv.out_file);
   ck_free(afl->sync_id);
+  if (afl->q_testcase_cache) { ck_free(afl->q_testcase_cache); }
   afl_state_deinit(afl);
   free(afl);                                                 /* not tracked */
 

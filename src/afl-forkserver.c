@@ -99,22 +99,22 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
   fsrv_to->use_stdin = from->use_stdin;
-  fsrv_to->out_fd = from->out_fd;
   fsrv_to->dev_null_fd = from->dev_null_fd;
   fsrv_to->exec_tmout = from->exec_tmout;
   fsrv_to->init_tmout = from->init_tmout;
   fsrv_to->mem_limit = from->mem_limit;
   fsrv_to->map_size = from->map_size;
   fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
-
+  fsrv_to->out_file = from->out_file;
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
+  fsrv_to->out_fd = from->out_fd;  // not sure this is a good idea
+  fsrv_to->no_unlink = from->no_unlink;
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
   fsrv_to->child_pid = -1;
   fsrv_to->use_fauxsrv = 0;
   fsrv_to->last_run_timed_out = 0;
-  fsrv_to->out_file = NULL;
 
   fsrv_to->init_child_func = fsrv_exec_child;
   // Note: do not copy ->add_extra_func
@@ -140,7 +140,7 @@ read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms, volatile u8 *stop_soon_p) {
   timeout.tv_sec = (timeout_ms / 1000);
   timeout.tv_usec = (timeout_ms % 1000) * 1000;
 #if !defined(__linux__)
-  u64 read_start = get_cur_time_us();
+  u32 read_start = get_cur_time_us();
 #endif
 
   /* set exceptfds as well to return when a child exited/closed the pipe. */
@@ -166,7 +166,7 @@ restart_select:
           timeout_ms,
           ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
 #else
-      u32 exec_ms = MIN(timeout_ms, get_cur_time_us() - read_start);
+      u32 exec_ms = MIN(timeout_ms, (get_cur_time_us() - read_start) / 1000);
 #endif
 
       // ensure to report 1 ms has passed (0 is an error)
@@ -968,9 +968,9 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
     s32 fd = fsrv->out_fd;
 
-    if (!fsrv->use_stdin) {
+    if (!fsrv->use_stdin && fsrv->out_file) {
 
-      if (fsrv->no_unlink) {
+      if (unlikely(fsrv->no_unlink)) {
 
         fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
@@ -982,6 +982,14 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
       }
 
       if (fd < 0) { PFATAL("Unable to create '%s'", fsrv->out_file); }
+
+    } else if (unlikely(fd <= 0)) {
+
+      // We should have a (non-stdin) fd at this point, else we got a problem.
+      FATAL(
+          "Nowhere to write output to (neither out_fd nor out_file set (fd is "
+          "%d))",
+          fd);
 
     } else {
 
@@ -1043,7 +1051,12 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-  if (fsrv->child_pid <= 0) { FATAL("Fork server is misbehaving (OOM?)"); }
+  if (fsrv->child_pid <= 0) {
+
+    if (*stop_soon_p) { return 0; }
+    FATAL("Fork server is misbehaving (OOM?)");
+
+  }
 
   exec_ms = read_s32_timed(fsrv->fsrv_st_fd, &fsrv->child_status, timeout,
                            stop_soon_p);

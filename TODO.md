@@ -1,6 +1,6 @@
 # TODO list for AFL++
 
-## Roadmap 2.68+
+## Roadmap 3.00+
 
  - AFL_MAP_SIZE for qemu_mode and unicorn_mode
  - CPU affinity for many cores? There seems to be an issue > 96 cores
@@ -17,9 +17,6 @@ afl-fuzz:
 llvm_mode:
  - add __sanitizer_cov_trace_cmp* support
 
-gcc_plugin:
- - (wait for submission then decide)
-
 qemu_mode:
  - non colliding instrumentation
  - rename qemu specific envs to AFL_QEMU (AFL_ENTRYPOINT, AFL_CODE_START/END,
@@ -35,8 +32,3 @@ qemu_mode:
    using cmplog or __sanitizer_cov_trace_cmp*. maybe we can deduct by follow
    up edge numbers that both following cmp paths have been found and then
    disable working on this edge id -> cmplog_intelligence branch
-
- - new tancov: use some lightweight taint analysis to see which parts of a
-   new queue entry is accessed and only fuzz these bytes - or better, only
-   fuzz those bytes that are newly in coverage compared to the queue entry
-   the new one is based on -> taint branch, not useful :-(

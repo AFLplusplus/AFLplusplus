@@ -273,13 +273,15 @@
 /* Error-checking versions of read() and write() that call RPFATAL() as
    appropriate. */
 
-#define ck_write(fd, buf, len, fn)                            \
-  do {                                                        \
-                                                              \
-    s32 _len = (s32)(len);                                    \
-    s32 _res = write(fd, buf, _len);                          \
-    if (_res != _len) RPFATAL(_res, "Short write to %s", fn); \
-                                                              \
+#define ck_write(fd, buf, len, fn)                                        \
+  do {                                                                    \
+                                                                          \
+    int _fd = (fd);                                                       \
+                                                                          \
+    s32 _len = (s32)(len);                                                \
+    s32 _res = write(_fd, (buf), _len);                                   \
+    if (_res != _len) RPFATAL(_res, "Short write to %s, fd %d", fn, _fd); \
+                                                                          \
   } while (0)
 
 #define ck_read(fd, buf, len, fn)                              \

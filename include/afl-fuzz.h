@@ -65,6 +65,9 @@
 #include <dlfcn.h>
 #include <sched.h>
 
+#include <netdb.h>
+#include <netinet/in.h>
+
 #include <sys/wait.h>
 #include <sys/time.h>
 #ifndef USEMMAP
@@ -76,6 +79,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/file.h>
+#include <sys/types.h>
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
     defined(__NetBSD__) || defined(__DragonFly__)
@@ -148,22 +152,26 @@ struct queue_entry {
       favored,                          /* Currently favored?               */
       fs_redundant,                     /* Marked as redundant in the fs?   */
       fully_colorized,                  /* Do not run redqueen stage again  */
-      is_ascii;                         /* Is the input just ascii text?    */
+      is_ascii,                         /* Is the input just ascii text?    */
+      disabled;                         /* Is disabled from fuzz selection  */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
-      fuzz_level;                       /* Number of fuzzing iterations     */
+      fuzz_level,                       /* Number of fuzzing iterations     */
+      n_fuzz_entry;                     /* offset in n_fuzz                 */
 
   u64 exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
-      n_fuzz,                           /* Number of fuzz, does not overflow*/
       depth,                            /* Path depth                       */
       exec_cksum;                       /* Checksum of the execution trace  */
 
   u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
 
-  struct queue_entry *next,             /* Next element, if any             */
-      *next_100;                        /* 100 elements ahead               */
+  double perf_score;                    /* performance score                */
+
+  u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
+
+  struct queue_entry *next;             /* Next element, if any             */
 
 };
 
@@ -223,7 +231,7 @@ enum {
 
 };
 
-#define operator_num 18
+#define operator_num 19
 #define swarm_num 5
 #define period_core 500000
 
@@ -239,18 +247,19 @@ enum {
 #define STAGE_OverWrite75 15
 #define STAGE_OverWriteExtra 16
 #define STAGE_InsertExtra 17
+#define STAGE_Splice 18
 #define period_pilot 50000
 
 enum {
 
   /* 00 */ EXPLORE, /* AFL default, Exploration-based constant schedule */
-  /* 01 */ EXPLOIT, /* AFL's exploitation-based const.  */
-  /* 02 */ FAST,    /* Exponential schedule             */
-  /* 03 */ COE,     /* Cut-Off Exponential schedule     */
-  /* 04 */ LIN,     /* Linear schedule                  */
-  /* 05 */ QUAD,    /* Quadratic schedule               */
-  /* 06 */ RARE,    /* Rare edges                       */
-  /* 07 */ MMOPT,   /* Modified MOPT schedule           */
+  /* 01 */ MMOPT,   /* Modified MOPT schedule           */
+  /* 02 */ EXPLOIT, /* AFL's exploitation-based const.  */
+  /* 03 */ FAST,    /* Exponential schedule             */
+  /* 04 */ COE,     /* Cut-Off Exponential schedule     */
+  /* 05 */ LIN,     /* Linear schedule                  */
+  /* 06 */ QUAD,    /* Quadratic schedule               */
+  /* 07 */ RARE,    /* Rare edges                       */
   /* 08 */ SEEK,    /* EXPLORE that ignores timings     */
 
   POWER_SCHEDULES_NUM
@@ -353,11 +362,12 @@ typedef struct afl_env_vars {
       afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child_output, afl_autoresume,
-      afl_cal_fast, afl_cycle_schedules, afl_expand_havoc;
+      afl_cal_fast, afl_cycle_schedules, afl_expand_havoc, afl_statsd;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
-      *afl_max_det_extras;
+      *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
+      *afl_statsd_tags_flavor, *afl_testcache_size, *afl_testcache_entries;
 
 } afl_env_vars_t;
 
@@ -444,6 +454,7 @@ typedef struct afl_state {
 
   u8 cal_cycles,                        /* Calibration cycles defaults      */
       cal_cycles_long,                  /* Calibration cycles defaults      */
+      havoc_stack_pow2,                 /* HAVOC_STACK_POW2                 */
       no_unlink,                        /* do not unlink cur_input          */
       debug,                            /* Debug mode                       */
       custom_only,                      /* Custom mutator only mode         */
@@ -484,13 +495,21 @@ typedef struct afl_state {
       disable_trim,                     /* Never trim in fuzz_one           */
       shmem_testcase_mode,              /* If sharedmem testcases are used  */
       expand_havoc,                /* perform expensive havoc after no find */
-      cycle_schedules;                  /* cycle power schedules ?          */
+      cycle_schedules,                  /* cycle power schedules?           */
+      old_seed_selection;               /* use vanilla afl seed selection   */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
       *virgin_crash;                    /* Bits we haven't seen in crashes  */
 
+  double *alias_probability;            /* alias weighted probabilities     */
+  u32 *   alias_table;                /* alias weighted random lookup table */
+  u32     active_paths;                 /* enabled entries in the queue     */
+
   u8 *var_bytes;                        /* Bytes that appear to be variable */
+
+#define N_FUZZ_SIZE (1 << 21)
+  u32 *n_fuzz;
 
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */
       clear_screen;                     /* Window resized?                  */
@@ -575,8 +594,7 @@ typedef struct afl_state {
 
   struct queue_entry *queue,            /* Fuzzing queue (linked list)      */
       *queue_cur,                       /* Current offset within the queue  */
-      *queue_top,                       /* Top of the list                  */
-      *q_prev100;                       /* Previous 100 marker              */
+      *queue_top;                       /* Top of the list                  */
 
   // growing buf
   struct queue_entry **queue_buf;
@@ -632,6 +650,16 @@ typedef struct afl_state {
   u64 plot_prev_qc, plot_prev_uc, plot_prev_uh, plot_prev_ed;
 
   u64 stats_last_stats_ms, stats_last_plot_ms, stats_last_ms, stats_last_execs;
+
+  /* StatsD */
+  u64                statsd_last_send_ms;
+  struct sockaddr_in statsd_server;
+  int                statsd_sock;
+  char *             statsd_tags_flavor;
+  char *             statsd_tags_format;
+  char *             statsd_metric_format;
+  int                statsd_metric_format_type;
+
   double stats_avg_exec;
 
   u8 *clean_trace;
@@ -651,6 +679,9 @@ typedef struct afl_state {
   u8 *in_scratch_buf;
 
   u8 *ex_buf;
+
+  u8 *testcase_buf, *splicecase_buf;
+
   u32 custom_mutators_count;
 
   list_t custom_mutator_list;
@@ -658,6 +689,40 @@ typedef struct afl_state {
   /* this is a fixed buffer of size map_size that can be used by any function if
    * they do not call another function */
   u8 *map_tmp_buf;
+
+  /* queue entries ready for splicing count (len > 4) */
+  u32 ready_for_splicing_count;
+
+  /* This is the user specified maximum size to use for the testcase cache */
+  u64 q_testcase_max_cache_size;
+
+  /* This is the user specified maximum entries in the testcase cache */
+  u32 q_testcase_max_cache_entries;
+
+  /* How much of the testcase cache is used so far */
+  u64 q_testcase_cache_size;
+
+  /* highest cache count so far */
+  u32 q_testcase_max_cache_count;
+
+  /* How many queue entries currently have cached testcases */
+  u32 q_testcase_cache_count;
+
+  /* the smallest id currently known free entry */
+  u32 q_testcase_smallest_free;
+
+  /* How often did we evict from the cache (for statistics only) */
+  u32 q_testcase_evictions;
+
+  /* Refs to each queue entry with cached testcase (for eviction, if cache_count
+   * is too large) */
+  struct queue_entry **q_testcase_cache;
+
+#ifdef INTROSPECTION
+  char  mutation[8072];
+  char  m_tmp[4096];
+  FILE *introspection_file;
+#endif
 
 } afl_state_t;
 
@@ -937,6 +1002,7 @@ u8 has_new_bits(afl_state_t *, u8 *);
 
 void load_extras_file(afl_state_t *, u8 *, u32 *, u32 *, u32);
 void load_extras(afl_state_t *, u8 *);
+void dedup_extras(afl_state_t *);
 void add_extra(afl_state_t *afl, u8 *mem, u32 len);
 void maybe_add_auto(afl_state_t *, u8 *, u32);
 void save_auto(afl_state_t *);
@@ -950,6 +1016,13 @@ void write_stats_file(afl_state_t *, double, double, double);
 void maybe_update_plot_file(afl_state_t *, double, double);
 void show_stats(afl_state_t *);
 void show_init_stats(afl_state_t *);
+
+/* StatsD */
+
+void statsd_setup_format(afl_state_t *afl);
+int  statsd_socket_init(afl_state_t *afl);
+int  statsd_send_metric(afl_state_t *afl);
+int  statsd_format_metric(afl_state_t *afl, char *buff, size_t bufflen);
 
 /* Run */
 
@@ -974,7 +1047,7 @@ u8   fuzz_one(afl_state_t *);
 void bind_to_free_cpu(afl_state_t *);
 #endif
 void   setup_post(afl_state_t *);
-void   read_testcases(afl_state_t *);
+void   read_testcases(afl_state_t *, u8 *);
 void   perform_dry_run(afl_state_t *);
 void   pivot_inputs(afl_state_t *);
 u32    find_start_position(afl_state_t *);
@@ -982,6 +1055,8 @@ void   find_timeout(afl_state_t *);
 double get_runnable_processes(void);
 void   nuke_resume_dir(afl_state_t *);
 int    check_main_node_exists(afl_state_t *);
+u32    select_next_queue_entry(afl_state_t *afl);
+void   create_alias_table(afl_state_t *afl);
 void   setup_dirs_fds(afl_state_t *);
 void   setup_cmdline_file(afl_state_t *, char **);
 void   setup_stdio_file(afl_state_t *);
@@ -989,7 +1064,7 @@ void   check_crash_handling(void);
 void   check_cpu_governor(afl_state_t *);
 void   get_core_count(afl_state_t *);
 void   fix_up_sync(afl_state_t *);
-void   check_asan_opts(void);
+void   check_asan_opts(afl_state_t *);
 void   check_binary(afl_state_t *, u8 *);
 void   fix_up_banner(afl_state_t *, u8 *);
 void   check_if_tty(afl_state_t *);
@@ -1007,6 +1082,9 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
 
 /* xoshiro256** */
 uint64_t rand_next(afl_state_t *afl);
+
+/* probability between 0.0 and 1.0 */
+double rand_next_percent(afl_state_t *afl);
 
 /**** Inline routines ****/
 
@@ -1094,6 +1172,26 @@ static inline u64 next_p2(u64 val) {
   return ret;
 
 }
+
+/* Returns the testcase buf from the file behind this queue entry.
+  Increases the refcount. */
+u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q);
+
+/* If trimming changes the testcase size we have to reload it */
+void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
+                           u32 old_len);
+
+/* If trimming changes the testcase size we have to replace it  */
+void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q, u8 *in,
+                               u32 len, u32 old_len);
+
+/* Add a new queue entry directly to the cache */
+
+void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q, u8 *mem);
+
+#if TESTCASE_CACHE == 1
+  #error define of TESTCASE_CACHE must be zero or larger than 1
+#endif
 
 #endif
 

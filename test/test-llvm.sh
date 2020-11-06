@@ -70,7 +70,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     {
       ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/queue/id:000002* 2>/dev/null )" && {
+    test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode"
     } || {
       echo CUT------------------------------------------------------------------CUT
@@ -161,7 +161,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     {
       AFL_BENCH_UNTIL_CRASH=1 AFL_NO_UI=1 ../afl-fuzz -s 1 -V30 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/crashes/id:* 2>/dev/null )" && {
+    test -n "$( ls out/default/crashes/id:* 2>/dev/null )" && {
       $ECHO "$GREEN[+] llvm_mode laf-intel floatingpoint splitting feature works correctly"
     } || {
       cat errors
@@ -195,7 +195,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       echo 0000000000000000000000000 > in/in
       AFL_BENCH_UNTIL_CRASH=1 ../afl-fuzz -m none -V60 -i in -o out -c./test-cmplog -- ./test-cmplog >>errors 2>&1
     } >>errors 2>&1
-    test -n "$( ls out/crashes/id:000000* out/hangs/id:000000* 2>/dev/null )" & {
+    test -n "$( ls out/default/crashes/id:000000* out/default/hangs/id:000000* 2>/dev/null )" & {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode cmplog"
     } || {
       echo CUT------------------------------------------------------------------CUT
