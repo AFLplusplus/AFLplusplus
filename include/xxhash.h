@@ -660,7 +660,7 @@ XXH128_hashFromCanonical(const XXH128_canonical_t *src);
  * These declarations should only be used with static linking.
  * Never use them in association with dynamic linking!
  *****************************************************************************
-*/
+ */
 
 /*
  * These definitions are only present to allow static allocation
@@ -1189,7 +1189,7 @@ static int XXH_isLittleEndian(void) {
   return one.c[0];
 
 }
-\
+
       #define XXH_CPU_LITTLE_ENDIAN XXH_isLittleEndian()
     #endif
   #endif
@@ -1397,7 +1397,9 @@ static xxh_u32 XXH32_avalanche(xxh_u32 h32) {
 
 static xxh_u32 XXH32_finalize(xxh_u32 h32, const xxh_u8 *ptr, size_t len,
                               XXH_alignment align) {
-\
+
+  /* dummy comment */
+
   #define XXH_PROCESS1                           \
     do {                                         \
                                                  \
@@ -1950,16 +1952,21 @@ XXH_FORCE_INLINE xxh_u64 XXH_readLE64_align(const void *  ptr,
 
 /*******   xxh64   *******/
 
-static const xxh_u64 XXH_PRIME64_1 = 0x9E3779B185EBCA87ULL; /* 0b1001111000110111011110011011000110000101111010111100101010000111
-                                                             */
-static const xxh_u64 XXH_PRIME64_2 = 0xC2B2AE3D27D4EB4FULL; /* 0b1100001010110010101011100011110100100111110101001110101101001111
-                                                             */
-static const xxh_u64 XXH_PRIME64_3 = 0x165667B19E3779F9ULL; /* 0b0001011001010110011001111011000110011110001101110111100111111001
-                                                             */
-static const xxh_u64 XXH_PRIME64_4 = 0x85EBCA77C2B2AE63ULL; /* 0b1000010111101011110010100111011111000010101100101010111001100011
-                                                             */
-static const xxh_u64 XXH_PRIME64_5 = 0x27D4EB2F165667C5ULL; /* 0b0010011111010100111010110010111100010110010101100110011111000101
-                                                             */
+static const xxh_u64 XXH_PRIME64_1 =
+    0x9E3779B185EBCA87ULL; /* 0b1001111000110111011110011011000110000101111010111100101010000111
+                            */
+static const xxh_u64 XXH_PRIME64_2 =
+    0xC2B2AE3D27D4EB4FULL; /* 0b1100001010110010101011100011110100100111110101001110101101001111
+                            */
+static const xxh_u64 XXH_PRIME64_3 =
+    0x165667B19E3779F9ULL; /* 0b0001011001010110011001111011000110011110001101110111100111111001
+                            */
+static const xxh_u64 XXH_PRIME64_4 =
+    0x85EBCA77C2B2AE63ULL; /* 0b1000010111101011110010100111011111000010101100101010111001100011
+                            */
+static const xxh_u64 XXH_PRIME64_5 =
+    0x27D4EB2F165667C5ULL; /* 0b0010011111010100111010110010111100010110010101100110011111000101
+                            */
 
     #ifdef XXH_OLD_NAMES
       #define PRIME64_1 XXH_PRIME64_1
@@ -2002,7 +2009,9 @@ static xxh_u64 XXH64_avalanche(xxh_u64 h64) {
 
 static xxh_u64 XXH64_finalize(xxh_u64 h64, const xxh_u8 *ptr, size_t len,
                               XXH_alignment align) {
-\
+
+    /* dummy comment */
+
     #define XXH_PROCESS1_64                        \
       do {                                         \
                                                    \
@@ -2752,6 +2761,7 @@ XXH64_hashFromCanonical(const XXH64_canonical_t *src) {
             (outHi) = vget_high_u32(vreinterpretq_u32_u64(in));                                        \
                                                                                                        \
           } while (0)
+
       #else
         #define XXH_SPLIT_IN_PLACE(in, outLo, outHi) \
           do {                                       \
@@ -2760,6 +2770,7 @@ XXH64_hashFromCanonical(const XXH64_canonical_t *src) {
             (outHi) = vshrn_n_u64((in), 32);         \
                                                      \
           } while (0)
+
       #endif
     #endif                                        /* XXH_VECTOR == XXH_NEON */
 

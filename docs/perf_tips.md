@@ -51,7 +51,7 @@ a file.
 ## 3. Use LLVM instrumentation
 
 When fuzzing slow targets, you can gain 20-100% performance improvement by
-using the LLVM-based instrumentation mode described in [the llvm_mode README](../llvm_mode/README.md).
+using the LLVM-based instrumentation mode described in [the instrumentation README](../instrumentation/README.llvm.md).
 Note that this mode requires the use of clang and will not work with GCC.
 
 The LLVM mode also offers a "persistent", in-process fuzzing mode that can
@@ -62,12 +62,12 @@ modes require you to edit the source code of the fuzzed program, but the
 changes often amount to just strategically placing a single line or two.
 
 If there are important data comparisons performed (e.g. `strcmp(ptr, MAGIC_HDR)`)
-then using laf-intel (see llvm_mode/README.laf-intel.md) will help `afl-fuzz` a lot
+then using laf-intel (see instrumentation/README.laf-intel.md) will help `afl-fuzz` a lot
 to get to the important parts in the code.
 
 If you are only interested in specific parts of the code being fuzzed, you can
 instrument_files the files that are actually relevant. This improves the speed and
-accuracy of afl. See llvm_mode/README.instrument_list.md
+accuracy of afl. See instrumentation/README.instrument_list.md
 
 Also use the InsTrim mode on larger binaries, this improves performance and
 coverage a lot.
@@ -110,7 +110,7 @@ e.g.:
   https://launchpad.net/libeatmydata
 
 In programs that are slow due to unavoidable initialization overhead, you may
-want to try the LLVM deferred forkserver mode (see llvm_mode/README.md),
+want to try the LLVM deferred forkserver mode (see README.llvm.md),
 which can give you speed gains up to 10x, as mentioned above.
 
 Last but not least, if you are using ASAN and the performance is unacceptable,

@@ -52,7 +52,7 @@ options.
 Provides an evolutionary instrumentation-guided fuzzing harness that allows
 some programs to be fuzzed without the fork / execve overhead. (Similar
 functionality is now available as the "persistent" feature described in
-[the llvm_mode readme](../llvm_mode/README.md))
+[the llvm_mode readme](../instrumentation/README.llvm.md))
 
 http://llvm.org/docs/LibFuzzer.html
 
@@ -119,9 +119,17 @@ Simplifies the triage of discovered crashes, start parallel instances, etc.
 
 https://github.com/rc0r/afl-utils
 
+### AFL crash analyzer (floyd)
+
 Another crash triage tool:
 
 https://github.com/floyd-fuh/afl-crash-analyzer
+
+###  afl-extras (fekir)
+
+Collect data, parallel afl-tmin, startup scripts.
+
+https://github.com/fekir/afl-extras
 
 ### afl-fuzzing-scripts (Tobias Ospelt)
 
@@ -245,7 +253,7 @@ https://code.google.com/p/address-sanitizer/wiki/AsanCoverage#Coverage_counters
 ### AFL JS (Han Choongwoo)
 
 One-off optimizations to speed up the fuzzing of JavaScriptCore (now likely
-superseded by LLVM deferred forkserver init - see llvm_mode/README.md).
+superseded by LLVM deferred forkserver init - see README.llvm.md).
 
 https://github.com/tunz/afl-fuzz-js
 

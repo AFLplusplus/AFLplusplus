@@ -35,12 +35,12 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
   u8    fn[PATH_MAX];
   snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
   FILE *f = create_ffile(fn);
-  u32 i;
+  u32   i;
 
   fprintf(f, "# environment variables:\n");
-  u32 s_afl_env = (u32)
-      sizeof(afl_environment_variables) / sizeof(afl_environment_variables[0]) -
-      1U;
+  u32 s_afl_env = (u32)sizeof(afl_environment_variables) /
+                      sizeof(afl_environment_variables[0]) -
+                  1U;
 
   for (i = 0; i < s_afl_env; ++i) {
 
@@ -75,6 +75,7 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
     }
 
   }
+
   fprintf(f, "\n");
 
   fclose(f);
@@ -164,6 +165,9 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
           "edges_found       : %u\n"
           "var_byte_count    : %u\n"
           "havoc_expansion   : %u\n"
+          "testcache_size    : %llu\n"
+          "testcache_count   : %u\n"
+          "testcache_evict   : %u\n"
           "afl_banner        : %s\n"
           "afl_version       : " VERSION
           "\n"
@@ -197,7 +201,9 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 #else
           -1,
 #endif
-          t_bytes, afl->var_byte_count, afl->expand_havoc, afl->use_banner,
+          t_bytes, afl->var_byte_count, afl->expand_havoc,
+          afl->q_testcase_cache_size, afl->q_testcase_cache_count,
+          afl->q_testcase_evictions, afl->use_banner,
           afl->unicorn_mode ? "unicorn" : "",
           afl->fsrv.qemu_mode ? "qemu " : "",
           afl->non_instrumented_mode ? " non_instrumented " : "",
@@ -419,6 +425,18 @@ void show_stats(afl_state_t *afl) {
     write_stats_file(afl, t_byte_ratio, stab_ratio, afl->stats_avg_exec);
     save_auto(afl);
     write_bitmap(afl);
+
+  }
+
+  if (unlikely(afl->afl_env.afl_statsd)) {
+
+    if (cur_ms - afl->statsd_last_send_ms > STATSD_UPDATE_SEC * 1000) {
+
+      /* reset counter, even if send failed. */
+      afl->statsd_last_send_ms = cur_ms;
+      if (statsd_send_metric(afl)) { WARNF("could not send statsd metric."); }
+
+    }
 
   }
 
@@ -954,7 +972,7 @@ void show_stats(afl_state_t *afl) {
 #else
 
     SAYF("%s" cGRA "   [cpu:%s%3u%%" cGRA "]\r" cRST, spacing, cpu_color,
-         MIN(cur_utilization, 999));
+         MIN(cur_utilization, (u32)999));
 
 #endif                                                    /* ^HAVE_AFFINITY */
 
@@ -982,10 +1000,9 @@ void show_stats(afl_state_t *afl) {
 void show_init_stats(afl_state_t *afl) {
 
   struct queue_entry *q = afl->queue;
-  u32                 min_bits = 0, max_bits = 0;
+  u32                 min_bits = 0, max_bits = 0, max_len = 0, count = 0;
   u64                 min_us = 0, max_us = 0;
   u64                 avg_us = 0;
-  u32                 max_len = 0;
 
   u8 val_bufs[4][STRINGIFY_VAL_SIZE_MAX];
 #define IB(i) val_bufs[(i)], sizeof(val_bufs[(i)])
@@ -1006,11 +1023,12 @@ void show_init_stats(afl_state_t *afl) {
 
     if (q->len > max_len) { max_len = q->len; }
 
+    ++count;
     q = q->next;
 
   }
 
-  SAYF("\n");
+  // SAYF("\n");
 
   if (avg_us > ((afl->fsrv.qemu_mode || afl->unicorn_mode) ? 50000 : 10000)) {
 
@@ -1021,7 +1039,11 @@ void show_init_stats(afl_state_t *afl) {
 
   /* Let's keep things moving with slow binaries. */
 
-  if (avg_us > 50000) {
+  if (unlikely(afl->fixed_seed)) {
+
+    afl->havoc_div = 1;
+
+  } else if (avg_us > 50000) {
 
     afl->havoc_div = 10;                                /* 0-19 execs/sec   */
 
@@ -1072,11 +1094,12 @@ void show_init_stats(afl_state_t *afl) {
   OKF("Here are some useful stats:\n\n"
 
       cGRA "    Test case count : " cRST
-      "%u favored, %u variable, %u total\n" cGRA "       Bitmap range : " cRST
+      "%u favored, %u variable, %u ignored, %u total\n" cGRA
+      "       Bitmap range : " cRST
       "%u to %u bits (average: %0.02f bits)\n" cGRA
       "        Exec timing : " cRST "%s to %s us (average: %s us)\n",
-      afl->queued_favored, afl->queued_variable, afl->queued_paths, min_bits,
-      max_bits,
+      afl->queued_favored, afl->queued_variable, afl->queued_paths - count,
+      afl->queued_paths, min_bits, max_bits,
       ((double)afl->total_bitmap_size) /
           (afl->total_bitmap_entries ? afl->total_bitmap_entries : 1),
       stringify_int(IB(0), min_us), stringify_int(IB(1), max_us),
@@ -1091,7 +1114,11 @@ void show_init_stats(afl_state_t *afl) {
        random scheduler jitter is less likely to have any impact, and because
        our patience is wearing thin =) */
 
-    if (avg_us > 50000) {
+    if (unlikely(afl->fixed_seed)) {
+
+      afl->fsrv.exec_tmout = avg_us * 5 / 1000;
+
+    } else if (avg_us > 50000) {
 
       afl->fsrv.exec_tmout = avg_us * 2 / 1000;
 
@@ -1123,6 +1150,11 @@ void show_init_stats(afl_state_t *afl) {
   } else if (afl->timeout_given == 3) {
 
     ACTF("Applying timeout settings from resumed session (%u ms).",
+         afl->fsrv.exec_tmout);
+
+  } else {
+
+    ACTF("-t option specified. We'll use an exec timeout of %d ms.",
          afl->fsrv.exec_tmout);
 
   }

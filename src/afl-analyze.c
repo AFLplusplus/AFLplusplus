@@ -743,11 +743,14 @@ static void set_up_environment(void) {
 
     }
 
-    if (!strstr(x, "symbolize=0")) {
+#ifndef ASAN_BUILD
+    if (!getenv("AFL_DEBUG") && !strstr(x, "symbolize=0")) {
 
       FATAL("Custom ASAN_OPTIONS set without symbolize=0 - please fix!");
 
     }
+
+#endif
 
   }
 
@@ -922,11 +925,12 @@ static void usage(u8 *argv0) {
 
 /* Main entry point */
 
-int main(int argc, char **argv, char **envp) {
+int main(int argc, char **argv_orig, char **envp) {
 
   s32    opt;
   u8     mem_limit_given = 0, timeout_given = 0, unicorn_mode = 0, use_wine = 0;
   char **use_argv;
+  char **argv = argv_cpy_dup(argc, argv_orig);
 
   doc_path = access(DOC_PATH, F_OK) ? "docs" : DOC_PATH;
 

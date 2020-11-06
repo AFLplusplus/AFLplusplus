@@ -30,10 +30,10 @@ Check out the `fuzzer_stats` file in the AFL output dir or try `afl-whatsup`.
 It could be important - consult docs/status_screen.md right away!
 
 ## Know your target? Convert it to persistent mode for a huge performance gain!
-Consult section #5 in llvm_mode/README.md for tips.
+Consult section #5 in README.llvm.md for tips.
 
 ## Using clang? 
-Check out llvm_mode/ for a faster alternative to afl-gcc!
+Check out instrumentation/ for a faster alternative to afl-gcc!
 
 ## Did you know that AFL can fuzz closed-source or cross-platform binaries?
 Check out qemu_mode/README.md and unicorn_mode/README.md for more.
@@ -85,6 +85,3 @@ You can find a simple solution in examples/argv_fuzzing.
 Remove the checksum-checking code or use a postprocessor!
 See examples/custom_mutators/ for more.
 
-## Dealing with a very slow target or hoping for instant results? 
-
-Specify `-d` when calling afl-fuzz!

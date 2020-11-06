@@ -29,13 +29,10 @@
 # will be written to ../afl-qemu-trace.
 #
 
-
-VERSION="3.1.1"
-QEMU_URL="http://download.qemu-project.org/qemu-${VERSION}.tar.xz"
-QEMU_SHA384="28ff22ec4b8c957309460aa55d0b3188e971be1ea7dfebfb2ecc7903cd20cfebc2a7c97eedfcc7595f708357f1623f8b"
+QEMUAFL_VERSION="$(cat ./QEMUAFL_VERSION)"
 
 echo "================================================="
-echo "AFL binary-only instrumentation QEMU build script"
+echo "           QemuAFL build script"
 echo "================================================="
 echo
 
@@ -48,7 +45,7 @@ if [ ! "`uname -s`" = "Linux" ]; then
 
 fi
 
-if [ ! -f "patches/afl-qemu-cpu-inl.h" -o ! -f "../config.h" ]; then
+if [ ! -f "../config.h" ]; then
 
   echo "[-] Error: key files not found - wrong working directory?"
   exit 1
@@ -63,7 +60,7 @@ if [ ! -f "../afl-showmap" ]; then
 fi
 
 PREREQ_NOTFOUND=
-for i in libtool wget automake autoconf sha384sum bison flex iconv patch pkg-config; do
+for i in git wget sha384sum bison flex iconv patch pkg-config; do
 
   T=`command -v "$i" 2>/dev/null`
 
@@ -111,41 +108,38 @@ fi
 
 echo "[+] All checks passed!"
 
-ARCHIVE="`basename -- "$QEMU_URL"`"
+echo "[*] Making sure qemuafl is checked out"
 
-CKSUM=`sha384sum -- "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
-
-if [ ! "$CKSUM" = "$QEMU_SHA384" ]; then
-
-  echo "[*] Downloading QEMU ${VERSION} from the web..."
-  rm -f "$ARCHIVE"
-  OK=
-  while [ -z "$OK" ]; do
-    wget -c -O "$ARCHIVE" -- "$QEMU_URL" && OK=1
-  done
-
-  CKSUM=`sha384sum -- "$ARCHIVE" 2>/dev/null | cut -d' ' -f1`
-
-fi
-
-if [ "$CKSUM" = "$QEMU_SHA384" ]; then
-
-  echo "[+] Cryptographic signature on $ARCHIVE checks out."
-
+git status 1>/dev/null 2>/dev/null
+if [ $? -eq 0 ]; then
+  echo "[*] initializing qemuafl submodule"
+  git submodule init || exit 1
+  git submodule update 2>/dev/null # ignore errors
 else
-
-  echo "[-] Error: signature mismatch on $ARCHIVE (perhaps download error?), removing archive ..."
-  rm -f "$ARCHIVE"
-  exit 1
-
+  echo "[*] cloning qemuafl"
+  test -d qemuafl || {
+    CNT=1
+    while [ '!' -d qemuafl -a "$CNT" -lt 4 ]; do
+      echo "Trying to clone qemuafl (attempt $CNT/3)"
+      git clone --depth 1 https://github.com/AFLplusplus/qemuafl
+      CNT=`expr "$CNT" + 1`
+    done
+  }
 fi
 
-echo "[*] Uncompressing archive (this will take a while)..."
+test -d qemuafl || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
+echo "[+] Got qemuafl."
 
-rm -rf "qemu-${VERSION}" || exit 1
-tar xf "$ARCHIVE" || exit 1
+cd "qemuafl" || exit 1
+echo "[*] Checking out $QEMUAFL_VERSION"
+sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
+git checkout "$QEMUAFL_VERSION" || echo Warning: could not check out to commit $QEMUAFL_VERSION
 
-echo "[+] Unpacking successful."
+echo "[*] Making sure imported headers matches"
+cp "../../include/config.h" "./qemuafl/imported/" || exit 1
+cp "../../include/cmplog.h" "./qemuafl/imported/" || exit 1
+cp "../../include/snapshot-inl.h" "./qemuafl/imported/" || exit 1
+cp "../../include/types.h" "./qemuafl/imported/" || exit 1
 
 if [ -n "$HOST" ]; then
   echo "[+] Configuring host architecture to $HOST..."
@@ -169,34 +163,7 @@ if [ "$ORIG_CPU_TARGET" = "" ]; then
   esac
 fi
 
-cd qemu-$VERSION || exit 1
-
-echo Building for CPU target $CPU_TARGET
-
-echo "[*] Applying patches..."
-
-patch -p1 <../patches/elfload.diff || exit 1
-patch -p1 <../patches/mips-fpu.diff || exit 1
-patch -p1 <../patches/bsd-elfload.diff || exit 1
-patch -p1 <../patches/cpu-exec.diff || exit 1
-patch -p1 <../patches/syscall.diff || exit 1
-patch -p1 <../patches/translate-all.diff || exit 1
-patch -p1 <../patches/tcg.diff || exit 1
-patch -p1 <../patches/i386-translate.diff || exit 1
-patch -p1 <../patches/arm-translate.diff || exit 1
-patch -p1 <../patches/arm-translate-a64.diff || exit 1
-patch -p1 <../patches/i386-ops_sse.diff || exit 1
-patch -p1 <../patches/i386-fpu_helper.diff || exit 1
-patch -p1 <../patches/softfloat.diff || exit 1
-patch -p1 <../patches/configure.diff || exit 1
-patch -p1 <../patches/tcg-runtime.diff || exit 1
-patch -p1 <../patches/tcg-runtime-head.diff || exit 1
-patch -p1 <../patches/translator.diff || exit 1
-patch -p1 <../patches/__init__.py.diff || exit 1
-patch -p1 <../patches/make_strncpy_safe.diff || exit 1
-patch -p1 <../patches/mmap_fixes.diff || exit 1
-
-echo "[+] Patching done."
+echo "Building for CPU target $CPU_TARGET"
 
 if [ "$STATIC" = "1" ]; then
 
@@ -211,7 +178,7 @@ if [ "$STATIC" = "1" ]; then
 	  --disable-sdl --disable-seccomp --disable-smartcard --disable-snappy --disable-spice --disable-libssh2 \
 	  --disable-libusb --disable-usb-redir --disable-vde --disable-vhost-net --disable-virglrenderer \
 	  --disable-virtfs --disable-vnc --disable-vte --disable-xen --disable-xen-pci-passthrough --disable-xfsctl \
-	  --enable-linux-user --disable-system --disable-blobs --disable-tools --enable-capstone=internal \
+	  --enable-linux-user --disable-system --disable-blobs --disable-tools \
 	  --target-list="${CPU_TARGET}-linux-user" --static --disable-pie --cross-prefix=$CROSS_PREFIX --python="$PYTHONBIN" \
 	  || exit 1
 
@@ -221,7 +188,7 @@ else
   # improvement, much to my surprise. Not sure how universal this is..
 
   ./configure --disable-system \
-    --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --enable-capstone=internal \
+    --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --disable-werror \
     --target-list="${CPU_TARGET}-linux-user" --enable-pie $CROSS_PREFIX --python="$PYTHONBIN" || exit 1
 
 fi
@@ -236,7 +203,7 @@ echo "[+] Build process successful!"
 
 echo "[*] Copying binary..."
 
-cp -f "${CPU_TARGET}-linux-user/qemu-${CPU_TARGET}" "../../afl-qemu-trace" || exit 1
+cp -f "build/${CPU_TARGET}-linux-user/qemu-${CPU_TARGET}" "../../afl-qemu-trace" || exit 1
 
 cd ..
 ls -l ../afl-qemu-trace || exit 1

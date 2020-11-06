@@ -30,9 +30,9 @@ s8  interesting_8[] = {INTERESTING_8};
 s16 interesting_16[] = {INTERESTING_8, INTERESTING_16};
 s32 interesting_32[] = {INTERESTING_8, INTERESTING_16, INTERESTING_32};
 
-char *power_names[POWER_SCHEDULES_NUM] = {"explore", "exploit", "fast",
-                                          "coe",     "lin",     "quad",
-                                          "rare",    "mmopt",   "seek"};
+char *power_names[POWER_SCHEDULES_NUM] = {"explore", "mmopt", "exploit",
+                                          "fast",    "coe",   "lin",
+                                          "quad",    "rare",  "seek"};
 
 /* Initialize MOpt "globals" for this afl state */
 
@@ -87,7 +87,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->w_end = 0.3;
   afl->g_max = 5000;
   afl->period_pilot_tmp = 5000.0;
-  afl->schedule = EXPLORE;              /* Power schedule (default: EXPLORE)*/
+  afl->schedule = EXPLORE;             /* Power schedule (default: EXPLORE) */
   afl->havoc_max_mult = HAVOC_MAX_MULT;
 
   afl->clear_screen = 1;                /* Window resized?                  */
@@ -95,6 +95,18 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stage_name = "init";             /* Name of the current fuzz stage   */
   afl->splicing_with = -1;              /* Splicing with which test case?   */
   afl->cpu_to_bind = -1;
+  afl->havoc_stack_pow2 = HAVOC_STACK_POW2;
+  afl->cal_cycles = CAL_CYCLES;
+  afl->cal_cycles_long = CAL_CYCLES_LONG;
+  afl->hang_tmout = EXEC_TIMEOUT;
+  afl->stats_update_freq = 1;
+  afl->stats_avg_exec = -1;
+  afl->skip_deterministic = 1;
+#ifndef NO_SPLICING
+  afl->use_splicing = 1;
+#endif
+  afl->q_testcase_max_cache_size = TESTCASE_CACHE_SIZE * 1048576UL;
+  afl->q_testcase_max_cache_entries = 64 * 1024;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
@@ -115,45 +127,12 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   // afl_state_t is not available in forkserver.c
   afl->fsrv.afl_ptr = (void *)afl;
   afl->fsrv.add_extra_func = (void (*)(void *, u8 *, u32)) & add_extra;
-
-  afl->cal_cycles = CAL_CYCLES;
-  afl->cal_cycles_long = CAL_CYCLES_LONG;
-
   afl->fsrv.exec_tmout = EXEC_TIMEOUT;
-  afl->hang_tmout = EXEC_TIMEOUT;
-
   afl->fsrv.mem_limit = MEM_LIMIT;
-
-  afl->stats_update_freq = 1;
-
   afl->fsrv.dev_urandom_fd = -1;
   afl->fsrv.dev_null_fd = -1;
-
   afl->fsrv.child_pid = -1;
   afl->fsrv.out_dir_fd = -1;
-
-  afl->cmplog_prev_timed_out = 0;
-
-  /* statis file */
-  afl->last_bitmap_cvg = 0;
-  afl->last_stability = 0;
-  afl->last_eps = 0;
-
-  /* plot file saves from last run */
-  afl->plot_prev_qp = 0;
-  afl->plot_prev_pf = 0;
-  afl->plot_prev_pnf = 0;
-  afl->plot_prev_ce = 0;
-  afl->plot_prev_md = 0;
-  afl->plot_prev_qc = 0;
-  afl->plot_prev_uc = 0;
-  afl->plot_prev_uh = 0;
-
-  afl->stats_last_stats_ms = 0;
-  afl->stats_last_plot_ms = 0;
-  afl->stats_last_ms = 0;
-  afl->stats_last_execs = 0;
-  afl->stats_avg_exec = -1;
 
   init_mopt_globals(afl);
 
@@ -173,6 +152,14 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
     if (strncmp(env, "ALF_", 4) == 0) {
 
       WARNF("Potentially mistyped AFL environment variable: %s", env);
+      issue_detected = 1;
+
+    } else if (strncmp(env, "USE_", 4) == 0) {
+
+      WARNF(
+          "Potentially mistyped AFL environment variable: %s, did you mean "
+          "AFL_%s?",
+          env, env);
       issue_detected = 1;
 
     } else if (strncmp(env, "AFL_", 4) == 0) {
@@ -316,6 +303,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_cal_fast =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_STATSD",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_TMPDIR",
 
                               afl_environment_variable_len)) {
@@ -361,6 +355,41 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_forksrv_init_tmout =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_TESTCACHE_SIZE",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_testcache_size =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_TESTCACHE_ENTRIES",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_testcache_entries =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_STATSD_HOST",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd_host =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_STATSD_PORT",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd_port =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_STATSD_TAGS_FLAVOR",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd_tags_flavor =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
           }

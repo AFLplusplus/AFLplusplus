@@ -9,6 +9,53 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++3.00a (develop)
+  - llvm_mode/ and gcc_plugin/ moved to instrumentation/
+  - all compilers combined to afl-cc which emulates the previous ones
+  - afl-llvm/gcc-rt.o merged into afl-compiler-rt.o
+  - afl-fuzz
+    - memory limits are now disabled by default, set them with -m if required
+    - deterministic fuzzing is now disabled by default and can be enabled with
+      -D. It is still enabled by default for -M.
+    - a new seed selection was implemented that uses weighted randoms based on
+      a schedule performance score, which is much better that the previous
+      walk the whole queue approach. Select the old mode with -Z (auto enabled
+      with -M)
+    - rpc.statsd support by Edznux, thanks a lot!
+    - Marcel Boehme submitted a patch that improves all AFFast schedules :)
+    - not specifying -M or -S will now auto-set "-S default"
+    - reading testcases from -i now descends into subdirectories
+    - allow up to 4 times the -x command line option
+    - loaded extras now have a duplicate protection
+    - If test cases are too large we do a partial read on the maximum
+      supported size
+    - longer seeds with the same trace information will now be ignored
+      for fuzzing but still be used for splicing
+    - crashing seeds are now not prohibiting a run anymore but are
+      skipped. They are used for splicing though.
+    - update MOpt for expanded havoc modes
+    - added NO_SPLICING compile option and makefile define
+    - added INTROSPECTION make target that writes all mutations to
+      out/NAME/introspection.txt
+    - print special compile time options used in help output
+  - instrumentation
+    - We received an enhanced gcc_plugin module from AdaCore, thank you
+      very much!!
+    - not overriding -Ox or -fno-unroll-loops anymore
+    - we now have our own trace-pc-guard implementation. It is the same as
+      -fsanitize-coverage=trace-pc-guard from llvm 12, but: it is a) inline
+      and b) works from llvm 10+ on :)
+    - new llvm pass: dict2file via AFL_LLVM_DICT2FILE, create afl-fuzz
+      -x dictionary of string comparisons found during compilation
+    - LTO autodict now also collects interesting cmp comparisons,
+      std::string compare + find + ==, bcmp
+    - fix crash in dict2file for integers > 64 bit
+  - unicornafl synced with upstream (arm64 fix, better rust bindings)
+  - added a new custom mutator: symcc -> https://github.com/eurecom-s3/symcc/
+  - added a new custom mutator: libfuzzer that integrates libfuzzer mutations
+  - Our afl++ Grammar-Mutator is now better integrated into custom_mutators/
+
+
 ### Version ++2.68c (release)
   - added the GSoC excellent afl++ grammar mutator by Shengtuo to our
     custom_mutators/ (see custom_mutators/README.md) - or get it here:

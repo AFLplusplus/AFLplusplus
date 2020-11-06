@@ -93,7 +93,13 @@ unset LD_PRELOAD
 
 rm -rf in in2 out
 
-export ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:abort_on_error=1:symbolize=0
+test -z "$TRAVIS_OS_NAME" && {
+  export ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:abort_on_error=1:symbolize=0
+}
+test -n "$TRAVIS_OS_NAME" && {
+  export ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:abort_on_error=1:symbolize=1
+}
+
 export AFL_LLVM_INSTRUMENT=AFL
 
 # on OpenBSD we need to work with llvm from /usr/local/bin
