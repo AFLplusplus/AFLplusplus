@@ -69,7 +69,7 @@ behaviours and defaults:
 
 ## Important features of afl++
 
-  afl++ supports llvm up to version 12, very fast binary fuzzing with QEMU 3.1
+  afl++ supports llvm up to version 12, very fast binary fuzzing with QEMU 5.1
   with laf-intel and redqueen, unicorn mode, gcc plugin, full *BSD, Solaris and
   Android support and much, much, much more.
 
