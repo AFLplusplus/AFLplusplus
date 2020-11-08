@@ -38,6 +38,12 @@
 #if !defined(LLVM_MAJOR)
   #define LLVM_MAJOR 0
 #endif
+#if (LLVM_MINOR - 0 == 0)
+  #undef LLVM_MINOR
+#endif
+#if !defined(LLVM_MINOR)
+  #define LLVM_MINOR 0
+#endif
 
 static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
@@ -501,7 +507,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
-#if LLVM_MAJOR >= 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] = "-load";
         cc_params[cc_par_cnt++] = "-Xclang";
