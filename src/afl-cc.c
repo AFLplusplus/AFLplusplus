@@ -507,7 +507,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
-#if LLVM_MAJOR >= 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] = "-load";
         cc_params[cc_par_cnt++] = "-Xclang";
