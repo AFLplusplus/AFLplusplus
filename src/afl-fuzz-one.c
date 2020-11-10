@@ -1846,12 +1846,6 @@ custom_mutator_stage:
 
           if (mutated_size > 0) {
 
-#ifdef INTROSPECTION
-            snprintf(afl->mutation, sizeof(afl->mutation), "%s CUSTOM-%s",
-                     afl->queue_cur->fname,
-                     target != NULL ? (char *)target->fname : "none");
-#endif
-
             if (common_fuzz_stuff(afl, mutated_buf, (u32)mutated_size)) {
 
               goto abandon_entry;
