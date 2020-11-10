@@ -14,6 +14,8 @@
 #include "FuzzerMutate.h"
 #include "FuzzerOptions.h"
 #include "FuzzerTracePC.h"
+#include <random>
+#include <chrono>
 
 namespace fuzzer {
 
@@ -100,15 +102,17 @@ size_t MutationDispatcher::Mutate_CustomCrossOver(uint8_t *Data, size_t Size,
 
 }
 
+
 size_t MutationDispatcher::Mutate_ShuffleBytes(uint8_t *Data, size_t Size,
                                                size_t MaxSize) {
-
   if (Size > MaxSize || Size == 0) return 0;
   size_t ShuffleAmount =
       Rand(std::min(Size, (size_t)8)) + 1;  // [1,8] and <= Size.
   size_t ShuffleStart = Rand(Size - ShuffleAmount);
   assert(ShuffleStart + ShuffleAmount <= Size);
-  std::shuffle(Data + ShuffleStart, Data + ShuffleStart + ShuffleAmount, Rand);
+  unsigned num = std::chrono::system_clock::now().time_since_epoch().count();
+  std::shuffle(Data + ShuffleStart, Data + ShuffleStart + ShuffleAmount, std::default_random_engine(num));
+  //std::shuffle(Data + ShuffleStart, Data + ShuffleStart + ShuffleAmount, Rand);
   return Size;
 
 }
@@ -609,8 +613,24 @@ void MutationDispatcher::PrintRecommendedDictionary() {
 
 }
 
+const char *MutationDispatcher::WriteMutationSequence() {
+
+  static std::string buf;
+  buf = "";
+
+  for (size_t i = 0; i < CurrentMutatorSequence.size(); i++) {
+  
+    buf = buf + " " + CurrentMutatorSequence[i].Name;
+  
+  }
+  
+  return buf.c_str();
+
+}
+
 void MutationDispatcher::PrintMutationSequence(bool Verbose) {
 
+  return;
   Printf("MS: %zd ", CurrentMutatorSequence.size());
   size_t EntriesToPrint =
       Verbose ? CurrentMutatorSequence.size()

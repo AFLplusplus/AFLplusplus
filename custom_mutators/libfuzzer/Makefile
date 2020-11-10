@@ -3,6 +3,11 @@ CFLAGS = -g -O3 -funroll-loops -fPIC -fpermissive -std=c++11
 #CFLAGS = -g -O0 -fPIC -fpermissive -std=c++11
 CXX ?= clang++
 
+ifdef INTROSPECTION
+  $(info Compiling with introspection documentation)
+  CFLAGS += -DINTROSPECTION=1
+endif
+
 all: libfuzzer-mutator.so
 
 FuzzerCrossOver.o:	FuzzerCrossOver.cpp

@@ -83,6 +83,8 @@ void WriteToFile(const std::string &Data, const std::string &Path) {
 
 void WriteToFile(const uint8_t *Data, size_t Size, const std::string &Path) {
 
+  return;
+ 
   // Use raw C interface because this function may be called from a sig handler.
   FILE *Out = fopen(Path.c_str(), "wb");
   if (!Out) return;
@@ -93,12 +95,16 @@ void WriteToFile(const uint8_t *Data, size_t Size, const std::string &Path) {
 
 void AppendToFile(const std::string &Data, const std::string &Path) {
 
+  return;
+
   AppendToFile(reinterpret_cast<const uint8_t *>(Data.data()), Data.size(),
                Path);
 
 }
 
 void AppendToFile(const uint8_t *Data, size_t Size, const std::string &Path) {
+
+  return;
 
   FILE *Out = fopen(Path.c_str(), "a");
   if (!Out) return;
@@ -182,6 +188,7 @@ void Printf(const char *Fmt, ...) {
 
 void VPrintf(bool Verbose, const char *Fmt, ...) {
 
+  return;
   if (!Verbose) return;
   va_list ap;
   va_start(ap, Fmt);
