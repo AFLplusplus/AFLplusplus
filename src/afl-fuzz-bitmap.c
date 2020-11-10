@@ -588,12 +588,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     add_to_queue(afl, queue_fn, len, 0);
 
 #ifdef INTROSPECTION
-    if (afl->mutation[0] != 0) {
-
-      fprintf(afl->introspection_file, "QUEUE %s = %s\n", afl->mutation,
-              afl->queue_top->fname);
-
-    } else if (afl->custom_mutators_count && afl->current_custom_fuzz) {
+    if (afl->custom_mutators_count && afl->current_custom_fuzz) {
 
       LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
@@ -611,6 +606,11 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         }
 
       });
+
+    } else if (afl->mutation[0] != 0) {
+
+      fprintf(afl->introspection_file, "QUEUE %s = %s\n", afl->mutation,
+              afl->queue_top->fname);
 
     }
 
@@ -689,11 +689,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       ++afl->unique_tmouts;
 #ifdef INTROSPECTION
-      if (afl->mutation[0] != 0) {
-
-        fprintf(afl->introspection_file, "UNIQUE_TIMEOUT %s\n", afl->mutation);
-
-      } else if (afl->custom_mutators_count && afl->current_custom_fuzz) {
+      if (afl->custom_mutators_count && afl->current_custom_fuzz) {
 
         LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
@@ -712,6 +708,10 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
           }
 
         });
+
+      } else if (afl->mutation[0] != 0) {
+
+        fprintf(afl->introspection_file, "UNIQUE_TIMEOUT %s\n", afl->mutation);
 
       }
 
@@ -800,11 +800,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       ++afl->unique_crashes;
 #ifdef INTROSPECTION
-      if (afl->mutation[0] != 0) {
-
-        fprintf(afl->introspection_file, "UNIQUE_CRASH %s\n", afl->mutation);
-
-      } else if (afl->custom_mutators_count && afl->current_custom_fuzz) {
+      if (afl->custom_mutators_count && afl->current_custom_fuzz) {
 
         LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
@@ -822,6 +818,10 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
           }
 
         });
+
+      } else if (afl->mutation[0] != 0) {
+
+        fprintf(afl->introspection_file, "UNIQUE_CRASH %s\n", afl->mutation);
 
       }
 
