@@ -37,6 +37,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added NO_SPLICING compile option and makefile define
     - added INTROSPECTION make target that writes all mutations to
       out/NAME/introspection.txt
+    - added INTROSPECTION support for custom modules
     - print special compile time options used in help output
   - instrumentation
     - We received an enhanced gcc_plugin module from AdaCore, thank you

@@ -1780,9 +1780,15 @@ custom_mutator_stage:
 
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
+#ifdef INTROSPECTION
+  afl->mutation[0] = 0;
+#endif
+
   LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
     if (el->afl_custom_fuzz) {
+
+      afl->current_custom_fuzz = el;
 
       if (el->afl_custom_fuzz_count)
         afl->stage_max = el->afl_custom_fuzz_count(el->data, out_buf, len);
@@ -1888,6 +1894,8 @@ custom_mutator_stage:
     }
 
   });
+
+  afl->current_custom_fuzz = NULL;
 
   if (!has_custom_fuzz) goto havoc_stage;
 
