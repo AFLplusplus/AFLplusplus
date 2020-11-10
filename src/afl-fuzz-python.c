@@ -163,6 +163,8 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "queue_get");
     py_functions[PY_FUNC_QUEUE_NEW_ENTRY] =
         PyObject_GetAttrString(py_module, "queue_new_entry");
+    py_functions[PY_FUNC_INTROSPECTION] =
+        PyObject_GetAttrString(py_module, "introspection");
     py_functions[PY_FUNC_DEINIT] = PyObject_GetAttrString(py_module, "deinit");
     if (!py_functions[PY_FUNC_DEINIT])
       FATAL("deinit function not found in python module");
@@ -380,6 +382,15 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
     mutator->afl_custom_queue_new_entry = queue_new_entry_py;
 
   }
+
+  #ifdef INTROSPECTION
+  if (py_functions[PY_FUNC_INTROSPECTION]) {
+
+    mutator->afl_custom_introspection = introspection_py;
+
+  }
+
+  #endif
 
   OKF("Python mutator '%s' installed successfully.", module_name);
 
@@ -674,6 +685,28 @@ u8 havoc_mutation_probability_py(void *py_mutator) {
 
     PyErr_Print();
     FATAL("Call failed");
+
+  }
+
+}
+
+const char *introspection_py(void *py_mutator) {
+
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(0);
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_INTROSPECTION],
+      py_args);
+  Py_DECREF(py_args);
+
+  if (py_value == NULL) {
+
+    return NULL;
+
+  } else {
+
+    return PyByteArray_AsString(py_value);
 
   }
 

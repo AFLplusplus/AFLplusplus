@@ -588,8 +588,32 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     add_to_queue(afl, queue_fn, len, 0);
 
 #ifdef INTROSPECTION
-    fprintf(afl->introspection_file, "QUEUE %s = %s\n", afl->mutation,
-            afl->queue_top->fname);
+    if (afl->mutation[0] != 0) {
+
+      fprintf(afl->introspection_file, "QUEUE %s = %s\n", afl->mutation,
+              afl->queue_top->fname);
+
+    } else if (afl->custom_mutators_count && afl->current_custom_fuzz) {
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (afl->current_custom_fuzz == el && el->afl_custom_introspection) {
+
+          const char *ptr = el->afl_custom_introspection(el->data);
+
+          if (ptr != NULL && *ptr != 0) {
+
+            fprintf(afl->introspection_file, "QUEUE CUSTOM %s = %s\n", ptr,
+                    afl->queue_top->fname);
+
+          }
+
+        }
+
+      });
+
+    }
+
 #endif
 
     if (hnb == 2) {
@@ -665,7 +689,32 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       ++afl->unique_tmouts;
 #ifdef INTROSPECTION
-      fprintf(afl->introspection_file, "UNIQUE_TIMEOUT %s\n", afl->mutation);
+      if (afl->mutation[0] != 0) {
+
+        fprintf(afl->introspection_file, "UNIQUE_TIMEOUT %s\n", afl->mutation);
+
+      } else if (afl->custom_mutators_count && afl->current_custom_fuzz) {
+
+        LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+          if (afl->current_custom_fuzz == el && el->afl_custom_introspection) {
+
+            const char *ptr = el->afl_custom_introspection(el->data);
+
+            if (ptr != NULL && *ptr != 0) {
+
+              fprintf(afl->introspection_file,
+                      "UNIQUE_TIMEOUT CUSTOM %s = %s\n", ptr,
+                      afl->queue_top->fname);
+
+            }
+
+          }
+
+        });
+
+      }
+
 #endif
 
       /* Before saving, we make sure that it's a genuine hang by re-running
@@ -751,7 +800,31 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       ++afl->unique_crashes;
 #ifdef INTROSPECTION
-      fprintf(afl->introspection_file, "UNIQUE_CRASH %s\n", afl->mutation);
+      if (afl->mutation[0] != 0) {
+
+        fprintf(afl->introspection_file, "UNIQUE_CRASH %s\n", afl->mutation);
+
+      } else if (afl->custom_mutators_count && afl->current_custom_fuzz) {
+
+        LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+          if (afl->current_custom_fuzz == el && el->afl_custom_introspection) {
+
+            const char *ptr = el->afl_custom_introspection(el->data);
+
+            if (ptr != NULL && *ptr != 0) {
+
+              fprintf(afl->introspection_file, "UNIQUE_CRASH CUSTOM %s = %s\n",
+                      ptr, afl->queue_top->fname);
+
+            }
+
+          }
+
+        });
+
+      }
+
 #endif
       if (unlikely(afl->infoexec)) {
 
