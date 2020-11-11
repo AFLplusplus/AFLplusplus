@@ -1,7 +1,10 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include "config.h"
 #include "debug.h"
 #include "afl-fuzz.h"
@@ -95,40 +98,66 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
                                 const uint8_t *filename_new_queue,
                                 const uint8_t *filename_orig_queue) {
 
+  int pipefd[2];
+  struct stat st;
+  ACTF("Queueing to symcc: %s", filename_new_queue);
+  u8 *fn = alloc_printf("%s", filename_new_queue);
+  if (!(stat(fn, &st) == 0 && S_ISREG(st.st_mode) && st.st_size)) {
+    PFATAL("Couldn't find enqueued file: %s",fn);
+  }
+   
+  if (afl_struct->fsrv.use_stdin){
+    if (pipe(pipefd)==-1)
+    {
+      exit(-1); 
+    }
+  }
   int pid = fork();
 
   if (pid == -1) return;
+  
+  if (pid){
 
-  if (pid) pid = waitpid(pid, NULL, 0);
+    if (afl_struct->fsrv.use_stdin){
 
-  if (pid == 0) {
-
-    setenv("SYMCC_INPUT_FILE", afl_struct->fsrv.out_file, 1);
-
-    if (afl_struct->fsrv.use_stdin) {
-
-      u8 *fn = alloc_printf("%s/%s", afl_struct->out_dir, filename_new_queue);
+      close(pipefd[0]);
       int fd = open(fn, O_RDONLY);
-
+    
       if (fd >= 0) {
-
+  
         ssize_t r = read(fd, data->mutator_buf, MAX_FILE);
-        close(fd);
         DBG("fn=%s, fd=%d, size=%ld\n", fn, fd, r);
         if (r <= 0) return;
-        close(0);
-        ck_write(0, data->mutator_buf, r, fn);
-        ck_free(fn);
-
+        close(fd);
+        if (r>fcntl(pipefd[1],F_GETPIPE_SZ)) fcntl(pipefd[1],F_SETPIPE_SZ,MAX_FILE);
+        ck_write(pipefd[1], data->mutator_buf, r, filename_new_queue);
+      } else {
+        PFATAL("Something happened to the enqueued file before sending its contents to symcc binary");
       }
 
+      close(pipefd[1]);
+      ck_free(fn);
     }
+    pid = waitpid(pid,NULL, 0);
+  }
 
+  if (pid == 0) {
+     if (afl_struct->fsrv.use_stdin) {
+        unsetenv("SYMCC_INPUT_FILE");
+        close(pipefd[1]);
+        dup2(pipefd[0],0);
+      }
+      else
+      {
+      setenv("SYMCC_INPUT_FILE", afl_struct->fsrv.out_file, 1);
+      }
+    
     DBG("exec=%s\n", data->target);
     close(1);
     close(2);
     dup2(afl_struct->fsrv.dev_null_fd, 1);
     dup2(afl_struct->fsrv.dev_null_fd, 2);
+
     execvp(data->target, afl_struct->argv);
     DBG("exec=FAIL\n");
     exit(-1);
@@ -179,8 +208,8 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
 
   struct dirent **nl;
   int32_t         i, done = 0, items = scandir(data->out_dir, &nl, NULL, NULL);
-  size_t          size = 0;
-
+  ssize_t          size = 0;
+  
   if (items <= 0) return 0;
 
   for (i = 0; i < (u32)items; ++i) {
@@ -195,9 +224,9 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
         int fd = open(fn, O_RDONLY);
 
         if (fd >= 0) {
-
           size = read(fd, data->mutator_buf, max_size);
           *out_buf = data->mutator_buf;
+
           close(fd);
           done = 1;
 
@@ -216,7 +245,7 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
 
   free(nl);
   DBG("FUZZ size=%lu\n", size);
-  return size;
+  return (uint32_t)size;
 
 }
 
