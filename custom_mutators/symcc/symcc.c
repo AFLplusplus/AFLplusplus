@@ -24,6 +24,7 @@ typedef struct my_mutator {
   afl_state_t *afl;
   u8 *         mutator_buf;
   u8 *         out_dir;
+  u8 *         tmp_dir;
   u8 *         target;
   uint32_t     seed;
 
@@ -57,10 +58,11 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   if (!(data->out_dir = getenv("SYMCC_OUTPUT_DIR"))) {
 
     data->out_dir = alloc_printf("%s/symcc", afl->out_dir);
-    setenv("SYMCC_OUTPUT_DIR", data->out_dir, 1);
 
   }
 
+  data->tmp_dir = alloc_printf("%s/tmp", data->out_dir);
+  setenv("SYMCC_OUTPUT_DIR", data->tmp_dir, 1);
   int pid = fork();
 
   if (pid == -1) return NULL;
@@ -86,6 +88,10 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
   if (mkdir(data->out_dir, 0755))
     PFATAL("Could not create directory %s", data->out_dir);
+
+  if (mkdir(data->tmp_dir, 0755))
+    PFATAL("Could not create directory %s", data->tmp_dir);
+
   DBG("out_dir=%s, target=%s\n", data->out_dir, data->target);
 
   return data;
@@ -149,6 +155,39 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
     }
 
     pid = waitpid(pid, NULL, 0);
+
+    // At this point we need to transfer files to output dir, since their names
+    // collide and symcc will just overwrite them
+
+    struct dirent **nl;
+    int32_t         items = scandir(data->tmp_dir, &nl, NULL, NULL);
+    u8 *            origin_name = basename(filename_new_queue);
+    int32_t         i;
+    if (items > 0) {
+
+      for (i = 0; i < (u32)items; ++i) {
+
+        struct stat st;
+        u8 *source_name = alloc_printf("%s/%s", data->tmp_dir, nl[i]->d_name);
+        u8 *destination_name =
+            alloc_printf("%s/%s.%s", data->out_dir, origin_name, nl[i]->d_name);
+        DBG("test=%s\n", fn);
+        if (stat(source_name, &st) == 0 && S_ISREG(st.st_mode) && st.st_size) {
+
+          rename(source_name, destination_name);
+          DBG("found=%s\n", source_name);
+
+        }
+
+        ck_free(source_name);
+        ck_free(destination_name);
+        free(nl[i]);
+
+      }
+
+      free(nl);
+
+    }
 
   }
 
