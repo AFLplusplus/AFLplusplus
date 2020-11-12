@@ -123,7 +123,7 @@ void __afl_trace(const u32 x) {
   u8 c = __builtin_add_overflow(*p, 1, p);
   *p += c;
   #else
-  *p += 1 + ((u8)(1 + *p == 0);
+  *p += 1 + ((u8)(1 + *p) == 0);
   #endif
 #else
   ++*p;

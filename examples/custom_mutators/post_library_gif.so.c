@@ -94,7 +94,13 @@ void *afl_custom_init(void *afl) {
   }
 
   state->buf = calloc(sizeof(unsigned char), 4096);
-  if (!state->buf) { return NULL; }
+  if (!state->buf) {
+
+    free(state);
+    perror("calloc");
+    return NULL;
+
+  }
 
   return state;
 
