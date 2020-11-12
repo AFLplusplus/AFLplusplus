@@ -33,6 +33,7 @@ my_mutator_t *afl_custom_init(afl_t *afl, unsigned int seed) {
 
   if ((data->mutator_buf = malloc(MAX_FILE)) == NULL) {
 
+    free(data);
     perror("mutator_buf alloc");
     return NULL;
 
