@@ -50,6 +50,7 @@ extern "C" my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
   if ((data->mutator_buf = (u8 *)malloc(MAX_FILE)) == NULL) {
 
+    free(data);
     perror("mutator_buf alloc");
     return NULL;
 
