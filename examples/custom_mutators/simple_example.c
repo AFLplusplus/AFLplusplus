@@ -8,7 +8,7 @@
 #include <stdio.h>
 
 #ifndef _FIXED_CHAR
-  #define 0x41
+  #define _FIXED_CHAR 0x41
 #endif
 
 typedef struct my_mutator {
