@@ -214,6 +214,7 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
 
     PyErr_Print();
     fprintf(stderr, "Failed to load \"%s\"\n", module_name);
+    free(py);
     return NULL;
 
   }
