@@ -108,7 +108,7 @@ void pmparser_print(procmaps_struct *map, int order);
 
 procmaps_iterator *pmparser_parse(int pid) {
 
-  char               maps_path[500];
+  char maps_path[500];
   if (pid >= 0) {
 
     sprintf(maps_path, "/proc/%d/maps", pid);
@@ -129,8 +129,8 @@ procmaps_iterator *pmparser_parse(int pid) {
   }
 
   procmaps_iterator *maps_it = malloc(sizeof(procmaps_iterator));
-  int  ind = 0;
-  char buf[PROCMAPS_LINE_MAX_LENGTH];
+  int                ind = 0;
+  char               buf[PROCMAPS_LINE_MAX_LENGTH];
   // int c;
   procmaps_struct *list_maps = NULL;
   procmaps_struct *tmp;
