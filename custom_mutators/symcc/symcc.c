@@ -110,13 +110,19 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
   u8 *fn = alloc_printf("%s", filename_new_queue);
   if (!(stat(fn, &st) == 0 && S_ISREG(st.st_mode) && st.st_size)) {
 
+    ck_free(fn);
     PFATAL("Couldn't find enqueued file: %s", fn);
 
   }
 
   if (afl_struct->fsrv.use_stdin) {
 
-    if (pipe(pipefd) == -1) { exit(-1); }
+    if (pipe(pipefd) == -1) {
+
+      ck_free(fn);
+      PFATAL("Couldn't create a pipe for interacting with symcc child process");
+
+    }
 
   }
 
@@ -135,6 +141,7 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
 
         ssize_t r = read(fd, data->mutator_buf, MAX_FILE);
         DBG("fn=%s, fd=%d, size=%ld\n", fn, fd, r);
+        ck_free(fn);
         if (r <= 0) return;
         close(fd);
         if (r > fcntl(pipefd[1], F_GETPIPE_SZ))
@@ -143,6 +150,8 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
 
       } else {
 
+        ck_free(fn);
+
         PFATAL(
             "Something happened to the enqueued file before sending its "
             "contents to symcc binary");
@@ -150,7 +159,6 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
       }
 
       close(pipefd[1]);
-      ck_free(fn);
 
     }
 
