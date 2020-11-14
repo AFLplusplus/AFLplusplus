@@ -23,7 +23,7 @@
   mutations, more and better instrumentation, custom module support, etc.
 
   If you want to use afl++ for your academic work, check the [papers page](https://aflplus.plus/papers/)
-  in the website.
+  on the website.
 
 ## Major changes in afl++ 3.0
 
