@@ -442,7 +442,7 @@ int main(int argc, char **argv_orig, char **envp) {
 	if (optarg && *optarg == '-') { FATAL("argument for -M started with a dash '-', which is used for options"); }
 
         afl->sync_id = ck_strdup(optarg);
-        afl->skip_deterministic = 0;  // force determinsitic fuzzing
+        afl->skip_deterministic = 0;  // force deterministic fuzzing
         afl->old_seed_selection = 1;  // force old queue walking seed selection
 
         if ((c = strchr(afl->sync_id, ':'))) {
@@ -922,7 +922,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->power_name = power_names[afl->schedule];
 
-  if (!afl->sync_id) {
+  if (!afl->non_instrumented_mode && !afl->sync_id) {
 
     auto_sync = 1;
     afl->sync_id = ck_strdup("default");
