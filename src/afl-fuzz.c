@@ -1338,11 +1338,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (!afl->fsrv.qemu_mode) { check_binary(afl, afl->cmplog_binary); }
+    if (!afl->fsrv.qemu_mode && !afl->non_instrumented_mode) { check_binary(afl, afl->cmplog_binary); }
 
   }
 
-  check_binary(afl, argv[optind]);
+  if (afl->non_instrumented_mode) check_binary(afl, argv[optind]);
 
   if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
 
