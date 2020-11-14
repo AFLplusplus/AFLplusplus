@@ -1358,7 +1358,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (!afl->non_instrumented_mode) check_binary(afl, argv[optind]);
+  check_binary(afl, argv[optind]);
 
   if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
 
