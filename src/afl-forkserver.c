@@ -220,15 +220,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
   }
 
   void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
-#if 0
-  WARNF("targetpath=%s", fsrv->target_path);
-  if (argv) {
-    for (char *p = argv[0]; p; ++p) {
-      WARNF(" %s", p);
-    }
-  }
-  WARNF("\n");
-#endif
+
   while (1) {
 
     uint32_t was_killed;
@@ -1146,7 +1138,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   }
 
   // Fauxserver should handle this now.
-  // if (tb4 == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
+  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
 
   return FSRV_RUN_OK;
 
