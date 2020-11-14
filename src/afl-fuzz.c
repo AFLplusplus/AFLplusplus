@@ -435,6 +435,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8 *c;
 
+        if (afl->non_instrumented_mode) { FATAL("-M is not supported in non-instrumented mode "); }
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
         afl->skip_deterministic = 0;  // force determinsitic fuzzing
@@ -464,6 +465,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'S':                                        /* secondary sync id */
 
+        if (afl->non_instrumented_mode) { FATAL("-S is not supported in non-instrumented mode "); }
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
         afl->sync_id = ck_strdup(optarg);
         afl->is_secondary_node = 1;
@@ -619,6 +621,12 @@ int main(int argc, char **argv_orig, char **envp) {
         break;
 
       case 'n':                                                /* dumb mode */
+
+        if (afl->is_main_node || afl->is_secondary_node) {
+
+          FATAL("Non instrumented mode is not supported with -M / -S");
+
+        }
 
         if (afl->non_instrumented_mode) {
 
@@ -1342,7 +1350,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->non_instrumented_mode) check_binary(afl, argv[optind]);
+  if (!afl->non_instrumented_mode) check_binary(afl, argv[optind]);
 
   if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
 

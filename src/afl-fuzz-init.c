@@ -2300,12 +2300,6 @@ void fix_up_sync(afl_state_t *afl) {
 
   u8 *x = afl->sync_id;
 
-  if (afl->non_instrumented_mode) {
-
-    FATAL("-S / -M and -n are mutually exclusive");
-
-  }
-
   while (*x) {
 
     if (!isalnum(*x) && *x != '_' && *x != '-') {
