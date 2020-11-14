@@ -182,7 +182,7 @@ static void __afl_map_shm_fuzz() {
 
     if (!map || map == (void *)-1) {
 
-      perror("Could not access fuzzign shared memory");
+      perror("Could not access fuzzing shared memory");
       exit(1);
 
     }
