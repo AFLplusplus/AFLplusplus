@@ -329,9 +329,7 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
 
   if (py_functions[PY_FUNC_DEINIT]) { mutator->afl_custom_deinit = deinit_py; }
 
-  /* "afl_custom_fuzz" should not be NULL, but the interface of Python mutator
-     is quite different from the custom mutator. */
-  mutator->afl_custom_fuzz = fuzz_py;
+  if (py_functions[PY_FUNC_FUZZ]) { mutator->afl_custom_fuzz = fuzz_py; }
 
   if (py_functions[PY_FUNC_POST_PROCESS]) {
 
