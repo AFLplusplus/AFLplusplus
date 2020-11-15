@@ -130,6 +130,9 @@ def introspection():
     `post_process` function. This function is then transforming the data into the
     format expected by the API before executing the target.
 
+    This can return any python object that implements the buffer protocol and
+    supports PyBUF_SIMPLE. These include bytes, bytearray, etc.
+
 - `queue_new_entry` (optional):
 
     This methods is called after adding a new test case to the queue.
