@@ -435,11 +435,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8 *c;
 
-        if (afl->non_instrumented_mode) { FATAL("-M is not supported in non-instrumented mode"); }
+        if (afl->non_instrumented_mode) {
+
+          FATAL("-M is not supported in non-instrumented mode");
+
+        }
+
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
 
-	/* sanity check for argument: should not begin with '-' (possible option) */
-	if (optarg && *optarg == '-') { FATAL("argument for -M started with a dash '-', which is used for options"); }
+        /* sanity check for argument: should not begin with '-' (possible
+         * option) */
+        if (optarg && *optarg == '-') {
+
+          FATAL(
+              "argument for -M started with a dash '-', which is used for "
+              "options");
+
+        }
 
         afl->sync_id = ck_strdup(optarg);
         afl->skip_deterministic = 0;  // force deterministic fuzzing
@@ -469,11 +481,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'S':                                        /* secondary sync id */
 
-        if (afl->non_instrumented_mode) { FATAL("-S is not supported in non-instrumented mode"); }
+        if (afl->non_instrumented_mode) {
+
+          FATAL("-S is not supported in non-instrumented mode");
+
+        }
+
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
 
-	/* sanity check for argument: should not begin with '-' (possible option) */
-	if (optarg && *optarg == '-') { FATAL("argument for -M started with a dash '-', which is used for options"); }
+        /* sanity check for argument: should not begin with '-' (possible
+         * option) */
+        if (optarg && *optarg == '-') {
+
+          FATAL(
+              "argument for -M started with a dash '-', which is used for "
+              "options");
+
+        }
 
         afl->sync_id = ck_strdup(optarg);
         afl->is_secondary_node = 1;
@@ -1354,7 +1378,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (!afl->fsrv.qemu_mode && !afl->non_instrumented_mode) { check_binary(afl, afl->cmplog_binary); }
+    if (!afl->fsrv.qemu_mode && !afl->non_instrumented_mode) {
+
+      check_binary(afl, afl->cmplog_binary);
+
+    }
 
   }
 
