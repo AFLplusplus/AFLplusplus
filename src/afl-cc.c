@@ -1326,15 +1326,18 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_GCC_INSTRUMENT_FILE: enable selective instrumentation by "
             "filename\n");
 
+#if LLVM_MAJOR < 9
+#define     COUNTER_BEHAVIOUR "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+#else
+#define     COUNTER_BEHAVIOUR "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
+#endif
       if (have_llvm)
         SAYF(
             "\nLLVM/LTO/afl-clang-fast/afl-clang-lto specific environment "
             "variables:\n"
-#if LLVM_MAJOR < 9
-            "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
-#else
-            "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
-#endif
+
+            COUNTER_BEHAVIOUR
+
             "  AFL_LLVM_DICT2FILE: generate an afl dictionary based on found "
             "comparisons\n"
             "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
