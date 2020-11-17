@@ -142,8 +142,14 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
         ssize_t r = read(fd, data->mutator_buf, MAX_FILE);
         DBG("fn=%s, fd=%d, size=%ld\n", fn, fd, r);
         ck_free(fn);
-        if (r <= 0) return;
         close(fd);
+        if (r <= 0) {
+
+          close(pipefd[1]);
+          return;
+
+        }
+
         if (r > fcntl(pipefd[1], F_GETPIPE_SZ))
           fcntl(pipefd[1], F_SETPIPE_SZ, MAX_FILE);
         ck_write(pipefd[1], data->mutator_buf, r, filename_new_queue);
@@ -151,7 +157,7 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
       } else {
 
         ck_free(fn);
-
+        close(pipefd[1]);
         PFATAL(
             "Something happened to the enqueued file before sending its "
             "contents to symcc binary");
