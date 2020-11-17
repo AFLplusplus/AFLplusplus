@@ -184,18 +184,18 @@ void afl_custom_queue_new_entry(my_mutator_t * data,
 
         struct stat st;
         u8 *source_name = alloc_printf("%s/%s", data->tmp_dir, nl[i]->d_name);
-        u8 *destination_name =
-            alloc_printf("%s/%s.%s", data->out_dir, origin_name, nl[i]->d_name);
         DBG("test=%s\n", fn);
         if (stat(source_name, &st) == 0 && S_ISREG(st.st_mode) && st.st_size) {
 
+          u8 *destination_name =
+              alloc_printf("%s/%s.%s", data->out_dir, origin_name, nl[i]->d_name);
           rename(source_name, destination_name);
+          ck_free(destination_name);
           DBG("found=%s\n", source_name);
 
         }
 
         ck_free(source_name);
-        ck_free(destination_name);
         free(nl[i]);
 
       }
