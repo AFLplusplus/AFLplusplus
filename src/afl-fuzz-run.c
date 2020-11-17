@@ -590,7 +590,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
     while (m < n) {
 
-      if (strcmp(namelist[m]->d_name, entry)) {
+      if (strncmp(namelist[m]->d_name, entry, 9)) {
 
         m++;
 
