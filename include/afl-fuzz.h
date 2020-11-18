@@ -113,6 +113,7 @@
     #include <kstat.h>
     #include <sys/sysinfo.h>
     #include <sys/pset.h>
+    #include <strings.h>
   #endif
 #endif                                                         /* __linux__ */
 
