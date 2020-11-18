@@ -332,7 +332,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     }
 
     afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
-                   afl->afl_env.afl_debug_child_output);
+                   afl->afl_env.afl_debug_child);
 
     if (afl->fsrv.support_shmem_fuzz && !afl->fsrv.use_shmem_fuzz) {
 

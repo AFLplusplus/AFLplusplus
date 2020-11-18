@@ -6,6 +6,7 @@ static char *afl_environment_deprecated[] = {
 
     "AFL_LLVM_WHITELIST",
     "AFL_GCC_WHITELIST",
+    "AFL_DEBUG_CHILD_OUTPUT",
     "AFL_DEFER_FORKSRV",
     "AFL_POST_LIBRARY",
     "AFL_PERSISTENT",
@@ -36,7 +37,7 @@ static char *afl_environment_variables[] = {
     "AFL_CXX",
     "AFL_CYCLE_SCHEDULES",
     "AFL_DEBUG",
-    "AFL_DEBUG_CHILD_OUTPUT",
+    "AFL_DEBUG_CHILD",
     "AFL_DEBUG_GDB",
     "AFL_DISABLE_TRIM",
     "AFL_DONT_OPTIMIZE",
