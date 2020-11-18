@@ -116,7 +116,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->use_fauxsrv = 0;
   fsrv_to->last_run_timed_out = 0;
 
-  fsrv_to->init_child_func = fsrv_exec_child;
+  fsrv_to->init_child_func = from->init_child_func;
   // Note: do not copy ->add_extra_func
 
   list_append(&fsrv_list, fsrv_to);
@@ -272,7 +272,8 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
       *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
 
-      PFATAL("Execv failed in fauxserver.");
+      WARNF("Execv failed in fauxserver.");
+      break;
 
     }
 
@@ -286,13 +287,13 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
     if (waitpid(child_pid, &status, 0) < 0) {
 
       // Zombie Child could not be collected. Scary!
-      PFATAL("Fauxserver could not determin child's exit code. ");
+      WARNF("Fauxserver could not determine child's exit code. ");
 
     }
 
     /* Relay wait status to AFL pipe, then loop back. */
 
-    if (write(FORKSRV_FD + 1, &status, 4) != 4) { exit(0); }
+    if (write(FORKSRV_FD + 1, &status, 4) != 4) { exit(1); }
 
   }
 
@@ -330,7 +331,7 @@ static void report_error_and_exit(int error) {
           "memory failed.");
       break;
     default:
-      FATAL("unknown error code %u from fuzzing target!", error);
+      FATAL("unknown error code %d from fuzzing target!", error);
 
   }
 
@@ -355,7 +356,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (fsrv->use_fauxsrv) {
 
-    /* TODO: Come up with sone nice way to initialize this all */
+    /* TODO: Come up with some nice way to initialize this all */
 
     if (fsrv->init_child_func != fsrv_exec_child) {
 
@@ -520,7 +521,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
     fprintf(stderr, "Error: execv to target failed\n");
-    exit(0);
+    exit(1);
 
   }
 
@@ -1137,7 +1138,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   }
 
   // Fauxserver should handle this now.
-  // if (tb4 == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
+  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
 
   return FSRV_RUN_OK;
 

@@ -22,8 +22,8 @@
   afl++ is a superior fork to Google's afl - more speed, more and better
   mutations, more and better instrumentation, custom module support, etc.
 
-  If you want to use afl++ for you academic work, check the [papers page](https://aflplus.plus/papers/)
-  in the website.
+  If you want to use afl++ for your academic work, check the [papers page](https://aflplus.plus/papers/)
+  on the website.
 
 ## Major changes in afl++ 3.0
 
@@ -585,7 +585,10 @@ For every secondary fuzzer there should be a variation, e.g.:
    activated (`export AFL_USE_ASAN=1 ; export AFL_USE_UBSAN=1 ;
    export AFL_USE_CFISAN=1 ; `
  * one should fuzz the target with CMPLOG/redqueen (see above)
- * one to three should fuzz a target compiled with laf-intel/COMPCOV (see above).
+ * one to three fuzzers should fuzz a target compiled with laf-intel/COMPCOV
+   (see above). Important note: If you run more than one laf-intel/COMPCOV
+   fuzzer and you want them to share their intermediate results, the main
+   fuzzer (`-M`) must be one of the them!
 
 All other secondaries should be used like this:
  * A third to a half with the MOpt mutator enabled: `-L 0`
@@ -597,11 +600,11 @@ You can also use different fuzzers.
 If you are using afl spinoffs or afl conforming fuzzers, then just use the
 same -o directory and give it a unique `-S` name.
 Examples are:
- * [Angora](https://github.com/AngoraFuzzer/Angora)
  * [Untracer](https://github.com/FoRTE-Research/UnTracer-AFL)
  * [AFLsmart](https://github.com/aflsmart/aflsmart)
  * [FairFuzz](https://github.com/carolemieux/afl-rb)
  * [Neuzz](https://github.com/Dongdongshe/neuzz)
+ * [Angora](https://github.com/AngoraFuzzer/Angora)
 
 A long list can be found at [https://github.com/Microsvuln/Awesome-AFL](https://github.com/Microsvuln/Awesome-AFL)
 

@@ -6,7 +6,7 @@
 
    Written mostly by meme -> https://github.com/meme/hotwax
 
-   Modificationy by Marc Heuse <mh@mh-sec.de>
+   Modifications by Marc Heuse <mh@mh-sec.de>
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -504,11 +504,12 @@ int main() {
     previous_pc = 0;  // Required!
 
 #ifdef _DEBUG
-    fprintf(stderr, "CLIENT crc: %016llx len: %u\n", hash64(__afl_fuzz_ptr, *__a
+    fprintf(stderr, "CLIENT crc: %016llx len: %u\n",
+            hash64(__afl_fuzz_ptr, *__afl_fuzz_len), *__afl_fuzz_len);
     fprintf(stderr, "RECV:");
     for (int i = 0; i < *__afl_fuzz_len; i++)
       fprintf(stderr, "%02x", __afl_fuzz_ptr[i]);
-    fprintf(stderr,"\n");
+    fprintf(stderr, "\n");
 #endif
 
     // STEP 3: ensure the minimum length is present and setup the target

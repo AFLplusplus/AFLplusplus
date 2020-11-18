@@ -1141,8 +1141,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_initial_file();
 
-  afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                 get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
+  afl_fsrv_start(
+      fsrv, use_argv, &stop_soon,
+      (get_afl_env("AFL_DEBUG_CHILD") || get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+          ? 1
+          : 0);
 
   if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
     shm_fuzz = deinit_shmem(fsrv, shm_fuzz);

@@ -1091,7 +1091,11 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                   get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
+                   (get_afl_env("AFL_DEBUG_CHILD") ||
+                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                       ? 1
+                       : 0);
+
     map_size = fsrv->map_size;
 
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)

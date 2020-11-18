@@ -42,6 +42,7 @@ size_t afl_custom_havoc_mutation(void *data, unsigned char *buf, size_t buf_size
 unsigned char afl_custom_havoc_mutation_probability(void *data);
 unsigned char afl_custom_queue_get(void *data, const unsigned char *filename);
 void afl_custom_queue_new_entry(void *data, const unsigned char *filename_new_queue, const unsigned int *filename_orig_queue);
+const char* afl_custom_introspection(my_mutator_t *data);
 void afl_custom_deinit(void *data);
 ```
 
@@ -80,6 +81,9 @@ def queue_get(filename):
 def queue_new_entry(filename_new_queue, filename_orig_queue):
     pass
 ```
+
+def introspection():
+    return string
 
 ### Custom Mutation
 
@@ -126,9 +130,18 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
     `post_process` function. This function is then transforming the data into the
     format expected by the API before executing the target.
 
+    This can return any python object that implements the buffer protocol and
+    supports PyBUF_SIMPLE. These include bytes, bytearray, etc.
+
 - `queue_new_entry` (optional):
 
     This methods is called after adding a new test case to the queue.
+
+- `introspection` (optional):
+
+    This method is called after a new queue entry, crash or timeout is
+    discovered if compiled with INTROSPECTION. The custom mutator can then
+    return a string (const char *) that reports the exact mutations used.
 
 - `deinit`:
 

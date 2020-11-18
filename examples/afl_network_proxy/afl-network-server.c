@@ -358,8 +358,8 @@ int recv_testcase(int s, void **buf) {
 
   if ((size & 0xff000000) != 0xff000000) {
 
-    *buf = afl_realloc((void **)&buf, size);
-    if (unlikely(!buf)) { PFATAL("Alloc"); }
+    *buf = afl_realloc(buf, size);
+    if (unlikely(!*buf)) { PFATAL("Alloc"); }
     received = 0;
     // fprintf(stderr, "unCOMPRESS (%u)\n", size);
     while (received < size &&
@@ -371,8 +371,8 @@ int recv_testcase(int s, void **buf) {
 #ifdef USE_DEFLATE
     u32 clen;
     size -= 0xff000000;
-    *buf = afl_realloc((void **)&buf, size);
-    if (unlikely(!buf)) { PFATAL("Alloc"); }
+    *buf = afl_realloc(buf, size);
+    if (unlikely(!*buf)) { PFATAL("Alloc"); }
     received = 0;
     while (received < 4 &&
            (ret = recv(s, &clen + received, 4 - received, 0)) > 0)
@@ -636,8 +636,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (listen(sock, 1) < 0) { PFATAL("listen() failed"); }
 
-  afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                 get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
+  afl_fsrv_start(
+      fsrv, use_argv, &stop_soon,
+      (get_afl_env("AFL_DEBUG_CHILD") || get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+          ? 1
+          : 0);
 
 #ifdef USE_DEFLATE
   compressor = libdeflate_alloc_compressor(1);

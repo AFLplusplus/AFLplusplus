@@ -355,7 +355,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   if (ncpus > sizeof(cpu_used)) ncpus = sizeof(cpu_used);
 
-  for (i = 0; i < ncpus; i++) {
+  for (i = 0; i < (s32)ncpus; i++) {
 
     k = kstat_lookup(m, "cpu_stat", i, NULL);
     if (kstat_read(m, k, &cs)) {
@@ -2300,12 +2300,6 @@ void fix_up_sync(afl_state_t *afl) {
 
   u8 *x = afl->sync_id;
 
-  if (afl->non_instrumented_mode) {
-
-    FATAL("-S / -M and -n are mutually exclusive");
-
-  }
-
   while (*x) {
 
     if (!isalnum(*x) && *x != '_' && *x != '-') {
@@ -2503,7 +2497,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->unicorn_mode) {
+  if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->unicorn_mode ||
+      afl->non_instrumented_mode) {
 
     return;
 

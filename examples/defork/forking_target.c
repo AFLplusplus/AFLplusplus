@@ -26,6 +26,7 @@ int main(int argc, char **argv) {
     FILE *f = fopen(argv[1], "r");
     char  buf[4096];
     fread(buf, 1, 4096, f);
+    fclose(f);
     uint32_t offset = buf[100] + (buf[101] << 8);
     char     test_val = buf[offset];
     return test_val < 100;

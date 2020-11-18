@@ -113,6 +113,7 @@
     #include <kstat.h>
     #include <sys/sysinfo.h>
     #include <sys/pset.h>
+    #include <strings.h>
   #endif
 #endif                                                         /* __linux__ */
 
@@ -310,6 +311,7 @@ enum {
   /* 09 */ PY_FUNC_HAVOC_MUTATION_PROBABILITY,
   /* 10 */ PY_FUNC_QUEUE_GET,
   /* 11 */ PY_FUNC_QUEUE_NEW_ENTRY,
+  /* 12 */ PY_FUNC_INTROSPECTION,
   PY_FUNC_COUNT
 
 };
@@ -324,8 +326,7 @@ typedef struct py_mutator {
   u8 *   fuzz_buf;
   size_t fuzz_size;
 
-  u8 *   post_process_buf;
-  size_t post_process_size;
+  Py_buffer post_process_buf;
 
   u8 *   trim_buf;
   size_t trim_size;
@@ -361,8 +362,8 @@ typedef struct afl_env_vars {
   u8 afl_skip_cpufreq, afl_exit_when_done, afl_no_affinity, afl_skip_bin_check,
       afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only, afl_no_ui,
       afl_force_ui, afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
-      afl_bench_until_crash, afl_debug_child_output, afl_autoresume,
-      afl_cal_fast, afl_cycle_schedules, afl_expand_havoc, afl_statsd;
+      afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
+      afl_cycle_schedules, afl_expand_havoc, afl_statsd;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
@@ -684,6 +685,8 @@ typedef struct afl_state {
 
   u32 custom_mutators_count;
 
+  struct custom_mutator *current_custom_fuzz;
+
   list_t custom_mutator_list;
 
   /* this is a fixed buffer of size map_size that can be used by any function if
@@ -746,6 +749,15 @@ struct custom_mutator {
    * @return pointer to internal data or NULL on error
    */
   void *(*afl_custom_init)(afl_state_t *afl, unsigned int seed);
+
+  /**
+   * When afl-fuzz was compiled with INTROSPECTION=1 then custom mutators can
+   * also give introspection information back with this function.
+   *
+   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @return pointer to a text string (const char*)
+   */
+  const char *(*afl_custom_introspection)(void *data);
 
   /**
    * This method is called just before fuzzing a queue entry with the custom
@@ -953,16 +965,17 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 void                   finalize_py_module(void *);
 
-u32    fuzz_count_py(void *, const u8 *, size_t);
-size_t post_process_py(void *, u8 *, size_t, u8 **);
-s32    init_trim_py(void *, u8 *, size_t);
-s32    post_trim_py(void *, u8);
-size_t trim_py(void *, u8 **);
-size_t havoc_mutation_py(void *, u8 *, size_t, u8 **, size_t);
-u8     havoc_mutation_probability_py(void *);
-u8     queue_get_py(void *, const u8 *);
-void   queue_new_entry_py(void *, const u8 *, const u8 *);
-void   deinit_py(void *);
+u32         fuzz_count_py(void *, const u8 *, size_t);
+size_t      post_process_py(void *, u8 *, size_t, u8 **);
+s32         init_trim_py(void *, u8 *, size_t);
+s32         post_trim_py(void *, u8);
+size_t      trim_py(void *, u8 **);
+size_t      havoc_mutation_py(void *, u8 *, size_t, u8 **, size_t);
+u8          havoc_mutation_probability_py(void *);
+u8          queue_get_py(void *, const u8 *);
+const char *introspection_py(void *);
+void        queue_new_entry_py(void *, const u8 *, const u8 *);
+void        deinit_py(void *);
 
 #endif
 

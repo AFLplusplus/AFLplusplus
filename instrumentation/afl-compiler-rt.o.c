@@ -123,7 +123,7 @@ void __afl_trace(const u32 x) {
   u8 c = __builtin_add_overflow(*p, 1, p);
   *p += c;
   #else
-  *p += 1 + ((u8)(1 + *p == 0);
+  *p += 1 + ((u8)(1 + *p) == 0);
   #endif
 #else
   ++*p;
@@ -182,7 +182,7 @@ static void __afl_map_shm_fuzz() {
 
     if (!map || map == (void *)-1) {
 
-      perror("Could not access fuzzign shared memory");
+      perror("Could not access fuzzing shared memory");
       exit(1);
 
     }
@@ -992,7 +992,7 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
   // For stability analysis, if you want to know to which function unstable
   // edge IDs belong - uncomment, recompile+install llvm_mode, recompile
   // the target. libunwind and libbacktrace are better solutions.
-  // Set AFL_DEBUG_CHILD_OUTPUT=1 and run afl-fuzz with 2>file to capture
+  // Set AFL_DEBUG_CHILD=1 and run afl-fuzz with 2>file to capture
   // the backtrace output
   /*
   uint32_t unstable[] = { ... unstable edge IDs };

@@ -49,14 +49,14 @@ static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
 static u8   llvm_fullpath[PATH_MAX];
-static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode,
-    compiler_mode, plusplus_mode;
-static u8  have_gcc, have_llvm, have_gcc_plugin, have_lto;
-static u8 *lto_flag = AFL_CLANG_FLTO, *argvnull;
-static u8  debug;
-static u8  cwd[4096];
-static u8  cmplog_mode;
-u8         use_stdin;                                              /* dummy */
+static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode;
+static u8   compiler_mode, plusplus_mode, have_instr_env = 0;
+static u8   have_gcc, have_llvm, have_gcc_plugin, have_lto, have_instr_list = 0;
+static u8 * lto_flag = AFL_CLANG_FLTO, *argvnull;
+static u8   debug;
+static u8   cwd[4096];
+static u8   cmplog_mode;
+u8          use_stdin;                                             /* dummy */
 // static u8 *march_opt = CFLAGS_OPT;
 
 enum {
@@ -354,19 +354,13 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && plusplus_mode)
       cc_params[cc_par_cnt++] = "-lc++";  // needed by fuzzbench, early
 
-    if (lto_mode) {
+    if (lto_mode && have_instr_env) {
 
-      if (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
-          getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
-          getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")) {
-
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-llvm-lto-instrumentlist.so", obj_path);
-
-      }
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-llvm-lto-instrumentlist.so", obj_path);
 
     }
 
@@ -508,11 +502,25 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/SanitizerCoveragePCGUARD.so", obj_path);
+        if (have_instr_list) {
+
+          if (!be_quiet)
+            SAYF(
+                "Using unoptimized trace-pc-guard, due usage of "
+                "-fsanitize-coverage-allow/denylist, you can use "
+                "AFL_LLVM_ALLOWLIST/AFL_LLMV_DENYLIST instead.\n");
+          cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+
+        } else {
+
+          cc_params[cc_par_cnt++] = "-Xclang";
+          cc_params[cc_par_cnt++] = "-load";
+          cc_params[cc_par_cnt++] = "-Xclang";
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/SanitizerCoveragePCGUARD.so", obj_path);
+
+        }
+
 #else
   #if LLVM_MAJOR >= 4
         if (!be_quiet)
@@ -589,6 +597,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-m32")) bit_mode = 32;
     if (!strcmp(cur, "armv7a-linux-androideabi")) bit_mode = 32;
     if (!strcmp(cur, "-m64")) bit_mode = 64;
+
+    if (!strncmp(cur, "-fsanitize-coverage-", 20) && strstr(cur, "list="))
+      have_instr_list = 1;
 
     if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
       asan_set = 1;
@@ -826,7 +837,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-  #ifndef __APPLE__
+  #if !defined(__APPLE__) && !defined(__sun)
     if (!shared_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
@@ -855,6 +866,14 @@ int main(int argc, char **argv, char **envp) {
   } else if (getenv("AFL_QUIET"))
 
     be_quiet = 1;
+
+  if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST") ||
+      getenv("AFL_LLVM_ALLOWLIST") || getenv("AFL_LLVM_DENYLIST") ||
+      getenv("AFL_LLVM_BLOCKLIST")) {
+
+    have_instr_env = 1;
+
+  }
 
   if ((ptr = strrchr(callname, '/')) != NULL) callname = ptr + 1;
   argvnull = (u8 *)argv[0];
@@ -1015,13 +1034,13 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if ((getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
-       getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
-       getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")) &&
-      getenv("AFL_DONT_OPTIMIZE"))
+  if (have_instr_env && getenv("AFL_DONT_OPTIMIZE")) {
+
     WARNF(
         "AFL_LLVM_ALLOWLIST/DENYLIST and AFL_DONT_OPTIMIZE cannot be combined "
         "for file matching, only function matching!");
+
+  }
 
   if (getenv("AFL_LLVM_INSTRIM") || getenv("INSTRIM") ||
       getenv("INSTRIM_LIB")) {
@@ -1307,15 +1326,20 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_GCC_INSTRUMENT_FILE: enable selective instrumentation by "
             "filename\n");
 
+#if LLVM_MAJOR < 9
+  #define COUNTER_BEHAVIOUR \
+    "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+#else
+  #define COUNTER_BEHAVIOUR \
+    "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
+#endif
       if (have_llvm)
         SAYF(
             "\nLLVM/LTO/afl-clang-fast/afl-clang-lto specific environment "
             "variables:\n"
-#if LLVM_MAJOR < 9
-            "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
-#else
-            "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
-#endif
+
+            COUNTER_BEHAVIOUR
+
             "  AFL_LLVM_DICT2FILE: generate an afl dictionary based on found "
             "comparisons\n"
             "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
@@ -1426,22 +1450,20 @@ int main(int argc, char **argv, char **envp) {
 #if LLVM_MAJOR <= 6
     instrument_mode = INSTRUMENT_AFL;
 #else
-    if (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
-        getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
-        getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")) {
+  #if LLVM_MAJOR < 11 && (LLVM_MAJOR < 10 || LLVM_MINOR < 1)
+    if (have_instr_env) {
 
       instrument_mode = INSTRUMENT_AFL;
-      WARNF(
-          "switching to classic instrumentation because "
-          "AFL_LLVM_ALLOWLIST/DENYLIST does not work with PCGUARD. Use "
-          "-fsanitize-coverage-allowlist=allowlist.txt or "
-          "-fsanitize-coverage-blocklist=denylist.txt if you want to use "
-          "PCGUARD. Requires llvm 12+. See https://clang.llvm.org/docs/ "
-          "SanitizerCoverage.html#partially-disabling-instrumentation");
+      if (!be_quiet)
+        WARNF(
+            "Switching to classic instrumentation because "
+            "AFL_LLVM_ALLOWLIST/DENYLIST does not work with PCGUARD < 10.0.1.");
 
     } else
 
+  #endif
       instrument_mode = INSTRUMENT_PCGUARD;
+
 #endif
 
   }
@@ -1487,18 +1509,16 @@ int main(int argc, char **argv, char **envp) {
         "AFL_LLVM_NOT_ZERO and AFL_LLVM_SKIP_NEVERZERO can not be set "
         "together");
 
-  if (instrument_mode == INSTRUMENT_PCGUARD &&
-      (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
-       getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
-       getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")))
+#if LLVM_MAJOR < 11 && (LLVM_MAJOR < 10 || LLVM_MINOR < 1)
+  if (instrument_mode == INSTRUMENT_PCGUARD && have_instr_env) {
+
     FATAL(
         "Instrumentation type PCGUARD does not support "
-        "AFL_LLVM_ALLOWLIST/DENYLIST! Use "
-        "-fsanitize-coverage-allowlist=allowlist.txt or "
-        "-fsanitize-coverage-blocklist=denylist.txt instead (requires llvm "
-        "12+), see "
-        "https://clang.llvm.org/docs/"
-        "SanitizerCoverage.html#partially-disabling-instrumentation");
+        "AFL_LLVM_ALLOWLIST/DENYLIST! Use LLVM 10.0.1+ instead.");
+
+  }
+
+#endif
 
   u8 *ptr2;
 

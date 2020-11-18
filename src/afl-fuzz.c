@@ -166,7 +166,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
       "AFL_CYCLE_SCHEDULES: after completing a cycle, switch to a different -p schedule\n"
       "AFL_DEBUG: extra debugging output for Python mode trimming\n"
-      "AFL_DEBUG_CHILD_OUTPUT: do not suppress stdout/stderr from target\n"
+      "AFL_DEBUG_CHILD: do not suppress stdout/stderr from target\n"
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
@@ -350,6 +350,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 's': {
 
+        if (optarg == NULL) { FATAL("No valid seed provided. Got NULL."); }
         rand_set_seed(afl, strtoul(optarg, 0L, 10));
         afl->fixed_seed = 1;
         break;
@@ -419,6 +420,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'i':                                                /* input dir */
 
         if (afl->in_dir) { FATAL("Multiple -i options not supported"); }
+        if (optarg == NULL) { FATAL("Invalid -i option (got NULL)."); }
         afl->in_dir = optarg;
 
         if (!strcmp(afl->in_dir, "-")) { afl->in_place_resume = 1; }
@@ -435,9 +437,26 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8 *c;
 
+        if (afl->non_instrumented_mode) {
+
+          FATAL("-M is not supported in non-instrumented mode");
+
+        }
+
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
+
+        /* sanity check for argument: should not begin with '-' (possible
+         * option) */
+        if (optarg && *optarg == '-') {
+
+          FATAL(
+              "argument for -M started with a dash '-', which is used for "
+              "options");
+
+        }
+
         afl->sync_id = ck_strdup(optarg);
-        afl->skip_deterministic = 0;  // force determinsitic fuzzing
+        afl->skip_deterministic = 0;  // force deterministic fuzzing
         afl->old_seed_selection = 1;  // force old queue walking seed selection
 
         if ((c = strchr(afl->sync_id, ':'))) {
@@ -464,7 +483,24 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'S':                                        /* secondary sync id */
 
+        if (afl->non_instrumented_mode) {
+
+          FATAL("-S is not supported in non-instrumented mode");
+
+        }
+
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
+
+        /* sanity check for argument: should not begin with '-' (possible
+         * option) */
+        if (optarg && *optarg == '-') {
+
+          FATAL(
+              "argument for -M started with a dash '-', which is used for "
+              "options");
+
+        }
+
         afl->sync_id = ck_strdup(optarg);
         afl->is_secondary_node = 1;
         break;
@@ -619,6 +655,12 @@ int main(int argc, char **argv_orig, char **envp) {
         break;
 
       case 'n':                                                /* dumb mode */
+
+        if (afl->is_main_node || afl->is_secondary_node) {
+
+          FATAL("Non instrumented mode is not supported with -M / -S");
+
+        }
 
         if (afl->non_instrumented_mode) {
 
@@ -906,7 +948,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->power_name = power_names[afl->schedule];
 
-  if (!afl->sync_id) {
+  if (!afl->non_instrumented_mode && !afl->sync_id) {
 
     auto_sync = 1;
     afl->sync_id = ck_strdup("default");
@@ -1338,7 +1380,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (!afl->fsrv.qemu_mode) { check_binary(afl, afl->cmplog_binary); }
+    if (!afl->fsrv.qemu_mode && !afl->non_instrumented_mode) {
+
+      check_binary(afl, afl->cmplog_binary);
+
+    }
 
   }
 
@@ -1380,7 +1426,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
     afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
-                   afl->afl_env.afl_debug_child_output);
+                   afl->afl_env.afl_debug_child);
     OKF("Cmplog forkserver successfully started");
 
   }
