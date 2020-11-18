@@ -636,7 +636,7 @@ struct afl_alloc_buf {
 
 #define AFL_ALLOC_SIZE_OFFSET (offsetof(struct afl_alloc_buf, buf))
 
-/* Returs the container element to this ptr */
+/* Returns the container element to this ptr */
 static inline struct afl_alloc_buf *afl_alloc_bufptr(void *buf) {
 
   return (struct afl_alloc_buf *)((u8 *)buf - AFL_ALLOC_SIZE_OFFSET);
@@ -694,11 +694,17 @@ static inline void *afl_realloc(void **buf, size_t size_needed) {
   }
 
   /* alloc */
-  new_buf = (struct afl_alloc_buf *)realloc(new_buf, next_size);
-  if (unlikely(!new_buf)) {
+  struct afl_alloc_buf *newer_buf =
+      (struct afl_alloc_buf *)realloc(new_buf, next_size);
+  if (unlikely(!newer_buf)) {
 
+    free(new_buf);  // avoid a leak
     *buf = NULL;
     return NULL;
+
+  } else {
+
+    new_buf = newer_buf;
 
   }
 
@@ -730,11 +736,17 @@ static inline void *afl_realloc_exact(void **buf, size_t size_needed) {
   if (unlikely(current_size == size_needed)) { return *buf; }
 
   /* alloc */
-  new_buf = (struct afl_alloc_buf *)realloc(new_buf, size_needed);
-  if (unlikely(!new_buf)) {
+  struct afl_alloc_buf *newer_buf =
+      (struct afl_alloc_buf *)realloc(new_buf, size_needed);
+  if (unlikely(!newer_buf)) {
 
+    free(new_buf);  // avoid a leak
     *buf = NULL;
     return NULL;
+
+  } else {
+
+    new_buf = newer_buf;
 
   }
 

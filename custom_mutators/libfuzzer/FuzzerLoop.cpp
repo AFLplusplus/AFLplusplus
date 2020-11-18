@@ -206,6 +206,8 @@ void Fuzzer::StaticDeathCallback() {
 
 void Fuzzer::DumpCurrentUnit(const char *Prefix) {
 
+  return;
+
   if (!CurrentUnitData) return;  // Happens when running individual inputs.
   ScopedDisableMsanInterceptorChecks S;
   MD.PrintMutationSequence();
@@ -733,6 +735,7 @@ std::string Fuzzer::WriteToOutputCorpus(const Unit &U) {
 
 void Fuzzer::WriteUnitToFileWithPrefix(const Unit &U, const char *Prefix) {
 
+  return;
   if (!Options.SaveArtifacts) return;
   std::string Path = Options.ArtifactPrefix + Prefix + Hash(U);
   if (!Options.ExactArtifactPath.empty())
@@ -1073,13 +1076,21 @@ void Fuzzer::MinimizeCrashLoop(const Unit &U) {
 
 }  // namespace fuzzer
 
+#ifdef  INTROSPECTION
+  extern const char *introspection_ptr;
+#endif
+
 extern "C" {
 
 ATTRIBUTE_INTERFACE size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size,
                                             size_t MaxSize) {
 
   assert(fuzzer::F);
-  return fuzzer::F->GetMD().DefaultMutate(Data, Size, MaxSize);
+  size_t r = fuzzer::F->GetMD().DefaultMutate(Data, Size, MaxSize);
+#ifdef  INTROSPECTION
+  introspection_ptr = fuzzer::F->GetMD().WriteMutationSequence();
+#endif
+  return r;
 
 }
 

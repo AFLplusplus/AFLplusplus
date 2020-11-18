@@ -65,7 +65,6 @@
     #define cpu_set_t cpuset_t
   #elif defined(__NetBSD__)
     #include <pthread.h>
-    #include <sched.h>
   #elif defined(__APPLE__)
     #include <pthread.h>
     #include <mach/thread_act.h>

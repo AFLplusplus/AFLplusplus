@@ -26,6 +26,7 @@ public:
   void StartMutationSequence();
   /// Print the current sequence of mutations. Only prints the full sequence
   /// when Verbose is true.
+  const char *WriteMutationSequence();
   void PrintMutationSequence(bool Verbose = true);
   /// Return the current sequence of mutations.
   std::string MutationSequence();
