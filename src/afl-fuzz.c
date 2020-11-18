@@ -350,6 +350,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 's': {
 
+        if (optarg == NULL) { FATAL("No valid seed provided. Got NULL."); }
         rand_set_seed(afl, strtoul(optarg, 0L, 10));
         afl->fixed_seed = 1;
         break;
@@ -419,6 +420,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'i':                                                /* input dir */
 
         if (afl->in_dir) { FATAL("Multiple -i options not supported"); }
+        if (afl->in_dir == NULL) { FATAL("Invalid -i option (got NULL)."); }
         afl->in_dir = optarg;
 
         if (!strcmp(afl->in_dir, "-")) { afl->in_place_resume = 1; }

@@ -694,10 +694,11 @@ static inline void *afl_realloc(void **buf, size_t size_needed) {
   }
 
   /* alloc */
-  struct afl_alloc_buf *newer_buf = (struct afl_alloc_buf *)realloc(new_buf, next_size);
+  struct afl_alloc_buf *newer_buf =
+      (struct afl_alloc_buf *)realloc(new_buf, next_size);
   if (unlikely(!newer_buf)) {
 
-    free(new_buf); // avoid a leak
+    free(new_buf);  // avoid a leak
     *buf = NULL;
     return NULL;
 
@@ -706,7 +707,6 @@ static inline void *afl_realloc(void **buf, size_t size_needed) {
     new_buf = newer_buf;
 
   }
-
 
   new_buf->complete_size = next_size;
   *buf = (void *)(new_buf->buf);
@@ -736,10 +736,11 @@ static inline void *afl_realloc_exact(void **buf, size_t size_needed) {
   if (unlikely(current_size == size_needed)) { return *buf; }
 
   /* alloc */
-  struct afl_alloc_buf *newer_buf = (struct afl_alloc_buf *)realloc(new_buf, size_needed);
+  struct afl_alloc_buf *newer_buf =
+      (struct afl_alloc_buf *)realloc(new_buf, size_needed);
   if (unlikely(!newer_buf)) {
 
-    free(new_buf); // avoid a leak
+    free(new_buf);  // avoid a leak
     *buf = NULL;
     return NULL;
 
