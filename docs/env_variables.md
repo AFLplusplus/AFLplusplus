@@ -389,7 +389,11 @@ checks or alter some of the more exotic semantics of the tool:
     exit soon after the first crash is found.
 
   - Setting `AFL_DEBUG_CHILD` will not suppress the child output.
+    This lets you see all output of the child, making setup issues obvious.
+    For example, in an unicornafl harness, you might see python stacktraces.
+    You may also see other logs that way, indicating why the forkserver won't start.
     Not pretty but good for debugging purposes.
+    Note that `AFL_DEBUG_CHILD_OUTPUT` is deprecated.
 
   - Setting `AFL_NO_CPU_RED` will not display very high cpu usages in red color.
 
