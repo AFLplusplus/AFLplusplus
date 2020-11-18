@@ -326,8 +326,7 @@ typedef struct py_mutator {
   u8 *   fuzz_buf;
   size_t fuzz_size;
 
-  u8 *   post_process_buf;
-  size_t post_process_size;
+  Py_buffer post_process_buf;
 
   u8 *   trim_buf;
   size_t trim_size;
