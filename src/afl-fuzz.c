@@ -420,7 +420,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'i':                                                /* input dir */
 
         if (afl->in_dir) { FATAL("Multiple -i options not supported"); }
-        if (afl->in_dir == NULL) { FATAL("Invalid -i option (got NULL)."); }
+        if (optarg == NULL) { FATAL("Invalid -i option (got NULL)."); }
         afl->in_dir = optarg;
 
         if (!strcmp(afl->in_dir, "-")) { afl->in_place_resume = 1; }
