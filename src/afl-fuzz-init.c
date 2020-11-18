@@ -355,7 +355,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   if (ncpus > sizeof(cpu_used)) ncpus = sizeof(cpu_used);
 
-  for (i = 0; i < ncpus; i++) {
+  for (i = 0; i < (s32)ncpus; i++) {
 
     k = kstat_lookup(m, "cpu_stat", i, NULL);
     if (kstat_read(m, k, &cs)) {
