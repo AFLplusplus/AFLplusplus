@@ -388,7 +388,7 @@ checks or alter some of the more exotic semantics of the tool:
     processing the first queue entry; and `AFL_BENCH_UNTIL_CRASH` causes it to
     exit soon after the first crash is found.
 
-  - Setting `AFL_DEBUG_CHILD_OUTPUT` will not suppress the child output.
+  - Setting `AFL_DEBUG_CHILD` will not suppress the child output.
     Not pretty but good for debugging purposes.
 
   - Setting `AFL_NO_CPU_RED` will not display very high cpu usages in red color.

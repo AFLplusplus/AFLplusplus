@@ -268,11 +268,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_bench_until_crash =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
-          } else if (!strncmp(env, "AFL_DEBUG_CHILD_OUTPUT",
+          } else if (!strncmp(env, "AFL_DEBUG_CHILD",
 
+                              afl_environment_variable_len) ||
+                     !strncmp(env, "AFL_DEBUG_CHILD_OUTPUT",
                               afl_environment_variable_len)) {
 
-            afl->afl_env.afl_debug_child_output =
+            afl->afl_env.afl_debug_child =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_AUTORESUME",
