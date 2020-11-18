@@ -306,10 +306,10 @@ checks or alter some of the more exotic semantics of the tool:
     don't want AFL++ to spend too much time classifying that stuff and just
     rapidly put all timeouts in that bin.
 
-  - Setting `AFL_FORKSRV_INIT_TMOUT` allows yout to specify a different timeout
+  - Setting `AFL_FORKSRV_INIT_TMOUT` allows you to specify a different timeout
     to wait for the forkserver to spin up. The default is the `-t` value times
     `FORK_WAIT_MULT` from `config.h` (usually 10), so for a `-t 100`, the
-    default would wait `1000` milis. Setting a different time here is useful
+    default would wait for `1000` milliseconds. Setting a different time here is useful
     if the target has a very slow startup time, for example when doing
     full-system fuzzing or emulation, but you don't want the actual runs
     to wait too long for timeouts.
@@ -403,10 +403,10 @@ checks or alter some of the more exotic semantics of the tool:
 
   - Setting `AFL_MAX_DET_EXRAS` will change the threshold at what number of elements
     in the `-x` dictionary and LTO autodict (combined) the probabilistic mode will
-    kick off. In probabilistic mode, not all dictionary entires will be used all
-    of the times for fuzzing mutations to not make fuzzing slower by it.
-    The default count is `200` element. So for the 200 + 1st element, there is a
-    1 in 201 chance, that one of the dictionary entry will not be used directly.
+    kick off. In probabilistic mode not all dictionary entires will be used all
+    of the times for fuzzing mutations to not slow down fuzzing.
+    The default count is `200` elements. So for the 200 + 1st element, there is a
+    1 in 201 chance, that one of the dictionary entries will not be used directly.
 
   - Setting `AFL_NO_FORKSRV` disables the forkserver optimization, reverting to
     fork + execve() call for every tested input. This is useful mostly when
