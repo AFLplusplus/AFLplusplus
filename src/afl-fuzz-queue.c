@@ -58,7 +58,7 @@ void create_alias_table(afl_state_t *afl) {
 
   if (!P || !S || !L || !afl->alias_table || !afl->alias_probability) {
 
-    FATAL("could not aquire memory for alias table");
+    FATAL("could not acquire memory for alias table");
 
   }
 
