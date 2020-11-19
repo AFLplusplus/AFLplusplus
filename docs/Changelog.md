@@ -38,6 +38,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added INTROSPECTION make target that writes all mutations to
       out/NAME/introspection.txt
     - print special compile time options used in help output
+    - when using -c cmplog, one of the childs was not killed, fixed
     - somewhere we broke -n dumb fuzzing, fixed
   - instrumentation
     - We received an enhanced gcc_plugin module from AdaCore, thank you
