@@ -40,7 +40,7 @@ extern u64 time_spent_working;
 
 static void at_exit() {
 
-  int   i;
+  s32   i, pid1 = 0, pid2 = 0;
   char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
   char *ptr;
 
@@ -48,10 +48,10 @@ static void at_exit() {
   if (ptr && *ptr) unlink(ptr);
 
   ptr = getenv("__AFL_TARGET_PID1");
-  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
+  if (ptr && *ptr && (pid1 = atoi(ptr)) > 0) kill(pid1, SIGTERM);
 
   ptr = getenv("__AFL_TARGET_PID2");
-  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
+  if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) kill(pid2, SIGTERM);
 
   i = 0;
   while (list[i] != NULL) {
@@ -74,6 +74,9 @@ static void at_exit() {
     i++;
 
   }
+
+  if (pid1 > 0) { kill(pid1, SIGKILL); }
+  if (pid2 > 0) { kill(pid2, SIGKILL); }
 
 }
 

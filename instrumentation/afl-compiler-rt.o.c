@@ -101,6 +101,11 @@ int __afl_sharedmem_fuzzing __attribute__((weak));
 
 struct cmp_map *__afl_cmp_map;
 
+/* Child pid? */
+
+static s32 child_pid;
+static void (*old_sigterm_handler)(int) = 0;
+
 /* Running in persistent mode? */
 
 static u8 is_persistent;
@@ -108,6 +113,14 @@ static u8 is_persistent;
 /* Are we in sancov mode? */
 
 static u8 _is_sancov;
+
+/* ensure we kill the child on termination */
+
+void at_exit(int signal) {
+
+  if (child_pid > 0) { kill(child_pid, SIGKILL); }
+
+}
 
 /* Uninspired gcc plugin instrumentation */
 
@@ -432,7 +445,6 @@ static void __afl_map_shm(void) {
 static void __afl_start_snapshots(void) {
 
   static u8 tmp[4] = {0, 0, 0, 0};
-  s32       child_pid;
   u32       status = 0;
   u32       already_read_first = 0;
   u32       was_killed;
@@ -579,6 +591,7 @@ static void __afl_start_snapshots(void) {
         //(void)nice(-20);  // does not seem to improve
 
         signal(SIGCHLD, old_sigchld_handler);
+        signal(SIGTERM, old_sigterm_handler);
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
@@ -633,6 +646,11 @@ static void __afl_start_snapshots(void) {
 
 static void __afl_start_forkserver(void) {
 
+  struct sigaction orig_action;
+  sigaction(SIGTERM, NULL, &orig_action);
+  old_sigterm_handler = orig_action.sa_handler;
+  signal(SIGTERM, at_exit);
+
 #ifdef __linux__
   if (/*!is_persistent &&*/ !__afl_cmp_map && !getenv("AFL_NO_SNAPSHOT") &&
       afl_snapshot_init() >= 0) {
@@ -645,7 +663,6 @@ static void __afl_start_forkserver(void) {
 #endif
 
   u8  tmp[4] = {0, 0, 0, 0};
-  s32 child_pid;
   u32 status = 0;
   u32 already_read_first = 0;
   u32 was_killed;
@@ -793,6 +810,7 @@ static void __afl_start_forkserver(void) {
         //(void)nice(-20);
 
         signal(SIGCHLD, old_sigchld_handler);
+        signal(SIGTERM, old_sigterm_handler);
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
