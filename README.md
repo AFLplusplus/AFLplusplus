@@ -273,7 +273,7 @@ anything below 9 is not recommended.
     v
 +---------------------------------+
 | clang/clang++ 3.3+ is available | --> use LLVM mode (afl-clang-fast/afl-clang-fast++)
-+---------------------------------+     see [instrumentation/README.md](instrumentation/README.md)
++---------------------------------+     see [instrumentation/README.llvm.md](instrumentation/README.llvm.md)
     |
     | if not, or if the target fails with LLVM afl-clang-fast/++
     |
@@ -292,7 +292,7 @@ anything below 9 is not recommended.
 Clickable README links for the chosen compiler:
 
   * [LTO mode - afl-clang-lto](instrumentation/README.lto.md)
-  * [LLVM mode - afl-clang-fast](instrumentation/README.md)
+  * [LLVM mode - afl-clang-fast](instrumentation/README.llvm.md)
   * [GCC_PLUGIN mode - afl-gcc-fast](instrumentation/README.gcc_plugin.md)
   * GCC mode (afl-gcc) has no README as it has no own features
 
