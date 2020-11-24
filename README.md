@@ -525,7 +525,7 @@ as test data in there.
 
 If you do not want anything special, the defaults are already usually best,
 hence all you need is to specify the seed input directory with the result of
-step [2. Collect inputs](#a)a-collect-inputs)):
+step [2a. Collect inputs](#a-collect-inputs):
 `afl-fuzz -i input -o output -- bin/target -d @@`
 Note that the directory specified with -o will be created if it does not exist.
 
@@ -541,7 +541,7 @@ that it could not connect to the forkserver), then you can increase this
 with the `-m` option, the value is in MB. To disable any memory limits
 (beware!) set `-m none` - which is usually required for ASAN compiled targets.
 
-Adding a dictionary is helpful. See the [dictionaries/](dictionaries/) if
+Adding a dictionary is helpful. See the directory [dictionaries/](dictionaries/) if
 something is already included for your data format, and tell afl-fuzz to load
 that dictionary by adding `-x dictionaries/FORMAT.dict`. With afl-clang-lto
 you have an autodictionary generation for which you need to do nothing except
