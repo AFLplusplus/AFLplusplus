@@ -686,7 +686,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
-      getenv("LAF_TRANSFORM_COMPARES") || lto_mode) {
+      getenv("LAF_TRANSFORM_COMPARES") || getenv("AFL_LLVM_LAF_ALL") || lto_mode) {
 
     cc_params[cc_par_cnt++] = "-fno-builtin-strcmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-strncmp";
@@ -1030,7 +1030,7 @@ int main(int argc, char **argv, char **envp) {
     if (instrument_mode == 0)
       instrument_mode = INSTRUMENT_PCGUARD;
     else if (instrument_mode != INSTRUMENT_PCGUARD)
-      FATAL("you can not set AFL_LLVM_INSTRUMENT and AFL_TRACE_PC together");
+      FATAL("you cannot set AFL_LLVM_INSTRUMENT and AFL_TRACE_PC together");
 
   }
 
@@ -1049,7 +1049,7 @@ int main(int argc, char **argv, char **envp) {
       instrument_mode = INSTRUMENT_CFG;
     else if (instrument_mode != INSTRUMENT_CFG)
       FATAL(
-          "you can not set AFL_LLVM_INSTRUMENT and AFL_LLVM_INSTRIM together");
+          "you cannot set AFL_LLVM_INSTRUMENT and AFL_LLVM_INSTRIM together");
 
   }
 
