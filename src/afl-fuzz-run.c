@@ -484,7 +484,7 @@ void sync_fuzzers(afl_state_t *afl) {
   DIR *          sd;
   struct dirent *sd_ent;
   u32            sync_cnt = 0, synced = 0, entries = 0;
-  u8             path[PATH_MAX + 256];
+  u8             path[PATH_MAX + 1 + NAME_MAX];
 
   sd = opendir(afl->sync_dir);
   if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
