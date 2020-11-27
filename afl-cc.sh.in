@@ -1,0 +1,5 @@
+#! /bin/sh
+# This script is to be installed in BIN_PATH, to reexec the actual
+# executable in HELPER_PATH with an argv[0] that enables it to find
+# other helper files.
+exec `echo "$0" | sed 's,/*[^/]*$,,;s,^$,.,'`/@BIN2HELPER@/`echo "$0" | sed 's,^.*/,,'` ${1+"$@"}

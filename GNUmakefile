@@ -22,6 +22,7 @@ HASH=\#
 PREFIX     ?= /usr/local
 BIN_PATH    = $(PREFIX)/bin
 HELPER_PATH = $(PREFIX)/lib/afl
+BIN2HELPER  = ../lib/afl
 DOC_PATH    = $(PREFIX)/share/doc/afl
 MISC_PATH   = $(PREFIX)/share/afl
 MAN_PATH    = $(PREFIX)/man/man8
@@ -298,7 +299,7 @@ ifdef TEST_MMAP
 endif
 
 .PHONY: all
-all:	test_x86 test_shm test_python ready $(PROGS) afl-as llvm gcc_plugin test_build all_done
+all:	test_x86 test_shm test_python ready $(PROGS) afl-cc.sh afl-as llvm gcc_plugin test_build all_done
 
 .PHONY: llvm
 llvm:
@@ -329,6 +330,10 @@ test-performance:	performance-test
 performance-test:	source-only
 	@cd test ; ./test-performance.sh
 
+
+afl-cc.sh: afl-cc.sh.in
+	@sed "s,@BIN2HELPER@,$(BIN2HELPER),g" < afl-cc.sh.in > afl-cc.shT
+	@mv afl-cc.shT afl-cc.sh
 
 # hint: make targets are also listed in the top level README.md
 .PHONY: help
@@ -623,6 +628,8 @@ install: all $(MANPAGES)
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-as
 	@rm -f $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH)/afl-gcc-rt.o
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
+	install -m 755 afl-cc.sh $${DESTDIR}$(BIN_PATH)/afl-cc
+	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-c++
 	@if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
@@ -639,6 +646,8 @@ install: all $(MANPAGES)
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang++
+	ln -sf afl-cc $${DESTDIR}$(HELPER_PATH)/afl-gcc
+	ln -sf afl-cc $${DESTDIR}$(HELPER_PATH)/afl-g++
 	@mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
 	install -m0644 *.8 ${DESTDIR}$(MAN_PATH)
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)
