@@ -85,7 +85,9 @@ ifneq "$(shell uname)" "Darwin"
    endif
  endif
  # OS X does not like _FORTIFY_SOURCE=2
- CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+ ifndef DEBUG
+   CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+ endif
 endif
 
 ifeq "$(shell uname)" "SunOS"
@@ -232,7 +234,9 @@ else
 endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
+ ifndef DEBUG
   override CFLAGS += -D_FORTIFY_SOURCE=2
+ endif
   LDFLAGS += -ldl -lrt -lm
 endif
 
