@@ -182,10 +182,12 @@ static void edit_params(int argc, char **argv) {
     instrim = 1;
 
   if (debug)
-    DEBUGF("passthrough=%s instrim=%d, gold_pos=%d, gold_present=%s inst_present=%s rt_present=%s rt_lto_present=%s\n",
-         passthrough ? "true" : "false", instrim, gold_pos,
-         gold_present ? "true" : "false", inst_present ? "true" : "false",
-         rt_present ? "true" : "false", rt_lto_present ? "true" : "false");
+    DEBUGF(
+        "passthrough=%s instrim=%d, gold_pos=%d, gold_present=%s "
+        "inst_present=%s rt_present=%s rt_lto_present=%s\n",
+        passthrough ? "true" : "false", instrim, gold_pos,
+        gold_present ? "true" : "false", inst_present ? "true" : "false",
+        rt_present ? "true" : "false", rt_lto_present ? "true" : "false");
 
   for (i = 1; i < argc; i++) {
 

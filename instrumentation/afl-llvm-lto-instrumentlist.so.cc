@@ -105,15 +105,14 @@ bool AFLcheckIfInstrument::runOnModule(Module &M) {
     if (isInInstrumentList(&F)) {
 
       if (debug)
-        SAYF(cMGN "[D] " cRST "function %s is in the instrument file list\n",
-             F.getName().str().c_str());
+        DEBUGF("function %s is in the instrument file list\n",
+               F.getName().str().c_str());
 
     } else {
 
       if (debug)
-        SAYF(cMGN "[D] " cRST
-                  "function %s is NOT in the instrument file list\n",
-             F.getName().str().c_str());
+        DEBUGF("function %s is NOT in the instrument file list\n",
+               F.getName().str().c_str());
 
       auto &        Ctx = F.getContext();
       AttributeList Attrs = F.getAttributes();

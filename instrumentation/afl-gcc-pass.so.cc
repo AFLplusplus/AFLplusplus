@@ -627,9 +627,8 @@ struct afl_pass : gimple_opt_pass {
       }
 
       if (debug)
-        SAYF(cMGN "[D] " cRST
-                  "loaded allowlist with %zu file and %zu function entries\n",
-             allowListFiles.size(), allowListFunctions.size());
+        DEBUGF("loaded allowlist with %zu file and %zu function entries\n",
+               allowListFiles.size(), allowListFunctions.size());
 
     }
 
@@ -702,9 +701,8 @@ struct afl_pass : gimple_opt_pass {
       }
 
       if (debug)
-        SAYF(cMGN "[D] " cRST
-                  "loaded denylist with %zu file and %zu function entries\n",
-             denyListFiles.size(), denyListFunctions.size());
+        DEBUGF("loaded denylist with %zu file and %zu function entries\n",
+               denyListFiles.size(), denyListFunctions.size());
 
     }
 
@@ -745,10 +743,10 @@ struct afl_pass : gimple_opt_pass {
             if (fnmatch(("*" + *it).c_str(), instFunction.c_str(), 0) == 0) {
 
               if (debug)
-                SAYF(cMGN "[D] " cRST
-                          "Function %s is in the deny function list, "
-                          "not instrumenting ... \n",
-                     instFunction.c_str());
+                DEBUGF(
+                    "Function %s is in the deny function list, not "
+                    "instrumenting ... \n",
+                    instFunction.c_str());
               return false;
 
             }
@@ -825,10 +823,10 @@ struct afl_pass : gimple_opt_pass {
             if (fnmatch(("*" + *it).c_str(), instFunction.c_str(), 0) == 0) {
 
               if (debug)
-                SAYF(cMGN "[D] " cRST
-                          "Function %s is in the allow function list, "
-                          "instrumenting ... \n",
-                     instFunction.c_str());
+                DEBUGF(
+                    "Function %s is in the allow function list, instrumenting "
+                    "... \n",
+                    instFunction.c_str());
               return true;
 
             }
@@ -859,11 +857,11 @@ struct afl_pass : gimple_opt_pass {
               if (fnmatch(("*" + *it).c_str(), source_file.c_str(), 0) == 0) {
 
                 if (debug)
-                  SAYF(cMGN "[D] " cRST
-                            "Function %s is in the allowlist (%s), "
-                            "instrumenting ... \n",
-                       IDENTIFIER_POINTER(DECL_NAME(F->decl)),
-                       source_file.c_str());
+                  DEBUGF(
+                      "Function %s is in the allowlist (%s), instrumenting ... "
+                      "\n",
+                      IDENTIFIER_POINTER(DECL_NAME(F->decl)),
+                      source_file.c_str());
                 return true;
 
               }
