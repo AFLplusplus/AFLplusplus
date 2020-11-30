@@ -39,7 +39,7 @@ Here's a quick overview of the stuff you can find in this directory:
 
   - libpng_no_checksum   - a sample patch for removing CRC checks in libpng.
 
-  - persistent_demo      - an example of how to use the LLVM persistent process
+  - persistent_mode      - an example of how to use the LLVM persistent process
                            mode to speed up certain fuzzing jobs.
 
   - socket_fuzzing       - a LD_PRELOAD library 'redirects' a socket to stdin
