@@ -270,6 +270,16 @@
                            \
   } while (0)
 
+/* Show a prefixed debug output. */
+
+#define DEBUGF(x...)                         \
+  do {                                       \
+                                             \
+    SAYF(cMGN "[D] " cBRI "DEBUG: " cRST x); \
+    SAYF(cRST "");                           \
+                                             \
+  } while (0)
+
 /* Error-checking versions of read() and write() that call RPFATAL() as
    appropriate. */
 

@@ -354,11 +354,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-B";
     cc_params[cc_par_cnt++] = obj_path;
 
-    if (clang_mode) {
+    if (clang_mode) { cc_params[cc_par_cnt++] = "-no-integrated-as"; }
 
-      cc_params[cc_par_cnt++] = "-no-integrated-as";
-
-    }
   }
 
   if (compiler_mode == GCC_PLUGIN) {
@@ -708,7 +705,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
-      getenv("LAF_TRANSFORM_COMPARES") || getenv("AFL_LLVM_LAF_ALL") || lto_mode) {
+      getenv("LAF_TRANSFORM_COMPARES") || getenv("AFL_LLVM_LAF_ALL") ||
+      lto_mode) {
 
     cc_params[cc_par_cnt++] = "-fno-builtin-strcmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-strncmp";
@@ -1002,16 +1000,11 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-
   if (strncmp(callname, "afl-clang", 9) == 0) {
 
     clang_mode = 1;
 
-    if (strncmp(callname, "afl-clang++", 11) == 0) {
-
-      plusplus_mode = 1;
-
-    }
+    if (strncmp(callname, "afl-clang++", 11) == 0) { plusplus_mode = 1; }
 
   }
 
@@ -1085,8 +1078,7 @@ int main(int argc, char **argv, char **envp) {
     if (instrument_mode == 0)
       instrument_mode = INSTRUMENT_CFG;
     else if (instrument_mode != INSTRUMENT_CFG)
-      FATAL(
-          "you cannot set AFL_LLVM_INSTRUMENT and AFL_LLVM_INSTRIM together");
+      FATAL("you cannot set AFL_LLVM_INSTRUMENT and AFL_LLVM_INSTRIM together");
 
   }
 
