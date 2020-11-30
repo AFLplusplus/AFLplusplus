@@ -23,15 +23,20 @@ __AFL_FUZZ_INIT();
 
 main() {
 
+  // anything else here, eg. command line arguments, initialization, etc.
+
 #ifdef __AFL_HAVE_MANUAL_CONTROL
   __AFL_INIT();
 #endif
 
   unsigned char *buf = __AFL_FUZZ_TESTCASE_BUF;  // must be after __AFL_INIT
+                                                 // and before __AFL_LOOP!
 
   while (__AFL_LOOP(10000)) {
 
-    int len = __AFL_FUZZ_TESTCASE_LEN;
+    int len = __AFL_FUZZ_TESTCASE_LEN;  // don't use the macro directly in a
+                                        // call!
+
     if (len < 8) continue;  // check for a required/useful minimum input length
 
     /* Setup function call, e.g. struct target *tmp = libtarget_init() */
@@ -169,7 +174,7 @@ the impact of memory leaks and similar glitches; 1000 is a good starting point,
 and going much higher increases the likelihood of hiccups without giving you
 any real performance benefits.
 
-A more detailed template is shown in ../examples/persistent_demo/.
+A more detailed template is shown in ../examples/persistent_mode/.
 Similarly to the previous mode, the feature works only with afl-clang-fast; #ifdef
 guards can be used to suppress it when using other compilers.
 
