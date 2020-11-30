@@ -904,7 +904,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_DEBUG")) {
 
-    SAYF(cMGN "[D]" cRST);
+    DEBUGF("");
     for (i = 0; i < argc; i++)
       SAYF(" %s", argv[i]);
     SAYF("\n");
@@ -1066,7 +1066,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (get_afl_env("AFL_DEBUG")) {
 
       int i = optind;
-      SAYF(cMGN "[D]" cRST " %s:", fsrv->target_path);
+      DEBUGF("%s:", fsrv->target_path);
       while (argv[i] != NULL) {
 
         SAYF(" \"%s\"", argv[i++]);

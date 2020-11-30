@@ -1582,7 +1582,7 @@ int main(int argc, char **argv, char **envp) {
 
   if (debug) {
 
-    SAYF(cMGN "[D]" cRST " cd '%s';", getthecwd());
+    DEBUGF("cd '%s';", getthecwd());
     for (i = 0; i < argc; i++)
       SAYF(" '%s'", argv[i]);
     SAYF("\n");
@@ -1610,7 +1610,7 @@ int main(int argc, char **argv, char **envp) {
 
   if (debug) {
 
-    SAYF(cMGN "[D]" cRST " cd '%s';", getthecwd());
+    DEBUGF("cd '%s';", getthecwd());
     for (i = 0; i < (s32)cc_par_cnt; i++)
       SAYF(" '%s'", cc_params[i]);
     SAYF("\n");
