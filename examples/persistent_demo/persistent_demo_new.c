@@ -58,11 +58,11 @@ int main(int argc, char **argv) {
      and similar hiccups. */
 
   __AFL_INIT();
-  buf = __AFL_FUZZ_TESTCASE_BUF;
+  buf = __AFL_FUZZ_TESTCASE_BUF;  // this must be assigned before __AFL_LOOP!
 
   while (__AFL_LOOP(1000)) {  // increase if you have good stability
 
-    len = __AFL_FUZZ_TESTCASE_LEN;
+    len = __AFL_FUZZ_TESTCASE_LEN;  // do not use the macro directly in a call!
 
     fprintf(stderr, "input: %zd \"%s\"\n", len, buf);
 
