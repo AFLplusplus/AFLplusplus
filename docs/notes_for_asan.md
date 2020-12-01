@@ -20,7 +20,7 @@ Because of this, fuzzing with ASAN is recommended only in four scenarios:
     - Precisely gauge memory needs using http://jwilk.net/software/recidivm .
 
     - Limit the memory available to process using cgroups on Linux (see
-      examples/asan_cgroups).
+      utils/asan_cgroups).
 
 To compile with ASAN, set AFL_USE_ASAN=1 before calling 'make clean all'. The
 afl-gcc / afl-clang wrappers will pick that up and add the appropriate flags.
@@ -74,7 +74,7 @@ There are also cgroups, but they are Linux-specific, not universally available
 even on Linux systems, and they require root permissions to set up; I'm a bit
 hesitant to make afl-fuzz require root permissions just for that. That said,
 if you are on Linux and want to use cgroups, check out the contributed script
-that ships in examples/asan_cgroups/.
+that ships in utils/asan_cgroups/.
 
 In settings where cgroups aren't available, we have no nice, portable way to
 avoid counting the ASAN allocation toward the limit. On 32-bit systems, or for

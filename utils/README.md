@@ -45,7 +45,7 @@ Here's a quick overview of the stuff you can find in this directory:
   - socket_fuzzing       - a LD_PRELOAD library 'redirects' a socket to stdin
                            for fuzzing access with afl++
 
-Note that the minimize_corpus.sh tool has graduated from the examples/
+Note that the minimize_corpus.sh tool has graduated from the utils/
 directory and is now available as ../afl-cmin. The LLVM mode has likewise
 graduated to ../instrumentation/*.
 

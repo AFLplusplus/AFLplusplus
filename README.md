@@ -55,6 +55,7 @@ behaviours and defaults:
     * a caching of testcases can now be performed and can be modified by
       editing config.h for TESTCASE_CACHE or by specifying the env variable
       `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500 (default: 50).
+  * utils/ got renamed to utils/
 
 ## Contents
 
@@ -760,10 +761,10 @@ cd unicorn_mode
 
 If the goal is to fuzz a dynamic library then there are two options available.
 For both you need to write a small hardness that loads and calls the library.
-Faster is the frida solution: [examples/afl_frida/README.md](examples/afl_frida/README.md)
+Faster is the frida solution: [utils/afl_frida/README.md](utils/afl_frida/README.md)
 
 Another, less precise and slower option is using ptrace with debugger interrupt
-instrumentation: [examples/afl_untracer/README.md](examples/afl_untracer/README.md)
+instrumentation: [utils/afl_untracer/README.md](utils/afl_untracer/README.md)
 
 ### More
 
@@ -1037,7 +1038,7 @@ Here are some of the most important caveats for AFL:
     wholly wrap the actual data format to be tested.
 
     To work around this, you can comment out the relevant checks (see
-    examples/libpng_no_checksum/ for inspiration); if this is not possible,
+    utils/libpng_no_checksum/ for inspiration); if this is not possible,
     you can also write a postprocessor, one of the hooks of custom mutators.
     See [docs/custom_mutators.md](docs/custom_mutators.md) on how to use
     `AFL_CUSTOM_MUTATOR_LIBRARY`
