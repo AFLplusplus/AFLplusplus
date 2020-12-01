@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// Find patch points for untracer tools (e.g. afl++ examples/afl_untracer)
+// Find patch points for untracer tools (e.g. afl++ utils/afl_untracer)
 //
 //   Copy to ..../Ghidra/Features/Search/ghidra_scripts/
 //   Writes the results to ~/Desktop/patches.txt

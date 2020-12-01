@@ -55,7 +55,7 @@ make fairly broad use of environmental variables instead:
     in your `$PATH`.
 
   - `AFL_PATH` can be used to point afl-gcc to an alternate location of afl-as.
-    One possible use of this is examples/clang_asm_normalize/, which lets
+    One possible use of this is utils/clang_asm_normalize/, which lets
     you instrument hand-written assembly when compiling clang code by plugging
     a normalizer into the chain. (There is no equivalent feature for GCC.)
 

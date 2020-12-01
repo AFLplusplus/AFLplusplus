@@ -94,7 +94,7 @@ test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
     CODE=1
   }
   rm -f test-compcov test.out instrumentlist.txt
-  ../afl-gcc-fast -o test-persistent ../examples/persistent_mode/persistent_demo.c > /dev/null 2>&1
+  ../afl-gcc-fast -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] gcc_plugin persistent mode feature works correctly"

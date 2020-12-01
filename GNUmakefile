@@ -500,8 +500,8 @@ code-format:
 	./.custom-format.py -i instrumentation/*.c
 	@#./.custom-format.py -i custom_mutators/*/*.c* # destroys libfuzzer :-(
 	@#./.custom-format.py -i custom_mutators/*/*.h # destroys honggfuzz :-(
-	./.custom-format.py -i examples/*/*.c*
-	./.custom-format.py -i examples/*/*.h
+	./.custom-format.py -i utils/*/*.c*
+	./.custom-format.py -i utils/*/*.h
 	./.custom-format.py -i test/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.cc
@@ -547,9 +547,9 @@ clean:
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	$(MAKE) -C libdislocator clean
 	$(MAKE) -C libtokencap clean
-	$(MAKE) -C examples/afl_network_proxy clean
-	$(MAKE) -C examples/socket_fuzzing clean
-	$(MAKE) -C examples/argv_fuzzing clean
+	$(MAKE) -C utils/afl_network_proxy clean
+	$(MAKE) -C utils/socket_fuzzing clean
+	$(MAKE) -C utils/argv_fuzzing clean
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 ifeq "$(IN_REPO)" "1"
@@ -572,10 +572,10 @@ distrib: all
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
-	$(MAKE) -C examples/aflpp_driver
-	$(MAKE) -C examples/afl_network_proxy
-	$(MAKE) -C examples/socket_fuzzing
-	$(MAKE) -C examples/argv_fuzzing
+	$(MAKE) -C utils/aflpp_driver
+	$(MAKE) -C utils/afl_network_proxy
+	$(MAKE) -C utils/socket_fuzzing
+	$(MAKE) -C utils/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
@@ -583,9 +583,9 @@ distrib: all
 binary-only: all
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
-	$(MAKE) -C examples/afl_network_proxy
-	$(MAKE) -C examples/socket_fuzzing
-	$(MAKE) -C examples/argv_fuzzing
+	$(MAKE) -C utils/afl_network_proxy
+	$(MAKE) -C utils/socket_fuzzing
+	$(MAKE) -C utils/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
@@ -595,7 +595,7 @@ source-only: all
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C libdislocator
 	$(MAKE) -C libtokencap
-	$(MAKE) -C examples/aflpp_driver
+	$(MAKE) -C utils/aflpp_driver
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
@@ -628,11 +628,11 @@ install: all $(MANPAGES)
 	@if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
-	@if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
-	@if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
-	@if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
-	@if [ -f examples/aflpp_driver/libAFLDriver.a ]; then set -e; install -m 644 examples/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
-	@if [ -f examples/aflpp_driver/libAFLQemuDriver.a ]; then set -e; install -m 644 examples/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C utils/socket_fuzzing install; fi
+	@if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C utils/argv_fuzzing install; fi
+	@if [ -f utils/afl_network_proxy/afl-network-server ]; then $(MAKE) -C utils/afl_network_proxy install; fi
+	@if [ -f utils/aflpp_driver/libAFLDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f utils/aflpp_driver/libAFLQemuDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	-$(MAKE) -f GNUmakefile.llvm install
 	-$(MAKE) -f GNUmakefile.gcc_plugin install
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc

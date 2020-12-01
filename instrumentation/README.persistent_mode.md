@@ -11,7 +11,7 @@ and that its state can be resetted so that multiple calls can be performed
 without resource leaks and former runs having no impact on following runs
 (this can be seen by the `stability` indicator in the `afl-fuzz` UI).
 
-Examples can be found in [examples/persistent_mode](../examples/persistent_mode).
+Examples can be found in [utils/persistent_mode](../utils/persistent_mode).
 
 ## 2) TLDR;
 
@@ -150,7 +150,7 @@ the impact of memory leaks and similar glitches; 1000 is a good starting point,
 and going much higher increases the likelihood of hiccups without giving you
 any real performance benefits.
 
-A more detailed template is shown in ../examples/persistent_mode/.
+A more detailed template is shown in ../utils/persistent_mode/.
 Similarly to the previous mode, the feature works only with afl-clang-fast; #ifdef
 guards can be used to suppress it when using other compilers.
 
