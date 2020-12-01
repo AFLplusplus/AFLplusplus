@@ -113,7 +113,7 @@ function usage() {
 "  -C            - keep crashing inputs, reject everything else\n" \
 "  -e            - solve for edge coverage only, ignore hit counts\n" \
 "\n" \
-"For additional tips, please consult docs/README.md\n" \
+"For additional tips, please consult README.md\n" \
 "\n" \
 "Environment variables used:\n" \
 "AFL_KEEP_TRACES: leave the temporary <out_dir>/.traces directory\n" \
