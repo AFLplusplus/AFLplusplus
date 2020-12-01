@@ -60,7 +60,12 @@ AUTODICTIONARY: 11 strings found
 
 ## Getting llvm 11+
 
-### Installing llvm from the llvm repository (version 11)
+### Installing llvm version 11
+
+llvm 11 should be available in all current Linux repository.
+If you use an outdated Linux distribution read the next section.
+
+### Installing llvm from the llvm repository (version 12)
 
 Installing the llvm snapshot builds is easy and mostly painless:
 
@@ -73,11 +78,11 @@ then add the pgp key of llvm and install the packages:
 ```
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - 
 apt-get update && apt-get upgrade -y
-apt-get install -y clang-11 clang-tools-11 libc++1-11 libc++-11-dev \
-    libc++abi1-11 libc++abi-11-dev libclang1-11 libclang-11-dev \
-    libclang-common-11-dev libclang-cpp11 libclang-cpp11-dev liblld-11 \
-    liblld-11-dev liblldb-11 liblldb-11-dev libllvm11 libomp-11-dev \
-    libomp5-11 lld-11 lldb-11 llvm-11 llvm-11-dev llvm-11-runtime llvm-11-tools
+apt-get install -y clang-12 clang-tools-12 libc++1-12 libc++-12-dev \
+    libc++abi1-12 libc++abi-12-dev libclang1-12 libclang-12-dev \
+    libclang-common-12-dev libclang-cpp11 libclang-cpp11-dev liblld-12 \
+    liblld-12-dev liblldb-12 liblldb-12-dev libllvm11 libomp-12-dev \
+    libomp5-12 lld-12 lldb-12 llvm-12 llvm-12-dev llvm-12-runtime llvm-12-tools
 ```
 
 ### Building llvm yourself (version 12)
@@ -120,16 +125,22 @@ While compiling, a dictionary based on string comparisons is automatically
 generated and put into the target binary. This dictionary is transfered to afl-fuzz
 on start. This improves coverage statistically by 5-10% :)
 
+Note that if for any reason you do not want to use the autodictionary feature
+then just set the environment variable `AFL_NO_AUTODICT` when starting afl-fuzz.
+
 ## Fixed memory map
 
-To speed up fuzzing, it is possible to set a fixed shared memory map.
+To speed up fuzzing a little bit more, it is possible to set a fixed shared
+memory map.
 Recommended is the value 0x10000.
+
 In most cases this will work without any problems. However if a target uses
 early constructors, ifuncs or a deferred forkserver this can crash the target.
-On unusual operating systems/processors/kernels or weird libraries this might
-fail so to change the fixed address at compile time set
-AFL_LLVM_MAP_ADDR with a better value (a value of 0 or empty sets the map address
-to be dynamic - the original afl way, which is slower).
+
+Also on unusual operating systems/processors/kernels or weird libraries the
+recommended 0x10000 address might not work, so then change the fixed address.
+
+To enable this feature set AFL_LLVM_MAP_ADDR with the address.
 
 ## Document edge IDs
 

@@ -348,9 +348,10 @@ static void report_error_and_exit(int error) {
 void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output) {
 
-  int st_pipe[2], ctl_pipe[2];
-  s32 status;
-  s32 rlen;
+  int   st_pipe[2], ctl_pipe[2];
+  s32   status;
+  s32   rlen;
+  char *ignore_autodict = getenv("AFL_NO_AUTODICT");
 
   if (!be_quiet) { ACTF("Spinning up the fork server..."); }
 
@@ -607,7 +608,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
           fsrv->use_shmem_fuzz = 1;
           if (!be_quiet) { ACTF("Using SHARED MEMORY FUZZING feature."); }
 
-          if ((status & FS_OPT_AUTODICT) == 0) {
+          if ((status & FS_OPT_AUTODICT) == 0 || ignore_autodict) {
 
             u32 send_status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
             if (write(fsrv->fsrv_ctl_fd, &send_status, 4) != 4) {
@@ -660,16 +661,44 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if ((status & FS_OPT_AUTODICT) == FS_OPT_AUTODICT) {
 
-        if (fsrv->add_extra_func == NULL || fsrv->afl_ptr == NULL) {
+        if (ignore_autodict) {
 
-          // this is not afl-fuzz - or it is cmplog - we deny and return
+          if (!be_quiet) { WARNF("Ignoring offered AUTODICT feature."); }
+
+        } else {
+
+          if (fsrv->add_extra_func == NULL || fsrv->afl_ptr == NULL) {
+
+            // this is not afl-fuzz - or it is cmplog - we deny and return
+            if (fsrv->use_shmem_fuzz) {
+
+              status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
+
+            } else {
+
+              status = (FS_OPT_ENABLED);
+
+            }
+
+            if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
+
+              FATAL("Writing to forkserver failed.");
+
+            }
+
+            return;
+
+          }
+
+          if (!be_quiet) { ACTF("Using AUTODICT feature."); }
+
           if (fsrv->use_shmem_fuzz) {
 
-            status = (FS_OPT_ENABLED | FS_OPT_SHDMEM_FUZZ);
+            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
 
           } else {
 
-            status = (FS_OPT_ENABLED);
+            status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
 
           }
 
@@ -679,81 +708,61 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
           }
 
-          return;
+          if (read(fsrv->fsrv_st_fd, &status, 4) != 4) {
 
-        }
-
-        if (!be_quiet) { ACTF("Using AUTODICT feature."); }
-
-        if (fsrv->use_shmem_fuzz) {
-
-          status = (FS_OPT_ENABLED | FS_OPT_AUTODICT | FS_OPT_SHDMEM_FUZZ);
-
-        } else {
-
-          status = (FS_OPT_ENABLED | FS_OPT_AUTODICT);
-
-        }
-
-        if (write(fsrv->fsrv_ctl_fd, &status, 4) != 4) {
-
-          FATAL("Writing to forkserver failed.");
-
-        }
-
-        if (read(fsrv->fsrv_st_fd, &status, 4) != 4) {
-
-          FATAL("Reading from forkserver failed.");
-
-        }
-
-        if (status < 2 || (u32)status > 0xffffff) {
-
-          FATAL("Dictionary has an illegal size: %d", status);
-
-        }
-
-        u32 offset = 0, count = 0;
-        u32 len = status;
-        u8 *dict = ck_alloc(len);
-        if (dict == NULL) {
-
-          FATAL("Could not allocate %u bytes of autodictionary memory", len);
-
-        }
-
-        while (len != 0) {
-
-          rlen = read(fsrv->fsrv_st_fd, dict + offset, len);
-          if (rlen > 0) {
-
-            len -= rlen;
-            offset += rlen;
-
-          } else {
-
-            FATAL(
-                "Reading autodictionary fail at position %u with %u bytes "
-                "left.",
-                offset, len);
+            FATAL("Reading from forkserver failed.");
 
           }
 
+          if (status < 2 || (u32)status > 0xffffff) {
+
+            FATAL("Dictionary has an illegal size: %d", status);
+
+          }
+
+          u32 offset = 0, count = 0;
+          u32 len = status;
+          u8 *dict = ck_alloc(len);
+          if (dict == NULL) {
+
+            FATAL("Could not allocate %u bytes of autodictionary memory", len);
+
+          }
+
+          while (len != 0) {
+
+            rlen = read(fsrv->fsrv_st_fd, dict + offset, len);
+            if (rlen > 0) {
+
+              len -= rlen;
+              offset += rlen;
+
+            } else {
+
+              FATAL(
+                  "Reading autodictionary fail at position %u with %u bytes "
+                  "left.",
+                  offset, len);
+
+            }
+
+          }
+
+          offset = 0;
+          while (offset < (u32)status &&
+                 (u8)dict[offset] + offset < (u32)status) {
+
+            fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
+                                 (u8)dict[offset]);
+            offset += (1 + dict[offset]);
+            count++;
+
+          }
+
+          if (!be_quiet) { ACTF("Loaded %u autodictionary entries", count); }
+          ck_free(dict);
+
         }
-
-        offset = 0;
-        while (offset < (u32)status &&
-               (u8)dict[offset] + offset < (u32)status) {
-
-          fsrv->add_extra_func(fsrv->afl_ptr, dict + offset + 1,
-                               (u8)dict[offset]);
-          offset += (1 + dict[offset]);
-          count++;
-
-        }
-
-        if (!be_quiet) { ACTF("Loaded %u autodictionary entries", count); }
-        ck_free(dict);
 
       }
 

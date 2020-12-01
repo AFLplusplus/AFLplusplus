@@ -34,6 +34,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - crashing seeds are now not prohibiting a run anymore but are
       skipped. They are used for splicing though.
     - update MOpt for expanded havoc modes
+    - setting the env var AFL_NO_AUTODICT will not load an LTO autodictionary
     - added NO_SPLICING compile option and makefile define
     - added INTROSPECTION make target that writes all mutations to
       out/NAME/introspection.txt
