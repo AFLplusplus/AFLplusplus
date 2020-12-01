@@ -294,6 +294,9 @@ checks or alter some of the more exotic semantics of the tool:
     on Linux systems. This slows things down, but lets you run more instances
     of afl-fuzz than would be prudent (if you really want to).
 
+  - Setting `AFL_NO_AUTODICT` will not load an LTO generated auto dictionary
+    that is compiled into the target.
+
   - `AFL_SKIP_CRASHES` causes AFL++ to tolerate crashing files in the input
     queue. This can help with rare situations where a program crashes only
     intermittently, but it's not really recommended under normal operating

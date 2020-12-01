@@ -187,6 +187,7 @@ static void usage(u8 *argv0, int more_help) {
       "                    used. Defaults to 200.\n"
       "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
       "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
+      "AFL_NO_AUTODICT: do not load an offered auto dictionary compiled into a target\n"
       "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
