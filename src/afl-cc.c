@@ -106,20 +106,42 @@ u8 *getthecwd() {
 
 }
 
-/* Try to find the runtime libraries. If that fails, abort. */
+/* Try to find a specific runtime we need, returns NULL on fail. */
+
+/*
+  in find_object() we look here:
+
+  1. if obj_path is already set we look there first
+  2. then we check the $AFL_PATH environment variable location if set
+  3. next we check argv[0] if has path information and use it
+    a) we also check ../lib/
+  4. if 3. failed we check /proc (only Linux, Android, NetBSD, DragonFly, and
+     FreeBSD with procfs
+    a) and check here in ../lib/ too
+  5. we look into the AFL_PATH define (usually /usr/local/lib/afl)
+  6. we finally try the current directory
+
+  if this all fail - we fail.
+*/
 
 static u8 *find_object(u8 *obj, u8 *argv0) {
 
   u8 *afl_path = getenv("AFL_PATH");
   u8 *slash = NULL, *tmp;
 
+  if (obj_path) {
+
+    tmp = alloc_printf("%s/%s", obj_path, obj);
+
+    if (!access(tmp, R_OK)) { return tmp; }
+
+    ck_free(tmp);
+
+  }
+
   if (afl_path) {
 
-#ifdef __ANDROID__
     tmp = alloc_printf("%s/%s", afl_path, obj);
-#else
-    tmp = alloc_printf("%s/%s", afl_path, obj);
-#endif
 
     if (!access(tmp, R_OK)) {
 
@@ -132,42 +154,97 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
 
   }
 
-  if (argv0) slash = strrchr(argv0, '/');
+  if (argv0) {
 
-  if (slash) {
+    slash = strrchr(argv0, '/');
 
-    u8 *dir;
+    if (slash) {
 
-    *slash = 0;
-    dir = ck_strdup(argv0);
-    *slash = '/';
+      u8 *dir = ck_strdup(argv0);
 
-#ifdef __ANDROID__
-    tmp = alloc_printf("%s/%s", dir, obj);
-#else
-    tmp = alloc_printf("%s/%s", dir, obj);
+      slash = strrchr(dir, '/');
+      *slash = 0;
+
+      tmp = alloc_printf("%s/%s", dir, obj);
+
+      if (!access(tmp, R_OK)) {
+
+        obj_path = dir;
+        return tmp;
+
+      }
+
+      ck_free(tmp);
+      tmp = alloc_printf("%s/../lib/%s", dir, obj);
+
+      if (!access(tmp, R_OK)) {
+
+        u8 *dir2 = alloc_printf("%s/../lib", dir);
+        obj_path = dir2;
+        ck_free(dir);
+        return tmp;
+
+      }
+
+      ck_free(tmp);
+      ck_free(dir);
+
+    } else {
+
+      char *procname = NULL;
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+      procname = "/proc/curproc/file";
+  #elsif defined(__linux__) || defined(__ANDROID__)
+      procname = "/proc/self/exe";
+  #elsif defined(__NetBSD__)
+      procname = "/proc/curproc/exe";
 #endif
+      if (procname) {
 
-    if (!access(tmp, R_OK)) {
+        char    exepath[PATH_MAX];
+        ssize_t exepath_len = readlink(procname, exepath, sizeof(exepath));
+        if (exepath_len > 0 && exepath_len < PATH_MAX) {
 
-      obj_path = dir;
-      return tmp;
+          exepath[exepath_len] = 0;
+          slash = strrchr(exepath, '/');
+
+          if (slash) {
+
+            *slash = 0;
+            tmp = alloc_printf("%s/%s", exepath, obj);
+
+            if (!access(tmp, R_OK)) {
+
+              u8 *dir = alloc_printf("%s/../lib/", exepath);
+              obj_path = dir;
+              return tmp;
+
+            }
+
+            ck_free(tmp);
+            tmp = alloc_printf("%s/../lib/%s", exepath, obj);
+
+            if (!access(tmp, R_OK)) {
+
+              u8 *dir = alloc_printf("%s/../lib/", exepath);
+              obj_path = dir;
+              return tmp;
+
+            }
+
+          }
+
+        }
+
+      }
 
     }
-
-    ck_free(tmp);
-    ck_free(dir);
 
   }
 
   tmp = alloc_printf("%s/%s", AFL_PATH, obj);
-#ifdef __ANDROID__
-  if (!access(tmp, R_OK)) {
 
-#else
   if (!access(tmp, R_OK)) {
-
-#endif
 
     obj_path = AFL_PATH;
     return tmp;
@@ -175,82 +252,19 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
   }
 
   ck_free(tmp);
+
+  tmp = alloc_printf("./%s", obj);
+
+  if (!access(tmp, R_OK)) {
+
+    obj_path = ".";
+    return tmp;
+
+  }
+
+  ck_free(tmp);
+
   return NULL;
-
-}
-
-/* Try to find the runtime libraries. If that fails, abort. */
-
-static void find_obj(u8 *argv0) {
-
-  u8 *afl_path = getenv("AFL_PATH");
-  u8 *slash, *tmp;
-
-  if (afl_path) {
-
-#ifdef __ANDROID__
-    tmp = alloc_printf("%s/afl-compiler-rt.so", afl_path);
-#else
-    tmp = alloc_printf("%s/afl-compiler-rt.o", afl_path);
-#endif
-
-    if (!access(tmp, R_OK)) {
-
-      obj_path = afl_path;
-      ck_free(tmp);
-      return;
-
-    }
-
-    ck_free(tmp);
-
-  }
-
-  slash = strrchr(argv0, '/');
-
-  if (slash) {
-
-    u8 *dir;
-
-    *slash = 0;
-    dir = ck_strdup(argv0);
-    *slash = '/';
-
-#ifdef __ANDROID__
-    tmp = alloc_printf("%s/afl-compiler-rt.so", dir);
-#else
-    tmp = alloc_printf("%s/afl-compiler-rt.o", dir);
-#endif
-
-    if (!access(tmp, R_OK)) {
-
-      obj_path = dir;
-      ck_free(tmp);
-      return;
-
-    }
-
-    ck_free(tmp);
-    ck_free(dir);
-
-  }
-
-#ifdef __ANDROID__
-  if (!access(AFL_PATH "/afl-compiler-rt.so", R_OK)) {
-
-#else
-  if (!access(AFL_PATH "/afl-compiler-rt.o", R_OK)) {
-
-#endif
-
-    obj_path = AFL_PATH;
-    return;
-
-  }
-
-  FATAL(
-      "Unable to find 'afl-compiler-rt.o' or 'afl-llvm-pass.so'. Please set "
-      "AFL_PATH");
 
 }
 
@@ -360,8 +374,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   if (compiler_mode == GCC_PLUGIN) {
 
-    char *fplugin_arg =
-        alloc_printf("-fplugin=%s", find_object("afl-gcc-pass.so", argvnull));
+    char *fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
     cc_params[cc_par_cnt++] = fplugin_arg;
 
   }
@@ -1594,9 +1607,23 @@ int main(int argc, char **argv, char **envp) {
   if (!be_quiet && cmplog_mode)
     printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
 
-#ifndef __ANDROID__
-  find_obj(argv[0]);
+#ifdef __ANDROID__
+  ptr = find_object("afl-compiler-rt.so", argv[0]);
+#else
+  ptr = find_object("afl-compiler-rt.o", argv[0]);
 #endif
+
+  if (debug) { DEBUGF("obj_path=%s\n", obj_path); }
+
+  if (!ptr) {
+
+    FATAL(
+        "Unable to find 'afl-compiler-rt.o'. Please set the AFL_PATH "
+        "environment variable.");
+
+  }
+
+  ck_free(ptr);
 
   edit_params(argc, argv, envp);
 
