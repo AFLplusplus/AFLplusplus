@@ -1613,8 +1613,6 @@ int main(int argc, char **argv, char **envp) {
   ptr = find_object("afl-compiler-rt.o", argv[0]);
 #endif
 
-  if (debug) { DEBUGF("obj_path=%s\n", obj_path); }
-
   if (!ptr) {
 
     FATAL(
@@ -1622,6 +1620,8 @@ int main(int argc, char **argv, char **envp) {
         "environment variable.");
 
   }
+
+  if (debug) { DEBUGF("rt=%s obj_path=%s\n", ptr, obj_path); }
 
   ck_free(ptr);
 
