@@ -62,7 +62,7 @@ AUTODICTIONARY: 11 strings found
 
 ### Installing llvm version 11
 
-llvm 11 should be available in all current Linux repository.
+llvm 11 should be available in all current Linux repositories.
 If you use an outdated Linux distribution read the next section.
 
 ### Installing llvm from the llvm repository (version 12)
