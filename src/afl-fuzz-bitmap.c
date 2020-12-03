@@ -425,7 +425,7 @@ void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
 /* Construct a file name for a new test case, capturing the operation
    that led to its discovery. Returns a ptr to afl->describe_op_buf_256. */
 
-u8 *describe_op(afl_state_t *afl, u8 hnb) {
+u8 *describe_op(afl_state_t *afl, u8 new_bits) {
 
   u8 *ret = afl->describe_op_buf_256;
 
@@ -445,29 +445,64 @@ u8 *describe_op(afl_state_t *afl, u8 hnb) {
 
     sprintf(ret + strlen(ret), ",time:%llu", get_cur_time() - afl->start_time);
 
-    sprintf(ret + strlen(ret), ",op:%s", afl->stage_short);
+    if (afl->current_custom_fuzz &&
+        afl->current_custom_fuzz->afl_custom_describe) {
 
-    if (afl->stage_cur_byte >= 0) {
+      /* We are currently in a custom mutator that supports afl_custom_describe,
+       * use it! */
 
-      sprintf(ret + strlen(ret), ",pos:%d", afl->stage_cur_byte);
+      size_t len_current = strlen(ret);
+      ret[len_current++] = ',';
+      ret[len_current++] = '\0';
 
-      if (afl->stage_val_type != STAGE_VAL_NONE) {
+      size_t size_left =
+          sizeof(afl->describe_op_buf_256) - len_current - strlen(",+cov") - 2;
+      assert(size_left > 0);
 
-        sprintf(ret + strlen(ret), ",val:%s%+d",
-                (afl->stage_val_type == STAGE_VAL_BE) ? "be:" : "",
-                afl->stage_cur_val);
+      const char *custom_description =
+          afl->current_custom_fuzz->afl_custom_describe(
+              afl->current_custom_fuzz->data, size_left);
+      if (!custom_description || !custom_description[0]) {
+
+        DEBUGF("Error getting a description from afl_custom_describe");
+        /* Take the stage name as description fallback */
+        sprintf(ret + len_current, "op:%s", afl->stage_short);
+
+      } else {
+
+        /* We got a proper custom description, use it */
+        strncat(ret + len_current, custom_description, size_left);
 
       }
 
     } else {
 
-      sprintf(ret + strlen(ret), ",rep:%d", afl->stage_cur_val);
+      /* Normal testcase descriptions start here */
+      sprintf(ret + strlen(ret), ",op:%s", afl->stage_short);
+
+      if (afl->stage_cur_byte >= 0) {
+
+        sprintf(ret + strlen(ret), ",pos:%d", afl->stage_cur_byte);
+
+        if (afl->stage_val_type != STAGE_VAL_NONE) {
+
+          sprintf(ret + strlen(ret), ",val:%s%+d",
+                  (afl->stage_val_type == STAGE_VAL_BE) ? "be:" : "",
+                  afl->stage_cur_val);
+
+        }
+
+      } else {
+
+        sprintf(ret + strlen(ret), ",rep:%d", afl->stage_cur_val);
+
+      }
 
     }
 
   }
 
-  if (hnb == 2) { strcat(ret, ",+cov"); }
+  if (new_bits == 2) { strcat(ret, ",+cov"); }
 
   return ret;
 
@@ -540,7 +575,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   if (unlikely(len == 0)) { return 0; }
 
   u8 *queue_fn = "";
-  u8  hnb = '\0';
+  u8  new_bits = '\0';
   s32 fd;
   u8  keeping = 0, res;
   u64 cksum = 0;
@@ -566,7 +601,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
 
-    if (!(hnb = has_new_bits(afl, afl->virgin_bits))) {
+    if (!(new_bits = has_new_bits(afl, afl->virgin_bits))) {
 
       if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
       return 0;
@@ -576,7 +611,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #ifndef SIMPLE_FILES
 
     queue_fn = alloc_printf("%s/queue/id:%06u,%s", afl->out_dir,
-                            afl->queued_paths, describe_op(afl, hnb));
+                            afl->queued_paths, describe_op(afl, new_bits));
 
 #else
 
@@ -619,7 +654,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #endif
 
-    if (hnb == 2) {
+    if (new_bits == 2) {
 
       afl->queue_top->has_new_cov = 1;
       ++afl->queued_with_cov;
