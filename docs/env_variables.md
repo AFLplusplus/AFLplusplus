@@ -428,6 +428,13 @@ checks or alter some of the more exotic semantics of the tool:
     matches your StatsD server.
     Available flavors are `dogstatsd`, `librato`, `signalfx` and `influxdb`.
 
+  - Setting `AFL_CRASH_EXITCODE` sets the exit code afl treats as crash.
+    For example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting
+    in an `-1` return code (i.e. `exit(-1)` got called), will be treated
+    as if a crash had ocurred.
+    This may be beneficial if you look for higher-level faulty conditions in which your
+    target still exits gracefully.
+
   - Outdated environment variables that are not supported anymore:
     `AFL_DEFER_FORKSRV`
     `AFL_PERSISTENT`

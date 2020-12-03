@@ -32,6 +32,7 @@ static char *afl_environment_variables[] = {
     "AFL_CODE_START",
     "AFL_COMPCOV_BINNAME",
     "AFL_COMPCOV_LEVEL",
+    "AFL_CRASH_EXITCODE",
     "AFL_CUSTOM_MUTATOR_LIBRARY",
     "AFL_CUSTOM_MUTATOR_ONLY",
     "AFL_CXX",

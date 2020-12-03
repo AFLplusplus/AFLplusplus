@@ -667,6 +667,8 @@ static void usage(u8 *argv0) {
       "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
       "inputs\n"
       "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing inputs also\n"
+      "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as "
+      "crash\n"
       "AFL_DEBUG: enable extra developer output\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
       "size\n"
@@ -1087,6 +1089,23 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       fsrv->init_tmout = (u32)forksrv_init_tmout;
+
+    }
+
+    if (getenv("AFL_CRASH_EXITCODE")) {
+
+      long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
+      if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
+          exitcode < -127 || exitcode > 128) {
+
+        FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
+              getenv("AFL_CRASH_EXITCODE"));
+
+      }
+
+      fsrv->uses_crash_exitcode = true;
+      // WEXITSTATUS is 8 bit unsigned
+      fsrv->crash_exitcode = (u8)exitcode;
 
     }
 
