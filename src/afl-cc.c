@@ -114,10 +114,10 @@ u8 *getthecwd() {
   1. if obj_path is already set we look there first
   2. then we check the $AFL_PATH environment variable location if set
   3. next we check argv[0] if has path information and use it
-    a) we also check ../lib/
+    a) we also check ../lib/afl
   4. if 3. failed we check /proc (only Linux, Android, NetBSD, DragonFly, and
      FreeBSD with procfs
-    a) and check here in ../lib/ too
+    a) and check here in ../lib/afl too
   5. we look into the AFL_PATH define (usually /usr/local/lib/afl)
   6. we finally try the current directory
 
@@ -175,11 +175,11 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
       }
 
       ck_free(tmp);
-      tmp = alloc_printf("%s/../lib/%s", dir, obj);
+      tmp = alloc_printf("%s/../lib/afl/%s", dir, obj);
 
       if (!access(tmp, R_OK)) {
 
-        u8 *dir2 = alloc_printf("%s/../lib", dir);
+        u8 *dir2 = alloc_printf("%s/../lib/afl", dir);
         obj_path = dir2;
         ck_free(dir);
         return tmp;
@@ -215,18 +215,18 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
 
             if (!access(tmp, R_OK)) {
 
-              u8 *dir = alloc_printf("%s/../lib/", exepath);
+              u8 *dir = alloc_printf("%s", exepath);
               obj_path = dir;
               return tmp;
 
             }
 
             ck_free(tmp);
-            tmp = alloc_printf("%s/../lib/%s", exepath, obj);
+            tmp = alloc_printf("%s/../lib/afl/%s", exepath, obj);
 
             if (!access(tmp, R_OK)) {
 
-              u8 *dir = alloc_printf("%s/../lib/", exepath);
+              u8 *dir = alloc_printf("%s/../lib/afl/", exepath);
               obj_path = dir;
               return tmp;
 
