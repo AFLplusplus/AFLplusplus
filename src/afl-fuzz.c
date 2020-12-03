@@ -26,6 +26,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 #include <limits.h>
+#include <stdlib.h>
 #ifndef USEMMAP
   #include <sys/mman.h>
   #include <sys/stat.h>
@@ -165,6 +166,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
       "AFL_BENCH_JUST_ONE: run the target just once\n"
       "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
+      "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n"
       "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
       "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
       "AFL_CYCLE_SCHEDULES: after completing a cycle, switch to a different -p schedule\n"
@@ -702,7 +704,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'N':                                             /* Unicorn mode */
 
         if (afl->no_unlink) { FATAL("Multiple -N options not supported"); }
-        afl->fsrv.no_unlink = afl->no_unlink = 1;
+        afl->fsrv.no_unlink = (afl->no_unlink = true);
 
         break;
 
@@ -1135,6 +1137,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->afl_env.afl_crash_exitcode) {
+
+    long exitcode = strtol(afl->afl_env.afl_crash_exitcode, NULL, 10);
+    if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
+        exitcode < -127 || exitcode > 128) {
+
+      FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
+            afl->afl_env.afl_crash_exitcode);
+
+    }
+
+    afl->fsrv.uses_crash_exitcode = true;
+    // WEXITSTATUS is 8 bit unsigned
+    afl->fsrv.crash_exitcode = (u8)exitcode;
+
+  }
+
   if (afl->non_instrumented_mode == 2 && afl->no_forkserver) {
 
     FATAL("AFL_DUMB_FORKSRV and AFL_NO_FORKSRV are mutually exclusive");
@@ -1486,8 +1505,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   cull_queue(afl);
 
-  if (!afl->pending_not_fuzzed)
+  if (!afl->pending_not_fuzzed) {
+
     FATAL("We need at least on valid input seed that does not crash!");
+
+  }
 
   show_init_stats(afl);
 

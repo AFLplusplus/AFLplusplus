@@ -144,8 +144,8 @@ struct queue_entry {
   u8 *fname;                            /* File name for the test case      */
   u32 len;                              /* Input length                     */
 
-  u8 cal_failed,                        /* Calibration failed?              */
-      trim_done,                        /* Trimmed?                         */
+  u8   cal_failed;                      /* Calibration failed?              */
+  bool trim_done,                       /* Trimmed?                         */
       was_fuzzed,                       /* historical, but needed for MOpt  */
       passed_det,                       /* Deterministic stages passed?     */
       has_new_cov,                      /* Triggers new coverage?           */
@@ -368,7 +368,8 @@ typedef struct afl_env_vars {
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
-      *afl_statsd_tags_flavor, *afl_testcache_size, *afl_testcache_entries;
+      *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
+      *afl_testcache_entries;
 
 } afl_env_vars_t;
 

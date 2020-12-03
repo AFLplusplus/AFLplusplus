@@ -60,8 +60,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Our afl++ Grammar-Mutator is now better integrated into custom_mutators/
     - added INTROSPECTION support for custom modules
     - python fuzz function was not optional, fixed
-  - unicornafl synced with upstream (arm64 fix, better rust bindings)
+    - some python mutator speed improvements
+  - unicornafl synced with upstream version 1.02 (fixes, better rust bindings)
   - renamed AFL_DEBUG_CHILD_OUTPUT to AFL_DEBUG_CHILD
+  - added AFL_CRASH_EXITCODE env variable to treat a child exitcode as crash
 
 
 ### Version ++2.68c (release)

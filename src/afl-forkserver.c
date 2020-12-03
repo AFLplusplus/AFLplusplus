@@ -76,8 +76,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->dev_urandom_fd = -1;
 
   /* Settings */
-  fsrv->use_stdin = 1;
-  fsrv->no_unlink = 0;
+  fsrv->use_stdin = true;
+  fsrv->no_unlink = false;
   fsrv->exec_tmout = EXEC_TIMEOUT;
   fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
   fsrv->mem_limit = MEM_LIMIT;
@@ -86,8 +86,11 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   /* exec related stuff */
   fsrv->child_pid = -1;
   fsrv->map_size = get_map_size();
-  fsrv->use_fauxsrv = 0;
-  fsrv->last_run_timed_out = 0;
+  fsrv->use_fauxsrv = false;
+  fsrv->last_run_timed_out = false;
+
+  fsrv->uses_crash_exitcode = false;
+  fsrv->uses_asan = false;
 
   fsrv->init_child_func = fsrv_exec_child;
 
@@ -109,6 +112,8 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
   fsrv_to->out_fd = from->out_fd;  // not sure this is a good idea
   fsrv_to->no_unlink = from->no_unlink;
+  fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
+  fsrv_to->crash_exitcode = from->crash_exitcode;
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
@@ -1136,10 +1141,13 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-  /* A somewhat nasty hack for MSAN, which doesn't support abort_on_error and
-     must use a special exit code. */
+  /* MSAN in uses_asan mode uses a special exit code as it doesn't support
+  abort_on_error.
+  On top, a user may specify a custom AFL_CRASH_EXITCODE. Handle both here. */
 
-  if (fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) {
+  if ((fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
+      (fsrv->uses_crash_exitcode &&
+       WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode)) {
 
     fsrv->last_kill_signal = 0;
     return FSRV_RUN_CRASH;

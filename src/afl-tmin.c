@@ -51,6 +51,7 @@
 #include <signal.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include <sys/wait.h>
 #include <sys/time.h>
@@ -841,17 +842,17 @@ static void usage(u8 *argv0) {
       "For additional tips, please consult %s/README.md.\n\n"
 
       "Environment variables used:\n"
-      "TMPDIR: directory to use for temporary input files\n"
-      "ASAN_OPTIONS: custom settings for ASAN\n"
-      "              (must contain abort_on_error=1 and symbolize=0)\n"
-      "MSAN_OPTIONS: custom settings for MSAN\n"
-      "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n"
+      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD:  LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_TMIN_EXACT: require execution paths to match for crashing inputs\n"
-      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
-
+      "ASAN_OPTIONS: custom settings for ASAN\n"
+      "              (must contain abort_on_error=1 and symbolize=0)\n"
+      "MSAN_OPTIONS: custom settings for MSAN\n"
+      "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "TMPDIR: directory to use for temporary input files\n"
       , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
@@ -1119,6 +1120,23 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     fsrv->init_tmout = (u32)forksrv_init_tmout;
+
+  }
+
+  if (getenv("AFL_CRASH_EXITCODE")) {
+
+    long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
+    if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
+        exitcode < -127 || exitcode > 128) {
+
+      FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
+            getenv("AFL_CRASH_EXITCODE"));
+
+    }
+
+    fsrv->uses_crash_exitcode = true;
+    // WEXITSTATUS is 8 bit unsigned
+    fsrv->crash_exitcode = (u8)exitcode;
 
   }
 

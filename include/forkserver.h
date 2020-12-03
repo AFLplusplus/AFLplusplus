@@ -37,9 +37,7 @@ typedef struct afl_forkserver {
 
   /* a program that includes afl-forkserver needs to define these */
 
-  u8  uses_asan;                        /* Target uses ASAN?                */
   u8 *trace_bits;                       /* SHM with instrumentation bitmap  */
-  u8  use_stdin;                        /* use stdin for sending data       */
 
   s32 fsrv_pid,                         /* PID of the fork server           */
       child_pid,                        /* PID of the fuzzed program        */
@@ -52,8 +50,6 @@ typedef struct afl_forkserver {
       dev_null_fd,                      /* Persistent fd for /dev/null      */
       fsrv_ctl_fd,                      /* Fork server control pipe (write) */
       fsrv_st_fd;                       /* Fork server status pipe (read)   */
-
-  u8 no_unlink;                         /* do not unlink cur_input          */
 
   u32 exec_tmout;                       /* Configurable exec timeout (ms)   */
   u32 init_tmout;                       /* Configurable init timeout (ms)   */
@@ -73,13 +69,22 @@ typedef struct afl_forkserver {
 
   u8 last_kill_signal;                  /* Signal that killed the child     */
 
-  u8 use_shmem_fuzz;                    /* use shared mem for test cases    */
+  bool use_shmem_fuzz;                  /* use shared mem for test cases    */
 
-  u8 support_shmem_fuzz;                /* set by afl-fuzz                  */
+  bool support_shmem_fuzz;              /* set by afl-fuzz                  */
 
-  u8 use_fauxsrv;                       /* Fauxsrv for non-forking targets? */
+  bool use_fauxsrv;                     /* Fauxsrv for non-forking targets? */
 
-  u8 qemu_mode;                         /* if running in qemu mode or not   */
+  bool qemu_mode;                       /* if running in qemu mode or not   */
+
+  bool use_stdin;                       /* use stdin for sending data       */
+
+  bool no_unlink;                       /* do not unlink cur_input          */
+
+  bool uses_asan;                       /* Target uses ASAN?                */
+
+  bool uses_crash_exitcode;             /* Custom crash exitcode specified? */
+  u8   crash_exitcode;                  /* The crash exitcode specified     */
 
   u32 *shmem_fuzz_len;                  /* length of the fuzzing test case  */
 
