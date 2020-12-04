@@ -31,8 +31,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <stdbool.h>
 #include "types.h"
-#include "stdbool.h"
 
 /* STRINGIFY_VAL_SIZE_MAX will fit all stringify_ strings. */
 
