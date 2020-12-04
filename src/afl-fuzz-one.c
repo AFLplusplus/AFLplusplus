@@ -1790,10 +1790,15 @@ custom_mutator_stage:
 
       afl->current_custom_fuzz = el;
 
-      if (el->afl_custom_fuzz_count)
+      if (el->afl_custom_fuzz_count) {
+
         afl->stage_max = el->afl_custom_fuzz_count(el->data, out_buf, len);
-      else
+
+      } else {
+
         afl->stage_max = saved_max;
+
+      }
 
       has_custom_fuzz = true;
 
