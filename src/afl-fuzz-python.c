@@ -111,6 +111,37 @@ static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
 
 }
 
+static const char *custom_describe_py(void * py_mutator,
+                                      size_t max_description_len) {
+
+  PyObject *py_args, *py_value;
+
+  py_args = PyTuple_New(1);
+
+  PyLong_FromSize_t(max_description_len);
+
+  /* add_buf */
+  py_value = PyLong_FromSize_t(max_description_len);
+  if (!py_value) {
+
+    Py_DECREF(py_args);
+    FATAL("Failed to convert arguments");
+
+  }
+
+  PyTuple_SetItem(py_args, 0, py_value);
+
+  py_value = PyObject_CallObject(
+      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_DESCRIBE], py_args);
+
+  Py_DECREF(py_args);
+
+  if (py_value != NULL) { return PyBytes_AsString(py_value); }
+
+  return NULL;
+
+}
+
 static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
 
   (void)afl;
@@ -156,6 +187,8 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
     py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "fuzz");
     if (!py_functions[PY_FUNC_FUZZ])
       py_functions[PY_FUNC_FUZZ] = PyObject_GetAttrString(py_module, "mutate");
+    py_functions[PY_FUNC_DESCRIBE] =
+        PyObject_GetAttrString(py_module, "describe");
     py_functions[PY_FUNC_FUZZ_COUNT] =
         PyObject_GetAttrString(py_module, "fuzz_count");
     if (!py_functions[PY_FUNC_FUZZ])
@@ -341,6 +374,12 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
   if (py_functions[PY_FUNC_DEINIT]) { mutator->afl_custom_deinit = deinit_py; }
 
   if (py_functions[PY_FUNC_FUZZ]) { mutator->afl_custom_fuzz = fuzz_py; }
+
+  if (py_functions[PY_FUNC_DESCRIBE]) {
+
+    mutator->afl_custom_describe = custom_describe_py;
+
+  }
 
   if (py_functions[PY_FUNC_POST_PROCESS]) {
 

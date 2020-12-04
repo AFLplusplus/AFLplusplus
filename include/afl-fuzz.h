@@ -312,6 +312,7 @@ enum {
   /* 10 */ PY_FUNC_QUEUE_GET,
   /* 11 */ PY_FUNC_QUEUE_NEW_ENTRY,
   /* 12 */ PY_FUNC_INTROSPECTION,
+  /* 13 */ PY_FUNC_DESCRIBE,
   PY_FUNC_COUNT
 
 };
@@ -755,7 +756,7 @@ struct custom_mutator {
    * When afl-fuzz was compiled with INTROSPECTION=1 then custom mutators can
    * also give introspection information back with this function.
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param data pointer returned in afl_custom_init by this custom mutator
    * @return pointer to a text string (const char*)
    */
   const char *(*afl_custom_introspection)(void *data);
@@ -771,7 +772,7 @@ struct custom_mutator {
    *
    * (Optional)
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param data pointer returned in afl_custom_init by this custom mutator
    * @param buf Buffer containing the test case
    * @param buf_size Size of the test case
    * @return The amount of fuzzes to perform on this queue entry, 0 = skip
@@ -783,7 +784,7 @@ struct custom_mutator {
    *
    * (Optional for now. Required in the future)
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param data pointer returned in afl_custom_init by this custom mutator
    * @param[in] buf Pointer to the input data to be mutated and the mutated
    *     output
    * @param[in] buf_size Size of the input/output data
@@ -805,12 +806,13 @@ struct custom_mutator {
    *
    * (Optional)
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
-   * @param[in] max_size Maximum size of the mutated output. The mutation must
-   * not produce data larger than max_size.
-   * @return A valid ptr to a 0-terminated string, or NULL on error.
+   * @param data pointer returned by afl_customm_init for this custom mutator
+   * @paramp[in] max_description_len maximum size avaliable for the description.
+   *             A longer return string is legal, but will be truncated.
+   * @return A valid ptr to a 0-terminated string.
+   *         An empty or NULL return will result in a default description
    */
-  const char *(*afl_custom_describe)(void *data, size_t max_size);
+  const char *(*afl_custom_describe)(void *data, size_t max_description_len);
 
   /**
    * A post-processing function to use right before AFL writes the test case to
@@ -819,7 +821,7 @@ struct custom_mutator {
    * (Optional) If this functionality is not needed, simply don't define this
    * function.
    *
-   * @param[in] data pointer returned in afl_custom_init for this fuzz case
+   * @param[in] data pointer returned in afl_custom_init by this custom mutator
    * @param[in] buf Buffer containing the test case to be executed
    * @param[in] buf_size Size of the test case
    * @param[out] out_buf Pointer to the buffer storing the test case after
@@ -846,7 +848,7 @@ struct custom_mutator {
    *
    * (Optional)
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param data pointer returned in afl_custom_init by this custom mutator
    * @param buf Buffer containing the test case
    * @param buf_size Size of the test case
    * @return The amount of possible iteration steps to trim the input.
@@ -865,7 +867,7 @@ struct custom_mutator {
    *
    * (Optional)
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param data pointer returned in afl_custom_init by this custom mutator
    * @param[out] out_buf Pointer to the buffer containing the trimmed test case.
    *             The library can reuse a buffer for each call
    *             and will have to free the buf (for example in deinit)
@@ -880,7 +882,7 @@ struct custom_mutator {
    *
    * (Optional)
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param data pointer returned in afl_custom_init by this custom mutator
    * @param success Indicates if the last trim operation was successful.
    * @return The next trim iteration index (from 0 to the maximum amount of
    *     steps returned in init_trim). Negative on error.
@@ -893,7 +895,7 @@ struct custom_mutator {
    *
    * (Optional)
    *
-   * @param[in] data pointer returned in afl_custom_init for this fuzz case
+   * @param[in] data pointer returned in afl_custom_init by this custom mutator
    * @param[in] buf Pointer to the input data to be mutated and the mutated
    *     output
    * @param[in] buf_size Size of input data
@@ -912,7 +914,7 @@ struct custom_mutator {
    *
    * (Optional)
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param data pointer returned in afl_custom_init by this custom mutator
    * @return The probability (0-100).
    */
   u8 (*afl_custom_havoc_mutation_probability)(void *data);
@@ -922,7 +924,7 @@ struct custom_mutator {
    *
    * (Optional)
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param data pointer returned in afl_custom_init by this custom mutator
    * @param filename File name of the test case in the queue entry
    * @return Return True(1) if the fuzzer will fuzz the queue entry, and
    *     False(0) otherwise.
@@ -935,7 +937,7 @@ struct custom_mutator {
    *
    * (Optional)
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param data pointer returned in afl_custom_init by this custom mutator
    * @param filename_new_queue File name of the new queue entry
    * @param filename_orig_queue File name of the original queue entry. This
    *     argument can be NULL while initializing the fuzzer
@@ -945,7 +947,7 @@ struct custom_mutator {
   /**
    * Deinitialize the custom mutator.
    *
-   * @param data pointer returned in afl_custom_init for this fuzz case
+   * @param data pointer returned in afl_custom_init by this custom mutator
    */
   void (*afl_custom_deinit)(void *data);
 
