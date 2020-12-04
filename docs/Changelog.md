@@ -22,18 +22,18 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       a schedule performance score, which is much better that the previous
       walk the whole queue approach. Select the old mode with -Z (auto enabled
       with -M)
-    - rpc.statsd support by Edznux, thanks a lot!
+    - rpc.statsd support, for stats and charts, by Edznux, thanks a lot!
     - Marcel Boehme submitted a patch that improves all AFFast schedules :)
     - not specifying -M or -S will now auto-set "-S default"
     - reading testcases from -i now descends into subdirectories
-    - allow up to 4 times the -x command line option
-    - loaded extras now have a duplicate protection
+    - allow the -x command line option up to 4 times
+    - loaded extras now have a duplication protection
     - If test cases are too large we do a partial read on the maximum
       supported size
     - longer seeds with the same trace information will now be ignored
       for fuzzing but still be used for splicing
     - crashing seeds are now not prohibiting a run anymore but are
-      skipped. They are used for splicing though.
+      skipped - they are used for splicing, though
     - update MOpt for expanded havoc modes
     - setting the env var AFL_NO_AUTODICT will not load an LTO autodictionary
     - added NO_SPLICING compile option and makefile define
@@ -42,6 +42,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - print special compile time options used in help output
     - when using -c cmplog, one of the childs was not killed, fixed
     - somewhere we broke -n dumb fuzzing, fixed
+    - added afl_custom_describe to the custom mutator API to allow for easy
+      mutation reproduction on crashing inputs
   - instrumentation
     - We received an enhanced gcc_plugin module from AdaCore, thank you
       very much!!

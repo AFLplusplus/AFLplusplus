@@ -79,7 +79,8 @@ write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
   s32  doc_fd;
   char fn[PATH_MAX];
   snprintf(fn, PATH_MAX, "%s/mutations/%09u:%s", afl->out_dir,
-           afl->document_counter++, describe_op(afl, 0));
+           afl->document_counter++,
+           describe_op(afl, 0, NAME_MAX - strlen("000000000:")));
 
   if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600)) >= 0) {
 

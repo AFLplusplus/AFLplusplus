@@ -151,7 +151,11 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   /* Mutator */
   /* "afl_custom_init", optional for backward compatibility */
   mutator->afl_custom_init = dlsym(dh, "afl_custom_init");
-  if (!mutator->afl_custom_init) FATAL("Symbol 'afl_custom_init' not found.");
+  if (!mutator->afl_custom_init) {
+
+    FATAL("Symbol 'afl_custom_init' not found.");
+
+  }
 
   /* "afl_custom_fuzz" or "afl_custom_mutator", required */
   mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_fuzz");
@@ -161,48 +165,73 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
     WARNF("Symbol 'afl_custom_fuzz' not found. Try 'afl_custom_mutator'.");
 
     mutator->afl_custom_fuzz = dlsym(dh, "afl_custom_mutator");
-    if (!mutator->afl_custom_fuzz)
+    if (!mutator->afl_custom_fuzz) {
+
       WARNF("Symbol 'afl_custom_mutator' not found.");
+
+    }
 
   }
 
   /* "afl_custom_introspection", optional */
 #ifdef INTROSPECTION
   mutator->afl_custom_introspection = dlsym(dh, "afl_custom_introspection");
-  if (!mutator->afl_custom_introspection)
+  if (!mutator->afl_custom_introspection) {
+
     ACTF("optional symbol 'afl_custom_introspection' not found.");
+
+  }
+
 #endif
 
   /* "afl_custom_fuzz_count", optional */
   mutator->afl_custom_fuzz_count = dlsym(dh, "afl_custom_fuzz_count");
-  if (!mutator->afl_custom_fuzz_count)
+  if (!mutator->afl_custom_fuzz_count) {
+
     ACTF("optional symbol 'afl_custom_fuzz_count' not found.");
+
+  }
 
   /* "afl_custom_deinit", optional for backward compatibility */
   mutator->afl_custom_deinit = dlsym(dh, "afl_custom_deinit");
-  if (!mutator->afl_custom_deinit)
+  if (!mutator->afl_custom_deinit) {
+
     FATAL("Symbol 'afl_custom_deinit' not found.");
+
+  }
 
   /* "afl_custom_post_process", optional */
   mutator->afl_custom_post_process = dlsym(dh, "afl_custom_post_process");
-  if (!mutator->afl_custom_post_process)
+  if (!mutator->afl_custom_post_process) {
+
     ACTF("optional symbol 'afl_custom_post_process' not found.");
+
+  }
 
   u8 notrim = 0;
   /* "afl_custom_init_trim", optional */
   mutator->afl_custom_init_trim = dlsym(dh, "afl_custom_init_trim");
-  if (!mutator->afl_custom_init_trim)
+  if (!mutator->afl_custom_init_trim) {
+
     ACTF("optional symbol 'afl_custom_init_trim' not found.");
+
+  }
 
   /* "afl_custom_trim", optional */
   mutator->afl_custom_trim = dlsym(dh, "afl_custom_trim");
-  if (!mutator->afl_custom_trim)
+  if (!mutator->afl_custom_trim) {
+
     ACTF("optional symbol 'afl_custom_trim' not found.");
+
+  }
 
   /* "afl_custom_post_trim", optional */
   mutator->afl_custom_post_trim = dlsym(dh, "afl_custom_post_trim");
-  if (!mutator->afl_custom_post_trim)
+  if (!mutator->afl_custom_post_trim) {
+
     ACTF("optional symbol 'afl_custom_post_trim' not found.");
+
+  }
 
   if (notrim) {
 
@@ -217,30 +246,53 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   /* "afl_custom_havoc_mutation", optional */
   mutator->afl_custom_havoc_mutation = dlsym(dh, "afl_custom_havoc_mutation");
-  if (!mutator->afl_custom_havoc_mutation)
+  if (!mutator->afl_custom_havoc_mutation) {
+
     ACTF("optional symbol 'afl_custom_havoc_mutation' not found.");
+
+  }
 
   /* "afl_custom_havoc_mutation", optional */
   mutator->afl_custom_havoc_mutation_probability =
       dlsym(dh, "afl_custom_havoc_mutation_probability");
-  if (!mutator->afl_custom_havoc_mutation_probability)
+  if (!mutator->afl_custom_havoc_mutation_probability) {
+
     ACTF("optional symbol 'afl_custom_havoc_mutation_probability' not found.");
+
+  }
 
   /* "afl_custom_queue_get", optional */
   mutator->afl_custom_queue_get = dlsym(dh, "afl_custom_queue_get");
-  if (!mutator->afl_custom_queue_get)
+  if (!mutator->afl_custom_queue_get) {
+
     ACTF("optional symbol 'afl_custom_queue_get' not found.");
+
+  }
 
   /* "afl_custom_queue_new_entry", optional */
   mutator->afl_custom_queue_new_entry = dlsym(dh, "afl_custom_queue_new_entry");
-  if (!mutator->afl_custom_queue_new_entry)
+  if (!mutator->afl_custom_queue_new_entry) {
+
     ACTF("optional symbol 'afl_custom_queue_new_entry' not found");
+
+  }
+
+  /* "afl_custom_describe", optional */
+  mutator->afl_custom_describe = dlsym(dh, "afl_custom_describe");
+  if (!mutator->afl_custom_describe) {
+
+    ACTF("Symbol 'afl_custom_describe' not found.");
+
+  }
 
   OKF("Custom mutator '%s' installed successfully.", fn);
 
   /* Initialize the custom mutator */
-  if (mutator->afl_custom_init)
+  if (mutator->afl_custom_init) {
+
     mutator->data = mutator->afl_custom_init(afl, rand_below(afl, 0xFFFFFFFF));
+
+  }
 
   mutator->stacked_custom = (mutator && mutator->afl_custom_havoc_mutation);
   mutator->stacked_custom_prob =
