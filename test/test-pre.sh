@@ -106,7 +106,14 @@ export AFL_LLVM_INSTRUMENT=AFL
 test -e /usr/local/bin/opt && {
   export PATH="/usr/local/bin:${PATH}"
 }
-AFL_GCC=afl-gcc
+# on MacOS X we prefer afl-clang over afl-gcc, because
+# afl-gcc does not work there
+test `uname -s` = 'Darwin' -o `uname -s` = 'FreeBSD' && {
+  AFL_GCC=afl-clang
+} || {
+  AFL_GCC=afl-gcc
+}
+command -v gcc >/dev/null 2>&1 || AFL_GCC=afl-clang
 
 SYS=`uname -m`
 
