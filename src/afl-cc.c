@@ -113,15 +113,15 @@ u8 *getthecwd() {
 
   1. if obj_path is already set we look there first
   2. then we check the $AFL_PATH environment variable location if set
-  3. next we check argv[0] if has path information and use it
+  3. next we check argv[0] if it has path information and use it
     a) we also check ../lib/afl
   4. if 3. failed we check /proc (only Linux, Android, NetBSD, DragonFly, and
-     FreeBSD with procfs
+     FreeBSD with procfs)
     a) and check here in ../lib/afl too
   5. we look into the AFL_PATH define (usually /usr/local/lib/afl)
   6. we finally try the current directory
 
-  if this all fail - we fail.
+  if all this fails - we fail.
 */
 
 static u8 *find_object(u8 *obj, u8 *argv0) {
