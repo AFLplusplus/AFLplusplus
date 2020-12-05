@@ -189,14 +189,25 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
       ck_free(tmp);
       ck_free(dir);
 
-    } else {
+    }
+
+#if \
+   defined(__FreeBSD__)   \
+|| defined(__DragonFly__) \
+|| defined(__linux__)     \
+|| defined(__ANDROID__)   \
+|| defined(__NetBSD__)
+#define HAS_PROC_FS 1
+#endif
+#ifdef HAS_PROC_FS
+    else {
 
       char *procname = NULL;
 #if defined(__FreeBSD__) || defined(__DragonFly__)
       procname = "/proc/curproc/file";
-  #elsif defined(__linux__) || defined(__ANDROID__)
+  #elif defined(__linux__) || defined(__ANDROID__)
       procname = "/proc/self/exe";
-  #elsif defined(__NetBSD__)
+  #elif defined(__NetBSD__)
       procname = "/proc/curproc/exe";
 #endif
       if (procname) {
@@ -239,6 +250,8 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
       }
 
     }
+#endif
+#undef HAS_PROC_FS
 
   }
 
