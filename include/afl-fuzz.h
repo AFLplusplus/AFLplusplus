@@ -168,7 +168,8 @@ struct queue_entry {
   u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
 
-  double perf_score;                    /* performance score                */
+  double perf_score,                    /* performance score                */
+         weight;
 
   u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
 
