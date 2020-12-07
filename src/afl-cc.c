@@ -121,7 +121,8 @@ u8 *getthecwd() {
   5. we look into the AFL_PATH define (usually /usr/local/lib/afl)
   6. we finally try the current directory
 
-  if all this fails - we fail.
+  if all these attempts fail - we return NULL and the caller has to decide
+  what to do.
 */
 
 static u8 *find_object(u8 *obj, u8 *argv0) {

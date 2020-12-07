@@ -55,7 +55,7 @@ behaviours and defaults:
     * a caching of testcases can now be performed and can be modified by
       editing config.h for TESTCASE_CACHE or by specifying the env variable
       `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500 (default: 50).
-  * utils/ got renamed to utils/
+  * examples/ got renamed to utils/
 
 ## Contents
 
