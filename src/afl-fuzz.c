@@ -867,7 +867,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (!mem_limit_given && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
+  if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
