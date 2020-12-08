@@ -113,7 +113,7 @@ else
     CNT=1
     while [ '!' -d grammar_mutator -a "$CNT" -lt 4 ]; do
       echo "Trying to clone grammar_mutator (attempt $CNT/3)"
-      git clone --depth=1 "$GRAMMAR_REPO" 
+      git clone "$GRAMMAR_REPO" 
       CNT=`expr "$CNT" + 1`
     done
   }
