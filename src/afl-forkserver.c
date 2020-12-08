@@ -62,6 +62,7 @@ static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   execv(fsrv->target_path, argv);
 
+  WARNF("Execv failed in forkserver.");
 }
 
 /* Initializes the struct */
@@ -526,8 +527,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
        falling through. */
 
     *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
-    fprintf(stderr, "Error: execv to target failed\n");
-    exit(1);
+    FATAL("Error: execv to target failed\n");
 
   }
 
@@ -916,7 +916,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         "      estimate the required amount of virtual memory for the "
         "binary.\n\n"
 
-        "    - the target was compiled with afl-clang-lto and a constructor "
+        "    - The target was compiled with afl-clang-lto and a constructor "
         "was\n"
         "      instrumented, recompiling without AFL_LLVM_MAP_ADDR might solve "
         "your \n"
