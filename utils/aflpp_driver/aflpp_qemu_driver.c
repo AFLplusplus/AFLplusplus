@@ -7,7 +7,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
 __attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv);
 
 #define kMaxAflInputSize (1 * 1024 * 1024);
-static uint8_t      AflInputBuf[kMaxAflInputSize];
+static uint8_t AflInputBuf[kMaxAflInputSize];
 
 void __attribute__((noinline)) afl_qemu_driver_stdin_input(void) {
 
