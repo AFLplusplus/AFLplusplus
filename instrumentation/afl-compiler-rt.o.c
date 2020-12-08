@@ -343,7 +343,7 @@ static void __afl_map_shm(void) {
         send_forkserver_error(FS_ERROR_MAP_ADDR);
       else
         send_forkserver_error(FS_ERROR_MMAP);
-      perror("shmat for map");
+      perror("mmap for map");
 
       exit(2);
 
@@ -354,8 +354,6 @@ static void __afl_map_shm(void) {
     u32 shm_id = atoi(id_str);
 
     __afl_area_ptr = shmat(shm_id, (void *)__afl_map_addr, 0);
-
-#endif
 
     /* Whooooops. */
 
@@ -370,6 +368,8 @@ static void __afl_map_shm(void) {
       _exit(1);
 
     }
+
+#endif
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
        our parent doesn't give up on us. */
@@ -423,7 +423,7 @@ static void __afl_map_shm(void) {
     shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
     if (shm_fd == -1) {
 
-      fprintf(stderr, "shm_open() failed\n");
+      perror("shm_open() failed\n");
       send_forkserver_error(FS_ERROR_SHM_OPEN);
       exit(1);
 
