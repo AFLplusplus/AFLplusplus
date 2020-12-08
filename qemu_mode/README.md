@@ -1,6 +1,6 @@
 # High-performance binary-only instrumentation for afl-fuzz
 
-  (See ../docs/README.md for the general instruction manual.)
+  (See ../README.md for the general instruction manual.)
 
 ## 1) Introduction
 
@@ -179,7 +179,7 @@ match.
 ## 12) Gotchas, feedback, bugs
 
 If you need to fix up checksums or do other cleanup on mutated test cases, see
-examples/custom_mutators/ for a viable solution.
+utils/custom_mutators/ for a viable solution.
 
 Do not mix QEMU mode with ASAN, MSAN, or the likes; QEMU doesn't appreciate
 the "shadow VM" trick employed by the sanitizers and will probably just

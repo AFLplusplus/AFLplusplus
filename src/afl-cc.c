@@ -48,15 +48,16 @@
 static u8 * obj_path;                  /* Path to runtime libraries         */
 static u8 **cc_params;                 /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;            /* Param count, including argv0      */
+static u8   clang_mode;                /* Invoked as afl-clang*?            */
 static u8   llvm_fullpath[PATH_MAX];
-static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode,
-    compiler_mode, plusplus_mode;
-static u8  have_gcc, have_llvm, have_gcc_plugin, have_lto;
-static u8 *lto_flag = AFL_CLANG_FLTO, *argvnull;
-static u8  debug;
-static u8  cwd[4096];
-static u8  cmplog_mode;
-u8         use_stdin;                                              /* dummy */
+static u8   instrument_mode, instrument_opt_mode, ngram_size, lto_mode;
+static u8   compiler_mode, plusplus_mode, have_instr_env = 0;
+static u8   have_gcc, have_llvm, have_gcc_plugin, have_lto, have_instr_list = 0;
+static u8 * lto_flag = AFL_CLANG_FLTO, *argvnull;
+static u8   debug;
+static u8   cwd[4096];
+static u8   cmplog_mode;
+u8          use_stdin;                                             /* dummy */
 // static u8 *march_opt = CFLAGS_OPT;
 
 enum {
@@ -105,20 +106,43 @@ u8 *getthecwd() {
 
 }
 
-/* Try to find the runtime libraries. If that fails, abort. */
+/* Try to find a specific runtime we need, returns NULL on fail. */
+
+/*
+  in find_object() we look here:
+
+  1. if obj_path is already set we look there first
+  2. then we check the $AFL_PATH environment variable location if set
+  3. next we check argv[0] if it has path information and use it
+    a) we also check ../lib/afl
+  4. if 3. failed we check /proc (only Linux, Android, NetBSD, DragonFly, and
+     FreeBSD with procfs)
+    a) and check here in ../lib/afl too
+  5. we look into the AFL_PATH define (usually /usr/local/lib/afl)
+  6. we finally try the current directory
+
+  if all these attempts fail - we return NULL and the caller has to decide
+  what to do.
+*/
 
 static u8 *find_object(u8 *obj, u8 *argv0) {
 
   u8 *afl_path = getenv("AFL_PATH");
   u8 *slash = NULL, *tmp;
 
+  if (obj_path) {
+
+    tmp = alloc_printf("%s/%s", obj_path, obj);
+
+    if (!access(tmp, R_OK)) { return tmp; }
+
+    ck_free(tmp);
+
+  }
+
   if (afl_path) {
 
-#ifdef __ANDROID__
     tmp = alloc_printf("%s/%s", afl_path, obj);
-#else
-    tmp = alloc_printf("%s/%s", afl_path, obj);
-#endif
 
     if (!access(tmp, R_OK)) {
 
@@ -131,42 +155,107 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
 
   }
 
-  if (argv0) slash = strrchr(argv0, '/');
+  if (argv0) {
 
-  if (slash) {
+    slash = strrchr(argv0, '/');
 
-    u8 *dir;
+    if (slash) {
 
-    *slash = 0;
-    dir = ck_strdup(argv0);
-    *slash = '/';
+      u8 *dir = ck_strdup(argv0);
 
-#ifdef __ANDROID__
-    tmp = alloc_printf("%s/%s", dir, obj);
-#else
-    tmp = alloc_printf("%s/%s", dir, obj);
-#endif
+      slash = strrchr(dir, '/');
+      *slash = 0;
 
-    if (!access(tmp, R_OK)) {
+      tmp = alloc_printf("%s/%s", dir, obj);
 
-      obj_path = dir;
-      return tmp;
+      if (!access(tmp, R_OK)) {
+
+        obj_path = dir;
+        return tmp;
+
+      }
+
+      ck_free(tmp);
+      tmp = alloc_printf("%s/../lib/afl/%s", dir, obj);
+
+      if (!access(tmp, R_OK)) {
+
+        u8 *dir2 = alloc_printf("%s/../lib/afl", dir);
+        obj_path = dir2;
+        ck_free(dir);
+        return tmp;
+
+      }
+
+      ck_free(tmp);
+      ck_free(dir);
 
     }
 
-    ck_free(tmp);
-    ck_free(dir);
+#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__linux__) || \
+    defined(__ANDROID__) || defined(__NetBSD__)
+  #define HAS_PROC_FS 1
+#endif
+#ifdef HAS_PROC_FS
+    else {
+
+      char *procname = NULL;
+  #if defined(__FreeBSD__) || defined(__DragonFly__)
+      procname = "/proc/curproc/file";
+  #elif defined(__linux__) || defined(__ANDROID__)
+      procname = "/proc/self/exe";
+  #elif defined(__NetBSD__)
+      procname = "/proc/curproc/exe";
+  #endif
+      if (procname) {
+
+        char    exepath[PATH_MAX];
+        ssize_t exepath_len = readlink(procname, exepath, sizeof(exepath));
+        if (exepath_len > 0 && exepath_len < PATH_MAX) {
+
+          exepath[exepath_len] = 0;
+          slash = strrchr(exepath, '/');
+
+          if (slash) {
+
+            *slash = 0;
+            tmp = alloc_printf("%s/%s", exepath, obj);
+
+            if (!access(tmp, R_OK)) {
+
+              u8 *dir = alloc_printf("%s", exepath);
+              obj_path = dir;
+              return tmp;
+
+            }
+
+            ck_free(tmp);
+            tmp = alloc_printf("%s/../lib/afl/%s", exepath, obj);
+
+            if (!access(tmp, R_OK)) {
+
+              u8 *dir = alloc_printf("%s/../lib/afl/", exepath);
+              obj_path = dir;
+              return tmp;
+
+            }
+
+          }
+
+        }
+
+      }
+
+    }
+
+#endif
+#undef HAS_PROC_FS
 
   }
 
   tmp = alloc_printf("%s/%s", AFL_PATH, obj);
-#ifdef __ANDROID__
-  if (!access(tmp, R_OK)) {
 
-#else
   if (!access(tmp, R_OK)) {
-
-#endif
 
     obj_path = AFL_PATH;
     return tmp;
@@ -174,82 +263,19 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
   }
 
   ck_free(tmp);
+
+  tmp = alloc_printf("./%s", obj);
+
+  if (!access(tmp, R_OK)) {
+
+    obj_path = ".";
+    return tmp;
+
+  }
+
+  ck_free(tmp);
+
   return NULL;
-
-}
-
-/* Try to find the runtime libraries. If that fails, abort. */
-
-static void find_obj(u8 *argv0) {
-
-  u8 *afl_path = getenv("AFL_PATH");
-  u8 *slash, *tmp;
-
-  if (afl_path) {
-
-#ifdef __ANDROID__
-    tmp = alloc_printf("%s/afl-compiler-rt.so", afl_path);
-#else
-    tmp = alloc_printf("%s/afl-compiler-rt.o", afl_path);
-#endif
-
-    if (!access(tmp, R_OK)) {
-
-      obj_path = afl_path;
-      ck_free(tmp);
-      return;
-
-    }
-
-    ck_free(tmp);
-
-  }
-
-  slash = strrchr(argv0, '/');
-
-  if (slash) {
-
-    u8 *dir;
-
-    *slash = 0;
-    dir = ck_strdup(argv0);
-    *slash = '/';
-
-#ifdef __ANDROID__
-    tmp = alloc_printf("%s/afl-compiler-rt.so", dir);
-#else
-    tmp = alloc_printf("%s/afl-compiler-rt.o", dir);
-#endif
-
-    if (!access(tmp, R_OK)) {
-
-      obj_path = dir;
-      ck_free(tmp);
-      return;
-
-    }
-
-    ck_free(tmp);
-    ck_free(dir);
-
-  }
-
-#ifdef __ANDROID__
-  if (!access(AFL_PATH "/afl-compiler-rt.so", R_OK)) {
-
-#else
-  if (!access(AFL_PATH "/afl-compiler-rt.o", R_OK)) {
-
-#endif
-
-    obj_path = AFL_PATH;
-    return;
-
-  }
-
-  FATAL(
-      "Unable to find 'afl-compiler-rt.o' or 'afl-llvm-pass.so'. Please set "
-      "AFL_PATH");
 
 }
 
@@ -288,7 +314,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (compiler_mode >= GCC_PLUGIN) {
 
-        alt_cxx = "g++";
+        if (compiler_mode == GCC) {
+
+          alt_cxx = clang_mode ? "clang++" : "g++";
+
+        } else {
+
+          alt_cxx = "g++";
+
+        }
 
       } else {
 
@@ -313,7 +347,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       if (compiler_mode >= GCC_PLUGIN) {
 
-        alt_cc = "gcc";
+        if (compiler_mode == GCC) {
+
+          alt_cc = clang_mode ? "clang" : "gcc";
+
+        } else {
+
+          alt_cc = "gcc";
+
+        }
 
       } else {
 
@@ -337,12 +379,13 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-B";
     cc_params[cc_par_cnt++] = obj_path;
 
+    if (clang_mode) { cc_params[cc_par_cnt++] = "-no-integrated-as"; }
+
   }
 
   if (compiler_mode == GCC_PLUGIN) {
 
-    char *fplugin_arg =
-        alloc_printf("-fplugin=%s", find_object("afl-gcc-pass.so", argvnull));
+    char *fplugin_arg = alloc_printf("-fplugin=%s/afl-gcc-pass.so", obj_path);
     cc_params[cc_par_cnt++] = fplugin_arg;
 
   }
@@ -354,19 +397,13 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (lto_mode && plusplus_mode)
       cc_params[cc_par_cnt++] = "-lc++";  // needed by fuzzbench, early
 
-    if (lto_mode) {
+    if (lto_mode && have_instr_env) {
 
-      if (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
-          getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
-          getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")) {
-
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/afl-llvm-lto-instrumentlist.so", obj_path);
-
-      }
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] = "-load";
+      cc_params[cc_par_cnt++] = "-Xclang";
+      cc_params[cc_par_cnt++] =
+          alloc_printf("%s/afl-llvm-lto-instrumentlist.so", obj_path);
 
     }
 
@@ -508,11 +545,25 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/SanitizerCoveragePCGUARD.so", obj_path);
+        if (have_instr_list) {
+
+          if (!be_quiet)
+            SAYF(
+                "Using unoptimized trace-pc-guard, due usage of "
+                "-fsanitize-coverage-allow/denylist, you can use "
+                "AFL_LLVM_ALLOWLIST/AFL_LLMV_DENYLIST instead.\n");
+          cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+
+        } else {
+
+          cc_params[cc_par_cnt++] = "-Xclang";
+          cc_params[cc_par_cnt++] = "-load";
+          cc_params[cc_par_cnt++] = "-Xclang";
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/SanitizerCoveragePCGUARD.so", obj_path);
+
+        }
+
 #else
   #if LLVM_MAJOR >= 4
         if (!be_quiet)
@@ -589,6 +640,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-m32")) bit_mode = 32;
     if (!strcmp(cur, "armv7a-linux-androideabi")) bit_mode = 32;
     if (!strcmp(cur, "-m64")) bit_mode = 64;
+
+    if (!strncmp(cur, "-fsanitize-coverage-", 20) && strstr(cur, "list="))
+      have_instr_list = 1;
 
     if (!strcmp(cur, "-fsanitize=address") || !strcmp(cur, "-fsanitize=memory"))
       asan_set = 1;
@@ -675,7 +729,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
   if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
-      getenv("LAF_TRANSFORM_COMPARES") || lto_mode) {
+      getenv("LAF_TRANSFORM_COMPARES") || getenv("AFL_LLVM_LAF_ALL") ||
+      lto_mode) {
 
     cc_params[cc_par_cnt++] = "-fno-builtin-strcmp";
     cc_params[cc_par_cnt++] = "-fno-builtin-strncmp";
@@ -826,7 +881,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-  #ifndef __APPLE__
+  #if !defined(__APPLE__) && !defined(__sun)
     if (!shared_linking)
       cc_params[cc_par_cnt++] =
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
@@ -855,6 +910,14 @@ int main(int argc, char **argv, char **envp) {
   } else if (getenv("AFL_QUIET"))
 
     be_quiet = 1;
+
+  if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST") ||
+      getenv("AFL_LLVM_ALLOWLIST") || getenv("AFL_LLVM_DENYLIST") ||
+      getenv("AFL_LLVM_BLOCKLIST")) {
+
+    have_instr_env = 1;
+
+  }
 
   if ((ptr = strrchr(callname, '/')) != NULL) callname = ptr + 1;
   argvnull = (u8 *)argv[0];
@@ -915,7 +978,9 @@ int main(int argc, char **argv, char **envp) {
 
   } else if (strncmp(callname, "afl-gcc", 7) == 0 ||
 
-             strncmp(callname, "afl-g++", 7) == 0) {
+             strncmp(callname, "afl-g++", 7) == 0 ||
+
+             strncmp(callname, "afl-clang", 9) == 0) {
 
     compiler_mode = GCC;
 
@@ -956,6 +1021,14 @@ int main(int argc, char **argv, char **envp) {
         FATAL("Unknown AFL_CC_COMPILER mode: %s\n", ptr);
 
     }
+
+  }
+
+  if (strncmp(callname, "afl-clang", 9) == 0) {
+
+    clang_mode = 1;
+
+    if (strncmp(callname, "afl-clang++", 11) == 0) { plusplus_mode = 1; }
 
   }
 
@@ -1011,17 +1084,17 @@ int main(int argc, char **argv, char **envp) {
     if (instrument_mode == 0)
       instrument_mode = INSTRUMENT_PCGUARD;
     else if (instrument_mode != INSTRUMENT_PCGUARD)
-      FATAL("you can not set AFL_LLVM_INSTRUMENT and AFL_TRACE_PC together");
+      FATAL("you cannot set AFL_LLVM_INSTRUMENT and AFL_TRACE_PC together");
 
   }
 
-  if ((getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
-       getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
-       getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")) &&
-      getenv("AFL_DONT_OPTIMIZE"))
+  if (have_instr_env && getenv("AFL_DONT_OPTIMIZE")) {
+
     WARNF(
         "AFL_LLVM_ALLOWLIST/DENYLIST and AFL_DONT_OPTIMIZE cannot be combined "
         "for file matching, only function matching!");
+
+  }
 
   if (getenv("AFL_LLVM_INSTRIM") || getenv("INSTRIM") ||
       getenv("INSTRIM_LIB")) {
@@ -1029,8 +1102,7 @@ int main(int argc, char **argv, char **envp) {
     if (instrument_mode == 0)
       instrument_mode = INSTRUMENT_CFG;
     else if (instrument_mode != INSTRUMENT_CFG)
-      FATAL(
-          "you can not set AFL_LLVM_INSTRUMENT and AFL_LLVM_INSTRIM together");
+      FATAL("you cannot set AFL_LLVM_INSTRUMENT and AFL_LLVM_INSTRIM together");
 
   }
 
@@ -1307,15 +1379,20 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_GCC_INSTRUMENT_FILE: enable selective instrumentation by "
             "filename\n");
 
+#if LLVM_MAJOR < 9
+  #define COUNTER_BEHAVIOUR \
+    "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
+#else
+  #define COUNTER_BEHAVIOUR \
+    "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
+#endif
       if (have_llvm)
         SAYF(
             "\nLLVM/LTO/afl-clang-fast/afl-clang-lto specific environment "
             "variables:\n"
-#if LLVM_MAJOR < 9
-            "  AFL_LLVM_NOT_ZERO: use cycling trace counters that skip zero\n"
-#else
-            "  AFL_LLVM_SKIP_NEVERZERO: do not skip zero on trace counters\n"
-#endif
+
+            COUNTER_BEHAVIOUR
+
             "  AFL_LLVM_DICT2FILE: generate an afl dictionary based on found "
             "comparisons\n"
             "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
@@ -1426,22 +1503,20 @@ int main(int argc, char **argv, char **envp) {
 #if LLVM_MAJOR <= 6
     instrument_mode = INSTRUMENT_AFL;
 #else
-    if (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
-        getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
-        getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")) {
+  #if LLVM_MAJOR < 11 && (LLVM_MAJOR < 10 || LLVM_MINOR < 1)
+    if (have_instr_env) {
 
       instrument_mode = INSTRUMENT_AFL;
-      WARNF(
-          "switching to classic instrumentation because "
-          "AFL_LLVM_ALLOWLIST/DENYLIST does not work with PCGUARD. Use "
-          "-fsanitize-coverage-allowlist=allowlist.txt or "
-          "-fsanitize-coverage-blocklist=denylist.txt if you want to use "
-          "PCGUARD. Requires llvm 12+. See https://clang.llvm.org/docs/ "
-          "SanitizerCoverage.html#partially-disabling-instrumentation");
+      if (!be_quiet)
+        WARNF(
+            "Switching to classic instrumentation because "
+            "AFL_LLVM_ALLOWLIST/DENYLIST does not work with PCGUARD < 10.0.1.");
 
     } else
 
+  #endif
       instrument_mode = INSTRUMENT_PCGUARD;
+
 #endif
 
   }
@@ -1487,18 +1562,16 @@ int main(int argc, char **argv, char **envp) {
         "AFL_LLVM_NOT_ZERO and AFL_LLVM_SKIP_NEVERZERO can not be set "
         "together");
 
-  if (instrument_mode == INSTRUMENT_PCGUARD &&
-      (getenv("AFL_LLVM_INSTRUMENT_FILE") != NULL ||
-       getenv("AFL_LLVM_WHITELIST") || getenv("AFL_LLVM_ALLOWLIST") ||
-       getenv("AFL_LLVM_DENYLIST") || getenv("AFL_LLVM_BLOCKLIST")))
+#if LLVM_MAJOR < 11 && (LLVM_MAJOR < 10 || LLVM_MINOR < 1)
+  if (instrument_mode == INSTRUMENT_PCGUARD && have_instr_env) {
+
     FATAL(
         "Instrumentation type PCGUARD does not support "
-        "AFL_LLVM_ALLOWLIST/DENYLIST! Use "
-        "-fsanitize-coverage-allowlist=allowlist.txt or "
-        "-fsanitize-coverage-blocklist=denylist.txt instead (requires llvm "
-        "12+), see "
-        "https://clang.llvm.org/docs/"
-        "SanitizerCoverage.html#partially-disabling-instrumentation");
+        "AFL_LLVM_ALLOWLIST/DENYLIST! Use LLVM 10.0.1+ instead.");
+
+  }
+
+#endif
 
   u8 *ptr2;
 
@@ -1525,7 +1598,7 @@ int main(int argc, char **argv, char **envp) {
 
   if (debug) {
 
-    SAYF(cMGN "[D]" cRST " cd '%s';", getthecwd());
+    DEBUGF("cd '%s';", getthecwd());
     for (i = 0; i < argc; i++)
       SAYF(" '%s'", argv[i]);
     SAYF("\n");
@@ -1545,15 +1618,29 @@ int main(int argc, char **argv, char **envp) {
   if (!be_quiet && cmplog_mode)
     printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
 
-#ifndef __ANDROID__
-  find_obj(argv[0]);
+#ifdef __ANDROID__
+  ptr = find_object("afl-compiler-rt.so", argv[0]);
+#else
+  ptr = find_object("afl-compiler-rt.o", argv[0]);
 #endif
+
+  if (!ptr) {
+
+    FATAL(
+        "Unable to find 'afl-compiler-rt.o'. Please set the AFL_PATH "
+        "environment variable.");
+
+  }
+
+  if (debug) { DEBUGF("rt=%s obj_path=%s\n", ptr, obj_path); }
+
+  ck_free(ptr);
 
   edit_params(argc, argv, envp);
 
   if (debug) {
 
-    SAYF(cMGN "[D]" cRST " cd '%s';", getthecwd());
+    DEBUGF("cd '%s';", getthecwd());
     for (i = 0; i < (s32)cc_par_cnt; i++)
       SAYF(" '%s'", cc_params[i]);
     SAYF("\n");

@@ -173,9 +173,8 @@ void initInstrumentList() {
     }
 
     if (debug)
-      SAYF(cMGN "[D] " cRST
-                "loaded allowlist with %zu file and %zu function entries\n",
-           allowListFiles.size(), allowListFunctions.size());
+      DEBUGF("loaded allowlist with %zu file and %zu function entries\n",
+             allowListFiles.size(), allowListFunctions.size());
 
   }
 
@@ -248,9 +247,8 @@ void initInstrumentList() {
     }
 
     if (debug)
-      SAYF(cMGN "[D] " cRST
-                "loaded denylist with %zu file and %zu function entries\n",
-           denyListFiles.size(), denyListFunctions.size());
+      DEBUGF("loaded denylist with %zu file and %zu function entries\n",
+             denyListFiles.size(), denyListFunctions.size());
 
   }
 
@@ -409,10 +407,10 @@ bool isInInstrumentList(llvm::Function *F) {
           if (fnmatch(("*" + *it).c_str(), instFunction.c_str(), 0) == 0) {
 
             if (debug)
-              SAYF(cMGN "[D] " cRST
-                        "Function %s is in the deny function list, "
-                        "not instrumenting ... \n",
-                   instFunction.c_str());
+              DEBUGF(
+                  "Function %s is in the deny function list, not instrumenting "
+                  "... \n",
+                  instFunction.c_str());
             return false;
 
           }
@@ -489,10 +487,10 @@ bool isInInstrumentList(llvm::Function *F) {
           if (fnmatch(("*" + *it).c_str(), instFunction.c_str(), 0) == 0) {
 
             if (debug)
-              SAYF(cMGN "[D] " cRST
-                        "Function %s is in the allow function list, "
-                        "instrumenting ... \n",
-                   instFunction.c_str());
+              DEBUGF(
+                  "Function %s is in the allow function list, instrumenting "
+                  "... \n",
+                  instFunction.c_str());
             return true;
 
           }
@@ -523,10 +521,10 @@ bool isInInstrumentList(llvm::Function *F) {
             if (fnmatch(("*" + *it).c_str(), source_file.c_str(), 0) == 0) {
 
               if (debug)
-                SAYF(cMGN "[D] " cRST
-                          "Function %s is in the allowlist (%s), "
-                          "instrumenting ... \n",
-                     F->getName().str().c_str(), source_file.c_str());
+                DEBUGF(
+                    "Function %s is in the allowlist (%s), instrumenting ... "
+                    "\n",
+                    F->getName().str().c_str(), source_file.c_str());
               return true;
 
             }

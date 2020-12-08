@@ -152,7 +152,7 @@ write a simple script that performs two actions:
     done
     ```
 
-There is an example of such a script in examples/distributed_fuzzing/.
+There is an example of such a script in utils/distributed_fuzzing/.
 
 There are other (older) more featured, experimental tools:
   * https://github.com/richo/roving

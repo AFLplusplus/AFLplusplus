@@ -445,8 +445,13 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (unlikely(afl->not_on_tty)) {
 
-    ACTF("Fuzzing test case #%u (%u total, %llu uniq crashes found)...",
-         afl->current_entry, afl->queued_paths, afl->unique_crashes);
+    ACTF(
+        "Fuzzing test case #%u (%u total, %llu uniq crashes found, "
+        "perf_score=%0.0f, exec_us=%llu, hits=%u, map=%u)...",
+        afl->current_entry, afl->queued_paths, afl->unique_crashes,
+        afl->queue_cur->perf_score, afl->queue_cur->exec_us,
+        likely(afl->n_fuzz) ? afl->n_fuzz[afl->queue_cur->n_fuzz_entry] : 0,
+        afl->queue_cur->bitmap_size);
     fflush(stdout);
 
   }
@@ -1790,10 +1795,15 @@ custom_mutator_stage:
 
       afl->current_custom_fuzz = el;
 
-      if (el->afl_custom_fuzz_count)
+      if (el->afl_custom_fuzz_count) {
+
         afl->stage_max = el->afl_custom_fuzz_count(el->data, out_buf, len);
-      else
+
+      } else {
+
         afl->stage_max = saved_max;
+
+      }
 
       has_custom_fuzz = true;
 

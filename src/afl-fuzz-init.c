@@ -355,7 +355,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   if (ncpus > sizeof(cpu_used)) ncpus = sizeof(cpu_used);
 
-  for (i = 0; i < ncpus; i++) {
+  for (i = 0; i < (s32)ncpus; i++) {
 
     k = kstat_lookup(m, "cpu_stat", i, NULL);
     if (kstat_read(m, k, &cs)) {
@@ -868,7 +868,19 @@ void perform_dry_run(afl_state_t *afl) {
 
         if (skip_crashes) {
 
-          WARNF("Test case results in a crash (skipping)");
+          if (afl->fsrv.uses_crash_exitcode) {
+
+            WARNF(
+                "Test case results in a crash or AFL_CRASH_EXITCODE %d "
+                "(skipping)",
+                (int)(s8)afl->fsrv.crash_exitcode);
+
+          } else {
+
+            WARNF("Test case results in a crash (skipping)");
+
+          }
+
           q->cal_failed = CAL_CHANCES;
           ++cal_failures;
           break;
@@ -954,7 +966,18 @@ void perform_dry_run(afl_state_t *afl) {
 #undef MSG_ULIMIT_USAGE
 #undef MSG_FORK_ON_APPLE
 
-        WARNF("Test case '%s' results in a crash, skipping", fn);
+        if (afl->fsrv.uses_crash_exitcode) {
+
+          WARNF(
+              "Test case '%s' results in a crash or AFL_CRASH_EXITCODE %d, "
+              "skipping",
+              fn, (int)(s8)afl->fsrv.crash_exitcode);
+
+        } else {
+
+          WARNF("Test case '%s' results in a crash, skipping", fn);
+
+        }
 
         /* Remove from fuzzing queue but keep for splicing */
 
@@ -2300,12 +2323,6 @@ void fix_up_sync(afl_state_t *afl) {
 
   u8 *x = afl->sync_id;
 
-  if (afl->non_instrumented_mode) {
-
-    FATAL("-S / -M and -n are mutually exclusive");
-
-  }
-
   while (*x) {
 
     if (!isalnum(*x) && *x != '_' && *x != '-') {
@@ -2503,7 +2520,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->unicorn_mode) {
+  if (afl->afl_env.afl_skip_bin_check || afl->use_wine || afl->unicorn_mode ||
+      afl->non_instrumented_mode) {
 
     return;
 

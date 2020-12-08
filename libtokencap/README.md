@@ -1,6 +1,6 @@
 # strcmp() / memcmp() token capture library
 
-  (See ../docs/README.md for the general instruction manual.)
+  (See ../README.md for the general instruction manual.)
 
 This companion library allows you to instrument `strcmp()`, `memcmp()`,
 and related functions to automatically extract syntax tokens passed to any of
