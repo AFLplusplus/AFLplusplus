@@ -287,6 +287,8 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   afl_fsrv_write_to_testcase(fsrv, mem, len);
 
+  if (!quiet_mode) { SAYF("-- Program output begins --\n" cRST); }
+
   if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
       FSRV_RUN_ERROR) {
 
@@ -711,6 +713,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'C':
         collect_coverage = 1;
+        quiet_mode = 1;
         break;
 
       case 'i':
@@ -817,7 +820,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'q':
 
-        if (quiet_mode) { FATAL("Multiple -q options not supported"); }
         quiet_mode = 1;
         break;
 
@@ -1189,7 +1191,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (!quiet_mode) {
+  if (!quiet_mode || collect_coverage) {
 
     if (!tcnt) { FATAL("No instrumentation detected" cRST); }
     OKF("Captured %u tuples (highest value %u, total values %llu) in "
