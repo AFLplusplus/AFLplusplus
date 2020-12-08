@@ -114,7 +114,7 @@ git status 1>/dev/null 2>/dev/null
 if [ $? -eq 0 ]; then
   echo "[*] initializing qemuafl submodule"
   git submodule init || exit 1
-  git submodule update 2>/dev/null # ignore errors
+  git submodule update ./qemuafl 2>/dev/null # ignore errors
 else
   echo "[*] cloning qemuafl"
   test -d qemuafl || {
