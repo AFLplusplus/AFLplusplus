@@ -19,7 +19,7 @@
 #
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
-
+#TEST_MMAP=1
 PREFIX      ?= /usr/local
 HELPER_PATH ?= $(PREFIX)/lib/afl
 BIN_PATH    ?= $(PREFIX)/bin
