@@ -63,6 +63,7 @@ static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
   execv(fsrv->target_path, argv);
 
   WARNF("Execv failed in forkserver.");
+
 }
 
 /* Initializes the struct */
