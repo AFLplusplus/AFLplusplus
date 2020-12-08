@@ -169,7 +169,7 @@ struct queue_entry {
   u32 tc_ref;                           /* Trace bytes ref count            */
 
   double perf_score,                    /* performance score                */
-         weight;
+      weight;
 
   u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
 
