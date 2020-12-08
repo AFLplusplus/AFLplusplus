@@ -445,8 +445,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (unlikely(afl->not_on_tty)) {
 
-    ACTF("Fuzzing test case #%u (%u total, %llu uniq crashes found)...",
-         afl->current_entry, afl->queued_paths, afl->unique_crashes);
+    ACTF("Fuzzing test case #%u (%u total, %llu uniq crashes found, perf_score=%0.0f, exec_us=%llu, hits=%u, map=%u)...",
+         afl->current_entry, afl->queued_paths, afl->unique_crashes,
+         afl->queue_cur->perf_score, afl->queue_cur->exec_us,
+         afl->n_fuzz[afl->queue_cur->n_fuzz_entry], afl->queue_cur->bitmap_size);
     fflush(stdout);
 
   }
