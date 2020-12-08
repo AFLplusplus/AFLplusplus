@@ -1069,6 +1069,13 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   if (fsrv->child_pid <= 0) {
 
     if (*stop_soon_p) { return 0; }
+
+    if ((fsrv->child_pid & FS_OPT_ERROR) &&
+        FS_OPT_GET_ERROR(fsrv->child_pid) == FS_ERROR_SHM_OPEN)
+      FATAL(
+          "Target reported shared memory access failed (perhaps increase "
+          "shared memory available).");
+
     FATAL("Fork server is misbehaving (OOM?)");
 
   }
