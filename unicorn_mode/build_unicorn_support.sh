@@ -156,7 +156,7 @@ else
     CNT=1
     while [ '!' -d unicornafl -a "$CNT" -lt 4 ]; do
       echo "Trying to clone unicornafl (attempt $CNT/3)"
-      git clone --depth=1 https://github.com/AFLplusplus/unicornafl
+      git clone https://github.com/AFLplusplus/unicornafl
       CNT=`expr "$CNT" + 1`
     done
   }
