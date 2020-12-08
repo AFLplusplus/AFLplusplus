@@ -163,6 +163,12 @@ static void __afl_map_shm_fuzz() {
 
   char *id_str = getenv(SHM_FUZZ_ENV_VAR);
 
+  if (getenv("AFL_DEBUG")) {
+
+    fprintf(stderr, "DEBUG: fuzzcase shmem %s\n", id_str ? id_str : "none");
+
+  }
+
   if (id_str) {
 
     u8 *map = NULL;
@@ -196,6 +202,7 @@ static void __afl_map_shm_fuzz() {
     if (!map || map == (void *)-1) {
 
       perror("Could not access fuzzing shared memory");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
       exit(1);
 
     }
@@ -212,6 +219,7 @@ static void __afl_map_shm_fuzz() {
   } else {
 
     fprintf(stderr, "Error: variable for fuzzing shared memory is not set\n");
+    send_forkserver_error(FS_ERROR_SHM_OPEN);
     exit(1);
 
   }
@@ -335,6 +343,8 @@ static void __afl_map_shm(void) {
         send_forkserver_error(FS_ERROR_MAP_ADDR);
       else
         send_forkserver_error(FS_ERROR_MMAP);
+      perror("shmat for map");
+
       exit(2);
 
     }
@@ -349,12 +359,14 @@ static void __afl_map_shm(void) {
 
     /* Whooooops. */
 
-    if (__afl_area_ptr == (void *)-1) {
+    if (!__afl_area_ptr || __afl_area_ptr == (void *)-1) {
 
       if (__afl_map_addr)
         send_forkserver_error(FS_ERROR_MAP_ADDR);
       else
         send_forkserver_error(FS_ERROR_SHMAT);
+
+      perror("shmat for map");
       _exit(1);
 
     }
@@ -376,6 +388,7 @@ static void __afl_map_shm(void) {
 
       fprintf(stderr, "can not acquire mmap for address %p\n",
               (void *)__afl_map_addr);
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
       exit(1);
 
     }
@@ -411,6 +424,7 @@ static void __afl_map_shm(void) {
     if (shm_fd == -1) {
 
       fprintf(stderr, "shm_open() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
       exit(1);
 
     }
@@ -424,6 +438,7 @@ static void __afl_map_shm(void) {
       shm_fd = -1;
 
       fprintf(stderr, "mmap() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
       exit(2);
 
     }
@@ -435,7 +450,13 @@ static void __afl_map_shm(void) {
     __afl_cmp_map = shmat(shm_id, NULL, 0);
 #endif
 
-    if (__afl_cmp_map == (void *)-1) _exit(1);
+    if (!__afl_cmp_map || __afl_cmp_map == (void *)-1) {
+
+      perror("shmat for cmplog");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      _exit(1);
+
+    }
 
   }
 

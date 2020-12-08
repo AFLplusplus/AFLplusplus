@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
             if (buf[4] == '!') {
 
               printf("five\n");
-              if (buf[6] == '!') {
+              if (buf[5] == '!') {
 
                 printf("six\n");
                 abort();
