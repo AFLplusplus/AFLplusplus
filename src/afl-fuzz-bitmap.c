@@ -457,8 +457,8 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
       ret[len_current++] = ',';
       ret[len_current] = '\0';
 
-      size_t size_left = real_max_len - len_current - strlen(",+cov") - 2;
-      assert(size_left > 0);
+      ssize_t size_left = real_max_len - len_current - strlen(",+cov") - 2;
+      if (unlikely(size_left <= 0)) FATAL("filename got too long");
 
       const char *custom_description =
           afl->current_custom_fuzz->afl_custom_describe(
@@ -505,7 +505,8 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   if (new_bits == 2) { strcat(ret, ",+cov"); }
 
-  assert(strlen(ret) <= max_description_len);
+  if (unlikely(strlen(ret) >= max_description_len))
+    FATAL("describe string is too long");
 
   return ret;
 
