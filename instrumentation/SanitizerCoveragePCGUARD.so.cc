@@ -544,7 +544,9 @@ bool ModuleSanitizerCoverage::instrumentModule(
     be_quiet = 1;
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
-  // scanForDangerousFunctions(&M);
+
+  initInstrumentList();
+  scanForDangerousFunctions(&M);
 
   if (debug) {
 
@@ -819,6 +821,8 @@ void ModuleSanitizerCoverage::instrumentFunction(
     Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
   if (F.empty()) return;
+  if (!isInInstrumentList(&F)) return;
+
   if (F.getName().find(".module_ctor") != std::string::npos)
     return;  // Should not instrument sanitizer init functions.
   if (F.getName().startswith("__sanitizer_"))
@@ -1123,11 +1127,11 @@ void ModuleSanitizerCoverage::InjectTraceForCmp(
       Value *     A1 = ICMP->getOperand(1);
       if (!A0->getType()->isIntegerTy()) continue;
       uint64_t TypeSize = DL->getTypeStoreSizeInBits(A0->getType());
-      int      CallbackIdx =
-          TypeSize == 8
-              ? 0
-              : TypeSize == 16 ? 1
-                               : TypeSize == 32 ? 2 : TypeSize == 64 ? 3 : -1;
+      int      CallbackIdx = TypeSize == 8    ? 0
+                             : TypeSize == 16 ? 1
+                             : TypeSize == 32 ? 2
+                             : TypeSize == 64 ? 3
+                                              : -1;
       if (CallbackIdx < 0) continue;
       // __sanitizer_cov_trace_cmp((type_size << 32) | predicate, A0, A1);
       auto CallbackFunc = SanCovTraceCmpFunction[CallbackIdx];
@@ -1315,6 +1319,7 @@ std::string ModuleSanitizerCoverage::getSectionEnd(
 }
 
 char ModuleSanitizerCoverageLegacyPass::ID = 0;
+
 INITIALIZE_PASS_BEGIN(ModuleSanitizerCoverageLegacyPass, "sancov",
                       "Pass for instrumenting coverage on functions", false,
                       false)
@@ -1323,6 +1328,7 @@ INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_END(ModuleSanitizerCoverageLegacyPass, "sancov",
                     "Pass for instrumenting coverage on functions", false,
                     false)
+
 ModulePass *llvm::createModuleSanitizerCoverageLegacyPassPass(
     const SanitizerCoverageOptions &Options,
     const std::vector<std::string> &AllowlistFiles,

@@ -57,7 +57,7 @@ test -e ../afl-clang-lto -a -e ../afl-llvm-lto-instrumentation.so && {
     CODE=1
   }
   rm -f test-compcov test.out instrumentlist.txt
-  ../afl-clang-lto -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
+  ../afl-clang-lto -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | ../afl-showmap -m none -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] llvm_mode LTO persistent mode feature works correctly"

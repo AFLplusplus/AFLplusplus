@@ -26,6 +26,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 #include <limits.h>
+#include <stdlib.h>
 #ifndef USEMMAP
   #include <sys/mman.h>
   #include <sys/stat.h>
@@ -40,7 +41,7 @@ extern u64 time_spent_working;
 
 static void at_exit() {
 
-  int   i;
+  s32   i, pid1 = 0, pid2 = 0;
   char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
   char *ptr;
 
@@ -48,10 +49,10 @@ static void at_exit() {
   if (ptr && *ptr) unlink(ptr);
 
   ptr = getenv("__AFL_TARGET_PID1");
-  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
+  if (ptr && *ptr && (pid1 = atoi(ptr)) > 0) kill(pid1, SIGTERM);
 
   ptr = getenv("__AFL_TARGET_PID2");
-  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
+  if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) kill(pid2, SIGTERM);
 
   i = 0;
   while (list[i] != NULL) {
@@ -74,6 +75,9 @@ static void at_exit() {
     i++;
 
   }
+
+  if (pid1 > 0) { kill(pid1, SIGKILL); }
+  if (pid2 > 0) { kill(pid2, SIGKILL); }
 
 }
 
@@ -162,11 +166,12 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
       "AFL_BENCH_JUST_ONE: run the target just once\n"
       "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
+      "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n"
       "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
       "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
       "AFL_CYCLE_SCHEDULES: after completing a cycle, switch to a different -p schedule\n"
       "AFL_DEBUG: extra debugging output for Python mode trimming\n"
-      "AFL_DEBUG_CHILD_OUTPUT: do not suppress stdout/stderr from target\n"
+      "AFL_DEBUG_CHILD: do not suppress stdout/stderr from target\n"
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
@@ -184,6 +189,7 @@ static void usage(u8 *argv0, int more_help) {
       "                    used. Defaults to 200.\n"
       "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
       "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
+      "AFL_NO_AUTODICT: do not load an offered auto dictionary compiled into a target\n"
       "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
@@ -350,6 +356,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 's': {
 
+        if (optarg == NULL) { FATAL("No valid seed provided. Got NULL."); }
         rand_set_seed(afl, strtoul(optarg, 0L, 10));
         afl->fixed_seed = 1;
         break;
@@ -419,6 +426,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'i':                                                /* input dir */
 
         if (afl->in_dir) { FATAL("Multiple -i options not supported"); }
+        if (optarg == NULL) { FATAL("Invalid -i option (got NULL)."); }
         afl->in_dir = optarg;
 
         if (!strcmp(afl->in_dir, "-")) { afl->in_place_resume = 1; }
@@ -435,9 +443,26 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8 *c;
 
+        if (afl->non_instrumented_mode) {
+
+          FATAL("-M is not supported in non-instrumented mode");
+
+        }
+
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
+
+        /* sanity check for argument: should not begin with '-' (possible
+         * option) */
+        if (optarg && *optarg == '-') {
+
+          FATAL(
+              "argument for -M started with a dash '-', which is used for "
+              "options");
+
+        }
+
         afl->sync_id = ck_strdup(optarg);
-        afl->skip_deterministic = 0;  // force determinsitic fuzzing
+        afl->skip_deterministic = 0;  // force deterministic fuzzing
         afl->old_seed_selection = 1;  // force old queue walking seed selection
 
         if ((c = strchr(afl->sync_id, ':'))) {
@@ -464,7 +489,24 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'S':                                        /* secondary sync id */
 
+        if (afl->non_instrumented_mode) {
+
+          FATAL("-S is not supported in non-instrumented mode");
+
+        }
+
         if (afl->sync_id) { FATAL("Multiple -S or -M options not supported"); }
+
+        /* sanity check for argument: should not begin with '-' (possible
+         * option) */
+        if (optarg && *optarg == '-') {
+
+          FATAL(
+              "argument for -M started with a dash '-', which is used for "
+              "options");
+
+        }
+
         afl->sync_id = ck_strdup(optarg);
         afl->is_secondary_node = 1;
         break;
@@ -620,6 +662,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'n':                                                /* dumb mode */
 
+        if (afl->is_main_node || afl->is_secondary_node) {
+
+          FATAL("Non instrumented mode is not supported with -M / -S");
+
+        }
+
         if (afl->non_instrumented_mode) {
 
           FATAL("Multiple -n options not supported");
@@ -656,7 +704,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'N':                                             /* Unicorn mode */
 
         if (afl->no_unlink) { FATAL("Multiple -N options not supported"); }
-        afl->fsrv.no_unlink = afl->no_unlink = 1;
+        afl->fsrv.no_unlink = (afl->no_unlink = true);
 
         break;
 
@@ -906,7 +954,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->power_name = power_names[afl->schedule];
 
-  if (!afl->sync_id) {
+  if (!afl->non_instrumented_mode && !afl->sync_id) {
 
     auto_sync = 1;
     afl->sync_id = ck_strdup("default");
@@ -1086,6 +1134,23 @@ int main(int argc, char **argv_orig, char **envp) {
   } else {
 
     afl->fsrv.init_tmout = afl->fsrv.exec_tmout * FORK_WAIT_MULT;
+
+  }
+
+  if (afl->afl_env.afl_crash_exitcode) {
+
+    long exitcode = strtol(afl->afl_env.afl_crash_exitcode, NULL, 10);
+    if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
+        exitcode < -127 || exitcode > 128) {
+
+      FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
+            afl->afl_env.afl_crash_exitcode);
+
+    }
+
+    afl->fsrv.uses_crash_exitcode = true;
+    // WEXITSTATUS is 8 bit unsigned
+    afl->fsrv.crash_exitcode = (u8)exitcode;
 
   }
 
@@ -1338,7 +1403,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (!afl->fsrv.qemu_mode) { check_binary(afl, afl->cmplog_binary); }
+    if (!afl->fsrv.qemu_mode && !afl->non_instrumented_mode) {
+
+      check_binary(afl, afl->cmplog_binary);
+
+    }
 
   }
 
@@ -1380,7 +1449,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
     afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
-                   afl->afl_env.afl_debug_child_output);
+                   afl->afl_env.afl_debug_child);
     OKF("Cmplog forkserver successfully started");
 
   }
@@ -1436,8 +1505,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   cull_queue(afl);
 
-  if (!afl->pending_not_fuzzed)
+  if (!afl->pending_not_fuzzed) {
+
     FATAL("We need at least on valid input seed that does not crash!");
+
+  }
 
   show_init_stats(afl);
 

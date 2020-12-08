@@ -15,7 +15,7 @@
   high enough. Otherwise try retrowrite, afl-dyninst and if these
   fail too then try standard qemu_mode with AFL_ENTRYPOINT to where you need it.
 
-  If your target is a library use examples/afl_frida/.
+  If your target is a library use utils/afl_frida/.
 
   If your target is non-linux then use unicorn_mode/.
 
@@ -65,14 +65,14 @@
 ## AFL FRIDA
 
    If you want to fuzz a binary-only shared library then you can fuzz it with
-   frida-gum via examples/afl_frida/, you will have to write a harness to
+   frida-gum via utils/afl_frida/, you will have to write a harness to
    call the target function in the library, use afl-frida.c as a template.
 
 
 ## AFL UNTRACER
 
    If you want to fuzz a binary-only shared library then you can fuzz it with
-   examples/afl_untracer/, use afl-untracer.c as a template.
+   utils/afl_untracer/, use afl-untracer.c as a template.
    It is slower than AFL FRIDA (see above).
 
 

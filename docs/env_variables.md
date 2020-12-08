@@ -55,7 +55,7 @@ make fairly broad use of environmental variables instead:
     in your `$PATH`.
 
   - `AFL_PATH` can be used to point afl-gcc to an alternate location of afl-as.
-    One possible use of this is examples/clang_asm_normalize/, which lets
+    One possible use of this is utils/clang_asm_normalize/, which lets
     you instrument hand-written assembly when compiling clang code by plugging
     a normalizer into the chain. (There is no equivalent feature for GCC.)
 
@@ -294,6 +294,9 @@ checks or alter some of the more exotic semantics of the tool:
     on Linux systems. This slows things down, but lets you run more instances
     of afl-fuzz than would be prudent (if you really want to).
 
+  - Setting `AFL_NO_AUTODICT` will not load an LTO generated auto dictionary
+    that is compiled into the target.
+
   - `AFL_SKIP_CRASHES` causes AFL++ to tolerate crashing files in the input
     queue. This can help with rare situations where a program crashes only
     intermittently, but it's not really recommended under normal operating
@@ -305,6 +308,14 @@ checks or alter some of the more exotic semantics of the tool:
     down can be useful if you are very concerned about slow inputs, or if you
     don't want AFL++ to spend too much time classifying that stuff and just
     rapidly put all timeouts in that bin.
+
+  - Setting `AFL_FORKSRV_INIT_TMOUT` allows you to specify a different timeout
+    to wait for the forkserver to spin up. The default is the `-t` value times
+    `FORK_WAIT_MULT` from `config.h` (usually 10), so for a `-t 100`, the
+    default would wait for `1000` milliseconds. Setting a different time here is useful
+    if the target has a very slow startup time, for example when doing
+    full-system fuzzing or emulation, but you don't want the actual runs
+    to wait too long for timeouts.
 
   - `AFL_NO_ARITH` causes AFL++ to skip most of the deterministic arithmetics.
     This can be useful to speed up the fuzzing of text-based file formats.
@@ -380,14 +391,25 @@ checks or alter some of the more exotic semantics of the tool:
     processing the first queue entry; and `AFL_BENCH_UNTIL_CRASH` causes it to
     exit soon after the first crash is found.
 
-  - Setting `AFL_DEBUG_CHILD_OUTPUT` will not suppress the child output.
+  - Setting `AFL_DEBUG_CHILD` will not suppress the child output.
+    This lets you see all output of the child, making setup issues obvious.
+    For example, in an unicornafl harness, you might see python stacktraces.
+    You may also see other logs that way, indicating why the forkserver won't start.
     Not pretty but good for debugging purposes.
+    Note that `AFL_DEBUG_CHILD_OUTPUT` is deprecated.
 
   - Setting `AFL_NO_CPU_RED` will not display very high cpu usages in red color.
 
   - Setting `AFL_AUTORESUME` will resume a fuzz run (same as providing `-i -`)
     for an existing out folder, even if a different `-i` was provided.
     Without this setting, afl-fuzz will refuse execution for a long-fuzzed out dir.
+
+  - Setting `AFL_MAX_DET_EXRAS` will change the threshold at what number of elements
+    in the `-x` dictionary and LTO autodict (combined) the probabilistic mode will
+    kick off. In probabilistic mode not all dictionary entires will be used all
+    of the times for fuzzing mutations to not slow down fuzzing.
+    The default count is `200` elements. So for the 200 + 1st element, there is a
+    1 in 201 chance, that one of the dictionary entries will not be used directly.
 
   - Setting `AFL_NO_FORKSRV` disables the forkserver optimization, reverting to
     fork + execve() call for every tested input. This is useful mostly when
@@ -405,6 +427,13 @@ checks or alter some of the more exotic semantics of the tool:
     To get the most out of this, you should provide `AFL_STATSD_TAGS_FLAVOR` that
     matches your StatsD server.
     Available flavors are `dogstatsd`, `librato`, `signalfx` and `influxdb`.
+
+  - Setting `AFL_CRASH_EXITCODE` sets the exit code afl treats as crash.
+    For example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting
+    in an `-1` return code (i.e. `exit(-1)` got called), will be treated
+    as if a crash had ocurred.
+    This may be beneficial if you look for higher-level faulty conditions in which your
+    target still exits gracefully.
 
   - Outdated environment variables that are not supported anymore:
     `AFL_DEFER_FORKSRV`

@@ -22,8 +22,8 @@
   afl++ is a superior fork to Google's afl - more speed, more and better
   mutations, more and better instrumentation, custom module support, etc.
 
-  If you want to use afl++ for you academic work, check the [papers page](https://aflplus.plus/papers/)
-  in the website.
+  If you want to use afl++ for your academic work, check the [papers page](https://aflplus.plus/papers/)
+  on the website.
 
 ## Major changes in afl++ 3.0
 
@@ -55,6 +55,7 @@ behaviours and defaults:
     * a caching of testcases can now be performed and can be modified by
       editing config.h for TESTCASE_CACHE or by specifying the env variable
       `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500 (default: 50).
+  * examples/ got renamed to utils/
 
 ## Contents
 
@@ -273,7 +274,7 @@ anything below 9 is not recommended.
     v
 +---------------------------------+
 | clang/clang++ 3.3+ is available | --> use LLVM mode (afl-clang-fast/afl-clang-fast++)
-+---------------------------------+     see [instrumentation/README.md](instrumentation/README.md)
++---------------------------------+     see [instrumentation/README.llvm.md](instrumentation/README.llvm.md)
     |
     | if not, or if the target fails with LLVM afl-clang-fast/++
     |
@@ -292,7 +293,7 @@ anything below 9 is not recommended.
 Clickable README links for the chosen compiler:
 
   * [LTO mode - afl-clang-lto](instrumentation/README.lto.md)
-  * [LLVM mode - afl-clang-fast](instrumentation/README.md)
+  * [LLVM mode - afl-clang-fast](instrumentation/README.llvm.md)
   * [GCC_PLUGIN mode - afl-gcc-fast](instrumentation/README.gcc_plugin.md)
   * GCC mode (afl-gcc) has no README as it has no own features
 
@@ -525,7 +526,7 @@ as test data in there.
 
 If you do not want anything special, the defaults are already usually best,
 hence all you need is to specify the seed input directory with the result of
-step [2. Collect inputs](#a)a-collect-inputs)):
+step [2a. Collect inputs](#a-collect-inputs):
 `afl-fuzz -i input -o output -- bin/target -d @@`
 Note that the directory specified with -o will be created if it does not exist.
 
@@ -541,7 +542,7 @@ that it could not connect to the forkserver), then you can increase this
 with the `-m` option, the value is in MB. To disable any memory limits
 (beware!) set `-m none` - which is usually required for ASAN compiled targets.
 
-Adding a dictionary is helpful. See the [dictionaries/](dictionaries/) if
+Adding a dictionary is helpful. See the directory [dictionaries/](dictionaries/) if
 something is already included for your data format, and tell afl-fuzz to load
 that dictionary by adding `-x dictionaries/FORMAT.dict`. With afl-clang-lto
 you have an autodictionary generation for which you need to do nothing except
@@ -760,10 +761,10 @@ cd unicorn_mode
 
 If the goal is to fuzz a dynamic library then there are two options available.
 For both you need to write a small hardness that loads and calls the library.
-Faster is the frida solution: [examples/afl_frida/README.md](examples/afl_frida/README.md)
+Faster is the frida solution: [utils/afl_frida/README.md](utils/afl_frida/README.md)
 
 Another, less precise and slower option is using ptrace with debugger interrupt
-instrumentation: [examples/afl_untracer/README.md](examples/afl_untracer/README.md)
+instrumentation: [utils/afl_untracer/README.md](utils/afl_untracer/README.md)
 
 ### More
 
@@ -1037,7 +1038,7 @@ Here are some of the most important caveats for AFL:
     wholly wrap the actual data format to be tested.
 
     To work around this, you can comment out the relevant checks (see
-    examples/libpng_no_checksum/ for inspiration); if this is not possible,
+    utils/libpng_no_checksum/ for inspiration); if this is not possible,
     you can also write a postprocessor, one of the hooks of custom mutators.
     See [docs/custom_mutators.md](docs/custom_mutators.md) on how to use
     `AFL_CUSTOM_MUTATOR_LIBRARY`
@@ -1109,7 +1110,8 @@ without feedback, bug reports, or patches from:
   Andrea Biondo                         Vincent Le Garrec
   Khaled Yakdan                         Kuang-che Wu
   Josephine Calliotte                   Konrad Welc
-  David Carlier                         Ruben ten Hove
+  Thomas Rooijakkers                    David Carlier
+  Ruben ten Hove
 ```
 
 Thank you!

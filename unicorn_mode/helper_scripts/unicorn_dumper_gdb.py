@@ -1,13 +1,13 @@
 """
     unicorn_dumper_gdb.py
-    
+
     When run with GDB sitting at a debug breakpoint, this
     dumps the current state (registers/memory/etc) of
-    the process to a directory consisting of an index 
-    file with register and segment information and 
+    the process to a directory consisting of an index
+    file with register and segment information and
     sub-files containing all actual process memory.
-    
-    The output of this script is expected to be used 
+
+    The output of this script is expected to be used
     to initialize context for Unicorn emulation.
 
     -----------
@@ -44,6 +44,7 @@ MAX_SEG_SIZE = 128 * 1024 * 1024
 # Name of the index file
 INDEX_FILE_NAME = "_index.json"
 
+
 #----------------------
 #---- Helper Functions
 
@@ -59,14 +60,14 @@ def map_arch():
         return "arm64be"
     elif 'armeb' in arch:
         # check for THUMB mode
-        cpsr = get_register('cpsr')
+        cpsr = get_register('$cpsr')
         if (cpsr & (1 << 5)):
             return "armbethumb"
         else:
             return "armbe"
     elif 'arm' in arch:
         # check for THUMB mode
-        cpsr = get_register('cpsr')
+        cpsr = get_register('$cpsr')
         if (cpsr & (1 << 5)):
             return "armlethumb"
         else:
@@ -88,19 +89,15 @@ def dump_regs():
     reg_state = {}
     for reg in current_arch.all_registers:
         reg_val = get_register(reg)
-        # current dumper script looks for register values to be hex strings
-#         reg_str = "0x{:08x}".format(reg_val)
-#         if "64" in get_arch():
-#             reg_str = "0x{:016x}".format(reg_val)
-#         reg_state[reg.strip().strip('$')] = reg_str
         reg_state[reg.strip().strip('$')] = reg_val
+
     return reg_state
 
 
 def dump_process_memory(output_dir):
     # Segment information dictionary
     final_segment_list = []
-    
+
     # GEF:
     vmmap = get_process_maps()
     if not vmmap:
@@ -110,7 +107,7 @@ def dump_process_memory(output_dir):
     for entry in vmmap:
         if entry.page_start == entry.page_end:
             continue
-        
+
         seg_info = {'start': entry.page_start, 'end': entry.page_end, 'name': entry.path, 'permissions': {
             "r": entry.is_readable() > 0,
             "w": entry.is_writable() > 0,
@@ -129,7 +126,7 @@ def dump_process_memory(output_dir):
                     compressed_seg_content = zlib.compress(seg_content)
                     md5_sum = hashlib.md5(compressed_seg_content).hexdigest() + ".bin"
                     seg_info["content_file"] = md5_sum
-                    
+
                     # Write the compressed contents to disk
                     out_file = open(os.path.join(output_dir, md5_sum), 'wb')
                     out_file.write(compressed_seg_content)
@@ -143,12 +140,27 @@ def dump_process_memory(output_dir):
         # Add the segment to the list
         final_segment_list.append(seg_info)
 
-            
+
     return final_segment_list
 
+#---------------------------------------------
+#---- ARM Extention (dump floating point regs)
+
+def dump_float(rge=32):
+    reg_convert = ""
+    if map_arch() == "armbe" or map_arch() == "armle" or map_arch() == "armbethumb" or map_arch() == "armbethumb":
+        reg_state = {}
+        for reg_num in range(32):
+            value = gdb.selected_frame().read_register("d" + str(reg_num))
+            reg_state["d" + str(reg_num)] = int(str(value["u64"]), 16)
+        value = gdb.selected_frame().read_register("fpscr")
+        reg_state["fpscr"] = int(str(value), 16)
+
+        return reg_state
+
 #----------
-#---- Main    
-    
+#---- Main
+
 def main():
     print("----- Unicorn Context Dumper -----")
     print("You must be actively debugging before running this!")
@@ -159,32 +171,32 @@ def main():
         print("!!! GEF not running in GDB.  Please run gef.py by executing:")
         print('\tpython execfile ("<path_to_gef>/gef.py")')
         return
-    
+
     try:
-    
+
         # Create the output directory
         timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y%m%d_%H%M%S')
         output_path = "UnicornContext_" + timestamp
         if not os.path.exists(output_path):
             os.makedirs(output_path)
         print("Process context will be output to {}".format(output_path))
-            
+
         # Get the context
         context = {
             "arch": dump_arch_info(),
-            "regs": dump_regs(), 
+            "regs": dump_regs(),
+            "regs_extended": dump_float(),
             "segments": dump_process_memory(output_path),
         }
 
         # Write the index file
         index_file = open(os.path.join(output_path, INDEX_FILE_NAME), 'w')
         index_file.write(json.dumps(context, indent=4))
-        index_file.close()    
+        index_file.close()
         print("Done.")
-        
+
     except Exception as e:
         print("!!! ERROR:\n\t{}".format(repr(e)))
-        
+
 if __name__ == "__main__":
     main()
-    

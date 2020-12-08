@@ -46,7 +46,7 @@ u8  be_quiet = 0;
 u8 *doc_path = "";
 u8  last_intr = 0;
 
-void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
+void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
   u32 i = 0;
   u8  cwd[PATH_MAX];
@@ -63,7 +63,7 @@ void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin) {
 
       if (!prog_in) { FATAL("@@ syntax is not supported by this tool."); }
 
-      *use_stdin = 0;
+      *use_stdin = false;
 
       if (prog_in[0] != 0) {  // not afl-showmap special case
 

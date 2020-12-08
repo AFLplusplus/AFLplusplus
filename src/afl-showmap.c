@@ -667,6 +667,8 @@ static void usage(u8 *argv0) {
       "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
       "inputs\n"
       "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing inputs also\n"
+      "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as "
+      "crash\n"
       "AFL_DEBUG: enable extra developer output\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
       "size\n"
@@ -904,7 +906,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_DEBUG")) {
 
-    SAYF(cMGN "[D]" cRST);
+    DEBUGF("");
     for (i = 0; i < argc; i++)
       SAYF(" %s", argv[i]);
     SAYF("\n");
@@ -1066,7 +1068,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (get_afl_env("AFL_DEBUG")) {
 
       int i = optind;
-      SAYF(cMGN "[D]" cRST " %s:", fsrv->target_path);
+      DEBUGF("%s:", fsrv->target_path);
       while (argv[i] != NULL) {
 
         SAYF(" \"%s\"", argv[i++]);
@@ -1090,8 +1092,29 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+    if (getenv("AFL_CRASH_EXITCODE")) {
+
+      long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
+      if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
+          exitcode < -127 || exitcode > 128) {
+
+        FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
+              getenv("AFL_CRASH_EXITCODE"));
+
+      }
+
+      fsrv->uses_crash_exitcode = true;
+      // WEXITSTATUS is 8 bit unsigned
+      fsrv->crash_exitcode = (u8)exitcode;
+
+    }
+
     afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                   get_afl_env("AFL_DEBUG_CHILD_OUTPUT") ? 1 : 0);
+                   (get_afl_env("AFL_DEBUG_CHILD") ||
+                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                       ? 1
+                       : 0);
+
     map_size = fsrv->map_size;
 
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)

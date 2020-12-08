@@ -7,15 +7,13 @@ For further information and documentation on how to write your own, read [the do
 
 If you use git to clone afl++, then the following will incorporate our
 excellent grammar custom mutator:
-```
-git submodule init
-git submodule update
+```sh
+git submodule update --init
 ```
 
-otherwise just use the script: `grammar_mutator/build_grammar_mutator.sh`
+Read the README in the [Grammar-Mutator] repository on how to use it.
 
-Read the [Grammar-Mutator/README.md](Grammar-Mutator/README.md) on how to use
-it.
+[Grammar-Mutator]: https://github.com/AFLplusplus/Grammar-Mutator
 
 ## Production-Ready Custom Mutators
 
