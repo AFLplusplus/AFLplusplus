@@ -504,8 +504,6 @@ code-format:
 	./.custom-format.py -i qemu_mode/libcompcov/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.cc
 	./.custom-format.py -i qemu_mode/libcompcov/*.h
-	./.custom-format.py -i qbdi_mode/*.c
-	./.custom-format.py -i qbdi_mode/*.cpp
 	./.custom-format.py -i *.h
 	./.custom-format.py -i *.c
 
