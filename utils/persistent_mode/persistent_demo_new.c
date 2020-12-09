@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <limits.h>
 
 /* this lets the source compile without afl-clang-fast/lto */
 #ifndef __AFL_FUZZ_TESTCASE_LEN
@@ -47,6 +48,11 @@ __AFL_FUZZ_INIT();
 
 /* Main entry point. */
 
+/* To ensure checks are not optimized out it is recommended to disable
+   code optimization for the fuzzer harness main() */
+#pragma clang optimize off
+#pragma GCC            optimize("O0")
+
 int main(int argc, char **argv) {
 
   ssize_t        len;                        /* how much input did we read? */
@@ -60,7 +66,7 @@ int main(int argc, char **argv) {
   __AFL_INIT();
   buf = __AFL_FUZZ_TESTCASE_BUF;  // this must be assigned before __AFL_LOOP!
 
-  while (__AFL_LOOP(1000)) {  // increase if you have good stability
+  while (__AFL_LOOP(UINT_MAX)) {  // increase if you have good stability
 
     len = __AFL_FUZZ_TESTCASE_LEN;  // do not use the macro directly in a call!
 

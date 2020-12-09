@@ -27,8 +27,14 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <limits.h>
 
 /* Main entry point. */
+
+/* To ensure checks are not optimized out it is recommended to disable
+   code optimization for the fuzzer harness main() */
+#pragma clang optimize off
+#pragma GCC            optimize("O0")
 
 int main(int argc, char **argv) {
 
@@ -42,7 +48,7 @@ int main(int argc, char **argv) {
      and similar hiccups. */
 
   __AFL_INIT();
-  while (__AFL_LOOP(1000)) {
+  while (__AFL_LOOP(UINT_MAX)) {
 
     /*** PLACEHOLDER CODE ***/
 

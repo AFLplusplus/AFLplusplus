@@ -17,15 +17,21 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <limits.h>
 
 __AFL_FUZZ_INIT();
+
+/* To ensure checks are not optimized out it is recommended to disable
+   code optimization for the fuzzer harness main() */
+#pragma clang optimize off
+#pragma GCC            optimize("O0")
 
 int main(int argc, char **argv) {
 
   __AFL_INIT();
   unsigned char *buf = __AFL_FUZZ_TESTCASE_BUF;
 
-  while (__AFL_LOOP(2147483647)) {  // MAX_INT if you have 100% stability
+  while (__AFL_LOOP(UINT_MAX)) {  // if you have 100% stability
 
     unsigned int len = __AFL_FUZZ_TESTCASE_LEN;
 
