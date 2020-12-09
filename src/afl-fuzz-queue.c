@@ -83,7 +83,7 @@ void create_alias_table(afl_state_t *afl) {
   memset((void *)afl->alias_table, 0, n * sizeof(u32));
   memset((void *)afl->alias_probability, 0, n * sizeof(double));
 
-  if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+  if (likely(afl->schedule < RARE)) {
 
     double avg_exec_us = 0.0;
     double avg_bitmap_size = 0.0;
