@@ -35,7 +35,7 @@ no sanitizers compiled in.
 There is also the option of generating a corpus using a non-ASAN binary, and
 then feeding it to an ASAN-instrumented one to check for bugs. This is faster,
 and can give you somewhat comparable results. You can also try using
-libdislocator (see libdislocator/README.dislocator.md in the parent directory) as a
+libdislocator (see [utils/libdislocator/README.dislocator.md](../utils/libdislocator/README.dislocator.md) in the parent directory) as a
 lightweight and hassle-free (but less thorough) alternative.
 
 ## 2) Long version

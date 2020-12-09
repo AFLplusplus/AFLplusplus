@@ -56,6 +56,7 @@ behaviours and defaults:
       editing config.h for TESTCASE_CACHE or by specifying the env variable
       `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500 (default: 50).
   * examples/ got renamed to utils/
+  * libtokencap/ libdislocator/ and qdbi_mode/ were moved to utils/
 
 ## Contents
 
@@ -547,7 +548,7 @@ something is already included for your data format, and tell afl-fuzz to load
 that dictionary by adding `-x dictionaries/FORMAT.dict`. With afl-clang-lto
 you have an autodictionary generation for which you need to do nothing except
 to use afl-clang-lto as the compiler. You also have the option to generate
-a dictionary yourself, see [libtokencap/README.md](libtokencap/README.md).
+a dictionary yourself, see [utils/libtokencap/README.md](utils/libtokencap/README.md).
 
 afl-fuzz has a variety of options that help to workaround target quirks like
 specific locations for the input file (`-f`), not performing deterministic
