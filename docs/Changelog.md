@@ -12,6 +12,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 ### Version ++3.00a (develop)
   - llvm_mode/ and gcc_plugin/ moved to instrumentation/
   - examples/ renamed to utils/
+  - moved libdislocator, libtokencap and qdbi_mode to utils/
   - all compilers combined to afl-cc which emulates the previous ones
   - afl-llvm/gcc-rt.o merged into afl-compiler-rt.o
   - afl-fuzz

@@ -493,8 +493,6 @@ endif
 code-format:
 	./.custom-format.py -i src/*.c
 	./.custom-format.py -i include/*.h
-	./.custom-format.py -i libdislocator/*.c
-	./.custom-format.py -i libtokencap/*.c
 	./.custom-format.py -i instrumentation/*.h
 	./.custom-format.py -i instrumentation/*.cc
 	./.custom-format.py -i instrumentation/*.c
@@ -545,8 +543,8 @@ clean:
 	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand
 	-$(MAKE) -f GNUmakefile.llvm clean
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
-	$(MAKE) -C libdislocator clean
-	$(MAKE) -C libtokencap clean
+	$(MAKE) -C utils/libdislocator clean
+	$(MAKE) -C utils/libtokencap clean
 	$(MAKE) -C utils/afl_network_proxy clean
 	$(MAKE) -C utils/socket_fuzzing clean
 	$(MAKE) -C utils/argv_fuzzing clean
@@ -570,8 +568,8 @@ deepclean:	clean
 distrib: all
 	-$(MAKE) -f GNUmakefile.llvm
 	-$(MAKE) -f GNUmakefile.gcc_plugin
-	$(MAKE) -C libdislocator
-	$(MAKE) -C libtokencap
+	$(MAKE) -C utils/libdislocator
+	$(MAKE) -C utils/libtokencap
 	$(MAKE) -C utils/aflpp_driver
 	$(MAKE) -C utils/afl_network_proxy
 	$(MAKE) -C utils/socket_fuzzing
@@ -581,8 +579,8 @@ distrib: all
 
 .PHONY: binary-only
 binary-only: all
-	$(MAKE) -C libdislocator
-	$(MAKE) -C libtokencap
+	$(MAKE) -C utils/libdislocator
+	$(MAKE) -C utils/libtokencap
 	$(MAKE) -C utils/afl_network_proxy
 	$(MAKE) -C utils/socket_fuzzing
 	$(MAKE) -C utils/argv_fuzzing
@@ -593,8 +591,8 @@ binary-only: all
 source-only: all
 	-$(MAKE) -f GNUmakefile.llvm
 	-$(MAKE) -f GNUmakefile.gcc_plugin
-	$(MAKE) -C libdislocator
-	$(MAKE) -C libtokencap
+	$(MAKE) -C utils/libdislocator
+	$(MAKE) -C utils/libtokencap
 	$(MAKE) -C utils/aflpp_driver
 
 %.8:	%

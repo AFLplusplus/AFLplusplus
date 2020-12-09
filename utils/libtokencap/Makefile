@@ -18,10 +18,10 @@ HELPER_PATH  = $(PREFIX)/lib/afl
 DOC_PATH    ?= $(PREFIX)/share/doc/afl
 MAN_PATH    ?= $(PREFIX)/share/man/man8
 
-VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
+VERSION     = $(shell grep '^\#define VERSION ' ../../config.h | cut -d '"' -f2)
 
 CFLAGS      ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
-CFLAGS += -I ../include/ -Wall -g -Wno-pointer-sign
+CFLAGS += -I ../../include/ -Wall -g -Wno-pointer-sign
 
 
 UNAME_S =$(shell uname -s)# GNU make
@@ -68,9 +68,9 @@ LDFLAGS     += $(_____OS_DL)
 #endif
 all: $(TARGETS)
 
-VPATH = ..
-libtokencap.so: libtokencap.so.c ../config.h
-	$(CC) $(CFLAGS) $(CPPFLAGS) -shared -fPIC $< -o ../$@ $(LDFLAGS)
+libtokencap.so: libtokencap.so.c ../../config.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -shared -fPIC $< -o $@ $(LDFLAGS)
+	cp -f libtokencap.so ../../
 
 .NOTPARALLEL: clean
 
@@ -86,9 +86,9 @@ debug:
 
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]*
-	rm -f ../libtokencap.so
+	rm -fv ../../libtokencap.so
 
 install: all
 	install -m 755 -d $${DESTDIR}$(HELPER_PATH)
-	install -m 755 ../libtokencap.so $${DESTDIR}$(HELPER_PATH)
+	install -m 755 ../../libtokencap.so $${DESTDIR}$(HELPER_PATH)
 	install -m 644 -T README.md $${DESTDIR}$(DOC_PATH)/README.tokencap.md
