@@ -252,10 +252,10 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
     shm_str = alloc_printf("%d", shm->shm_id);
 
-    /* If somebody is asking us to fuzz instrumented binaries in non-instrumented
-       mode, we don't want them to detect instrumentation, since we won't be
-       sending fork server commands. This should be replaced with better
-       auto-detection later on, perhaps? */
+    /* If somebody is asking us to fuzz instrumented binaries in
+       non-instrumented mode, we don't want them to detect instrumentation,
+       since we won't be sending fork server commands. This should be replaced
+       with better auto-detection later on, perhaps? */
 
     setenv(SHM_ENV_VAR, shm_str, 1);
 
