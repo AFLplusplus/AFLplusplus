@@ -960,6 +960,8 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 
   if (fsrv->shmem_fuzz) {
 
+    if (unlikely(len > MAX_FILE)) len = MAX_FILE;
+
     *fsrv->shmem_fuzz_len = len;
     memcpy(fsrv->shmem_fuzz, buf, len);
 #ifdef _DEBUG
