@@ -57,6 +57,8 @@ behaviours and defaults:
       `AFL_TESTCACHE_SIZE` (in MB). Good values are between 50-500 (default: 50).
   * examples/ got renamed to utils/
   * libtokencap/ libdislocator/ and qdbi_mode/ were moved to utils/
+  * afl-cmin/afl-cmin.bash now search first in PATH and last in AFL_PATH
+
 
 ## Contents
 

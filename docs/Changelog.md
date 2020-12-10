@@ -64,6 +64,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added INTROSPECTION support for custom modules
     - python fuzz function was not optional, fixed
     - some python mutator speed improvements
+  - afl-cmin/afl-cmin.bash now search first in PATH and last in AFL_PATH
   - unicornafl synced with upstream version 1.02 (fixes, better rust bindings)
   - renamed AFL_DEBUG_CHILD_OUTPUT to AFL_DEBUG_CHILD
   - added AFL_CRASH_EXITCODE env variable to treat a child exitcode as crash
