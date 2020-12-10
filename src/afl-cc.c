@@ -130,19 +130,26 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
   u8 *afl_path = getenv("AFL_PATH");
   u8 *slash = NULL, *tmp;
 
-  if (obj_path) {
+  /*
+    if (obj_path) {
 
-    tmp = alloc_printf("%s/%s", obj_path, obj);
+      tmp = alloc_printf("%s/%s", obj_path, obj);
 
-    if (!access(tmp, R_OK)) { return tmp; }
+      if (debug) DEBUGF("Trying %s\n", tmp);
 
-    ck_free(tmp);
+      if (!access(tmp, R_OK)) { return tmp; }
 
-  }
+      ck_free(tmp);
+
+    }
+
+  */
 
   if (afl_path) {
 
     tmp = alloc_printf("%s/%s", afl_path, obj);
+
+    if (debug) DEBUGF("Trying %s\n", tmp);
 
     if (!access(tmp, R_OK)) {
 
@@ -168,6 +175,8 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
 
       tmp = alloc_printf("%s/%s", dir, obj);
 
+      if (debug) DEBUGF("Trying %s\n", tmp);
+
       if (!access(tmp, R_OK)) {
 
         obj_path = dir;
@@ -177,6 +186,8 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
 
       ck_free(tmp);
       tmp = alloc_printf("%s/../lib/afl/%s", dir, obj);
+
+      if (debug) DEBUGF("Trying %s\n", tmp);
 
       if (!access(tmp, R_OK)) {
 
@@ -232,6 +243,8 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
             ck_free(tmp);
             tmp = alloc_printf("%s/../lib/afl/%s", exepath, obj);
 
+            if (debug) DEBUGF("Trying %s\n", tmp);
+
             if (!access(tmp, R_OK)) {
 
               u8 *dir = alloc_printf("%s/../lib/afl/", exepath);
@@ -255,6 +268,8 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
 
   tmp = alloc_printf("%s/%s", AFL_PATH, obj);
 
+  if (debug) DEBUGF("Trying %s\n", tmp);
+
   if (!access(tmp, R_OK)) {
 
     obj_path = AFL_PATH;
@@ -266,6 +281,8 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
 
   tmp = alloc_printf("./%s", obj);
 
+  if (debug) DEBUGF("Trying %s\n", tmp);
+
   if (!access(tmp, R_OK)) {
 
     obj_path = ".";
@@ -274,6 +291,8 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
   }
 
   ck_free(tmp);
+
+  if (debug) DEBUGF("Trying ... giving up\n");
 
   return NULL;
 
