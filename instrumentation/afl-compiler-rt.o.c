@@ -229,7 +229,7 @@ static void __afl_map_shm_fuzz() {
 
 static void __afl_map_shm(void) {
 
-  // we we are not running in afl ensure the map exists
+  // if we are not running in afl ensure the map exists
   if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_initial; }
 
   char *id_str = getenv(SHM_ENV_VAR);
