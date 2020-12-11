@@ -131,6 +131,11 @@ static void edit_params(int argc, char **argv) {
   if (!tmp_dir) { tmp_dir = "/tmp"; }
 
   as_params = ck_alloc((argc + 32) * sizeof(u8 *));
+  if (unlikely((argc + 32) < argc || !as_params)) {
+
+    FATAL("Too many parameters passed to as");
+
+  }
 
   as_params[0] = afl_as ? afl_as : (u8 *)"as";
 
