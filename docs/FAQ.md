@@ -63,7 +63,7 @@ x10 - that is a x100 difference!).
 If modifying the source is not an option (e.g. because you only have a binary
 and perform binary fuzzing) you can also use a shared library with AFL_PRELOAD
 to emulate the network. This is also much faster than the real network would be.
-See [examples/socket_fuzzing/](../examples/socket_fuzzing/).
+See [utils/socket_fuzzing/](../utils/socket_fuzzing/).
 
 There is an outdated afl++ branch that implements networking if you are
 desperate though: [https://github.com/AFLplusplus/AFLplusplus/tree/networking](https://github.com/AFLplusplus/AFLplusplus/tree/networking) - 

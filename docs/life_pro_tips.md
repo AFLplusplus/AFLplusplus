@@ -13,7 +13,7 @@ See [parallel_fuzzing.md](parallel_fuzzing.md) for step-by-step tips.
 
 ## Improve the odds of spotting memory corruption bugs with libdislocator.so!
 
-It's easy. Consult [libdislocator/README.md](../libdislocator/README.md) for usage tips.
+It's easy. Consult [utils/libdislocator/README.md](../utils/libdislocator/README.md) for usage tips.
 
 ## Want to understand how your target parses a particular input file?
 
@@ -78,10 +78,10 @@ Be sure to check out docs/sister_projects.md before writing your own.
 
 ## Need to fuzz the command-line arguments of a particular program?
 
-You can find a simple solution in examples/argv_fuzzing.
+You can find a simple solution in utils/argv_fuzzing.
 
 ## Attacking a format that uses checksums? 
 
 Remove the checksum-checking code or use a postprocessor!
-See examples/custom_mutators/ for more.
+See utils/custom_mutators/ for more.
 

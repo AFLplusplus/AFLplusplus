@@ -55,7 +55,7 @@ make fairly broad use of environmental variables instead:
     in your `$PATH`.
 
   - `AFL_PATH` can be used to point afl-gcc to an alternate location of afl-as.
-    One possible use of this is examples/clang_asm_normalize/, which lets
+    One possible use of this is utils/clang_asm_normalize/, which lets
     you instrument hand-written assembly when compiling clang code by plugging
     a normalizer into the chain. (There is no equivalent feature for GCC.)
 
@@ -294,6 +294,9 @@ checks or alter some of the more exotic semantics of the tool:
     on Linux systems. This slows things down, but lets you run more instances
     of afl-fuzz than would be prudent (if you really want to).
 
+  - Setting `AFL_NO_AUTODICT` will not load an LTO generated auto dictionary
+    that is compiled into the target.
+
   - `AFL_SKIP_CRASHES` causes AFL++ to tolerate crashing files in the input
     queue. This can help with rare situations where a program crashes only
     intermittently, but it's not really recommended under normal operating
@@ -424,6 +427,13 @@ checks or alter some of the more exotic semantics of the tool:
     To get the most out of this, you should provide `AFL_STATSD_TAGS_FLAVOR` that
     matches your StatsD server.
     Available flavors are `dogstatsd`, `librato`, `signalfx` and `influxdb`.
+
+  - Setting `AFL_CRASH_EXITCODE` sets the exit code afl treats as crash.
+    For example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting
+    in an `-1` return code (i.e. `exit(-1)` got called), will be treated
+    as if a crash had ocurred.
+    This may be beneficial if you look for higher-level faulty conditions in which your
+    target still exits gracefully.
 
   - Outdated environment variables that are not supported anymore:
     `AFL_DEFER_FORKSRV`

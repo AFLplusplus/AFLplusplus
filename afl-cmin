@@ -113,14 +113,15 @@ function usage() {
 "  -C            - keep crashing inputs, reject everything else\n" \
 "  -e            - solve for edge coverage only, ignore hit counts\n" \
 "\n" \
-"For additional tips, please consult docs/README.md\n" \
+"For additional tips, please consult README.md\n" \
 "\n" \
 "Environment variables used:\n" \
+"AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp\n" \
+"AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n" \
+"AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the target to come up, initially\n" \
 "AFL_KEEP_TRACES: leave the temporary <out_dir>/.traces directory\n" \
-"AFL_PATH: path for the afl-showmap binary\n" \
-"AFL_SKIP_BIN_CHECK: skip check for target binary\n" \
-"AFL_ALLOW_TMP: allow unsafe use of input/output directories under {/var}/tmp\n"
-"AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the target to come up, initially\n"
+"AFL_PATH: path for the afl-showmap binary if not found anywhere else\n" \
+"AFL_SKIP_BIN_CHECK: skip check for target binary\n"
    exit 1
 }
 
@@ -312,14 +313,18 @@ BEGIN {
     close( stdin_file )
   }
 
-  if (!ENVIRON["AFL_PATH"]) {
-    if (0 == system("test -f afl-cmin")) {
+  # First we look in PATH
+  if (0 == system("command -v afl-showmap >/dev/null 2>&1")) {
+    "command -v afl-showmap 2>/dev/null" | getline showmap
+  } else {
+    # then we look in the current directory
+    if (0 == system("test -x ./afl-showmap")) {
       showmap = "./afl-showmap"
     } else {
-      "command -v afl-showmap 2>/dev/null" | getline showmap
+      if (ENVIRON["AFL_PATH"]) {
+        showmap = ENVIRON["AFL_PATH"] "/afl-showmap"
+      }
     }
-  } else {
-    showmap = ENVIRON["AFL_PATH"] "/afl-showmap"
   }
 
   if (!showmap || 0 != system("test -x "showmap )) {

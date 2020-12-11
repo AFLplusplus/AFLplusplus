@@ -31,14 +31,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <stdbool.h>
 #include "types.h"
-#include "stdbool.h"
 
 /* STRINGIFY_VAL_SIZE_MAX will fit all stringify_ strings. */
 
 #define STRINGIFY_VAL_SIZE_MAX (16)
 
-void detect_file_args(char **argv, u8 *prog_in, u8 *use_stdin);
+void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin);
 void check_environment_vars(char **env);
 
 char **argv_cpy_dup(int argc, char **argv);

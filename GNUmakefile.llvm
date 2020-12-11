@@ -34,7 +34,7 @@ ifeq "$(shell uname)" "OpenBSD"
   LLVM_CONFIG ?= $(BIN_PATH)/llvm-config
   HAS_OPT = $(shell test -x $(BIN_PATH)/opt && echo 0 || echo 1)
   ifeq "$(HAS_OPT)" "1"
-    $(warn llvm_mode needs a complete llvm installation (versions 3.4 up to 12) -> e.g. "pkg_add llvm-7.0.1p9")
+    $(warning llvm_mode needs a complete llvm installation (versions 3.4 up to 12) -> e.g. "pkg_add llvm-7.0.1p9")
   endif
 else
   LLVM_CONFIG ?= llvm-config
@@ -288,13 +288,13 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
         SHMAT_OK=1
 else
         SHMAT_OK=0
-        CFLAGS_SAFE+=-DUSEMMAP=1
+        CFLAGS_SAFE += -DUSEMMAP=1
         LDFLAGS += -Wno-deprecated-declarations
 endif
 
 ifeq "$(TEST_MMAP)" "1"
         SHMAT_OK=0
-        CFLAGS_SAFE+=-DUSEMMAP=1
+        CFLAGS_SAFE += -DUSEMMAP=1
         LDFLAGS += -Wno-deprecated-declarations
 endif
 
@@ -361,6 +361,8 @@ instrumentation/afl-common.o: ./src/afl-common.c
 	@ln -sf afl-cc ./afl-c++
 	@ln -sf afl-cc ./afl-gcc
 	@ln -sf afl-cc ./afl-g++
+	@ln -sf afl-cc ./afl-clang
+	@ln -sf afl-cc ./afl-clang++
 	@ln -sf afl-cc ./afl-clang-fast
 	@ln -sf afl-cc ./afl-clang-fast++
 ifneq "$(AFL_CLANG_FLTO)" ""

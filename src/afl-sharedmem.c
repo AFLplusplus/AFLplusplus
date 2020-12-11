@@ -248,22 +248,26 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
-  shm_str = alloc_printf("%d", shm->shm_id);
+  if (!non_instrumented_mode) {
 
-  /* If somebody is asking us to fuzz instrumented binaries in non-instrumented
-     mode, we don't want them to detect instrumentation, since we won't be
-     sending fork server commands. This should be replaced with better
-     auto-detection later on, perhaps? */
+    shm_str = alloc_printf("%d", shm->shm_id);
 
-  if (!non_instrumented_mode) { setenv(SHM_ENV_VAR, shm_str, 1); }
+    /* If somebody is asking us to fuzz instrumented binaries in
+       non-instrumented mode, we don't want them to detect instrumentation,
+       since we won't be sending fork server commands. This should be replaced
+       with better auto-detection later on, perhaps? */
 
-  ck_free(shm_str);
+    setenv(SHM_ENV_VAR, shm_str, 1);
 
-  if (shm->cmplog_mode) {
+    ck_free(shm_str);
+
+  }
+
+  if (shm->cmplog_mode && !non_instrumented_mode) {
 
     shm_str = alloc_printf("%d", shm->cmplog_shm_id);
 
-    if (!non_instrumented_mode) { setenv(CMPLOG_SHM_ENV_VAR, shm_str, 1); }
+    setenv(CMPLOG_SHM_ENV_VAR, shm_str, 1);
 
     ck_free(shm_str);
 
@@ -274,6 +278,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   if (shm->map == (void *)-1 || !shm->map) {
 
     shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
+
     if (shm->cmplog_mode) {
 
       shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
@@ -291,11 +296,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     if (shm->cmp_map == (void *)-1 || !shm->cmp_map) {
 
       shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
-      if (shm->cmplog_mode) {
 
-        shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
-
-      }
+      shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
 
       PFATAL("shmat() failed");
 

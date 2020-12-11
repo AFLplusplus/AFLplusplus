@@ -79,7 +79,8 @@ write_to_testcase(afl_state_t *afl, void *mem, u32 len) {
   s32  doc_fd;
   char fn[PATH_MAX];
   snprintf(fn, PATH_MAX, "%s/mutations/%09u:%s", afl->out_dir,
-           afl->document_counter++, describe_op(afl, 0));
+           afl->document_counter++,
+           describe_op(afl, 0, NAME_MAX - strlen("000000000:")));
 
   if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600)) >= 0) {
 
@@ -484,7 +485,7 @@ void sync_fuzzers(afl_state_t *afl) {
   DIR *          sd;
   struct dirent *sd_ent;
   u32            sync_cnt = 0, synced = 0, entries = 0;
-  u8             path[PATH_MAX + 256];
+  u8             path[PATH_MAX + 1 + NAME_MAX];
 
   sd = opendir(afl->sync_dir);
   if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }

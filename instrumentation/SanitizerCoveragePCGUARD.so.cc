@@ -1127,11 +1127,11 @@ void ModuleSanitizerCoverage::InjectTraceForCmp(
       Value *     A1 = ICMP->getOperand(1);
       if (!A0->getType()->isIntegerTy()) continue;
       uint64_t TypeSize = DL->getTypeStoreSizeInBits(A0->getType());
-      int      CallbackIdx =
-          TypeSize == 8
-              ? 0
-              : TypeSize == 16 ? 1
-                               : TypeSize == 32 ? 2 : TypeSize == 64 ? 3 : -1;
+      int      CallbackIdx = TypeSize == 8    ? 0
+                             : TypeSize == 16 ? 1
+                             : TypeSize == 32 ? 2
+                             : TypeSize == 64 ? 3
+                                              : -1;
       if (CallbackIdx < 0) continue;
       // __sanitizer_cov_trace_cmp((type_size << 32) | predicate, A0, A1);
       auto CallbackFunc = SanCovTraceCmpFunction[CallbackIdx];

@@ -172,4 +172,4 @@ and so the input_buf variables of the hook becomes meaningful. Otherwise,
 you have to read the input from a file like stdin.
 
 An example that you can use with little modification for your target can
-be found here: [examples/qemu_persistent_hook](../examples/qemu_persistent_hook)
+be found here: [utils/qemu_persistent_hook](../utils/qemu_persistent_hook)

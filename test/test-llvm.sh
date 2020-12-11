@@ -209,7 +209,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     INCOMPLETE=1
   }
   rm -rf errors test-cmplog in core.*
-  ../afl-clang-fast -o test-persistent ../examples/persistent_demo/persistent_demo.c > /dev/null 2>&1
+  ../afl-clang-fast -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] llvm_mode persistent mode feature works correctly"

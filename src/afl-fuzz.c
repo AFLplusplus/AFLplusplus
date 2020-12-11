@@ -26,6 +26,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 #include <limits.h>
+#include <stdlib.h>
 #ifndef USEMMAP
   #include <sys/mman.h>
   #include <sys/stat.h>
@@ -40,7 +41,7 @@ extern u64 time_spent_working;
 
 static void at_exit() {
 
-  int   i;
+  s32   i, pid1 = 0, pid2 = 0;
   char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
   char *ptr;
 
@@ -48,10 +49,10 @@ static void at_exit() {
   if (ptr && *ptr) unlink(ptr);
 
   ptr = getenv("__AFL_TARGET_PID1");
-  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
+  if (ptr && *ptr && (pid1 = atoi(ptr)) > 0) kill(pid1, SIGTERM);
 
   ptr = getenv("__AFL_TARGET_PID2");
-  if (ptr && *ptr && (i = atoi(ptr)) > 0) kill(i, SIGKILL);
+  if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) kill(pid2, SIGTERM);
 
   i = 0;
   while (list[i] != NULL) {
@@ -74,6 +75,9 @@ static void at_exit() {
     i++;
 
   }
+
+  if (pid1 > 0) { kill(pid1, SIGKILL); }
+  if (pid2 > 0) { kill(pid2, SIGKILL); }
 
 }
 
@@ -162,6 +166,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
       "AFL_BENCH_JUST_ONE: run the target just once\n"
       "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
+      "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n"
       "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
       "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
       "AFL_CYCLE_SCHEDULES: after completing a cycle, switch to a different -p schedule\n"
@@ -184,6 +189,7 @@ static void usage(u8 *argv0, int more_help) {
       "                    used. Defaults to 200.\n"
       "AFL_NO_AFFINITY: do not check for an unused cpu core to use for fuzzing\n"
       "AFL_NO_ARITH: skip arithmetic mutations in deterministic stage\n"
+      "AFL_NO_AUTODICT: do not load an offered auto dictionary compiled into a target\n"
       "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
@@ -224,6 +230,12 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled without python module support\n");
 #endif
 
+#ifdef USEMMAP
+  SAYF("Compiled with shm_open support.\n");
+#else
+  SAYF("Compiled with shmat support.\n");
+#endif
+
 #ifdef ASAN_BUILD
   SAYF("Compiled with ASAN_BUILD\n\n");
 #endif
@@ -248,7 +260,7 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS\n\n");
 #endif
 
-  SAYF("For additional help please consult %s/README.md\n\n", doc_path);
+  SAYF("For additional help please consult %s/README.md :)\n\n", doc_path);
 
   exit(1);
 #undef PHYTON_SUPPORT
@@ -698,7 +710,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'N':                                             /* Unicorn mode */
 
         if (afl->no_unlink) { FATAL("Multiple -N options not supported"); }
-        afl->fsrv.no_unlink = afl->no_unlink = 1;
+        afl->fsrv.no_unlink = (afl->no_unlink = true);
 
         break;
 
@@ -909,7 +921,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (!mem_limit_given && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
+  if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
@@ -1128,6 +1140,23 @@ int main(int argc, char **argv_orig, char **envp) {
   } else {
 
     afl->fsrv.init_tmout = afl->fsrv.exec_tmout * FORK_WAIT_MULT;
+
+  }
+
+  if (afl->afl_env.afl_crash_exitcode) {
+
+    long exitcode = strtol(afl->afl_env.afl_crash_exitcode, NULL, 10);
+    if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
+        exitcode < -127 || exitcode > 128) {
+
+      FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
+            afl->afl_env.afl_crash_exitcode);
+
+    }
+
+    afl->fsrv.uses_crash_exitcode = true;
+    // WEXITSTATUS is 8 bit unsigned
+    afl->fsrv.crash_exitcode = (u8)exitcode;
 
   }
 
@@ -1482,8 +1511,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   cull_queue(afl);
 
-  if (!afl->pending_not_fuzzed)
+  if (!afl->pending_not_fuzzed) {
+
     FATAL("We need at least on valid input seed that does not crash!");
+
+  }
 
   show_init_stats(afl);
 

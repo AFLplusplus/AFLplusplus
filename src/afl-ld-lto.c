@@ -182,12 +182,12 @@ static void edit_params(int argc, char **argv) {
     instrim = 1;
 
   if (debug)
-    SAYF(cMGN "[D] " cRST
-              "passthrough=%s instrim=%d, gold_pos=%d, gold_present=%s "
-              "inst_present=%s rt_present=%s rt_lto_present=%s\n",
-         passthrough ? "true" : "false", instrim, gold_pos,
-         gold_present ? "true" : "false", inst_present ? "true" : "false",
-         rt_present ? "true" : "false", rt_lto_present ? "true" : "false");
+    DEBUGF(
+        "passthrough=%s instrim=%d, gold_pos=%d, gold_present=%s "
+        "inst_present=%s rt_present=%s rt_lto_present=%s\n",
+        passthrough ? "true" : "false", instrim, gold_pos,
+        gold_present ? "true" : "false", inst_present ? "true" : "false",
+        rt_present ? "true" : "false", rt_lto_present ? "true" : "false");
 
   for (i = 1; i < argc; i++) {
 
@@ -280,7 +280,7 @@ int main(int argc, char **argv) {
 
     if (getcwd(thecwd, sizeof(thecwd)) != 0) strcpy(thecwd, ".");
 
-    SAYF(cMGN "[D] " cRST "cd \"%s\";", thecwd);
+    DEBUGF("cd \"%s\";", thecwd);
     for (i = 0; i < argc; i++)
       SAYF(" \"%s\"", argv[i]);
     SAYF("\n");
@@ -315,7 +315,7 @@ int main(int argc, char **argv) {
 
   if (debug) {
 
-    SAYF(cMGN "[D]" cRST " cd \"%s\";", thecwd);
+    DEBUGF("cd \"%s\";", thecwd);
     for (i = 0; i < ld_param_cnt; i++)
       SAYF(" \"%s\"", ld_params[i]);
     SAYF("\n");
@@ -333,7 +333,7 @@ int main(int argc, char **argv) {
   if (pid < 0) PFATAL("fork() failed");
 
   if (waitpid(pid, &status, 0) <= 0) PFATAL("waitpid() failed");
-  if (debug) SAYF(cMGN "[D] " cRST "linker result: %d\n", status);
+  if (debug) DEBUGF("linker result: %d\n", status);
 
   if (!just_version) {
 

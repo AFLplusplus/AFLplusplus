@@ -128,11 +128,11 @@ Minimization settings:
   -C            - keep crashing inputs, reject everything else
   -e            - solve for edge coverage only, ignore hit counts
 
-For additional tips, please consult docs/README.md.
+For additional tips, please consult README.md.
 
 Environment variables used:
 AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
-AFL_PATH: path for the afl-showmap binary
+AFL_PATH: last resort location to find the afl-showmap binary
 AFL_SKIP_BIN_CHECK: skip check for target binary
 _EOF_
   exit 1
@@ -244,10 +244,21 @@ if [ ! "$STDIN_FILE" = "" ]; then
   touch "$STDIN_FILE" || exit 1
 fi
 
-if [ "$AFL_PATH" = "" ]; then
-  SHOWMAP="${0%/afl-cmin.bash}/afl-showmap"
+SHOWMAP=`command -v afl-showmap 2>/dev/null`
+
+if [ -z "$SHOWMAP" ]; then
+  TMP="${0%/afl-cmin.bash}/afl-showmap"
+  if [ -x "$TMP" ]; then
+    SHOWMAP=$TMP
+  fi
+fi
+
+if [ -z "$SHOWMAP" -a -x "./afl-showmap" ]; then
+  SHOWMAP="./afl-showmap"
 else
-  SHOWMAP="$AFL_PATH/afl-showmap"
+  if [ -n "$AFL_PATH" ]; then
+    SHOWMAP="$AFL_PATH/afl-showmap"
+  fi
 fi
 
 if [ ! -x "$SHOWMAP" ]; then

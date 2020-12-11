@@ -42,11 +42,39 @@ inline u32 select_next_queue_entry(afl_state_t *afl) {
 
 }
 
+double compute_weight(afl_state_t *afl, struct queue_entry *q,
+                      double avg_exec_us, double avg_bitmap_size) {
+
+  u32 hits;
+
+  if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
+
+    hits = afl->n_fuzz[q->n_fuzz_entry];
+    if (hits == 0) { hits = 1; }
+
+  } else {
+
+    hits = 1;
+
+  }
+
+  double weight = 1.0;
+  weight *= avg_exec_us / q->exec_us;
+  weight *= log(q->bitmap_size) / avg_bitmap_size;
+  weight /= log10(hits) + 1;
+
+  if (q->favored) weight *= 5;
+
+  return weight;
+
+}
+
 /* create the alias table that allows weighted random selection - expensive */
 
 void create_alias_table(afl_state_t *afl) {
 
-  u32 n = afl->queued_paths, i = 0, a, g;
+  u32    n = afl->queued_paths, i = 0, a, g;
+  double sum = 0;
 
   afl->alias_table =
       (u32 *)afl_realloc((void **)&afl->alias_table, n * sizeof(u32));
@@ -65,22 +93,60 @@ void create_alias_table(afl_state_t *afl) {
   memset((void *)afl->alias_table, 0, n * sizeof(u32));
   memset((void *)afl->alias_probability, 0, n * sizeof(double));
 
-  double sum = 0;
+  if (likely(afl->schedule < RARE)) {
 
-  for (i = 0; i < n; i++) {
+    double avg_exec_us = 0.0;
+    double avg_bitmap_size = 0.0;
+    for (i = 0; i < n; i++) {
 
-    struct queue_entry *q = afl->queue_buf[i];
+      struct queue_entry *q = afl->queue_buf[i];
+      avg_exec_us += q->exec_us;
+      avg_bitmap_size += log(q->bitmap_size);
 
-    if (!q->disabled) { q->perf_score = calculate_score(afl, q); }
+    }
 
-    sum += q->perf_score;
+    avg_exec_us /= afl->queued_paths;
+    avg_bitmap_size /= afl->queued_paths;
 
-  }
+    for (i = 0; i < n; i++) {
 
-  for (i = 0; i < n; i++) {
+      struct queue_entry *q = afl->queue_buf[i];
 
-    struct queue_entry *q = afl->queue_buf[i];
-    P[i] = (q->perf_score * n) / sum;
+      if (!q->disabled) {
+
+        q->weight = compute_weight(afl, q, avg_exec_us, avg_bitmap_size);
+        q->perf_score = calculate_score(afl, q);
+
+      }
+
+      sum += q->weight;
+
+    }
+
+    for (i = 0; i < n; i++) {
+
+      P[i] = (afl->queue_buf[i]->weight * n) / sum;
+
+    }
+
+  } else {
+
+    for (i = 0; i < n; i++) {
+
+      struct queue_entry *q = afl->queue_buf[i];
+
+      if (!q->disabled) { q->perf_score = calculate_score(afl, q); }
+
+      sum += q->perf_score;
+
+    }
+
+    for (i = 0; i < n; i++) {
+
+      struct queue_entry *q = afl->queue_buf[i];
+      P[i] = (q->perf_score * n) / sum;
+
+    }
 
   }
 

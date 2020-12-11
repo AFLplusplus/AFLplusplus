@@ -268,8 +268,8 @@ struct InsTrim : public ModulePass {
 
         for (auto &BB : F)
           if (BB.size() > 0) ++bb_cnt;
-        SAYF(cMGN "[D] " cRST "Function %s size %zu %u\n",
-             F.getName().str().c_str(), F.size(), bb_cnt);
+        DEBUGF("Function %s size %zu %u\n", F.getName().str().c_str(), F.size(),
+               bb_cnt);
 
       }
 
