@@ -1107,7 +1107,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
      to avoid duplicate calls (which can happen as an artifact of the underlying
      implementation in LLVM). */
 
-  *(start++) = R(MAP_SIZE - 1) + 1;
+  *(start++) = ++__afl_final_loc;
 
   while (start < stop) {
 
