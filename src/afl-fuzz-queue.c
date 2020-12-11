@@ -47,7 +47,7 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
 
   u32 hits;
   
-  if (likely(afl->schedule >= FAST && afl->schedule < RARE)) {
+  if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
   
     hits = afl->n_fuzz[q->n_fuzz_entry];
     if (hits == 0) { hits = 1; }
