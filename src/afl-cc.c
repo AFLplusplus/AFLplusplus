@@ -130,21 +130,6 @@ static u8 *find_object(u8 *obj, u8 *argv0) {
   u8 *afl_path = getenv("AFL_PATH");
   u8 *slash = NULL, *tmp;
 
-  /*
-    if (obj_path) {
-
-      tmp = alloc_printf("%s/%s", obj_path, obj);
-
-      if (debug) DEBUGF("Trying %s\n", tmp);
-
-      if (!access(tmp, R_OK)) { return tmp; }
-
-      ck_free(tmp);
-
-    }
-
-  */
-
   if (afl_path) {
 
     tmp = alloc_printf("%s/%s", afl_path, obj);
@@ -906,6 +891,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
+#ifdef USEMMAP
+    cc_params[cc_par_cnt++] = "-lrt";
+#endif
+
   }
 
 #endif
@@ -1475,8 +1464,14 @@ int main(int argc, char **argv, char **envp) {
     if (have_llvm)
       SAYF("afl-cc LLVM version %d with the the binary path \"%s\".\n",
            LLVM_MAJOR, LLVM_BINDIR);
-    if (have_lto || have_llvm) SAYF("\n");
 #endif
+
+#ifdef USEMMAP
+  SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
+#else
+  SAYF("Compiled with shmat support.\n");
+#endif
+    SAYF("\n");
 
     SAYF(
         "Do not be overwhelmed :) afl-cc uses good defaults if no options are "

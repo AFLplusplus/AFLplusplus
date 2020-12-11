@@ -230,6 +230,12 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled without python module support\n");
 #endif
 
+#ifdef USEMMAP
+  SAYF("Compiled with shm_open support.\n");
+#else
+  SAYF("Compiled with shmat support.\n");
+#endif
+
 #ifdef ASAN_BUILD
   SAYF("Compiled with ASAN_BUILD\n\n");
 #endif
@@ -254,7 +260,7 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS\n\n");
 #endif
 
-  SAYF("For additional help please consult %s/README.md\n\n", doc_path);
+  SAYF("For additional help please consult %s/README.md :)\n\n", doc_path);
 
   exit(1);
 #undef PHYTON_SUPPORT
