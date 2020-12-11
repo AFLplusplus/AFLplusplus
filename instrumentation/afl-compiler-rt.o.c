@@ -101,6 +101,11 @@ int __afl_sharedmem_fuzzing __attribute__((weak));
 
 struct cmp_map *__afl_cmp_map;
 
+/* Child pid? */
+
+static s32 child_pid;
+static void (*old_sigterm_handler)(int) = 0;
+
 /* Running in persistent mode? */
 
 static u8 is_persistent;
@@ -108,6 +113,14 @@ static u8 is_persistent;
 /* Are we in sancov mode? */
 
 static u8 _is_sancov;
+
+/* ensure we kill the child on termination */
+
+void at_exit(int signal) {
+
+  if (child_pid > 0) { kill(child_pid, SIGKILL); }
+
+}
 
 /* Uninspired gcc plugin instrumentation */
 
@@ -150,14 +163,19 @@ static void __afl_map_shm_fuzz() {
 
   char *id_str = getenv(SHM_FUZZ_ENV_VAR);
 
+  if (getenv("AFL_DEBUG")) {
+
+    fprintf(stderr, "DEBUG: fuzzcase shmem %s\n", id_str ? id_str : "none");
+
+  }
+
   if (id_str) {
 
     u8 *map = NULL;
 
 #ifdef USEMMAP
-    const char *   shm_file_path = id_str;
-    int            shm_fd = -1;
-    unsigned char *shm_base = NULL;
+    const char *shm_file_path = id_str;
+    int         shm_fd = -1;
 
     /* create the shared memory segment as if it was a file */
     shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
@@ -183,6 +201,7 @@ static void __afl_map_shm_fuzz() {
     if (!map || map == (void *)-1) {
 
       perror("Could not access fuzzing shared memory");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
       exit(1);
 
     }
@@ -199,6 +218,7 @@ static void __afl_map_shm_fuzz() {
   } else {
 
     fprintf(stderr, "Error: variable for fuzzing shared memory is not set\n");
+    send_forkserver_error(FS_ERROR_SHM_OPEN);
     exit(1);
 
   }
@@ -322,6 +342,8 @@ static void __afl_map_shm(void) {
         send_forkserver_error(FS_ERROR_MAP_ADDR);
       else
         send_forkserver_error(FS_ERROR_MMAP);
+      perror("mmap for map");
+
       exit(2);
 
     }
@@ -332,19 +354,21 @@ static void __afl_map_shm(void) {
 
     __afl_area_ptr = shmat(shm_id, (void *)__afl_map_addr, 0);
 
-#endif
-
     /* Whooooops. */
 
-    if (__afl_area_ptr == (void *)-1) {
+    if (!__afl_area_ptr || __afl_area_ptr == (void *)-1) {
 
       if (__afl_map_addr)
         send_forkserver_error(FS_ERROR_MAP_ADDR);
       else
         send_forkserver_error(FS_ERROR_SHMAT);
+
+      perror("shmat for map");
       _exit(1);
 
     }
+
+#endif
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
        our parent doesn't give up on us. */
@@ -363,6 +387,7 @@ static void __afl_map_shm(void) {
 
       fprintf(stderr, "can not acquire mmap for address %p\n",
               (void *)__afl_map_addr);
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
       exit(1);
 
     }
@@ -389,15 +414,16 @@ static void __afl_map_shm(void) {
   if (id_str) {
 
 #ifdef USEMMAP
-    const char *   shm_file_path = id_str;
-    int            shm_fd = -1;
-    unsigned char *shm_base = NULL;
+    const char *    shm_file_path = id_str;
+    int             shm_fd = -1;
+    struct cmp_map *shm_base = NULL;
 
     /* create the shared memory segment as if it was a file */
     shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
     if (shm_fd == -1) {
 
-      fprintf(stderr, "shm_open() failed\n");
+      perror("shm_open() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
       exit(1);
 
     }
@@ -411,6 +437,7 @@ static void __afl_map_shm(void) {
       shm_fd = -1;
 
       fprintf(stderr, "mmap() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
       exit(2);
 
     }
@@ -422,7 +449,13 @@ static void __afl_map_shm(void) {
     __afl_cmp_map = shmat(shm_id, NULL, 0);
 #endif
 
-    if (__afl_cmp_map == (void *)-1) _exit(1);
+    if (!__afl_cmp_map || __afl_cmp_map == (void *)-1) {
+
+      perror("shmat for cmplog");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      _exit(1);
+
+    }
 
   }
 
@@ -432,7 +465,6 @@ static void __afl_map_shm(void) {
 static void __afl_start_snapshots(void) {
 
   static u8 tmp[4] = {0, 0, 0, 0};
-  s32       child_pid;
   u32       status = 0;
   u32       already_read_first = 0;
   u32       was_killed;
@@ -579,6 +611,7 @@ static void __afl_start_snapshots(void) {
         //(void)nice(-20);  // does not seem to improve
 
         signal(SIGCHLD, old_sigchld_handler);
+        signal(SIGTERM, old_sigterm_handler);
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
@@ -633,6 +666,11 @@ static void __afl_start_snapshots(void) {
 
 static void __afl_start_forkserver(void) {
 
+  struct sigaction orig_action;
+  sigaction(SIGTERM, NULL, &orig_action);
+  old_sigterm_handler = orig_action.sa_handler;
+  signal(SIGTERM, at_exit);
+
 #ifdef __linux__
   if (/*!is_persistent &&*/ !__afl_cmp_map && !getenv("AFL_NO_SNAPSHOT") &&
       afl_snapshot_init() >= 0) {
@@ -645,7 +683,6 @@ static void __afl_start_forkserver(void) {
 #endif
 
   u8  tmp[4] = {0, 0, 0, 0};
-  s32 child_pid;
   u32 status = 0;
   u32 already_read_first = 0;
   u32 was_killed;
@@ -793,6 +830,7 @@ static void __afl_start_forkserver(void) {
         //(void)nice(-20);
 
         signal(SIGCHLD, old_sigchld_handler);
+        signal(SIGTERM, old_sigterm_handler);
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
@@ -1069,7 +1107,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
      to avoid duplicate calls (which can happen as an artifact of the underlying
      implementation in LLVM). */
 
-  *(start++) = R(MAP_SIZE - 1) + 1;
+  *(start++) = ++__afl_final_loc;
 
   while (start < stop) {
 

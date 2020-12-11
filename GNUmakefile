@@ -85,7 +85,9 @@ ifneq "$(shell uname)" "Darwin"
    endif
  endif
  # OS X does not like _FORTIFY_SOURCE=2
- CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+ ifndef DEBUG
+   CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+ endif
 endif
 
 ifeq "$(shell uname)" "SunOS"
@@ -232,7 +234,9 @@ else
 endif
 
 ifneq "$(filter Linux GNU%,$(shell uname))" ""
+ ifndef DEBUG
   override CFLAGS += -D_FORTIFY_SOURCE=2
+ endif
   LDFLAGS += -ldl -lrt -lm
 endif
 
@@ -417,7 +421,7 @@ src/afl-sharedmem.o : $(COMM_HDR) src/afl-sharedmem.c include/sharedmem.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
 afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS) -lm
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o -o $@ $(LDFLAGS)
@@ -489,21 +493,17 @@ endif
 code-format:
 	./.custom-format.py -i src/*.c
 	./.custom-format.py -i include/*.h
-	./.custom-format.py -i libdislocator/*.c
-	./.custom-format.py -i libtokencap/*.c
 	./.custom-format.py -i instrumentation/*.h
 	./.custom-format.py -i instrumentation/*.cc
 	./.custom-format.py -i instrumentation/*.c
 	@#./.custom-format.py -i custom_mutators/*/*.c* # destroys libfuzzer :-(
 	@#./.custom-format.py -i custom_mutators/*/*.h # destroys honggfuzz :-(
-	./.custom-format.py -i examples/*/*.c*
-	./.custom-format.py -i examples/*/*.h
+	./.custom-format.py -i utils/*/*.c*
+	./.custom-format.py -i utils/*/*.h
 	./.custom-format.py -i test/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.c
 	./.custom-format.py -i qemu_mode/libcompcov/*.cc
 	./.custom-format.py -i qemu_mode/libcompcov/*.h
-	./.custom-format.py -i qbdi_mode/*.c
-	./.custom-format.py -i qbdi_mode/*.cpp
 	./.custom-format.py -i *.h
 	./.custom-format.py -i *.c
 
@@ -512,7 +512,7 @@ code-format:
 ifndef AFL_NO_X86
 test_build: afl-cc afl-as afl-showmap
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
-	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_INST_RATIO=100 AFL_PATH=. ./afl-cc $(CFLAGS) test-instr.c -o test-instr $(LDFLAGS) 2>&1 || (echo "Oops, afl-cc failed"; exit 1 )
+	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_INST_RATIO=100 AFL_PATH=. ./afl-cc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-cc failed"; exit 1 )
 	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
 	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
@@ -527,7 +527,7 @@ endif
 .PHONY: all_done
 all_done: test_build
 	@test -e afl-cc && echo "[+] Main compiler 'afl-cc' successfully built!" || { echo "[-] Main compiler 'afl-cc' failed to built, set up a working build environment first!" ; exit 1 ; }
-	@test -e cmplog-instructions-pass.so && echo "[+] LLVM mode for 'afl-cc' successfully built!" || echo "[-] LLVM mode for 'afl-cc'  failed to built, likely you either have not llvm installed or you have not set LLVM_CONFIG pointing to e.g. llvm-config-11. See instrumenation/README.llvm.md how to do this. Highly recommended!"
+	@test -e cmplog-instructions-pass.so && echo "[+] LLVM mode for 'afl-cc' successfully built!" || echo "[-] LLVM mode for 'afl-cc'  failed to built, likely you either don't llvm installed, or you need to set LLVM_CONFIG, to point to e.g. llvm-config-11. See instrumenation/README.llvm.md how to do this. Highly recommended!"
 	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode for 'afl-cc' successfully built!" || echo "[-] LLVM LTO mode for 'afl-cc'  failed to built, this would need LLVM 11+, see instrumentation/README.lto.md how to build it"
 	@test -e afl-gcc-pass.so && echo "[+] gcc_plugin for 'afl-cc' successfully built!" || echo "[-] gcc_plugin for 'afl-cc'  failed to built, unless you really need it that is fine - or read instrumentation/README.gcc_plugin.md how to build it"
 	@echo "[+] All done! Be sure to review the README.md - it's pretty short and useful."
@@ -538,14 +538,14 @@ all_done: test_build
 
 .PHONY: clean
 clean:
-	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ test/unittests/unit_hash test/unittests/unit_rand
+	rm -f $(PROGS) libradamsa.so afl-fuzz-document afl-as as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-qemu-trace afl-gcc-fast afl-gcc-pass.so afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand
 	-$(MAKE) -f GNUmakefile.llvm clean
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
-	$(MAKE) -C libdislocator clean
-	$(MAKE) -C libtokencap clean
-	$(MAKE) -C examples/afl_network_proxy clean
-	$(MAKE) -C examples/socket_fuzzing clean
-	$(MAKE) -C examples/argv_fuzzing clean
+	$(MAKE) -C utils/libdislocator clean
+	$(MAKE) -C utils/libtokencap clean
+	$(MAKE) -C utils/afl_network_proxy clean
+	$(MAKE) -C utils/socket_fuzzing clean
+	$(MAKE) -C utils/argv_fuzzing clean
 	$(MAKE) -C qemu_mode/unsigaction clean
 	$(MAKE) -C qemu_mode/libcompcov clean
 ifeq "$(IN_REPO)" "1"
@@ -566,22 +566,22 @@ deepclean:	clean
 distrib: all
 	-$(MAKE) -f GNUmakefile.llvm
 	-$(MAKE) -f GNUmakefile.gcc_plugin
-	$(MAKE) -C libdislocator
-	$(MAKE) -C libtokencap
-	$(MAKE) -C examples/aflpp_driver
-	$(MAKE) -C examples/afl_network_proxy
-	$(MAKE) -C examples/socket_fuzzing
-	$(MAKE) -C examples/argv_fuzzing
+	$(MAKE) -C utils/libdislocator
+	$(MAKE) -C utils/libtokencap
+	$(MAKE) -C utils/aflpp_driver
+	$(MAKE) -C utils/afl_network_proxy
+	$(MAKE) -C utils/socket_fuzzing
+	$(MAKE) -C utils/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
 .PHONY: binary-only
 binary-only: all
-	$(MAKE) -C libdislocator
-	$(MAKE) -C libtokencap
-	$(MAKE) -C examples/afl_network_proxy
-	$(MAKE) -C examples/socket_fuzzing
-	$(MAKE) -C examples/argv_fuzzing
+	$(MAKE) -C utils/libdislocator
+	$(MAKE) -C utils/libtokencap
+	$(MAKE) -C utils/afl_network_proxy
+	$(MAKE) -C utils/socket_fuzzing
+	$(MAKE) -C utils/argv_fuzzing
 	-cd qemu_mode && sh ./build_qemu_support.sh
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
@@ -589,9 +589,9 @@ binary-only: all
 source-only: all
 	-$(MAKE) -f GNUmakefile.llvm
 	-$(MAKE) -f GNUmakefile.gcc_plugin
-	$(MAKE) -C libdislocator
-	$(MAKE) -C libtokencap
-	$(MAKE) -C examples/aflpp_driver
+	$(MAKE) -C utils/libdislocator
+	$(MAKE) -C utils/libtokencap
+	$(MAKE) -C utils/aflpp_driver
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
@@ -624,15 +624,17 @@ install: all $(MANPAGES)
 	@if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
-	@if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C examples/socket_fuzzing install; fi
-	@if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C examples/argv_fuzzing install; fi
-	@if [ -f examples/afl_network_proxy/afl-network-server ]; then $(MAKE) -C examples/afl_network_proxy install; fi
-	@if [ -f examples/aflpp_driver/libAFLDriver.a ]; then set -e; install -m 644 examples/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
-	@if [ -f examples/aflpp_driver/libAFLQemuDriver.a ]; then set -e; install -m 644 examples/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C utils/socket_fuzzing install; fi
+	@if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C utils/argv_fuzzing install; fi
+	@if [ -f utils/afl_network_proxy/afl-network-server ]; then $(MAKE) -C utils/afl_network_proxy install; fi
+	@if [ -f utils/aflpp_driver/libAFLDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLDriver.a $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f utils/aflpp_driver/libAFLQemuDriver.a ]; then set -e; install -m 644 utils/aflpp_driver/libAFLQemuDriver.a $${DESTDIR}$(HELPER_PATH); fi
 	-$(MAKE) -f GNUmakefile.llvm install
 	-$(MAKE) -f GNUmakefile.gcc_plugin install
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
+	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang
+	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang++
 	@mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
 	install -m0644 *.8 ${DESTDIR}$(MAN_PATH)
 	install -m 755 afl-as $${DESTDIR}$(HELPER_PATH)

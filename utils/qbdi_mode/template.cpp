@@ -44,7 +44,7 @@ target_func              p_target_func = NULL;
 rword                    module_base = 0;
 rword                    module_end = 0;
 static unsigned char
-               dummy[MAP_SIZE]; /* costs MAP_SIZE but saves a few instructions */
+    dummy[MAP_SIZE];         /* costs MAP_SIZE but saves a few instructions */
 unsigned char *afl_area_ptr = NULL;           /* Exported for afl_gen_trace */
 
 unsigned long afl_prev_loc = 0;

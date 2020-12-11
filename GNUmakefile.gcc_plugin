@@ -19,7 +19,7 @@
 #
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
-
+#TEST_MMAP=1
 PREFIX      ?= /usr/local
 HELPER_PATH ?= $(PREFIX)/lib/afl
 BIN_PATH    ?= $(PREFIX)/bin
@@ -67,12 +67,12 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 	SHMAT_OK=1
 else
 	SHMAT_OK=0
-	override CFLAGS += -DUSEMMAP=1
+	override CFLAGS_SAFE += -DUSEMMAP=1
 endif
 
 ifeq "$(TEST_MMAP)" "1"
 	SHMAT_OK=0
-	override CFLAGS += -DUSEMMAP=1
+	override CFLAGS_SAFE += -DUSEMMAP=1
 endif
 
 ifneq "$(shell uname -s)" "Haiku"

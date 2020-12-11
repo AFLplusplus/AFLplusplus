@@ -11,34 +11,41 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.00a (develop)
   - llvm_mode/ and gcc_plugin/ moved to instrumentation/
+  - examples/ renamed to utils/
+  - moved libdislocator, libtokencap and qdbi_mode to utils/
   - all compilers combined to afl-cc which emulates the previous ones
   - afl-llvm/gcc-rt.o merged into afl-compiler-rt.o
   - afl-fuzz
-    - memory limits are now disabled by default, set them with -m if required
+    - not specifying -M or -S will now auto-set "-S default"
     - deterministic fuzzing is now disabled by default and can be enabled with
       -D. It is still enabled by default for -M.
     - a new seed selection was implemented that uses weighted randoms based on
       a schedule performance score, which is much better that the previous
       walk the whole queue approach. Select the old mode with -Z (auto enabled
       with -M)
-    - rpc.statsd support by Edznux, thanks a lot!
     - Marcel Boehme submitted a patch that improves all AFFast schedules :)
-    - not specifying -M or -S will now auto-set "-S default"
+    - the default schedule is now FAST
+    - memory limits are now disabled by default, set them with -m if required
+    - rpc.statsd support, for stats and charts, by Edznux, thanks a lot!
     - reading testcases from -i now descends into subdirectories
-    - allow up to 4 times the -x command line option
-    - loaded extras now have a duplicate protection
+    - allow the -x command line option up to 4 times
+    - loaded extras now have a duplication protection
     - If test cases are too large we do a partial read on the maximum
       supported size
     - longer seeds with the same trace information will now be ignored
       for fuzzing but still be used for splicing
     - crashing seeds are now not prohibiting a run anymore but are
-      skipped. They are used for splicing though.
+      skipped - they are used for splicing, though
     - update MOpt for expanded havoc modes
+    - setting the env var AFL_NO_AUTODICT will not load an LTO autodictionary
     - added NO_SPLICING compile option and makefile define
     - added INTROSPECTION make target that writes all mutations to
       out/NAME/introspection.txt
     - print special compile time options used in help output
+    - when using -c cmplog, one of the childs was not killed, fixed
     - somewhere we broke -n dumb fuzzing, fixed
+    - added afl_custom_describe to the custom mutator API to allow for easy
+      mutation reproduction on crashing inputs
   - instrumentation
     - We received an enhanced gcc_plugin module from AdaCore, thank you
       very much!!
@@ -57,8 +64,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - Our afl++ Grammar-Mutator is now better integrated into custom_mutators/
     - added INTROSPECTION support for custom modules
     - python fuzz function was not optional, fixed
-  - unicornafl synced with upstream (arm64 fix, better rust bindings)
+    - some python mutator speed improvements
+  - afl-cmin/afl-cmin.bash now search first in PATH and last in AFL_PATH
+  - unicornafl synced with upstream version 1.02 (fixes, better rust bindings)
   - renamed AFL_DEBUG_CHILD_OUTPUT to AFL_DEBUG_CHILD
+  - added AFL_CRASH_EXITCODE env variable to treat a child exitcode as crash
 
 
 ### Version ++2.68c (release)

@@ -868,7 +868,19 @@ void perform_dry_run(afl_state_t *afl) {
 
         if (skip_crashes) {
 
-          WARNF("Test case results in a crash (skipping)");
+          if (afl->fsrv.uses_crash_exitcode) {
+
+            WARNF(
+                "Test case results in a crash or AFL_CRASH_EXITCODE %d "
+                "(skipping)",
+                (int)(s8)afl->fsrv.crash_exitcode);
+
+          } else {
+
+            WARNF("Test case results in a crash (skipping)");
+
+          }
+
           q->cal_failed = CAL_CHANCES;
           ++cal_failures;
           break;
@@ -954,7 +966,18 @@ void perform_dry_run(afl_state_t *afl) {
 #undef MSG_ULIMIT_USAGE
 #undef MSG_FORK_ON_APPLE
 
-        WARNF("Test case '%s' results in a crash, skipping", fn);
+        if (afl->fsrv.uses_crash_exitcode) {
+
+          WARNF(
+              "Test case '%s' results in a crash or AFL_CRASH_EXITCODE %d, "
+              "skipping",
+              fn, (int)(s8)afl->fsrv.crash_exitcode);
+
+        } else {
+
+          WARNF("Test case '%s' results in a crash, skipping", fn);
+
+        }
 
         /* Remove from fuzzing queue but keep for splicing */
 
