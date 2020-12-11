@@ -46,14 +46,17 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
                       double avg_exec_us, double avg_bitmap_size) {
 
   u32 hits;
-  
+
   if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
-  
+
     hits = afl->n_fuzz[q->n_fuzz_entry];
     if (hits == 0) { hits = 1; }
-   
-  } else { hits = 1; }
-   
+
+  } else {
+
+    hits = 1;
+
+  }
 
   double weight = 1.0;
   weight *= avg_exec_us / q->exec_us;

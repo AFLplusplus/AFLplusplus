@@ -891,9 +891,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
-#ifdef USEMMAP
+  #ifdef USEMMAP
     cc_params[cc_par_cnt++] = "-lrt";
-#endif
+  #endif
 
   }
 
@@ -1467,9 +1467,9 @@ int main(int argc, char **argv, char **envp) {
 #endif
 
 #ifdef USEMMAP
-  SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
+    SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
 #else
-  SAYF("Compiled with shmat support.\n");
+    SAYF("Compiled with shmat support.\n");
 #endif
     SAYF("\n");
 
