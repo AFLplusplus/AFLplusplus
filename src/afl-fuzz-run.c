@@ -205,7 +205,7 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 
     if (!post_process_skipped) {
 
-      // If we did post_processing, copy directly from the new_buf bufer
+      // If we did post_processing, copy directly from the new_mem buffer
 
       memcpy(afl->fsrv.shmem_fuzz, new_mem, new_size);
 
@@ -365,7 +365,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     write_to_testcase(afl, use_mem, q->len);
 
     fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
-
+fprintf(stderr, "from fuzz_run_target() fault=%u\n", fault);
     /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
        we want to bail out quickly. */
 
