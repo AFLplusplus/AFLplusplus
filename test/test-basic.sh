@@ -196,7 +196,6 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     echo 000000000000000000000000 > in/in2
     echo 111 > in/in3
     mkdir -p in2
-sh
     ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
     CNT=`ls in2/* 2>/dev/null | wc -l`
     case "$CNT" in
