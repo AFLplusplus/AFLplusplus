@@ -4,7 +4,7 @@
   issues for a variety of platforms. See README.md for the general instruction
   manual.
 
-## 1) Linux on x86
+## 1. Linux on x86
 ---------------
 
 This platform is expected to work well. Compile the program with:
@@ -34,7 +34,7 @@ You may have to change several settings to get optimal results (most notably,
 disable crash reporting utilities and switch to a different CPU governor), but
 afl-fuzz will guide you through that if necessary.
 
-## OpenBSD, FreeBSD, NetBSD on x86
+## 2. OpenBSD, FreeBSD, NetBSD on x86
 
 Similarly to Linux, these platforms are expected to work well and are
 regularly tested. Compile everything with GNU make:
