@@ -18,9 +18,7 @@ void __attribute__((noinline)) crashme(const uint8_t *Data, size_t Size) {
 
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
 
-  if (Size)
-
-  crashme(Data, Size);
+  if (Size) crashme(Data, Size);
 
   return 0;
 
