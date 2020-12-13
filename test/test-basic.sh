@@ -25,8 +25,8 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       CODE=1
     }
     rm -f test-instr.plain.0 test-instr.plain.1
-    TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 3 -a "$TUPLES" -lt 11 && {
+    TUPLES=`echo 1|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
+    test "$TUPLES" -gt 4 -a "$TUPLES" -lt 11 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} instrumentation produces weird numbers: $TUPLES"
@@ -140,8 +140,8 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       CODE=1
     }
     rm -f test-instr.plain.0 test-instr.plain.1
-    TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 3 -a "$TUPLES" -lt 11 && {
+    TUPLES=`echo 1|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
+    test "$TUPLES" -gt 4 -a "$TUPLES" -lt 11 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} instrumentation produces weird numbers: $TUPLES"
@@ -194,12 +194,20 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       CODE=1
     }
     echo 000000000000000000000000 > in/in2
-    echo 111 > in/in3
+    echo AAA > in/in3
     mkdir -p in2
     ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
     CNT=`ls in2/* 2>/dev/null | wc -l`
     case "$CNT" in
       *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+      1)  {
+            test -s in2/* && $ECHO "$YELLOW[?] afl-cmin did minimize to one testcase. This can be a bug or due compiler optimization."
+            test -s in2/* || {
+		$ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+          	CODE=1
+            }
+          }
+          ;;
       *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
           CODE=1
           ;;
@@ -211,6 +219,14 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
         *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
+        1)  {
+            test -s in2/* && $ECHO "$YELLOW[?] afl-cmin did minimize to one testcase. This can be a bug or due compiler optimization."
+              test -s in2/* || {
+  		$ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+          	CODE=1
+              }
+            }
+            ;;
         *)  $ECHO "$RED[!] afl-cmin.bash did not correctly minimize the number of testcases ($CNT)"
             CODE=1
             ;;
