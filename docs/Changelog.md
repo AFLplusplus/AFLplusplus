@@ -10,7 +10,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++3.01a (release)
-  - ...
+  - added dummy Makefile to instrumentation/
 
 
 ### Version ++3.00c (release)
