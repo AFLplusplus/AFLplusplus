@@ -69,6 +69,7 @@ enum {
   INSTRUMENT_INSTRIM = 3,
   INSTRUMENT_CFG = 3,
   INSTRUMENT_LTO = 4,
+  INSTRUMENT_LLVMNATIVE = 5,
   INSTRUMENT_OPT_CTX = 8,
   INSTRUMENT_OPT_NGRAM = 16
 
@@ -76,8 +77,9 @@ enum {
 
 char instrument_mode_string[18][18] = {
 
-    "DEFAULT", "CLASSIC", "PCGUARD", "CFG", "LTO", "", "",      "", "CTX", "",
-    "",        "",        "",        "",    "",    "", "NGRAM", ""
+    "DEFAULT", "CLASSIC", "PCGUARD", "CFG", "LTO", "", "PCGUARD-NATIVE",
+    "",        "CTX",     "",        "",    "",    "", "",
+    "",        "",        "NGRAM",   ""
 
 };
 
@@ -578,6 +580,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   #else
         FATAL("pcguard instrumentation requires llvm 4.0.1+");
   #endif
+#endif
+
+      } else if (instrument_mode == INSTRUMENT_LLVMNATIVE) {
+
+#if LLVM_MAJOR >= 4
+        cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+#else
+        FATAL("pcguard instrumentation requires llvm 4.0.1+");
 #endif
 
       } else {
@@ -1156,6 +1166,18 @@ int main(int argc, char **argv, char **envp) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_PCGUARD)
           instrument_mode = INSTRUMENT_PCGUARD;
+        else
+          FATAL("main instrumentation mode already set with %s",
+                instrument_mode_string[instrument_mode]);
+
+      }
+
+      // this is a hidden option
+      if (strncasecmp(ptr, "llvmnative", strlen("llvmnative")) == 0 ||
+          strncasecmp(ptr, "llvm-native", strlen("llvm-native")) == 0) {
+
+        if (!instrument_mode || instrument_mode == INSTRUMENT_LLVMNATIVE)
+          instrument_mode = INSTRUMENT_LLVMNATIVE;
         else
           FATAL("main instrumentation mode already set with %s",
                 instrument_mode_string[instrument_mode]);

@@ -94,7 +94,8 @@ static inline void *DFL_ck_alloc_nozero(u32 size) {
 
 }
 
-/* Allocate a buffer, returning zeroed memory. */
+/* Allocate a buffer, returning zeroed memory.
+  Returns null for 0 size */
 
 static inline void *DFL_ck_alloc(u32 size) {
 

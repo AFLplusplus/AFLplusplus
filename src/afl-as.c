@@ -47,6 +47,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <limits.h>
 #include <ctype.h>
 #include <fcntl.h>
 
@@ -131,6 +132,11 @@ static void edit_params(int argc, char **argv) {
   if (!tmp_dir) { tmp_dir = "/tmp"; }
 
   as_params = ck_alloc((argc + 32) * sizeof(u8 *));
+  if (unlikely((INT_MAX - 32) < argc || !as_params)) {
+
+    FATAL("Too many parameters passed to as");
+
+  }
 
   as_params[0] = afl_as ? afl_as : (u8 *)"as";
 

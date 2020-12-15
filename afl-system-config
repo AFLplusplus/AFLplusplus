@@ -80,4 +80,3 @@ if [ "$PLATFORM" = "Darwin" ] ; then
   DONE=1
 fi
 test -z "$DONE" && echo Error: Unknown platform: $PLATFORM
-test -z "$AFL_TMPDIR" && echo Also use AFL_TMPDIR and point it to a tmpfs for the input file caching

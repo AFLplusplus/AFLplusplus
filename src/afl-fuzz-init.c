@@ -772,9 +772,16 @@ void perform_dry_run(afl_state_t *afl) {
 
   while (q) {
 
-    u8 *use_mem;
+    u8  use_mem[MAX_FILE];
     u8  res;
     s32 fd;
+
+    if (unlikely(!q->len)) {
+
+      WARNF("Skipping 0-sized entry in queue (%s)", q->fname);
+      continue;
+
+    }
 
     u8 *fn = strrchr(q->fname, '/') + 1;
 
@@ -783,9 +790,8 @@ void perform_dry_run(afl_state_t *afl) {
     fd = open(q->fname, O_RDONLY);
     if (fd < 0) { PFATAL("Unable to open '%s'", q->fname); }
 
-    use_mem = ck_alloc_nozero(q->len);
-
-    if (read(fd, use_mem, q->len) != (ssize_t)q->len) {
+    u32 read_len = MIN(q->len, (u32)MAX_FILE);
+    if (read(fd, use_mem, read_len) != (ssize_t)read_len) {
 
       FATAL("Short read from '%s'", q->fname);
 
@@ -794,7 +800,6 @@ void perform_dry_run(afl_state_t *afl) {
     close(fd);
 
     res = calibrate_case(afl, q, use_mem, 0, 1);
-    ck_free(use_mem);
 
     if (afl->stop_soon) { return; }
 
@@ -2449,6 +2454,8 @@ void setup_testcase_shmem(afl_state_t *afl) {
 
 void check_binary(afl_state_t *afl, u8 *fname) {
 
+  if (unlikely(!fname)) { FATAL("BUG: Binary name is NULL"); }
+
   u8 *        env_path = 0;
   struct stat st;
 
@@ -2477,6 +2484,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
       if (delim) {
 
         cur_elem = ck_alloc(delim - env_path + 1);
+        if (unlikely(!cur_elem)) { FATAL("Unexpected large PATH"); }
         memcpy(cur_elem, env_path, delim - env_path);
         ++delim;
 
