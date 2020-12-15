@@ -9,7 +9,7 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-### Version ++3.00a (develop)
+### Version ++3.00c (release)
   - llvm_mode/ and gcc_plugin/ moved to instrumentation/
   - examples/ renamed to utils/
   - moved libdislocator, libtokencap and qdbi_mode to utils/
