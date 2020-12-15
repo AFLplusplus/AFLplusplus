@@ -108,6 +108,7 @@ char **argv_cpy_dup(int argc, char **argv) {
   int i = 0;
 
   char **ret = ck_alloc((argc + 1) * sizeof(char *));
+  if (unlikely(!ret)) { FATAL("Amount of arguments specified is too high"); }
 
   for (i = 0; i < argc; i++) {
 
@@ -130,6 +131,7 @@ void argv_cpy_free(char **argv) {
   while (argv[i]) {
 
     ck_free(argv[i]);
+    argv[i] = NULL;
     i++;
 
   }
@@ -142,8 +144,12 @@ void argv_cpy_free(char **argv) {
 
 char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
+  if (!unlikely(own_loc)) { FATAL("BUG: param own_loc is NULL"); }
+
+  u8 *tmp, *cp = NULL, *rsl, *own_copy;
+
   char **new_argv = ck_alloc(sizeof(char *) * (argc + 4));
-  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
+  if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
 
   memcpy(&new_argv[3], &argv[1], (int)(sizeof(char *)) * (argc - 1));
   new_argv[argc + 3] = NULL;
@@ -224,8 +230,12 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
 char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 
+  if (!unlikely(own_loc)) { FATAL("BUG: param own_loc is NULL"); }
+
+  u8 *tmp, *cp = NULL, *rsl, *own_copy;
+
   char **new_argv = ck_alloc(sizeof(char *) * (argc + 3));
-  u8 *   tmp, *cp = NULL, *rsl, *own_copy;
+  if (unlikely(!new_argv)) { FATAL("Illegal amount of arguments specified"); }
 
   memcpy(&new_argv[2], &argv[1], (int)(sizeof(char *)) * (argc - 1));
   new_argv[argc + 2] = NULL;
@@ -335,6 +345,8 @@ u8 *find_binary(u8 *fname) {
 
   struct stat st;
 
+  if (unlikely(!fname)) { FATAL("No binary supplied"); }
+
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
     target_path = ck_strdup(fname);
@@ -356,6 +368,14 @@ u8 *find_binary(u8 *fname) {
       if (delim) {
 
         cur_elem = ck_alloc(delim - env_path + 1);
+        if (unlikely(!cur_elem)) {
+
+          FATAL(
+              "Unexpected overflow when processing ENV. This should never "
+              "happend.");
+
+        }
+
         memcpy(cur_elem, env_path, delim - env_path);
         delim++;
 

@@ -205,7 +205,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     /* map the shared memory segment to the address space of the process */
     shm->cmp_map = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
                         shm->cmplog_g_shm_fd, 0);
-    if (shm->map == MAP_FAILED) {
+    if (shm->cmp_map == MAP_FAILED) {
 
       close(shm->cmplog_g_shm_fd);
       shm->cmplog_g_shm_fd = -1;
