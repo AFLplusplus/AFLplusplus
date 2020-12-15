@@ -11,6 +11,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.01a (release)
   - added dummy Makefile to instrumentation/
+  - allow instrumenting LLVMFuzzerTestOneInput
 
 
 ### Version ++3.00c (release)
