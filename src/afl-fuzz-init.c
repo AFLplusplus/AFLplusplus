@@ -666,7 +666,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
   }
 
-  if (afl->shuffle_queue && nl_cnt > 1) {
+  if (unlikely(afl->old_seed_selection && afl->shuffle_queue && nl_cnt > 1)) {
 
     ACTF("Shuffling queue...");
     shuffle_ptrs(afl, (void **)nl, nl_cnt);

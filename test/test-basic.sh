@@ -220,9 +220,9 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       case "$CNT" in
         *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
         1)  {
-            test -s in2/* && $ECHO "$YELLOW[?] afl-cmin did minimize to one testcase. This can be a bug or due compiler optimization."
+            test -s in2/* && $ECHO "$YELLOW[?] afl-cmin.bash did minimize to one testcase. This can be a bug or due compiler optimization."
               test -s in2/* || {
-  		$ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+  		$ECHO "$RED[!] afl-cmin.bash did not correctly minimize the number of testcases ($CNT)"
           	CODE=1
               }
             }
