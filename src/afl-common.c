@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <strings.h>
+#include <math.h>
 
 #include "debug.h"
 #include "alloc-inl.h"
@@ -785,6 +786,10 @@ u8 *u_stringify_float(u8 *buf, double val) {
   } else if (val < 999.95) {
 
     sprintf(buf, "%0.01f", val);
+
+  } else if (unlikely(isnan(val) || isfinite(val))) {
+
+    strcpy(buf, "999.9");
 
   } else {
 

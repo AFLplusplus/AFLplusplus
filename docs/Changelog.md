@@ -10,6 +10,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++3.01a (release)
+  - fix crash for very, very fast targets+systems, thanks for reporting @mhlakhani
   - added dummy Makefile to instrumentation/
   - allow instrumenting LLVMFuzzerTestOneInput
 
