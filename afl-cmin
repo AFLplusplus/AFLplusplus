@@ -366,33 +366,35 @@ BEGIN {
     cp_tool = "cp"
   }
 
-  # Make sure that we can actually get anything out of afl-showmap before we
-  # waste too much time.
+  if (!ENVIRON["AFL_SKIP_BIN_CHECK"]) {
+    # Make sure that we can actually get anything out of afl-showmap before we
+    # waste too much time.
 
-  print "[*] Testing the target binary..."
+    print "[*] Testing the target binary..."
 
-  if (!stdin_file) {
-    system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"first_file"\"")
-  } else {
-    system("cp "in_dir"/"first_file" "stdin_file)
-    system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
-  }
-
-  first_count = 0
-
-  runtest = trace_dir"/.run_test"
-  while ((getline < runtest) > 0) {
-    ++first_count
-  }
-
-  if (first_count) {
-    print "[+] OK, "first_count" tuples recorded."
-  } else {
-    print "[-] Error: no instrumentation output detected (perhaps crash or timeout)." > "/dev/stderr"
-    if (!ENVIRON["AFL_KEEP_TRACES"]) {
-      system("rm -rf "trace_dir" 2>/dev/null")
+    if (!stdin_file) {
+      system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -- \""target_bin"\" "prog_args_string" <\""in_dir"/"first_file"\"")
+    } else {
+      system("cp "in_dir"/"first_file" "stdin_file)
+      system( "AFL_CMIN_ALLOW_ANY=1 "AFL_CMIN_CRASHES_ONLY"\""showmap"\" -m "mem_limit" -t "timeout" -o \""trace_dir"/.run_test\" -Z "extra_par" -A \""stdin_file"\" -- \""target_bin"\" "prog_args_string" </dev/null")
     }
-    exit 1
+
+    first_count = 0
+
+    runtest = trace_dir"/.run_test"
+    while ((getline < runtest) > 0) {
+      ++first_count
+    }
+
+    if (first_count) {
+      print "[+] OK, "first_count" tuples recorded."
+    } else {
+      print "[-] Error: no instrumentation output detected (perhaps crash or timeout)." > "/dev/stderr"
+      if (!ENVIRON["AFL_KEEP_TRACES"]) {
+        system("rm -rf "trace_dir" 2>/dev/null")
+      }
+      exit 1
+    }
   }
 
   # Let's roll!
