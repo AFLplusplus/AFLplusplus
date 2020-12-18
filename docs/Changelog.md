@@ -52,6 +52,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - somewhere we broke -n dumb fuzzing, fixed
     - added afl_custom_describe to the custom mutator API to allow for easy
       mutation reproduction on crashing inputs
+    - new env. var. AFL_NO_COLOR (or AFL_NO_COLOUR) to suppress colored
+      console output (when configured with USE_COLOR and not ALWAYS_COLORED)
   - instrumentation
     - We received an enhanced gcc_plugin module from AdaCore, thank you
       very much!!
