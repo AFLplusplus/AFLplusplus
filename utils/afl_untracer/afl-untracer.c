@@ -568,7 +568,7 @@ void setup_trap_instrumentation(void) {
     lib_addr[offset] = 0xcc;  // replace instruction with debug trap
     if (debug)
       fprintf(stderr,
-              "Patch entry: %p[%x] = %p = %02x -> SHADOW(%p) #%d -> %08x\n",
+              "Patch entry: %p[%lx] = %p = %02x -> SHADOW(%p) #%d -> %08x\n",
               lib_addr, offset, lib_addr + offset, orig_byte, shadow,
               bitmap_index, *shadow);
 
@@ -582,7 +582,7 @@ void setup_trap_instrumentation(void) {
     *patch_bytes = 0xd4200000;  // replace instruction with debug trap
     if (debug)
       fprintf(stderr,
-              "Patch entry: %p[%x] = %p = %02x -> SHADOW(%p) #%d -> %016x\n",
+              "Patch entry: %p[%lx] = %p = %02x -> SHADOW(%p) #%d -> %016x\n",
               lib_addr, offset, lib_addr + offset, orig_bytes, shadow,
               bitmap_index, *shadow);
 
