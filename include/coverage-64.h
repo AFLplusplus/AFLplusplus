@@ -5,6 +5,9 @@
   #include <immintrin.h>
 #endif
 
+u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end);
+u64 classify_word(u64 word);
+
 inline u64 classify_word(u64 word) {
 
   u16 mem16[4];

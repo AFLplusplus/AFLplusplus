@@ -1,6 +1,9 @@
 #include "config.h"
 #include "types.h"
 
+u32 skim(const u32 *virgin, const u32 *current, const u32 *current_end);
+u32 classify_word(u32 word);
+
 inline u32 classify_word(u32 word) {
 
   u16 mem16[2];
