@@ -371,6 +371,8 @@ void show_stats(afl_state_t *afl) {
 
   if (!afl->stats_last_execs) {
 
+    if (unlikely(cur_ms == afl->start_time)) --afl->start_time;
+
     afl->stats_avg_exec =
         ((double)afl->fsrv.total_execs) * 1000 / (cur_ms - afl->start_time);
 
