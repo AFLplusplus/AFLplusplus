@@ -156,6 +156,12 @@ static void usage(u8 *argv0, int more_help) {
 
   if (more_help > 1) {
 
+#if defined USE_COLOR && !defined ALWAYS_COLORED
+  #define DYN_COLOR "AFL_NO_COLOR or AFL_NO_COLOUR: switch colored console output off\n"
+#else
+  #define DYN_COLOR
+#endif
+
     SAYF(
       "Environment variables used:\n"
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
@@ -194,6 +200,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
       "AFL_NO_UI: switch status screen off\n"
+
+      DYN_COLOR
+
       "AFL_PATH: path to AFL support binaries\n"
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
       "AFL_QUIET: suppress forkserver status messages\n"
@@ -297,6 +306,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   struct timeval  tv;
   struct timezone tz;
+
+#if defined USE_COLOR && defined ALWAYS_COLORED
+  if (getenv("AFL_NO_COLOR") || getenv("AFL_NO_COLOUR")) {
+     WARNF("Setting AFL_NO_COLOR has no effect (colors are configured on at compile time)");
+  }
+#endif
 
   char **argv = argv_cpy_dup(argc, argv_orig);
 

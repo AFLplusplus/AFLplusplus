@@ -401,6 +401,22 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_crash_exitcode =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
+#if defined USE_COLOR && ! defined ALWAYS_COLORED
+          } else if (!strncmp(env, "AFL_NO_COLOR",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd_tags_flavor =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_NO_COLOUR",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_statsd_tags_flavor =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+#endif
+
           }
 
         } else {
