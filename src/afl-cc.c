@@ -1346,6 +1346,9 @@ int main(int argc, char **argv, char **envp) {
         "Sub-Modes: (set via env AFL_LLVM_INSTRUMENT, afl-cc selects the best "
         "available)\n"
         "  PCGUARD: Dominator tree instrumentation (best!) (README.llvm.md)\n"
+#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+        "  NATIVE:  use llvm's native PCGUARD instrumentation (less performant)\n"
+#endif
         "  CLASSIC: decision target instrumentation (README.llvm.md)\n"
         "  CTX:     CLASSIC + callee context (instrumentation/README.ctx.md)\n"
         "  NGRAM-x: CLASSIC + previous path "
