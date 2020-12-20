@@ -10,7 +10,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++3.01a (release)
-  - fix crash for very, very fast targets+systems, thanks for reporting @mhlakhani
+  - afl-fuzz
+    - fix crash for very, very fast targets+systems, thanks for reporting @mhlakhani
+    - switched to a faster RNG
+    - added hghwng's patch for faster trace map analysis
   - added dummy Makefile to instrumentation/
   - allow instrumenting LLVMFuzzerTestOneInput
 
