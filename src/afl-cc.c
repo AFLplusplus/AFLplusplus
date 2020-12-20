@@ -1432,7 +1432,7 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_LAF_SPLIT_FLOATS: cascaded comparisons on floats\n"
             "  AFL_LLVM_LAF_TRANSFORM_COMPARES: cascade comparisons for string "
             "functions\n"
-            "  AFL_LLVM_INSTRUMENT_ALLOW/AFL_LLVM_INSTRUMENT_DENY: enable "
+            "  AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST: enable "
             "instrument allow/\n"
             "    deny listing (selective instrumentation)\n");
 

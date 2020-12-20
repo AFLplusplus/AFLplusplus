@@ -157,7 +157,8 @@ static void usage(u8 *argv0, int more_help) {
   if (more_help > 1) {
 
 #if defined USE_COLOR && !defined ALWAYS_COLORED
-  #define DYN_COLOR "AFL_NO_COLOR or AFL_NO_COLOUR: switch colored console output off\n"
+  #define DYN_COLOR \
+    "AFL_NO_COLOR or AFL_NO_COLOUR: switch colored console output off\n"
 #else
   #define DYN_COLOR
 #endif
@@ -307,11 +308,16 @@ int main(int argc, char **argv_orig, char **envp) {
   struct timeval  tv;
   struct timezone tz;
 
-#if defined USE_COLOR && defined ALWAYS_COLORED
+  #if defined USE_COLOR && defined ALWAYS_COLORED
   if (getenv("AFL_NO_COLOR") || getenv("AFL_NO_COLOUR")) {
-     WARNF("Setting AFL_NO_COLOR has no effect (colors are configured on at compile time)");
+
+    WARNF(
+        "Setting AFL_NO_COLOR has no effect (colors are configured on at "
+        "compile time)");
+
   }
-#endif
+
+  #endif
 
   char **argv = argv_cpy_dup(argc, argv_orig);
 
