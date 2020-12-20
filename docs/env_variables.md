@@ -113,6 +113,8 @@ Then there are a few specific features that are only available in instrumentatio
 
     - `AFL_LLVM_INSTRUMENT` - this configures the instrumentation mode. 
       Available options:
+        PCGUARD - our own pcgard based instrumentation (default)
+        NATIVE - clang's original pcguard based instrumentation
         CLASSIC - classic AFL (map[cur_loc ^ prev_loc >> 1]++) (default)
         CFG - InsTrim instrumentation (see below)
         LTO - LTO instrumentation (see below)
