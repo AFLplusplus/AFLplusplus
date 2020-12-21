@@ -42,8 +42,8 @@ endif
 
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
-  override CFLAGS+=$(ASAN_CFLAGS)
-  LDFLAGS+=$(ASAN_LDFLAGS)
+  override CFLAGS += $(ASAN_CFLAGS)
+  LDFLAGS += $(ASAN_LDFLAGS)
 endif
 ifdef UBSAN_BUILD
   $(info Compiling UBSAN version of binaries)
@@ -77,30 +77,34 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -fno-move-loop-invariants -
 	SPECIAL_PERFORMANCE += -fno-move-loop-invariants -fdisable-tree-cunrolli
 endif
 
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+  ifndef SOURCE_DATE_EPOCH
+    HAVE_MARCHNATIVE = 1
+    CFLAGS_OPT += -march=native
+  endif
+endif
+
 ifneq "$(shell uname)" "Darwin"
- ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-   ifndef SOURCE_DATE_EPOCH
- 	#CFLAGS_OPT += -march=native
- 	SPECIAL_PERFORMANCE += -march=native
-   endif
- endif
+  ifeq "$(HAVE_MARCHNATIVE)" "1"
+    SPECIAL_PERFORMANCE += -march=native
+  endif
  # OS X does not like _FORTIFY_SOURCE=2
- ifndef DEBUG
-   CFLAGS_OPT += -D_FORTIFY_SOURCE=2
- endif
+  ifndef DEBUG
+    CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+  endif
 endif
 
 ifeq "$(shell uname)" "SunOS"
- CFLAGS_OPT += -Wno-format-truncation
- LDFLAGS=-lkstat -lrt
+  CFLAGS_OPT += -Wno-format-truncation
+  LDFLAGS = -lkstat -lrt
 endif
 
 ifdef STATIC
   $(info Compiling static version of binaries, disabling python though)
   # Disable python for static compilation to simplify things
-  PYTHON_OK=0
+  PYTHON_OK = 0
   PYFLAGS=
-  PYTHON_INCLUDE=/
+  PYTHON_INCLUDE = /
 
   CFLAGS_OPT += -static
   LDFLAGS += -lm -lpthread -lz -lutil
@@ -117,6 +121,7 @@ ifdef INTROSPECTION
   CFLAGS_OPT += -DINTROSPECTION=1
 endif
 
+
 ifneq "$(shell uname -m)" "x86_64"
  ifneq "$(patsubst i%86,i386,$(shell uname -m))" "i386"
   ifneq "$(shell uname -m)" "amd64"
@@ -131,7 +136,7 @@ ifdef DEBUG
   $(info Compiling DEBUG version of binaries)
   CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror
 else
-  CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
+  CFLAGS ?= -O3 -funroll-loops $(CFLAGS_OPT)
 endif
 
 override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wpointer-arith \

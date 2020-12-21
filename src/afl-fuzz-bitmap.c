@@ -49,101 +49,6 @@ void write_bitmap(afl_state_t *afl) {
 
 }
 
-/* Check if the current execution path brings anything new to the table.
-   Update virgin bits to reflect the finds. Returns 1 if the only change is
-   the hit-count for a particular tuple; 2 if there are new tuples seen.
-   Updates the map, so subsequent calls will always return 0.
-
-   This function is called after every exec() on a fairly large buffer, so
-   it needs to be fast. We do this in 32-bit and 64-bit flavors. */
-
-u8 __attribute__((hot)) has_new_bits(afl_state_t *afl, u8 *virgin_map) {
-
-#ifdef WORD_SIZE_64
-
-  u64 *current = (u64 *)afl->fsrv.trace_bits;
-  u64 *virgin = (u64 *)virgin_map;
-
-  u32 i = (afl->fsrv.map_size >> 3);
-
-#else
-
-  u32 *current = (u32 *)afl->fsrv.trace_bits;
-  u32 *virgin = (u32 *)virgin_map;
-
-  u32 i = (afl->fsrv.map_size >> 2);
-
-#endif                                                     /* ^WORD_SIZE_64 */
-  // the map size must be a minimum of 8 bytes.
-  // for variable/dynamic map sizes this is ensured in the forkserver
-
-  u8 ret = 0;
-
-  while (i--) {
-
-    /* Optimize for (*current & *virgin) == 0 - i.e., no bits in current bitmap
-       that have not been already cleared from the virgin map - since this will
-       almost always be the case. */
-
-    // the (*current) is unnecessary but speeds up the overall comparison
-    if (unlikely(*current) && unlikely(*current & *virgin)) {
-
-      if (likely(ret < 2)) {
-
-        u8 *cur = (u8 *)current;
-        u8 *vir = (u8 *)virgin;
-
-        /* Looks like we have not found any new bytes yet; see if any non-zero
-           bytes in current[] are pristine in virgin[]. */
-
-#ifdef WORD_SIZE_64
-
-        if (*virgin == 0xffffffffffffffff || (cur[0] && vir[0] == 0xff) ||
-            (cur[1] && vir[1] == 0xff) || (cur[2] && vir[2] == 0xff) ||
-            (cur[3] && vir[3] == 0xff) || (cur[4] && vir[4] == 0xff) ||
-            (cur[5] && vir[5] == 0xff) || (cur[6] && vir[6] == 0xff) ||
-            (cur[7] && vir[7] == 0xff)) {
-
-          ret = 2;
-
-        } else {
-
-          ret = 1;
-
-        }
-
-#else
-
-        if (*virgin == 0xffffffff || (cur[0] && vir[0] == 0xff) ||
-            (cur[1] && vir[1] == 0xff) || (cur[2] && vir[2] == 0xff) ||
-            (cur[3] && vir[3] == 0xff))
-          ret = 2;
-        else
-          ret = 1;
-
-#endif                                                     /* ^WORD_SIZE_64 */
-
-      }
-
-      *virgin &= ~*current;
-
-    }
-
-    ++current;
-    ++virgin;
-
-  }
-
-  if (unlikely(ret) && likely(virgin_map == afl->virgin_bits)) {
-
-    afl->bitmap_changed = 1;
-
-  }
-
-  return ret;
-
-}
-
 /* Count the number of bits set in the provided bitmap. Used for the status
    screen several times every second, does not have to be fast. */
 
@@ -242,77 +147,11 @@ const u8 simplify_lookup[256] = {
 
 };
 
-#ifdef WORD_SIZE_64
-
-void simplify_trace(afl_state_t *afl, u64 *mem) {
-
-  u32 i = (afl->fsrv.map_size >> 3);
-
-  while (i--) {
-
-    /* Optimize for sparse bitmaps. */
-
-    if (unlikely(*mem)) {
-
-      u8 *mem8 = (u8 *)mem;
-
-      mem8[0] = simplify_lookup[mem8[0]];
-      mem8[1] = simplify_lookup[mem8[1]];
-      mem8[2] = simplify_lookup[mem8[2]];
-      mem8[3] = simplify_lookup[mem8[3]];
-      mem8[4] = simplify_lookup[mem8[4]];
-      mem8[5] = simplify_lookup[mem8[5]];
-      mem8[6] = simplify_lookup[mem8[6]];
-      mem8[7] = simplify_lookup[mem8[7]];
-
-    } else {
-
-      *mem = 0x0101010101010101ULL;
-
-    }
-
-    ++mem;
-
-  }
-
-}
-
-#else
-
-void simplify_trace(afl_state_t *afl, u32 *mem) {
-
-  u32 i = (afl->fsrv.map_size >> 2);
-
-  while (i--) {
-
-    /* Optimize for sparse bitmaps. */
-
-    if (unlikely(*mem)) {
-
-      u8 *mem8 = (u8 *)mem;
-
-      mem8[0] = simplify_lookup[mem8[0]];
-      mem8[1] = simplify_lookup[mem8[1]];
-      mem8[2] = simplify_lookup[mem8[2]];
-      mem8[3] = simplify_lookup[mem8[3]];
-
-    } else
-
-      *mem = 0x01010101;
-
-    ++mem;
-
-  }
-
-}
-
-#endif                                                     /* ^WORD_SIZE_64 */
-
 /* Destructively classify execution counts in a trace. This is used as a
    preprocessing step for any newly acquired traces. Called on every exec,
    must be fast. */
 
-static const u8 count_class_lookup8[256] = {
+const u8 count_class_lookup8[256] = {
 
     [0] = 0,
     [1] = 1,
@@ -326,7 +165,7 @@ static const u8 count_class_lookup8[256] = {
 
 };
 
-static u16 count_class_lookup16[65536];
+u16 count_class_lookup16[65536];
 
 void init_count_class16(void) {
 
@@ -345,63 +184,87 @@ void init_count_class16(void) {
 
 }
 
+/* Import coverage processing routines. */
+
+#ifdef WORD_SIZE_64
+  #include "coverage-64.h"
+#else
+  #include "coverage-32.h"
+#endif
+
+/* Check if the current execution path brings anything new to the table.
+   Update virgin bits to reflect the finds. Returns 1 if the only change is
+   the hit-count for a particular tuple; 2 if there are new tuples seen.
+   Updates the map, so subsequent calls will always return 0.
+
+   This function is called after every exec() on a fairly large buffer, so
+   it needs to be fast. We do this in 32-bit and 64-bit flavors. */
+
+inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
+
 #ifdef WORD_SIZE_64
 
-void __attribute__((hot)) classify_counts(afl_forkserver_t *fsrv) {
+  u64 *current = (u64 *)afl->fsrv.trace_bits;
+  u64 *virgin = (u64 *)virgin_map;
 
-  u64 *mem = (u64 *)fsrv->trace_bits;
-
-  u32 i = (fsrv->map_size >> 3);
-
-  while (i--) {
-
-    /* Optimize for sparse bitmaps. */
-
-    if (unlikely(*mem)) {
-
-      u16 *mem16 = (u16 *)mem;
-
-      mem16[0] = count_class_lookup16[mem16[0]];
-      mem16[1] = count_class_lookup16[mem16[1]];
-      mem16[2] = count_class_lookup16[mem16[2]];
-      mem16[3] = count_class_lookup16[mem16[3]];
-
-    }
-
-    ++mem;
-
-  }
-
-}
+  u32 i = (afl->fsrv.map_size >> 3);
 
 #else
 
-void __attribute__((hot)) classify_counts(afl_forkserver_t *fsrv) {
+  u32 *current = (u32 *)afl->fsrv.trace_bits;
+  u32 *virgin = (u32 *)virgin_map;
 
-  u32 *mem = (u32 *)fsrv->trace_bits;
+  u32 i = (afl->fsrv.map_size >> 2);
 
-  u32 i = (fsrv->map_size >> 2);
+#endif                                                     /* ^WORD_SIZE_64 */
 
+  u8 ret = 0;
   while (i--) {
 
-    /* Optimize for sparse bitmaps. */
+    if (unlikely(*current)) discover_word(&ret, current, virgin);
 
-    if (unlikely(*mem)) {
-
-      u16 *mem16 = (u16 *)mem;
-
-      mem16[0] = count_class_lookup16[mem16[0]];
-      mem16[1] = count_class_lookup16[mem16[1]];
-
-    }
-
-    ++mem;
+    current++;
+    virgin++;
 
   }
 
+  if (unlikely(ret) && likely(virgin_map == afl->virgin_bits))
+    afl->bitmap_changed = 1;
+
+  return ret;
+
 }
 
+/* A combination of classify_counts and has_new_bits. If 0 is returned, then the
+ * trace bits are kept as-is. Otherwise, the trace bits are overwritten with
+ * classified values.
+ *
+ * This accelerates the processing: in most cases, no interesting behavior
+ * happen, and the trace bits will be discarded soon. This function optimizes
+ * for such cases: one-pass scan on trace bits without modifying anything. Only
+ * on rare cases it fall backs to the slow path: classify_counts() first, then
+ * return has_new_bits(). */
+
+inline u8 has_new_bits_unclassified(afl_state_t *afl, u8 *virgin_map) {
+
+  /* Handle the hot path first: no new coverage */
+  u8 *end = afl->fsrv.trace_bits + afl->fsrv.map_size;
+
+#ifdef WORD_SIZE_64
+
+  if (!skim((u64 *)virgin_map, (u64 *)afl->fsrv.trace_bits, (u64 *)end))
+    return 0;
+
+#else
+
+  if (!skim((u32 *)virgin_map, (u32 *)afl->fsrv.trace_bits, (u32 *)end))
+    return 0;
+
 #endif                                                     /* ^WORD_SIZE_64 */
+  classify_counts(&afl->fsrv);
+  return has_new_bits(afl, virgin_map);
+
+}
 
 /* Compact trace bytes into a smaller bitmap. We effectively just drop the
    count information here. This is called only sporadically, for some
@@ -581,7 +444,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   u8 *queue_fn = "";
   u8  new_bits = '\0';
   s32 fd;
-  u8  keeping = 0, res;
+  u8  keeping = 0, res, classified = 0;
   u64 cksum = 0;
 
   u8 fn[PATH_MAX];
@@ -605,12 +468,16 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
 
-    if (!(new_bits = has_new_bits(afl, afl->virgin_bits))) {
+    new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+
+    if (likely(!new_bits)) {
 
       if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
       return 0;
 
     }
+
+    classified = new_bits;
 
 #ifndef SIMPLE_FILES
 
@@ -715,11 +582,14 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (likely(!afl->non_instrumented_mode)) {
 
-#ifdef WORD_SIZE_64
-        simplify_trace(afl, (u64 *)afl->fsrv.trace_bits);
-#else
-        simplify_trace(afl, (u32 *)afl->fsrv.trace_bits);
-#endif                                                     /* ^WORD_SIZE_64 */
+        if (!classified) {
+
+          classify_counts(&afl->fsrv);
+          classified = 1;
+
+        }
+
+        simplify_trace(afl, afl->fsrv.trace_bits);
 
         if (!has_new_bits(afl, afl->virgin_tmout)) { return keeping; }
 
@@ -764,6 +634,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         u8 new_fault;
         write_to_testcase(afl, mem, len);
         new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
+        classify_counts(&afl->fsrv);
 
         /* A corner case that one user reported bumping into: increasing the
            timeout actually uncovers a crash. Make sure we don't discard it if
@@ -812,11 +683,14 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (likely(!afl->non_instrumented_mode)) {
 
-#ifdef WORD_SIZE_64
-        simplify_trace(afl, (u64 *)afl->fsrv.trace_bits);
-#else
-        simplify_trace(afl, (u32 *)afl->fsrv.trace_bits);
-#endif                                                     /* ^WORD_SIZE_64 */
+        if (!classified) {
+
+          classify_counts(&afl->fsrv);
+          classified = 1;
+
+        }
+
+        simplify_trace(afl, afl->fsrv.trace_bits);
 
         if (!has_new_bits(afl, afl->virgin_crash)) { return keeping; }
 
