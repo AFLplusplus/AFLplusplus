@@ -213,7 +213,7 @@ int main(int argc, char *argv[]) {
   u32 len;
 
   /* here you specify the map size you need that you are reporting to
-     afl-fuzz.  Any value is fine as long as it can be divided by 8. */
+     afl-fuzz.  Any value is fine as long as it can be divided by 32. */
   __afl_map_size = MAP_SIZE;  // default is 65536
 
   /* then we initialize the shared memory map and start the forkserver */

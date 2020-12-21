@@ -517,23 +517,23 @@ code-format:
 ifndef AFL_NO_X86
 test_build: afl-cc afl-gcc afl-as afl-showmap
 	@echo "[*] Testing the CC wrapper afl-cc and its instrumentation output..."
-	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN; AFL_CC=$(CC) ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-gcc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-cc failed"; exit 1 )
+	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN AFL_CC; ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-cc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-cc failed"; exit 1 )
 	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
 	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
 	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation of afl-cc does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
 	@echo
 	@echo "[+] All right, the instrumentation of afl-cc seems to be working!"
-	@echo "[*] Testing the CC wrapper afl-gcc and its instrumentation output..."
-	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN; AFL_CC=$(CC) ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-gcc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-gcc failed"; exit 1 )
-	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
-	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
-	@rm -f test-instr
-	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation of afl-gcc does not seem to be behaving correctly!"; \
-		gcc -v 2>&1 | grep -q -- --with-as= && ( echo; echo "Gcc is configured not to use an external assembler with the -B option."; echo "See docs/INSTALL.md section 5 how to build a -B enabled gcc." ) || \
-		( echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue." ); echo; exit 0; fi
-	@echo
-	@echo "[+] All right, the instrumentation of afl-gcc seems to be working!"
+#	@echo "[*] Testing the CC wrapper afl-gcc and its instrumentation output..."
+#	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN; AFL_CC=$(CC) ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-gcc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-gcc failed"; exit 1 )
+#	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
+#	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
+#	@rm -f test-instr
+#	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation of afl-gcc does not seem to be behaving correctly!"; \
+#		gcc -v 2>&1 | grep -q -- --with-as= && ( echo; echo "Gcc is configured not to use an external assembler with the -B option."; echo "See docs/INSTALL.md section 5 how to build a -B enabled gcc." ) || \
+#		( echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue." ); echo; exit 0; fi
+#	@echo
+#	@echo "[+] All right, the instrumentation of afl-gcc seems to be working!"
 else
 test_build: afl-cc afl-as afl-showmap
 	@echo "[!] Note: skipping build tests (you may need to use LLVM or QEMU mode)."
