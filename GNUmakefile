@@ -586,7 +586,7 @@ distrib: all
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
 .PHONY: binary-only
-binary-only: all
+binary-only: test_shm test_python ready $(PROGS)
 	$(MAKE) -C utils/libdislocator
 	$(MAKE) -C utils/libtokencap
 	$(MAKE) -C utils/afl_network_proxy
