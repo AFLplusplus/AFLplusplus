@@ -11,16 +11,17 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 ### Version ++3.01a (release)
   - afl-fuzz
-    - fix crash for very, very fast targets+systems, thanks for reporting @mhlakhani
+    - fix crash for very, very fast targets+systems (thanks to mhlakhani
+      for reporting)
     - switched to a faster RNG
     - added hghwng's patch for faster trace map analysis
-  - added dummy Makefile to instrumentation/
   - afl-cc
     - allow instrumenting LLVMFuzzerTestOneInput
     - fixed endless loop for allow/blocklist lines starting with a
       comment (thanks to Zherya for reporting)
-    - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard support
-      (less performant than our own)
+    - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
+      support (less performant than our own)
+  - added dummy Makefile to instrumentation/
 
 
 ### Version ++3.00c (release)

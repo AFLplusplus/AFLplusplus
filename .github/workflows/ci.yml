@@ -1,0 +1,21 @@
+name: CI
+'on':
+  push:
+    branches:
+      - stable, dev
+  pull_request:
+    branches:
+      - stable, dev
+jobs:
+  Build:
+    runs-on: '${{ matrix.os }}'
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-18.04]
+    steps:
+      - uses: actions/checkout@v2
+      - run: sudo apt install -y git libtool libtool-bin automake bison libglib2.0-0 build-essential clang gcc gcc-plugin-dev libc++-dev findutils libcmocka-dev python3-setuptools
+      - run: gcc -v
+      - run: clang -v
+      - run: sudo -E ./afl-system-config ; sudo sysctl -w kernel.shmmax=10000000000 ; export AFL_SKIP_CPUFREQ=1 ; make distrib ASAN_BUILD=1
+      - run: make tests
