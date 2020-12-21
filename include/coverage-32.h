@@ -19,8 +19,8 @@ inline u32 classify_word(u32 word) {
 
 void simplify_trace(afl_state_t *afl, u8 *bytes) {
 
-  u32 *mem = (u32 *)fsrv->trace_bits;
-  u32  i = (fsrv->map_size >> 2);
+  u32 *mem = (u32 *)bytes;
+  u32  i = (afl->fsrv.map_size >> 2);
 
   while (i--) {
 
@@ -45,10 +45,10 @@ void simplify_trace(afl_state_t *afl, u8 *bytes) {
 
 }
 
-inline void classify_counts(u8 *bytes) {
+inline void classify_counts(afl_forkserver_t *fsrv) {
 
-  u64 *mem = (u64 *)bytes;
-  u32  i = MAP_SIZE >> 2;
+  u64 *mem = (u32 *)fsrv->trace_bits;
+  u32  i = (fsrv->map_size >> 2);
 
   while (i--) {
 
