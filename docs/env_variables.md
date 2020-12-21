@@ -113,6 +113,8 @@ Then there are a few specific features that are only available in instrumentatio
 
     - `AFL_LLVM_INSTRUMENT` - this configures the instrumentation mode. 
       Available options:
+        PCGUARD - our own pcgard based instrumentation (default)
+        NATIVE - clang's original pcguard based instrumentation
         CLASSIC - classic AFL (map[cur_loc ^ prev_loc >> 1]++) (default)
         CFG - InsTrim instrumentation (see below)
         LTO - LTO instrumentation (see below)
@@ -380,6 +382,9 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_NO_UI` inhibits the UI altogether, and just periodically prints
     some basic stats. This behavior is also automatically triggered when the
     output from afl-fuzz is redirected to a file or to a pipe.
+
+  - Setting `AFL_NO_COLOR` or `AFL_NO_COLOUR` will omit control sequences for
+    coloring console output when configured with USE_COLOR and not ALWAYS_COLORED.
 
   - Setting `AFL_FORCE_UI` will force painting the UI on the screen even if
     no valid terminal was detected (for virtual consoles)

@@ -622,9 +622,10 @@ struct afl_pass : gimple_opt_pass {
             allowListFiles.push_back(line);
           else
             allowListFunctions.push_back(line);
-          getline(fileStream, line);
 
         }
+
+        getline(fileStream, line);
 
       }
 
@@ -696,9 +697,10 @@ struct afl_pass : gimple_opt_pass {
             denyListFiles.push_back(line);
           else
             denyListFunctions.push_back(line);
-          getline(fileStream, line);
 
         }
+
+        getline(fileStream, line);
 
       }
 
