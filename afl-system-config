@@ -80,3 +80,4 @@ if [ "$PLATFORM" = "Darwin" ] ; then
   DONE=1
 fi
 test -z "$DONE" && echo Error: Unknown platform: $PLATFORM
+exit 0
