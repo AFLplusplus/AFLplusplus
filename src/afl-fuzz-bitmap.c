@@ -97,10 +97,10 @@ u32 count_bytes(afl_state_t *afl, u8 *mem) {
     u32 v = *(ptr++);
 
     if (!v) { continue; }
-    if (v & 0x000000ff) { ++ret; }
-    if (v & 0x0000ff00) { ++ret; }
-    if (v & 0x00ff0000) { ++ret; }
-    if (v & 0xff000000) { ++ret; }
+    if (v & 0x000000ffU) { ++ret; }
+    if (v & 0x0000ff00U) { ++ret; }
+    if (v & 0x00ff0000U) { ++ret; }
+    if (v & 0xff000000U) { ++ret; }
 
   }
 
@@ -124,11 +124,11 @@ u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
     /* This is called on the virgin bitmap, so optimize for the most likely
        case. */
 
-    if (v == 0xffffffff) { continue; }
-    if ((v & 0x000000ff) != 0x000000ff) { ++ret; }
-    if ((v & 0x0000ff00) != 0x0000ff00) { ++ret; }
-    if ((v & 0x00ff0000) != 0x00ff0000) { ++ret; }
-    if ((v & 0xff000000) != 0xff000000) { ++ret; }
+    if (v == 0xffffffffU) { continue; }
+    if ((v & 0x000000ffU) != 0x000000ffU) { ++ret; }
+    if ((v & 0x0000ff00U) != 0x0000ff00U) { ++ret; }
+    if ((v & 0x00ff0000U) != 0x00ff0000U) { ++ret; }
+    if ((v & 0xff000000U) != 0xff000000U) { ++ret; }
 
   }
 
@@ -140,10 +140,15 @@ u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
    and replacing it with 0x80 or 0x01 depending on whether the tuple
    is hit or not. Called on every new crash or timeout, should be
    reasonably fast. */
-
+#define TIMES4(x) x,x,x,x
+#define TIMES8(x) TIMES4(x),TIMES4(x)
+#define TIMES16(x) TIMES8(x),TIMES8(x)
+#define TIMES32(x) TIMES16(x),TIMES16(x)
+#define TIMES64(x) TIMES32(x),TIMES32(x)
+#define TIMES255(x) TIMES64(x),TIMES64(x),TIMES64(x),TIMES32(x),TIMES16(x),TIMES8(x),TIMES4(x),x,x,x
 const u8 simplify_lookup[256] = {
 
-    [0] = 1, [1 ... 255] = 128
+    [0] = 1, [1] = TIMES255(128)
 
 };
 
@@ -157,13 +162,19 @@ const u8 count_class_lookup8[256] = {
     [1] = 1,
     [2] = 2,
     [3] = 4,
-    [4 ... 7] = 8,
-    [8 ... 15] = 16,
-    [16 ... 31] = 32,
-    [32 ... 127] = 64,
-    [128 ... 255] = 128
+    [4] = TIMES4(8),
+    [8] = TIMES8(16),
+    [16] = TIMES16(32),
+    [32] = TIMES32(64),
+    [128] = TIMES64(128)
 
 };
+#undef TIMES255
+#undef TIMES64
+#undef TIMES32
+#undef TIMES16
+#undef TIMES8
+#undef TIMES4
 
 u16 count_class_lookup16[65536];
 
