@@ -20,7 +20,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fixed endless loop for allow/blocklist lines starting with a
       comment (thanks to Zherya for reporting)
     - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
-      support (less performant than our own)
+      support (less performant than our own), GCC for old afl-gcc and
+      CLANG for old afl-clang
   - added dummy Makefile to instrumentation/
 
 
