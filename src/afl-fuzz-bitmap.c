@@ -25,6 +25,9 @@
 
 #include "afl-fuzz.h"
 #include <limits.h>
+#if !defined NAME_MAX
+#define NAME_MAX _XOPEN_NAME_MAX
+#endif
 
 /* Write bitmap to file. The bitmap is useful mostly for the secret
    -B option, to focus a separate fuzzing session on a particular
