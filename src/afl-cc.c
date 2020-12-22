@@ -62,7 +62,7 @@ u8          use_stdin;                                             /* dummy */
 
 enum {
 
-  INSTURMENT_DEFAULT = 0,
+  INSTRUMENT_DEFAULT = 0,
   INSTRUMENT_CLASSIC = 1,
   INSTRUMENT_AFL = 1,
   INSTRUMENT_PCGUARD = 2,
@@ -70,6 +70,8 @@ enum {
   INSTRUMENT_CFG = 3,
   INSTRUMENT_LTO = 4,
   INSTRUMENT_LLVMNATIVE = 5,
+  INSTRUMENT_GCC = 6,
+  INSTRUMENT_CLANG = 7,
   INSTRUMENT_OPT_CTX = 8,
   INSTRUMENT_OPT_NGRAM = 16
 
@@ -77,9 +79,24 @@ enum {
 
 char instrument_mode_string[18][18] = {
 
-    "DEFAULT", "CLASSIC", "PCGUARD", "CFG", "LTO", "", "PCGUARD-NATIVE",
-    "",        "CTX",     "",        "",    "",    "", "",
-    "",        "",        "NGRAM",   ""
+    "DEFAULT",
+    "CLASSIC",
+    "PCGUARD",
+    "CFG",
+    "LTO",
+    "PCGUARD-NATIVE",
+    "GCC",
+    "CLANG",
+    "CTX",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "NGRAM",
+    ""
 
 };
 
@@ -89,14 +106,15 @@ enum {
   LTO = 1,
   LLVM = 2,
   GCC_PLUGIN = 3,
-  GCC = 4
+  GCC = 4,
+  CLANG = 5
 
 };
 
-char compiler_mode_string[6][12] = {
+char compiler_mode_string[7][12] = {
 
     "AUTOSELECT", "LLVM-LTO", "LLVM", "GCC_PLUGIN",
-    "GCC",        ""
+    "GCC",        "CLANG",    ""
 
 };
 
@@ -324,6 +342,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
           alt_cxx = clang_mode ? "clang++" : "g++";
 
+        } else if (compiler_mode == CLANG) {
+
+          alt_cxx = "clang++";
+
         } else {
 
           alt_cxx = "g++";
@@ -357,6 +379,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
           alt_cc = clang_mode ? "clang" : "gcc";
 
+        } else if (compiler_mode == CLANG) {
+
+          alt_cc = "clang";
+
         } else {
 
           alt_cc = "gcc";
@@ -380,12 +406,16 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (compiler_mode == GCC) {
+  if (compiler_mode == GCC || compiler_mode == CLANG) {
 
     cc_params[cc_par_cnt++] = "-B";
     cc_params[cc_par_cnt++] = obj_path;
 
-    if (clang_mode) { cc_params[cc_par_cnt++] = "-no-integrated-as"; }
+    if (clang_mode || compiler_mode == CLANG) {
+
+      cc_params[cc_par_cnt++] = "-no-integrated-as";
+
+    }
 
   }
 
@@ -996,11 +1026,15 @@ int main(int argc, char **argv, char **envp) {
 
   } else if (strncmp(callname, "afl-gcc", 7) == 0 ||
 
-             strncmp(callname, "afl-g++", 7) == 0 ||
-
-             strncmp(callname, "afl-clang", 9) == 0) {
+             strncmp(callname, "afl-g++", 7) == 0) {
 
     compiler_mode = GCC;
+
+  } else if (strncmp(callname, "afl-clang", 9) == 0 &&
+
+             strstr(callname, "fast") == NULL) {
+
+    compiler_mode = CLANG;
 
   }
 
@@ -1042,9 +1076,11 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (strncmp(callname, "afl-clang", 9) == 0) {
+  if (strncmp(callname, "afl-clang", 9) == 0 &&
+      strstr(callname, "fast") == NULL) {
 
     clang_mode = 1;
+    compiler_mode = CLANG;
 
     if (strncmp(callname, "afl-clang++", 11) == 0) { plusplus_mode = 1; }
 
@@ -1072,6 +1108,34 @@ int main(int argc, char **argv, char **envp) {
 
         compiler_mode = LLVM;
 
+      } else if (strncasecmp(ptr, "PCGUARD", 7) == 0 ||
+
+                 strncasecmp(ptr, "PC-GUARD", 8) == 0) {
+
+        compiler_mode = LLVM;
+        instrument_mode = INSTRUMENT_PCGUARD;
+
+      } else if (strcasecmp(ptr, "INSTRIM") == 0 ||
+
+                 strcasecmp(ptr, "CFG") == 0) {
+
+        compiler_mode = LLVM;
+        instrument_mode = INSTRUMENT_CFG;
+
+      } else if (strcasecmp(ptr, "AFL") == 0 ||
+
+                 strcasecmp(ptr, "CLASSIC") == 0) {
+
+        compiler_mode = LLVM;
+        instrument_mode = INSTRUMENT_CLASSIC;
+
+      } else if (strcasecmp(ptr, "LLVMNATIVE") == 0 ||
+
+                 strcasecmp(ptr, "LLVM-NATIVE") == 0) {
+
+        compiler_mode = LLVM;
+        instrument_mode = INSTRUMENT_LLVMNATIVE;
+
       } else if (strncasecmp(ptr, "GCC_P", 5) == 0 ||
 
                  strncasecmp(ptr, "GCC-P", 5) == 0 ||
@@ -1082,6 +1146,10 @@ int main(int argc, char **argv, char **envp) {
       } else if (strcasecmp(ptr, "GCC") == 0) {
 
         compiler_mode = GCC;
+
+      } else if (strncasecmp(ptr, "CLANG", 5) == 0) {
+
+        compiler_mode = CLANG;
 
       } else
 
@@ -1212,6 +1280,28 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
+      if (strcasecmp(ptr, "gcc") == 0) {
+
+        if (!instrument_mode || instrument_mode == INSTRUMENT_GCC)
+          instrument_mode = INSTRUMENT_GCC;
+        else if (instrument_mode != INSTRUMENT_GCC)
+          FATAL("main instrumentation mode already set with %s",
+                instrument_mode_string[instrument_mode]);
+        compiler_mode = GCC;
+
+      }
+
+      if (strcasecmp(ptr, "clang") == 0) {
+
+        if (!instrument_mode || instrument_mode == INSTRUMENT_CLANG)
+          instrument_mode = INSTRUMENT_CLANG;
+        else if (instrument_mode != INSTRUMENT_CLANG)
+          FATAL("main instrumentation mode already set with %s",
+                instrument_mode_string[instrument_mode]);
+        compiler_mode = CLANG;
+
+      }
+
       if (strncasecmp(ptr, "ctx", strlen("ctx")) == 0) {
 
         instrument_opt_mode |= INSTRUMENT_OPT_CTX;
@@ -1270,6 +1360,22 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+  if (compiler_mode == GCC) {
+
+    if (clang_mode) {
+
+      instrument_mode = CLANG;
+
+    } else {
+
+      instrument_mode = GCC;
+
+    }
+
+  }
+
+  if (compiler_mode == CLANG) { instrument_mode = CLANG; }
+
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
 
     printf("afl-cc" VERSION
@@ -1316,7 +1422,7 @@ int main(int argc, char **argv, char **envp) {
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
         "      CLASSIC              DEFAULT    no  yes     yes  no     no  no  "
         "   yes\n"
-        "  [GCC] simple gcc:        %s%s\n"
+        "  [GCC/CLANG] simple gcc/clang: %s%s\n"
         "      CLASSIC              DEFAULT    no  no      no   no     no  no  "
         "   no\n\n",
         have_lto ? "AVAILABLE" : "unavailable!",
@@ -1328,7 +1434,7 @@ int main(int argc, char **argv, char **envp) {
         have_gcc_plugin ? "AVAILABLE" : "unavailable!",
         compiler_mode == GCC_PLUGIN ? " [SELECTED]" : "",
         have_gcc ? "AVAILABLE" : "unavailable!",
-        compiler_mode == GCC ? " [SELECTED]" : "");
+        (compiler_mode == GCC || compiler_mode == CLANG) ? " [SELECTED]" : "");
 
     SAYF(
         "Modes:\n"
@@ -1445,7 +1551,8 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen "
             "mutator)\n"
             "  AFL_LLVM_INSTRUMENT: set instrumentation mode:\n"
-            "    CLASSIC, INSTRIM, PCGUARD, LTO, CTX, NGRAM-2 ... NGRAM-16\n"
+            "    CLASSIC, INSTRIM, PCGUARD, LTO, GCC, CLANG, CTX, NGRAM-2 ... "
+            "NGRAM-16\n"
             " You can also use the old environment variables instead:\n"
             "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
             "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
