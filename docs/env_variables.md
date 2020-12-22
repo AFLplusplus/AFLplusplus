@@ -120,6 +120,8 @@ Then there are a few specific features that are only available in instrumentatio
         LTO - LTO instrumentation (see below)
         CTX - context sensitive instrumentation (see below)
         NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
+        GCC - outdated gcc instrumentation
+        CLANG - outdated clang instrumentation
       In CLASSIC (default) and CFG/INSTRIM you can also specify CTX and/or
       NGRAM, seperate the options with a comma "," then, e.g.:
         `AFL_LLVM_INSTRUMENT=CFG,CTX,NGRAM-4`
