@@ -168,26 +168,7 @@ This is the most powerful and effective fuzzing you can do.
 Please see [README.persistent_mode.md](README.persistent_mode.md) for a
 full explanation.
 
-## 7) Bonus feature: 'trace-pc-guard' mode
-
-LLVM is shipping with a built-in execution tracing feature
-that provides AFL with the necessary tracing data without the need to
-post-process the assembly or install any compiler plugins. See:
-
-  http://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards
-
-If you have not an outdated compiler and want to give it a try, build
-targets this way:
-
-```
-AFL_LLVM_INSTRUMENT=PCGUARD  make
-```
-
-Note that this is currently the default if you use LLVM >= 7, as it is the best
-mode. Recommended is LLVM >= 9.
-If you have llvm 11+ and compiled afl-clang-lto - this is the only better mode.
-
-## 8) Bonus feature: 'dict2file' pass
+## 7) Bonus feature: 'dict2file' pass
 
 Just specify `AFL_LLVM_DICT2FILE=/absolute/path/file.txt` and during compilation
 all constant string compare parameters will be written to this file to be

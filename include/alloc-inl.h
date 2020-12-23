@@ -271,7 +271,7 @@ static inline void *DFL_ck_alloc_nozero(u32 size) {
   ret = malloc(size + ALLOC_OFF_TOTAL);
   ALLOC_CHECK_RESULT(ret, size);
 
-  ret += ALLOC_OFF_HEAD;
+  ret = (char *)ret + ALLOC_OFF_HEAD;
 
   ALLOC_C1(ret) = ALLOC_MAGIC_C1;
   ALLOC_S(ret) = size;
@@ -311,7 +311,7 @@ static inline void DFL_ck_free(void *mem) {
 
   ALLOC_C1(mem) = ALLOC_MAGIC_F;
 
-  free(mem - ALLOC_OFF_HEAD);
+  free((char *)mem - ALLOC_OFF_HEAD);
 
 }
 
@@ -340,7 +340,7 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
   #endif                                                    /* !DEBUG_BUILD */
 
     old_size = ALLOC_S(orig);
-    orig -= ALLOC_OFF_HEAD;
+    orig = (char *)orig - ALLOC_OFF_HEAD;
 
     ALLOC_CHECK_SIZE(old_size);
 
@@ -363,10 +363,10 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
   if (orig) {
 
-    memcpy(ret + ALLOC_OFF_HEAD, orig + ALLOC_OFF_HEAD, MIN(size, old_size));
-    memset(orig + ALLOC_OFF_HEAD, 0xFF, old_size);
+    memcpy((char *)ret + ALLOC_OFF_HEAD, (char *)orig + ALLOC_OFF_HEAD, MIN(size, old_size));
+    memset((char *)orig + ALLOC_OFF_HEAD, 0xFF, old_size);
 
-    ALLOC_C1(orig + ALLOC_OFF_HEAD) = ALLOC_MAGIC_F;
+    ALLOC_C1((char *)orig + ALLOC_OFF_HEAD) = ALLOC_MAGIC_F;
 
     free(orig);
 
@@ -374,13 +374,13 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
   #endif                                                   /* ^!DEBUG_BUILD */
 
-  ret += ALLOC_OFF_HEAD;
+  ret = (char *)ret + ALLOC_OFF_HEAD;
 
   ALLOC_C1(ret) = ALLOC_MAGIC_C1;
   ALLOC_S(ret) = size;
   ALLOC_C2(ret) = ALLOC_MAGIC_C2;
 
-  if (size > old_size) memset(ret + old_size, 0, size - old_size);
+  if (size > old_size) memset((char *)ret + old_size, 0, size - old_size);
 
   return ret;
 
@@ -401,7 +401,7 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
   ret = malloc(size + ALLOC_OFF_TOTAL);
   ALLOC_CHECK_RESULT(ret, size);
 
-  ret += ALLOC_OFF_HEAD;
+  ret = (char *)ret + ALLOC_OFF_HEAD;
 
   ALLOC_C1(ret) = ALLOC_MAGIC_C1;
   ALLOC_S(ret) = size;

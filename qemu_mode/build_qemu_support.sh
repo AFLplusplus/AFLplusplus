@@ -165,33 +165,140 @@ fi
 
 echo "Building for CPU target $CPU_TARGET"
 
+# --enable-pie seems to give a couple of exec's a second performance
+# improvement, much to my surprise. Not sure how universal this is..
+QEMU_CONF_FLAGS=" \
+  --audio-drv-list= \
+  --disable-blobs \
+  --disable-bochs \
+  --disable-brlapi \
+  --disable-bsd-user \
+  --disable-bzip2 \
+  --disable-cap-ng \
+  --disable-cloop \
+  --disable-curl \
+  --disable-curses \
+  --disable-dmg \
+  --disable-fdt \
+  --disable-gcrypt \
+  --disable-glusterfs \
+  --disable-gnutls \
+  --disable-gtk \
+  --disable-guest-agent \
+  --disable-iconv \
+  --disable-libiscsi \
+  --disable-libnfs \
+  --disable-libssh \
+  --disable-libusb \
+  --disable-linux-aio \
+  --disable-live-block-migration \
+  --disable-lzo \
+  --disable-nettle \
+  --disable-numa \
+  --disable-opengl \
+  --disable-parallels \
+  --disable-plugins \
+  --disable-qcow1 \
+  --disable-qed \
+  --disable-rbd \
+  --disable-rdma \
+  --disable-replication \
+  --disable-sdl \
+  --disable-seccomp \
+  --disable-sheepdog \
+  --disable-smartcard \
+  --disable-snappy \
+  --disable-spice \
+  --disable-system \
+  --disable-tools \
+  --disable-tpm \
+  --disable-usb-redir \
+  --disable-vde \
+  --disable-vdi \
+  --disable-vhost-crypto \
+  --disable-vhost-kernel \
+  --disable-vhost-net \
+  --disable-vhost-scsi \
+  --disable-vhost-user \
+  --disable-vhost-vdpa \
+  --disable-vhost-vsock \
+  --disable-virglrenderer \
+  --disable-virtfs \
+  --disable-vnc \
+  --disable-vnc-jpeg \
+  --disable-vnc-png \
+  --disable-vnc-sasl \
+  --disable-vte \
+  --disable-vvfat \
+  --disable-xen \
+  --disable-xen-pci-passthrough \
+  --disable-xfsctl \
+  --enable-pie \
+  --python=${PYTHONBIN} \
+  --target-list="${CPU_TARGET}-linux-user" \
+  --without-default-devices \
+  "
+
+if [ -n "${CROSS_PREFIX}" ]; then
+
+  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} --cross-prefix=${CROSS_PREFIX}"
+
+fi
+
 if [ "$STATIC" = "1" ]; then
 
   echo Building STATIC binary
-  ./configure --extra-cflags="-O3 -ggdb -DAFL_QEMU_STATIC_BUILD=1" \
-     --disable-bsd-user --disable-guest-agent --disable-strip --disable-werror \
-	  --disable-gcrypt --disable-debug-info --disable-debug-tcg --disable-tcg-interpreter \
-	  --enable-attr --disable-brlapi --disable-linux-aio --disable-bzip2 --disable-bluez --disable-cap-ng \
-	  --disable-curl --disable-fdt --disable-glusterfs --disable-gnutls --disable-nettle --disable-gtk \
-	  --disable-rdma --disable-libiscsi --disable-vnc-jpeg --disable-lzo --disable-curses \
-	  --disable-libnfs --disable-numa --disable-opengl --disable-vnc-png --disable-rbd --disable-vnc-sasl \
-	  --disable-sdl --disable-seccomp --disable-smartcard --disable-snappy --disable-spice --disable-libssh2 \
-	  --disable-libusb --disable-usb-redir --disable-vde --disable-vhost-net --disable-virglrenderer \
-	  --disable-virtfs --disable-vnc --disable-vte --disable-xen --disable-xen-pci-passthrough --disable-xfsctl \
-	  --enable-linux-user --disable-system --disable-blobs --disable-tools \
-	  --target-list="${CPU_TARGET}-linux-user" --static --disable-pie --cross-prefix=$CROSS_PREFIX --python="$PYTHONBIN" \
-	  || exit 1
+
+  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+    --static \
+    --extra-cflags=-DAFL_QEMU_STATIC_BUILD=1 \
+    "
+fi
+
+if [ "$DEBUG" = "1" ]; then
+
+  echo Building DEBUG binary
+
+  # --enable-gcov might go here but incurs a mesonbuild error on meson
+  # versions prior to 0.56:
+  # https://github.com/qemu/meson/commit/903d5dd8a7dc1d6f8bef79e66d6ebc07c
+  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+    --disable-strip \
+    --enable-debug \
+    --enable-debug-info \
+    --enable-debug-mutex \
+    --enable-debug-stack-usage \
+    --enable-debug-tcg \
+    --enable-qom-cast-debug \
+    --enable-werror \
+    "
 
 else
 
-  # --enable-pie seems to give a couple of exec's a second performance
-  # improvement, much to my surprise. Not sure how universal this is..
-
-  ./configure --disable-system \
-    --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --disable-werror \
-    --target-list="${CPU_TARGET}-linux-user" --enable-pie $CROSS_PREFIX --python="$PYTHONBIN" || exit 1
+  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+    --disable-debug-info \
+    --disable-debug-mutex \
+    --disable-debug-tcg \
+    --disable-qom-cast-debug \
+    --disable-stack-protector \
+    --disable-werror \
+    "
 
 fi
+
+if [ "$PROFILING" = "1" ]; then
+
+  echo Building PROFILED binary
+
+  QEMU_CONF_FLAGS="${QEMU_CONF_FLAGS} \
+    --enable-gprof \
+    --enable-profiler \
+    "
+
+fi
+
+# shellcheck disable=SC2086
+./configure ${QEMU_CONF_FLAGS} || exit 1
 
 echo "[+] Configuration complete."
 

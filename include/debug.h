@@ -168,12 +168,84 @@
  * Debug & error macros *
  ************************/
 
-/* Just print stuff to the appropriate stream. */
+#if defined USE_COLOR && !defined ALWAYS_COLORED
+  #include <unistd.h>
+  #pragma GCC diagnostic ignored "-Wformat-security"
+static inline const char *colorfilter(const char *x) {
 
-#ifdef MESSAGES_TO_STDOUT
-  #define SAYF(x...) printf(x)
+  static int once = 1;
+  static int disabled = 0;
+
+  if (once) {
+
+    /* when there is no tty -> we always want filtering
+     * when AFL_NO_UI is set filtering depends on AFL_NO_COLOR
+     * otherwise we want always colors
+     */
+    disabled =
+        isatty(2) && (!getenv("AFL_NO_UI") ||
+                      (!getenv("AFL_NO_COLOR") && !getenv("AFL_NO_COLOUR")));
+    once = 0;
+
+  }
+
+  if (likely(disabled)) return x;
+
+  static char monochromestring[4096];
+  char *      d = monochromestring;
+  int         in_seq = 0;
+
+  while (*x) {
+
+    if (in_seq && *x == 'm') {
+
+      in_seq = 0;
+
+    } else {
+
+      if (!in_seq && *x == '\x1b') { in_seq = 1; }
+      if (!in_seq) { *d++ = *x; }
+
+    }
+
+    ++x;
+
+  }
+
+  *d = '\0';
+  return monochromestring;
+
+}
+
 #else
-  #define SAYF(x...) fprintf(stderr, x)
+  #define colorfilter(x) x                        /* no filtering necessary */
+#endif
+
+/* macro magic to transform the first parameter to SAYF
+ * through colorfilter which strips coloring */
+#define GET_MACRO(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, \
+                  _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26,  \
+                  _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38,  \
+                  _39, _40, NAME, ...)                                         \
+  NAME
+
+#define SAYF(...)                                                           \
+  GET_MACRO(__VA_ARGS__, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N,    \
+            SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, \
+            SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, \
+            SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, \
+            SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, SAYF_N, \
+            SAYF_N, SAYF_1)                                                 \
+  (__VA_ARGS__)
+
+#define SAYF_1(x) MY_SAYF(colorfilter(x))
+#define SAYF_N(x, ...) MY_SAYF(colorfilter(x), __VA_ARGS__)
+
+/* Just print stuff to the appropriate stream. */
+#ifdef MESSAGES_TO_STDOUT
+  #define MY_SAYF(x...) printf(x)
+#else
+  #define MY_SAYF(x...) fprintf(stderr, x)
 #endif                                               /* ^MESSAGES_TO_STDOUT */
 
 /* Show a prefixed warning. */

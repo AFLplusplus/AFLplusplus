@@ -134,6 +134,12 @@
 // Little helper to access the ptr to afl->##name_buf - for use in afl_realloc.
 #define AFL_BUF_PARAM(name) ((void **)&afl->name##_buf)
 
+#ifdef WORD_SIZE_64
+  #define AFL_RAND_RETURN u64
+#else
+  #define AFL_RAND_RETURN u32
+#endif
+
 extern s8  interesting_8[INTERESTING_8_LEN];
 extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
 extern s32
@@ -580,7 +586,7 @@ typedef struct afl_state {
 
   u32 rand_cnt;                         /* Random number counter            */
 
-  u64 rand_seed[4];
+  u64 rand_seed[3];
   s64 init_seed;
 
   u64 total_cal_us,                     /* Total calibration time (us)      */
@@ -1014,12 +1020,12 @@ void write_bitmap(afl_state_t *);
 u32  count_bits(afl_state_t *, u8 *);
 u32  count_bytes(afl_state_t *, u8 *);
 u32  count_non_255_bytes(afl_state_t *, u8 *);
+void simplify_trace(afl_state_t *, u8 *);
+void classify_counts(afl_forkserver_t *);
 #ifdef WORD_SIZE_64
-void simplify_trace(afl_state_t *, u64 *);
-void classify_counts(afl_forkserver_t *);
+void discover_word(u8 *ret, u64 *current, u64 *virgin);
 #else
-void simplify_trace(afl_state_t *, u32 *);
-void classify_counts(afl_forkserver_t *);
+void discover_word(u8 *ret, u32 *current, u32 *virgin);
 #endif
 void init_count_class16(void);
 void minimize_bits(afl_state_t *, u8 *, u8 *);
@@ -1028,6 +1034,7 @@ u8 *describe_op(afl_state_t *, u8, size_t);
 #endif
 u8 save_if_interesting(afl_state_t *, void *, u32, u8);
 u8 has_new_bits(afl_state_t *, u8 *);
+u8 has_new_bits_unclassified(afl_state_t *, u8 *);
 
 /* Extras */
 
@@ -1111,8 +1118,7 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
                         u64 exec_cksum);
 
-/* xoshiro256** */
-uint64_t rand_next(afl_state_t *afl);
+AFL_RAND_RETURN rand_next(afl_state_t *afl);
 
 /* probability between 0.0 and 1.0 */
 double rand_next_percent(afl_state_t *afl);

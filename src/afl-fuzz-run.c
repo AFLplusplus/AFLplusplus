@@ -28,6 +28,9 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <limits.h>
+#if !defined NAME_MAX
+#define NAME_MAX _XOPEN_NAME_MAX
+#endif
 
 #include "cmplog.h"
 
@@ -62,8 +65,6 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
   time_spent_start = (spec.tv_sec * 1000000000) + spec.tv_nsec;
 #endif
 
-  // TODO: Don't classify for faults?
-  classify_counts(fsrv);
   return res;
 
 }
@@ -379,6 +380,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     }
 
+    classify_counts(&afl->fsrv);
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
     if (q->exec_cksum != cksum) {
 
@@ -767,13 +769,14 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
 
       fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-      ++afl->trim_execs;
 
       if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
 
       /* Note that we don't keep track of crashes or hangs here; maybe TODO?
        */
 
+      ++afl->trim_execs;
+      classify_counts(&afl->fsrv);
       cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
       /* If the deletion had no impact on the trace, make it permanent. This

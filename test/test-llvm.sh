@@ -31,6 +31,8 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
           $ECHO "$RED[!] llvm_mode instrumentation produces weird numbers: $TUPLES"
           CODE=1
         }
+        test "$TUPLES" -lt 4 && SKIP=1
+        true
       }
     } || {
       $ECHO "$RED[!] llvm_mode instrumentation failed"
@@ -66,18 +68,20 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }) || {
     mkdir -p in
     echo 0 > in/in
-    $ECHO "$GREY[*] running afl-fuzz for llvm_mode, this will take approx 10 seconds"
-    {
-      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
-    } >>errors 2>&1
-    test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
-      $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode"
-    } || {
-      echo CUT------------------------------------------------------------------CUT
-      cat errors
-      echo CUT------------------------------------------------------------------CUT
-      $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode"
-      CODE=1
+    test -z "$SKIP" && {
+      $ECHO "$GREY[*] running afl-fuzz for llvm_mode, this will take approx 10 seconds"
+      {
+        ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
+      } >>errors 2>&1
+      test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode"
+      } || {
+        echo CUT------------------------------------------------------------------CUT
+        cat errors
+        echo CUT------------------------------------------------------------------CUT
+        $ECHO "$RED[!] afl-fuzz is not working correctly with llvm_mode"
+        CODE=1
+      }
     }
     test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc" || {
       echo 000000000000000000000000 > in/in2
@@ -133,6 +137,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       }
       rm -f test-instr.instrim test.out
     } || {
+      cat test.out
       $ECHO "$RED[!] llvm_mode InsTrim compilation failed"
       CODE=1
     }
