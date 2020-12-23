@@ -296,7 +296,7 @@ Clickable README links for the chosen compiler:
   * [LTO mode - afl-clang-lto](instrumentation/README.lto.md)
   * [LLVM mode - afl-clang-fast](instrumentation/README.llvm.md)
   * [GCC_PLUGIN mode - afl-gcc-fast](instrumentation/README.gcc_plugin.md)
-  * GCC/CLANG mode (afl-gcc/afl-clant) have no README as they have no own features
+  * GCC/CLANG mode (afl-gcc/afl-clang) have no README as they have no own features
 
 You can select the mode for the afl-cc compiler by:
   1. use a symlink to afl-cc: afl-gcc, afl-g++, afl-clang, afl-clang++,
