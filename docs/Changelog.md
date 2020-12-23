@@ -9,6 +9,22 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
+### Version ++3.01a (release)
+  - afl-fuzz
+    - fix crash for very, very fast targets+systems (thanks to mhlakhani
+      for reporting)
+    - switched to a faster RNG
+    - added hghwng's patch for faster trace map analysis
+  - afl-cc
+    - allow instrumenting LLVMFuzzerTestOneInput
+    - fixed endless loop for allow/blocklist lines starting with a
+      comment (thanks to Zherya for reporting)
+    - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
+      support (less performant than our own), GCC for old afl-gcc and
+      CLANG for old afl-clang
+  - added dummy Makefile to instrumentation/
+
+
 ### Version ++3.00c (release)
   - llvm_mode/ and gcc_plugin/ moved to instrumentation/
   - examples/ renamed to utils/
@@ -46,6 +62,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - somewhere we broke -n dumb fuzzing, fixed
     - added afl_custom_describe to the custom mutator API to allow for easy
       mutation reproduction on crashing inputs
+    - new env. var. AFL_NO_COLOR (or AFL_NO_COLOUR) to suppress colored
+      console output (when configured with USE_COLOR and not ALWAYS_COLORED)
   - instrumentation
     - We received an enhanced gcc_plugin module from AdaCore, thank you
       very much!!

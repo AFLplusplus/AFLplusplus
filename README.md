@@ -6,7 +6,7 @@
 
   Release Version: [3.00c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-  Github Version: 3.00a
+  Github Version: 3.01a
 
   Repository: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 

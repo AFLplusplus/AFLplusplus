@@ -42,8 +42,8 @@ endif
 
 ifdef ASAN_BUILD
   $(info Compiling ASAN version of binaries)
-  override CFLAGS+=$(ASAN_CFLAGS)
-  LDFLAGS+=$(ASAN_LDFLAGS)
+  override CFLAGS += $(ASAN_CFLAGS)
+  LDFLAGS += $(ASAN_LDFLAGS)
 endif
 ifdef UBSAN_BUILD
   $(info Compiling UBSAN version of binaries)
@@ -77,30 +77,34 @@ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) -fno-move-loop-invariants -
 	SPECIAL_PERFORMANCE += -fno-move-loop-invariants -fdisable-tree-cunrolli
 endif
 
+ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+  ifndef SOURCE_DATE_EPOCH
+    HAVE_MARCHNATIVE = 1
+    CFLAGS_OPT += -march=native
+  endif
+endif
+
 ifneq "$(shell uname)" "Darwin"
- ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-   ifndef SOURCE_DATE_EPOCH
- 	#CFLAGS_OPT += -march=native
- 	SPECIAL_PERFORMANCE += -march=native
-   endif
- endif
+  ifeq "$(HAVE_MARCHNATIVE)" "1"
+    SPECIAL_PERFORMANCE += -march=native
+  endif
  # OS X does not like _FORTIFY_SOURCE=2
- ifndef DEBUG
-   CFLAGS_OPT += -D_FORTIFY_SOURCE=2
- endif
+  ifndef DEBUG
+    CFLAGS_OPT += -D_FORTIFY_SOURCE=2
+  endif
 endif
 
 ifeq "$(shell uname)" "SunOS"
- CFLAGS_OPT += -Wno-format-truncation
- LDFLAGS=-lkstat -lrt
+  CFLAGS_OPT += -Wno-format-truncation
+  LDFLAGS = -lkstat -lrt
 endif
 
 ifdef STATIC
   $(info Compiling static version of binaries, disabling python though)
   # Disable python for static compilation to simplify things
-  PYTHON_OK=0
+  PYTHON_OK = 0
   PYFLAGS=
-  PYTHON_INCLUDE=/
+  PYTHON_INCLUDE = /
 
   CFLAGS_OPT += -static
   LDFLAGS += -lm -lpthread -lz -lutil
@@ -117,6 +121,7 @@ ifdef INTROSPECTION
   CFLAGS_OPT += -DINTROSPECTION=1
 endif
 
+
 ifneq "$(shell uname -m)" "x86_64"
  ifneq "$(patsubst i%86,i386,$(shell uname -m))" "i386"
   ifneq "$(shell uname -m)" "amd64"
@@ -131,7 +136,7 @@ ifdef DEBUG
   $(info Compiling DEBUG version of binaries)
   CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror
 else
-  CFLAGS     ?= -O3 -funroll-loops $(CFLAGS_OPT)
+  CFLAGS ?= -O3 -funroll-loops $(CFLAGS_OPT)
 endif
 
 override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wpointer-arith \
@@ -512,23 +517,23 @@ code-format:
 ifndef AFL_NO_X86
 test_build: afl-cc afl-gcc afl-as afl-showmap
 	@echo "[*] Testing the CC wrapper afl-cc and its instrumentation output..."
-	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_INST_RATIO=100 AFL_PATH=. ./afl-cc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-cc failed"; exit 1 )
+	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN AFL_CC; ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-cc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-cc failed"; exit 1 )
 	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
 	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
 	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation of afl-cc does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
 	@echo
 	@echo "[+] All right, the instrumentation of afl-cc seems to be working!"
-	@echo "[*] Testing the CC wrapper afl-gcc and its instrumentation output..."
-	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN AFL_CC; AFL_INST_RATIO=100 AFL_PATH=. ./afl-gcc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-gcc failed"; exit 1 )
-	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
-	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
-	@rm -f test-instr
-	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation of afl-gcc does not seem to be behaving correctly!"; \
-		gcc -v 2>&1 | grep -q -- --with-as= && ( echo; echo "Gcc is configured not to use an external assembler with the -B option."; echo "See docs/INSTALL.md section 5 how to build a -B enabled gcc." ) || \
-		( echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue." ); echo; exit 0; fi
-	@echo
-	@echo "[+] All right, the instrumentation of afl-gcc seems to be working!"
+#	@echo "[*] Testing the CC wrapper afl-gcc and its instrumentation output..."
+#	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_ASAN AFL_USE_MSAN; AFL_CC=$(CC) ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-gcc test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-gcc failed"; exit 1 )
+#	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
+#	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
+#	@rm -f test-instr
+#	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation of afl-gcc does not seem to be behaving correctly!"; \
+#		gcc -v 2>&1 | grep -q -- --with-as= && ( echo; echo "Gcc is configured not to use an external assembler with the -B option."; echo "See docs/INSTALL.md section 5 how to build a -B enabled gcc." ) || \
+#		( echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue." ); echo; exit 0; fi
+#	@echo
+#	@echo "[+] All right, the instrumentation of afl-gcc seems to be working!"
 else
 test_build: afl-cc afl-as afl-showmap
 	@echo "[!] Note: skipping build tests (you may need to use LLVM or QEMU mode)."
@@ -586,7 +591,7 @@ distrib: all
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
 
 .PHONY: binary-only
-binary-only: all
+binary-only: test_shm test_python ready $(PROGS)
 	$(MAKE) -C utils/libdislocator
 	$(MAKE) -C utils/libtokencap
 	$(MAKE) -C utils/afl_network_proxy

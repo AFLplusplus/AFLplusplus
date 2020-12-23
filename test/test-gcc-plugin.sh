@@ -19,13 +19,15 @@ test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
       } || {
         $ECHO "$GREEN[+] gcc_plugin instrumentation present and working correctly"
         TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain.gccpi 2>&1 | grep Captur | awk '{print$3}'`
-        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 7 && {
+        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 9 && {
           $ECHO "$GREEN[+] gcc_plugin run reported $TUPLES instrumented locations which is fine"
         } || {
           $ECHO "$RED[!] gcc_plugin instrumentation produces a weird numbers: $TUPLES"
           $ECHO "$YELLOW[-] this is a known issue in gcc, not afl++. It is not flagged as an error because travis builds would all fail otherwise :-("
           #CODE=1
         }
+        test "$TUPLES" -lt 4 && SKIP=1
+        true
       }
     } || {
       $ECHO "$RED[!] gcc_plugin instrumentation failed"
@@ -60,22 +62,24 @@ test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
     CODE=1
     true
   }) || {
-    mkdir -p in
-    echo 0 > in/in
-    $ECHO "$GREY[*] running afl-fuzz for gcc_plugin, this will take approx 10 seconds"
-    {
-      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain.gccpi >>errors 2>&1
-    } >>errors 2>&1
-    test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
-      $ECHO "$GREEN[+] afl-fuzz is working correctly with gcc_plugin"
-    } || {
-      echo CUT------------------------------------------------------------------CUT
-      cat errors
-      echo CUT------------------------------------------------------------------CUT
-      $ECHO "$RED[!] afl-fuzz is not working correctly with gcc_plugin"
-      CODE=1
+    test -z "$SKIP" && {
+      mkdir -p in
+      echo 0 > in/in
+      $ECHO "$GREY[*] running afl-fuzz for gcc_plugin, this will take approx 10 seconds"
+      {
+        ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain.gccpi >>errors 2>&1
+      } >>errors 2>&1
+      test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with gcc_plugin"
+      } || {
+        echo CUT------------------------------------------------------------------CUT
+        cat errors
+        echo CUT------------------------------------------------------------------CUT
+        $ECHO "$RED[!] afl-fuzz is not working correctly with gcc_plugin"
+        CODE=1
+      }
+      rm -rf in out errors
     }
-    rm -rf in out errors
   }
   rm -f test-instr.plain.gccpi
 
