@@ -26,7 +26,7 @@
 #include "afl-fuzz.h"
 #include <limits.h>
 #if !defined NAME_MAX
-#define NAME_MAX _XOPEN_NAME_MAX
+  #define NAME_MAX _XOPEN_NAME_MAX
 #endif
 
 /* Write bitmap to file. The bitmap is useful mostly for the secret
@@ -143,12 +143,14 @@ u32 count_non_255_bytes(afl_state_t *afl, u8 *mem) {
    and replacing it with 0x80 or 0x01 depending on whether the tuple
    is hit or not. Called on every new crash or timeout, should be
    reasonably fast. */
-#define TIMES4(x) x,x,x,x
-#define TIMES8(x) TIMES4(x),TIMES4(x)
-#define TIMES16(x) TIMES8(x),TIMES8(x)
-#define TIMES32(x) TIMES16(x),TIMES16(x)
-#define TIMES64(x) TIMES32(x),TIMES32(x)
-#define TIMES255(x) TIMES64(x),TIMES64(x),TIMES64(x),TIMES32(x),TIMES16(x),TIMES8(x),TIMES4(x),x,x,x
+#define TIMES4(x) x, x, x, x
+#define TIMES8(x) TIMES4(x), TIMES4(x)
+#define TIMES16(x) TIMES8(x), TIMES8(x)
+#define TIMES32(x) TIMES16(x), TIMES16(x)
+#define TIMES64(x) TIMES32(x), TIMES32(x)
+#define TIMES255(x)                                                      \
+  TIMES64(x), TIMES64(x), TIMES64(x), TIMES32(x), TIMES16(x), TIMES8(x), \
+      TIMES4(x), x, x, x
 const u8 simplify_lookup[256] = {
 
     [0] = 1, [1] = TIMES255(128)
@@ -172,6 +174,7 @@ const u8 count_class_lookup8[256] = {
     [128] = TIMES64(128)
 
 };
+
 #undef TIMES255
 #undef TIMES64
 #undef TIMES32
