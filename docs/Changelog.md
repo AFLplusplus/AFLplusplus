@@ -22,6 +22,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
+  - LLVM mode is now compiled with -j4, unicorn with all cores. qemu was
+    already building with all cores, the gcc plugin needs only one.
   - added dummy Makefile to instrumentation/
 
 
