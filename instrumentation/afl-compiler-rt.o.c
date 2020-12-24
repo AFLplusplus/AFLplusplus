@@ -40,7 +40,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
-#ifdef __llvm__
+#if !__GNUC__
   #include "llvm/Config/llvm-config.h"
 #endif
 
