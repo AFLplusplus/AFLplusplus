@@ -690,7 +690,7 @@ Note that there are also a lot of tools out there that help fuzzing with afl++
 (some might be deprecated or unsupported):
 
 Minimization of test cases:
- * [afl-pytmin](https://github.com/ilsani/afl-pytmin) - a wrapper for afl-tmin that tries to speed up the process of the minimization of test case by using many CPU cores.
+ * [afl-pytmin](https://github.com/ilsani/afl-pytmin) - a wrapper for afl-tmin that tries to speed up the process of minimization of a single test case by using many CPU cores.
  * [afl-ddmin-mod](https://github.com/MarkusTeufelberger/afl-ddmin-mod) - a variation of afl-tmin based on the ddmin algorithm. 
  * [halfempty](https://github.com/googleprojectzero/halfempty) -  is a fast utility for minimizing test cases by Tavis Ormandy based on parallelization. 
 
@@ -745,7 +745,7 @@ the speed compared to qemu_mode (but slower than persistent mode).
 ### Unicorn
 
 For non-Linux binaries you can use afl++'s unicorn mode which can emulate
-anything you want - for the price of speed and the user writing scripts.
+anything you want - for the price of speed and user written scripts.
 See [unicorn_mode](unicorn_mode/README.md).
 
 It can be easily built by:
@@ -757,16 +757,16 @@ cd unicorn_mode
 ### Shared libraries
 
 If the goal is to fuzz a dynamic library then there are two options available.
-For both you need to write a small hardness that loads and calls the library.
+For both you need to write a small harness that loads and calls the library.
 Faster is the frida solution: [utils/afl_frida/README.md](utils/afl_frida/README.md)
 
 Another, less precise and slower option is using ptrace with debugger interrupt
-instrumentation: [utils/afl_untracer/README.md](utils/afl_untracer/README.md)
+instrumentation: [utils/afl_untracer/README.md](utils/afl_untracer/README.md).
 
 ### More
 
 A more comprehensive description of these and other options can be found in
-[docs/binaryonly_fuzzing.md](docs/binaryonly_fuzzing.md)
+[docs/binaryonly_fuzzing.md](docs/binaryonly_fuzzing.md).
 
 ## Challenges of guided fuzzing
 
