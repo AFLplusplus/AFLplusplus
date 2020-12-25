@@ -432,7 +432,9 @@ void check_environment_vars(char **envp) {
   char *env, *val;
   while ((env = envp[index++]) != NULL) {
 
-    if (strncmp(env, "ALF_", 4) == 0) {
+    if (strncmp(env, "ALF_", 4) == 0 || strncmp(env, "_ALF", 4) == 0 ||
+        strncmp(env, "__ALF", 5) == 0 || strncmp(env, "_AFL", 4) == 0 ||
+        strncmp(env, "__AFL", 5) == 0) {
 
       WARNF("Potentially mistyped AFL environment variable: %s", env);
       issue_detected = 1;

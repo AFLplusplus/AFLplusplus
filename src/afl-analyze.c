@@ -103,11 +103,11 @@ static u32 map_size = MAP_SIZE;
 /* Classify tuple counts. This is a slow & naive version, but good enough here.
  */
 
-#define TIMES4(x) x,x,x,x
-#define TIMES8(x) TIMES4(x),TIMES4(x)
-#define TIMES16(x) TIMES8(x),TIMES8(x)
-#define TIMES32(x) TIMES16(x),TIMES16(x)
-#define TIMES64(x) TIMES32(x),TIMES32(x)
+#define TIMES4(x) x, x, x, x
+#define TIMES8(x) TIMES4(x), TIMES4(x)
+#define TIMES16(x) TIMES8(x), TIMES8(x)
+#define TIMES32(x) TIMES16(x), TIMES16(x)
+#define TIMES64(x) TIMES32(x), TIMES32(x)
 static u8 count_class_lookup[256] = {
 
     [0] = 0,
@@ -121,6 +121,7 @@ static u8 count_class_lookup[256] = {
     [128] = TIMES64(128)
 
 };
+
 #undef TIMES64
 #undef TIMES32
 #undef TIMES16

@@ -1030,9 +1030,9 @@ int main(int argc, char **argv, char **envp) {
 
     compiler_mode = GCC;
 
-  } else if (strncmp(callname, "afl-clang", 9) == 0 &&
+  } else if (strcmp(callname, "afl-clang") == 0 ||
 
-             strstr(callname, "fast") == NULL) {
+             strcmp(callname, "afl-clang++") == 0) {
 
     compiler_mode = CLANG;
 
@@ -1076,13 +1076,13 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (strncmp(callname, "afl-clang", 9) == 0 &&
-      strstr(callname, "fast") == NULL) {
+  if (strcmp(callname, "afl-clang") == 0 ||
+      strcmp(callname, "afl-clang++") == 0) {
 
     clang_mode = 1;
     compiler_mode = CLANG;
 
-    if (strncmp(callname, "afl-clang++", 11) == 0) { plusplus_mode = 1; }
+    if (strcmp(callname, "afl-clang++") == 0) { plusplus_mode = 1; }
 
   }
 

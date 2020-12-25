@@ -363,7 +363,8 @@ static inline void *DFL_ck_realloc(void *orig, u32 size) {
 
   if (orig) {
 
-    memcpy((char *)ret + ALLOC_OFF_HEAD, (char *)orig + ALLOC_OFF_HEAD, MIN(size, old_size));
+    memcpy((char *)ret + ALLOC_OFF_HEAD, (char *)orig + ALLOC_OFF_HEAD,
+           MIN(size, old_size));
     memset((char *)orig + ALLOC_OFF_HEAD, 0xFF, old_size);
 
     ALLOC_C1((char *)orig + ALLOC_OFF_HEAD) = ALLOC_MAGIC_F;
