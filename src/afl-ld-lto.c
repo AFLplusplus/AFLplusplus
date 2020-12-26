@@ -46,7 +46,7 @@
 #include <dirent.h>
 
 #ifdef __APPLE__
-#include <sys/syslimits.h>
+  #include <sys/syslimits.h>
 #endif
 
 #define MAX_PARAM_COUNT 4096
