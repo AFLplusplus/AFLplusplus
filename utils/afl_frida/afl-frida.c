@@ -61,54 +61,11 @@ static void *(*o_function)(uint8_t *, int);
 
 #include "frida-gum.h"
 
-G_BEGIN_DECLS
-
-#define GUM_TYPE_FAKE_EVENT_SINK (gum_fake_event_sink_get_type())
-G_DECLARE_FINAL_TYPE(GumFakeEventSink, gum_fake_event_sink, GUM,
-                     FAKE_EVENT_SINK, GObject)
-
-struct _GumFakeEventSink {
-
-  GObject      parent;
-  GumEventType mask;
-
-};
-
-GumEventSink *gum_fake_event_sink_new(void);
-void          gum_fake_event_sink_reset(GumFakeEventSink *self);
-
-G_END_DECLS
-
-static void         gum_fake_event_sink_iface_init(gpointer g_iface,
-                                                   gpointer iface_data);
-static void         gum_fake_event_sink_finalize(GObject *obj);
-static GumEventType gum_fake_event_sink_query_mask(GumEventSink *sink);
-static void gum_fake_event_sink_process(GumEventSink *sink, const GumEvent *ev);
 void instr_basic_block(GumStalkerIterator *iterator, GumStalkerOutput *output,
                        gpointer user_data);
 void afl_setup(void);
 void afl_start_forkserver(void);
 int  __afl_persistent_loop(unsigned int max_cnt);
-
-static void gum_fake_event_sink_class_init(GumFakeEventSinkClass *klass) {
-
-  GObjectClass *object_class = G_OBJECT_CLASS(klass);
-  object_class->finalize = gum_fake_event_sink_finalize;
-
-}
-
-static void gum_fake_event_sink_iface_init(gpointer g_iface,
-                                           gpointer iface_data) {
-
-  GumEventSinkInterface *iface = (GumEventSinkInterface *)g_iface;
-  iface->query_mask = gum_fake_event_sink_query_mask;
-  iface->process = gum_fake_event_sink_process;
-
-}
-
-G_DEFINE_TYPE_EXTENDED(GumFakeEventSink, gum_fake_event_sink, G_TYPE_OBJECT, 0,
-                       G_IMPLEMENT_INTERFACE(GUM_TYPE_EVENT_SINK,
-                                             gum_fake_event_sink_iface_init))
 
 #include "../../config.h"
 
@@ -180,34 +137,6 @@ void instr_basic_block(GumStalkerIterator *iterator, GumStalkerOutput *output,
     gum_stalker_iterator_keep(iterator);
 
   }
-
-}
-
-static void gum_fake_event_sink_init(GumFakeEventSink *self) {
-
-}
-
-static void gum_fake_event_sink_finalize(GObject *obj) {
-
-  G_OBJECT_CLASS(gum_fake_event_sink_parent_class)->finalize(obj);
-
-}
-
-GumEventSink *gum_fake_event_sink_new(void) {
-
-  GumFakeEventSink *sink;
-  sink = (GumFakeEventSink *)g_object_new(GUM_TYPE_FAKE_EVENT_SINK, NULL);
-  return GUM_EVENT_SINK(sink);
-
-}
-
-void gum_fake_event_sink_reset(GumFakeEventSink *self) {
-
-}
-
-static GumEventType gum_fake_event_sink_query_mask(GumEventSink *sink) {
-
-  return 0;
 
 }
 
@@ -402,11 +331,6 @@ library_list_t *find_library(char *name) {
 
 }
 
-static void gum_fake_event_sink_process(GumEventSink *  sink,
-                                        const GumEvent *ev) {
-
-}
-
 /* Because this CAN be called more than once, it will return the LAST range */
 static int enumerate_ranges(const GumRangeDetails *details,
                             gpointer               user_data) {
@@ -484,8 +408,6 @@ int main() {
       gum_stalker_transformer_make_from_callback(instr_basic_block,
                                                  &instr_range, NULL);
 
-  GumEventSink *event_sink = gum_fake_event_sink_new();
-
   // to ensure that the signatures are not optimized out
   memcpy(__afl_area_ptr, (void *)AFL_PERSISTENT, sizeof(AFL_PERSISTENT) + 1);
   memcpy(__afl_area_ptr + 32, (void *)AFL_DEFER_FORKSVR,
@@ -497,7 +419,7 @@ int main() {
   // - put that here
   //
 
-  gum_stalker_follow_me(stalker, transformer, event_sink);
+  gum_stalker_follow_me(stalker, transformer, NULL);
 
   while (__afl_persistent_loop(UINT32_MAX) != 0) {
 
@@ -533,7 +455,6 @@ int main() {
 
   g_object_unref(stalker);
   g_object_unref(transformer);
-  g_object_unref(event_sink);
   gum_deinit_embedded();
 
   return 0;

@@ -26,6 +26,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - LLVM mode is now compiled with -j4, unicorn with all cores. qemu was
     already building with all cores, the gcc plugin needs only one.
   - added dummy Makefile to instrumentation/
+  - Updated utils/afl_frida to be 5% faster
 
 
 ### Version ++3.00c (release)
