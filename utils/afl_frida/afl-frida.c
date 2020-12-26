@@ -143,197 +143,6 @@ void instr_basic_block(GumStalkerIterator *iterator, GumStalkerOutput *output,
 
 }
 
-typedef struct library_list {
-
-  uint8_t *name;
-  uint64_t addr_start, addr_end;
-
-} library_list_t;
-
-#define MAX_LIB_COUNT 256
-static library_list_t liblist[MAX_LIB_COUNT];
-static u32            liblist_cnt;
-
-void read_library_information() {
-
-#if defined(__linux__)
-  FILE *f;
-  u8    buf[1024], *b, *m, *e, *n;
-
-  if ((f = fopen("/proc/self/maps", "r")) == NULL) {
-
-    fprintf(stderr, "Error: cannot open /proc/self/maps\n");
-    exit(-1);
-
-  }
-
-  if (debug) fprintf(stderr, "Library list:\n");
-  while (fgets(buf, sizeof(buf), f)) {
-
-    if (strstr(buf, " r-x")) {
-
-      if (liblist_cnt >= MAX_LIB_COUNT) {
-
-        fprintf(
-            stderr,
-            "Warning: too many libraries to old, maximum count of %d reached\n",
-            liblist_cnt);
-        return;
-
-      }
-
-      b = buf;
-      m = index(buf, '-');
-      e = index(buf, ' ');
-      if ((n = rindex(buf, '/')) == NULL) n = rindex(buf, ' ');
-      if (n &&
-          ((*n >= '0' && *n <= '9') || *n == '[' || *n == '{' || *n == '('))
-        n = NULL;
-      else
-        n++;
-      if (b && m && e && n && *n) {
-
-        *m++ = 0;
-        *e = 0;
-        if (n[strlen(n) - 1] == '\n') n[strlen(n) - 1] = 0;
-
-        if (rindex(n, '/') != NULL) {
-
-          n = rindex(n, '/');
-          n++;
-
-        }
-
-        liblist[liblist_cnt].name = strdup(n);
-        liblist[liblist_cnt].addr_start = strtoull(b, NULL, 16);
-        liblist[liblist_cnt].addr_end = strtoull(m, NULL, 16);
-        if (debug)
-          fprintf(
-              stderr, "%s:%llx (%llx-%llx)\n", liblist[liblist_cnt].name,
-              liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start,
-              liblist[liblist_cnt].addr_start,
-              liblist[liblist_cnt].addr_end - 1);
-        liblist_cnt++;
-
-      }
-
-    }
-
-  }
-
-  if (debug) fprintf(stderr, "\n");
-
-#elif defined(__FreeBSD__)
-  int    mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
-  char * buf, *start, *end;
-  size_t miblen = sizeof(mib) / sizeof(mib[0]);
-  size_t len;
-
-  if (debug) fprintf(stderr, "Library list:\n");
-  if (sysctl(mib, miblen, NULL, &len, NULL, 0) == -1) { return; }
-
-  len = len * 4 / 3;
-
-  buf = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-  if (buf == MAP_FAILED) { return; }
-  if (sysctl(mib, miblen, buf, &len, NULL, 0) == -1) {
-
-    munmap(buf, len);
-    return;
-
-  }
-
-  start = buf;
-  end = buf + len;
-
-  while (start < end) {
-
-    struct kinfo_vmentry *region = (struct kinfo_vmentry *)start;
-    size_t                size = region->kve_structsize;
-
-    if (size == 0) { break; }
-
-    if ((region->kve_protection & KVME_PROT_READ) &&
-        !(region->kve_protection & KVME_PROT_EXEC)) {
-
-      liblist[liblist_cnt].name =
-          region->kve_path[0] != '\0' ? strdup(region->kve_path) : 0;
-      liblist[liblist_cnt].addr_start = region->kve_start;
-      liblist[liblist_cnt].addr_end = region->kve_end;
-
-      if (debug) {
-
-        fprintf(stderr, "%s:%x (%lx-%lx)\n", liblist[liblist_cnt].name,
-                liblist[liblist_cnt].addr_end - liblist[liblist_cnt].addr_start,
-                liblist[liblist_cnt].addr_start,
-                liblist[liblist_cnt].addr_end - 1);
-
-      }
-
-      liblist_cnt++;
-
-    }
-
-    start += size;
-
-  }
-
-#endif
-
-}
-
-library_list_t *find_library(char *name) {
-
-  char *filename = rindex(name, '/');
-
-  if (filename)
-    filename++;
-  else
-    filename = name;
-
-#if defined(__linux__)
-  u32 i;
-  for (i = 0; i < liblist_cnt; i++)
-    if (strcmp(liblist[i].name, filename) == 0) return &liblist[i];
-#elif defined(__APPLE__) && defined(__LP64__)
-  kern_return_t         err;
-  static library_list_t lib;
-
-  // get the list of all loaded modules from dyld
-  // the task_info mach API will get the address of the dyld all_image_info
-  // struct for the given task from which we can get the names and load
-  // addresses of all modules
-  task_dyld_info_data_t  task_dyld_info;
-  mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
-  err = task_info(mach_task_self(), TASK_DYLD_INFO,
-                  (task_info_t)&task_dyld_info, &count);
-
-  const struct dyld_all_image_infos *all_image_infos =
-      (const struct dyld_all_image_infos *)task_dyld_info.all_image_info_addr;
-  const struct dyld_image_info *image_infos = all_image_infos->infoArray;
-
-  for (size_t i = 0; i < all_image_infos->infoArrayCount; i++) {
-
-    const char *      image_name = image_infos[i].imageFilePath;
-    mach_vm_address_t image_load_address =
-        (mach_vm_address_t)image_infos[i].imageLoadAddress;
-    if (strstr(image_name, name)) {
-
-      lib.name = name;
-      lib.addr_start = (u64)image_load_address;
-      lib.addr_end = 0;
-      return &lib;
-
-    }
-
-  }
-
-#endif
-
-  return NULL;
-
-}
-
 /* Because this CAN be called more than once, it will return the LAST range */
 static int enumerate_ranges(const GumRangeDetails *details,
                             gpointer               user_data) {
@@ -372,16 +181,6 @@ int main() {
 
   // END STEP 2
 
-  read_library_information();
-  library_list_t *lib = find_library(TARGET_LIBRARY);
-
-  if (lib == NULL) {
-
-    fprintf(stderr, "Could not find target library\n");
-    exit(-1);
-
-  }
-
   gum_init_embedded();
   if (!gum_stalker_is_supported()) {
 
@@ -392,20 +191,24 @@ int main() {
 
   GumStalker *stalker = gum_stalker_new();
 
-  /*
-  This does not work here as we load a shared library. pretty sure this
-  would also be easily solvable with frida gum, but I already have all the
-  code I need from afl-untracer
-
-  GumAddress base_address = gum_module_find_base_address(TARGET_LIBRARY);
+  GumAddress     base_address = gum_module_find_base_address(TARGET_LIBRARY);
   GumMemoryRange code_range;
   gum_module_enumerate_ranges(TARGET_LIBRARY, GUM_PAGE_RX, enumerate_ranges,
                               &code_range);
-  guint64 code_start = code_range.base_address - base_address;
-  guint64 code_end = (code_range.base_address + code_range.size) - base_address;
-  range_t instr_range = {base_address, code_start, code_end};
-  */
-  range_t instr_range = {0, lib->addr_start, lib->addr_end};
+
+  guint64 code_start = code_range.base_address;
+  guint64 code_end = code_range.base_address + code_range.size;
+  range_t instr_range = {0, code_start, code_end};
+
+  printf("Frida instrumentation: base=0x%lx instrumenting=0x%lx-%lx\n",
+         base_address, code_start, code_end);
+  if (!code_start || !code_end) {
+
+    fprintf(stderr, "Error: no valid memory address found for %s\n",
+            TARGET_LIBRARY);
+    exit(-1);
+
+  }
 
   GumStalkerTransformer *transformer =
       gum_stalker_transformer_make_from_callback(instr_basic_block,
