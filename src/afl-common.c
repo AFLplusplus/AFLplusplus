@@ -630,6 +630,10 @@ u8 *stringify_float(u8 *buf, size_t len, double val) {
 
     snprintf(buf, len, "%0.01f", val);
 
+  } else if (unlikely(isnan(val) || isinf(val))) {
+
+    strcpy(buf, "inf");
+
   } else {
 
     stringify_int(buf, len, (u64)val);
@@ -789,9 +793,9 @@ u8 *u_stringify_float(u8 *buf, double val) {
 
     sprintf(buf, "%0.01f", val);
 
-  } else if (unlikely(isnan(val) || isfinite(val))) {
+  } else if (unlikely(isnan(val) || isinf(val))) {
 
-    strcpy(buf, "999.9");
+    strcpy(buf, "infinite");
 
   } else {
 
