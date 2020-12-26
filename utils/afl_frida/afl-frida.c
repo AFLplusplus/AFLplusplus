@@ -37,7 +37,10 @@
 #include <sys/shm.h>
 #include <dlfcn.h>
 
-#ifndef __APPLE__
+#ifdef __APPLE__
+  #include <mach/mach.h>
+  #include <mach-o/dyld_images.h>
+#else
   #include <sys/wait.h>
   #include <sys/personality.h>
 #endif
