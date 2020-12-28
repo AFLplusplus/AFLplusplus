@@ -190,6 +190,32 @@ void create_alias_table(afl_state_t *afl) {
   while (nS)
     afl->alias_probability[S[--nS]] = 1;
 
+#ifdef INTROSPECTION
+  u8 fn[PATH_MAX];
+  snprintf(fn, PATH_MAX, "%s/introspection_corpus.txt", afl->out_dir);
+  FILE *f = fopen(fn, "a");
+  if (f) {
+
+    for (i = 0; i < n; i++) {
+
+      struct queue_entry *q = afl->queue_buf[i];
+      fprintf(
+          f,
+          "entry=%u name=%s variable=%s disabled=%s len=%u exec_us=%u "
+          "bitmap_size=%u bitsmap_size=%u tops=%u weight=%f perf_score=%f\n",
+          i, q->fname, q->var_behavior ? "true" : "false",
+          q->disabled ? "true" : "false", q->len, (u32)q->exec_us,
+          q->bitmap_size, q->bitsmap_size, q->tc_ref, q->weight, q->perf_score);
+
+    }
+
+    fprintf(f, "\n");
+    fclose(f);
+
+  }
+
+#endif
+
   /*
   fprintf(stderr, "  entry  alias  probability  perf_score   filename\n");
   for (u32 i = 0; i < n; ++i)
@@ -397,6 +423,10 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->passed_det = passed_det;
   q->trace_mini = NULL;
   q->testcase_buf = NULL;
+
+#ifdef INTROSPECTION
+  q->bitsmap_size = afl->bitsmap_size;
+#endif
 
   if (q->depth > afl->max_depth) { afl->max_depth = q->depth; }
 

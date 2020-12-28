@@ -174,6 +174,10 @@ struct queue_entry {
   u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
 
+#ifdef INTROSPECTION
+  u32 bitsmap_size;
+#endif
+
   double perf_score,                    /* performance score                */
       weight;
 
@@ -734,6 +738,7 @@ typedef struct afl_state {
   char  mutation[8072];
   char  m_tmp[4096];
   FILE *introspection_file;
+  u32   bitsmap_size;
 #endif
 
 } afl_state_t;
