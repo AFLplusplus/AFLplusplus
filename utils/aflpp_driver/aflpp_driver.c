@@ -26,10 +26,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 EOF
 # Build your target with -fsanitize-coverage=trace-pc-guard using fresh clang.
 clang -g -fsanitize-coverage=trace-pc-guard test_fuzzer.cc -c
-# Build afl-llvm-rt.o.c from the AFL distribution.
-clang -c -w $AFL_HOME/instrumentation/afl-llvm-rt.o.c
-# Build this file, link it with afl-llvm-rt.o.o and the target code.
-clang++ afl_driver.cpp test_fuzzer.o afl-llvm-rt.o.o
+# Build afl-compiler-rt.o.c from the AFL distribution.
+clang -c -w $AFL_HOME/instrumentation/afl-compiler-rt.o.c
+# Build this file, link it with afl-compiler-rt.o.o and the target code.
+clang++ afl_driver.cpp test_fuzzer.o afl-compiler-rt.o.o
 # Run AFL:
 rm -rf IN OUT; mkdir IN OUT; echo z > IN/z;
 $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
