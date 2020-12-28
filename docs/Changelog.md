@@ -10,6 +10,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
 ### Version ++3.01a (release)
+  - Mac OS ARM64 support
   - afl-fuzz
     - fix crash for very, very fast targets+systems (thanks to mhlakhani
       for reporting)
