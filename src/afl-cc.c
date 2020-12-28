@@ -1364,17 +1364,17 @@ int main(int argc, char **argv, char **envp) {
 
     if (clang_mode) {
 
-      instrument_mode = CLANG;
+      instrument_mode = INSTRUMENT_CLANG;
 
     } else {
 
-      instrument_mode = GCC;
+      instrument_mode = INSTRUMENT_GCC;
 
     }
 
   }
 
-  if (compiler_mode == CLANG) { instrument_mode = CLANG; }
+  if (compiler_mode == CLANG) { instrument_mode = INSTRUMENT_CLANG; }
 
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
 
