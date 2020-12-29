@@ -1668,19 +1668,20 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   if (afl->in_place_resume && rmdir(fn)) {
 
     time_t     cur_t = time(0);
-    struct tm *t = localtime(&cur_t);
+    struct tm  t;
+    localtime_r(&cur_t, &t);
 
 #ifndef SIMPLE_FILES
 
     u8 *nfn = alloc_printf("%s.%04d-%02d-%02d-%02d:%02d:%02d", fn,
-                           t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
-                           t->tm_hour, t->tm_min, t->tm_sec);
+                           t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
+                           t.tm_hour, t.tm_min, t.tm_sec);
 
 #else
 
-    u8 *nfn = alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn, t->tm_year + 1900,
-                           t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min,
-                           t->tm_sec);
+    u8 *nfn = alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn, t.tm_year + 1900,
+                           t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min,
+                           t.tm_sec);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
@@ -1699,19 +1700,20 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   if (afl->in_place_resume && rmdir(fn)) {
 
     time_t     cur_t = time(0);
-    struct tm *t = localtime(&cur_t);
+    struct tm  t;
+    localtime_r(&cur_t, &t);
 
 #ifndef SIMPLE_FILES
 
     u8 *nfn = alloc_printf("%s.%04d-%02d-%02d-%02d:%02d:%02d", fn,
-                           t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
-                           t->tm_hour, t->tm_min, t->tm_sec);
+                           t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
+                           t.tm_hour, t.tm_min, t.tm_sec);
 
 #else
 
-    u8 *nfn = alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn, t->tm_year + 1900,
-                           t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min,
-                           t->tm_sec);
+    u8 *nfn = alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn, t.tm_year + 1900,
+                           t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min,
+                           t.tm_sec);
 
 #endif                                                    /* ^!SIMPLE_FILES */
 
