@@ -112,12 +112,8 @@ void create_alias_table(afl_state_t *afl) {
 
       struct queue_entry *q = afl->queue_buf[i];
 
-      if (!q->disabled) {
-
-        q->weight = compute_weight(afl, q, avg_exec_us, avg_bitmap_size);
-        q->perf_score = calculate_score(afl, q);
-
-      }
+      q->weight = q->disabled ? 0 : compute_weight(afl, q, avg_exec_us, avg_bitmap_size);
+      q->perf_score = q->disabled ? 0 : calculate_score(afl, q);
 
       sum += q->weight;
 
