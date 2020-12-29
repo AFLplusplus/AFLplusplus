@@ -456,7 +456,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  if (SHAPE_BYTES(h->shape) >= 1 && *status != 1) {
+  if (/* SHAPE_BYTES(h->shape) >= 1 && */ *status != 1) { /* avoid CodeQL warning on unsigned overflow */
 
     if (its_len >= 1 && *buf_8 == (u8)pattern && *o_buf_8 == (u8)o_pattern) {
 
