@@ -879,7 +879,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 #ifndef __ANDROID__
 
-  if (compiler_mode != GCC && compiler_mode != CLANG) {
+  if (compiler_mode != GCC) {
 
     switch (bit_mode) {
 
