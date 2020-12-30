@@ -56,13 +56,13 @@ inline AFL_RAND_RETURN rand_next(afl_state_t *afl) {
 // RomuTrio32
 inline AFL_RAND_RETURN rand_next(afl_state_t *afl) {
 
-  AFL_RAND_RETURN xp = afl->rand_seed[0], yp = afl->rand_seed[1],
-                  zp = afl->rand_seed[2];
+  AFL_RAND_RETURN xp = (u32)afl->rand_seed[0], yp = (u32)afl->rand_seed[1],
+                  zp = (u32)afl->rand_seed[2];
   afl->rand_seed[0] = 3323815723u * zp;
   afl->rand_seed[1] = yp - xp;
-  afl->rand_seed[1] = ROTL(afl->rand_seed[1], 6);
+  afl->rand_seed[1] = ROTL((u32)afl->rand_seed[1], 6);
   afl->rand_seed[2] = zp - yp;
-  afl->rand_seed[2] = ROTL(afl->rand_seed[2], 22);
+  afl->rand_seed[2] = ROTL((u32)afl->rand_seed[2], 22);
   return xp;
 
 }
