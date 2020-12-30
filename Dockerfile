@@ -20,7 +20,7 @@ RUN apt-get update && \
     python3 python3-dev python3-setuptools python-is-python3 \
     libtool libtool-bin \
     libglib2.0-dev \
-    wget vim jupp nano bash-completion \
+    wget vim jupp nano bash-completion less \
     apt-utils apt-transport-https ca-certificates gnupg dialog \
     libpixman-1-dev \
     gnuplot-nox \
