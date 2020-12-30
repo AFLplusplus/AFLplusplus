@@ -174,6 +174,10 @@ struct queue_entry {
   u8 *trace_mini;                       /* Trace bytes, if kept             */
   u32 tc_ref;                           /* Trace bytes ref count            */
 
+#ifdef INTROSPECTION
+  u32 bitsmap_size;
+#endif
+
   double perf_score,                    /* performance score                */
       weight;
 
@@ -586,7 +590,8 @@ typedef struct afl_state {
 
   u32 rand_cnt;                         /* Random number counter            */
 
-  u64 rand_seed[3];
+/*  unsigned long rand_seed[3]; would also work */
+  AFL_RAND_RETURN rand_seed[3];
   s64 init_seed;
 
   u64 total_cal_us,                     /* Total calibration time (us)      */
@@ -734,6 +739,7 @@ typedef struct afl_state {
   char  mutation[8072];
   char  m_tmp[4096];
   FILE *introspection_file;
+  u32   bitsmap_size;
 #endif
 
 } afl_state_t;

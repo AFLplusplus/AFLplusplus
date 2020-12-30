@@ -414,7 +414,7 @@ afl-as: src/afl-as.c include/afl-as.h $(COMM_HDR) | test_x86
 	@ln -sf afl-as as
 
 src/afl-performance.o : $(COMM_HDR) src/afl-performance.c include/hash.h
-	$(CC) -Iinclude $(SPECIAL_PERFORMANCE) -O3 -fno-unroll-loops -c src/afl-performance.c -o src/afl-performance.o
+	$(CC) $(CFLAGS) -Iinclude $(SPECIAL_PERFORMANCE) -O3 -fno-unroll-loops -c src/afl-performance.c -o src/afl-performance.o
 
 src/afl-common.o : $(COMM_HDR) src/afl-common.c include/common.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) -c src/afl-common.c -o src/afl-common.o
@@ -583,7 +583,7 @@ distrib: all
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C utils/libdislocator
 	$(MAKE) -C utils/libtokencap
-	$(MAKE) -C utils/aflpp_driver
+	-$(MAKE) -C utils/aflpp_driver
 	$(MAKE) -C utils/afl_network_proxy
 	$(MAKE) -C utils/socket_fuzzing
 	$(MAKE) -C utils/argv_fuzzing
@@ -606,7 +606,7 @@ source-only: all
 	-$(MAKE) -f GNUmakefile.gcc_plugin
 	$(MAKE) -C utils/libdislocator
 	$(MAKE) -C utils/libtokencap
-	$(MAKE) -C utils/aflpp_driver
+	-$(MAKE) -C utils/aflpp_driver
 
 %.8:	%
 	@echo .TH $* 8 $(BUILD_DATE) "afl++" > $@
