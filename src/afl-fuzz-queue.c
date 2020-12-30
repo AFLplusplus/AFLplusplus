@@ -45,25 +45,19 @@ inline u32 select_next_queue_entry(afl_state_t *afl) {
 double compute_weight(afl_state_t *afl, struct queue_entry *q,
                       double avg_exec_us, double avg_bitmap_size) {
 
-  u32 hits;
+  double weight = 1.0;
 
   if (likely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
-    hits = afl->n_fuzz[q->n_fuzz_entry];
-    if (hits == 0) { hits = 1; }
-
-  } else {
-
-    hits = 1;
+    u32 hits = afl->n_fuzz[q->n_fuzz_entry];
+    if (likely(hits)) { weight *= log10(hits) + 1; }
 
   }
 
-  double weight = 1.0;
   weight *= avg_exec_us / q->exec_us;
-  weight *= log(q->bitmap_size) / avg_bitmap_size;
-  weight /= log10(hits) + 1;
+  weight *= (log(q->bitmap_size) / avg_bitmap_size);
 
-  if (q->favored) weight *= 5;
+  if (unlikely(q->favored)) weight *= 5;
 
   return weight;
 
@@ -97,34 +91,43 @@ void create_alias_table(afl_state_t *afl) {
 
     double avg_exec_us = 0.0;
     double avg_bitmap_size = 0.0;
-    for (i = 0; i < n; i++) {
-
-      struct queue_entry *q = afl->queue_buf[i];
-      avg_exec_us += q->exec_us;
-      avg_bitmap_size += log(q->bitmap_size);
-
-    }
-
-    avg_exec_us /= afl->queued_paths;
-    avg_bitmap_size /= afl->queued_paths;
+    u32    active = 0;
 
     for (i = 0; i < n; i++) {
 
       struct queue_entry *q = afl->queue_buf[i];
 
-      if (!q->disabled) {
+      // disabled entries might have timings and bitmap values
+      if (likely(!q->disabled)) {
 
-        q->weight = compute_weight(afl, q, avg_exec_us, avg_bitmap_size);
-        q->perf_score = calculate_score(afl, q);
+        avg_exec_us += q->exec_us;
+        avg_bitmap_size += log(q->bitmap_size);
+        ++active;
 
       }
 
-      sum += q->weight;
+    }
+
+    avg_exec_us /= active;
+    avg_bitmap_size /= active;
+
+    for (i = 0; i < n; i++) {
+
+      struct queue_entry *q = afl->queue_buf[i];
+
+      if (likely(!q->disabled)) {
+
+        q->weight = compute_weight(afl, q, avg_exec_us, avg_bitmap_size);
+        q->perf_score = calculate_score(afl, q);
+        sum += q->weight;
+
+      }
 
     }
 
     for (i = 0; i < n; i++) {
 
+      // weight is always 0 for disabled entries
       P[i] = (afl->queue_buf[i]->weight * n) / sum;
 
     }
@@ -143,8 +146,8 @@ void create_alias_table(afl_state_t *afl) {
 
     for (i = 0; i < n; i++) {
 
-      struct queue_entry *q = afl->queue_buf[i];
-      P[i] = (q->perf_score * n) / sum;
+      // perf_score is always 0 for disabled entries
+      P[i] = (afl->queue_buf[i]->perf_score * n) / sum;
 
     }
 
@@ -190,11 +193,39 @@ void create_alias_table(afl_state_t *afl) {
   while (nS)
     afl->alias_probability[S[--nS]] = 1;
 
+#ifdef INTROSPECTION
+  u8 fn[PATH_MAX];
+  snprintf(fn, PATH_MAX, "%s/introspection_corpus.txt", afl->out_dir);
+  FILE *f = fopen(fn, "a");
+  if (f) {
+
+    for (i = 0; i < n; i++) {
+
+      struct queue_entry *q = afl->queue_buf[i];
+      fprintf(
+          f,
+          "entry=%u name=%s favored=%s variable=%s disabled=%s len=%u "
+          "exec_us=%u "
+          "bitmap_size=%u bitsmap_size=%u tops=%u weight=%f perf_score=%f\n",
+          i, q->fname, q->favored ? "true" : "false",
+          q->var_behavior ? "true" : "false", q->disabled ? "true" : "false",
+          q->len, (u32)q->exec_us, q->bitmap_size, q->bitsmap_size, q->tc_ref,
+          q->weight, q->perf_score);
+
+    }
+
+    fprintf(f, "\n");
+    fclose(f);
+
+  }
+
+#endif
+
   /*
-  fprintf(stderr, "  entry  alias  probability  perf_score   filename\n");
-  for (u32 i = 0; i < n; ++i)
-    fprintf(stderr, "  %5u  %5u  %11u  %0.9f  %s\n", i, afl->alias_table[i],
-            afl->alias_probability[i], afl->queue_buf[i]->perf_score,
+  fprintf(stderr, "  entry  alias  probability  perf_score   weight
+  filename\n"); for (u32 i = 0; i < n; ++i) fprintf(stderr, "  %5u  %5u  %11u
+  %0.9f  %0.9f  %s\n", i, afl->alias_table[i], afl->alias_probability[i],
+  afl->queue_buf[i]->perf_score, afl->queue_buf[i]->weight,
             afl->queue_buf[i]->fname);
   */
 
@@ -397,6 +428,10 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->passed_det = passed_det;
   q->trace_mini = NULL;
   q->testcase_buf = NULL;
+
+#ifdef INTROSPECTION
+  q->bitsmap_size = afl->bitsmap_size;
+#endif
 
   if (q->depth > afl->max_depth) { afl->max_depth = q->depth; }
 
