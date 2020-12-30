@@ -97,30 +97,43 @@ void create_alias_table(afl_state_t *afl) {
 
     double avg_exec_us = 0.0;
     double avg_bitmap_size = 0.0;
-    for (i = 0; i < n; i++) {
-
-      struct queue_entry *q = afl->queue_buf[i];
-      avg_exec_us += q->exec_us;
-      avg_bitmap_size += log(q->bitmap_size);
-
-    }
-
-    avg_exec_us /= afl->queued_paths;
-    avg_bitmap_size /= afl->queued_paths;
+    u32    active = 0;
 
     for (i = 0; i < n; i++) {
 
       struct queue_entry *q = afl->queue_buf[i];
 
-      q->weight = q->disabled ? 0 : compute_weight(afl, q, avg_exec_us, avg_bitmap_size);
-      q->perf_score = q->disabled ? 0 : calculate_score(afl, q);
+      // disabled entries might have timings and bitmap values
+      if (likely(!q->disabled)) {
 
-      sum += q->weight;
+        avg_exec_us += q->exec_us;
+        avg_bitmap_size += log(q->bitmap_size);
+        ++active;
+
+      }
+
+    }
+
+    avg_exec_us /= active;
+    avg_bitmap_size /= active;
+
+    for (i = 0; i < n; i++) {
+
+      struct queue_entry *q = afl->queue_buf[i];
+
+      if (likely(!q->disabled)) {
+
+        q->weight = compute_weight(afl, q, avg_exec_us, avg_bitmap_size);
+        q->perf_score = calculate_score(afl, q);
+        sum += q->weight;
+
+      }
 
     }
 
     for (i = 0; i < n; i++) {
 
+      // weight is always 0 for disabled entries
       P[i] = (afl->queue_buf[i]->weight * n) / sum;
 
     }
@@ -139,8 +152,8 @@ void create_alias_table(afl_state_t *afl) {
 
     for (i = 0; i < n; i++) {
 
-      struct queue_entry *q = afl->queue_buf[i];
-      P[i] = (q->perf_score * n) / sum;
+      // perf_score is always 0 for disabled entries
+      P[i] = (afl->queue_buf[i]->perf_score * n) / sum;
 
     }
 
