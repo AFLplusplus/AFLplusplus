@@ -645,7 +645,7 @@ typedef struct afl_state {
 
   unsigned long long int last_avg_exec_update;
   u32                    last_avg_execs;
-  float                  last_avg_execs_saved;
+  double                 last_avg_execs_saved;
 
 /* foreign sync */
 #define FOREIGN_SYNCS_MAX 32
