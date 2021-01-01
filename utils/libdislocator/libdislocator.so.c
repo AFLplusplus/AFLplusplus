@@ -345,7 +345,7 @@ void free(void *ptr) {
   len = PTR_L(ptr);
 
   total_mem -= len;
-  u8 *   ptr_ = ptr;
+  u8 *ptr_ = ptr;
 
   if (align_allocations && (len & (ALLOC_ALIGN_SIZE - 1))) {
 

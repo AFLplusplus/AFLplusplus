@@ -590,9 +590,9 @@ typedef struct afl_state {
 
   u32 rand_cnt;                         /* Random number counter            */
 
-/*  unsigned long rand_seed[3]; would also work */
+  /*  unsigned long rand_seed[3]; would also work */
   AFL_RAND_RETURN rand_seed[3];
-  s64 init_seed;
+  s64             init_seed;
 
   u64 total_cal_us,                     /* Total calibration time (us)      */
       total_cal_cycles;                 /* Total calibration cycles         */
