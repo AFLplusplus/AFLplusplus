@@ -106,7 +106,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
             ;;
         esac
     } else {
-      $ECHO "$GRAY[*] no bash available, cannot test afl-cmin.bash"
+      $ECHO "$GREY[*] no bash available, cannot test afl-cmin.bash"
     }
     fi
     ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
@@ -242,7 +242,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
             ;;
         esac
     } else {
-      $ECHO "$GRAY[*] no bash available, cannot test afl-cmin.bash"
+      $ECHO "$GREY[*] no bash available, cannot test afl-cmin.bash"
     }
     fi
     ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
