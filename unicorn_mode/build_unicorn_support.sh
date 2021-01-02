@@ -44,7 +44,7 @@ echo "[*] Performing basic sanity checks..."
 
 PLT=`uname -s`
 
-if [ ! "$PLT" = "Linux" ] && [ ! "$PLT" = "Darwin" ] && [ ! "$PLT" = "FreeBSD" ] && [ ! "$PLT" = "NetBSD" ] && [ ! "$PLT" = "OpenBSD" ]; then
+if [ ! "$PLT" = "Linux" ] && [ ! "$PLT" = "Darwin" ] && [ ! "$PLT" = "FreeBSD" ] && [ ! "$PLT" = "NetBSD" ] && [ ! "$PLT" = "OpenBSD" ] && [ ! "$PLT" = "DragonFly" ]; then
 
   echo "[-] Error: Unicorn instrumentation is unsupported on $PLT."
   exit 1
@@ -87,6 +87,12 @@ if [ "$PLT" = "FreeBSD" ]; then
   MAKECMD=gmake
   CORES=`sysctl -n hw.ncpu`
   TARCMD=gtar
+fi
+
+if [ "$PLT" = "DragonFly" ]; then
+  MAKECMD=gmake
+  CORES=`sysctl -n hw.ncpu`
+  TARCMD=tar
 fi
 
 if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
