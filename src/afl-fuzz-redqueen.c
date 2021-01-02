@@ -802,13 +802,13 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
                         u64 exec_cksum) {
 
   u8 r = 1;
-  if (afl->orig_cmp_map == NULL) {
+  if (unlikely(!afl->orig_cmp_map)) {
 
     afl->orig_cmp_map = ck_alloc_nozero(sizeof(struct cmp_map));
 
   }
 
-  if (afl->pass_stats == NULL) {
+  if (unlikely(!afl->pass_stats)) {
 
     afl->pass_stats = ck_alloc(sizeof(struct afl_pass_stat) * CMP_MAP_W);
 
