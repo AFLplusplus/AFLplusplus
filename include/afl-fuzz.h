@@ -590,7 +590,8 @@ typedef struct afl_state {
 
   u32 rand_cnt;                         /* Random number counter            */
 
-  u64 rand_seed[3];
+/*  unsigned long rand_seed[3]; would also work */
+  AFL_RAND_RETURN rand_seed[3];
   s64 init_seed;
 
   u64 total_cal_us,                     /* Total calibration time (us)      */
@@ -644,7 +645,7 @@ typedef struct afl_state {
 
   unsigned long long int last_avg_exec_update;
   u32                    last_avg_execs;
-  float                  last_avg_execs_saved;
+  double                 last_avg_execs_saved;
 
 /* foreign sync */
 #define FOREIGN_SYNCS_MAX 32

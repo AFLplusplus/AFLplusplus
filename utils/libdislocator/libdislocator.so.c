@@ -345,10 +345,10 @@ void free(void *ptr) {
   len = PTR_L(ptr);
 
   total_mem -= len;
+  u8 *   ptr_ = ptr;
 
   if (align_allocations && (len & (ALLOC_ALIGN_SIZE - 1))) {
 
-    u8 *   ptr_ = ptr;
     size_t rlen = (len & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
     for (; len < rlen; ++len)
       if (ptr_[len] != TAIL_ALLOC_CANARY)
@@ -359,10 +359,12 @@ void free(void *ptr) {
   /* Protect everything. Note that the extra page at the end is already
      set as PROT_NONE, so we don't need to touch that. */
 
-  ptr -= PAGE_SIZE * PG_COUNT(len + 8) - len - 8;
+  ptr_ -= PAGE_SIZE * PG_COUNT(len + 8) - len - 8;
 
-  if (mprotect(ptr - 8, PG_COUNT(len + 8) * PAGE_SIZE, PROT_NONE))
+  if (mprotect(ptr_ - 8, PG_COUNT(len + 8) * PAGE_SIZE, PROT_NONE))
     FATAL("mprotect() failed when freeing memory");
+
+  ptr = ptr_;
 
   /* Keep the mapping; this is wasteful, but prevents ptr reuse. */
 
