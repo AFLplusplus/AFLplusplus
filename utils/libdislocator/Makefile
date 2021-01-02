@@ -19,7 +19,7 @@ HELPER_PATH  = $(PREFIX)/lib/afl
 VERSION     = $(shell grep '^\#define VERSION ' ../../config.h | cut -d '"' -f2)
 
 CFLAGS      ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
-CFLAGS += -I ../../include/ -Wall -g -Wno-pointer-sign
+override CFLAGS += -I ../../include/ -Wall -g -Wno-pointer-sign
 
 CFLAGS_ADD=$(USEHUGEPAGE:1=-DUSEHUGEPAGE)
 CFLAGS += $(CFLAGS_ADD)

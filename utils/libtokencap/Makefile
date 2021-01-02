@@ -21,7 +21,7 @@ MAN_PATH    ?= $(PREFIX)/share/man/man8
 VERSION     = $(shell grep '^\#define VERSION ' ../../config.h | cut -d '"' -f2)
 
 CFLAGS      ?= -O3 -funroll-loops -D_FORTIFY_SOURCE=2
-CFLAGS += -I ../../include/ -Wall -g -Wno-pointer-sign
+override CFLAGS += -I ../../include/ -Wall -g -Wno-pointer-sign
 
 
 UNAME_S =$(shell uname -s)# GNU make

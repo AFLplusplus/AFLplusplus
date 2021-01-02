@@ -120,8 +120,8 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
                 cur_time - afl->last_avg_exec_update >= 60000))) {
 
     afl->last_avg_execs_saved =
-        (float)(1000 * (afl->fsrv.total_execs - afl->last_avg_execs)) /
-        (float)(cur_time - afl->last_avg_exec_update);
+        (double)(1000 * (afl->fsrv.total_execs - afl->last_avg_execs)) /
+        (double)(cur_time - afl->last_avg_exec_update);
     afl->last_avg_execs = afl->fsrv.total_execs;
     afl->last_avg_exec_update = cur_time;
 
@@ -369,30 +369,37 @@ void show_stats(afl_state_t *afl) {
 
   /* Calculate smoothed exec speed stats. */
 
-  if (!afl->stats_last_execs) {
+  if (unlikely(!afl->stats_last_execs)) {
 
-    if (unlikely(cur_ms == afl->start_time)) --afl->start_time;
+    if (likely(cur_ms != afl->start_time)) {
 
-    afl->stats_avg_exec =
-        ((double)afl->fsrv.total_execs) * 1000 / (cur_ms - afl->start_time);
-
-  } else {
-
-    double cur_avg = ((double)(afl->fsrv.total_execs - afl->stats_last_execs)) *
-                     1000 / (cur_ms - afl->stats_last_ms);
-
-    /* If there is a dramatic (5x+) jump in speed, reset the indicator
-       more quickly. */
-
-    if (cur_avg * 5 < afl->stats_avg_exec ||
-        cur_avg / 5 > afl->stats_avg_exec) {
-
-      afl->stats_avg_exec = cur_avg;
+      afl->stats_avg_exec =
+          ((double)afl->fsrv.total_execs) * 1000 / (cur_ms - afl->start_time);
 
     }
 
-    afl->stats_avg_exec = afl->stats_avg_exec * (1.0 - 1.0 / AVG_SMOOTHING) +
-                          cur_avg * (1.0 / AVG_SMOOTHING);
+  } else {
+
+    if (likely(cur_ms != afl->stats_last_ms)) {
+
+      double cur_avg =
+          ((double)(afl->fsrv.total_execs - afl->stats_last_execs)) * 1000 /
+          (cur_ms - afl->stats_last_ms);
+
+      /* If there is a dramatic (5x+) jump in speed, reset the indicator
+         more quickly. */
+
+      if (cur_avg * 5 < afl->stats_avg_exec ||
+          cur_avg / 5 > afl->stats_avg_exec) {
+
+        afl->stats_avg_exec = cur_avg;
+
+      }
+
+      afl->stats_avg_exec = afl->stats_avg_exec * (1.0 - 1.0 / AVG_SMOOTHING) +
+                            cur_avg * (1.0 / AVG_SMOOTHING);
+
+    }
 
   }
 
