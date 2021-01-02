@@ -58,6 +58,11 @@ if [ "$PLATFORM" = "OpenBSD" ] ; then
   echo 'System security features cannot be disabled on OpenBSD.'
   DONE=1
 fi
+if [ "$PLATFORM" = "DragonFly" ] ; then
+  echo
+  echo 'System security features cannot be disabled on DragonFly.'
+  DONE=1
+fi
 if [ "$PLATFORM" = "NetBSD" ] ; then
 {
   #echo It is recommended to enable unprivileged users to set cpu affinity
