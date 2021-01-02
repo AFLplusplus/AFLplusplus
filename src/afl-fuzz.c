@@ -1534,7 +1534,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->pending_not_fuzzed) {
 
-    FATAL("We need at least on valid input seed that does not crash!");
+    FATAL("We need at least one valid input seed that does not crash!");
 
   }
 
