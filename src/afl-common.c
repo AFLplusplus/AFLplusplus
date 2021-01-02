@@ -432,7 +432,9 @@ void check_environment_vars(char **envp) {
   char *env, *val;
   while ((env = envp[index++]) != NULL) {
 
-    if (strncmp(env, "ALF_", 4) == 0) {
+    if (strncmp(env, "ALF_", 4) == 0 || strncmp(env, "_ALF", 4) == 0 ||
+        strncmp(env, "__ALF", 5) == 0 || strncmp(env, "_AFL", 4) == 0 ||
+        strncmp(env, "__AFL", 5) == 0) {
 
       WARNF("Potentially mistyped AFL environment variable: %s", env);
       issue_detected = 1;
@@ -628,6 +630,10 @@ u8 *stringify_float(u8 *buf, size_t len, double val) {
 
     snprintf(buf, len, "%0.01f", val);
 
+  } else if (unlikely(isnan(val) || isinf(val))) {
+
+    strcpy(buf, "inf");
+
   } else {
 
     stringify_int(buf, len, (u64)val);
@@ -787,9 +793,9 @@ u8 *u_stringify_float(u8 *buf, double val) {
 
     sprintf(buf, "%0.01f", val);
 
-  } else if (unlikely(isnan(val) || isfinite(val))) {
+  } else if (unlikely(isnan(val) || isinf(val))) {
 
-    strcpy(buf, "999.9");
+    strcpy(buf, "infinite");
 
   } else {
 

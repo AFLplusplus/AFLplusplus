@@ -150,6 +150,7 @@ if [ $? -eq 0 ]; then
   echo "[*] initializing unicornafl submodule"
   git submodule init || exit 1
   git submodule update ./unicornafl 2>/dev/null # ignore errors
+  git submodule sync ./unicornafl 2>/dev/null # ignore errors
 else
   echo "[*] cloning unicornafl"
   test -d unicornafl || {

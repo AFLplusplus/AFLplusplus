@@ -29,7 +29,7 @@
 #include <signal.h>
 #include <limits.h>
 #if !defined NAME_MAX
-#define NAME_MAX _XOPEN_NAME_MAX
+  #define NAME_MAX _XOPEN_NAME_MAX
 #endif
 
 #include "cmplog.h"
@@ -379,6 +379,10 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
       goto abort_calibration;
 
     }
+
+#ifdef INTROSPECTION
+    if (unlikely(!q->bitsmap_size)) q->bitsmap_size = afl->bitsmap_size;
+#endif
 
     classify_counts(&afl->fsrv);
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);

@@ -45,6 +45,10 @@
 
 #include <dirent.h>
 
+#ifdef __APPLE__
+  #include <sys/syslimits.h>
+#endif
+
 #define MAX_PARAM_COUNT 4096
 
 static u8 **ld_params;              /* Parameters passed to the real 'ld'   */

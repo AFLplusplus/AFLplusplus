@@ -20,7 +20,7 @@ RUN apt-get update && \
     python3 python3-dev python3-setuptools python-is-python3 \
     libtool libtool-bin \
     libglib2.0-dev \
-    wget vim jupp nano bash-completion \
+    wget vim jupp nano bash-completion less \
     apt-utils apt-transport-https ca-certificates gnupg dialog \
     libpixman-1-dev \
     gnuplot-nox \
@@ -56,7 +56,7 @@ WORKDIR /AFLplusplus
 
 RUN export REAL_CXX=g++-10 && export CC=gcc-10 && \
     export CXX=g++-10 && make clean && \
-    make distrib && make install && make clean
+    make distrib CFLAGS="-O3 -funroll-loops -D_FORTIFY_SOURCE=2" && make install && make clean
 
 RUN echo 'alias joe="jupp --wordwrap"' >> ~/.bashrc
 RUN echo 'export PS1="[afl++]$PS1"' >> ~/.bashrc
