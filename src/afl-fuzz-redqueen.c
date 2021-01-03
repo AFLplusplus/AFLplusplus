@@ -99,12 +99,12 @@ static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u64 *cksum) {
 
 }
 
-static void rand_replace(afl_state_t *afl, u8 *buf, u32 len) {
+static void xor_replace(u8 *buf, u32 len) {
 
   u32 i;
   for (i = 0; i < len; ++i) {
 
-    buf[i] = rand_below(afl, 256);
+    buf[i] ^= 0xff;
 
   }
 
@@ -114,8 +114,6 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum) {
 
   struct range *ranges = add_range(NULL, 0, len);
   u8 *          backup = ck_alloc_nozero(len);
-
-  u8 needs_write = 0;
 
   u64 orig_hit_cnt, new_hit_cnt;
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
@@ -136,7 +134,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum) {
       /* Range not empty */
 
       memcpy(backup, buf + rng->start, s);
-      rand_replace(afl, buf + rng->start, s);
+      xor_replace(buf + rng->start, s);
 
       u64 cksum;
       u64 start_us = get_cur_time_us();
@@ -157,10 +155,6 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum) {
         ranges = add_range(ranges, rng->start, rng->start + s / 2);
         ranges = add_range(ranges, rng->start + s / 2 + 1, rng->end);
         memcpy(buf + rng->start, backup, s);
-
-      } else {
-
-        needs_write = 1;
 
       }
 
@@ -191,32 +185,6 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum) {
 
   }
 
-  // save the input with the high entropy
-
-  if (needs_write) {
-
-    s32 fd;
-
-    if (afl->no_unlink) {
-
-      fd = open(afl->queue_cur->fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-
-    } else {
-
-      unlink(afl->queue_cur->fname);                       /* ignore errors */
-      fd = open(afl->queue_cur->fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
-
-    }
-
-    if (fd < 0) { PFATAL("Unable to create '%s'", afl->queue_cur->fname); }
-
-    ck_write(fd, buf, len, afl->queue_cur->fname);
-    afl->queue_cur->len = len;  // no-op, just to be 100% safe
-
-    close(fd);
-
-  }
-
   return 0;
 
 checksum_fail:
@@ -231,8 +199,6 @@ checksum_fail:
     rng = NULL;
 
   }
-
-  // TODO: clang notices a _potential_ leak of mem pointed to by rng
 
   return 1;
 
