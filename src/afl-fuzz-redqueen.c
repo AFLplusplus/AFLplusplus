@@ -854,7 +854,7 @@ exit_its:
   afl->stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_ITS] += afl->fsrv.total_execs - orig_execs;
 
-  memcpy(orig_buf, buf, len);
+  memcpy(buf, orig_buf, len);
 
   return r;
 
