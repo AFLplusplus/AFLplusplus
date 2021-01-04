@@ -145,10 +145,10 @@ private:
     };
     Region *Regions;
     size_t NumRegions;
-    uint8_t *Start() { return Regions[0].Start; }
-    uint8_t *Stop()  { return Regions[NumRegions - 1].Stop; }
-    size_t Size()   { return Stop() - Start(); }
-    size_t  Idx(uint8_t *P) {
+    uint8_t *Start() const { return Regions[0].Start; }
+    uint8_t *Stop()  const { return Regions[NumRegions - 1].Stop; }
+    size_t Size()    const { return Stop() - Start(); }
+    size_t  Idx(uint8_t *P) const {
       assert(P >= Start() && P < Stop());
       return P - Start();
     }

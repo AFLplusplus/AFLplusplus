@@ -246,7 +246,7 @@ bool DataFlowTrace::Init(const std::string &DirPath, std::string *FocusFunction,
 
   }
 
-  if (!NumFunctions || FocusFuncIdx == SIZE_MAX || Files.size() <= 1)
+  if (FocusFuncIdx == SIZE_MAX || Files.size() <= 1)
     return false;
 
   // Read traces.
@@ -259,8 +259,8 @@ bool DataFlowTrace::Init(const std::string &DirPath, std::string *FocusFunction,
     if (!CorporaHashes.count(Name)) continue;  // not in the corpus.
     NumTraceFiles++;
     // Printf("=== %s\n", Name.c_str());
-    std::ifstream IF(SF.File);
-    while (std::getline(IF, L, '\n')) {
+    std::ifstream IF2(SF.File);
+    while (std::getline(IF2, L, '\n')) {
 
       size_t      FunctionNum = 0;
       std::string DFTString;
@@ -314,8 +314,8 @@ int CollectDataFlow(const std::string &DFTBinary, const std::string &DirPath,
     // we then request tags in [0,Size/2) and [Size/2, Size), and so on.
     // Function number => DFT.
     auto OutPath = DirPlusFile(DirPath, Hash(FileToVector(F.File)));
-    std::unordered_map<size_t, Vector<uint8_t>> DFTMap;
-    std::unordered_set<std::string>             Cov;
+//    std::unordered_map<size_t, Vector<uint8_t>> DFTMap;
+//    std::unordered_set<std::string>             Cov;
     Command                                     Cmd;
     Cmd.addArgument(DFTBinary);
     Cmd.addArgument(F.File);
