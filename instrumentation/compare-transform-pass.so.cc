@@ -68,7 +68,7 @@ class CompareTransform : public ModulePass {
   const char *getPassName() const override {
 
 #else
-  StringRef getPassName() const override {
+  StringRef      getPassName() const override {
 
 #endif
     return "transforms compare functions";
@@ -106,23 +106,26 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
   FunctionCallee tolowerFn;
 #endif
   {
+
 #if LLVM_VERSION_MAJOR < 9
-  Constant *
+    Constant *
 #else
-  FunctionCallee
+    FunctionCallee
 #endif
-      c = M.getOrInsertFunction("tolower", Int32Ty, Int32Ty
+        c = M.getOrInsertFunction("tolower", Int32Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
-                                ,
-                                NULL
+                                  ,
+                                  NULL
 #endif
-      );
+        );
 #if LLVM_VERSION_MAJOR < 9
-  tolowerFn = cast<Function>(c);
+    tolowerFn = cast<Function>(c);
 #else
-  tolowerFn = c;
+    tolowerFn = c;
 #endif
+
   }
+
   /* iterate over all functions, bbs and instruction and add suitable calls to
    * strcmp/memcmp/strncmp/strcasecmp/strncasecmp */
   for (auto &F : M) {

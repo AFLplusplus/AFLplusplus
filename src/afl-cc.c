@@ -121,9 +121,12 @@ char compiler_mode_string[7][12] = {
 u8 *getthecwd() {
 
   if (getcwd(cwd, sizeof(cwd)) == NULL) {
+
     static u8 fail[] = "";
     return fail;
+
   }
+
   return cwd;
 
 }
@@ -1451,11 +1454,11 @@ int main(int argc, char **argv, char **envp) {
         "of afl-cc.\n\n");
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-#define NATIVE_MSG \
-        "  NATIVE:  use llvm's native PCGUARD instrumentation (less " \
-        "performant)\n"
+  #define NATIVE_MSG                                              \
+    "  NATIVE:  use llvm's native PCGUARD instrumentation (less " \
+    "performant)\n"
 #else
-#define NATIVE_MSG ""
+  #define NATIVE_MSG ""
 #endif
 
     SAYF(
@@ -1463,7 +1466,7 @@ int main(int argc, char **argv, char **envp) {
         "available)\n"
         "  PCGUARD: Dominator tree instrumentation (best!) (README.llvm.md)\n"
 
-	NATIVE_MSG
+        NATIVE_MSG
 
         "  CLASSIC: decision target instrumentation (README.llvm.md)\n"
         "  CTX:     CLASSIC + callee context (instrumentation/README.ctx.md)\n"
@@ -1635,7 +1638,7 @@ int main(int argc, char **argv, char **envp) {
       if (!instrument_mode) {
 
         instrument_mode = INSTRUMENT_CFG;
-        //ptr = instrument_mode_string[instrument_mode];
+        // ptr = instrument_mode_string[instrument_mode];
 
       }
 

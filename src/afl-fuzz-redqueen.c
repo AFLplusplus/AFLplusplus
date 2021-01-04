@@ -446,7 +446,8 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
   u32 k;
   u8  cons_ff = 0, cons_0 = 0;
 
-  if (shape > sizeof(v)) FATAL("shape is greater than %zu, please report!", sizeof(v));
+  if (shape > sizeof(v))
+    FATAL("shape is greater than %zu, please report!", sizeof(v));
 
   for (k = 0; k < shape; ++k) {
 
@@ -670,8 +671,8 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u32 len) {
 
   u8 status = 0;
   // opt not in the paper
-//  u32 fails = 0;
-  u8  found_one = 0;
+  //  u32 fails = 0;
+  u8 found_one = 0;
 
   for (i = 0; i < loggeds; ++i) {
 

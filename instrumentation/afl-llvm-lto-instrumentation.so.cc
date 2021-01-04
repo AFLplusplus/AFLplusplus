@@ -100,9 +100,9 @@ class AFLLTOPass : public ModulePass {
 
 bool AFLLTOPass::runOnModule(Module &M) {
 
-  LLVMContext &                    C = M.getContext();
-  std::vector<std::string>         dictionary;
-//  std::vector<CallInst *>          calls;
+  LLVMContext &            C = M.getContext();
+  std::vector<std::string> dictionary;
+  //  std::vector<CallInst *>          calls;
   DenseMap<Value *, std::string *> valueMap;
   std::vector<BasicBlock *>        BlockList;
   char *                           ptr;

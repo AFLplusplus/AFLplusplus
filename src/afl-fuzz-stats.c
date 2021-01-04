@@ -31,7 +31,7 @@
 
 void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
-  u8    fn[PATH_MAX];
+  u8 fn[PATH_MAX];
   snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
   FILE *f = create_ffile(fn);
   u32   i;

@@ -682,7 +682,7 @@ void sync_fuzzers(afl_state_t *afl) {
     // same time. If so, the first temporary main node running again will demote
     // themselves so this is not an issue
 
-//    u8 path2[PATH_MAX];
+    //    u8 path2[PATH_MAX];
     afl->is_main_node = 1;
     sprintf(path, "%s/is_main_node", afl->out_dir);
     int fd = open(path, O_CREAT | O_RDWR, 0644);
