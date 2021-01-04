@@ -2,7 +2,7 @@
 
 int target_func(unsigned char *buf, int size) {
 
-  printf("buffer:%p, size:%d\n", buf, size);
+  printf("buffer:%p, size:%p\n", buf, size);
   switch (buf[0]) {
 
     case 1:
