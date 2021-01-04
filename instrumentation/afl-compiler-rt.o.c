@@ -691,17 +691,26 @@ static void __afl_start_forkserver(void) {
 
   void (*old_sigchld_handler)(int) = 0;  // = signal(SIGCHLD, SIG_DFL);
 
-  if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
+  if (__afl_map_size <= FS_OPT_MAX_MAPSIZE) {
+
     status_for_fsrv |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
-  if (__afl_dictionary_len && __afl_dictionary) status_for_fsrv |= FS_OPT_AUTODICT;
-  if (__afl_sharedmem_fuzzing != 0) status_for_fsrv |= FS_OPT_SHDMEM_FUZZ;
-  if (status_for_fsrv) status_for_fsrv |= (FS_OPT_ENABLED);
+
+  }
+
+  if (__afl_dictionary_len && __afl_dictionary) {
+
+    status_for_fsrv |= FS_OPT_AUTODICT;
+
+  }
+
+  if (__afl_sharedmem_fuzzing != 0) { status_for_fsrv |= FS_OPT_SHDMEM_FUZZ; }
+  if (status_for_fsrv) { status_for_fsrv |= (FS_OPT_ENABLED); }
   memcpy(tmp, &status_for_fsrv, 4);
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
-  if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
+  if (write(FORKSRV_FD + 1, tmp, 4) != 4) { return; }
 
   if (__afl_sharedmem_fuzzing || (__afl_dictionary_len && __afl_dictionary)) {
 

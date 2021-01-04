@@ -234,9 +234,9 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       auto ty0 = op0->getType();
       if (ty0->isHalfTy()
 #if LLVM_VERSION_MAJOR >= 11
-       || ty0->isBFloatTy()
+          || ty0->isBFloatTy()
 #endif
-       )
+      )
         max_size = 16;
       else if (ty0->isFloatTy())
         max_size = 32;
@@ -253,15 +253,15 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
         if (intTyOp0 && intTyOp1) {
 
           max_size = intTyOp0->getBitWidth() > intTyOp1->getBitWidth()
-                       ? intTyOp0->getBitWidth()
-                       : intTyOp1->getBitWidth();
+                         ? intTyOp0->getBitWidth()
+                         : intTyOp1->getBitWidth();
           args.push_back(V0);
           args.push_back(V1);
-          
+
         } else {
-        
+
           max_size = 0;
-        
+
         }
 
       }

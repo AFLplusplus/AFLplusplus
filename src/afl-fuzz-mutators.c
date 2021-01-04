@@ -324,7 +324,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
   } else {
 
     afl->stage_max = retval;
- 
+
   }
 
   if (afl->not_on_tty && afl->debug) {

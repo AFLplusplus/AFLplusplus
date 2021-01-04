@@ -1014,9 +1014,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     DIR *          dir_in, *dir_out = NULL;
     struct dirent *dir_ent;
-//    int            done = 0;
-    u8             infile[PATH_MAX], outfile[PATH_MAX];
-    u8             wait_for_gdb = 0;
+    //    int            done = 0;
+    u8 infile[PATH_MAX], outfile[PATH_MAX];
+    u8 wait_for_gdb = 0;
 #if !defined(DT_REG)
     struct stat statbuf;
 #endif

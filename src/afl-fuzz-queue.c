@@ -489,7 +489,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
 void destroy_queue(afl_state_t *afl) {
 
-  u32                 i;
+  u32 i;
 
   for (i = 0; i < afl->queued_paths; i++) {
 
