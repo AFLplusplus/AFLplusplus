@@ -232,7 +232,11 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
     if (selectcmpInst->getOpcode() == Instruction::FCmp) {
 
       auto ty0 = op0->getType();
-      if (ty0->isHalfTy() || ty0->isBFloatTy())
+      if (ty0->isHalfTy()
+#if LLVM_VERSION_MAJOR >= 11
+       || ty0->isBFloatTy()
+#endif
+       )
         max_size = 16;
       else if (ty0->isFloatTy())
         max_size = 32;
