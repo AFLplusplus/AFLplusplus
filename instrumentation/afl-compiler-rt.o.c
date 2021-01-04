@@ -683,7 +683,7 @@ static void __afl_start_forkserver(void) {
 #endif
 
   u8  tmp[4] = {0, 0, 0, 0};
-  u32 status = 0;
+  u32 status_for_fsrv = 0;
   u32 already_read_first = 0;
   u32 was_killed;
 
@@ -692,11 +692,11 @@ static void __afl_start_forkserver(void) {
   void (*old_sigchld_handler)(int) = 0;  // = signal(SIGCHLD, SIG_DFL);
 
   if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
-    status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
-  if (__afl_dictionary_len && __afl_dictionary) status |= FS_OPT_AUTODICT;
-  if (__afl_sharedmem_fuzzing != 0) status |= FS_OPT_SHDMEM_FUZZ;
-  if (status) status |= (FS_OPT_ENABLED);
-  memcpy(tmp, &status, 4);
+    status_for_fsrv |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
+  if (__afl_dictionary_len && __afl_dictionary) status_for_fsrv |= FS_OPT_AUTODICT;
+  if (__afl_sharedmem_fuzzing != 0) status_for_fsrv |= FS_OPT_SHDMEM_FUZZ;
+  if (status_for_fsrv) status_for_fsrv |= (FS_OPT_ENABLED);
+  memcpy(tmp, &status_for_fsrv, 4);
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
@@ -726,7 +726,6 @@ static void __afl_start_forkserver(void) {
 
       // great lets pass the dictionary through the forkserver FD
       u32 len = __afl_dictionary_len, offset = 0;
-      s32 ret;
 
       if (write(FORKSRV_FD + 1, &len, 4) != 4) {
 
@@ -738,6 +737,7 @@ static void __afl_start_forkserver(void) {
 
       while (len != 0) {
 
+        s32 ret;
         ret = write(FORKSRV_FD + 1, __afl_dictionary + offset, len);
 
         if (ret < 1) {
