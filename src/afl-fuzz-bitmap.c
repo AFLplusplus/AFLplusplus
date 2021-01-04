@@ -703,7 +703,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         if (!classified) {
 
           classify_counts(&afl->fsrv);
-          classified = 1;
+//          classified = 1;
 
         }
 

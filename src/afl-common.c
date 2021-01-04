@@ -696,15 +696,15 @@ u8 *stringify_mem_size(u8 *buf, size_t len, u64 val) {
 
 u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
 
-  u64 delta;
-  s32 t_d, t_h, t_m, t_s;
-  u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
-
   if (!event_ms) {
 
     snprintf(buf, len, "none seen yet");
 
   } else {
+
+    u64 delta;
+    s32 t_d, t_h, t_m, t_s;
+    u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
 
     delta = cur_ms - event_ms;
 
@@ -858,15 +858,15 @@ u8 *u_stringify_mem_size(u8 *buf, u64 val) {
 
 u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
-  u64 delta;
-  s32 t_d, t_h, t_m, t_s;
-  u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
-
   if (!event_ms) {
 
     sprintf(buf, "none seen yet");
 
   } else {
+
+    u64 delta;
+    s32 t_d, t_h, t_m, t_s;
+    u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
 
     delta = cur_ms - event_ms;
 
@@ -895,8 +895,8 @@ u32 get_map_size(void) {
     map_size = atoi(ptr);
     if (map_size < 8 || map_size > (1 << 29)) {
 
-      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 8,
-            1 << 29);
+      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 8U,
+            1U << 29);
 
     }
 

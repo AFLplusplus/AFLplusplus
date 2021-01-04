@@ -31,7 +31,6 @@
 
 void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
-  char *val;
   u8    fn[PATH_MAX];
   snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
   FILE *f = create_ffile(fn);
@@ -44,6 +43,7 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
   for (i = 0; i < s_afl_env; ++i) {
 
+    char *val;
     if ((val = getenv(afl_environment_variables[i])) != NULL) {
 
       fprintf(f, "%s=%s\n", afl_environment_variables[i], val);
@@ -228,7 +228,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
 
       if (afl->virgin_bits[i] != 0xff) {
 
-        fprintf(f, " %d[%02x]", i, afl->virgin_bits[i]);
+        fprintf(f, " %u[%02x]", i, afl->virgin_bits[i]);
 
       }
 
@@ -238,7 +238,7 @@ void write_stats_file(afl_state_t *afl, double bitmap_cvg, double stability,
     fprintf(f, "var_bytes        :");
     for (i = 0; i < afl->fsrv.map_size; i++) {
 
-      if (afl->var_bytes[i]) { fprintf(f, " %d", i); }
+      if (afl->var_bytes[i]) { fprintf(f, " %u", i); }
 
     }
 
@@ -1163,7 +1163,7 @@ void show_init_stats(afl_state_t *afl) {
 
   } else {
 
-    ACTF("-t option specified. We'll use an exec timeout of %d ms.",
+    ACTF("-t option specified. We'll use an exec timeout of %u ms.",
          afl->fsrv.exec_tmout);
 
   }

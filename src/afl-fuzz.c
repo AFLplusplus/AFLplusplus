@@ -99,8 +99,8 @@ static void usage(u8 *argv0, int more_help) {
       "                  lin, quad> -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
-      "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
-      "  -m megs       - memory limit for child process (%d MB, 0 = no limit)\n"
+      "  -t msec       - timeout for each run (auto-scaled, 50-%u ms)\n"
+      "  -m megs       - memory limit for child process (%u MB, 0 = no limit)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -299,7 +299,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32 opt, i, auto_sync = 0 /*, user_set_cache = 0*/;
   u64 prev_queued = 0;
-  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, map_size = MAP_SIZE;
+  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, map_size = get_map_size();
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
      extras_dir_cnt = 0 /*, have_p = 0*/;
@@ -326,7 +326,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (get_afl_env("AFL_DEBUG")) { debug = afl->debug = 1; }
 
-  map_size = get_map_size();
+//  map_size = get_map_size();
   afl_state_init(afl, map_size);
   afl->debug = debug;
   afl_fsrv_init(&afl->fsrv);
