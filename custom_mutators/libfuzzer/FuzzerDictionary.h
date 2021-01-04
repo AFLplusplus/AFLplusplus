@@ -49,7 +49,7 @@ typedef FixedWord<64> Word;
 class DictionaryEntry {
  public:
   DictionaryEntry() {}
-  explicit DictionaryEntry(Word W) : W(W) {}
+  DictionaryEntry(Word W) : W(W) {}
   DictionaryEntry(Word W, size_t PositionHint) : W(W), PositionHint(PositionHint) {}
   const Word &GetW() const { return W; }
 
@@ -92,7 +92,7 @@ class Dictionary {
     assert(Idx < Size);
     return DE[Idx];
   }
-  void push_back(const DictionaryEntry &DE) {
+  void push_back(DictionaryEntry DE) {
     if (Size < kMaxDictSize)
       this->DE[Size++] = DE;
   }
