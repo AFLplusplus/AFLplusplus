@@ -249,11 +249,20 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
         intTyOp0 = dyn_cast<IntegerType>(V0->getType());
         Value *V1 = IRB.CreateBitCast(op1, IntegerType::get(C, max_size));
         intTyOp1 = dyn_cast<IntegerType>(V1->getType());
-        max_size = intTyOp0->getBitWidth() > intTyOp1->getBitWidth()
+
+        if (intTyOp0 && intTyOp1) {
+
+          max_size = intTyOp0->getBitWidth() > intTyOp1->getBitWidth()
                        ? intTyOp0->getBitWidth()
                        : intTyOp1->getBitWidth();
-        args.push_back(V0);
-        args.push_back(V1);
+          args.push_back(V0);
+          args.push_back(V1);
+          
+        } else {
+        
+          max_size = 0;
+        
+        }
 
       }
 
@@ -261,11 +270,16 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
       intTyOp0 = dyn_cast<IntegerType>(op0->getType());
       intTyOp1 = dyn_cast<IntegerType>(op1->getType());
-      max_size = intTyOp0->getBitWidth() > intTyOp1->getBitWidth()
-                     ? intTyOp0->getBitWidth()
-                     : intTyOp1->getBitWidth();
-      args.push_back(op0);
-      args.push_back(op1);
+
+      if (intTyOp0 && intTyOp1) {
+
+        max_size = intTyOp0->getBitWidth() > intTyOp1->getBitWidth()
+                       ? intTyOp0->getBitWidth()
+                       : intTyOp1->getBitWidth();
+        args.push_back(op0);
+        args.push_back(op1);
+
+      }
 
     }
 
