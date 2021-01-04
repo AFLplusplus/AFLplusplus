@@ -327,10 +327,10 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         // does the function have calls? and is any of the calls larger than one
         // basic block?
-        for (auto &BB : F) {
+        for (auto &BB_2 : F) {
 
           if (has_calls) break;
-          for (auto &IN : BB) {
+          for (auto &IN : BB_2) {
 
             CallInst *callInst = nullptr;
             if ((callInst = dyn_cast<CallInst>(&IN))) {
@@ -628,7 +628,7 @@ bool AFLCoverage::runOnModule(Module &M) {
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      OKF("Instrumented %u locations (%s mode, ratio %u%%).", inst_blocks,
+      OKF("Instrumented %d locations (%s mode, ratio %u%%).", inst_blocks,
           modeline, inst_ratio);
 
     }

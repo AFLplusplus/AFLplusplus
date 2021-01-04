@@ -228,7 +228,7 @@ struct afl_pass : gimple_opt_pass {
   const bool neverZero;
 
   /* Count instrumented blocks. */
-  int inst_blocks;
+  unsigned int inst_blocks;
 
   virtual unsigned int execute(function *fn) {
 
@@ -931,7 +931,7 @@ int plugin_init(struct plugin_name_args *  info,
     quiet = true;
 
   /* Decide instrumentation ratio.  */
-  int inst_ratio = 100;
+  unsigned int inst_ratio = 100U;
   if (char *inst_ratio_str = getenv("AFL_INST_RATIO"))
     if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
         inst_ratio > 100)

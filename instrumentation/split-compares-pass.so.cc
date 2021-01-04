@@ -53,7 +53,7 @@ class SplitComparesTransform : public ModulePass {
 
  public:
   static char ID;
-  SplitComparesTransform() : ModulePass(ID) {
+  SplitComparesTransform() : ModulePass(ID), enableFPSplit(0) {
 
     initInstrumentList();
 
@@ -900,7 +900,6 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
     /* compare the fractions of the operands */
     Instruction *icmp_fraction_result;
-    Instruction *icmp_fraction_result2;
     BasicBlock * middle2_bb = middle_bb;
     PHINode *    PN2 = nullptr;
     switch (FcmpInst->getPredicate()) {
@@ -926,6 +925,8 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
       case CmpInst::FCMP_UGT:
       case CmpInst::FCMP_OLT:
       case CmpInst::FCMP_ULT: {
+
+        Instruction *icmp_fraction_result2;
 
         middle2_bb = middle_bb->splitBasicBlock(
             BasicBlock::iterator(middle_bb->getTerminator()));
