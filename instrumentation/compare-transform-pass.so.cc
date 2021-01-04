@@ -101,6 +101,12 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
   IntegerType *                    Int64Ty = IntegerType::getInt64Ty(C);
 
 #if LLVM_VERSION_MAJOR < 9
+  Function *tolowerFn;
+#else
+  FunctionCallee tolowerFn;
+#endif
+  {
+#if LLVM_VERSION_MAJOR < 9
   Constant *
 #else
   FunctionCallee
@@ -112,11 +118,11 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 #endif
       );
 #if LLVM_VERSION_MAJOR < 9
-  Function *tolowerFn = cast<Function>(c);
+  tolowerFn = cast<Function>(c);
 #else
-  FunctionCallee tolowerFn = c;
+  tolowerFn = c;
 #endif
-
+  }
   /* iterate over all functions, bbs and instruction and add suitable calls to
    * strcmp/memcmp/strncmp/strcasecmp/strncasecmp */
   for (auto &F : M) {
@@ -234,7 +240,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
             if (!HasStr2) {
 
-              auto *Ptr = dyn_cast<ConstantExpr>(Str1P);
+              Ptr = dyn_cast<ConstantExpr>(Str1P);
               if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {
