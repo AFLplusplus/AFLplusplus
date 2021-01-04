@@ -995,7 +995,7 @@ void mangle_mangleContent(run_t *run, int speed_factor) {
 
   }
 
-  uint64_t changesCnt = run->global->mutate.mutationsPerRun;
+  uint64_t changesCnt;
 
   if (speed_factor < 5) {
 
