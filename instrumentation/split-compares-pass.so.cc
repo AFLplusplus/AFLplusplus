@@ -555,6 +555,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
         if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
 
           if (selectcmpInst->getPredicate() == CmpInst::FCMP_OEQ ||
+              selectcmpInst->getPredicate() == CmpInst::FCMP_UEQ ||
               selectcmpInst->getPredicate() == CmpInst::FCMP_ONE ||
               selectcmpInst->getPredicate() == CmpInst::FCMP_UNE ||
               selectcmpInst->getPredicate() == CmpInst::FCMP_UGT ||
@@ -735,6 +736,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     BasicBlock * signequal2_bb = signequal_bb;
     switch (FcmpInst->getPredicate()) {
 
+      case CmpInst::FCMP_UEQ:
       case CmpInst::FCMP_OEQ:
         icmp_exponent_result =
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, m_e0, m_e1);
@@ -816,6 +818,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
       switch (FcmpInst->getPredicate()) {
 
+        case CmpInst::FCMP_UEQ:
         case CmpInst::FCMP_OEQ:
           /* if the exponents are satifying the compare do a fraction cmp in
            * middle_bb */
@@ -904,6 +907,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     PHINode *    PN2 = nullptr;
     switch (FcmpInst->getPredicate()) {
 
+      case CmpInst::FCMP_UEQ:
       case CmpInst::FCMP_OEQ:
         icmp_fraction_result =
             CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, t_f0, t_f1);
@@ -981,6 +985,7 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
 
     switch (FcmpInst->getPredicate()) {
 
+      case CmpInst::FCMP_UEQ:
       case CmpInst::FCMP_OEQ:
         /* unequal signs cannot be equal values */
         /* goto false branch */
