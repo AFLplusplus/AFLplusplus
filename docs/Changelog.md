@@ -20,6 +20,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - allow instrumenting LLVMFuzzerTestOneInput
     - fixed endless loop for allow/blocklist lines starting with a
       comment (thanks to Zherya for reporting)
+    - cmplog/redqueen now also tracks floats/doubles
     - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
