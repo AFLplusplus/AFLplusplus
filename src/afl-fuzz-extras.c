@@ -266,7 +266,7 @@ static void extras_check_and_sort(afl_state_t *afl, u32 min_len, u32 max_len,
 
   if (afl->extras_cnt > afl->max_det_extras) {
 
-    WARNF("More than %d tokens - will use them probabilistically.",
+    WARNF("More than %u tokens - will use them probabilistically.",
           afl->max_det_extras);
 
   }
@@ -431,7 +431,6 @@ void dedup_extras(afl_state_t *afl) {
 /* Adds a new extra / dict entry. */
 void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
-  u8  val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
   u32 i, found = 0;
 
   for (i = 0; i < afl->extras_cnt; i++) {
@@ -451,6 +450,7 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   if (len > MAX_DICT_FILE) {
 
+    u8  val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
     WARNF("Extra '%.*s' is too big (%s, limit is %s), skipping file!", (int)len,
           mem, stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), len),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
@@ -481,7 +481,7 @@ void add_extra(afl_state_t *afl, u8 *mem, u32 len) {
 
   if (afl->extras_cnt == afl->max_det_extras + 1) {
 
-    WARNF("More than %d tokens - will use them probabilistically.",
+    WARNF("More than %u tokens - will use them probabilistically.",
           afl->max_det_extras);
 
   }

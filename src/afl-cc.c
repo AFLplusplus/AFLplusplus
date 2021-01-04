@@ -120,8 +120,10 @@ char compiler_mode_string[7][12] = {
 
 u8 *getthecwd() {
 
-  static u8 fail[] = "";
-  if (getcwd(cwd, sizeof(cwd)) == NULL) return fail;
+  if (getcwd(cwd, sizeof(cwd)) == NULL) {
+    static u8 fail[] = "";
+    return fail;
+  }
   return cwd;
 
 }
@@ -654,9 +656,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-    u32 idx;
     if (lto_mode && argc > 1) {
 
+      u32 idx;
       for (idx = 1; idx < argc; idx++) {
 
         if (!strncasecmp(argv[idx], "-fpic", 5)) have_pic = 1;
@@ -1208,12 +1210,12 @@ int main(int argc, char **argv, char **envp) {
 
   if (getenv("AFL_LLVM_INSTRUMENT")) {
 
-    u8 *ptr = strtok(getenv("AFL_LLVM_INSTRUMENT"), ":,;");
+    u8 *ptr2 = strtok(getenv("AFL_LLVM_INSTRUMENT"), ":,;");
 
-    while (ptr) {
+    while (ptr2) {
 
-      if (strncasecmp(ptr, "afl", strlen("afl")) == 0 ||
-          strncasecmp(ptr, "classic", strlen("classic")) == 0) {
+      if (strncasecmp(ptr2, "afl", strlen("afl")) == 0 ||
+          strncasecmp(ptr2, "classic", strlen("classic")) == 0) {
 
         if (instrument_mode == INSTRUMENT_LTO) {
 
@@ -1229,8 +1231,8 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr, "pc-guard", strlen("pc-guard")) == 0 ||
-          strncasecmp(ptr, "pcguard", strlen("pcguard")) == 0) {
+      if (strncasecmp(ptr2, "pc-guard", strlen("pc-guard")) == 0 ||
+          strncasecmp(ptr2, "pcguard", strlen("pcguard")) == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_PCGUARD)
           instrument_mode = INSTRUMENT_PCGUARD;
@@ -1241,8 +1243,8 @@ int main(int argc, char **argv, char **envp) {
       }
 
       // this is a hidden option
-      if (strncasecmp(ptr, "llvmnative", strlen("llvmnative")) == 0 ||
-          strncasecmp(ptr, "llvm-native", strlen("llvm-native")) == 0) {
+      if (strncasecmp(ptr2, "llvmnative", strlen("llvmnative")) == 0 ||
+          strncasecmp(ptr2, "llvm-native", strlen("llvm-native")) == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_LLVMNATIVE)
           instrument_mode = INSTRUMENT_LLVMNATIVE;
@@ -1252,8 +1254,8 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr, "cfg", strlen("cfg")) == 0 ||
-          strncasecmp(ptr, "instrim", strlen("instrim")) == 0) {
+      if (strncasecmp(ptr2, "cfg", strlen("cfg")) == 0 ||
+          strncasecmp(ptr2, "instrim", strlen("instrim")) == 0) {
 
         if (instrument_mode == INSTRUMENT_LTO) {
 
@@ -1269,7 +1271,7 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr, "lto", strlen("lto")) == 0) {
+      if (strncasecmp(ptr2, "lto", strlen("lto")) == 0) {
 
         lto_mode = 1;
         if (!instrument_mode || instrument_mode == INSTRUMENT_LTO)
@@ -1280,7 +1282,7 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strcasecmp(ptr, "gcc") == 0) {
+      if (strcasecmp(ptr2, "gcc") == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_GCC)
           instrument_mode = INSTRUMENT_GCC;
@@ -1291,7 +1293,7 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strcasecmp(ptr, "clang") == 0) {
+      if (strcasecmp(ptr2, "clang") == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_CLANG)
           instrument_mode = INSTRUMENT_CLANG;
@@ -1302,29 +1304,29 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr, "ctx", strlen("ctx")) == 0) {
+      if (strncasecmp(ptr2, "ctx", strlen("ctx")) == 0) {
 
         instrument_opt_mode |= INSTRUMENT_OPT_CTX;
         setenv("AFL_LLVM_CTX", "1", 1);
 
       }
 
-      if (strncasecmp(ptr, "ngram", strlen("ngram")) == 0) {
+      if (strncasecmp(ptr2, "ngram", strlen("ngram")) == 0) {
 
-        ptr += strlen("ngram");
-        while (*ptr && (*ptr < '0' || *ptr > '9'))
-          ptr++;
+        ptr2 += strlen("ngram");
+        while (*ptr2 && (*ptr2 < '0' || *ptr2 > '9'))
+          ptr2++;
 
-        if (!*ptr) {
+        if (!*ptr2) {
 
-          if ((ptr = getenv("AFL_LLVM_NGRAM_SIZE")) == NULL)
+          if ((ptr2 = getenv("AFL_LLVM_NGRAM_SIZE")) == NULL)
             FATAL(
                 "you must set the NGRAM size with (e.g. for value 2) "
                 "AFL_LLVM_INSTRUMENT=ngram-2");
 
         }
 
-        ngram_size = atoi(ptr);
+        ngram_size = atoi(ptr2);
         if (ngram_size < 2 || ngram_size > NGRAM_SIZE_MAX)
           FATAL(
               "NGRAM instrumentation option must be between 2 and "
@@ -1332,12 +1334,12 @@ int main(int argc, char **argv, char **envp) {
               "(%u)",
               NGRAM_SIZE_MAX);
         instrument_opt_mode |= (INSTRUMENT_OPT_NGRAM);
-        ptr = alloc_printf("%u", ngram_size);
-        setenv("AFL_LLVM_NGRAM_SIZE", ptr, 1);
+        ptr2 = alloc_printf("%u", ngram_size);
+        setenv("AFL_LLVM_NGRAM_SIZE", ptr2, 1);
 
       }
 
-      ptr = strtok(NULL, ":,;");
+      ptr2 = strtok(NULL, ":,;");
 
     }
 
@@ -1448,20 +1450,28 @@ int main(int argc, char **argv, char **envp) {
         "  The best is LTO but it often needs RANLIB and AR settings outside "
         "of afl-cc.\n\n");
 
+#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+#define NATIVE_MSG \
+        "  NATIVE:  use llvm's native PCGUARD instrumentation (less " \
+        "performant)\n"
+#else
+#define NATIVE_MSG ""
+#endif
+
     SAYF(
         "Sub-Modes: (set via env AFL_LLVM_INSTRUMENT, afl-cc selects the best "
         "available)\n"
         "  PCGUARD: Dominator tree instrumentation (best!) (README.llvm.md)\n"
-#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-        "  NATIVE:  use llvm's native PCGUARD instrumentation (less "
-        "performant)\n"
-#endif
+
+	NATIVE_MSG
+
         "  CLASSIC: decision target instrumentation (README.llvm.md)\n"
         "  CTX:     CLASSIC + callee context (instrumentation/README.ctx.md)\n"
         "  NGRAM-x: CLASSIC + previous path "
         "((instrumentation/README.ngram.md)\n"
         "  INSTRIM: Dominator tree (for LLVM <= 6.0) "
         "(instrumentation/README.instrim.md)\n\n");
+#undef NATIVE_MSG
 
     SAYF(
         "Features: (see documentation links)\n"
@@ -1625,7 +1635,7 @@ int main(int argc, char **argv, char **envp) {
       if (!instrument_mode) {
 
         instrument_mode = INSTRUMENT_CFG;
-        ptr = instrument_mode_string[instrument_mode];
+        //ptr = instrument_mode_string[instrument_mode];
 
       }
 

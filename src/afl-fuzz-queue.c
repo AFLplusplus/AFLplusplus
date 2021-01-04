@@ -489,10 +489,11 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
 void destroy_queue(afl_state_t *afl) {
 
-  struct queue_entry *q;
   u32                 i;
 
   for (i = 0; i < afl->queued_paths; i++) {
+
+    struct queue_entry *q;
 
     q = afl->queue_buf[i];
     ck_free(q->fname);
@@ -996,7 +997,7 @@ inline void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
 
       if (unlikely(!q->testcase_buf)) {
 
-        PFATAL("Unable to malloc '%s' with len %d", q->fname, len);
+        PFATAL("Unable to malloc '%s' with len %u", q->fname, len);
 
       }
 

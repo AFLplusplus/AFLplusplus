@@ -316,16 +316,20 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
   /* Initialize trimming in the custom mutator */
   afl->stage_cur = 0;
-  afl->stage_max = mutator->afl_custom_init_trim(mutator->data, in_buf, q->len);
-  if (unlikely(afl->stage_max) < 0) {
+  s32 retval = mutator->afl_custom_init_trim(mutator->data, in_buf, q->len);
+  if (unlikely(retval) < 0) {
 
-    FATAL("custom_init_trim error ret: %d", afl->stage_max);
+    FATAL("custom_init_trim error ret: %d", retval);
 
+  } else {
+
+    afl->stage_max = retval;
+ 
   }
 
   if (afl->not_on_tty && afl->debug) {
 
-    SAYF("[Custom Trimming] START: Max %d iterations, %u bytes", afl->stage_max,
+    SAYF("[Custom Trimming] START: Max %u iterations, %u bytes", afl->stage_max,
          q->len);
 
   }
@@ -343,7 +347,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     if (unlikely(!retbuf)) {
 
-      FATAL("custom_trim failed (ret %zd)", retlen);
+      FATAL("custom_trim failed (ret %zu)", retlen);
 
     } else if (unlikely(retlen > orig_len)) {
 
@@ -409,7 +413,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
       if (afl->not_on_tty && afl->debug) {
 
-        SAYF("[Custom Trimming] SUCCESS: %d/%d iterations (now at %u bytes)",
+        SAYF("[Custom Trimming] SUCCESS: %u/%u iterations (now at %u bytes)",
              afl->stage_cur, afl->stage_max, q->len);
 
       }
@@ -417,16 +421,20 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
     } else {
 
       /* Tell the custom mutator that the trimming was unsuccessful */
-      afl->stage_cur = mutator->afl_custom_post_trim(mutator->data, 0);
-      if (unlikely(afl->stage_cur < 0)) {
+      s32 retval2 = mutator->afl_custom_post_trim(mutator->data, 0);
+      if (unlikely(retval2 < 0)) {
 
-        FATAL("Error ret in custom_post_trim: %d", afl->stage_cur);
+        FATAL("Error ret in custom_post_trim: %d", retval2);
+
+      } else {
+
+        afl->stage_cur = retval2;
 
       }
 
       if (afl->not_on_tty && afl->debug) {
 
-        SAYF("[Custom Trimming] FAILURE: %d/%d iterations", afl->stage_cur,
+        SAYF("[Custom Trimming] FAILURE: %u/%u iterations", afl->stage_cur,
              afl->stage_max);
 
       }
