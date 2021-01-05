@@ -76,7 +76,9 @@
 #endif
 
 u8   __afl_area_initial[MAP_INITIAL_SIZE];
+u8 * __afl_area_ptr_dummy = __afl_area_initial;
 u8 * __afl_area_ptr = __afl_area_initial;
+u8 * __afl_area_ptr_backup = __afl_area_initial;
 u8 * __afl_dictionary;
 u8 * __afl_fuzz_ptr;
 u32  __afl_fuzz_len_dummy;
@@ -86,6 +88,11 @@ u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
 u32 __afl_dictionary_len;
 u64 __afl_map_addr;
+
+// for the __AFL_COVERAGE_ON/__AFL_COVERAGE_OFF features to work:
+int __afl_selective_coverage __attribute__((weak));
+int __afl_selective_coverage_start_off __attribute__((weak));
+int __afl_selective_coverage_temp = 1;
 
 #ifdef __ANDROID__
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
@@ -100,6 +107,7 @@ __thread u32        __afl_cmp_counter;
 int __afl_sharedmem_fuzzing __attribute__((weak));
 
 struct cmp_map *__afl_cmp_map;
+struct cmp_map *__afl_cmp_map_backup;
 
 /* Child pid? */
 
@@ -230,7 +238,7 @@ static void __afl_map_shm_fuzz() {
 static void __afl_map_shm(void) {
 
   // if we are not running in afl ensure the map exists
-  if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_initial; }
+  if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
 
   char *id_str = getenv(SHM_ENV_VAR);
 
@@ -295,11 +303,17 @@ static void __afl_map_shm(void) {
 
     if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial) {
 
-      if (__afl_map_addr)
+      if (__afl_map_addr) {
+
         munmap((void *)__afl_map_addr, __afl_final_loc);
-      else
+
+      } else {
+
         free(__afl_area_ptr);
-      __afl_area_ptr = __afl_area_initial;
+
+      }
+
+      __afl_area_ptr = __afl_area_ptr_dummy;
 
     }
 
@@ -396,9 +410,42 @@ static void __afl_map_shm(void) {
 
     free(__afl_area_ptr);
     __afl_area_ptr = NULL;
-    if (__afl_final_loc > MAP_INITIAL_SIZE)
+
+    if (__afl_final_loc > MAP_INITIAL_SIZE) {
+
       __afl_area_ptr = malloc(__afl_final_loc);
-    if (!__afl_area_ptr) __afl_area_ptr = __afl_area_initial;
+
+    }
+
+    if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
+
+  }
+
+  __afl_area_ptr_backup = __afl_area_ptr;
+
+  if (__afl_selective_coverage) {
+
+    if (__afl_map_size > MAP_INITIAL_SIZE) {
+
+      __afl_area_ptr_dummy = malloc(__afl_map_size);
+
+      if (__afl_area_ptr_dummy) {
+
+        if (__afl_selective_coverage_start_off) {
+
+          __afl_area_ptr = __afl_area_ptr_dummy;
+
+        }
+
+      } else {
+
+        fprintf(stderr, "Error: __afl_selective_coverage failed!\n");
+        __afl_selective_coverage = 0;
+        // continue;
+
+      }
+
+    }
 
   }
 
@@ -448,6 +495,8 @@ static void __afl_map_shm(void) {
 
     __afl_cmp_map = shmat(shm_id, NULL, 0);
 #endif
+
+    __afl_cmp_map_backup = __afl_cmp_map;
 
     if (!__afl_cmp_map || __afl_cmp_map == (void *)-1) {
 
@@ -903,6 +952,8 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     cycle_cnt = max_cnt;
     first_pass = 0;
+    __afl_selective_coverage_temp = 1;
+
     return 1;
 
   }
@@ -915,6 +966,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+      __afl_selective_coverage_temp = 1;
 
       return 1;
 
@@ -924,7 +976,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
          follows the loop is not traced. We do that by pivoting back to the
          dummy output region. */
 
-      __afl_area_ptr = __afl_area_initial;
+      __afl_area_ptr = __afl_area_ptr_dummy;
 
     }
 
@@ -946,7 +998,7 @@ void __afl_manual_init(void) {
     init_done = 1;
     is_persistent = 0;
     __afl_sharedmem_fuzzing = 0;
-    if (__afl_area_ptr == NULL) __afl_area_ptr = __afl_area_initial;
+    if (__afl_area_ptr == NULL) __afl_area_ptr = __afl_area_ptr_dummy;
 
     if (getenv("AFL_DEBUG"))
       fprintf(stderr,
@@ -1007,7 +1059,12 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
     else
       ptr = (u8 *)malloc(__afl_final_loc);
 
-    if (ptr && (ssize_t)ptr != -1) __afl_area_ptr = ptr;
+    if (ptr && (ssize_t)ptr != -1) {
+
+      __afl_area_ptr = ptr;
+      __afl_area_ptr_backup = __afl_area_ptr;
+
+    }
 
   }
 
@@ -1023,7 +1080,12 @@ __attribute__((constructor(0))) void __afl_auto_first(void) {
 
   ptr = (u8 *)malloc(1024000);
 
-  if (ptr && (ssize_t)ptr != -1) __afl_area_ptr = ptr;
+  if (ptr && (ssize_t)ptr != -1) {
+
+    __afl_area_ptr = ptr;
+    __afl_area_ptr_backup = __afl_area_ptr;
+
+  }
 
 }
 
@@ -1315,6 +1377,35 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
 /* COVERAGE manipulation features */
 
+// this variable is then used in the shm setup to create an additional map
+// if __afl_map_size > MAP_SIZE or cmplog is used.
+// Especially with cmplog this would result in a ~260MB mem increase per
+// target run.
+
+// disable coverage from this point onwards until turned on again
+void __afl_coverage_off() {
+
+  if (likely(__afl_selective_coverage)) {
+
+    __afl_area_ptr = __afl_area_ptr_dummy;
+    __afl_cmp_map = NULL;
+
+  }
+
+}
+
+// enable coverage
+void __afl_coverage_on() {
+
+  if (likely(__afl_selective_coverage && __afl_selective_coverage_temp)) {
+
+    __afl_area_ptr = __afl_area_ptr_backup;
+    __afl_cmp_map = __afl_cmp_map_backup;
+
+  }
+
+}
+
 // discard all coverage up to this point
 void __afl_coverage_discard() {
 
@@ -1329,30 +1420,36 @@ void __afl_coverage_discard() {
 void __afl_coverage_abort() {
 
   __afl_coverage_discard();
-  exit(0);
+
+  if (likely(is_persistent && __afl_selective_coverage)) {
+
+    __afl_coverage_off();
+    __afl_selective_coverage_temp = 0;
+
+  } else {
+
+    exit(0);
+
+  }
 
 }
 
-// For the following two functions to work there needs to be a global define,
-// eg. __AFL_COVERAGE(); after the headers which translates to
-// int __afl_selective_coverage = 1; by a -D from afl-cc
-int __afl_selective_coverage __attribute__((weak));
-// this variable is then used in the shm setup to create an additional map
-// if __afl_map_size > MAP_SIZE or cmplog is used.
-// Especially with cmplog this would result in a ~260MB mem increase per
-// target run.
+// mark this area as especially interesting
+void __afl_coverage_interesting(u32 id, u8 val) {
 
-// disable coverage from this point onwards until turned on again
-void __afl_coverage_off() {
+  if (val) {
 
-  // switch __afl_area_ptr and __afl_cmp_map to (the same) dummy pointer
+    __afl_area_ptr[id] = val;
 
-}
+  } else {
 
-// enable coverage
-void __afl_coverage_on() {
+    do {
 
-  // switch __afl_area_ptr and __afl_cmp_map to the real map
+      __afl_area_ptr[id] = (u8)rand();
+
+    } while (!__afl_area_ptr[id]);
+
+  }
 
 }
 
