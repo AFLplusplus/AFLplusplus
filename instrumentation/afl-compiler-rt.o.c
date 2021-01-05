@@ -94,7 +94,7 @@ int __afl_selective_coverage __attribute__((weak));
 int __afl_selective_coverage_start_off __attribute__((weak));
 int __afl_selective_coverage_temp = 1;
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__HAIKU__)
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 u32        __afl_prev_ctx;
 u32        __afl_cmp_counter;
