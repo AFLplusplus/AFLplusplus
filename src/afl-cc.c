@@ -792,8 +792,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-#if defined(USEMMAP) && !defined(__HAIKU__)
+#if defined(USEMMAP)
+#if !defined(__HAIKU__)
   cc_params[cc_par_cnt++] = "-lrt";
+#endif
 #endif
 
   cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
@@ -950,8 +952,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
-  #ifdef USEMMAP
+  #if defined(USEMMAP)
+  #if !defined(__HAIKU__)
     cc_params[cc_par_cnt++] = "-lrt";
+  #endif
   #endif
 
   }
@@ -1622,12 +1626,17 @@ int main(int argc, char **argv, char **envp) {
     if (have_lto)
       SAYF("afl-cc LTO with ld=%s %s\n", AFL_REAL_LD, AFL_CLANG_FLTO);
     if (have_llvm)
-      SAYF("afl-cc LLVM version %d with the the binary path \"%s\".\n",
+      SAYF("afl-cc LLVM version %d using binary path \"%s\".\n",
            LLVM_MAJOR, LLVM_BINDIR);
 #endif
 
-#ifdef USEMMAP
+#if defined(USEMMAP)
+#if !defined(__HAIKU__)
+    cc_params[cc_par_cnt++] = "-lrt";
     SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
+#else
+    SAYF("Compiled with shm_open support.\n");
+#endif
 #else
     SAYF("Compiled with shmat support.\n");
 #endif
