@@ -1313,3 +1313,46 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
 }
 
+/* COVERAGE manipulation features */
+
+// discard all coverage up to this point
+void __afl_coverage_discard() {
+
+  memset(__afl_area_ptr, 0, __afl_map_size);
+  __afl_area_ptr[0] = 1;
+
+  if (__afl_cmp_map) { memset(__afl_cmp_map, 0, sizeof(cmp_map)); }
+
+}
+
+// discard the testcase
+void __afl_coverage_abort() {
+
+  __afl_coverage_discard();
+  exit(0);
+
+}
+
+// For the following two functions to work there needs to be a global define,
+// eg. __AFL_COVERAGE(); after the headers which translates to
+// int __afl_selective_coverage = 1; by a -D from afl-cc
+int __afl_selective_coverage __attribute__((weak));
+// this variable is then used in the shm setup to create an additional map
+// if __afl_map_size > MAP_SIZE or cmplog is used.
+// Especially with cmplog this would result in a ~260MB mem increase per
+// target run.
+
+// disable coverage from this point onwards until turned on again
+void __afl_coverage_off() {
+
+  // switch __afl_area_ptr and __afl_cmp_map to (the same) dummy pointer
+
+}
+
+// enable coverage
+void __afl_coverage_on() {
+
+  // switch __afl_area_ptr and __afl_cmp_map to the real map
+
+}
+
