@@ -186,7 +186,9 @@
 #define TRIM_START_STEPS 16
 #define TRIM_END_STEPS 1024
 
-/* Maximum size of input file, in bytes (keep under 100MB): */
+/* Maximum size of input file, in bytes (keep under 100MB, default 1MB):
+   (note that if this value is changed, several areas in afl-cc.c, afl-fuzz.c
+   and afl-fuzz-state.c have to be changed as well! */
 
 #define MAX_FILE (1 * 1024 * 1024U)
 

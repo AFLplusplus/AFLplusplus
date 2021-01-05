@@ -9,8 +9,11 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-### Version ++3.01a (release)
+### Version ++3.01a (dev)
   - Mac OS ARM64 support
+  - New selective instrumentation option with __AFL_COVERAGE_... commands
+    to be placed in the source code.
+    Check out instrumentation/README.instrument_list.md
   - afl-fuzz
     - fix crash for very, very fast targets+systems (thanks to mhlakhani
       for reporting)
