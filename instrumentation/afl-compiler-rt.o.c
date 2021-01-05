@@ -1409,8 +1409,8 @@ void __afl_coverage_on() {
 // discard all coverage up to this point
 void __afl_coverage_discard() {
 
-  memset(__afl_area_ptr, 0, __afl_map_size);
-  __afl_area_ptr[0] = 1;
+  memset(__afl_area_ptr_backup, 0, __afl_map_size);
+  __afl_area_ptr_backup[0] = 1;
 
   if (__afl_cmp_map) { memset(__afl_cmp_map, 0, sizeof(struct cmp_map)); }
 

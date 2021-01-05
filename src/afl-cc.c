@@ -829,12 +829,25 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "extern unsigned char *__afl_fuzz_ptr;"
       "unsigned char __afl_fuzz_alt[1048576];"
       "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;";
-  cc_params[cc_par_cnt++] =
-      "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
-      "void __afl_coverage_discard();"
-      "void __afl_coverage_abort();"
-      "void __afl_coverage_on();"
-      "void __afl_coverage_off();";
+  if (plusplus_mode) {
+
+    "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+    "extern \"C\" void __afl_coverage_discard();"
+    "extern \"C\" void __afl_coverage_abort();"
+    "extern \"C\" void __afl_coverage_on();"
+    "extern \"C\" void __afl_coverage_off();";
+
+  } else {
+
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+        "void __afl_coverage_discard();"
+        "void __afl_coverage_abort();"
+        "void __afl_coverage_on();"
+        "void __afl_coverage_off();";
+
+  }
+
   cc_params[cc_par_cnt++] =
       "-D__AFL_COVERAGE_START_OFF()=int __afl_selective_coverage_start_off = "
       "1;";
