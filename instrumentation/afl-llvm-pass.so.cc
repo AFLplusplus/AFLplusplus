@@ -241,7 +241,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   GlobalVariable *AFLContext = NULL;
 
   if (ctx_str)
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__HAIKU__)
     AFLContext = new GlobalVariable(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx");
 #else
@@ -252,7 +252,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   if (ngram_size)
-  #ifdef __ANDROID__
+  #if defined(__ANDROID__) || defined(__HAIKU__)
     AFLPrevLoc = new GlobalVariable(
         M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
         /* Initializer */ nullptr, "__afl_prev_loc");
@@ -265,7 +265,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   #endif
   else
 #endif
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__HAIKU__)
     AFLPrevLoc = new GlobalVariable(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
 #else
