@@ -200,7 +200,7 @@ struct InsTrim : public ModulePass {
     LoadInst *      PrevCtx = NULL;  // for CTX sensitive coverage
 
     if (ctx_str)
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__HAIKU__)
       AFLContext = new GlobalVariable(
           M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx");
 #else
@@ -211,7 +211,7 @@ struct InsTrim : public ModulePass {
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
     if (ngram_size)
-  #ifdef __ANDROID__
+  #if defined(__ANDROID__) || defined(__HAIKU__)
       AFLPrevLoc = new GlobalVariable(
           M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
           /* Initializer */ nullptr, "__afl_prev_loc");
@@ -224,7 +224,7 @@ struct InsTrim : public ModulePass {
   #endif
     else
 #endif
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__HAIKU__)
       AFLPrevLoc = new GlobalVariable(
           M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
 #else
