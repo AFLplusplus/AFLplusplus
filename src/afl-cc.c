@@ -828,6 +828,20 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "unsigned char __afl_fuzz_alt[1048576];"
       "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;";
   cc_params[cc_par_cnt++] =
+      "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+      "void __afl_coverage_discard();"
+      "void __afl_coverage_abort();"
+      "void __afl_coverage_on();"
+      "void __afl_coverage_off();";
+  cc_params[cc_par_cnt++] =
+      "-D__AFL_COVERAGE_START_OFF()=int __afl_selective_coverage_start_off = "
+      "1;";
+  cc_params[cc_par_cnt++] = "-D__AFL_COVERAGE_ON()=__afl_coverage_on()";
+  cc_params[cc_par_cnt++] = "-D__AFL_COVERAGE_OFF()=__afl_coverage_off()";
+  cc_params[cc_par_cnt++] =
+      "-D__AFL_COVERAGE_DISCARD()=__afl_coverage_discard()";
+  cc_params[cc_par_cnt++] = "-D__AFL_COVERAGE_ABORT()=__afl_coverage_abort()";
+  cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
       "__afl_fuzz_alt_ptr)";
   cc_params[cc_par_cnt++] =
