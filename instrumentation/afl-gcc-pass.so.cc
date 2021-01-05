@@ -444,8 +444,10 @@ struct afl_pass : gimple_opt_pass {
     DECL_EXTERNAL(decl) = 1;
     DECL_ARTIFICIAL(decl) = 1;
     TREE_STATIC(decl) = 1;
+#if !defined(__ANDROID__) && !defined(__HAIKU__)
     set_decl_tls_model(
         decl, (flag_pic ? TLS_MODEL_INITIAL_EXEC : TLS_MODEL_LOCAL_EXEC));
+#endif
     return decl;
 
   }
