@@ -95,6 +95,10 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->uses_asan = false;
 
   fsrv->init_child_func = fsrv_exec_child;
+  fsrv->kill_signal = SIGKILL;
+  if (get_afl_env("AFL_KILL_SIGNAL")){
+    fsrv->kill_signal = atoi(get_afl_env("AFL_KILL_SIGNAL"));
+  }
 
   list_append(&fsrv_list, fsrv);
 
@@ -125,6 +129,8 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
   fsrv_to->init_child_func = from->init_child_func;
   // Note: do not copy ->add_extra_func
+
+  fsrv_to->kill_signal = from->kill_signal;
 
   list_append(&fsrv_list, fsrv_to);
 
@@ -559,12 +565,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!time_ms) {
 
-      kill(fsrv->fsrv_pid, SIGKILL);
+      kill(fsrv->fsrv_pid, fsrv->kill_signal);
 
     } else if (time_ms > fsrv->init_tmout) {
 
       fsrv->last_run_timed_out = 1;
-      kill(fsrv->fsrv_pid, SIGKILL);
+      kill(fsrv->fsrv_pid, fsrv->kill_signal);
 
     } else {
 
@@ -944,10 +950,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
 static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
-  if (fsrv->child_pid > 0) { kill(fsrv->child_pid, SIGKILL); }
+  if (fsrv->child_pid > 0) { kill(fsrv->child_pid, fsrv->kill_signal); }
   if (fsrv->fsrv_pid > 0) {
 
-    kill(fsrv->fsrv_pid, SIGKILL);
+    kill(fsrv->fsrv_pid, fsrv->kill_signal);
     if (waitpid(fsrv->fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
 
   }
@@ -1091,7 +1097,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     /* If there was no response from forkserver after timeout seconds,
     we kill the child. The forkserver should inform us afterwards */
 
-    kill(fsrv->child_pid, SIGKILL);
+    kill(fsrv->child_pid, fsrv->kill_signal);
     fsrv->last_run_timed_out = 1;
     if (read(fsrv->fsrv_st_fd, &fsrv->child_status, 4) < 4) { exec_ms = 0; }
 
@@ -1136,6 +1142,12 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   MEM_BARRIER();
 
   /* Report outcome to caller. */
+
+  /* TODO We use SIGTERM here as an indicator of Xen mode, 
+     although it's not equivalent! */
+  if (fsrv->kill_signal == SIGTERM && !*stop_soon_p && fsrv->last_run_timed_out) {
+    return FSRV_RUN_TMOUT;
+  }
 
   if (WIFSIGNALED(fsrv->child_status) && !*stop_soon_p) {
 

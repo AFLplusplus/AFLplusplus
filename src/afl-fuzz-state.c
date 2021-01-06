@@ -507,8 +507,8 @@ void afl_states_stop(void) {
 
   LIST_FOREACH(&afl_states, afl_state_t, {
 
-    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, SIGKILL);
-    if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, SIGKILL);
+    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, el->fsrv.kill_signal);
+    if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, el->fsrv.kill_signal);
 
   });
 

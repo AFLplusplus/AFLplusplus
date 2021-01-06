@@ -61,6 +61,7 @@ static char *afl_environment_variables[] = {
     "AFL_IMPORT_FIRST",
     "AFL_INST_LIBS",
     "AFL_INST_RATIO",
+    "AFL_KILL_SIGNAL",
     "AFL_KEEP_TRACES",
     "AFL_KEEP_ASSEMBLY",
     "AFL_LD_HARD_FAIL",

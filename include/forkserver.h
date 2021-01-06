@@ -99,6 +99,8 @@ typedef struct afl_forkserver {
 
   void (*add_extra_func)(void *afl_ptr, u8 *mem, u32 len);
 
+  u32 kill_signal;
+
 } afl_forkserver_t;
 
 typedef enum fsrv_run_result {

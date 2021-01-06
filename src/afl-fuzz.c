@@ -76,8 +76,13 @@ static void at_exit() {
 
   }
 
-  if (pid1 > 0) { kill(pid1, SIGKILL); }
-  if (pid2 > 0) { kill(pid2, SIGKILL); }
+  u32 kill_signal = SIGKILL;
+  if (get_afl_env("AFL_KILL_SIGNAL")){
+    kill_signal=atoi(get_afl_env("AFL_KILL_SIGNAL"));
+  }
+
+  if (pid1 > 0) { kill(pid1, kill_signal); }
+  if (pid2 > 0) { kill(pid2, kill_signal); }
 
 }
 
