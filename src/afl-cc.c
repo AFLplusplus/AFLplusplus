@@ -793,9 +793,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   }
 
 #if defined(USEMMAP)
-#if !defined(__HAIKU__)
+  #if !defined(__HAIKU__)
   cc_params[cc_par_cnt++] = "-lrt";
-#endif
+  #endif
 #endif
 
   cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
@@ -829,13 +829,15 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "extern unsigned char *__afl_fuzz_ptr;"
       "unsigned char __afl_fuzz_alt[1048576];"
       "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;";
+
   if (plusplus_mode) {
 
-    "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
-    "extern \"C\" void __afl_coverage_discard();"
-    "extern \"C\" void __afl_coverage_abort();"
-    "extern \"C\" void __afl_coverage_on();"
-    "extern \"C\" void __afl_coverage_off();";
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+        "extern \"C\" void __afl_coverage_discard();"
+        "extern \"C\" void __afl_coverage_abort();"
+        "extern \"C\" void __afl_coverage_on();"
+        "extern \"C\" void __afl_coverage_off();";
 
   } else {
 
@@ -966,9 +968,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   #endif
 
   #if defined(USEMMAP)
-  #if !defined(__HAIKU__)
+    #if !defined(__HAIKU__)
     cc_params[cc_par_cnt++] = "-lrt";
-  #endif
+    #endif
   #endif
 
   }
@@ -1639,17 +1641,17 @@ int main(int argc, char **argv, char **envp) {
     if (have_lto)
       SAYF("afl-cc LTO with ld=%s %s\n", AFL_REAL_LD, AFL_CLANG_FLTO);
     if (have_llvm)
-      SAYF("afl-cc LLVM version %d using binary path \"%s\".\n",
-           LLVM_MAJOR, LLVM_BINDIR);
+      SAYF("afl-cc LLVM version %d using binary path \"%s\".\n", LLVM_MAJOR,
+           LLVM_BINDIR);
 #endif
 
 #if defined(USEMMAP)
-#if !defined(__HAIKU__)
+  #if !defined(__HAIKU__)
     cc_params[cc_par_cnt++] = "-lrt";
     SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
-#else
+  #else
     SAYF("Compiled with shm_open support.\n");
-#endif
+  #endif
 #else
     SAYF("Compiled with shmat support.\n");
 #endif
