@@ -418,6 +418,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 #endif
 
+          } else if (!strncmp(env, "AFL_KILL_SIGNAL",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_kill_signal =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
           }
 
         } else {
@@ -524,8 +531,8 @@ void afl_states_stop(void) {
 
   LIST_FOREACH(&afl_states, afl_state_t, {
 
-    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, SIGKILL);
-    if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, SIGKILL);
+    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, el->fsrv.kill_signal);
+    if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, el->fsrv.kill_signal);
 
   });
 
