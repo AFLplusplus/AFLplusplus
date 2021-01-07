@@ -76,8 +76,17 @@ static void at_exit() {
 
   }
 
-  if (pid1 > 0) { kill(pid1, SIGKILL); }
-  if (pid2 > 0) { kill(pid2, SIGKILL); }
+  u8 kill_signal = SIGKILL;
+
+  /* AFL_KILL_SIGNAL should already be initialized by afl_fsrv_init() */
+  if (getenv("AFL_KILL_SIGNAL")) {
+
+    kill_signal = atoi(getenv("AFL_KILL_SIGNAL"));
+
+  }
+
+  if (pid1 > 0) { kill(pid1, kill_signal); }
+  if (pid2 > 0) { kill(pid2, kill_signal); }
 
 }
 
