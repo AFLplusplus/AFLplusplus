@@ -6,7 +6,7 @@
 
   Release Version: [3.00c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-  Github Version: 3.00a
+  Github Version: 3.01a
 
   Repository: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 
@@ -31,9 +31,8 @@ With afl++ 3.0 we introduced changes that break some previous afl and afl++
 behaviours and defaults:
 
   * There are no llvm_mode and gcc_plugin subdirectories anymore and there is
-    only one compiler: afl-cc. All previous compilers now symlink to this one
-    compiler. All instrumentation source code is now in the `instrumentation/`
-    folder.
+    only one compiler: afl-cc. All previous compilers now symlink to this.
+    All instrumentation source code is now in the `instrumentation/` folder.
   * The gcc_plugin was replaced with a new version submitted by AdaCore that
     supports more features. thank you!
   * qemu_mode got upgraded to QEMU 5.1, but to be able to build this a current
@@ -41,8 +40,9 @@ behaviours and defaults:
     qemu_mode also got new options like snapshotting, instrumenting specific
     shared libraries, etc. Additionally QEMU 5.1 supports more CPU targets so
     this is really worth it.
-  * When instrumenting targets, afl-cc will not supersede optimizations. This
-    allows to fuzz targets as same as they are built for debug or release.
+  * When instrumenting targets, afl-cc will not supersede optimizations anymore
+    if any were given. This allows to fuzz targets as same as they are built
+    for debug or release.
   * afl-fuzz:
     * if neither -M or -S is specified, `-S default` is assumed, so more
       fuzzers can easily be added later
@@ -88,7 +88,7 @@ behaviours and defaults:
   | Ngram prev_loc Coverage  |         |     x(6)  |            |                  |              |
   | Context Coverage         |         |     x(6)  |            |                  |              |
   | Auto Dictionary          |         |     x(7)  |            |                  |              |
-  | Snapshot LKM Support     |         |     x     |     x      |        (x)(5)    |              |
+  | Snapshot LKM Support     |         |     x(8)  |     x(8)   |        (x)(5)    |              |
 
   1. default for LLVM >= 9.0, env var for older version due an efficiency bug in llvm <= 8
   2. GCC creates non-performant code, hence it is disabled in gcc_plugin
@@ -97,6 +97,7 @@ behaviours and defaults:
   5. upcoming, development in the branch
   6. not compatible with LTO instrumentation and needs at least LLVM >= 4.1
   7. automatic in LTO mode with LLVM >= 11, an extra pass for all LLVM version that writes to a file to use with afl-fuzz' `-x`
+  8. the snapshot LKM is currently unmaintained due to too many kernel changes coming too fast :-(
 
   Among others, the following features and patches have been integrated:
 
@@ -138,9 +139,6 @@ behaviours and defaults:
   For releases, please see the [Releases](https://github.com/AFLplusplus/AFLplusplus/releases) tab.
 
 ## Help wanted
-
-We were happy to be part of [Google Summer of Code 2020](https://summerofcode.withgoogle.com/organizations/5100744400699392/)
-and we will try to participate again in 2021!
 
 We have several ideas we would like to see in AFL++ to make it even better.
 However, we already work on so many things that we do not have the time for
@@ -206,7 +204,7 @@ These build targets exist:
 afl++ binaries by passing the STATIC=1 argument to make:
 
 ```shell
-make all STATIC=1
+make STATIC=1
 ```
 
 These build options exist:
@@ -283,9 +281,9 @@ anything below 9 is not recommended.
     |
     v
  +--------------------------------+
- | if you want to instrument only | -> use GCC_PLUGIN mode (afl-gcc-fast/afl-g++-fast)
- | parts of the target            |    see [instrumentation/README.gcc_plugin.md](instrumentation/README.gcc_plugin.md) and
- +--------------------------------+    [instrumentation/README.instrument_list.md](instrumentation/README.instrument_list.md)
+ | gcc 5+ is available            | -> use GCC_PLUGIN mode (afl-gcc-fast/afl-g++-fast)
+ +--------------------------------+    see [instrumentation/README.gcc_plugin.md](instrumentation/README.gcc_plugin.md) and
+                                       [instrumentation/README.instrument_list.md](instrumentation/README.instrument_list.md)
     |
     | if not, or if you do not have a gcc with plugin support
     |
@@ -298,17 +296,17 @@ Clickable README links for the chosen compiler:
   * [LTO mode - afl-clang-lto](instrumentation/README.lto.md)
   * [LLVM mode - afl-clang-fast](instrumentation/README.llvm.md)
   * [GCC_PLUGIN mode - afl-gcc-fast](instrumentation/README.gcc_plugin.md)
-  * GCC mode (afl-gcc) has no README as it has no own features
+  * GCC/CLANG mode (afl-gcc/afl-clang) have no README as they have no own features
 
 You can select the mode for the afl-cc compiler by:
-  1. passing --afl-MODE command line options to the compiler via CFLAGS/CXXFLAGS/CPPFLAGS
-  2. use a symlink to afl-cc: afl-gcc, afl-g++, afl-clang, afl-clang++,
+  1. use a symlink to afl-cc: afl-gcc, afl-g++, afl-clang, afl-clang++,
      afl-clang-fast, afl-clang-fast++, afl-clang-lto, afl-clang-lto++,
-     afl-gcc-fast, afl-g++-fast
-  3. using the environment variable AFL_CC_COMPILER with MODE
+     afl-gcc-fast, afl-g++-fast (recommended!)
+  2. using the environment variable AFL_CC_COMPILER with MODE
+  3. passing --afl-MODE command line options to the compiler via CFLAGS/CXXFLAGS/CPPFLAGS
 
 MODE can be one of: LTO (afl-clang-lto*), LLVM (afl-clang-fast*), GCC_PLUGIN
-(afl-g*-fast) or GCC (afl-gcc/afl-g++).
+(afl-g*-fast) or GCC (afl-gcc/afl-g++) or CLANG(afl-clang/afl-clang++).
 
 Because no afl specific command-line options are accepted (beside the
 --afl-MODE command), the compile-time tools make fairly broad use of environment
@@ -338,14 +336,14 @@ The following options are available when you instrument with LTO mode (afl-clang
    You can read more about this in [instrumentation/README.cmplog.md](instrumentation/README.cmplog.md)
 
 If you use LTO, LLVM or GCC_PLUGIN mode (afl-clang-fast/afl-clang-lto/afl-gcc-fast)
- you have the option to selectively only instrument parts of the target that you
+you have the option to selectively only instrument parts of the target that you
 are interested in:
 
  * To instrument only those parts of the target that you are interested in
    create a file with all the filenames of the source code that should be
    instrumented.
-   For afl-clang-lto and afl-gcc-fast - or afl-clang-fast if either the clang
-   version is below 7 or the CLASSIC instrumentation is used - just put one
+   For afl-clang-lto and afl-gcc-fast - or afl-clang-fast if a mode other than
+   DEFAULT/PCGUARD is used or you have llvm > 10.0.0 - just put one
    filename or function per line (no directory information necessary for
    filenames9, and either set `export AFL_LLVM_ALLOWLIST=allowlist.txt` **or**
    `export AFL_LLVM_DENYLIST=denylist.txt` - depending on if you want per
@@ -353,10 +351,6 @@ are interested in:
    unless requested (ALLOWLIST).
    **NOTE:** During optimization functions might be inlined and then would not match!
    See [instrumentation/README.instrument_list.md](instrumentation/README.instrument_list.md)
-   For afl-clang-fast > 6.0 or if PCGUARD instrumentation is used then use the
-   llvm sancov allow-list feature: [http://clang.llvm.org/docs/SanitizerCoverage.html](http://clang.llvm.org/docs/SanitizerCoverage.html)
-   The llvm sancov format works with the allowlist/denylist feature of afl++
-   however afl++'s format is more flexible.
 
 There are many more options and modes available however these are most of the
 time less effective. See:
@@ -696,7 +690,7 @@ Note that there are also a lot of tools out there that help fuzzing with afl++
 (some might be deprecated or unsupported):
 
 Minimization of test cases:
- * [afl-pytmin](https://github.com/ilsani/afl-pytmin) - a wrapper for afl-tmin that tries to speed up the process of the minimization of test case by using many CPU cores.
+ * [afl-pytmin](https://github.com/ilsani/afl-pytmin) - a wrapper for afl-tmin that tries to speed up the process of minimization of a single test case by using many CPU cores.
  * [afl-ddmin-mod](https://github.com/MarkusTeufelberger/afl-ddmin-mod) - a variation of afl-tmin based on the ddmin algorithm. 
  * [halfempty](https://github.com/googleprojectzero/halfempty) -  is a fast utility for minimizing test cases by Tavis Ormandy based on parallelization. 
 
@@ -751,7 +745,7 @@ the speed compared to qemu_mode (but slower than persistent mode).
 ### Unicorn
 
 For non-Linux binaries you can use afl++'s unicorn mode which can emulate
-anything you want - for the price of speed and the user writing scripts.
+anything you want - for the price of speed and user written scripts.
 See [unicorn_mode](unicorn_mode/README.md).
 
 It can be easily built by:
@@ -763,16 +757,16 @@ cd unicorn_mode
 ### Shared libraries
 
 If the goal is to fuzz a dynamic library then there are two options available.
-For both you need to write a small hardness that loads and calls the library.
+For both you need to write a small harness that loads and calls the library.
 Faster is the frida solution: [utils/afl_frida/README.md](utils/afl_frida/README.md)
 
 Another, less precise and slower option is using ptrace with debugger interrupt
-instrumentation: [utils/afl_untracer/README.md](utils/afl_untracer/README.md)
+instrumentation: [utils/afl_untracer/README.md](utils/afl_untracer/README.md).
 
 ### More
 
 A more comprehensive description of these and other options can be found in
-[docs/binaryonly_fuzzing.md](docs/binaryonly_fuzzing.md)
+[docs/binaryonly_fuzzing.md](docs/binaryonly_fuzzing.md).
 
 ## Challenges of guided fuzzing
 

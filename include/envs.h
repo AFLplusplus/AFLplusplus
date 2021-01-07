@@ -79,8 +79,8 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_CTX",
     "AFL_LLVM_DICT2FILE",
     "AFL_LLVM_DOCUMENT_IDS",
-    "AFL_LLVM_INSTRUMENT",
     "AFL_LLVM_INSTRIM_LOOPHEAD",
+    "AFL_LLVM_INSTRUMENT",
     "AFL_LLVM_LTO_AUTODICTIONARY",
     "AFL_LLVM_AUTODICTIONARY",
     "AFL_LLVM_SKIPSINGLEBLOCK",
@@ -104,6 +104,10 @@ static char *afl_environment_variables[] = {
     "AFL_NO_ARITH",
     "AFL_NO_AUTODICT",
     "AFL_NO_BUILTIN",
+#if defined USE_COLOR && !defined ALWAYS_COLORED
+    "AFL_NO_COLOR",
+    "AFL_NO_COLOUR",
+#endif
     "AFL_NO_CPU_RED",
     "AFL_NO_FORKSRV",
     "AFL_NO_UI",

@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <strings.h>
+#include <math.h>
 
 #include "debug.h"
 #include "alloc-inl.h"
@@ -431,7 +432,9 @@ void check_environment_vars(char **envp) {
   char *env, *val;
   while ((env = envp[index++]) != NULL) {
 
-    if (strncmp(env, "ALF_", 4) == 0) {
+    if (strncmp(env, "ALF_", 4) == 0 || strncmp(env, "_ALF", 4) == 0 ||
+        strncmp(env, "__ALF", 5) == 0 || strncmp(env, "_AFL", 4) == 0 ||
+        strncmp(env, "__AFL", 5) == 0) {
 
       WARNF("Potentially mistyped AFL environment variable: %s", env);
       issue_detected = 1;
@@ -627,6 +630,10 @@ u8 *stringify_float(u8 *buf, size_t len, double val) {
 
     snprintf(buf, len, "%0.01f", val);
 
+  } else if (unlikely(isnan(val) || isinf(val))) {
+
+    strcpy(buf, "inf");
+
   } else {
 
     stringify_int(buf, len, (u64)val);
@@ -689,15 +696,15 @@ u8 *stringify_mem_size(u8 *buf, size_t len, u64 val) {
 
 u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
 
-  u64 delta;
-  s32 t_d, t_h, t_m, t_s;
-  u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
-
   if (!event_ms) {
 
     snprintf(buf, len, "none seen yet");
 
   } else {
+
+    u64 delta;
+    s32 t_d, t_h, t_m, t_s;
+    u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
 
     delta = cur_ms - event_ms;
 
@@ -786,6 +793,10 @@ u8 *u_stringify_float(u8 *buf, double val) {
 
     sprintf(buf, "%0.01f", val);
 
+  } else if (unlikely(isnan(val) || isinf(val))) {
+
+    strcpy(buf, "infinite");
+
   } else {
 
     return u_stringify_int(buf, (u64)val);
@@ -847,15 +858,15 @@ u8 *u_stringify_mem_size(u8 *buf, u64 val) {
 
 u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
-  u64 delta;
-  s32 t_d, t_h, t_m, t_s;
-  u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
-
   if (!event_ms) {
 
     sprintf(buf, "none seen yet");
 
   } else {
+
+    u64 delta;
+    s32 t_d, t_h, t_m, t_s;
+    u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
 
     delta = cur_ms - event_ms;
 
@@ -884,8 +895,8 @@ u32 get_map_size(void) {
     map_size = atoi(ptr);
     if (map_size < 8 || map_size > (1 << 29)) {
 
-      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 8,
-            1 << 29);
+      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 8U,
+            1U << 29);
 
     }
 

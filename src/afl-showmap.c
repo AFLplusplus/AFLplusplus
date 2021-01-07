@@ -98,11 +98,24 @@ static sharedmem_t *     shm_fuzz;
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
 
+#define TIMES4(x) x, x, x, x
+#define TIMES8(x) TIMES4(x), TIMES4(x)
+#define TIMES16(x) TIMES8(x), TIMES8(x)
+#define TIMES32(x) TIMES16(x), TIMES16(x)
+#define TIMES64(x) TIMES32(x), TIMES32(x)
+#define TIMES96(x) TIMES64(x), TIMES32(x)
+#define TIMES128(x) TIMES64(x), TIMES64(x)
 static const u8 count_class_human[256] = {
 
-    [0] = 0,          [1] = 1,        [2] = 2,         [3] = 3,
-    [4 ... 7] = 4,    [8 ... 15] = 5, [16 ... 31] = 6, [32 ... 127] = 7,
-    [128 ... 255] = 8
+    [0] = 0,
+    [1] = 1,
+    [2] = 2,
+    [3] = 3,
+    [4] = TIMES4(4),
+    [8] = TIMES8(5),
+    [16] = TIMES16(6),
+    [32] = TIMES96(7),
+    [128] = TIMES128(8)
 
 };
 
@@ -112,13 +125,21 @@ static const u8 count_class_binary[256] = {
     [1] = 1,
     [2] = 2,
     [3] = 4,
-    [4 ... 7] = 8,
-    [8 ... 15] = 16,
-    [16 ... 31] = 32,
-    [32 ... 127] = 64,
-    [128 ... 255] = 128
+    [4] = TIMES4(8),
+    [8] = TIMES8(16),
+    [16] = TIMES16(32),
+    [32] = TIMES32(64),
+    [128] = TIMES64(128)
 
 };
+
+#undef TIMES128
+#undef TIMES96
+#undef TIMES64
+#undef TIMES32
+#undef TIMES16
+#undef TIMES8
+#undef TIMES4
 
 static void classify_counts(afl_forkserver_t *fsrv) {
 
@@ -641,7 +662,7 @@ static void usage(u8 *argv0) {
 
       "Execution control settings:\n"
       "  -t msec       - timeout for each run (none)\n"
-      "  -m megs       - memory limit for child process (%d MB)\n"
+      "  -m megs       - memory limit for child process (%u MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
@@ -993,9 +1014,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     DIR *          dir_in, *dir_out = NULL;
     struct dirent *dir_ent;
-    int            done = 0;
-    u8             infile[PATH_MAX], outfile[PATH_MAX];
-    u8             wait_for_gdb = 0;
+    //    int            done = 0;
+    u8 infile[PATH_MAX], outfile[PATH_MAX];
+    u8 wait_for_gdb = 0;
 #if !defined(DT_REG)
     struct stat statbuf;
 #endif
@@ -1069,11 +1090,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (get_afl_env("AFL_DEBUG")) {
 
-      int i = optind;
+      int j = optind;
       DEBUGF("%s:", fsrv->target_path);
-      while (argv[i] != NULL) {
+      while (argv[j] != NULL) {
 
-        SAYF(" \"%s\"", argv[i++]);
+        SAYF(" \"%s\"", argv[j++]);
 
       }
 
@@ -1122,7 +1143,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-    while (done == 0 && (dir_ent = readdir(dir_in))) {
+    while ((dir_ent = readdir(dir_in))) {
 
       if (dir_ent->d_name[0] == '.') {
 

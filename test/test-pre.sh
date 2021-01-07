@@ -90,6 +90,7 @@ unset AFL_CUSTOM_MUTATOR_LIBRARY
 unset AFL_PYTHON_MODULE
 unset AFL_PRELOAD
 unset LD_PRELOAD
+unset SKIP
 
 rm -rf in in2 out
 

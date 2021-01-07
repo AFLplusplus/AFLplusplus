@@ -46,7 +46,7 @@ template<typename T>
       fuzzer_allocator() = default;
 
       template<class U>
-      fuzzer_allocator(const fuzzer_allocator<U>&) {}
+      explicit fuzzer_allocator(const fuzzer_allocator<U>&) {}
 
       template<class Other>
       struct rebind { typedef fuzzer_allocator<Other> other;  };

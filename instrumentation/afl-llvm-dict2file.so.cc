@@ -355,7 +355,8 @@ bool AFLdict2filePass::runOnModule(Module &M) {
                 *Str2P = callInst->getArgOperand(1);
           std::string Str1, Str2;
           StringRef   TmpStr;
-          bool        HasStr1 = getConstantStringInfo(Str1P, TmpStr);
+          bool        HasStr1;
+          getConstantStringInfo(Str1P, TmpStr);
           if (TmpStr.empty()) {
 
             HasStr1 = false;
@@ -367,7 +368,8 @@ bool AFLdict2filePass::runOnModule(Module &M) {
 
           }
 
-          bool HasStr2 = getConstantStringInfo(Str2P, TmpStr);
+          bool HasStr2;
+          getConstantStringInfo(Str2P, TmpStr);
           if (TmpStr.empty()) {
 
             HasStr2 = false;

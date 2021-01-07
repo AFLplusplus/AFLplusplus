@@ -106,8 +106,8 @@ static void usage(u8 *argv0, int more_help) {
       "                  lin, quad> -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
-      "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
-      "  -m megs       - memory limit for child process (%d MB, 0 = no limit)\n"
+      "  -t msec       - timeout for each run (auto-scaled, 50-%u ms)\n"
+      "  -m megs       - memory limit for child process (%u MB, 0 = no limit)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -163,6 +163,13 @@ static void usage(u8 *argv0, int more_help) {
 
   if (more_help > 1) {
 
+#if defined USE_COLOR && !defined ALWAYS_COLORED
+  #define DYN_COLOR \
+    "AFL_NO_COLOR or AFL_NO_COLOUR: switch colored console output off\n"
+#else
+  #define DYN_COLOR
+#endif
+
     SAYF(
       "Environment variables used:\n"
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
@@ -201,6 +208,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
       "AFL_NO_UI: switch status screen off\n"
+
+      DYN_COLOR
+
       "AFL_PATH: path to AFL support binaries\n"
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
       "AFL_QUIET: suppress forkserver status messages\n"
@@ -296,7 +306,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32 opt, i, auto_sync = 0 /*, user_set_cache = 0*/;
   u64 prev_queued = 0;
-  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, map_size = MAP_SIZE;
+  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0,
+      map_size = get_map_size();
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
      extras_dir_cnt = 0 /*, have_p = 0*/;
@@ -305,6 +316,17 @@ int main(int argc, char **argv_orig, char **envp) {
   struct timeval  tv;
   struct timezone tz;
 
+  #if defined USE_COLOR && defined ALWAYS_COLORED
+  if (getenv("AFL_NO_COLOR") || getenv("AFL_NO_COLOUR")) {
+
+    WARNF(
+        "Setting AFL_NO_COLOR has no effect (colors are configured on at "
+        "compile time)");
+
+  }
+
+  #endif
+
   char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
@@ -312,7 +334,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (get_afl_env("AFL_DEBUG")) { debug = afl->debug = 1; }
 
-  map_size = get_map_size();
+  //  map_size = get_map_size();
   afl_state_init(afl, map_size);
   afl->debug = debug;
   afl_fsrv_init(&afl->fsrv);
@@ -1520,7 +1542,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->pending_not_fuzzed) {
 
-    FATAL("We need at least on valid input seed that does not crash!");
+    FATAL("We need at least one valid input seed that does not crash!");
 
   }
 

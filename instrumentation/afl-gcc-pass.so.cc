@@ -228,7 +228,7 @@ struct afl_pass : gimple_opt_pass {
   const bool neverZero;
 
   /* Count instrumented blocks. */
-  int inst_blocks;
+  unsigned int inst_blocks;
 
   virtual unsigned int execute(function *fn) {
 
@@ -444,8 +444,10 @@ struct afl_pass : gimple_opt_pass {
     DECL_EXTERNAL(decl) = 1;
     DECL_ARTIFICIAL(decl) = 1;
     TREE_STATIC(decl) = 1;
+#if !defined(__ANDROID__) && !defined(__HAIKU__)
     set_decl_tls_model(
         decl, (flag_pic ? TLS_MODEL_INITIAL_EXEC : TLS_MODEL_LOCAL_EXEC));
+#endif
     return decl;
 
   }
@@ -516,7 +518,9 @@ struct afl_pass : gimple_opt_pass {
         "__cmplog",
         "__sancov",
         "msan.",
-        "LLVMFuzzer",
+        "LLVMFuzzerM",
+        "LLVMFuzzerC",
+        "LLVMFuzzerI",
         "__decide_deferred",
         "maybe_duplicate_stderr",
         "discard_output",
@@ -620,9 +624,10 @@ struct afl_pass : gimple_opt_pass {
             allowListFiles.push_back(line);
           else
             allowListFunctions.push_back(line);
-          getline(fileStream, line);
 
         }
+
+        getline(fileStream, line);
 
       }
 
@@ -694,9 +699,10 @@ struct afl_pass : gimple_opt_pass {
             denyListFiles.push_back(line);
           else
             denyListFunctions.push_back(line);
-          getline(fileStream, line);
 
         }
+
+        getline(fileStream, line);
 
       }
 
@@ -927,7 +933,7 @@ int plugin_init(struct plugin_name_args *  info,
     quiet = true;
 
   /* Decide instrumentation ratio.  */
-  int inst_ratio = 100;
+  unsigned int inst_ratio = 100U;
   if (char *inst_ratio_str = getenv("AFL_INST_RATIO"))
     if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
         inst_ratio > 100)

@@ -221,7 +221,7 @@ restart_select:
 static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
   unsigned char tmp[4] = {0, 0, 0, 0};
-  pid_t         child_pid = -1;
+  pid_t         child_pid;
 
   if (!be_quiet) { ACTF("Using Fauxserver:"); }
 
@@ -649,11 +649,11 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         if (!fsrv->map_size) { fsrv->map_size = MAP_SIZE; }
 
-        if (unlikely(tmp_map_size % 8)) {
+        if (unlikely(tmp_map_size % 32)) {
 
           // should not happen
           WARNF("Target reported non-aligned map size of %u", tmp_map_size);
-          tmp_map_size = (((tmp_map_size + 8) >> 3) << 3);
+          tmp_map_size = (((tmp_map_size + 31) >> 5) << 5);
 
         }
 
@@ -1112,7 +1112,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
          "Unable to communicate with fork server. Some possible reasons:\n\n"
          "    - You've run out of memory. Use -m to increase the the memory "
          "limit\n"
-         "      to something higher than %lld.\n"
+         "      to something higher than %llu.\n"
          "    - The binary or one of the libraries it uses manages to "
          "create\n"
          "      threads before the forkserver initializes.\n"

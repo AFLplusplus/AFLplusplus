@@ -70,7 +70,9 @@ bool isIgnoreFunction(const llvm::Function *F) {
       "__cmplog",
       "__sancov",
       "msan.",
-      "LLVMFuzzer",
+      "LLVMFuzzerM",
+      "LLVMFuzzerC",
+      "LLVMFuzzerI",
       "__decide_deferred",
       "maybe_duplicate_stderr",
       "discard_output",
@@ -166,9 +168,10 @@ void initInstrumentList() {
           allowListFiles.push_back(line);
         else
           allowListFunctions.push_back(line);
-        getline(fileStream, line);
 
       }
+
+      getline(fileStream, line);
 
     }
 
@@ -240,9 +243,10 @@ void initInstrumentList() {
           denyListFiles.push_back(line);
         else
           denyListFunctions.push_back(line);
-        getline(fileStream, line);
 
       }
+
+      getline(fileStream, line);
 
     }
 

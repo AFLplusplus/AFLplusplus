@@ -25,13 +25,16 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       CODE=1
     }
     rm -f test-instr.plain.0 test-instr.plain.1
+    SKIP=
     TUPLES=`echo 1|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 4 -a "$TUPLES" -lt 11 && {
+    test "$TUPLES" -gt 2 -a "$TUPLES" -lt 12 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} instrumentation produces weird numbers: $TUPLES"
       CODE=1
     }
+    test "$TUPLES" -lt 4 && SKIP=1
+    true  # this is needed because of the test above
   } || {
     $ECHO "$RED[!] ${AFL_GCC} failed"
     echo CUT------------------------------------------------------------------CUT
@@ -65,18 +68,20 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
   }) || {
     mkdir -p in
     echo 0 > in/in
-    $ECHO "$GREY[*] running afl-fuzz for ${AFL_GCC}, this will take approx 10 seconds"
-    {
-      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
-    } >>errors 2>&1
-    test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
-      $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
-    } || {
-      echo CUT------------------------------------------------------------------CUT
-      cat errors
-      echo CUT------------------------------------------------------------------CUT
-      $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_GCC}"
-      CODE=1
+    test -z "$SKIP" && {
+      $ECHO "$GREY[*] running afl-fuzz for ${AFL_GCC}, this will take approx 10 seconds"
+      {
+        ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -D -- ./test-instr.plain >>errors 2>&1
+      } >>errors 2>&1
+      test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
+      } || {
+        echo CUT------------------------------------------------------------------CUT
+        cat errors
+        echo CUT------------------------------------------------------------------CUT
+        $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_GCC}"
+        CODE=1
+      }
     }
     echo 000000000000000000000000 > in/in2
     echo 111 > in/in3
@@ -101,7 +106,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
             ;;
         esac
     } else {
-      $ECHO "$GRAY[*] no bash available, cannot test afl-cmin.bash"
+      $ECHO "$GREY[*] no bash available, cannot test afl-cmin.bash"
     }
     fi
     ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
@@ -121,6 +126,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
  }
  if [ ${AFL_GCC} = "afl-gcc" ] ; then AFL_GCC=afl-clang ; else AFL_GCC=afl-gcc ; fi
  $ECHO "$BLUE[*] Testing: ${AFL_GCC}, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
+ SKIP=
  test -e ../${AFL_GCC} -a -e ../afl-showmap -a -e ../afl-fuzz && {
   ../${AFL_GCC} -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../${AFL_GCC} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
@@ -141,12 +147,14 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     }
     rm -f test-instr.plain.0 test-instr.plain.1
     TUPLES=`echo 1|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-    test "$TUPLES" -gt 4 -a "$TUPLES" -lt 11 && {
+    test "$TUPLES" -gt 2 -a "$TUPLES" -lt 12 && {
       $ECHO "$GREEN[+] ${AFL_GCC} run reported $TUPLES instrumented locations which is fine"
     } || {
       $ECHO "$RED[!] ${AFL_GCC} instrumentation produces weird numbers: $TUPLES"
       CODE=1
     }
+    test "$TUPLES" -lt 4 && SKIP=1
+    true  # this is needed because of the test above
   } || {
     $ECHO "$RED[!] ${AFL_GCC} failed"
     echo CUT------------------------------------------------------------------CUT
@@ -180,18 +188,20 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
   }) || {
     mkdir -p in
     echo 0 > in/in
-    $ECHO "$GREY[*] running afl-fuzz for ${AFL_GCC}, this will take approx 10 seconds"
-    {
-      ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -- ./test-instr.plain >>errors 2>&1
-    } >>errors 2>&1
-    test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
-      $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
-    } || {
-      echo CUT------------------------------------------------------------------CUT
-      cat errors
-      echo CUT------------------------------------------------------------------CUT
-      $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_GCC}"
-      CODE=1
+    test -z "$SKIP" && {
+      $ECHO "$GREY[*] running afl-fuzz for ${AFL_GCC}, this will take approx 10 seconds"
+      {
+        ../afl-fuzz -V10 -m ${MEM_LIMIT} -i in -o out -D -- ./test-instr.plain >>errors 2>&1
+      } >>errors 2>&1
+      test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
+        $ECHO "$GREEN[+] afl-fuzz is working correctly with ${AFL_GCC}"
+      } || {
+        echo CUT------------------------------------------------------------------CUT
+        cat errors
+        echo CUT------------------------------------------------------------------CUT
+        $ECHO "$RED[!] afl-fuzz is not working correctly with ${AFL_GCC}"
+        CODE=1
+      }
     }
     echo 000000000000000000000000 > in/in2
     echo AAA > in/in3
@@ -200,7 +210,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     CNT=`ls in2/* 2>/dev/null | wc -l`
     case "$CNT" in
       *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
-      1)  {
+      \ *1|1)  { # allow leading whitecase for portability
             test -s in2/* && $ECHO "$YELLOW[?] afl-cmin did minimize to one testcase. This can be a bug or due compiler optimization."
             test -s in2/* || {
 		$ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
@@ -219,10 +229,10 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
         *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
-        1)  {
-            test -s in2/* && $ECHO "$YELLOW[?] afl-cmin did minimize to one testcase. This can be a bug or due compiler optimization."
+        \ *1|1)  { # allow leading whitecase for portability
+              test -s in2/* && $ECHO "$YELLOW[?] afl-cmin.bash did minimize to one testcase. This can be a bug or due compiler optimization."
               test -s in2/* || {
-  		$ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+  		$ECHO "$RED[!] afl-cmin.bash did not correctly minimize the number of testcases ($CNT)"
           	CODE=1
               }
             }
@@ -232,7 +242,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
             ;;
         esac
     } else {
-      $ECHO "$GRAY[*] no bash available, cannot test afl-cmin.bash"
+      $ECHO "$GREY[*] no bash available, cannot test afl-cmin.bash"
     }
     fi
     ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1

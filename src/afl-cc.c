@@ -62,7 +62,7 @@ u8          use_stdin;                                             /* dummy */
 
 enum {
 
-  INSTURMENT_DEFAULT = 0,
+  INSTRUMENT_DEFAULT = 0,
   INSTRUMENT_CLASSIC = 1,
   INSTRUMENT_AFL = 1,
   INSTRUMENT_PCGUARD = 2,
@@ -70,6 +70,8 @@ enum {
   INSTRUMENT_CFG = 3,
   INSTRUMENT_LTO = 4,
   INSTRUMENT_LLVMNATIVE = 5,
+  INSTRUMENT_GCC = 6,
+  INSTRUMENT_CLANG = 7,
   INSTRUMENT_OPT_CTX = 8,
   INSTRUMENT_OPT_NGRAM = 16
 
@@ -77,9 +79,24 @@ enum {
 
 char instrument_mode_string[18][18] = {
 
-    "DEFAULT", "CLASSIC", "PCGUARD", "CFG", "LTO", "", "PCGUARD-NATIVE",
-    "",        "CTX",     "",        "",    "",    "", "",
-    "",        "",        "NGRAM",   ""
+    "DEFAULT",
+    "CLASSIC",
+    "PCGUARD",
+    "CFG",
+    "LTO",
+    "PCGUARD-NATIVE",
+    "GCC",
+    "CLANG",
+    "CTX",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "NGRAM",
+    ""
 
 };
 
@@ -89,21 +106,27 @@ enum {
   LTO = 1,
   LLVM = 2,
   GCC_PLUGIN = 3,
-  GCC = 4
+  GCC = 4,
+  CLANG = 5
 
 };
 
-char compiler_mode_string[6][12] = {
+char compiler_mode_string[7][12] = {
 
     "AUTOSELECT", "LLVM-LTO", "LLVM", "GCC_PLUGIN",
-    "GCC",        ""
+    "GCC",        "CLANG",    ""
 
 };
 
 u8 *getthecwd() {
 
-  static u8 fail[] = "";
-  if (getcwd(cwd, sizeof(cwd)) == NULL) return fail;
+  if (getcwd(cwd, sizeof(cwd)) == NULL) {
+
+    static u8 fail[] = "";
+    return fail;
+
+  }
+
   return cwd;
 
 }
@@ -324,6 +347,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
           alt_cxx = clang_mode ? "clang++" : "g++";
 
+        } else if (compiler_mode == CLANG) {
+
+          alt_cxx = "clang++";
+
         } else {
 
           alt_cxx = "g++";
@@ -357,6 +384,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
           alt_cc = clang_mode ? "clang" : "gcc";
 
+        } else if (compiler_mode == CLANG) {
+
+          alt_cc = "clang";
+
         } else {
 
           alt_cc = "gcc";
@@ -380,12 +411,16 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-  if (compiler_mode == GCC) {
+  if (compiler_mode == GCC || compiler_mode == CLANG) {
 
     cc_params[cc_par_cnt++] = "-B";
     cc_params[cc_par_cnt++] = obj_path;
 
-    if (clang_mode) { cc_params[cc_par_cnt++] = "-no-integrated-as"; }
+    if (clang_mode || compiler_mode == CLANG) {
+
+      cc_params[cc_par_cnt++] = "-no-integrated-as";
+
+    }
 
   }
 
@@ -624,9 +659,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
-    u32 idx;
     if (lto_mode && argc > 1) {
 
+      u32 idx;
       for (idx = 1; idx < argc; idx++) {
 
         if (!strncasecmp(argv[idx], "-fpic", 5)) have_pic = 1;
@@ -757,8 +792,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-#if defined(USEMMAP) && !defined(__HAIKU__)
+#if defined(USEMMAP)
+  #if !defined(__HAIKU__)
   cc_params[cc_par_cnt++] = "-lrt";
+  #endif
 #endif
 
   cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
@@ -792,6 +829,35 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       "extern unsigned char *__afl_fuzz_ptr;"
       "unsigned char __afl_fuzz_alt[1048576];"
       "unsigned char *__afl_fuzz_alt_ptr = __afl_fuzz_alt;";
+
+  if (plusplus_mode) {
+
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+        "extern \"C\" void __afl_coverage_discard();"
+        "extern \"C\" void __afl_coverage_abort();"
+        "extern \"C\" void __afl_coverage_on();"
+        "extern \"C\" void __afl_coverage_off();";
+
+  } else {
+
+    cc_params[cc_par_cnt++] =
+        "-D__AFL_COVERAGE()=int __afl_selective_coverage = 1;"
+        "void __afl_coverage_discard();"
+        "void __afl_coverage_abort();"
+        "void __afl_coverage_on();"
+        "void __afl_coverage_off();";
+
+  }
+
+  cc_params[cc_par_cnt++] =
+      "-D__AFL_COVERAGE_START_OFF()=int __afl_selective_coverage_start_off = "
+      "1;";
+  cc_params[cc_par_cnt++] = "-D__AFL_COVERAGE_ON()=__afl_coverage_on()";
+  cc_params[cc_par_cnt++] = "-D__AFL_COVERAGE_OFF()=__afl_coverage_off()";
+  cc_params[cc_par_cnt++] =
+      "-D__AFL_COVERAGE_DISCARD()=__afl_coverage_discard()";
+  cc_params[cc_par_cnt++] = "-D__AFL_COVERAGE_ABORT()=__afl_coverage_abort()";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
       "__afl_fuzz_alt_ptr)";
@@ -849,7 +915,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
 #ifndef __ANDROID__
 
-  if (compiler_mode != GCC) {
+  if (compiler_mode != GCC && compiler_mode != CLANG) {
 
     switch (bit_mode) {
 
@@ -901,8 +967,10 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
-  #ifdef USEMMAP
+  #if defined(USEMMAP)
+    #if !defined(__HAIKU__)
     cc_params[cc_par_cnt++] = "-lrt";
+    #endif
   #endif
 
   }
@@ -996,11 +1064,15 @@ int main(int argc, char **argv, char **envp) {
 
   } else if (strncmp(callname, "afl-gcc", 7) == 0 ||
 
-             strncmp(callname, "afl-g++", 7) == 0 ||
-
-             strncmp(callname, "afl-clang", 9) == 0) {
+             strncmp(callname, "afl-g++", 7) == 0) {
 
     compiler_mode = GCC;
+
+  } else if (strcmp(callname, "afl-clang") == 0 ||
+
+             strcmp(callname, "afl-clang++") == 0) {
+
+    compiler_mode = CLANG;
 
   }
 
@@ -1042,11 +1114,13 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (strncmp(callname, "afl-clang", 9) == 0) {
+  if (strcmp(callname, "afl-clang") == 0 ||
+      strcmp(callname, "afl-clang++") == 0) {
 
     clang_mode = 1;
+    compiler_mode = CLANG;
 
-    if (strncmp(callname, "afl-clang++", 11) == 0) { plusplus_mode = 1; }
+    if (strcmp(callname, "afl-clang++") == 0) { plusplus_mode = 1; }
 
   }
 
@@ -1072,6 +1146,34 @@ int main(int argc, char **argv, char **envp) {
 
         compiler_mode = LLVM;
 
+      } else if (strncasecmp(ptr, "PCGUARD", 7) == 0 ||
+
+                 strncasecmp(ptr, "PC-GUARD", 8) == 0) {
+
+        compiler_mode = LLVM;
+        instrument_mode = INSTRUMENT_PCGUARD;
+
+      } else if (strcasecmp(ptr, "INSTRIM") == 0 ||
+
+                 strcasecmp(ptr, "CFG") == 0) {
+
+        compiler_mode = LLVM;
+        instrument_mode = INSTRUMENT_CFG;
+
+      } else if (strcasecmp(ptr, "AFL") == 0 ||
+
+                 strcasecmp(ptr, "CLASSIC") == 0) {
+
+        compiler_mode = LLVM;
+        instrument_mode = INSTRUMENT_CLASSIC;
+
+      } else if (strcasecmp(ptr, "LLVMNATIVE") == 0 ||
+
+                 strcasecmp(ptr, "LLVM-NATIVE") == 0) {
+
+        compiler_mode = LLVM;
+        instrument_mode = INSTRUMENT_LLVMNATIVE;
+
       } else if (strncasecmp(ptr, "GCC_P", 5) == 0 ||
 
                  strncasecmp(ptr, "GCC-P", 5) == 0 ||
@@ -1082,6 +1184,10 @@ int main(int argc, char **argv, char **envp) {
       } else if (strcasecmp(ptr, "GCC") == 0) {
 
         compiler_mode = GCC;
+
+      } else if (strncasecmp(ptr, "CLANG", 5) == 0) {
+
+        compiler_mode = CLANG;
 
       } else
 
@@ -1140,12 +1246,12 @@ int main(int argc, char **argv, char **envp) {
 
   if (getenv("AFL_LLVM_INSTRUMENT")) {
 
-    u8 *ptr = strtok(getenv("AFL_LLVM_INSTRUMENT"), ":,;");
+    u8 *ptr2 = strtok(getenv("AFL_LLVM_INSTRUMENT"), ":,;");
 
-    while (ptr) {
+    while (ptr2) {
 
-      if (strncasecmp(ptr, "afl", strlen("afl")) == 0 ||
-          strncasecmp(ptr, "classic", strlen("classic")) == 0) {
+      if (strncasecmp(ptr2, "afl", strlen("afl")) == 0 ||
+          strncasecmp(ptr2, "classic", strlen("classic")) == 0) {
 
         if (instrument_mode == INSTRUMENT_LTO) {
 
@@ -1161,8 +1267,8 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr, "pc-guard", strlen("pc-guard")) == 0 ||
-          strncasecmp(ptr, "pcguard", strlen("pcguard")) == 0) {
+      if (strncasecmp(ptr2, "pc-guard", strlen("pc-guard")) == 0 ||
+          strncasecmp(ptr2, "pcguard", strlen("pcguard")) == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_PCGUARD)
           instrument_mode = INSTRUMENT_PCGUARD;
@@ -1173,8 +1279,8 @@ int main(int argc, char **argv, char **envp) {
       }
 
       // this is a hidden option
-      if (strncasecmp(ptr, "llvmnative", strlen("llvmnative")) == 0 ||
-          strncasecmp(ptr, "llvm-native", strlen("llvm-native")) == 0) {
+      if (strncasecmp(ptr2, "llvmnative", strlen("llvmnative")) == 0 ||
+          strncasecmp(ptr2, "llvm-native", strlen("llvm-native")) == 0) {
 
         if (!instrument_mode || instrument_mode == INSTRUMENT_LLVMNATIVE)
           instrument_mode = INSTRUMENT_LLVMNATIVE;
@@ -1184,8 +1290,8 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr, "cfg", strlen("cfg")) == 0 ||
-          strncasecmp(ptr, "instrim", strlen("instrim")) == 0) {
+      if (strncasecmp(ptr2, "cfg", strlen("cfg")) == 0 ||
+          strncasecmp(ptr2, "instrim", strlen("instrim")) == 0) {
 
         if (instrument_mode == INSTRUMENT_LTO) {
 
@@ -1201,7 +1307,7 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr, "lto", strlen("lto")) == 0) {
+      if (strncasecmp(ptr2, "lto", strlen("lto")) == 0) {
 
         lto_mode = 1;
         if (!instrument_mode || instrument_mode == INSTRUMENT_LTO)
@@ -1212,29 +1318,51 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      if (strncasecmp(ptr, "ctx", strlen("ctx")) == 0) {
+      if (strcasecmp(ptr2, "gcc") == 0) {
+
+        if (!instrument_mode || instrument_mode == INSTRUMENT_GCC)
+          instrument_mode = INSTRUMENT_GCC;
+        else if (instrument_mode != INSTRUMENT_GCC)
+          FATAL("main instrumentation mode already set with %s",
+                instrument_mode_string[instrument_mode]);
+        compiler_mode = GCC;
+
+      }
+
+      if (strcasecmp(ptr2, "clang") == 0) {
+
+        if (!instrument_mode || instrument_mode == INSTRUMENT_CLANG)
+          instrument_mode = INSTRUMENT_CLANG;
+        else if (instrument_mode != INSTRUMENT_CLANG)
+          FATAL("main instrumentation mode already set with %s",
+                instrument_mode_string[instrument_mode]);
+        compiler_mode = CLANG;
+
+      }
+
+      if (strncasecmp(ptr2, "ctx", strlen("ctx")) == 0) {
 
         instrument_opt_mode |= INSTRUMENT_OPT_CTX;
         setenv("AFL_LLVM_CTX", "1", 1);
 
       }
 
-      if (strncasecmp(ptr, "ngram", strlen("ngram")) == 0) {
+      if (strncasecmp(ptr2, "ngram", strlen("ngram")) == 0) {
 
-        ptr += strlen("ngram");
-        while (*ptr && (*ptr < '0' || *ptr > '9'))
-          ptr++;
+        ptr2 += strlen("ngram");
+        while (*ptr2 && (*ptr2 < '0' || *ptr2 > '9'))
+          ptr2++;
 
-        if (!*ptr) {
+        if (!*ptr2) {
 
-          if ((ptr = getenv("AFL_LLVM_NGRAM_SIZE")) == NULL)
+          if ((ptr2 = getenv("AFL_LLVM_NGRAM_SIZE")) == NULL)
             FATAL(
                 "you must set the NGRAM size with (e.g. for value 2) "
                 "AFL_LLVM_INSTRUMENT=ngram-2");
 
         }
 
-        ngram_size = atoi(ptr);
+        ngram_size = atoi(ptr2);
         if (ngram_size < 2 || ngram_size > NGRAM_SIZE_MAX)
           FATAL(
               "NGRAM instrumentation option must be between 2 and "
@@ -1242,12 +1370,12 @@ int main(int argc, char **argv, char **envp) {
               "(%u)",
               NGRAM_SIZE_MAX);
         instrument_opt_mode |= (INSTRUMENT_OPT_NGRAM);
-        ptr = alloc_printf("%u", ngram_size);
-        setenv("AFL_LLVM_NGRAM_SIZE", ptr, 1);
+        ptr2 = alloc_printf("%u", ngram_size);
+        setenv("AFL_LLVM_NGRAM_SIZE", ptr2, 1);
 
       }
 
-      ptr = strtok(NULL, ":,;");
+      ptr2 = strtok(NULL, ":,;");
 
     }
 
@@ -1269,6 +1397,22 @@ int main(int argc, char **argv, char **envp) {
       FATAL("no compiler mode available");
 
   }
+
+  if (compiler_mode == GCC) {
+
+    if (clang_mode) {
+
+      instrument_mode = INSTRUMENT_CLANG;
+
+    } else {
+
+      instrument_mode = INSTRUMENT_GCC;
+
+    }
+
+  }
+
+  if (compiler_mode == CLANG) { instrument_mode = INSTRUMENT_CLANG; }
 
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
 
@@ -1316,7 +1460,7 @@ int main(int argc, char **argv, char **envp) {
         "  [GCC_PLUGIN] gcc plugin: %s%s\n"
         "      CLASSIC              DEFAULT    no  yes     yes  no     no  no  "
         "   yes\n"
-        "  [GCC] simple gcc:        %s%s\n"
+        "  [GCC/CLANG] simple gcc/clang: %s%s\n"
         "      CLASSIC              DEFAULT    no  no      no   no     no  no  "
         "   no\n\n",
         have_lto ? "AVAILABLE" : "unavailable!",
@@ -1328,7 +1472,7 @@ int main(int argc, char **argv, char **envp) {
         have_gcc_plugin ? "AVAILABLE" : "unavailable!",
         compiler_mode == GCC_PLUGIN ? " [SELECTED]" : "",
         have_gcc ? "AVAILABLE" : "unavailable!",
-        compiler_mode == GCC ? " [SELECTED]" : "");
+        (compiler_mode == GCC || compiler_mode == CLANG) ? " [SELECTED]" : "");
 
     SAYF(
         "Modes:\n"
@@ -1342,16 +1486,28 @@ int main(int argc, char **argv, char **envp) {
         "  The best is LTO but it often needs RANLIB and AR settings outside "
         "of afl-cc.\n\n");
 
+#if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+  #define NATIVE_MSG                                              \
+    "  NATIVE:  use llvm's native PCGUARD instrumentation (less " \
+    "performant)\n"
+#else
+  #define NATIVE_MSG ""
+#endif
+
     SAYF(
         "Sub-Modes: (set via env AFL_LLVM_INSTRUMENT, afl-cc selects the best "
         "available)\n"
         "  PCGUARD: Dominator tree instrumentation (best!) (README.llvm.md)\n"
+
+        NATIVE_MSG
+
         "  CLASSIC: decision target instrumentation (README.llvm.md)\n"
         "  CTX:     CLASSIC + callee context (instrumentation/README.ctx.md)\n"
         "  NGRAM-x: CLASSIC + previous path "
         "((instrumentation/README.ngram.md)\n"
         "  INSTRIM: Dominator tree (for LLVM <= 6.0) "
         "(instrumentation/README.instrim.md)\n\n");
+#undef NATIVE_MSG
 
     SAYF(
         "Features: (see documentation links)\n"
@@ -1432,7 +1588,7 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_LAF_SPLIT_FLOATS: cascaded comparisons on floats\n"
             "  AFL_LLVM_LAF_TRANSFORM_COMPARES: cascade comparisons for string "
             "functions\n"
-            "  AFL_LLVM_INSTRUMENT_ALLOW/AFL_LLVM_INSTRUMENT_DENY: enable "
+            "  AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST: enable "
             "instrument allow/\n"
             "    deny listing (selective instrumentation)\n");
 
@@ -1441,7 +1597,8 @@ int main(int argc, char **argv, char **envp) {
             "  AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen "
             "mutator)\n"
             "  AFL_LLVM_INSTRUMENT: set instrumentation mode:\n"
-            "    CLASSIC, INSTRIM, PCGUARD, LTO, CTX, NGRAM-2 ... NGRAM-16\n"
+            "    CLASSIC, INSTRIM, PCGUARD, LTO, GCC, CLANG, CTX, NGRAM-2 ... "
+            "NGRAM-16\n"
             " You can also use the old environment variables instead:\n"
             "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
             "  AFL_LLVM_INSTRIM: use light weight instrumentation InsTrim\n"
@@ -1484,12 +1641,17 @@ int main(int argc, char **argv, char **envp) {
     if (have_lto)
       SAYF("afl-cc LTO with ld=%s %s\n", AFL_REAL_LD, AFL_CLANG_FLTO);
     if (have_llvm)
-      SAYF("afl-cc LLVM version %d with the the binary path \"%s\".\n",
-           LLVM_MAJOR, LLVM_BINDIR);
+      SAYF("afl-cc LLVM version %d using binary path \"%s\".\n", LLVM_MAJOR,
+           LLVM_BINDIR);
 #endif
 
-#ifdef USEMMAP
+#if defined(USEMMAP)
+  #if !defined(__HAIKU__)
+    cc_params[cc_par_cnt++] = "-lrt";
     SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
+  #else
+    SAYF("Compiled with shm_open support.\n");
+  #endif
 #else
     SAYF("Compiled with shmat support.\n");
 #endif
@@ -1514,7 +1676,7 @@ int main(int argc, char **argv, char **envp) {
       if (!instrument_mode) {
 
         instrument_mode = INSTRUMENT_CFG;
-        ptr = instrument_mode_string[instrument_mode];
+        // ptr = instrument_mode_string[instrument_mode];
 
       }
 

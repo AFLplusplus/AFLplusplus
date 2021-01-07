@@ -28,7 +28,7 @@
 /* Version string: */
 
 // c = release, d = volatile github dev, e = experimental branch
-#define VERSION "++3.00c"
+#define VERSION "++3.01a"
 
 /******************************************************
  *                                                    *
@@ -36,10 +36,27 @@
  *                                                    *
  ******************************************************/
 
+/* console output colors: There are three ways to configure its behavior
+ * 1. default: colored outputs fixed on: defined USE_COLOR && defined
+ * ALWAYS_COLORED The env var. AFL_NO_COLOR will have no effect
+ * 2. defined USE_COLOR && !defined ALWAYS_COLORED
+ *    -> depending on env var AFL_NO_COLOR=1 colors can be switched off
+ *    at run-time. Default is to use colors.
+ * 3. colored outputs fixed off: !defined USE_COLOR
+ *    The env var. AFL_NO_COLOR will have no effect
+ */
+
 /* Comment out to disable terminal colors (note that this makes afl-analyze
    a lot less nice): */
 
 #define USE_COLOR
+
+#ifdef USE_COLOR
+  /* Comment in to always enable terminal colors */
+  /* Comment out to enable runtime controlled terminal colors via AFL_NO_COLOR
+   */
+  #define ALWAYS_COLORED 1
+#endif
 
 /* StatsD config
    Config can be adjusted via AFL_STATSD_HOST and AFL_STATSD_PORT environment
@@ -63,11 +80,11 @@
 /* Default timeout for fuzzed code (milliseconds). This is the upper bound,
    also used for detecting hangs; the actual value is auto-scaled: */
 
-#define EXEC_TIMEOUT 1000
+#define EXEC_TIMEOUT 1000U
 
 /* Timeout rounding factor when auto-scaling (milliseconds): */
 
-#define EXEC_TM_ROUND 20
+#define EXEC_TM_ROUND 20U
 
 /* 64bit arch MACRO */
 #if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__))
@@ -76,48 +93,48 @@
 
 /* Default memory limit for child process (MB) 0 = disabled : */
 
-#define MEM_LIMIT 0
+#define MEM_LIMIT 0U
 
 /* Default memory limit when running in QEMU mode (MB) 0 = disabled : */
 
-#define MEM_LIMIT_QEMU 0
+#define MEM_LIMIT_QEMU 0U
 
 /* Default memory limit when running in Unicorn mode (MB) 0 = disabled : */
 
-#define MEM_LIMIT_UNICORN 0
+#define MEM_LIMIT_UNICORN 0U
 
 /* Number of calibration cycles per every new test case (and for test
    cases that show variable behavior): */
 
-#define CAL_CYCLES 8
-#define CAL_CYCLES_LONG 40
+#define CAL_CYCLES 8U
+#define CAL_CYCLES_LONG 40U
 
 /* Number of subsequent timeouts before abandoning an input file: */
 
-#define TMOUT_LIMIT 250
+#define TMOUT_LIMIT 250U
 
 /* Maximum number of unique hangs or crashes to record: */
 
-#define KEEP_UNIQUE_HANG 500
-#define KEEP_UNIQUE_CRASH 5000
+#define KEEP_UNIQUE_HANG 500U
+#define KEEP_UNIQUE_CRASH 5000U
 
 /* Baseline number of random tweaks during a single 'havoc' stage: */
 
-#define HAVOC_CYCLES 256
-#define HAVOC_CYCLES_INIT 1024
+#define HAVOC_CYCLES 256U
+#define HAVOC_CYCLES_INIT 1024U
 
 /* Maximum multiplier for the above (should be a power of two, beware
    of 32-bit int overflows): */
 
-#define HAVOC_MAX_MULT 64
-#define HAVOC_MAX_MULT_MOPT 64
+#define HAVOC_MAX_MULT 64U
+#define HAVOC_MAX_MULT_MOPT 64U
 
 /* Absolute minimum number of havoc cycles (after all adjustments): */
 
-#define HAVOC_MIN 12
+#define HAVOC_MIN 12U
 
 /* Power Schedule Divisor */
-#define POWER_BETA 1
+#define POWER_BETA 1U
 #define MAX_FACTOR (POWER_BETA * 32)
 
 /* Maximum stacking for havoc-stage tweaks. The actual value is calculated
@@ -129,19 +146,19 @@
    In other words, the default (n = 4) produces 2, 4, 8, 16
    stacked tweaks: */
 
-#define HAVOC_STACK_POW2 4
+#define HAVOC_STACK_POW2 4U
 
 /* Caps on block sizes for cloning and deletion operations. Each of these
    ranges has a 33% probability of getting picked, except for the first
    two cycles where smaller blocks are favored: */
 
-#define HAVOC_BLK_SMALL 32
-#define HAVOC_BLK_MEDIUM 128
-#define HAVOC_BLK_LARGE 1500
+#define HAVOC_BLK_SMALL 32U
+#define HAVOC_BLK_MEDIUM 128U
+#define HAVOC_BLK_LARGE 1500U
 
 /* Extra-large blocks, selected very rarely (<5% of the time): */
 
-#define HAVOC_BLK_XL 32768
+#define HAVOC_BLK_XL 32768U
 
 /* Probabilities of skipping non-favored entries in the queue, expressed as
    percentages: */
@@ -169,13 +186,15 @@
 #define TRIM_START_STEPS 16
 #define TRIM_END_STEPS 1024
 
-/* Maximum size of input file, in bytes (keep under 100MB): */
+/* Maximum size of input file, in bytes (keep under 100MB, default 1MB):
+   (note that if this value is changed, several areas in afl-cc.c, afl-fuzz.c
+   and afl-fuzz-state.c have to be changed as well! */
 
-#define MAX_FILE (1 * 1024 * 1024)
+#define MAX_FILE (1 * 1024 * 1024U)
 
 /* The same, for the test case minimizer: */
 
-#define TMIN_MAX_FILE (10 * 1024 * 1024)
+#define TMIN_MAX_FILE (10 * 1024 * 1024U)
 
 /* Block normalization steps for afl-tmin: */
 
@@ -363,7 +382,7 @@
    after changing this - otherwise, SEGVs may ensue. */
 
 #define MAP_SIZE_POW2 16
-#define MAP_SIZE (1 << MAP_SIZE_POW2)
+#define MAP_SIZE (1U << MAP_SIZE_POW2)
 
 /* Maximum allocator request size (keep well under INT_MAX): */
 

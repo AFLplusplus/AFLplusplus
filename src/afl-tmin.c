@@ -98,19 +98,30 @@ static sharedmem_t *     shm_fuzz;
 /* Classify tuple counts. This is a slow & naive version, but good enough here.
  */
 
+#define TIMES4(x) x, x, x, x
+#define TIMES8(x) TIMES4(x), TIMES4(x)
+#define TIMES16(x) TIMES8(x), TIMES8(x)
+#define TIMES32(x) TIMES16(x), TIMES16(x)
+#define TIMES64(x) TIMES32(x), TIMES32(x)
 static const u8 count_class_lookup[256] = {
 
     [0] = 0,
     [1] = 1,
     [2] = 2,
     [3] = 4,
-    [4 ... 7] = 8,
-    [8 ... 15] = 16,
-    [16 ... 31] = 32,
-    [32 ... 127] = 64,
-    [128 ... 255] = 128
+    [4] = TIMES4(8),
+    [8] = TIMES8(16),
+    [16] = TIMES16(32),
+    [32] = TIMES32(64),
+    [128] = TIMES64(128)
 
 };
+
+#undef TIMES64
+#undef TIMES32
+#undef TIMES16
+#undef TIMES8
+#undef TIMES4
 
 static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
                                  sharedmem_t *     shm_fuzz) {
@@ -824,8 +835,8 @@ static void usage(u8 *argv0) {
       "Execution control settings:\n"
 
       "  -f file       - input file read by the tested program (stdin)\n"
-      "  -t msec       - timeout for each run (%d ms)\n"
-      "  -m megs       - memory limit for child process (%d MB)\n"
+      "  -t msec       - timeout for each run (%u ms)\n"
+      "  -m megs       - memory limit for child process (%u MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
