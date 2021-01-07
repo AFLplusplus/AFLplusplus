@@ -96,8 +96,10 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
   fsrv->init_child_func = fsrv_exec_child;
   fsrv->kill_signal = SIGKILL;
-  if (get_afl_env("AFL_KILL_SIGNAL")){
+  if (get_afl_env("AFL_KILL_SIGNAL")) {
+
     fsrv->kill_signal = atoi(get_afl_env("AFL_KILL_SIGNAL"));
+
   }
 
   list_append(&fsrv_list, fsrv);
@@ -1143,10 +1145,13 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   /* Report outcome to caller. */
 
-  /* TODO We use SIGTERM here as an indicator of Xen mode, 
+  /* TODO We use SIGTERM here as an indicator of Xen mode,
      although it's not equivalent! */
-  if (fsrv->kill_signal == SIGTERM && !*stop_soon_p && fsrv->last_run_timed_out) {
+  if (fsrv->kill_signal == SIGTERM && !*stop_soon_p &&
+      fsrv->last_run_timed_out) {
+
     return FSRV_RUN_TMOUT;
+
   }
 
   if (WIFSIGNALED(fsrv->child_status) && !*stop_soon_p) {
