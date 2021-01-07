@@ -855,6 +855,7 @@ static void usage(u8 *argv0) {
       "Environment variables used:\n"
       "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n"
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD:  LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
@@ -1131,6 +1132,34 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     fsrv->init_tmout = (u32)forksrv_init_tmout;
+
+  }
+
+  fsrv->kill_signal = SIGKILL;
+  char *afl_kill_signal_env = getenv("AFL_KILL_SIGNAL");
+  if (afl_kill_signal_env && afl_kill_signal_env[0]) {
+
+    char *endptr;
+    u8    signal_code;
+    signal_code = (u8)strtoul(afl_kill_signal_env, &endptr, 10);
+    /* Did we manage to parse the full string? */
+    if (*endptr != '\0' || endptr == afl_kill_signal_env) {
+
+      FATAL("Invalid AFL_KILL_SIGNAL: %s (expected unsigned int)",
+            afl_kill_signal_env);
+
+    }
+
+    fsrv->kill_signal = signal_code;
+
+  } else {
+
+    char *sigstr = alloc_printf("%d", (int)SIGKILL);
+    if (!sigstr) { FATAL("Failed to alloc mem for signal buf"); }
+
+    /* Set the env for signal handler */
+    setenv("AFL_KILL_SIGNAL", sigstr, 1);
+    free(sigstr);
 
   }
 

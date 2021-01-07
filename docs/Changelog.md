@@ -32,7 +32,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     already building with all cores, the gcc plugin needs only one.
   - added dummy Makefile to instrumentation/
   - Updated utils/afl_frida to be 5% faster
-
+  - Added AFL_KILL_SIGNAL env variable for custom targets (thanks @v-p-b)
 
 ### Version ++3.00c (release)
   - llvm_mode/ and gcc_plugin/ moved to instrumentation/
