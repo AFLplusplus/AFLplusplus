@@ -724,9 +724,6 @@ typedef struct afl_state {
    * is too large) */
   struct queue_entry **q_testcase_cache;
 
-  /* Signal to kill target processes */
-  u32 kill_signal;
-
 #ifdef INTROSPECTION
   char  mutation[8072];
   char  m_tmp[4096];
