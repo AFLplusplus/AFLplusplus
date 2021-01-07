@@ -56,7 +56,7 @@ double compute_weight(afl_state_t *afl, struct queue_entry *q,
   }
 
   if (likely(afl->schedule < RARE)) { weight *= (avg_exec_us / q->exec_us); }
-  weight *= (q->bitmap_size / avg_bitmap_size);
+  weight *= (log(q->bitmap_size) / avg_bitmap_size);
   weight *= (log(q->tc_ref) / avg_top_size);
   if (unlikely(q->favored)) weight *= 5;
 
@@ -103,7 +103,7 @@ void create_alias_table(afl_state_t *afl) {
       if (likely(!q->disabled)) {
 
         avg_exec_us += q->exec_us;
-        avg_bitmap_size += q->bitmap_size;
+        avg_bitmap_size += log(q->bitmap_size);
         avg_top_size += log(q->tc_ref);
         ++active;
 
