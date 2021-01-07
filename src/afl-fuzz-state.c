@@ -418,6 +418,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 #endif
 
+          } else if (!strncmp(env, "AFL_KILL_SIGNAL",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_kill_signal =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
           }
 
         } else {
