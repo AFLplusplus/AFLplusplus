@@ -96,9 +96,26 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
   fsrv->init_child_func = fsrv_exec_child;
   fsrv->kill_signal = SIGKILL;
-  if (get_afl_env("AFL_KILL_SIGNAL")) {
 
-    fsrv->kill_signal = atoi(get_afl_env("AFL_KILL_SIGNAL"));
+  char *kill_signal_env = get_afl_env("AFL_KILL_SIGNAL");
+  if (kill_signal_env) {
+
+    char *endptr;
+    u8    signal_code;
+    signal_code = (u8)strtoul(kill_signal_env, &endptr, 10);
+    /* Did we manage to parse the full string? */
+    if (*endptr != '\0' || endptr == kill_signal_env) {
+
+      FATAL("Invalid kill signal value!");
+
+    }
+
+    fsrv->kill_signal = signal_code;
+
+  } else {
+
+    /* Using hardcoded code for SIGKILL for the sake of simplicity */
+    setenv("AFL_KILL_SIGNAL", "9", 1);
 
   }
 
