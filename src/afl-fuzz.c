@@ -194,10 +194,11 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60 minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
-      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
+      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_MAX_DET_EXTRAS: if more entries are in the dictionary list than this value\n"
@@ -985,6 +986,33 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   #endif
+
+  afl->fsrv.kill_signal = SIGKILL;
+  if (afl->afl_env.afl_kill_signal) {
+
+    char *endptr;
+    u8    signal_code;
+    signal_code = (u8)strtoul(afl->afl_env.afl_kill_signal, &endptr, 10);
+    /* Did we manage to parse the full string? */
+    if (*endptr != '\0' || endptr == (char *)afl->afl_env.afl_kill_signal) {
+
+      FATAL("Invalid AFL_KILL_SIGNAL: %s (expected unsigned int)",
+            afl->afl_env.afl_kill_signal);
+
+    }
+
+    afl->fsrv.kill_signal = signal_code;
+
+  } else {
+
+    char *sigstr = alloc_printf("%d", (int)SIGKILL);
+    if (!sigstr) { FATAL("Failed to alloc mem for signal buf"); }
+
+    /* Set the env for signal handler */
+    setenv("AFL_KILL_SIGNAL", sigstr, 1);
+    free(sigstr);
+
+  }
 
   setup_signal_handlers();
   check_asan_opts(afl);

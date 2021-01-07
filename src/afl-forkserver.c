@@ -84,6 +84,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
+  fsrv->kill_signal = SIGKILL;
 
   /* exec related stuff */
   fsrv->child_pid = -1;
@@ -95,30 +96,6 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->uses_asan = false;
 
   fsrv->init_child_func = fsrv_exec_child;
-  fsrv->kill_signal = SIGKILL;
-
-  char *kill_signal_env = get_afl_env("AFL_KILL_SIGNAL");
-  if (kill_signal_env) {
-
-    char *endptr;
-    u8    signal_code;
-    signal_code = (u8)strtoul(kill_signal_env, &endptr, 10);
-    /* Did we manage to parse the full string? */
-    if (*endptr != '\0' || endptr == kill_signal_env) {
-
-      FATAL("Invalid kill signal value!");
-
-    }
-
-    fsrv->kill_signal = signal_code;
-
-  } else {
-
-    /* Using hardcoded code for SIGKILL for the sake of simplicity */
-    setenv("AFL_KILL_SIGNAL", "9", 1);
-
-  }
-
   list_append(&fsrv_list, fsrv);
 
 }
@@ -139,6 +116,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->no_unlink = from->no_unlink;
   fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
   fsrv_to->crash_exitcode = from->crash_exitcode;
+  fsrv_to->kill_signal = from->kill_signal;
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
@@ -148,8 +126,6 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
   fsrv_to->init_child_func = from->init_child_func;
   // Note: do not copy ->add_extra_func
-
-  fsrv_to->kill_signal = from->kill_signal;
 
   list_append(&fsrv_list, fsrv_to);
 
@@ -1162,25 +1138,18 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   /* Report outcome to caller. */
 
-  /* TODO We use SIGTERM here as an indicator of Xen mode,
-     although it's not equivalent! */
-  if (fsrv->kill_signal == SIGTERM && !*stop_soon_p &&
-      fsrv->last_run_timed_out) {
+  /* Did we timeout? */
+  if (unlikely(fsrv->last_run_timed_out)) {
 
+    fsrv->last_kill_signal = fsrv->kill_signal;
     return FSRV_RUN_TMOUT;
 
   }
 
-  if (WIFSIGNALED(fsrv->child_status) && !*stop_soon_p) {
+  /* Did we crash? */
+  if (unlikely(WIFSIGNALED(fsrv->child_status) && !*stop_soon_p)) {
 
     fsrv->last_kill_signal = WTERMSIG(fsrv->child_status);
-
-    if (fsrv->last_run_timed_out && fsrv->last_kill_signal == SIGKILL) {
-
-      return FSRV_RUN_TMOUT;
-
-    }
-
     return FSRV_RUN_CRASH;
 
   }
