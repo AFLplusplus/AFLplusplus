@@ -424,6 +424,40 @@ u8 *find_binary(u8 *fname) {
 
 }
 
+/* Parses the kill signal environment variable, FATALs on error.
+  If the env is not set, sets the env to default_signal for the signal handlers
+  and returns the default_signal. */
+int parse_afl_kill_signal_env(u8 *afl_kill_signal_env, int default_signal) {
+
+  if (afl_kill_signal_env && afl_kill_signal_env[0]) {
+
+    char *endptr;
+    u8    signal_code;
+    signal_code = (u8)strtoul(afl_kill_signal_env, &endptr, 10);
+    /* Did we manage to parse the full string? */
+    if (*endptr != '\0' || endptr == (char *)afl_kill_signal_env) {
+
+      FATAL("Invalid AFL_KILL_SIGNAL: %s (expected unsigned int)",
+            afl_kill_signal_env);
+
+    }
+
+    return signal_code;
+
+  } else {
+
+    char *sigstr = alloc_printf("%d", default_signal);
+    if (!sigstr) { FATAL("Failed to alloc mem for signal buf"); }
+
+    /* Set the env for signal handler */
+    setenv("AFL_KILL_SIGNAL", sigstr, 1);
+    free(sigstr);
+    return default_signal;
+
+  }
+
+}
+
 void check_environment_vars(char **envp) {
 
   if (be_quiet) { return; }

@@ -76,9 +76,9 @@ static void at_exit() {
 
   }
 
-  u8 kill_signal = SIGKILL;
+  int kill_signal = SIGKILL;
 
-  /* AFL_KILL_SIGNAL should already be initialized by afl_fsrv_init() */
+  /* AFL_KILL_SIGNAL should already be a valid int at this point */
   if (getenv("AFL_KILL_SIGNAL")) {
 
     kill_signal = atoi(getenv("AFL_KILL_SIGNAL"));
@@ -987,32 +987,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
-  afl->fsrv.kill_signal = SIGKILL;
-  if (afl->afl_env.afl_kill_signal) {
-
-    char *endptr;
-    u8    signal_code;
-    signal_code = (u8)strtoul(afl->afl_env.afl_kill_signal, &endptr, 10);
-    /* Did we manage to parse the full string? */
-    if (*endptr != '\0' || endptr == (char *)afl->afl_env.afl_kill_signal) {
-
-      FATAL("Invalid AFL_KILL_SIGNAL: %s (expected unsigned int)",
-            afl->afl_env.afl_kill_signal);
-
-    }
-
-    afl->fsrv.kill_signal = signal_code;
-
-  } else {
-
-    char *sigstr = alloc_printf("%d", (int)SIGKILL);
-    if (!sigstr) { FATAL("Failed to alloc mem for signal buf"); }
-
-    /* Set the env for signal handler */
-    setenv("AFL_KILL_SIGNAL", sigstr, 1);
-    free(sigstr);
-
-  }
+  afl->fsrv.kill_signal =
+      parse_afl_kill_signal_env(afl->afl_env.afl_kill_signal, SIGKILL);
 
   setup_signal_handlers();
   check_asan_opts(afl);

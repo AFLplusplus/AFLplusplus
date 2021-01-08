@@ -56,6 +56,11 @@ extern u8 *doc_path;                    /* path to documentation dir        */
 
 u8 *find_binary(u8 *fname);
 
+/* Parses the kill signal environment variable, FATALs on error.
+  If the env is not set, sets the env to default_signal for the signal handlers
+  and returns the default_signal. */
+int parse_afl_kill_signal_env(u8 *afl_kill_signal_env, int default_signal);
+
 /* Read a bitmap from file fname to memory
    This is for the -B option again. */
 
