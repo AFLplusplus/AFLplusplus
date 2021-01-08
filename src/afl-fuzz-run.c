@@ -430,6 +430,13 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   /* OK, let's collect some stats about the performance of this test case.
      This is used for fuzzing air time calculations in calculate_score(). */
 
+  if (unlikely(!afl->stage_max)) {
+
+    // Pretty sure this cannot happen, yet scan-build complains.
+    FATAL("BUG: stage_max should not be 0 here! Please report this condition.");
+
+  }
+
   q->exec_us = (stop_us - start_us) / afl->stage_max;
   q->bitmap_size = count_bytes(afl, afl->fsrv.trace_bits);
   q->handicap = handicap;
@@ -682,7 +689,7 @@ void sync_fuzzers(afl_state_t *afl) {
     // same time. If so, the first temporary main node running again will demote
     // themselves so this is not an issue
 
-    u8 path[PATH_MAX];
+    //    u8 path2[PATH_MAX];
     afl->is_main_node = 1;
     sprintf(path, "%s/is_main_node", afl->out_dir);
     int fd = open(path, O_CREAT | O_RDWR, 0644);

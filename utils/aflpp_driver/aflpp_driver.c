@@ -1,12 +1,8 @@
-//===- afl_driver.cpp - a glue between AFL and libFuzzer --------*- C++ -* ===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//===- afl_driver.cpp - a glue between AFL++ and libFuzzer ------*- C++ -* ===//
 //===----------------------------------------------------------------------===//
 
 /* This file allows to fuzz libFuzzer-style target functions
- (LLVMFuzzerTestOneInput) with AFL using AFL's persistent (in-process) mode.
+ (LLVMFuzzerTestOneInput) with AFL++ using persistent in-memory fuzzing.
 
 Usage:
 ################################################################################
@@ -25,25 +21,17 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
 EOF
 # Build your target with -fsanitize-coverage=trace-pc-guard using fresh clang.
-clang -g -fsanitize-coverage=trace-pc-guard test_fuzzer.cc -c
+clang -c aflpp_driver.c
 # Build afl-compiler-rt.o.c from the AFL distribution.
-clang -c -w $AFL_HOME/instrumentation/afl-compiler-rt.o.c
+clang -c $AFL_HOME/instrumentation/afl-compiler-rt.o.c
 # Build this file, link it with afl-compiler-rt.o.o and the target code.
-clang++ afl_driver.cpp test_fuzzer.o afl-compiler-rt.o.o
+afl-clang-fast -o test_fuzzer test_fuzzer.cc afl-compiler-rt.o aflpp_driver.o
 # Run AFL:
 rm -rf IN OUT; mkdir IN OUT; echo z > IN/z;
 $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
 ################################################################################
-AFL_DRIVER_STDERR_DUPLICATE_FILENAME: Setting this *appends* stderr to the file
-specified. If the file does not exist, it is created. This is useful for getting
-stack traces (when using ASAN for example) or original error messages on hard
-to reproduce bugs. Note that any content written to stderr will be written to
-this file instead of stderr's usual location.
-
-AFL_DRIVER_CLOSE_FD_MASK: Similar to libFuzzer's -close_fd_mask behavior option.
-If 1, close stdout at startup. If 2 close stderr; if 3 close both.
-
 */
+
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -63,47 +51,6 @@ If 1, close stdout at startup. If 2 close stderr; if 3 close both.
 
 #ifdef _DEBUG
   #include "hash.h"
-#endif
-
-#ifndef MAP_FIXED_NOREPLACE
-  #define MAP_FIXED_NOREPLACE 0x100000
-#endif
-
-#define MAX_DUMMY_SIZE 256000
-
-// Platform detection. Copied from FuzzerInternal.h
-#ifdef __linux__
-  #define LIBFUZZER_LINUX 1
-  #define LIBFUZZER_APPLE 0
-  #define LIBFUZZER_NETBSD 0
-  #define LIBFUZZER_FREEBSD 0
-  #define LIBFUZZER_OPENBSD 0
-#elif __APPLE__
-  #define LIBFUZZER_LINUX 0
-  #define LIBFUZZER_APPLE 1
-  #define LIBFUZZER_NETBSD 0
-  #define LIBFUZZER_FREEBSD 0
-  #define LIBFUZZER_OPENBSD 0
-#elif __NetBSD__
-  #define LIBFUZZER_LINUX 0
-  #define LIBFUZZER_APPLE 0
-  #define LIBFUZZER_NETBSD 1
-  #define LIBFUZZER_FREEBSD 0
-  #define LIBFUZZER_OPENBSD 0
-#elif __FreeBSD__
-  #define LIBFUZZER_LINUX 0
-  #define LIBFUZZER_APPLE 0
-  #define LIBFUZZER_NETBSD 0
-  #define LIBFUZZER_FREEBSD 1
-  #define LIBFUZZER_OPENBSD 0
-#elif __OpenBSD__
-  #define LIBFUZZER_LINUX 0
-  #define LIBFUZZER_APPLE 0
-  #define LIBFUZZER_NETBSD 0
-  #define LIBFUZZER_FREEBSD 0
-  #define LIBFUZZER_OPENBSD 1
-#else
-  #error "Support for your platform has not been implemented"
 #endif
 
 int                   __afl_sharedmem_fuzzing = 1;

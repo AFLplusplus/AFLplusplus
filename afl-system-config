@@ -58,6 +58,11 @@ if [ "$PLATFORM" = "OpenBSD" ] ; then
   echo 'System security features cannot be disabled on OpenBSD.'
   DONE=1
 fi
+if [ "$PLATFORM" = "DragonFly" ] ; then
+  echo
+  echo 'System security features cannot be disabled on DragonFly.'
+  DONE=1
+fi
 if [ "$PLATFORM" = "NetBSD" ] ; then
 {
   #echo It is recommended to enable unprivileged users to set cpu affinity
@@ -77,6 +82,15 @@ if [ "$PLATFORM" = "Darwin" ] ; then
   else
     echo Nothing to do.
   fi
+  DONE=1
+fi
+if [ "$PLATFORM" = "Haiku" ] ; then
+  SETTINGS=~/config/settings/system/debug_server/settings
+  [ -r ${SETTINGS} ] && grep -qE "default_action\s+kill" ${SETTINGS} && { echo "Nothing to do"; } || { \
+    echo We change the debug_server default_action from user to silenty kill; \
+    [ ! -r ${SETTINGS} ] && echo "default_action kill" >${SETTINGS} || { mv ${SETTINGS} s.tmp; sed -e "s/default_action\s\s*user/default_action kill/" s.tmp > ${SETTINGS}; rm s.tmp; }; \
+    echo Settings applied.; \
+  }
   DONE=1
 fi
 test -z "$DONE" && echo Error: Unknown platform: $PLATFORM

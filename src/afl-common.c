@@ -424,6 +424,40 @@ u8 *find_binary(u8 *fname) {
 
 }
 
+/* Parses the kill signal environment variable, FATALs on error.
+  If the env is not set, sets the env to default_signal for the signal handlers
+  and returns the default_signal. */
+int parse_afl_kill_signal_env(u8 *afl_kill_signal_env, int default_signal) {
+
+  if (afl_kill_signal_env && afl_kill_signal_env[0]) {
+
+    char *endptr;
+    u8    signal_code;
+    signal_code = (u8)strtoul(afl_kill_signal_env, &endptr, 10);
+    /* Did we manage to parse the full string? */
+    if (*endptr != '\0' || endptr == (char *)afl_kill_signal_env) {
+
+      FATAL("Invalid AFL_KILL_SIGNAL: %s (expected unsigned int)",
+            afl_kill_signal_env);
+
+    }
+
+    return signal_code;
+
+  } else {
+
+    char *sigstr = alloc_printf("%d", default_signal);
+    if (!sigstr) { FATAL("Failed to alloc mem for signal buf"); }
+
+    /* Set the env for signal handler */
+    setenv("AFL_KILL_SIGNAL", sigstr, 1);
+    free(sigstr);
+    return default_signal;
+
+  }
+
+}
+
 void check_environment_vars(char **envp) {
 
   if (be_quiet) { return; }
@@ -696,15 +730,15 @@ u8 *stringify_mem_size(u8 *buf, size_t len, u64 val) {
 
 u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
 
-  u64 delta;
-  s32 t_d, t_h, t_m, t_s;
-  u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
-
   if (!event_ms) {
 
     snprintf(buf, len, "none seen yet");
 
   } else {
+
+    u64 delta;
+    s32 t_d, t_h, t_m, t_s;
+    u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
 
     delta = cur_ms - event_ms;
 
@@ -858,15 +892,15 @@ u8 *u_stringify_mem_size(u8 *buf, u64 val) {
 
 u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
-  u64 delta;
-  s32 t_d, t_h, t_m, t_s;
-  u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
-
   if (!event_ms) {
 
     sprintf(buf, "none seen yet");
 
   } else {
+
+    u64 delta;
+    s32 t_d, t_h, t_m, t_s;
+    u8  val_buf[STRINGIFY_VAL_SIZE_MAX];
 
     delta = cur_ms - event_ms;
 
@@ -895,8 +929,8 @@ u32 get_map_size(void) {
     map_size = atoi(ptr);
     if (map_size < 8 || map_size > (1 << 29)) {
 
-      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 8,
-            1 << 29);
+      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 8U,
+            1U << 29);
 
     }
 

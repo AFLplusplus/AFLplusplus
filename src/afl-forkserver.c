@@ -84,6 +84,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
+  fsrv->kill_signal = SIGKILL;
 
   /* exec related stuff */
   fsrv->child_pid = -1;
@@ -95,7 +96,6 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->uses_asan = false;
 
   fsrv->init_child_func = fsrv_exec_child;
-
   list_append(&fsrv_list, fsrv);
 
 }
@@ -116,6 +116,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->no_unlink = from->no_unlink;
   fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
   fsrv_to->crash_exitcode = from->crash_exitcode;
+  fsrv_to->kill_signal = from->kill_signal;
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
@@ -213,7 +214,7 @@ restart_select:
 static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
   unsigned char tmp[4] = {0, 0, 0, 0};
-  pid_t         child_pid = -1;
+  pid_t         child_pid;
 
   if (!be_quiet) { ACTF("Using Fauxserver:"); }
 
@@ -559,12 +560,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!time_ms) {
 
-      kill(fsrv->fsrv_pid, SIGKILL);
+      kill(fsrv->fsrv_pid, fsrv->kill_signal);
 
     } else if (time_ms > fsrv->init_tmout) {
 
       fsrv->last_run_timed_out = 1;
-      kill(fsrv->fsrv_pid, SIGKILL);
+      kill(fsrv->fsrv_pid, fsrv->kill_signal);
 
     } else {
 
@@ -944,10 +945,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
 static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
-  if (fsrv->child_pid > 0) { kill(fsrv->child_pid, SIGKILL); }
+  if (fsrv->child_pid > 0) { kill(fsrv->child_pid, fsrv->kill_signal); }
   if (fsrv->fsrv_pid > 0) {
 
-    kill(fsrv->fsrv_pid, SIGKILL);
+    kill(fsrv->fsrv_pid, fsrv->kill_signal);
     if (waitpid(fsrv->fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
 
   }
@@ -1091,7 +1092,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     /* If there was no response from forkserver after timeout seconds,
     we kill the child. The forkserver should inform us afterwards */
 
-    kill(fsrv->child_pid, SIGKILL);
+    kill(fsrv->child_pid, fsrv->kill_signal);
     fsrv->last_run_timed_out = 1;
     if (read(fsrv->fsrv_st_fd, &fsrv->child_status, 4) < 4) { exec_ms = 0; }
 
@@ -1104,7 +1105,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
          "Unable to communicate with fork server. Some possible reasons:\n\n"
          "    - You've run out of memory. Use -m to increase the the memory "
          "limit\n"
-         "      to something higher than %lld.\n"
+         "      to something higher than %llu.\n"
          "    - The binary or one of the libraries it uses manages to "
          "create\n"
          "      threads before the forkserver initializes.\n"
@@ -1137,16 +1138,18 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   /* Report outcome to caller. */
 
-  if (WIFSIGNALED(fsrv->child_status) && !*stop_soon_p) {
+  /* Did we timeout? */
+  if (unlikely(fsrv->last_run_timed_out)) {
+
+    fsrv->last_kill_signal = fsrv->kill_signal;
+    return FSRV_RUN_TMOUT;
+
+  }
+
+  /* Did we crash? */
+  if (unlikely(WIFSIGNALED(fsrv->child_status) && !*stop_soon_p)) {
 
     fsrv->last_kill_signal = WTERMSIG(fsrv->child_status);
-
-    if (fsrv->last_run_timed_out && fsrv->last_kill_signal == SIGKILL) {
-
-      return FSRV_RUN_TMOUT;
-
-    }
-
     return FSRV_RUN_CRASH;
 
   }

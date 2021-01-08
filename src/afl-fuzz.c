@@ -76,8 +76,17 @@ static void at_exit() {
 
   }
 
-  if (pid1 > 0) { kill(pid1, SIGKILL); }
-  if (pid2 > 0) { kill(pid2, SIGKILL); }
+  int kill_signal = SIGKILL;
+
+  /* AFL_KILL_SIGNAL should already be a valid int at this point */
+  if (getenv("AFL_KILL_SIGNAL")) {
+
+    kill_signal = atoi(getenv("AFL_KILL_SIGNAL"));
+
+  }
+
+  if (pid1 > 0) { kill(pid1, kill_signal); }
+  if (pid2 > 0) { kill(pid2, kill_signal); }
 
 }
 
@@ -99,8 +108,8 @@ static void usage(u8 *argv0, int more_help) {
       "                  lin, quad> -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
-      "  -t msec       - timeout for each run (auto-scaled, 50-%d ms)\n"
-      "  -m megs       - memory limit for child process (%d MB, 0 = no limit)\n"
+      "  -t msec       - timeout for each run (auto-scaled, 50-%u ms)\n"
+      "  -m megs       - memory limit for child process (%u MB, 0 = no limit)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -185,10 +194,11 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60 minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
-      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
+      "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_MAX_DET_EXTRAS: if more entries are in the dictionary list than this value\n"
@@ -299,7 +309,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   s32 opt, i, auto_sync = 0 /*, user_set_cache = 0*/;
   u64 prev_queued = 0;
-  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, map_size = MAP_SIZE;
+  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0,
+      map_size = get_map_size();
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
      extras_dir_cnt = 0 /*, have_p = 0*/;
@@ -326,7 +337,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (get_afl_env("AFL_DEBUG")) { debug = afl->debug = 1; }
 
-  map_size = get_map_size();
+  //  map_size = get_map_size();
   afl_state_init(afl, map_size);
   afl->debug = debug;
   afl_fsrv_init(&afl->fsrv);
@@ -976,6 +987,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
+  afl->fsrv.kill_signal =
+      parse_afl_kill_signal_env(afl->afl_env.afl_kill_signal, SIGKILL);
+
   setup_signal_handlers();
   check_asan_opts(afl);
 
@@ -1534,7 +1548,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->pending_not_fuzzed) {
 
-    FATAL("We need at least on valid input seed that does not crash!");
+    FATAL("We need at least one valid input seed that does not crash!");
 
   }
 

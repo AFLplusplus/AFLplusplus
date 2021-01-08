@@ -9,8 +9,11 @@ Want to stay in the loop on major new features? Join our mailing list by
 sending a mail to <afl-users+subscribe@googlegroups.com>.
 
 
-### Version ++3.01a (release)
+### Version ++3.01a (dev)
   - Mac OS ARM64 support
+  - New selective instrumentation option with __AFL_COVERAGE_... commands
+    to be placed in the source code.
+    Check out instrumentation/README.instrument_list.md
   - afl-fuzz
     - fix crash for very, very fast targets+systems (thanks to mhlakhani
       for reporting)
@@ -20,6 +23,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - allow instrumenting LLVMFuzzerTestOneInput
     - fixed endless loop for allow/blocklist lines starting with a
       comment (thanks to Zherya for reporting)
+    - cmplog/redqueen now also tracks floats/doubles
     - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
@@ -28,7 +32,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     already building with all cores, the gcc plugin needs only one.
   - added dummy Makefile to instrumentation/
   - Updated utils/afl_frida to be 5% faster
-
+  - Added AFL_KILL_SIGNAL env variable for custom targets (thanks @v-p-b)
 
 ### Version ++3.00c (release)
   - llvm_mode/ and gcc_plugin/ moved to instrumentation/
