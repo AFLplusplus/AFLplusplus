@@ -922,8 +922,9 @@ int plugin_init(struct plugin_name_args *  info,
                 struct plugin_gcc_version *version) {
 
   if (!plugin_default_version_check(version, &gcc_version))
-    FATAL(G_("GCC and plugin have incompatible versions, expected GCC %d.%d"),
-          GCCPLUGIN_VERSION_MAJOR, GCCPLUGIN_VERSION_MINOR);
+    FATAL(G_("GCC and plugin have incompatible versions, expected GCC %d.%d, "
+             "is %s"),
+          GCCPLUGIN_VERSION_MAJOR, GCCPLUGIN_VERSION_MINOR, version->basever);
 
   /* Show a banner.  */
   bool quiet = false;

@@ -1437,15 +1437,7 @@ void __afl_coverage_abort() {
 // mark this area as especially interesting
 void __afl_coverage_interesting(u8 val, u32 id) {
 
-  if (id) {
-
-    __afl_area_ptr[id] = val;
-
-  } else {
-
-    __afl_area_ptr[(rand() % __afl_map_size)] = val;
-
-  }
+  __afl_area_ptr[id] = val;
 
 }
 
