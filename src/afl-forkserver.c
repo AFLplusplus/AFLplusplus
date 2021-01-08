@@ -1138,6 +1138,13 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   /* Report outcome to caller. */
 
+  /* Was the run unsuccessful? */
+  if (unlikely(*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)) {
+
+    return FSRV_RUN_ERROR;
+
+  }
+
   /* Did we timeout? */
   if (unlikely(fsrv->last_run_timed_out)) {
 
@@ -1146,30 +1153,28 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   }
 
-  /* Did we crash? */
-  if (unlikely(WIFSIGNALED(fsrv->child_status) && !*stop_soon_p)) {
+  /* Did we crash?
+  In a normal case, (abort) WIFSIGNALED(child_status) will be set.
+  MSAN in uses_asan mode uses a special exit code as it doesn't support
+  abort_on_error. On top, a user may specify a custom AFL_CRASH_EXITCODE.
+  Handle all three cases here. */
 
-    fsrv->last_kill_signal = WTERMSIG(fsrv->child_status);
+  if (unlikely(
+          /* A normal crash/abort */
+          (WIFSIGNALED(fsrv->child_status)) ||
+          /* special handling for msan */
+          (fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
+          /* the custom crash_exitcode was returned by the target */
+          (fsrv->uses_crash_exitcode &&
+           WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
+
+    /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
+    fsrv->last_kill_signal = WIFSIGNALED(fsrv->child_status)? WTERMSIG(fsrv->child_status): 0;
     return FSRV_RUN_CRASH;
 
   }
 
-  /* MSAN in uses_asan mode uses a special exit code as it doesn't support
-  abort_on_error.
-  On top, a user may specify a custom AFL_CRASH_EXITCODE. Handle both here. */
-
-  if ((fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
-      (fsrv->uses_crash_exitcode &&
-       WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode)) {
-
-    fsrv->last_kill_signal = 0;
-    return FSRV_RUN_CRASH;
-
-  }
-
-  // Fauxserver should handle this now.
-  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
-
+  /* success :) */
   return FSRV_RUN_OK;
 
 }
