@@ -1169,7 +1169,8 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
 
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
-    fsrv->last_kill_signal = WIFSIGNALED(fsrv->child_status)? WTERMSIG(fsrv->child_status): 0;
+    fsrv->last_kill_signal =
+        WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;
     return FSRV_RUN_CRASH;
 
   }
