@@ -1,8 +1,9 @@
 # Using afl++ with partial instrumentation
 
-  This file describes how to selectively instrument only source files
-  or functions that are of interest to you using the LLVM and GCC_PLUGIN
-  instrumentation provided by afl++.
+  This file describes two different mechanisms to selectively instrument
+  only specific parts in the target.
+
+  Both mechanisms work for LLVM and GCC_PLUGIN, but not for afl-clang/afl-gcc.
 
 ## 1) Description and purpose
 
@@ -12,28 +13,42 @@ the program, leaving the rest uninstrumented. This helps to focus the fuzzer
 on the important parts of the program, avoiding undesired noise and
 disturbance by uninteresting code being exercised.
 
-For this purpose, a "partial instrumentation" support en par with llvm sancov
-is provided by afl++ that allows to specify on a source file and function
-level which function should be compiled with or without instrumentation.
+For this purpose, "partial instrumentation" support is provided by afl++ that
+allows to specify what should be instrumented and what not.
 
-Note: When using PCGUARD mode - and llvm 12+ - you can use this instead:
-https://clang.llvm.org/docs/SanitizerCoverage.html#partially-disabling-instrumentation
+Both mechanisms can be used together.
 
-The llvm sancov list format is fully supported by afl++, however afl++ has
-more flexibility.
+## 2) Selective instrumentation with __AFL_COVERAGE_... directives
 
-## 2a) Building the LLVM module
+In this mechanism the selective instrumentation is done in the source code.
 
-The new code is part of the existing afl++ LLVM module in the instrumentation/
-subdirectory. There is nothing specifically to do for the build :)
+After the includes a special define has to be made, eg.:
 
-## 2b) Building the GCC module
+```
+#include <stdio.h>
+#include <stdint.h>
+// ...
+ 
+__AFL_COVERAGE();  // <- required for this feature to work
+```
 
-The new code is part of the existing afl++ GCC_PLUGIN module in the
-instrumentation/ subdirectory. There is nothing specifically to do for
-the build :)
+If you want to disable the coverage at startup until you specify coverage
+should be started, then add `__AFL_COVERAGE_START_OFF();` at that position.
 
-## 3) How to use the partial instrumentation mode
+From here on out you have the following macros available that you can use
+in any function where you want:
+
+  * `__AFL_COVERAGE_ON();` - enable coverage from this point onwards
+  * `__AFL_COVERAGE_OFF();` - disable coverage from this point onwards
+  * `__AFL_COVERAGE_DISCARD();` - reset all coverage gathered until this point
+  * `__AFL_COVERAGE_ABORT();` - mark this test case as unimportant. Whatever happens, afl-fuzz will ignore it.
+
+## 3) Selective instrumenation with AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST
+
+This feature is equivalent to llvm 12 sancov feature and allows to specify
+on a filename and/or function name level to instrument these or skip them.
+
+### 3a) How to use the partial instrumentation mode
 
 In order to build with partial instrumentation, you need to build with
 afl-clang-fast/afl-clang-fast++ or afl-clang-lto/afl-clang-lto++.
@@ -90,7 +105,7 @@ fun: MallocFoo
 ```
 Note that whitespace is ignored and comments (`# foo`) are supported.
 
-## 4) UNIX-style pattern matching
+### 3b) UNIX-style pattern matching
 
 You can add UNIX-style pattern matching in the "instrument file list" entries.
 See `man fnmatch` for the syntax. We do not set any of the `fnmatch` flags.

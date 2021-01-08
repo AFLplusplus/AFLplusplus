@@ -200,7 +200,7 @@ struct InsTrim : public ModulePass {
     LoadInst *      PrevCtx = NULL;  // for CTX sensitive coverage
 
     if (ctx_str)
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__HAIKU__)
       AFLContext = new GlobalVariable(
           M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx");
 #else
@@ -211,7 +211,7 @@ struct InsTrim : public ModulePass {
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
     if (ngram_size)
-  #ifdef __ANDROID__
+  #if defined(__ANDROID__) || defined(__HAIKU__)
       AFLPrevLoc = new GlobalVariable(
           M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
           /* Initializer */ nullptr, "__afl_prev_loc");
@@ -224,7 +224,7 @@ struct InsTrim : public ModulePass {
   #endif
     else
 #endif
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__HAIKU__)
       AFLPrevLoc = new GlobalVariable(
           M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
 #else
@@ -407,10 +407,10 @@ struct InsTrim : public ModulePass {
           // does the function have calls? and is any of the calls larger than
           // one basic block?
           has_calls = 0;
-          for (auto &BB : F) {
+          for (auto &BB2 : F) {
 
             if (has_calls) break;
-            for (auto &IN : BB) {
+            for (auto &IN : BB2) {
 
               CallInst *callInst = nullptr;
               if ((callInst = dyn_cast<CallInst>(&IN))) {
@@ -454,7 +454,7 @@ struct InsTrim : public ModulePass {
 
           auto *PN = PHINode::Create(Int32Ty, 0, "", &*BB.begin());
           DenseMap<BasicBlock *, unsigned> PredMap;
-          for (auto PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE; ++PI) {
+          for (PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE; ++PI) {
 
             BasicBlock *PBB = *PI;
             auto        It = PredMap.insert({PBB, genLabel()});
@@ -568,7 +568,7 @@ struct InsTrim : public ModulePass {
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
 
-      OKF("Instrumented %u locations (%llu, %llu) (%s mode)\n", total_instr,
+      OKF("Instrumented %d locations (%llu, %llu) (%s mode)\n", total_instr,
           total_rs, total_hs, modeline);
 
     }

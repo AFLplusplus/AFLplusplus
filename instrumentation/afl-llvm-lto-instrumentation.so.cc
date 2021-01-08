@@ -70,7 +70,7 @@ class AFLLTOPass : public ModulePass {
     if (getenv("AFL_DEBUG")) debug = 1;
     if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL)
       if ((afl_global_id = atoi(ptr)) < 0 || afl_global_id >= MAP_SIZE)
-        FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is not between 0 and %d\n",
+        FATAL("AFL_LLVM_LTO_STARTID value of \"%s\" is not between 0 and %u\n",
               ptr, MAP_SIZE - 1);
 
     skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
@@ -100,9 +100,9 @@ class AFLLTOPass : public ModulePass {
 
 bool AFLLTOPass::runOnModule(Module &M) {
 
-  LLVMContext &                    C = M.getContext();
-  std::vector<std::string>         dictionary;
-  std::vector<CallInst *>          calls;
+  LLVMContext &            C = M.getContext();
+  std::vector<std::string> dictionary;
+  //  std::vector<CallInst *>          calls;
   DenseMap<Value *, std::string *> valueMap;
   std::vector<BasicBlock *>        BlockList;
   char *                           ptr;
@@ -471,7 +471,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
                   *Str2P = callInst->getArgOperand(1);
             std::string Str1, Str2;
             StringRef   TmpStr;
-            bool        HasStr1 = getConstantStringInfo(Str1P, TmpStr);
+            bool        HasStr1;
+            getConstantStringInfo(Str1P, TmpStr);
             if (TmpStr.empty()) {
 
               HasStr1 = false;
@@ -483,7 +484,8 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
             }
 
-            bool HasStr2 = getConstantStringInfo(Str2P, TmpStr);
+            bool HasStr2;
+            getConstantStringInfo(Str2P, TmpStr);
             if (TmpStr.empty()) {
 
               HasStr2 = false;
@@ -671,7 +673,6 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
             if (!be_quiet) {
 
-              std::string outstring;
               fprintf(stderr, "%s: length %zu/%zu \"", FuncName.c_str(), optLen,
                       thestring.length());
               for (uint8_t i = 0; i < thestring.length(); i++) {
@@ -799,7 +800,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
           if (documentFile) {
 
-            fprintf(documentFile, "ModuleID=%llu Function=%s edgeID=%u\n",
+            fprintf(documentFile, "ModuleID=%llu Function=%s edgeID=%d\n",
                     moduleID, F.getName().str().c_str(), afl_global_id);
 
           }
@@ -871,10 +872,10 @@ bool AFLLTOPass::runOnModule(Module &M) {
     while ((map = map >> 1))
       pow2map++;
     WARNF(
-        "We have %u blocks to instrument but the map size is only %u. Either "
-        "edit config.h and set MAP_SIZE_POW2 from %u to %u, then recompile "
+        "We have %d blocks to instrument but the map size is only %u. Either "
+        "edit config.h and set MAP_SIZE_POW2 from %d to %u, then recompile "
         "afl-fuzz and llvm_mode and then make this target - or set "
-        "AFL_MAP_SIZE with at least size %u when running afl-fuzz with this "
+        "AFL_MAP_SIZE with at least size %d when running afl-fuzz with this "
         "target.",
         afl_global_id, MAP_SIZE, MAP_SIZE_POW2, pow2map, afl_global_id);
 
@@ -937,8 +938,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
     if (dictionary.size()) {
 
-      size_t memlen = 0, count = 0, offset = 0;
-      char * ptr;
+      size_t memlen = 0, count = 0;
 
       // sort and unique the dictionary
       std::sort(dictionary.begin(), dictionary.end());
@@ -953,14 +953,14 @@ bool AFLLTOPass::runOnModule(Module &M) {
       }
 
       if (!be_quiet)
-        printf("AUTODICTIONARY: %lu string%s found\n", count,
+        printf("AUTODICTIONARY: %zu string%s found\n", count,
                count == 1 ? "" : "s");
 
       if (count) {
 
         if ((ptr = (char *)malloc(memlen + count)) == NULL) {
 
-          fprintf(stderr, "Error: malloc for %lu bytes failed!\n",
+          fprintf(stderr, "Error: malloc for %zu bytes failed!\n",
                   memlen + count);
           exit(-1);
 
@@ -968,6 +968,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
 
         count = 0;
 
+        size_t offset = 0;
         for (auto token : dictionary) {
 
           if (offset + token.length() < 0xfffff0 && count < MAX_AUTO_EXTRAS) {
@@ -1031,7 +1032,7 @@ bool AFLLTOPass::runOnModule(Module &M) {
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      OKF("Instrumented %u locations with no collisions (on average %llu "
+      OKF("Instrumented %d locations with no collisions (on average %llu "
           "collisions would be in afl-gcc/afl-clang-fast) (%s mode).",
           inst_blocks, calculateCollisions(inst_blocks), modeline);
 

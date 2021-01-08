@@ -241,7 +241,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   GlobalVariable *AFLContext = NULL;
 
   if (ctx_str)
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__HAIKU__)
     AFLContext = new GlobalVariable(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_ctx");
 #else
@@ -252,7 +252,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
   if (ngram_size)
-  #ifdef __ANDROID__
+  #if defined(__ANDROID__) || defined(__HAIKU__)
     AFLPrevLoc = new GlobalVariable(
         M, PrevLocTy, /* isConstant */ false, GlobalValue::ExternalLinkage,
         /* Initializer */ nullptr, "__afl_prev_loc");
@@ -265,7 +265,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   #endif
   else
 #endif
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__HAIKU__)
     AFLPrevLoc = new GlobalVariable(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc");
 #else
@@ -327,10 +327,10 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         // does the function have calls? and is any of the calls larger than one
         // basic block?
-        for (auto &BB : F) {
+        for (auto &BB_2 : F) {
 
           if (has_calls) break;
-          for (auto &IN : BB) {
+          for (auto &IN : BB_2) {
 
             CallInst *callInst = nullptr;
             if ((callInst = dyn_cast<CallInst>(&IN))) {
@@ -628,7 +628,7 @@ bool AFLCoverage::runOnModule(Module &M) {
                getenv("AFL_USE_MSAN") ? ", MSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      OKF("Instrumented %u locations (%s mode, ratio %u%%).", inst_blocks,
+      OKF("Instrumented %d locations (%s mode, ratio %u%%).", inst_blocks,
           modeline, inst_ratio);
 
     }

@@ -368,7 +368,7 @@ static void locate_diffs(u8 *ptr1, u8 *ptr2, u32 len, s32 *first, s32 *last) {
 
 u8 fuzz_one_original(afl_state_t *afl) {
 
-  s32 len, temp_len;
+  u32 len, temp_len;
   u32 j;
   u32 i;
   u8 *in_buf, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
@@ -545,7 +545,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   else
     orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
-  if (unlikely(perf_score <= 0)) { goto abandon_entry; }
+  if (unlikely(perf_score == 0)) { goto abandon_entry; }
 
   if (unlikely(afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized)) {
 
@@ -902,7 +902,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; (s32)i < len - 1; ++i) {
+  for (i = 0; i < len - 1; ++i) {
 
     /* Let's consult the effector map... */
 
@@ -945,7 +945,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; (s32)i < len - 3; ++i) {
+  for (i = 0; i < len - 3; ++i) {
 
     /* Let's consult the effector map... */
     if (!eff_map[EFF_APOS(i)] && !eff_map[EFF_APOS(i + 1)] &&
@@ -1405,7 +1405,7 @@ skip_arith:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; (s32)i < len - 1; ++i) {
+  for (i = 0; i < len - 1; ++i) {
 
     u16 orig = *(u16 *)(out_buf + i);
 
@@ -1493,7 +1493,7 @@ skip_arith:
 
   orig_hit_cnt = new_hit_cnt;
 
-  for (i = 0; (s32)i < len - 3; i++) {
+  for (i = 0; i < len - 3; i++) {
 
     u32 orig = *(u32 *)(out_buf + i);
 
@@ -1850,7 +1850,7 @@ custom_mutator_stage:
 
           if (unlikely(!mutated_buf)) {
 
-            FATAL("Error in custom_fuzz. Size returned: %zd", mutated_size);
+            FATAL("Error in custom_fuzz. Size returned: %zu", mutated_size);
 
           }
 
@@ -2026,7 +2026,7 @@ havoc_stage:
                 el->data, out_buf, temp_len, &custom_havoc_buf, MAX_FILE);
             if (unlikely(!custom_havoc_buf)) {
 
-              FATAL("Error in custom_havoc (return %zd)", new_len);
+              FATAL("Error in custom_havoc (return %zu)", new_len);
 
             }
 
@@ -2458,7 +2458,7 @@ havoc_stage:
                 u32 use_extra = rand_below(afl, afl->a_extras_cnt);
                 u32 extra_len = afl->a_extras[use_extra].len;
 
-                if ((s32)extra_len > temp_len) { break; }
+                if (extra_len > temp_len) { break; }
 
                 u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
 #ifdef INTROSPECTION
@@ -2476,7 +2476,7 @@ havoc_stage:
                 u32 use_extra = rand_below(afl, afl->extras_cnt);
                 u32 extra_len = afl->extras[use_extra].len;
 
-                if ((s32)extra_len > temp_len) { break; }
+                if (extra_len > temp_len) { break; }
 
                 u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
 #ifdef INTROSPECTION
@@ -2577,7 +2577,7 @@ havoc_stage:
               u32 copy_from, copy_to, copy_len;
 
               copy_len = choose_block_len(afl, new_len - 1);
-              if ((s32)copy_len > temp_len) copy_len = temp_len;
+              if (copy_len > temp_len) copy_len = temp_len;
 
               copy_from = rand_below(afl, new_len - copy_len + 1);
               copy_to = rand_below(afl, temp_len - copy_len + 1);
@@ -2952,7 +2952,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
   else
     orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
 
-  if (unlikely(perf_score <= 0)) { goto abandon_entry; }
+  if (unlikely(perf_score == 0)) { goto abandon_entry; }
 
   if (unlikely(afl->shm.cmplog_mode && !afl->queue_cur->fully_colorized)) {
 

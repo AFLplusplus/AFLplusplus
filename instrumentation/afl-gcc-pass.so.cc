@@ -228,7 +228,7 @@ struct afl_pass : gimple_opt_pass {
   const bool neverZero;
 
   /* Count instrumented blocks. */
-  int inst_blocks;
+  unsigned int inst_blocks;
 
   virtual unsigned int execute(function *fn) {
 
@@ -444,8 +444,10 @@ struct afl_pass : gimple_opt_pass {
     DECL_EXTERNAL(decl) = 1;
     DECL_ARTIFICIAL(decl) = 1;
     TREE_STATIC(decl) = 1;
+#if !defined(__ANDROID__) && !defined(__HAIKU__)
     set_decl_tls_model(
         decl, (flag_pic ? TLS_MODEL_INITIAL_EXEC : TLS_MODEL_LOCAL_EXEC));
+#endif
     return decl;
 
   }
@@ -920,8 +922,9 @@ int plugin_init(struct plugin_name_args *  info,
                 struct plugin_gcc_version *version) {
 
   if (!plugin_default_version_check(version, &gcc_version))
-    FATAL(G_("GCC and plugin have incompatible versions, expected GCC %d.%d"),
-          GCCPLUGIN_VERSION_MAJOR, GCCPLUGIN_VERSION_MINOR);
+    FATAL(G_("GCC and plugin have incompatible versions, expected GCC %s, "
+             "is %s"),
+          gcc_version.basever, version->basever);
 
   /* Show a banner.  */
   bool quiet = false;
@@ -931,7 +934,7 @@ int plugin_init(struct plugin_name_args *  info,
     quiet = true;
 
   /* Decide instrumentation ratio.  */
-  int inst_ratio = 100;
+  unsigned int inst_ratio = 100U;
   if (char *inst_ratio_str = getenv("AFL_INST_RATIO"))
     if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
         inst_ratio > 100)

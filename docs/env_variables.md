@@ -350,6 +350,10 @@ checks or alter some of the more exotic semantics of the tool:
   - Note that `AFL_POST_LIBRARY` is deprecated, use `AFL_CUSTOM_MUTATOR_LIBRARY`
     instead (see below).
 
+  - `AFL_KILL_SIGNAL`: Set the signal ID to be delivered to child processes on timeout.
+    Unless you implement your own targets or instrumentation, you likely don't have to set it.
+    By default, on timeout and on exit, `SIGKILL` (`AFL_KILL_SIGNAL=9`) will be delivered to the child.
+
   - Setting `AFL_CUSTOM_MUTATOR_LIBRARY` to a shared library with
     afl_custom_fuzz() creates additional mutations through this library.
     If afl-fuzz is compiled with Python (which is autodetected during builing

@@ -381,7 +381,7 @@ typedef struct afl_env_vars {
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
-      *afl_testcache_entries;
+      *afl_testcache_entries, *afl_kill_signal;
 
 } afl_env_vars_t;
 
@@ -573,7 +573,7 @@ typedef struct afl_state {
 
   u8 stage_name_buf[STAGE_BUF_SIZE];    /* reused stagename buf with len 64 */
 
-  s32 stage_cur, stage_max;             /* Stage progression                */
+  u32 stage_cur, stage_max;             /* Stage progression                */
   s32 splicing_with;                    /* Splicing with which test case?   */
 
   u32 main_node_id, main_node_max;      /*   Main instance job splitting    */
@@ -648,7 +648,7 @@ typedef struct afl_state {
   double                 last_avg_execs_saved;
 
 /* foreign sync */
-#define FOREIGN_SYNCS_MAX 32
+#define FOREIGN_SYNCS_MAX 32U
   u8                  foreign_sync_cnt;
   struct foreign_sync foreign_syncs[FOREIGN_SYNCS_MAX];
 

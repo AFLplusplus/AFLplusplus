@@ -1163,24 +1163,18 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
   BasicBlock::iterator IP = BB.getFirstInsertionPt();
   bool                 IsEntryBB = &BB == &F.getEntryBlock();
-  DebugLoc             EntryLoc;
+
   if (IsEntryBB) {
 
-    if (auto SP = F.getSubprogram())
-      EntryLoc = DebugLoc::get(SP->getScopeLine(), 0, SP);
     // Keep static allocas and llvm.localescape calls in the entry block.  Even
     // if we aren't splitting the block, it's nice for allocas to be before
     // calls.
     IP = PrepareToSplitEntryBlock(BB, IP);
 
-  } else {
-
-    EntryLoc = IP->getDebugLoc();
-
   }
 
   IRBuilder<> IRB(&*IP);
-  IRB.SetCurrentDebugLocation(EntryLoc);
+
   if (Options.TracePC) {
 
     IRB.CreateCall(SanCovTracePC);

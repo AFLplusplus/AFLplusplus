@@ -835,8 +835,8 @@ static void usage(u8 *argv0) {
       "Execution control settings:\n"
 
       "  -f file       - input file read by the tested program (stdin)\n"
-      "  -t msec       - timeout for each run (%d ms)\n"
-      "  -m megs       - memory limit for child process (%d MB)\n"
+      "  -t msec       - timeout for each run (%u ms)\n"
+      "  -m megs       - memory limit for child process (%u MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -855,6 +855,7 @@ static void usage(u8 *argv0) {
       "Environment variables used:\n"
       "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n"
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD:  LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
@@ -1133,6 +1134,9 @@ int main(int argc, char **argv_orig, char **envp) {
     fsrv->init_tmout = (u32)forksrv_init_tmout;
 
   }
+
+  fsrv->kill_signal =
+      parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
 
   if (getenv("AFL_CRASH_EXITCODE")) {
 
