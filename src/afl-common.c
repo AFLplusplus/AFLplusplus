@@ -927,14 +927,14 @@ u32 get_map_size(void) {
   if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
 
     map_size = atoi(ptr);
-    if (map_size < 8 || map_size > (1 << 29)) {
+    if (!map_size || map_size > (1 << 29)) {
 
-      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 8U,
+      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 32U,
             1U << 29);
 
     }
 
-    if (map_size % 8) { map_size = (((map_size >> 3) + 1) << 3); }
+    if (map_size % 32) { map_size = (((map_size >> 5) + 1) << 5); }
 
   }
 
