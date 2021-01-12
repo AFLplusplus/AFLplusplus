@@ -972,10 +972,10 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
               hash64(fsrv->shmem_fuzz, *fsrv->shmem_fuzz_len, 0xa5b35705),
               *fsrv->shmem_fuzz_len);
       fprintf(stderr, "SHM :");
-      for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+      for (u32 i = 0; i < *fsrv->shmem_fuzz_len; i++)
         fprintf(stderr, "%02x", fsrv->shmem_fuzz[i]);
       fprintf(stderr, "\nORIG:");
-      for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+      for (u32 i = 0; i < *fsrv->shmem_fuzz_len; i++)
         fprintf(stderr, "%02x", buf[i]);
       fprintf(stderr, "\n");
 
