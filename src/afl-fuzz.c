@@ -1781,15 +1781,27 @@ int main(int argc, char **argv_orig, char **envp) {
 
     } while (skipped_fuzz && afl->queue_cur && !afl->stop_soon);
 
-    if (!afl->stop_soon && afl->sync_id) {
+    if (likely(!afl->stop_soon && afl->sync_id)) {
 
-      if (unlikely(afl->is_main_node)) {
+      if (likely(afl->skip_deterministic)) {
 
-        if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) { sync_fuzzers(afl); }
+        if (unlikely(afl->is_main_node)) {
+
+          if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
+
+            sync_fuzzers(afl);
+
+          }
+
+        } else {
+
+          if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+
+        }
 
       } else {
 
-        if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
+        sync_fuzzers(afl);
 
       }
 
