@@ -17,6 +17,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - afl-fuzz
     - fix crash for very, very fast targets+systems (thanks to mhlakhani
       for reporting)
+    - if determinstic mode is active (-D, or -M without -d) then we sync
+      after every queue entry as this can take very long time otherwise
     - switched to a faster RNG
     - added hghwng's patch for faster trace map analysis
   - afl-cc
