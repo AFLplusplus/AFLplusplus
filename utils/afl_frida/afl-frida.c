@@ -153,7 +153,7 @@ static int enumerate_ranges(const GumRangeDetails *details,
 
 }
 
-int main() {
+int main(int argc, char** argv) {
 
 #ifndef __APPLE__
   (void)personality(ADDR_NO_RANDOMIZE);  // disable ASLR
@@ -164,17 +164,32 @@ int main() {
   //         If there is just one function, then there is nothing to change
   //         or add here.
 
-  void *dl = dlopen(TARGET_LIBRARY, RTLD_LAZY);
+  void *dl = NULL;
+  if (argc > 2) {
+    dl = dlopen(argv[1], RTLD_LAZY);
+  } else {
+    dl = dlopen(TARGET_LIBRARY, RTLD_LAZY);
+  }
   if (!dl) {
 
-    fprintf(stderr, "Could not load %s\n", TARGET_LIBRARY);
+    if (argc > 2)
+      fprintf(stderr, "Could not load %s\n", argv[1]);
+    else
+      fprintf(stderr, "Could not load %s\n", TARGET_LIBRARY);
     exit(-1);
 
   }
 
-  if (!(o_function = dlsym(dl, TARGET_FUNCTION))) {
+  if (argc > 2)
+    o_function = dlsym(dl, argv[2]);
+  else
+    o_function = dlsym(dl, TARGET_FUNCTION);
+  if (!o_function) {
 
-    fprintf(stderr, "Could not find function %s\n", TARGET_FUNCTION);
+    if (argc > 2)
+      fprintf(stderr, "Could not find function %s\n", argv[2]);
+    else
+      fprintf(stderr, "Could not find function %s\n", TARGET_FUNCTION);
     exit(-1);
 
   }
