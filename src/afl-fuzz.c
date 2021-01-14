@@ -103,8 +103,8 @@ static void usage(u8 *argv0, int more_help) {
 
       "Execution control settings:\n"
       "  -p schedule   - power schedules compute a seed's performance score:\n"
-      "                  <explore(default), rare, exploit, seek, mmopt, coe, "
-      "fast,\n"
+      "                  <fast(default), rare, exploit, seek, mmopt, coe, "
+      "explore,\n"
       "                  lin, quad> -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
