@@ -505,10 +505,6 @@ more useful.
 If you just use one CPU for fuzzing, then you are fuzzing just for fun and not
 seriously :-)
 
-Pro tip: load the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) 
-before the start of afl-fuzz as this improves performance by a x2 speed increase
-(less if you use a persistent mode harness)!
-
 #### a) Running afl-fuzz
 
 Before you do even a test run of afl-fuzz execute `sudo afl-system-config` (on
@@ -594,10 +590,14 @@ All other secondaries should be used like this:
    `fast (default), explore, coe, lin, quad, exploit, mmopt, rare, seek`
    which you can set with e.g. `-p seek`
 
+Also it is recommended to set `export AFL_IMPORT_FIRST=1` to load testcases
+from other fuzzers in the campaign first.
+
 You can also use different fuzzers.
 If you are using afl spinoffs or afl conforming fuzzers, then just use the
 same -o directory and give it a unique `-S` name.
 Examples are:
+ * [Eclipser](https://github.com/SoftSec-KAIST/Eclipser/)
  * [Untracer](https://github.com/FoRTE-Research/UnTracer-AFL)
  * [AFLsmart](https://github.com/aflsmart/aflsmart)
  * [FairFuzz](https://github.com/carolemieux/afl-rb)
@@ -607,7 +607,7 @@ Examples are:
 A long list can be found at [https://github.com/Microsvuln/Awesome-AFL](https://github.com/Microsvuln/Awesome-AFL)
 
 However you can also sync afl++ with honggfuzz, libfuzzer with -entropic, etc.
-Just show the main fuzzer (-M) with the `-F` option where the queue
+Just show the main fuzzer (-M) with the `-F` option where the queue/work
 directory of a different fuzzer is, e.g. `-F /src/target/honggfuzz`.
 
 #### c) The status of the fuzz campaign
@@ -672,7 +672,6 @@ switch or honggfuzz.
 
  * Use [persistent mode](instrumentation/README.persistent_mode.md) (x2-x20 speed increase)
  * If you do not use shmem persistent mode, use `AFL_TMPDIR` to point the input file on a tempfs location, see [docs/env_variables.md](docs/env_variables.md)
- * Linux: Use the [afl++ snapshot module](https://github.com/AFLplusplus/AFL-Snapshot-LKM) (x2 speed increase)
  * Linux: Improve kernel performance: modify `/etc/default/grub`, set `GRUB_CMDLINE_LINUX_DEFAULT="ibpb=off ibrs=off kpti=off l1tf=off mds=off mitigations=off no_stf_barrier noibpb noibrs nopcid nopti nospec_store_bypass_disable nospectre_v1 nospectre_v2 pcid=off pti=off spec_store_bypass_disable=off spectre_v2=off stf_barrier=off"`; then `update-grub` and `reboot` (warning: makes the system more insecure)
  * Linux: Running on an `ext2` filesystem with `noatime` mount option will be a bit faster than on any other journaling filesystem
  * Use your cores! [3.b) Using multiple cores/threads](#b-using-multiple-coresthreads)
