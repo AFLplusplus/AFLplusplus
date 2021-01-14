@@ -10,6 +10,7 @@ cc_defaults {
   ],
 
   cflags: [
+    "-flto=full",
     "-funroll-loops",
     "-Wno-pointer-sign",
     "-Wno-pointer-arith",
@@ -18,13 +19,14 @@ cc_defaults {
     "-Wno-unused-function",
     "-Wno-format",
     "-Wno-user-defined-warnings",
-    "-DUSE_TRACE_PC=1",
+    "-DAFL_LLVM_USE_TRACE_PC=1",
     "-DBIN_PATH=\"out/host/linux-x86/bin\"",
     "-DDOC_PATH=\"out/host/linux-x86/shared/doc/afl\"",
     "-D__USE_GNU",
     "-D__aarch64__",
     "-DDEBUG_BUILD",
     "-U_FORTIFY_SOURCE",
+    "-ggdb3",
     "-g",
     "-O0",
     "-fno-omit-frame-pointer",
@@ -188,224 +190,68 @@ cc_library_static {
   ],
 }
 
-cc_defaults {
-  name: "afl-defaults-lto",
+cc_prebuilt_library_static {
+  name: "libfrida-gum",
+  compile_multilib: "64",
+  strip: {
+    none: true,
+  },
 
-  include_dirs: [
-    "prebuilts/clang/host/linux-x86/clang-r383902b/include",
+  srcs: [
+    "utils/afl_frida/android/libfrida-gum.a",
+  ],
+
+  export_include_dirs: [
+    "utils/afl_frida/android",
   ],
 }
 
-/*cc_library_host_shared {
-  name: "afl-llvm-lto-instrumentlist",
+cc_library_shared {
+  name: "libtestinstr",
+
+  srcs: [
+    "utils/afl_frida/libtestinstr.c",
+  ],
+
+  cflags: [
+    "-O0",
+    "-fPIC",
+  ],
+}
+
+cc_binary {
+  name: "afl-frida",
+  compile_multilib: "64",
 
   defaults: [
     "afl-defaults",
-    "afl-defaults-lto",
   ],
 
-  srcs: [
-    "instrumentation/afl-llvm-lto-instrumentlist.so.cc",
-    "instrumentation/afl-llvm-common.cc",
-  ],
-}*/
-
-/*cc_library_host_shared {
-  name: "afl-llvm-dict2file",
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
+  cflags: [
+    "-g",
+    "-O0",
+    "-Wno-format",
+    "-Wno-pointer-sign",
+    "-fpermissive",
+    "-fPIC",
   ],
 
-  srcs: [
-    "instrumentation/afl-llvm-dict2file.so.cc",
-    "instrumentation/afl-llvm-common.cc",
+  static_libs: [
+    "afl-llvm-rt",
+    "libfrida-gum",
   ],
 
   shared_libs: [
-    "libLLVM-11git",
-  ],
-}*/
-
-/*cc_library_host_shared {
-  name: "cmplog-routines-pass",
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
+    "libdl",
+    "liblog",
   ],
 
   srcs: [
-    "instrumentation/cmplog-routines-pass.cc",
-    "instrumentation/afl-llvm-common.cc",
-  ],
-}*/
-
-/*cc_library_host_shared {
-  name: "cmplog-instructions-pass",
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
+    "utils/afl_frida/afl-frida.c",
   ],
 
-  srcs: [
-    "instrumentation/cmplog-instructions-pass.cc",
-    "instrumentation/afl-llvm-common.cc",
-  ],
-}*/
-
-/*cc_library_host_shared {
-  name: "split-switches-pass",
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
-  ],
-
-  srcs: [
-    "instrumentation/split-switches-pass.so.cc",
-    "instrumentation/afl-llvm-common.cc",
-  ],
-}*/
-
-/*cc_library_host_shared {
-  name: "compare-transform-pass",
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
-  ],
-
-  srcs: [
-    "instrumentation/compare-transform-pass.so.cc",
-    "instrumentation/afl-llvm-common.cc",
-  ],
-}*/
-
-/*cc_library_host_shared {
-  name: "split-compares-pass",
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
-  ],
-
-  srcs: [
-    "instrumentation/split-compares-pass.so.cc",
-    "instrumentation/afl-llvm-common.cc",
-  ],
-}*/
-
-/*cc_library_host_shared {
-  name: "libLLVMInsTrim",
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
-  ],
-
-  srcs: [
-    "instrumentation/LLVMInsTrim.so.cc",
-    "instrumentation/MarkNodes.cc",
-    "instrumentation/afl-llvm-common.cc",
-  ],
-}*/
-
-/*cc_library_host_shared {
-  name: "afl-llvm-pass",
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
-  ],
-
-  srcs: [
-    "instrumentation/afl-llvm-pass.so.cc",
-    "instrumentation/afl-llvm-common.cc",
-  ],
-}*/
-
-/*cc_library_host_shared {
-  name: "SanitizerCoveragePCGUARD",
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
-  ],
-
-  srcs: [
-    "instrumentation/SanitizerCoveragePCGUARD.so.cc",
-    "instrumentation/afl-llvm-common.cc",
-  ],
-}*/
-
-/*cc_library_host_shared {
-  name: "SanitizerCoverageLTO",
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
-  ],
-
-  srcs: [
-    "instrumentation/SanitizerCoverageLTO.so.cc",
-    "instrumentation/afl-llvm-common.cc",
-  ],
-}*/
-
-/*cc_library_host_shared {
-  name: "afl-llvm-lto-instrumentation",
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
-  ],
-
-  srcs: [
-    "instrumentation/afl-llvm-lto-instrumentation.so.cc",
-    "instrumentation/afl-llvm-common.cc",
-  ],
-}*/
-
-cc_library_static {
-  name: "afl-llvm-rt-lto",
-  compile_multilib: "both",
-  vendor_available: true,
-  host_supported: true,
-  recovery_available: true,
-  sdk_version: "9",
-
-  apex_available: [
-    "com.android.adbd",
-    "com.android.appsearch",
-    "com.android.art",
-    "com.android.bluetooth.updatable",
-    "com.android.cellbroadcast",
-    "com.android.conscrypt",
-    "com.android.extservices",
-    "com.android.cronet",
-    "com.android.neuralnetworks",
-    "com.android.media",
-    "com.android.media.swcodec",
-    "com.android.mediaprovider",
-    "com.android.permission",
-    "com.android.runtime",
-    "com.android.resolv",
-    "com.android.tethering",
-    "com.android.wifi",
-    "com.android.sdkext",
-    "com.android.os.statsd",
-    "//any",
-  ],
-
-  defaults: [
-    "afl-defaults",
-    "afl-defaults-lto",
-  ],
-
-  srcs: [
-    "instrumentation/afl-llvm-rt-lto.o.c",
+  local_include_dirs: [
+    "utils/afl_frida",
+    "utils/afl_frida/android",
   ],
 }
