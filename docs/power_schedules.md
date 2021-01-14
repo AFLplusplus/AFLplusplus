@@ -13,8 +13,8 @@ We find that AFL's exploitation-based constant schedule assigns **too much energ
 
 | AFL flag | Power Schedule             | 
 | ------------- | -------------------------- |
-| `-p explore` (default)| ![EXPLORE](http://latex.codecogs.com/gif.latex?p%28i%29%3D%5Cfrac%7B%5Calpha%28i%29%7D%7B%5Cbeta%7D) |
-| `-p fast` | ![FAST](http://latex.codecogs.com/gif.latex?p(i)=\\min\\left(\\frac{\\alpha(i)}{\\beta}\\cdot\\frac{2^{s(i)}}{f(i)},M\\right))  |
+| `-p explore` | ![EXPLORE](http://latex.codecogs.com/gif.latex?p%28i%29%3D%5Cfrac%7B%5Calpha%28i%29%7D%7B%5Cbeta%7D) |
+| `-p fast` (default)| ![FAST](http://latex.codecogs.com/gif.latex?p(i)=\\min\\left(\\frac{\\alpha(i)}{\\beta}\\cdot\\frac{2^{s(i)}}{f(i)},M\\right))  |
 | `-p coe` | ![COE](http://latex.codecogs.com/gif.latex?p%28i%29%3D%5Cbegin%7Bcases%7D%200%20%26%20%5Ctext%7B%20if%20%7D%20f%28i%29%20%3E%20%5Cmu%5C%5C%20%5Cmin%5Cleft%28%5Cfrac%7B%5Calpha%28i%29%7D%7B%5Cbeta%7D%5Ccdot%202%5E%7Bs%28i%29%7D%2C%20M%5Cright%29%20%26%20%5Ctext%7B%20otherwise.%7D%20%5Cend%7Bcases%7D) |
 | `-p quad` | ![QUAD](http://latex.codecogs.com/gif.latex?p%28i%29%20%3D%20%5Cmin%5Cleft%28%5Cfrac%7B%5Calpha%28i%29%7D%7B%5Cbeta%7D%5Ccdot%5Cfrac%7Bs%28i%29%5E2%7D%7Bf%28i%29%7D%2CM%5Cright%29) |
 | `-p lin` | ![LIN](http://latex.codecogs.com/gif.latex?p%28i%29%20%3D%20%5Cmin%5Cleft%28%5Cfrac%7B%5Calpha%28i%29%7D%7B%5Cbeta%7D%5Ccdot%5Cfrac%7Bs%28i%29%7D%7Bf%28i%29%7D%2CM%5Cright%29) |
