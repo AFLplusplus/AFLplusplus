@@ -591,7 +591,7 @@ For every secondary fuzzer there should be a variation, e.g.:
 All other secondaries should be used like this:
  * A third to a half with the MOpt mutator enabled: `-L 0`
  * run with a different power schedule, available are:
-   `explore (default), fast, coe, lin, quad, exploit, mmopt, rare, seek`
+   `fast (default), explore, coe, lin, quad, exploit, mmopt, rare, seek`
    which you can set with e.g. `-p seek`
 
 You can also use different fuzzers.
