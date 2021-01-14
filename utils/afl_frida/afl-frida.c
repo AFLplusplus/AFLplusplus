@@ -206,9 +206,17 @@ int main(int argc, char** argv) {
 
   GumStalker *stalker = gum_stalker_new();
 
-  GumAddress     base_address = gum_module_find_base_address(TARGET_LIBRARY);
+  GumAddress     base_address;
+  if (argc > 2)
+    base_address = gum_module_find_base_address(argv[1]);
+  else
+    base_address = gum_module_find_base_address(TARGET_LIBRARY);
   GumMemoryRange code_range;
-  gum_module_enumerate_ranges(TARGET_LIBRARY, GUM_PAGE_RX, enumerate_ranges,
+  if (argc > 2)
+    gum_module_enumerate_ranges(argv[1], GUM_PAGE_RX, enumerate_ranges,
+                              &code_range);
+  else
+    gum_module_enumerate_ranges(TARGET_LIBRARY, GUM_PAGE_RX, enumerate_ranges,
                               &code_range);
 
   guint64 code_start = code_range.base_address;
@@ -219,7 +227,11 @@ int main(int argc, char** argv) {
          base_address, code_start, code_end);
   if (!code_start || !code_end) {
 
-    fprintf(stderr, "Error: no valid memory address found for %s\n",
+    if (argc > 2)
+      fprintf(stderr, "Error: no valid memory address found for %s\n",
+            argv[1]);
+    else
+      fprintf(stderr, "Error: no valid memory address found for %s\n",
             TARGET_LIBRARY);
     exit(-1);
 
