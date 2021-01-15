@@ -529,9 +529,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/cmplog-routines-pass.so", obj_path);
         cc_params[cc_par_cnt++] = alloc_printf(
-            "-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
-        cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/cmplog-instructions-pass.so", obj_path);
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/split-switches-pass.so", obj_path);
 
       } else {
 
@@ -541,18 +541,18 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         cc_params[cc_par_cnt++] =
             alloc_printf("%s/cmplog-routines-pass.so", obj_path);
 
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
+
         // reuse split switches from laf
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] = "-load";
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] =
             alloc_printf("%s/split-switches-pass.so", obj_path);
-
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
 
       }
 
@@ -792,10 +792,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
   }
 
-#if defined(USEMMAP)
-  #if !defined(__HAIKU__)
+#if defined(USEMMAP) && !defined(__HAIKU__)
   cc_params[cc_par_cnt++] = "-lrt";
-  #endif
 #endif
 
   cc_params[cc_par_cnt++] = "-D__AFL_HAVE_MANUAL_CONTROL=1";
@@ -858,6 +856,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   cc_params[cc_par_cnt++] =
       "-D__AFL_COVERAGE_DISCARD()=__afl_coverage_discard()";
   cc_params[cc_par_cnt++] = "-D__AFL_COVERAGE_ABORT()=__afl_coverage_abort()";
+
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
       "__afl_fuzz_alt_ptr)";
@@ -967,10 +966,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           alloc_printf("-Wl,--dynamic-list=%s/dynamic_list.txt", obj_path);
   #endif
 
-  #if defined(USEMMAP)
-    #if !defined(__HAIKU__)
+  #if defined(USEMMAP) && !defined(__HAIKU__)
     cc_params[cc_par_cnt++] = "-lrt";
-    #endif
   #endif
 
   }
@@ -1278,7 +1275,6 @@ int main(int argc, char **argv, char **envp) {
 
       }
 
-      // this is a hidden option
       if (strncasecmp(ptr2, "llvmnative", strlen("llvmnative")) == 0 ||
           strncasecmp(ptr2, "llvm-native", strlen("llvm-native")) == 0) {
 
@@ -1349,29 +1345,28 @@ int main(int argc, char **argv, char **envp) {
 
       if (strncasecmp(ptr2, "ngram", strlen("ngram")) == 0) {
 
-        ptr2 += strlen("ngram");
-        while (*ptr2 && (*ptr2 < '0' || *ptr2 > '9'))
-          ptr2++;
+        u8 *ptr3 = ptr2 + strlen("ngram");
+        while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9'))
+          ptr3++;
 
-        if (!*ptr2) {
+        if (!*ptr3) {
 
-          if ((ptr2 = getenv("AFL_LLVM_NGRAM_SIZE")) == NULL)
+          if ((ptr3 = getenv("AFL_LLVM_NGRAM_SIZE")) == NULL)
             FATAL(
                 "you must set the NGRAM size with (e.g. for value 2) "
                 "AFL_LLVM_INSTRUMENT=ngram-2");
 
         }
 
-        ngram_size = atoi(ptr2);
+        ngram_size = atoi(ptr3);
         if (ngram_size < 2 || ngram_size > NGRAM_SIZE_MAX)
           FATAL(
               "NGRAM instrumentation option must be between 2 and "
-              "NGRAM_SIZE_MAX "
-              "(%u)",
+              "NGRAM_SIZE_MAX (%u)",
               NGRAM_SIZE_MAX);
         instrument_opt_mode |= (INSTRUMENT_OPT_NGRAM);
-        ptr2 = alloc_printf("%u", ngram_size);
-        setenv("AFL_LLVM_NGRAM_SIZE", ptr2, 1);
+        u8 *ptr4 = alloc_printf("%u", ngram_size);
+        setenv("AFL_LLVM_NGRAM_SIZE", ptr4, 1);
 
       }
 
@@ -1507,6 +1502,7 @@ int main(int argc, char **argv, char **envp) {
         "((instrumentation/README.ngram.md)\n"
         "  INSTRIM: Dominator tree (for LLVM <= 6.0) "
         "(instrumentation/README.instrim.md)\n\n");
+
 #undef NATIVE_MSG
 
     SAYF(
@@ -1641,16 +1637,15 @@ int main(int argc, char **argv, char **envp) {
     if (have_lto)
       SAYF("afl-cc LTO with ld=%s %s\n", AFL_REAL_LD, AFL_CLANG_FLTO);
     if (have_llvm)
-      SAYF("afl-cc LLVM version %d using binary path \"%s\".\n", LLVM_MAJOR,
+      SAYF("afl-cc LLVM version %d using the binary path \"%s\".\n", LLVM_MAJOR,
            LLVM_BINDIR);
 #endif
 
-#if defined(USEMMAP)
+#ifdef USEMMAP
   #if !defined(__HAIKU__)
-    cc_params[cc_par_cnt++] = "-lrt";
-    SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
-  #else
     SAYF("Compiled with shm_open support.\n");
+  #else
+    SAYF("Compiled with shm_open support (adds -lrt when linking).\n");
   #endif
 #else
     SAYF("Compiled with shmat support.\n");

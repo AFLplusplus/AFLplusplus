@@ -295,8 +295,8 @@ static inline const char *colorfilter(const char *x) {
                                                                          \
     SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                            \
          "\n[-] PROGRAM ABORT : " cRST   x);                               \
-    SAYF(cLRD "\n         Location : " cRST "%s(), %s:%d\n\n", __func__, \
-         __FILE__, __LINE__);                                            \
+    SAYF(cLRD "\n         Location : " cRST "%s(), %s:%u\n\n", __func__, \
+         __FILE__, (u32)__LINE__);                                       \
     exit(1);                                                             \
                                                                          \
   } while (0)
@@ -308,8 +308,8 @@ static inline const char *colorfilter(const char *x) {
                                                                          \
     SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                            \
          "\n[-] PROGRAM ABORT : " cRST   x);                               \
-    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%d\n\n", __func__, \
-         __FILE__, __LINE__);                                            \
+    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n\n", __func__, \
+         __FILE__, (u32)__LINE__);                                       \
     abort();                                                             \
                                                                          \
   } while (0)
@@ -322,8 +322,8 @@ static inline const char *colorfilter(const char *x) {
     fflush(stdout);                                                    \
     SAYF(bSTOP RESET_G1 CURSOR_SHOW cRST cLRD                          \
          "\n[-]  SYSTEM ERROR : " cRST   x);                             \
-    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%d\n", __func__, \
-         __FILE__, __LINE__);                                          \
+    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n", __func__, \
+         __FILE__, (u32)__LINE__);                                     \
     SAYF(cLRD "       OS message : " cRST "%s\n", strerror(errno));    \
     exit(1);                                                           \
                                                                        \
@@ -344,12 +344,12 @@ static inline const char *colorfilter(const char *x) {
 
 /* Show a prefixed debug output. */
 
-#define DEBUGF(x...)                         \
-  do {                                       \
-                                             \
-    SAYF(cMGN "[D] " cBRI "DEBUG: " cRST x); \
-    SAYF(cRST "");                           \
-                                             \
+#define DEBUGF(x...)                                    \
+  do {                                                  \
+                                                        \
+    fprintf(stderr, cMGN "[D] " cBRI "DEBUG: " cRST x); \
+    fprintf(stderr, cRST "");                           \
+                                                        \
   } while (0)
 
 /* Error-checking versions of read() and write() that call RPFATAL() as

@@ -433,6 +433,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->passed_det = passed_det;
   q->trace_mini = NULL;
   q->testcase_buf = NULL;
+  q->mother = afl->queue_cur;
 
 #ifdef INTROSPECTION
   q->bitsmap_size = afl->bitsmap_size;

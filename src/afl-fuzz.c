@@ -77,13 +77,8 @@ static void at_exit() {
   }
 
   int kill_signal = SIGKILL;
-
   /* AFL_KILL_SIGNAL should already be a valid int at this point */
-  if (getenv("AFL_KILL_SIGNAL")) {
-
-    kill_signal = atoi(getenv("AFL_KILL_SIGNAL"));
-
-  }
+  if ((ptr = getenv("AFL_KILL_SIGNAL"))) { kill_signal = atoi(ptr); }
 
   if (pid1 > 0) { kill(pid1, kill_signal); }
   if (pid2 > 0) { kill(pid2, kill_signal); }
@@ -103,13 +98,14 @@ static void usage(u8 *argv0, int more_help) {
 
       "Execution control settings:\n"
       "  -p schedule   - power schedules compute a seed's performance score:\n"
-      "                  <fast(default), rare, exploit, seek, mmopt, coe, "
-      "explore,\n"
-      "                  lin, quad> -- see docs/power_schedules.md\n"
+      "                  fast(default), explore, exploit, seek, rare, mmopt, "
+      "coe, lin\n"
+      "                  quad -- see docs/power_schedules.md\n"
       "  -f file       - location read by the fuzzed program (default: stdin "
       "or @@)\n"
       "  -t msec       - timeout for each run (auto-scaled, 50-%u ms)\n"
-      "  -m megs       - memory limit for child process (%u MB, 0 = no limit)\n"
+      "  -m megs       - memory limit for child process (%u MB, 0 = no limit "
+      "[default])\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "
@@ -125,7 +121,9 @@ static void usage(u8 *argv0, int more_help) {
       "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
-      "                  if using QEMU, just use -c 0.\n\n"
+      "                  if using QEMU, just use -c 0.\n"
+      "  -l cmplog_level - set the complexity/intensivity of CmpLog.\n"
+      "                  Values: 1 (default), 2 (intensive) and 3 (heavy)\n\n"
 
       "Fuzzing behavior settings:\n"
       "  -Z            - sequential queue selection instead of weighted "
@@ -337,7 +335,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (get_afl_env("AFL_DEBUG")) { debug = afl->debug = 1; }
 
-  //  map_size = get_map_size();
   afl_state_init(afl, map_size);
   afl->debug = debug;
   afl_fsrv_init(&afl->fsrv);
@@ -358,7 +355,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+b:c:i:I:o:f:F:m:t:T:dDnCB:S:M:x:QNUWe:p:s:V:E:L:hRP:Z")) > 0) {
+              "+b:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNo:p:P:RQs:S:t:T:UV:Wx:Z")) >
+         0) {
 
     switch (opt) {
 
@@ -782,6 +780,26 @@ int main(int argc, char **argv_orig, char **envp) {
         if (sscanf(optarg, "%llu", &afl->most_execs) < 1 || optarg[0] == '-') {
 
           FATAL("Bad syntax used for -E");
+
+        }
+
+      } break;
+
+      case 'l': {
+
+        afl->cmplog_lvl = atoi(optarg);
+        if (afl->cmplog_lvl < 1 || afl->cmplog_lvl > CMPLOG_LVL_MAX) {
+
+          FATAL(
+              "Bad complog level value, accepted values are 1 (default), 2 and "
+              "%u.",
+              CMPLOG_LVL_MAX);
+
+        }
+
+        if (afl->cmplog_lvl == CMPLOG_LVL_MAX) {
+
+          afl->cmplog_max_filesize = MAX_FILE;
 
         }
 
@@ -1635,6 +1653,14 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->use_splicing) {
 
           ++afl->cycles_wo_finds;
+
+          if (unlikely(afl->shm.cmplog_mode &&
+                       afl->cmplog_max_filesize < MAX_FILE)) {
+
+            afl->cmplog_max_filesize <<= 4;
+
+          }
+
           switch (afl->expand_havoc) {
 
             case 0:
@@ -1652,6 +1678,7 @@ int main(int argc, char **argv_orig, char **envp) {
               }
 
               afl->expand_havoc = 2;
+              if (afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
               break;
             case 2:
               // if (!have_p) afl->schedule = EXPLOIT;
@@ -1665,11 +1692,14 @@ int main(int argc, char **argv_orig, char **envp) {
               afl->expand_havoc = 4;
               break;
             case 4:
-              // if not in sync mode, enable deterministic mode?
-              // if (!afl->sync_id) afl->skip_deterministic = 0;
               afl->expand_havoc = 5;
+              if (afl->cmplog_lvl < 3) afl->cmplog_lvl = 3;
               break;
             case 5:
+              // if not in sync mode, enable deterministic mode?
+              if (!afl->sync_id) afl->skip_deterministic = 0;
+              afl->expand_havoc = 6;
+            case 6:
               // nothing else currently
               break;
 
