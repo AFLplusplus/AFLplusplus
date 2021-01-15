@@ -1785,15 +1785,6 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-  if (!be_quiet && !lto_mode &&
-      ((ptr2 = getenv("AFL_MAP_SIZE")) || (ptr2 = getenv("AFL_MAPSIZE")))) {
-
-    u32 map_size = atoi(ptr2);
-    if (map_size != MAP_SIZE)
-      WARNF("AFL_MAP_SIZE is not supported by afl-clang-fast");
-
-  }
-
   if (debug) {
 
     DEBUGF("cd '%s';", getthecwd());
