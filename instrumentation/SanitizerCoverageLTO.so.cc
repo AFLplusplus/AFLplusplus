@@ -1111,7 +1111,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
       OKF("Instrumented %u locations with no collisions (on average %llu "
-          "collisions would be in afl-gcc/afl-clang-fast) (%s mode).",
+          "collisions would be in afl-gcc/vanilla AFL) (%s mode).",
           inst, calculateCollisions(inst), modeline);
 
     }
