@@ -366,6 +366,18 @@ static void __afl_map_shm(void) {
 #else
     u32 shm_id = atoi(id_str);
 
+    if (__afl_map_size && __afl_map_size > MAP_SIZE) {
+
+      u8 *map_env = getenv("AFL_MAP_SIZE");
+      if (!map_env || atoi(map_env) < MAP_SIZE) {
+
+        send_forkserver_error(FS_ERROR_MAP_SIZE);
+        _exit(1);
+
+      }
+
+    }
+
     __afl_area_ptr = shmat(shm_id, (void *)__afl_map_addr, 0);
 
     /* Whooooops. */
