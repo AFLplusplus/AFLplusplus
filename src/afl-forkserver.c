@@ -808,6 +808,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "before receiving any input\n"
            "    from the fuzzer! There are several probable explanations:\n\n"
 
+           "    - The target binary requires a large map and crashes before "
+           "reporting.\n"
+           "      Set a high value (e.g. AFL_MAP_SIZE=1024000) or use "
+           "AFL_DEBUG=1 to see the\n"
+           "      message from the target binary\n\n"
+
            "    - The binary is just buggy and explodes entirely on its own. "
            "If so, you\n"
            "      need to fix the underlying problem or find a better "
@@ -828,6 +834,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "Whoops, the target binary crashed suddenly, "
            "before receiving any input\n"
            "    from the fuzzer! There are several probable explanations:\n\n"
+
+           "    - The target binary requires a large map and crashes before "
+           "reporting.\n"
+           "      Set a high value (e.g. AFL_MAP_SIZE=1024000) or use "
+           "AFL_DEBUG=1 to see the\n"
+           "      message from the target binary\n\n"
 
            "    - The current memory limit (%s) is too restrictive, causing "
            "the\n"
