@@ -190,6 +190,16 @@ cc_library_static {
   ],
 }
 
+cc_library_headers {
+  name: "libafl_headers",
+  vendor_available: true,
+  host_supported: true,
+
+  export_include_dirs: [
+    "include",
+  ],
+}
+
 cc_prebuilt_library_static {
   name: "libfrida-gum",
   compile_multilib: "64",
@@ -255,3 +265,7 @@ cc_binary {
     "utils/afl_frida/android",
   ],
 }
+
+subdirs = [
+  "custom_mutators",
+]
