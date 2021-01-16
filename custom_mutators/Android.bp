@@ -42,3 +42,70 @@ cc_library_shared {
     "libafl_headers",
   ],
 }
+
+/*cc_library_shared {
+  name: "honggfuzz-mutator",
+  vendor_available: true,
+  host_supported: true,
+
+  cflags: [
+    "-g",
+    "-O0",
+    "-funroll-loops",
+    "-fPIC",
+    "-Wl,-Bsymbolic",
+  ],
+
+  srcs: [
+    "honggfuzz/honggfuzz.c",
+    "honggfuzz/mangle.c",
+//    "../src/afl-perfomance.c",
+  ],
+
+  header_libs: [
+    "libafl_headers",
+  ],
+}*/
+
+cc_library_shared {
+  name: "radamsa-mutator",
+  vendor_available: true,
+  host_supported: true,
+
+  cflags: [
+    "-g",
+    "-O0",
+    "-funroll-loops",
+    "-fPIC",
+  ],
+
+  srcs: [
+    "radamsa/libradamsa.c",
+    "radamsa/radamsa-mutator.c",
+  ],
+
+  header_libs: [
+    "libafl_headers",
+  ],
+}
+
+cc_library_shared {
+  name: "symcc-mutator",
+  vendor_available: true,
+  host_supported: true,
+
+  cflags: [
+    "-g",
+    "-O0",
+    "-funroll-loops",
+    "-fPIC",
+  ],
+
+  srcs: [
+    "symcc/symcc.c",
+  ],
+
+  header_libs: [
+    "libafl_headers",
+  ],
+}
