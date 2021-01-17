@@ -562,8 +562,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
           !(afl->fsrv.total_execs % afl->queued_paths) ||
           get_cur_time() - afl->last_path_time > 15000) {
 
-        if (input_to_state_stage(afl, in_buf, out_buf, len,
-                                 afl->queue_cur->exec_cksum)) {
+        if (input_to_state_stage(afl, in_buf, out_buf, len)) {
 
           goto abandon_entry;
 
@@ -2986,8 +2985,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
           !(afl->fsrv.total_execs % afl->queued_paths) ||
           get_cur_time() - afl->last_path_time > 15000) {
 
-        if (input_to_state_stage(afl, in_buf, out_buf, len,
-                                 afl->queue_cur->exec_cksum)) {
+        if (input_to_state_stage(afl, in_buf, out_buf, len)) {
 
           goto abandon_entry;
 

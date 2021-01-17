@@ -42,6 +42,7 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
+#include "hash.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -86,7 +87,8 @@ static u8 quiet_mode,                  /* Hide non-essential messages?      */
     binary_mode,                       /* Write output as a binary map      */
     keep_cores,                        /* Allow coredumps?                  */
     remove_shm = 1,                    /* remove shmem?                     */
-    collect_coverage;                  /* collect coverage                  */
+    collect_coverage,                  /* collect coverage                  */
+    no_classify;                       /* do not classify counts            */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
@@ -317,7 +319,9 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   }
 
-  classify_counts(fsrv);
+  if (fsrv->trace_bits[0] == 1) { fsrv->trace_bits[0] = 0; }
+
+  if (!no_classify) { classify_counts(fsrv); }
 
   if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
 
@@ -490,7 +494,9 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
-  classify_counts(fsrv);
+  if (fsrv->trace_bits[0] == 1) { fsrv->trace_bits[0] = 0; }
+
+  if (!no_classify) { classify_counts(fsrv); }
 
   if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
 
@@ -680,6 +686,7 @@ static void usage(u8 *argv0) {
       "  -q            - sink program's output and don't show messages\n"
       "  -e            - show edge coverage only, ignore hit counts\n"
       "  -r            - show real tuple values instead of AFL filter values\n"
+      "  -s            - do not classify the map\n"
       "  -c            - allow core dumps\n\n"
 
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
@@ -729,9 +736,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = 1; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZQUWbcrh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:A:eqCZQUWbcrsh")) > 0) {
 
     switch (opt) {
+
+      case 's':
+        no_classify = 1;
+        break;
 
       case 'C':
         collect_coverage = 1;
@@ -1213,6 +1224,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
     showmap_run_target(fsrv, use_argv);
     tcnt = write_results_to_file(fsrv, out_file);
+    if (!quiet_mode) {
+
+      OKF("Hash of coverage map: %llx",
+          hash64(fsrv->trace_bits, fsrv->map_size, HASH_CONST));
+
+    }
 
   }
 

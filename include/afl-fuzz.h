@@ -1136,9 +1136,9 @@ void   read_foreign_testcases(afl_state_t *, int);
 u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */
-u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
-                        u64 exec_cksum);
+u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
 
+/* our RNG wrapper */
 AFL_RAND_RETURN rand_next(afl_state_t *afl);
 
 /* probability between 0.0 and 1.0 */
