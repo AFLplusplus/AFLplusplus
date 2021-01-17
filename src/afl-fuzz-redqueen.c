@@ -1855,8 +1855,11 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     // no taint? still try, create a dummy to prevent again colorization
     if (!taint) {
 
-      taint = ck_alloc(sizeof(struct tainted));
-      taint->len = len;
+#ifdef _DEBUG
+      fprintf(stderr, "TAINT FAILED\n");
+#endif
+      afl->queue_cur->colorized = CMPLOG_LVL_MAX;
+      return 0;
 
     }
 
