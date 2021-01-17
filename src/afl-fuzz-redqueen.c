@@ -29,7 +29,8 @@
 #include "cmplog.h"
 
 #define _DEBUG
-//#define COMBINE
+#define COMBINE
+#define CMPLOG_INTROSPECTION
 
 ///// Colorization
 
@@ -210,6 +211,10 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   u8 *            backup = ck_alloc_nozero(len);
   u8 *            changed = ck_alloc_nozero(len);
 
+#if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
+  u64 start_time = get_cur_time();
+#endif
+
   u64 orig_hit_cnt, new_hit_cnt, exec_cksum;
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -368,26 +373,30 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
-#ifdef _DEBUG
-  /*
+#if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
+  FILE *f = stderr;
+  if (afl->not_on_tty) {
+
     char fn[4096];
     snprintf(fn, sizeof(fn), "%s/introspection_color.txt", afl->out_dir);
-    FILE *f = fopen(fn, "a");
-    if (f) {
-
-  */
-  FILE *f = stderr;
-  fprintf(f,
-          "Colorization: fname=%s len=%u result=%u execs=%u found=%llu "
-          "taint=%u\n",
-          afl->queue_cur->fname, len, afl->queue_cur->colorized, afl->stage_cur,
-          new_hit_cnt - orig_hit_cnt, positions);
-/*
-    fclose(f);
+    f = fopen(fn, "a");
 
   }
 
-*/
+  if (f) {
+
+    fprintf(
+        f,
+        "Colorization: fname=%s len=%u ms=%llu result=%u execs=%u found=%llu "
+        "taint=%u\n",
+        afl->queue_cur->fname, len, get_cur_time() - start_time,
+        afl->queue_cur->colorized, afl->stage_cur, new_hit_cnt - orig_hit_cnt,
+        positions);
+
+    if (afl->not_on_tty) { fclose(f); }
+
+  }
+
 #endif
 
   afl->stage_finds[STAGE_COLORIZATION] += new_hit_cnt - orig_hit_cnt;
@@ -1864,6 +1873,15 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     }
 
 #ifdef _DEBUG
+    else if (taint->pos == 0 && taint->len == len) {
+
+      fprintf(stderr, "TAINT FULL\n");
+
+    }
+
+#endif
+
+#ifdef _DEBUG
     dump("NEW ", buf, len);
 #endif
 
@@ -1886,6 +1904,11 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     t = t->next;
 
   }
+
+#if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
+  u64 start_time = get_cur_time();
+  u32 cmp_locations = 0;
+#endif
 
   // do it manually, forkserver clear only afl->fsrv.trace_bits
   memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
@@ -1959,6 +1982,10 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   for (k = 0; k < CMP_MAP_W; ++k) {
 
     if (!afl->shm.cmp_map->headers[k].hits) { continue; }
+
+#if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
+    ++cmp_locations;
+#endif
 
     if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
 
@@ -2064,6 +2091,29 @@ exit_its:
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
   afl->stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_ITS] += afl->fsrv.total_execs - orig_execs;
+
+#if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
+  FILE *f = stderr;
+  if (afl->not_on_tty) {
+
+    char fn[4096];
+    snprintf(fn, sizeof(fn), "%s/introspection_color.txt", afl->out_dir);
+    f = fopen(fn, "a");
+
+  }
+
+  if (f) {
+
+    fprintf(f,
+            "Cmplog: fname=%s len=%u ms=%llu result=%u finds=%llu entries=%u\n",
+            afl->queue_cur->fname, len, get_cur_time() - start_time, r,
+            new_hit_cnt - orig_hit_cnt, cmp_locations);
+
+    if (afl->not_on_tty) { fclose(f); }
+
+  }
+
+#endif
 
   return r;
 
