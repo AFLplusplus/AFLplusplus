@@ -28,7 +28,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 
-//#define _DEBUG
+#define _DEBUG
 //#define COMBINE
 
 ///// Colorization
@@ -233,6 +233,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 #ifdef _DEBUG
   dump("ORIG", buf, len);
   dump("CHAN", changed, len);
+  fprintf(stderr, "CKSUM %llx (%u)\n", exec_cksum, afl->fsrv.map_size);
 #endif
 
   while ((rng = pop_biggest_range(&ranges)) != NULL &&
@@ -722,11 +723,11 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     if (*status != 1) {  // u8
 
-      // if (its_len >= 1 && (attr <= 1 || attr >= 8))
-      //   fprintf(stderr,
-      //           "TestU8: %u>=1 %x==%x %x==%x (idx=%u attr=%u) <= %x<-%x\n",
-      //           its_len, *buf_8, (u8)pattern, *o_buf_8, (u8)o_pattern, idx,
-      //           attr, (u8)repl, (u8)changed_val);
+      if (its_len >= 1 && (attr <= 1 || attr >= 8))
+        fprintf(stderr,
+                "TestU8: %u>=1 %x==%x %x==%x (idx=%u attr=%u) <= %x<-%x\n",
+                its_len, *buf_8, (u8)pattern, *o_buf_8, (u8)o_pattern, idx,
+                attr, (u8)repl, (u8)changed_val);
 
       if (its_len >= 1 &&
           ((*buf_8 == (u8)pattern && *o_buf_8 == (u8)o_pattern) ||
@@ -947,6 +948,93 @@ static u8 cmp_extend_encoding128(afl_state_t *afl, struct cmp_header *h,
               afl, h, SWAPN(pattern, 128), SWAPN(repl, 128),
               SWAPN(o_pattern, 128), SWAPN(changed_val, 128), attr, idx,
               taint_len, orig_buf, buf, cbuf, len, 0, lvl, status))) {
+
+        return 1;
+
+      }
+
+    }
+
+  }
+
+  return 0;
+
+}
+
+static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
+                               u128 pattern, u128 repl, u128 o_pattern,
+                               u128 changed_val, u8 attr, u32 idx,
+                               u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
+                               u32 len, u8 do_reverse, u8 lvl, u8 *status) {
+
+  u8 *ptr = (u8 *)&buf[idx];
+  u8 *o_ptr = (u8 *)&orig_buf[idx];
+  u32 its_len = MIN(len - idx, taint_len);
+  u32 shape = h->shape + 1;
+  u8 *p = (u8 *)&pattern;
+  u8 *o_p = (u8 *)&o_pattern;
+  u8 *r = (u8 *)&repl;
+  u8 *o_r = (u8 *)&changed_val;
+  u8  backup[16];
+#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+  size_t off = 0;
+#else
+  size_t off = 16 - shape;
+#endif
+
+  if (its_len >= shape) {
+
+#ifdef _DEBUG
+    fprintf(stderr, "TestUN: %u>=%u (len=%u idx=%u attr=%u) (%u) ", its_len,
+            shape, len, idx, attr, do_reverse);
+    u32 i;
+    for (i = 0; i < shape; i++)
+      fprintf(stderr, "%02x", ptr[0]);
+    fprintf(stderr, "==");
+    for (i = 0; i < shape; i++)
+      fprintf(stderr, "%02x", p[off + 0]);
+    fprintf(stderr, " ");
+    for (i = 0; i < shape; i++)
+      fprintf(stderr, "%02x", o_ptr[0]);
+    fprintf(stderr, "==");
+    for (i = 0; i < shape; i++)
+      fprintf(stderr, "%02x", o_p[off + 0]);
+    fprintf(stderr, " <= ");
+    for (i = 0; i < shape; i++)
+      fprintf(stderr, "%02x", r[off + 0]);
+    fprintf(stderr, " (");
+    for (i = 0; i < shape; i++)
+      fprintf(stderr, "%02x", o_r[off + 0]);
+    fprintf(stderr, ")\n");
+#endif
+
+    if (!memcmp(ptr, p + off, shape) && !memcmp(o_ptr, o_p + off, shape)) {
+
+      memcpy(backup, ptr, shape);
+      memcpy(ptr, r + off, shape);
+
+      if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+
+#ifdef COMBINE
+      if (*status == 1) { memcpy(cbuf + idx, r, shape); }
+#endif
+
+      memcpy(ptr, backup, shape);
+
+#ifdef _DEBUG
+      fprintf(stderr, "Status=%u\n", *status);
+#endif
+
+    }
+
+    // reverse encoding
+    if (do_reverse && *status != 1) {
+
+      if (unlikely(cmp_extend_encoding128(
+              afl, h, SWAPN(pattern, (shape << 3)), SWAPN(repl, (shape << 3)),
+              SWAPN(o_pattern, (shape << 3)), SWAPN(changed_val, (shape << 3)),
+              attr, idx, taint_len, orig_buf, buf, cbuf, len, 0, lvl,
+              status))) {
 
         return 1;
 
@@ -1365,9 +1453,53 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
         }
 
-      }
+      } else
 
-      if (is_128) {  // u128 special case
+          if (is_n) {  // _ExtInt special case
+
+        if (s128_v0 != orig_s128_v0 && orig_s128_v0 != orig_s128_v1) {
+
+          if (unlikely(cmp_extend_encodingN(
+                  afl, h, s128_v0, s128_v1, orig_s128_v0, orig_s128_v1,
+                  h->attribute, idx, taint_len, orig_buf, buf, cbuf, len, 1,
+                  lvl, &status))) {
+
+            return 1;
+
+          }
+
+        }
+
+        if (status == 1) {
+
+          found_one = 1;
+          break;
+
+        }
+
+        if (s128_v1 != orig_s128_v1 && orig_s128_v1 != orig_s128_v0) {
+
+          if (unlikely(cmp_extend_encodingN(
+                  afl, h, s128_v1, s128_v0, orig_s128_v1, orig_s128_v0,
+                  h->attribute, idx, taint_len, orig_buf, buf, cbuf, len, 1,
+                  lvl, &status))) {
+
+            return 1;
+
+          }
+
+        }
+
+        if (status == 1) {
+
+          found_one = 1;
+          break;
+
+        }
+
+      } else
+
+          if (is_128) {  // u128 special case
 
         if (s128_v0 != orig_s128_v0 && orig_s128_v0 != orig_s128_v1) {
 
