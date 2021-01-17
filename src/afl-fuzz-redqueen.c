@@ -29,6 +29,7 @@
 #include "cmplog.h"
 
 //#define _DEBUG
+//#define COMBINE
 
 ///// Colorization
 
@@ -621,7 +622,9 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         u64 tmp_64 = *buf_64;
         *buf_64 = repl;
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+#ifdef COMBINE
         if (*status == 1) { memcpy(cbuf + idx, buf_64, 8); }
+#endif
         *buf_64 = tmp_64;
 
         // fprintf(stderr, "Status=%u\n", *status);
@@ -660,7 +663,9 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         u32 tmp_32 = *buf_32;
         *buf_32 = (u32)repl;
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+#ifdef COMBINE
         if (*status == 1) { memcpy(cbuf + idx, buf_32, 4); }
+#endif
         *buf_32 = tmp_32;
 
         // fprintf(stderr, "Status=%u\n", *status);
@@ -692,7 +697,9 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         u16 tmp_16 = *buf_16;
         *buf_16 = (u16)repl;
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+#ifdef COMBINE
         if (*status == 1) { memcpy(cbuf + idx, buf_16, 2); }
+#endif
         *buf_16 = tmp_16;
 
       }
@@ -728,7 +735,9 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         u8 tmp_8 = *buf_8;
         *buf_8 = (u8)repl;
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+#ifdef COMBINE
         if (*status == 1) { cbuf[idx] = *buf_8; }
+#endif
         *buf_8 = tmp_8;
 
       }
@@ -920,7 +929,9 @@ static u8 cmp_extend_encoding128(afl_state_t *afl, struct cmp_header *h,
       *buf0 = v11;
 #endif
       if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+#ifdef COMBINE
       if (*status == 1) { memcpy(cbuf + idx, buf_128, 16); }
+#endif
       *buf_128 = tmp_128;
 
 #ifdef _DEBUG
@@ -996,7 +1007,9 @@ static u8 cmp_extend_encoding_ld(afl_state_t *afl, struct cmp_header *h,
       memcpy(backup, buf_ld, 10);
       memcpy(buf_ld, repl, 10);
       if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
+#ifdef COMBINE
       if (*status == 1) { memcpy(cbuf + idx, repl, 10); }
+#endif
       memcpy(buf_ld, backup, 10);
 
 #ifdef _DEBUG
@@ -1506,6 +1519,10 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
                               u8 *orig_buf, u8 *buf, u8 *cbuf, u32 len,
                               u8 *status) {
 
+#ifndef COMBINE
+  (void)(cbuf);
+#endif
+
   u32 i;
   u32 its_len = MIN((u32)32, len - idx);
   its_len = MIN(its_len, taint_len);
@@ -1525,7 +1542,9 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
     if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
 
+#ifdef COMBINE
     if (*status == 1) { memcpy(cbuf + idx, &buf[idx], i); }
+#endif
 
   }
 
@@ -1763,10 +1782,14 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   if (cmplog_lvl >= 2 && cmplog_done < 2) { lvl += 2; }
   if (cmplog_lvl >= 3 && cmplog_done < 3) { lvl += 4; }
 
+#ifdef COMBINE
   u8 *cbuf = afl_realloc((void **)&afl->in_scratch_buf, len + 128);
   memcpy(cbuf, orig_buf, len);
   u8 *virgin_backup = afl_realloc((void **)&afl->ex_buf, afl->shm.map_size);
   memcpy(virgin_backup, afl->virgin_bits, afl->shm.map_size);
+#else
+  u8 *cbuf = NULL;
+#endif
 
   u32 k;
   for (k = 0; k < CMP_MAP_W; ++k) {
@@ -1855,6 +1878,7 @@ exit_its:
 
   }
 
+#ifdef COMBINE
   // copy the current virgin bits so we can recover the information
   u8 *virgin_save = afl_realloc((void **)&afl->eff_buf, afl->shm.map_size);
   memcpy(virgin_save, afl->virgin_bits, afl->shm.map_size);
@@ -1865,7 +1889,7 @@ exit_its:
   its_fuzz(afl, cbuf, len, &status);
 
   // now combine with the saved virgin bits
-#ifdef WORD_SIZE_64
+  #ifdef WORD_SIZE_64
   u64 *v = (u64 *)afl->virgin_bits;
   u64 *s = (u64 *)virgin_save;
   u32  i;
@@ -1875,19 +1899,19 @@ exit_its:
 
   }
 
-#else
+  #else
   u32 *v = (u64 *)afl->virgin_bits;
   u32 *s = (u64 *)virgin_save;
-  u32 i;
+  u32  i;
   for (i = 0; i < (afl->shm.map_size >> 2); i++) {
 
     v[i] &= s[i];
 
   }
 
-#endif
+  #endif
 
-#ifdef _DEBUG
+  #ifdef _DEBUG
   dump("COMB", cbuf, len);
   if (status == 1) {
 
@@ -1899,6 +1923,7 @@ exit_its:
 
   }
 
+  #endif
 #endif
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
@@ -1908,4 +1933,8 @@ exit_its:
   return r;
 
 }
+
+#ifdef COMBINE
+  #undef COMBINE
+#endif
 
