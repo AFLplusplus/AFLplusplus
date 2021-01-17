@@ -88,7 +88,7 @@ static struct range *pop_biggest_range(struct range **ranges) {
 static void dump(char *txt, u8 *buf, u32 len) {
 
   u32 i;
-  fprintf(stderr, "DUMP %s %llx ", txt, hash64(buf, len, 0));
+  fprintf(stderr, "DUMP %s %llx ", txt, hash64(buf, len, HASH_CONST));
   for (i = 0; i < len; i++)
     fprintf(stderr, "%02x", buf[i]);
   fprintf(stderr, "\n");
@@ -117,6 +117,7 @@ static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u64 *cksum) {
   if (unlikely(common_fuzz_stuff(afl, buf, len))) { return 1; }
 
   *cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
   return 0;
 
 }
@@ -200,7 +201,7 @@ static void type_replace(afl_state_t *afl, u8 *buf, u32 len) {
 
 }
 
-static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum,
+static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
                        struct tainted **taints) {
 
   struct range *  ranges = add_range(NULL, 0, len - 1), *rng;
@@ -208,17 +209,30 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum,
   u8 *            backup = ck_alloc_nozero(len);
   u8 *            changed = ck_alloc_nozero(len);
 
-  u64 orig_hit_cnt, new_hit_cnt;
+  u64 orig_hit_cnt, new_hit_cnt, exec_cksum;
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
   afl->stage_name = "colorization";
   afl->stage_short = "colorization";
   afl->stage_max = (len << 1);
-
   afl->stage_cur = 0;
+
+  // in colorization we do not classify counts, hence we have to calculate
+  // the original checksum!
+  if (unlikely(get_exec_checksum(afl, buf, len, &exec_cksum))) {
+
+    goto checksum_fail;
+
+  }
+
   memcpy(backup, buf, len);
   memcpy(changed, buf, len);
   type_replace(afl, changed, len);
+
+#ifdef _DEBUG
+  dump("ORIG", buf, len);
+  dump("CHAN", changed, len);
+#endif
 
   while ((rng = pop_biggest_range(&ranges)) != NULL &&
          afl->stage_cur < afl->stage_max) {
@@ -227,7 +241,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len, u64 exec_cksum,
 
     memcpy(buf + rng->start, changed + rng->start, s);
 
-    u64 cksum;
+    u64 cksum = 0;
     u64 start_us = get_cur_time_us();
     if (unlikely(get_exec_checksum(afl, buf, len, &cksum))) {
 
@@ -633,11 +647,11 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     if (SHAPE_BYTES(h->shape) >= 4 && *status != 1) {
 
       // if (its_len >= 4 && (attr <= 1 || attr >= 8))
-      // fprintf(stderr,
-      //         "TestU32: %u>=4 %x==%llx"
-      //         " %x==%llx (idx=%u attr=%u) <= %llx<-%llx\n",
-      //         its_len, *buf_32, pattern, *o_buf_32, o_pattern, idx, attr,
-      //         repl, changed_val);
+      //   fprintf(stderr,
+      //           "TestU32: %u>=4 %x==%llx"
+      //           " %x==%llx (idx=%u attr=%u) <= %llx<-%llx\n",
+      //           its_len, *buf_32, pattern, *o_buf_32, o_pattern, idx, attr,
+      //           repl, changed_val);
 
       if (its_len >= 4 &&
           ((*buf_32 == (u32)pattern && *o_buf_32 == (u32)o_pattern) ||
@@ -702,10 +716,10 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     if (*status != 1) {  // u8
 
       // if (its_len >= 1 && (attr <= 1 || attr >= 8))
-      // fprintf(stderr,
-      //         "TestU8: %u>=1 %x==%x %x==%x (idx=%u attr=%u) <= %x<-%x\n",
-      //         its_len, *buf_8, pattern, *o_buf_8, o_pattern, idx, attr,
-      //         repl, changed_val);
+      //   fprintf(stderr,
+      //           "TestU8: %u>=1 %x==%x %x==%x (idx=%u attr=%u) <= %x<-%x\n",
+      //           its_len, *buf_8, (u8)pattern, *o_buf_8, (u8)o_pattern, idx,
+      //           attr, (u8)repl, (u8)changed_val);
 
       if (its_len >= 1 &&
           ((*buf_8 == (u8)pattern && *o_buf_8 == (u8)o_pattern) ||
@@ -1659,8 +1673,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 ///// Input to State stage
 
 // afl->queue_cur->exec_cksum
-u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
-                        u64 exec_cksum) {
+u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   u8 r = 1;
   if (unlikely(!afl->orig_cmp_map)) {
@@ -1686,7 +1699,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
 
   if (!afl->queue_cur->taint || !afl->queue_cur->cmplog_colorinput) {
 
-    if (unlikely(colorization(afl, buf, len, exec_cksum, &taint))) { return 1; }
+    if (unlikely(colorization(afl, buf, len, &taint))) { return 1; }
 
     // no taint? still try, create a dummy to prevent again colorization
     if (!taint) {
@@ -1696,6 +1709,10 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
 
     }
 
+#ifdef _DEBUG
+    dump("NEW ", buf, len);
+#endif
+
   } else {
 
     buf = afl->queue_cur->cmplog_colorinput;
@@ -1704,11 +1721,6 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
     if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) { return 1; }
 
   }
-
-#ifdef _DEBUG
-  dump("ORIG", orig_buf, len);
-  dump("NEW ", buf, len);
-#endif
 
   struct tainted *t = taint;
 

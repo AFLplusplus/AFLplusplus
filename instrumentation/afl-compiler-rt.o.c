@@ -1209,7 +1209,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
 void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
-  // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n", arg1, arg2, attr);
+  // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n",
+  //         (u8) arg1, (u8) arg2, attr);
 
   if (unlikely(!__afl_cmp_map)) return;
 

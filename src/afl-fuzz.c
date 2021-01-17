@@ -1094,6 +1094,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->shm.cmplog_mode) { OKF("CmpLog level: %u", afl->cmplog_lvl); }
+
   /* Dynamically allocate memory for AFLFast schedules */
   if (afl->schedule >= FAST && afl->schedule <= RARE) {
 
