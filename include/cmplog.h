@@ -38,17 +38,17 @@
 
 #define SHAPE_BYTES(x) (x + 1)
 
-#define CMP_TYPE_INS 0
-#define CMP_TYPE_RTN 1
+#define CMP_TYPE_INS 1
+#define CMP_TYPE_RTN 2
 
 struct cmp_header {
 
   unsigned hits : 24;
   unsigned id : 24;
   unsigned shape : 5;
-  unsigned type : 1;
+  unsigned type : 2;
   unsigned attribute : 4;
-  unsigned reserved : 6;
+  unsigned reserved : 5;
 
 } __attribute__((packed));
 

@@ -420,6 +420,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                 IRB.CreateCall(cmplogHookIns8, args);
                 break;
               case 128:
+#ifdef WORD_SIZE_64
                 if (max_size == 128) {
 
                   IRB.CreateCall(cmplogHookIns16, args);
@@ -430,6 +431,9 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
                 }
 
+#endif
+                break;
+              default:
                 break;
 
             }

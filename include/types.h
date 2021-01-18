@@ -25,12 +25,15 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "config.h"
 
-typedef uint8_t           u8;
-typedef uint16_t          u16;
-typedef uint32_t          u32;
+typedef uint8_t  u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+#ifdef WORD_SIZE_64
 typedef unsigned __int128 uint128_t;
 typedef uint128_t         u128;
+#endif
 
 /* Extended forkserver option values */
 
@@ -59,12 +62,14 @@ typedef uint128_t         u128;
 
 typedef unsigned long long u64;
 
-typedef int8_t   s8;
-typedef int16_t  s16;
-typedef int32_t  s32;
-typedef int64_t  s64;
+typedef int8_t  s8;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
+#ifdef WORD_SIZE_64
 typedef __int128 int128_t;
 typedef int128_t s128;
+#endif
 
 #ifndef MIN
   #define MIN(a, b)           \
@@ -119,19 +124,21 @@ typedef int128_t s128;
   })
 
 // It is impossible to define 128 bit constants, so ...
-#define SWAPN(_x, _l)                            \
-  ({                                             \
-                                                 \
-    u128  _res = (_x), _ret;                     \
-    char *d = (char *)&_ret, *s = (char *)&_res; \
-    int   i;                                     \
-    for (i = 0; i < 16; i++)                     \
-      d[15 - i] = s[i];                          \
-    u32 sr = 128U - ((_l) << 3U);                \
-    (_ret >>= sr);                               \
-    (u128) _ret;                                 \
-                                                 \
-  })
+#ifdef WORD_SIZE_64
+  #define SWAPN(_x, _l)                            \
+    ({                                             \
+                                                   \
+      u128  _res = (_x), _ret;                     \
+      char *d = (char *)&_ret, *s = (char *)&_res; \
+      int   i;                                     \
+      for (i = 0; i < 16; i++)                     \
+        d[15 - i] = s[i];                          \
+      u32 sr = 128U - ((_l) << 3U);                \
+      (_ret >>= sr);                               \
+      (u128) _ret;                                 \
+                                                   \
+    })
+#endif
 
 #define SWAPNN(_x, _y, _l)                     \
   ({                                           \
