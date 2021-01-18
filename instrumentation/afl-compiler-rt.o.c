@@ -1212,7 +1212,7 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
   // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n",
   //         (u8) arg1, (u8) arg2, attr);
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
@@ -1236,7 +1236,7 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
 void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
@@ -1260,7 +1260,7 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
 
   // fprintf(stderr, "hook4 arg0=%x arg1=%x attr=%u\n", arg1, arg2, attr);
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
@@ -1282,9 +1282,9 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
 
 void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
-  // fprintf(stderr, "hook8 arg0=%lx arg1=%lx attr=%u\n", arg1, arg2, attr);
+   fprintf(stderr, "hook8 arg0=%lx arg1=%lx attr=%u\n", arg1, arg2, attr);
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
@@ -1312,7 +1312,7 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
   // (u64)(arg1 >> 64), (u64)arg1, (u64)(arg2 >> 64), (u64)arg2, size + 1,
   // attr);
 
-  if (unlikely(!__afl_cmp_map)) return;
+  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (k >> 4) ^ (k << 8);
