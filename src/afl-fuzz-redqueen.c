@@ -110,7 +110,7 @@ static struct range *pop_biggest_range(struct range **ranges) {
 static void dump(char *txt, u8 *buf, u32 len) {
 
   u32 i;
-  fprintf(stderr, "DUMP %s %llx ", txt, hash64(buf, len, HASH_CONST));
+  fprintf(stderr, "DUMP %s %016llx ", txt, hash64(buf, len, HASH_CONST));
   for (i = 0; i < len; i++)
     fprintf(stderr, "%02x", buf[i]);
   fprintf(stderr, "\n");
@@ -254,12 +254,6 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   memcpy(backup, buf, len);
   memcpy(changed, buf, len);
   type_replace(afl, changed, len);
-
-#ifdef _DEBUG
-  dump("ORIG", buf, len);
-  dump("CHAN", changed, len);
-  fprintf(stderr, "CKSUM %llx (%u)\n", exec_cksum, afl->fsrv.map_size);
-#endif
 
   while ((rng = pop_biggest_range(&ranges)) != NULL &&
          afl->stage_cur < afl->stage_max) {
@@ -949,8 +943,8 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
   if (its_len >= shape) {
 
   #ifdef _DEBUG
-    // fprintf(stderr, "TestUN: %u>=%u (len=%u idx=%u attr=%u off=%lu) (%u) ",
-    //         its_len, shape, len, idx, attr, off, do_reverse);
+    fprintf(stderr, "TestUN: %u>=%u (len=%u idx=%u attr=%u off=%lu) (%u) ",
+            its_len, shape, len, idx, attr, off, do_reverse);
     u32 i;
     u8 *o_r = (u8 *)&changed_val;
     for (i = 0; i < shape; i++)
@@ -1545,12 +1539,6 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   u8 r = 1;
-  if (unlikely(!afl->orig_cmp_map)) {
-
-    afl->orig_cmp_map = ck_alloc_nozero(sizeof(struct cmp_map));
-
-  }
-
   if (unlikely(!afl->pass_stats)) {
 
     afl->pass_stats = ck_alloc(sizeof(struct afl_pass_stat) * CMP_MAP_W);
@@ -1583,10 +1571,6 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
 #endif
 
-#ifdef _DEBUG
-    dump("NEW ", buf, len);
-#endif
-
   } else {
 
     buf = afl->queue_cur->cmplog_colorinput;
@@ -1611,13 +1595,26 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 #endif
 
   // Generate the cmplog data
+
   // manually clear the full cmp_map
   memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
   if (unlikely(common_fuzz_cmplog_stuff(afl, orig_buf, len))) { return 1; }
+  if (unlikely(!afl->orig_cmp_map)) {
+
+    afl->orig_cmp_map = ck_alloc_nozero(sizeof(struct cmp_map));
+
+  }
+
   memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
-  // manually clear just the headers
-  memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header));
+  memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
   if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) { return 1; }
+
+#ifdef _DEBUG
+  dump("ORIG", orig_buf, len);
+  dump("NEW ", buf, len);
+#endif
+
+  // Start insertion loop
 
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
