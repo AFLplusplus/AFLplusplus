@@ -772,7 +772,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   if (lvl < 4) { return 0; }
 
   // lesser/greater FP comparison
-  if (!(attr & 1) && (attr & 6) && (attr >= 8 && attr < 16)) {
+  if ((attr & 6) && (attr >= 8 && attr < 16)) {
 
     u64 repl_new;
     if (SHAPE_BYTES(h->shape) == 4 && its_len >= 4) {
@@ -869,7 +869,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     }
 
-  } else if (!(attr & 1) && (attr & 6) && attr < 8) {
+  } else if ((attr & 6) && attr < 8) {
 
     // lesser/greater integer comparison
 
