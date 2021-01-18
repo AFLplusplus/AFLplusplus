@@ -31,6 +31,7 @@
 #define _DEBUG
 #define COMBINE
 #define CMPLOG_INTROSPECTION
+#define ARITHMETIC_LESSER_GREATER
 
 ///// Colorization
 
@@ -375,6 +376,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
 #if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
   FILE *f = stderr;
+  #ifndef _DEBUG
   if (afl->not_on_tty) {
 
     char fn[4096];
@@ -382,6 +384,8 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
     f = fopen(fn, "a");
 
   }
+
+  #endif
 
   if (f) {
 
@@ -393,7 +397,9 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
         afl->queue_cur->colorized, afl->stage_cur, new_hit_cnt - orig_hit_cnt,
         positions);
 
+  #ifndef _DEBUG
     if (afl->not_on_tty) { fclose(f); }
+  #endif
 
   }
 
@@ -758,11 +764,15 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   // here we add and subract 1 from the value, but only if it is not an
   // == or != comparison
-  // Bits: 1 = Equal, 2 = Greater, 3 = Lesser, 4 = Float
+  // Bits: 1 = Equal, 2 = Greater, 4 = Lesser, 8 = Float
+  //       16 = modified float, 32 = modified integer (modified = wont match
+  //                                                   in original buffer)
 
+#ifdef ARITHMETIC_LESSER_GREATER
   if (lvl < 4) { return 0; }
 
-  if (attr >= 8 && attr < 16) {  // lesser/greater integer comparison
+  // lesser/greater FP comparison
+  if (!(attr & 1) && (attr & 6) && (attr >= 8 && attr < 16)) {
 
     u64 repl_new;
     if (SHAPE_BYTES(h->shape) == 4 && its_len >= 4) {
@@ -836,11 +846,11 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       double *f = (double *)&repl;
       float   g = (float)*f;
       repl_new = 0;
-#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+  #if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
       memcpy((char *)&repl_new, (char *)&g, 4);
-#else
+  #else
       memcpy(((char *)&repl_new) + 4, (char *)&g, 4);
-#endif
+  #endif
       changed_val = repl_new;
       h->shape = 3;  // modify shape
 
@@ -850,7 +860,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
               afl, h, pattern, repl_new, o_pattern, changed_val, 16, idx,
               taint_len, orig_buf, buf, cbuf, len, 1, lvl, status))) {
 
-        h->shape = 7;
+        h->shape = 7;  // recover shape
         return 1;
 
       }
@@ -859,7 +869,9 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     }
 
-  } else if (attr > 1 && attr < 8) {  // lesser/greater integer comparison
+  } else if (!(attr & 1) && (attr & 6) && attr < 8) {
+
+    // lesser/greater integer comparison
 
     u64 repl_new;
 
@@ -884,6 +896,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     }
 
   }
+
+#endif                                         /* ARITHMETIC_LESSER_GREATER */
 
   return 0;
 
@@ -1057,89 +1071,6 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
 
 }
 
-// uh a pointer read from (long double*) reads 12 bytes, not 10 ...
-// so lets make this complicated.
-static u8 cmp_extend_encoding_ld(afl_state_t *afl, struct cmp_header *h,
-                                 u8 *pattern, u8 *repl, u8 *o_pattern,
-                                 u8 *changed_val, u8 attr, u32 idx,
-                                 u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
-                                 u32 len, u8 do_reverse, u8 lvl, u8 *status) {
-
-  u8 *buf_ld = &buf[idx], *o_buf_ld = &orig_buf[idx], backup[10];
-  u32 its_len = MIN(len - idx, taint_len);
-
-  if (its_len >= 10) {
-
-#ifdef _DEBUG
-    fprintf(stderr, "TestUld: %u>=10 (len=%u idx=%u attr=%u) (%u)\n", its_len,
-            len, idx, attr, do_reverse);
-    fprintf(stderr, "TestUld: ");
-    u32 i;
-    for (i = 0; i < 10; i++)
-      fprintf(stderr, "%02x", pattern[i]);
-    fprintf(stderr, "==");
-    for (i = 0; i < 10; i++)
-      fprintf(stderr, "%02x", buf_ld[i]);
-    fprintf(stderr, " ");
-    for (i = 0; i < 10; i++)
-      fprintf(stderr, "%02x", o_pattern[i]);
-    fprintf(stderr, "==");
-    for (i = 0; i < 10; i++)
-      fprintf(stderr, "%02x", o_buf_ld[i]);
-    fprintf(stderr, " <= ");
-    for (i = 0; i < 10; i++)
-      fprintf(stderr, "%02x", repl[i]);
-    fprintf(stderr, "==");
-    for (i = 0; i < 10; i++)
-      fprintf(stderr, "%02x", changed_val[i]);
-    fprintf(stderr, "\n");
-#endif
-
-    if (!memcmp(pattern, buf_ld, 10) && !memcmp(o_pattern, o_buf_ld, 10)) {
-
-      // if this is an fcmp (attr & 8 == 8) then do not compare the patterns -
-      // due to a bug in llvm dynamic float bitcasts do not work :(
-      // the value 16 means this is a +- 1.0 test case
-
-      memcpy(backup, buf_ld, 10);
-      memcpy(buf_ld, repl, 10);
-      if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-#ifdef COMBINE
-      if (*status == 1) { memcpy(cbuf + idx, repl, 10); }
-#endif
-      memcpy(buf_ld, backup, 10);
-
-#ifdef _DEBUG
-      fprintf(stderr, "Status=%u\n", *status);
-#endif
-
-    }
-
-  }
-
-  // reverse encoding
-  if (do_reverse && *status != 1) {
-
-    u8 sp[10], sr[10], osp[10], osr[10];
-    SWAPNN(sp, pattern, 10);
-    SWAPNN(sr, repl, 10);
-    SWAPNN(osp, o_pattern, 10);
-    SWAPNN(osr, changed_val, 10);
-
-    if (unlikely(cmp_extend_encoding_ld(afl, h, sp, sr, osp, osr, attr, idx,
-                                        taint_len, orig_buf, buf, cbuf, len, 0,
-                                        lvl, status))) {
-
-      return 1;
-
-    }
-
-  }
-
-  return 0;
-
-}
-
 static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
   u8 *b = (u8 *)&v;
@@ -1273,7 +1204,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   struct cmp_header *h = &afl->shm.cmp_map->headers[key];
   struct tainted *   t;
   u32                i, j, idx, taint_len;
-  u32                have_taint = 1, is_128 = 0, is_n = 0, is_ld = 0;
+  u32                have_taint = 1, is_128 = 0, is_n = 0;
   u32                loggeds = h->hits;
   if (h->hits > CMP_MAP_H) { loggeds = CMP_MAP_H; }
 
@@ -1281,12 +1212,11 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   u8 found_one = 0;
 
   /* loop cmps are useless, detect and ignore them */
-  u128        s128_v0 = 0, s128_v1 = 0, orig_s128_v0 = 0, orig_s128_v1 = 0;
-  long double ld0, ld1, o_ld0, o_ld1;
-  u64         s_v0, s_v1;
-  u8          s_v0_fixed = 1, s_v1_fixed = 1;
-  u8          s_v0_inc = 1, s_v1_inc = 1;
-  u8          s_v0_dec = 1, s_v1_dec = 1;
+  u128 s128_v0 = 0, s128_v1 = 0, orig_s128_v0 = 0, orig_s128_v1 = 0;
+  u64  s_v0, s_v1;
+  u8   s_v0_fixed = 1, s_v1_fixed = 1;
+  u8   s_v0_inc = 1, s_v1_inc = 1;
+  u8   s_v0_dec = 1, s_v1_dec = 1;
 
   switch (SHAPE_BYTES(h->shape)) {
 
@@ -1298,9 +1228,6 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     case 16:
       is_128 = 1;
       break;
-    case 10:
-      if (h->attribute & 8) { is_ld = 1; }
-      // fall through
     default:
       is_n = 1;
 
@@ -1376,24 +1303,6 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       orig_s128_v0 = ((u128)orig_o->v0) + (((u128)orig_o->v0_128) << 64);
       orig_s128_v1 = ((u128)orig_o->v1) + (((u128)orig_o->v1_128) << 64);
 
-      if (is_ld) {
-
-#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-        memcpy((char *)&ld0, (char *)&s128_v0, sizeof(long double));
-        memcpy((char *)&ld1, (char *)&s128_v1, sizeof(long double));
-        memcpy((char *)&o_ld0, (char *)&orig_s128_v0, sizeof(long double));
-        memcpy((char *)&o_ld1, (char *)&orig_s128_v1, sizeof(long double));
-#else
-        memcpy((char *)&ld0, (char *)(&s128_v0) + 6, sizeof(long double));
-        memcpy((char *)&ld1, (char *)(&s128_v1) + 6, sizeof(long double));
-        memcpy((char *)&o_ld0, (char *)(&orig_s128_v0) + 6,
-               sizeof(long double));
-        memcpy((char *)&o_ld1, (char *)(&orig_s128_v1) + 6,
-               sizeof(long double));
-#endif
-
-      }
-
     }
 
     for (idx = 0; idx < len; ++idx) {
@@ -1420,51 +1329,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       status = 0;
 
-      if (is_ld) {  // long double special case
-
-        if (ld0 != o_ld0 && o_ld1 != o_ld0) {
-
-          if (unlikely(cmp_extend_encoding_ld(
-                  afl, h, (u8 *)&ld0, (u8 *)&ld1, (u8 *)&o_ld0, (u8 *)&o_ld1,
-                  h->attribute, idx, taint_len, orig_buf, buf, cbuf, len, 1,
-                  lvl, &status))) {
-
-            return 1;
-
-          }
-
-        }
-
-        if (status == 1) {
-
-          found_one = 1;
-          break;
-
-        }
-
-        if (ld1 != o_ld1 && o_ld0 != o_ld1) {
-
-          if (unlikely(cmp_extend_encoding_ld(
-                  afl, h, (u8 *)&ld1, (u8 *)&ld0, (u8 *)&o_ld1, (u8 *)&o_ld0,
-                  h->attribute, idx, taint_len, orig_buf, buf, cbuf, len, 1,
-                  lvl, &status))) {
-
-            return 1;
-
-          }
-
-        }
-
-        if (status == 1) {
-
-          found_one = 1;
-          break;
-
-        }
-
-      } else
-
-          if (is_n) {  // _ExtInt special case
+      if (is_n) {  // _ExtInt special case
 
         if (s128_v0 != orig_s128_v0 && orig_s128_v0 != orig_s128_v1) {
 
@@ -1552,7 +1417,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       }
 
-      // even for u128 and long double do cmp_extend_encoding() because
+      // even for u128 and _ExtInt we do cmp_extend_encoding() because
       // if we got here their own special trials failed and it might just be
       // a cast from e.g. u64 to u128 from the input data.
 
@@ -1995,7 +1860,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
       }
 
-    } else {
+    } else if (lvl & 1) {
 
       if (unlikely(rtn_fuzz(afl, k, orig_buf, buf, cbuf, len, taint))) {
 
@@ -2064,7 +1929,7 @@ exit_its:
   #else
   u32 *v = (u64 *)afl->virgin_bits;
   u32 *s = (u64 *)virgin_save;
-  u32  i;
+  u32 i;
   for (i = 0; i < (afl->shm.map_size >> 2); i++) {
 
     v[i] &= s[i];
@@ -2094,6 +1959,7 @@ exit_its:
 
 #if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
   FILE *f = stderr;
+  #ifndef _DEBUG
   if (afl->not_on_tty) {
 
     char fn[4096];
@@ -2102,6 +1968,8 @@ exit_its:
 
   }
 
+  #endif
+
   if (f) {
 
     fprintf(f,
@@ -2109,7 +1977,9 @@ exit_its:
             afl->queue_cur->fname, len, get_cur_time() - start_time, r,
             new_hit_cnt - orig_hit_cnt, cmp_locations);
 
+  #ifndef _DEBUG
     if (afl->not_on_tty) { fclose(f); }
+  #endif
 
   }
 
