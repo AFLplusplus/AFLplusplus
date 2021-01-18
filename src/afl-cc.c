@@ -683,6 +683,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strncmp(cur, "--afl", 5)) continue;
     if (lto_mode && !strncmp(cur, "-fuse-ld=", 9)) continue;
     if (lto_mode && !strncmp(cur, "--ld-path=", 10)) continue;
+    if (!strncmp(cur, "-fno-unroll", 11)) continue;
     if (!strcmp(cur, "-Wl,-z,defs") || !strcmp(cur, "-Wl,--no-undefined"))
       continue;
 
@@ -703,7 +704,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (!strcmp(cur, "-shared")) shared_linking = 1;
 
     if (!strncmp(cur, "-O", 2)) have_o = 1;
-    if (!strncmp(cur, "-f", 2) && strstr(cur, "unroll-loop")) have_unroll = 1;
+    if (!strncmp(cur, "-funroll-loop", 13)) have_unroll = 1;
 
     cc_params[cc_par_cnt++] = cur;
 
