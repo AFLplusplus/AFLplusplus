@@ -380,7 +380,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   if (afl->not_on_tty) {
 
     char fn[4096];
-    snprintf(fn, sizeof(fn), "%s/introspection_color.txt", afl->out_dir);
+    snprintf(fn, sizeof(fn), "%s/introspection_cmplog.txt", afl->out_dir);
     f = fopen(fn, "a");
 
   }
@@ -1771,7 +1771,7 @@ exit_its:
   if (afl->not_on_tty) {
 
     char fn[4096];
-    snprintf(fn, sizeof(fn), "%s/introspection_color.txt", afl->out_dir);
+    snprintf(fn, sizeof(fn), "%s/introspection_cmplog.txt", afl->out_dir);
     f = fopen(fn, "a");
 
   }
