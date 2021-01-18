@@ -33,7 +33,26 @@
 #define CMPLOG_INTROSPECTION
 //#define ARITHMETIC_LESSER_GREATER
 
-///// Colorization
+// CMP attribute enum
+enum {
+
+  IS_EQUAL = 1,
+  IS_GREATER = 2,
+  IS_LESSER = 4,
+  IS_FP = 8,
+  IS_FP_MOD = 16,
+  IS_INT_MOD = 32
+
+};
+
+// CMPLOG LVL
+enum {
+
+  LVL1 = 1,
+  LVL2 = 2,
+  LVL3 = 4
+
+};
 
 struct range {
 
@@ -545,8 +564,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   unsigned long long unum;
   long long          num;
 
-  // reverse atoi()/strnu?toll() is expensive, so we only to it in lvl == 3
-  if (lvl & 4) {
+  // reverse atoi()/strnu?toll() is expensive, so we only to it in lvl 3
+  if (lvl & LVL3) {
 
     if (afl->queue_cur->is_ascii) {
 
@@ -618,7 +637,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   // we only allow this for ascii2integer (above)
   if (unlikely(pattern == o_pattern)) { return 0; }
 
-  if ((lvl & 1) || ((lvl & 2) && (attr >= 8 && attr <= 15)) || attr >= 16) {
+  if ((lvl & LVL1) || ((lvl & LVL2) && (attr >= IS_FP && attr < IS_FP_MOD)) ||
+      attr >= IS_FP_MOD) {
 
     if (SHAPE_BYTES(h->shape) >= 8 && *status != 1) {
 
@@ -632,8 +652,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
       // if this is an fcmp (attr & 8 == 8) then do not compare the patterns -
       // due to a bug in llvm dynamic float bitcasts do not work :(
       // the value 16 means this is a +- 1.0 test case
-      if (its_len >= 8 &&
-          ((*buf_64 == pattern && *o_buf_64 == o_pattern) || attr >= 16)) {
+      if (its_len >= 8 && ((*buf_64 == pattern && *o_buf_64 == o_pattern) ||
+                           attr >= IS_FP_MOD)) {
 
         u64 tmp_64 = *buf_64;
         *buf_64 = repl;
@@ -674,7 +694,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
       if (its_len >= 4 &&
           ((*buf_32 == (u32)pattern && *o_buf_32 == (u32)o_pattern) ||
-           attr >= 16)) {
+           attr >= IS_FP_MOD)) {
 
         u32 tmp_32 = *buf_32;
         *buf_32 = (u32)repl;
@@ -708,7 +728,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
       if (its_len >= 2 &&
           ((*buf_16 == (u16)pattern && *o_buf_16 == (u16)o_pattern) ||
-           attr >= 16)) {
+           attr >= IS_FP_MOD)) {
 
         u16 tmp_16 = *buf_16;
         *buf_16 = (u16)repl;
@@ -738,7 +758,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     if (*status != 1) {  // u8
 
-      // if (its_len >= 1 && (attr <= 1 || attr >= 8))
+      // if (its_len >= 1)
       //   fprintf(stderr,
       //           "TestU8: %u>=1 (idx=%u attr=%u) %x==%x %x==%x <= %x<-%x\n",
       //           its_len, idx, attr, *buf_8, (u8)pattern, *o_buf_8,
@@ -746,7 +766,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
       if (its_len >= 1 &&
           ((*buf_8 == (u8)pattern && *o_buf_8 == (u8)o_pattern) ||
-           attr >= 16)) {
+           attr >= IS_FP_MOD)) {
 
         u8 tmp_8 = *buf_8;
         *buf_8 = (u8)repl;
@@ -769,10 +789,11 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   //                                                   in original buffer)
 
 #ifdef ARITHMETIC_LESSER_GREATER
-  if (lvl < 4) { return 0; }
+  if (lvl < LVL3) { return 0; }
 
   // lesser/greater FP comparison
-  if ((attr & 6) && (attr >= 8 && attr < 16)) {
+  if ((attr & (IS_LESSER + IS_GREATER)) &&
+      (attr >= IS_FP && attr < IS_FP_MOD)) {
 
     u64 repl_new;
     if (SHAPE_BYTES(h->shape) == 4 && its_len >= 4) {
@@ -869,7 +890,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     }
 
-  } else if ((attr & 6) && attr < 8) {
+  } else if ((attr & (IS_LESSER + IS_GREATER)) && attr < IS_FP) {
 
     // lesser/greater integer comparison
 
@@ -903,6 +924,8 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
 }
 
+#ifdef WORD_SIZE_64
+
 static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
                                u128 pattern, u128 repl, u128 o_pattern,
                                u128 changed_val, u8 attr, u32 idx,
@@ -917,15 +940,15 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
   u8  backup[16];
   u32 its_len = MIN(len - idx, taint_len);
   u32 shape = h->shape + 1;
-#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+  #if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
   size_t off = 0;
-#else
+  #else
   size_t off = 16 - shape;
-#endif
+  #endif
 
   if (its_len >= shape) {
 
-#ifdef _DEBUG
+  #ifdef _DEBUG
     // fprintf(stderr, "TestUN: %u>=%u (len=%u idx=%u attr=%u off=%lu) (%u) ",
     //         its_len, shape, len, idx, attr, off, do_reverse);
     u32 i;
@@ -948,7 +971,7 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
     for (i = 0; i < shape; i++)
       fprintf(stderr, "%02x", o_r[off + i]);
     fprintf(stderr, "\n");
-#endif
+  #endif
 
     if (!memcmp(ptr, p + off, shape) && !memcmp(o_ptr, o_p + off, shape)) {
 
@@ -957,15 +980,15 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
 
       if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
 
-#ifdef COMBINE
+  #ifdef COMBINE
       if (*status == 1) { memcpy(cbuf + idx, r, shape); }
-#endif
+  #endif
 
       memcpy(ptr, backup, shape);
 
-#ifdef _DEBUG
+  #ifdef _DEBUG
       fprintf(stderr, "Status=%u\n", *status);
-#endif
+  #endif
 
     }
 
@@ -989,6 +1012,8 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
   return 0;
 
 }
+
+#endif
 
 static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
@@ -1040,21 +1065,22 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
 }
 
+#ifdef WORD_SIZE_64
 static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
 
   u8 *b = (u8 *)&v;
 
   u32 k;
   u8  cons_ff = 0, cons_0 = 0;
-#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+  #if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
   u32 off = 0;
   for (k = 0; k < size; ++k) {
 
-#else
-  u32    off = 16 - size;
+  #else
+  u32 off = 16 - size;
   for (k = 16 - size; k < 16; ++k) {
 
-#endif
+  #endif
     if (b[k] == 0) {
 
       ++cons_0;
@@ -1077,6 +1103,8 @@ static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
 
 }
 
+#endif
+
 static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
                    u32 len, u32 lvl, struct tainted *taint) {
 
@@ -1091,11 +1119,13 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   u8 found_one = 0;
 
   /* loop cmps are useless, detect and ignore them */
+#ifdef WORD_SIZE_64
   u128 s128_v0 = 0, s128_v1 = 0, orig_s128_v0 = 0, orig_s128_v1 = 0;
-  u64  s_v0, s_v1;
-  u8   s_v0_fixed = 1, s_v1_fixed = 1;
-  u8   s_v0_inc = 1, s_v1_inc = 1;
-  u8   s_v0_dec = 1, s_v1_dec = 1;
+#endif
+  u64 s_v0, s_v1;
+  u8  s_v0_fixed = 1, s_v1_fixed = 1;
+  u8  s_v0_inc = 1, s_v1_inc = 1;
+  u8  s_v0_dec = 1, s_v1_dec = 1;
 
   switch (SHAPE_BYTES(h->shape)) {
 
@@ -1110,7 +1140,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   }
 
   // FP handling only from lvl 2 onwards
-  if ((h->attribute & 8) && lvl < 2) return 0;
+  if ((h->attribute & IS_FP) && lvl < LVL2) return 0;
 
   for (i = 0; i < loggeds; ++i) {
 
@@ -1162,6 +1192,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     }
 
+#ifdef WORD_SIZE_64
     if (unlikely(is_n)) {
 
       s128_v0 = ((u128)o->v0) + (((u128)o->v0_128) << 64);
@@ -1170,6 +1201,8 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       orig_s128_v1 = ((u128)orig_o->v1) + (((u128)orig_o->v1_128) << 64);
 
     }
+
+#endif
 
     for (idx = 0; idx < len; ++idx) {
 
@@ -1195,6 +1228,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       status = 0;
 
+#ifdef WORD_SIZE_64
       if (is_n) {  // _ExtInt special case including u128
 
         if (s128_v0 != orig_s128_v0 && orig_s128_v0 != orig_s128_v1) {
@@ -1239,11 +1273,13 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       }
 
+#endif
+
       // even for u128 and _ExtInt we do cmp_extend_encoding() because
       // if we got here their own special trials failed and it might just be
       // a cast from e.g. u64 to u128 from the input data.
 
-      if ((o->v0 != orig_o->v0 || lvl >= 4) && orig_o->v0 != orig_o->v1) {
+      if ((o->v0 != orig_o->v0 || lvl >= LVL3) && orig_o->v0 != orig_o->v1) {
 
         if (unlikely(cmp_extend_encoding(
                 afl, h, o->v0, o->v1, orig_o->v0, orig_o->v1, h->attribute, idx,
@@ -1263,7 +1299,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       }
 
       status = 0;
-      if ((o->v1 != orig_o->v1 || lvl >= 4) && orig_o->v0 != orig_o->v1) {
+      if ((o->v1 != orig_o->v1 || lvl >= LVL3) && orig_o->v0 != orig_o->v1) {
 
         if (unlikely(cmp_extend_encoding(
                 afl, h, o->v1, o->v0, orig_o->v1, orig_o->v0, h->attribute, idx,
@@ -1521,13 +1557,6 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
-  // do it manually, forkserver clear only afl->fsrv.trace_bits
-  memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
-
-  if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) { return 1; }
-
-  memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
-
   struct tainted *taint = NULL;
 
   if (!afl->queue_cur->taint || !afl->queue_cur->cmplog_colorinput) {
@@ -1562,8 +1591,6 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     buf = afl->queue_cur->cmplog_colorinput;
     taint = afl->queue_cur->taint;
-    // reget the cmplog information
-    if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) { return 1; }
 
   }
 
@@ -1583,9 +1610,13 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u32 cmp_locations = 0;
 #endif
 
-  // do it manually, forkserver clear only afl->fsrv.trace_bits
-  memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
-
+  // Generate the cmplog data
+  // manually clear the full cmp_map
+  memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
+  if (unlikely(common_fuzz_cmplog_stuff(afl, orig_buf, len))) { return 1; }
+  memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
+  // manually clear just the headers
+  memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header));
   if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) { return 1; }
 
   u64 orig_hit_cnt, new_hit_cnt;
@@ -1602,7 +1633,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u32 cmplog_lvl = afl->cmplog_lvl;
   if (!cmplog_done) {
 
-    lvl = 1;
+    lvl = LVL1;
 
   } else {
 
@@ -1610,8 +1641,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
-  if (cmplog_lvl >= 2 && cmplog_done < 2) { lvl += 2; }
-  if (cmplog_lvl >= 3 && cmplog_done < 3) { lvl += 4; }
+  if (cmplog_lvl >= 2 && cmplog_done < 2) { lvl += LVL2; }
+  if (cmplog_lvl >= 3 && cmplog_done < 3) { lvl += LVL3; }
 
 #ifdef COMBINE
   u8 *cbuf = afl_realloc((void **)&afl->in_scratch_buf, len + 128);
@@ -1668,7 +1699,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
       }
 
-    } else if (lvl & 1) {
+    } else if (lvl & LVL1) {
 
       if (unlikely(rtn_fuzz(afl, k, orig_buf, buf, cbuf, len, taint))) {
 
