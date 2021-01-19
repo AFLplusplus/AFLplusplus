@@ -586,7 +586,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->timeout_given) { FATAL("Multiple -t options not supported"); }
 
-        if (sscanf(optarg, "%u%c", &afl->fsrv.exec_tmout, &suffix) < 1 ||
+        if (!optarg || sscanf(optarg, "%u%c", &afl->fsrv.exec_tmout, &suffix) < 1 ||
             optarg[0] == '-') {
 
           FATAL("Bad syntax used for -t");
@@ -768,7 +768,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'V': {
 
         afl->most_time_key = 1;
-        if (sscanf(optarg, "%llu", &afl->most_time) < 1 || optarg[0] == '-') {
+        if (!optarg || sscanf(optarg, "%llu", &afl->most_time) < 1 || optarg[0] == '-') {
 
           FATAL("Bad syntax used for -V");
 
@@ -779,7 +779,7 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'E': {
 
         afl->most_execs_key = 1;
-        if (sscanf(optarg, "%llu", &afl->most_execs) < 1 || optarg[0] == '-') {
+        if (!optarg || sscanf(optarg, "%llu", &afl->most_execs) < 1 || optarg[0] == '-') {
 
           FATAL("Bad syntax used for -E");
 
