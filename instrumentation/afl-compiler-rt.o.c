@@ -1429,7 +1429,7 @@ void __afl_coverage_discard() {
 }
 
 // discard the testcase
-void __afl_coverage_abort() {
+void __afl_coverage_skip() {
 
   __afl_coverage_discard();
 

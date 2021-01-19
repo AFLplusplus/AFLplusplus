@@ -41,7 +41,7 @@ in any function where you want:
   * `__AFL_COVERAGE_ON();` - enable coverage from this point onwards
   * `__AFL_COVERAGE_OFF();` - disable coverage from this point onwards
   * `__AFL_COVERAGE_DISCARD();` - reset all coverage gathered until this point
-  * `__AFL_COVERAGE_ABORT();` - mark this test case as unimportant. Whatever happens, afl-fuzz will ignore it.
+  * `__AFL_COVERAGE_SKIP();` - mark this test case as unimportant. Whatever happens, afl-fuzz will ignore it.
 
 ## 3) Selective instrumenation with AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST
 
