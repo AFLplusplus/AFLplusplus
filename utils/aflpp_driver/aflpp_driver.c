@@ -47,6 +47,7 @@ $AFL_HOME/afl-fuzz -i IN -o OUT ./a.out
 #include <sys/mman.h>
 
 #include "config.h"
+#include "types.h"
 #include "cmplog.h"
 
 #ifdef _DEBUG
