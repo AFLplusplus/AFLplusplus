@@ -29,7 +29,7 @@
 #include "cmplog.h"
 
 //#define _DEBUG
-//#define COMBINE
+#define COMBINE
 #define CMPLOG_INTROSPECTION
 //#define ARITHMETIC_LESSER_GREATER
 
@@ -1103,14 +1103,13 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
                    u32 len, u32 lvl, struct tainted *taint) {
 
   struct cmp_header *h = &afl->shm.cmp_map->headers[key];
-  struct tainted *   t;
-  u32                i, j, idx, taint_len;
-  u32                have_taint = 1, is_n = 0;
-  u32                loggeds = h->hits;
-  if (h->hits > CMP_MAP_H) { loggeds = CMP_MAP_H; }
+  // FP handling only from lvl 2 onwards
+  if ((h->attribute & IS_FP) && lvl < LVL2) { return 0; }
 
-  u8 status = 0;
-  u8 found_one = 0;
+  struct tainted *t;
+  u32             i, j, idx, taint_len, loggeds;
+  u32             have_taint = 1, is_n = 0;
+  u8              status = 0, found_one = 0;
 
   /* loop cmps are useless, detect and ignore them */
 #ifdef WORD_SIZE_64
@@ -1120,6 +1119,16 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   u8  s_v0_fixed = 1, s_v1_fixed = 1;
   u8  s_v0_inc = 1, s_v1_inc = 1;
   u8  s_v0_dec = 1, s_v1_dec = 1;
+
+  if (h->hits > CMP_MAP_H) {
+
+    loggeds = CMP_MAP_H;
+
+  } else {
+
+    loggeds = h->hits;
+
+  }
 
   switch (SHAPE_BYTES(h->shape)) {
 
@@ -1132,9 +1141,6 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       is_n = 1;
 
   }
-
-  // FP handling only from lvl 2 onwards
-  if ((h->attribute & IS_FP) && lvl < LVL2) return 0;
 
   for (i = 0; i < loggeds; ++i) {
 
@@ -1742,51 +1748,56 @@ exit_its:
   }
 
 #ifdef COMBINE
-  // copy the current virgin bits so we can recover the information
-  u8 *virgin_save = afl_realloc((void **)&afl->eff_buf, afl->shm.map_size);
-  memcpy(virgin_save, afl->virgin_bits, afl->shm.map_size);
-  // reset virgin bits to the backup previous to redqueen
-  memcpy(afl->virgin_bits, virgin_backup, afl->shm.map_size);
+  if (afl->queued_paths + afl->unique_crashes > orig_hit_cnt + 1) {
 
-  u8 status = 0;
-  its_fuzz(afl, cbuf, len, &status);
+    // copy the current virgin bits so we can recover the information
+    u8 *virgin_save = afl_realloc((void **)&afl->eff_buf, afl->shm.map_size);
+    memcpy(virgin_save, afl->virgin_bits, afl->shm.map_size);
+    // reset virgin bits to the backup previous to redqueen
+    memcpy(afl->virgin_bits, virgin_backup, afl->shm.map_size);
+
+    u8 status = 0;
+    its_fuzz(afl, cbuf, len, &status);
 
   // now combine with the saved virgin bits
   #ifdef WORD_SIZE_64
-  u64 *v = (u64 *)afl->virgin_bits;
-  u64 *s = (u64 *)virgin_save;
-  u32  i;
-  for (i = 0; i < (afl->shm.map_size >> 3); i++) {
+    u64 *v = (u64 *)afl->virgin_bits;
+    u64 *s = (u64 *)virgin_save;
+    u32  i;
+    for (i = 0; i < (afl->shm.map_size >> 3); i++) {
 
-    v[i] &= s[i];
+      v[i] &= s[i];
 
-  }
+    }
 
   #else
-  u32 *v = (u64 *)afl->virgin_bits;
-  u32 *s = (u64 *)virgin_save;
-  u32 i;
-  for (i = 0; i < (afl->shm.map_size >> 2); i++) {
+    u32 *v = (u64 *)afl->virgin_bits;
+    u32 *s = (u64 *)virgin_save;
+    u32 i;
+    for (i = 0; i < (afl->shm.map_size >> 2); i++) {
 
-    v[i] &= s[i];
+      v[i] &= s[i];
 
-  }
+    }
 
   #endif
 
   #ifdef _DEBUG
-  dump("COMB", cbuf, len);
-  if (status == 1) {
+    dump("COMB", cbuf, len);
+    if (status == 1) {
 
-    fprintf(stderr, "NEW COMBINED\n");
+      fprintf(stderr, "NEW COMBINED\n");
 
-  } else {
+    } else {
 
-    fprintf(stderr, "NO new combined\n");
+      fprintf(stderr, "NO new combined\n");
+
+    }
+
+  #endif
 
   }
 
-  #endif
 #endif
 
   new_hit_cnt = afl->queued_paths + afl->unique_crashes;
