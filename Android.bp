@@ -135,6 +135,8 @@ cc_binary_host {
     "-DCLANGPP_BIN=\"prebuilts/clang/host/linux-x86/clang-r383902b/bin/clang++\"",
     "-DAFL_REAL_LD=\"prebuilts/clang/host/linux-x86/clang-r383902b/bin/ld.lld\"",
     "-DLLVM_LTO=1",
+    "-DLLVM_MAJOR=11",
+    "-DLLVM_MINOR=2",
   ],
 
   srcs: [
@@ -145,8 +147,6 @@ cc_binary_host {
   symlinks: [
     "afl-clang-fast",
     "afl-clang-fast++",
-    "afl-clang-lto",
-    "afl-clang-lto++",
   ],
 }
 

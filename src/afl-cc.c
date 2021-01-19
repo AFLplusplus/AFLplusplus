@@ -586,6 +586,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
+#ifdef __ANDROID__
+        cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
+#else
         if (have_instr_list) {
 
           if (!be_quiet)
@@ -605,6 +608,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
         }
 
+#endif
 #else
   #if LLVM_MAJOR >= 4
         if (!be_quiet)
@@ -1032,6 +1036,10 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+#endif
+
+#ifdef __ANDROID__
+    have_llvm = 1;
 #endif
 
   if ((ptr = find_object("afl-gcc-pass.so", argv[0])) != NULL) {
@@ -1807,11 +1815,8 @@ int main(int argc, char **argv, char **envp) {
   if (!be_quiet && cmplog_mode)
     printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
 
-#ifdef __ANDROID__
-  ptr = find_object("afl-compiler-rt.so", argv[0]);
-#else
+#ifndef __ANDROID__
   ptr = find_object("afl-compiler-rt.o", argv[0]);
-#endif
 
   if (!ptr) {
 
@@ -1824,6 +1829,7 @@ int main(int argc, char **argv, char **envp) {
   if (debug) { DEBUGF("rt=%s obj_path=%s\n", ptr, obj_path); }
 
   ck_free(ptr);
+#endif
 
   edit_params(argc, argv, envp);
 
