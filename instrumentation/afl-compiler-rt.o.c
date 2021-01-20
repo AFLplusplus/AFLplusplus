@@ -76,7 +76,9 @@
 #endif
 
 u8   __afl_area_initial[MAP_INITIAL_SIZE];
+u8 * __afl_area_ptr_dummy = __afl_area_initial;
 u8 * __afl_area_ptr = __afl_area_initial;
+u8 * __afl_area_ptr_backup = __afl_area_initial;
 u8 * __afl_dictionary;
 u8 * __afl_fuzz_ptr;
 u32  __afl_fuzz_len_dummy;
@@ -87,7 +89,12 @@ u32 __afl_map_size = MAP_SIZE;
 u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 
-#ifdef __ANDROID__
+// for the __AFL_COVERAGE_ON/__AFL_COVERAGE_OFF features to work:
+int __afl_selective_coverage __attribute__((weak));
+int __afl_selective_coverage_start_off __attribute__((weak));
+int __afl_selective_coverage_temp = 1;
+
+#if defined(__ANDROID__) || defined(__HAIKU__)
 PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX];
 u32        __afl_prev_ctx;
 u32        __afl_cmp_counter;
@@ -100,6 +107,7 @@ __thread u32        __afl_cmp_counter;
 int __afl_sharedmem_fuzzing __attribute__((weak));
 
 struct cmp_map *__afl_cmp_map;
+struct cmp_map *__afl_cmp_map_backup;
 
 /* Child pid? */
 
@@ -230,7 +238,7 @@ static void __afl_map_shm_fuzz() {
 static void __afl_map_shm(void) {
 
   // if we are not running in afl ensure the map exists
-  if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_initial; }
+  if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
 
   char *id_str = getenv(SHM_ENV_VAR);
 
@@ -295,11 +303,17 @@ static void __afl_map_shm(void) {
 
     if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial) {
 
-      if (__afl_map_addr)
+      if (__afl_map_addr) {
+
         munmap((void *)__afl_map_addr, __afl_final_loc);
-      else
+
+      } else {
+
         free(__afl_area_ptr);
-      __afl_area_ptr = __afl_area_initial;
+
+      }
+
+      __afl_area_ptr = __afl_area_ptr_dummy;
 
     }
 
@@ -352,6 +366,18 @@ static void __afl_map_shm(void) {
 #else
     u32 shm_id = atoi(id_str);
 
+    if (__afl_map_size && __afl_map_size > MAP_SIZE) {
+
+      u8 *map_env = getenv("AFL_MAP_SIZE");
+      if (!map_env || atoi(map_env) < MAP_SIZE) {
+
+        send_forkserver_error(FS_ERROR_MAP_SIZE);
+        _exit(1);
+
+      }
+
+    }
+
     __afl_area_ptr = shmat(shm_id, (void *)__afl_map_addr, 0);
 
     /* Whooooops. */
@@ -396,9 +422,42 @@ static void __afl_map_shm(void) {
 
     free(__afl_area_ptr);
     __afl_area_ptr = NULL;
-    if (__afl_final_loc > MAP_INITIAL_SIZE)
+
+    if (__afl_final_loc > MAP_INITIAL_SIZE) {
+
       __afl_area_ptr = malloc(__afl_final_loc);
-    if (!__afl_area_ptr) __afl_area_ptr = __afl_area_initial;
+
+    }
+
+    if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
+
+  }
+
+  __afl_area_ptr_backup = __afl_area_ptr;
+
+  if (__afl_selective_coverage) {
+
+    if (__afl_map_size > MAP_INITIAL_SIZE) {
+
+      __afl_area_ptr_dummy = malloc(__afl_map_size);
+
+      if (__afl_area_ptr_dummy) {
+
+        if (__afl_selective_coverage_start_off) {
+
+          __afl_area_ptr = __afl_area_ptr_dummy;
+
+        }
+
+      } else {
+
+        fprintf(stderr, "Error: __afl_selective_coverage failed!\n");
+        __afl_selective_coverage = 0;
+        // continue;
+
+      }
+
+    }
 
   }
 
@@ -448,6 +507,8 @@ static void __afl_map_shm(void) {
 
     __afl_cmp_map = shmat(shm_id, NULL, 0);
 #endif
+
+    __afl_cmp_map_backup = __afl_cmp_map;
 
     if (!__afl_cmp_map || __afl_cmp_map == (void *)-1) {
 
@@ -683,7 +744,7 @@ static void __afl_start_forkserver(void) {
 #endif
 
   u8  tmp[4] = {0, 0, 0, 0};
-  u32 status = 0;
+  u32 status_for_fsrv = 0;
   u32 already_read_first = 0;
   u32 was_killed;
 
@@ -691,17 +752,26 @@ static void __afl_start_forkserver(void) {
 
   void (*old_sigchld_handler)(int) = 0;  // = signal(SIGCHLD, SIG_DFL);
 
-  if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
-    status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
-  if (__afl_dictionary_len && __afl_dictionary) status |= FS_OPT_AUTODICT;
-  if (__afl_sharedmem_fuzzing != 0) status |= FS_OPT_SHDMEM_FUZZ;
-  if (status) status |= (FS_OPT_ENABLED);
-  memcpy(tmp, &status, 4);
+  if (__afl_map_size <= FS_OPT_MAX_MAPSIZE) {
+
+    status_for_fsrv |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
+
+  }
+
+  if (__afl_dictionary_len && __afl_dictionary) {
+
+    status_for_fsrv |= FS_OPT_AUTODICT;
+
+  }
+
+  if (__afl_sharedmem_fuzzing != 0) { status_for_fsrv |= FS_OPT_SHDMEM_FUZZ; }
+  if (status_for_fsrv) { status_for_fsrv |= (FS_OPT_ENABLED); }
+  memcpy(tmp, &status_for_fsrv, 4);
 
   /* Phone home and tell the parent that we're OK. If parent isn't there,
      assume we're not running in forkserver mode and just execute program. */
 
-  if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
+  if (write(FORKSRV_FD + 1, tmp, 4) != 4) { return; }
 
   if (__afl_sharedmem_fuzzing || (__afl_dictionary_len && __afl_dictionary)) {
 
@@ -726,7 +796,6 @@ static void __afl_start_forkserver(void) {
 
       // great lets pass the dictionary through the forkserver FD
       u32 len = __afl_dictionary_len, offset = 0;
-      s32 ret;
 
       if (write(FORKSRV_FD + 1, &len, 4) != 4) {
 
@@ -738,6 +807,7 @@ static void __afl_start_forkserver(void) {
 
       while (len != 0) {
 
+        s32 ret;
         ret = write(FORKSRV_FD + 1, __afl_dictionary + offset, len);
 
         if (ret < 1) {
@@ -894,6 +964,8 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     cycle_cnt = max_cnt;
     first_pass = 0;
+    __afl_selective_coverage_temp = 1;
+
     return 1;
 
   }
@@ -906,6 +978,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
       __afl_area_ptr[0] = 1;
       memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+      __afl_selective_coverage_temp = 1;
 
       return 1;
 
@@ -915,7 +988,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
          follows the loop is not traced. We do that by pivoting back to the
          dummy output region. */
 
-      __afl_area_ptr = __afl_area_initial;
+      __afl_area_ptr = __afl_area_ptr_dummy;
 
     }
 
@@ -937,7 +1010,7 @@ void __afl_manual_init(void) {
     init_done = 1;
     is_persistent = 0;
     __afl_sharedmem_fuzzing = 0;
-    if (__afl_area_ptr == NULL) __afl_area_ptr = __afl_area_initial;
+    if (__afl_area_ptr == NULL) __afl_area_ptr = __afl_area_ptr_dummy;
 
     if (getenv("AFL_DEBUG"))
       fprintf(stderr,
@@ -998,7 +1071,12 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
     else
       ptr = (u8 *)malloc(__afl_final_loc);
 
-    if (ptr && (ssize_t)ptr != -1) __afl_area_ptr = ptr;
+    if (ptr && (ssize_t)ptr != -1) {
+
+      __afl_area_ptr = ptr;
+      __afl_area_ptr_backup = __afl_area_ptr;
+
+    }
 
   }
 
@@ -1014,7 +1092,12 @@ __attribute__((constructor(0))) void __afl_auto_first(void) {
 
   ptr = (u8 *)malloc(1024000);
 
-  if (ptr && (ssize_t)ptr != -1) __afl_area_ptr = ptr;
+  if (ptr && (ssize_t)ptr != -1) {
+
+    __afl_area_ptr = ptr;
+    __afl_area_ptr_backup = __afl_area_ptr;
+
+  }
 
 }
 
@@ -1301,6 +1384,72 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
                    ptr1, 32);
   __builtin_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1,
                    ptr2, 32);
+
+}
+
+/* COVERAGE manipulation features */
+
+// this variable is then used in the shm setup to create an additional map
+// if __afl_map_size > MAP_SIZE or cmplog is used.
+// Especially with cmplog this would result in a ~260MB mem increase per
+// target run.
+
+// disable coverage from this point onwards until turned on again
+void __afl_coverage_off() {
+
+  if (likely(__afl_selective_coverage)) {
+
+    __afl_area_ptr = __afl_area_ptr_dummy;
+    __afl_cmp_map = NULL;
+
+  }
+
+}
+
+// enable coverage
+void __afl_coverage_on() {
+
+  if (likely(__afl_selective_coverage && __afl_selective_coverage_temp)) {
+
+    __afl_area_ptr = __afl_area_ptr_backup;
+    __afl_cmp_map = __afl_cmp_map_backup;
+
+  }
+
+}
+
+// discard all coverage up to this point
+void __afl_coverage_discard() {
+
+  memset(__afl_area_ptr_backup, 0, __afl_map_size);
+  __afl_area_ptr_backup[0] = 1;
+
+  if (__afl_cmp_map) { memset(__afl_cmp_map, 0, sizeof(struct cmp_map)); }
+
+}
+
+// discard the testcase
+void __afl_coverage_skip() {
+
+  __afl_coverage_discard();
+
+  if (likely(is_persistent && __afl_selective_coverage)) {
+
+    __afl_coverage_off();
+    __afl_selective_coverage_temp = 0;
+
+  } else {
+
+    exit(0);
+
+  }
+
+}
+
+// mark this area as especially interesting
+void __afl_coverage_interesting(u8 val, u32 id) {
+
+  __afl_area_ptr[id] = val;
 
 }
 

@@ -230,10 +230,10 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
           hash64(afl->fsrv.shmem_fuzz, *afl->fsrv.shmem_fuzz_len, 0xa5b35705),
           *afl->fsrv.shmem_fuzz_len);
       fprintf(stderr, "SHM :");
-      for (int i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
+      for (u32 i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
         fprintf(stderr, "%02x", afl->fsrv.shmem_fuzz[i]);
       fprintf(stderr, "\nORIG:");
-      for (int i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
+      for (u32 i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
         fprintf(stderr, "%02x", (u8)((u8 *)mem)[i]);
       fprintf(stderr, "\n");
 
@@ -296,11 +296,11 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
                   u32 handicap, u8 from_queue) {
 
+  if (unlikely(afl->shm.cmplog_mode)) { q->exec_cksum = 0; }
+
   u8 fault = 0, new_bits = 0, var_detected = 0, hnb = 0,
      first_run = (q->exec_cksum == 0);
-
-  u64 start_us, stop_us;
-
+  u64 start_us, stop_us, diff_us;
   s32 old_sc = afl->stage_cur, old_sm = afl->stage_max;
   u32 use_tmout = afl->fsrv.exec_tmout;
   u8 *old_sn = afl->stage_name;
@@ -422,15 +422,32 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   }
 
-  stop_us = get_cur_time_us();
+  if (unlikely(afl->fixed_seed)) {
 
-  afl->total_cal_us += stop_us - start_us;
+    diff_us = (u64)(afl->fsrv.exec_tmout - 1) * (u64)afl->stage_max;
+
+  } else {
+
+    stop_us = get_cur_time_us();
+    diff_us = stop_us - start_us;
+    if (unlikely(!diff_us)) { ++diff_us; }
+
+  }
+
+  afl->total_cal_us += diff_us;
   afl->total_cal_cycles += afl->stage_max;
 
   /* OK, let's collect some stats about the performance of this test case.
      This is used for fuzzing air time calculations in calculate_score(). */
 
-  q->exec_us = (stop_us - start_us) / afl->stage_max;
+  if (unlikely(!afl->stage_max)) {
+
+    // Pretty sure this cannot happen, yet scan-build complains.
+    FATAL("BUG: stage_max should not be 0 here! Please report this condition.");
+
+  }
+
+  q->exec_us = diff_us / afl->stage_max;
   q->bitmap_size = count_bytes(afl, afl->fsrv.trace_bits);
   q->handicap = handicap;
   q->cal_failed = 0;
@@ -682,7 +699,7 @@ void sync_fuzzers(afl_state_t *afl) {
     // same time. If so, the first temporary main node running again will demote
     // themselves so this is not an issue
 
-    u8 path[PATH_MAX];
+    //    u8 path2[PATH_MAX];
     afl->is_main_node = 1;
     sprintf(path, "%s/is_main_node", afl->out_dir);
     int fd = open(path, O_CREAT | O_RDWR, 0644);

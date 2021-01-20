@@ -31,9 +31,6 @@
 
 #define AFL_MAIN
 
-#ifdef __ANDROID__
-  #include "android-ashmem.h"
-#endif
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -662,7 +659,7 @@ static void usage(u8 *argv0) {
 
       "Execution control settings:\n"
       "  -t msec       - timeout for each run (none)\n"
-      "  -m megs       - memory limit for child process (%d MB)\n"
+      "  -m megs       - memory limit for child process (%u MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use Unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
@@ -693,12 +690,13 @@ static void usage(u8 *argv0) {
       "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as "
       "crash\n"
       "AFL_DEBUG: enable extra developer output\n"
-      "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
-      "size\n"
-      "              the target was compiled for\n"
-      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during "
       "startup (in milliseconds)\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, "
+      "etc. (default: SIGKILL)\n"
+      "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
+      "size the target was compiled for\n"
+      "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_QUIET: do not print extra informational output\n",
       argv0, MEM_LIMIT, doc_path);
 
@@ -1014,9 +1012,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     DIR *          dir_in, *dir_out = NULL;
     struct dirent *dir_ent;
-    int            done = 0;
-    u8             infile[PATH_MAX], outfile[PATH_MAX];
-    u8             wait_for_gdb = 0;
+    //    int            done = 0;
+    u8 infile[PATH_MAX], outfile[PATH_MAX];
+    u8 wait_for_gdb = 0;
 #if !defined(DT_REG)
     struct stat statbuf;
 #endif
@@ -1090,11 +1088,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
     if (get_afl_env("AFL_DEBUG")) {
 
-      int i = optind;
+      int j = optind;
       DEBUGF("%s:", fsrv->target_path);
-      while (argv[i] != NULL) {
+      while (argv[j] != NULL) {
 
-        SAYF(" \"%s\"", argv[i++]);
+        SAYF(" \"%s\"", argv[j++]);
 
       }
 
@@ -1114,6 +1112,9 @@ int main(int argc, char **argv_orig, char **envp) {
       fsrv->init_tmout = (u32)forksrv_init_tmout;
 
     }
+
+    fsrv->kill_signal =
+        parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
 
     if (getenv("AFL_CRASH_EXITCODE")) {
 
@@ -1143,7 +1144,7 @@ int main(int argc, char **argv_orig, char **envp) {
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 
-    while (done == 0 && (dir_ent = readdir(dir_in))) {
+    while ((dir_ent = readdir(dir_in))) {
 
       if (dir_ent->d_name[0] == '.') {
 

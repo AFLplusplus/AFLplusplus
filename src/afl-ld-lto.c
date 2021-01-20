@@ -187,7 +187,7 @@ static void edit_params(int argc, char **argv) {
 
   if (debug)
     DEBUGF(
-        "passthrough=%s instrim=%d, gold_pos=%d, gold_present=%s "
+        "passthrough=%s instrim=%u, gold_pos=%u, gold_present=%s "
         "inst_present=%s rt_present=%s rt_lto_present=%s\n",
         passthrough ? "true" : "false", instrim, gold_pos,
         gold_present ? "true" : "false", inst_present ? "true" : "false",
@@ -252,11 +252,10 @@ static void edit_params(int argc, char **argv) {
 
 int main(int argc, char **argv) {
 
-  s32  pid, i, status;
-  u8 * ptr;
+  s32 pid, i, status;
   char thecwd[PATH_MAX];
 
-  if ((ptr = getenv("AFL_LD_CALLER")) != NULL) {
+  if (getenv("AFL_LD_CALLER") != NULL) {
 
     FATAL("ld loop detected! Set AFL_REAL_LD!\n");
 
