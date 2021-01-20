@@ -1107,7 +1107,7 @@ without feedback, bug reports, or patches from:
   Khaled Yakdan                         Kuang-che Wu
   Josephine Calliotte                   Konrad Welc
   Thomas Rooijakkers                    David Carlier
-  Ruben ten Hove
+  Ruben ten Hove                        Joey Jiao
 ```
 
 Thank you!
