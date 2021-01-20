@@ -30,9 +30,9 @@
 
 //#define _DEBUG
 #define COMBINE
-//#define CMPLOG_INTROSPECTION
+#define CMPLOG_INTROSPECTION
 //#define ARITHMETIC_LESSER_GREATER
-//#define TRANSFORM
+#define TRANSFORM
 
 // CMP attribute enum
 enum {
@@ -579,6 +579,7 @@ static int is_base64(const char *str) {
 static u8 base64_encode_table[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 static u8 base64_decode_table[] = {
+
     62, 0,  0,  0,  63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 0,
     0,  0,  0,  0,  0,  0,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
     10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
@@ -1712,7 +1713,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 #endif
 
   u8  save[40];
-  u32 saved_idx = idx, pre, from = 0, to = 0, i;
+  u32 saved_idx = idx, pre, from = 0, to = 0, i, j;
   u32 its_len = MIN((u32)32, len - idx);
   its_len = MIN(its_len, taint_len);
   u32 saved_its_len = its_len;
@@ -1728,7 +1729,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
   memcpy(save, &buf[saved_idx - to], its_len + to);
 
 #ifdef _DEBUG
-  fprintf(stderr, "RTN TRANSFORM idx=%u lvl=%02x", idx, lvl);
+  fprintf(stderr, "RTN T idx=%u lvl=%02x ", idx, lvl);
   for (j = 0; j < 8; j++)
     fprintf(stderr, "%02x", orig_buf[idx + j]);
   fprintf(stderr, " -> ");
@@ -1738,7 +1739,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
   for (j = 0; j < 8; j++)
     fprintf(stderr, "%02x", repl[j]);
   fprintf(stderr, "\n");
-  fprintf(stderr, "            ");
+  fprintf(stderr, "                ");
   for (j = 0; j < 8; j++)
     fprintf(stderr, "%02x", buf[idx + j]);
   fprintf(stderr, " -> ");
@@ -1794,7 +1795,6 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
   if (lvl & LVL3) {
 
-    u32 j;
     u32 toupper = 0, tolower = 0, xor = 0, arith = 0, tohex = 0, tob64 = 0;
     u32 fromhex = 0, fromb64 = 0;
     u32 from_0 = 0, from_x = 0, from_X = 0, from_slash = 0, from_lf = 0,
@@ -1857,28 +1857,28 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
       }
 
+      if (i < 16 && is_hex(repl + (i << 1))) {
+
+        ++tohex;
+
+        if (!to_up) {
+
+          if (repl[i << 1] >= 'A' && repl[i << 1] <= 'F')
+            to_up = 1;
+          else if (repl[i << 1] >= 'a' && repl[i << 1] <= 'f')
+            to_up = 2;
+          if (repl[(i << 1) + 1] >= 'A' && repl[(i << 1) + 1] <= 'F')
+            to_up = 1;
+          else if (repl[(i << 1) + 1] >= 'a' && repl[(i << 1) + 1] <= 'f')
+            to_up = 2;
+
+        }
+
+      }
+
       if (i) {
 
-        if (!(i % 2)) {
-
-          if (i < 16 && is_hex(repl + (i << 1))) {
-
-            tohex += 2;
-
-            if (!to_up) {
-
-              if (repl[i] >= 'A' && repl[i] <= 'F')
-                to_up = 1;
-              else if (repl[i] >= 'a' && repl[i] <= 'f')
-                to_up = 2;
-              if (repl[i - 1] >= 'A' && repl[i - 1] <= 'F')
-                to_up = 1;
-              else if (repl[i - 1] >= 'a' && repl[i - 1] <= 'f')
-                to_up = 2;
-
-            }
-
-          }
+        if ((i % 2)) {
 
           if (len > idx + i && is_hex(orig_buf + idx + i)) {
 
@@ -1902,13 +1902,13 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
         }
 
-        if (!(i % 3) && i + to_lf + to_cr < 24) {
+        if (i % 3 == 2 && i + to_lf + to_cr < 24) {
 
           if (is_base64(repl + i + to_lf + to_cr)) tob64 += 3;
 
         }
 
-        if (!(i % 4) && i < 24) {
+        if (i % 4 == 3 && i < 24) {
 
           if (is_base64(orig_buf + idx + i)) fromb64 += 4;
 
@@ -1956,25 +1956,26 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
       // input is base64 and converted to binary? convert repl to base64!
       if (i && !(i % 4) && i < 24 && fromb64 > i) {
 
-        to_base64(repl, tmp, i);
-        memcpy(buf + idx, tmp, i);
+        to_base64(repl, tmp, i + 1);
+        memcpy(buf + idx, tmp, i + 1);
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-        fprintf(stderr, "RTN ATTEMPT fromb64 %u result %u\n", fromb64, *status);
+        // fprintf(stderr, "RTN ATTEMPT fromb64 %u result %u\n", fromb64,
+        // *status);
 
       }
 
       // input is converted to base64? decode repl with base64!
       if (i && !(i % 3) && i < 24 && tob64 > i) {
 
-        u32 olen = from_base64(repl, tmp, i);
+        u32 olen = from_base64(repl, tmp, i + 1);
         memcpy(buf + idx, tmp, olen);
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-        fprintf(stderr, "RTN ATTEMPT tob64 %u result %u\n", tob64, *status);
+        // fprintf(stderr, "RTN ATTEMPT tob64 %u result %u\n", tob64, *status);
 
       }
 
       // input is converted to hex? convert repl to binary!
-      if (i && !(i % 2) && i < 16 && tohex && tohex > i) {
+      if (i < 16 && tohex > i) {
 
         u32 off;
         if (to_slash + to_x + to_0 == 2) {
@@ -1987,18 +1988,18 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
         }
 
-        for (j = 0; j < i / 2; j++)
+        for (j = 0; j <= i; j++)
           tmp[j] = (hex_table[repl[off + (j << 1)] - '0'] << 4) +
                    hex_table[repl[off + (j << 1) + 1] - '0'];
 
-        memcpy(buf + idx, tmp, i / 2);
+        memcpy(buf + idx, tmp, i + 1);
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-        fprintf(stderr, "RTN ATTEMPT tohex %u result %u\n", tohex, *status);
+        // fprintf(stderr, "RTN ATTEMPT tohex %u result %u\n", tohex, *status);
 
       }
 
       // input is hex and converted to binary? convert repl to hex!
-      if (i && !(i % 2) && i < 16 && fromhex &&
+      if (i && (i % 2) && i < 16 && fromhex &&
           fromhex + from_slash + from_x + from_0 > i) {
 
         u8 off = 0;
@@ -2036,7 +2037,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
         if (to_up == 1) {
 
-          for (j = 0; j <= i; j++) {
+          for (j = 0; j <= (i >> 1); j++) {
 
             tmp[off + (j << 1)] = hex_table_up[repl[j] >> 4];
             tmp[off + (j << 1) + 1] = hex_table_up[repl[j] % 16];
@@ -2045,7 +2046,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
         } else {
 
-          for (j = 0; j <= i; j++) {
+          for (j = 0; j <= (i >> 1); j++) {
 
             tmp[off + (j << 1)] = hex_table_low[repl[j] >> 4];
             tmp[off + (j << 1) + 1] = hex_table_low[repl[j] % 16];
@@ -2054,10 +2055,11 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
         }
 
-        memcpy(buf + idx, tmp, (i << 1) + off);
+        memcpy(buf + idx, tmp, i + 1 + off);
         if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
-        fprintf(stderr, "RTN ATTEMPT fromhex %u result %u\n", fromhex, *status);
-        memcpy(buf + idx, save, (i << 1) + off);
+        // fprintf(stderr, "RTN ATTEMPT fromhex %u result %u\n", fromhex,
+        // *status);
+        memcpy(buf + idx + i, save + i, i + 1 + off);
 
       }
 
@@ -2100,10 +2102,13 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
       }
 
   #ifdef COMBINE
-      if (*status == 1) { memcpy(cbuf + idx, &buf[idx], i); }
+      if (*status == 1) { memcpy(cbuf + idx, &buf[idx], i + 1); }
   #endif
 
-      if ((i >= xor&&i >= arith &&i >= tolower &&i >= toupper) ||
+      if ((i >= 7 &&
+           (i >= xor&&i >= arith &&i >= tolower &&i >= toupper &&i > tohex &&i >
+                (1 + fromhex + from_0 + from_x + from_slash) &&
+            i > tob64 + 3 && i > fromb64 + 3)) ||
           repl[i] != changed_val[i] || *status == 1) {
 
         break;
