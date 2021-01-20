@@ -58,7 +58,9 @@ static list_t fsrv_list = {.element_prealloc_count = 0};
 
 static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
-  if (fsrv->qemu_mode) setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0);
+  if (fsrv->qemu_mode) { setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0); }
+  
+  unsetenv(CMPLOG_SHM_ENV_VAR);  // we do not want that in non-cmplog fsrv
 
   execv(fsrv->target_path, argv);
 
