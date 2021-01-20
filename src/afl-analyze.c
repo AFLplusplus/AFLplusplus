@@ -26,9 +26,6 @@
 
 #define AFL_MAIN
 
-#ifdef __ANDROID__
-  #include "android-ashmem.h"
-#endif
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -903,8 +900,8 @@ static void usage(u8 *argv0) {
       "Execution control settings:\n"
 
       "  -f file       - input file read by the tested program (stdin)\n"
-      "  -t msec       - timeout for each run (%d ms)\n"
-      "  -m megs       - memory limit for child process (%d MB)\n"
+      "  -t msec       - timeout for each run (%u ms)\n"
+      "  -m megs       - memory limit for child process (%u MB)\n"
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine "

@@ -120,6 +120,7 @@ function usage() {
 "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n" \
 "AFL_FORKSRV_INIT_TMOUT: time the fuzzer waits for the target to come up, initially\n" \
 "AFL_KEEP_TRACES: leave the temporary <out_dir>/.traces directory\n" \
+"AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
 "AFL_PATH: path for the afl-showmap binary if not found anywhere else\n" \
 "AFL_SKIP_BIN_CHECK: skip check for target binary\n"
    exit 1

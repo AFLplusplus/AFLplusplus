@@ -106,7 +106,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
             ;;
         esac
     } else {
-      $ECHO "$GRAY[*] no bash available, cannot test afl-cmin.bash"
+      $ECHO "$GREY[*] no bash available, cannot test afl-cmin.bash"
     }
     fi
     ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
@@ -210,7 +210,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
     CNT=`ls in2/* 2>/dev/null | wc -l`
     case "$CNT" in
       *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
-      1)  {
+      \ *1|1)  { # allow leading whitecase for portability
             test -s in2/* && $ECHO "$YELLOW[?] afl-cmin did minimize to one testcase. This can be a bug or due compiler optimization."
             test -s in2/* || {
 		$ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
@@ -229,8 +229,8 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
       CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
         *2) $ECHO "$GREEN[+] afl-cmin.bash correctly minimized the number of testcases" ;;
-        1)  {
-            test -s in2/* && $ECHO "$YELLOW[?] afl-cmin.bash did minimize to one testcase. This can be a bug or due compiler optimization."
+        \ *1|1)  { # allow leading whitecase for portability
+              test -s in2/* && $ECHO "$YELLOW[?] afl-cmin.bash did minimize to one testcase. This can be a bug or due compiler optimization."
               test -s in2/* || {
   		$ECHO "$RED[!] afl-cmin.bash did not correctly minimize the number of testcases ($CNT)"
           	CODE=1
@@ -242,7 +242,7 @@ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" -o "$SYS" = "i86pc
             ;;
         esac
     } else {
-      $ECHO "$GRAY[*] no bash available, cannot test afl-cmin.bash"
+      $ECHO "$GREY[*] no bash available, cannot test afl-cmin.bash"
     }
     fi
     ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1

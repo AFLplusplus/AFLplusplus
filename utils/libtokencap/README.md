@@ -1,6 +1,11 @@
 # strcmp() / memcmp() token capture library
 
-  (See ../README.md for the general instruction manual.)
+ NOTE: libtokencap is only recommended for binary-only targets or targets that
+ do not compile with afl-clang-fast/afl-clang-lto.
+ The afl-clang-fast AFL_LLVM_DICT2FILE feature is much better, afl-clang-lto
+ has that feature automatically integrated.
+
+  (See ../../README.md for the general instruction manual.)
 
 This companion library allows you to instrument `strcmp()`, `memcmp()`,
 and related functions to automatically extract syntax tokens passed to any of

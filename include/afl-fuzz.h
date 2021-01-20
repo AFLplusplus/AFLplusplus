@@ -37,10 +37,6 @@
   #define _FILE_OFFSET_BITS 64
 #endif
 
-#ifdef __ANDROID__
-  #include "android-ashmem.h"
-#endif
-
 #include "config.h"
 #include "types.h"
 #include "debug.h"
@@ -381,7 +377,7 @@ typedef struct afl_env_vars {
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_skip_crashes, *afl_preload,
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
-      *afl_testcache_entries;
+      *afl_testcache_entries, *afl_kill_signal;
 
 } afl_env_vars_t;
 
@@ -573,7 +569,7 @@ typedef struct afl_state {
 
   u8 stage_name_buf[STAGE_BUF_SIZE];    /* reused stagename buf with len 64 */
 
-  s32 stage_cur, stage_max;             /* Stage progression                */
+  u32 stage_cur, stage_max;             /* Stage progression                */
   s32 splicing_with;                    /* Splicing with which test case?   */
 
   u32 main_node_id, main_node_max;      /*   Main instance job splitting    */
@@ -590,9 +586,9 @@ typedef struct afl_state {
 
   u32 rand_cnt;                         /* Random number counter            */
 
-/*  unsigned long rand_seed[3]; would also work */
+  /*  unsigned long rand_seed[3]; would also work */
   AFL_RAND_RETURN rand_seed[3];
-  s64 init_seed;
+  s64             init_seed;
 
   u64 total_cal_us,                     /* Total calibration time (us)      */
       total_cal_cycles;                 /* Total calibration cycles         */
@@ -645,10 +641,10 @@ typedef struct afl_state {
 
   unsigned long long int last_avg_exec_update;
   u32                    last_avg_execs;
-  float                  last_avg_execs_saved;
+  double                 last_avg_execs_saved;
 
 /* foreign sync */
-#define FOREIGN_SYNCS_MAX 32
+#define FOREIGN_SYNCS_MAX 32U
   u8                  foreign_sync_cnt;
   struct foreign_sync foreign_syncs[FOREIGN_SYNCS_MAX];
 

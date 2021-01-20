@@ -332,11 +332,11 @@ bool                             Indistinguish(uint32_t node1, uint32_t node2) {
 
 void MakeUniq(uint32_t now) {
 
-  bool StopFlag = false;
   if (Marked.find(now) == Marked.end()) {
 
     for (uint32_t pred1 : t_Pred[now]) {
 
+      bool StopFlag = false;
       for (uint32_t pred2 : t_Pred[now]) {
 
         if (pred1 == pred2) continue;

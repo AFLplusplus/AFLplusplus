@@ -29,13 +29,18 @@ With that out of the way, let's talk about what's actually on the screen...
 
 ### The status bar
 
+```
+american fuzzy lop ++3.01a (default) [fast] {0}
+```
+
 The top line shows you which mode afl-fuzz is running in
 (normal: "american fuzy lop", crash exploration mode: "peruvian rabbit mode")
 and the version of afl++.
 Next to the version is the banner, which, if not set with -T by hand, will
 either show the binary name being fuzzed, or the -M/-S main/secondary name for
 parallel fuzzing.
-Finally, the last item is the power schedule mode being run (default: explore).
+Second to last is the power schedule mode being run (default: fast).
+Finally, the last item is the CPU id. 
 
 ### Process timing
 

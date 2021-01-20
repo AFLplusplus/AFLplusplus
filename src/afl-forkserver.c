@@ -84,6 +84,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
+  fsrv->kill_signal = SIGKILL;
 
   /* exec related stuff */
   fsrv->child_pid = -1;
@@ -95,7 +96,6 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->uses_asan = false;
 
   fsrv->init_child_func = fsrv_exec_child;
-
   list_append(&fsrv_list, fsrv);
 
 }
@@ -116,6 +116,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->no_unlink = from->no_unlink;
   fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
   fsrv_to->crash_exitcode = from->crash_exitcode;
+  fsrv_to->kill_signal = from->kill_signal;
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
@@ -213,7 +214,7 @@ restart_select:
 static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
   unsigned char tmp[4] = {0, 0, 0, 0};
-  pid_t         child_pid = -1;
+  pid_t         child_pid;
 
   if (!be_quiet) { ACTF("Using Fauxserver:"); }
 
@@ -559,12 +560,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!time_ms) {
 
-      kill(fsrv->fsrv_pid, SIGKILL);
+      kill(fsrv->fsrv_pid, fsrv->kill_signal);
 
     } else if (time_ms > fsrv->init_tmout) {
 
       fsrv->last_run_timed_out = 1;
-      kill(fsrv->fsrv_pid, SIGKILL);
+      kill(fsrv->fsrv_pid, fsrv->kill_signal);
 
     } else {
 
@@ -807,6 +808,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "before receiving any input\n"
            "    from the fuzzer! There are several probable explanations:\n\n"
 
+           "    - The target binary requires a large map and crashes before "
+           "reporting.\n"
+           "      Set a high value (e.g. AFL_MAP_SIZE=1024000) or use "
+           "AFL_DEBUG=1 to see the\n"
+           "      message from the target binary\n\n"
+
            "    - The binary is just buggy and explodes entirely on its own. "
            "If so, you\n"
            "      need to fix the underlying problem or find a better "
@@ -827,6 +834,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "Whoops, the target binary crashed suddenly, "
            "before receiving any input\n"
            "    from the fuzzer! There are several probable explanations:\n\n"
+
+           "    - The target binary requires a large map and crashes before "
+           "reporting.\n"
+           "      Set a high value (e.g. AFL_MAP_SIZE=1024000) or use "
+           "AFL_DEBUG=1 to see the\n"
+           "      message from the target binary\n\n"
 
            "    - The current memory limit (%s) is too restrictive, causing "
            "the\n"
@@ -944,10 +957,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
 static void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
-  if (fsrv->child_pid > 0) { kill(fsrv->child_pid, SIGKILL); }
+  if (fsrv->child_pid > 0) { kill(fsrv->child_pid, fsrv->kill_signal); }
   if (fsrv->fsrv_pid > 0) {
 
-    kill(fsrv->fsrv_pid, SIGKILL);
+    kill(fsrv->fsrv_pid, fsrv->kill_signal);
     if (waitpid(fsrv->fsrv_pid, NULL, 0) <= 0) { WARNF("error waitpid\n"); }
 
   }
@@ -971,10 +984,10 @@ void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
               hash64(fsrv->shmem_fuzz, *fsrv->shmem_fuzz_len, 0xa5b35705),
               *fsrv->shmem_fuzz_len);
       fprintf(stderr, "SHM :");
-      for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+      for (u32 i = 0; i < *fsrv->shmem_fuzz_len; i++)
         fprintf(stderr, "%02x", fsrv->shmem_fuzz[i]);
       fprintf(stderr, "\nORIG:");
-      for (int i = 0; i < *fsrv->shmem_fuzz_len; i++)
+      for (u32 i = 0; i < *fsrv->shmem_fuzz_len; i++)
         fprintf(stderr, "%02x", buf[i]);
       fprintf(stderr, "\n");
 
@@ -1091,7 +1104,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
     /* If there was no response from forkserver after timeout seconds,
     we kill the child. The forkserver should inform us afterwards */
 
-    kill(fsrv->child_pid, SIGKILL);
+    kill(fsrv->child_pid, fsrv->kill_signal);
     fsrv->last_run_timed_out = 1;
     if (read(fsrv->fsrv_st_fd, &fsrv->child_status, 4) < 4) { exec_ms = 0; }
 
@@ -1104,7 +1117,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
          "Unable to communicate with fork server. Some possible reasons:\n\n"
          "    - You've run out of memory. Use -m to increase the the memory "
          "limit\n"
-         "      to something higher than %lld.\n"
+         "      to something higher than %llu.\n"
          "    - The binary or one of the libraries it uses manages to "
          "create\n"
          "      threads before the forkserver initializes.\n"
@@ -1137,36 +1150,44 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   /* Report outcome to caller. */
 
-  if (WIFSIGNALED(fsrv->child_status) && !*stop_soon_p) {
+  /* Was the run unsuccessful? */
+  if (unlikely(*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)) {
 
-    fsrv->last_kill_signal = WTERMSIG(fsrv->child_status);
+    return FSRV_RUN_ERROR;
 
-    if (fsrv->last_run_timed_out && fsrv->last_kill_signal == SIGKILL) {
+  }
 
-      return FSRV_RUN_TMOUT;
+  /* Did we timeout? */
+  if (unlikely(fsrv->last_run_timed_out)) {
 
-    }
+    fsrv->last_kill_signal = fsrv->kill_signal;
+    return FSRV_RUN_TMOUT;
 
+  }
+
+  /* Did we crash?
+  In a normal case, (abort) WIFSIGNALED(child_status) will be set.
+  MSAN in uses_asan mode uses a special exit code as it doesn't support
+  abort_on_error. On top, a user may specify a custom AFL_CRASH_EXITCODE.
+  Handle all three cases here. */
+
+  if (unlikely(
+          /* A normal crash/abort */
+          (WIFSIGNALED(fsrv->child_status)) ||
+          /* special handling for msan */
+          (fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
+          /* the custom crash_exitcode was returned by the target */
+          (fsrv->uses_crash_exitcode &&
+           WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
+
+    /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
+    fsrv->last_kill_signal =
+        WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;
     return FSRV_RUN_CRASH;
 
   }
 
-  /* MSAN in uses_asan mode uses a special exit code as it doesn't support
-  abort_on_error.
-  On top, a user may specify a custom AFL_CRASH_EXITCODE. Handle both here. */
-
-  if ((fsrv->uses_asan && WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
-      (fsrv->uses_crash_exitcode &&
-       WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode)) {
-
-    fsrv->last_kill_signal = 0;
-    return FSRV_RUN_CRASH;
-
-  }
-
-  // Fauxserver should handle this now.
-  if (*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG) return FSRV_RUN_ERROR;
-
+  /* success :) */
   return FSRV_RUN_OK;
 
 }

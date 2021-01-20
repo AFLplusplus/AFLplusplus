@@ -68,7 +68,7 @@ class CompareTransform : public ModulePass {
   const char *getPassName() const override {
 
 #else
-  StringRef getPassName() const override {
+  StringRef      getPassName() const override {
 
 #endif
     return "transforms compare functions";
@@ -101,21 +101,30 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
   IntegerType *                    Int64Ty = IntegerType::getInt64Ty(C);
 
 #if LLVM_VERSION_MAJOR < 9
-  Constant *
+  Function *tolowerFn;
 #else
-  FunctionCallee
+  FunctionCallee tolowerFn;
 #endif
-      c = M.getOrInsertFunction("tolower", Int32Ty, Int32Ty
-#if LLVM_VERSION_MAJOR < 5
-                                ,
-                                NULL
-#endif
-      );
+  {
+
 #if LLVM_VERSION_MAJOR < 9
-  Function *tolowerFn = cast<Function>(c);
+    Constant *
 #else
-  FunctionCallee tolowerFn = c;
+    FunctionCallee
 #endif
+        c = M.getOrInsertFunction("tolower", Int32Ty, Int32Ty
+#if LLVM_VERSION_MAJOR < 5
+                                  ,
+                                  NULL
+#endif
+        );
+#if LLVM_VERSION_MAJOR < 9
+    tolowerFn = cast<Function>(c);
+#else
+    tolowerFn = c;
+#endif
+
+  }
 
   /* iterate over all functions, bbs and instruction and add suitable calls to
    * strcmp/memcmp/strncmp/strcasecmp/strncasecmp */
@@ -234,7 +243,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
             if (!HasStr2) {
 
-              auto *Ptr = dyn_cast<ConstantExpr>(Str1P);
+              Ptr = dyn_cast<ConstantExpr>(Str1P);
               if (Ptr && Ptr->isGEPWithNoNotionalOverIndexing()) {
 
                 if (auto *Var = dyn_cast<GlobalVariable>(Ptr->getOperand(0))) {

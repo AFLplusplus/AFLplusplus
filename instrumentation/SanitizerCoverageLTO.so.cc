@@ -1111,7 +1111,7 @@ bool ModuleSanitizerCoverage::instrumentModule(
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
       OKF("Instrumented %u locations with no collisions (on average %llu "
-          "collisions would be in afl-gcc/afl-clang-fast) (%s mode).",
+          "collisions would be in afl-gcc/vanilla AFL) (%s mode).",
           inst, calculateCollisions(inst), modeline);
 
     }
@@ -1403,24 +1403,17 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
   BasicBlock::iterator IP = BB.getFirstInsertionPt();
   bool                 IsEntryBB = &BB == &F.getEntryBlock();
-  DebugLoc             EntryLoc;
+
   if (IsEntryBB) {
 
-    if (auto SP = F.getSubprogram())
-      EntryLoc = DebugLoc::get(SP->getScopeLine(), 0, SP);
     // Keep static allocas and llvm.localescape calls in the entry block.  Even
     // if we aren't splitting the block, it's nice for allocas to be before
     // calls.
     IP = PrepareToSplitEntryBlock(BB, IP);
 
-  } else {
-
-    EntryLoc = IP->getDebugLoc();
-
   }
 
   IRBuilder<> IRB(&*IP);
-  IRB.SetCurrentDebugLocation(EntryLoc);
   if (Options.TracePC) {
 
     IRB.CreateCall(SanCovTracePC)
