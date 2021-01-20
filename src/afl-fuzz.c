@@ -1515,7 +1515,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  u8 *save_env = NULL;
+  if (afl->cmplog_binary) {
+
+    save_env = ck_strdup(getenv(CMPLOG_SHM_ENV_VAR));
+    unsetenv(CMPLOG_SHM_ENV_VAR);  // normal forkserver should not have this
+
+  }
+
   perform_dry_run(afl);
+  if (save_env) {
+
+    setenv(CMPLOG_SHM_ENV_VAR, save_env, 1);  // needed for at_exit()
+    ck_free(save_env);
+
+  }
 
   /*
     if (!user_set_cache && afl->q_testcase_max_cache_size) {
