@@ -28,9 +28,9 @@ if not os.getenv("AFL_INST_LIBS"):
         os.environ["AFL_CODE_END"] = "0x%x" % (pe.OPTIONAL_HEADER.ImageBase + pe.OPTIONAL_HEADER.BaseOfCode + pe.OPTIONAL_HEADER.SizeOfCode)
 
 if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"] or pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_IA64"]:
-    os.environ["LD_PRELOAD"] = os.path.join(my_dir, "qemu_mode/unsigaction/unsigaction64.so")
+    os.environ["QEMU_SET_ENV"] = "LD_PRELOAD=" + os.path.join(my_dir, "qemu_mode/unsigaction/unsigaction64.so") + ",WINEARCH=win64"
 else:
-    os.environ["LD_PRELOAD"] = os.path.join(my_dir, "qemu_mode/unsigaction/unsigaction32.so")
+    os.environ["QEMU_SET_ENV"] = "LD_PRELOAD=" + os.path.join(my_dir, "qemu_mode/unsigaction/unsigaction32.so") + ",WINEARCH=win32"
 
 if os.getenv("WINECOV_QEMU_PATH"):
     qemu_path = os.getenv("WINECOV_QEMU_PATH")
