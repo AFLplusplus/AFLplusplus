@@ -27,14 +27,14 @@
 
 ## Major changes in afl++ 3.0
 
-With afl++ 3.0 we introduced changes that break some previous afl and afl++
+With afl++ 3.0 we introduced changes that breaks some previous afl and afl++
 behaviours and defaults:
 
   * There are no llvm_mode and gcc_plugin subdirectories anymore and there is
     only one compiler: afl-cc. All previous compilers now symlink to this.
     All instrumentation source code is now in the `instrumentation/` folder.
   * The gcc_plugin was replaced with a new version submitted by AdaCore that
-    supports more features. thank you!
+    supports more features. Thank you!
   * qemu_mode got upgraded to QEMU 5.1, but to be able to build this a current
     ninja build tool version and python3 setuptools are required.
     qemu_mode also got new options like snapshotting, instrumenting specific
@@ -66,7 +66,7 @@ behaviours and defaults:
   2. [How to compile and install afl++](#building-and-installing-afl)
   3. [How to fuzz a target](#how-to-fuzz-with-afl)
   4. [Fuzzing binary-only targets](#fuzzing-binary-only-targets)
-  5. [Good examples and writeups of afl++ usages](#good-examples-and-writeups)
+  5. [Good examples and writeups of afl++ usages](#-examples-and-writeups)
   6. [Branches](#branches)
   7. [Want to help?](#help-wanted)
   8. [Detailed help and description of afl++](#challenges-of-guided-fuzzing)
