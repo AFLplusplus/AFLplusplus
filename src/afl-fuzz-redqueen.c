@@ -819,7 +819,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
         }
 
-        if (*status == 1) { fprintf(stderr, "FOUND!\n"); }
+        // if (*status == 1) { fprintf(stderr, "FOUND!\n"); }
 
       }
 
@@ -847,7 +847,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
           }
 
-          if (*status == 1) { fprintf(stderr, "FOUND!\n"); }
+          // if (*status == 1) { fprintf(stderr, "FOUND!\n"); }
 
         }
 
@@ -894,7 +894,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
           }
 
-          if (*status == 1) { fprintf(stderr, "FOUND!\n"); }
+          // if (*status == 1) { fprintf(stderr, "FOUND!\n"); }
 
         }
 
@@ -941,7 +941,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
           }
 
-          if (*status == 1) { fprintf(stderr, "FOUND!\n"); }
+          // if (*status == 1) { fprintf(stderr, "FOUND!\n"); }
 
         }
 
@@ -1942,7 +1942,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
       }
 
-      //  #ifdef _DEBUG
+  #ifdef _DEBUG
       fprintf(
           stderr,
           "RTN loop=%u xor=%u arith=%u tolower=%u toupper=%u tohex=%u tob64=%u "
@@ -1951,7 +1951,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
           i, xor, arith, tolower, toupper, tohex, tob64, fromhex, fromb64, to_0,
           to_slash, to_x, to_lf, to_cr, from_0, from_slash, from_x, from_lf,
           from_cr);
-      //  #endif
+  #endif
 
       // input is base64 and converted to binary? convert repl to base64!
       if (i && !(i % 4) && i < 24 && fromb64 > i) {
