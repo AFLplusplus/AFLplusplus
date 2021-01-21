@@ -519,7 +519,7 @@ The corpus minimization script offers very little customization:
     a modest security risk on multi-user systems with rogue users, but should
     be safe on dedicated fuzzing boxes.
 
-# #6) Settings for afl-tmin
+## 7) Settings for afl-tmin
 
 Virtually nothing to play with. Well, in QEMU mode (`-Q`), `AFL_PATH` will be
 searched for afl-qemu-trace. In addition to this, `TMPDIR` may be used if a
