@@ -29,10 +29,11 @@
 #include "cmplog.h"
 
 //#define _DEBUG
-#define COMBINE
+//#define COMBINE
 //#define CMPLOG_INTROSPECTION
 //#define ARITHMETIC_LESSER_GREATER
-#define TRANSFORM
+//#define TRANSFORM
+//#define TRANSFORM_BASE64
 
 // CMP attribute enum
 enum {
@@ -51,9 +52,9 @@ enum {
 // CMPLOG LVL
 enum {
 
-  LVL1 = 1,
-  LVL2 = 2,
-  LVL3 = 4
+  LVL1 = 1,  // Integer solving
+  LVL2 = 2,  // FP solving
+  LVL3 = 4   // expensive tranformations
 
 };
 
@@ -238,6 +239,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   u64 start_time = get_cur_time();
 #endif
 
+  u32 screen_update = 1000000 / afl->queue_cur->exec_us;
   u64 orig_hit_cnt, new_hit_cnt, exec_cksum;
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
 
@@ -315,7 +317,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
 
     }
 
-    ++afl->stage_cur;
+    if (++afl->stage_cur % screen_update) { show_stats(afl); };
 
   }
 
@@ -550,6 +552,7 @@ static int is_hex(const char *str) {
 
 }
 
+  #ifdef TRANSFORM_BASE64
 // tests 4 bytes at location
 static int is_base64(const char *str) {
 
@@ -661,6 +664,8 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
   }
 
 }
+
+  #endif
 
 #endif
 
@@ -1728,6 +1733,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
   }
 
   memcpy(save, &buf[saved_idx - to], its_len + to);
+  (void)(j);
 
 #ifdef _DEBUG
   fprintf(stderr, "RTN T idx=%u lvl=%02x ", idx, lvl);
@@ -1796,8 +1802,10 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
   if (lvl & LVL3) {
 
-    u32 toupper = 0, tolower = 0, xor = 0, arith = 0, tohex = 0, tob64 = 0;
-    u32 fromhex = 0, fromb64 = 0;
+    u32 toupper = 0, tolower = 0, xor = 0, arith = 0, tohex = 0, fromhex = 0;
+  #ifdef TRANSFORM_BASE64
+    u32 tob64 = 0, fromb64 = 0;
+  #endif
     u32 from_0 = 0, from_x = 0, from_X = 0, from_slash = 0, from_up = 0;
     u32 to_0 = 0, to_x = 0, to_slash = 0, to_up = 0;
     u8  xor_val[32], arith_val[32], tmp[48];
@@ -1893,6 +1901,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
       }
 
+  #ifdef TRANSFORM_BASE64
       if (i % 3 == 2 && i < 24) {
 
         if (is_base64(repl + ((i / 3) << 2))) tob64 += 3;
@@ -1904,6 +1913,8 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
         if (is_base64(orig_buf + idx + i - 3)) fromb64 += 4;
 
       }
+
+  #endif
 
       if ((o_pattern[i] ^ orig_buf[idx + i]) == xor_val[i] && xor_val[i]) {
 
@@ -1934,13 +1945,17 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
   #ifdef _DEBUG
       fprintf(stderr,
               "RTN idx=%u loop=%u xor=%u arith=%u tolower=%u toupper=%u "
-              "tohex=%u tob64=%u "
-              "fromhex=%u fromb64=%u to_0=%u to_slash=%u to_x=%u "
+              "tohex=%u fromhex=%u to_0=%u to_slash=%u to_x=%u "
               "from_0=%u from_slash=%u from_x=%u\n",
-              idx, i, xor, arith, tolower, toupper, tohex, tob64, fromhex,
-              fromb64, to_0, to_slash, to_x, from_0, from_slash, from_x);
+              idx, i, xor, arith, tolower, toupper, tohex, fromhex, to_0,
+              to_slash, to_x, from_0, from_slash, from_x);
+    #ifdef TRANSFORM_BASE64
+      fprintf(stderr, "RTN idx=%u loop=%u tob64=%u from64=%u\n", tob64,
+              fromb64);
+    #endif
   #endif
 
+  #ifdef TRANSFORM_BASE64
       // input is base64 and converted to binary? convert repl to base64!
       if ((i % 4) == 3 && i < 24 && fromb64 > i) {
 
@@ -1962,6 +1977,8 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
         // idx, *status);
 
       }
+
+  #endif
 
       // input is converted to hex? convert repl to binary!
       if (i < 16 && tohex > i) {
@@ -2096,8 +2113,11 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 *pattern, u8 *repl,
 
       if ((i >= 7 &&
            (i >= xor&&i >= arith &&i >= tolower &&i >= toupper &&i > tohex &&i >
-                (1 + fromhex + from_0 + from_x + from_slash) &&
-            i > tob64 + 3 && i > fromb64 + 3)) ||
+                (fromhex + from_0 + from_x + from_slash + 1)
+  #ifdef TRANSFORM_BASE64
+            && i > tob64 + 3 && i > fromb64 + 4
+  #endif
+            )) ||
           repl[i] != changed_val[i] || *status == 1) {
 
         break;
@@ -2348,6 +2368,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
+  u64 screen_update = 1000000 / afl->queue_cur->exec_us,
+      execs = afl->fsrv.total_execs;
 
   afl->stage_name = "input-to-state";
   afl->stage_short = "its";
@@ -2437,6 +2459,13 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
         goto exit_its;
 
       }
+
+    }
+
+    if (afl->fsrv.total_execs - execs > screen_update) {
+
+      execs = afl->fsrv.total_execs;
+      show_stats(afl);
 
     }
 
