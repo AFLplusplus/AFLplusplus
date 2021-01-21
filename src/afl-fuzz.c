@@ -123,7 +123,8 @@ static void usage(u8 *argv0, int more_help) {
       "it.\n"
       "                  if using QEMU, just use -c 0.\n"
       "  -l cmplog_level - set the complexity/intensivity of CmpLog.\n"
-      "                  Values: 1 (integer+string), 2 (+FP) and 3 (+transform)\n\n"
+      "                  Values: 1 (integer+string), 2 (+FP) and 3 "
+      "(+transform)\n\n"
 
       "Fuzzing behavior settings:\n"
       "  -Z            - sequential queue selection instead of weighted "
@@ -584,7 +585,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->timeout_given) { FATAL("Multiple -t options not supported"); }
 
-        if (!optarg || sscanf(optarg, "%u%c", &afl->fsrv.exec_tmout, &suffix) < 1 ||
+        if (!optarg ||
+            sscanf(optarg, "%u%c", &afl->fsrv.exec_tmout, &suffix) < 1 ||
             optarg[0] == '-') {
 
           FATAL("Bad syntax used for -t");
@@ -766,7 +768,8 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'V': {
 
         afl->most_time_key = 1;
-        if (!optarg || sscanf(optarg, "%llu", &afl->most_time) < 1 || optarg[0] == '-') {
+        if (!optarg || sscanf(optarg, "%llu", &afl->most_time) < 1 ||
+            optarg[0] == '-') {
 
           FATAL("Bad syntax used for -V");
 
@@ -777,7 +780,8 @@ int main(int argc, char **argv_orig, char **envp) {
       case 'E': {
 
         afl->most_execs_key = 1;
-        if (!optarg || sscanf(optarg, "%llu", &afl->most_execs) < 1 || optarg[0] == '-') {
+        if (!optarg || sscanf(optarg, "%llu", &afl->most_execs) < 1 ||
+            optarg[0] == '-') {
 
           FATAL("Bad syntax used for -E");
 

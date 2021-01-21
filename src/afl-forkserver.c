@@ -484,38 +484,41 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* Set sane defaults for ASAN if nothing else specified. */
 
-    setenv("ASAN_OPTIONS",
-           "abort_on_error=1:"
-           "detect_leaks=0:"
-           "malloc_context_size=0:"
-           "symbolize=0:"
-           "allocator_may_return_null=1:"
-           "handle_segv=0:"
-           "handle_sigbus=0:"
-           "handle_abort=0:"
-           "handle_sigfpe=0:"
-           "handle_sigill=0",
-           0);
+    if (!afl->debug || !getenv("ASAN_OPTIONS"))
+      setenv("ASAN_OPTIONS",
+             "abort_on_error=1:"
+             "detect_leaks=0:"
+             "malloc_context_size=0:"
+             "symbolize=0:"
+             "allocator_may_return_null=1:"
+             "handle_segv=0:"
+             "handle_sigbus=0:"
+             "handle_abort=0:"
+             "handle_sigfpe=0:"
+             "handle_sigill=0",
+             0);
 
     /* Set sane defaults for UBSAN if nothing else specified. */
 
-    setenv("UBSAN_OPTIONS",
-           "halt_on_error=1:"
-           "abort_on_error=1:"
-           "malloc_context_size=0:"
-           "allocator_may_return_null=1:"
-           "symbolize=0:"
-           "handle_segv=0:"
-           "handle_sigbus=0:"
-           "handle_abort=0:"
-           "handle_sigfpe=0:"
-           "handle_sigill=0",
-           0);
+    if (!afl->debug || !getenv("UBSAN_OPTIONS"))
+      setenv("UBSAN_OPTIONS",
+             "halt_on_error=1:"
+             "abort_on_error=1:"
+             "malloc_context_size=0:"
+             "allocator_may_return_null=1:"
+             "symbolize=0:"
+             "handle_segv=0:"
+             "handle_sigbus=0:"
+             "handle_abort=0:"
+             "handle_sigfpe=0:"
+             "handle_sigill=0",
+             0);
 
     /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
        point. So, we do this in a very hacky way. */
 
-    setenv("MSAN_OPTIONS",
+    if (!afl->debug || !getenv("MSAN_OPTIONS"))
+      setenv("MSAN_OPTIONS",
            "exit_code=" STRINGIFY(MSAN_ERROR) ":"
            "symbolize=0:"
            "abort_on_error=1:"

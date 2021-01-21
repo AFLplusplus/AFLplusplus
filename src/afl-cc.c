@@ -586,9 +586,9 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       if (instrument_mode == INSTRUMENT_PCGUARD) {
 
 #if LLVM_MAJOR > 10 || (LLVM_MAJOR == 10 && LLVM_MINOR > 0)
-#ifdef __ANDROID__
+  #ifdef __ANDROID__
         cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
-#else
+  #else
         if (have_instr_list) {
 
           if (!be_quiet)
@@ -608,7 +608,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
         }
 
-#endif
+  #endif
 #else
   #if LLVM_MAJOR >= 4
         if (!be_quiet)
@@ -1036,7 +1036,7 @@ int main(int argc, char **argv, char **envp) {
 #endif
 
 #ifdef __ANDROID__
-    have_llvm = 1;
+  have_llvm = 1;
 #endif
 
   if ((ptr = find_object("afl-gcc-pass.so", argv[0])) != NULL) {

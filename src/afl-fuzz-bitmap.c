@@ -700,11 +700,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       if (likely(!afl->non_instrumented_mode)) {
 
-        if (!classified) {
-
-          classify_counts(&afl->fsrv);
-
-        }
+        if (!classified) { classify_counts(&afl->fsrv); }
 
         simplify_trace(afl, afl->fsrv.trace_bits);
 
