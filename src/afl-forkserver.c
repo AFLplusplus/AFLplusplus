@@ -91,7 +91,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->map_size = get_map_size();
   fsrv->use_fauxsrv = false;
   fsrv->last_run_timed_out = false;
-
+  fsrv->debug = false;
   fsrv->uses_crash_exitcode = false;
   fsrv->uses_asan = false;
 
@@ -117,6 +117,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
   fsrv_to->crash_exitcode = from->crash_exitcode;
   fsrv_to->kill_signal = from->kill_signal;
+  fsrv_to->debug = from->debug;
 
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
@@ -484,7 +485,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* Set sane defaults for ASAN if nothing else specified. */
 
-    if (!getenv("ASAN_OPTIONS"))
+    if (fsrv->debug == true && !getenv("ASAN_OPTIONS"))
       setenv("ASAN_OPTIONS",
              "abort_on_error=1:"
              "detect_leaks=0:"
@@ -500,7 +501,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* Set sane defaults for UBSAN if nothing else specified. */
 
-    if (!getenv("UBSAN_OPTIONS"))
+    if (fsrv->debug == true && !getenv("UBSAN_OPTIONS"))
       setenv("UBSAN_OPTIONS",
              "halt_on_error=1:"
              "abort_on_error=1:"
@@ -517,7 +518,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
        point. So, we do this in a very hacky way. */
 
-    if (!getenv("MSAN_OPTIONS"))
+    if (fsrv->debug == true && !getenv("MSAN_OPTIONS"))
       setenv("MSAN_OPTIONS",
            "exit_code=" STRINGIFY(MSAN_ERROR) ":"
            "symbolize=0:"

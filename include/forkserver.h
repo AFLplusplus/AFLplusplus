@@ -83,6 +83,8 @@ typedef struct afl_forkserver {
 
   bool uses_asan;                       /* Target uses ASAN?                */
 
+  bool debug;                           /* debug mode?                      */
+
   bool uses_crash_exitcode;             /* Custom crash exitcode specified? */
   u8   crash_exitcode;                  /* The crash exitcode specified     */
 
