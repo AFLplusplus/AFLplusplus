@@ -85,6 +85,7 @@ static u8 quiet_mode,                  /* Hide non-essential messages?      */
     keep_cores,                        /* Allow coredumps?                  */
     remove_shm = 1,                    /* remove shmem?                     */
     collect_coverage,                  /* collect coverage                  */
+    have_coverage,                     /* have coverage?                    */
     no_classify;                       /* do not classify counts            */
 
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
@@ -316,7 +317,8 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   }
 
-  if (fsrv->trace_bits[0] == 1) { fsrv->trace_bits[0] = 0; }
+  if (fsrv->trace_bits[0] == 1) { fsrv->trace_bits[0] = 0; have_coverage = 1; }
+  else { have_coverage = 0; }
 
   if (!no_classify) { classify_counts(fsrv); }
 
@@ -491,7 +493,8 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
-  if (fsrv->trace_bits[0] == 1) { fsrv->trace_bits[0] = 0; }
+  if (fsrv->trace_bits[0] == 1) { fsrv->trace_bits[0] = 0; have_coverage = 1; }
+  else { have_coverage = 0; }
 
   if (!no_classify) { classify_counts(fsrv); }
 
@@ -1232,7 +1235,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!quiet_mode || collect_coverage) {
 
-    if (!tcnt) { FATAL("No instrumentation detected" cRST); }
+    if (!tcnt && !have_coverage) { FATAL("No instrumentation detected" cRST); }
     OKF("Captured %u tuples (highest value %u, total values %llu) in "
         "'%s'." cRST,
         tcnt, highest, total, out_file);
