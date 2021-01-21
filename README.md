@@ -27,11 +27,11 @@
 
 ## Major changes in afl++ 3.0
 
-With afl++ 3.0 we introduced changes that breaks some previous afl and afl++
+With afl++ 3.0 we introduced changes that break some previous afl and afl++
 behaviours and defaults:
 
   * There are no llvm_mode and gcc_plugin subdirectories anymore and there is
-    only one compiler: afl-cc. All previous compilers now symlink to this.
+    only one compiler: afl-cc. All previous compilers now symlink to this one.
     All instrumentation source code is now in the `instrumentation/` folder.
   * The gcc_plugin was replaced with a new version submitted by AdaCore that
     supports more features. Thank you!
