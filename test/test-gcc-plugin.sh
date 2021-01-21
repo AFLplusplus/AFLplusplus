@@ -86,15 +86,15 @@ test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
   # now for the special gcc_plugin things
   echo foobar.c > instrumentlist.txt
   AFL_GCC_INSTRUMENT_FILE=instrumentlist.txt ../afl-gcc-fast -o test-compcov test-compcov.c > /dev/null 2>&1
-  test -e test-compcov && test_compcov_binary_functionality ./test-compcov && {
-    echo 1 | ../afl-showmap -m ${MEM_LIMIT} -o - -r -- ./test-compcov 2>&1 | grep -q "Captured 1 tuples" && {
+  test -x test-compcov && test_compcov_binary_functionality ./test-compcov && {
+    echo 1 | ../afl-showmap -m ${MEM_LIMIT} -o - -r -- ./test-compcov 2>&1 | grep -q "Captured 0 tuples" && {
       $ECHO "$GREEN[+] gcc_plugin instrumentlist feature works correctly"
     } || {
       $ECHO "$RED[!] gcc_plugin instrumentlist feature failed"
       CODE=1
     }
   } || {
-    $ECHO "$RED[!] gcc_plugin instrumentlist feature compilation failed"
+    $ECHO "$RED[!] gcc_plugin instrumentlist feature compilation failed."
     CODE=1
   }
   rm -f test-compcov test.out instrumentlist.txt
