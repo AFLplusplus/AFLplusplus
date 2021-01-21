@@ -484,7 +484,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* Set sane defaults for ASAN if nothing else specified. */
 
-    if (!afl->debug || !getenv("ASAN_OPTIONS"))
+    if (!getenv("ASAN_OPTIONS"))
       setenv("ASAN_OPTIONS",
              "abort_on_error=1:"
              "detect_leaks=0:"
@@ -500,7 +500,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* Set sane defaults for UBSAN if nothing else specified. */
 
-    if (!afl->debug || !getenv("UBSAN_OPTIONS"))
+    if (!getenv("UBSAN_OPTIONS"))
       setenv("UBSAN_OPTIONS",
              "halt_on_error=1:"
              "abort_on_error=1:"
@@ -517,7 +517,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
        point. So, we do this in a very hacky way. */
 
-    if (!afl->debug || !getenv("MSAN_OPTIONS"))
+    if (!getenv("MSAN_OPTIONS"))
       setenv("MSAN_OPTIONS",
            "exit_code=" STRINGIFY(MSAN_ERROR) ":"
            "symbolize=0:"
