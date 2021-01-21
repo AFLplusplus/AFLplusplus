@@ -60,8 +60,10 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
     if (i) fprintf(f, " ");
 #ifdef __ANDROID__
     if (memchr(argv[i], '\'', sizeof(argv[i]))) {
+
 #else
     if (index(argv[i], '\'')) {
+
 #endif
 
       fprintf(f, "'");

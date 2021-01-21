@@ -252,7 +252,7 @@ static void edit_params(int argc, char **argv) {
 
 int main(int argc, char **argv) {
 
-  s32 pid, i, status;
+  s32  pid, i, status;
   char thecwd[PATH_MAX];
 
   if (getenv("AFL_LD_CALLER") != NULL) {
