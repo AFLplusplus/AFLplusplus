@@ -856,8 +856,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
   cc_params[cc_par_cnt++] = "-D__AFL_COVERAGE_OFF()=__afl_coverage_off()";
   cc_params[cc_par_cnt++] =
       "-D__AFL_COVERAGE_DISCARD()=__afl_coverage_discard()";
-  cc_params[cc_par_cnt++] = "-D__AFL_COVERAGE_ABORT()=__afl_coverage_abort()";
-
+  cc_params[cc_par_cnt++] = "-D__AFL_COVERAGE_SKIP()=__afl_coverage_skip()";
   cc_params[cc_par_cnt++] =
       "-D__AFL_FUZZ_TESTCASE_BUF=(__afl_fuzz_ptr ? __afl_fuzz_ptr : "
       "__afl_fuzz_alt_ptr)";
