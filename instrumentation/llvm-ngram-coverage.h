@@ -1,7 +1,7 @@
 #ifndef AFL_NGRAM_CONFIG_H
 #define AFL_NGRAM_CONFIG_H
 
-#include "../config.h"
+#include "types.h"
 
 #if (MAP_SIZE_POW2 <= 16)
 typedef u16 PREV_LOC_T;

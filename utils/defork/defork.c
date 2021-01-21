@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #include "../../include/config.h"
+#include "../../include/types.h"
 
 /* we want to fork once (for the afl++ forkserver),
    then immediately return as child on subsequent forks. */

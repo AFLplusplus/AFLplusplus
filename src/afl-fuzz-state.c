@@ -102,6 +102,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->stats_update_freq = 1;
   afl->stats_avg_exec = 0;
   afl->skip_deterministic = 1;
+  afl->cmplog_lvl = 1;
 #ifndef NO_SPLICING
   afl->use_splicing = 1;
 #endif
