@@ -183,14 +183,12 @@ BEGIN {
     if (_go_c == "Q") {
       if (qemu_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       extra_par = extra_par " -Q"
-      if ( !mem_limit_given ) mem_limit = "250"
       qemu_mode = 1
       continue
     } else 
     if (_go_c == "U") {
       if (unicorn_mode) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       extra_par = extra_par " -U"
-      if ( !mem_limit_given ) mem_limit = "250"
       unicorn_mode = 1
       continue
     } else 
@@ -200,7 +198,7 @@ BEGIN {
       usage()
   } # while options
 
-  if (!mem_limit) mem_limit = 200
+  if (!mem_limit) mem_limit = "none"
   if (!timeout) timeout = "none"
 
   # get program args
