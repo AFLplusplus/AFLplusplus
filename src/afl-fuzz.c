@@ -123,7 +123,7 @@ static void usage(u8 *argv0, int more_help) {
       "it.\n"
       "                  if using QEMU, just use -c 0.\n"
       "  -l cmplog_level - set the complexity/intensivity of CmpLog.\n"
-      "                  Values: 1 (default), 2 (intensive) and 3 (heavy)\n\n"
+      "                  Values: 1 (integer+string), 2 (+FP) and 3 (+transform)\n\n"
 
       "Fuzzing behavior settings:\n"
       "  -Z            - sequential queue selection instead of weighted "
