@@ -431,13 +431,18 @@ checks or alter some of the more exotic semantics of the tool:
     normally done when starting up the forkserver and causes a pretty
     significant performance drop.
 
-  - Setting `AFL_STATSD` enable StatsD metrics collection.
+  - Setting `AFL_STATSD` enables StatsD metrics collection.
     By default AFL++ will send these metrics over UDP to 127.0.0.1:8125.
-    The host and port are configurable with `AFL_STATSD_HOST` and `AFL_STATSD_PORT`
-    respectively.
-    To get the most out of this, you should provide `AFL_STATSD_TAGS_FLAVOR` that
-    matches your StatsD server.
-    Available flavors are `dogstatsd`, `librato`, `signalfx` and `influxdb`.
+    The host and port are configurable with `AFL_STATSD_HOST` and `AFL_STATSD_PORT` respectively.
+    To enable tags (banner and afl_version) you should provide `AFL_STATSD_TAGS_FLAVOR` that matches
+    your StatsD server (see `AFL_STATSD_TAGS_FLAVOR`)
+
+  - Setting `AFL_STATSD_TAGS_FLAVOR` to one of `dogstatsd`, `librato`, `signalfx` or `influxdb`
+    allows you to add tags to your fuzzing instances. This is especially useful when running
+    multiple instances (`-M/-S` for example). Applied tags are `banner` and `afl_version`.
+    `banner` corresponds to the name of the fuzzer provided through `-M/-S`.
+    `afl_version` corresponds to the currently running afl version (e.g `++3.0c`).
+    Default (empty/non present) will add no tags to the metrics.
 
   - Setting `AFL_CRASH_EXITCODE` sets the exit code afl treats as crash.
     For example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting
