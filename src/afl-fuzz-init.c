@@ -729,6 +729,30 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
     add_to_queue(afl, fn2, st.st_size >= MAX_FILE ? MAX_FILE : st.st_size,
                  passed_det);
 
+    if (unlikely(afl->shm.cmplog_mode)) {
+
+      if (afl->cmplog_lvl == 1) {
+
+        if (!afl->cmplog_max_filesize ||
+            afl->cmplog_max_filesize < st.st_size) {
+
+          afl->cmplog_max_filesize = st.st_size;
+
+        }
+
+      } else if (afl->cmplog_lvl == 2) {
+
+        if (!afl->cmplog_max_filesize ||
+            afl->cmplog_max_filesize > st.st_size) {
+
+          afl->cmplog_max_filesize = st.st_size;
+
+        }
+
+      }
+
+    }
+
     if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
       u64 cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
@@ -753,6 +777,20 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
          "    input directory.\n");
 
     FATAL("No usable test cases in '%s'", afl->in_dir);
+
+  }
+
+  if (unlikely(afl->shm.cmplog_mode)) {
+
+    if (afl->cmplog_max_filesize < 1024) {
+
+      afl->cmplog_max_filesize = 1024;
+
+    } else {
+
+      afl->cmplog_max_filesize = (((afl->cmplog_max_filesize >> 10) + 1) << 10);
+
+    }
 
   }
 

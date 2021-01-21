@@ -25,13 +25,13 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       } || {
         $ECHO "$GREEN[+] llvm_mode instrumentation present and working correctly"
         TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
-        test "$TUPLES" -gt 3 -a "$TUPLES" -lt 8 && {
+        test "$TUPLES" -gt 2 -a "$TUPLES" -lt 8 && {
           $ECHO "$GREEN[+] llvm_mode run reported $TUPLES instrumented locations which is fine"
         } || {
           $ECHO "$RED[!] llvm_mode instrumentation produces weird numbers: $TUPLES"
           CODE=1
         }
-        test "$TUPLES" -lt 4 && SKIP=1
+        test "$TUPLES" -lt 3 && SKIP=1
         true
       }
     } || {
@@ -129,7 +129,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     AFL_LLVM_INSTRUMENT=CFG AFL_LLVM_INSTRIM_LOOPHEAD=1 ../afl-clang-fast -o test-instr.instrim ../test-instr.c > /dev/null 2>test.out
     test -e test-instr.instrim && {
       TUPLES=`echo 0|../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.instrim 2>&1 | grep Captur | awk '{print$3}'`
-      test "$TUPLES" -gt 2 -a "$TUPLES" -lt 5 && {
+      test "$TUPLES" -gt 1 -a "$TUPLES" -lt 5 && {
         $ECHO "$GREEN[+] llvm_mode InsTrim reported $TUPLES instrumented locations which is fine"
       } || {
         $ECHO "$RED[!] llvm_mode InsTrim instrumentation produces weird numbers: $TUPLES"

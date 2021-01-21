@@ -23,8 +23,6 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#include "types.h"
-
 /* Version string: */
 
 // c = release, d = volatile github dev, e = experimental branch

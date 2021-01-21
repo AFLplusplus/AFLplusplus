@@ -58,7 +58,7 @@ static list_t fsrv_list = {.element_prealloc_count = 0};
 
 static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
-  if (fsrv->qemu_mode) setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0);
+  if (fsrv->qemu_mode) { setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 0); }
 
   execv(fsrv->target_path, argv);
 
@@ -395,6 +395,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     sigaction(SIGPIPE, &sa, NULL);
 
     struct rlimit r;
+
+    if (!fsrv->cmplog_binary && fsrv->qemu_mode == false) {
+
+      unsetenv(CMPLOG_SHM_ENV_VAR);  // we do not want that in non-cmplog fsrv
+
+    }
 
     /* Umpf. On OpenBSD, the default fd limit for root users is set to
        soft 128. Let's try to fix that... */

@@ -141,12 +141,22 @@ extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
 extern s32
     interesting_32[INTERESTING_8_LEN + INTERESTING_16_LEN + INTERESTING_32_LEN];
 
+struct tainted {
+
+  u32             pos;
+  u32             len;
+  struct tainted *next;
+  struct tainted *prev;
+
+};
+
 struct queue_entry {
 
   u8 *fname;                            /* File name for the test case      */
   u32 len;                              /* Input length                     */
 
-  u8   cal_failed;                      /* Calibration failed?              */
+  u8 colorized,                         /* Do not run redqueen stage again  */
+      cal_failed;                       /* Calibration failed?              */
   bool trim_done,                       /* Trimmed?                         */
       was_fuzzed,                       /* historical, but needed for MOpt  */
       passed_det,                       /* Deterministic stages passed?     */
@@ -154,7 +164,6 @@ struct queue_entry {
       var_behavior,                     /* Variable behavior?               */
       favored,                          /* Currently favored?               */
       fs_redundant,                     /* Marked as redundant in the fs?   */
-      fully_colorized,                  /* Do not run redqueen stage again  */
       is_ascii,                         /* Is the input just ascii text?    */
       disabled;                         /* Is disabled from fuzz selection  */
 
@@ -179,7 +188,11 @@ struct queue_entry {
 
   u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
 
-  struct queue_entry *next;             /* Next element, if any             */
+  u8 *            cmplog_colorinput;    /* the result buf of colorization   */
+  struct tainted *taint;                /* Taint information from CmpLog    */
+
+  struct queue_entry *mother,           /* queue entry this based on        */
+      *next;                            /* Next element, if any             */
 
 };
 
@@ -632,6 +645,8 @@ typedef struct afl_state {
   /* cmplog forkserver ids */
   s32 cmplog_fsrv_ctl_fd, cmplog_fsrv_st_fd;
   u32 cmplog_prev_timed_out;
+  u32 cmplog_max_filesize;
+  u32 cmplog_lvl;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map *      orig_cmp_map;
@@ -1117,9 +1132,9 @@ void   read_foreign_testcases(afl_state_t *, int);
 u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */
-u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len,
-                        u64 exec_cksum);
+u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
 
+/* our RNG wrapper */
 AFL_RAND_RETURN rand_next(afl_state_t *afl);
 
 /* probability between 0.0 and 1.0 */
