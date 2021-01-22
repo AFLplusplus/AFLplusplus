@@ -1549,10 +1549,10 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
     u32 i;
     if (!area_is_mapped(ptr1, 32) || !area_is_mapped(ptr2, 32)) return;
     fprintf(stderr, "rtn arg0=");
-    for (i = 0; i < 8; i++)
+    for (i = 0; i < 24; i++)
       fprintf(stderr, "%02x", ptr1[i]);
     fprintf(stderr, " arg1=");
-    for (i = 0; i < 8; i++)
+    for (i = 0; i < 24; i++)
       fprintf(stderr, "%02x", ptr2[i]);
     fprintf(stderr, "\n");
   */

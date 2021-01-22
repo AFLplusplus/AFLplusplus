@@ -32,6 +32,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - fixed endless loop for allow/blocklist lines starting with a
       comment (thanks to Zherya for reporting)
     - cmplog/redqueen now also tracks floating point, _ExtInt() + 128bit
+    - cmplog/redqueen can now process basic libc++ and libstdc++
+      std::string comparisons (though no position or length type variants)
     - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
