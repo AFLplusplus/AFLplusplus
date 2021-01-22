@@ -131,6 +131,11 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
           FunctionType *FT = Callee->getFunctionType();
 
+  // _ZNKSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7compareEmmPKcm
+  //   => libc++ => llvm => __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring1, u8 *stdstring2)
+  // _ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc 
+  //   => libstdc++ => gcc => __cmplog_rtn_gcc_stdstring_cstring
+
           bool isPtrRtn = FT->getNumParams() >= 2 &&
                           !FT->getReturnType()->isVoidTy() &&
                           FT->getParamType(0) == FT->getParamType(1) &&

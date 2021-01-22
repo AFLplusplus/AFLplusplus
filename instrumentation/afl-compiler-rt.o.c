@@ -1594,6 +1594,71 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
 }
 
+// gcc libstdc++
+// _ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc
+static u8 *get_gcc_stdstring(u8 *string) {
+
+  u32 *len = (u32 *)(string + 8);
+
+  if (*len < 16) {  // in structure
+
+    return (string + 16);
+
+  } else {  // in memory
+
+    u8 **ptr = (u8 **)string;
+    return (*ptr);
+
+  }
+
+}
+
+// llvm libc++ _ZNKSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocator
+//             IcEEE7compareEmmPKcm
+static u8 *get_llvm_stdstring(u8 *string) {
+
+  // length is in: if ((string[0] & 1) == 0) u8 len = (string[0] >> 1);
+  // or: if (string[0] & 1) u32 *len = (u32 *) (string + 8);
+
+  if (string[0] & 1) {  // in memory
+
+    u8 **ptr = (u8 **)(string + 16);
+    return (*ptr);
+
+  } else {  // in structure
+
+    return (string + 1);
+
+  }
+
+}
+
+void __cmplog_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
+
+  __cmplog_rtn_hook(get_gcc_stdstring(stdstring), cstring);
+
+}
+
+void __cmplog_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
+
+  __cmplog_rtn_hook(get_gcc_stdstring(stdstring1),
+                    get_gcc_stdstring(stdstring2));
+
+}
+
+void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
+
+  __cmplog_rtn_hook(get_llvm_stdstring(stdstring), cstring);
+
+}
+
+void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
+
+  __cmplog_rtn_hook(get_llvm_stdstring(stdstring1),
+                    get_llvm_stdstring(stdstring2));
+
+}
+
 /* COVERAGE manipulation features */
 
 // this variable is then used in the shm setup to create an additional map
