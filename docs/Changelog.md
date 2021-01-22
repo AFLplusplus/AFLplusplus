@@ -35,6 +35,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
+  - unicornafl
+    - Substential speed gains in python bindings for certain use cases
+    - Added a new example harness to compare python, c, and rust bindings
   - changed default: no memory limit for afl-cmin and afl-cmin.bash
   - warn on any _AFL and __AFL env vars
   - LLVM mode is now compiled with -j4, unicorn with all cores. qemu was
