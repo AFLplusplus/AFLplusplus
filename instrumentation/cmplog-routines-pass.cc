@@ -226,26 +226,32 @@ bool CmpLogRoutines::hookRtns(Module &M) {
               FT->getParamType(1)->isPointerTy();
 
           bool isLlvmStdStringStdString =
-              Callee->getName().find("_ZNSt3__1eqINS") != std::string::npos &&
-              Callee->getName().find("_12basic_stringIcNS_11char_traits") !=
-                  std::string::npos &&
+              Callee->getName().find("_ZNSt3__1eqI") != std::string::npos &&
+              Callee->getName().find("_12basic_stringI") != std::string::npos &&
+              Callee->getName().find("_11char_traits") != std::string::npos &&
               FT->getNumParams() >= 2 && FT->getParamType(0)->isPointerTy() &&
               FT->getParamType(1)->isPointerTy();
 
           bool isLlvmStdStringCString =
-              Callee->getName().find("ZNSt3__1eqIcNS") != std::string::npos &&
+              Callee->getName().find("_ZNSt3__1eqI") != std::string::npos &&
               Callee->getName().find("_12basic_stringI") != std::string::npos &&
               FT->getNumParams() >= 2 && FT->getParamType(0)->isPointerTy() &&
               FT->getParamType(1)->isPointerTy();
 
           /*
-                   fprintf(stderr, "F:%s C:%s argc:%u\n",
-             F.getName().str().c_str(), Callee->getName().str().c_str(),
-             FT->getNumParams()); fprintf(stderr, "ptr0:%u ptr1:%u ptr2:%u\n",
-                    FT->getParamType(0)->isPointerTy(),
-                    FT->getParamType(1)->isPointerTy(),
-                    FT->getNumParams() > 2 ? FT->getParamType(2)->isPointerTy()
-             : 22 );
+                    {
+
+                       fprintf(stderr, "F:%s C:%s argc:%u\n",
+                       F.getName().str().c_str(),
+             Callee->getName().str().c_str(), FT->getNumParams());
+                       fprintf(stderr, "ptr0:%u ptr1:%u ptr2:%u\n",
+                              FT->getParamType(0)->isPointerTy(),
+                              FT->getParamType(1)->isPointerTy(),
+                              FT->getNumParams() > 2 ?
+             FT->getParamType(2)->isPointerTy() : 22 );
+
+                    }
+
           */
 
           if (isGccStdStringCString || isGccStdStringStdString ||
@@ -269,7 +275,10 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
   }
 
-  if (!calls.size()) return false;
+  if (!calls.size() && !gccStdStd.size() && !gccStdC.size() &&
+      !llvmStdStd.size() && !llvmStdC.size())
+    return false;
+
   /*
     if (!be_quiet)
       errs() << "Hooking " << calls.size()
