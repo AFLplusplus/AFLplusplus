@@ -253,10 +253,6 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
             isPtrRtn = false;
 
-            fprintf(stderr, "%u %u %u %u\n", isGccStdStringCString,
-                    isGccStdStringStdString, isLlvmStdStringStdString,
-                    isLlvmStdStringCString);
-
           }
 
           if (isPtrRtn) { calls.push_back(callInst); }
