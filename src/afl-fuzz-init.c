@@ -810,7 +810,7 @@ void perform_dry_run(afl_state_t *afl) {
 
   while (q) {
 
-    u8  use_mem[MAX_FILE];
+    u8  *use_mem = afl_realloc(AFL_BUF_PARAM(in), MAX_FILE);
     u8  res;
     s32 fd;
 
