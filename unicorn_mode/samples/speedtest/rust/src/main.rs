@@ -206,6 +206,11 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
             true
         };
 
+    let crash_validation_callback =
+        |_uc: UnicornHandle<'_, _>, result, _input: &[u8], _persistent_round| {
+            result != uc_error::OK
+        };
+
     let end_addrs = parse_locs("main_ends").unwrap();
 
     let ret = uc.afl_fuzz(
@@ -214,7 +219,7 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
         &end_addrs,
         Box::new(crash_validation_callback),
         false,
-        1,
+        1000,
     );
 
     match ret {
