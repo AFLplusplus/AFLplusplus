@@ -87,7 +87,7 @@ char CmpLogRoutines::ID = 0;
 
 bool CmpLogRoutines::hookRtns(Module &M) {
 
-  std::vector<CallInst *> calls;
+  std::vector<CallInst *> calls, llvmStdStd, llvmStdC, gccStdStd, gccStdC;
   LLVMContext &           C = M.getContext();
 
   Type *VoidTy = Type::getVoidTy(C);
@@ -110,6 +110,78 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   Function *cmplogHookFn = cast<Function>(c);
 #else
   FunctionCallee cmplogHookFn = c;
+#endif
+
+#if LLVM_VERSION_MAJOR < 9
+  Constant *
+#else
+  FunctionCallee
+#endif
+      c1 = M.getOrInsertFunction("__cmplog_rtn_llvm_stdstring_stdstring",
+                                 VoidTy, i8PtrTy, i8PtrTy
+#if LLVM_VERSION_MAJOR < 5
+                                 ,
+                                 NULL
+#endif
+      );
+#if LLVM_VERSION_MAJOR < 9
+  Function *cmplogLlvmStdStd = cast<Function>(c1);
+#else
+  FunctionCallee cmplogLlvmStdStd = c1;
+#endif
+
+#if LLVM_VERSION_MAJOR < 9
+  Constant *
+#else
+  FunctionCallee
+#endif
+      c2 = M.getOrInsertFunction("__cmplog_rtn_llvm_stdstring_cstring", VoidTy,
+                                 i8PtrTy, i8PtrTy
+#if LLVM_VERSION_MAJOR < 5
+                                 ,
+                                 NULL
+#endif
+      );
+#if LLVM_VERSION_MAJOR < 9
+  Function *cmplogLlvmStdC = cast<Function>(c2);
+#else
+  FunctionCallee cmplogLlvmStdC = c2;
+#endif
+
+#if LLVM_VERSION_MAJOR < 9
+  Constant *
+#else
+  FunctionCallee
+#endif
+      c3 = M.getOrInsertFunction("__cmplog_rtn_gcc_stdstring_stdstring", VoidTy,
+                                 i8PtrTy, i8PtrTy
+#if LLVM_VERSION_MAJOR < 5
+                                 ,
+                                 NULL
+#endif
+      );
+#if LLVM_VERSION_MAJOR < 9
+  Function *cmplogGccStdStd = cast<Function>(c3);
+#else
+  FunctionCallee cmplogGccStdStd = c3;
+#endif
+
+#if LLVM_VERSION_MAJOR < 9
+  Constant *
+#else
+  FunctionCallee
+#endif
+      c4 = M.getOrInsertFunction("__cmplog_rtn_gcc_stdstring_cstring", VoidTy,
+                                 i8PtrTy, i8PtrTy
+#if LLVM_VERSION_MAJOR < 5
+                                 ,
+                                 NULL
+#endif
+      );
+#if LLVM_VERSION_MAJOR < 9
+  Function *cmplogGccStdC = cast<Function>(c4);
+#else
+  FunctionCallee cmplogGccStdC = c4;
 #endif
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
@@ -136,9 +208,64 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                           FT->getParamType(0) == FT->getParamType(1) &&
                           FT->getParamType(0)->isPointerTy();
 
-          if (!isPtrRtn) continue;
+          bool isGccStdStringStdString =
+              Callee->getName().find("__is_charIT_EE7__value") !=
+                  std::string::npos &&
+              Callee->getName().find(
+                  "St7__cxx1112basic_stringIS2_St11char_traits") !=
+                  std::string::npos &&
+              FT->getNumParams() >= 2 &&
+              FT->getParamType(0) == FT->getParamType(1) &&
+              FT->getParamType(0)->isPointerTy();
 
-          calls.push_back(callInst);
+          bool isGccStdStringCString =
+              Callee->getName().find(
+                  "St7__cxx1112basic_stringIcSt11char_"
+                  "traitsIcESaIcEE7compareEPK") != std::string::npos &&
+              FT->getNumParams() >= 2 && FT->getParamType(0)->isPointerTy() &&
+              FT->getParamType(1)->isPointerTy();
+
+          bool isLlvmStdStringStdString =
+              Callee->getName().find("_ZNSt3__1eqI") != std::string::npos &&
+              Callee->getName().find("_12basic_stringI") != std::string::npos &&
+              Callee->getName().find("_11char_traits") != std::string::npos &&
+              FT->getNumParams() >= 2 && FT->getParamType(0)->isPointerTy() &&
+              FT->getParamType(1)->isPointerTy();
+
+          bool isLlvmStdStringCString =
+              Callee->getName().find("_ZNSt3__1eqI") != std::string::npos &&
+              Callee->getName().find("_12basic_stringI") != std::string::npos &&
+              FT->getNumParams() >= 2 && FT->getParamType(0)->isPointerTy() &&
+              FT->getParamType(1)->isPointerTy();
+
+          /*
+                    {
+
+                       fprintf(stderr, "F:%s C:%s argc:%u\n",
+                       F.getName().str().c_str(),
+             Callee->getName().str().c_str(), FT->getNumParams());
+                       fprintf(stderr, "ptr0:%u ptr1:%u ptr2:%u\n",
+                              FT->getParamType(0)->isPointerTy(),
+                              FT->getParamType(1)->isPointerTy(),
+                              FT->getNumParams() > 2 ?
+             FT->getParamType(2)->isPointerTy() : 22 );
+
+                    }
+
+          */
+
+          if (isGccStdStringCString || isGccStdStringStdString ||
+              isLlvmStdStringStdString || isLlvmStdStringCString) {
+
+            isPtrRtn = false;
+
+          }
+
+          if (isPtrRtn) { calls.push_back(callInst); }
+          if (isGccStdStringStdString) { gccStdStd.push_back(callInst); }
+          if (isGccStdStringCString) { gccStdC.push_back(callInst); }
+          if (isLlvmStdStringStdString) { llvmStdStd.push_back(callInst); }
+          if (isLlvmStdStringCString) { llvmStdC.push_back(callInst); }
 
         }
 
@@ -148,7 +275,10 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
   }
 
-  if (!calls.size()) return false;
+  if (!calls.size() && !gccStdStd.size() && !gccStdC.size() &&
+      !llvmStdStd.size() && !llvmStdC.size())
+    return false;
+
   /*
     if (!be_quiet)
       errs() << "Hooking " << calls.size()
@@ -169,6 +299,82 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     args.push_back(v2Pcasted);
 
     IRB.CreateCall(cmplogHookFn, args);
+
+    // errs() << callInst->getCalledFunction()->getName() << "\n";
+
+  }
+
+  for (auto &callInst : gccStdStd) {
+
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
+
+    IRBuilder<> IRB(callInst->getParent());
+    IRB.SetInsertPoint(callInst);
+
+    std::vector<Value *> args;
+    Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+
+    IRB.CreateCall(cmplogGccStdStd, args);
+
+    // errs() << callInst->getCalledFunction()->getName() << "\n";
+
+  }
+
+  for (auto &callInst : gccStdC) {
+
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
+
+    IRBuilder<> IRB(callInst->getParent());
+    IRB.SetInsertPoint(callInst);
+
+    std::vector<Value *> args;
+    Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+
+    IRB.CreateCall(cmplogGccStdC, args);
+
+    // errs() << callInst->getCalledFunction()->getName() << "\n";
+
+  }
+
+  for (auto &callInst : llvmStdStd) {
+
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
+
+    IRBuilder<> IRB(callInst->getParent());
+    IRB.SetInsertPoint(callInst);
+
+    std::vector<Value *> args;
+    Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+
+    IRB.CreateCall(cmplogLlvmStdStd, args);
+
+    // errs() << callInst->getCalledFunction()->getName() << "\n";
+
+  }
+
+  for (auto &callInst : llvmStdC) {
+
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
+
+    IRBuilder<> IRB(callInst->getParent());
+    IRB.SetInsertPoint(callInst);
+
+    std::vector<Value *> args;
+    Value *              v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value *              v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+
+    IRB.CreateCall(cmplogLlvmStdC, args);
 
     // errs() << callInst->getCalledFunction()->getName() << "\n";
 
