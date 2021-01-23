@@ -807,10 +807,10 @@ void perform_dry_run(afl_state_t *afl) {
   struct queue_entry *q = afl->queue;
   u32                 cal_failures = 0;
   u8 *                skip_crashes = afl->afl_env.afl_skip_crashes;
+  u8 *                use_mem;
 
   while (q) {
 
-    u8  *use_mem = afl_realloc(AFL_BUF_PARAM(in), MAX_FILE);
     u8  res;
     s32 fd;
 
@@ -829,6 +829,7 @@ void perform_dry_run(afl_state_t *afl) {
     if (fd < 0) { PFATAL("Unable to open '%s'", q->fname); }
 
     u32 read_len = MIN(q->len, (u32)MAX_FILE);
+    use_mem = afl_realloc(AFL_BUF_PARAM(in), read_len);
     if (read(fd, use_mem, read_len) != (ssize_t)read_len) {
 
       FATAL("Short read from '%s'", q->fname);
