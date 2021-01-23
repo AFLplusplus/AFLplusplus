@@ -7,6 +7,7 @@ use std::{
     fs::File,
     io::{self, Read},
     process::abort,
+    str,
 };
 
 use unicornafl::{
@@ -45,19 +46,24 @@ fn read_file(filename: &str) -> Result<Vec<u8>, io::Error> {
 /// Our location parser
 fn parse_locs(loc_name: &str) -> Result<Vec<u64>, io::Error> {
     let contents = &read_file(&format!("../target.offsets.{}", loc_name))?;
+    //println!("Read: {:?}", contents);
     Ok(str_from_u8_unchecked(&contents)
         .split("\n")
-        .flat_map(|x| u64::from_str_radix(x, 16))
+        .map(|x| {
+            //println!("Trying to convert {}", &x[2..]);
+            let result = u64::from_str_radix(&x[2..], 16);
+            result.unwrap()
+        })
         .collect())
 }
 
 // find null terminated string in vec
-pub unsafe fn str_from_u8_unchecked(utf8_src: &[u8]) -> &str {
+pub fn str_from_u8_unchecked(utf8_src: &[u8]) -> &str {
     let nul_range_end = utf8_src
         .iter()
         .position(|&c| c == b'\0')
         .unwrap_or(utf8_src.len());
-    ::std::str::from_utf8_unchecked(&utf8_src[0..nul_range_end])
+    unsafe { str::from_utf8_unchecked(&utf8_src[0..nul_range_end]) }
 }
 
 fn align(size: u64) -> u64 {
@@ -81,26 +87,23 @@ fn main() {
 }
 
 fn fuzz(input_file: &str) -> Result<(), uc_error> {
-    let unicorn = Unicorn::new(Arch::X86, Mode::MODE_64, 0)?;
-    let mut uc = unicorn.borrow();
+    let mut unicorn = Unicorn::new(Arch::X86, Mode::MODE_64, 0)?;
+    let mut uc: UnicornHandle<'_, _> = unicorn.borrow();
 
     let binary = read_file(BINARY).expect(&format!("Could not read modem image: {}", BINARY));
-    let aligned_binary_size = align(binary.len() as u64);
+    let _aligned_binary_size = align(binary.len() as u64);
     // Apply constraints to the mutated input
     if binary.len() as u64 > CODE_SIZE_MAX {
         println!("Binary code is too large (> {} bytes)", CODE_SIZE_MAX);
     }
 
     // Write the binary to its place in mem
-    uc.mem_map(
-        BASE_ADDRESS,
-        CODE_SIZE_MAX as usize,
-        Permission::READ | Permission::WRITE,
-    )?;
-    uc.mem_write(BASE_ADDRESS, &binary);
+    uc.mem_map(BASE_ADDRESS, CODE_SIZE_MAX as usize, Permission::ALL)?;
+    uc.mem_write(BASE_ADDRESS, &binary)?;
 
     // Set the program counter to the start of the code
     let main_locs = parse_locs("main").unwrap();
+    //println!("Entry Point: {:x}", main_locs[0]);
     uc.reg_write(RegisterX86::RIP as i32, main_locs[0])?;
 
     // Setup the stack.
@@ -146,7 +149,6 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
         uc.reg_write(RAX as i32, HEAP_ADDRESS).unwrap();
         uc.reg_write(RIP as i32, addr + size as u64).unwrap();
         already_allocated_malloc.set(true);
-        Ok(());
     };
 
     let already_allocated_free = already_allocated.clone();
@@ -165,9 +167,8 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
             );
             abort();
         }
-        uc.reg_write(RIP as i32, addr + size as u64);
+        uc.reg_write(RIP as i32, addr + size as u64).unwrap();
         already_allocated_free.set(false);
-        Ok(())
     };
 
     /*
@@ -176,36 +177,34 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
 
     // This is a fancy print function that we're just going to skip for fuzzing.
     let hook_magicfn = move |mut uc: UnicornHandle<'_, _>, addr, size| {
-        uc.reg_write(RIP as i32, addr + size as u64);
-        Ok(())
+        uc.reg_write(RIP as i32, addr + size as u64).unwrap();
     };
 
     for addr in parse_locs("malloc").unwrap() {
         //hook!(addr, hook_malloc, "malloc");
-        uc.add_code_hook(addr, addr, Box::new(hook_malloc))?;
+        uc.add_code_hook(addr, addr, Box::new(hook_malloc.clone()))?;
     }
 
     for addr in parse_locs("free").unwrap() {
-        uc.add_code_hook(addr, addr, Box::new(hook_free))?;
+        uc.add_code_hook(addr, addr, Box::new(hook_free.clone()))?;
     }
 
     for addr in parse_locs("magicfn").unwrap() {
-        uc.add_code_hook(addr, addr, Box::new(hook_magicfn))?;
+        uc.add_code_hook(addr, addr, Box::new(hook_magicfn.clone()))?;
     }
 
-    let place_input_callback = |mut uc, afl_input, _persistent_round| {
-        // apply constraints to the mutated input
-        if afl_input.len() > INPUT_MAX as usize {
-            //println!("Skipping testcase with leng {}", afl_input.len());
-            return false;
-        }
+    let place_input_callback =
+        |mut uc: UnicornHandle<'_, _>, afl_input: &[u8], _persistent_round| {
+            // apply constraints to the mutated input
+            if afl_input.len() > INPUT_MAX as usize {
+                //println!("Skipping testcase with leng {}", afl_input.len());
+                return false;
+            }
 
-        // TODO: afl_input[-1] = b'\0'
-        uc.mem_write(INPUT_ADDRESS, afl_input).unwrap();
-        true
-    };
-
-    let crash_validation_callback = |uc, result, _input, _persistent_round| result != uc_error::OK;
+            // TODO: afl_input[-1] = b'\0'
+            uc.mem_write(INPUT_ADDRESS, afl_input).unwrap();
+            true
+        };
 
     let end_addrs = parse_locs("main_ends").unwrap();
 
