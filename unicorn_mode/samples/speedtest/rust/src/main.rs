@@ -1,8 +1,7 @@
 extern crate capstone;
 extern crate libc;
 
-use core::cell::{Cell, RefCell};
-use libc::{c_void, munmap};
+use core::cell::Cell;
 use std::{
     env,
     fs::File,
@@ -12,8 +11,8 @@ use std::{
 
 use unicornafl::{
     unicorn_const::{uc_error, Arch, Mode, Permission},
-    utils::*,
-    RegisterX86::*,
+    RegisterX86::{self, *},
+    Unicorn, UnicornHandle,
 };
 
 const BINARY: &str = &"../target";
@@ -36,17 +35,6 @@ const STACK_ADDRESS: u64 = 0x00400000;
 // Size of the stack (arbitrarily chosen, just make it big enough)
 const STACK_SIZE: u64 = 0x000F0000;
 
-macro_rules! hook {
-    ($addr:expr, $func:expr) => {
-        uc.add_code_hook($addr, $addr, Box::new($func))
-            .expect(&format!("failed to set {} hook", stringify!($func)));
-    };
-    ($addr:expr, $func:expr, $opt_name:expr) => {
-        uc.add_code_hook($addr, $addr, Box::new($func))
-            .expect(&format!("failed to set {} hook", $opt_name));
-    };
-}
-
 fn read_file(filename: &str) -> Result<Vec<u8>, io::Error> {
     let mut f = File::open(filename)?;
     let mut buffer = Vec::new();
@@ -57,10 +45,10 @@ fn read_file(filename: &str) -> Result<Vec<u8>, io::Error> {
 /// Our location parser
 fn parse_locs(loc_name: &str) -> Result<Vec<u64>, io::Error> {
     let contents = &read_file(&format!("../target.offsets.{}", loc_name))?;
-    str_from_u8_unchecked(&contents)
+    Ok(str_from_u8_unchecked(&contents)
         .split("\n")
-        .filter_map(|x| u64::from_str_radix(x, 16))
-        .collect()
+        .flat_map(|x| u64::from_str_radix(x, 16))
+        .collect())
 }
 
 // find null terminated string in vec
@@ -89,31 +77,31 @@ fn main() {
     }
     let input_file = &args[1];
     println!("The input testcase is set to {}", input_file);
-    uclate(input_file).unwrap();
+    fuzz(input_file).unwrap();
 }
 
-fn uclate(input_file: &str) -> Result<(), io::Error> {
-    let mut uc = Unicorn::new(Arch::X86, Mode::MODE_64, 0)?;
+fn fuzz(input_file: &str) -> Result<(), uc_error> {
+    let unicorn = Unicorn::new(Arch::X86, Mode::MODE_64, 0)?;
+    let mut uc = unicorn.borrow();
 
     let binary = read_file(BINARY).expect(&format!("Could not read modem image: {}", BINARY));
     let aligned_binary_size = align(binary.len() as u64);
     // Apply constraints to the mutated input
     if binary.len() as u64 > CODE_SIZE_MAX {
         println!("Binary code is too large (> {} bytes)", CODE_SIZE_MAX);
-        Ok(())
     }
 
     // Write the binary to its place in mem
     uc.mem_map(
         BASE_ADDRESS,
-        CODE_SIZE_MAX,
+        CODE_SIZE_MAX as usize,
         Permission::READ | Permission::WRITE,
     )?;
-    uc.mem_write(BASE_ADDR, binary);
+    uc.mem_write(BASE_ADDRESS, &binary);
 
     // Set the program counter to the start of the code
-    let main_locs = parse_locs("main")?;
-    uc.reg_write(RIP, main_locs[0])?;
+    let main_locs = parse_locs("main").unwrap();
+    uc.reg_write(RegisterX86::RIP as i32, main_locs[0])?;
 
     // Setup the stack.
     uc.mem_map(
@@ -122,30 +110,32 @@ fn uclate(input_file: &str) -> Result<(), io::Error> {
         Permission::READ | Permission::WRITE,
     )?;
     // Setup the stack pointer, but allocate two pointers for the pointers to input.
-    uc.reg_write(RSP, STACK_ADDRESS + STACK_SIZE - 16)?;
+    uc.reg_write(RSP as i32, STACK_ADDRESS + STACK_SIZE - 16)?;
 
     // Setup our input space, and push the pointer to it in the function params
     uc.mem_map(INPUT_ADDRESS, INPUT_MAX as usize, Permission::READ)?;
     // We have argc = 2
-    uc.reg_write(RDI, 2)?;
+    uc.reg_write(RDI as i32, 2)?;
     // RSI points to our little 2 QWORD space at the beginning of the stack...
-    uc.reg_write(RSI, STACK_ADDRESS + STACK_SIZE - 16)?;
+    uc.reg_write(RSI as i32, STACK_ADDRESS + STACK_SIZE - 16)?;
     // ... which points to the Input. Write the ptr to mem in little endian.
     uc.mem_write(
         STACK_ADDRESS + STACK_SIZE - 16,
-        (INPUT_ADDRESS as u32).to_le_bytes(),
+        &(INPUT_ADDRESS as u32).to_le_bytes(),
     )?;
 
     let already_allocated = Cell::new(false);
 
     let already_allocated_malloc = already_allocated.clone();
-    let hook_malloc = move |mut uc: Unicorn, addr: u64, size: u32| {
+    // We use a very simple malloc/free stub here,
+    // that only works for exactly one allocation at a time.
+    let hook_malloc = move |mut uc: UnicornHandle<'_, _>, addr: u64, size: u32| {
         if already_allocated_malloc.get() {
             println!("Double malloc, not supported right now!");
             abort();
         }
         // read the first param
-        let malloc_size = uc.reg_read(RDI).unwrap();
+        let malloc_size = uc.reg_read(RDI as i32).unwrap();
         if malloc_size > HEAP_SIZE_MAX {
             println!(
                 "Tried to allocate {} bytes, but we may only allocate up to {}",
@@ -153,19 +143,21 @@ fn uclate(input_file: &str) -> Result<(), io::Error> {
             );
             abort();
         }
-        uc.reg_write(RAX, HEAP_ADDRESS).unwrap();
-        uc.reg_write(RIP, addr + size as u64).unwrap();
+        uc.reg_write(RAX as i32, HEAP_ADDRESS).unwrap();
+        uc.reg_write(RIP as i32, addr + size as u64).unwrap();
         already_allocated_malloc.set(true);
+        Ok(());
     };
 
     let already_allocated_free = already_allocated.clone();
-    let hook_free = move |mut uc: Unicorn, addr: u64, size: u32| {
+    // No real free, just set the "used"-flag to false.
+    let hook_free = move |mut uc: UnicornHandle<'_, _>, addr, size| {
         if already_allocated_free.get() {
             println!("Double free detected. Real bug?");
             abort();
         }
         // read the first param
-        let free_ptr = uc.reg_read(RDI).unwrap();
+        let free_ptr = uc.reg_read(RDI as i32).unwrap();
         if free_ptr != HEAP_ADDRESS {
             println!(
                 "Tried to free wrong mem region {:x} at code loc {:x}",
@@ -173,30 +165,35 @@ fn uclate(input_file: &str) -> Result<(), io::Error> {
             );
             abort();
         }
-        uc.reg_write(RIP, addr + size as u64);
+        uc.reg_write(RIP as i32, addr + size as u64);
         already_allocated_free.set(false);
+        Ok(())
     };
 
     /*
         BEGIN FUNCTION HOOKS
     */
 
-    let hook_magicfn =
-        move |mut uc: Unicorn, addr: u64, size: u32| uc.reg_write(RIP, address + size as u64);
+    // This is a fancy print function that we're just going to skip for fuzzing.
+    let hook_magicfn = move |mut uc: UnicornHandle<'_, _>, addr, size| {
+        uc.reg_write(RIP as i32, addr + size as u64);
+        Ok(())
+    };
 
-    for addr in parse_locs("malloc")? {
-        hook!(addr, hook_malloc, "malloc");
+    for addr in parse_locs("malloc").unwrap() {
+        //hook!(addr, hook_malloc, "malloc");
+        uc.add_code_hook(addr, addr, Box::new(hook_malloc))?;
     }
 
-    for addr in parse_locs("free")? {
-        hook!(addr, hook_free, "free");
+    for addr in parse_locs("free").unwrap() {
+        uc.add_code_hook(addr, addr, Box::new(hook_free))?;
     }
 
-    for addr in parse_locs("magicfn")? {
-        hook!(addr, hook_magicfn, "magicfn");
+    for addr in parse_locs("magicfn").unwrap() {
+        uc.add_code_hook(addr, addr, Box::new(hook_magicfn))?;
     }
 
-    let place_input_callback = |mut uc: Unicorn, afl_input: &[u8], _persistent_round: i32| {
+    let place_input_callback = |mut uc, afl_input, _persistent_round| {
         // apply constraints to the mutated input
         if afl_input.len() > INPUT_MAX as usize {
             //println!("Skipping testcase with leng {}", afl_input.len());
@@ -208,10 +205,9 @@ fn uclate(input_file: &str) -> Result<(), io::Error> {
         true
     };
 
-    let crash_validation_callback =
-        |uc: Unicorn, result: uc_error, _input: &[u8], _: i32| result != uc_error::OK;
+    let crash_validation_callback = |uc, result, _input, _persistent_round| result != uc_error::OK;
 
-    end_addrs = parse_locs("main_ends")?;
+    let end_addrs = parse_locs("main_ends").unwrap();
 
     let ret = uc.afl_fuzz(
         input_file,
