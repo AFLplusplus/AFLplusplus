@@ -313,17 +313,18 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
 /* check if ascii or UTF-8 */
 
-static u8 check_if_text(struct queue_entry *q) {
+static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
   if (q->len < AFL_TXT_MIN_LEN) return 0;
 
-  u8      buf[MAX_FILE];
+  u8     *buf;
   int     fd;
   u32     len = q->len, offset = 0, ascii = 0, utf8 = 0;
   ssize_t comp;
 
   if (len >= MAX_FILE) len = MAX_FILE - 1;
   if ((fd = open(q->fname, O_RDONLY)) < 0) return 0;
+  buf = afl_realloc(AFL_BUF_PARAM(in_scratch), len);
   comp = read(fd, buf, len);
   close(fd);
   if (comp != (ssize_t)len) return 0;
@@ -487,7 +488,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   }
 
   /* only redqueen currently uses is_ascii */
-  if (afl->shm.cmplog_mode) q->is_ascii = check_if_text(q);
+  if (afl->shm.cmplog_mode) q->is_ascii = check_if_text(afl, q);
 
 }
 
