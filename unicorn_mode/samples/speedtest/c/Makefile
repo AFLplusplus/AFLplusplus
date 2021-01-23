@@ -50,4 +50,5 @@ harness-debug: harness-debug.o
 	$(MAKE) -C ..
 
 fuzz: ../target harness
-	SKIP_BINCHECK=1 ../../../../afl-fuzz -i ../sample_inputs -o ./output -- ./harness @@
+	rm -rf ./output
+	SKIP_BINCHECK=1 ../../../../afl-fuzz -s 1 -i ../sample_inputs -o ./output -- ./harness @@
