@@ -1,8 +1,8 @@
 # Remote monitoring with StatsD
 
 StatsD allows you to receive and aggregate metrics from a wide range of application and retransmit them to the backend of your choice.
-This allows you to create nice and readable dashboards containing all the information you need on your fuzzer instances.
-No need to write your own statistics parsing system, deploy and maintain it to all your instances, sync with your graph renderer...
+This enables you to create nice and readable dashboards containing all the information you need on your fuzzer instances.
+No need to write your own statistics parsing system, deploy and maintain it to all your instances, sync with your graph rendering system...
 
 The available metrics are :
 - cycle_done
@@ -27,28 +27,33 @@ The available metrics are :
 - havoc_expansion
 
 Compared to the default integrated UI, these metrics give you the opportunity to visualize trends and fuzzing state over time.
-By doing so, you might be able to see when the fuzzing process has reach a state of no progress, vizualize what are the "best strategies"
-(according to your own criteria) for your targets, etc.
+By doing so, you might be able to see when the fuzzing process has reached a state of no progress, visualize what are the "best strategies"
+(according to your own criteria) for your targets, etc. And doing so without requiring to log into each instance manually.
+
+An example visualisation may look like the following:
+![StatsD Grafana](./visualization/StatsD-grafana.png)
+
+*Notes: The exact same dashboard can be imported with [this JSON template](./statsd/grafana-afl++.json).*
 
 ## How to use
 
-To enable the StatsD reporting, you need to set the environment variable `AFL_STATSD=1`.
+To enable the StatsD reporting on your fuzzer instances, you need to set the environment variable `AFL_STATSD=1`.
 
-Setting `AFL_STATSD_TAGS_FLAVOR` to the provider of your choice will assign tags/label to each metrics based on their format.
+Setting `AFL_STATSD_TAGS_FLAVOR` to the provider of your choice will assign tags / labels to each metric based on their format.
 The possible values are  `dogstatsd`, `librato`, `signalfx` or `influxdb`.
 For more information on these env vars, check out `docs/env_variables.md`.
 
-The simplest way of using this feature is to use any metric provider and change the host/port of your StatsD daemon
-with `AFL_STATSD_PORT` and `AFL_STATSD_HOST`.
-However, to get started, here are some instruction with free and open source tools.
+The simplest way of using this feature is to use any metric provider and change the host/port of your StatsD daemon,
+with `AFL_STATSD_HOST` and `AFL_STATSD_PORT`, if required (defaults are `localhost` and port `8125`).
+To get started, here are some instruction with free and open source tools.
 The following setup is based on Prometheus, statsd_exporter and Grafana.
-Grafana here is not mandatory but gives you some nice graphs and features.
+Grafana here is not mandatory, but gives you some nice graphs and features.
 
 Depending on your setup and infrastructure, you may want to run these applications not on your fuzzer instances.
 Only one instance of these 3 application is required for all your fuzzers.
 
 To simplify everything, we will use Docker and docker-compose.
-Make sure you have them both installed. On most common linux distributions, it's as simple as:
+Make sure you have them both installed. On most common Linux distributions, it's as simple as:
 
 ```sh
 curl -fsSL https://get.docker.com -o get-docker.sh
@@ -127,9 +132,12 @@ mappings:
 Run `docker-compose up -d`.
 
 Everything should be now setup, you are now able to run your fuzzers with
+
 ```
 AFL_STATSD_TAGS_FLAVOR=dogstatsd AFL_STATSD=1 afl-fuzz -M test-fuzzer-1 -i i -o o ./bin/my-application @@
 AFL_STATSD_TAGS_FLAVOR=dogstatsd AFL_STATSD=1 afl-fuzz -S test-fuzzer-2 -i i -o o ./bin/my-application @@
 ...
 ```
 
+This setup may be modified before use in production environment. Depending on your needs: addind passwords, creating volumes for storage,
+tweaking the metrics gathering to get host metrics (CPU, RAM ...).
