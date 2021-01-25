@@ -48,6 +48,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - added dummy Makefile to instrumentation/
   - Updated utils/afl_frida to be 5% faster
   - Added AFL_KILL_SIGNAL env variable (thanks @v-p-b)
+  - @Edznux added a nice documentation on how to use rpc.statsd with
+    afl++ in docs/rpc_statsd.md, thanks!
 
 ### Version ++3.00c (release)
   - llvm_mode/ and gcc_plugin/ moved to instrumentation/
