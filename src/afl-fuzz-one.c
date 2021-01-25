@@ -4781,8 +4781,7 @@ pacemaker_fuzzing:
 
               }
 
-              afl->stage_cycles_puppet_v2[afl->swarm_now]
-                                         [STAGE_OverWriteExtra]++;
+              MOpt_globals.cycles_v2[STAGE_OverWriteExtra]++;
 
               break;
 
@@ -4837,8 +4836,7 @@ pacemaker_fuzzing:
               memcpy(out_buf + insert_at, ptr, extra_len);
 
               temp_len += extra_len;
-              afl->stage_cycles_puppet_v2[afl->swarm_now][STAGE_InsertExtra] +=
-                  1;
+              MOpt_globals.cycles_v2[STAGE_InsertExtra]++;
               break;
 
             }
@@ -4920,7 +4918,7 @@ pacemaker_fuzzing:
 
               }
 
-              afl->stage_cycles_puppet_v2[afl->swarm_now][STAGE_Splice]++;
+              MOpt_globals.cycles_v2[STAGE_Splice]++;
               break;
 
             }  // end of default:
