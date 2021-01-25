@@ -29,7 +29,7 @@
 #include "cmplog.h"
 
 //#define _DEBUG
-//#define COMBINE
+#define COMBINE
 //#define CMPLOG_INTROSPECTION
 //#define ARITHMETIC_LESSER_GREATER
 //#define TRANSFORM
