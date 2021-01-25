@@ -39,6 +39,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       CLANG for old afl-clang
   - unicornafl
     - Substential speed gains in python bindings for certain use cases
+    - Improved rust bindings
     - Added a new example harness to compare python, c, and rust bindings
   - changed default: no memory limit for afl-cmin and afl-cmin.bash
   - warn on any _AFL and __AFL env vars

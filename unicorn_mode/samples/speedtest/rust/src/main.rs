@@ -194,18 +194,19 @@ fn fuzz(input_file: &str) -> Result<(), uc_error> {
     }
 
     let place_input_callback =
-        |mut uc: UnicornHandle<'_, _>, afl_input: &[u8], _persistent_round| {
+        |mut uc: UnicornHandle<'_, _>, afl_input: &mut [u8], _persistent_round| {
             // apply constraints to the mutated input
             if afl_input.len() > INPUT_MAX as usize {
                 //println!("Skipping testcase with leng {}", afl_input.len());
                 return false;
             }
 
-            // TODO: afl_input[-1] = b'\0'
+            afl_input[afl_input.len() - 1] = b'\0';
             uc.mem_write(INPUT_ADDRESS, afl_input).unwrap();
             true
         };
 
+    // return true if the last run should be counted as crash
     let crash_validation_callback =
         |_uc: UnicornHandle<'_, _>, result, _input: &[u8], _persistent_round| {
             result != uc_error::OK
