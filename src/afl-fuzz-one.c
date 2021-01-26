@@ -2782,11 +2782,16 @@ abandon_entry:
      cycle and have not seen this entry before. */
 
   if (!afl->stop_soon && !afl->queue_cur->cal_failed &&
-      (afl->queue_cur->was_fuzzed == 0 || afl->queue_cur->fuzz_level == 0)) {
+      (afl->queue_cur->was_fuzzed == 0 || afl->queue_cur->fuzz_level == 0) &&
+      !afl->queue_cur->disabled) {
 
-    --afl->pending_not_fuzzed;
-    afl->queue_cur->was_fuzzed = 1;
-    if (afl->queue_cur->favored) { --afl->pending_favored; }
+    if (!afl->queue_cur->was_fuzzed) {
+
+      --afl->pending_not_fuzzed;
+      afl->queue_cur->was_fuzzed = 1;
+      if (afl->queue_cur->favored) { --afl->pending_favored; }
+
+    }
 
   }
 

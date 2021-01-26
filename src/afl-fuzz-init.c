@@ -1026,6 +1026,14 @@ void perform_dry_run(afl_state_t *afl) {
         /* Remove from fuzzing queue but keep for splicing */
 
         struct queue_entry *p = afl->queue;
+
+        if (!p->disabled && !p->was_fuzzed) {
+
+          --afl->pending_not_fuzzed;
+          --afl->active_paths;
+
+        }
+
         p->disabled = 1;
         p->perf_score = 0;
         while (p && p->next != q)
@@ -1035,9 +1043,6 @@ void perform_dry_run(afl_state_t *afl) {
           p->next = q->next;
         else
           afl->queue = q->next;
-
-        --afl->pending_not_fuzzed;
-        --afl->active_paths;
 
         afl->max_depth = 0;
         p = afl->queue;
@@ -1123,8 +1128,16 @@ restart_outer_cull_loop:
       if (!p->cal_failed && p->exec_cksum == q->exec_cksum) {
 
         duplicates = 1;
-        --afl->pending_not_fuzzed;
-        afl->active_paths--;
+        if (!p->disabled && !q->disabled && !p->was_fuzzed && !q->was_fuzzed) {
+
+          --afl->pending_not_fuzzed;
+          afl->active_paths--;
+
+        } else {
+        
+          FATAL("disabled entry? this should not happen, please report!");
+        
+        }
 
         // We do not remove any of the memory allocated because for
         // splicing the data might still be interesting.
