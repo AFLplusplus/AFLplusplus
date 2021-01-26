@@ -1036,7 +1036,7 @@ void perform_dry_run(afl_state_t *afl) {
         else
           afl->queue = q->next;
 
-        --afl->pending_not_fuzzed;
+        afl->pending_not_fuzzed = afl->pending_not_fuzzed ? --afl->pending_not_fuzzed : 0;
         --afl->active_paths;
 
         afl->max_depth = 0;
@@ -1123,7 +1123,7 @@ restart_outer_cull_loop:
       if (!p->cal_failed && p->exec_cksum == q->exec_cksum) {
 
         duplicates = 1;
-        --afl->pending_not_fuzzed;
+        afl->pending_not_fuzzed = afl->pending_not_fuzzed ? --afl->pending_not_fuzzed : 0;
         afl->active_paths--;
 
         // We do not remove any of the memory allocated because for
