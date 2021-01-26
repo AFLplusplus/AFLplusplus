@@ -317,7 +317,7 @@ static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
   if (q->len < AFL_TXT_MIN_LEN) return 0;
 
-  u8     *buf;
+  u8 *    buf;
   int     fd;
   u32     len = q->len, offset = 0, ascii = 0, utf8 = 0;
   ssize_t comp;

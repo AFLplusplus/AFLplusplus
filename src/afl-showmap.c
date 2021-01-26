@@ -317,8 +317,16 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   }
 
-  if (fsrv->trace_bits[0] == 1) { fsrv->trace_bits[0] = 0; have_coverage = 1; }
-  else { have_coverage = 0; }
+  if (fsrv->trace_bits[0] == 1) {
+
+    fsrv->trace_bits[0] = 0;
+    have_coverage = 1;
+
+  } else {
+
+    have_coverage = 0;
+
+  }
 
   if (!no_classify) { classify_counts(fsrv); }
 
@@ -493,8 +501,16 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
-  if (fsrv->trace_bits[0] == 1) { fsrv->trace_bits[0] = 0; have_coverage = 1; }
-  else { have_coverage = 0; }
+  if (fsrv->trace_bits[0] == 1) {
+
+    fsrv->trace_bits[0] = 0;
+    have_coverage = 1;
+
+  } else {
+
+    have_coverage = 0;
+
+  }
 
   if (!no_classify) { classify_counts(fsrv); }
 

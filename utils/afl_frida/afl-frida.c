@@ -153,7 +153,7 @@ static int enumerate_ranges(const GumRangeDetails *details,
 
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
 #ifndef __APPLE__
   (void)personality(ADDR_NO_RANDOMIZE);  // disable ASLR
@@ -166,10 +166,15 @@ int main(int argc, char** argv) {
 
   void *dl = NULL;
   if (argc > 2) {
+
     dl = dlopen(argv[1], RTLD_LAZY);
+
   } else {
+
     dl = dlopen(TARGET_LIBRARY, RTLD_LAZY);
+
   }
+
   if (!dl) {
 
     if (argc > 2)
@@ -197,17 +202,18 @@ int main(int argc, char** argv) {
   // END STEP 2
 
   if (!getenv("AFL_FRIDA_TEST_INPUT")) {
+
     gum_init_embedded();
     if (!gum_stalker_is_supported()) {
-  
+
       gum_deinit_embedded();
       return 1;
-  
+
     }
-  
+
     GumStalker *stalker = gum_stalker_new();
-  
-    GumAddress     base_address;
+
+    GumAddress base_address;
     if (argc > 2)
       base_address = gum_module_find_base_address(argv[1]);
     else
@@ -215,87 +221,89 @@ int main(int argc, char** argv) {
     GumMemoryRange code_range;
     if (argc > 2)
       gum_module_enumerate_ranges(argv[1], GUM_PAGE_RX, enumerate_ranges,
-                                &code_range);
+                                  &code_range);
     else
       gum_module_enumerate_ranges(TARGET_LIBRARY, GUM_PAGE_RX, enumerate_ranges,
-                                &code_range);
-  
+                                  &code_range);
+
     guint64 code_start = code_range.base_address;
     guint64 code_end = code_range.base_address + code_range.size;
     range_t instr_range = {0, code_start, code_end};
-  
+
     printf("Frida instrumentation: base=0x%lx instrumenting=0x%lx-%lx\n",
            base_address, code_start, code_end);
     if (!code_start || !code_end) {
-  
+
       if (argc > 2)
         fprintf(stderr, "Error: no valid memory address found for %s\n",
-              argv[1]);
+                argv[1]);
       else
         fprintf(stderr, "Error: no valid memory address found for %s\n",
-              TARGET_LIBRARY);
+                TARGET_LIBRARY);
       exit(-1);
-  
+
     }
-  
+
     GumStalkerTransformer *transformer =
         gum_stalker_transformer_make_from_callback(instr_basic_block,
                                                    &instr_range, NULL);
-  
+
     // to ensure that the signatures are not optimized out
     memcpy(__afl_area_ptr, (void *)AFL_PERSISTENT, sizeof(AFL_PERSISTENT) + 1);
     memcpy(__afl_area_ptr + 32, (void *)AFL_DEFER_FORKSVR,
            sizeof(AFL_DEFER_FORKSVR) + 1);
     __afl_manual_init();
-  
+
     //
     // any expensive target library initialization that has to be done just once
     // - put that here
     //
-  
+
     gum_stalker_follow_me(stalker, transformer, NULL);
-  
+
     while (__afl_persistent_loop(UINT32_MAX) != 0) {
-  
+
       previous_pc = 0;  // Required!
-  
-  #ifdef _DEBUG
+
+#ifdef _DEBUG
       fprintf(stderr, "CLIENT crc: %016llx len: %u\n",
               hash64(__afl_fuzz_ptr, *__afl_fuzz_len), *__afl_fuzz_len);
       fprintf(stderr, "RECV:");
       for (int i = 0; i < *__afl_fuzz_len; i++)
         fprintf(stderr, "%02x", __afl_fuzz_ptr[i]);
       fprintf(stderr, "\n");
-  #endif
-  
+#endif
+
       // STEP 3: ensure the minimum length is present and setup the target
       //         function to fuzz.
-  
+
       if (*__afl_fuzz_len > 0) {
-  
+
         __afl_fuzz_ptr[*__afl_fuzz_len] = 0;  // if you need to null terminate
         (*o_function)(__afl_fuzz_ptr, *__afl_fuzz_len);
-  
+
       }
-  
+
       // END STEP 3
-  
+
     }
-  
+
     gum_stalker_unfollow_me(stalker);
-  
+
     while (gum_stalker_garbage_collect(stalker))
       g_usleep(10000);
-  
+
     g_object_unref(stalker);
     g_object_unref(transformer);
     gum_deinit_embedded();
 
   } else {
-    char buf[8*1024] = {0};
-    int count = read(0, buf, sizeof(buf));
-    buf[8*1024-1] = '\0';
+
+    char buf[8 * 1024] = {0};
+    int  count = read(0, buf, sizeof(buf));
+    buf[8 * 1024 - 1] = '\0';
     (*o_function)(buf, count);
+
   }
 
   return 0;
