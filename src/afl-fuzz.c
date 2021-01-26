@@ -559,6 +559,16 @@ int main(int argc, char **argv_orig, char **envp) {
           FATAL("Maximum %u entried of -F option can be specified",
                 FOREIGN_SYNCS_MAX);
         afl->foreign_syncs[afl->foreign_sync_cnt].dir = optarg;
+        while (afl->foreign_syncs[afl->foreign_sync_cnt]
+                   .dir[strlen(afl->foreign_syncs[afl->foreign_sync_cnt].dir) -
+                        1] == '/') {
+
+          afl->foreign_syncs[afl->foreign_sync_cnt]
+              .dir[strlen(afl->foreign_syncs[afl->foreign_sync_cnt].dir) - 1] =
+              0;
+
+        }
+
         afl->foreign_sync_cnt++;
         break;
 

@@ -249,7 +249,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
   afl->stage_cur = 0;
 
   // in colorization we do not classify counts, hence we have to calculate
-  // the original checksum!
+  // the original checksum.
   if (unlikely(get_exec_checksum(afl, buf, len, &exec_cksum))) {
 
     goto checksum_fail;
@@ -2368,7 +2368,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
   orig_hit_cnt = afl->queued_paths + afl->unique_crashes;
-  u64 screen_update = 1000000 / afl->queue_cur->exec_us,
+  u64 screen_update = 100000 / afl->queue_cur->exec_us,
       execs = afl->fsrv.total_execs;
 
   afl->stage_name = "input-to-state";
