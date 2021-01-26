@@ -460,6 +460,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
   u32             i, iter;
 
   u8 val_buf[2][STRINGIFY_VAL_SIZE_MAX];
+  u8 foreign_name[16];
 
   for (iter = 0; iter < afl->foreign_sync_cnt; iter++) {
 
@@ -468,6 +469,18 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       if (first) ACTF("Scanning '%s'...", afl->foreign_syncs[iter].dir);
       time_t ctime_max = 0;
+      u8 *   name = rindex(afl->foreign_syncs[iter].dir, '/');
+      if (!name) { name = afl->foreign_syncs[iter].dir; }
+      if (!strcmp(name, "queue") || !strcmp(name, "out") ||
+          !strcmp(name, "default")) {
+
+        snprintf(foreign_name, sizeof(foreign_name), "foreign_%u", iter);
+
+      } else {
+
+        snprintf(foreign_name, sizeof(foreign_name), "%s_%u", name, iter);
+
+      }
 
       /* We use scandir() + alphasort() rather than readdir() because otherwise,
          the ordering of test cases would vary somewhat randomly and would be
@@ -581,7 +594,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
         write_to_testcase(afl, mem, st.st_size);
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-        afl->syncing_party = "foreign";
+        afl->syncing_party = foreign_name;
         afl->queued_imported +=
             save_if_interesting(afl, mem, st.st_size, fault);
         afl->syncing_party = 0;
