@@ -1027,7 +1027,7 @@ void perform_dry_run(afl_state_t *afl) {
 
         struct queue_entry *p = afl->queue;
 
-        if (!p->disabled && !p->was_fuzzed) {
+        if (!p->was_fuzzed) {
 
           --afl->pending_not_fuzzed;
           --afl->active_paths;
@@ -1128,16 +1128,6 @@ restart_outer_cull_loop:
       if (!p->cal_failed && p->exec_cksum == q->exec_cksum) {
 
         duplicates = 1;
-        if (!p->disabled && !q->disabled && !p->was_fuzzed && !q->was_fuzzed) {
-
-          --afl->pending_not_fuzzed;
-          afl->active_paths--;
-
-        } else {
-        
-          FATAL("disabled entry? this should not happen, please report!");
-        
-        }
 
         // We do not remove any of the memory allocated because for
         // splicing the data might still be interesting.
@@ -1147,12 +1137,28 @@ restart_outer_cull_loop:
         // we keep the shorter file
         if (p->len >= q->len) {
 
+          if (!p->was_fuzzed) {
+
+            p->was_fuzzed = 1;
+            --afl->pending_not_fuzzed;
+            afl->active_paths--;
+
+          }
+
           p->disabled = 1;
           p->perf_score = 0;
           q->next = p->next;
           goto restart_inner_cull_loop;
 
         } else {
+
+          if (!q->was_fuzzed) {
+
+            q->was_fuzzed = 1;
+            --afl->pending_not_fuzzed;
+            afl->active_paths--;
+
+          }
 
           q->disabled = 1;
           q->perf_score = 0;
