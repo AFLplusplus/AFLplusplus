@@ -482,9 +482,8 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       }
 
-      /* We use scandir() + alphasort() rather than readdir() because otherwise,
-         the ordering of test cases would vary somewhat randomly and would be
-         difficult to control. */
+      /* We do not use sorting yet and do a more expensive ctime check instead.
+         a ctimesort() implementation would be better though. */
 
       nl_cnt = scandir(afl->foreign_syncs[iter].dir, &nl, NULL, NULL);
 
