@@ -42,11 +42,13 @@ static char *afl_environment_variables[] = {
     "AFL_DEBUG_GDB",
     "AFL_DISABLE_TRIM",
     "AFL_DONT_OPTIMIZE",
+    "AFL_DRIVER_STDERR_DUPLICATE_FILENAME",
     "AFL_DUMB_FORKSRV",
     "AFL_ENTRYPOINT",
     "AFL_EXIT_WHEN_DONE",
     "AFL_FAST_CAL",
     "AFL_FORCE_UI",
+    "AFL_FUZZER_ARGS".  // oss-fuzz
     "AFL_GCC_ALLOWLIST",
     "AFL_GCC_DENYLIST",
     "AFL_GCC_BLOCKLIST",
