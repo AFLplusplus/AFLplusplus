@@ -45,6 +45,11 @@
 
 #include <dirent.h>
 
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || \
+    defined(__DragonFly__)
+  #include <limits.h>
+#endif
+
 #ifdef __APPLE__
   #include <sys/syslimits.h>
 #endif
