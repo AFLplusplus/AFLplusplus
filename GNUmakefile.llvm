@@ -208,12 +208,12 @@ ifeq "$(LLVM_LTO)" "1"
       ifneq "$(shell readlink $(LLVM_BINDIR)/ld.lld 2>&1)" ""
         AFL_REAL_LD = $(LLVM_BINDIR)/ld.lld
       else
-        $(warn ld.lld not found, cannot enable LTO mode)
+        $(warning ld.lld not found, cannot enable LTO mode)
         LLVM_LTO = 0
       endif
     endif
   else
-    $(warn clang option -flto is not working - maybe LLVMgold.so not found - cannot enable LTO mode)
+    $(warning clang option -flto is not working - maybe LLVMgold.so not found - cannot enable LTO mode)
     LLVM_LTO = 0
   endif
 endif
@@ -226,7 +226,7 @@ ifeq "$(LLVM_LTO)" "1"
       AFL_CLANG_LDPATH=1
     endif
   else
-    $(warn -fuse-ld is not working, cannot enable LTO mode)
+    $(warning -fuse-ld is not working, cannot enable LTO mode)
     LLVM_LTO = 0
   endif
 endif
