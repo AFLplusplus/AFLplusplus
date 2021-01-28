@@ -530,7 +530,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
     len = afl->queue_cur->len;
 
     /* maybe current entry is not ready for splicing anymore */
-    if (unlikely(len <= 4 && old_len > 4)) afl->ready_for_splicing_count--;
+    if (unlikely(len <= 4 && old_len > 4)) --afl->ready_for_splicing_count;
 
   }
 
@@ -2958,7 +2958,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
     len = afl->queue_cur->len;
 
     /* maybe current entry is not ready for splicing anymore */
-    if (unlikely(len <= 4 && old_len > 4)) afl->ready_for_splicing_count--;
+    if (unlikely(len <= 4 && old_len > 4)) --afl->ready_for_splicing_count;
 
   }
 

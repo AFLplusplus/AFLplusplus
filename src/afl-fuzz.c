@@ -1636,7 +1636,7 @@ int main(int argc, char **argv_orig, char **envp) {
                  (afl->old_seed_selection && !afl->queue_cur))) {
 
       ++afl->queue_cycle;
-      runs_in_current_cycle = 0;
+      runs_in_current_cycle = (u32)-1;
       afl->cur_skipped_paths = 0;
 
       if (unlikely(afl->old_seed_selection)) {
