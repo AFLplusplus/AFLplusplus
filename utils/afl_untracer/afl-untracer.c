@@ -143,7 +143,7 @@ void read_library_information(void) {
       b = buf;
       m = index(buf, '-');
       e = index(buf, ' ');
-      if ((n = rindex(buf, '/')) == NULL) n = rindex(buf, ' ');
+      if ((n = strrchr(buf, '/')) == NULL) n = strrchr(buf, ' ');
       if (n &&
           ((*n >= '0' && *n <= '9') || *n == '[' || *n == '{' || *n == '('))
         n = NULL;

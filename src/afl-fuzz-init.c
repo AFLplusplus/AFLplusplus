@@ -469,7 +469,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       if (first) ACTF("Scanning '%s'...", afl->foreign_syncs[iter].dir);
       time_t ctime_max = 0;
-      u8 *   name = rindex(afl->foreign_syncs[iter].dir, '/');
+      u8 *   name = strrchr(afl->foreign_syncs[iter].dir, '/');
       if (!name) { name = afl->foreign_syncs[iter].dir; }
       if (!strcmp(name, "queue") || !strcmp(name, "out") ||
           !strcmp(name, "default")) {
