@@ -1788,6 +1788,15 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+  if (!be_quiet && (compiler_mode == GCC || compiler_mode == CLANG)) {
+
+    WARNF(
+        "You are using outdated instrumentation, install LLVM and/or "
+        "gcc-plugin and use afl-clang-fast/afl-clang-lto/afl-gcc-fast "
+        "instead!");
+
+  }
+
   if (debug) {
 
     DEBUGF("cd '%s';", getthecwd());
