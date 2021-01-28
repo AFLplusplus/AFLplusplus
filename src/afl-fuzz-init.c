@@ -1041,6 +1041,7 @@ void perform_dry_run(afl_state_t *afl) {
 
         if (!p->was_fuzzed) {
 
+          p->was_fuzzed = 1;
           --afl->pending_not_fuzzed;
           --afl->active_paths;
 
@@ -1153,7 +1154,7 @@ restart_outer_cull_loop:
 
             p->was_fuzzed = 1;
             --afl->pending_not_fuzzed;
-            afl->active_paths--;
+            --afl->active_paths;
 
           }
 
@@ -1168,7 +1169,7 @@ restart_outer_cull_loop:
 
             q->was_fuzzed = 1;
             --afl->pending_not_fuzzed;
-            afl->active_paths--;
+            --afl->active_paths;
 
           }
 
