@@ -37,6 +37,11 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
+  - qemuafl
+    - solved some persistent mode bugs (thanks Dil4rd)
+    - solved an issue when dumping the memory maps (thanks wizche)
+    - ported QASan to qemuafl
+    - ported the QASan runtime adding support for Android
   - unicornafl
     - Substential speed gains in python bindings for certain use cases
     - Improved rust bindings
