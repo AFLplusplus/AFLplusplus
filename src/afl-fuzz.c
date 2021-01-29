@@ -328,31 +328,6 @@ int main(int argc, char **argv_orig, char **envp) {
   }
   #endif
   
-  if (getenv("AFL_USE_QASAN")) {
-  
-    u8* preload = getenv("AFL_PRELOAD");
-    u8* libqasan = get_libqasan_path(argv_orig[0]);
-    
-    if (!preload) {
-    
-      setenv("AFL_PRELOAD", libqasan, 0);
-    
-    } else {
-    
-      u8 *result = ck_alloc(strlen(libqasan) + strlen(preload) + 2);
-      strcpy(result, libqasan);
-      strcat(result, " ");
-      strcat(result, preload);
-      
-      setenv("AFL_PRELOAD", result, 1);
-      ck_free(result);
-    
-    }
-    
-    ck_free(libqasan);
-  
-  }
-
   char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
@@ -1008,6 +983,32 @@ int main(int argc, char **argv_orig, char **envp) {
 
     usage(argv[0], show_help);
 
+  }
+  
+  if (afl->fsrv.qemu_mode && getenv("AFL_USE_QASAN")) {
+  
+    u8* preload = getenv("AFL_PRELOAD");
+    u8* libqasan = get_libqasan_path(argv_orig[0]);
+    
+    if (!preload) {
+    
+      setenv("AFL_PRELOAD", libqasan, 0);
+    
+    } else {
+    
+      u8 *result = ck_alloc(strlen(libqasan) + strlen(preload) + 2);
+      strcpy(result, libqasan);
+      strcat(result, " ");
+      strcat(result, preload);
+      
+      setenv("AFL_PRELOAD", result, 1);
+      ck_free(result);
+    
+    }
+    
+    afl->afl_env.afl_preload = (u8 *)getenv("AFL_PRELOAD");
+    ck_free(libqasan);
+  
   }
 
   if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
