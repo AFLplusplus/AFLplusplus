@@ -515,6 +515,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
              "handle_sigill=0",
              0);
 
+    /* Envs for QASan */
+    setenv("QASAN_MAX_CALL_STACK", "0", 0);
+    setenv("QASAN_SYMBOLIZE", "0", 0);
+
     /* MSAN is tricky, because it doesn't support abort_on_error=1 at this
        point. So, we do this in a very hacky way. */
 
