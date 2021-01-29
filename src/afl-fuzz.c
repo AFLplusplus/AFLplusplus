@@ -326,9 +326,8 @@ int main(int argc, char **argv_orig, char **envp) {
         "compile time)");
 
   }
-
   #endif
-
+  
   char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
@@ -985,6 +984,32 @@ int main(int argc, char **argv_orig, char **envp) {
     usage(argv[0], show_help);
 
   }
+  
+  if (afl->fsrv.qemu_mode && getenv("AFL_USE_QASAN")) {
+  
+    u8* preload = getenv("AFL_PRELOAD");
+    u8* libqasan = get_libqasan_path(argv_orig[0]);
+    
+    if (!preload) {
+    
+      setenv("AFL_PRELOAD", libqasan, 0);
+    
+    } else {
+    
+      u8 *result = ck_alloc(strlen(libqasan) + strlen(preload) + 2);
+      strcpy(result, libqasan);
+      strcat(result, " ");
+      strcat(result, preload);
+      
+      setenv("AFL_PRELOAD", result, 1);
+      ck_free(result);
+    
+    }
+    
+    afl->afl_env.afl_preload = (u8 *)getenv("AFL_PRELOAD");
+    ck_free(libqasan);
+  
+  }
 
   if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
@@ -1245,7 +1270,7 @@ int main(int argc, char **argv_orig, char **envp) {
         "instead of using AFL_PRELOAD?");
 
   }
-
+  
   if (afl->afl_env.afl_preload) {
 
     if (afl->fsrv.qemu_mode) {
@@ -1297,7 +1322,7 @@ int main(int argc, char **argv_orig, char **envp) {
     FATAL("Use AFL_PRELOAD instead of AFL_LD_PRELOAD");
 
   }
-
+  
   save_cmdline(afl, argc, argv);
 
   fix_up_banner(afl, argv[optind]);
