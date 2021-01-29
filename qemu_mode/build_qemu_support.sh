@@ -366,7 +366,7 @@ if [ "$ORIG_CROSS" = "" ]; then
   CROSS=$CPU_TARGET-linux-gnu-gcc
 fi
 
-if ! command -v "$CROSS" &> /dev/null
+if ! command -v "$CROSS" > /dev/null
 then
     echo "[!] Cross compiler $CROSS could not be found, cannot compile libcompcov libqasan and unsigaction"
 else
