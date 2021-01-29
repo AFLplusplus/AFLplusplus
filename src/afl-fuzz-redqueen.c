@@ -1700,12 +1700,15 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       if (afl->pass_stats[key].total == 0) {
 
+#ifdef WORD_SIZE_64
         if (unlikely(is_n)) {
 
           try_to_add_to_dictN(afl, s128_v0, SHAPE_BYTES(h->shape));
           try_to_add_to_dictN(afl, s128_v1, SHAPE_BYTES(h->shape));
 
-        } else {
+        } else
+#endif
+        {
 
           try_to_add_to_dict(afl, o->v0, SHAPE_BYTES(h->shape));
           try_to_add_to_dict(afl, o->v1, SHAPE_BYTES(h->shape));
