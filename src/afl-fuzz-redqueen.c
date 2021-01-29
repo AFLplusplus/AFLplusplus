@@ -31,7 +31,7 @@
 //#define _DEBUG
 #define COMBINE
 //#define CMPLOG_INTROSPECTION
-//#define ARITHMETIC_LESSER_GREATER
+#define ARITHMETIC_LESSER_GREATER
 //#define TRANSFORM
 //#define TRANSFORM_BASE64
 
@@ -1118,7 +1118,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 #ifdef ARITHMETIC_LESSER_GREATER
   if (lvl < LVL3 || attr == IS_TRANSFORM) { return 0; }
 
-  if ((attr & (IS_GREATER | IS_LESSER)) SHAPE_BYTES(h->shape) < 4) { return 0; }
+  if (!(attr & (IS_GREATER | IS_LESSER)) || SHAPE_BYTES(h->shape) < 4) { return 0; }
 
   // transform >= to < and <= to >
   if ((attr & IS_EQUAL) && (attr & (IS_GREATER | IS_LESSER))) {
