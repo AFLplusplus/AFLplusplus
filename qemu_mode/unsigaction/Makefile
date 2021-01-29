@@ -16,19 +16,15 @@
 
 _UNIQ=_QINU_
 
-TARGETCANDIDATES=unsigaction32.so unsigaction64.so
+TARGETCANDIDATES=unsigaction.so
 _TARGETS=$(_UNIQ)$(AFL_NO_X86)$(_UNIQ)
 __TARGETS=$(_TARGETS:$(_UNIQ)1$(_UNIQ)=)
 TARGETS=$(__TARGETS:$(_UNIQ)$(_UNIQ)=$(TARGETCANDIDATES))
 
 all:  $(TARGETS)
-	@if [ "$(AFL_NO_X86)" != "" ]; then echo "[!] Note: skipping compilation of unsigaction (AFL_NO_X86 set)."; fi
 
-unsigaction32.so:
-	@if $(CC) -m32 -fPIC -shared unsigaction.c -o unsigaction32.so 2>/dev/null ; then echo "unsigaction32 build success"; else echo "unsigaction32 build failure (that's fine)"; fi
-
-unsigaction64.so:
-	@if $(CC) -m64 -fPIC -shared unsigaction.c -o unsigaction64.so 2>/dev/null ; then echo "unsigaction64 build success"; else echo "unsigaction64 build failure (that's fine)"; fi
+unsigaction.so: unsigaction.c
+	@if $(CC) -fPIC -shared unsigaction.c -o unsigaction.so 2>/dev/null ; then echo "unsigaction build success"; else echo "unsigaction build failure (that's fine)"; fi
 
 clean:
-	rm -f unsigaction32.so unsigaction64.so
+	rm -f unsigaction.so
