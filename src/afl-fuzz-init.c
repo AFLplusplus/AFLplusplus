@@ -468,7 +468,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         afl->foreign_syncs[iter].dir[0] != 0) {
 
       if (first) ACTF("Scanning '%s'...", afl->foreign_syncs[iter].dir);
-      time_t ctime_max = 0;
+      time_t mtime_max = 0;
       u8 *   name = strrchr(afl->foreign_syncs[iter].dir, '/');
       if (!name) { name = afl->foreign_syncs[iter].dir; }
       if (!strcmp(name, "queue") || !strcmp(name, "out") ||
@@ -482,8 +482,8 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       }
 
-      /* We do not use sorting yet and do a more expensive ctime check instead.
-         a ctimesort() implementation would be better though. */
+      /* We do not use sorting yet and do a more expensive mtime check instead.
+         a mtimesort() implementation would be better though. */
 
       nl_cnt = scandir(afl->foreign_syncs[iter].dir, &nl, NULL, NULL);
 
@@ -537,8 +537,8 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
         }
 
-        /* we detect new files by their ctime */
-        if (likely(st.st_ctime <= afl->foreign_syncs[iter].ctime)) {
+        /* we detect new files by their mtime */
+        if (likely(st.st_mtime <= afl->foreign_syncs[iter].mtime)) {
 
           ck_free(fn2);
           continue;
@@ -600,11 +600,11 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         munmap(mem, st.st_size);
         close(fd);
 
-        if (st.st_ctime > ctime_max) ctime_max = st.st_ctime;
+        if (st.st_mtime > mtime_max) mtime_max = st.st_mtime;
 
       }
 
-      afl->foreign_syncs[iter].ctime = ctime_max;
+      afl->foreign_syncs[iter].mtime = mtime_max;
       free(nl);                                              /* not tracked */
 
     }
