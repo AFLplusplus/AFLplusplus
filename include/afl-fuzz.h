@@ -404,7 +404,7 @@ struct afl_pass_stat {
 struct foreign_sync {
 
   u8 *   dir;
-  time_t ctime;
+  time_t mtime;
 
 };
 
