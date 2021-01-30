@@ -20,6 +20,8 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       transformations (e.g. toupper, tolower, to/from hex, xor,
       arithmetics, etc.). this is costly hence new command line option
       -l that sets the intensity (values 1 to 3). recommended is 1 or 2.
+    - added `AFL_CMPLOG_ONLY_NEW` to not use cmplog on initial testcases from
+      `-i` or resumes (as these have most likely already been done)
     - fix crash for very, very fast targets+systems (thanks to mhlakhani
       for reporting)
     - if determinstic mode is active (-D, or -M without -d) then we sync

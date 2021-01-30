@@ -26,6 +26,7 @@
 #include "afl-fuzz.h"
 #include <string.h>
 #include <limits.h>
+#include "cmplog.h"
 
 /* MOpt */
 
@@ -553,7 +554,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (unlikely(len < 4)) {
 
-      afl->queue_cur->colorized = 0xff;
+      afl->queue_cur->colorized = CMPLOG_LVL_MAX;
 
     } else {
 
@@ -2981,7 +2982,7 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
 
     if (unlikely(len < 4)) {
 
-      afl->queue_cur->colorized = 0xff;
+      afl->queue_cur->colorized = CMPLOG_LVL_MAX;
 
     } else {
 

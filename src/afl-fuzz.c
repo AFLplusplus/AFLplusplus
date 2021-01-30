@@ -181,6 +181,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
       "AFL_BENCH_JUST_ONE: run the target just once\n"
       "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
+      "AFL_CMPLOG_ONLY_NEW: do not run cmplog on initial testcases (good for resumes!)\n"
       "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n"
       "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
       "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
@@ -326,8 +327,9 @@ int main(int argc, char **argv_orig, char **envp) {
         "compile time)");
 
   }
+
   #endif
-  
+
   char **argv = argv_cpy_dup(argc, argv_orig);
 
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
@@ -356,8 +358,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+b:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNo:p:RQs:S:t:T:UV:Wx:Z")) >
-         0) {
+              "+b:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNo:p:RQs:S:t:T:UV:Wx:Z")) > 0) {
 
     switch (opt) {
 
@@ -984,31 +985,31 @@ int main(int argc, char **argv_orig, char **envp) {
     usage(argv[0], show_help);
 
   }
-  
+
   if (afl->fsrv.qemu_mode && getenv("AFL_USE_QASAN")) {
-  
-    u8* preload = getenv("AFL_PRELOAD");
-    u8* libqasan = get_libqasan_path(argv_orig[0]);
-    
+
+    u8 *preload = getenv("AFL_PRELOAD");
+    u8 *libqasan = get_libqasan_path(argv_orig[0]);
+
     if (!preload) {
-    
+
       setenv("AFL_PRELOAD", libqasan, 0);
-    
+
     } else {
-    
+
       u8 *result = ck_alloc(strlen(libqasan) + strlen(preload) + 2);
       strcpy(result, libqasan);
       strcat(result, " ");
       strcat(result, preload);
-      
+
       setenv("AFL_PRELOAD", result, 1);
       ck_free(result);
-    
+
     }
-    
+
     afl->afl_env.afl_preload = (u8 *)getenv("AFL_PRELOAD");
     ck_free(libqasan);
-  
+
   }
 
   if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
@@ -1270,7 +1271,7 @@ int main(int argc, char **argv_orig, char **envp) {
         "instead of using AFL_PRELOAD?");
 
   }
-  
+
   if (afl->afl_env.afl_preload) {
 
     if (afl->fsrv.qemu_mode) {
@@ -1322,7 +1323,7 @@ int main(int argc, char **argv_orig, char **envp) {
     FATAL("Use AFL_PRELOAD instead of AFL_LD_PRELOAD");
 
   }
-  
+
   save_cmdline(afl, argc, argv);
 
   fix_up_banner(afl, argv[optind]);

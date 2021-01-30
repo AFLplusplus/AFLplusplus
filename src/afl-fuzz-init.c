@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include <limits.h>
+#include "cmplog.h"
 
 #ifdef HAVE_AFFINITY
 
@@ -832,6 +833,8 @@ void perform_dry_run(afl_state_t *afl) {
       continue;
 
     }
+
+    if (afl->afl_env.afl_cmplog_only_new) { q->colorized = CMPLOG_LVL_MAX; }
 
     u8 *fn = strrchr(q->fname, '/') + 1;
 

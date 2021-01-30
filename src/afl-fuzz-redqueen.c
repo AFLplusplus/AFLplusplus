@@ -1118,7 +1118,11 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 #ifdef ARITHMETIC_LESSER_GREATER
   if (lvl < LVL3 || attr == IS_TRANSFORM) { return 0; }
 
-  if (!(attr & (IS_GREATER | IS_LESSER)) || SHAPE_BYTES(h->shape) < 4) { return 0; }
+  if (!(attr & (IS_GREATER | IS_LESSER)) || SHAPE_BYTES(h->shape) < 4) {
+
+    return 0;
+
+  }
 
   // transform >= to < and <= to >
   if ((attr & IS_EQUAL) && (attr & (IS_GREATER | IS_LESSER))) {
@@ -1138,109 +1142,109 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   // lesser/greater FP comparison
   if (attr >= IS_FP && attr < IS_FP_MOD) {
 
-      u64 repl_new;
+    u64 repl_new;
 
-      if (attr & IS_GREATER) {
+    if (attr & IS_GREATER) {
 
-        if (SHAPE_BYTES(h->shape) == 4 && its_len >= 4) {
+      if (SHAPE_BYTES(h->shape) == 4 && its_len >= 4) {
 
-          float *f = (float *)&repl;
-          float  g = *f;
-          g += 1.0;
-          u32 *r = (u32 *)&g;
-          repl_new = (u32)*r;
+        float *f = (float *)&repl;
+        float  g = *f;
+        g += 1.0;
+        u32 *r = (u32 *)&g;
+        repl_new = (u32)*r;
 
-        } else if (SHAPE_BYTES(h->shape) == 8 && its_len >= 8) {
+      } else if (SHAPE_BYTES(h->shape) == 8 && its_len >= 8) {
 
-          double *f = (double *)&repl;
-          double  g = *f;
-          g += 1.0;
+        double *f = (double *)&repl;
+        double  g = *f;
+        g += 1.0;
 
-          u64 *r = (u64 *)&g;
-          repl_new = *r;
-
-        } else {
-
-          return 0;
-
-        }
-
-        changed_val = repl_new;
-
-        if (unlikely(cmp_extend_encoding(
-                afl, h, pattern, repl_new, o_pattern, changed_val, 16, idx,
-                taint_len, orig_buf, buf, cbuf, len, 1, lvl, status))) {
-
-          return 1;
-
-        }
+        u64 *r = (u64 *)&g;
+        repl_new = *r;
 
       } else {
 
-        if (SHAPE_BYTES(h->shape) == 4) {
-
-          float *f = (float *)&repl;
-          float  g = *f;
-          g -= 1.0;
-          u32 *r = (u32 *)&g;
-          repl_new = (u32)*r;
-
-        } else if (SHAPE_BYTES(h->shape) == 8) {
-
-          double *f = (double *)&repl;
-          double  g = *f;
-          g -= 1.0;
-          u64 *r = (u64 *)&g;
-          repl_new = *r;
-
-        } else {
-
-          return 0;
-
-        }
-
-        changed_val = repl_new;
-
-        if (unlikely(cmp_extend_encoding(
-                afl, h, pattern, repl_new, o_pattern, changed_val, 16, idx,
-                taint_len, orig_buf, buf, cbuf, len, 1, lvl, status))) {
-
-          return 1;
-
-        }
+        return 0;
 
       }
 
-      // transform double to float, llvm likes to do that internally ...
-      if (SHAPE_BYTES(h->shape) == 8 && its_len >= 4) {
+      changed_val = repl_new;
+
+      if (unlikely(cmp_extend_encoding(
+              afl, h, pattern, repl_new, o_pattern, changed_val, 16, idx,
+              taint_len, orig_buf, buf, cbuf, len, 1, lvl, status))) {
+
+        return 1;
+
+      }
+
+    } else {
+
+      if (SHAPE_BYTES(h->shape) == 4) {
+
+        float *f = (float *)&repl;
+        float  g = *f;
+        g -= 1.0;
+        u32 *r = (u32 *)&g;
+        repl_new = (u32)*r;
+
+      } else if (SHAPE_BYTES(h->shape) == 8) {
 
         double *f = (double *)&repl;
-        float   g = (float)*f;
-        repl_new = 0;
-  #if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-        memcpy((char *)&repl_new, (char *)&g, 4);
-  #else
-        memcpy(((char *)&repl_new) + 4, (char *)&g, 4);
-  #endif
-        changed_val = repl_new;
-        h->shape = 3;  // modify shape
+        double  g = *f;
+        g -= 1.0;
+        u64 *r = (u64 *)&g;
+        repl_new = *r;
 
-        // fprintf(stderr, "DOUBLE2FLOAT %llx\n", repl_new);
+      } else {
 
-        if (unlikely(cmp_extend_encoding(
-                afl, h, pattern, repl_new, o_pattern, changed_val, 16, idx,
-                taint_len, orig_buf, buf, cbuf, len, 1, lvl, status))) {
+        return 0;
 
-          h->shape = 7;  // recover shape
-          return 1;
+      }
 
-        }
+      changed_val = repl_new;
 
-        h->shape = 7;  // recover shape
+      if (unlikely(cmp_extend_encoding(
+              afl, h, pattern, repl_new, o_pattern, changed_val, 16, idx,
+              taint_len, orig_buf, buf, cbuf, len, 1, lvl, status))) {
+
+        return 1;
 
       }
 
     }
+
+    // transform double to float, llvm likes to do that internally ...
+    if (SHAPE_BYTES(h->shape) == 8 && its_len >= 4) {
+
+      double *f = (double *)&repl;
+      float   g = (float)*f;
+      repl_new = 0;
+  #if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+      memcpy((char *)&repl_new, (char *)&g, 4);
+  #else
+      memcpy(((char *)&repl_new) + 4, (char *)&g, 4);
+  #endif
+      changed_val = repl_new;
+      h->shape = 3;  // modify shape
+
+      // fprintf(stderr, "DOUBLE2FLOAT %llx\n", repl_new);
+
+      if (unlikely(cmp_extend_encoding(
+              afl, h, pattern, repl_new, o_pattern, changed_val, 16, idx,
+              taint_len, orig_buf, buf, cbuf, len, 1, lvl, status))) {
+
+        h->shape = 7;  // recover shape
+        return 1;
+
+      }
+
+      h->shape = 7;  // recover shape
+
+    }
+
+  }
 
   else if (attr < IS_FP) {
 
@@ -1707,6 +1711,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
           try_to_add_to_dictN(afl, s128_v1, SHAPE_BYTES(h->shape));
 
         } else
+
 #endif
         {
 
