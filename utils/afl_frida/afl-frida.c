@@ -78,11 +78,11 @@ extern unsigned int * __afl_fuzz_len;
 extern unsigned char *__afl_fuzz_ptr;
 
 // Notify AFL about persistent mode.
-static volatile char AFL_PERSISTENT[] = "##SIG_AFL_PERSISTENT##";
+static volatile char AFL_PERSISTENT[] = "##SIG_AFL_PERSISTENT##\0";
 int                  __afl_persistent_loop(unsigned int);
 
 // Notify AFL about deferred forkserver.
-static volatile char AFL_DEFER_FORKSVR[] = "##SIG_AFL_DEFER_FORKSRV##";
+static volatile char AFL_DEFER_FORKSVR[] = "##SIG_AFL_DEFER_FORKSRV##\0";
 void                 __afl_manual_init();
 
 // Because we do our own logging.
@@ -249,9 +249,9 @@ int main(int argc, char **argv) {
                                                    &instr_range, NULL);
 
     // to ensure that the signatures are not optimized out
-    memcpy(__afl_area_ptr, (void *)AFL_PERSISTENT, sizeof(AFL_PERSISTENT) + 1);
+    memcpy(__afl_area_ptr, (void *)AFL_PERSISTENT, sizeof(AFL_PERSISTENT));
     memcpy(__afl_area_ptr + 32, (void *)AFL_DEFER_FORKSVR,
-           sizeof(AFL_DEFER_FORKSVR) + 1);
+           sizeof(AFL_DEFER_FORKSVR));
     __afl_manual_init();
 
     //
