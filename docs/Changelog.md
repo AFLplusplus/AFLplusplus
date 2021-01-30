@@ -38,10 +38,10 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
   - qemuafl
+    - ported QASan to qemuafl! see qemu_mode/libqasan/README.md
     - solved some persistent mode bugs (thanks Dil4rd)
     - solved an issue when dumping the memory maps (thanks wizche)
-    - ported QASan to qemuafl
-    - ported the QASan runtime adding support for Android
+    - Android support for QASan
   - unicornafl
     - Substential speed gains in python bindings for certain use cases
     - Improved rust bindings
@@ -51,7 +51,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
   - LLVM mode is now compiled with -j4, unicorn with all cores. qemu was
     already building with all cores, the gcc plugin needs only one.
   - added dummy Makefile to instrumentation/
-  - Updated utils/afl_frida to be 5% faster
+  - Updated utils/afl_frida to be 5% faster, 7% on x86_x64
   - Added AFL_KILL_SIGNAL env variable (thanks @v-p-b)
   - @Edznux added a nice documentation on how to use rpc.statsd with
     afl++ in docs/rpc_statsd.md, thanks!
