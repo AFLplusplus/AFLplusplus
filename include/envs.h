@@ -28,6 +28,7 @@ static char *afl_environment_variables[] = {
     "AFL_CC",
     "AFL_CMIN_ALLOW_ANY",
     "AFL_CMIN_CRASHES_ONLY",
+    "AFL_CMPLOG_ONLY_NEW",
     "AFL_CODE_END",
     "AFL_CODE_START",
     "AFL_COMPCOV_BINNAME",

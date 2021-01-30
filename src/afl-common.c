@@ -364,11 +364,7 @@ u8 *get_libqasan_path(u8 *own_loc) {
     cp = alloc_printf("%s/libqasan.so", own_copy);
     ck_free(own_copy);
 
-    if (!access(cp, X_OK)) {
-
-      return cp;
-
-    }
+    if (!access(cp, X_OK)) { return cp; }
 
   } else {
 

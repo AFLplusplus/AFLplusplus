@@ -287,6 +287,11 @@ checks or alter some of the more exotic semantics of the tool:
     the target. This must be equal or larger than the size the target was
     compiled with.
 
+  - `AFL_CMPLOG_ONLY_NEW` will only perform the expensive cmplog feature for
+    newly found testcases and not for testcases that are loaded on startup
+    (`-i in`). This is an important feature to set when resuming a fuzzing
+    session.
+
   - `AFL_TESTCACHE_SIZE` allows you to override the size of `#define TESTCASE_CACHE`
     in config.h. Recommended values are 50-250MB - or more if your fuzzing
     finds a huge amount of paths for large inputs.
