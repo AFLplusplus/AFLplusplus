@@ -1632,8 +1632,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
         afl->current_entry = 0;
         while (unlikely(afl->queue_buf[afl->current_entry]->disabled)) {
+
           ++afl->current_entry;
+
         }
+
         afl->queue_cur = afl->queue_buf[afl->current_entry];
 
         if (unlikely(seek_to)) {

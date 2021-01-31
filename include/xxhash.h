@@ -287,7 +287,7 @@ typedef uint32_t XXH32_hash_t;
   #else
     #include <limits.h>
     #if UINT_MAX == 0xFFFFFFFFUL
-typedef unsigned int XXH32_hash_t;
+typedef unsigned int  XXH32_hash_t;
     #else
       #if ULONG_MAX == 0xFFFFFFFFUL
 typedef unsigned long XXH32_hash_t;
