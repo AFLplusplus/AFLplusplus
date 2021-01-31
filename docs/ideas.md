@@ -16,6 +16,8 @@ test cases executed.
 It should be clickable which value is X and Y axis, zoom factor, log scaling
 on-off, etc.
 
+Mentor: vanhauser-thc
+
 ## WASM Instrumentation
 
 Currently, AFL++ can be used for source code fuzzing and traditional binaries.
@@ -35,19 +37,6 @@ Either improve a single mutator thorugh learning of many different bugs
 (CFG, DFG, VFG, ...?) and improve performance for a single target.
 
 Mentor: domenukk
-
-## Collision-free Binary-Only Maps
-
-AFL++ supports collison-free maps using an LTO (link-time-optimization) pass.
-This should be possible to implement for QEMU and Unicorn instrumentations.
-As the forkserver parent caches just in time translated translation blocks,
-adding a simple counter between jumps should be doable.
-
-Note: this is already in development for qemu by Andrea, so for people who
-want to contribute it might make more sense to port his solution to unicorn.
-
-Mentor: andreafioraldi or domenukk
-Issue/idea tracker: [https://github.com/AFLplusplus/AFLplusplus/issues/237](https://github.com/AFLplusplus/AFLplusplus/issues/237)
 
 ## Your idea!
 
