@@ -311,7 +311,8 @@ class ModuleSanitizerCoverage {
                                                     Function &F, Type *Ty,
                                                     const char *Section);
   GlobalVariable *CreatePCArray(Function &F, ArrayRef<BasicBlock *> AllBlocks);
-  void CreateFunctionLocalArrays(Function &F, ArrayRef<BasicBlock *> AllBlocks);
+  void CreateFunctionLocalArrays(Function &F, ArrayRef<BasicBlock *> AllBlocks,
+                                 uint32_t special);
   void InjectCoverageAtBlock(Function &F, BasicBlock &BB, size_t Idx,
                              bool IsLeafFunc = true);
   Function *CreateInitCallsForSections(Module &M, const char *CtorName,
@@ -970,11 +971,11 @@ GlobalVariable *ModuleSanitizerCoverage::CreatePCArray(
 }
 
 void ModuleSanitizerCoverage::CreateFunctionLocalArrays(
-    Function &F, ArrayRef<BasicBlock *> AllBlocks) {
+    Function &F, ArrayRef<BasicBlock *> AllBlocks, uint32_t special) {
 
   if (Options.TracePCGuard)
     FunctionGuardArray = CreateFunctionLocalArrayInSection(
-        AllBlocks.size(), F, Int32Ty, SanCovGuardsSectionName);
+        AllBlocks.size() + special, F, Int32Ty, SanCovGuardsSectionName);
 
   if (Options.Inline8bitCounters)
     Function8bitCounterArray = CreateFunctionLocalArrayInSection(
@@ -993,9 +994,38 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
                                              bool IsLeafFunc) {
 
   if (AllBlocks.empty()) return false;
-  CreateFunctionLocalArrays(F, AllBlocks);
+
+  uint32_t special = 0;
+  for (auto &BB : F) {
+
+    for (auto &IN : BB) {
+
+      CallInst *callInst = nullptr;
+
+      if ((callInst = dyn_cast<CallInst>(&IN))) {
+
+        Function *Callee = callInst->getCalledFunction();
+        StringRef FuncName = Callee->getName();
+        if (!Callee) continue;
+        if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
+        if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
+
+        uint32_t id = 1 + instr + (uint32_t)AllBlocks.size() + special++;
+        Value *  val = ConstantInt::get(Int32Ty, id);
+        callInst->setOperand(1, val);
+
+      }
+
+    }
+
+  }
+
+  CreateFunctionLocalArrays(F, AllBlocks, special);
   for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
     InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
+
+  instr += special;
+
   return true;
 
 }

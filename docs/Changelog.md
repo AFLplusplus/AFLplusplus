@@ -36,6 +36,9 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - cmplog/redqueen now also tracks floating point, _ExtInt() + 128bit
     - cmplog/redqueen can now process basic libc++ and libstdc++
       std::string comparisons (though no position or length type variants)
+    - added support for __afl_coverage_interesting() for LTO and
+      and our own PCGUARD (llvm 10.0.1+), read more about this function
+      and selective coverage in instrumentation/README.instrument_list.md
     - added AFL_LLVM_INSTRUMENT option NATIVE for native clang pc-guard
       support (less performant than our own), GCC for old afl-gcc and
       CLANG for old afl-clang
