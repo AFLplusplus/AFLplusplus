@@ -572,7 +572,8 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       cc_params[cc_par_cnt++] = "-Wl,--allow-multiple-definition";
 
-      if (instrument_mode == INSTRUMENT_CFG)
+      if (instrument_mode == INSTRUMENT_CFG ||
+          instrument_mode == INSTRUMENT_PCGUARD)
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/SanitizerCoverageLTO.so", obj_path);
       else
@@ -1670,15 +1671,16 @@ int main(int argc, char **argv, char **envp) {
   if (compiler_mode == LTO) {
 
     if (instrument_mode == 0 || instrument_mode == INSTRUMENT_LTO ||
-        instrument_mode == INSTRUMENT_CFG) {
+        instrument_mode == INSTRUMENT_CFG ||
+        instrument_mode == INSTRUMENT_PCGUARD) {
 
       lto_mode = 1;
-      if (!instrument_mode) {
+      // force CFG
+      // if (!instrument_mode) {
 
-        instrument_mode = INSTRUMENT_CFG;
-        // ptr = instrument_mode_string[instrument_mode];
-
-      }
+      instrument_mode = INSTRUMENT_PCGUARD;
+      // ptr = instrument_mode_string[instrument_mode];
+      // }
 
     } else if (instrument_mode == INSTRUMENT_LTO ||
 
