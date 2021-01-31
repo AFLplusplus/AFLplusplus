@@ -1014,8 +1014,8 @@ void show_stats(afl_state_t *afl) {
 
 void show_init_stats(afl_state_t *afl) {
 
-  struct queue_entry *q = afl->queue;
-  u32                 min_bits = 0, max_bits = 0, max_len = 0, count = 0;
+  struct queue_entry *q;
+  u32                 min_bits = 0, max_bits = 0, max_len = 0, count = 0, i;
   u64                 min_us = 0, max_us = 0;
   u64                 avg_us = 0;
 
@@ -1028,7 +1028,10 @@ void show_init_stats(afl_state_t *afl) {
 
   }
 
-  while (q) {
+  for (i = 0; i < afl->queued_paths; i++) {
+
+    q = afl->queue_buf[i];
+    if (unlikely(q->disabled)) { continue; }
 
     if (!min_us || q->exec_us < min_us) { min_us = q->exec_us; }
     if (q->exec_us > max_us) { max_us = q->exec_us; }
@@ -1039,7 +1042,6 @@ void show_init_stats(afl_state_t *afl) {
     if (q->len > max_len) { max_len = q->len; }
 
     ++count;
-    q = q->next;
 
   }
 

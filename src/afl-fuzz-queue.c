@@ -143,7 +143,7 @@ void create_alias_table(afl_state_t *afl) {
 
       struct queue_entry *q = afl->queue_buf[i];
 
-      if (!q->disabled) { q->perf_score = calculate_score(afl, q); }
+      if (likely(!q->disabled)) { q->perf_score = calculate_score(afl, q); }
 
       sum += q->perf_score;
 
@@ -444,7 +444,6 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   if (afl->queue_top) {
 
-    afl->queue_top->next = q;
     afl->queue_top = q;
 
   } else {
@@ -465,6 +464,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
       AFL_BUF_PARAM(queue), afl->queued_paths * sizeof(struct queue_entry *));
   if (unlikely(!queue_buf)) { PFATAL("alloc"); }
   queue_buf[afl->queued_paths - 1] = q;
+  q->id = afl->queued_paths - 1;
 
   afl->last_path_time = get_cur_time();
 
@@ -641,10 +641,9 @@ void cull_queue(afl_state_t *afl) {
 
   if (likely(!afl->score_changed || afl->non_instrumented_mode)) { return; }
 
-  struct queue_entry *q;
-  u32                 len = (afl->fsrv.map_size >> 3);
-  u32                 i;
-  u8 *                temp_v = afl->map_tmp_buf;
+  u32 len = (afl->fsrv.map_size >> 3);
+  u32 i;
+  u8 *temp_v = afl->map_tmp_buf;
 
   afl->score_changed = 0;
 
@@ -653,12 +652,9 @@ void cull_queue(afl_state_t *afl) {
   afl->queued_favored = 0;
   afl->pending_favored = 0;
 
-  q = afl->queue;
+  for (i = 0; i < afl->queued_paths; i++) {
 
-  while (q) {
-
-    q->favored = 0;
-    q = q->next;
+    afl->queue_buf[i]->favored = 0;
 
   }
 
@@ -697,12 +693,13 @@ void cull_queue(afl_state_t *afl) {
 
   }
 
-  q = afl->queue;
+  for (i = 0; i < afl->queued_paths; i++) {
 
-  while (q) {
+    if (likely(!afl->queue_buf[i]->disabled)) {
 
-    mark_as_redundant(afl, q, !q->favored);
-    q = q->next;
+      mark_as_redundant(afl, afl->queue_buf[i], !afl->queue_buf[i]->favored);
+
+    }
 
   }
 
@@ -852,13 +849,15 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       // Don't modify perf_score for unfuzzed seeds
       if (q->fuzz_level == 0) break;
 
-      struct queue_entry *queue_it = afl->queue;
-      while (queue_it) {
+      u32 i;
+      for (i = 0; i < afl->queued_paths; i++) {
 
-        fuzz_mu += log2(afl->n_fuzz[q->n_fuzz_entry]);
-        n_paths++;
+        if (likely(!afl->queue_buf[i]->disabled)) {
 
-        queue_it = queue_it->next;
+          fuzz_mu += log2(afl->n_fuzz[afl->queue_buf[i]->n_fuzz_entry]);
+          n_paths++;
+
+        }
 
       }
 

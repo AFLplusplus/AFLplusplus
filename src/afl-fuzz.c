@@ -1558,45 +1558,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   perform_dry_run(afl);
 
-  /*
-    if (!user_set_cache && afl->q_testcase_max_cache_size) {
-
-      / * The user defined not a fixed number of entries for the cache.
-         Hence we autodetect a good value. After the dry run inputs are
-         trimmed and we know the average and max size of the input seeds.
-         We use this information to set a fitting size to max entries
-         based on the cache size. * /
-
-      struct queue_entry *q = afl->queue;
-      u64                 size = 0, count = 0, avg = 0, max = 0;
-
-      while (q) {
-
-        ++count;
-        size += q->len;
-        if (max < q->len) { max = q->len; }
-        q = q->next;
-
-      }
-
-      if (count) {
-
-        avg = size / count;
-        avg = ((avg + max) / 2) + 1;
-
-      }
-
-      if (avg < 10240) { avg = 10240; }
-
-      afl->q_testcase_max_cache_entries = afl->q_testcase_max_cache_size / avg;
-
-      if (afl->q_testcase_max_cache_entries > 32768)
-        afl->q_testcase_max_cache_entries = 32768;
-
-    }
-
-  */
-
   if (afl->q_testcase_max_cache_entries) {
 
     afl->q_testcase_cache =
@@ -1668,7 +1629,10 @@ int main(int argc, char **argv_orig, char **envp) {
       if (unlikely(afl->old_seed_selection)) {
 
         afl->current_entry = 0;
-        afl->queue_cur = afl->queue;
+        while (unlikely(afl->queue_buf[afl->current_entry]->disabled)) {
+          ++afl->current_entry;
+        }
+        afl->queue_cur = afl->queue_buf[afl->current_entry];
 
         if (unlikely(seek_to)) {
 
@@ -1800,12 +1764,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        struct queue_entry *q = afl->queue;
         // we must recalculate the scores of all queue entries
-        while (q) {
+        for (i = 0; i < (s32)afl->queued_paths; i++) {
 
-          update_bitmap_score(afl, q);
-          q = q->next;
+          if (likely(!afl->queue_buf[i]->disabled)) {
+
+            update_bitmap_score(afl, afl->queue_buf[i]);
+
+          }
 
         }
 
@@ -1847,8 +1813,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (unlikely(afl->old_seed_selection)) {
 
-        afl->queue_cur = afl->queue_cur->next;
-        ++afl->current_entry;
+        while (++afl->current_entry < afl->queued_paths &&
+               afl->queue_buf[afl->current_entry]->disabled)
+          ;
+        if (unlikely(afl->current_entry >= afl->queued_paths ||
+                     afl->queue_buf[afl->current_entry] == NULL ||
+                     afl->queue_buf[afl->current_entry]->disabled))
+          afl->queue_cur = NULL;
+        else
+          afl->queue_cur = afl->queue_buf[afl->current_entry];
 
       }
 
