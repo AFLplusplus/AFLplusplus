@@ -27,6 +27,7 @@ sending a mail to <afl-users+subscribe@googlegroups.com>.
     - if determinstic mode is active (-D, or -M without -d) then we sync
       after every queue entry as this can take very long time otherwise
     - better detection if a target needs a large shared map
+    - fix for -Z
     - switched to an even faster RNG
     - added hghwng's patch for faster trace map analysis
   - afl-cc
