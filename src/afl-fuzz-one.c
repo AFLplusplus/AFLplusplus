@@ -544,7 +544,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
   if (likely(!afl->old_seed_selection))
     orig_perf = perf_score = afl->queue_cur->perf_score;
   else
-    orig_perf = perf_score = calculate_score(afl, afl->queue_cur);
+    afl->queue_cur->perf_score = orig_perf = perf_score =
+        calculate_score(afl, afl->queue_cur);
 
   if (unlikely(perf_score <= 0)) { goto abandon_entry; }
 

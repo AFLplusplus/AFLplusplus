@@ -817,12 +817,15 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
 
 void perform_dry_run(afl_state_t *afl) {
 
-  struct queue_entry *q = afl->queue;
-  u32                 cal_failures = 0;
+  struct queue_entry *q;
+  u32                 cal_failures = 0, idx;
   u8 *                skip_crashes = afl->afl_env.afl_skip_crashes;
   u8 *                use_mem;
 
-  while (q) {
+  for (idx = 0; idx < afl->queued_paths; idx++) {
+
+    q = afl->queue_buf[idx];
+    if (unlikely(q->disabled)) { continue; }
 
     u8  res;
     s32 fd;
@@ -1052,20 +1055,22 @@ void perform_dry_run(afl_state_t *afl) {
 
         p->disabled = 1;
         p->perf_score = 0;
-        while (p && p->next != q)
-          p = p->next;
 
-        if (p)
-          p->next = q->next;
-        else
-          afl->queue = q->next;
+        u32 i = 0;
+        while (unlikely(afl->queue_buf[i]->disabled)) {
+
+          ++i;
+
+        }
+
+        afl->queue = afl->queue_buf[i];
 
         afl->max_depth = 0;
-        p = afl->queue;
-        while (p) {
+        for (i = 0; i < afl->queued_paths; i++) {
 
-          if (p->depth > afl->max_depth) afl->max_depth = p->depth;
-          p = p->next;
+          if (!afl->queue_buf[i]->disabled &&
+              afl->queue_buf[i]->depth > afl->max_depth)
+            afl->max_depth = afl->queue_buf[i]->depth;
 
         }
 
@@ -1098,8 +1103,6 @@ void perform_dry_run(afl_state_t *afl) {
 
     }
 
-    q = q->next;
-
   }
 
   if (cal_failures) {
@@ -1125,30 +1128,22 @@ void perform_dry_run(afl_state_t *afl) {
 
   /* Now we remove all entries from the queue that have a duplicate trace map */
 
-  q = afl->queue;
-  struct queue_entry *p, *prev = NULL;
-  int                 duplicates = 0;
+  u32 duplicates = 0, i;
 
-restart_outer_cull_loop:
+  for (idx = 0; idx < afl->queued_paths; idx++) {
 
-  while (q) {
+    q = afl->queue_buf[idx];
+    if (q->disabled || q->cal_failed || !q->exec_cksum) { continue; }
 
-    if (q->cal_failed || !q->exec_cksum) { goto next_entry; }
+    u32 done = 0;
+    for (i = idx + 1; i < afl->queued_paths && !done; i++) {
 
-  restart_inner_cull_loop:
+      struct queue_entry *p = afl->queue_buf[i];
+      if (p->disabled || p->cal_failed || !p->exec_cksum) { continue; }
 
-    p = q->next;
-
-    while (p) {
-
-      if (!p->cal_failed && p->exec_cksum == q->exec_cksum) {
+      if (p->exec_cksum == q->exec_cksum) {
 
         duplicates = 1;
-
-        // We do not remove any of the memory allocated because for
-        // splicing the data might still be interesting.
-        // We only decouple them from the linked list.
-        // This will result in some leaks at exit, but who cares.
 
         // we keep the shorter file
         if (p->len >= q->len) {
@@ -1163,8 +1158,6 @@ restart_outer_cull_loop:
 
           p->disabled = 1;
           p->perf_score = 0;
-          q->next = p->next;
-          goto restart_inner_cull_loop;
 
         } else {
 
@@ -1178,35 +1171,26 @@ restart_outer_cull_loop:
 
           q->disabled = 1;
           q->perf_score = 0;
-          if (prev)
-            prev->next = q = p;
-          else
-            afl->queue = q = p;
-          goto restart_outer_cull_loop;
+
+          done = 1;
 
         }
 
       }
 
-      p = p->next;
-
     }
-
-  next_entry:
-
-    prev = q;
-    q = q->next;
 
   }
 
   if (duplicates) {
 
     afl->max_depth = 0;
-    q = afl->queue;
-    while (q) {
 
-      if (q->depth > afl->max_depth) afl->max_depth = q->depth;
-      q = q->next;
+    for (idx = 0; idx < afl->queued_paths; idx++) {
+
+      if (!afl->queue_buf[idx]->disabled &&
+          afl->queue_buf[idx]->depth > afl->max_depth)
+        afl->max_depth = afl->queue_buf[idx]->depth;
 
     }
 
@@ -1256,11 +1240,15 @@ static void link_or_copy(u8 *old_path, u8 *new_path) {
 void pivot_inputs(afl_state_t *afl) {
 
   struct queue_entry *q = afl->queue;
-  u32                 id = 0;
+  u32                 id = 0, i;
 
   ACTF("Creating hard links for all input files...");
 
-  while (q) {
+  for (i = 0; i < afl->queued_paths; i++) {
+
+    q = afl->queue_buf[i];
+
+    if (unlikely(q->disabled)) { continue; }
 
     u8 *nfn, *rsl = strrchr(q->fname, '/');
     u32 orig_id;
@@ -1288,19 +1276,14 @@ void pivot_inputs(afl_state_t *afl) {
       afl->resuming_fuzz = 1;
       nfn = alloc_printf("%s/queue/%s", afl->out_dir, rsl);
 
-      /* Since we're at it, let's also try to find parent and figure out the
+      /* Since we're at it, let's also get the parent and figure out the
          appropriate depth for this entry. */
 
       src_str = strchr(rsl + 3, ':');
 
       if (src_str && sscanf(src_str + 1, "%06u", &src_id) == 1) {
 
-        struct queue_entry *s = afl->queue;
-        while (src_id-- && s) {
-
-          s = s->next;
-
-        }
+        struct queue_entry *s = afl->queue_buf[src_id];
 
         if (s) { q->depth = s->depth + 1; }
 
@@ -1348,7 +1331,6 @@ void pivot_inputs(afl_state_t *afl) {
 
     if (q->passed_det) { mark_as_det_done(afl, q); }
 
-    q = q->next;
     ++id;
 
   }

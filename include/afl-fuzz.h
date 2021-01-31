@@ -154,6 +154,7 @@ struct queue_entry {
 
   u8 *fname;                            /* File name for the test case      */
   u32 len;                              /* Input length                     */
+  u32 id;                               /* entry number in queue_buf        */
 
   u8 colorized,                         /* Do not run redqueen stage again  */
       cal_failed;                       /* Calibration failed?              */
@@ -191,8 +192,7 @@ struct queue_entry {
   u8 *            cmplog_colorinput;    /* the result buf of colorization   */
   struct tainted *taint;                /* Taint information from CmpLog    */
 
-  struct queue_entry *mother,           /* queue entry this based on        */
-      *next;                            /* Next element, if any             */
+  struct queue_entry *mother;           /* queue entry this based on        */
 
 };
 

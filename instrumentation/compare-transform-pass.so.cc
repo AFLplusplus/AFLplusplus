@@ -68,7 +68,7 @@ class CompareTransform : public ModulePass {
   const char *getPassName() const override {
 
 #else
-  StringRef      getPassName() const override {
+  StringRef getPassName() const override {
 
 #endif
     return "transforms compare functions";
