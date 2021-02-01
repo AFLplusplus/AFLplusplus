@@ -1068,37 +1068,42 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);
 
-  u32 save_be_quiet = be_quiet;
-  be_quiet = !debug;
-  fsrv->map_size = 4194304;  // dummy temporary value
-  u32 new_map_size = afl_fsrv_get_mapsize(
-      fsrv, use_argv, &stop_soon,
-      (get_afl_env("AFL_DEBUG_CHILD") || get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-          ? 1
-          : 0);
-  be_quiet = save_be_quiet;
+  if (!fsrv->qemu_mode && !unicorn_mode) {
 
-  if (new_map_size) {
+    u32 save_be_quiet = be_quiet;
+    be_quiet = !debug;
+    fsrv->map_size = 4194304;  // dummy temporary value
+    u32 new_map_size =
+        afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
+                             (get_afl_env("AFL_DEBUG_CHILD") ||
+                              get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                                 ? 1
+                                 : 0);
+    be_quiet = save_be_quiet;
 
-    // only reinitialize when it makes sense
-    if (map_size < new_map_size ||
-        (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
+    if (new_map_size) {
 
-      if (!be_quiet)
-        ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+      // only reinitialize when it makes sense
+      if (map_size < new_map_size ||
+          (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
 
-      afl_shm_deinit(&shm);
-      afl_fsrv_kill(fsrv);
-      fsrv->map_size = new_map_size;
-      fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
+        if (!be_quiet)
+          ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+
+        afl_shm_deinit(&shm);
+        afl_fsrv_kill(fsrv);
+        fsrv->map_size = new_map_size;
+        fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
+
+      }
+
+      map_size = new_map_size;
 
     }
 
-    map_size = new_map_size;
+    fsrv->map_size = map_size;
 
   }
-
-  fsrv->map_size = map_size;
 
   if (in_dir) {
 

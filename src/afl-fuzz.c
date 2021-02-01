@@ -1536,7 +1536,8 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode);
 
-  if (!afl->non_instrumented_mode) {
+  if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
+      !afl->unicorn_mode) {
 
     afl->fsrv.map_size = 4194304;  // dummy temporary value
 

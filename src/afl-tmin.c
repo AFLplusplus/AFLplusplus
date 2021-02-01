@@ -1199,38 +1199,51 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_initial_file();
 
-  fsrv->map_size = 4194304;  // dummy temporary value
-  u32 new_map_size = afl_fsrv_get_mapsize(
-      fsrv, use_argv, &stop_soon,
-      (get_afl_env("AFL_DEBUG_CHILD") || get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-          ? 1
-          : 0);
+  if (!fsrv->qemu_mode && !unicorn_mode) {
 
-  if (new_map_size) {
+    fsrv->map_size = 4194304;  // dummy temporary value
+    u32 new_map_size =
+        afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
+                             (get_afl_env("AFL_DEBUG_CHILD") ||
+                              get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                                 ? 1
+                                 : 0);
 
-    if (map_size < new_map_size ||
-        (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
+    if (new_map_size) {
 
-      if (!be_quiet)
-        ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+      if (map_size < new_map_size ||
+          (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
 
-      afl_shm_deinit(&shm);
-      afl_fsrv_kill(fsrv);
-      fsrv->map_size = new_map_size;
-      fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
-      afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                     (get_afl_env("AFL_DEBUG_CHILD") ||
-                      get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                         ? 1
-                         : 0);
+        if (!be_quiet)
+          ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+
+        afl_shm_deinit(&shm);
+        afl_fsrv_kill(fsrv);
+        fsrv->map_size = new_map_size;
+        fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
+        afl_fsrv_start(fsrv, use_argv, &stop_soon,
+                       (get_afl_env("AFL_DEBUG_CHILD") ||
+                        get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                           ? 1
+                           : 0);
+
+      }
+
+      map_size = new_map_size;
 
     }
 
-    map_size = new_map_size;
+    fsrv->map_size = map_size;
+
+  } else {
+
+    afl_fsrv_start(fsrv, use_argv, &stop_soon,
+                   (get_afl_env("AFL_DEBUG_CHILD") ||
+                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                       ? 1
+                       : 0);
 
   }
-
-  fsrv->map_size = map_size;
 
   if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
     shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
