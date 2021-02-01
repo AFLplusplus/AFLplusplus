@@ -1547,11 +1547,8 @@ int main(int argc, char **argv_orig, char **envp) {
     if (new_map_size && new_map_size != 4194304) {
 
       // only reinitialize when it makes sense
-      if (map_size != new_map_size) {
-
-        //      if (map_size < new_map_size ||
-        //          (new_map_size > map_size && new_map_size - map_size >
-        //          MAP_SIZE)) {
+      if (map_size < new_map_size ||
+          (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
 
         OKF("Re-initializing maps to %u bytes", new_map_size);
 
@@ -1584,21 +1581,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  // after we have the correct bitmap size we can read the bitmap -B option
-  // and set the virgin maps
-  if (!afl->in_bitmap) {
-
-    memset(afl->virgin_bits, 255, afl->fsrv.map_size);
-
-  } else {
-
-    read_bitmap(afl->in_bitmap, afl->virgin_bits, afl->fsrv.map_size);
-
-  }
-
-  memset(afl->virgin_tmout, 255, afl->fsrv.map_size);
-  memset(afl->virgin_crash, 255, afl->fsrv.map_size);
-
   if (afl->cmplog_binary) {
 
     ACTF("Spawning cmplog forkserver");
@@ -1608,11 +1590,70 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
-    afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
-                   afl->afl_env.afl_debug_child);
+
+    afl->cmplog_fsrv.map_size = 4194304;
+
+    u32 new_map_size =
+        afl_fsrv_get_mapsize(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
+                             afl->afl_env.afl_debug_child);
+
+    if (new_map_size && new_map_size != 4194304) {
+
+      // only reinitialize when it needs to be larger
+      if (map_size < new_map_size) {
+
+        OKF("Re-initializing maps to %u bytes", new_map_size);
+
+        afl->virgin_bits = ck_realloc(afl->virgin_bits, map_size);
+        afl->virgin_tmout = ck_realloc(afl->virgin_tmout, map_size);
+        afl->virgin_crash = ck_realloc(afl->virgin_crash, map_size);
+        afl->var_bytes = ck_realloc(afl->var_bytes, map_size);
+        afl->top_rated = ck_realloc(afl->top_rated, map_size * sizeof(void *));
+        afl->clean_trace = ck_realloc(afl->clean_trace, map_size);
+        afl->clean_trace_custom = ck_realloc(afl->clean_trace_custom, map_size);
+        afl->first_trace = ck_realloc(afl->first_trace, map_size);
+        afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, map_size);
+
+        afl_shm_deinit(&afl->shm);
+        afl_fsrv_kill(&afl->fsrv);
+        afl_fsrv_kill(&afl->cmplog_fsrv);
+        afl->cmplog_fsrv.map_size = new_map_size;  // non-cmplog stays the same
+
+        afl->fsrv.trace_bits = afl_shm_init(&afl->shm, new_map_size,
+                                            afl->non_instrumented_mode);
+        setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
+        afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                       afl->afl_env.afl_debug_child);
+
+        afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
+                       afl->afl_env.afl_debug_child);
+
+        map_size = new_map_size;
+
+      }
+
+    }
+
+    afl->cmplog_fsrv.map_size = map_size;
+
     OKF("Cmplog forkserver successfully started");
 
   }
+
+  // after we have the correct bitmap size we can read the bitmap -B option
+  // and set the virgin maps
+  if (afl->in_bitmap) {
+
+    read_bitmap(afl->in_bitmap, afl->virgin_bits, afl->fsrv.map_size);
+
+  } else {
+
+    memset(afl->virgin_bits, 255, map_size);
+
+  }
+
+  memset(afl->virgin_tmout, 255, map_size);
+  memset(afl->virgin_crash, 255, map_size);
 
   perform_dry_run(afl);
 
