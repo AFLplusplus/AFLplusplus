@@ -2448,8 +2448,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     if (!afl->shm.cmp_map->headers[k].hits) { continue; }
 
-    if (afl->pass_stats[k].faileds == 0xff ||
-        afl->pass_stats[k].total == 0xff) {
+    if (afl->pass_stats[k].faileds >= 0x69 ||
+        afl->pass_stats[k].total >= 0x69) {
 
 #ifdef _DEBUG
       fprintf(stderr, "DISABLED %u\n", k);
