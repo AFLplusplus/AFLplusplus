@@ -34,6 +34,32 @@
  *                                                    *
  ******************************************************/
 
+/* CMPLOG/REDQUEEN TUNING
+ *
+ * Here you can tuning and solving options for cmplog.
+ * Note that these are run-time options for afl-fuzz, no target
+ * recompilation required.
+ *
+ */
+
+/* Enable transform following (XOR/ADD/SUB manipulations, hex en/decoding) */
+// #define CMPLOG_TRANSFORM
+
+/* if TRANSFORM is enabled, this additionally enables base64 en/decoding */
+// #define CMPLOG_TRANSFORM_BASE64
+
+/* Minimum % of the corpus to perform cmplog on. Default: 20% */
+#define CMPLOG_CORPUS_PERCENT 20U
+
+/* Number of potential posititions from which we decide the cmplog becomes
+   useless, default 16384 */
+#define CMPLOG_POSITIONS_MAX 16384U
+
+/* Maximum allowed fails per CMP value. Default: 32 * 3 */
+#define CMPLOG_FAIL_MAX 96
+
+/* Now non-cmplog configuration options */
+
 /* console output colors: There are three ways to configure its behavior
  * 1. default: colored outputs fixed on: defined USE_COLOR && defined
  * ALWAYS_COLORED The env var. AFL_NO_COLOR will have no effect
@@ -67,7 +93,7 @@
 /* If you want to have the original afl internal memory corruption checks.
    Disabled by default for speed. it is better to use "make ASAN_BUILD=1". */
 
-//#define _WANT_ORIGINAL_AFL_ALLOC
+// #define _WANT_ORIGINAL_AFL_ALLOC
 
 /* Comment out to disable fancy ANSI boxes and use poor man's 7-bit UI: */
 
